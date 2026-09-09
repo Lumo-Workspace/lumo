@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 0
       - name: Semgrep scan (SARIF)
         run: >-
-          docker run --rm -v "$PWD:/src" -w /src semgrep/semgrep
+          docker run --rm -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/src -v "$PWD:/src" -w /src semgrep/semgrep
           semgrep scan
           --config p/owasp-top-ten --config p/typescript --config p/nodejs --config p/python
           --baseline-commit "${{ github.event.pull_request.base.sha }}"
@@ -49,30 +49,33 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          mkdir -p "$RUNNER_TEMP/lumo-blob"
+          cat > "$RUNNER_TEMP/lumo-blob/push.mjs" <<'EOF'
+          import { upload } from "@vercel/blob/client";
+          import { readFileSync } from "node:fs";
+          const env = process.env;
+          const payload = { repository: env.REPOSITORY, headSha: env.HEAD_SHA, baseSha: env.BASE_SHA, prNumber: Number(env.PR_NUMBER), tool: env.TOOL };
+          const [owner, repo] = env.REPOSITORY.split("/");
+          const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
+          const body = new Blob([readFileSync(env.REPORT_GZ)], { type: "application/gzip" });
+          const blob = await upload(pathname, body, {
+            access: "private",
+            handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
+            clientPayload: JSON.stringify(payload),
+            headers: { Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+            contentType: "application/gzip",
+          });
+          const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
+            method: "POST",
+            headers: { "content-type": "application/json", Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+            body: JSON.stringify({ ...payload, url: blob.url }),
+          });
+          console.log(`lumo: ${env.TOOL} report ${res.status} ${blob.pathname}`);
+          if (!res.ok) process.exit(1);
+          EOF
+          npm install --prefix "$RUNNER_TEMP/lumo-blob" --no-save --no-audit --no-fund --loglevel=error @vercel/blob@2.3.2
           gzip -kf "$REPORT"
-          npx -y -p @vercel/blob@2.3.2 node --input-type=module -e '
-            import { upload } from "@vercel/blob/client";
-            import { readFileSync } from "node:fs";
-            const env = process.env;
-            const payload = { repository: env.REPOSITORY, headSha: env.HEAD_SHA, baseSha: env.BASE_SHA, prNumber: Number(env.PR_NUMBER), tool: env.TOOL };
-            const [owner, repo] = env.REPOSITORY.split("/");
-            const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
-            const body = new Blob([readFileSync(env.REPORT + ".gz")], { type: "application/gzip" });
-            const blob = await upload(pathname, body, {
-              access: "private",
-              handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
-              clientPayload: JSON.stringify(payload),
-              headers: { Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
-              contentType: "application/gzip",
-            });
-            const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
-              method: "POST",
-              headers: { "content-type": "application/json", Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
-              body: JSON.stringify({ ...payload, url: blob.url }),
-            });
-            console.log(`lumo: ${env.TOOL} report ${res.status} ${blob.pathname}`);
-            if (!res.ok) process.exit(1);
-          '
+          REPORT_GZ="$PWD/$REPORT.gz" node "$RUNNER_TEMP/lumo-blob/push.mjs"
 
   gitleaks:
     name: gitleaks
@@ -83,9 +86,8 @@ jobs:
           fetch-depth: 0
       - name: Gitleaks scan (SARIF)
         run: >-
-          docker run --rm -v "$PWD:/src" --entrypoint sh zricethezav/gitleaks:latest -c
-          'git config --global --add safe.directory /src &&
-           test "$(git -C /src rev-list --count HEAD)" -gt 0 &&
+          docker run --rm -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/src -v "$PWD:/src" --entrypoint sh zricethezav/gitleaks:latest -c
+          'test "$(git -C /src rev-list --count HEAD)" -gt 0 &&
            gitleaks detect --source /src --report-format sarif --report-path /src/gitleaks.sarif --exit-code 0 --no-banner'
       - uses: actions/upload-artifact@v4
         with:
@@ -103,27 +105,30 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          mkdir -p "$RUNNER_TEMP/lumo-blob"
+          cat > "$RUNNER_TEMP/lumo-blob/push.mjs" <<'EOF'
+          import { upload } from "@vercel/blob/client";
+          import { readFileSync } from "node:fs";
+          const env = process.env;
+          const payload = { repository: env.REPOSITORY, headSha: env.HEAD_SHA, baseSha: env.BASE_SHA, prNumber: Number(env.PR_NUMBER), tool: env.TOOL };
+          const [owner, repo] = env.REPOSITORY.split("/");
+          const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
+          const body = new Blob([readFileSync(env.REPORT_GZ)], { type: "application/gzip" });
+          const blob = await upload(pathname, body, {
+            access: "private",
+            handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
+            clientPayload: JSON.stringify(payload),
+            headers: { Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+            contentType: "application/gzip",
+          });
+          const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
+            method: "POST",
+            headers: { "content-type": "application/json", Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
+            body: JSON.stringify({ ...payload, url: blob.url }),
+          });
+          console.log(`lumo: ${env.TOOL} report ${res.status} ${blob.pathname}`);
+          if (!res.ok) process.exit(1);
+          EOF
+          npm install --prefix "$RUNNER_TEMP/lumo-blob" --no-save --no-audit --no-fund --loglevel=error @vercel/blob@2.3.2
           gzip -kf "$REPORT"
-          npx -y -p @vercel/blob@2.3.2 node --input-type=module -e '
-            import { upload } from "@vercel/blob/client";
-            import { readFileSync } from "node:fs";
-            const env = process.env;
-            const payload = { repository: env.REPOSITORY, headSha: env.HEAD_SHA, baseSha: env.BASE_SHA, prNumber: Number(env.PR_NUMBER), tool: env.TOOL };
-            const [owner, repo] = env.REPOSITORY.split("/");
-            const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
-            const body = new Blob([readFileSync(env.REPORT + ".gz")], { type: "application/gzip" });
-            const blob = await upload(pathname, body, {
-              access: "private",
-              handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
-              clientPayload: JSON.stringify(payload),
-              headers: { Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
-              contentType: "application/gzip",
-            });
-            const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
-              method: "POST",
-              headers: { "content-type": "application/json", Authorization: "Bearer " + env.LUMO_SECURITY_TOKEN },
-              body: JSON.stringify({ ...payload, url: blob.url }),
-            });
-            console.log(`lumo: ${env.TOOL} report ${res.status} ${blob.pathname}`);
-            if (!res.ok) process.exit(1);
-          '
+          REPORT_GZ="$PWD/$REPORT.gz" node "$RUNNER_TEMP/lumo-blob/push.mjs"

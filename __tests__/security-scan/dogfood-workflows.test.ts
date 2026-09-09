@@ -5,10 +5,11 @@ import { classifyGateName } from '@/shared/src/gate-map'
 
 const read = (p: string) => readFileSync(join(process.cwd(), p), 'utf8')
 
-// Extracts the `npx -y -p @vercel/blob ... '` push-script body from a
-// "Push report to Lumo" step so both jobs' scripts can be compared verbatim.
+// Extracts the push.mjs heredoc body (between `<<'EOF'` and the closing
+// `EOF` line) from a "Push report to Lumo" step so both jobs' scripts can
+// be compared verbatim.
 const extractPushScript = (yml: string): string[] =>
-  [...yml.matchAll(/npx -y -p @vercel\/blob[\s\S]*?\n\s*'/g)].map(m => m[0])
+  [...yml.matchAll(/<<'EOF'\n([\s\S]*?)\n\s*EOF\n/g)].map(m => m[1]!)
 
 describe('LUM-735 dogfood workflows', () => {
   it('security.yml matches the published lumo-security.yml template and pushes SARIF straight to Lumo', () => {
@@ -34,6 +35,21 @@ describe('LUM-735 dogfood workflows', () => {
     // Node 20 action runtimes / stale checkout majors are deprecated.
     expect(yml).not.toMatch(/@v3\b/)
     expect(yml).not.toMatch(/checkout@v4/)
+
+    // `npx -y -p @vercel/blob ...` can't resolve the `@vercel/blob/client`
+    // bare specifier (ESM resolves from the eval referrer, never reaching
+    // the npx cache) — the push step must install into a fixed prefix dir
+    // and run a real script file instead.
+    expect(yml).not.toMatch(/npx -y -p @vercel\/blob/)
+    expect((yml.match(/npm install --prefix/g) ?? []).length).toBe(2)
+    // push.mjs is written and then invoked, once per job (semgrep + gitleaks).
+    expect((yml.match(/push\.mjs/g) ?? []).length).toBe(4)
+    // Both docker scans need git to treat the bind-mounted checkout as safe
+    // (semgrep's --baseline-commit, gitleaks' history walk) without shelling
+    // out to `git config --global` inside the container.
+    expect((yml.match(/GIT_CONFIG_KEY_0=safe\.directory/g) ?? []).length).toBe(
+      2
+    )
 
     // The two "Push report to Lumo" steps must run the identical script.
     const scripts = extractPushScript(yml)

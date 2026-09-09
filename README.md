@@ -260,6 +260,9 @@ Vercel Blob, then tells Lumo the report is ready to fetch. Diff-aware
 filtering — keeping only the lines the PR actually added — happens on Lumo's
 side after ingest. The blob is deleted once Lumo has parsed it, and any
 report that fails to parse or is never completed is cleaned up after 24h.
+On pull requests from forks, `LUMO_SECURITY_TOKEN` is unavailable to the
+workflow, so nothing is reported and the task's security panel shows
+"waiting for CI" until, after 30 minutes, it shows "CI has not reported".
 
 ## 🚀 Deployment
 
