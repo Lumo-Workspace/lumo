@@ -60,66 +60,64 @@ export type ScanStageState =
   | 'FAILED'
   | 'SKIPPED'
   | 'NOT_CONFIGURED'
+  | 'PENDING'
   | 'PARTIAL'
 
 export type ScanStages = Partial<Record<ScanStageKey, ScanStageState>>
 
-/** Stage states that leave the scan incomplete. */
+/**
+ * Stage states that leave the scan incomplete.
+ * PENDING = the repo has pushed SARIF before but not for this sha yet.
+ */
 export const INCOMPLETE_STAGE_STATES: ReadonlySet<ScanStageState> = new Set([
   'FAILED',
   'NOT_CONFIGURED',
+  'PENDING',
   'PARTIAL',
 ])
 
-/**
- * A GitHub code-scanning alert, already reduced to the fields Lumo keeps.
- * No raw payload survives past the fetch layer (spec P8 / R5).
- */
-export interface CodeScanningAlert {
-  number: number
-  htmlUrl: string
-  toolName: string
+/** A SARIF rule reduced to what normalisation needs (tool.driver.rules[]). */
+export interface SarifRule {
+  id: string
+  shortDescription: string | null
+  helpUri: string | null
+  /** `properties.security-severity` parsed as a number (CVSS-like 0–10). */
+  securitySeverity: number | null
+  tags: string[]
+}
+
+/** One SARIF result reduced to the fields Lumo keeps. Raw objects never leave the parser. */
+export interface SarifResult {
   ruleId: string
-  ruleDescription: string | null
-  /** GitHub's `rule.security_severity_level` — null for non-security rules. */
-  securitySeverityLevel: 'low' | 'medium' | 'high' | 'critical' | null
-  /** GitHub's `rule.severity` (note | warning | error) — fallback only. */
-  severity: 'note' | 'warning' | 'error' | null
-  /** `most_recent_instance.location.path`; null when the alert has no location. */
+  level: 'error' | 'warning' | 'note' | 'none' | null
+  messageText: string | null
+  /** locations[0].physicalLocation.artifactLocation.uri, leading "./" stripped. */
   path: string | null
   startLine: number | null
-  messageText: string | null
+  /** locations[0].physicalLocation.region.snippet.text — may contain a secret. */
+  snippet: string | null
+  primaryLocationLineHash: string | null
 }
 
-/**
- * A GitHub secret-scanning alert reduced to what A1 enhancement needs. The
- * alert's `secret` field is deliberately NOT a member of this type — it is
- * never read off the wire.
- */
-export interface SecretScanningAlert {
-  number: number
-  htmlUrl: string
-  /** e.g. "aws_access_key_id", "github_personal_access_token" */
-  secretType: string
-  secretTypeDisplayName: string
-  /** File paths from the alert's commit locations (may be empty). */
-  paths: string[]
+export interface SarifRun {
+  toolName: string
+  rules: Map<string, SarifRule>
+  results: SarifResult[]
 }
 
-/** An EXTERNAL_TOOL finding row, safe to persist as-is. */
-export interface RawExternalFinding {
-  kind: 'VULNERABILITY'
-  /** `ext:<tool>:<rule_id>` */
+/** An EXTERNAL_TOOL finding row, redacted and safe to persist as-is. */
+export interface RawSarifFinding {
+  kind: 'SECRET' | 'VULNERABILITY'
+  /** `ext:<tool>:<ruleId>` */
   ruleId: string
   severity: SecuritySeverity
   filePath: string
   line: number | null
   title: string
   detail: string
-  /** Always empty: the panel links to `externalRef` instead of quoting code. */
+  /** Always empty: the panel links to `externalRef`; snippets are never stored. */
   evidence: ''
-  /** sha256(ruleId:path:alertNumber).slice(0, 16) */
   fingerprint: string
-  /** The alert's html_url — the only piece of the payload that is stored. */
-  externalRef: string
+  /** rule.helpUri when the tool provides one. */
+  externalRef: string | null
 }

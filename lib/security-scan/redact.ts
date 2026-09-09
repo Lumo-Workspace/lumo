@@ -233,18 +233,18 @@ export function vulnerabilityFingerprint(
 }
 
 /**
- * LUM-735 — fingerprint for an EXTERNAL_TOOL finding (spec §7). The alert
- * number is part of the key so two alerts of the same rule in the same file
- * stay distinct, and the same alert keeps its fingerprint (and therefore its
- * human disposition) across pushes.
+ * LUM-735 — fingerprint for a SARIF-sourced finding when the tool gave no
+ * `partialFingerprints.primaryLocationLineHash`. Whitespace-normalised
+ * snippet so a reformat keeps the human's disposition across pushes.
  */
-export function externalFingerprint(
+export function sarifFingerprint(
   ruleId: string,
   filePath: string,
-  alertNumber: number
+  snippet: string
 ): string {
+  const normalized = snippet.replace(/\s+/g, ' ').trim()
   return createHash('sha256')
-    .update(`${ruleId}:${filePath}:${alertNumber}`)
+    .update(`${ruleId}:${filePath}:${normalized}`)
     .digest('hex')
     .slice(0, 16)
 }
