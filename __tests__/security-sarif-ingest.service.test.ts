@@ -37,6 +37,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
+jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn(p => p) }))
 
 import {
   securitySarifIngestService,
@@ -48,6 +49,7 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
+import { waitUntil } from '@vercel/functions'
 
 const KEY = 'AKIAABCDEFGHIJKLMNOP'
 const fetchBlob = blob.fetchPrivateBlob as jest.Mock
@@ -58,6 +60,7 @@ const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
 >
 const dispatchStageA = dispatchPrSecurityScan as jest.Mock
+const waited = waitUntil as jest.Mock
 
 const JOB = {
   url: 'https://blob.vercel-storage.com/security-sarif/o--r/sha1/semgrep-abc.sarif.gz',
@@ -257,8 +260,13 @@ test('a SARIF-created PENDING row is handed to stage A; an existing row is not',
   fetchBlob.mockResolvedValue(gz(sarifDoc([result(1)])))
   await securitySarifIngestService.ingest(JOB)
   expect(dispatchStageA).toHaveBeenCalledWith('pr1', 'SARIF_PUSH')
+  // LUM-735 review: registered with waitUntil, not a bare `void` — the
+  // serverless runtime may freeze the instance the moment the handler
+  // returns, and a dropped dispatch leaves the PENDING row with no stage A.
+  expect(waited).toHaveBeenCalledTimes(1)
 
   dispatchStageA.mockClear()
+  waited.mockClear()
   repo.createIfAbsent.mockResolvedValue({
     id: 's1',
     created: false,
@@ -267,6 +275,7 @@ test('a SARIF-created PENDING row is handed to stage A; an existing row is not',
   })
   await securitySarifIngestService.ingest(JOB)
   expect(dispatchStageA).not.toHaveBeenCalled()
+  expect(waited).not.toHaveBeenCalled()
 })
 
 test('RED LINE: gitleaks-style payload never lands the secret; the SARIF itself is never persisted', async () => {

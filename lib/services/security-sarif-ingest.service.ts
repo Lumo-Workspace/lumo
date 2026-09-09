@@ -11,6 +11,7 @@
  * it; everything else deletes it. Runs inside /api/internal/security-sarif-ingest.
  */
 import { gunzipSync } from 'node:zlib'
+import { waitUntil } from '@vercel/functions'
 import { logger } from '@/lib/logger'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
@@ -195,9 +196,12 @@ export const securitySarifIngestService = {
       // scan and the judge would never run and the panel would sit on
       // "waiting for CI" forever. Stage A resolves the real head sha itself,
       // so it either claims this row (same sha) or dedupes onto the current
-      // head's row. Fire-and-forget: dispatch never throws, and a scan that
-      // fails to start must not fail the ingest that already has a report.
-      void dispatchPrSecurityScan(pr.id, 'SARIF_PUSH')
+      // head's row. Not awaited: dispatch never throws, and a scan that fails
+      // to start must not fail the ingest that already has a report — but it
+      // is registered with `waitUntil`, not dropped on the floor, so the
+      // serverless runtime keeps the instance alive until it settles instead
+      // of freezing the moment this handler returns.
+      waitUntil(dispatchPrSecurityScan(pr.id, 'SARIF_PUSH'))
     }
 
     let normalized: NormalizeResult

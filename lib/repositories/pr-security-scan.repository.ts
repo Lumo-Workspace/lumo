@@ -109,11 +109,47 @@ export interface DispositionedFingerprint {
 }
 
 /**
+ * LUM-735 review — every writer of the shared scan row does read-modify-write
+ * on it: the `findUnique` that feeds the merge runs BEFORE the locking
+ * `update`, so at READ COMMITTED a writer that commits inside that window (one
+ * round trip wide) is merged from a stale snapshot — an ingest misses stage
+ * A's CLEAN, stage A reverts `stages.external` from RAN back to PENDING, and a
+ * `partial` set by the other side is cleared. SERIALIZABLE closes it: Postgres
+ * aborts one of the two with a serialization failure (P2034) instead of
+ * committing the lost update, and we simply run the whole transaction again
+ * from fresh reads. Retries are safe because every one of these transactions
+ * is a pure read-then-write of the same row (no external side effects).
+ */
+const SERIALIZABLE_TX = {
+  isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+  timeout: 15_000,
+} as const
+
+function isSerializationFailure(error: unknown): boolean {
+  return (error as { code?: string } | null)?.code === 'P2034'
+}
+
+async function withSerializableRetry<T>(
+  fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  attempts = 3
+): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await prisma.$transaction(fn, SERIALIZABLE_TX)
+    } catch (error) {
+      if (attempt >= attempts || !isSerializationFailure(error)) throw error
+    }
+  }
+}
+
+/**
  * LUM-735 — the row is shared by stage A and the SARIF ingest worker: an
  * ingest-owned `stages.external` (RAN or FAILED, i.e. a report has actually
  * landed or the ingest itself blew up) must survive whatever stage A writes
  * over it, and `partial` is monotone across the two writers — once either
- * side has hit a cap it can never be cleared by the other. Shared by
+ * side has hit a cap it can never be cleared by the other. That monotonicity
+ * holds against a concurrent writer only because these transactions run
+ * SERIALIZABLE with a P2034 retry (see `withSerializableRetry`). Shared by
  * `persistResult` (the success path) and `finalize` (the FAILED path).
  */
 function mergeIngestOwnedStages(
@@ -207,7 +243,7 @@ export const prSecurityScanRepository = {
    * push and are not stage A's to discard (LUM-735).
    */
   async restart(id: string): Promise<void> {
-    await prisma.$transaction(async tx => {
+    await withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id },
         select: { stages: true },
@@ -239,7 +275,7 @@ export const prSecurityScanRepository = {
    * clear a `partial` the other writer already set.
    */
   async finalize(id: string, input: FinalizeScanInput): Promise<void> {
-    await prisma.$transaction(async tx => {
+    await withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id },
         select: { stages: true, partial: true },
@@ -275,14 +311,16 @@ export const prSecurityScanRepository = {
    *
    * LUM-735 review C1/C2 — lock ordering: the scan-row UPDATE goes FIRST, so
    * this writer and `ingestExternalFindings` both serialize on the same row
-   * lock in the same order (no lock-ordering deadlock between them).
+   * lock in the same order (no lock-ordering deadlock between them). That is
+   * belt to the SERIALIZABLE braces: the isolation level is what actually
+   * makes the pre-lock read of `stages`/`partial` safe.
    */
   async persistResult(
     scanId: string,
     findings: NewFindingInput[],
     final: FinalizeScanInput
   ): Promise<void> {
-    await prisma.$transaction(async tx => {
+    await withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
         select: { stages: true, partial: true },
@@ -334,7 +372,11 @@ export const prSecurityScanRepository = {
    * Postgres row lock held until commit, so a concurrent ingest blocks there
    * until this transaction finishes and then re-reads a settled world. That
    * is why the UPDATE comes BEFORE the finding writes, not after — and why
-   * `persistResult` (the other writer of this row) updates first too.
+   * `persistResult` (the other writer of this row) updates first too. The
+   * `status`/`stages`/`partial` read in step 1 happens BEFORE that lock, so
+   * the row lock alone is not enough: the transaction runs SERIALIZABLE and
+   * is retried on P2034 (`withSerializableRetry`), which is what makes the
+   * CLEAN→FINDINGS flip and the monotone `partial` correct under concurrency.
    *
    * Steps: read → UPDATE scan (lock) → delete this push's tools' rows →
    * insert → flip a finalized CLEAN to FINDINGS if rows landed.
@@ -352,13 +394,15 @@ export const prSecurityScanRepository = {
     opts: { partial: boolean }
   ): Promise<{ written: number; flippedToFindings: boolean }> {
     const uniqueTools = Array.from(new Set(tools))
-    return prisma.$transaction(async tx => {
+    return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
         select: { status: true, stages: true, partial: true },
       })
       // The lock. `partial` is monotone across writers — a `false` here can
-      // never clear a `true` the other writer already set.
+      // never clear a `true` the other writer already set (guaranteed by the
+      // SERIALIZABLE isolation + P2034 retry this runs under, since the read
+      // above precedes the lock).
       await tx.prSecurityScan.update({
         where: { id: scanId },
         data: {
@@ -402,7 +446,7 @@ export const prSecurityScanRepository = {
     patch: ScanStages,
     extra: { partial?: boolean; status?: 'FINDINGS' } = {}
   ): Promise<void> {
-    await prisma.$transaction(async tx => {
+    await withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
         select: { stages: true, partial: true },
@@ -416,7 +460,8 @@ export const prSecurityScanRepository = {
         data: {
           stages,
           // LUM-735: `partial` is monotone across writers — a `false` from
-          // this call can never clear a `true` set by the other writer.
+          // this call can never clear a `true` set by the other writer
+          // (SERIALIZABLE + P2034 retry; the read above precedes the lock).
           ...(extra.partial !== undefined
             ? { partial: (current?.partial ?? false) || extra.partial }
             : {}),
@@ -430,32 +475,6 @@ export const prSecurityScanRepository = {
     return prisma.prSecurityFinding.count({
       where: { scanId, provenance: 'EXTERNAL_TOOL' },
     })
-  },
-
-  async findScanRow(id: string): Promise<{
-    id: string
-    status: ScanStatus
-    stages: ScanStages | null
-    partial: boolean
-    startedAt: Date
-  } | null> {
-    const row = await prisma.prSecurityScan.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        status: true,
-        stages: true,
-        partial: true,
-        startedAt: true,
-      },
-    })
-    return row as {
-      id: string
-      status: ScanStatus
-      stages: ScanStages | null
-      partial: boolean
-      startedAt: Date
-    } | null
   },
 
   async findDispositionedByPullRequest(

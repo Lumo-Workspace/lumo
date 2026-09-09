@@ -1456,7 +1456,7 @@ model PrSecurityFinding {
   // Redacted triggering line — the raw secret never reaches this column.
   evidence               String
   fingerprint            String
-  // EXTERNAL_TOOL only: alert URL / id (reserved for the code-scanning follow-up).
+  // EXTERNAL_TOOL only: the rule's helpUri from the SARIF the repo's CI pushed (LUM-735).
   externalRef            String?
   disposition            PrSecurityFindingDisposition?
   dispositionNote        String?

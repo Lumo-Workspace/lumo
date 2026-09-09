@@ -48,11 +48,16 @@ const mockFinding = prisma.prSecurityFinding as unknown as {
 
 const txClient = { prSecurityScan: mockScan, prSecurityFinding: mockFinding }
 type TxCallback = (tx: typeof txClient) => unknown
-mockTransaction.mockImplementation(async (arg: unknown) =>
+// LUM-735 review: the writers of the shared scan row now pass transaction
+// options (Serializable + timeout) as a second argument.
+mockTransaction.mockImplementation(async (arg: unknown, _opts?: unknown) =>
   typeof arg === 'function'
     ? (arg as TxCallback)(txClient)
     : Promise.all(arg as Promise<unknown>[])
 )
+
+const SERIALIZABLE = { isolationLevel: 'Serializable', timeout: 15000 }
+const conflict = () => Object.assign(new Error('conflict'), { code: 'P2034' })
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -125,36 +130,6 @@ test('restart clears old findings and resets the scan; finalize stamps finishedA
         partial: false,
         finishedAt: expect.any(Date),
       }),
-    })
-  )
-})
-
-test('findScanRow selects and returns partial alongside stages', async () => {
-  const startedAt = new Date('2026-09-03T10:00:00Z')
-  mockScan.findUnique.mockResolvedValueOnce({
-    id: 's1',
-    status: 'RUNNING',
-    stages: { secrets: 'RAN' },
-    partial: true,
-    startedAt,
-  })
-  const row = await prSecurityScanRepository.findScanRow('s1')
-  expect(row).toEqual({
-    id: 's1',
-    status: 'RUNNING',
-    stages: { secrets: 'RAN' },
-    partial: true,
-    startedAt,
-  })
-  expect(mockScan.findUnique).toHaveBeenCalledWith(
-    expect.objectContaining({
-      select: {
-        id: true,
-        status: true,
-        stages: true,
-        partial: true,
-        startedAt: true,
-      },
     })
   )
 })
@@ -681,6 +656,75 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     expect(mockScan.update.mock.invocationCallOrder[0]!).toBeLessThan(
       mockFinding.createMany.mock.invocationCallOrder[0]!
     )
+  })
+
+  test('the shared row’s writers run at Serializable isolation', async () => {
+    // LUM-735 review: the findUnique that feeds the merge runs BEFORE the
+    // locking update, so at READ COMMITTED a writer committing in that window
+    // is merged from a stale snapshot (an ingest misses stage A's CLEAN flip;
+    // stage A reverts stages.external from RAN to PENDING; partial is
+    // cleared). Serializable isolation makes that interleaving abort instead.
+    mockScan.findUnique.mockResolvedValueOnce({
+      status: 'RUNNING',
+      stages: null,
+      partial: false,
+    })
+    await prSecurityScanRepository.ingestExternalFindings('s1', [], [], {
+      partial: false,
+    })
+    expect(mockTransaction).toHaveBeenLastCalledWith(
+      expect.any(Function),
+      SERIALIZABLE
+    )
+
+    mockScan.findUnique.mockResolvedValueOnce({ stages: null, partial: false })
+    await prSecurityScanRepository.persistResult('s1', [], {
+      status: 'CLEAN',
+      judgeStatus: 'RAN',
+      truncated: false,
+      stages: { secrets: 'RAN' },
+      partial: false,
+    })
+    expect(mockTransaction).toHaveBeenLastCalledWith(
+      expect.any(Function),
+      SERIALIZABLE
+    )
+  })
+
+  test('a P2034 serialization failure is retried, re-reading the row', async () => {
+    mockScan.findUnique
+      .mockRejectedValueOnce(conflict())
+      .mockResolvedValueOnce({
+        status: 'RUNNING',
+        stages: null,
+        partial: false,
+      })
+    mockFinding.createMany.mockResolvedValueOnce({ count: 1 })
+    const out = await prSecurityScanRepository.ingestExternalFindings(
+      's1',
+      ['semgrep'],
+      [extRow()],
+      { partial: false }
+    )
+    expect(out).toEqual({ written: 1, flippedToFindings: false })
+    expect(mockTransaction).toHaveBeenCalledTimes(2)
+  })
+
+  test('a P2034 that never settles is rethrown after the last attempt', async () => {
+    mockScan.findUnique
+      .mockRejectedValueOnce(conflict())
+      .mockRejectedValueOnce(conflict())
+      .mockRejectedValueOnce(conflict())
+    await expect(
+      prSecurityScanRepository.persistResult('s1', [], {
+        status: 'CLEAN',
+        judgeStatus: 'RAN',
+        truncated: false,
+        stages: { secrets: 'RAN' },
+        partial: false,
+      })
+    ).rejects.toThrow('conflict')
+    expect(mockTransaction).toHaveBeenCalledTimes(3)
   })
 
   test('countExternalFindings counts EXTERNAL_TOOL rows of the scan', async () => {
