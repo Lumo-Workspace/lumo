@@ -87,7 +87,12 @@ export interface SecurityScanView {
   /** LUM-735 — per-layer outcome; legacy rows are derived from judgeStatus. */
   stages: ScanStages
   partial: boolean
-  /** False when any layer is FAILED / NOT_CONFIGURED / PARTIAL: never render as a full pass. */
+  /**
+   * False when any layer is FAILED / NOT_CONFIGURED / PARTIAL, or the scan
+   * itself is FAILED: never render as a full pass. A FAILED scan can carry
+   * `stages: {}` (it crashed before any layer ran), and `isCompleteScan({})`
+   * is true by contract for legacy rows, so status is checked separately.
+   */
   complete: boolean
   error: string | null
   startedAt: string
@@ -206,7 +211,7 @@ function toScanView(s: ScanWithFindings): SecurityScanView {
     truncated: s.truncated,
     stages,
     partial: s.partial,
-    complete: isCompleteScan(stages),
+    complete: s.status !== 'FAILED' && isCompleteScan(stages),
     error: s.error,
     startedAt: s.startedAt.toISOString(),
     finishedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
@@ -336,6 +341,9 @@ export const prSecurityScanService = {
           })
           if (sec.configured) {
             secretHits = enhanceSecretFindings(secretHits, sec.alerts)
+            // A live key beyond the location cap may have been missed by the
+            // upgrade — the scan must say so, not read as a full pass.
+            if (sec.truncated) partial = true
           }
         } catch (error) {
           logger.warn(
@@ -362,43 +370,51 @@ export const prSecurityScanService = {
       }))
 
       // ── A2: external oracle — GitHub code-scanning alerts for this PR ───
+      // Only consulted when the diff actually added lines: an empty diff has
+      // no changed-file set to filter alerts against, matching the judge's
+      // own files.length gate below (spec P9's "layer ran" fact stays SKIPPED,
+      // not a wasted GitHub call for a scan with nothing to check).
       const externalRows: NewFindingInput[] = []
-      try {
-        const ext = await fetchCodeScanningAlerts({
-          workspaceId: pr.workspaceId,
-          fullName: pr.repo,
-          prNumber: pr.number,
-        })
-        if (!ext.configured) {
-          stages.external = 'NOT_CONFIGURED'
-        } else {
-          for (const f of mapCodeScanningAlerts(ext.alerts, changedFiles)) {
-            externalRows.push({
-              scanId,
-              kind: f.kind,
-              ruleId: f.ruleId,
-              severity: f.severity,
-              provenance: 'EXTERNAL_TOOL',
-              filePath: f.filePath,
-              line: f.line,
-              title: f.title,
-              detail: f.detail,
-              evidence: f.evidence,
-              fingerprint: f.fingerprint,
-              externalRef: f.externalRef,
-              disposition: null,
-            })
+      if (files.length === 0) {
+        stages.external = 'SKIPPED'
+      } else {
+        try {
+          const ext = await fetchCodeScanningAlerts({
+            workspaceId: pr.workspaceId,
+            fullName: pr.repo,
+            prNumber: pr.number,
+          })
+          if (!ext.configured) {
+            stages.external = 'NOT_CONFIGURED'
+          } else {
+            for (const f of mapCodeScanningAlerts(ext.alerts, changedFiles)) {
+              externalRows.push({
+                scanId,
+                kind: f.kind,
+                ruleId: f.ruleId,
+                severity: f.severity,
+                provenance: 'EXTERNAL_TOOL',
+                filePath: f.filePath,
+                line: f.line,
+                title: f.title,
+                detail: f.detail,
+                evidence: f.evidence,
+                fingerprint: f.fingerprint,
+                externalRef: f.externalRef,
+                disposition: null,
+              })
+            }
+            stages.external = ext.truncated ? 'PARTIAL' : 'RAN'
+            if (ext.truncated) partial = true
           }
-          stages.external = ext.truncated ? 'PARTIAL' : 'RAN'
-          if (ext.truncated) partial = true
+        } catch (error) {
+          // A failed oracle is a FAILED layer, never a silent CLEAN (spec P9).
+          stages.external = 'FAILED'
+          logger.warn(
+            `[pr-security-scan] code-scanning lookup failed pr=${pr.id} sha=${headSha}:`,
+            error instanceof Error ? error.message : error
+          )
         }
-      } catch (error) {
-        // A failed oracle is a FAILED layer, never a silent CLEAN (spec P9).
-        stages.external = 'FAILED'
-        logger.warn(
-          `[pr-security-scan] code-scanning lookup failed pr=${pr.id} sha=${headSha}:`,
-          error instanceof Error ? error.message : error
-        )
       }
 
       // ── A4: LLM judge (advisory, fail-soft) ─────────────────────────────

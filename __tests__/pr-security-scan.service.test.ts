@@ -42,16 +42,14 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 import {
   prSecurityScanService,
   STALE_RUNNING_MS,
+  stagesOf,
+  isCompleteScan,
 } from '@/lib/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
 import * as codeScanning from '@/lib/integrations/github/code-scanning'
-import {
-  stagesOf,
-  isCompleteScan,
-} from '@/lib/services/pr-security-scan.service'
 import { secretFingerprint } from '@/lib/security-scan/redact'
 
 const repo = prSecurityScanRepository as jest.Mocked<
@@ -639,6 +637,26 @@ describe('LUM-735 external oracle + stages', () => {
     })
   })
 
+  test('a truncated secret-scanning alert page marks the scan partial', async () => {
+    // A1 has a hit and the A1+ upgrade lookup is truncated: a live key beyond
+    // the location cap may exist and go unmatched, so the scan must say so.
+    fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+    fetchActiveSecretScanningAlerts.mockResolvedValue({
+      configured: true,
+      truncated: true,
+      alerts: [],
+    })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      expect.anything(),
+      expect.objectContaining({ partial: true })
+    )
+  })
+
   test('secret-scanning is only consulted when A1 found something', async () => {
     fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
     await prSecurityScanService.run({
@@ -682,9 +700,13 @@ describe('LUM-735 external oracle + stages', () => {
       's9',
       [],
       expect.objectContaining({
-        stages: expect.objectContaining({ judge: 'SKIPPED' }),
+        stages: expect.objectContaining({
+          external: 'SKIPPED',
+          judge: 'SKIPPED',
+        }),
       })
     )
+    expect(fetchCodeScanningAlerts).not.toHaveBeenCalled()
   })
 
   test('a scan that throws after stages were collected finalizes FAILED with those stages', async () => {
@@ -735,7 +757,7 @@ describe('LUM-735 external oracle + stages', () => {
             scanId: 's1',
             kind: 'VULNERABILITY',
             ruleId: 'ext:semgrep-oss:js.sqli',
-            severity: 'MEDIUM',
+            severity: 'HIGH',
             provenance: 'EXTERNAL_TOOL',
             filePath: 'src/a.ts',
             line: 1,
@@ -764,6 +786,34 @@ describe('LUM-735 external oracle + stages', () => {
       externalRef: 'https://github.com/o/r/security/code-scanning/7',
       blocking: false,
     })
+  })
+
+  test('getForTask never renders a FAILED scan as complete, even with empty stages', async () => {
+    prRepo.findManyForSecurityByTaskId.mockResolvedValue([
+      { id: 'pr1', number: 7, title: 't', url: 'u', state: 'open' },
+    ] as never)
+    repo.findLatestByPullRequestIds.mockResolvedValue([
+      {
+        id: 's1',
+        pullRequestId: 'pr1',
+        taskId: 't1',
+        workspaceId: 'w1',
+        headSha: 'sha-1',
+        status: 'FAILED',
+        trigger: 'PR_EVENT',
+        judgeStatus: null,
+        truncated: false,
+        stages: {},
+        partial: false,
+        detectorVersion: 'x',
+        error: 'boom',
+        startedAt: new Date('2026-09-09T00:00:00Z'),
+        finishedAt: null,
+        findings: [],
+      },
+    ] as never)
+    const out = await prSecurityScanService.getForTask('t1')
+    expect(out.prs[0]!.latest).toMatchObject({ complete: false })
   })
 
   test('stagesOf derives a legacy view from judgeStatus when stages is null', () => {
