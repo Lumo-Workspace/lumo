@@ -1401,6 +1401,11 @@ model PrSecurityScan {
   error           String?
   startedAt       DateTime               @default(now())
   finishedAt      DateTime?
+  // LUM-737: when the agent was first reminded (via the next PreToolUse hook)
+  // that this scan carries undispositioned findings. Set once per scan row so
+  // the reminder fires exactly once; null = not yet reminded. Orthogonal to
+  // disposition and the DONE gate (which key only on the findings).
+  agentNotifiedAt DateTime?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)

@@ -83,6 +83,8 @@ export interface ScanWithFindings {
   error: string | null
   startedAt: Date
   finishedAt: Date | null
+  /** LUM-737: first PreToolUse reminder time; null = not yet reminded. */
+  agentNotifiedAt: Date | null
   findings: FindingRow[]
 }
 
@@ -93,6 +95,13 @@ export interface DispositionedFingerprint {
   dispositionNote: string | null
   dispositionedById: string | null
   dispositionedAt: Date | null
+}
+
+/** LUM-737: a FINDINGS scan the agent has not been reminded about yet. */
+export interface UnnotifiedFindingScan {
+  id: string
+  pullRequestId: string
+  headSha: string
 }
 
 export const prSecurityScanRepository = {
@@ -213,6 +222,39 @@ export const prSecurityScanRepository = {
       include: { findings: { orderBy: { createdAt: 'asc' } } },
     })
     return rows as unknown as ScanWithFindings[]
+  },
+
+  /**
+   * FINDINGS scans on a task the agent has NOT yet been reminded about
+   * (LUM-737). Drives the one-shot PreToolUse reminder: keyed on the scan's
+   * denormalised `taskId` (indexed) and `agentNotifiedAt: null`, so the hot
+   * path is one cheap query that returns nothing once every scan is stamped.
+   * Minimal projection — the service re-reads the latest scans (with findings)
+   * only when this is non-empty.
+   */
+  async findUnnotifiedFindingScansByTask(
+    taskId: string
+  ): Promise<UnnotifiedFindingScan[]> {
+    return prisma.prSecurityScan.findMany({
+      where: { taskId, status: 'FINDINGS', agentNotifiedAt: null },
+      select: { id: true, pullRequestId: true, headSha: true },
+      orderBy: { startedAt: 'asc' },
+    })
+  },
+
+  /**
+   * Stamp `agentNotifiedAt` on scans that haven't been reminded yet
+   * (LUM-737). Guarded by `agentNotifiedAt: null` so it is idempotent — a
+   * second call touches nothing and the reminder never re-fires. Returns how
+   * many rows were freshly stamped.
+   */
+  async markAgentNotified(scanIds: string[], now: Date): Promise<number> {
+    if (scanIds.length === 0) return 0
+    const { count } = await prisma.prSecurityScan.updateMany({
+      where: { id: { in: scanIds }, agentNotifiedAt: null },
+      data: { agentNotifiedAt: now },
+    })
+    return count
   },
 
   async findFindingWithScope(findingId: string): Promise<
