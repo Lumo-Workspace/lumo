@@ -30,7 +30,10 @@ import {
   type ActionConfirmJudge,
   type ActionConfirmVerdict,
 } from '@/lib/boundary-crossing/action-confirm'
-import { matchCmdSubstr } from '@/lib/services/policy/predicate-eval'
+import {
+  matchCmdSubstr,
+  matchPathGlob,
+} from '@/lib/services/policy/predicate-eval'
 import type { PolicyRule } from '@/lib/services/policy/types'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
@@ -336,6 +339,152 @@ function matchInfraTermination(cmd: string): boolean {
   )
 }
 
+// --- LUM-736 L4 Session Guard: deterministic, no-LLM session classes ----------
+// All three ride the existing chain (detectAndRecord → coalesce → human-only
+// disposition → crossing explain → DONE gate) and write NO finding row. Each is
+// MEDIUM + reversible. The two command classes are segment-scoped and go through
+// the LUM-466 prose confirmation (stripProse → LLM only on a prose-only
+// candidate) so a commit message / PR body quoting the flag never self-trips
+// (the LUM-640/722 lesson).
+
+const HUSKY_OFF = /(?:^|\s)HUSKY=0(?=\s|$)/
+/** `-n` alone or folded into a combined short-flag token (`-nm`, `-an`, `-anm`).
+ *  Token-level on purpose: a `-n"` glued to a closing quote is message text. */
+const COMMIT_SHORT_NO_VERIFY = /^-[a-z]*n[a-z]*$/
+/** `core.hooksPath=<anything>` — pointing the hooks dir elsewhere (typically
+ *  `/dev/null` or an empty dir) disables husky just like `--no-verify`. Git
+ *  config keys are case-insensitive. */
+const HOOKS_PATH_OVERRIDE = /core\.hookspath=/i
+/** The git binary as a shell token — bare, path-prefixed, opening a subshell,
+ *  or opening a shell-wrapper string (`bash -c "git …"`, `sh -c 'git …'`,
+ *  `$'git …'`). Group 1 captures that opening quote so the wrapped command can
+ *  be closed at the matching quote (LUM-744 follow-up: the LUM-736 `\bgit`
+ *  regex saw through the quote; the token parser must too). */
+const GIT_BINARY_TOKEN = /^(?:\$?\()?(?:\$?(['"]))?(?:\S*\/)?git$/
+/** Git GLOBAL options that consume the NEXT token as their value, so that value
+ *  is never mistaken for the subcommand (`git -C commit commit` …). The `=` /
+ *  folded forms (`--git-dir=x`, `-cKEY=VAL`) are single tokens and need no entry. */
+const GIT_GLOBAL_OPTS_WITH_VALUE = new Set([
+  '-c',
+  '-C',
+  '--git-dir',
+  '--work-tree',
+  '--namespace',
+  '--exec-path',
+  '--super-prefix',
+  '--config-env',
+  '--attr-source',
+])
+
+/**
+ * Bypassing local git hooks (LUM-736; short-flag + hooksPath forms LUM-744):
+ * a segment that runs `git commit` / `git push` with `--no-verify` after the
+ * verb, `git commit` with the `-n` short flag (`-n`, `-nm`, `-an` … — commit
+ * only: on `push`, `-n` is `--dry-run`), or any `git … commit|push` carrying a
+ * `-c core.hooksPath=…` global option before the verb (relocating the hooks dir
+ * disables husky without touching the flag at all); or that sets the `HUSKY=0`
+ * kill switch. Segment-scoped: the flag / override must belong to the very
+ * segment whose verb is commit/push — a `--no-verify` in a sibling `grep` /
+ * `git log` segment, a `-n` on `git log` / `git rev-list`, or a `hooksPath`
+ * mention in a sibling `grep` is not a bypass. The git invocation may sit inside
+ * a shell-wrapper string (`bash -c "git commit -n"`, `sh -c '…'`, `$'…'`): the
+ * opening quote is part of the git token and the matching close quote ends the
+ * wrapped command (LUM-744 follow-up). Token-level so `-n"` glued to a
+ * closing quote (message text) is not a flag; a free-standing flag inside quotes
+ * is still a raw candidate, which the LUM-466 prose confirmation then drops.
+ * Husky is this repo's only deterministic quality gate (pre-commit lint-staged +
+ * commit-msg drift-check), so a bypass is a process boundary even though
+ * nothing external is touched.
+ */
+function matchHookBypass(cmd: string): boolean {
+  for (const seg of splitCommandSegments(cmd)) {
+    if (HUSKY_OFF.test(seg)) return true
+    if (segmentBypassesHooks(seg)) return true
+  }
+  return false
+}
+
+/** One shell segment: locate `git`, walk its global options up to the verb,
+ *  then judge the verb-relative flags. */
+function segmentBypassesHooks(seg: string): boolean {
+  let toks = seg.trim().split(/\s+/)
+  // `git`, `/usr/bin/git`, `(git`, `$(git`, `"git` — the LUM-736 `\bgit` recall.
+  const gitAt = toks.findIndex(t => GIT_BINARY_TOKEN.test(t))
+  if (gitAt < 0) return false
+
+  // Wrapper-quoted git (`bash -c "git commit -n"`): the wrapped command ends at
+  // the first later token carrying the matching unescaped close quote. Peel that
+  // quote off (so `--no-verify"` / `push"` compare as flags / verb) and drop
+  // everything after it — those tokens belong to the outer command. An inner
+  // `-n\"` (escaped) or `-n"'` (other quote) stays glued and stays message text.
+  const openQuote = toks[gitAt]!.match(GIT_BINARY_TOKEN)?.[1]
+  if (openQuote) {
+    const closeAt = toks.findIndex(
+      (t, k) =>
+        k > gitAt && t.endsWith(openQuote) && !t.endsWith('\\' + openQuote)
+    )
+    if (closeAt > gitAt)
+      toks = [...toks.slice(0, closeAt), toks[closeAt]!.slice(0, -1)]
+  }
+
+  // Global options (between `git` and the subcommand). A hooksPath override
+  // anywhere here is the bypass — but only once we know the verb is commit/push.
+  let i = gitAt + 1
+  let hooksPathOverride = false
+  while (i < toks.length && toks[i]!.startsWith('-')) {
+    const opt = toks[i]!
+    if (HOOKS_PATH_OVERRIDE.test(opt)) hooksPathOverride = true
+    if (GIT_GLOBAL_OPTS_WITH_VALUE.has(opt)) {
+      const val = toks[i + 1]
+      if (val !== undefined && HOOKS_PATH_OVERRIDE.test(val))
+        hooksPathOverride = true
+      i += 2
+      continue
+    }
+    i += 1
+  }
+  const verb = toks[i]
+  if (verb !== 'commit' && verb !== 'push') return false
+  if (hooksPathOverride) return true
+
+  // Verb-relative flags. Stop at `--`: everything after is pathspec/refspec.
+  for (let j = i + 1; j < toks.length; j++) {
+    const tok = toks[j]!
+    if (tok === '--') break
+    if (tok === '--no-verify') return true
+    if (verb === 'commit' && COMMIT_SHORT_NO_VERIFY.test(tok)) return true
+  }
+  return false
+}
+
+/** A delete target that is a test file / test tree — `*.test.*`, `*.spec.*`,
+ *  or anything under a `__tests__/` segment. */
+const TEST_FILE_TARGET = /(?:\.(?:test|spec)\.|(?:^|\/)__tests__(?:\/|$))/
+
+/**
+ * `rm` / `git rm` whose OWN delete targets are test files. Segment-scoped like
+ * matchMigrationDelete (LUM-511): the test path must be an argument of the rm
+ * verb, so `npx jest __tests__/x.test.ts && rm tmp.txt` (a sibling merely
+ * referencing a test) does not trip. Distinct from TEST_TAMPERING, which is an
+ * Edit/Write to a file a MACHINE checkpointer depends on — this is the Bash
+ * delete of a test regardless of any contract.
+ */
+function matchTestFileDelete(cmd: string): boolean {
+  for (const seg of splitCommandSegments(cmd)) {
+    const m = seg.match(/(?:^|[\s(])(?:rm|git\s+rm)\b/)
+    if (!m) continue
+    const args = seg.slice((m.index ?? 0) + m[0].length)
+    const deletesTest = args
+      .split(/\s+/)
+      .some(
+        tok =>
+          tok.length > 0 && !tok.startsWith('-') && TEST_FILE_TARGET.test(tok)
+      )
+    if (deletesTest) return true
+  }
+  return false
+}
+
 /**
  * Taxonomy-driven reversibility (LUM-435; reclassified LUM-516). Anchored on the
  * world/external-state boundary: a crossing is REVERSIBLE when it mutates only
@@ -371,6 +520,12 @@ const REVERSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> = new Set([
   // LUM-640: a steward-session commit is repo state (revertable) and a PR can
   // be closed — same world-state class as PUSH_TO_PROTECTED_BRANCH.
   'STEWARD_IMPLEMENTATION_ARTIFACT',
+  // LUM-736: the L4 session-guard classes mutate repo state only (an edit, a
+  // deleted tracked file) or skip a local hook — `git restore` / a follow-up
+  // commit / re-running the hooks undoes each of them.
+  'SENSITIVE_PATH_EDIT',
+  'HOOK_BYPASS',
+  'TEST_FILE_DELETED',
 ])
 
 /** Target prefix stamped by the code pipeline on diff-based rule violations. */
@@ -427,6 +582,11 @@ export function severityFor(
     // a role-boundary breach, deterministically detectable and repo-scoped
     // (like SESSION_BINDING_MISSING), so MEDIUM.
     case 'STEWARD_IMPLEMENTATION_ARTIFACT':
+    // LUM-736 L4 Session Guard: deterministic, repo-scoped, not data-destructive
+    // — visible + tiered, honours the workspace opt-out rather than force-gating.
+    case 'SENSITIVE_PATH_EDIT':
+    case 'HOOK_BYPASS':
+    case 'TEST_FILE_DELETED':
       return 'MEDIUM'
     case 'HARDCODED_SECRET':
     case 'DESTRUCTIVE_DB_COMMAND':
@@ -514,6 +674,9 @@ const COMMAND_MATCHERS: ReadonlyArray<{
   { category: 'EXFILTRATION_PUBLIC', fn: matchExfiltrationPublic },
   { category: 'CLOUD_DATA_DELETION', fn: matchCloudDataDeletion },
   { category: 'INFRA_TERMINATION', fn: matchInfraTermination },
+  // LUM-736 L4 Session Guard (segment-scoped; prose-confirmed via LUM-466).
+  { category: 'HOOK_BYPASS', fn: matchHookBypass },
+  { category: 'TEST_FILE_DELETED', fn: matchTestFileDelete },
 ]
 
 /**
@@ -1344,6 +1507,88 @@ export async function recordSilentFixIfDetected(
   })
 }
 
+// --- LUM-736: SENSITIVE_PATH_EDIT (Edit/Write on a sensitive path) ------------
+
+/**
+ * The built-in sensitive-path rules, matched against the normalized event path
+ * on path-segment boundaries (so `lib/authz.ts` / `lib/author/` never match the
+ * `auth/` rule). Each carries a short label for the crossing detail.
+ */
+const DEFAULT_SENSITIVE_PATH_RULES: ReadonlyArray<{
+  label: string
+  re: RegExp
+}> = [
+  { label: 'auth/', re: /(?:^|\/)auth\// },
+  {
+    label: 'middleware.ts / proxy.ts',
+    re: /(?:^|\/)(?:middleware|proxy)\.ts$/,
+  },
+  { label: '.github/workflows/', re: /(?:^|\/)\.github\/workflows\// },
+  {
+    label: 'lockfile',
+    re: /(?:^|\/)(?:package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|bun\.lockb?)$/,
+  },
+  { label: 'prisma/schema.prisma', re: /(?:^|\/)prisma\/schema\.prisma$/ },
+]
+
+/**
+ * The project's own sensitive-path globs (LUM-736): deterministic `path-glob`
+ * rules the policy compiler mapped to SENSITIVE_PATH_EDIT. Non-empty → they
+ * REPLACE the built-in path set for that project (an override, not a union);
+ * empty → the defaults apply. Pure.
+ */
+export function sensitivePathGlobsFromRules(rules: PolicyRule[]): string[] {
+  return rules
+    .filter(
+      r =>
+        r.tier === 'deterministic' &&
+        r.mappedCategory === 'SENSITIVE_PATH_EDIT' &&
+        r.predicate?.type === 'path-glob' &&
+        r.predicate.value.length > 0
+    )
+    .map(r => (r.predicate as { value: string }).value)
+}
+
+/** A repo-relative glob must also match the tail of an absolute event path. */
+function matchSensitiveGlob(glob: string, path: string): boolean {
+  if (matchPathGlob(glob, [path])) return true
+  return !glob.startsWith('**') && !glob.startsWith('/')
+    ? matchPathGlob(`**/${glob}`, [path])
+    : false
+}
+
+/**
+ * An Edit/Write that lands on a sensitive path (LUM-736 L4). Pure — the
+ * project's override globs are passed in; the caller loads them from the
+ * compiled policy best-effort. Only write tools carrying a file path can match;
+ * a Read / Bash event returns null before any work. Coalesces on the normalized
+ * file (LUM-477): three edits to one auth file = one OPEN crossing.
+ */
+export function detectSensitivePathEdit(input: {
+  toolName: string | null
+  filePath: string | null
+  sensitivePathGlobs?: readonly string[] | null
+}): DetectedCrossing | null {
+  if (!input.filePath) return null
+  if (!input.toolName || !WRITE_TOOLS.includes(input.toolName)) return null
+  const path = normalizePath(input.filePath)
+  const globs = input.sensitivePathGlobs ?? []
+  let label: string | null = null
+  if (globs.length > 0) {
+    label = globs.find(g => matchSensitiveGlob(g, path)) ?? null
+  } else {
+    label =
+      DEFAULT_SENSITIVE_PATH_RULES.find(r => r.re.test(path))?.label ?? null
+  }
+  if (label == null) return null
+  return {
+    category: 'SENSITIVE_PATH_EDIT',
+    detail: clip(`edited sensitive path ${path} (matched ${label})`),
+    severity: severityFor('SENSITIVE_PATH_EDIT'),
+    target: path,
+  }
+}
+
 // --- LUM-590: project action-rule predicates ----------------------------------
 
 /**
@@ -1453,6 +1698,14 @@ export const boundaryDetectorService = {
         projectRules
       )
       confirmed.push(...projectCrossings)
+      // LUM-736: sensitive-path edit — the project's path-glob override (if the
+      // compiled policy carries one) replaces the built-in path set.
+      const sensitive = detectSensitivePathEdit({
+        toolName: input.toolName,
+        filePath: input.filePath,
+        sensitivePathGlobs: sensitivePathGlobsFromRules(projectRules),
+      })
+      if (sensitive) confirmed.push(sensitive)
 
       for (const c of confirmed) {
         // LUM-477: coalesce a recurrence of an OPEN crossing with the same

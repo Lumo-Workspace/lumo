@@ -441,3 +441,49 @@ describe('BoundaryCrossingsPanel', () => {
     expect(screen.getByText('edited a test file')).toBeVisible()
   })
 })
+
+// The verdict bar's "Review the crossings below" link deep-links to
+// /record#boundary-crossings. The panel mounts AFTER that navigation (the tab
+// switch renders it), so the browser's native hash jump finds nothing; the
+// panel scrolls itself into view on mount when the hash names it.
+describe('BoundaryCrossingsPanel hash deep link', () => {
+  const scrollIntoView = jest.fn()
+  const original = Element.prototype.scrollIntoView
+  beforeEach(() => {
+    scrollIntoView.mockClear()
+    Element.prototype.scrollIntoView = scrollIntoView
+  })
+  afterEach(() => {
+    Element.prototype.scrollIntoView = original
+    window.location.hash = ''
+  })
+
+  it('scrolls itself into view on mount when the URL hash targets it', () => {
+    window.location.hash = '#boundary-crossings'
+    setCrossings([OPEN])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-7' enabled />)
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(scrollIntoView.mock.instances[0]).toBe(
+      document.getElementById('boundary-crossings')
+    )
+  })
+
+  it('does not scroll when the hash names something else', () => {
+    window.location.hash = '#elsewhere'
+    setCrossings([OPEN])
+    render(<BoundaryCrossingsPanel taskIdentifier='LUM-7' enabled />)
+    expect(scrollIntoView).not.toHaveBeenCalled()
+  })
+
+  it('scrolls once the crossings arrive after mount', () => {
+    window.location.hash = '#boundary-crossings'
+    setCrossings([])
+    const { rerender } = render(
+      <BoundaryCrossingsPanel taskIdentifier='LUM-7' enabled />
+    )
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    setCrossings([OPEN])
+    rerender(<BoundaryCrossingsPanel taskIdentifier='LUM-7' enabled />)
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+  })
+})

@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import { useIntl } from 'react-intl'
-import { useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
   Clock,
   XCircle,
@@ -24,6 +24,7 @@ import { ActionTooltip } from './ActionTooltip'
 import { InfoTooltip } from './InfoTooltip'
 import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
 import { boundaryCategoryLabel } from './boundary-format'
+import { BOUNDARY_CROSSINGS_ANCHOR, boundaryCrossingsHref } from './taskTabs'
 import {
   deriveVerdictStatus,
   type VerdictTone,
@@ -277,6 +278,8 @@ export function VerdictDecision({
   const intl = useIntl()
   const searchParams = useSearchParams()
   const deepLinkVerdict = searchParams?.get('verdict') ?? null
+  const router = useRouter()
+  const pathname = usePathname()
   const [panel, setPanel] = useState<'FAIL' | null>(null)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -298,6 +301,20 @@ export function VerdictDecision({
 
   const status = deriveVerdictStatus(data)
   const isReview = data.task.status === 'IN_REVIEW'
+
+  // The DONE-blocked notice's "Review the crossings below" link. In the
+  // floating bar (above the tabs) the crossings panel — which only renders
+  // inside the Record tab — may not be mounted, so a plain #anchor would be a
+  // dead link. When the anchor has no target, route to the Record tab carrying
+  // the hash: TimelineTabs reconciles the tab from the URL and the panel
+  // scrolls itself into view on mount. When the panel IS mounted (the header
+  // variant, or the bar while on Record), leave the native hash jump alone.
+  const openCrossingsPanel = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (typeof document === 'undefined') return
+    if (document.getElementById(BOUNDARY_CROSSINGS_ANCHOR)) return
+    e.preventDefault()
+    router.push(boundaryCrossingsHref(pathname ?? ''), { scroll: false })
+  }
 
   // Load this task's crossings so the DONE-blocked notice is built from data,
   // not parsed from the error string. Shares react-query cache with the
@@ -561,7 +578,8 @@ export function VerdictDecision({
           </p>
           <a
             data-testid='verdict-blocked-link'
-            href='#boundary-crossings'
+            href={`#${BOUNDARY_CROSSINGS_ANCHOR}`}
+            onClick={openCrossingsPanel}
             className='mt-1.5 inline-block text-caption font-medium text-primary hover:underline'
           >
             {intl.formatMessage({ id: 'task.verdict.blocked.viewCrossings' })}
