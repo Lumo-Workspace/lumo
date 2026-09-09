@@ -355,11 +355,15 @@ const COMMIT_SHORT_NO_VERIFY = /^-[a-z]*n[a-z]*$/
  *  `/dev/null` or an empty dir) disables husky just like `--no-verify`. Git
  *  config keys are case-insensitive. */
 const HOOKS_PATH_OVERRIDE = /core\.hookspath=/i
+/** The git binary as a shell token — bare, path-prefixed, opening a subshell,
+ *  or opening a shell-wrapper string (`bash -c "git …"`, `sh -c 'git …'`,
+ *  `$'git …'`). Group 1 captures that opening quote so the wrapped command can
+ *  be closed at the matching quote (LUM-744 follow-up: the LUM-736 `\bgit`
+ *  regex saw through the quote; the token parser must too). */
+const GIT_BINARY_TOKEN = /^(?:\$?\()?(?:\$?(['"]))?(?:\S*\/)?git$/
 /** Git GLOBAL options that consume the NEXT token as their value, so that value
  *  is never mistaken for the subcommand (`git -C commit commit` …). The `=` /
  *  folded forms (`--git-dir=x`, `-cKEY=VAL`) are single tokens and need no entry. */
-/** The git binary as a shell token — bare, path-prefixed, or opening a subshell. */
-const GIT_BINARY_TOKEN = /^(?:\$?\()?(?:\S*\/)?git$/
 const GIT_GLOBAL_OPTS_WITH_VALUE = new Set([
   '-c',
   '-C',
@@ -382,7 +386,10 @@ const GIT_GLOBAL_OPTS_WITH_VALUE = new Set([
  * kill switch. Segment-scoped: the flag / override must belong to the very
  * segment whose verb is commit/push — a `--no-verify` in a sibling `grep` /
  * `git log` segment, a `-n` on `git log` / `git rev-list`, or a `hooksPath`
- * mention in a sibling `grep` is not a bypass. Token-level so `-n"` glued to a
+ * mention in a sibling `grep` is not a bypass. The git invocation may sit inside
+ * a shell-wrapper string (`bash -c "git commit -n"`, `sh -c '…'`, `$'…'`): the
+ * opening quote is part of the git token and the matching close quote ends the
+ * wrapped command (LUM-744 follow-up). Token-level so `-n"` glued to a
  * closing quote (message text) is not a flag; a free-standing flag inside quotes
  * is still a raw candidate, which the LUM-466 prose confirmation then drops.
  * Husky is this repo's only deterministic quality gate (pre-commit lint-staged +
@@ -400,10 +407,25 @@ function matchHookBypass(cmd: string): boolean {
 /** One shell segment: locate `git`, walk its global options up to the verb,
  *  then judge the verb-relative flags. */
 function segmentBypassesHooks(seg: string): boolean {
-  const toks = seg.trim().split(/\s+/)
-  // `git`, `/usr/bin/git`, `(git`, `$(git` — the LUM-736 `\bgit` recall.
+  let toks = seg.trim().split(/\s+/)
+  // `git`, `/usr/bin/git`, `(git`, `$(git`, `"git` — the LUM-736 `\bgit` recall.
   const gitAt = toks.findIndex(t => GIT_BINARY_TOKEN.test(t))
   if (gitAt < 0) return false
+
+  // Wrapper-quoted git (`bash -c "git commit -n"`): the wrapped command ends at
+  // the first later token carrying the matching unescaped close quote. Peel that
+  // quote off (so `--no-verify"` / `push"` compare as flags / verb) and drop
+  // everything after it — those tokens belong to the outer command. An inner
+  // `-n\"` (escaped) or `-n"'` (other quote) stays glued and stays message text.
+  const openQuote = toks[gitAt]!.match(GIT_BINARY_TOKEN)?.[1]
+  if (openQuote) {
+    const closeAt = toks.findIndex(
+      (t, k) =>
+        k > gitAt && t.endsWith(openQuote) && !t.endsWith('\\' + openQuote)
+    )
+    if (closeAt > gitAt)
+      toks = [...toks.slice(0, closeAt), toks[closeAt]!.slice(0, -1)]
+  }
 
   // Global options (between `git` and the subcommand). A hooksPath override
   // anywhere here is the bypass — but only once we know the verb is commit/push.
