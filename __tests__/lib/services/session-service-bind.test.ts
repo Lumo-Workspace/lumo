@@ -116,6 +116,7 @@ describe('sessionService.bindSessionToTask', () => {
       criteriaSection: '',
       previousSession: null,
       blockerWarningSection: '',
+      securityFindingsSection: '',
       // LUM-686: surfaced so the route can compute next steps without a
       // second read of the task.
       taskStatus: 'TODO',

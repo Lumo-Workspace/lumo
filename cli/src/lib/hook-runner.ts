@@ -149,13 +149,14 @@ export function formatHookStdoutLines(
   } else if (tb && tb.bound === false) {
     lines.push(unboundPromptLine(sessionId))
   }
-  // Blocker warning + criteria + progress + memory + linked resources +
-  // PR-review todos share one additionalContext block so Claude Code injects a
-  // single coherent context payload at session start. The dependency blocker
-  // warning (LUM-172) slots in first so it stays prominent — it can preempt the
-  // session's work entirely. Then the progressive-disclosure tiers (LUM-500):
-  // Tier-0 acceptance contract → Tier-1 prior-session progress → Tier-2 memory
-  // index → linked resources.
+  // Blocker warning + security findings + criteria + progress + memory +
+  // linked resources + PR-review todos share one additionalContext block so
+  // Claude Code injects a single coherent context payload at session start.
+  // The dependency blocker warning (LUM-172) slots in first so it stays
+  // prominent — it can preempt the session's work entirely. The undispositioned
+  // security findings warning (LUM-737) follows next. Then the
+  // progressive-disclosure tiers (LUM-500): Tier-0 acceptance contract →
+  // Tier-1 prior-session progress → Tier-2 memory index → linked resources.
   //
   // LUM-500: the prior-session recovery is now the server-rendered Tier-1
   // `progressSection`, which REPLACES the CLI-rendered recovery card so progress
@@ -165,6 +166,10 @@ export function formatHookStdoutLines(
     // Blocker warning first: it can preempt the session's work entirely (wait
     // for the blocker instead of starting) — LUM-172.
     body.blockerWarningSection,
+    // LUM-737: undispositioned security findings — second, before the
+    // contract: it changes what "done" needs (fix + push, or a human
+    // disposition) but unlike a blocker does not preempt the session.
+    body.securityFindingsSection,
     // Tier-0 acceptance contract: what the session's work is judged against
     // (LUM-342).
     body.criteriaSection,
@@ -205,6 +210,8 @@ type SessionStartBody = {
   reviewTodosSection?: string
   layer2ReviewSection?: string
   blockerWarningSection?: string
+  /** LUM-737: undispositioned security findings on the task's PRs. */
+  securityFindingsSection?: string
   /** LUM-647: prior-milestone learnings injected for a resumed STEWARD session. */
   stewardMemorySection?: string
   /**

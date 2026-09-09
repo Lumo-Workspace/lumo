@@ -21,6 +21,7 @@ import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.
 import { actorRepository } from '@/lib/repositories/actor.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
 import { referenceClassService } from '@/lib/services/reference-class.service'
+import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
 import {
   assembleLineageSection,
   computeFragmentTrust,
@@ -694,6 +695,8 @@ export const taskContextService = {
     criteriaSection: string
     memorySection: string
     linkedResourcesSection: string
+    /** LUM-737: undispositioned security findings on the task's PRs ('' = nothing to show). */
+    securityFindingsSection: string
     fragments: FragmentRef[]
     /** Fragments dropped by the relevance gate before ranking (LUM-522). */
     droppedFragments: Array<{
@@ -720,6 +723,7 @@ export const taskContextService = {
       criteriaSection: '',
       memorySection: '',
       linkedResourcesSection: '',
+      securityFindingsSection: '',
       fragments: [] as FragmentRef[],
       droppedFragments: [] as Array<{
         fragmentType: 'MEMORY'
@@ -883,6 +887,18 @@ export const taskContextService = {
     // the human task identifier (e.g. "LUM-42") as their first positional, so an
     // agent can run them verbatim. Compose it from the team prefix + number.
     const taskIdentifier = `${task.team.identifier}-${task.number}`
+
+    // LUM-737: undispositioned security findings on the task's PRs — the
+    // "fix before you claim done" warning. Best-effort: a scan read failing
+    // must never take session-start down, and '' means "nothing to show",
+    // never "confirmed clean" (task status carries the fail-closed read).
+    const securityFindingsSection = await safe(
+      prSecurityReminderService.buildSessionStartSection(
+        taskId,
+        taskIdentifier
+      ),
+      ''
+    )
     const prManifestBlock = manifestBlock(
       '## Pull Requests',
       ranked.prs as unknown as PRCard[],
@@ -988,6 +1004,7 @@ export const taskContextService = {
       criteriaSection,
       memorySection,
       linkedResourcesSection: wrapUntrustedLinked(linkedJoined),
+      securityFindingsSection,
       fragments,
       droppedFragments,
       budget: {

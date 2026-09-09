@@ -16,6 +16,8 @@ interface BoundResponse {
   memorySection: string
   /** Dependency blocker warning (LUM-172). Absent on older servers. */
   blockerWarningSection?: string
+  /** Undispositioned security findings (LUM-737). Absent on older servers. */
+  securityFindingsSection?: string
   /** Acceptance contract (or draft nudge); absent on older servers. */
   criteriaSection?: string
   /** Absent on older servers — the block is simply omitted (LUM-686). */
@@ -179,6 +181,12 @@ export async function sessionAttach(
   if (body.blockerWarningSection) {
     console.log('')
     console.log(sanitizeField(body.blockerWarningSection))
+  }
+  // LUM-737: security findings next — same slot as the hook envelope (after
+  // the blocker, before the contract).
+  if (body.securityFindingsSection) {
+    console.log('')
+    console.log(sanitizeField(body.securityFindingsSection))
   }
   // Contract next: it's what the upcoming work is judged against (LUM-342).
   if (body.criteriaSection) {

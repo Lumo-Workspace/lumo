@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       let progressSection = ''
       let memorySection = ''
       let linkedResourcesSection = ''
+      let securityFindingsSection = ''
       let reviewTodosSection = ''
       let layer2ReviewSection = ''
       let blockerWarningSection = ''
@@ -69,6 +70,7 @@ export async function POST(request: Request) {
         progressSection = progress
         memorySection = sections.memorySection
         linkedResourcesSection = sections.linkedResourcesSection
+        securityFindingsSection = sections.securityFindingsSection
         reviewTodosSection = todos.section
         previousSession = previous
         layer2ReviewSection = layer2Review.section
@@ -193,6 +195,7 @@ export async function POST(request: Request) {
         progressSection,
         memorySection,
         linkedResourcesSection,
+        securityFindingsSection,
         reviewTodosSection,
         layer2ReviewSection,
         blockerWarningSection,
