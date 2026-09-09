@@ -106,6 +106,29 @@ export interface DispositionedFingerprint {
   dispositionedAt: Date | null
 }
 
+/**
+ * LUM-735 — the row is shared by stage A and the SARIF ingest worker: an
+ * ingest-owned `stages.external` (RAN or FAILED, i.e. a report has actually
+ * landed or the ingest itself blew up) must survive whatever stage A writes
+ * over it, and `partial` is monotone across the two writers — once either
+ * side has hit a cap it can never be cleared by the other. Shared by
+ * `persistResult` (the success path) and `finalize` (the FAILED path).
+ */
+function mergeIngestOwnedStages(
+  current: { stages: unknown; partial?: boolean | null } | null,
+  incoming: { stages: ScanStages; partial: boolean }
+): { stages: ScanStages; partial: boolean } {
+  const owned = (current?.stages as ScanStages | null)?.external
+  const stages: ScanStages =
+    owned === 'RAN' || owned === 'FAILED'
+      ? { ...incoming.stages, external: owned }
+      : incoming.stages
+  return {
+    stages,
+    partial: (current?.partial ?? false) || incoming.partial,
+  }
+}
+
 export const prSecurityScanRepository = {
   /** `startedAt` rides along so the service can age out a wedged RUNNING scan. */
   async findByPrAndSha(
@@ -200,18 +223,31 @@ export const prSecurityScanRepository = {
     })
   },
 
+  /**
+   * The FAILED path — nothing to write but the scan row itself. Same
+   * ingest-ownership rule as `persistResult` (LUM-735 review): a crash in
+   * stage A must not stomp an `external` the SARIF push already landed, nor
+   * clear a `partial` the other writer already set.
+   */
   async finalize(id: string, input: FinalizeScanInput): Promise<void> {
-    await prisma.prSecurityScan.update({
-      where: { id },
-      data: {
-        status: input.status,
-        judgeStatus: input.judgeStatus,
-        truncated: input.truncated,
-        stages: input.stages,
-        partial: input.partial,
-        error: input.error ?? null,
-        finishedAt: new Date(),
-      },
+    await prisma.$transaction(async tx => {
+      const current = await tx.prSecurityScan.findUnique({
+        where: { id },
+        select: { stages: true, partial: true },
+      })
+      const { stages, partial } = mergeIngestOwnedStages(current, input)
+      await tx.prSecurityScan.update({
+        where: { id },
+        data: {
+          status: input.status,
+          judgeStatus: input.judgeStatus,
+          truncated: input.truncated,
+          stages,
+          partial,
+          error: input.error ?? null,
+          finishedAt: new Date(),
+        },
+      })
     })
   },
 
@@ -238,11 +274,7 @@ export const prSecurityScanRepository = {
         where: { id: scanId },
         select: { stages: true, partial: true },
       })
-      const owned = (current?.stages as ScanStages | null)?.external
-      const stages: ScanStages =
-        owned === 'RAN' || owned === 'FAILED'
-          ? { ...final.stages, external: owned }
-          : final.stages
+      const { stages, partial } = mergeIngestOwnedStages(current, final)
       if (findings.length > 0)
         await tx.prSecurityFinding.createMany({ data: findings })
       await tx.prSecurityScan.update({
@@ -252,9 +284,7 @@ export const prSecurityScanRepository = {
           judgeStatus: final.judgeStatus,
           truncated: final.truncated,
           stages,
-          // LUM-735: `partial` is monotone across the two writers — once a
-          // layer has hit a cap it must never be cleared by the other side.
-          partial: (current?.partial ?? false) || final.partial,
+          partial,
           error: final.error ?? null,
           finishedAt: new Date(),
         },

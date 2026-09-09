@@ -215,6 +215,36 @@ test('a concurrent duplicate create is treated as deduped, not an error', async 
   expect(repo.finalize).not.toHaveBeenCalled()
 })
 
+test('a create collision whose winner is a SARIF-push PENDING row is claimed, not deduped', async () => {
+  // LUM-735 review: the P2002 race can also land on a row the ingest worker
+  // created ahead of any webhook (status PENDING). That must go through the
+  // same claim/restart/dedupe three-way rule as the plain `existing` branch,
+  // not always read as `{ deduped: true }`.
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+  repo.findByPrAndSha.mockResolvedValueOnce(null).mockResolvedValueOnce({
+    id: 's-push',
+    status: 'PENDING',
+    startedAt: new Date(),
+  })
+  repo.create.mockRejectedValueOnce(
+    Object.assign(new Error('Unique constraint'), { code: 'P2002' })
+  )
+
+  const result = await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+  })
+
+  expect(result).toMatchObject({ deduped: false, scanId: 's-push' })
+  expect(repo.claimPending).toHaveBeenCalledWith('s-push')
+  expect(repo.restart).not.toHaveBeenCalled()
+  expect(repo.persistResult).toHaveBeenCalledWith(
+    's-push',
+    expect.anything(),
+    expect.anything()
+  )
+})
+
 test('judge failure finalizes the scan with judgeStatus UNAVAILABLE, never CLEAN', async () => {
   judgeSecurity.mockRejectedValue(new Error('gateway down'))
 

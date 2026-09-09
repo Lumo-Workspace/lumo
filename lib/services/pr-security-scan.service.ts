@@ -245,6 +245,32 @@ function isRerunnable(existing: {
   return Date.now() - existing.startedAt.getTime() > STALE_RUNNING_MS
 }
 
+/**
+ * The three-way rule for a row this run() did not just create — whether
+ * found by `findByPrAndSha` up front, or re-read as the winner of a P2002
+ * race after a concurrent `create()` lost (LUM-735 review): a PENDING row is
+ * always the SARIF ingest's and must be claimed, never restarted or deduped
+ * onto; a FAILED/stale-RUNNING row is re-run in place; anything else is a
+ * live or finished scan to dedup onto.
+ */
+async function adoptExisting(existing: {
+  id: string
+  status: ScanStatus
+  startedAt: Date
+}): Promise<{ scanId: string } | { deduped: true; scanId: string }> {
+  if (existing.status === 'PENDING') {
+    // Created by a CI SARIF push before any webhook ran (LUM-735): stage A
+    // claims it in place. Its EXTERNAL_TOOL rows are the push's, kept.
+    await prSecurityScanRepository.claimPending(existing.id)
+    return { scanId: existing.id }
+  }
+  if (isRerunnable(existing)) {
+    await prSecurityScanRepository.restart(existing.id)
+    return { scanId: existing.id }
+  }
+  return { deduped: true, scanId: existing.id }
+}
+
 /** Copy a prior human disposition onto a new finding with the same fingerprint. */
 export function inheritDispositions(
   fresh: NewFindingInput[],
@@ -291,17 +317,9 @@ export const prSecurityScanService = {
     )
     let scanId: string
     if (existing) {
-      if (existing.status === 'PENDING') {
-        // Created by a CI SARIF push before any webhook ran (LUM-735): stage A
-        // claims it in place. Its EXTERNAL_TOOL rows are the push's, kept.
-        await prSecurityScanRepository.claimPending(existing.id)
-        scanId = existing.id
-      } else if (!isRerunnable(existing)) {
-        return { deduped: true, scanId: existing.id }
-      } else {
-        await prSecurityScanRepository.restart(existing.id)
-        scanId = existing.id
-      }
+      const adopted = await adoptExisting(existing)
+      if ('deduped' in adopted) return adopted
+      scanId = adopted.scanId
     } else {
       try {
         const created = await prSecurityScanRepository.create({
@@ -316,15 +334,20 @@ export const prSecurityScanService = {
       } catch (error) {
         // Concurrent triggers (webhook + manual link) can both see null from
         // findByPrAndSha above and both call create(); the loser hits the
-        // unique constraint on (pullRequestId, headSha). That is a dedup, not
-        // a failure — the winner's row is already there.
+        // unique constraint on (pullRequestId, headSha). The winner's row is
+        // already there, but it may itself be a PENDING row the SARIF ingest
+        // created (LUM-735 review) — so it goes through the same
+        // claim/restart/dedupe rule as the `existing` branch above, not a
+        // blind dedup.
         if (!isUniqueViolation(error)) throw error
         const winner = await prSecurityScanRepository.findByPrAndSha(
           pr.id,
           headSha
         )
         if (!winner) throw error
-        return { deduped: true, scanId: winner.id }
+        const adopted = await adoptExisting(winner)
+        if ('deduped' in adopted) return adopted
+        scanId = adopted.scanId
       }
     }
 

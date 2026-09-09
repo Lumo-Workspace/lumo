@@ -406,6 +406,36 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     )
   })
 
+  test('finalize preserves an ingest-owned external stage and OR-merges partial', async () => {
+    // LUM-735 review: persistResult already protects an ingest-owned
+    // `stages.external` and monotonically ORs `partial`; finalize (the FAILED
+    // path) must apply the same rule instead of blindly overwriting with
+    // whatever stage A collected before it crashed.
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { external: 'RAN' },
+      partial: true,
+    })
+    await prSecurityScanRepository.finalize('s1', {
+      status: 'FAILED',
+      judgeStatus: null,
+      truncated: false,
+      stages: { secrets: 'RAN', external: 'NOT_CONFIGURED' },
+      partial: false,
+      error: 'boom',
+    })
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 's1' },
+        data: expect.objectContaining({
+          stages: { secrets: 'RAN', external: 'RAN' },
+          partial: true,
+          status: 'FAILED',
+        }),
+      })
+    )
+  })
+
   test('mergeStages cannot clear a partial already set by the other writer', async () => {
     mockScan.findUnique.mockResolvedValueOnce({
       stages: { secrets: 'RAN', external: 'PENDING' },
