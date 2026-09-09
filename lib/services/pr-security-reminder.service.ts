@@ -142,10 +142,14 @@ export const prSecurityReminderService = {
       await prSecurityScanRepository.findUnnotifiedFindingScansByTask(taskId)
     if (unnotified.length === 0) return null
     const state = await this.loadOpenFindingsForTask(taskId)
-    await prSecurityScanRepository.markAgentNotified(
-      unnotified.map(s => s.id),
-      new Date()
-    )
+    // LUM-737 (whole-branch review): read the header and render BEFORE
+    // stamping `agentNotifiedAt` — spec §7 says an un-stamped failure retries
+    // on the next hook, so a throw here (e.g. the header read rejects) must
+    // leave every row un-notified rather than losing the reminder forever.
+    const header = await taskRepository.findHeaderById(taskId)
+    const identifier = header
+      ? `${header.team.identifier}-${header.number}`
+      : taskId
     const fresh = new Set(unnotified.map(s => s.id))
     const scans = state.latestScans
       .filter(ls => fresh.has(ls.scanId))
@@ -155,11 +159,17 @@ export const prSecurityReminderService = {
         findings: state.findings.filter(f => f.scanId === ls.scanId),
       }))
       .filter(s => s.findings.length > 0)
-    if (scans.length === 0) return null
-    const header = await taskRepository.findHeaderById(taskId)
-    const identifier = header
-      ? `${header.team.identifier}-${header.number}`
-      : taskId
-    return renderPreToolUseSecurityReminder({ scans, identifier })
+    const rendered =
+      scans.length === 0
+        ? null
+        : renderPreToolUseSecurityReminder({ scans, identifier })
+    // Stamp EVERY un-notified id — including ones a newer scan superseded, or
+    // whose findings were all dispositioned meanwhile — so they never sit in
+    // the un-notified query result forever, even when nothing renders.
+    await prSecurityScanRepository.markAgentNotified(
+      unnotified.map(s => s.id),
+      new Date()
+    )
+    return rendered
   },
 }

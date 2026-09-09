@@ -93,4 +93,13 @@ it('a failing crossing read does not drop the security reminder (and vice versa)
   const res = await POST(post({ session_id: 'sess_1', tool_name: 'Edit' }))
   expect(await res.json()).toEqual({ ok: true, securityReminder: 'SECURITY' })
   spy.mockRestore()
+
+  // …and vice versa: a failing security read does not drop the crossing
+  // reminder.
+  crossing.mockResolvedValue('CROSSING')
+  security.mockRejectedValue(new Error('boom'))
+  const spy2 = jest.spyOn(console, 'error').mockImplementation(() => {})
+  const res2 = await POST(post({ session_id: 'sess_1', tool_name: 'Edit' }))
+  expect(await res2.json()).toEqual({ ok: true, crossingReminder: 'CROSSING' })
+  spy2.mockRestore()
 })

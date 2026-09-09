@@ -124,6 +124,22 @@ describe('loadOpenFindingsForTask', () => {
     expect(latest).toHaveBeenCalledWith(['pr1', 'pr2'])
   })
 
+  it('flags open PRs whose latest scan is PENDING or RUNNING', async () => {
+    prs.mockResolvedValue([
+      pr({ id: 'pr1', number: 1 }),
+      pr({ id: 'pr2', number: 2 }),
+    ])
+    latest.mockResolvedValue([
+      scan({ id: 's1', pullRequestId: 'pr1', status: 'PENDING' }),
+      scan({ id: 's2', pullRequestId: 'pr2', status: 'RUNNING' }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.unconfirmedPrs).toEqual([
+      { number: 1, reason: 'PENDING' },
+      { number: 2, reason: 'RUNNING' },
+    ])
+  })
+
   it('flags open PRs whose latest scan is missing or FAILED, but not merged/closed ones', async () => {
     prs.mockResolvedValue([
       pr({ id: 'pr1', number: 1 }),
@@ -199,6 +215,20 @@ describe('LUM-737 one-time security reminder', () => {
     expect(await prSecurityReminderService.buildAgentReminder('t-1')).toBeNull()
     expect(mark).not.toHaveBeenCalled()
     expect(latest).not.toHaveBeenCalled()
+  })
+
+  it('does not stamp when the header read rejects, so the next hook retries', async () => {
+    unnotified.mockResolvedValueOnce([
+      { id: 's1', pullRequestId: 'pr1', headSha: 'abcdef0123456' },
+    ])
+    prs.mockResolvedValue([pr({})])
+    latest.mockResolvedValue([scan({ findings: [finding({ scanId: 's1' })] })])
+    header.mockRejectedValueOnce(new Error('db down'))
+
+    await expect(
+      prSecurityReminderService.buildAgentReminder('t-1')
+    ).rejects.toThrow('db down')
+    expect(mark).not.toHaveBeenCalled()
   })
 
   it('stamps a superseded or fully-dispositioned scan without rendering it', async () => {
