@@ -57,3 +57,46 @@ describe('verifyBearer', () => {
     await expect(verifyBearer(req('Bearer lum_x'))).rejects.toThrow('DB down')
   })
 })
+
+describe('LUM-735 scoped keys', () => {
+  const scoped = {
+    user: { id: 'u1' },
+    workspace: { id: 'w1', slug: 's', name: 'n' },
+    apiKey: {
+      id: 'k1',
+      name: 'CI ingest',
+      prefix: 'lum_x',
+      scope: 'security:ingest',
+    },
+  }
+  const req = (auth: string) =>
+    ({ headers: { get: () => auth } }) as unknown as Request
+
+  it('rejects a scoped key by default', async () => {
+    mockVerify.mockResolvedValue(scoped)
+    expect(await verifyBearer(req('Bearer lum_x'))).toBeNull()
+  })
+  it('accepts a scoped key only for a route that allows that scope', async () => {
+    mockVerify.mockResolvedValue(scoped)
+    expect(
+      await verifyBearer(req('Bearer lum_x'), {
+        allowScopes: ['security:ingest'],
+      })
+    ).toEqual(scoped)
+    expect(
+      await verifyBearer(req('Bearer lum_x'), { allowScopes: ['other'] })
+    ).toBeNull()
+  })
+  it('a full key (scope null/undefined) still passes everywhere', async () => {
+    mockVerify.mockResolvedValue({
+      ...scoped,
+      apiKey: { ...scoped.apiKey, scope: null },
+    })
+    expect(await verifyBearer(req('Bearer lum_x'))).not.toBeNull()
+    expect(
+      await verifyBearer(req('Bearer lum_x'), {
+        allowScopes: ['security:ingest'],
+      })
+    ).not.toBeNull()
+  })
+})

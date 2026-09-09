@@ -10,8 +10,12 @@ import { miscRepository } from '@/lib/repositories/misc.repository'
 export interface VerifyApiKeyResult {
   user: { id: string }
   workspace: { id: string; slug: string; name: string }
-  apiKey: { id: string; name: string; prefix: string }
+  apiKey: { id: string; name: string; prefix: string; scope?: string | null }
 }
+
+/** LUM-735: the only scope today — a key that may ONLY push SARIF reports. */
+export const SECURITY_INGEST_SCOPE = 'security:ingest'
+export const API_KEY_SCOPES = [SECURITY_INGEST_SCOPE] as const
 
 /** Human profile from Clerk — display-only. */
 export interface UserProfile {
@@ -60,6 +64,7 @@ export const authService = {
         id: apiKey.id,
         name: apiKey.label,
         prefix: apiKey.keyPrefix,
+        scope: apiKey.scope ?? null,
       },
     }
   },

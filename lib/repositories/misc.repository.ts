@@ -107,7 +107,13 @@ export const miscRepository = {
   async createApiKey(data: CreateApiKeyData) {
     return prisma.apiKey.create({
       data,
-      select: { id: true, label: true, keyPrefix: true, createdAt: true },
+      select: {
+        id: true,
+        label: true,
+        keyPrefix: true,
+        createdAt: true,
+        scope: true,
+      },
     })
   },
 
