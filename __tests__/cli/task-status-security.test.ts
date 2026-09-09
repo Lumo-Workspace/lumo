@@ -163,4 +163,75 @@ describe('lumo task status — security findings (LUM-737)', () => {
     expect(out).not.toContain('Security-scan check failed')
     expect(out).not.toContain('could not confirm')
   })
+
+  it('--full rollup counts only criteria as met/unmet, not security findings (LUM-737 review)', () => {
+    // 1 criterion, met (PASS verdict) → nextActions carries none of it, only
+    // 2 security findings. The rollup must not subtract those from `met`.
+    const out = formatTaskStatus(
+      payload({
+        criteria: [
+          {
+            id: 'c-1',
+            statement: 'route rejects bad input',
+            verifierType: 'MACHINE',
+            checkpointer: 'npx jest x.test.ts',
+            evidenceRequired: false,
+            judgeSteps: null,
+            source: 'AGENT_DRAFT',
+            addedAtRound: 0,
+            verdictStale: false,
+            checkMismatch: false,
+            machinePassed: true,
+            latestVerdict: {
+              round: 1,
+              verdict: 'PASS',
+              evidencePointer: 'cmd:npx jest x.test.ts#exit=0',
+              rejectionReason: null,
+              rejectionReasonEnum: null,
+              recordedAt: '2026-09-03T10:00:00.000Z',
+            },
+          },
+        ],
+        nextActions: [SECURITY_ACTION, { ...SECURITY_ACTION, findingId: 'f2' }],
+        securityFindings: { open: 2, blocking: 2, unconfirmedPrs: [] },
+      }),
+      { full: true }
+    )
+    expect(out).toContain('1 of 1 criteria met by their latest verdict')
+    expect(out).not.toContain('-1 of 1 criteria met')
+  })
+})
+
+describe('lumo task status — zero-criteria security rendering (LUM-737 review)', () => {
+  function zeroCriteriaPayload(
+    over: Partial<TaskStatusResponse> = {}
+  ): TaskStatusResponse {
+    return payload({
+      criteria: [],
+      nextActions: [],
+      securityFindings: { open: 0, blocking: 0, unconfirmedPrs: [] },
+      ...over,
+    })
+  }
+
+  it('renders SECURITY_FINDING next actions even with zero criteria', () => {
+    const out = formatTaskStatus(
+      zeroCriteriaPayload({ nextActions: [SECURITY_ACTION] })
+    )
+    expect(out).toContain('No acceptance criteria on LUM-9')
+    expect(out).toContain(
+      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE)'
+    )
+    expect(out).toContain('Fix the findings and push')
+    expect(out).toContain('human-only')
+  })
+
+  it('renders the fail-closed security-scan-failed line even with zero criteria', () => {
+    const out = formatTaskStatus(
+      zeroCriteriaPayload({ securityFindings: null })
+    )
+    expect(out).toContain(
+      '⚠ Security-scan check failed — could not confirm whether any findings are undispositioned.'
+    )
+  })
 })

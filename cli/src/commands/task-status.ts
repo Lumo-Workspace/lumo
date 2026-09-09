@@ -274,6 +274,18 @@ function formatSecurityAction(a: SecurityAction): string {
 const SECURITY_HINT =
   'Fix the findings and push (a fixed finding disappears on the next scan), or ask a human to disposition them in the web delivery panel — disposition is human-only, you cannot disposition them yourself, and a blocking finding refuses DONE with 409.'
 
+/** Render the `[SECURITY]` next-action lines (LUM-737 review): shared by the
+ *  criteria-present Next actions block and the zero-criteria early return so
+ *  undispositioned findings render identically either way. */
+function pushSecurityActions(
+  lines: string[],
+  securityActions: SecurityAction[]
+): void {
+  for (const a of securityActions) {
+    lines.push(`  • [SECURITY] ${formatSecurityAction(a)}`)
+  }
+}
+
 /** Fail-closed security coverage lines (LUM-737): a failed read and every
  *  open PR without a successful scan are stated, never left silent. */
 function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
@@ -319,25 +331,40 @@ export function formatTaskStatus(
     )
   }
 
+  // LUM-737 (whole-branch review): split once, up front, so both the
+  // zero-criteria early return below and the --full rollup can render/count
+  // undispositioned security findings without either dropping them or
+  // subtracting them from the criteria-met arithmetic.
+  const { criteria: unmetCriteria, security: securityActions } =
+    splitNextActions(data.nextActions)
+
   if (data.criteria.length === 0) {
     lines.push('')
     lines.push(
       `No acceptance criteria on ${t.identifier} — draft them and submit with lumo task criteria set ${t.identifier} --file <criteria.json>`
     )
+    if (securityActions.length > 0) {
+      lines.push('')
+      lines.push(
+        `Next actions (0 unmet · ${securityActions.length} security finding${securityActions.length === 1 ? '' : 's'}):`
+      )
+      pushSecurityActions(lines, securityActions)
+      lines.push(SECURITY_HINT)
+    }
+    pushSecurityCoverage(lines, data)
     pushOpenCrossings(lines, extras)
     return lines.join('\n') + '\n'
   }
 
   // LUM-733: the default report is the agent's self-check — criteria, next
-  // actions, open crossings. The dashboard sections (verification rollup,
-  // history, cost, struggle trail, trend) are human-dashboard material and
-  // cost context, so they only render under --full. The claim / faithfulness
+  // actions (including undispositioned security findings, LUM-737), and any
+  // open crossings. The dashboard sections (verification rollup, history,
+  // cost, struggle trail, trend) are human-dashboard material and cost
+  // context, so they only render under --full. The claim / faithfulness
   // columns are no longer rendered in the terminal at all (the judge still
   // runs server-side; --json carries its fields).
-  if (extras.full) pushVerificationRollup(lines, data)
+  if (extras.full) pushVerificationRollup(lines, unmetCriteria.length, data)
 
-  const { criteria: unmetCriteria, security: securityActions } =
-    splitNextActions(data.nextActions)
   lines.push('')
   lines.push(
     `Criteria (${data.criteria.length} total, ${unmetCriteria.length} unmet):`
@@ -477,9 +504,7 @@ export function formatTaskStatus(
       }
     }
     // LUM-737: findings after the contract — constraints on DONE, not criteria.
-    for (const a of securityActions) {
-      lines.push(`  • [SECURITY] ${formatSecurityAction(a)}`)
-    }
+    pushSecurityActions(lines, securityActions)
     if (data.escalated) {
       lines.push('Wait for human direction before touching these.')
     } else if (unmetCriteria.length > 0) {
@@ -549,6 +574,7 @@ function fmtDuration(totalSec: number): string {
  */
 function pushVerificationRollup(
   lines: string[],
+  unmetCriteriaCount: number,
   data: TaskStatusResponse
 ): void {
   lines.push('')
@@ -563,7 +589,9 @@ function pushVerificationRollup(
       `  ${mv.machineVerified} machine-verified / ${mv.humanOverridden} human override (of ${mv.total} MACHINE criteria)`
     )
   }
-  const met = data.criteria.length - data.nextActions.length
+  // LUM-737 (whole-branch review): `unmetCriteriaCount` excludes SECURITY_FINDING
+  // next actions — met/unmet counts criteria only, never security findings.
+  const met = data.criteria.length - unmetCriteriaCount
   lines.push(
     `  ${met} of ${data.criteria.length} criteria met by their latest verdict`
   )
