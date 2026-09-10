@@ -2299,5 +2299,12 @@
   "record.crossings.advisory": "предупреждение",
   "record.security.summary": "{prs, plural, other {# PR}} · {findings, plural, =0 {без находок} one {# находка} few {# находки} many {# находок} other {# находки}}{severityNote}",
   "record.security.allLow": "все низкой критичности",
-  "record.security.failed": "{count, plural, one {# внешняя проверка не выполнена} few {# внешние проверки не выполнены} many {# внешних проверок не выполнено} other {# внешние проверки не выполнены}}"
+  "record.security.failed": "{count, plural, one {# внешняя проверка не выполнена} few {# внешние проверки не выполнены} many {# внешних проверок не выполнено} other {# внешние проверки не выполнены}}",
+  "record.report.prIterations": "Итерации PR",
+  "record.report.prRange": "#{first}–#{last}",
+  "record.report.passRateR1": "Доля прохождения R1",
+  "record.report.cost": "Стоимость",
+  "record.report.costTokens": "токены",
+  "record.report.rework": "Переделка",
+  "record.report.notMeasured": "не измерено"
 }

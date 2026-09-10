@@ -2299,5 +2299,12 @@
   "record.crossings.advisory": "सलाह",
   "record.security.summary": "{prs, plural, one {# PR} other {# PR}} · {findings, plural, =0 {कोई निष्कर्ष नहीं} one {# निष्कर्ष} other {# निष्कर्ष}}{severityNote}",
   "record.security.allLow": "सभी निम्न",
-  "record.security.failed": "{count, plural, one {# बाहरी स्कैन विफल हुआ} other {# बाहरी स्कैन विफल हुए}}"
+  "record.security.failed": "{count, plural, one {# बाहरी स्कैन विफल हुआ} other {# बाहरी स्कैन विफल हुए}}",
+  "record.report.prIterations": "PR पुनरावृत्तियाँ",
+  "record.report.prRange": "#{first}–#{last}",
+  "record.report.passRateR1": "R1 पास दर",
+  "record.report.cost": "लागत",
+  "record.report.costTokens": "टोकन",
+  "record.report.rework": "पुनः कार्य",
+  "record.report.notMeasured": "दर्ज नहीं"
 }

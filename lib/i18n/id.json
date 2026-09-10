@@ -2299,5 +2299,12 @@
   "record.crossings.advisory": "saran",
   "record.security.summary": "{prs, plural, other {# PR}} · {findings, plural, =0 {tidak ada temuan} other {# temuan}}{severityNote}",
   "record.security.allLow": "semua RENDAH",
-  "record.security.failed": "{count, plural, other {# pemindaian eksternal gagal}}"
+  "record.security.failed": "{count, plural, other {# pemindaian eksternal gagal}}",
+  "record.report.prIterations": "Iterasi PR",
+  "record.report.prRange": "#{first}–#{last}",
+  "record.report.passRateR1": "Tingkat lolos R1",
+  "record.report.cost": "Biaya",
+  "record.report.costTokens": "token",
+  "record.report.rework": "Pengerjaan ulang",
+  "record.report.notMeasured": "tidak tercatat"
 }

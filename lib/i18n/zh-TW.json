@@ -2299,5 +2299,12 @@
   "record.crossings.advisory": "提示",
   "record.security.summary": "{prs, plural, other {# 個 PR}} · {findings, plural, =0 {無發現} other {# 項發現}}{severityNote}",
   "record.security.allLow": "均為低風險",
-  "record.security.failed": "{count, plural, other {# 次外部掃描失敗}}"
+  "record.security.failed": "{count, plural, other {# 次外部掃描失敗}}",
+  "record.report.prIterations": "PR 疊代次數",
+  "record.report.prRange": "#{first}–#{last}",
+  "record.report.passRateR1": "R1 通過率",
+  "record.report.cost": "成本",
+  "record.report.costTokens": "Token",
+  "record.report.rework": "返工",
+  "record.report.notMeasured": "未記錄"
 }

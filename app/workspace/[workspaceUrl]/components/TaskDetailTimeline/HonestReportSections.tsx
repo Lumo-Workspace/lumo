@@ -24,7 +24,9 @@ const TOKEN_FMT = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   maximumFractionDigits: 1,
 })
-function fmtTokens(n: number): string {
+// Exported so RunReportTiles.tsx (LUM-496 Task 4) reuses the same formatter
+// for its "COST 1.4B tokens" tile instead of forking a second one.
+export function fmtTokens(n: number): string {
   return TOKEN_FMT.format(n)
 }
 

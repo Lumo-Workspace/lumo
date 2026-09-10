@@ -2299,5 +2299,12 @@
   "record.crossings.advisory": "권고",
   "record.security.summary": "{prs, plural, other {PR #개}} · {findings, plural, =0 {발견 없음} other {발견 #건}}{severityNote}",
   "record.security.allLow": "모두 낮음",
-  "record.security.failed": "{count, plural, other {외부 스캔 실패 #건}}"
+  "record.security.failed": "{count, plural, other {외부 스캔 실패 #건}}",
+  "record.report.prIterations": "PR 반복 횟수",
+  "record.report.prRange": "#{first}–#{last}",
+  "record.report.passRateR1": "R1 통과율",
+  "record.report.cost": "비용",
+  "record.report.costTokens": "토큰",
+  "record.report.rework": "재작업",
+  "record.report.notMeasured": "측정되지 않음"
 }

@@ -2299,5 +2299,12 @@
   "record.crossings.advisory": "khuyến cáo",
   "record.security.summary": "{prs, plural, other {# PR}} · {findings, plural, =0 {không có phát hiện} other {# phát hiện}}{severityNote}",
   "record.security.allLow": "tất cả đều Thấp",
-  "record.security.failed": "{count, plural, other {# lượt quét bên ngoài thất bại}}"
+  "record.security.failed": "{count, plural, other {# lượt quét bên ngoài thất bại}}",
+  "record.report.prIterations": "Số lần lặp PR",
+  "record.report.prRange": "#{first}–#{last}",
+  "record.report.passRateR1": "Tỷ lệ đạt R1",
+  "record.report.cost": "Chi phí",
+  "record.report.costTokens": "token",
+  "record.report.rework": "Làm lại",
+  "record.report.notMeasured": "chưa ghi nhận"
 }

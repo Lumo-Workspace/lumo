@@ -2299,5 +2299,12 @@
   "record.crossings.advisory": "アドバイザリー",
   "record.security.summary": "{prs, plural, other {PR # 件}} · {findings, plural, =0 {検出なし} other {検出 # 件}}{severityNote}",
   "record.security.allLow": "すべて低",
-  "record.security.failed": "{count, plural, other {外部スキャン失敗 # 件}}"
+  "record.security.failed": "{count, plural, other {外部スキャン失敗 # 件}}",
+  "record.report.prIterations": "PR の反復回数",
+  "record.report.prRange": "#{first}–#{last}",
+  "record.report.passRateR1": "R1 合格率",
+  "record.report.cost": "コスト",
+  "record.report.costTokens": "トークン",
+  "record.report.rework": "手戻り",
+  "record.report.notMeasured": "未計測"
 }

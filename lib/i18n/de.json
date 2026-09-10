@@ -2299,5 +2299,12 @@
   "record.crossings.advisory": "Hinweis",
   "record.security.summary": "{prs, plural, one {# PR} other {# PRs}} · {findings, plural, =0 {keine Funde} one {# Fund} other {# Funde}}{severityNote}",
   "record.security.allLow": "alle NIEDRIG",
-  "record.security.failed": "{count, plural, one {# externer Scan fehlgeschlagen} other {# externe Scans fehlgeschlagen}}"
+  "record.security.failed": "{count, plural, one {# externer Scan fehlgeschlagen} other {# externe Scans fehlgeschlagen}}",
+  "record.report.prIterations": "PR-Iterationen",
+  "record.report.prRange": "#{first}–#{last}",
+  "record.report.passRateR1": "Erfolgsquote R1",
+  "record.report.cost": "Kosten",
+  "record.report.costTokens": "Tokens",
+  "record.report.rework": "Nacharbeit",
+  "record.report.notMeasured": "nicht erfasst"
 }

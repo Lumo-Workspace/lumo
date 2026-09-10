@@ -2299,5 +2299,12 @@
   "record.crossings.advisory": "avis",
   "record.security.summary": "{prs, plural, one {# PR} other {# PR}} · {findings, plural, =0 {aucun constat} one {# constat} other {# constats}}{severityNote}",
   "record.security.allLow": "tous FAIBLES",
-  "record.security.failed": "{count, plural, one {# analyse externe a échoué} other {# analyses externes ont échoué}}"
+  "record.security.failed": "{count, plural, one {# analyse externe a échoué} other {# analyses externes ont échoué}}",
+  "record.report.prIterations": "Itérations de PR",
+  "record.report.prRange": "#{first}–#{last}",
+  "record.report.passRateR1": "Taux de réussite R1",
+  "record.report.cost": "Coût",
+  "record.report.costTokens": "tokens",
+  "record.report.rework": "Retouches",
+  "record.report.notMeasured": "non enregistré"
 }
