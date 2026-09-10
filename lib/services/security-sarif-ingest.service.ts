@@ -349,12 +349,16 @@ export const securitySarifIngestService = {
    * it — a transient DB blip must not be the reason the scan keeps looking
    * like it never ran. The workflow swallows the *final* failure so the run
    * still reaches its blob cleanup.
+   *
+   * `reason` is already scrubbed by the caller (`reasonOf` / `scrubToken`,
+   * P8) — this only prefixes it and caps it at 480 chars (500 with the
+   * `external: ` prefix). A missing reason writes no `error` at all.
    */
-  async markExternalFailed(scanId: string): Promise<void> {
+  async markExternalFailed(scanId: string, reason?: string): Promise<void> {
     await prSecurityScanRepository.mergeStages(
       scanId,
       { external: 'FAILED' },
-      {}
+      reason ? { error: `external: ${reason.slice(0, 480)}` } : {}
     )
   },
 

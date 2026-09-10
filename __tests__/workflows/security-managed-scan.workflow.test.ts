@@ -106,6 +106,7 @@ it('one tool failed: persists the other first, then stamps FAILED with that tool
     expect.objectContaining({ tool: 'semgrep' })
   )
   expect(order).toEqual(['persist', 'mark'])
+  expect(markFailed).toHaveBeenCalledWith('s1', 'gitleaks exit 2')
 })
 
 it('both tools failed: no persist, FAILED with both reasons', async () => {
@@ -119,7 +120,10 @@ it('both tools failed: no persist, FAILED with both reasons', async () => {
     reason: 'gitleaks exit 2; semgrep produced no report',
   })
   expect(persist).not.toHaveBeenCalled()
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith(
+    's1',
+    'gitleaks exit 2; semgrep produced no report'
+  )
 })
 
 it('the scan step exhausting its retries (throws) stamps FAILED with the error message', async () => {
@@ -130,7 +134,7 @@ it('the scan step exhausting its retries (throws) stamps FAILED with the error m
     reason: 'sandbox_unavailable',
   })
   expect(persist).not.toHaveBeenCalled()
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith('s1', 'sandbox_unavailable')
 })
 
 it('a persist step exhausting its retries stamps FAILED (never a fake RAN)', async () => {
@@ -144,7 +148,7 @@ it('a persist step exhausting its retries stamps FAILED (never a fake RAN)', asy
     scanId: 's1',
     reason: 'P1001',
   })
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith('s1', 'P1001')
 })
 
 it('markFailed exhausting its retries still returns FAILED', async () => {

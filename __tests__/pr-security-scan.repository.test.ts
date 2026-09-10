@@ -501,6 +501,38 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     )
   })
 
+  test('mergeStages writes the external-failure reason into data.error', async () => {
+    // LUM-735 Task 1 — the ingest path's only write of `error`.
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { secrets: 'RAN', external: 'PENDING' },
+      status: 'PENDING',
+      partial: false,
+    })
+    await prSecurityScanRepository.mergeStages(
+      's1',
+      { external: 'FAILED' },
+      { error: 'external: x' }
+    )
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ error: 'external: x' }),
+      })
+    )
+  })
+
+  test('mergeStages omits error from data when the extra reason is not provided', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { secrets: 'RAN', external: 'PENDING' },
+      status: 'PENDING',
+      partial: false,
+    })
+    await prSecurityScanRepository.mergeStages('s1', { external: 'FAILED' })
+    const call =
+      mockScan.update.mock.calls[mockScan.update.mock.calls.length - 1][0]
+    expect(call.data.error).toBeUndefined()
+    expect('error' in call.data).toBe(false)
+  })
+
   test('persistResult never overwrites an ingest-owned external stage', async () => {
     mockScan.findUnique.mockResolvedValueOnce({ stages: { external: 'RAN' } })
     await prSecurityScanRepository.persistResult('s1', [], {

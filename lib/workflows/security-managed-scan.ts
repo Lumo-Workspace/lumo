@@ -59,11 +59,12 @@ export async function securityManagedScanWorkflow(
     failures.push(reasonOf(error))
   }
   if (failures.length > 0) {
-    await markFailedBestEffort(scanId)
+    const reason = failures.join('; ').slice(0, 500)
+    await markFailedBestEffort(scanId, reason)
     return {
       outcome: 'FAILED',
       scanId,
-      reason: failures.join('; ').slice(0, 500),
+      reason,
     }
   }
   return { outcome: 'INGESTED', scanId, findings, partial }

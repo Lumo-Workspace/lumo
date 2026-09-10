@@ -117,7 +117,7 @@ it('a blob delete whose retries are exhausted still leaves the outcome FAILED wi
     scanId: 's1',
     reason: 'Unsupported SARIF: not JSON',
   })
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith('s1', 'Unsupported SARIF: not JSON')
   expect(sleepMock).toHaveBeenCalledWith('24h')
 })
 
@@ -184,7 +184,7 @@ it('deterministic failure: marks FAILED, keeps the blob 24h, then deletes it', a
     scanId: 's1',
     reason: 'Unsupported SARIF: not JSON',
   })
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith('s1', 'Unsupported SARIF: not JSON')
   expect(sleepMock).toHaveBeenCalledWith('24h')
   expect(order).toEqual(['mark', 'sleep', 'delete'])
   expect(persist).not.toHaveBeenCalled()
@@ -202,6 +202,7 @@ it('a P9 stamp whose retries are exhausted still yields FAILED, and still sleeps
     // The original reason survives — not the mark-failed error.
     reason: 'Unsupported SARIF: not JSON',
   })
+  expect(markFailed).toHaveBeenCalledWith('s1', 'Unsupported SARIF: not JSON')
   expect(sleepMock).toHaveBeenCalledWith('24h')
   expect(delBlob).toHaveBeenCalledWith(JOB.url)
 })
@@ -214,7 +215,7 @@ it('a step that exhausted its retries (throws) takes the same FAILED path', asyn
     scanId: 's1',
     reason: 'P1001 db unreachable',
   })
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith('s1', 'P1001 db unreachable')
   expect(sleepMock).toHaveBeenCalledWith('24h')
   expect(delBlob).toHaveBeenCalledWith(JOB.url)
 })

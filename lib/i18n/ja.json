@@ -2284,5 +2284,6 @@
   "apiKeys.scope.securityIngest": "CI 取り込み専用",
   "securityScan.status.pendingExternal": "スキャナー待ち",
   "securityScan.stageState.PENDING": "スキャン中",
-  "securityScan.external.late": "このコミットのスキャン結果が30分間スキャナーから報告されていないため、このスキャンは未完了です。新しいスキャンを開始するには新しいコミットをプッシュするか、このリポジトリが独自にレポートを送信している場合は自分のCIのスキャンジョブを確認してください。"
+  "securityScan.external.late": "このコミットのスキャン結果が30分間スキャナーから報告されていないため、このスキャンは未完了です。新しいスキャンを開始するには新しいコミットをプッシュするか、このリポジトリが独自にレポートを送信している場合は自分のCIのスキャンジョブを確認してください。",
+  "securityScan.external.failedReason": "外部スキャナーが失敗しました:"
 }

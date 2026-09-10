@@ -40,6 +40,7 @@ const messages: Record<string, string> = {
   'securityScan.finding.externalLink': 'View rule documentation',
   'securityScan.partial':
     'Some results were cut off at the scan budget — the scan is not complete.',
+  'securityScan.external.failedReason': 'External scanner failed:',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -297,6 +298,64 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
   expect(screen.getByTestId('security-scan-badge')).toHaveAttribute(
     'data-state',
     'incomplete'
+  )
+})
+
+test('external stage FAILED renders the prefixed failure reason even when the scan itself is not FAILED', () => {
+  // LUM-735 Task 1 — P9: a failed external stage keeps the scan's own status
+  // (here CLEAN); the panel must still surface the reason.
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
+            complete: false,
+            error: 'external: semgrep exit 90',
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const reason = screen.getByTestId('external-failed-reason')
+  expect(reason).toHaveTextContent(
+    'External scanner failed: external: semgrep exit 90'
+  )
+  // Not the FAILED-scan branch too — the reason renders exactly once.
+  expect(screen.getAllByText(/external: semgrep exit 90/)).toHaveLength(1)
+})
+
+test('a FAILED scan whose external stage also FAILED renders the reason once, prefixed', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'FAILED',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
+            complete: false,
+            error: 'external: semgrep exit 90',
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getAllByText(/external: semgrep exit 90/)).toHaveLength(1)
+  expect(screen.getByTestId('external-failed-reason')).toHaveTextContent(
+    'External scanner failed: external: semgrep exit 90'
   )
 })
 

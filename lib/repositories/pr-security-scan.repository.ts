@@ -444,7 +444,7 @@ export const prSecurityScanRepository = {
   async mergeStages(
     scanId: string,
     patch: ScanStages,
-    extra: { partial?: boolean; status?: 'FINDINGS' } = {}
+    extra: { partial?: boolean; status?: 'FINDINGS'; error?: string } = {}
   ): Promise<void> {
     await withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
@@ -466,6 +466,10 @@ export const prSecurityScanRepository = {
             ? { partial: (current?.partial ?? false) || extra.partial }
             : {}),
           ...(extra.status ? { status: extra.status } : {}),
+          // LUM-735 Task 1: the caller (markExternalFailed) already scrubbed,
+          // prefixed and capped this string — a missing reason writes no
+          // `error` at all rather than clearing an existing one.
+          ...(extra.error !== undefined ? { error: extra.error } : {}),
         },
       })
     })

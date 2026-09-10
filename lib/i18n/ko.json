@@ -2284,5 +2284,6 @@
   "apiKeys.scope.securityIngest": "CI 수집 전용",
   "securityScan.status.pendingExternal": "스캐너 대기 중",
   "securityScan.stageState.PENDING": "스캔 중",
-  "securityScan.external.late": "스캐너가 이 커밋에 대한 결과를 30분 동안 보고하지 않아 이 스캔은 완료되지 않았습니다. 새 스캔을 시작하려면 새 커밋을 푸시하거나, 이 저장소가 자체 보고서를 전송하는 경우 자체 CI의 스캔 작업을 확인하세요."
+  "securityScan.external.late": "스캐너가 이 커밋에 대한 결과를 30분 동안 보고하지 않아 이 스캔은 완료되지 않았습니다. 새 스캔을 시작하려면 새 커밋을 푸시하거나, 이 저장소가 자체 보고서를 전송하는 경우 자체 CI의 스캔 작업을 확인하세요.",
+  "securityScan.external.failedReason": "외부 스캐너 실패:"
 }

@@ -19,10 +19,17 @@ export async function deleteBlobBestEffort(url: string): Promise<void> {
   }
 }
 
-/** P9 stamp: retried by the platform; a final failure must still let the run finish its cleanup. */
-export async function markFailedBestEffort(scanId: string): Promise<void> {
+/**
+ * P9 stamp: retried by the platform; a final failure must still let the run
+ * finish its cleanup. `reason` (already scrubbed by the caller, P8) rides
+ * along into `PrSecurityScan.error` — see `markExternalFailed`.
+ */
+export async function markFailedBestEffort(
+  scanId: string,
+  reason?: string
+): Promise<void> {
   try {
-    await markSarifExternalFailedStep(scanId)
+    await markSarifExternalFailedStep(scanId, reason)
   } catch {
     // Retries exhausted inside the step; the service already logged it.
   }

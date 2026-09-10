@@ -95,7 +95,7 @@ export async function securitySarifIngestWorkflow(
 
   // P9: the layer failed — say so, never a fake CLEAN. Blob kept for
   // SARIF_FAILED_BLOB_TTL so the report can be inspected or re-pushed.
-  await markFailedBestEffort(scanId)
+  await markFailedBestEffort(scanId, failure)
   await sleep(SARIF_FAILED_BLOB_TTL)
   await deleteBlobBestEffort(job.url)
   return { outcome: 'FAILED', scanId, reason: failure }

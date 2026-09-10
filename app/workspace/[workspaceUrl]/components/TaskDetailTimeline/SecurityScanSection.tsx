@@ -181,11 +181,19 @@ function ScanDetails({
           {intl.formatMessage({ id: 'securityScan.truncated' })}
         </p>
       )}
-      {scan.status === 'FAILED' && scan.error && (
-        <p className='font-mono text-caption text-muted-foreground'>
-          {scan.error}
-        </p>
-      )}
+      {scan.error &&
+        (scan.stages.external === 'FAILED' || scan.status === 'FAILED') && (
+          <p
+            {...(scan.stages.external === 'FAILED'
+              ? { 'data-testid': 'external-failed-reason' }
+              : {})}
+            className='font-mono text-caption text-muted-foreground'
+          >
+            {scan.stages.external === 'FAILED'
+              ? `${intl.formatMessage({ id: 'securityScan.external.failedReason' })} ${scan.error}`
+              : scan.error}
+          </p>
+        )}
       {scan.findings.map(f => (
         <FindingRow key={f.id} taskId={taskId} finding={f} />
       ))}

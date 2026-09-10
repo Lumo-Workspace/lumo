@@ -537,6 +537,29 @@ describe('markExternalFailed / deleteBlobSafely', () => {
     )
   })
 
+  it('markExternalFailed with a reason writes the scrubbed, prefixed, capped error', async () => {
+    // LUM-735 Task 1 — P8: the reason is already scrubbed by the caller
+    // (reasonOf / scrubToken); this only prefixes and caps it.
+    await expect(
+      securitySarifIngestService.markExternalFailed('s1', 'boom')
+    ).resolves.toBeUndefined()
+    expect(repo.mergeStages).toHaveBeenCalledWith(
+      's1',
+      { external: 'FAILED' },
+      { error: 'external: boom' }
+    )
+  })
+
+  it('markExternalFailed caps the reason at 480 chars before prefixing', async () => {
+    const long = 'x'.repeat(600)
+    await securitySarifIngestService.markExternalFailed('s1', long)
+    expect(repo.mergeStages).toHaveBeenCalledWith(
+      's1',
+      { external: 'FAILED' },
+      { error: `external: ${'x'.repeat(480)}` }
+    )
+  })
+
   it('markExternalFailed propagates so the step retries the P9 stamp', async () => {
     repo.mergeStages.mockRejectedValue(new Error('again'))
     await expect(
