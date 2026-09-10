@@ -74,13 +74,24 @@ jobs:
           const [owner, repo] = env.REPOSITORY.split("/");
           const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
           const body = new Blob([readFileSync(env.REPORT_GZ)], { type: "application/gzip" });
-          const blob = await upload(pathname, body, {
-            access: "private",
-            handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
-            clientPayload: JSON.stringify(payload),
-            headers: { Authorization: "Bearer " + token },
-            contentType: "application/gzip",
-          });
+          let blob;
+          try {
+            blob = await upload(pathname, body, {
+              access: "private",
+              handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
+              clientPayload: JSON.stringify(payload),
+              headers: { Authorization: "Bearer " + token },
+              contentType: "application/gzip",
+            });
+          } catch (err) {
+            const diag = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/upload", {
+              method: "POST",
+              headers: { "content-type": "application/json", Authorization: "Bearer " + token },
+              body: JSON.stringify({ type: "blob.generate-client-token", payload: { pathname, clientPayload: JSON.stringify(payload), multipart: false } }),
+            }).catch(e => ({ status: 0, text: async () => String(e) }));
+            console.log(`lumo: ${env.TOOL} upload failed (${err && err.message}); token request → ${diag.status}: ${(await diag.text()).slice(0, 300)}`);
+            process.exit(1);
+          }
           const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
             method: "POST",
             headers: { "content-type": "application/json", Authorization: "Bearer " + token },
@@ -139,13 +150,24 @@ jobs:
           const [owner, repo] = env.REPOSITORY.split("/");
           const pathname = `security-sarif/${owner}--${repo}/${env.HEAD_SHA}/${env.TOOL}.sarif.gz`;
           const body = new Blob([readFileSync(env.REPORT_GZ)], { type: "application/gzip" });
-          const blob = await upload(pathname, body, {
-            access: "private",
-            handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
-            clientPayload: JSON.stringify(payload),
-            headers: { Authorization: "Bearer " + token },
-            contentType: "application/gzip",
-          });
+          let blob;
+          try {
+            blob = await upload(pathname, body, {
+              access: "private",
+              handleUploadUrl: env.LUMO_API_URL + "/api/integrations/security/sarif/upload",
+              clientPayload: JSON.stringify(payload),
+              headers: { Authorization: "Bearer " + token },
+              contentType: "application/gzip",
+            });
+          } catch (err) {
+            const diag = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/upload", {
+              method: "POST",
+              headers: { "content-type": "application/json", Authorization: "Bearer " + token },
+              body: JSON.stringify({ type: "blob.generate-client-token", payload: { pathname, clientPayload: JSON.stringify(payload), multipart: false } }),
+            }).catch(e => ({ status: 0, text: async () => String(e) }));
+            console.log(`lumo: ${env.TOOL} upload failed (${err && err.message}); token request → ${diag.status}: ${(await diag.text()).slice(0, 300)}`);
+            process.exit(1);
+          }
           const res = await fetch(env.LUMO_API_URL + "/api/integrations/security/sarif/complete", {
             method: "POST",
             headers: { "content-type": "application/json", Authorization: "Bearer " + token },
