@@ -1,0 +1,158 @@
+/** @jest-environment node */
+jest.mock('ai', () => ({
+  generateText: jest.fn(),
+  tool: (t: unknown) => t,
+  stepCountIs: jest.fn((n: number) => ({ stepCountIs: n })),
+  hasToolCall: jest.fn((name: string) => ({ hasToolCall: name })),
+}))
+jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+
+import { generateText } from 'ai'
+import { GENERATION_MODEL } from '@/lib/ai/models'
+import {
+  huntCategory,
+  numberLines,
+  renderSubgraphForPrompt,
+} from '@/lib/llm/security-hunt-client'
+import { SNIPPET_MAX_CHARS } from '@/lib/security-scan/hunt/snippet'
+import type { Subgraph } from '@/lib/security-scan/graph/types'
+
+const gen = generateText as jest.Mock
+
+const g: Subgraph = {
+  symbols: [
+    {
+      id: 'a.ts#GET',
+      kind: 'entry',
+      file: 'a.ts',
+      line: 1,
+      name: 'GET',
+      rule: 'next-route-handler',
+      controls: [],
+    },
+    {
+      id: 'a.ts#fetch@2',
+      kind: 'sink',
+      file: 'a.ts',
+      line: 2,
+      name: 'fetch',
+      rule: 'fetch',
+      controls: [],
+    },
+  ],
+  edges: [{ from: 'a.ts#GET', to: 'a.ts#fetch@2' }],
+  files: [{ path: 'a.ts', lineCount: 3, touched: true }],
+}
+
+const candidate = {
+  category: 'ssrf',
+  cwe: 'CWE-918',
+  severity: 'HIGH',
+  sink: { symbol: 'a.ts#fetch@2', file: 'a.ts', line: 2 },
+  entry: { symbol: 'a.ts#GET', file: 'a.ts', line: 1 },
+  call_chain: [{ from: 'a.ts#GET', to: 'a.ts#fetch@2' }],
+  precondition: 'url from query',
+  claim: 'query url reaches fetch',
+}
+
+type Tools = Record<string, { execute: (input: unknown) => Promise<unknown> }>
+
+function run(result: unknown) {
+  gen.mockResolvedValueOnce(result)
+  return huntCategory({
+    category: 'ssrf',
+    subgraph: g,
+    readFile: async (path: string) => (path === 'a.ts' ? 'l1\nl2\nl3' : null),
+    tokenBudget: 1000,
+    timeoutMs: 5000,
+    maxSteps: 4,
+  })
+}
+
+beforeEach(() => gen.mockReset())
+
+describe('LUM-739 hunt client', () => {
+  it('uses the GENERATION bucket, three stop conditions, and returns submitted candidates as done', async () => {
+    const out = await run({
+      steps: [
+        {
+          toolCalls: [{ toolName: 'submit_candidates' }],
+          usage: { totalTokens: 300 },
+        },
+      ],
+      totalUsage: { totalTokens: 300 },
+    })
+    const call = gen.mock.calls[0]![0]
+    expect(call.model).toEqual({ id: GENERATION_MODEL })
+    expect(call.stopWhen).toHaveLength(3)
+    expect(call.stopWhen[0]).toEqual({ stepCountIs: 4 })
+    expect(call.stopWhen[1]).toEqual({ hasToolCall: 'submit_candidates' })
+    expect(
+      call.stopWhen[2]({
+        steps: [
+          { usage: { totalTokens: 600 } },
+          { usage: { totalTokens: 500 } },
+        ],
+      })
+    ).toBe(true)
+    expect(call.stopWhen[2]({ steps: [{ usage: { totalTokens: 600 } }] })).toBe(
+      false
+    )
+    expect(call.prompt).toContain('Category: ssrf')
+    expect(call.prompt).toContain('a.ts#fetch@2')
+    // The candidates come back only through the tool.
+    const tools = call.tools as Tools
+    await expect(
+      tools.submit_candidates!.execute({ candidates: [candidate] })
+    ).resolves.toEqual({ accepted: 1 })
+    expect(out.stopped).toBe('done')
+    expect(out.tokens).toBe(300)
+  })
+
+  it('confines read_file to subgraph files and numbers the lines', async () => {
+    await run({ steps: [], totalUsage: { totalTokens: 0 } })
+    const tools = gen.mock.calls[0]![0].tools as Tools
+    await expect(
+      tools.read_file!.execute({ path: 'secret.ts' })
+    ).resolves.toEqual({ error: 'not in subgraph' })
+    await expect(
+      tools.read_file!.execute({ path: 'a.ts', startLine: 2 })
+    ).resolves.toEqual({ content: '2: l2\n3: l3' })
+    await expect(
+      tools.callers_of!.execute({ symbol: 'a.ts#fetch@2' })
+    ).resolves.toEqual({ callers: ['a.ts#GET'] })
+    await expect(
+      tools.callees_of!.execute({ symbol: 'a.ts#GET' })
+    ).resolves.toEqual({ callees: ['a.ts#fetch@2'] })
+    await expect(
+      tools.path_to_entry!.execute({ symbol: 'a.ts#fetch@2' })
+    ).resolves.toEqual({ path: ['a.ts#GET', 'a.ts#fetch@2'] })
+  })
+
+  it('reports budget vs steps when nothing was submitted', async () => {
+    const budget = await run({
+      steps: [{ toolCalls: [], usage: { totalTokens: 1000 } }],
+      totalUsage: { totalTokens: 1000 },
+    })
+    expect(budget).toEqual({ candidates: [], tokens: 1000, stopped: 'budget' })
+    const steps = await run({
+      steps: [
+        { toolCalls: [{ toolName: 'read_file' }], usage: { totalTokens: 10 } },
+      ],
+      totalUsage: { totalTokens: undefined },
+    })
+    expect(steps).toEqual({ candidates: [], tokens: 10, stopped: 'steps' })
+  })
+
+  it('numberLines cuts at the char budget and the prompt renderer lists every section', () => {
+    const big = Array.from({ length: 5000 }, (_, i) => `line ${i}`).join('\n')
+    const cut = numberLines(big)
+    expect(cut.length).toBeLessThanOrEqual(SNIPPET_MAX_CHARS + 20)
+    expect(cut.endsWith('…[truncated]')).toBe(true)
+    const text = renderSubgraphForPrompt(g)
+    expect(text).toContain('### Entries')
+    expect(text).toContain('### Sinks')
+    expect(text).toContain('a.ts#GET -> a.ts#fetch@2')
+    expect(text).toContain('a.ts (3 lines, touched by the PR)')
+  })
+})
