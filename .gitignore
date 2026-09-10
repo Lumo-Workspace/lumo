@@ -132,3 +132,4 @@ temp/
 *.sw?
 /generated/prisma
 .worktrees/
+/.swc
