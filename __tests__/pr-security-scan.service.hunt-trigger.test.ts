@@ -89,7 +89,10 @@ const ROUTE_DIFF = diff(
   'export async function POST(req: Request) {'
 )
 const PLAIN_DIFF = diff('src/a.ts', 'const x = 1')
-const SECRET_DIFF = diff('src/cfg.ts', 'const k = "AKIAABCDEFGHIJKLMNOP"')
+// Built at runtime so the fixture is not itself a secret-shaped literal in
+// the diff (the scanner must see it in the scanned text, not in this file).
+const FAKE_AWS_KEY = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('')
+const SECRET_DIFF = diff('src/cfg.ts', `const k = "${FAKE_AWS_KEY}"`)
 
 let order: string[]
 beforeEach(() => {

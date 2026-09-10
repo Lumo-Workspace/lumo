@@ -57,6 +57,9 @@ function diffFor(paths: string[]): string {
     .join('')
 }
 
+// Built at runtime so the fixture is not itself a secret-shaped literal.
+const FAKE_AWS_KEY = ['AKIA', 'IOSFODNN7EXAMPLE'].join('')
+
 const candidate = {
   category: 'injection' as const,
   cwe: 'CWE-89',
@@ -76,7 +79,7 @@ const candidate = {
     { from: 'lib/s.ts#svc.run', to: 'lib/s.ts#prisma.$queryRawUnsafe@5' },
   ],
   precondition: 'body.sql attacker controlled',
-  claim: 'raw sql from body — key AKIAIOSFODNN7EXAMPLE leaked',
+  claim: `raw sql from body — key ${FAKE_AWS_KEY} leaked`,
   reachability: 'EXTERNAL' as const,
   fingerprint: 'c'.repeat(16),
 }
@@ -258,7 +261,7 @@ describe('LUM-739 hunt service', () => {
       callChain: candidate.call_chain,
       falsifierVerdict: 'INCONCLUSIVE',
     })
-    expect(row!.title).not.toContain('AKIAIOSFODNN7EXAMPLE')
+    expect(row!.title).not.toContain(FAKE_AWS_KEY)
     expect(row!.detail).toContain(
       'Falsifier: INCONCLUSIVE — nothing refutes it'
     )
