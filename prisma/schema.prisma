@@ -1402,6 +1402,19 @@ enum PrSecurityFindingDisposition {
   ACCEPTED_RISK
 }
 
+// LUM-739: can an entry point reach the sink without passing a control?
+enum PrSecurityReachability {
+  EXTERNAL
+  INTERNAL
+  UNKNOWN
+}
+
+// LUM-739: the falsifier can only refute or fail to refute — never confirm.
+enum PrSecurityFalsifierVerdict {
+  REJECT
+  INCONCLUSIVE
+}
+
 model PrSecurityScan {
   id              String                 @id @default(cuid())
   pullRequestId   String
@@ -1430,6 +1443,12 @@ model PrSecurityScan {
   // the reminder fires exactly once; null = not yet reminded. Orthogonal to
   // disposition and the DONE gate (which key only on the findings).
   agentNotifiedAt DateTime?
+  // LUM-739: tokens the L3 hunt + falsifier spent on this scan. null = not
+  // metered (team rule: null ≠ 0).
+  tokenSpent      Int?
+  // LUM-739: { candidates, rejected: [{ reason, category, sink }],
+  // falsifierRejects, falsifierRejected, categories, subgraph, error? }.
+  huntAudit       Json?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1465,12 +1484,20 @@ model PrSecurityFinding {
   // Set when the disposition was copied from an earlier finding with the same
   // fingerprint on the same PR (cross-push inheritance).
   inheritedFromFindingId String?
+  // LUM-739 (hunt:* rows only): CWE id, entry-reachability of the sink, the
+  // symbol-level call chain [{ from, to }] (no code), and the falsifier's
+  // verdict — always INCONCLUSIVE on a persisted row (REJECTs never land).
+  cwe                    String?
+  reachability           PrSecurityReachability?
+  callChain              Json?
+  falsifierVerdict       PrSecurityFalsifierVerdict?
   createdAt              DateTime                       @default(now())
 
   scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
 
   @@index([scanId])
   @@index([fingerprint])
+  @@index([scanId, provenance, severity])
   @@map("pr_security_findings")
 }
 

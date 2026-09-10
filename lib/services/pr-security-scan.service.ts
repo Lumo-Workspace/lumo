@@ -267,29 +267,10 @@ async function adoptExisting(existing: {
   return { deduped: true, scanId: existing.id }
 }
 
-/** Copy a prior human disposition onto a new finding with the same fingerprint. */
-export function inheritDispositions(
-  fresh: NewFindingInput[],
-  prior: Awaited<
-    ReturnType<typeof prSecurityScanRepository.findDispositionedByPullRequest>
-  >
-): NewFindingInput[] {
-  const byFp = new Map<string, (typeof prior)[number]>()
-  for (const p of prior)
-    if (!byFp.has(p.fingerprint)) byFp.set(p.fingerprint, p)
-  return fresh.map(f => {
-    const p = byFp.get(f.fingerprint)
-    if (!p) return f
-    return {
-      ...f,
-      disposition: p.disposition,
-      dispositionNote: p.dispositionNote,
-      dispositionedById: p.dispositionedById,
-      dispositionedAt: p.dispositionedAt,
-      inheritedFromFindingId: p.id,
-    }
-  })
-}
+// LUM-739: `inheritDispositions` lives in a pure module now (shared with the
+// hunt workflow's persistence); re-exported so existing importers keep working.
+import { inheritDispositions } from '@/lib/security-scan/inherit-dispositions'
+export { inheritDispositions }
 
 // ── Service ──────────────────────────────────────────────────────────────────
 
