@@ -118,6 +118,34 @@ it('orders non-blocking groups by severity, then open count, then category', () 
   ])
 })
 
+it('gateEnabled: false does not treat an open MEDIUM group as blocking (LUM-442)', () => {
+  const groups = groupCrossings(
+    [
+      // Open, non-advisory MEDIUM — with the gate ON this blocks, so the old
+      // (gate-blind) isBlocking would have ranked it above a settled HIGH
+      // group. With the gate opted OUT, only HIGH still blocks (LUM-442), so
+      // this must NOT be treated as blocking here.
+      crossing({
+        id: 'a',
+        category: 'MEDIUM_ONE',
+        severity: 'MEDIUM',
+        advisory: false,
+      }),
+      // Already dispositioned — never blocking regardless of the gate — but
+      // its severity (HIGH) should still win the tie-break once neither group
+      // is "blocking".
+      crossing({
+        id: 'b',
+        category: 'HIGH_SETTLED',
+        severity: 'HIGH',
+        disposition: 'CONFIRMED',
+      }),
+    ],
+    { gateEnabled: false }
+  )
+  expect(categories(groups)).toEqual(['HIGH_SETTLED', 'MEDIUM_ONE'])
+})
+
 it('returns an empty list for no crossings', () => {
   expect(groupCrossings([])).toEqual([])
 })

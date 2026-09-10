@@ -89,6 +89,14 @@ interface BoundaryCrossingsPanelProps {
   subset?: 'open' | 'dispositioned' | 'all'
   /** Anchor id for deep links; defaults to the historic `#boundary-crossings`. */
   anchorId?: string
+  /**
+   * LUM-496 prep (Task 5): an additional anchor id kept alive for old deep
+   * links that still point at the pre-split id. When set, an empty
+   * `<span id={legacyAnchorId} />` renders immediately before the panel root,
+   * and the hash-scroll effect also fires for this id. Undefined by default —
+   * no change for today's callers.
+   */
+  legacyAnchorId?: string
 }
 
 /**
@@ -108,6 +116,7 @@ export function BoundaryCrossingsPanel({
   onChanged,
   subset = 'all',
   anchorId = BOUNDARY_CROSSINGS_ANCHOR,
+  legacyAnchorId,
 }: BoundaryCrossingsPanelProps) {
   const intl = useIntl()
   // gateEnabled defaults true on destructure too — an older mock/response
@@ -152,7 +161,7 @@ export function BoundaryCrossingsPanel({
   // Per-category group folds (LUM-496). A manual toggle sticks; until then the
   // first group holding an open, non-advisory crossing is the one open by
   // default — the decision the reviewer has to make next.
-  const groups = groupCrossings(visible)
+  const groups = groupCrossings(visible, { gateEnabled })
   const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>(
     {}
   )
@@ -160,7 +169,12 @@ export function BoundaryCrossingsPanel({
     subset === 'dispositioned'
       ? null
       : (groups.find(g =>
-          g.crossings.some(c => c.disposition == null && !c.advisory)
+          g.crossings.some(
+            c =>
+              c.disposition == null &&
+              !c.advisory &&
+              (gateEnabled || c.severity === 'HIGH')
+          )
         )?.category ?? null)
   const isGroupOpen = (g: CrossingGroup) =>
     groupOverrides[g.category] ?? g.category === defaultOpenCategory
@@ -179,9 +193,14 @@ export function BoundaryCrossingsPanel({
   useEffect(() => {
     if (!hasCrossings) return
     if (typeof window === 'undefined') return
-    if (window.location.hash !== `#${anchorId}`) return
+    const hash = window.location.hash
+    if (
+      hash !== `#${anchorId}` &&
+      (!legacyAnchorId || hash !== `#${legacyAnchorId}`)
+    )
+      return
     panelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-  }, [hasCrossings, anchorId])
+  }, [hasCrossings, anchorId, legacyAnchorId])
 
   if (!hasCrossings) return null
 
@@ -274,225 +293,243 @@ export function BoundaryCrossingsPanel({
     // (same row grammar — colored border, status header, dispositioned/total
     // count). Blocking open crossings escalate to danger; converged (all
     // dispositioned) reads neutral gray — handled isn't an achievement.
-    <div
-      id={anchorId}
-      ref={panelRef}
-      className={`overflow-hidden rounded-lg border ${
-        blockingCount > 0 ? 'border-danger-border' : 'border-border'
-      }`}
-    >
-      <button
-        type='button'
-        data-testid='boundary-summary-toggle'
-        aria-expanded={expanded}
-        onClick={() => setExpanded(e => !e)}
-        className={`flex w-full items-center gap-2 px-4 py-2.5 text-left ${
-          blockingCount > 0 ? 'bg-danger-subtle' : 'bg-muted/30'
+    <>
+      {/* LUM-496 prep (Task 5): keeps an old deep link (e.g. #boundary-crossings)
+      landing on the panel even after the id it targets moves to legacyAnchorId. */}
+      {legacyAnchorId && <span id={legacyAnchorId} />}
+      <div
+        id={anchorId}
+        ref={panelRef}
+        className={`overflow-hidden rounded-lg border ${
+          blockingCount > 0 ? 'border-danger-border' : 'border-border'
         }`}
       >
-        <ChevronRight
-          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
-          aria-hidden
-        />
-        {blockingCount > 0 ? (
-          <AlertTriangle className='size-4 shrink-0 text-danger' aria-hidden />
-        ) : (
-          <ShieldCheck
-            className='size-4 shrink-0 text-muted-foreground'
+        <button
+          type='button'
+          data-testid='boundary-summary-toggle'
+          aria-expanded={expanded}
+          onClick={() => setExpanded(e => !e)}
+          className={`flex w-full items-center gap-2 px-4 py-2.5 text-left ${
+            blockingCount > 0 ? 'bg-danger-subtle' : 'bg-muted/30'
+          }`}
+        >
+          <ChevronRight
+            className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
             aria-hidden
           />
-        )}
-        <span className='text-body-strong text-foreground'>
-          {subset === 'dispositioned'
-            ? intl.formatMessage({
-                id: 'record.crossings.resolvedTitle',
-                defaultMessage: 'Boundary crossings · dispositioned',
-              })
-            : intl.formatMessage({
-                id: 'boundary.panel.title',
-                defaultMessage: 'Boundary crossings',
-              })}
-        </span>
-        {subset === 'dispositioned' ? null : (
-          <span
-            className={`text-caption ${
-              blockingCount > 0 ? 'text-danger' : 'text-muted-foreground/70'
-            }`}
-          >
-            {subset === 'open'
-              ? intl.formatMessage(
-                  {
-                    id: 'record.crossings.openTitle',
-                    defaultMessage:
-                      '{count} open — blocks Done until dispositioned',
-                  },
-                  { count: openCount }
-                )
-              : blockingCount > 0
-                ? intl.formatMessage(
-                    {
-                      id: 'boundary.zone.blocksDone',
-                      defaultMessage:
-                        '{count} open — blocks Done until dispositioned',
-                    },
-                    { count: blockingCount }
-                  )
-                : openCount > 0
+          {blockingCount > 0 ? (
+            <AlertTriangle
+              className='size-4 shrink-0 text-danger'
+              aria-hidden
+            />
+          ) : (
+            <ShieldCheck
+              className='size-4 shrink-0 text-muted-foreground'
+              aria-hidden
+            />
+          )}
+          <span className='text-body-strong text-foreground'>
+            {subset === 'dispositioned'
+              ? intl.formatMessage({
+                  id: 'record.crossings.resolvedTitle',
+                  defaultMessage: 'Boundary crossings · dispositioned',
+                })
+              : intl.formatMessage({
+                  id: 'boundary.panel.title',
+                  defaultMessage: 'Boundary crossings',
+                })}
+          </span>
+          {subset === 'dispositioned' ? null : (
+            <span
+              className={`text-caption ${
+                blockingCount > 0 ? 'text-danger' : 'text-muted-foreground/70'
+              }`}
+            >
+              {subset === 'open'
+                ? blockingCount > 0
                   ? intl.formatMessage(
+                      {
+                        id: 'record.crossings.openTitle',
+                        defaultMessage:
+                          '{count} open — blocks Done until dispositioned',
+                      },
+                      { count: openCount }
+                    )
+                  : intl.formatMessage(
                       {
                         id: 'boundary.zone.openNonBlocking',
                         defaultMessage: '{count} open — non-blocking',
                       },
                       { count: openCount }
                     )
-                  : intl.formatMessage(
+                : blockingCount > 0
+                  ? intl.formatMessage(
                       {
-                        id: 'boundary.zone.allDispositioned',
+                        id: 'boundary.zone.blocksDone',
                         defaultMessage:
-                          'All {count} dispositioned — none blocking',
+                          '{count} open — blocks Done until dispositioned',
                       },
-                      { count: visible.length }
-                    )}
+                      { count: blockingCount }
+                    )
+                  : openCount > 0
+                    ? intl.formatMessage(
+                        {
+                          id: 'boundary.zone.openNonBlocking',
+                          defaultMessage: '{count} open — non-blocking',
+                        },
+                        { count: openCount }
+                      )
+                    : intl.formatMessage(
+                        {
+                          id: 'boundary.zone.allDispositioned',
+                          defaultMessage:
+                            'All {count} dispositioned — none blocking',
+                        },
+                        { count: visible.length }
+                      )}
+            </span>
+          )}
+          <span className='ml-auto text-caption text-muted-foreground'>
+            {subset === 'dispositioned'
+              ? visible.length
+              : `${visible.length - openCount}/${visible.length}`}
           </span>
-        )}
-        <span className='ml-auto text-caption text-muted-foreground'>
-          {subset === 'dispositioned'
-            ? visible.length
-            : `${visible.length - openCount}/${visible.length}`}
-        </span>
-      </button>
+        </button>
 
-      {expanded && (
-        <div className='border-t border-border px-4 py-3'>
-          {blockingCount > 0 && (
-            <p className='mb-3 flex items-start gap-1.5 text-xs text-muted-foreground'>
-              <Lock className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+        {expanded && (
+          <div className='border-t border-border px-4 py-3'>
+            {blockingCount > 0 && (
+              <p className='mb-3 flex items-start gap-1.5 text-xs text-muted-foreground'>
+                <Lock className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+                <span>
+                  {intl.formatMessage({
+                    id: 'boundary.panel.blockedNote',
+                    defaultMessage:
+                      "This task can't move to Done until each open crossing is dispositioned by a human — as a false positive, or confirmed.",
+                  })}
+                </span>
+              </p>
+            )}
+
+            {/* LUM-496: crossings are grouped by category so a long queue reads
+          as a handful of decisions. Only the wrapper groups — every per-crossing
+          affordance below is unchanged. */}
+            <div className='space-y-2'>
+              {groups.map(g => (
+                <div
+                  key={g.category}
+                  className='overflow-hidden rounded-md border border-border'
+                >
+                  <button
+                    type='button'
+                    data-testid={`crossing-group-${g.category}`}
+                    aria-expanded={isGroupOpen(g)}
+                    onClick={() => toggleGroup(g)}
+                    className='flex w-full flex-wrap items-center gap-2 bg-muted/20 px-3 py-2 text-left'
+                  >
+                    <ChevronRight
+                      className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                        isGroupOpen(g) ? 'rotate-90' : ''
+                      }`}
+                      aria-hidden
+                    />
+                    <span className='text-[13px] font-medium text-foreground'>
+                      {boundaryCategoryLabel(g.category, intl)}
+                    </span>
+                    <Badge
+                      tone={
+                        g.severity === 'HIGH'
+                          ? 'danger'
+                          : g.severity === 'LOW'
+                            ? 'muted'
+                            : 'warning'
+                      }
+                    >
+                      {intl.formatMessage(
+                        {
+                          id: 'boundary.panel.severityBadge',
+                          defaultMessage: '{severity} severity',
+                        },
+                        { severity: boundarySeverityLabel(g.severity, intl) }
+                      )}
+                    </Badge>
+                    {/* LUM-590: a group whose every crossing is advisory never
+                  blocks Done — said in words, not in a new colour. */}
+                    {g.advisory && (
+                      <span className='text-caption text-muted-foreground'>
+                        {' · '}
+                        {intl.formatMessage({
+                          id: 'record.crossings.advisory',
+                          defaultMessage: 'advisory',
+                        })}
+                      </span>
+                    )}
+                    <span className='ml-auto text-caption text-muted-foreground'>
+                      {intl.formatMessage(
+                        {
+                          id: 'record.crossings.groupCount',
+                          defaultMessage: '{open} open / {total}',
+                        },
+                        { open: g.open, total: g.total }
+                      )}
+                    </span>
+                  </button>
+
+                  {isGroupOpen(g) && (
+                    <div className='space-y-2 border-t border-border px-3 py-2'>
+                      {g.crossings.map(c => (
+                        <CrossingRow
+                          key={c.id}
+                          crossing={c}
+                          intl={intl}
+                          taskIdentifier={taskIdentifier}
+                          workspaceUrl={workspaceUrl}
+                          pending={pending === c.id}
+                          note={notes[c.id] ?? ''}
+                          reviewerName={reviewerName(c.dispositionedById)}
+                          ownerName={ownerName(
+                            c.attribution?.workspaceMemberId ?? null
+                          )}
+                          changeReviewerName={reviewerName(
+                            c.lastDispositionChange?.actorId ?? null
+                          )}
+                          onNote={v =>
+                            setNotes(prev => ({ ...prev, [c.id]: v }))
+                          }
+                          onDisposition={verdict => disposition(c.id, verdict)}
+                          onSpawnRemediation={() => spawnRemediation(c.id)}
+                          onExplainDone={afterChange}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <p className='mt-3 flex items-center gap-1 text-[11px] text-muted-foreground/80'>
+              <UserCheck className='size-3.5 shrink-0' aria-hidden />
+              {intl.formatMessage({
+                id: 'boundary.panel.humanOnly',
+                defaultMessage:
+                  'Only a signed-in human can disposition a crossing — the agent/CLI path is closed by design.',
+              })}
+            </p>
+
+            <p className='mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground/80'>
+              <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden />
               <span>
                 {intl.formatMessage({
-                  id: 'boundary.panel.blockedNote',
+                  id: 'boundary.panel.defenseInDepth',
                   defaultMessage:
-                    "This task can't move to Done until each open crossing is dispositioned by a human — as a false positive, or confirmed.",
+                    'Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee.',
                 })}
               </span>
             </p>
-          )}
-
-          {/* LUM-496: crossings are grouped by category so a long queue reads
-          as a handful of decisions. Only the wrapper groups — every per-crossing
-          affordance below is unchanged. */}
-          <div className='space-y-2'>
-            {groups.map(g => (
-              <div
-                key={g.category}
-                className='overflow-hidden rounded-md border border-border'
-              >
-                <button
-                  type='button'
-                  data-testid={`crossing-group-${g.category}`}
-                  aria-expanded={isGroupOpen(g)}
-                  onClick={() => toggleGroup(g)}
-                  className='flex w-full flex-wrap items-center gap-2 bg-muted/20 px-3 py-2 text-left'
-                >
-                  <ChevronRight
-                    className={`size-4 shrink-0 text-muted-foreground transition-transform ${
-                      isGroupOpen(g) ? 'rotate-90' : ''
-                    }`}
-                    aria-hidden
-                  />
-                  <span className='text-[13px] font-medium text-foreground'>
-                    {boundaryCategoryLabel(g.category, intl)}
-                  </span>
-                  <Badge
-                    tone={
-                      g.severity === 'HIGH'
-                        ? 'danger'
-                        : g.severity === 'LOW'
-                          ? 'muted'
-                          : 'warning'
-                    }
-                  >
-                    {intl.formatMessage(
-                      {
-                        id: 'boundary.panel.severityBadge',
-                        defaultMessage: '{severity} severity',
-                      },
-                      { severity: boundarySeverityLabel(g.severity, intl) }
-                    )}
-                  </Badge>
-                  {/* LUM-590: a group whose every crossing is advisory never
-                  blocks Done — said in words, not in a new colour. */}
-                  {g.advisory && (
-                    <span className='text-caption text-muted-foreground'>
-                      {' · '}
-                      {intl.formatMessage({
-                        id: 'record.crossings.advisory',
-                        defaultMessage: 'advisory',
-                      })}
-                    </span>
-                  )}
-                  <span className='ml-auto text-caption text-muted-foreground'>
-                    {intl.formatMessage(
-                      {
-                        id: 'record.crossings.groupCount',
-                        defaultMessage: '{open} open / {total}',
-                      },
-                      { open: g.open, total: g.total }
-                    )}
-                  </span>
-                </button>
-
-                {isGroupOpen(g) && (
-                  <div className='space-y-2 border-t border-border px-3 py-2'>
-                    {g.crossings.map(c => (
-                      <CrossingRow
-                        key={c.id}
-                        crossing={c}
-                        intl={intl}
-                        taskIdentifier={taskIdentifier}
-                        workspaceUrl={workspaceUrl}
-                        pending={pending === c.id}
-                        note={notes[c.id] ?? ''}
-                        reviewerName={reviewerName(c.dispositionedById)}
-                        ownerName={ownerName(
-                          c.attribution?.workspaceMemberId ?? null
-                        )}
-                        changeReviewerName={reviewerName(
-                          c.lastDispositionChange?.actorId ?? null
-                        )}
-                        onNote={v => setNotes(prev => ({ ...prev, [c.id]: v }))}
-                        onDisposition={verdict => disposition(c.id, verdict)}
-                        onSpawnRemediation={() => spawnRemediation(c.id)}
-                        onExplainDone={afterChange}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
           </div>
-
-          <p className='mt-3 flex items-center gap-1 text-[11px] text-muted-foreground/80'>
-            <UserCheck className='size-3.5 shrink-0' aria-hidden />
-            {intl.formatMessage({
-              id: 'boundary.panel.humanOnly',
-              defaultMessage:
-                'Only a signed-in human can disposition a crossing — the agent/CLI path is closed by design.',
-            })}
-          </p>
-
-          <p className='mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground/80'>
-            <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden />
-            <span>
-              {intl.formatMessage({
-                id: 'boundary.panel.defenseInDepth',
-                defaultMessage:
-                  'Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee.',
-              })}
-            </span>
-          </p>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   )
 }
 

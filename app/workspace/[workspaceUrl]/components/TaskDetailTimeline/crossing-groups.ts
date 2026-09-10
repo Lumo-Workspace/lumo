@@ -27,19 +27,33 @@ const SEVERITY_RANK: Record<BoundarySeverity, number> = {
   LOW: 1,
 }
 
-/** A group is "blocking" when it still holds an open, non-advisory crossing. */
-function isBlocking(group: CrossingGroup): boolean {
-  return group.crossings.some(c => c.disposition == null && !c.advisory)
+/**
+ * A group is "blocking" when it still holds an open crossing that actually
+ * blocks Done — the same rule the panel applies (LUM-635): advisory never
+ * blocks; with the workspace gate opted out only HIGH still blocks (LUM-442).
+ */
+function isBlocking(group: CrossingGroup, gateEnabled: boolean): boolean {
+  return group.crossings.some(
+    c =>
+      c.disposition == null &&
+      !c.advisory &&
+      (gateEnabled || c.severity === 'HIGH')
+  )
 }
 
 /**
  * Groups crossings by category. Order: blocking groups first, then severity
  * (HIGH > MEDIUM > LOW), then open count descending, then category name — so
  * the row a reviewer must act on first is always the top row.
+ *
+ * `gateEnabled` mirrors the panel's workspace gate flag (default true, erring
+ * toward "open blocks" for callers/mocks that predate the field).
  */
 export function groupCrossings(
-  crossings: BoundaryCrossingView[]
+  crossings: BoundaryCrossingView[],
+  opts?: { gateEnabled?: boolean }
 ): CrossingGroup[] {
+  const gateEnabled = opts?.gateEnabled ?? true
   const byCategory = new Map<string, CrossingGroup>()
 
   for (const crossing of crossings) {
@@ -65,7 +79,8 @@ export function groupCrossings(
   }
 
   return [...byCategory.values()].sort((a, b) => {
-    const blocking = Number(isBlocking(b)) - Number(isBlocking(a))
+    const blocking =
+      Number(isBlocking(b, gateEnabled)) - Number(isBlocking(a, gateEnabled))
     if (blocking !== 0) return blocking
     const severity = SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]
     if (severity !== 0) return severity

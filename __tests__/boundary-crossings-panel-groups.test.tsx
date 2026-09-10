@@ -140,6 +140,29 @@ it('expands only the first group holding an open blocking crossing', () => {
   expect(screen.queryByTestId('crossing-toggle-bc-done')).toBeNull()
 })
 
+it('gateEnabled: false does not auto-expand an open MEDIUM group (LUM-442)', () => {
+  // With the gate opted out, an open non-advisory MEDIUM crossing no longer
+  // blocks Done — mirroring blockingCount, the default-expansion pick must
+  // skip it too, leaving every group folded (no HIGH crossing to pick instead).
+  setCrossings(
+    [
+      makeCrossing({
+        id: 'bc-medium',
+        category: 'MEDIUM_ONE',
+        severity: 'MEDIUM',
+      }),
+    ],
+    false
+  )
+  render(<BoundaryCrossingsPanel taskIdentifier='LUM-496' enabled />)
+
+  expect(screen.getByTestId('crossing-group-MEDIUM_ONE')).toHaveAttribute(
+    'aria-expanded',
+    'false'
+  )
+  expect(screen.queryByTestId('crossing-toggle-bc-medium')).toBeNull()
+})
+
 it('manual group toggles stick in both directions', () => {
   setCrossings(mixed)
   render(<BoundaryCrossingsPanel taskIdentifier='LUM-496' enabled />)
@@ -169,6 +192,23 @@ it("subset='open' renders only undispositioned crossings under the open title", 
   expect(
     screen.getByTestId('crossing-group-PROJECT_RULE_VIOLATION')
   ).toHaveTextContent('2 open / 2')
+})
+
+it("subset='open' uses the non-blocking title when no open crossing actually blocks", () => {
+  // All-advisory open subset: nothing here blocks Done, so the header must not
+  // claim it does (the review flagged this as a false "blocks Done" claim).
+  setCrossings([
+    makeCrossing({ id: 'bc-advisory-1', advisory: true }),
+    makeCrossing({ id: 'bc-advisory-2', advisory: true }),
+  ])
+  render(
+    <BoundaryCrossingsPanel taskIdentifier='LUM-496' enabled subset='open' />
+  )
+
+  expect(screen.getByText('2 open — non-blocking')).toBeInTheDocument()
+  expect(
+    screen.queryByText(/This task can't move to Done until each open crossing/)
+  ).toBeNull()
 })
 
 it("subset='open' renders nothing when every crossing is dispositioned", () => {
@@ -240,4 +280,39 @@ it('anchorId overrides the default deep-link anchor', () => {
   )
   expect(document.getElementById('record-crossings')).toBeInTheDocument()
   expect(document.getElementById('boundary-crossings')).toBeNull()
+})
+
+// LUM-496 prep (Task 5): a legacy anchor id keeps an old deep link working
+// after the id it targets moves. Mirrors the hash-scroll stub used in
+// __tests__/components/TaskDetailTimeline/BoundaryCrossingsPanel.test.tsx.
+describe('BoundaryCrossingsPanel legacyAnchorId', () => {
+  const scrollIntoView = jest.fn()
+  const original = Element.prototype.scrollIntoView
+  beforeEach(() => {
+    scrollIntoView.mockClear()
+    Element.prototype.scrollIntoView = scrollIntoView
+  })
+  afterEach(() => {
+    Element.prototype.scrollIntoView = original
+    window.location.hash = ''
+  })
+
+  it('renders the legacy anchor and scrolls into view when the hash names it', () => {
+    window.location.hash = '#boundary-crossings'
+    setCrossings(mixed)
+    render(
+      <BoundaryCrossingsPanel
+        taskIdentifier='LUM-496'
+        enabled
+        anchorId='record-crossings'
+        legacyAnchorId='boundary-crossings'
+      />
+    )
+    expect(document.getElementById('boundary-crossings')).toBeInTheDocument()
+    expect(document.getElementById('record-crossings')).toBeInTheDocument()
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(scrollIntoView.mock.instances[0]).toBe(
+      document.getElementById('record-crossings')
+    )
+  })
 })
