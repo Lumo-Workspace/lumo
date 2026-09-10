@@ -2321,5 +2321,8 @@
   "record.machine.source.human": "사람이 편집",
   "record.machine.source.review": "리뷰에서 추가",
   "record.machine.viewOutput": "출력 보기",
-  "record.human.emptyTitle": "사람 인수 기준"
+  "record.human.emptyTitle": "사람 인수 기준",
+  "securityScan.stage.supplyChain": "의존성",
+  "securityScan.finding.persisting": "기본 브랜치에 이미 존재",
+  "securityScan.finding.dependency": "취약한 의존성"
 }

@@ -798,3 +798,180 @@ test('markAgentNotified stamps only un-notified rows (idempotent) and skips the 
   expect(await prSecurityScanRepository.markAgentNotified([], now)).toBe(0)
   expect(mockScan.updateMany).not.toHaveBeenCalled()
 })
+
+// ── LUM-738: supply-chain stage ownership + persisting rows ─────────────────
+
+describe('LUM-738 supplyChain surface — repository', () => {
+  const depRow = (over: Partial<NewFindingInput> = {}): NewFindingInput => ({
+    scanId: 's1',
+    kind: 'DEPENDENCY',
+    ruleId: 'ext:osv-scanner:GHSA-1',
+    severity: 'HIGH',
+    provenance: 'EXTERNAL_TOOL',
+    filePath: 'package-lock.json',
+    line: null,
+    title: 'GHSA-1',
+    detail: 'lodash@1 is vulnerable to GHSA-1',
+    evidence: '',
+    fingerprint: 'dep-1',
+    externalRef: 'https://osv.dev/vulnerability/GHSA-1',
+    disposition: null,
+    persisting: true,
+    ...over,
+  })
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockTransaction.mockImplementation(async (arg: unknown) =>
+      typeof arg === 'function'
+        ? (arg as TxCallback)(txClient)
+        : Promise.all(arg as Promise<unknown>[])
+    )
+  })
+
+  test('ingestExternalFindings stamps the requested stage RAN (supplyChain) and leaves external alone', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      status: 'RUNNING',
+      stages: { secrets: 'RAN', external: 'PENDING', supplyChain: 'PENDING' },
+      partial: false,
+    })
+    mockFinding.createMany.mockResolvedValueOnce({ count: 1 })
+    const rows = [depRow()]
+    await prSecurityScanRepository.ingestExternalFindings(
+      's1',
+      ['osv-scanner'],
+      rows,
+      { partial: false, stage: 'supplyChain' }
+    )
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          stages: {
+            secrets: 'RAN',
+            external: 'PENDING',
+            supplyChain: 'RAN',
+          },
+          partial: false,
+        },
+      })
+    )
+    expect(mockFinding.deleteMany).toHaveBeenCalledWith({
+      where: {
+        scanId: 's1',
+        provenance: 'EXTERNAL_TOOL',
+        OR: [{ ruleId: { startsWith: 'ext:osv-scanner:' } }],
+      },
+    })
+    // The persisting flag rides along into the row as-is.
+    expect(mockFinding.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ persisting: true })],
+    })
+  })
+
+  test('ingestExternalFindings defaults to the external stage', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      status: 'RUNNING',
+      stages: { secrets: 'RAN' },
+      partial: false,
+    })
+    mockFinding.createMany.mockResolvedValueOnce({ count: 0 })
+    await prSecurityScanRepository.ingestExternalFindings(
+      's1',
+      ['semgrep'],
+      [],
+      {
+        partial: false,
+      }
+    )
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { stages: { secrets: 'RAN', external: 'RAN' }, partial: false },
+      })
+    )
+  })
+
+  test.each(['RAN', 'FAILED', 'SKIPPED'] as const)(
+    'persistResult and finalize preserve an ingest-owned supplyChain=%s over stage A’s PENDING',
+    async owned => {
+      mockScan.findUnique.mockResolvedValue({
+        stages: { external: 'RAN', supplyChain: owned },
+        partial: false,
+      })
+      await prSecurityScanRepository.persistResult('s1', [], {
+        status: 'CLEAN',
+        judgeStatus: 'RAN',
+        truncated: false,
+        partial: false,
+        stages: {
+          secrets: 'RAN',
+          external: 'PENDING',
+          supplyChain: 'PENDING',
+          judge: 'RAN',
+        },
+      })
+      expect(mockScan.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            stages: {
+              secrets: 'RAN',
+              external: 'RAN',
+              supplyChain: owned,
+              judge: 'RAN',
+            },
+          }),
+        })
+      )
+      mockScan.update.mockClear()
+      await prSecurityScanRepository.finalize('s1', {
+        status: 'FAILED',
+        judgeStatus: null,
+        truncated: false,
+        stages: { secrets: 'RAN', supplyChain: 'PENDING' },
+        partial: false,
+        error: 'boom',
+      })
+      expect(mockScan.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            stages: { secrets: 'RAN', external: 'RAN', supplyChain: owned },
+          }),
+        })
+      )
+    }
+  )
+
+  test('a PENDING supplyChain the ingest never resolved is NOT owned — stage A’s value wins', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { supplyChain: 'PENDING' },
+      partial: false,
+    })
+    await prSecurityScanRepository.persistResult('s1', [], {
+      status: 'CLEAN',
+      judgeStatus: 'RAN',
+      truncated: false,
+      partial: false,
+      stages: { secrets: 'RAN', supplyChain: 'NOT_CONFIGURED' },
+    })
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          stages: { secrets: 'RAN', supplyChain: 'NOT_CONFIGURED' },
+        }),
+      })
+    )
+  })
+
+  test('findByIdForReview loads persisting so the PR write-back can tell new from already-on-main', async () => {
+    mockScan.findUnique.mockResolvedValueOnce(null)
+    await prSecurityScanRepository.findByIdForReview('s1')
+    expect(mockScan.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          findings: expect.objectContaining({
+            select: expect.objectContaining({ persisting: true }),
+          }),
+        }),
+      })
+    )
+  })
+})

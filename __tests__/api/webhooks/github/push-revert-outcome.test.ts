@@ -31,9 +31,16 @@ jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
 }))
 jest.mock('@/lib/services/github.service')
 jest.mock('@/lib/repositories/pull-request.repository')
+// LUM-738 — the baseline service reaches github/contents → auth (octokit ESM).
+jest.mock('@/lib/services/security-baseline.service', () => ({
+  securityBaselineService: {
+    requestFromPush: jest.fn().mockResolvedValue('requested'),
+  },
+}))
 
 import { handlePush } from '@/app/api/webhooks/github/handlers'
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
+import { securityBaselineService } from '@/lib/services/security-baseline.service'
 
 const DELIVERY = '7930b19b84ca2e1e409f056a51255627103d12e2'
 const REVERT = 'aee920c669b44aa3875327574304067e353bf219'
@@ -82,5 +89,79 @@ describe('handlePush — webhook revert outcome wiring (LUM-607)', () => {
       'w1'
     )
     expect(gitOutcomeRecorder.recordRevertsFromPush).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-738 baseline lifecycle — default-branch push', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('requests a fresh security baseline for the new default-branch head (detached, before the task lookup)', async () => {
+    await handlePush(
+      {
+        ref: 'refs/heads/main',
+        deleted: false,
+        head_commit: { id: REVERT, message: 'feat: x', author: { name: 'x' } },
+        commits: [{ id: REVERT, message: 'feat: x' }],
+        repository: { full_name: 'foo/bar', default_branch: 'main' },
+      },
+      'w1'
+    )
+    expect(securityBaselineService.requestFromPush).toHaveBeenCalledWith({
+      workspaceId: 'w1',
+      repo: 'foo/bar',
+      sha: REVERT,
+    })
+  })
+
+  it('does not touch the baseline on a feature-branch push, a tag, or a deletion', async () => {
+    await handlePush(
+      {
+        ref: 'refs/heads/lumo/LUM-1-x',
+        deleted: false,
+        head_commit: { id: REVERT, message: 'feat: x', author: { name: 'x' } },
+        repository: { full_name: 'foo/bar', default_branch: 'main' },
+      },
+      'w1'
+    )
+    await handlePush(
+      {
+        ref: 'refs/tags/v1',
+        deleted: false,
+        head_commit: { id: REVERT, message: 'feat: x', author: { name: 'x' } },
+        repository: { full_name: 'foo/bar', default_branch: 'main' },
+      },
+      'w1'
+    )
+    await handlePush(
+      {
+        ref: 'refs/heads/main',
+        deleted: true,
+        head_commit: null,
+        repository: { full_name: 'foo/bar', default_branch: 'main' },
+      },
+      'w1'
+    )
+    expect(securityBaselineService.requestFromPush).not.toHaveBeenCalled()
+  })
+
+  it('a baseline failure never breaks webhook ingestion', async () => {
+    ;(
+      securityBaselineService.requestFromPush as jest.Mock
+    ).mockRejectedValueOnce(new Error('boom'))
+    await expect(
+      handlePush(
+        {
+          ref: 'refs/heads/main',
+          deleted: false,
+          head_commit: {
+            id: REVERT,
+            message: 'feat: x',
+            author: { name: 'x' },
+          },
+          repository: { full_name: 'foo/bar', default_branch: 'main' },
+        },
+        'w1'
+      )
+    ).resolves.toBeUndefined()
   })
 })

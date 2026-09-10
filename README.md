@@ -241,17 +241,28 @@ webhook.
 
 ## 🛡️ Security scan
 
-Lumo runs semgrep and gitleaks itself for every pull request of a repository
-the GitHub App is installed on — no workflow file, no secret, no GitHub
-Actions minutes, and no GitHub Advanced Security are required. The PR's head
-commit is shallow-cloned into a one-shot Vercel Sandbox microVM owned by Lumo
-(the same vendor that hosts the app), scanned, and the VM is destroyed; only
-findings on lines the PR added are kept, redacted, and nothing else from the
-repository is stored. Results show up in three places: the task's security
-panel, a review on the pull request itself (one summary comment plus inline
-comments on the affected lines, deduplicated across re-scans), and
-`lumo task status`, which prints one line per PR with each scan layer's state
-and any scanner failure reason.
+Lumo runs semgrep, gitleaks and osv-scanner itself for every pull request of
+a repository the GitHub App is installed on — no workflow file, no secret, no
+GitHub Actions minutes, and no GitHub Advanced Security are required. The
+PR's head commit is shallow-cloned into a one-shot Vercel Sandbox microVM
+owned by Lumo (the same vendor that hosts the app), scanned, and the VM is
+destroyed; only findings on lines the PR added are kept, redacted, and
+nothing else from the repository is stored. Results show up in three places:
+the task's security panel, a review on the pull request itself (one summary
+comment plus inline comments on the affected lines, deduplicated across
+re-scans), and `lumo task status`, which prints one line per PR with each
+scan layer's state and any scanner failure reason.
+
+**Dependencies.** osv-scanner reads the repository's lockfiles and manifests
+inside that same sandbox and queries the public [osv.dev](https://osv.dev)
+API for known advisories — package names and versions leave the sandbox for
+that lookup, nothing else. A vulnerable dependency has no "line the PR added",
+so Lumo keeps a per-repository baseline instead: the fingerprint set of the
+default branch's last scan, refreshed on every push to that branch (and built
+lazily the first time a PR is scanned). A dependency finding already in the
+baseline is shown muted as _already on the default branch_; only the ones a
+PR introduces count as open. Dependency findings are advisory and never block
+a task from reaching Done.
 
 **Bring your own scanner (optional).** Teams that want their own tools or
 rule sets can push SARIF to `POST /api/integrations/security/sarif/upload` +

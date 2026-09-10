@@ -220,6 +220,8 @@ describe('LUM-735 scans array', () => {
         externalFindings: 2,
         // only the undispositioned ones count as open.
         openFindings: 2,
+        dependencyFindings: 0,
+        persistingFindings: 0,
       },
       {
         prNumber: 13,
@@ -229,6 +231,8 @@ describe('LUM-735 scans array', () => {
         error: null,
         externalFindings: 0,
         openFindings: 0,
+        dependencyFindings: 0,
+        persistingFindings: 0,
       },
     ])
   })
@@ -256,6 +260,8 @@ describe('LUM-735 scans array', () => {
         error: 'external: rate limited',
         externalFindings: 0,
         openFindings: 0,
+        dependencyFindings: 0,
+        persistingFindings: 0,
       },
     ])
   })
@@ -348,5 +354,63 @@ describe('LUM-737 one-time security reminder', () => {
     ])
     expect(await prSecurityReminderService.buildAgentReminder('t-1')).toBeNull()
     expect(mark).toHaveBeenCalledWith(['s0', 's2'], expect.any(Date))
+  })
+})
+
+describe('LUM-738 supplyChain surface — reminder', () => {
+  it('skips persisting findings in the open list, counts dependency and persisting rows per PR, and keeps dependencies out of externalFindings', async () => {
+    prs.mockResolvedValue([pr({})])
+    latest.mockResolvedValue([
+      scan({
+        id: 's1',
+        stages: {
+          secrets: 'RAN',
+          external: 'RAN',
+          supplyChain: 'RAN',
+          judge: 'RAN',
+        },
+        partial: false,
+        findings: [
+          finding({
+            id: 'dep-new',
+            scanId: 's1',
+            kind: 'DEPENDENCY',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:osv-scanner:GHSA-1',
+            line: null,
+            persisting: false,
+          }),
+          finding({
+            id: 'dep-old',
+            scanId: 's1',
+            kind: 'DEPENDENCY',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:osv-scanner:GHSA-2',
+            line: null,
+            persisting: true,
+          }),
+          finding({
+            id: 'sg-old',
+            scanId: 's1',
+            kind: 'VULNERABILITY',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:semgrep:r',
+            persisting: true,
+          }),
+          finding({ id: 'det', scanId: 's1', persisting: false }),
+        ],
+      }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.findings.map(f => f.id)).toEqual(['det', 'dep-new'])
+    expect(state.scans).toEqual([
+      expect.objectContaining({
+        prNumber: 12,
+        externalFindings: 1,
+        openFindings: 2,
+        dependencyFindings: 2,
+        persistingFindings: 2,
+      }),
+    ])
   })
 })

@@ -2321,5 +2321,8 @@
   "record.machine.source.human": "人が編集",
   "record.machine.source.review": "レビューで追加",
   "record.machine.viewOutput": "出力を表示",
-  "record.human.emptyTitle": "人間による受け入れ基準"
+  "record.human.emptyTitle": "人間による受け入れ基準",
+  "securityScan.stage.supplyChain": "依存関係",
+  "securityScan.finding.persisting": "デフォルトブランチに既に存在",
+  "securityScan.finding.dependency": "脆弱な依存関係"
 }

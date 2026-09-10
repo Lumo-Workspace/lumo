@@ -6,9 +6,13 @@ import {
   sarifSeverity,
   sarifKind,
   toolSlug,
+  isSupplyChainTool,
+  parseDependencyMessage,
+  ecosystemOfLockfile,
   MAX_SARIF_FINDINGS,
 } from '@/lib/security-scan/sarif'
 import { addedLinesWithNumbers } from '@/lib/security-scan/diff-lines'
+import { dependencyFingerprint } from '@/lib/security-scan/redact'
 
 const KEY = 'AKIAABCDEFGHIJKLMNOP'
 
@@ -613,5 +617,226 @@ describe('normalizeSarif', () => {
     expect(build('https://sg.run/abc').findings[0]!.externalRef).toBe(
       'https://sg.run/abc'
     )
+  })
+})
+
+// ── LUM-738: osv-scanner → DEPENDENCY findings ──────────────────────────────
+
+/** The SARIF shape osv-scanner 2.x writes (internal/output/sarif.go). */
+function osvSarif(over: { results?: unknown[]; rules?: unknown[] } = {}) {
+  return {
+    version: '2.1.0',
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: 'osv-scanner',
+            rules: over.rules ?? [
+              {
+                id: 'GHSA-35jh-r3h4-6jhm',
+                name: 'GHSA-35jh-r3h4-6jhm',
+                shortDescription: {
+                  text: 'GHSA-35jh-r3h4-6jhm: Command injection in lodash',
+                },
+                properties: { 'security-severity': '7.2' },
+              },
+              {
+                id: 'MAL-2024-1234',
+                name: 'MAL-2024-1234',
+                shortDescription: { text: 'MAL-2024-1234: Malicious code' },
+              },
+              {
+                id: 'GHSA-low',
+                shortDescription: { text: 'GHSA-low: minor' },
+                properties: { 'security-severity': '3.1' },
+              },
+            ],
+          },
+        },
+        results: over.results ?? [
+          {
+            ruleId: 'GHSA-35jh-r3h4-6jhm',
+            level: 'warning',
+            message: {
+              text: "Package 'lodash@4.17.15' is vulnerable to 'GHSA-35jh-r3h4-6jhm' (also known as 'CVE-2021-23337').",
+            },
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: { uri: 'package-lock.json' },
+                },
+              },
+            ],
+            partialFingerprints: { primaryLocationLineHash: 'a'.repeat(64) },
+          },
+          {
+            ruleId: 'MAL-2024-1234',
+            level: 'warning',
+            message: {
+              text: "Package 'evil-pkg@1.0.0' is vulnerable to 'MAL-2024-1234'.",
+            },
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: { uri: 'package-lock.json' },
+                },
+              },
+            ],
+            partialFingerprints: { primaryLocationLineHash: 'b'.repeat(64) },
+          },
+          {
+            ruleId: 'GHSA-low',
+            level: 'warning',
+            message: { text: 'unparseable message' },
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: { uri: 'requirements.txt' },
+                },
+              },
+            ],
+            partialFingerprints: { primaryLocationLineHash: 'c'.repeat(64) },
+          },
+        ],
+      },
+    ],
+  }
+}
+
+describe('LUM-738 dependency fingerprint — osv-scanner normalization', () => {
+  it('recognises osv-scanner as a supply-chain tool and parses its message', () => {
+    expect(isSupplyChainTool('osv-scanner')).toBe(true)
+    expect(isSupplyChainTool('OSV-Scanner')).toBe(true)
+    expect(isSupplyChainTool('semgrep')).toBe(false)
+    expect(
+      parseDependencyMessage(
+        "Package 'lodash@4.17.15' is vulnerable to 'GHSA-35jh-r3h4-6jhm' (also known as 'CVE-2021-23337')."
+      )
+    ).toEqual({
+      name: 'lodash',
+      version: '4.17.15',
+      osvId: 'GHSA-35jh-r3h4-6jhm',
+    })
+    // Scoped npm packages keep their leading @; the version is after the LAST @.
+    expect(
+      parseDependencyMessage(
+        "Package '@babel/traverse@7.22.0' is vulnerable to 'GHSA-67hx-6x53-jw92'."
+      )
+    ).toEqual({
+      name: '@babel/traverse',
+      version: '7.22.0',
+      osvId: 'GHSA-67hx-6x53-jw92',
+    })
+    expect(parseDependencyMessage('unparseable message')).toBeNull()
+    expect(parseDependencyMessage(null)).toBeNull()
+  })
+
+  it('maps lockfile paths to OSV ecosystems and falls back to "unknown"', () => {
+    expect(ecosystemOfLockfile('package-lock.json')).toBe('npm')
+    expect(ecosystemOfLockfile('apps/web/pnpm-lock.yaml')).toBe('npm')
+    expect(ecosystemOfLockfile('yarn.lock')).toBe('npm')
+    expect(ecosystemOfLockfile('requirements.txt')).toBe('PyPI')
+    expect(ecosystemOfLockfile('requirements-dev.txt')).toBe('PyPI')
+    expect(ecosystemOfLockfile('poetry.lock')).toBe('PyPI')
+    expect(ecosystemOfLockfile('uv.lock')).toBe('PyPI')
+    expect(ecosystemOfLockfile('go.mod')).toBe('Go')
+    expect(ecosystemOfLockfile('Cargo.lock')).toBe('crates.io')
+    expect(ecosystemOfLockfile('Gemfile.lock')).toBe('RubyGems')
+    expect(ecosystemOfLockfile('composer.lock')).toBe('Packagist')
+    expect(ecosystemOfLockfile('pom.xml')).toBe('Maven')
+    expect(ecosystemOfLockfile('something.weird')).toBe('unknown')
+  })
+
+  it('fingerprints a dependency as sha256(ecosystem:name:version:osvId), stable across pushes and lockfile location', () => {
+    const out = normalizeSarif(parseSarif(osvSarif()), {
+      toolHint: 'osv-scanner',
+      changedLines: changed,
+    })
+    const lodash = out.findings.find(f =>
+      f.ruleId.endsWith('GHSA-35jh-r3h4-6jhm')
+    )!
+    expect(lodash.fingerprint).toBe(
+      dependencyFingerprint('npm', 'lodash', '4.17.15', 'GHSA-35jh-r3h4-6jhm')
+    )
+    expect(lodash.fingerprint).toMatch(/^[0-9a-f]{16}$/)
+    // Not the tool's own hash (which bakes in the lockfile path).
+    expect(lodash.fingerprint).not.toBe('a'.repeat(64))
+    // The same message on a later push / from the baseline yields the same key.
+    const again = normalizeSarif(parseSarif(osvSarif()), {
+      toolHint: 'osv-scanner',
+      changedLines: null,
+    })
+    expect(
+      again.findings.find(f => f.ruleId.endsWith('GHSA-35jh-r3h4-6jhm'))!
+        .fingerprint
+    ).toBe(lodash.fingerprint)
+  })
+
+  it('falls back to the tool fingerprint when the message cannot be parsed', () => {
+    const out = normalizeSarif(parseSarif(osvSarif()), {
+      toolHint: 'osv-scanner',
+      changedLines: changed,
+    })
+    const low = out.findings.find(f => f.ruleId.endsWith('GHSA-low'))!
+    expect(low.fingerprint).toBe('c'.repeat(64))
+  })
+
+  it('LUM-738 osv-scanner findings are DEPENDENCY, never diff-filtered, MAL-* is HIGH, CVSS maps severity, and link to osv.dev', () => {
+    // `changed` covers only src/db.ts — a diff-aware VULNERABILITY on
+    // package-lock.json would be dropped; a DEPENDENCY must survive.
+    const out = normalizeSarif(parseSarif(osvSarif()), {
+      toolHint: 'osv-scanner',
+      changedLines: changed,
+    })
+    expect(out.tool).toBe('osv-scanner')
+    expect(out.dropped.notInDiff).toBe(0)
+    expect(
+      out.findings.map(f => [f.kind, f.ruleId, f.severity, f.line])
+    ).toEqual([
+      ['DEPENDENCY', 'ext:osv-scanner:GHSA-35jh-r3h4-6jhm', 'HIGH', null],
+      ['DEPENDENCY', 'ext:osv-scanner:MAL-2024-1234', 'HIGH', null],
+      ['DEPENDENCY', 'ext:osv-scanner:GHSA-low', 'LOW', null],
+    ])
+    expect(out.findings[0]).toMatchObject({
+      filePath: 'package-lock.json',
+      title: 'GHSA-35jh-r3h4-6jhm: Command injection in lodash',
+      detail: expect.stringContaining('lodash@4.17.15'),
+      evidence: '',
+      externalRef: 'https://osv.dev/vulnerability/GHSA-35jh-r3h4-6jhm',
+    })
+    // A rule with no CVSS score and no MAL prefix falls back to the SARIF level.
+    expect(out.findings[2]!.externalRef).toBe(
+      'https://osv.dev/vulnerability/GHSA-low'
+    )
+  })
+
+  it('LUM-738 baseline mode (changedLines: null) keeps every located result of every tool', () => {
+    const out = normalizeSarif(parseSarif(sarif({})), {
+      toolHint: 'semgrep',
+      changedLines: null,
+    })
+    expect(out.findings).toHaveLength(1)
+    expect(out.dropped.notInDiff).toBe(0)
+    const outOfDiff = normalizeSarif(
+      parseSarif(
+        sarif({
+          results: [
+            {
+              ruleId: 'js.sqli',
+              locations: [
+                {
+                  physicalLocation: {
+                    artifactLocation: { uri: 'elsewhere.ts' },
+                    region: { startLine: 400 },
+                  },
+                },
+              ],
+            },
+          ],
+        })
+      ),
+      { toolHint: 'semgrep', changedLines: null }
+    )
+    expect(outOfDiff.findings.map(f => f.filePath)).toEqual(['elsewhere.ts'])
   })
 })

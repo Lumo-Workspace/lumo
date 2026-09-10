@@ -44,6 +44,7 @@ import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
 import { isHuntEnabled } from './security-hunt.config'
 import { startSecurityHunt } from './security-hunt-start'
+import { securityBaselineService } from './security-baseline.service'
 // No LLM/gateway import inside — safe to import statically from stage A.
 import { securityPrReviewService } from './security-pr-review.service'
 import { waitUntil } from '@vercel/functions'
@@ -90,6 +91,8 @@ export interface SecurityFindingView {
   dispositionNote: string | null
   inherited: boolean
   blocking: boolean
+  /** LUM-738: already on the default-branch baseline — not introduced by this PR (advisory, muted). */
+  persisting: boolean
 }
 
 export interface SecurityScanView {
@@ -205,6 +208,7 @@ function toFindingView(f: FindingRow): SecurityFindingView {
     dispositionNote: f.dispositionNote,
     inherited: f.inheritedFromFindingId !== null,
     blocking: isBlockingFinding(f),
+    persisting: f.persisting,
   }
 }
 
@@ -421,7 +425,20 @@ export const prSecurityScanService = {
             headSha,
           })
           stages.external = runId ? 'PENDING' : 'FAILED'
+          // LUM-738: osv-scanner rides the same run — its layer is pending
+          // (or, if nothing could be queued, failed) with the external one.
+          stages.supplyChain = runId ? 'PENDING' : 'FAILED'
           managedRunStarted = Boolean(runId)
+          // LUM-738: the run's DEPENDENCY rows are judged new-vs-persisting
+          // against the repository baseline; a repo scanned for the first
+          // time has none, so request one now (never throws; the PR scan
+          // must not fail over the baseline).
+          if (runId) {
+            await securityBaselineService.ensure({
+              workspaceId: pr.workspaceId,
+              repo: pr.repo,
+            })
+          }
         } else {
           const last = await projectRepository.findLastSarifIngestAt(
             pr.workspaceId,
@@ -517,7 +534,9 @@ export const prSecurityScanService = {
         hasOpenL4Crossing: await hasOpenL4Crossing(pr.taskId),
       })
       const huntWanted = isHuntEnabled() && files.length > 0 && huntTrigger.hunt
-      stages.hunt = huntWanted ? 'PENDING' : 'SKIPPED'
+      // Off (LUMO_SECURITY_HUNT=off) = no hunt layer at all, not a SKIPPED one:
+      // the key is stamped only when the layer exists for this deployment.
+      if (isHuntEnabled()) stages.hunt = huntWanted ? 'PENDING' : 'SKIPPED'
 
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)

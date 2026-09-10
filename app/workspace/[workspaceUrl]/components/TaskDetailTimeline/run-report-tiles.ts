@@ -12,7 +12,7 @@ export interface RunReportTiles {
    *  (chronological order, not sorted by number). `null` when there are none
    *  yet (older server with no `struggleTrail`, or a task with no PRs). */
   prIterations: { count: number; first: number; last: number } | null
-  /** Round 1's pass rate (0–100, whole number), from the `verificationHistory`
+  /** Round 1's pass rate (0–100, integer), from the `verificationHistory`
    *  round with the smallest `round` number: `passed / (passed + failed) *
    *  100`. `null` when there is no round yet, or round 1 has no verdicts
    *  (`passed + failed === 0`) — never fabricated as 0%. */

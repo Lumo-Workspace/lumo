@@ -2321,5 +2321,8 @@
   "record.machine.source.human": "Disunting oleh manusia",
   "record.machine.source.review": "Ditambah semasa semakan",
   "record.machine.viewOutput": "Lihat output",
-  "record.human.emptyTitle": "Kriteria penerimaan manusia"
+  "record.human.emptyTitle": "Kriteria penerimaan manusia",
+  "securityScan.stage.supplyChain": "Kebergantungan",
+  "securityScan.finding.persisting": "sudah ada pada cabang lalai",
+  "securityScan.finding.dependency": "Kebergantungan terdedah"
 }

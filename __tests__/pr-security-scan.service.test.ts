@@ -53,6 +53,10 @@ jest.mock('@/lib/services/security-hunt-start', () => ({
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },
 }))
+// LUM-738 — the lazy baseline request made when stage A queues the managed run.
+jest.mock('@/lib/services/security-baseline.service', () => ({
+  securityBaselineService: { ensure: jest.fn().mockResolvedValue('present') },
+}))
 // LUM-735 Task 2 — the PR write-back is fired best-effort from run().
 jest.mock('@/lib/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
@@ -69,6 +73,7 @@ import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.re
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
+import { securityBaselineService } from '@/lib/services/security-baseline.service'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
 import { waitUntil } from '@vercel/functions'
 import * as gh from '@/lib/integrations/github/contents'
@@ -583,7 +588,6 @@ describe('LUM-735 SARIF push — stage A side', () => {
           secrets: 'RAN',
           external: 'NOT_CONFIGURED',
           judge: 'RAN',
-          hunt: 'SKIPPED',
         },
       })
     )
@@ -629,6 +633,66 @@ describe('LUM-735 SARIF push — stage A side', () => {
         stages: expect.objectContaining({ external: 'PENDING' }),
       })
     )
+  })
+
+  test('LUM-738 supplyChain surface — queuing the managed run stamps supplyChain PENDING beside external and requests the baseline lazily', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        stages: expect.objectContaining({
+          external: 'PENDING',
+          supplyChain: 'PENDING',
+        }),
+      })
+    )
+    expect(securityBaselineService.ensure).toHaveBeenCalledWith({
+      workspaceId: 'w1',
+      repo: 'o/r',
+    })
+  })
+
+  test('LUM-738 baseline — a run that could not be queued fails both layers and requests no baseline', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    startManaged.mockResolvedValue(null)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        stages: expect.objectContaining({
+          external: 'FAILED',
+          supplyChain: 'FAILED',
+        }),
+      })
+    )
+    expect(securityBaselineService.ensure).not.toHaveBeenCalled()
+  })
+
+  test('LUM-738 supplyChain surface — rows already landed / managed scan off: no supplyChain key is claimed', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(2)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    const stages = (
+      repo.persistResult.mock.calls[0]![2] as {
+        stages: Record<string, unknown>
+      }
+    ).stages
+    expect(stages).not.toHaveProperty('supplyChain')
+    expect(securityBaselineService.ensure).not.toHaveBeenCalled()
   })
 
   test('managed scan on, external rows already there → RAN and no new scan', async () => {
@@ -735,7 +799,6 @@ describe('LUM-735 SARIF push — stage A side', () => {
           secrets: 'RAN',
           external: 'NOT_CONFIGURED',
           judge: 'SKIPPED',
-          hunt: 'SKIPPED',
         },
       })
     )

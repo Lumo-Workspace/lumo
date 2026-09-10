@@ -16,7 +16,7 @@ import type {
   SecuritySeverity,
 } from './types'
 import { redactKnownSecrets } from './scan-secrets'
-import { sarifFingerprint } from './redact'
+import { dependencyFingerprint, sarifFingerprint } from './redact'
 
 /** Hard cap per push; beyond it the ingest is honest (`partial`), never CLEAN. */
 export const MAX_SARIF_FINDINGS = 500
@@ -173,6 +173,87 @@ export function sarifKind(
   return 'VULNERABILITY'
 }
 
+// ── LUM-738: supply chain (osv-scanner) ─────────────────────────────────────
+
+const SUPPLY_CHAIN_TOOL_RE = /osv-scanner/i
+
+/** osv-scanner reports vulnerable dependencies: DEPENDENCY rows, no line-level diff. */
+export function isSupplyChainTool(toolName: string): boolean {
+  return SUPPLY_CHAIN_TOOL_RE.test(toolName)
+}
+
+/**
+ * osv-scanner's result message (internal/output/sarif.go):
+ * `Package '<name>@<version>' is vulnerable to '<id>'[ (also known as …)].`
+ * The package string is `results.PkgToString`: `name@version`, or
+ * `name@<short commit>` for commit-pinned sources. The version is whatever
+ * follows the LAST `@` so scoped npm names (`@babel/traverse`) survive.
+ */
+const DEPENDENCY_MESSAGE_RE = /^Package '([^']+)' is vulnerable to '([^']+)'/
+
+export function parseDependencyMessage(
+  text: string | null
+): { name: string; version: string; osvId: string } | null {
+  if (!text) return null
+  const m = DEPENDENCY_MESSAGE_RE.exec(text)
+  const pkg = m?.[1]
+  const osvId = m?.[2]
+  if (!pkg || !osvId) return null
+  const at = pkg.lastIndexOf('@')
+  if (at <= 0) return null
+  const name = pkg.slice(0, at)
+  const version = pkg.slice(at + 1)
+  if (!name || !version) return null
+  return { name, version, osvId }
+}
+
+/**
+ * OSV ecosystem of a lockfile / manifest by basename — the part of the
+ * dependency identity osv-scanner's SARIF does not carry. Only the sources
+ * osv-scanner itself extracts; anything else is `unknown` (still a stable
+ * key, just a coarser one).
+ */
+const ECOSYSTEM_BY_BASENAME: ReadonlyArray<[RegExp, string]> = [
+  [
+    /^(package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lock|package\.json)$/,
+    'npm',
+  ],
+  [
+    /^(requirements[^/]*\.txt|poetry\.lock|pdm\.lock|uv\.lock|pipfile\.lock|pyproject\.toml)$/i,
+    'PyPI',
+  ],
+  [/^(go\.mod|go\.sum)$/, 'Go'],
+  [/^cargo\.lock$/i, 'crates.io'],
+  [/^gemfile\.lock$/i, 'RubyGems'],
+  [/^composer\.lock$/, 'Packagist'],
+  [
+    /^(pom\.xml|gradle\.lockfile|buildscript-gradle\.lockfile|verification-metadata\.xml)$/,
+    'Maven',
+  ],
+  [/^(packages\.lock\.json|packages\.config|deps\.json|.*\.csproj)$/, 'NuGet'],
+  [/^(pubspec\.lock)$/, 'Pub'],
+  [/^(mix\.lock)$/, 'Hex'],
+  [/^(conan\.lock)$/, 'ConanCenter'],
+  [/^(renv\.lock)$/, 'CRAN'],
+  [/^(podfile\.lock)$/i, 'CocoaPods'],
+  [/^(package\.resolved)$/i, 'SwiftURL'],
+]
+
+export function ecosystemOfLockfile(path: string): string {
+  const base = path.slice(path.lastIndexOf('/') + 1)
+  for (const [re, eco] of ECOSYSTEM_BY_BASENAME) {
+    if (re.test(base)) return eco
+  }
+  return 'unknown'
+}
+
+/** osv-scanner writes no `helpUri`; every OSV id has a page at osv.dev. */
+function osvAdvisoryUrl(osvId: string): string | null {
+  return /^[A-Za-z0-9][A-Za-z0-9.\-]{1,120}$/.test(osvId)
+    ? `https://osv.dev/vulnerability/${osvId}`
+    : null
+}
+
 /** A tool-supplied hash is trusted only when it matches the safe shape; else null. */
 function trustedFingerprint(hash: string | null): string | null {
   return hash && TOOL_FINGERPRINT_RE.test(hash) ? hash : null
@@ -198,6 +279,18 @@ export function changedLinesOf(files: AddedFile[]): Map<string, Set<number>> {
   return out
 }
 
+export interface NormalizeOptions {
+  toolHint: string
+  /**
+   * The PR's added lines per file (diff-aware filter, spec P4). `null` = no
+   * filter at all — the default-branch baseline scan (LUM-738), where every
+   * located result of every tool is kept so its fingerprint can be matched.
+   */
+  changedLines: Map<string, Set<number>> | null
+  /** Per-document finding cap; defaults to `MAX_SARIF_FINDINGS`. */
+  maxFindings?: number
+}
+
 export interface NormalizeResult {
   tool: string
   /**
@@ -221,7 +314,7 @@ export interface NormalizeResult {
  */
 export function normalizeSarif(
   runs: SarifRun[],
-  opts: { toolHint: string; changedLines: Map<string, Set<number>> }
+  opts: NormalizeOptions
 ): NormalizeResult {
   const first = runs[0]
   const toolName = first?.toolName || opts.toolHint
@@ -232,26 +325,43 @@ export function normalizeSarif(
   const dropped = { notInDiff: 0, noLocation: 0, duplicate: 0 }
   const seen = new Set<string>()
   const findings: RawSarifFinding[] = []
+  const maxFindings = opts.maxFindings ?? MAX_SARIF_FINDINGS
   let truncated = false
 
   for (const run of runs) {
     const runTool = run.toolName || opts.toolHint
     const runSlug = toolSlug(runTool)
+    // LUM-738: a vulnerable dependency has no line-level diff — osv-scanner
+    // reports every vulnerable package at head, historical debt included.
+    // "New vs already there" is decided later against the repository
+    // baseline (`persisting`), not against the PR diff.
+    const supplyChain = isSupplyChainTool(runTool)
     for (const r of run.results) {
       if (!r.path) {
         dropped.noLocation += 1
         continue
       }
-      const lines = opts.changedLines.get(r.path)
-      if (!lines || (r.startLine !== null && !lines.has(r.startLine))) {
-        dropped.notInDiff += 1
-        continue
+      if (opts.changedLines !== null && !supplyChain) {
+        const lines = opts.changedLines.get(r.path)
+        if (!lines || (r.startLine !== null && !lines.has(r.startLine))) {
+          dropped.notInDiff += 1
+          continue
+        }
       }
       const rule = run.rules.get(r.ruleId)
       const ruleId = `ext:${runSlug}:${r.ruleId}`
-      const fingerprint =
-        trustedFingerprint(r.primaryLocationLineHash) ??
-        sarifFingerprint(ruleId, r.path, r.snippet ?? '')
+      const dependency = supplyChain
+        ? parseDependencyMessage(r.messageText)
+        : null
+      const fingerprint = dependency
+        ? dependencyFingerprint(
+            ecosystemOfLockfile(r.path),
+            dependency.name,
+            dependency.version,
+            dependency.osvId
+          )
+        : (trustedFingerprint(r.primaryLocationLineHash) ??
+          sarifFingerprint(ruleId, r.path, r.snippet ?? ''))
       // Keyed on rule+fingerprint, not fingerprint alone: a tool-supplied
       // hash covers only the location (e.g. the line), so two different
       // rules firing on the same line must not collide into one dedupe.
@@ -261,23 +371,36 @@ export function normalizeSarif(
         continue
       }
       seen.add(dedupeKey)
-      if (findings.length >= MAX_SARIF_FINDINGS) {
+      if (findings.length >= maxFindings) {
         truncated = true
         continue
       }
       findings.push({
-        kind: sarifKind(runTool, rule),
+        kind: supplyChain ? 'DEPENDENCY' : sarifKind(runTool, rule),
         ruleId,
-        severity: sarifSeverity(rule, r),
+        // OSV `MAL-*` = a known-malicious package: HIGH regardless of score.
+        severity:
+          supplyChain && /^MAL-/i.test(r.ruleId)
+            ? 'HIGH'
+            : sarifSeverity(rule, r),
         filePath: redactKnownSecrets(r.path),
-        line: r.startLine,
+        // Dependencies carry no region; a stray line from a tool must not
+        // turn into an inline PR comment on a lockfile.
+        line: supplyChain ? null : r.startLine,
         title: redactKnownSecrets(rule?.shortDescription?.trim() || r.ruleId),
+        // osv-scanner quotes the package and advisory ids; the quoted-value
+        // masker (built for secrets) would blank exactly the words a reader
+        // needs, so the quotes are dropped first. The pattern pass still runs.
         detail: redactKnownSecrets(
-          r.messageText?.trim() || `Reported by ${runTool}.`
+          (supplyChain
+            ? r.messageText?.replace(/'/g, '').trim()
+            : r.messageText?.trim()) || `Reported by ${runTool}.`
         ).slice(0, MAX_DETAIL_CHARS),
         evidence: '',
         fingerprint,
-        externalRef: safeExternalRef(rule?.helpUri),
+        externalRef:
+          safeExternalRef(rule?.helpUri) ??
+          (supplyChain ? osvAdvisoryUrl(r.ruleId) : null),
       })
     }
   }

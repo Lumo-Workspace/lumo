@@ -208,11 +208,11 @@ describe('LUM-739 hunt trigger', () => {
     expect(persistedStages().hunt).toBe('SKIPPED')
   })
 
-  it('LUMO_SECURITY_HUNT=off skips the hunt even when a trigger fires', async () => {
+  it('LUMO_SECURITY_HUNT=off stamps no hunt layer at all, even when a trigger fires', async () => {
     process.env.LUMO_SECURITY_HUNT = 'off'
     fetchPrDiff.mockResolvedValue(ROUTE_DIFF)
     await run()
-    expect(persistedStages().hunt).toBe('SKIPPED')
+    expect(persistedStages().hunt).toBeUndefined()
     expect(startHunt).not.toHaveBeenCalled()
   })
 
