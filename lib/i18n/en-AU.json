@@ -2320,5 +2320,8 @@
   "record.machine.source.human": "Human-edited",
   "record.machine.source.review": "Review-added",
   "record.machine.viewOutput": "View output",
-  "record.human.emptyTitle": "Human acceptance criteria"
+  "record.human.emptyTitle": "Human acceptance criteria",
+  "securityScan.stage.supplyChain": "Dependencies",
+  "securityScan.finding.persisting": "already on the default branch",
+  "securityScan.finding.dependency": "Vulnerable dependency"
 }

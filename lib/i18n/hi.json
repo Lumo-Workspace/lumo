@@ -2320,5 +2320,8 @@
   "record.machine.source.human": "मानव-संपादित",
   "record.machine.source.review": "समीक्षा में जोड़ा गया",
   "record.machine.viewOutput": "आउटपुट देखें",
-  "record.human.emptyTitle": "मानवीय स्वीकृति मानदंड"
+  "record.human.emptyTitle": "मानवीय स्वीकृति मानदंड",
+  "securityScan.stage.supplyChain": "निर्भरताएँ",
+  "securityScan.finding.persisting": "पहले से डिफ़ॉल्ट ब्रांच में मौजूद",
+  "securityScan.finding.dependency": "असुरक्षित निर्भरता"
 }

@@ -38,3 +38,43 @@ test('markSarifIngested stamps every linked row of that repo in the workspace', 
     data: { lastSarifIngestAt: at },
   })
 })
+
+// ── LUM-738 baseline column ─────────────────────────────────────────────────
+
+const BASELINE = {
+  sha: 'b'.repeat(40),
+  at: '2026-09-10T00:00:00.000Z',
+  requestedAt: '2026-09-10T00:00:00.000Z',
+  fingerprints: ['fp-1', 'fp-2'],
+  partial: false,
+  tools: ['gitleaks', 'semgrep', 'osv-scanner'],
+}
+
+test('LUM-738 baseline — findSecurityBaseline distinguishes "no such repo" (undefined) from "never scanned" (null) from a landed baseline', async () => {
+  mockRepo.findFirst.mockResolvedValueOnce(null)
+  expect(
+    await projectRepository.findSecurityBaseline('w1', 'o/r')
+  ).toBeUndefined()
+  mockRepo.findFirst.mockResolvedValueOnce({ securityBaseline: null })
+  expect(await projectRepository.findSecurityBaseline('w1', 'o/r')).toBeNull()
+  mockRepo.findFirst.mockResolvedValueOnce({ securityBaseline: BASELINE })
+  expect(await projectRepository.findSecurityBaseline('w1', 'o/r')).toEqual(
+    BASELINE
+  )
+  expect(mockRepo.findFirst).toHaveBeenCalledWith({
+    where: { fullName: 'o/r', project: { workspaceId: 'w1' } },
+    orderBy: { createdAt: 'asc' },
+    select: { securityBaseline: true },
+  })
+})
+
+test('LUM-738 baseline — setSecurityBaseline replaces the JSON on every linked row of that repo in the workspace', async () => {
+  mockRepo.updateMany.mockResolvedValueOnce({ count: 2 })
+  expect(
+    await projectRepository.setSecurityBaseline('w1', 'o/r', BASELINE)
+  ).toBe(2)
+  expect(mockRepo.updateMany).toHaveBeenCalledWith({
+    where: { fullName: 'o/r', project: { workspaceId: 'w1' } },
+    data: { securityBaseline: BASELINE },
+  })
+})

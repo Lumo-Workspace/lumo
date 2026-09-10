@@ -146,10 +146,17 @@ export interface SummaryInput {
   stages: ScanStages
   /** A layer hit its cap: the findings are honest but not the whole story. */
   partial: boolean
-  /** Findings per external tool, from the `ext:<tool>:` prefix. */
+  /** Open (non-dependency) findings per external tool, from the `ext:<tool>:` prefix. */
   externalCounts: Record<string, number>
+  /** Undispositioned and not persisting. */
   open: number
   blocking: number
+  /**
+   * LUM-738 — DEPENDENCY rows: `open` = undispositioned and new to this
+   * PR, `persisting` = already on the default branch. Omitted (undefined)
+   * on scans that never ran the supply-chain layer.
+   */
+  dependencies?: { open: number; persisting: number }
   error: string | null
   taskUrl: string | null
 }
@@ -172,13 +179,39 @@ function isIncomplete(stages: ScanStages, partial: boolean): boolean {
  * P8 — the scrubbed reason, or null. `error` is one column with two writers:
  * the ingest workflow (scrubbed, prefixed) and stage A's own catch-all (a raw
  * `error.message`). Only the prefixed one may be published, and only the text
- * after the prefix is printed.
+ * after the prefix is printed. LUM-738: the managed run stamps the same
+ * prefixed reason for a supply-chain failure, so either FAILED layer
+ * unlocks it — the label says which scanner.
  */
-function externalFailureReason(input: SummaryInput): string | null {
-  if (input.stages.external !== 'FAILED') return null
+function scrubbedFailureReason(
+  input: SummaryInput
+): { label: string; reason: string } | null {
+  const label =
+    input.stages.external === 'FAILED'
+      ? 'External scanner failed'
+      : input.stages.supplyChain === 'FAILED'
+        ? 'Dependency scanner failed'
+        : null
+  if (!label) return null
   if (!input.error?.startsWith(EXTERNAL_ERROR_PREFIX)) return null
   const reason = input.error.slice(EXTERNAL_ERROR_PREFIX.length)
-  return reason.length > 0 ? reason : null
+  return reason.length > 0 ? { label, reason } : null
+}
+
+/** LUM-738 — the dependency line: what osv-scanner found, split new / already on main. */
+function dependencyLine(input: SummaryInput): string | null {
+  const state = input.stages.supplyChain
+  if (!state) return null
+  if (state === 'SKIPPED') return '- Dependencies: no package sources found'
+  const d = input.dependencies
+  if (!d) return null
+  if (d.open === 0 && d.persisting === 0) {
+    return state === 'RAN' ? '- Dependencies: no known vulnerabilities' : null
+  }
+  const noun =
+    d.open === 1 ? 'vulnerable dependency' : 'vulnerable dependencies'
+  const tail = d.persisting > 0 ? ` (${d.persisting} already on main)` : ''
+  return `- Dependencies: ${d.open} ${noun}${tail}`
 }
 
 function stageLine(
@@ -207,6 +240,8 @@ export function buildSummary(input: SummaryInput): string {
   ]
   const stages = stageLine(input.stages, input.externalCounts)
   if (stages) blocks.push(stages)
+  const deps = dependencyLine(input)
+  if (deps) blocks.push(deps)
   if (input.open > 0) {
     const noun = input.open === 1 ? 'finding' : 'findings'
     const blocking =
@@ -217,8 +252,8 @@ export function buildSummary(input: SummaryInput): string {
   } else {
     blocks.push('No open findings on lines this PR added.')
   }
-  const reason = externalFailureReason(input)
-  if (reason) blocks.push(`⚠ External scanner failed: ${reason}`)
+  const failure = scrubbedFailureReason(input)
+  if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
   if (input.taskUrl) blocks.push(`[Open in Lumo](${input.taskUrl})`)
   blocks.push(SUMMARY_MARKER)
   return blocks.join('\n\n')
@@ -271,15 +306,31 @@ export const securityPrReviewService = {
     try {
       const token = await getGithubInstallationToken(pr.workspaceId)
 
-      const open = scan.findings.filter(f => f.disposition === null)
+      // LUM-738: a persisting row (already on the default branch) is not
+      // this PR's — it is neither open, nor blocking, nor commented inline.
+      const open = scan.findings.filter(
+        f => f.disposition === null && !f.persisting
+      )
       const blocking = open.filter(isBlockingFinding).length
       const externalCounts: Record<string, number> = {}
       for (const f of open) {
         const tool = externalTool(f.ruleId)
-        if (f.provenance === 'EXTERNAL_TOOL' && tool) {
+        if (
+          f.provenance === 'EXTERNAL_TOOL' &&
+          tool &&
+          f.kind !== 'DEPENDENCY'
+        ) {
           externalCounts[tool] = (externalCounts[tool] ?? 0) + 1
         }
       }
+      const dependencies = scan.stages?.supplyChain
+        ? {
+            open: open.filter(f => f.kind === 'DEPENDENCY').length,
+            persisting: scan.findings.filter(
+              f => f.kind === 'DEPENDENCY' && f.persisting
+            ).length,
+          }
+        : undefined
 
       const existing = parseFingerprintMarkers(
         (
@@ -311,6 +362,7 @@ export const securityPrReviewService = {
         externalCounts,
         open: open.length,
         blocking,
+        ...(dependencies ? { dependencies } : {}),
         error: scan.error,
         taskUrl: taskUrlOf(pr),
       })

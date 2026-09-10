@@ -238,11 +238,16 @@ export interface TaskStatusResponse {
     scans?: Array<{
       prNumber: number
       status: 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
-      stages: Partial<Record<'secrets' | 'external' | 'judge', string>>
+      stages: Partial<
+        Record<'secrets' | 'external' | 'supplyChain' | 'judge', string>
+      >
       partial: boolean
       error: string | null
       externalFindings: number
       openFindings: number
+      /** LUM-738 — optional: absent on an older server. */
+      dependencyFindings?: number
+      persistingFindings?: number
     }>
   } | null
 }
@@ -300,17 +305,24 @@ function pushSecurityActions(
 /** Fail-closed security coverage lines (LUM-737): a failed read and every
  *  open PR without a successful scan are stated, never left silent. */
 const EXTERNAL_ERROR_TAIL = 200
-const SCAN_STAGE_ORDER = ['secrets', 'external', 'judge'] as const
+const SCAN_STAGE_ORDER = [
+  'secrets',
+  'external',
+  'supplyChain',
+  'judge',
+] as const
 
 type ScanSummary = NonNullable<
   NonNullable<TaskStatusResponse['securityFindings']>['scans']
 >[number]
 
 /** LUM-735 — one line per linked PR's latest scan: `PR #945 · scan CLEAN ·
- *  secrets RAN · external RAN (2 external findings) · judge RAN`. Stage
- *  segments only for keys present, in secrets/external/judge order; the
- *  `(N external findings)` count only decorates the external segment, and
- *  only when N > 0. */
+ *  secrets RAN · external RAN (2 external findings) · supplyChain RAN
+ *  (1 dependency finding, 1 already on main) · judge RAN`. Stage segments
+ *  only for keys present, in secrets/external/supplyChain/judge order; the
+ *  `(N external findings)` count only decorates the external segment, the
+ *  dependency count (LUM-738, with its already-on-main share) only the
+ *  supplyChain segment, and each only when N > 0. */
 function formatScanSummaryLine(s: ScanSummary): string {
   const segments: string[] = []
   for (const key of SCAN_STAGE_ORDER) {
@@ -321,6 +333,12 @@ function formatScanSummaryLine(s: ScanSummary): string {
       segments.push(
         `external ${state} (${s.externalFindings} external ${noun})`
       )
+    } else if (key === 'supplyChain' && (s.dependencyFindings ?? 0) > 0) {
+      const n = s.dependencyFindings ?? 0
+      const noun = n === 1 ? 'finding' : 'findings'
+      const persisting = s.persistingFindings ?? 0
+      const tail = persisting > 0 ? `, ${persisting} already on main` : ''
+      segments.push(`supplyChain ${state} (${n} dependency ${noun}${tail})`)
     } else {
       segments.push(`${key} ${state}`)
     }

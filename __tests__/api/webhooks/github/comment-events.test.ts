@@ -13,6 +13,9 @@ jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
   },
 }))
 
+jest.mock('@/lib/services/security-baseline.service', () => ({
+  securityBaselineService: { requestFromPush: jest.fn() },
+}))
 import { POST } from '@/app/api/webhooks/github/route'
 import { NextRequest } from 'next/server'
 import { githubService } from '@/lib/services/github.service'

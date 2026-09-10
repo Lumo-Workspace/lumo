@@ -14,6 +14,7 @@ import {
   type ResolveOutcome,
   type SarifIngestJob,
 } from '@/lib/services/security-sarif-ingest.service'
+import type { ScanStages } from '@/lib/security-scan/types'
 
 export async function resolveSarifScanStep(
   job: SarifIngestJob
@@ -38,10 +39,20 @@ export async function persistSarifFindingsStep(
 
 export async function markSarifExternalFailedStep(
   scanId: string,
-  reason?: string
+  reason?: string,
+  patch?: ScanStages
 ): Promise<void> {
   'use step'
-  return securitySarifIngestService.markExternalFailed(scanId, reason)
+  return securitySarifIngestService.markExternalFailed(scanId, reason, patch)
+}
+
+/** LUM-738 — stamp a layer outcome that carries no rows (e.g. supplyChain SKIPPED). */
+export async function markSarifStagesStep(
+  scanId: string,
+  patch: ScanStages
+): Promise<void> {
+  'use step'
+  return securitySarifIngestService.markStages(scanId, patch)
 }
 
 export async function deleteSarifBlobStep(url: string): Promise<void> {

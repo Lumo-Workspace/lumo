@@ -199,6 +199,58 @@ export async function fetchPrHeadSha(opts: {
 }
 
 /**
+ * LUM-738 — the default branch and its current head sha, for the repository
+ * security baseline. Two calls (repo → default_branch, then the branch ref).
+ * Throws on non-2xx or a missing field.
+ */
+export async function fetchDefaultBranchHead(opts: {
+  workspaceId: string
+  fullName: string
+}): Promise<{ branch: string; sha: string }> {
+  const token = await getGithubInstallationToken(opts.workspaceId)
+  const [owner, repo] = splitFullName(opts.fullName)
+  const headers = { ...GH_HEADERS, Authorization: `Bearer ${token}` }
+
+  const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+    headers,
+  })
+  if (!repoRes.ok) {
+    throw Object.assign(
+      new Error(`GitHub API error ${repoRes.status} for repo ${opts.fullName}`),
+      { status: repoRes.status }
+    )
+  }
+  const repoBody = (await repoRes.json()) as { default_branch?: unknown }
+  const branch = repoBody.default_branch
+  if (typeof branch !== 'string' || branch.length === 0) {
+    throw new Error(
+      `GitHub repo payload missing default_branch for ${opts.fullName}`
+    )
+  }
+
+  const refRes = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/git/ref/heads/${encodeURIComponent(branch)}`,
+    { headers }
+  )
+  if (!refRes.ok) {
+    throw Object.assign(
+      new Error(
+        `GitHub API error ${refRes.status} for ref heads/${branch} of ${opts.fullName}`
+      ),
+      { status: refRes.status }
+    )
+  }
+  const refBody = (await refRes.json()) as { object?: { sha?: unknown } }
+  const sha = refBody.object?.sha
+  if (typeof sha !== 'string' || sha.length === 0) {
+    throw new Error(
+      `GitHub ref payload missing object.sha for heads/${branch} of ${opts.fullName}`
+    )
+  }
+  return { branch, sha }
+}
+
+/**
  * PURE — parses a unified diff and returns added lines per file.
  *
  * - New-file path is extracted from `+++ b/<path>` headers.

@@ -2320,5 +2320,8 @@
   "record.machine.source.human": "Do người chỉnh sửa",
   "record.machine.source.review": "Thêm khi rà soát",
   "record.machine.viewOutput": "Xem kết quả",
-  "record.human.emptyTitle": "Tiêu chí nghiệm thu của con người"
+  "record.human.emptyTitle": "Tiêu chí nghiệm thu của con người",
+  "securityScan.stage.supplyChain": "Phụ thuộc",
+  "securityScan.finding.persisting": "đã có trên nhánh mặc định",
+  "securityScan.finding.dependency": "Phụ thuộc có lỗ hổng"
 }

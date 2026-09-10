@@ -10,6 +10,7 @@ import {
   markSarifExternalFailedStep,
 } from './security-sarif-ingest.steps'
 import { syncPrReviewStep } from './security-pr-review.steps'
+import type { ScanStages } from '@/lib/security-scan/types'
 
 /** After the step's own retries a leaked blob must not fail an outcome that is already decided. */
 export async function deleteBlobBestEffort(url: string): Promise<void> {
@@ -27,10 +28,16 @@ export async function deleteBlobBestEffort(url: string): Promise<void> {
  */
 export async function markFailedBestEffort(
   scanId: string,
-  reason?: string
+  reason?: string,
+  /** LUM-738: which layers failed; the step defaults to `external` alone. */
+  patch?: ScanStages
 ): Promise<void> {
   try {
-    await markSarifExternalFailedStep(scanId, reason)
+    // Only pass the patch when there is one: the ingest workflow's callers
+    // (and their tests) still see the two-argument LUM-735 shape.
+    await (patch
+      ? markSarifExternalFailedStep(scanId, reason, patch)
+      : markSarifExternalFailedStep(scanId, reason))
   } catch {
     // Retries exhausted inside the step; the service already logged it.
   }

@@ -341,14 +341,21 @@ function FindingRow({
     }
   }
 
+  // LUM-738: a finding already on the default branch is not this PR's —
+  // muted, labelled, and its HIGH loses the red so the eye lands on new rows.
   const severityTone =
-    finding.severity === 'HIGH' ? 'text-destructive' : 'text-muted-foreground'
+    finding.severity === 'HIGH' && !finding.persisting
+      ? 'text-destructive'
+      : 'text-muted-foreground'
 
   return (
     <div
       data-testid={`security-finding-${finding.id}`}
       data-blocking={finding.blocking}
-      className='rounded-sm border border-border px-2 py-1.5'
+      data-persisting={finding.persisting}
+      className={`rounded-sm border border-border px-2 py-1.5${
+        finding.persisting ? ' opacity-60' : ''
+      }`}
     >
       <div className='flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption'>
         <span className={`font-medium uppercase ${severityTone}`}>
@@ -366,6 +373,22 @@ function FindingRow({
             id: `securityScan.provenance.${finding.provenance}`,
           })}
         </span>
+        {finding.kind === 'DEPENDENCY' && (
+          <span
+            data-testid='finding-dependency'
+            className='text-muted-foreground'
+          >
+            {intl.formatMessage({ id: 'securityScan.finding.dependency' })}
+          </span>
+        )}
+        {finding.persisting && (
+          <span
+            data-testid='finding-persisting'
+            className='rounded-sm bg-muted px-1 text-muted-foreground'
+          >
+            {intl.formatMessage({ id: 'securityScan.finding.persisting' })}
+          </span>
+        )}
         {finding.disposition && (
           <span
             data-testid='finding-disposition'

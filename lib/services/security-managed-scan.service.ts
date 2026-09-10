@@ -1,15 +1,22 @@
 /**
- * LUM-735 v5 — Lumo-managed scan (spec §6 L1 v0.3): run semgrep + gitleaks
- * against one PR head sha inside a one-shot Vercel Sandbox and normalize the
- * SARIF in the same process. Everything secret-bearing — the installation
- * token, the clone, the raw SARIF — stays inside `scanRepository`; the value
- * it returns is the same redacted `NormalizeOutcome` the BYO push produces.
+ * LUM-735 v5 — Lumo-managed scan (spec §6 L1 v0.3): run gitleaks + semgrep
+ * (+ osv-scanner, LUM-738 §6 L2) against one revision inside a one-shot
+ * Vercel Sandbox and normalize the SARIF in the same process. Everything
+ * secret-bearing — the installation token, the clone, the raw SARIF — stays
+ * inside this module; what leaves is the same redacted `NormalizeOutcome`
+ * the BYO push produces.
+ *
+ * Two entry points share the sandbox run:
+ *   scanRepository  a PR head sha, diff-aware (LUM-735)
+ *   scanBaseline    the default-branch head, whole-tree, fingerprints only —
+ *                   the repository baseline that decides `persisting` for
+ *                   findings that have no line-level diff (LUM-738)
  *
  * Retry contract (same as the ingest service): transient failures (sandbox
  * creation, clone, GitHub diff) throw so the workflow step retries; a
  * scanner's own failure (unexpected exit code, no report, bad SARIF) is
- * returned as `{ kind: 'failed' }` for that tool and the other tool still
- * runs.
+ * returned as `{ kind: 'failed' }` for that tool and the other tools still
+ * run. osv-scanner exiting 128 ("no package sources") is `{ kind: 'skipped' }`.
  */
 import { logger } from '@/lib/logger'
 import {
@@ -25,17 +32,22 @@ import {
   parseSarif,
 } from '@/lib/security-scan'
 import {
+  BASELINE_MAX_FINGERPRINTS,
   GITLEAKS_URL,
   MANAGED_REPORT_MAX_BYTES,
   MANAGED_SCAN_TOOLS,
+  OSV_SCANNER_URL,
   SANDBOX_IMAGE,
   SANDBOX_TIMEOUT_MS,
   SANDBOX_VCPUS,
   SEMGREP_CONFIGS,
   SEMGREP_VERSION,
+  type BaselineScanJob,
+  type BaselineScanOutcome,
   type ManagedScanJob,
   type ManagedScanOutcome,
   type ManagedScanTool,
+  type ManagedToolOutcome,
 } from './security-managed-scan.config'
 
 // Re-exported so existing consumers (and this file's own test) keep working
@@ -52,15 +64,23 @@ export function scrubToken(message: string, token: string): string {
 const REPORT_PATH: Record<ManagedScanTool, string> = {
   gitleaks: '/tmp/gitleaks.sarif',
   semgrep: '/tmp/semgrep.sarif',
+  'osv-scanner': '/tmp/osv.sarif',
 }
 
 const SCRIPT_BODY: Record<ManagedScanTool, string> = {
   gitleaks: `set -e; curl -sSL "${GITLEAKS_URL}" | tar -xz -C /tmp gitleaks; /tmp/gitleaks dir . --report-format sarif --report-path ${REPORT_PATH.gitleaks} --exit-code 0 --no-banner`,
   semgrep: `set -e; python3 -m pip install --quiet semgrep==${SEMGREP_VERSION}; semgrep scan ${SEMGREP_CONFIGS.map(c => `--config ${c}`).join(' ')} --sarif --output ${REPORT_PATH.semgrep} --metrics=off`,
+  // Release binary (no package manager); `scan source -r .` walks every
+  // lockfile / manifest osv-scanner knows; SARIF goes to a file so stdout
+  // (which may echo advisory text) is never parsed.
+  'osv-scanner': `set -e; curl -sSL -o /tmp/osv-scanner "${OSV_SCANNER_URL}"; chmod +x /tmp/osv-scanner; /tmp/osv-scanner scan source -r . --format sarif --output-file ${REPORT_PATH['osv-scanner']}`,
 }
 
 /** `headSha` is validated by the caller before this is ever invoked. */
 const HEAD_SHA_RE = /^[0-9a-f]{7,40}$/
+
+/** osv-scanner: "No package sources found" (cmd/osv-scanner/internal/cmd/run.go). */
+const OSV_NO_PACKAGE_SOURCES_EXIT = 128
 
 /**
  * Guards against a mis-rooted or wrong-revision sandbox scanning the wrong
@@ -74,9 +94,17 @@ function scriptFor(tool: ManagedScanTool, headSha: string): string {
   return guard + SCRIPT_BODY[tool]
 }
 
-/** semgrep exits 1 when it has findings; gitleaks is pinned to --exit-code 0. */
+/**
+ * semgrep and osv-scanner exit 1 when they have findings; gitleaks is pinned
+ * to --exit-code 0.
+ */
 function isSuccessExit(tool: ManagedScanTool, code: number): boolean {
-  return tool === 'semgrep' ? code === 0 || code === 1 : code === 0
+  return tool === 'gitleaks' ? code === 0 : code === 0 || code === 1
+}
+
+/** A non-success exit that is a fact about the tree, not a failure of the tool. */
+function isSkipExit(tool: ManagedScanTool, code: number): boolean {
+  return tool === 'osv-scanner' && code === OSV_NO_PACKAGE_SOURCES_EXIT
 }
 
 function message(error: unknown): string {
@@ -102,20 +130,28 @@ export function repoCheckoutDir(
   return `${sandboxCwd.replace(/\/+$/, '')}/${name}`
 }
 
+type ToolReport = Buffer | { failed: string } | { skipped: string }
+
 async function runTool(
   sandbox: RepoSandbox,
   tool: ManagedScanTool,
-  scanId: string,
+  label: string,
   token: string,
   headSha: string,
   cwd: string
-): Promise<Buffer | { failed: string }> {
+): Promise<ToolReport> {
   const result = await sandbox.run('sh', ['-c', scriptFor(tool, headSha)], {
     cwd,
   })
+  if (isSkipExit(tool, result.exitCode)) {
+    logger.info(
+      `[security-managed-scan] ${logSafe(tool)} skipped (exit ${result.exitCode}: no package sources) ${label}`
+    )
+    return { skipped: `${tool} found no package sources` }
+  }
   if (!isSuccessExit(tool, result.exitCode)) {
     logger.warn(
-      `[security-managed-scan] ${logSafe(tool)} exit ${result.exitCode} scan=${scanId}: ${scrubToken(
+      `[security-managed-scan] ${logSafe(tool)} exit ${result.exitCode} ${label}: ${scrubToken(
         result.stderr,
         token
       )
@@ -128,11 +164,133 @@ async function runTool(
   if (!report) return { failed: `${tool} produced no report` }
   if (report.byteLength > MANAGED_REPORT_MAX_BYTES) {
     logger.error(
-      `[security-managed-scan] ${logSafe(tool)} report ${report.byteLength}B exceeds cap scan=${scanId}`
+      `[security-managed-scan] ${logSafe(tool)} report ${report.byteLength}B exceeds cap ${label}`
     )
     return { failed: `${tool} report exceeds size cap` }
   }
   return report
+}
+
+/**
+ * The sandbox run: clone `sha`, run every tool, read the reports, stop. The
+ * raw reports (which may contain secrets) come back to the caller in this
+ * same process; nothing here is persisted. Throws (scrubbed) on sandbox
+ * creation or command failure — transient by contract.
+ */
+async function collectReports(opts: {
+  repository: string
+  sha: string
+  token: string
+  label: string
+}): Promise<Partial<Record<ManagedScanTool, ToolReport>>> {
+  const { token } = opts
+  let sandbox: RepoSandbox
+  try {
+    sandbox = await createRepoSandbox({
+      repository: opts.repository,
+      revision: opts.sha,
+      token,
+      timeoutMs: SANDBOX_TIMEOUT_MS,
+      vcpus: SANDBOX_VCPUS,
+      image: SANDBOX_IMAGE,
+    })
+  } catch (error) {
+    // Transient by default (retry); the SDK may echo the clone URL.
+    throw new Error(scrubToken(message(error), token))
+  }
+  try {
+    const reports: Partial<Record<ManagedScanTool, ToolReport>> = {}
+    const cwd = repoCheckoutDir(sandbox.cwd, opts.repository)
+    for (const tool of MANAGED_SCAN_TOOLS) {
+      try {
+        reports[tool] = await runTool(
+          sandbox,
+          tool,
+          opts.label,
+          token,
+          opts.sha,
+          cwd
+        )
+      } catch (error) {
+        throw new Error(scrubToken(message(error), token))
+      }
+    }
+    return reports
+  } finally {
+    try {
+      await sandbox.stop()
+    } catch (error) {
+      logger.warn(
+        `[security-managed-scan] sandbox stop failed ${opts.label}: ${scrubToken(message(error), token).slice(0, 200)}`
+      )
+    }
+  }
+}
+
+/** Parse + normalize every report in-process; per-tool failures are values. */
+function normalizeReports(
+  reports: Partial<Record<ManagedScanTool, ToolReport>>,
+  opts: {
+    changedLines: Map<string, Set<number>> | null
+    maxFindings?: number
+    token: string
+    label: string
+  }
+): ManagedScanOutcome {
+  const outcome = {} as ManagedScanOutcome
+  for (const tool of MANAGED_SCAN_TOOLS) {
+    const report = reports[tool]
+    if (!report) {
+      outcome[tool] = { kind: 'failed', reason: `${tool} produced no report` }
+      continue
+    }
+    if (!Buffer.isBuffer(report)) {
+      outcome[tool] =
+        'skipped' in report
+          ? { kind: 'skipped', reason: report.skipped }
+          : { kind: 'failed', reason: report.failed }
+      continue
+    }
+    try {
+      const n = normalizeSarif(
+        parseSarif(JSON.parse(report.toString('utf8'))),
+        {
+          toolHint: tool,
+          changedLines: opts.changedLines,
+          ...(opts.maxFindings !== undefined
+            ? { maxFindings: opts.maxFindings }
+            : {}),
+        }
+      )
+      outcome[tool] = {
+        kind: 'ok',
+        tool: n.tool,
+        tools: n.tools,
+        findings: n.findings,
+        truncated: n.truncated,
+        dropped: n.dropped,
+      }
+      logger.info(
+        `[security-managed-scan] ${opts.label} ${logSafe(tool)}: ${n.findings.length} findings (dropped notInDiff=${n.dropped.notInDiff} noLocation=${n.dropped.noLocation} dup=${n.dropped.duplicate})`
+      )
+    } catch (error) {
+      // Not JSON / not SARIF 2.1.0 — deterministic, the tool's own failure.
+      const reason = scrubToken(message(error), opts.token).slice(0, 500)
+      logger.error(
+        `[security-managed-scan] ${logSafe(tool)} report unusable ${opts.label}: ${reason.slice(0, 200)}`
+      )
+      outcome[tool] = { kind: 'failed', reason }
+    }
+  }
+  return outcome
+}
+
+function allFailed(reason: string): ManagedScanOutcome {
+  const outcome = {} as ManagedScanOutcome
+  for (const tool of MANAGED_SCAN_TOOLS) {
+    outcome[tool] = { kind: 'failed', reason }
+  }
+  return outcome
 }
 
 export const securityManagedScanService = {
@@ -140,104 +298,88 @@ export const securityManagedScanService = {
     if (!HEAD_SHA_RE.test(job.headSha)) {
       // headSha is interpolated into the sandbox shell script (scriptFor);
       // an unvalidated value must never reach there. Deterministic — no
-      // sandbox is created, and both tools report the same reason (P9).
-      const outcome = {} as ManagedScanOutcome
-      for (const tool of MANAGED_SCAN_TOOLS) {
-        outcome[tool] = { kind: 'failed', reason: 'invalid head sha' }
-      }
-      return outcome
+      // sandbox is created, and every tool reports the same reason (P9).
+      return allFailed('invalid head sha')
     }
+    const label = `${logSafe(job.pr.repo)}#${job.pr.number} scan=${job.scanId}`
     const token = await getGithubInstallationToken(job.pr.workspaceId)
-    let sandbox: RepoSandbox
+    const reports = await collectReports({
+      repository: job.pr.repo,
+      sha: job.headSha,
+      token,
+      label,
+    })
+    let diff: string
     try {
-      sandbox = await createRepoSandbox({
-        repository: job.pr.repo,
-        revision: job.headSha,
-        token,
-        timeoutMs: SANDBOX_TIMEOUT_MS,
-        vcpus: SANDBOX_VCPUS,
-        image: SANDBOX_IMAGE,
+      diff = await fetchPrDiff({
+        workspaceId: job.pr.workspaceId,
+        fullName: job.pr.repo,
+        prNumber: job.pr.number,
       })
     } catch (error) {
-      // Transient by default (retry); the SDK may echo the clone URL.
+      // Transient by default (retry); scrub defensively even though the
+      // GitHub client has no reason to echo the installation token today.
       throw new Error(scrubToken(message(error), token))
     }
-    try {
-      const reports: Partial<
-        Record<ManagedScanTool, Buffer | { failed: string }>
-      > = {}
-      const cwd = repoCheckoutDir(sandbox.cwd, job.pr.repo)
-      for (const tool of MANAGED_SCAN_TOOLS) {
-        try {
-          reports[tool] = await runTool(
-            sandbox,
-            tool,
-            job.scanId,
-            token,
-            job.headSha,
-            cwd
-          )
-        } catch (error) {
-          throw new Error(scrubToken(message(error), token))
-        }
-      }
-      let diff: string
-      try {
-        diff = await fetchPrDiff({
-          workspaceId: job.pr.workspaceId,
-          fullName: job.pr.repo,
-          prNumber: job.pr.number,
-        })
-      } catch (error) {
-        // Transient by default (retry); scrub defensively even though the
-        // GitHub client has no reason to echo the installation token today.
-        throw new Error(scrubToken(message(error), token))
-      }
-      const changedLines = changedLinesOf(addedLinesWithNumbers(diff))
-      const outcome = {} as ManagedScanOutcome
-      for (const tool of MANAGED_SCAN_TOOLS) {
-        const report = reports[tool]
-        if (!report || !Buffer.isBuffer(report)) {
-          outcome[tool] = {
-            kind: 'failed',
-            reason: report?.failed ?? `${tool} produced no report`,
-          }
-          continue
-        }
-        try {
-          const n = normalizeSarif(
-            parseSarif(JSON.parse(report.toString('utf8'))),
-            { toolHint: tool, changedLines }
-          )
-          outcome[tool] = {
-            kind: 'ok',
-            tool: n.tool,
-            tools: n.tools,
-            findings: n.findings,
-            truncated: n.truncated,
-            dropped: n.dropped,
-          }
-          logger.info(
-            `[security-managed-scan] ${logSafe(job.pr.repo)}#${job.pr.number} ${logSafe(tool)}: ${n.findings.length} findings scan=${job.scanId} (dropped notInDiff=${n.dropped.notInDiff} noLocation=${n.dropped.noLocation} dup=${n.dropped.duplicate})`
-          )
-        } catch (error) {
-          // Not JSON / not SARIF 2.1.0 — deterministic, the tool's own failure.
-          const reason = scrubToken(message(error), token).slice(0, 500)
-          logger.error(
-            `[security-managed-scan] ${logSafe(tool)} report unusable scan=${job.scanId}: ${reason.slice(0, 200)}`
-          )
-          outcome[tool] = { kind: 'failed', reason }
-        }
-      }
-      return outcome
-    } finally {
-      try {
-        await sandbox.stop()
-      } catch (error) {
-        logger.warn(
-          `[security-managed-scan] sandbox stop failed scan=${job.scanId}: ${scrubToken(message(error), token).slice(0, 200)}`
-        )
+    return normalizeReports(reports, {
+      changedLines: changedLinesOf(addedLinesWithNumbers(diff)),
+      token,
+      label,
+    })
+  },
+
+  /**
+   * LUM-738 — the default-branch baseline: same sandbox, same tools, no
+   * diff filter, fingerprints only. Nothing about a finding but its
+   * fingerprint leaves this function, so the baseline column carries no
+   * text at all (P8 by construction).
+   */
+  async scanBaseline(job: BaselineScanJob): Promise<BaselineScanOutcome> {
+    const label = `${logSafe(job.repo)}@${job.sha.slice(0, 7)} baseline`
+    if (!HEAD_SHA_RE.test(job.sha)) {
+      return {
+        fingerprints: [],
+        partial: false,
+        tools: [],
+        failed: MANAGED_SCAN_TOOLS.map(t => `${t} invalid sha`),
+        skipped: [],
       }
     }
+    const token = await getGithubInstallationToken(job.workspaceId)
+    const reports = await collectReports({
+      repository: job.repo,
+      sha: job.sha,
+      token,
+      label,
+    })
+    const outcome = normalizeReports(reports, {
+      changedLines: null,
+      maxFindings: BASELINE_MAX_FINGERPRINTS,
+      token,
+      label,
+    })
+    const fingerprints = new Set<string>()
+    const result: BaselineScanOutcome = {
+      fingerprints: [],
+      partial: false,
+      tools: [],
+      failed: [],
+      skipped: [],
+    }
+    for (const tool of MANAGED_SCAN_TOOLS) {
+      const o: ManagedToolOutcome = outcome[tool]
+      if (o.kind === 'ok') {
+        for (const f of o.findings) fingerprints.add(f.fingerprint)
+        result.tools.push(...o.tools)
+        result.partial = result.partial || o.truncated
+      } else if (o.kind === 'skipped') {
+        result.skipped.push(tool)
+      } else {
+        result.failed.push(o.kind === 'failed' ? o.reason : `${tool} not found`)
+      }
+    }
+    result.fingerprints = Array.from(fingerprints)
+    result.tools = Array.from(new Set(result.tools))
+    return result
   },
 }

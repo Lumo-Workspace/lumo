@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
+import type { Prisma } from '@prisma/client'
+import type { SecurityBaseline } from '@/lib/security-scan/types'
 
 export interface ProjectUpdateData {
   name?: string
@@ -293,6 +295,37 @@ export const projectRepository = {
     const res = await prisma.projectRepository.updateMany({
       where: { fullName, project: { workspaceId } },
       data: { lastSarifIngestAt: at },
+    })
+    return res.count
+  },
+
+  /**
+   * LUM-738 — the default branch's security baseline for a repo. `undefined`
+   * = the repo is not linked in this workspace; `null` = never scanned; a
+   * baseline with `at: null` = a run was requested and has not landed.
+   */
+  async findSecurityBaseline(
+    workspaceId: string,
+    fullName: string
+  ): Promise<SecurityBaseline | null | undefined> {
+    const row = await prisma.projectRepository.findFirst({
+      where: { fullName, project: { workspaceId } },
+      orderBy: { createdAt: 'asc' },
+      select: { securityBaseline: true },
+    })
+    if (!row) return undefined
+    return (row.securityBaseline as SecurityBaseline | null) ?? null
+  },
+
+  /** LUM-738 — replace the baseline on every linked row of that repo in the workspace. */
+  async setSecurityBaseline(
+    workspaceId: string,
+    fullName: string,
+    baseline: SecurityBaseline
+  ): Promise<number> {
+    const res = await prisma.projectRepository.updateMany({
+      where: { fullName, project: { workspaceId } },
+      data: { securityBaseline: baseline as unknown as Prisma.InputJsonValue },
     })
     return res.count
   },

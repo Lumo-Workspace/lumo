@@ -38,6 +38,9 @@ const messages: Record<string, string> = {
   'securityScan.external.late':
     "The scanner has not reported for this commit in 30 minutes, so this scan is incomplete. Push a new commit to start a fresh scan, or check your own CI's scan job if this repository pushes its own reports.",
   'securityScan.finding.externalLink': 'View rule documentation',
+  'securityScan.finding.persisting': 'already on the default branch',
+  'securityScan.finding.dependency': 'Vulnerable dependency',
+  'securityScan.stage.supplyChain': 'Dependencies',
   'securityScan.partial':
     'Some results were cut off at the scan budget — the scan is not complete.',
   'securityScan.external.failedReason': 'External scanner failed:',
@@ -112,6 +115,7 @@ const finding = (over: object) => ({
   dispositionNote: null,
   inherited: false,
   blocking: true,
+  persisting: false,
   ...over,
 })
 const scan = (over: object) => ({
@@ -794,4 +798,75 @@ test('every PR row keeps its data-testid and gets a toggle testid alongside it',
   render(<SecurityScanSection taskId='t1' />, { wrapper })
   expect(screen.getByTestId('security-pr-9')).toBeInTheDocument()
   expect(screen.getByTestId('security-pr-9-toggle')).toBeInTheDocument()
+})
+
+// LUM-738 — persisting (already on the default branch) vs new dependency rows.
+
+test('LUM-738 supplyChain surface — a persisting dependency finding is muted and labelled already-on-main; a new one is not, and only the new one counts in the summary line', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            stages: {
+              secrets: 'RAN',
+              external: 'RAN',
+              supplyChain: 'RAN',
+              judge: 'RAN',
+            },
+            findings: [
+              finding({
+                id: 'dep-new',
+                kind: 'DEPENDENCY',
+                ruleId: 'ext:osv-scanner:GHSA-1',
+                severity: 'HIGH',
+                provenance: 'EXTERNAL_TOOL',
+                filePath: 'package-lock.json',
+                line: null,
+                evidence: '',
+                externalRef: 'https://osv.dev/vulnerability/GHSA-1',
+                blocking: false,
+                persisting: false,
+              }),
+              finding({
+                id: 'dep-old',
+                kind: 'DEPENDENCY',
+                ruleId: 'ext:osv-scanner:GHSA-2',
+                severity: 'HIGH',
+                provenance: 'EXTERNAL_TOOL',
+                filePath: 'package-lock.json',
+                line: null,
+                evidence: '',
+                externalRef: 'https://osv.dev/vulnerability/GHSA-2',
+                blocking: false,
+                persisting: true,
+              }),
+            ],
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const fresh = screen.getByTestId('security-finding-dep-new')
+  const old = screen.getByTestId('security-finding-dep-old')
+  expect(fresh).toHaveAttribute('data-persisting', 'false')
+  expect(fresh.className).not.toContain('opacity-60')
+  expect(fresh).toHaveTextContent('Vulnerable dependency')
+  expect(fresh.querySelector('[data-testid="finding-persisting"]')).toBeNull()
+  expect(fresh.querySelector('.text-destructive')).not.toBeNull()
+  expect(old).toHaveAttribute('data-persisting', 'true')
+  expect(old.className).toContain('opacity-60')
+  expect(
+    old.querySelector('[data-testid="finding-persisting"]')
+  ).toHaveTextContent('already on the default branch')
+  expect(old.querySelector('.text-destructive')).toBeNull()
+  // The rollup counts the new one only.
+  expect(screen.getByTestId('security-summary-line')).toHaveTextContent(
+    '1 finding'
+  )
 })
