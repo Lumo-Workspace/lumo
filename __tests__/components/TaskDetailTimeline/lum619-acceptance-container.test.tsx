@@ -34,6 +34,18 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskStatus', () => ({
   useTaskStatus: jest.fn(),
 }))
 
+// LUM-496: the tab reads the crossings itself (same react-query key the panel
+// uses) to derive the Done-gap zones — stub it like the other data hooks.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
+  useBoundaryCrossings: jest.fn(() => ({
+    crossings: [],
+    gateEnabled: true,
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+  })),
+}))
+
 // Stub the boundary panel to a bare anchor so ordering can be asserted without
 // a full BoundaryCrossingView fixture. `#boundary-crossings` is the real root id.
 jest.mock(
@@ -60,6 +72,14 @@ jest.mock(
     CostSection: () => <div data-testid='cost' />,
     StruggleTrailSection: () => <div data-testid='struggle' />,
     TrendSection: () => <div data-testid='trend' />,
+    // LUM-496: the tab labels the struggle disclosure with the section's own
+    // heading copy, and the KPI tiles reuse the module's token formatter.
+    STRUGGLE_TITLE: {
+      id: 'acceptance.struggle.title',
+      defaultMessage: 'Struggle / rework / outstanding',
+    },
+    STRUGGLE_TIP: { id: 'acceptance.struggle.tip', defaultMessage: 'tip' },
+    fmtTokens: (n: number) => String(n),
   })
 )
 
@@ -102,6 +122,15 @@ function statusView(
     escalated: false,
     criteria: [],
     machineVerification: { total: 0, machineVerified: 0, humanOverridden: 0 },
+    // LUM-496: the struggle disclosure only mounts for a task whose read model
+    // actually carries a trail (an older server's absent trail is never faked).
+    struggleTrail: {
+      reworkRounds: [],
+      sendBacks: [],
+      followUps: [],
+      pullRequests: [],
+      reopens: [],
+    },
     removedCriteria: [],
     verificationHistory: [],
     lastRoundFailures: [],
@@ -301,10 +330,14 @@ it('LUM-619 run report holds only the after-the-fact metrics', () => {
   renderTab({
     evidenceSlot: <div data-testid='evidence-slot' />,
   })
-  // Expand both the Evidence & audit trail card (so the verification record
-  // actually mounts) and the Run report group.
+  // Expand the Evidence & audit trail card so the verification record actually
+  // mounts; LUM-496: the Run report group is already open by default.
   fireEvent.click(screen.getByText('Evidence & audit trail'))
-  fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+  // LUM-496: the struggle trail sits behind its own collapsed disclosure inside
+  // the group — open it so its body mounts.
+  fireEvent.click(
+    screen.getByRole('button', { name: /Struggle \/ rework \/ outstanding/i })
+  )
   const runReportGroup = screen.getByRole('button', { name: /Run report/i })
     .parentElement as HTMLElement
 

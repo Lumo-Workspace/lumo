@@ -6,7 +6,8 @@
  * Pins the four contract criteria:
  *  1. the shared duration helper is byte-identical to the old per-component
  *     formatters in `en` and localizes units in `zh-CN`;
- *  2. the task-level cost card (CostSection) and the milestone KPI
+ *  2. the task-level cost read-out (the Record tab's Run report Cost tile —
+ *     LUM-496 retired `CostSection` for it) and the milestone KPI
  *     (MilestoneMetricStrip) both render active time through it;
  *  3. the three TaskDetailTimeline cards render a localized relative-ago
  *     instead of the old hardcoded-English copies;
@@ -61,7 +62,8 @@ import en from '@/lib/i18n/en.json'
 import zh from '@/lib/i18n/zh-CN.json'
 import { formatDurationSec, formatDurationMs } from '@/lib/datetime/duration'
 import { formatRelativeAgo, formatRelativeTime } from '@/lib/datetime/relative'
-import { CostSection } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/HonestReportSections'
+import { RunReportTiles } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RunReportTiles'
+import { deriveRunReportTiles } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/run-report-tiles'
 import { MilestoneMetricStrip } from '@/app/workspace/[workspaceUrl]/components/milestones/MilestoneMetricStrip'
 import { SlackContextCard } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SlackContextCard'
 import { FigmaLinkCard } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/FigmaLinkCard'
@@ -98,12 +100,14 @@ describe('lum642 duration helper', () => {
 })
 
 describe('lum642 cost surfaces (zh-CN render)', () => {
-  it('lum642 cost card and milestone KPI render active time via the shared localized helper', () => {
-    // Task-level cost card (the LUM-566 honest report).
+  it('lum642 cost tile and milestone KPI render active time via the shared localized helper', () => {
+    // Task-level cost read-out — the Run report's Cost KPI tile (LUM-496),
+    // whose active-time sub-caption is the reading CostSection used to carry.
     const data = {
       cost: { tokenCost: 12_000, activeTimeSec: 8040, reworkRounds: 0 },
+      verificationHistory: [],
     } as unknown as TaskAcceptanceStatusView
-    const cost = render(<CostSection data={data} />)
+    const cost = render(<RunReportTiles tiles={deriveRunReportTiles(data)} />)
     expect(cost.container.textContent).toContain('2 小时 14 分钟')
     cost.unmount()
 

@@ -82,6 +82,18 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useAgentRuns', () => ({
   useAgentRuns: jest.fn(),
 }))
 
+// LUM-496: the dossier reads the security scan's blocking count (same
+// react-query key the scan section uses) to tell the record tab which zone the
+// scan belongs in. Mocked here like every other data hook — this suite is about
+// composition, not fetching.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+  useSecurityScans: jest.fn(() => ({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+  })),
+}))
+
 // ①②③ surface — mocked to a single marker carrying ONE cost-home node, so the
 // "cost total rendered once" assertion has a unique anchor that the evidence
 // sub-section mocks (below) do not reproduce. LUM-572: the evidence sub-sections

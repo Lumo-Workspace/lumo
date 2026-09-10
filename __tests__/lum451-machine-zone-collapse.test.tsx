@@ -1,8 +1,10 @@
 /** @jest-environment jsdom */
 /**
- * LUM-451: the machine-verified zone in the acceptance tab is collapsible with a
- * smart default — collapsed when every machine criterion passes, expanded when
- * any is FAIL or unjudged; the header toggle flips it.
+ * LUM-451: the machine-verified zone in the acceptance tab is collapsible and
+ * the header toggle flips it. LUM-496 retired the "expand when something is
+ * unverified" half of the smart default: an unverified check now lives in the
+ * NEEDS ACTION card above, always visible, so the record card below is folded
+ * in every state instead of duplicating it.
  */
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -151,7 +153,11 @@ describe('machine zone collapsible smart default', () => {
     expect(screen.getByText(/All 2 machine-verified/i)).toBeInTheDocument()
   })
 
-  it('machine zone collapsible smart default — expanded when a machine criterion fails', () => {
+  it('a failing machine criterion is surfaced in NEEDS ACTION, leaving the record card folded', () => {
+    // LUM-496: the smart default's purpose — never hide a check that still
+    // blocks Done — is carried by the zone split, so the failing row is always
+    // visible above and the Machine-verified record card stays collapsed
+    // rather than repeating the passes underneath it.
     setView([
       machine('m1', 'machine check alpha', PASS),
       machine('m2', 'machine check beta', FAIL),
@@ -163,12 +169,18 @@ describe('machine zone collapsible smart default', () => {
         onVerdictRecorded={jest.fn()}
       />
     )
-    expect(screen.getByText('machine check alpha')).toBeInTheDocument()
-    expect(zoneToggle()).toHaveAttribute('aria-expanded', 'true')
+    const awaiting = screen.getByTestId('record-machine-awaiting')
+    expect(awaiting).toContainElement(screen.getByText('machine check beta'))
+    expect(screen.queryByText('machine check alpha')).toBeNull()
+    expect(zoneToggle()).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByText(/1 machine-verified/)).toBeInTheDocument()
   })
 
-  it('machine zone collapsible smart default — expanded when a machine criterion is unjudged', () => {
+  it('an unjudged machine criterion is surfaced (now as the NEEDS ACTION card, never folded away)', () => {
+    // LUM-496: the smart default's purpose — never hide a check that still
+    // blocks Done — is now carried by the zone split: with nothing verified
+    // there is no Machine-verified record card at all, and the unjudged row
+    // sits, always visible, in the NEEDS ACTION card.
     setView([machine('m1', 'machine check alpha', null)])
     render(
       <AcceptanceTab
@@ -178,7 +190,11 @@ describe('machine zone collapsible smart default', () => {
       />
     )
     expect(screen.getByText('machine check alpha')).toBeInTheDocument()
-    expect(zoneToggle()).toHaveAttribute('aria-expanded', 'true')
+    const awaiting = screen.getByTestId('record-machine-awaiting')
+    expect(awaiting).toContainElement(screen.getByText('machine check alpha'))
+    expect(
+      screen.queryByRole('button', { name: /Machine-verified/i })
+    ).toBeNull()
   })
 
   it('machine zone collapsible smart default — header toggle flips state', () => {

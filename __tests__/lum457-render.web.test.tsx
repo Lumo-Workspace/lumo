@@ -202,8 +202,10 @@ it('disambiguates an override PASS from a never-run check (no bare "not yet run"
     />
   )
   expandMachine()
-  // Open the check-output disclosure.
-  fireEvent.click(screen.getByRole('button', { name: /view check output/i }))
+  // Open the check-output disclosure. LUM-496: a human override is not a
+  // machine pass, so this row now sits in the NEEDS ACTION card where the same
+  // disclosure is labelled "View output".
+  fireEvent.click(screen.getByRole('button', { name: /view output/i }))
 
   expect(screen.getByText(/passed by human override/i)).toBeInTheDocument()
   expect(

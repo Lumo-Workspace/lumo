@@ -71,6 +71,14 @@ jest.mock(
     CostSection: () => <div data-testid='cost' />,
     StruggleTrailSection: () => <div data-testid='struggle' />,
     TrendSection: () => <div data-testid='trend' />,
+    // LUM-496: the struggle disclosure borrows the section's heading copy; the
+    // KPI tiles borrow its token formatter.
+    STRUGGLE_TITLE: {
+      id: 'acceptance.struggle.title',
+      defaultMessage: 'Struggle / rework / outstanding',
+    },
+    STRUGGLE_TIP: { id: 'acceptance.struggle.tip', defaultMessage: 'tip' },
+    fmtTokens: (n: number) => String(n),
   })
 )
 
@@ -218,7 +226,8 @@ describe('LUM-620 · Acceptance redesign', () => {
     unmount()
 
     // Contract still editable (not DONE) → the zone stays even at zero
-    // criteria: it carries the add-criterion entry.
+    // criteria: it carries the add-criterion entry. LUM-496: at zero criteria
+    // it wears its own empty-shell title — there is no pending call to name.
     mockStatus.mockReturnValue({
       data: statusView({ criteria: [crit('MACHINE', 'PASS')] }),
       loading: false,
@@ -227,7 +236,7 @@ describe('LUM-620 · Acceptance redesign', () => {
       optimisticallyPass: jest.fn(),
     })
     renderTab()
-    expect(screen.getByText('Needs your judgment')).toBeInTheDocument()
+    expect(screen.getByText('Human acceptance criteria')).toBeInTheDocument()
   })
 
   it('decision hero Approve submits a task-level PASS verdict', async () => {
@@ -299,8 +308,11 @@ describe('LUM-620 · Acceptance redesign', () => {
     // card — expand it, then assert every signal is present (nothing dropped).
     fireEvent.click(screen.getByText('Evidence & audit trail'))
     expect(screen.getByTestId('gates-slot')).toBeInTheDocument()
-    expect(screen.getByTestId('cost')).toBeInTheDocument()
     expect(screen.getByText('Verification record')).toBeInTheDocument()
+    // LUM-496: run cost left the fold for the Run report's Cost KPI tile —
+    // still rendered, one group down, not dropped.
+    expect(screen.queryByTestId('cost')).toBeNull()
+    expect(screen.getByTestId('tile-costTokens')).toBeInTheDocument()
   })
 
   it('security scan sits OUTSIDE the audit fold — visible while it is collapsed', () => {

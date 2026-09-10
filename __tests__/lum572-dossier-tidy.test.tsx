@@ -190,19 +190,21 @@ beforeEach(() => {
 })
 
 describe('run report group', () => {
-  it('run report group collapses the trailing report sections by default', () => {
+  // LUM-496 supersedes the "collapses by default" reading: the Run report group
+  // opens with its KPI tiles (Cost among them) as the glanceable summary, while
+  // the narrative sub-sections — struggle trail, removed — stay collapsed one
+  // more click down. Nothing that used to be folded away is now shouting.
+  it('run report shows its KPI tiles by default and keeps the narrative sub-sections collapsed', () => {
     setStatus(statusView())
     renderTab()
 
-    // The group toggle exists and is collapsed.
     const groupToggle = screen.getByRole('button', { name: /Run report/i })
-    expect(groupToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(groupToggle).toHaveAttribute('aria-expanded', 'true')
 
-    // The folded sections are not in the DOM until the group is expanded.
-    // LUM-620: Cost moved out of Run report into the Evidence & audit trail
-    // card (also collapsed), so it is likewise absent here.
-    expect(screen.queryByText('Cost')).toBeNull()
-    expect(screen.queryByText('Struggle / rework / outstanding')).toBeNull()
+    // The tiles are the summary — cost included (LUM-496 moved it out of the
+    // Evidence & audit trail card into the Cost tile).
+    expect(screen.getByText('Cost')).toBeInTheDocument()
+    expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('1.2M')
 
     // The decision surface and the contract stay above the group, always shown.
     // LUM-620: the criteria contract surfaces via the "Machine-verified" zone.
@@ -210,17 +212,24 @@ describe('run report group', () => {
     // LUM-733: the claim strip is no longer rendered anywhere on the tab.
     expect(screen.queryByText('Claim vs verification')).toBeNull()
 
-    // Expanding the group reveals the after-the-fact struggle section. (Cost is
-    // no longer here — LUM-620 moved it into the Evidence & audit trail card.)
-    fireEvent.click(groupToggle)
-    expect(
-      screen.getByText('Struggle / rework / outstanding')
-    ).toBeInTheDocument()
-    expect(screen.queryByText('Cost')).toBeNull()
+    // The struggle trail is behind its own collapsed disclosure: the heading is
+    // the toggle, its body only mounts on click.
+    const struggleToggle = screen.getByRole('button', {
+      name: /Struggle \/ rework \/ outstanding/i,
+    })
+    expect(struggleToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText(/None recorded/)).toBeNull()
+    fireEvent.click(struggleToggle)
+    expect(screen.getByText(/None recorded/)).toBeInTheDocument()
 
-    // Cost now lives inside the Evidence & audit trail card — expand it to reach.
+    // Collapsing the group still folds the whole after-the-fact record away.
+    fireEvent.click(groupToggle)
+    expect(screen.queryByText('Cost')).toBeNull()
+    expect(screen.queryByText('Struggle / rework / outstanding')).toBeNull()
+
+    // Cost is not duplicated inside the Evidence & audit trail card.
     fireEvent.click(screen.getByText('Evidence & audit trail'))
-    expect(screen.getByText('Cost')).toBeInTheDocument()
+    expect(screen.queryByText('Cost')).toBeNull()
   })
 })
 
@@ -249,11 +258,12 @@ describe('boundary crossing row noise', () => {
     setCrossings([dispositioned])
     renderTab()
 
-    // LUM-620: boundary crossings live inside the collapsed Evidence & audit
-    // trail card — expand it before reaching the panel.
-    fireEvent.click(screen.getByText('Evidence & audit trail'))
-    // A dispositioned-only panel is collapsed — open it to reach the row.
-    fireEvent.click(screen.getByText('Boundary crossings'))
+    // LUM-496: a dispositioned crossing is a record — it renders in the records
+    // zone's dispositioned panel, collapsed. Open it to reach the row.
+    fireEvent.click(screen.getByText('Boundary crossings · dispositioned'))
+    // LUM-496: the row now sits inside its category's group fold, which starts
+    // collapsed when nothing in it is open.
+    fireEvent.click(screen.getByTestId('crossing-group-EDITED_TEST'))
 
     // Row is collapsed by default (it is already handled). The secondary chips
     // are NOT in the collapsed row.
@@ -272,20 +282,28 @@ describe('boundary crossing row noise', () => {
     // A dispositioned-only panel (0 open) reads as a neutral zone row — no
     // state accent — so it stops shouting once everything is handled. LUM-635:
     // the panel is a promoted zone (always mounted, no audit-fold expansion
-    // needed) and its blocking accent is danger, not warning.
+    // needed) and its blocking accent is danger, not warning. LUM-496: the two
+    // subsets are two panels — the settled record (#record-crossings-
+    // dispositioned) and the open one in NEEDS ACTION (#record-crossings) —
+    // and whichever renders keeps the legacy #boundary-crossings deep-link
+    // anchor alive.
     setCrossings([dispositioned])
     const resolved = renderTab()
     const resolvedRoot = resolved.container.querySelector(
-      '#boundary-crossings'
+      '#record-crossings-dispositioned'
     )!
     expect(resolvedRoot.className).not.toMatch(/danger/)
+    expect(
+      resolved.container.querySelector('#boundary-crossings')
+    ).not.toBeNull()
     resolved.unmount()
 
     // An un-dispositioned (open, blocking) crossing brings the accent back.
     setCrossings([{ ...dispositioned, id: 'c9', disposition: null }])
     const open = renderTab()
-    const openRoot = open.container.querySelector('#boundary-crossings')!
+    const openRoot = open.container.querySelector('#record-crossings')!
     expect(openRoot.className).toMatch(/border-danger-border/)
+    expect(open.container.querySelector('#boundary-crossings')).not.toBeNull()
   })
 })
 

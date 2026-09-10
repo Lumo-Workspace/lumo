@@ -1,15 +1,15 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import { formatDurationSec } from '@/lib/datetime/duration'
 import type { TaskAcceptanceStatusView } from '../../types'
 import { InfoTooltip } from './InfoTooltip'
 
 /**
  * The honest-report sections (LUM-566) — the web render of what LUM-559~564 put
- * into `lumo task status --full`: the cost read-out (560), the struggle /
- * rework trail (561), and the trend (562). (The claim-vs-verification pairing
- * and the faithfulness verdict were retired from the front-end in LUM-733.) All
+ * into `lumo task status --full`: the struggle / rework trail (561) and the
+ * trend (562). (The claim-vs-verification pairing and the faithfulness verdict
+ * were retired from the front-end in LUM-733; the cost read-out (560) became
+ * the Record tab's Run report KPI tiles in LUM-496 — see `RunReportTiles`.) All
  * read the same GET /api/tasks/[id]/status read model the CLI prints, so the two
  * surfaces are same-source and cannot drift. Every section is fail-closed: a
  * not-measured value states its absence rather than implying a clean zero, and
@@ -24,7 +24,9 @@ const TOKEN_FMT = new Intl.NumberFormat('en-US', {
   notation: 'compact',
   maximumFractionDigits: 1,
 })
-function fmtTokens(n: number): string {
+// Exported so RunReportTiles.tsx (LUM-496 Task 4) reuses the same formatter
+// for its "COST 1.4B tokens" tile instead of forking a second one.
+export function fmtTokens(n: number): string {
   return TOKEN_FMT.format(n)
 }
 
@@ -43,84 +45,30 @@ function SectionTitle({
   )
 }
 
-// ── LUM-560 · Cost ────────────────────────────────────────────────────────────
-
-export function CostSection({ data }: { data: TaskAcceptanceStatusView }) {
-  const intl = useIntl()
-  const cost = data.cost
-  if (!cost) return null // older server: no cost data — never fabricate one.
-
-  return (
-    <div>
-      <SectionTitle
-        tip={intl.formatMessage({
-          id: 'acceptance.cost.tip',
-          defaultMessage:
-            'Token spend, active (non-idle) time and machine rework rounds for this task — the same source as the delivery card, so the two never drift.',
-        })}
-      >
-        {intl.formatMessage({
-          id: 'acceptance.cost.title',
-          defaultMessage: 'Cost',
-        })}
-      </SectionTitle>
-      <dl className='grid grid-cols-3 divide-x divide-border overflow-hidden rounded-md border border-border'>
-        <div className='px-4 py-3'>
-          <dt className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
-            {intl.formatMessage({
-              id: 'acceptance.cost.tokens',
-              defaultMessage: 'Tokens',
-            })}
-          </dt>
-          <dd
-            data-testid='cost-tokens'
-            className={
-              cost.tokenCost == null
-                ? 'mt-1 text-[11px] italic leading-snug text-muted-foreground'
-                : 'mt-1 text-heading text-foreground'
-            }
-          >
-            {cost.tokenCost == null
-              ? intl.formatMessage({
-                  id: 'acceptance.cost.notRecorded',
-                  defaultMessage: 'Not recorded (no session usage captured)',
-                })
-              : fmtTokens(cost.tokenCost)}
-          </dd>
-        </div>
-        <div className='px-4 py-3'>
-          <dt className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
-            {intl.formatMessage({
-              id: 'acceptance.cost.activeTime',
-              defaultMessage: 'Active time',
-            })}
-          </dt>
-          <dd className='mt-1 text-heading text-foreground'>
-            {formatDurationSec(intl, cost.activeTimeSec)}
-          </dd>
-        </div>
-        <div className='px-4 py-3'>
-          <dt className='text-[10px] font-medium uppercase tracking-wide text-muted-foreground'>
-            {intl.formatMessage({
-              id: 'acceptance.cost.rework',
-              defaultMessage: 'Rework rounds',
-            })}
-          </dt>
-          <dd className='mt-1 text-heading text-foreground'>
-            {cost.reworkRounds}
-          </dd>
-        </div>
-      </dl>
-    </div>
-  )
-}
-
 // ── LUM-561 · Struggle / rework / outstanding ─────────────────────────────────
+
+/** LUM-496: the struggle trail's heading + tip, exported so the Record tab's
+ *  collapsed disclosure can label itself with exactly this copy (and render the
+ *  section `headless` inside) instead of forking a second wording. */
+export const STRUGGLE_TITLE = {
+  id: 'acceptance.struggle.title',
+  defaultMessage: 'Struggle / rework / outstanding',
+} as const
+export const STRUGGLE_TIP = {
+  id: 'acceptance.struggle.tip',
+  defaultMessage:
+    'The rework a clean all-pass report would otherwise hide: FAIL rounds, send-backs, leftover follow-ups, multiple PR cycles and review/done reopens. Always shown — an empty trail states its basis instead of disappearing.',
+} as const
 
 export function StruggleTrailSection({
   data,
+  headless = false,
 }: {
   data: TaskAcceptanceStatusView
+  /** LUM-496: the Record tab wraps this section in a disclosure that already
+   *  carries the heading — suppress the in-section one so the title is not
+   *  printed twice. */
+  headless?: boolean
 }) {
   const intl = useIntl()
   const trail = data.struggleTrail
@@ -136,18 +84,11 @@ export function StruggleTrailSection({
 
   return (
     <div>
-      <SectionTitle
-        tip={intl.formatMessage({
-          id: 'acceptance.struggle.tip',
-          defaultMessage:
-            'The rework a clean all-pass report would otherwise hide: FAIL rounds, send-backs, leftover follow-ups, multiple PR cycles and review/done reopens. Always shown — an empty trail states its basis instead of disappearing.',
-        })}
-      >
-        {intl.formatMessage({
-          id: 'acceptance.struggle.title',
-          defaultMessage: 'Struggle / rework / outstanding',
-        })}
-      </SectionTitle>
+      {headless ? null : (
+        <SectionTitle tip={intl.formatMessage(STRUGGLE_TIP)}>
+          {intl.formatMessage(STRUGGLE_TITLE)}
+        </SectionTitle>
+      )}
 
       {empty ? (
         <p className='rounded-md border border-border px-3 py-2.5 text-[12px] leading-snug text-muted-foreground'>
