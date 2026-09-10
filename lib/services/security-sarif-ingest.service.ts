@@ -48,7 +48,12 @@ import {
 export const SARIF_MAX_GZ_BYTES = 100 * 1024 * 1024
 export const SARIF_MAX_RAW_BYTES = 400 * 1024 * 1024
 /** How long an un-ingested blob survives before the orphan sweep deletes it. */
-export const SARIF_FAILED_BLOB_TTL_MS = 24 * 60 * 60 * 1000
+/**
+ * Orphan-sweep age (cron). Deliberately longer than the run's own 24h
+ * `sleep` so a failed report is always deleted by its run first and the
+ * sweep only ever sees blobs that never got a run.
+ */
+export const SARIF_ORPHAN_BLOB_TTL_MS = 48 * 60 * 60 * 1000
 
 export interface SarifIngestJob {
   url: string
@@ -362,8 +367,8 @@ export const securitySarifIngestService = {
   /**
    * Cron: the catch-all for blobs that never got a workflow run, and so have
    * nothing to delete them. Every run cleans up its own blob (immediately on
-   * success, after 24h on failure), so anything still here past the TTL was
-   * orphaned before a run ever started — an invalid `tokenPayload` in the
+   * success, after 24h on failure), so anything still here past the 48h TTL (longer than that sleep, so
+   * a run always wins the race) was orphaned before a run ever started — an invalid `tokenPayload` in the
    * upload callback, `start()` failing on both completion paths, or local
    * dev where no `complete` call ever arrives. One bad delete (a blob store
    * hiccup) must not stop the rest of the sweep — each is wrapped
@@ -376,7 +381,7 @@ export const securitySarifIngestService = {
     let deleted = 0
     let failed = 0
     for (const b of blobs) {
-      if (now.getTime() - b.uploadedAt.getTime() > SARIF_FAILED_BLOB_TTL_MS) {
+      if (now.getTime() - b.uploadedAt.getTime() > SARIF_ORPHAN_BLOB_TTL_MS) {
         if (await securitySarifIngestService.deleteBlobSafely(b.url))
           deleted += 1
         else failed += 1

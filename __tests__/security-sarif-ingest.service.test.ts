@@ -529,10 +529,11 @@ describe('markExternalFailed / deleteBlobSafely', () => {
 })
 
 describe('pruneStaleBlobs', () => {
-  it('deletes only security-sarif blobs older than 24h', async () => {
+  it('deletes only security-sarif blobs older than 48h (never a failed run still inside its 24h sleep)', async () => {
     const now = new Date('2026-09-10T00:00:00Z')
     listBlobs.mockResolvedValue([
-      { url: 'u-old', uploadedAt: new Date('2026-09-08T00:00:00Z') },
+      { url: 'u-old', uploadedAt: new Date('2026-09-07T23:00:00Z') },
+      { url: 'u-failed-run', uploadedAt: new Date('2026-09-08T12:00:00Z') },
       { url: 'u-new', uploadedAt: new Date('2026-09-09T23:00:00Z') },
     ])
     expect(await securitySarifIngestService.pruneStaleBlobs(now)).toEqual({
@@ -540,14 +541,15 @@ describe('pruneStaleBlobs', () => {
       failed: 0,
     })
     expect(delBlob).toHaveBeenCalledWith('u-old')
+    expect(delBlob).not.toHaveBeenCalledWith('u-failed-run')
     expect(delBlob).not.toHaveBeenCalledWith('u-new')
   })
 
   it('continues past a failed delete and reports it separately', async () => {
     const now = new Date('2026-09-10T00:00:00Z')
     listBlobs.mockResolvedValue([
-      { url: 'u-old-1', uploadedAt: new Date('2026-09-08T00:00:00Z') },
-      { url: 'u-old-2', uploadedAt: new Date('2026-09-08T00:00:00Z') },
+      { url: 'u-old-1', uploadedAt: new Date('2026-09-07T00:00:00Z') },
+      { url: 'u-old-2', uploadedAt: new Date('2026-09-07T00:00:00Z') },
     ])
     delBlob
       .mockRejectedValueOnce(new Error('boom'))

@@ -7,7 +7,8 @@ import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest
  * durable ingest run deletes its own blob: immediately once the report is
  * persisted, and after a 24h `sleep` when the ingest failed (so a human can
  * still fetch the report first). This sweep only catches `security-sarif/`
- * blobs older than 24h that never got a run at all:
+ * blobs older than 48h — longer than that sleep, so a run always deletes its
+ * own blob first — i.e. blobs that never got a run at all:
  *   - an invalid `tokenPayload` in the upload route's `onUploadCompleted`,
  *   - `start()` failing on both completion paths (upload callback and
  *     `POST …/sarif/complete`),
