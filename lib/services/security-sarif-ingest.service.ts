@@ -34,6 +34,7 @@ import {
   EXTERNAL_ERROR_PREFIX,
   type NormalizeResult,
   type RawSarifFinding,
+  type ScanStages,
 } from '@/lib/security-scan'
 import {
   inheritDispositions,
@@ -108,6 +109,8 @@ export interface PersistInput {
   repository: string
   prNumber: number
   auth: 'key' | 'oidc' | 'managed'
+  /** LUM-738: which layer these rows belong to; default `external`. */
+  stage?: 'external' | 'supplyChain'
   tool: string
   tools: string[]
   findings: RawSarifFinding[]
@@ -299,9 +302,21 @@ export const securitySarifIngestService = {
    * replace is idempotent.
    */
   async persistFindings(input: PersistInput): Promise<PersistOutcome> {
-    const prior = await prSecurityScanRepository.findDispositionedByPullRequest(
-      input.pr.id
-    )
+    const stage = input.stage ?? 'external'
+    const [prior, baseline] = await Promise.all([
+      prSecurityScanRepository.findDispositionedByPullRequest(input.pr.id),
+      projectRepository.findSecurityBaseline(
+        input.pr.workspaceId,
+        input.pr.repo
+      ),
+    ])
+    // LUM-738: the diff-aware substitute for findings with no line-level diff.
+    // A landed baseline (`at` set) is the default branch's fingerprint set; a
+    // row already in it was not introduced by this PR — `persisting`. No
+    // baseline, or one still in flight, marks nothing (honest: it reads as
+    // new until the baseline says otherwise).
+    const known =
+      baseline && baseline.at !== null ? new Set(baseline.fingerprints) : null
     const rows: NewFindingInput[] = inheritDispositions(
       input.findings.map(f => ({
         scanId: input.scanId,
@@ -317,6 +332,7 @@ export const securitySarifIngestService = {
         fingerprint: f.fingerprint,
         externalRef: f.externalRef,
         disposition: null,
+        persisting: known?.has(f.fingerprint) ?? false,
       })),
       prior
     )
@@ -325,7 +341,7 @@ export const securitySarifIngestService = {
         input.scanId,
         input.tools,
         rows,
-        { partial: input.truncated }
+        { partial: input.truncated, stage }
       )
     // A managed scan is Lumo's own sandbox run, not this repo pushing its own
     // SARIF — `lastSarifIngestAt` means "this repo has pushed a report", and
@@ -339,8 +355,9 @@ export const securitySarifIngestService = {
         new Date()
       )
     }
+    const persisting = rows.filter(r => r.persisting).length
     logger.info(
-      `[security-sarif-ingest] ${logSafe(input.repository)}#${input.prNumber} ${logSafe(input.tool)}: ${written} findings auth=${input.auth}${flippedToFindings ? ' (scan flipped CLEAN→FINDINGS)' : ''} (dropped notInDiff=${input.dropped.notInDiff} noLocation=${input.dropped.noLocation} dup=${input.dropped.duplicate})`
+      `[security-sarif-ingest] ${logSafe(input.repository)}#${input.prNumber} ${logSafe(input.tool)}: ${written} findings auth=${input.auth} stage=${stage}${persisting > 0 ? ` persisting=${persisting}` : ''}${flippedToFindings ? ' (scan flipped CLEAN→FINDINGS)' : ''} (dropped notInDiff=${input.dropped.notInDiff} noLocation=${input.dropped.noLocation} dup=${input.dropped.duplicate})`
     )
     return { written, partial: input.truncated }
   },
@@ -359,12 +376,26 @@ export const securitySarifIngestService = {
    * unprefixed `error` (stage A's own raw failure message) is never published
    * as an external-scanner reason.
    */
-  async markExternalFailed(scanId: string, reason?: string): Promise<void> {
+  async markExternalFailed(
+    scanId: string,
+    reason?: string,
+    /** LUM-738: which layers failed; default the external layer alone. */
+    patch: ScanStages = { external: 'FAILED' }
+  ): Promise<void> {
     await prSecurityScanRepository.mergeStages(
       scanId,
-      { external: 'FAILED' },
+      patch,
       reason ? { error: `${EXTERNAL_ERROR_PREFIX}${reason.slice(0, 480)}` } : {}
     )
+  },
+
+  /**
+   * LUM-738 — a layer outcome that is neither rows nor a failure (osv-scanner
+   * found no package sources → `supplyChain: SKIPPED`). Errors propagate so
+   * the step retries, like the P9 stamp.
+   */
+  async markStages(scanId: string, patch: ScanStages): Promise<void> {
+    await prSecurityScanRepository.mergeStages(scanId, patch)
   },
 
   /** Never throws: a blob-store hiccup on delete must not change an outcome already decided. */

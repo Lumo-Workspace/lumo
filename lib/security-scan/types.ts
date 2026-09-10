@@ -105,9 +105,28 @@ export interface SarifRun {
   results: SarifResult[]
 }
 
+/**
+ * LUM-738 — the shape persisted in `ProjectRepository.securityBaseline`: the
+ * fingerprint set of the default branch's last managed baseline scan. `at` is
+ * null (and `requestedAt` set) while a baseline run is in flight — a claim
+ * that stops every concurrent PR from requesting its own run.
+ */
+export interface SecurityBaseline {
+  sha: string
+  /** ISO time the baseline was written; null while the run is in flight. */
+  at: string | null
+  /** ISO time the run was requested (lazy build or default-branch push). */
+  requestedAt: string
+  fingerprints: string[]
+  /** A tool hit the fingerprint cap — membership is honest but not whole. */
+  partial: boolean
+  /** Tool slugs whose report made it into the set. */
+  tools: string[]
+}
+
 /** An EXTERNAL_TOOL finding row, redacted and safe to persist as-is. */
 export interface RawSarifFinding {
-  kind: 'SECRET' | 'VULNERABILITY'
+  kind: 'SECRET' | 'VULNERABILITY' | 'DEPENDENCY'
   /** `ext:<tool>:<ruleId>` */
   ruleId: string
   severity: SecuritySeverity

@@ -2320,5 +2320,8 @@
   "record.machine.source.human": "Отредактировано человеком",
   "record.machine.source.review": "Добавлено при ревью",
   "record.machine.viewOutput": "Показать вывод",
-  "record.human.emptyTitle": "Критерии приёмки человеком"
+  "record.human.emptyTitle": "Критерии приёмки человеком",
+  "securityScan.stage.supplyChain": "Зависимости",
+  "securityScan.finding.persisting": "уже есть в ветке по умолчанию",
+  "securityScan.finding.dependency": "Уязвимая зависимость"
 }

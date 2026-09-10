@@ -27,6 +27,7 @@ function finding(over: Partial<SecurityScanView['findings'][number]> = {}) {
     dispositionNote: null,
     inherited: false,
     blocking: true,
+    persisting: false,
     ...over,
   } as SecurityScanView['findings'][number]
 }
@@ -184,5 +185,34 @@ describe('shouldExpandRow', () => {
         })
       )
     ).toBe(true)
+  })
+})
+
+describe('LUM-738 supplyChain surface — rollup ignores persisting rows', () => {
+  it('a persisting (already-on-main) finding is neither counted nor a reason to expand', () => {
+    const only = scan({
+      findings: [finding({ id: 'old', kind: 'DEPENDENCY', persisting: true })],
+    })
+    expect(summarizeSecurityScans([{ latest: only }])).toMatchObject({
+      findings: 0,
+      allLow: false,
+    })
+    expect(shouldExpandRow(only)).toBe(false)
+    const mixed = scan({
+      findings: [
+        finding({ id: 'old', kind: 'DEPENDENCY', persisting: true }),
+        finding({
+          id: 'new',
+          kind: 'DEPENDENCY',
+          severity: 'LOW',
+          persisting: false,
+        }),
+      ],
+    })
+    expect(summarizeSecurityScans([{ latest: mixed }])).toMatchObject({
+      findings: 1,
+      allLow: true,
+    })
+    expect(shouldExpandRow(mixed)).toBe(true)
   })
 })

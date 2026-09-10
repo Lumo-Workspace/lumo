@@ -2320,5 +2320,8 @@
   "record.machine.source.human": "人工编辑",
   "record.machine.source.review": "评审新增",
   "record.machine.viewOutput": "查看产出",
-  "record.human.emptyTitle": "人工验收标准"
+  "record.human.emptyTitle": "人工验收标准",
+  "securityScan.stage.supplyChain": "依赖",
+  "securityScan.finding.persisting": "默认分支上已存在",
+  "securityScan.finding.dependency": "存在漏洞的依赖"
 }

@@ -249,6 +249,25 @@ export function sarifFingerprint(
     .slice(0, 16)
 }
 
+/**
+ * LUM-738 — identity of one vulnerable dependency, independent of where in
+ * the lockfile (or on which push) it was reported: the same package at the
+ * same version with the same advisory keeps one fingerprint across pushes and
+ * across the default-branch baseline, so dispositions inherit and baseline
+ * membership is meaningful. Same 16-hex truncation as the other fingerprints.
+ */
+export function dependencyFingerprint(
+  ecosystem: string,
+  name: string,
+  version: string,
+  osvId: string
+): string {
+  return createHash('sha256')
+    .update(`${ecosystem}:${name}:${version}:${osvId}`)
+    .digest('hex')
+    .slice(0, 16)
+}
+
 /** Shannon entropy in bits per character. */
 export function shannonEntropy(s: string): number {
   if (s.length === 0) return 0

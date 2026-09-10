@@ -235,3 +235,82 @@ describe('lumo task status — zero-criteria security rendering (LUM-737 review)
     )
   })
 })
+
+describe('LUM-738 supplyChain surface — task status per-PR line', () => {
+  const scanRow = (over: object) => ({
+    prNumber: 12,
+    status: 'FINDINGS' as const,
+    stages: {
+      secrets: 'RAN',
+      external: 'RAN',
+      supplyChain: 'RAN',
+      judge: 'RAN',
+    },
+    partial: false,
+    error: null,
+    externalFindings: 0,
+    openFindings: 1,
+    ...over,
+  })
+
+  it('prints the supplyChain segment in order with the dependency count and its already-on-main share', () => {
+    const out = formatTaskStatus(
+      payload({
+        securityFindings: {
+          open: 1,
+          blocking: 0,
+          unconfirmedPrs: [],
+          scans: [scanRow({ dependencyFindings: 3, persistingFindings: 2 })],
+        },
+      })
+    )
+    expect(out).toContain(
+      '  PR #12 · scan FINDINGS · secrets RAN · external RAN · supplyChain RAN (3 dependency findings, 2 already on main) · judge RAN'
+    )
+  })
+
+  it('singular, zero, skipped, and an older server without the counts', () => {
+    expect(
+      formatTaskStatus(
+        payload({
+          securityFindings: {
+            open: 0,
+            blocking: 0,
+            unconfirmedPrs: [],
+            scans: [scanRow({ dependencyFindings: 1, persistingFindings: 0 })],
+          },
+        })
+      )
+    ).toContain('supplyChain RAN (1 dependency finding) · judge RAN')
+    expect(
+      formatTaskStatus(
+        payload({
+          securityFindings: {
+            open: 0,
+            blocking: 0,
+            unconfirmedPrs: [],
+            scans: [
+              scanRow({
+                stages: { secrets: 'RAN', supplyChain: 'SKIPPED' },
+                dependencyFindings: 0,
+              }),
+            ],
+          },
+        })
+      )
+    ).toContain('secrets RAN · supplyChain SKIPPED')
+    // Older server: no counts → the segment is still printed, bare.
+    expect(
+      formatTaskStatus(
+        payload({
+          securityFindings: {
+            open: 0,
+            blocking: 0,
+            unconfirmedPrs: [],
+            scans: [scanRow({})],
+          },
+        })
+      )
+    ).toContain('external RAN · supplyChain RAN · judge RAN')
+  })
+})

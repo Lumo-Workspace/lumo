@@ -832,6 +832,12 @@ model ProjectRepository {
   // LUM-735: last successful SARIF ingest for this repo — null means the
   // repo has never pushed a scan (panel shows NOT_CONFIGURED, not PENDING).
   lastSarifIngestAt DateTime?
+  // LUM-738: { sha, at, fingerprints[], partial, tools[] } of the last managed
+  // baseline scan of the default branch (`requestedAt` while a run is in
+  // flight and `at` is null). Diff-aware substitute for findings that have no
+  // line-level diff (dependencies): a PR finding whose fingerprint is in the
+  // set is `persisting`, not new. null = never scanned.
+  securityBaseline Json?
   createdAt DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -1383,6 +1389,8 @@ enum PrSecurityJudgeStatus {
 enum PrSecurityFindingKind {
   SECRET
   VULNERABILITY
+  // LUM-738: a vulnerable dependency reported by osv-scanner (no line-level diff).
+  DEPENDENCY
 }
 
 enum PrSecurityFindingSeverity {
@@ -1465,6 +1473,10 @@ model PrSecurityFinding {
   // Set when the disposition was copied from an earlier finding with the same
   // fingerprint on the same PR (cross-push inheritance).
   inheritedFromFindingId String?
+  // LUM-738: the same fingerprint is already on the default branch's security
+  // baseline (ProjectRepository.securityBaseline) — this PR did not introduce
+  // it. Advisory: rendered muted, excluded from open/reminder counts.
+  persisting             Boolean                        @default(false)
   createdAt              DateTime                       @default(now())
 
   scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)

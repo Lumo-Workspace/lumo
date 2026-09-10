@@ -367,6 +367,35 @@ export async function handlePush(
   )
 
   const branchName = ref.slice('refs/heads/'.length)
+
+  // LUM-738 — a push to the default branch moves the repository security
+  // baseline: refresh the default-branch fingerprint set that decides
+  // whether a PR's dependency finding is new or already there. Detached +
+  // fail-soft, and BEFORE the task lookup below — `main` maps to no task.
+  if (branchName === repository.default_branch) {
+    // Dynamic import: the baseline service reaches github/contents → auth
+    // (octokit, ESM) and the workflow start; keeping it off this module's
+    // static graph keeps the webhook handlers loadable where that chain is
+    // not (the same boundary stage A draws around the LLM gateway).
+    waitUntil(
+      import('@/lib/services/security-baseline.service')
+        .then(({ securityBaselineService }) =>
+          securityBaselineService.requestFromPush({
+            workspaceId,
+            repo: repository.full_name,
+            sha: head_commit.id,
+          })
+        )
+        .then(() => undefined)
+        .catch(err => {
+          logger.warn(
+            '[webhook] security baseline request failed:',
+            err instanceof Error ? err.message : String(err)
+          )
+        })
+    )
+  }
+
   const task = await findTaskForBranch(branchName, workspaceId)
   if (!task) return
 

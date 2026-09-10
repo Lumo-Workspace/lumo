@@ -31,6 +31,7 @@ jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {
     markSarifIngested: jest.fn(),
     findLastSarifIngestAt: jest.fn(),
+    findSecurityBaseline: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
@@ -455,7 +456,7 @@ describe('persistFindings', () => {
       's1',
       ['semgrep-oss'],
       expect.any(Array),
-      { partial: true }
+      { partial: true, stage: 'external' }
     )
     const rows = repo.ingestExternalFindings.mock.calls[0]![2]
     expect(rows).toHaveLength(1)
@@ -613,5 +614,168 @@ describe('pruneStaleBlobs', () => {
     })
     expect(delBlob).toHaveBeenCalledWith('u-old-1')
     expect(delBlob).toHaveBeenCalledWith('u-old-2')
+  })
+})
+
+// ── LUM-738: baseline membership + supply-chain stage ───────────────────────
+
+describe('LUM-738 baseline — persistFindings', () => {
+  const findBaseline = projectRepository.findSecurityBaseline as jest.Mock
+  const baseline = (
+    over: Partial<{ at: string | null; fingerprints: string[] }> = {}
+  ) => ({
+    sha: 'b'.repeat(40),
+    at: '2026-09-10T00:00:00.000Z',
+    requestedAt: '2026-09-10T00:00:00.000Z',
+    fingerprints: ['fp-1'],
+    partial: false,
+    tools: ['osv-scanner'],
+    ...over,
+  })
+  const two = (): PersistInput => ({
+    ...PERSIST_INPUT,
+    stage: 'supplyChain',
+    tool: 'osv-scanner',
+    tools: ['osv-scanner'],
+    findings: [
+      {
+        ...PERSIST_INPUT.findings[0]!,
+        kind: 'DEPENDENCY',
+        ruleId: 'ext:osv-scanner:GHSA-1',
+        fingerprint: 'fp-1',
+        line: null,
+      },
+      {
+        ...PERSIST_INPUT.findings[0]!,
+        kind: 'DEPENDENCY',
+        ruleId: 'ext:osv-scanner:GHSA-2',
+        fingerprint: 'fp-2',
+        line: null,
+      },
+    ],
+  })
+
+  beforeEach(() => {
+    repo.findDispositionedByPullRequest.mockResolvedValue([])
+    repo.ingestExternalFindings.mockResolvedValue({
+      written: 2,
+      flippedToFindings: false,
+    })
+  })
+
+  it('flags a row whose fingerprint is on the landed baseline as persisting, the rest as new, and routes the stage', async () => {
+    findBaseline.mockResolvedValue(baseline())
+    await securitySarifIngestService.persistFindings(two())
+    expect(projectRepository.findSecurityBaseline).toHaveBeenCalledWith(
+      'w1',
+      'o/r'
+    )
+    expect(repo.ingestExternalFindings).toHaveBeenCalledWith(
+      's1',
+      ['osv-scanner'],
+      [
+        expect.objectContaining({
+          fingerprint: 'fp-1',
+          persisting: true,
+          kind: 'DEPENDENCY',
+        }),
+        expect.objectContaining({ fingerprint: 'fp-2', persisting: false }),
+      ],
+      { partial: false, stage: 'supplyChain' }
+    )
+    expect(logInfo).toHaveBeenCalledWith(
+      expect.stringContaining('stage=supplyChain persisting=1')
+    )
+  })
+
+  it.each([
+    ['no baseline', null],
+    ['unlinked repo', undefined],
+    ['baseline still in flight', { at: null }],
+  ])('marks nothing persisting when there is %s', async (_label, value) => {
+    findBaseline.mockResolvedValue(
+      value && typeof value === 'object' ? baseline(value) : value
+    )
+    await securitySarifIngestService.persistFindings(two())
+    const rows = repo.ingestExternalFindings.mock.calls[0]![2] as Array<{
+      persisting: boolean
+    }>
+    expect(rows.map(r => r.persisting)).toEqual([false, false])
+  })
+
+  it('applies the same baseline rule to semgrep rows on the external stage (replaces --baseline-commit)', async () => {
+    findBaseline.mockResolvedValue(baseline({ fingerprints: ['fp'] }))
+    await securitySarifIngestService.persistFindings({
+      ...PERSIST_INPUT,
+      findings: [{ ...PERSIST_INPUT.findings[0]!, fingerprint: 'fp' }],
+    })
+    expect(repo.ingestExternalFindings).toHaveBeenCalledWith(
+      's1',
+      expect.any(Array),
+      [expect.objectContaining({ persisting: true })],
+      { partial: false, stage: 'external' }
+    )
+  })
+
+  it('a persisting row still inherits a prior disposition on the same fingerprint', async () => {
+    findBaseline.mockResolvedValue(baseline())
+    repo.findDispositionedByPullRequest.mockResolvedValue([
+      {
+        id: 'old',
+        fingerprint: 'fp-1',
+        disposition: 'ACCEPTED_RISK',
+        dispositionNote: null,
+        dispositionedById: null,
+        dispositionedAt: null,
+      },
+    ])
+    await securitySarifIngestService.persistFindings(two())
+    const rows = repo.ingestExternalFindings.mock
+      .calls[0]![2] as unknown as Array<Record<string, unknown>>
+    expect(rows[0]).toMatchObject({
+      persisting: true,
+      disposition: 'ACCEPTED_RISK',
+      inheritedFromFindingId: 'old',
+    })
+  })
+})
+
+describe('LUM-738 supplyChain surface — stage stamps', () => {
+  it('markExternalFailed with a patch stamps only the given layers (supplyChain FAILED, external untouched)', async () => {
+    repo.mergeStages.mockResolvedValue(undefined)
+    await securitySarifIngestService.markExternalFailed(
+      's1',
+      'osv-scanner exit 129',
+      { supplyChain: 'FAILED' }
+    )
+    expect(repo.mergeStages).toHaveBeenCalledWith(
+      's1',
+      { supplyChain: 'FAILED' },
+      { error: 'external: osv-scanner exit 129' }
+    )
+  })
+
+  it('markExternalFailed without a patch keeps the LUM-735 default (external FAILED)', async () => {
+    repo.mergeStages.mockResolvedValue(undefined)
+    await securitySarifIngestService.markExternalFailed('s1')
+    expect(repo.mergeStages).toHaveBeenCalledWith(
+      's1',
+      { external: 'FAILED' },
+      {}
+    )
+  })
+
+  it('markStages merges a row-less layer outcome (supplyChain SKIPPED) and propagates errors', async () => {
+    repo.mergeStages.mockResolvedValue(undefined)
+    await securitySarifIngestService.markStages('s1', {
+      supplyChain: 'SKIPPED',
+    })
+    expect(repo.mergeStages).toHaveBeenCalledWith('s1', {
+      supplyChain: 'SKIPPED',
+    })
+    repo.mergeStages.mockRejectedValueOnce(new Error('db'))
+    await expect(
+      securitySarifIngestService.markStages('s1', { supplyChain: 'SKIPPED' })
+    ).rejects.toThrow('db')
   })
 })

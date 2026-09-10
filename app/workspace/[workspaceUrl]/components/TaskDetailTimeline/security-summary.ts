@@ -30,8 +30,12 @@ export interface SecurityScanSummary {
 export function summarizeSecurityScans(
   prs: Array<{ latest: SecurityScanView | null }>
 ): SecurityScanSummary {
+  // LUM-738: a persisting row (already on the default branch) needs no
+  // decision from this PR's reviewer — it is neither counted nor expanded for.
   const undispositioned = prs.flatMap(({ latest }) =>
-    latest ? latest.findings.filter(f => f.disposition == null) : []
+    latest
+      ? latest.findings.filter(f => f.disposition == null && !f.persisting)
+      : []
   )
   return {
     prs: prs.length,
@@ -57,7 +61,8 @@ export function summarizeSecurityScans(
  */
 export function shouldExpandRow(latest: SecurityScanView | null): boolean {
   if (!latest) return false
-  if (latest.findings.some(f => f.disposition == null)) return true
+  if (latest.findings.some(f => f.disposition == null && !f.persisting))
+    return true
   if (!latest.complete) return true
   return latest.stages.external === 'FAILED' && latest.error != null
 }

@@ -52,7 +52,12 @@ export interface TaskSecurityScanSummary {
   partial: boolean
   error: string | null
   externalFindings: number
+  /** Undispositioned AND not `persisting` (LUM-738). */
   openFindings: number
+  /** LUM-738 — DEPENDENCY rows (osv-scanner), regardless of disposition. */
+  dependencyFindings: number
+  /** LUM-738 — rows already on the default-branch baseline, any kind. */
+  persistingFindings: number
 }
 
 export interface TaskSecurityOpenState {
@@ -115,10 +120,14 @@ export const prSecurityReminderService = {
           partial: scan.partial,
           error: scan.error,
           externalFindings: scan.findings.filter(
-            f => f.provenance === 'EXTERNAL_TOOL'
+            f => f.provenance === 'EXTERNAL_TOOL' && f.kind !== 'DEPENDENCY'
           ).length,
-          openFindings: scan.findings.filter(f => f.disposition === null)
+          openFindings: scan.findings.filter(
+            f => f.disposition === null && !f.persisting
+          ).length,
+          dependencyFindings: scan.findings.filter(f => f.kind === 'DEPENDENCY')
             .length,
+          persistingFindings: scan.findings.filter(f => f.persisting).length,
         })
       }
       const reason = unconfirmedReason(scan)
@@ -128,6 +137,10 @@ export const prSecurityReminderService = {
       if (!scan) continue
       for (const f of scan.findings) {
         if (f.disposition !== null) continue
+        // LUM-738: already on the default branch — nothing this PR's agent
+        // introduced or can fix here; the panel shows it muted, the reminder
+        // and the next-actions list leave it out.
+        if (f.persisting) continue
         findings.push({
           id: f.id,
           kind: f.kind,

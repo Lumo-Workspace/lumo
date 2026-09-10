@@ -12,6 +12,7 @@ export {
   secretFingerprint,
   vulnerabilityFingerprint,
   sarifFingerprint,
+  dependencyFingerprint,
   shannonEntropy,
 } from './redact'
 export {
@@ -32,6 +33,9 @@ export {
   sarifSeverity,
   sarifKind,
   toolSlug,
+  isSupplyChainTool,
+  parseDependencyMessage,
+  ecosystemOfLockfile,
   MAX_SARIF_FINDINGS,
   type NormalizeResult,
 } from './sarif'

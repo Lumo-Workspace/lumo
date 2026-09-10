@@ -2320,5 +2320,8 @@
   "record.machine.source.human": "Modifié par un humain",
   "record.machine.source.review": "Ajouté en revue",
   "record.machine.viewOutput": "Voir la sortie",
-  "record.human.emptyTitle": "Critères d'acceptation humains"
+  "record.human.emptyTitle": "Critères d'acceptation humains",
+  "securityScan.stage.supplyChain": "Dépendances",
+  "securityScan.finding.persisting": "déjà présent sur la branche par défaut",
+  "securityScan.finding.dependency": "Dépendance vulnérable"
 }

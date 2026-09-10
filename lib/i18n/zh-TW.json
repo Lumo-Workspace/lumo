@@ -2320,5 +2320,8 @@
   "record.machine.source.human": "人工編輯",
   "record.machine.source.review": "評審新增",
   "record.machine.viewOutput": "查看產出",
-  "record.human.emptyTitle": "人工驗收標準"
+  "record.human.emptyTitle": "人工驗收標準",
+  "securityScan.stage.supplyChain": "依賴",
+  "securityScan.finding.persisting": "預設分支上已存在",
+  "securityScan.finding.dependency": "存在漏洞的依賴"
 }

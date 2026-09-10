@@ -2320,5 +2320,8 @@
   "record.machine.source.human": "Von Menschen bearbeitet",
   "record.machine.source.review": "Im Review ergänzt",
   "record.machine.viewOutput": "Ausgabe anzeigen",
-  "record.human.emptyTitle": "Menschliche Abnahmekriterien"
+  "record.human.emptyTitle": "Menschliche Abnahmekriterien",
+  "securityScan.stage.supplyChain": "Abhängigkeiten",
+  "securityScan.finding.persisting": "bereits im Standard-Branch",
+  "securityScan.finding.dependency": "Anfällige Abhängigkeit"
 }

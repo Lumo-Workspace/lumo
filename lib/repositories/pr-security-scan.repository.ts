@@ -9,7 +9,7 @@ import type { ScanStages } from '@/lib/security-scan/types'
 export type ScanStatus = 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
 export type ScanTrigger = 'PR_EVENT' | 'PR_LINK' | 'SARIF_PUSH'
 export type JudgeStatus = 'RAN' | 'UNAVAILABLE' | 'SKIPPED'
-export type FindingKind = 'SECRET' | 'VULNERABILITY'
+export type FindingKind = 'SECRET' | 'VULNERABILITY' | 'DEPENDENCY'
 export type FindingSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 export type FindingProvenance = 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
 export type FindingDisposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
@@ -42,6 +42,8 @@ export interface NewFindingInput {
   dispositionedById?: string | null
   dispositionedAt?: Date | null
   inheritedFromFindingId?: string | null
+  /** LUM-738: the fingerprint is on the default branch's security baseline. */
+  persisting?: boolean
 }
 
 export interface FinalizeScanInput {
@@ -74,6 +76,8 @@ export interface FindingRow {
   dispositionedById: string | null
   dispositionedAt: Date | null
   inheritedFromFindingId: string | null
+  /** LUM-738: already on the default-branch baseline — not introduced by this PR. */
+  persisting: boolean
   createdAt: Date
 }
 
@@ -120,6 +124,7 @@ export type ReviewFindingRow = Pick<
   | 'fingerprint'
   | 'externalRef'
   | 'disposition'
+  | 'persisting'
 >
 
 /**
@@ -200,11 +205,19 @@ function mergeIngestOwnedStages(
   current: { stages: unknown; partial?: boolean | null } | null,
   incoming: { stages: ScanStages; partial: boolean }
 ): { stages: ScanStages; partial: boolean } {
-  const owned = (current?.stages as ScanStages | null)?.external
-  const stages: ScanStages =
-    owned === 'RAN' || owned === 'FAILED'
-      ? { ...incoming.stages, external: owned }
-      : incoming.stages
+  const cur = (current?.stages as ScanStages | null) ?? {}
+  const stages: ScanStages = { ...incoming.stages }
+  const external = cur.external
+  if (external === 'RAN' || external === 'FAILED') stages.external = external
+  // LUM-738: the managed run also owns `supplyChain` once it has spoken —
+  // RAN (rows landed), FAILED, or SKIPPED (nothing to scan is a fact too).
+  const supplyChain = cur.supplyChain
+  if (
+    supplyChain === 'RAN' ||
+    supplyChain === 'FAILED' ||
+    supplyChain === 'SKIPPED'
+  )
+    stages.supplyChain = supplyChain
   return {
     stages,
     partial: (current?.partial ?? false) || incoming.partial,
@@ -435,9 +448,12 @@ export const prSecurityScanRepository = {
     scanId: string,
     tools: string[],
     rows: NewFindingInput[],
-    opts: { partial: boolean }
+    opts: { partial: boolean; stage?: 'external' | 'supplyChain' }
   ): Promise<{ written: number; flippedToFindings: boolean }> {
     const uniqueTools = Array.from(new Set(tools))
+    // LUM-738: osv-scanner's rows land under `supplyChain`; everything else
+    // (semgrep, gitleaks, BYO SARIF) is the `external` layer.
+    const stage = opts.stage ?? 'external'
     return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
@@ -452,7 +468,7 @@ export const prSecurityScanRepository = {
         data: {
           stages: {
             ...((current?.stages as ScanStages | null) ?? {}),
-            external: 'RAN',
+            [stage]: 'RAN',
           },
           partial: (current?.partial ?? false) || opts.partial,
         },
@@ -558,6 +574,7 @@ export const prSecurityScanRepository = {
             fingerprint: true,
             externalRef: true,
             disposition: true,
+            persisting: true,
           },
         },
         pullRequest: {

@@ -85,6 +85,7 @@ function finding(over: Partial<ReviewFindingRow> = {}): ReviewFindingRow {
     fingerprint: 'fp1',
     externalRef: null,
     disposition: null,
+    persisting: false,
     ...over,
   }
 }
@@ -686,5 +687,167 @@ describe('securityPrReviewService.sync', () => {
     expect(sent).toContain('Hardcoded AWS access key')
     expect(sent).not.toContain(PLAINTEXT_KEY)
     expect(sent).not.toContain('const key =')
+  })
+})
+
+// ── LUM-738: supply chain on the PR ─────────────────────────────────────────
+
+describe('LUM-738 supplyChain surface — PR summary', () => {
+  const base = {
+    headSha: 'abcdef1234567890',
+    partial: false,
+    externalCounts: {},
+    open: 0,
+    blocking: 0,
+    error: null,
+    taskUrl: null,
+  }
+
+  it('adds the dependency line with new vs already-on-main counts and shows supplyChain in the stage line', () => {
+    const body = buildSummary({
+      ...base,
+      stages: {
+        secrets: 'RAN',
+        external: 'RAN',
+        supplyChain: 'RAN',
+        judge: 'RAN',
+      },
+      open: 2,
+      dependencies: { open: 2, persisting: 3 },
+    })
+    expect(body).toContain(
+      '- secrets: RAN · external: RAN · supplyChain: RAN · judge: RAN'
+    )
+    expect(body).toContain(
+      '- Dependencies: 2 vulnerable dependencies (3 already on main)'
+    )
+    expect(body).toContain('**2 open findings**')
+  })
+
+  it('singular / clean / skipped / pending phrasings', () => {
+    expect(
+      buildSummary({
+        ...base,
+        stages: { supplyChain: 'RAN' },
+        open: 1,
+        dependencies: { open: 1, persisting: 0 },
+      })
+    ).toContain('- Dependencies: 1 vulnerable dependency\n')
+    expect(
+      buildSummary({
+        ...base,
+        stages: { supplyChain: 'RAN' },
+        dependencies: { open: 0, persisting: 0 },
+      })
+    ).toContain('- Dependencies: no known vulnerabilities')
+    expect(
+      buildSummary({ ...base, stages: { supplyChain: 'SKIPPED' } })
+    ).toContain('- Dependencies: no package sources found')
+    // Pending with nothing yet: no dependency line, and the scan is not clean.
+    const pending = buildSummary({
+      ...base,
+      stages: { secrets: 'RAN', external: 'PENDING', supplyChain: 'PENDING' },
+      dependencies: { open: 0, persisting: 0 },
+    })
+    expect(pending).not.toContain('- Dependencies')
+    expect(pending).toContain('still incomplete')
+    // No supply-chain layer at all (LUM-735 shape): nothing added.
+    expect(
+      buildSummary({ ...base, stages: { secrets: 'RAN', external: 'RAN' } })
+    ).not.toContain('Dependencies')
+  })
+
+  it('publishes a scrubbed supply-chain failure under its own label, external untouched', () => {
+    const body = buildSummary({
+      ...base,
+      stages: { secrets: 'RAN', external: 'RAN', supplyChain: 'FAILED' },
+      error: 'external: osv-scanner exit 129',
+    })
+    expect(body).toContain('⚠ Dependency scanner failed: osv-scanner exit 129')
+    expect(body).not.toContain('External scanner failed')
+    // An external failure keeps its LUM-735 label even when supplyChain also failed.
+    expect(
+      buildSummary({
+        ...base,
+        stages: { external: 'FAILED', supplyChain: 'FAILED' },
+        error: 'external: gitleaks exit 2; osv-scanner exit 129',
+      })
+    ).toContain(
+      '⚠ External scanner failed: gitleaks exit 2; osv-scanner exit 129'
+    )
+    // P8 still holds: an unprefixed error is never published.
+    expect(
+      buildSummary({
+        ...base,
+        stages: { supplyChain: 'FAILED' },
+        error: 'raw TypeError',
+      })
+    ).not.toContain('raw TypeError')
+  })
+})
+
+describe('LUM-738 supplyChain surface — sync excludes persisting rows', () => {
+  it('a persisting finding is not open, not blocking, not inline-commented, and not in the external tool counts; dependencies are counted on their own line', async () => {
+    findById.mockResolvedValue(
+      scanRow({
+        stages: {
+          secrets: 'RAN',
+          external: 'RAN',
+          supplyChain: 'RAN',
+          judge: 'RAN',
+        },
+        findings: [
+          // New semgrep hit on an added line → open + inline.
+          finding({
+            id: 'new',
+            fingerprint: 'fpNew',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:semgrep:r',
+            line: 2,
+            persisting: false,
+          }),
+          // Same rule, already on main → muted everywhere.
+          finding({
+            id: 'old',
+            fingerprint: 'fpOld',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:semgrep:r',
+            line: 5,
+            persisting: true,
+          }),
+          // A new vulnerable dependency (no line) and a pre-existing one.
+          finding({
+            id: 'dep-new',
+            kind: 'DEPENDENCY',
+            fingerprint: 'fpDep1',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:osv-scanner:GHSA-1',
+            line: null,
+            persisting: false,
+          }),
+          finding({
+            id: 'dep-old',
+            kind: 'DEPENDENCY',
+            fingerprint: 'fpDep2',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:osv-scanner:GHSA-2',
+            line: null,
+            persisting: true,
+          }),
+        ],
+      })
+    )
+    const out = await securityPrReviewService.sync('s1')
+    expect(out).toEqual({ posted: true, inline: 1, skipped: 0 })
+    const comments = createReview.mock.calls[0][0].comments
+    expect(comments.map((c: { line: number }) => c.line)).toEqual([2])
+    const body = createIssue.mock.calls[0][0].body as string
+    expect(body).toContain(
+      '- secrets: RAN · external: RAN (semgrep 1) · supplyChain: RAN · judge: RAN'
+    )
+    expect(body).toContain(
+      '- Dependencies: 1 vulnerable dependency (1 already on main)'
+    )
+    expect(body).toContain('**2 open findings**')
   })
 })
