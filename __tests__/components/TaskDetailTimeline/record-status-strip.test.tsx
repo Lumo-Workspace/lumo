@@ -46,6 +46,7 @@ function gaps(p: Partial<RecordGaps> = {}): RecordGaps {
     crossingsTotal: 0,
     securityBlocking: 0,
     canBeDone: true,
+    taskDone: false,
     ...p,
   }
 }
@@ -63,6 +64,7 @@ describe('RecordStatusStrip', () => {
           machineTotal: 1,
           machineVerified: 1,
           crossingsOpen: 3,
+          crossingsBlocking: 3,
           crossingsTotal: 5,
           canBeDone: false,
         })}
@@ -78,7 +80,12 @@ describe('RecordStatusStrip', () => {
   it('renders the crossings chip in the singular for count = 1', () => {
     render(
       <RecordStatusStrip
-        gaps={gaps({ crossingsOpen: 1, crossingsTotal: 1, canBeDone: false })}
+        gaps={gaps({
+          crossingsOpen: 1,
+          crossingsBlocking: 1,
+          crossingsTotal: 1,
+          canBeDone: false,
+        })}
       />
     )
     expect(screen.getByTestId('gap-crossings')).toHaveTextContent(
@@ -137,7 +144,12 @@ describe('RecordStatusStrip', () => {
   it('renders the right-aligned progress chip when there are any crossings', () => {
     render(
       <RecordStatusStrip
-        gaps={gaps({ crossingsOpen: 2, crossingsTotal: 5, canBeDone: false })}
+        gaps={gaps({
+          crossingsOpen: 2,
+          crossingsBlocking: 2,
+          crossingsTotal: 5,
+          canBeDone: false,
+        })}
       />
     )
     const progress = screen.getByTestId('gap-progress')
@@ -202,11 +214,85 @@ describe('RecordStatusStrip', () => {
     )
   })
 
+  // Review F5: an open crossing that does not block Done (advisory, or any
+  // open crossing while the workspace gate is off) still needs dispositioning
+  // — but red "27 crossings" overstated a queue nothing is waiting on.
+  it('renders the crossings chip in the in-review tone with advisory copy when nothing blocks', () => {
+    render(
+      <RecordStatusStrip
+        gaps={gaps({
+          machineTotal: 1,
+          machineVerified: 1,
+          crossingsOpen: 3,
+          crossingsBlocking: 0,
+          crossingsTotal: 3,
+          canBeDone: true,
+        })}
+      />
+    )
+    const chip = screen.getByTestId('gap-crossings')
+    expect(chip).toHaveTextContent('3 advisory crossings to disposition')
+    expect(chip.className).toContain('text-status-in-review')
+    expect(chip.className).not.toContain('text-danger')
+    expect(chip).toHaveAttribute('href', '#record-crossings')
+  })
+
+  it('renders the advisory crossings chip in the singular for count = 1', () => {
+    render(
+      <RecordStatusStrip
+        gaps={gaps({
+          crossingsOpen: 1,
+          crossingsBlocking: 0,
+          crossingsTotal: 1,
+        })}
+      />
+    )
+    expect(screen.getByTestId('gap-crossings')).toHaveTextContent(
+      '1 advisory crossing to disposition'
+    )
+  })
+
+  // Review F3: on an accepted task "the task can be marked Done" instructs a
+  // decision that was already taken — the same slot states the outcome.
+  it('says the task is accepted (not "can be marked Done") once it is DONE', () => {
+    render(
+      <RecordStatusStrip
+        gaps={gaps({ machineTotal: 2, machineVerified: 2, taskDone: true })}
+      />
+    )
+    const accepted = screen.getByTestId('gap-accepted')
+    expect(accepted).toHaveTextContent('Accepted — this task is Done')
+    expect(accepted.className).toContain('text-success')
+    expect(screen.queryByTestId('gap-none')).toBeNull()
+  })
+
+  // Review F7: the settled-state chip closes the line (mockup order), after
+  // the human-judged reading and the disposition progress.
+  it('renders the settled-state chip last, after the human and progress chips', () => {
+    render(
+      <RecordStatusStrip
+        gaps={gaps({
+          humanTotal: 2,
+          humanPending: 0,
+          crossingsOpen: 0,
+          crossingsTotal: 5,
+        })}
+      />
+    )
+    const strip = screen.getByText('Still needed for Done').parentElement!
+    expect(strip.lastElementChild).toBe(screen.getByTestId('gap-none'))
+    const chips = Array.from(strip.children).map(el =>
+      el.getAttribute('data-testid')
+    )
+    expect(chips).toEqual([null, 'gap-human', 'gap-progress', 'gap-none'])
+  })
+
   it('renders plain (non-link) badges when interactive is false', () => {
     render(
       <RecordStatusStrip
         gaps={gaps({
           crossingsOpen: 1,
+          crossingsBlocking: 1,
           crossingsTotal: 1,
           machineTotal: 1,
           machineAwaiting: 1,

@@ -112,7 +112,20 @@ describe('summarizeSecurityScans', () => {
       findings: 0,
       allLow: false,
       externalFailed: 0,
+      incomplete: 0,
     })
+  })
+
+  // Review F1: without this count the line read "3 PRs · no findings" while
+  // two of the three scans never finished.
+  it('counts PRs whose latest scan is missing or did not complete', () => {
+    const summary = summarizeSecurityScans([
+      { latest: scan({ complete: true }) },
+      { latest: scan({ complete: false }) },
+      { latest: null },
+    ])
+    expect(summary.incomplete).toBe(2)
+    expect(summary.findings).toBe(0)
   })
 })
 
@@ -155,5 +168,21 @@ describe('shouldExpandRow', () => {
 
   it('is false for a clean, complete scan', () => {
     expect(shouldExpandRow(scan({ findings: [] }))).toBe(false)
+  })
+
+  // Review F1: an incomplete scan's stage notes / not-configured hint /
+  // partial notice are exactly why the summary cannot claim a clean result —
+  // they open with the section instead of hiding behind a chevron.
+  it('is true when the scan did not complete, even with nothing else to flag', () => {
+    expect(
+      shouldExpandRow(
+        scan({
+          findings: [],
+          status: 'CLEAN',
+          complete: false,
+          stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
+        })
+      )
+    ).toBe(true)
   })
 })

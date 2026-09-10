@@ -123,7 +123,31 @@ describe('deriveRecordGaps', () => {
       crossingsTotal: 0,
       securityBlocking: 0,
       canBeDone: true,
+      taskDone: false,
     })
+  })
+
+  // Review F3: the strip needs to know the task was accepted (to say
+  // "Accepted" instead of "can be marked Done") without a second prop —
+  // the same DONE flag that zeroes machineAwaiting / humanPending.
+  it('taskDone mirrors data.task.status', () => {
+    expect(
+      deriveRecordGaps({
+        data: view({ criteria: [] }),
+        crossings: [],
+        gateEnabled: true,
+      }).taskDone
+    ).toBe(false)
+    expect(
+      deriveRecordGaps({
+        data: view({
+          task: { id: 't', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+          criteria: [],
+        }),
+        crossings: [],
+        gateEnabled: true,
+      }).taskDone
+    ).toBe(true)
   })
 
   it('machine: a genuine PASS counts as verified, not awaiting', () => {

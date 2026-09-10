@@ -1628,6 +1628,29 @@ export function AcceptanceTab({
     humanPending ||
     gaps.crossingsOpen > 0 ||
     showSecurityFirst
+  // The zone's note has to match what the zone actually contains (review
+  // F4/F5). "Clear these and the task can be marked Done" is a lie on a task
+  // already accepted (nothing here gates a decision that was taken), and an
+  // overstatement when the only open items are advisory: they need a
+  // disposition for the record, but Done never waited on them.
+  const needsActionNoteId = gaps.taskDone
+    ? 'record.zone.needsActionDoneNote'
+    : gaps.crossingsOpen > 0 &&
+        gaps.crossingsBlocking === 0 &&
+        machineAwaitingCriteria.length === 0 &&
+        !humanPending &&
+        gaps.securityBlocking === 0
+      ? 'record.zone.needsActionAdvisoryNote'
+      : 'record.zone.needsActionNote'
+  const needsActionNote = {
+    'record.zone.needsActionDoneNote':
+      'Open items recorded after the task was accepted.',
+    'record.zone.needsActionAdvisoryNote':
+      'These do not block Done, but each still needs a disposition.',
+    'record.zone.needsActionNote':
+      'Clear these and the task can be marked Done.',
+  }[needsActionNoteId]
+
   // The human zone renders exactly once: pending → NEEDS ACTION, otherwise as
   // the resolved record below. It survives an empty human criteria list while
   // the contract is editable because it carries the add-criterion entry.
@@ -1785,10 +1808,13 @@ export function AcceptanceTab({
                 defaultMessage: 'Needs action',
               })}
             </div>
-            <p className='text-caption text-muted-foreground'>
+            <p
+              data-testid='record-needs-action-note'
+              className='text-caption text-muted-foreground'
+            >
               {intl.formatMessage({
-                id: 'record.zone.needsActionNote',
-                defaultMessage: 'Clear these and the task can be marked Done.',
+                id: needsActionNoteId,
+                defaultMessage: needsActionNote,
               })}
             </p>
           </div>

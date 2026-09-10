@@ -73,23 +73,38 @@ export function RecordStatusStrip({
   const gapChipsPresent =
     gaps.crossingsOpen > 0 || gaps.machineAwaiting > 0 || gaps.humanPending > 0
 
+  // Review F5: open-but-advisory crossings (or any open crossing while the
+  // workspace gate is off) still need a disposition, but they do not block
+  // Done — danger red overstated them. They get the in-review tone and copy
+  // that says what they actually are.
+  const crossingsAdvisoryOnly =
+    gaps.crossingsOpen > 0 && gaps.crossingsBlocking === 0
   const crossingsChip =
     gaps.crossingsOpen > 0 ? (
       <GapChip
         key='crossings'
         href='#record-crossings'
-        tone='danger'
+        tone={crossingsAdvisoryOnly ? 'inReview' : 'danger'}
         interactive={interactive}
         testId='gap-crossings'
       >
-        {intl.formatMessage(
-          {
-            id: 'record.gap.crossings',
-            defaultMessage:
-              '{count, plural, one {# crossing} other {# crossings}} to disposition',
-          },
-          { count: gaps.crossingsOpen }
-        )}
+        {crossingsAdvisoryOnly
+          ? intl.formatMessage(
+              {
+                id: 'record.gap.crossingsAdvisory',
+                defaultMessage:
+                  '{count, plural, one {# advisory crossing} other {# advisory crossings}} to disposition',
+              },
+              { count: gaps.crossingsOpen }
+            )
+          : intl.formatMessage(
+              {
+                id: 'record.gap.crossings',
+                defaultMessage:
+                  '{count, plural, one {# crossing} other {# crossings}} to disposition',
+              },
+              { count: gaps.crossingsOpen }
+            )}
       </GapChip>
     ) : null
 
@@ -147,14 +162,34 @@ export function RecordStatusStrip({
       </span>
     ) : null
 
+  // Review F3: on a task already accepted, "the task can be marked Done" is
+  // an instruction for a decision that was taken — the same slot states the
+  // outcome instead. Same tone, same position, different tense.
   const noneChip =
     !gapChipsPresent && gaps.canBeDone ? (
-      <span key='none' data-testid='gap-none' className={chipClass('success')}>
-        {intl.formatMessage({
-          id: 'record.gap.none',
-          defaultMessage: 'Nothing left — the task can be marked Done',
-        })}
-      </span>
+      gaps.taskDone ? (
+        <span
+          key='none'
+          data-testid='gap-accepted'
+          className={chipClass('success')}
+        >
+          {intl.formatMessage({
+            id: 'record.gap.accepted',
+            defaultMessage: 'Accepted — this task is Done',
+          })}
+        </span>
+      ) : (
+        <span
+          key='none'
+          data-testid='gap-none'
+          className={chipClass('success')}
+        >
+          {intl.formatMessage({
+            id: 'record.gap.none',
+            defaultMessage: 'Nothing left — the task can be marked Done',
+          })}
+        </span>
+      )
     ) : null
 
   const progressChip =
@@ -187,9 +222,11 @@ export function RecordStatusStrip({
       </span>
       {crossingsChip}
       {machineChip}
-      {noneChip}
       {humanChip}
       {progressChip}
+      {/* Review F7: the settled-state chip closes the line, after the
+          human-judged and disposition-progress readings (mockup order). */}
+      {noneChip}
     </div>
   )
 }

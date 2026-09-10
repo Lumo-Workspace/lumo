@@ -437,8 +437,11 @@ describe('a task with nothing left to do', () => {
     renderTab()
 
     expect(screen.queryByTestId('record-needs-action')).toBeNull()
-    expect(screen.getByTestId('gap-none')).toHaveTextContent(
-      'Nothing left — the task can be marked Done'
+    // Review F3: the task is already accepted — the strip states the outcome
+    // instead of instructing a decision that was taken.
+    expect(screen.queryByTestId('gap-none')).toBeNull()
+    expect(screen.getByTestId('gap-accepted')).toHaveTextContent(
+      'Accepted — this task is Done'
     )
     // Everything settled is still on the page, one zone down.
     expect(records()).toBeInTheDocument()
@@ -473,7 +476,7 @@ describe('a task with nothing left to do', () => {
     expect(screen.getByTestId('gap-human')).toHaveTextContent(
       'Human-judged 1/1'
     )
-    expect(screen.getByTestId('gap-none')).toBeInTheDocument()
+    expect(screen.getByTestId('gap-accepted')).toBeInTheDocument()
 
     // The override is a record, not a disappearance: the card counts it
     // honestly (0 of 1 machine-verified) and still lists it when opened.
@@ -483,6 +486,63 @@ describe('a task with nothing left to do', () => {
     expect(card).toHaveTextContent('0/1')
     fireEvent.click(card)
     expect(screen.getByText('passed by a person')).toBeInTheDocument()
+  })
+})
+
+describe('the needs-action note tells the truth about what is in the zone', () => {
+  // Review F4: crossings can land after acceptance (a late-arriving session
+  // report). They still need dispositioning — but nothing is waiting on them.
+  it('a DONE task with open crossings never says "and the task can be marked Done"', () => {
+    setStatus(
+      statusView({
+        task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [machineVerified()],
+      })
+    )
+    setCrossings([crossing()])
+    renderTab()
+
+    expect(screen.getByTestId('record-needs-action-note')).toHaveTextContent(
+      'Open items recorded after the task was accepted.'
+    )
+    expect(
+      screen.queryByText('Clear these and the task can be marked Done.')
+    ).toBeNull()
+  })
+
+  // Review F5: advisory crossings (or any open crossing with the gate off)
+  // need a disposition for the record, but Done never waited on them.
+  it('advisory-only crossings get the non-blocking note and an in-review chip', () => {
+    setStatus(statusView({ criteria: [machineVerified()] }))
+    setCrossings([crossing({ advisory: true, severity: 'MEDIUM' })])
+    renderTab()
+
+    expect(screen.getByTestId('record-needs-action-note')).toHaveTextContent(
+      'These do not block Done, but each still needs a disposition.'
+    )
+    const chip = screen.getByTestId('gap-crossings')
+    expect(chip).toHaveTextContent('1 advisory crossing to disposition')
+    expect(chip.className).toContain('text-status-in-review')
+  })
+
+  it('keeps the blocking note when something actually blocks Done', () => {
+    setStatus(statusView({ criteria: [machineAwaiting()] }))
+    setCrossings([crossing()])
+    renderTab()
+
+    expect(screen.getByTestId('record-needs-action-note')).toHaveTextContent(
+      'Clear these and the task can be marked Done.'
+    )
+  })
+
+  it('an advisory crossing alongside a real blocker keeps the blocking note', () => {
+    setStatus(statusView({ criteria: [machineAwaiting()] }))
+    setCrossings([crossing({ advisory: true, severity: 'LOW' })])
+    renderTab()
+
+    expect(screen.getByTestId('record-needs-action-note')).toHaveTextContent(
+      'Clear these and the task can be marked Done.'
+    )
   })
 })
 

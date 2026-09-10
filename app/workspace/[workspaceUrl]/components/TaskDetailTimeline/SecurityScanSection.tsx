@@ -62,10 +62,30 @@ function SecurityScanPanel({
   const severityNote = summary.allLow
     ? ` (${intl.formatMessage({ id: 'record.security.allLow' })})`
     : ''
-  const summaryText = intl.formatMessage(
-    { id: 'record.security.summary' },
-    { prs: summary.prs, findings: summary.findings, severityNote }
-  )
+  // Review F1 (honesty): with a scan still incomplete, zero findings is not
+  // "no findings" — it is "no findings *on the scans that finished*". The
+  // composite `record.security.summary` bakes its own =0 branch, so that case
+  // is composed from the PR-count clause plus the qualified one instead.
+  const qualifyZero = summary.findings === 0 && summary.incomplete > 0
+  const summaryText = qualifyZero
+    ? [
+        intl.formatMessage(
+          { id: 'record.security.prs' },
+          { count: summary.prs }
+        ),
+        intl.formatMessage({ id: 'record.security.noneOnComplete' }),
+      ].join(' · ')
+    : intl.formatMessage(
+        { id: 'record.security.summary' },
+        { prs: summary.prs, findings: summary.findings, severityNote }
+      )
+  const incompleteText =
+    summary.incomplete > 0
+      ? intl.formatMessage(
+          { id: 'record.security.incomplete' },
+          { count: summary.incomplete }
+        )
+      : ''
   const failedText =
     summary.externalFailed > 0
       ? intl.formatMessage(
@@ -73,10 +93,13 @@ function SecurityScanPanel({
           { count: summary.externalFailed }
         )
       : ''
-  const summaryLine = [summaryText, failedText].filter(Boolean).join(' · ')
+  const summaryLine = [summaryText, incompleteText, failedText]
+    .filter(Boolean)
+    .join(' · ')
 
   // Per-PR expansion (LUM-496): defaults to `shouldExpandRow` (an open finding,
-  // or an external failure with an error) but a manual toggle sticks — keyed by
+  // an incomplete scan, or an external failure with an error) but a manual
+  // toggle sticks — keyed by
   // PR id so re-renders (e.g. after a disposition) don't reset a human's choice.
   const [expandedOverrides, setExpandedOverrides] = useState<
     Record<string, boolean>
@@ -128,9 +151,13 @@ function SecurityScanPanel({
                 {/* A link inside a button is invalid HTML — the row is a div
                 with the toggle button and the PR link side by side. */}
                 <div className='flex items-center gap-2'>
+                  {/* Review F2 (a11y): the chevron is the only content, so
+                  without a label a screen reader announces a bare "button" —
+                  name it after the row it opens (the PR the reader sees). */}
                   <button
                     type='button'
                     aria-expanded={expanded}
+                    aria-label={`#${pr.number} ${pr.title}`}
                     data-testid={`security-pr-${pr.number}-toggle`}
                     onClick={() => toggleRow(pr.id, latest)}
                     className='shrink-0 text-muted-foreground hover:text-foreground'

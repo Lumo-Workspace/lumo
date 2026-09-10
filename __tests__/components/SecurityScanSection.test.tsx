@@ -44,6 +44,9 @@ const messages: Record<string, string> = {
   'record.security.summary': '{prs} PRs · {findings} findings{severityNote}',
   'record.security.allLow': 'all LOW',
   'record.security.failed': '{count} external scan(s) failed',
+  'record.security.prs': '{count} PRs',
+  'record.security.noneOnComplete': 'no findings on completed scans',
+  'record.security.incomplete': '{count} scan(s) incomplete',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -292,9 +295,12 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  // No findings and the external stage is merely NOT_CONFIGURED (not FAILED),
-  // so the row defaults to collapsed — expand it to reach the scan details.
-  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  // Review F1: the scan did not complete, so the row opens on its own — the
+  // stage notes are the reason the summary above cannot claim a clean result.
+  expect(screen.getByTestId('security-pr-9-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
   const stages = screen.getByTestId('scan-stages')
   expect(stages).toHaveTextContent('External scanner: not configured')
   expect(stages).toHaveTextContent('LLM review: failed')
@@ -443,9 +449,8 @@ test('a PENDING external stage renders "scanning" and no external-late warning',
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  // No findings and a PENDING (not FAILED) external stage default to
-  // collapsed — expand it to reach the stage line.
-  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  // Review F1: an unfinished scan opens by default, so "scanning" is visible
+  // without a click.
   expect(screen.getByTestId('scan-stages')).toHaveTextContent(
     'External scanner: scanning'
   )
@@ -473,9 +478,7 @@ test('externalLate renders a warning that the scanner has not reported in 30 min
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  // Same as above: a PENDING external stage never expands the row on its own
-  // (only a FAILED stage with an error does) — expand it manually.
-  fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+  // Same as above: the scan is incomplete, so the row is already open.
   expect(screen.getByTestId('external-late')).toHaveTextContent(
     'Push a new commit to start a fresh scan'
   )
@@ -581,6 +584,98 @@ test('the summary line has no dangling separator when no external scan failed', 
   expect(line).toHaveTextContent('1 PRs · 0 findings')
   expect(line.textContent).not.toMatch(/·\s*$/)
   expect(line.textContent).not.toMatch(/external scan/)
+})
+
+// Review F1 (honesty): "no findings" is only true of scans that finished.
+test('the summary line counts incomplete scans and refuses to claim "no findings"', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        { pr, latest: scan({ findings: [], status: 'CLEAN' }) },
+        {
+          pr: { ...pr, id: 'pr2', number: 10 },
+          latest: scan({
+            id: 's2',
+            status: 'CLEAN',
+            findings: [],
+            complete: false,
+            stages: {
+              secrets: 'RAN',
+              external: 'NOT_CONFIGURED',
+              judge: 'RAN',
+            },
+          }),
+        },
+        // A PR with no scan at all is incomplete too — nothing has run.
+        { pr: { ...pr, id: 'pr3', number: 11 }, latest: null },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const line = screen.getByTestId('security-summary-line')
+  expect(line).toHaveTextContent(
+    '3 PRs · no findings on completed scans · 2 scan(s) incomplete'
+  )
+  expect(line.textContent).not.toMatch(/·\s*0 findings/)
+})
+
+test('a completed set of scans still reads "no findings" with no incomplete clause', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [{ pr, latest: scan({ findings: [], status: 'CLEAN' }) }],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const line = screen.getByTestId('security-summary-line')
+  expect(line).toHaveTextContent('1 PRs · 0 findings')
+  expect(line.textContent).not.toMatch(/incomplete/)
+})
+
+test('an incomplete scan expands its row by default (review F1)', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            complete: false,
+            partial: true,
+            stages: { secrets: 'RAN', external: 'PARTIAL', judge: 'RAN' },
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('security-pr-9-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
+  expect(screen.getByTestId('scan-partial')).toBeInTheDocument()
+})
+
+// Review F2 (a11y): the toggle's only content is a chevron icon.
+test('the per-PR toggle has an accessible name naming the PR it opens', () => {
+  useSecurityScans.mockReturnValue({
+    data: { prs: [{ pr, latest: scan({}) }], blocking: { count: 1 } },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByRole('button', { name: '#9 feat' })).toBe(
+    screen.getByTestId('security-pr-9-toggle')
+  )
 })
 
 test('a PR row with an undispositioned finding is expanded by default', () => {

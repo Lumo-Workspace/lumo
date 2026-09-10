@@ -38,6 +38,11 @@ export interface RecordGaps {
   /** No blocking item remains anywhere — advisory crossings and non-blocking
    *  open crossings do not count. */
   canBeDone: boolean
+  /** The task is already DONE (`data.task.status`). Carried on the gaps so the
+   *  strip can say "Accepted" instead of "the task can be marked Done" without
+   *  a second prop threaded through every caller (LUM-496 review F3) — the
+   *  same flag that zeroes `machineAwaiting` / `humanPending` above. */
+  taskDone: boolean
 }
 
 export function deriveRecordGaps(input: {
@@ -89,5 +94,6 @@ export function deriveRecordGaps(input: {
     crossingsTotal,
     securityBlocking,
     canBeDone,
+    taskDone,
   }
 }
