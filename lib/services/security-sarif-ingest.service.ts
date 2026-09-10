@@ -1,14 +1,20 @@
 /**
- * LUM-735 — SARIF ingest worker logic (spec §6 L1, §8, §9).
+ * LUM-735 — SARIF ingest, split per stage so each can run as a durable
+ * Vercel Workflow step (lib/workflows/security-sarif-ingest.ts):
  *
- * fetch private blob → size gate → gunzip → JSON.parse → parseSarif →
- * resolve PR (must be this workspace's) → diff → normalise (diff-aware,
- * redacted) → replace this tool's EXTERNAL_TOOL rows → stages.external=RAN →
- * stamp ProjectRepository.lastSarifIngestAt → delete the blob.
+ *   resolveScan        PR lookup → shared scan row (PENDING, SARIF_PUSH)
+ *   fetchAndNormalize  private blob → size gate → gunzip → parse → diff-aware,
+ *                      redacted findings (the SARIF text never leaves here)
+ *   persistFindings    replace this tool's EXTERNAL_TOOL rows, stages.external=RAN
+ *   markExternalFailed stages.external=FAILED (P9: never a fake CLEAN)
+ *   deleteBlobSafely   best-effort blob delete
  *
- * The SARIF document only ever exists in this function's memory. On a parse
- * failure the blob is KEPT (24h, see pruneStaleBlobs) so a human can inspect
- * it; everything else deletes it. Runs inside /api/internal/security-sarif-ingest.
+ * Contract with the workflow: a *deterministic* failure (bad gzip, not SARIF
+ * 2.1.0, over the caps) is returned as a value so the step is not retried; a
+ * *transient* one (blob store, GitHub, database) is thrown so it is.
+ *
+ * `pruneStaleBlobs` sits outside that pipeline: it is the daily cron sweep
+ * for blobs that never got a workflow run at all (see its own comment).
  */
 import { gunzipSync } from 'node:zlib'
 import { waitUntil } from '@vercel/functions'
@@ -26,6 +32,7 @@ import {
   normalizeSarif,
   changedLinesOf,
   type NormalizeResult,
+  type RawSarifFinding,
 } from '@/lib/security-scan'
 import {
   inheritDispositions,
@@ -40,7 +47,13 @@ import {
 
 export const SARIF_MAX_GZ_BYTES = 100 * 1024 * 1024
 export const SARIF_MAX_RAW_BYTES = 400 * 1024 * 1024
-export const SARIF_FAILED_BLOB_TTL_MS = 24 * 60 * 60 * 1000
+/**
+ * Orphan-sweep age (cron). Deliberately longer than the run's own 24h
+ * `sleep` so a failed report is normally deleted by its run first and the
+ * sweep only sees blobs that never got a run (a run that started more than
+ * 24h after the upload can still lose the race; `del` is idempotent).
+ */
+export const SARIF_ORPHAN_BLOB_TTL_MS = 48 * 60 * 60 * 1000
 
 export interface SarifIngestJob {
   url: string
@@ -50,15 +63,60 @@ export interface SarifIngestJob {
    * whose workspace is the trust boundary. A GitHub Actions OIDC push proves a
    * repository instead, and ownership follows the PullRequest row, so the
    * field is absent and no cross-workspace check applies.
-   *
-   * `| undefined` is explicit for `exactOptionalPropertyTypes`: this is the
-   * type Zod infers for `.optional()`, so a parsed job assigns cleanly.
    */
   workspaceId?: string | undefined
   repository: string
   headSha: string
   prNumber: number
   tool: string
+}
+
+export interface ResolvedPr {
+  id: string
+  workspaceId: string
+  repo: string
+  number: number
+}
+
+export type ResolveOutcome =
+  | { kind: 'discarded'; reason: 'pr_not_found' | 'workspace_mismatch' }
+  | { kind: 'ok'; scanId: string; pr: ResolvedPr }
+
+export interface FetchAndNormalizeInput {
+  url: string
+  tool: string
+  scanId: string
+  pr: ResolvedPr
+}
+
+export type NormalizeOutcome =
+  | { kind: 'not_found' }
+  | { kind: 'failed'; reason: string }
+  | {
+      kind: 'ok'
+      tool: string
+      tools: string[]
+      findings: RawSarifFinding[]
+      truncated: boolean
+      dropped: NormalizeResult['dropped']
+    }
+
+export interface PersistInput {
+  scanId: string
+  pr: ResolvedPr
+  repository: string
+  prNumber: number
+  auth: 'key' | 'oidc'
+  tool: string
+  tools: string[]
+  findings: RawSarifFinding[]
+  truncated: boolean
+  dropped: NormalizeResult['dropped']
+}
+
+export interface PersistOutcome {
+  written: number
+  partial: boolean
 }
 
 export type IngestResult =
@@ -76,53 +134,8 @@ function logSafe(s: string): string {
   return s.replace(/[\r\n]+/g, ' ').slice(0, 120)
 }
 
-/** Never throws: a blob-store hiccup on delete must not change the outcome the caller already decided. */
-async function safeDelete(url: string): Promise<boolean> {
-  try {
-    await deleteBlob(url)
-    return true
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    logger.warn(
-      `[security-sarif-ingest] blob delete failed: ${reason.slice(0, 200)}`
-    )
-    return false
-  }
-}
-
-/** Never throws: a second failure while recording the first must not crash the ingest. */
-async function safeMarkExternalFailed(scanId: string): Promise<void> {
-  try {
-    await prSecurityScanRepository.mergeStages(
-      scanId,
-      { external: 'FAILED' },
-      {}
-    )
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    logger.warn(
-      `[security-sarif-ingest] mergeStages(external=FAILED) also failed scan=${scanId}: ${reason.slice(0, 200)}`
-    )
-  }
-}
-
-type FetchOutcome =
-  | { kind: 'ok'; gz: Buffer }
-  | { kind: 'not_found' }
-  | { kind: 'too_large'; reason: string }
-  | { kind: 'error'; reason: string }
-
-/** Distinguishes "blob already gone" from "too big to buffer" from "blob store errored" — each needs different handling. */
-async function fetchBlobSafely(url: string): Promise<FetchOutcome> {
-  try {
-    const gz = await fetchPrivateBlob(url, SARIF_MAX_GZ_BYTES)
-    return gz ? { kind: 'ok', gz } : { kind: 'not_found' }
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    return (error as { status?: number }).status === 413
-      ? { kind: 'too_large', reason }
-      : { kind: 'error', reason }
-  }
+function message(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 /** gunzip + parse with both caps enforced; throws {status} on any violation. */
@@ -136,9 +149,7 @@ function decode(gz: Buffer): unknown {
     if ((error as { code?: string }).code === 'ERR_BUFFER_TOO_LARGE')
       throw sized('raw size exceeds cap')
     throw Object.assign(
-      new Error(
-        `Unsupported SARIF: gunzip failed (${(error as Error).message})`
-      ),
+      new Error(`Unsupported SARIF: gunzip failed (${message(error)})`),
       { status: 422 }
     )
   }
@@ -152,23 +163,25 @@ function decode(gz: Buffer): unknown {
   }
 }
 
-export const securitySarifIngestService = {
-  async ingest(job: SarifIngestJob): Promise<IngestResult> {
-    const fetched = await fetchBlobSafely(job.url)
-    if (fetched.kind === 'not_found') return { outcome: 'ALREADY_PROCESSED' }
-    if (fetched.kind === 'error') {
-      logger.error(
-        `[security-sarif-ingest] blob fetch failed tool=${logSafe(job.tool)} repo=${logSafe(job.repository)}: ${fetched.reason.slice(0, 200)}`
-      )
-      return {
-        outcome: 'FAILED',
-        scanId: null,
-        reason: fetched.reason.slice(0, 200),
-      }
-    }
-    // fetched.kind is 'ok' or 'too_large' from here on. A too-large report
-    // still needs a scan row so the FAILED stage lands somewhere (below).
+/** A deterministic decode/parse/size failure carries a 4xx status; anything else is transient. */
+function isDeterministic(error: unknown): boolean {
+  const status = (error as { status?: unknown } | null)?.status
+  return status === 413 || status === 422
+}
 
+export const securitySarifIngestService = {
+  /**
+   * Step 1. Whoever arrives first creates the shared scan row (spec §9). A
+   * PENDING row tells stage A to claim it rather than dedupe onto it, and
+   * when this push beat every PR webhook the row would otherwise never get
+   * stage A at all — so it is dispatched here. DB errors propagate: the step
+   * retries, `createIfAbsent` is idempotent.
+   *
+   * A `discarded` outcome does NOT delete the blob — the workflow does that,
+   * so the delete goes through the platform-retried `deleteSarifBlobStep`
+   * instead of this step's one-shot best-effort call.
+   */
+  async resolveScan(job: SarifIngestJob): Promise<ResolveOutcome> {
     const pr = await pullRequestRepository.findByRepoAndNumber(
       job.repository,
       job.prNumber
@@ -177,19 +190,14 @@ export const securitySarifIngestService = {
       logger.warn(
         `[security-sarif-ingest] no PR ${logSafe(job.repository)}#${job.prNumber} — discarding ${logSafe(job.tool)} report`
       )
-      await safeDelete(job.url)
-      return { outcome: 'DISCARDED', reason: 'pr_not_found' }
+      return { kind: 'discarded', reason: 'pr_not_found' }
     }
     if (job.workspaceId !== undefined && pr.workspaceId !== job.workspaceId) {
       logger.warn(
         `[security-sarif-ingest] PR ${logSafe(job.repository)}#${job.prNumber} belongs to another workspace — discarding`
       )
-      await safeDelete(job.url)
-      return { outcome: 'DISCARDED', reason: 'workspace_mismatch' }
+      return { kind: 'discarded', reason: 'workspace_mismatch' }
     }
-
-    // Whoever arrives first creates the shared scan row (spec §9). A PENDING
-    // row tells stage A to claim it rather than dedupe onto it.
     const scan = await prSecurityScanRepository.createIfAbsent({
       pullRequestId: pr.id,
       taskId: pr.taskId ?? null,
@@ -199,125 +207,172 @@ export const securitySarifIngestService = {
       detectorVersion: DETECTOR_VERSION,
       status: 'PENDING',
     })
-    if (scan.created) {
-      // LUM-735 review I3 — the push beat every PR webhook here, so this
-      // PENDING row is one nothing else will ever run stage A on: the secret
-      // scan and the judge would never run and the panel would sit on
-      // "waiting for CI" forever. Stage A resolves the real head sha itself,
-      // so it either claims this row (same sha) or dedupes onto the current
-      // head's row. Not awaited: dispatch never throws, and a scan that fails
-      // to start must not fail the ingest that already has a report — but it
-      // is registered with `waitUntil`, not dropped on the floor, so the
-      // serverless runtime keeps the instance alive until it settles instead
-      // of freezing the moment this handler returns.
-      waitUntil(dispatchPrSecurityScan(pr.id, 'SARIF_PUSH'))
-    }
-
-    let normalized: NormalizeResult
-    try {
-      // A too-large fetch never got its bytes buffered; raise the same
-      // {status:413} `decode` would, so it's handled by the one catch below.
-      if (fetched.kind === 'too_large') throw sized(fetched.reason)
-      const runs = parseSarif(decode(fetched.gz))
-      const diff = await fetchPrDiff({
+    // NOT awaited. `dispatchPrSecurityScan` POSTs to the internal stage-A
+    // worker route, which runs the whole scan (diff, secret scan, LLM judge —
+    // `maxDuration = 300`) before it responds, and the fetch has no timeout.
+    // Awaiting it would hold this step open for up to five minutes for work
+    // that is not part of the ingest. `waitUntil` keeps the Vercel function
+    // alive until the dispatch settles while the step returns immediately;
+    // the dispatcher swallows its own errors, so nothing here can reject.
+    if (scan.created) waitUntil(dispatchPrSecurityScan(pr.id, 'SARIF_PUSH'))
+    return {
+      kind: 'ok',
+      scanId: scan.id,
+      pr: {
+        id: pr.id,
         workspaceId: pr.workspaceId,
-        fullName: pr.repo,
-        prNumber: pr.number,
-      })
-      normalized = normalizeSarif(runs, {
-        toolHint: job.tool,
-        changedLines: changedLinesOf(addedLinesWithNumbers(diff)),
-      })
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error)
-      const gzSize = fetched.kind === 'ok' ? `${fetched.gz.byteLength}B` : 'n/a'
-      logger.error(
-        `[security-sarif-ingest] FAILED tool=${logSafe(job.tool)} gz=${gzSize} scan=${scan.id}: ${reason.slice(0, 200)}`
-      )
-      await safeMarkExternalFailed(scan.id)
-      // Blob kept for debugging; pruneStaleBlobs removes it after 24h.
-      return {
-        outcome: 'FAILED',
-        scanId: scan.id,
-        reason: reason.slice(0, 500),
-      }
-    }
-
-    try {
-      const prior =
-        await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
-      const rows: NewFindingInput[] = inheritDispositions(
-        normalized.findings.map(f => ({
-          scanId: scan.id,
-          kind: f.kind,
-          ruleId: f.ruleId,
-          severity: f.severity,
-          provenance: 'EXTERNAL_TOOL' as const,
-          filePath: f.filePath,
-          line: f.line,
-          title: f.title,
-          detail: f.detail,
-          evidence: f.evidence,
-          fingerprint: f.fingerprint,
-          externalRef: f.externalRef,
-          disposition: null,
-        })),
-        prior
-      )
-      // ONE transaction: the scan-row update (which takes the row lock),
-      // this push's deletes, the inserts and the CLEAN→FINDINGS flip. Both
-      // completion paths dispatch the same job milliseconds apart, so a
-      // second ingest is very likely running right now — it blocks on that
-      // row lock instead of interleaving its delete with our insert.
-      //
-      // Every run in the document prefixed its rows with its own tool slug
-      // (`ext:<slug>:<ruleId>`) — the replace must delete each run's prior
-      // rows, or rows from runs other than the first accumulate across
-      // pushes. The key comes from the parsed runs (`normalized.tools`), not
-      // from which rows survived the diff filter, so a run whose only result
-      // was dropped still gets its stale prior rows cleared.
-      const { written, flippedToFindings } =
-        await prSecurityScanRepository.ingestExternalFindings(
-          scan.id,
-          normalized.tools,
-          rows,
-          { partial: normalized.truncated }
-        )
-      await projectRepository.markSarifIngested(
-        pr.workspaceId,
-        pr.repo,
-        new Date()
-      )
-      await safeDelete(job.url)
-      logger.info(
-        `[security-sarif-ingest] ${logSafe(job.repository)}#${job.prNumber} ${normalized.tool}: ${written} findings auth=${job.workspaceId ? 'key' : 'oidc'}${flippedToFindings ? ' (scan flipped CLEAN→FINDINGS)' : ''} (dropped notInDiff=${normalized.dropped.notInDiff} noLocation=${normalized.dropped.noLocation} dup=${normalized.dropped.duplicate})`
-      )
-      return {
-        outcome: 'INGESTED',
-        scanId: scan.id,
-        findings: written,
-        partial: normalized.truncated,
-      }
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error)
-      logger.error(
-        `[security-sarif-ingest] write stage failed scan=${scan.id}: ${reason.slice(0, 200)}`
-      )
-      await safeMarkExternalFailed(scan.id)
-      // Blob kept for 24h (pruneStaleBlobs) so the report is still there to
-      // inspect, or to re-push by hand. Nothing retries this job on its own.
-      return {
-        outcome: 'FAILED',
-        scanId: scan.id,
-        reason: reason.slice(0, 200),
-      }
+        repo: pr.repo,
+        number: pr.number,
+      },
     }
   },
 
   /**
-   * Cron: a blob older than 24h under the prefix is a failed ingest nobody
-   * looked at. One bad delete (a blob store hiccup) must not stop the rest
-   * of the sweep — each is wrapped independently and counted.
+   * Step 2. The SARIF document only ever exists in this function's memory;
+   * what it returns is the redacted, diff-aware finding list (P8). A blob
+   * that is already gone means another run of the same report finished
+   * first (`not_found`).
+   */
+  async fetchAndNormalize(
+    input: FetchAndNormalizeInput
+  ): Promise<NormalizeOutcome> {
+    let gz: Buffer | null
+    try {
+      gz = await fetchPrivateBlob(input.url, SARIF_MAX_GZ_BYTES)
+    } catch (error) {
+      if (!isDeterministic(error)) throw error
+      return securitySarifIngestService._failed(input, message(error), 'n/a')
+    }
+    if (!gz) return { kind: 'not_found' }
+    let runs: ReturnType<typeof parseSarif>
+    try {
+      runs = parseSarif(decode(gz))
+    } catch (error) {
+      if (!isDeterministic(error)) throw error
+      return securitySarifIngestService._failed(
+        input,
+        message(error),
+        `${gz.byteLength}B`
+      )
+    }
+    // Anything below is I/O (GitHub) or pure computation over an already
+    // well-formed document — never a SARIF-shape failure, so nothing here is
+    // caught: a GitHub error propagates with ITS OWN status (e.g. 404/422)
+    // and must not be mistaken for a deterministic SARIF failure (P-retry).
+    const diff = await fetchPrDiff({
+      workspaceId: input.pr.workspaceId,
+      fullName: input.pr.repo,
+      prNumber: input.pr.number,
+    })
+    const n = normalizeSarif(runs, {
+      toolHint: input.tool,
+      changedLines: changedLinesOf(addedLinesWithNumbers(diff)),
+    })
+    return {
+      kind: 'ok',
+      tool: n.tool,
+      tools: n.tools,
+      findings: n.findings,
+      truncated: n.truncated,
+      dropped: n.dropped,
+    }
+  },
+
+  /** Logs and shapes a deterministic failure (exported on the object only so tests can spy on it; not a public API). */
+  _failed(
+    input: FetchAndNormalizeInput,
+    reason: string,
+    gzSize: string
+  ): NormalizeOutcome {
+    logger.error(
+      `[security-sarif-ingest] FAILED tool=${logSafe(input.tool)} gz=${gzSize} scan=${input.scanId}: ${reason.slice(0, 200)}`
+    )
+    return { kind: 'failed', reason: reason.slice(0, 500) }
+  },
+
+  /**
+   * Step 3. ONE transaction inside the repository: the scan-row update takes
+   * the row lock, then this push's deletes, the inserts and the
+   * CLEAN→FINDINGS flip — a concurrent run of the same report queues on that
+   * lock instead of interleaving. Errors propagate so the step retries; the
+   * replace is idempotent.
+   */
+  async persistFindings(input: PersistInput): Promise<PersistOutcome> {
+    const prior = await prSecurityScanRepository.findDispositionedByPullRequest(
+      input.pr.id
+    )
+    const rows: NewFindingInput[] = inheritDispositions(
+      input.findings.map(f => ({
+        scanId: input.scanId,
+        kind: f.kind,
+        ruleId: f.ruleId,
+        severity: f.severity,
+        provenance: 'EXTERNAL_TOOL' as const,
+        filePath: f.filePath,
+        line: f.line,
+        title: f.title,
+        detail: f.detail,
+        evidence: f.evidence,
+        fingerprint: f.fingerprint,
+        externalRef: f.externalRef,
+        disposition: null,
+      })),
+      prior
+    )
+    const { written, flippedToFindings } =
+      await prSecurityScanRepository.ingestExternalFindings(
+        input.scanId,
+        input.tools,
+        rows,
+        { partial: input.truncated }
+      )
+    await projectRepository.markSarifIngested(
+      input.pr.workspaceId,
+      input.pr.repo,
+      new Date()
+    )
+    logger.info(
+      `[security-sarif-ingest] ${logSafe(input.repository)}#${input.prNumber} ${logSafe(input.tool)}: ${written} findings auth=${input.auth}${flippedToFindings ? ' (scan flipped CLEAN→FINDINGS)' : ''} (dropped notInDiff=${input.dropped.notInDiff} noLocation=${input.dropped.noLocation} dup=${input.dropped.duplicate})`
+    )
+    return { written, partial: input.truncated }
+  },
+
+  /**
+   * P9's stamp. Errors propagate so the step throws and the platform retries
+   * it — a transient DB blip must not be the reason the scan keeps looking
+   * like it never ran. The workflow swallows the *final* failure so the run
+   * still reaches its blob cleanup.
+   */
+  async markExternalFailed(scanId: string): Promise<void> {
+    await prSecurityScanRepository.mergeStages(
+      scanId,
+      { external: 'FAILED' },
+      {}
+    )
+  },
+
+  /** Never throws: a blob-store hiccup on delete must not change an outcome already decided. */
+  async deleteBlobSafely(url: string): Promise<boolean> {
+    try {
+      await deleteBlob(url)
+      return true
+    } catch (error) {
+      logger.warn(
+        `[security-sarif-ingest] blob delete failed: ${message(error).slice(0, 200)}`
+      )
+      return false
+    }
+  },
+
+  /**
+   * Cron: the catch-all for blobs that never got a workflow run, and so have
+   * nothing to delete them. Every run cleans up its own blob (immediately on
+   * success, after 24h on failure), so anything still here past the 48h TTL (longer than that sleep, so
+   * a run always wins the race) was orphaned before a run ever started — an invalid `tokenPayload` in the
+   * upload callback, `start()` failing on both completion paths, or local
+   * dev where no `complete` call ever arrives. One bad delete (a blob store
+   * hiccup) must not stop the rest of the sweep — each is wrapped
+   * independently and counted.
    */
   async pruneStaleBlobs(
     now: Date = new Date()
@@ -326,8 +381,9 @@ export const securitySarifIngestService = {
     let deleted = 0
     let failed = 0
     for (const b of blobs) {
-      if (now.getTime() - b.uploadedAt.getTime() > SARIF_FAILED_BLOB_TTL_MS) {
-        if (await safeDelete(b.url)) deleted += 1
+      if (now.getTime() - b.uploadedAt.getTime() > SARIF_ORPHAN_BLOB_TTL_MS) {
+        if (await securitySarifIngestService.deleteBlobSafely(b.url))
+          deleted += 1
         else failed += 1
       }
     }

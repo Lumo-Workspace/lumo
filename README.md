@@ -264,7 +264,7 @@ gzips its SARIF report and uploads it directly to a private Vercel Blob, then
 tells Lumo the report is ready to fetch. Diff-aware filtering — keeping only
 the lines the PR actually added — happens on Lumo's side after ingest. The
 blob is deleted once Lumo has parsed it, and any report that fails to parse
-or is never completed is cleaned up after 24h. GitHub only issues the OIDC
+is deleted 24h later; a report whose ingest never even started is swept after 48h. GitHub only issues the OIDC
 token on the `pull_request` event, and does not issue it to a fork's PR
 workflow run, so nothing is reported for fork PRs and the task's security
 panel shows "waiting for CI" until, after 30 minutes, it shows "CI has not

@@ -11,7 +11,7 @@ import { z } from 'zod'
 const repository = z.string().regex(/^[\w.-]+\/[\w.-]+$/)
 const headSha = z.string().regex(/^[0-9a-f]{7,40}$/)
 // Accepted for forward-compat with a future diff-base override; currently
-// unused — the worker derives the diff itself from the PR's own base ref.
+// unused — the workflow derives the diff itself from the PR's own base ref.
 const baseSha = z.string().regex(/^[0-9a-f]{7,40}$/)
 const prNumber = z.number().int().positive()
 const tool = z.string().regex(/^[a-z0-9-]{1,32}$/)
@@ -19,7 +19,7 @@ const tool = z.string().regex(/^[a-z0-9-]{1,32}$/)
 /**
  * Vercel Blob's own token verification already restricts an authenticated
  * upload to a blob it minted, so this is defense-in-depth: it stops
- * `complete`'s dispatch (fed by a CI-supplied `url`, not a signed callback)
+ * `complete`'s start call (fed by a CI-supplied `url`, not a signed callback)
  * from ever resolving a URL on a host we don't recognize as blob storage.
  */
 export const BLOB_HOST_SUFFIX = '.blob.vercel-storage.com'
@@ -51,38 +51,16 @@ export const sarifCompleteBodySchema = sarifClientPayloadSchema.extend({
 export type SarifCompleteBody = z.infer<typeof sarifCompleteBodySchema>
 
 /**
- * Body of `POST /api/internal/security-sarif-ingest` — the dispatched job.
- *
- * `workspaceId` is optional because it only exists on the ApiKey path: the key
- * names a workspace, so the worker must refuse a PR outside it. A GitHub
- * Actions OIDC token names a repository instead, and the workspace is whatever
- * the (globally unique) `PullRequest (repo, number)` row says — nothing to
- * cross-check, so the field is absent.
- */
-export const sarifIngestJobSchema = z
-  .object({
-    url: z.string().url(),
-    pathname: z.string().min(1),
-    workspaceId: z.string().min(1).optional(),
-    repository,
-    headSha,
-    prNumber,
-    tool,
-  })
-  .strict()
-
-export type SarifIngestJobInput = z.infer<typeof sarifIngestJobSchema>
-
-/**
  * The tokenPayload minted by the upload route's `onBeforeGenerateToken` and
  * read back in `onUploadCompleted`. Deliberately NOT `.strict()`: it is
  * `JSON.stringify({ auth, workspaceId?, ...clientPayload })`, so it may also
- * carry the client payload's optional `baseSha` — irrelevant to dispatch,
- * ignored. Never parses anything the client sent directly; the string was
- * produced by this same server process.
+ * carry the client payload's optional `baseSha` — irrelevant to the started
+ * job, ignored. Never parses anything the client sent directly; the string
+ * was produced by this same server process.
  *
  * `auth` records which credential minted the token, and `workspaceId` is
- * present only for `auth: 'key'` (see {@link sarifIngestJobSchema}).
+ * present only for `auth: 'key'` (see the `SarifIngestJob` the workflow is
+ * started with, `lib/services/security-sarif-ingest-start.ts`).
  *
  * `auth` is **optional** for the deploy window: an upload whose token was
  * minted by the previous deployment can complete minutes after the new code is

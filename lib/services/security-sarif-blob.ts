@@ -31,6 +31,10 @@ export async function deleteBlob(url: string): Promise<void> {
   await del(url)
 }
 
+/**
+ * Every SARIF blob currently in the store, with its upload time — the input
+ * to the daily orphan sweep (`securitySarifIngestService.pruneStaleBlobs`).
+ */
 export async function listSarifBlobs(): Promise<
   { url: string; uploadedAt: Date }[]
 > {
