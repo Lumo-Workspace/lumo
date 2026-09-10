@@ -246,6 +246,7 @@ describe('scanRepository', () => {
     expect(out.gitleaks).toEqual({ kind: 'failed', reason: 'invalid head sha' })
     expect(out.semgrep).toEqual({ kind: 'failed', reason: 'invalid head sha' })
     expect(create).not.toHaveBeenCalled()
+    expect(token).not.toHaveBeenCalled()
   })
 
   it('semgrep exit 1 (findings present) is success; a missing report file is a failure', async () => {
