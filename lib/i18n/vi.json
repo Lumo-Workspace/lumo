@@ -2274,16 +2274,15 @@
   "securityScan.stageState.FAILED": "thất bại",
   "securityScan.stageState.NOT_CONFIGURED": "chưa cấu hình",
   "securityScan.stageState.PARTIAL": "một phần",
-  "securityScan.external.notConfigured": "Kho này chưa từng gửi báo cáo trình quét tới Lumo, nên chỉ các kiểm tra riêng của Lumo được chạy. Kết quả sạch ở đây không phải là đạt hoàn toàn.",
-  "securityScan.external.notConfigured.link": "Tạo khóa nạp CI (chỉ dành cho CI không phải GitHub)",
+  "securityScan.external.notConfigured": "Trình quét được Lumo quản lý đã tắt cho lần triển khai này và kho này chưa từng gửi báo cáo trình quét, nên chỉ các kiểm tra riêng của Lumo được chạy. Kết quả sạch ở đây không phải là đạt hoàn toàn.",
+  "securityScan.external.notConfigured.link": "Tạo khóa nạp CI (để gửi SARIF từ trình quét riêng của bạn)",
   "securityScan.finding.externalLink": "Xem tài liệu quy tắc",
   "securityScan.partial": "Một số kết quả bị cắt ở ngưỡng ngân sách quét — lần quét chưa hoàn tất.",
   "apiKeys.ingest.title": "Khóa nạp báo cáo bảo mật từ CI",
   "apiKeys.ingest.description": "Chỉ cần cho CI bên ngoài GitHub Actions. Khóa chỉ có thể gửi báo cáo của trình quét (SARIF) tới Lumo; lưu làm secret LUMO_SECURITY_TOKEN.",
   "apiKeys.ingest.create": "Tạo khóa nạp CI",
   "apiKeys.scope.securityIngest": "Chỉ nạp từ CI",
-  "securityScan.status.pendingExternal": "Đang chờ quét từ CI",
-  "securityScan.stageState.PENDING": "đang chờ CI",
-  "securityScan.external.notConfigured.template": "Lấy mẫu workflow",
-  "securityScan.external.late": "CI chưa báo cáo lần quét nào cho commit này trong 30 phút. Kiểm tra lần chạy workflow lumo-security của pull request này."
+  "securityScan.status.pendingExternal": "Đang chờ trình quét",
+  "securityScan.stageState.PENDING": "đang quét",
+  "securityScan.external.late": "Trình quét chưa báo cáo kết quả cho commit này trong 30 phút, vì vậy lần quét này chưa hoàn tất. Hãy đẩy một commit mới để bắt đầu lượt quét mới, hoặc kiểm tra job quét của CI riêng của bạn nếu kho này tự gửi báo cáo."
 }

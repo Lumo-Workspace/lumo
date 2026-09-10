@@ -2274,16 +2274,15 @@
   "securityScan.stageState.FAILED": "失败",
   "securityScan.stageState.NOT_CONFIGURED": "未接入",
   "securityScan.stageState.PARTIAL": "部分",
-  "securityScan.external.notConfigured": "该仓库从未向 Lumo 推送过扫描器报告，只跑了 Lumo 自己的检查。这里的「干净」不等于完整通过。",
-  "securityScan.external.notConfigured.link": "生成 CI 上报密钥（仅非 GitHub CI）",
+  "securityScan.external.notConfigured": "此部署已关闭 Lumo 托管扫描，且该仓库从未推送过扫描器报告，因此只运行了 Lumo 自己的检查。这里的「无问题」不等于完整通过。",
+  "securityScan.external.notConfigured.link": "生成 CI 上报密钥（用于推送自有扫描器的 SARIF）",
   "securityScan.finding.externalLink": "查看规则文档",
   "securityScan.partial": "部分结果在扫描预算处被截断，本次扫描不完整。",
   "apiKeys.ingest.title": "CI 安全上报密钥",
   "apiKeys.ingest.description": "仅非 GitHub Actions 的 CI 需要。只能向 Lumo 推送扫描器报告（SARIF）的密钥，作为 LUMO_SECURITY_TOKEN secret 保存。",
   "apiKeys.ingest.create": "生成 CI 上报密钥",
   "apiKeys.scope.securityIngest": "仅限 CI 上报",
-  "securityScan.status.pendingExternal": "等待 CI 扫描",
-  "securityScan.stageState.PENDING": "等待 CI",
-  "securityScan.external.notConfigured.template": "获取 workflow 模板",
-  "securityScan.external.late": "CI 已 30 分钟未上报此提交的扫描结果。请检查该 pull request 的 lumo-security workflow 运行。"
+  "securityScan.status.pendingExternal": "等待扫描器",
+  "securityScan.stageState.PENDING": "扫描中",
+  "securityScan.external.late": "扫描器 30 分钟内未上报此提交的结果，因此本次扫描不完整。请推送一次新的提交以启动新的扫描；若该仓库自行推送报告，请查看自己 CI 的扫描任务。"
 }

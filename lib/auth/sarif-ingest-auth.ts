@@ -3,8 +3,8 @@
  *
  * Two credentials arrive on the same `Authorization: Bearer` header:
  *
- *  - **GitHub Actions OIDC ID token** (the main path). The customer's repo
- *    only has to commit the workflow template — no secret to provision. The
+ *  - **GitHub Actions OIDC ID token** (the main path). The customer's own CI
+ *    workflow requests its own OIDC ID token — no secret to provision. The
  *    token itself names the repository and the PR, so the ingest is pinned to
  *    those and workspace ownership is decided later, by the `PullRequest`
  *    row the worker looks up.

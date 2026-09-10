@@ -18,8 +18,8 @@ describe('proxy matcher', () => {
   }
   const re = new RegExp(matcher[0])
 
-  it('does not match the public workflow template asset', () => {
-    expect(re.test('/integrations/lumo-security.yml')).toBe(false)
+  it('does not match a public .yml asset', () => {
+    expect(re.test('/integrations/example.yml')).toBe(false)
   })
 
   it('does not match other public static assets', () => {

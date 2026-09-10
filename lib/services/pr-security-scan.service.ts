@@ -36,6 +36,8 @@ import {
 } from '@/lib/security-scan'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
+import { isManagedScanEnabled } from './security-managed-scan.config'
+import { startSecurityManagedScan } from './security-managed-scan-start'
 
 export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1'
 
@@ -99,7 +101,7 @@ export interface SecurityScanView {
    * checked separately.
    */
   complete: boolean
-  /** stages.external is PENDING and the scan started more than 30 min ago — CI has not reported. */
+  /** stages.external is PENDING and the scan started more than 30 min ago — the scanner has not reported. */
   externalLate: boolean
   error: string | null
   startedAt: string
@@ -384,16 +386,37 @@ export const prSecurityScanService = {
         disposition: null,
       }))
 
-      // ── A2: external oracle — SARIF pushed by the repo's own CI (LUM-735) ─
-      // Stage A never fetches anything here: the ingest worker writes the
-      // EXTERNAL_TOOL rows and `stages.external=RAN` when a report lands. All
-      // stage A decides is what to say while nothing has landed yet.
+      // ── A2: external oracle — SARIF pushed by the repo's own CI, or the
+      // Lumo-managed scan (LUM-735) ────────────────────────────────────────
+      // Three-way rule: if EXTERNAL_TOOL rows already landed for this scan
+      // (the ingest worker wrote them, from either source), that's RAN and
+      // stage A starts nothing. Otherwise, when the managed scan is enabled
+      // (LUMO_MANAGED_SCAN !== 'off'), stage A starts it itself for this head
+      // sha — PENDING on success, FAILED if start() couldn't even queue it.
+      // With the managed scan off, fall back to the pre-v0.3 read-only guess:
+      // PENDING if this repo has ever pushed SARIF before (CI is presumably
+      // still running for this sha), else NOT_CONFIGURED.
       let externalCount = 0
       try {
         externalCount =
           await prSecurityScanRepository.countExternalFindings(scanId)
         if (externalCount > 0) {
           stages.external = 'RAN'
+        } else if (isManagedScanEnabled()) {
+          // v0.3: Lumo scans the head sha itself (spec §6 L1). The run
+          // persists findings and flips external to RAN/FAILED; until then
+          // the panel shows "scanning", never CLEAN (§14 Q1).
+          const runId = await startSecurityManagedScan({
+            scanId,
+            pr: {
+              id: pr.id,
+              workspaceId: pr.workspaceId,
+              repo: pr.repo,
+              number: pr.number,
+            },
+            headSha,
+          })
+          stages.external = runId ? 'PENDING' : 'FAILED'
         } else {
           const last = await projectRepository.findLastSarifIngestAt(
             pr.workspaceId,

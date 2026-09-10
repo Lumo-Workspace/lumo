@@ -101,8 +101,6 @@ function SecurityScanPanel({
   )
 }
 
-const WORKFLOW_TEMPLATE_PATH = '/integrations/lumo-security.yml'
-
 /** Layers worth a line: anything not RAN / SKIPPED. Order is the pipeline's. */
 const STAGE_ORDER: ScanStageKey[] = ['secrets', 'external', 'judge']
 
@@ -153,15 +151,6 @@ function ScanDetails({
           className='text-caption text-muted-foreground'
         >
           {intl.formatMessage({ id: 'securityScan.external.notConfigured' })}{' '}
-          <a
-            href={WORKFLOW_TEMPLATE_PATH}
-            download
-            className='underline underline-offset-2 hover:text-foreground'
-          >
-            {intl.formatMessage({
-              id: 'securityScan.external.notConfigured.template',
-            })}
-          </a>{' '}
           <a
             href={apiKeysHref}
             target='_blank'

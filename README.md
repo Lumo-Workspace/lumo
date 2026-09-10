@@ -239,36 +239,33 @@ webhook.
 | Commit statuses | Read         | CI signal (Status API providers)                     |
 | Metadata        | Read         | mandatory                                            |
 
-## 🛡️ Security scan: pushing SARIF to Lumo
+## 🛡️ Security scan
 
-Lumo's PR security scan (LUM-735) reads scanner findings from SARIF reports
-that your own CI pushes straight to Lumo — the GitHub App needs no code
-scanning or secret scanning permissions at all, and no GitHub Advanced
-Security / Code security setup is required on the repository.
+Lumo runs semgrep and gitleaks itself for every pull request of a repository
+the GitHub App is installed on — no workflow file, no secret, no GitHub
+Actions minutes, and no GitHub Advanced Security are required. The PR's head
+commit is shallow-cloned into a one-shot Vercel Sandbox microVM owned by Lumo
+(the same vendor that hosts the app), scanned, and the VM is destroyed; only
+findings on lines the PR added are kept, redacted, and nothing else from the
+repository is stored.
 
-**Setup (once per repository):**
-
-1. Copy the workflow template from
-   `https://www.uselumo.ai/integrations/lumo-security.yml`
-   (source: `public/integrations/lumo-security.yml`) into
-   `.github/workflows/lumo-security.yml` and commit it.
-2. (Optional, only for CI outside GitHub Actions) In Lumo → Settings → API
-   keys, create a CI ingest key and add it as the `LUMO_SECURITY_TOKEN`
-   secret.
-
-No secret is required for a GitHub Actions workflow: it requests its own
-OIDC ID token (`permissions.id-token: write`) and Lumo verifies that token's
-`repository` and `ref` claims to authenticate the push — `LUMO_SECURITY_TOKEN`
-is only a fallback for CI systems other than GitHub Actions. Each scanner job
-gzips its SARIF report and uploads it directly to a private Vercel Blob, then
-tells Lumo the report is ready to fetch. Diff-aware filtering — keeping only
-the lines the PR actually added — happens on Lumo's side after ingest. The
-blob is deleted once Lumo has parsed it, and any report that fails to parse
-is deleted 24h later; a report whose ingest never even started is swept after 48h. GitHub only issues the OIDC
+**Bring your own scanner (optional).** Teams that want their own tools or
+rule sets can push SARIF to `POST /api/integrations/security/sarif/upload` +
+`/complete` from any CI, authenticated with a GitHub Actions OIDC token or a
+CI ingest key. No secret is required from a GitHub Actions workflow: it
+requests its own OIDC ID token (`permissions.id-token: write`) and Lumo
+verifies that token's `repository` and `ref` claims to authenticate the push;
+a CI ingest key (Lumo → Settings → API keys, sent as `LUMO_SECURITY_TOKEN`) is
+the fallback for CI systems other than GitHub Actions. This path runs in the
+customer's own CI and consumes their Actions minutes — Lumo's managed scan
+above does not. Each scanner job gzips its SARIF report and uploads it
+directly to a private Vercel Blob, then tells Lumo the report is ready to
+fetch. Diff-aware filtering — keeping only the lines the PR actually added —
+happens on Lumo's side after ingest. The blob is deleted once Lumo has parsed
+it, and any report that fails to parse is deleted 24h later; a report whose
+ingest never even started is swept after 48h. GitHub only issues the OIDC
 token on the `pull_request` event, and does not issue it to a fork's PR
-workflow run, so nothing is reported for fork PRs and the task's security
-panel shows "waiting for CI" until, after 30 minutes, it shows "CI has not
-reported".
+workflow run, so nothing is reported for fork PRs from this path.
 
 **What the OIDC token proves — and what it doesn't.** The token identifies the
 repository, not a person, so anyone who can push a branch to the repository can
@@ -278,6 +275,12 @@ opened from forks receive no OIDC token at all and are therefore never reported
 on. Reports are attributed to the workspace that owns the `PullRequest` row
 they land on, so re-linking a repository to another workspace leaves the old
 workspace's existing PR rows (and their findings) where they are.
+
+**Trust boundary.** The managed scan uses the App's existing `Contents: read`
+permission — no new GitHub permission is requested — and the clone lives only
+inside the one-shot Vercel Sandbox VM for the duration of the scan before the
+VM is destroyed. Set `LUMO_MANAGED_SCAN=off` to disable the managed scan for a
+deployment; the BYO path above still works when it is off.
 
 ## 🚀 Deployment
 

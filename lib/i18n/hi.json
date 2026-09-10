@@ -2274,16 +2274,15 @@
   "securityScan.stageState.FAILED": "विफल",
   "securityScan.stageState.NOT_CONFIGURED": "कॉन्फ़िगर नहीं",
   "securityScan.stageState.PARTIAL": "आंशिक",
-  "securityScan.external.notConfigured": "इस रिपॉज़िटरी ने कभी Lumo को स्कैनर रिपोर्ट नहीं भेजी, इसलिए केवल Lumo की अपनी जाँचें चलीं। यहाँ का साफ़ नतीजा पूर्ण पास नहीं है।",
-  "securityScan.external.notConfigured.link": "CI इनजेस्ट कुंजी बनाएँ (केवल गैर-GitHub CI के लिए)",
+  "securityScan.external.notConfigured": "इस डिप्लॉयमेंट के लिए Lumo का प्रबंधित स्कैनर बंद है और इस रिपॉज़िटरी ने कभी स्कैनर रिपोर्ट नहीं भेजी, इसलिए केवल Lumo की अपनी जाँचें चलीं। यहाँ का साफ़ नतीजा पूर्ण पास नहीं है।",
+  "securityScan.external.notConfigured.link": "CI इनजेस्ट कुंजी बनाएँ (अपने स्कैनर की SARIF भेजने के लिए)",
   "securityScan.finding.externalLink": "नियम का दस्तावेज़ देखें",
   "securityScan.partial": "कुछ नतीजे स्कैन बजट पर कट गए — स्कैन पूरा नहीं है।",
   "apiKeys.ingest.title": "CI सुरक्षा इनजेस्ट कुंजी",
   "apiKeys.ingest.description": "केवल GitHub Actions के बाहर के CI के लिए आवश्यक। एक ऐसी कुंजी जो केवल स्कैनर रिपोर्ट (SARIF) Lumo को भेज सकती है; इसे LUMO_SECURITY_TOKEN सीक्रेट के रूप में सहेजें।",
   "apiKeys.ingest.create": "CI इनजेस्ट कुंजी बनाएँ",
   "apiKeys.scope.securityIngest": "केवल CI इनजेस्ट",
-  "securityScan.status.pendingExternal": "CI स्कैन की प्रतीक्षा",
-  "securityScan.stageState.PENDING": "CI की प्रतीक्षा",
-  "securityScan.external.notConfigured.template": "workflow टेम्पलेट लें",
-  "securityScan.external.late": "CI ने इस कमिट के लिए 30 मिनट से कोई स्कैन रिपोर्ट नहीं किया। इस pull request के lumo-security workflow रन की जाँच करें।"
+  "securityScan.status.pendingExternal": "स्कैनर की प्रतीक्षा",
+  "securityScan.stageState.PENDING": "स्कैन हो रहा है",
+  "securityScan.external.late": "स्कैनर ने इस कमिट के लिए 30 मिनट से कोई रिपोर्ट नहीं भेजी, इसलिए यह स्कैन अधूरा है। नया स्कैन शुरू करने के लिए एक नया कमिट पुश करें, या यदि यह रिपॉज़िटरी अपनी खुद की रिपोर्ट भेजता है तो अपने CI के स्कैन जॉब की जाँच करें।"
 }

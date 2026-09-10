@@ -22,40 +22,20 @@ import type {
   SarifIngestJob,
 } from '@/lib/services/security-sarif-ingest.service'
 import {
-  deleteSarifBlobStep,
   fetchAndNormalizeSarifStep,
-  markSarifExternalFailedStep,
   persistSarifFindingsStep,
   resolveSarifScanStep,
 } from './security-sarif-ingest.steps'
+import {
+  deleteBlobBestEffort,
+  markFailedBestEffort,
+} from './security-scan-helpers'
 
 /** How long a report that failed to ingest stays in blob storage. */
 export const SARIF_FAILED_BLOB_TTL = '24h'
 
 function reasonOf(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 500)
-}
-
-/** After the step's own retries a leaked blob must not fail an outcome that is already decided. */
-async function deleteBlobBestEffort(url: string): Promise<void> {
-  try {
-    await deleteSarifBlobStep(url)
-  } catch {
-    // Retries exhausted inside the step; the service already logged it.
-  }
-}
-
-/**
- * P9's stamp, retried by the platform. If even the retries fail there is
- * nothing more this run can do about the scan row — but it must still reach
- * the blob cleanup below, so the final failure is swallowed here.
- */
-async function markFailedBestEffort(scanId: string): Promise<void> {
-  try {
-    await markSarifExternalFailedStep(scanId)
-  } catch {
-    // Retries exhausted inside the step; the scan row keeps its old stage.
-  }
 }
 
 export async function securitySarifIngestWorkflow(

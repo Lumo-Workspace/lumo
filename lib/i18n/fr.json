@@ -2274,16 +2274,15 @@
   "securityScan.stageState.FAILED": "échec",
   "securityScan.stageState.NOT_CONFIGURED": "non configuré",
   "securityScan.stageState.PARTIAL": "partiel",
-  "securityScan.external.notConfigured": "Ce dépôt n'a jamais envoyé de rapport de scanner à Lumo ; seules les vérifications propres à Lumo ont été exécutées. Un résultat propre ici n'est pas une validation complète.",
-  "securityScan.external.notConfigured.link": "Créer une clé d'ingestion CI (CI hors GitHub uniquement)",
+  "securityScan.external.notConfigured": "Le scanner géré par Lumo est désactivé pour ce déploiement et ce dépôt n'a jamais envoyé de rapport de scanner ; seules les vérifications propres à Lumo ont été exécutées. Un résultat propre ici n'est pas une validation complète.",
+  "securityScan.external.notConfigured.link": "Créer une clé d'ingestion CI (pour envoyer le SARIF de votre propre scanner)",
   "securityScan.finding.externalLink": "Voir la documentation de la règle",
   "securityScan.partial": "Certains résultats ont été tronqués à la limite du budget d'analyse — l'analyse n'est pas complète.",
   "apiKeys.ingest.title": "Clé d'ingestion sécurité pour la CI",
   "apiKeys.ingest.description": "Nécessaire uniquement pour une CI hors GitHub Actions. Une clé qui ne peut qu'envoyer des rapports de scanner (SARIF) à Lumo ; à stocker comme secret LUMO_SECURITY_TOKEN.",
   "apiKeys.ingest.create": "Créer une clé d'ingestion CI",
   "apiKeys.scope.securityIngest": "Ingestion CI uniquement",
-  "securityScan.status.pendingExternal": "En attente de l'analyse CI",
-  "securityScan.stageState.PENDING": "en attente de la CI",
-  "securityScan.external.notConfigured.template": "Obtenir le modèle de workflow",
-  "securityScan.external.late": "La CI n'a signalé aucune analyse pour ce commit depuis 30 minutes. Vérifiez l'exécution du workflow lumo-security de cette pull request."
+  "securityScan.status.pendingExternal": "En attente du scanner",
+  "securityScan.stageState.PENDING": "analyse en cours",
+  "securityScan.external.late": "Le scanner n'a signalé aucune analyse pour ce commit depuis 30 minutes, cette analyse est donc incomplète. Poussez un nouveau commit pour démarrer une nouvelle analyse, ou vérifiez le job d'analyse de votre propre CI si ce dépôt envoie ses propres rapports."
 }

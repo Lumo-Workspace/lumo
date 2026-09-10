@@ -16,7 +16,7 @@ const messages: Record<string, string> = {
   'securityScan.status.CLEAN': 'Clean',
   'securityScan.status.FINDINGS': '{count} findings',
   'securityScan.status.incomplete': 'Scan incomplete',
-  'securityScan.status.pendingExternal': 'Waiting for CI scan',
+  'securityScan.status.pendingExternal': 'Waiting for scanner',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -148,7 +148,7 @@ it('still counts findings when present, even if the scan is incomplete', () => {
   expect(badge()).toHaveAttribute('data-state', 'findings')
 })
 
-it('reports "scanning" — not "incomplete" — while CI has not reported for this sha yet', () => {
+it('reports "scanning" — not "incomplete" — while the scanner has not reported for this sha yet', () => {
   // LUM-735: stages.external === 'PENDING' means the repo has pushed SARIF
   // before but not yet for this commit — still in progress, not stalled.
   render(
@@ -162,5 +162,5 @@ it('reports "scanning" — not "incomplete" — while CI has not reported for th
     { wrapper }
   )
   expect(badge()).toHaveAttribute('data-state', 'scanning')
-  expect(badge()).toHaveTextContent('Waiting for CI')
+  expect(badge()).toHaveTextContent('Waiting for scanner')
 })
