@@ -1,0 +1,153 @@
+/** @jest-environment node */
+jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
+  resolveSarifScanStep: jest.fn(),
+  fetchAndNormalizeSarifStep: jest.fn(),
+  persistSarifFindingsStep: jest.fn(),
+  markSarifExternalFailedStep: jest.fn().mockResolvedValue(undefined),
+  deleteSarifBlobStep: jest.fn().mockResolvedValue(true),
+}))
+
+import { sleep } from 'workflow'
+import {
+  securitySarifIngestWorkflow,
+  SARIF_FAILED_BLOB_TTL,
+} from '@/lib/workflows/security-sarif-ingest'
+import * as steps from '@/lib/workflows/security-sarif-ingest.steps'
+
+const resolve = steps.resolveSarifScanStep as jest.Mock
+const fetchNorm = steps.fetchAndNormalizeSarifStep as jest.Mock
+const persist = steps.persistSarifFindingsStep as jest.Mock
+const markFailed = steps.markSarifExternalFailedStep as jest.Mock
+const delBlob = steps.deleteSarifBlobStep as jest.Mock
+const sleepMock = sleep as unknown as jest.Mock
+
+const JOB = {
+  url: 'https://blob.vercel-storage.com/security-sarif/o--r/sha1/semgrep-abc.sarif.gz',
+  pathname: 'security-sarif/o--r/sha1/semgrep-abc.sarif.gz',
+  repository: 'o/r',
+  headSha: 'sha1',
+  prNumber: 7,
+  tool: 'semgrep',
+}
+const PR = { id: 'pr1', workspaceId: 'w1', repo: 'o/r', number: 7 }
+const OK = {
+  kind: 'ok',
+  tool: 'semgrep',
+  tools: ['semgrep'],
+  findings: [],
+  truncated: false,
+  dropped: { notInDiff: 0, noLocation: 0, duplicate: 0 },
+}
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  resolve.mockResolvedValue({ kind: 'ok', scanId: 's1', pr: PR })
+  delBlob.mockResolvedValue(true)
+  markFailed.mockResolvedValue(undefined)
+})
+
+it('exposes a 24h blob TTL', () => {
+  expect(SARIF_FAILED_BLOB_TTL).toBe('24h')
+})
+
+it('happy path: resolve → fetch → persist → delete blob, no sleep', async () => {
+  fetchNorm.mockResolvedValue(OK)
+  persist.mockResolvedValue({ written: 3, partial: false })
+  await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+    outcome: 'INGESTED',
+    scanId: 's1',
+    findings: 3,
+    partial: false,
+  })
+  expect(fetchNorm).toHaveBeenCalledWith({
+    url: JOB.url,
+    tool: 'semgrep',
+    scanId: 's1',
+    pr: PR,
+  })
+  expect(persist).toHaveBeenCalledWith(
+    expect.objectContaining({
+      scanId: 's1',
+      pr: PR,
+      auth: 'oidc',
+      tools: ['semgrep'],
+    })
+  )
+  expect(delBlob).toHaveBeenCalledWith(JOB.url)
+  expect(sleepMock).not.toHaveBeenCalled()
+  expect(markFailed).not.toHaveBeenCalled()
+})
+
+it('passes auth=key when the job carries a workspaceId', async () => {
+  fetchNorm.mockResolvedValue(OK)
+  persist.mockResolvedValue({ written: 0, partial: false })
+  await securitySarifIngestWorkflow({ ...JOB, workspaceId: 'w1' })
+  expect(persist).toHaveBeenCalledWith(expect.objectContaining({ auth: 'key' }))
+})
+
+it('returns DISCARDED without touching the blob again', async () => {
+  resolve.mockResolvedValue({ kind: 'discarded', reason: 'pr_not_found' })
+  await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+    outcome: 'DISCARDED',
+    reason: 'pr_not_found',
+  })
+  expect(fetchNorm).not.toHaveBeenCalled()
+  expect(delBlob).not.toHaveBeenCalled()
+})
+
+it('returns ALREADY_PROCESSED when the blob is gone (second run of the same report)', async () => {
+  fetchNorm.mockResolvedValue({ kind: 'not_found' })
+  await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+    outcome: 'ALREADY_PROCESSED',
+  })
+  expect(persist).not.toHaveBeenCalled()
+  expect(markFailed).not.toHaveBeenCalled()
+})
+
+it('deterministic failure: marks FAILED, keeps the blob 24h, then deletes it', async () => {
+  fetchNorm.mockResolvedValue({
+    kind: 'failed',
+    reason: 'Unsupported SARIF: not JSON',
+  })
+  const order: string[] = []
+  markFailed.mockImplementation(async () => {
+    order.push('mark')
+  })
+  sleepMock.mockImplementation(async () => {
+    order.push('sleep')
+  })
+  delBlob.mockImplementation(async () => {
+    order.push('delete')
+    return true
+  })
+  await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+    outcome: 'FAILED',
+    scanId: 's1',
+    reason: 'Unsupported SARIF: not JSON',
+  })
+  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(sleepMock).toHaveBeenCalledWith('24h')
+  expect(order).toEqual(['mark', 'sleep', 'delete'])
+  expect(persist).not.toHaveBeenCalled()
+})
+
+it('a step that exhausted its retries (throws) takes the same FAILED path', async () => {
+  fetchNorm.mockResolvedValue(OK)
+  persist.mockRejectedValue(new Error('P1001 db unreachable'))
+  await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+    outcome: 'FAILED',
+    scanId: 's1',
+    reason: 'P1001 db unreachable',
+  })
+  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(sleepMock).toHaveBeenCalledWith('24h')
+  expect(delBlob).toHaveBeenCalledWith(JOB.url)
+})
+
+it('resolve failure: no scan row to mark — still sleeps 24h, deletes the blob and rethrows', async () => {
+  resolve.mockRejectedValue(new Error('db down'))
+  await expect(securitySarifIngestWorkflow(JOB)).rejects.toThrow('db down')
+  expect(markFailed).not.toHaveBeenCalled()
+  expect(sleepMock).toHaveBeenCalledWith('24h')
+  expect(delBlob).toHaveBeenCalledWith(JOB.url)
+})
