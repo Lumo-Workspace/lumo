@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count, plural, other {# chưa xử lý}} — chặn Hoàn thành cho đến khi xử lý",
   "record.crossings.groupCount": "{open} chưa xử lý / {total}",
   "record.crossings.resolvedTitle": "Các hành vi vượt ranh giới · đã xử lý",
-  "record.crossings.advisory": "khuyến cáo"
+  "record.crossings.advisory": "khuyến cáo",
+  "record.security.summary": "{prs, plural, other {# PR}} · {findings, plural, =0 {không có phát hiện} other {# phát hiện}}{severityNote}",
+  "record.security.allLow": "tất cả đều Thấp",
+  "record.security.failed": "{count, plural, other {# lượt quét bên ngoài thất bại}}"
 }

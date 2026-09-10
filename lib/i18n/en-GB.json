@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count} open — blocks Done until dispositioned",
   "record.crossings.groupCount": "{open} open / {total}",
   "record.crossings.resolvedTitle": "Boundary crossings · dispositioned",
-  "record.crossings.advisory": "advisory"
+  "record.crossings.advisory": "advisory",
+  "record.security.summary": "{prs, plural, one {# PR} other {# PRs}} · {findings, plural, =0 {no findings} one {# finding} other {# findings}}{severityNote}",
+  "record.security.allLow": "all LOW",
+  "record.security.failed": "{count, plural, one {# external scan failed} other {# external scans failed}}"
 }

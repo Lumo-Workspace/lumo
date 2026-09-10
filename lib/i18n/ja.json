@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count, plural, other {未対応 # 件}} — 処置されるまで完了をブロック",
   "record.crossings.groupCount": "未対応 {open} / {total}",
   "record.crossings.resolvedTitle": "境界違反 · 処置済み",
-  "record.crossings.advisory": "アドバイザリー"
+  "record.crossings.advisory": "アドバイザリー",
+  "record.security.summary": "{prs, plural, other {PR # 件}} · {findings, plural, =0 {検出なし} other {検出 # 件}}{severityNote}",
+  "record.security.allLow": "すべて低",
+  "record.security.failed": "{count, plural, other {外部スキャン失敗 # 件}}"
 }

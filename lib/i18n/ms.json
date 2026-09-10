@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count, plural, other {# belum diselesaikan}} — menyekat Selesai sehingga dikendalikan",
   "record.crossings.groupCount": "{open} belum diselesaikan / {total}",
   "record.crossings.resolvedTitle": "Pelanggaran sempadan · sudah dikendalikan",
-  "record.crossings.advisory": "nasihat"
+  "record.crossings.advisory": "nasihat",
+  "record.security.summary": "{prs, plural, other {# PR}} · {findings, plural, =0 {tiada penemuan} other {# penemuan}}{severityNote}",
+  "record.security.allLow": "semua RENDAH",
+  "record.security.failed": "{count, plural, other {# imbasan luaran gagal}}"
 }

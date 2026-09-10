@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count, plural, one {# ouvert} other {# ouverts}} — bloque Terminé jusqu'au traitement",
   "record.crossings.groupCount": "{open} ouverts / {total}",
   "record.crossings.resolvedTitle": "Franchissements de limite · traités",
-  "record.crossings.advisory": "avis"
+  "record.crossings.advisory": "avis",
+  "record.security.summary": "{prs, plural, one {# PR} other {# PR}} · {findings, plural, =0 {aucun constat} one {# constat} other {# constats}}{severityNote}",
+  "record.security.allLow": "tous FAIBLES",
+  "record.security.failed": "{count, plural, one {# analyse externe a échoué} other {# analyses externes ont échoué}}"
 }

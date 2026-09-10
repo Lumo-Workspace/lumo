@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count, plural, one {# abierta} other {# abiertas}} — bloquea Hecho hasta que se resuelvan",
   "record.crossings.groupCount": "{open} abiertas / {total}",
   "record.crossings.resolvedTitle": "Transgresiones de límite · resueltas",
-  "record.crossings.advisory": "aviso"
+  "record.crossings.advisory": "aviso",
+  "record.security.summary": "{prs, plural, one {# PR} other {# PRs}} · {findings, plural, =0 {sin hallazgos} one {# hallazgo} other {# hallazgos}}{severityNote}",
+  "record.security.allLow": "todos BAJOS",
+  "record.security.failed": "{count, plural, one {# análisis externo fallido} other {# análisis externos fallidos}}"
 }

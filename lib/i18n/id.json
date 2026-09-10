@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count, plural, other {# belum ditangani}} — memblokir Selesai sampai ditangani",
   "record.crossings.groupCount": "{open} belum ditangani / {total}",
   "record.crossings.resolvedTitle": "Pelanggaran batas · sudah ditangani",
-  "record.crossings.advisory": "saran"
+  "record.crossings.advisory": "saran",
+  "record.security.summary": "{prs, plural, other {# PR}} · {findings, plural, =0 {tidak ada temuan} other {# temuan}}{severityNote}",
+  "record.security.allLow": "semua RENDAH",
+  "record.security.failed": "{count, plural, other {# pemindaian eksternal gagal}}"
 }

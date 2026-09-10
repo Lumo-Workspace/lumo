@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count, plural, one {# खुला} other {# खुले}} — निपटान होने तक पूर्ण अवरुद्ध",
   "record.crossings.groupCount": "{open} खुले / {total}",
   "record.crossings.resolvedTitle": "सीमा-उल्लंघन · निपटाए गए",
-  "record.crossings.advisory": "सलाह"
+  "record.crossings.advisory": "सलाह",
+  "record.security.summary": "{prs, plural, one {# PR} other {# PR}} · {findings, plural, =0 {कोई निष्कर्ष नहीं} one {# निष्कर्ष} other {# निष्कर्ष}}{severityNote}",
+  "record.security.allLow": "सभी निम्न",
+  "record.security.failed": "{count, plural, one {# बाहरी स्कैन विफल हुआ} other {# बाहरी स्कैन विफल हुए}}"
 }

@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count, plural, other {미처리 #건}} — 처리 전까지 완료 차단",
   "record.crossings.groupCount": "미처리 {open} / {total}",
   "record.crossings.resolvedTitle": "경계 위반 · 처리됨",
-  "record.crossings.advisory": "권고"
+  "record.crossings.advisory": "권고",
+  "record.security.summary": "{prs, plural, other {PR #개}} · {findings, plural, =0 {발견 없음} other {발견 #건}}{severityNote}",
+  "record.security.allLow": "모두 낮음",
+  "record.security.failed": "{count, plural, other {외부 스캔 실패 #건}}"
 }

@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count, plural, one {# offen} other {# offen}} — blockiert „Erledigt“, bis eingeordnet",
   "record.crossings.groupCount": "{open} offen / {total}",
   "record.crossings.resolvedTitle": "Grenzüberschreitungen · eingeordnet",
-  "record.crossings.advisory": "Hinweis"
+  "record.crossings.advisory": "Hinweis",
+  "record.security.summary": "{prs, plural, one {# PR} other {# PRs}} · {findings, plural, =0 {keine Funde} one {# Fund} other {# Funde}}{severityNote}",
+  "record.security.allLow": "alle NIEDRIG",
+  "record.security.failed": "{count, plural, one {# externer Scan fehlgeschlagen} other {# externe Scans fehlgeschlagen}}"
 }

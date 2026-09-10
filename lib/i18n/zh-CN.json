@@ -2296,5 +2296,8 @@
   "record.crossings.openTitle": "{count, plural, other {# 条未处置}} — 全部处置前无法变更为完成",
   "record.crossings.groupCount": "{open} 条未处置 / 共 {total}",
   "record.crossings.resolvedTitle": "越界动作 · 已处置",
-  "record.crossings.advisory": "提示"
+  "record.crossings.advisory": "提示",
+  "record.security.summary": "{prs, plural, other {# 个 PR}} · {findings, plural, =0 {无发现} other {# 项发现}}{severityNote}",
+  "record.security.allLow": "均为低危",
+  "record.security.failed": "{count, plural, other {# 次外部扫描失败}}"
 }

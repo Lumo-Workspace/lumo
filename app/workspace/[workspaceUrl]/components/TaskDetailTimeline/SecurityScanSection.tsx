@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
+import { ChevronRight } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
@@ -16,6 +17,7 @@ import type {
 import type { ScanStageKey, ScanStages } from '@/lib/security-scan/types'
 // Pure module (no Node built-ins, no Prisma) — safe in a client component.
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
+import { summarizeSecurityScans, shouldExpandRow } from './security-summary'
 
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
 
@@ -51,11 +53,53 @@ function SecurityScanPanel({
   data: TaskSecurityScans
 }) {
   const intl = useIntl()
+  // LUM-496 Task 3: one summary line above the per-PR rows so a reviewer reads
+  // "7 PRs · 3 findings (all LOW) · 2 external scans failed" without opening
+  // anything. The severity note and the failed-scan clause are separate keys
+  // (composed here, not baked into the ICU message) so a zero failed count
+  // never leaves a dangling " · " with nothing after it.
+  const summary = summarizeSecurityScans(data.prs)
+  const severityNote = summary.allLow
+    ? ` (${intl.formatMessage({ id: 'record.security.allLow' })})`
+    : ''
+  const summaryText = intl.formatMessage(
+    { id: 'record.security.summary' },
+    { prs: summary.prs, findings: summary.findings, severityNote }
+  )
+  const failedText =
+    summary.externalFailed > 0
+      ? intl.formatMessage(
+          { id: 'record.security.failed' },
+          { count: summary.externalFailed }
+        )
+      : ''
+  const summaryLine = [summaryText, failedText].filter(Boolean).join(' · ')
+
+  // Per-PR expansion (LUM-496): defaults to `shouldExpandRow` (an open finding,
+  // or an external failure with an error) but a manual toggle sticks — keyed by
+  // PR id so re-renders (e.g. after a disposition) don't reset a human's choice.
+  const [expandedOverrides, setExpandedOverrides] = useState<
+    Record<string, boolean>
+  >({})
+  const isExpanded = (prId: string, latest: SecurityScanView | null) =>
+    expandedOverrides[prId] ?? shouldExpandRow(latest)
+  const toggleRow = (prId: string, latest: SecurityScanView | null) =>
+    setExpandedOverrides(prev => ({
+      ...prev,
+      [prId]: !isExpanded(prId, latest),
+    }))
+
   return (
     <div data-testid='security-scan-panel' className='mt-4'>
-      <h4 className='text-caption font-medium text-foreground'>
+      <h4 className='text-caption uppercase tracking-wide text-muted-foreground'>
         {intl.formatMessage({ id: 'securityScan.section.title' })}
       </h4>
+      <p
+        data-testid='security-summary-line'
+        className='mt-0.5 text-caption text-muted-foreground'
+      >
+        {summaryLine}
+      </p>
       {data.blocking.count > 0 && (
         <p
           data-testid='security-blocking-banner'
@@ -72,31 +116,54 @@ function SecurityScanPanel({
           {intl.formatMessage({ id: 'securityScan.section.empty' })}
         </p>
       ) : (
-        <ul className='mt-2 space-y-3'>
-          {data.prs.map(({ pr, latest }) => (
-            <li key={pr.id} data-testid={`security-pr-${pr.number}`}>
-              <div className='flex items-center gap-2'>
-                <a
-                  href={pr.url}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='text-caption text-foreground hover:underline'
-                >
-                  #{pr.number} {pr.title}
-                </a>
-                <SecurityScanBadge scan={latest} />
-                {latest && (
-                  <span className='font-mono text-caption text-muted-foreground'>
-                    {intl.formatMessage(
-                      { id: 'securityScan.meta' },
-                      { sha: latest.headSha.slice(0, 7) }
-                    )}
-                  </span>
+        <ul className='mt-2 space-y-2'>
+          {data.prs.map(({ pr, latest }) => {
+            const expanded = isExpanded(pr.id, latest)
+            return (
+              <li
+                key={pr.id}
+                data-testid={`security-pr-${pr.number}`}
+                className='rounded-sm border border-border px-2 py-1.5'
+              >
+                {/* A link inside a button is invalid HTML — the row is a div
+                with the toggle button and the PR link side by side. */}
+                <div className='flex items-center gap-2'>
+                  <button
+                    type='button'
+                    aria-expanded={expanded}
+                    data-testid={`security-pr-${pr.number}-toggle`}
+                    onClick={() => toggleRow(pr.id, latest)}
+                    className='shrink-0 text-muted-foreground hover:text-foreground'
+                  >
+                    <ChevronRight
+                      className={`size-3.5 transition-transform ${expanded ? 'rotate-90' : ''}`}
+                      aria-hidden
+                    />
+                  </button>
+                  <a
+                    href={pr.url}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='text-caption text-foreground hover:underline'
+                  >
+                    #{pr.number} {pr.title}
+                  </a>
+                  <SecurityScanBadge scan={latest} />
+                  {latest && (
+                    <span className='ml-auto font-mono text-caption text-muted-foreground'>
+                      {intl.formatMessage(
+                        { id: 'securityScan.meta' },
+                        { sha: latest.headSha.slice(0, 7) }
+                      )}
+                    </span>
+                  )}
+                </div>
+                {expanded && latest && (
+                  <ScanDetails taskId={taskId} scan={latest} />
                 )}
-              </div>
-              {latest && <ScanDetails taskId={taskId} scan={latest} />}
-            </li>
-          ))}
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
