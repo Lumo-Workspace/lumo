@@ -2284,5 +2284,6 @@
   "apiKeys.scope.securityIngest": "僅限 CI 回報",
   "securityScan.status.pendingExternal": "等待掃描器",
   "securityScan.stageState.PENDING": "掃描中",
-  "securityScan.external.late": "掃描器已 30 分鐘未回報此提交的結果，因此本次掃描不完整。請推送一次新的提交以啟動新的掃描；若該儲存庫自行推送報告，請查看自己 CI 的掃描工作。"
+  "securityScan.external.late": "掃描器已 30 分鐘未回報此提交的結果，因此本次掃描不完整。請推送一次新的提交以啟動新的掃描；若該儲存庫自行推送報告，請查看自己 CI 的掃描工作。",
+  "securityScan.external.failedReason": "外部掃描器失敗："
 }

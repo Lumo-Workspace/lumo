@@ -14,6 +14,8 @@ import type {
   TaskSecurityScans,
 } from '@/lib/services/pr-security-scan.service'
 import type { ScanStageKey, ScanStages } from '@/lib/security-scan/types'
+// Pure module (no Node built-ins, no Prisma) — safe in a client component.
+import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
 
@@ -137,6 +139,15 @@ function ScanDetails({
   const apiKeysHref = workspaceSlug
     ? `/workspace/${workspaceSlug}/settings/api-keys`
     : '#'
+  // P8: `error` is one column with two writers — the ingest workflow's
+  // scrubbed reason (prefixed) and stage A's own raw `error.message`. Only the
+  // prefixed one may be shown as the external scanner's reason, and only the
+  // text after the prefix.
+  const externalReason =
+    scan.stages.external === 'FAILED' &&
+    scan.error?.startsWith(EXTERNAL_ERROR_PREFIX)
+      ? scan.error.slice(EXTERNAL_ERROR_PREFIX.length)
+      : null
   return (
     <div className='mt-1.5 space-y-1.5'>
       <StagesSummary stages={scan.stages} />
@@ -181,7 +192,15 @@ function ScanDetails({
           {intl.formatMessage({ id: 'securityScan.truncated' })}
         </p>
       )}
-      {scan.status === 'FAILED' && scan.error && (
+      {externalReason && (
+        <p
+          data-testid='external-failed-reason'
+          className='font-mono text-caption text-muted-foreground'
+        >
+          {`${intl.formatMessage({ id: 'securityScan.external.failedReason' })} ${externalReason}`}
+        </p>
+      )}
+      {!externalReason && scan.error && scan.status === 'FAILED' && (
         <p className='font-mono text-caption text-muted-foreground'>
           {scan.error}
         </p>

@@ -36,7 +36,10 @@ import { taskCriteriaSnapshotService } from '@/lib/services/task-criteria-snapsh
 import { isValidTaskTransition } from '@/lib/task/state-machine'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import { logger } from '@/lib/logger'
-import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
+import {
+  prSecurityReminderService,
+  type TaskSecurityScanSummary,
+} from '@/lib/services/pr-security-reminder.service'
 import {
   findingStatement,
   type UnconfirmedPr,
@@ -364,6 +367,10 @@ export interface TaskSecurityFindingsSummary {
   open: number
   blocking: number
   unconfirmedPrs: UnconfirmedPr[]
+  /** LUM-735 — per-PR scan summary passed through from the reminder service,
+   *  for `lumo task status` to render one line per scan. Additive: optional
+   *  so an older cached/serialized summary without it still type-checks. */
+  scans?: TaskSecurityScanSummary[]
 }
 
 export interface TaskAcceptanceStatus {
@@ -1239,6 +1246,7 @@ export const taskVerificationService = {
             open: securityState.findings.length,
             blocking: securityState.blockingCount,
             unconfirmedPrs: securityState.unconfirmedPrs,
+            scans: securityState.scans,
           }
         : null,
     }

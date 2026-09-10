@@ -37,10 +37,11 @@ export async function persistSarifFindingsStep(
 }
 
 export async function markSarifExternalFailedStep(
-  scanId: string
+  scanId: string,
+  reason?: string
 ): Promise<void> {
   'use step'
-  return securitySarifIngestService.markExternalFailed(scanId)
+  return securitySarifIngestService.markExternalFailed(scanId, reason)
 }
 
 export async function deleteSarifBlobStep(url: string): Promise<void> {

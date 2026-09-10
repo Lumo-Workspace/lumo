@@ -29,6 +29,7 @@ import {
 import {
   deleteBlobBestEffort,
   markFailedBestEffort,
+  syncPrReviewBestEffort,
 } from './security-scan-helpers'
 
 /** How long a report that failed to ingest stays in blob storage. */
@@ -85,6 +86,9 @@ export async function securitySarifIngestWorkflow(
         dropped: fetched.dropped,
       })
       await deleteBlobBestEffort(job.url)
+      // The findings are on the row: put them on the PR (idempotent, and it
+      // never throws — see `securityPrReviewService.sync`).
+      await syncPrReviewBestEffort(scanId)
       return { outcome: 'INGESTED', scanId, findings: written, partial }
     }
     failure = fetched.reason
@@ -95,7 +99,9 @@ export async function securitySarifIngestWorkflow(
 
   // P9: the layer failed — say so, never a fake CLEAN. Blob kept for
   // SARIF_FAILED_BLOB_TTL so the report can be inspected or re-pushed.
-  await markFailedBestEffort(scanId)
+  await markFailedBestEffort(scanId, failure)
+  // The PR should say the external layer failed, not stay silent.
+  await syncPrReviewBestEffort(scanId)
   await sleep(SARIF_FAILED_BLOB_TTL)
   await deleteBlobBestEffort(job.url)
   return { outcome: 'FAILED', scanId, reason: failure }

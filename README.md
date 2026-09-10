@@ -247,7 +247,11 @@ Actions minutes, and no GitHub Advanced Security are required. The PR's head
 commit is shallow-cloned into a one-shot Vercel Sandbox microVM owned by Lumo
 (the same vendor that hosts the app), scanned, and the VM is destroyed; only
 findings on lines the PR added are kept, redacted, and nothing else from the
-repository is stored.
+repository is stored. Results show up in three places: the task's security
+panel, a review on the pull request itself (one summary comment plus inline
+comments on the affected lines, deduplicated across re-scans), and
+`lumo task status`, which prints one line per PR with each scan layer's state
+and any scanner failure reason.
 
 **Bring your own scanner (optional).** Teams that want their own tools or
 rule sets can push SARIF to `POST /api/integrations/security/sarif/upload` +

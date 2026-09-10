@@ -7,12 +7,17 @@ jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   deleteSarifBlobStep: jest.fn().mockResolvedValue(undefined),
 }))
 
+jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
+  syncPrReviewStep: jest.fn().mockResolvedValue(undefined),
+}))
+
 import { sleep } from 'workflow'
 import {
   securitySarifIngestWorkflow,
   SARIF_FAILED_BLOB_TTL,
 } from '@/lib/workflows/security-sarif-ingest'
 import * as steps from '@/lib/workflows/security-sarif-ingest.steps'
+import { syncPrReviewStep } from '@/lib/workflows/security-pr-review.steps'
 
 const resolve = steps.resolveSarifScanStep as jest.Mock
 const fetchNorm = steps.fetchAndNormalizeSarifStep as jest.Mock
@@ -20,6 +25,7 @@ const persist = steps.persistSarifFindingsStep as jest.Mock
 const markFailed = steps.markSarifExternalFailedStep as jest.Mock
 const delBlob = steps.deleteSarifBlobStep as jest.Mock
 const sleepMock = sleep as unknown as jest.Mock
+const syncReview = syncPrReviewStep as jest.Mock
 
 const JOB = {
   url: 'https://blob.vercel-storage.com/security-sarif/o--r/sha1/semgrep-abc.sarif.gz',
@@ -44,6 +50,7 @@ beforeEach(() => {
   resolve.mockResolvedValue({ kind: 'ok', scanId: 's1', pr: PR })
   delBlob.mockResolvedValue(undefined)
   markFailed.mockResolvedValue(undefined)
+  syncReview.mockResolvedValue(undefined)
 })
 
 it('exposes a 24h blob TTL', () => {
@@ -117,7 +124,7 @@ it('a blob delete whose retries are exhausted still leaves the outcome FAILED wi
     scanId: 's1',
     reason: 'Unsupported SARIF: not JSON',
   })
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith('s1', 'Unsupported SARIF: not JSON')
   expect(sleepMock).toHaveBeenCalledWith('24h')
 })
 
@@ -184,7 +191,7 @@ it('deterministic failure: marks FAILED, keeps the blob 24h, then deletes it', a
     scanId: 's1',
     reason: 'Unsupported SARIF: not JSON',
   })
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith('s1', 'Unsupported SARIF: not JSON')
   expect(sleepMock).toHaveBeenCalledWith('24h')
   expect(order).toEqual(['mark', 'sleep', 'delete'])
   expect(persist).not.toHaveBeenCalled()
@@ -202,6 +209,7 @@ it('a P9 stamp whose retries are exhausted still yields FAILED, and still sleeps
     // The original reason survives — not the mark-failed error.
     reason: 'Unsupported SARIF: not JSON',
   })
+  expect(markFailed).toHaveBeenCalledWith('s1', 'Unsupported SARIF: not JSON')
   expect(sleepMock).toHaveBeenCalledWith('24h')
   expect(delBlob).toHaveBeenCalledWith(JOB.url)
 })
@@ -214,7 +222,7 @@ it('a step that exhausted its retries (throws) takes the same FAILED path', asyn
     scanId: 's1',
     reason: 'P1001 db unreachable',
   })
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith('s1', 'P1001 db unreachable')
   expect(sleepMock).toHaveBeenCalledWith('24h')
   expect(delBlob).toHaveBeenCalledWith(JOB.url)
 })
@@ -225,4 +233,53 @@ it('resolve failure: no scan row to mark — still sleeps 24h, deletes the blob 
   expect(markFailed).not.toHaveBeenCalled()
   expect(sleepMock).toHaveBeenCalledWith('24h')
   expect(delBlob).toHaveBeenCalledWith(JOB.url)
+})
+
+// ── LUM-735 Task 2: the PR write-back runs on every path that touched findings ──
+
+it('INGESTED: posts the findings back to the PR', async () => {
+  fetchNorm.mockResolvedValue(OK)
+  persist.mockResolvedValue({ written: 3, partial: false })
+  await securitySarifIngestWorkflow(JOB)
+  expect(syncReview).toHaveBeenCalledWith('s1')
+})
+
+it('FAILED: posts the write-back after stamping the failure, before the blob TTL sleep', async () => {
+  fetchNorm.mockResolvedValue({ kind: 'failed', reason: 'not JSON' })
+  const order: string[] = []
+  markFailed.mockImplementation(async () => {
+    order.push('mark')
+  })
+  syncReview.mockImplementation(async () => {
+    order.push('review')
+  })
+  sleepMock.mockImplementation(async () => {
+    order.push('sleep')
+  })
+  await securitySarifIngestWorkflow(JOB)
+  expect(order).toEqual(['mark', 'review', 'sleep'])
+})
+
+it('a write-back whose retries are exhausted never changes the outcome', async () => {
+  fetchNorm.mockResolvedValue(OK)
+  persist.mockResolvedValue({ written: 1, partial: false })
+  syncReview.mockRejectedValue(new Error('github down'))
+  await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+    outcome: 'INGESTED',
+    scanId: 's1',
+    findings: 1,
+    partial: false,
+  })
+  expect(markFailed).not.toHaveBeenCalled()
+})
+
+it('DISCARDED and ALREADY_PROCESSED touch no findings, so no write-back', async () => {
+  resolve.mockResolvedValue({ kind: 'discarded', reason: 'pr_not_found' })
+  await securitySarifIngestWorkflow(JOB)
+  expect(syncReview).not.toHaveBeenCalled()
+
+  resolve.mockResolvedValue({ kind: 'ok', scanId: 's1', pr: PR })
+  fetchNorm.mockResolvedValue({ kind: 'not_found' })
+  await securitySarifIngestWorkflow(JOB)
+  expect(syncReview).not.toHaveBeenCalled()
 })

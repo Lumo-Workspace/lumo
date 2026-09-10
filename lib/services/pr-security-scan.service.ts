@@ -32,12 +32,16 @@ import {
   redactKnownSecrets,
   vulnerabilityFingerprint,
   INCOMPLETE_STAGE_STATES,
+  stagesOf,
   type ScanStages,
 } from '@/lib/security-scan'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
 import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
+// No LLM/gateway import inside — safe to import statically from stage A.
+import { securityPrReviewService } from './security-pr-review.service'
+import { waitUntil } from '@vercel/functions'
 
 export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1'
 
@@ -156,22 +160,12 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 /**
- * LUM-735 — stages for a scan row. Rows written before the column existed
- * carry null; for them the only per-layer fact on record is judgeStatus, so
- * the legacy view is derived from it (UNAVAILABLE → FAILED, SKIPPED → SKIPPED)
- * and no `external` key is claimed — those scans never consulted GitHub.
+ * LUM-735 (review) — `stagesOf` is now the pure `lib/security-scan/stages.ts`
+ * implementation, re-exported here for existing importers of this module
+ * (this file stays behind the LLM-gateway dynamic-import boundary; the pure
+ * version is what `pr-security-reminder.service.ts` imports statically).
  */
-export function stagesOf(scan: {
-  stages: ScanStages | null
-  judgeStatus: JudgeStatus | null
-}): ScanStages {
-  if (scan.stages) return scan.stages
-  const legacy: ScanStages = { secrets: 'RAN' }
-  if (scan.judgeStatus === 'RAN') legacy.judge = 'RAN'
-  else if (scan.judgeStatus === 'UNAVAILABLE') legacy.judge = 'FAILED'
-  else if (scan.judgeStatus === 'SKIPPED') legacy.judge = 'SKIPPED'
-  return legacy
-}
+export { stagesOf }
 
 /** Spec P9: a scan with any incomplete layer must not read as a full pass. */
 export function isCompleteScan(stages: ScanStages): boolean {
@@ -397,6 +391,12 @@ export const prSecurityScanService = {
       // PENDING if this repo has ever pushed SARIF before (CI is presumably
       // still running for this sha), else NOT_CONFIGURED.
       let externalCount = 0
+      // LUM-735 Task 2: did THIS stage A queue the managed run? If it did, the
+      // run's own `sync` will post the summary a minute from now with the
+      // external findings on it — posting one here as well would put a second,
+      // already-stale summary on the PR (the marker upsert only dedupes across
+      // syncs, not against a sync that has not happened yet).
+      let managedRunStarted = false
       try {
         externalCount =
           await prSecurityScanRepository.countExternalFindings(scanId)
@@ -417,6 +417,7 @@ export const prSecurityScanService = {
             headSha,
           })
           stages.external = runId ? 'PENDING' : 'FAILED'
+          managedRunStarted = Boolean(runId)
         } else {
           const last = await projectRepository.findLastSarifIngestAt(
             pr.workspaceId,
@@ -426,6 +427,8 @@ export const prSecurityScanService = {
         }
       } catch (error) {
         stages.external = 'FAILED'
+        // Nothing is going to sync on our behalf after a failure here.
+        managedRunStarted = false
         logger.warn(
           `[pr-security-scan] external stage lookup failed pr=${pr.id}:`,
           error instanceof Error ? error.message : error
@@ -519,6 +522,23 @@ export const prSecurityScanService = {
         stages,
         partial,
       })
+      // LUM-735 Task 2: the findings are on the row — put them on the PR.
+      // Best-effort like the dispatchers: `sync` never throws, and the
+      // markers make a repeat (from a workflow) comment-free.
+      // Skipped when this run queued the managed scan: that workflow syncs
+      // once it has persisted, and one summary per scan is the contract —
+      // unless stage A itself found something that blocks DONE, which must
+      // reach the PR even if the managed run never executes.
+      const blocksDone = rows.some(r =>
+        isBlockingFinding({
+          provenance: r.provenance,
+          severity: r.severity,
+          disposition: r.disposition ?? null,
+        })
+      )
+      if (!managedRunStarted || blocksDone) {
+        waitUntil(securityPrReviewService.sync(scanId))
+      }
       return { deduped: false, scanId, status, findings: rows.length }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -533,6 +553,8 @@ export const prSecurityScanService = {
         partial,
         error: message.slice(0, 500),
       })
+      // A FAILED stage A still has something to say on the PR (P9).
+      waitUntil(securityPrReviewService.sync(scanId))
       return { deduped: false, scanId, status: 'FAILED', findings: 0 }
     }
   },

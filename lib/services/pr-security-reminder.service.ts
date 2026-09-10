@@ -14,6 +14,7 @@
 import {
   prSecurityScanRepository,
   type FindingKind,
+  type ScanStatus,
   type ScanWithFindings,
 } from '@/lib/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -29,10 +30,29 @@ import {
   type ReminderFinding,
   type UnconfirmedPr,
 } from '@/lib/security-scan/agent-reminder'
+import { stagesOf } from '@/lib/security-scan/stages'
+import type { ScanStages } from '@/lib/security-scan/types'
 
 export interface OpenSecurityFinding extends ReminderFinding {
   kind: FindingKind
   scanId: string
+}
+
+/**
+ * LUM-735 — one linked PR's latest-scan summary, for `lumo task status`.
+ * `externalFindings` counts findings with `provenance === 'EXTERNAL_TOOL'`
+ * regardless of disposition (a raw external-tool hit count); `openFindings`
+ * counts undispositioned findings on this scan (a subset of `findings` above,
+ * scoped to this one PR).
+ */
+export interface TaskSecurityScanSummary {
+  prNumber: number
+  status: ScanStatus
+  stages: ScanStages
+  partial: boolean
+  error: string | null
+  externalFindings: number
+  openFindings: number
 }
 
 export interface TaskSecurityOpenState {
@@ -43,6 +63,9 @@ export interface TaskSecurityOpenState {
   unconfirmedPrs: UnconfirmedPr[]
   /** The latest scan per PR (when one exists) — the reminder keys on these. */
   latestScans: Array<{ scanId: string; prNumber: number; headSha: string }>
+  /** LUM-735 — one entry per PR with a latest scan (same set as
+   *  `latestScans`, open or closed PRs alike). */
+  scans: TaskSecurityScanSummary[]
 }
 
 const EMPTY_STATE: TaskSecurityOpenState = {
@@ -50,6 +73,7 @@ const EMPTY_STATE: TaskSecurityOpenState = {
   blockingCount: 0,
   unconfirmedPrs: [],
   latestScans: [],
+  scans: [],
 }
 
 function unconfirmedReason(
@@ -75,6 +99,7 @@ export const prSecurityReminderService = {
     const findings: OpenSecurityFinding[] = []
     const unconfirmedPrs: UnconfirmedPr[] = []
     const latestScans: TaskSecurityOpenState['latestScans'] = []
+    const scanSummaries: TaskSecurityScanSummary[] = []
     for (const pr of prs) {
       const scan = latest.get(pr.id)
       if (scan) {
@@ -82,6 +107,18 @@ export const prSecurityReminderService = {
           scanId: scan.id,
           prNumber: pr.number,
           headSha: scan.headSha,
+        })
+        scanSummaries.push({
+          prNumber: pr.number,
+          status: scan.status,
+          stages: stagesOf(scan),
+          partial: scan.partial,
+          error: scan.error,
+          externalFindings: scan.findings.filter(
+            f => f.provenance === 'EXTERNAL_TOOL'
+          ).length,
+          openFindings: scan.findings.filter(f => f.disposition === null)
+            .length,
         })
       }
       const reason = unconfirmedReason(scan)
@@ -112,6 +149,7 @@ export const prSecurityReminderService = {
       blockingCount: sorted.filter(f => f.blocking).length,
       unconfirmedPrs,
       latestScans,
+      scans: scanSummaries,
     }
   },
 

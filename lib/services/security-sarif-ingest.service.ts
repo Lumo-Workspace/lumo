@@ -31,6 +31,7 @@ import {
   parseSarif,
   normalizeSarif,
   changedLinesOf,
+  EXTERNAL_ERROR_PREFIX,
   type NormalizeResult,
   type RawSarifFinding,
 } from '@/lib/security-scan'
@@ -349,12 +350,20 @@ export const securitySarifIngestService = {
    * it — a transient DB blip must not be the reason the scan keeps looking
    * like it never ran. The workflow swallows the *final* failure so the run
    * still reaches its blob cleanup.
+   *
+   * `reason` is already scrubbed by the caller (`reasonOf` / `scrubToken`,
+   * P8) — this only prefixes it with `EXTERNAL_ERROR_PREFIX` and caps it at
+   * 480 chars (500 with the prefix). A missing reason writes no `error` at
+   * all. The prefix is load-bearing, not cosmetic: it is what tells the PR
+   * write-back and the panel that this text came through the scrub, so an
+   * unprefixed `error` (stage A's own raw failure message) is never published
+   * as an external-scanner reason.
    */
-  async markExternalFailed(scanId: string): Promise<void> {
+  async markExternalFailed(scanId: string, reason?: string): Promise<void> {
     await prSecurityScanRepository.mergeStages(
       scanId,
       { external: 'FAILED' },
-      {}
+      reason ? { error: `${EXTERNAL_ERROR_PREFIX}${reason.slice(0, 480)}` } : {}
     )
   },
 

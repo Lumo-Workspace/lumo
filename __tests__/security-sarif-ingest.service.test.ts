@@ -10,6 +10,12 @@ jest.mock('@/lib/services/security-sarif-blob', () => ({
   deleteBlob: jest.fn(),
   listSarifBlobs: jest.fn(),
 }))
+// LUM-735 Task 2: stage A now statically imports the PR write-back service,
+// which reaches `github/auth` → `@octokit/auth-app` (ESM, unparseable by
+// jest). Nothing in this suite talks to GitHub, so stub the token source.
+jest.mock('@/lib/integrations/github/auth', () => ({
+  getGithubInstallationToken: jest.fn().mockResolvedValue('tok'),
+}))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
@@ -534,6 +540,29 @@ describe('markExternalFailed / deleteBlobSafely', () => {
       's1',
       { external: 'FAILED' },
       {}
+    )
+  })
+
+  it('markExternalFailed with a reason writes the scrubbed, prefixed, capped error', async () => {
+    // LUM-735 Task 1 — P8: the reason is already scrubbed by the caller
+    // (reasonOf / scrubToken); this only prefixes and caps it.
+    await expect(
+      securitySarifIngestService.markExternalFailed('s1', 'boom')
+    ).resolves.toBeUndefined()
+    expect(repo.mergeStages).toHaveBeenCalledWith(
+      's1',
+      { external: 'FAILED' },
+      { error: 'external: boom' }
+    )
+  })
+
+  it('markExternalFailed caps the reason at 480 chars before prefixing', async () => {
+    const long = 'x'.repeat(600)
+    await securitySarifIngestService.markExternalFailed('s1', long)
+    expect(repo.mergeStages).toHaveBeenCalledWith(
+      's1',
+      { external: 'FAILED' },
+      { error: `external: ${'x'.repeat(480)}` }
     )
   })
 

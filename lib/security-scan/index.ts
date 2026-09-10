@@ -21,6 +21,11 @@ export {
 } from './secret-patterns'
 export { truncateSecurityDiff, SECURITY_DIFF_MAX_CHARS } from './truncate'
 export {
+  stagesOf,
+  EXTERNAL_ERROR_PREFIX,
+  type StagesOfScanInput,
+} from './stages'
+export {
   parseSarif,
   normalizeSarif,
   changedLinesOf,

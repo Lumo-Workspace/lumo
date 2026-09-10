@@ -13,7 +13,10 @@ import {
 import type { IngestResult } from '@/lib/services/security-sarif-ingest.service'
 import { persistSarifFindingsStep } from './security-sarif-ingest.steps'
 import { scanRepositoryInSandboxStep } from './security-managed-scan.steps'
-import { markFailedBestEffort } from './security-scan-helpers'
+import {
+  markFailedBestEffort,
+  syncPrReviewBestEffort,
+} from './security-scan-helpers'
 
 function reasonOf(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 500)
@@ -59,12 +62,16 @@ export async function securityManagedScanWorkflow(
     failures.push(reasonOf(error))
   }
   if (failures.length > 0) {
-    await markFailedBestEffort(scanId)
+    const reason = failures.join('; ').slice(0, 500)
+    await markFailedBestEffort(scanId, reason)
+    // Whatever did land (plus the failure line) goes on the PR.
+    await syncPrReviewBestEffort(scanId)
     return {
       outcome: 'FAILED',
       scanId,
-      reason: failures.join('; ').slice(0, 500),
+      reason,
     }
   }
+  await syncPrReviewBestEffort(scanId)
   return { outcome: 'INGESTED', scanId, findings, partial }
 }

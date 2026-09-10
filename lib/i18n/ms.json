@@ -2284,5 +2284,6 @@
   "apiKeys.scope.securityIngest": "Ingest CI sahaja",
   "securityScan.status.pendingExternal": "Menunggu pengimbas",
   "securityScan.stageState.PENDING": "mengimbas",
-  "securityScan.external.late": "Pengimbas tidak melaporkan hasil untuk commit ini selama 30 minit, jadi imbasan ini tidak lengkap. Push commit baharu untuk memulakan imbasan baharu, atau semak tugas imbasan CI anda sendiri jika repositori ini menghantar laporannya sendiri."
+  "securityScan.external.late": "Pengimbas tidak melaporkan hasil untuk commit ini selama 30 minit, jadi imbasan ini tidak lengkap. Push commit baharu untuk memulakan imbasan baharu, atau semak tugas imbasan CI anda sendiri jika repositori ini menghantar laporannya sendiri.",
+  "securityScan.external.failedReason": "Pengimbas luaran gagal:"
 }

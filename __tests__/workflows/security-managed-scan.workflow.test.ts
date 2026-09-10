@@ -8,16 +8,22 @@ jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   deleteSarifBlobStep: jest.fn(),
 }))
 
+jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
+  syncPrReviewStep: jest.fn().mockResolvedValue(undefined),
+}))
+
 import { securityManagedScanWorkflow } from '@/lib/workflows/security-managed-scan'
 import { scanRepositoryInSandboxStep } from '@/lib/workflows/security-managed-scan.steps'
 import {
   persistSarifFindingsStep,
   markSarifExternalFailedStep,
 } from '@/lib/workflows/security-sarif-ingest.steps'
+import { syncPrReviewStep } from '@/lib/workflows/security-pr-review.steps'
 
 const scan = scanRepositoryInSandboxStep as jest.Mock
 const persist = persistSarifFindingsStep as jest.Mock
 const markFailed = markSarifExternalFailedStep as jest.Mock
+const syncReview = syncPrReviewStep as jest.Mock
 
 const PR = { id: 'pr1', workspaceId: 'w1', repo: 'o/r', number: 7 }
 const JOB = { scanId: 's1', pr: PR, headSha: 'a'.repeat(40) }
@@ -33,6 +39,7 @@ const ok = (tool: string, n: number) => ({
 beforeEach(() => {
   jest.resetAllMocks()
   markFailed.mockResolvedValue(undefined)
+  syncReview.mockResolvedValue(undefined)
   persist.mockImplementation(
     async (input: { findings: unknown[]; truncated: boolean }) => ({
       written: input.findings.length,
@@ -106,6 +113,7 @@ it('one tool failed: persists the other first, then stamps FAILED with that tool
     expect.objectContaining({ tool: 'semgrep' })
   )
   expect(order).toEqual(['persist', 'mark'])
+  expect(markFailed).toHaveBeenCalledWith('s1', 'gitleaks exit 2')
 })
 
 it('both tools failed: no persist, FAILED with both reasons', async () => {
@@ -119,7 +127,10 @@ it('both tools failed: no persist, FAILED with both reasons', async () => {
     reason: 'gitleaks exit 2; semgrep produced no report',
   })
   expect(persist).not.toHaveBeenCalled()
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith(
+    's1',
+    'gitleaks exit 2; semgrep produced no report'
+  )
 })
 
 it('the scan step exhausting its retries (throws) stamps FAILED with the error message', async () => {
@@ -130,7 +141,7 @@ it('the scan step exhausting its retries (throws) stamps FAILED with the error m
     reason: 'sandbox_unavailable',
   })
   expect(persist).not.toHaveBeenCalled()
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith('s1', 'sandbox_unavailable')
 })
 
 it('a persist step exhausting its retries stamps FAILED (never a fake RAN)', async () => {
@@ -144,7 +155,7 @@ it('a persist step exhausting its retries stamps FAILED (never a fake RAN)', asy
     scanId: 's1',
     reason: 'P1001',
   })
-  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(markFailed).toHaveBeenCalledWith('s1', 'P1001')
 })
 
 it('markFailed exhausting its retries still returns FAILED', async () => {
@@ -154,4 +165,40 @@ it('markFailed exhausting its retries still returns FAILED', async () => {
     outcome: 'FAILED',
     reason: 'boom',
   })
+})
+
+// ── LUM-735 Task 2: the PR write-back ──────────────────────────────────────
+
+it('INGESTED: posts the findings back to the PR', async () => {
+  scan.mockResolvedValue({
+    gitleaks: ok('gitleaks', 1),
+    semgrep: ok('semgrep', 0),
+  })
+  await securityManagedScanWorkflow(JOB)
+  expect(syncReview).toHaveBeenCalledWith('s1')
+})
+
+it('FAILED: still posts, after the failure is stamped', async () => {
+  scan.mockRejectedValue(new Error('sandbox_unavailable'))
+  const order: string[] = []
+  markFailed.mockImplementation(async () => {
+    order.push('mark')
+  })
+  syncReview.mockImplementation(async () => {
+    order.push('review')
+  })
+  await securityManagedScanWorkflow(JOB)
+  expect(order).toEqual(['mark', 'review'])
+})
+
+it('a write-back whose retries are exhausted never changes the outcome', async () => {
+  scan.mockResolvedValue({
+    gitleaks: ok('gitleaks', 1),
+    semgrep: ok('semgrep', 1),
+  })
+  syncReview.mockRejectedValue(new Error('github down'))
+  await expect(securityManagedScanWorkflow(JOB)).resolves.toMatchObject({
+    outcome: 'INGESTED',
+  })
+  expect(markFailed).not.toHaveBeenCalled()
 })
