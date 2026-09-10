@@ -41,6 +41,9 @@ jest.mock('@/lib/repositories/project.repository', () => ({
     findLastSarifIngestAt: jest.fn(),
   },
 }))
+jest.mock('@/lib/services/security-managed-scan-start', () => ({
+  startSecurityManagedScan: jest.fn(),
+}))
 
 import {
   prSecurityScanService,
@@ -51,6 +54,7 @@ import {
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
+import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
 import { secretFingerprint } from '@/lib/security-scan/redact'
@@ -65,6 +69,7 @@ const prRepo = pullRequestRepository as jest.Mocked<
 const fetchPrDiff = gh.fetchPrDiff as jest.Mock
 const fetchPrHeadSha = gh.fetchPrHeadSha as jest.Mock
 const judgeSecurity = judge.judgeSecurity as jest.Mock
+const startManaged = startSecurityManagedScan as jest.Mock
 
 const PR = {
   id: 'pr1',
@@ -524,8 +529,23 @@ test('getForTask returns the latest scan per PR and the blocking count', async (
 describe('LUM-735 SARIF push — stage A side', () => {
   const lastIngest = projectRepository.findLastSarifIngestAt as jest.Mock
   const countExternal = repo.countExternalFindings as jest.Mock
+  const ORIGINAL_LUMO_MANAGED_SCAN = process.env.LUMO_MANAGED_SCAN
+
+  beforeEach(() => {
+    startManaged.mockResolvedValue('run_1')
+    delete process.env.LUMO_MANAGED_SCAN
+  })
+
+  afterEach(() => {
+    if (ORIGINAL_LUMO_MANAGED_SCAN === undefined) {
+      delete process.env.LUMO_MANAGED_SCAN
+    } else {
+      process.env.LUMO_MANAGED_SCAN = ORIGINAL_LUMO_MANAGED_SCAN
+    }
+  })
 
   test('a repo that never pushed SARIF → stages.external=NOT_CONFIGURED, CLEAN by findings', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'off'
     fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
     lastIngest.mockResolvedValue(null)
     const result = await prSecurityScanService.run({
@@ -542,9 +562,11 @@ describe('LUM-735 SARIF push — stage A side', () => {
       })
     )
     expect(lastIngest).toHaveBeenCalledWith('w1', 'o/r')
+    expect(startManaged).not.toHaveBeenCalled()
   })
 
   test('a repo that pushed before but not for this sha → PENDING', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'off'
     fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
     lastIngest.mockResolvedValue(new Date('2026-09-01T00:00:00Z'))
     await prSecurityScanService.run({
@@ -556,6 +578,64 @@ describe('LUM-735 SARIF push — stage A side', () => {
       [],
       expect.objectContaining({
         stages: expect.objectContaining({ external: 'PENDING' }),
+      })
+    )
+    expect(startManaged).not.toHaveBeenCalled()
+  })
+
+  test('managed scan on, no external rows yet → starts the workflow with the scan row and PENDING', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(startManaged).toHaveBeenCalledWith({
+      scanId: 's1',
+      pr: { id: 'pr1', workspaceId: 'w1', repo: 'o/r', number: 7 },
+      headSha: 'sha-1',
+    })
+    expect(lastIngest).not.toHaveBeenCalled()
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        stages: expect.objectContaining({ external: 'PENDING' }),
+      })
+    )
+  })
+
+  test('managed scan on, external rows already there → RAN and no new scan', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(2)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(startManaged).not.toHaveBeenCalled()
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        stages: expect.objectContaining({ external: 'RAN' }),
+      })
+    )
+  })
+
+  test('managed scan start failing → external=FAILED, the scan still completes', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    startManaged.mockResolvedValue(null)
+    const result = await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(result).toMatchObject({ status: 'CLEAN' })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        stages: expect.objectContaining({ external: 'FAILED' }),
       })
     )
   })
@@ -596,6 +676,7 @@ describe('LUM-735 SARIF push — stage A side', () => {
   })
 
   test('lastSarifIngestAt lookup failure → external FAILED, scan still finalizes', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'off'
     fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
     lastIngest.mockRejectedValue(new Error('db down'))
     const result = await prSecurityScanService.run({
@@ -613,6 +694,7 @@ describe('LUM-735 SARIF push — stage A side', () => {
   })
 
   test('empty diff → secrets RAN, external still resolved, judge SKIPPED', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'off'
     fetchPrDiff.mockResolvedValue('')
     lastIngest.mockResolvedValue(null)
     await prSecurityScanService.run({
@@ -634,6 +716,10 @@ describe('LUM-735 SARIF push — stage A side', () => {
 })
 
 describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', () => {
+  afterEach(() => {
+    delete process.env.LUMO_MANAGED_SCAN
+  })
+
   test('judge UNAVAILABLE is mirrored as stages.judge=FAILED', async () => {
     fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
     judgeSecurity.mockRejectedValue(new Error('gateway down'))
@@ -652,6 +738,7 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
   })
 
   test('a scan that throws after stages were collected finalizes FAILED with those stages', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'off'
     fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
     repo.findDispositionedByPullRequest.mockRejectedValue(new Error('db down'))
     const result = await prSecurityScanService.run({
