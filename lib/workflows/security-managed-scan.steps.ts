@@ -6,11 +6,11 @@
  * the service throws for transient failures and returns values for scanner
  * failures.
  */
-import {
-  securityManagedScanService,
-  type ManagedScanJob,
-  type ManagedScanOutcome,
-} from '@/lib/services/security-managed-scan.service'
+import { securityManagedScanService } from '@/lib/services/security-managed-scan.service'
+import type {
+  ManagedScanJob,
+  ManagedScanOutcome,
+} from '@/lib/services/security-managed-scan.config'
 
 export async function scanRepositoryInSandboxStep(
   job: ManagedScanJob

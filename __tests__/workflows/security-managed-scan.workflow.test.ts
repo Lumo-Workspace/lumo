@@ -7,20 +7,6 @@ jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   markSarifExternalFailedStep: jest.fn(),
   deleteSarifBlobStep: jest.fn(),
 }))
-// The workflow imports MANAGED_SCAN_TOOLS (a value) from the real service
-// module for its per-tool loop; that module's top-level imports otherwise
-// pull in ESM-only transitive deps (@vercel/sandbox, octokit) unparseable by
-// Jest. Mirrors the same mocks in __tests__/security-managed-scan.service.test.ts.
-jest.mock('@/lib/integrations/vercel-sandbox', () => ({
-  createRepoSandbox: jest.fn(),
-}))
-jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn(),
-}))
-jest.mock('@/lib/integrations/github/contents', () => ({
-  fetchPrDiff: jest.fn(),
-  fetchPrHeadSha: jest.fn(),
-}))
 
 import { securityManagedScanWorkflow } from '@/lib/workflows/security-managed-scan'
 import { scanRepositoryInSandboxStep } from '@/lib/workflows/security-managed-scan.steps'

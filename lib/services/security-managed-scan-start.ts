@@ -1,7 +1,7 @@
 import { start } from 'workflow/api'
 import { logger } from '@/lib/logger'
 import { securityManagedScanWorkflow } from '@/lib/workflows/security-managed-scan'
-import type { ManagedScanJob } from './security-managed-scan.service'
+import type { ManagedScanJob } from './security-managed-scan.config'
 
 /** Never throws: stage A stamps `external=FAILED` on a null. */
 export async function startSecurityManagedScan(

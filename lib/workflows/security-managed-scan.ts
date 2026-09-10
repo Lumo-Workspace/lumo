@@ -9,7 +9,7 @@
 import {
   MANAGED_SCAN_TOOLS,
   type ManagedScanJob,
-} from '@/lib/services/security-managed-scan.service'
+} from '@/lib/services/security-managed-scan.config'
 import type { IngestResult } from '@/lib/services/security-sarif-ingest.service'
 import { persistSarifFindingsStep } from './security-sarif-ingest.steps'
 import { scanRepositoryInSandboxStep } from './security-managed-scan.steps'

@@ -24,49 +24,25 @@ import {
   normalizeSarif,
   parseSarif,
 } from '@/lib/security-scan'
-import type {
-  NormalizeOutcome,
-  ResolvedPr,
-} from './security-sarif-ingest.service'
+import {
+  GITLEAKS_URL,
+  MANAGED_REPORT_MAX_BYTES,
+  MANAGED_SCAN_TOOLS,
+  SANDBOX_IMAGE,
+  SANDBOX_TIMEOUT_MS,
+  SANDBOX_VCPUS,
+  SEMGREP_CONFIGS,
+  SEMGREP_VERSION,
+  type ManagedScanJob,
+  type ManagedScanOutcome,
+  type ManagedScanTool,
+} from './security-managed-scan.config'
 
-export const SEMGREP_VERSION = '1.176.1'
-export const GITLEAKS_VERSION = '8.30.1'
-export const GITLEAKS_URL = `https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz`
-export const SEMGREP_CONFIGS = [
-  'p/owasp-top-ten',
-  'p/typescript',
-  'p/nodejs',
-  'p/python',
-]
-export const SANDBOX_IMAGE = 'vercel/sandbox/universal'
-export const SANDBOX_VCPUS = 2
-/** Below the 800 s Fluid cap of the function that hosts the step. */
-export const SANDBOX_TIMEOUT_MS = 12 * 60 * 1000
-/** Same cap as the ingest path's raw (post-gunzip) SARIF size. */
-export const MANAGED_REPORT_MAX_BYTES = 400 * 1024 * 1024
-export const MANAGED_SCAN_TOOLS = ['gitleaks', 'semgrep'] as const
-export type ManagedScanTool = (typeof MANAGED_SCAN_TOOLS)[number]
-
-export interface ManagedScanJob {
-  scanId: string
-  pr: ResolvedPr
-  headSha: string
-}
-
-export type ManagedScanOutcome = Record<ManagedScanTool, NormalizeOutcome>
-
-/**
- * Kill switch: managed scanning is on unless LUMO_MANAGED_SCAN is exactly "off".
- *
- * The parameter is a plain string map rather than `NodeJS.ProcessEnv`: Next.js
- * augments that type with a required `NODE_ENV`, so a caller (a test) could not
- * pass a bare `{ LUMO_MANAGED_SCAN: 'off' }`. `process.env` is assignable here.
- */
-export function isManagedScanEnabled(
-  env: Record<string, string | undefined> = process.env
-): boolean {
-  return env.LUMO_MANAGED_SCAN !== 'off'
-}
+// Re-exported so existing consumers (and this file's own test) keep working
+// unchanged. New consumers that don't need the sandbox/GitHub SDKs — the
+// workflow orchestrator, stage A — should import from
+// `./security-managed-scan.config` directly instead of through this module.
+export * from './security-managed-scan.config'
 
 /** Every string that leaves this module passes through here (P8). */
 export function scrubToken(message: string, token: string): string {
