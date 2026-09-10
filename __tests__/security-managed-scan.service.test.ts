@@ -25,6 +25,8 @@ import {
   SEMGREP_VERSION,
   SANDBOX_TIMEOUT_MS,
   SANDBOX_VCPUS,
+  SANDBOX_IMAGE,
+  MANAGED_REPORT_MAX_BYTES,
 } from '@/lib/services/security-managed-scan.service'
 
 const TOKEN = 'ghs_INSTALLATIONTOKEN123456'
@@ -130,6 +132,7 @@ describe('scanRepository', () => {
       token: TOKEN,
       timeoutMs: SANDBOX_TIMEOUT_MS,
       vcpus: SANDBOX_VCPUS,
+      image: SANDBOX_IMAGE,
     })
   })
 
@@ -143,8 +146,9 @@ describe('scanRepository', () => {
     const scripts = sb.run.mock.calls.map(c => (c[1] as string[]).join(' '))
     expect(scripts[0]).toContain(GITLEAKS_URL)
     expect(scripts[0]).toContain(
-      '--no-git --report-format sarif --report-path /tmp/gitleaks.sarif --exit-code 0'
+      'dir . --report-format sarif --report-path /tmp/gitleaks.sarif --exit-code 0'
     )
+    expect(scripts[1]).toContain('pip install --quiet semgrep==')
     expect(scripts[1]).toContain(`semgrep==${SEMGREP_VERSION}`)
     expect(scripts[1]).toContain(
       '--config p/owasp-top-ten --config p/typescript --config p/nodejs --config p/python --sarif --output /tmp/semgrep.sarif --metrics=off'
@@ -181,6 +185,10 @@ describe('scanRepository', () => {
     })
     create.mockResolvedValue(sb)
     const out = await securityManagedScanService.scanRepository(JOB)
+    expect(out.gitleaks.kind).toBe('ok')
+    if (out.gitleaks.kind !== 'ok') throw new Error('unreachable')
+    expect(out.gitleaks.findings).toHaveLength(1)
+    expect(out.gitleaks.findings[0]).toMatchObject({ kind: 'SECRET' })
     expect(JSON.stringify(out)).not.toContain(KEY)
     expect(JSON.stringify(out)).not.toContain(TOKEN)
     const logged = [logger.info, logger.warn, logger.error]
@@ -238,6 +246,32 @@ describe('scanRepository', () => {
     expect(out.gitleaks.kind).toBe('failed')
   })
 
+  it('a report over the size cap is that tool’s failure, without reading its content, and the other tool still succeeds', async () => {
+    const oversized = Buffer.alloc(1)
+    Object.defineProperty(oversized, 'byteLength', {
+      value: MANAGED_REPORT_MAX_BYTES + 1,
+    })
+    const run = jest.fn(async (_cmd: string, _args: string[]) => ({
+      exitCode: 0,
+      stdout: '',
+      stderr: '',
+    }))
+    const readFile = jest.fn(async (path: string) => {
+      if (path === '/tmp/semgrep.sarif') return oversized
+      if (path === '/tmp/gitleaks.sarif')
+        return Buffer.from(JSON.stringify(gitleaksSarif))
+      return null
+    })
+    const sb = { run, readFile, stop: jest.fn(async () => undefined) }
+    create.mockResolvedValue(sb)
+    const out = await securityManagedScanService.scanRepository(JOB)
+    expect(out.semgrep).toMatchObject({
+      kind: 'failed',
+      reason: 'semgrep report exceeds size cap',
+    })
+    expect(out.gitleaks.kind).toBe('ok')
+  })
+
   it('sandbox creation failure throws (retryable) with the token scrubbed from the message', async () => {
     create.mockRejectedValue(
       new Error(
@@ -258,11 +292,14 @@ describe('scanRepository', () => {
       '/tmp/semgrep.sarif': JSON.stringify(semgrepSarif),
     })
     create.mockResolvedValue(sb)
-    diff.mockRejectedValue(new Error('github 502'))
+    diff.mockRejectedValue(new Error(`github 502 for token ${TOKEN}`))
     await expect(
       securityManagedScanService.scanRepository(JOB)
-    ).rejects.toThrow('github 502')
-    expect(sb.stop).toHaveBeenCalledTimes(1)
+    ).rejects.toThrow(/github 502/)
+    await expect(
+      securityManagedScanService.scanRepository(JOB)
+    ).rejects.not.toThrow(new RegExp(TOKEN))
+    expect(sb.stop).toHaveBeenCalledTimes(2)
   })
 
   it('stop() failing never masks the outcome', async () => {

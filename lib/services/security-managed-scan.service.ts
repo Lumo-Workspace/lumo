@@ -42,6 +42,8 @@ export const SANDBOX_IMAGE = 'vercel/sandbox/universal'
 export const SANDBOX_VCPUS = 2
 /** Below the 800 s Fluid cap of the function that hosts the step. */
 export const SANDBOX_TIMEOUT_MS = 12 * 60 * 1000
+/** Same cap as the ingest path's raw (post-gunzip) SARIF size. */
+export const MANAGED_REPORT_MAX_BYTES = 400 * 1024 * 1024
 export const MANAGED_SCAN_TOOLS = ['gitleaks', 'semgrep'] as const
 export type ManagedScanTool = (typeof MANAGED_SCAN_TOOLS)[number]
 
@@ -77,8 +79,8 @@ const REPORT_PATH: Record<ManagedScanTool, string> = {
 }
 
 const SCRIPT: Record<ManagedScanTool, string> = {
-  gitleaks: `set -e; curl -sSL "${GITLEAKS_URL}" | tar -xz -C /tmp gitleaks; /tmp/gitleaks detect --source . --no-git --report-format sarif --report-path ${REPORT_PATH.gitleaks} --exit-code 0 --no-banner`,
-  semgrep: `set -e; python3 -m pip install --quiet --break-system-packages semgrep==${SEMGREP_VERSION}; semgrep scan ${SEMGREP_CONFIGS.map(c => `--config ${c}`).join(' ')} --sarif --output ${REPORT_PATH.semgrep} --metrics=off`,
+  gitleaks: `set -e; curl -sSL "${GITLEAKS_URL}" | tar -xz -C /tmp gitleaks; /tmp/gitleaks dir . --report-format sarif --report-path ${REPORT_PATH.gitleaks} --exit-code 0 --no-banner`,
+  semgrep: `set -e; python3 -m pip install --quiet semgrep==${SEMGREP_VERSION}; semgrep scan ${SEMGREP_CONFIGS.map(c => `--config ${c}`).join(' ')} --sarif --output ${REPORT_PATH.semgrep} --metrics=off`,
 }
 
 /** semgrep exits 1 when it has findings; gitleaks is pinned to --exit-code 0. */
@@ -90,20 +92,37 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+/** Strips CR/LF and caps length before a caller-supplied string reaches a log line. */
+function logSafe(s: string): string {
+  return s.replace(/[\r\n]+/g, ' ').slice(0, 120)
+}
+
 async function runTool(
   sandbox: RepoSandbox,
   tool: ManagedScanTool,
-  scanId: string
+  scanId: string,
+  token: string
 ): Promise<Buffer | { failed: string }> {
   const result = await sandbox.run('sh', ['-c', SCRIPT[tool]])
   if (!isSuccessExit(tool, result.exitCode)) {
     logger.warn(
-      `[security-managed-scan] ${tool} exit ${result.exitCode} scan=${scanId}: ${result.stderr.replace(/[\r\n]+/g, ' ').slice(0, 200)}`
+      `[security-managed-scan] ${logSafe(tool)} exit ${result.exitCode} scan=${scanId}: ${scrubToken(
+        result.stderr,
+        token
+      )
+        .replace(/[\r\n]+/g, ' ')
+        .slice(0, 200)}`
     )
     return { failed: `${tool} exit ${result.exitCode}` }
   }
   const report = await sandbox.readFile(REPORT_PATH[tool])
   if (!report) return { failed: `${tool} produced no report` }
+  if (report.byteLength > MANAGED_REPORT_MAX_BYTES) {
+    logger.error(
+      `[security-managed-scan] ${logSafe(tool)} report ${report.byteLength}B exceeds cap scan=${scanId}`
+    )
+    return { failed: `${tool} report exceeds size cap` }
+  }
   return report
 }
 
@@ -118,6 +137,7 @@ export const securityManagedScanService = {
         token,
         timeoutMs: SANDBOX_TIMEOUT_MS,
         vcpus: SANDBOX_VCPUS,
+        image: SANDBOX_IMAGE,
       })
     } catch (error) {
       // Transient by default (retry); the SDK may echo the clone URL.
@@ -129,16 +149,23 @@ export const securityManagedScanService = {
       > = {}
       for (const tool of MANAGED_SCAN_TOOLS) {
         try {
-          reports[tool] = await runTool(sandbox, tool, job.scanId)
+          reports[tool] = await runTool(sandbox, tool, job.scanId, token)
         } catch (error) {
           throw new Error(scrubToken(message(error), token))
         }
       }
-      const diff = await fetchPrDiff({
-        workspaceId: job.pr.workspaceId,
-        fullName: job.pr.repo,
-        prNumber: job.pr.number,
-      })
+      let diff: string
+      try {
+        diff = await fetchPrDiff({
+          workspaceId: job.pr.workspaceId,
+          fullName: job.pr.repo,
+          prNumber: job.pr.number,
+        })
+      } catch (error) {
+        // Transient by default (retry); scrub defensively even though the
+        // GitHub client has no reason to echo the installation token today.
+        throw new Error(scrubToken(message(error), token))
+      }
       const changedLines = changedLinesOf(addedLinesWithNumbers(diff))
       const outcome = {} as ManagedScanOutcome
       for (const tool of MANAGED_SCAN_TOOLS) {
@@ -164,13 +191,13 @@ export const securityManagedScanService = {
             dropped: n.dropped,
           }
           logger.info(
-            `[security-managed-scan] ${job.pr.repo}#${job.pr.number} ${tool}: ${n.findings.length} findings scan=${job.scanId} (dropped notInDiff=${n.dropped.notInDiff} noLocation=${n.dropped.noLocation} dup=${n.dropped.duplicate})`
+            `[security-managed-scan] ${logSafe(job.pr.repo)}#${job.pr.number} ${logSafe(tool)}: ${n.findings.length} findings scan=${job.scanId} (dropped notInDiff=${n.dropped.notInDiff} noLocation=${n.dropped.noLocation} dup=${n.dropped.duplicate})`
           )
         } catch (error) {
           // Not JSON / not SARIF 2.1.0 — deterministic, the tool's own failure.
           const reason = scrubToken(message(error), token).slice(0, 500)
           logger.error(
-            `[security-managed-scan] ${tool} report unusable scan=${job.scanId}: ${reason.slice(0, 200)}`
+            `[security-managed-scan] ${logSafe(tool)} report unusable scan=${job.scanId}: ${reason.slice(0, 200)}`
           )
           outcome[tool] = { kind: 'failed', reason }
         }
