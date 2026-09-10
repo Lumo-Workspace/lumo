@@ -2306,5 +2306,16 @@
   "record.report.cost": "Kos",
   "record.report.costTokens": "token",
   "record.report.rework": "Kerja semula",
-  "record.report.notMeasured": "tidak direkodkan"
+  "record.report.notMeasured": "tidak direkodkan",
+  "record.zone.needsAction": "Perlu tindakan",
+  "record.zone.needsActionNote": "Selesaikan perkara ini dan tugas boleh ditanda Selesai.",
+  "record.zone.records": "Rekod · tiada tindakan diperlukan",
+  "record.machine.awaitingTitle": "Semakan mesin menunggu pengesahan",
+  "record.machine.awaitingSummary": "{verified} disahkan · {awaiting} menunggu",
+  "record.machine.awaiting": "Menunggu pengesahan",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "Dibina oleh ejen",
+  "record.machine.source.human": "Disunting oleh manusia",
+  "record.machine.source.review": "Ditambah semasa semakan",
+  "record.machine.viewOutput": "Lihat output"
 }

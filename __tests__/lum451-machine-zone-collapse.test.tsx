@@ -168,7 +168,11 @@ describe('machine zone collapsible smart default', () => {
     expect(screen.getByText(/1 machine-verified/)).toBeInTheDocument()
   })
 
-  it('machine zone collapsible smart default — expanded when a machine criterion is unjudged', () => {
+  it('an unjudged machine criterion is surfaced (now as the NEEDS ACTION card, never folded away)', () => {
+    // LUM-496: the smart default's purpose — never hide a check that still
+    // blocks Done — is now carried by the zone split: with nothing verified
+    // there is no Machine-verified record card at all, and the unjudged row
+    // sits, always visible, in the NEEDS ACTION card.
     setView([machine('m1', 'machine check alpha', null)])
     render(
       <AcceptanceTab
@@ -178,7 +182,11 @@ describe('machine zone collapsible smart default', () => {
       />
     )
     expect(screen.getByText('machine check alpha')).toBeInTheDocument()
-    expect(zoneToggle()).toHaveAttribute('aria-expanded', 'true')
+    const awaiting = screen.getByTestId('record-machine-awaiting')
+    expect(awaiting).toContainElement(screen.getByText('machine check alpha'))
+    expect(
+      screen.queryByRole('button', { name: /Machine-verified/i })
+    ).toBeNull()
   })
 
   it('machine zone collapsible smart default — header toggle flips state', () => {

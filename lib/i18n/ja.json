@@ -2306,5 +2306,16 @@
   "record.report.cost": "コスト",
   "record.report.costTokens": "トークン",
   "record.report.rework": "手戻り",
-  "record.report.notMeasured": "未計測"
+  "record.report.notMeasured": "未計測",
+  "record.zone.needsAction": "要対応",
+  "record.zone.needsActionNote": "以下を片付ければ、このタスクは Done にできます。",
+  "record.zone.records": "以下は記録 · 対応不要",
+  "record.machine.awaitingTitle": "検証待ちのマシンチェック",
+  "record.machine.awaitingSummary": "検証済み {verified} 件 · 検証待ち {awaiting} 件",
+  "record.machine.awaiting": "検証待ち",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "エージェント構築",
+  "record.machine.source.human": "人が編集",
+  "record.machine.source.review": "レビューで追加",
+  "record.machine.viewOutput": "出力を表示"
 }

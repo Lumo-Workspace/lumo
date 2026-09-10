@@ -2306,5 +2306,16 @@
   "record.report.cost": "成本",
   "record.report.costTokens": "Token",
   "record.report.rework": "返工",
-  "record.report.notMeasured": "未记录"
+  "record.report.notMeasured": "未记录",
+  "record.zone.needsAction": "待处理",
+  "record.zone.needsActionNote": "处理完以下事项，任务即可标记为完成。",
+  "record.zone.records": "以下为记录 · 无需行动",
+  "record.machine.awaitingTitle": "待验证的机器校验",
+  "record.machine.awaitingSummary": "已验证 {verified} 项 · 待验证 {awaiting} 项",
+  "record.machine.awaiting": "待验证",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "代理构建",
+  "record.machine.source.human": "人工编辑",
+  "record.machine.source.review": "评审新增",
+  "record.machine.viewOutput": "查看产出"
 }

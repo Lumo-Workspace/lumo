@@ -2306,5 +2306,16 @@
   "record.report.cost": "成本",
   "record.report.costTokens": "Token",
   "record.report.rework": "返工",
-  "record.report.notMeasured": "未記錄"
+  "record.report.notMeasured": "未記錄",
+  "record.zone.needsAction": "待處理",
+  "record.zone.needsActionNote": "處理完以下事項，任務即可標記為完成。",
+  "record.zone.records": "以下為記錄 · 無需行動",
+  "record.machine.awaitingTitle": "待驗證的機器校驗",
+  "record.machine.awaitingSummary": "已驗證 {verified} 項 · 待驗證 {awaiting} 項",
+  "record.machine.awaiting": "待驗證",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "代理建構",
+  "record.machine.source.human": "人工編輯",
+  "record.machine.source.review": "評審新增",
+  "record.machine.viewOutput": "查看產出"
 }

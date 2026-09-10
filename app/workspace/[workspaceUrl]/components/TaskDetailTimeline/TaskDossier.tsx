@@ -7,6 +7,7 @@ import type { TaskDetail, WorkspaceMemberInfo } from '../../types'
 import type { MentionSources } from '@/types/mention'
 import type { DossierSection } from './taskTabs'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
+import { useSecurityScans } from '../../hooks/useSecurityScans'
 import { deriveRunDigest } from '../AgentRunTimeline/derive-run-digest'
 import { AcceptanceTab } from './AcceptanceTab'
 import { AgentRunsSection } from './AgentRunsSection'
@@ -125,6 +126,13 @@ export function TaskDossier({
     (runs[0] ? deriveRunDigest(runs[0].items ?? []).join(' · ') || null : null)
 
   const hasRuns = runs.length > 0
+
+  // LUM-496: the record tab needs to know whether a security finding still
+  // blocks DONE, to decide which zone the scan section belongs in. Read from
+  // the same react-query key `SecurityScanSection` uses (one fetch); absent
+  // data means "no blocking signal we know of", never a fabricated 0 finding.
+  const { data: securityScans } = useSecurityScans(taskId)
+  const securityBlocking = securityScans?.blocking.count ?? 0
 
   // Which ④ sub-sections are expanded. Collapsed by default; a deep link opens
   // its target. State, not derived, so a user's manual toggle sticks.
@@ -259,6 +267,7 @@ export function TaskDossier({
       evidenceSlot={evidence}
       gatesSlot={<DeliveryGatesSection taskId={taskId} />}
       securitySlot={<SecurityScanSection taskId={taskId} />}
+      securityBlocking={securityBlocking}
       reportInitiallyOpen={targetSection != null}
     />
   )

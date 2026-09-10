@@ -162,10 +162,19 @@ function render_() {
     />
   )
   // LUM-572/620: struggle / trend live inside the collapsed "Run report" group;
-  // cost + verification history moved into the collapsed "Evidence & audit
-  // trail" card (LUM-620). Expand both so these same-source sections render. The
-  // claim-vs-verification pairing stays above them, unaffected.
-  fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+  // verification history lives in the collapsed "Evidence & audit trail" card
+  // (LUM-620). LUM-496: the cost read-out is now the Run report's Cost KPI tile
+  // (visible as soon as the group is open) and the struggle trail folds behind
+  // its own heading inside that group. Expand everything so these same-source
+  // sections render.
+  const runReport = screen.getByRole('button', { name: /Run report/i })
+  if (runReport.getAttribute('aria-expanded') === 'false') {
+    fireEvent.click(runReport)
+  }
+  const struggle = screen.queryByRole('button', {
+    name: /Struggle \/ rework \/ outstanding/i,
+  })
+  if (struggle) fireEvent.click(struggle)
   fireEvent.click(screen.getByText('Evidence & audit trail'))
   return result
 }
@@ -227,14 +236,20 @@ describe('struggle section', () => {
     )
     render_()
     expect(screen.getByText('the bounced criterion')).toBeInTheDocument()
-    expect(screen.getByText(/PR iterations/)).toBeInTheDocument()
+    // LUM-496: the Run report also has a "PR iterations" KPI tile, so match the
+    // struggle trail's own labelled line ("PR iterations: ") specifically.
+    expect(screen.getByText(/PR iterations:/)).toBeInTheDocument()
     expect(screen.getByText(/Reopened/)).toBeInTheDocument()
   })
 })
 
 // ── LUM-560 ───────────────────────────────────────────────────────────────────
-describe('cost section', () => {
-  it('renders token spend, active time and rework rounds', () => {
+// LUM-496: the cost read-out is the Run report's Cost / Rework KPI tiles — the
+// same `data.cost` fields, same fail-closed rule (a null reads "not recorded",
+// never 0). The tests below moved onto the tiles; the honesty contract they
+// pin is unchanged.
+describe('cost tiles', () => {
+  it('renders token spend and rework rounds', () => {
     set(
       statusView({
         cost: { tokenCost: 1_200_000, activeTimeSec: 134, reworkRounds: 1 },
@@ -242,17 +257,20 @@ describe('cost section', () => {
     )
     render_()
     expect(screen.getByText('Cost')).toBeInTheDocument()
-    expect(screen.getByText(/1\.2M/)).toBeInTheDocument()
+    expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('1.2M')
+    expect(screen.getByTestId('tile-rework')).toHaveTextContent('1')
   })
 
-  it('shows an explicit not-recorded line when token cost was never measured', () => {
+  it('shows an explicit not-recorded value when token cost was never measured', () => {
     set(
       statusView({
         cost: { tokenCost: null, activeTimeSec: 0, reworkRounds: 0 },
       })
     )
     render_()
-    expect(screen.getByText(/not recorded/i)).toBeInTheDocument()
+    expect(screen.getByTestId('tile-costTokens')).toHaveTextContent(
+      /not recorded/i
+    )
   })
 
   it('renders a measured zero as 0, distinct from not-recorded', () => {
@@ -260,8 +278,9 @@ describe('cost section', () => {
       statusView({ cost: { tokenCost: 0, activeTimeSec: 0, reworkRounds: 0 } })
     )
     render_()
-    expect(screen.queryByText(/not recorded/i)).toBeNull()
-    expect(screen.getByTestId('cost-tokens')).toHaveTextContent('0')
+    const tile = screen.getByTestId('tile-costTokens')
+    expect(tile).not.toHaveTextContent(/not recorded/i)
+    expect(tile).toHaveTextContent('0')
   })
 })
 

@@ -177,12 +177,29 @@ beforeEach(() => {
 })
 
 describe('evidence folded into the run report group', () => {
-  it('evidence sub-sections fold inside the collapsed run report group', () => {
+  it('evidence sub-sections live inside the run report group, each collapsed', () => {
     render(<TaskDossier {...baseProps} />)
 
-    // The Run report group is collapsed by default, so the evidence sub-section
-    // toggles are NOT in the DOM — there is no separate always-visible evidence
-    // region above it.
+    // LUM-496: the Run report group itself now opens by default (its KPI tiles
+    // are the summary), so the three evidence sub-sections are reachable at its
+    // tail — each still collapsed, and with no separate evidence region of
+    // their own anywhere else on the surface.
+    const runReport = screen.getByRole('button', { name: /Run report/i })
+    expect(runReport).toHaveAttribute('aria-expanded', 'true')
+    for (const name of [
+      /Agent runs/,
+      /Lineage causality/,
+      /Injected team memory/,
+    ]) {
+      const toggle = screen.getByRole('button', { name })
+      expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    }
+    expect(screen.queryByTestId('lineage-body')).toBeNull()
+    expect(screen.queryByTestId('memory-body')).toBeNull()
+
+    // Collapsing the group takes the whole after-the-fact record — evidence
+    // sub-sections included — out of the DOM.
+    fireEvent.click(runReport)
     expect(screen.queryByRole('button', { name: /Agent runs/ })).toBeNull()
     expect(
       screen.queryByRole('button', { name: /Lineage causality/ })
@@ -190,19 +207,6 @@ describe('evidence folded into the run report group', () => {
     expect(
       screen.queryByRole('button', { name: /Injected team memory/ })
     ).toBeNull()
-
-    // Expanding the single Run report group reveals all three evidence
-    // sub-sections (now living inside it).
-    fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
-    expect(
-      screen.getByRole('button', { name: /Agent runs/ })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /Lineage causality/ })
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /Injected team memory/ })
-    ).toBeInTheDocument()
   })
 
   it('a legacy deep link expands the run report group and its target sub-section', () => {

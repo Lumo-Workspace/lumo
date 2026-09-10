@@ -2306,5 +2306,16 @@
   "record.report.cost": "Cost",
   "record.report.costTokens": "tokens",
   "record.report.rework": "Rework",
-  "record.report.notMeasured": "not recorded"
+  "record.report.notMeasured": "not recorded",
+  "record.zone.needsAction": "Needs action",
+  "record.zone.needsActionNote": "Clear these and the task can be marked Done.",
+  "record.zone.records": "Records · no action needed",
+  "record.machine.awaitingTitle": "Machine checks awaiting verification",
+  "record.machine.awaitingSummary": "{verified} verified · {awaiting} awaiting",
+  "record.machine.awaiting": "Awaiting verification",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "Agent-constructed",
+  "record.machine.source.human": "Human-edited",
+  "record.machine.source.review": "Review-added",
+  "record.machine.viewOutput": "View output"
 }

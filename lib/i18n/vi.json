@@ -2306,5 +2306,16 @@
   "record.report.cost": "Chi phí",
   "record.report.costTokens": "token",
   "record.report.rework": "Làm lại",
-  "record.report.notMeasured": "chưa ghi nhận"
+  "record.report.notMeasured": "chưa ghi nhận",
+  "record.zone.needsAction": "Cần xử lý",
+  "record.zone.needsActionNote": "Xử lý xong những mục này là có thể đánh dấu nhiệm vụ Hoàn thành.",
+  "record.zone.records": "Phần ghi nhận · không cần hành động",
+  "record.machine.awaitingTitle": "Kiểm tra máy đang chờ xác minh",
+  "record.machine.awaitingSummary": "{verified} đã xác minh · {awaiting} đang chờ",
+  "record.machine.awaiting": "Đang chờ xác minh",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "Do tác nhân tạo",
+  "record.machine.source.human": "Do người chỉnh sửa",
+  "record.machine.source.review": "Thêm khi rà soát",
+  "record.machine.viewOutput": "Xem kết quả"
 }

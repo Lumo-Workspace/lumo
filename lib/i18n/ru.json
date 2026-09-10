@@ -2306,5 +2306,16 @@
   "record.report.cost": "Стоимость",
   "record.report.costTokens": "токены",
   "record.report.rework": "Переделка",
-  "record.report.notMeasured": "не измерено"
+  "record.report.notMeasured": "не измерено",
+  "record.zone.needsAction": "Требует действий",
+  "record.zone.needsActionNote": "Закройте эти пункты — и задачу можно отметить как «Готово».",
+  "record.zone.records": "Ниже — запись · действий не требуется",
+  "record.machine.awaitingTitle": "Машинные проверки ожидают подтверждения",
+  "record.machine.awaitingSummary": "подтверждено {verified} · ожидает {awaiting}",
+  "record.machine.awaiting": "Ожидается проверка",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "Построено агентом",
+  "record.machine.source.human": "Отредактировано человеком",
+  "record.machine.source.review": "Добавлено при ревью",
+  "record.machine.viewOutput": "Показать вывод"
 }

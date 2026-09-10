@@ -2306,5 +2306,16 @@
   "record.report.cost": "लागत",
   "record.report.costTokens": "टोकन",
   "record.report.rework": "पुनः कार्य",
-  "record.report.notMeasured": "दर्ज नहीं"
+  "record.report.notMeasured": "दर्ज नहीं",
+  "record.zone.needsAction": "कार्रवाई आवश्यक",
+  "record.zone.needsActionNote": "इन्हें निपटाने पर कार्य को पूर्ण के रूप में चिह्नित किया जा सकता है।",
+  "record.zone.records": "नीचे केवल रिकॉर्ड · कोई कार्रवाई आवश्यक नहीं",
+  "record.machine.awaitingTitle": "सत्यापन की प्रतीक्षा में मशीन जाँच",
+  "record.machine.awaitingSummary": "{verified} सत्यापित · {awaiting} प्रतीक्षारत",
+  "record.machine.awaiting": "सत्यापन की प्रतीक्षा",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "एजेंट-निर्मित",
+  "record.machine.source.human": "मानव-संपादित",
+  "record.machine.source.review": "समीक्षा में जोड़ा गया",
+  "record.machine.viewOutput": "आउटपुट देखें"
 }

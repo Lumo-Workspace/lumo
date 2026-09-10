@@ -119,10 +119,28 @@ export function CostSection({ data }: { data: TaskAcceptanceStatusView }) {
 
 // ── LUM-561 · Struggle / rework / outstanding ─────────────────────────────────
 
+/** LUM-496: the struggle trail's heading + tip, exported so the Record tab's
+ *  collapsed disclosure can label itself with exactly this copy (and render the
+ *  section `headless` inside) instead of forking a second wording. */
+export const STRUGGLE_TITLE = {
+  id: 'acceptance.struggle.title',
+  defaultMessage: 'Struggle / rework / outstanding',
+} as const
+export const STRUGGLE_TIP = {
+  id: 'acceptance.struggle.tip',
+  defaultMessage:
+    'The rework a clean all-pass report would otherwise hide: FAIL rounds, send-backs, leftover follow-ups, multiple PR cycles and review/done reopens. Always shown — an empty trail states its basis instead of disappearing.',
+} as const
+
 export function StruggleTrailSection({
   data,
+  headless = false,
 }: {
   data: TaskAcceptanceStatusView
+  /** LUM-496: the Record tab wraps this section in a disclosure that already
+   *  carries the heading — suppress the in-section one so the title is not
+   *  printed twice. */
+  headless?: boolean
 }) {
   const intl = useIntl()
   const trail = data.struggleTrail
@@ -138,18 +156,11 @@ export function StruggleTrailSection({
 
   return (
     <div>
-      <SectionTitle
-        tip={intl.formatMessage({
-          id: 'acceptance.struggle.tip',
-          defaultMessage:
-            'The rework a clean all-pass report would otherwise hide: FAIL rounds, send-backs, leftover follow-ups, multiple PR cycles and review/done reopens. Always shown — an empty trail states its basis instead of disappearing.',
-        })}
-      >
-        {intl.formatMessage({
-          id: 'acceptance.struggle.title',
-          defaultMessage: 'Struggle / rework / outstanding',
-        })}
-      </SectionTitle>
+      {headless ? null : (
+        <SectionTitle tip={intl.formatMessage(STRUGGLE_TIP)}>
+          {intl.formatMessage(STRUGGLE_TITLE)}
+        </SectionTitle>
+      )}
 
       {empty ? (
         <p className='rounded-md border border-border px-3 py-2.5 text-[12px] leading-snug text-muted-foreground'>

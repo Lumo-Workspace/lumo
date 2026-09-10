@@ -2306,5 +2306,16 @@
   "record.report.cost": "Biaya",
   "record.report.costTokens": "token",
   "record.report.rework": "Pengerjaan ulang",
-  "record.report.notMeasured": "tidak tercatat"
+  "record.report.notMeasured": "tidak tercatat",
+  "record.zone.needsAction": "Perlu tindakan",
+  "record.zone.needsActionNote": "Selesaikan hal-hal ini dan tugas dapat ditandai Selesai.",
+  "record.zone.records": "Catatan · tidak perlu tindakan",
+  "record.machine.awaitingTitle": "Pemeriksaan mesin menunggu verifikasi",
+  "record.machine.awaitingSummary": "{verified} terverifikasi · {awaiting} menunggu",
+  "record.machine.awaiting": "Menunggu verifikasi",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "Dibangun agen",
+  "record.machine.source.human": "Disunting manusia",
+  "record.machine.source.review": "Ditambahkan saat tinjauan",
+  "record.machine.viewOutput": "Lihat keluaran"
 }

@@ -2306,5 +2306,16 @@
   "record.report.cost": "비용",
   "record.report.costTokens": "토큰",
   "record.report.rework": "재작업",
-  "record.report.notMeasured": "측정되지 않음"
+  "record.report.notMeasured": "측정되지 않음",
+  "record.zone.needsAction": "조치 필요",
+  "record.zone.needsActionNote": "아래 항목을 처리하면 작업을 완료로 표시할 수 있습니다.",
+  "record.zone.records": "아래는 기록 · 조치 불필요",
+  "record.machine.awaitingTitle": "검증 대기 중인 머신 체크",
+  "record.machine.awaitingSummary": "검증됨 {verified}건 · 대기 {awaiting}건",
+  "record.machine.awaiting": "검증 대기",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "에이전트 구성",
+  "record.machine.source.human": "사람이 편집",
+  "record.machine.source.review": "리뷰에서 추가",
+  "record.machine.viewOutput": "출력 보기"
 }

@@ -2306,5 +2306,16 @@
   "record.report.cost": "Kosten",
   "record.report.costTokens": "Tokens",
   "record.report.rework": "Nacharbeit",
-  "record.report.notMeasured": "nicht erfasst"
+  "record.report.notMeasured": "nicht erfasst",
+  "record.zone.needsAction": "Handlungsbedarf",
+  "record.zone.needsActionNote": "Sind diese Punkte erledigt, kann die Aufgabe auf Erledigt gesetzt werden.",
+  "record.zone.records": "Aufzeichnung · kein Handlungsbedarf",
+  "record.machine.awaitingTitle": "Maschinenprüfungen warten auf Bestätigung",
+  "record.machine.awaitingSummary": "{verified} bestätigt · {awaiting} ausstehend",
+  "record.machine.awaiting": "Wartet auf Prüfung",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "Agentenkonstruiert",
+  "record.machine.source.human": "Von Menschen bearbeitet",
+  "record.machine.source.review": "Im Review ergänzt",
+  "record.machine.viewOutput": "Ausgabe anzeigen"
 }

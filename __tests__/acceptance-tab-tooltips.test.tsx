@@ -187,11 +187,17 @@ describe('Acceptance tab — zone tooltips', () => {
   // caption, not by a hover tooltip. Assert that inline self-explanation.
   it('machine zone header explains machine verification inline (summary caption)', () => {
     renderAcceptanceTab()
+    // LUM-496: an unverified machine check blocks Done, so the default (unjudged)
+    // fixture surfaces it in the NEEDS ACTION card rather than the Machine-verified
+    // records card. Same contract as before: the header and its summary caption
+    // carry the meaning inline — no hover tooltip.
     expect(
-      screen.getByRole('button', { name: /Machine-verified/ })
+      screen.getByText('Machine checks awaiting verification')
     ).toBeInTheDocument()
-    // The summary caption states the verified count (0 of the unjudged fixture).
-    expect(screen.getByText(/machine-verified/)).toBeInTheDocument()
+    expect(screen.getByText('0 verified · 1 awaiting')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Machine-verified/ })
+    ).toBeNull()
   })
 
   // LUM-620: the human zone matches the machine zone — a collapsible summary

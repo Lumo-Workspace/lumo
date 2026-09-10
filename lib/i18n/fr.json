@@ -2306,5 +2306,16 @@
   "record.report.cost": "Coût",
   "record.report.costTokens": "tokens",
   "record.report.rework": "Retouches",
-  "record.report.notMeasured": "non enregistré"
+  "record.report.notMeasured": "non enregistré",
+  "record.zone.needsAction": "Action requise",
+  "record.zone.needsActionNote": "Réglez ces points et la tâche pourra passer à Terminé.",
+  "record.zone.records": "Pour mémoire · aucune action requise",
+  "record.machine.awaitingTitle": "Vérifications automatiques en attente",
+  "record.machine.awaitingSummary": "{verified} vérifiées · {awaiting} en attente",
+  "record.machine.awaiting": "En attente de vérification",
+  "record.machine.source": "MACHINE · {source}",
+  "record.machine.source.agent": "Construit par l'agent",
+  "record.machine.source.human": "Modifié par un humain",
+  "record.machine.source.review": "Ajouté en revue",
+  "record.machine.viewOutput": "Voir la sortie"
 }
