@@ -95,7 +95,12 @@ function fakeSandbox(
     const v = files[path]
     return v == null ? null : Buffer.from(v)
   })
-  return { run, readFile, stop: jest.fn(async () => undefined) }
+  return {
+    cwd: '/vercel',
+    run,
+    readFile,
+    stop: jest.fn(async () => undefined),
+  } as Fake & { cwd: string }
 }
 
 const create = createRepoSandbox as jest.Mock
@@ -150,6 +155,12 @@ describe('scanRepository', () => {
     expect(scripts[0]).toContain(
       'dir . --report-format sarif --report-path /tmp/gitleaks.sarif --exit-code 0'
     )
+    // The SDK clones into `<session cwd>/<repo name>`, so every scanner must
+    // run there — running in the session cwd is exactly what exited 90 in
+    // production on the first dogfood PR.
+    for (const call of sb.run.mock.calls) {
+      expect(call[2]).toEqual({ cwd: '/vercel/r' })
+    }
     expect(scripts[1]).toContain(guard)
     expect(scripts[1]).toContain('pip install --quiet semgrep==')
     expect(scripts[1]).toContain(`semgrep==${SEMGREP_VERSION}`)
@@ -292,7 +303,12 @@ describe('scanRepository', () => {
         return Buffer.from(JSON.stringify(gitleaksSarif))
       return null
     })
-    const sb = { run, readFile, stop: jest.fn(async () => undefined) }
+    const sb = {
+      cwd: '/vercel',
+      run,
+      readFile,
+      stop: jest.fn(async () => undefined),
+    }
     create.mockResolvedValue(sb)
     const out = await securityManagedScanService.scanRepository(JOB)
     expect(out.semgrep).toMatchObject({

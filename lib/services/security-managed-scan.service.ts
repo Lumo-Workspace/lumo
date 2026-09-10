@@ -88,14 +88,31 @@ function logSafe(s: string): string {
   return s.replace(/[\r\n]+/g, ' ').slice(0, 120)
 }
 
+/**
+ * Where the SDK puts a git source: `<session cwd>/<repo name>`, not the
+ * session cwd itself (verified in a probe sandbox on 2026-09-10: cwd was
+ * `/vercel`, the clone `/vercel/lumo`). The sha guard in every script still
+ * proves the directory is the right checkout before anything is scanned.
+ */
+export function repoCheckoutDir(
+  sandboxCwd: string,
+  repository: string
+): string {
+  const name = repository.slice(repository.indexOf('/') + 1)
+  return `${sandboxCwd.replace(/\/+$/, '')}/${name}`
+}
+
 async function runTool(
   sandbox: RepoSandbox,
   tool: ManagedScanTool,
   scanId: string,
   token: string,
-  headSha: string
+  headSha: string,
+  cwd: string
 ): Promise<Buffer | { failed: string }> {
-  const result = await sandbox.run('sh', ['-c', scriptFor(tool, headSha)])
+  const result = await sandbox.run('sh', ['-c', scriptFor(tool, headSha)], {
+    cwd,
+  })
   if (!isSuccessExit(tool, result.exitCode)) {
     logger.warn(
       `[security-managed-scan] ${logSafe(tool)} exit ${result.exitCode} scan=${scanId}: ${scrubToken(
@@ -149,6 +166,7 @@ export const securityManagedScanService = {
       const reports: Partial<
         Record<ManagedScanTool, Buffer | { failed: string }>
       > = {}
+      const cwd = repoCheckoutDir(sandbox.cwd, job.pr.repo)
       for (const tool of MANAGED_SCAN_TOOLS) {
         try {
           reports[tool] = await runTool(
@@ -156,7 +174,8 @@ export const securityManagedScanService = {
             tool,
             job.scanId,
             token,
-            job.headSha
+            job.headSha,
+            cwd
           )
         } catch (error) {
           throw new Error(scrubToken(message(error), token))
