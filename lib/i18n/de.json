@@ -2285,5 +2285,12 @@
   "securityScan.status.pendingExternal": "Warte auf Scanner",
   "securityScan.stageState.PENDING": "scannt",
   "securityScan.external.late": "Der Scanner hat seit 30 Minuten keinen Bericht für diesen Commit gemeldet, daher ist dieser Scan unvollständig. Pushe einen neuen Commit, um einen neuen Scan zu starten, oder prüfe den Scan-Job deiner eigenen CI, falls dieses Repository eigene Berichte sendet.",
-  "securityScan.external.failedReason": "Externer Scanner fehlgeschlagen:"
+  "securityScan.external.failedReason": "Externer Scanner fehlgeschlagen:",
+  "record.gap.title": "Was noch für Erledigt fehlt",
+  "record.gap.crossings": "{count, plural, one {# Grenzüberschreitung} other {# Grenzüberschreitungen}} einzuordnen",
+  "record.gap.machine": "{count, plural, one {# Maschinenprüfung} other {# Maschinenprüfungen}} warten auf Bestätigung",
+  "record.gap.human": "{count, plural, one {# Fall} other {# Fälle}} brauchen deine Beurteilung",
+  "record.gap.humanDone": "Manuell beurteilt {done}/{total}",
+  "record.gap.none": "Nichts offen — die Aufgabe kann auf Erledigt gesetzt werden",
+  "record.gap.progress": "Eingeordnet {done}/{total}"
 }

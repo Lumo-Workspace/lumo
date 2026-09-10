@@ -2285,5 +2285,12 @@
   "securityScan.status.pendingExternal": "Menunggu pengimbas",
   "securityScan.stageState.PENDING": "mengimbas",
   "securityScan.external.late": "Pengimbas tidak melaporkan hasil untuk commit ini selama 30 minit, jadi imbasan ini tidak lengkap. Push commit baharu untuk memulakan imbasan baharu, atau semak tugas imbasan CI anda sendiri jika repositori ini menghantar laporannya sendiri.",
-  "securityScan.external.failedReason": "Pengimbas luaran gagal:"
+  "securityScan.external.failedReason": "Pengimbas luaran gagal:",
+  "record.gap.title": "Yang masih diperlukan untuk Selesai",
+  "record.gap.crossings": "{count, plural, other {# pencerobohan}} belum diselesaikan",
+  "record.gap.machine": "{count, plural, other {# semakan mesin}} menunggu pengesahan",
+  "record.gap.human": "{count, plural, other {# kes}} memerlukan penilaian anda",
+  "record.gap.humanDone": "Dinilai manusia {done}/{total}",
+  "record.gap.none": "Tiada apa-apa lagi — tugas boleh ditanda Selesai",
+  "record.gap.progress": "Diselesaikan {done}/{total}"
 }

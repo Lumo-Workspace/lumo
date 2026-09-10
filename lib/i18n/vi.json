@@ -2285,5 +2285,12 @@
   "securityScan.status.pendingExternal": "Đang chờ trình quét",
   "securityScan.stageState.PENDING": "đang quét",
   "securityScan.external.late": "Trình quét chưa báo cáo kết quả cho commit này trong 30 phút, vì vậy lần quét này chưa hoàn tất. Hãy đẩy một commit mới để bắt đầu lượt quét mới, hoặc kiểm tra job quét của CI riêng của bạn nếu kho này tự gửi báo cáo.",
-  "securityScan.external.failedReason": "Trình quét bên ngoài thất bại:"
+  "securityScan.external.failedReason": "Trình quét bên ngoài thất bại:",
+  "record.gap.title": "Những gì còn cần để Hoàn thành",
+  "record.gap.crossings": "{count, plural, other {# hành vi vượt ranh giới}} chưa xử lý",
+  "record.gap.machine": "{count, plural, other {# lượt kiểm tra máy}} đang chờ xác minh",
+  "record.gap.human": "{count, plural, other {# trường hợp}} cần bạn đánh giá",
+  "record.gap.humanDone": "Đã đánh giá thủ công {done}/{total}",
+  "record.gap.none": "Không còn gì — có thể đánh dấu nhiệm vụ là Hoàn thành",
+  "record.gap.progress": "Đã xử lý {done}/{total}"
 }

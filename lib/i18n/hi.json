@@ -2285,5 +2285,12 @@
   "securityScan.status.pendingExternal": "स्कैनर की प्रतीक्षा",
   "securityScan.stageState.PENDING": "स्कैन हो रहा है",
   "securityScan.external.late": "स्कैनर ने इस कमिट के लिए 30 मिनट से कोई रिपोर्ट नहीं भेजी, इसलिए यह स्कैन अधूरा है। नया स्कैन शुरू करने के लिए एक नया कमिट पुश करें, या यदि यह रिपॉज़िटरी अपनी खुद की रिपोर्ट भेजता है तो अपने CI के स्कैन जॉब की जाँच करें।",
-  "securityScan.external.failedReason": "बाहरी स्कैनर विफल रहा:"
+  "securityScan.external.failedReason": "बाहरी स्कैनर विफल रहा:",
+  "record.gap.title": "पूर्ण होने के लिए अभी भी आवश्यक",
+  "record.gap.crossings": "{count, plural, one {# उल्लंघन} other {# उल्लंघन}} निपटाने हैं",
+  "record.gap.machine": "{count, plural, one {# मशीन जाँच} other {# मशीन जाँच}} सत्यापन की प्रतीक्षा में",
+  "record.gap.human": "{count, plural, one {# मामला} other {# मामले}} आपके निर्णय की प्रतीक्षा में हैं",
+  "record.gap.humanDone": "मानव-निर्णीत {done}/{total}",
+  "record.gap.none": "कुछ शेष नहीं — कार्य को पूर्ण के रूप में चिह्नित किया जा सकता है",
+  "record.gap.progress": "निपटाया गया {done}/{total}"
 }

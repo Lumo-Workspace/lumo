@@ -1,0 +1,82 @@
+import type { TaskAcceptanceStatusView } from '../../types'
+import type { BoundaryCrossingView } from '../../hooks/useBoundaryCrossings'
+import { isPass, machineRollup } from './verdict-status'
+
+/**
+ * The Done-gap counts (LUM-496): what still blocks the task from reaching
+ * DONE, derived from the acceptance status view + the crossings list. Pure —
+ * no intl, no fetching — so `RecordStatusStrip` and the NEEDS ACTION zone
+ * (Task 5) can share one source of truth for "is there anything left?".
+ */
+export interface RecordGaps {
+  /** MACHINE criteria not yet verified by a checkpointer (failed, unjudged, or
+   *  currently passing only via a human override — honest per `machineRollup`). */
+  machineAwaiting: number
+  machineTotal: number
+  machineVerified: number
+  /** HUMAN criteria without a live PASS; forced to 0 once the task is DONE —
+   *  there is nothing left to judge on a closed task. */
+  humanPending: number
+  humanTotal: number
+  /** Crossings with no disposition yet (`disposition == null`), regardless of
+   *  whether they block Done. */
+  crossingsOpen: number
+  /** The subset of `crossingsOpen` that actually blocks Done: not advisory,
+   *  and either the workspace gate is on or the crossing is HIGH severity
+   *  (mirrors `BoundaryCrossingsPanel`'s `blockingCount`, LUM-590/LUM-442). */
+  crossingsBlocking: number
+  crossingsTotal: number
+  /** Undispositioned security findings that block DONE, when known; 0 when
+   *  the caller has no security signal to report (never fabricated). */
+  securityBlocking: number
+  /** No blocking item remains anywhere — advisory crossings and non-blocking
+   *  open crossings do not count. */
+  canBeDone: boolean
+}
+
+export function deriveRecordGaps(input: {
+  data: TaskAcceptanceStatusView
+  crossings: BoundaryCrossingView[]
+  gateEnabled: boolean
+  securityBlocking?: number
+}): RecordGaps {
+  const { data, crossings, gateEnabled, securityBlocking = 0 } = input
+
+  const machine = machineRollup(data.criteria)
+  const machineAwaiting = machine.total - machine.verified
+
+  const humanCriteria = data.criteria.filter(c => c.verifierType === 'HUMAN')
+  const humanTotal = humanCriteria.length
+  const humanPending =
+    data.task.status === 'DONE'
+      ? 0
+      : humanCriteria.filter(c => !isPass(c.latestVerdict?.verdict)).length
+
+  const openCrossings = crossings.filter(c => c.disposition == null)
+  const crossingsOpen = openCrossings.length
+  const crossingsTotal = crossings.length
+  // Mirrors BoundaryCrossingsPanel's blockingCount (LUM-590/LUM-442): advisory
+  // crossings never block; with the workspace gate opted out, only HIGH does.
+  const crossingsBlocking = openCrossings.filter(
+    c => !c.advisory && (gateEnabled || c.severity === 'HIGH')
+  ).length
+
+  const canBeDone =
+    machineAwaiting === 0 &&
+    humanPending === 0 &&
+    crossingsBlocking === 0 &&
+    securityBlocking === 0
+
+  return {
+    machineAwaiting,
+    machineTotal: machine.total,
+    machineVerified: machine.verified,
+    humanPending,
+    humanTotal,
+    crossingsOpen,
+    crossingsBlocking,
+    crossingsTotal,
+    securityBlocking,
+    canBeDone,
+  }
+}

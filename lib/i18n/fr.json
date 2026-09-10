@@ -2285,5 +2285,12 @@
   "securityScan.status.pendingExternal": "En attente du scanner",
   "securityScan.stageState.PENDING": "analyse en cours",
   "securityScan.external.late": "Le scanner n'a signalé aucune analyse pour ce commit depuis 30 minutes, cette analyse est donc incomplète. Poussez un nouveau commit pour démarrer une nouvelle analyse, ou vérifiez le job d'analyse de votre propre CI si ce dépôt envoie ses propres rapports.",
-  "securityScan.external.failedReason": "Le scanner externe a échoué :"
+  "securityScan.external.failedReason": "Le scanner externe a échoué :",
+  "record.gap.title": "Ce qu'il reste pour Terminé",
+  "record.gap.crossings": "{count, plural, one {# franchissement} other {# franchissements}} à traiter",
+  "record.gap.machine": "{count, plural, one {# vérification automatique} other {# vérifications automatiques}} en attente de validation",
+  "record.gap.human": "{count, plural, one {# élément nécessite} other {# éléments nécessitent}} votre jugement",
+  "record.gap.humanDone": "Jugé manuellement {done}/{total}",
+  "record.gap.none": "Plus rien à faire — la tâche peut passer à Terminé",
+  "record.gap.progress": "Traité {done}/{total}"
 }

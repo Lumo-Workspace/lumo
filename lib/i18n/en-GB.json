@@ -2285,5 +2285,12 @@
   "securityScan.status.pendingExternal": "Waiting for scanner",
   "securityScan.stageState.PENDING": "scanning",
   "securityScan.external.late": "The scanner has not reported for this commit in 30 minutes, so this scan is incomplete. Push a new commit to start a fresh scan, or check your own CI's scan job if this repository pushes its own reports.",
-  "securityScan.external.failedReason": "External scanner failed:"
+  "securityScan.external.failedReason": "External scanner failed:",
+  "record.gap.title": "Still needed for Done",
+  "record.gap.crossings": "{count, plural, one {# crossing} other {# crossings}} to disposition",
+  "record.gap.machine": "{count, plural, one {# machine check} other {# machine checks}} awaiting verification",
+  "record.gap.human": "{count, plural, one {# call} other {# calls}} need your judgment",
+  "record.gap.humanDone": "Human-judged {done}/{total}",
+  "record.gap.none": "Nothing left — the task can be marked Done",
+  "record.gap.progress": "Dispositioned {done}/{total}"
 }

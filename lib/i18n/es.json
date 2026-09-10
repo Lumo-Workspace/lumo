@@ -2285,5 +2285,12 @@
   "securityScan.status.pendingExternal": "Esperando al escáner",
   "securityScan.stageState.PENDING": "escaneando",
   "securityScan.external.late": "El escáner no ha informado de un análisis para este commit en 30 minutos, por lo que este escaneo está incompleto. Envía un nuevo commit para iniciar un escaneo nuevo, o revisa el job de escaneo de tu propio CI si este repositorio envía sus propios informes.",
-  "securityScan.external.failedReason": "El escáner externo falló:"
+  "securityScan.external.failedReason": "El escáner externo falló:",
+  "record.gap.title": "Lo que falta para Hecho",
+  "record.gap.crossings": "{count, plural, one {# transgresión} other {# transgresiones}} por resolver",
+  "record.gap.machine": "{count, plural, one {# verificación automática} other {# verificaciones automáticas}} en espera de verificación",
+  "record.gap.human": "{count, plural, one {# caso} other {# casos}} requieren tu evaluación",
+  "record.gap.humanDone": "Evaluado manualmente {done}/{total}",
+  "record.gap.none": "Nada pendiente — la tarea puede marcarse como Hecho",
+  "record.gap.progress": "Resuelto {done}/{total}"
 }

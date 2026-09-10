@@ -2285,5 +2285,12 @@
   "securityScan.status.pendingExternal": "Menunggu pemindai",
   "securityScan.stageState.PENDING": "memindai",
   "securityScan.external.late": "Pemindai belum melaporkan hasil untuk commit ini selama 30 menit, sehingga pemindaian ini belum lengkap. Push commit baru untuk memulai pemindaian baru, atau periksa job pemindaian CI Anda sendiri jika repositori ini mengirim laporannya sendiri.",
-  "securityScan.external.failedReason": "Pemindai eksternal gagal:"
+  "securityScan.external.failedReason": "Pemindai eksternal gagal:",
+  "record.gap.title": "Yang masih diperlukan untuk Selesai",
+  "record.gap.crossings": "{count, plural, other {# pelanggaran}} belum ditangani",
+  "record.gap.machine": "{count, plural, other {# pemeriksaan mesin}} menunggu verifikasi",
+  "record.gap.human": "{count, plural, other {# kasus}} memerlukan penilaian Anda",
+  "record.gap.humanDone": "Dinilai manusia {done}/{total}",
+  "record.gap.none": "Tidak ada lagi yang tersisa — tugas dapat ditandai Selesai",
+  "record.gap.progress": "Ditangani {done}/{total}"
 }

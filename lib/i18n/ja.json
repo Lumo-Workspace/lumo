@@ -2285,5 +2285,12 @@
   "securityScan.status.pendingExternal": "スキャナー待ち",
   "securityScan.stageState.PENDING": "スキャン中",
   "securityScan.external.late": "このコミットのスキャン結果が30分間スキャナーから報告されていないため、このスキャンは未完了です。新しいスキャンを開始するには新しいコミットをプッシュするか、このリポジトリが独自にレポートを送信している場合は自分のCIのスキャンジョブを確認してください。",
-  "securityScan.external.failedReason": "外部スキャナーが失敗しました:"
+  "securityScan.external.failedReason": "外部スキャナーが失敗しました:",
+  "record.gap.title": "Done までに残っている項目",
+  "record.gap.crossings": "{count, plural, other {未処置の境界違反 # 件}}",
+  "record.gap.machine": "{count, plural, other {検証待ちのマシンチェック # 件}}",
+  "record.gap.human": "{count, plural, other {判断が必要な項目 # 件}}",
+  "record.gap.humanDone": "人による判定 {done}/{total}",
+  "record.gap.none": "残タスクなし — Done にできます",
+  "record.gap.progress": "処置済み {done}/{total}"
 }

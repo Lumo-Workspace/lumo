@@ -2285,5 +2285,12 @@
   "securityScan.status.pendingExternal": "等待扫描器",
   "securityScan.stageState.PENDING": "扫描中",
   "securityScan.external.late": "扫描器 30 分钟内未上报此提交的结果，因此本次扫描不完整。请推送一次新的提交以启动新的扫描；若该仓库自行推送报告，请查看自己 CI 的扫描任务。",
-  "securityScan.external.failedReason": "外部扫描器失败："
+  "securityScan.external.failedReason": "外部扫描器失败：",
+  "record.gap.title": "距离完成还需要",
+  "record.gap.crossings": "{count, plural, other {# 条越界}}待处置",
+  "record.gap.machine": "{count, plural, other {# 项机器校验}}待验证",
+  "record.gap.human": "{count, plural, other {# 项}}需要人工裁决",
+  "record.gap.humanDone": "人工已裁决 {done}/{total}",
+  "record.gap.none": "无遗留项 — 该任务可标记为完成",
+  "record.gap.progress": "已处置 {done}/{total}"
 }
