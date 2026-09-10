@@ -147,11 +147,17 @@ const COMMENTS_PER_PAGE = 100
  */
 const MAX_COMMENT_PAGES = 10
 
-/** `<…page=7…>; rel="last"` → 7. Anything else (a single page) → 1. */
-function lastPageOf(link: string | null): number {
+/**
+ * `<…page=7…>; rel="last"` → 7. No Link at all (a single page) → 1. A Link
+ * that has `rel="next"` but no `rel="last"` (GitHub omits `last` on some
+ * search-backed listings) is reported as `null`: the caller must then walk
+ * forward instead of assuming page 1 is the newest.
+ */
+export function lastPageOf(link: string | null): number | null {
   if (!link) return 1
   const rel = /<([^>]+)>;\s*rel="last"/.exec(link)
-  const page = rel?.[1] ? /[?&]page=(\d+)/.exec(rel[1]) : null
+  if (!rel?.[1]) return /rel="next"/.test(link) ? null : 1
+  const page = /[?&]page=(\d+)/.exec(rel[1])
   const n = page?.[1] ? Number(page[1]) : 1
   return Number.isSafeInteger(n) && n >= 1 ? n : 1
 }
@@ -196,6 +202,21 @@ async function listOldestFirstComments(
   )
   const firstRows = first.body ?? []
   const last = lastPageOf(first.headers.get('Link'))
+  if (last === null) {
+    // `next` without `last`: the total is unknown, so walk forward until a
+    // short page (oldest-first is the best this endpoint offers here).
+    const out: ListedComment[] = [...firstRows]
+    for (let page = 2; page <= MAX_COMMENT_PAGES; page += 1) {
+      const rows =
+        (await call<ListedComment[]>(
+          `${baseUrl}?per_page=${COMMENTS_PER_PAGE}&page=${page}`,
+          init
+        )) ?? []
+      out.push(...rows)
+      if (rows.length < COMMENTS_PER_PAGE) break
+    }
+    return out
+  }
   if (last <= 1) return firstRows
 
   const out: ListedComment[] = []

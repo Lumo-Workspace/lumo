@@ -526,8 +526,19 @@ export const prSecurityScanService = {
       // Best-effort like the dispatchers: `sync` never throws, and the
       // markers make a repeat (from a workflow) comment-free.
       // Skipped when this run queued the managed scan: that workflow syncs
-      // once it has persisted, and one summary per scan is the contract.
-      if (!managedRunStarted) waitUntil(securityPrReviewService.sync(scanId))
+      // once it has persisted, and one summary per scan is the contract —
+      // unless stage A itself found something that blocks DONE, which must
+      // reach the PR even if the managed run never executes.
+      const blocksDone = rows.some(r =>
+        isBlockingFinding({
+          provenance: r.provenance,
+          severity: r.severity,
+          disposition: r.disposition ?? null,
+        })
+      )
+      if (!managedRunStarted || blocksDone) {
+        waitUntil(securityPrReviewService.sync(scanId))
+      }
       return { deduped: false, scanId, status, findings: rows.length }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

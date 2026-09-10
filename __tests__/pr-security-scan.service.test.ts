@@ -1020,7 +1020,7 @@ test('a scan that just started a managed run does NOT post — the workflow will
   // (external still PENDING, no external findings) and, a minute later, the
   // workflow's. The marker upsert dedupes across syncs, not against one that
   // has not happened yet.
-  fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+  fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
   repo.countExternalFindings.mockResolvedValue(0)
   startManaged.mockResolvedValue('run_1')
   await prSecurityScanService.run({
@@ -1029,6 +1029,20 @@ test('a scan that just started a managed run does NOT post — the workflow will
   })
   expect(startManaged).toHaveBeenCalled()
   expect(syncReview).not.toHaveBeenCalled()
+})
+
+test('a blocking secret finding is posted right away even when a managed run was started', async () => {
+  // A DONE-blocking DETERMINISTIC HIGH must reach the PR even if the queued
+  // managed run never executes; the marker dedupe keeps the later sync cheap.
+  fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+  repo.countExternalFindings.mockResolvedValue(0)
+  startManaged.mockResolvedValue('run_1')
+  await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+  })
+  expect(startManaged).toHaveBeenCalled()
+  expect(syncReview).toHaveBeenCalledWith('s1')
 })
 
 test('a managed run that could not be queued leaves the write-back to stage A', async () => {

@@ -145,6 +145,32 @@ describe('prCommentClient review endpoints', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 
+  it('listIssueComments walks forward when the Link header has next but no last', async () => {
+    const base = 'https://api.github.com/repos/o/r/issues/7/comments'
+    fetchSpy
+      .mockResolvedValueOnce(
+        json(page(100, 1), 200, {
+          Link: `<${base}?per_page=100&page=2>; rel="next"`,
+        })
+      )
+      .mockResolvedValueOnce(json(page(100, 101)))
+      .mockResolvedValueOnce(json(page(3, 201)))
+    const rows = await prCommentClient.listIssueComments({
+      repo,
+      prNumber: 7,
+      token: 'tok',
+    })
+    // Total unknown → oldest-first forward walk, stopping at the short page.
+    expect(rows).toHaveLength(203)
+    expect(rows[0]!.id).toBe(1)
+    expect(rows[202]!.id).toBe(203)
+    expect(fetchSpy.mock.calls.map(c => c[0])).toEqual([
+      `${base}?per_page=100&page=1`,
+      `${base}?per_page=100&page=2`,
+      `${base}?per_page=100&page=3`,
+    ])
+  })
+
   it('listReviewComments paginates /pulls/{n}/comments the same way', async () => {
     fetchSpy
       .mockResolvedValueOnce(json(page(100, 1)))
