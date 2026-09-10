@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
-import { waitUntil } from '@vercel/functions'
 import { logger } from '@/lib/logger'
 import {
   authenticateSarifIngest,
   assertPayloadMatchesPrincipal,
 } from '@/lib/auth/sarif-ingest-auth'
 import { checkSarifIngestRateLimit } from '@/lib/services/security-sarif-rate-limit'
-import { dispatchSecuritySarifIngest } from '@/lib/services/security-sarif-ingest-dispatch'
+import { startSecuritySarifIngest } from '@/lib/services/security-sarif-ingest-start'
 import { SARIF_MAX_GZ_BYTES } from '@/lib/services/security-sarif-ingest.service'
 import {
   sarifClientPayloadSchema,
@@ -30,10 +29,10 @@ function safeJsonParse(s: string): unknown {
  * POST /api/integrations/security/sarif/upload — LUM-735 token issuance +
  * completion webhook for `@vercel/blob/client`'s `handleUpload`. Whatever the
  * bearer proved goes into `tokenPayload` server-side, so `onUploadCompleted`
- * dispatches trusting nothing the client sent directly: a `security:ingest`
- * ApiKey contributes its `workspaceId`, a GitHub Actions OIDC token instead
- * pins `repository`/`prNumber` to its own claims and leaves ownership to the
- * PullRequest row the worker looks up.
+ * starts the ingest run trusting nothing the client sent directly: a
+ * `security:ingest` ApiKey contributes its `workspaceId`, a GitHub Actions
+ * OIDC token instead pins `repository`/`prNumber` to its own claims and
+ * leaves ownership to the PullRequest row the workflow looks up.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -81,7 +80,7 @@ export async function POST(request: NextRequest) {
             ...parsed.data,
             // On the OIDC path the token's `repository` claim is the canonical
             // spelling — GitHub's own casing — so it, not the client payload's,
-            // is what the dispatched job carries. (The pathname check above
+            // is what the started job carries. (The pathname check above
             // deliberately stays on the payload: the client built that path
             // from `github.repository`, in the same casing it sent here.)
             ...(principal.kind === 'oidc'
@@ -104,25 +103,21 @@ export async function POST(request: NextRequest) {
         const auth =
           parsed.data.auth ??
           (parsed.data.workspaceId !== undefined ? 'key' : 'oidc')
-        // Do NOT await: the worker (POST /api/internal/security-sarif-ingest)
-        // runs with a 300s budget, far longer than this callback's own
-        // request lifetime can afford. waitUntil keeps the function alive
-        // for it without blocking the response back to the blob store.
-        waitUntil(
-          dispatchSecuritySarifIngest({
-            url: blob.url,
-            pathname: blob.pathname,
-            // Absent on the OIDC path — the worker then takes the PR row's
-            // own workspace instead of cross-checking against one.
-            ...(auth === 'key' && parsed.data.workspaceId !== undefined
-              ? { workspaceId: parsed.data.workspaceId }
-              : {}),
-            repository: parsed.data.repository,
-            headSha: parsed.data.headSha,
-            prNumber: parsed.data.prNumber,
-            tool: parsed.data.tool,
-          })
-        )
+        // LUM-735 v4: start() only enqueues the durable run, so awaiting it
+        // here is cheap and makes the blob store's callback carry the
+        // outcome. A failed start is logged by the helper; there is nothing
+        // else this callback could do about it.
+        await startSecuritySarifIngest({
+          url: blob.url,
+          pathname: blob.pathname,
+          ...(auth === 'key' && parsed.data.workspaceId !== undefined
+            ? { workspaceId: parsed.data.workspaceId }
+            : {}),
+          repository: parsed.data.repository,
+          headSha: parsed.data.headSha,
+          prNumber: parsed.data.prNumber,
+          tool: parsed.data.tool,
+        })
       },
     })
     return NextResponse.json(result)
