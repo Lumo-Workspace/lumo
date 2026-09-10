@@ -65,6 +65,14 @@ describe('LUM-735 dogfood workflows', () => {
     const scripts = extractPushScript(yml)
     expect(scripts).toHaveLength(2)
     expect(scripts[0]).toBe(scripts[1])
+
+    // LUM-735 follow-up: `upload()` from `@vercel/blob/client` throws a
+    // generic BlobError on a non-2xx handleUploadUrl response, swallowing
+    // the server's status and body. On a failure the script must re-issue
+    // the token request directly and print what the server actually said,
+    // so CI logs show the reason instead of just "Failed to retrieve the
+    // client token".
+    expect(yml).toMatch(/token request →/)
   })
 
   it('ci.yml job names classify as the typecheck and test gates', () => {
