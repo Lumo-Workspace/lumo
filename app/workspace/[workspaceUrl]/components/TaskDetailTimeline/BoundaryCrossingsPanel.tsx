@@ -41,6 +41,7 @@ import {
   boundarySeverityLabel,
 } from './boundary-format'
 import { systemExplainState } from './boundary-explain'
+import { groupCrossings, type CrossingGroup } from './crossing-groups'
 export { systemExplainState } from './boundary-explain'
 
 /**
@@ -79,6 +80,15 @@ interface BoundaryCrossingsPanelProps {
   agentActors?: { actorId: string; name: string }[]
   /** Refresh the acceptance banner after a disposition/remediation changes state. */
   onChanged?: () => void
+  /**
+   * LUM-496: which slice of the task's crossings this instance renders.
+   * 'open' = still awaiting a disposition (the NEEDS ACTION zone),
+   * 'dispositioned' = already ruled on (the records zone),
+   * 'all' (default) = every crossing, the pre-LUM-496 behaviour.
+   */
+  subset?: 'open' | 'dispositioned' | 'all'
+  /** Anchor id for deep links; defaults to the historic `#boundary-crossings`. */
+  anchorId?: string
 }
 
 /**
@@ -96,6 +106,8 @@ export function BoundaryCrossingsPanel({
   members = [],
   agentActors = [],
   onChanged,
+  subset = 'all',
+  anchorId = BOUNDARY_CROSSINGS_ANCHOR,
 }: BoundaryCrossingsPanelProps) {
   const intl = useIntl()
   // gateEnabled defaults true on destructure too — an older mock/response
@@ -111,7 +123,15 @@ export function BoundaryCrossingsPanel({
   const [pending, setPending] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
 
-  const openCrossings = crossings.filter(c => c.disposition == null)
+  // LUM-496: an instance renders one slice of the task's crossings; 'all' keeps
+  // the historic single-panel behaviour for callers that pass no subset.
+  const visible =
+    subset === 'open'
+      ? crossings.filter(c => c.disposition == null)
+      : subset === 'dispositioned'
+        ? crossings.filter(c => c.disposition != null)
+        : crossings
+  const openCrossings = visible.filter(c => c.disposition == null)
   const openCount = openCrossings.length
   // LUM-635: the subset that actually blocks DONE, mirroring the server gate
   // (assertNoUnacknowledgedBoundaryCrossings): advisory never blocks (LUM-590);
@@ -120,25 +140,48 @@ export function BoundaryCrossingsPanel({
     c => !c.advisory && (gateEnabled || c.severity === 'HIGH')
   ).length
 
-  const [expanded, setExpanded] = useState(() => openCount > 0)
+  const [expanded, setExpanded] = useState(
+    () => subset !== 'dispositioned' && openCount > 0
+  )
   const prevOpen = useRef(openCount)
   useEffect(() => {
     if (openCount > prevOpen.current) setExpanded(true) // re-open if a new undisposed crossing arrives
     prevOpen.current = openCount
   }, [openCount])
 
+  // Per-category group folds (LUM-496). A manual toggle sticks; until then the
+  // first group holding an open, non-advisory crossing is the one open by
+  // default — the decision the reviewer has to make next.
+  const groups = groupCrossings(visible)
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>(
+    {}
+  )
+  const defaultOpenCategory =
+    subset === 'dispositioned'
+      ? null
+      : (groups.find(g =>
+          g.crossings.some(c => c.disposition == null && !c.advisory)
+        )?.category ?? null)
+  const isGroupOpen = (g: CrossingGroup) =>
+    groupOverrides[g.category] ?? g.category === defaultOpenCategory
+  const toggleGroup = (g: CrossingGroup) =>
+    setGroupOverrides(prev => ({
+      ...prev,
+      [g.category]: !(prev[g.category] ?? g.category === defaultOpenCategory),
+    }))
+
   // Hash deep link (the verdict bar's "Review the crossings below" link routes
   // to /record#boundary-crossings). The panel mounts AFTER that navigation, so
   // the browser's native fragment jump finds nothing — scroll ourselves into
   // view once we actually render (crossings loaded), if the hash names us.
   const panelRef = useRef<HTMLDivElement>(null)
-  const hasCrossings = crossings.length > 0
+  const hasCrossings = visible.length > 0
   useEffect(() => {
     if (!hasCrossings) return
     if (typeof window === 'undefined') return
-    if (window.location.hash !== `#${BOUNDARY_CROSSINGS_ANCHOR}`) return
+    if (window.location.hash !== `#${anchorId}`) return
     panelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-  }, [hasCrossings])
+  }, [hasCrossings, anchorId])
 
   if (!hasCrossings) return null
 
@@ -232,7 +275,7 @@ export function BoundaryCrossingsPanel({
     // count). Blocking open crossings escalate to danger; converged (all
     // dispositioned) reads neutral gray — handled isn't an achievement.
     <div
-      id={BOUNDARY_CROSSINGS_ANCHOR}
+      id={anchorId}
       ref={panelRef}
       className={`overflow-hidden rounded-lg border ${
         blockingCount > 0 ? 'border-danger-border' : 'border-border'
@@ -260,43 +303,62 @@ export function BoundaryCrossingsPanel({
           />
         )}
         <span className='text-body-strong text-foreground'>
-          {intl.formatMessage({
-            id: 'boundary.panel.title',
-            defaultMessage: 'Boundary crossings',
-          })}
+          {subset === 'dispositioned'
+            ? intl.formatMessage({
+                id: 'record.crossings.resolvedTitle',
+                defaultMessage: 'Boundary crossings · dispositioned',
+              })
+            : intl.formatMessage({
+                id: 'boundary.panel.title',
+                defaultMessage: 'Boundary crossings',
+              })}
         </span>
-        <span
-          className={`text-caption ${
-            blockingCount > 0 ? 'text-danger' : 'text-muted-foreground/70'
-          }`}
-        >
-          {blockingCount > 0
-            ? intl.formatMessage(
-                {
-                  id: 'boundary.zone.blocksDone',
-                  defaultMessage:
-                    '{count} open — blocks Done until dispositioned',
-                },
-                { count: blockingCount }
-              )
-            : openCount > 0
+        {subset === 'dispositioned' ? null : (
+          <span
+            className={`text-caption ${
+              blockingCount > 0 ? 'text-danger' : 'text-muted-foreground/70'
+            }`}
+          >
+            {subset === 'open'
               ? intl.formatMessage(
                   {
-                    id: 'boundary.zone.openNonBlocking',
-                    defaultMessage: '{count} open — non-blocking',
+                    id: 'record.crossings.openTitle',
+                    defaultMessage:
+                      '{count} open — blocks Done until dispositioned',
                   },
                   { count: openCount }
                 )
-              : intl.formatMessage(
-                  {
-                    id: 'boundary.zone.allDispositioned',
-                    defaultMessage: 'All {count} dispositioned — none blocking',
-                  },
-                  { count: crossings.length }
-                )}
-        </span>
+              : blockingCount > 0
+                ? intl.formatMessage(
+                    {
+                      id: 'boundary.zone.blocksDone',
+                      defaultMessage:
+                        '{count} open — blocks Done until dispositioned',
+                    },
+                    { count: blockingCount }
+                  )
+                : openCount > 0
+                  ? intl.formatMessage(
+                      {
+                        id: 'boundary.zone.openNonBlocking',
+                        defaultMessage: '{count} open — non-blocking',
+                      },
+                      { count: openCount }
+                    )
+                  : intl.formatMessage(
+                      {
+                        id: 'boundary.zone.allDispositioned',
+                        defaultMessage:
+                          'All {count} dispositioned — none blocking',
+                      },
+                      { count: visible.length }
+                    )}
+          </span>
+        )}
         <span className='ml-auto text-caption text-muted-foreground'>
-          {crossings.length - openCount}/{crossings.length}
+          {subset === 'dispositioned'
+            ? visible.length
+            : `${visible.length - openCount}/${visible.length}`}
         </span>
       </button>
 
@@ -315,26 +377,97 @@ export function BoundaryCrossingsPanel({
             </p>
           )}
 
+          {/* LUM-496: crossings are grouped by category so a long queue reads
+          as a handful of decisions. Only the wrapper groups — every per-crossing
+          affordance below is unchanged. */}
           <div className='space-y-2'>
-            {crossings.map(c => (
-              <CrossingRow
-                key={c.id}
-                crossing={c}
-                intl={intl}
-                taskIdentifier={taskIdentifier}
-                workspaceUrl={workspaceUrl}
-                pending={pending === c.id}
-                note={notes[c.id] ?? ''}
-                reviewerName={reviewerName(c.dispositionedById)}
-                ownerName={ownerName(c.attribution?.workspaceMemberId ?? null)}
-                changeReviewerName={reviewerName(
-                  c.lastDispositionChange?.actorId ?? null
+            {groups.map(g => (
+              <div
+                key={g.category}
+                className='overflow-hidden rounded-md border border-border'
+              >
+                <button
+                  type='button'
+                  data-testid={`crossing-group-${g.category}`}
+                  aria-expanded={isGroupOpen(g)}
+                  onClick={() => toggleGroup(g)}
+                  className='flex w-full flex-wrap items-center gap-2 bg-muted/20 px-3 py-2 text-left'
+                >
+                  <ChevronRight
+                    className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                      isGroupOpen(g) ? 'rotate-90' : ''
+                    }`}
+                    aria-hidden
+                  />
+                  <span className='text-[13px] font-medium text-foreground'>
+                    {boundaryCategoryLabel(g.category, intl)}
+                  </span>
+                  <Badge
+                    tone={
+                      g.severity === 'HIGH'
+                        ? 'danger'
+                        : g.severity === 'LOW'
+                          ? 'muted'
+                          : 'warning'
+                    }
+                  >
+                    {intl.formatMessage(
+                      {
+                        id: 'boundary.panel.severityBadge',
+                        defaultMessage: '{severity} severity',
+                      },
+                      { severity: boundarySeverityLabel(g.severity, intl) }
+                    )}
+                  </Badge>
+                  {/* LUM-590: a group whose every crossing is advisory never
+                  blocks Done — said in words, not in a new colour. */}
+                  {g.advisory && (
+                    <span className='text-caption text-muted-foreground'>
+                      {' · '}
+                      {intl.formatMessage({
+                        id: 'record.crossings.advisory',
+                        defaultMessage: 'advisory',
+                      })}
+                    </span>
+                  )}
+                  <span className='ml-auto text-caption text-muted-foreground'>
+                    {intl.formatMessage(
+                      {
+                        id: 'record.crossings.groupCount',
+                        defaultMessage: '{open} open / {total}',
+                      },
+                      { open: g.open, total: g.total }
+                    )}
+                  </span>
+                </button>
+
+                {isGroupOpen(g) && (
+                  <div className='space-y-2 border-t border-border px-3 py-2'>
+                    {g.crossings.map(c => (
+                      <CrossingRow
+                        key={c.id}
+                        crossing={c}
+                        intl={intl}
+                        taskIdentifier={taskIdentifier}
+                        workspaceUrl={workspaceUrl}
+                        pending={pending === c.id}
+                        note={notes[c.id] ?? ''}
+                        reviewerName={reviewerName(c.dispositionedById)}
+                        ownerName={ownerName(
+                          c.attribution?.workspaceMemberId ?? null
+                        )}
+                        changeReviewerName={reviewerName(
+                          c.lastDispositionChange?.actorId ?? null
+                        )}
+                        onNote={v => setNotes(prev => ({ ...prev, [c.id]: v }))}
+                        onDisposition={verdict => disposition(c.id, verdict)}
+                        onSpawnRemediation={() => spawnRemediation(c.id)}
+                        onExplainDone={afterChange}
+                      />
+                    ))}
+                  </div>
                 )}
-                onNote={v => setNotes(prev => ({ ...prev, [c.id]: v }))}
-                onDisposition={verdict => disposition(c.id, verdict)}
-                onSpawnRemediation={() => spawnRemediation(c.id)}
-                onExplainDone={afterChange}
-              />
+              </div>
             ))}
           </div>
 

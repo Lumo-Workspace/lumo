@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, other {# 項}}需要人工裁決",
   "record.gap.humanDone": "人工已裁決 {done}/{total}",
   "record.gap.none": "無遺留項 — 該任務可標記為完成",
-  "record.gap.progress": "已處置 {done}/{total}"
+  "record.gap.progress": "已處置 {done}/{total}",
+  "record.crossings.openTitle": "{count, plural, other {# 條未處置}} — 全部處置前無法變更為完成",
+  "record.crossings.groupCount": "{open} 條未處置 / 共 {total}",
+  "record.crossings.resolvedTitle": "越界動作 · 已處置",
+  "record.crossings.advisory": "提示"
 }

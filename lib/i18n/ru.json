@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, one {# случай} few {# случая} many {# случаев} other {# случая}} требуют вашей оценки",
   "record.gap.humanDone": "Оценено человеком {done}/{total}",
   "record.gap.none": "Больше ничего не требуется — задачу можно отметить как «Готово»",
-  "record.gap.progress": "Обработано {done}/{total}"
+  "record.gap.progress": "Обработано {done}/{total}",
+  "record.crossings.openTitle": "{count, plural, one {# открытое} few {# открытых} other {# открытых}} — блокирует «Готово» до обработки",
+  "record.crossings.groupCount": "{open} открытых / {total}",
+  "record.crossings.resolvedTitle": "Нарушения границ · обработаны",
+  "record.crossings.advisory": "предупреждение"
 }

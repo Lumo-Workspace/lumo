@@ -254,6 +254,9 @@ describe('boundary crossing row noise', () => {
     fireEvent.click(screen.getByText('Evidence & audit trail'))
     // A dispositioned-only panel is collapsed — open it to reach the row.
     fireEvent.click(screen.getByText('Boundary crossings'))
+    // LUM-496: the row now sits inside its category's group fold, which starts
+    // collapsed when nothing in it is open.
+    fireEvent.click(screen.getByTestId('crossing-group-EDITED_TEST'))
 
     // Row is collapsed by default (it is already handled). The secondary chips
     // are NOT in the collapsed row.

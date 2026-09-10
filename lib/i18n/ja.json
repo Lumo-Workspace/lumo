@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, other {判断が必要な項目 # 件}}",
   "record.gap.humanDone": "人による判定 {done}/{total}",
   "record.gap.none": "残タスクなし — Done にできます",
-  "record.gap.progress": "処置済み {done}/{total}"
+  "record.gap.progress": "処置済み {done}/{total}",
+  "record.crossings.openTitle": "{count, plural, other {未対応 # 件}} — 処置されるまで完了をブロック",
+  "record.crossings.groupCount": "未対応 {open} / {total}",
+  "record.crossings.resolvedTitle": "境界違反 · 処置済み",
+  "record.crossings.advisory": "アドバイザリー"
 }

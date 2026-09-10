@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, one {# मामला} other {# मामले}} आपके निर्णय की प्रतीक्षा में हैं",
   "record.gap.humanDone": "मानव-निर्णीत {done}/{total}",
   "record.gap.none": "कुछ शेष नहीं — कार्य को पूर्ण के रूप में चिह्नित किया जा सकता है",
-  "record.gap.progress": "निपटाया गया {done}/{total}"
+  "record.gap.progress": "निपटाया गया {done}/{total}",
+  "record.crossings.openTitle": "{count, plural, one {# खुला} other {# खुले}} — निपटान होने तक पूर्ण अवरुद्ध",
+  "record.crossings.groupCount": "{open} खुले / {total}",
+  "record.crossings.resolvedTitle": "सीमा-उल्लंघन · निपटाए गए",
+  "record.crossings.advisory": "सलाह"
 }

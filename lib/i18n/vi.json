@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, other {# trường hợp}} cần bạn đánh giá",
   "record.gap.humanDone": "Đã đánh giá thủ công {done}/{total}",
   "record.gap.none": "Không còn gì — có thể đánh dấu nhiệm vụ là Hoàn thành",
-  "record.gap.progress": "Đã xử lý {done}/{total}"
+  "record.gap.progress": "Đã xử lý {done}/{total}",
+  "record.crossings.openTitle": "{count, plural, other {# chưa xử lý}} — chặn Hoàn thành cho đến khi xử lý",
+  "record.crossings.groupCount": "{open} chưa xử lý / {total}",
+  "record.crossings.resolvedTitle": "Các hành vi vượt ranh giới · đã xử lý",
+  "record.crossings.advisory": "khuyến cáo"
 }

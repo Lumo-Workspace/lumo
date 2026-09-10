@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, one {# élément nécessite} other {# éléments nécessitent}} votre jugement",
   "record.gap.humanDone": "Jugé manuellement {done}/{total}",
   "record.gap.none": "Plus rien à faire — la tâche peut passer à Terminé",
-  "record.gap.progress": "Traité {done}/{total}"
+  "record.gap.progress": "Traité {done}/{total}",
+  "record.crossings.openTitle": "{count, plural, one {# ouvert} other {# ouverts}} — bloque Terminé jusqu'au traitement",
+  "record.crossings.groupCount": "{open} ouverts / {total}",
+  "record.crossings.resolvedTitle": "Franchissements de limite · traités",
+  "record.crossings.advisory": "avis"
 }

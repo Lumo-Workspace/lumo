@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, one {# Fall} other {# Fälle}} brauchen deine Beurteilung",
   "record.gap.humanDone": "Manuell beurteilt {done}/{total}",
   "record.gap.none": "Nichts offen — die Aufgabe kann auf Erledigt gesetzt werden",
-  "record.gap.progress": "Eingeordnet {done}/{total}"
+  "record.gap.progress": "Eingeordnet {done}/{total}",
+  "record.crossings.openTitle": "{count, plural, one {# offen} other {# offen}} — blockiert „Erledigt“, bis eingeordnet",
+  "record.crossings.groupCount": "{open} offen / {total}",
+  "record.crossings.resolvedTitle": "Grenzüberschreitungen · eingeordnet",
+  "record.crossings.advisory": "Hinweis"
 }

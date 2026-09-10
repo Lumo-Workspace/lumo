@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, one {# caso} other {# casos}} requieren tu evaluación",
   "record.gap.humanDone": "Evaluado manualmente {done}/{total}",
   "record.gap.none": "Nada pendiente — la tarea puede marcarse como Hecho",
-  "record.gap.progress": "Resuelto {done}/{total}"
+  "record.gap.progress": "Resuelto {done}/{total}",
+  "record.crossings.openTitle": "{count, plural, one {# abierta} other {# abiertas}} — bloquea Hecho hasta que se resuelvan",
+  "record.crossings.groupCount": "{open} abiertas / {total}",
+  "record.crossings.resolvedTitle": "Transgresiones de límite · resueltas",
+  "record.crossings.advisory": "aviso"
 }

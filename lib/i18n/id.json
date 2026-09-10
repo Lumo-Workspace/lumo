@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, other {# kasus}} memerlukan penilaian Anda",
   "record.gap.humanDone": "Dinilai manusia {done}/{total}",
   "record.gap.none": "Tidak ada lagi yang tersisa — tugas dapat ditandai Selesai",
-  "record.gap.progress": "Ditangani {done}/{total}"
+  "record.gap.progress": "Ditangani {done}/{total}",
+  "record.crossings.openTitle": "{count, plural, other {# belum ditangani}} — memblokir Selesai sampai ditangani",
+  "record.crossings.groupCount": "{open} belum ditangani / {total}",
+  "record.crossings.resolvedTitle": "Pelanggaran batas · sudah ditangani",
+  "record.crossings.advisory": "saran"
 }

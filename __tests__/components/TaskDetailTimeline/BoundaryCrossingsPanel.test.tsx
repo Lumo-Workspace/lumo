@@ -42,7 +42,13 @@ jest.mock('@/lib/api-client', () => ({
 }))
 
 import '@testing-library/jest-dom'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { BoundaryCrossingsPanel } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/BoundaryCrossingsPanel'
 import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings'
 import { tasksClient } from '@/lib/api-client'
@@ -78,6 +84,14 @@ function setCrossings(crossings: unknown[]) {
   mockHook.mockReturnValue({ crossings, loading: false, error: null, refresh })
 }
 
+/**
+ * LUM-496: crossing rows now live inside a per-category group fold. Only the
+ * first group holding an open, non-advisory crossing opens by default, so a
+ * fully-dispositioned fixture needs its group opened before its rows exist.
+ */
+const openGroup = (category = 'PUSH_TO_PROTECTED_BRANCH') =>
+  fireEvent.click(screen.getByTestId(`crossing-group-${category}`))
+
 beforeEach(() => {
   jest.clearAllMocks()
   setCrossings([OPEN])
@@ -94,7 +108,10 @@ describe('BoundaryCrossingsPanel', () => {
 
   it('an open crossing reads clearly and offers both human-only dispositions', () => {
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-435' enabled />)
-    expect(screen.getByText('push to a protected branch')).toBeInTheDocument()
+    // Scoped to the row: the category label and severity also appear on the
+    // group header the row now sits under (LUM-496).
+    const row = within(screen.getByTestId('crossing-toggle-bc-open'))
+    expect(row.getByText('push to a protected branch')).toBeInTheDocument()
     expect(screen.getByText('git push origin main --force')).toBeInTheDocument()
     // reversibility is legible
     expect(screen.getByText('irreversible')).toBeInTheDocument()
@@ -106,7 +123,7 @@ describe('BoundaryCrossingsPanel', () => {
     // human-only redline marker
     expect(screen.getByText(/agent\/CLI path is closed/)).toBeInTheDocument()
     // severity tier is legible (LUM-442)…
-    expect(screen.getByText('medium severity')).toBeInTheDocument()
+    expect(row.getByText('medium severity')).toBeInTheDocument()
     // …and the defense-in-depth limitation is surfaced so the signal isn't over-trusted.
     expect(
       screen.getByText(/Defense-in-depth, not a hard boundary/)
@@ -143,7 +160,11 @@ describe('BoundaryCrossingsPanel', () => {
   it('surfaces a HIGH-severity crossing prominently (LUM-442)', () => {
     setCrossings([{ ...OPEN, id: 'bc-high', severity: 'HIGH' }])
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-442' enabled />)
-    expect(screen.getByText('high severity')).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('crossing-toggle-bc-high')).getByText(
+        'high severity'
+      )
+    ).toBeInTheDocument()
   })
 
   it('shows a recurrence count when a crossing coalesced repeats (LUM-477)', () => {
@@ -212,6 +233,7 @@ describe('BoundaryCrossingsPanel', () => {
     )
     // all crossings are dispositioned — expand the panel to see body content
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    openGroup()
     fireEvent.click(screen.getByTestId('crossing-toggle-bc-confirmed'))
     // disposition badge + reviewer attribution
     expect(screen.getByText('confirmed')).toBeInTheDocument()
@@ -238,6 +260,7 @@ describe('BoundaryCrossingsPanel', () => {
     )
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    openGroup()
     fireEvent.click(screen.getByTestId('crossing-toggle-bc-c'))
     fireEvent.click(screen.getByTestId('boundary-spawn-remediation-bc-c'))
     expect(mockSpawn).toHaveBeenCalledWith('LUM-435', 'bc-c')
@@ -257,6 +280,7 @@ describe('BoundaryCrossingsPanel', () => {
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-450' enabled />)
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    openGroup()
     fireEvent.click(screen.getByTestId('crossing-toggle-bc-fp'))
     // It is NOT open, so the first-disposition buttons are absent…
     expect(
@@ -286,6 +310,7 @@ describe('BoundaryCrossingsPanel', () => {
     )
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    openGroup()
     fireEvent.click(screen.getByTestId('crossing-toggle-bc-c'))
     fireEvent.click(screen.getByTestId('boundary-reopen-bc-c'))
     expect(mockDisposition).toHaveBeenCalledWith(
@@ -309,6 +334,7 @@ describe('BoundaryCrossingsPanel', () => {
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-450' enabled />)
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    openGroup()
     fireEvent.click(screen.getByTestId('crossing-toggle-bc-fp'))
     fireEvent.click(screen.getByTestId('boundary-change-bc-fp'))
     expect(mockDisposition).toHaveBeenCalledWith(
@@ -343,6 +369,7 @@ describe('BoundaryCrossingsPanel', () => {
     )
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    openGroup()
     fireEvent.click(screen.getByTestId('crossing-toggle-bc-1'))
     // The correction is visible — not a silent swap: who changed it, and the
     // full from -> to transition, all in the dedicated corrected line.
@@ -375,6 +402,7 @@ describe('BoundaryCrossingsPanel', () => {
     )
     // all crossings dispositioned — expand to reach the body
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    openGroup()
     fireEvent.click(screen.getByTestId('crossing-toggle-bc-r'))
     expect(screen.getByText(/Remediated by/)).toBeInTheDocument()
     expect(screen.getByText('LUM-441')).toBeInTheDocument()
@@ -405,6 +433,7 @@ describe('BoundaryCrossingsPanel', () => {
     render(<BoundaryCrossingsPanel taskIdentifier='LUM-7' enabled />)
     expect(screen.queryByText('git push origin main')).toBeNull()
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    openGroup()
     fireEvent.click(screen.getByTestId('crossing-toggle-a'))
     expect(screen.getByText('git push origin main')).toBeVisible()
   })

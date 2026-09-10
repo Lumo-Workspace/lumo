@@ -88,6 +88,9 @@ function renderWithDisposition(disposition: string | null) {
   render(<BoundaryCrossingsPanel taskIdentifier='LUM-489' enabled />)
   if (disposition != null) {
     fireEvent.click(screen.getByTestId('boundary-summary-toggle'))
+    // LUM-496: rows sit inside a per-category fold; a group with nothing open
+    // starts collapsed, so open it to mount the row header.
+    fireEvent.click(screen.getByTestId('crossing-group-TEST_TAMPERING'))
   }
 }
 

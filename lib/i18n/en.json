@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, one {# call} other {# calls}} need your judgment",
   "record.gap.humanDone": "Human-judged {done}/{total}",
   "record.gap.none": "Nothing left — the task can be marked Done",
-  "record.gap.progress": "Dispositioned {done}/{total}"
+  "record.gap.progress": "Dispositioned {done}/{total}",
+  "record.crossings.openTitle": "{count} open — blocks Done until dispositioned",
+  "record.crossings.groupCount": "{open} open / {total}",
+  "record.crossings.resolvedTitle": "Boundary crossings · dispositioned",
+  "record.crossings.advisory": "advisory"
 }

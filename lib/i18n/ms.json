@@ -2292,5 +2292,9 @@
   "record.gap.human": "{count, plural, other {# kes}} memerlukan penilaian anda",
   "record.gap.humanDone": "Dinilai manusia {done}/{total}",
   "record.gap.none": "Tiada apa-apa lagi — tugas boleh ditanda Selesai",
-  "record.gap.progress": "Diselesaikan {done}/{total}"
+  "record.gap.progress": "Diselesaikan {done}/{total}",
+  "record.crossings.openTitle": "{count, plural, other {# belum diselesaikan}} — menyekat Selesai sehingga dikendalikan",
+  "record.crossings.groupCount": "{open} belum diselesaikan / {total}",
+  "record.crossings.resolvedTitle": "Pelanggaran sempadan · sudah dikendalikan",
+  "record.crossings.advisory": "nasihat"
 }
