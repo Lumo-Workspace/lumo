@@ -38,6 +38,9 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
 import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
+// No LLM/gateway import inside — safe to import statically from stage A.
+import { securityPrReviewService } from './security-pr-review.service'
+import { waitUntil } from '@vercel/functions'
 
 export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1'
 
@@ -519,6 +522,10 @@ export const prSecurityScanService = {
         stages,
         partial,
       })
+      // LUM-735 Task 2: the findings are on the row — put them on the PR.
+      // Best-effort like the dispatchers: `sync` never throws, and the
+      // markers make a repeat (from a workflow) comment-free.
+      waitUntil(securityPrReviewService.sync(scanId))
       return { deduped: false, scanId, status, findings: rows.length }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -533,6 +540,8 @@ export const prSecurityScanService = {
         partial,
         error: message.slice(0, 500),
       })
+      // A FAILED stage A still has something to say on the PR (P9).
+      waitUntil(securityPrReviewService.sync(scanId))
       return { deduped: false, scanId, status: 'FAILED', findings: 0 }
     }
   },

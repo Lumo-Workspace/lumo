@@ -8,16 +8,22 @@ jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   deleteSarifBlobStep: jest.fn(),
 }))
 
+jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
+  syncPrReviewStep: jest.fn().mockResolvedValue(undefined),
+}))
+
 import { securityManagedScanWorkflow } from '@/lib/workflows/security-managed-scan'
 import { scanRepositoryInSandboxStep } from '@/lib/workflows/security-managed-scan.steps'
 import {
   persistSarifFindingsStep,
   markSarifExternalFailedStep,
 } from '@/lib/workflows/security-sarif-ingest.steps'
+import { syncPrReviewStep } from '@/lib/workflows/security-pr-review.steps'
 
 const scan = scanRepositoryInSandboxStep as jest.Mock
 const persist = persistSarifFindingsStep as jest.Mock
 const markFailed = markSarifExternalFailedStep as jest.Mock
+const syncReview = syncPrReviewStep as jest.Mock
 
 const PR = { id: 'pr1', workspaceId: 'w1', repo: 'o/r', number: 7 }
 const JOB = { scanId: 's1', pr: PR, headSha: 'a'.repeat(40) }
@@ -33,6 +39,7 @@ const ok = (tool: string, n: number) => ({
 beforeEach(() => {
   jest.resetAllMocks()
   markFailed.mockResolvedValue(undefined)
+  syncReview.mockResolvedValue(undefined)
   persist.mockImplementation(
     async (input: { findings: unknown[]; truncated: boolean }) => ({
       written: input.findings.length,
@@ -158,4 +165,40 @@ it('markFailed exhausting its retries still returns FAILED', async () => {
     outcome: 'FAILED',
     reason: 'boom',
   })
+})
+
+// ── LUM-735 Task 2: the PR write-back ──────────────────────────────────────
+
+it('INGESTED: posts the findings back to the PR', async () => {
+  scan.mockResolvedValue({
+    gitleaks: ok('gitleaks', 1),
+    semgrep: ok('semgrep', 0),
+  })
+  await securityManagedScanWorkflow(JOB)
+  expect(syncReview).toHaveBeenCalledWith('s1')
+})
+
+it('FAILED: still posts, after the failure is stamped', async () => {
+  scan.mockRejectedValue(new Error('sandbox_unavailable'))
+  const order: string[] = []
+  markFailed.mockImplementation(async () => {
+    order.push('mark')
+  })
+  syncReview.mockImplementation(async () => {
+    order.push('review')
+  })
+  await securityManagedScanWorkflow(JOB)
+  expect(order).toEqual(['mark', 'review'])
+})
+
+it('a write-back whose retries are exhausted never changes the outcome', async () => {
+  scan.mockResolvedValue({
+    gitleaks: ok('gitleaks', 1),
+    semgrep: ok('semgrep', 1),
+  })
+  syncReview.mockRejectedValue(new Error('github down'))
+  await expect(securityManagedScanWorkflow(JOB)).resolves.toMatchObject({
+    outcome: 'INGESTED',
+  })
+  expect(markFailed).not.toHaveBeenCalled()
 })

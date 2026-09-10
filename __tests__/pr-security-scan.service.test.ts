@@ -44,6 +44,11 @@ jest.mock('@/lib/repositories/project.repository', () => ({
 jest.mock('@/lib/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
 }))
+// LUM-735 Task 2 — the PR write-back is fired best-effort from run().
+jest.mock('@/lib/services/security-pr-review.service', () => ({
+  securityPrReviewService: { sync: jest.fn() },
+}))
+jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
 
 import {
   prSecurityScanService,
@@ -55,6 +60,8 @@ import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.re
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
+import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+import { waitUntil } from '@vercel/functions'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
 import { secretFingerprint } from '@/lib/security-scan/redact'
@@ -70,6 +77,8 @@ const fetchPrDiff = gh.fetchPrDiff as jest.Mock
 const fetchPrHeadSha = gh.fetchPrHeadSha as jest.Mock
 const judgeSecurity = judge.judgeSecurity as jest.Mock
 const startManaged = startSecurityManagedScan as jest.Mock
+const syncReview = securityPrReviewService.sync as jest.Mock
+const waitUntilMock = waitUntil as jest.Mock
 
 const PR = {
   id: 'pr1',
@@ -101,6 +110,8 @@ beforeEach(() => {
   repo.findDispositionedByPullRequest.mockResolvedValue([])
   repo.countExternalFindings.mockResolvedValue(0)
   judgeSecurity.mockResolvedValue({ findings: [] })
+  syncReview.mockResolvedValue({ posted: true, inline: 0, skipped: 0 })
+  waitUntilMock.mockClear()
   ;(projectRepository.findLastSarifIngestAt as jest.Mock).mockResolvedValue(
     undefined
   )
@@ -987,4 +998,27 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     expect(isCompleteScan({ secrets: 'RAN', external: 'PENDING' })).toBe(false)
     expect(isCompleteScan({})).toBe(true)
   })
+})
+
+// ── LUM-735 Task 2: PR write-back is fired from stage A ─────────────────────
+
+test('a finished scan hands the PR write-back to waitUntil', async () => {
+  fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+  await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+  })
+  expect(syncReview).toHaveBeenCalledWith('s1')
+  expect(waitUntilMock).toHaveBeenCalledWith(syncReview.mock.results[0]!.value)
+})
+
+test('a FAILED scan still hands the PR write-back to waitUntil (P9)', async () => {
+  fetchPrDiff.mockRejectedValue(new Error('GitHub API error 502'))
+  const r = await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_LINK',
+  })
+  expect(r).toMatchObject({ status: 'FAILED' })
+  expect(syncReview).toHaveBeenCalledWith('s1')
+  expect(waitUntilMock).toHaveBeenCalledWith(syncReview.mock.results[0]!.value)
 })

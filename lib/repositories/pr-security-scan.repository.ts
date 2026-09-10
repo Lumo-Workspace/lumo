@@ -99,6 +99,30 @@ export interface ScanWithFindings {
   findings: FindingRow[]
 }
 
+/**
+ * LUM-735 Task 2 — one scan with everything the PR write-back renders: its
+ * findings, the PR to comment on, and the task/workspace the "Open in Lumo"
+ * link points at. `evidence` rides along on the findings (it is a column of
+ * the row) but P8 forbids the review builder from ever putting it in a body.
+ */
+export interface ScanForReview {
+  id: string
+  headSha: string
+  status: ScanStatus
+  stages: ScanStages | null
+  partial: boolean
+  error: string | null
+  findings: FindingRow[]
+  pullRequest: {
+    repo: string
+    number: number
+    workspaceId: string
+    taskId: string | null
+    task: { number: number; team: { identifier: string } } | null
+    workspace: { slug: string }
+  }
+}
+
 export interface DispositionedFingerprint {
   id: string
   fingerprint: string
@@ -479,6 +503,33 @@ export const prSecurityScanRepository = {
     return prisma.prSecurityFinding.count({
       where: { scanId, provenance: 'EXTERNAL_TOOL' },
     })
+  },
+
+  /**
+   * LUM-735 Task 2 — the whole scan as the PR write-back needs it. Read-only
+   * projection; every decision (which findings get a comment, what the summary
+   * says) belongs to `securityPrReviewService`.
+   */
+  async findByIdForReview(scanId: string): Promise<ScanForReview | null> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      include: {
+        findings: { orderBy: { createdAt: 'asc' } },
+        pullRequest: {
+          select: {
+            repo: true,
+            number: true,
+            workspaceId: true,
+            taskId: true,
+            task: {
+              select: { number: true, team: { select: { identifier: true } } },
+            },
+            workspace: { select: { slug: true } },
+          },
+        },
+      },
+    })
+    return row as unknown as ScanForReview | null
   },
 
   async findDispositionedByPullRequest(

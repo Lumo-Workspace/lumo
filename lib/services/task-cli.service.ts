@@ -17,6 +17,7 @@ import {
   type BoundTaskRef,
 } from '@/lib/services/task-create-binding'
 import type { TaskPriority } from '@prisma/client'
+import { resolvePublicUrl } from '@/lib/utils/public-url'
 import {
   computeNextSteps,
   type NextStep,
@@ -219,13 +220,6 @@ async function resolveAssigneeActorId(args: {
   }
 
   throw httpError(400, `no member matches "${assigneeRef}".`)
-}
-
-const DEFAULT_PUBLIC_URL = 'https://www.uselumo.ai'
-
-function resolvePublicUrl(): string {
-  const v = process.env.LUMO_PUBLIC_URL?.trim()
-  return v && v.length > 0 ? v.replace(/\/+$/, '') : DEFAULT_PUBLIC_URL
 }
 
 async function createFromCli(args: {

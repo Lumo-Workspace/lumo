@@ -10,6 +10,12 @@ jest.mock('@/lib/services/security-sarif-blob', () => ({
   deleteBlob: jest.fn(),
   listSarifBlobs: jest.fn(),
 }))
+// LUM-735 Task 2: stage A now statically imports the PR write-back service,
+// which reaches `github/auth` → `@octokit/auth-app` (ESM, unparseable by
+// jest). Nothing in this suite talks to GitHub, so stub the token source.
+jest.mock('@/lib/integrations/github/auth', () => ({
+  getGithubInstallationToken: jest.fn().mockResolvedValue('tok'),
+}))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),

@@ -94,6 +94,61 @@ interface ListIssueCommentsInput {
   token: string
 }
 
+/** LUM-735 — a whole-PR listing (no `since`), walked page by page. */
+interface ListAllCommentsInput {
+  repo: Repo
+  prNumber: number
+  token: string
+}
+
+interface CreateReviewInput {
+  repo: Repo
+  prNumber: number
+  token: string
+  commitId: string
+  body: string
+  comments: Array<{
+    path: string
+    line: number
+    side: 'RIGHT'
+    body: string
+  }>
+}
+
+interface ReviewResponse {
+  id: number
+  html_url: string
+}
+
+/**
+ * GitHub's page size cap. A page shorter than this is the last one, so the
+ * walk needs no Link-header parsing.
+ */
+const COMMENTS_PER_PAGE = 100
+
+/**
+ * Hard stop for the walk (10 pages = 1000 comments). A PR busier than that is
+ * pathological; the marker dedupe degrades to "may re-post", never to a hang.
+ */
+const MAX_COMMENT_PAGES = 10
+
+async function listAllComments(
+  baseUrl: string,
+  token: string
+): Promise<ListedComment[]> {
+  const out: ListedComment[] = []
+  for (let page = 1; page <= MAX_COMMENT_PAGES; page += 1) {
+    const rows =
+      (await call<ListedComment[]>(
+        `${baseUrl}?per_page=${COMMENTS_PER_PAGE}&page=${page}`,
+        { method: 'GET', headers: headers(token) }
+      )) ?? []
+    out.push(...rows)
+    if (rows.length < COMMENTS_PER_PAGE) break
+  }
+  return out
+}
+
 export const prCommentClient = {
   async createIssueComment(input: CreateIssueCommentInput) {
     const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/issues/${input.prNumber}/comments`
@@ -148,6 +203,40 @@ export const prCommentClient = {
       method: 'GET',
       headers: headers(input.token),
     }) as Promise<Array<ListedComment>>
+  },
+
+  /**
+   * LUM-735 — every issue comment on the PR (used to find the security
+   * summary by its marker). Paginated: the marker may sit on an old comment.
+   */
+  async listIssueComments(input: ListAllCommentsInput) {
+    const base = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/issues/${input.prNumber}/comments`
+    return listAllComments(base, input.token)
+  },
+
+  /** LUM-735 — every inline review comment on the PR (fingerprint dedupe). */
+  async listReviewComments(input: ListAllCommentsInput) {
+    const base = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}/comments`
+    return listAllComments(base, input.token)
+  },
+
+  /**
+   * LUM-735 — one review carrying every inline comment. `event: 'COMMENT'`
+   * only annotates: it never approves and never requests changes, so the PR's
+   * own review requirements are untouched.
+   */
+  async createReview(input: CreateReviewInput) {
+    const url = `${GH_API}/repos/${input.repo.owner}/${input.repo.name}/pulls/${input.prNumber}/reviews`
+    return call<ReviewResponse>(url, {
+      method: 'POST',
+      headers: headers(input.token),
+      body: JSON.stringify({
+        commit_id: input.commitId,
+        body: input.body,
+        event: 'COMMENT',
+        comments: input.comments,
+      }),
+    }) as Promise<ReviewResponse>
   },
 
   async listReviewCommentsSince(input: ListIssueCommentsInput) {
