@@ -2284,5 +2284,5 @@
   "apiKeys.scope.securityIngest": "CI ingest only",
   "securityScan.status.pendingExternal": "Waiting for scanner",
   "securityScan.stageState.PENDING": "scanning",
-  "securityScan.external.late": "The scanner has not reported for this commit in 30 minutes. Check the security scan run in Vercel Workflows, or your own CI's scan job if this repository pushes its own reports."
+  "securityScan.external.late": "The scanner has not reported for this commit in 30 minutes, so this scan is incomplete. Push a new commit to start a fresh scan, or check your own CI's scan job if this repository pushes its own reports."
 }

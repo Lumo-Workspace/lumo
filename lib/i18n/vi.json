@@ -2284,5 +2284,5 @@
   "apiKeys.scope.securityIngest": "Chỉ nạp từ CI",
   "securityScan.status.pendingExternal": "Đang chờ trình quét",
   "securityScan.stageState.PENDING": "đang quét",
-  "securityScan.external.late": "Trình quét chưa báo cáo kết quả cho commit này trong 30 phút. Kiểm tra lần chạy quét bảo mật trong Vercel Workflows, hoặc job quét của CI riêng của bạn nếu kho này tự gửi báo cáo."
+  "securityScan.external.late": "Trình quét chưa báo cáo kết quả cho commit này trong 30 phút, vì vậy lần quét này chưa hoàn tất. Hãy đẩy một commit mới để bắt đầu lượt quét mới, hoặc kiểm tra job quét của CI riêng của bạn nếu kho này tự gửi báo cáo."
 }

@@ -2284,5 +2284,5 @@
   "apiKeys.scope.securityIngest": "仅限 CI 上报",
   "securityScan.status.pendingExternal": "等待扫描器",
   "securityScan.stageState.PENDING": "扫描中",
-  "securityScan.external.late": "扫描器 30 分钟内未上报此提交的结果。请查看 Vercel Workflows 里的安全扫描 run；若该仓库自行推送报告，请查看自己 CI 的扫描任务。"
+  "securityScan.external.late": "扫描器 30 分钟内未上报此提交的结果，因此本次扫描不完整。请推送一次新的提交以启动新的扫描；若该仓库自行推送报告，请查看自己 CI 的扫描任务。"
 }

@@ -38,6 +38,14 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
+// `pr-security-scan.service` (imported below for inheritDispositions /
+// DETECTOR_VERSION) transitively imports the managed-scan workflow chain
+// down to `@vercel/sandbox`, which ships pure ESM and cannot be loaded by
+// Jest's CJS transform. Cut the chain here, the same way
+// `pr-security-scan.service.test.ts` does.
+jest.mock('@/lib/services/security-managed-scan-start', () => ({
+  startSecurityManagedScan: jest.fn(),
+}))
 
 import {
   securitySarifIngestService,
@@ -498,6 +506,22 @@ describe('persistFindings', () => {
     await expect(
       securitySarifIngestService.persistFindings(PERSIST_INPUT)
     ).rejects.toThrow('P1001')
+  })
+
+  it('does not stamp lastSarifIngestAt for a managed scan (must not poison the kill switch)', async () => {
+    const input: PersistInput = { ...PERSIST_INPUT, auth: 'managed' }
+    await securitySarifIngestService.persistFindings(input)
+    expect(projectRepository.markSarifIngested).not.toHaveBeenCalled()
+  })
+
+  it('still stamps lastSarifIngestAt for an OIDC (BYO CI) push', async () => {
+    const input: PersistInput = { ...PERSIST_INPUT, auth: 'oidc' }
+    await securitySarifIngestService.persistFindings(input)
+    expect(projectRepository.markSarifIngested).toHaveBeenCalledWith(
+      'w1',
+      'o/r',
+      expect.any(Date)
+    )
   })
 })
 

@@ -144,10 +144,13 @@ describe('scanRepository', () => {
     create.mockResolvedValue(sb)
     const out = await securityManagedScanService.scanRepository(JOB)
     const scripts = sb.run.mock.calls.map(c => (c[1] as string[]).join(' '))
+    const guard = `test "$(git rev-parse HEAD 2>/dev/null | cut -c1-${JOB.headSha.length})" = "${JOB.headSha}" || exit 90; `
+    expect(scripts[0]).toContain(guard)
     expect(scripts[0]).toContain(GITLEAKS_URL)
     expect(scripts[0]).toContain(
       'dir . --report-format sarif --report-path /tmp/gitleaks.sarif --exit-code 0'
     )
+    expect(scripts[1]).toContain(guard)
     expect(scripts[1]).toContain('pip install --quiet semgrep==')
     expect(scripts[1]).toContain(`semgrep==${SEMGREP_VERSION}`)
     expect(scripts[1]).toContain(
@@ -217,6 +220,32 @@ describe('scanRepository', () => {
     })
     expect(out.semgrep.kind).toBe('ok')
     expect(sb.stop).toHaveBeenCalledTimes(1)
+  })
+
+  it('the guard exiting 90 (checkout does not match the job head sha) is that tool’s deterministic failure', async () => {
+    const sb = fakeSandbox(
+      {
+        '/tmp/gitleaks.sarif': null,
+        '/tmp/semgrep.sarif': JSON.stringify(semgrepSarif),
+      },
+      { gitleaks: 90 }
+    )
+    create.mockResolvedValue(sb)
+    const out = await securityManagedScanService.scanRepository(JOB)
+    expect(out.gitleaks).toEqual({
+      kind: 'failed',
+      reason: 'gitleaks exit 90',
+    })
+  })
+
+  it('rejects an invalid head sha for both tools without creating a sandbox', async () => {
+    const out = await securityManagedScanService.scanRepository({
+      ...JOB,
+      headSha: 'not-a-sha',
+    })
+    expect(out.gitleaks).toEqual({ kind: 'failed', reason: 'invalid head sha' })
+    expect(out.semgrep).toEqual({ kind: 'failed', reason: 'invalid head sha' })
+    expect(create).not.toHaveBeenCalled()
   })
 
   it('semgrep exit 1 (findings present) is success; a missing report file is a failure', async () => {

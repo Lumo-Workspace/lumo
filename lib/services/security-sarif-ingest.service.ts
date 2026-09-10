@@ -326,11 +326,18 @@ export const securitySarifIngestService = {
         rows,
         { partial: input.truncated }
       )
-    await projectRepository.markSarifIngested(
-      input.pr.workspaceId,
-      input.pr.repo,
-      new Date()
-    )
+    // A managed scan is Lumo's own sandbox run, not this repo pushing its own
+    // SARIF — `lastSarifIngestAt` means "this repo has pushed a report", and
+    // it drives the flag-off fallback (whether managed scanning may stop
+    // covering this repo). Stamping it here would let a managed run silently
+    // poison that kill switch.
+    if (input.auth !== 'managed') {
+      await projectRepository.markSarifIngested(
+        input.pr.workspaceId,
+        input.pr.repo,
+        new Date()
+      )
+    }
     logger.info(
       `[security-sarif-ingest] ${logSafe(input.repository)}#${input.prNumber} ${logSafe(input.tool)}: ${written} findings auth=${input.auth}${flippedToFindings ? ' (scan flipped CLEAN→FINDINGS)' : ''} (dropped notInDiff=${input.dropped.notInDiff} noLocation=${input.dropped.noLocation} dup=${input.dropped.duplicate})`
     )

@@ -2284,5 +2284,5 @@
   "apiKeys.scope.securityIngest": "Ingestion CI uniquement",
   "securityScan.status.pendingExternal": "En attente du scanner",
   "securityScan.stageState.PENDING": "analyse en cours",
-  "securityScan.external.late": "Le scanner n'a signalé aucune analyse pour ce commit depuis 30 minutes. Vérifiez l'exécution de l'analyse de sécurité dans Vercel Workflows, ou le job d'analyse de votre propre CI si ce dépôt envoie ses propres rapports."
+  "securityScan.external.late": "Le scanner n'a signalé aucune analyse pour ce commit depuis 30 minutes, cette analyse est donc incomplète. Poussez un nouveau commit pour démarrer une nouvelle analyse, ou vérifiez le job d'analyse de votre propre CI si ce dépôt envoie ses propres rapports."
 }

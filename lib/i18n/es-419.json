@@ -2284,5 +2284,5 @@
   "apiKeys.scope.securityIngest": "Solo ingesta CI",
   "securityScan.status.pendingExternal": "Esperando al escáner",
   "securityScan.stageState.PENDING": "escaneando",
-  "securityScan.external.late": "El escáner no ha reportado un análisis para este commit en 30 minutos. Revisa la ejecución del escaneo de seguridad en Vercel Workflows, o el job de escaneo de tu propio CI si este repositorio envía sus propios informes."
+  "securityScan.external.late": "El escáner no ha reportado un análisis para este commit en 30 minutos, por lo que este escaneo está incompleto. Envía un nuevo commit para iniciar un escaneo nuevo, o revisa el job de escaneo de tu propio CI si este repositorio envía sus propios informes."
 }

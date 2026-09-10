@@ -101,7 +101,7 @@ export interface SecurityScanView {
    * checked separately.
    */
   complete: boolean
-  /** stages.external is PENDING and the scan started more than 30 min ago — CI has not reported. */
+  /** stages.external is PENDING and the scan started more than 30 min ago — the scanner has not reported. */
   externalLate: boolean
   error: string | null
   startedAt: string

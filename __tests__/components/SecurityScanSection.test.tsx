@@ -36,7 +36,7 @@ const messages: Record<string, string> = {
   'securityScan.external.notConfigured.link':
     "Create a CI ingest key (for pushing your own scanner's SARIF)",
   'securityScan.external.late':
-    "The scanner has not reported for this commit in 30 minutes. Check the security scan run in Vercel Workflows, or your own CI's scan job if this repository pushes its own reports.",
+    "The scanner has not reported for this commit in 30 minutes, so this scan is incomplete. Push a new commit to start a fresh scan, or check your own CI's scan job if this repository pushes its own reports.",
   'securityScan.finding.externalLink': 'View rule documentation',
   'securityScan.partial':
     'Some results were cut off at the scan budget — the scan is not complete.',
@@ -374,7 +374,7 @@ test('externalLate renders a warning that the scanner has not reported in 30 min
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
   expect(screen.getByTestId('external-late')).toHaveTextContent(
-    'has not reported'
+    'Push a new commit to start a fresh scan'
   )
 })
 

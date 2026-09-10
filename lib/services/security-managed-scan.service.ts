@@ -54,9 +54,24 @@ const REPORT_PATH: Record<ManagedScanTool, string> = {
   semgrep: '/tmp/semgrep.sarif',
 }
 
-const SCRIPT: Record<ManagedScanTool, string> = {
+const SCRIPT_BODY: Record<ManagedScanTool, string> = {
   gitleaks: `set -e; curl -sSL "${GITLEAKS_URL}" | tar -xz -C /tmp gitleaks; /tmp/gitleaks dir . --report-format sarif --report-path ${REPORT_PATH.gitleaks} --exit-code 0 --no-banner`,
   semgrep: `set -e; python3 -m pip install --quiet semgrep==${SEMGREP_VERSION}; semgrep scan ${SEMGREP_CONFIGS.map(c => `--config ${c}`).join(' ')} --sarif --output ${REPORT_PATH.semgrep} --metrics=off`,
+}
+
+/** `headSha` is validated by the caller before this is ever invoked. */
+const HEAD_SHA_RE = /^[0-9a-f]{7,40}$/
+
+/**
+ * Guards against a mis-rooted or wrong-revision sandbox scanning the wrong
+ * tree and silently passing (P9): the guard exits 90 — that tool's normal
+ * non-success exit — when the checkout at cwd is not exactly `headSha`.
+ * `headSha` is interpolated into a shell script, so it must be validated
+ * (see `HEAD_SHA_RE`) before this is ever called.
+ */
+function scriptFor(tool: ManagedScanTool, headSha: string): string {
+  const guard = `test "$(git rev-parse HEAD 2>/dev/null | cut -c1-${headSha.length})" = "${headSha}" || exit 90; `
+  return guard + SCRIPT_BODY[tool]
 }
 
 /** semgrep exits 1 when it has findings; gitleaks is pinned to --exit-code 0. */
@@ -77,9 +92,10 @@ async function runTool(
   sandbox: RepoSandbox,
   tool: ManagedScanTool,
   scanId: string,
-  token: string
+  token: string,
+  headSha: string
 ): Promise<Buffer | { failed: string }> {
-  const result = await sandbox.run('sh', ['-c', SCRIPT[tool]])
+  const result = await sandbox.run('sh', ['-c', scriptFor(tool, headSha)])
   if (!isSuccessExit(tool, result.exitCode)) {
     logger.warn(
       `[security-managed-scan] ${logSafe(tool)} exit ${result.exitCode} scan=${scanId}: ${scrubToken(
@@ -104,6 +120,16 @@ async function runTool(
 
 export const securityManagedScanService = {
   async scanRepository(job: ManagedScanJob): Promise<ManagedScanOutcome> {
+    if (!HEAD_SHA_RE.test(job.headSha)) {
+      // headSha is interpolated into the sandbox shell script (scriptFor);
+      // an unvalidated value must never reach there. Deterministic — no
+      // sandbox is created, and both tools report the same reason (P9).
+      const outcome = {} as ManagedScanOutcome
+      for (const tool of MANAGED_SCAN_TOOLS) {
+        outcome[tool] = { kind: 'failed', reason: 'invalid head sha' }
+      }
+      return outcome
+    }
     const token = await getGithubInstallationToken(job.pr.workspaceId)
     let sandbox: RepoSandbox
     try {
@@ -125,7 +151,13 @@ export const securityManagedScanService = {
       > = {}
       for (const tool of MANAGED_SCAN_TOOLS) {
         try {
-          reports[tool] = await runTool(sandbox, tool, job.scanId, token)
+          reports[tool] = await runTool(
+            sandbox,
+            tool,
+            job.scanId,
+            token,
+            job.headSha
+          )
         } catch (error) {
           throw new Error(scrubToken(message(error), token))
         }

@@ -2284,5 +2284,5 @@
   "apiKeys.scope.securityIngest": "Ingest CI sahaja",
   "securityScan.status.pendingExternal": "Menunggu pengimbas",
   "securityScan.stageState.PENDING": "mengimbas",
-  "securityScan.external.late": "Pengimbas tidak melaporkan hasil untuk commit ini selama 30 minit. Semak larian imbasan keselamatan dalam Vercel Workflows, atau tugas imbasan CI anda sendiri jika repositori ini menghantar laporannya sendiri."
+  "securityScan.external.late": "Pengimbas tidak melaporkan hasil untuk commit ini selama 30 minit, jadi imbasan ini tidak lengkap. Tolak commit baharu untuk memulakan imbasan baharu, atau semak tugas imbasan CI anda sendiri jika repositori ini menghantar laporannya sendiri."
 }

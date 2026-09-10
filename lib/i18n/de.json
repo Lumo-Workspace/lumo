@@ -2284,5 +2284,5 @@
   "apiKeys.scope.securityIngest": "Nur CI-Ingest",
   "securityScan.status.pendingExternal": "Warte auf Scanner",
   "securityScan.stageState.PENDING": "scannt",
-  "securityScan.external.late": "Der Scanner hat seit 30 Minuten keinen Bericht für diesen Commit gemeldet. Prüfe den Sicherheits-Scan-Lauf in Vercel Workflows oder den Scan-Job deiner eigenen CI, falls dieses Repository eigene Berichte sendet."
+  "securityScan.external.late": "Der Scanner hat seit 30 Minuten keinen Bericht für diesen Commit gemeldet, daher ist dieser Scan unvollständig. Pushe einen neuen Commit, um einen neuen Scan zu starten, oder prüfe den Scan-Job deiner eigenen CI, falls dieses Repository eigene Berichte sendet."
 }
