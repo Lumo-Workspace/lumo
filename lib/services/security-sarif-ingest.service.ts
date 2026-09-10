@@ -47,11 +47,11 @@ import {
 
 export const SARIF_MAX_GZ_BYTES = 100 * 1024 * 1024
 export const SARIF_MAX_RAW_BYTES = 400 * 1024 * 1024
-/** How long an un-ingested blob survives before the orphan sweep deletes it. */
 /**
  * Orphan-sweep age (cron). Deliberately longer than the run's own 24h
- * `sleep` so a failed report is always deleted by its run first and the
- * sweep only ever sees blobs that never got a run.
+ * `sleep` so a failed report is normally deleted by its run first and the
+ * sweep only sees blobs that never got a run (a run that started more than
+ * 24h after the upload can still lose the race; `del` is idempotent).
  */
 export const SARIF_ORPHAN_BLOB_TTL_MS = 48 * 60 * 60 * 1000
 
