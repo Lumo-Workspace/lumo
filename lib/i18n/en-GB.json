@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "Secret patterns",
   "securityScan.stage.external": "External scanner",
   "securityScan.stage.judge": "LLM review",
+  "securityScan.stage.hunt": "Vulnerability hunt",
   "securityScan.stageState.FAILED": "failed",
   "securityScan.stageState.NOT_CONFIGURED": "not configured",
   "securityScan.stageState.PARTIAL": "partial",

@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "Mẫu bí mật",
   "securityScan.stage.external": "Trình quét bên ngoài",
   "securityScan.stage.judge": "Đánh giá LLM",
+  "securityScan.stage.hunt": "Săn lỗ hổng",
   "securityScan.stageState.FAILED": "thất bại",
   "securityScan.stageState.NOT_CONFIGURED": "chưa cấu hình",
   "securityScan.stageState.PARTIAL": "một phần",

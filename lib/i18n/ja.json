@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "シークレットパターン",
   "securityScan.stage.external": "外部スキャナー",
   "securityScan.stage.judge": "LLM レビュー",
+  "securityScan.stage.hunt": "脆弱性ハント",
   "securityScan.stageState.FAILED": "失敗",
   "securityScan.stageState.NOT_CONFIGURED": "未設定",
   "securityScan.stageState.PARTIAL": "一部のみ",

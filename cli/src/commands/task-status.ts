@@ -239,7 +239,10 @@ export interface TaskStatusResponse {
       prNumber: number
       status: 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
       stages: Partial<
-        Record<'secrets' | 'external' | 'supplyChain' | 'judge', string>
+        Record<
+          'secrets' | 'external' | 'supplyChain' | 'judge' | 'hunt',
+          string
+        >
       >
       partial: boolean
       error: string | null
@@ -310,6 +313,7 @@ const SCAN_STAGE_ORDER = [
   'external',
   'supplyChain',
   'judge',
+  'hunt',
 ] as const
 
 type ScanSummary = NonNullable<
@@ -318,11 +322,12 @@ type ScanSummary = NonNullable<
 
 /** LUM-735 — one line per linked PR's latest scan: `PR #945 · scan CLEAN ·
  *  secrets RAN · external RAN (2 external findings) · supplyChain RAN
- *  (1 dependency finding, 1 already on main) · judge RAN`. Stage segments
- *  only for keys present, in secrets/external/supplyChain/judge order; the
- *  `(N external findings)` count only decorates the external segment, the
- *  dependency count (LUM-738, with its already-on-main share) only the
- *  supplyChain segment, and each only when N > 0. */
+ *  (1 dependency finding, 1 already on main) · judge RAN · hunt RAN`.
+ *  Stage segments only for keys present, in
+ *  secrets/external/supplyChain/judge/hunt order (LUM-739 added the hunt
+ *  layer); the `(N external findings)` count only decorates the external
+ *  segment, the dependency count (LUM-738, with its already-on-main share)
+ *  only the supplyChain segment, and each only when N > 0. */
 function formatScanSummaryLine(s: ScanSummary): string {
   const segments: string[] = []
   for (const key of SCAN_STAGE_ORDER) {

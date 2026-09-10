@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "密鑰特徵",
   "securityScan.stage.external": "外部掃描器",
   "securityScan.stage.judge": "LLM 評審",
+  "securityScan.stage.hunt": "漏洞獵捕",
   "securityScan.stageState.FAILED": "失敗",
   "securityScan.stageState.NOT_CONFIGURED": "未接入",
   "securityScan.stageState.PARTIAL": "部分",

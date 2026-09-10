@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "시크릿 패턴",
   "securityScan.stage.external": "외부 스캐너",
   "securityScan.stage.judge": "LLM 검토",
+  "securityScan.stage.hunt": "취약점 헌팅",
   "securityScan.stageState.FAILED": "실패",
   "securityScan.stageState.NOT_CONFIGURED": "미설정",
   "securityScan.stageState.PARTIAL": "일부만",

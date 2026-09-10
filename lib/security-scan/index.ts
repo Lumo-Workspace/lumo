@@ -39,3 +39,25 @@ export {
   MAX_SARIF_FINDINGS,
   type NormalizeResult,
 } from './sarif'
+// LUM-739 — L3 hunt (pure halves)
+export { inheritDispositions } from './inherit-dispositions'
+export {
+  HUNT_CATEGORIES,
+  CATEGORY_CWE_HINT,
+  HuntCandidateSchema,
+  huntFingerprint,
+  type HuntCategory,
+  type HuntCandidate,
+} from './hunt/candidate'
+export {
+  mechanicalVerify,
+  type RejectedCandidate,
+  type VerifiedCandidate,
+  type MechanicalVerifyResult,
+} from './hunt/mechanical-verify'
+export {
+  evaluateHuntTrigger,
+  L4_CROSSING_CATEGORIES,
+  type HuntTriggerInput,
+  type HuntTriggerResult,
+} from './hunt/trigger'

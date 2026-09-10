@@ -28,6 +28,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     findLatestByPullRequestIds: jest.fn(),
     findFindingWithScope: jest.fn(),
     updateDisposition: jest.fn(),
+    mergeStages: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
@@ -43,6 +44,14 @@ jest.mock('@/lib/repositories/project.repository', () => ({
 }))
 jest.mock('@/lib/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
+}))
+// LUM-739: this suite pins the hunt OFF (see beforeEach); the trigger/handoff
+// behaviour has its own suite in pr-security-scan.service.hunt-trigger.test.ts.
+jest.mock('@/lib/services/security-hunt-start', () => ({
+  startSecurityHunt: jest.fn(),
+}))
+jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
+  boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },
 }))
 // LUM-738 — the lazy baseline request made when stage A queues the managed run.
 jest.mock('@/lib/services/security-baseline.service', () => ({
@@ -108,6 +117,7 @@ const CLEAN_DIFF = [
 
 beforeEach(() => {
   jest.clearAllMocks()
+  process.env.LUMO_SECURITY_HUNT = 'off'
   prRepo.findById.mockResolvedValue(PR as never)
   fetchPrHeadSha.mockResolvedValue('sha-1')
   repo.findByPrAndSha.mockResolvedValue(null)
@@ -574,7 +584,11 @@ describe('LUM-735 SARIF push — stage A side', () => {
       [],
       expect.objectContaining({
         partial: false,
-        stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
+        stages: {
+          secrets: 'RAN',
+          external: 'NOT_CONFIGURED',
+          judge: 'RAN',
+        },
       })
     )
     expect(lastIngest).toHaveBeenCalledWith('w1', 'o/r')

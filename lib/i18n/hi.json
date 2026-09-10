@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "सीक्रेट पैटर्न",
   "securityScan.stage.external": "बाहरी स्कैनर",
   "securityScan.stage.judge": "LLM समीक्षा",
+  "securityScan.stage.hunt": "भेद्यता खोज",
   "securityScan.stageState.FAILED": "विफल",
   "securityScan.stageState.NOT_CONFIGURED": "कॉन्फ़िगर नहीं",
   "securityScan.stageState.PARTIAL": "आंशिक",

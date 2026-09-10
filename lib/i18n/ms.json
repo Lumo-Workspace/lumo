@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "Corak rahsia",
   "securityScan.stage.external": "Pengimbas luaran",
   "securityScan.stage.judge": "Semakan LLM",
+  "securityScan.stage.hunt": "Pemburuan kerentanan",
   "securityScan.stageState.FAILED": "gagal",
   "securityScan.stageState.NOT_CONFIGURED": "belum dikonfigurasi",
   "securityScan.stageState.PARTIAL": "separa",
