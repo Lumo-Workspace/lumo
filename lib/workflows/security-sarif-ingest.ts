@@ -7,6 +7,11 @@
  * does no I/O itself: every side effect is a step, and a failed report keeps
  * its blob for 24h (for a human to inspect) via `sleep`, which replaced the
  * daily prune cron.
+ *
+ * Blob deletion is now retried by the platform (the step throws on failure),
+ * but the prune cron is gone — nothing else will clean up a blob whose
+ * retries are exhausted. `deleteBlobBestEffort` swallows that residual
+ * failure so a leaked blob never flips an outcome that is already decided.
  */
 import { sleep } from 'workflow'
 import type {
@@ -29,6 +34,15 @@ function reasonOf(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 500)
 }
 
+/** After the step's own retries a leaked blob must not fail an outcome that is already decided. */
+async function deleteBlobBestEffort(url: string): Promise<void> {
+  try {
+    await deleteSarifBlobStep(url)
+  } catch {
+    // Retries exhausted inside the step; the service already logged it.
+  }
+}
+
 export async function securitySarifIngestWorkflow(
   job: SarifIngestJob
 ): Promise<IngestResult> {
@@ -41,7 +55,7 @@ export async function securitySarifIngestWorkflow(
     // No scan row to stamp FAILED on. The blob must still not leak: keep it
     // for the same window, then delete, and let the run show as failed.
     await sleep(SARIF_FAILED_BLOB_TTL)
-    await deleteSarifBlobStep(job.url)
+    await deleteBlobBestEffort(job.url)
     throw error
   }
   if (resolved.kind === 'discarded') {
@@ -72,7 +86,7 @@ export async function securitySarifIngestWorkflow(
         truncated: fetched.truncated,
         dropped: fetched.dropped,
       })
-      await deleteSarifBlobStep(job.url)
+      await deleteBlobBestEffort(job.url)
       return { outcome: 'INGESTED', scanId, findings: written, partial }
     }
     failure = fetched.reason
@@ -85,6 +99,6 @@ export async function securitySarifIngestWorkflow(
   // SARIF_FAILED_BLOB_TTL so the report can be inspected or re-pushed.
   await markSarifExternalFailedStep(scanId)
   await sleep(SARIF_FAILED_BLOB_TTL)
-  await deleteSarifBlobStep(job.url)
+  await deleteBlobBestEffort(job.url)
   return { outcome: 'FAILED', scanId, reason: failure }
 }

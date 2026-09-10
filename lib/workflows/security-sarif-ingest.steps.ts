@@ -43,7 +43,8 @@ export async function markSarifExternalFailedStep(
   return securitySarifIngestService.markExternalFailed(scanId)
 }
 
-export async function deleteSarifBlobStep(url: string): Promise<boolean> {
+export async function deleteSarifBlobStep(url: string): Promise<void> {
   'use step'
-  return securitySarifIngestService.deleteBlobSafely(url)
+  const deleted = await securitySarifIngestService.deleteBlobSafely(url)
+  if (!deleted) throw new Error('blob delete failed')
 }

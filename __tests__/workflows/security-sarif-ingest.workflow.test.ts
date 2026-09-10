@@ -4,7 +4,7 @@ jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   fetchAndNormalizeSarifStep: jest.fn(),
   persistSarifFindingsStep: jest.fn(),
   markSarifExternalFailedStep: jest.fn().mockResolvedValue(undefined),
-  deleteSarifBlobStep: jest.fn().mockResolvedValue(true),
+  deleteSarifBlobStep: jest.fn().mockResolvedValue(undefined),
 }))
 
 import { sleep } from 'workflow'
@@ -40,9 +40,9 @@ const OK = {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks()
+  jest.resetAllMocks()
   resolve.mockResolvedValue({ kind: 'ok', scanId: 's1', pr: PR })
-  delBlob.mockResolvedValue(true)
+  delBlob.mockResolvedValue(undefined)
   markFailed.mockResolvedValue(undefined)
 })
 
@@ -76,6 +76,62 @@ it('happy path: resolve → fetch → persist → delete blob, no sleep', async 
   expect(delBlob).toHaveBeenCalledWith(JOB.url)
   expect(sleepMock).not.toHaveBeenCalled()
   expect(markFailed).not.toHaveBeenCalled()
+})
+
+it('happy path: persists before deleting the blob', async () => {
+  fetchNorm.mockResolvedValue(OK)
+  persist.mockResolvedValue({ written: 1, partial: false })
+  const order: string[] = []
+  persist.mockImplementation(async () => {
+    order.push('persist')
+    return { written: 1, partial: false }
+  })
+  delBlob.mockImplementation(async () => {
+    order.push('delete')
+  })
+  await securitySarifIngestWorkflow(JOB)
+  expect(order).toEqual(['persist', 'delete'])
+})
+
+it('a blob delete whose retries are exhausted still leaves the outcome INGESTED', async () => {
+  fetchNorm.mockResolvedValue(OK)
+  persist.mockResolvedValue({ written: 3, partial: false })
+  delBlob.mockRejectedValue(new Error('blob delete failed'))
+  await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+    outcome: 'INGESTED',
+    scanId: 's1',
+    findings: 3,
+    partial: false,
+  })
+  expect(markFailed).not.toHaveBeenCalled()
+})
+
+it('a blob delete whose retries are exhausted still leaves the outcome FAILED with the original reason', async () => {
+  fetchNorm.mockResolvedValue({
+    kind: 'failed',
+    reason: 'Unsupported SARIF: not JSON',
+  })
+  delBlob.mockRejectedValue(new Error('blob delete failed'))
+  await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+    outcome: 'FAILED',
+    scanId: 's1',
+    reason: 'Unsupported SARIF: not JSON',
+  })
+  expect(markFailed).toHaveBeenCalledWith('s1')
+  expect(sleepMock).toHaveBeenCalledWith('24h')
+})
+
+it('returns DISCARDED with the resolve reason and calls no other step', async () => {
+  resolve.mockResolvedValue({ kind: 'discarded', reason: 'workspace_mismatch' })
+  await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+    outcome: 'DISCARDED',
+    reason: 'workspace_mismatch',
+  })
+  expect(fetchNorm).not.toHaveBeenCalled()
+  expect(persist).not.toHaveBeenCalled()
+  expect(markFailed).not.toHaveBeenCalled()
+  expect(delBlob).not.toHaveBeenCalled()
+  expect(sleepMock).not.toHaveBeenCalled()
 })
 
 it('passes auth=key when the job carries a workspaceId', async () => {
@@ -118,7 +174,6 @@ it('deterministic failure: marks FAILED, keeps the blob 24h, then deletes it', a
   })
   delBlob.mockImplementation(async () => {
     order.push('delete')
-    return true
   })
   await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
     outcome: 'FAILED',
