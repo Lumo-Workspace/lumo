@@ -36,6 +36,10 @@ const customJestConfig = {
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    // LUM-735 v4: the `workflow` package is ESM-only (its `require` condition
+    // is a TypeScript plugin) — stub it; see __stubs__/workflow.ts.
+    '^workflow$': '<rootDir>/__stubs__/workflow.ts',
+    '^workflow/api$': '<rootDir>/__stubs__/workflow-api.ts',
   },
 }
 
