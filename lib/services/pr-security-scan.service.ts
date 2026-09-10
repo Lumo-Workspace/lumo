@@ -33,17 +33,22 @@ import {
   vulnerabilityFingerprint,
   INCOMPLETE_STAGE_STATES,
   stagesOf,
+  evaluateHuntTrigger,
+  L4_CROSSING_CATEGORIES,
   type ScanStages,
 } from '@/lib/security-scan'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
 import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
+import { isHuntEnabled } from './security-hunt.config'
+import { startSecurityHunt } from './security-hunt-start'
 // No LLM/gateway import inside — safe to import statically from stage A.
 import { securityPrReviewService } from './security-pr-review.service'
 import { waitUntil } from '@vercel/functions'
 
-export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1'
+export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1;hunt@1'
 
 /**
  * LUM-735 — how long stages.external may sit PENDING (the repo has pushed
@@ -272,6 +277,24 @@ async function adoptExisting(existing: {
 import { inheritDispositions } from '@/lib/security-scan/inherit-dispositions'
 export { inheritDispositions }
 
+/**
+ * LUM-739 — the L3 trigger's third condition: an OPEN (undispositioned) L4
+ * session-guard crossing on the PR's task. Best-effort: a read failure must
+ * not fail stage A, it just does not trigger the hunt.
+ */
+async function hasOpenL4Crossing(taskId: string | null): Promise<boolean> {
+  if (!taskId) return false
+  try {
+    const open =
+      await boundaryCrossingRepository.findUndispositionedByTask(taskId)
+    return open.some(c =>
+      (L4_CROSSING_CATEGORIES as readonly string[]).includes(c.category)
+    )
+  } catch {
+    return false
+  }
+}
+
 // ── Service ──────────────────────────────────────────────────────────────────
 
 export const prSecurityScanService = {
@@ -481,6 +504,21 @@ export const prSecurityScanService = {
             ? 'FAILED'
             : 'SKIPPED'
 
+      // ── L3 trigger (LUM-739) ────────────────────────────────────────────
+      // Pure decision here; the hunt itself is a Vercel Workflow started
+      // AFTER this scan's own result is persisted (below), so the workflow's
+      // write can never be overwritten by stage A's persistResult, which
+      // replaces `stages` wholesale except the ingest-owned external key.
+      const huntTrigger = evaluateHuntTrigger({
+        files,
+        hasHighFinding: [...secretRows, ...judgeRows].some(
+          r => r.severity === 'HIGH'
+        ),
+        hasOpenL4Crossing: await hasOpenL4Crossing(pr.taskId),
+      })
+      const huntWanted = isHuntEnabled() && files.length > 0 && huntTrigger.hunt
+      stages.hunt = huntWanted ? 'PENDING' : 'SKIPPED'
+
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
       const rows = inheritDispositions([...secretRows, ...judgeRows], prior)
@@ -503,6 +541,24 @@ export const prSecurityScanService = {
         stages,
         partial,
       })
+      // LUM-739: the row is settled — now hand the sha to the hunt. A start
+      // that cannot even queue the run is a FAILED layer (P9), stamped on the
+      // row so the panel never waits for a run that does not exist.
+      let huntRunStarted = false
+      if (huntWanted) {
+        const runId = await startSecurityHunt({
+          scanId,
+          pullRequestId: pr.id,
+          taskId: pr.taskId,
+          workspaceId: pr.workspaceId,
+          repo: pr.repo,
+          prNumber: pr.number,
+          headSha,
+        })
+        if (runId) huntRunStarted = true
+        else
+          await prSecurityScanRepository.mergeStages(scanId, { hunt: 'FAILED' })
+      }
       // LUM-735 Task 2: the findings are on the row — put them on the PR.
       // Best-effort like the dispatchers: `sync` never throws, and the
       // markers make a repeat (from a workflow) comment-free.
@@ -517,7 +573,8 @@ export const prSecurityScanService = {
           disposition: r.disposition ?? null,
         })
       )
-      if (!managedRunStarted || blocksDone) {
+      // LUM-739: same rule for a started hunt run — it syncs when it lands.
+      if ((!managedRunStarted && !huntRunStarted) || blocksDone) {
         waitUntil(securityPrReviewService.sync(scanId))
       }
       return { deduped: false, scanId, status, findings: rows.length }
@@ -526,6 +583,8 @@ export const prSecurityScanService = {
       logger.error(
         `[pr-security-scan] scan failed pr=${pr.id} sha=${headSha}: ${message}`
       )
+      // LUM-739: a hunt that was never started must not read as "scanning".
+      if (stages.hunt === 'PENDING') delete stages.hunt
       await prSecurityScanRepository.finalize(scanId, {
         status: 'FAILED',
         judgeStatus: null,
