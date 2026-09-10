@@ -161,7 +161,10 @@ const PERSIST_INPUT: PersistInput = {
 }
 
 beforeEach(() => {
-  jest.clearAllMocks()
+  // resetAllMocks (not clearAllMocks) so a mockRejectedValue/mockImplementation
+  // set by one test can never leak into a later one — every default below is
+  // re-established fresh each test.
+  jest.resetAllMocks()
   findPr.mockResolvedValue({
     id: 'pr1',
     workspaceId: 'w1',
@@ -181,6 +184,8 @@ beforeEach(() => {
     written: rows.length,
     flippedToFindings: false,
   }))
+  dispatchStageA.mockResolvedValue(undefined)
+  delBlob.mockResolvedValue(undefined)
 })
 
 describe('resolveScan', () => {
@@ -313,6 +318,36 @@ describe('fetchAndNormalize', () => {
     ).rejects.toThrow('github 502')
   })
 
+  it('throws (retryable), not classified as a deterministic SARIF failure, when GitHub returns 422 for the diff', async () => {
+    fetchBlob.mockResolvedValue(gzipSync(JSON.stringify(SARIF_FIXTURE)))
+    diff.mockRejectedValue(
+      Object.assign(new Error('GitHub API error 422 for PR o/r#7'), {
+        status: 422,
+      })
+    )
+    await expect(
+      securitySarifIngestService.fetchAndNormalize(INPUT)
+    ).rejects.toThrow('GitHub API error 422')
+    expect(logger.error).not.toHaveBeenCalledWith(
+      expect.stringContaining('FAILED tool=')
+    )
+  })
+
+  it('throws (retryable) when GitHub returns 404 for the diff', async () => {
+    fetchBlob.mockResolvedValue(gzipSync(JSON.stringify(SARIF_FIXTURE)))
+    diff.mockRejectedValue(
+      Object.assign(new Error('GitHub API error 404 for PR o/r#7'), {
+        status: 404,
+      })
+    )
+    await expect(
+      securitySarifIngestService.fetchAndNormalize(INPUT)
+    ).rejects.toThrow('GitHub API error 404')
+    expect(logger.error).not.toHaveBeenCalledWith(
+      expect.stringContaining('FAILED tool=')
+    )
+  })
+
   it('keeps only findings on added lines and reports drops', async () => {
     // Port of the old happy-path test's diff-aware assertions: DIFF only adds
     // lines 1-2 of src/db.ts, so result(99) is dropped as notInDiff while
@@ -337,6 +372,9 @@ describe('fetchAndNormalize', () => {
       tool: 'gitleaks',
     })
     expect(out.kind).toBe('ok')
+    if (out.kind !== 'ok') throw new Error(`expected ok, got ${out.kind}`)
+    expect(out.findings.length).toBeGreaterThan(0)
+    expect(out.findings[0]).toMatchObject({ kind: 'SECRET' })
     expect(JSON.stringify(out)).not.toContain(KEY)
   })
 })
@@ -387,6 +425,7 @@ describe('persistFindings', () => {
     expect(logInfo).toHaveBeenCalledWith(
       expect.stringContaining('scan flipped CLEAN→FINDINGS')
     )
+    expect(repo.mergeStages).not.toHaveBeenCalled()
   })
 
   it('RED LINE: nothing handed to the repository or the logger contains the plaintext key', async () => {
@@ -407,6 +446,12 @@ describe('persistFindings', () => {
       dropped: normalized.dropped,
     }
     await securitySarifIngestService.persistFindings(input)
+    const rows = repo.ingestExternalFindings.mock.calls[0]![2]
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows[0]).toMatchObject({
+      kind: 'SECRET',
+      provenance: 'EXTERNAL_TOOL',
+    })
     expect(
       JSON.stringify(repo.ingestExternalFindings.mock.calls)
     ).not.toContain(KEY)

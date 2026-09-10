@@ -220,25 +220,9 @@ export const securitySarifIngestService = {
       return securitySarifIngestService._failed(input, message(error), 'n/a')
     }
     if (!gz) return { kind: 'not_found' }
+    let runs: ReturnType<typeof parseSarif>
     try {
-      const runs = parseSarif(decode(gz))
-      const diff = await fetchPrDiff({
-        workspaceId: input.pr.workspaceId,
-        fullName: input.pr.repo,
-        prNumber: input.pr.number,
-      })
-      const n = normalizeSarif(runs, {
-        toolHint: input.tool,
-        changedLines: changedLinesOf(addedLinesWithNumbers(diff)),
-      })
-      return {
-        kind: 'ok',
-        tool: n.tool,
-        tools: n.tools,
-        findings: n.findings,
-        truncated: n.truncated,
-        dropped: n.dropped,
-      }
+      runs = parseSarif(decode(gz))
     } catch (error) {
       if (!isDeterministic(error)) throw error
       return securitySarifIngestService._failed(
@@ -246,6 +230,27 @@ export const securitySarifIngestService = {
         message(error),
         `${gz.byteLength}B`
       )
+    }
+    // Anything below is I/O (GitHub) or pure computation over an already
+    // well-formed document — never a SARIF-shape failure, so nothing here is
+    // caught: a GitHub error propagates with ITS OWN status (e.g. 404/422)
+    // and must not be mistaken for a deterministic SARIF failure (P-retry).
+    const diff = await fetchPrDiff({
+      workspaceId: input.pr.workspaceId,
+      fullName: input.pr.repo,
+      prNumber: input.pr.number,
+    })
+    const n = normalizeSarif(runs, {
+      toolHint: input.tool,
+      changedLines: changedLinesOf(addedLinesWithNumbers(diff)),
+    })
+    return {
+      kind: 'ok',
+      tool: n.tool,
+      tools: n.tools,
+      findings: n.findings,
+      truncated: n.truncated,
+      dropped: n.dropped,
     }
   },
 
@@ -303,7 +308,7 @@ export const securitySarifIngestService = {
       new Date()
     )
     logger.info(
-      `[security-sarif-ingest] ${logSafe(input.repository)}#${input.prNumber} ${input.tool}: ${written} findings auth=${input.auth}${flippedToFindings ? ' (scan flipped CLEAN→FINDINGS)' : ''} (dropped notInDiff=${input.dropped.notInDiff} noLocation=${input.dropped.noLocation} dup=${input.dropped.duplicate})`
+      `[security-sarif-ingest] ${logSafe(input.repository)}#${input.prNumber} ${logSafe(input.tool)}: ${written} findings auth=${input.auth}${flippedToFindings ? ' (scan flipped CLEAN→FINDINGS)' : ''} (dropped notInDiff=${input.dropped.notInDiff} noLocation=${input.dropped.noLocation} dup=${input.dropped.duplicate})`
     )
     return { written, partial: input.truncated }
   },
