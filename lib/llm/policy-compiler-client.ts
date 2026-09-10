@@ -48,6 +48,17 @@ Only classify concrete actionable rules, not explanations or context.`
 
 // ── Client ────────────────────────────────────────────────────────────────────
 
+/**
+ * Output cap for the compile call. GLM (LUM-748) is a reasoning model whose
+ * thinking tokens count against `maxOutputTokens`; left at the gateway default
+ * (4096) the CLAUDE.md compile burned ~3k on reasoning and truncated the JSON
+ * mid-array (`finishReason: length` → AI_NoObjectGeneratedError). A full
+ * ~9.5k-char CLAUDE.md measured up to ~7.3k reasoning + ~3.6k text tokens on
+ * GLM-5.3 (~1k + ~3k on the shipped GLM-5.2), so 16k leaves headroom without
+ * being unbounded.
+ */
+const COMPILER_MAX_OUTPUT_TOKENS = 16_384
+
 export async function classifyRules(input: {
   sourceText: string
   builtinCategories: string[]
@@ -57,6 +68,7 @@ export async function classifyRules(input: {
     schema: z.object({ rules: z.array(RuleSchema) }),
     system: COMPILER_SYSTEM_PROMPT,
     prompt: `Built-in categories: ${input.builtinCategories.join(', ')}\n\nRules file:\n${input.sourceText}`,
+    maxOutputTokens: COMPILER_MAX_OUTPUT_TOKENS,
   })
   return object
 }
