@@ -80,8 +80,8 @@ describe('prCommentClient review endpoints', () => {
     })
     expect(rows).toHaveLength(103)
     expect(fetchSpy.mock.calls.map(c => c[0])).toEqual([
-      'https://api.github.com/repos/o/r/issues/7/comments?per_page=100&page=1',
-      'https://api.github.com/repos/o/r/issues/7/comments?per_page=100&page=2',
+      'https://api.github.com/repos/o/r/issues/7/comments?per_page=100&page=1&sort=created&direction=desc',
+      'https://api.github.com/repos/o/r/issues/7/comments?per_page=100&page=2&sort=created&direction=desc',
     ])
   })
 
@@ -107,8 +107,8 @@ describe('prCommentClient review endpoints', () => {
     })
     expect(rows).toHaveLength(101)
     expect(fetchSpy.mock.calls.map(c => c[0])).toEqual([
-      'https://api.github.com/repos/o/r/pulls/7/comments?per_page=100&page=1',
-      'https://api.github.com/repos/o/r/pulls/7/comments?per_page=100&page=2',
+      'https://api.github.com/repos/o/r/pulls/7/comments?per_page=100&page=1&sort=created&direction=desc',
+      'https://api.github.com/repos/o/r/pulls/7/comments?per_page=100&page=2&sort=created&direction=desc',
     ])
   })
 

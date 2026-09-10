@@ -129,6 +129,10 @@ const COMMENTS_PER_PAGE = 100
 /**
  * Hard stop for the walk (10 pages = 1000 comments). A PR busier than that is
  * pathological; the marker dedupe degrades to "may re-post", never to a hang.
+ * Walking newest-first (`sort=created&direction=desc`, supported by both
+ * `/pulls/{n}/comments` and `/issues/{n}/comments`) means a PR over the cap
+ * only loses its OLDEST comments to the window — the newest ones, where
+ * Lumo's own markers live, always stay in view.
  */
 const MAX_COMMENT_PAGES = 10
 
@@ -140,7 +144,7 @@ async function listAllComments(
   for (let page = 1; page <= MAX_COMMENT_PAGES; page += 1) {
     const rows =
       (await call<ListedComment[]>(
-        `${baseUrl}?per_page=${COMMENTS_PER_PAGE}&page=${page}`,
+        `${baseUrl}?per_page=${COMMENTS_PER_PAGE}&page=${page}&sort=created&direction=desc`,
         { method: 'GET', headers: headers(token) }
       )) ?? []
     out.push(...rows)
@@ -259,5 +263,8 @@ export interface ListedComment {
   html_url: string
   body: string
   updated_at: string
-  user: { id: number }
+  /** `type` is `'Bot'` for a GitHub App's bot user — used to tell Lumo's own
+   * comments apart from a human quoting one of its markers. `login` is kept
+   * for debugging; neither is required by every caller. */
+  user: { id: number; type?: string; login?: string }
 }

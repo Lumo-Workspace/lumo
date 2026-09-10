@@ -322,8 +322,12 @@ describe('securityPrReviewService.sync', () => {
   it('updates the existing summary comment found by its marker', async () => {
     findById.mockResolvedValue(scanRow())
     listIssue.mockResolvedValue([
-      { id: 10, body: 'unrelated chatter', user: { id: 1 } },
-      { id: 11, body: `old summary\n${SUMMARY_MARKER}`, user: { id: 2 } },
+      { id: 10, body: 'unrelated chatter', user: { id: 1, type: 'User' } },
+      {
+        id: 11,
+        body: `old summary\n${SUMMARY_MARKER}`,
+        user: { id: 2, type: 'Bot' },
+      },
     ])
     const res = await securityPrReviewService.sync('s1')
     expect(res).toEqual({ posted: true, inline: 0, skipped: 0 })
@@ -487,6 +491,56 @@ describe('securityPrReviewService.sync', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('[security-pr-review]')
     )
+  })
+
+  it('a non-422 failure on the review still counts the unposted comments as skipped', async () => {
+    findById.mockResolvedValue(scanRow({ findings: [finding()] }))
+    createReview.mockRejectedValue(
+      new GithubApiError(500, { message: 'Internal Server Error' })
+    )
+    const res = await securityPrReviewService.sync('s1')
+    expect(res).toEqual({ posted: true, inline: 0, skipped: 1 })
+    expect(createIssue).toHaveBeenCalled()
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('[security-pr-review]')
+    )
+  })
+
+  it('only upserts the summary comment authored by the bot, never a human quoting the marker', async () => {
+    findById.mockResolvedValue(scanRow())
+    listIssue.mockResolvedValue([
+      {
+        id: 20,
+        body: `I quoted the marker: ${SUMMARY_MARKER}`,
+        user: { id: 3, type: 'User', login: 'alice' },
+      },
+      {
+        id: 21,
+        body: `old summary\n${SUMMARY_MARKER}`,
+        user: { id: 99, type: 'Bot', login: 'lumo-bot[bot]' },
+      },
+    ])
+    const res = await securityPrReviewService.sync('s1')
+    expect(res.posted).toBe(true)
+    expect(createIssue).not.toHaveBeenCalled()
+    expect(updateIssue).toHaveBeenCalledWith(
+      expect.objectContaining({ externalId: '21' })
+    )
+  })
+
+  it('creates a new summary comment when only a human comment carries the marker', async () => {
+    findById.mockResolvedValue(scanRow())
+    listIssue.mockResolvedValue([
+      {
+        id: 30,
+        body: `I quoted the marker: ${SUMMARY_MARKER}`,
+        user: { id: 3, type: 'User', login: 'alice' },
+      },
+    ])
+    const res = await securityPrReviewService.sync('s1')
+    expect(res.posted).toBe(true)
+    expect(createIssue).toHaveBeenCalled()
+    expect(updateIssue).not.toHaveBeenCalled()
   })
 
   it('a 404 (PR gone / app uninstalled) returns posted:false and never throws', async () => {

@@ -279,7 +279,12 @@ export const securityPrReviewService = {
         prNumber: pr.number,
         token,
       })
-      const mine = issueComments.find(c => c.body.includes(SUMMARY_MARKER))
+      // A human quoting the marker in a comment must never be mistaken for
+      // Lumo's own summary — only the bot-authored comment is eligible for
+      // the upsert; anything else falls through to creating a fresh one.
+      const mine = issueComments.find(
+        c => c.body.includes(SUMMARY_MARKER) && c.user.type === 'Bot'
+      )
       if (mine) {
         await prCommentClient.updateIssueComment({
           repo,
@@ -314,12 +319,14 @@ export const securityPrReviewService = {
           })
           inline = selected.length
         } catch (error) {
+          // Whatever the failure, none of `selected` made it onto the PR —
+          // count them as skipped either way so the next sync retries them.
           // 422 is GitHub refusing a line that is not in the diff it sees
-          // (a stale sha, a file collapsed as too large). The summary is
-          // already out, so the scan is still visible on the PR: warn and
-          // let the next sync try again.
+          // (a stale sha, a file collapsed as too large): the summary is
+          // already out, so warn and let the next sync try again. Any other
+          // error is unexpected and rethrown to the outer catch below.
+          skipped += selected.length
           if (error instanceof GithubApiError && error.status === 422) {
-            skipped += selected.length
             logger.warn(
               `[security-pr-review] review rejected ${where}: ${describe(error)}`
             )
