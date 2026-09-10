@@ -238,7 +238,7 @@ export interface TaskStatusResponse {
     scans?: Array<{
       prNumber: number
       status: 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
-      stages: Partial<Record<'secrets' | 'external' | 'judge', string>>
+      stages: Partial<Record<'secrets' | 'external' | 'judge' | 'hunt', string>>
       partial: boolean
       error: string | null
       externalFindings: number
@@ -300,15 +300,16 @@ function pushSecurityActions(
 /** Fail-closed security coverage lines (LUM-737): a failed read and every
  *  open PR without a successful scan are stated, never left silent. */
 const EXTERNAL_ERROR_TAIL = 200
-const SCAN_STAGE_ORDER = ['secrets', 'external', 'judge'] as const
+const SCAN_STAGE_ORDER = ['secrets', 'external', 'judge', 'hunt'] as const
 
 type ScanSummary = NonNullable<
   NonNullable<TaskStatusResponse['securityFindings']>['scans']
 >[number]
 
 /** LUM-735 — one line per linked PR's latest scan: `PR #945 · scan CLEAN ·
- *  secrets RAN · external RAN (2 external findings) · judge RAN`. Stage
- *  segments only for keys present, in secrets/external/judge order; the
+ *  secrets RAN · external RAN (2 external findings) · judge RAN · hunt RAN`.
+ *  Stage segments only for keys present, in secrets/external/judge/hunt
+ *  order (LUM-739 added the hunt layer); the
  *  `(N external findings)` count only decorates the external segment, and
  *  only when N > 0. */
 function formatScanSummaryLine(s: ScanSummary): string {

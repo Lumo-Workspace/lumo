@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "Patrones de secretos",
   "securityScan.stage.external": "Escáner externo",
   "securityScan.stage.judge": "Revisión LLM",
+  "securityScan.stage.hunt": "Búsqueda de vulnerabilidades",
   "securityScan.stageState.FAILED": "falló",
   "securityScan.stageState.NOT_CONFIGURED": "no configurado",
   "securityScan.stageState.PARTIAL": "parcial",

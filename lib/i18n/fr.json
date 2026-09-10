@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "Motifs de secrets",
   "securityScan.stage.external": "Scanner externe",
   "securityScan.stage.judge": "Revue LLM",
+  "securityScan.stage.hunt": "Chasse aux vulnérabilités",
   "securityScan.stageState.FAILED": "échec",
   "securityScan.stageState.NOT_CONFIGURED": "non configuré",
   "securityScan.stageState.PARTIAL": "partiel",

@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "Pola rahasia",
   "securityScan.stage.external": "Pemindai eksternal",
   "securityScan.stage.judge": "Tinjauan LLM",
+  "securityScan.stage.hunt": "Perburuan kerentanan",
   "securityScan.stageState.FAILED": "gagal",
   "securityScan.stageState.NOT_CONFIGURED": "belum dikonfigurasi",
   "securityScan.stageState.PARTIAL": "sebagian",

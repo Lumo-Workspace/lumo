@@ -280,6 +280,20 @@ on. Reports are attributed to the workspace that owns the `PullRequest` row
 they land on, so re-linking a repository to another workspace leaves the old
 workspace's existing PR rows (and their findings) where they are.
 
+**Unknown-vulnerability hunt (L3).** When a pull request touches an API
+route or server action, a dangerous call (raw SQL, child processes, `fetch`,
+`eval`, file writes, LLM calls) or an authentication / validation check, Lumo
+builds an in-memory call subgraph of the touched TypeScript files plus their
+direct imports, sends that map — and, on demand, the touched files — to the
+model gateway for a bounded hunt across six checklists (IDOR, injection,
+SSRF, prompt injection, races, business logic), mechanically checks every
+candidate against the subgraph (symbols, line numbers and the full call
+chain must exist), and lets a second model try to refute what survives.
+Only unrefuted candidates become findings, always advisory: they never block
+Done. Budget ≤ 150k tokens / 200 s per scan; nothing from the repository is
+stored beyond the finding's symbols, line numbers and redacted text. Set
+`LUMO_SECURITY_HUNT=off` to disable the hunt for a deployment.
+
 **Trust boundary.** The managed scan uses the App's existing `Contents: read`
 permission — no new GitHub permission is requested — and the clone lives only
 inside the one-shot Vercel Sandbox VM for the duration of the scan before the

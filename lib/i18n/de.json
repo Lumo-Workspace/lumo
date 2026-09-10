@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "Geheimnis-Muster",
   "securityScan.stage.external": "Externer Scanner",
   "securityScan.stage.judge": "LLM-Prüfung",
+  "securityScan.stage.hunt": "Schwachstellensuche",
   "securityScan.stageState.FAILED": "fehlgeschlagen",
   "securityScan.stageState.NOT_CONFIGURED": "nicht konfiguriert",
   "securityScan.stageState.PARTIAL": "unvollständig",

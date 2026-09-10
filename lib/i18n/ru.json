@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "Шаблоны секретов",
   "securityScan.stage.external": "Внешний сканер",
   "securityScan.stage.judge": "Проверка LLM",
+  "securityScan.stage.hunt": "Поиск уязвимостей",
   "securityScan.stageState.FAILED": "сбой",
   "securityScan.stageState.NOT_CONFIGURED": "не настроено",
   "securityScan.stageState.PARTIAL": "частично",

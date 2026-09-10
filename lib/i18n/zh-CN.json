@@ -2266,6 +2266,7 @@
   "securityScan.stage.secrets": "密钥指纹",
   "securityScan.stage.external": "外部扫描器",
   "securityScan.stage.judge": "LLM 评审",
+  "securityScan.stage.hunt": "漏洞猎捕",
   "securityScan.stageState.FAILED": "失败",
   "securityScan.stageState.NOT_CONFIGURED": "未接入",
   "securityScan.stageState.PARTIAL": "部分",

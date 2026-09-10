@@ -198,7 +198,7 @@ function SecurityScanPanel({
 }
 
 /** Layers worth a line: anything not RAN / SKIPPED. Order is the pipeline's. */
-const STAGE_ORDER: ScanStageKey[] = ['secrets', 'external', 'judge']
+const STAGE_ORDER: ScanStageKey[] = ['secrets', 'external', 'judge', 'hunt']
 
 function StagesSummary({ stages }: { stages: ScanStages }) {
   const intl = useIntl()
