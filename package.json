@@ -113,6 +113,7 @@
     "@vercel/blob": "^2.3.2",
     "@vercel/functions": "^3.4.3",
     "@vercel/kv": "^3.0.0",
+    "@vercel/sandbox": "^3.2.2",
     "ai": "^6.0.146",
     "autoprefixer": "^10.4.27",
     "chat": "^4.23.0",

@@ -106,7 +106,7 @@ export interface PersistInput {
   pr: ResolvedPr
   repository: string
   prNumber: number
-  auth: 'key' | 'oidc'
+  auth: 'key' | 'oidc' | 'managed'
   tool: string
   tools: string[]
   findings: RawSarifFinding[]
