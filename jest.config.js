@@ -40,6 +40,9 @@ const customJestConfig = {
     // is a TypeScript plugin) — stub it; see __stubs__/workflow.ts.
     '^workflow$': '<rootDir>/__stubs__/workflow.ts',
     '^workflow/api$': '<rootDir>/__stubs__/workflow-api.ts',
+    // LUM-735 v5: `@vercel/sandbox` is ESM-only too; stage A reaches it
+    // transitively, so every suite needs the stub — see __stubs__/vercel-sandbox.ts.
+    '^@vercel/sandbox$': '<rootDir>/__stubs__/vercel-sandbox.ts',
   },
 }
 
