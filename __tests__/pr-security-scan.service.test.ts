@@ -1002,14 +1002,61 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
 
 // ── LUM-735 Task 2: PR write-back is fired from stage A ─────────────────────
 
-test('a finished scan hands the PR write-back to waitUntil', async () => {
+test('a finished scan whose external rows are already in hands the PR write-back to waitUntil', async () => {
   fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+  // external rows present → stage A starts no managed run, so nobody else is
+  // going to post: stage A owns this summary.
+  repo.countExternalFindings.mockResolvedValue(2)
   await prSecurityScanService.run({
     pullRequestId: 'pr1',
     trigger: 'PR_EVENT',
   })
   expect(syncReview).toHaveBeenCalledWith('s1')
   expect(waitUntilMock).toHaveBeenCalledWith(syncReview.mock.results[0]!.value)
+})
+
+test('a scan that just started a managed run does NOT post — the workflow will', async () => {
+  // Otherwise every managed scan puts two summaries on the PR: stage A's
+  // (external still PENDING, no external findings) and, a minute later, the
+  // workflow's. The marker upsert dedupes across syncs, not against one that
+  // has not happened yet.
+  fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+  repo.countExternalFindings.mockResolvedValue(0)
+  startManaged.mockResolvedValue('run_1')
+  await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+  })
+  expect(startManaged).toHaveBeenCalled()
+  expect(syncReview).not.toHaveBeenCalled()
+})
+
+test('a managed run that could not be queued leaves the write-back to stage A', async () => {
+  fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+  repo.countExternalFindings.mockResolvedValue(0)
+  startManaged.mockResolvedValue(null)
+  await prSecurityScanService.run({
+    pullRequestId: 'pr1',
+    trigger: 'PR_EVENT',
+  })
+  expect(syncReview).toHaveBeenCalledWith('s1')
+})
+
+test('with the managed scan off, stage A posts the summary itself', async () => {
+  const previous = process.env.LUMO_MANAGED_SCAN
+  process.env.LUMO_MANAGED_SCAN = 'off'
+  try {
+    fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(startManaged).not.toHaveBeenCalled()
+    expect(syncReview).toHaveBeenCalledWith('s1')
+  } finally {
+    if (previous === undefined) delete process.env.LUMO_MANAGED_SCAN
+    else process.env.LUMO_MANAGED_SCAN = previous
+  }
 })
 
 test('a FAILED scan still hands the PR write-back to waitUntil (P9)', async () => {

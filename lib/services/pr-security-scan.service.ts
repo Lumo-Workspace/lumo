@@ -391,6 +391,12 @@ export const prSecurityScanService = {
       // PENDING if this repo has ever pushed SARIF before (CI is presumably
       // still running for this sha), else NOT_CONFIGURED.
       let externalCount = 0
+      // LUM-735 Task 2: did THIS stage A queue the managed run? If it did, the
+      // run's own `sync` will post the summary a minute from now with the
+      // external findings on it — posting one here as well would put a second,
+      // already-stale summary on the PR (the marker upsert only dedupes across
+      // syncs, not against a sync that has not happened yet).
+      let managedRunStarted = false
       try {
         externalCount =
           await prSecurityScanRepository.countExternalFindings(scanId)
@@ -411,6 +417,7 @@ export const prSecurityScanService = {
             headSha,
           })
           stages.external = runId ? 'PENDING' : 'FAILED'
+          managedRunStarted = Boolean(runId)
         } else {
           const last = await projectRepository.findLastSarifIngestAt(
             pr.workspaceId,
@@ -420,6 +427,8 @@ export const prSecurityScanService = {
         }
       } catch (error) {
         stages.external = 'FAILED'
+        // Nothing is going to sync on our behalf after a failure here.
+        managedRunStarted = false
         logger.warn(
           `[pr-security-scan] external stage lookup failed pr=${pr.id}:`,
           error instanceof Error ? error.message : error
@@ -516,7 +525,9 @@ export const prSecurityScanService = {
       // LUM-735 Task 2: the findings are on the row — put them on the PR.
       // Best-effort like the dispatchers: `sync` never throws, and the
       // markers make a repeat (from a workflow) comment-free.
-      waitUntil(securityPrReviewService.sync(scanId))
+      // Skipped when this run queued the managed scan: that workflow syncs
+      // once it has persisted, and one summary per scan is the contract.
+      if (!managedRunStarted) waitUntil(securityPrReviewService.sync(scanId))
       return { deduped: false, scanId, status, findings: rows.length }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)

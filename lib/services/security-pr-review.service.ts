@@ -10,7 +10,11 @@
  *
  * P8: only already-redacted fields reach a body — `title`, `detail`,
  * `ruleId`, `filePath`, `line`, `severity`, `provenance`, `externalRef`.
- * `evidence` is loaded with the row and deliberately never rendered.
+ * `evidence` is not even loaded: `findByIdForReview` selects the review's
+ * columns and leaves that one behind, so the red line is structural.
+ * The external-failure reason is the other half of P8 — only the workflow's
+ * scrubbed text (marked by `EXTERNAL_ERROR_PREFIX`) is ever published;
+ * stage A's raw `error.message` carries no prefix and stays off the PR.
  *
  * Layering: service — GitHub through `@/lib/integrations/github`, the database
  * through the repository, no Prisma and no HTTP of its own. No LLM import, so
@@ -25,12 +29,17 @@ import {
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import type {
   FindingProvenance,
-  FindingRow,
   FindingSeverity,
+  ReviewFindingRow,
   ScanForReview,
 } from '@/lib/repositories/pr-security-scan.repository'
 import { isBlockingFinding } from '@/lib/services/pr-security-scan-gate'
-import type { ScanStageKey, ScanStages } from '@/lib/security-scan/types'
+import {
+  INCOMPLETE_STAGE_STATES,
+  type ScanStageKey,
+  type ScanStages,
+} from '@/lib/security-scan/types'
+import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import { resolvePublicUrl } from '@/lib/utils/public-url'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
@@ -106,7 +115,7 @@ export function provenanceLabel(f: {
 }
 
 export type InlineFinding = Pick<
-  FindingRow,
+  ReviewFindingRow,
   | 'provenance'
   | 'ruleId'
   | 'severity'
@@ -135,12 +144,41 @@ export function buildInlineComment(f: InlineFinding): string {
 export interface SummaryInput {
   headSha: string
   stages: ScanStages
+  /** A layer hit its cap: the findings are honest but not the whole story. */
+  partial: boolean
   /** Findings per external tool, from the `ext:<tool>:` prefix. */
   externalCounts: Record<string, number>
   open: number
   blocking: number
   error: string | null
   taskUrl: string | null
+}
+
+/**
+ * "Nothing open" only means "clean" when every layer actually finished. A
+ * PENDING external stage or a truncated diff would otherwise read as an
+ * all-clear on the PR (spec P9), which is the one thing the summary must
+ * never say by accident.
+ */
+function isIncomplete(stages: ScanStages, partial: boolean): boolean {
+  if (partial) return true
+  for (const state of Object.values(stages)) {
+    if (state && INCOMPLETE_STAGE_STATES.has(state)) return true
+  }
+  return false
+}
+
+/**
+ * P8 — the scrubbed reason, or null. `error` is one column with two writers:
+ * the ingest workflow (scrubbed, prefixed) and stage A's own catch-all (a raw
+ * `error.message`). Only the prefixed one may be published, and only the text
+ * after the prefix is printed.
+ */
+function externalFailureReason(input: SummaryInput): string | null {
+  if (input.stages.external !== 'FAILED') return null
+  if (!input.error?.startsWith(EXTERNAL_ERROR_PREFIX)) return null
+  const reason = input.error.slice(EXTERNAL_ERROR_PREFIX.length)
+  return reason.length > 0 ? reason : null
 }
 
 function stageLine(
@@ -174,12 +212,13 @@ export function buildSummary(input: SummaryInput): string {
     const blocking =
       input.blocking > 0 ? ` (${input.blocking} blocking DONE)` : ''
     blocks.push(`**${input.open} open ${noun}**${blocking}`)
+  } else if (isIncomplete(input.stages, input.partial)) {
+    blocks.push('No open findings yet — the scan is still incomplete.')
   } else {
     blocks.push('No open findings on lines this PR added.')
   }
-  if (input.stages.external === 'FAILED' && input.error) {
-    blocks.push(`⚠ External scanner failed: ${input.error}`)
-  }
+  const reason = externalFailureReason(input)
+  if (reason) blocks.push(`⚠ External scanner failed: ${reason}`)
   if (input.taskUrl) blocks.push(`[Open in Lumo](${input.taskUrl})`)
   blocks.push(SUMMARY_MARKER)
   return blocks.join('\n\n')
@@ -268,6 +307,7 @@ export const securityPrReviewService = {
       const summary = buildSummary({
         headSha: scan.headSha,
         stages: scan.stages ?? {},
+        partial: scan.partial,
         externalCounts,
         open: open.length,
         blocking,
@@ -282,8 +322,10 @@ export const securityPrReviewService = {
       // A human quoting the marker in a comment must never be mistaken for
       // Lumo's own summary — only the bot-authored comment is eligible for
       // the upsert; anything else falls through to creating a fresh one.
+      // `user` is null on comments whose account has since been deleted, so
+      // the read is optional: such a comment is simply not ours.
       const mine = issueComments.find(
-        c => c.body.includes(SUMMARY_MARKER) && c.user.type === 'Bot'
+        c => c.body.includes(SUMMARY_MARKER) && c.user?.type === 'Bot'
       )
       if (mine) {
         await prCommentClient.updateIssueComment({

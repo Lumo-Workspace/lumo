@@ -9,8 +9,22 @@ import { prCommentClient } from '@/lib/integrations/github/pr-comment-client'
 
 const repo = { owner: 'o', name: 'r' }
 
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status })
+function json(
+  body: unknown,
+  status = 200,
+  headers: HeadersInit = {}
+): Response {
+  return new Response(JSON.stringify(body), { status, headers })
+}
+
+/** GitHub's paging header, as it comes back on page 1 of a multi-page listing. */
+function linkHeader(base: string, last: number): HeadersInit {
+  return {
+    Link: [
+      `<${base}?per_page=100&page=2>; rel="next"`,
+      `<${base}?per_page=100&page=${last}>; rel="last"`,
+    ].join(', '),
+  }
 }
 
 /** `n` listed comments whose ids start at `from`. */
@@ -69,23 +83,58 @@ describe('prCommentClient review endpoints', () => {
     expect(res.id).toBe(42)
   })
 
-  it('listIssueComments walks pages until a short one and concatenates them', async () => {
+  // `/issues/{n}/comments` ignores sort/direction — it is always oldest-first
+  // — so the walk has to run BACKWARDS from the `Link` header's last page,
+  // or Lumo's own summary (one of the newest comments) falls outside the
+  // window on a busy PR.
+  it('listIssueComments walks backwards from the Link header’s last page', async () => {
+    const base = 'https://api.github.com/repos/o/r/issues/7/comments'
     fetchSpy
-      .mockResolvedValueOnce(json(page(100, 1)))
-      .mockResolvedValueOnce(json(page(3, 101)))
+      .mockResolvedValueOnce(json(page(100, 1), 200, linkHeader(base, 3)))
+      .mockResolvedValueOnce(json(page(4, 201))) // page 3 (newest)
+      .mockResolvedValueOnce(json(page(100, 101))) // page 2
     const rows = await prCommentClient.listIssueComments({
       repo,
       prNumber: 7,
       token: 'tok',
     })
-    expect(rows).toHaveLength(103)
+    expect(rows).toHaveLength(204)
+    // Newest first: page 3, then 2, then the page-1 rows already in hand.
+    expect(rows[0]!.id).toBe(201)
+    expect(rows[4]!.id).toBe(101)
+    expect(rows[104]!.id).toBe(1)
     expect(fetchSpy.mock.calls.map(c => c[0])).toEqual([
-      'https://api.github.com/repos/o/r/issues/7/comments?per_page=100&page=1&sort=created&direction=desc',
-      'https://api.github.com/repos/o/r/issues/7/comments?per_page=100&page=2&sort=created&direction=desc',
+      `${base}?per_page=100&page=1`,
+      `${base}?per_page=100&page=3`,
+      `${base}?per_page=100&page=2`,
     ])
+    // sort/direction are gone: the endpoint ignores them, and asking for
+    // them read as a guarantee it does not give.
+    for (const [url] of fetchSpy.mock.calls) {
+      expect(url).not.toContain('sort=')
+      expect(url).not.toContain('direction=')
+    }
   })
 
-  it('listIssueComments stops after one request when the first page is short', async () => {
+  it('listIssueComments reads at most MAX_COMMENT_PAGES, the newest ones', async () => {
+    const base = 'https://api.github.com/repos/o/r/issues/7/comments'
+    fetchSpy.mockResolvedValueOnce(
+      json(page(100, 1), 200, linkHeader(base, 25))
+    )
+    for (let i = 0; i < 10; i += 1) {
+      fetchSpy.mockResolvedValueOnce(json(page(100, 1000 + i * 100)))
+    }
+    await prCommentClient.listIssueComments({ repo, prNumber: 7, token: 'tok' })
+    // 1 probe + 10 pages, walked 25 → 16 and stopping there.
+    expect(fetchSpy).toHaveBeenCalledTimes(11)
+    expect(fetchSpy.mock.calls.slice(1).map(c => c[0])).toEqual(
+      [25, 24, 23, 22, 21, 20, 19, 18, 17, 16].map(
+        p => `${base}?per_page=100&page=${p}`
+      )
+    )
+  })
+
+  it('listIssueComments stops after one request when there is no next page', async () => {
     fetchSpy.mockResolvedValueOnce(json(page(2, 1)))
     const rows = await prCommentClient.listIssueComments({
       repo,

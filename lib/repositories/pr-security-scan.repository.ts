@@ -100,24 +100,44 @@ export interface ScanWithFindings {
 }
 
 /**
+ * LUM-735 Task 2 — the finding columns the PR write-back renders, and only
+ * those. `evidence` is absent by construction: P8's red line stops being a
+ * rule the builder has to remember and becomes a column the query never
+ * loads. `status` / `taskId` are not here either — the write-back reads
+ * `stages` + `partial` for completeness and `task` for the Lumo link (ISP).
+ */
+export type ReviewFindingRow = Pick<
+  FindingRow,
+  | 'id'
+  | 'kind'
+  | 'ruleId'
+  | 'severity'
+  | 'provenance'
+  | 'filePath'
+  | 'line'
+  | 'title'
+  | 'detail'
+  | 'fingerprint'
+  | 'externalRef'
+  | 'disposition'
+>
+
+/**
  * LUM-735 Task 2 — one scan with everything the PR write-back renders: its
  * findings, the PR to comment on, and the task/workspace the "Open in Lumo"
- * link points at. `evidence` rides along on the findings (it is a column of
- * the row) but P8 forbids the review builder from ever putting it in a body.
+ * link points at.
  */
 export interface ScanForReview {
   id: string
   headSha: string
-  status: ScanStatus
   stages: ScanStages | null
   partial: boolean
   error: string | null
-  findings: FindingRow[]
+  findings: ReviewFindingRow[]
   pullRequest: {
     repo: string
     number: number
     workspaceId: string
-    taskId: string | null
     task: { number: number; team: { identifier: string } } | null
     workspace: { slug: string }
   }
@@ -506,21 +526,45 @@ export const prSecurityScanRepository = {
   },
 
   /**
-   * LUM-735 Task 2 — the whole scan as the PR write-back needs it. Read-only
-   * projection; every decision (which findings get a comment, what the summary
-   * says) belongs to `securityPrReviewService`.
+   * LUM-735 Task 2 — the scan as the PR write-back needs it, and nothing more
+   * (ISP). Read-only projection; every decision (which findings get a comment,
+   * what the summary says) belongs to `securityPrReviewService`.
+   *
+   * P8: the finding `select` deliberately omits `evidence`, so the review path
+   * cannot leak a column it never reads. `orderBy` on `createdAt` does not
+   * require selecting it.
    */
   async findByIdForReview(scanId: string): Promise<ScanForReview | null> {
     const row = await prisma.prSecurityScan.findUnique({
       where: { id: scanId },
-      include: {
-        findings: { orderBy: { createdAt: 'asc' } },
+      select: {
+        id: true,
+        headSha: true,
+        stages: true,
+        partial: true,
+        error: true,
+        findings: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            kind: true,
+            ruleId: true,
+            severity: true,
+            provenance: true,
+            filePath: true,
+            line: true,
+            title: true,
+            detail: true,
+            fingerprint: true,
+            externalRef: true,
+            disposition: true,
+          },
+        },
         pullRequest: {
           select: {
             repo: true,
             number: true,
             workspaceId: true,
-            taskId: true,
             task: {
               select: { number: true, team: { select: { identifier: true } } },
             },

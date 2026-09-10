@@ -53,7 +53,7 @@ import {
 import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { logger } from '@/lib/logger'
-import type { FindingRow } from '@/lib/repositories/pr-security-scan.repository'
+import type { ReviewFindingRow } from '@/lib/repositories/pr-security-scan.repository'
 
 const findById = prSecurityScanRepository.findByIdForReview as jest.Mock
 const token = getGithubInstallationToken as jest.Mock
@@ -66,10 +66,14 @@ const createReview = prCommentClient.createReview as jest.Mock
 /** A plaintext AWS-shaped key: the RED LINE fixture — must never leave Lumo. */
 const PLAINTEXT_KEY = 'AKIAIOSFODNN7EXAMPLE'
 
-function finding(over: Partial<FindingRow> = {}): FindingRow {
+/**
+ * The row shape `findByIdForReview` actually returns: no `evidence` column at
+ * all (the select leaves it behind), which is what makes the RED LINE
+ * structural rather than a rule the builder has to remember.
+ */
+function finding(over: Partial<ReviewFindingRow> = {}): ReviewFindingRow {
   return {
     id: 'f1',
-    scanId: 's1',
     kind: 'SECRET',
     ruleId: 'secret:aws-access-key',
     severity: 'HIGH',
@@ -78,15 +82,9 @@ function finding(over: Partial<FindingRow> = {}): FindingRow {
     line: 12,
     title: 'Hardcoded AWS access key',
     detail: 'Move it to an env var and rotate the key.',
-    evidence: 'const k = "AKIA…REDACTED"',
     fingerprint: 'fp1',
     externalRef: null,
     disposition: null,
-    dispositionNote: null,
-    dispositionedById: null,
-    dispositionedAt: null,
-    inheritedFromFindingId: null,
-    createdAt: new Date('2026-09-10T00:00:00.000Z'),
     ...over,
   }
 }
@@ -95,7 +93,6 @@ function scanRow(over: Record<string, unknown> = {}) {
   return {
     id: 's1',
     headSha: 'abcdef1234567890abcdef1234567890abcdef12',
-    status: 'FINDINGS',
     stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
     partial: false,
     error: null,
@@ -104,7 +101,6 @@ function scanRow(over: Record<string, unknown> = {}) {
       repo: 'acme/app',
       number: 945,
       workspaceId: 'w1',
-      taskId: 't1',
       task: { number: 735, team: { identifier: 'LUM' } },
       workspace: { slug: 'acme' },
     },
@@ -219,6 +215,7 @@ describe('pure builders', () => {
       buildSummary({
         headSha: 'abcdef1234567890',
         stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
+        partial: false,
         externalCounts: { semgrep: 3, gitleaks: 1 },
         open: 4,
         blocking: 1,
@@ -233,7 +230,7 @@ describe('pure builders', () => {
         '',
         '**4 open findings** (1 blocking DONE)',
         '',
-        '⚠ External scanner failed: external: semgrep exit 2',
+        '⚠ External scanner failed: semgrep exit 2',
         '',
         '[Open in Lumo](https://www.uselumo.ai/workspace/acme/my-tasks/LUM-735)',
         '',
@@ -247,6 +244,7 @@ describe('pure builders', () => {
       buildSummary({
         headSha: 'abcdef1234567890',
         stages: { secrets: 'RAN' },
+        partial: false,
         externalCounts: {},
         open: 0,
         blocking: 0,
@@ -264,6 +262,53 @@ describe('pure builders', () => {
         SUMMARY_MARKER,
       ].join('\n')
     )
+  })
+
+  it('never calls an incomplete scan clean — a pending layer says "yet"', () => {
+    expect(
+      buildSummary({
+        headSha: 'abcdef1234567890',
+        stages: { secrets: 'RAN', external: 'PENDING' },
+        partial: false,
+        externalCounts: {},
+        open: 0,
+        blocking: 0,
+        error: null,
+        taskUrl: null,
+      })
+    ).toContain('No open findings yet — the scan is still incomplete.')
+  })
+
+  it('a partial scan says "yet" too, even with every layer RAN', () => {
+    const body = buildSummary({
+      headSha: 'abcdef1234567890',
+      stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+      partial: true,
+      externalCounts: {},
+      open: 0,
+      blocking: 0,
+      error: null,
+      taskUrl: null,
+    })
+    expect(body).toContain(
+      'No open findings yet — the scan is still incomplete.'
+    )
+    expect(body).not.toContain('No open findings on lines this PR added.')
+  })
+
+  it('P8: an error without the external prefix is never published as a scanner reason', () => {
+    const body = buildSummary({
+      headSha: 'abcdef1234567890',
+      stages: { secrets: 'RAN', external: 'FAILED' },
+      partial: false,
+      externalCounts: {},
+      open: 1,
+      blocking: 0,
+      error: 'TypeError: Cannot read properties of undefined',
+      taskUrl: null,
+    })
+    expect(body).not.toContain('External scanner failed')
+    expect(body).not.toContain('TypeError')
   })
 
   it('parses fingerprint markers out of arbitrary comment bodies', () => {
@@ -401,7 +446,7 @@ describe('securityPrReviewService.sync', () => {
   })
 
   it('posts summary only (no review) when the scan has no findings', async () => {
-    findById.mockResolvedValue(scanRow({ status: 'CLEAN', findings: [] }))
+    findById.mockResolvedValue(scanRow({ findings: [] }))
     const res = await securityPrReviewService.sync('s1')
     expect(res).toEqual({ posted: true, inline: 0, skipped: 0 })
     expect(createReview).not.toHaveBeenCalled()
@@ -450,17 +495,46 @@ describe('securityPrReviewService.sync', () => {
     )
   })
 
-  it('adds the external-failure line when the external stage FAILED', async () => {
+  it('adds the external-failure line, prefix stripped, when the workflow scrubbed a reason', async () => {
     findById.mockResolvedValue(
       scanRow({
         stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
-        error: 'external: semgrep exit 2',
+        error: 'external: semgrep exit 90',
       })
     )
     await securityPrReviewService.sync('s1')
     expect(createIssue.mock.calls[0][0].body).toContain(
-      '⚠ External scanner failed: external: semgrep exit 2'
+      '⚠ External scanner failed: semgrep exit 90'
     )
+  })
+
+  it('P8: stage A’s own raw error is never published as an external-scanner reason', async () => {
+    // Stage A can stamp stages.external=FAILED and, on its catch-all path,
+    // write an unscrubbed `error.message` into the same column. Only the
+    // workflow's prefixed, scrubbed text may reach the PR.
+    findById.mockResolvedValue(
+      scanRow({
+        stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
+        error: 'TypeError: boom',
+      })
+    )
+    await securityPrReviewService.sync('s1')
+    const body = createIssue.mock.calls[0][0].body
+    expect(body).not.toContain('External scanner failed')
+    expect(body).not.toContain('TypeError: boom')
+    // The stage line still says FAILED — the fact is published, the text is not.
+    expect(body).toContain('external: FAILED')
+  })
+
+  it('a comment whose author was deleted (user: null) is skipped, not thrown on', async () => {
+    findById.mockResolvedValue(scanRow())
+    listIssue.mockResolvedValue([
+      { id: 40, body: `ghost quoted it: ${SUMMARY_MARKER}`, user: null },
+    ])
+    const res = await securityPrReviewService.sync('s1')
+    expect(res.posted).toBe(true)
+    expect(updateIssue).not.toHaveBeenCalled()
+    expect(createIssue).toHaveBeenCalled()
   })
 
   it('omits the Lumo link when the PR is not linked to a task', async () => {
@@ -470,7 +544,6 @@ describe('securityPrReviewService.sync', () => {
           repo: 'acme/app',
           number: 945,
           workspaceId: 'w1',
-          taskId: null,
           task: null,
           workspace: { slug: 'acme' },
         },
@@ -593,13 +666,16 @@ describe('securityPrReviewService.sync', () => {
   })
 
   it('RED LINE: a finding’s evidence never reaches any GitHub request body', async () => {
+    // `findByIdForReview` does not select `evidence`, so this fixture is
+    // deliberately MORE hostile than production: the column is forced back
+    // onto the row to prove the builders would still not render it.
     findById.mockResolvedValue(
       scanRow({
         findings: [
-          finding({
+          {
+            ...finding({ detail: 'Rotate this credential.' }),
             evidence: `const key = "${PLAINTEXT_KEY}"`,
-            detail: 'Rotate this credential.',
-          }),
+          },
         ],
       })
     )

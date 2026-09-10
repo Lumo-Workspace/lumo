@@ -13,6 +13,21 @@
  */
 import type { ScanStages } from './types'
 
+/**
+ * P8 — the ONLY `error` shape that may be published as an external-scanner
+ * reason. The ingest workflow scrubs its reason (`reasonOf` / `scrubToken`)
+ * and `markExternalFailed` stamps this prefix on the scrubbed text, so the
+ * prefix is the proof of provenance.
+ *
+ * Stage A also stamps `stages.external = 'FAILED'` (a lookup or a failed
+ * managed-scan start) and, on its own catch-all path, writes a RAW
+ * `error.message` into the same column. That text is unscrubbed, carries no
+ * prefix, and must therefore never reach a PR comment: every renderer of the
+ * external-failure line checks `startsWith(EXTERNAL_ERROR_PREFIX)` first and
+ * prints only what follows it.
+ */
+export const EXTERNAL_ERROR_PREFIX = 'external: '
+
 export interface StagesOfScanInput {
   stages: ScanStages | null
   judgeStatus: 'RAN' | 'UNAVAILABLE' | 'SKIPPED' | null

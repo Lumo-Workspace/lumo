@@ -325,11 +325,40 @@ test('external stage FAILED renders the prefixed failure reason even when the sc
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
   const reason = screen.getByTestId('external-failed-reason')
-  expect(reason).toHaveTextContent(
-    'External scanner failed: external: semgrep exit 90'
-  )
+  expect(reason).toHaveTextContent('External scanner failed: semgrep exit 90')
   // Not the FAILED-scan branch too — the reason renders exactly once.
-  expect(screen.getAllByText(/external: semgrep exit 90/)).toHaveLength(1)
+  expect(screen.getAllByText(/semgrep exit 90/)).toHaveLength(1)
+})
+
+test('P8: an external failure whose error lacks the prefix renders no reason at all', () => {
+  // Stage A stamps stages.external=FAILED on its own lookup failure and, on
+  // its catch-all path, writes a RAW error.message into the same column. Only
+  // the ingest workflow's scrubbed, prefixed text may be shown as the
+  // scanner's reason.
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            status: 'CLEAN',
+            findings: [],
+            stages: { secrets: 'RAN', external: 'FAILED', judge: 'RAN' },
+            complete: false,
+            error: 'TypeError: boom',
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.queryByTestId('external-failed-reason')).toBeNull()
+  expect(screen.queryByText(/TypeError: boom/)).toBeNull()
+  // The stage line still says the layer failed — the fact, not the text.
+  expect(screen.getByTestId('scan-stages')).toBeInTheDocument()
 })
 
 test('a FAILED scan whose external stage also FAILED renders the reason once, prefixed', () => {
@@ -353,9 +382,9 @@ test('a FAILED scan whose external stage also FAILED renders the reason once, pr
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getAllByText(/external: semgrep exit 90/)).toHaveLength(1)
+  expect(screen.getAllByText(/semgrep exit 90/)).toHaveLength(1)
   expect(screen.getByTestId('external-failed-reason')).toHaveTextContent(
-    'External scanner failed: external: semgrep exit 90'
+    'External scanner failed: semgrep exit 90'
   )
 })
 
