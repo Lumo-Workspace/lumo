@@ -13,6 +13,9 @@ export type FindingKind = 'SECRET' | 'VULNERABILITY'
 export type FindingSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 export type FindingProvenance = 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
 export type FindingDisposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
+// LUM-739 — mirror the Prisma enums as string unions (same style as above).
+export type FindingReachability = 'EXTERNAL' | 'INTERNAL' | 'UNKNOWN'
+export type FalsifierVerdict = 'REJECT' | 'INCONCLUSIVE'
 
 export interface NewScanInput {
   pullRequestId: string
@@ -42,6 +45,20 @@ export interface NewFindingInput {
   dispositionedById?: string | null
   dispositionedAt?: Date | null
   inheritedFromFindingId?: string | null
+  // LUM-739 (hunt:* rows only). `callChain` is omitted rather than null —
+  // Prisma Json columns take `Prisma.JsonNull`, not a JS null.
+  cwe?: string | null
+  reachability?: FindingReachability | null
+  callChain?: Array<{ from: string; to: string }>
+  falsifierVerdict?: FalsifierVerdict | null
+}
+
+/** LUM-739 — what the hunt workflow writes back onto the scan row. */
+export interface PersistHuntResultInput {
+  hunt: 'RAN' | 'PARTIAL' | 'FAILED'
+  huntAudit: Record<string, unknown>
+  tokenSpent: number | null
+  partial: boolean
 }
 
 export interface FinalizeScanInput {
@@ -516,6 +533,43 @@ export const prSecurityScanRepository = {
           ...(extra.error !== undefined ? { error: extra.error } : {}),
         },
       })
+    })
+  },
+
+  /**
+   * LUM-739 — the hunt workflow's ONE write to the scan row plus its findings,
+   * in one transaction (same shape and lock order as `persistResult` /
+   * `mergeStages`: scan UPDATE first, then the rows). `stages.hunt` is
+   * merged, never replaced; `partial` stays monotone; `status` flips to
+   * FINDINGS only when rows land (a FAILED hunt writes no rows and changes no
+   * status). `huntAudit` / `tokenSpent` are overwritten — the run owns them.
+   */
+  async persistHuntResult(
+    scanId: string,
+    findings: NewFindingInput[],
+    final: PersistHuntResultInput
+  ): Promise<void> {
+    await withSerializableRetry(async tx => {
+      const current = await tx.prSecurityScan.findUnique({
+        where: { id: scanId },
+        select: { stages: true, partial: true },
+      })
+      const stages: ScanStages = {
+        ...((current?.stages as ScanStages | null) ?? {}),
+        hunt: final.hunt,
+      }
+      await tx.prSecurityScan.update({
+        where: { id: scanId },
+        data: {
+          stages,
+          partial: (current?.partial ?? false) || final.partial,
+          huntAudit: final.huntAudit as Prisma.InputJsonValue,
+          tokenSpent: final.tokenSpent,
+          ...(findings.length > 0 ? { status: 'FINDINGS' } : {}),
+        },
+      })
+      if (findings.length > 0)
+        await tx.prSecurityFinding.createMany({ data: findings })
     })
   },
 
