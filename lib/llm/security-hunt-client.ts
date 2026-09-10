@@ -112,7 +112,9 @@ Rules:
 6. Finish with exactly one submit_candidates call. An empty list is a valid, common answer.`
 
 function sumTokens(
-  steps: ReadonlyArray<{ usage?: { totalTokens?: number } }>
+  steps: ReadonlyArray<{
+    usage?: { totalTokens?: number | undefined } | undefined
+  }>
 ): number {
   let total = 0
   for (const s of steps) total += s.usage?.totalTokens ?? 0

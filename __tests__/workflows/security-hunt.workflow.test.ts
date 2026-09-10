@@ -84,6 +84,7 @@ const batch = (
     tokens: number
     elapsedMs: number
     stopped: string
+    error: string
   }> = {}
 ) => ({
   candidates: [],
