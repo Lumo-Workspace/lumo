@@ -2274,16 +2274,15 @@
   "securityScan.stageState.FAILED": "falló",
   "securityScan.stageState.NOT_CONFIGURED": "no configurado",
   "securityScan.stageState.PARTIAL": "parcial",
-  "securityScan.external.notConfigured": "Este repositorio nunca ha enviado un informe de escáner a Lumo, así que solo se ejecutaron las comprobaciones propias de Lumo. Un resultado limpio aquí no es una aprobación completa.",
-  "securityScan.external.notConfigured.link": "Crear una clave de ingesta de CI (solo CI que no sea GitHub)",
+  "securityScan.external.notConfigured": "El escáner gestionado de Lumo está desactivado para este despliegue y este repositorio nunca ha enviado un informe de escáner, así que solo se ejecutaron las comprobaciones propias de Lumo. Un resultado limpio aquí no es una aprobación completa.",
+  "securityScan.external.notConfigured.link": "Crear una clave de ingesta de CI (para enviar el SARIF de tu propio escáner)",
   "securityScan.finding.externalLink": "Ver documentación de la regla",
   "securityScan.partial": "Algunos resultados se cortaron al agotarse el presupuesto del análisis; el análisis no está completo.",
   "apiKeys.ingest.title": "Clave de ingesta de seguridad para CI",
   "apiKeys.ingest.description": "Solo es necesaria para CI fuera de GitHub Actions. Una clave que solo puede enviar informes de escáner (SARIF) a Lumo; guárdala como el secreto LUMO_SECURITY_TOKEN.",
   "apiKeys.ingest.create": "Crear clave de ingesta para CI",
   "apiKeys.scope.securityIngest": "Solo ingesta CI",
-  "securityScan.status.pendingExternal": "Esperando el análisis de CI",
-  "securityScan.stageState.PENDING": "esperando a CI",
-  "securityScan.external.notConfigured.template": "Obtener la plantilla del workflow",
-  "securityScan.external.late": "CI no ha reportado un análisis para este commit en 30 minutos. Revisa la ejecución del workflow lumo-security de este pull request."
+  "securityScan.status.pendingExternal": "Esperando al escáner",
+  "securityScan.stageState.PENDING": "escaneando",
+  "securityScan.external.late": "El escáner no ha informado de un análisis para este commit en 30 minutos. Revisa la ejecución del escaneo de seguridad en Vercel Workflows, o el job de escaneo de tu propio CI si este repositorio envía sus propios informes."
 }

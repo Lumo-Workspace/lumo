@@ -30,13 +30,13 @@ const messages: Record<string, string> = {
   'securityScan.stageState.FAILED': 'failed',
   'securityScan.stageState.NOT_CONFIGURED': 'not configured',
   'securityScan.stageState.PARTIAL': 'partial',
-  'securityScan.stageState.PENDING': 'waiting for CI',
+  'securityScan.stageState.PENDING': 'scanning',
   'securityScan.external.notConfigured':
-    "This repository has never pushed a scanner report to Lumo, so only Lumo's own checks ran. A clean result here is not a full pass.",
-  'securityScan.external.notConfigured.link': 'Create a CI ingest key',
-  'securityScan.external.notConfigured.template': 'Get the workflow template',
+    "Lumo's managed scanner is off for this deployment and this repository has never pushed a scanner report, so only Lumo's own checks ran. A clean result here is not a full pass.",
+  'securityScan.external.notConfigured.link':
+    "Create a CI ingest key (for pushing your own scanner's SARIF)",
   'securityScan.external.late':
-    'CI has not reported a scan for this commit in 30 minutes. Check the lumo-security workflow run for this pull request.',
+    "The scanner has not reported for this commit in 30 minutes. Check the security scan run in Vercel Workflows, or your own CI's scan job if this repository pushes its own reports.",
   'securityScan.finding.externalLink': 'View rule documentation',
   'securityScan.partial':
     'Some results were cut off at the scan budget — the scan is not complete.',
@@ -292,8 +292,8 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
   const hint = screen.getByTestId('external-not-configured')
   expect(hint).toHaveTextContent('only Lumo')
   const links = hint.querySelectorAll('a')
-  expect(links[0]).toHaveAttribute('href', '/integrations/lumo-security.yml')
-  expect(links[1]).toHaveAttribute('href', '/workspace/acme/settings/api-keys')
+  expect(links).toHaveLength(1)
+  expect(links[0]).toHaveAttribute('href', '/workspace/acme/settings/api-keys')
   expect(screen.getByTestId('security-scan-badge')).toHaveAttribute(
     'data-state',
     'incomplete'
@@ -325,7 +325,7 @@ test('a complete scan renders no stages line; partial renders the budget notice'
   )
 })
 
-test('a PENDING external stage renders "waiting for CI" and no external-late warning', () => {
+test('a PENDING external stage renders "scanning" and no external-late warning', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
@@ -347,12 +347,12 @@ test('a PENDING external stage renders "waiting for CI" and no external-late war
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
   expect(screen.getByTestId('scan-stages')).toHaveTextContent(
-    'External scanner: waiting for CI'
+    'External scanner: scanning'
   )
   expect(screen.queryByTestId('external-late')).toBeNull()
 })
 
-test('externalLate renders a warning that CI has not reported in 30 minutes', () => {
+test('externalLate renders a warning that the scanner has not reported in 30 minutes', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [

@@ -2274,16 +2274,15 @@
   "securityScan.stageState.FAILED": "gagal",
   "securityScan.stageState.NOT_CONFIGURED": "belum dikonfigurasi",
   "securityScan.stageState.PARTIAL": "separa",
-  "securityScan.external.notConfigured": "Repositori ini tidak pernah menghantar laporan pengimbas ke Lumo, jadi hanya semakan Lumo sendiri yang dijalankan. Keputusan bersih di sini bukan kelulusan penuh.",
-  "securityScan.external.notConfigured.link": "Cipta kunci ingest CI (hanya CI bukan GitHub)",
+  "securityScan.external.notConfigured": "Pengimbas terurus Lumo dimatikan untuk penggunaan ini dan repositori ini tidak pernah menghantar laporan pengimbas, jadi hanya semakan Lumo sendiri yang dijalankan. Keputusan bersih di sini bukan kelulusan penuh.",
+  "securityScan.external.notConfigured.link": "Cipta kunci ingest CI (untuk menghantar SARIF daripada pengimbas anda sendiri)",
   "securityScan.finding.externalLink": "Lihat dokumentasi peraturan",
   "securityScan.partial": "Sebahagian keputusan terpotong pada had bajet imbasan — imbasan belum lengkap.",
   "apiKeys.ingest.title": "Kunci ingest keselamatan CI",
   "apiKeys.ingest.description": "Hanya diperlukan untuk CI di luar GitHub Actions. Kunci yang hanya boleh menghantar laporan pengimbas (SARIF) ke Lumo; simpan sebagai secret LUMO_SECURITY_TOKEN.",
   "apiKeys.ingest.create": "Cipta kunci ingest CI",
   "apiKeys.scope.securityIngest": "Ingest CI sahaja",
-  "securityScan.status.pendingExternal": "Menunggu imbasan CI",
-  "securityScan.stageState.PENDING": "menunggu CI",
-  "securityScan.external.notConfigured.template": "Dapatkan templat workflow",
-  "securityScan.external.late": "CI belum melaporkan imbasan untuk commit ini selama 30 minit. Semak run workflow lumo-security untuk pull request ini."
+  "securityScan.status.pendingExternal": "Menunggu pengimbas",
+  "securityScan.stageState.PENDING": "mengimbas",
+  "securityScan.external.late": "Pengimbas tidak melaporkan hasil untuk commit ini selama 30 minit. Semak larian imbasan keselamatan dalam Vercel Workflows, atau tugas imbasan CI anda sendiri jika repositori ini menghantar laporannya sendiri."
 }
