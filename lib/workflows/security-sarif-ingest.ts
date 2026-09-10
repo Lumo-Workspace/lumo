@@ -8,10 +8,12 @@
  * its blob for 24h (for a human to inspect) via `sleep`, which replaced the
  * daily prune cron.
  *
- * Blob deletion is now retried by the platform (the step throws on failure),
- * but the prune cron is gone — nothing else will clean up a blob whose
- * retries are exhausted. `deleteBlobBestEffort` swallows that residual
- * failure so a leaked blob never flips an outcome that is already decided.
+ * Every exit from this workflow deletes the blob: the run is the only thing
+ * that knows the report is finished with. Deletion is retried by the platform
+ * (the step throws on failure); `deleteBlobBestEffort` swallows the residual
+ * failure so a leaked blob never flips an outcome that is already decided —
+ * the daily orphan sweep (`/api/cron/prune-security-sarif`) is the backstop
+ * for blobs that never got a run at all.
  */
 import { sleep } from 'workflow'
 import type {
@@ -43,6 +45,19 @@ async function deleteBlobBestEffort(url: string): Promise<void> {
   }
 }
 
+/**
+ * P9's stamp, retried by the platform. If even the retries fail there is
+ * nothing more this run can do about the scan row — but it must still reach
+ * the blob cleanup below, so the final failure is swallowed here.
+ */
+async function markFailedBestEffort(scanId: string): Promise<void> {
+  try {
+    await markSarifExternalFailedStep(scanId)
+  } catch {
+    // Retries exhausted inside the step; the scan row keeps its old stage.
+  }
+}
+
 export async function securitySarifIngestWorkflow(
   job: SarifIngestJob
 ): Promise<IngestResult> {
@@ -59,7 +74,10 @@ export async function securitySarifIngestWorkflow(
     throw error
   }
   if (resolved.kind === 'discarded') {
-    // resolveScan already deleted the blob.
+    // Nobody owns this report: no scan row, nothing to inspect later. The
+    // delete happens here rather than inside resolveScan so it goes through
+    // the platform-retried step.
+    await deleteBlobBestEffort(job.url)
     return { outcome: 'DISCARDED', reason: resolved.reason }
   }
   const { scanId, pr } = resolved
@@ -97,7 +115,7 @@ export async function securitySarifIngestWorkflow(
 
   // P9: the layer failed — say so, never a fake CLEAN. Blob kept for
   // SARIF_FAILED_BLOB_TTL so the report can be inspected or re-pushed.
-  await markSarifExternalFailedStep(scanId)
+  await markFailedBestEffort(scanId)
   await sleep(SARIF_FAILED_BLOB_TTL)
   await deleteBlobBestEffort(job.url)
   return { outcome: 'FAILED', scanId, reason: failure }

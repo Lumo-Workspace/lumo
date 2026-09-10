@@ -1,12 +1,14 @@
 /**
  * @jest-environment node
  *
- * LUM-735 — the two SARIF ingest completion routes (spec §6-9):
+ * LUM-735 — the SARIF ingest HTTP surface (spec §6-9):
  *   - POST /api/integrations/security/sarif/upload: @vercel/blob/client
  *     handleUpload wrapper — mints a scoped upload token, then starts the
  *     durable ingest run from onUploadCompleted.
  *   - POST /api/integrations/security/sarif/complete: fallback start path
  *     for environments where the blob store's own webhook doesn't fire.
+ *   - GET /api/cron/prune-security-sarif: daily sweep for blobs that never
+ *     got a workflow run (every run cleans up its own blob).
  *
  * Binding security requirement under test throughout: on the ApiKey path,
  * `workspaceId` in every started job comes from the authenticated key's
@@ -64,6 +66,7 @@ jest.mock('@/lib/services/security-sarif-ingest-start', () => ({
   startSecuritySarifIngest: jest.fn(),
 }))
 jest.mock('@/lib/services/security-sarif-ingest.service', () => ({
+  securitySarifIngestService: { pruneStaleBlobs: jest.fn() },
   SARIF_MAX_GZ_BYTES: 100 * 1024 * 1024,
 }))
 jest.mock('@/lib/logger', () => ({
@@ -72,6 +75,8 @@ jest.mock('@/lib/logger', () => ({
 
 import { POST as uploadPOST } from '@/app/api/integrations/security/sarif/upload/route'
 import { POST as completePOST } from '@/app/api/integrations/security/sarif/complete/route'
+import { GET as pruneGET } from '@/app/api/cron/prune-security-sarif/route'
+import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
 import { waitUntil } from '@vercel/functions'
 import { handleUpload } from '@vercel/blob/client'
 import { verifyBearer } from '@/lib/auth/bearer'
@@ -87,6 +92,7 @@ const mockedVerifyBearer = verifyBearer as jest.Mock
 const mockedVerifyOidc = verifyGithubActionsToken as jest.Mock
 const mockedRateLimit = checkSarifIngestRateLimit as jest.Mock
 const mockedStart = startSecuritySarifIngest as jest.Mock
+const mockedPrune = securitySarifIngestService.pruneStaleBlobs as jest.Mock
 const mockedWaitUntil = waitUntil as jest.Mock
 const mockedHandleUpload = handleUpload as jest.Mock
 
@@ -135,6 +141,7 @@ const makeReq = (
 
 beforeEach(() => {
   jest.clearAllMocks()
+  process.env.CRON_SECRET = 'secret'
   mockedVerifyBearer.mockResolvedValue(IDENTITY)
   mockedVerifyOidc.mockResolvedValue(CLAIMS)
   mockedRateLimit.mockResolvedValue(undefined)
@@ -633,6 +640,21 @@ describe('POST /api/integrations/security/sarif/complete', () => {
     const res = await completePOST(makeReq(() => ({ ...PAYLOAD, url })))
     expect(res.status).toBe(401)
     expect(mockedRateLimit).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/cron/prune-security-sarif', () => {
+  it('rejects a request without the CRON_SECRET bearer with 401', async () => {
+    const res = await pruneGET(makeReq(null, null))
+    expect(res.status).toBe(401)
+    expect(mockedPrune).not.toHaveBeenCalled()
+  })
+
+  it('runs pruneStaleBlobs() and returns its result as 200', async () => {
+    mockedPrune.mockResolvedValue({ deleted: 3, failed: 0 })
+    const res = await pruneGET(makeReq(null, 'Bearer secret'))
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ deleted: 3, failed: 0 })
   })
 })
 

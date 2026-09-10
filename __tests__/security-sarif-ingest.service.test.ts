@@ -4,9 +4,11 @@ import { gzipSync } from 'node:zlib'
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
+jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn(p => p) }))
 jest.mock('@/lib/services/security-sarif-blob', () => ({
   fetchPrivateBlob: jest.fn(),
   deleteBlob: jest.fn(),
+  listSarifBlobs: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
@@ -43,6 +45,7 @@ import {
   type PersistInput,
 } from '@/lib/services/security-sarif-ingest.service'
 import * as blob from '@/lib/services/security-sarif-blob'
+import { waitUntil } from '@vercel/functions'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
@@ -60,6 +63,8 @@ import {
 const KEY = 'AKIAABCDEFGHIJKLMNOP'
 const fetchBlob = blob.fetchPrivateBlob as jest.Mock
 const delBlob = blob.deleteBlob as jest.Mock
+const listBlobs = blob.listSarifBlobs as jest.Mock
+const keepAlive = waitUntil as jest.Mock
 const diff = fetchPrDiff as jest.Mock
 const findPr = pullRequestRepository.findByRepoAndNumber as jest.Mock
 const repo = prSecurityScanRepository as jest.Mocked<
@@ -186,26 +191,28 @@ beforeEach(() => {
   }))
   dispatchStageA.mockResolvedValue(undefined)
   delBlob.mockResolvedValue(undefined)
+  keepAlive.mockImplementation(p => p)
 })
 
 describe('resolveScan', () => {
-  it('discards + deletes the blob when the PR is unknown', async () => {
+  it('discards when the PR is unknown, leaving the blob to the workflow', async () => {
     findPr.mockResolvedValue(null)
     await expect(securitySarifIngestService.resolveScan(JOB)).resolves.toEqual({
       kind: 'discarded',
       reason: 'pr_not_found',
     })
-    expect(delBlob).toHaveBeenCalledWith(JOB.url)
+    // The workflow deletes it through the retried deleteSarifBlobStep.
+    expect(delBlob).not.toHaveBeenCalled()
     expect(repo.createIfAbsent).not.toHaveBeenCalled()
   })
 
-  it('discards when the key workspace does not own the PR', async () => {
+  it('discards when the key workspace does not own the PR, leaving the blob to the workflow', async () => {
     findPr.mockResolvedValue({ ...PR, workspaceId: 'other' })
     await expect(securitySarifIngestService.resolveScan(JOB)).resolves.toEqual({
       kind: 'discarded',
       reason: 'workspace_mismatch',
     })
-    expect(delBlob).toHaveBeenCalledWith(JOB.url)
+    expect(delBlob).not.toHaveBeenCalled()
   })
 
   it('skips the workspace check on the OIDC path (no workspaceId)', async () => {
@@ -247,7 +254,34 @@ describe('resolveScan', () => {
     expect(dispatchStageA).toHaveBeenCalledWith('pr1', 'SARIF_PUSH')
   })
 
-  it('does not dispatch stage A when the row already existed', async () => {
+  it('hands the stage-A dispatch to waitUntil instead of awaiting it', async () => {
+    // Stage A runs synchronously inside the internal worker route (up to
+    // maxDuration = 300s) and the dispatch fetch has no timeout, so awaiting
+    // it here would hold the ingest step open for minutes. The step must
+    // return at once; waitUntil keeps the function alive for the dispatch.
+    findPr.mockResolvedValue(PR)
+    repo.createIfAbsent.mockResolvedValue({
+      id: 's1',
+      created: true,
+      status: 'PENDING',
+      startedAt: new Date(),
+    })
+    let settle: () => void = () => {}
+    const pending = new Promise<void>(res => {
+      settle = res
+    })
+    dispatchStageA.mockReturnValue(pending)
+    // Resolves even though the dispatch has not settled — nothing awaited it.
+    await expect(
+      securitySarifIngestService.resolveScan(JOB)
+    ).resolves.toMatchObject({ kind: 'ok', scanId: 's1' })
+    expect(keepAlive).toHaveBeenCalledTimes(1)
+    expect(keepAlive).toHaveBeenCalledWith(pending)
+    settle()
+    await pending
+  })
+
+  it('does not dispatch stage A (nor call waitUntil) when the row already existed', async () => {
     findPr.mockResolvedValue(PR)
     repo.createIfAbsent.mockResolvedValue({
       id: 's1',
@@ -257,6 +291,7 @@ describe('resolveScan', () => {
     })
     await securitySarifIngestService.resolveScan(JOB)
     expect(dispatchStageA).not.toHaveBeenCalled()
+    expect(keepAlive).not.toHaveBeenCalled()
   })
 
   it('propagates a DB failure so the step retries', async () => {
@@ -467,8 +502,7 @@ describe('persistFindings', () => {
 })
 
 describe('markExternalFailed / deleteBlobSafely', () => {
-  it('markExternalFailed merges external=FAILED and swallows a second failure', async () => {
-    repo.mergeStages.mockRejectedValue(new Error('again'))
+  it('markExternalFailed merges external=FAILED', async () => {
     await expect(
       securitySarifIngestService.markExternalFailed('s1')
     ).resolves.toBeUndefined()
@@ -479,10 +513,50 @@ describe('markExternalFailed / deleteBlobSafely', () => {
     )
   })
 
+  it('markExternalFailed propagates so the step retries the P9 stamp', async () => {
+    repo.mergeStages.mockRejectedValue(new Error('again'))
+    await expect(
+      securitySarifIngestService.markExternalFailed('s1')
+    ).rejects.toThrow('again')
+  })
+
   it('deleteBlobSafely returns false and warns instead of throwing', async () => {
     delBlob.mockRejectedValue(new Error('nope'))
     await expect(
       securitySarifIngestService.deleteBlobSafely(JOB.url)
     ).resolves.toBe(false)
+  })
+})
+
+describe('pruneStaleBlobs', () => {
+  it('deletes only security-sarif blobs older than 24h', async () => {
+    const now = new Date('2026-09-10T00:00:00Z')
+    listBlobs.mockResolvedValue([
+      { url: 'u-old', uploadedAt: new Date('2026-09-08T00:00:00Z') },
+      { url: 'u-new', uploadedAt: new Date('2026-09-09T23:00:00Z') },
+    ])
+    expect(await securitySarifIngestService.pruneStaleBlobs(now)).toEqual({
+      deleted: 1,
+      failed: 0,
+    })
+    expect(delBlob).toHaveBeenCalledWith('u-old')
+    expect(delBlob).not.toHaveBeenCalledWith('u-new')
+  })
+
+  it('continues past a failed delete and reports it separately', async () => {
+    const now = new Date('2026-09-10T00:00:00Z')
+    listBlobs.mockResolvedValue([
+      { url: 'u-old-1', uploadedAt: new Date('2026-09-08T00:00:00Z') },
+      { url: 'u-old-2', uploadedAt: new Date('2026-09-08T00:00:00Z') },
+    ])
+    delBlob
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce(undefined)
+    expect(await securitySarifIngestService.pruneStaleBlobs(now)).toEqual({
+      deleted: 1,
+      failed: 1,
+    })
+    expect(delBlob).toHaveBeenCalledWith('u-old-1')
+    expect(delBlob).toHaveBeenCalledWith('u-old-2')
   })
 })

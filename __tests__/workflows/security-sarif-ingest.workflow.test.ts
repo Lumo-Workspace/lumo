@@ -121,16 +121,17 @@ it('a blob delete whose retries are exhausted still leaves the outcome FAILED wi
   expect(sleepMock).toHaveBeenCalledWith('24h')
 })
 
-it('returns DISCARDED with the resolve reason and calls no other step', async () => {
+it('returns DISCARDED with the resolve reason, deleting the blob and calling no other step', async () => {
   resolve.mockResolvedValue({ kind: 'discarded', reason: 'workspace_mismatch' })
   await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
     outcome: 'DISCARDED',
     reason: 'workspace_mismatch',
   })
+  // The delete lives here, not in resolveScan, so it is platform-retried.
+  expect(delBlob).toHaveBeenCalledWith(JOB.url)
   expect(fetchNorm).not.toHaveBeenCalled()
   expect(persist).not.toHaveBeenCalled()
   expect(markFailed).not.toHaveBeenCalled()
-  expect(delBlob).not.toHaveBeenCalled()
   expect(sleepMock).not.toHaveBeenCalled()
 })
 
@@ -141,14 +142,17 @@ it('passes auth=key when the job carries a workspaceId', async () => {
   expect(persist).toHaveBeenCalledWith(expect.objectContaining({ auth: 'key' }))
 })
 
-it('returns DISCARDED without touching the blob again', async () => {
+it('pr_not_found: deletes the blob immediately — nothing owns the report, so nothing keeps it', async () => {
   resolve.mockResolvedValue({ kind: 'discarded', reason: 'pr_not_found' })
   await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
     outcome: 'DISCARDED',
     reason: 'pr_not_found',
   })
+  expect(delBlob).toHaveBeenCalledWith(JOB.url)
   expect(fetchNorm).not.toHaveBeenCalled()
-  expect(delBlob).not.toHaveBeenCalled()
+  expect(persist).not.toHaveBeenCalled()
+  expect(markFailed).not.toHaveBeenCalled()
+  expect(sleepMock).not.toHaveBeenCalled()
 })
 
 it('returns ALREADY_PROCESSED when the blob is gone (second run of the same report)', async () => {
@@ -184,6 +188,22 @@ it('deterministic failure: marks FAILED, keeps the blob 24h, then deletes it', a
   expect(sleepMock).toHaveBeenCalledWith('24h')
   expect(order).toEqual(['mark', 'sleep', 'delete'])
   expect(persist).not.toHaveBeenCalled()
+})
+
+it('a P9 stamp whose retries are exhausted still yields FAILED, and still sleeps then deletes', async () => {
+  fetchNorm.mockResolvedValue({
+    kind: 'failed',
+    reason: 'Unsupported SARIF: not JSON',
+  })
+  markFailed.mockRejectedValue(new Error('mergeStages down'))
+  await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+    outcome: 'FAILED',
+    scanId: 's1',
+    // The original reason survives — not the mark-failed error.
+    reason: 'Unsupported SARIF: not JSON',
+  })
+  expect(sleepMock).toHaveBeenCalledWith('24h')
+  expect(delBlob).toHaveBeenCalledWith(JOB.url)
 })
 
 it('a step that exhausted its retries (throws) takes the same FAILED path', async () => {

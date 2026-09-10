@@ -5,5 +5,3 @@ export const start = jest.fn(
     status: Promise.resolve('running' as const),
   })
 )
-
-export const getRun = jest.fn()

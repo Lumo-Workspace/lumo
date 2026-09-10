@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/prune-document-revisions",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/prune-security-sarif",
+      "schedule": "30 3 * * *"
     }
   ]
 }

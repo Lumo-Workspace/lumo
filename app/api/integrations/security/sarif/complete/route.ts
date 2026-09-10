@@ -98,7 +98,11 @@ export async function POST(request: NextRequest) {
   })
   if (runId === null) {
     // Surface it: the CI step prints this status, and the report is still
-    // in blob storage for a manual re-push.
+    // in blob storage for a manual re-push. The template's push step runs
+    // with `continue-on-error: true`, so a 502 marks that one step failed —
+    // a visible warning on the run — without failing the job. If no run ever
+    // starts for this report (this call and the upload callback both failed
+    // to `start()`), the blob is swept by the daily orphan cron 24h later.
     return NextResponse.json(
       { error: 'ingest could not be started' },
       { status: 502 }

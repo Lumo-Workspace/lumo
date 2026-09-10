@@ -19,7 +19,7 @@ const tool = z.string().regex(/^[a-z0-9-]{1,32}$/)
 /**
  * Vercel Blob's own token verification already restricts an authenticated
  * upload to a blob it minted, so this is defense-in-depth: it stops
- * `complete`'s dispatch (fed by a CI-supplied `url`, not a signed callback)
+ * `complete`'s start call (fed by a CI-supplied `url`, not a signed callback)
  * from ever resolving a URL on a host we don't recognize as blob storage.
  */
 export const BLOB_HOST_SUFFIX = '.blob.vercel-storage.com'
