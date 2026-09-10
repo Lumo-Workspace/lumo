@@ -165,8 +165,107 @@ describe('loadOpenFindingsForTask', () => {
       blockingCount: 0,
       unconfirmedPrs: [],
       latestScans: [],
+      scans: [],
     })
     expect(latest).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-735 scans array', () => {
+  it('one entry per PR with a latest scan, using the new stages column and counting external/open findings', async () => {
+    prs.mockResolvedValue([pr({}), pr({ id: 'pr2', number: 13 })])
+    latest.mockResolvedValue([
+      scan({
+        id: 's1',
+        status: 'FINDINGS',
+        stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+        partial: false,
+        error: null,
+        findings: [
+          finding({
+            id: 'ext1',
+            scanId: 's1',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:semgrep:sql-injection',
+          }),
+          finding({
+            id: 'ext2-dispositioned',
+            scanId: 's1',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:semgrep:xss',
+            disposition: 'FALSE_POSITIVE',
+          }),
+          finding({ id: 'det1', scanId: 's1', provenance: 'DETERMINISTIC' }),
+        ],
+      }),
+      scan({
+        id: 's2',
+        pullRequestId: 'pr2',
+        status: 'CLEAN',
+        stages: { secrets: 'RAN' },
+        partial: false,
+        error: null,
+        findings: [],
+      }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.scans).toEqual([
+      {
+        prNumber: 12,
+        status: 'FINDINGS',
+        stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+        partial: false,
+        error: null,
+        // both EXTERNAL_TOOL findings count regardless of disposition.
+        externalFindings: 2,
+        // only the undispositioned ones count as open.
+        openFindings: 2,
+      },
+      {
+        prNumber: 13,
+        status: 'CLEAN',
+        stages: { secrets: 'RAN' },
+        partial: false,
+        error: null,
+        externalFindings: 0,
+        openFindings: 0,
+      },
+    ])
+  })
+
+  it('derives stages from judgeStatus (legacy null stages) and surfaces partial/error', async () => {
+    prs.mockResolvedValue([pr({})])
+    latest.mockResolvedValue([
+      scan({
+        id: 's1',
+        status: 'FAILED',
+        stages: null,
+        judgeStatus: 'UNAVAILABLE',
+        partial: true,
+        error: 'external: rate limited',
+        findings: [],
+      }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.scans).toEqual([
+      {
+        prNumber: 12,
+        status: 'FAILED',
+        stages: { secrets: 'RAN', judge: 'FAILED' },
+        partial: true,
+        error: 'external: rate limited',
+        externalFindings: 0,
+        openFindings: 0,
+      },
+    ])
+  })
+
+  it('omits a PR with no latest scan from scans (same set as latestScans)', async () => {
+    prs.mockResolvedValue([pr({ id: 'pr1', number: 1 })])
+    latest.mockResolvedValue([])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.scans).toEqual([])
+    expect(state.latestScans).toEqual([])
   })
 })
 

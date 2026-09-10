@@ -20,6 +20,7 @@ export {
   isPlaceholderValue,
 } from './secret-patterns'
 export { truncateSecurityDiff, SECURITY_DIFF_MAX_CHARS } from './truncate'
+export { stagesOf, type StagesOfScanInput } from './stages'
 export {
   parseSarif,
   normalizeSarif,

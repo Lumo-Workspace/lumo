@@ -233,6 +233,17 @@ export interface TaskStatusResponse {
       number: number
       reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING'
     }>
+    /** LUM-735 — one entry per linked PR with a latest scan (open or closed
+     *  PRs alike). Optional/absent on an older server — additive field. */
+    scans?: Array<{
+      prNumber: number
+      status: 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
+      stages: Partial<Record<'secrets' | 'external' | 'judge', string>>
+      partial: boolean
+      error: string | null
+      externalFindings: number
+      openFindings: number
+    }>
   } | null
 }
 
@@ -288,6 +299,41 @@ function pushSecurityActions(
 
 /** Fail-closed security coverage lines (LUM-737): a failed read and every
  *  open PR without a successful scan are stated, never left silent. */
+const EXTERNAL_ERROR_TAIL = 200
+const SCAN_STAGE_ORDER = ['secrets', 'external', 'judge'] as const
+
+type ScanSummary = NonNullable<
+  NonNullable<TaskStatusResponse['securityFindings']>['scans']
+>[number]
+
+/** LUM-735 — one line per linked PR's latest scan: `PR #945 · scan CLEAN ·
+ *  secrets RAN · external RAN (2 external findings) · judge RAN`. Stage
+ *  segments only for keys present, in secrets/external/judge order; the
+ *  `(N external findings)` count only decorates the external segment, and
+ *  only when N > 0. */
+function formatScanSummaryLine(s: ScanSummary): string {
+  const segments: string[] = []
+  for (const key of SCAN_STAGE_ORDER) {
+    const state = s.stages[key]
+    if (!state) continue
+    if (key === 'external' && s.externalFindings > 0) {
+      const noun = s.externalFindings === 1 ? 'finding' : 'findings'
+      segments.push(
+        `external ${state} (${s.externalFindings} external ${noun})`
+      )
+    } else {
+      segments.push(`${key} ${state}`)
+    }
+  }
+  let line = `  PR #${s.prNumber} · scan ${s.status}`
+  if (segments.length > 0) line += ` · ${segments.join(' · ')}`
+  if (s.partial) line += ' · partial'
+  if (s.stages.external === 'FAILED' && s.error) {
+    line += ` — ${sanitizeField(tail(s.error, EXTERNAL_ERROR_TAIL))}`
+  }
+  return line
+}
+
 function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
   if (data.securityFindings === undefined) return // older server
   if (data.securityFindings === null) {
@@ -295,6 +341,10 @@ function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
       '⚠ Security-scan check failed — could not confirm whether any findings are undispositioned.'
     )
     return
+  }
+  // LUM-735: absent `scans` = older server; tolerate silently, no block.
+  for (const s of data.securityFindings.scans ?? []) {
+    lines.push(formatScanSummaryLine(s))
   }
   for (const u of data.securityFindings.unconfirmedPrs) {
     const why =

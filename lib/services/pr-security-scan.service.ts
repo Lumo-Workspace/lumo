@@ -32,6 +32,7 @@ import {
   redactKnownSecrets,
   vulnerabilityFingerprint,
   INCOMPLETE_STAGE_STATES,
+  stagesOf,
   type ScanStages,
 } from '@/lib/security-scan'
 import { projectRepository } from '@/lib/repositories/project.repository'
@@ -159,22 +160,12 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 /**
- * LUM-735 — stages for a scan row. Rows written before the column existed
- * carry null; for them the only per-layer fact on record is judgeStatus, so
- * the legacy view is derived from it (UNAVAILABLE → FAILED, SKIPPED → SKIPPED)
- * and no `external` key is claimed — those scans never consulted GitHub.
+ * LUM-735 (review) — `stagesOf` is now the pure `lib/security-scan/stages.ts`
+ * implementation, re-exported here for existing importers of this module
+ * (this file stays behind the LLM-gateway dynamic-import boundary; the pure
+ * version is what `pr-security-reminder.service.ts` imports statically).
  */
-export function stagesOf(scan: {
-  stages: ScanStages | null
-  judgeStatus: JudgeStatus | null
-}): ScanStages {
-  if (scan.stages) return scan.stages
-  const legacy: ScanStages = { secrets: 'RAN' }
-  if (scan.judgeStatus === 'RAN') legacy.judge = 'RAN'
-  else if (scan.judgeStatus === 'UNAVAILABLE') legacy.judge = 'FAILED'
-  else if (scan.judgeStatus === 'SKIPPED') legacy.judge = 'SKIPPED'
-  return legacy
-}
+export { stagesOf }
 
 /** Spec P9: a scan with any incomplete layer must not read as a full pass. */
 export function isCompleteScan(stages: ScanStages): boolean {

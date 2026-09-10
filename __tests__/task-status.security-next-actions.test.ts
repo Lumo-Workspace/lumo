@@ -199,12 +199,46 @@ describe('statusForTask — security findings (LUM-737)', () => {
       blockingCount: 0,
       unconfirmedPrs: [],
       latestScans: [],
+      scans: [],
     })
     const s = await taskVerificationService.statusForTask('t-1')
     expect(s.securityFindings).toEqual({
       open: 0,
       blocking: 0,
       unconfirmedPrs: [],
+      scans: [],
     })
+  })
+
+  it('LUM-735: passes the reminder service scans array through verbatim', async () => {
+    const scans = [
+      {
+        prNumber: 12,
+        status: 'FINDINGS',
+        stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+        partial: false,
+        error: null,
+        externalFindings: 2,
+        openFindings: 1,
+      },
+      {
+        prNumber: 13,
+        status: 'FAILED',
+        stages: { secrets: 'RAN', external: 'FAILED' },
+        partial: true,
+        error: 'external: rate limited',
+        externalFindings: 0,
+        openFindings: 0,
+      },
+    ]
+    loadSecurity.mockResolvedValue({
+      findings: [],
+      blockingCount: 0,
+      unconfirmedPrs: [],
+      latestScans: [],
+      scans,
+    })
+    const s = await taskVerificationService.statusForTask('t-1')
+    expect(s.securityFindings?.scans).toEqual(scans)
   })
 })
