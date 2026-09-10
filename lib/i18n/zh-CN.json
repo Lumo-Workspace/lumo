@@ -2317,5 +2317,6 @@
   "record.machine.source.agent": "代理构建",
   "record.machine.source.human": "人工编辑",
   "record.machine.source.review": "评审新增",
-  "record.machine.viewOutput": "查看产出"
+  "record.machine.viewOutput": "查看产出",
+  "record.human.emptyTitle": "人工验收标准"
 }

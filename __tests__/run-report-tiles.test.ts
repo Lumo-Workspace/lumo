@@ -165,6 +165,32 @@ describe('deriveRunReportTiles', () => {
     })
   })
 
+  describe('activeTimeSec', () => {
+    // LUM-560/LUM-642: the active-time reading the old CostSection carried
+    // survives on the Cost tile — same fail-closed rule as the rest.
+    it('is null when there is no cost view at all', () => {
+      expect(deriveRunReportTiles(baseData()).activeTimeSec).toBeNull()
+    })
+
+    it('reports a measured 0 active seconds, not null', () => {
+      const tiles = deriveRunReportTiles(
+        baseData({
+          cost: { tokenCost: null, activeTimeSec: 0, reworkRounds: 0 },
+        })
+      )
+      expect(tiles.activeTimeSec).toBe(0)
+    })
+
+    it('passes the measured seconds through untouched', () => {
+      const tiles = deriveRunReportTiles(
+        baseData({
+          cost: { tokenCost: 10, activeTimeSec: 134, reworkRounds: 0 },
+        })
+      )
+      expect(tiles.activeTimeSec).toBe(134)
+    })
+  })
+
   describe('rework', () => {
     it('is null when there is no cost view at all', () => {
       const tiles = deriveRunReportTiles(baseData())
@@ -222,6 +248,7 @@ describe('deriveRunReportTiles', () => {
       prIterations: { count: 7, first: 940, last: 947 },
       passRateR1: 100,
       costTokens: 1_400_000_000,
+      activeTimeSec: 500,
       rework: 6,
     })
   })

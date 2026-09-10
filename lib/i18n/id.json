@@ -2317,5 +2317,6 @@
   "record.machine.source.agent": "Dibangun agen",
   "record.machine.source.human": "Disunting manusia",
   "record.machine.source.review": "Ditambahkan saat tinjauan",
-  "record.machine.viewOutput": "Lihat keluaran"
+  "record.machine.viewOutput": "Lihat keluaran",
+  "record.human.emptyTitle": "Kriteria penerimaan manusia"
 }

@@ -1565,12 +1565,15 @@ export function AcceptanceTab({
   const machineVerified = machineStats.verified
   const machineOverridden = machineStats.overridden
   const machineFailed = machineStats.failed
-  // Smart default (LUM-451): collapse only when every machine criterion is
-  // genuinely checkpointer-verified — surface the zone whenever a check fails,
-  // is unjudged, OR is being carried by a human override (the honest signal).
   const allMachineVerified =
     machineCriteria.length > 0 && machineVerified === machineCriteria.length
-  const machineZoneOpen = machineOpen ?? !allMachineVerified
+  // LUM-496: the Machine-verified card is a RECORD in every state, so it starts
+  // collapsed in every state. LUM-451's smart default ("expand when something
+  // is unverified") is now carried by the zone split itself — an unverified
+  // check sits, always visible, in the NEEDS ACTION card above, so expanding
+  // the record card would only repeat what the reviewer already saw. The
+  // header toggle still opens it on demand.
+  const machineZoneOpen = machineOpen ?? false
   // LUM-572: mirror the smart default for the human zone — collapse once every
   // human criterion carries a PASS; any unresolved one keeps it open by default.
   const allHumanResolved =
@@ -1609,9 +1612,16 @@ export function AcceptanceTab({
   const isMachineVerified = (c: TaskStatusCriterionView) =>
     c.machinePassed && isPass(c.latestVerdict?.verdict)
   const machineVerifiedCriteria = machineCriteria.filter(isMachineVerified)
-  const machineAwaitingCriteria = machineCriteria.filter(
-    c => !isMachineVerified(c)
-  )
+  // A DONE task has nothing left to act on (`gaps.machineAwaiting` is 0 for the
+  // same reason): the unverified checks stop being a NEEDS ACTION card and join
+  // the record card below, where the honest verified/total + override/failed
+  // caption still says what a checkpointer actually passed.
+  const machineAwaitingCriteria = taskAccepted
+    ? []
+    : machineCriteria.filter(c => !isMachineVerified(c))
+  const machineRecordCriteria = taskAccepted
+    ? machineCriteria
+    : machineVerifiedCriteria
   const showSecurityFirst = gaps.securityBlocking > 0
   const hasNeedsAction =
     machineAwaitingCriteria.length > 0 ||
@@ -1622,6 +1632,10 @@ export function AcceptanceTab({
   // the resolved record below. It survives an empty human criteria list while
   // the contract is editable because it carries the add-criterion entry.
   const showHumanZone = humanCriteria.length > 0 || canEdit
+  // …and with no human criterion yet it is exactly that: an empty shell whose
+  // only content is the add-criterion entry. It gets its own header copy —
+  // "Needs your judgment 0/0" claimed a pending call that does not exist.
+  const humanEmptyShell = humanCriteria.length === 0
 
   // LUM-620's human zone markup, unchanged apart from the anchor it carries —
   // rendered in whichever zone its state puts it in.
@@ -1661,15 +1675,20 @@ export function AcceptanceTab({
           />
         )}
         <span className='text-body-strong text-foreground'>
-          {humanAllJudged
+          {humanEmptyShell
             ? intl.formatMessage({
-                id: 'acceptance.zone.humanResolved',
-                defaultMessage: 'Human-judged',
+                id: 'record.human.emptyTitle',
+                defaultMessage: 'Human acceptance criteria',
               })
-            : intl.formatMessage({
-                id: 'acceptance.zone.human',
-                defaultMessage: 'Needs your judgment',
-              })}
+            : humanAllJudged
+              ? intl.formatMessage({
+                  id: 'acceptance.zone.humanResolved',
+                  defaultMessage: 'Human-judged',
+                })
+              : intl.formatMessage({
+                  id: 'acceptance.zone.human',
+                  defaultMessage: 'Needs your judgment',
+                })}
         </span>
         <span
           className={`text-caption ${
@@ -1693,9 +1712,12 @@ export function AcceptanceTab({
                 defaultMessage: 'not machine-checkable',
               })}
         </span>
-        <span className='ml-auto text-caption text-muted-foreground'>
-          {humanCriteria.length - humanUnresolvedCount}/{humanCriteria.length}
-        </span>
+        {/* An empty shell has nothing to count — "0/0" reads like a failure. */}
+        {humanEmptyShell ? null : (
+          <span className='ml-auto text-caption text-muted-foreground'>
+            {humanCriteria.length - humanUnresolvedCount}/{humanCriteria.length}
+          </span>
+        )}
       </button>
       {humanZoneOpen ? (
         <div className='px-1 pb-1'>
@@ -1884,8 +1906,9 @@ export function AcceptanceTab({
                 {!humanPending && showHumanZone ? humanZone() : null}
 
                 {/* LUM-620's machine-verified card: the checkpointer-backed
-                    passes, collapsed once every machine criterion is one. */}
-                {machineVerifiedCriteria.length > 0 ? (
+                    passes (plus, on a DONE task, the checks nobody is waiting
+                    on any more) — a record, so collapsed by default. */}
+                {machineRecordCriteria.length > 0 ? (
                   <div
                     className={`overflow-hidden rounded-lg border ${allMachineVerified ? 'border-success-border' : 'border-border'}`}
                   >
@@ -1956,7 +1979,7 @@ export function AcceptanceTab({
                     </button>
                     {machineZoneOpen ? (
                       <div className='border-t border-border'>
-                        {machineVerifiedCriteria.map(c => (
+                        {machineRecordCriteria.map(c => (
                           <CriterionRow
                             key={c.id}
                             c={c}

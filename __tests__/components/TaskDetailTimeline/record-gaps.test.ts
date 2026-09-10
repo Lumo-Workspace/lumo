@@ -174,6 +174,24 @@ describe('deriveRecordGaps', () => {
     expect(g.canBeDone).toBe(false)
   })
 
+  it('machine: a DONE task forces awaiting to 0 while keeping verified/total honest', () => {
+    // Same rule as humanPending: a closed task owes the reviewer no action, so
+    // a failed (or human-carried) check must not drag it back into NEEDS
+    // ACTION — but the record card still has to say 0 of 2 were machine-verified.
+    const g = deriveRecordGaps({
+      data: view({
+        task: { id: 't', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [crit('FAIL'), crit('PASS', { machinePassed: false })],
+      }),
+      crossings: [],
+      gateEnabled: true,
+    })
+    expect(g.machineTotal).toBe(2)
+    expect(g.machineVerified).toBe(0)
+    expect(g.machineAwaiting).toBe(0)
+    expect(g.canBeDone).toBe(true)
+  })
+
   it('human: unjudged criteria on a non-DONE task count as pending', () => {
     const g = deriveRecordGaps({
       data: view({

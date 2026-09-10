@@ -7,6 +7,15 @@
  * already rides on GET /api/tasks/[id]/status; this proves the web renders it
  * same-source, fail-closed, with no rendering drift from the CLI.
  */
+// The shared `formatDurationSec` (LUM-642) behind the Cost tile's active-time
+// caption uses the `duration.*` keys, which carry no defaultMessage — the mock
+// needs their en copy to render a real duration instead of the key.
+const mockDurationMessages: Record<string, string> = {
+  'duration.hours': '{hours}h',
+  'duration.minutes': '{minutes}m',
+  'duration.seconds': '{seconds}s',
+}
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
@@ -14,7 +23,7 @@ jest.mock('react-intl', () => ({
       { id, defaultMessage }: { id: string; defaultMessage?: string },
       values?: Record<string, unknown>
     ) => {
-      let msg = defaultMessage ?? id
+      let msg = defaultMessage ?? mockDurationMessages[id] ?? id
       msg = msg.replace(
         /\{(\w+),\s*plural,\s*one\s*\{([^}]*)\}\s*other\s*\{([^}]*)\}\}/g,
         (_m, key, one, other) => {
@@ -249,7 +258,7 @@ describe('struggle section', () => {
 // never 0). The tests below moved onto the tiles; the honesty contract they
 // pin is unchanged.
 describe('cost tiles', () => {
-  it('renders token spend and rework rounds', () => {
+  it('renders token spend, active time and rework rounds', () => {
     set(
       statusView({
         cost: { tokenCost: 1_200_000, activeTimeSec: 134, reworkRounds: 1 },
@@ -258,6 +267,12 @@ describe('cost tiles', () => {
     render_()
     expect(screen.getByText('Cost')).toBeInTheDocument()
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('1.2M')
+    // LUM-560/LUM-642: active time is the Cost tile's second sub-caption,
+    // through the one shared duration formatter — it did not survive the tile
+    // rewrite as a heading of its own, but the reading itself must not vanish.
+    expect(screen.getByTestId('tile-costTokens')).toHaveTextContent(
+      'Active time 2m 14s'
+    )
     expect(screen.getByTestId('tile-rework')).toHaveTextContent('1')
   })
 

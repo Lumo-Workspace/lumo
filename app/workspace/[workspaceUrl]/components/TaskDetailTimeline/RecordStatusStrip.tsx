@@ -6,13 +6,12 @@ import type { RecordGaps } from './record-gaps'
 
 export interface RecordStatusStripProps {
   gaps: RecordGaps
-  /** Whether the surrounding tab is in its interactive layout — i.e. the
-   *  `#record-machine` / `#record-human` / `#record-crossings` anchors this
-   *  strip points at actually exist in the DOM right now (mirrors
-   *  AcceptanceTab's own `interactive = status === 'IN_REVIEW'`). When false
-   *  (e.g. a DONE task rendering only the settled Records zone, no NEEDS
-   *  ACTION zone to jump to) the gap chips render as plain badges instead of
-   *  dead links. Defaults to `true`. */
+  /** Whether the chips are live anchors — true iff AcceptanceTab is rendering
+   *  a NEEDS ACTION zone, so the `#record-machine` / `#record-human` /
+   *  `#record-crossings` targets this strip points at actually exist in the
+   *  DOM right now. When false (nothing left to act on — e.g. a DONE task, or
+   *  a task whose gaps are all settled, showing only the Records zone) the gap
+   *  chips render as plain badges instead of dead links. Defaults to `true`. */
   interactive?: boolean
 }
 

@@ -7,6 +7,15 @@
  * app, without needing a real IntlProvider (react-intl's ESM build isn't
  * loadable through jest here).
  */
+// `formatDurationSec` (the shared LUM-642 formatter the Cost tile's active-time
+// caption reuses) reaches for the `duration.*` keys, which carry no
+// defaultMessage — so the mock needs their en copy to render a real duration.
+const mockDurationMessages: Record<string, string> = {
+  'duration.hours': '{hours}h',
+  'duration.minutes': '{minutes}m',
+  'duration.seconds': '{seconds}s',
+}
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
@@ -14,7 +23,7 @@ jest.mock('react-intl', () => ({
       { id, defaultMessage }: { id: string; defaultMessage?: string },
       values?: Record<string, unknown>
     ) => {
-      let msg = defaultMessage ?? id
+      let msg = defaultMessage ?? mockDurationMessages[id] ?? id
       for (const [k, v] of Object.entries(values ?? {})) {
         msg = msg.split(`{${k}}`).join(String(v))
       }
@@ -32,6 +41,7 @@ function tiles(p: Partial<RunReportTilesData> = {}): RunReportTilesData {
     prIterations: null,
     passRateR1: null,
     costTokens: null,
+    activeTimeSec: null,
     rework: null,
     ...p,
   }
@@ -65,6 +75,35 @@ describe('RunReportTiles', () => {
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('1.4B')
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('tokens')
     expect(screen.getByTestId('tile-rework')).toHaveTextContent('6')
+  })
+
+  it("carries the active-time reading as the Cost tile's second sub-caption", () => {
+    // LUM-560/LUM-642: the reading the old CostSection showed did not survive
+    // as a tile of its own — it rides under the Cost value, formatted by the
+    // one shared duration formatter (2m 14s), never a forked "134s".
+    render(
+      <RunReportTiles
+        tiles={tiles({ costTokens: 12_000, activeTimeSec: 134 })}
+      />
+    )
+    const tile = screen.getByTestId('tile-costTokens')
+    expect(tile).toHaveTextContent('Active time')
+    expect(tile).toHaveTextContent('2m 14s')
+  })
+
+  it('renders a measured zero active time, and omits it entirely when cost was never captured', () => {
+    const { rerender } = render(
+      <RunReportTiles tiles={tiles({ costTokens: null, activeTimeSec: 0 })} />
+    )
+    expect(screen.getByTestId('tile-costTokens')).toHaveTextContent(
+      'Active time 0s'
+    )
+
+    // No cost view at all → nothing measured, so nothing claimed.
+    rerender(<RunReportTiles tiles={tiles()} />)
+    expect(screen.getByTestId('tile-costTokens')).not.toHaveTextContent(
+      'Active time'
+    )
   })
 
   it('renders a measured zero rework as "0", not "not recorded"', () => {

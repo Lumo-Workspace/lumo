@@ -2317,5 +2317,6 @@
   "record.machine.source.agent": "Agentenkonstruiert",
   "record.machine.source.human": "Von Menschen bearbeitet",
   "record.machine.source.review": "Im Review ergänzt",
-  "record.machine.viewOutput": "Ausgabe anzeigen"
+  "record.machine.viewOutput": "Ausgabe anzeigen",
+  "record.human.emptyTitle": "Menschliche Abnahmekriterien"
 }

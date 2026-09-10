@@ -2317,5 +2317,6 @@
   "record.machine.source.agent": "エージェント構築",
   "record.machine.source.human": "人が編集",
   "record.machine.source.review": "レビューで追加",
-  "record.machine.viewOutput": "出力を表示"
+  "record.machine.viewOutput": "出力を表示",
+  "record.human.emptyTitle": "人間による受け入れ基準"
 }

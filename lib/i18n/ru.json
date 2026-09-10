@@ -2317,5 +2317,6 @@
   "record.machine.source.agent": "Построено агентом",
   "record.machine.source.human": "Отредактировано человеком",
   "record.machine.source.review": "Добавлено при ревью",
-  "record.machine.viewOutput": "Показать вывод"
+  "record.machine.viewOutput": "Показать вывод",
+  "record.human.emptyTitle": "Критерии приёмки человеком"
 }

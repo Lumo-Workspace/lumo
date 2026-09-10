@@ -2317,5 +2317,6 @@
   "record.machine.source.agent": "代理建構",
   "record.machine.source.human": "人工編輯",
   "record.machine.source.review": "評審新增",
-  "record.machine.viewOutput": "查看產出"
+  "record.machine.viewOutput": "查看產出",
+  "record.human.emptyTitle": "人工驗收標準"
 }

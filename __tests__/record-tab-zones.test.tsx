@@ -54,7 +54,7 @@ jest.mock(
 )
 
 import '@testing-library/jest-dom'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings'
@@ -259,6 +259,24 @@ describe('machine checks by state', () => {
       name: /Machine-verified/,
     })
     expect(records()).toContainElement(verifiedCard)
+    // A record is folded by default — the rows that still need the reviewer
+    // are the ones above, in NEEDS ACTION.
+    expect(verifiedCard).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('the Machine-verified record card starts collapsed and the toggle still opens it', () => {
+    setStatus(statusView({ criteria: [machineVerified(), machineAwaiting()] }))
+    renderTab()
+
+    const verifiedCard = screen.getByRole('button', {
+      name: /Machine-verified/,
+    })
+    expect(verifiedCard).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('verified machine check')).toBeNull()
+
+    fireEvent.click(verifiedCard)
+    expect(verifiedCard).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('verified machine check')).toBeInTheDocument()
   })
 
   it('with every check verified there is no NEEDS ACTION zone at all', () => {
@@ -325,6 +343,21 @@ describe('human calls by state', () => {
     expect(records()).toContainElement(resolved)
     // Resolved → collapsed by default (the LUM-572 smart default).
     expect(resolved).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('with no human criterion yet the editable shell has its own title and no 0/0 count', () => {
+    setStatus(statusView({ criteria: [machineVerified()] }))
+    renderTab()
+
+    const shell = screen.getByRole('button', {
+      name: /Human acceptance criteria/,
+    })
+    expect(records()).toContainElement(shell)
+    // Nothing is pending and nothing is judged — so neither claim is made.
+    expect(screen.queryByText('Needs your judgment')).toBeNull()
+    expect(shell).not.toHaveTextContent('0/0')
+    // The shell's whole purpose survives: the add-criterion entry.
+    expect(screen.getByRole('button', { name: 'Add' })).toBeInTheDocument()
   })
 })
 
@@ -409,6 +442,47 @@ describe('a task with nothing left to do', () => {
     )
     // Everything settled is still on the page, one zone down.
     expect(records()).toBeInTheDocument()
+  })
+
+  it('a DONE task never asks for action, even with a check only a human carried', () => {
+    // A closed task owes the reviewer nothing — the same rule that zeroes
+    // humanPending on DONE zeroes machineAwaiting, so "Clear these and the
+    // task can be marked Done" can never appear under a task already Done.
+    setStatus(
+      statusView({
+        task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [
+          machineAwaiting({
+            id: 'm-override',
+            statement: 'passed by a person',
+            latestVerdict: HUMAN_PASS,
+            machinePassed: false,
+          }),
+          humanCriterion({ latestVerdict: HUMAN_PASS }),
+        ],
+      })
+    )
+    renderTab()
+
+    expect(screen.queryByTestId('record-needs-action')).toBeNull()
+    expect(screen.queryByTestId('record-machine-awaiting')).toBeNull()
+    expect(
+      screen.queryByText('Clear these and the task can be marked Done.')
+    ).toBeNull()
+    expect(screen.queryByTestId('gap-machine')).toBeNull()
+    expect(screen.getByTestId('gap-human')).toHaveTextContent(
+      'Human-judged 1/1'
+    )
+    expect(screen.getByTestId('gap-none')).toBeInTheDocument()
+
+    // The override is a record, not a disappearance: the card counts it
+    // honestly (0 of 1 machine-verified) and still lists it when opened.
+    const card = screen.getByRole('button', { name: /Machine-verified/ })
+    expect(records()).toContainElement(card)
+    expect(card).toHaveTextContent('0 machine-verified · 1 human override')
+    expect(card).toHaveTextContent('0/1')
+    fireEvent.click(card)
+    expect(screen.getByText('passed by a person')).toBeInTheDocument()
   })
 })
 

@@ -10,8 +10,14 @@ import { isPass, machineRollup } from './verdict-status'
  */
 export interface RecordGaps {
   /** MACHINE criteria not yet verified by a checkpointer (failed, unjudged, or
-   *  currently passing only via a human override — honest per `machineRollup`). */
+   *  currently passing only via a human override — honest per `machineRollup`);
+   *  forced to 0 once the task is DONE, mirroring `humanPending`: a closed task
+   *  has nothing left to act on, so it must not read as NEEDS ACTION. The
+   *  `machineVerified` / `machineTotal` pair below stays honest either way. */
   machineAwaiting: number
+  /** Every MACHINE criterion, and the subset a checkpointer actually passed —
+   *  reported as measured even on a DONE task (the Machine-verified record
+   *  card renders `verified/total` plus its override/failed caption from them). */
   machineTotal: number
   machineVerified: number
   /** HUMAN criteria without a live PASS; forced to 0 once the task is DONE —
@@ -42,15 +48,20 @@ export function deriveRecordGaps(input: {
 }): RecordGaps {
   const { data, crossings, gateEnabled, securityBlocking = 0 } = input
 
+  const taskDone = data.task.status === 'DONE'
+
   const machine = machineRollup(data.criteria)
-  const machineAwaiting = machine.total - machine.verified
+  // Same DONE rule as `humanPending`: a closed task owes the reviewer no
+  // action, so an unverified (or human-carried) check is a record, not a gap.
+  // The verified/total pair stays measured — the record card still tells the
+  // honest story of what a checkpointer actually passed.
+  const machineAwaiting = taskDone ? 0 : machine.total - machine.verified
 
   const humanCriteria = data.criteria.filter(c => c.verifierType === 'HUMAN')
   const humanTotal = humanCriteria.length
-  const humanPending =
-    data.task.status === 'DONE'
-      ? 0
-      : humanCriteria.filter(c => !isPass(c.latestVerdict?.verdict)).length
+  const humanPending = taskDone
+    ? 0
+    : humanCriteria.filter(c => !isPass(c.latestVerdict?.verdict)).length
 
   const openCrossings = crossings.filter(c => c.disposition == null)
   const crossingsOpen = openCrossings.length

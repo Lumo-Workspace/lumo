@@ -2317,5 +2317,6 @@
   "record.machine.source.agent": "에이전트 구성",
   "record.machine.source.human": "사람이 편집",
   "record.machine.source.review": "리뷰에서 추가",
-  "record.machine.viewOutput": "출력 보기"
+  "record.machine.viewOutput": "출력 보기",
+  "record.human.emptyTitle": "사람 인수 기준"
 }

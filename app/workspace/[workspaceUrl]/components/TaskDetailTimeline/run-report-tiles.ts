@@ -20,6 +20,12 @@ export interface RunReportTiles {
   /** `cost.tokenCost` — `null` when cost was never measured (no `cost` view,
    *  or a measured-but-unknown token spend), distinct from a measured 0. */
   costTokens: number | null
+  /** `cost.activeTimeSec` — the agent's active (non-idle) seconds on this task
+   *  (LUM-560/LUM-642), rendered as the Cost tile's second sub-caption so the
+   *  reading the old `CostSection` carried survives the tile rewrite. `null`
+   *  only when there is no `cost` view at all; once `cost` exists, 0 is a
+   *  legitimate measured value. */
+  activeTimeSec: number | null
   /** `cost.reworkRounds` — `null` only when there is no `cost` view at all
    *  (older server); once `cost` exists, 0 is a legitimate measured value. */
   rework: number | null
@@ -51,7 +57,8 @@ export function deriveRunReportTiles(
 
   const cost = data.cost
   const costTokens = cost?.tokenCost ?? null
+  const activeTimeSec = cost ? cost.activeTimeSec : null
   const rework = cost ? cost.reworkRounds : null
 
-  return { prIterations, passRateR1, costTokens, rework }
+  return { prIterations, passRateR1, costTokens, activeTimeSec, rework }
 }

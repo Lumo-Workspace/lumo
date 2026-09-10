@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
+import { formatDurationSec } from '@/lib/datetime/duration'
 import type { RunReportTiles as RunReportTilesData } from './run-report-tiles'
 import { fmtTokens } from './HonestReportSections'
 
@@ -13,7 +14,7 @@ function Tile({
   label,
   value,
   measured,
-  subCaption,
+  subCaptions = [],
 }: {
   testId: string
   label: string
@@ -22,7 +23,9 @@ function Tile({
    *  than a real reading (LUM-566) — rendered in the same muted/italic style
    *  as `HonestReportSections`' `CostSection`. */
   measured: boolean
-  subCaption?: string
+  /** Muted lines under the value; only the measured ones are passed in (the
+   *  Cost tile carries two: the token unit and the active-time reading). */
+  subCaptions?: string[]
 }) {
   return (
     <div
@@ -41,11 +44,14 @@ function Tile({
       >
         {value}
       </div>
-      {subCaption ? (
-        <div className='mt-0.5 text-caption text-muted-foreground'>
-          {subCaption}
+      {subCaptions.map(caption => (
+        <div
+          key={caption}
+          className='mt-0.5 text-caption text-muted-foreground'
+        >
+          {caption}
         </div>
-      ) : null}
+      ))}
     </div>
   )
 }
@@ -55,7 +61,9 @@ function Tile({
  * pass rate, cost, and rework, laid out as a 4-column grid (2 on narrow
  * screens). Purely presentational over `RunReportTiles` (the derived data) —
  * all derivation lives in `run-report-tiles.ts`. Every null field renders
- * `record.report.notMeasured`, never a `0` (LUM-566).
+ * `record.report.notMeasured`, never a `0` (LUM-566). The Cost tile also
+ * carries the LUM-560 active-time reading as a sub-caption, so nothing the
+ * retired `CostSection` showed was lost in the move to tiles.
  */
 export function RunReportTiles({ tiles }: RunReportTilesProps) {
   const intl = useIntl()
@@ -64,6 +72,28 @@ export function RunReportTiles({ tiles }: RunReportTilesProps) {
     id: 'record.report.notMeasured',
     defaultMessage: 'not recorded',
   })
+
+  // The Cost tile carries the whole LUM-560 cost read-out the old CostSection
+  // showed: the token unit under the headline number, and — LUM-560/LUM-642 —
+  // the agent's active (non-idle) time, formatted by the one shared duration
+  // formatter so the units stay localized and never fork.
+  const costCaptions: string[] = []
+  if (tiles.costTokens != null) {
+    costCaptions.push(
+      intl.formatMessage({
+        id: 'record.report.costTokens',
+        defaultMessage: 'tokens',
+      })
+    )
+  }
+  if (tiles.activeTimeSec != null) {
+    costCaptions.push(
+      `${intl.formatMessage({
+        id: 'acceptance.cost.activeTime',
+        defaultMessage: 'Active time',
+      })} ${formatDurationSec(intl, tiles.activeTimeSec)}`
+    )
+  }
 
   return (
     <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
@@ -77,20 +107,22 @@ export function RunReportTiles({ tiles }: RunReportTilesProps) {
           tiles.prIterations ? String(tiles.prIterations.count) : notMeasured
         }
         measured={tiles.prIterations != null}
-        {...(tiles.prIterations
-          ? {
-              subCaption: intl.formatMessage(
-                {
-                  id: 'record.report.prRange',
-                  defaultMessage: '#{first}–#{last}',
-                },
-                {
-                  first: tiles.prIterations.first,
-                  last: tiles.prIterations.last,
-                }
-              ),
-            }
-          : {})}
+        subCaptions={
+          tiles.prIterations
+            ? [
+                intl.formatMessage(
+                  {
+                    id: 'record.report.prRange',
+                    defaultMessage: '#{first}–#{last}',
+                  },
+                  {
+                    first: tiles.prIterations.first,
+                    last: tiles.prIterations.last,
+                  }
+                ),
+              ]
+            : []
+        }
       />
       <Tile
         testId='tile-passRateR1'
@@ -111,14 +143,7 @@ export function RunReportTiles({ tiles }: RunReportTilesProps) {
           tiles.costTokens == null ? notMeasured : fmtTokens(tiles.costTokens)
         }
         measured={tiles.costTokens != null}
-        {...(tiles.costTokens == null
-          ? {}
-          : {
-              subCaption: intl.formatMessage({
-                id: 'record.report.costTokens',
-                defaultMessage: 'tokens',
-              }),
-            })}
+        subCaptions={costCaptions}
       />
       <Tile
         testId='tile-rework'

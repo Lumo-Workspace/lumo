@@ -2317,5 +2317,6 @@
   "record.machine.source.agent": "Do tác nhân tạo",
   "record.machine.source.human": "Do người chỉnh sửa",
   "record.machine.source.review": "Thêm khi rà soát",
-  "record.machine.viewOutput": "Xem kết quả"
+  "record.machine.viewOutput": "Xem kết quả",
+  "record.human.emptyTitle": "Tiêu chí nghiệm thu của con người"
 }

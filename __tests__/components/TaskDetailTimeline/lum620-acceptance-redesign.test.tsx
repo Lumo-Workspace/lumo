@@ -226,7 +226,8 @@ describe('LUM-620 · Acceptance redesign', () => {
     unmount()
 
     // Contract still editable (not DONE) → the zone stays even at zero
-    // criteria: it carries the add-criterion entry.
+    // criteria: it carries the add-criterion entry. LUM-496: at zero criteria
+    // it wears its own empty-shell title — there is no pending call to name.
     mockStatus.mockReturnValue({
       data: statusView({ criteria: [crit('MACHINE', 'PASS')] }),
       loading: false,
@@ -235,7 +236,7 @@ describe('LUM-620 · Acceptance redesign', () => {
       optimisticallyPass: jest.fn(),
     })
     renderTab()
-    expect(screen.getByText('Needs your judgment')).toBeInTheDocument()
+    expect(screen.getByText('Human acceptance criteria')).toBeInTheDocument()
   })
 
   it('decision hero Approve submits a task-level PASS verdict', async () => {

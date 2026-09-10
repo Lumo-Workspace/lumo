@@ -2317,5 +2317,6 @@
   "record.machine.source.agent": "Dibina oleh ejen",
   "record.machine.source.human": "Disunting oleh manusia",
   "record.machine.source.review": "Ditambah semasa semakan",
-  "record.machine.viewOutput": "Lihat output"
+  "record.machine.viewOutput": "Lihat output",
+  "record.human.emptyTitle": "Kriteria penerimaan manusia"
 }

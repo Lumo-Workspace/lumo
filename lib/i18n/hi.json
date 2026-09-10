@@ -2317,5 +2317,6 @@
   "record.machine.source.agent": "एजेंट-निर्मित",
   "record.machine.source.human": "मानव-संपादित",
   "record.machine.source.review": "समीक्षा में जोड़ा गया",
-  "record.machine.viewOutput": "आउटपुट देखें"
+  "record.machine.viewOutput": "आउटपुट देखें",
+  "record.human.emptyTitle": "मानवीय स्वीकृति मानदंड"
 }
