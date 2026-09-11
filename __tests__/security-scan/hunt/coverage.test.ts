@@ -127,6 +127,21 @@ describe('LUM-762 hunt coverage', () => {
     expect(coverage!.total).toBe(HUNT_CATEGORIES.length)
   })
 
+  it('reads a pre-Task-13 row that still uses the `categories` field name', () => {
+    // Task 13 renamed `HuntAudit.categories` to `.tasks`; rows persisted
+    // before that rename must keep rendering rather than silently losing
+    // their coverage line.
+    const coverage = parseHuntCoverage({
+      categories: [row(), row({ category: 'injection', stopped: 'timeout' })],
+    })
+    expect(coverage).not.toBeNull()
+    expect(coverage!.total).toBe(HUNT_CATEGORIES.length)
+    expect(coverage!.categories.map(c => c.category)).toEqual([
+      'idor',
+      'injection',
+    ])
+  })
+
   it('drops rows it cannot vouch for and repairs unusable numbers', () => {
     const coverage = parseHuntCoverage({
       tasks: [

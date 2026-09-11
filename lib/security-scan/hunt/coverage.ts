@@ -74,7 +74,12 @@ function count(value: unknown): number {
  */
 export function parseHuntCoverage(raw: unknown): HuntCoverage | null {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
-  const rows = (raw as { tasks?: unknown }).tasks
+  // LUM-758 renamed `HuntAudit.categories` to `.tasks`. Rows persisted before
+  // that rename still carry the old field name — fall back to it so those
+  // rows keep rendering instead of silently losing their coverage line.
+  const rows =
+    (raw as { tasks?: unknown; categories?: unknown }).tasks ??
+    (raw as { categories?: unknown }).categories
   if (!Array.isArray(rows)) return null
 
   const byCategory = new Map<HuntCategory, HuntCategoryCoverage>()
