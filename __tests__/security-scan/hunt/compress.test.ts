@@ -9,8 +9,10 @@
  *      character reaches it (locked acceptance criterion).
  *   2. ITS TOKENS ARE COUNTED. A compression call is spend like any other;
  *      `compressTokens` carries it out of the shell and `huntBatch` folds it
- *      into the batch's `tokens` (asserted in `security-hunt.service.test.ts`,
- *      summed into `huntAudit.compress` in `security-hunt.workflow.test.ts`).
+ *      into the batch's `tokens` and into `huntAudit.compress` — followed end
+ *      to end below, through the REAL `runHuntShell`, because a scan that pays
+ *      for compression with money `tokenSpent` never sees is the exact failure
+ *      this criterion exists to prevent.
  *   3. ITS OUTPUT IS UNTRUSTED. It is a model's paraphrase of repository text
  *      flowing into another model's context: control chars stripped, block
  *      delimiters defanged, re-truncated, then fenced.
@@ -39,9 +41,38 @@ jest.mock('@/lib/llm/security-hunt-compress-client', () => ({
 }))
 jest.mock('ai', () => ({ generateText: jest.fn() }))
 jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+/**
+ * Only the two ends of the sandbox layer are stubbed — acquisition and
+ * teardown. `runHuntShell` itself stays REAL, so the token this file follows
+ * out of the compressor is the same token `huntBatch` bills below; a seam
+ * there would let the two halves of the accounting agree with each other
+ * while agreeing with nothing.
+ */
+jest.mock('@/lib/services/security-hunt-sandbox', () => ({
+  ...jest.requireActual('@/lib/services/security-hunt-sandbox'),
+  attachOrCreateHuntSandbox: jest.fn(),
+  stopHuntSandbox: jest.fn().mockResolvedValue(undefined),
+}))
+jest.mock('@/lib/llm/security-hunt-client', () => ({ huntTask: jest.fn() }))
+jest.mock('@/lib/integrations/github/contents', () => ({
+  fetchPrDiff: jest.fn(),
+  readRepoFile: jest.fn(),
+}))
+jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+  prSecurityScanRepository: {
+    findDispositionedByPullRequest: jest.fn(),
+    persistHuntResult: jest.fn(),
+    findFindingSummaryByScan: jest.fn(),
+  },
+}))
 
 import { generateText } from 'ai'
-import { runHuntShell } from '@/lib/services/security-hunt-sandbox'
+import {
+  attachOrCreateHuntSandbox,
+  runHuntShell,
+} from '@/lib/services/security-hunt-sandbox'
+import { huntTask } from '@/lib/llm/security-hunt-client'
+import { securityHuntService } from '@/lib/services/security-hunt.service'
 import { compressShellOutput } from '@/lib/llm/security-hunt-compress-client'
 import { FAST_MODEL } from '@/lib/ai/models'
 import {
@@ -53,6 +84,8 @@ import {
 
 const compress = compressShellOutput as jest.Mock
 const gen = generateText as jest.Mock
+const attach = attachOrCreateHuntSandbox as jest.Mock
+const hunt = huntTask as jest.Mock
 
 const TOKEN = 'ghs_secret_token'
 const TASK: HuntTask = {
@@ -63,19 +96,34 @@ const TASK: HuntTask = {
   startingPoints: ['lib/a.ts'],
 }
 
+const JOB = {
+  scanId: 's1',
+  pullRequestId: 'pr1',
+  taskId: null,
+  workspaceId: 'w1',
+  repo: 'o/r',
+  prNumber: 7,
+  headSha: 'b'.repeat(40),
+  reasons: ['diff:sink:prisma-raw'],
+  touchedSourcePaths: ['lib/a.ts'],
+  managedScanStarted: true,
+}
+
 const vm = (stdout: string) => ({
   run: jest.fn().mockResolvedValue({ exitCode: 0, stdout, stderr: '' }),
 })
 
+const handleFor = (stdout: string) => ({
+  sandbox: vm(stdout) as never,
+  cwd: '/vercel/r',
+  token: TOKEN,
+  origin: 'attached' as const,
+  egressDenied: false,
+})
+
 const call = (stdout: string) =>
   runHuntShell({
-    handle: {
-      sandbox: vm(stdout) as never,
-      cwd: '/vercel/r',
-      token: TOKEN,
-      origin: 'attached',
-      egressDenied: false,
-    },
+    handle: handleFor(stdout),
     task: TASK,
     command: 'rg -n queryRaw lib/',
   })
@@ -127,6 +175,41 @@ describe('LUM-758 §6 shell output compression', () => {
     expect(failed.output.length).toBeLessThanOrEqual(HUNT_SHELL_OUTPUT_MAX)
     expect(failed.compressed).toBe(false)
     expect(failed.compressTokens).toBe(0)
+
+    // 4. `compressTokens` is not the guarantee — it is only the wire. The
+    //    guarantee is that the money ARRIVES: in the batch `tokens` the
+    //    orchestrator adds to `tokenSpent` (the "average ≤ 60k" metric), and
+    //    broken out in `huntAudit.compress` so the launch read-out can price
+    //    the step. Run the same compression through the real `runHuntShell`
+    //    that `huntBatch` calls, and follow the 420 all the way out: a
+    //    `huntBatch` that dropped `+ compress.tokens` would be paying a
+    //    gateway with money no acceptance metric can see.
+    compress.mockResolvedValue({ text: 'lib/a.ts:3: hit', tokens: 420 })
+    attach.mockResolvedValue(handleFor(LONG))
+    hunt.mockImplementation(
+      async (input: { runShell: (c: string) => Promise<unknown> }) => {
+        await input.runShell('rg -n queryRaw lib/')
+        return { candidates: [], tokens: 900, stopped: 'done' }
+      }
+    )
+
+    const batch = await securityHuntService.huntBatch({
+      job: JOB,
+      task: TASK,
+      tokenBudget: 1_000,
+      timeBudgetMs: 60_000,
+    })
+
+    expect(batch.tokens).toBe(900 + 420)
+    expect(batch.compress).toEqual({
+      calls: 1,
+      inputChars: expect.any(Number),
+      outputChars: expect.any(Number),
+      tokens: 420,
+    })
+    // The saving the audit reports is the real one, measured on the same
+    // characters the compressor was handed and handed back.
+    expect(batch.compress!.outputChars).toBeLessThan(batch.compress!.inputChars)
   })
 
   it('sandbox output is redacted before it reaches the compressor, installation token included', async () => {

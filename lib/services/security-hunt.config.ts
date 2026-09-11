@@ -72,8 +72,13 @@ export const HUNT_CHECKOUT_POLL_MS = 1_000
 export const HUNT_SHELL_OUTPUT_MAX = 8_000
 
 /**
- * LUM-758 §6 — below this many characters the output is NOT compressed: one
- * FAST call costs more than the tokens it would save, and the hunt model can
+ * LUM-758 §6 — below this many characters the output is NOT compressed. This
+ * is the FLOOR of the zone where compressing is arguable, not the crossover:
+ * 2 000 characters is ~500 tokens, and one compression call re-reads all of
+ * them plus its own system prompt and then pays for its answer, so under this
+ * mark the call is a loss in raw tokens AND in price, with nothing to weigh.
+ * Above it the trade stops being obvious and becomes the price argument
+ * `HuntAudit.compress` exists to settle — see there. The hunt model can also
  * read 2 000 characters of `rg` output perfectly well.
  */
 export const HUNT_SHELL_COMPRESS_MIN = 2_000
@@ -241,8 +246,23 @@ export interface HuntAudit {
    * LUM-758 §6.3 — what the shell-output compressor cost and what it bought,
    * over every `run_shell` call of every batch of this scan. This step was
    * scoped as "only if still over budget", so it ships measurable and
-   * revertible: `inputChars - outputChars` is the saving, `tokens` is the
-   * price, and the launch read-out keeps or reverts it on those two numbers.
+   * revertible — but the two numbers are in DIFFERENT UNITS, and the keep-or-
+   * revert call is wrong if they are compared directly:
+   *
+   * - The saving is `inputChars - outputChars` CHARACTERS. At ~4 characters
+   *   per token, one call can save at most HUNT_SHELL_OUTPUT_MAX = 8 000
+   *   chars ≈ 2 000 tokens of the hunt model's context.
+   * - The price is `tokens` TOKENS: the compressor re-reads that same output
+   *   as its prompt and may emit up to HUNT_COMPRESS_TOKEN_BUDGET = 2 000
+   *   more. So per call the step is roughly BREAK-EVEN in token count, not
+   *   the ~4× win the raw difference in the numbers suggests.
+   *
+   * The real win is therefore a PRICE win — tokens moved off the hunt model
+   * and onto FAST — and `tokenSpent` cannot show it, because it adds FAST and
+   * GENERATION tokens 1:1. A compression that lowers the dollar cost of a
+   * scan can RAISE its "average tokenSpent ≤ 60k" number. Keep or revert this
+   * step on price (tokens × each model's rate), never on `tokenSpent`; the
+   * budget guard is the only thing `tokenSpent` is for here.
    *
    * - `calls`: compressions that actually replaced the output.
    * - `inputChars` / `outputChars`: characters in and out of those calls,

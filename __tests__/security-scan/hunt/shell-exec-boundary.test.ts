@@ -227,9 +227,24 @@ describe('LUM-758 source-level: one module may touch a sandbox, one call site ma
     expect(sandboxModule).not.toMatch(/\$\{[^}]*\bcommand\b[^}]*\}/)
     expect(sandboxModule).not.toMatch(/\bcommand\b\s*\+|\+\s*input\.command/)
     expect(sandboxModule).not.toMatch(/JSON\.stringify\(\s*input\.command/)
-    // `input.command` appears exactly twice: the gate reads it, the shell runs
-    // it. A third use is a new hop and has to be looked at.
-    expect(sandboxModule.match(/input\.command/g)).toHaveLength(2)
+    // The property is about EXEC, not spelling. A count of every mention of
+    // the identifier also counts `const { command } = input` and a prompt
+    // string — neither of which is a hop — so scope it to the call sites that
+    // actually run something: exactly one of them may mention the command.
+    const execSites = [...sandboxModule.matchAll(/\.run\(/g)].map(m =>
+      sandboxModule.slice(m.index, m.index + 200)
+    )
+    expect(execSites.length).toBeGreaterThan(0)
+    const execWithCommand = execSites.filter(site => /\bcommand\b/.test(site))
+    expect(execWithCommand).toHaveLength(1)
+    // …and at that one site the command is a bare argv entry, never the base
+    // of an expression: `.trim()`, `.replace(…)`, a concat or a template would
+    // each rewrite a string the gate has already approved. Spelled without the
+    // `input.` prefix on purpose — `const { command } = input` is a rename,
+    // not a hop, and must not read as one. That the gate and the shell see the
+    // SAME bytes is pinned at runtime above, not by counting identifiers.
+    expect(execWithCommand[0]).toMatch(/\bcommand\s*[,\]]/)
+    expect(execWithCommand[0]).not.toMatch(/\bcommand\s*[.+`]/)
   })
 
   it('readHuntFile reads a file — it never routes through the shell', () => {

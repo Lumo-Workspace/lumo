@@ -42,7 +42,11 @@ import {
   createRepoSandbox,
   denySandboxEgress,
 } from '@/lib/integrations/vercel-sandbox'
-import { HUNT_SHELL_OUTPUT_MAX } from '@/lib/services/security-hunt.config'
+import { compressShellOutput } from '@/lib/llm/security-hunt-compress-client'
+import {
+  HUNT_SHELL_COMPRESS_MIN,
+  HUNT_SHELL_OUTPUT_MAX,
+} from '@/lib/services/security-hunt.config'
 import { logger } from '@/lib/logger'
 
 const find = findRepoSandboxByTag as jest.Mock
@@ -408,6 +412,38 @@ describe('runHuntShell', () => {
     // was replaced rather than dropped.
     expect(out.output).toContain('const k =')
     expect(out.output).toContain('[redacted]')
+
+    // ANY model, not just the hunt model. Above, stdout is ~50 characters —
+    // under HUNT_SHELL_COMPRESS_MIN, so the compressor is never called and a
+    // redaction that ran AFTER compression would still look clean here. This
+    // case crosses the threshold, so the compressor IS called, and what is
+    // pinned is its INPUT: the order of the two steps, not just the result.
+    const big = fakeSandbox()
+    big.run.mockResolvedValue({
+      exitCode: 0,
+      stdout: `const k = "AKIAIOSFODNN7EXAMPLE"\nghs_secret_token\n${'lib/a.ts:9: filler\n'.repeat(300)}`,
+      stderr: '',
+    })
+
+    const long = await runHuntShell({
+      handle: handleFor(big, 'ghs_secret_token'),
+      task: TASK,
+      command: 'cat big.ts',
+    })
+
+    const compress = compressShellOutput as jest.Mock
+    expect(compress).toHaveBeenCalledTimes(1)
+    const fed = compress.mock.calls[0]![0].output as string
+    expect(fed.length).toBeGreaterThanOrEqual(HUNT_SHELL_COMPRESS_MIN)
+    expect(fed).not.toContain('AKIAIOSFODNN7EXAMPLE')
+    expect(fed).not.toContain('ghs_secret_token')
+    // …and again it is still the command's answer, not an empty string.
+    expect(fed).toContain('[redacted]')
+    expect(fed).toContain('lib/a.ts:9: filler')
+    // The compressor is stubbed to reject in this file, so this is also the
+    // truncation fallback — which must not un-redact anything either.
+    expect(long.output).not.toContain('AKIAIOSFODNN7EXAMPLE')
+    expect(long.output).not.toContain('ghs_secret_token')
   })
 
   it('truncates output at HUNT_SHELL_OUTPUT_MAX', async () => {
