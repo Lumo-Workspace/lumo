@@ -106,6 +106,34 @@ function recordSandbox(audit: HuntAudit, batch: HuntBatchOutput): void {
 }
 
 /**
+ * LUM-758 §6.3 — fold one batch's compression bill into the run's. Pure and
+ * synchronous like `recordSandbox`, so the deterministic body stays
+ * deterministic.
+ *
+ * The `tokens` here are ALREADY inside `batch.tokens`, and therefore inside
+ * `tokenSpent`; this only breaks them out so the launch read-out can put the
+ * saving (`inputChars - outputChars`) next to the price and decide whether to
+ * keep this step at all. A batch that ran no command leaves the field absent
+ * rather than writing four zeros nobody can tell from "compression is off".
+ */
+function recordCompress(audit: HuntAudit, batch: HuntBatchOutput): void {
+  const batchCompress = batch.compress
+  if (!batchCompress || batchCompress.calls + batchCompress.tokens === 0) return
+  const total = audit.compress ?? {
+    calls: 0,
+    inputChars: 0,
+    outputChars: 0,
+    tokens: 0,
+  }
+  audit.compress = {
+    calls: total.calls + batchCompress.calls,
+    inputChars: total.inputChars + batchCompress.inputChars,
+    outputChars: total.outputChars + batchCompress.outputChars,
+    tokens: total.tokens + batchCompress.tokens,
+  }
+}
+
+/**
  * The hunt's P9 stamp. Retried by the platform; a final failure must not
  * change the FAILED outcome the workflow has already decided. Kept here
  * (not in `security-scan-helpers.ts`) so the other workflows' bundles and
@@ -281,6 +309,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         elapsedMs += batch.elapsedMs
         raw.push(...batch.candidates)
         recordSandbox(audit, batch)
+        recordCompress(audit, batch)
         audit.tasks.push({
           taskId: task.id,
           objective: task.objective,
@@ -325,6 +354,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         elapsedMs += retry.elapsedMs
         raw.push(...retry.candidates)
         recordSandbox(audit, retry)
+        recordCompress(audit, retry)
         audit.tasks.push({
           taskId: task.id,
           objective: task.objective,

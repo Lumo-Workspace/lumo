@@ -122,6 +122,12 @@ const batch = (
     error: string
     sandbox: 'attached' | 'created'
     egressDenied: boolean
+    compress: {
+      calls: number
+      inputChars: number
+      outputChars: number
+      tokens: number
+    }
   }> = {}
 ) => ({
   candidates: [],
@@ -425,6 +431,59 @@ describe('LUM-739 hunt workflow', () => {
     // per-batch detail is still in `audit.tasks`.
     expect(audit.sandbox).toBe('created')
     expect(audit.egressDenied).toBe(false)
+  })
+
+  it('LUM-758 §6.3 sums what compression cost and saved across every batch', async () => {
+    hunt
+      .mockImplementationOnce(async () =>
+        batch({
+          tokens: 5_000,
+          compress: {
+            calls: 2,
+            inputChars: 12_000,
+            outputChars: 1_500,
+            tokens: 300,
+          },
+        })
+      )
+      .mockImplementationOnce(async () =>
+        batch({
+          tokens: 4_000,
+          compress: {
+            calls: 1,
+            inputChars: 6_000,
+            outputChars: 900,
+            tokens: 150,
+          },
+        })
+      )
+
+    await securityHuntWorkflow(JOB)
+
+    const persisted = persist.mock.calls[0]![0]
+    expect(persisted.audit.compress).toEqual({
+      calls: 3,
+      inputChars: 18_000,
+      outputChars: 2_400,
+      tokens: 450,
+    })
+    // The compression tokens are INSIDE each batch's `tokens`, so they are
+    // inside `tokenSpent` — they are not added a second time here. That is
+    // the whole reason `huntBatch` folds them in rather than reporting them
+    // on the side.
+    expect(persisted.tokenSpent).toBe(9_000)
+  })
+
+  it('LUM-758 §6.3 leaves `compress` absent when no command was ever compressed', async () => {
+    hunt.mockImplementation(async () =>
+      batch({
+        compress: { calls: 0, inputChars: 0, outputChars: 0, tokens: 0 },
+      })
+    )
+    await securityHuntWorkflow(JOB)
+    // Four zeros would be indistinguishable from "the step is switched off";
+    // absent says "nothing crossed the threshold".
+    expect(persist.mock.calls[0]![0].audit.compress).toBeUndefined()
   })
 
   it('LUM-758 an attached-only run still reads attached', async () => {

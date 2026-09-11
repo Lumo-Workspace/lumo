@@ -65,6 +65,7 @@ import {
   type VerifySubgraphInput,
   type HuntBatchInput,
   type HuntBatchOutput,
+  type HuntCompressStats,
   type MechanicalVerifyInput,
   type MechanicalVerifyResult,
   type FalsifierInput,
@@ -368,6 +369,19 @@ export const securityHuntService = {
       managedScanStarted: input.job.managedScanStarted,
     })
     const vm = { sandbox: handle.origin, egressDenied: handle.egressDenied }
+    /**
+     * LUM-758 §6.3 — this batch's share of the compression bill, accumulated
+     * across every `run_shell` the model makes. It is returned on EVERY exit
+     * from here, the failure paths included: the gateway charged for the
+     * compressions the model's last command triggered whether or not the
+     * batch went on to time out.
+     */
+    const compress: HuntCompressStats = {
+      calls: 0,
+      inputChars: 0,
+      outputChars: 0,
+      tokens: 0,
+    }
     try {
       // What is left of this task's window after acquisition — the batch's
       // ceiling is a whole-batch ceiling, not a model-call ceiling.
@@ -382,6 +396,7 @@ export const securityHuntService = {
           elapsedMs: Date.now() - started,
           stopped: 'timeout',
           error: 'sandbox acquisition consumed the task window',
+          compress,
           ...vm,
         }
       }
@@ -393,17 +408,39 @@ export const securityHuntService = {
         // The ONLY path from the model to the VM. The handle goes in whole so
         // the credential guard cannot be skipped by construction, and the
         // command goes through untouched so the string `checkHuntCommand`
-        // reads is the string that runs.
-        runShell: command => runHuntShell({ handle, command }),
+        // reads is the string that runs. The task rides along because the
+        // compressor needs to know what "relevant" means (§6).
+        runShell: async command => {
+          const out = await runHuntShell({ handle, task: input.task, command })
+          // Counted here and nowhere else, so compression cannot be paid for
+          // with money the scan's `tokenSpent` never sees.
+          compress.tokens += out.compressTokens
+          if (out.compressed) {
+            compress.calls += 1
+            compress.inputChars += out.compressInputChars
+            compress.outputChars += out.compressOutputChars
+          }
+          // Only the two fields the model needs. The accounting fields are
+          // ours: an `ai` tool result is serialised straight into the
+          // transcript, so returning them would spend context on bookkeeping
+          // in the very call this whole step exists to make smaller.
+          const { output, error } = out
+          return error === undefined ? { output } : { output, error }
+        },
         tokenBudget: input.tokenBudget,
         timeoutMs: remainingMs,
         maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
       })
       return {
         candidates: out.candidates,
-        tokens: out.tokens,
+        // The hunt model's tokens PLUS the compressions its commands paid
+        // for. One number, because `HUNT_TOKEN_BUDGET` and the acceptance
+        // metric both read this one — a compression billed anywhere else
+        // would be spend the ≤60k target cannot see.
+        tokens: out.tokens + compress.tokens,
         elapsedMs: Date.now() - started,
         stopped: out.stopped,
+        compress,
         ...vm,
       }
     } catch (error) {
@@ -413,10 +450,12 @@ export const securityHuntService = {
       )
       return {
         candidates: [],
-        tokens: 0,
+        // A batch that failed still spent whatever its commands compressed.
+        tokens: compress.tokens,
         elapsedMs: Date.now() - started,
         stopped: isAbort(error) ? 'timeout' : 'error',
         error: message.slice(0, 300),
+        compress,
         ...vm,
       }
     } finally {

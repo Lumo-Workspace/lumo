@@ -173,7 +173,7 @@ export async function huntTask(
   const tools = {
     run_shell: tool({
       description:
-        'Run ONE read-only shell command in a checkout of the pull request at its head sha, from the repository root. Allowed: rg, grep, sed -n, cat, ast-grep, head, tail, wc (pipes between them are fine). Network, writes, git and npm are refused. Output is truncated.',
+        'Run ONE read-only shell command in a checkout of the pull request at its head sha, from the repository root. Allowed: rg, grep, sed -n, cat, ast-grep, head, tail, wc (pipes between them are fine). Network, writes, git and npm are refused. Output is truncated, and long output comes back as a LOSSY extract of the lines a cheap model judged relevant to this task — when a line you need may have been dropped, re-run a narrower command.',
       inputSchema: z.object({
         command: z
           .string()

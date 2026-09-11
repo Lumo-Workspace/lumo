@@ -125,10 +125,24 @@ const candidate = {
   fingerprint: 'c'.repeat(16),
 }
 
+/**
+ * A `runHuntShell` answer that was NOT compressed — the shape the real one
+ * returns below HUNT_SHELL_COMPRESS_MIN. Spelled out rather than `{ output }`
+ * because a missing `compressTokens` is exactly how a NaN gets into a
+ * batch's token total.
+ */
+const NOT_COMPRESSED = (output: string) => ({
+  output,
+  compressed: false,
+  compressTokens: 0,
+  compressInputChars: 0,
+  compressOutputChars: 0,
+})
+
 beforeEach(() => {
   jest.clearAllMocks()
   attachMock.mockResolvedValue(HANDLE)
-  shellMock.mockResolvedValue({ output: '' })
+  shellMock.mockResolvedValue(NOT_COMPRESSED(''))
   readHuntFileMock.mockResolvedValue(null)
   stopMock.mockResolvedValue(undefined)
   repo.findDispositionedByPullRequest.mockResolvedValue([])
@@ -318,7 +332,7 @@ describe('LUM-739 hunt service', () => {
   })
 
   it('huntBatch runs the task in a sandbox and injects a runShell that is the ONLY route to it', async () => {
-    shellMock.mockResolvedValue({ output: 'hit.ts:3' })
+    shellMock.mockResolvedValue(NOT_COMPRESSED('hit.ts:3'))
     huntMock.mockImplementation(
       async (input: {
         runShell: (c: string) => Promise<{ output: string }>
@@ -353,7 +367,10 @@ describe('LUM-739 hunt service', () => {
     const shellArg = shellMock.mock.calls[0]![0]
     expect(shellArg.handle).toBe(HANDLE)
     expect(shellArg.command).toBe('rg -n "req\\.query" lib/ | head -n 5')
-    expect(Object.keys(shellArg).sort()).toEqual(['command', 'handle'])
+    expect(Object.keys(shellArg).sort()).toEqual(['command', 'handle', 'task'])
+    // LUM-758 §6: the compressor is told the TASK (what is relevant), never
+    // the command — that string has exactly two destinations.
+    expect(shellArg.task).toBe(TASK)
     // LUM-758: the client is handed the whole TASK (objective + starting
     // points), not just the category that types its output.
     expect(huntMock.mock.calls[0]![0]).toMatchObject({
@@ -369,6 +386,78 @@ describe('LUM-739 hunt service', () => {
     expect(huntMock.mock.calls[0]![0].subgraph).toBeUndefined()
     expect(readMock).not.toHaveBeenCalled()
     expect(stopMock).toHaveBeenCalledWith(HANDLE)
+  })
+
+  it('huntBatch charges shell compression to the batch tokens and breaks it out for the audit', async () => {
+    // Three commands: one compressed, one under the threshold, one whose
+    // compression was billed and then failed.
+    shellMock
+      .mockResolvedValueOnce({
+        output:
+          '<untrusted-compressed-output>\nlib/a.ts:3: hit\n</untrusted-compressed-output>',
+        compressed: true,
+        compressTokens: 120,
+        compressInputChars: 6400,
+        compressOutputChars: 800,
+      })
+      .mockResolvedValueOnce(NOT_COMPRESSED('lib/a.ts:3: hit'))
+      .mockResolvedValueOnce({
+        ...NOT_COMPRESSED('lib/b.ts:9: hit'),
+        compressTokens: 7,
+      })
+    const seen: Array<Record<string, unknown>> = []
+    huntMock.mockImplementation(
+      async (input: {
+        runShell: (c: string) => Promise<Record<string, unknown>>
+      }) => {
+        seen.push(await input.runShell('rg -n queryRaw lib/'))
+        seen.push(await input.runShell('cat lib/a.ts'))
+        seen.push(await input.runShell('cat lib/b.ts'))
+        return { candidates: [], tokens: 900, stopped: 'done' }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    // THE point of the whole accounting: `tokens` is what the orchestrator
+    // adds to `tokenSpent`, and `tokenSpent` is the ≤60k acceptance metric.
+    // Compression billed anywhere else would be spend that metric cannot see.
+    expect(out.tokens).toBe(900 + 120 + 7)
+    expect(out.compress).toEqual({
+      // Only the compression that actually replaced an output counts as a
+      // call, but the dud's 7 tokens are still money that was spent.
+      calls: 1,
+      inputChars: 6400,
+      outputChars: 800,
+      tokens: 127,
+    })
+    // A tool result is serialised into the model's transcript verbatim, so
+    // the bookkeeping must not ride along into the context this step exists
+    // to shrink.
+    for (const result of seen) {
+      expect(Object.keys(result)).toEqual(['output'])
+    }
+  })
+
+  it('huntBatch still charges the compressions a failed batch already paid for', async () => {
+    shellMock.mockResolvedValue({
+      ...NOT_COMPRESSED('lib/a.ts:3: hit'),
+      compressTokens: 40,
+    })
+    huntMock.mockImplementation(
+      async (input: {
+        runShell: (c: string) => Promise<{ output: string }>
+      }) => {
+        await input.runShell('rg -n queryRaw lib/')
+        throw new Error('gateway exploded')
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    expect(out.stopped).toBe('error')
+    expect(out.tokens).toBe(40)
+    expect(out.compress).toMatchObject({ tokens: 40, calls: 0 })
   })
 
   it('huntBatch charges sandbox acquisition to the batch clock and to the model call window', async () => {
