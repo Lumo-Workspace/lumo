@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "gravité {severity}",
   "boundary.tip.category": "Un franchissement de limite est une action interdite ou risquée effectuée par l'agent. La catégorie indique de quel type il s'agit.",
   "boundary.tip.severity": "La gravité de ce franchissement. Les franchissements HIGH bloquent la clôture de la tâche jusqu'à leur résolution.",
-  "boundary.tip.disposition": "Comment ce franchissement a été résolu : faux positif (pas un vrai problème), confirmé (vrai problème) ou résolu automatiquement par le système.",
+  "boundary.tip.disposition": "Comment ce franchissement a été résolu : faux positif (pas un vrai problème), confirmé (un vrai problème), résolu automatiquement par le système, ou traité automatiquement par une règle de dépôt créée par un humain.",
   "boundary.tip.recurrence": "Ce même franchissement a été détecté plusieurs fois ; le compteur indique combien.",
   "boundary.panel.recurrence": "vu ×{count}",
   "boundary.panel.lastSeen": "Vu pour la dernière fois {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "Dépendances",
   "securityScan.finding.persisting": "déjà présent sur la branche par défaut",
   "securityScan.finding.dependency": "Dépendance vulnérable",
-  "securityScan.stageState.SUPERSEDED": "remplacé"
+  "securityScan.stageState.SUPERSEDED": "remplacé",
+  "boundary.panel.suppressSimilar": "Traiter automatiquement ce type dans ce dépôt désormais (faux positifs uniquement)",
+  "boundary.panel.suppressReasonPlaceholder": "Pourquoi ce n’est jamais un vrai franchissement ici (facultatif)",
+  "boundary.panel.suppressedByRule": "Traité automatiquement par la règle de dépôt {rule}{reason}",
+  "boundary.panel.ruleRevoked": "règle révoquée",
+  "boundary.panel.revokeRule": "Révoquer la règle",
+  "boundary.disposition.autoSuppressed": "traité automatiquement par règle",
+  "boundary.toast.ruleRevoked": "Règle révoquée — les prochaines occurrences seront de nouveau ouvertes",
+  "boundary.toast.ruleCreated": "Franchissement traité et règle de dépôt créée — les prochaines occurrences seront traitées automatiquement"
 }

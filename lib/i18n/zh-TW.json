@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "{severity} 嚴重度",
   "boundary.tip.category": "越界訊號 = agent 執行的違禁或高風險動作。類別說明是哪一種。",
   "boundary.tip.severity": "該越界的嚴重程度。HIGH 會攔截任務標記完成，直到處置。",
-  "boundary.tip.disposition": "該越界如何處置：誤報（非真實問題）、確認（真實問題）、或系統自動放行。",
+  "boundary.tip.disposition": "此越界的處置方式：誤報（並非真實問題）、已確認（真實問題）、系統自動處置，或依人工建立的儲存庫規則自動處置。",
   "boundary.tip.recurrence": "同一越界被多次偵測到；數字是次數。",
   "boundary.panel.recurrence": "出現 {count} 次",
   "boundary.panel.lastSeen": "最後出現 {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "依賴",
   "securityScan.finding.persisting": "預設分支上已存在",
   "securityScan.finding.dependency": "存在漏洞的依賴",
-  "securityScan.stageState.SUPERSEDED": "已被取代"
+  "securityScan.stageState.SUPERSEDED": "已被取代",
+  "boundary.panel.suppressSimilar": "此儲存庫同類越界以後自動處置（僅限誤報）",
+  "boundary.panel.suppressReasonPlaceholder": "為什麼這在此儲存庫永遠不是真實越界（選填）",
+  "boundary.panel.suppressedByRule": "依儲存庫規則 {rule} 自動處置{reason}",
+  "boundary.panel.ruleRevoked": "規則已撤銷",
+  "boundary.panel.revokeRule": "撤銷規則",
+  "boundary.disposition.autoSuppressed": "依規則自動處置",
+  "boundary.toast.ruleRevoked": "規則已撤銷——以後的同類越界將重新進入待處置",
+  "boundary.toast.ruleCreated": "越界已處置並建立儲存庫規則——以後的同類越界將自動處置"
 }

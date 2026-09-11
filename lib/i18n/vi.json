@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "mức độ nghiêm trọng {severity}",
   "boundary.tip.category": "Hành vi vượt ranh giới là hành động bị cấm hoặc có rủi ro mà agent đã thực hiện. Danh mục cho biết loại gì.",
   "boundary.tip.severity": "Mức độ nghiêm trọng của hành vi này. Các hành vi HIGH sẽ chặn việc đánh dấu nhiệm vụ là Hoàn thành cho đến khi được giải quyết.",
-  "boundary.tip.disposition": "Cách hành vi này được giải quyết: dương tính giả (không phải vấn đề thực sự), đã xác nhận (vấn đề thực sự), hoặc tự động xóa bởi hệ thống.",
+  "boundary.tip.disposition": "Cách xử lý vi phạm này: báo động giả (không phải vấn đề thật), đã xác nhận (vấn đề thật), hệ thống tự động xử lý, hoặc tự động xử lý theo quy tắc kho do người tạo.",
   "boundary.tip.recurrence": "Hành vi vượt ranh giới này đã được phát hiện nhiều lần; số lần cho biết đã xảy ra bao nhiêu lần.",
   "boundary.panel.recurrence": "thấy ×{count} lần",
   "boundary.panel.lastSeen": "Thấy lần cuối {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "Phụ thuộc",
   "securityScan.finding.persisting": "đã có trên nhánh mặc định",
   "securityScan.finding.dependency": "Phụ thuộc có lỗ hổng",
-  "securityScan.stageState.SUPERSEDED": "đã bị thay thế"
+  "securityScan.stageState.SUPERSEDED": "đã bị thay thế",
+  "boundary.panel.suppressSimilar": "Từ nay tự động xử lý loại này trong kho này (chỉ báo động giả)",
+  "boundary.panel.suppressReasonPlaceholder": "Vì sao đây không bao giờ là vi phạm thật ở đây (tùy chọn)",
+  "boundary.panel.suppressedByRule": "Tự động xử lý theo quy tắc kho {rule}{reason}",
+  "boundary.panel.ruleRevoked": "quy tắc đã thu hồi",
+  "boundary.panel.revokeRule": "Thu hồi quy tắc",
+  "boundary.disposition.autoSuppressed": "tự động xử lý theo quy tắc",
+  "boundary.toast.ruleRevoked": "Đã thu hồi quy tắc — các lần xảy ra sau sẽ mở lại",
+  "boundary.toast.ruleCreated": "Đã xử lý vi phạm và tạo quy tắc kho — các lần xảy ra sau sẽ được tự động xử lý"
 }

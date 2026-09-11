@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "tingkat keparahan {severity}",
   "boundary.tip.category": "Pelanggaran batas adalah tindakan terlarang atau berisiko yang dilakukan agen. Kategori menyatakan jenisnya.",
   "boundary.tip.severity": "Seberapa serius pelanggaran ini. Pelanggaran HIGH memblokir penandaan tugas sebagai Selesai sampai diselesaikan.",
-  "boundary.tip.disposition": "Bagaimana pelanggaran ini diselesaikan: positif palsu (bukan masalah nyata), dikonfirmasi (masalah nyata), atau dibersihkan otomatis oleh sistem.",
+  "boundary.tip.disposition": "Cara pelanggaran ini diselesaikan: positif palsu (bukan masalah nyata), dikonfirmasi (masalah nyata), diselesaikan otomatis oleh sistem, atau diselesaikan otomatis oleh aturan repositori yang dibuat manusia.",
   "boundary.tip.recurrence": "Pelanggaran yang sama terdeteksi beberapa kali; jumlahnya menunjukkan berapa kali.",
   "boundary.panel.recurrence": "terlihat ×{count}",
   "boundary.panel.lastSeen": "Terakhir terlihat {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "Dependensi",
   "securityScan.finding.persisting": "sudah ada di cabang default",
   "securityScan.finding.dependency": "Dependensi rentan",
-  "securityScan.stageState.SUPERSEDED": "digantikan"
+  "securityScan.stageState.SUPERSEDED": "digantikan",
+  "boundary.panel.suppressSimilar": "Tangani jenis ini secara otomatis di repositori ini mulai sekarang (hanya positif palsu)",
+  "boundary.panel.suppressReasonPlaceholder": "Mengapa ini tidak pernah menjadi pelanggaran nyata di sini (opsional)",
+  "boundary.panel.suppressedByRule": "Diselesaikan otomatis oleh aturan repositori {rule}{reason}",
+  "boundary.panel.ruleRevoked": "aturan dicabut",
+  "boundary.panel.revokeRule": "Cabut aturan",
+  "boundary.disposition.autoSuppressed": "diselesaikan otomatis oleh aturan",
+  "boundary.toast.ruleRevoked": "Aturan dicabut — kejadian berikutnya akan terbuka lagi",
+  "boundary.toast.ruleCreated": "Pelanggaran diselesaikan dan aturan repositori dibuat — kejadian berikutnya akan ditangani otomatis"
 }

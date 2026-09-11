@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "深刻度 {severity}",
   "boundary.tip.category": "境界違反はエージェントが行った禁止または危険なアクションです。カテゴリはその種類を示します。",
   "boundary.tip.severity": "この違反の深刻度です。HIGH の違反は対処されるまでタスクを Done にマークできません。",
-  "boundary.tip.disposition": "この違反の処理結果：誤検知（実際の問題ではない）、確認済み（実際の問題）、またはシステムによる自動解決。",
+  "boundary.tip.disposition": "この越境の解決方法：誤検知（実際の問題ではない）、確認済み（実際の問題）、システムによる自動解決、または人が作成したリポジトリルールによる自動処理。",
   "boundary.tip.recurrence": "同じ違反が複数回検出されました。数字は検出回数です。",
   "boundary.panel.recurrence": "{count}回検出",
   "boundary.panel.lastSeen": "最終検出 {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "依存関係",
   "securityScan.finding.persisting": "デフォルトブランチに既に存在",
   "securityScan.finding.dependency": "脆弱な依存関係",
-  "securityScan.stageState.SUPERSEDED": "置き換え済み"
+  "securityScan.stageState.SUPERSEDED": "置き換え済み",
+  "boundary.panel.suppressSimilar": "今後このリポジトリで同種のものを自動処理する（誤検知のみ）",
+  "boundary.panel.suppressReasonPlaceholder": "ここでは決して本当の越境ではない理由（任意）",
+  "boundary.panel.suppressedByRule": "リポジトリルール {rule} により自動処理{reason}",
+  "boundary.panel.ruleRevoked": "ルール撤回済み",
+  "boundary.panel.revokeRule": "ルールを撤回",
+  "boundary.disposition.autoSuppressed": "ルールにより自動処理",
+  "boundary.toast.ruleRevoked": "ルールを撤回しました — 今後の発生は再び未処理になります",
+  "boundary.toast.ruleCreated": "越境を処理し、リポジトリルールを作成しました — 今後の発生は自動処理されます"
 }

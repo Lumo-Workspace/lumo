@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "심각도 {severity}",
   "boundary.tip.category": "경계 위반은 에이전트가 수행한 금지되거나 위험한 작업입니다. 카테고리는 그 종류를 나타냅니다.",
   "boundary.tip.severity": "이 위반의 심각도입니다. HIGH 위반은 처리될 때까지 작업을 Done으로 표시하는 것을 차단합니다.",
-  "boundary.tip.disposition": "이 위반의 처리 방식: 오탐(실제 문제 아님), 확인됨(실제 문제), 또는 시스템에 의한 자동 해결.",
+  "boundary.tip.disposition": "이 경계 이탈의 처리 방식: 오탐(실제 문제 아님), 확인됨(실제 문제), 시스템 자동 처리, 또는 사람이 만든 리포지토리 규칙에 따른 자동 처리.",
   "boundary.tip.recurrence": "동일한 위반이 여러 번 감지되었습니다. 숫자는 감지 횟수입니다.",
   "boundary.panel.recurrence": "{count}회 감지됨",
   "boundary.panel.lastSeen": "마지막 감지 {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "의존성",
   "securityScan.finding.persisting": "기본 브랜치에 이미 존재",
   "securityScan.finding.dependency": "취약한 의존성",
-  "securityScan.stageState.SUPERSEDED": "대체됨"
+  "securityScan.stageState.SUPERSEDED": "대체됨",
+  "boundary.panel.suppressSimilar": "앞으로 이 리포지토리에서 같은 종류를 자동 처리 (오탐만)",
+  "boundary.panel.suppressReasonPlaceholder": "여기서는 절대 실제 이탈이 아닌 이유 (선택)",
+  "boundary.panel.suppressedByRule": "리포지토리 규칙 {rule}에 따라 자동 처리됨{reason}",
+  "boundary.panel.ruleRevoked": "규칙 철회됨",
+  "boundary.panel.revokeRule": "규칙 철회",
+  "boundary.disposition.autoSuppressed": "규칙에 따라 자동 처리됨",
+  "boundary.toast.ruleRevoked": "규칙이 철회되었습니다 — 이후 발생 건은 다시 미처리로 남습니다",
+  "boundary.toast.ruleCreated": "경계 이탈을 처리하고 리포지토리 규칙을 만들었습니다 — 이후 발생 건은 자동 처리됩니다"
 }

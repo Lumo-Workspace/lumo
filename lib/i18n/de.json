@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "Schweregrad {severity}",
   "boundary.tip.category": "Eine Grenzüberschreitung ist eine verbotene oder riskante Aktion des Agenten. Die Kategorie gibt an, um welche Art es sich handelt.",
   "boundary.tip.severity": "Wie schwerwiegend diese Überschreitung ist. HIGH-Überschreitungen blockieren das Abschließen der Aufgabe, bis sie behoben sind.",
-  "boundary.tip.disposition": "Wie diese Überschreitung gelöst wurde: Falschmeldung (kein echtes Problem), bestätigt (echtes Problem) oder automatisch vom System bereinigt.",
+  "boundary.tip.disposition": "Wie dieser Grenzübertritt gelöst wurde: Fehlalarm (kein echtes Problem), bestätigt (echtes Problem), automatisch vom System erledigt oder automatisch durch eine von einem Menschen erstellte Repository-Regel erledigt.",
   "boundary.tip.recurrence": "Dieselbe Überschreitung wurde mehrfach erkannt; die Zahl gibt an, wie oft.",
   "boundary.panel.recurrence": "{count}× gesehen",
   "boundary.panel.lastSeen": "Zuletzt gesehen {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "Abhängigkeiten",
   "securityScan.finding.persisting": "bereits im Standard-Branch",
   "securityScan.finding.dependency": "Anfällige Abhängigkeit",
-  "securityScan.stageState.SUPERSEDED": "ersetzt"
+  "securityScan.stageState.SUPERSEDED": "ersetzt",
+  "boundary.panel.suppressSimilar": "Diese Art in diesem Repository ab jetzt automatisch erledigen (nur Fehlalarme)",
+  "boundary.panel.suppressReasonPlaceholder": "Warum dies hier nie ein echter Grenzübertritt ist (optional)",
+  "boundary.panel.suppressedByRule": "Automatisch erledigt durch Repository-Regel {rule}{reason}",
+  "boundary.panel.ruleRevoked": "Regel widerrufen",
+  "boundary.panel.revokeRule": "Regel widerrufen",
+  "boundary.disposition.autoSuppressed": "automatisch per Regel erledigt",
+  "boundary.toast.ruleRevoked": "Regel widerrufen – künftige Vorkommen bleiben wieder offen",
+  "boundary.toast.ruleCreated": "Grenzübertritt erledigt und Repository-Regel erstellt – künftige Vorkommen werden automatisch erledigt"
 }

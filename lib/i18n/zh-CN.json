@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "{severity} 严重度",
   "boundary.tip.category": "越界信号 = agent 执行的违禁或高风险动作。类别说明是哪一种。",
   "boundary.tip.severity": "该越界的严重程度。HIGH 会拦截任务标记完成,直到处置。",
-  "boundary.tip.disposition": "该越界如何处置:误报(非真实问题)、确认(真实问题)、或系统自动放行。",
+  "boundary.tip.disposition": "此越界的处置方式：误报（并非真实问题）、已确认（真实问题）、系统自动处置，或按人工创建的仓库规则自动处置。",
   "boundary.tip.recurrence": "同一越界被多次检测到;数字是次数。",
   "boundary.panel.recurrence": "出现 {count} 次",
   "boundary.panel.lastSeen": "最后出现 {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "依赖",
   "securityScan.finding.persisting": "默认分支上已存在",
   "securityScan.finding.dependency": "存在漏洞的依赖",
-  "securityScan.stageState.SUPERSEDED": "已被替代"
+  "securityScan.stageState.SUPERSEDED": "已被替代",
+  "boundary.panel.suppressSimilar": "本仓库同类越界以后自动处置（仅限误报）",
+  "boundary.panel.suppressReasonPlaceholder": "为什么这在本仓库永远不是真实越界（可选）",
+  "boundary.panel.suppressedByRule": "按仓库规则 {rule} 自动处置{reason}",
+  "boundary.panel.ruleRevoked": "规则已撤销",
+  "boundary.panel.revokeRule": "撤销规则",
+  "boundary.disposition.autoSuppressed": "按规则自动处置",
+  "boundary.toast.ruleRevoked": "规则已撤销——以后的同类越界将重新进入待处置",
+  "boundary.toast.ruleCreated": "越界已处置并创建仓库规则——以后的同类越界将自动处置"
 }
