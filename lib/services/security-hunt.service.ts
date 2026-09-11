@@ -35,14 +35,17 @@ import {
   parseHuntCoverage,
   formatHuntCoverage,
 } from '@/lib/security-scan/hunt/coverage'
+import { planFallback } from '@/lib/security-scan/hunt/plan-fallback'
 import {
   prSecurityScanRepository,
   type NewFindingInput,
+  type FindingSummary,
 } from '@/lib/repositories/pr-security-scan.repository'
 import {
   HUNT_MAX_STEPS_PER_CATEGORY,
   HUNT_SNIPPET_RADIUS,
   HUNT_AUDIT_MAX_REJECTED,
+  PLAN_HUNT_TIMEOUT_MS,
   type HuntJob,
   type HuntAudit,
   type SubgraphResult,
@@ -54,6 +57,8 @@ import {
   type FalsifierOutput,
   type HuntFindingInput,
   type PersistHuntInput,
+  type PlanHuntInput,
+  type PlanHuntOutput,
 } from './security-hunt.config'
 
 const TITLE_MAX = 200
@@ -194,6 +199,60 @@ export const securityHuntService = {
       }
     }
     return { subgraph: buildSubgraph(inputs), partial }
+  },
+
+  /**
+   * LUM-758 §4 — 决定这次扫描查哪 0–2 类。**从不 throw**：规划失败不是一个
+   * 值得重试的瞬时故障，它有一个确定性的答案（`planFallback`），退回去比
+   * 重试一次 LLM 更便宜也更可预测。
+   *
+   * 兜底绝不退回跑满 6 类 —— 那正是本任务要消灭的行为。
+   */
+  async planHunt(input: PlanHuntInput): Promise<PlanHuntOutput> {
+    const { job, subgraph } = input
+    const fallback = (reason: string): PlanHuntOutput => ({
+      categories: planFallback(job.reasons),
+      reason,
+      by: 'fallback',
+      tokens: 0,
+    })
+    let findings: FindingSummary[] = []
+    try {
+      findings = await prSecurityScanRepository.findFindingSummaryByScan(
+        job.scanId
+      )
+    } catch (error) {
+      // finding 摘要只是规划的一个输入，读不到就少一个信号，不该让整层失败。
+      logger.warn(
+        `[security-hunt] plan finding read failed scan=${job.scanId}: ${messageOf(error)}`
+      )
+    }
+    try {
+      const { planHuntCategories } =
+        await import('@/lib/llm/security-hunt-plan-client')
+      const out = await planHuntCategories({
+        reasons: job.reasons,
+        files: subgraph.files.map(f => ({
+          path: f.path,
+          touched: f.touched,
+        })),
+        signals: subgraph.symbols
+          .filter(s => s.kind !== 'function')
+          .map(
+            s =>
+              `${s.id} (${s.file}:${s.line}, ${s.kind}${s.rule ? `, ${s.rule}` : ''}${s.controls.length > 0 ? `, controls: ${s.controls.join(',')}` : ''})`
+          ),
+        findings,
+        timeoutMs: PLAN_HUNT_TIMEOUT_MS,
+      })
+      return { ...out, by: 'model' }
+    } catch (error) {
+      const message = messageOf(error)
+      logger.warn(
+        `[security-hunt] plan failed scan=${job.scanId}, using deterministic fallback: ${message}`
+      )
+      return fallback(`plan unavailable: ${message.slice(0, 200)}`)
+    }
   },
 
   /**

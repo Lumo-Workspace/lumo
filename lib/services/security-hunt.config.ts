@@ -64,6 +64,12 @@ export const HUNT_TIME_BUDGET_MS = 240_000
 export const PLAN_HUNT_TOKEN_BUDGET = 5_000
 
 /**
+ * 规划步的墙钟上限。远小于 HUNT_CATEGORY_TIME_MS：一次无工具的 FAST 调用
+ * 拖到 20s 就说明网关有问题，此时确定性兜底比继续等更划算。
+ */
+export const PLAN_HUNT_TIMEOUT_MS = 20_000
+
+/**
  * LUM-762 — the ceiling on ONE batch. A category can never spend more than
  * this, so a gateway that hangs in retry backoff costs its own category and
  * leaves the rest of the scan (and the retry pass) their budget.

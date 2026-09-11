@@ -13,10 +13,14 @@ jest.mock('@/lib/llm/security-hunt-client', () => ({ huntCategory: jest.fn() }))
 jest.mock('@/lib/llm/security-falsifier-client', () => ({
   falsifyCandidate: jest.fn(),
 }))
+jest.mock('@/lib/llm/security-hunt-plan-client', () => ({
+  planHuntCategories: jest.fn(),
+}))
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findDispositionedByPullRequest: jest.fn(),
     persistHuntResult: jest.fn(),
+    findFindingSummaryByScan: jest.fn(),
   },
 }))
 
@@ -28,6 +32,7 @@ import { logger } from '@/lib/logger'
 import { fetchPrDiff, readRepoFile } from '@/lib/integrations/github/contents'
 import { huntCategory } from '@/lib/llm/security-hunt-client'
 import { falsifyCandidate } from '@/lib/llm/security-falsifier-client'
+import { planHuntCategories } from '@/lib/llm/security-hunt-plan-client'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
 
@@ -35,6 +40,7 @@ const diffMock = fetchPrDiff as jest.Mock
 const readMock = readRepoFile as jest.Mock
 const huntMock = huntCategory as jest.Mock
 const falsifyMock = falsifyCandidate as jest.Mock
+const planMock = planHuntCategories as jest.Mock
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
 >
@@ -89,6 +95,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   repo.findDispositionedByPullRequest.mockResolvedValue([])
   repo.persistHuntResult.mockResolvedValue(undefined)
+  repo.findFindingSummaryByScan.mockResolvedValue([])
 })
 
 describe('LUM-739 hunt service', () => {
@@ -240,6 +247,110 @@ describe('LUM-739 hunt service', () => {
     await expect(
       securityHuntService.falsify({ job: JOB, candidate })
     ).rejects.toThrow('verifier down')
+  })
+
+  it('planHunt returns the model plan tagged by: "model" and reads finding summaries into the client input', async () => {
+    repo.findFindingSummaryByScan.mockResolvedValueOnce([
+      { severity: 'HIGH', ruleId: 'hunt:idor', title: 'no owner check' },
+    ])
+    planMock.mockResolvedValueOnce({
+      categories: ['idor'],
+      reason: 'unscoped read',
+      tokens: 42,
+    })
+    const job = { ...JOB, reasons: ['diff:entry:app/api/x/route.ts'] }
+    const subgraph = {
+      symbols: [
+        {
+          id: 'lib/s.ts#prisma.findMany@5',
+          kind: 'sink' as const,
+          file: 'lib/s.ts',
+          line: 5,
+          name: 'prisma.findMany',
+          rule: 'prisma-raw',
+          controls: ['auth'],
+        },
+        {
+          id: 'app/api/x/route.ts#POST',
+          kind: 'function' as const,
+          file: 'app/api/x/route.ts',
+          line: 1,
+          name: 'POST',
+          rule: null,
+          controls: [],
+        },
+      ],
+      edges: [],
+      files: [{ path: 'app/api/x/route.ts', lineCount: 3, touched: true }],
+    }
+    const out = await securityHuntService.planHunt({ job, subgraph })
+    expect(out).toEqual({
+      categories: ['idor'],
+      reason: 'unscoped read',
+      tokens: 42,
+      by: 'model',
+    })
+    expect(repo.findFindingSummaryByScan).toHaveBeenCalledWith(job.scanId)
+    const arg = planMock.mock.calls[0]![0]
+    expect(arg.reasons).toEqual(job.reasons)
+    expect(arg.findings).toEqual([
+      { severity: 'HIGH', ruleId: 'hunt:idor', title: 'no owner check' },
+    ])
+    // Only non-function symbols become signals; the 'function' symbol above is excluded.
+    expect(arg.signals).toEqual([
+      'lib/s.ts#prisma.findMany@5 (lib/s.ts:5, sink, prisma-raw, controls: auth)',
+    ])
+    expect(arg.timeoutMs).toBe(20_000)
+  })
+
+  it('planHunt never throws: an LLM failure falls back to the deterministic planner, never widening past what planFallback returns', async () => {
+    planMock.mockRejectedValueOnce(new Error('gateway 500'))
+    const job = { ...JOB, reasons: ['diff:sink:prisma-raw'] }
+    const subgraph = { symbols: [], edges: [], files: [] }
+    const out = await securityHuntService.planHunt({ job, subgraph })
+    expect(out.by).toBe('fallback')
+    expect(out.categories).toEqual(['injection'])
+    expect(out.tokens).toBe(0)
+    expect(out.reason).toContain('plan unavailable')
+    expect(out.reason).toContain('gateway 500')
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('using deterministic fallback')
+    )
+  })
+
+  it('planHunt falls back to categories: [] when the reasons map to nothing, never to all six categories', async () => {
+    planMock.mockRejectedValueOnce(new Error('timed out'))
+    const job = { ...JOB, reasons: [] }
+    const out = await securityHuntService.planHunt({
+      job,
+      subgraph: { symbols: [], edges: [], files: [] },
+    })
+    expect(out.by).toBe('fallback')
+    expect(out.categories).toEqual([])
+  })
+
+  it('planHunt is best-effort about the finding-summary read: a repository failure logs a warning and planning continues with an empty finding list', async () => {
+    repo.findFindingSummaryByScan.mockRejectedValueOnce(new Error('db down'))
+    planMock.mockResolvedValueOnce({
+      categories: [],
+      reason: 'nothing interesting',
+      tokens: 10,
+    })
+    const job = { ...JOB, reasons: [] }
+    const out = await securityHuntService.planHunt({
+      job,
+      subgraph: { symbols: [], edges: [], files: [] },
+    })
+    expect(out).toEqual({
+      categories: [],
+      reason: 'nothing interesting',
+      tokens: 10,
+      by: 'model',
+    })
+    expect(planMock.mock.calls[0]![0].findings).toEqual([])
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('plan finding read failed')
+    )
   })
 
   it('toHuntFindingRows maps a finding to an advisory LLM_JUDGE row with every free-text field redacted', () => {

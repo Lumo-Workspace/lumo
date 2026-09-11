@@ -16,11 +16,20 @@ import type {
   FalsifierInput,
   FalsifierOutput,
   PersistHuntInput,
+  PlanHuntInput,
+  PlanHuntOutput,
 } from '@/lib/services/security-hunt.config'
 
 export async function buildSubgraphStep(job: HuntJob): Promise<SubgraphResult> {
   'use step'
   return securityHuntService.buildSubgraph(job)
+}
+
+export async function planHuntStep(
+  input: PlanHuntInput
+): Promise<PlanHuntOutput> {
+  'use step'
+  return securityHuntService.planHunt(input)
 }
 
 export async function huntCategoryStep(
