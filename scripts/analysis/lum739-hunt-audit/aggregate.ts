@@ -60,6 +60,13 @@ export interface HuntAuditStats {
   }
   /** Why each planned task stopped: done / steps / budget / timeout / error / skipped. */
   taskStops: Record<string, number>
+  /**
+   * LUM-758 follow-up — tasks that never called `submit_candidates` on their
+   * own and were asked by the forced wrap-up. Read against `taskStops.done`:
+   * a layer where every task is wrapped up is a layer whose agent never
+   * decides, and no amount of budget or context has changed that yet.
+   */
+  tasksWrappedUp: number
   sandbox: { attached: number; created: number; egressOpen: number }
   compress: {
     scans: number
@@ -117,6 +124,7 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
       taskCounts: {},
     },
     taskStops: {},
+    tasksWrappedUp: 0,
     sandbox: { attached: 0, created: 0, egressOpen: 0 },
     compress: {
       scans: 0,
@@ -161,6 +169,8 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
       const stop = (t as { stopped?: unknown } | null)?.stopped
       const key = typeof stop === 'string' ? stop : 'unknown'
       stats.taskStops[key] = (stats.taskStops[key] ?? 0) + 1
+      if ((t as { wrappedUp?: unknown } | null)?.wrappedUp === true)
+        stats.tasksWrappedUp += 1
     }
 
     if (audit.sandbox === 'attached') stats.sandbox.attached += 1

@@ -68,6 +68,7 @@ describe('LUM-739 hunt audit', () => {
         taskCounts: {},
       },
       taskStops: {},
+      tasksWrappedUp: 0,
       sandbox: { attached: 0, created: 0, egressOpen: 0 },
       compress: {
         scans: 0,
@@ -97,7 +98,7 @@ describe('LUM-739 hunt audit', () => {
           planned: [
             { id: 't1', category: 'idor', objective: 'x', startingPoints: [] },
           ],
-          tasks: [{ taskId: 't1', stopped: 'budget' }],
+          tasks: [{ taskId: 't1', stopped: 'budget', wrappedUp: true }],
           sandbox: 'attached',
           egressDenied: false,
           compress: {
@@ -142,6 +143,8 @@ describe('LUM-739 hunt audit', () => {
     // nothing at all and is absent rather than counted as `0`.
     expect(stats.plan.taskCounts).toEqual({ '1': 1, '0': 1 })
     expect(stats.taskStops).toEqual({ budget: 1 })
+    // The convergence read: the agent did not submit on its own, it was asked.
+    expect(stats.tasksWrappedUp).toBe(1)
     expect(stats.sandbox).toEqual({ attached: 1, created: 0, egressOpen: 1 })
     // The whole point: 7 charged calls, 0 usable, 16k spent to see nothing.
     expect(stats.compress).toEqual({

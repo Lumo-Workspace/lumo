@@ -122,6 +122,7 @@ const batch = (
     error: string
     sandbox: 'attached' | 'created'
     egressDenied: boolean
+    wrappedUp: boolean
     compress: {
       calls: number
       noOpCalls: number
@@ -690,4 +691,35 @@ describe('LUM-739 hunt workflow', () => {
   it('the config category list equals the candidate module list', () => {
     expect([...HUNT_CATEGORIES]).toEqual([...CANDIDATE_CATEGORIES])
   })
+})
+
+// LUM-758 follow-up — the wrap-up flag has to reach the persisted audit, or
+// "how often did the agent have to be asked" is computed, returned and then
+// silently dropped. That is the same shape of gap the compression no-op counter
+// was added to close, and it is invisible without a test: every other
+// assertion passes while the number nobody can read stays zero.
+it('carries wrappedUp from the batch into the persisted task audit', async () => {
+  plan.mockResolvedValue({
+    tasks: [
+      { id: 't1', objective: 'o1', category: 'idor', startingPoints: [] },
+      { id: 't2', objective: 'o2', category: 'ssrf', startingPoints: [] },
+    ],
+    reason: 'two signals',
+    by: 'model',
+    tokens: 100,
+  })
+  hunt
+    .mockImplementationOnce(async () =>
+      batch({ stopped: 'budget', wrappedUp: true })
+    )
+    .mockImplementationOnce(async () => batch({ stopped: 'done' }))
+
+  await securityHuntWorkflow(JOB)
+
+  const rows = persist.mock.calls[0]![0].audit.tasks
+  expect(rows[0]).toMatchObject({ taskId: 't1', wrappedUp: true })
+  // An agent that decided for itself is not marked — absent means "did not
+  // need asking", and must never be confused with `false` meaning "we asked
+  // and it refused".
+  expect(rows[1]!.wrappedUp).toBeUndefined()
 })
