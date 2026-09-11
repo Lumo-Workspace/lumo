@@ -39,4 +39,8 @@ it('returns false when getRun itself throws', async () => {
     throw new Error('no world')
   })
   await expect(cancelManagedRun('run_y', 's2')).resolves.toBe(false)
+  const line = (logger.warn as jest.Mock).mock.calls[0]?.join(' ') ?? ''
+  expect(line).toContain('run=run_y')
+  expect(line).toContain('scan=s2')
+  expect(line).toContain('no world')
 })
