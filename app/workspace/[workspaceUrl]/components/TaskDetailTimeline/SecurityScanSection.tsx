@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Check, Copy } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
@@ -19,6 +19,7 @@ import { SCAN_STAGE_KEYS } from '@/shared/src/security-scan'
 // Pure module (no Node built-ins, no Prisma) — safe in a client component.
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import { summarizeSecurityScans, shouldExpandRow } from './security-summary'
+import { buildAgentContext } from './security-agent-context'
 
 type Disposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
 
@@ -124,6 +125,9 @@ function SecurityScanPanel({
       >
         {summaryLine}
       </p>
+      {(data.suggested?.count ?? 0) > 0 && (
+        <ConfirmAllSuggested taskId={taskId} count={data.suggested.count} />
+      )}
       {data.blocking.count > 0 && (
         <p
           data-testid='security-blocking-banner'
@@ -187,7 +191,11 @@ function SecurityScanPanel({
                   )}
                 </div>
                 {expanded && latest && (
-                  <ScanDetails taskId={taskId} scan={latest} />
+                  <ScanDetails
+                    taskId={taskId}
+                    prNumber={pr.number}
+                    scan={latest}
+                  />
                 )}
               </li>
             )
@@ -199,24 +207,32 @@ function SecurityScanPanel({
 }
 
 /**
- * Layers worth a line: anything not RAN / SKIPPED. Order is the pipeline's.
- * Taken from the shared key list (LUM-763) rather than re-typed here — the
- * hand-written copy had silently dropped `supplyChain`, so a FAILED
- * dependency scan rendered nowhere in this panel (P9: a failed layer is
- * never silent).
+ * Every layer the scan carries, in pipeline order (LUM-740: the stage row).
+ * Taken from the shared key list rather than re-typed here (LUM-763) — the
+ * same list the PR summary and `lumo task status` render from, so a sixth
+ * layer can never reach one surface and not another.
  */
 const STAGE_ORDER = SCAN_STAGE_KEYS
 
+/**
+ * LUM-740: one line per scan naming every layer and its state — a reader
+ * sees at a glance which layers ran. The line takes the warning tone only
+ * while some layer is not RAN / SKIPPED.
+ */
 function StagesSummary({ stages }: { stages: ScanStages }) {
   const intl = useIntl()
   const rows = STAGE_ORDER.flatMap(key => {
     const state = stages[key]
-    if (!state || state === 'RAN' || state === 'SKIPPED') return []
-    return [{ key, state }]
+    return state ? [{ key, state }] : []
   })
   if (rows.length === 0) return null
+  const incomplete = rows.some(r => r.state !== 'RAN' && r.state !== 'SKIPPED')
   return (
-    <p data-testid='scan-stages' className='text-caption text-warning'>
+    <p
+      data-testid='scan-stages'
+      data-incomplete={incomplete}
+      className={`text-caption ${incomplete ? 'text-warning' : 'text-muted-foreground'}`}
+    >
       {rows
         .map(
           r =>
@@ -227,11 +243,58 @@ function StagesSummary({ stages }: { stages: ScanStages }) {
   )
 }
 
+/** LUM-740: one click confirms every LLM-suggested false positive on the task (human-only route). */
+function ConfirmAllSuggested({
+  taskId,
+  count,
+}: {
+  taskId: string
+  count: number
+}) {
+  const intl = useIntl()
+  const queryClient = useQueryClient()
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  async function confirmAll() {
+    setSubmitting(true)
+    setError(null)
+    try {
+      await tasksClient.bulkDispositionSecurityFindings(taskId)
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.tasks.securityScans(taskId),
+      })
+    } catch {
+      setError(intl.formatMessage({ id: 'securityScan.action.error' }))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+  return (
+    <div className='mt-2 flex flex-wrap items-center gap-2'>
+      <button
+        type='button'
+        data-testid='security-confirm-all-suggested'
+        disabled={submitting}
+        onClick={confirmAll}
+        className='rounded-sm border border-border px-2 py-0.5 text-caption text-foreground hover:bg-muted'
+      >
+        {intl.formatMessage(
+          { id: 'securityScan.action.confirmAllSuggested' },
+          { count }
+        )}
+      </button>
+      {error && <span className='text-caption text-destructive'>{error}</span>}
+    </div>
+  )
+}
+
 function ScanDetails({
   taskId,
+  prNumber,
   scan,
 }: {
   taskId: string
+  prNumber: number
   scan: SecurityScanView
 }) {
   const intl = useIntl()
@@ -252,6 +315,17 @@ function ScanDetails({
   return (
     <div className='mt-1.5 space-y-1.5'>
       <StagesSummary stages={scan.stages} />
+      {scan.fixed > 0 && (
+        <p
+          data-testid='scan-fixed'
+          className='text-caption text-muted-foreground'
+        >
+          {intl.formatMessage(
+            { id: 'securityScan.fixed' },
+            { count: scan.fixed }
+          )}
+        </p>
+      )}
       {scan.externalLate && (
         <p data-testid='external-late' className='text-caption text-warning'>
           {intl.formatMessage({ id: 'securityScan.external.late' })}
@@ -307,7 +381,12 @@ function ScanDetails({
         </p>
       )}
       {scan.findings.map(f => (
-        <FindingRow key={f.id} taskId={taskId} finding={f} />
+        <FindingRow
+          key={f.id}
+          taskId={taskId}
+          prNumber={prNumber}
+          finding={f}
+        />
       ))}
     </div>
   )
@@ -315,9 +394,11 @@ function ScanDetails({
 
 function FindingRow({
   taskId,
+  prNumber,
   finding,
 }: {
   taskId: string
+  prNumber: number
   finding: SecurityFindingView
 }) {
   const intl = useIntl()
@@ -326,6 +407,30 @@ function FindingRow({
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [chainOpen, setChainOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current)
+    },
+    []
+  )
+  const suggestedOpen =
+    finding.suggestedDisposition !== null && finding.disposition === null
+
+  async function copyForAgent() {
+    try {
+      await navigator.clipboard.writeText(
+        buildAgentContext(finding, { number: prNumber })
+      )
+    } catch {
+      return
+    }
+    setCopied(true)
+    if (copiedTimer.current) clearTimeout(copiedTimer.current)
+    copiedTimer.current = setTimeout(() => setCopied(false), 1200)
+  }
 
   async function submit() {
     if (!pending) return
@@ -375,11 +480,47 @@ function FindingRow({
           {finding.filePath}
           {finding.line != null ? `:${finding.line}` : ''}
         </span>
+        {finding.kind !== 'DEPENDENCY' && (
+          <span data-testid='finding-kind' className='text-muted-foreground'>
+            {intl.formatMessage({ id: `securityScan.kind.${finding.kind}` })}
+          </span>
+        )}
         <span className='text-muted-foreground'>
           {intl.formatMessage({
             id: `securityScan.provenance.${finding.provenance}`,
           })}
         </span>
+        {finding.reachability && (
+          <span
+            data-testid='finding-reachability'
+            className='rounded-sm bg-muted px-1 text-muted-foreground'
+          >
+            {intl.formatMessage({
+              id: `securityScan.reachability.${finding.reachability}`,
+            })}
+          </span>
+        )}
+        {finding.cwe && (
+          <span className='font-mono text-muted-foreground'>{finding.cwe}</span>
+        )}
+        {suggestedOpen && (
+          <span
+            data-testid='finding-suggested'
+            className='rounded-sm border border-warning/40 px-1 text-warning'
+          >
+            {intl.formatMessage({ id: 'securityScan.suggested.falsePositive' })}
+          </span>
+        )}
+        {finding.suggestionOutcome && (
+          <span
+            data-testid='finding-suggestion-outcome'
+            className='text-muted-foreground'
+          >
+            {intl.formatMessage({
+              id: `securityScan.suggested.outcome.${finding.suggestionOutcome}`,
+            })}
+          </span>
+        )}
         {finding.kind === 'DEPENDENCY' && (
           <span
             data-testid='finding-dependency'
@@ -412,6 +553,36 @@ function FindingRow({
       <p className='mt-0.5 text-caption text-muted-foreground'>
         {finding.detail}
       </p>
+      {suggestedOpen && finding.suggestedReason && (
+        <p
+          data-testid='finding-suggested-reason'
+          className='mt-0.5 text-caption text-muted-foreground'
+        >
+          {`${intl.formatMessage({ id: 'securityScan.suggested.reasonLabel' })} ${finding.suggestedReason}`}
+        </p>
+      )}
+      {finding.callChain && finding.callChain.length > 0 && (
+        <div className='mt-0.5'>
+          <button
+            type='button'
+            aria-expanded={chainOpen}
+            onClick={() => setChainOpen(o => !o)}
+            className='text-caption text-muted-foreground underline underline-offset-2 hover:text-foreground'
+          >
+            {intl.formatMessage({ id: 'securityScan.callChain' })}
+          </button>
+          {chainOpen && (
+            <ol
+              data-testid='finding-call-chain'
+              className='mt-0.5 space-y-0.5 font-mono text-caption text-muted-foreground'
+            >
+              {finding.callChain.map((edge, i) => (
+                <li key={i}>{`${edge.from} → ${edge.to}`}</li>
+              ))}
+            </ol>
+          )}
+        </div>
+      )}
       {finding.evidence !== '' && (
         <pre className='mt-0.5 overflow-x-auto whitespace-pre-wrap break-all font-mono text-caption text-muted-foreground'>
           {finding.evidence}
@@ -432,6 +603,30 @@ function FindingRow({
         <div className='mt-1 flex flex-wrap items-center gap-1.5'>
           {pending === null ? (
             <>
+              <button
+                type='button'
+                aria-label={intl.formatMessage({
+                  id: copied
+                    ? 'securityScan.action.copied'
+                    : 'securityScan.action.copyForAgent',
+                })}
+                title={intl.formatMessage({
+                  id: 'securityScan.action.copyForAgent',
+                })}
+                onClick={copyForAgent}
+                className='inline-flex items-center gap-1 text-caption text-muted-foreground hover:text-foreground'
+              >
+                {copied ? (
+                  <Check className='size-3' aria-hidden />
+                ) : (
+                  <Copy className='size-3' aria-hidden />
+                )}
+                {intl.formatMessage({
+                  id: copied
+                    ? 'securityScan.action.copied'
+                    : 'securityScan.action.copyForAgent',
+                })}
+              </button>
               <button
                 type='button'
                 onClick={() => setPending('FALSE_POSITIVE')}

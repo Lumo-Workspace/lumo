@@ -17,6 +17,8 @@ export const API = {
     securityScans: (taskId: string) => `/api/tasks/${taskId}/security-scans`,
     securityFindingDisposition: (taskId: string, findingId: string) =>
       `/api/tasks/${taskId}/security-findings/${findingId}/disposition`,
+    securityFindingsBulkDisposition: (taskId: string) =>
+      `/api/tasks/${taskId}/security-findings/bulk-disposition`,
     humanVerdict: (taskId: string) => `/api/tasks/${taskId}/human-verdict`,
     criteria: (taskId: string) => `/api/tasks/${taskId}/criteria`,
     boundaryCrossings: (taskId: string) =>
@@ -27,6 +29,12 @@ export const API = {
       `/api/tasks/${taskId}/boundary-crossings/${crossingId}/remediation`,
     boundarySystemExplain: (taskId: string, crossingId: string) =>
       `/api/tasks/${taskId}/boundary-crossings/${crossingId}/system-explain`,
+    // LUM-751: soft-revoke a repository suppression rule (Clerk-only).
+    boundarySuppressionRule: (taskId: string, ruleId: string) =>
+      `/api/tasks/${taskId}/boundary-crossings/suppression-rules/${ruleId}`,
+    // LUM-759: read-only blast radius of a rule built from this crossing.
+    boundarySuppressionPreview: (taskId: string, crossingId: string) =>
+      `/api/tasks/${taskId}/boundary-crossings/${crossingId}/suppression-preview`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
     workspace: '/api/tasks/workspace',

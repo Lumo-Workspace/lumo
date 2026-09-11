@@ -12,6 +12,10 @@ jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   markSarifExternalFailedStep: jest.fn(),
   deleteSarifBlobStep: jest.fn(),
 }))
+// LUM-740: the helper module now also wraps the suggested-disposition step.
+jest.mock('@/lib/workflows/security-suggest.steps', () => ({
+  suggestDispositionsStep: jest.fn().mockResolvedValue(undefined),
+}))
 jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
   syncPrReviewStep: jest.fn().mockResolvedValue(undefined),
 }))

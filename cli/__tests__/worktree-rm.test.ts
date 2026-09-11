@@ -1,4 +1,12 @@
+/**
+ * LUM-755 confirmation protocol: `worktree rm` has two gates — a missing
+ * --confirm and a dirty worktree without --force — and both stop with the
+ * same `confirmation_required` envelope on stdout and exit 4, sending no
+ * `git worktree remove`. --yes survives only as a legacy alias of --confirm,
+ * so it satisfies the first gate but never the second.
+ */
 import { worktreeRm } from '../src/commands/worktree-rm'
+import { EXIT_CONFIRMATION_REQUIRED } from '../src/lib/confirmation'
 import * as wt from '../src/lib/worktree'
 
 jest.mock('../src/lib/worktree', () => {
@@ -28,9 +36,38 @@ const LIST = [
   '',
 ].join('\n')
 
+/** The envelope `emitConfirmation` wrote to stdout, parsed and shape-checked. */
+function envelope(out: string[]) {
+  const parsed = JSON.parse(out.join('')) as {
+    status: string
+    command: string
+    changes: string[]
+    confirmCommand: string
+  }
+  expect(parsed.status).toBe('confirmation_required')
+  expect(parsed.command).toBe('worktree rm')
+  return parsed
+}
+
 describe('worktreeRm', () => {
+  let stdout: string[]
+  const savedArgv = process.argv
+  const savedIsTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
+
   beforeEach(() => {
     jest.clearAllMocks()
+    stdout = []
+    // JSON rendering (the agent path) rather than the TTY text form.
+    Object.defineProperty(process.stdout, 'isTTY', {
+      value: false,
+      configurable: true,
+      writable: true,
+    })
+    jest.spyOn(process.stdout, 'write').mockImplementation(s => {
+      stdout.push(String(s))
+      return true
+    })
+    process.argv = ['node', 'lumo', 'worktree', 'rm', 'LUM-267']
     isMain.mockReturnValue(true)
     repoRoot.mockReturnValue('/repo')
     runGit.mockReturnValue({ status: 0, stdout: '', stderr: '' })
@@ -40,8 +77,20 @@ describe('worktreeRm', () => {
     )
   })
 
-  it('refuses without --yes', async () => {
-    expect(await worktreeRm('LUM-267', {})).toBe(1)
+  afterEach(() => {
+    jest.restoreAllMocks()
+    process.argv = savedArgv
+    if (savedIsTTY) {
+      Object.defineProperty(process.stdout, 'isTTY', savedIsTTY)
+    }
+  })
+
+  it('refuses without --confirm and prints the envelope', async () => {
+    expect(await worktreeRm('LUM-267', {})).toBe(EXIT_CONFIRMATION_REQUIRED)
+    const env = envelope(stdout)
+    expect(env.changes[0]).toContain('/repo/.worktrees/LUM-267-scaffold')
+    expect(env.changes.join('\n')).toContain('lumo/LUM-267-scaffold')
+    expect(env.confirmCommand).toBe('lumo worktree rm LUM-267 --confirm')
     expect(runGit).not.toHaveBeenCalledWith(
       expect.arrayContaining(['worktree', 'remove']),
       expect.anything()
@@ -67,7 +116,20 @@ describe('worktreeRm', () => {
     gitOutput.mockImplementation((args: string[]) =>
       args[0] === 'worktree' ? LIST : ' M file.ts'
     )
-    expect(await worktreeRm('LUM-267', { yes: true })).toBe(1)
+    // --yes clears the confirm gate; the dirty tree is a second gate, so the
+    // envelope comes back with --force folded into confirmCommand.
+    expect(await worktreeRm('LUM-267', { yes: true })).toBe(
+      EXIT_CONFIRMATION_REQUIRED
+    )
+    const env = envelope(stdout)
+    expect(env.changes.join('\n')).toContain('uncommitted changes')
+    expect(env.confirmCommand).toBe(
+      'lumo worktree rm LUM-267 --force --confirm'
+    )
+    expect(runGit).not.toHaveBeenCalledWith(
+      expect.arrayContaining(['worktree', 'remove']),
+      expect.anything()
+    )
 
     jest.clearAllMocks()
     isMain.mockReturnValue(true)

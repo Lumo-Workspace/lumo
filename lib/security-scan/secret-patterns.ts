@@ -133,10 +133,14 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
   },
 ]
 
+// LUM-751: widened to the fixture shapes prod kept false-positiving on —
+// __fixtures__/ / __snapshots__/ / mocks/ / e2e/ / stories/, *.fixture.* /
+// *.stories.* / *.snap, and a prisma seed file. Still recorded, still LOW.
 const DOWNGRADED_PATH = [
-  /(^|\/)(__tests__|__mocks__|fixtures?|tests?|spec|examples?|docs?)\//i,
-  /\.(test|spec)\.[cm]?[jt]sx?$/i,
-  /\.(example|sample|md|mdx|txt)$/i,
+  /(^|\/)(__tests__|__mocks__|__fixtures__|__snapshots__|fixtures?|mocks?|tests?|spec|e2e|examples?|docs?|stories)\//i,
+  /\.(test|spec|stories|fixture)\.[cm]?[jt]sx?$/i,
+  /\.(example|sample|md|mdx|txt|snap|fixture\.json)$/i,
+  /(^|\/)seed(\.[cm]?[jt]s)?$/i,
 ]
 
 /** Test/fixture/doc paths: still recorded, but LOW (never blocking). */

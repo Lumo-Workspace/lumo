@@ -443,6 +443,9 @@ describe('persistFindings', () => {
         dispositionNote: 'n',
         dispositionedById: 'm',
         dispositionedAt: new Date(),
+        suggestedDisposition: null,
+        suggestedReason: null,
+        suggestionOutcome: null,
       },
     ])
     repo.ingestExternalFindings.mockResolvedValue({
@@ -727,6 +730,9 @@ describe('LUM-738 baseline — persistFindings', () => {
         dispositionNote: null,
         dispositionedById: null,
         dispositionedAt: null,
+        suggestedDisposition: null,
+        suggestedReason: null,
+        suggestionOutcome: null,
       },
     ])
     await securitySarifIngestService.persistFindings(two())

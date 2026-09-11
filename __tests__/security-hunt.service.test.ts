@@ -279,6 +279,9 @@ describe('LUM-739 hunt service', () => {
         dispositionNote: 'n',
         dispositionedById: 'm',
         dispositionedAt: new Date(0),
+        suggestedDisposition: null,
+        suggestedReason: null,
+        suggestionOutcome: null,
       },
     ])
     const audit = {

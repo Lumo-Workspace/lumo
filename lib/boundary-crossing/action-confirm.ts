@@ -107,7 +107,7 @@ export const ACTION_DESCRIPTIONS: Record<string, string> = {
  * into a heredoc-fed commit message (`git commit -F - <<EOF … EOF`) is removed.
  * Line-based and best-effort: handles `<<EOF`, `<<-EOF`, and quoted delimiters.
  */
-function stripHeredocBodies(cmd: string): string {
+export function stripHeredocBodies(cmd: string): string {
   const lines = cmd.split('\n')
   const out: string[] = []
   let delimiter: string | null = null
@@ -136,7 +136,7 @@ function stripHeredocBodies(cmd: string): string {
  * their contents are actually executed, so a real `` `git push origin main` ``
  * must stay matchable (recall over precision; the LLM is the backstop, not this).
  */
-function stripQuotedLiterals(cmd: string): string {
+export function stripQuotedLiterals(cmd: string): string {
   let out = ''
   let i = 0
   while (i < cmd.length) {

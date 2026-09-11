@@ -39,6 +39,25 @@ const ENTRY_TEXT_RULES: ReadonlyArray<{ id: string; re: RegExp }> = [
 
 const CALLEE_RE = /([A-Za-z_$][\w$]*(?:\.\$?[A-Za-z_$][\w$]*)*)\s*\(/g
 
+/**
+ * LUM-740 — the control rules (auth / zod parse / rate limit / workspace
+ * scope) that the ADDED lines call, by rule id, across every file. Shared
+ * with the claim-faithfulness prefilter: "the diff adds a control" is the
+ * same question the hunt trigger asks, minus the source-path filter.
+ */
+export function addedControlCallIds(files: AddedFile[]): string[] {
+  const ids = new Set<string>()
+  for (const file of files) {
+    for (const { text } of file.lines) {
+      for (const m of text.matchAll(CALLEE_RE)) {
+        const control = matchCallRule(CONTROL_RULES, m[1] ?? '')
+        if (control) ids.add(control.id)
+      }
+    }
+  }
+  return [...ids]
+}
+
 export function evaluateHuntTrigger(
   input: HuntTriggerInput
 ): HuntTriggerResult {

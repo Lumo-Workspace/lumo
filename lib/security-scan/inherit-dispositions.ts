@@ -20,12 +20,28 @@ export function inheritDispositions(
   return fresh.map(f => {
     const p = byFp.get(f.fingerprint)
     if (!p) return f
+    const hasDisposition = p.disposition !== null
+    const hasSuggestion = p.suggestedDisposition !== null
+    if (!hasDisposition && !hasSuggestion) return f
     return {
       ...f,
-      disposition: p.disposition,
-      dispositionNote: p.dispositionNote,
-      dispositionedById: p.dispositionedById,
-      dispositionedAt: p.dispositionedAt,
+      ...(hasDisposition
+        ? {
+            disposition: p.disposition,
+            dispositionNote: p.dispositionNote,
+            dispositionedById: p.dispositionedById,
+            dispositionedAt: p.dispositionedAt,
+          }
+        : {}),
+      // LUM-740: an LLM suggestion (and the human's verdict on it) survives
+      // a re-ingest of the same sha and the next push alike.
+      ...(hasSuggestion
+        ? {
+            suggestedDisposition: p.suggestedDisposition,
+            suggestedReason: p.suggestedReason,
+            suggestionOutcome: p.suggestionOutcome,
+          }
+        : {}),
       inheritedFromFindingId: p.id,
     }
   })

@@ -10,6 +10,13 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findManyForSecurityByTaskId: jest.fn() },
 }))
+// LUM-740: the gate reads the workspace policy; null = the 732 default this
+// suite was written against.
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+  },
+}))
 
 import {
   assertNoOpenBlockingSecurityFindings,

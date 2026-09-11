@@ -1,4 +1,9 @@
 import { prisma } from '@/lib/db/prisma'
+import { EVASION_MARKER_MATCH } from '@/lib/boundary-crossing/evasion'
+import {
+  suppressionTargetFilter,
+  type SuppressionTargetFilter,
+} from '@/lib/boundary-crossing/suppression'
 import type {
   BoundaryCrossingCategory,
   BoundaryCrossingDisposition,
@@ -45,6 +50,10 @@ export interface CreateBoundaryCrossingInput {
   disposition?: BoundaryCrossingDisposition | null
   dispositionNote?: string | null
   dispositionedAt?: Date | null
+  /** LUM-751: the repository suppression rule that auto-dispositioned this
+   *  crossing (disposition AUTO_SUPPRESSED). Like AUTO_LEGIT: a system
+   *  decision, so still no `dispositionedById`. */
+  suppressionRuleId?: string | null
 }
 
 /** LUM-542: input for an append-only agent self-explanation row. */
@@ -95,6 +104,8 @@ const SELECT = {
   dispositionedAt: true,
   dispositionedById: true,
   remediationTaskId: true,
+  // LUM-751: which suppression rule auto-dispositioned it (null otherwise).
+  suppressionRuleId: true,
 } as const
 
 /**
@@ -117,6 +128,9 @@ const VIEW_SELECT = {
   policyRuleText: true,
   // LUM-590: cached system-generated explanation (null = not yet generated).
   systemExplanation: true,
+  // LUM-751: the rule behind an AUTO_SUPPRESSED disposition, for the panel's
+  // "auto-dispositioned by rule" line + revoke affordance.
+  suppressionRule: { select: { id: true, reason: true, revokedAt: true } },
   remediationTask: {
     select: {
       number: true,
@@ -160,9 +174,37 @@ export const boundaryCrossingRepository = {
         disposition: input.disposition ?? null,
         dispositionNote: input.dispositionNote ?? null,
         dispositionedAt: input.dispositionedAt ?? null,
+        suppressionRuleId: input.suppressionRuleId ?? null,
       },
       select: SELECT,
     })
+  },
+
+  /**
+   * LUM-751: coalesce a recurrence into the existing AUTO_SUPPRESSED row for the
+   * same rule — the suppressed twin of `coalesceRecurrence` (which only merges
+   * OPEN rows), so a rule-suppressed action recurring in a task bumps one row
+   * instead of piling up audit rows.
+   */
+  async coalesceSuppressedRecurrence(
+    taskId: string,
+    category: BoundaryCrossingCategory,
+    target: string | null,
+    ruleId: string,
+    now: Date
+  ): Promise<number> {
+    if (target == null) return 0
+    const { count } = await prisma.boundaryCrossing.updateMany({
+      where: {
+        taskId,
+        category,
+        target,
+        disposition: 'AUTO_SUPPRESSED',
+        suppressionRuleId: ruleId,
+      },
+      data: { occurrenceCount: { increment: 1 }, lastSeenAt: now },
+    })
+    return count
   },
 
   /**
@@ -322,6 +364,180 @@ export const boundaryCrossingRepository = {
         dispositionedById: disposition === null ? null : actorId,
       },
     })
+  },
+
+  /**
+   * LUM-759 — the WHERE that selects the crossings a repository suppression
+   * rule reaches backwards to. Deliberately narrow, and the ONLY place the
+   * blast radius is defined (both the read-only preview count and the sweep
+   * itself go through it, so the number a human is shown is the number that
+   * gets stamped):
+   *
+   *  - the crossing is still OPEN (`disposition: null`) — a human ruling, an
+   *    AUTO_LEGIT and an earlier AUTO_SUPPRESSED are all already decided and
+   *    are never rewritten by a later rule;
+   *  - it sits in this project, on a task or (LUM-640) a milestone of it;
+   *  - same category, and its coalescing `target` matches the rule's exact or
+   *    `prefix*` pattern — a null target never matches, same as the detector;
+   *  - it is not evasion-decoded: deliberate obfuscation is never a false
+   *    positive, so no rule may auto-handle it (the detector's own red line).
+   *
+   * The non-suppressible HIGH classes are refused when the rule is created, so
+   * a rule that reaches here can never carry one.
+   */
+  retroactiveSuppressionWhere(input: {
+    projectId: string
+    category: BoundaryCrossingCategory
+    targetPattern: string
+    /** The crossing the rule is being built FROM — the human is ruling on it
+     *  directly, so it is never part of the "other existing alerts" the sweep
+     *  touches or the preview counts. */
+    excludeCrossingId?: string | null
+  }): Prisma.BoundaryCrossingWhereInput {
+    const filter: SuppressionTargetFilter = suppressionTargetFilter(
+      input.targetPattern
+    )
+    return {
+      disposition: null,
+      category: input.category,
+      target:
+        filter.kind === 'exact' ? filter.value : { startsWith: filter.value },
+      // A LIST, not one object: `NOT: { a, b }` would negate the CONJUNCTION
+      // (excluding only rows that are both the source crossing AND
+      // evasion-decoded). The list form requires every clause to fail, which
+      // is the intended "neither of these".
+      NOT: [
+        ...(input.excludeCrossingId ? [{ id: input.excludeCrossingId }] : []),
+        { detail: { contains: EVASION_MARKER_MATCH } },
+      ],
+      OR: [
+        { task: { projectId: input.projectId } },
+        { milestone: { projectId: input.projectId } },
+      ],
+    }
+  },
+
+  /** LUM-759: how many existing crossings a prospective rule would dispose —
+   *  the read-only preview behind the panel's confirmation line. */
+  async countRetroactiveSuppressionCandidates(input: {
+    projectId: string
+    category: BoundaryCrossingCategory
+    targetPattern: string
+    excludeCrossingId?: string | null
+  }): Promise<number> {
+    return prisma.boundaryCrossing.count({
+      where: this.retroactiveSuppressionWhere(input),
+    })
+  },
+
+  /**
+   * LUM-759: the candidates a rule creation will stamp, most recently detected
+   * first and capped at `limit`. Returns `taskId` so the caller can append the
+   * per-crossing audit activity, and `category`/`detail` for its payload.
+   */
+  async findRetroactiveSuppressionCandidates(
+    input: {
+      projectId: string
+      category: BoundaryCrossingCategory
+      targetPattern: string
+      excludeCrossingId?: string | null
+      limit: number
+    },
+    tx?: Prisma.TransactionClient
+  ): Promise<
+    Array<{
+      id: string
+      taskId: string | null
+      category: BoundaryCrossingCategory
+      detail: string
+    }>
+  > {
+    const client = tx ?? prisma
+    return client.boundaryCrossing.findMany({
+      where: this.retroactiveSuppressionWhere(input),
+      select: { id: true, taskId: true, category: true, detail: true },
+      orderBy: { detectedAt: 'desc' },
+      take: input.limit,
+    })
+  },
+
+  /**
+   * LUM-759: stamp the swept crossings isomorphically to a fresh suppressed
+   * detection — AUTO_SUPPRESSED + the rule ref + the same note, and NO
+   * `dispositionedById`: a rule application has no human reviewer, and that
+   * null actor is exactly what tells an auditor "system", not "someone ruled".
+   */
+  async suppressManyByIds(
+    ids: string[],
+    ruleId: string,
+    note: string,
+    now: Date,
+    tx?: Prisma.TransactionClient
+  ): Promise<number> {
+    if (ids.length === 0) return 0
+    const client = tx ?? prisma
+    const { count } = await client.boundaryCrossing.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        disposition: 'AUTO_SUPPRESSED',
+        dispositionNote: note,
+        dispositionedAt: now,
+        dispositionedById: null,
+        suppressionRuleId: ruleId,
+      },
+    })
+    return count
+  },
+
+  /**
+   * LUM-759: the crossings a revoke has to put back — everything still
+   * carrying this rule's AUTO_SUPPRESSED stamp. A row a human has since
+   * re-dispositioned no longer has that stamp and is therefore left alone.
+   */
+  async findSuppressedByRule(
+    ruleId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<
+    Array<{
+      id: string
+      taskId: string | null
+      category: BoundaryCrossingCategory
+      detail: string
+    }>
+  > {
+    const client = tx ?? prisma
+    return client.boundaryCrossing.findMany({
+      where: { suppressionRuleId: ruleId, disposition: 'AUTO_SUPPRESSED' },
+      select: { id: true, taskId: true, category: true, detail: true },
+    })
+  },
+
+  /**
+   * LUM-759: restore rule-suppressed crossings to a CLEAN open row — the
+   * inverse of {@link suppressManyByIds}. The rule ref is cleared with the
+   * disposition so the row is indistinguishable from one that was never
+   * suppressed (the detector's OPEN coalescing keys on `disposition: null`,
+   * the suppressed coalescing on the rule id — leaving a dangling ref would
+   * strand it between the two). Which rule had suppressed it survives in the
+   * append-only activity the service writes alongside.
+   */
+  async reopenManyByIds(
+    ids: string[],
+    tx?: Prisma.TransactionClient
+  ): Promise<number> {
+    if (ids.length === 0) return 0
+    const client = tx ?? prisma
+    const { count } = await client.boundaryCrossing.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        disposition: null,
+        dispositionNote: null,
+        dispositionedAt: null,
+        dispositionedById: null,
+        suppressionRuleId: null,
+      },
+    })
+    return count
   },
 
   /** Link a remediation follow-up task to a crossing (LUM-435). */

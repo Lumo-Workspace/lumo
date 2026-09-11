@@ -78,3 +78,29 @@ describe('gate-audit two-source merge (LUM-616)', () => {
     expect(g['build']!.status).toBe('not_run')
   })
 })
+
+describe('gate-audit merge — lumo_sandbox signals (LUM-746)', () => {
+  it('a Lumo-managed CI failure overrides a later self-reported pass for the same gate', () => {
+    const hookRows: GateHookEventRow[] = [
+      bash('npx jest', 'POST_TOOL_USE', '2026-09-10T12:00:00.000Z'),
+    ]
+    const gateSignals: GateSignalRow[] = [
+      {
+        gateKey: 'test',
+        outcome: 'failure',
+        checkName: 'lumo/ci test',
+        detailsUrl: null,
+        source: 'lumo_sandbox',
+        createdAt: new Date('2026-09-10T10:00:00.000Z'),
+      },
+    ]
+    const g = byKey(buildDeliveryGateAudit(hookRows, gateSignals).gates)
+    expect(g['test']!.status).toBe('failed')
+    expect(g['test']!.provenance).toBe('independent_harness')
+    expect(g['test']!.grounding).toEqual({
+      pointer: expect.stringContaining('lumo/ci test'),
+      hookEvent: 'lumo_sandbox',
+      at: '2026-09-10T10:00:00.000Z',
+    })
+  })
+})

@@ -9,6 +9,13 @@ import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.re
 // LUM-732: the DONE gate now consults the PR security scan. Defaults to "no
 // linked PR" so the real gate short-circuits before touching the scan
 // repository for every test except the dedicated security-gate block below.
+// LUM-740: the workspace policy read behind every "blocking" decision;
+// null = the 732 default these expectations were written against.
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+  },
+}))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
     findManyForSecurityByTaskId: jest.fn(),

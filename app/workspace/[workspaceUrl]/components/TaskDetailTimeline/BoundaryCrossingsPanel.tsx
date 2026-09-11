@@ -30,6 +30,7 @@ import {
   type BoundaryCrossingView,
   type CrossingAttributionView,
   type EditChangeView,
+  type SuppressionPreview,
 } from '../../hooks/useBoundaryCrossings'
 import type { WorkspaceMemberInfo } from '../../types'
 import { InfoTooltip } from './InfoTooltip'
@@ -131,6 +132,41 @@ export function BoundaryCrossingsPanel({
   })
   const [pending, setPending] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
+  // LUM-751: per-crossing opt-in to a repository suppression rule + its reason.
+  const [suppress, setSuppress] = useState<Record<string, boolean>>({})
+  const [suppressReasons, setSuppressReasons] = useState<
+    Record<string, string>
+  >({})
+  // LUM-759: the blast radius of the rule the human is about to create — how
+  // many ALREADY-RECORDED alerts of the same kind in this repository it will
+  // dispose alongside this one. Fetched when the opt-in is ticked, so the
+  // number is shown before the ruling is committed, never after.
+  const [suppressPreviews, setSuppressPreviews] = useState<
+    Record<string, SuppressionPreview | 'loading'>
+  >({})
+
+  const toggleSuppress = (crossingId: string, on: boolean) => {
+    setSuppress(prev => ({ ...prev, [crossingId]: on }))
+    if (!on || suppressPreviews[crossingId]) return
+    setSuppressPreviews(prev => ({ ...prev, [crossingId]: 'loading' }))
+    void tasksClient
+      .previewCrossingSuppressionScope<SuppressionPreview>(
+        taskIdentifier,
+        crossingId
+      )
+      .then(preview =>
+        setSuppressPreviews(prev => ({ ...prev, [crossingId]: preview }))
+      )
+      .catch(() =>
+        // Advisory only — a failed preview must never block the ruling itself,
+        // so the count line just stays absent.
+        setSuppressPreviews(prev =>
+          Object.fromEntries(
+            Object.entries(prev).filter(([key]) => key !== crossingId)
+          )
+        )
+      )
+  }
 
   // LUM-496: an instance renders one slice of the task's crossings; 'all' keeps
   // the historic single-panel behaviour for callers that pass no subset.
@@ -223,23 +259,90 @@ export function BoundaryCrossingsPanel({
   ) => {
     setPending(crossingId)
     const note = notes[crossingId]?.trim()
+    // LUM-751: the repository-rule opt-in rides a FALSE_POSITIVE ruling only;
+    // the option argument is passed only when ticked, so the plain call shape
+    // (and its callers' expectations) is unchanged otherwise.
+    const wantsRule =
+      verdict === 'FALSE_POSITIVE' && suppress[crossingId] === true
+    const reason = suppressReasons[crossingId]?.trim()
     void tasksClient
-      .dispositionBoundaryCrossing(
+      .dispositionBoundaryCrossing<{ retroactivelySuppressed?: number }>(
         taskIdentifier,
         crossingId,
         verdict,
-        note || undefined
+        note || undefined,
+        ...(wantsRule
+          ? [
+              {
+                suppressSimilarInProject: true,
+                ...(reason ? { suppressionReason: reason } : {}),
+              },
+            ]
+          : [])
       )
-      .then(() => {
+      .then(res => {
+        // LUM-759: a rule now clears the repository's existing alerts too —
+        // report how many, so the click's real effect is visible.
+        const swept = res?.retroactivelySuppressed ?? 0
         toast.success(
           verdict === 'OPEN'
             ? intl.formatMessage({
                 id: 'boundary.toast.reopened',
                 defaultMessage: 'Crossing reopened — Done is blocked again',
               })
+            : wantsRule && swept > 0
+              ? intl.formatMessage(
+                  {
+                    id: 'boundary.toast.ruleCreatedWithSweep',
+                    defaultMessage:
+                      'Repository rule created — {count, plural, one {# existing alert} other {# existing alerts}} of the same kind dispositioned, and future occurrences will be auto-handled',
+                  },
+                  { count: swept }
+                )
+              : wantsRule
+                ? intl.formatMessage({
+                    id: 'boundary.toast.ruleCreated',
+                    defaultMessage:
+                      'Crossing dispositioned and a repository rule created — future occurrences will be auto-handled',
+                  })
+                : intl.formatMessage({
+                    id: 'boundary.toast.dispositioned',
+                    defaultMessage:
+                      'Crossing dispositioned — Done is unblocked',
+                  })
+        )
+        afterChange()
+      })
+      .catch(errorToast)
+      .finally(() => setPending(null))
+  }
+
+  // LUM-751: soft-revoke the repository rule behind an auto-suppressed
+  // crossing — future occurrences record OPEN again. Human-only server-side.
+  const revokeRule = (crossingId: string, ruleId: string) => {
+    setPending(crossingId)
+    void tasksClient
+      .revokeCrossingSuppressionRule<{ reopenedCount?: number }>(
+        taskIdentifier,
+        ruleId
+      )
+      .then(res => {
+        // LUM-759: revoking also puts back what the rule had silenced.
+        const reopened = res?.reopenedCount ?? 0
+        toast.success(
+          reopened > 0
+            ? intl.formatMessage(
+                {
+                  id: 'boundary.toast.ruleRevokedWithReopen',
+                  defaultMessage:
+                    'Rule revoked — {count, plural, one {# alert} other {# alerts}} it had auto-handled are open again',
+                },
+                { count: reopened }
+              )
             : intl.formatMessage({
-                id: 'boundary.toast.dispositioned',
-                defaultMessage: 'Crossing dispositioned — Done is unblocked',
+                id: 'boundary.toast.ruleRevoked',
+                defaultMessage:
+                  'Rule revoked — future occurrences will be open again',
               })
         )
         afterChange()
@@ -499,6 +602,20 @@ export function BoundaryCrossingsPanel({
                           onDisposition={verdict => disposition(c.id, verdict)}
                           onSpawnRemediation={() => spawnRemediation(c.id)}
                           onExplainDone={afterChange}
+                          suppress={suppress[c.id] ?? false}
+                          suppressReason={suppressReasons[c.id] ?? ''}
+                          onSuppressChange={v => toggleSuppress(c.id, v)}
+                          suppressPreview={suppressPreviews[c.id]}
+                          onSuppressReason={v =>
+                            setSuppressReasons(prev => ({
+                              ...prev,
+                              [c.id]: v,
+                            }))
+                          }
+                          onRevokeRule={() => {
+                            if (c.suppressionRule)
+                              revokeRule(c.id, c.suppressionRule.id)
+                          }}
                         />
                       ))}
                     </div>
@@ -547,6 +664,12 @@ function CrossingRow({
   onDisposition,
   onSpawnRemediation,
   onExplainDone,
+  suppress,
+  suppressReason,
+  onSuppressChange,
+  suppressPreview,
+  onSuppressReason,
+  onRevokeRule,
 }: {
   crossing: BoundaryCrossingView
   intl: ReturnType<typeof useIntl>
@@ -561,6 +684,14 @@ function CrossingRow({
   onDisposition: (verdict: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN') => void
   onSpawnRemediation: () => void
   onExplainDone: () => void
+  /** LUM-751: repository-rule opt-in state + revoke. */
+  suppress: boolean
+  suppressReason: string
+  onSuppressChange: (v: boolean) => void
+  /** LUM-759: how many existing alerts the rule would dispose too. */
+  suppressPreview: SuppressionPreview | 'loading' | undefined
+  onSuppressReason: (v: string) => void
+  onRevokeRule: () => void
 }) {
   const [cmdOpen, setCmdOpen] = useState(false)
   const [explainLoading, setExplainLoading] = useState(false)
@@ -674,12 +805,19 @@ function CrossingRow({
             {boundaryDispositionLabel('AUTO_LEGIT', intl)}
           </Badge>
         )}
+        {/* LUM-751: system-dispositioned by a human-authored repository rule —
+        on record, out of the open queue, non-blocking; revocable below. */}
+        {c.disposition === 'AUTO_SUPPRESSED' && (
+          <Badge tone='muted'>
+            {boundaryDispositionLabel('AUTO_SUPPRESSED', intl)}
+          </Badge>
+        )}
         {c.disposition ? (
           <InfoTooltip
             label={intl.formatMessage({
               id: 'boundary.tip.disposition',
               defaultMessage:
-                'How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), or auto-cleared by the system.',
+                'How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), auto-cleared by the system, or auto-dispositioned by a repository rule a human created.',
             })}
           />
         ) : null}
@@ -977,6 +1115,51 @@ function CrossingRow({
             </p>
           )}
 
+          {/* LUM-751: which repository rule auto-dispositioned this crossing,
+          with a one-click soft revoke (human-only server-side). */}
+          {c.suppressionRule && (
+            <p
+              className='mt-2 text-[11px] text-muted-foreground'
+              data-testid={`crossing-suppression-rule-${c.id}`}
+            >
+              {intl.formatMessage(
+                {
+                  id: 'boundary.panel.suppressedByRule',
+                  defaultMessage:
+                    'Auto-dispositioned by repository rule {rule}{reason}',
+                },
+                {
+                  rule: c.suppressionRule.id.slice(0, 8),
+                  reason: c.suppressionRule.reason
+                    ? ` — ${c.suppressionRule.reason}`
+                    : '',
+                }
+              )}
+              {c.suppressionRule.revokedAt ? (
+                <span>
+                  {' · '}
+                  {intl.formatMessage({
+                    id: 'boundary.panel.ruleRevoked',
+                    defaultMessage: 'rule revoked',
+                  })}
+                </span>
+              ) : (
+                <button
+                  type='button'
+                  data-testid={`boundary-revoke-rule-${c.id}`}
+                  disabled={pending}
+                  onClick={onRevokeRule}
+                  className='ml-2 underline hover:text-foreground disabled:opacity-50'
+                >
+                  {intl.formatMessage({
+                    id: 'boundary.panel.revokeRule',
+                    defaultMessage: 'Revoke rule',
+                  })}
+                </button>
+              )}
+            </p>
+          )}
+
           {open && (
             <div className='mt-2.5 space-y-2'>
               <input
@@ -990,6 +1173,72 @@ function CrossingRow({
                 })}
                 className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
               />
+              {/* LUM-751: per-repository auto-handle opt-in — only for a
+              suppressible category with a coalescing target; never on the
+              HIGH classes (the server refuses those with 422 anyway). */}
+              {c.suppressible && (
+                <label className='flex items-center gap-2 text-[11px] text-muted-foreground'>
+                  <input
+                    type='checkbox'
+                    data-testid={`boundary-suppress-similar-${c.id}`}
+                    checked={suppress}
+                    disabled={pending}
+                    onChange={e => onSuppressChange(e.target.checked)}
+                  />
+                  {intl.formatMessage({
+                    id: 'boundary.panel.suppressSimilar',
+                    defaultMessage:
+                      'Auto-handle this kind in this repository from now on (false positive only)',
+                  })}
+                </label>
+              )}
+              {/* LUM-759: the blast radius, before the ruling is committed —
+              ticking the box will dispose this repository's existing alerts of
+              the same kind too, so say how many. */}
+              {c.suppressible &&
+                suppress &&
+                suppressPreview &&
+                suppressPreview !== 'loading' &&
+                suppressPreview.count > 0 && (
+                  <p
+                    data-testid={`boundary-suppress-preview-${c.id}`}
+                    className='text-[11px] text-muted-foreground'
+                  >
+                    {intl.formatMessage(
+                      {
+                        id: 'boundary.panel.suppressPreview',
+                        defaultMessage:
+                          'This will also dispose {count, plural, one {# existing alert} other {# existing alerts}} of the same kind in this repository.',
+                      },
+                      { count: suppressPreview.count }
+                    )}
+                    {suppressPreview.capped
+                      ? ` ${intl.formatMessage(
+                          {
+                            id: 'boundary.panel.suppressPreviewCapped',
+                            defaultMessage:
+                              'More than {cap} match — only the {cap} most recent are handled.',
+                          },
+                          { cap: suppressPreview.cap }
+                        )}`
+                      : ''}
+                  </p>
+                )}
+              {c.suppressible && suppress && (
+                <input
+                  type='text'
+                  data-testid={`boundary-suppress-reason-${c.id}`}
+                  value={suppressReason}
+                  disabled={pending}
+                  onChange={e => onSuppressReason(e.target.value)}
+                  placeholder={intl.formatMessage({
+                    id: 'boundary.panel.suppressReasonPlaceholder',
+                    defaultMessage:
+                      'Why this is never a real crossing here (optional)',
+                  })}
+                  className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+                />
+              )}
               <div className='flex items-center gap-2'>
                 <button
                   type='button'

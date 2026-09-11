@@ -101,3 +101,47 @@ describe('stopRepoSandboxesByTag', () => {
     expect(get).not.toHaveBeenCalled()
   })
 })
+
+describe('getRepoSandbox (LUM-746 reconnect)', () => {
+  it('reconnects by name and exposes the same run/readFile/stop surface plus env/timeoutMs on run', async () => {
+    const runCommand = jest.fn().mockResolvedValue({
+      exitCode: 3,
+      stdout: async () => 'out',
+      stderr: async () => 'err',
+    })
+    const stop = jest.fn()
+    get.mockResolvedValue({ name: 'sb-1', cwd: '/vercel', runCommand, stop })
+    const { getRepoSandbox } = await import('@/lib/integrations/vercel-sandbox')
+    const sandbox = await getRepoSandbox({ name: 'sb-1' })
+    expect(get).toHaveBeenCalledWith({ name: 'sb-1' })
+    expect(sandbox.name).toBe('sb-1')
+    expect(sandbox.cwd).toBe('/vercel')
+    const result = await sandbox.run('sh', ['-c', 'true'], {
+      cwd: '/vercel/lumo',
+      env: { CI: 'true' },
+      timeoutMs: 5000,
+    })
+    expect(runCommand).toHaveBeenCalledWith({
+      cmd: 'sh',
+      args: ['-c', 'true'],
+      cwd: '/vercel/lumo',
+      env: { CI: 'true' },
+      timeoutMs: 5000,
+    })
+    expect(result).toEqual({ exitCode: 3, stdout: 'out', stderr: 'err' })
+    await sandbox.stop()
+    expect(stop).toHaveBeenCalled()
+  })
+
+  it('createRepoSandbox exposes the sandbox name for later reconnects', async () => {
+    create.mockResolvedValue({ cwd: '/vercel', name: 'sb-new' })
+    const sandbox = await createRepoSandbox({
+      repository: 'o/r',
+      revision: 'a'.repeat(40),
+      token: 't',
+      timeoutMs: 1000,
+      vcpus: 4,
+    })
+    expect(sandbox.name).toBe('sb-new')
+  })
+})
