@@ -35,6 +35,10 @@ import {
   matchPathGlob,
 } from '@/lib/services/policy/predicate-eval'
 import type { PolicyRule } from '@/lib/services/policy/types'
+import {
+  splitCommandSegments as splitCommandSegmentsShared,
+  executingSegments,
+} from '@/lib/boundary-crossing/command-shape'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 // NOTE: both LLM clients (`@/lib/llm/test-tampering-judge-client` and
@@ -142,7 +146,7 @@ const PROTECTED_BRANCH = /(?:^|[\s:/])(?:main|master|develop)(?=$|\s)/
  * MORE text in a push segment, erring toward flagging (the conservative side).
  */
 function splitCommandSegments(cmd: string): string[] {
-  return cmd.split(/(?:&&|\|\||[;|\n])/)
+  return splitCommandSegmentsShared(cmd)
 }
 
 /**
@@ -216,25 +220,47 @@ function matchMigrationDelete(cmd: string): boolean {
   return false
 }
 
-/** Irreversible / data-destroying DB commands. */
+/** Tool-specific irreversibles — fire on any executing segment. */
+const DB_TOOL_RESET =
+  /prisma\s+migrate\s+reset|\bdb\s+push\b[^\n]*--(?:force-reset|accept-data-loss)/
+/** Generic SQL drop/truncate phrases. */
+const DB_DDL_PHRASE = /\bdrop\s+(?:database|table)\b|\btruncate\s+table\b/i
+
+/**
+ * Irreversible / data-destroying DB commands. LUM-751: segment-scoped and
+ * print/search-aware — only EXECUTING segments (see
+ * lib/boundary-crossing/command-shape) are tested, so a `grep` / `echo` /
+ * `git log --grep` naming DDL, the same grep inside a `bash -c '…'` wrapper, or
+ * a PR body / commit message never trips it, while `psql -c "…"`,
+ * `mysql -e "…"` and `prisma migrate reset` still do. (Re-instates the LUM-426
+ * print-or-search exclusion that the prose gate had absorbed, deterministic
+ * this time — no LLM round-trip for the obvious shapes.)
+ */
 function matchDestructiveDb(cmd: string): boolean {
-  return (
-    /prisma\s+migrate\s+reset/.test(cmd) ||
-    /\bdb\s+push\b[^\n]*--(?:force-reset|accept-data-loss)/.test(cmd) ||
-    /\bdrop\s+(?:database|table)\b/i.test(cmd) ||
-    /\btruncate\s+table\b/i.test(cmd)
+  return executingSegments(cmd).some(
+    seg => DB_TOOL_RESET.test(seg) || DB_DDL_PHRASE.test(seg)
   )
 }
 
-/** Installing a NEW dependency — a bare `npm install` / `npm ci` (restore) is fine. */
+/**
+ * Installing a NEW dependency — only a segment whose OWN `npm i|install|add`
+ * (or `yarn|pnpm|bun add`) names a package. LUM-751: segment-scoped, so
+ * `npm install && npm test`, a lockfile sync inside `.worktrees/`, a flag-only
+ * install and `npm ci` never trip; a trailing `# comment` is ignored. (A
+ * lockfile-diff check is the PR scanner's job — LUM-738 — the hook only sees
+ * the command.)
+ */
 function matchNewNpmDependency(cmd: string): boolean {
-  // yarn/pnpm/bun add always name a package.
-  if (/\b(?:yarn|pnpm|bun)\s+add\b\s+\S/.test(cmd)) return true
-  // npm i|install|add — only when a non-flag package token follows the verb.
-  const m = cmd.match(/\bnpm\s+(?:i|install|add)\b(.*)$/)
-  if (!m) return false
-  const rest = m[1] ?? ''
-  return rest.split(/\s+/).some(tok => tok.length > 0 && !tok.startsWith('-'))
+  for (const raw of executingSegments(cmd)) {
+    const seg = raw.split('#')[0] ?? ''
+    if (/\b(?:yarn|pnpm|bun)\s+add\s+\S/.test(seg)) return true
+    const m = seg.match(/\bnpm\s+(?:i|install|add)\b(.*)$/)
+    if (!m) continue
+    const rest = m[1] ?? ''
+    if (rest.split(/\s+/).some(tok => tok.length > 0 && !tok.startsWith('-')))
+      return true
+  }
+  return false
 }
 
 // --- hardcoded secrets: single source with the PR scanner (LUM-734) ----------
