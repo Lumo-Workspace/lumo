@@ -23,7 +23,11 @@ import {
   type ScanStatus,
   type JudgeStatus,
   type ScanWithFindings,
+  type FindingReachability,
+  type FalsifierVerdict,
+  type SuggestionOutcome,
 } from '@/lib/repositories/pr-security-scan.repository'
+import { suggestionOutcomeFor } from '@/lib/security-scan/suggestion'
 import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
 import {
   addedLinesWithNumbers,
@@ -39,7 +43,15 @@ import {
 } from '@/lib/security-scan'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
-import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
+import {
+  isBlockingFinding,
+  latestScanPerPr,
+  loadSecurityPolicy,
+} from './pr-security-scan-gate'
+import {
+  DEFAULT_SECURITY_POLICY,
+  type SecurityPolicy,
+} from '@/lib/security-scan/policy'
 import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
@@ -94,6 +106,15 @@ export interface SecurityFindingView {
   blocking: boolean
   /** LUM-738: already on the default-branch baseline — not introduced by this PR (advisory, muted). */
   persisting: boolean
+  // LUM-739 (hunt rows; null elsewhere) — surfaced by the panel (LUM-740).
+  cwe: string | null
+  reachability: FindingReachability | null
+  callChain: Array<{ from: string; to: string }> | null
+  falsifierVerdict: FalsifierVerdict | null
+  // LUM-740: the falsifier's suggestion and the human's verdict on it.
+  suggestedDisposition: FindingDisposition | null
+  suggestedReason: string | null
+  suggestionOutcome: SuggestionOutcome | null
 }
 
 export interface SecurityScanView {
@@ -119,6 +140,11 @@ export interface SecurityScanView {
   error: string | null
   startedAt: string
   finishedAt: string | null
+  /**
+   * LUM-740: open findings of the PR's previous scan whose fingerprint this
+   * scan no longer carries — what the latest push fixed. 0 for a first scan.
+   */
+  fixed: number
   findings: SecurityFindingView[]
 }
 
@@ -134,6 +160,8 @@ export interface TaskSecurityScans {
     latest: SecurityScanView | null
   }[]
   blocking: { count: number }
+  /** LUM-740: open findings the falsifier suggested as false positives, across the task's PRs. */
+  suggested: { count: number }
 }
 
 export type RunScanResult =
@@ -191,7 +219,10 @@ function sortFindings<
   )
 }
 
-function toFindingView(f: FindingRow): SecurityFindingView {
+function toFindingView(
+  f: FindingRow,
+  policy: SecurityPolicy
+): SecurityFindingView {
   return {
     id: f.id,
     kind: f.kind,
@@ -208,12 +239,28 @@ function toFindingView(f: FindingRow): SecurityFindingView {
     disposition: f.disposition,
     dispositionNote: f.dispositionNote,
     inherited: f.inheritedFromFindingId !== null,
-    blocking: isBlockingFinding(f),
+    blocking: isBlockingFinding(f, policy),
     persisting: f.persisting,
+    cwe: f.cwe ?? null,
+    reachability: f.reachability ?? null,
+    callChain: f.callChain ?? null,
+    falsifierVerdict: f.falsifierVerdict ?? null,
+    suggestedDisposition: f.suggestedDisposition ?? null,
+    suggestedReason: f.suggestedReason ?? null,
+    suggestionOutcome: f.suggestionOutcome ?? null,
   }
 }
 
-function toScanView(s: ScanWithFindings): SecurityScanView {
+/** The view's `complete` rule, shared with the read model's `fixed` gate. */
+function isViewComplete(s: ScanWithFindings): boolean {
+  return s.status !== 'FAILED' && !s.partial && isCompleteScan(stagesOf(s))
+}
+
+function toScanView(
+  s: ScanWithFindings,
+  policy: SecurityPolicy,
+  fixed: number
+): SecurityScanView {
   const stages = stagesOf(s)
   return {
     id: s.id,
@@ -224,15 +271,32 @@ function toScanView(s: ScanWithFindings): SecurityScanView {
     truncated: s.truncated,
     stages,
     partial: s.partial,
-    complete: s.status !== 'FAILED' && !s.partial && isCompleteScan(stages),
+    complete: isViewComplete(s),
     externalLate:
       stages.external === 'PENDING' &&
       Date.now() - s.startedAt.getTime() > EXTERNAL_PENDING_LATE_MS,
     error: s.error,
     startedAt: s.startedAt.toISOString(),
     finishedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
-    findings: sortFindings(s.findings).map(toFindingView),
+    fixed,
+    findings: sortFindings(s.findings).map(f => toFindingView(f, policy)),
   }
+}
+
+/**
+ * LUM-740: previous-scan open fingerprints that this scan no longer carries.
+ * Only for a complete scan — while a layer is still pending its rows have
+ * not landed, and "3 fixed" would be a claim the next minute retracts.
+ */
+async function countFixed(scan: ScanWithFindings): Promise<number> {
+  if (!isViewComplete(scan)) return 0
+  const previous = await prSecurityScanRepository.findPreviousOpenFingerprints(
+    scan.pullRequestId,
+    scan.startedAt
+  )
+  if (previous.length === 0) return 0
+  const current = new Set(scan.findings.map(f => f.fingerprint))
+  return previous.filter(fp => !current.has(fp)).length
 }
 
 /**
@@ -620,12 +684,17 @@ export const prSecurityScanService = {
       // once it has persisted, and one summary per scan is the contract —
       // unless stage A itself found something that blocks DONE, which must
       // reach the PR even if the managed run never executes.
+      // LUM-740: "blocks DONE" is the workspace's policy here as everywhere.
+      const policy = await loadSecurityPolicy(pr.workspaceId)
       const blocksDone = rows.some(r =>
-        isBlockingFinding({
-          provenance: r.provenance,
-          severity: r.severity,
-          disposition: r.disposition ?? null,
-        })
+        isBlockingFinding(
+          {
+            provenance: r.provenance,
+            severity: r.severity,
+            disposition: r.disposition ?? null,
+          },
+          policy
+        )
       )
       // LUM-739: same rule for a started hunt run — it syncs when it lands.
       if ((!managedRunStarted && !huntRunStarted) || blocksDone) {
@@ -659,14 +728,31 @@ export const prSecurityScanService = {
       prs.map(p => p.id)
     )
     const latest = latestScanPerPr(scans)
+    // LUM-740: one policy read per task — every scan is in its workspace.
+    const policy =
+      scans.length > 0
+        ? await loadSecurityPolicy(scans[0]!.workspaceId)
+        : DEFAULT_SECURITY_POLICY
     let count = 0
-    const out = prs.map(pr => {
+    let suggested = 0
+    const out = []
+    for (const pr of prs) {
       const scan = latest.get(pr.id)
-      const view = scan ? toScanView(scan) : null
-      if (view) count += view.findings.filter(f => f.blocking).length
-      return { pr, latest: view }
-    })
-    return { prs: out, blocking: { count } }
+      const view = scan
+        ? toScanView(scan, policy, await countFixed(scan))
+        : null
+      if (view) {
+        count += view.findings.filter(f => f.blocking).length
+        suggested += view.findings.filter(
+          f =>
+            f.disposition === null &&
+            !f.persisting &&
+            f.suggestedDisposition !== null
+        ).length
+      }
+      out.push({ pr, latest: view })
+    }
+    return { prs: out, blocking: { count }, suggested: { count: suggested } }
   },
 
   async disposition(
@@ -691,8 +777,43 @@ export const prSecurityScanService = {
         dispositionNote: note,
         dispositionedById: actorMemberId,
         dispositionedAt: new Date(),
+        // LUM-740: the human's verdict on the falsifier's suggestion (R2).
+        suggestionOutcome: suggestionOutcomeFor(
+          finding.suggestedDisposition,
+          disposition
+        ),
       }
     )
-    return toFindingView(updated)
+    return toFindingView(
+      updated,
+      await loadSecurityPolicy(finding.scan.pullRequest.workspaceId)
+    )
+  },
+
+  /**
+   * LUM-740 — "confirm all suspected false positives": every undispositioned
+   * finding on the task's PRs that the falsifier suggested as a false
+   * positive is dispositioned FALSE_POSITIVE with outcome CONFIRMED, in one
+   * write. Human-only by the route's red line; the actor is stamped.
+   */
+  async dispositionSuggested(
+    taskId: string,
+    actorMemberId: string
+  ): Promise<{ confirmed: number }> {
+    // The latest scan per PR — the rows the panel shows and counts.
+    const prs = await pullRequestRepository.findManyForSecurityByTaskId(taskId)
+    const scans = await prSecurityScanRepository.findLatestByPullRequestIds(
+      prs.map(p => p.id)
+    )
+    const scanIds = [...latestScanPerPr(scans).values()].map(s => s.id)
+    const confirmed = await prSecurityScanRepository.confirmSuggestedByScanIds(
+      scanIds,
+      {
+        dispositionNote: 'Confirmed LLM suggestion (bulk)',
+        dispositionedById: actorMemberId,
+        dispositionedAt: new Date(),
+      }
+    )
+    return { confirmed }
   },
 }

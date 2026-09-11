@@ -28,6 +28,7 @@ import {
 import { scanRepositoryInSandboxStep } from './security-managed-scan.steps'
 import {
   markFailedBestEffort,
+  suggestDispositionsBestEffort,
   syncPrReviewBestEffort,
 } from './security-scan-helpers'
 
@@ -102,6 +103,9 @@ export async function securityManagedScanWorkflow(
     failedStages.external = 'FAILED'
     failedStages.supplyChain = 'FAILED'
   }
+  // LUM-740: the falsifier's suggestions must be on the rows before the PR
+  // write-back reads them — on both paths, for whatever did land.
+  if (findings > 0) await suggestDispositionsBestEffort(scanId)
   if (failures.length > 0) {
     const reason = failures.join('; ').slice(0, 500)
     await markFailedBestEffort(scanId, reason, failedStages)

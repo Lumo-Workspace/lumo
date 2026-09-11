@@ -318,6 +318,14 @@ export const tasksClient = {
     )
   },
 
+  /** LUM-740: human-only — confirm every LLM-suggested false positive on the task. */
+  bulkDispositionSecurityFindings<T>(taskId: string) {
+    return apiFetch<T>(API.tasks.securityFindingsBulkDisposition(taskId), {
+      method: 'POST',
+      body: { disposition: 'FALSE_POSITIVE', scope: 'SUGGESTED' },
+    })
+  },
+
   getTimeline<T>(taskId: string, cursor?: string | null, limit?: number) {
     const params = new URLSearchParams()
     if (cursor) params.set('cursor', cursor)

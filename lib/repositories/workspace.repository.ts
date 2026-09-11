@@ -1,4 +1,4 @@
-import type { SummaryFrequency } from '@prisma/client'
+import { Prisma, type SummaryFrequency } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { generateIdentifier } from '@/lib/team'
 
@@ -19,6 +19,8 @@ export interface WorkspaceUpdateData {
   summaryLocale?: string
   verificationMaxRounds?: number
   acceptanceMode?: boolean
+  /** LUM-740: the raw policy JSON; `null` resets to the default. */
+  securityPolicy?: unknown
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────
@@ -109,6 +111,16 @@ export const workspaceRepository = {
     return row?.project?.workspace?.acceptanceMode ?? null
   },
 
+  /** LUM-740: the raw `securityPolicy` Json column (null when unset or the
+   *  workspace is missing) — parse with `parseSecurityPolicy`. */
+  async findSecurityPolicy(id: string): Promise<unknown> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { securityPolicy: true },
+    })
+    return row?.securityPolicy ?? null
+  },
+
   /** Find workspace name and slug by ID. */
   async findNameAndSlug(id: string) {
     return prisma.workspace.findUnique({
@@ -117,11 +129,19 @@ export const workspaceRepository = {
     })
   },
 
-  /** Update workspace fields. */
+  /** Update workspace fields. A `securityPolicy: null` clears the Json column to SQL NULL (LUM-740). */
   async update(id: string, data: WorkspaceUpdateData) {
+    const { securityPolicy, ...rest } = data
+    const payload: Record<string, unknown> = { ...rest }
+    if (securityPolicy !== undefined) {
+      payload.securityPolicy =
+        securityPolicy === null
+          ? Prisma.DbNull
+          : (securityPolicy as Prisma.InputJsonValue)
+    }
     return prisma.workspace.update({
       where: { id },
-      data: data as Parameters<typeof prisma.workspace.update>[0]['data'],
+      data: payload as Parameters<typeof prisma.workspace.update>[0]['data'],
     })
   },
 

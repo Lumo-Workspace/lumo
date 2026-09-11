@@ -25,7 +25,13 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   getGithubInstallationToken: jest.fn(),
 }))
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
-  prSecurityScanRepository: { findByIdForReview: jest.fn() },
+  prSecurityScanRepository: {
+    findByIdForReview: jest.fn(),
+    // LUM-740: no stored summary id → the legacy marker path these
+    // expectations describe.
+    findSummaryCommentIdByPullRequest: jest.fn().mockResolvedValue(null),
+    setSummaryCommentId: jest.fn().mockResolvedValue(undefined),
+  },
 }))
 jest.mock('@/lib/logger', () => ({
   logger: {
@@ -86,6 +92,7 @@ function finding(over: Partial<ReviewFindingRow> = {}): ReviewFindingRow {
     externalRef: null,
     disposition: null,
     persisting: false,
+    suggestedDisposition: null,
     ...over,
   }
 }
@@ -97,6 +104,8 @@ function scanRow(over: Record<string, unknown> = {}) {
     stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
     partial: false,
     error: null,
+    // LUM-740: these fixtures predate the suggestion pass — treat it as done.
+    suggestedAt: new Date(0),
     findings: [],
     pullRequest: {
       repo: 'acme/app',
@@ -291,8 +300,10 @@ describe('pure builders', () => {
       error: null,
       taskUrl: null,
     })
+    // LUM-740: every layer RAN, so the honest reason is the cap, not "still
+    // incomplete" (which reads as "still running").
     expect(body).toContain(
-      'No open findings yet — the scan is still incomplete.'
+      'No open findings yet — a layer hit its budget cap, so the scan is not whole.'
     )
     expect(body).not.toContain('No open findings on lines this PR added.')
   })
@@ -460,10 +471,12 @@ describe('securityPrReviewService.sync', () => {
     findById.mockResolvedValue(
       scanRow({
         findings: [
+          // LUM-740: LOW rows get no inline comment any more, so the
+          // lowest-ranked row here is a MEDIUM LLM finding.
           finding({
             id: 'a',
-            fingerprint: 'fpLow',
-            severity: 'LOW',
+            fingerprint: 'fpLlm',
+            severity: 'MEDIUM',
             provenance: 'LLM_JUDGE',
             ruleId: 'judge:x',
             line: 1,

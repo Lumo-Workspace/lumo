@@ -141,7 +141,15 @@ test('findDispositionedByPullRequest only returns dispositioned findings on that
   await prSecurityScanRepository.findDispositionedByPullRequest('pr1')
   expect(mockFinding.findMany).toHaveBeenCalledWith(
     expect.objectContaining({
-      where: { scan: { pullRequestId: 'pr1' }, disposition: { not: null } },
+      // LUM-740: an open LLM suggestion is inherited too, so a re-ingest
+      // neither re-judges it nor loses the human's outcome.
+      where: {
+        scan: { pullRequestId: 'pr1' },
+        OR: [
+          { disposition: { not: null } },
+          { suggestedDisposition: { not: null } },
+        ],
+      },
     })
   )
 })

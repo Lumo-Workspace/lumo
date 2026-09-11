@@ -308,7 +308,8 @@ test('an incomplete scan lists the failed / unconfigured layers and the onboardi
   const stages = screen.getByTestId('scan-stages')
   expect(stages).toHaveTextContent('External scanner: not configured')
   expect(stages).toHaveTextContent('LLM review: failed')
-  expect(stages).not.toHaveTextContent('Secret patterns')
+  // LUM-740: the stage row names every layer, RAN ones included.
+  expect(stages).toHaveTextContent('Secret patterns:')
   const hint = screen.getByTestId('external-not-configured')
   expect(hint).toHaveTextContent('only Lumo')
   const links = hint.querySelectorAll('a')
