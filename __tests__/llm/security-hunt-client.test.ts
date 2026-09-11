@@ -97,6 +97,11 @@ describe('LUM-739 hunt client', () => {
     expect(call.stopWhen).toHaveLength(3)
     expect(call.stopWhen[0]).toEqual({ stepCountIs: 4 })
     expect(call.stopWhen[1]).toEqual({ hasToolCall: 'submit_candidates' })
+    // LUM-758 follow-up — the budget stop prices the step it has NOT run yet.
+    // Checking `spent >= budget` let the step that crosses the line run in
+    // full, and prod (PR #970) billed 38,262 against a 20,000 ceiling because
+    // late steps in a tool loop re-send the whole transcript. Budget here is
+    // 1000.
     expect(
       call.stopWhen[2]({
         steps: [
@@ -105,9 +110,18 @@ describe('LUM-739 hunt client', () => {
         ],
       })
     ).toBe(true)
+    // 600 spent, and the next step is priced at the last one's 600 → 1200 ≥
+    // 1000, so we stop BEFORE paying for it. Under the old check this was
+    // `false` and the budget was then blown by a whole step.
     expect(call.stopWhen[2]({ steps: [{ usage: { totalTokens: 600 } }] })).toBe(
+      true
+    )
+    // Still room: 300 spent, next priced at 300 → 600 < 1000.
+    expect(call.stopWhen[2]({ steps: [{ usage: { totalTokens: 300 } }] })).toBe(
       false
     )
+    // No steps yet — nothing to price, and nothing spent.
+    expect(call.stopWhen[2]({ steps: [] })).toBe(false)
     // LUM-758: the prompt leads with the task's objective and starting
     // points; the category only says how the output gets filed.
     expect(call.prompt).toContain('## Task t1: ' + TASK.objective)

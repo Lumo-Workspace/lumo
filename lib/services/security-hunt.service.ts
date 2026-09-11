@@ -42,6 +42,7 @@ import {
   planFallback,
   categoriesToTasks,
 } from '@/lib/security-scan/hunt/plan-fallback'
+import { isTransientPlanError } from '@/lib/security-scan/hunt/plan-retry'
 import {
   prSecurityScanRepository,
   type NewFindingInput,
@@ -59,6 +60,7 @@ import {
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_SNIPPET_RADIUS,
   HUNT_AUDIT_MAX_REJECTED,
+  PLAN_HUNT_MAX_ATTEMPTS,
   PLAN_HUNT_TIMEOUT_MS,
   type HuntJob,
   type HuntAudit,
@@ -296,30 +298,50 @@ export const securityHuntService = {
         `[security-hunt] plan finding read failed scan=${job.scanId}: ${messageOf(error)}`
       )
     }
-    try {
-      const { planHuntTasks } =
-        await import('@/lib/llm/security-hunt-plan-client')
-      const out = await planHuntTasks({
-        // LUM-758 Task 10 — the planner's diff view is the trigger's own two
-        // outputs, not a 40-file graph the agent will never read: `reasons`
-        // says WHICH rules fired, `touchedSourcePaths` says WHERE they could
-        // have fired. Both were computed by stage A already, so this view
-        // costs nothing. Dropping the second half (the state this review
-        // fixes) left the planner unable to see that the only
-        // `prisma.$queryRawUnsafe` in the diff was in a fixture.
-        reasons: job.reasons,
-        touchedPaths: job.touchedSourcePaths,
-        findings,
-        timeoutMs: PLAN_HUNT_TIMEOUT_MS,
-      })
-      return { ...out, by: 'model' }
-    } catch (error) {
-      const message = messageOf(error)
-      logger.warn(
-        `[security-hunt] plan failed scan=${job.scanId}, using deterministic fallback: ${message}`
-      )
-      return fallback(`plan unavailable: ${message.slice(0, 200)}`)
+    // `planHunt` never throws, which means `planHuntStep`'s platform retry can
+    // never fire — so without this loop a single transient gateway blip
+    // permanently degrades the scan's plan to the deterministic fallback. Prod
+    // (PR 969) lost a whole plan that way. One extra attempt with a FRESH
+    // window is the middle rung the design was missing between "worked" and
+    // "give up"; the planner is cheap (≤ PLAN_HUNT_TOKEN_BUDGET) so the retry
+    // costs far less than the plan quality it saves.
+    let lastError = ''
+    for (let attempt = 1; attempt <= PLAN_HUNT_MAX_ATTEMPTS; attempt++) {
+      try {
+        const { planHuntTasks } =
+          await import('@/lib/llm/security-hunt-plan-client')
+        const out = await planHuntTasks({
+          // LUM-758 Task 10 — the planner's diff view is the trigger's own two
+          // outputs, not a 40-file graph the agent will never read: `reasons`
+          // says WHICH rules fired, `touchedSourcePaths` says WHERE they could
+          // have fired. Both were computed by stage A already, so this view
+          // costs nothing. Dropping the second half (the state this review
+          // fixes) left the planner unable to see that the only
+          // `prisma.$queryRawUnsafe` in the diff was in a fixture.
+          reasons: job.reasons,
+          touchedPaths: job.touchedSourcePaths,
+          findings,
+          timeoutMs: PLAN_HUNT_TIMEOUT_MS,
+        })
+        return { ...out, by: 'model' }
+      } catch (error) {
+        lastError = messageOf(error)
+        // Only a transient deserves the second window. A schema-validation
+        // failure is the model being wrong about the shape, and it will be wrong
+        // the same way again — retrying it just burns the budget twice.
+        if (attempt < PLAN_HUNT_MAX_ATTEMPTS && isTransientPlanError(error)) {
+          logger.warn(
+            `[security-hunt] plan attempt ${attempt} failed scan=${job.scanId}, retrying: ${lastError}`
+          )
+          continue
+        }
+        break
+      }
     }
+    logger.warn(
+      `[security-hunt] plan failed scan=${job.scanId}, using deterministic fallback: ${lastError}`
+    )
+    return fallback(`plan unavailable: ${lastError.slice(0, 200)}`)
   },
 
   /**
