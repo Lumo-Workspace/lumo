@@ -31,8 +31,9 @@ precondition for verifying — don't hold a round back to word it.
 ## What one round does
 
 1. Loads the task's acceptance contract and picks out MACHINE criteria.
-2. Runs each checkpointer locally (shell, cwd = current directory), one at a
-   time, echoing PASS/FAIL as it goes.
+2. Runs each checkpointer locally (shell, cwd = current directory, env = the
+   CLI's own minus its private `LUMO_NO_HINTS` mute — `--no-hints` never
+   reaches a checkpointer), one at a time, echoing PASS/FAIL as it goes.
 3. POSTs the structured verdicts; the server records one VerificationRun per
    criterion at round = previous max + 1 and mirrors each verdict as a
    TaskActivity event.

@@ -98,6 +98,25 @@ function stderr(): string {
 }
 
 describe('runCheckpointer', () => {
+  it('does not leak the CLI-only LUMO_NO_HINTS mute into the checkpointer env', () => {
+    // `lumo verify --no-hints` folds the flag into process.env; a checkpointer
+    // that inherits it (e.g. a jest suite covering the hints block) would fail
+    // for a reason unrelated to the criterion.
+    const old = process.env.LUMO_NO_HINTS
+    process.env.LUMO_NO_HINTS = '1'
+    try {
+      runCheckpointer('c-1', 'npx jest x.test.ts', 1000)
+    } finally {
+      if (old === undefined) delete process.env.LUMO_NO_HINTS
+      else process.env.LUMO_NO_HINTS = old
+    }
+    const opts = mockSpawn.mock.calls[0]![1] as { env?: NodeJS.ProcessEnv }
+    expect(opts.env).toBeDefined()
+    expect(opts.env!.LUMO_NO_HINTS).toBeUndefined()
+    // The rest of the environment still reaches the check.
+    expect(opts.env!.PATH).toBe(process.env.PATH)
+  })
+
   it('exit 0 → PASS with a cmd evidence pointer', () => {
     mockSpawn.mockReturnValue(spawnResult({ status: 0 }))
     const v = runCheckpointer('c-1', 'npx jest', 1000)

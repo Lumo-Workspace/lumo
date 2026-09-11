@@ -52,6 +52,23 @@ function tail(s: string, max: number): string {
 }
 
 /**
+ * The environment a checkpointer runs in: the CLI's own, minus the flags the
+ * CLI folds into process.env for itself. `--no-hints` becomes
+ * `LUMO_NO_HINTS=1` (see index.ts preAction) and would otherwise be inherited
+ * by e.g. a jest suite that covers the hints block, failing it for a reason
+ * unrelated to the criterion (LUM-752).
+ */
+const CLI_ONLY_ENV = ['LUMO_NO_HINTS'] as const
+
+export function checkpointerEnv(
+  base: NodeJS.ProcessEnv = process.env
+): NodeJS.ProcessEnv {
+  const env = { ...base }
+  for (const k of CLI_ONLY_ENV) delete env[k]
+  return env
+}
+
+/**
  * Execute one MACHINE checkpointer in the local repo (runs client-side — the
  * server can't run repo tests) and fold the result into a structured verdict.
  * Exit 0 = PASS with a `cmd:` evidence pointer; non-zero = CRITERION_UNMET;
@@ -68,6 +85,7 @@ export function runCheckpointer(
     timeout: timeoutMs,
     maxBuffer: MAX_OUTPUT_BUFFER,
     cwd: process.cwd(),
+    env: checkpointerEnv(),
   })
 
   if (r.error) {
