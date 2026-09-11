@@ -72,6 +72,36 @@ export const HUNT_CHECKOUT_POLL_MS = 1_000
 export const HUNT_SHELL_OUTPUT_MAX = 8_000
 
 /**
+ * LUM-758 §6 — below this many characters the output is NOT compressed: one
+ * FAST call costs more than the tokens it would save, and the hunt model can
+ * read 2 000 characters of `rg` output perfectly well.
+ */
+export const HUNT_SHELL_COMPRESS_MIN = 2_000
+/**
+ * Output ceiling of ONE compression call. 2k tokens can be well over
+ * HUNT_SHELL_OUTPUT_MAX characters, which is why the compressed body is
+ * truncated again before it is handed on — see `runHuntShell`.
+ */
+export const HUNT_COMPRESS_TOKEN_BUDGET = 2_000
+
+/**
+ * Defang the untrusted-block delimiters inside text that is ABOUT to be put
+ * inside one. Both boundaries this crosses are prompt boundaries — the
+ * compressor's `<untrusted-command-output>` block and the hunt model's
+ * `<untrusted-compressed-output>` block — and repository text legitimately
+ * contains such tags (this repo's own `lib/memory/render.ts` writes them), so
+ * a `rg untrusted` would otherwise let file content close the block it is
+ * quoted inside and continue as if it were the prompt.
+ *
+ * Pure and dependency-free so the workflow bundle stays import-light; lives
+ * here because both sides of the boundary (`lib/llm`, `lib/services`) already
+ * import this module and neither may import the other.
+ */
+export function neutralizeUntrustedTags(text: string): string {
+  return text.replace(/<(\/?)(untrusted-[a-z-]*)>/gi, '($1$2)')
+}
+
+/**
  * The six checklist categories, in run order. Duplicated from
  * `lib/security-scan/hunt/candidate.ts` (which imports zod + node:crypto) so
  * the workflow bundle stays import-light; a test asserts the two agree.
@@ -207,7 +237,32 @@ export interface HuntAudit {
    * warn log nobody joins back to the scan.
    */
   egressDenied?: boolean
+  /**
+   * LUM-758 §6.3 — what the shell-output compressor cost and what it bought,
+   * over every `run_shell` call of every batch of this scan. This step was
+   * scoped as "only if still over budget", so it ships measurable and
+   * revertible: `inputChars - outputChars` is the saving, `tokens` is the
+   * price, and the launch read-out keeps or reverts it on those two numbers.
+   *
+   * - `calls`: compressions that actually replaced the output.
+   * - `inputChars` / `outputChars`: characters in and out of those calls,
+   *   the compressor's body only — the untrusted wrapper is fixed overhead
+   *   the hunt model pays either way.
+   * - `tokens`: EVERY token compression spent, duds included, and the same
+   *   number is inside the batch's `tokens` (and so inside `tokenSpent`).
+   *   Counting it anywhere else would let compression be paid for with money
+   *   the "average tokenSpent ≤ 60k" metric cannot see.
+   */
+  compress?: HuntCompressStats
   error?: string
+}
+
+/** One batch's share of `HuntAudit.compress`; summed by the orchestrator. */
+export interface HuntCompressStats {
+  calls: number
+  inputChars: number
+  outputChars: number
+  tokens: number
 }
 
 /**
@@ -262,6 +317,12 @@ export interface HuntBatchOutput {
   elapsedMs: number
   stopped: HuntBatchStop
   error?: string
+  /**
+   * LUM-758 §6.3 — what this batch's `run_shell` compressions cost and saved.
+   * Its `tokens` are ALREADY inside `tokens` above; this field only breaks
+   * them out so the audit can answer "was compression worth it".
+   */
+  compress?: HuntCompressStats
   /** LUM-758 §5.1 — 这一批用的是复用的 VM 还是自建的。 */
   sandbox?: 'attached' | 'created'
   /** Did that VM run with its network egress actually cut? See `HuntSandbox`. */
