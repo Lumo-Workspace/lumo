@@ -2,17 +2,27 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import {
+  emitConfirmation,
+  isConfirmed,
+  type ConfirmFlags,
+} from '../lib/confirmation'
 
-export interface DeleteMilestoneOptions {
+export interface DeleteMilestoneOptions extends ConfirmFlags {
   project?: string
-  yes?: boolean
 }
 
-export function formatDeleteRefusal(name: string, taskCount: number): string {
-  const head = `Refusing to delete milestone "${sanitizeField(name)}" without --yes.`
-  const tail = `Re-run with --yes to confirm.`
-  if (taskCount === 0) return `${head}\n${tail}`
-  return `${head}\n${taskCount} tasks under it will keep their data; only milestoneId is cleared.\n${tail}`
+/** The changes[] block for the confirmation envelope (LUM-755). */
+export function describeMilestoneDelete(
+  name: string,
+  taskCount: number
+): string[] {
+  const lines = [`Will delete milestone "${sanitizeField(name)}"`]
+  if (taskCount > 0)
+    lines.push(
+      `${taskCount} tasks under it keep their data; only milestoneId is cleared`
+    )
+  return lines
 }
 
 interface TaskCounts {
@@ -80,9 +90,11 @@ export async function milestoneDelete(
   const name = resolvedName || milestone.name
   const total = totalTasks(milestone.taskCounts)
 
-  if (!opts.yes) {
-    console.error(formatDeleteRefusal(name, total))
-    return 1
+  if (!isConfirmed(opts)) {
+    return emitConfirmation({
+      command: 'milestone delete',
+      changes: describeMilestoneDelete(name, total),
+    })
   }
 
   let res: Response

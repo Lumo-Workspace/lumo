@@ -43,6 +43,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task/project memory`, `memory promote/rm`                                              | [references/memory.md](references/memory.md)                   |
 | `session attach/status`, git-suggest on start, Layer-2 review                           | [references/sessions.md](references/sessions.md)               |
 | `worktree add/rm/list` (local dev tooling)                                              | [references/worktree.md](references/worktree.md)               |
+| `--confirm` / exit code 4 — the confirmation envelope every gated mutation speaks       | [references/confirmation.md](references/confirmation.md)       |
 
 ## Command catalog
 
@@ -66,7 +67,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Tasks — see [tasks.md](references/tasks.md)
 
 - `lumo task create <title> [flags]` — create a task. **Mid-task** (your session is bound to an in-flight task) it requires `--rework-of <id>` (redirects you to fix the existing task — creates nothing) or `--new-scope` (genuinely new, out-of-scope work). On a send-back, fix in place / amend the contract instead of spinning off a new task — see [verify.md](references/verify.md) and [criteria.md](references/criteria.md).
-- `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags; `--claimable`/`--not-claimable` set the agent-claimable marker (LUM-646)
+- `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags; `--claimable`/`--not-claimable` set the agent-claimable marker (LUM-646). `--status done` without `--confirm` exits 4 with a confirmation envelope (see [confirmation.md](references/confirmation.md))
 - `lumo task list [flags]` — list tasks assigned to you
 - `lumo next [--count N] [--claimable]` — recommend the next task to work on (read-only). `--claimable` restricts to the autonomy boundary: only tasks that are claimable ∩ unblocked (F3 topology) ∩ within milestone budget (F2); old server degrades gracefully to the standard ranking (LUM-646)
 - `lumo task show <id>` — print one task's detail
@@ -96,7 +97,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task deps add <id> --blocked-by <LUM-N>` — declare a manual hard dependency (CONFIRMED)
 - `lumo task deps confirm <id> <edge> [--reverse]` — confirm a detected candidate (`--reverse` flips direction)
 - `lumo task deps dismiss <id> <edge>` — dismiss a candidate (never re-suggested)
-- `lumo task deps rm <id> <edge> --yes` — delete an edge (refuses without `--yes`)
+- `lumo task deps rm <id> <edge> --confirm` — delete an edge (without `--confirm`: exit 4 + confirmation envelope; `--yes` is a legacy alias)
 - `<edge>` = short edge-id prefix (≥6 chars) or the other task's identifier; ambiguous/unknown selectors list candidates and exit 1. See [tasks.md](references/tasks.md)
 
 ### Acceptance criteria (contract) — see [criteria.md](references/criteria.md)
@@ -167,7 +168,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo task memory add/list` · `lumo project memory add/list` — record/curate Memory (TASK vs PROJECT)
 - `lumo memory show <id>` — show one memory's full card (category + content) by id (progressive disclosure from a one-line index entry)
-- `lumo memory promote <id>` / `lumo memory rm <id> --yes` — TASK→PROJECT / delete
+- `lumo memory promote <id>` / `lumo memory rm <id> --confirm` — TASK→PROJECT / delete (exit 4 + envelope without `--confirm`)
 - `lumo memory sync [--dry-run] [--clean]` — downsync team memory into the local Claude Code store (`team/<id>.md` + a managed MEMORY.md block); only touches files it owns
 - `lumo memory push [--dry-run]` — upsync locally-authored memories from `<memory-dir>/outbox/*.json` to the team
 - `lumo memory fold [project-ref] --dry-run` — read-only PREVIEW of the autonomous topic-fold pass (folding runs via a daily cron; no manual apply, no `unfold`). See [memory.md](references/memory.md)
@@ -183,7 +184,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Worktrees (local dev tooling) — see [worktree.md](references/worktree.md)
 
 - `lumo worktree add <LUM-N> [slug]` — scaffold `.worktrees/<LUM-N>` + node_modules symlink off origin/main; run from the main checkout
-- `lumo worktree rm <LUM-N> --yes` — remove a worktree (keeps the branch unless `--delete-branch`)
+- `lumo worktree rm <LUM-N> --confirm` — remove a worktree (exit 4 + envelope without `--confirm`; dirty tree also needs `--force`; keeps the branch unless `--delete-branch`)
 - `lumo worktree list` — list `.worktrees/` worktrees (task id, branch, dirty, node_modules link)
 
 ## Next-step hints (the trailing `Next:` block)
@@ -211,7 +212,8 @@ Don't guess these:
 - No `--content` on `task/project memory add` — memory is structured fields (`--category` + per-category flags), see [memory.md](references/memory.md)
 - No global `--verbose` flag on any command
 - `lumo task comments list` (plural) **reads** the thread; `lumo task comment` (singular) **writes** one
-- Status updates: `lumo task update LUM-N --status done` is one direct call — do **not** walk `in_progress → in_review → done` step by step (see [tasks.md](references/tasks.md) for the transition matrix; under the verify flow you shouldn't be setting `in_review`/`done` yourself at all). `--status done` asks for interactive `[y/N]` confirmation on a TTY (a second one when a linked PR is not merged) and there is no `--yes` — a non-TTY agent shell is refused, so hand the command to the user
+- Status updates: `lumo task update LUM-N --status done` is one direct call — do **not** walk `in_progress → in_review → done` step by step (see [tasks.md](references/tasks.md) for the transition matrix; under the verify flow you shouldn't be setting `in_review`/`done` yourself at all). `--status done` has no interactive prompt and no `--yes`: without `--confirm` it exits 4 with a confirmation envelope you relay to the user (see [confirmation.md](references/confirmation.md))
+- No interactive yes/no prompts anywhere, and no `--yes` on `task update` — every gated mutation exits 4 with a `confirmation_required` envelope instead; `--yes` survives only as a legacy alias of `--confirm` on the delete/rm/close commands
 
 ## Core workflow
 
@@ -232,5 +234,6 @@ Don't guess these:
 - **Attach + draft criteria before coding.** Skipping attach triggers `SESSION_BINDING_MISSING`; skipping criteria means verification has nothing to check.
 - **Evidence before "done".** Never claim done from reading code — run `lumo verify`. While a PR is open, the task is IN_REVIEW, not DONE.
 - **Never set DONE yourself after a verify loop** — that adjudication is human-only. An unresolved send-back blocks the DONE transition with 409.
-- **Status updates are one direct call** (`task update --status done`), not a step-by-step walk through `in_progress → in_review → done`. DONE prompts for confirmation and only a human at a TTY can answer it.
+- **Status updates are one direct call** (`task update --status done`), not a step-by-step walk through `in_progress → in_review → done`.
+- **Exit code 4 = the user must confirm — you may not.** A gated mutation (`--status done`, `sprint/milestone/doc delete`, `memory rm`, `task deps/artifact rm`, `sprint close --move-all/--backlog-all`, `worktree rm`, `doc rebuild-source` on an existing source) run without `--confirm` prints a `confirmation_required` envelope on stdout and does nothing. Show every line of its `changes` to the user, wait for their explicit approval, then run its `confirmCommand` verbatim. **Never add `--confirm` (or `--yes` / `--force`) yourself** — the flag means "the user has confirmed", and adding it on your own initiative is the exact failure the protocol exists to stop. **Exit code 5 = blocked by a human-only gate** (`DONE_BLOCKED`: a send-back, an undispositioned boundary crossing, a blocking security finding): relay its `blockers` and `remediation` to the user; nothing on the CLI clears it — no retry, no flag, no rewording a failed criterion. Details: [confirmation.md](references/confirmation.md)
 - **Read the reference before composing a command** whose flags/edge-cases matter — don't run from memory.

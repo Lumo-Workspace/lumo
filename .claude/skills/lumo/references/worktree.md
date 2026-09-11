@@ -55,15 +55,21 @@ Errors if the target dir already exists; reuses the branch if it already exists 
 
 ## `lumo worktree rm <LUM-N>`
 
-Removes the worktree for a task. Requires `--yes`. Refuses a dirty worktree
-unless `--force`. Keeps the branch by default (it may hold unpushed work / an
-open PR); `--delete-branch` removes it with `git branch -d` (which itself
-refuses an unmerged branch).
+Removes the worktree for a task. Gated by the confirmation protocol
+([confirmation.md](confirmation.md)): without `--confirm` — or with
+uncommitted changes and no `--force` — it exits **4** with an envelope naming
+the path and branch, a `⚠ … uncommitted changes … discarded` line when dirty,
+and whether the branch is kept or deleted; nothing is removed. A dirty tree's
+`confirmCommand` carries `--force --confirm`. `--yes` is a legacy alias of
+`--confirm`. Keeps the branch by default (it may hold unpushed work / an open
+PR); `--delete-branch` removes it with `git branch -d` (which itself refuses
+an unmerged branch).
 
 ```bash
-lumo worktree rm LUM-267 --yes
-lumo worktree rm LUM-267 --yes --force            # discard uncommitted changes
-lumo worktree rm LUM-267 --yes --delete-branch    # also delete lumo/LUM-267…
+lumo worktree rm LUM-267                              # exit 4 + envelope
+lumo worktree rm LUM-267 --confirm                    # after the user approved (clean tree)
+lumo worktree rm LUM-267 --force --confirm            # dirty tree: discard uncommitted changes
+lumo worktree rm LUM-267 --confirm --delete-branch    # also delete lumo/LUM-267…
 ```
 
 ## `lumo worktree list`

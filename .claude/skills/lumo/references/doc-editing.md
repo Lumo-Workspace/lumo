@@ -121,24 +121,26 @@ lumo doc diff cmd_xxx --file docs/live-docs/research-intake-ledger.md
 
 The **recovery path for a source-less doc**. When a doc has no stored `sourceMarkdown` — a web HTML-direct edit or revision restore nulled it, or the doc predates source storage — every markdown write path (`--raw`, `--section`, `doc patch`, `doc append --section`, `doc diff`) is locked. This regenerates a valid source by serializing the **stored HTML structure model** back to markdown with a **lossless serializer that round-trips tables/rows/headings** (the default `doc show` render flattens tables, so it was never a safe rebuild base). Only the `sourceMarkdown` column is backfilled; the rendered body is untouched, so the doc reads identically and you just regain the edit base.
 
-| Flag                | Type    | Notes                                                                                                                    |
-| ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `--allow-shrink`    | boolean | Commit even if the rebuilt source re-renders with fewer tables/rows/headings than the stored body (default: 422 reject). |
-| `--force`           | boolean | Re-derive even when a source already exists (default: 409 — protects a byte-faithful human source from a downgrade).     |
-| `--if-revision <n>` | int     | Only apply if the body is still at this revision (from `doc show`).                                                      |
+| Flag                | Type    | Notes                                                                                                                                                                                                       |
+| ------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--allow-shrink`    | boolean | Commit even if the rebuilt source re-renders with fewer tables/rows/headings than the stored body (default: 422 reject).                                                                                    |
+| `--force`           | boolean | Re-derive even when a source already exists. Without it an existing source yields exit 4 + a confirmation envelope whose `confirmCommand` carries `--force --confirm` ([confirmation.md](confirmation.md)). |
+| `--confirm`         | boolean | The user approved replacing the existing source; pair it with `--force` as the envelope instructs.                                                                                                          |
+| `--if-revision <n>` | int     | Only apply if the body is still at this revision (from `doc show`).                                                                                                                                         |
 
-The rebuild is **structure-guarded** (the same guard as `doc update`/`doc patch`): if the serializer would drop any table/row/heading, it is rejected with **422** rather than silently committing a flattened source — `--allow-shrink` is the explicit escape hatch. A doc that already has a source is refused **409** unless `--force`.
+The rebuild is **structure-guarded** (the same guard as `doc update`/`doc patch`): if the serializer would drop any table/row/heading, it is rejected with **422** rather than silently committing a flattened source — `--allow-shrink` is the explicit escape hatch. A doc that already has a source is refused by the server (409); the CLI turns that refusal into a **confirmation envelope** (exit 4, `changes` = the server's reason + what `--force` would replace) so the user sees it before anything is overwritten.
 
 ```bash
-lumo doc rebuild-source cmd_xxx          # restore a source-less doc; --raw works after
-lumo doc rebuild-source cmd_xxx --force  # re-derive even if a source already exists
+lumo doc rebuild-source cmd_xxx                    # restore a source-less doc; --raw works after
+lumo doc rebuild-source cmd_xxx                    # source exists → exit 4 + envelope, nothing written
+lumo doc rebuild-source cmd_xxx --force --confirm  # re-derive after the user approved the envelope
 ```
 
 ### When to suggest `doc rebuild-source`
 
 - A `--raw` / `--section` / `doc patch` / `doc diff` call errored with "no stored markdown source" — rebuild, then retry. This is the first thing to try, not a manual reconstruction.
 - A table-heavy live doc (e.g. a `docs/live-docs/` registry) lost its source after a web operation and the markdown write path is locked.
-- Do **not** run it on a doc that already has a good source unless the user explicitly wants to re-derive it (then pass `--force`) — it replaces the byte-faithful source with a serializer-derived one.
+- Do **not** run it on a doc that already has a good source unless the user explicitly wants to re-derive it (then re-run the envelope's `confirmCommand`, i.e. `--force --confirm`) — it replaces the byte-faithful source with a serializer-derived one.
 
 ## Out of scope (CLI v1)
 

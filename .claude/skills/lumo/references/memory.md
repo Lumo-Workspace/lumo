@@ -32,7 +32,7 @@ lumo project memory add [<project>] --category convention --rule "..." --applies
 # Single-memory ops (memoryId from `... memory list` column 1)
 lumo memory show <memoryId>        # show one memory's full card by id
 lumo memory promote <memoryId>     # TASK → PROJECT
-lumo memory rm <memoryId> --yes    # hard delete
+lumo memory rm <memoryId> --confirm  # hard delete (without --confirm: exit 4 + envelope)
 
 # Downsync team memory into the local Claude Code memory store
 lumo memory sync                   # write team/<id>.md + a managed MEMORY.md block
@@ -68,8 +68,10 @@ lumo project memory add lumo --category procedural --workflow "Regenerate the CL
 # Curate
 lumo memory show cmpi19iqabc123
 lumo memory promote cmpi19iqabc123
-lumo memory rm cmpi19iqabc123 --yes
+lumo memory rm cmpi19iqabc123 --confirm
 ```
+
+`memory rm` is gated by the confirmation protocol ([confirmation.md](confirmation.md)): without `--confirm` it fetches the card and exits **4** with an envelope (`Will hard-delete memory <id> [TRAP]` · `Content: <first line>` · no undo) and deletes nothing. Show that to the user first; `--yes` is a legacy alias of `--confirm`.
 
 ### `lumo memory show <id>` (progressive disclosure)
 

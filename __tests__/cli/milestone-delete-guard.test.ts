@@ -1,21 +1,19 @@
 /**
  * @jest-environment node
  */
-import { formatDeleteRefusal } from '@/cli/src/commands/milestone-delete'
+import { describeMilestoneDelete } from '@/cli/src/commands/milestone-delete'
 
-describe('formatDeleteRefusal', () => {
+describe('describeMilestoneDelete (confirmation envelope changes[])', () => {
   it('lists task impact for safety', () => {
-    expect(formatDeleteRefusal('Q3 Launch', 12)).toBe(
-      'Refusing to delete milestone "Q3 Launch" without --yes.\n' +
-        '12 tasks under it will keep their data; only milestoneId is cleared.\n' +
-        'Re-run with --yes to confirm.'
-    )
+    expect(describeMilestoneDelete('Q3 Launch', 12)).toEqual([
+      'Will delete milestone "Q3 Launch"',
+      '12 tasks under it keep their data; only milestoneId is cleared',
+    ])
   })
 
   it('omits the "tasks" line when count is zero', () => {
-    expect(formatDeleteRefusal('Empty', 0)).toBe(
-      'Refusing to delete milestone "Empty" without --yes.\n' +
-        'Re-run with --yes to confirm.'
-    )
+    expect(describeMilestoneDelete('Empty', 0)).toEqual([
+      'Will delete milestone "Empty"',
+    ])
   })
 })

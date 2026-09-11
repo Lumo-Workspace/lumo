@@ -120,33 +120,41 @@ The server's transition matrix (`lib/task/state-machine.ts`):
 
 Practical rules:
 
-- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls. That one call **asks for interactive confirmation** (see below) — there is no `--yes`.
+- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls. That one call **walks the confirmation protocol** (see below): without `--confirm` it exits 4 with an envelope, never a prompt.
 - **Under the verify flow you don't set `in_review`/`done` at all** — `lumo verify` moves the task to IN_REVIEW on all-pass and the DONE adjudication is human-only.
 - **A DONE task can be reopened** — to IN_REVIEW, IN_PROGRESS, or TODO. Reopening is a plain status change and does not alter any recorded acceptance verdict; verdict adjudication is human-only and has no CLI path. To attach context without reopening, `lumo task comment` works.
 
-### `--status done` asks for interactive confirmation (LUM-731)
+### `--status done` requires `--confirm` — the confirmation envelope (LUM-755)
 
-DONE is the one status move that needs a human at the keyboard. Before the PATCH, the CLI looks the task up, prints what is about to change plus every linked PR with its synced state, and asks `[y/N]` (empty answer = N). When a linked PR is **not merged** (open, closed-without-merge, draft), the unmerged ones are listed again and a **second** `[y/N]` is asked. Only after every prompt is answered `y` does the PATCH go out — and the server's own DONE gates (unresolved send-back / open boundary crossing → 409) still apply on top; the 409 text is printed verbatim.
+DONE is the one status move that needs a human's sign-off. It no longer prompts (LUM-731's interactive yes/no question is gone): run without `--confirm`, the CLI looks the task up, prints a **confirmation envelope** on stdout and exits **4** with nothing sent — no PATCH, and no tag resolution either. The envelope's `changes` carry everything the old prompt showed, including a trailing `⚠` line when a linked PR has not merged (that line replaces the old second prompt — the protocol is one step, and you relay the whole block). Full protocol: [confirmation.md](confirmation.md).
 
+```bash
+lumo task update LUM-48 --status done
+# exit 4, stdout (JSON when piped; the same lines as text on a TTY):
+# {
+#   "status": "confirmation_required",
+#   "command": "task update",
+#   "changes": [
+#     "Will move LUM-48 \"Title\" to DONE",
+#     "Status: IN_REVIEW → DONE",
+#     "#926  merged   refactor: panel  https://github.com/o/r/pull/926",
+#     "#930  open     feat: wip        https://github.com/o/r/pull/930",
+#     "⚠ 1 linked pull request not merged: #930 open"
+#   ],
+#   "confirmCommand": "lumo task update LUM-48 --status done --confirm"
+# }
 ```
-About to move LUM-48 "Title" to DONE
-  Status:  IN_REVIEW → DONE
-  Pull requests:
-    #926  merged   refactor: panel    https://github.com/o/r/pull/926
-    #930  open     feat: wip          https://github.com/o/r/pull/930
-Move LUM-48 to DONE? [y/N] y
 
-  ⚠ 1 linked pull request not merged:
-    #930  open     feat: wip          https://github.com/o/r/pull/930
-Mark LUM-48 DONE anyway with unmerged PRs? [y/N] n
-Aborted — LUM-48 unchanged.
+With no linked PR the PR lines collapse to `Pull requests: none linked` and there is no `⚠` line. Other flags on the same call (`--title`, `--add-tag`…) are preserved in `confirmCommand`.
+
+- **Show `changes` to the user and wait for an explicit yes**, then run `confirmCommand` unchanged. `--confirm` means the user confirmed — never add it on your own.
+- With `--confirm` the PATCH goes out directly. The server's own DONE gates still apply on top — an unresolved send-back, an undispositioned boundary crossing or a blocking security finding refuses with **409**, which the CLI turns into a structured **`DONE_BLOCKED` error on stdout with exit 5**: the 409 text verbatim, a `blockers[]` with ids (built from `task status` + the crossings read model), and `remediation` lines that only name human-side paths. There is no CLI path to clear any of them — relay, don't retry. See [confirmation.md](confirmation.md) "When the gate is human-only". Any other 409 stays plain text, exit 1.
+- `--confirm` is the only flag: there is no `--yes` or `--force` on `task update`. Every other status (`todo` / `in_progress` / `in_review`) PATCHes directly and ignores `--confirm`.
+- A failed lookup (404, network) exits 1 before any envelope.
+
+```bash
+lumo task update LUM-48 --status done --confirm   # only after the user approved the envelope
 ```
-
-`Pull requests:  none linked` is printed when the task has no PR; then only the first prompt is asked.
-
-- **There is no `--yes`, `--force`, or `--confirm`.** A flag an agent can pass is not a gate. Do not look for one.
-- **Non-TTY stdin → exit 1 before any network call** (`--status done requires interactive confirmation, but stdin is not a TTY …`). An agent shell cannot move a task to DONE; tell the user to run the command in their terminal or use the web UI. Every other status (`todo` / `in_progress` / `in_review`) is unaffected.
-- A declined prompt prints `Aborted — LUM-N unchanged.` and exits 1 with nothing sent.
 
 ### When to suggest `task update`
 

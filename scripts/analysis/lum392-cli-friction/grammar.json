@@ -239,18 +239,26 @@
     "doc delete": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--yes": {
           "long": "--yes",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Confirm deletion"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a document (requires --yes)"
+      "description": "Delete a document and everything nested under it. Without --confirm: exit 4 + a confirmation envelope with the title."
     },
     "doc diff": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -423,13 +431,21 @@
           "enumCaseInsensitive": false,
           "description": "Commit even if the rebuilt source re-renders with fewer tables/rows/headings than the stored body (default: rejected with 422)"
         },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved replacing the existing source (LUM-755); pair with --force as the envelope instructs"
+        },
         "--force": {
           "long": "--force",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Re-derive the source even when one already exists (default: refused with 409)"
+          "description": "Re-derive the source even when one already exists. Without it an existing source yields exit 4 + a confirmation envelope whose confirmCommand carries --force --confirm."
         },
         "--if-revision": {
           "long": "--if-revision",
@@ -1340,18 +1356,26 @@
         { "name": "memoryId", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--yes": {
           "long": "--yes",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Confirm deletion"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a memory (hard delete). Requires --yes."
+      "description": "Delete a memory (hard delete). Without --confirm: exit 4 + a confirmation envelope showing the card."
     },
     "memory show": {
       "arguments": [
@@ -1635,6 +1659,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--project": {
           "long": "--project",
           "short": null,
@@ -1649,12 +1681,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Required: confirm deletion without TTY prompt"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Requires --yes."
+      "description": "Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Without --confirm: exit 4 + a confirmation envelope with the task count."
     },
     "milestone list": {
       "arguments": [],
@@ -2304,6 +2336,14 @@
           "enumCaseInsensitive": false,
           "description": "Return all unfinished tasks to the backlog"
         },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--move-all": {
           "long": "--move-all",
           "short": null,
@@ -2326,12 +2366,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Required when --move-all or --backlog-all is set"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all --yes to move unfinished tasks to the next sprint, or --backlog-all --yes to return them to the backlog."
+      "description": "Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all to move unfinished tasks to the next sprint, or --backlog-all to return them to the backlog; either mode without --confirm exits 4 with a confirmation envelope listing the tasks that would move."
     },
     "sprint create": {
       "arguments": [],
@@ -2378,6 +2418,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--team": {
           "long": "--team",
           "short": null,
@@ -2392,12 +2440,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Confirm deletion"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a DRAFT sprint. Requires --yes. Server rejects ACTIVE/CLOSED sprints."
+      "description": "Delete a DRAFT sprint. Without --confirm: exit 4 + a confirmation envelope with the task count. Server rejects ACTIVE/CLOSED sprints."
     },
     "sprint list": {
       "arguments": [],
@@ -2636,18 +2684,26 @@
         { "name": "artifact-id", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--yes": {
           "long": "--yes",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Confirm deletion (required, no interactive prompt)"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete an artifact from a task. Irreversible — requires --yes."
+      "description": "Delete an artifact from a task (irreversible). Without --confirm: exit 4 + a confirmation envelope naming the artifact."
     },
     "task artifact show": {
       "arguments": [
@@ -2962,18 +3018,26 @@
         { "name": "edge", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--yes": {
           "long": "--yes",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "skip confirmation"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a dependency edge"
+      "description": "Delete a dependency edge. Without --confirm: exit 4 + a confirmation envelope describing the edge."
     },
     "task figma": {
       "arguments": [],
@@ -3338,6 +3402,14 @@
           "enumCaseInsensitive": false,
           "description": "Mark the task agent-claimable (surfaces in `lumo next --claimable`)"
         },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt."
+        },
         "--description": {
           "long": "--description",
           "short": "-d",
@@ -3540,6 +3612,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--delete-branch": {
           "long": "--delete-branch",
           "short": null,
@@ -3554,7 +3634,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Remove even with uncommitted changes"
+          "description": "Remove even with uncommitted changes (discards them)"
         },
         "--yes": {
           "long": "--yes",
@@ -3562,12 +3642,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Confirm removal (required, no interactive prompt)"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Remove the worktree for a task (git worktree remove). Requires --yes. Refuses a dirty worktree unless --force. Keeps the branch unless --delete-branch."
+      "description": "Remove the worktree for a task (git worktree remove). Without --confirm — or with uncommitted changes and no --force — exits 4 with a confirmation envelope naming the path, branch and what would be discarded. Keeps the branch unless --delete-branch."
     }
   }
 }

@@ -5,7 +5,13 @@ import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { emitNextSteps, type NextStep } from '../lib/next-steps'
-import { promptLine } from '../lib/line-prompt'
+import { emitConfirmation } from '../lib/confirmation'
+import {
+  buildBlockedError,
+  collectDoneBlockers,
+  emitBlocked,
+  isDoneGateRefusal,
+} from '../lib/blocked-error'
 
 const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
@@ -30,6 +36,12 @@ export interface UpdateTaskOptions {
   removeTagId?: string[]
   /** Commander sets this to false for `--no-hints` (LUM-686). */
   hints?: boolean
+  /**
+   * LUM-755: the user has approved the DONE transition shown in the
+   * confirmation envelope. Only meaningful with `--status done`; there is
+   * deliberately no `--yes` alias on this command.
+   */
+  confirm?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -161,10 +173,10 @@ export function formatUpdatedTaskLine(task: {
 }
 
 // ---------------------------------------------------------------------------
-// LUM-731: interactive DONE confirmation
+// LUM-755: DONE confirmation envelope (supersedes LUM-731's y/N prompt)
 // ---------------------------------------------------------------------------
 
-/** The slice of a linked PR the DONE confirmation needs to show. */
+/** The slice of a linked PR the DONE envelope needs to show. */
 export interface LinkedPr {
   number: number
   title: string | null
@@ -175,8 +187,8 @@ export interface LinkedPr {
 /**
  * Split linked PRs into merged vs everything else. "Unmerged" is deliberately
  * broad — open, closed-without-merge, draft (state "open"), or an unknown
- * state all count — because the question the extra prompt asks is "are you
- * sure the work actually landed?", and only `merged` answers yes.
+ * state all count — because the question the ⚠ line asks is "are you sure
+ * the work actually landed?", and only `merged` answers yes.
  */
 export function partitionLinkedPrs(prs: LinkedPr[]): {
   merged: LinkedPr[]
@@ -191,54 +203,57 @@ export function partitionLinkedPrs(prs: LinkedPr[]): {
   return { merged, unmerged }
 }
 
-/** Only an explicit y / yes confirms; empty input is the N default. */
-export function isAffirmative(answer: string): boolean {
-  const a = answer.trim().toLowerCase()
-  return a === 'y' || a === 'yes'
-}
-
 function formatPrLine(pr: LinkedPr): string {
   const state = (pr.state ?? 'unknown').padEnd(7)
   const title = pr.title ? sanitizeField(pr.title) : '(untitled)'
   const url = pr.url ? `  ${pr.url}` : ''
-  return `    #${pr.number}  ${state}  ${title}${url}`
+  return `#${pr.number}  ${state}  ${title}${url}`
 }
 
 /**
- * The block printed before the first y/N prompt: what is about to change and
- * every linked PR with its state, so the person confirming sees the whole
- * picture rather than just a question.
+ * The changes[] block of the DONE envelope: what is about to change, every
+ * linked PR with its synced state, and — last — a ⚠ line naming the PRs that
+ * have not merged. That single line replaces LUM-731's second y/N prompt:
+ * the protocol is one step, and the agent relays the whole block verbatim.
  */
-export function formatDoneSummary(
+export function describeDoneTransition(
   task: { identifier: string; title: string; status: string },
   prs: LinkedPr[]
-): string {
+): string[] {
   const escapedTitle = sanitizeField(task.title).replace(/"/g, '\\"')
   const lines = [
-    `About to move ${task.identifier} "${escapedTitle}" to DONE`,
-    `  Status:  ${task.status} → DONE`,
+    `Will move ${task.identifier} "${escapedTitle}" to DONE`,
+    `Status: ${task.status} → DONE`,
   ]
   if (prs.length === 0) {
-    lines.push('  Pull requests:  none linked')
-  } else {
-    lines.push('  Pull requests:')
-    for (const pr of prs) lines.push(formatPrLine(pr))
+    lines.push('Pull requests: none linked')
+    return lines
   }
-  return lines.join('\n')
+  for (const pr of prs) lines.push(formatPrLine(pr))
+  const { unmerged } = partitionLinkedPrs(prs)
+  if (unmerged.length > 0) {
+    const summary = unmerged
+      .map(pr => `#${pr.number} ${pr.state ?? 'unknown'}`)
+      .join(', ')
+    lines.push(
+      `⚠ ${unmerged.length} linked pull request${unmerged.length === 1 ? '' : 's'} not merged: ${summary}`
+    )
+  }
+  return lines
 }
 
 /**
- * Look the task up, show the summary, and ask. Returns true only when the
- * human answered y to every prompt: one always, a second one when a linked PR
- * is not merged. No flag skips this — a bypass an agent can pass is not a
- * gate, which is the whole point (LUM-731). Prints its own error on abort.
+ * Look the task up and emit the DONE confirmation envelope (exit 4). Runs
+ * before any side effect — tag find-or-create included — so a refused DONE
+ * leaves nothing behind. Returns the exit code to propagate; prints its own
+ * error on a failed lookup.
  */
-async function confirmDoneInteractively(args: {
+async function emitDoneConfirmation(args: {
   base: string
   apiUrl: string
   token: string
   identifier: string
-}): Promise<boolean> {
+}): Promise<number> {
   const { base, apiUrl, token, identifier } = args
   const showUrl = `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
   let res: Response
@@ -249,11 +264,11 @@ async function confirmDoneInteractively(args: {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
-    return false
+    return 1
   }
   if (res.status === 401) {
     console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
-    return false
+    return 1
   }
   if (!res.ok) {
     let serverMsg: string | null = null
@@ -268,7 +283,7 @@ async function confirmDoneInteractively(args: {
         ? `Error: ${sanitizeField(serverMsg)}`
         : `Error: task lookup failed (HTTP ${res.status})`
     )
-    return false
+    return 1
   }
 
   const { task } = (await res.json()) as {
@@ -280,32 +295,10 @@ async function confirmDoneInteractively(args: {
       pullRequests?: LinkedPr[]
     }
   }
-  const prs = task.pullRequests ?? []
-
-  process.stdout.write(formatDoneSummary(task, prs) + '\n')
-  const first = await promptLine(`Move ${task.identifier} to DONE? [y/N] `)
-  if (!isAffirmative(first)) {
-    console.error(`Aborted — ${task.identifier} unchanged.`)
-    return false
-  }
-
-  const { unmerged } = partitionLinkedPrs(prs)
-  if (unmerged.length > 0) {
-    const lines = [
-      '',
-      `  ⚠ ${unmerged.length} linked pull request${unmerged.length === 1 ? '' : 's'} not merged:`,
-      ...unmerged.map(formatPrLine),
-    ]
-    process.stdout.write(lines.join('\n') + '\n')
-    const second = await promptLine(
-      `Mark ${task.identifier} DONE anyway with unmerged PRs? [y/N] `
-    )
-    if (!isAffirmative(second)) {
-      console.error(`Aborted — ${task.identifier} unchanged.`)
-      return false
-    }
-  }
-  return true
+  return emitConfirmation({
+    command: 'task update',
+    changes: describeDoneTransition(task, task.pullRequests ?? []),
+  })
 }
 
 /**
@@ -378,16 +371,6 @@ async function runTaskUpdate(
     status = n
   }
 
-  // LUM-731: DONE is the one status move that needs a human at the keyboard.
-  // Refuse up front (before any network call) when nobody can answer the
-  // prompt — there is deliberately no --yes to hand an agent instead.
-  if (status === 'DONE' && !process.stdin.isTTY) {
-    console.error(
-      'Error: --status done requires interactive confirmation, but stdin is not a TTY. Run this command in a terminal and answer the prompt, or mark the task done in the web UI. There is no --yes bypass.'
-    )
-    return 1
-  }
-
   let priority: string | undefined
   if (opts.priority !== undefined) {
     const n = normalizePriority(opts.priority)
@@ -425,6 +408,17 @@ async function runTaskUpdate(
   }
 
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
+
+  // LUM-755: DONE without --confirm stops here with the confirmation
+  // envelope — before tag resolution (find-or-create) or any other write.
+  if (status === 'DONE' && !opts.confirm) {
+    return emitDoneConfirmation({
+      base: trimTrailingSlash(apiUrl),
+      apiUrl,
+      token: creds.token,
+      identifier,
+    })
+  }
 
   // Resolve tag refs into ids
   let tagIds: string[] | undefined
@@ -475,17 +469,6 @@ async function runTaskUpdate(
   const hasPatchFields = flagsGiven.length > 0 || hasTagFields
 
   if (hasPatchFields) {
-    // LUM-731: show what is about to happen and ask before a DONE PATCH.
-    if (status === 'DONE') {
-      const confirmed = await confirmDoneInteractively({
-        base,
-        apiUrl,
-        token: creds.token,
-        identifier,
-      })
-      if (!confirmed) return 1
-    }
-
     const patchUrl = `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
 
     // When run inside a Claude Code session, pass its id so a status→DONE
@@ -550,6 +533,30 @@ async function runTaskUpdate(
         if (typeof errBody.error === 'string') serverMsg = errBody.error
       } catch {
         // Body wasn't JSON; fall through to status-only message
+      }
+      // LUM-755: a DONE refused by a server gate (send-back / boundary
+      // crossing / blocking security finding) is a human-only block, not a
+      // generic error — surface it structured (exit 5) with every blocker.
+      if (
+        res.status === 409 &&
+        status === 'DONE' &&
+        isDoneGateRefusal(serverMsg)
+      ) {
+        const { blockers, unconfirmed } = await collectDoneBlockers({
+          base,
+          token: creds.token,
+          identifier,
+        })
+        return emitBlocked(
+          buildBlockedError({
+            identifier,
+            message: serverMsg as string,
+            blockers,
+            unconfirmed,
+            apiUrl,
+            workspaceSlug: creds.workspaceSlug ?? '',
+          })
+        )
       }
       if (serverMsg) {
         console.error(`Error: ${sanitizeField(serverMsg)}`)
