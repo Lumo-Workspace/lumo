@@ -43,6 +43,7 @@ import {
 import {
   HUNT_CLIENT_MAX_RETRIES,
   type HuntTask,
+  HUNT_WRAP_UP_MIN_TOKENS,
 } from '@/lib/services/security-hunt.config'
 
 /** Longest command the tool schema will accept, in characters. */
@@ -65,14 +66,41 @@ export interface HuntClientInput {
    */
   runShell: (command: string) => Promise<{ output: string; error?: string }>
   tokenBudget: number
+  /**
+   * Wall clock for the forced wrap-up call, separate from `timeoutMs`: the
+   * search's window is spent by the time it runs, so reusing that budget would
+   * abort it before it started.
+   */
+  wrapUpTimeoutMs: number
   timeoutMs: number
   maxSteps: number
 }
+
+/**
+ * What the wrap-up asks for. Deliberately does NOT ask the model to keep
+ * looking or to justify itself: the search is over, the only question left is
+ * what it already has. "An empty list is correct" is the load-bearing
+ * sentence — without it a model under a forced tool call invents candidates to
+ * fill the slot, and the mechanical gate would then spend its budget rejecting
+ * fabrications.
+ */
+const WRAP_UP_INSTRUCTION = `Your search budget is spent. Do not run any more commands.
+
+Call submit_candidates now with the candidates you have ALREADY verified by reading code in this session.
+
+An empty list is correct and expected if you did not verify anything. Do not invent a candidate to fill the list, do not submit a suspicion you did not confirm by reading the code, and do not name a symbol or line number you did not see.`
 
 export interface HuntClientOutput {
   candidates: unknown[]
   tokens: number
   stopped: 'done' | 'steps' | 'budget'
+  /**
+   * The search hit its ceiling without ever calling `submit_candidates`, and a
+   * forced wrap-up call asked for whatever it had. `stopped` deliberately still
+   * says how the SEARCH ended: the agent did not finish, it was made to answer,
+   * and a layer whose agent never converged must not read as one that did.
+   */
+  wrappedUp?: boolean
 }
 
 /** Hints, not a map: a long list of ids costs tokens and buys nothing now. */
@@ -212,11 +240,15 @@ export async function huntTask(
     }),
   }
 
+  // Named so the wrap-up can replay the same opening turn; `generateText`'s
+  // `prompt` shorthand would otherwise be unreachable from the second call.
+  const promptText = `${renderTaskForPrompt(input.task)}\n\n## Starting points\n${renderStartingPointsForPrompt(input.reasons)}`
+
   const result = await generateText({
     model: gateway(GENERATION_MODEL),
     tools,
     system: HUNT_SYSTEM_PROMPT,
-    prompt: `${renderTaskForPrompt(input.task)}\n\n## Starting points\n${renderStartingPointsForPrompt(input.reasons)}`,
+    prompt: promptText,
     // LUM-762: the SDK's default 2 retries sit in exponential backoff, which
     // is where the production abort ("Delay was aborted") landed — the window
     // went to waiting, not analysis. Fail fast; the workflow's retry pass
@@ -243,17 +275,65 @@ export async function huntTask(
     abortSignal: AbortSignal.timeout(input.timeoutMs),
   })
 
-  const tokens = result.totalUsage.totalTokens ?? sumTokens(result.steps)
+  let tokens = result.totalUsage.totalTokens ?? sumTokens(result.steps)
   const didSubmit = result.steps.some(s =>
     s.toolCalls.some(c => c.toolName === 'submit_candidates')
   )
+
+  // LUM-758 follow-up — the wrap-up.
+  //
+  // `stopped: 'budget'` and `stopped: 'steps'` both mean the same thing in
+  // practice: the loop hit a counter, and whatever the agent had found died
+  // with it. Across 26 prod scans the agent has called `submit_candidates`
+  // zero times; raising the budget (LUM-762, 150k→240k) changed nothing, and
+  // neither did giving it a repository it could actually see. It does not
+  // decide to stop searching.
+  //
+  // So ask. One forced call over the same transcript with `submit_candidates`
+  // as the only tool available: an empty list is a valid answer, and a list is
+  // better than the silence a counter produces. This is the difference between
+  // "found nothing" and "was cut off holding something".
+  let wrappedUp = false
+  if (!didSubmit && input.tokenBudget - tokens >= HUNT_WRAP_UP_MIN_TOKENS) {
+    try {
+      const wrap = await generateText({
+        model: gateway(GENERATION_MODEL),
+        // Only this tool exists now — there is nothing left to search with.
+        tools: { submit_candidates: tools.submit_candidates },
+        toolChoice: { type: 'tool', toolName: 'submit_candidates' },
+        system: HUNT_SYSTEM_PROMPT,
+        messages: [
+          { role: 'user', content: promptText },
+          ...result.response.messages,
+          { role: 'user', content: WRAP_UP_INSTRUCTION },
+        ],
+        maxRetries: HUNT_CLIENT_MAX_RETRIES,
+        abortSignal: AbortSignal.timeout(input.wrapUpTimeoutMs),
+      })
+      tokens += wrap.totalUsage.totalTokens ?? 0
+      wrappedUp = wrap.steps.some(s =>
+        s.toolCalls.some(c => c.toolName === 'submit_candidates')
+      )
+    } catch {
+      // Fail-soft, like every other optional step in this layer: a wrap-up that
+      // cannot run leaves exactly the outcome we would have had without it.
+      // Its tokens are lost to us here — the SDK throws without usage — which
+      // is the one place this layer under-bills, and it is bounded by one call.
+    }
+  }
+
   return {
     candidates: submitted,
     tokens,
+    // `done` is reserved for an agent that decided by itself. A wrapped-up
+    // batch still reports the counter that ended its search, so P9 still calls
+    // the layer PARTIAL — the acceptance metric must not be moved by making
+    // the agent answer under duress.
     stopped: didSubmit
       ? 'done'
       : tokens >= input.tokenBudget
         ? 'budget'
         : 'steps',
+    ...(wrappedUp ? { wrappedUp: true } : {}),
   }
 }

@@ -57,6 +57,7 @@ import {
 } from './security-hunt-sandbox'
 import {
   HUNT_MAX_STEPS_PER_CATEGORY,
+  HUNT_WRAP_UP_TIMEOUT_MS,
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_SNIPPET_RADIUS,
   HUNT_AUDIT_MAX_REJECTED,
@@ -457,6 +458,7 @@ export const securityHuntService = {
         tokenBudget: input.tokenBudget,
         timeoutMs: remainingMs,
         maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
+        wrapUpTimeoutMs: HUNT_WRAP_UP_TIMEOUT_MS,
       })
       return {
         candidates: out.candidates,
@@ -467,6 +469,7 @@ export const securityHuntService = {
         tokens: out.tokens + compress.tokens,
         elapsedMs: Date.now() - started,
         stopped: out.stopped,
+        ...(out.wrappedUp ? { wrappedUp: true } : {}),
         compress,
         ...vm,
       }

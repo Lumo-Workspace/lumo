@@ -162,6 +162,15 @@ export const HUNT_MAX_PLANNED_TASKS = 3
 export const HUNT_TASK_TOKEN_MAX = 20_000
 export const HUNT_TASK_TIME_MS = 60_000
 /**
+ * Room a task must still have before the forced wrap-up call is worth making.
+ * The wrap-up replays the whole transcript, so it costs about what a late
+ * search step costs; below this there is not enough left to ask the question
+ * and the batch ends as it always did.
+ */
+export const HUNT_WRAP_UP_MIN_TOKENS = 4_000
+/** Wall clock for the wrap-up. The search's own window is already spent. */
+export const HUNT_WRAP_UP_TIMEOUT_MS = 30_000
+/**
  * LUM-758 Task 9 — the floor under what is left of a task's window once the
  * sandbox is in hand. Acquisition is inside the batch's clock (attach poll 30 s
  * + checkout wait 20 s in the worst case), so a batch can legitimately reach
@@ -231,6 +240,13 @@ export type HuntCategoryStop = HuntBatchStop | 'skipped'
  * onto the row so the audit reads on its own, without joining `planned`.
  */
 export interface HuntTaskAudit {
+  /**
+   * LUM-758 follow-up — this task never called `submit_candidates` on its own
+   * and was asked for its findings by a forced wrap-up call. The rate of this
+   * across scans is the honest measure of whether the agent converges: a layer
+   * where every task is wrapped up is a layer whose agent never decides.
+   */
+  wrappedUp?: boolean
   taskId: string
   objective: string
   category: HuntCategory
@@ -400,6 +416,13 @@ export interface HuntBatchOutput {
    * them out so the audit can answer "was compression worth it".
    */
   compress?: HuntCompressStats
+  /**
+   * LUM-758 follow-up — the search ended on a counter without the agent ever
+   * submitting, and a forced wrap-up call asked for what it had. `stopped`
+   * still reports the counter: being made to answer is not the same as having
+   * finished, and P9 must keep calling such a layer PARTIAL.
+   */
+  wrappedUp?: boolean
   /** LUM-758 §5.1 — 这一批用的是复用的 VM 还是自建的。 */
   sandbox?: 'attached' | 'created'
   /** Did that VM run with its network egress actually cut? See `HuntSandbox`. */

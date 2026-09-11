@@ -70,6 +70,7 @@ function run(result: unknown) {
     reasons: REASONS,
     runShell,
     tokenBudget: 1000,
+    wrapUpTimeoutMs: 30_000,
     timeoutMs: 5000,
     maxSteps: 4,
   })
@@ -259,5 +260,141 @@ describe('LUM-739 hunt client', () => {
       'Findings from this task are filed under: ssrf (CWE-918)'
     )
     expect(without).toContain('SSRF: a request-derived URL or host')
+  })
+})
+
+// LUM-758 follow-up — the wrap-up. Across 26 prod scans the agent called
+// `submit_candidates` zero times: every task died holding whatever it had when
+// a counter ran out. Raising the budget (LUM-762) did not change that, and
+// neither did giving it a repository it could actually see. So the search's end
+// now asks the question the agent never asks itself.
+describe('LUM-758 wrap-up', () => {
+  /** A finished search that never submitted, with room left in the budget. */
+  const searchWithoutSubmit = {
+    steps: [{ usage: { totalTokens: 100 }, toolCalls: [] }],
+    totalUsage: { totalTokens: 100 },
+    response: { messages: [{ role: 'assistant', content: 'looked around' }] },
+  }
+
+  it('asks for the candidates the agent never volunteered', async () => {
+    gen
+      .mockResolvedValueOnce(searchWithoutSubmit)
+      .mockImplementationOnce(
+        async (call: {
+          tools: Tools
+          toolChoice: unknown
+          messages: unknown[]
+        }) => {
+          // The search is over: submitting is the only thing it can still do.
+          expect(Object.keys(call.tools)).toEqual(['submit_candidates'])
+          expect(call.toolChoice).toEqual({
+            type: 'tool',
+            toolName: 'submit_candidates',
+          })
+          // It must carry the transcript, or it is asking a model that never
+          // read anything what it read.
+          expect(call.messages).toHaveLength(3)
+          expect(JSON.stringify(call.messages)).toContain('looked around')
+          await call.tools.submit_candidates!.execute({
+            candidates: [candidate],
+          })
+          return {
+            steps: [
+              {
+                usage: { totalTokens: 400 },
+                toolCalls: [{ toolName: 'submit_candidates' }],
+              },
+            ],
+            totalUsage: { totalTokens: 400 },
+          }
+        }
+      )
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      wrapUpTimeoutMs: 30_000,
+      timeoutMs: 5000,
+      maxSteps: 4,
+    })
+
+    expect(out.candidates).toEqual([candidate])
+    expect(out.wrappedUp).toBe(true)
+    expect(out.tokens).toBe(500)
+    // Being made to answer is NOT finishing. P9 must still call this PARTIAL,
+    // or the ≥80% acceptance metric moves without the agent improving at all.
+    expect(out.stopped).not.toBe('done')
+  })
+
+  it('does not ask an agent that already answered', async () => {
+    gen.mockResolvedValueOnce({
+      steps: [
+        {
+          usage: { totalTokens: 100 },
+          toolCalls: [{ toolName: 'submit_candidates' }],
+        },
+      ],
+      totalUsage: { totalTokens: 100 },
+      response: { messages: [] },
+    })
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      wrapUpTimeoutMs: 30_000,
+      timeoutMs: 5000,
+      maxSteps: 4,
+    })
+
+    expect(gen).toHaveBeenCalledTimes(1)
+    expect(out.stopped).toBe('done')
+    expect(out.wrappedUp).toBeUndefined()
+  })
+
+  it('does not ask when there is not enough budget left to hear the answer', async () => {
+    // The wrap-up replays the transcript, so it costs about a late step. Asking
+    // with nothing left just bills a call that gets aborted.
+    gen.mockResolvedValueOnce({
+      steps: [{ usage: { totalTokens: 19_500 }, toolCalls: [] }],
+      totalUsage: { totalTokens: 19_500 },
+      response: { messages: [] },
+    })
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      wrapUpTimeoutMs: 30_000,
+      timeoutMs: 5000,
+      maxSteps: 4,
+    })
+
+    expect(gen).toHaveBeenCalledTimes(1)
+    expect(out.wrappedUp).toBeUndefined()
+  })
+
+  it('a wrap-up that fails leaves exactly the outcome we would have had', async () => {
+    gen
+      .mockResolvedValueOnce(searchWithoutSubmit)
+      .mockRejectedValueOnce(new Error('gateway timeout'))
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      wrapUpTimeoutMs: 30_000,
+      timeoutMs: 5000,
+      maxSteps: 4,
+    })
+
+    expect(out.candidates).toEqual([])
+    expect(out.wrappedUp).toBeUndefined()
+    expect(out.stopped).toBe('steps')
   })
 })
