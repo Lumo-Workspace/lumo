@@ -37,6 +37,12 @@ import {
   executingSegments,
 } from '@/lib/boundary-crossing/command-shape'
 import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
+import { crossingSuppressionRuleRepository } from '@/lib/repositories/crossing-suppression-rule.repository'
+import {
+  findSuppressionRule,
+  autoSuppressedNote,
+  type ActiveSuppressionRule,
+} from '@/lib/boundary-crossing/suppression'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 // NOTE: both LLM clients (`@/lib/llm/test-tampering-judge-client` and
@@ -1621,13 +1627,14 @@ export function detectSensitivePathEdit(input: {
  * absent or the project has no default linked repository.
  * LUM-483 compliant: delegates to repositories, no prisma.* here.
  */
-async function resolveProjectContextForTask(taskId: string): Promise<{
+async function resolveProjectContext(task: {
+  projectId: string
+  project: { workspaceId: string }
+}): Promise<{
   projectId: string
   workspaceId: string
   fullName: string
 } | null> {
-  const task = await taskRepository.findWithProjectWorkspaceId(taskId)
-  if (!task) return null
   const defaultRepo = await projectRepository.findDefaultRepository(
     task.projectId
   )
@@ -1703,9 +1710,16 @@ export const boundaryDetectorService = {
       // LUM-590: load the project policy best-effort and append any project
       // action-rule crossings. Wrapped in try/catch per the exit-0 invariant —
       // the detector must never throw even if the compiler is unavailable.
+      // LUM-751: the task's projectId is captured on the way (for suppression
+      // rules) — it is known even when the project has no default repository.
       let projectRules: PolicyRule[] = []
+      let projectId: string | null = null
       try {
-        const ctx = await resolveProjectContextForTask(input.taskId)
+        const task = await taskRepository.findWithProjectWorkspaceId(
+          input.taskId
+        )
+        projectId = task?.projectId ?? null
+        const ctx = task ? await resolveProjectContext(task) : null
         if (ctx) {
           const { policyCompilerService } =
             await import('@/lib/services/policy/policy-compiler.service')
@@ -1734,6 +1748,20 @@ export const boundaryDetectorService = {
       })
       if (sensitive) confirmed.push(sensitive)
 
+      // LUM-751: the project's active, human-authored suppression rules.
+      // Best-effort — no rules means nothing is suppressed (the safe side).
+      let suppressionRules: ActiveSuppressionRule[] = []
+      if (projectId) {
+        try {
+          suppressionRules =
+            await crossingSuppressionRuleRepository.findActiveForProject(
+              projectId
+            )
+        } catch {
+          // observer: never throw
+        }
+      }
+
       for (const c of confirmed) {
         // LUM-477: coalesce a recurrence of an OPEN crossing with the same
         // (taskId, category, target) — bump its count/lastSeenAt instead of
@@ -1741,6 +1769,25 @@ export const boundaryDetectorService = {
         // means no open match (first occurrence, distinct target/category, or a
         // prior match already dispositioned) → record a fresh crossing. A
         // post-disposition recurrence is therefore never silently swallowed.
+        // LUM-751: a human-authored repository rule for this (category, target)
+        // → still RECORDED, but system-dispositioned AUTO_SUPPRESSED (no human
+        // actor, rule ref), coalescing with its own suppressed row. Never for
+        // the HIGH classes (findSuppressionRule refuses them) and never for an
+        // evasion-decoded crossing (deliberate obfuscation stays open).
+        const rule = c.detail.includes(EVASION_MARKER.trim())
+          ? null
+          : findSuppressionRule(suppressionRules, c.category, c.target)
+        if (rule) {
+          const merged =
+            await boundaryCrossingRepository.coalesceSuppressedRecurrence(
+              input.taskId,
+              c.category,
+              c.target,
+              rule.id,
+              new Date()
+            )
+          if (merged > 0) continue
+        }
         const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
           input.taskId,
           c.category,
@@ -1769,13 +1816,20 @@ export const boundaryDetectorService = {
           ...(c.policyRuleText != null
             ? { policyRuleText: c.policyRuleText }
             : {}),
-          ...(c.autoResolve
+          ...(rule
             ? {
-                disposition: 'AUTO_LEGIT',
-                dispositionNote: AUTO_LEGIT_NOTE,
+                disposition: 'AUTO_SUPPRESSED',
+                dispositionNote: autoSuppressedNote(rule),
                 dispositionedAt: new Date(),
+                suppressionRuleId: rule.id,
               }
-            : {}),
+            : c.autoResolve
+              ? {
+                  disposition: 'AUTO_LEGIT',
+                  dispositionNote: AUTO_LEGIT_NOTE,
+                  dispositionedAt: new Date(),
+                }
+              : {}),
         })
         await activityRepository.create({
           taskId: input.taskId,
@@ -1789,7 +1843,11 @@ export const boundaryDetectorService = {
             hookEventId: input.hookEventId ?? null,
             // Audit marker: an auto-resolved crossing reads as auto-resolved on
             // the timeline, never as an open one a human still owes a decision on.
-            ...(c.autoResolve ? { disposition: 'AUTO_LEGIT' } : {}),
+            ...(rule
+              ? { disposition: 'AUTO_SUPPRESSED', suppressionRuleId: rule.id }
+              : c.autoResolve
+                ? { disposition: 'AUTO_LEGIT' }
+                : {}),
           },
         })
       }
