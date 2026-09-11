@@ -9,6 +9,7 @@ jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { generateText } from 'ai'
 import { GENERATION_MODEL } from '@/lib/ai/models'
+import { HUNT_CLIENT_MAX_RETRIES } from '@/lib/services/security-hunt.config'
 import {
   huntCategory,
   numberLines,
@@ -107,6 +108,15 @@ describe('LUM-739 hunt client', () => {
     ).resolves.toEqual({ accepted: 1 })
     expect(out.stopped).toBe('done')
     expect(out.tokens).toBe(300)
+  })
+
+  it('LUM-762 bounds SDK retries so backoff cannot eat the category window', async () => {
+    await run({ steps: [], totalUsage: { totalTokens: 0 } })
+    const call = gen.mock.calls[0]![0]
+    // The SDK default is 2 retries with exponential backoff — the production
+    // abort landed inside one of those delays ("Delay was aborted").
+    expect(call.maxRetries).toBe(HUNT_CLIENT_MAX_RETRIES)
+    expect(HUNT_CLIENT_MAX_RETRIES).toBeLessThan(2)
   })
 
   it('confines read_file to subgraph files and numbers the lines', async () => {

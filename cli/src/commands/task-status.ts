@@ -257,6 +257,22 @@ export interface TaskStatusResponse {
       /** LUM-738 — optional: absent on an older server. */
       dependencyFindings?: number
       persistingFindings?: number
+      /** LUM-762 — per-category L3 hunt coverage read off `huntAudit`.
+       *  Absent on an older server, null when the scan stored no usable
+       *  audit (a pre-LUM-739 row, or a hunt that failed before its first
+       *  batch). */
+      hunt?: {
+        total: number
+        done: number
+        categories: Array<{
+          category: string
+          stopped: string
+          elapsedMs: number
+          tokens: number
+          candidates: number
+          attempts: number
+        }>
+      } | null
     }>
   } | null
 }
@@ -321,13 +337,17 @@ type ScanSummary = NonNullable<
 >[number]
 
 /** LUM-735 — one line per linked PR's latest scan: `PR #945 · scan CLEAN ·
- *  secrets RAN · external RAN (2 external findings) · supplyChain RAN
- *  (1 dependency finding, 1 already on main) · judge RAN · hunt RAN`.
+ *  Secrets: checked · Code scan: checked (2 external findings) ·
+ *  Dependencies: checked (1 dependency finding, 1 already on main) ·
+ *  AI review: checked · Exploit paths: checked`.
  *  Stage segments only for keys present, in
  *  secrets/external/supplyChain/judge/hunt order (LUM-739 added the hunt
- *  layer); the `(N external findings)` count only decorates the external
+ *  layer); the `(N external findings)` count only decorates the Code scan
  *  segment, the dependency count (LUM-738, with its already-on-main share)
- *  only the supplyChain segment, and each only when N > 0. */
+ *  only the Dependencies segment, and each only when N > 0.
+ *  LUM-763: the stage keys are internal — what prints is the display label
+ *  from `shared/src/security-scan.ts`, the same map the GitHub PR summary
+ *  and the web panel render from. */
 function formatScanSummaryLine(s: ScanSummary): string {
   const segments: string[] = []
   for (const key of SCAN_STAGE_ORDER) {
@@ -362,6 +382,28 @@ function formatScanSummaryLine(s: ScanSummary): string {
   return line
 }
 
+/**
+ * LUM-762 — the hunt's per-category read-out, one indented line under its
+ * scan: `Exploit paths 4/6 done · idor 41.2s done · injection 72.0s done
+ * (2 attempts) · race skipped`. Headed by the same display label as the
+ * layer's own segment (LUM-763) — the detail line and the line above it
+ * must not name the layer two different ways. This is the only place the stored `huntAudit` surfaces, so
+ * it is what answers "how long does a healthy category take" and "which ones
+ * never ran" (`skipped`) without paging through deploy logs. Elapsed time is
+ * summed over a category's attempts; a skipped category has none to print.
+ */
+function formatHuntCoverageLine(
+  hunt: NonNullable<ScanSummary['hunt']>
+): string {
+  const parts = hunt.categories.map(c => {
+    const attempts = c.attempts > 1 ? ` (${c.attempts} attempts)` : ''
+    const spent =
+      c.stopped === 'skipped' ? '' : `${(c.elapsedMs / 1000).toFixed(1)}s `
+    return `${c.category} ${spent}${c.stopped}${attempts}`
+  })
+  return `    ${scanStageLabel('hunt')} ${hunt.done}/${hunt.total} done · ${parts.join(' · ')}`
+}
+
 function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
   if (data.securityFindings === undefined) return // older server
   if (data.securityFindings === null) {
@@ -373,6 +415,10 @@ function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
   // LUM-735: absent `scans` = older server; tolerate silently, no block.
   for (const s of data.securityFindings.scans ?? []) {
     lines.push(formatScanSummaryLine(s))
+    // LUM-762: absent/null = older server or no usable audit — stay silent.
+    if (s.hunt && s.hunt.categories.length > 0) {
+      lines.push(formatHuntCoverageLine(s.hunt))
+    }
   }
   for (const u of data.securityFindings.unconfirmedPrs) {
     const why =

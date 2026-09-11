@@ -154,6 +154,8 @@ export interface ScanWithFindings {
   /** LUM-740: when the suggested-disposition pass finished; null = not yet. */
   suggestedAt: Date | null
   suggestionTokens: number | null
+  /** LUM-739's audit Json, raw. LUM-762 reads it via `parseHuntCoverage`. */
+  huntAudit: unknown
   findings: FindingRow[]
 }
 

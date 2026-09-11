@@ -70,4 +70,81 @@ describe('LUM-739 hunt stage', () => {
     )
     expect(out).not.toContain('hunt')
   })
+
+  it('LUM-762 renders the per-category hunt coverage under the scan line', () => {
+    const out = formatTaskStatus(
+      payload([
+        {
+          prNumber: 12,
+          status: 'CLEAN',
+          stages: { secrets: 'RAN', judge: 'RAN', hunt: 'PARTIAL' },
+          partial: true,
+          error: null,
+          externalFindings: 0,
+          openFindings: 0,
+          hunt: {
+            total: 6,
+            done: 2,
+            categories: [
+              {
+                category: 'idor',
+                stopped: 'done',
+                elapsedMs: 41_200,
+                tokens: 1200,
+                candidates: 1,
+                attempts: 1,
+              },
+              {
+                category: 'injection',
+                stopped: 'done',
+                elapsedMs: 72_000,
+                tokens: 900,
+                candidates: 0,
+                attempts: 2,
+              },
+              {
+                category: 'ssrf',
+                stopped: 'timeout',
+                elapsedMs: 120_000,
+                tokens: 0,
+                candidates: 0,
+                attempts: 2,
+              },
+              {
+                category: 'race',
+                stopped: 'skipped',
+                elapsedMs: 0,
+                tokens: 0,
+                candidates: 0,
+                attempts: 1,
+              },
+            ],
+          },
+        },
+      ])
+    )
+    expect(out).toContain(
+      'Exploit paths 2/6 done · idor 41.2s done · injection 72.0s done (2 attempts) · ssrf 120.0s timeout (2 attempts) · race skipped'
+    )
+  })
+
+  it('LUM-762 renders no coverage line when the server sent no hunt audit', () => {
+    const out = formatTaskStatus(
+      payload([
+        {
+          prNumber: 3,
+          status: 'CLEAN',
+          stages: { secrets: 'RAN', hunt: 'RAN' },
+          partial: false,
+          error: null,
+          externalFindings: 0,
+          openFindings: 0,
+        },
+      ])
+    )
+    expect(out).toContain(
+      'PR #3 · scan CLEAN · Secrets: checked · Exploit paths: checked'
+    )
+    expect(out).not.toContain('done ·')
+  })
 })
