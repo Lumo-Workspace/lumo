@@ -274,6 +274,18 @@ export interface HuntAudit {
    * this field existed".
    */
   plannedBy?: 'model' | 'fallback' | 'not-attempted'
+  /**
+   * LUM-764 — 规划步是否读到并带上了任务上下文（验收标准 / traps / open
+   * crossings / 返工记录）。`false` 的扫描是「这个 PR 没关联任务」，与
+   * LUM-758 的行为逐字相同；缺失 = 本字段存在之前写的行。
+   */
+  taskContext?: boolean
+  /**
+   * LUM-764 — 地板（`planFallback` 的类别）强制补进计划、模型自己没给的那些
+   * 类别。这是地板规则的**代价读数**：非空意味着这次扫描本可能收在 SKIPPED，
+   * 是被机械信号按住不许省的。空数组 = 地板生效但模型已经覆盖。
+   */
+  floorForced?: HuntCategory[]
   /** LUM-758 §9 风险② — 上线后读它判断 30s 轮询窗口够不够。 */
   sandbox?: 'attached' | 'created'
   /**
@@ -358,6 +370,18 @@ export interface PlanHuntOutput {
   reason: string
   by: 'model' | 'fallback'
   tokens: number
+  /**
+   * LUM-764 — 这次规划的 prompt 里带了 `<untrusted-task-context>` 吗？
+   * 它同时是**地板规则是否生效**的开关（选项 B：没有不可信文字就不加地板，
+   * 保持 LUM-758 的成本与行为）。
+   *
+   * 可选：一个上个部署排队的 workflow 重放旧 step 结果时这两个字段不存在，
+   * 读取侧按 `?? false` / `?? []` 退化 —— 与 `HuntJob` 三个字段同一道部署
+   * 边界。
+   */
+  taskContext?: boolean
+  /** 地板强制补进计划、模型自己没给的类别（`applyPlanFloor` 的 `forced`）。 */
+  floorForced?: HuntCategory[]
 }
 
 /**

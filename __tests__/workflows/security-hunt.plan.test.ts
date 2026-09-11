@@ -261,6 +261,43 @@ it('plan failure falls back to deterministic category tasks, at most three, neve
   expect(persisted.audit.planned).toEqual(tasks)
 })
 
+/**
+ * LUM-764 — the floor rule's price has to be readable after the fact: a scan
+ * that would have been SKIPPED and was held open by the mechanical signals
+ * says so on the row. Both fields are copied verbatim from the plan step, and
+ * both default when an in-flight run replays a result queued by the previous
+ * deployment.
+ */
+it('the audit records whether the plan saw task context and which categories the floor forced', async () => {
+  plan.mockResolvedValue({
+    tasks: [task('p1', 'injection'), task('p2', 'idor')],
+    reason: 'raised to the floor',
+    by: 'model',
+    tokens: 90,
+    taskContext: true,
+    floorForced: ['idor'],
+  })
+
+  await securityHuntWorkflow(JOB)
+
+  const persisted = persist.mock.calls[0][0]
+  expect(persisted.audit.taskContext).toBe(true)
+  expect(persisted.audit.floorForced).toEqual(['idor'])
+
+  // A plan from the previous deployment carries neither field.
+  persist.mockClear()
+  plan.mockResolvedValue({
+    tasks: [task('t1', 'injection')],
+    reason: 'pre-LUM-764 plan',
+    by: 'model',
+    tokens: 40,
+  })
+  await securityHuntWorkflow(JOB)
+  const legacy = persist.mock.calls[0][0]
+  expect(legacy.audit.taskContext).toBe(false)
+  expect(legacy.audit.floorForced).toEqual([])
+})
+
 it('partial is judged only over planned tasks', async () => {
   // Two tasks share a category on purpose: a plan is a list of objectives,
   // not a set of labels, and the verdict must be read off the tasks.
