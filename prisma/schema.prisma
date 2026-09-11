@@ -234,6 +234,10 @@ enum BoundaryCrossingDisposition {
   // (which carries a dispositionedById) so an auditor can tell "system auto" from
   // "human ruled". A human can still re-open or re-dispose it (LUM-450).
   AUTO_LEGIT
+  // LUM-751: a SYSTEM auto-disposition by a human-authored per-repository
+  // CrossingSuppressionRule. Recorded (audit) but out of the open queue and
+  // non-DONE-blocking; carries suppressionRuleId, never a dispositionedById.
+  AUTO_SUPPRESSED
 }
 
 // LUM-442: severity tier per boundary-crossing (OpenAI frequency×severity model).
@@ -787,21 +791,22 @@ model Project {
   /// Per-project cooldown so the daily cron doesn't re-run the LLM every day.
   lastMemoryFoldAttemptAt        DateTime?
 
-  workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  team                  Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  createdBy             WorkspaceMember        @relation("ProjectCreator", fields: [createdByMemberId], references: [id])
-  owner                 WorkspaceMember?       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  tasks                 Task[]
-  milestones            Milestone[]
-  views                 View[]
-  slackChannels         SlackChannel[]
-  repositories          ProjectRepository[]
-  sentryProjectMappings SentryProjectMapping[]
-  documents             Document[]
-  priorityOverrides     PriorityOverride[]
-  summaries             ProjectSummary[]
-  memories              Memory[]
-  projectPolicies       ProjectPolicy[]
+  workspace                Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  team                     Team                      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy                WorkspaceMember           @relation("ProjectCreator", fields: [createdByMemberId], references: [id])
+  owner                    WorkspaceMember?          @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  tasks                    Task[]
+  milestones               Milestone[]
+  views                    View[]
+  slackChannels            SlackChannel[]
+  repositories             ProjectRepository[]
+  sentryProjectMappings    SentryProjectMapping[]
+  documents                Document[]
+  priorityOverrides        PriorityOverride[]
+  summaries                ProjectSummary[]
+  memories                 Memory[]
+  projectPolicies          ProjectPolicy[]
+  crossingSuppressionRules CrossingSuppressionRule[]
 
   @@index([workspaceId])
   @@index([teamId])
@@ -823,12 +828,38 @@ model ProjectPolicy {
   @@map("project_policies")
 }
 
+// LUM-751: a human-authored, per-repository false-positive rule. A later
+// detection of the same (category, target) in the project is still recorded
+// but auto-dispositioned AUTO_SUPPRESSED (system, no human actor). Created only
+// from a human FALSE_POSITIVE disposition (Clerk); never for the HIGH classes
+// (HARDCODED_SECRET / DESTRUCTIVE_DB_COMMAND / EXFILTRATION_PUBLIC /
+// CLOUD_DATA_DELETION / INFRA_TERMINATION). Soft-revoked, never deleted.
+model CrossingSuppressionRule {
+  id               String                   @id @default(cuid())
+  projectId        String
+  category         BoundaryCrossingCategory
+  // Exact crossing `target` (the LUM-477 coalescing key) or a `prefix*` glob.
+  targetPattern    String
+  reason           String?
+  createdById      String // WorkspaceMember id of the human who ruled
+  sourceCrossingId String? // the crossing whose disposition created the rule
+  createdAt        DateTime                 @default(now())
+  revokedAt        DateTime?
+  revokedById      String?
+
+  project   Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  crossings BoundaryCrossing[]
+
+  @@index([projectId, category])
+  @@map("crossing_suppression_rules")
+}
+
 model ProjectRepository {
-  id        String   @id @default(cuid())
-  projectId String
-  fullName  String // "owner/repo"
-  name      String // short repo name
-  isDefault Boolean  @default(false)
+  id                String    @id @default(cuid())
+  projectId         String
+  fullName          String // "owner/repo"
+  name              String // short repo name
+  isDefault         Boolean   @default(false)
   // LUM-735: last successful SARIF ingest for this repo — null means the
   // repo has never pushed a scan (panel shows NOT_CONFIGURED, not PENDING).
   lastSarifIngestAt DateTime?
@@ -837,8 +868,8 @@ model ProjectRepository {
   // flight and `at` is null). Diff-aware substitute for findings that have no
   // line-level diff (dependencies): a PR finding whose fingerprint is in the
   // set is `persisting`, not new. null = never scanned.
-  securityBaseline Json?
-  createdAt DateTime @default(now())
+  securityBaseline  Json?
+  createdAt         DateTime  @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -1318,10 +1349,14 @@ model BoundaryCrossing {
   // the first time a human clicks "Explain" in the panel; null = not yet generated.
   // Advisory only — never touches disposition or the DONE gate.
   systemExplanation String?
+  // LUM-751: the suppression rule that auto-dispositioned this crossing
+  // (disposition = AUTO_SUPPRESSED). Null for every other crossing.
+  suppressionRuleId String?
 
   task            Task?                         @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
   milestone       Milestone?                    @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
   remediationTask Task?                         @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)
+  suppressionRule CrossingSuppressionRule?      @relation(fields: [suppressionRuleId], references: [id], onDelete: SetNull)
   // LUM-542: append-only agent self-explanations ("申辩"). A purely additive
   // annotation layer — never read by the DONE gate, never a disposition.
   explanations    BoundaryCrossingExplanation[]
@@ -1331,6 +1366,7 @@ model BoundaryCrossing {
   @@index([taskId, category, target])
   // LUM-640: milestone-scoped coalescing lookup for steward-session crossings.
   @@index([milestoneId, category, target])
+  @@index([suppressionRuleId])
   @@map("boundary_crossings")
 }
 
@@ -1475,7 +1511,7 @@ model PrSecurityScan {
 }
 
 model PrSecurityFinding {
-  id                     String                         @id @default(cuid())
+  id                     String                        @id @default(cuid())
   scanId                 String
   kind                   PrSecurityFindingKind
   // secret:<pattern-id> | vuln:<kind> | ext:<tool>
@@ -1509,8 +1545,8 @@ model PrSecurityFinding {
   // LUM-738: the same fingerprint is already on the default branch's security
   // baseline (ProjectRepository.securityBaseline) — this PR did not introduce
   // it. Advisory: rendered muted, excluded from open/reminder counts.
-  persisting             Boolean                        @default(false)
-  createdAt              DateTime                       @default(now())
+  persisting             Boolean                       @default(false)
+  createdAt              DateTime                      @default(now())
 
   scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
 
