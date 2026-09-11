@@ -2,19 +2,21 @@
  * LUM-739 — L3 hunt (spec §6 L3, execution base v0.3). Started by stage A
  * after it has persisted its own result with `stages.hunt = PENDING`.
  *
- *   buildSubgraphStep → planHuntStep → huntTaskStep × N (one bounded
- *   tool-calling batch per PLANNED TASK; candidates accumulate here, the
- *   budget is checked between batches) → one retry batch per planned task
- *   the gateway dropped → mechanicalVerifyStep → falsifierStep per surviving
- *   candidate → persistHuntFindingsStep → syncPrReviewStep.
+ *   planHuntStep → huntTaskStep × N (one bounded tool-calling batch per
+ *   PLANNED TASK; candidates accumulate here, the budget is checked between
+ *   batches) → one retry batch per planned task the gateway dropped →
+ *   buildVerifySubgraphStep(candidates) → mechanicalVerifyStep →
+ *   falsifierStep per surviving candidate → persistHuntFindingsStep →
+ *   syncPrReviewStep.
  *
  * LUM-758 — N is 0–3 planned TASKS, not 6 categories. Running all six
  * unconditionally was the actual cost driver (prod: 166k–236k tokens per
  * scan, RAN 1 / PARTIAL 14 / SKIPPED 7, zero findings), and a `partial`
  * verdict that demanded all six be `done` made PARTIAL the default outcome.
  * Now the planning step emits a per-PR task graph, two short circuits end the
- * layer as SKIPPED before any hunt call (empty subgraph, or an empty task
- * list), and `partial` is judged over the planned tasks only.
+ * layer as SKIPPED before any hunt call (a diff with no TypeScript source
+ * signal, or an empty task list), and `partial` is judged over the planned
+ * tasks only.
  *
  * Per-task state is keyed by `task.id`, never by `task.category`: a plan may
  * legitimately contain two `injection` tasks with different objectives, and
@@ -29,8 +31,13 @@
  * window, and a task that never ran is recorded as `skipped`.
  *
  * Deterministic body: no I/O, no logging, no Date — elapsed time is measured
- * inside each batch step and returned. A task that never reaches `done`, a
- * subgraph cap or a falsifier overflow makes the layer PARTIAL, never RAN.
+ * inside each batch step and returned. A task that never reaches `done` or a
+ * falsifier overflow makes the layer PARTIAL, never RAN.
+ *
+ * LUM-758 Task 10 — the subgraph is no longer built up front and no longer
+ * decides anything about `partial`. It is built AFTER the hunt, from the files
+ * the candidates reference, purely so the mechanical gate has something to
+ * resolve symbols against; the agent's field of view is the whole checkout.
  *
  * LUM-758 Task 9 — a step that exhausts its retries no longer means FAILED
  * unconditionally. Acquiring a sandbox VM throws, so a transient VM failure on
@@ -56,7 +63,7 @@ import {
 } from '@/lib/services/security-hunt.config'
 import type { Subgraph } from '@/lib/security-scan/graph/types'
 import {
-  buildSubgraphStep,
+  buildVerifySubgraphStep,
   planHuntStep,
   huntTaskStep,
   mechanicalVerifyStep,
@@ -136,7 +143,12 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
    * is what makes "keep what the earlier tasks already found" possible at all.
    */
   const raw: unknown[] = []
-  let subgraph: Subgraph | undefined
+  /**
+   * LUM-758 Task 10 — no longer seeded from a subgraph cap. The ≤40-file
+   * ceiling used to be the agent's field of view AND the flag that made the
+   * layer PARTIAL; the graph is a verification tool built after the fact now,
+   * so only the hunt's own outcome can set this.
+   */
   let partial = false
   try {
     /**
@@ -155,25 +167,17 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
      */
     let failure: string | undefined
     try {
-      const graph = await buildSubgraphStep(job)
-      subgraph = graph.subgraph
-      partial = graph.partial
-      audit.subgraph = {
-        files: graph.subgraph.files.length,
-        symbols: graph.subgraph.symbols.length,
-        edges: graph.subgraph.edges.length,
-        partial: graph.partial,
-      }
-
-      // Short circuit A (LUM-758 §4.1): no TS symbols means there is nothing
-      // to hunt. Placed BEFORE the planning step, so not a single LLM call
-      // happens.
-      if (
-        graph.subgraph.files.length === 0 ||
-        graph.subgraph.symbols.length === 0
-      ) {
+      // Short circuit A (LUM-758 §5.5, Task 10): a diff-level test, taken
+      // before anything is built or called. `evaluateHuntTrigger` `continue`s
+      // past every non-TS/TSX file, so a run whose reasons carry no `diff:`
+      // entry saw no entry, sink or control added to a TypeScript source —
+      // the hunt has nowhere to start, and not one LLM call should happen.
+      // (The layer can still be triggered by `stage-a:high` or
+      // `l4:open-crossing` alone; those say a PR is interesting, not that
+      // there is a call path in it to hunt.)
+      if (!job.reasons.some(r => r.startsWith('diff:'))) {
         audit.planned = []
-        audit.plannedReason = 'empty subgraph'
+        audit.plannedReason = 'no TypeScript source signal in the diff'
         audit.plannedBy = 'fallback'
         await persistHuntFindingsStep({
           job,
@@ -187,7 +191,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         return { outcome: 'SKIPPED', scanId, findings: 0, tokenSpent: 0 }
       }
 
-      const plan = await planHuntStep({ job, subgraph: graph.subgraph })
+      const plan = await planHuntStep({ job })
       // The plan is an LLM call like any other — its tokens are part of what
       // this scan cost, and the acceptance metric reads `tokenSpent`.
       tokenSpent += plan.tokens
@@ -246,7 +250,6 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         }
         const batch = await huntTaskStep({
           job,
-          subgraph: graph.subgraph,
           task,
           tokenBudget: Math.min(
             HUNT_TASK_TOKEN_MAX,
@@ -291,7 +294,6 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           break
         const retry = await huntTaskStep({
           job,
-          subgraph: graph.subgraph,
           task,
           tokenBudget: Math.min(
             HUNT_TASK_TOKEN_MAX,
@@ -333,22 +335,39 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     }
 
     /**
-     * Nothing to salvage: no batch ever submitted a candidate (or the subgraph
-     * step itself is what failed, so there is not even a graph to verify
-     * against). "The hunt did not run" is the honest outcome, and P9's FAILED
-     * stamp is how the layer says so.
+     * Nothing to salvage: no batch ever submitted a candidate. "The hunt did
+     * not run" is the honest outcome, and P9's FAILED stamp is how the layer
+     * says so.
      */
-    if (failure !== undefined && (raw.length === 0 || subgraph === undefined)) {
+    if (failure !== undefined && raw.length === 0) {
       await markHuntFailedBestEffort(scanId, failure, tokenSpent)
       await syncPrReviewBestEffort(scanId)
       return { outcome: 'FAILED', scanId, reason: failure }
     }
-    // Unreachable with `failure === undefined` (the hunting phase assigns it
-    // before anything else can), and narrowing the optional is worth the line.
-    if (subgraph === undefined) {
-      await markHuntFailedBestEffort(scanId, 'no subgraph', tokenSpent)
-      await syncPrReviewBestEffort(scanId)
-      return { outcome: 'FAILED', scanId, reason: 'no subgraph' }
+
+    /**
+     * LUM-758 Task 10 — the mechanical gate's graph, built HERE: after the
+     * hunt, out of the files the candidates themselves reference. Before this,
+     * a ≤40-file window drawn before the agent had read a line was both its
+     * field of view and the gate's ground truth, so a perfectly good candidate
+     * naming a symbol outside that window landed in `huntAudit.rejected[]`.
+     *
+     * With nothing submitted there is nothing to graph, and attaching a VM to
+     * read zero files would be pure cost — the empty graph is the right answer
+     * and the gate agrees with it.
+     */
+    const subgraph: Subgraph =
+      raw.length === 0
+        ? { symbols: [], edges: [], files: [] }
+        : await buildVerifySubgraphStep({ job, candidates: raw })
+    audit.subgraph = {
+      files: subgraph.files.length,
+      symbols: subgraph.symbols.length,
+      edges: subgraph.edges.length,
+      // An on-demand graph has no truncation to report: how many files it
+      // holds is decided by the candidates, not by a ceiling. This is no
+      // longer a source of the layer's `partial`.
+      partial: false,
     }
 
     // Candidates in hand — the rest of the pipeline runs exactly as it does on

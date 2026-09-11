@@ -1,6 +1,6 @@
 /** @jest-environment node */
 jest.mock('@/lib/workflows/security-hunt.steps', () => ({
-  buildSubgraphStep: jest.fn(),
+  buildVerifySubgraphStep: jest.fn(),
   planHuntStep: jest.fn(),
   huntTaskStep: jest.fn(),
   mechanicalVerifyStep: jest.fn(),
@@ -23,7 +23,7 @@ jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
 
 import { securityHuntWorkflow } from '@/lib/workflows/security-hunt'
 import {
-  buildSubgraphStep,
+  buildVerifySubgraphStep,
   planHuntStep,
   huntTaskStep,
   mechanicalVerifyStep,
@@ -44,7 +44,7 @@ import {
 } from '@/lib/services/security-hunt.config'
 import { HUNT_CATEGORIES as CANDIDATE_CATEGORIES } from '@/lib/security-scan/hunt/candidate'
 
-const build = buildSubgraphStep as jest.Mock
+const verifyGraph = buildVerifySubgraphStep as jest.Mock
 const plan = planHuntStep as jest.Mock
 const hunt = huntTaskStep as jest.Mock
 const verify = mechanicalVerifyStep as jest.Mock
@@ -134,9 +134,9 @@ let order: string[]
 beforeEach(() => {
   jest.resetAllMocks()
   order = []
-  build.mockImplementation(async () => {
-    order.push('build')
-    return { subgraph: SUBGRAPH, partial: false }
+  verifyGraph.mockImplementation(async () => {
+    order.push('buildVerifyGraph')
+    return SUBGRAPH
   })
   plan.mockResolvedValue({
     tasks: [...PLANNED],
@@ -213,14 +213,29 @@ describe('LUM-739 hunt workflow', () => {
     // task can no longer spend the whole scan's window.
     expect(hunt.mock.calls[0]![0]).toMatchObject({
       job: JOB,
-      subgraph: SUBGRAPH,
       tokenBudget: HUNT_TASK_TOKEN_MAX,
       timeBudgetMs: HUNT_TASK_TIME_MS,
     })
+    // LUM-758 Task 10: the subgraph is not the agent's field of view, so it
+    // is not serialised into a batch's step input at all.
+    expect(hunt.mock.calls[0]![0].subgraph).toBeUndefined()
     expect(hunt.mock.calls[1]![0]).toMatchObject({
       tokenBudget: HUNT_TASK_TOKEN_MAX,
       timeBudgetMs: HUNT_TASK_TIME_MS,
     })
+    // LUM-758 Task 10: the gate's graph is built AFTER the hunt, from the
+    // candidates it is about to judge — not from a window drawn before the
+    // agent had read a line.
+    expect(verifyGraph).toHaveBeenCalledWith({
+      job: JOB,
+      candidates: [{ raw: 1 }, { raw: 2 }, { raw: 3 }],
+    })
+    expect(order.indexOf('buildVerifyGraph')).toBeGreaterThan(
+      order.lastIndexOf('hunt')
+    )
+    expect(order.indexOf('verify')).toBeGreaterThan(
+      order.indexOf('buildVerifyGraph')
+    )
     expect(verify).toHaveBeenCalledWith({
       subgraph: SUBGRAPH,
       candidates: [{ raw: 1 }, { raw: 2 }, { raw: 3 }],
@@ -427,15 +442,47 @@ describe('LUM-739 hunt workflow', () => {
     expect(audit.egressDenied).toBeUndefined()
   })
 
-  it('a truncated subgraph makes the layer PARTIAL', async () => {
-    build.mockImplementationOnce(async () => ({
-      subgraph: SUBGRAPH,
-      partial: true,
-    }))
+  /**
+   * LUM-758 Task 10 — THE regression this task exists to prevent. The
+   * ≤40-file cap used to be the agent's whole field of view AND the source of
+   * `audit.subgraph.partial` AND the layer's `partial`, which is why PARTIAL
+   * was the routine outcome. The cap now only bounds what VERIFICATION reads.
+   */
+  it('LUM-758 the verification subgraph never makes the layer PARTIAL', async () => {
+    hunt.mockImplementation(async () => batch({ candidates: [{ raw: 1 }] }))
+    // A graph built from one candidate's files — i.e. a "small" one, which
+    // under the old rule was indistinguishable from a truncated one.
+    verifyGraph.mockImplementation(async () => SUBGRAPH)
+
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
-      outcome: 'PARTIAL',
+      outcome: 'RAN',
     })
-    expect(persist.mock.calls[0]![0].audit.subgraph.partial).toBe(true)
+    const persisted = persist.mock.calls[0]![0]
+    expect(persisted.partial).toBe(false)
+    expect(persisted.audit.subgraph).toEqual({
+      files: 1,
+      symbols: 1,
+      edges: 1,
+      partial: false,
+    })
+  })
+
+  it('LUM-758 does not build a verification subgraph when no candidate was submitted', async () => {
+    await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
+      outcome: 'RAN',
+    })
+    // Booting or attaching a VM to graph zero files buys nothing.
+    expect(verifyGraph).not.toHaveBeenCalled()
+    expect(verify).toHaveBeenCalledWith({
+      subgraph: { symbols: [], edges: [], files: [] },
+      candidates: [],
+    })
+    expect(persist.mock.calls[0]![0].audit.subgraph).toEqual({
+      files: 0,
+      symbols: 0,
+      edges: 0,
+      partial: false,
+    })
   })
 
   it('falsifies at most HUNT_MAX_FALSIFIED candidates and marks the rest as partial', async () => {
@@ -519,18 +566,24 @@ describe('LUM-739 hunt workflow', () => {
     expect(markFailed).toHaveBeenCalledWith('s1', 'sandbox unavailable', 0)
   })
 
-  it('marks the scan FAILED (with 0 tokens) when the subgraph step exhausts its retries, then still syncs', async () => {
-    build.mockImplementationOnce(async () => {
-      throw new Error('GitHub 502')
+  it('marks the scan FAILED when the verification subgraph step exhausts its retries, then still syncs', async () => {
+    hunt.mockImplementation(async () =>
+      batch({ candidates: [{ raw: 1 }], tokens: 200 })
+    )
+    verifyGraph.mockImplementationOnce(async () => {
+      throw new Error('sandbox gone')
     })
     await expect(securityHuntWorkflow(JOB)).resolves.toEqual({
       outcome: 'FAILED',
       scanId: 's1',
-      reason: 'GitHub 502',
+      reason: 'sandbox gone',
     })
-    expect(markFailed).toHaveBeenCalledWith('s1', 'GitHub 502', 0)
+    // The graph is the mechanical gate's only input: without one there is no
+    // honest way to judge a candidate, so this stays unrecoverable.
+    expect(markFailed).toHaveBeenCalledWith('s1', 'sandbox gone', 400)
     expect(persist).not.toHaveBeenCalled()
-    expect(order).toEqual(['markFailed', 'sync'])
+    expect(verify).not.toHaveBeenCalled()
+    expect(order[order.length - 1]).toBe('sync')
   })
 
   it('a falsifier failure after tokens were spent reports the tokens spent so far', async () => {
@@ -551,7 +604,7 @@ describe('LUM-739 hunt workflow', () => {
   })
 
   it('a failing markFailed does not change the FAILED outcome', async () => {
-    build.mockImplementationOnce(async () => {
+    hunt.mockImplementationOnce(async () => {
       throw new Error('boom')
     })
     markFailed.mockImplementationOnce(async () => {

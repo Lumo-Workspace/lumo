@@ -1,10 +1,5 @@
 /** @jest-environment node */
-import {
-  callersOf,
-  calleesOf,
-  pathToEntry,
-  reachability,
-} from '@/lib/security-scan/graph/query'
+import { reachability } from '@/lib/security-scan/graph/query'
 import type { Subgraph, GraphSymbol } from '@/lib/security-scan/graph/types'
 
 const S = (
@@ -39,9 +34,6 @@ describe('LUM-739 graph query', () => {
       ]
     )
     expect(reachability(g, 's')).toBe('EXTERNAL')
-    expect(pathToEntry(g, 's')).toEqual(['e', 'f', 's'])
-    expect(callersOf(g, 's')).toEqual(['f'])
-    expect(calleesOf(g, 'e')).toEqual(['f'])
   })
 
   it('INTERNAL when every path from an entry crosses a control', () => {
@@ -84,11 +76,7 @@ describe('LUM-739 graph query', () => {
   it('UNKNOWN when no entry reaches the sink, and for unknown ids', () => {
     const g = graph([S('f', 'function'), S('s', 'sink')], [['f', 's']])
     expect(reachability(g, 's')).toBe('UNKNOWN')
-    expect(pathToEntry(g, 's')).toBeNull()
     expect(reachability(g, 'nope')).toBe('UNKNOWN')
-    expect(pathToEntry(g, 'nope')).toBeNull()
-    expect(callersOf(g, 'nope')).toEqual([])
-    expect(calleesOf(g, 'nope')).toEqual([])
   })
 
   it('survives cycles', () => {
@@ -102,6 +90,5 @@ describe('LUM-739 graph query', () => {
       ]
     )
     expect(reachability(g, 's')).toBe('EXTERNAL')
-    expect(pathToEntry(g, 's')).toEqual(['e', 'a', 'b', 's'])
   })
 })

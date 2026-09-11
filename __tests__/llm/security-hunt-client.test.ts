@@ -23,34 +23,16 @@ import {
   numberLines,
   SNIPPET_MAX_CHARS,
 } from '@/lib/security-scan/hunt/snippet'
-import type { Subgraph } from '@/lib/security-scan/graph/types'
 
 const gen = generateText as jest.Mock
 
-const g: Subgraph = {
-  symbols: [
-    {
-      id: 'a.ts#GET',
-      kind: 'entry',
-      file: 'a.ts',
-      line: 1,
-      name: 'GET',
-      rule: 'next-route-handler',
-      controls: [],
-    },
-    {
-      id: 'a.ts#fetch@2',
-      kind: 'sink',
-      file: 'a.ts',
-      line: 2,
-      name: 'fetch',
-      rule: 'fetch',
-      controls: [],
-    },
-  ],
-  edges: [{ from: 'a.ts#GET', to: 'a.ts#fetch@2' }],
-  files: [{ path: 'a.ts', lineCount: 3, touched: true }],
-}
+/** LUM-758 Task 10 — the trigger reasons ARE the starting-point hints now. */
+const REASONS = [
+  'diff:entry:next-route-handler',
+  'diff:sink:fetch',
+  'diff:control:auth',
+  'stage-a:high',
+]
 
 const candidate = {
   category: 'ssrf',
@@ -85,7 +67,7 @@ function run(result: unknown) {
   gen.mockResolvedValueOnce(result)
   return huntTask({
     task: TASK,
-    subgraph: g,
+    reasons: REASONS,
     runShell,
     tokenBudget: 1000,
     timeoutMs: 5000,
@@ -136,7 +118,10 @@ describe('LUM-739 hunt client', () => {
     // CATEGORY_BRIEF still rides along — it is the decision rule the
     // mechanical gate and the falsifier hold the submissions to.
     expect(call.prompt).toContain('SSRF: a request-derived URL or host')
-    expect(call.prompt).toContain('a.ts#fetch@2')
+    // LUM-758 Task 10: the starting-point hints come from the trigger
+    // reasons — no subgraph reaches this module any more.
+    expect(call.prompt).toContain('## Starting points')
+    expect(call.prompt).toContain('- sink: fetch')
     // The candidates come back only through the tool.
     const tools = call.tools as Tools
     await expect(
@@ -209,17 +194,28 @@ describe('LUM-739 hunt client', () => {
     expect(cut.endsWith('…[truncated]')).toBe(true)
   })
 
-  it('LUM-758 renders STARTING POINTS, not the subgraph: touched files and entry/sink ids, no edge list', () => {
-    const text = renderStartingPointsForPrompt(g)
-    expect(text).toContain('### Files the PR touched')
-    expect(text).toContain('- a.ts (3 lines)')
-    // The ids survive — the mechanical gate resolves submissions against them.
-    expect(text).toContain('- a.ts#GET (a.ts:1, entry, next-route-handler)')
-    expect(text).toContain('- a.ts#fetch@2 (a.ts:2, sink, fetch)')
-    // …but the subgraph is no longer the agent's field of view, so the edge
-    // wall (the thing that cost tokens and implied a boundary) is gone.
-    expect(text).not.toContain('a.ts#GET -> a.ts#fetch@2')
-    expect(text).not.toContain('Edges')
+  it('LUM-758 renders the starting-point hints from the trigger reasons, not from a subgraph', () => {
+    const text = renderStartingPointsForPrompt(REASONS)
+    expect(text).toContain('- entry: next-route-handler')
+    expect(text).toContain('- sink: fetch')
+    expect(text).toContain('- control: auth')
+    // Non-diff reasons say nothing about where to start reading.
+    expect(text).not.toContain('stage-a')
+  })
+
+  it('LUM-758 says so plainly when the diff carried no static signal at all', () => {
+    const text = renderStartingPointsForPrompt(['stage-a:high'])
+    expect(text).toContain('no entry, sink or control')
+    expect(text).not.toContain('- ')
+  })
+
+  it('LUM-758 the system prompt spells out the symbol id grammar the mechanical gate parses', () => {
+    // Task 10 removed the rendered signals list, which is where the agent
+    // used to copy id shapes from. Without the grammar written down, every
+    // submission would be dropped as `symbol-not-in-subgraph`.
+    expect(HUNT_SYSTEM_PROMPT).toContain('app/api/x/route.ts#POST')
+    expect(HUNT_SYSTEM_PROMPT).toContain('lib/s.ts#prisma.$queryRawUnsafe@42')
+    expect(HUNT_SYSTEM_PROMPT).toContain('#<module>')
   })
 
   it('LUM-758 keeps the rules that make the mechanical gate survivable, and marks repo output untrusted', () => {

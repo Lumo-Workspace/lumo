@@ -166,6 +166,14 @@ export interface HuntAudit {
   falsifierRejects: number
   falsifierRejected: Array<{ category: string; sink: string; reason: string }>
   tasks: HuntTaskAudit[]
+  /**
+   * LUM-758 Task 10 — the MECHANICAL GATE's graph, built after the hunt from
+   * the files the candidates referenced. `partial` is kept for the shape of
+   * the persisted audit and is always false: an on-demand graph cannot be
+   * truncated in the sense that mattered, because its size is decided by the
+   * candidates, not by a ceiling. It is no longer a source of the layer's
+   * `partial` — that it ever was is why PARTIAL used to be routine.
+   */
   subgraph: { files: number; symbols: number; edges: number; partial: boolean }
   /** LUM-758 — 规划步选了哪些任务；`[]` = 这个 PR 不值得 hunt。 */
   planned?: HuntTask[]
@@ -185,10 +193,14 @@ export interface HuntAudit {
   error?: string
 }
 
-/** LUM-758 §4.2 — 规划步的输入。finding 摘要在 step 内按 scanId 读库。 */
+/**
+ * LUM-758 §4.2 — 规划步的输入。finding 摘要在 step 内按 scanId 读库。
+ *
+ * Task 10 去掉了 `subgraph`：子图不再在 hunt 之前建，规划步看到的 diff 视图
+ * 就是 `job.reasons`（entry / sink / control 的 rule id 都在里面）。
+ */
 export interface PlanHuntInput {
   job: HuntJob
-  subgraph: Subgraph
 }
 
 export interface PlanHuntOutput {
@@ -199,14 +211,18 @@ export interface PlanHuntOutput {
   tokens: number
 }
 
-export interface SubgraphResult {
-  subgraph: Subgraph
-  partial: boolean
+/**
+ * LUM-758 Task 10 — 机械关的子图**按需**建：hunt 跑完之后，只按候选引用到的
+ * 文件建。候选此时还是 `unknown[]`（zod 校验是机械关的活），所以路径收集
+ * 必须防御式读。
+ */
+export interface VerifySubgraphInput {
+  job: HuntJob
+  candidates: unknown[]
 }
 
 export interface HuntBatchInput {
   job: HuntJob
-  subgraph: Subgraph
   /**
    * LUM-758 —— 一次批次跑**一个任务**，不是一个类别。同一个 category 在一个
    * 计划里可以出现多次（不同 objective），所以批次的身份是 `task.id`。

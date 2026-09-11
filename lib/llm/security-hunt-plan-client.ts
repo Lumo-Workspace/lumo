@@ -22,12 +22,13 @@ import {
 import type { FindingSummary } from '@/lib/repositories/pr-security-scan.repository'
 
 export interface PlanClientInput {
-  /** 触发原因（`diff:sink:prisma-raw` 等）。 */
+  /**
+   * 触发原因（`diff:sink:prisma-raw` 等）。LUM-758 Task 10 之后这就是规划步
+   * 看到的**全部** diff 视图：`evaluateHuntTrigger` 已经把 diff 里匹配到的
+   * entry / sink / control 规则 id 都放在里面，而子图不再在 hunt 之前建 ——
+   * 为了路由一次决策去建一张 agent 根本不看的图，正是 Task 10 要去掉的成本。
+   */
   reasons: string[]
-  /** PR 改到的文件，带是否 touched。 */
-  files: Array<{ path: string; touched: boolean }>
-  /** 子图里的 entry / sink / control 符号，按 `id (file:line, rule)` 渲染。 */
-  signals: string[]
   /** stage A 已经报出来的 finding 摘要。 */
   findings: FindingSummary[]
   timeoutMs: number
@@ -39,7 +40,7 @@ const TaskSchema = z.object({
     .min(20)
     .max(400)
     .describe(
-      'What to investigate, specific to THIS diff. Name the actual files, symbols or helpers involved. A generic objective like "check the permission logic carefully" is useless — it gives the analyst nothing to start from.'
+      'What to investigate, specific to THIS diff: which signal it follows and what path is worth tracing from it. A generic objective like "check the permission logic carefully" is useless — it gives the analyst nothing to start from.'
     ),
   category: z
     .enum(HUNT_CATEGORIES)
@@ -47,7 +48,9 @@ const TaskSchema = z.object({
   startingPoints: z
     .array(z.string())
     .max(5)
-    .describe('Files or symbols from the diff to begin at. May be empty.'),
+    .describe(
+      'Files or symbols to begin at, when a signal or a stage A finding names one. Often empty — the analyst has the checkout and can find them.'
+    ),
 })
 
 const Schema = z.object({
@@ -70,15 +73,17 @@ Categories (used only to type each task's output; they need not be exhaustive or
 - race: check-then-act on shared rows without a transaction, row lock or unique constraint.
 - logic: a state machine, gate or quota can be skipped by calling entries out of order or with an unexpected role.
 
+You are given the rule ids a fast static pass matched in the diff, not the diff itself. An analyst with the full checkout and a shell will carry each task out, so a task names the path worth tracing; it does not have to name the line.
+
 For each task, give:
-- objective: what to investigate, specific to THIS diff — name the actual files, symbols or helpers involved.
+- objective: what to investigate, specific to THIS diff — which signal it follows, and what path from an entry to that sink is worth tracing.
 - category: the single category above that the task's findings would be filed under.
-- startingPoints: the files or symbols from the diff to begin at (may be empty).
+- startingPoints: files or symbols to begin at when a signal or a stage A finding names one (may be empty).
 
 Rules:
 1. Propose AT MOST ${HUNT_MAX_PLANNED_TASKS} tasks. Fewer is better.
-2. Every task must earn its place with a concrete, diff-specific objective — not a restatement of a category description. If you cannot name a specific file, symbol or helper worth checking, do not propose the task.
-3. An EMPTY array is the right answer whenever the diff shows no concrete path from an entry point to a dangerous sink. Most pull requests deserve an empty array. Returning nothing is not a failure.
+2. Every task must earn its place with a concrete objective tied to a signal that actually fired — not a restatement of a category description.
+3. An EMPTY array is the right answer whenever the signals show no plausible path from an entry point to a dangerous sink. Most pull requests deserve an empty array. Returning nothing is not a failure.
 4. Never propose a task just because the trigger fired — the trigger is deliberately broad, you are the narrow filter.`
 
 function clip(text: string, max: number): string {
@@ -86,9 +91,6 @@ function clip(text: string, max: number): string {
 }
 
 function buildPrompt(i: PlanClientInput): string {
-  const files = i.files
-    .map(f => `- ${f.path}${f.touched ? ' (touched by the PR)' : ''}`)
-    .join('\n')
   const findings =
     i.findings.length === 0
       ? '(none)'
@@ -96,14 +98,8 @@ function buildPrompt(i: PlanClientInput): string {
           .map(f => `- [${f.severity}] ${f.ruleId}: ${f.title}`)
           .join('\n')
   return clip(
-    `## Trigger reasons
+    `## Trigger reasons — the entry / sink / control rules this diff matched
 ${i.reasons.map(r => `- ${r}`).join('\n') || '(none)'}
-
-## Files in the diff subgraph
-${files || '(none)'}
-
-## Entry / sink / control signals
-${i.signals.map(s => `- ${s}`).join('\n') || '(none)'}
 
 ## Stage A findings already reported
 ${findings}

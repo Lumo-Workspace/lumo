@@ -3,25 +3,15 @@
  * classification the mechanical gate stamps on a candidate (spec §6 L3
  * "Verify" step 1). Pure.
  *
- * LUM-758 Task 9 — `callersOf` / `calleesOf` / `pathToEntry` used to back the
- * `callers_of` / `callees_of` / `path_to_entry` TOOLS; the agent reads the
- * checkout with `run_shell` now, so they are graph helpers with no production
- * caller until Task 9's successor rebuilds the gate's graph on demand.
- * `reachability` is still on the live path.
+ * LUM-758 Task 10 — `callersOf` / `calleesOf` / `pathToEntry` are gone. They
+ * backed the `callers_of` / `callees_of` / `path_to_entry` TOOLS, which Task 9
+ * replaced with a restricted shell over the checkout; Task 10 confirmed the
+ * mechanical gate does not use them either (`reachability` walks the reverse
+ * adjacency itself), so they were dead code with only their own test left.
  */
 import type { Subgraph, GraphSymbol } from './types'
 
 export type Reachability = 'EXTERNAL' | 'INTERNAL' | 'UNKNOWN'
-
-function forwardAdjacency(g: Subgraph): Map<string, string[]> {
-  const out = new Map<string, string[]>()
-  for (const e of g.edges) {
-    const list = out.get(e.from)
-    if (list) list.push(e.to)
-    else out.set(e.from, [e.to])
-  }
-  return out
-}
 
 function reverseAdjacency(g: Subgraph): Map<string, string[]> {
   const out = new Map<string, string[]>()
@@ -35,41 +25,6 @@ function reverseAdjacency(g: Subgraph): Map<string, string[]> {
 
 export function symbolById(g: Subgraph, id: string): GraphSymbol | undefined {
   return g.symbols.find(s => s.id === id)
-}
-
-export function callersOf(g: Subgraph, id: string): string[] {
-  return reverseAdjacency(g).get(id) ?? []
-}
-
-export function calleesOf(g: Subgraph, id: string): string[] {
-  return forwardAdjacency(g).get(id) ?? []
-}
-
-/**
- * Shortest path from some entry symbol down to `id` (inclusive, entry
- * first), or null when no entry reaches it.
- */
-export function pathToEntry(g: Subgraph, id: string): string[] | null {
-  if (!symbolById(g, id)) return null
-  const byId = new Map(g.symbols.map(s => [s.id, s]))
-  const rev = reverseAdjacency(g)
-  const parent = new Map<string, string | null>([[id, null]])
-  const queue = [id]
-  while (queue.length > 0) {
-    const cur = queue.shift()!
-    if (byId.get(cur)?.kind === 'entry') {
-      const path: string[] = []
-      for (let n: string | null = cur; n !== null; n = parent.get(n) ?? null)
-        path.push(n)
-      return path
-    }
-    for (const caller of rev.get(cur) ?? []) {
-      if (parent.has(caller)) continue
-      parent.set(caller, cur)
-      queue.push(caller)
-    }
-  }
-  return null
 }
 
 /**

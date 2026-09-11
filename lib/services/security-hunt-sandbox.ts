@@ -447,6 +447,32 @@ export async function stopHuntSandbox(handle: HuntSandbox): Promise<void> {
   }
 }
 
+/**
+ * LUM-758 Task 10 — read ONE repository file out of the checkout, for the
+ * mechanical gate's on-demand subgraph. `path` is repository-relative; the
+ * caller is responsible for keeping it inside the checkout (see
+ * `isVerifiableRepoPath` in the service).
+ *
+ * Lives here, not in the service, for the reason the whole module exists:
+ * `handle.sandbox` is reachable from exactly one file, so the credential
+ * guard and the command gate cannot be routed around
+ * (`__tests__/security-scan/hunt/shell-exec-boundary.test.ts` enforces it).
+ *
+ * null = the file is not there; a read that FAILED throws, because a graph
+ * silently missing a file would silently reject good candidates.
+ */
+export async function readHuntFile(
+  handle: HuntSandbox,
+  path: string
+): Promise<string | null> {
+  const buffer = await readSandboxFile(
+    handle.sandbox,
+    `${handle.cwd}/${path}`,
+    handle.token
+  )
+  return buffer === null ? null : buffer.toString('utf8')
+}
+
 export interface HuntShellInput {
   /**
    * The whole handle, never a loose `{ sandbox, cwd, token }`: the only way

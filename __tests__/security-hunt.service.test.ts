@@ -17,6 +17,7 @@ jest.mock('@/lib/llm/security-hunt-client', () => ({ huntTask: jest.fn() }))
 jest.mock('@/lib/services/security-hunt-sandbox', () => ({
   attachOrCreateHuntSandbox: jest.fn(),
   runHuntShell: jest.fn(),
+  readHuntFile: jest.fn(),
   stopHuntSandbox: jest.fn().mockResolvedValue(undefined),
 }))
 jest.mock('@/lib/llm/security-falsifier-client', () => ({
@@ -36,6 +37,8 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 import {
   securityHuntService,
   toHuntFindingRows,
+  candidateFilePaths,
+  isVerifiableRepoPath,
 } from '@/lib/services/security-hunt.service'
 import { logger } from '@/lib/logger'
 import { fetchPrDiff, readRepoFile } from '@/lib/integrations/github/contents'
@@ -46,6 +49,7 @@ import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.re
 import {
   attachOrCreateHuntSandbox,
   runHuntShell,
+  readHuntFile,
   stopHuntSandbox,
 } from '@/lib/services/security-hunt-sandbox'
 import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
@@ -58,6 +62,7 @@ const falsifyMock = falsifyCandidate as jest.Mock
 const planMock = planHuntTasks as jest.Mock
 const attachMock = attachOrCreateHuntSandbox as jest.Mock
 const shellMock = runHuntShell as jest.Mock
+const readHuntFileMock = readHuntFile as jest.Mock
 const stopMock = stopHuntSandbox as jest.Mock
 
 /** Stand-in for a scrubbed `HuntSandbox`; identity is what the tests check. */
@@ -92,15 +97,6 @@ const TASK = {
   startingPoints: ['lib/s.ts'],
 }
 
-function diffFor(paths: string[]): string {
-  return paths
-    .map(
-      p =>
-        `diff --git a/${p} b/${p}\n--- a/${p}\n+++ b/${p}\n@@ -0,0 +1 @@\n+export const x = 1\n`
-    )
-    .join('')
-}
-
 // Built at runtime so the fixture is not itself a secret-shaped literal.
 const FAKE_AWS_KEY = ['AKIA', 'IOSFODNN7EXAMPLE'].join('')
 
@@ -132,6 +128,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   attachMock.mockResolvedValue(HANDLE)
   shellMock.mockResolvedValue({ output: '' })
+  readHuntFileMock.mockResolvedValue(null)
   stopMock.mockResolvedValue(undefined)
   repo.findDispositionedByPullRequest.mockResolvedValue([])
   repo.persistHuntResult.mockResolvedValue(undefined)
@@ -139,72 +136,158 @@ beforeEach(() => {
 })
 
 describe('LUM-739 hunt service', () => {
-  it('buildSubgraph reads touched TS files and their one-hop imports at the head sha, skipping non-TS files', async () => {
-    diffMock.mockResolvedValue(diffFor(['app/api/x/route.ts', 'docs/a.md']))
-    readMock.mockImplementation(async ({ path }: { path: string }) => {
+  /**
+   * LUM-758 Task 10 — the subgraph is a VERIFICATION tool now: built AFTER
+   * the hunt, out of the files the candidates actually reference, read from
+   * the sandbox checkout. It is never the agent's field of view, and it no
+   * longer reports `partial`.
+   */
+  it('candidateFilePaths reads every level defensively — candidates have not been through zod yet', () => {
+    expect(
+      candidateFilePaths({
+        entry: { file: 'a.ts', line: 1 },
+        sink: { file: 'b.ts' },
+        call_chain: [
+          { from: 'c.ts#fn', to: 'd.ts#other@4' },
+          { from: 'no-hash', to: 12 },
+          null,
+          'junk',
+        ],
+      })
+    ).toEqual(['a.ts', 'b.ts', 'c.ts', 'd.ts'])
+    // Nothing here may throw, and nothing here may contribute a path.
+    for (const junk of [
+      null,
+      undefined,
+      'string',
+      42,
+      {},
+      { entry: 'x', sink: 3, call_chain: {} },
+      { entry: { file: 9 }, call_chain: [{}] },
+    ]) {
+      expect(candidateFilePaths(junk)).toEqual([])
+    }
+  })
+
+  it('isVerifiableRepoPath admits repo-relative TS sources only', () => {
+    expect(isVerifiableRepoPath('lib/a.ts')).toBe(true)
+    expect(isVerifiableRepoPath('app/x/page.tsx')).toBe(true)
+    expect(isVerifiableRepoPath('lib/a.d.ts')).toBe(false)
+    expect(isVerifiableRepoPath('docs/a.md')).toBe(false)
+    expect(isVerifiableRepoPath('/etc/a.ts')).toBe(false)
+    expect(isVerifiableRepoPath('../a.ts')).toBe(false)
+    expect(isVerifiableRepoPath('lib/../../a.ts')).toBe(false)
+  })
+
+  it('buildVerifySubgraph builds from the files the CANDIDATES reference, read from the sandbox and never from GitHub', async () => {
+    readHuntFileMock.mockImplementation(async (_h: unknown, path: string) => {
       if (path === 'app/api/x/route.ts')
-        return `import { svc } from '@/lib/s'\nimport { z } from 'zod'\nexport async function POST() { return svc.run() }\n`
+        return `import { svc } from '@/lib/s'\nexport async function POST() { return svc.run() }\n`
       if (path === 'lib/s.ts')
         return `export const svc = { run() { return 1 } }\n`
       return null
     })
-    const out = await securityHuntService.buildSubgraph(JOB)
-    expect(out.partial).toBe(false)
-    expect(out.subgraph.files).toEqual([
-      { path: 'app/api/x/route.ts', lineCount: 3, touched: true },
-      { path: 'lib/s.ts', lineCount: 1, touched: false },
+
+    const graph = await securityHuntService.buildVerifySubgraph({
+      job: JOB,
+      candidates: [
+        {
+          entry: { file: 'app/api/x/route.ts', line: 2 },
+          sink: { file: 'lib/s.ts', line: 1 },
+          call_chain: [
+            { from: 'app/api/x/route.ts#POST', to: 'lib/s.ts#svc.run' },
+          ],
+        },
+        // A non-source path, a file that is not there, and junk at every
+        // level: candidates have NOT been through zod at this point, so path
+        // collection has to survive all of it.
+        { entry: { file: 'docs/a.md' }, sink: { file: 'lib/gone.ts' } },
+        { entry: 'not-an-object', call_chain: [null, { from: 42 }, 'x'] },
+        { sink: { file: 7 }, call_chain: 'nope' },
+        null,
+        'nonsense',
+      ],
+    })
+
+    expect(readHuntFileMock.mock.calls.map(c => c[1])).toEqual([
+      'app/api/x/route.ts',
+      'lib/gone.ts',
+      'lib/s.ts',
     ])
-    const reads = readMock.mock.calls.map(c => c[0])
-    expect(
-      reads.every(r => r.ref === JOB.headSha && r.fullName === 'o/r')
-    ).toBe(true)
-    expect(reads.map(r => r.path)).toEqual(['app/api/x/route.ts', 'lib/s.ts'])
-    expect(out.subgraph.edges).toContainEqual({
+    expect(graph.files.map(f => f.path)).toEqual([
+      'app/api/x/route.ts',
+      'lib/s.ts',
+    ])
+    expect(graph.edges).toContainEqual({
       from: 'app/api/x/route.ts#POST',
       to: 'lib/s.ts#svc.run',
     })
+    // The checkout is right there — verification must not pay for GitHub.
+    expect(readMock).not.toHaveBeenCalled()
+    expect(diffMock).not.toHaveBeenCalled()
   })
 
-  it('buildSubgraph tries the next import candidate when the first does not exist', async () => {
-    diffMock.mockResolvedValue(diffFor(['lib/a.ts']))
-    readMock.mockImplementation(async ({ path }: { path: string }) => {
-      if (path === 'lib/a.ts')
-        return `import { b } from './b'\nexport const a = () => b()\n`
-      if (path === 'lib/b/index.ts') return `export const b = () => 1\n`
-      return null
-    })
-    const out = await securityHuntService.buildSubgraph(JOB)
-    expect(out.subgraph.files.map(f => f.path)).toEqual([
-      'lib/a.ts',
-      'lib/b/index.ts',
-    ])
-    expect(readMock.mock.calls.map(c => c[0].path)).toEqual([
-      'lib/a.ts',
-      'lib/b.ts',
-      'lib/b.tsx',
-      'lib/b/index.ts',
-    ])
-  })
-
-  it('buildSubgraph caps at SUBGRAPH_MAX_FILES and marks partial', async () => {
-    const paths = Array.from(
-      { length: SUBGRAPH_MAX_FILES + 1 },
-      (_, i) => `lib/f${String(i).padStart(2, '0')}.ts`
+  it('buildVerifySubgraph reads at most SUBGRAPH_MAX_FILES files, and reports no partial at all', async () => {
+    readHuntFileMock.mockResolvedValue('export const x = 1\n')
+    const candidates = Array.from(
+      { length: SUBGRAPH_MAX_FILES + 5 },
+      (_, i) => ({ sink: { file: `lib/f${String(i).padStart(2, '0')}.ts` } })
     )
-    diffMock.mockResolvedValue(diffFor(paths))
-    readMock.mockResolvedValue('export const x = 1\n')
-    const out = await securityHuntService.buildSubgraph(JOB)
-    expect(out.partial).toBe(true)
-    expect(out.subgraph.files).toHaveLength(SUBGRAPH_MAX_FILES)
+
+    const graph = await securityHuntService.buildVerifySubgraph({
+      job: JOB,
+      candidates,
+    })
+
+    expect(readHuntFileMock).toHaveBeenCalledTimes(SUBGRAPH_MAX_FILES)
+    expect(graph.files).toHaveLength(SUBGRAPH_MAX_FILES)
+    // The cap bounds what VERIFICATION reads. It is not a field of view, and
+    // there is no `partial` on this return type any more (LUM-762's main
+    // source of PARTIAL).
+    expect(graph).not.toHaveProperty('partial')
+  })
+
+  it('buildVerifySubgraph never reads outside the checkout, whatever path a candidate names', async () => {
+    readHuntFileMock.mockResolvedValue('export const x = 1\n')
+
+    const graph = await securityHuntService.buildVerifySubgraph({
+      job: JOB,
+      candidates: [
+        { sink: { file: '../../../etc/evil.ts' } },
+        { sink: { file: '/etc/evil.ts' } },
+        { entry: { file: 'lib/a/../../b.ts' } },
+        { call_chain: [{ from: '../outside.ts#x', to: 'lib/ok.ts#y' }] },
+      ],
+    })
+
+    expect(readHuntFileMock.mock.calls.map(c => c[1])).toEqual(['lib/ok.ts'])
+    expect(graph.files.map(f => f.path)).toEqual(['lib/ok.ts'])
+  })
+
+  it('buildVerifySubgraph attaches the same way huntBatch does and releases the VM even when a read throws', async () => {
+    readHuntFileMock.mockRejectedValueOnce(new Error('sandbox gone'))
+
+    await expect(
+      securityHuntService.buildVerifySubgraph({
+        job: JOB,
+        candidates: [{ sink: { file: 'lib/a.ts' } }],
+      })
+    ).rejects.toThrow('sandbox gone')
+
+    expect(attachMock).toHaveBeenCalledWith({
+      scanId: JOB.scanId,
+      workspaceId: JOB.workspaceId,
+      repo: JOB.repo,
+      headSha: JOB.headSha,
+      managedScanStarted: JOB.managedScanStarted,
+    })
+    // `stopHuntSandbox` is the only one that knows an ATTACHED VM must be
+    // left running: stopping it would kill the managed scan's semgrep.
+    expect(stopMock).toHaveBeenCalledWith(HANDLE)
   })
 
   const batchInput = (over: Partial<{ timeBudgetMs: number }> = {}) => ({
     job: JOB,
-    subgraph: {
-      symbols: [],
-      edges: [],
-      files: [{ path: 'a.ts', lineCount: 1, touched: true }],
-    },
     task: TASK,
     tokenBudget: 1000,
     timeBudgetMs: 60_000,
@@ -252,11 +335,15 @@ describe('LUM-739 hunt service', () => {
     // points), not just the category that types its output.
     expect(huntMock.mock.calls[0]![0]).toMatchObject({
       task: TASK,
+      reasons: JOB.reasons,
       tokenBudget: 1000,
       maxSteps: 12,
     })
     // …and the file reader is gone: the checkout, not the GitHub API.
     expect(huntMock.mock.calls[0]![0].readFile).toBeUndefined()
+    // LUM-758 Task 10: no subgraph is serialised into a batch's step input
+    // any more — the agent stopped reading it in Task 9.
+    expect(huntMock.mock.calls[0]![0].subgraph).toBeUndefined()
     expect(readMock).not.toHaveBeenCalled()
     expect(stopMock).toHaveBeenCalledWith(HANDLE)
   })
@@ -405,32 +492,11 @@ describe('LUM-739 hunt service', () => {
       reason: 'unscoped read',
       tokens: 42,
     })
-    const job = { ...JOB, reasons: ['diff:entry:app/api/x/route.ts'] }
-    const subgraph = {
-      symbols: [
-        {
-          id: 'lib/s.ts#prisma.findMany@5',
-          kind: 'sink' as const,
-          file: 'lib/s.ts',
-          line: 5,
-          name: 'prisma.findMany',
-          rule: 'prisma-raw',
-          controls: ['auth'],
-        },
-        {
-          id: 'app/api/x/route.ts#POST',
-          kind: 'function' as const,
-          file: 'app/api/x/route.ts',
-          line: 1,
-          name: 'POST',
-          rule: null,
-          controls: [],
-        },
-      ],
-      edges: [],
-      files: [{ path: 'app/api/x/route.ts', lineCount: 3, touched: true }],
+    const job = {
+      ...JOB,
+      reasons: ['diff:entry:next-route-handler', 'diff:sink:prisma-raw'],
     }
-    const out = await securityHuntService.planHunt({ job, subgraph })
+    const out = await securityHuntService.planHunt({ job })
     expect(out).toEqual({
       tasks: planned,
       reason: 'unscoped read',
@@ -439,13 +505,14 @@ describe('LUM-739 hunt service', () => {
     })
     expect(repo.findFindingSummaryByScan).toHaveBeenCalledWith(job.scanId)
     const arg = planMock.mock.calls[0]![0]
+    // LUM-758 Task 10: the planner's diff view IS `job.reasons` now — there
+    // is no subgraph to render files or signals from, and building one just
+    // to route would be the up-front cost this task exists to remove.
     expect(arg.reasons).toEqual(job.reasons)
+    expect(arg).not.toHaveProperty('files')
+    expect(arg).not.toHaveProperty('signals')
     expect(arg.findings).toEqual([
       { severity: 'HIGH', ruleId: 'hunt:idor', title: 'no owner check' },
-    ])
-    // Only non-function symbols become signals; the 'function' symbol above is excluded.
-    expect(arg.signals).toEqual([
-      'lib/s.ts#prisma.findMany@5 (lib/s.ts:5, sink, prisma-raw, controls: auth)',
     ])
     expect(arg.timeoutMs).toBe(20_000)
   })
@@ -453,8 +520,7 @@ describe('LUM-739 hunt service', () => {
   it('planHunt never throws: an LLM failure falls back to the deterministic planner, never widening past what planFallback returns', async () => {
     planMock.mockRejectedValueOnce(new Error('gateway 500'))
     const job = { ...JOB, reasons: ['diff:sink:prisma-raw'] }
-    const subgraph = { symbols: [], edges: [], files: [] }
-    const out = await securityHuntService.planHunt({ job, subgraph })
+    const out = await securityHuntService.planHunt({ job })
     expect(out.by).toBe('fallback')
     // The deterministic planner maps the reason to a category, and the
     // fallback wraps it into a degenerate TASK — never a bare label.
@@ -472,10 +538,7 @@ describe('LUM-739 hunt service', () => {
   it('planHunt falls back to tasks: [] when the reasons map to nothing, never to all six categories', async () => {
     planMock.mockRejectedValueOnce(new Error('timed out'))
     const job = { ...JOB, reasons: [] }
-    const out = await securityHuntService.planHunt({
-      job,
-      subgraph: { symbols: [], edges: [], files: [] },
-    })
+    const out = await securityHuntService.planHunt({ job })
     expect(out.by).toBe('fallback')
     expect(out.tasks).toEqual([])
   })
@@ -488,10 +551,7 @@ describe('LUM-739 hunt service', () => {
       tokens: 10,
     })
     const job = { ...JOB, reasons: [] }
-    const out = await securityHuntService.planHunt({
-      job,
-      subgraph: { symbols: [], edges: [], files: [] },
-    })
+    const out = await securityHuntService.planHunt({ job })
     expect(out).toEqual({
       tasks: [],
       reason: 'nothing interesting',

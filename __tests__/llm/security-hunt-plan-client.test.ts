@@ -16,8 +16,6 @@ const gen = generateObject as jest.Mock
 
 const INPUT = {
   reasons: ['diff:sink:prisma-raw'],
-  files: [{ path: 'a.ts', touched: true }],
-  signals: [],
   findings: [],
   timeoutMs: 5_000,
 }

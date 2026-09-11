@@ -1,6 +1,6 @@
 /** @jest-environment node */
 jest.mock('@/lib/workflows/security-hunt.steps', () => ({
-  buildSubgraphStep: jest.fn(),
+  buildVerifySubgraphStep: jest.fn(),
   planHuntStep: jest.fn(),
   huntTaskStep: jest.fn(),
   mechanicalVerifyStep: jest.fn(),
@@ -24,7 +24,7 @@ jest.mock('@/lib/workflows/security-suggest.steps', () => ({
 
 import { securityHuntWorkflow } from '@/lib/workflows/security-hunt'
 import {
-  buildSubgraphStep,
+  buildVerifySubgraphStep,
   planHuntStep,
   huntTaskStep,
   mechanicalVerifyStep,
@@ -40,7 +40,7 @@ import {
   categoriesToTasks,
 } from '@/lib/security-scan/hunt/plan-fallback'
 
-const build = buildSubgraphStep as jest.Mock
+const verifyGraph = buildVerifySubgraphStep as jest.Mock
 const plan = planHuntStep as jest.Mock
 const hunt = huntTaskStep as jest.Mock
 const verify = mechanicalVerifyStep as jest.Mock
@@ -72,7 +72,6 @@ const SUBGRAPH = {
   edges: [{ from: 'x', to: 'y' }],
   files: [{ path: 'a.ts', lineCount: 3, touched: true }],
 }
-const EMPTY_SUBGRAPH = { symbols: [], edges: [], files: [] }
 
 const task = (
   id: string,
@@ -90,7 +89,7 @@ const batch = (n = 0) => ({
 
 beforeEach(() => {
   jest.clearAllMocks()
-  build.mockResolvedValue({ subgraph: SUBGRAPH, partial: false })
+  verifyGraph.mockResolvedValue(SUBGRAPH)
   verify.mockResolvedValue({ accepted: [], rejected: [] })
   persist.mockResolvedValue({ written: 0 })
   hunt.mockResolvedValue(batch())
@@ -117,14 +116,31 @@ it('plan returns an empty task list: no hunt LLM step and the layer is SKIPPED',
   expect(persisted.stage).toBe('SKIPPED')
 })
 
-it('skips before planning when the subgraph is empty', async () => {
-  build.mockResolvedValue({ subgraph: EMPTY_SUBGRAPH, partial: false })
-
-  const result = await securityHuntWorkflow(JOB)
+/**
+ * LUM-758 Task 10 — short circuit A is a DIFF-level test now. There is no
+ * up-front subgraph to find empty, and building one just to decide whether to
+ * plan is the cost this task removes. `evaluateHuntTrigger` skips non-source
+ * files outright, so no `diff:`-prefixed reason means no TypeScript source in
+ * the diff carried an entry / sink / control signal — nothing to hunt, and
+ * not one LLM call is worth making.
+ */
+it('skips before planning when no diff: reason says a TypeScript source was touched', async () => {
+  // A HIGH from stage A alone still triggers the layer (`evaluateHuntTrigger`
+  // adds `stage-a:high` regardless of the files), and it is exactly the case
+  // that used to build a 40-file subgraph to learn there was nothing in it.
+  const result = await securityHuntWorkflow({
+    ...JOB,
+    reasons: ['stage-a:high'],
+  })
 
   expect(plan).not.toHaveBeenCalled()
   expect(hunt).not.toHaveBeenCalled()
+  expect(verifyGraph).not.toHaveBeenCalled()
   expect(result.outcome).toBe('SKIPPED')
+  const persisted = persist.mock.calls[0][0]
+  expect(persisted.stage).toBe('SKIPPED')
+  expect(persisted.audit.planned).toEqual([])
+  expect(persisted.tokenSpent).toBe(0)
 })
 
 it('plan failure falls back to deterministic category tasks, at most three, never all six', async () => {

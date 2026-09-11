@@ -48,5 +48,11 @@ export interface Subgraph {
   files: GraphFile[]
 }
 
-/** Spec §6 L3: touched files + one-hop imports, capped; beyond it → partial. */
+/**
+ * LUM-758 Task 10 — a bound on how many files the MECHANICAL GATE reads when
+ * it builds its verification subgraph on demand. It is NOT a cap on what the
+ * hunt agent may see: the agent reads the whole checkout through the
+ * restricted shell, and it no longer sets `partial` anywhere. Restoring
+ * either meaning would bring back LUM-762's routine PARTIAL verdicts.
+ */
 export const SUBGRAPH_MAX_FILES = 40

@@ -14,26 +14,25 @@
  * The hunt loop itself reads the repo through `security-hunt-sandbox.ts`,
  * which is the ONLY module that may touch a sandbox — this one never reaches
  * into `handle.sandbox`, so every command the model runs passes through
- * `runHuntShell`'s gate (see the exec-boundary test).
+ * `runHuntShell`'s gate and every file the verification subgraph reads goes
+ * through `readHuntFile` (see the exec-boundary test).
  */
 import { logger } from '@/lib/logger'
-import { fetchPrDiff, readRepoFile } from '@/lib/integrations/github/contents'
+import { readRepoFile } from '@/lib/integrations/github/contents'
 import {
-  addedLinesWithNumbers,
   redactKnownSecrets,
   inheritDispositions,
   mechanicalVerify,
 } from '@/lib/security-scan'
 import {
   buildSubgraph,
-  listImports,
   type SourceFileInput,
 } from '@/lib/security-scan/graph/build-subgraph'
+import { isGraphSourcePath } from '@/lib/security-scan/graph/imports'
 import {
-  resolveImportCandidates,
-  isGraphSourcePath,
-} from '@/lib/security-scan/graph/imports'
-import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
+  SUBGRAPH_MAX_FILES,
+  type Subgraph,
+} from '@/lib/security-scan/graph/types'
 import { numberLines } from '@/lib/security-scan/hunt/snippet'
 import {
   parseHuntCoverage,
@@ -50,8 +49,10 @@ import {
 } from '@/lib/repositories/pr-security-scan.repository'
 import {
   attachOrCreateHuntSandbox,
+  readHuntFile,
   runHuntShell,
   stopHuntSandbox,
+  type HuntSandbox,
 } from './security-hunt-sandbox'
 import {
   HUNT_MAX_STEPS_PER_CATEGORY,
@@ -61,7 +62,7 @@ import {
   PLAN_HUNT_TIMEOUT_MS,
   type HuntJob,
   type HuntAudit,
-  type SubgraphResult,
+  type VerifySubgraphInput,
   type HuntBatchInput,
   type HuntBatchOutput,
   type MechanicalVerifyInput,
@@ -151,67 +152,107 @@ function capAudit(audit: HuntAudit): Record<string, unknown> {
   }
 }
 
-export const securityHuntService = {
-  /**
-   * Spec §6 L3 "Map": PR-touched TS/TSX files + their one-hop imports, read
-   * at the head sha, capped at SUBGRAPH_MAX_FILES (→ partial).
-   */
-  async buildSubgraph(job: HuntJob): Promise<SubgraphResult> {
-    const diff = await fetchPrDiff({
-      workspaceId: job.workspaceId,
-      fullName: job.repo,
-      prNumber: job.prNumber,
-    })
-    const touched = [
-      ...new Set(
-        addedLinesWithNumbers(diff)
-          .map(f => f.path)
-          .filter(isGraphSourcePath)
-      ),
-    ].sort()
-
-    const inputs: SourceFileInput[] = []
-    const loaded = new Set<string>()
-    const missing = new Set<string>()
-    let partial = false
-    const full = () => {
-      if (inputs.length < SUBGRAPH_MAX_FILES) return false
-      partial = true
-      return true
+/**
+ * LUM-758 Task 10 — every `file` a candidate names, plus the file half of
+ * every symbol id in its call chain. The candidates have NOT been through
+ * zod at this point (the mechanical gate is what validates their shape), so
+ * every level here reads defensively and a malformed one simply contributes
+ * nothing.
+ */
+export function candidateFilePaths(raw: unknown): string[] {
+  if (!raw || typeof raw !== 'object') return []
+  const c = raw as Record<string, unknown>
+  const out: string[] = []
+  const fileOf = (v: unknown): void => {
+    if (v && typeof v === 'object') {
+      const f = (v as { file?: unknown }).file
+      if (typeof f === 'string') out.push(f)
     }
-
-    for (const path of touched) {
-      if (full()) break
-      const source = await readAtHead(job, path)
-      if (source === null) continue
-      inputs.push({ path, source, touched: true })
-      loaded.add(path)
-    }
-
-    const hop = [...inputs]
-    outer: for (const file of hop) {
-      for (const spec of listImports(file.path, file.source)) {
-        const candidates = resolveImportCandidates(file.path, spec).filter(
-          isGraphSourcePath
-        )
-        if (candidates.length === 0) continue
-        if (candidates.some(c => loaded.has(c))) continue
-        if (candidates.every(c => missing.has(c))) continue
-        if (full()) break outer
-        for (const c of candidates) {
-          if (missing.has(c)) continue
-          const source = await readAtHead(job, c)
-          if (source === null) {
-            missing.add(c)
-            continue
-          }
-          inputs.push({ path: c, source, touched: false })
-          loaded.add(c)
-          break
+  }
+  fileOf(c.entry)
+  fileOf(c.sink)
+  if (Array.isArray(c.call_chain)) {
+    for (const edge of c.call_chain) {
+      if (!edge || typeof edge !== 'object') continue
+      for (const key of ['from', 'to'] as const) {
+        const symbol = (edge as Record<string, unknown>)[key]
+        // A symbol id is `path/to/file.ts#name` — take the part before `#`.
+        if (typeof symbol === 'string' && symbol.includes('#')) {
+          out.push(symbol.slice(0, symbol.indexOf('#')))
         }
       }
     }
-    return { subgraph: buildSubgraph(inputs), partial }
+  }
+  return out
+}
+
+/**
+ * A repository-relative TS/TSX path the verification read may follow. The
+ * paths come from model output, so "inside the checkout" is checked here
+ * rather than trusted: `readHuntFile` joins this onto the checkout directory,
+ * and `../` or an absolute path would walk straight out of it.
+ */
+export function isVerifiableRepoPath(path: string): boolean {
+  if (!isGraphSourcePath(path)) return false
+  if (path.startsWith('/')) return false
+  return !path.split('/').includes('..')
+}
+
+/**
+ * The graph itself: the candidates' files, sorted for determinism, read out
+ * of the checkout. SUBGRAPH_MAX_FILES bounds the READS, nothing else — a
+ * candidate that falls outside it is judged against a graph that lacks its
+ * file and is rejected with a reason, which is a truthful audit row, not a
+ * `partial` verdict on the layer.
+ */
+async function collectVerifySubgraph(
+  handle: HuntSandbox,
+  candidates: unknown[]
+): Promise<Subgraph> {
+  const paths = new Set<string>()
+  for (const raw of candidates) {
+    for (const path of candidateFilePaths(raw)) {
+      if (isVerifiableRepoPath(path)) paths.add(path)
+    }
+  }
+  const inputs: SourceFileInput[] = []
+  for (const path of [...paths].sort().slice(0, SUBGRAPH_MAX_FILES)) {
+    const source = await readHuntFile(handle, path)
+    if (source !== null) inputs.push({ path, source, touched: true })
+  }
+  return buildSubgraph(inputs)
+}
+
+export const securityHuntService = {
+  /**
+   * LUM-758 §5.5 Task 10 — the subgraph the MECHANICAL GATE needs, built ON
+   * DEMAND from the files the candidates actually reference.
+   *
+   * The difference from the `buildSubgraph(job)` it replaces is the whole
+   * point of the task: SUBGRAPH_MAX_FILES here bounds only how many files
+   * VERIFICATION reads. It is no longer the agent's field of view and it no
+   * longer sets `partial` — that triple duty is why PARTIAL was the routine
+   * outcome before LUM-762. Files come from the sandbox checkout, which is
+   * right there, so this costs no GitHub calls at all.
+   */
+  async buildVerifySubgraph(input: VerifySubgraphInput): Promise<Subgraph> {
+    // A step's input must be serialisable, so a live `HuntSandbox` (it
+    // carries methods) cannot cross the boundary: this acquires its own
+    // handle down the same attach-or-create path `huntBatch` uses. By now the
+    // managed scan's VM is usually still up, or the hunt's own one is.
+    const handle = await attachOrCreateHuntSandbox({
+      scanId: input.job.scanId,
+      workspaceId: input.job.workspaceId,
+      repo: input.job.repo,
+      headSha: input.job.headSha,
+      managedScanStarted: input.job.managedScanStarted,
+    })
+    try {
+      return await collectVerifySubgraph(handle, input.candidates)
+    } finally {
+      // Stops the VM only if this call created it — see `stopHuntSandbox`.
+      await stopHuntSandbox(handle)
+    }
   },
 
   /**
@@ -223,7 +264,7 @@ export const securityHuntService = {
    * 兜底绝不退回跑满 6 类 —— 那正是本任务要消灭的行为。
    */
   async planHunt(input: PlanHuntInput): Promise<PlanHuntOutput> {
-    const { job, subgraph } = input
+    const { job } = input
     const fallback = (reason: string): PlanHuntOutput => ({
       tasks: categoriesToTasks(planFallback(job.reasons)),
       reason,
@@ -245,17 +286,11 @@ export const securityHuntService = {
       const { planHuntTasks } =
         await import('@/lib/llm/security-hunt-plan-client')
       const out = await planHuntTasks({
+        // LUM-758 Task 10 — `job.reasons` IS the planner's diff view now: it
+        // already carries the entry / sink / control rule ids the static pass
+        // matched, and nothing else here is worth a 40-file graph the agent
+        // will not read.
         reasons: job.reasons,
-        files: subgraph.files.map(f => ({
-          path: f.path,
-          touched: f.touched,
-        })),
-        signals: subgraph.symbols
-          .filter(s => s.kind !== 'function')
-          .map(
-            s =>
-              `${s.id} (${s.file}:${s.line}, ${s.kind}${s.rule ? `, ${s.rule}` : ''}${s.controls.length > 0 ? `, controls: ${s.controls.join(',')}` : ''})`
-          ),
         findings,
         timeoutMs: PLAN_HUNT_TIMEOUT_MS,
       })
@@ -337,7 +372,7 @@ export const securityHuntService = {
       const { huntTask } = await import('@/lib/llm/security-hunt-client')
       const out = await huntTask({
         task: input.task,
-        subgraph: input.subgraph,
+        reasons: input.job.reasons,
         // The ONLY path from the model to the VM. The handle goes in whole so
         // the credential guard cannot be skipped by construction, and the
         // command goes through untouched so the string `checkHuntCommand`
