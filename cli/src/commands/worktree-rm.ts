@@ -7,11 +7,44 @@ import {
   findWorktreeByTaskId,
 } from '../lib/worktree'
 import { resolveWorktreeTaskId } from '../lib/worktree-ref'
+import {
+  emitConfirmation,
+  isConfirmed,
+  type ConfirmFlags,
+} from '../lib/confirmation'
 
-export interface WorktreeRmOptions {
-  yes?: boolean | undefined
+export interface WorktreeRmOptions extends ConfirmFlags {
   force?: boolean | undefined
   deleteBranch?: boolean | undefined
+}
+
+/**
+ * The changes[] block for the confirmation envelope. `dirty` adds the
+ * discard warning that --force acknowledges; `deleteBranch` flips the branch
+ * line from "kept" to "deleted".
+ */
+export function describeWorktreeRm(args: {
+  path: string
+  branch: string | null
+  dirty: boolean
+  deleteBranch: boolean
+}): string[] {
+  const lines = [
+    `Will remove worktree ${args.path}${args.branch ? ` (branch ${args.branch})` : ''}`,
+  ]
+  if (args.dirty) {
+    lines.push(
+      '⚠ The worktree has uncommitted changes — they will be discarded (--force acknowledges this)'
+    )
+  }
+  if (args.branch) {
+    lines.push(
+      args.deleteBranch
+        ? `Branch ${args.branch} will be deleted too (--delete-branch; git refuses an unmerged branch)`
+        : `Branch ${args.branch} is kept (pass --delete-branch to delete it)`
+    )
+  }
+  return lines
 }
 
 export async function worktreeRm(
@@ -47,19 +80,23 @@ export async function worktreeRm(
     console.error(`Error: no worktree found for ${taskId}`)
     return 1
   }
-  if (!opts.yes) {
-    console.error(
-      `Error: refusing to remove ${target.path} without --yes (destructive)`
-    )
-    return 1
-  }
 
   const dirty = gitOutput(['status', '--porcelain'], target.path).length > 0
-  if (dirty && !opts.force) {
-    console.error(
-      `Error: ${target.path} has uncommitted changes — pass --force to remove anyway`
-    )
-    return 1
+
+  // LUM-755: two gates, one envelope. Missing --confirm, or a dirty tree
+  // without --force, both stop here with the same structured refusal; the
+  // confirmCommand carries whichever flags are still missing.
+  if (!isConfirmed(opts) || (dirty && !opts.force)) {
+    return emitConfirmation({
+      command: 'worktree rm',
+      changes: describeWorktreeRm({
+        path: target.path,
+        branch: target.branch ?? null,
+        dirty,
+        deleteBranch: Boolean(opts.deleteBranch),
+      }),
+      extraFlags: dirty ? ['--force'] : [],
+    })
   }
 
   const removeArgs =

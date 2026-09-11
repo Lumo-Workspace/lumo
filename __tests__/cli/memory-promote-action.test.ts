@@ -60,12 +60,26 @@ it('promote errors on missing id (no network)', async () => {
   expect(err).toHaveBeenCalledWith(expect.stringMatching(/missing <memoryId>/))
 })
 
-it('rm refuses without --yes (no network)', async () => {
-  const fetchSpy = jest.spyOn(global, 'fetch')
+it('rm without --confirm: fetches the card, exits 4 with the envelope, sends no DELETE (LUM-755)', async () => {
+  const out = jest.spyOn(process.stdout, 'write').mockImplementation(() => true)
   const err = jest.spyOn(console, 'error').mockImplementation(() => {})
-  expect(await memoryRm('m1', {})).toBe(1)
-  expect(fetchSpy).not.toHaveBeenCalled()
-  expect(err).toHaveBeenCalledWith(expect.stringMatching(/--yes/))
+  const calls: { url: string; method: string }[] = []
+  jest.spyOn(global, 'fetch').mockImplementation(((url: any, init: any) => {
+    calls.push({ url: String(url), method: init?.method ?? 'GET' })
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        memory: { id: 'm1', category: 'TRAP', content: { situation: 'x' } },
+      }),
+    } as Response)
+  }) as any)
+  expect(await memoryRm('m1', {})).toBe(4)
+  expect(calls).toEqual([{ url: 'https://x/api/memories/m1', method: 'GET' }])
+  expect(err).not.toHaveBeenCalled()
+  const printed = out.mock.calls.map(c => String(c[0])).join('')
+  expect(printed).toContain('confirmation_required')
+  expect(printed).toContain('Will hard-delete memory m1 [TRAP]')
 })
 
 it('rm DELETEs with --yes (204)', async () => {

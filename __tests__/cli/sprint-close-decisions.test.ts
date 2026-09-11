@@ -3,6 +3,7 @@
  */
 import {
   buildCloseDecisions,
+  describeSprintClose,
   formatUnfinishedRefusal,
 } from '@/cli/src/commands/sprint-close'
 import type { TaskRow } from '@/cli/src/lib/format'
@@ -98,10 +99,11 @@ describe('formatUnfinishedRefusal', () => {
     expect(out).toContain('TODO')
   })
 
-  it('mentions --move-all --yes, --backlog-all --yes, and Web UI in resolution hint', () => {
+  it('mentions --move-all --confirm, --backlog-all --confirm, and Web UI in resolution hint', () => {
     const out = formatUnfinishedRefusal(1, 'My Sprint', [inProgress])
-    expect(out).toContain('--move-all --yes')
-    expect(out).toContain('--backlog-all --yes')
+    expect(out).toContain('--move-all --confirm')
+    expect(out).toContain('--backlog-all --confirm')
+    expect(out).not.toContain('--yes')
     expect(out).toContain('Web UI')
   })
 
@@ -110,5 +112,27 @@ describe('formatUnfinishedRefusal', () => {
     const lines = out.split('\n')
     const lastMeaningful = lines[lines.length - 1] ?? ''
     expect(lastMeaningful.length).toBeGreaterThan(0)
+  })
+})
+
+describe('describeSprintClose (confirmation envelope changes[])', () => {
+  it('names the sprint and lists every unfinished task with its destination', () => {
+    expect(
+      describeSprintClose(5, 'Sprint 5', [done1, inProgress, todo], 'move')
+    ).toEqual([
+      'Will close sprint #5 "Sprint 5"',
+      '2 unfinished tasks move to the next sprint: LUM-3, LUM-4',
+    ])
+    expect(describeSprintClose(5, 'Sprint 5', [inReview], 'backlog')).toEqual([
+      'Will close sprint #5 "Sprint 5"',
+      '1 unfinished task return to the backlog: LUM-5',
+    ])
+  })
+
+  it('says nothing moves when every task is DONE', () => {
+    expect(describeSprintClose(2, 'S2', [done1, done2], 'move')).toEqual([
+      'Will close sprint #2 "S2"',
+      'No unfinished tasks — nothing is moved',
+    ])
   })
 })

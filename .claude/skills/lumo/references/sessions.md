@@ -36,7 +36,7 @@ When the session is bound, session-start may inject a **"🆕 Review needed: pro
 
 #### When to suggest
 
-Briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory rm <id> --yes` (ideally confirm with the user first). If they all look right, ignore the section and continue.
+Briefly sanity-check each listed memory against the codebase/context. If one is wrong or over-generalized, remove it with `lumo memory rm <id>` — it exits 4 with a confirmation envelope; show it to the user and re-run with `--confirm` only on their approval ([confirmation.md](confirmation.md)). If they all look right, ignore the section and continue.
 
 ### Blocker alert injected at `session attach` / session-start
 
@@ -73,7 +73,7 @@ Detected 3 candidate dependencies awaiting confirmation: run `lumo task deps lis
 Watch for EITHER the `## ⚠ Dependency alerts` header (form A) OR the standalone hint line (form B).
 
 - `lumo task deps list <LUM-N>` — inspect the full edge list (run for any candidate hint, form A or B; confirm real SUGGESTED edges, dismiss false positives — unreviewed edges mean repeated hints every session).
-- `lumo task deps rm <LUM-N> <edge> --yes` — drop a manually-added, now-obsolete edge.
+- `lumo task deps rm <LUM-N> <edge> --confirm` — drop a manually-added, now-obsolete edge (exit 4 + envelope without `--confirm`).
 - `lumo task deps dismiss <LUM-N> <edge>` — dismiss a false positive from detection.
 - Form A live blockers: evaluate whether to wait — overlapping work (same files, same API surface) risks rework; read the blocker's status and open-PR note before deciding.
 - Do **not** blindly start work on a task whose live blocker is still IN_PROGRESS or IN_REVIEW unless the user explicitly decides to proceed in parallel.

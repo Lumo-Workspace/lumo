@@ -187,6 +187,16 @@ const collect = (val: string, acc: string[]): string[] => [...acc, val]
 
 type CommandFn = (...args: unknown[]) => Promise<number | void>
 
+/**
+ * Exit-code convention (LUM-755). A command returns the code to propagate:
+ *   0 / undefined  success
+ *   1              general error (message on stderr)
+ *   4              confirmation required — a mutation that needs the user's
+ *                  approval printed a `confirmation_required` envelope on
+ *                  stdout (see cli/src/lib/confirmation.ts); re-run the
+ *                  envelope's `confirmCommand` once the user has approved
+ * 2 (auth) and 3 (validation) are reserved for a later pass.
+ */
 function wrap(fn: CommandFn) {
   return async (...args: unknown[]) => {
     try {
@@ -842,11 +852,21 @@ taskDeps
   .action(wrap((id, edge) => taskDepsDismiss(id as string, edge as string)))
 taskDeps
   .command('rm <identifier> <edge>')
-  .option('--yes', 'skip confirmation')
-  .description('Delete a dependency edge')
+  .description(
+    'Delete a dependency edge. Without --confirm: exit 4 + a confirmation envelope describing the edge.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((id, edge, opts) =>
-      taskDepsRm(id as string, edge as string, opts as { yes?: boolean })
+      taskDepsRm(
+        id as string,
+        edge as string,
+        opts as { confirm?: boolean; yes?: boolean }
+      )
     )
   )
 
@@ -1043,14 +1063,20 @@ taskArtifact
 
 taskArtifact
   .command('rm <task> <artifact-id>')
-  .description('Delete an artifact from a task. Irreversible — requires --yes.')
-  .option('--yes', 'Confirm deletion (required, no interactive prompt)')
+  .description(
+    'Delete an artifact from a task (irreversible). Without --confirm: exit 4 + a confirmation envelope naming the artifact.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
       taskArtifactRm(
         taskId as string,
         artifactId as string,
-        options as { yes?: boolean }
+        options as { confirm?: boolean; yes?: boolean }
       )
     )
   )
@@ -1138,11 +1164,17 @@ memoryCmd
 
 memoryCmd
   .command('rm <memoryId>')
-  .description('Delete a memory (hard delete). Requires --yes.')
-  .option('--yes', 'Confirm deletion')
+  .description(
+    'Delete a memory (hard delete). Without --confirm: exit 4 + a confirmation envelope showing the card.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((id: unknown, opts: unknown) =>
-      memoryRm(id as string, opts as { yes?: boolean })
+      memoryRm(id as string, opts as { confirm?: boolean; yes?: boolean })
     )
   )
 
@@ -1289,15 +1321,19 @@ milestoneCmd
 milestoneCmd
   .command('delete <identifier>')
   .description(
-    'Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Requires --yes.'
+    'Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Without --confirm: exit 4 + a confirmation envelope with the task count.'
   )
   .option('--project <ref>', 'Project name or slug (when identifier is a name)')
-  .option('--yes', 'Required: confirm deletion without TTY prompt')
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       milestoneDelete(
         identifier as string,
-        options as { project?: string; yes?: boolean }
+        options as { project?: string; confirm?: boolean; yes?: boolean }
       )
     )
   )
@@ -1575,10 +1611,14 @@ sprintCmd
 sprintCmd
   .command('delete <identifier>')
   .description(
-    'Delete a DRAFT sprint. Requires --yes. Server rejects ACTIVE/CLOSED sprints.'
+    'Delete a DRAFT sprint. Without --confirm: exit 4 + a confirmation envelope with the task count. Server rejects ACTIVE/CLOSED sprints.'
   )
   .option('--team <ref>', 'Team name or UUID (informational)')
-  .option('--yes', 'Confirm deletion')
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       sprintDelete(identifier as string, options as Record<string, unknown>)
@@ -1598,12 +1638,16 @@ sprintCmd
 sprintCmd
   .command('close <identifier>')
   .description(
-    'Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all --yes to move unfinished tasks to the next sprint, or --backlog-all --yes to return them to the backlog.'
+    'Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all to move unfinished tasks to the next sprint, or --backlog-all to return them to the backlog; either mode without --confirm exits 4 with a confirmation envelope listing the tasks that would move.'
   )
   .option('--team <ref>', 'Team name or UUID (informational)')
   .option('--move-all', 'Move all unfinished tasks to the next sprint')
   .option('--backlog-all', 'Return all unfinished tasks to the backlog')
-  .option('--yes', 'Required when --move-all or --backlog-all is set')
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       sprintClose(identifier as string, options as Record<string, unknown>)
@@ -1836,7 +1880,11 @@ doc
   )
   .option(
     '--force',
-    'Re-derive the source even when one already exists (default: refused with 409)'
+    'Re-derive the source even when one already exists. Without it an existing source yields exit 4 + a confirmation envelope whose confirmCommand carries --force --confirm.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved replacing the existing source (LUM-755); pair with --force as the envelope instructs'
   )
   .option(
     '--if-revision <n>',
@@ -1849,6 +1897,7 @@ doc
         opts as {
           allowShrink?: boolean
           force?: boolean
+          confirm?: boolean
           ifRevision?: string
         }
       )
@@ -1883,11 +1932,20 @@ doc
 
 doc
   .command('delete <doc>')
-  .description('Delete a document (requires --yes)')
-  .option('--yes', 'Confirm deletion')
+  .description(
+    'Delete a document and everything nested under it. Without --confirm: exit 4 + a confirmation envelope with the title.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((reference, opts) =>
-      docDelete(reference as string | undefined, opts as Record<string, string>)
+      docDelete(
+        reference as string | undefined,
+        opts as { confirm?: boolean; yes?: boolean }
+      )
     )
   )
 
@@ -2011,6 +2069,10 @@ task
     collect,
     []
   )
+  .option(
+    '--confirm',
+    'With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt.'
+  )
   .action(
     wrap((identifier, options) =>
       taskUpdate(identifier as string, options as Record<string, string>)
@@ -2051,10 +2113,14 @@ worktree
 worktree
   .command('rm <identifier>')
   .description(
-    'Remove the worktree for a task (git worktree remove). Requires --yes. Refuses a dirty worktree unless --force. Keeps the branch unless --delete-branch.'
+    'Remove the worktree for a task (git worktree remove). Without --confirm — or with uncommitted changes and no --force — exits 4 with a confirmation envelope naming the path, branch and what would be discarded. Keeps the branch unless --delete-branch.'
   )
-  .option('--yes', 'Confirm removal (required, no interactive prompt)')
-  .option('--force', 'Remove even with uncommitted changes')
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
+  .option('--force', 'Remove even with uncommitted changes (discards them)')
   .option(
     '--delete-branch',
     'Also delete the branch (git branch -d; refuses if unmerged)'
@@ -2063,7 +2129,12 @@ worktree
     wrap((identifier, options) =>
       worktreeRm(
         identifier as string,
-        options as { yes?: boolean; force?: boolean; deleteBranch?: boolean }
+        options as {
+          confirm?: boolean
+          yes?: boolean
+          force?: boolean
+          deleteBranch?: boolean
+        }
       )
     )
   )

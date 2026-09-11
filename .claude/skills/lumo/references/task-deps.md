@@ -82,12 +82,13 @@ lumo task deps dismiss LUM-42 e5f6a7b8
 
 Use `dismiss` for false positives. Use `rm` only when you want the pair eligible for re-detection again.
 
-## `lumo task deps rm <LUM-N> <edge> --yes` — delete an edge
+## `lumo task deps rm <LUM-N> <edge> --confirm` — delete an edge
 
-Hard-deletes the edge row. **Requires `--yes`** — the CLI refuses without it (no interactive prompt exists).
+Hard-deletes the edge row. Without `--confirm` it resolves the edge, then exits **4** with a confirmation envelope describing it (`Will delete dependency edge [a1b2c3d4] from LUM-42: blocked by LUM-9 "…" (CONFIRMED, manual)`) and sends nothing — relay `changes` to the user and re-run the envelope's `confirmCommand` on approval (see [confirmation.md](confirmation.md)). `--yes` is a legacy alias of `--confirm`.
 
 ```bash
-lumo task deps rm LUM-42 a1b2c3d4 --yes
+lumo task deps rm LUM-42 a1b2c3d4            # exit 4 + envelope, nothing deleted
+lumo task deps rm LUM-42 a1b2c3d4 --confirm  # after the user approved
 # Removed [a1b2c3d4] from LUM-42
 ```
 
