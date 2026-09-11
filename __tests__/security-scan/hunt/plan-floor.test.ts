@@ -180,6 +180,86 @@ describe('LUM-764 plan floor', () => {
     expect(new Set(out.tasks.map(t => t.id)).size).toBe(out.tasks.length)
   })
 
+  /**
+   * LUM-764 review ① — `planFallback` maps `diff:*` rules only, so a PR whose
+   * only signals are `stage-a:high` / `l4:open-crossing` (both of which short
+   * circuit A lets through once the diff touched source) arrives with an EMPTY
+   * floor. Untrusted task text in the prompt and nothing underneath it is the
+   * one shape where the union rule is vacuous — and "HIGH stage-A finding next
+   * to changed code" is among the most worth hunting.
+   */
+  it('an empty floor is not a control: a suppressed plan is re-planned without the task text', async () => {
+    const interestJob: HuntJob = { ...JOB, reasons: ['stage-a:high'] }
+    expect(planFallback(interestJob.reasons)).toEqual([])
+
+    // Call 1 (with the task block): emptied. Call 2 (clean prompt): not.
+    planMock
+      .mockResolvedValueOnce({
+        tasks: [],
+        reason: 'the task says this is documentation only',
+        tokens: 30,
+      })
+      .mockResolvedValueOnce({
+        tasks: [
+          modelTask('idor', 'the new admin route reads by id with no scope'),
+        ],
+        reason: 'unscoped read next to a HIGH finding',
+        tokens: 25,
+      })
+
+    const out = await securityHuntService.planHunt({ job: interestJob })
+
+    expect(planMock).toHaveBeenCalledTimes(2)
+    // The second call is the control: same diff view, task block removed.
+    expect(planMock.mock.calls[0]![0].taskContext).toContain(
+      '<untrusted-task-context>'
+    )
+    expect(planMock.mock.calls[1]![0].taskContext).toBeUndefined()
+    expect(planMock.mock.calls[1]![0].reasons).toEqual(interestJob.reasons)
+
+    expect(out.tasks.map(t => t.category)).toEqual(['idor'])
+    expect(out.floorForced).toEqual(['idor'])
+    // Both calls are billed — a scan that planned twice must not read as one.
+    expect(out.tokens).toBe(55)
+    expect(out.reason).toContain('re-planned without the task text')
+    expect(out.by).toBe('model')
+  })
+
+  it('a plan that is empty without the task text too stays empty, and says so', async () => {
+    const interestJob: HuntJob = { ...JOB, reasons: ['l4:open-crossing'] }
+    planMock
+      .mockResolvedValueOnce({ tasks: [], reason: 'nothing here', tokens: 20 })
+      .mockResolvedValueOnce({ tasks: [], reason: 'nothing here', tokens: 18 })
+
+    const out = await securityHuntService.planHunt({ job: interestJob })
+
+    expect(out.tasks).toEqual([])
+    expect(out.floorForced).toEqual([])
+    expect(out.tokens).toBe(38)
+    expect(out.reason).toContain('empty without the task text too')
+
+    // A control that cannot run leaves the suppressed answer standing — the
+    // alternative is the same empty plan tagged `fallback`, which would book a
+    // planner failure that never happened. The gap is named in the reason.
+    planMock.mockReset()
+    planMock
+      .mockResolvedValueOnce({ tasks: [], reason: 'suppressed', tokens: 10 })
+      .mockRejectedValueOnce(new Error('gateway 500'))
+    const degraded = await securityHuntService.planHunt({ job: interestJob })
+    expect(degraded.by).toBe('model')
+    expect(degraded.tasks).toEqual([])
+    expect(degraded.reason).toContain('control re-plan unavailable')
+  })
+
+  it('does not re-plan when the mechanical floor already covers the diff', async () => {
+    // JOB has a sink + an unguarded entry, so the floor is non-empty and the
+    // union is a real control — no second call, no extra cost.
+    planMock.mockResolvedValueOnce({ tasks: [], reason: 'x', tokens: 30 })
+    const out = await securityHuntService.planHunt({ job: JOB })
+    expect(planMock).toHaveBeenCalledTimes(1)
+    expect(out.tasks.map(t => t.category)).toEqual(['injection', 'idor'])
+  })
+
   it('no untrusted task text means no floor: an empty model plan still yields an empty plan', async () => {
     // Option B — a PR with no linked task (or a task with nothing on it) keeps
     // LUM-758's behaviour exactly: SKIPPED stays reachable, and the floor's

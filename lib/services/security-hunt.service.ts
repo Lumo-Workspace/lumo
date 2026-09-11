@@ -67,6 +67,7 @@ import {
   PLAN_HUNT_MAX_ATTEMPTS,
   PLAN_HUNT_TIMEOUT_MS,
   type HuntJob,
+  type HuntTask,
   type HuntAudit,
   type VerifySubgraphInput,
   type HuntBatchInput,
@@ -145,6 +146,87 @@ export function toHuntFindingRows(
       falsifierVerdict: 'INCONCLUSIVE',
     }
   })
+}
+
+/**
+ * LUM-764 review ① — the control group for a plan that came back EMPTY with
+ * untrusted task text in the prompt and no mechanical floor under it.
+ *
+ * Re-plans the same diff with the task block removed. Whatever that clean
+ * prompt asks for is the lower bound: the task text was the only difference
+ * between the two calls, so a plan that exists without it and vanishes with it
+ * was suppressed by the text, and this restores it. An empty answer here is a
+ * real empty answer — the diff genuinely gives the hunt nowhere to go — and it
+ * is recorded as such rather than as "the task said so".
+ *
+ * `floorForced` carries the restored categories, same question it answers
+ * everywhere else: which of these tasks exist only because the floor rule
+ * applied. Tokens from both calls are summed; the read-out must not under-bill
+ * a scan that planned twice.
+ *
+ * Fail-soft. A re-plan that throws leaves the suppressed (empty) answer
+ * standing, because the alternative — falling through to the deterministic
+ * fallback — is `categoriesToTasks([])`, the same empty plan with a `fallback`
+ * tag that would book a planner failure that did not happen. The reason string
+ * says the control never ran, so the gap is visible in the audit instead of
+ * silently reading as "confirmed empty".
+ */
+async function replanWithoutTaskContext(input: {
+  job: HuntJob
+  findings: FindingSummary[]
+  suppressed: { tasks: HuntTask[]; reason: string; tokens: number }
+}): Promise<PlanHuntOutput> {
+  const { job, findings, suppressed } = input
+  const base: PlanHuntOutput = {
+    tasks: [],
+    reason: suppressed.reason,
+    tokens: suppressed.tokens,
+    by: 'model',
+    taskContext: true,
+    floorForced: [],
+  }
+  try {
+    const { planHuntTasks } =
+      await import('@/lib/llm/security-hunt-plan-client')
+    const clean = await planHuntTasks({
+      reasons: job.reasons,
+      touchedPaths: job.touchedSourcePaths,
+      findings,
+      // The whole point of the second call: no task block.
+      timeoutMs: PLAN_HUNT_TIMEOUT_MS,
+    })
+    const tokens = suppressed.tokens + clean.tokens
+    if (clean.tasks.length === 0) {
+      return {
+        ...base,
+        tokens,
+        reason: `${suppressed.reason} (empty without the task text too)`,
+      }
+    }
+    logger.warn(
+      `[security-hunt] plan emptied with task context but not without it scan=${job.scanId}; using the clean plan`
+    )
+    return {
+      tasks: clean.tasks.slice(0, HUNT_MAX_PLANNED_TASKS),
+      reason: `re-planned without the task text, which had emptied the plan: ${clean.reason}`,
+      tokens,
+      by: 'model',
+      taskContext: true,
+      floorForced: [
+        ...new Set(
+          clean.tasks.slice(0, HUNT_MAX_PLANNED_TASKS).map(t => t.category)
+        ),
+      ],
+    }
+  } catch (error) {
+    logger.warn(
+      `[security-hunt] control re-plan failed scan=${job.scanId}: ${messageOf(error)}`
+    )
+    return {
+      ...base,
+      reason: `${suppressed.reason} (control re-plan unavailable: ${messageOf(error).slice(0, 120)})`,
+    }
+  }
 }
 
 /** Keep the audit JSON bounded: the counts are exact, the lists are samples. */
@@ -362,14 +444,36 @@ export const securityHuntService = {
           floor,
           HUNT_MAX_PLANNED_TASKS
         )
-        return {
-          tasks,
-          reason: out.reason,
-          tokens: out.tokens,
-          by: 'model',
-          taskContext: true,
-          floorForced: forced,
+        if (tasks.length > 0 || floor.length > 0) {
+          return {
+            tasks,
+            reason: out.reason,
+            tokens: out.tokens,
+            by: 'model',
+            taskContext: true,
+            floorForced: forced,
+          }
         }
+        // LUM-764 review ① — the floor is EMPTY here, and an empty floor is
+        // not a control. `planFallback` maps `diff:*` rules only: `stage-a:high`
+        // and `l4:open-crossing` have no deterministic category to derive
+        // (LUM-758 Task 1), yet short circuit A lets them through as long as
+        // the diff touched source. So the combination "HIGH stage-A finding +
+        // changed code + no sink or entry matched" reaches the planner with
+        // untrusted task text in the prompt and NOTHING underneath it — and
+        // that combination is one of the most worth hunting.
+        //
+        // The control group: re-plan the same diff with the task block
+        // REMOVED, and treat that answer as the floor. It is the same rule as
+        // everywhere else in this task ("untrusted text may add, never
+        // subtract"), just with the lower bound measured instead of derived.
+        // It costs one extra ≤ PLAN_HUNT_TOKEN_BUDGET call, and only in this
+        // narrow shape: task text present, no mechanical floor, empty plan.
+        return await replanWithoutTaskContext({
+          job,
+          findings,
+          suppressed: out,
+        })
       } catch (error) {
         lastError = messageOf(error)
         // Only a transient deserves the second window. A schema-validation

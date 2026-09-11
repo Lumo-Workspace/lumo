@@ -102,6 +102,25 @@ export function categoriesToTasks(categories: HuntCategory[]): HuntTask[] {
  * `forced` names the categories that were only present because of the floor,
  * for the audit: it is the price the rule is paid in (a PR that would have
  * been SKIPPED now runs), and it must be readable after the fact.
+ *
+ * **What this floor does NOT guarantee (LUM-764 review ②).** Coverage is
+ * judged on the category alone, so a model task filed under a floor category
+ * satisfies that category whatever its objective says — including an objective
+ * that amounts to "confirm nothing needs checking here". Untrusted text can
+ * therefore still take a slot with a hollow task; what it can no longer do is
+ * remove the category from the plan. That is a real weakening of the attack
+ * (suppression → dilution), not its elimination.
+ *
+ * It is left that way on purpose: judging whether an objective is a genuine
+ * investigation is exactly the kind of call a rule cannot make, and a rule that
+ * pretended to would either reject good plans or be argued past by the same
+ * text. The honest statement of the guarantee is: **the floor guarantees
+ * category COVERAGE, never investigation QUALITY.** Quality is what the
+ * mechanical gate and the falsifier downstream are for — neither of them ever
+ * sees the task text.
+ *
+ * The empty-floor case has no coverage to guarantee at all; `planHunt`'s
+ * control re-plan handles it, see `replanWithoutTaskContext`.
  */
 export function applyPlanFloor(
   modelTasks: HuntTask[],
