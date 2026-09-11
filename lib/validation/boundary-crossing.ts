@@ -15,6 +15,11 @@ export const dispositionBoundaryCrossingSchema = z
     crossingId: z.string().min(1),
     disposition: z.enum(['FALSE_POSITIVE', 'CONFIRMED', 'OPEN']),
     dispositionNote: z.string().trim().min(1).max(2000).optional(),
+    // LUM-751: opt a FALSE_POSITIVE into a per-repository suppression rule
+    // (ignored for any other disposition). The service refuses the HIGH
+    // classes with 422 before anything is written.
+    suppressSimilarInProject: z.boolean().optional(),
+    suppressionReason: z.string().trim().min(1).max(500).optional(),
   })
   .strict()
 

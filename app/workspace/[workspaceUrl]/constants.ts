@@ -27,6 +27,9 @@ export const API = {
       `/api/tasks/${taskId}/boundary-crossings/${crossingId}/remediation`,
     boundarySystemExplain: (taskId: string, crossingId: string) =>
       `/api/tasks/${taskId}/boundary-crossings/${crossingId}/system-explain`,
+    // LUM-751: soft-revoke a repository suppression rule (Clerk-only).
+    boundarySuppressionRule: (taskId: string, ruleId: string) =>
+      `/api/tasks/${taskId}/boundary-crossings/suppression-rules/${ruleId}`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
     workspace: '/api/tasks/workspace',

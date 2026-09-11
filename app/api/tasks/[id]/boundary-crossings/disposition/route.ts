@@ -57,7 +57,17 @@ export async function POST(request: NextRequest, { params }: Params) {
       {
         actorMemberId: identity.memberId,
         actorClerkId: identity.clerkId,
-      }
+      },
+      // LUM-751: per-repository suppression opt-in (FALSE_POSITIVE only) —
+      // passed only when requested, so the plain call shape is unchanged.
+      ...(parsed.data.suppressSimilarInProject
+        ? [
+            {
+              suppressSimilarInProject: true,
+              suppressionReason: parsed.data.suppressionReason ?? null,
+            },
+          ]
+        : [])
     )
     return NextResponse.json(outcome)
   } catch (error) {

@@ -2,6 +2,8 @@ import { createHash } from 'crypto'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
+import { crossingSuppressionRuleRepository } from '@/lib/repositories/crossing-suppression-rule.repository'
+import { isSuppressibleCategory } from '@/lib/boundary-crossing/suppression'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -25,11 +27,20 @@ export interface DispositionAttribution {
   actorClerkId: string
 }
 
+/** LUM-751: optional repository-rule opt-in riding a FALSE_POSITIVE ruling. */
+export interface DispositionOptions {
+  suppressSimilarInProject?: boolean
+  suppressionReason?: string | null
+}
+
 export interface DispositionOutcome {
   crossingId: string
   /** The crossing's disposition after the write; null when reverted to OPEN
    *  (undispositioned) by a re-disposition (LUM-450). */
   disposition: BoundaryCrossingDisposition | null
+  /** LUM-751: the repository suppression rule created alongside a
+   *  FALSE_POSITIVE when the human opted in; null otherwise. */
+  suppressionRuleId?: string | null
 }
 
 export interface SpawnRemediationOutcome {
@@ -788,7 +799,8 @@ export const boundaryCrossingService = {
     crossingId: string,
     target: BoundaryCrossingDisposition | null,
     note: string | null,
-    attribution: DispositionAttribution
+    attribution: DispositionAttribution,
+    options: DispositionOptions = {}
   ): Promise<DispositionOutcome> {
     const crossing = await boundaryCrossingRepository.findById(crossingId)
     if (!crossing || crossing.taskId !== taskId) {
@@ -798,12 +810,54 @@ export const boundaryCrossingService = {
       )
     }
 
+    // LUM-751: a FALSE_POSITIVE may opt the whole repository out of this
+    // (category, target) shape. Checked and written BEFORE the disposition so a
+    // refused rule (HIGH class / no target) leaves the crossing untouched. The
+    // rule is keyed on the crossing's own coalescing target — the same key the
+    // detector matches on — and attributed to the human member who ruled.
+    let suppressionRuleId: string | null = null
+    if (options.suppressSimilarInProject && target === 'FALSE_POSITIVE') {
+      if (!isSuppressibleCategory(crossing.category)) {
+        throw Object.assign(
+          new Error(
+            `${crossing.category} crossings cannot be rule-suppressed — this class always needs a human decision`
+          ),
+          { status: 422 }
+        )
+      }
+      if (!crossing.target) {
+        throw Object.assign(
+          new Error(
+            'This crossing has no coalescing target to build a repository rule from'
+          ),
+          { status: 422 }
+        )
+      }
+      const task = await taskRepository.findWithProject(taskId)
+      if (!task) {
+        throw Object.assign(new Error('Task not found'), { status: 404 })
+      }
+      const created = await crossingSuppressionRuleRepository.create({
+        projectId: task.projectId,
+        category: crossing.category,
+        targetPattern: crossing.target,
+        reason: options.suppressionReason ?? null,
+        createdById: attribution.actorMemberId,
+        sourceCrossingId: crossingId,
+      })
+      suppressionRuleId = created.id
+    }
+
     const from = crossing.disposition
 
     // No-op when the disposition isn't actually changing — keeps the original
     // reviewer/timestamp and emits no redundant audit row (idempotent).
     if (from === target) {
-      return { crossingId, disposition: target }
+      return {
+        crossingId,
+        disposition: target,
+        ...(suppressionRuleId ? { suppressionRuleId } : {}),
+      }
     }
 
     const actor = await memberRepository.findActorByMemberId(
@@ -834,10 +888,51 @@ export const boundaryCrossingService = {
         to: target,
         disposition: target,
         note: note ?? null,
+        // LUM-751: the repository rule created with this ruling, if any.
+        ...(suppressionRuleId ? { suppressionRuleId } : {}),
       },
     })
 
-    return { crossingId, disposition: target }
+    // Additive: the rule id rides along only when one was created, so existing
+    // callers and their assertions see the pre-751 shape otherwise.
+    return {
+      crossingId,
+      disposition: target,
+      ...(suppressionRuleId ? { suppressionRuleId } : {}),
+    }
+  },
+
+  /**
+   * LUM-751: soft-revoke a repository suppression rule from a task in the
+   * rule's project. Human-only (the route refuses bearer identities before
+   * anything is read); the row is kept for audit — there is no delete path.
+   * Idempotent: an already-revoked rule returns its original revokedAt.
+   */
+  async revokeSuppressionRule(
+    taskId: string,
+    ruleId: string,
+    attribution: DispositionAttribution
+  ): Promise<{ ruleId: string; revokedAt: string }> {
+    const [task, rule] = await Promise.all([
+      taskRepository.findWithProject(taskId),
+      crossingSuppressionRuleRepository.findById(ruleId),
+    ])
+    if (!task || !rule || rule.projectId !== task.projectId) {
+      throw Object.assign(
+        new Error("Suppression rule not found for this task's project"),
+        { status: 404 }
+      )
+    }
+    if (rule.revokedAt) {
+      return { ruleId, revokedAt: rule.revokedAt.toISOString() }
+    }
+    const now = new Date()
+    await crossingSuppressionRuleRepository.revoke(
+      ruleId,
+      attribution.actorMemberId,
+      now
+    )
+    return { ruleId, revokedAt: now.toISOString() }
   },
 
   /**
