@@ -337,6 +337,12 @@ model Workspace {
   // that already have criteria) is always-on and never gated by this flag.
   acceptanceMode Boolean @default(false)
 
+  // LUM-740: which { provenance, severity } pairs block DONE —
+  // { block: [{ provenance, severity }] }. null = the 732 default (only an
+  // undispositioned DETERMINISTIC HIGH blocks). LLM_JUDGE is refused by the
+  // API schema and ignored by the reader: an LLM finding can never block.
+  securityPolicy Json?
+
   @@map("workspaces")
 }
 
@@ -824,11 +830,11 @@ model ProjectPolicy {
 }
 
 model ProjectRepository {
-  id        String   @id @default(cuid())
-  projectId String
-  fullName  String // "owner/repo"
-  name      String // short repo name
-  isDefault Boolean  @default(false)
+  id                String    @id @default(cuid())
+  projectId         String
+  fullName          String // "owner/repo"
+  name              String // short repo name
+  isDefault         Boolean   @default(false)
   // LUM-735: last successful SARIF ingest for this repo — null means the
   // repo has never pushed a scan (panel shows NOT_CONFIGURED, not PENDING).
   lastSarifIngestAt DateTime?
@@ -837,8 +843,8 @@ model ProjectRepository {
   // flight and `at` is null). Diff-aware substitute for findings that have no
   // line-level diff (dependencies): a PR finding whose fingerprint is in the
   // set is `persisting`, not new. null = never scanned.
-  securityBaseline Json?
-  createdAt DateTime @default(now())
+  securityBaseline  Json?
+  createdAt         DateTime  @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -1423,45 +1429,59 @@ enum PrSecurityFalsifierVerdict {
   INCONCLUSIVE
 }
 
+// LUM-740: what a human did with an LLM-suggested disposition — confirmed it
+// (chose the suggested disposition) or overruled it (chose another). The
+// pair (suggestedDisposition, suggestionOutcome) is the judge-precision data
+// of spec §12 R2.
+enum PrSecuritySuggestionOutcome {
+  CONFIRMED
+  OVERRULED
+}
+
 model PrSecurityScan {
-  id              String                 @id @default(cuid())
-  pullRequestId   String
+  id               String                 @id @default(cuid())
+  pullRequestId    String
   // The PR's task at scan time (denormalised for per-task reads); SetNull.
-  taskId          String?
-  workspaceId     String
-  headSha         String
-  status          PrSecurityScanStatus   @default(PENDING)
-  trigger         PrSecurityScanTrigger
-  judgeStatus     PrSecurityJudgeStatus?
+  taskId           String?
+  workspaceId      String
+  headSha          String
+  status           PrSecurityScanStatus   @default(PENDING)
+  trigger          PrSecurityScanTrigger
+  judgeStatus      PrSecurityJudgeStatus?
   // The diff exceeded the judge budget — the LLM pass saw only a prefix.
-  truncated       Boolean                @default(false)
+  truncated        Boolean                @default(false)
   // LUM-735: per-layer outcome { secrets|external|supplyChain|judge|hunt:
   // RAN|FAILED|SKIPPED|NOT_CONFIGURED|PARTIAL }. null on rows written before
   // this column existed — the service derives a legacy view from judgeStatus.
-  stages          Json?
+  stages           Json?
   // LUM-735: some layer hit its budget/cap; the scan is honest but not whole.
-  partial         Boolean                @default(false)
+  partial          Boolean                @default(false)
   // e.g. "secrets@1;judge@1" — lets a later detector bump decide to rescan.
-  detectorVersion String
-  error           String?
-  startedAt       DateTime               @default(now())
-  finishedAt      DateTime?
+  detectorVersion  String
+  error            String?
+  startedAt        DateTime               @default(now())
+  finishedAt       DateTime?
   // LUM-737: when the agent was first reminded (via the next PreToolUse hook)
   // that this scan carries undispositioned findings. Set once per scan row so
   // the reminder fires exactly once; null = not yet reminded. Orthogonal to
   // disposition and the DONE gate (which key only on the findings).
-  agentNotifiedAt DateTime?
+  agentNotifiedAt  DateTime?
   // LUM-739: tokens the L3 hunt + falsifier spent on this scan. null = not
   // metered (team rule: null ≠ 0).
-  tokenSpent      Int?
+  tokenSpent       Int?
   // LUM-739: { candidates, rejected: [{ reason, category, sink }],
   // falsifierRejects, falsifierRejected, categories, subgraph, error? }.
-  huntAudit       Json?
+  huntAudit        Json?
   // LUM-745: the Vercel Workflow run id of the Lumo-managed scan stage A
   // started for this row; null = no managed run (BYO, disabled, or start()
   // failed). Read by supersede / the 45-min sweep (cancel + stop) and by the
   // per-workspace hourly cap (count).
-  managedRunId    String?
+  managedRunId     String?
+  // LUM-740: the GitHub issue-comment id of the per-PR summary this scan
+  // last wrote (or reused from an earlier scan of the same PR). The
+  // write-back upserts by this id, so concurrent writers converge on ONE
+  // summary; null until the first create.
+  summaryCommentId String?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1475,7 +1495,7 @@ model PrSecurityScan {
 }
 
 model PrSecurityFinding {
-  id                     String                         @id @default(cuid())
+  id                     String                        @id @default(cuid())
   scanId                 String
   kind                   PrSecurityFindingKind
   // secret:<pattern-id> | vuln:<kind> | ext:<tool>
@@ -1499,6 +1519,13 @@ model PrSecurityFinding {
   // Set when the disposition was copied from an earlier finding with the same
   // fingerprint on the same PR (cross-push inheritance).
   inheritedFromFindingId String?
+  // LUM-740 (EXTERNAL_TOOL rows): the falsifier REJECTed the finding, so a
+  // FALSE_POSITIVE disposition is *suggested* with its reason — `disposition`
+  // itself is never written by the LLM. `suggestionOutcome` records the
+  // human's decision on the suggestion (confirm / overrule) for R2.
+  suggestedDisposition   PrSecurityFindingDisposition?
+  suggestedReason        String?
+  suggestionOutcome      PrSecuritySuggestionOutcome?
   // LUM-739 (hunt:* rows only): CWE id, entry-reachability of the sink, the
   // symbol-level call chain [{ from, to }] (no code), and the falsifier's
   // verdict — always INCONCLUSIVE on a persisted row (REJECTs never land).
@@ -1509,8 +1536,8 @@ model PrSecurityFinding {
   // LUM-738: the same fingerprint is already on the default branch's security
   // baseline (ProjectRepository.securityBaseline) — this PR did not introduce
   // it. Advisory: rendered muted, excluded from open/reminder counts.
-  persisting             Boolean                        @default(false)
-  createdAt              DateTime                       @default(now())
+  persisting             Boolean                       @default(false)
+  createdAt              DateTime                      @default(now())
 
   scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
 

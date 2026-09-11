@@ -19,6 +19,8 @@ export interface WorkspaceUpdateData {
   summaryLocale?: string
   verificationMaxRounds?: number
   acceptanceMode?: boolean
+  /** LUM-740: the raw policy JSON; `null` resets to the default. */
+  securityPolicy?: unknown
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────
@@ -107,6 +109,16 @@ export const workspaceRepository = {
       },
     })
     return row?.project?.workspace?.acceptanceMode ?? null
+  },
+
+  /** LUM-740: the raw `securityPolicy` Json column (null when unset or the
+   *  workspace is missing) — parse with `parseSecurityPolicy`. */
+  async findSecurityPolicy(id: string): Promise<unknown> {
+    const row = await prisma.workspace.findUnique({
+      where: { id },
+      select: { securityPolicy: true },
+    })
+    return row?.securityPolicy ?? null
   },
 
   /** Find workspace name and slug by ID. */

@@ -17,6 +17,8 @@ export type FindingDisposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'
 // LUM-739 — mirror the Prisma enums as string unions (same style as above).
 export type FindingReachability = 'EXTERNAL' | 'INTERNAL' | 'UNKNOWN'
 export type FalsifierVerdict = 'REJECT' | 'INCONCLUSIVE'
+// LUM-740 — what a human did with an LLM-suggested disposition.
+export type SuggestionOutcome = 'CONFIRMED' | 'OVERRULED'
 
 export interface NewScanInput {
   pullRequestId: string
@@ -109,6 +111,16 @@ export interface FindingRow {
   dispositionedById: string | null
   dispositionedAt: Date | null
   inheritedFromFindingId: string | null
+  // LUM-739 (hunt:* rows only; null elsewhere).
+  cwe: string | null
+  reachability: FindingReachability | null
+  callChain: Array<{ from: string; to: string }> | null
+  falsifierVerdict: FalsifierVerdict | null
+  // LUM-740 (EXTERNAL_TOOL rows the falsifier REJECTed): a suggestion, never
+  // a disposition; `suggestionOutcome` is the human's verdict on it.
+  suggestedDisposition: FindingDisposition | null
+  suggestedReason: string | null
+  suggestionOutcome: SuggestionOutcome | null
   /** LUM-738: already on the default-branch baseline — not introduced by this PR. */
   persisting: boolean
   createdAt: Date
@@ -133,6 +145,8 @@ export interface ScanWithFindings {
   finishedAt: Date | null
   /** LUM-737: first PreToolUse reminder time; null = not yet reminded. */
   agentNotifiedAt: Date | null
+  /** LUM-740: GitHub id of the per-PR summary comment; null until first create. */
+  summaryCommentId: string | null
   findings: FindingRow[]
 }
 
@@ -158,6 +172,7 @@ export type ReviewFindingRow = Pick<
   | 'externalRef'
   | 'disposition'
   | 'persisting'
+  | 'suggestedDisposition'
 >
 
 /**
@@ -171,13 +186,17 @@ export interface ScanForReview {
   stages: ScanStages | null
   partial: boolean
   error: string | null
+  /** LUM-740: the summary comment this scan (or an earlier one) already owns. */
+  summaryCommentId: string | null
   findings: ReviewFindingRow[]
   pullRequest: {
+    id: string
     repo: string
     number: number
     workspaceId: string
     task: { number: number; team: { identifier: string } } | null
-    workspace: { slug: string }
+    /** `securityPolicy` is the raw Json column — parse with `parseSecurityPolicy`. */
+    workspace: { slug: string; securityPolicy: unknown }
   }
 }
 
@@ -668,6 +687,7 @@ export const prSecurityScanRepository = {
         stages: true,
         partial: true,
         error: true,
+        summaryCommentId: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -684,17 +704,19 @@ export const prSecurityScanRepository = {
             externalRef: true,
             disposition: true,
             persisting: true,
+            suggestedDisposition: true,
           },
         },
         pullRequest: {
           select: {
+            id: true,
             repo: true,
             number: true,
             workspaceId: true,
             task: {
               select: { number: true, team: { select: { identifier: true } } },
             },
-            workspace: { select: { slug: true } },
+            workspace: { select: { slug: true, securityPolicy: true } },
           },
         },
       },
