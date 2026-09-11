@@ -311,6 +311,20 @@ inside the one-shot Vercel Sandbox VM for the duration of the scan before the
 VM is destroyed. Set `LUMO_MANAGED_SCAN=off` to disable the managed scan for a
 deployment; the BYO path above still works when it is off.
 
+**Cost controls.** Every managed scan is a 2 vCPU Vercel Sandbox capped at
+12 minutes. Three guards keep a webhook storm from turning into a bill: when
+a pull request gets a newer commit, the still-pending scan of the older commit
+is marked _superseded_, its workflow run is cancelled and its sandbox stopped;
+a scan whose scanner has not reported within 45 minutes is marked failed by a
+sweep that runs every 15 minutes, so nothing reads "scanning" forever; and
+each workspace may start at most `LUMO_MANAGED_SCAN_HOURLY_CAP` managed scans
+per rolling hour (default 20) — beyond that the scan is recorded as failed
+with a `rate-limited` reason and no sandbox starts. The hard ceiling is
+Vercel's own Spend Management (project → Settings → Billing → Spend
+Management): set an amount, a notification email, and enable pausing so a
+runaway never outlives the budget. That setting is made once in the
+dashboard, not in code.
+
 ## 🚀 Deployment
 
 ### Vercel (Recommended)
