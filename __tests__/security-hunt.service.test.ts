@@ -427,6 +427,7 @@ describe('LUM-739 hunt service', () => {
       // Only the compression that actually replaced an output counts as a
       // call, but the dud's 7 tokens are still money that was spent.
       calls: 1,
+      noOpCalls: 0,
       inputChars: 6400,
       outputChars: 800,
       tokens: 127,

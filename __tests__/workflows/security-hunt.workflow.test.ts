@@ -124,6 +124,7 @@ const batch = (
     egressDenied: boolean
     compress: {
       calls: number
+      noOpCalls: number
       inputChars: number
       outputChars: number
       tokens: number
@@ -440,6 +441,7 @@ describe('LUM-739 hunt workflow', () => {
           tokens: 5_000,
           compress: {
             calls: 2,
+            noOpCalls: 0,
             inputChars: 12_000,
             outputChars: 1_500,
             tokens: 300,
@@ -451,6 +453,7 @@ describe('LUM-739 hunt workflow', () => {
           tokens: 4_000,
           compress: {
             calls: 1,
+            noOpCalls: 0,
             inputChars: 6_000,
             outputChars: 900,
             tokens: 150,
@@ -463,6 +466,7 @@ describe('LUM-739 hunt workflow', () => {
     const persisted = persist.mock.calls[0]![0]
     expect(persisted.audit.compress).toEqual({
       calls: 3,
+      noOpCalls: 0,
       inputChars: 18_000,
       outputChars: 2_400,
       tokens: 450,
@@ -477,7 +481,13 @@ describe('LUM-739 hunt workflow', () => {
   it('LUM-758 §6.3 leaves `compress` absent when no command was ever compressed', async () => {
     hunt.mockImplementation(async () =>
       batch({
-        compress: { calls: 0, inputChars: 0, outputChars: 0, tokens: 0 },
+        compress: {
+          calls: 0,
+          noOpCalls: 0,
+          inputChars: 0,
+          outputChars: 0,
+          tokens: 0,
+        },
       })
     )
     await securityHuntWorkflow(JOB)

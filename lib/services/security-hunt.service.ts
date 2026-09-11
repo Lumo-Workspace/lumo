@@ -378,6 +378,7 @@ export const securityHuntService = {
      */
     const compress: HuntCompressStats = {
       calls: 0,
+      noOpCalls: 0,
       inputChars: 0,
       outputChars: 0,
       tokens: 0,
@@ -420,6 +421,10 @@ export const securityHuntService = {
             compress.inputChars += out.compressInputChars
             compress.outputChars += out.compressOutputChars
           }
+          // A charged call that produced nothing usable is the failure mode
+          // that cost a whole task its sight without leaving a trace; counting
+          // it is what turns the next diagnosis into a read.
+          if (out.compressNoOp) compress.noOpCalls += 1
           // Only the two fields the model needs. The accounting fields are
           // ours: an `ai` tool result is serialised straight into the
           // transcript, so returning them would spend context on bookkeeping

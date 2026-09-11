@@ -41,6 +41,35 @@ export interface HuntAuditStats {
   /** falsePositive / inconclusive; null when no finding was persisted. */
   inconclusiveToFalsePositiveRate: number | null
   tokenSpent: { measured: number; total: number }
+  /**
+   * LUM-758 — the fields three deferred launch decisions depend on. They were
+   * persisted from the start and read by nothing, so "watch it in the first
+   * week's data" had no way to happen: diagnosing why one task went blind meant
+   * dividing 133 by 7 by hand.
+   */
+  plan: {
+    /** How the plan was produced. `notAttempted` = a short circuit ran first. */
+    by: {
+      model: number
+      fallback: number
+      notAttempted: number
+      unknown: number
+    }
+    /** Distribution of planned-task counts — `0` is the SKIPPED path. */
+    taskCounts: Record<string, number>
+  }
+  /** Why each planned task stopped: done / steps / budget / timeout / error / skipped. */
+  taskStops: Record<string, number>
+  sandbox: { attached: number; created: number; egressOpen: number }
+  compress: {
+    scans: number
+    calls: number
+    /** Charged calls that produced nothing usable — the blind-agent signal. */
+    noOpCalls: number
+    inputChars: number
+    outputChars: number
+    tokens: number
+  }
 }
 
 type HuntState = keyof HuntAuditStats['hunt']
@@ -83,6 +112,20 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     acceptedRisk: 0,
     inconclusiveToFalsePositiveRate: null,
     tokenSpent: { measured: 0, total: 0 },
+    plan: {
+      by: { model: 0, fallback: 0, notAttempted: 0, unknown: 0 },
+      taskCounts: {},
+    },
+    taskStops: {},
+    sandbox: { attached: 0, created: 0, egressOpen: 0 },
+    compress: {
+      scans: 0,
+      calls: 0,
+      noOpCalls: 0,
+      inputChars: 0,
+      outputChars: 0,
+      tokens: 0,
+    },
   }
   for (const row of rows) {
     const state = huntStateOf(row.stages)
@@ -99,6 +142,41 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     if (row.tokenSpent !== null) {
       stats.tokenSpent.measured += 1
       stats.tokenSpent.total += row.tokenSpent
+    }
+
+    // LUM-758. Every field below is optional by construction: rows written
+    // before the task graph carry none of them, and must not be counted as a
+    // zero — a pre-758 scan did not plan zero tasks, it did not plan at all.
+    const by = audit.plannedBy
+    if (by === 'model' || by === 'fallback') stats.plan.by[by] += 1
+    else if (by === 'not-attempted') stats.plan.by.notAttempted += 1
+    else if (by !== undefined) stats.plan.by.unknown += 1
+    if (Array.isArray(audit.planned)) {
+      const n = String(audit.planned.length)
+      stats.plan.taskCounts[n] = (stats.plan.taskCounts[n] ?? 0) + 1
+    }
+
+    const tasks = Array.isArray(audit.tasks) ? audit.tasks : []
+    for (const t of tasks) {
+      const stop = (t as { stopped?: unknown } | null)?.stopped
+      const key = typeof stop === 'string' ? stop : 'unknown'
+      stats.taskStops[key] = (stats.taskStops[key] ?? 0) + 1
+    }
+
+    if (audit.sandbox === 'attached') stats.sandbox.attached += 1
+    if (audit.sandbox === 'created') stats.sandbox.created += 1
+    // `false` is the meaningful value: the run executed with a route out.
+    if (audit.egressDenied === false) stats.sandbox.egressOpen += 1
+
+    const c = audit.compress
+    if (c && typeof c === 'object') {
+      const cc = c as Record<string, unknown>
+      stats.compress.scans += 1
+      stats.compress.calls += num(cc.calls)
+      stats.compress.noOpCalls += num(cc.noOpCalls)
+      stats.compress.inputChars += num(cc.inputChars)
+      stats.compress.outputChars += num(cc.outputChars)
+      stats.compress.tokens += num(cc.tokens)
     }
     for (const f of row.findings) {
       if (!f.ruleId.startsWith('hunt:')) continue

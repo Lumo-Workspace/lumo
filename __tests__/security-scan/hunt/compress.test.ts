@@ -74,6 +74,7 @@ import {
 import { huntTask } from '@/lib/llm/security-hunt-client'
 import { securityHuntService } from '@/lib/services/security-hunt.service'
 import { compressShellOutput } from '@/lib/llm/security-hunt-compress-client'
+import { NO_RELEVANT_LINES } from '@/lib/security-scan/hunt/compress-usable'
 import { FAST_MODEL } from '@/lib/ai/models'
 import {
   HUNT_COMPRESS_TOKEN_BUDGET,
@@ -138,6 +139,40 @@ const bodyOf = (output: string): string =>
 beforeEach(() => jest.clearAllMocks())
 
 describe('LUM-758 §6 shell output compression', () => {
+  // The prod incident this guard exists for: one task fed 38,585 characters of
+  // real repository content through seven compression calls and got 133
+  // characters back — exactly 7 × `(no relevant lines)`. Every one was trusted,
+  // so the agent searched a repository it could not see, burned 38k tokens and
+  // submitted nothing. The old guard only rejected a literally blank body.
+  it('hands back the real output when the compressor says it found nothing', async () => {
+    compress.mockResolvedValue({ text: NO_RELEVANT_LINES, tokens: 610 })
+
+    const out = await call(LONG)
+
+    // The hunt model must see the repository, not the compressor's shrug.
+    expect(out.output).toContain('lib/a.ts:3: hit')
+    expect(out.output).not.toContain('no relevant lines')
+    expect(out.compressed).toBe(false)
+    // Charged anyway — the gateway billed for it, so tokenSpent must see it.
+    expect(out.compressTokens).toBe(610)
+    // And it is COUNTED, which is what turns the next diagnosis into a read
+    // instead of dividing 133 by 7.
+    expect(out.compressNoOp).toBe(true)
+  })
+
+  it('does the same for a blank answer, and tells the two apart from never running', async () => {
+    compress.mockResolvedValue({ text: '   ', tokens: 55 })
+    const blank = await call(LONG)
+    expect(blank.output).toContain('lib/a.ts:3: hit')
+    expect(blank.compressNoOp).toBe(true)
+    expect(blank.compressTokens).toBe(55)
+
+    // Below the threshold the compressor never ran: no no-op, no charge.
+    const short = await call('lib/a.ts:3: hit\n')
+    expect(short.compressNoOp).toBeFalsy()
+    expect(short.compressTokens).toBe(0)
+  })
+
   it('shell output compression is threshold-gated, fails soft to truncation, and its tokens are accounted', async () => {
     // 1. Short output is not compressed: one FAST call costs more than the
     //    tokens it could possibly save on 40 characters.
@@ -203,6 +238,7 @@ describe('LUM-758 §6 shell output compression', () => {
     expect(batch.tokens).toBe(900 + 420)
     expect(batch.compress).toEqual({
       calls: 1,
+      noOpCalls: 0,
       inputChars: expect.any(Number),
       outputChars: expect.any(Number),
       tokens: 420,

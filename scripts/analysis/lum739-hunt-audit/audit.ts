@@ -70,6 +70,60 @@ async function main(): Promise<void> {
   console.log(
     `metered scans: ${stats.tokenSpent.measured} / ${stats.scans} · total ${stats.tokenSpent.total} tokens`
   )
+  const mean =
+    stats.tokenSpent.measured === 0
+      ? null
+      : Math.round(stats.tokenSpent.total / stats.tokenSpent.measured)
+  console.log(`mean per metered scan: ${mean ?? 'n/a'} (§9 target ≤ 60000)`)
+
+  // LUM-758. Everything below was persisted from the first day of the task
+  // graph and read by nothing, which is why "watch it in the first week's
+  // data" could not happen. Rows that pre-date the task graph carry none of
+  // these fields and are simply absent here — never counted as zeros.
+  console.log('')
+  console.log('=== Plan (LUM-758) ===')
+  const by = stats.plan.by
+  console.log(
+    `by: model ${by.model} · fallback ${by.fallback} · not-attempted ${by.notAttempted}` +
+      (by.unknown > 0 ? ` · unknown ${by.unknown}` : '')
+  )
+  const counts = Object.keys(stats.plan.taskCounts).sort()
+  console.log(
+    `tasks planned: ${
+      counts.length === 0
+        ? '(no task-graph scans yet)'
+        : counts.map(k => `${k}→${stats.plan.taskCounts[k]}`).join(' · ')
+    }`
+  )
+  const stops = Object.entries(stats.taskStops).sort((a, b) => b[1] - a[1])
+  console.log(
+    `task stops: ${stops.length === 0 ? '(none)' : stops.map(([k, n]) => `${k} ${n}`).join(' · ')}`
+  )
+
+  console.log('')
+  console.log('=== Sandbox (LUM-758) ===')
+  console.log(
+    `attached ${stats.sandbox.attached} · created ${stats.sandbox.created} · ran with egress open ${stats.sandbox.egressOpen}`
+  )
+
+  console.log('')
+  console.log('=== Compression (LUM-758 §6.3) ===')
+  const c = stats.compress
+  if (c.scans === 0) {
+    console.log('no scan recorded a compression')
+  } else {
+    console.log(
+      `scans ${c.scans} · usable calls ${c.calls} · NO-OP calls ${c.noOpCalls} · ${c.tokens} tokens`
+    )
+    console.log(
+      `chars: ${c.inputChars} in → ${c.outputChars} out (saving is in CHARACTERS; the price above is TOKENS — divide by ~4 before comparing)`
+    )
+    if (c.noOpCalls > 0 && c.calls === 0) {
+      console.log(
+        `⚠ every compression produced nothing usable. The hunt model saw none of the ${c.noOpCalls} command outputs it asked for, so \`candidates: 0\` on these scans says nothing about the layer.`
+      )
+    }
+  }
 }
 
 main()

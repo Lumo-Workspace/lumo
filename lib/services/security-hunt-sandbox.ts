@@ -44,6 +44,7 @@ import {
   SANDBOX_TIMEOUT_WITH_HUNT_MS,
   SANDBOX_VCPUS,
 } from './security-managed-scan.config'
+import { judgeCompression } from '@/lib/security-scan/hunt/compress-usable'
 import {
   HUNT_CHECKOUT_POLL_MS,
   HUNT_CHECKOUT_WAIT_MS,
@@ -509,6 +510,15 @@ export interface HuntShellOutput {
   /** Did a compression actually replace the output? (§6.3 audit) */
   compressed: boolean
   /**
+   * The compressor ran, was charged for, and produced nothing we could act on
+   * (empty, the `(no relevant lines)` sentinel, or a body too small to be a
+   * compression of the input). Distinct from `compressed: false` with zero
+   * tokens, which means it never ran at all — telling those two apart is the
+   * whole point: one is a threshold working, the other is the agent going
+   * blind while the bill still arrives.
+   */
+  compressNoOp?: boolean
+  /**
    * Tokens this call's compression spent — INCLUDING a call that produced
    * nothing usable, because the gateway charged for it either way. Zero when
    * the compressor never ran or never answered. The caller must fold this
@@ -622,10 +632,28 @@ async function compressOrTruncate(
     const body = neutralizeUntrustedTags(sanitizeField(result.text))
       .trim()
       .slice(0, HUNT_SHELL_OUTPUT_MAX)
-    // An empty answer is not a compression — it is a compressor that told the
-    // hunt model nothing while looking like an answer. Fall back to the real
-    // output rather than hide the evidence behind a confident-looking blank.
-    if (body === '') throw new Error('the compressor returned nothing')
+    // A compressor that answered but said nothing is not a compression — it is
+    // a refusal wearing an answer's clothes, and acting on it hands the hunt
+    // model an empty view of a repository that was not empty. The old guard
+    // only caught a literally blank body, so the sentinel the prompt itself
+    // asks for sailed through: prod fed 38,585 characters through seven calls
+    // and got 133 back — exactly 7 × `(no relevant lines)` — and the task then
+    // searched blind and submitted nothing.
+    //
+    // A refusal is a legitimate answer from the compressor; it is just not one
+    // we may act on. Fall back to the real truncated output and let the hunt
+    // model judge, because a cheap model's omission is not evidence of absence.
+    const verdict = judgeCompression(body)
+    if (!verdict.usable) {
+      logger.warn(
+        `[security-hunt] compression produced nothing usable (${verdict.reason}); using the raw output`
+      )
+      return {
+        ...uncompressed(redacted),
+        compressTokens: tokens,
+        compressNoOp: true,
+      }
+    }
     return {
       output: fence(body),
       compressed: true,
