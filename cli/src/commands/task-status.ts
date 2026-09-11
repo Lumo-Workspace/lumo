@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
+import { externalFailureReason } from '../../../shared/src/security-scan'
 import {
   fetchOpenCrossings,
   dispositionUrl,
@@ -351,8 +352,14 @@ function formatScanSummaryLine(s: ScanSummary): string {
   let line = `  PR #${s.prNumber} · scan ${s.status}`
   if (segments.length > 0) line += ` · ${segments.join(' · ')}`
   if (s.partial) line += ' · partial'
-  if (s.stages.external === 'FAILED' && s.error) {
-    line += ` — ${sanitizeField(tail(s.error, EXTERNAL_ERROR_TAIL))}`
+  // LUM-756 (P8): `error` has two writers — only the prefixed, scrubbed
+  // scanner reason may be printed, and only the text after the prefix. Stage
+  // A's raw crash text carries no prefix and is never shown here (same rule
+  // as the web panel and the PR summary).
+  const reason =
+    s.stages.external === 'FAILED' ? externalFailureReason(s.error) : null
+  if (reason) {
+    line += ` — ${sanitizeField(tail(reason, EXTERNAL_ERROR_TAIL))}`
   }
   return line
 }

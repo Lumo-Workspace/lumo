@@ -196,6 +196,61 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
     expect(out).not.toContain('x'.repeat(500))
   })
 
+  it('LUM-756: prints only the text after the "external: " prefix — the prefix is provenance, not content', () => {
+    const out = formatTaskStatus(
+      baseResponse({
+        securityFindings: {
+          open: 0,
+          blocking: 0,
+          unconfirmedPrs: [],
+          scans: [
+            {
+              prNumber: 6,
+              status: 'FAILED',
+              stages: { secrets: 'RAN', external: 'FAILED' },
+              partial: false,
+              error: 'external: gitleaks exit 2',
+              externalFindings: 0,
+              openFindings: 0,
+            },
+          ],
+        },
+      })
+    )
+    expect(out).toContain(
+      '  PR #6 · scan FAILED · secrets RAN · external FAILED — gitleaks exit 2'
+    )
+    expect(out).not.toContain('— external: gitleaks')
+  })
+
+  it('LUM-756: never prints an unprefixed error (stage A raw crash text) as the scanner reason', () => {
+    const out = formatTaskStatus(
+      baseResponse({
+        securityFindings: {
+          open: 0,
+          blocking: 0,
+          unconfirmedPrs: [],
+          scans: [
+            {
+              prNumber: 7,
+              status: 'FAILED',
+              stages: { secrets: 'RAN', external: 'FAILED' },
+              partial: false,
+              error: 'ENOTFOUND api.github.com (raw stage A crash text)',
+              externalFindings: 0,
+              openFindings: 0,
+            },
+          ],
+        },
+      })
+    )
+    expect(out).toContain(
+      '  PR #7 · scan FAILED · secrets RAN · external FAILED'
+    )
+    expect(out).not.toContain('external FAILED —')
+    expect(out).not.toContain('ENOTFOUND')
+  })
+
   it('does not append an error suffix when external FAILED but error is null', () => {
     const out = formatTaskStatus(
       baseResponse({
