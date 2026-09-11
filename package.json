@@ -46,7 +46,6 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@e2b/code-interpreter": "^2.4.0",
-    "@google-cloud/storage": "^7.19.0",
     "@hookform/resolvers": "^5.2.2",
     "@octokit/auth-app": "^8.2.0",
     "@prisma/adapter-pg": "^7.6.0",
@@ -148,7 +147,7 @@
     "recharts": "^3.8.1",
     "resend": "^6.10.0",
     "sass": "^1.98.0",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
@@ -177,6 +176,16 @@
     },
     "@types/request": {
       "form-data": "^2.5.6"
+    },
+    "prisma": {
+      "mysql2": "^3.24.4"
+    },
+    "@prisma/config": {
+      "deepmerge-ts": "^8.0.2"
+    },
+    "@prisma/dev": {
+      "valibot": "^1.4.2",
+      "@hono/node-server": "^1.19.17"
     }
   },
   "devDependencies": {
