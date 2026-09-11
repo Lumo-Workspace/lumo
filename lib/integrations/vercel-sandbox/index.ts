@@ -38,10 +38,16 @@ export interface CommandResult {
 export interface RunOptions {
   /** Working directory for the command (absolute path inside the sandbox). */
   cwd?: string
+  /** LUM-746: extra environment for this command only. */
+  env?: Record<string, string>
+  /** LUM-746: kill the command (SIGKILL) after this many ms. */
+  timeoutMs?: number
 }
 
 /* eslint-disable no-unused-vars -- parameter names in a type declaration */
 export interface RepoSandbox {
+  /** LUM-746: the VM's name — `getRepoSandbox({ name })` reconnects to it from another step. */
+  name: string
   /**
    * The session's default working directory. With the `universal` image this
    * is the home directory (`/vercel`), and a git source is cloned into
@@ -76,13 +82,36 @@ export async function createRepoSandbox(
     timeout: opts.timeoutMs,
     ...(opts.tags ? { tags: opts.tags } : {}),
   })
+  return wrap(sandbox)
+}
+
+/**
+ * LUM-746 — reconnect to a VM another step created (by the name
+ * `createRepoSandbox` exposed). Throws when the VM is gone (timed out or
+ * stopped); callers treat that as a harness failure, never a gate verdict.
+ */
+export async function getRepoSandbox(opts: {
+  name: string
+}): Promise<RepoSandbox> {
+  return wrap(await Sandbox.get({ name: opts.name }))
+}
+
+type SdkSandbox = Pick<
+  Sandbox,
+  'name' | 'cwd' | 'runCommand' | 'readFileToBuffer' | 'stop'
+>
+
+function wrap(sandbox: SdkSandbox): RepoSandbox {
   return {
+    name: sandbox.name,
     cwd: sandbox.cwd,
     async run(cmd, args, opts) {
       const result = await sandbox.runCommand({
         cmd,
         args,
         ...(opts?.cwd ? { cwd: opts.cwd } : {}),
+        ...(opts?.env ? { env: opts.env } : {}),
+        ...(opts?.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
       })
       return {
         exitCode: result.exitCode,
