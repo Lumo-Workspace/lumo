@@ -30,11 +30,19 @@ import {
   type ActionConfirmJudge,
   type ActionConfirmVerdict,
 } from '@/lib/boundary-crossing/action-confirm'
-import {
-  matchCmdSubstr,
-  matchPathGlob,
-} from '@/lib/services/policy/predicate-eval'
+import { matchPathGlob } from '@/lib/services/policy/predicate-eval'
 import type { PolicyRule } from '@/lib/services/policy/types'
+import {
+  splitCommandSegments as splitCommandSegmentsShared,
+  executingSegments,
+} from '@/lib/boundary-crossing/command-shape'
+import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
+import { crossingSuppressionRuleRepository } from '@/lib/repositories/crossing-suppression-rule.repository'
+import {
+  findSuppressionRule,
+  autoSuppressedNote,
+  type ActiveSuppressionRule,
+} from '@/lib/boundary-crossing/suppression'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 // NOTE: both LLM clients (`@/lib/llm/test-tampering-judge-client` and
@@ -142,7 +150,7 @@ const PROTECTED_BRANCH = /(?:^|[\s:/])(?:main|master|develop)(?=$|\s)/
  * MORE text in a push segment, erring toward flagging (the conservative side).
  */
 function splitCommandSegments(cmd: string): string[] {
-  return cmd.split(/(?:&&|\|\||[;|\n])/)
+  return splitCommandSegmentsShared(cmd)
 }
 
 /**
@@ -216,25 +224,47 @@ function matchMigrationDelete(cmd: string): boolean {
   return false
 }
 
-/** Irreversible / data-destroying DB commands. */
+/** Tool-specific irreversibles — fire on any executing segment. */
+const DB_TOOL_RESET =
+  /prisma\s+migrate\s+reset|\bdb\s+push\b[^\n]*--(?:force-reset|accept-data-loss)/
+/** Generic SQL drop/truncate phrases. */
+const DB_DDL_PHRASE = /\bdrop\s+(?:database|table)\b|\btruncate\s+table\b/i
+
+/**
+ * Irreversible / data-destroying DB commands. LUM-751: segment-scoped and
+ * print/search-aware — only EXECUTING segments (see
+ * lib/boundary-crossing/command-shape) are tested, so a `grep` / `echo` /
+ * `git log --grep` naming DDL, the same grep inside a `bash -c '…'` wrapper, or
+ * a PR body / commit message never trips it, while `psql -c "…"`,
+ * `mysql -e "…"` and `prisma migrate reset` still do. (Re-instates the LUM-426
+ * print-or-search exclusion that the prose gate had absorbed, deterministic
+ * this time — no LLM round-trip for the obvious shapes.)
+ */
 function matchDestructiveDb(cmd: string): boolean {
-  return (
-    /prisma\s+migrate\s+reset/.test(cmd) ||
-    /\bdb\s+push\b[^\n]*--(?:force-reset|accept-data-loss)/.test(cmd) ||
-    /\bdrop\s+(?:database|table)\b/i.test(cmd) ||
-    /\btruncate\s+table\b/i.test(cmd)
+  return executingSegments(cmd).some(
+    seg => DB_TOOL_RESET.test(seg) || DB_DDL_PHRASE.test(seg)
   )
 }
 
-/** Installing a NEW dependency — a bare `npm install` / `npm ci` (restore) is fine. */
+/**
+ * Installing a NEW dependency — only a segment whose OWN `npm i|install|add`
+ * (or `yarn|pnpm|bun add`) names a package. LUM-751: segment-scoped, so
+ * `npm install && npm test`, a lockfile sync inside `.worktrees/`, a flag-only
+ * install and `npm ci` never trip; a trailing `# comment` is ignored. (A
+ * lockfile-diff check is the PR scanner's job — LUM-738 — the hook only sees
+ * the command.)
+ */
 function matchNewNpmDependency(cmd: string): boolean {
-  // yarn/pnpm/bun add always name a package.
-  if (/\b(?:yarn|pnpm|bun)\s+add\b\s+\S/.test(cmd)) return true
-  // npm i|install|add — only when a non-flag package token follows the verb.
-  const m = cmd.match(/\bnpm\s+(?:i|install|add)\b(.*)$/)
-  if (!m) return false
-  const rest = m[1] ?? ''
-  return rest.split(/\s+/).some(tok => tok.length > 0 && !tok.startsWith('-'))
+  for (const raw of executingSegments(cmd)) {
+    const seg = raw.split('#')[0] ?? ''
+    if (/\b(?:yarn|pnpm|bun)\s+add\s+\S/.test(seg)) return true
+    const m = seg.match(/\bnpm\s+(?:i|install|add)\b(.*)$/)
+    if (!m) continue
+    const rest = m[1] ?? ''
+    if (rest.split(/\s+/).some(tok => tok.length > 0 && !tok.startsWith('-')))
+      return true
+  }
+  return false
 }
 
 // --- hardcoded secrets: single source with the PR scanner (LUM-734) ----------
@@ -1597,13 +1627,14 @@ export function detectSensitivePathEdit(input: {
  * absent or the project has no default linked repository.
  * LUM-483 compliant: delegates to repositories, no prisma.* here.
  */
-async function resolveProjectContextForTask(taskId: string): Promise<{
+async function resolveProjectContext(task: {
+  projectId: string
+  project: { workspaceId: string }
+}): Promise<{
   projectId: string
   workspaceId: string
   fullName: string
 } | null> {
-  const task = await taskRepository.findWithProjectWorkspaceId(taskId)
-  if (!task) return null
   const defaultRepo = await projectRepository.findDefaultRepository(
     task.projectId
   )
@@ -1638,8 +1669,11 @@ export function detectProjectActionCrossings(
       continue
     const p = r.predicate
     // path-glob action predicates are handled by the code pipeline — skip here.
+    // LUM-751: segment-scoped + prose-stripped (lib/boundary-crossing/
+    // action-rule-match) — a read-only / PR-target reference or a quoted
+    // keyword no longer counts as a violation.
     const hit =
-      p.type === 'cmd-substr' ? matchCmdSubstr(p.value, command) : false
+      p.type === 'cmd-substr' ? matchActionRule(p.value, command) : false
     if (!hit) continue
     out.push({
       category: 'PROJECT_RULE_VIOLATION',
@@ -1676,9 +1710,16 @@ export const boundaryDetectorService = {
       // LUM-590: load the project policy best-effort and append any project
       // action-rule crossings. Wrapped in try/catch per the exit-0 invariant —
       // the detector must never throw even if the compiler is unavailable.
+      // LUM-751: the task's projectId is captured on the way (for suppression
+      // rules) — it is known even when the project has no default repository.
       let projectRules: PolicyRule[] = []
+      let projectId: string | null = null
       try {
-        const ctx = await resolveProjectContextForTask(input.taskId)
+        const task = await taskRepository.findWithProjectWorkspaceId(
+          input.taskId
+        )
+        projectId = task?.projectId ?? null
+        const ctx = task ? await resolveProjectContext(task) : null
         if (ctx) {
           const { policyCompilerService } =
             await import('@/lib/services/policy/policy-compiler.service')
@@ -1707,6 +1748,20 @@ export const boundaryDetectorService = {
       })
       if (sensitive) confirmed.push(sensitive)
 
+      // LUM-751: the project's active, human-authored suppression rules.
+      // Best-effort — no rules means nothing is suppressed (the safe side).
+      let suppressionRules: ActiveSuppressionRule[] = []
+      if (projectId) {
+        try {
+          suppressionRules =
+            await crossingSuppressionRuleRepository.findActiveForProject(
+              projectId
+            )
+        } catch {
+          // observer: never throw
+        }
+      }
+
       for (const c of confirmed) {
         // LUM-477: coalesce a recurrence of an OPEN crossing with the same
         // (taskId, category, target) — bump its count/lastSeenAt instead of
@@ -1714,6 +1769,25 @@ export const boundaryDetectorService = {
         // means no open match (first occurrence, distinct target/category, or a
         // prior match already dispositioned) → record a fresh crossing. A
         // post-disposition recurrence is therefore never silently swallowed.
+        // LUM-751: a human-authored repository rule for this (category, target)
+        // → still RECORDED, but system-dispositioned AUTO_SUPPRESSED (no human
+        // actor, rule ref), coalescing with its own suppressed row. Never for
+        // the HIGH classes (findSuppressionRule refuses them) and never for an
+        // evasion-decoded crossing (deliberate obfuscation stays open).
+        const rule = c.detail.includes(EVASION_MARKER.trim())
+          ? null
+          : findSuppressionRule(suppressionRules, c.category, c.target)
+        if (rule) {
+          const merged =
+            await boundaryCrossingRepository.coalesceSuppressedRecurrence(
+              input.taskId,
+              c.category,
+              c.target,
+              rule.id,
+              new Date()
+            )
+          if (merged > 0) continue
+        }
         const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
           input.taskId,
           c.category,
@@ -1742,13 +1816,20 @@ export const boundaryDetectorService = {
           ...(c.policyRuleText != null
             ? { policyRuleText: c.policyRuleText }
             : {}),
-          ...(c.autoResolve
+          ...(rule
             ? {
-                disposition: 'AUTO_LEGIT',
-                dispositionNote: AUTO_LEGIT_NOTE,
+                disposition: 'AUTO_SUPPRESSED',
+                dispositionNote: autoSuppressedNote(rule),
                 dispositionedAt: new Date(),
+                suppressionRuleId: rule.id,
               }
-            : {}),
+            : c.autoResolve
+              ? {
+                  disposition: 'AUTO_LEGIT',
+                  dispositionNote: AUTO_LEGIT_NOTE,
+                  dispositionedAt: new Date(),
+                }
+              : {}),
         })
         await activityRepository.create({
           taskId: input.taskId,
@@ -1762,7 +1843,11 @@ export const boundaryDetectorService = {
             hookEventId: input.hookEventId ?? null,
             // Audit marker: an auto-resolved crossing reads as auto-resolved on
             // the timeline, never as an open one a human still owes a decision on.
-            ...(c.autoResolve ? { disposition: 'AUTO_LEGIT' } : {}),
+            ...(rule
+              ? { disposition: 'AUTO_SUPPRESSED', suppressionRuleId: rule.id }
+              : c.autoResolve
+                ? { disposition: 'AUTO_LEGIT' }
+                : {}),
           },
         })
       }

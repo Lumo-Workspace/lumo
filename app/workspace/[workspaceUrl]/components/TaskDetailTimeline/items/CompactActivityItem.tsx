@@ -464,8 +464,16 @@ function formatActivityText(
       // (to === null). Legacy rows carry only `disposition` (the new value).
       const norm = (
         v: unknown
-      ): 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT' | null =>
-        v === 'FALSE_POSITIVE' || v === 'CONFIRMED' || v === 'AUTO_LEGIT'
+      ):
+        | 'FALSE_POSITIVE'
+        | 'CONFIRMED'
+        | 'AUTO_LEGIT'
+        | 'AUTO_SUPPRESSED'
+        | null =>
+        v === 'FALSE_POSITIVE' ||
+        v === 'CONFIRMED' ||
+        v === 'AUTO_LEGIT' ||
+        v === 'AUTO_SUPPRESSED'
           ? v
           : null
       const to = 'to' in p ? norm(p.to) : norm(p.disposition)
