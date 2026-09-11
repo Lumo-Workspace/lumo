@@ -118,7 +118,7 @@ describe('Boundary crossing tooltips', () => {
   it('disposition badge has a tooltip', () => {
     expect(
       screen.getByLabelText(
-        'How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), or auto-cleared by the system.'
+        'How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), auto-cleared by the system, or auto-dispositioned by a repository rule a human created.'
       )
     ).toBeInTheDocument()
   })
@@ -152,7 +152,7 @@ describe('Boundary crossing tooltips', () => {
     renderWithDisposition(null)
     expect(
       screen.queryByLabelText(
-        'How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), or auto-cleared by the system.'
+        'How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), auto-cleared by the system, or auto-dispositioned by a repository rule a human created.'
       )
     ).not.toBeInTheDocument()
   })

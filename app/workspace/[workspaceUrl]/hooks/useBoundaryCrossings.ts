@@ -105,10 +105,11 @@ export interface BoundaryCrossingView {
   systemExplanation: string | null
   /** LUM-751: the category may be rule-suppressed AND the crossing carries a
    *  coalescing target — the panel offers the per-repository opt-in only then. */
-  suppressible: boolean
+  suppressible?: boolean
   /** LUM-751: the rule that auto-dispositioned this crossing (AUTO_SUPPRESSED);
-   *  null for every other crossing. */
-  suppressionRule: SuppressionRuleView | null
+   *  null for every other crossing. Both fields are optional on the client so
+   *  an older server response (or a fixture) still type-checks. */
+  suppressionRule?: SuppressionRuleView | null
 }
 
 /** LUM-542: an append-only agent self-explanation on a crossing. */
