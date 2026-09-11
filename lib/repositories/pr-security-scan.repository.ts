@@ -5,6 +5,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
 import type { ScanStages } from '@/lib/security-scan/types'
+import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 
 export type ScanStatus = 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
 export type ScanTrigger = 'PR_EVENT' | 'PR_LINK' | 'SARIF_PUSH'
@@ -72,6 +73,21 @@ export interface FinalizeScanInput {
   /** LUM-735 — a layer hit its cap; results are honest but not whole. */
   partial: boolean
   error?: string | null
+}
+
+/** LUM-745 — an older scan on the same PR whose managed run may still be going. */
+export interface SupersedableScan {
+  id: string
+  headSha: string
+  managedRunId: string
+  stages: ScanStages | null
+}
+
+/** LUM-745 — a scan whose external layer has sat PENDING past the dead window. */
+export interface StalePendingScan {
+  id: string
+  managedRunId: string | null
+  stages: ScanStages | null
 }
 
 export interface FindingRow {
@@ -219,25 +235,51 @@ async function withSerializableRetry<T>(
  * `persistResult` (the success path) and `finalize` (the FAILED path).
  */
 function mergeIngestOwnedStages(
-  current: { stages: unknown; partial?: boolean | null } | null,
+  current: {
+    stages: unknown
+    partial?: boolean | null
+    error?: string | null
+  } | null,
   incoming: { stages: ScanStages; partial: boolean }
-): { stages: ScanStages; partial: boolean } {
+): { stages: ScanStages; partial: boolean; error?: string } {
   const cur = (current?.stages as ScanStages | null) ?? {}
   const stages: ScanStages = { ...incoming.stages }
   const external = cur.external
-  if (external === 'RAN' || external === 'FAILED') stages.external = external
+  let keptExternal = false
+  // LUM-745: SUPERSEDED is stamped by stage A of a NEWER head while this
+  // row's own stage A may still be finishing — it owns the layer just like
+  // an ingest result does.
+  if (
+    external === 'RAN' ||
+    external === 'FAILED' ||
+    external === 'SUPERSEDED'
+  ) {
+    stages.external = external
+    keptExternal = true
+  }
   // LUM-738: the managed run also owns `supplyChain` once it has spoken —
   // RAN (rows landed), FAILED, or SKIPPED (nothing to scan is a fact too).
   const supplyChain = cur.supplyChain
   if (
     supplyChain === 'RAN' ||
     supplyChain === 'FAILED' ||
-    supplyChain === 'SKIPPED'
+    supplyChain === 'SKIPPED' ||
+    supplyChain === 'SUPERSEDED'
   )
     stages.supplyChain = supplyChain
+  // LUM-745 (review): the reason that came with a kept external layer — a
+  // prefixed, scrubbed string from supersede, the sweep or the run's own
+  // failure — travels with it; stage A's finish must not blank it.
+  const error =
+    keptExternal &&
+    typeof current?.error === 'string' &&
+    current.error.startsWith(EXTERNAL_ERROR_PREFIX)
+      ? current.error
+      : undefined
   return {
     stages,
     partial: (current?.partial ?? false) || incoming.partial,
+    ...(error !== undefined ? { error } : {}),
   }
 }
 
@@ -332,7 +374,12 @@ export const prSecurityScanRepository = {
           status: 'RUNNING',
           judgeStatus: null,
           truncated: false,
-          stages: external ? { external } : Prisma.DbNull,
+          // LUM-745: a superseded layer carries no result and no rows —
+          // preserving it would leave the re-run permanently "superseded".
+          stages:
+            external && external !== 'SUPERSEDED'
+              ? { external }
+              : Prisma.DbNull,
           partial: false,
           error: null,
           startedAt: new Date(),
@@ -352,9 +399,13 @@ export const prSecurityScanRepository = {
     await withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id },
-        select: { stages: true, partial: true },
+        select: { stages: true, partial: true, error: true },
       })
-      const { stages, partial } = mergeIngestOwnedStages(current, input)
+      const {
+        stages,
+        partial,
+        error: keptError,
+      } = mergeIngestOwnedStages(current, input)
       await tx.prSecurityScan.update({
         where: { id },
         data: {
@@ -363,7 +414,7 @@ export const prSecurityScanRepository = {
           truncated: input.truncated,
           stages,
           partial,
-          error: input.error ?? null,
+          error: input.error ?? keptError ?? null,
           finishedAt: new Date(),
         },
       })
@@ -397,9 +448,13 @@ export const prSecurityScanRepository = {
     await withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: { stages: true, partial: true },
+        select: { stages: true, partial: true, error: true },
       })
-      const { stages, partial } = mergeIngestOwnedStages(current, final)
+      const {
+        stages,
+        partial,
+        error: keptError,
+      } = mergeIngestOwnedStages(current, final)
       await tx.prSecurityScan.update({
         where: { id: scanId },
         data: {
@@ -408,7 +463,7 @@ export const prSecurityScanRepository = {
           truncated: final.truncated,
           stages,
           partial,
-          error: final.error ?? null,
+          error: final.error ?? keptError ?? null,
           finishedAt: new Date(),
         },
       })
@@ -759,5 +814,103 @@ export const prSecurityScanRepository = {
       data,
     })
     return row as unknown as FindingRow
+  },
+
+  // ── LUM-745: managed-run ops ───────────────────────────────────────────────
+
+  /**
+   * The workflow run stage A just started; supersede / sweep cancel by it.
+   * LUM-745 (review): the external + supplyChain layers go PENDING in the
+   * same write, so the row is supersedable the moment the run exists —
+   * stage A's own `persistResult` is many seconds away (behind the LLM
+   * judge) and a back-to-back push must find this row in between. An
+   * external layer another writer already settled (RAN / FAILED /
+   * SUPERSEDED) is never downgraded.
+   */
+  async setManagedRunId(id: string, managedRunId: string): Promise<void> {
+    await withSerializableRetry(async tx => {
+      const current = await tx.prSecurityScan.findUnique({
+        where: { id },
+        select: { stages: true },
+      })
+      const stages: ScanStages = {
+        ...((current?.stages as ScanStages | null) ?? {}),
+      }
+      const settled =
+        stages.external === 'RAN' ||
+        stages.external === 'FAILED' ||
+        stages.external === 'SUPERSEDED'
+      if (!settled) {
+        stages.external = 'PENDING'
+        if (!stages.supplyChain) stages.supplyChain = 'PENDING'
+      }
+      await tx.prSecurityScan.update({
+        where: { id },
+        data: { managedRunId, stages },
+      })
+    })
+  },
+
+  /** The per-layer JSON alone — the sandbox step's entry guard. */
+  async findStagesById(id: string): Promise<ScanStages | null> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id },
+      select: { stages: true },
+    })
+    if (!row) return null
+    return (row.stages as ScanStages | null) ?? {}
+  },
+
+  /**
+   * Every other scan on this PR whose managed run may still be going:
+   * `stages.external = PENDING` and a run id on record. The caller already
+   * knows the newest row's id and excludes it; anything else on the PR is by
+   * construction not the head (stage A resolved the head before creating it).
+   */
+  async findPendingManagedByPullRequest(
+    pullRequestId: string,
+    exceptScanId: string
+  ): Promise<SupersedableScan[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: {
+        pullRequestId,
+        id: { not: exceptScanId },
+        managedRunId: { not: null },
+        stages: { path: ['external'], equals: 'PENDING' },
+      },
+      select: { id: true, headSha: true, managedRunId: true, stages: true },
+    })
+    return rows as SupersedableScan[]
+  },
+
+  /** PENDING external layers started before `before` (managed and BYO), oldest first. */
+  async findStalePendingExternal(
+    before: Date,
+    limit: number
+  ): Promise<StalePendingScan[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: {
+        startedAt: { lt: before },
+        stages: { path: ['external'], equals: 'PENDING' },
+      },
+      orderBy: { startedAt: 'asc' },
+      take: limit,
+      select: { id: true, managedRunId: true, stages: true },
+    })
+    return rows as StalePendingScan[]
+  },
+
+  /** Managed runs this workspace started since `since` — the hourly cap's counter. */
+  async countManagedRunsSince(
+    workspaceId: string,
+    since: Date
+  ): Promise<number> {
+    return prisma.prSecurityScan.count({
+      where: {
+        workspaceId,
+        managedRunId: { not: null },
+        startedAt: { gte: since },
+      },
+    })
   },
 }

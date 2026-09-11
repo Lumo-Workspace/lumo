@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "Tiêu chí nghiệm thu của con người",
   "securityScan.stage.supplyChain": "Phụ thuộc",
   "securityScan.finding.persisting": "đã có trên nhánh mặc định",
-  "securityScan.finding.dependency": "Phụ thuộc có lỗ hổng"
+  "securityScan.finding.dependency": "Phụ thuộc có lỗ hổng",
+  "securityScan.stageState.SUPERSEDED": "đã bị thay thế"
 }

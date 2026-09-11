@@ -5,3 +5,8 @@ export const start = jest.fn(
     status: Promise.resolve('running' as const),
   })
 )
+
+/** LUM-745: `getRun(runId).cancel()` — the only Run method the app calls. */
+export const getRun = jest.fn((_runId: string) => ({
+  cancel: jest.fn(async () => undefined),
+}))

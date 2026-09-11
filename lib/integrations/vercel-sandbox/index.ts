@@ -10,6 +10,7 @@
  * locally `vercel env pull` provides VERCEL_OIDC_TOKEN.
  */
 import { Sandbox } from '@vercel/sandbox'
+import { logger } from '@/lib/logger'
 
 export interface RepoSandboxOptions {
   /** `owner/repo` on github.com */
@@ -21,6 +22,11 @@ export interface RepoSandboxOptions {
   timeoutMs: number
   vcpus: number
   image?: string
+  /**
+   * LUM-745: Vercel sandbox tags. `stopRepoSandboxesByTag` finds the VM by
+   * one of these from outside the step that created it.
+   */
+  tags?: Record<string, string>
 }
 
 export interface CommandResult {
@@ -68,6 +74,7 @@ export async function createRepoSandbox(
     image: opts.image ?? 'vercel/sandbox/universal',
     resources: { vcpus: opts.vcpus },
     timeout: opts.timeoutMs,
+    ...(opts.tags ? { tags: opts.tags } : {}),
   })
   return {
     cwd: sandbox.cwd,
@@ -90,4 +97,37 @@ export async function createRepoSandbox(
       await sandbox.stop()
     },
   }
+}
+
+/**
+ * LUM-745 — stop every sandbox still alive under one `{ key: value }` tag
+ * (the SDK filters by a single tag only). Returns how many were stopped. A
+ * sandbox that fails to stop is logged and skipped, never thrown: callers
+ * (supersede, the sweep) are best-effort and correctness never depends on
+ * this — the sandbox step's entry guard does. A failing `list` propagates.
+ */
+export async function stopRepoSandboxesByTag(
+  tags: Record<string, string>
+): Promise<number> {
+  let stopped = 0
+  // The SDK's `SingleTagFilter` is a compile-time check for exactly one key;
+  // a runtime record satisfies it by construction here (callers pass one).
+  const result = await Sandbox.list({ tags } as Parameters<
+    typeof Sandbox.list
+  >[0])
+  for await (const entry of result) {
+    if (entry.status !== 'pending' && entry.status !== 'running') continue
+    try {
+      const sandbox = await Sandbox.get({ name: entry.name })
+      await sandbox.stop()
+      stopped += 1
+    } catch (error) {
+      logger.warn(
+        `[vercel-sandbox] stop failed name=${entry.name}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    }
+  }
+  return stopped
 }

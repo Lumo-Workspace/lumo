@@ -16,6 +16,7 @@
 import {
   MANAGED_SCAN_TOOLS,
   SUPPLY_CHAIN_TOOL,
+  isSupersededOutcome,
   type ManagedScanJob,
 } from '@/lib/services/security-managed-scan.config'
 import type { IngestResult } from '@/lib/services/security-sarif-ingest.service'
@@ -46,6 +47,12 @@ export async function securityManagedScanWorkflow(
   let partial = false
   try {
     const outcome = await scanRepositoryInSandboxStep(job)
+    if (isSupersededOutcome(outcome)) {
+      // LUM-745: stage A superseded this row before the sandbox ran. The row
+      // already reads SUPERSEDED (stamped before the cancel); stamping
+      // FAILED or syncing the PR here would overwrite a truer state.
+      return { outcome: 'DISCARDED', reason: 'superseded' }
+    }
     for (const tool of MANAGED_SCAN_TOOLS) {
       const stage = tool === SUPPLY_CHAIN_TOOL ? 'supplyChain' : 'external'
       const result = outcome[tool]

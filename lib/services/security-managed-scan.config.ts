@@ -87,6 +87,59 @@ export interface BaselineScanOutcome {
   skipped: string[]
 }
 
+// ── LUM-745: ops closure (supersede / sweep / hourly cap) ───────────────────
+
+/**
+ * The Vercel Sandbox tag key that ties a VM to its scan row;
+ * `stopRepoSandboxesByTag({ [SANDBOX_SCAN_TAG]: scanId })` finds it from
+ * outside the step that created it.
+ */
+export const SANDBOX_SCAN_TAG = 'lumoScan'
+/**
+ * A PENDING external layer older than this is dead: the every-15-minute
+ * sweep marks it FAILED. Far above the 12-min sandbox cap × 3 platform
+ * retries.
+ * `EXTERNAL_PENDING_LATE_MS` (30 min, pr-security-scan.service) is the
+ * view-only "scanner is late" hint that precedes it.
+ */
+export const EXTERNAL_PENDING_DEAD_MS = 45 * 60 * 1000
+/** Managed runs one workspace may start per rolling hour unless overridden. */
+export const MANAGED_SCAN_HOURLY_CAP_DEFAULT = 20
+export const MANAGED_SCAN_HOURLY_WINDOW_MS = 60 * 60 * 1000
+
+/** `LUMO_MANAGED_SCAN_HOURLY_CAP`: a positive integer, else the default. */
+export function managedScanHourlyCap(
+  env: Record<string, string | undefined> = process.env
+): number {
+  const raw = env.LUMO_MANAGED_SCAN_HOURLY_CAP
+  if (raw === undefined || raw === '') return MANAGED_SCAN_HOURLY_CAP_DEFAULT
+  const n = Number(raw)
+  return Number.isInteger(n) && n > 0 ? n : MANAGED_SCAN_HOURLY_CAP_DEFAULT
+}
+
+/**
+ * What the sandbox step returns when stage A superseded the row before it
+ * ran: every tool "skipped: superseded". The workflow recognises the shape
+ * (`isSupersededOutcome`) and neither stamps nor syncs — the row already
+ * reads SUPERSEDED, and FAILED would be a lie.
+ */
+export const SUPERSEDED_REASON = 'superseded'
+
+export function supersededOutcome(): ManagedScanOutcome {
+  const outcome = {} as ManagedScanOutcome
+  for (const tool of MANAGED_SCAN_TOOLS) {
+    outcome[tool] = { kind: 'skipped', reason: SUPERSEDED_REASON }
+  }
+  return outcome
+}
+
+export function isSupersededOutcome(outcome: ManagedScanOutcome): boolean {
+  return MANAGED_SCAN_TOOLS.every(tool => {
+    const o = outcome[tool]
+    return o?.kind === 'skipped' && o.reason === SUPERSEDED_REASON
+  })
+}
+
 /**
  * Kill switch: managed scanning is on unless LUMO_MANAGED_SCAN is exactly "off".
  *

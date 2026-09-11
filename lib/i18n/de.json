@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "Menschliche Abnahmekriterien",
   "securityScan.stage.supplyChain": "Abhängigkeiten",
   "securityScan.finding.persisting": "bereits im Standard-Branch",
-  "securityScan.finding.dependency": "Anfällige Abhängigkeit"
+  "securityScan.finding.dependency": "Anfällige Abhängigkeit",
+  "securityScan.stageState.SUPERSEDED": "ersetzt"
 }

@@ -62,18 +62,23 @@ export type ScanStageState =
   | 'NOT_CONFIGURED'
   | 'PENDING'
   | 'PARTIAL'
+  // LUM-745: stage A cancelled this row's managed run because the PR moved
+  // on to a newer head before it reported. Never a pass, never a failure.
+  | 'SUPERSEDED'
 
 export type ScanStages = Partial<Record<ScanStageKey, ScanStageState>>
 
 /**
  * Stage states that leave the scan incomplete.
  * PENDING = the repo has pushed SARIF before but not for this sha yet.
+ * SUPERSEDED = the managed run was cancelled for a newer head (LUM-745).
  */
 export const INCOMPLETE_STAGE_STATES: ReadonlySet<ScanStageState> = new Set([
   'FAILED',
   'NOT_CONFIGURED',
   'PENDING',
   'PARTIAL',
+  'SUPERSEDED',
 ])
 
 /** A SARIF rule reduced to what normalisation needs (tool.driver.rules[]). */

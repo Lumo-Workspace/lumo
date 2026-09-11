@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "मानवीय स्वीकृति मानदंड",
   "securityScan.stage.supplyChain": "निर्भरताएँ",
   "securityScan.finding.persisting": "पहले से डिफ़ॉल्ट ब्रांच में मौजूद",
-  "securityScan.finding.dependency": "असुरक्षित निर्भरता"
+  "securityScan.finding.dependency": "असुरक्षित निर्भरता",
+  "securityScan.stageState.SUPERSEDED": "अधिक्रमित"
 }

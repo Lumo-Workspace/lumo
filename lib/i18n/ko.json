@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "사람 인수 기준",
   "securityScan.stage.supplyChain": "의존성",
   "securityScan.finding.persisting": "기본 브랜치에 이미 존재",
-  "securityScan.finding.dependency": "취약한 의존성"
+  "securityScan.finding.dependency": "취약한 의존성",
+  "securityScan.stageState.SUPERSEDED": "대체됨"
 }

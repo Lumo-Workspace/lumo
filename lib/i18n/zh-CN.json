@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "人工验收标准",
   "securityScan.stage.supplyChain": "依赖",
   "securityScan.finding.persisting": "默认分支上已存在",
-  "securityScan.finding.dependency": "存在漏洞的依赖"
+  "securityScan.finding.dependency": "存在漏洞的依赖",
+  "securityScan.stageState.SUPERSEDED": "已被替代"
 }

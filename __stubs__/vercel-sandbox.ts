@@ -5,4 +5,4 @@
  * → step → service) would fail to load; `jest.config.js` maps it here. Tests
  * that exercise the sandbox mock the wrapper module, never this stub.
  */
-export const Sandbox = { create: jest.fn() }
+export const Sandbox = { create: jest.fn(), list: jest.fn(), get: jest.fn() }

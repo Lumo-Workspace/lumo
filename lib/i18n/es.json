@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "Criterios de aceptación humanos",
   "securityScan.stage.supplyChain": "Dependencias",
   "securityScan.finding.persisting": "ya está en la rama predeterminada",
-  "securityScan.finding.dependency": "Dependencia vulnerable"
+  "securityScan.finding.dependency": "Dependencia vulnerable",
+  "securityScan.stageState.SUPERSEDED": "reemplazado"
 }

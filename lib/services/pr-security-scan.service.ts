@@ -42,6 +42,7 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
 import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
+import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
 import { isHuntEnabled } from './security-hunt.config'
 import { startSecurityHunt } from './security-hunt-start'
 import { securityBaselineService } from './security-baseline.service'
@@ -405,39 +406,72 @@ export const prSecurityScanService = {
       // already-stale summary on the PR (the marker upsert only dedupes across
       // syncs, not against a sync that has not happened yet).
       let managedRunStarted = false
+      // LUM-745: a prefixed reason for an external layer stage A itself
+      // decided (the hourly cap) — carried into persistResult so the panel,
+      // CLI and PR summary can show it. null = nothing to say.
+      let externalError: string | null = null
       try {
         externalCount =
           await prSecurityScanRepository.countExternalFindings(scanId)
         if (externalCount > 0) {
           stages.external = 'RAN'
         } else if (isManagedScanEnabled()) {
-          // v0.3: Lumo scans the head sha itself (spec §6 L1). The run
-          // persists findings and flips external to RAN/FAILED; until then
-          // the panel shows "scanning", never CLEAN (§14 Q1).
-          const runId = await startSecurityManagedScan({
-            scanId,
-            pr: {
-              id: pr.id,
-              workspaceId: pr.workspaceId,
-              repo: pr.repo,
-              number: pr.number,
-            },
-            headSha,
+          // LUM-745: a newer head makes every older PENDING run on this PR
+          // moot — stamp, cancel and stop them first (never throws), then
+          // ask whether this workspace may start another this hour.
+          await securityManagedScanOpsService.supersedeOlderRuns({
+            pullRequestId: pr.id,
+            exceptScanId: scanId,
+            newHeadSha: headSha,
           })
-          stages.external = runId ? 'PENDING' : 'FAILED'
-          // LUM-738: osv-scanner rides the same run — its layer is pending
-          // (or, if nothing could be queued, failed) with the external one.
-          stages.supplyChain = runId ? 'PENDING' : 'FAILED'
-          managedRunStarted = Boolean(runId)
-          // LUM-738: the run's DEPENDENCY rows are judged new-vs-persisting
-          // against the repository baseline; a repo scanned for the first
-          // time has none, so request one now (never throws; the PR scan
-          // must not fail over the baseline).
-          if (runId) {
-            await securityBaselineService.ensure({
-              workspaceId: pr.workspaceId,
-              repo: pr.repo,
+          const cap = await securityManagedScanOpsService.enforceHourlyCap({
+            workspaceId: pr.workspaceId,
+          })
+          if (cap.capped) {
+            // No sandbox starts; the reason is a fact on the row (P9).
+            stages.external = 'FAILED'
+            stages.supplyChain = 'FAILED'
+            externalError = cap.reason
+          } else {
+            // v0.3: Lumo scans the head sha itself (spec §6 L1). The run
+            // persists findings and flips external to RAN/FAILED; until then
+            // the panel shows "scanning", never CLEAN (§14 Q1).
+            const runId = await startSecurityManagedScan({
+              scanId,
+              pr: {
+                id: pr.id,
+                workspaceId: pr.workspaceId,
+                repo: pr.repo,
+                number: pr.number,
+              },
+              headSha,
             })
+            stages.external = runId ? 'PENDING' : 'FAILED'
+            // LUM-738: osv-scanner rides the same run — its layer is pending
+            // (or, if nothing could be queued, failed) with the external one.
+            stages.supplyChain = runId ? 'PENDING' : 'FAILED'
+            managedRunStarted = Boolean(runId)
+            if (runId) {
+              // LUM-745: the id is what supersede / the sweep cancel by. A
+              // failed write leaves this run to the 45-min sweep; it must
+              // never fail a scan whose run is already going.
+              try {
+                await prSecurityScanRepository.setManagedRunId(scanId, runId)
+              } catch (error) {
+                logger.warn(
+                  `[pr-security-scan] managedRunId write failed scan=${scanId}:`,
+                  error instanceof Error ? error.message : error
+                )
+              }
+              // LUM-738: the run's DEPENDENCY rows are judged new-vs-persisting
+              // against the repository baseline; a repo scanned for the first
+              // time has none, so request one now (never throws; the PR scan
+              // must not fail over the baseline).
+              await securityBaselineService.ensure({
+                workspaceId: pr.workspaceId,
+                repo: pr.repo,
+              })
+            }
           }
         } else {
           const last = await projectRepository.findLastSarifIngestAt(
@@ -559,6 +593,7 @@ export const prSecurityScanService = {
         truncated,
         stages,
         partial,
+        ...(externalError ? { error: externalError } : {}),
       })
       // LUM-739: the row is settled — now hand the sha to the hunt. A start
       // that cannot even queue the run is a FAILED layer (P9), stamped on the

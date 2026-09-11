@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "人工驗收標準",
   "securityScan.stage.supplyChain": "依賴",
   "securityScan.finding.persisting": "預設分支上已存在",
-  "securityScan.finding.dependency": "存在漏洞的依賴"
+  "securityScan.finding.dependency": "存在漏洞的依賴",
+  "securityScan.stageState.SUPERSEDED": "已被取代"
 }
