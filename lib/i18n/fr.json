@@ -2333,5 +2333,9 @@
   "boundary.panel.revokeRule": "Révoquer la règle",
   "boundary.disposition.autoSuppressed": "traité automatiquement par règle",
   "boundary.toast.ruleRevoked": "Règle révoquée — les prochaines occurrences seront de nouveau ouvertes",
-  "boundary.toast.ruleCreated": "Franchissement traité et règle de dépôt créée — les prochaines occurrences seront traitées automatiquement"
+  "boundary.toast.ruleCreated": "Franchissement traité et règle de dépôt créée — les prochaines occurrences seront traitées automatiquement",
+  "boundary.panel.suppressPreview": "Cela traitera également {count, plural, one {# alerte existante} other {# alertes existantes}} du même type dans ce dépôt.",
+  "boundary.panel.suppressPreviewCapped": "Plus de {cap} correspondances — seules les {cap} plus récentes sont traitées.",
+  "boundary.toast.ruleCreatedWithSweep": "Règle de dépôt créée — {count, plural, one {# alerte existante traitée} other {# alertes existantes traitées}} du même type, et les prochaines occurrences seront traitées automatiquement",
+  "boundary.toast.ruleRevokedWithReopen": "Règle révoquée — {count, plural, one {# alerte qu'elle traitait automatiquement est de nouveau ouverte} other {# alertes qu'elle traitait automatiquement sont de nouveau ouvertes}}"
 }

@@ -37,6 +37,10 @@ import {
   executingSegments,
 } from '@/lib/boundary-crossing/command-shape'
 import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
+import {
+  EVASION_MARKER,
+  isEvasionDecoded,
+} from '@/lib/boundary-crossing/evasion'
 import { crossingSuppressionRuleRepository } from '@/lib/repositories/crossing-suppression-rule.repository'
 import {
   findSuppressionRule,
@@ -657,7 +661,6 @@ export function detectStewardImplementationArtifact(
 
 // --- LUM-442 evasion awareness (base64 decode-and-rescan) ---------------------
 
-const EVASION_MARKER = '[base64-decoded] '
 // Bounds to keep decode-and-rescan cheap and DoS-proof (echoes LUM-348's 64k
 // truncation philosophy): skip pathological commands, cap how many candidate
 // tokens we decode, and cap each token's size.
@@ -1441,7 +1444,7 @@ export async function confirmActionCandidates(
     }
     // Evasion-decoded crossings (base64) are deliberate obfuscation, already
     // HIGH — never let the LLM suppress one (the high-severity red line).
-    if (c.detail.includes(EVASION_MARKER.trim())) {
+    if (isEvasionDecoded(c.detail)) {
       out.push(c)
       continue
     }
@@ -1774,7 +1777,7 @@ export const boundaryDetectorService = {
         // actor, rule ref), coalescing with its own suppressed row. Never for
         // the HIGH classes (findSuppressionRule refuses them) and never for an
         // evasion-decoded crossing (deliberate obfuscation stays open).
-        const rule = c.detail.includes(EVASION_MARKER.trim())
+        const rule = isEvasionDecoded(c.detail)
           ? null
           : findSuppressionRule(suppressionRules, c.category, c.target)
         if (rule) {

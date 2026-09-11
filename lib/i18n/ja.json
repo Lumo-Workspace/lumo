@@ -2333,5 +2333,9 @@
   "boundary.panel.revokeRule": "ルールを撤回",
   "boundary.disposition.autoSuppressed": "ルールにより自動処理",
   "boundary.toast.ruleRevoked": "ルールを撤回しました — 今後の発生は再び未処理になります",
-  "boundary.toast.ruleCreated": "越境を処理し、リポジトリルールを作成しました — 今後の発生は自動処理されます"
+  "boundary.toast.ruleCreated": "越境を処理し、リポジトリルールを作成しました — 今後の発生は自動処理されます",
+  "boundary.panel.suppressPreview": "このリポジトリに既にある同種のアラート {count} 件も併せて処理されます。",
+  "boundary.panel.suppressPreviewCapped": "一致するものが {cap} 件を超えています — 直近の {cap} 件のみ処理されます。",
+  "boundary.toast.ruleCreatedWithSweep": "リポジトリルールを作成しました — 既存の同種のアラート {count} 件を処理し、今後の発生は自動処理されます",
+  "boundary.toast.ruleRevokedWithReopen": "ルールを取り消しました — 自動処理されていたアラート {count} 件が未処理に戻りました"
 }

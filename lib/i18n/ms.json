@@ -2333,5 +2333,9 @@
   "boundary.panel.revokeRule": "Batalkan peraturan",
   "boundary.disposition.autoSuppressed": "diselesaikan secara automatik oleh peraturan",
   "boundary.toast.ruleRevoked": "Peraturan dibatalkan — kejadian akan datang akan dibuka semula",
-  "boundary.toast.ruleCreated": "Pelanggaran diselesaikan dan peraturan repositori dibuat — kejadian akan datang akan diuruskan secara automatik"
+  "boundary.toast.ruleCreated": "Pelanggaran diselesaikan dan peraturan repositori dibuat — kejadian akan datang akan diuruskan secara automatik",
+  "boundary.panel.suppressPreview": "Ini juga akan menyelesaikan {count} amaran sedia ada yang sejenis dalam repositori ini.",
+  "boundary.panel.suppressPreviewCapped": "Lebih daripada {cap} padanan — hanya {cap} yang terbaharu dikendalikan.",
+  "boundary.toast.ruleCreatedWithSweep": "Peraturan repositori dicipta — {count} amaran sedia ada yang sejenis telah diselesaikan, dan kejadian akan datang akan dikendalikan secara automatik",
+  "boundary.toast.ruleRevokedWithReopen": "Peraturan dibatalkan — {count} amaran yang dikendalikannya secara automatik kini terbuka semula"
 }

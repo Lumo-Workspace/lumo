@@ -214,8 +214,20 @@ export const tasksClient = {
   },
 
   /**
-   * Soft-revoke a repository suppression rule (LUM-751). Clerk-session only —
-   * the server refuses bearer (agent) identities. Returns { ruleId, revokedAt }.
+   * How many existing crossings in this repository a suppression rule built
+   * from this crossing would dispose (LUM-759) — read-only, Clerk-session only.
+   * Returns { suppressible, count, capped, cap }; shown next to the opt-in so
+   * the human sees the blast radius before committing the ruling.
+   */
+  previewCrossingSuppressionScope<T>(taskId: string, crossingId: string) {
+    return apiFetch<T>(API.tasks.boundarySuppressionPreview(taskId, crossingId))
+  },
+
+  /**
+   * Soft-revoke a repository suppression rule (LUM-751), which since LUM-759
+   * also returns the crossings it had suppressed to the open queue.
+   * Clerk-session only — the server refuses bearer (agent) identities. Returns
+   * { ruleId, revokedAt, reopenedCount }.
    */
   revokeCrossingSuppressionRule<T>(taskId: string, ruleId: string) {
     return apiFetch<T>(API.tasks.boundarySuppressionRule(taskId, ruleId), {

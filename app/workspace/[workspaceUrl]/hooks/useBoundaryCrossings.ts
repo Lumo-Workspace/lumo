@@ -14,6 +14,18 @@ export type BoundaryDisposition =
   | 'AUTO_LEGIT'
   | 'AUTO_SUPPRESSED'
 
+/**
+ * LUM-759: read-only blast radius of a rule the human has not created yet —
+ * how many ALREADY-RECORDED alerts of the same kind in this repository the
+ * rule would dispose alongside the crossing being ruled on.
+ */
+export interface SuppressionPreview {
+  suppressible: boolean
+  count: number
+  capped: boolean
+  cap: number
+}
+
 /** LUM-751: the repository rule behind an AUTO_SUPPRESSED disposition. */
 export interface SuppressionRuleView {
   id: string

@@ -2333,5 +2333,9 @@
   "boundary.panel.revokeRule": "Regel widerrufen",
   "boundary.disposition.autoSuppressed": "automatisch per Regel erledigt",
   "boundary.toast.ruleRevoked": "Regel widerrufen – künftige Vorkommen bleiben wieder offen",
-  "boundary.toast.ruleCreated": "Grenzübertritt erledigt und Repository-Regel erstellt – künftige Vorkommen werden automatisch erledigt"
+  "boundary.toast.ruleCreated": "Grenzübertritt erledigt und Repository-Regel erstellt – künftige Vorkommen werden automatisch erledigt",
+  "boundary.panel.suppressPreview": "Damit werden auch {count, plural, one {# vorhandene Meldung} other {# vorhandene Meldungen}} derselben Art in diesem Repository erledigt.",
+  "boundary.panel.suppressPreviewCapped": "Mehr als {cap} Treffer — nur die {cap} neuesten werden bearbeitet.",
+  "boundary.toast.ruleCreatedWithSweep": "Repository-Regel erstellt — {count, plural, one {# vorhandene Meldung} other {# vorhandene Meldungen}} derselben Art erledigt; künftige Vorkommen werden automatisch behandelt",
+  "boundary.toast.ruleRevokedWithReopen": "Regel widerrufen — {count, plural, one {# Meldung, die sie automatisch behandelt hatte, ist} other {# Meldungen, die sie automatisch behandelt hatte, sind}} wieder offen"
 }

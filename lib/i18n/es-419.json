@@ -2333,5 +2333,9 @@
   "boundary.panel.revokeRule": "Revocar regla",
   "boundary.disposition.autoSuppressed": "resuelto automáticamente por regla",
   "boundary.toast.ruleRevoked": "Regla revocada: las próximas ocurrencias volverán a quedar abiertas",
-  "boundary.toast.ruleCreated": "Cruce resuelto y regla del repositorio creada: las próximas ocurrencias se gestionarán automáticamente"
+  "boundary.toast.ruleCreated": "Cruce resuelto y regla del repositorio creada: las próximas ocurrencias se gestionarán automáticamente",
+  "boundary.panel.suppressPreview": "Esto también resolverá {count, plural, one {# alerta existente} other {# alertas existentes}} del mismo tipo en este repositorio.",
+  "boundary.panel.suppressPreviewCapped": "Hay más de {cap} coincidencias: solo se tratan las {cap} más recientes.",
+  "boundary.toast.ruleCreatedWithSweep": "Regla del repositorio creada: se resolvieron {count, plural, one {# alerta existente} other {# alertas existentes}} del mismo tipo y las próximas se tratarán automáticamente",
+  "boundary.toast.ruleRevokedWithReopen": "Regla revocada: {count, plural, one {# alerta que trataba automáticamente vuelve a estar abierta} other {# alertas que trataba automáticamente vuelven a estar abiertas}}"
 }

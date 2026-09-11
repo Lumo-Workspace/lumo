@@ -2333,5 +2333,9 @@
   "boundary.panel.revokeRule": "नियम रद्द करें",
   "boundary.disposition.autoSuppressed": "नियम द्वारा स्वतः निपटाया गया",
   "boundary.toast.ruleRevoked": "नियम रद्द किया गया — भविष्य की घटनाएँ फिर से खुली रहेंगी",
-  "boundary.toast.ruleCreated": "उल्लंघन निपटाया गया और रिपॉज़िटरी नियम बनाया गया — भविष्य की घटनाएँ स्वतः संभाली जाएँगी"
+  "boundary.toast.ruleCreated": "उल्लंघन निपटाया गया और रिपॉज़िटरी नियम बनाया गया — भविष्य की घटनाएँ स्वतः संभाली जाएँगी",
+  "boundary.panel.suppressPreview": "इससे इस रिपॉज़िटरी में इसी प्रकार की मौजूदा {count} चेतावनियाँ भी निपटा दी जाएँगी।",
+  "boundary.panel.suppressPreviewCapped": "{cap} से अधिक मेल हैं — केवल सबसे हाल की {cap} ही निपटाई जाएँगी।",
+  "boundary.toast.ruleCreatedWithSweep": "रिपॉज़िटरी नियम बनाया गया — इसी प्रकार की मौजूदा {count} चेतावनियाँ निपटाई गईं, और आगे की घटनाएँ स्वतः निपटाई जाएँगी",
+  "boundary.toast.ruleRevokedWithReopen": "नियम वापस लिया गया — इसने जो {count} चेतावनियाँ स्वतः निपटाई थीं वे फिर से लंबित हैं"
 }

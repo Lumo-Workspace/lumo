@@ -2333,5 +2333,9 @@
   "boundary.panel.revokeRule": "Thu hồi quy tắc",
   "boundary.disposition.autoSuppressed": "tự động xử lý theo quy tắc",
   "boundary.toast.ruleRevoked": "Đã thu hồi quy tắc — các lần xảy ra sau sẽ mở lại",
-  "boundary.toast.ruleCreated": "Đã xử lý vi phạm và tạo quy tắc kho — các lần xảy ra sau sẽ được tự động xử lý"
+  "boundary.toast.ruleCreated": "Đã xử lý vi phạm và tạo quy tắc kho — các lần xảy ra sau sẽ được tự động xử lý",
+  "boundary.panel.suppressPreview": "Thao tác này cũng sẽ xử lý {count} cảnh báo cùng loại đã có trong kho lưu trữ này.",
+  "boundary.panel.suppressPreviewCapped": "Có hơn {cap} kết quả khớp — chỉ {cap} cảnh báo gần đây nhất được xử lý.",
+  "boundary.toast.ruleCreatedWithSweep": "Đã tạo quy tắc kho lưu trữ — đã xử lý {count} cảnh báo cùng loại đã có, và các lần sau sẽ được xử lý tự động",
+  "boundary.toast.ruleRevokedWithReopen": "Đã thu hồi quy tắc — {count} cảnh báo từng được xử lý tự động đã mở lại"
 }
