@@ -2,11 +2,19 @@
  * LUM-739 — L3 hunt (spec §6 L3, execution base v0.3). Started by stage A
  * after it has persisted its own result with `stages.hunt = PENDING`.
  *
- *   buildSubgraphStep → huntCategoryStep × 6 (one bounded tool-calling
- *   batch per checklist category; candidates accumulate here, the budget is
- *   checked between batches) → one retry batch per category the gateway
- *   dropped → mechanicalVerifyStep → falsifierStep per surviving candidate →
- *   persistHuntFindingsStep → syncPrReviewStep.
+ *   buildSubgraphStep → planHuntStep → huntCategoryStep × N (one bounded
+ *   tool-calling batch per PLANNED category; candidates accumulate here, the
+ *   budget is checked between batches) → one retry batch per planned category
+ *   the gateway dropped → mechanicalVerifyStep → falsifierStep per surviving
+ *   candidate → persistHuntFindingsStep → syncPrReviewStep.
+ *
+ * LUM-758 — N is 0–2, not 6. Running all six unconditionally was the actual
+ * cost driver (prod: 166k–236k tokens per scan, RAN 1 / PARTIAL 14 /
+ * SKIPPED 7, zero findings), and a `partial` verdict that demanded all six be
+ * `done` made PARTIAL the default outcome. Now the planning step picks the
+ * categories from the diff, two short circuits end the layer as SKIPPED
+ * before any hunt call (empty subgraph, or an empty plan), and `partial` is
+ * judged over the planned categories only.
  *
  * LUM-762 — the layer used to end PARTIAL as a matter of routine: a batch got
  * the WHOLE remaining budget, so the first category to wedge on the gateway
@@ -22,7 +30,6 @@
  * huntAudit.
  */
 import {
-  HUNT_CATEGORIES,
   HUNT_TOKEN_BUDGET,
   HUNT_TIME_BUDGET_MS,
   HUNT_CATEGORY_TIME_MS,
@@ -37,6 +44,7 @@ import {
 } from '@/lib/services/security-hunt.config'
 import {
   buildSubgraphStep,
+  planHuntStep,
   huntCategoryStep,
   mechanicalVerifyStep,
   falsifierStep,
@@ -91,14 +99,60 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       partial: graph.partial,
     }
 
+    // Short circuit A (LUM-758 §4.1): no TS symbols means there is nothing to
+    // hunt. Placed BEFORE the planning step, so not a single LLM call happens.
+    if (
+      graph.subgraph.files.length === 0 ||
+      graph.subgraph.symbols.length === 0
+    ) {
+      audit.planned = []
+      audit.plannedReason = 'empty subgraph'
+      audit.plannedBy = 'fallback'
+      await persistHuntFindingsStep({
+        job,
+        findings: [],
+        audit,
+        tokenSpent: 0,
+        partial: false,
+        stage: 'SKIPPED',
+      })
+      await syncPrReviewBestEffort(scanId)
+      return { outcome: 'SKIPPED', scanId, findings: 0, tokenSpent: 0 }
+    }
+
+    const plan = await planHuntStep({ job, subgraph: graph.subgraph })
+    // The plan is an LLM call like any other — its tokens are part of what
+    // this scan cost, and the acceptance metric reads `tokenSpent`.
+    tokenSpent += plan.tokens
+    audit.planned = plan.categories
+    audit.plannedReason = plan.reason
+    audit.plannedBy = plan.by
+
+    // Short circuit B: an empty array is a first-class answer. LUM-762's prod
+    // data (RAN 1 / PARTIAL 14 / SKIPPED 7, 0 findings) says most PRs belong
+    // here.
+    if (plan.categories.length === 0) {
+      await persistHuntFindingsStep({
+        job,
+        findings: [],
+        audit,
+        tokenSpent,
+        partial: false,
+        stage: 'SKIPPED',
+      })
+      await syncPrReviewBestEffort(scanId)
+      return { outcome: 'SKIPPED', scanId, findings: 0, tokenSpent }
+    }
+
+    const planned = plan.categories
     const raw: unknown[] = []
-    /** Each category's latest outcome — the retry pass and P9 both read it. */
+    /** Each planned category's latest outcome — the retry pass and P9 read it. */
     const stops: Partial<Record<HuntCategory, HuntCategoryStop>> = {}
 
-    // Pass 1 — one bounded batch per category. The ceiling (not the whole
-    // remaining budget) is what a batch may spend, so one wedged category
-    // cannot starve the five behind it (LUM-762).
-    for (const category of HUNT_CATEGORIES) {
+    // Pass 1 — one bounded batch per PLANNED category. The ceiling (not the
+    // whole remaining budget) is what a batch may spend, so one wedged
+    // category cannot starve the one behind it (LUM-762).
+    for (const category of planned) {
       if (tokenSpent >= HUNT_TOKEN_BUDGET || elapsedMs >= HUNT_TIME_BUDGET_MS) {
         audit.categories.push({
           category,
@@ -140,9 +194,10 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     // flakiness is routine and used to void the whole layer; a second attempt
     // with a fresh window is what turns that PARTIAL back into RAN. Only
     // transient stops qualify — a batch that hit its step or token cap would
-    // hit it again. The body is deliberately a copy of pass 1's: a `'use
-    // workflow'` body awaits its steps directly, not through a local helper.
-    for (const category of HUNT_CATEGORIES) {
+    // hit it again. Iterates `planned` too: a category that was never planned
+    // has no stop to retry. The body is deliberately a copy of pass 1's: a
+    // `'use workflow'` body awaits its steps directly, not through a helper.
+    for (const category of planned) {
       const stop = stops[category]
       if (stop !== 'timeout' && stop !== 'error') continue
       if (tokenSpent >= HUNT_TOKEN_BUDGET || elapsedMs >= HUNT_TIME_BUDGET_MS)
@@ -173,8 +228,11 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       stops[category] = retry.stopped
     }
 
-    // P9: the layer is whole only when every category ended `done`.
-    for (const category of HUNT_CATEGORIES) {
+    // P9 — the single most important line of LUM-758: only the PLANNED
+    // categories take part in the verdict. Iterating HUNT_CATEGORIES would
+    // leave the categories nobody planned permanently not-`done`, making every
+    // scan instantly PARTIAL and voiding all of the work above.
+    for (const category of planned) {
       if (stops[category] !== 'done') partial = true
     }
 
@@ -209,6 +267,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       audit,
       tokenSpent,
       partial,
+      stage: partial ? 'PARTIAL' : 'RAN',
     })
     await syncPrReviewBestEffort(scanId)
     return {

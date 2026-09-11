@@ -347,7 +347,7 @@ export const securityHuntService = {
       input.job.scanId,
       inherited,
       {
-        hunt: input.partial ? 'PARTIAL' : 'RAN',
+        hunt: input.stage,
         huntAudit: capAudit(input.audit),
         tokenSpent: input.tokenSpent,
         partial: input.partial,

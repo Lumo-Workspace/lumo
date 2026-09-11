@@ -53,6 +53,7 @@ const JOB = {
   repo: 'o/r',
   prNumber: 7,
   headSha: 'b'.repeat(40),
+  reasons: ['diff:sink:prisma-raw'],
 }
 
 function diffFor(paths: string[]): string {
@@ -415,6 +416,7 @@ describe('LUM-739 hunt service', () => {
         audit,
         tokenSpent: 777,
         partial: true,
+        stage: 'PARTIAL',
       })
     ).resolves.toEqual({ written: 1 })
     const [scanId, rows, final] = repo.persistHuntResult.mock.calls[0]!
@@ -468,6 +470,7 @@ describe('LUM-739 hunt service', () => {
       },
       tokenSpent: 1700,
       partial: true,
+      stage: 'PARTIAL',
     })
     const line = (logger.info as jest.Mock).mock.calls
       .map(c => String(c[0]))

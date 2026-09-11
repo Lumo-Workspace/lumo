@@ -20,6 +20,7 @@ const JOB = {
   repo: 'o/r',
   prNumber: 7,
   headSha: 'a'.repeat(40),
+  reasons: ['diff:sink:prisma-raw'],
 }
 
 beforeEach(() => jest.clearAllMocks())

@@ -152,6 +152,9 @@ describe('LUM-739 hunt trigger', () => {
       repo: 'o/r',
       prNumber: 7,
       headSha: 'sha-1',
+      // LUM-758: the trigger's own reasons ride along — the planning step and
+      // its deterministic fallback are both driven by them.
+      reasons: ['diff:entry:next-route-handler'],
     })
     expect(repo.mergeStages).not.toHaveBeenCalled()
     expect(waitUntilMock).not.toHaveBeenCalled()

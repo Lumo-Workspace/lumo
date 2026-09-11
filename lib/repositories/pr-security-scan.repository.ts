@@ -64,7 +64,10 @@ export interface NewFindingInput {
 
 /** LUM-739 — what the hunt workflow writes back onto the scan row. */
 export interface PersistHuntResultInput {
-  hunt: 'RAN' | 'PARTIAL' | 'FAILED'
+  // LUM-758: SKIPPED joins the set — the planner may decide a PR is not worth
+  // hunting (empty subgraph, or no category planned), which is a complete
+  // layer, not a failed one.
+  hunt: 'RAN' | 'PARTIAL' | 'FAILED' | 'SKIPPED'
   huntAudit: Record<string, unknown>
   tokenSpent: number | null
   partial: boolean

@@ -672,6 +672,9 @@ export const prSecurityScanService = {
           repo: pr.repo,
           prNumber: pr.number,
           headSha,
+          // LUM-758: the trigger already computed these — the planning step
+          // and its deterministic fallback both run off them.
+          reasons: huntTrigger.reasons,
         })
         if (runId) huntRunStarted = true
         else

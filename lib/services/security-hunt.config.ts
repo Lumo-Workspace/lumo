@@ -188,11 +188,14 @@ export interface PersistHuntInput {
   audit: HuntAudit
   tokenSpent: number
   partial: boolean
+  /** LUM-758 — 写进 `stages.hunt` 的层状态。 */
+  stage: 'RAN' | 'PARTIAL' | 'SKIPPED'
 }
 
 export type HuntResult =
   | {
-      outcome: 'RAN' | 'PARTIAL'
+      /** LUM-758: SKIPPED = 规划步说这个 PR 不值得 hunt（空子图或空类别）。 */
+      outcome: 'RAN' | 'PARTIAL' | 'SKIPPED'
       scanId: string
       findings: number
       tokenSpent: number

@@ -1,6 +1,7 @@
 /** @jest-environment node */
 jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   buildSubgraphStep: jest.fn(),
+  planHuntStep: jest.fn(),
   huntCategoryStep: jest.fn(),
   mechanicalVerifyStep: jest.fn(),
   falsifierStep: jest.fn(),
@@ -23,6 +24,7 @@ jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
 import { securityHuntWorkflow } from '@/lib/workflows/security-hunt'
 import {
   buildSubgraphStep,
+  planHuntStep,
   huntCategoryStep,
   mechanicalVerifyStep,
   falsifierStep,
@@ -32,6 +34,7 @@ import {
 import { syncPrReviewStep } from '@/lib/workflows/security-pr-review.steps'
 import {
   HUNT_CATEGORIES,
+  HUNT_MAX_PLANNED_CATEGORIES,
   HUNT_TOKEN_BUDGET,
   HUNT_TIME_BUDGET_MS,
   HUNT_CATEGORY_TIME_MS,
@@ -41,6 +44,7 @@ import {
 import { HUNT_CATEGORIES as CANDIDATE_CATEGORIES } from '@/lib/security-scan/hunt/candidate'
 
 const build = buildSubgraphStep as jest.Mock
+const plan = planHuntStep as jest.Mock
 const hunt = huntCategoryStep as jest.Mock
 const verify = mechanicalVerifyStep as jest.Mock
 const falsify = falsifierStep as jest.Mock
@@ -56,6 +60,7 @@ const JOB = {
   repo: 'o/r',
   prNumber: 7,
   headSha: 'a'.repeat(40),
+  reasons: ['diff:sink:prisma-raw'],
 }
 const SUBGRAPH = {
   symbols: [
@@ -84,6 +89,13 @@ const candidate = (n: number) => ({
   reachability: 'EXTERNAL',
   fingerprint: `f${n}`,
 })
+/**
+ * LUM-758: the planning step's hard cap is HUNT_MAX_PLANNED_CATEGORIES (2), so
+ * every case below runs TWO categories, not six. A six-category fixture would
+ * assert a state production can no longer reach.
+ */
+const PLANNED = ['injection', 'idor'] as const
+
 const batch = (
   over: Partial<{
     candidates: unknown[]
@@ -107,6 +119,12 @@ beforeEach(() => {
   build.mockImplementation(async () => {
     order.push('build')
     return { subgraph: SUBGRAPH, partial: false }
+  })
+  plan.mockResolvedValue({
+    categories: [...PLANNED],
+    reason: 'legacy fixture',
+    by: 'model',
+    tokens: 0,
   })
   hunt.mockImplementation(async () => {
     order.push('hunt')
@@ -133,7 +151,7 @@ beforeEach(() => {
 })
 
 describe('LUM-739 hunt workflow', () => {
-  it('runs one batch per category with decreasing budgets, verifies once, falsifies each survivor, persists only INCONCLUSIVE ones, syncs last', async () => {
+  it('runs one batch per PLANNED category, verifies once, falsifies each survivor, persists only INCONCLUSIVE ones, syncs last', async () => {
     hunt
       .mockImplementationOnce(async () => {
         order.push('hunt')
@@ -168,12 +186,11 @@ describe('LUM-739 hunt workflow', () => {
       outcome: 'RAN',
       scanId: 's1',
       findings: 1,
-      tokenSpent: 1000 + 500 + 4 * 100 + 40 + 60,
+      // LUM-758: two planned batches, and the plan step itself spent 0.
+      tokenSpent: 1000 + 500 + 40 + 60,
     })
-    expect(hunt).toHaveBeenCalledTimes(6)
-    expect(hunt.mock.calls.map(c => c[0].category)).toEqual([
-      ...HUNT_CATEGORIES,
-    ])
+    expect(hunt).toHaveBeenCalledTimes(2)
+    expect(hunt.mock.calls.map(c => c[0].category)).toEqual([...PLANNED])
     // LUM-762: every batch is bounded by the per-category ceiling, so a
     // wedged category can no longer spend the whole scan's window.
     expect(hunt.mock.calls[0]![0]).toMatchObject({
@@ -207,16 +224,17 @@ describe('LUM-739 hunt workflow', () => {
       falsifierRejected: [{ category: 'idor', sink: 's1', reason: 'guarded' }],
       subgraph: { files: 1, symbols: 1, edges: 1, partial: false },
     })
-    expect(persisted.audit.categories).toHaveLength(6)
+    expect(persisted.audit.planned).toEqual([...PLANNED])
+    expect(persisted.audit.categories).toHaveLength(2)
     expect(persisted.audit.categories[0]).toEqual({
-      category: 'idor',
+      category: 'injection',
       candidates: 2,
       tokens: 1000,
       elapsedMs: 5000,
       stopped: 'done',
     })
     expect(order[order.length - 1]).toBe('sync')
-    expect(order.filter(o => o === 'hunt')).toHaveLength(6)
+    expect(order.filter(o => o === 'hunt')).toHaveLength(2)
     expect(order.indexOf('verify')).toBeGreaterThan(order.lastIndexOf('hunt'))
     expect(markFailed).not.toHaveBeenCalled()
   })
@@ -252,9 +270,9 @@ describe('LUM-739 hunt workflow', () => {
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
       outcome: 'PARTIAL',
     })
-    expect(hunt).toHaveBeenCalledTimes(7) // 6 categories + one retry of idor
+    expect(hunt).toHaveBeenCalledTimes(3) // 2 planned + one retry of idor
     const rows = persist.mock.calls[0]![0].audit.categories
-    expect(rows[0].stopped).toBe('error')
+    expect(rows[1].stopped).toBe('error')
     expect(rows[rows.length - 1]).toMatchObject({
       category: 'idor',
       stopped: 'error',
@@ -268,17 +286,18 @@ describe('LUM-739 hunt workflow', () => {
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
       outcome: 'RAN',
     })
-    expect(hunt).toHaveBeenCalledTimes(7)
-    expect(hunt.mock.calls[6]![0]).toMatchObject({
-      category: 'idor',
+    // 2 planned + one retry of the first planned category.
+    expect(hunt).toHaveBeenCalledTimes(3)
+    expect(hunt.mock.calls[2]![0]).toMatchObject({
+      category: 'injection',
       timeBudgetMs: HUNT_CATEGORY_TIME_MS,
     })
     const persisted = persist.mock.calls[0]![0]
     expect(persisted.partial).toBe(false)
-    const idor = persisted.audit.categories.filter(
-      (c: { category: string }) => c.category === 'idor'
+    const attempts = persisted.audit.categories.filter(
+      (c: { category: string }) => c.category === 'injection'
     )
-    expect(idor.map((c: { stopped: string }) => c.stopped)).toEqual([
+    expect(attempts.map((c: { stopped: string }) => c.stopped)).toEqual([
       'timeout',
       'done',
     ])
@@ -302,9 +321,19 @@ describe('LUM-739 hunt workflow', () => {
       timeBudgetMs: 10_000,
       tokenBudget: 4_000,
     })
-    expect(HUNT_CATEGORY_TIME_MS * HUNT_CATEGORIES.length).toBeLessThanOrEqual(
-      HUNT_TIME_BUDGET_MS
-    )
+    // LUM-758: the ceiling arithmetic is now sized to the PLANNED count, not
+    // to all six. At 120k/240s, six categories never fit (6 × 60s = 360s);
+    // two do, twice over — which is exactly the headroom the retry pass needs.
+    expect(
+      HUNT_CATEGORY_TIME_MS * HUNT_MAX_PLANNED_CATEGORIES
+    ).toBeLessThanOrEqual(HUNT_TIME_BUDGET_MS)
+    expect(
+      HUNT_CATEGORY_TOKEN_MAX * HUNT_MAX_PLANNED_CATEGORIES
+    ).toBeLessThanOrEqual(HUNT_TOKEN_BUDGET)
+    // One retry per planned category still fits in the scan's window.
+    expect(
+      HUNT_CATEGORY_TIME_MS * HUNT_MAX_PLANNED_CATEGORIES * 2
+    ).toBeLessThanOrEqual(HUNT_TIME_BUDGET_MS)
   })
 
   it('LUM-762 records unrun categories as skipped in huntAudit', async () => {
@@ -317,10 +346,10 @@ describe('LUM-739 hunt workflow', () => {
     expect(hunt).toHaveBeenCalledTimes(1)
     const rows = persist.mock.calls[0]![0].audit.categories
     expect(rows.map((c: { category: string }) => c.category)).toEqual([
-      ...HUNT_CATEGORIES,
+      ...PLANNED,
     ])
     expect(rows.slice(1)).toEqual(
-      HUNT_CATEGORIES.slice(1).map(category => ({
+      PLANNED.slice(1).map(category => ({
         category,
         candidates: 0,
         tokens: 0,
@@ -382,7 +411,8 @@ describe('LUM-739 hunt workflow', () => {
       outcome: 'FAILED',
       reason: 'verifier down',
     })
-    expect(markFailed).toHaveBeenCalledWith('s1', 'verifier down', 1200)
+    // Two planned batches at 200 tokens each; the plan step spent 0.
+    expect(markFailed).toHaveBeenCalledWith('s1', 'verifier down', 400)
   })
 
   it('a failing markFailed does not change the FAILED outcome', async () => {
