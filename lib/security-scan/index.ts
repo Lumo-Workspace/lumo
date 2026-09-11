@@ -71,3 +71,4 @@ export {
   type SecurityPolicyRule,
 } from './policy'
 export { extractDiffHunk, DIFF_HUNK_RADIUS } from './diff-snippet'
+export { suggestionOutcomeFor } from './suggestion'

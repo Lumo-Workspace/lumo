@@ -850,6 +850,8 @@ export const prSecurityScanRepository = {
       dispositionNote: string | null
       dispositionedById: string
       dispositionedAt: Date
+      /** LUM-740: the human's verdict on a suggested disposition, if any. */
+      suggestionOutcome?: SuggestionOutcome | null
     }
   ): Promise<FindingRow> {
     const row = await prisma.prSecurityFinding.update({
@@ -930,6 +932,36 @@ export const prSecurityScanRepository = {
         data: { tokenSpent: (row.tokenSpent ?? 0) + n },
       })
     })
+  },
+
+  // ── LUM-740: bulk confirm ─────────────────────────────────────────────────
+
+  /**
+   * Every undispositioned finding on the task's PRs the falsifier suggested
+   * as a false positive becomes FALSE_POSITIVE / CONFIRMED in one write.
+   * Returns how many rows changed.
+   */
+  async confirmSuggestedByTask(
+    taskId: string,
+    data: {
+      dispositionNote: string
+      dispositionedById: string
+      dispositionedAt: Date
+    }
+  ): Promise<number> {
+    const { count } = await prisma.prSecurityFinding.updateMany({
+      where: {
+        scan: { pullRequest: { taskId } },
+        suggestedDisposition: 'FALSE_POSITIVE',
+        disposition: null,
+      },
+      data: {
+        disposition: 'FALSE_POSITIVE',
+        suggestionOutcome: 'CONFIRMED',
+        ...data,
+      },
+    })
+    return count
   },
 
   // ── LUM-740: summary comment id ───────────────────────────────────────────

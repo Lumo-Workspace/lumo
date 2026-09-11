@@ -17,6 +17,8 @@ export const API = {
     securityScans: (taskId: string) => `/api/tasks/${taskId}/security-scans`,
     securityFindingDisposition: (taskId: string, findingId: string) =>
       `/api/tasks/${taskId}/security-findings/${findingId}/disposition`,
+    securityFindingsBulkDisposition: (taskId: string) =>
+      `/api/tasks/${taskId}/security-findings/bulk-disposition`,
     humanVerdict: (taskId: string) => `/api/tasks/${taskId}/human-verdict`,
     criteria: (taskId: string) => `/api/tasks/${taskId}/criteria`,
     boundaryCrossings: (taskId: string) =>

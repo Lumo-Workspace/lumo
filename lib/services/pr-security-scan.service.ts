@@ -23,7 +23,11 @@ import {
   type ScanStatus,
   type JudgeStatus,
   type ScanWithFindings,
+  type FindingReachability,
+  type FalsifierVerdict,
+  type SuggestionOutcome,
 } from '@/lib/repositories/pr-security-scan.repository'
+import { suggestionOutcomeFor } from '@/lib/security-scan/suggestion'
 import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
 import {
   addedLinesWithNumbers,
@@ -102,6 +106,15 @@ export interface SecurityFindingView {
   blocking: boolean
   /** LUM-738: already on the default-branch baseline — not introduced by this PR (advisory, muted). */
   persisting: boolean
+  // LUM-739 (hunt rows; null elsewhere) — surfaced by the panel (LUM-740).
+  cwe: string | null
+  reachability: FindingReachability | null
+  callChain: Array<{ from: string; to: string }> | null
+  falsifierVerdict: FalsifierVerdict | null
+  // LUM-740: the falsifier's suggestion and the human's verdict on it.
+  suggestedDisposition: FindingDisposition | null
+  suggestedReason: string | null
+  suggestionOutcome: SuggestionOutcome | null
 }
 
 export interface SecurityScanView {
@@ -221,6 +234,13 @@ function toFindingView(
     inherited: f.inheritedFromFindingId !== null,
     blocking: isBlockingFinding(f, policy),
     persisting: f.persisting,
+    cwe: f.cwe ?? null,
+    reachability: f.reachability ?? null,
+    callChain: f.callChain ?? null,
+    falsifierVerdict: f.falsifierVerdict ?? null,
+    suggestedDisposition: f.suggestedDisposition ?? null,
+    suggestedReason: f.suggestedReason ?? null,
+    suggestionOutcome: f.suggestionOutcome ?? null,
   }
 }
 
@@ -710,11 +730,37 @@ export const prSecurityScanService = {
         dispositionNote: note,
         dispositionedById: actorMemberId,
         dispositionedAt: new Date(),
+        // LUM-740: the human's verdict on the falsifier's suggestion (R2).
+        suggestionOutcome: suggestionOutcomeFor(
+          finding.suggestedDisposition,
+          disposition
+        ),
       }
     )
     return toFindingView(
       updated,
       await loadSecurityPolicy(finding.scan.pullRequest.workspaceId)
     )
+  },
+
+  /**
+   * LUM-740 — "confirm all suspected false positives": every undispositioned
+   * finding on the task's PRs that the falsifier suggested as a false
+   * positive is dispositioned FALSE_POSITIVE with outcome CONFIRMED, in one
+   * write. Human-only by the route's red line; the actor is stamped.
+   */
+  async dispositionSuggested(
+    taskId: string,
+    actorMemberId: string
+  ): Promise<{ confirmed: number }> {
+    const confirmed = await prSecurityScanRepository.confirmSuggestedByTask(
+      taskId,
+      {
+        dispositionNote: 'Confirmed LLM suggestion (bulk)',
+        dispositionedById: actorMemberId,
+        dispositionedAt: new Date(),
+      }
+    )
+    return { confirmed }
   },
 }
