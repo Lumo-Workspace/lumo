@@ -22,6 +22,11 @@ export interface HuntJob {
   repo: string
   prNumber: number
   headSha: string
+  /**
+   * LUM-758 — `evaluateHuntTrigger` 的触发原因，stage A 算完直接传下来。
+   * 规划步的主要输入，也是规划失败时确定性兜底的唯一依据。
+   */
+  reasons: string[]
 }
 
 /**
@@ -47,16 +52,17 @@ export type HuntCategory = (typeof HUNT_CATEGORIES)[number]
 export const HUNT_MAX_PLANNED_CATEGORIES = 2
 
 /**
- * Spec §6 L3 "Hunt" budget per scan. Raised from 150k/200s by LUM-762: the
- * six categories are six independent step invocations, so this was never a
- * platform limit — it was our own constant, and at 200s one wedged category
- * spent the whole scan's window and the layer ended PARTIAL every time.
- * Sized as 8 × the per-category ceiling: six categories plus two retries.
- * Provisional — the first real `huntAudit` read-out (per-category elapsedMs,
- * now surfaced by `lumo task status`) is what should correct these numbers.
+ * Spec §6 L3 "Hunt" budget per scan. LUM-758 把 LUM-762 的 240k/480s 调回
+ * 120k/240s：762 的放大在 prod 被证伪（166k–236k 全部 PARTIAL、0 finding），
+ * 真正的成本源是「无条件跑 6 类」而不是预算太小。类别数降到 ≤2 之后，
+ * 2 类 × 30k + 2 次补跑正好落在 120k 内。
  */
-export const HUNT_TOKEN_BUDGET = 240_000
-export const HUNT_TIME_BUDGET_MS = 480_000
+export const HUNT_TOKEN_BUDGET = 120_000
+export const HUNT_TIME_BUDGET_MS = 240_000
+
+/** LUM-758 §4.3 — 规划步自身的预算。它是路由决策，不是分析。 */
+export const PLAN_HUNT_TOKEN_BUDGET = 5_000
+
 /**
  * LUM-762 — the ceiling on ONE batch. A category can never spend more than
  * this, so a gateway that hangs in retry backoff costs its own category and
@@ -107,7 +113,24 @@ export interface HuntAudit {
   falsifierRejected: Array<{ category: string; sink: string; reason: string }>
   categories: HuntCategoryAudit[]
   subgraph: { files: number; symbols: number; edges: number; partial: boolean }
+  /** LUM-758 — 规划步选了哪些类别；`[]` = 这个 PR 不值得 hunt。 */
+  planned?: HuntCategory[]
+  plannedReason?: string
+  plannedBy?: 'model' | 'fallback'
   error?: string
+}
+
+/** LUM-758 §4.2 — 规划步的输入。finding 摘要在 step 内按 scanId 读库。 */
+export interface PlanHuntInput {
+  job: HuntJob
+  subgraph: Subgraph
+}
+
+export interface PlanHuntOutput {
+  categories: HuntCategory[]
+  reason: string
+  by: 'model' | 'fallback'
+  tokens: number
 }
 
 export interface SubgraphResult {

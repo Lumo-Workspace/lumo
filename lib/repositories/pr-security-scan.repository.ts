@@ -227,6 +227,12 @@ export interface DispositionedFingerprint {
   suggestionOutcome: SuggestionOutcome | null
 }
 
+export interface FindingSummary {
+  severity: string
+  ruleId: string
+  title: string
+}
+
 /**
  * LUM-735 review — every writer of the shared scan row does read-modify-write
  * on it: the `findUnique` that feeds the merge runs BEFORE the locking
@@ -706,6 +712,21 @@ export const prSecurityScanRepository = {
     return prisma.prSecurityFinding.count({
       where: { scanId, provenance: 'EXTERNAL_TOOL' },
     })
+  },
+
+  /**
+   * LUM-758 — 规划步要的 stage A finding 摘要。刻意不复用
+   * `findByIdForReview`：那个方法为了 PR 同步 join 了 pullRequest /
+   * workspace，规划步一个都用不上。
+   */
+  async findFindingSummaryByScan(scanId: string): Promise<FindingSummary[]> {
+    const rows = await prisma.prSecurityFinding.findMany({
+      where: { scanId },
+      orderBy: { createdAt: 'asc' },
+      select: { severity: true, ruleId: true, title: true },
+      take: 50,
+    })
+    return rows as FindingSummary[]
   },
 
   /**
