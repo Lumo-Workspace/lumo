@@ -14,7 +14,13 @@ jest.mock('@/lib/db/prisma', () => ({
 import { prisma } from '@/lib/db/prisma'
 import { lumoCiRunRepository } from '@/lib/repositories/lumo-ci-run.repository'
 
-const db = prisma.lumoCiRun as unknown as Record<string, jest.Mock>
+const db = prisma.lumoCiRun as unknown as {
+  create: jest.Mock
+  findUnique: jest.Mock
+  update: jest.Mock
+  findMany: jest.Mock
+  count: jest.Mock
+}
 const INPUT = {
   workspaceId: 'w1',
   taskId: 't1',

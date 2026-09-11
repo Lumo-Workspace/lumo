@@ -41,6 +41,7 @@ const JOB = {
   repo: 'o/lumo',
   prNumber: 7,
   headSha: SHA,
+  jestShards: 2,
 }
 
 function vm(overrides: Partial<{ exitCode: number; stderr: string }> = {}) {

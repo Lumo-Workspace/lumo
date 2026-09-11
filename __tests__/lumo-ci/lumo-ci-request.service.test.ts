@@ -33,7 +33,13 @@ import { startLumoCi, cancelLumoCiRun } from '@/lib/services/lumo-ci-start'
 import { lumoCiRequestService } from '@/lib/services/lumo-ci-request.service'
 
 const findById = pullRequestRepository.findById as jest.Mock
-const repo = lumoCiRunRepository as unknown as Record<string, jest.Mock>
+const repo = lumoCiRunRepository as unknown as {
+  create: jest.Mock
+  setRunId: jest.Mock
+  finish: jest.Mock
+  findPendingByPullRequest: jest.Mock
+  countStartedSince: jest.Mock
+}
 const headSha = fetchPrHeadSha as jest.Mock
 const stopByTag = stopRepoSandboxesByTag as jest.Mock
 const start = startLumoCi as jest.Mock

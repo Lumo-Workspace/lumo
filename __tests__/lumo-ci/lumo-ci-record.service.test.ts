@@ -23,6 +23,7 @@ const JOB = {
   repo: 'o/r',
   prNumber: 7,
   headSha: 'a'.repeat(40),
+  jestShards: 2,
 }
 
 beforeEach(() => {
