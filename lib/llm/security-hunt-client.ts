@@ -132,7 +132,7 @@ Rules:
 3. Symbol ids follow ONE grammar, and a candidate whose ids do not match it is dropped unread. Paths are repository-relative, exactly as \`rg\` prints them:
    - a function, method or route handler — \`<path>#<name>\`, e.g. \`app/api/x/route.ts#POST\`, \`lib/s.ts#svc.run\`, \`lib/s.ts#Repo.find\`, \`lib/s.ts#default\`
    - a call site, which every sink and control is — \`<path>#<callee>@<line>\`, e.g. \`lib/s.ts#prisma.$queryRawUnsafe@42\`
-   - a call made at a file's top level — \`<path>#<module>\`
+   - a call made at a file's top level — \`<path>#<module>\`, where \`<module>\` is that literal token, angle brackets included, e.g. \`lib/s.ts#<module>\` — never the module's own name
 4. Line numbers come from the output of \`rg -n\` / \`grep -n\` / \`sed -n\`, never estimated.
 5. Report at most 10 candidates for this task; a concrete precondition and a one-sentence claim each; severity by impact if exploited.
 6. Stay inside the task's objective and its category. Do not report style issues, missing tests, or anything mitigated on the path.

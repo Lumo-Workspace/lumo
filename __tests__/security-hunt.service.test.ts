@@ -87,6 +87,7 @@ const JOB = {
   prNumber: 7,
   headSha: 'b'.repeat(40),
   reasons: ['diff:sink:prisma-raw'],
+  touchedSourcePaths: ['lib/s.ts'],
   managedScanStarted: true,
 }
 
@@ -262,6 +263,28 @@ describe('LUM-739 hunt service', () => {
 
     expect(readHuntFileMock.mock.calls.map(c => c[1])).toEqual(['lib/ok.ts'])
     expect(graph.files.map(f => f.path)).toEqual(['lib/ok.ts'])
+  })
+
+  it('buildVerifySubgraph acquires no VM at all when no candidate names a readable path', async () => {
+    // `candidates` is unvalidated model output at this point, so "every one
+    // of them is junk, or names a non-TS path, or points out of the
+    // checkout" is reachable — and then there is nothing to read. Booting or
+    // even attaching a VM for zero reads is pure cost.
+    const graph = await securityHuntService.buildVerifySubgraph({
+      job: JOB,
+      candidates: [
+        { sink: { file: 'docs/a.md' } },
+        { entry: { file: '/etc/passwd.ts' } },
+        { call_chain: [{ from: '../outside.ts#x' }] },
+        null,
+        'nonsense',
+      ],
+    })
+
+    expect(graph).toEqual({ symbols: [], edges: [], files: [] })
+    expect(attachMock).not.toHaveBeenCalled()
+    expect(readHuntFileMock).not.toHaveBeenCalled()
+    expect(stopMock).not.toHaveBeenCalled()
   })
 
   it('buildVerifySubgraph attaches the same way huntBatch does and releases the VM even when a read throws', async () => {
@@ -495,6 +518,7 @@ describe('LUM-739 hunt service', () => {
     const job = {
       ...JOB,
       reasons: ['diff:entry:next-route-handler', 'diff:sink:prisma-raw'],
+      touchedSourcePaths: ['app/api/x/route.ts', 'lib/s.ts'],
     }
     const out = await securityHuntService.planHunt({ job })
     expect(out).toEqual({
@@ -505,11 +529,14 @@ describe('LUM-739 hunt service', () => {
     })
     expect(repo.findFindingSummaryByScan).toHaveBeenCalledWith(job.scanId)
     const arg = planMock.mock.calls[0]![0]
-    // LUM-758 Task 10: the planner's diff view IS `job.reasons` now — there
-    // is no subgraph to render files or signals from, and building one just
-    // to route would be the up-front cost this task exists to remove.
+    // LUM-758 Task 10: the planner's diff view is the trigger's OWN two
+    // outputs — which rules fired, and which source files they could have
+    // fired in. No subgraph is built to route (that up-front cost is what
+    // this task removed), but the paths must be there: without them the
+    // planner cannot tell a fixture-only sink from a production one.
     expect(arg.reasons).toEqual(job.reasons)
-    expect(arg).not.toHaveProperty('files')
+    expect(arg.touchedPaths).toEqual(['app/api/x/route.ts', 'lib/s.ts'])
+    expect(arg).not.toHaveProperty('subgraph')
     expect(arg).not.toHaveProperty('signals')
     expect(arg.findings).toEqual([
       { severity: 'HIGH', ruleId: 'hunt:idor', title: 'no owner check' },

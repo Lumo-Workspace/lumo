@@ -14,8 +14,8 @@
  * scan, RAN 1 / PARTIAL 14 / SKIPPED 7, zero findings), and a `partial`
  * verdict that demanded all six be `done` made PARTIAL the default outcome.
  * Now the planning step emits a per-PR task graph, two short circuits end the
- * layer as SKIPPED before any hunt call (a diff with no TypeScript source
- * signal, or an empty task list), and `partial` is judged over the planned
+ * layer as SKIPPED before any hunt call (a diff that gives the hunt nowhere
+ * to start, or an empty task list), and `partial` is judged over the planned
  * tasks only.
  *
  * Per-task state is keyed by `task.id`, never by `task.category`: a plan may
@@ -168,16 +168,33 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     let failure: string | undefined
     try {
       // Short circuit A (LUM-758 §5.5, Task 10): a diff-level test, taken
-      // before anything is built or called. `evaluateHuntTrigger` `continue`s
-      // past every non-TS/TSX file, so a run whose reasons carry no `diff:`
-      // entry saw no entry, sink or control added to a TypeScript source —
-      // the hunt has nowhere to start, and not one LLM call should happen.
-      // (The layer can still be triggered by `stage-a:high` or
-      // `l4:open-crossing` alone; those say a PR is interesting, not that
-      // there is a call path in it to hunt.)
-      if (!job.reasons.some(r => r.startsWith('diff:'))) {
+      // before anything is built or called. What it asks is "is there any
+      // TypeScript source here to hunt in", and `evaluateHuntTrigger` has
+      // THREE independent trigger conditions, only one of which leaves a
+      // `diff:` reason:
+      //   - a `diff:` reason — an entry, sink or control was added to a
+      //     TS/TSX file. Sufficient on its own.
+      //   - `stage-a:high` / `l4:open-crossing` — the PR is interesting for a
+      //     reason the text scan cannot express. Those pass too, but only
+      //     when the diff actually touched source: a HIGH secret next to
+      //     changed code is arguably the best hunt target there is, while one
+      //     in a README leaves the hunt nowhere to start.
+      // Testing the `diff:` prefix ALONE (as this did between Task 10 and
+      // this review) silently killed the other two conditions: stage A still
+      // kept the managed scan's VM alive on the longer hunt timeout and
+      // stamped `stages.hunt = PENDING`, and the workflow started only to
+      // SKIP. No source files at all is still the genuine skip.
+      const touchedSources = job.touchedSourcePaths
+      const diffSignal = job.reasons.some(r => r.startsWith('diff:'))
+      const interestSignal = job.reasons.some(
+        r => r === 'stage-a:high' || r === 'l4:open-crossing'
+      )
+      if (!diffSignal && !(interestSignal && touchedSources.length > 0)) {
         audit.planned = []
-        audit.plannedReason = 'no TypeScript source signal in the diff'
+        audit.plannedReason =
+          touchedSources.length === 0
+            ? 'the diff touched no TypeScript source'
+            : 'no hunt signal in the diff'
         audit.plannedBy = 'fallback'
         await persistHuntFindingsStep({
           job,

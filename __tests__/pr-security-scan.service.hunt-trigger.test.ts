@@ -167,6 +167,11 @@ describe('LUM-739 hunt trigger', () => {
       // LUM-758: the trigger's own reasons ride along — the planning step and
       // its deterministic fallback are both driven by them.
       reasons: ['diff:entry:next-route-handler'],
+      // LUM-758 Task 10 review: the TS/TSX paths of the same `files` the
+      // trigger read. `reasons` say which rules fired; these say where they
+      // could have fired, which is what short circuit A and the planner
+      // prompt both need and what nothing else in the job carries.
+      touchedSourcePaths: ['app/api/x/route.ts'],
       // LUM-758: LUMO_MANAGED_SCAN is off in this suite, so no VM is coming —
       // the hunt must not spend 30 s polling for one.
       managedScanStarted: false,
@@ -198,6 +203,16 @@ describe('LUM-739 hunt trigger', () => {
     await run()
     expect(persistedStages().hunt).toBe('PENDING')
     expect(startHunt).toHaveBeenCalledTimes(1)
+    // LUM-758 Task 10 review: this is the trigger condition that leaves NO
+    // `diff:` reason. The job carries the touched source anyway, which is
+    // what lets the workflow's short circuit A tell this PR (a HIGH beside
+    // changed TypeScript) from one that only touched a README.
+    expect(startHunt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reasons: ['stage-a:high'],
+        touchedSourcePaths: ['src/cfg.ts'],
+      })
+    )
     // DETERMINISTIC HIGH blocks DONE: it must reach the PR even before the run lands.
     expect(waitUntilMock).toHaveBeenCalledTimes(1)
   })
@@ -225,6 +240,29 @@ describe('LUM-739 hunt trigger', () => {
     await expect(run()).resolves.toMatchObject({ status: 'CLEAN' })
     expect(persistedStages().hunt).toBe('SKIPPED')
     expect(startHunt).not.toHaveBeenCalled()
+  })
+
+  it('LUM-758 Task 10 review: touchedSourcePaths carries only TS/TSX, filtered exactly like the trigger filters', async () => {
+    // The same `isGraphSourcePath` the trigger uses: a `.md`, a `.js` and a
+    // `.d.ts` are not files the hunt can start from, so they must not make an
+    // otherwise-empty diff look huntable to short circuit A.
+    fetchPrDiff.mockResolvedValue(
+      [
+        ROUTE_DIFF,
+        diff('README.md', 'docs'),
+        diff('scripts/x.js', 'const y = 1'),
+        diff('types/x.d.ts', 'export type A = 1'),
+        diff('components/Card.tsx', 'export const Card = () => null'),
+      ].join('\n')
+    )
+
+    await run()
+
+    expect(startHunt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        touchedSourcePaths: ['app/api/x/route.ts', 'components/Card.tsx'],
+      })
+    )
   })
 
   it('a non-L4 crossing does not trigger the hunt', async () => {

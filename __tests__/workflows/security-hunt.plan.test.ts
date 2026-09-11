@@ -55,6 +55,7 @@ const JOB = {
   prNumber: 7,
   headSha: 'a'.repeat(40),
   reasons: ['diff:sink:prisma-raw'],
+  touchedSourcePaths: ['lib/s.ts'],
   managedScanStarted: true,
 }
 const SUBGRAPH = {
@@ -117,20 +118,22 @@ it('plan returns an empty task list: no hunt LLM step and the layer is SKIPPED',
 })
 
 /**
- * LUM-758 Task 10 — short circuit A is a DIFF-level test now. There is no
+ * LUM-758 Task 10 — short circuit A is a DIFF-level test now: there is no
  * up-front subgraph to find empty, and building one just to decide whether to
- * plan is the cost this task removes. `evaluateHuntTrigger` skips non-source
- * files outright, so no `diff:`-prefixed reason means no TypeScript source in
- * the diff carried an entry / sink / control signal — nothing to hunt, and
- * not one LLM call is worth making.
+ * plan is the cost this task removes. What it asks is "does this diff give
+ * the hunt anywhere to start", and the answer is `touchedSourcePaths`, which
+ * stage A hands down from the very `files` the trigger read.
+ *
+ * A PR that touched no TS/TSX at all is the genuine skip, whatever fired.
  */
-it('skips before planning when no diff: reason says a TypeScript source was touched', async () => {
+it('skips before planning when the diff touched no TypeScript source at all', async () => {
   // A HIGH from stage A alone still triggers the layer (`evaluateHuntTrigger`
   // adds `stage-a:high` regardless of the files), and it is exactly the case
   // that used to build a 40-file subgraph to learn there was nothing in it.
   const result = await securityHuntWorkflow({
     ...JOB,
     reasons: ['stage-a:high'],
+    touchedSourcePaths: [],
   })
 
   expect(plan).not.toHaveBeenCalled()
@@ -140,8 +143,41 @@ it('skips before planning when no diff: reason says a TypeScript source was touc
   const persisted = persist.mock.calls[0][0]
   expect(persisted.stage).toBe('SKIPPED')
   expect(persisted.audit.planned).toEqual([])
+  expect(persisted.audit.plannedReason).toBe(
+    'the diff touched no TypeScript source'
+  )
   expect(persisted.tokenSpent).toBe(0)
 })
+
+/**
+ * The other TWO of `evaluateHuntTrigger`'s three conditions. Neither leaves a
+ * `diff:` reason, so a short circuit that only tested that prefix skipped
+ * them outright — after stage A had already kept the managed scan's VM alive
+ * on the hunt's longer timeout and stamped `stages.hunt = PENDING`. A HIGH
+ * secrets/judge finding, or an open L4 crossing, ALONGSIDE changed source is
+ * exactly the PR worth planning for.
+ */
+it.each([['stage-a:high'], ['l4:open-crossing']])(
+  'a %s PR that touched source still reaches the planner',
+  async reason => {
+    plan.mockResolvedValue({
+      tasks: [task('t1', 'idor')],
+      reason: 'high finding next to changed code',
+      by: 'model',
+      tokens: 200,
+    })
+
+    const result = await securityHuntWorkflow({
+      ...JOB,
+      reasons: [reason],
+      touchedSourcePaths: ['lib/s.ts'],
+    })
+
+    expect(plan).toHaveBeenCalledTimes(1)
+    expect(hunt).toHaveBeenCalledTimes(1)
+    expect(result.outcome).not.toBe('SKIPPED')
+  }
+)
 
 it('plan failure falls back to deterministic category tasks, at most three, never all six', async () => {
   // Reasons that hit four fallback categories at once (injection twice, ssrf,

@@ -214,6 +214,20 @@ describe('LUM-758 source-level: one module may touch a sandbox, one call site ma
     expect(sandboxModule.match(/input\.command/g)).toHaveLength(2)
   })
 
+  it('readHuntFile reads a file — it never routes through the shell', () => {
+    // Every guard above is scoped to `input.command`, so a change that routed
+    // the verification read through `sandbox.run('sh', ['-c', `cat ${path}`])`
+    // would trip none of them — and `path` there is model-named. The read has
+    // a first-class API (`readSandboxFile`); the shell must stay out of it.
+    const body = sandboxModule.slice(
+      sandboxModule.indexOf('export async function readHuntFile')
+    )
+    const fn = body.slice(0, body.indexOf('\n}\n') + 3)
+    expect(fn).toContain('readSandboxFile')
+    expect(fn).not.toContain('HUNT_SHELL_BIN')
+    expect(fn).not.toMatch(/\brun\(/)
+  })
+
   it('the hunt service and LLM client have no route to a sandbox of their own', () => {
     for (const rel of [
       'lib/services/security-hunt.service.ts',

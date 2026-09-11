@@ -199,24 +199,29 @@ export function isVerifiableRepoPath(path: string): boolean {
 }
 
 /**
- * The graph itself: the candidates' files, sorted for determinism, read out
- * of the checkout. SUBGRAPH_MAX_FILES bounds the READS, nothing else — a
- * candidate that falls outside it is judged against a graph that lacks its
+ * Which files the graph will be built from — PURE, so it can be answered
+ * before a VM is acquired. SUBGRAPH_MAX_FILES bounds the READS, nothing else:
+ * a candidate that falls outside it is judged against a graph that lacks its
  * file and is rejected with a reason, which is a truthful audit row, not a
- * `partial` verdict on the layer.
+ * `partial` verdict on the layer. Sorted for determinism.
  */
-async function collectVerifySubgraph(
-  handle: HuntSandbox,
-  candidates: unknown[]
-): Promise<Subgraph> {
+function collectVerifyPaths(candidates: unknown[]): string[] {
   const paths = new Set<string>()
   for (const raw of candidates) {
     for (const path of candidateFilePaths(raw)) {
       if (isVerifiableRepoPath(path)) paths.add(path)
     }
   }
+  return [...paths].sort().slice(0, SUBGRAPH_MAX_FILES)
+}
+
+/** The graph itself: those files, read out of the checkout. */
+async function collectVerifySubgraph(
+  handle: HuntSandbox,
+  paths: string[]
+): Promise<Subgraph> {
   const inputs: SourceFileInput[] = []
-  for (const path of [...paths].sort().slice(0, SUBGRAPH_MAX_FILES)) {
+  for (const path of paths) {
     const source = await readHuntFile(handle, path)
     if (source !== null) inputs.push({ path, source, touched: true })
   }
@@ -236,6 +241,14 @@ export const securityHuntService = {
    * right there, so this costs no GitHub calls at all.
    */
   async buildVerifySubgraph(input: VerifySubgraphInput): Promise<Subgraph> {
+    // Which files to read is a PURE question, so ask it first. `candidates`
+    // is unvalidated model output here: every one of them may name a
+    // non-TS path, a path out of the checkout, or nothing at all, and then
+    // there is no file to read. Attaching (or worse, BOOTING) a VM to read
+    // zero files is pure cost — the same guard the workflow already applies
+    // one level up for `raw.length === 0`.
+    const paths = collectVerifyPaths(input.candidates)
+    if (paths.length === 0) return { symbols: [], edges: [], files: [] }
     // A step's input must be serialisable, so a live `HuntSandbox` (it
     // carries methods) cannot cross the boundary: this acquires its own
     // handle down the same attach-or-create path `huntBatch` uses. By now the
@@ -248,7 +261,7 @@ export const securityHuntService = {
       managedScanStarted: input.job.managedScanStarted,
     })
     try {
-      return await collectVerifySubgraph(handle, input.candidates)
+      return await collectVerifySubgraph(handle, paths)
     } finally {
       // Stops the VM only if this call created it — see `stopHuntSandbox`.
       await stopHuntSandbox(handle)
@@ -286,11 +299,15 @@ export const securityHuntService = {
       const { planHuntTasks } =
         await import('@/lib/llm/security-hunt-plan-client')
       const out = await planHuntTasks({
-        // LUM-758 Task 10 — `job.reasons` IS the planner's diff view now: it
-        // already carries the entry / sink / control rule ids the static pass
-        // matched, and nothing else here is worth a 40-file graph the agent
-        // will not read.
+        // LUM-758 Task 10 — the planner's diff view is the trigger's own two
+        // outputs, not a 40-file graph the agent will never read: `reasons`
+        // says WHICH rules fired, `touchedSourcePaths` says WHERE they could
+        // have fired. Both were computed by stage A already, so this view
+        // costs nothing. Dropping the second half (the state this review
+        // fixes) left the planner unable to see that the only
+        // `prisma.$queryRawUnsafe` in the diff was in a fixture.
         reasons: job.reasons,
+        touchedPaths: job.touchedSourcePaths,
         findings,
         timeoutMs: PLAN_HUNT_TIMEOUT_MS,
       })

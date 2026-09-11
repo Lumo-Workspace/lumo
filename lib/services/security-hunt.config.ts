@@ -28,6 +28,23 @@ export interface HuntJob {
    */
   reasons: string[]
   /**
+   * LUM-758 Task 10 review — the TS/TSX paths this diff touched, computed by
+   * stage A from the SAME `files` the trigger consumes and filtered by
+   * `isGraphSourcePath`, so it costs no extra call anywhere.
+   *
+   * It rides along beside `reasons` because `reasons` alone cannot answer two
+   * questions the layer needs:
+   *   - short circuit A: `stage-a:high` and `l4:open-crossing` produce no
+   *     `diff:` reason, so "did this PR touch any source at all" is the only
+   *     thing separating a HIGH-finding PR worth hunting from one that
+   *     touched nothing but a README.
+   *   - the planner: a reason says a sink fired, never WHERE. Without the
+   *     paths a fixture-only `prisma.$queryRawUnsafe` reads exactly like a
+   *     production one, and the plan it provokes costs up to 3 ×
+   *     HUNT_TASK_TOKEN_MAX.
+   */
+  touchedSourcePaths: string[]
+  /**
    * LUM-758 §5.1 — did stage A actually start the managed scan for this sha?
    * Decides whether `attachOrCreateHuntSandbox` waits for that VM to show up
    * or goes straight to creating its own: the managed scan has four

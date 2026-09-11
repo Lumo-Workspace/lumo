@@ -41,6 +41,7 @@ import {
   L4_CROSSING_CATEGORIES,
   type ScanStages,
 } from '@/lib/security-scan'
+import { isGraphSourcePath } from '@/lib/security-scan/graph/imports'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import {
@@ -700,6 +701,13 @@ export const prSecurityScanService = {
           // LUM-758: the trigger already computed these — the planning step
           // and its deterministic fallback both run off them.
           reasons: huntTrigger.reasons,
+          // LUM-758 Task 10 review: the SAME `files` the trigger just read,
+          // filtered by the same source-path predicate it filters by — zero
+          // extra API calls. `reasons` says a signal fired; this says which
+          // source files it could have fired in. Short circuit A needs it to
+          // tell a `stage-a:high` PR that touched code from one that touched
+          // none, and the planner needs it to place a signal at all.
+          touchedSourcePaths: files.map(f => f.path).filter(isGraphSourcePath),
           // LUM-758 §5.1: false means no managed scan VM is coming, so the
           // hunt goes straight to creating its own instead of polling 30 s.
           managedScanStarted: managedRunStarted,

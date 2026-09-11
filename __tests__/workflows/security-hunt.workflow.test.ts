@@ -62,6 +62,7 @@ const JOB = {
   prNumber: 7,
   headSha: 'a'.repeat(40),
   reasons: ['diff:sink:prisma-raw'],
+  touchedSourcePaths: ['lib/s.ts'],
   managedScanStarted: true,
 }
 const SUBGRAPH = {

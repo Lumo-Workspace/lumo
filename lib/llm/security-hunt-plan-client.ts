@@ -23,16 +23,27 @@ import type { FindingSummary } from '@/lib/repositories/pr-security-scan.reposit
 
 export interface PlanClientInput {
   /**
-   * 触发原因（`diff:sink:prisma-raw` 等）。LUM-758 Task 10 之后这就是规划步
-   * 看到的**全部** diff 视图：`evaluateHuntTrigger` 已经把 diff 里匹配到的
-   * entry / sink / control 规则 id 都放在里面，而子图不再在 hunt 之前建 ——
-   * 为了路由一次决策去建一张 agent 根本不看的图，正是 Task 10 要去掉的成本。
+   * 触发原因（`diff:sink:prisma-raw` 等）：`evaluateHuntTrigger` 在 diff 里
+   * 匹配到的 entry / sink / control 规则 id。说的是**什么**信号响了。
    */
   reasons: string[]
+  /**
+   * 这次 diff 碰到的 TS/TSX 文件路径（`touchedSourcePaths`）。说的是信号
+   * **在哪**响的 —— reasons 本身答不了这个问题，而这正是路由决策的关键：
+   * `isGraphSourcePath` 不排除测试路径，所以一个只加了 fixture 的 PR 同样
+   * 会发出 `diff:sink:prisma-raw`；只有看见唯一命中落在 `__tests__/` 下，
+   * 规划步才可能返回 `[]`。看不见就得付一次 plan + 最多 3 × 20k 的代价。
+   *
+   * 不是子图：路径来自 stage A 已经算好的 `files`，零额外调用。
+   */
+  touchedPaths: string[]
   /** stage A 已经报出来的 finding 摘要。 */
   findings: FindingSummary[]
   timeoutMs: number
 }
+
+/** 提示词里最多列多少条路径；其余折成一行计数，避免 diff 很大时刷屏。 */
+const PROMPT_MAX_PATHS = 60
 
 const TaskSchema = z.object({
   objective: z
@@ -49,7 +60,7 @@ const TaskSchema = z.object({
     .array(z.string())
     .max(5)
     .describe(
-      'Files or symbols to begin at, when a signal or a stage A finding names one. Often empty — the analyst has the checkout and can find them.'
+      'Files to begin at, taken from the list of touched source files in the prompt (a symbol inside one of them is fine too). At least one — a task that cannot name a file to start at is not a task worth spending the budget on.'
     ),
 })
 
@@ -73,16 +84,18 @@ Categories (used only to type each task's output; they need not be exhaustive or
 - race: check-then-act on shared rows without a transaction, row lock or unique constraint.
 - logic: a state machine, gate or quota can be skipped by calling entries out of order or with an unexpected role.
 
-You are given the rule ids a fast static pass matched in the diff, not the diff itself. An analyst with the full checkout and a shell will carry each task out, so a task names the path worth tracing; it does not have to name the line.
+You are given the rule ids a fast static pass matched in the diff and the list of TypeScript source files the diff touched — not the diff itself. An analyst with the full checkout and a shell will carry each task out, so a task names the file and the path worth tracing; it does not have to name the line.
+
+The static pass does not exclude test paths, fixtures or scripts. A sink rule that fired only in a file under __tests__/, a *.test.ts, a fixture or a one-off script is not a production path, and a task built on it burns the whole budget on nothing.
 
 For each task, give:
 - objective: what to investigate, specific to THIS diff — which signal it follows, and what path from an entry to that sink is worth tracing.
 - category: the single category above that the task's findings would be filed under.
-- startingPoints: files or symbols to begin at when a signal or a stage A finding names one (may be empty).
+- startingPoints: the file(s) from the touched-files list to begin at (a symbol inside one of them is fine too).
 
 Rules:
 1. Propose AT MOST ${HUNT_MAX_PLANNED_TASKS} tasks. Fewer is better.
-2. Every task must earn its place with a concrete objective tied to a signal that actually fired — not a restatement of a category description.
+2. Every task must name at least one file from the touched-files list, in startingPoints, and say in its objective what about THAT file is worth tracing. If you cannot name a specific file, symbol or helper worth checking, do not propose the task.
 3. An EMPTY array is the right answer whenever the signals show no plausible path from an entry point to a dangerous sink. Most pull requests deserve an empty array. Returning nothing is not a failure.
 4. Never propose a task just because the trigger fired — the trigger is deliberately broad, you are the narrow filter.`
 
@@ -97,9 +110,17 @@ function buildPrompt(i: PlanClientInput): string {
       : i.findings
           .map(f => `- [${f.severity}] ${f.ruleId}: ${f.title}`)
           .join('\n')
+  const shown = i.touchedPaths.slice(0, PROMPT_MAX_PATHS)
+  const rest = i.touchedPaths.length - shown.length
+  const paths =
+    shown.map(p => `- ${p}`).join('\n') +
+    (rest > 0 ? `\n- …and ${rest} more` : '')
   return clip(
     `## Trigger reasons — the entry / sink / control rules this diff matched
 ${i.reasons.map(r => `- ${r}`).join('\n') || '(none)'}
+
+## TypeScript source files this diff touched — the rules above matched inside these, and nowhere else
+${paths || '(none)'}
 
 ## Stage A findings already reported
 ${findings}
