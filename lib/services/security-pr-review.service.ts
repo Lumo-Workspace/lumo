@@ -45,6 +45,7 @@ import {
   type ScanStages,
 } from '@/lib/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
+import { isDowngradedPath } from '@/lib/security-scan/secret-patterns'
 import { resolvePublicUrl } from '@/lib/utils/public-url'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
@@ -129,6 +130,7 @@ export type InlineFinding = Pick<
   | 'externalRef'
   | 'fingerprint'
   | 'disposition'
+  | 'suggestedDisposition'
 >
 
 /** P8: `evidence` is not a parameter here, so it cannot leak by accident. */
@@ -165,6 +167,14 @@ export interface SummaryInput {
    * on scans that never ran the supply-chain layer.
    */
   dependencies?: { open: number; persisting: number }
+  /**
+   * LUM-740 — open LOW findings get no inline comment; one summary line
+   * instead. `allDowngradedPaths` = every one sits in a test/fixture/doc
+   * path (`isDowngradedPath`), which is what the line then says.
+   */
+  low?: { count: number; allDowngradedPaths: boolean }
+  /** LUM-740 — open findings the falsifier suggested as false positives (no inline comment). */
+  suggested?: number
   error: string | null
   taskUrl: string | null
 }
@@ -175,12 +185,33 @@ export interface SummaryInput {
  * all-clear on the PR (spec P9), which is the one thing the summary must
  * never say by accident.
  */
-function isIncomplete(stages: ScanStages, partial: boolean): boolean {
-  if (partial) return true
+function hasIncompleteStage(stages: ScanStages): boolean {
   for (const state of Object.values(stages)) {
     if (state && INCOMPLETE_STAGE_STATES.has(state)) return true
   }
   return false
+}
+
+function isIncomplete(stages: ScanStages, partial: boolean): boolean {
+  return partial || hasIncompleteStage(stages)
+}
+
+/** LUM-740 — the LOW line: the rows the PR does not get an inline comment for. */
+function lowLine(input: SummaryInput): string | null {
+  const low = input.low
+  if (!low || low.count === 0) return null
+  const noun = low.count === 1 ? 'finding' : 'findings'
+  const where = low.allDowngradedPaths ? ' in test/fixture paths' : ''
+  return `- ${low.count} low-severity ${noun}${where} — shown in Lumo only`
+}
+
+/** LUM-740 — the suggested-false-positive line. */
+function suggestedLine(input: SummaryInput): string | null {
+  const n = input.suggested ?? 0
+  if (n === 0) return null
+  const noun =
+    n === 1 ? 'suspected false positive' : 'suspected false positives'
+  return `- ${n} ${noun} (LLM) — confirm or overrule in Lumo`
 }
 
 /**
@@ -255,11 +286,21 @@ export function buildSummary(input: SummaryInput): string {
     const blocking =
       input.blocking > 0 ? ` (${input.blocking} blocking DONE)` : ''
     blocks.push(`**${input.open} open ${noun}**${blocking}`)
-  } else if (isIncomplete(input.stages, input.partial)) {
+  } else if (hasIncompleteStage(input.stages)) {
     blocks.push('No open findings yet — the scan is still incomplete.')
+  } else if (isIncomplete(input.stages, input.partial)) {
+    // LUM-740 (the PR 950 reading): every layer ran, but one hit its cap —
+    // say that, not "still incomplete", which reads as "still running".
+    blocks.push(
+      'No open findings yet — a layer hit its budget cap, so the scan is not whole.'
+    )
   } else {
     blocks.push('No open findings on lines this PR added.')
   }
+  const low = lowLine(input)
+  if (low) blocks.push(low)
+  const suggested = suggestedLine(input)
+  if (suggested) blocks.push(suggested)
   const failure = scrubbedFailureReason(input)
   if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
   if (input.taskUrl) blocks.push(`[Open in Lumo](${input.taskUrl})`)
@@ -283,6 +324,87 @@ function taskUrlOf(pr: ScanForReview['pullRequest']): string | null {
 function describe(error: unknown): string {
   if (error instanceof GithubApiError) return `${error.status} ${error.message}`
   return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * LUM-740 — one summary per PR, keyed by a comment id that lives on the scan
+ * row (§6 L5 item 6). Order of preference: the id on this scan; the id an
+ * earlier scan of the same PR stored; the legacy marker search over the PR's
+ * bot comments; a fresh create. A stored id whose comment is gone (404)
+ * falls through to a create. Returns the id the caller should persist on the
+ * row (null when the row already had it).
+ */
+async function upsertSummary(input: {
+  repo: { owner: string; name: string }
+  prNumber: number
+  token: string
+  body: string
+  scanCommentId: string | null
+  pullRequestId: string
+}): Promise<string | null> {
+  const { repo, prNumber, token, body } = input
+  const create = async (): Promise<string> => {
+    const created = await prCommentClient.createIssueComment({
+      repo,
+      prNumber,
+      body,
+      token,
+    })
+    return String(created.id)
+  }
+
+  let known = input.scanCommentId
+  let fromEarlierScan = false
+  if (!known) {
+    try {
+      known = await prSecurityScanRepository.findSummaryCommentIdByPullRequest(
+        input.pullRequestId
+      )
+    } catch {
+      known = null
+    }
+    fromEarlierScan = known !== null
+  }
+  if (known) {
+    try {
+      await prCommentClient.updateIssueComment({
+        repo,
+        externalId: known,
+        body,
+        token,
+      })
+      return fromEarlierScan ? known : null
+    } catch (error) {
+      if (!(error instanceof GithubApiError && error.status === 404))
+        throw error
+      // The comment was deleted on GitHub: start a new one.
+      return create()
+    }
+  }
+
+  // Legacy path (rows written before the id column existed): find Lumo's
+  // own summary by marker. A human quoting the marker must never be
+  // mistaken for it — only a bot-authored comment is eligible. `user` is
+  // null on comments whose account has since been deleted; such a comment
+  // is simply not ours.
+  const issueComments = await prCommentClient.listIssueComments({
+    repo,
+    prNumber,
+    token,
+  })
+  const mine = issueComments.find(
+    c => c.body.includes(SUMMARY_MARKER) && c.user?.type === 'Bot'
+  )
+  if (mine) {
+    await prCommentClient.updateIssueComment({
+      repo,
+      externalId: String(mine.id),
+      body,
+      token,
+    })
+    return String(mine.id)
+  }
+  return create()
 }
 
 export const securityPrReviewService = {
@@ -351,9 +473,24 @@ export const securityPrReviewService = {
           })
         ).map(c => c.body)
       )
+      // LUM-740: LOW rows and LLM-suggested false positives stay off the
+      // diff — the summary carries one line for each group instead.
+      const lowRows = open.filter(f => f.severity === 'LOW')
+      const low = {
+        count: lowRows.length,
+        allDowngradedPaths: lowRows.every(f => isDowngradedPath(f.filePath)),
+      }
+      // `== null`: rows read by callers written before the column existed
+      // (tests, older projections) carry `undefined`, which is "not suggested".
+      const suggested = open.filter(f => f.suggestedDisposition != null).length
       // Only findings on a line this PR added can carry an inline comment;
       // the rest are still counted by the summary.
-      const candidates = open.filter(f => f.line !== null)
+      const candidates = open.filter(
+        f =>
+          f.line !== null &&
+          f.severity !== 'LOW' &&
+          f.suggestedDisposition == null
+      )
       const selected = candidates
         .filter(f => !existing.has(f.fingerprint))
         .sort(
@@ -373,38 +510,32 @@ export const securityPrReviewService = {
         open: open.length,
         blocking,
         ...(dependencies ? { dependencies } : {}),
+        low,
+        suggested,
         error: scan.error,
         taskUrl: taskUrlOf(pr),
       })
-      const issueComments = await prCommentClient.listIssueComments({
+      const idToStore = await upsertSummary({
         repo,
         prNumber: pr.number,
         token,
+        body: summary,
+        scanCommentId: scan.summaryCommentId,
+        pullRequestId: pr.id,
       })
-      // A human quoting the marker in a comment must never be mistaken for
-      // Lumo's own summary — only the bot-authored comment is eligible for
-      // the upsert; anything else falls through to creating a fresh one.
-      // `user` is null on comments whose account has since been deleted, so
-      // the read is optional: such a comment is simply not ours.
-      const mine = issueComments.find(
-        c => c.body.includes(SUMMARY_MARKER) && c.user?.type === 'Bot'
-      )
-      if (mine) {
-        await prCommentClient.updateIssueComment({
-          repo,
-          externalId: String(mine.id),
-          body: summary,
-          token,
-        })
-      } else {
-        await prCommentClient.createIssueComment({
-          repo,
-          prNumber: pr.number,
-          body: summary,
-          token,
-        })
-      }
       posted = true
+      // LUM-740: remember the comment so the next writer (this scan's own
+      // hunt run, or the next push's scan) updates it instead of listing —
+      // best effort, a missed write only costs one listing next time.
+      if (idToStore) {
+        try {
+          await prSecurityScanRepository.setSummaryCommentId(scan.id, idToStore)
+        } catch (error) {
+          logger.warn(
+            `[security-pr-review] summary id write failed ${where}: ${describe(error)}`
+          )
+        }
+      }
 
       if (selected.length > 0) {
         try {

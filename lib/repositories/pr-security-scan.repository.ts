@@ -932,6 +932,30 @@ export const prSecurityScanRepository = {
     })
   },
 
+  // ── LUM-740: summary comment id ───────────────────────────────────────────
+
+  /** The per-PR summary comment an earlier scan of this PR already owns. */
+  async findSummaryCommentIdByPullRequest(
+    pullRequestId: string
+  ): Promise<string | null> {
+    const row = await prisma.prSecurityScan.findFirst({
+      where: { pullRequestId, summaryCommentId: { not: null } },
+      orderBy: { startedAt: 'desc' },
+      select: { summaryCommentId: true },
+    })
+    return row?.summaryCommentId ?? null
+  },
+
+  async setSummaryCommentId(
+    scanId: string,
+    summaryCommentId: string
+  ): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { summaryCommentId },
+    })
+  },
+
   // ── LUM-745: managed-run ops ───────────────────────────────────────────────
 
   /**
