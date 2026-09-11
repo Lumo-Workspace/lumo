@@ -74,9 +74,11 @@ export interface ManagedScanJob {
    * Nobody stops a shared VM on purpose (see `stopHuntSandbox`): the hunt
    * must not stop a VM it merely attached to — the two workflows have no
    * ordering guarantee, so that would kill semgrep mid-run. The release path
-   * is the three existing backstops: the VM's own
-   * `SANDBOX_TIMEOUT_WITH_HUNT_MS`, LUM-745's 15-minute cron sweep, and
-   * supersede-by-tag.
+   * is the VM's own `SANDBOX_TIMEOUT_WITH_HUNT_MS`, and nothing else worth
+   * counting on: LUM-745's sweep and supersede are row-driven, and the
+   * `killRun` they call no-ops on a row without a `managedRunId`, while
+   * `EXTERNAL_PENDING_DEAD_MS` (45 minutes) is longer than the timeout
+   * anyway. That bound is a hard platform one, so the cost is bounded.
    */
   huntWanted: boolean
 }

@@ -37,12 +37,36 @@ const find = findRepoSandboxByTag as jest.Mock
 const create = createRepoSandbox as jest.Mock
 const denyEgress = denySandboxEgress as jest.Mock
 
+const CLEAN_CONFIG = '[remote "origin"]\n\turl = https://github.com/o/r.git\n'
+
+/**
+ * `readFile` is PATH-AWARE, and that matters: a missing `.git/config` is its
+ * own case now (the guard refuses — "no checkout" is not "no token"), so a
+ * clean checkout has to be spelled out rather than fall out of a default
+ * `null`. Everything else in the VM — the `$HOME` credential stores — is
+ * absent, which is the expected shape.
+ */
 const fakeSandbox = () => ({
   name: 'vm1',
   cwd: '/vercel',
   run: jest.fn().mockResolvedValue({ exitCode: 0, stdout: '', stderr: '' }),
-  readFile: jest.fn().mockResolvedValue(null),
+  readFile: jest.fn(async (path: string) =>
+    path.endsWith('/.git/config') ? Buffer.from(CLEAN_CONFIG) : null
+  ),
   stop: jest.fn().mockResolvedValue(undefined),
+})
+
+/** A scrubbed handle — the only thing `runHuntShell` will now accept. */
+const handleFor = (
+  vm: ReturnType<typeof fakeSandbox>,
+  token: string,
+  origin: 'attached' | 'created' = 'attached'
+) => ({
+  sandbox: vm as never,
+  cwd: '/vercel/r',
+  token,
+  origin,
+  egressDenied: false,
 })
 
 const JOB = {
@@ -68,8 +92,9 @@ describe('attachOrCreateHuntSandbox', () => {
     expect(out.cwd).toBe('/vercel/r')
     expect(create).not.toHaveBeenCalled()
     // An attached VM's egress belongs to the managed scan, which may still be
-    // downloading its scanners — never touch it.
+    // downloading its scanners — never touch it, and say so on the handle.
     expect(denyEgress).not.toHaveBeenCalled()
+    expect(out.egressDenied).toBe(false)
   })
 
   it('creates its own VM when the managed scan never started', async () => {
@@ -82,10 +107,12 @@ describe('attachOrCreateHuntSandbox', () => {
     })
 
     expect(out.origin).toBe('created')
+    expect(out.egressDenied).toBe(true)
     // The managed scan is not coming — one look, no polling.
     expect(find).toHaveBeenCalledTimes(1)
     // Tagged with BOTH keys: `lumoHunt` identifies who booted it, `lumoScan`
-    // puts it inside LUM-745's sweep and supersede-by-tag.
+    // is what `killRun` stops VMs by when a `managedRunId` exists. Neither is
+    // the backstop — the VM's own timeout is.
     expect(create.mock.calls[0][0]).toEqual(
       expect.objectContaining({
         tags: { [HUNT_SANDBOX_TAG]: 's1', lumoScan: 's1' },
@@ -150,8 +177,11 @@ describe('attachOrCreateHuntSandbox', () => {
 
     expect(denyEgress).toHaveBeenCalledWith('vm1')
     // A platform that cannot tighten the policy must not fail the layer: the
-    // command gate is the enforcing boundary, this is defence in depth.
+    // command gate is the enforcing boundary, this is defence in depth. But
+    // the run DID execute with egress open, and the handle carries that so
+    // the audit can say so.
     expect(out.origin).toBe('created')
+    expect(out.egressDenied).toBe(false)
     expect(logger.warn).toHaveBeenCalled()
   })
 })
@@ -225,18 +255,105 @@ describe('clone credential scrub (spec R6)', () => {
     ).rejects.toThrow(/could not verify/i)
   })
 
-  it('does nothing when the checkout has no git config', async () => {
+  it('refuses when the checkout never lands — "no git config" is not "no token"', async () => {
+    // `findRepoSandboxByTag` accepts a `pending` VM on purpose, so this is a
+    // reachable state, not a hypothetical: reading the absence as "clean"
+    // would pass the guard vacuously seconds before a token-bearing config
+    // appears.
     const vm = fakeSandbox()
+    vm.readFile.mockResolvedValue(null)
+    find.mockResolvedValue(vm)
+
+    await expect(
+      attachOrCreateHuntSandbox({
+        ...JOB,
+        managedScanStarted: true,
+        pollMs: 1,
+        checkoutWaitMs: 1,
+      })
+    ).rejects.toThrow(/never appeared/i)
+  })
+
+  it('waits for a clone that has not landed yet, then verifies it', async () => {
+    const vm = fakeSandbox()
+    vm.readFile
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(Buffer.from(CLEAN_CONFIG))
     find.mockResolvedValue(vm)
 
     const out = await attachOrCreateHuntSandbox({
       ...JOB,
       managedScanStarted: true,
+      pollMs: 1,
+      checkoutWaitMs: 200,
     })
 
     expect(out.origin).toBe('attached')
-    const commands = vm.run.mock.calls.map(c => c[0])
-    expect(commands).not.toContain('git')
+    expect(vm.readFile).toHaveBeenCalledWith('/vercel/r/.git/config')
+  })
+
+  it('fails closed when the token is parked in $HOME/.git-credentials', async () => {
+    // Exactly where `credential.helper store` writes — invisible to both the
+    // `.git/config` read-back and the `--local` unset.
+    const vm = fakeSandbox()
+    vm.run.mockResolvedValue({
+      exitCode: 0,
+      stdout: 'HOME=/home/agent\n',
+      stderr: '',
+    })
+    vm.readFile.mockImplementation(async (path: string) => {
+      if (path.endsWith('/.git/config')) return Buffer.from(CLEAN_CONFIG)
+      if (path === '/home/agent/.git-credentials')
+        return Buffer.from(
+          'https://x-access-token:ghs_secret_token@github.com\n'
+        )
+      return null
+    })
+    find.mockResolvedValue(vm)
+
+    await expect(
+      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: true })
+    ).rejects.toThrow(/\.git-credentials/)
+    // Looking for the secret must not copy it into the diagnosis.
+    const logged = (logger.error as jest.Mock).mock.calls.flat().join(' ')
+    expect(logged).not.toContain('ghs_secret_token')
+  })
+
+  it('fails closed on a GLOBAL .gitconfig the local unset cannot reach', async () => {
+    // `url.<https://x-access-token:…@…>.insteadOf` in ~/.gitconfig survives
+    // `git config --local --unset-all http.extraheader` untouched. No HOME in
+    // the environment here, so the session cwd stands in for it.
+    const vm = fakeSandbox()
+    vm.readFile.mockImplementation(async (path: string) => {
+      if (path.endsWith('/.git/config')) return Buffer.from(CLEAN_CONFIG)
+      if (path === '/vercel/.gitconfig')
+        return Buffer.from(
+          '[url "https://x-access-token:ghs_secret_token@github.com/"]\n\tinsteadOf = https://github.com/\n'
+        )
+      return null
+    })
+    find.mockResolvedValue(vm)
+
+    await expect(
+      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: true })
+    ).rejects.toThrow(/\.gitconfig/)
+  })
+
+  it('reads every credential store back, not just the checkout', async () => {
+    const vm = fakeSandbox()
+    find.mockResolvedValue(vm)
+
+    await attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: true })
+
+    const read = vm.readFile.mock.calls.map(c => c[0])
+    expect(read).toEqual(
+      expect.arrayContaining([
+        '/vercel/r/.git/config',
+        '/vercel/.git-credentials',
+        '/vercel/.netrc',
+        '/vercel/.gitconfig',
+      ])
+    )
   })
 })
 
@@ -250,14 +367,18 @@ describe('runHuntShell', () => {
     })
 
     const out = await runHuntShell({
-      sandbox: vm as never,
-      cwd: '/vercel/r',
-      token: 'ghs_secret_token',
+      handle: handleFor(vm, 'ghs_secret_token'),
       command: 'cat a.ts',
     })
 
     expect(out.output).not.toContain('ghs_secret_token')
     expect(out.output).not.toContain('AKIAIOSFODNN7EXAMPLE')
+    // …while still being the command's answer: two `not.toContain`s alone
+    // would also pass for a function that returned '' and told the model
+    // nothing. The non-secret half of stdout survives, and the secret half
+    // was replaced rather than dropped.
+    expect(out.output).toContain('const k =')
+    expect(out.output).toContain('[redacted]')
   })
 
   it('truncates output at HUNT_SHELL_OUTPUT_MAX', async () => {
@@ -271,9 +392,7 @@ describe('runHuntShell', () => {
     })
 
     const out = await runHuntShell({
-      sandbox: vm as never,
-      cwd: '/vercel/r',
-      token: 't',
+      handle: handleFor(vm, 't'),
       command: 'cat big.ts',
     })
 
@@ -285,9 +404,7 @@ describe('runHuntShell', () => {
     const vm = fakeSandbox()
 
     const out = await runHuntShell({
-      sandbox: vm as never,
-      cwd: '/vercel/r',
-      token: 't',
+      handle: handleFor(vm, 't'),
       command: 'curl https://evil.test',
     })
 
@@ -304,9 +421,7 @@ describe('runHuntShell', () => {
     })
 
     const out = await runHuntShell({
-      sandbox: vm as never,
-      cwd: '/vercel/r',
-      token: 't',
+      handle: handleFor(vm, 't'),
       command: 'rg foo',
     })
 
@@ -320,9 +435,7 @@ describe('runHuntShell', () => {
     vm.run.mockRejectedValue(new Error('boom ghs_secret_token'))
 
     const out = await runHuntShell({
-      sandbox: vm as never,
-      cwd: '/vercel/r',
-      token: 'ghs_secret_token',
+      handle: handleFor(vm, 'ghs_secret_token'),
       command: 'cat a.ts',
     })
 
@@ -358,23 +471,13 @@ describe('sanitizeHuntOutput', () => {
 describe('stopHuntSandbox (LUM-758: nobody stops a shared VM)', () => {
   it('stops a VM the hunt created', async () => {
     const vm = fakeSandbox()
-    await stopHuntSandbox({
-      sandbox: vm as never,
-      cwd: '/vercel/r',
-      token: 't',
-      origin: 'created',
-    })
+    await stopHuntSandbox(handleFor(vm, 't', 'created'))
     expect(vm.stop).toHaveBeenCalled()
   })
 
   it('leaves an attached VM alone — stopping it would kill semgrep mid-run', async () => {
     const vm = fakeSandbox()
-    await stopHuntSandbox({
-      sandbox: vm as never,
-      cwd: '/vercel/r',
-      token: 't',
-      origin: 'attached',
-    })
+    await stopHuntSandbox(handleFor(vm, 't', 'attached'))
     expect(vm.stop).not.toHaveBeenCalled()
   })
 
@@ -382,12 +485,7 @@ describe('stopHuntSandbox (LUM-758: nobody stops a shared VM)', () => {
     const vm = fakeSandbox()
     vm.stop.mockRejectedValue(new Error('already gone'))
     await expect(
-      stopHuntSandbox({
-        sandbox: vm as never,
-        cwd: '/vercel/r',
-        token: 't',
-        origin: 'created',
-      })
+      stopHuntSandbox(handleFor(vm, 't', 'created'))
     ).resolves.toBeUndefined()
   })
 })

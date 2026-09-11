@@ -227,8 +227,14 @@ async function collectReports(opts: {
     // LUM-758: a VM the hunt is going to reuse outlives this function on
     // purpose. Stopping it here would kill the hunt's checkout; stopping it
     // from the hunt would kill semgrep, since the two workflows have no
-    // ordering guarantee. It is released by the VM's own 20-minute timeout,
-    // LUM-745's 15-minute sweep, or supersede-by-tag.
+    // ordering guarantee. Its release is the VM's own 20-minute timeout —
+    // LUM-745's sweep and supersede only reach a VM whose scan row carries a
+    // `managedRunId` (see `stopHuntSandbox`).
+    // `keepAlive` also changes the CRASH path, which is not the shared-VM
+    // rule and is easy to miss: a throw above now leaves the VM running where
+    // this block previously always stopped it, so with the step's retries
+    // several VMs can be alive under one `lumoScan` tag at once, each until
+    // its own timeout. Bounded, and cheaper than racing the hunt's checkout.
     if (!opts.keepAlive) {
       try {
         await sandbox.stop()

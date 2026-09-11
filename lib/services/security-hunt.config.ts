@@ -41,6 +41,16 @@ export interface HuntJob {
 /** LUM-758 §5.1 — how long to wait for the managed scan's VM, and how often to look. */
 export const HUNT_SANDBOX_ATTACH_WAIT_MS = 30_000
 export const HUNT_SANDBOX_ATTACH_POLL_MS = 3_000
+
+/**
+ * LUM-758 §5.1 — how long the credential guard waits for the platform's clone
+ * to land, and how often it looks. `findRepoSandboxByTag` accepts a `pending`
+ * VM on purpose, so the hunt can be holding a VM whose checkout does not
+ * exist yet: to that guard a missing `.git/config` means "not yet", never
+ * "clean", and it refuses once this runs out.
+ */
+export const HUNT_CHECKOUT_WAIT_MS = 20_000
+export const HUNT_CHECKOUT_POLL_MS = 1_000
 /** Characters of one shell command's output that may reach the model. */
 export const HUNT_SHELL_OUTPUT_MAX = 8_000
 
