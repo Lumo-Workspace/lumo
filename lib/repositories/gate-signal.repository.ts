@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import type { GateSignalSource } from '@/lib/services/gate-audit'
 
 /** A GateSignal row to persist (LUM-616). Mirrors the Prisma model minus id/createdAt. */
 export interface NewGateSignal {
@@ -7,7 +8,8 @@ export interface NewGateSignal {
   gateKey: string
   outcome: string
   provenance: string
-  source: string
+  /** github_check / github_status (LUM-616) or lumo_sandbox (LUM-746). */
+  source: GateSignalSource
   checkName: string
   detailsUrl: string | null
   headSha: string | null

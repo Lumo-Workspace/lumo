@@ -21,6 +21,7 @@
 import { logger } from '@/lib/logger'
 import {
   createRepoSandbox,
+  repoCheckoutDir,
   type RepoSandbox,
 } from '@/lib/integrations/vercel-sandbox'
 import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
@@ -119,19 +120,10 @@ function logSafe(s: string): string {
   return s.replace(/[\r\n]+/g, ' ').slice(0, 120)
 }
 
-/**
- * Where the SDK puts a git source: `<session cwd>/<repo name>`, not the
- * session cwd itself (verified in a probe sandbox on 2026-09-10: cwd was
- * `/vercel`, the clone `/vercel/lumo`). The sha guard in every script still
- * proves the directory is the right checkout before anything is scanned.
- */
-export function repoCheckoutDir(
-  sandboxCwd: string,
-  repository: string
-): string {
-  const name = repository.slice(repository.indexOf('/') + 1)
-  return `${sandboxCwd.replace(/\/+$/, '')}/${name}`
-}
+// `repoCheckoutDir` moved to the sandbox integration (LUM-746, shared with
+// the managed CI); re-exported so existing importers and this file's test
+// keep working.
+export { repoCheckoutDir }
 
 type ToolReport = Buffer | { failed: string } | { skipped: string }
 

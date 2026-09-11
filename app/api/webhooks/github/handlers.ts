@@ -24,6 +24,7 @@ import {
   dispatchPrSecurityScan,
   shouldScanOnPrEvent,
 } from '@/lib/services/pr-security-scan-dispatch'
+import { dispatchLumoCi } from '@/lib/services/lumo-ci-dispatch'
 import { logger } from '@/lib/logger'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -36,7 +37,9 @@ type GitHubPR = {
   merged: boolean
   draft: boolean
   user: { login: string }
-  head: { ref: string }
+  // LUM-746: `sha` is on every pull_request payload; optional so a stripped
+  // payload degrades to a head fetch on the request path.
+  head: { ref: string; sha?: string }
   base: { ref: string }
   merged_at: string | null
   closed_at: string | null
@@ -219,6 +222,10 @@ export async function handlePullRequest(
   // current head. The worker dedups on (pr, headSha), so redelivery is harmless.
   if (shouldScanOnPrEvent(action, state)) {
     waitUntil(dispatchPrSecurityScan(prRow.id, 'PR_EVENT'))
+    // LUM-746: the same pushes get a Lumo-managed CI run (typecheck + test
+    // in a sandbox → independent gate signals). Same-sha dedup is the
+    // request path's job, so redelivery is harmless here too.
+    waitUntil(dispatchLumoCi(prRow.id, 'PR_EVENT', pr.head.sha))
   }
 
   // Close the task's lineage edges when this PR reaches a terminal state

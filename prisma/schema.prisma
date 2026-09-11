@@ -316,6 +316,7 @@ model Workspace {
   outcomeSignals          OutcomeSignal[]
   taskDependencies        TaskDependency[]
   gateSignals             GateSignal[]
+  lumoCiRuns              LumoCiRun[]
   ideas                   Idea[]
   priorities              Priority[]
   planRuns                PlanRun[]
@@ -980,6 +981,7 @@ model Task {
   blockingEdges              TaskDependency[]            @relation("TaskBlocking")
   autoBlocks                 AutoBlock[]
   gateSignals                GateSignal[]
+  lumoCiRuns                 LumoCiRun[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1715,6 +1717,7 @@ model PullRequest {
   mirroredComments PrCommentMirror[]
   ideaCitations    IdeaPullRequest[]
   securityScans    PrSecurityScan[]
+  lumoCiRuns       LumoCiRun[]
 
   @@unique([repo, number])
   @@index([workspaceId])
@@ -2353,6 +2356,37 @@ model GateSignal {
 
   @@index([taskId, createdAt])
   @@map("gate_signals")
+}
+
+// LUM-746: one Lumo-managed CI run (typecheck + test in a Vercel Sandbox) per
+// (pull request, head sha). The unique key is the "same sha runs once" rule;
+// the row tracks the workflow run for supersede/cancel and counts toward the
+// per-workspace hourly cap. Verdicts themselves land in GateSignal
+// (source 'lumo_sandbox'); this row only says whether the harness finished.
+model LumoCiRun {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  taskId        String
+  pullRequestId String
+  prNumber      Int
+  headSha       String
+  // PENDING | DONE | FAILED | SUPERSEDED
+  status        String    @default("PENDING")
+  // Vercel Workflow run id once start() succeeded; null = never started.
+  runId         String?
+  // Harness failure reason (never a gate verdict).
+  error         String?
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task        Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([pullRequestId, headSha])
+  @@index([workspaceId, startedAt])
+  @@index([taskId])
+  @@map("lumo_ci_runs")
 }
 
 // LUM-640: a session's legal form. IMPLEMENTATION = the classic task-bound
