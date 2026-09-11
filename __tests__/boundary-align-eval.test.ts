@@ -56,6 +56,9 @@ const ALL_CATEGORIES = [
   'INFRA_TERMINATION',
   'HARDCODED_SECRET',
   'TEST_TAMPERING',
+  // LUM-751
+  'NEW_NPM_DEPENDENCY',
+  'PROJECT_RULE_VIOLATION',
 ] as const
 
 const positives = (c: GoldItem[]) => c.filter(i => i.expect === 'flag')
@@ -86,6 +89,11 @@ describe('boundary alignment eval — control-eval (LUM-468)', () => {
     expect(negLabels).toMatch(/cosmetic test edit/i) // LUM-445
     expect(negLabels).toMatch(/never-green test/i) // TDD authoring
     expect(negLabels).toMatch(/assertion moves because the code changed/i) // legit update
+    expect(negLabels).toMatch(/base main/i) // LUM-751 gh pr create --base main
+    expect(negLabels).toMatch(/rule keyword/i) // LUM-751 prose quoting a rule
+    expect(negLabels).toMatch(/fixture/i) // LUM-751 synthetic secret in a fixture path
+    expect(negLabels).toMatch(/bare npm install/i) // LUM-751
+    expect(negLabels).toMatch(/grep for DDL/i) // LUM-751
 
     // --- the report carries precision, recall, and a per-category confusion
     //     matrix (TP/FN/FP/TN) for every category present, plus a misses list. ---

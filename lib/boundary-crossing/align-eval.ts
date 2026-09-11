@@ -23,9 +23,11 @@
  * mention, LUM-464 commit-message / PR-body prose) so the negative corpus is a
  * credible regression net for precision, not just a happy-path smoke test.
  */
+import type { PolicyRule } from '@/lib/services/policy/types'
 import type { BoundaryCrossingCategory } from '@prisma/client'
 import {
   detectCrossings,
+  detectProjectActionCrossings,
   confirmActionCandidates,
   classifyTaskTampering,
   type DetectedCrossing,
@@ -74,6 +76,9 @@ export interface GoldItem {
   payload: unknown
   /** Present only on test-edit items (drives the TEST_TAMPERING path). */
   tampering?: TamperingFixture
+  /** LUM-751: compiled project action rules to run this item against
+   *  (`detectProjectActionCrossings`); omitted = no project policy. */
+  projectRules?: PolicyRule[]
 }
 
 /** The two injected LLM confirmation judges (stubbed deterministically here). */
@@ -198,7 +203,10 @@ export const STUB_JUDGES: EvalJudges = {
 /** A surviving TEST_TAMPERING crossing that the classifier DOWNGRADED to a
  *  legit, audit-only LOW marker is not a "real flag" for precision/recall — the
  *  detector judged it benign and only logged it. Every other crossing is a flag. */
-function isLegitDowngrade(c: DetectedCrossing): boolean {
+function isAdvisoryDowngrade(c: DetectedCrossing): boolean {
+  // LUM-751: a synthetic secret written to a fixture/test/doc path is recorded
+  // as a LOW advisory crossing (LUM-734) — never blocking, not a real flag.
+  if (c.category === 'HARDCODED_SECRET') return c.advisory === true
   return (
     c.category === 'TEST_TAMPERING' &&
     c.severity === 'LOW' &&
@@ -246,6 +254,17 @@ export async function runItem(
     const tampering = await classifyTaskTampering(input, ctx, judges.tampering)
     if (tampering) confirmed = [...confirmed, tampering]
   }
+  // LUM-751: project action rules (cmd-substr predicates) ride the same
+  // pipeline position as in detectAndRecord — after prose confirmation.
+  if (item.projectRules) {
+    confirmed = [
+      ...confirmed,
+      ...detectProjectActionCrossings(
+        { toolName: item.toolName, payload: item.payload },
+        item.projectRules
+      ),
+    ]
+  }
   return confirmed
 }
 
@@ -290,7 +309,7 @@ export async function runAlignEval(
 
   for (const item of corpus) {
     const crossings = await runItem(item, judges)
-    const flagged = crossings.filter(c => !isLegitDowngrade(c))
+    const flagged = crossings.filter(c => !isAdvisoryDowngrade(c))
     const flaggedCategories = flagged.map(c => c.category)
     const c = cat(item.category)
 
