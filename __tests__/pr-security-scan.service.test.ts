@@ -26,10 +26,19 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     countExternalFindings: jest.fn(),
     findDispositionedByPullRequest: jest.fn(),
     findLatestByPullRequestIds: jest.fn(),
+    // LUM-740: the read model diffs against the previous scan's open rows.
+    findPreviousOpenFingerprints: jest.fn().mockResolvedValue([]),
     findFindingWithScope: jest.fn(),
     updateDisposition: jest.fn(),
     mergeStages: jest.fn(),
     setManagedRunId: jest.fn(),
+  },
+}))
+// LUM-740: the workspace policy read behind every "blocking" decision;
+// null = the 732 default these expectations were written against.
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
   },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
@@ -84,6 +93,7 @@ import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-s
 import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
 import { securityBaselineService } from '@/lib/services/security-baseline.service'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { waitUntil } from '@vercel/functions'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
@@ -212,6 +222,9 @@ test('dedupes on (pullRequestId, headSha) and inherits dispositions by fingerpri
       dispositionNote: 'doc key',
       dispositionedById: 'm1',
       dispositionedAt: when,
+      suggestedDisposition: null,
+      suggestedReason: null,
+      suggestionOutcome: null,
     },
   ])
   const third = await prSecurityScanService.run({
@@ -629,6 +642,34 @@ describe('LUM-735 SARIF push — stage A side', () => {
       })
     )
     expect(startManaged).not.toHaveBeenCalled()
+  })
+
+  test('LUM-740: the early PR sync on a blocking finding honours the workspace policy', async () => {
+    // Default policy: a deterministic HIGH key blocks DONE → stage A syncs
+    // the PR itself even though the managed run will sync later.
+    fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+    countExternal.mockResolvedValue(0)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(waitUntilMock).toHaveBeenCalledTimes(1)
+
+    // A workspace whose policy blocks nothing: nothing is urgent, the
+    // managed run's own sync is the one summary.
+    waitUntilMock.mockClear()
+    syncReview.mockClear()
+    ;(
+      workspaceRepository.findSecurityPolicy as jest.Mock
+    ).mockResolvedValueOnce({
+      block: [],
+    })
+    repo.findByPrAndSha.mockResolvedValue(null)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(waitUntilMock).not.toHaveBeenCalled()
   })
 
   test('managed scan on, no external rows yet → starts the workflow with the scan row and PENDING', async () => {

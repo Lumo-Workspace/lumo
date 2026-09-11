@@ -22,7 +22,9 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import {
   isBlockingFinding,
   latestScanPerPr,
+  loadSecurityPolicy,
 } from '@/lib/services/pr-security-scan-gate'
+import { DEFAULT_SECURITY_POLICY } from '@/lib/security-scan/policy'
 import {
   renderPreToolUseSecurityReminder,
   renderSessionStartSecuritySection,
@@ -101,6 +103,11 @@ export const prSecurityReminderService = {
       prs.map(p => p.id)
     )
     const latest = latestScanPerPr(scans)
+    // LUM-740: the workspace policy decides which open findings block DONE.
+    const policy =
+      scans.length > 0
+        ? await loadSecurityPolicy(scans[0]!.workspaceId)
+        : DEFAULT_SECURITY_POLICY
     const findings: OpenSecurityFinding[] = []
     const unconfirmedPrs: UnconfirmedPr[] = []
     const latestScans: TaskSecurityOpenState['latestScans'] = []
@@ -150,7 +157,7 @@ export const prSecurityReminderService = {
           filePath: f.filePath,
           line: f.line,
           title: f.title,
-          blocking: isBlockingFinding(f),
+          blocking: isBlockingFinding(f, policy),
           prNumber: pr.number,
           scanId: scan.id,
         })

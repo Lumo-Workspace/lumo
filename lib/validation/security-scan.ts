@@ -14,3 +14,19 @@ export const dispositionSecurityFindingSchema = z
 export type DispositionSecurityFindingInput = z.infer<
   typeof dispositionSecurityFindingSchema
 >
+
+/**
+ * Body for POST /api/tasks/[id]/security-findings/bulk-disposition
+ * (LUM-740). The only bulk operation is "confirm every LLM-suggested false
+ * positive on the task" — spelled out in full so the intent is on the wire.
+ */
+export const bulkDispositionSecurityFindingsSchema = z
+  .object({
+    disposition: z.literal('FALSE_POSITIVE'),
+    scope: z.literal('SUGGESTED'),
+  })
+  .strict()
+
+export type BulkDispositionSecurityFindingsInput = z.infer<
+  typeof bulkDispositionSecurityFindingsSchema
+>

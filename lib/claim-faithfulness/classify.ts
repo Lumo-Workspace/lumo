@@ -1,6 +1,6 @@
 import { withTimeout } from '@/lib/boundary-crossing/judge-timeout'
 import { truncateDiff } from './diff-oracle'
-import { prefilterUnderreport } from './prefilter'
+import { prefilterClaim } from './prefilter'
 import type { ClaimFaithfulnessResult, ClaimJudge, TaskDelivery } from './types'
 
 const DEFAULT_TIMEOUT = 20_000
@@ -26,10 +26,11 @@ export async function classifyClaimFaithfulness(
     }
   }
 
-  const prefilterSignal = prefilterUnderreport(claim, {
+  const prefilterSignal = prefilterClaim(claim, {
     additions: delivery.additions,
     deletions: delivery.deletions,
     changedFiles: delivery.changedFiles,
+    diff: delivery.diff,
   })
 
   const judge =

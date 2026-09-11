@@ -1,5 +1,6 @@
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
+import type { SecurityPolicy } from '@/lib/security-scan/policy'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -11,6 +12,8 @@ export interface UpdateWorkspaceInput {
   summaryLocale?: string | undefined
   verificationMaxRounds?: number | undefined
   acceptanceMode?: boolean | undefined
+  /** LUM-740: already validated by `securityPolicySchema`; null = reset. */
+  securityPolicy?: SecurityPolicy | null | undefined
 }
 
 // ── Workspace Service ───────────────────────────────────────────────────────
@@ -71,6 +74,8 @@ export const workspaceService = {
       data.verificationMaxRounds = input.verificationMaxRounds
     if (input.acceptanceMode !== undefined)
       data.acceptanceMode = input.acceptanceMode
+    if (input.securityPolicy !== undefined)
+      data.securityPolicy = input.securityPolicy
 
     return workspaceRepository.update(workspaceId, data)
   },

@@ -305,6 +305,29 @@ Done. Budget ≤ 150k tokens / 200 s per scan; nothing from the repository is
 stored beyond the finding's symbols, line numbers and redacted text. Set
 `LUMO_SECURITY_HUNT=off` to disable the hunt for a deployment.
 
+**Policy, suggestions and what reaches the PR (LUM-740).** Which findings
+block a task from reaching Done is a per-workspace policy
+(`Workspace.securityPolicy`, `{ "block": [{ "provenance", "severity" }] }`,
+set through `PATCH /api/workspaces/me`); unset, only an undispositioned
+pattern-matched (deterministic) HIGH finding blocks, exactly as before. LLM
+findings — the hunt above and the LLM review — can never be configured to
+block: the API refuses the value and the reader ignores it. Every
+external-tool finding also goes through a falsifier once (a second model
+that may only refute, never confirm — `LUMO_SECURITY_SUGGEST=off` disables
+it); a refutation becomes a _suggested_ false positive with the model's
+reasoning, shown in the panel with a one-click "confirm all" for humans, and
+each confirm or overrule is recorded so the suggestion's precision can be
+measured (`scripts/analysis/lum740-suggestion-precision`). To keep the pull
+request readable, LOW-severity findings (test and fixture paths, placeholder
+values) and suggested false positives get no inline comment — the summary
+comment carries one line for each group and links to Lumo — and the summary
+itself is updated in place by the comment id stored on the scan, so
+concurrent scan layers never post a second one. A GitHub check-run
+(`lumo/security`) is deliberately not posted: it would need the App's
+`Checks: write` permission, which every installation would have to
+re-accept, and the summary comment already carries the same verdict; it will
+be added when a team asks for it as a required status in branch protection.
+
 **Trust boundary.** The managed scan uses the App's existing `Contents: read`
 permission — no new GitHub permission is requested — and the clone lives only
 inside the one-shot Vercel Sandbox VM for the duration of the scan before the

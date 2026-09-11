@@ -29,6 +29,7 @@ import {
 import {
   deleteBlobBestEffort,
   markFailedBestEffort,
+  suggestDispositionsBestEffort,
   syncPrReviewBestEffort,
 } from './security-scan-helpers'
 
@@ -86,6 +87,8 @@ export async function securitySarifIngestWorkflow(
         dropped: fetched.dropped,
       })
       await deleteBlobBestEffort(job.url)
+      // LUM-740: suggestions land before the write-back reads the rows.
+      if (written > 0) await suggestDispositionsBestEffort(scanId)
       // The findings are on the row: put them on the PR (idempotent, and it
       // never throws — see `securityPrReviewService.sync`).
       await syncPrReviewBestEffort(scanId)

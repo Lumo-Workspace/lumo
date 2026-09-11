@@ -27,6 +27,13 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     mergeStages: jest.fn(),
   },
 }))
+// LUM-740: stage A reads the workspace policy to decide whether a finding is
+// urgent enough to sync the PR before the runs land; null = the 732 default.
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+  },
+}))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { findById: jest.fn() },
 }))

@@ -342,6 +342,12 @@ model Workspace {
   // that already have criteria) is always-on and never gated by this flag.
   acceptanceMode Boolean @default(false)
 
+  // LUM-740: which { provenance, severity } pairs block DONE —
+  // { block: [{ provenance, severity }] }. null = the 732 default (only an
+  // undispositioned DETERMINISTIC HIGH blocks). LLM_JUDGE is refused by the
+  // API schema and ignored by the reader: an LLM finding can never block.
+  securityPolicy Json?
+
   @@map("workspaces")
 }
 
@@ -1461,45 +1467,67 @@ enum PrSecurityFalsifierVerdict {
   INCONCLUSIVE
 }
 
+// LUM-740: what a human did with an LLM-suggested disposition — confirmed it
+// (chose the suggested disposition) or overruled it (chose another). The
+// pair (suggestedDisposition, suggestionOutcome) is the judge-precision data
+// of spec §12 R2.
+enum PrSecuritySuggestionOutcome {
+  CONFIRMED
+  OVERRULED
+}
+
 model PrSecurityScan {
-  id              String                 @id @default(cuid())
-  pullRequestId   String
+  id               String                 @id @default(cuid())
+  pullRequestId    String
   // The PR's task at scan time (denormalised for per-task reads); SetNull.
-  taskId          String?
-  workspaceId     String
-  headSha         String
-  status          PrSecurityScanStatus   @default(PENDING)
-  trigger         PrSecurityScanTrigger
-  judgeStatus     PrSecurityJudgeStatus?
+  taskId           String?
+  workspaceId      String
+  headSha          String
+  status           PrSecurityScanStatus   @default(PENDING)
+  trigger          PrSecurityScanTrigger
+  judgeStatus      PrSecurityJudgeStatus?
   // The diff exceeded the judge budget — the LLM pass saw only a prefix.
-  truncated       Boolean                @default(false)
+  truncated        Boolean                @default(false)
   // LUM-735: per-layer outcome { secrets|external|supplyChain|judge|hunt:
   // RAN|FAILED|SKIPPED|NOT_CONFIGURED|PARTIAL }. null on rows written before
   // this column existed — the service derives a legacy view from judgeStatus.
-  stages          Json?
+  stages           Json?
   // LUM-735: some layer hit its budget/cap; the scan is honest but not whole.
-  partial         Boolean                @default(false)
+  partial          Boolean                @default(false)
   // e.g. "secrets@1;judge@1" — lets a later detector bump decide to rescan.
-  detectorVersion String
-  error           String?
-  startedAt       DateTime               @default(now())
-  finishedAt      DateTime?
+  detectorVersion  String
+  error            String?
+  startedAt        DateTime               @default(now())
+  finishedAt       DateTime?
   // LUM-737: when the agent was first reminded (via the next PreToolUse hook)
   // that this scan carries undispositioned findings. Set once per scan row so
   // the reminder fires exactly once; null = not yet reminded. Orthogonal to
   // disposition and the DONE gate (which key only on the findings).
-  agentNotifiedAt DateTime?
+  agentNotifiedAt  DateTime?
   // LUM-739: tokens the L3 hunt + falsifier spent on this scan. null = not
   // metered (team rule: null ≠ 0).
-  tokenSpent      Int?
+  tokenSpent       Int?
   // LUM-739: { candidates, rejected: [{ reason, category, sink }],
   // falsifierRejects, falsifierRejected, categories, subgraph, error? }.
-  huntAudit       Json?
+  huntAudit        Json?
   // LUM-745: the Vercel Workflow run id of the Lumo-managed scan stage A
   // started for this row; null = no managed run (BYO, disabled, or start()
   // failed). Read by supersede / the 45-min sweep (cancel + stop) and by the
   // per-workspace hourly cap (count).
-  managedRunId    String?
+  managedRunId     String?
+  // LUM-740: the GitHub issue-comment id of the per-PR summary this scan
+  // last wrote (or reused from an earlier scan of the same PR). The
+  // write-back upserts by this id, so concurrent writers converge on ONE
+  // summary; null until the first create.
+  summaryCommentId String?
+  // LUM-740: when the suggested-disposition pass finished for this scan
+  // (null = not yet). The PR write-back holds EXTERNAL_TOOL inline comments
+  // until then, so a concurrent hunt sync cannot post rows the pass is about
+  // to mark as suggested false positives.
+  suggestedAt      DateTime?
+  // LUM-740: tokens the suggested-disposition pass spent (own column — the
+  // hunt owns `tokenSpent` and overwrites it). null = not metered.
+  suggestionTokens Int?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1537,6 +1565,13 @@ model PrSecurityFinding {
   // Set when the disposition was copied from an earlier finding with the same
   // fingerprint on the same PR (cross-push inheritance).
   inheritedFromFindingId String?
+  // LUM-740 (EXTERNAL_TOOL rows): the falsifier REJECTed the finding, so a
+  // FALSE_POSITIVE disposition is *suggested* with its reason — `disposition`
+  // itself is never written by the LLM. `suggestionOutcome` records the
+  // human's decision on the suggestion (confirm / overrule) for R2.
+  suggestedDisposition   PrSecurityFindingDisposition?
+  suggestedReason        String?
+  suggestionOutcome      PrSecuritySuggestionOutcome?
   // LUM-739 (hunt:* rows only): CWE id, entry-reachability of the sink, the
   // symbol-level call chain [{ from, to }] (no code), and the falsifier's
   // verdict — always INCONCLUSIVE on a persisted row (REJECTs never land).
