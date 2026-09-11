@@ -6,6 +6,12 @@ import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { emitConfirmation } from '../lib/confirmation'
+import {
+  buildBlockedError,
+  collectDoneBlockers,
+  emitBlocked,
+  isDoneGateRefusal,
+} from '../lib/blocked-error'
 
 const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
@@ -527,6 +533,30 @@ async function runTaskUpdate(
         if (typeof errBody.error === 'string') serverMsg = errBody.error
       } catch {
         // Body wasn't JSON; fall through to status-only message
+      }
+      // LUM-755: a DONE refused by a server gate (send-back / boundary
+      // crossing / blocking security finding) is a human-only block, not a
+      // generic error — surface it structured (exit 5) with every blocker.
+      if (
+        res.status === 409 &&
+        status === 'DONE' &&
+        isDoneGateRefusal(serverMsg)
+      ) {
+        const { blockers, unconfirmed } = await collectDoneBlockers({
+          base,
+          token: creds.token,
+          identifier,
+        })
+        return emitBlocked(
+          buildBlockedError({
+            identifier,
+            message: serverMsg as string,
+            blockers,
+            unconfirmed,
+            apiUrl,
+            workspaceSlug: creds.workspaceSlug ?? '',
+          })
+        )
       }
       if (serverMsg) {
         console.error(`Error: ${sanitizeField(serverMsg)}`)

@@ -66,6 +66,45 @@ Nothing goes to stderr; the envelope is the command's result, not an error. **Ex
 | `worktree rm <LUM-N>`                                     | path + branch; `⚠ … uncommitted changes … discarded` when dirty; whether the branch is kept or deleted                                                                                                                                         | Dirty tree → `confirmCommand` carries `--force --confirm`. [worktree.md](worktree.md)                                                                                                                   |
 | `doc rebuild-source <doc>` (when a source already exists) | the server's 409 reason; what `--force` would replace                                                                                                                                                                                          | `confirmCommand` carries `--force --confirm`. [doc-editing.md](doc-editing.md)                                                                                                                          |
 
+## When the gate is human-only: `DONE_BLOCKED`, exit code 5
+
+Not every refusal is something the user can approve. The server's DONE gates — an **unresolved send-back**, an **undispositioned boundary crossing**, a **blocking security finding** — are verdicts on the agent's own work, and by design there is no CLI path to clear them (the interested party may not adjudicate itself). They are therefore **not** part of the confirmation protocol: no `--confirm`, no `--force`, nothing you can pass.
+
+What the CLI does instead: when `task update <id> --status done --confirm` is refused by one of these gates, it re-reads the task's acceptance status and open crossings, prints a structured error on **stdout** and exits **5**:
+
+```json
+{
+  "status": "blocked",
+  "code": "DONE_BLOCKED",
+  "command": "task update",
+  "task": "LUM-48",
+  "message": "Cannot move this task to DONE — 1 undispositioned boundary-crossing (forbidden action taken during this task): 1 TEST_FILE_DELETED. …",
+  "blockers": [
+    {
+      "kind": "BOUNDARY_CROSSING",
+      "id": "cmtw…",
+      "severity": "MEDIUM",
+      "category": "TEST_FILE_DELETED",
+      "detail": "deleted __tests__/cli/old.test.ts"
+    }
+  ],
+  "unconfirmed": [],
+  "remediation": [
+    "BOUNDARY_CROSSING: leave a rationale with `lumo crossing explain cmtw… --note \"…\"` (append-only; it does not clear anything). A human dispositions each crossing (false positive / confirmed) at https://…/my-tasks/LUM-48#boundary-crossings"
+  ],
+  "dispositionUrl": "https://…/my-tasks/LUM-48#boundary-crossings"
+}
+```
+
+| Field         | Meaning                                                                                                                                                                                                                                                                                                        |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `message`     | The server's 409 text, verbatim.                                                                                                                                                                                                                                                                               |
+| `blockers`    | One entry per item holding the gate: `SEND_BACK` (criterionId, statement, failedAtRound, rejectionReason), `BOUNDARY_CROSSING` (id, severity, category, detail), `SECURITY_FINDING` (findingId, severity, ruleId, filePath, line, prNumber, statement). Built from the same read models as `lumo task status`. |
+| `unconfirmed` | Enrichment reads that failed (`boundary-crossings read failed: HTTP 500`). Non-empty means the blocker list may be incomplete — it never silently shrinks.                                                                                                                                                     |
+| `remediation` | One line per blocker kind present, naming only human-side or append-only paths: re-run `lumo verify`, `lumo crossing explain`, fix-and-push, the web disposition panel.                                                                                                                                        |
+
+**Exit 4 vs exit 5:** 4 means "the user must approve, then you can proceed"; 5 means "a human must adjudicate elsewhere — nothing on the CLI moves this". On exit 5, relay `blockers` and `remediation` to the user. Do not retry, do not look for a flag, and do not reword or delete a failed criterion to get past a send-back (that is tampering and is audited). A 409 that is not a DONE gate (e.g. a permission refusal) keeps the plain exit-1 text on stderr.
+
 ## Example exchange
 
 ```bash

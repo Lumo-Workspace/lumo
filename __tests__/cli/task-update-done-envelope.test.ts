@@ -266,13 +266,42 @@ describe('task update done envelope', () => {
     expect(stdout.join('')).toContain('Updated LUM-1')
   })
 
-  it('--confirm but the server gate refuses: 409 message verbatim, exit 1', async () => {
+  it('--confirm but the server gate refuses: structured DONE_BLOCKED on stdout with the 409 message verbatim, exit 5', async () => {
     const gateMsg =
       'Cannot move this task to DONE — 1 unresolved send-back on the acceptance contract'
-    fetchMock.mockResolvedValueOnce(jsonResponse(409, { error: gateMsg }))
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(409, { error: gateMsg }))
+      // enrichment reads: task status, then boundary crossings
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          criteria: [
+            {
+              id: 'crit-1',
+              statement: 'Envelope is emitted',
+              latestVerdict: {
+                round: 1,
+                verdict: 'FAIL',
+                rejectionReason: 'exit 1',
+              },
+            },
+          ],
+          nextActions: [],
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse(200, { crossings: [] }))
     const code = await taskUpdate('LUM-1', { status: 'done', confirm: true })
-    expect(code).toBe(1)
-    expect(stderr.join('\n')).toContain(gateMsg)
+    expect(code).toBe(5)
+    const parsed = JSON.parse(stdout.join('')) as {
+      code: string
+      message: string
+      blockers: Array<{ kind: string; criterionId?: string }>
+    }
+    expect(parsed.code).toBe('DONE_BLOCKED')
+    expect(parsed.message).toBe(gateMsg)
+    expect(parsed.blockers).toEqual([
+      expect.objectContaining({ kind: 'SEND_BACK', criterionId: 'crit-1' }),
+    ])
+    expect(stderr).toEqual([])
   })
 
   it('task lookup failure (404) exits 1 before any envelope', async () => {

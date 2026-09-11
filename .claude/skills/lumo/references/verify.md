@@ -202,7 +202,9 @@ the task to DONE on the agent/CLI path is refused with **409** and the unresolve
 items listed. Clear the send-back (fix + re-verify, or a human PASS) before
 `lumo task update <id> --status done` — which itself walks the confirmation
 protocol: without `--confirm` it exits 4 with an envelope for the user to
-approve (LUM-755, see [tasks.md](tasks.md) and [confirmation.md](confirmation.md)).
+approve, and when the server gate still refuses it exits 5 with a structured
+`DONE_BLOCKED` error listing every blocker (LUM-755, see [tasks.md](tasks.md)
+and [confirmation.md](confirmation.md)).
 
 - A task with no criteria, or whose criteria were never adjudicated, transitions freely — **the gate only blocks an actual send-back, never an un-adjudicated criterion.**
 - When the machine loop has left a task IN_REVIEW with no send-back standing, the agent may move it to DONE directly; a human-PASS row is a provable manual override, not a required ticket.

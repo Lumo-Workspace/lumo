@@ -195,6 +195,11 @@ type CommandFn = (...args: unknown[]) => Promise<number | void>
  *                  approval printed a `confirmation_required` envelope on
  *                  stdout (see cli/src/lib/confirmation.ts); re-run the
  *                  envelope's `confirmCommand` once the user has approved
+ *   5              blocked by a human-only gate — the server refused the
+ *                  change (today: a DONE gate) and the CLI printed a
+ *                  `DONE_BLOCKED` error on stdout listing every blocker
+ *                  (see cli/src/lib/blocked-error.ts); nothing on the CLI
+ *                  can clear it — relay it, don't retry
  * 2 (auth) and 3 (validation) are reserved for a later pass.
  */
 function wrap(fn: CommandFn) {
