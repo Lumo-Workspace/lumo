@@ -61,3 +61,12 @@ export {
   type HuntTriggerInput,
   type HuntTriggerResult,
 } from './hunt/trigger'
+// LUM-740 — the workspace policy table
+export {
+  DEFAULT_SECURITY_POLICY,
+  securityPolicySchema,
+  parseSecurityPolicy,
+  isBlockingUnderPolicy,
+  type SecurityPolicy,
+  type SecurityPolicyRule,
+} from './policy'

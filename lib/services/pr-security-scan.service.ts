@@ -39,7 +39,15 @@ import {
 } from '@/lib/security-scan'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
-import { isBlockingFinding, latestScanPerPr } from './pr-security-scan-gate'
+import {
+  isBlockingFinding,
+  latestScanPerPr,
+  loadSecurityPolicy,
+} from './pr-security-scan-gate'
+import {
+  DEFAULT_SECURITY_POLICY,
+  type SecurityPolicy,
+} from '@/lib/security-scan/policy'
 import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
@@ -191,7 +199,10 @@ function sortFindings<
   )
 }
 
-function toFindingView(f: FindingRow): SecurityFindingView {
+function toFindingView(
+  f: FindingRow,
+  policy: SecurityPolicy
+): SecurityFindingView {
   return {
     id: f.id,
     kind: f.kind,
@@ -208,12 +219,15 @@ function toFindingView(f: FindingRow): SecurityFindingView {
     disposition: f.disposition,
     dispositionNote: f.dispositionNote,
     inherited: f.inheritedFromFindingId !== null,
-    blocking: isBlockingFinding(f),
+    blocking: isBlockingFinding(f, policy),
     persisting: f.persisting,
   }
 }
 
-function toScanView(s: ScanWithFindings): SecurityScanView {
+function toScanView(
+  s: ScanWithFindings,
+  policy: SecurityPolicy
+): SecurityScanView {
   const stages = stagesOf(s)
   return {
     id: s.id,
@@ -231,7 +245,7 @@ function toScanView(s: ScanWithFindings): SecurityScanView {
     error: s.error,
     startedAt: s.startedAt.toISOString(),
     finishedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
-    findings: sortFindings(s.findings).map(toFindingView),
+    findings: sortFindings(s.findings).map(f => toFindingView(f, policy)),
   }
 }
 
@@ -659,10 +673,15 @@ export const prSecurityScanService = {
       prs.map(p => p.id)
     )
     const latest = latestScanPerPr(scans)
+    // LUM-740: one policy read per task — every scan is in its workspace.
+    const policy =
+      scans.length > 0
+        ? await loadSecurityPolicy(scans[0]!.workspaceId)
+        : DEFAULT_SECURITY_POLICY
     let count = 0
     const out = prs.map(pr => {
       const scan = latest.get(pr.id)
-      const view = scan ? toScanView(scan) : null
+      const view = scan ? toScanView(scan, policy) : null
       if (view) count += view.findings.filter(f => f.blocking).length
       return { pr, latest: view }
     })
@@ -693,6 +712,9 @@ export const prSecurityScanService = {
         dispositionedAt: new Date(),
       }
     )
-    return toFindingView(updated)
+    return toFindingView(
+      updated,
+      await loadSecurityPolicy(finding.scan.pullRequest.workspaceId)
+    )
   },
 }

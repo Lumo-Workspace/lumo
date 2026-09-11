@@ -32,6 +32,13 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     setManagedRunId: jest.fn(),
   },
 }))
+// LUM-740: the workspace policy read behind every "blocking" decision;
+// null = the 732 default these expectations were written against.
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+  },
+}))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
     findById: jest.fn(),

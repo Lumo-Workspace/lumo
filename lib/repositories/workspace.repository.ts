@@ -1,4 +1,4 @@
-import type { SummaryFrequency } from '@prisma/client'
+import { Prisma, type SummaryFrequency } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { generateIdentifier } from '@/lib/team'
 
@@ -129,11 +129,19 @@ export const workspaceRepository = {
     })
   },
 
-  /** Update workspace fields. */
+  /** Update workspace fields. A `securityPolicy: null` clears the Json column (LUM-740). */
   async update(id: string, data: WorkspaceUpdateData) {
+    const { securityPolicy, ...rest } = data
+    const payload: Record<string, unknown> = { ...rest }
+    if (securityPolicy !== undefined) {
+      payload.securityPolicy =
+        securityPolicy === null
+          ? Prisma.JsonNull
+          : (securityPolicy as Prisma.InputJsonValue)
+    }
     return prisma.workspace.update({
       where: { id },
-      data: data as Parameters<typeof prisma.workspace.update>[0]['data'],
+      data: payload as Parameters<typeof prisma.workspace.update>[0]['data'],
     })
   },
 

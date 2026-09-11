@@ -35,6 +35,11 @@ import type {
 } from '@/lib/repositories/pr-security-scan.repository'
 import { isBlockingFinding } from '@/lib/services/pr-security-scan-gate'
 import {
+  DEFAULT_SECURITY_POLICY,
+  parseSecurityPolicy,
+  type SecurityPolicy,
+} from '@/lib/security-scan/policy'
+import {
   INCOMPLETE_STAGE_STATES,
   type ScanStageKey,
   type ScanStages,
@@ -127,7 +132,10 @@ export type InlineFinding = Pick<
 >
 
 /** P8: `evidence` is not a parameter here, so it cannot leak by accident. */
-export function buildInlineComment(f: InlineFinding): string {
+export function buildInlineComment(
+  f: InlineFinding,
+  policy: SecurityPolicy = DEFAULT_SECURITY_POLICY
+): string {
   const blocks: string[] = [
     `**Lumo · ${provenanceLabel(f)} · ${f.severity}** — ${f.title}`,
   ]
@@ -135,7 +143,7 @@ export function buildInlineComment(f: InlineFinding): string {
   if (detail.length > 0) blocks.push(detail)
   const footer: string[] = []
   if (f.externalRef) footer.push(`[Rule docs](${f.externalRef})`)
-  if (isBlockingFinding(f)) footer.push('blocks DONE')
+  if (isBlockingFinding(f, policy)) footer.push('blocks DONE')
   if (footer.length > 0) blocks.push(footer.join(' · '))
   blocks.push(fingerprintMarker(f.fingerprint))
   return blocks.join('\n\n')
@@ -311,7 +319,9 @@ export const securityPrReviewService = {
       const open = scan.findings.filter(
         f => f.disposition === null && !f.persisting
       )
-      const blocking = open.filter(isBlockingFinding).length
+      // LUM-740: the workspace policy says what blocks DONE (LLM never).
+      const policy = parseSecurityPolicy(pr.workspace?.securityPolicy)
+      const blocking = open.filter(f => isBlockingFinding(f, policy)).length
       const externalCounts: Record<string, number> = {}
       for (const f of open) {
         const tool = externalTool(f.ruleId)
@@ -408,7 +418,7 @@ export const securityPrReviewService = {
               path: f.filePath,
               line: f.line as number,
               side: 'RIGHT' as const,
-              body: buildInlineComment(f),
+              body: buildInlineComment(f, policy),
             })),
           })
           inline = selected.length
