@@ -43,4 +43,17 @@ describe('GET /api/cron/sweep-security-scans (LUM-745)', () => {
       sandboxesStopped: 1,
     })
   })
+
+  it('401 when CRON_SECRET is unset, even for the literal "Bearer undefined"', async () => {
+    const saved = process.env.CRON_SECRET
+    delete process.env.CRON_SECRET
+    try {
+      sweep.mockReset()
+      const res = await GET(reqWith('Bearer undefined'))
+      expect(res.status).toBe(401)
+      expect(sweep).not.toHaveBeenCalled()
+    } finally {
+      process.env.CRON_SECRET = saved
+    }
+  })
 })

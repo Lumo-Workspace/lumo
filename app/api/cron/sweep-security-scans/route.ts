@@ -16,8 +16,11 @@ export const maxDuration = 300
  * Cron only: gated by the shared CRON_SECRET.
  */
 export async function GET(req: NextRequest) {
+  const secret = process.env.CRON_SECRET
   const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // A deployment with no CRON_SECRET must fail closed: without this guard the
+  // literal header "Bearer undefined" would match the template string.
+  if (!secret || authHeader !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const result = await securityManagedScanOpsService.sweepStalePending()
