@@ -40,6 +40,12 @@ import {
   type ScanStages,
 } from '@/lib/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
+import {
+  SCAN_STAGE_KEYS,
+  SCAN_STAGE_LABELS,
+  scanStageLabel,
+  scanStageStateLabel,
+} from '@/shared/src/security-scan'
 import { resolvePublicUrl } from '@/lib/utils/public-url'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
@@ -53,13 +59,7 @@ export const fingerprintMarker = (fp: string): string =>
 const FINGERPRINT_MARKER_RE = /<!--\s*lumo-security:fp:([^\s>]+?)\s*-->/g
 
 /** Stage order in the summary line; only keys the scan actually carries show. */
-const STAGE_ORDER: ScanStageKey[] = [
-  'secrets',
-  'external',
-  'supplyChain',
-  'judge',
-  'hunt',
-]
+const STAGE_ORDER: readonly ScanStageKey[] = SCAN_STAGE_KEYS
 
 // Same ordering as the panel (`pr-security-scan.service`): worst severity
 // first, then the layer we trust most. Copied rather than imported — that
@@ -188,9 +188,9 @@ function scrubbedFailureReason(
 ): { label: string; reason: string } | null {
   const label =
     input.stages.external === 'FAILED'
-      ? 'External scanner failed'
+      ? `${SCAN_STAGE_LABELS.external} failed`
       : input.stages.supplyChain === 'FAILED'
-        ? 'Dependency scanner failed'
+        ? 'Dependency scan failed'
         : null
   if (!label) return null
   if (!input.error?.startsWith(EXTERNAL_ERROR_PREFIX)) return null
@@ -229,7 +229,7 @@ function stageLine(
       key === 'external' && counts.length > 0
         ? ` (${counts.map(([tool, n]) => `${tool} ${n}`).join(', ')})`
         : ''
-    parts.push(`${key}: ${state}${suffix}`)
+    parts.push(`${scanStageLabel(key)}: ${scanStageStateLabel(state)}${suffix}`)
   }
   return parts.length > 0 ? `- ${parts.join(' · ')}` : null
 }

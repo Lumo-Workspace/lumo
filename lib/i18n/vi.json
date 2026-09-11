@@ -2263,13 +2263,13 @@
   "securityScan.section.loadError": "Không thể tải các lượt quét bảo mật.",
   "securityScan.status.unavailable": "Không có trạng thái quét",
   "securityScan.status.incomplete": "Quét chưa hoàn tất",
-  "securityScan.stage.secrets": "Mẫu bí mật",
-  "securityScan.stage.external": "Trình quét bên ngoài",
-  "securityScan.stage.judge": "Đánh giá LLM",
-  "securityScan.stage.hunt": "Săn lỗ hổng",
+  "securityScan.stage.secrets": "Khóa bí mật",
+  "securityScan.stage.external": "Quét mã nguồn",
+  "securityScan.stage.judge": "Đánh giá bằng AI",
+  "securityScan.stage.hunt": "Đường tấn công",
   "securityScan.stageState.FAILED": "thất bại",
-  "securityScan.stageState.NOT_CONFIGURED": "chưa cấu hình",
-  "securityScan.stageState.PARTIAL": "một phần",
+  "securityScan.stageState.NOT_CONFIGURED": "đã tắt",
+  "securityScan.stageState.PARTIAL": "chưa hoàn tất",
   "securityScan.external.notConfigured": "Trình quét được Lumo quản lý đã tắt cho lần triển khai này và kho này chưa từng gửi báo cáo trình quét, nên chỉ các kiểm tra riêng của Lumo được chạy. Kết quả sạch ở đây không phải là đạt hoàn toàn.",
   "securityScan.external.notConfigured.link": "Tạo khóa nạp CI (để gửi SARIF từ trình quét riêng của bạn)",
   "securityScan.finding.externalLink": "Xem tài liệu quy tắc",
@@ -2325,5 +2325,7 @@
   "securityScan.stage.supplyChain": "Phụ thuộc",
   "securityScan.finding.persisting": "đã có trên nhánh mặc định",
   "securityScan.finding.dependency": "Phụ thuộc có lỗ hổng",
-  "securityScan.stageState.SUPERSEDED": "đã bị thay thế"
+  "securityScan.stageState.SUPERSEDED": "đã thay thế",
+  "securityScan.stageState.RAN": "đã kiểm tra",
+  "securityScan.stageState.SKIPPED": "đã bỏ qua"
 }

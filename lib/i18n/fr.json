@@ -2263,13 +2263,13 @@
   "securityScan.section.loadError": "Impossible de charger les analyses de sécurité.",
   "securityScan.status.unavailable": "État de l'analyse indisponible",
   "securityScan.status.incomplete": "Analyse incomplète",
-  "securityScan.stage.secrets": "Motifs de secrets",
-  "securityScan.stage.external": "Scanner externe",
-  "securityScan.stage.judge": "Revue LLM",
-  "securityScan.stage.hunt": "Chasse aux vulnérabilités",
+  "securityScan.stage.secrets": "Secrets",
+  "securityScan.stage.external": "Analyse du code",
+  "securityScan.stage.judge": "Revue par IA",
+  "securityScan.stage.hunt": "Chemins d'exploitation",
   "securityScan.stageState.FAILED": "échec",
-  "securityScan.stageState.NOT_CONFIGURED": "non configuré",
-  "securityScan.stageState.PARTIAL": "partiel",
+  "securityScan.stageState.NOT_CONFIGURED": "désactivé",
+  "securityScan.stageState.PARTIAL": "incomplet",
   "securityScan.external.notConfigured": "Le scanner géré par Lumo est désactivé pour ce déploiement et ce dépôt n'a jamais envoyé de rapport de scanner ; seules les vérifications propres à Lumo ont été exécutées. Un résultat propre ici n'est pas une validation complète.",
   "securityScan.external.notConfigured.link": "Créer une clé d'ingestion CI (pour envoyer le SARIF de votre propre scanner)",
   "securityScan.finding.externalLink": "Voir la documentation de la règle",
@@ -2325,5 +2325,7 @@
   "securityScan.stage.supplyChain": "Dépendances",
   "securityScan.finding.persisting": "déjà présent sur la branche par défaut",
   "securityScan.finding.dependency": "Dépendance vulnérable",
-  "securityScan.stageState.SUPERSEDED": "remplacé"
+  "securityScan.stageState.SUPERSEDED": "remplacé",
+  "securityScan.stageState.RAN": "vérifié",
+  "securityScan.stageState.SKIPPED": "ignoré"
 }

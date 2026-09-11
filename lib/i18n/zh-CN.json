@@ -2263,13 +2263,13 @@
   "securityScan.section.loadError": "无法加载安全扫描。",
   "securityScan.status.unavailable": "扫描状态不可用",
   "securityScan.status.incomplete": "扫描不完整",
-  "securityScan.stage.secrets": "密钥指纹",
-  "securityScan.stage.external": "外部扫描器",
-  "securityScan.stage.judge": "LLM 评审",
-  "securityScan.stage.hunt": "漏洞猎捕",
+  "securityScan.stage.secrets": "密钥",
+  "securityScan.stage.external": "代码扫描",
+  "securityScan.stage.judge": "AI 复审",
+  "securityScan.stage.hunt": "可利用路径",
   "securityScan.stageState.FAILED": "失败",
-  "securityScan.stageState.NOT_CONFIGURED": "未接入",
-  "securityScan.stageState.PARTIAL": "部分",
+  "securityScan.stageState.NOT_CONFIGURED": "未启用",
+  "securityScan.stageState.PARTIAL": "未跑完",
   "securityScan.external.notConfigured": "此部署已关闭 Lumo 托管扫描，且该仓库从未推送过扫描器报告，因此只运行了 Lumo 自己的检查。这里的「无问题」不等于完整通过。",
   "securityScan.external.notConfigured.link": "生成 CI 上报密钥（用于推送自有扫描器的 SARIF）",
   "securityScan.finding.externalLink": "查看规则文档",
@@ -2325,5 +2325,7 @@
   "securityScan.stage.supplyChain": "依赖",
   "securityScan.finding.persisting": "默认分支上已存在",
   "securityScan.finding.dependency": "存在漏洞的依赖",
-  "securityScan.stageState.SUPERSEDED": "已被替代"
+  "securityScan.stageState.SUPERSEDED": "已被取代",
+  "securityScan.stageState.RAN": "已检查",
+  "securityScan.stageState.SKIPPED": "已跳过"
 }

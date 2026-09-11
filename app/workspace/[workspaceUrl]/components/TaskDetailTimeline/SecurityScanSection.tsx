@@ -14,7 +14,8 @@ import type {
   SecurityScanView,
   TaskSecurityScans,
 } from '@/lib/services/pr-security-scan.service'
-import type { ScanStageKey, ScanStages } from '@/lib/security-scan/types'
+import type { ScanStages } from '@/lib/security-scan/types'
+import { SCAN_STAGE_KEYS } from '@/shared/src/security-scan'
 // Pure module (no Node built-ins, no Prisma) — safe in a client component.
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import { summarizeSecurityScans, shouldExpandRow } from './security-summary'
@@ -197,8 +198,14 @@ function SecurityScanPanel({
   )
 }
 
-/** Layers worth a line: anything not RAN / SKIPPED. Order is the pipeline's. */
-const STAGE_ORDER: ScanStageKey[] = ['secrets', 'external', 'judge', 'hunt']
+/**
+ * Layers worth a line: anything not RAN / SKIPPED. Order is the pipeline's.
+ * Taken from the shared key list (LUM-763) rather than re-typed here — the
+ * hand-written copy had silently dropped `supplyChain`, so a FAILED
+ * dependency scan rendered nowhere in this panel (P9: a failed layer is
+ * never silent).
+ */
+const STAGE_ORDER = SCAN_STAGE_KEYS
 
 function StagesSummary({ stages }: { stages: ScanStages }) {
   const intl = useIntl()

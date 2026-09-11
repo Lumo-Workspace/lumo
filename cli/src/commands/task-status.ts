@@ -2,7 +2,12 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
-import { externalFailureReason } from '../../../shared/src/security-scan'
+import {
+  externalFailureReason,
+  SCAN_STAGE_KEYS,
+  scanStageLabel,
+  scanStageStateLabel,
+} from '../../../shared/src/security-scan'
 import {
   fetchOpenCrossings,
   dispositionUrl,
@@ -309,13 +314,7 @@ function pushSecurityActions(
 /** Fail-closed security coverage lines (LUM-737): a failed read and every
  *  open PR without a successful scan are stated, never left silent. */
 const EXTERNAL_ERROR_TAIL = 200
-const SCAN_STAGE_ORDER = [
-  'secrets',
-  'external',
-  'supplyChain',
-  'judge',
-  'hunt',
-] as const
+const SCAN_STAGE_ORDER = SCAN_STAGE_KEYS
 
 type ScanSummary = NonNullable<
   NonNullable<TaskStatusResponse['securityFindings']>['scans']
@@ -334,19 +333,18 @@ function formatScanSummaryLine(s: ScanSummary): string {
   for (const key of SCAN_STAGE_ORDER) {
     const state = s.stages[key]
     if (!state) continue
+    const head = `${scanStageLabel(key)}: ${scanStageStateLabel(state)}`
     if (key === 'external' && s.externalFindings > 0) {
       const noun = s.externalFindings === 1 ? 'finding' : 'findings'
-      segments.push(
-        `external ${state} (${s.externalFindings} external ${noun})`
-      )
+      segments.push(`${head} (${s.externalFindings} external ${noun})`)
     } else if (key === 'supplyChain' && (s.dependencyFindings ?? 0) > 0) {
       const n = s.dependencyFindings ?? 0
       const noun = n === 1 ? 'finding' : 'findings'
       const persisting = s.persistingFindings ?? 0
       const tail = persisting > 0 ? `, ${persisting} already on main` : ''
-      segments.push(`supplyChain ${state} (${n} dependency ${noun}${tail})`)
+      segments.push(`${head} (${n} dependency ${noun}${tail})`)
     } else {
-      segments.push(`${key} ${state}`)
+      segments.push(head)
     }
   }
   let line = `  PR #${s.prNumber} · scan ${s.status}`

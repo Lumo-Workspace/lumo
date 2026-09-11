@@ -253,6 +253,42 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
     ...over,
   })
 
+  it('LUM-763: task status per-PR line renders the same human labels as the PR summary', () => {
+    const out = formatTaskStatus(
+      payload({
+        securityFindings: {
+          open: 1,
+          blocking: 0,
+          unconfirmedPrs: [],
+          scans: [
+            scanRow({
+              stages: {
+                secrets: 'RAN',
+                external: 'RAN',
+                supplyChain: 'RAN',
+                judge: 'RAN',
+                hunt: 'PARTIAL',
+              },
+            }),
+          ],
+        },
+      })
+    )
+
+    expect(out).toContain(
+      '  PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · Dependencies: checked · AI review: checked · Exploit paths: \u26a0 incomplete'
+    )
+    for (const key of [
+      'secrets RAN',
+      'external RAN',
+      'supplyChain RAN',
+      'judge RAN',
+      'hunt ',
+    ]) {
+      expect(out).not.toContain(key)
+    }
+  })
+
   it('prints the supplyChain segment in order with the dependency count and its already-on-main share', () => {
     const out = formatTaskStatus(
       payload({
@@ -265,7 +301,7 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
       })
     )
     expect(out).toContain(
-      '  PR #12 · scan FINDINGS · secrets RAN · external RAN · supplyChain RAN (3 dependency findings, 2 already on main) · judge RAN'
+      '  PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · Dependencies: checked (3 dependency findings, 2 already on main) · AI review: checked'
     )
   })
 
@@ -281,7 +317,9 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
           },
         })
       )
-    ).toContain('supplyChain RAN (1 dependency finding) · judge RAN')
+    ).toContain(
+      'Dependencies: checked (1 dependency finding) · AI review: checked'
+    )
     expect(
       formatTaskStatus(
         payload({
@@ -298,7 +336,7 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
           },
         })
       )
-    ).toContain('secrets RAN · supplyChain SKIPPED')
+    ).toContain('Secrets: checked · Dependencies: skipped')
     // Older server: no counts → the segment is still printed, bare.
     expect(
       formatTaskStatus(
@@ -311,6 +349,8 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
           },
         })
       )
-    ).toContain('external RAN · supplyChain RAN · judge RAN')
+    ).toContain(
+      'Code scan: checked · Dependencies: checked · AI review: checked'
+    )
   })
 })

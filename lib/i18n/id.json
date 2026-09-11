@@ -2263,13 +2263,13 @@
   "securityScan.section.loadError": "Tidak dapat memuat pemindaian keamanan.",
   "securityScan.status.unavailable": "Status pemindaian tidak tersedia",
   "securityScan.status.incomplete": "Pemindaian tidak lengkap",
-  "securityScan.stage.secrets": "Pola rahasia",
-  "securityScan.stage.external": "Pemindai eksternal",
-  "securityScan.stage.judge": "Tinjauan LLM",
-  "securityScan.stage.hunt": "Perburuan kerentanan",
+  "securityScan.stage.secrets": "Rahasia",
+  "securityScan.stage.external": "Pemindaian kode",
+  "securityScan.stage.judge": "Tinjauan AI",
+  "securityScan.stage.hunt": "Jalur eksploitasi",
   "securityScan.stageState.FAILED": "gagal",
-  "securityScan.stageState.NOT_CONFIGURED": "belum dikonfigurasi",
-  "securityScan.stageState.PARTIAL": "sebagian",
+  "securityScan.stageState.NOT_CONFIGURED": "nonaktif",
+  "securityScan.stageState.PARTIAL": "tidak lengkap",
   "securityScan.external.notConfigured": "Pemindai terkelola Lumo dinonaktifkan untuk deployment ini dan repositori ini belum pernah mengirim laporan pemindai, jadi hanya pemeriksaan milik Lumo yang dijalankan. Hasil bersih di sini bukan berarti lolos sepenuhnya.",
   "securityScan.external.notConfigured.link": "Buat kunci ingest CI (untuk mengirim SARIF dari pemindai Anda sendiri)",
   "securityScan.finding.externalLink": "Lihat dokumentasi aturan",
@@ -2325,5 +2325,7 @@
   "securityScan.stage.supplyChain": "Dependensi",
   "securityScan.finding.persisting": "sudah ada di cabang default",
   "securityScan.finding.dependency": "Dependensi rentan",
-  "securityScan.stageState.SUPERSEDED": "digantikan"
+  "securityScan.stageState.SUPERSEDED": "digantikan",
+  "securityScan.stageState.RAN": "diperiksa",
+  "securityScan.stageState.SKIPPED": "dilewati"
 }

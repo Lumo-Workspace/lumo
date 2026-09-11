@@ -2263,13 +2263,13 @@
   "securityScan.section.loadError": "Не удалось загрузить проверки безопасности.",
   "securityScan.status.unavailable": "Статус проверки недоступен",
   "securityScan.status.incomplete": "Проверка не завершена",
-  "securityScan.stage.secrets": "Шаблоны секретов",
-  "securityScan.stage.external": "Внешний сканер",
-  "securityScan.stage.judge": "Проверка LLM",
-  "securityScan.stage.hunt": "Поиск уязвимостей",
+  "securityScan.stage.secrets": "Секреты",
+  "securityScan.stage.external": "Сканирование кода",
+  "securityScan.stage.judge": "Проверка ИИ",
+  "securityScan.stage.hunt": "Пути атаки",
   "securityScan.stageState.FAILED": "сбой",
-  "securityScan.stageState.NOT_CONFIGURED": "не настроено",
-  "securityScan.stageState.PARTIAL": "частично",
+  "securityScan.stageState.NOT_CONFIGURED": "выключено",
+  "securityScan.stageState.PARTIAL": "не завершено",
   "securityScan.external.notConfigured": "Управляемый сканер Lumo отключён для этого развёртывания, а этот репозиторий ни разу не отправлял отчёт сканера, поэтому выполнялись только собственные проверки Lumo. Чистый результат здесь не является полным прохождением.",
   "securityScan.external.notConfigured.link": "Создать ключ для приёма из CI (для отправки SARIF вашего собственного сканера)",
   "securityScan.finding.externalLink": "Открыть документацию правила",
@@ -2325,5 +2325,7 @@
   "securityScan.stage.supplyChain": "Зависимости",
   "securityScan.finding.persisting": "уже есть в ветке по умолчанию",
   "securityScan.finding.dependency": "Уязвимая зависимость",
-  "securityScan.stageState.SUPERSEDED": "заменён"
+  "securityScan.stageState.SUPERSEDED": "заменено",
+  "securityScan.stageState.RAN": "проверено",
+  "securityScan.stageState.SKIPPED": "пропущено"
 }

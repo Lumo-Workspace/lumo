@@ -25,7 +25,7 @@ describe('LUM-739 hunt stage', () => {
       taskUrl: null,
     })
     expect(body).toContain(
-      '- secrets: RAN · external: RAN · judge: RAN · hunt: FAILED'
+      '- Secrets: checked · Code scan: checked · AI review: checked · Exploit paths: \u2717 failed'
     )
     expect(body).toContain(
       'No open findings yet — the scan is still incomplete.'
@@ -44,7 +44,7 @@ describe('LUM-739 hunt stage', () => {
       error: null,
       taskUrl: null,
     })
-    expect(body).toContain('· hunt: RAN')
+    expect(body).toContain('· Exploit paths: checked')
     expect(body).toContain('No open findings on lines this PR added.')
   })
 })
