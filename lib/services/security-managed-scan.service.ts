@@ -326,6 +326,15 @@ export const securityManagedScanService = {
       label,
       tags: { [SANDBOX_SCAN_TAG]: job.scanId },
     })
+    // LUM-745 (review): the entry guard covers a step that has not started;
+    // a supersede that lands while the sandbox is running must not let this
+    // run flip the row back to RAN or post a stale summary — re-read before
+    // anything leaves this function. The sandbox is already stopped here.
+    const after = await prSecurityScanRepository.findStagesById(job.scanId)
+    if (!after || after.external === 'SUPERSEDED') {
+      logger.info(`[security-managed-scan] superseded during run ${label}`)
+      return supersededOutcome()
+    }
     let diff: string
     try {
       diff = await fetchPrDiff({

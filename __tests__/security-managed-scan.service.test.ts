@@ -466,6 +466,24 @@ describe('scanRepository', () => {
     await securityManagedScanService.scanRepository(JOB)
     expect(create).not.toHaveBeenCalled()
   })
+
+  it('LUM-745: a supersede that lands while the sandbox runs discards the result — no diff fetch, every tool skipped:superseded', async () => {
+    const sandbox = fakeSandbox(ALL_REPORTS)
+    create.mockResolvedValue(sandbox)
+    stagesById
+      .mockResolvedValueOnce({ external: 'PENDING', supplyChain: 'PENDING' })
+      .mockResolvedValueOnce({
+        external: 'SUPERSEDED',
+        supplyChain: 'SUPERSEDED',
+      })
+    const out = await securityManagedScanService.scanRepository(JOB)
+    expect(create).toHaveBeenCalledTimes(1)
+    expect(sandbox.stop).toHaveBeenCalled()
+    expect(diff).not.toHaveBeenCalled()
+    for (const tool of ['gitleaks', 'semgrep', 'osv-scanner'] as const) {
+      expect(out[tool]).toEqual({ kind: 'skipped', reason: SUPERSEDED_REASON })
+    }
+  })
 })
 
 describe('scrubToken', () => {

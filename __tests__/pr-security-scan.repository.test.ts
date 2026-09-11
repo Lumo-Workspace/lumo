@@ -979,11 +979,41 @@ describe('LUM-738 supplyChain surface — repository', () => {
 })
 
 describe('LUM-745 managed-run ops queries', () => {
-  test('setManagedRunId writes the run id onto the row', async () => {
+  test('setManagedRunId writes the run id AND stamps external/supplyChain PENDING in one serializable write', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({ stages: null })
+    await prSecurityScanRepository.setManagedRunId('s1', 'run_1')
+    expect(mockTransaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      SERIALIZABLE
+    )
+    expect(mockScan.update).toHaveBeenCalledWith({
+      where: { id: 's1' },
+      data: {
+        managedRunId: 'run_1',
+        stages: { external: 'PENDING', supplyChain: 'PENDING' },
+      },
+    })
+  })
+
+  test('setManagedRunId never downgrades an external layer another writer settled', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: {
+        secrets: 'RAN',
+        external: 'SUPERSEDED',
+        supplyChain: 'SUPERSEDED',
+      },
+    })
     await prSecurityScanRepository.setManagedRunId('s1', 'run_1')
     expect(mockScan.update).toHaveBeenCalledWith({
       where: { id: 's1' },
-      data: { managedRunId: 'run_1' },
+      data: {
+        managedRunId: 'run_1',
+        stages: {
+          secrets: 'RAN',
+          external: 'SUPERSEDED',
+          supplyChain: 'SUPERSEDED',
+        },
+      },
     })
   })
 
@@ -1104,6 +1134,80 @@ describe('LUM-745 managed-run ops queries', () => {
         data: expect.objectContaining({
           stages: { secrets: 'RAN', external: 'SUPERSEDED' },
         }),
+      })
+    )
+  })
+
+  test('persistResult keeps the prefixed reason that came with a kept SUPERSEDED layer', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { external: 'SUPERSEDED' },
+      partial: false,
+      error: 'external: superseded by abc1234',
+    })
+    await prSecurityScanRepository.persistResult('old', [], {
+      status: 'CLEAN',
+      judgeStatus: 'RAN',
+      truncated: false,
+      partial: false,
+      stages: { secrets: 'RAN', external: 'PENDING', judge: 'RAN' },
+    })
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          stages: { secrets: 'RAN', external: 'SUPERSEDED', judge: 'RAN' },
+          error: 'external: superseded by abc1234',
+        }),
+      })
+    )
+  })
+
+  test('persistResult still blanks an unprefixed error and finalize still prefers its own reason', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { external: 'FAILED' },
+      partial: false,
+      error: 'raw stage A crash text',
+    })
+    await prSecurityScanRepository.persistResult('s1', [], {
+      status: 'CLEAN',
+      judgeStatus: 'RAN',
+      truncated: false,
+      partial: false,
+      stages: { secrets: 'RAN', external: 'PENDING' },
+    })
+    expect(mockScan.update.mock.calls[0][0].data.error).toBeNull()
+    mockScan.update.mockClear()
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { external: 'SUPERSEDED' },
+      partial: false,
+      error: 'external: superseded by abc1234',
+    })
+    await prSecurityScanRepository.finalize('s1', {
+      status: 'FAILED',
+      judgeStatus: null,
+      truncated: false,
+      stages: { secrets: 'RAN', external: 'PENDING' },
+      partial: false,
+      error: 'boom',
+    })
+    expect(mockScan.update.mock.calls[0][0].data.error).toBe('boom')
+  })
+
+  test('restart does not carry a SUPERSEDED external layer into the re-run', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { external: 'SUPERSEDED' },
+    })
+    await prSecurityScanRepository.restart('s1')
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ stages: Prisma.DbNull }),
+      })
+    )
+    mockScan.update.mockClear()
+    mockScan.findUnique.mockResolvedValueOnce({ stages: { external: 'RAN' } })
+    await prSecurityScanRepository.restart('s1')
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ stages: { external: 'RAN' } }),
       })
     )
   })

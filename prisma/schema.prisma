@@ -1470,6 +1470,7 @@ model PrSecurityScan {
   @@unique([pullRequestId, headSha])
   @@index([taskId])
   @@index([workspaceId, startedAt])
+  @@index([startedAt])
   @@map("pr_security_scans")
 }
 
