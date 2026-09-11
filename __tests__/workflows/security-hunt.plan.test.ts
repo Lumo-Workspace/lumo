@@ -55,6 +55,7 @@ const JOB = {
   prNumber: 7,
   headSha: 'a'.repeat(40),
   reasons: ['diff:sink:prisma-raw'],
+  managedScanStarted: true,
 }
 const SUBGRAPH = {
   symbols: [

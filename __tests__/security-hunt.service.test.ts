@@ -54,6 +54,7 @@ const JOB = {
   prNumber: 7,
   headSha: 'b'.repeat(40),
   reasons: ['diff:sink:prisma-raw'],
+  managedScanStarted: true,
 }
 
 const TASK = {

@@ -30,6 +30,17 @@ export const SANDBOX_IMAGE = 'vercel/sandbox/universal'
 export const SANDBOX_VCPUS = 2
 /** Below the 800 s Fluid cap of the function that hosts the step. */
 export const SANDBOX_TIMEOUT_MS = 12 * 60 * 1000
+/**
+ * LUM-758 — when this scan is also going to run the hunt, the VM has to
+ * outlive both halves (managed scan + hunt), because the hunt reuses it
+ * instead of paying for a second microVM.
+ *
+ * Note: **a VM's lifetime is not a function's execution time**, so this may
+ * exceed the 800 s Fluid cap of the function hosting the step — the 12-minute
+ * rationale on SANDBOX_TIMEOUT_MS above simply does not apply to the shared
+ * case. Do not "fix" this value back down to match it.
+ */
+export const SANDBOX_TIMEOUT_WITH_HUNT_MS = 20 * 60 * 1000
 /** Same cap as the ingest path's raw (post-gunzip) SARIF size. */
 export const MANAGED_REPORT_MAX_BYTES = 400 * 1024 * 1024
 export const MANAGED_SCAN_TOOLS = [
@@ -54,6 +65,20 @@ export interface ManagedScanJob {
   scanId: string
   pr: ResolvedPr
   headSha: string
+  /**
+   * LUM-758 — when true this run does **not** stop its VM once the tools are
+   * done; it leaves it alive for the hunt to attach to. Stage A knows this
+   * when it starts the run, so it passes it in rather than making the managed
+   * scan read `stages.hunt` back off the scan row (a backwards dependency).
+   *
+   * Nobody stops a shared VM on purpose (see `stopHuntSandbox`): the hunt
+   * must not stop a VM it merely attached to — the two workflows have no
+   * ordering guarantee, so that would kill semgrep mid-run. The release path
+   * is the three existing backstops: the VM's own
+   * `SANDBOX_TIMEOUT_WITH_HUNT_MS`, LUM-745's 15-minute cron sweep, and
+   * supersede-by-tag.
+   */
+  huntWanted: boolean
 }
 
 /**

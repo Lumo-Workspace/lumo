@@ -4,7 +4,15 @@
  * depth-1 clone of one revision; callers run commands, read files back and
  * MUST `stop()` it (billing runs until they do). The GitHub token only ever
  * lives in the `Sandbox.create` call — the SDK sends it as git basic auth,
- * it is never written into the sandbox filesystem by us.
+ * and nothing in THIS module writes it into the sandbox filesystem.
+ *
+ * LUM-758: that last sentence is a statement about our code, not about the
+ * platform's. The clone itself happens server-side (`source` is handed to the
+ * Vercel API, not executed here), so whether the credential ends up in the
+ * checkout's `.git/config` is not observable from this module. Anything that
+ * lets a model read the checkout must assume it does and prove otherwise at
+ * runtime — see `scrubCloneCredentials` in
+ * `lib/services/security-hunt-sandbox.ts`.
  *
  * Auth to Vercel is automatic in a Vercel Function (project OIDC token);
  * locally `vercel env pull` provides VERCEL_OIDC_TOKEN.
@@ -174,6 +182,28 @@ export async function findRepoSandboxByTag(
     }
   }
   return null
+}
+
+/**
+ * LUM-758 — cut a sandbox's network egress ("deny-all" in the SDK's
+ * `NetworkPolicy` vocabulary). The hunt calls this on a VM **it created
+ * itself**, right after the clone: the agent only reads a local checkout, so
+ * it needs no route out, and without one the whole "the model was talked into
+ * running curl" class loses its payload.
+ *
+ * NOT applied at create time and NOT applied to an attached VM:
+ *  - the git clone is performed by the platform as part of `Sandbox.create`,
+ *    so a create-time "deny-all" would be denying the very fetch we need;
+ *  - an attached VM belongs to the managed scan, which downloads gitleaks,
+ *    semgrep and osv-scanner while it runs. Tightening its policy from here
+ *    would break a run we have no ordering guarantee against.
+ *
+ * Throws on failure; callers treat it as best-effort defence in depth (the
+ * command gate is the enforcing boundary).
+ */
+export async function denySandboxEgress(name: string): Promise<void> {
+  const sandbox = await Sandbox.get({ name })
+  await sandbox.update({ networkPolicy: 'deny-all' })
 }
 
 /**

@@ -27,7 +27,22 @@ export interface HuntJob {
    * 规划步的主要输入，也是规划失败时确定性兜底的唯一依据。
    */
   reasons: string[]
+  /**
+   * LUM-758 §5.1 — did stage A actually start the managed scan for this sha?
+   * Decides whether `attachOrCreateHuntSandbox` waits for that VM to show up
+   * or goes straight to creating its own: the managed scan has four
+   * legitimate reasons never to run (BYO SARIF findings already exist, the
+   * feature is off, the hourly cap is reached, the start failed), and in
+   * those cases polling would only burn 30 s.
+   */
+  managedScanStarted: boolean
 }
+
+/** LUM-758 §5.1 — how long to wait for the managed scan's VM, and how often to look. */
+export const HUNT_SANDBOX_ATTACH_WAIT_MS = 30_000
+export const HUNT_SANDBOX_ATTACH_POLL_MS = 3_000
+/** Characters of one shell command's output that may reach the model. */
+export const HUNT_SHELL_OUTPUT_MAX = 8_000
 
 /**
  * The six checklist categories, in run order. Duplicated from

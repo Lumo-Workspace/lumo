@@ -8,6 +8,7 @@ import { Sandbox } from '@vercel/sandbox'
 import { logger } from '@/lib/logger'
 import {
   createRepoSandbox,
+  denySandboxEgress,
   findRepoSandboxByTag,
   stopRepoSandboxesByTag,
 } from '@/lib/integrations/vercel-sandbox'
@@ -48,6 +49,26 @@ describe('createRepoSandbox (LUM-745 tags)', () => {
       vcpus: 2,
     })
     expect(create.mock.calls[1][0]).not.toHaveProperty('tags')
+  })
+})
+
+describe('denySandboxEgress (LUM-758)', () => {
+  it('cuts the VM off the network by name', async () => {
+    const update = jest.fn().mockResolvedValue(undefined)
+    get.mockResolvedValue({ name: 'vm1', cwd: '/vercel', update })
+
+    await denySandboxEgress('vm1')
+
+    expect(get).toHaveBeenCalledWith({ name: 'vm1' })
+    expect(update).toHaveBeenCalledWith({ networkPolicy: 'deny-all' })
+  })
+
+  it('propagates a platform failure so the caller can decide', async () => {
+    get.mockResolvedValue({
+      name: 'vm1',
+      update: jest.fn().mockRejectedValue(new Error('policy rejected')),
+    })
+    await expect(denySandboxEgress('vm1')).rejects.toThrow('policy rejected')
   })
 })
 

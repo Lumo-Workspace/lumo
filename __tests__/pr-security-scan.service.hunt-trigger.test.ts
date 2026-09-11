@@ -49,6 +49,17 @@ jest.mock('@/lib/services/security-managed-scan-start', () => ({
 jest.mock('@/lib/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
 }))
+// LUM-758: the VM-sharing cases below turn the managed scan ON, which drags
+// in supersede / the hourly cap / the baseline request.
+jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
+  securityManagedScanOpsService: {
+    supersedeOlderRuns: jest.fn().mockResolvedValue(undefined),
+    enforceHourlyCap: jest.fn().mockResolvedValue({ capped: false }),
+  },
+}))
+jest.mock('@/lib/services/security-baseline.service', () => ({
+  securityBaselineService: { ensure: jest.fn().mockResolvedValue(undefined) },
+}))
 jest.mock('@/lib/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
@@ -117,6 +128,7 @@ beforeEach(() => {
     order.push('persist')
   })
   repo.mergeStages.mockResolvedValue(undefined)
+  repo.setManagedRunId = jest.fn().mockResolvedValue(undefined) as never
   judgeSecurity.mockResolvedValue({ findings: [] })
   crossings.findUndispositionedByTask.mockResolvedValue([] as never)
   startManaged.mockResolvedValue(null)
@@ -155,6 +167,9 @@ describe('LUM-739 hunt trigger', () => {
       // LUM-758: the trigger's own reasons ride along — the planning step and
       // its deterministic fallback are both driven by them.
       reasons: ['diff:entry:next-route-handler'],
+      // LUM-758: LUMO_MANAGED_SCAN is off in this suite, so no VM is coming —
+      // the hunt must not spend 30 s polling for one.
+      managedScanStarted: false,
     })
     expect(repo.mergeStages).not.toHaveBeenCalled()
     expect(waitUntilMock).not.toHaveBeenCalled()
@@ -226,6 +241,48 @@ describe('LUM-739 hunt trigger', () => {
     fetchPrDiff.mockResolvedValue(ROUTE_DIFF)
     await run()
     expect(persistedStages().hunt).toBeUndefined()
+    expect(startHunt).not.toHaveBeenCalled()
+  })
+
+  it('LUM-758: tells the managed scan to keep its VM, and the hunt that one is coming', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'on'
+    startManaged.mockResolvedValue('run_m1')
+    fetchPrDiff.mockResolvedValue(ROUTE_DIFF)
+
+    await run()
+
+    // The decision has to be made BEFORE the managed run starts — that is why
+    // the trigger is evaluated above the external branch now.
+    expect(startManaged).toHaveBeenCalledWith(
+      expect.objectContaining({ huntWanted: true })
+    )
+    expect(startHunt).toHaveBeenCalledWith(
+      expect.objectContaining({ managedScanStarted: true })
+    )
+  })
+
+  it('LUM-758: a managed scan that could not start means no VM to wait for', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'on'
+    startManaged.mockResolvedValue(null)
+    fetchPrDiff.mockResolvedValue(ROUTE_DIFF)
+
+    await run()
+
+    expect(startHunt).toHaveBeenCalledWith(
+      expect.objectContaining({ managedScanStarted: false })
+    )
+  })
+
+  it('LUM-758: a diff with no hunt trigger lets the managed scan stop its own VM', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'on'
+    startManaged.mockResolvedValue('run_m1')
+    fetchPrDiff.mockResolvedValue(PLAIN_DIFF)
+
+    await run()
+
+    expect(startManaged).toHaveBeenCalledWith(
+      expect.objectContaining({ huntWanted: false })
+    )
     expect(startHunt).not.toHaveBeenCalled()
   })
 

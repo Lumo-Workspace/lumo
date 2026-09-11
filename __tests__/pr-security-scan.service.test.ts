@@ -683,6 +683,9 @@ describe('LUM-735 SARIF push — stage A side', () => {
       scanId: 's1',
       pr: { id: 'pr1', workspaceId: 'w1', repo: 'o/r', number: 7 },
       headSha: 'sha-1',
+      // LUM-758: a clean diff triggers no hunt, so this run's VM is its own
+      // and it stops it in the usual `finally`.
+      huntWanted: false,
     })
     expect(lastIngest).not.toHaveBeenCalled()
     expect(repo.persistResult).toHaveBeenCalledWith(

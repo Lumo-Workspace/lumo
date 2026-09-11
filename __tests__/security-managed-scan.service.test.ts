@@ -31,6 +31,7 @@ import {
   GITLEAKS_URL,
   SEMGREP_VERSION,
   SANDBOX_TIMEOUT_MS,
+  SANDBOX_TIMEOUT_WITH_HUNT_MS,
   SANDBOX_VCPUS,
   SANDBOX_IMAGE,
   MANAGED_REPORT_MAX_BYTES,
@@ -46,7 +47,12 @@ import { dependencyFingerprint } from '@/lib/security-scan/redact'
 const TOKEN = 'ghs_INSTALLATIONTOKEN123456'
 const KEY = 'AKIAABCDEFGHIJKLMNOP'
 const PR = { id: 'pr1', workspaceId: 'w1', repo: 'o/r', number: 7 }
-const JOB = { scanId: 's1', pr: PR, headSha: 'a'.repeat(40) }
+const JOB = {
+  scanId: 's1',
+  pr: PR,
+  headSha: 'a'.repeat(40),
+  huntWanted: false,
+}
 const DIFF = [
   '--- a/src/db.ts',
   '+++ b/src/db.ts',
@@ -225,6 +231,69 @@ describe('scanRepository', () => {
       vcpus: SANDBOX_VCPUS,
       image: SANDBOX_IMAGE,
       tags: { [SANDBOX_SCAN_TAG]: 's1' },
+    })
+  })
+
+  describe('LUM-758: the VM is shared with the hunt when huntWanted', () => {
+    const reports = {
+      '/tmp/gitleaks.sarif': JSON.stringify(gitleaksSarif),
+      '/tmp/semgrep.sarif': JSON.stringify(semgrepSarif),
+    }
+
+    it('leaves the VM running and gives it the longer timeout', async () => {
+      const sb = fakeSandbox(reports)
+      create.mockResolvedValue(sb)
+
+      await securityManagedScanService.scanRepository({
+        ...JOB,
+        huntWanted: true,
+      })
+
+      expect(create.mock.calls[0][0].timeoutMs).toBe(
+        SANDBOX_TIMEOUT_WITH_HUNT_MS
+      )
+      // Deliberate: the hunt attaches to this VM by tag. Stopping it here
+      // would kill the hunt's checkout, and having the hunt stop it would
+      // kill semgrep — the two workflows have no ordering guarantee. Release
+      // is left to the VM timeout, the 15-minute sweep and supersede-by-tag.
+      expect(sb.stop).not.toHaveBeenCalled()
+    })
+
+    it('still stops the VM (and uses the short timeout) when no hunt is coming', async () => {
+      const sb = fakeSandbox(reports)
+      create.mockResolvedValue(sb)
+
+      await securityManagedScanService.scanRepository(JOB)
+
+      expect(create.mock.calls[0][0].timeoutMs).toBe(SANDBOX_TIMEOUT_MS)
+      expect(sb.stop).toHaveBeenCalledTimes(1)
+    })
+
+    it('keeps the VM alive even when a tool blows up mid-run', async () => {
+      const sb = fakeSandbox(reports)
+      sb.run.mockRejectedValue(new Error('sandbox exploded'))
+      create.mockResolvedValue(sb)
+
+      await expect(
+        securityManagedScanService.scanRepository({
+          ...JOB,
+          huntWanted: true,
+        })
+      ).rejects.toThrow('sandbox exploded')
+      expect(sb.stop).not.toHaveBeenCalled()
+    })
+
+    it('never keeps a baseline scan VM alive — it has no hunt', async () => {
+      const sb = fakeSandbox(reports)
+      create.mockResolvedValue(sb)
+
+      await securityManagedScanService.scanBaseline({
+        workspaceId: 'w1',
+        repo: 'o/r',
+        sha: 'c'.repeat(40),
+      })
+
+      expect(sb.stop).toHaveBeenCalledTimes(1)
     })
   })
 
