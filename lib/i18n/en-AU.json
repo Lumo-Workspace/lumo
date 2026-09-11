@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "Human acceptance criteria",
   "securityScan.stage.supplyChain": "Dependencies",
   "securityScan.finding.persisting": "already on the default branch",
-  "securityScan.finding.dependency": "Vulnerable dependency"
+  "securityScan.finding.dependency": "Vulnerable dependency",
+  "securityScan.stageState.SUPERSEDED": "superseded"
 }

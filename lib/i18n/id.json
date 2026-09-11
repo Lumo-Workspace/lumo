@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "Kriteria penerimaan manusia",
   "securityScan.stage.supplyChain": "Dependensi",
   "securityScan.finding.persisting": "sudah ada di cabang default",
-  "securityScan.finding.dependency": "Dependensi rentan"
+  "securityScan.finding.dependency": "Dependensi rentan",
+  "securityScan.stageState.SUPERSEDED": "digantikan"
 }

@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "人間による受け入れ基準",
   "securityScan.stage.supplyChain": "依存関係",
   "securityScan.finding.persisting": "デフォルトブランチに既に存在",
-  "securityScan.finding.dependency": "脆弱な依存関係"
+  "securityScan.finding.dependency": "脆弱な依存関係",
+  "securityScan.stageState.SUPERSEDED": "置き換え済み"
 }

@@ -1457,6 +1457,11 @@ model PrSecurityScan {
   // LUM-739: { candidates, rejected: [{ reason, category, sink }],
   // falsifierRejects, falsifierRejected, categories, subgraph, error? }.
   huntAudit       Json?
+  // LUM-745: the Vercel Workflow run id of the Lumo-managed scan stage A
+  // started for this row; null = no managed run (BYO, disabled, or start()
+  // failed). Read by supersede / the 45-min sweep (cancel + stop) and by the
+  // per-workspace hourly cap (count).
+  managedRunId    String?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1464,6 +1469,7 @@ model PrSecurityScan {
 
   @@unique([pullRequestId, headSha])
   @@index([taskId])
+  @@index([workspaceId, startedAt])
   @@map("pr_security_scans")
 }
 

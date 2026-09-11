@@ -11,6 +11,7 @@ jest.mock('@/lib/db/prisma', () => ({
       update: jest.fn(),
       findMany: jest.fn(),
       updateMany: jest.fn(),
+      count: jest.fn(),
     },
     prSecurityFinding: {
       createMany: jest.fn(),
@@ -36,6 +37,7 @@ const mockScan = prisma.prSecurityScan as unknown as {
   update: jest.Mock
   findMany: jest.Mock
   updateMany: jest.Mock
+  count: jest.Mock
 }
 const mockFinding = prisma.prSecurityFinding as unknown as {
   createMany: jest.Mock
@@ -970,6 +972,137 @@ describe('LUM-738 supplyChain surface — repository', () => {
           findings: expect.objectContaining({
             select: expect.objectContaining({ persisting: true }),
           }),
+        }),
+      })
+    )
+  })
+})
+
+describe('LUM-745 managed-run ops queries', () => {
+  test('setManagedRunId writes the run id onto the row', async () => {
+    await prSecurityScanRepository.setManagedRunId('s1', 'run_1')
+    expect(mockScan.update).toHaveBeenCalledWith({
+      where: { id: 's1' },
+      data: { managedRunId: 'run_1' },
+    })
+  })
+
+  test('findStagesById returns {} for a null column and null for a missing row', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({ stages: null })
+    expect(await prSecurityScanRepository.findStagesById('s1')).toEqual({})
+    mockScan.findUnique.mockResolvedValueOnce(null)
+    expect(await prSecurityScanRepository.findStagesById('s1')).toBeNull()
+    expect(mockScan.findUnique).toHaveBeenCalledWith({
+      where: { id: 's1' },
+      select: { stages: true },
+    })
+  })
+
+  test('findPendingManagedByPullRequest excludes the new row and keys on external=PENDING with a run id', async () => {
+    mockScan.findMany.mockResolvedValueOnce([
+      {
+        id: 'old',
+        headSha: 'b'.repeat(40),
+        managedRunId: 'run_old',
+        stages: { external: 'PENDING', supplyChain: 'PENDING' },
+      },
+    ])
+    const rows = await prSecurityScanRepository.findPendingManagedByPullRequest(
+      'pr1',
+      'new'
+    )
+    expect(rows).toEqual([
+      expect.objectContaining({ id: 'old', managedRunId: 'run_old' }),
+    ])
+    expect(mockScan.findMany).toHaveBeenCalledWith({
+      where: {
+        pullRequestId: 'pr1',
+        id: { not: 'new' },
+        managedRunId: { not: null },
+        stages: { path: ['external'], equals: 'PENDING' },
+      },
+      select: { id: true, headSha: true, managedRunId: true, stages: true },
+    })
+  })
+
+  test('findStalePendingExternal takes the oldest PENDING rows started before the cutoff', async () => {
+    const before = new Date('2026-09-10T10:00:00Z')
+    mockScan.findMany.mockResolvedValueOnce([])
+    await prSecurityScanRepository.findStalePendingExternal(before, 50)
+    expect(mockScan.findMany).toHaveBeenCalledWith({
+      where: {
+        startedAt: { lt: before },
+        stages: { path: ['external'], equals: 'PENDING' },
+      },
+      orderBy: { startedAt: 'asc' },
+      take: 50,
+      select: { id: true, managedRunId: true, stages: true },
+    })
+  })
+
+  test('countManagedRunsSince counts rows with a run id started since the cutoff', async () => {
+    const since = new Date('2026-09-10T09:00:00Z')
+    mockScan.count.mockResolvedValueOnce(7)
+    expect(
+      await prSecurityScanRepository.countManagedRunsSince('w1', since)
+    ).toBe(7)
+    expect(mockScan.count).toHaveBeenCalledWith({
+      where: {
+        workspaceId: 'w1',
+        managedRunId: { not: null },
+        startedAt: { gte: since },
+      },
+    })
+  })
+
+  test('persistResult and finalize keep a SUPERSEDED external/supplyChain stamped by supersede', async () => {
+    // A late-finalizing stage A (the old head's own run) must not flip the
+    // row back to PENDING after a newer head superseded it.
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { external: 'SUPERSEDED', supplyChain: 'SUPERSEDED' },
+      partial: false,
+    })
+    await prSecurityScanRepository.persistResult('old', [], {
+      status: 'CLEAN',
+      judgeStatus: 'RAN',
+      truncated: false,
+      partial: false,
+      stages: {
+        secrets: 'RAN',
+        external: 'PENDING',
+        supplyChain: 'PENDING',
+        judge: 'RAN',
+      },
+    })
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          stages: {
+            secrets: 'RAN',
+            external: 'SUPERSEDED',
+            supplyChain: 'SUPERSEDED',
+            judge: 'RAN',
+          },
+        }),
+      })
+    )
+    mockScan.update.mockClear()
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { external: 'SUPERSEDED' },
+      partial: false,
+    })
+    await prSecurityScanRepository.finalize('old', {
+      status: 'FAILED',
+      judgeStatus: null,
+      truncated: false,
+      stages: { secrets: 'RAN', external: 'PENDING' },
+      partial: false,
+      error: 'boom',
+    })
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          stages: { secrets: 'RAN', external: 'SUPERSEDED' },
         }),
       })
     )

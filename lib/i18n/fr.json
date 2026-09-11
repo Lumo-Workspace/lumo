@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "Critères d'acceptation humains",
   "securityScan.stage.supplyChain": "Dépendances",
   "securityScan.finding.persisting": "déjà présent sur la branche par défaut",
-  "securityScan.finding.dependency": "Dépendance vulnérable"
+  "securityScan.finding.dependency": "Dépendance vulnérable",
+  "securityScan.stageState.SUPERSEDED": "remplacé"
 }

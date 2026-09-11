@@ -2324,5 +2324,6 @@
   "record.human.emptyTitle": "Kriteria penerimaan manusia",
   "securityScan.stage.supplyChain": "Kebergantungan",
   "securityScan.finding.persisting": "sudah ada pada cabang lalai",
-  "securityScan.finding.dependency": "Kebergantungan terdedah"
+  "securityScan.finding.dependency": "Kebergantungan terdedah",
+  "securityScan.stageState.SUPERSEDED": "digantikan"
 }

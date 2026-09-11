@@ -2277,6 +2277,7 @@
   "securityScan.stageState.NOT_CONFIGURED": "not configured",
   "securityScan.stageState.PARTIAL": "partial",
   "securityScan.stageState.PENDING": "scanning",
+  "securityScan.stageState.SUPERSEDED": "superseded",
   "securityScan.external.notConfigured": "Lumo's managed scanner is off for this deployment and this repository has never pushed a scanner report, so only Lumo's own checks ran. A clean result here is not a full pass.",
   "securityScan.external.notConfigured.link": "Create a CI ingest key (for pushing your own scanner's SARIF)",
   "securityScan.external.late": "The scanner has not reported for this commit in 30 minutes, so this scan is incomplete. Push a new commit to start a fresh scan, or check your own CI's scan job if this repository pushes its own reports.",

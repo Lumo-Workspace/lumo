@@ -74,6 +74,21 @@ export interface FinalizeScanInput {
   error?: string | null
 }
 
+/** LUM-745 — an older scan on the same PR whose managed run may still be going. */
+export interface SupersedableScan {
+  id: string
+  headSha: string
+  managedRunId: string
+  stages: ScanStages | null
+}
+
+/** LUM-745 — a scan whose external layer has sat PENDING past the dead window. */
+export interface StalePendingScan {
+  id: string
+  managedRunId: string | null
+  stages: ScanStages | null
+}
+
 export interface FindingRow {
   id: string
   scanId: string
@@ -225,14 +240,19 @@ function mergeIngestOwnedStages(
   const cur = (current?.stages as ScanStages | null) ?? {}
   const stages: ScanStages = { ...incoming.stages }
   const external = cur.external
-  if (external === 'RAN' || external === 'FAILED') stages.external = external
+  // LUM-745: SUPERSEDED is stamped by stage A of a NEWER head while this
+  // row's own stage A may still be finishing — it owns the layer just like
+  // an ingest result does.
+  if (external === 'RAN' || external === 'FAILED' || external === 'SUPERSEDED')
+    stages.external = external
   // LUM-738: the managed run also owns `supplyChain` once it has spoken —
   // RAN (rows landed), FAILED, or SKIPPED (nothing to scan is a fact too).
   const supplyChain = cur.supplyChain
   if (
     supplyChain === 'RAN' ||
     supplyChain === 'FAILED' ||
-    supplyChain === 'SKIPPED'
+    supplyChain === 'SKIPPED' ||
+    supplyChain === 'SUPERSEDED'
   )
     stages.supplyChain = supplyChain
   return {
@@ -759,5 +779,78 @@ export const prSecurityScanRepository = {
       data,
     })
     return row as unknown as FindingRow
+  },
+
+  // ── LUM-745: managed-run ops ───────────────────────────────────────────────
+
+  /** The workflow run stage A just started; supersede / sweep cancel by it. */
+  async setManagedRunId(id: string, managedRunId: string): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id },
+      data: { managedRunId },
+    })
+  },
+
+  /** The per-layer JSON alone — the sandbox step's entry guard. */
+  async findStagesById(id: string): Promise<ScanStages | null> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id },
+      select: { stages: true },
+    })
+    if (!row) return null
+    return (row.stages as ScanStages | null) ?? {}
+  },
+
+  /**
+   * Every other scan on this PR whose managed run may still be going:
+   * `stages.external = PENDING` and a run id on record. The caller already
+   * knows the newest row's id and excludes it; anything else on the PR is by
+   * construction not the head (stage A resolved the head before creating it).
+   */
+  async findPendingManagedByPullRequest(
+    pullRequestId: string,
+    exceptScanId: string
+  ): Promise<SupersedableScan[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: {
+        pullRequestId,
+        id: { not: exceptScanId },
+        managedRunId: { not: null },
+        stages: { path: ['external'], equals: 'PENDING' },
+      },
+      select: { id: true, headSha: true, managedRunId: true, stages: true },
+    })
+    return rows as SupersedableScan[]
+  },
+
+  /** PENDING external layers started before `before` (managed and BYO), oldest first. */
+  async findStalePendingExternal(
+    before: Date,
+    limit: number
+  ): Promise<StalePendingScan[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: {
+        startedAt: { lt: before },
+        stages: { path: ['external'], equals: 'PENDING' },
+      },
+      orderBy: { startedAt: 'asc' },
+      take: limit,
+      select: { id: true, managedRunId: true, stages: true },
+    })
+    return rows as StalePendingScan[]
+  },
+
+  /** Managed runs this workspace started since `since` — the hourly cap's counter. */
+  async countManagedRunsSince(
+    workspaceId: string,
+    since: Date
+  ): Promise<number> {
+    return prisma.prSecurityScan.count({
+      where: {
+        workspaceId,
+        managedRunId: { not: null },
+        startedAt: { gte: since },
+      },
+    })
   },
 }
