@@ -129,6 +129,21 @@ function wrap(sandbox: SdkSandbox): RepoSandbox {
 }
 
 /**
+ * Where the SDK puts a git source: `<session cwd>/<repo name>`, not the
+ * session cwd itself (verified in a probe sandbox on 2026-09-10: cwd was
+ * `/vercel`, the clone `/vercel/lumo`). Every script a caller runs there
+ * still proves the directory is the right checkout with a sha guard before
+ * doing anything. Pure; shared by the managed scan and the managed CI.
+ */
+export function repoCheckoutDir(
+  sandboxCwd: string,
+  repository: string
+): string {
+  const name = repository.slice(repository.indexOf('/') + 1)
+  return `${sandboxCwd.replace(/\/+$/, '')}/${name}`
+}
+
+/**
  * LUM-745 — stop every sandbox still alive under one `{ key: value }` tag
  * (the SDK filters by a single tag only). Returns how many were stopped. A
  * sandbox that fails to stop is logged and skipped, never thrown: callers

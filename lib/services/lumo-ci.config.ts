@@ -133,3 +133,30 @@ export interface CiCheckSpec {
   /** 1-based jest shard; absent for typecheck / single-shard. */
   shard?: { index: number; total: number }
 }
+
+/**
+ * Fold the per-shard jest results into one `test` verdict. Every shard must
+ * have RUN for a verdict to exist: a shard the harness lost says nothing
+ * about the tests it would have run, so the whole check is a harness
+ * failure — even when another shard did find failing tests (P9: never
+ * report a partial run as a full verdict). When all ran, the exit code is
+ * the first non-zero one (jest exits 1 on failures).
+ */
+export function aggregateShardResults(
+  shards: readonly CiCheckResult[]
+): CiCheckResult {
+  if (shards.length === 0) return { kind: 'failed', reason: 'no shards ran' }
+  for (const [i, shard] of shards.entries()) {
+    if (shard.kind === 'failed') {
+      return {
+        kind: 'failed',
+        reason: `shard ${i + 1}/${shards.length}: ${shard.reason}`,
+      }
+    }
+  }
+  const failing = shards.find(s => s.kind === 'ran' && s.exitCode !== 0)
+  return {
+    kind: 'ran',
+    exitCode: failing?.kind === 'ran' ? failing.exitCode : 0,
+  }
+}

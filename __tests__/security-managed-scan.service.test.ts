@@ -3,6 +3,8 @@ jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
 jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+  // LUM-746: `repoCheckoutDir` (pure) now lives in the integration module.
+  ...jest.requireActual('@/lib/integrations/vercel-sandbox'),
   createRepoSandbox: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({

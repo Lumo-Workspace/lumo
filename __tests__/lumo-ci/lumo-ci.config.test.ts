@@ -59,3 +59,43 @@ describe('lumo-ci config (LUM-746)', () => {
     ).toEqual(['a.test.ts', 'b'])
   })
 })
+
+describe('aggregateShardResults (LUM-746)', () => {
+  const { aggregateShardResults } = jest.requireActual(
+    '@/lib/services/lumo-ci.config'
+  ) as typeof import('@/lib/services/lumo-ci.config')
+
+  it('all shards ran and exited 0 → ran/0', () => {
+    expect(
+      aggregateShardResults([
+        { kind: 'ran', exitCode: 0 },
+        { kind: 'ran', exitCode: 0 },
+      ])
+    ).toEqual({ kind: 'ran', exitCode: 0 })
+  })
+
+  it('all shards ran, one non-zero → ran with that (first non-zero) exit code', () => {
+    expect(
+      aggregateShardResults([
+        { kind: 'ran', exitCode: 0 },
+        { kind: 'ran', exitCode: 1 },
+      ])
+    ).toEqual({ kind: 'ran', exitCode: 1 })
+  })
+
+  it('any shard the harness failed → failed, naming the shard, even if another shard found real failures', () => {
+    expect(
+      aggregateShardResults([
+        { kind: 'ran', exitCode: 1 },
+        { kind: 'failed', reason: 'timed out' },
+      ])
+    ).toEqual({ kind: 'failed', reason: 'shard 2/2: timed out' })
+  })
+
+  it('no shards → failed', () => {
+    expect(aggregateShardResults([])).toEqual({
+      kind: 'failed',
+      reason: 'no shards ran',
+    })
+  })
+})
