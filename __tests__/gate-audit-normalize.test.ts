@@ -148,3 +148,34 @@ describe('normalizeHookEvents', () => {
     expect(byKey['build']!.status).toBe('not_run')
   })
 })
+
+describe('normalizeGateSignals — lumo_sandbox source (LUM-746)', () => {
+  it('a Lumo-managed CI row is an independent_harness event grounded on its check name, no details url', () => {
+    const { normalizeGateSignals } = jest.requireActual(
+      '@/lib/services/gate-audit'
+    ) as typeof import('@/lib/services/gate-audit')
+    const events = normalizeGateSignals([
+      {
+        gateKey: 'test',
+        outcome: 'failure',
+        checkName: 'lumo/ci test',
+        detailsUrl: null,
+        source: 'lumo_sandbox',
+        createdAt: new Date('2026-09-10T10:00:00.000Z'),
+        prNumber: 960,
+      },
+    ])
+    expect(events).toEqual([
+      {
+        key: 'test',
+        outcome: 'failure',
+        command: 'lumo/ci test',
+        exitCode: 1,
+        hookEvent: 'lumo_sandbox',
+        at: '2026-09-10T10:00:00.000Z',
+        provenance: 'independent_harness',
+        prNumber: 960,
+      },
+    ])
+  })
+})

@@ -110,6 +110,12 @@ export interface LumoCiJob {
   repo: string
   prNumber: number
   headSha: string
+  /**
+   * Jest shards to run (one step each). Decided at request time from
+   * `LUMO_CI_JEST_SHARDS` and frozen into the job: the orchestrator replays
+   * deterministically and must not read the environment itself.
+   */
+  jestShards: number
 }
 
 /** The VM one run's steps share. */
