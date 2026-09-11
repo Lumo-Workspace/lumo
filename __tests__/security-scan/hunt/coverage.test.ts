@@ -17,7 +17,7 @@ const row = (over: Record<string, unknown> = {}) => ({
 describe('LUM-762 hunt coverage', () => {
   it('reports each category outcome and how long it took', () => {
     const coverage = parseHuntCoverage({
-      categories: [
+      tasks: [
         row(),
         row({ category: 'injection', stopped: 'timeout', elapsedMs: 60_000 }),
         row({ category: 'ssrf', stopped: 'skipped', elapsedMs: 0, tokens: 0 }),
@@ -56,7 +56,7 @@ describe('LUM-762 hunt coverage', () => {
 
   it('collapses a retried category to its final attempt and counts the attempts', () => {
     const coverage = parseHuntCoverage({
-      categories: [
+      tasks: [
         row({ stopped: 'timeout', elapsedMs: 60_000, tokens: 0 }),
         row({ stopped: 'done', elapsedMs: 12_000, tokens: 900 }),
       ],
@@ -76,7 +76,7 @@ describe('LUM-762 hunt coverage', () => {
 
   it('keeps the run order of HUNT_CATEGORIES regardless of row order', () => {
     const coverage = parseHuntCoverage({
-      categories: [row({ category: 'logic' }), row({ category: 'idor' })],
+      tasks: [row({ category: 'logic' }), row({ category: 'idor' })],
     })
     expect(coverage!.categories.map(c => c.category)).toEqual(['idor', 'logic'])
   })
@@ -89,14 +89,29 @@ describe('LUM-762 hunt coverage', () => {
     expect(parseHuntCoverage([])).toBeNull()
     // LUM-739-era rows: an audit that only carries the failure reason.
     expect(parseHuntCoverage({ error: 'GitHub 502' })).toBeNull()
-    expect(parseHuntCoverage({ categories: [] })).toBeNull()
-    expect(parseHuntCoverage({ categories: 'nope' })).toBeNull()
+    expect(parseHuntCoverage({ tasks: [] })).toBeNull()
+    expect(parseHuntCoverage({ tasks: 'nope' })).toBeNull()
   })
 
   it('LUM-758: total is the planned count, not HUNT_CATEGORIES.length', () => {
     const coverage = parseHuntCoverage({
-      planned: ['idor', 'injection'],
-      categories: [
+      // `planned` holds `HuntTask` objects post-task-graph; `total` only
+      // cares about the array length, not the shape of its entries.
+      planned: [
+        {
+          id: 't1',
+          objective: 'check idor path',
+          category: 'idor',
+          startingPoints: [],
+        },
+        {
+          id: 't2',
+          objective: 'check injection path',
+          category: 'injection',
+          startingPoints: [],
+        },
+      ],
+      tasks: [
         row({ category: 'idor' }),
         row({ category: 'injection', stopped: 'done' }),
       ],
@@ -107,14 +122,14 @@ describe('LUM-762 hunt coverage', () => {
 
   it('falls back to HUNT_CATEGORIES.length when the row predates `planned` (pre-LUM-758)', () => {
     const coverage = parseHuntCoverage({
-      categories: [row(), row({ category: 'injection' })],
+      tasks: [row(), row({ category: 'injection' })],
     })
     expect(coverage!.total).toBe(HUNT_CATEGORIES.length)
   })
 
   it('drops rows it cannot vouch for and repairs unusable numbers', () => {
     const coverage = parseHuntCoverage({
-      categories: [
+      tasks: [
         row({ category: 'not_a_category' }),
         row({ category: 'race', stopped: 'exploded' }),
         null,

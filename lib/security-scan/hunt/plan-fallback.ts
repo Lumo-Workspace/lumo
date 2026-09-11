@@ -9,8 +9,9 @@
  * 只有规划模型能主动要求这两类。
  */
 import {
-  HUNT_MAX_PLANNED_CATEGORIES,
+  HUNT_MAX_PLANNED_TASKS,
   type HuntCategory,
+  type HuntTask,
 } from '@/lib/services/security-hunt.config'
 
 /** sink 规则 id（`lib/security-scan/graph/patterns.ts`）→ 类别。 */
@@ -60,6 +61,32 @@ export function planFallback(reasons: string[]): HuntCategory[] {
 
   return FALLBACK_PRIORITY.filter(c => hit.has(c)).slice(
     0,
-    HUNT_MAX_PLANNED_CATEGORIES
+    HUNT_MAX_PLANNED_TASKS
   )
+}
+
+/**
+ * LUM-758 §11.4 —— 兜底时回到闭集：每个类别包成一个退化任务。这就是改造前
+ * 的行为（一个类别一个批次，无起点、无向导），也是"开放词表没有确定性兜底"
+ * 这个问题的答案。
+ */
+export function categoriesToTasks(categories: HuntCategory[]): HuntTask[] {
+  return categories.map((category, i) => ({
+    id: `f${i + 1}`,
+    objective: FALLBACK_OBJECTIVE[category],
+    category,
+    startingPoints: [],
+  }))
+}
+
+const FALLBACK_OBJECTIVE: Readonly<Record<HuntCategory, string>> = {
+  idor: 'Across the diff, find object ids taken from a request that reach a repository or Prisma call with no membership, ownership or workspace check.',
+  injection:
+    'Across the diff, find request-derived strings reaching $queryRaw*, child_process, eval / new Function, or a filesystem path without parsing or an allow-list.',
+  ssrf: 'Across the diff, find request-derived URLs or hosts reaching fetch / redirect without an allow-list.',
+  prompt_injection:
+    'Across the diff, find untrusted text reaching an LLM call as instructions, or model output executed / persisted as trusted.',
+  race: 'Across the diff, find check-then-act on shared rows without a transaction, row lock or unique constraint.',
+  logic:
+    'Across the diff, find a state machine, gate or quota that can be skipped by calling entries out of order or with an unexpected role.',
 }

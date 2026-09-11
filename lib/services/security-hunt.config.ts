@@ -45,11 +45,25 @@ export const HUNT_CATEGORIES = [
 export type HuntCategory = (typeof HUNT_CATEGORIES)[number]
 
 /**
- * LUM-758 §4.3 — 一次扫描最多规划几个类别。2 类 × HUNT_CATEGORY_TOKEN_MAX
- * (30k) = 60k，正好是验收目标的平均 tokenSpent；留给补跑的余量来自
- * HUNT_TOKEN_BUDGET (120k) 的另一半。
+ * LUM-758 §11.2 —— 规划步的产出单位。`objective` 是**开放文本**（这个 PR
+ * 具体要查什么），`category` 是**封闭的 6 类之一**，唯一作用是给产出定型：
+ * mechanicalVerify 要它校验、ruleId 要它、falsifier 的 prompt 要它，最关键的是
+ * `huntFingerprint(category, sinkSymbol, entrySymbol)` 要它 —— fingerprint 不
+ * 哈希任务标识，所以 inheritDispositions（人工"忽略"跨扫描继承）不受影响。
+ * 计划开放、finding 分类封闭，是这个设计成立的支点。
  */
-export const HUNT_MAX_PLANNED_CATEGORIES = 2
+export interface HuntTask {
+  /** 't1' —— 一次扫描内稳定；原样进 audit，供事后人工读规划质量。 */
+  id: string
+  objective: string
+  category: HuntCategory
+  startingPoints: string[]
+}
+
+/** §11.5 —— 3 个才像个图；3 × HUNT_TASK_TOKEN_MAX = 60k = 验收目标均值。 */
+export const HUNT_MAX_PLANNED_TASKS = 3
+export const HUNT_TASK_TOKEN_MAX = 20_000
+export const HUNT_TASK_TIME_MS = 60_000
 
 /**
  * Spec §6 L3 "Hunt" budget per scan. LUM-758 把 LUM-762 的 240k/480s 调回
@@ -64,18 +78,11 @@ export const HUNT_TIME_BUDGET_MS = 240_000
 export const PLAN_HUNT_TOKEN_BUDGET = 5_000
 
 /**
- * 规划步的墙钟上限。远小于 HUNT_CATEGORY_TIME_MS：一次无工具的 FAST 调用
+ * 规划步的墙钟上限。远小于 HUNT_TASK_TIME_MS：一次无工具的 FAST 调用
  * 拖到 20s 就说明网关有问题，此时确定性兜底比继续等更划算。
  */
 export const PLAN_HUNT_TIMEOUT_MS = 20_000
 
-/**
- * LUM-762 — the ceiling on ONE batch. A category can never spend more than
- * this, so a gateway that hangs in retry backoff costs its own category and
- * leaves the rest of the scan (and the retry pass) their budget.
- */
-export const HUNT_CATEGORY_TIME_MS = 60_000
-export const HUNT_CATEGORY_TOKEN_MAX = 30_000
 /** Tool-calling rounds one category batch may take. */
 export const HUNT_MAX_STEPS_PER_CATEGORY = 12
 /**
@@ -100,10 +107,14 @@ export type HuntBatchStop = 'done' | 'steps' | 'budget' | 'timeout' | 'error'
 export type HuntCategoryStop = HuntBatchStop | 'skipped'
 
 /**
- * One attempt at one category. A category the retry pass re-ran has TWO rows
- * in `HuntAudit.categories`, in attempt order — the last one is its outcome.
+ * One attempt at one task. A task the retry pass re-ran has TWO rows in
+ * `HuntAudit.tasks`, in attempt order — the last one is its outcome.
+ * `category` stays here (not just on the `HuntTask` in `planned`) because
+ * `parseHuntCoverage` groups by category, not by task identity.
  */
-export interface HuntCategoryAudit {
+export interface HuntTaskAudit {
+  taskId: string
+  objective: string
   category: HuntCategory
   candidates: number
   tokens: number
@@ -117,10 +128,10 @@ export interface HuntAudit {
   rejected: RejectedCandidate[]
   falsifierRejects: number
   falsifierRejected: Array<{ category: string; sink: string; reason: string }>
-  categories: HuntCategoryAudit[]
+  tasks: HuntTaskAudit[]
   subgraph: { files: number; symbols: number; edges: number; partial: boolean }
-  /** LUM-758 — 规划步选了哪些类别；`[]` = 这个 PR 不值得 hunt。 */
-  planned?: HuntCategory[]
+  /** LUM-758 — 规划步选了哪些任务；`[]` = 这个 PR 不值得 hunt。 */
+  planned?: HuntTask[]
   plannedReason?: string
   plannedBy?: 'model' | 'fallback'
   error?: string

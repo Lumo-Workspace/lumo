@@ -41,9 +41,9 @@ export interface HuntCategoryCoverage {
 
 export interface HuntCoverage {
   /**
-   * LUM-758 — how many categories the planning step picked for this scan
+   * LUM-758 — how many tasks the planning step picked for this scan
    * (`audit.planned.length`), not `HUNT_CATEGORIES.length`: a scan plans
-   * 0–2, so "out of 6" understates a fully-run layer. A pre-LUM-758 row has
+   * 0–3, so "out of 6" understates a fully-run layer. A pre-LUM-758 row has
    * no `planned` field and falls back to `HUNT_CATEGORIES.length`.
    */
   total: number
@@ -74,7 +74,7 @@ function count(value: unknown): number {
  */
 export function parseHuntCoverage(raw: unknown): HuntCoverage | null {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
-  const rows = (raw as { categories?: unknown }).categories
+  const rows = (raw as { tasks?: unknown }).tasks
   if (!Array.isArray(rows)) return null
 
   const byCategory = new Map<HuntCategory, HuntCategoryCoverage>()
@@ -100,12 +100,13 @@ export function parseHuntCoverage(raw: unknown): HuntCoverage | null {
   )
 
   // LUM-758: the denominator is what the planning step planned, not the full
-  // category list. `planned` is absent on pre-LUM-758 rows — fall back to
-  // HUNT_CATEGORIES.length so those still render sensibly.
+  // category list. `planned` is now an array of `HuntTask` objects (was
+  // `HuntCategory[]` pre-task-graph) — either way its length is the plan
+  // size, so just count entries rather than re-validating shape. `planned`
+  // is absent on pre-LUM-758 rows — fall back to HUNT_CATEGORIES.length so
+  // those still render sensibly.
   const planned = (raw as { planned?: unknown }).planned
-  const total = Array.isArray(planned)
-    ? planned.filter(isCategory).length
-    : HUNT_CATEGORIES.length
+  const total = Array.isArray(planned) ? planned.length : HUNT_CATEGORIES.length
 
   return {
     total,

@@ -1,5 +1,11 @@
-import { planFallback } from '@/lib/security-scan/hunt/plan-fallback'
-import { HUNT_MAX_PLANNED_CATEGORIES } from '@/lib/services/security-hunt.config'
+import {
+  planFallback,
+  categoriesToTasks,
+} from '@/lib/security-scan/hunt/plan-fallback'
+import {
+  HUNT_CATEGORIES,
+  HUNT_MAX_PLANNED_TASKS,
+} from '@/lib/services/security-hunt.config'
 
 describe('planFallback', () => {
   it.each([
@@ -54,7 +60,7 @@ describe('planFallback', () => {
     expect(all).not.toContain('logic')
   })
 
-  it('caps at HUNT_MAX_PLANNED_CATEGORIES in priority order', () => {
+  it('caps at HUNT_MAX_PLANNED_TASKS in priority order', () => {
     expect(
       planFallback([
         'diff:sink:fetch',
@@ -62,15 +68,75 @@ describe('planFallback', () => {
         'diff:sink:prisma-raw',
         'diff:entry:next-route-handler',
       ])
-    ).toEqual(['injection', 'idor'])
+    ).toEqual(['injection', 'idor', 'ssrf'])
     expect(
-      planFallback(['diff:sink:fetch', 'diff:sink:llm-call'])
-    ).toHaveLength(HUNT_MAX_PLANNED_CATEGORIES)
+      planFallback([
+        'diff:sink:fetch',
+        'diff:sink:llm-call',
+        'diff:sink:prisma-raw',
+        'diff:entry:next-route-handler',
+      ])
+    ).toHaveLength(HUNT_MAX_PLANNED_TASKS)
   })
 
   it('deduplicates categories reached by two reasons', () => {
     expect(
       planFallback(['diff:sink:prisma-raw', 'diff:sink:child-process'])
     ).toEqual(['injection'])
+  })
+
+  it('never widens to all six categories, even when every reason hits', () => {
+    const all = planFallback([
+      'diff:sink:prisma-raw',
+      'diff:sink:fetch',
+      'diff:sink:llm-call',
+      'diff:entry:next-route-handler',
+    ])
+    expect(all.length).toBeLessThan(HUNT_CATEGORIES.length)
+    expect(all.length).toBeLessThanOrEqual(HUNT_MAX_PLANNED_TASKS)
+  })
+})
+
+describe('categoriesToTasks', () => {
+  it('wraps each category in a degenerate task with no starting points', () => {
+    const tasks = categoriesToTasks(['injection', 'idor'])
+    expect(tasks).toEqual([
+      {
+        id: 'f1',
+        objective: expect.any(String),
+        category: 'injection',
+        startingPoints: [],
+      },
+      {
+        id: 'f2',
+        objective: expect.any(String),
+        category: 'idor',
+        startingPoints: [],
+      },
+    ])
+  })
+
+  it('returns [] for an empty category list', () => {
+    expect(categoriesToTasks([])).toEqual([])
+  })
+
+  it('has a non-empty fallback objective for every category', () => {
+    for (const category of HUNT_CATEGORIES) {
+      const [task] = categoriesToTasks([category])
+      expect(task!.objective.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('composes with planFallback and still never widens to all six categories', () => {
+    const tasks = categoriesToTasks(
+      planFallback([
+        'diff:sink:prisma-raw',
+        'diff:sink:fetch',
+        'diff:sink:llm-call',
+        'diff:entry:next-route-handler',
+      ])
+    )
+    expect(tasks.length).toBeLessThan(HUNT_CATEGORIES.length)
+    expect(tasks.length).toBeLessThanOrEqual(HUNT_MAX_PLANNED_TASKS)
   })
 })
