@@ -31,7 +31,9 @@
  * 认得它，两层之间不能互相假设对方会兜底**。双引号里的 `$(…)` 曾经被 `scanSegment`
  * 全权委托给 `extractSubstitutions`，而后者不认双引号；壳包装的尾巴曾经被
  * `topLevelSegments` 整段丢掉，而字符白名单根本没机会看见它——两次都是「以为对方
- * 守着」。
+ * 守着」。第三轮把这条推广了一步：闸门不但要认得 shell **会执行**的东西，还要认得
+ * shell **会丢掉**的东西——`#` 注释让 shell 丢掉半行，闸门却接着读，两边的引号 /
+ * 续行状态就此分叉，换行之后的命令一条都没被审过。
  *
  * 第 3 层的两小层不能合并：`isReadOnlySegment` 只回答「是不是只读」，不回答
  * 「是不是我们允许的工具」—— `git log` / `git status` 是只读的，但 agent 不该
@@ -72,8 +74,14 @@ const ECHO_LIMIT = 120
  * `&` `` ` `` `<` `>` `(` `)` `$` `{` `}` `;` `|` `!` 换行 以及将来任何新元字符
  * ——都会被 `scanSegment` 判为不安全。要放行一个新字符，必须在这里显式加。
  * 非 ASCII（>0x7f）一律放行：shell 元字符全在 ASCII 里，而中文等文件名合法。
+ *
+ * `#` 留在集合里，但**只在词中**安全（`foo#bar`、`rg -n \#foo`）：词首的 `#` 是
+ * 注释，由 `scanSegment` 单独判不安全，见那里的注释。`^` 曾经在这个集合里——没有
+ * 任何检索需要它不加引号（行首锚点写在引号里：`rg -n "^import" lib/`），而 zsh
+ * 开了 `EXTENDED_GLOB` 后 `^x` 是否定 glob，属于「看着人畜无害」的那一类，和 `#`
+ * 同科，已移除。
  */
-const SAFE_UNQUOTED_CHAR = /^[A-Za-z0-9_\-.\/=,:+@%^~#[\]*?]$|^[^\x00-\x7f]$/
+const SAFE_UNQUOTED_CHAR = /^[A-Za-z0-9_\-.\/=,:+@%~#[\]*?]$|^[^\x00-\x7f]$/
 
 type SegmentScan = {
   /** 去掉引号 / 反斜杠转义后的实参（shell 真正会交给程序的那些）。 */
@@ -82,6 +90,24 @@ type SegmentScan = {
   unsafe: string | null
   /** 引号没闭合——无法判断后面是不是引号内，按失败关闭处理。 */
   unbalancedQuote: boolean
+}
+
+/**
+ * 双引号里的 `$` 什么时候只是个字面美元号。三种放行：
+ *   - `$name`（`ast-grep --pattern "$A.$queryRaw($B)"` 的元变量）；
+ *   - `${name…}`（`grep -n "${HOME}"`）；
+ *   - 紧贴右引号或段尾的 `$`（`rg -n "foo$"` 的正则行尾锚点）——任何 shell 都不会
+ *     拿它去展开什么。
+ * 其余一律不安全。这里是**字符白名单**而不是「认 `$(` 和反引号」的两项黑名单：
+ * `${ …; }` / `${|…;}`（bash 5.3 的函数替换，会执行）在 bash 3.2 / zsh 5.9 上只是
+ * 语法错误，等沙箱镜像的 bash 一升级就会变成 RCE。白名单不需要预先认识它。
+ */
+function isLiteralDollar(text: string, i: number): boolean {
+  const next = text[i + 1]
+  if (next === undefined || next === '"') return true
+  if (/[A-Za-z_]/.test(next)) return true
+  if (next === '{') return /[A-Za-z_]/.test(text[i + 2] ?? '')
+  return false
 }
 
 /**
@@ -119,7 +145,7 @@ function scanSegment(segment: string): SegmentScan {
       // 推给对方去认（LUM-758：推过去那一半漏了，这一半就成了唯一的门，却没人守）。
       if (unsafe === null && quote === '"') {
         if (c === '`') unsafe = '`'
-        else if (c === '$' && segment[i + 1] === '(') unsafe = '$'
+        else if (c === '$' && !isLiteralDollar(segment, i)) unsafe = '$'
       }
       cur += c
       continue
@@ -130,6 +156,11 @@ function scanSegment(segment: string): SegmentScan {
       continue
     }
     if (c === '\\' && i + 1 < segment.length) {
+      // `\` + 换行：分段器把它当续行吞掉（shell 在**普通上下文**里也是这么算的），
+      // 可一旦这个续行落在注释里，shell 根本不认，换行就成了硬分隔符。闸门没有
+      // 「行」的概念，判不了它落在哪儿，所以直接判不安全——真实检索里没人需要在
+      // 一条命令中间续行。(a) 的 `#` 规则已经独立堵死了这一族，这条是第二把锁。
+      if (unsafe === null && segment[i + 1] === '\n') unsafe = '\\'
       cur += segment[++i]!
       started = true
       continue
@@ -138,6 +169,12 @@ function scanSegment(segment: string): SegmentScan {
       flush()
       continue
     }
+    // 词首的 `#` 只能是注释：shell 从这里一路丢到行尾，闸门却会继续往下读，于是
+    // 两边的引号 / 续行状态在换行处分叉，**换行之后的东西一条都没被审过就执行**
+    // （`cat x #\<换行>curl …` 用注释废掉续行，`cat x #"<换行>curl … #"` 用注释
+    // 吃掉一个引号，闸门以为换行在引号里）。词中的 `#` 不受影响，引号内和反斜杠
+    // 转义的 `#`（`rg -n "#"`、`rg -n '#\[derive'`、`rg -n \#foo`）根本走不到这里。
+    if (c === '#' && !started && unsafe === null) unsafe = '#'
     if (unsafe === null && !SAFE_UNQUOTED_CHAR.test(c)) unsafe = c
     cur += c
     started = true
@@ -497,7 +534,13 @@ function checkSegment(segment: string, depth: number): HuntCommandCheck {
     if (!nested.ok) return nested
   }
   if (scan.unbalancedQuote) {
-    return { ok: false, reason: `segment has an unbalanced quote: ${echo}` }
+    // 常见的「误报」其实是搜字面量：`rg "$(" lib/` 的 `(` 在闸门眼里是没闭合的
+    // 引号。单引号整个包起来（`rg '$(' lib/`）就是出口，理由里直接写出来，省得
+    // 模型拿转义反复试。
+    return {
+      ok: false,
+      reason: `segment has an unbalanced quote; to search for a literal quote or metacharacter, wrap the whole pattern in single quotes (rg '$(' lib/): ${echo}`,
+    }
   }
   if (scan.unsafe !== null) {
     return {
