@@ -57,6 +57,37 @@ describe('LUM-740 extractDiffHunk', () => {
     expect(extractDiffHunk(DIFF, 'lib/zzz.ts', 1)).toBeNull()
   })
 
+  it('a `diff --git` header ends the previous file: no index/mode lines leak into its last hunk, no phantom row', () => {
+    const diff = [
+      'diff --git a/lib/a.ts b/lib/a.ts',
+      'index 1111111..2222222 100644',
+      '--- a/lib/a.ts',
+      '+++ b/lib/a.ts',
+      '@@ -1,1 +1,2 @@',
+      ' const a = 1',
+      '+const b = 2',
+      'diff --git a/lib/new.ts b/lib/new.ts',
+      'new file mode 100644',
+      'index 0000000..3333333',
+      '--- /dev/null',
+      '+++ b/lib/new.ts',
+      '@@ -0,0 +1,1 @@',
+      '+export const x = 1',
+      '',
+    ].join('\n')
+    expect(extractDiffHunk(diff, 'lib/a.ts', 2)).toBe(
+      ['@@ -1,1 +1,2 @@', ' const a = 1', '+const b = 2'].join('\n')
+    )
+    // Line 3 does not exist in lib/a.ts's hunk — the header lines must not
+    // have been counted as rows that "cover" it.
+    expect(extractDiffHunk(diff, 'lib/a.ts', 3)).toBeNull()
+    expect(extractDiffHunk(diff, 'lib/new.ts', 1)).toBe(
+      ['@@ -0,0 +1,1 @@', '+export const x = 1'].join('\n')
+    )
+    // The trailing newline of the diff is not a row either.
+    expect(extractDiffHunk(diff, 'lib/new.ts', 2)).toBeNull()
+  })
+
   it('trims a long hunk to ±radius lines around the target', () => {
     const body = Array.from({ length: 60 }, (_, i) => `+line ${i + 1}`)
     const diff = ['+++ b/big.ts', '@@ -0,0 +1,60 @@', ...body].join('\n')

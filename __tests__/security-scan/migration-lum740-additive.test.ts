@@ -9,7 +9,7 @@ const MIGRATION = join(
 )
 
 describe('LUM-740 migration', () => {
-  it('creates one enum and five nullable columns, nothing destructive', () => {
+  it('creates one enum and seven nullable columns, nothing destructive', () => {
     expect(existsSync(MIGRATION)).toBe(true)
     const sql = readFileSync(MIGRATION, 'utf8')
     expect(sql).toMatch(
@@ -20,6 +20,12 @@ describe('LUM-740 migration', () => {
     )
     expect(sql).toMatch(
       /ALTER TABLE "pr_security_scans" ADD COLUMN\s+"summaryCommentId" TEXT;/
+    )
+    expect(sql).toMatch(
+      /ALTER TABLE "pr_security_scans" ADD COLUMN\s+"suggestedAt" TIMESTAMP\(3\);/
+    )
+    expect(sql).toMatch(
+      /ALTER TABLE "pr_security_scans" ADD COLUMN\s+"suggestionTokens" INTEGER;/
     )
     expect(sql).toMatch(
       /ALTER TABLE "pr_security_findings" ADD COLUMN\s+"suggestedDisposition" "PrSecurityFindingDisposition";/

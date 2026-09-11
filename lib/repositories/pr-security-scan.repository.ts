@@ -56,6 +56,10 @@ export interface NewFindingInput {
   falsifierVerdict?: FalsifierVerdict | null
   /** LUM-738: the fingerprint is on the default branch's security baseline. */
   persisting?: boolean
+  // LUM-740: inherited from an earlier scan of the same PR (same fingerprint).
+  suggestedDisposition?: FindingDisposition | null
+  suggestedReason?: string | null
+  suggestionOutcome?: SuggestionOutcome | null
 }
 
 /** LUM-739 — what the hunt workflow writes back onto the scan row. */
@@ -147,6 +151,9 @@ export interface ScanWithFindings {
   agentNotifiedAt: Date | null
   /** LUM-740: GitHub id of the per-PR summary comment; null until first create. */
   summaryCommentId: string | null
+  /** LUM-740: when the suggested-disposition pass finished; null = not yet. */
+  suggestedAt: Date | null
+  suggestionTokens: number | null
   findings: FindingRow[]
 }
 
@@ -188,6 +195,8 @@ export interface ScanForReview {
   error: string | null
   /** LUM-740: the summary comment this scan (or an earlier one) already owns. */
   summaryCommentId: string | null
+  /** LUM-740: null until the suggested-disposition pass ran — external rows wait. */
+  suggestedAt: Date | null
   findings: ReviewFindingRow[]
   pullRequest: {
     id: string
@@ -200,13 +209,20 @@ export interface ScanForReview {
   }
 }
 
+/**
+ * A prior finding on the same PR worth inheriting from: a human disposition
+ * and/or (LUM-740) an LLM suggestion with the human's outcome on it.
+ */
 export interface DispositionedFingerprint {
   id: string
   fingerprint: string
-  disposition: FindingDisposition
+  disposition: FindingDisposition | null
   dispositionNote: string | null
   dispositionedById: string | null
   dispositionedAt: Date | null
+  suggestedDisposition: FindingDisposition | null
+  suggestedReason: string | null
+  suggestionOutcome: SuggestionOutcome | null
 }
 
 /**
@@ -709,6 +725,7 @@ export const prSecurityScanRepository = {
         partial: true,
         error: true,
         summaryCommentId: true,
+        suggestedAt: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -748,8 +765,16 @@ export const prSecurityScanRepository = {
   async findDispositionedByPullRequest(
     pullRequestId: string
   ): Promise<DispositionedFingerprint[]> {
+    // LUM-740: an open LLM suggestion carries over too, so a re-ingest of the
+    // same sha neither re-judges nor loses the human's outcome.
     const rows = await prisma.prSecurityFinding.findMany({
-      where: { scan: { pullRequestId }, disposition: { not: null } },
+      where: {
+        scan: { pullRequestId },
+        OR: [
+          { disposition: { not: null } },
+          { suggestedDisposition: { not: null } },
+        ],
+      },
       orderBy: { dispositionedAt: { sort: 'desc', nulls: 'last' } },
       select: {
         id: true,
@@ -758,6 +783,9 @@ export const prSecurityScanRepository = {
         dispositionNote: true,
         dispositionedById: true,
         dispositionedAt: true,
+        suggestedDisposition: true,
+        suggestedReason: true,
+        suggestionOutcome: true,
       },
     })
     return rows as DispositionedFingerprint[]
@@ -917,20 +945,29 @@ export const prSecurityScanRepository = {
   },
 
   /**
-   * Adds to `tokenSpent` (team rule: null ≠ 0, so a null row becomes `n`
-   * rather than staying null as a SQL increment would).
+   * Adds to `suggestionTokens` (team rule: null ≠ 0, so a null row becomes
+   * `n` rather than staying null as a SQL increment would). Own column: the
+   * hunt owns `tokenSpent` and overwrites it.
    */
-  async addTokenSpent(scanId: string, n: number): Promise<void> {
+  async addSuggestionTokens(scanId: string, n: number): Promise<void> {
     await prisma.$transaction(async tx => {
       const row = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: { tokenSpent: true },
+        select: { suggestionTokens: true },
       })
       if (!row) return
       await tx.prSecurityScan.update({
         where: { id: scanId },
-        data: { tokenSpent: (row.tokenSpent ?? 0) + n },
+        data: { suggestionTokens: (row.suggestionTokens ?? 0) + n },
       })
+    })
+  },
+
+  /** The suggested-disposition pass finished for this scan (see `suggestedAt`). */
+  async markSuggested(scanId: string): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { suggestedAt: new Date() },
     })
   },
 
@@ -961,21 +998,23 @@ export const prSecurityScanRepository = {
   // ── LUM-740: bulk confirm ─────────────────────────────────────────────────
 
   /**
-   * Every undispositioned finding on the task's PRs the falsifier suggested
+   * Every undispositioned finding on the given scans the falsifier suggested
    * as a false positive becomes FALSE_POSITIVE / CONFIRMED in one write.
-   * Returns how many rows changed.
+   * The service passes the task's latest scan per PR — what the panel shows
+   * and counts. Returns how many rows changed.
    */
-  async confirmSuggestedByTask(
-    taskId: string,
+  async confirmSuggestedByScanIds(
+    scanIds: string[],
     data: {
       dispositionNote: string
       dispositionedById: string
       dispositionedAt: Date
     }
   ): Promise<number> {
+    if (scanIds.length === 0) return 0
     const { count } = await prisma.prSecurityFinding.updateMany({
       where: {
-        scan: { pullRequest: { taskId } },
+        scanId: { in: scanIds },
         suggestedDisposition: 'FALSE_POSITIVE',
         disposition: null,
       },

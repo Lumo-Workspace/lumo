@@ -44,11 +44,13 @@ const CONTROL_TERMS: RegExp[] = [
   /\bauth(?:n|z|entication|orization|oriz(?:e|es|ed|ing)|entic(?:ate|ates|ated|ating))?\b/i,
   /\bpermissions?\b/i,
   /\baccess[- ]control\b/i,
-  /\bvalidat(?:e|es|ed|ing|ion)\b/i,
+  // No `validated`: "validated the fix locally" is testing talk, not a control.
+  /\bvalidat(?:e|es|ing|ions?)\b/i,
   /\bsanitiz(?:e|es|ed|ing|ation)\b/i,
   /\brate[- ]?limit(?:s|ed|ing)?\b/i,
   /\bthrottl(?:e|es|ed|ing)\b/i,
-  /鉴权|授权|认证|权限|校验|验证|限流|节流/,
+  // No 验证: "已在本地验证" is testing talk; 校验 is the control word.
+  /鉴权|授权|认证|权限|校验|限流|节流/,
 ]
 
 // "no auth changes", "without validation", "未做鉴权" — a mention that

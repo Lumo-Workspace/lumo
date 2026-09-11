@@ -37,8 +37,20 @@ export function extractDiffHunk(
       found = { header, rows }
   }
 
-  for (const raw of diff.split('\n')) {
+  const lines = diff.split('\n')
+  // The diff's trailing newline is not a row.
+  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop()
+  for (const raw of lines) {
     if (found) break
+    if (raw.startsWith('diff --git ')) {
+      // A new file starts: its `index` / mode / rename lines are headers,
+      // never rows of the previous hunk.
+      flush()
+      header = null
+      rows = []
+      inFile = false
+      continue
+    }
     if (raw.startsWith('+++ ')) {
       flush()
       header = null
@@ -46,9 +58,7 @@ export function extractDiffHunk(
       inFile = raw === `+++ b/${path}` || raw === `+++ ${path}`
       continue
     }
-    if (raw.startsWith('--- ') || raw.startsWith('diff --git ')) {
-      continue
-    }
+    if (raw.startsWith('--- ')) continue
     if (!inFile) continue
     const m = HUNK_HEADER_RE.exec(raw)
     if (m) {

@@ -104,6 +104,8 @@ function scanRow(over: Record<string, unknown> = {}) {
     stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
     partial: false,
     error: null,
+    // LUM-740: these fixtures predate the suggestion pass — treat it as done.
+    suggestedAt: new Date(0),
     findings: [],
     pullRequest: {
       repo: 'acme/app',

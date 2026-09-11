@@ -1482,6 +1482,14 @@ model PrSecurityScan {
   // write-back upserts by this id, so concurrent writers converge on ONE
   // summary; null until the first create.
   summaryCommentId String?
+  // LUM-740: when the suggested-disposition pass finished for this scan
+  // (null = not yet). The PR write-back holds EXTERNAL_TOOL inline comments
+  // until then, so a concurrent hunt sync cannot post rows the pass is about
+  // to mark as suggested false positives.
+  suggestedAt      DateTime?
+  // LUM-740: tokens the suggested-disposition pass spent (own column — the
+  // hunt owns `tokenSpent` and overwrites it). null = not metered.
+  suggestionTokens Int?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)

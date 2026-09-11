@@ -10,7 +10,11 @@ import {
   markSarifExternalFailedStep,
 } from './security-sarif-ingest.steps'
 import { syncPrReviewStep } from './security-pr-review.steps'
-import { suggestDispositionsStep } from './security-suggest.steps'
+import {
+  prepareSuggestionsStep,
+  judgeSuggestionStep,
+  finishSuggestionsStep,
+} from './security-suggest.steps'
 import type { ScanStages } from '@/lib/security-scan/types'
 
 /** After the step's own retries a leaked blob must not fail an outcome that is already decided. */
@@ -66,9 +70,26 @@ export async function syncPrReviewBestEffort(scanId: string): Promise<void> {
 export async function suggestDispositionsBestEffort(
   scanId: string
 ): Promise<void> {
+  let prepared
   try {
-    await suggestDispositionsStep(scanId)
+    prepared = await prepareSuggestionsStep(scanId)
   } catch {
     // Retries exhausted inside the step; the service already logged it.
+    return
+  }
+  if (!prepared.enabled) return
+  let tokens = 0
+  for (const candidate of prepared.candidates) {
+    try {
+      tokens += (await judgeSuggestionStep(candidate)).tokens
+    } catch {
+      // One finding's judgment is lost; the others still run.
+    }
+  }
+  try {
+    await finishSuggestionsStep(scanId, tokens)
+  } catch {
+    // The stamp is best effort: the PR write-back holds the external rows
+    // for this scan only until a later scan of the PR lands.
   }
 }

@@ -9,7 +9,8 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findScanForSuggestion: jest.fn(),
     setSuggestedDisposition: jest.fn(),
-    addTokenSpent: jest.fn(),
+    addSuggestionTokens: jest.fn(),
+    markSuggested: jest.fn(),
     updateDisposition: jest.fn(),
   },
 }))
@@ -38,7 +39,8 @@ import { falsifyExternalFinding } from '@/lib/llm/security-disposition-falsifier
 
 const findScan = prSecurityScanRepository.findScanForSuggestion as jest.Mock
 const suggest = prSecurityScanRepository.setSuggestedDisposition as jest.Mock
-const addTokens = prSecurityScanRepository.addTokenSpent as jest.Mock
+const addTokens = prSecurityScanRepository.addSuggestionTokens as jest.Mock
+const markSuggested = prSecurityScanRepository.markSuggested as jest.Mock
 const disposition = prSecurityScanRepository.updateDisposition as jest.Mock
 const diff = fetchPrDiff as jest.Mock
 const falsify = falsifyExternalFinding as jest.Mock
@@ -81,6 +83,7 @@ describe('LUM-740 suggested disposition', () => {
     diff.mockResolvedValue(DIFF)
     suggest.mockResolvedValue(undefined)
     addTokens.mockResolvedValue(undefined)
+    markSuggested.mockResolvedValue(undefined)
   })
   afterAll(() => {
     if (env === undefined) delete process.env.LUMO_SECURITY_SUGGEST
@@ -103,6 +106,74 @@ describe('LUM-740 suggested disposition', () => {
     )
     expect(disposition).not.toHaveBeenCalled()
     expect(addTokens).toHaveBeenCalledWith('s1', 321)
+  })
+
+  it('the stored reason is redacted (the model cites the flagged line) and capped at 500 chars', async () => {
+    findScan.mockResolvedValue(scan([candidate({})]))
+    falsify.mockResolvedValue({
+      verdict: 'REJECT',
+      reason:
+        `the value ${PLAINTEXT} on line 2 is the documented example key ` +
+        'x'.repeat(600),
+      tokens: 1,
+    })
+    await securitySuggestDispositionService.suggestForScan('s1')
+    const reason = suggest.mock.calls[0][2] as string
+    expect(reason).not.toContain(PLAINTEXT)
+    expect(reason.length).toBeLessThanOrEqual(500)
+  })
+
+  it('marks the scan judged when the pass ran — even with nothing to judge — so the PR sync may post external rows', async () => {
+    findScan.mockResolvedValue(scan([candidate({})]))
+    falsify.mockResolvedValue({
+      verdict: 'INCONCLUSIVE',
+      reason: 'r',
+      tokens: 1,
+    })
+    await securitySuggestDispositionService.suggestForScan('s1')
+    expect(markSuggested).toHaveBeenCalledWith('s1')
+
+    jest.clearAllMocks()
+    findScan.mockResolvedValue(scan([]))
+    await securitySuggestDispositionService.suggestForScan('s1')
+    expect(markSuggested).toHaveBeenCalledWith('s1')
+  })
+
+  it('does not mark the scan judged when the pass is off or the scan is missing', async () => {
+    process.env.LUMO_SECURITY_SUGGEST = 'off'
+    findScan.mockResolvedValue(scan([candidate({})]))
+    await securitySuggestDispositionService.suggestForScan('s1')
+    expect(markSuggested).not.toHaveBeenCalled()
+    delete process.env.LUMO_SECURITY_SUGGEST
+    findScan.mockResolvedValue(null)
+    await securitySuggestDispositionService.suggestForScan('gone')
+    expect(markSuggested).not.toHaveBeenCalled()
+  })
+
+  it('exposes the pass as three steps the workflow can run one finding at a time', async () => {
+    findScan.mockResolvedValue(
+      scan([candidate({ id: 'f1' }), candidate({ id: 'f2', line: 99 })])
+    )
+    const prepared = await securitySuggestDispositionService.prepare('s1')
+    expect(prepared.enabled).toBe(true)
+    // f2's line is not in the diff → not a candidate.
+    expect(prepared.candidates.map(c => c.id)).toEqual(['f1'])
+    expect(prepared.candidates[0]?.hunk).toContain('+const b = exec(cmd)')
+    expect(JSON.stringify(prepared)).not.toContain('evidence')
+
+    falsify.mockResolvedValue({
+      verdict: 'REJECT',
+      reason: 'literal',
+      tokens: 7,
+    })
+    await expect(
+      securitySuggestDispositionService.judge(prepared.candidates[0]!)
+    ).resolves.toEqual({ suggested: true, tokens: 7 })
+    expect(suggest).toHaveBeenCalledWith('f1', 'FALSE_POSITIVE', 'literal')
+
+    await securitySuggestDispositionService.finish('s1', 7)
+    expect(addTokens).toHaveBeenCalledWith('s1', 7)
+    expect(markSuggested).toHaveBeenCalledWith('s1')
   })
 
   it('an INCONCLUSIVE verdict writes nothing', async () => {

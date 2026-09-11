@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
@@ -409,15 +409,27 @@ function FindingRow({
   const [error, setError] = useState<string | null>(null)
   const [chainOpen, setChainOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (copiedTimer.current) clearTimeout(copiedTimer.current)
+    },
+    []
+  )
   const suggestedOpen =
     finding.suggestedDisposition !== null && finding.disposition === null
 
-  function copyForAgent() {
-    void navigator.clipboard?.writeText(
-      buildAgentContext(finding, { number: prNumber })
-    )
+  async function copyForAgent() {
+    try {
+      await navigator.clipboard.writeText(
+        buildAgentContext(finding, { number: prNumber })
+      )
+    } catch {
+      return
+    }
     setCopied(true)
-    setTimeout(() => setCopied(false), 1200)
+    if (copiedTimer.current) clearTimeout(copiedTimer.current)
+    copiedTimer.current = setTimeout(() => setCopied(false), 1200)
   }
 
   async function submit() {

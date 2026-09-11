@@ -86,6 +86,19 @@ describe('LUM-740 security policy', () => {
     it('an empty block list is a valid "nothing blocks" policy, not the default', () => {
       expect(parseSecurityPolicy({ block: [] })).toEqual({ block: [] })
     })
+
+    it('a non-empty list with no legal rule is the default, never "nothing blocks" by accident', () => {
+      expect(
+        parseSecurityPolicy({
+          block: [{ provenance: 'DETERMINSTIC', severity: 'HIGH' }],
+        })
+      ).toEqual(DEFAULT_SECURITY_POLICY)
+      expect(
+        parseSecurityPolicy({
+          block: [{ provenance: 'LLM_JUDGE', severity: 'HIGH' }],
+        })
+      ).toEqual(DEFAULT_SECURITY_POLICY)
+    })
   })
 
   describe('securityPolicySchema (the API edge)', () => {

@@ -18,7 +18,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findFindingWithScope: jest.fn(),
     updateDisposition: jest.fn(),
-    confirmSuggestedByTask: jest.fn(),
+    confirmSuggestedByScanIds: jest.fn(),
     findLatestByPullRequestIds: jest.fn(),
     findPreviousOpenFingerprints: jest.fn(),
   },
@@ -63,7 +63,8 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 
 const findFinding = prSecurityScanRepository.findFindingWithScope as jest.Mock
 const update = prSecurityScanRepository.updateDisposition as jest.Mock
-const confirmAll = prSecurityScanRepository.confirmSuggestedByTask as jest.Mock
+const confirmAll =
+  prSecurityScanRepository.confirmSuggestedByScanIds as jest.Mock
 const latestScans =
   prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const previousOpen =
@@ -184,15 +185,36 @@ describe('LUM-740 bulk disposition — service', () => {
     })
   })
 
-  it('bulk confirm is one task-scoped repository write stamped with the actor', async () => {
+  it('bulk confirm is one write over the task PRs’ LATEST scans (what the panel counts), stamped with the actor', async () => {
+    prsOf.mockResolvedValue([{ id: 'pr1' }, { id: 'pr2' }])
+    latestScans.mockResolvedValue([
+      {
+        id: 's-pr1-new',
+        pullRequestId: 'pr1',
+        startedAt: new Date(20),
+        findings: [],
+      },
+      {
+        id: 's-pr1-old',
+        pullRequestId: 'pr1',
+        startedAt: new Date(10),
+        findings: [],
+      },
+      {
+        id: 's-pr2',
+        pullRequestId: 'pr2',
+        startedAt: new Date(5),
+        findings: [],
+      },
+    ])
     confirmAll.mockResolvedValue(3)
     const before = Date.now()
     await expect(
       prSecurityScanService.dispositionSuggested('t1', 'm1')
     ).resolves.toEqual({ confirmed: 3 })
     expect(confirmAll).toHaveBeenCalledTimes(1)
-    const [taskId, data] = confirmAll.mock.calls[0]
-    expect(taskId).toBe('t1')
+    const [scanIds, data] = confirmAll.mock.calls[0]
+    expect([...scanIds].sort()).toEqual(['s-pr1-new', 's-pr2'])
     expect(data).toMatchObject({
       dispositionedById: 'm1',
       dispositionNote: 'Confirmed LLM suggestion (bulk)',
@@ -251,6 +273,20 @@ describe('LUM-740 read model — fixed and suggested counts', () => {
       new Date('2026-09-11T10:00:00Z')
     )
     expect(view.prs[0]?.latest?.fixed).toBe(2)
+  })
+
+  it('fixed is 0 (and the previous scan is not read) while the latest scan is still incomplete', async () => {
+    latestScans.mockResolvedValue([
+      scanRow({
+        stages: { secrets: 'RAN', external: 'PENDING' },
+        findings: [],
+      }),
+    ])
+    previousOpen.mockResolvedValue(['fpA', 'fpB'])
+    const view = await prSecurityScanService.getForTask('t1')
+    expect(view.prs[0]?.latest?.complete).toBe(false)
+    expect(view.prs[0]?.latest?.fixed).toBe(0)
+    expect(previousOpen).not.toHaveBeenCalled()
   })
 
   it('counts open suggested false positives across PRs; dispositioned ones do not count', async () => {

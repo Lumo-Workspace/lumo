@@ -129,14 +129,14 @@ export const workspaceRepository = {
     })
   },
 
-  /** Update workspace fields. A `securityPolicy: null` clears the Json column (LUM-740). */
+  /** Update workspace fields. A `securityPolicy: null` clears the Json column to SQL NULL (LUM-740). */
   async update(id: string, data: WorkspaceUpdateData) {
     const { securityPolicy, ...rest } = data
     const payload: Record<string, unknown> = { ...rest }
     if (securityPolicy !== undefined) {
       payload.securityPolicy =
         securityPolicy === null
-          ? Prisma.JsonNull
+          ? Prisma.DbNull
           : (securityPolicy as Prisma.InputJsonValue)
     }
     return prisma.workspace.update({

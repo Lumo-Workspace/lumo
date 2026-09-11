@@ -46,6 +46,7 @@ import {
 } from '@/lib/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import { isDowngradedPath } from '@/lib/security-scan/secret-patterns'
+import { isSuggestEnabled } from '@/lib/services/security-suggest.config'
 import { resolvePublicUrl } from '@/lib/utils/public-url'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
@@ -483,13 +484,19 @@ export const securityPrReviewService = {
       // `== null`: rows read by callers written before the column existed
       // (tests, older projections) carry `undefined`, which is "not suggested".
       const suggested = open.filter(f => f.suggestedDisposition != null).length
+      // LUM-740: the hunt run syncs concurrently with the managed run —
+      // until the suggested-disposition pass has stamped this scan, an
+      // EXTERNAL_TOOL row may still become a suggested false positive, so it
+      // waits (the summary still counts it). Deterministic rows never wait.
+      const holdExternal = isSuggestEnabled() && scan.suggestedAt == null
       // Only findings on a line this PR added can carry an inline comment;
       // the rest are still counted by the summary.
       const candidates = open.filter(
         f =>
           f.line !== null &&
           f.severity !== 'LOW' &&
-          f.suggestedDisposition == null
+          f.suggestedDisposition == null &&
+          !(holdExternal && f.provenance === 'EXTERNAL_TOOL')
       )
       const selected = candidates
         .filter(f => !existing.has(f.fingerprint))

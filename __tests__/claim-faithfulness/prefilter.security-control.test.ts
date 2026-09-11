@@ -87,6 +87,25 @@ describe('LUM-740 security-control-claim prefilter', () => {
     ).toBeNull()
   })
 
+  it('does not flag "verified / validated locally" — testing talk, not a control claim', () => {
+    expect(
+      prefilterSecurityControlClaim(
+        'validated the fix locally with jest',
+        RENDER_ONLY
+      )
+    ).toBeNull()
+    expect(
+      prefilterSecurityControlClaim('已在本地验证通过', RENDER_ONLY)
+    ).toBeNull()
+    // …while an added validation still is one.
+    expect(
+      prefilterSecurityControlClaim(
+        'added input validations to the route',
+        RENDER_ONLY
+      )
+    ).toBe('SECURITY_CONTROL_CLAIM')
+  })
+
   describe('prefilterClaim (one signal per verdict)', () => {
     const delivery = (diff: string, churn = 40) => ({
       additions: churn,

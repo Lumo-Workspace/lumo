@@ -92,6 +92,7 @@ function scanRow(over: Record<string, unknown> = {}) {
     partial: false,
     error: null,
     summaryCommentId: null,
+    suggestedAt: new Date('2026-09-11T00:00:00Z'),
     findings: [],
     pullRequest: {
       id: 'pr1',
@@ -197,6 +198,61 @@ describe('LUM-740 PR review', () => {
       )
       // Not counted as "skipped": nothing is waiting for a later sync.
       expect(out.skipped).toBe(0)
+    })
+
+    it('holds EXTERNAL_TOOL inline comments until the suggestion pass has run on the scan', async () => {
+      // The hunt run syncs concurrently with the managed run; without this
+      // it would post the very comments the suggestion pass is about to
+      // suppress. Deterministic rows are not affected.
+      findById.mockResolvedValue(
+        scanRow({
+          suggestedAt: null,
+          findings: [
+            finding({ id: 'ext', fingerprint: 'fp-ext' }),
+            finding({
+              id: 'det',
+              fingerprint: 'fp-det',
+              provenance: 'DETERMINISTIC',
+              severity: 'HIGH',
+              ruleId: 'secret:aws',
+              filePath: 'lib/cfg.ts',
+            }),
+          ],
+        })
+      )
+      const out = await securityPrReviewService.sync('s1')
+      expect(inlinePaths()).toEqual(['lib/cfg.ts'])
+      expect(out.skipped).toBe(0)
+      expect(summaryBody()).toContain('**2 open findings**')
+    })
+
+    it('posts EXTERNAL_TOOL inline comments once the suggestion pass has run, or when it is switched off', async () => {
+      findById.mockResolvedValue(
+        scanRow({ findings: [finding({ id: 'ext', fingerprint: 'fp-ext' })] })
+      )
+      await securityPrReviewService.sync('s1')
+      expect(inlinePaths()).toEqual(['lib/run.ts'])
+
+      jest.clearAllMocks()
+      token.mockResolvedValue('tok')
+      listIssue.mockResolvedValue([])
+      listReview.mockResolvedValue([])
+      createIssue.mockResolvedValue({ id: 901 })
+      createReview.mockResolvedValue({ id: 2 })
+      findSummaryId.mockResolvedValue(null)
+      process.env.LUMO_SECURITY_SUGGEST = 'off'
+      try {
+        findById.mockResolvedValue(
+          scanRow({
+            suggestedAt: null,
+            findings: [finding({ id: 'ext', fingerprint: 'fp-ext' })],
+          })
+        )
+        await securityPrReviewService.sync('s1')
+        expect(inlinePaths()).toEqual(['lib/run.ts'])
+      } finally {
+        delete process.env.LUMO_SECURITY_SUGGEST
+      }
     })
 
     it('says neither line when there is nothing LOW or suggested', async () => {

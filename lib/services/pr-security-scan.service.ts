@@ -251,6 +251,11 @@ function toFindingView(
   }
 }
 
+/** The view's `complete` rule, shared with the read model's `fixed` gate. */
+function isViewComplete(s: ScanWithFindings): boolean {
+  return s.status !== 'FAILED' && !s.partial && isCompleteScan(stagesOf(s))
+}
+
 function toScanView(
   s: ScanWithFindings,
   policy: SecurityPolicy,
@@ -266,7 +271,7 @@ function toScanView(
     truncated: s.truncated,
     stages,
     partial: s.partial,
-    complete: s.status !== 'FAILED' && !s.partial && isCompleteScan(stages),
+    complete: isViewComplete(s),
     externalLate:
       stages.external === 'PENDING' &&
       Date.now() - s.startedAt.getTime() > EXTERNAL_PENDING_LATE_MS,
@@ -278,8 +283,13 @@ function toScanView(
   }
 }
 
-/** LUM-740: previous-scan open fingerprints that this scan no longer carries. */
+/**
+ * LUM-740: previous-scan open fingerprints that this scan no longer carries.
+ * Only for a complete scan — while a layer is still pending its rows have
+ * not landed, and "3 fixed" would be a claim the next minute retracts.
+ */
 async function countFixed(scan: ScanWithFindings): Promise<number> {
+  if (!isViewComplete(scan)) return 0
   const previous = await prSecurityScanRepository.findPreviousOpenFingerprints(
     scan.pullRequestId,
     scan.startedAt
@@ -674,12 +684,17 @@ export const prSecurityScanService = {
       // once it has persisted, and one summary per scan is the contract —
       // unless stage A itself found something that blocks DONE, which must
       // reach the PR even if the managed run never executes.
+      // LUM-740: "blocks DONE" is the workspace's policy here as everywhere.
+      const policy = await loadSecurityPolicy(pr.workspaceId)
       const blocksDone = rows.some(r =>
-        isBlockingFinding({
-          provenance: r.provenance,
-          severity: r.severity,
-          disposition: r.disposition ?? null,
-        })
+        isBlockingFinding(
+          {
+            provenance: r.provenance,
+            severity: r.severity,
+            disposition: r.disposition ?? null,
+          },
+          policy
+        )
       )
       // LUM-739: same rule for a started hunt run — it syncs when it lands.
       if ((!managedRunStarted && !huntRunStarted) || blocksDone) {
@@ -785,8 +800,14 @@ export const prSecurityScanService = {
     taskId: string,
     actorMemberId: string
   ): Promise<{ confirmed: number }> {
-    const confirmed = await prSecurityScanRepository.confirmSuggestedByTask(
-      taskId,
+    // The latest scan per PR — the rows the panel shows and counts.
+    const prs = await pullRequestRepository.findManyForSecurityByTaskId(taskId)
+    const scans = await prSecurityScanRepository.findLatestByPullRequestIds(
+      prs.map(p => p.id)
+    )
+    const scanIds = [...latestScanPerPr(scans).values()].map(s => s.id)
+    const confirmed = await prSecurityScanRepository.confirmSuggestedByScanIds(
+      scanIds,
       {
         dispositionNote: 'Confirmed LLM suggestion (bulk)',
         dispositionedById: actorMemberId,

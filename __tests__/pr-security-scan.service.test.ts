@@ -93,6 +93,7 @@ import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-s
 import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
 import { securityBaselineService } from '@/lib/services/security-baseline.service'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { waitUntil } from '@vercel/functions'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
@@ -638,6 +639,34 @@ describe('LUM-735 SARIF push — stage A side', () => {
       })
     )
     expect(startManaged).not.toHaveBeenCalled()
+  })
+
+  test('LUM-740: the early PR sync on a blocking finding honours the workspace policy', async () => {
+    // Default policy: a deterministic HIGH key blocks DONE → stage A syncs
+    // the PR itself even though the managed run will sync later.
+    fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+    countExternal.mockResolvedValue(0)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(waitUntilMock).toHaveBeenCalledTimes(1)
+
+    // A workspace whose policy blocks nothing: nothing is urgent, the
+    // managed run's own sync is the one summary.
+    waitUntilMock.mockClear()
+    syncReview.mockClear()
+    ;(
+      workspaceRepository.findSecurityPolicy as jest.Mock
+    ).mockResolvedValueOnce({
+      block: [],
+    })
+    repo.findByPrAndSha.mockResolvedValue(null)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(waitUntilMock).not.toHaveBeenCalled()
   })
 
   test('managed scan on, no external rows yet → starts the workflow with the scan row and PENDING', async () => {

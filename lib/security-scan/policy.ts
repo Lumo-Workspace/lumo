@@ -53,6 +53,9 @@ export function parseSecurityPolicy(json: unknown): SecurityPolicy {
     const parsed = ruleSchema.safeParse(entry)
     if (parsed.success) rules.push(parsed.data)
   }
+  // A list that names rules but none of them legal (a typo, or only
+  // LLM_JUDGE) is a broken row, not a decision to block nothing.
+  if (block.length > 0 && rules.length === 0) return DEFAULT_SECURITY_POLICY
   return { block: rules }
 }
 
