@@ -32,6 +32,10 @@ import {
 import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
 import { numberLines } from '@/lib/security-scan/hunt/snippet'
 import {
+  parseHuntCoverage,
+  formatHuntCoverage,
+} from '@/lib/security-scan/hunt/coverage'
+import {
   prSecurityScanRepository,
   type NewFindingInput,
 } from '@/lib/repositories/pr-security-scan.repository'
@@ -290,6 +294,15 @@ export const securityHuntService = {
         partial: input.partial,
       }
     )
+    // LUM-762: the completion rate of this layer is the thing being watched,
+    // so every run states its per-category outcome once, where a deploy log
+    // keeps it. `lumo task status` reads the same audit off the row.
+    const coverage = parseHuntCoverage({ categories: input.audit.categories })
+    if (coverage) {
+      logger.info(
+        `[security-hunt] coverage scan=${input.job.scanId} ${formatHuntCoverage(coverage)}`
+      )
+    }
     return { written: inherited.length }
   },
 

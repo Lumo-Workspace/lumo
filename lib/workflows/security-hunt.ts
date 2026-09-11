@@ -4,20 +4,33 @@
  *
  *   buildSubgraphStep → huntCategoryStep × 6 (one bounded tool-calling
  *   batch per checklist category; candidates accumulate here, the budget is
- *   checked between batches) → mechanicalVerifyStep → falsifierStep per
- *   surviving candidate → persistHuntFindingsStep → syncPrReviewStep.
+ *   checked between batches) → one retry batch per category the gateway
+ *   dropped → mechanicalVerifyStep → falsifierStep per surviving candidate →
+ *   persistHuntFindingsStep → syncPrReviewStep.
+ *
+ * LUM-762 — the layer used to end PARTIAL as a matter of routine: a batch got
+ * the WHOLE remaining budget, so the first category to wedge on the gateway
+ * spent the scan's 200s and the rest never ran (and left no audit row saying
+ * so). Now a batch may spend at most HUNT_CATEGORY_TIME_MS / _TOKEN_MAX, a
+ * category that stopped on a transient failure gets one more attempt with a
+ * fresh window, and a category that never ran is recorded as `skipped`.
  *
  * Deterministic body: no I/O, no logging, no Date — elapsed time is measured
- * inside each batch step and returned. Any budget overrun, batch failure or
- * subgraph cap makes the layer PARTIAL, never RAN; a step that exhausts its
- * retries makes it FAILED with the reason in huntAudit.
+ * inside each batch step and returned. A category that never reaches `done`,
+ * a subgraph cap or a falsifier overflow makes the layer PARTIAL, never RAN;
+ * a step that exhausts its retries makes it FAILED with the reason in
+ * huntAudit.
  */
 import {
   HUNT_CATEGORIES,
   HUNT_TOKEN_BUDGET,
   HUNT_TIME_BUDGET_MS,
+  HUNT_CATEGORY_TIME_MS,
+  HUNT_CATEGORY_TOKEN_MAX,
   HUNT_MAX_FALSIFIED,
   type HuntJob,
+  type HuntCategory,
+  type HuntCategoryStop,
   type HuntAudit,
   type HuntFindingInput,
   type HuntResult,
@@ -79,17 +92,36 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     }
 
     const raw: unknown[] = []
+    /** Each category's latest outcome — the retry pass and P9 both read it. */
+    const stops: Partial<Record<HuntCategory, HuntCategoryStop>> = {}
+
+    // Pass 1 — one bounded batch per category. The ceiling (not the whole
+    // remaining budget) is what a batch may spend, so one wedged category
+    // cannot starve the five behind it (LUM-762).
     for (const category of HUNT_CATEGORIES) {
       if (tokenSpent >= HUNT_TOKEN_BUDGET || elapsedMs >= HUNT_TIME_BUDGET_MS) {
-        partial = true
-        break
+        audit.categories.push({
+          category,
+          candidates: 0,
+          tokens: 0,
+          elapsedMs: 0,
+          stopped: 'skipped',
+        })
+        stops[category] = 'skipped'
+        continue
       }
       const batch = await huntCategoryStep({
         job,
         subgraph: graph.subgraph,
         category,
-        tokenBudget: HUNT_TOKEN_BUDGET - tokenSpent,
-        timeBudgetMs: HUNT_TIME_BUDGET_MS - elapsedMs,
+        tokenBudget: Math.min(
+          HUNT_CATEGORY_TOKEN_MAX,
+          HUNT_TOKEN_BUDGET - tokenSpent
+        ),
+        timeBudgetMs: Math.min(
+          HUNT_CATEGORY_TIME_MS,
+          HUNT_TIME_BUDGET_MS - elapsedMs
+        ),
       })
       tokenSpent += batch.tokens
       elapsedMs += batch.elapsedMs
@@ -101,7 +133,49 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         elapsedMs: batch.elapsedMs,
         stopped: batch.stopped,
       })
-      if (batch.stopped !== 'done') partial = true
+      stops[category] = batch.stopped
+    }
+
+    // Pass 2 — one retry per category the gateway dropped (LUM-762). Upstream
+    // flakiness is routine and used to void the whole layer; a second attempt
+    // with a fresh window is what turns that PARTIAL back into RAN. Only
+    // transient stops qualify — a batch that hit its step or token cap would
+    // hit it again. The body is deliberately a copy of pass 1's: a `'use
+    // workflow'` body awaits its steps directly, not through a local helper.
+    for (const category of HUNT_CATEGORIES) {
+      const stop = stops[category]
+      if (stop !== 'timeout' && stop !== 'error') continue
+      if (tokenSpent >= HUNT_TOKEN_BUDGET || elapsedMs >= HUNT_TIME_BUDGET_MS)
+        break
+      const retry = await huntCategoryStep({
+        job,
+        subgraph: graph.subgraph,
+        category,
+        tokenBudget: Math.min(
+          HUNT_CATEGORY_TOKEN_MAX,
+          HUNT_TOKEN_BUDGET - tokenSpent
+        ),
+        timeBudgetMs: Math.min(
+          HUNT_CATEGORY_TIME_MS,
+          HUNT_TIME_BUDGET_MS - elapsedMs
+        ),
+      })
+      tokenSpent += retry.tokens
+      elapsedMs += retry.elapsedMs
+      raw.push(...retry.candidates)
+      audit.categories.push({
+        category,
+        candidates: retry.candidates.length,
+        tokens: retry.tokens,
+        elapsedMs: retry.elapsedMs,
+        stopped: retry.stopped,
+      })
+      stops[category] = retry.stopped
+    }
+
+    // P9: the layer is whole only when every category ended `done`.
+    for (const category of HUNT_CATEGORIES) {
+      if (stops[category] !== 'done') partial = true
     }
 
     const verified = await mechanicalVerifyStep({

@@ -24,6 +24,7 @@ import {
   securityHuntService,
   toHuntFindingRows,
 } from '@/lib/services/security-hunt.service'
+import { logger } from '@/lib/logger'
 import { fetchPrDiff, readRepoFile } from '@/lib/integrations/github/contents'
 import { huntCategory } from '@/lib/llm/security-hunt-client'
 import { falsifyCandidate } from '@/lib/llm/security-falsifier-client'
@@ -317,6 +318,52 @@ describe('LUM-739 hunt service', () => {
       partial: true,
     })
     expect((final.huntAudit.rejected as unknown[]).length).toBe(50)
+  })
+
+  it('LUM-762 logs one per-category coverage line so a deploy log answers how long each category took', async () => {
+    repo.findDispositionedByPullRequest.mockResolvedValue([])
+    await securityHuntService.persist({
+      job: JOB,
+      findings: [],
+      audit: {
+        candidates: 0,
+        rejected: [],
+        falsifierRejects: 0,
+        falsifierRejected: [],
+        categories: [
+          {
+            category: 'idor',
+            candidates: 0,
+            tokens: 900,
+            elapsedMs: 41_200,
+            stopped: 'done',
+          },
+          {
+            category: 'injection',
+            candidates: 0,
+            tokens: 0,
+            elapsedMs: 60_000,
+            stopped: 'timeout',
+          },
+          {
+            category: 'injection',
+            candidates: 1,
+            tokens: 800,
+            elapsedMs: 12_000,
+            stopped: 'done',
+          },
+        ],
+        subgraph: { files: 1, symbols: 1, edges: 1, partial: false },
+      },
+      tokenSpent: 1700,
+      partial: true,
+    })
+    const line = (logger.info as jest.Mock).mock.calls
+      .map(c => String(c[0]))
+      .find(c => c.includes('[security-hunt] coverage'))
+    expect(line).toBe(
+      '[security-hunt] coverage scan=s1 2/6 done · idor 41.2s done · injection 72.0s done (2 attempts)'
+    )
   })
 
   it('markFailed stamps FAILED with the reason in huntAudit and the tokens spent', async () => {
