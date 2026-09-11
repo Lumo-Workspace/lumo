@@ -406,3 +406,115 @@ describe('LUM-758 wrap-up', () => {
     expect(out.stopped).toBe('steps')
   })
 })
+
+// LUM-758 follow-up, review findings F1 and F3. Both are about the wrap-up
+// paying for itself out of somebody else's account.
+describe('LUM-758 wrap-up accounting', () => {
+  const searchEndingOnSteps = (tokens: number, lastStep: number) => ({
+    steps: [
+      { usage: { totalTokens: tokens - lastStep }, toolCalls: [] },
+      { usage: { totalTokens: lastStep }, toolCalls: [] },
+    ],
+    totalUsage: { totalTokens: tokens },
+    response: { messages: [{ role: 'assistant', content: 'looked' }] },
+  })
+
+  it('reports what ended the SEARCH, not what the wrap-up then spent', async () => {
+    // 10k of a 20k budget, ended on the step cap. The wrap-up costs 12k, so the
+    // total crosses the budget — but the search did not, and `stopped` is the
+    // field `taskStops` and LUM-762's "budget before the ceiling, steps after"
+    // diagnosis are made of.
+    gen
+      .mockResolvedValueOnce(searchEndingOnSteps(10_000, 1_000))
+      .mockResolvedValueOnce({
+        steps: [
+          {
+            usage: { totalTokens: 12_000 },
+            toolCalls: [{ toolName: 'submit_candidates' }],
+          },
+        ],
+        totalUsage: { totalTokens: 12_000 },
+      })
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      wrapUpTimeoutMs: 30_000,
+      timeoutMs: 5000,
+      maxSteps: 4,
+    })
+
+    expect(out.stopped).toBe('steps')
+    // The money is still all there — only the label is the search's.
+    expect(out.tokens).toBe(22_000)
+    expect(out.wrappedUp).toBe(true)
+  })
+
+  it('prices the replay at the last step, not at a flat floor', async () => {
+    // 14k spent, 6k left, and the last step cost 10k — replaying the transcript
+    // costs about that, so asking would blow the ceiling. A flat 4k floor would
+    // have said yes (6k ≥ 4k) and billed a 20k task at ~24k.
+    gen.mockResolvedValueOnce(searchEndingOnSteps(14_000, 10_000))
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      wrapUpTimeoutMs: 30_000,
+      timeoutMs: 5000,
+      maxSteps: 4,
+    })
+
+    expect(gen).toHaveBeenCalledTimes(1)
+    expect(out.wrappedUp).toBeUndefined()
+  })
+
+  it('still asks when the replay genuinely fits', async () => {
+    gen
+      .mockResolvedValueOnce(searchEndingOnSteps(14_000, 2_000))
+      .mockResolvedValueOnce({
+        steps: [
+          {
+            usage: { totalTokens: 300 },
+            toolCalls: [{ toolName: 'submit_candidates' }],
+          },
+        ],
+        totalUsage: { totalTokens: 300 },
+      })
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      wrapUpTimeoutMs: 30_000,
+      timeoutMs: 5000,
+      maxSteps: 4,
+    })
+
+    expect(gen).toHaveBeenCalledTimes(2)
+    expect(out.wrappedUp).toBe(true)
+  })
+
+  it('does not ask when the batch clock left no window for the answer', async () => {
+    // The service clamps `wrapUpTimeoutMs` to what is left of the batch's own
+    // ceiling; zero means asking would only bill an immediate abort.
+    gen.mockResolvedValueOnce(searchEndingOnSteps(10_000, 1_000))
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      wrapUpTimeoutMs: 0,
+      timeoutMs: 5000,
+      maxSteps: 4,
+    })
+
+    expect(gen).toHaveBeenCalledTimes(1)
+    expect(out.wrappedUp).toBeUndefined()
+  })
+})

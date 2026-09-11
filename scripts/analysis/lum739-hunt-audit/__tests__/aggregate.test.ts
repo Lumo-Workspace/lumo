@@ -69,6 +69,7 @@ describe('LUM-739 hunt audit', () => {
       },
       taskStops: {},
       tasksWrappedUp: 0,
+      tasksRan: 0,
       sandbox: { attached: 0, created: 0, egressOpen: 0 },
       compress: {
         scans: 0,
@@ -145,6 +146,9 @@ describe('LUM-739 hunt audit', () => {
     expect(stats.taskStops).toEqual({ budget: 1 })
     // The convergence read: the agent did not submit on its own, it was asked.
     expect(stats.tasksWrappedUp).toBe(1)
+    // The denominator counts tasks that RAN, once each — not taskStops rows,
+    // which include `skipped` and carry two rows for a retried task.
+    expect(stats.tasksRan).toBe(1)
     expect(stats.sandbox).toEqual({ attached: 1, created: 0, egressOpen: 1 })
     // The whole point: 7 charged calls, 0 usable, 16k spent to see nothing.
     expect(stats.compress).toEqual({

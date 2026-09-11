@@ -67,6 +67,13 @@ export interface HuntAuditStats {
    * decides, and no amount of budget or context has changed that yet.
    */
   tasksWrappedUp: number
+  /**
+   * Tasks that actually RAN, counted once each — the honest denominator for
+   * the convergence read. `taskStops` cannot serve: it counts `skipped` rows
+   * (tasks the budget never reached) and carries TWO rows for a task the retry
+   * pass re-ran, which `HuntTaskAudit` documents as intentional.
+   */
+  tasksRan: number
   sandbox: { attached: number; created: number; egressOpen: number }
   compress: {
     scans: number
@@ -125,6 +132,7 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     },
     taskStops: {},
     tasksWrappedUp: 0,
+    tasksRan: 0,
     sandbox: { attached: 0, created: 0, egressOpen: 0 },
     compress: {
       scans: 0,
@@ -165,6 +173,15 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     }
 
     const tasks = Array.isArray(audit.tasks) ? audit.tasks : []
+    // Last row wins per task id: a retried task has two, and its outcome is the
+    // later one. `skipped` never ran and is excluded from the denominator.
+    const lastByTask = new Map<string, Record<string, unknown>>()
+    for (const t of tasks) {
+      const row = (t ?? {}) as Record<string, unknown>
+      const id = typeof row.taskId === 'string' ? row.taskId : ''
+      if (id !== '' && row.stopped !== 'skipped') lastByTask.set(id, row)
+    }
+    stats.tasksRan += lastByTask.size
     for (const t of tasks) {
       const stop = (t as { stopped?: unknown } | null)?.stopped
       const key = typeof stop === 'string' ? stop : 'unknown'

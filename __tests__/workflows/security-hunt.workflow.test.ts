@@ -698,6 +698,33 @@ describe('LUM-739 hunt workflow', () => {
 // silently dropped. That is the same shape of gap the compression no-op counter
 // was added to close, and it is invisible without a test: every other
 // assertion passes while the number nobody can read stays zero.
+// The RETRY pass writes its own audit row, and dropping the flag there is
+// invisible: the pass-1 test above stays green while every retried task reads
+// as "submitted on its own".
+it('carries wrappedUp on the retry pass row too', async () => {
+  plan.mockResolvedValue({
+    tasks: [
+      { id: 't1', objective: 'o1', category: 'idor', startingPoints: [] },
+    ],
+    reason: 'one signal',
+    by: 'model',
+    tokens: 100,
+  })
+  hunt
+    .mockImplementationOnce(async () => batch({ stopped: 'timeout' }))
+    .mockImplementationOnce(async () =>
+      batch({ stopped: 'budget', wrappedUp: true })
+    )
+
+  await securityHuntWorkflow(JOB)
+
+  const rows = persist.mock.calls[0]![0].audit.tasks
+  // Two rows for one task, in attempt order — the retry's is the outcome.
+  expect(rows).toHaveLength(2)
+  expect(rows[0]!.wrappedUp).toBeUndefined()
+  expect(rows[1]).toMatchObject({ taskId: 't1', wrappedUp: true })
+})
+
 it('carries wrappedUp from the batch into the persisted task audit', async () => {
   plan.mockResolvedValue({
     tasks: [

@@ -101,6 +101,12 @@ export interface HuntClientOutput {
    * and a layer whose agent never converged must not read as one that did.
    */
   wrappedUp?: boolean
+  /**
+   * Warnings the provider returned on a wrap-up that submitted nothing —
+   * above all `unsupported-setting` for the forced tool choice. Absent when
+   * the wrap-up worked or never ran.
+   */
+  wrapUpWarnings?: string[]
 }
 
 /** Hints, not a map: a long list of ids costs tokens and buys nothing now. */
@@ -293,8 +299,31 @@ export async function huntTask(
   // as the only tool available: an empty list is a valid answer, and a list is
   // better than the silence a counter produces. This is the difference between
   // "found nothing" and "was cut off holding something".
+  // `stopped` answers "what ended the SEARCH", so it has to be derived from
+  // what the search spent. Deriving it after the wrap-up has been added files a
+  // step-capped task as budget-capped whenever the replay is expensive enough
+  // to cross the line on its own — and `taskStops` is exactly the field the
+  // convergence read-out and LUM-762's "budget before the ceiling, steps after"
+  // diagnosis are made of.
+  const searchTokens = tokens
+
+  // The replay re-sends the whole transcript, so it costs about what the last
+  // search step's input cost — NOT a flat constant. Gating on 4k while the real
+  // price is 2-3× that is how a 20k ceiling ends up billing 22k, which is the
+  // same uncosted-late-step overshoot LUM-762's predictive stop was written to
+  // kill. `HUNT_WRAP_UP_MIN_TOKENS` stays as the floor for the degenerate case
+  // where no step reported usage.
+  const replayCost = Math.max(
+    lastStepTokens(result.steps),
+    HUNT_WRAP_UP_MIN_TOKENS
+  )
   let wrappedUp = false
-  if (!didSubmit && input.tokenBudget - tokens >= HUNT_WRAP_UP_MIN_TOKENS) {
+  let wrapWarnings: string[] = []
+  if (
+    !didSubmit &&
+    input.tokenBudget - searchTokens >= replayCost &&
+    input.wrapUpTimeoutMs > 0
+  ) {
     try {
       const wrap = await generateText({
         model: gateway(GENERATION_MODEL),
@@ -322,11 +351,22 @@ export async function huntTask(
       wrappedUp = wrap.steps.some(s =>
         s.toolCalls.some(c => c.toolName === 'submit_candidates')
       )
+      // A provider that does not support a forced tool choice does not throw —
+      // the SDK degrades and reports it here. The model then answers in prose,
+      // nothing is submitted, and `wrappedUp` reads false: "we asked and it had
+      // nothing", when we never managed to ask. This is the first `toolChoice`
+      // in the repo, so there is no precedent for this model path; say so out
+      // loud rather than let it read as a result.
+      if (!wrappedUp) {
+        wrapWarnings = (wrap.warnings ?? []).map(w => JSON.stringify(w))
+      }
     } catch {
       // Fail-soft, like every other optional step in this layer: a wrap-up that
       // cannot run leaves exactly the outcome we would have had without it.
       // Its tokens are lost to us here — the SDK throws without usage — which
-      // is the one place this layer under-bills, and it is bounded by one call.
+      // is the one place this layer under-bills. Bounded, but by more than one
+      // call: `maxRetries` is HUNT_CLIENT_MAX_RETRIES, and an aborted request
+      // can still have been billed upstream.
     }
   }
 
@@ -339,9 +379,12 @@ export async function huntTask(
     // the agent answer under duress.
     stopped: didSubmit
       ? 'done'
-      : tokens >= input.tokenBudget
+      : searchTokens >= input.tokenBudget
         ? 'budget'
         : 'steps',
     ...(wrappedUp ? { wrappedUp: true } : {}),
+    // Only ever set when the wrap-up ran and produced nothing: an empty answer
+    // and a refused request must not look the same in the audit.
+    ...(wrapWarnings.length > 0 ? { wrapUpWarnings: wrapWarnings } : {}),
   }
 }

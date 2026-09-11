@@ -388,6 +388,33 @@ describe('LUM-739 hunt service', () => {
     expect(stopMock).toHaveBeenCalledWith(HANDLE)
   })
 
+  // LUM-758 follow-up — the middle hop of the wrap-up's observability chain.
+  // The client computes `wrappedUp` and the workflow writes it to the audit,
+  // but if `huntBatch` drops it in between, the flag is computed, returned and
+  // never readable — and `tasksWrappedUp` stays permanently 0 while every other
+  // assertion passes. That is the same gap this chain was built to close, one
+  // layer below where it was looked for.
+  it('huntBatch carries wrappedUp out of the client, and leaves it absent when the agent submitted on its own', async () => {
+    huntMock.mockResolvedValueOnce({
+      candidates: [],
+      tokens: 900,
+      stopped: 'budget',
+      wrappedUp: true,
+    })
+    const asked = await securityHuntService.huntBatch(batchInput())
+    expect(asked.wrappedUp).toBe(true)
+
+    huntMock.mockResolvedValueOnce({
+      candidates: [],
+      tokens: 900,
+      stopped: 'done',
+    })
+    const volunteered = await securityHuntService.huntBatch(batchInput())
+    // Absent, never `false`: "did not need asking" must not be confused with
+    // "we asked and it refused".
+    expect(volunteered.wrappedUp).toBeUndefined()
+  })
+
   it('huntBatch charges shell compression to the batch tokens and breaks it out for the audit', async () => {
     // Three commands: one compressed, one under the threshold, one whose
     // compression was billed and then failed.

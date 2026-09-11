@@ -458,7 +458,13 @@ export const securityHuntService = {
         tokenBudget: input.tokenBudget,
         timeoutMs: remainingMs,
         maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
-        wrapUpTimeoutMs: HUNT_WRAP_UP_TIMEOUT_MS,
+        // Clamped to what is left of THIS batch's window, not granted on top
+        // of it: `timeBudgetMs` is a whole-batch ceiling, and an overrun here
+        // is paid by a later planned task being skipped.
+        wrapUpTimeoutMs: Math.min(
+          HUNT_WRAP_UP_TIMEOUT_MS,
+          Math.max(0, input.timeBudgetMs - (Date.now() - started))
+        ),
       })
       return {
         candidates: out.candidates,
