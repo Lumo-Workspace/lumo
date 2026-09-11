@@ -29,6 +29,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     findFindingWithScope: jest.fn(),
     updateDisposition: jest.fn(),
     mergeStages: jest.fn(),
+    setManagedRunId: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
@@ -44,6 +45,13 @@ jest.mock('@/lib/repositories/project.repository', () => ({
 }))
 jest.mock('@/lib/services/security-managed-scan-start', () => ({
   startSecurityManagedScan: jest.fn(),
+}))
+// LUM-745: supersede / hourly cap run before start().
+jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
+  securityManagedScanOpsService: {
+    supersedeOlderRuns: jest.fn(),
+    enforceHourlyCap: jest.fn(),
+  },
 }))
 // LUM-739: this suite pins the hunt OFF (see beforeEach); the trigger/handoff
 // behaviour has its own suite in pr-security-scan.service.hunt-trigger.test.ts.
@@ -73,6 +81,7 @@ import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.re
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
+import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
 import { securityBaselineService } from '@/lib/services/security-baseline.service'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
 import { waitUntil } from '@vercel/functions'
@@ -91,6 +100,8 @@ const fetchPrDiff = gh.fetchPrDiff as jest.Mock
 const fetchPrHeadSha = gh.fetchPrHeadSha as jest.Mock
 const judgeSecurity = judge.judgeSecurity as jest.Mock
 const startManaged = startSecurityManagedScan as jest.Mock
+const supersede = securityManagedScanOpsService.supersedeOlderRuns as jest.Mock
+const capCheck = securityManagedScanOpsService.enforceHourlyCap as jest.Mock
 const syncReview = securityPrReviewService.sync as jest.Mock
 const waitUntilMock = waitUntil as jest.Mock
 
@@ -126,6 +137,13 @@ beforeEach(() => {
   repo.countExternalFindings.mockResolvedValue(0)
   judgeSecurity.mockResolvedValue({ findings: [] })
   syncReview.mockResolvedValue({ posted: true, inline: 0, skipped: 0 })
+  supersede.mockResolvedValue({
+    superseded: 0,
+    cancelled: 0,
+    sandboxesStopped: 0,
+  })
+  capCheck.mockResolvedValue({ capped: false })
+  repo.setManagedRunId.mockResolvedValue(undefined)
   waitUntilMock.mockClear()
   ;(projectRepository.findLastSarifIngestAt as jest.Mock).mockResolvedValue(
     undefined
@@ -802,6 +820,113 @@ describe('LUM-735 SARIF push — stage A side', () => {
         },
       })
     )
+  })
+
+  test('LUM-745: supersede → cap → start → record the run id, in that order', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    const order: string[] = []
+    supersede.mockImplementation(async () => {
+      order.push('supersede')
+      return { superseded: 1, cancelled: 1, sandboxesStopped: 1 }
+    })
+    capCheck.mockImplementation(async () => {
+      order.push('cap')
+      return { capped: false }
+    })
+    startManaged.mockImplementation(async () => {
+      order.push('start')
+      return 'run_1'
+    })
+    repo.setManagedRunId.mockImplementation(async () => {
+      order.push('record')
+    })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(order).toEqual(['supersede', 'cap', 'start', 'record'])
+    expect(supersede).toHaveBeenCalledWith({
+      pullRequestId: 'pr1',
+      exceptScanId: 's1',
+      newHeadSha: 'sha-1',
+    })
+    expect(capCheck).toHaveBeenCalledWith({ workspaceId: 'w1' })
+    expect(repo.setManagedRunId).toHaveBeenCalledWith('s1', 'run_1')
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        stages: expect.objectContaining({
+          external: 'PENDING',
+          supplyChain: 'PENDING',
+        }),
+      })
+    )
+  })
+
+  test('LUM-745: hourly cap hit → no start, both layers FAILED, the prefixed reason lands in error, no baseline request', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    capCheck.mockResolvedValue({
+      capped: true,
+      reason:
+        'external: rate-limited: 20 managed scans started in the last hour (cap 20)',
+    })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(supersede).toHaveBeenCalled()
+    expect(startManaged).not.toHaveBeenCalled()
+    expect(repo.setManagedRunId).not.toHaveBeenCalled()
+    expect(securityBaselineService.ensure).not.toHaveBeenCalled()
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        stages: expect.objectContaining({
+          external: 'FAILED',
+          supplyChain: 'FAILED',
+        }),
+        error:
+          'external: rate-limited: 20 managed scans started in the last hour (cap 20)',
+      })
+    )
+    // Nobody else will sync for a run that never started.
+    expect(waitUntilMock).toHaveBeenCalled()
+  })
+
+  test('LUM-745: a failed managedRunId write is logged, the run stays PENDING and the scan does not fail', async () => {
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    countExternal.mockResolvedValue(0)
+    startManaged.mockResolvedValue('run_1')
+    repo.setManagedRunId.mockRejectedValue(new Error('P1001'))
+    const result = await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(result).toMatchObject({ status: 'CLEAN' })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      [],
+      expect.objectContaining({
+        stages: expect.objectContaining({ external: 'PENDING' }),
+      })
+    )
+    expect(securityBaselineService.ensure).toHaveBeenCalled()
+  })
+
+  test('LUM-745: with the managed scan off nothing is superseded or counted', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'off'
+    fetchPrDiff.mockResolvedValue(CLEAN_DIFF)
+    lastIngest.mockResolvedValue(null)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(supersede).not.toHaveBeenCalled()
+    expect(capCheck).not.toHaveBeenCalled()
   })
 })
 
