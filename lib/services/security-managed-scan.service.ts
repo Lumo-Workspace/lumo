@@ -25,6 +25,7 @@ import {
 } from '@/lib/integrations/vercel-sandbox'
 import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
+import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
   addedLinesWithNumbers,
   changedLinesOf,
@@ -38,10 +39,12 @@ import {
   MANAGED_SCAN_TOOLS,
   OSV_SCANNER_URL,
   SANDBOX_IMAGE,
+  SANDBOX_SCAN_TAG,
   SANDBOX_TIMEOUT_MS,
   SANDBOX_VCPUS,
   SEMGREP_CONFIGS,
   SEMGREP_VERSION,
+  supersededOutcome,
   type BaselineScanJob,
   type BaselineScanOutcome,
   type ManagedScanJob,
@@ -182,6 +185,8 @@ async function collectReports(opts: {
   sha: string
   token: string
   label: string
+  /** LUM-745: a PR scan tags its VM with its scan id; the baseline run passes none. */
+  tags?: Record<string, string>
 }): Promise<Partial<Record<ManagedScanTool, ToolReport>>> {
   const { token } = opts
   let sandbox: RepoSandbox
@@ -193,6 +198,7 @@ async function collectReports(opts: {
       timeoutMs: SANDBOX_TIMEOUT_MS,
       vcpus: SANDBOX_VCPUS,
       image: SANDBOX_IMAGE,
+      ...(opts.tags ? { tags: opts.tags } : {}),
     })
   } catch (error) {
     // Transient by default (retry); the SDK may echo the clone URL.
@@ -302,12 +308,23 @@ export const securityManagedScanService = {
       return allFailed('invalid head sha')
     }
     const label = `${logSafe(job.pr.repo)}#${job.pr.number} scan=${job.scanId}`
+    // LUM-745: stage A may have superseded this row (a newer head arrived)
+    // between start() and this step — or between a failed attempt and its
+    // retry. The stamp lands BEFORE the cancel, so reading it here is enough
+    // to never boot a VM for a scan nobody will read. A missing row (the PR
+    // was deleted) is treated the same way.
+    const stages = await prSecurityScanRepository.findStagesById(job.scanId)
+    if (!stages || stages.external === 'SUPERSEDED') {
+      logger.info(`[security-managed-scan] superseded before run ${label}`)
+      return supersededOutcome()
+    }
     const token = await getGithubInstallationToken(job.pr.workspaceId)
     const reports = await collectReports({
       repository: job.pr.repo,
       sha: job.headSha,
       token,
       label,
+      tags: { [SANDBOX_SCAN_TAG]: job.scanId },
     })
     let diff: string
     try {

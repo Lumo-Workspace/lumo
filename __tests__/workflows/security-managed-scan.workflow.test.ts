@@ -331,3 +331,31 @@ describe('LUM-738 osv-scanner in the managed workflow', () => {
     })
   })
 })
+
+it('LUM-745: a run superseded before its sandbox step returns DISCARDED without stamping or syncing', async () => {
+  const superseded = { kind: 'skipped', reason: 'superseded' }
+  scan.mockResolvedValue({
+    gitleaks: superseded,
+    semgrep: superseded,
+    'osv-scanner': superseded,
+  })
+  await expect(securityManagedScanWorkflow(JOB)).resolves.toEqual({
+    outcome: 'DISCARDED',
+    reason: 'superseded',
+  })
+  expect(persist).not.toHaveBeenCalled()
+  expect(markFailed).not.toHaveBeenCalled()
+  expect(markStages).not.toHaveBeenCalled()
+  expect(syncReview).not.toHaveBeenCalled()
+})
+
+it('LUM-745: only a full superseded outcome short-circuits — a lone skipped osv-scanner still runs the loop', async () => {
+  scan.mockResolvedValue({
+    gitleaks: ok('gitleaks', 0),
+    semgrep: ok('semgrep', 0),
+    'osv-scanner': { kind: 'skipped', reason: 'superseded' },
+  })
+  const result = await securityManagedScanWorkflow(JOB)
+  expect(result.outcome).toBe('INGESTED')
+  expect(persist).toHaveBeenCalledTimes(2)
+})

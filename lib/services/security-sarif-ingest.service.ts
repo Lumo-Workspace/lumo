@@ -126,7 +126,12 @@ export interface PersistOutcome {
 export type IngestResult =
   | { outcome: 'INGESTED'; scanId: string; findings: number; partial: boolean }
   | { outcome: 'ALREADY_PROCESSED' }
-  | { outcome: 'DISCARDED'; reason: 'pr_not_found' | 'workspace_mismatch' }
+  | {
+      outcome: 'DISCARDED'
+      // LUM-745: `superseded` — the managed run's sandbox step found its row
+      // already superseded and did nothing.
+      reason: 'pr_not_found' | 'workspace_mismatch' | 'superseded'
+    }
   | { outcome: 'FAILED'; scanId: string | null; reason: string }
 
 function sized(reason: string): Error {

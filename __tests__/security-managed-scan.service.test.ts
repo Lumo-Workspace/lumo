@@ -12,11 +12,16 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
 }))
+// LUM-745: the sandbox step's entry guard reads the row's stages.
+jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+  prSecurityScanRepository: { findStagesById: jest.fn() },
+}))
 
 import { logger } from '@/lib/logger'
 import { createRepoSandbox } from '@/lib/integrations/vercel-sandbox'
 import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
+import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
   securityManagedScanService,
   isManagedScanEnabled,
@@ -29,6 +34,10 @@ import {
   MANAGED_REPORT_MAX_BYTES,
   OSV_SCANNER_URL,
   BASELINE_MAX_FINGERPRINTS,
+  SANDBOX_SCAN_TAG,
+  SUPERSEDED_REASON,
+  managedScanHourlyCap,
+  MANAGED_SCAN_HOURLY_CAP_DEFAULT,
 } from '@/lib/services/security-managed-scan.service'
 import { dependencyFingerprint } from '@/lib/security-scan/redact'
 
@@ -179,11 +188,13 @@ function fakeSandbox(
 const create = createRepoSandbox as jest.Mock
 const token = getGithubInstallationToken as jest.Mock
 const diff = fetchPrDiff as jest.Mock
+const stagesById = prSecurityScanRepository.findStagesById as jest.Mock
 
 beforeEach(() => {
   jest.resetAllMocks()
   token.mockResolvedValue(TOKEN)
   diff.mockResolvedValue(DIFF)
+  stagesById.mockResolvedValue({ external: 'PENDING', supplyChain: 'PENDING' })
 })
 
 describe('isManagedScanEnabled', () => {
@@ -211,6 +222,7 @@ describe('scanRepository', () => {
       timeoutMs: SANDBOX_TIMEOUT_MS,
       vcpus: SANDBOX_VCPUS,
       image: SANDBOX_IMAGE,
+      tags: { [SANDBOX_SCAN_TAG]: 's1' },
     })
   })
 
@@ -436,6 +448,24 @@ describe('scanRepository', () => {
     expect(out.semgrep.kind).toBe('ok')
     expect(logger.warn).toHaveBeenCalled()
   })
+
+  it('LUM-745: a row already SUPERSEDED boots no sandbox and reports every tool skipped:superseded', async () => {
+    stagesById.mockResolvedValue({ external: 'SUPERSEDED' })
+    const out = await securityManagedScanService.scanRepository(JOB)
+    expect(stagesById).toHaveBeenCalledWith('s1')
+    expect(token).not.toHaveBeenCalled()
+    expect(create).not.toHaveBeenCalled()
+    expect(diff).not.toHaveBeenCalled()
+    for (const tool of ['gitleaks', 'semgrep', 'osv-scanner'] as const) {
+      expect(out[tool]).toEqual({ kind: 'skipped', reason: SUPERSEDED_REASON })
+    }
+  })
+
+  it('LUM-745: a missing row (deleted PR) also boots no sandbox', async () => {
+    stagesById.mockResolvedValue(null)
+    await securityManagedScanService.scanRepository(JOB)
+    expect(create).not.toHaveBeenCalled()
+  })
 })
 
 describe('scrubToken', () => {
@@ -630,5 +660,26 @@ describe('LUM-738 baseline scan (default branch, whole tree)', () => {
     expect(json).not.toContain(TOKEN)
     expect(json).not.toContain('lodash')
     expect(json).not.toContain('src/db.ts')
+  })
+
+  it('LUM-745: the baseline run reads no scan row and carries no scan tag', async () => {
+    create.mockResolvedValue(fakeSandbox(ALL_REPORTS))
+    await securityManagedScanService.scanBaseline(BASELINE)
+    expect(stagesById).not.toHaveBeenCalled()
+    expect(create.mock.calls[0][0]).not.toHaveProperty('tags')
+  })
+})
+
+describe('LUM-745 managedScanHourlyCap', () => {
+  it('defaults to 20 and accepts a positive integer override only', () => {
+    expect(managedScanHourlyCap({})).toBe(MANAGED_SCAN_HOURLY_CAP_DEFAULT)
+    expect(managedScanHourlyCap({ LUMO_MANAGED_SCAN_HOURLY_CAP: '5' })).toBe(5)
+    expect(managedScanHourlyCap({ LUMO_MANAGED_SCAN_HOURLY_CAP: '0' })).toBe(20)
+    expect(managedScanHourlyCap({ LUMO_MANAGED_SCAN_HOURLY_CAP: 'lots' })).toBe(
+      20
+    )
+    expect(managedScanHourlyCap({ LUMO_MANAGED_SCAN_HOURLY_CAP: '2.5' })).toBe(
+      20
+    )
   })
 })
