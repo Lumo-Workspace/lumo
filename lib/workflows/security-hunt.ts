@@ -259,6 +259,12 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       audit.planned = plan.tasks
       audit.plannedReason = plan.reason
       audit.plannedBy = plan.by
+      // LUM-764 — both default because an in-flight run queued by the previous
+      // deployment replays a step result that predates these two fields; the
+      // same deploy boundary `job.reasons ?? []` above is written for. `false`
+      // / `[]` is the honest reading of a plan made before the floor existed.
+      audit.taskContext = plan.taskContext ?? false
+      audit.floorForced = plan.floorForced ?? []
 
       // Short circuit B: an empty task list is a first-class answer. LUM-762's
       // prod data (RAN 1 / PARTIAL 14 / SKIPPED 7, 0 findings) says most PRs

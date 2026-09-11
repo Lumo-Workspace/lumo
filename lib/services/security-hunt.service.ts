@@ -41,7 +41,10 @@ import {
 import {
   planFallback,
   categoriesToTasks,
+  applyPlanFloor,
 } from '@/lib/security-scan/hunt/plan-fallback'
+import { renderHuntTaskContext } from '@/lib/security-scan/hunt/task-context'
+import { loadHuntTaskContext } from './security-hunt-task-context'
 import {
   prSecurityScanRepository,
   type NewFindingInput,
@@ -55,6 +58,7 @@ import {
   type HuntSandbox,
 } from './security-hunt-sandbox'
 import {
+  HUNT_MAX_PLANNED_TASKS,
   HUNT_MAX_STEPS_PER_CATEGORY,
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_SNIPPET_RADIUS,
@@ -279,11 +283,28 @@ export const securityHuntService = {
    */
   async planHunt(input: PlanHuntInput): Promise<PlanHuntOutput> {
     const { job } = input
+    // LUM-764 — the floor, computed from the diff's own rules before anything
+    // untrusted is read. It is both the answer when the planner fails (the
+    // LUM-758 behaviour) and the lower bound the model's answer is raised to
+    // when the prompt carried task text.
+    const floor = planFallback(job.reasons)
+    // LUM-764 — the task view. Read BEFORE the model call so the empty case is
+    // known: no task context means no floor and the prompt stays exactly what
+    // LUM-758 sent (option B — an unlinked PR must not get more expensive).
+    const taskContextBlock = renderHuntTaskContext(
+      await loadHuntTaskContext(job.taskId)
+    )
+    const hasTaskContext = taskContextBlock !== ''
     const fallback = (reason: string): PlanHuntOutput => ({
-      tasks: categoriesToTasks(planFallback(job.reasons)),
+      tasks: categoriesToTasks(floor),
       reason,
       by: 'fallback',
       tokens: 0,
+      taskContext: hasTaskContext,
+      // The fallback IS the floor, so nothing was forced on top of a model
+      // answer — there is no model answer. Reporting the floor here would
+      // read as "the rule bought us these tasks", which it did not.
+      floorForced: [],
     })
     let findings: FindingSummary[] = []
     try {
@@ -310,9 +331,32 @@ export const securityHuntService = {
         reasons: job.reasons,
         touchedPaths: job.touchedSourcePaths,
         findings,
+        // Empty string → undefined: "no block in the prompt at all", not an
+        // empty block the model has to interpret.
+        taskContext: taskContextBlock || undefined,
         timeoutMs: PLAN_HUNT_TIMEOUT_MS,
       })
-      return { ...out, by: 'model' }
+      if (!hasTaskContext) {
+        return { ...out, by: 'model', taskContext: false, floorForced: [] }
+      }
+      // LUM-764 — THE control. One set union, here, after the model answered:
+      // the prompt carried text the PR author can write, so the plan is raised
+      // to cover the mechanically-derived floor no matter what that text said.
+      // Untrusted text can still add tasks (it is useful aiming material); it
+      // cannot take any away.
+      const { tasks, forced } = applyPlanFloor(
+        out.tasks,
+        floor,
+        HUNT_MAX_PLANNED_TASKS
+      )
+      return {
+        tasks,
+        reason: out.reason,
+        tokens: out.tokens,
+        by: 'model',
+        taskContext: true,
+        floorForced: forced,
+      }
     } catch (error) {
       const message = messageOf(error)
       logger.warn(

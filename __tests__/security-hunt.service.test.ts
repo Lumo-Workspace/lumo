@@ -615,6 +615,11 @@ describe('LUM-739 hunt service', () => {
       reason: 'unscoped read',
       tokens: 42,
       by: 'model',
+      // LUM-764: JOB carries no taskId, so no untrusted text entered the
+      // prompt and the floor rule does not apply (option B) — the plan is the
+      // model's answer, unchanged.
+      taskContext: false,
+      floorForced: [],
     })
     expect(repo.findFindingSummaryByScan).toHaveBeenCalledWith(job.scanId)
     const arg = planMock.mock.calls[0]![0]
@@ -673,6 +678,8 @@ describe('LUM-739 hunt service', () => {
       reason: 'nothing interesting',
       tokens: 10,
       by: 'model',
+      taskContext: false,
+      floorForced: [],
     })
     expect(planMock.mock.calls[0]![0].findings).toEqual([])
     expect(logger.warn).toHaveBeenCalledWith(
