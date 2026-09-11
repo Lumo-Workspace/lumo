@@ -285,8 +285,16 @@ describe('LUM-758 wrap-up', () => {
           toolChoice: unknown
           messages: unknown[]
         }) => {
-          // The search is over: submitting is the only thing it can still do.
-          expect(Object.keys(call.tools)).toEqual(['submit_candidates'])
+          // `toolChoice` is what ends the search — NOT a shortened tool list.
+          // The replayed transcript is full of `run_shell` calls and results,
+          // so that tool must stay DECLARED or the request names a tool it
+          // never declared. A provider rejecting that would be swallowed by
+          // the catch and read as "we asked and the agent had nothing" — the
+          // opposite of the truth, on the one call that exists to answer it.
+          expect(Object.keys(call.tools).sort()).toEqual([
+            'run_shell',
+            'submit_candidates',
+          ])
           expect(call.toolChoice).toEqual({
             type: 'tool',
             toolName: 'submit_candidates',

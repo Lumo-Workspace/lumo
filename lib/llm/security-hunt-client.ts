@@ -298,8 +298,16 @@ export async function huntTask(
     try {
       const wrap = await generateText({
         model: gateway(GENERATION_MODEL),
-        // Only this tool exists now — there is nothing left to search with.
-        tools: { submit_candidates: tools.submit_candidates },
+        // BOTH tools are declared, and `toolChoice` is what actually removes
+        // the search. Declaring only `submit_candidates` would leave the
+        // replayed transcript full of `run_shell` calls and results naming a
+        // tool this request never declared, which providers are entitled to
+        // reject — and the rejection would land in the catch below, leaving
+        // `wrappedUp` false. That reads in the audit as "we asked and the agent
+        // had nothing", the exact opposite of the truth, on the one call whose
+        // whole purpose is to answer that question. Mocked tests cannot catch
+        // it, so the shape is chosen to make the question moot.
+        tools,
         toolChoice: { type: 'tool', toolName: 'submit_candidates' },
         system: HUNT_SYSTEM_PROMPT,
         messages: [
