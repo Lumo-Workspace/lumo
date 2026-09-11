@@ -144,6 +144,39 @@ export function repoCheckoutDir(
 }
 
 /**
+ * LUM-758 — find a live sandbox with the specified tags and reconnect to it.
+ * The managed scan (LUM-735) already tags sandboxes as `{ lumoScan: scanId }`;
+ * the hunt reuses the same scanId to avoid paying for a second microVM.
+ *
+ * Returns null (not an error) when no live VM matches: the managed scan has
+ * four legitimate reasons not to run (BYO SARIF findings exist, feature is
+ * disabled, hourly quota exceeded, or start failed). Callers create their own
+ * VM. A failure of `list` itself propagates — that is a platform fault, not
+ * "no VM".
+ */
+export async function findRepoSandboxByTag(
+  tags: Record<string, string>
+): Promise<RepoSandbox | null> {
+  const result = await Sandbox.list({ tags } as Parameters<
+    typeof Sandbox.list
+  >[0])
+  for await (const entry of result) {
+    if (entry.status !== 'running' && entry.status !== 'pending') continue
+    try {
+      return wrap(await Sandbox.get({ name: entry.name }))
+    } catch (error) {
+      // Race condition: VM stopped between list and get. Try the next one.
+      logger.warn(
+        `[vercel-sandbox] attach failed name=${entry.name}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    }
+  }
+  return null
+}
+
+/**
  * LUM-745 — stop every sandbox still alive under one `{ key: value }` tag
  * (the SDK filters by a single tag only). Returns how many were stopped. A
  * sandbox that fails to stop is logged and skipped, never thrown: callers

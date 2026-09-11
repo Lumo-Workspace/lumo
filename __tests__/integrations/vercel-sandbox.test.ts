@@ -8,6 +8,7 @@ import { Sandbox } from '@vercel/sandbox'
 import { logger } from '@/lib/logger'
 import {
   createRepoSandbox,
+  findRepoSandboxByTag,
   stopRepoSandboxesByTag,
 } from '@/lib/integrations/vercel-sandbox'
 
@@ -99,6 +100,86 @@ describe('stopRepoSandboxesByTag', () => {
     list.mockResolvedValue(asyncIterable([]))
     await expect(stopRepoSandboxesByTag({ lumoScan: 'none' })).resolves.toBe(0)
     expect(get).not.toHaveBeenCalled()
+  })
+})
+
+describe('findRepoSandboxByTag (LUM-758)', () => {
+  it('returns the first live sandbox matching the tag', async () => {
+    list.mockResolvedValue(
+      asyncIterable([
+        { name: 'a', status: 'running' },
+        { name: 'b', status: 'running' },
+      ])
+    )
+    const runCommand = jest.fn()
+    const stop = jest.fn()
+    get.mockResolvedValue({ name: 'a', cwd: '/vercel', runCommand, stop })
+    const sandbox = await findRepoSandboxByTag({ lumoScan: 's1' })
+    expect(sandbox).not.toBeNull()
+    expect(sandbox?.name).toBe('a')
+    expect(list).toHaveBeenCalledWith({ tags: { lumoScan: 's1' } })
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(get).toHaveBeenCalledWith({ name: 'a' })
+  })
+
+  it('skips non-running and non-pending sandboxes', async () => {
+    list.mockResolvedValue(
+      asyncIterable([
+        { name: 'a', status: 'stopped' },
+        { name: 'b', status: 'pending' },
+      ])
+    )
+    const runCommand = jest.fn()
+    const stop = jest.fn()
+    get.mockResolvedValue({ name: 'b', cwd: '/vercel', runCommand, stop })
+    const sandbox = await findRepoSandboxByTag({ lumoScan: 's1' })
+    expect(sandbox?.name).toBe('b')
+    expect(get).toHaveBeenCalledWith({ name: 'b' })
+    expect(get).not.toHaveBeenCalledWith({ name: 'a' })
+  })
+
+  it('handles race condition: logs warning and tries next when Sandbox.get fails', async () => {
+    list.mockResolvedValue(
+      asyncIterable([
+        { name: 'a', status: 'running' },
+        { name: 'b', status: 'running' },
+      ])
+    )
+    const runCommand = jest.fn()
+    const stop = jest.fn()
+    get.mockImplementation(async ({ name }: { name: string }) => {
+      if (name === 'a') throw new Error('already stopped')
+      return { name: 'b', cwd: '/vercel', runCommand, stop }
+    })
+    const sandbox = await findRepoSandboxByTag({ lumoScan: 's1' })
+    expect(sandbox?.name).toBe('b')
+    expect(get).toHaveBeenCalledTimes(2)
+    const line = (logger.warn as jest.Mock).mock.calls[0]?.join(' ') ?? ''
+    expect(line).toContain('name=a')
+    expect(line).toContain('already stopped')
+  })
+
+  it('returns null when nothing carries the tag', async () => {
+    list.mockResolvedValue(asyncIterable([]))
+    const sandbox = await findRepoSandboxByTag({ lumoScan: 'none' })
+    expect(sandbox).toBeNull()
+    expect(get).not.toHaveBeenCalled()
+  })
+
+  it('returns null when all sandboxes fail to get', async () => {
+    list.mockResolvedValue(
+      asyncIterable([
+        { name: 'a', status: 'running' },
+        { name: 'b', status: 'running' },
+      ])
+    )
+    get.mockImplementation(async () => {
+      throw new Error('race lost')
+    })
+    const sandbox = await findRepoSandboxByTag({ lumoScan: 's1' })
+    expect(sandbox).toBeNull()
+    expect(get).toHaveBeenCalledTimes(2)
+    expect((logger.warn as jest.Mock).mock.calls.length).toBe(2)
   })
 })
 
