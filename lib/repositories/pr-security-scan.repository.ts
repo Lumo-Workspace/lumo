@@ -934,6 +934,30 @@ export const prSecurityScanRepository = {
     })
   },
 
+  // ── LUM-740: fixed-since-previous-scan ────────────────────────────────────
+
+  /**
+   * The open (undispositioned, non-persisting) fingerprints of the PR's
+   * newest scan that started before `before` — the read model diffs them
+   * against the latest scan to say how many findings the push fixed.
+   */
+  async findPreviousOpenFingerprints(
+    pullRequestId: string,
+    before: Date
+  ): Promise<string[]> {
+    const row = await prisma.prSecurityScan.findFirst({
+      where: { pullRequestId, startedAt: { lt: before } },
+      orderBy: { startedAt: 'desc' },
+      select: {
+        findings: {
+          where: { disposition: null, persisting: false },
+          select: { fingerprint: true },
+        },
+      },
+    })
+    return row ? row.findings.map(f => f.fingerprint) : []
+  },
+
   // ── LUM-740: bulk confirm ─────────────────────────────────────────────────
 
   /**

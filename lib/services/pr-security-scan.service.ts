@@ -140,6 +140,11 @@ export interface SecurityScanView {
   error: string | null
   startedAt: string
   finishedAt: string | null
+  /**
+   * LUM-740: open findings of the PR's previous scan whose fingerprint this
+   * scan no longer carries — what the latest push fixed. 0 for a first scan.
+   */
+  fixed: number
   findings: SecurityFindingView[]
 }
 
@@ -155,6 +160,8 @@ export interface TaskSecurityScans {
     latest: SecurityScanView | null
   }[]
   blocking: { count: number }
+  /** LUM-740: open findings the falsifier suggested as false positives, across the task's PRs. */
+  suggested: { count: number }
 }
 
 export type RunScanResult =
@@ -246,7 +253,8 @@ function toFindingView(
 
 function toScanView(
   s: ScanWithFindings,
-  policy: SecurityPolicy
+  policy: SecurityPolicy,
+  fixed: number
 ): SecurityScanView {
   const stages = stagesOf(s)
   return {
@@ -265,8 +273,20 @@ function toScanView(
     error: s.error,
     startedAt: s.startedAt.toISOString(),
     finishedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
+    fixed,
     findings: sortFindings(s.findings).map(f => toFindingView(f, policy)),
   }
+}
+
+/** LUM-740: previous-scan open fingerprints that this scan no longer carries. */
+async function countFixed(scan: ScanWithFindings): Promise<number> {
+  const previous = await prSecurityScanRepository.findPreviousOpenFingerprints(
+    scan.pullRequestId,
+    scan.startedAt
+  )
+  if (previous.length === 0) return 0
+  const current = new Set(scan.findings.map(f => f.fingerprint))
+  return previous.filter(fp => !current.has(fp)).length
 }
 
 /**
@@ -699,13 +719,25 @@ export const prSecurityScanService = {
         ? await loadSecurityPolicy(scans[0]!.workspaceId)
         : DEFAULT_SECURITY_POLICY
     let count = 0
-    const out = prs.map(pr => {
+    let suggested = 0
+    const out = []
+    for (const pr of prs) {
       const scan = latest.get(pr.id)
-      const view = scan ? toScanView(scan, policy) : null
-      if (view) count += view.findings.filter(f => f.blocking).length
-      return { pr, latest: view }
-    })
-    return { prs: out, blocking: { count } }
+      const view = scan
+        ? toScanView(scan, policy, await countFixed(scan))
+        : null
+      if (view) {
+        count += view.findings.filter(f => f.blocking).length
+        suggested += view.findings.filter(
+          f =>
+            f.disposition === null &&
+            !f.persisting &&
+            f.suggestedDisposition !== null
+        ).length
+      }
+      out.push({ pr, latest: view })
+    }
+    return { prs: out, blocking: { count }, suggested: { count: suggested } }
   },
 
   async disposition(

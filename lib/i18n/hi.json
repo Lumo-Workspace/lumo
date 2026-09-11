@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "निर्भरताएँ",
   "securityScan.finding.persisting": "पहले से डिफ़ॉल्ट ब्रांच में मौजूद",
   "securityScan.finding.dependency": "असुरक्षित निर्भरता",
-  "securityScan.stageState.SUPERSEDED": "अधिक्रमित"
+  "securityScan.stageState.SUPERSEDED": "अधिक्रमित",
+  "securityScan.kind.SECRET": "गोपनीय जानकारी",
+  "securityScan.kind.VULNERABILITY": "भेद्यता",
+  "securityScan.kind.DEPENDENCY": "निर्भरता",
+  "securityScan.reachability.EXTERNAL": "प्रवेश बिंदु से पहुँच योग्य",
+  "securityScan.reachability.INTERNAL": "केवल आंतरिक पथ",
+  "securityScan.reachability.UNKNOWN": "पहुँच अज्ञात",
+  "securityScan.stageState.RAN": "चला",
+  "securityScan.stageState.SKIPPED": "छोड़ा गया",
+  "securityScan.callChain": "कॉल श्रृंखला",
+  "securityScan.suggested.falsePositive": "संदिग्ध झूठी सकारात्मक (LLM)",
+  "securityScan.suggested.reasonLabel": "LLM का तर्क:",
+  "securityScan.suggested.outcome.CONFIRMED": "सुझाव की पुष्टि हुई",
+  "securityScan.suggested.outcome.OVERRULED": "सुझाव अस्वीकृत",
+  "securityScan.action.confirmAllSuggested": "{count, plural, one {# संदिग्ध झूठी सकारात्मक की पुष्टि करें} other {सभी # संदिग्ध झूठी सकारात्मक की पुष्टि करें}}",
+  "securityScan.action.copyForAgent": "एजेंट के लिए कॉपी करें",
+  "securityScan.action.copied": "कॉपी हो गया",
+  "securityScan.fixed": "{count, plural, one {पिछले स्कैन के बाद # निष्कर्ष ठीक हुआ} other {पिछले स्कैन के बाद # निष्कर्ष ठीक हुए}}"
 }

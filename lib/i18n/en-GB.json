@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "Dependencies",
   "securityScan.finding.persisting": "already on the default branch",
   "securityScan.finding.dependency": "Vulnerable dependency",
-  "securityScan.stageState.SUPERSEDED": "superseded"
+  "securityScan.stageState.SUPERSEDED": "superseded",
+  "securityScan.kind.SECRET": "Secret",
+  "securityScan.kind.VULNERABILITY": "Vulnerability",
+  "securityScan.kind.DEPENDENCY": "Dependency",
+  "securityScan.reachability.EXTERNAL": "Reachable from an entry point",
+  "securityScan.reachability.INTERNAL": "Internal path only",
+  "securityScan.reachability.UNKNOWN": "Reachability unknown",
+  "securityScan.stageState.RAN": "ran",
+  "securityScan.stageState.SKIPPED": "skipped",
+  "securityScan.callChain": "Call chain",
+  "securityScan.suggested.falsePositive": "Suspected false positive (LLM)",
+  "securityScan.suggested.reasonLabel": "LLM reasoning:",
+  "securityScan.suggested.outcome.CONFIRMED": "suggestion confirmed",
+  "securityScan.suggested.outcome.OVERRULED": "suggestion overruled",
+  "securityScan.action.confirmAllSuggested": "{count, plural, one {Confirm the # suspected false positive} other {Confirm all # suspected false positives}}",
+  "securityScan.action.copyForAgent": "Copy for agent",
+  "securityScan.action.copied": "Copied",
+  "securityScan.fixed": "{count, plural, one {# finding fixed since the previous scan} other {# findings fixed since the previous scan}}"
 }

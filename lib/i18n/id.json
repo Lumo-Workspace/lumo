@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "Dependensi",
   "securityScan.finding.persisting": "sudah ada di cabang default",
   "securityScan.finding.dependency": "Dependensi rentan",
-  "securityScan.stageState.SUPERSEDED": "digantikan"
+  "securityScan.stageState.SUPERSEDED": "digantikan",
+  "securityScan.kind.SECRET": "Rahasia",
+  "securityScan.kind.VULNERABILITY": "Kerentanan",
+  "securityScan.kind.DEPENDENCY": "Dependensi",
+  "securityScan.reachability.EXTERNAL": "Dapat dijangkau dari titik masuk",
+  "securityScan.reachability.INTERNAL": "Hanya jalur internal",
+  "securityScan.reachability.UNKNOWN": "Keterjangkauan tidak diketahui",
+  "securityScan.stageState.RAN": "dijalankan",
+  "securityScan.stageState.SKIPPED": "dilewati",
+  "securityScan.callChain": "Rantai panggilan",
+  "securityScan.suggested.falsePositive": "Diduga positif palsu (LLM)",
+  "securityScan.suggested.reasonLabel": "Penalaran LLM:",
+  "securityScan.suggested.outcome.CONFIRMED": "saran dikonfirmasi",
+  "securityScan.suggested.outcome.OVERRULED": "saran ditolak",
+  "securityScan.action.confirmAllSuggested": "{count, plural, other {Konfirmasi semua # dugaan positif palsu}}",
+  "securityScan.action.copyForAgent": "Salin untuk agen",
+  "securityScan.action.copied": "Disalin",
+  "securityScan.fixed": "{count, plural, other {# temuan diperbaiki sejak pemindaian sebelumnya}}"
 }

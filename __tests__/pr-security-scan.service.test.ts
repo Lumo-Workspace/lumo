@@ -26,6 +26,8 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     countExternalFindings: jest.fn(),
     findDispositionedByPullRequest: jest.fn(),
     findLatestByPullRequestIds: jest.fn(),
+    // LUM-740: the read model diffs against the previous scan's open rows.
+    findPreviousOpenFingerprints: jest.fn().mockResolvedValue([]),
     findFindingWithScope: jest.fn(),
     updateDisposition: jest.fn(),
     mergeStages: jest.fn(),

@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "依賴",
   "securityScan.finding.persisting": "預設分支上已存在",
   "securityScan.finding.dependency": "存在漏洞的依賴",
-  "securityScan.stageState.SUPERSEDED": "已被取代"
+  "securityScan.stageState.SUPERSEDED": "已被取代",
+  "securityScan.kind.SECRET": "密鑰",
+  "securityScan.kind.VULNERABILITY": "弱點",
+  "securityScan.kind.DEPENDENCY": "相依套件",
+  "securityScan.reachability.EXTERNAL": "可從進入點到達",
+  "securityScan.reachability.INTERNAL": "僅內部路徑",
+  "securityScan.reachability.UNKNOWN": "可達性未知",
+  "securityScan.stageState.RAN": "已執行",
+  "securityScan.stageState.SKIPPED": "已略過",
+  "securityScan.callChain": "呼叫鏈",
+  "securityScan.suggested.falsePositive": "疑似誤報（LLM）",
+  "securityScan.suggested.reasonLabel": "LLM 判斷依據：",
+  "securityScan.suggested.outcome.CONFIRMED": "建議已確認",
+  "securityScan.suggested.outcome.OVERRULED": "建議已否決",
+  "securityScan.action.confirmAllSuggested": "{count, plural, other {確認全部 # 個疑似誤報}}",
+  "securityScan.action.copyForAgent": "複製給 agent",
+  "securityScan.action.copied": "已複製",
+  "securityScan.fixed": "{count, plural, other {自上次掃描以來已修復 # 個發現}}"
 }

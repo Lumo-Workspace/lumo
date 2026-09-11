@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "Abhängigkeiten",
   "securityScan.finding.persisting": "bereits im Standard-Branch",
   "securityScan.finding.dependency": "Anfällige Abhängigkeit",
-  "securityScan.stageState.SUPERSEDED": "ersetzt"
+  "securityScan.stageState.SUPERSEDED": "ersetzt",
+  "securityScan.kind.SECRET": "Geheimnis",
+  "securityScan.kind.VULNERABILITY": "Schwachstelle",
+  "securityScan.kind.DEPENDENCY": "Abhängigkeit",
+  "securityScan.reachability.EXTERNAL": "Von einem Einstiegspunkt erreichbar",
+  "securityScan.reachability.INTERNAL": "Nur interner Pfad",
+  "securityScan.reachability.UNKNOWN": "Erreichbarkeit unbekannt",
+  "securityScan.stageState.RAN": "ausgeführt",
+  "securityScan.stageState.SKIPPED": "übersprungen",
+  "securityScan.callChain": "Aufrufkette",
+  "securityScan.suggested.falsePositive": "Vermutlich falsch positiv (LLM)",
+  "securityScan.suggested.reasonLabel": "LLM-Begründung:",
+  "securityScan.suggested.outcome.CONFIRMED": "Vorschlag bestätigt",
+  "securityScan.suggested.outcome.OVERRULED": "Vorschlag verworfen",
+  "securityScan.action.confirmAllSuggested": "{count, plural, one {Den # vermutlich falsch positiven Fund bestätigen} other {Alle # vermutlich falsch positiven Funde bestätigen}}",
+  "securityScan.action.copyForAgent": "Für den Agenten kopieren",
+  "securityScan.action.copied": "Kopiert",
+  "securityScan.fixed": "{count, plural, one {# Fund seit dem vorherigen Scan behoben} other {# Funde seit dem vorherigen Scan behoben}}"
 }

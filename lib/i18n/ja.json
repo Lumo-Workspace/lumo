@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "依存関係",
   "securityScan.finding.persisting": "デフォルトブランチに既に存在",
   "securityScan.finding.dependency": "脆弱な依存関係",
-  "securityScan.stageState.SUPERSEDED": "置き換え済み"
+  "securityScan.stageState.SUPERSEDED": "置き換え済み",
+  "securityScan.kind.SECRET": "シークレット",
+  "securityScan.kind.VULNERABILITY": "脆弱性",
+  "securityScan.kind.DEPENDENCY": "依存関係",
+  "securityScan.reachability.EXTERNAL": "エントリポイントから到達可能",
+  "securityScan.reachability.INTERNAL": "内部パスのみ",
+  "securityScan.reachability.UNKNOWN": "到達可能性は不明",
+  "securityScan.stageState.RAN": "実行済み",
+  "securityScan.stageState.SKIPPED": "スキップ",
+  "securityScan.callChain": "呼び出しチェーン",
+  "securityScan.suggested.falsePositive": "誤検知の疑い（LLM）",
+  "securityScan.suggested.reasonLabel": "LLM の根拠:",
+  "securityScan.suggested.outcome.CONFIRMED": "提案を承認済み",
+  "securityScan.suggested.outcome.OVERRULED": "提案を却下済み",
+  "securityScan.action.confirmAllSuggested": "{count, plural, other {誤検知の疑いがある # 件をすべて承認}}",
+  "securityScan.action.copyForAgent": "エージェント用にコピー",
+  "securityScan.action.copied": "コピーしました",
+  "securityScan.fixed": "{count, plural, other {前回のスキャン以降に # 件が修正されました}}"
 }

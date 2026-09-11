@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "Зависимости",
   "securityScan.finding.persisting": "уже есть в ветке по умолчанию",
   "securityScan.finding.dependency": "Уязвимая зависимость",
-  "securityScan.stageState.SUPERSEDED": "заменён"
+  "securityScan.stageState.SUPERSEDED": "заменён",
+  "securityScan.kind.SECRET": "Секрет",
+  "securityScan.kind.VULNERABILITY": "Уязвимость",
+  "securityScan.kind.DEPENDENCY": "Зависимость",
+  "securityScan.reachability.EXTERNAL": "Достижимо из точки входа",
+  "securityScan.reachability.INTERNAL": "Только внутренний путь",
+  "securityScan.reachability.UNKNOWN": "Достижимость неизвестна",
+  "securityScan.stageState.RAN": "выполнено",
+  "securityScan.stageState.SKIPPED": "пропущено",
+  "securityScan.callChain": "Цепочка вызовов",
+  "securityScan.suggested.falsePositive": "Вероятно ложное срабатывание (LLM)",
+  "securityScan.suggested.reasonLabel": "Обоснование LLM:",
+  "securityScan.suggested.outcome.CONFIRMED": "предложение подтверждено",
+  "securityScan.suggested.outcome.OVERRULED": "предложение отклонено",
+  "securityScan.action.confirmAllSuggested": "{count, plural, one {Подтвердить # вероятно ложное срабатывание} few {Подтвердить все # вероятно ложных срабатывания} many {Подтвердить все # вероятно ложных срабатываний} other {Подтвердить все # вероятно ложных срабатывания}}",
+  "securityScan.action.copyForAgent": "Скопировать для агента",
+  "securityScan.action.copied": "Скопировано",
+  "securityScan.fixed": "{count, plural, one {# находка исправлена с прошлого сканирования} few {# находки исправлены с прошлого сканирования} many {# находок исправлено с прошлого сканирования} other {# находки исправлено с прошлого сканирования}}"
 }

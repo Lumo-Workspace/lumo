@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "의존성",
   "securityScan.finding.persisting": "기본 브랜치에 이미 존재",
   "securityScan.finding.dependency": "취약한 의존성",
-  "securityScan.stageState.SUPERSEDED": "대체됨"
+  "securityScan.stageState.SUPERSEDED": "대체됨",
+  "securityScan.kind.SECRET": "시크릿",
+  "securityScan.kind.VULNERABILITY": "취약점",
+  "securityScan.kind.DEPENDENCY": "의존성",
+  "securityScan.reachability.EXTERNAL": "진입점에서 도달 가능",
+  "securityScan.reachability.INTERNAL": "내부 경로만",
+  "securityScan.reachability.UNKNOWN": "도달 가능성 불명",
+  "securityScan.stageState.RAN": "실행됨",
+  "securityScan.stageState.SKIPPED": "건너뜀",
+  "securityScan.callChain": "호출 체인",
+  "securityScan.suggested.falsePositive": "오탐 의심 (LLM)",
+  "securityScan.suggested.reasonLabel": "LLM 근거:",
+  "securityScan.suggested.outcome.CONFIRMED": "제안 확인됨",
+  "securityScan.suggested.outcome.OVERRULED": "제안 기각됨",
+  "securityScan.action.confirmAllSuggested": "{count, plural, other {오탐 의심 # 건 모두 확인}}",
+  "securityScan.action.copyForAgent": "에이전트용으로 복사",
+  "securityScan.action.copied": "복사됨",
+  "securityScan.fixed": "{count, plural, other {이전 스캔 이후 # 건 수정됨}}"
 }

@@ -19,10 +19,12 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     findFindingWithScope: jest.fn(),
     updateDisposition: jest.fn(),
     confirmSuggestedByTask: jest.fn(),
+    findLatestByPullRequestIds: jest.fn(),
+    findPreviousOpenFingerprints: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
-  pullRequestRepository: {},
+  pullRequestRepository: { findManyForSecurityByTaskId: jest.fn() },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {},
@@ -57,10 +59,16 @@ jest.mock('@/lib/services/security-pr-review.service', () => ({
 
 import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 
 const findFinding = prSecurityScanRepository.findFindingWithScope as jest.Mock
 const update = prSecurityScanRepository.updateDisposition as jest.Mock
 const confirmAll = prSecurityScanRepository.confirmSuggestedByTask as jest.Mock
+const latestScans =
+  prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
+const previousOpen =
+  prSecurityScanRepository.findPreviousOpenFingerprints as jest.Mock
+const prsOf = pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
 
 const row = (over: object) => ({
   id: 'f1',
@@ -190,5 +198,97 @@ describe('LUM-740 bulk disposition — service', () => {
       dispositionNote: 'Confirmed LLM suggestion (bulk)',
     })
     expect(data.dispositionedAt.getTime()).toBeGreaterThanOrEqual(before)
+  })
+})
+
+describe('LUM-740 read model — fixed and suggested counts', () => {
+  const scanRow = (over: object) => ({
+    id: 's-new',
+    pullRequestId: 'pr1',
+    taskId: 't1',
+    workspaceId: 'w1',
+    headSha: 'b'.repeat(40),
+    status: 'FINDINGS',
+    trigger: 'PR_EVENT',
+    judgeStatus: 'RAN',
+    truncated: false,
+    stages: { secrets: 'RAN' },
+    partial: false,
+    detectorVersion: 'v',
+    error: null,
+    startedAt: new Date('2026-09-11T10:00:00Z'),
+    finishedAt: null,
+    agentNotifiedAt: null,
+    summaryCommentId: null,
+    findings: [],
+    ...over,
+  })
+  const pr = { id: 'pr1', number: 9, title: 'feat', url: 'u', state: 'open' }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    prsOf.mockResolvedValue([pr])
+  })
+
+  it('fixed = open fingerprints of the previous scan that the latest scan no longer carries', async () => {
+    latestScans.mockResolvedValue([
+      scanRow({
+        findings: [
+          row({ id: 'a', fingerprint: 'fpA', scan: undefined }),
+          row({
+            id: 'z',
+            fingerprint: 'fpZ',
+            disposition: 'FALSE_POSITIVE',
+            scan: undefined,
+          }),
+        ],
+      }),
+    ])
+    previousOpen.mockResolvedValue(['fpA', 'fpB', 'fpC'])
+    const view = await prSecurityScanService.getForTask('t1')
+    expect(previousOpen).toHaveBeenCalledWith(
+      'pr1',
+      new Date('2026-09-11T10:00:00Z')
+    )
+    expect(view.prs[0]?.latest?.fixed).toBe(2)
+  })
+
+  it('counts open suggested false positives across PRs; dispositioned ones do not count', async () => {
+    latestScans.mockResolvedValue([
+      scanRow({
+        findings: [
+          row({ id: 'a', fingerprint: 'a', scan: undefined }),
+          row({
+            id: 'b',
+            fingerprint: 'b',
+            disposition: 'FALSE_POSITIVE',
+            suggestionOutcome: 'CONFIRMED',
+            scan: undefined,
+          }),
+          row({
+            id: 'c',
+            fingerprint: 'c',
+            suggestedDisposition: null,
+            scan: undefined,
+          }),
+        ],
+      }),
+    ])
+    previousOpen.mockResolvedValue([])
+    const view = await prSecurityScanService.getForTask('t1')
+    expect(view.suggested).toEqual({ count: 1 })
+    expect(view.prs[0]?.latest?.findings.find(f => f.id === 'a')).toMatchObject(
+      {
+        suggestedDisposition: 'FALSE_POSITIVE',
+        suggestedReason: 'placeholder value',
+      }
+    )
+  })
+
+  it('a task with no scans has zero fixed / suggested and reads no previous scan', async () => {
+    latestScans.mockResolvedValue([])
+    const view = await prSecurityScanService.getForTask('t1')
+    expect(view.suggested).toEqual({ count: 0 })
+    expect(previousOpen).not.toHaveBeenCalled()
   })
 })

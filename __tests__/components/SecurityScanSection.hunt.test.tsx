@@ -1,6 +1,6 @@
 // LUM-739: the delivery panel's stage summary names the hunt layer when it
 // is not RAN / SKIPPED, with its translated label.
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 jest.mock('next/navigation', () => ({
   usePathname: () => '/workspace/acme/tasks/LUM-1',
@@ -94,11 +94,18 @@ describe('LUM-739 hunt stage', () => {
     )
   })
 
-  test('a RAN or SKIPPED hunt adds no stage line', () => {
+  test('a RAN or SKIPPED hunt is listed on the stage row without the warning tone', () => {
+    // LUM-740: the row names every layer; only an incomplete one makes it warn.
     renderWith(
       { secrets: 'RAN', external: 'RAN', judge: 'RAN', hunt: 'SKIPPED' },
       true
     )
-    expect(screen.queryByTestId('scan-stages')).toBeNull()
+    // A complete, clean scan starts collapsed; the stage row lives inside.
+    fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
+    const row = screen.getByTestId('scan-stages')
+    expect(row).toHaveTextContent(
+      'Vulnerability hunt: securityScan.stageState.SKIPPED'
+    )
+    expect(row).toHaveAttribute('data-incomplete', 'false')
   })
 })

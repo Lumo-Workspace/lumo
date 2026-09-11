@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "Dependencias",
   "securityScan.finding.persisting": "ya está en la rama predeterminada",
   "securityScan.finding.dependency": "Dependencia vulnerable",
-  "securityScan.stageState.SUPERSEDED": "reemplazado"
+  "securityScan.stageState.SUPERSEDED": "reemplazado",
+  "securityScan.kind.SECRET": "Secreto",
+  "securityScan.kind.VULNERABILITY": "Vulnerabilidad",
+  "securityScan.kind.DEPENDENCY": "Dependencia",
+  "securityScan.reachability.EXTERNAL": "Alcanzable desde un punto de entrada",
+  "securityScan.reachability.INTERNAL": "Solo ruta interna",
+  "securityScan.reachability.UNKNOWN": "Alcance desconocido",
+  "securityScan.stageState.RAN": "ejecutado",
+  "securityScan.stageState.SKIPPED": "omitido",
+  "securityScan.callChain": "Cadena de llamadas",
+  "securityScan.suggested.falsePositive": "Posible falso positivo (LLM)",
+  "securityScan.suggested.reasonLabel": "Razonamiento del LLM:",
+  "securityScan.suggested.outcome.CONFIRMED": "sugerencia confirmada",
+  "securityScan.suggested.outcome.OVERRULED": "sugerencia rechazada",
+  "securityScan.action.confirmAllSuggested": "{count, plural, one {Confirmar el # posible falso positivo} other {Confirmar los # posibles falsos positivos}}",
+  "securityScan.action.copyForAgent": "Copiar para el agente",
+  "securityScan.action.copied": "Copiado",
+  "securityScan.fixed": "{count, plural, one {# hallazgo corregido desde el análisis anterior} other {# hallazgos corregidos desde el análisis anterior}}"
 }

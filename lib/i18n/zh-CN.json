@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "依赖",
   "securityScan.finding.persisting": "默认分支上已存在",
   "securityScan.finding.dependency": "存在漏洞的依赖",
-  "securityScan.stageState.SUPERSEDED": "已被替代"
+  "securityScan.stageState.SUPERSEDED": "已被替代",
+  "securityScan.kind.SECRET": "密钥",
+  "securityScan.kind.VULNERABILITY": "漏洞",
+  "securityScan.kind.DEPENDENCY": "依赖",
+  "securityScan.reachability.EXTERNAL": "可从入口点到达",
+  "securityScan.reachability.INTERNAL": "仅内部路径",
+  "securityScan.reachability.UNKNOWN": "可达性未知",
+  "securityScan.stageState.RAN": "已运行",
+  "securityScan.stageState.SKIPPED": "已跳过",
+  "securityScan.callChain": "调用链",
+  "securityScan.suggested.falsePositive": "疑似误报（LLM）",
+  "securityScan.suggested.reasonLabel": "LLM 判断依据：",
+  "securityScan.suggested.outcome.CONFIRMED": "建议已确认",
+  "securityScan.suggested.outcome.OVERRULED": "建议已否决",
+  "securityScan.action.confirmAllSuggested": "{count, plural, other {确认全部 # 个疑似误报}}",
+  "securityScan.action.copyForAgent": "复制给 agent",
+  "securityScan.action.copied": "已复制",
+  "securityScan.fixed": "{count, plural, other {自上次扫描以来已修复 # 个发现}}"
 }

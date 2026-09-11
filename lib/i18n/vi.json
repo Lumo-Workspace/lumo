@@ -2325,5 +2325,22 @@
   "securityScan.stage.supplyChain": "Phụ thuộc",
   "securityScan.finding.persisting": "đã có trên nhánh mặc định",
   "securityScan.finding.dependency": "Phụ thuộc có lỗ hổng",
-  "securityScan.stageState.SUPERSEDED": "đã bị thay thế"
+  "securityScan.stageState.SUPERSEDED": "đã bị thay thế",
+  "securityScan.kind.SECRET": "Bí mật",
+  "securityScan.kind.VULNERABILITY": "Lỗ hổng",
+  "securityScan.kind.DEPENDENCY": "Phụ thuộc",
+  "securityScan.reachability.EXTERNAL": "Có thể tiếp cận từ điểm vào",
+  "securityScan.reachability.INTERNAL": "Chỉ đường dẫn nội bộ",
+  "securityScan.reachability.UNKNOWN": "Chưa rõ khả năng tiếp cận",
+  "securityScan.stageState.RAN": "đã chạy",
+  "securityScan.stageState.SKIPPED": "đã bỏ qua",
+  "securityScan.callChain": "Chuỗi lời gọi",
+  "securityScan.suggested.falsePositive": "Nghi ngờ dương tính giả (LLM)",
+  "securityScan.suggested.reasonLabel": "Lý do của LLM:",
+  "securityScan.suggested.outcome.CONFIRMED": "đã xác nhận đề xuất",
+  "securityScan.suggested.outcome.OVERRULED": "đã bác bỏ đề xuất",
+  "securityScan.action.confirmAllSuggested": "{count, plural, other {Xác nhận tất cả # nghi ngờ dương tính giả}}",
+  "securityScan.action.copyForAgent": "Sao chép cho agent",
+  "securityScan.action.copied": "Đã sao chép",
+  "securityScan.fixed": "{count, plural, other {# phát hiện đã được sửa kể từ lần quét trước}}"
 }
