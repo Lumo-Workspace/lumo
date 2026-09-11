@@ -458,3 +458,19 @@ test('scanSecrets: a detected key followed by unrelated prose in the same span i
   expect(r[0]?.evidence).not.toContain('AKIAABCDEFGHIJKLMNOP')
   expect(r[0]?.evidence).not.toContain('my dog ate a red bus at ten')
 })
+
+describe('LUM-751: fixture-shaped paths are downgraded', () => {
+  it.each([
+    'lib/__fixtures__/aws.json',
+    '__snapshots__/x.test.ts.snap',
+    'src/mocks/handlers.ts',
+    'e2e/login.spec.ts',
+    'components/Button.stories.tsx',
+    'scripts/eval/vectors.fixture.json',
+    'prisma/seed.ts',
+  ])('%s is downgraded', p => expect(isDowngradedPath(p)).toBe(true))
+
+  it('a production path is not downgraded', () => {
+    expect(isDowngradedPath('lib/services/payments.ts')).toBe(false)
+  })
+})
