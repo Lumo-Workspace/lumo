@@ -4,10 +4,23 @@ import { useQuery } from '@tanstack/react-query'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 
-// AUTO_LEGIT (LUM-478) is a SYSTEM disposition the read model can surface; a
-// human can only WRITE FALSE_POSITIVE | CONFIRMED | OPEN (see the api-client),
-// never AUTO_LEGIT.
-export type BoundaryDisposition = 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT'
+// AUTO_LEGIT (LUM-478) and AUTO_SUPPRESSED (LUM-751, a human-authored
+// repository rule applied by the system) are SYSTEM dispositions the read model
+// can surface; a human can only WRITE FALSE_POSITIVE | CONFIRMED | OPEN (see
+// the api-client), never a system value.
+export type BoundaryDisposition =
+  | 'FALSE_POSITIVE'
+  | 'CONFIRMED'
+  | 'AUTO_LEGIT'
+  | 'AUTO_SUPPRESSED'
+
+/** LUM-751: the repository rule behind an AUTO_SUPPRESSED disposition. */
+export interface SuppressionRuleView {
+  id: string
+  reason: string | null
+  /** Set once a human revoked the rule; future occurrences are open again. */
+  revokedAt: string | null
+}
 export type BoundarySeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 
 export interface RemediationTaskView {
@@ -90,6 +103,12 @@ export interface BoundaryCrossingView {
    *  crossing; null = not yet generated (human must click "Explain"). ADVISORY
    *  ONLY — never changes disposition or the DONE gate. */
   systemExplanation: string | null
+  /** LUM-751: the category may be rule-suppressed AND the crossing carries a
+   *  coalescing target — the panel offers the per-repository opt-in only then. */
+  suppressible: boolean
+  /** LUM-751: the rule that auto-dispositioned this crossing (AUTO_SUPPRESSED);
+   *  null for every other crossing. */
+  suppressionRule: SuppressionRuleView | null
 }
 
 /** LUM-542: an append-only agent self-explanation on a crossing. */

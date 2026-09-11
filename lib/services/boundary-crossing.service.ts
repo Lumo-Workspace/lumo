@@ -206,6 +206,16 @@ export interface BoundaryCrossingView {
    *  crossing; null = not yet generated (human must click "Explain"). ADVISORY
    *  ONLY — never changes disposition or the DONE gate. */
   systemExplanation: string | null
+  /** LUM-751: the category may be rule-suppressed AND the crossing carries a
+   *  coalescing target — the panel offers the per-repository opt-in only then. */
+  suppressible: boolean
+  /** LUM-751: the rule that auto-dispositioned this crossing (AUTO_SUPPRESSED);
+   *  null for every other crossing. */
+  suppressionRule: {
+    id: string
+    reason: string | null
+    revokedAt: string | null
+  } | null
 }
 
 /**
@@ -764,6 +774,15 @@ export const boundaryCrossingService = {
           : null,
         // LUM-590: cached system-generated explanation; null = not yet generated.
         systemExplanation: c.systemExplanation ?? null,
+        // LUM-751: repository-rule affordances.
+        suppressible: isSuppressibleCategory(c.category) && c.target != null,
+        suppressionRule: c.suppressionRule
+          ? {
+              id: c.suppressionRule.id,
+              reason: c.suppressionRule.reason ?? null,
+              revokedAt: iso(c.suppressionRule.revokedAt),
+            }
+          : null,
       }
     })
     // Surface by severity (LUM-442) — HIGH first. Stable: the repository already
