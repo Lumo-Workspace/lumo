@@ -40,7 +40,12 @@ export interface HuntCategoryCoverage {
 }
 
 export interface HuntCoverage {
-  /** Categories the hunt is meant to cover (not how many it recorded). */
+  /**
+   * LUM-758 — how many categories the planning step picked for this scan
+   * (`audit.planned.length`), not `HUNT_CATEGORIES.length`: a scan plans
+   * 0–2, so "out of 6" understates a fully-run layer. A pre-LUM-758 row has
+   * no `planned` field and falls back to `HUNT_CATEGORIES.length`.
+   */
   total: number
   /** How many ended `done` — `done === total` is the whole layer. */
   done: number
@@ -93,8 +98,17 @@ export function parseHuntCoverage(raw: unknown): HuntCoverage | null {
   const categories = HUNT_CATEGORIES.filter(c => byCategory.has(c)).map(
     c => byCategory.get(c)!
   )
+
+  // LUM-758: the denominator is what the planning step planned, not the full
+  // category list. `planned` is absent on pre-LUM-758 rows — fall back to
+  // HUNT_CATEGORIES.length so those still render sensibly.
+  const planned = (raw as { planned?: unknown }).planned
+  const total = Array.isArray(planned)
+    ? planned.filter(isCategory).length
+    : HUNT_CATEGORIES.length
+
   return {
-    total: HUNT_CATEGORIES.length,
+    total,
     done: categories.filter(c => c.stopped === 'done').length,
     categories,
   }

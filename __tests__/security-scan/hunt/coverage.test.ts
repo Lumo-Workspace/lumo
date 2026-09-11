@@ -93,6 +93,25 @@ describe('LUM-762 hunt coverage', () => {
     expect(parseHuntCoverage({ categories: 'nope' })).toBeNull()
   })
 
+  it('LUM-758: total is the planned count, not HUNT_CATEGORIES.length', () => {
+    const coverage = parseHuntCoverage({
+      planned: ['idor', 'injection'],
+      categories: [
+        row({ category: 'idor' }),
+        row({ category: 'injection', stopped: 'done' }),
+      ],
+    })
+    expect(coverage!.total).toBe(2)
+    expect(coverage!.done).toBe(2)
+  })
+
+  it('falls back to HUNT_CATEGORIES.length when the row predates `planned` (pre-LUM-758)', () => {
+    const coverage = parseHuntCoverage({
+      categories: [row(), row({ category: 'injection' })],
+    })
+    expect(coverage!.total).toBe(HUNT_CATEGORIES.length)
+  })
+
   it('drops rows it cannot vouch for and repairs unusable numbers', () => {
     const coverage = parseHuntCoverage({
       categories: [

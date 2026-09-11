@@ -107,9 +107,12 @@ export async function planHuntCategories(input: PlanClientInput): Promise<{
     maxRetries: 1,
     abortSignal: AbortSignal.timeout(input.timeoutMs),
   })
-  // zod 的 .max() 已经挡住超额，这里 slice 是对「schema 被放宽」的第二道闸。
+  // zod 的 .max() 挡住了超额，但没挡住重复（`['idor','idor']` 合法）：去重后
+  // 再 slice，否则重复类别会在 orchestrator 里被当成两个独立类别各跑一遍
+  // pass 1，重试通道再翻一倍，最多 4 个 idor 批次吃光整个 scan 预算。
+  const deduped = [...new Set(object.categories)]
   return {
-    categories: object.categories.slice(0, HUNT_MAX_PLANNED_CATEGORIES),
+    categories: deduped.slice(0, HUNT_MAX_PLANNED_CATEGORIES),
     reason: object.reason,
     tokens: usage.totalTokens ?? 0,
   }

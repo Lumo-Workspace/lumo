@@ -356,7 +356,10 @@ export const securityHuntService = {
     // LUM-762: the completion rate of this layer is the thing being watched,
     // so every run states its per-category outcome once, where a deploy log
     // keeps it. `lumo task status` reads the same audit off the row.
-    const coverage = parseHuntCoverage({ categories: input.audit.categories })
+    const coverage = parseHuntCoverage({
+      categories: input.audit.categories,
+      planned: input.audit.planned,
+    })
     if (coverage) {
       logger.info(
         `[security-hunt] coverage scan=${input.job.scanId} ${formatHuntCoverage(coverage)}`
