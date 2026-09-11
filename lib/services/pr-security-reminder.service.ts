@@ -33,6 +33,10 @@ import {
   type UnconfirmedPr,
 } from '@/lib/security-scan/agent-reminder'
 import { stagesOf } from '@/lib/security-scan/stages'
+import {
+  parseHuntCoverage,
+  type HuntCoverage,
+} from '@/lib/security-scan/hunt/coverage'
 import type { ScanStages } from '@/lib/security-scan/types'
 
 export interface OpenSecurityFinding extends ReminderFinding {
@@ -60,6 +64,13 @@ export interface TaskSecurityScanSummary {
   dependencyFindings: number
   /** LUM-738 — rows already on the default-branch baseline, any kind. */
   persistingFindings: number
+  /**
+   * LUM-762 — the L3 hunt's per-category read-out, parsed from the scan's
+   * stored `huntAudit`. null when the row carries no usable audit (legacy
+   * rows, or a hunt that failed before its first batch) — the CLI then prints
+   * no coverage line rather than guessing.
+   */
+  hunt: HuntCoverage | null
 }
 
 export interface TaskSecurityOpenState {
@@ -135,6 +146,7 @@ export const prSecurityReminderService = {
           dependencyFindings: scan.findings.filter(f => f.kind === 'DEPENDENCY')
             .length,
           persistingFindings: scan.findings.filter(f => f.persisting).length,
+          hunt: parseHuntCoverage(scan.huntAudit),
         })
       }
       const reason = unconfirmedReason(scan)

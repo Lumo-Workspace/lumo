@@ -229,6 +229,7 @@ describe('LUM-735 scans array', () => {
         openFindings: 2,
         dependencyFindings: 0,
         persistingFindings: 0,
+        hunt: null,
       },
       {
         prNumber: 13,
@@ -240,6 +241,7 @@ describe('LUM-735 scans array', () => {
         openFindings: 0,
         dependencyFindings: 0,
         persistingFindings: 0,
+        hunt: null,
       },
     ])
   })
@@ -269,6 +271,7 @@ describe('LUM-735 scans array', () => {
         openFindings: 0,
         dependencyFindings: 0,
         persistingFindings: 0,
+        hunt: null,
       },
     ])
   })
@@ -279,6 +282,70 @@ describe('LUM-735 scans array', () => {
     const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
     expect(state.scans).toEqual([])
     expect(state.latestScans).toEqual([])
+  })
+})
+
+describe('LUM-762 hunt coverage on the scans array', () => {
+  it('reads the stored huntAudit into per-category coverage, and stays null when the row has none', async () => {
+    prs.mockResolvedValue([pr({}), pr({ id: 'pr2', number: 13 })])
+    latest.mockResolvedValue([
+      scan({
+        id: 's1',
+        status: 'CLEAN',
+        stages: { secrets: 'RAN', hunt: 'PARTIAL' },
+        partial: true,
+        huntAudit: {
+          categories: [
+            {
+              category: 'idor',
+              candidates: 0,
+              tokens: 900,
+              elapsedMs: 41_000,
+              stopped: 'done',
+            },
+            {
+              category: 'injection',
+              candidates: 0,
+              tokens: 0,
+              elapsedMs: 60_000,
+              stopped: 'timeout',
+            },
+          ],
+        },
+      }),
+      scan({
+        id: 's2',
+        pullRequestId: 'pr2',
+        status: 'CLEAN',
+        stages: { secrets: 'RAN' },
+        partial: false,
+        huntAudit: null,
+      }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.scans[0]!.hunt).toEqual({
+      total: 6,
+      done: 1,
+      categories: [
+        {
+          category: 'idor',
+          stopped: 'done',
+          elapsedMs: 41_000,
+          tokens: 900,
+          candidates: 0,
+          attempts: 1,
+        },
+        {
+          category: 'injection',
+          stopped: 'timeout',
+          elapsedMs: 60_000,
+          tokens: 0,
+          candidates: 0,
+          attempts: 1,
+        },
+      ],
+    })
+    expect(state.scans[1]!.hunt).toBeNull()
   })
 })
 

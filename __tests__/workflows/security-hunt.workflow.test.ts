@@ -34,6 +34,8 @@ import {
   HUNT_CATEGORIES,
   HUNT_TOKEN_BUDGET,
   HUNT_TIME_BUDGET_MS,
+  HUNT_CATEGORY_TIME_MS,
+  HUNT_CATEGORY_TOKEN_MAX,
   HUNT_MAX_FALSIFIED,
 } from '@/lib/services/security-hunt.config'
 import { HUNT_CATEGORIES as CANDIDATE_CATEGORIES } from '@/lib/security-scan/hunt/candidate'
@@ -172,15 +174,17 @@ describe('LUM-739 hunt workflow', () => {
     expect(hunt.mock.calls.map(c => c[0].category)).toEqual([
       ...HUNT_CATEGORIES,
     ])
+    // LUM-762: every batch is bounded by the per-category ceiling, so a
+    // wedged category can no longer spend the whole scan's window.
     expect(hunt.mock.calls[0]![0]).toMatchObject({
       job: JOB,
       subgraph: SUBGRAPH,
-      tokenBudget: HUNT_TOKEN_BUDGET,
-      timeBudgetMs: HUNT_TIME_BUDGET_MS,
+      tokenBudget: HUNT_CATEGORY_TOKEN_MAX,
+      timeBudgetMs: HUNT_CATEGORY_TIME_MS,
     })
     expect(hunt.mock.calls[1]![0]).toMatchObject({
-      tokenBudget: HUNT_TOKEN_BUDGET - 1000,
-      timeBudgetMs: HUNT_TIME_BUDGET_MS - 5000,
+      tokenBudget: HUNT_CATEGORY_TOKEN_MAX,
+      timeBudgetMs: HUNT_CATEGORY_TIME_MS,
     })
     expect(verify).toHaveBeenCalledWith({
       subgraph: SUBGRAPH,
@@ -239,14 +243,91 @@ describe('LUM-739 hunt workflow', () => {
   })
 
   it('a batch that errored or timed out makes the layer PARTIAL but the run continues', async () => {
-    hunt.mockImplementationOnce(async () =>
-      batch({ stopped: 'error', error: 'gateway 500' })
+    // LUM-762: the layer is only PARTIAL once the category's retry fails too.
+    hunt.mockImplementation(async (input: { category: string }) =>
+      input.category === 'idor'
+        ? batch({ stopped: 'error', error: 'gateway 500' })
+        : batch()
     )
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
       outcome: 'PARTIAL',
     })
-    expect(hunt).toHaveBeenCalledTimes(6)
-    expect(persist.mock.calls[0]![0].audit.categories[0].stopped).toBe('error')
+    expect(hunt).toHaveBeenCalledTimes(7) // 6 categories + one retry of idor
+    const rows = persist.mock.calls[0]![0].audit.categories
+    expect(rows[0].stopped).toBe('error')
+    expect(rows[rows.length - 1]).toMatchObject({
+      category: 'idor',
+      stopped: 'error',
+    })
+  })
+
+  it('LUM-762 retries a failed category once and ends RAN when the retry succeeds', async () => {
+    hunt.mockImplementationOnce(async () =>
+      batch({ stopped: 'timeout', error: 'Delay was aborted', tokens: 0 })
+    )
+    await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
+      outcome: 'RAN',
+    })
+    expect(hunt).toHaveBeenCalledTimes(7)
+    expect(hunt.mock.calls[6]![0]).toMatchObject({
+      category: 'idor',
+      timeBudgetMs: HUNT_CATEGORY_TIME_MS,
+    })
+    const persisted = persist.mock.calls[0]![0]
+    expect(persisted.partial).toBe(false)
+    const idor = persisted.audit.categories.filter(
+      (c: { category: string }) => c.category === 'idor'
+    )
+    expect(idor.map((c: { stopped: string }) => c.stopped)).toEqual([
+      'timeout',
+      'done',
+    ])
+  })
+
+  it('LUM-762 caps each category at the per-category time and token ceiling', async () => {
+    hunt.mockImplementationOnce(async () =>
+      batch({
+        elapsedMs: HUNT_TIME_BUDGET_MS - 10_000,
+        tokens: HUNT_TOKEN_BUDGET - 4_000,
+      })
+    )
+    await securityHuntWorkflow(JOB)
+    expect(hunt.mock.calls[0]![0]).toMatchObject({
+      timeBudgetMs: HUNT_CATEGORY_TIME_MS,
+      tokenBudget: HUNT_CATEGORY_TOKEN_MAX,
+    })
+    // Second category: only the remainder is left, and that is less than the
+    // ceiling — the batch gets the smaller of the two.
+    expect(hunt.mock.calls[1]![0]).toMatchObject({
+      timeBudgetMs: 10_000,
+      tokenBudget: 4_000,
+    })
+    expect(HUNT_CATEGORY_TIME_MS * HUNT_CATEGORIES.length).toBeLessThanOrEqual(
+      HUNT_TIME_BUDGET_MS
+    )
+  })
+
+  it('LUM-762 records unrun categories as skipped in huntAudit', async () => {
+    hunt.mockImplementationOnce(async () =>
+      batch({ elapsedMs: HUNT_TIME_BUDGET_MS })
+    )
+    await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
+      outcome: 'PARTIAL',
+    })
+    expect(hunt).toHaveBeenCalledTimes(1)
+    const rows = persist.mock.calls[0]![0].audit.categories
+    expect(rows.map((c: { category: string }) => c.category)).toEqual([
+      ...HUNT_CATEGORIES,
+    ])
+    expect(rows.slice(1)).toEqual(
+      HUNT_CATEGORIES.slice(1).map(category => ({
+        category,
+        candidates: 0,
+        tokens: 0,
+        elapsedMs: 0,
+        stopped: 'skipped',
+      }))
+    )
   })
 
   it('a truncated subgraph makes the layer PARTIAL', async () => {

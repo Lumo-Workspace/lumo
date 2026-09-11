@@ -27,6 +27,7 @@ import {
 } from '@/lib/security-scan/graph/query'
 import type { Subgraph } from '@/lib/security-scan/graph/types'
 import { numberLines } from '@/lib/security-scan/hunt/snippet'
+import { HUNT_CLIENT_MAX_RETRIES } from '@/lib/services/security-hunt.config'
 
 export interface HuntClientInput {
   category: HuntCategory
@@ -183,6 +184,11 @@ export async function huntCategory(
     tools,
     system: HUNT_SYSTEM_PROMPT,
     prompt: `## Category: ${input.category} (${CATEGORY_CWE_HINT[input.category]})\n${CATEGORY_BRIEF[input.category]}\n\n## Subgraph\n${renderSubgraphForPrompt(input.subgraph)}`,
+    // LUM-762: the SDK's default 2 retries sit in exponential backoff, which
+    // is where the production abort ("Delay was aborted") landed — the window
+    // went to waiting, not analysis. Fail fast; the workflow's retry pass
+    // re-runs the category with a fresh window.
+    maxRetries: HUNT_CLIENT_MAX_RETRIES,
     stopWhen: [
       stepCountIs(input.maxSteps),
       hasToolCall('submit_candidates'),
