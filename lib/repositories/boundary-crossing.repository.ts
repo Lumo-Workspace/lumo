@@ -45,6 +45,10 @@ export interface CreateBoundaryCrossingInput {
   disposition?: BoundaryCrossingDisposition | null
   dispositionNote?: string | null
   dispositionedAt?: Date | null
+  /** LUM-751: the repository suppression rule that auto-dispositioned this
+   *  crossing (disposition AUTO_SUPPRESSED). Like AUTO_LEGIT: a system
+   *  decision, so still no `dispositionedById`. */
+  suppressionRuleId?: string | null
 }
 
 /** LUM-542: input for an append-only agent self-explanation row. */
@@ -95,6 +99,8 @@ const SELECT = {
   dispositionedAt: true,
   dispositionedById: true,
   remediationTaskId: true,
+  // LUM-751: which suppression rule auto-dispositioned it (null otherwise).
+  suppressionRuleId: true,
 } as const
 
 /**
@@ -117,6 +123,9 @@ const VIEW_SELECT = {
   policyRuleText: true,
   // LUM-590: cached system-generated explanation (null = not yet generated).
   systemExplanation: true,
+  // LUM-751: the rule behind an AUTO_SUPPRESSED disposition, for the panel's
+  // "auto-dispositioned by rule" line + revoke affordance.
+  suppressionRule: { select: { id: true, reason: true, revokedAt: true } },
   remediationTask: {
     select: {
       number: true,
@@ -160,9 +169,37 @@ export const boundaryCrossingRepository = {
         disposition: input.disposition ?? null,
         dispositionNote: input.dispositionNote ?? null,
         dispositionedAt: input.dispositionedAt ?? null,
+        suppressionRuleId: input.suppressionRuleId ?? null,
       },
       select: SELECT,
     })
+  },
+
+  /**
+   * LUM-751: coalesce a recurrence into the existing AUTO_SUPPRESSED row for the
+   * same rule — the suppressed twin of `coalesceRecurrence` (which only merges
+   * OPEN rows), so a rule-suppressed action recurring in a task bumps one row
+   * instead of piling up audit rows.
+   */
+  async coalesceSuppressedRecurrence(
+    taskId: string,
+    category: BoundaryCrossingCategory,
+    target: string | null,
+    ruleId: string,
+    now: Date
+  ): Promise<number> {
+    if (target == null) return 0
+    const { count } = await prisma.boundaryCrossing.updateMany({
+      where: {
+        taskId,
+        category,
+        target,
+        disposition: 'AUTO_SUPPRESSED',
+        suppressionRuleId: ruleId,
+      },
+      data: { occurrenceCount: { increment: 1 }, lastSeenAt: now },
+    })
+    return count
   },
 
   /**

@@ -15,6 +15,7 @@ import {
   computeFalsePositiveRates,
   DEFAULT_MIN_SAMPLES,
   type DispositionedCrossing,
+  formatReport,
 } from '@/lib/boundary-crossing/false-positive-rate'
 
 // Spied prisma surface for the read-only proof (criterion 3). Reads return
@@ -186,3 +187,22 @@ function byCategory(
     falsePositiveRate: number | null
   }
 }
+
+test('LUM-751: AUTO_SUPPRESSED is counted separately and kept out of the human FP denominator', () => {
+  const rows = [
+    ...Array.from({ length: 10 }, () => ({
+      category: 'PROJECT_RULE_VIOLATION',
+      disposition: 'FALSE_POSITIVE' as const,
+    })),
+    ...Array.from({ length: 5 }, () => ({
+      category: 'PROJECT_RULE_VIOLATION',
+      disposition: 'AUTO_SUPPRESSED' as const,
+    })),
+  ]
+  const report = computeFalsePositiveRates(rows, { minSamples: 10 })
+  const r = report.categories[0]!
+  expect(r.dispositioned).toBe(10)
+  expect(r.autoSuppressed).toBe(5)
+  expect(r.falsePositiveRate).toBe(1)
+  expect(formatReport(report)).toContain('5 auto-suppressed')
+})
