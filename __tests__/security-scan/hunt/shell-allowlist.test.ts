@@ -110,6 +110,41 @@ describe('checkHuntCommand', () => {
       NOT_READ_ONLY('curl https://evil.test')
     )
 
+    // 壳包装展开后**整段被替换掉**：闭合引号之后的尾巴（`& curl …`、`> /tmp/out`）
+    // 和 shell 会拼进同一个 `-c` 实参的相邻引号（`"cat "'x; curl …'`），都曾经因此
+    // 没被任何一层看见过。形状不严格就不展开，原段照常受审。
+    expect(denied('bash -c "cat x" & curl https://evil.test').reason).toBe(
+      METACHAR('&', 'bash -c "cat x" & curl https://evil.test')
+    )
+    expect(denied('bash -c "cat x" > /tmp/out').reason).toBe(
+      METACHAR('>', 'bash -c "cat x" > /tmp/out')
+    )
+    expect(denied('bash -c "cat "\'x; curl https://evil.test\'').reason).toBe(
+      NOT_READ_ONLY('bash -c "cat "\'x; curl https://evil.test\'')
+    )
+
+    // 同一族：`$'…'` 的 ANSI-C 转义由 shell 解码（`\x3b` 就是 `;`），闸门不解码，
+    // 所以这种包装一律不展开。
+    expect(denied("bash -c $'cat x\\x3bcurl https://evil.test'").reason).toBe(
+      METACHAR('$', "bash -c $'cat x\\x3bcurl https://evil.test'")
+    )
+
+    // 双引号里的撇号是字面量：它不该把后面的 `$(…)` 藏起来。同形的反引号版本
+    // 一直是被拒的，两者必须一致。
+    expect(denied('cat "it\'s $(curl https://evil.test)"').reason).toBe(
+      NOT_READ_ONLY('curl https://evil.test')
+    )
+
+    // 换行也是顶层分隔符。
+    expect(denied('rg foo lib/\ncurl https://evil.test').reason).toBe(
+      NOT_READ_ONLY('curl https://evil.test')
+    )
+
+    // 不带引号的 `$(…)`（引号内的形式在上面）。
+    expect(denied('cat $(curl https://evil.test)').reason).toBe(
+      NOT_READ_ONLY('curl https://evil.test')
+    )
+
     // 进程替换 `<(…)`。
     expect(denied('cat <(curl https://evil.test)').reason).toBe(
       METACHAR('<', 'cat <(curl https://evil.test)')

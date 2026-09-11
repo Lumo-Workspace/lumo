@@ -16,7 +16,9 @@
  *   1. 拆段：顶层用 `splitSegmentsQuoteAware` 按 `;`/`&&`/`||`/`|`/换行切分
  *      （引号感知），`bash -c '…'` 之类的壳包装用 `unwrapShellWrapper` 递归展开，
  *      藏在参数里的 `$(...)` / `` `...` `` 命令替换额外单独抽取出来再走一遍同样的
- *      流程——分词仍然 100% 委托给 LUM-751 的纯函数，不重新发明分词器。
+ *      流程——分词仍然 100% 委托给 LUM-751 的纯函数，不重新发明分词器。展开壳包装
+ *      时**整段被内层脚本替换掉**，所以只有形状严格（闭合引号后一个字符都没有）
+ *      的包装才准展开，否则原段留下来照常受审，见 `strictWrapperInner`。
  *   2. 逐段：引号感知扫描一次（`scanSegment`），同时产出 token 和「引号外的第一个
  *      不安全字符」。重定向 `>`、后台 `&`、进程替换 `<(`、反引号、`$`、`{}` 等
  *      全部由这一个扫描覆盖，不再各写一个探测器。
@@ -24,6 +26,12 @@
  *      （`HUNT_SHELL_COMMANDS`，且不接受任何带 `/` 的路径），最后按命令做
  *      **参数级**闸门（`sed -i`、`sed` 脚本里的 `e`/`w`、`rg --pre`、
  *      `ast-grep -U` 这些「用允许的动词干写/执行」的旗标）。
+ *
+ * 一条贯穿三层的教训（LUM-758 两轮复盘）：**任何一个构造都必须至少有一层完整地
+ * 认得它，两层之间不能互相假设对方会兜底**。双引号里的 `$(…)` 曾经被 `scanSegment`
+ * 全权委托给 `extractSubstitutions`，而后者不认双引号；壳包装的尾巴曾经被
+ * `topLevelSegments` 整段丢掉，而字符白名单根本没机会看见它——两次都是「以为对方
+ * 守着」。
  *
  * 第 3 层的两小层不能合并：`isReadOnlySegment` 只回答「是不是只读」，不回答
  * 「是不是我们允许的工具」—— `git log` / `git status` 是只读的，但 agent 不该
@@ -106,7 +114,13 @@ function scanSegment(segment: string): SegmentScan {
         quote = null
         continue
       }
-      if (c === '`' && quote === '"' && unsafe === null) unsafe = '`'
+      // 双引号内 shell 照样展开 `` ` `` 和 `$(…)`。这一半必须和
+      // `extractSubstitutions` 说同一句话：谁都不能把「双引号里的命令替换」整个
+      // 推给对方去认（LUM-758：推过去那一半漏了，这一半就成了唯一的门，却没人守）。
+      if (unsafe === null && quote === '"') {
+        if (c === '`') unsafe = '`'
+        else if (c === '$' && segment[i + 1] === '(') unsafe = '$'
+      }
       cur += c
       continue
     }
@@ -133,8 +147,45 @@ function scanSegment(segment: string): SegmentScan {
 }
 
 /**
- * 抽取段内所有命令替换的内容（`$(...)` 和 `` `...` ``，含嵌套）。单引号内的内容
- * 按 shell 语义不会被替换，直接跳过；双引号内仍会展开，正常扫描。
+ * 从 `$(` 之后一路扫到配对的 `)`，返回闭合括号**之后**的下标（没闭合就是串尾）。
+ * 引号感知：`$( … )` 内部是全新的引号上下文，单引号里的 `)` 不计入配对。
+ */
+function substitutionEnd(text: string, from: number): number {
+  let depth = 1
+  let j = from
+  let inDouble = false
+  while (j < text.length && depth > 0) {
+    const c = text[j]!
+    if (c === '\\' && j + 1 < text.length) {
+      j += 2
+      continue
+    }
+    if (c === '"') {
+      inDouble = !inDouble
+      j++
+      continue
+    }
+    if (c === "'" && !inDouble) {
+      const close = text.indexOf("'", j + 1)
+      j = close === -1 ? text.length : close + 1
+      continue
+    }
+    if (!inDouble && c === '(') depth++
+    else if (!inDouble && c === ')') depth--
+    j++
+  }
+  return j
+}
+
+/**
+ * 抽取段内所有命令替换的内容（`$(...)` 和 `` `...` ``，含嵌套）。
+ *
+ * **双引号感知**是这里的要害：单引号只有在**引号外**才开始一段字面量，
+ * `"it's $(curl …)"` 里的撇号按 shell 语义只是个普通字符。以前这里见 `'` 就跳到
+ * 下一个 `'`（配不上就跳到串尾），于是双引号里一个落单的撇号就把后面整段吞掉，
+ * `$(…)` 再也抽不出来——而 `scanSegment` 又把「双引号里的 `$(`」全权委托给了
+ * 这个函数，两边同时漏，`cat "it's $(curl …)"` 就这么直接放行了（同形的
+ * `` cat "it's `curl …`" `` 反而被拒，那个不对称就是这条 bug 的告示牌）。
  */
 function extractSubstitutions(text: string): string[] {
   const out: string[] = []
@@ -143,15 +194,21 @@ function extractSubstitutions(text: string): string[] {
     out.push(...extractSubstitutions(inner))
   }
   let i = 0
+  let inDouble = false
   while (i < text.length) {
     const c = text[i]!
-    if (c === "'") {
-      const end = text.indexOf("'", i + 1)
-      i = end === -1 ? text.length : end + 1
-      continue
-    }
     if (c === '\\' && i + 1 < text.length) {
       i += 2
+      continue
+    }
+    if (c === '"') {
+      inDouble = !inDouble
+      i++
+      continue
+    }
+    if (c === "'" && !inDouble) {
+      const close = text.indexOf("'", i + 1)
+      i = close === -1 ? text.length : close + 1
       continue
     }
     if (c === '`') {
@@ -164,23 +221,7 @@ function extractSubstitutions(text: string): string[] {
       continue
     }
     if (c === '$' && text[i + 1] === '(') {
-      let depth = 1
-      let j = i + 2
-      while (j < text.length && depth > 0) {
-        const cj = text[j]!
-        if (cj === "'") {
-          const end = text.indexOf("'", j + 1)
-          j = end === -1 ? text.length : end + 1
-          continue
-        }
-        if (cj === '\\' && j + 1 < text.length) {
-          j += 2
-          continue
-        }
-        if (cj === '(') depth++
-        else if (cj === ')') depth--
-        j++
-      }
+      const j = substitutionEnd(text, i + 2)
       push(text.slice(i + 2, Math.max(j - 1, i + 2)))
       i = j
       continue
@@ -491,6 +532,46 @@ function checkSegment(segment: string, depth: number): HuntCommandCheck {
 }
 
 /**
+ * `bash -c '…'` 包装的**严格**形状：`<壳名> <-c 旗标> <一个引号字面量>`，而且闭合
+ * 引号之后**不能再有任何字符**。形状对得上就返回内层脚本，对不上返回 null。
+ *
+ * 为什么非得这么严：`unwrapShellWrapper` 走 `leadingQuotedLiteral`，只取**第一段**
+ * 引号；而 `topLevelSegments` 又拿展开结果**替换掉**了原段。于是真正会执行的那半
+ * 截可以整个消失：
+ *   - `bash -c "cat x" & curl …`：闭合引号后的尾巴被丢掉，连字符白名单都没看过它；
+ *   - `bash -c "cat "'x; curl …'`：shell 把相邻引号拼成同一个 `-c` 实参，闸门只读到
+ *     `cat x`，拼上去的后半段照样执行。
+ * 只「顺带把尾巴也检查一遍」堵得住前者、堵不住后者——后者的尾巴本身是合规的引号
+ * 字面量，字符白名单挑不出毛病。所以判据是**尾巴非空即不是这个形状**：这样的段退
+ * 回普通段去走字符白名单 + 命令名白名单（`bash` 从来不在白名单里，必被拒）。
+ *
+ * `$'…'` 的 ANSI-C 形式同样返回 null：`$'cat x\x3bcurl …'` 里的 `\x3b` 是 shell 解码
+ * 出来的 `;`，这里不解码也不猜，退回普通段由引号外的 `$` 拒掉。
+ */
+function strictWrapperInner(segment: string): string | null {
+  const head = /^(?:bash|sh|zsh|dash)[ \t]+(-[A-Za-z]+)[ \t]+/.exec(segment)
+  if (head === null || !/^-[a-z]*c[a-z]*$/.test(head[1]!)) return null
+  const rest = segment.slice(head[0].length)
+  const quote = rest[0]
+  if (quote !== '"' && quote !== "'") return null
+  let body = ''
+  let i = 1
+  for (; i < rest.length; i++) {
+    const c = rest[i]!
+    if (c === '\\' && quote === '"' && i + 1 < rest.length) {
+      body += rest[++i]!
+      continue
+    }
+    if (c === quote) break
+    body += c
+  }
+  // 引号没闭合（i 走到头），或闭合引号不是这一段的最后一个字符（有尾巴 / 相邻引号
+  // 拼接）——两种都不是「一个引号字面量」，不展开。
+  if (i !== rest.length - 1) return null
+  return body
+}
+
+/**
  * 顶层可执行段：引号感知分割 + 递归展开 `bash -c '…'` 包装。**不**丢弃只读段
  * ——和 `executingSegments` 唯一的区别，也是本文件必须自己做这一步 glue 的
  * 原因：分词本身仍然 100% 委托给 `splitSegmentsQuoteAware` /
@@ -501,7 +582,13 @@ function topLevelSegments(cmd: string, depth = 0): string[] {
   for (const raw of splitSegmentsQuoteAware(cmd)) {
     const seg = raw.trim()
     if (!seg) continue
-    const inner = depth < MAX_WRAPPER_DEPTH ? unwrapShellWrapper(seg) : null
+    // `unwrapShellWrapper` 负责认「这是不是个壳包装」（分词仍然委托 LUM-751），
+    // `strictWrapperInner` 负责认「形状是不是严格到可以整段替换」。形状不严格就
+    // **不替换**：原段留下来走普通段的字符白名单 + 命令名白名单。
+    const inner =
+      depth < MAX_WRAPPER_DEPTH && unwrapShellWrapper(seg) !== null
+        ? strictWrapperInner(seg)
+        : null
     if (inner != null) {
       out.push(...topLevelSegments(inner, depth + 1))
       continue
