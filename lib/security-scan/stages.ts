@@ -25,8 +25,12 @@ import type { ScanStages } from './types'
  * prefix, and must therefore never reach a PR comment: every renderer of the
  * external-failure line checks `startsWith(EXTERNAL_ERROR_PREFIX)` first and
  * prints only what follows it.
+ *
+ * LUM-756: the constant itself lives in `shared/src/security-scan.ts` so the
+ * CLI (which cannot import `lib/`) renders by the same rule; re-exported here
+ * so existing importers keep their path.
  */
-export const EXTERNAL_ERROR_PREFIX = 'external: '
+export { EXTERNAL_ERROR_PREFIX } from '@/shared/src/security-scan'
 
 export interface StagesOfScanInput {
   stages: ScanStages | null
