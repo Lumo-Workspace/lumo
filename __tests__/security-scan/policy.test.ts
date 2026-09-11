@@ -20,6 +20,8 @@ import {
   parseSecurityPolicy,
   securityPolicySchema,
   isBlockingUnderPolicy,
+  type PolicyFindingInput,
+  type SecurityPolicy,
 } from '@/lib/security-scan/policy'
 import {
   isBlockingFinding,
@@ -33,7 +35,8 @@ const scans = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const prs = pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
 const policyOf = workspaceRepository.findSecurityPolicy as jest.Mock
 
-const open = (over: object) => ({
+type OpenFinding = PolicyFindingInput & { ruleId?: string; filePath?: string }
+const open = (over: Partial<OpenFinding>): OpenFinding => ({
   provenance: 'EXTERNAL_TOOL',
   severity: 'MEDIUM',
   disposition: null,
@@ -115,9 +118,9 @@ describe('LUM-740 security policy', () => {
   })
 
   describe('isBlockingUnderPolicy', () => {
-    const external = {
+    const external: SecurityPolicy = {
       block: [{ provenance: 'EXTERNAL_TOOL', severity: 'MEDIUM' }],
-    } as const
+    }
     it('blocks an open finding whose pair is listed', () => {
       expect(isBlockingUnderPolicy(open({}), external)).toBe(true)
     })

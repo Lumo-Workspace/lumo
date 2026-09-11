@@ -92,6 +92,7 @@ function finding(over: Partial<ReviewFindingRow> = {}): ReviewFindingRow {
     externalRef: null,
     disposition: null,
     persisting: false,
+    suggestedDisposition: null,
     ...over,
   }
 }
