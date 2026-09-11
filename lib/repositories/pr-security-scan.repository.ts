@@ -4,7 +4,10 @@
  */
 import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
-import type { ScanStages } from '@/lib/security-scan/types'
+import type {
+  ScanStages,
+  SecretDowngradeReason,
+} from '@/lib/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 
 export type ScanStatus = 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
@@ -56,6 +59,12 @@ export interface NewFindingInput {
   falsifierVerdict?: FalsifierVerdict | null
   /** LUM-738: the fingerprint is on the default branch's security baseline. */
   persisting?: boolean
+  /**
+   * LUM-758 follow-up (secret: rows only) — why the severity was lowered to
+   * LOW. Written straight from the scanner's own `RawSecretFinding.downgrade`;
+   * never re-derived from `detail`.
+   */
+  secretDowngrade?: SecretDowngradeReason | null
   // LUM-740: inherited from an earlier scan of the same PR (same fingerprint).
   suggestedDisposition?: FindingDisposition | null
   suggestedReason?: string | null
@@ -130,6 +139,8 @@ export interface FindingRow {
   suggestionOutcome: SuggestionOutcome | null
   /** LUM-738: already on the default-branch baseline — not introduced by this PR. */
   persisting: boolean
+  /** LUM-758 follow-up (secret: rows only; null elsewhere and when not downgraded). */
+  secretDowngrade: SecretDowngradeReason | null
   createdAt: Date
 }
 

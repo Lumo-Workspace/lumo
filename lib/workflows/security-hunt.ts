@@ -121,12 +121,14 @@ function recordCompress(audit: HuntAudit, batch: HuntBatchOutput): void {
   if (!batchCompress || batchCompress.calls + batchCompress.tokens === 0) return
   const total = audit.compress ?? {
     calls: 0,
+    noOpCalls: 0,
     inputChars: 0,
     outputChars: 0,
     tokens: 0,
   }
   audit.compress = {
     calls: total.calls + batchCompress.calls,
+    noOpCalls: (total.noOpCalls ?? 0) + (batchCompress.noOpCalls ?? 0),
     inputChars: total.inputChars + batchCompress.inputChars,
     outputChars: total.outputChars + batchCompress.outputChars,
     tokens: total.tokens + batchCompress.tokens,

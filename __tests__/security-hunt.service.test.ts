@@ -427,6 +427,7 @@ describe('LUM-739 hunt service', () => {
       // Only the compression that actually replaced an output counts as a
       // call, but the dud's 7 tokens are still money that was spent.
       calls: 1,
+      noOpCalls: 0,
       inputChars: 6400,
       outputChars: 800,
       tokens: 127,
@@ -639,7 +640,9 @@ describe('LUM-739 hunt service', () => {
   })
 
   it('planHunt never throws: an LLM failure falls back to the deterministic planner, never widening past what planFallback returns', async () => {
-    planMock.mockRejectedValueOnce(new Error('gateway 500'))
+    // LUM-758 follow-up: `gateway 500` is transient, so it now earns a second
+    // window — persist the rejection so this still exercises the fallback.
+    planMock.mockRejectedValue(new Error('gateway 500'))
     const job = { ...JOB, reasons: ['diff:sink:prisma-raw'] }
     const out = await securityHuntService.planHunt({ job })
     expect(out.by).toBe('fallback')
@@ -656,8 +659,48 @@ describe('LUM-739 hunt service', () => {
     )
   })
 
+  // LUM-758 follow-up. planHunt never throws, so planHuntStep's platform retry
+  // can never fire — without an in-process second window one transient gateway
+  // blip degrades the scan's plan for good (prod, PR #969).
+  it('planHunt gives a transient gateway failure a second window before degrading', async () => {
+    planMock
+      .mockRejectedValueOnce(new Error('Delay was aborted'))
+      .mockResolvedValueOnce({
+        tasks: [
+          {
+            id: 't1',
+            objective: 'trace the scan id into the repository call',
+            category: 'idor',
+            startingPoints: ['lib/services/x.ts'],
+          },
+        ],
+        reason: 'raw id reaches a repository call',
+        tokens: 900,
+      })
+    const job = { ...JOB, reasons: ['diff:sink:prisma-raw'] }
+
+    const out = await securityHuntService.planHunt({ job })
+
+    expect(planMock).toHaveBeenCalledTimes(2)
+    expect(out.by).toBe('model')
+    expect(out.tasks).toHaveLength(1)
+  })
+
+  it('planHunt does not retry a model that got the shape wrong', async () => {
+    // A schema miss repeats; a second window would just bill it twice.
+    planMock.mockRejectedValue(
+      new Error('AI_NoObjectGeneratedError: no object generated')
+    )
+    const job = { ...JOB, reasons: ['diff:sink:prisma-raw'] }
+
+    const out = await securityHuntService.planHunt({ job })
+
+    expect(planMock).toHaveBeenCalledTimes(1)
+    expect(out.by).toBe('fallback')
+  })
+
   it('planHunt falls back to tasks: [] when the reasons map to nothing, never to all six categories', async () => {
-    planMock.mockRejectedValueOnce(new Error('timed out'))
+    planMock.mockRejectedValue(new Error('timed out'))
     const job = { ...JOB, reasons: [] }
     const out = await securityHuntService.planHunt({ job })
     expect(out.by).toBe('fallback')

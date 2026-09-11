@@ -49,6 +49,30 @@ describe('formatFindingLine / findingStatement', () => {
     )
   })
 
+  // LUM-758 follow-up: downgrading is not suppression — the row is still
+  // reported, so the line must say WHY it is LOW. A recognised placeholder in a
+  // test fixture otherwise reads exactly like a leaked credential.
+  it('states why a downgraded secret row is LOW, and stays silent when it was not downgraded', () => {
+    expect(
+      formatFindingLine(
+        f({
+          severity: 'LOW',
+          blocking: false,
+          secretDowngrade: 'PLACEHOLDER_VALUE',
+        })
+      )
+    ).toBe(
+      '[LOW] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · advisory — placeholder value, downgraded)'
+    )
+    expect(
+      formatFindingLine(
+        f({ severity: 'LOW', blocking: false, secretDowngrade: null })
+      )
+    ).toBe(
+      '[LOW] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · advisory)'
+    )
+  })
+
   it('strips control characters from the (untrusted) title', () => {
     const line = formatFindingLine(f({ title: 'x\x1b[31m y' }))
     expect(line).not.toContain('\x1b')

@@ -139,6 +139,26 @@ export interface HuntTask {
 
 /** §11.5 —— 3 个才像个图；3 × HUNT_TASK_TOKEN_MAX = 60k = 验收目标均值。 */
 export const HUNT_MAX_PLANNED_TASKS = 3
+/**
+ * Per-task token ceiling. Two constraints define this number, and
+ * `__tests__/security-scan/hunt/budget-arithmetic.test.ts` pins both:
+ *
+ *   HUNT_MAX_PLANNED_TASKS × this            = the §9 acceptance target mean
+ *   HUNT_MAX_PLANNED_TASKS × this × 2        ≤ HUNT_TOKEN_BUDGET (one retry each)
+ *
+ * It is a SOFT ceiling — `generateText` decides how big its next step is, and
+ * the budget can only be judged between steps. It was also, until now, simply
+ * not enforced: the old `spent >= budget` check billed the step that crossed
+ * the line, and prod (PR 970) delivered 38,262 against this 20,000. The
+ * predictive stop in `security-hunt-client.ts` is what makes the number true;
+ * the residual is one step's growth, not one whole late step.
+ *
+ * Raising it is not free and not local: at the observed appetite (~38k for one
+ * task) three tasks would bill ~114k, near twice the acceptance target, for a
+ * layer that has submitted zero candidates across 25 prod scans. Raise the
+ * ceiling only together with HUNT_MAX_PLANNED_TASKS, so the arithmetic above
+ * still holds.
+ */
 export const HUNT_TASK_TOKEN_MAX = 20_000
 export const HUNT_TASK_TIME_MS = 60_000
 /**
@@ -170,6 +190,15 @@ export const PLAN_HUNT_TOKEN_BUDGET = 5_000
  * 拖到 20s 就说明网关有问题，此时确定性兜底比继续等更划算。
  */
 export const PLAN_HUNT_TIMEOUT_MS = 20_000
+/**
+ * Attempts at the planning call, each with a FRESH `PLAN_HUNT_TIMEOUT_MS`
+ * window. `planHunt` never throws, so `planHuntStep`'s platform retry can never
+ * fire — without this the first transient gateway blip degrades the scan's plan
+ * to the deterministic fallback for good (prod, PR 969). Two, not more: the
+ * fallback is a real answer, not an error path, and a third window would push
+ * planning past a minute before any hunting starts.
+ */
+export const PLAN_HUNT_MAX_ATTEMPTS = 2
 
 /** Tool-calling rounds one category batch may take. */
 export const HUNT_MAX_STEPS_PER_CATEGORY = 12
@@ -305,7 +334,21 @@ export interface HuntAudit {
 
 /** One batch's share of `HuntAudit.compress`; summed by the orchestrator. */
 export interface HuntCompressStats {
+  /** Compressions that replaced the output. */
   calls: number
+  /**
+   * Compressions that were CHARGED and produced nothing usable — empty, the
+   * `(no relevant lines)` sentinel, or a body too small to be a compression of
+   * its input. Their tokens are in `tokens` and their characters are NOT in
+   * `inputChars` / `outputChars`, because no compression happened.
+   *
+   * This is the number that was missing when it mattered: prod fed 38,585
+   * characters through seven calls and got 133 back — exactly 7 × the sentinel
+   * — and the only way to know was to divide. A task whose `noOpCalls` equals
+   * its call count searched a repository it could not see, and any conclusion
+   * drawn from `candidates: 0` on that scan is worthless.
+   */
+  noOpCalls: number
   inputChars: number
   outputChars: number
   tokens: number

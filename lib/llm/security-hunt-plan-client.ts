@@ -162,7 +162,12 @@ export async function planHuntTasks(input: PlanClientInput): Promise<{
     system: SYSTEM_PROMPT,
     prompt: buildPrompt(input),
     maxOutputTokens: PLAN_HUNT_TOKEN_BUDGET,
-    maxRetries: 1,
+    // 0, not 1: with an SDK retry the abort signal lands inside the library's
+    // exponential-backoff *sleep* rather than inside a request — prod (PR 969)
+    // failed as `Delay was aborted`, the LUM-762 signature, having spent the
+    // window waiting instead of asking. The caller retries instead, with a
+    // fresh window each time (`planHunt`), so there is no sleep to abort.
+    maxRetries: 0,
     abortSignal: AbortSignal.timeout(input.timeoutMs),
   })
   // zod 的 .max() 挡住了超额，但没挡住重复任务（同一 category+objective 出现

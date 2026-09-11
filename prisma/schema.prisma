@@ -1467,6 +1467,15 @@ enum PrSecurityFalsifierVerdict {
   INCONCLUSIVE
 }
 
+// LUM-758 follow-up: why a deterministic secret hit was lowered to LOW. Mirrors
+// `SecretDowngradeReason` in lib/security-scan/types.ts — the scanner is the
+// only writer. Downgrading is never suppression: the row is still reported, so
+// a reader needs the cause to tell "recognised placeholder" from "real leak".
+enum PrSecuritySecretDowngrade {
+  PLACEHOLDER_VALUE
+  DOWNGRADED_PATH
+}
+
 // LUM-740: what a human did with an LLM-suggested disposition — confirmed it
 // (chose the suggested disposition) or overruled it (chose another). The
 // pair (suggestedDisposition, suggestionOutcome) is the judge-precision data
@@ -1583,6 +1592,13 @@ model PrSecurityFinding {
   // baseline (ProjectRepository.securityBaseline) — this PR did not introduce
   // it. Advisory: rendered muted, excluded from open/reminder counts.
   persisting             Boolean                       @default(false)
+  // LUM-758 follow-up (secret: rows only): WHY the severity was lowered to LOW.
+  // The scanner already computes it; persisting it is what lets the reminder
+  // and `lumo task status` say *why* a row is advisory, instead of a
+  // recognised placeholder in a test fixture reading as an unexplained
+  // credential. Null on every non-secret row and on a hit that was not
+  // downgraded — never inferred from `detail` (see SecretDowngradeReason).
+  secretDowngrade        PrSecuritySecretDowngrade?
   createdAt              DateTime                      @default(now())
 
   scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)

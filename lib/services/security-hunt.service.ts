@@ -43,6 +43,7 @@ import {
   categoriesToTasks,
   applyPlanFloor,
 } from '@/lib/security-scan/hunt/plan-fallback'
+import { isTransientPlanError } from '@/lib/security-scan/hunt/plan-retry'
 import { renderHuntTaskContext } from '@/lib/security-scan/hunt/task-context'
 import { loadHuntTaskContext } from './security-hunt-task-context'
 import {
@@ -63,6 +64,7 @@ import {
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_SNIPPET_RADIUS,
   HUNT_AUDIT_MAX_REJECTED,
+  PLAN_HUNT_MAX_ATTEMPTS,
   PLAN_HUNT_TIMEOUT_MS,
   type HuntJob,
   type HuntAudit,
@@ -317,53 +319,75 @@ export const securityHuntService = {
         `[security-hunt] plan finding read failed scan=${job.scanId}: ${messageOf(error)}`
       )
     }
-    try {
-      const { planHuntTasks } =
-        await import('@/lib/llm/security-hunt-plan-client')
-      const out = await planHuntTasks({
-        // LUM-758 Task 10 — the planner's diff view is the trigger's own two
-        // outputs, not a 40-file graph the agent will never read: `reasons`
-        // says WHICH rules fired, `touchedSourcePaths` says WHERE they could
-        // have fired. Both were computed by stage A already, so this view
-        // costs nothing. Dropping the second half (the state this review
-        // fixes) left the planner unable to see that the only
-        // `prisma.$queryRawUnsafe` in the diff was in a fixture.
-        reasons: job.reasons,
-        touchedPaths: job.touchedSourcePaths,
-        findings,
-        // Empty string → undefined: "no block in the prompt at all", not an
-        // empty block the model has to interpret.
-        taskContext: taskContextBlock || undefined,
-        timeoutMs: PLAN_HUNT_TIMEOUT_MS,
-      })
-      if (!hasTaskContext) {
-        return { ...out, by: 'model', taskContext: false, floorForced: [] }
+    // `planHunt` never throws, which means `planHuntStep`'s platform retry can
+    // never fire — so without this loop a single transient gateway blip
+    // permanently degrades the scan's plan to the deterministic fallback. Prod
+    // (PR 969) lost a whole plan that way. One extra attempt with a FRESH
+    // window is the middle rung the design was missing between "worked" and
+    // "give up"; the planner is cheap (≤ PLAN_HUNT_TOKEN_BUDGET) so the retry
+    // costs far less than the plan quality it saves.
+    let lastError = ''
+    for (let attempt = 1; attempt <= PLAN_HUNT_MAX_ATTEMPTS; attempt++) {
+      try {
+        const { planHuntTasks } =
+          await import('@/lib/llm/security-hunt-plan-client')
+        const out = await planHuntTasks({
+          // LUM-758 Task 10 — the planner's diff view is the trigger's own two
+          // outputs, not a 40-file graph the agent will never read: `reasons`
+          // says WHICH rules fired, `touchedSourcePaths` says WHERE they could
+          // have fired. Both were computed by stage A already, so this view
+          // costs nothing. Dropping the second half (the state this review
+          // fixes) left the planner unable to see that the only
+          // `prisma.$queryRawUnsafe` in the diff was in a fixture.
+          reasons: job.reasons,
+          touchedPaths: job.touchedSourcePaths,
+          findings,
+          // LUM-764 — empty string → undefined: "no block in the prompt at
+          // all", not an empty block the model has to interpret. Computed once
+          // above, so the retry attempt sends the same prompt rather than
+          // re-reading the task.
+          taskContext: taskContextBlock || undefined,
+          timeoutMs: PLAN_HUNT_TIMEOUT_MS,
+        })
+        if (!hasTaskContext) {
+          return { ...out, by: 'model', taskContext: false, floorForced: [] }
+        }
+        // LUM-764 — THE control. One set union, here, after the model answered:
+        // the prompt carried text the PR author can write, so the plan is
+        // raised to cover the mechanically-derived floor no matter what that
+        // text said. Untrusted text can still add tasks (it is useful aiming
+        // material); it cannot take any away.
+        const { tasks, forced } = applyPlanFloor(
+          out.tasks,
+          floor,
+          HUNT_MAX_PLANNED_TASKS
+        )
+        return {
+          tasks,
+          reason: out.reason,
+          tokens: out.tokens,
+          by: 'model',
+          taskContext: true,
+          floorForced: forced,
+        }
+      } catch (error) {
+        lastError = messageOf(error)
+        // Only a transient deserves the second window. A schema-validation
+        // failure is the model being wrong about the shape, and it will be wrong
+        // the same way again — retrying it just burns the budget twice.
+        if (attempt < PLAN_HUNT_MAX_ATTEMPTS && isTransientPlanError(error)) {
+          logger.warn(
+            `[security-hunt] plan attempt ${attempt} failed scan=${job.scanId}, retrying: ${lastError}`
+          )
+          continue
+        }
+        break
       }
-      // LUM-764 — THE control. One set union, here, after the model answered:
-      // the prompt carried text the PR author can write, so the plan is raised
-      // to cover the mechanically-derived floor no matter what that text said.
-      // Untrusted text can still add tasks (it is useful aiming material); it
-      // cannot take any away.
-      const { tasks, forced } = applyPlanFloor(
-        out.tasks,
-        floor,
-        HUNT_MAX_PLANNED_TASKS
-      )
-      return {
-        tasks,
-        reason: out.reason,
-        tokens: out.tokens,
-        by: 'model',
-        taskContext: true,
-        floorForced: forced,
-      }
-    } catch (error) {
-      const message = messageOf(error)
-      logger.warn(
-        `[security-hunt] plan failed scan=${job.scanId}, using deterministic fallback: ${message}`
-      )
-      return fallback(`plan unavailable: ${message.slice(0, 200)}`)
     }
+    logger.warn(
+      `[security-hunt] plan failed scan=${job.scanId}, using deterministic fallback: ${lastError}`
+    )
+    return fallback(`plan unavailable: ${lastError.slice(0, 200)}`)
   },
 
   /**
@@ -422,6 +446,7 @@ export const securityHuntService = {
      */
     const compress: HuntCompressStats = {
       calls: 0,
+      noOpCalls: 0,
       inputChars: 0,
       outputChars: 0,
       tokens: 0,
@@ -464,6 +489,10 @@ export const securityHuntService = {
             compress.inputChars += out.compressInputChars
             compress.outputChars += out.compressOutputChars
           }
+          // A charged call that produced nothing usable is the failure mode
+          // that cost a whole task its sight without leaving a trace; counting
+          // it is what turns the next diagnosis into a read.
+          if (out.compressNoOp) compress.noOpCalls += 1
           // Only the two fields the model needs. The accounting fields are
           // ours: an `ai` tool result is serialised straight into the
           // transcript, so returning them would spend context on bookkeeping
