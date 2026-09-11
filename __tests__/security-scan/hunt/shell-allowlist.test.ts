@@ -16,6 +16,8 @@ const NOT_READ_ONLY = (segment: string) =>
   `segment is not read-only: ${segment}`
 const METACHAR = (char: string, segment: string) =>
   `segment uses the shell metacharacter '${char}' outside quotes; quote it or drop it: ${segment}`
+const METACHAR_IN_DQUOTE = (char: string, segment: string) =>
+  `segment uses the shell metacharacter '${char}' inside a double-quoted string, and the shell still expands it there; switch to single quotes, which shell never expands (rg -n '...' lib/), or backslash-escape it inside the double quotes (rg -n "\\${char}..." lib/): ${segment}`
 const UNBALANCED = (segment: string) =>
   `segment has an unbalanced quote; to search for a literal quote or metacharacter, wrap the whole pattern in single quotes (rg '$(' lib/): ${segment}`
 
@@ -52,6 +54,9 @@ describe('checkHuntCommand', () => {
     ok("ast-grep --pattern '$A.$queryRaw($B)' lib/")
     ok("ast-grep -p 'fetch($$$)' lib/")
     ok("rg -g '!*.test.ts' -n foo lib/")
+    // 行尾锚点 + 分支：`$|` 在任何 shell 里都不是特殊参数，紧跟 `|` 的 `$` 和
+    // 紧贴段尾/右引号的 `$` 同理安全（第四轮复盘，Important 2）。
+    ok('rg -n "a$|b" lib/')
   })
 
   it('hunt shell allowlist rejects network, file writes, git and npm, including nested segments', () => {
@@ -185,6 +190,11 @@ describe('checkHuntCommand', () => {
     expect(denied('cat x #"\ncurl https://evil.test #"').reason).toBe(
       METACHAR('#', 'cat x #"\ncurl https://evil.test #"')
     )
+    // 单引号版——之前这条注释说「同理」却没断言，是锁定回归测试里的一个漏判：
+    // 在 bash/zsh/sh/dash 上确认过一样会执行（Minor 3，第四轮复盘）。
+    expect(denied("cat x #'\ncurl https://evil.test #'").reason).toBe(
+      METACHAR('#', "cat x #'\ncurl https://evil.test #'")
+    )
     expect(denied('grep -n foo lib/ #"\nbash -c "git push" #"').reason).toBe(
       METACHAR('#', 'grep -n foo lib/ #"\nbash -c "git push" #"')
     )
@@ -194,10 +204,34 @@ describe('checkHuntCommand', () => {
     // 错误，等镜像升级就变成 RCE。改成字符白名单：`$` 后面不是 `name` / `{name`
     // 就判不安全。
     expect(denied('cat "${ curl https://evil.test; }"').reason).toBe(
-      METACHAR('$', 'cat "${ curl https://evil.test; }"')
+      METACHAR_IN_DQUOTE('$', 'cat "${ curl https://evil.test; }"')
     )
     expect(denied('cat "${|curl https://evil.test;}"').reason).toBe(
-      METACHAR('$', 'cat "${|curl https://evil.test;}"')
+      METACHAR_IN_DQUOTE('$', 'cat "${|curl https://evil.test;}"')
+    )
+
+    // 第四轮复盘：`${name…}` 曾经只看 `{` 后第一个字符是不是字母，于是
+    // `${x@P}`（bash≥4.4 把 x 的值当 prompt 串重新展开，会执行命令替换）、
+    // `${x[y]}`、`${x:-…}`、`${x//a/b}`、`${x[SHLVL]}` 全部落回旧的两项黑名单，
+    // 被当成字面 `$name` 放行。改成整体匹配 `{name}` 之后，这九种运算符形状
+    // 全部判不安全。
+    expect(denied('cat "${x@P}"').reason).toBe(
+      METACHAR_IN_DQUOTE('$', 'cat "${x@P}"')
+    )
+    expect(denied('cat "${x@E}"').reason).toBe(
+      METACHAR_IN_DQUOTE('$', 'cat "${x@E}"')
+    )
+    expect(denied('cat "${x[y]}"').reason).toBe(
+      METACHAR_IN_DQUOTE('$', 'cat "${x[y]}"')
+    )
+    expect(denied('cat "${x:-anything}"').reason).toBe(
+      METACHAR_IN_DQUOTE('$', 'cat "${x:-anything}"')
+    )
+    expect(denied('cat "${x//a/b}"').reason).toBe(
+      METACHAR_IN_DQUOTE('$', 'cat "${x//a/b}"')
+    )
+    expect(denied('cat "${x[SHLVL]}"').reason).toBe(
+      METACHAR_IN_DQUOTE('$', 'cat "${x[SHLVL]}"')
     )
 
     // 壳包装的另外两种「引号拼接」形状（和上面 `"cat "'x; …'` 同族）：闭合引号
@@ -295,6 +329,23 @@ describe('checkHuntCommand', () => {
     expect(denied('ast-grep --rewrite=x -p y .').reason).toMatch(
       /rewrites files/
     )
+    // Minor 4（第四轮复盘）：`ast-grep new` 会往 checkout 里生成
+    // `sgconfig.yml`/`rules/`，之前的闸门只看旗标、不看子命令，放行了它。
+    expect(denied('ast-grep new').reason).toBe(
+      "ast-grep subcommand 'new' is not allowed; this sandbox only allows read-only search (no subcommand, 'run', or 'scan')"
+    )
+    expect(denied('ast-grep new --lang ts').reason).toBe(
+      "ast-grep subcommand 'new' is not allowed; this sandbox only allows read-only search (no subcommand, 'run', or 'scan')"
+    )
+    // `-r` 随子命令改义：`run` 里是 `--rewrite`（写），`scan` 里是 `--rule`
+    // （只读）。之前把 `-r` 当成任何子命令下都危险，`ast-grep scan -r rule.yml`
+    // 这个正常检索被误拒。
+    expect(denied('ast-grep run -r x -p y .').reason).toBe(
+      "ast-grep flag '-r' rewrites files; this sandbox is read-only"
+    )
+    expect(denied('ast-grep -r x -p y .').reason).toBe(
+      "ast-grep flag '-r' rewrites files; this sandbox is read-only"
+    )
 
     // 只读的脚本 / 旗标仍然放行——拒绝正常检索的闸门同样是坏的。
     ok("sed -n '10,40p' lib/services/foo.ts")
@@ -303,6 +354,9 @@ describe('checkHuntCommand', () => {
     ok("sed 's/a b/c/' lib/x.ts")
     ok('rg --pre-glob "*.md" -n x .')
     ok('ast-grep -p "console.log($A)" -l ts lib/')
+    ok('ast-grep run -p "console.log($A)" -l ts lib/')
+    ok('ast-grep scan -r rule.yml lib/')
+    ok('ast-grep scan --rule=rule.yml lib/')
   })
 
   it('rejects an empty or unparseable command', () => {

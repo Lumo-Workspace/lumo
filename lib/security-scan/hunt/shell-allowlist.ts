@@ -86,27 +86,43 @@ const SAFE_UNQUOTED_CHAR = /^[A-Za-z0-9_\-.\/=,:+@%~#[\]*?]$|^[^\x00-\x7f]$/
 type SegmentScan = {
   /** 去掉引号 / 反斜杠转义后的实参（shell 真正会交给程序的那些）。 */
   tokens: string[]
-  /** 引号外第一个不在 `SAFE_UNQUOTED_CHAR` 里的字符，没有则 null。 */
+  /** 不安全字符（引号外的，或双引号内仍会被 shell 展开的 `` ` ``/`$`），没有则
+   *  null。 */
   unsafe: string | null
+  /** `unsafe` 是在双引号**内部**发现的（`` ` ``/`$(`/`${…}` 这类双引号挡不住的
+   *  展开）。理由文案要按这个字段分岔——「outside quotes」对这种情况是假话：
+   *  第三轮复盘发现的那句理由字面上就在说反话，模型被指去做它已经做过的事
+   *  （见 checkSegment 里的两条理由）。 */
+  unsafeInDoubleQuote: boolean
   /** 引号没闭合——无法判断后面是不是引号内，按失败关闭处理。 */
   unbalancedQuote: boolean
 }
 
 /**
- * 双引号里的 `$` 什么时候只是个字面美元号。三种放行：
+ * 双引号里的 `$` 什么时候只是个字面美元号。四种放行：
  *   - `$name`（`ast-grep --pattern "$A.$queryRaw($B)"` 的元变量）；
- *   - `${name…}`（`grep -n "${HOME}"`）；
+ *   - `${name}`，且**整个花括号形状必须严格匹配**（`grep -n "${HOME}"`）——
+ *     只看开头一个字符曾经是三轮复盘之前的老 bug（第四轮复盘）：`${x@P}`
+ *     （bash≥4.4 把 `x` 的值当 prompt 串重新展开，会执行命令替换）、
+ *     `${x[y]}`、`${x:-…}`、`${x//a/b}` 全部以 `{` 加字母开头，逐字符扫描只看
+ *     `{` 后第一个字符时，这些花括号运算符的**整个函数体**会落回旧的「反引号 /
+ *     `$(` 两项黑名单」，正是第三轮想替换掉的东西。改成整体匹配
+ *     `{name}`（`name` 只能是 `[A-Za-z_][A-Za-z0-9_]*`），别的花括号形状一律
+ *     判不安全。今天这条闸门前面还拿不到变量赋值，但沙箱调用方一旦把 PR 数据
+ *     导出成 env（refname 合法含 `$`/`(`/`)`/`;`），`${x@P}` 就是现成的 RCE。
  *   - 紧贴右引号或段尾的 `$`（`rg -n "foo$"` 的正则行尾锚点）——任何 shell 都不会
- *     拿它去展开什么。
- * 其余一律不安全。这里是**字符白名单**而不是「认 `$(` 和反引号」的两项黑名单：
- * `${ …; }` / `${|…;}`（bash 5.3 的函数替换，会执行）在 bash 3.2 / zsh 5.9 上只是
- * 语法错误，等沙箱镜像的 bash 一升级就会变成 RCE。白名单不需要预先认识它。
+ *     拿它去展开什么；
+ *   - 紧跟 `|` 的 `$`（`rg -n "a$|b" lib/` 的行尾锚点 + 分支）——`$|` 在 bash /
+ *     zsh / sh / dash 里都不是任何特殊参数（`$@ $* $# $? $- $$ $! $0-9` 之外，
+ *     `$` 后接非字母数字/`_`/`{`/`(` 的字符从不触发展开），和紧贴段尾同理安全，
+ *     加进来是为了不再拒绝这个常见的 ripgrep 写法。
+ * 其余一律不安全。这里是**字符白名单**而不是「认 `$(` 和反引号」的两项黑名单。
  */
 function isLiteralDollar(text: string, i: number): boolean {
   const next = text[i + 1]
-  if (next === undefined || next === '"') return true
+  if (next === undefined || next === '"' || next === '|') return true
   if (/[A-Za-z_]/.test(next)) return true
-  if (next === '{') return /[A-Za-z_]/.test(text[i + 2] ?? '')
+  if (next === '{') return /^\{[A-Za-z_][A-Za-z0-9_]*\}/.test(text.slice(i + 1))
   return false
 }
 
@@ -121,6 +137,7 @@ function isLiteralDollar(text: string, i: number): boolean {
 function scanSegment(segment: string): SegmentScan {
   const tokens: string[] = []
   let unsafe: string | null = null
+  let unsafeInDoubleQuote = false
   let cur = ''
   let started = false
   let quote: '"' | "'" | null = null
@@ -144,8 +161,13 @@ function scanSegment(segment: string): SegmentScan {
       // `extractSubstitutions` 说同一句话：谁都不能把「双引号里的命令替换」整个
       // 推给对方去认（LUM-758：推过去那一半漏了，这一半就成了唯一的门，却没人守）。
       if (unsafe === null && quote === '"') {
-        if (c === '`') unsafe = '`'
-        else if (c === '$' && !isLiteralDollar(segment, i)) unsafe = '$'
+        if (c === '`') {
+          unsafe = '`'
+          unsafeInDoubleQuote = true
+        } else if (c === '$' && !isLiteralDollar(segment, i)) {
+          unsafe = '$'
+          unsafeInDoubleQuote = true
+        }
       }
       cur += c
       continue
@@ -180,7 +202,12 @@ function scanSegment(segment: string): SegmentScan {
     started = true
   }
   flush()
-  return { tokens, unsafe, unbalancedQuote: quote !== null }
+  return {
+    tokens,
+    unsafe,
+    unsafeInDoubleQuote,
+    unbalancedQuote: quote !== null,
+  }
 }
 
 /**
@@ -498,21 +525,53 @@ function rgGate(args: readonly string[]): string | null {
   return null
 }
 
-/** ast-grep 旗标里会改写文件的那些。 */
+/** ast-grep 旗标里会改写文件的那些（长旗标形式，子命令无关）。 */
 const AST_GREP_DENIED_FLAGS = new Set([
   '--update-all',
   '--rewrite',
   '--interactive',
 ])
 
+/**
+ * 确认是只读的 ast-grep 子命令：`run`（默认动作，检索 + 可选 rewrite）、
+ * `scan`（跑 rule 配置检索，rule 里的 autofix 靠 `-U`/`--update-all` 才会落地，
+ * 已经单独拦）。没有子命令（第一个实参就是旗标）等价于隐式 `run`。
+ *
+ * 子命令面比这张表大（`test`、`lsp`、`completions`……），但本闸门只认得住
+ * 自己数得清的：数不清的一律拒，不去猜哪些是只读的——`new` 会往 checkout 里
+ * 生成 `sgconfig.yml`/`rules/`，正是「这是只读沙箱」这句理由要挡的东西，之前
+ * 因为这里只看旗标、不看子命令，`ast-grep new …` 一直被放行。
+ */
+const AST_GREP_READ_SUBCOMMANDS = new Set(['run', 'scan'])
+
 function astGrepGate(args: readonly string[]): string | null {
-  for (const arg of args) {
+  let subcommand: string | null = null
+  let rest = args
+  const first = args[0]
+  if (first !== undefined && !first.startsWith('-')) {
+    subcommand = first
+    rest = args.slice(1)
+    if (!AST_GREP_READ_SUBCOMMANDS.has(subcommand)) {
+      return `ast-grep subcommand '${subcommand}' is not allowed; this sandbox only allows read-only search (no subcommand, 'run', or 'scan')`
+    }
+  }
+  for (const arg of rest) {
     const name = arg.startsWith('--') ? arg.split('=')[0]! : arg
     if (AST_GREP_DENIED_FLAGS.has(name)) {
       return `ast-grep flag '${name}' rewrites files; this sandbox is read-only`
     }
-    if (/^-[A-Za-z]*[Uri]/.test(arg) && !arg.startsWith('--')) {
-      return `ast-grep flag '${arg}' rewrites files; this sandbox is read-only`
+    if (arg.startsWith('--') || !arg.startsWith('-') || arg === '-') continue
+    // 短旗标簇，逐字符判。`-U`/`-i` 在任何子命令下都是写/交互式改写。`-r` 是
+    // 唯一随子命令改义的字母：`run` 里是 `--rewrite`（写），`scan` 里是
+    // `--rule`（只读，指定 rule 配置文件路径）——同一个字母，两种子命令，语义
+    // 相反，必须按 `subcommand` 分开判，不能只看旗标。
+    for (const ch of arg.slice(1)) {
+      if (ch === 'U' || ch === 'i') {
+        return `ast-grep flag '${arg}' rewrites files; this sandbox is read-only`
+      }
+      if (ch === 'r' && subcommand !== 'scan') {
+        return `ast-grep flag '${arg}' rewrites files; this sandbox is read-only`
+      }
     }
   }
   return null
@@ -543,10 +602,17 @@ function checkSegment(segment: string, depth: number): HuntCommandCheck {
     }
   }
   if (scan.unsafe !== null) {
-    return {
-      ok: false,
-      reason: `segment uses the shell metacharacter '${scan.unsafe}' outside quotes; quote it or drop it: ${echo}`,
-    }
+    // 双引号内的 `` ` ``/`$` 挡不住 shell 展开，但它们确确实实在引号**里**——
+    // 说「outside quotes」是反话，第三轮复盘留下的这句理由曾经原样命中
+    // `rg -n "cost: $5" lib/`、`` rg -n "`ls`" lib/ `` 这类拒绝，指着模型去做
+    // 它已经做过的事（把 `$`/`` ` `` 包进了引号）。这里按 `unsafeInDoubleQuote`
+    // 分岔，双引号分支点名两个真出口：换单引号（shell 完全不展开单引号内容），
+    // 或者反斜杠转义那个字符（双引号内 `\$`/`` \` `` 都是字面量，`scanSegment`
+    // 的转义分支已经放行）。
+    const reason = scan.unsafeInDoubleQuote
+      ? `segment uses the shell metacharacter '${scan.unsafe}' inside a double-quoted string, and the shell still expands it there; switch to single quotes, which shell never expands (rg -n '...' lib/), or backslash-escape it inside the double quotes (rg -n "\\${scan.unsafe}..." lib/): ${echo}`
+      : `segment uses the shell metacharacter '${scan.unsafe}' outside quotes; quote it or drop it: ${echo}`
+    return { ok: false, reason }
   }
   if (!isReadOnlySegment(segment)) {
     return { ok: false, reason: `segment is not read-only: ${echo}` }
