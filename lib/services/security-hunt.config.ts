@@ -40,6 +40,13 @@ export const HUNT_CATEGORIES = [
 export type HuntCategory = (typeof HUNT_CATEGORIES)[number]
 
 /**
+ * LUM-758 §4.3 — 一次扫描最多规划几个类别。2 类 × HUNT_CATEGORY_TOKEN_MAX
+ * (30k) = 60k，正好是验收目标的平均 tokenSpent；留给补跑的余量来自
+ * HUNT_TOKEN_BUDGET (120k) 的另一半。
+ */
+export const HUNT_MAX_PLANNED_CATEGORIES = 2
+
+/**
  * Spec §6 L3 "Hunt" budget per scan. Raised from 150k/200s by LUM-762: the
  * six categories are six independent step invocations, so this was never a
  * platform limit — it was our own constant, and at 200s one wedged category
