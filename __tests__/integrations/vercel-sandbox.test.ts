@@ -181,6 +181,14 @@ describe('findRepoSandboxByTag (LUM-758)', () => {
     expect(get).toHaveBeenCalledTimes(2)
     expect((logger.warn as jest.Mock).mock.calls.length).toBe(2)
   })
+
+  it('propagates when Sandbox.list itself fails', async () => {
+    list.mockRejectedValue(new Error('platform down'))
+    await expect(findRepoSandboxByTag({ lumoScan: 's1' })).rejects.toThrow(
+      'platform down'
+    )
+    expect(get).not.toHaveBeenCalled()
+  })
 })
 
 describe('getRepoSandbox (LUM-746 reconnect)', () => {
