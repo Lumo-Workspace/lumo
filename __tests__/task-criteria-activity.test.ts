@@ -71,7 +71,10 @@ function existing(id: string, over: Record<string, unknown> = {}) {
     verifierType: 'MACHINE',
     checkpointer: 'npx jest old',
     evidenceRequired: false,
-    referentKind: 'EXTERNAL_FACT',
+    // LUM-733: the stored kind is derived from the checkpointer — a jest check
+    // is AGENT_CONSTRUCTED_STATE. A fixture declaring EXTERNAL_FACT here would
+    // make an untouched criterion look changed on every revision.
+    referentKind: 'AGENT_CONSTRUCTED_STATE',
     source: 'AGENT_DRAFT',
     addedAtRound: 0,
     ...over,

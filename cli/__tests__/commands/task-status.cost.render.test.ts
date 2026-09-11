@@ -3,6 +3,10 @@ import {
   type TaskStatusResponse,
 } from '../../src/commands/task-status'
 
+/** LUM-733: the dashboard sections (cost, struggle/rework trail, trend) only
+ *  render under `--full`; the default report is the slim agent self-check. */
+const FULL = { full: true } as const
+
 /** A minimal status payload with a cost block — one clean MACHINE criterion.
  *  Override `cost` per test. */
 function withCost(
@@ -65,7 +69,8 @@ function withCost(
 describe('task status cost render (LUM-560)', () => {
   it('renders the cost section with token / active time / rework rounds', () => {
     const out = formatTaskStatus(
-      withCost({ tokenCost: 1_200_000, activeTimeSec: 8040, reworkRounds: 2 })
+      withCost({ tokenCost: 1_200_000, activeTimeSec: 8040, reworkRounds: 2 }),
+      FULL
     )
     expect(out).toContain('Cost:')
     expect(out).toContain('Tokens: 1.2M')
@@ -76,7 +81,8 @@ describe('task status cost render (LUM-560)', () => {
 
   it('renders an explicit not-recorded line when token cost is null', () => {
     const out = formatTaskStatus(
-      withCost({ tokenCost: null, activeTimeSec: 0, reworkRounds: 0 })
+      withCost({ tokenCost: null, activeTimeSec: 0, reworkRounds: 0 }),
+      FULL
     )
     expect(out).toContain('Tokens: not recorded (no session usage captured)')
     // A measured-zero rework count is annotated, never left ambiguous.
@@ -87,14 +93,15 @@ describe('task status cost render (LUM-560)', () => {
 
   it('renders a measured zero token cost as 0, not as not-recorded', () => {
     const out = formatTaskStatus(
-      withCost({ tokenCost: 0, activeTimeSec: 5, reworkRounds: 0 })
+      withCost({ tokenCost: 0, activeTimeSec: 5, reworkRounds: 0 }),
+      FULL
     )
     expect(out).toContain('Tokens: 0')
     expect(out).not.toContain('not recorded')
   })
 
   it('omits the cost section entirely when the server did not emit it (older server)', () => {
-    const out = formatTaskStatus(withCost(undefined))
+    const out = formatTaskStatus(withCost(undefined), FULL)
     expect(out).not.toContain('Cost:')
   })
 })
