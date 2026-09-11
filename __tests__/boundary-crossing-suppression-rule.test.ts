@@ -34,9 +34,11 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 }))
 jest.mock('@/lib/repositories/crossing-suppression-rule.repository', () => ({
   crossingSuppressionRuleRepository: {
-    create: jest.fn(),
+    // LUM-759: creating/revoking a rule also applies/undoes it on the existing
+    // crossings, in one transaction — so these replaced the bare create/revoke.
+    createWithRetroactiveSweep: jest.fn(),
     findById: jest.fn(),
-    revoke: jest.fn(),
+    revokeWithRestore: jest.fn(),
     findActiveForProject: jest.fn(async () => []),
   },
 }))
@@ -76,9 +78,11 @@ const mockIdentity = requireIdentity as jest.Mock
 const mockResolveTask = resolveTaskParam as jest.Mock
 const findById = boundaryCrossingRepository.findById as jest.Mock
 const disposition = boundaryCrossingRepository.disposition as jest.Mock
-const ruleCreate = crossingSuppressionRuleRepository.create as jest.Mock
+const ruleCreate =
+  crossingSuppressionRuleRepository.createWithRetroactiveSweep as jest.Mock
 const ruleFindById = crossingSuppressionRuleRepository.findById as jest.Mock
-const ruleRevoke = crossingSuppressionRuleRepository.revoke as jest.Mock
+const ruleRevoke =
+  crossingSuppressionRuleRepository.revokeWithRestore as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
 const findWithProject = taskRepository.findWithProject as jest.Mock
 
@@ -122,7 +126,12 @@ beforeEach(() => {
   mockResolveTask.mockResolvedValue({ id: 't-1' })
   findById.mockResolvedValue(crossing())
   findWithProject.mockResolvedValue({ id: 't-1', projectId: 'p-1' })
-  ruleCreate.mockResolvedValue({ id: 'rule-1' })
+  ruleCreate.mockResolvedValue({
+    id: 'rule-1',
+    suppressedCount: 0,
+    capped: false,
+  })
+  ruleRevoke.mockResolvedValue({ reopenedCount: 0 })
   disposition.mockResolvedValue({ count: 1 })
   createActivity.mockResolvedValue({ id: 'act-1' })
 })
@@ -152,14 +161,17 @@ describe('rule creation rides the human-only disposition route', () => {
     })
     const res = await POST(request, postParams)
     expect(res.status).toBe(200)
-    expect(ruleCreate).toHaveBeenCalledWith({
-      projectId: 'p-1',
-      category: 'PROJECT_RULE_VIOLATION',
-      targetPattern: 'actionrule:r1',
-      reason: 'PR target branch, not a write to main',
-      createdById: 'member-1',
-      sourceCrossingId: 'bc-1',
-    })
+    expect(ruleCreate).toHaveBeenCalledWith(
+      {
+        projectId: 'p-1',
+        category: 'PROJECT_RULE_VIOLATION',
+        targetPattern: 'actionrule:r1',
+        reason: 'PR target branch, not a write to main',
+        createdById: 'member-1',
+        sourceCrossingId: 'bc-1',
+      },
+      expect.objectContaining({ limit: expect.any(Number) })
+    )
     expect(disposition).toHaveBeenCalledWith(
       'bc-1',
       'FALSE_POSITIVE',
@@ -258,6 +270,7 @@ describe('revoking a rule is human-only and soft', () => {
     expect(ruleRevoke).toHaveBeenCalledWith(
       'rule-1',
       'member-1',
+      'actor-1',
       expect.any(Date)
     )
     expect(crossingSuppressionRuleRepository).not.toHaveProperty('delete')

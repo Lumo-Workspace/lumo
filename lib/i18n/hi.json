@@ -2350,5 +2350,9 @@
   "record.machine.source.human": "मानव-संपादित",
   "record.machine.source.review": "समीक्षा में जोड़ा गया",
   "record.machine.viewOutput": "आउटपुट देखें",
-  "record.human.emptyTitle": "मानवीय स्वीकृति मानदंड"
+  "record.human.emptyTitle": "मानवीय स्वीकृति मानदंड",
+  "boundary.panel.suppressPreview": "इससे इस रिपॉज़िटरी में इसी प्रकार की मौजूदा {count} चेतावनियाँ भी निपटा दी जाएँगी।",
+  "boundary.panel.suppressPreviewCapped": "{cap} से अधिक मेल हैं — केवल सबसे हाल की {cap} ही निपटाई जाएँगी।",
+  "boundary.toast.ruleCreatedWithSweep": "रिपॉज़िटरी नियम बनाया गया — इसी प्रकार की मौजूदा {count} चेतावनियाँ निपटाई गईं, और आगे की घटनाएँ स्वतः निपटाई जाएँगी",
+  "boundary.toast.ruleRevokedWithReopen": "नियम वापस लिया गया — इसने जो {count} चेतावनियाँ स्वतः निपटाई थीं वे फिर से लंबित हैं"
 }

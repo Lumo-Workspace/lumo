@@ -2350,5 +2350,9 @@
   "record.machine.source.human": "人工編輯",
   "record.machine.source.review": "評審新增",
   "record.machine.viewOutput": "查看產出",
-  "record.human.emptyTitle": "人工驗收標準"
+  "record.human.emptyTitle": "人工驗收標準",
+  "boundary.panel.suppressPreview": "這還會一併處置本儲存庫既有的 {count} 條同類告警。",
+  "boundary.panel.suppressPreviewCapped": "符合數超過 {cap} 條——只處置最近的 {cap} 條。",
+  "boundary.toast.ruleCreatedWithSweep": "儲存庫規則已建立——已一併處置本儲存庫既有的 {count} 條同類告警，日後的同類越界將自動處置",
+  "boundary.toast.ruleRevokedWithReopen": "規則已撤銷——它先前自動處置的 {count} 條告警已重新進入待處置"
 }

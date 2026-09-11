@@ -2350,5 +2350,9 @@
   "record.machine.source.human": "Modifié par un humain",
   "record.machine.source.review": "Ajouté en revue",
   "record.machine.viewOutput": "Voir la sortie",
-  "record.human.emptyTitle": "Critères d'acceptation humains"
+  "record.human.emptyTitle": "Critères d'acceptation humains",
+  "boundary.panel.suppressPreview": "Cela traitera également {count, plural, one {# alerte existante} other {# alertes existantes}} du même type dans ce dépôt.",
+  "boundary.panel.suppressPreviewCapped": "Plus de {cap} correspondances — seules les {cap} plus récentes sont traitées.",
+  "boundary.toast.ruleCreatedWithSweep": "Règle de dépôt créée — {count, plural, one {# alerte existante traitée} other {# alertes existantes traitées}} du même type, et les prochaines occurrences seront traitées automatiquement",
+  "boundary.toast.ruleRevokedWithReopen": "Règle révoquée — {count, plural, one {# alerte qu'elle traitait automatiquement est de nouveau ouverte} other {# alertes qu'elle traitait automatiquement sont de nouveau ouvertes}}"
 }

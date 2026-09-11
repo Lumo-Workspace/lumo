@@ -65,3 +65,33 @@ export function autoSuppressedNote(rule: ActiveSuppressionRule): string {
   const why = rule.reason ? `: ${rule.reason}` : ''
   return `Auto-dispositioned by repository suppression rule ${rule.id}${why}. Not a human disposition — revoke the rule to re-open future occurrences.`
 }
+
+/**
+ * LUM-759 — how many already-recorded crossings one rule creation may
+ * retroactively dispose. A ceiling, not a target: the sweep takes the most
+ * recently detected matches up to this many and reports that it stopped, so a
+ * single click can never silently rewrite an unbounded slice of the audit
+ * trail. The long tail stays where it is (advisory rows are harmless) and a
+ * second ruling can always take another bite.
+ */
+export const RETROACTIVE_SUPPRESSION_CAP = 500
+
+/**
+ * The two shapes a `targetPattern` can take, as data — the Prisma-free half of
+ * {@link matchesSuppressionTarget}, so the repository can turn a pattern into a
+ * WHERE clause without either side re-deriving the glob convention.
+ */
+export type SuppressionTargetFilter =
+  | { kind: 'exact'; value: string }
+  | { kind: 'prefix'; value: string }
+
+export function suppressionTargetFilter(
+  pattern: string
+): SuppressionTargetFilter {
+  return pattern.endsWith('*')
+    ? { kind: 'prefix', value: pattern.slice(0, -1) }
+    : { kind: 'exact', value: pattern }
+}
+
+/** The note stamped on a crossing restored to OPEN by revoking its rule. */
+export const RULE_REVOKED_REASON = 'rule revoked'

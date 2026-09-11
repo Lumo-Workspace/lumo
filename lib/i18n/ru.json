@@ -2350,5 +2350,9 @@
   "record.machine.source.human": "Отредактировано человеком",
   "record.machine.source.review": "Добавлено при ревью",
   "record.machine.viewOutput": "Показать вывод",
-  "record.human.emptyTitle": "Критерии приёмки человеком"
+  "record.human.emptyTitle": "Критерии приёмки человеком",
+  "boundary.panel.suppressPreview": "Это также закроет {count} существующих оповещений того же типа в этом репозитории.",
+  "boundary.panel.suppressPreviewCapped": "Совпадений больше {cap} — обработаны будут только {cap} самых недавних.",
+  "boundary.toast.ruleCreatedWithSweep": "Правило репозитория создано — закрыто существующих оповещений того же типа: {count}; будущие случаи будут обрабатываться автоматически",
+  "boundary.toast.ruleRevokedWithReopen": "Правило отозвано — оповещений, которые оно обрабатывало автоматически, снова открыто: {count}"
 }

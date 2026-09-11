@@ -2350,5 +2350,9 @@
   "record.machine.source.human": "Human-edited",
   "record.machine.source.review": "Review-added",
   "record.machine.viewOutput": "View output",
-  "record.human.emptyTitle": "Human acceptance criteria"
+  "record.human.emptyTitle": "Human acceptance criteria",
+  "boundary.panel.suppressPreview": "This will also dispose of {count, plural, one {# existing alert} other {# existing alerts}} of the same kind in this repository.",
+  "boundary.panel.suppressPreviewCapped": "More than {cap} match — only the {cap} most recent are handled.",
+  "boundary.toast.ruleCreatedWithSweep": "Repository rule created — {count, plural, one {# existing alert} other {# existing alerts}} of the same kind dispositioned, and future occurrences will be auto-handled",
+  "boundary.toast.ruleRevokedWithReopen": "Rule revoked — {count, plural, one {# alert} other {# alerts}} it had auto-handled are open again"
 }

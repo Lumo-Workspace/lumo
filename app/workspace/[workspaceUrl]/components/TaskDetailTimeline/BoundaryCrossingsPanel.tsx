@@ -30,6 +30,7 @@ import {
   type BoundaryCrossingView,
   type CrossingAttributionView,
   type EditChangeView,
+  type SuppressionPreview,
 } from '../../hooks/useBoundaryCrossings'
 import type { WorkspaceMemberInfo } from '../../types'
 import { InfoTooltip } from './InfoTooltip'
@@ -136,6 +137,36 @@ export function BoundaryCrossingsPanel({
   const [suppressReasons, setSuppressReasons] = useState<
     Record<string, string>
   >({})
+  // LUM-759: the blast radius of the rule the human is about to create — how
+  // many ALREADY-RECORDED alerts of the same kind in this repository it will
+  // dispose alongside this one. Fetched when the opt-in is ticked, so the
+  // number is shown before the ruling is committed, never after.
+  const [suppressPreviews, setSuppressPreviews] = useState<
+    Record<string, SuppressionPreview | 'loading'>
+  >({})
+
+  const toggleSuppress = (crossingId: string, on: boolean) => {
+    setSuppress(prev => ({ ...prev, [crossingId]: on }))
+    if (!on || suppressPreviews[crossingId]) return
+    setSuppressPreviews(prev => ({ ...prev, [crossingId]: 'loading' }))
+    void tasksClient
+      .previewCrossingSuppressionScope<SuppressionPreview>(
+        taskIdentifier,
+        crossingId
+      )
+      .then(preview =>
+        setSuppressPreviews(prev => ({ ...prev, [crossingId]: preview }))
+      )
+      .catch(() =>
+        // Advisory only — a failed preview must never block the ruling itself,
+        // so the count line just stays absent.
+        setSuppressPreviews(prev =>
+          Object.fromEntries(
+            Object.entries(prev).filter(([key]) => key !== crossingId)
+          )
+        )
+      )
+  }
 
   // LUM-496: an instance renders one slice of the task's crossings; 'all' keeps
   // the historic single-panel behaviour for callers that pass no subset.
@@ -235,7 +266,7 @@ export function BoundaryCrossingsPanel({
       verdict === 'FALSE_POSITIVE' && suppress[crossingId] === true
     const reason = suppressReasons[crossingId]?.trim()
     void tasksClient
-      .dispositionBoundaryCrossing(
+      .dispositionBoundaryCrossing<{ retroactivelySuppressed?: number }>(
         taskIdentifier,
         crossingId,
         verdict,
@@ -249,23 +280,36 @@ export function BoundaryCrossingsPanel({
             ]
           : [])
       )
-      .then(() => {
+      .then(res => {
+        // LUM-759: a rule now clears the repository's existing alerts too —
+        // report how many, so the click's real effect is visible.
+        const swept = res?.retroactivelySuppressed ?? 0
         toast.success(
           verdict === 'OPEN'
             ? intl.formatMessage({
                 id: 'boundary.toast.reopened',
                 defaultMessage: 'Crossing reopened — Done is blocked again',
               })
-            : wantsRule
-              ? intl.formatMessage({
-                  id: 'boundary.toast.ruleCreated',
-                  defaultMessage:
-                    'Crossing dispositioned and a repository rule created — future occurrences will be auto-handled',
-                })
-              : intl.formatMessage({
-                  id: 'boundary.toast.dispositioned',
-                  defaultMessage: 'Crossing dispositioned — Done is unblocked',
-                })
+            : wantsRule && swept > 0
+              ? intl.formatMessage(
+                  {
+                    id: 'boundary.toast.ruleCreatedWithSweep',
+                    defaultMessage:
+                      'Repository rule created — {count, plural, one {# existing alert} other {# existing alerts}} of the same kind dispositioned, and future occurrences will be auto-handled',
+                  },
+                  { count: swept }
+                )
+              : wantsRule
+                ? intl.formatMessage({
+                    id: 'boundary.toast.ruleCreated',
+                    defaultMessage:
+                      'Crossing dispositioned and a repository rule created — future occurrences will be auto-handled',
+                  })
+                : intl.formatMessage({
+                    id: 'boundary.toast.dispositioned',
+                    defaultMessage:
+                      'Crossing dispositioned — Done is unblocked',
+                  })
         )
         afterChange()
       })
@@ -278,14 +322,28 @@ export function BoundaryCrossingsPanel({
   const revokeRule = (crossingId: string, ruleId: string) => {
     setPending(crossingId)
     void tasksClient
-      .revokeCrossingSuppressionRule(taskIdentifier, ruleId)
-      .then(() => {
+      .revokeCrossingSuppressionRule<{ reopenedCount?: number }>(
+        taskIdentifier,
+        ruleId
+      )
+      .then(res => {
+        // LUM-759: revoking also puts back what the rule had silenced.
+        const reopened = res?.reopenedCount ?? 0
         toast.success(
-          intl.formatMessage({
-            id: 'boundary.toast.ruleRevoked',
-            defaultMessage:
-              'Rule revoked — future occurrences will be open again',
-          })
+          reopened > 0
+            ? intl.formatMessage(
+                {
+                  id: 'boundary.toast.ruleRevokedWithReopen',
+                  defaultMessage:
+                    'Rule revoked — {count, plural, one {# alert} other {# alerts}} it had auto-handled are open again',
+                },
+                { count: reopened }
+              )
+            : intl.formatMessage({
+                id: 'boundary.toast.ruleRevoked',
+                defaultMessage:
+                  'Rule revoked — future occurrences will be open again',
+              })
         )
         afterChange()
       })
@@ -546,9 +604,8 @@ export function BoundaryCrossingsPanel({
                           onExplainDone={afterChange}
                           suppress={suppress[c.id] ?? false}
                           suppressReason={suppressReasons[c.id] ?? ''}
-                          onSuppressChange={v =>
-                            setSuppress(prev => ({ ...prev, [c.id]: v }))
-                          }
+                          onSuppressChange={v => toggleSuppress(c.id, v)}
+                          suppressPreview={suppressPreviews[c.id]}
                           onSuppressReason={v =>
                             setSuppressReasons(prev => ({
                               ...prev,
@@ -610,6 +667,7 @@ function CrossingRow({
   suppress,
   suppressReason,
   onSuppressChange,
+  suppressPreview,
   onSuppressReason,
   onRevokeRule,
 }: {
@@ -630,6 +688,8 @@ function CrossingRow({
   suppress: boolean
   suppressReason: string
   onSuppressChange: (v: boolean) => void
+  /** LUM-759: how many existing alerts the rule would dispose too. */
+  suppressPreview: SuppressionPreview | 'loading' | undefined
   onSuppressReason: (v: string) => void
   onRevokeRule: () => void
 }) {
@@ -1132,6 +1192,38 @@ function CrossingRow({
                   })}
                 </label>
               )}
+              {/* LUM-759: the blast radius, before the ruling is committed —
+              ticking the box will dispose this repository's existing alerts of
+              the same kind too, so say how many. */}
+              {c.suppressible &&
+                suppress &&
+                suppressPreview &&
+                suppressPreview !== 'loading' &&
+                suppressPreview.count > 0 && (
+                  <p
+                    data-testid={`boundary-suppress-preview-${c.id}`}
+                    className='text-[11px] text-muted-foreground'
+                  >
+                    {intl.formatMessage(
+                      {
+                        id: 'boundary.panel.suppressPreview',
+                        defaultMessage:
+                          'This will also dispose {count, plural, one {# existing alert} other {# existing alerts}} of the same kind in this repository.',
+                      },
+                      { count: suppressPreview.count }
+                    )}
+                    {suppressPreview.capped
+                      ? ` ${intl.formatMessage(
+                          {
+                            id: 'boundary.panel.suppressPreviewCapped',
+                            defaultMessage:
+                              'More than {cap} match — only the {cap} most recent are handled.',
+                          },
+                          { cap: suppressPreview.cap }
+                        )}`
+                      : ''}
+                  </p>
+                )}
               {c.suppressible && suppress && (
                 <input
                   type='text'

@@ -2350,5 +2350,9 @@
   "record.machine.source.human": "사람이 편집",
   "record.machine.source.review": "리뷰에서 추가",
   "record.machine.viewOutput": "출력 보기",
-  "record.human.emptyTitle": "사람 인수 기준"
+  "record.human.emptyTitle": "사람 인수 기준",
+  "boundary.panel.suppressPreview": "이 저장소에 이미 있는 같은 종류의 알림 {count}건도 함께 처리됩니다.",
+  "boundary.panel.suppressPreviewCapped": "일치 항목이 {cap}건을 초과합니다 — 가장 최근 {cap}건만 처리됩니다.",
+  "boundary.toast.ruleCreatedWithSweep": "저장소 규칙이 생성되었습니다 — 기존의 같은 종류 알림 {count}건을 처리했으며, 이후 발생은 자동으로 처리됩니다",
+  "boundary.toast.ruleRevokedWithReopen": "규칙이 철회되었습니다 — 자동 처리되었던 알림 {count}건이 다시 미처리 상태가 되었습니다"
 }
