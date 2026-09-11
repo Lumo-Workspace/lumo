@@ -11,6 +11,8 @@
  * own framing sentences stay outside it — same split as
  * `renderLayer2ReviewSection`.
  */
+import { secretDowngradeNote } from '@/shared/src/security-scan'
+import type { SecretDowngradeReason } from '@/lib/security-scan/types'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import { wrapUntrustedLinked } from '@/lib/memory/render'
 import type {
@@ -29,6 +31,11 @@ export interface ReminderFinding {
   /** `isBlockingFinding` — an undispositioned DETERMINISTIC HIGH blocks DONE. */
   blocking: boolean
   prNumber: number
+  /**
+   * LUM-758 follow-up (secret: rows) — why this was lowered to LOW. Optional:
+   * an older persisted row has no cause recorded, and renders as it always did.
+   */
+  secretDowngrade?: SecretDowngradeReason | null
 }
 
 /** An open PR whose latest scan cannot vouch for it (LUM-732 honesty rule). */
@@ -77,7 +84,7 @@ export function findingStatement(f: ReminderFinding): string {
 export function formatFindingLine(f: ReminderFinding): string {
   const tag = f.blocking ? 'blocks DONE' : 'advisory'
   return sanitizeField(
-    `[${f.severity}] ${f.provenance} ${f.ruleId} — ${location(f)} — ${f.title} (PR #${f.prNumber} · ${tag})`
+    `[${f.severity}] ${f.provenance} ${f.ruleId} — ${location(f)} — ${f.title} (PR #${f.prNumber} · ${tag}${secretDowngradeNote(f.secretDowngrade)})`
   )
 }
 

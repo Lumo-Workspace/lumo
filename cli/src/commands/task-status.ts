@@ -7,6 +7,7 @@ import {
   SCAN_STAGE_KEYS,
   scanStageLabel,
   scanStageStateLabel,
+  secretDowngradeNote,
 } from '../../../shared/src/security-scan'
 import {
   fetchOpenCrossings,
@@ -228,6 +229,8 @@ export interface TaskStatusResponse {
         ruleId: string
         filePath: string
         line: number | null
+        /** LUM-758 follow-up: why a secret row is LOW. Absent on an older server. */
+        secretDowngrade?: string | null
       }
   >
   /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
@@ -313,7 +316,11 @@ function formatSecurityAction(a: SecurityAction): string {
   const where = a.line == null ? a.filePath : `${a.filePath}:${a.line}`
   const title = sanitizeField(a.statement.split(' — ').slice(1).join(' — '))
   const tag = a.blocking ? 'blocks DONE' : 'advisory'
-  return `[${a.severity}] ${a.provenance} ${sanitizeField(a.ruleId)} — ${sanitizeField(where)} — ${title} (PR #${a.prNumber} · ${tag})`
+  // LUM-758 follow-up: a downgraded row is still reported on purpose, so the
+  // line has to say WHY it is LOW — otherwise a placeholder the scanner already
+  // recognised reads as an unexplained credential.
+  const note = sanitizeField(secretDowngradeNote(a.secretDowngrade))
+  return `[${a.severity}] ${a.provenance} ${sanitizeField(a.ruleId)} — ${sanitizeField(where)} — ${title} (PR #${a.prNumber} · ${tag}${note})`
 }
 
 const SECURITY_HINT =

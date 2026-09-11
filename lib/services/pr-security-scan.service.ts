@@ -452,6 +452,9 @@ export const prSecurityScanService = {
         fingerprint: f.fingerprint,
         externalRef: null,
         disposition: null,
+        // LUM-758 follow-up: the scanner already decided WHY this is LOW; keep
+        // the cause on the row so the reader is not left guessing.
+        secretDowngrade: f.downgrade ?? null,
       }))
 
       // ── L3 trigger, first pass (LUM-758) ────────────────────────────────

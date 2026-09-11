@@ -354,6 +354,11 @@ export interface NextActionSecurityFinding {
   ruleId: string
   filePath: string
   line: number | null
+  /**
+   * LUM-758 follow-up (secret: rows) — why the severity was lowered to LOW.
+   * Additive: absent on an older server, and on any row with no downgrade.
+   */
+  secretDowngrade?: string | null
 }
 /**
  * One entry of the declarative plan. `kind` discriminates (LUM-737):
@@ -1238,6 +1243,7 @@ export const taskVerificationService = {
             ruleId: f.ruleId,
             filePath: f.filePath,
             line: f.line,
+            secretDowngrade: f.secretDowngrade ?? null,
           })
         ),
       ],
