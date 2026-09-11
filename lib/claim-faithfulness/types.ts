@@ -35,7 +35,12 @@ export interface ClaimJudgeResult {
 
 export type ClaimJudge = (input: ClaimJudgeInput) => Promise<ClaimJudgeResult>
 
-export type PrefilterSignal = 'UNDERREPORT_CANDIDATE' | null
+// LUM-740: SECURITY_CONTROL_CLAIM — the claim asserts an auth / validation /
+// rate-limit control that the delivery diff does not add (spec §6 L5 item 7).
+export type PrefilterSignal =
+  | 'UNDERREPORT_CANDIDATE'
+  | 'SECURITY_CONTROL_CLAIM'
+  | null
 
 export interface ClaimFaithfulnessResult {
   verdict: ClaimVerdict

@@ -57,6 +57,7 @@ export {
 } from './hunt/mechanical-verify'
 export {
   evaluateHuntTrigger,
+  addedControlCallIds,
   L4_CROSSING_CATEGORIES,
   type HuntTriggerInput,
   type HuntTriggerResult,
