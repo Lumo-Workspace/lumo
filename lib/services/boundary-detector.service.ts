@@ -30,15 +30,13 @@ import {
   type ActionConfirmJudge,
   type ActionConfirmVerdict,
 } from '@/lib/boundary-crossing/action-confirm'
-import {
-  matchCmdSubstr,
-  matchPathGlob,
-} from '@/lib/services/policy/predicate-eval'
+import { matchPathGlob } from '@/lib/services/policy/predicate-eval'
 import type { PolicyRule } from '@/lib/services/policy/types'
 import {
   splitCommandSegments as splitCommandSegmentsShared,
   executingSegments,
 } from '@/lib/boundary-crossing/command-shape'
+import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 // NOTE: both LLM clients (`@/lib/llm/test-tampering-judge-client` and
@@ -1664,8 +1662,11 @@ export function detectProjectActionCrossings(
       continue
     const p = r.predicate
     // path-glob action predicates are handled by the code pipeline — skip here.
+    // LUM-751: segment-scoped + prose-stripped (lib/boundary-crossing/
+    // action-rule-match) — a read-only / PR-target reference or a quoted
+    // keyword no longer counts as a violation.
     const hit =
-      p.type === 'cmd-substr' ? matchCmdSubstr(p.value, command) : false
+      p.type === 'cmd-substr' ? matchActionRule(p.value, command) : false
     if (!hit) continue
     out.push({
       category: 'PROJECT_RULE_VIOLATION',
