@@ -2,7 +2,7 @@
 jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   buildSubgraphStep: jest.fn(),
   planHuntStep: jest.fn(),
-  huntCategoryStep: jest.fn(),
+  huntTaskStep: jest.fn(),
   mechanicalVerifyStep: jest.fn(),
   falsifierStep: jest.fn(),
   persistHuntFindingsStep: jest.fn(),
@@ -26,15 +26,23 @@ import { securityHuntWorkflow } from '@/lib/workflows/security-hunt'
 import {
   buildSubgraphStep,
   planHuntStep,
-  huntCategoryStep,
+  huntTaskStep,
   mechanicalVerifyStep,
   persistHuntFindingsStep,
 } from '@/lib/workflows/security-hunt.steps'
-import { HUNT_CATEGORIES } from '@/lib/services/security-hunt.config'
+import {
+  HUNT_CATEGORIES,
+  HUNT_MAX_PLANNED_TASKS,
+  type HuntTask,
+} from '@/lib/services/security-hunt.config'
+import {
+  planFallback,
+  categoriesToTasks,
+} from '@/lib/security-scan/hunt/plan-fallback'
 
 const build = buildSubgraphStep as jest.Mock
 const plan = planHuntStep as jest.Mock
-const hunt = huntCategoryStep as jest.Mock
+const hunt = huntTaskStep as jest.Mock
 const verify = mechanicalVerifyStep as jest.Mock
 const persist = persistHuntFindingsStep as jest.Mock
 
@@ -65,6 +73,12 @@ const SUBGRAPH = {
 }
 const EMPTY_SUBGRAPH = { symbols: [], edges: [], files: [] }
 
+const task = (
+  id: string,
+  category: HuntTask['category'],
+  objective = `investigate ${category} on a.ts`
+): HuntTask => ({ id, objective, category, startingPoints: ['a.ts'] })
+
 const batch = (n = 0) => ({
   candidates: [],
   tokens: 1_000,
@@ -81,9 +95,9 @@ beforeEach(() => {
   hunt.mockResolvedValue(batch())
 })
 
-it('plan returns empty categories: no hunt LLM step and the layer is SKIPPED', async () => {
+it('plan returns an empty task list: no hunt LLM step and the layer is SKIPPED', async () => {
   plan.mockResolvedValue({
-    categories: [],
+    tasks: [],
     reason: 'no entry reaches a sink in this diff',
     by: 'model',
     tokens: 300,
@@ -95,6 +109,7 @@ it('plan returns empty categories: no hunt LLM step and the layer is SKIPPED', a
   expect(result.outcome).toBe('SKIPPED')
   const persisted = persist.mock.calls[0][0]
   expect(persisted.audit.planned).toEqual([])
+  expect(persisted.audit.tasks).toEqual([])
   expect(persisted.audit.plannedReason).toBe(
     'no entry reaches a sink in this diff'
   )
@@ -111,27 +126,62 @@ it('skips before planning when the subgraph is empty', async () => {
   expect(result.outcome).toBe('SKIPPED')
 })
 
-it('plan failure falls back to deterministic mapping, at most two categories, never all six', async () => {
+it('plan failure falls back to deterministic category tasks, at most three, never all six', async () => {
+  // Reasons that hit four fallback categories at once (injection twice, ssrf,
+  // prompt_injection, plus an uncontrolled entry → idor): the real
+  // deterministic planner is what decides how wide that gets, so drive the
+  // mocked step with its actual output rather than a hand-written array.
+  const job = {
+    ...JOB,
+    reasons: [
+      'diff:sink:prisma-raw',
+      'diff:sink:child-process',
+      'diff:sink:fetch',
+      'diff:sink:llm-call',
+      'diff:entry:app/api/x/route.ts',
+    ],
+  }
+  const tasks = categoriesToTasks(planFallback(job.reasons))
   plan.mockResolvedValue({
-    categories: ['injection'],
+    tasks,
     reason: 'plan unavailable: gateway timeout',
     by: 'fallback',
     tokens: 0,
   })
 
-  await securityHuntWorkflow(JOB)
+  await securityHuntWorkflow(job)
 
-  const ran = hunt.mock.calls.map(c => c[0].category)
-  expect(ran).toEqual(['injection'])
-  expect(ran.length).toBeLessThanOrEqual(2)
+  const ran = hunt.mock.calls.map(c => c[0].task)
+  expect(ran.map((t: HuntTask) => t.category)).toEqual([
+    'injection',
+    'idor',
+    'ssrf',
+  ])
+  expect(ran.length).toBeLessThanOrEqual(HUNT_MAX_PLANNED_TASKS)
+  expect(HUNT_MAX_PLANNED_TASKS).toBeLessThan(HUNT_CATEGORIES.length)
   expect(ran.length).toBeLessThan(HUNT_CATEGORIES.length)
+  // Every fallback task is a real task, not a bare category label.
+  for (const t of ran as HuntTask[])
+    expect(t.objective.length).toBeGreaterThan(20)
   const persisted = persist.mock.calls[0][0]
   expect(persisted.audit.plannedBy).toBe('fallback')
+  expect(persisted.audit.planned).toEqual(tasks)
 })
 
-it('partial is judged only over planned categories', async () => {
+it('partial is judged only over planned tasks', async () => {
+  // Two tasks share a category on purpose: a plan is a list of objectives,
+  // not a set of labels, and the verdict must be read off the tasks.
+  const tasks = [
+    task('t1', 'injection', 'raw SQL built from req.query in lib/db.ts'),
+    task(
+      't2',
+      'injection',
+      'child_process.exec on a path from the request body'
+    ),
+    task('t3', 'idor', 'workspace id from the path reaches prisma unchecked'),
+  ]
   plan.mockResolvedValue({
-    categories: ['injection', 'idor'],
+    tasks,
     reason: 'raw prisma call added on an unauthenticated route',
     by: 'model',
     tokens: 400,
@@ -139,14 +189,67 @@ it('partial is judged only over planned categories', async () => {
 
   const result = await securityHuntWorkflow(JOB)
 
-  expect(hunt).toHaveBeenCalledTimes(2)
+  expect(hunt).toHaveBeenCalledTimes(3)
+  expect(hunt.mock.calls.map(c => c[0].task.id)).toEqual(['t1', 't2', 't3'])
+  // ssrf / prompt_injection / race / logic were never planned; none of them
+  // may drag the verdict down — that bug is what made every scan PARTIAL.
   expect(result.outcome).toBe('RAN')
   expect(persist.mock.calls[0][0].partial).toBe(false)
 })
 
-it('a planned category that never finishes still makes the layer PARTIAL', async () => {
+it('two tasks in the same category keep separate outcomes: the first stopping short still makes the layer PARTIAL', async () => {
   plan.mockResolvedValue({
-    categories: ['injection', 'idor'],
+    tasks: [
+      task('t1', 'injection', 'raw SQL built from req.query in lib/db.ts'),
+      task('t2', 'injection', 'child_process.exec on a request-derived path'),
+    ],
+    reason: 'two injection objectives',
+    by: 'model',
+    tokens: 0,
+  })
+  // t1 runs out of steps, t2 finishes. Keyed by category, t2's `done` would
+  // overwrite t1's `steps` and the layer would wrongly report RAN.
+  hunt
+    .mockResolvedValueOnce({ ...batch(), stopped: 'steps' as const })
+    .mockResolvedValueOnce(batch())
+
+  const result = await securityHuntWorkflow(JOB)
+
+  expect(hunt).toHaveBeenCalledTimes(2)
+  expect(result.outcome).toBe('PARTIAL')
+  expect(persist.mock.calls[0][0].partial).toBe(true)
+})
+
+it('the retry pass re-runs the task that failed, not its category sibling', async () => {
+  plan.mockResolvedValue({
+    tasks: [
+      task('t1', 'injection', 'raw SQL built from req.query in lib/db.ts'),
+      task('t2', 'injection', 'child_process.exec on a request-derived path'),
+    ],
+    reason: 'two injection objectives',
+    by: 'model',
+    tokens: 0,
+  })
+  hunt
+    .mockResolvedValueOnce({ ...batch(), stopped: 'error' as const })
+    .mockResolvedValueOnce(batch())
+
+  const result = await securityHuntWorkflow(JOB)
+
+  expect(hunt).toHaveBeenCalledTimes(3)
+  expect(hunt.mock.calls[2][0].task.id).toBe('t1')
+  expect(result.outcome).toBe('RAN')
+  const rows = persist.mock.calls[0][0].audit.tasks
+  expect(rows.map((r: { taskId: string }) => r.taskId)).toEqual([
+    't1',
+    't2',
+    't1',
+  ])
+})
+
+it('a planned task that never finishes still makes the layer PARTIAL', async () => {
+  plan.mockResolvedValue({
+    tasks: [task('t1', 'injection'), task('t2', 'idor')],
     reason: 'two signals',
     by: 'model',
     tokens: 400,
@@ -162,7 +265,7 @@ it('a planned category that never finishes still makes the layer PARTIAL', async
 
 it('counts the plan step tokens toward tokenSpent', async () => {
   plan.mockResolvedValue({
-    categories: ['injection'],
+    tasks: [task('t1', 'injection')],
     reason: 'raw prisma',
     by: 'model',
     tokens: 900,
@@ -172,6 +275,6 @@ it('counts the plan step tokens toward tokenSpent', async () => {
 
   // Narrowing: the FAILED variant of HuntResult carries no `tokenSpent`.
   if (result.outcome === 'FAILED') throw new Error(result.reason)
-  // 900 (plan) + 1000 (one category batch)
+  // 900 (plan) + 1000 (one task batch)
   expect(result.tokenSpent).toBe(1_900)
 })

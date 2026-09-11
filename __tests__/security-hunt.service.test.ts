@@ -9,12 +9,12 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   readRepoFile: jest.fn(),
 }))
-jest.mock('@/lib/llm/security-hunt-client', () => ({ huntCategory: jest.fn() }))
+jest.mock('@/lib/llm/security-hunt-client', () => ({ huntTask: jest.fn() }))
 jest.mock('@/lib/llm/security-falsifier-client', () => ({
   falsifyCandidate: jest.fn(),
 }))
 jest.mock('@/lib/llm/security-hunt-plan-client', () => ({
-  planHuntCategories: jest.fn(),
+  planHuntTasks: jest.fn(),
 }))
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
@@ -30,17 +30,17 @@ import {
 } from '@/lib/services/security-hunt.service'
 import { logger } from '@/lib/logger'
 import { fetchPrDiff, readRepoFile } from '@/lib/integrations/github/contents'
-import { huntCategory } from '@/lib/llm/security-hunt-client'
+import { huntTask } from '@/lib/llm/security-hunt-client'
 import { falsifyCandidate } from '@/lib/llm/security-falsifier-client'
-import { planHuntCategories } from '@/lib/llm/security-hunt-plan-client'
+import { planHuntTasks } from '@/lib/llm/security-hunt-plan-client'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
 
 const diffMock = fetchPrDiff as jest.Mock
 const readMock = readRepoFile as jest.Mock
-const huntMock = huntCategory as jest.Mock
+const huntMock = huntTask as jest.Mock
 const falsifyMock = falsifyCandidate as jest.Mock
-const planMock = planHuntCategories as jest.Mock
+const planMock = planHuntTasks as jest.Mock
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
 >
@@ -54,6 +54,13 @@ const JOB = {
   prNumber: 7,
   headSha: 'b'.repeat(40),
   reasons: ['diff:sink:prisma-raw'],
+}
+
+const TASK = {
+  id: 't1',
+  objective: 'the workspace id from the path reaches prisma.findMany unchecked',
+  category: 'idor' as const,
+  startingPoints: ['lib/s.ts'],
 }
 
 function diffFor(paths: string[]): string {
@@ -175,7 +182,7 @@ describe('LUM-739 hunt service', () => {
         edges: [],
         files: [{ path: 'a.ts', lineCount: 1, touched: true }],
       },
-      category: 'idor',
+      task: TASK,
       tokenBudget: 1000,
       timeBudgetMs: 5000,
     })
@@ -186,8 +193,10 @@ describe('LUM-739 hunt service', () => {
     })
     expect(out.elapsedMs).toBeGreaterThanOrEqual(0)
     expect(readMock).toHaveBeenCalledTimes(1)
+    // LUM-758: the client is handed the whole TASK (objective + starting
+    // points), not just the category that types its output.
     expect(huntMock.mock.calls[0]![0]).toMatchObject({
-      category: 'idor',
+      task: TASK,
       tokenBudget: 1000,
       timeoutMs: 5000,
       maxSteps: 12,
@@ -198,7 +207,7 @@ describe('LUM-739 hunt service', () => {
     const input = {
       job: JOB,
       subgraph: { symbols: [], edges: [], files: [] },
-      category: 'ssrf' as const,
+      task: { ...TASK, id: 't9', category: 'ssrf' as const },
       tokenBudget: 1,
       timeBudgetMs: 1,
     }
@@ -254,8 +263,16 @@ describe('LUM-739 hunt service', () => {
     repo.findFindingSummaryByScan.mockResolvedValueOnce([
       { severity: 'HIGH', ruleId: 'hunt:idor', title: 'no owner check' },
     ])
+    const planned = [
+      {
+        id: 't1',
+        objective: 'the workspace id from the path reaches prisma.findMany',
+        category: 'idor' as const,
+        startingPoints: ['lib/s.ts'],
+      },
+    ]
     planMock.mockResolvedValueOnce({
-      categories: ['idor'],
+      tasks: planned,
       reason: 'unscoped read',
       tokens: 42,
     })
@@ -286,7 +303,7 @@ describe('LUM-739 hunt service', () => {
     }
     const out = await securityHuntService.planHunt({ job, subgraph })
     expect(out).toEqual({
-      categories: ['idor'],
+      tasks: planned,
       reason: 'unscoped read',
       tokens: 42,
       by: 'model',
@@ -310,7 +327,11 @@ describe('LUM-739 hunt service', () => {
     const subgraph = { symbols: [], edges: [], files: [] }
     const out = await securityHuntService.planHunt({ job, subgraph })
     expect(out.by).toBe('fallback')
-    expect(out.categories).toEqual(['injection'])
+    // The deterministic planner maps the reason to a category, and the
+    // fallback wraps it into a degenerate TASK — never a bare label.
+    expect(out.tasks.map(t => t.category)).toEqual(['injection'])
+    expect(out.tasks[0]!.startingPoints).toEqual([])
+    expect(out.tasks[0]!.objective.length).toBeGreaterThan(20)
     expect(out.tokens).toBe(0)
     expect(out.reason).toContain('plan unavailable')
     expect(out.reason).toContain('gateway 500')
@@ -319,7 +340,7 @@ describe('LUM-739 hunt service', () => {
     )
   })
 
-  it('planHunt falls back to categories: [] when the reasons map to nothing, never to all six categories', async () => {
+  it('planHunt falls back to tasks: [] when the reasons map to nothing, never to all six categories', async () => {
     planMock.mockRejectedValueOnce(new Error('timed out'))
     const job = { ...JOB, reasons: [] }
     const out = await securityHuntService.planHunt({
@@ -327,13 +348,13 @@ describe('LUM-739 hunt service', () => {
       subgraph: { symbols: [], edges: [], files: [] },
     })
     expect(out.by).toBe('fallback')
-    expect(out.categories).toEqual([])
+    expect(out.tasks).toEqual([])
   })
 
   it('planHunt is best-effort about the finding-summary read: a repository failure logs a warning and planning continues with an empty finding list', async () => {
     repo.findFindingSummaryByScan.mockRejectedValueOnce(new Error('db down'))
     planMock.mockResolvedValueOnce({
-      categories: [],
+      tasks: [],
       reason: 'nothing interesting',
       tokens: 10,
     })
@@ -343,7 +364,7 @@ describe('LUM-739 hunt service', () => {
       subgraph: { symbols: [], edges: [], files: [] },
     })
     expect(out).toEqual({
-      categories: [],
+      tasks: [],
       reason: 'nothing interesting',
       tokens: 10,
       by: 'model',
@@ -406,7 +427,7 @@ describe('LUM-739 hunt service', () => {
       })),
       falsifierRejects: 0,
       falsifierRejected: [],
-      categories: [],
+      tasks: [],
       subgraph: { files: 1, symbols: 1, edges: 1, partial: false },
     }
     await expect(
@@ -433,7 +454,7 @@ describe('LUM-739 hunt service', () => {
     expect((final.huntAudit.rejected as unknown[]).length).toBe(50)
   })
 
-  it('LUM-762 logs one per-category coverage line so a deploy log answers how long each category took', async () => {
+  it('LUM-762 logs one per-task coverage line so a deploy log answers how long each task took', async () => {
     repo.findDispositionedByPullRequest.mockResolvedValue([])
     await securityHuntService.persist({
       job: JOB,
@@ -443,8 +464,10 @@ describe('LUM-739 hunt service', () => {
         rejected: [],
         falsifierRejects: 0,
         falsifierRejected: [],
-        categories: [
+        tasks: [
           {
+            taskId: 't1',
+            objective: 'unscoped prisma read on the workspace route',
             category: 'idor',
             candidates: 0,
             tokens: 900,
@@ -452,6 +475,8 @@ describe('LUM-739 hunt service', () => {
             stopped: 'done',
           },
           {
+            taskId: 't2',
+            objective: 'raw SQL built from req.query in lib/db.ts',
             category: 'injection',
             candidates: 0,
             tokens: 0,
@@ -459,6 +484,8 @@ describe('LUM-739 hunt service', () => {
             stopped: 'timeout',
           },
           {
+            taskId: 't2',
+            objective: 'raw SQL built from req.query in lib/db.ts',
             category: 'injection',
             candidates: 1,
             tokens: 800,
@@ -476,7 +503,9 @@ describe('LUM-739 hunt service', () => {
       .map(c => String(c[0]))
       .find(c => c.includes('[security-hunt] coverage'))
     expect(line).toBe(
-      '[security-hunt] coverage scan=s1 2/6 done · idor 41.2s done · injection 72.0s done (2 attempts)'
+      // LUM-758: each row is named by its TASK id — two rows may share a
+      // category, and only the id tells them apart.
+      '[security-hunt] coverage scan=s1 2/6 done · t1 idor 41.2s done · t2 injection 72.0s done (2 attempts)'
     )
   })
 

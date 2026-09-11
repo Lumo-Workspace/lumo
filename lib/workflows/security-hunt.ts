@@ -2,41 +2,46 @@
  * LUM-739 — L3 hunt (spec §6 L3, execution base v0.3). Started by stage A
  * after it has persisted its own result with `stages.hunt = PENDING`.
  *
- *   buildSubgraphStep → planHuntStep → huntCategoryStep × N (one bounded
- *   tool-calling batch per PLANNED category; candidates accumulate here, the
- *   budget is checked between batches) → one retry batch per planned category
+ *   buildSubgraphStep → planHuntStep → huntTaskStep × N (one bounded
+ *   tool-calling batch per PLANNED TASK; candidates accumulate here, the
+ *   budget is checked between batches) → one retry batch per planned task
  *   the gateway dropped → mechanicalVerifyStep → falsifierStep per surviving
  *   candidate → persistHuntFindingsStep → syncPrReviewStep.
  *
- * LUM-758 — N is 0–2, not 6. Running all six unconditionally was the actual
- * cost driver (prod: 166k–236k tokens per scan, RAN 1 / PARTIAL 14 /
- * SKIPPED 7, zero findings), and a `partial` verdict that demanded all six be
- * `done` made PARTIAL the default outcome. Now the planning step picks the
- * categories from the diff, two short circuits end the layer as SKIPPED
- * before any hunt call (empty subgraph, or an empty plan), and `partial` is
- * judged over the planned categories only.
+ * LUM-758 — N is 0–3 planned TASKS, not 6 categories. Running all six
+ * unconditionally was the actual cost driver (prod: 166k–236k tokens per
+ * scan, RAN 1 / PARTIAL 14 / SKIPPED 7, zero findings), and a `partial`
+ * verdict that demanded all six be `done` made PARTIAL the default outcome.
+ * Now the planning step emits a per-PR task graph, two short circuits end the
+ * layer as SKIPPED before any hunt call (empty subgraph, or an empty task
+ * list), and `partial` is judged over the planned tasks only.
+ *
+ * Per-task state is keyed by `task.id`, never by `task.category`: a plan may
+ * legitimately contain two `injection` tasks with different objectives, and
+ * keying by category would let the second overwrite the first's outcome —
+ * silently corrupting both the retry pass and the `partial` verdict.
  *
  * LUM-762 — the layer used to end PARTIAL as a matter of routine: a batch got
- * the WHOLE remaining budget, so the first category to wedge on the gateway
+ * the WHOLE remaining budget, so the first batch to wedge on the gateway
  * spent the scan's 200s and the rest never ran (and left no audit row saying
- * so). Now a batch may spend at most HUNT_CATEGORY_TIME_MS / _TOKEN_MAX, a
- * category that stopped on a transient failure gets one more attempt with a
- * fresh window, and a category that never ran is recorded as `skipped`.
+ * so). Now a batch may spend at most HUNT_TASK_TIME_MS / _TOKEN_MAX, a task
+ * that stopped on a transient failure gets one more attempt with a fresh
+ * window, and a task that never ran is recorded as `skipped`.
  *
  * Deterministic body: no I/O, no logging, no Date — elapsed time is measured
- * inside each batch step and returned. A category that never reaches `done`,
- * a subgraph cap or a falsifier overflow makes the layer PARTIAL, never RAN;
+ * inside each batch step and returned. A task that never reaches `done`, a
+ * subgraph cap or a falsifier overflow makes the layer PARTIAL, never RAN;
  * a step that exhausts its retries makes it FAILED with the reason in
  * huntAudit.
  */
 import {
   HUNT_TOKEN_BUDGET,
   HUNT_TIME_BUDGET_MS,
-  HUNT_CATEGORY_TIME_MS,
-  HUNT_CATEGORY_TOKEN_MAX,
+  HUNT_TASK_TIME_MS,
+  HUNT_TASK_TOKEN_MAX,
   HUNT_MAX_FALSIFIED,
   type HuntJob,
-  type HuntCategory,
+  type HuntTask,
   type HuntCategoryStop,
   type HuntAudit,
   type HuntFindingInput,
@@ -45,7 +50,7 @@ import {
 import {
   buildSubgraphStep,
   planHuntStep,
-  huntCategoryStep,
+  huntTaskStep,
   mechanicalVerifyStep,
   falsifierStep,
   persistHuntFindingsStep,
@@ -86,7 +91,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     rejected: [],
     falsifierRejects: 0,
     falsifierRejected: [],
-    categories: [],
+    tasks: [],
     subgraph: { files: 0, symbols: 0, edges: 0, partial: false },
   }
   try {
@@ -124,14 +129,14 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     // The plan is an LLM call like any other — its tokens are part of what
     // this scan cost, and the acceptance metric reads `tokenSpent`.
     tokenSpent += plan.tokens
-    audit.planned = plan.categories
+    audit.planned = plan.tasks
     audit.plannedReason = plan.reason
     audit.plannedBy = plan.by
 
-    // Short circuit B: an empty array is a first-class answer. LUM-762's prod
-    // data (RAN 1 / PARTIAL 14 / SKIPPED 7, 0 findings) says most PRs belong
-    // here.
-    if (plan.categories.length === 0) {
+    // Short circuit B: an empty task list is a first-class answer. LUM-762's
+    // prod data (RAN 1 / PARTIAL 14 / SKIPPED 7, 0 findings) says most PRs
+    // belong here.
+    if (plan.tasks.length === 0) {
       await persistHuntFindingsStep({
         job,
         findings: [],
@@ -144,96 +149,107 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       return { outcome: 'SKIPPED', scanId, findings: 0, tokenSpent }
     }
 
-    const planned = plan.categories
+    const planned: HuntTask[] = plan.tasks
     const raw: unknown[] = []
-    /** Each planned category's latest outcome — the retry pass and P9 read it. */
-    const stops: Partial<Record<HuntCategory, HuntCategoryStop>> = {}
+    /**
+     * Each planned task's latest outcome — the retry pass and P9 read it.
+     * Keyed by `task.id`, NOT by category: two tasks may share a category
+     * (same closed output type, different objectives), and a category key
+     * would make the second silently overwrite the first.
+     */
+    const stops: Record<string, HuntCategoryStop> = {}
 
-    // Pass 1 — one bounded batch per PLANNED category. The ceiling (not the
-    // whole remaining budget) is what a batch may spend, so one wedged
-    // category cannot starve the one behind it (LUM-762).
-    for (const category of planned) {
+    // Pass 1 — one bounded batch per PLANNED TASK. The ceiling (not the whole
+    // remaining budget) is what a batch may spend, so one wedged task cannot
+    // starve the one behind it (LUM-762).
+    for (const task of planned) {
       if (tokenSpent >= HUNT_TOKEN_BUDGET || elapsedMs >= HUNT_TIME_BUDGET_MS) {
-        audit.categories.push({
-          category,
+        audit.tasks.push({
+          taskId: task.id,
+          objective: task.objective,
+          category: task.category,
           candidates: 0,
           tokens: 0,
           elapsedMs: 0,
           stopped: 'skipped',
         })
-        stops[category] = 'skipped'
+        stops[task.id] = 'skipped'
         continue
       }
-      const batch = await huntCategoryStep({
+      const batch = await huntTaskStep({
         job,
         subgraph: graph.subgraph,
-        category,
+        task,
         tokenBudget: Math.min(
-          HUNT_CATEGORY_TOKEN_MAX,
+          HUNT_TASK_TOKEN_MAX,
           HUNT_TOKEN_BUDGET - tokenSpent
         ),
         timeBudgetMs: Math.min(
-          HUNT_CATEGORY_TIME_MS,
+          HUNT_TASK_TIME_MS,
           HUNT_TIME_BUDGET_MS - elapsedMs
         ),
       })
       tokenSpent += batch.tokens
       elapsedMs += batch.elapsedMs
       raw.push(...batch.candidates)
-      audit.categories.push({
-        category,
+      audit.tasks.push({
+        taskId: task.id,
+        objective: task.objective,
+        category: task.category,
         candidates: batch.candidates.length,
         tokens: batch.tokens,
         elapsedMs: batch.elapsedMs,
         stopped: batch.stopped,
       })
-      stops[category] = batch.stopped
+      stops[task.id] = batch.stopped
     }
 
-    // Pass 2 — one retry per category the gateway dropped (LUM-762). Upstream
+    // Pass 2 — one retry per TASK the gateway dropped (LUM-762). Upstream
     // flakiness is routine and used to void the whole layer; a second attempt
     // with a fresh window is what turns that PARTIAL back into RAN. Only
     // transient stops qualify — a batch that hit its step or token cap would
-    // hit it again. Iterates `planned` too: a category that was never planned
-    // has no stop to retry. The body is deliberately a copy of pass 1's: a
+    // hit it again. Iterates `planned` too: a task that was never planned has
+    // no stop to retry. The body is deliberately a copy of pass 1's: a
     // `'use workflow'` body awaits its steps directly, not through a helper.
-    for (const category of planned) {
-      const stop = stops[category]
+    for (const task of planned) {
+      const stop = stops[task.id]
       if (stop !== 'timeout' && stop !== 'error') continue
       if (tokenSpent >= HUNT_TOKEN_BUDGET || elapsedMs >= HUNT_TIME_BUDGET_MS)
         break
-      const retry = await huntCategoryStep({
+      const retry = await huntTaskStep({
         job,
         subgraph: graph.subgraph,
-        category,
+        task,
         tokenBudget: Math.min(
-          HUNT_CATEGORY_TOKEN_MAX,
+          HUNT_TASK_TOKEN_MAX,
           HUNT_TOKEN_BUDGET - tokenSpent
         ),
         timeBudgetMs: Math.min(
-          HUNT_CATEGORY_TIME_MS,
+          HUNT_TASK_TIME_MS,
           HUNT_TIME_BUDGET_MS - elapsedMs
         ),
       })
       tokenSpent += retry.tokens
       elapsedMs += retry.elapsedMs
       raw.push(...retry.candidates)
-      audit.categories.push({
-        category,
+      audit.tasks.push({
+        taskId: task.id,
+        objective: task.objective,
+        category: task.category,
         candidates: retry.candidates.length,
         tokens: retry.tokens,
         elapsedMs: retry.elapsedMs,
         stopped: retry.stopped,
       })
-      stops[category] = retry.stopped
+      stops[task.id] = retry.stopped
     }
 
-    // P9 — the single most important line of LUM-758: only the PLANNED
-    // categories take part in the verdict. Iterating HUNT_CATEGORIES would
-    // leave the categories nobody planned permanently not-`done`, making every
-    // scan instantly PARTIAL and voiding all of the work above.
-    for (const category of planned) {
-      if (stops[category] !== 'done') partial = true
+    // P9 — the single most important line of LUM-758: only the PLANNED TASKS
+    // take part in the verdict. Iterating HUNT_CATEGORIES would leave the
+    // categories nobody planned permanently not-`done`, making every scan
+    // instantly PARTIAL and voiding all of the work above.
+    for (const task of planned) {
+      if (stops[task.id] !== 'done') partial = true
     }
 
     const verified = await mechanicalVerifyStep({

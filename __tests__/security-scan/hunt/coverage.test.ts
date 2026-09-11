@@ -54,7 +54,7 @@ describe('LUM-762 hunt coverage', () => {
     ])
   })
 
-  it('collapses a retried category to its final attempt and counts the attempts', () => {
+  it('collapses a retried pre-task-graph category row to its final attempt and counts the attempts', () => {
     const coverage = parseHuntCoverage({
       tasks: [
         row({ stopped: 'timeout', elapsedMs: 60_000, tokens: 0 }),
@@ -74,11 +74,82 @@ describe('LUM-762 hunt coverage', () => {
     expect(coverage!.done).toBe(1)
   })
 
-  it('keeps the run order of HUNT_CATEGORIES regardless of row order', () => {
+  it('reports rows in the order the workflow attempted them', () => {
+    // LUM-758: the audit is written in attempt order, which is plan order —
+    // that is the order a human wants to read the layer back in, and with a
+    // task graph there is no HUNT_CATEGORIES order to fall back on.
     const coverage = parseHuntCoverage({
       tasks: [row({ category: 'logic' }), row({ category: 'idor' })],
     })
-    expect(coverage!.categories.map(c => c.category)).toEqual(['idor', 'logic'])
+    expect(coverage!.categories.map(c => c.category)).toEqual(['logic', 'idor'])
+  })
+
+  it('LUM-758 keeps two tasks of the SAME category apart instead of folding them into one retried row', () => {
+    const coverage = parseHuntCoverage({
+      planned: [
+        { id: 't1', objective: 'a', category: 'injection', startingPoints: [] },
+        { id: 't2', objective: 'b', category: 'injection', startingPoints: [] },
+      ],
+      tasks: [
+        row({
+          taskId: 't1',
+          objective: 'raw SQL in lib/db.ts',
+          category: 'injection',
+          elapsedMs: 41_000,
+        }),
+        row({
+          taskId: 't2',
+          objective: 'child_process on a request path',
+          category: 'injection',
+          elapsedMs: 12_000,
+        }),
+      ],
+    })
+    expect(coverage!.categories).toHaveLength(2)
+    expect(coverage!.categories.map(c => c.taskId)).toEqual(['t1', 't2'])
+    expect(coverage!.categories.map(c => c.objective)).toEqual([
+      'raw SQL in lib/db.ts',
+      'child_process on a request path',
+    ])
+    // Neither is a retry of the other, and both count toward `done`, so a
+    // fully-run layer reads 2/2 rather than 1/2.
+    expect(coverage!.categories.every(c => c.attempts === 1)).toBe(true)
+    expect(coverage!.done).toBe(2)
+    expect(coverage!.total).toBe(2)
+  })
+
+  it('LUM-758 still collapses the SAME task re-run by the retry pass', () => {
+    const coverage = parseHuntCoverage({
+      planned: [
+        { id: 't1', objective: 'a', category: 'injection', startingPoints: [] },
+      ],
+      tasks: [
+        row({
+          taskId: 't1',
+          category: 'injection',
+          stopped: 'timeout',
+          elapsedMs: 60_000,
+          tokens: 0,
+        }),
+        row({
+          taskId: 't1',
+          category: 'injection',
+          stopped: 'done',
+          elapsedMs: 12_000,
+          tokens: 900,
+        }),
+      ],
+    })
+    expect(coverage!.categories).toHaveLength(1)
+    expect(coverage!.categories[0]).toMatchObject({
+      taskId: 't1',
+      stopped: 'done',
+      elapsedMs: 72_000,
+      tokens: 900,
+      attempts: 2,
+    })
+    expect(coverage!.done).toBe(1)
+    expect(coverage!.total).toBe(1)
   })
 
   it('returns null for an absent, legacy or unusable audit instead of throwing', () => {
@@ -140,6 +211,8 @@ describe('LUM-762 hunt coverage', () => {
       'idor',
       'injection',
     ])
+    // No taskId on such a row — the field stays absent rather than inventing one.
+    expect(coverage!.categories.every(c => c.taskId === undefined)).toBe(true)
   })
 
   it('drops rows it cannot vouch for and repairs unusable numbers', () => {

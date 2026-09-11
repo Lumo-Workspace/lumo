@@ -2,7 +2,7 @@
 jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   buildSubgraphStep: jest.fn(),
   planHuntStep: jest.fn(),
-  huntCategoryStep: jest.fn(),
+  huntTaskStep: jest.fn(),
   mechanicalVerifyStep: jest.fn(),
   falsifierStep: jest.fn(),
   persistHuntFindingsStep: jest.fn(),
@@ -25,7 +25,7 @@ import { securityHuntWorkflow } from '@/lib/workflows/security-hunt'
 import {
   buildSubgraphStep,
   planHuntStep,
-  huntCategoryStep,
+  huntTaskStep,
   mechanicalVerifyStep,
   falsifierStep,
   persistHuntFindingsStep,
@@ -34,18 +34,19 @@ import {
 import { syncPrReviewStep } from '@/lib/workflows/security-pr-review.steps'
 import {
   HUNT_CATEGORIES,
-  HUNT_MAX_PLANNED_CATEGORIES,
+  HUNT_MAX_PLANNED_TASKS,
   HUNT_TOKEN_BUDGET,
   HUNT_TIME_BUDGET_MS,
-  HUNT_CATEGORY_TIME_MS,
-  HUNT_CATEGORY_TOKEN_MAX,
+  HUNT_TASK_TIME_MS,
+  HUNT_TASK_TOKEN_MAX,
   HUNT_MAX_FALSIFIED,
+  type HuntTask,
 } from '@/lib/services/security-hunt.config'
 import { HUNT_CATEGORIES as CANDIDATE_CATEGORIES } from '@/lib/security-scan/hunt/candidate'
 
 const build = buildSubgraphStep as jest.Mock
 const plan = planHuntStep as jest.Mock
-const hunt = huntCategoryStep as jest.Mock
+const hunt = huntTaskStep as jest.Mock
 const verify = mechanicalVerifyStep as jest.Mock
 const falsify = falsifierStep as jest.Mock
 const persist = persistHuntFindingsStep as jest.Mock
@@ -90,11 +91,25 @@ const candidate = (n: number) => ({
   fingerprint: `f${n}`,
 })
 /**
- * LUM-758: the planning step's hard cap is HUNT_MAX_PLANNED_CATEGORIES (2), so
- * every case below runs TWO categories, not six. A six-category fixture would
- * assert a state production can no longer reach.
+ * LUM-758: the planning step emits a TASK GRAPH capped at
+ * HUNT_MAX_PLANNED_TASKS, so every case below runs two planned tasks, not six
+ * categories. A six-category fixture would assert a state production can no
+ * longer reach.
  */
-const PLANNED = ['injection', 'idor'] as const
+const PLANNED: HuntTask[] = [
+  {
+    id: 't1',
+    objective: 'raw SQL built from req.query in lib/db.ts',
+    category: 'injection',
+    startingPoints: ['lib/db.ts'],
+  },
+  {
+    id: 't2',
+    objective: 'workspace id from the path reaches prisma unchecked',
+    category: 'idor',
+    startingPoints: [],
+  },
+]
 
 const batch = (
   over: Partial<{
@@ -121,7 +136,7 @@ beforeEach(() => {
     return { subgraph: SUBGRAPH, partial: false }
   })
   plan.mockResolvedValue({
-    categories: [...PLANNED],
+    tasks: [...PLANNED],
     reason: 'legacy fixture',
     by: 'model',
     tokens: 0,
@@ -151,7 +166,7 @@ beforeEach(() => {
 })
 
 describe('LUM-739 hunt workflow', () => {
-  it('runs one batch per PLANNED category, verifies once, falsifies each survivor, persists only INCONCLUSIVE ones, syncs last', async () => {
+  it('runs one batch per PLANNED task, verifies once, falsifies each survivor, persists only INCONCLUSIVE ones, syncs last', async () => {
     hunt
       .mockImplementationOnce(async () => {
         order.push('hunt')
@@ -190,18 +205,18 @@ describe('LUM-739 hunt workflow', () => {
       tokenSpent: 1000 + 500 + 40 + 60,
     })
     expect(hunt).toHaveBeenCalledTimes(2)
-    expect(hunt.mock.calls.map(c => c[0].category)).toEqual([...PLANNED])
-    // LUM-762: every batch is bounded by the per-category ceiling, so a
-    // wedged category can no longer spend the whole scan's window.
+    expect(hunt.mock.calls.map(c => c[0].task)).toEqual([...PLANNED])
+    // LUM-762: every batch is bounded by the per-task ceiling, so a wedged
+    // task can no longer spend the whole scan's window.
     expect(hunt.mock.calls[0]![0]).toMatchObject({
       job: JOB,
       subgraph: SUBGRAPH,
-      tokenBudget: HUNT_CATEGORY_TOKEN_MAX,
-      timeBudgetMs: HUNT_CATEGORY_TIME_MS,
+      tokenBudget: HUNT_TASK_TOKEN_MAX,
+      timeBudgetMs: HUNT_TASK_TIME_MS,
     })
     expect(hunt.mock.calls[1]![0]).toMatchObject({
-      tokenBudget: HUNT_CATEGORY_TOKEN_MAX,
-      timeBudgetMs: HUNT_CATEGORY_TIME_MS,
+      tokenBudget: HUNT_TASK_TOKEN_MAX,
+      timeBudgetMs: HUNT_TASK_TIME_MS,
     })
     expect(verify).toHaveBeenCalledWith({
       subgraph: SUBGRAPH,
@@ -225,8 +240,12 @@ describe('LUM-739 hunt workflow', () => {
       subgraph: { files: 1, symbols: 1, edges: 1, partial: false },
     })
     expect(persisted.audit.planned).toEqual([...PLANNED])
-    expect(persisted.audit.categories).toHaveLength(2)
-    expect(persisted.audit.categories[0]).toEqual({
+    expect(persisted.audit.tasks).toHaveLength(2)
+    // LUM-758: an audit row names the TASK it came from — its id and the
+    // objective the model was given — on top of the category that types it.
+    expect(persisted.audit.tasks[0]).toEqual({
+      taskId: PLANNED[0]!.id,
+      objective: PLANNED[0]!.objective,
       category: 'injection',
       candidates: 2,
       tokens: 1000,
@@ -261,41 +280,42 @@ describe('LUM-739 hunt workflow', () => {
   })
 
   it('a batch that errored or timed out makes the layer PARTIAL but the run continues', async () => {
-    // LUM-762: the layer is only PARTIAL once the category's retry fails too.
-    hunt.mockImplementation(async (input: { category: string }) =>
-      input.category === 'idor'
+    // LUM-762: the layer is only PARTIAL once the task's retry fails too.
+    hunt.mockImplementation(async (input: { task: HuntTask }) =>
+      input.task.id === 't2'
         ? batch({ stopped: 'error', error: 'gateway 500' })
         : batch()
     )
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
       outcome: 'PARTIAL',
     })
-    expect(hunt).toHaveBeenCalledTimes(3) // 2 planned + one retry of idor
-    const rows = persist.mock.calls[0]![0].audit.categories
+    expect(hunt).toHaveBeenCalledTimes(3) // 2 planned + one retry of t2
+    const rows = persist.mock.calls[0]![0].audit.tasks
     expect(rows[1].stopped).toBe('error')
     expect(rows[rows.length - 1]).toMatchObject({
+      taskId: 't2',
       category: 'idor',
       stopped: 'error',
     })
   })
 
-  it('LUM-762 retries a failed category once and ends RAN when the retry succeeds', async () => {
+  it('LUM-762 retries a failed task once and ends RAN when the retry succeeds', async () => {
     hunt.mockImplementationOnce(async () =>
       batch({ stopped: 'timeout', error: 'Delay was aborted', tokens: 0 })
     )
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
       outcome: 'RAN',
     })
-    // 2 planned + one retry of the first planned category.
+    // 2 planned + one retry of the first planned task.
     expect(hunt).toHaveBeenCalledTimes(3)
     expect(hunt.mock.calls[2]![0]).toMatchObject({
-      category: 'injection',
-      timeBudgetMs: HUNT_CATEGORY_TIME_MS,
+      task: PLANNED[0],
+      timeBudgetMs: HUNT_TASK_TIME_MS,
     })
     const persisted = persist.mock.calls[0]![0]
     expect(persisted.partial).toBe(false)
-    const attempts = persisted.audit.categories.filter(
-      (c: { category: string }) => c.category === 'injection'
+    const attempts = persisted.audit.tasks.filter(
+      (c: { taskId: string }) => c.taskId === 't1'
     )
     expect(attempts.map((c: { stopped: string }) => c.stopped)).toEqual([
       'timeout',
@@ -303,7 +323,7 @@ describe('LUM-739 hunt workflow', () => {
     ])
   })
 
-  it('LUM-762 caps each category at the per-category time and token ceiling', async () => {
+  it('LUM-762 caps each task at the per-task time and token ceiling', async () => {
     hunt.mockImplementationOnce(async () =>
       batch({
         elapsedMs: HUNT_TIME_BUDGET_MS - 10_000,
@@ -312,31 +332,36 @@ describe('LUM-739 hunt workflow', () => {
     )
     await securityHuntWorkflow(JOB)
     expect(hunt.mock.calls[0]![0]).toMatchObject({
-      timeBudgetMs: HUNT_CATEGORY_TIME_MS,
-      tokenBudget: HUNT_CATEGORY_TOKEN_MAX,
+      timeBudgetMs: HUNT_TASK_TIME_MS,
+      tokenBudget: HUNT_TASK_TOKEN_MAX,
     })
-    // Second category: only the remainder is left, and that is less than the
+    // Second task: only the remainder is left, and that is less than the
     // ceiling — the batch gets the smaller of the two.
     expect(hunt.mock.calls[1]![0]).toMatchObject({
       timeBudgetMs: 10_000,
       tokenBudget: 4_000,
     })
-    // LUM-758: the ceiling arithmetic is now sized to the PLANNED count, not
-    // to all six. At 120k/240s, six categories never fit (6 × 60s = 360s);
-    // two do, twice over — which is exactly the headroom the retry pass needs.
+    // LUM-758: the ceiling arithmetic is sized to the PLANNED TASK count, not
+    // to all six categories. At 120k/240s a full six never fit (6 × 60s =
+    // 360s); a full plan of HUNT_MAX_PLANNED_TASKS does, with room left for
+    // the retry pass to re-run at least one of them on a fresh window.
+    expect(HUNT_TASK_TIME_MS * HUNT_MAX_PLANNED_TASKS).toBeLessThanOrEqual(
+      HUNT_TIME_BUDGET_MS
+    )
+    expect(HUNT_TASK_TOKEN_MAX * HUNT_MAX_PLANNED_TASKS).toBeLessThanOrEqual(
+      HUNT_TOKEN_BUDGET
+    )
+    expect(HUNT_MAX_PLANNED_TASKS).toBeLessThan(HUNT_CATEGORIES.length)
+    // A full plan plus one retry still fits in the scan's window.
     expect(
-      HUNT_CATEGORY_TIME_MS * HUNT_MAX_PLANNED_CATEGORIES
+      HUNT_TASK_TIME_MS * (HUNT_MAX_PLANNED_TASKS + 1)
     ).toBeLessThanOrEqual(HUNT_TIME_BUDGET_MS)
     expect(
-      HUNT_CATEGORY_TOKEN_MAX * HUNT_MAX_PLANNED_CATEGORIES
+      HUNT_TASK_TOKEN_MAX * (HUNT_MAX_PLANNED_TASKS + 1)
     ).toBeLessThanOrEqual(HUNT_TOKEN_BUDGET)
-    // One retry per planned category still fits in the scan's window.
-    expect(
-      HUNT_CATEGORY_TIME_MS * HUNT_MAX_PLANNED_CATEGORIES * 2
-    ).toBeLessThanOrEqual(HUNT_TIME_BUDGET_MS)
   })
 
-  it('LUM-762 records unrun categories as skipped in huntAudit', async () => {
+  it('LUM-762 records unrun tasks as skipped in huntAudit', async () => {
     hunt.mockImplementationOnce(async () =>
       batch({ elapsedMs: HUNT_TIME_BUDGET_MS })
     )
@@ -344,13 +369,15 @@ describe('LUM-739 hunt workflow', () => {
       outcome: 'PARTIAL',
     })
     expect(hunt).toHaveBeenCalledTimes(1)
-    const rows = persist.mock.calls[0]![0].audit.categories
-    expect(rows.map((c: { category: string }) => c.category)).toEqual([
-      ...PLANNED,
-    ])
+    const rows = persist.mock.calls[0]![0].audit.tasks
+    expect(rows.map((c: { taskId: string }) => c.taskId)).toEqual(
+      PLANNED.map(t => t.id)
+    )
     expect(rows.slice(1)).toEqual(
-      PLANNED.slice(1).map(category => ({
-        category,
+      PLANNED.slice(1).map(t => ({
+        taskId: t.id,
+        objective: t.objective,
+        category: t.category,
         candidates: 0,
         tokens: 0,
         elapsedMs: 0,
@@ -411,7 +438,7 @@ describe('LUM-739 hunt workflow', () => {
       outcome: 'FAILED',
       reason: 'verifier down',
     })
-    // Two planned batches at 200 tokens each; the plan step spent 0.
+    // Two planned task batches at 200 tokens each; the plan step spent 0.
     expect(markFailed).toHaveBeenCalledWith('s1', 'verifier down', 400)
   })
 

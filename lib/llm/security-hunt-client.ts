@@ -1,6 +1,12 @@
 /**
  * LUM-739 — the L3 Hunt model call (spec §6 L3 "Hunt"). One bounded
- * tool-calling loop per checklist category over the diff subgraph.
+ * tool-calling loop per PLANNED TASK over the diff subgraph.
+ *
+ * LUM-758 — the unit is a `HuntTask`, not a bare category: the prompt leads
+ * with the task's free-text objective and its starting points (what to
+ * investigate in THIS diff), and the task's closed `category` only types the
+ * output — it selects the CWE hint and the `CATEGORY_BRIEF` that the
+ * mechanical gate and the falsifier judge the submissions against.
  *
  * Static imports of `ai` / `@ai-sdk/gateway`: this module MUST only be
  * reached via `await import()` from service code (jest TransformStream
@@ -27,10 +33,13 @@ import {
 } from '@/lib/security-scan/graph/query'
 import type { Subgraph } from '@/lib/security-scan/graph/types'
 import { numberLines } from '@/lib/security-scan/hunt/snippet'
-import { HUNT_CLIENT_MAX_RETRIES } from '@/lib/services/security-hunt.config'
+import {
+  HUNT_CLIENT_MAX_RETRIES,
+  type HuntTask,
+} from '@/lib/services/security-hunt.config'
 
 export interface HuntClientInput {
-  category: HuntCategory
+  task: HuntTask
   subgraph: Subgraph
   /** Memoised by the caller; null when the file does not exist at the head sha. */
   readFile: (path: string) => Promise<string | null>
@@ -108,8 +117,8 @@ Rules:
 1. Only name symbols that appear in the subgraph, by their exact id.
 2. Every candidate needs a call_chain whose edges are subgraph edges, starting at the entry and ending at the sink; every symbol in it must be in the subgraph.
 3. Line numbers come from read_file output (numbered lines), never estimated.
-4. Report at most 10 candidates for this category; a concrete precondition and a one-sentence claim each; severity by impact if exploited.
-5. Stay in the requested category. Do not report style issues, missing tests, or anything mitigated on the path.
+4. Report at most 10 candidates for this task; a concrete precondition and a one-sentence claim each; severity by impact if exploited.
+5. Stay inside the task's objective and its category. Do not report style issues, missing tests, or anything mitigated on the path.
 6. Finish with exactly one submit_candidates call. An empty list is a valid, common answer.`
 
 function sumTokens(
@@ -122,7 +131,22 @@ function sumTokens(
   return total
 }
 
-export async function huntCategory(
+/**
+ * LUM-758 — the task header. The objective is the model's brief; the category
+ * line tells it what shape the answer must take, and `CATEGORY_BRIEF` is the
+ * decision rule the mechanical gate and the falsifier will hold it to.
+ */
+export function renderTaskForPrompt(task: HuntTask): string {
+  const start =
+    task.startingPoints.length > 0
+      ? `\nStart from: ${task.startingPoints.join(', ')}`
+      : ''
+  return `## Task ${task.id}: ${task.objective}
+Findings from this task are filed under: ${task.category} (${CATEGORY_CWE_HINT[task.category]})${start}
+${CATEGORY_BRIEF[task.category]}`
+}
+
+export async function huntTask(
   input: HuntClientInput
 ): Promise<HuntClientOutput> {
   const fileSet = new Set(input.subgraph.files.map(f => f.path))
@@ -168,7 +192,7 @@ export async function huntCategory(
     }),
     submit_candidates: tool({
       description:
-        'Submit the final candidates for this category (may be empty). Call exactly once, when done.',
+        'Submit the final candidates for this task (may be empty). Call exactly once, when done.',
       inputSchema: z.object({
         candidates: z.array(HuntCandidateSchema).max(10),
       }),
@@ -183,7 +207,7 @@ export async function huntCategory(
     model: gateway(GENERATION_MODEL),
     tools,
     system: HUNT_SYSTEM_PROMPT,
-    prompt: `## Category: ${input.category} (${CATEGORY_CWE_HINT[input.category]})\n${CATEGORY_BRIEF[input.category]}\n\n## Subgraph\n${renderSubgraphForPrompt(input.subgraph)}`,
+    prompt: `${renderTaskForPrompt(input.task)}\n\n## Subgraph\n${renderSubgraphForPrompt(input.subgraph)}`,
     // LUM-762: the SDK's default 2 retries sit in exponential backoff, which
     // is where the production abort ("Delay was aborted") landed — the window
     // went to waiting, not analysis. Fail fast; the workflow's retry pass

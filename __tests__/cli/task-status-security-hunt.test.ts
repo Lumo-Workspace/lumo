@@ -71,6 +71,51 @@ describe('LUM-739 hunt stage', () => {
     expect(out).not.toContain('hunt')
   })
 
+  it('LUM-758 leads each coverage row with its task id so two tasks of the same category stay apart', () => {
+    const out = formatTaskStatus(
+      payload([
+        {
+          prNumber: 12,
+          status: 'CLEAN',
+          stages: { secrets: 'RAN', judge: 'RAN', hunt: 'RAN' },
+          partial: false,
+          error: null,
+          externalFindings: 0,
+          openFindings: 0,
+          hunt: {
+            total: 2,
+            done: 2,
+            categories: [
+              {
+                taskId: 't1',
+                objective: 'raw SQL built from req.query in lib/db.ts',
+                category: 'injection',
+                stopped: 'done',
+                elapsedMs: 41_200,
+                tokens: 1200,
+                candidates: 1,
+                attempts: 1,
+              },
+              {
+                taskId: 't2',
+                objective: 'child_process.exec on a request-derived path',
+                category: 'injection',
+                stopped: 'done',
+                elapsedMs: 12_000,
+                tokens: 900,
+                candidates: 0,
+                attempts: 1,
+              },
+            ],
+          },
+        },
+      ])
+    )
+    expect(out).toContain(
+      'Exploit paths 2/2 done · t1 injection 41.2s done · t2 injection 12.0s done'
+    )
+  })
+
   it('LUM-762 renders the per-category hunt coverage under the scan line', () => {
     const out = formatTaskStatus(
       payload([

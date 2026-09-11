@@ -32,7 +32,8 @@ export async function planHuntStep(
   return securityHuntService.planHunt(input)
 }
 
-export async function huntCategoryStep(
+/** LUM-758 — one bounded batch per PLANNED TASK (was: per category). */
+export async function huntTaskStep(
   input: HuntBatchInput
 ): Promise<HuntBatchOutput> {
   'use step'

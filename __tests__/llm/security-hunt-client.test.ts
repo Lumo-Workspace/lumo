@@ -11,9 +11,10 @@ import { generateText } from 'ai'
 import { GENERATION_MODEL } from '@/lib/ai/models'
 import { HUNT_CLIENT_MAX_RETRIES } from '@/lib/services/security-hunt.config'
 import {
-  huntCategory,
+  huntTask,
   numberLines,
   renderSubgraphForPrompt,
+  renderTaskForPrompt,
 } from '@/lib/llm/security-hunt-client'
 import { SNIPPET_MAX_CHARS } from '@/lib/security-scan/hunt/snippet'
 import type { Subgraph } from '@/lib/security-scan/graph/types'
@@ -56,12 +57,19 @@ const candidate = {
   claim: 'query url reaches fetch',
 }
 
+const TASK = {
+  id: 't1',
+  objective: 'the `next` query param on a.ts#GET reaches fetch unvalidated',
+  category: 'ssrf' as const,
+  startingPoints: ['a.ts'],
+}
+
 type Tools = Record<string, { execute: (input: unknown) => Promise<unknown> }>
 
 function run(result: unknown) {
   gen.mockResolvedValueOnce(result)
-  return huntCategory({
-    category: 'ssrf',
+  return huntTask({
+    task: TASK,
     subgraph: g,
     readFile: async (path: string) => (path === 'a.ts' ? 'l1\nl2\nl3' : null),
     tokenBudget: 1000,
@@ -99,7 +107,16 @@ describe('LUM-739 hunt client', () => {
     expect(call.stopWhen[2]({ steps: [{ usage: { totalTokens: 600 } }] })).toBe(
       false
     )
-    expect(call.prompt).toContain('Category: ssrf')
+    // LUM-758: the prompt leads with the task's objective and starting
+    // points; the category only says how the output gets filed.
+    expect(call.prompt).toContain('## Task t1: ' + TASK.objective)
+    expect(call.prompt).toContain(
+      'Findings from this task are filed under: ssrf (CWE-918)'
+    )
+    expect(call.prompt).toContain('Start from: a.ts')
+    // CATEGORY_BRIEF still rides along — it is the decision rule the
+    // mechanical gate and the falsifier hold the submissions to.
+    expect(call.prompt).toContain('SSRF: a request-derived URL or host')
     expect(call.prompt).toContain('a.ts#fetch@2')
     // The candidates come back only through the tool.
     const tools = call.tools as Tools
@@ -164,5 +181,18 @@ describe('LUM-739 hunt client', () => {
     expect(text).toContain('### Sinks')
     expect(text).toContain('a.ts#GET -> a.ts#fetch@2')
     expect(text).toContain('a.ts (3 lines, touched by the PR)')
+  })
+
+  it('LUM-758 renderTaskForPrompt omits the Start-from line when the task has no starting points', () => {
+    const withPoints = renderTaskForPrompt(TASK)
+    expect(withPoints).toContain('Start from: a.ts')
+    const without = renderTaskForPrompt({ ...TASK, startingPoints: [] })
+    expect(without).not.toContain('Start from:')
+    // The objective, the filing category and the category brief survive.
+    expect(without).toContain(`## Task t1: ${TASK.objective}`)
+    expect(without).toContain(
+      'Findings from this task are filed under: ssrf (CWE-918)'
+    )
+    expect(without).toContain('SSRF: a request-derived URL or host')
   })
 })

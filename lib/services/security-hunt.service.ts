@@ -35,7 +35,10 @@ import {
   parseHuntCoverage,
   formatHuntCoverage,
 } from '@/lib/security-scan/hunt/coverage'
-import { planFallback } from '@/lib/security-scan/hunt/plan-fallback'
+import {
+  planFallback,
+  categoriesToTasks,
+} from '@/lib/security-scan/hunt/plan-fallback'
 import {
   prSecurityScanRepository,
   type NewFindingInput,
@@ -202,16 +205,17 @@ export const securityHuntService = {
   },
 
   /**
-   * LUM-758 §4 — 决定这次扫描查哪 0–2 类。**从不 throw**：规划失败不是一个
-   * 值得重试的瞬时故障，它有一个确定性的答案（`planFallback`），退回去比
-   * 重试一次 LLM 更便宜也更可预测。
+   * LUM-758 §4 — 决定这次扫描跑哪 0–3 个任务。**从不 throw**：规划失败不是
+   * 一个值得重试的瞬时故障，它有一个确定性的答案（`planFallback` 映射出的
+   * 类别，`categoriesToTasks` 包成退化任务），退回去比重试一次 LLM 更便宜
+   * 也更可预测。
    *
    * 兜底绝不退回跑满 6 类 —— 那正是本任务要消灭的行为。
    */
   async planHunt(input: PlanHuntInput): Promise<PlanHuntOutput> {
     const { job, subgraph } = input
     const fallback = (reason: string): PlanHuntOutput => ({
-      categories: planFallback(job.reasons),
+      tasks: categoriesToTasks(planFallback(job.reasons)),
       reason,
       by: 'fallback',
       tokens: 0,
@@ -228,9 +232,9 @@ export const securityHuntService = {
       )
     }
     try {
-      const { planHuntCategories } =
+      const { planHuntTasks } =
         await import('@/lib/llm/security-hunt-plan-client')
-      const out = await planHuntCategories({
+      const out = await planHuntTasks({
         reasons: job.reasons,
         files: subgraph.files.map(f => ({
           path: f.path,
@@ -256,10 +260,10 @@ export const securityHuntService = {
   },
 
   /**
-   * One checklist category = one bounded tool-calling loop. Never throws: a
-   * batch that times out / errors is recorded in the audit and the run goes
-   * on with the other categories (spec: overrun → partial, never a retry
-   * storm of an LLM loop).
+   * LUM-758 — one PLANNED TASK = one bounded tool-calling loop. Never throws:
+   * a batch that times out / errors is recorded in the audit and the run goes
+   * on with the other tasks (spec: overrun → partial, never a retry storm of
+   * an LLM loop).
    */
   async huntBatch(input: HuntBatchInput): Promise<HuntBatchOutput> {
     const started = Date.now()
@@ -274,9 +278,9 @@ export const securityHuntService = {
     }
     try {
       // Dynamic import keeps `ai` / `@ai-sdk/gateway` out of the static graph.
-      const { huntCategory } = await import('@/lib/llm/security-hunt-client')
-      const out = await huntCategory({
-        category: input.category,
+      const { huntTask } = await import('@/lib/llm/security-hunt-client')
+      const out = await huntTask({
+        task: input.task,
         subgraph: input.subgraph,
         readFile,
         tokenBudget: input.tokenBudget,
@@ -292,7 +296,7 @@ export const securityHuntService = {
     } catch (error) {
       const message = messageOf(error)
       logger.warn(
-        `[security-hunt] batch ${input.category} failed scan=${input.job.scanId}: ${message}`
+        `[security-hunt] batch ${input.task.id} (${input.task.category}) failed scan=${input.job.scanId}: ${message}`
       )
       return {
         candidates: [],
@@ -357,7 +361,7 @@ export const securityHuntService = {
     // so every run states its per-category outcome once, where a deploy log
     // keeps it. `lumo task status` reads the same audit off the row.
     const coverage = parseHuntCoverage({
-      categories: input.audit.categories,
+      tasks: input.audit.tasks,
       planned: input.audit.planned,
     })
     if (coverage) {

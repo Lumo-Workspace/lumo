@@ -68,8 +68,9 @@ export const HUNT_TASK_TIME_MS = 60_000
 /**
  * Spec §6 L3 "Hunt" budget per scan. LUM-758 把 LUM-762 的 240k/480s 调回
  * 120k/240s：762 的放大在 prod 被证伪（166k–236k 全部 PARTIAL、0 finding），
- * 真正的成本源是「无条件跑 6 类」而不是预算太小。类别数降到 ≤2 之后，
- * 2 类 × 30k + 2 次补跑正好落在 120k 内。
+ * 真正的成本源是「无条件跑 6 类」而不是预算太小。任务数降到 ≤3 之后，
+ * 3 任务 × 20k = 60k（= 验收目标均值）跑完 pass 1，剩下的额度足够整轮补跑；
+ * 时间上 3 × 60s = 180s 跑完 pass 1，240s 里还留得下一次补跑。
  */
 export const HUNT_TOKEN_BUDGET = 120_000
 export const HUNT_TIME_BUDGET_MS = 240_000
@@ -109,8 +110,9 @@ export type HuntCategoryStop = HuntBatchStop | 'skipped'
 /**
  * One attempt at one task. A task the retry pass re-ran has TWO rows in
  * `HuntAudit.tasks`, in attempt order — the last one is its outcome.
- * `category` stays here (not just on the `HuntTask` in `planned`) because
- * `parseHuntCoverage` groups by category, not by task identity.
+ * `taskId` is the row's identity (`parseHuntCoverage` groups on it, and two
+ * tasks may share a category); `category` and `objective` are denormalised
+ * onto the row so the audit reads on its own, without joining `planned`.
  */
 export interface HuntTaskAudit {
   taskId: string
@@ -144,7 +146,8 @@ export interface PlanHuntInput {
 }
 
 export interface PlanHuntOutput {
-  categories: HuntCategory[]
+  /** 0–HUNT_MAX_PLANNED_TASKS tasks; `[]` = 这个 PR 不值得 hunt。 */
+  tasks: HuntTask[]
   reason: string
   by: 'model' | 'fallback'
   tokens: number
@@ -158,7 +161,11 @@ export interface SubgraphResult {
 export interface HuntBatchInput {
   job: HuntJob
   subgraph: Subgraph
-  category: HuntCategory
+  /**
+   * LUM-758 —— 一次批次跑**一个任务**，不是一个类别。同一个 category 在一个
+   * 计划里可以出现多次（不同 objective），所以批次的身份是 `task.id`。
+   */
+  task: HuntTask
   tokenBudget: number
   timeBudgetMs: number
 }
@@ -205,7 +212,7 @@ export interface PersistHuntInput {
 
 export type HuntResult =
   | {
-      /** LUM-758: SKIPPED = 规划步说这个 PR 不值得 hunt（空子图或空类别）。 */
+      /** LUM-758: SKIPPED = 规划步说这个 PR 不值得 hunt（空子图或空任务列表）。 */
       outcome: 'RAN' | 'PARTIAL' | 'SKIPPED'
       scanId: string
       findings: number
