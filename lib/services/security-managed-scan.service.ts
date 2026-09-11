@@ -42,6 +42,7 @@ import {
   SANDBOX_IMAGE,
   SANDBOX_SCAN_TAG,
   SANDBOX_TIMEOUT_MS,
+  SANDBOX_TIMEOUT_WITH_HUNT_MS,
   SANDBOX_VCPUS,
   SEMGREP_CONFIGS,
   SEMGREP_VERSION,
@@ -179,6 +180,12 @@ async function collectReports(opts: {
   label: string
   /** LUM-745: a PR scan tags its VM with its scan id; the baseline run passes none. */
   tags?: Record<string, string>
+  /**
+   * LUM-758: when true the VM is NOT stopped once the tools are done — the
+   * hunt attaches to it by tag instead of paying for a second microVM, and
+   * nobody stops it on purpose (see `ManagedScanJob.huntWanted`).
+   */
+  keepAlive?: boolean
 }): Promise<Partial<Record<ManagedScanTool, ToolReport>>> {
   const { token } = opts
   let sandbox: RepoSandbox
@@ -187,7 +194,9 @@ async function collectReports(opts: {
       repository: opts.repository,
       revision: opts.sha,
       token,
-      timeoutMs: SANDBOX_TIMEOUT_MS,
+      timeoutMs: opts.keepAlive
+        ? SANDBOX_TIMEOUT_WITH_HUNT_MS
+        : SANDBOX_TIMEOUT_MS,
       vcpus: SANDBOX_VCPUS,
       image: SANDBOX_IMAGE,
       ...(opts.tags ? { tags: opts.tags } : {}),
@@ -215,12 +224,25 @@ async function collectReports(opts: {
     }
     return reports
   } finally {
-    try {
-      await sandbox.stop()
-    } catch (error) {
-      logger.warn(
-        `[security-managed-scan] sandbox stop failed ${opts.label}: ${scrubToken(message(error), token).slice(0, 200)}`
-      )
+    // LUM-758: a VM the hunt is going to reuse outlives this function on
+    // purpose. Stopping it here would kill the hunt's checkout; stopping it
+    // from the hunt would kill semgrep, since the two workflows have no
+    // ordering guarantee. Its release is the VM's own 20-minute timeout —
+    // LUM-745's sweep and supersede only reach a VM whose scan row carries a
+    // `managedRunId` (see `stopHuntSandbox`).
+    // `keepAlive` also changes the CRASH path, which is not the shared-VM
+    // rule and is easy to miss: a throw above now leaves the VM running where
+    // this block previously always stopped it, so with the step's retries
+    // several VMs can be alive under one `lumoScan` tag at once, each until
+    // its own timeout. Bounded, and cheaper than racing the hunt's checkout.
+    if (!opts.keepAlive) {
+      try {
+        await sandbox.stop()
+      } catch (error) {
+        logger.warn(
+          `[security-managed-scan] sandbox stop failed ${opts.label}: ${scrubToken(message(error), token).slice(0, 200)}`
+        )
+      }
     }
   }
 }
@@ -317,6 +339,7 @@ export const securityManagedScanService = {
       token,
       label,
       tags: { [SANDBOX_SCAN_TAG]: job.scanId },
+      keepAlive: job.huntWanted,
     })
     // LUM-745 (review): the entry guard covers a step that has not started;
     // a supersede that lands while the sandbox is running must not let this

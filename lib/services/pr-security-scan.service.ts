@@ -41,6 +41,7 @@ import {
   L4_CROSSING_CATEGORIES,
   type ScanStages,
 } from '@/lib/security-scan'
+import { isGraphSourcePath } from '@/lib/security-scan/graph/imports'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import {
@@ -453,6 +454,26 @@ export const prSecurityScanService = {
         disposition: null,
       }))
 
+      // ── L3 trigger, first pass (LUM-758) ────────────────────────────────
+      // The managed scan has to know whether to keep its VM alive for the
+      // hunt BEFORE it is started, so the trigger is evaluated here, where
+      // only A1's findings exist. The judge (A4) can only ADD a reason
+      // ('stage-a:high'), never remove one, so this pass never over-claims:
+      // `huntWantedForVm` implies the final `huntWanted`. The other direction
+      // — a judge HIGH that turns the hunt on after the managed scan already
+      // started — just means the hunt boots its own VM, which is a first-class
+      // path (§2), not a failure.
+      const hasOpenCrossing = await hasOpenL4Crossing(pr.taskId)
+      const secretHigh = secretRows.some(r => r.severity === 'HIGH')
+      const huntWantedForVm =
+        isHuntEnabled() &&
+        files.length > 0 &&
+        evaluateHuntTrigger({
+          files,
+          hasHighFinding: secretHigh,
+          hasOpenL4Crossing: hasOpenCrossing,
+        }).hunt
+
       // ── A2: external oracle — SARIF pushed by the repo's own CI, or the
       // Lumo-managed scan (LUM-735) ────────────────────────────────────────
       // Three-way rule: if EXTERNAL_TOOL rows already landed for this scan
@@ -509,6 +530,9 @@ export const prSecurityScanService = {
                 number: pr.number,
               },
               headSha,
+              // LUM-758: keep the VM alive past this run for the hunt to
+              // attach to — one microVM, two layers.
+              huntWanted: huntWantedForVm,
             })
             stages.external = runId ? 'PENDING' : 'FAILED'
             // LUM-738: osv-scanner rides the same run — its layer is pending
@@ -624,12 +648,14 @@ export const prSecurityScanService = {
       // AFTER this scan's own result is persisted (below), so the workflow's
       // write can never be overwritten by stage A's persistResult, which
       // replaces `stages` wholesale except the ingest-owned external key.
+      // LUM-758: the same pure call as the first pass above, now that the
+      // judge's rows exist. `hasOpenCrossing` is reused rather than re-read —
+      // one query, and a trigger that cannot disagree with itself mid-scan.
       const huntTrigger = evaluateHuntTrigger({
         files,
-        hasHighFinding: [...secretRows, ...judgeRows].some(
-          r => r.severity === 'HIGH'
-        ),
-        hasOpenL4Crossing: await hasOpenL4Crossing(pr.taskId),
+        hasHighFinding:
+          secretHigh || judgeRows.some(r => r.severity === 'HIGH'),
+        hasOpenL4Crossing: hasOpenCrossing,
       })
       const huntWanted = isHuntEnabled() && files.length > 0 && huntTrigger.hunt
       // Off (LUMO_SECURITY_HUNT=off) = no hunt layer at all, not a SKIPPED one:
@@ -672,6 +698,19 @@ export const prSecurityScanService = {
           repo: pr.repo,
           prNumber: pr.number,
           headSha,
+          // LUM-758: the trigger already computed these — the planning step
+          // and its deterministic fallback both run off them.
+          reasons: huntTrigger.reasons,
+          // LUM-758 Task 10 review: the SAME `files` the trigger just read,
+          // filtered by the same source-path predicate it filters by — zero
+          // extra API calls. `reasons` says a signal fired; this says which
+          // source files it could have fired in. Short circuit A needs it to
+          // tell a `stage-a:high` PR that touched code from one that touched
+          // none, and the planner needs it to place a signal at all.
+          touchedSourcePaths: files.map(f => f.path).filter(isGraphSourcePath),
+          // LUM-758 §5.1: false means no managed scan VM is coming, so the
+          // hunt goes straight to creating its own instead of polling 30 s.
+          managedScanStarted: managedRunStarted,
         })
         if (runId) huntRunStarted = true
         else

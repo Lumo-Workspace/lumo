@@ -776,6 +776,22 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       where: { scanId: 's1', provenance: 'EXTERNAL_TOOL' },
     })
   })
+
+  test('findFindingSummaryByScan queries findings by scan with correct shape', async () => {
+    const testData = [
+      { severity: 'HIGH', ruleId: 'rule1', title: 'Issue 1' },
+      { severity: 'MEDIUM', ruleId: 'rule2', title: 'Issue 2' },
+    ]
+    mockFinding.findMany.mockResolvedValueOnce(testData)
+    const result = await prSecurityScanRepository.findFindingSummaryByScan('s1')
+    expect(result).toEqual(testData)
+    expect(mockFinding.findMany).toHaveBeenCalledWith({
+      where: { scanId: 's1' },
+      select: { severity: true, ruleId: true, title: true },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+    })
+  })
 })
 
 // ── LUM-737: one-shot PreToolUse reminder support ────────────────────────────

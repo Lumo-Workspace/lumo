@@ -64,7 +64,10 @@ export interface NewFindingInput {
 
 /** LUM-739 — what the hunt workflow writes back onto the scan row. */
 export interface PersistHuntResultInput {
-  hunt: 'RAN' | 'PARTIAL' | 'FAILED'
+  // LUM-758: SKIPPED joins the set — the planner may decide a PR is not worth
+  // hunting (empty subgraph, or no category planned), which is a complete
+  // layer, not a failed one.
+  hunt: 'RAN' | 'PARTIAL' | 'FAILED' | 'SKIPPED'
   huntAudit: Record<string, unknown>
   tokenSpent: number | null
   partial: boolean
@@ -225,6 +228,12 @@ export interface DispositionedFingerprint {
   suggestedDisposition: FindingDisposition | null
   suggestedReason: string | null
   suggestionOutcome: SuggestionOutcome | null
+}
+
+export interface FindingSummary {
+  severity: string
+  ruleId: string
+  title: string
 }
 
 /**
@@ -706,6 +715,21 @@ export const prSecurityScanRepository = {
     return prisma.prSecurityFinding.count({
       where: { scanId, provenance: 'EXTERNAL_TOOL' },
     })
+  },
+
+  /**
+   * LUM-758 — 规划步要的 stage A finding 摘要。刻意不复用
+   * `findByIdForReview`：那个方法为了 PR 同步 join 了 pullRequest /
+   * workspace，规划步一个都用不上。
+   */
+  async findFindingSummaryByScan(scanId: string): Promise<FindingSummary[]> {
+    const rows = await prisma.prSecurityFinding.findMany({
+      where: { scanId },
+      orderBy: { createdAt: 'asc' },
+      select: { severity: true, ruleId: true, title: true },
+      take: 50,
+    })
+    return rows as FindingSummary[]
   },
 
   /**

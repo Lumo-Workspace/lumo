@@ -33,7 +33,12 @@ const markStages = markSarifStagesStep as jest.Mock
 const syncReview = syncPrReviewStep as jest.Mock
 
 const PR = { id: 'pr1', workspaceId: 'w1', repo: 'o/r', number: 7 }
-const JOB = { scanId: 's1', pr: PR, headSha: 'a'.repeat(40) }
+const JOB = {
+  scanId: 's1',
+  pr: PR,
+  headSha: 'a'.repeat(40),
+  huntWanted: false,
+}
 const ok = (tool: string, n: number) => ({
   kind: 'ok',
   tool,

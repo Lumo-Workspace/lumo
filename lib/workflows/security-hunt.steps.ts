@@ -6,9 +6,9 @@
  * for facts the run must record (see the service header).
  */
 import { securityHuntService } from '@/lib/services/security-hunt.service'
+import type { Subgraph } from '@/lib/security-scan/graph/types'
 import type {
-  HuntJob,
-  SubgraphResult,
+  VerifySubgraphInput,
   HuntBatchInput,
   HuntBatchOutput,
   MechanicalVerifyInput,
@@ -16,14 +16,32 @@ import type {
   FalsifierInput,
   FalsifierOutput,
   PersistHuntInput,
+  PlanHuntInput,
+  PlanHuntOutput,
 } from '@/lib/services/security-hunt.config'
 
-export async function buildSubgraphStep(job: HuntJob): Promise<SubgraphResult> {
+/**
+ * LUM-758 Task 10 — runs AFTER the hunt, not before it: the mechanical gate's
+ * graph is built from the files the candidates reference. A live sandbox
+ * handle carries methods and cannot cross a step boundary, so the service
+ * attaches its own.
+ */
+export async function buildVerifySubgraphStep(
+  input: VerifySubgraphInput
+): Promise<Subgraph> {
   'use step'
-  return securityHuntService.buildSubgraph(job)
+  return securityHuntService.buildVerifySubgraph(input)
 }
 
-export async function huntCategoryStep(
+export async function planHuntStep(
+  input: PlanHuntInput
+): Promise<PlanHuntOutput> {
+  'use step'
+  return securityHuntService.planHunt(input)
+}
+
+/** LUM-758 — one bounded batch per PLANNED TASK (was: per category). */
+export async function huntTaskStep(
   input: HuntBatchInput
 ): Promise<HuntBatchOutput> {
   'use step'

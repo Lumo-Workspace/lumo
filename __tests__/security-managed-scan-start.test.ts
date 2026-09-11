@@ -14,7 +14,12 @@ import { securityManagedScanWorkflow } from '@/lib/workflows/security-managed-sc
 const startMock = start as unknown as jest.Mock
 
 const PR = { id: 'pr1', workspaceId: 'w1', repo: 'o/r', number: 7 }
-const JOB = { scanId: 's1', pr: PR, headSha: 'a'.repeat(40) }
+const JOB = {
+  scanId: 's1',
+  pr: PR,
+  headSha: 'a'.repeat(40),
+  huntWanted: false,
+}
 
 beforeEach(() => jest.clearAllMocks())
 

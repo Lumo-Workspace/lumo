@@ -257,14 +257,18 @@ export interface TaskStatusResponse {
       /** LUM-738 — optional: absent on an older server. */
       dependencyFindings?: number
       persistingFindings?: number
-      /** LUM-762 — per-category L3 hunt coverage read off `huntAudit`.
+      /** LUM-762 — per-task L3 hunt coverage read off `huntAudit`.
        *  Absent on an older server, null when the scan stored no usable
        *  audit (a pre-LUM-739 row, or a hunt that failed before its first
-       *  batch). */
+       *  batch). LUM-758: a row is one PLANNED TASK, so `taskId` is what
+       *  tells two rows of the same category apart — absent on pre-task-graph
+       *  audits and on an older server. */
       hunt?: {
         total: number
         done: number
         categories: Array<{
+          taskId?: string
+          objective?: string
           category: string
           stopped: string
           elapsedMs: number
@@ -383,14 +387,18 @@ function formatScanSummaryLine(s: ScanSummary): string {
 }
 
 /**
- * LUM-762 — the hunt's per-category read-out, one indented line under its
- * scan: `Exploit paths 4/6 done · idor 41.2s done · injection 72.0s done
- * (2 attempts) · race skipped`. Headed by the same display label as the
+ * LUM-762 — the hunt's per-task read-out, one indented line under its scan:
+ * `Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done
+ * (2 attempts) · t3 race skipped`. Headed by the same display label as the
  * layer's own segment (LUM-763) — the detail line and the line above it
  * must not name the layer two different ways. This is the only place the stored `huntAudit` surfaces, so
- * it is what answers "how long does a healthy category take" and "which ones
+ * it is what answers "how long does a healthy batch take" and "which ones
  * never ran" (`skipped`) without paging through deploy logs. Elapsed time is
- * summed over a category's attempts; a skipped category has none to print.
+ * summed over a task's attempts; a skipped task has none to print.
+ *
+ * LUM-758: a plan may hold two tasks of the same category, so the row is led
+ * by its task id. Pre-task-graph audits carry no id — the row then prints
+ * exactly as it always did.
  */
 function formatHuntCoverageLine(
   hunt: NonNullable<ScanSummary['hunt']>
@@ -399,7 +407,8 @@ function formatHuntCoverageLine(
     const attempts = c.attempts > 1 ? ` (${c.attempts} attempts)` : ''
     const spent =
       c.stopped === 'skipped' ? '' : `${(c.elapsedMs / 1000).toFixed(1)}s `
-    return `${c.category} ${spent}${c.stopped}${attempts}`
+    const id = c.taskId === undefined ? '' : `${c.taskId} `
+    return `${id}${c.category} ${spent}${c.stopped}${attempts}`
   })
   return `    ${scanStageLabel('hunt')} ${hunt.done}/${hunt.total} done · ${parts.join(' · ')}`
 }

@@ -48,7 +48,12 @@ const judge = judgeSuggestionStep as jest.Mock
 const finish = finishSuggestionsStep as jest.Mock
 
 const PR = { id: 'pr1', workspaceId: 'w1', repo: 'o/r', number: 7 }
-const MANAGED_JOB = { scanId: 's1', pr: PR, headSha: 'a'.repeat(40) }
+const MANAGED_JOB = {
+  scanId: 's1',
+  pr: PR,
+  headSha: 'a'.repeat(40),
+  huntWanted: false,
+}
 const SARIF_JOB = {
   url: 'https://blob.vercel-storage.com/security-sarif/o--r/sha1/semgrep-abc.sarif.gz',
   pathname: 'security-sarif/o--r/sha1/semgrep-abc.sarif.gz',

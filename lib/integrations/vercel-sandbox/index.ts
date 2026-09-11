@@ -4,7 +4,15 @@
  * depth-1 clone of one revision; callers run commands, read files back and
  * MUST `stop()` it (billing runs until they do). The GitHub token only ever
  * lives in the `Sandbox.create` call — the SDK sends it as git basic auth,
- * it is never written into the sandbox filesystem by us.
+ * and nothing in THIS module writes it into the sandbox filesystem.
+ *
+ * LUM-758: that last sentence is a statement about our code, not about the
+ * platform's. The clone itself happens server-side (`source` is handed to the
+ * Vercel API, not executed here), so whether the credential ends up in the
+ * checkout's `.git/config` is not observable from this module. Anything that
+ * lets a model read the checkout must assume it does and prove otherwise at
+ * runtime — see `scrubCloneCredentials` in
+ * `lib/services/security-hunt-sandbox.ts`.
  *
  * Auth to Vercel is automatic in a Vercel Function (project OIDC token);
  * locally `vercel env pull` provides VERCEL_OIDC_TOKEN.
@@ -141,6 +149,73 @@ export function repoCheckoutDir(
 ): string {
   const name = repository.slice(repository.indexOf('/') + 1)
   return `${sandboxCwd.replace(/\/+$/, '')}/${name}`
+}
+
+/**
+ * LUM-758 — find a live sandbox with the specified tags and reconnect to it.
+ * The managed scan (LUM-735) already tags sandboxes as `{ lumoScan: scanId }`;
+ * the hunt reuses the same scanId to avoid paying for a second microVM.
+ *
+ * Returns null (not an error) when no live VM matches: the managed scan has
+ * four legitimate reasons not to run (BYO SARIF findings exist, feature is
+ * disabled, hourly quota exceeded, or start failed). Callers create their own
+ * VM. A failure of `list` itself propagates — that is a platform fault, not
+ * "no VM".
+ *
+ * `excludeTagKeys` narrows the match after the fact, because the platform
+ * filter is a single `{ key: value }` AND and has no negation. It exists for
+ * callers that tag their OWN VMs with the tag they look up: without it, a
+ * lookup for "somebody else's VM" also returns the caller's own, and a
+ * sibling's — see the hunt's `HUNT_SANDBOX_TAG` in
+ * `lib/services/security-hunt-sandbox.ts`.
+ */
+export async function findRepoSandboxByTag(
+  tags: Record<string, string>,
+  options: { excludeTagKeys?: readonly string[] } = {}
+): Promise<RepoSandbox | null> {
+  const result = await Sandbox.list({ tags } as Parameters<
+    typeof Sandbox.list
+  >[0])
+  for await (const entry of result) {
+    if (entry.status !== 'running' && entry.status !== 'pending') continue
+    // Presence of the KEY excludes, whatever its value: the question is "who
+    // booted this VM", and the key alone answers it.
+    if (options.excludeTagKeys?.some(key => entry.tags?.[key] !== undefined))
+      continue
+    try {
+      return wrap(await Sandbox.get({ name: entry.name }))
+    } catch (error) {
+      // Race condition: VM stopped between list and get. Try the next one.
+      logger.warn(
+        `[vercel-sandbox] attach failed name=${entry.name}: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      )
+    }
+  }
+  return null
+}
+
+/**
+ * LUM-758 — cut a sandbox's network egress ("deny-all" in the SDK's
+ * `NetworkPolicy` vocabulary). The hunt calls this on a VM **it created
+ * itself**, right after the clone: the agent only reads a local checkout, so
+ * it needs no route out, and without one the whole "the model was talked into
+ * running curl" class loses its payload.
+ *
+ * NOT applied at create time and NOT applied to an attached VM:
+ *  - the git clone is performed by the platform as part of `Sandbox.create`,
+ *    so a create-time "deny-all" would be denying the very fetch we need;
+ *  - an attached VM belongs to the managed scan, which downloads gitleaks,
+ *    semgrep and osv-scanner while it runs. Tightening its policy from here
+ *    would break a run we have no ordering guarantee against.
+ *
+ * Throws on failure; callers treat it as best-effort defence in depth (the
+ * command gate is the enforcing boundary).
+ */
+export async function denySandboxEgress(name: string): Promise<void> {
+  const sandbox = await Sandbox.get({ name })
+  await sandbox.update({ networkPolicy: 'deny-all' })
 }
 
 /**
