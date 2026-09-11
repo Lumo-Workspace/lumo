@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "gravedad {severity}",
   "boundary.tip.category": "Un cruce de límites es una acción prohibida o arriesgada que realizó el agente. La categoría indica de qué tipo se trata.",
   "boundary.tip.severity": "La gravedad de este cruce. Los cruces HIGH bloquean marcar la tarea como Hecho hasta que se resuelvan.",
-  "boundary.tip.disposition": "Cómo se resolvió este cruce: falso positivo (no es un problema real), confirmado (problema real) o resuelto automáticamente por el sistema.",
+  "boundary.tip.disposition": "Cómo se resolvió este cruce: falso positivo (no es un problema real), confirmado (un problema real), resuelto automáticamente por el sistema o por una regla del repositorio creada por una persona.",
   "boundary.tip.recurrence": "Este mismo cruce se detectó varias veces; el contador indica cuántas.",
   "boundary.panel.recurrence": "visto ×{count}",
   "boundary.panel.lastSeen": "Visto por última vez {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "Dependencias",
   "securityScan.finding.persisting": "ya está en la rama predeterminada",
   "securityScan.finding.dependency": "Dependencia vulnerable",
-  "securityScan.stageState.SUPERSEDED": "reemplazado"
+  "securityScan.stageState.SUPERSEDED": "reemplazado",
+  "boundary.panel.suppressSimilar": "Gestionar automáticamente este tipo en este repositorio a partir de ahora (solo falsos positivos)",
+  "boundary.panel.suppressReasonPlaceholder": "Por qué esto nunca es un cruce real aquí (opcional)",
+  "boundary.panel.suppressedByRule": "Resuelto automáticamente por la regla del repositorio {rule}{reason}",
+  "boundary.panel.ruleRevoked": "regla revocada",
+  "boundary.panel.revokeRule": "Revocar regla",
+  "boundary.disposition.autoSuppressed": "resuelto automáticamente por regla",
+  "boundary.toast.ruleRevoked": "Regla revocada: las próximas ocurrencias volverán a quedar abiertas",
+  "boundary.toast.ruleCreated": "Cruce resuelto y regla del repositorio creada: las próximas ocurrencias se gestionarán automáticamente"
 }

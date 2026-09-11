@@ -37,6 +37,8 @@ export const CROSSING_DISPOSITION_COUNTS: Record<
   // noise back to the next agent as evidence.
   FALSE_POSITIVE: false,
   AUTO_LEGIT: false,
+  // LUM-751: system-applied repository rule — adjudicated noise, same as above.
+  AUTO_SUPPRESSED: false,
 }
 
 /**

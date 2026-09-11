@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "{severity} गंभीरता",
   "boundary.tip.category": "सीमा उल्लंघन एक निषिद्ध या जोखिमपूर्ण कार्रवाई है जो एजेंट ने की। श्रेणी बताती है कि यह किस प्रकार की है।",
   "boundary.tip.severity": "यह उल्लंघन कितना गंभीर है। HIGH उल्लंघन कार्य को तब तक Done चिह्नित करने से रोकते हैं जब तक हल नहीं हो जाता।",
-  "boundary.tip.disposition": "यह उल्लंघन कैसे हल हुआ: गलत पहचान (वास्तविक समस्या नहीं), पुष्ट (वास्तविक समस्या), या सिस्टम द्वारा स्वतः समाधानित।",
+  "boundary.tip.disposition": "यह उल्लंघन कैसे सुलझाया गया: फ़ॉल्स पॉज़िटिव (वास्तविक समस्या नहीं), पुष्टि (वास्तविक समस्या), सिस्टम द्वारा स्वतः निपटान, या किसी व्यक्ति द्वारा बनाए गए रिपॉज़िटरी नियम द्वारा स्वतः निपटान।",
   "boundary.tip.recurrence": "यही उल्लंघन कई बार पता चला; संख्या यह बताती है कि कितनी बार।",
   "boundary.panel.recurrence": "×{count} बार देखा गया",
   "boundary.panel.lastSeen": "अंतिम बार देखा गया {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "निर्भरताएँ",
   "securityScan.finding.persisting": "पहले से डिफ़ॉल्ट ब्रांच में मौजूद",
   "securityScan.finding.dependency": "असुरक्षित निर्भरता",
-  "securityScan.stageState.SUPERSEDED": "अधिक्रमित"
+  "securityScan.stageState.SUPERSEDED": "अधिक्रमित",
+  "boundary.panel.suppressSimilar": "अब से इस रिपॉज़िटरी में इस प्रकार को स्वतः संभालें (केवल फ़ॉल्स पॉज़िटिव)",
+  "boundary.panel.suppressReasonPlaceholder": "यह यहाँ कभी वास्तविक उल्लंघन क्यों नहीं है (वैकल्पिक)",
+  "boundary.panel.suppressedByRule": "रिपॉज़िटरी नियम {rule} द्वारा स्वतः निपटाया गया{reason}",
+  "boundary.panel.ruleRevoked": "नियम रद्द किया गया",
+  "boundary.panel.revokeRule": "नियम रद्द करें",
+  "boundary.disposition.autoSuppressed": "नियम द्वारा स्वतः निपटाया गया",
+  "boundary.toast.ruleRevoked": "नियम रद्द किया गया — भविष्य की घटनाएँ फिर से खुली रहेंगी",
+  "boundary.toast.ruleCreated": "उल्लंघन निपटाया गया और रिपॉज़िटरी नियम बनाया गया — भविष्य की घटनाएँ स्वतः संभाली जाएँगी"
 }

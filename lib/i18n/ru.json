@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "уровень риска: {severity}",
   "boundary.tip.category": "Нарушение границы — это запрещённое или рискованное действие, совершённое агентом. Категория указывает его тип.",
   "boundary.tip.severity": "Серьёзность этого нарушения. Нарушения с уровнем HIGH блокируют перевод задачи в «Готово» до устранения.",
-  "boundary.tip.disposition": "Как это нарушение было разрешено: ложное срабатывание (не реальная проблема), подтверждено (реальная проблема) или автоматически снято системой.",
+  "boundary.tip.disposition": "Как было разрешено это нарушение: ложное срабатывание (не реальная проблема), подтверждено (реальная проблема), автоматически закрыто системой или автоматически закрыто по правилу репозитория, созданному человеком.",
   "boundary.tip.recurrence": "Это нарушение было обнаружено несколько раз; счётчик показывает, сколько именно.",
   "boundary.panel.recurrence": "замечено ×{count}",
   "boundary.panel.lastSeen": "Последний раз {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "Зависимости",
   "securityScan.finding.persisting": "уже есть в ветке по умолчанию",
   "securityScan.finding.dependency": "Уязвимая зависимость",
-  "securityScan.stageState.SUPERSEDED": "заменён"
+  "securityScan.stageState.SUPERSEDED": "заменён",
+  "boundary.panel.suppressSimilar": "Впредь обрабатывать этот тип в этом репозитории автоматически (только ложные срабатывания)",
+  "boundary.panel.suppressReasonPlaceholder": "Почему здесь это никогда не является реальным нарушением (необязательно)",
+  "boundary.panel.suppressedByRule": "Автоматически закрыто по правилу репозитория {rule}{reason}",
+  "boundary.panel.ruleRevoked": "правило отозвано",
+  "boundary.panel.revokeRule": "Отозвать правило",
+  "boundary.disposition.autoSuppressed": "автоматически закрыто по правилу",
+  "boundary.toast.ruleRevoked": "Правило отозвано — будущие случаи снова останутся открытыми",
+  "boundary.toast.ruleCreated": "Нарушение закрыто, правило репозитория создано — будущие случаи будут обрабатываться автоматически"
 }

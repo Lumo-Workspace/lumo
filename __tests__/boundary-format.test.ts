@@ -5,7 +5,11 @@
  * Verifies that the new categories PROJECT_RULE_VIOLATION and POLICY_WEAKENING
  * are properly localized and do NOT fall through to the raw default fallback.
  */
-import { boundaryCategoryLabel } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/boundary-format'
+import {
+  boundaryCategoryLabel,
+  boundaryDispositionLabel,
+  boundaryDispositionOrOpenLabel,
+} from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/boundary-format'
 import type { useIntl } from 'react-intl'
 
 /** Minimal intl stub that records which message id was requested. */
@@ -68,5 +72,15 @@ test('boundaryCategoryLabel falls through to default for unknown categories', ()
   const intl = makeIntl()
   expect(boundaryCategoryLabel('SOME_NEW_UNKNOWN', intl)).toBe(
     'some new unknown'
+  )
+})
+
+test('LUM-751: boundaryDispositionLabel renders the rule-suppressed system disposition', () => {
+  const intl = makeIntl()
+  expect(boundaryDispositionLabel('AUTO_SUPPRESSED', intl)).toBe(
+    'auto-dispositioned by rule'
+  )
+  expect(boundaryDispositionOrOpenLabel('AUTO_SUPPRESSED', intl)).toBe(
+    'auto-dispositioned by rule'
   )
 })

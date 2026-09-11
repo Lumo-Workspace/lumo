@@ -191,13 +191,35 @@ export const tasksClient = {
     taskId: string,
     crossingId: string,
     disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN',
-    dispositionNote?: string
+    dispositionNote?: string,
+    // LUM-751: opt a FALSE_POSITIVE into a per-repository suppression rule.
+    options?: { suppressSimilarInProject?: boolean; suppressionReason?: string }
   ) {
     return apiFetch<T>(API.tasks.boundaryDisposition(taskId), {
       method: 'POST',
-      body: dispositionNote
-        ? { crossingId, disposition, dispositionNote }
-        : { crossingId, disposition },
+      body: {
+        crossingId,
+        disposition,
+        ...(dispositionNote ? { dispositionNote } : {}),
+        ...(options?.suppressSimilarInProject
+          ? {
+              suppressSimilarInProject: true,
+              ...(options.suppressionReason
+                ? { suppressionReason: options.suppressionReason }
+                : {}),
+            }
+          : {}),
+      },
+    })
+  },
+
+  /**
+   * Soft-revoke a repository suppression rule (LUM-751). Clerk-session only —
+   * the server refuses bearer (agent) identities. Returns { ruleId, revokedAt }.
+   */
+  revokeCrossingSuppressionRule<T>(taskId: string, ruleId: string) {
+    return apiFetch<T>(API.tasks.boundarySuppressionRule(taskId, ruleId), {
+      method: 'DELETE',
     })
   },
 

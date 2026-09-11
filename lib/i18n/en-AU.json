@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "{severity} severity",
   "boundary.tip.category": "A boundary crossing is a forbidden or risky action the agent took. The category says what kind.",
   "boundary.tip.severity": "How serious this crossing is. HIGH crossings block marking the task Done until resolved.",
-  "boundary.tip.disposition": "How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), or auto-cleared by the system.",
+  "boundary.tip.disposition": "How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), auto-cleared by the system, or auto-dispositioned by a repository rule a human created.",
   "boundary.tip.recurrence": "This same crossing was detected multiple times; the count is how many times.",
   "boundary.panel.recurrence": "seen ×{count}",
   "boundary.panel.lastSeen": "Last seen {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "Dependencies",
   "securityScan.finding.persisting": "already on the default branch",
   "securityScan.finding.dependency": "Vulnerable dependency",
-  "securityScan.stageState.SUPERSEDED": "superseded"
+  "securityScan.stageState.SUPERSEDED": "superseded",
+  "boundary.panel.suppressSimilar": "Auto-handle this kind in this repository from now on (false positive only)",
+  "boundary.panel.suppressReasonPlaceholder": "Why this is never a real crossing here (optional)",
+  "boundary.panel.suppressedByRule": "Auto-dispositioned by repository rule {rule}{reason}",
+  "boundary.panel.ruleRevoked": "rule revoked",
+  "boundary.panel.revokeRule": "Revoke rule",
+  "boundary.disposition.autoSuppressed": "auto-dispositioned by rule",
+  "boundary.toast.ruleRevoked": "Rule revoked — future occurrences will be open again",
+  "boundary.toast.ruleCreated": "Crossing dispositioned and a repository rule created — future occurrences will be auto-handled"
 }

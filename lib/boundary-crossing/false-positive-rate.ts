@@ -34,8 +34,10 @@ export interface DispositionedCrossing {
    *  auto-resolution — it is counted and surfaced per category (so an auto-release
    *  drift can never hide) but kept OUT of the FP-rate denominator, which measures
    *  human-disposition noise. Open (null) crossings are not dispositions and must
-   *  be filtered out before this module sees them. */
-  disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT'
+   *  be filtered out before this module sees them. AUTO_SUPPRESSED (LUM-751,
+   *  a human-authored repository rule applied by the system) is likewise
+   *  counted per category but kept out of the human FP-rate denominator. */
+  disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT' | 'AUTO_SUPPRESSED'
 }
 
 /**
@@ -66,6 +68,9 @@ export interface CategoryFalsePositiveRate {
    *  volume is always visible and can never silently drift, but kept out of the
    *  human FP rate above. */
   autoLegit: number
+  /** System AUTO_SUPPRESSED rule applications (LUM-751) — surfaced per category
+   *  so a rule that silently eats a whole class is visible; never in the rate. */
+  autoSuppressed: number
   /** `measured` when `dispositioned >= minSamples`, else `insufficient`. */
   status: 'measured' | 'insufficient'
   /** FALSE_POSITIVE ÷ dispositioned in [0,1] when `measured`; `null` when
@@ -86,6 +91,7 @@ interface Tally {
   falsePositives: number
   confirmed: number
   autoLegit: number
+  autoSuppressed: number
 }
 
 /**
@@ -105,9 +111,11 @@ export function computeFalsePositiveRates(
       falsePositives: 0,
       confirmed: 0,
       autoLegit: 0,
+      autoSuppressed: 0,
     }
     if (disposition === 'FALSE_POSITIVE') t.falsePositives++
     else if (disposition === 'AUTO_LEGIT') t.autoLegit++
+    else if (disposition === 'AUTO_SUPPRESSED') t.autoSuppressed++
     else t.confirmed++
     tallies.set(category, t)
   }
@@ -124,6 +132,7 @@ export function computeFalsePositiveRates(
       falsePositives: t.falsePositives,
       confirmed: t.confirmed,
       autoLegit: t.autoLegit,
+      autoSuppressed: t.autoSuppressed,
       status: sufficient ? 'measured' : 'insufficient',
       // Guard the division behind the sufficiency check: an insufficient (incl.
       // zero) category never reaches it, so no NaN/Infinity and no misleading
@@ -162,7 +171,9 @@ export function formatReport(report: FalsePositiveReport): string {
   for (const c of report.categories) {
     // LUM-478: always echo the system auto-legit volume so an auto-release drift
     // is visible alongside (but never folded into) the human FP rate.
-    const auto = c.autoLegit > 0 ? `, ${c.autoLegit} auto-legit` : ''
+    const auto =
+      (c.autoLegit > 0 ? `, ${c.autoLegit} auto-legit` : '') +
+      (c.autoSuppressed > 0 ? `, ${c.autoSuppressed} auto-suppressed` : '')
     if (c.status === 'measured') {
       const pct = ((c.falsePositiveRate ?? 0) * 100).toFixed(1)
       lines.push(

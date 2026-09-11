@@ -1089,7 +1089,7 @@
   "boundary.panel.severityBadge": "tahap keterukan {severity}",
   "boundary.tip.category": "Pencerobohan sempadan ialah tindakan terlarang atau berisiko yang dilakukan ejen. Kategori menyatakan jenisnya.",
   "boundary.tip.severity": "Sejauh mana seriusnya pencerobohan ini. Pencerobohan HIGH menyekat penandaan tugasan sebagai Selesai sehingga diselesaikan.",
-  "boundary.tip.disposition": "Bagaimana pencerobohan ini diselesaikan: positif palsu (bukan isu sebenar), disahkan (isu sebenar), atau dibersihkan secara automatik oleh sistem.",
+  "boundary.tip.disposition": "Cara pelanggaran ini diselesaikan: positif palsu (bukan isu sebenar), disahkan (isu sebenar), diselesaikan automatik oleh sistem, atau diselesaikan automatik oleh peraturan repositori yang dibuat oleh manusia.",
   "boundary.tip.recurrence": "Pencerobohan yang sama telah dikesan beberapa kali; bilangan menunjukkan berapa kali.",
   "boundary.panel.recurrence": "dilihat ×{count}",
   "boundary.panel.lastSeen": "Terakhir dilihat {at}",
@@ -2325,5 +2325,13 @@
   "securityScan.stage.supplyChain": "Kebergantungan",
   "securityScan.finding.persisting": "sudah ada pada cabang lalai",
   "securityScan.finding.dependency": "Kebergantungan terdedah",
-  "securityScan.stageState.SUPERSEDED": "digantikan"
+  "securityScan.stageState.SUPERSEDED": "digantikan",
+  "boundary.panel.suppressSimilar": "Uruskan jenis ini secara automatik dalam repositori ini mulai sekarang (positif palsu sahaja)",
+  "boundary.panel.suppressReasonPlaceholder": "Mengapa ini tidak pernah menjadi pelanggaran sebenar di sini (pilihan)",
+  "boundary.panel.suppressedByRule": "Diselesaikan secara automatik oleh peraturan repositori {rule}{reason}",
+  "boundary.panel.ruleRevoked": "peraturan dibatalkan",
+  "boundary.panel.revokeRule": "Batalkan peraturan",
+  "boundary.disposition.autoSuppressed": "diselesaikan secara automatik oleh peraturan",
+  "boundary.toast.ruleRevoked": "Peraturan dibatalkan — kejadian akan datang akan dibuka semula",
+  "boundary.toast.ruleCreated": "Pelanggaran diselesaikan dan peraturan repositori dibuat — kejadian akan datang akan diuruskan secara automatik"
 }

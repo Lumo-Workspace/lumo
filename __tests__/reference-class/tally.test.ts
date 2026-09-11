@@ -109,6 +109,7 @@ describe('crossingObservations', () => {
       CONFIRMED: true,
       FALSE_POSITIVE: false,
       AUTO_LEGIT: false,
+      AUTO_SUPPRESSED: false, // LUM-751
     })
   })
 })
