@@ -2,6 +2,11 @@
  * LUM-732 — shared types for the pure security-scan modules. No I/O here.
  */
 
+import type {
+  ScanStageKeyName,
+  ScanStageStateName,
+} from '@/shared/src/security-scan'
+
 export type SecuritySeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 
 /** One added line with its NEW-file line number (from the `@@ +c,d @@` hunk header). */
@@ -42,29 +47,24 @@ export interface RawSecretFinding {
 
 // ── LUM-735: stages + external oracle ────────────────────────────────────────
 
-/** One layer of the scan. supplyChain / hunt are declared for later milestones. */
-export type ScanStageKey =
-  | 'secrets'
-  | 'external'
-  | 'supplyChain'
-  | 'judge'
-  | 'hunt'
+/**
+ * One layer of the scan. The key list itself lives in
+ * `shared/src/security-scan.ts` (LUM-763) so the CLI — which cannot import
+ * `lib/` — renders the same five layers under the same display labels; both
+ * sides derive their type from it and cannot drift.
+ */
+export type ScanStageKey = ScanStageKeyName
 
 /**
  * What happened to a layer. Only RAN and SKIPPED count as "complete";
  * FAILED / NOT_CONFIGURED / PARTIAL all mean the scan cannot be read as a
  * full pass (spec P9).
  */
-export type ScanStageState =
-  | 'RAN'
-  | 'FAILED'
-  | 'SKIPPED'
-  | 'NOT_CONFIGURED'
-  | 'PENDING'
-  | 'PARTIAL'
-  // LUM-745: stage A cancelled this row's managed run because the PR moved
-  // on to a newer head before it reported. Never a pass, never a failure.
-  | 'SUPERSEDED'
+// SUPERSEDED (LUM-745) = stage A cancelled this row's managed run because the
+// PR moved on to a newer head before it reported. Never a pass, never a
+// failure. The list lives in `shared/src/security-scan.ts` alongside the
+// display label each state renders under.
+export type ScanStageState = ScanStageStateName
 
 export type ScanStages = Partial<Record<ScanStageKey, ScanStageState>>
 

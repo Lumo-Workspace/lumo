@@ -236,17 +236,49 @@ describe('pure builders', () => {
       [
         '### 🛡️ Lumo security scan — abcdef1',
         '',
-        '- secrets: RAN · external: FAILED (semgrep 3, gitleaks 1) · judge: RAN',
+        '- Secrets: checked · Code scan: \u2717 failed (semgrep 3, gitleaks 1) · AI review: checked',
         '',
         '**4 open findings** (1 blocking DONE)',
         '',
-        '⚠ External scanner failed: semgrep exit 2',
+        '⚠ Code scan failed: semgrep exit 2',
         '',
         '[Open in Lumo](https://www.uselumo.ai/workspace/acme/my-tasks/LUM-735)',
         '',
         SUMMARY_MARKER,
       ].join('\n')
     )
+  })
+
+  it('LUM-763: PR summary stage line renders human labels, not internal keys', () => {
+    const summary = buildSummary({
+      headSha: 'abcdef1234567890',
+      stages: {
+        secrets: 'RAN',
+        external: 'RAN',
+        supplyChain: 'RAN',
+        judge: 'RAN',
+        hunt: 'PARTIAL',
+      },
+      partial: false,
+      externalCounts: { semgrep: 3, gitleaks: 1 },
+      open: 4,
+      blocking: 1,
+      error: null,
+      taskUrl: null,
+    })
+
+    expect(summary).toContain(
+      '- Secrets: checked · Code scan: checked (semgrep 3, gitleaks 1) · Dependencies: checked · AI review: checked · Exploit paths: \u26a0 incomplete'
+    )
+    for (const key of [
+      'secrets:',
+      'external:',
+      'supplyChain:',
+      'judge:',
+      'hunt:',
+    ]) {
+      expect(summary).not.toContain(key)
+    }
   })
 
   it('says so when nothing is open, and drops the link without a task', () => {
@@ -265,7 +297,7 @@ describe('pure builders', () => {
       [
         '### 🛡️ Lumo security scan — abcdef1',
         '',
-        '- secrets: RAN',
+        '- Secrets: checked',
         '',
         'No open findings on lines this PR added.',
         '',
@@ -319,7 +351,7 @@ describe('pure builders', () => {
       error: 'TypeError: Cannot read properties of undefined',
       taskUrl: null,
     })
-    expect(body).not.toContain('External scanner failed')
+    expect(body).not.toContain('Code scan failed')
     expect(body).not.toContain('TypeError')
   })
 
@@ -348,7 +380,7 @@ describe('securityPrReviewService.sync', () => {
       body: [
         '### 🛡️ Lumo security scan — abcdef1',
         '',
-        '- secrets: RAN · external: RAN · judge: RAN',
+        '- Secrets: checked · Code scan: checked · AI review: checked',
         '',
         '**1 open finding** (1 blocking DONE)',
         '',
@@ -505,7 +537,7 @@ describe('securityPrReviewService.sync', () => {
     const comments = createReview.mock.calls[0][0].comments
     expect(comments.map((c: { line: number }) => c.line)).toEqual([3, 2, 4, 1])
     expect(createIssue.mock.calls[0][0].body).toContain(
-      '- secrets: RAN · external: RAN (gitleaks 1, semgrep 1) · judge: RAN'
+      '- Secrets: checked · Code scan: checked (gitleaks 1, semgrep 1) · AI review: checked'
     )
   })
 
@@ -518,7 +550,7 @@ describe('securityPrReviewService.sync', () => {
     )
     await securityPrReviewService.sync('s1')
     expect(createIssue.mock.calls[0][0].body).toContain(
-      '⚠ External scanner failed: semgrep exit 90'
+      '⚠ Code scan failed: semgrep exit 90'
     )
   })
 
@@ -534,10 +566,10 @@ describe('securityPrReviewService.sync', () => {
     )
     await securityPrReviewService.sync('s1')
     const body = createIssue.mock.calls[0][0].body
-    expect(body).not.toContain('External scanner failed')
+    expect(body).not.toContain('Code scan failed')
     expect(body).not.toContain('TypeError: boom')
     // The stage line still says FAILED — the fact is published, the text is not.
-    expect(body).toContain('external: FAILED')
+    expect(body).toContain('Code scan: ✗ failed')
   })
 
   it('a comment whose author was deleted (user: null) is skipped, not thrown on', async () => {
@@ -729,7 +761,7 @@ describe('LUM-738 supplyChain surface — PR summary', () => {
       dependencies: { open: 2, persisting: 3 },
     })
     expect(body).toContain(
-      '- secrets: RAN · external: RAN · supplyChain: RAN · judge: RAN'
+      '- Secrets: checked · Code scan: checked · Dependencies: checked · AI review: checked'
     )
     expect(body).toContain(
       '- Dependencies: 2 vulnerable dependencies (3 already on main)'
@@ -776,8 +808,8 @@ describe('LUM-738 supplyChain surface — PR summary', () => {
       stages: { secrets: 'RAN', external: 'RAN', supplyChain: 'FAILED' },
       error: 'external: osv-scanner exit 129',
     })
-    expect(body).toContain('⚠ Dependency scanner failed: osv-scanner exit 129')
-    expect(body).not.toContain('External scanner failed')
+    expect(body).toContain('⚠ Dependency scan failed: osv-scanner exit 129')
+    expect(body).not.toContain('Code scan failed')
     // An external failure keeps its LUM-735 label even when supplyChain also failed.
     expect(
       buildSummary({
@@ -785,9 +817,7 @@ describe('LUM-738 supplyChain surface — PR summary', () => {
         stages: { external: 'FAILED', supplyChain: 'FAILED' },
         error: 'external: gitleaks exit 2; osv-scanner exit 129',
       })
-    ).toContain(
-      '⚠ External scanner failed: gitleaks exit 2; osv-scanner exit 129'
-    )
+    ).toContain('⚠ Code scan failed: gitleaks exit 2; osv-scanner exit 129')
     // P8 still holds: an unprefixed error is never published.
     expect(
       buildSummary({
@@ -856,7 +886,7 @@ describe('LUM-738 supplyChain surface — sync excludes persisting rows', () => 
     expect(comments.map((c: { line: number }) => c.line)).toEqual([2])
     const body = createIssue.mock.calls[0][0].body as string
     expect(body).toContain(
-      '- secrets: RAN · external: RAN (semgrep 1) · supplyChain: RAN · judge: RAN'
+      '- Secrets: checked · Code scan: checked (semgrep 1) · Dependencies: checked · AI review: checked'
     )
     expect(body).toContain(
       '- Dependencies: 1 vulnerable dependency (1 already on main)'

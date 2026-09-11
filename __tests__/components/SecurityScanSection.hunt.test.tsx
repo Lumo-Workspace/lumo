@@ -11,14 +11,17 @@ jest.mock('next/navigation', () => ({
 const messages: Record<string, string> = {
   'securityScan.section.title': 'Security scan',
   'securityScan.meta': 'Scanned {sha}',
-  'securityScan.stage.secrets': 'Secret patterns',
-  'securityScan.stage.external': 'External scanner',
-  'securityScan.stage.judge': 'LLM review',
-  'securityScan.stage.hunt': 'Vulnerability hunt',
+  'securityScan.stage.secrets': 'Secrets',
+  'securityScan.stage.external': 'Code scan',
+  'securityScan.stage.supplyChain': 'Dependencies',
+  'securityScan.stage.judge': 'AI review',
+  'securityScan.stage.hunt': 'Exploit paths',
   'securityScan.stageState.FAILED': 'failed',
   'securityScan.stageState.NOT_CONFIGURED': 'not configured',
   'securityScan.stageState.PARTIAL': 'partial',
   'securityScan.stageState.PENDING': 'scanning',
+  'securityScan.stageState.RAN': 'checked',
+  'securityScan.stageState.SKIPPED': 'skipped',
   'securityScan.partial':
     'Some results were cut off at the scan budget — the scan is not complete.',
 }
@@ -84,13 +87,23 @@ function renderWith(stages: Record<string, string>, complete: boolean) {
 }
 
 describe('LUM-739 hunt stage', () => {
-  test('a PENDING hunt shows "Vulnerability hunt: scanning" after the other layers', () => {
+  test('a PENDING hunt shows "Exploit paths: scanning" after the other layers', () => {
     renderWith(
       { secrets: 'RAN', external: 'RAN', judge: 'RAN', hunt: 'PENDING' },
       false
     )
     expect(screen.getByTestId('scan-stages')).toHaveTextContent(
-      'Vulnerability hunt: scanning'
+      'Exploit paths: scanning'
+    )
+  })
+
+  test('LUM-763: a FAILED dependency scan is named in the panel, not silently dropped', () => {
+    renderWith(
+      { secrets: 'RAN', external: 'RAN', supplyChain: 'FAILED', judge: 'RAN' },
+      false
+    )
+    expect(screen.getByTestId('scan-stages')).toHaveTextContent(
+      'Dependencies: failed'
     )
   })
 
@@ -103,9 +116,7 @@ describe('LUM-739 hunt stage', () => {
     // A complete, clean scan starts collapsed; the stage row lives inside.
     fireEvent.click(screen.getByTestId('security-pr-9-toggle'))
     const row = screen.getByTestId('scan-stages')
-    expect(row).toHaveTextContent(
-      'Vulnerability hunt: securityScan.stageState.SKIPPED'
-    )
+    expect(row).toHaveTextContent('Exploit paths: skipped')
     expect(row).toHaveAttribute('data-incomplete', 'false')
   })
 })

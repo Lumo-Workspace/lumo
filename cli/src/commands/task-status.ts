@@ -2,7 +2,12 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
-import { externalFailureReason } from '../../../shared/src/security-scan'
+import {
+  externalFailureReason,
+  SCAN_STAGE_KEYS,
+  scanStageLabel,
+  scanStageStateLabel,
+} from '../../../shared/src/security-scan'
 import {
   fetchOpenCrossings,
   dispositionUrl,
@@ -325,44 +330,41 @@ function pushSecurityActions(
 /** Fail-closed security coverage lines (LUM-737): a failed read and every
  *  open PR without a successful scan are stated, never left silent. */
 const EXTERNAL_ERROR_TAIL = 200
-const SCAN_STAGE_ORDER = [
-  'secrets',
-  'external',
-  'supplyChain',
-  'judge',
-  'hunt',
-] as const
+const SCAN_STAGE_ORDER = SCAN_STAGE_KEYS
 
 type ScanSummary = NonNullable<
   NonNullable<TaskStatusResponse['securityFindings']>['scans']
 >[number]
 
 /** LUM-735 — one line per linked PR's latest scan: `PR #945 · scan CLEAN ·
- *  secrets RAN · external RAN (2 external findings) · supplyChain RAN
- *  (1 dependency finding, 1 already on main) · judge RAN · hunt RAN`.
+ *  Secrets: checked · Code scan: checked (2 external findings) ·
+ *  Dependencies: checked (1 dependency finding, 1 already on main) ·
+ *  AI review: checked · Exploit paths: checked`.
  *  Stage segments only for keys present, in
  *  secrets/external/supplyChain/judge/hunt order (LUM-739 added the hunt
- *  layer); the `(N external findings)` count only decorates the external
+ *  layer); the `(N external findings)` count only decorates the Code scan
  *  segment, the dependency count (LUM-738, with its already-on-main share)
- *  only the supplyChain segment, and each only when N > 0. */
+ *  only the Dependencies segment, and each only when N > 0.
+ *  LUM-763: the stage keys are internal — what prints is the display label
+ *  from `shared/src/security-scan.ts`, the same map the GitHub PR summary
+ *  and the web panel render from. */
 function formatScanSummaryLine(s: ScanSummary): string {
   const segments: string[] = []
   for (const key of SCAN_STAGE_ORDER) {
     const state = s.stages[key]
     if (!state) continue
+    const head = `${scanStageLabel(key)}: ${scanStageStateLabel(state)}`
     if (key === 'external' && s.externalFindings > 0) {
       const noun = s.externalFindings === 1 ? 'finding' : 'findings'
-      segments.push(
-        `external ${state} (${s.externalFindings} external ${noun})`
-      )
+      segments.push(`${head} (${s.externalFindings} external ${noun})`)
     } else if (key === 'supplyChain' && (s.dependencyFindings ?? 0) > 0) {
       const n = s.dependencyFindings ?? 0
       const noun = n === 1 ? 'finding' : 'findings'
       const persisting = s.persistingFindings ?? 0
       const tail = persisting > 0 ? `, ${persisting} already on main` : ''
-      segments.push(`supplyChain ${state} (${n} dependency ${noun}${tail})`)
+      segments.push(`${head} (${n} dependency ${noun}${tail})`)
     } else {
-      segments.push(`${key} ${state}`)
+      segments.push(head)
     }
   }
   let line = `  PR #${s.prNumber} · scan ${s.status}`
@@ -382,8 +384,10 @@ function formatScanSummaryLine(s: ScanSummary): string {
 
 /**
  * LUM-762 — the hunt's per-category read-out, one indented line under its
- * scan: `hunt 4/6 done · idor 41.2s done · injection 72.0s done (2 attempts)
- * · race skipped`. This is the only place the stored `huntAudit` surfaces, so
+ * scan: `Exploit paths 4/6 done · idor 41.2s done · injection 72.0s done
+ * (2 attempts) · race skipped`. Headed by the same display label as the
+ * layer's own segment (LUM-763) — the detail line and the line above it
+ * must not name the layer two different ways. This is the only place the stored `huntAudit` surfaces, so
  * it is what answers "how long does a healthy category take" and "which ones
  * never ran" (`skipped`) without paging through deploy logs. Elapsed time is
  * summed over a category's attempts; a skipped category has none to print.
@@ -397,7 +401,7 @@ function formatHuntCoverageLine(
       c.stopped === 'skipped' ? '' : `${(c.elapsedMs / 1000).toFixed(1)}s `
     return `${c.category} ${spent}${c.stopped}${attempts}`
   })
-  return `    hunt ${hunt.done}/${hunt.total} done · ${parts.join(' · ')}`
+  return `    ${scanStageLabel('hunt')} ${hunt.done}/${hunt.total} done · ${parts.join(' · ')}`
 }
 
 function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {

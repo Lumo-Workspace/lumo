@@ -47,7 +47,7 @@ describe('LUM-739 hunt stage', () => {
       ])
     )
     expect(out).toContain(
-      'PR #12 · scan FINDINGS · secrets RAN · external RAN · judge RAN · hunt PARTIAL · partial'
+      'PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · AI review: checked · Exploit paths: \u26a0 incomplete · partial'
     )
   })
 
@@ -66,7 +66,7 @@ describe('LUM-739 hunt stage', () => {
       ])
     )
     expect(out).toContain(
-      'PR #3 · scan CLEAN · secrets RAN · external RAN · judge RAN'
+      'PR #3 · scan CLEAN · Secrets: checked · Code scan: checked · AI review: checked'
     )
     expect(out).not.toContain('hunt')
   })
@@ -124,7 +124,7 @@ describe('LUM-739 hunt stage', () => {
       ])
     )
     expect(out).toContain(
-      'hunt 2/6 done · idor 41.2s done · injection 72.0s done (2 attempts) · ssrf 120.0s timeout (2 attempts) · race skipped'
+      'Exploit paths 2/6 done · idor 41.2s done · injection 72.0s done (2 attempts) · ssrf 120.0s timeout (2 attempts) · race skipped'
     )
   })
 
@@ -142,7 +142,9 @@ describe('LUM-739 hunt stage', () => {
         },
       ])
     )
-    expect(out).toContain('PR #3 · scan CLEAN · secrets RAN · hunt RAN')
+    expect(out).toContain(
+      'PR #3 · scan CLEAN · Secrets: checked · Exploit paths: checked'
+    )
     expect(out).not.toContain('done ·')
   })
 })

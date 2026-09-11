@@ -14,7 +14,8 @@ import type {
   SecurityScanView,
   TaskSecurityScans,
 } from '@/lib/services/pr-security-scan.service'
-import type { ScanStageKey, ScanStages } from '@/lib/security-scan/types'
+import type { ScanStages } from '@/lib/security-scan/types'
+import { SCAN_STAGE_KEYS } from '@/shared/src/security-scan'
 // Pure module (no Node built-ins, no Prisma) — safe in a client component.
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import { summarizeSecurityScans, shouldExpandRow } from './security-summary'
@@ -205,14 +206,13 @@ function SecurityScanPanel({
   )
 }
 
-/** Every layer the scan carries, in pipeline order (LUM-740: the stage row). */
-const STAGE_ORDER: ScanStageKey[] = [
-  'secrets',
-  'external',
-  'supplyChain',
-  'judge',
-  'hunt',
-]
+/**
+ * Every layer the scan carries, in pipeline order (LUM-740: the stage row).
+ * Taken from the shared key list rather than re-typed here (LUM-763) — the
+ * same list the PR summary and `lumo task status` render from, so a sixth
+ * layer can never reach one surface and not another.
+ */
+const STAGE_ORDER = SCAN_STAGE_KEYS
 
 /**
  * LUM-740: one line per scan naming every layer and its state — a reader

@@ -62,7 +62,7 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #945 · scan CLEAN · secrets RAN · external RAN (2 external findings) · judge RAN'
+      '  PR #945 · scan CLEAN · Secrets: checked · Code scan: checked (2 external findings) · AI review: checked'
     )
   })
 
@@ -88,7 +88,7 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(singular).toContain(
-      '  PR #1 · scan FINDINGS · secrets RAN · external RAN (1 external finding)'
+      '  PR #1 · scan FINDINGS · Secrets: checked · Code scan: checked (1 external finding)'
     )
 
     const zero = formatTaskStatus(
@@ -111,7 +111,9 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
         },
       })
     )
-    expect(zero).toContain('  PR #2 · scan CLEAN · secrets RAN · external RAN')
+    expect(zero).toContain(
+      '  PR #2 · scan CLEAN · Secrets: checked · Code scan: checked'
+    )
     expect(zero).not.toMatch(/external finding/)
   })
 
@@ -137,7 +139,9 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
         },
       })
     )
-    expect(out).toContain('  PR #7 · scan FAILED · secrets RAN · judge FAILED')
+    expect(out).toContain(
+      '  PR #7 · scan FAILED · Secrets: checked · AI review: ✗ failed'
+    )
     expect(out).not.toContain('· external')
   })
 
@@ -162,7 +166,9 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
         },
       })
     )
-    expect(out).toContain('  PR #3 · scan FINDINGS · secrets RAN · partial')
+    expect(out).toContain(
+      '  PR #3 · scan FINDINGS · Secrets: checked · partial'
+    )
   })
 
   it('appends the sanitized, tail-200 error when stages.external is FAILED and error is set', () => {
@@ -188,7 +194,7 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #4 · scan FAILED · secrets RAN · external FAILED — '
+      '  PR #4 · scan FAILED · Secrets: checked · Code scan: ✗ failed — '
     )
     // Tail-truncated to 200 chars, prefixed with the ellipsis marker used by
     // the file's existing `tail()` helper.
@@ -218,7 +224,7 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #6 · scan FAILED · secrets RAN · external FAILED — gitleaks exit 2'
+      '  PR #6 · scan FAILED · Secrets: checked · Code scan: ✗ failed — gitleaks exit 2'
     )
     expect(out).not.toContain('— external: gitleaks')
   })
@@ -245,9 +251,9 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #7 · scan FAILED · secrets RAN · external FAILED'
+      '  PR #7 · scan FAILED · Secrets: checked · Code scan: ✗ failed'
     )
-    expect(out).not.toContain('external FAILED —')
+    expect(out).not.toContain('Code scan: ✗ failed —')
     expect(out).not.toContain('ENOTFOUND')
   })
 
@@ -273,9 +279,9 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #5 · scan FAILED · secrets RAN · external FAILED'
+      '  PR #5 · scan FAILED · Secrets: checked · Code scan: ✗ failed'
     )
-    expect(out).not.toContain('external FAILED —')
+    expect(out).not.toContain('Code scan: ✗ failed —')
   })
 
   it('renders a line per PR, in the order scans is given', () => {
