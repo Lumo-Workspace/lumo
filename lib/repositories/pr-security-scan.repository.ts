@@ -302,6 +302,27 @@ function mergeIngestOwnedStages(
   }
 }
 
+/**
+ * LUM-740 — one EXTERNAL_TOOL finding the suggested-disposition falsifier may
+ * judge. No `evidence` (P8) and `line` is non-null by the query.
+ */
+export interface SuggestionCandidateRow {
+  id: string
+  ruleId: string
+  severity: FindingSeverity
+  filePath: string
+  line: number
+  title: string
+  detail: string
+  externalRef: string | null
+}
+
+export interface ScanForSuggestion {
+  id: string
+  pullRequest: { workspaceId: string; repo: string; number: number }
+  findings: SuggestionCandidateRow[]
+}
+
 /** LUM-737: a FINDINGS scan the agent has not been reminded about yet. */
 export interface UnnotifiedFindingScan {
   id: string
@@ -836,6 +857,79 @@ export const prSecurityScanRepository = {
       data,
     })
     return row as unknown as FindingRow
+  },
+
+  // ── LUM-740: suggested dispositions ───────────────────────────────────────
+
+  /**
+   * The scan's undispositioned, non-persisting EXTERNAL_TOOL findings that
+   * sit on a line and have no suggestion yet — DEPENDENCY rows have no line
+   * to show a falsifier. `null` when the scan is missing.
+   */
+  async findScanForSuggestion(
+    scanId: string
+  ): Promise<ScanForSuggestion | null> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      select: {
+        id: true,
+        pullRequest: {
+          select: { workspaceId: true, repo: true, number: true },
+        },
+        findings: {
+          where: {
+            provenance: 'EXTERNAL_TOOL',
+            disposition: null,
+            persisting: false,
+            suggestedDisposition: null,
+            line: { not: null },
+            kind: { not: 'DEPENDENCY' },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            ruleId: true,
+            severity: true,
+            filePath: true,
+            line: true,
+            title: true,
+            detail: true,
+            externalRef: true,
+          },
+        },
+      },
+    })
+    return row as unknown as ScanForSuggestion | null
+  },
+
+  /** A REJECT from the falsifier: a suggestion, never `disposition`. */
+  async setSuggestedDisposition(
+    findingId: string,
+    suggestedDisposition: FindingDisposition,
+    suggestedReason: string
+  ): Promise<void> {
+    await prisma.prSecurityFinding.update({
+      where: { id: findingId },
+      data: { suggestedDisposition, suggestedReason },
+    })
+  },
+
+  /**
+   * Adds to `tokenSpent` (team rule: null ≠ 0, so a null row becomes `n`
+   * rather than staying null as a SQL increment would).
+   */
+  async addTokenSpent(scanId: string, n: number): Promise<void> {
+    await prisma.$transaction(async tx => {
+      const row = await tx.prSecurityScan.findUnique({
+        where: { id: scanId },
+        select: { tokenSpent: true },
+      })
+      if (!row) return
+      await tx.prSecurityScan.update({
+        where: { id: scanId },
+        data: { tokenSpent: (row.tokenSpent ?? 0) + n },
+      })
+    })
   },
 
   // ── LUM-745: managed-run ops ───────────────────────────────────────────────
