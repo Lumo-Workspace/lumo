@@ -178,6 +178,10 @@ describe('statusForTask — security findings (LUM-737)', () => {
       ruleId: 'secret:aws-access-key-id',
       filePath: 'lib/cfg.ts',
       line: 12,
+      // LUM-758 follow-up: the cause travels with the row. `null` is the honest
+      // value for a HIGH that was never downgraded — the renderer reads that as
+      // "not downgraded", never as "cause unknown".
+      secretDowngrade: null,
     })
     expect(s.securityFindings).toEqual({
       open: 2,

@@ -14,6 +14,7 @@ import {
   SCAN_STAGE_STATES,
   scanStageLabel,
   scanStageStateLabel,
+  secretDowngradeNote,
 } from '@/shared/src/security-scan'
 
 const LOCALE_DIR = path.join(process.cwd(), 'lib/i18n')
@@ -74,5 +75,34 @@ describe('LUM-763 — stored stage keys vs rendered labels', () => {
         }
       }
     }
+  })
+})
+
+// LUM-758 follow-up: a downgraded secret row is still reported on purpose, so
+// the rendered line has to carry the cause. Without it a placeholder the
+// scanner already recognised reads as an unexplained credential — which is the
+// whole reason these lines looked like unresolved risk.
+describe('secretDowngradeNote', () => {
+  it('names the cause for each reason the scanner can record', () => {
+    expect(secretDowngradeNote('PLACEHOLDER_VALUE')).toBe(
+      ' — placeholder value, downgraded'
+    )
+    expect(secretDowngradeNote('DOWNGRADED_PATH')).toBe(
+      ' — test/fixture/doc path, downgraded'
+    )
+  })
+
+  it('renders nothing for a row that was not downgraded', () => {
+    expect(secretDowngradeNote(null)).toBe('')
+    expect(secretDowngradeNote(undefined)).toBe('')
+    expect(secretDowngradeNote('')).toBe('')
+  })
+
+  it('renders an unknown reason as itself rather than dropping it', () => {
+    // A reason added server-side must never vanish on an older CLI — silence
+    // would read as "not downgraded", the opposite of what the row says.
+    expect(secretDowngradeNote('SOMETHING_NEW')).toBe(
+      ' — SOMETHING_NEW, downgraded'
+    )
   })
 })

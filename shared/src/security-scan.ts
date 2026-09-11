@@ -101,3 +101,31 @@ export function scanStageLabel(key: string): string {
 export function scanStageStateLabel(state: string): string {
   return SCAN_STAGE_STATE_LABELS[state as ScanStageStateName] ?? state
 }
+
+/**
+ * LUM-758 follow-up — why a deterministic secret hit was lowered to LOW.
+ *
+ * Downgrading is not suppression: the row is still reported, deliberately, so
+ * that a human decides. But a reported row with no stated cause reads as an
+ * unexplained credential, which is how a test fixture the scanner *already
+ * recognised* as a placeholder ends up looking like an open risk. These say
+ * which rule fired, in the same words on every surface.
+ *
+ * Phrased as a property of the value or the path, never as a verdict: the
+ * scanner knows the string looks like a placeholder, not that it is harmless.
+ */
+export const SECRET_DOWNGRADE_LABELS: Record<string, string> = {
+  PLACEHOLDER_VALUE: 'placeholder value',
+  DOWNGRADED_PATH: 'test/fixture/doc path',
+}
+
+/**
+ * The parenthesised note appended to a rendered finding line, or `''` when the
+ * row carries no downgrade — an unrecognised reason renders as itself rather
+ * than vanishing, so a value added server-side is never silently dropped by an
+ * older CLI.
+ */
+export function secretDowngradeNote(reason: string | null | undefined): string {
+  if (!reason) return ''
+  return ` — ${SECRET_DOWNGRADE_LABELS[reason] ?? reason}, downgraded`
+}

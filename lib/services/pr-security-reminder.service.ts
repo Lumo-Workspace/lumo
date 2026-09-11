@@ -172,6 +172,7 @@ export const prSecurityReminderService = {
           blocking: isBlockingFinding(f, policy),
           prNumber: pr.number,
           scanId: scan.id,
+          secretDowngrade: f.secretDowngrade,
         })
       }
     }

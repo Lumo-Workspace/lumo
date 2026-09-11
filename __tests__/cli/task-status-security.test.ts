@@ -226,6 +226,41 @@ describe('lumo task status — zero-criteria security rendering (LUM-737 review)
     expect(out).toContain('human-only')
   })
 
+  // LUM-758 follow-up: the scanner downgrades a recognised placeholder or a
+  // test/fixture path to LOW but still reports it, by design. The line has to
+  // carry the cause, or an advisory row reads as an unexplained credential and
+  // the reader has no way to tell it from a real leak.
+  it('states why a downgraded secret finding is LOW', () => {
+    const out = formatTaskStatus(
+      zeroCriteriaPayload({
+        nextActions: [
+          {
+            ...SECURITY_ACTION,
+            severity: 'LOW' as const,
+            blocking: false,
+            filePath: '__tests__/security-scan/hunt/compress.test.ts',
+            line: 219,
+            secretDowngrade: 'PLACEHOLDER_VALUE',
+          },
+        ],
+      })
+    )
+    expect(out).toContain(
+      '  • [SECURITY] [LOW] DETERMINISTIC secret:aws-access-key-id — __tests__/security-scan/hunt/compress.test.ts:219 — AWS access key id (PR #12 · advisory — placeholder value, downgraded)'
+    )
+  })
+
+  it('leaves the line unchanged when the server sent no downgrade cause', () => {
+    // An older server omits the field entirely; the line must read exactly as
+    // it always did rather than growing an empty dangling separator.
+    const out = formatTaskStatus(
+      zeroCriteriaPayload({ nextActions: [SECURITY_ACTION] })
+    )
+    expect(out).toContain(
+      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE)'
+    )
+  })
+
   it('renders the fail-closed security-scan-failed line even with zero criteria', () => {
     const out = formatTaskStatus(
       zeroCriteriaPayload({ securityFindings: null })
