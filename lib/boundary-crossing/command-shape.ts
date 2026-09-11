@@ -93,6 +93,7 @@ const READ_ONLY_VERBS = new Set([
   'fgrep',
   'rg',
   'ag',
+  'ast-grep',
   'cat',
   'sed',
   'awk',

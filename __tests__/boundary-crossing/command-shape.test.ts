@@ -37,6 +37,7 @@ describe('command-shape (LUM-751)', () => {
       'echo hello',
       'grep -rn "x" lib/',
       'rg pattern',
+      'ast-grep --pattern "$A.$B()"',
       'cat file',
       'git log origin/main..HEAD',
       'git diff main...HEAD',
