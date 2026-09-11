@@ -212,9 +212,22 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       // kept the managed scan's VM alive on the longer hunt timeout and
       // stamped `stages.hunt = PENDING`, and the workflow started only to
       // SKIP. No source files at all is still the genuine skip.
-      const touchedSources = job.touchedSourcePaths
-      const diffSignal = job.reasons.some(r => r.startsWith('diff:'))
-      const interestSignal = job.reasons.some(
+      // `?? []` is the DEPLOY BOUNDARY, not paranoia about the types. All
+      // three of `reasons` / `touchedSourcePaths` / `managedScanStarted`
+      // arrived on this branch as REQUIRED fields with no default, so a run
+      // the previous deployment queued comes back with none of them: without
+      // the defaults `job.reasons.some(...)` throws, the inner catch turns it
+      // into `raw.length === 0`, and the scan lands FAILED. It is bounded to
+      // one deploy window and it degrades safely — but that window falls
+      // inside the week the ≥80% RAN-or-SKIPPED metric is measured over, and
+      // every such scan counts against it. With the defaults an old job is a
+      // clean SKIPPED, which is the honest verdict for a job that carries no
+      // signal. (`managedScanStarted` needs nothing: undefined is falsy, and
+      // false is already "do not wait for the managed scan's VM".)
+      const touchedSources = job.touchedSourcePaths ?? []
+      const reasons = job.reasons ?? []
+      const diffSignal = reasons.some(r => r.startsWith('diff:'))
+      const interestSignal = reasons.some(
         r => r === 'stage-a:high' || r === 'l4:open-crossing'
       )
       if (!diffSignal && !(interestSignal && touchedSources.length > 0)) {
@@ -223,7 +236,10 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           touchedSources.length === 0
             ? 'the diff touched no TypeScript source'
             : 'no hunt signal in the diff'
-        audit.plannedBy = 'fallback'
+        // NOT `fallback`: nothing was planned here, so there is no planner
+        // failure to report. `fallback` means the planner ran and failed, and
+        // that rate is exactly what the launch read-out is measuring.
+        audit.plannedBy = 'not-attempted'
         await persistHuntFindingsStep({
           job,
           findings: [],

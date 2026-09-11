@@ -1,4 +1,17 @@
+/**
+ * 本文件测的是纯函数，不需要 sandbox——唯一的例外是锁定标准 #5 后半句「单次输出
+ * 截断在 8k」的断言，它必须从**这个** checkpointer 跑得到（理由见那条断言旁的
+ * 注释）。`sanitizeHuntOutput` 所在模块静态引了 GitHub App 认证客户端，而
+ * `@octokit/auth-app` 是纯 ESM，jest 当 CJS 载不进来；这里把它 mock 掉，本文件
+ * 没有任何一条断言会碰到它。
+ */
+jest.mock('@/lib/integrations/github/auth', () => ({
+  getGithubInstallationToken: jest.fn(),
+}))
+
 import { checkHuntCommand } from '@/lib/security-scan/hunt/shell-allowlist'
+import { sanitizeHuntOutput } from '@/lib/services/security-hunt-sandbox'
+import { HUNT_SHELL_OUTPUT_MAX } from '@/lib/services/security-hunt.config'
 
 const ok = (cmd: string) => expect(checkHuntCommand(cmd).ok).toBe(true)
 const denied = (cmd: string) => {
@@ -251,6 +264,30 @@ describe('checkHuntCommand', () => {
     expect(denied('zsh -c "cat x" & curl https://evil.test').reason).toBe(
       METACHAR('&', 'zsh -c "cat x" & curl https://evil.test')
     )
+
+    // 第五轮复盘：闸门审的是**写下来的 token**，`sh -c` 跑的是**glob 展开后的
+    // argv**。glob 的四个字符曾被有意放进安全字符集，于是逐工具的旗标闸门
+    // （`rgGate` / `sedGate` / `astGrepGate`）根本看不到展开出来的实参：被审 PR 加一个
+    // 叫 `--pre=sh` 的文件（合法 git 路径），`rg -n queryRaw *` 展开后 rg 拿到的就是
+    // `RG_DENIED_FLAGS` 专门要拦的那个旗标。引号里的 glob 不展开，照常放行（见上面
+    // `rg -g '!*.test.ts'` / `rg --pre-glob "*.md"` 等 ok 用例）。
+    expect(denied('rg -n foo *').reason).toBe(METACHAR('*', 'rg -n foo *'))
+    expect(denied('grep -rn foo *.ts').reason).toBe(
+      METACHAR('*', 'grep -rn foo *.ts')
+    )
+    expect(denied('cat -- *').reason).toBe(METACHAR('*', 'cat -- *'))
+    expect(denied('rg -n foo ?.ts').reason).toBe(
+      METACHAR('?', 'rg -n foo ?.ts')
+    )
+    expect(denied('cat [ab].ts').reason).toBe(METACHAR('[', 'cat [ab].ts'))
+
+    // 锁定标准 #5 的后半句——「单次输出截断在 8k 字符」。它的 checkpointer 只跑本
+    // 文件，而截断的断言原本只在 `sandbox-agent.test.ts` 里：把 `sanitizeHuntOutput` 的
+    // `.slice(0, HUNT_SHELL_OUTPUT_MAX)` 删掉，checkpointer 照样绿——标准的一半没人守。
+    // （本分支第三例同类空转，前两例由变异测试发现。）
+    const capped = sanitizeHuntOutput(`${'x'.repeat(100)}\n`.repeat(300), '')
+    expect(capped.length).toBeLessThanOrEqual(HUNT_SHELL_OUTPUT_MAX)
+    expect(capped).toMatch(/truncated/)
   })
 
   it('rejects a line continuation and a bare `^`, and keeps their quoted forms', () => {

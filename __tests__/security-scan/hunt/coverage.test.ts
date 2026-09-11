@@ -129,7 +129,11 @@ describe('LUM-762 hunt coverage', () => {
           category: 'injection',
           stopped: 'timeout',
           elapsedMs: 60_000,
-          tokens: 0,
+          // Non-zero on BOTH attempts on purpose: the first attempt burned
+          // tokens before it timed out, and `tokens` is what the task cost
+          // the scan, so the row must add them up. With a 0 here the sum and
+          // the last attempt are the same number and neither is tested.
+          tokens: 400,
         }),
         row({
           taskId: 't1',
@@ -143,9 +147,12 @@ describe('LUM-762 hunt coverage', () => {
     expect(coverage!.categories).toHaveLength(1)
     expect(coverage!.categories[0]).toMatchObject({
       taskId: 't1',
+      // `stopped` and `candidates` are the LAST attempt's — a retry replaces
+      // the outcome. `elapsedMs` and `tokens` are what the task cost, summed.
       stopped: 'done',
       elapsedMs: 72_000,
-      tokens: 900,
+      tokens: 1300,
+      candidates: 2,
       attempts: 2,
     })
     expect(coverage!.done).toBe(1)

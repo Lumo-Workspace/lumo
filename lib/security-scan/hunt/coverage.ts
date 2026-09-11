@@ -48,9 +48,25 @@ export interface HuntCategoryCoverage {
   category: HuntCategory
   /** The last attempt's stop reason. */
   stopped: HuntCategoryStop
-  /** Summed over every attempt — what this task cost the scan. */
+  /**
+   * Summed over every attempt — what this task cost the scan, in wall clock
+   * and in gateway tokens. A retried task really did spend both twice, and
+   * `tokenSpent` (the acceptance metric's own number) counts them the same
+   * way.
+   *
+   * LUM-758 fifth review: this sentence used to cover `candidates` as well,
+   * and only `elapsedMs` was actually accumulated — a false comment in the
+   * one file whose whole job is the launch read-out. `tokens` now matches
+   * what it says; `candidates` says its own thing below.
+   */
   elapsedMs: number
   tokens: number
+  /**
+   * The LAST attempt's count, deliberately not a sum: a retry REPLACES the
+   * task's outcome (`stopped` is the last attempt's too), so a timed-out
+   * attempt's candidates and the re-run's are the same findings counted
+   * twice, not two findings.
+   */
   candidates: number
   /** 1, or 2 when the workflow's retry pass re-ran it. */
   attempts: number
@@ -130,7 +146,9 @@ export function parseHuntCoverage(raw: unknown): HuntCoverage | null {
       category,
       stopped,
       elapsedMs: (prior?.elapsedMs ?? 0) + count(cells.elapsedMs),
-      tokens: count(cells.tokens),
+      tokens: (prior?.tokens ?? 0) + count(cells.tokens),
+      // Last attempt wins — see the field's comment: a retry replaces the
+      // outcome, it does not add a second set of findings.
       candidates: count(cells.candidates),
       attempts: (prior?.attempts ?? 0) + 1,
     })

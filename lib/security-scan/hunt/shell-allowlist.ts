@@ -104,8 +104,22 @@ const ECHO_LIMIT = 120
  * 任何检索需要它不加引号（行首锚点写在引号里：`rg -n "^import" lib/`），而 zsh
  * 开了 `EXTENDED_GLOB` 后 `^x` 是否定 glob，属于「看着人畜无害」的那一类，和 `#`
  * 同科，已移除。
+ *
+ * glob 的四个字符 `*` `?` `[` `]` 曾经**被有意放进来**（「它们又不执行什么」），
+ * 第五轮复盘把它们移了出去：`scanSegment` 分词的是**写下来的那串字面量**，而
+ * `sh -c` 执行的是**展开之后的 argv**——于是逐工具的旗标闸门（`rgGate` /
+ * `sedGate` / `astGrepGate`）审的和跑的根本不是同一组实参。被审 PR 只要加一个叫
+ * `--pre=sh` 的文件（合法 git 路径，不含 `/`），模型写下 `rg -n queryRaw *`，
+ * shell 展开后 rg 拿到的就是 `RG_DENIED_FLAGS` 专门要拦的那个旗标，对着 PR 自带
+ * 的内容执行 `sh`；`sed -i` 同形。hunt **attach 到托管扫描那台 VM** 时出网是
+ * 故意不封的（封了 semgrep 下载就断），所以这条是私有 checkout 的外泄，不只是
+ * 本地执行。这不是「将来某个新元字符」那一类（那类天然落在白名单外，闸门的收敛
+ * 性论证覆盖得住），而是本分支已经关掉的「审的串 == 跑的串」不变式在 **argv
+ * 一级**的孪生体。引号里的 glob 照常放行（`rg -g '!*.test.ts'`、
+ * `rg --pre-glob "*.md"`、`ast-grep -p 'fetch($$$)'`）——shell 不展开引号里的
+ * glob，被审的串和被执行的 argv 仍然一致，真实检索也确实需要它们。
  */
-const SAFE_UNQUOTED_CHAR = /^[A-Za-z0-9_\-.\/=,:+@%~#[\]*?]$|^[^\x00-\x7f]$/
+const SAFE_UNQUOTED_CHAR = /^[A-Za-z0-9_\-.\/=,:+@%~#]$|^[^\x00-\x7f]$/
 
 type SegmentScan = {
   /** 去掉引号 / 反斜杠转义后的实参（shell 真正会交给程序的那些）。 */

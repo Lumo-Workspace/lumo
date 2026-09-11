@@ -146,7 +146,47 @@ it('skips before planning when the diff touched no TypeScript source at all', as
   expect(persisted.audit.plannedReason).toBe(
     'the diff touched no TypeScript source'
   )
+  // NOT `fallback`. No planner ran here, so booking this as a planner failure
+  // would inflate the model-failure rate in the very read-out three deferred
+  // launch decisions are waiting on (LUM-758 fifth review).
+  expect(persisted.audit.plannedBy).toBe('not-attempted')
   expect(persisted.tokenSpent).toBe(0)
+})
+
+/**
+ * LUM-758 fifth review — the DEPLOY BOUNDARY. `reasons`,
+ * `touchedSourcePaths` and `managedScanStarted` all arrived on this branch as
+ * REQUIRED `HuntJob` fields with no default, so for one deploy window every
+ * run the previous deployment had already queued arrives without them. Before
+ * the `?? []` defaults, `job.reasons.some(...)` threw, the inner catch turned
+ * the throw into `raw.length === 0`, and the scan landed FAILED — inside the
+ * very week the ≥80% RAN-or-SKIPPED acceptance metric is measured over.
+ *
+ * The cast is the point of the test: TypeScript says these fields exist, and
+ * the old jobs sitting in the queue say otherwise.
+ */
+it('an in-flight job from the previous deployment SKIPS instead of FAILING', async () => {
+  const legacy = {
+    scanId: 's1',
+    pullRequestId: 'pr1',
+    taskId: 't1',
+    workspaceId: 'w1',
+    repo: 'o/r',
+    prNumber: 7,
+    headSha: 'a'.repeat(40),
+  } as unknown as Parameters<typeof securityHuntWorkflow>[0]
+
+  const result = await securityHuntWorkflow(legacy)
+
+  expect(result.outcome).toBe('SKIPPED')
+  expect(plan).not.toHaveBeenCalled()
+  expect(hunt).not.toHaveBeenCalled()
+  const persisted = persist.mock.calls[0][0]
+  expect(persisted.stage).toBe('SKIPPED')
+  expect(persisted.audit.plannedBy).toBe('not-attempted')
+  expect(persisted.audit.plannedReason).toBe(
+    'the diff touched no TypeScript source'
+  )
 })
 
 /**

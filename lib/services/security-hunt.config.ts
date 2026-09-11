@@ -230,7 +230,21 @@ export interface HuntAudit {
   /** LUM-758 — 规划步选了哪些任务；`[]` = 这个 PR 不值得 hunt。 */
   planned?: HuntTask[]
   plannedReason?: string
-  plannedBy?: 'model' | 'fallback'
+  /**
+   * Who produced `planned`. Three values, and the third is not decoration:
+   *   - `model`   — the planner ran and answered.
+   *   - `fallback`— the planner ran and FAILED, so `planFallback` decided.
+   *     This is the model-failure rate three deferred launch decisions read.
+   *   - `not-attempted` — short circuit A: the diff carried no hunt signal,
+   *     so nothing was planned and no planner was called.
+   * LUM-758 fifth review: short circuit A used to stamp `fallback`, which
+   * booked a planner failure that never happened straight into the read-out
+   * the launch decisions depend on. Leaving it absent would have worked too,
+   * but absent is also what every pre-LUM-758 audit row has — a third value
+   * says "no planning was attempted" without colliding with "written before
+   * this field existed".
+   */
+  plannedBy?: 'model' | 'fallback' | 'not-attempted'
   /** LUM-758 §9 风险② — 上线后读它判断 30s 轮询窗口够不够。 */
   sandbox?: 'attached' | 'created'
   /**
