@@ -222,6 +222,9 @@ test('dedupes on (pullRequestId, headSha) and inherits dispositions by fingerpri
       dispositionNote: 'doc key',
       dispositionedById: 'm1',
       dispositionedAt: when,
+      suggestedDisposition: null,
+      suggestedReason: null,
+      suggestionOutcome: null,
     },
   ])
   const third = await prSecurityScanService.run({
