@@ -62,6 +62,30 @@ export const HUNT_SHELL_COMMANDS: readonly string[] = [
   'wc',
 ]
 
+/**
+ * LUM-758 Task 9 — **the shell this gate was written against**, and the only
+ * one a caller may run a checked command in. It lives here, next to the
+ * parser, because the two are one artefact: four review rounds (the last a
+ * differential fuzzer run against real bash, zsh and sh) tuned `scanSegment`
+ * to what a NON-INTERACTIVE, NON-LOGIN POSIX shell does with a string.
+ *
+ * `sh -c <cmd>` and nothing else:
+ *   - `-l` (`bash -lc`) sources `/etc/profile` and `~/.*rc`, which can set
+ *     `shopt -s extglob` / zsh's `EXTENDED_GLOB` and define aliases and
+ *     functions — every one of those changes what the SAME string means,
+ *     which is exactly the ground the fuzzer stands on.
+ *   - `-i` adds history expansion (`!`), another meaning the gate's character
+ *     whitelist assumes is unreachable.
+ *   - Two argv entries exactly: the command must arrive as ONE argument,
+ *     byte-identical to what `checkHuntCommand` read. Concatenating,
+ *     re-quoting or interpolating it between the check and the run voids the
+ *     check — the gate would have parsed a different string than the one that
+ *     runs.
+ * `__tests__/security-scan/hunt/shell-exec-boundary.test.ts` holds this.
+ */
+export const HUNT_SHELL_BIN = 'sh'
+export const HUNT_SHELL_FLAG = '-c'
+
 export type HuntCommandCheck = { ok: true } | { ok: false; reason: string }
 
 const ALLOWED_LIST = HUNT_SHELL_COMMANDS.join(', ')

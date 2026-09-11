@@ -39,11 +39,13 @@ import {
   HUNT_TIME_BUDGET_MS,
   HUNT_TASK_TIME_MS,
   HUNT_TASK_TOKEN_MAX,
+  HUNT_MIN_BATCH_TIME_MS,
   HUNT_MAX_FALSIFIED,
   type HuntJob,
   type HuntTask,
   type HuntCategoryStop,
   type HuntAudit,
+  type HuntBatchOutput,
   type HuntFindingInput,
   type HuntResult,
 } from '@/lib/services/security-hunt.config'
@@ -60,6 +62,24 @@ import { syncPrReviewBestEffort } from './security-scan-helpers'
 
 function reasonOf(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 500)
+}
+
+/**
+ * LUM-758 §5.1 / §9 risk ② — which VM the hunt ran on, and whether its egress
+ * was actually cut. Pure and synchronous, so the deterministic body stays
+ * deterministic (it is `reasonOf`'s neighbour, not a step wrapper).
+ *
+ * `sandbox` is last-writer-wins (the question it answers is "did the 30 s
+ * attach poll find the managed scan's VM"), but `egressDenied` is an AND:
+ * ONE batch that ran with a route out is the fact worth surfacing, and a
+ * later attached batch must not paper over it. Undefined stays undefined —
+ * a batch that never got a VM has nothing to say about either.
+ */
+function recordSandbox(audit: HuntAudit, batch: HuntBatchOutput): void {
+  if (batch.sandbox === undefined) return
+  audit.sandbox = batch.sandbox
+  audit.egressDenied =
+    (audit.egressDenied ?? true) && (batch.egressDenied ?? false)
 }
 
 /**
@@ -163,7 +183,14 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     // remaining budget) is what a batch may spend, so one wedged task cannot
     // starve the one behind it (LUM-762).
     for (const task of planned) {
-      if (tokenSpent >= HUNT_TOKEN_BUDGET || elapsedMs >= HUNT_TIME_BUDGET_MS) {
+      // LUM-758 Task 9: a batch now boots or attaches to a VM before it can
+      // think, so "is there budget left" has to mean "enough to be worth a
+      // sandbox", not "more than zero" — otherwise the tail of the budget is
+      // spent acquiring a VM for a model call that aborts on arrival.
+      if (
+        tokenSpent >= HUNT_TOKEN_BUDGET ||
+        HUNT_TIME_BUDGET_MS - elapsedMs < HUNT_MIN_BATCH_TIME_MS
+      ) {
         audit.tasks.push({
           taskId: task.id,
           objective: task.objective,
@@ -192,6 +219,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       tokenSpent += batch.tokens
       elapsedMs += batch.elapsedMs
       raw.push(...batch.candidates)
+      recordSandbox(audit, batch)
       audit.tasks.push({
         taskId: task.id,
         objective: task.objective,
@@ -214,7 +242,10 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     for (const task of planned) {
       const stop = stops[task.id]
       if (stop !== 'timeout' && stop !== 'error') continue
-      if (tokenSpent >= HUNT_TOKEN_BUDGET || elapsedMs >= HUNT_TIME_BUDGET_MS)
+      if (
+        tokenSpent >= HUNT_TOKEN_BUDGET ||
+        HUNT_TIME_BUDGET_MS - elapsedMs < HUNT_MIN_BATCH_TIME_MS
+      )
         break
       const retry = await huntTaskStep({
         job,
@@ -232,6 +263,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       tokenSpent += retry.tokens
       elapsedMs += retry.elapsedMs
       raw.push(...retry.candidates)
+      recordSandbox(audit, retry)
       audit.tasks.push({
         taskId: task.id,
         objective: task.objective,

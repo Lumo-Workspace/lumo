@@ -1,8 +1,13 @@
 /**
- * LUM-739 — read-only queries over the diff subgraph: the tools the Hunt
- * model is given (`callers_of`, `callees_of`, `path_to_entry`) and the
- * reachability classification the mechanical gate stamps on a candidate
- * (spec §6 L3 "Verify" step 1). Pure.
+ * LUM-739 — read-only queries over the diff subgraph, and the reachability
+ * classification the mechanical gate stamps on a candidate (spec §6 L3
+ * "Verify" step 1). Pure.
+ *
+ * LUM-758 Task 9 — `callersOf` / `calleesOf` / `pathToEntry` used to back the
+ * `callers_of` / `callees_of` / `path_to_entry` TOOLS; the agent reads the
+ * checkout with `run_shell` now, so they are graph helpers with no production
+ * caller until Task 9's successor rebuilds the gate's graph on demand.
+ * `reachability` is still on the live path.
  */
 import type { Subgraph, GraphSymbol } from './types'
 

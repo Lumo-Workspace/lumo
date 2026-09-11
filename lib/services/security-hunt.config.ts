@@ -89,6 +89,16 @@ export interface HuntTask {
 export const HUNT_MAX_PLANNED_TASKS = 3
 export const HUNT_TASK_TOKEN_MAX = 20_000
 export const HUNT_TASK_TIME_MS = 60_000
+/**
+ * LUM-758 Task 9 — the floor under what is left of a task's window once the
+ * sandbox is in hand. Acquisition is inside the batch's clock (attach poll 30 s
+ * + checkout wait 20 s in the worst case), so a batch can legitimately reach
+ * the model call with almost nothing left: starting a tool-calling loop on
+ * under this much time buys an abort, not an answer. Below it the batch says
+ * `timeout` and lets the orchestrator's retry pass have a fresh window — by
+ * which time the VM the first batch created is usually there to attach to.
+ */
+export const HUNT_MIN_BATCH_TIME_MS = 10_000
 
 /**
  * Spec §6 L3 "Hunt" budget per scan. LUM-758 把 LUM-762 的 240k/480s 调回
@@ -161,6 +171,17 @@ export interface HuntAudit {
   planned?: HuntTask[]
   plannedReason?: string
   plannedBy?: 'model' | 'fallback'
+  /** LUM-758 §9 风险② — 上线后读它判断 30s 轮询窗口够不够。 */
+  sandbox?: 'attached' | 'created'
+  /**
+   * LUM-758 — false means the agent's VM still had a route out while it ran
+   * (always the case for an attached VM, whose policy belongs to the managed
+   * scan). The command gate is what enforces "no network", so this is not a
+   * breach; it is the difference between one control and two, and a run that
+   * had only one must be answerable after the fact rather than living in a
+   * warn log nobody joins back to the scan.
+   */
+  egressDenied?: boolean
   error?: string
 }
 
@@ -199,9 +220,19 @@ export interface HuntBatchOutput {
   /** Raw submissions — validated by the mechanical gate, not here. */
   candidates: unknown[]
   tokens: number
+  /**
+   * Wall clock for the WHOLE batch, sandbox acquisition included. The
+   * orchestrator's `HUNT_TIME_BUDGET_MS` is spent on this number, and the
+   * attach poll (30 s) plus the checkout wait (20 s) are real seconds of it —
+   * counting only the model call would hide ~50 s of a 240 s budget.
+   */
   elapsedMs: number
   stopped: HuntBatchStop
   error?: string
+  /** LUM-758 §5.1 — 这一批用的是复用的 VM 还是自建的。 */
+  sandbox?: 'attached' | 'created'
+  /** Did that VM run with its network egress actually cut? See `HuntSandbox`. */
+  egressDenied?: boolean
 }
 
 export interface MechanicalVerifyInput {

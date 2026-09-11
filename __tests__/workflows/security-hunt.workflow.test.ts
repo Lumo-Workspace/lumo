@@ -119,6 +119,8 @@ const batch = (
     elapsedMs: number
     stopped: string
     error: string
+    sandbox: 'attached' | 'created'
+    egressDenied: boolean
   }> = {}
 ) => ({
   candidates: [],
@@ -385,6 +387,32 @@ describe('LUM-739 hunt workflow', () => {
         stopped: 'skipped',
       }))
     )
+  })
+
+  it('LUM-758 records which VM the hunt ran on, and keeps one open-egress batch visible', async () => {
+    hunt
+      .mockImplementationOnce(async () =>
+        batch({ sandbox: 'created', egressDenied: true })
+      )
+      // A batch that ran with a route out must not be papered over by a later
+      // one that did not: `egressDenied` is an AND across the run.
+      .mockImplementationOnce(async () =>
+        batch({ sandbox: 'attached', egressDenied: false })
+      )
+
+    await securityHuntWorkflow(JOB)
+
+    const { audit } = persist.mock.calls[0]![0]
+    expect(audit.sandbox).toBe('attached')
+    expect(audit.egressDenied).toBe(false)
+  })
+
+  it('LUM-758 leaves the sandbox fields unset when no batch ever got a VM', async () => {
+    // Pre-Task-9 batches carry neither field; an absent VM is not "attached".
+    await securityHuntWorkflow(JOB)
+    const { audit } = persist.mock.calls[0]![0]
+    expect(audit.sandbox).toBeUndefined()
+    expect(audit.egressDenied).toBeUndefined()
   })
 
   it('a truncated subgraph makes the layer PARTIAL', async () => {

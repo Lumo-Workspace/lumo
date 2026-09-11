@@ -10,6 +10,15 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   readRepoFile: jest.fn(),
 }))
 jest.mock('@/lib/llm/security-hunt-client', () => ({ huntTask: jest.fn() }))
+// LUM-758 Task 9: the batch now runs against a sandbox. The layer itself
+// (attach-or-create, the credential guard, the command gate) is covered in
+// `__tests__/security-scan/hunt/sandbox-agent.test.ts`; here it is a seam, so
+// these tests can say what `huntBatch` does WITH it.
+jest.mock('@/lib/services/security-hunt-sandbox', () => ({
+  attachOrCreateHuntSandbox: jest.fn(),
+  runHuntShell: jest.fn(),
+  stopHuntSandbox: jest.fn().mockResolvedValue(undefined),
+}))
 jest.mock('@/lib/llm/security-falsifier-client', () => ({
   falsifyCandidate: jest.fn(),
 }))
@@ -34,13 +43,32 @@ import { huntTask } from '@/lib/llm/security-hunt-client'
 import { falsifyCandidate } from '@/lib/llm/security-falsifier-client'
 import { planHuntTasks } from '@/lib/llm/security-hunt-plan-client'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import {
+  attachOrCreateHuntSandbox,
+  runHuntShell,
+  stopHuntSandbox,
+} from '@/lib/services/security-hunt-sandbox'
 import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
+import { HUNT_MIN_BATCH_TIME_MS } from '@/lib/services/security-hunt.config'
 
 const diffMock = fetchPrDiff as jest.Mock
 const readMock = readRepoFile as jest.Mock
 const huntMock = huntTask as jest.Mock
 const falsifyMock = falsifyCandidate as jest.Mock
 const planMock = planHuntTasks as jest.Mock
+const attachMock = attachOrCreateHuntSandbox as jest.Mock
+const shellMock = runHuntShell as jest.Mock
+const stopMock = stopHuntSandbox as jest.Mock
+
+/** Stand-in for a scrubbed `HuntSandbox`; identity is what the tests check. */
+const HANDLE = {
+  sandbox: { name: 'vm1' },
+  cwd: '/vercel/r',
+  token: 'ghs_x',
+  origin: 'attached' as const,
+  egressDenied: false,
+}
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
 >
@@ -102,6 +130,9 @@ const candidate = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  attachMock.mockResolvedValue(HANDLE)
+  shellMock.mockResolvedValue({ output: '' })
+  stopMock.mockResolvedValue(undefined)
   repo.findDispositionedByPullRequest.mockResolvedValue([])
   repo.persistHuntResult.mockResolvedValue(undefined)
   repo.findFindingSummaryByScan.mockResolvedValue([])
@@ -167,50 +198,115 @@ describe('LUM-739 hunt service', () => {
     expect(out.subgraph.files).toHaveLength(SUBGRAPH_MAX_FILES)
   })
 
-  it('huntBatch returns the client result with elapsed time and memoises file reads', async () => {
-    readMock.mockResolvedValue('src')
+  const batchInput = (over: Partial<{ timeBudgetMs: number }> = {}) => ({
+    job: JOB,
+    subgraph: {
+      symbols: [],
+      edges: [],
+      files: [{ path: 'a.ts', lineCount: 1, touched: true }],
+    },
+    task: TASK,
+    tokenBudget: 1000,
+    timeBudgetMs: 60_000,
+    ...over,
+  })
+
+  it('huntBatch runs the task in a sandbox and injects a runShell that is the ONLY route to it', async () => {
+    shellMock.mockResolvedValue({ output: 'hit.ts:3' })
     huntMock.mockImplementation(
-      async (input: { readFile: (p: string) => Promise<string | null> }) => {
-        await input.readFile('a.ts')
-        await input.readFile('a.ts')
+      async (input: {
+        runShell: (c: string) => Promise<{ output: string }>
+      }) => {
+        // Quotes and a pipe: whatever the model sends must arrive unchanged.
+        const command = 'rg -n "req\\.query" lib/ | head -n 5'
+        await input.runShell(command)
         return { candidates: [{ raw: 1 }], tokens: 321, stopped: 'done' }
       }
     )
-    const out = await securityHuntService.huntBatch({
-      job: JOB,
-      subgraph: {
-        symbols: [],
-        edges: [],
-        files: [{ path: 'a.ts', lineCount: 1, touched: true }],
-      },
-      task: TASK,
-      tokenBudget: 1000,
-      timeBudgetMs: 5000,
-    })
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
     expect(out).toMatchObject({
       candidates: [{ raw: 1 }],
       tokens: 321,
       stopped: 'done',
+      sandbox: 'attached',
+      egressDenied: false,
     })
-    expect(out.elapsedMs).toBeGreaterThanOrEqual(0)
-    expect(readMock).toHaveBeenCalledTimes(1)
+    expect(attachMock.mock.calls[0]![0]).toEqual({
+      scanId: JOB.scanId,
+      workspaceId: JOB.workspaceId,
+      repo: JOB.repo,
+      headSha: JOB.headSha,
+      managedScanStarted: true,
+    })
+    // The WHOLE handle is forwarded — never a loose `{ sandbox, cwd, token }`
+    // — so the credential guard cannot be skipped by construction. And the
+    // command is byte-identical to what the client sent.
+    expect(shellMock).toHaveBeenCalledTimes(1)
+    const shellArg = shellMock.mock.calls[0]![0]
+    expect(shellArg.handle).toBe(HANDLE)
+    expect(shellArg.command).toBe('rg -n "req\\.query" lib/ | head -n 5')
+    expect(Object.keys(shellArg).sort()).toEqual(['command', 'handle'])
     // LUM-758: the client is handed the whole TASK (objective + starting
     // points), not just the category that types its output.
     expect(huntMock.mock.calls[0]![0]).toMatchObject({
       task: TASK,
       tokenBudget: 1000,
-      timeoutMs: 5000,
       maxSteps: 12,
     })
+    // …and the file reader is gone: the checkout, not the GitHub API.
+    expect(huntMock.mock.calls[0]![0].readFile).toBeUndefined()
+    expect(readMock).not.toHaveBeenCalled()
+    expect(stopMock).toHaveBeenCalledWith(HANDLE)
   })
 
-  it('huntBatch never throws: a timeout is a "timeout" batch, anything else an "error" batch', async () => {
+  it('huntBatch charges sandbox acquisition to the batch clock and to the model call window', async () => {
+    attachMock.mockImplementation(async () => {
+      await sleep(30)
+      return HANDLE
+    })
+    huntMock.mockResolvedValue({ candidates: [], tokens: 0, stopped: 'done' })
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    // Worst case in production is ~50 s of attach poll + checkout wait. The
+    // orchestrator spends HUNT_TIME_BUDGET_MS on `elapsedMs`, so those seconds
+    // have to be IN it…
+    expect(out.elapsedMs).toBeGreaterThanOrEqual(30)
+    // …and they come off the model's window, or a 60 s batch would really run
+    // for 110 s and starve the task behind it.
+    const { timeoutMs } = huntMock.mock.calls[0]![0]
+    expect(timeoutMs).toBeLessThanOrEqual(60_000 - 30)
+    expect(timeoutMs).toBeGreaterThan(50_000)
+  })
+
+  it('huntBatch does not start a model call on a window acquisition already ate', async () => {
+    attachMock.mockImplementation(async () => {
+      await sleep(5)
+      return HANDLE
+    })
+
+    const out = await securityHuntService.huntBatch(
+      batchInput({ timeBudgetMs: HUNT_MIN_BATCH_TIME_MS })
+    )
+
+    expect(huntMock).not.toHaveBeenCalled()
+    // A recorded fact, not a thrown transient: the retry pass gets a fresh
+    // window, by which time there is usually a VM to attach to.
+    expect(out).toMatchObject({
+      stopped: 'timeout',
+      tokens: 0,
+      sandbox: 'attached',
+      error: 'sandbox acquisition consumed the task window',
+    })
+    expect(stopMock).toHaveBeenCalledWith(HANDLE)
+  })
+
+  it('huntBatch never throws for an LLM failure: a timeout is a "timeout" batch, anything else an "error" batch, and the VM is released either way', async () => {
     const input = {
-      job: JOB,
-      subgraph: { symbols: [], edges: [], files: [] },
+      ...batchInput(),
       task: { ...TASK, id: 't9', category: 'ssrf' as const },
-      tokenBudget: 1,
-      timeBudgetMs: 1,
     }
     huntMock.mockRejectedValueOnce(
       Object.assign(new Error('timed out'), { name: 'TimeoutError' })
@@ -220,12 +316,44 @@ describe('LUM-739 hunt service', () => {
       tokens: 0,
       stopped: 'timeout',
       error: 'timed out',
+      // The VM is a fact about the attempt even when the model failed.
+      sandbox: 'attached',
+      egressDenied: false,
     })
     huntMock.mockRejectedValueOnce(new Error('gateway 500'))
     await expect(securityHuntService.huntBatch(input)).resolves.toMatchObject({
       stopped: 'error',
       error: 'gateway 500',
     })
+    expect(stopMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('huntBatch records the VM it created, egress and all', async () => {
+    attachMock.mockResolvedValue({
+      ...HANDLE,
+      origin: 'created',
+      egressDenied: true,
+    })
+    huntMock.mockResolvedValue({ candidates: [], tokens: 5, stopped: 'done' })
+
+    await expect(
+      securityHuntService.huntBatch(batchInput())
+    ).resolves.toMatchObject({ sandbox: 'created', egressDenied: true })
+  })
+
+  it('huntBatch THROWS when the VM cannot be acquired — including the credential guard refusing', async () => {
+    // Deliberately on the other side of the try/catch from the LLM call: a
+    // task that never started has no result to record, so the step's retry
+    // policy gets it and a final failure reads FAILED (P9), not PARTIAL.
+    attachMock.mockRejectedValueOnce(
+      new Error('installation token still reachable in the checkout')
+    )
+    await expect(securityHuntService.huntBatch(batchInput())).rejects.toThrow(
+      'installation token still reachable'
+    )
+    expect(huntMock).not.toHaveBeenCalled()
+    // Nothing to release: the guard stops any VM it created before throwing.
+    expect(stopMock).not.toHaveBeenCalled()
   })
 
   it('falsify hands numbered snippets around the entry and sink to the client and rethrows its failures', async () => {

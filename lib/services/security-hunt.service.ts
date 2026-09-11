@@ -11,6 +11,10 @@
  *
  * Data boundary (spec R6): source text is fetched here and handed to the
  * model; only symbol ids, line numbers and redacted findings leave a step.
+ * The hunt loop itself reads the repo through `security-hunt-sandbox.ts`,
+ * which is the ONLY module that may touch a sandbox — this one never reaches
+ * into `handle.sandbox`, so every command the model runs passes through
+ * `runHuntShell`'s gate (see the exec-boundary test).
  */
 import { logger } from '@/lib/logger'
 import { fetchPrDiff, readRepoFile } from '@/lib/integrations/github/contents'
@@ -45,7 +49,13 @@ import {
   type FindingSummary,
 } from '@/lib/repositories/pr-security-scan.repository'
 import {
+  attachOrCreateHuntSandbox,
+  runHuntShell,
+  stopHuntSandbox,
+} from './security-hunt-sandbox'
+import {
   HUNT_MAX_STEPS_PER_CATEGORY,
+  HUNT_MIN_BATCH_TIME_MS,
   HUNT_SNIPPET_RADIUS,
   HUNT_AUDIT_MAX_REJECTED,
   PLAN_HUNT_TIMEOUT_MS,
@@ -260,31 +270,81 @@ export const securityHuntService = {
   },
 
   /**
-   * LUM-758 — one PLANNED TASK = one bounded tool-calling loop. Never throws:
-   * a batch that times out / errors is recorded in the audit and the run goes
-   * on with the other tasks (spec: overrun → partial, never a retry storm of
-   * an LLM loop).
+   * LUM-758 — one PLANNED TASK = one bounded tool-calling loop, run against a
+   * real checkout of the PR inside a sandbox VM.
+   *
+   * TWO failure modes on OPPOSITE sides of the try/catch, and that placement
+   * is the whole design of this method:
+   *
+   *   - Acquiring the VM (`attachOrCreateHuntSandbox`, above the try) THROWS.
+   *     Not having a VM is not a hunt result — there is nothing to record
+   *     about a task that never started — so the step's retry policy gets it.
+   *     That includes the credential guard's fail-closed refusal: its most
+   *     common cause is a checkout that had not landed inside
+   *     HUNT_CHECKOUT_WAIT_MS, which a second attempt genuinely fixes, and
+   *     its deterministic causes deserve the FAILED the workflow's P9 catch
+   *     writes (with the reason in `huntAudit.error`), not a PARTIAL that
+   *     claims the hunt ran. The guard stops any VM it created before
+   *     throwing, so a retry cannot leak one.
+   *   - An LLM failure INSIDE the batch (timeout, gateway) is a fact the run
+   *     must record: it comes back as a `stopped: 'timeout' | 'error'` batch
+   *     with the VM's identity attached, and the other tasks go on.
+   *
+   * Every batch acquires its own handle, because a `'use step'` has to be
+   * self-contained — it may be replayed or retried on its own. In the common
+   * case that costs nothing: the managed scan's VM is alive, so all three
+   * batches attach to it. In the create path (the managed scan legitimately
+   * did not run) each batch boots and stops its own VM, which is the price of
+   * that independence and is bounded by HUNT_MAX_PLANNED_TASKS.
+   *
+   * The `finally` stops the VM ONLY if this batch created it
+   * (`stopHuntSandbox`): stopping an attached one would kill the managed
+   * scan's semgrep mid-run, since the two workflows have no ordering
+   * guarantee. That is deliberate; see the comment on `stopHuntSandbox`.
    */
   async huntBatch(input: HuntBatchInput): Promise<HuntBatchOutput> {
+    // Started BEFORE acquisition on purpose: the attach poll (≤30 s) and the
+    // checkout wait (≤20 s) are wall clock the orchestrator is spending out of
+    // HUNT_TIME_BUDGET_MS. Measuring only the model call would hide up to ~50 s
+    // per batch from the one clock that decides whether the next task runs.
     const started = Date.now()
-    const cache = new Map<string, Promise<string | null>>()
-    const readFile = (path: string): Promise<string | null> => {
-      let p = cache.get(path)
-      if (!p) {
-        p = readAtHead(input.job, path)
-        cache.set(path, p)
-      }
-      return p
-    }
+    const handle = await attachOrCreateHuntSandbox({
+      scanId: input.job.scanId,
+      workspaceId: input.job.workspaceId,
+      repo: input.job.repo,
+      headSha: input.job.headSha,
+      managedScanStarted: input.job.managedScanStarted,
+    })
+    const vm = { sandbox: handle.origin, egressDenied: handle.egressDenied }
     try {
+      // What is left of this task's window after acquisition — the batch's
+      // ceiling is a whole-batch ceiling, not a model-call ceiling.
+      const remainingMs = input.timeBudgetMs - (Date.now() - started)
+      if (remainingMs < HUNT_MIN_BATCH_TIME_MS) {
+        logger.warn(
+          `[security-hunt] batch ${input.task.id} scan=${input.job.scanId}: sandbox acquisition left ${remainingMs}ms of its window`
+        )
+        return {
+          candidates: [],
+          tokens: 0,
+          elapsedMs: Date.now() - started,
+          stopped: 'timeout',
+          error: 'sandbox acquisition consumed the task window',
+          ...vm,
+        }
+      }
       // Dynamic import keeps `ai` / `@ai-sdk/gateway` out of the static graph.
       const { huntTask } = await import('@/lib/llm/security-hunt-client')
       const out = await huntTask({
         task: input.task,
         subgraph: input.subgraph,
-        readFile,
+        // The ONLY path from the model to the VM. The handle goes in whole so
+        // the credential guard cannot be skipped by construction, and the
+        // command goes through untouched so the string `checkHuntCommand`
+        // reads is the string that runs.
+        runShell: command => runHuntShell({ handle, command }),
         tokenBudget: input.tokenBudget,
-        timeoutMs: input.timeBudgetMs,
+        timeoutMs: remainingMs,
         maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
       })
       return {
@@ -292,6 +352,7 @@ export const securityHuntService = {
         tokens: out.tokens,
         elapsedMs: Date.now() - started,
         stopped: out.stopped,
+        ...vm,
       }
     } catch (error) {
       const message = messageOf(error)
@@ -304,7 +365,10 @@ export const securityHuntService = {
         elapsedMs: Date.now() - started,
         stopped: isAbort(error) ? 'timeout' : 'error',
         error: message.slice(0, 300),
+        ...vm,
       }
+    } finally {
+      await stopHuntSandbox(handle)
     }
   },
 

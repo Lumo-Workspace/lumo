@@ -26,7 +26,11 @@ import {
 } from '@/lib/integrations/vercel-sandbox'
 import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
 import { redactKnownSecrets } from '@/lib/security-scan'
-import { checkHuntCommand } from '@/lib/security-scan/hunt/shell-allowlist'
+import {
+  checkHuntCommand,
+  HUNT_SHELL_BIN,
+  HUNT_SHELL_FLAG,
+} from '@/lib/security-scan/hunt/shell-allowlist'
 import {
   SANDBOX_IMAGE,
   SANDBOX_SCAN_TAG,
@@ -465,10 +469,20 @@ export async function runHuntShell(
   const { sandbox, cwd, token } = input.handle
   let raw: string
   try {
-    const result = await sandbox.run('sh', ['-c', input.command], {
-      cwd,
-      timeoutMs: SHELL_TIMEOUT_MS,
-    })
+    // THE choke point. `input.command` goes from `checkHuntCommand` (above) to
+    // here untouched — no wrapping, no re-quoting, no interpolation — and the
+    // shell is the one the gate's parsing was written and fuzzed against
+    // (HUNT_SHELL_BIN / _FLAG live next to that parser for exactly this
+    // reason). `__tests__/security-scan/hunt/shell-exec-boundary.test.ts`
+    // fails if any of that changes.
+    const result = await sandbox.run(
+      HUNT_SHELL_BIN,
+      [HUNT_SHELL_FLAG, input.command],
+      {
+        cwd,
+        timeoutMs: SHELL_TIMEOUT_MS,
+      }
+    )
     // grep/rg exiting 1 on "no match" is a fact, not a failure — both streams
     // go to the model either way.
     raw = `${result.stdout}${result.stderr ? `\n[stderr]\n${result.stderr}` : ''}`
