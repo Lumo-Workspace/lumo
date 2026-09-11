@@ -322,7 +322,21 @@ export interface HuntAudit {
 
 /** One batch's share of `HuntAudit.compress`; summed by the orchestrator. */
 export interface HuntCompressStats {
+  /** Compressions that replaced the output. */
   calls: number
+  /**
+   * Compressions that were CHARGED and produced nothing usable — empty, the
+   * `(no relevant lines)` sentinel, or a body too small to be a compression of
+   * its input. Their tokens are in `tokens` and their characters are NOT in
+   * `inputChars` / `outputChars`, because no compression happened.
+   *
+   * This is the number that was missing when it mattered: prod fed 38,585
+   * characters through seven calls and got 133 back — exactly 7 × the sentinel
+   * — and the only way to know was to divide. A task whose `noOpCalls` equals
+   * its call count searched a repository it could not see, and any conclusion
+   * drawn from `candidates: 0` on that scan is worthless.
+   */
+  noOpCalls: number
   inputChars: number
   outputChars: number
   tokens: number
