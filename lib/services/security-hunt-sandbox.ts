@@ -102,16 +102,30 @@ export async function attachOrCreateHuntSandbox(
   // The signature takes only a workspaceId (`lib/integrations/github/auth.ts`).
   const token = await getGithubInstallationToken(input.workspaceId)
   const tag = { [SANDBOX_SCAN_TAG]: input.scanId }
+  /**
+   * `create` tags its VM with `SANDBOX_SCAN_TAG` as well (see the tags comment
+   * there), so the lookup tag alone also matches VMs THIS hunt booted. Two
+   * reasons that must not count as an attach:
+   *   - a sibling batch stops its own VM in its `finally`, and the next batch
+   *     lists by the same tag milliseconds later. If the platform's `list`
+   *     lags the stop, "attaching" lands on a corpse and the first read
+   *     (`waitForCheckoutConfig`) throws — failing a batch that had a perfectly
+   *     good create path available;
+   *   - `huntAudit.sandbox` is supposed to answer "did the 30 s poll find the
+   *     MANAGED SCAN's VM"; a hit on a sibling hunt VM answers a different
+   *     question with the same word.
+   */
+  const attachOptions = { excludeTagKeys: [HUNT_SANDBOX_TAG] }
   const pollMs = input.pollMs ?? HUNT_SANDBOX_ATTACH_POLL_MS
 
-  let attached = await findRepoSandboxByTag(tag)
+  let attached = await findRepoSandboxByTag(tag, attachOptions)
   // The managed scan started a few milliseconds before us, so its VM may not
   // be listed yet — wait a little. If it never started, waiting cannot help.
   if (!attached && input.managedScanStarted) {
     const deadline = Date.now() + HUNT_SANDBOX_ATTACH_WAIT_MS
     while (!attached && Date.now() < deadline) {
       await sleep(pollMs)
-      attached = await findRepoSandboxByTag(tag)
+      attached = await findRepoSandboxByTag(tag, attachOptions)
     }
   }
 

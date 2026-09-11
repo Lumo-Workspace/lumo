@@ -91,6 +91,14 @@ describe('attachOrCreateHuntSandbox', () => {
     expect(out.origin).toBe('attached')
     expect(out.cwd).toBe('/vercel/r')
     expect(create).not.toHaveBeenCalled()
+    // The lookup is for the MANAGED SCAN's VM. `create` tags its own VM with
+    // `lumoScan` too, so without this exclusion a sibling hunt batch's VM —
+    // possibly one already stopped in that batch's `finally` — answers the
+    // poll, and `sandbox: 'attached'` stops meaning what it says.
+    expect(find).toHaveBeenCalledWith(
+      { lumoScan: 's1' },
+      { excludeTagKeys: [HUNT_SANDBOX_TAG] }
+    )
     // An attached VM's egress belongs to the managed scan, which may still be
     // downloading its scanners — never touch it, and say so on the handle.
     expect(denyEgress).not.toHaveBeenCalled()

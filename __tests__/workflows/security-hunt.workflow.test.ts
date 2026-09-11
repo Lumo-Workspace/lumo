@@ -403,8 +403,20 @@ describe('LUM-739 hunt workflow', () => {
     await securityHuntWorkflow(JOB)
 
     const { audit } = persist.mock.calls[0]![0]
-    expect(audit.sandbox).toBe('attached')
+    // `created` wins over a later `attached`: the field answers "did the 30 s
+    // poll find the managed scan's VM", and last-writer-wins made a run that
+    // had to boot its own VM for batch 1 read as if it never did. The
+    // per-batch detail is still in `audit.tasks`.
+    expect(audit.sandbox).toBe('created')
     expect(audit.egressDenied).toBe(false)
+  })
+
+  it('LUM-758 an attached-only run still reads attached', async () => {
+    hunt.mockImplementation(async () =>
+      batch({ sandbox: 'attached', egressDenied: false })
+    )
+    await securityHuntWorkflow(JOB)
+    expect(persist.mock.calls[0]![0].audit.sandbox).toBe('attached')
   })
 
   it('LUM-758 leaves the sandbox fields unset when no batch ever got a VM', async () => {
@@ -438,6 +450,73 @@ describe('LUM-739 hunt workflow', () => {
       findings: HUNT_MAX_FALSIFIED,
     })
     expect(falsify).toHaveBeenCalledTimes(HUNT_MAX_FALSIFIED)
+  })
+
+  /**
+   * LUM-758 Task 9 — the regression this pins: a batch now acquires a sandbox
+   * VM before it can think, and that acquisition THROWS (a transient VM
+   * failure belongs to the step's retry policy, not to a hunt result). Once
+   * those retries are exhausted the throw reaches the workflow, and the
+   * catch-all used to answer it with FAILED and an empty finding list — for a
+   * run whose first two tasks had already submitted candidates.
+   */
+  it('LUM-758 keeps the earlier tasks findings as PARTIAL when a later batch throws', async () => {
+    plan.mockResolvedValue({
+      tasks: [
+        ...PLANNED,
+        { id: 't3', objective: 'third', category: 'ssrf', startingPoints: [] },
+      ],
+      reason: 'three tasks',
+      by: 'model',
+      tokens: 0,
+    })
+    hunt
+      .mockImplementationOnce(async () => batch({ candidates: [{ raw: 1 }] }))
+      .mockImplementationOnce(async () => batch({ candidates: [{ raw: 2 }] }))
+      // The checkout never landed inside HUNT_CHECKOUT_WAIT_MS; the step's
+      // retries are already spent by the time the workflow sees this.
+      .mockImplementationOnce(async () => {
+        throw new Error('checkout never landed')
+      })
+    verify.mockImplementationOnce(async () => ({
+      accepted: [candidate(1), candidate(2)],
+      rejected: [],
+    }))
+
+    await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
+      outcome: 'PARTIAL',
+      scanId: 's1',
+      findings: 2,
+    })
+
+    // FAILED would have been persisted by markHuntFailedStep, with `[]`.
+    expect(markFailed).not.toHaveBeenCalled()
+    expect(persist).toHaveBeenCalledTimes(1)
+    const persisted = persist.mock.calls[0]![0]
+    expect(persisted.stage).toBe('PARTIAL')
+    expect(persisted.partial).toBe(true)
+    expect(persisted.findings).toHaveLength(2)
+    // Both batches candidates went through the mechanical gate…
+    expect(verify).toHaveBeenCalledWith(
+      expect.objectContaining({ candidates: [{ raw: 1 }, { raw: 2 }] })
+    )
+    expect(persisted.audit.candidates).toBe(2)
+    // …and the cause of the PARTIAL is not lost.
+    expect(persisted.audit.error).toBe('checkout never landed')
+    expect(sync).toHaveBeenCalledWith('s1')
+  })
+
+  it('LUM-758 a batch that throws before any candidate exists is still FAILED', async () => {
+    hunt.mockImplementationOnce(async () => {
+      throw new Error('sandbox unavailable')
+    })
+    await expect(securityHuntWorkflow(JOB)).resolves.toEqual({
+      outcome: 'FAILED',
+      scanId: 's1',
+      reason: 'sandbox unavailable',
+    })
+    expect(persist).not.toHaveBeenCalled()
+    expect(markFailed).toHaveBeenCalledWith('s1', 'sandbox unavailable', 0)
   })
 
   it('marks the scan FAILED (with 0 tokens) when the subgraph step exhausts its retries, then still syncs', async () => {

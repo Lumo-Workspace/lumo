@@ -143,6 +143,55 @@ describe('findRepoSandboxByTag (LUM-758)', () => {
     expect(get).toHaveBeenCalledWith({ name: 'a' })
   })
 
+  it('LUM-758 skips sandboxes carrying an excluded tag key, whatever its value', async () => {
+    list.mockResolvedValue(
+      asyncIterable([
+        // A VM another hunt batch booted: it carries `lumoScan` too, so the
+        // platform filter matched it. Only the KEY is looked at.
+        {
+          name: 'a',
+          status: 'running',
+          tags: { lumoScan: 's1', lumoHunt: 'other' },
+        },
+        { name: 'b', status: 'running', tags: { lumoScan: 's1' } },
+      ])
+    )
+    const runCommand = jest.fn()
+    const stop = jest.fn()
+    get.mockResolvedValue({ name: 'b', cwd: '/vercel', runCommand, stop })
+
+    const sandbox = await findRepoSandboxByTag(
+      { lumoScan: 's1' },
+      { excludeTagKeys: ['lumoHunt'] }
+    )
+
+    expect(sandbox?.name).toBe('b')
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(get).toHaveBeenCalledWith({ name: 'b' })
+  })
+
+  it('LUM-758 returns null when every match is excluded, and ignores the option when absent', async () => {
+    const entries = [{ name: 'a', status: 'running', tags: { lumoHunt: 's1' } }]
+    list.mockResolvedValue(asyncIterable(entries))
+    await expect(
+      findRepoSandboxByTag({ lumoScan: 's1' }, { excludeTagKeys: ['lumoHunt'] })
+    ).resolves.toBeNull()
+    expect(get).not.toHaveBeenCalled()
+
+    // No option: the same entry is a perfectly good match.
+    list.mockResolvedValue(asyncIterable(entries))
+    const runCommand = jest.fn()
+    get.mockResolvedValue({
+      name: 'a',
+      cwd: '/vercel',
+      runCommand,
+      stop: jest.fn(),
+    })
+    await expect(
+      findRepoSandboxByTag({ lumoScan: 's1' })
+    ).resolves.not.toBeNull()
+  })
+
   it('skips non-running and non-pending sandboxes', async () => {
     list.mockResolvedValue(
       asyncIterable([

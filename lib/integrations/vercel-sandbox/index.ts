@@ -161,15 +161,27 @@ export function repoCheckoutDir(
  * disabled, hourly quota exceeded, or start failed). Callers create their own
  * VM. A failure of `list` itself propagates — that is a platform fault, not
  * "no VM".
+ *
+ * `excludeTagKeys` narrows the match after the fact, because the platform
+ * filter is a single `{ key: value }` AND and has no negation. It exists for
+ * callers that tag their OWN VMs with the tag they look up: without it, a
+ * lookup for "somebody else's VM" also returns the caller's own, and a
+ * sibling's — see the hunt's `HUNT_SANDBOX_TAG` in
+ * `lib/services/security-hunt-sandbox.ts`.
  */
 export async function findRepoSandboxByTag(
-  tags: Record<string, string>
+  tags: Record<string, string>,
+  options: { excludeTagKeys?: readonly string[] } = {}
 ): Promise<RepoSandbox | null> {
   const result = await Sandbox.list({ tags } as Parameters<
     typeof Sandbox.list
   >[0])
   for await (const entry of result) {
     if (entry.status !== 'running' && entry.status !== 'pending') continue
+    // Presence of the KEY excludes, whatever its value: the question is "who
+    // booted this VM", and the key alone answers it.
+    if (options.excludeTagKeys?.some(key => entry.tags?.[key] !== undefined))
+      continue
     try {
       return wrap(await Sandbox.get({ name: entry.name }))
     } catch (error) {

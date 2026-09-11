@@ -90,6 +90,16 @@ const handleFor = (vm: ReturnType<typeof fakeSandbox>) => ({
  */
 const COMMAND = 'rg -n "req\\.query\\.id$" lib/  | head -n 20'
 
+/**
+ * The same command with the whitespace a model routinely emits around it.
+ * `checkHuntCommand` admits all three of `' rg … '`, `'rg …\n'` and `'\trg …'`,
+ * so normalising here would be invisible to the unpadded fixture above — a
+ * `.trim()` slipped between the gate and the shell passed every case in this
+ * file before this constant existed. Byte-identical means byte-identical,
+ * whitespace included.
+ */
+const PADDED_COMMAND = ` \t${COMMAND} \n`
+
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8')
 
 /**
@@ -136,6 +146,20 @@ describe('LUM-758 the hunt exec boundary is a single choke point', () => {
     expect(HUNT_SHELL_BIN).toBe('sh')
     expect(HUNT_SHELL_FLAG).toBe('-c')
     expect(HUNT_SHELL_FLAG).not.toMatch(/[li]/)
+  })
+
+  it('does not normalise the command: leading/trailing whitespace survives too', async () => {
+    const vm = fakeSandbox()
+
+    await runHuntShell({ handle: handleFor(vm), command: PADDED_COMMAND })
+
+    // The real gate admitted the padded string (this is a pass-through spy),
+    // so trimming it would be a silent rewrite of an already-allowed command.
+    expect(mockChecked).toEqual([PADDED_COMMAND])
+    const [, argv] = vm.run.mock.calls[0]!
+    expect(argv[1]).toBe(PADDED_COMMAND)
+    expect(argv[1]).toHaveLength(PADDED_COMMAND.length)
+    expect(argv[1]).not.toBe(PADDED_COMMAND.trim())
   })
 
   it('a refused command never reaches the shell at all', async () => {
