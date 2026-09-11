@@ -119,8 +119,14 @@ describe('machineRoundBodySchema', () => {
 })
 
 describe('criteriaSetBodySchema causeTag', () => {
+  // LUM-733: PENDING_OUTCOME is no longer a task-criterion kind — a HUMAN
+  // criterion may only declare EXTERNAL_FACT | AGENT_CONSTRUCTED_STATE.
   const items = [
-    { statement: 's', verifierType: 'HUMAN', referentKind: 'PENDING_OUTCOME' },
+    {
+      statement: 's',
+      verifierType: 'HUMAN',
+      referentKind: 'AGENT_CONSTRUCTED_STATE',
+    },
   ]
 
   it('accepts a causeTag on HUMAN_EDIT', () => {

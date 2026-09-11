@@ -3,6 +3,10 @@ import {
   type TaskStatusResponse,
 } from '../../src/commands/task-status'
 
+/** LUM-733: the dashboard sections (cost, struggle/rework trail, trend) only
+ *  render under `--full`; the default report is the slim agent self-check. */
+const FULL = { full: true } as const
+
 /** A minimal all-pass status payload — one MACHINE criterion, machine-verified,
  *  one clean round, an empty struggle trail. Override per test. */
 function baseResponse(
@@ -62,12 +66,12 @@ function baseResponse(
 
 describe('task status struggle/rework/outstanding section', () => {
   it('LUM-561 always renders the section even on a clean all-pass task', () => {
-    const out = formatTaskStatus(baseResponse())
+    const out = formatTaskStatus(baseResponse(), FULL)
     expect(out).toMatch(/Struggle \/ rework \/ outstanding/i)
   })
 
   it('LUM-561 empty trail after verification cites its evidence basis, not a bare nothing-outstanding', () => {
-    const out = formatTaskStatus(baseResponse())
+    const out = formatTaskStatus(baseResponse(), FULL)
     expect(out).toMatch(/Struggle \/ rework \/ outstanding/i)
     // The basis is explicit: rounds run + 0 FAIL + no send-backs/follow-ups.
     expect(out).toMatch(/1 verification round/i)
@@ -105,7 +109,8 @@ describe('task status struggle/rework/outstanding section', () => {
             rejectionReason: null,
           },
         ],
-      })
+      }),
+      FULL
     )
     expect(out).toMatch(/Struggle \/ rework \/ outstanding/i)
     expect(out).toMatch(/no verification has run/i)
@@ -140,7 +145,8 @@ describe('task status struggle/rework/outstanding section', () => {
           pullRequests: [],
           reopens: [],
         },
-      })
+      }),
+      FULL
     )
     // rework round with its FAIL count
     expect(out).toMatch(/round 1.*2 FAIL/i)
@@ -176,7 +182,8 @@ describe('task status struggle/rework/outstanding section', () => {
             { from: 'DONE', to: 'IN_PROGRESS', at: '2026-06-03T00:00:00Z' },
           ],
         },
-      })
+      }),
+      FULL
     )
     expect(out).toMatch(/Struggle \/ rework \/ outstanding/i)
     // must not collapse to the clean-slate basis
@@ -200,7 +207,8 @@ describe('task status struggle/rework/outstanding section', () => {
           pullRequests: [{ number: 654, url: 'u654' }],
           reopens: [],
         },
-      })
+      }),
+      FULL
     )
     // one PR + clean verify round → still "None recorded" with its basis
     expect(out).toMatch(/None recorded/i)
@@ -235,7 +243,8 @@ describe('task status Trend section (LUM-562)', () => {
           ],
           rework: { reworkRounds: 1, reopens: 1, extraPrCycles: 1, total: 3 },
         },
-      })
+      }),
+      FULL
     )
     expect(out).toMatch(/Trend \(2 rounds · 2 sessions\)/)
     // pass-rate trajectory with direction
@@ -268,7 +277,8 @@ describe('task status Trend section (LUM-562)', () => {
           ],
           rework: { reworkRounds: 0, reopens: 0, extraPrCycles: 0, total: 0 },
         },
-      })
+      }),
+      FULL
     )
     expect(out).toMatch(/Trend:/)
     expect(out).toMatch(/no trajectory yet/i)
@@ -287,14 +297,15 @@ describe('task status Trend section (LUM-562)', () => {
           cost: [],
           rework: { reworkRounds: 0, reopens: 0, extraPrCycles: 0, total: 0 },
         },
-      })
+      }),
+      FULL
     )
     expect(out).toMatch(/nothing to trend/i)
   })
 
   it('LUM-562 skips the Trend section entirely for an older server (no trend field)', () => {
     // baseResponse() omits the optional trend field — pushTrend must no-op.
-    const out = formatTaskStatus(baseResponse())
+    const out = formatTaskStatus(baseResponse(), FULL)
     expect(out).not.toMatch(/Trend/)
   })
 })
