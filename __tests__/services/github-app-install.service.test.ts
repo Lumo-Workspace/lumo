@@ -172,13 +172,26 @@ describe('githubAppInstallService', () => {
   })
 
   describe('uninstall', () => {
+    it('refuses a non-owner and touches nothing', async () => {
+      repo.findByWorkspace.mockResolvedValue({
+        workspaceId: 'w1',
+        installationId: 555,
+      })
+
+      await expect(
+        githubAppInstallService.uninstall('w1', 'MEMBER')
+      ).rejects.toMatchObject({ status: 403 })
+      expect(deleteAppInstallation).not.toHaveBeenCalled()
+      expect(repo.delete).not.toHaveBeenCalled()
+    })
+
     it('deletes the installation on GitHub and locally', async () => {
       repo.findByWorkspace.mockResolvedValue({
         workspaceId: 'w1',
         installationId: 555,
       })
 
-      await githubAppInstallService.uninstall('w1')
+      await githubAppInstallService.uninstall('w1', 'OWNER')
 
       expect(deleteAppInstallation).toHaveBeenCalledWith(555)
       expect(repo.delete).toHaveBeenCalledWith('w1')
@@ -191,7 +204,7 @@ describe('githubAppInstallService', () => {
       })
       ;(deleteAppInstallation as jest.Mock).mockRejectedValue(new Error('403'))
 
-      await githubAppInstallService.uninstall('w1')
+      await githubAppInstallService.uninstall('w1', 'OWNER')
 
       expect(repo.delete).toHaveBeenCalledWith('w1')
     })
