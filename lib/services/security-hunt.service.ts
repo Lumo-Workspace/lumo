@@ -61,6 +61,8 @@ import {
 import {
   HUNT_MAX_PLANNED_TASKS,
   HUNT_MAX_STEPS_PER_CATEGORY,
+  HUNT_WRAP_UP_TIMEOUT_MS,
+  HUNT_WRAP_UP_MIN_MS,
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_SNIPPET_RADIUS,
   HUNT_AUDIT_MAX_REJECTED,
@@ -559,9 +561,25 @@ export const securityHuntService = {
       // What is left of this task's window after acquisition — the batch's
       // ceiling is a whole-batch ceiling, not a model-call ceiling.
       const remainingMs = input.timeBudgetMs - (Date.now() - started)
-      if (remainingMs < HUNT_MIN_BATCH_TIME_MS) {
+      // Reserved out of the search's window, not granted on top of it — the
+      // clock half of the same carve-up the token budget gets. A third, capped
+      // at the handover's own ceiling, and dropped entirely when a third would
+      // come to less than the shortest window worth asking in: docking the
+      // search for a call that could never be made with the proceeds is the
+      // worst of both.
+      const reserveMs = Math.min(
+        HUNT_WRAP_UP_TIMEOUT_MS,
+        Math.floor(remainingMs / 3)
+      )
+      const searchMs =
+        remainingMs - (reserveMs >= HUNT_WRAP_UP_MIN_MS ? reserveMs : 0)
+      // Measured against what the SEARCH actually gets. The floor says a
+      // tool-calling loop given less than this buys an abort rather than an
+      // answer, and that is a statement about the loop's window, not about the
+      // batch's.
+      if (searchMs < HUNT_MIN_BATCH_TIME_MS) {
         logger.warn(
-          `[security-hunt] batch ${input.task.id} scan=${input.job.scanId}: sandbox acquisition left ${remainingMs}ms of its window`
+          `[security-hunt] batch ${input.task.id} scan=${input.job.scanId}: sandbox acquisition left ${searchMs}ms of its window`
         )
         return {
           candidates: [],
@@ -605,8 +623,11 @@ export const securityHuntService = {
           return error === undefined ? { output } : { output, error }
         },
         tokenBudget: input.tokenBudget,
-        timeoutMs: remainingMs,
+        timeoutMs: searchMs,
         maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
+        // A deadline, not a duration — the window is read off it after the
+        // search, when how much is left is finally a known quantity.
+        wrapUpDeadlineAt: started + input.timeBudgetMs,
       })
       return {
         candidates: out.candidates,
@@ -617,6 +638,8 @@ export const securityHuntService = {
         tokens: out.tokens + compress.tokens,
         elapsedMs: Date.now() - started,
         stopped: out.stopped,
+        ...(out.wrappedUp ? { wrappedUp: true } : {}),
+        ...(out.wrapUpWarnings ? { wrapUpWarnings: out.wrapUpWarnings } : {}),
         compress,
         ...vm,
       }

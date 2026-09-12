@@ -342,6 +342,14 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           tokens: batch.tokens,
           elapsedMs: batch.elapsedMs,
           stopped: batch.stopped,
+          // LUM-758 follow-up: whether the agent had to be ASKED for its
+          // candidates. Dropping it here would leave the flag computed,
+          // returned and never readable — the same shape of gap the
+          // compression no-op counter was added to close.
+          ...(batch.wrappedUp ? { wrappedUp: true } : {}),
+          ...(batch.wrapUpWarnings
+            ? { wrapUpWarnings: batch.wrapUpWarnings }
+            : {}),
         })
         stops[task.id] = batch.stopped
       }
@@ -387,6 +395,14 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           tokens: retry.tokens,
           elapsedMs: retry.elapsedMs,
           stopped: retry.stopped,
+          // LUM-758 follow-up: whether the agent had to be ASKED for its
+          // candidates. Dropping it here would leave the flag computed,
+          // returned and never readable — the same shape of gap the
+          // compression no-op counter was added to close.
+          ...(retry.wrappedUp ? { wrappedUp: true } : {}),
+          ...(retry.wrapUpWarnings
+            ? { wrapUpWarnings: retry.wrapUpWarnings }
+            : {}),
         })
         stops[task.id] = retry.stopped
       }

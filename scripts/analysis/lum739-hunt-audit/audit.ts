@@ -96,8 +96,15 @@ async function main(): Promise<void> {
     }`
   )
   const stops = Object.entries(stats.taskStops).sort((a, b) => b[1] - a[1])
+
   console.log(
     `task stops: ${stops.length === 0 ? '(none)' : stops.map(([k, n]) => `${k} ${n}`).join(' · ')}`
+  )
+  // The convergence read. `done` = the agent decided to submit; `wrapped up` =
+  // it was asked because a counter ran out. All-wrapped-up is a layer whose
+  // agent never decides — the thing neither budget nor context has moved.
+  console.log(
+    `submitted on its own: ${stats.taskStops.done ?? 0} / ${stats.tasksRan} tasks that ran · wrapped up: ${stats.tasksWrappedUp}${stats.tasksWrapUpRefused > 0 ? ` · wrap-up refused by provider: ${stats.tasksWrapUpRefused}` : ''}`
   )
 
   console.log('')

@@ -388,6 +388,58 @@ describe('LUM-739 hunt service', () => {
     expect(stopMock).toHaveBeenCalledWith(HANDLE)
   })
 
+  // LUM-758 follow-up — the middle hop of the wrap-up's observability chain.
+  // The client computes `wrappedUp` and the workflow writes it to the audit,
+  // but if `huntBatch` drops it in between, the flag is computed, returned and
+  // never readable — and `tasksWrappedUp` stays permanently 0 while every other
+  // assertion passes. That is the same gap this chain was built to close, one
+  // layer below where it was looked for.
+  it('huntBatch carries wrappedUp out of the client, and leaves it absent when the agent submitted on its own', async () => {
+    huntMock.mockResolvedValueOnce({
+      candidates: [],
+      tokens: 900,
+      stopped: 'budget',
+      wrappedUp: true,
+    })
+    const asked = await securityHuntService.huntBatch(batchInput())
+    expect(asked.wrappedUp).toBe(true)
+
+    huntMock.mockResolvedValueOnce({
+      candidates: [],
+      tokens: 900,
+      stopped: 'done',
+    })
+    const volunteered = await securityHuntService.huntBatch(batchInput())
+    // Absent, never `false`: "did not need asking" must not be confused with
+    // "we asked and it refused".
+    expect(volunteered.wrappedUp).toBeUndefined()
+  })
+
+  // Same chain, same failure mode, one field over. `wrapUpWarnings` is the only
+  // record that the forced tool choice never reached the model at all; dropped
+  // here it dies in the client's return value, and every such task reads in the
+  // audit as an agent that was asked and had nothing — which is evidence about
+  // the agent, from a call that never happened.
+  it('huntBatch carries wrapUpWarnings out of the client, and leaves them absent otherwise', async () => {
+    huntMock.mockResolvedValueOnce({
+      candidates: [],
+      tokens: 900,
+      stopped: 'budget',
+      wrapUpWarnings: ['{"type":"unsupported-setting"}'],
+    })
+    const refused = await securityHuntService.huntBatch(batchInput())
+    expect(refused.wrapUpWarnings).toEqual(['{"type":"unsupported-setting"}'])
+
+    huntMock.mockResolvedValueOnce({
+      candidates: [],
+      tokens: 900,
+      stopped: 'budget',
+      wrappedUp: true,
+    })
+    const worked = await securityHuntService.huntBatch(batchInput())
+    expect(worked.wrapUpWarnings).toBeUndefined()
+  })
+
   it('huntBatch charges shell compression to the batch tokens and breaks it out for the audit', async () => {
     // Three commands: one compressed, one under the threshold, one whose
     // compression was billed and then failed.
@@ -468,6 +520,7 @@ describe('LUM-739 hunt service', () => {
     })
     huntMock.mockResolvedValue({ candidates: [], tokens: 0, stopped: 'done' })
 
+    const t0 = Date.now()
     const out = await securityHuntService.huntBatch(batchInput())
 
     // Worst case in production is ~50 s of attach poll + checkout wait. The
@@ -476,9 +529,42 @@ describe('LUM-739 hunt service', () => {
     expect(out.elapsedMs).toBeGreaterThanOrEqual(30)
     // …and they come off the model's window, or a 60 s batch would really run
     // for 110 s and starve the task behind it.
-    const { timeoutMs } = huntMock.mock.calls[0]![0]
+    const { timeoutMs, wrapUpDeadlineAt } = huntMock.mock.calls[0]![0]
     expect(timeoutMs).toBeLessThanOrEqual(60_000 - 30)
-    expect(timeoutMs).toBeGreaterThan(50_000)
+    // The handover's window is RESERVED out of the search's, not granted on
+    // top of it. Handing the search the whole remainder and then clamping the
+    // handover to "what is left" is the same bug from either end: either the
+    // handover gets nothing, or the batch overruns a ceiling that is supposed
+    // to be whole-batch and the retry pass behind it is starved. A third,
+    // capped at HUNT_WRAP_UP_TIMEOUT_MS.
+    const remaining = 60_000 - out.elapsedMs
+    const reserved = Math.min(30_000, Math.floor(remaining / 3))
+    expect(timeoutMs).toBeGreaterThan(remaining - reserved - 200)
+    expect(timeoutMs).toBeLessThanOrEqual(remaining - reserved + 200)
+    // A deadline, not a duration: the window is read off it AFTER the search,
+    // which is the only moment "how much is left" is a known quantity. Anchored
+    // to when the BATCH started — measured from now, a slow acquisition would
+    // push the handover past a ceiling `timeBudgetMs` says is whole-batch, and
+    // an assertion phrased against `Date.now()` after a ~0 ms mocked search
+    // cannot tell the two apart.
+    expect(wrapUpDeadlineAt).toBeGreaterThanOrEqual(t0 + 60_000 - 5)
+    expect(wrapUpDeadlineAt).toBeLessThanOrEqual(t0 + 60_000 + 5)
+  })
+
+  it('huntBatch does not dock the search for a reserve too small to ask in', async () => {
+    // A third of a short window is under HUNT_WRAP_UP_MIN_MS, so no handover
+    // could ever be made with it. Taking it anyway is the worst of both: the
+    // search is shortened and nothing is bought. HUNT_MIN_BATCH_TIME_MS is
+    // measured against what the SEARCH gets, so it has to see the same number.
+    huntMock.mockResolvedValue({ candidates: [], tokens: 0, stopped: 'done' })
+
+    await securityHuntService.huntBatch({
+      ...batchInput(),
+      timeBudgetMs: 12_000,
+    })
+
+    const { timeoutMs } = huntMock.mock.calls[0]![0]
+    expect(timeoutMs).toBeGreaterThan(11_000)
   })
 
   it('huntBatch does not start a model call on a window acquisition already ate', async () => {

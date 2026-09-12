@@ -60,6 +60,27 @@ export interface HuntAuditStats {
   }
   /** Why each planned task stopped: done / steps / budget / timeout / error / skipped. */
   taskStops: Record<string, number>
+  /**
+   * LUM-758 follow-up — tasks that never called `submit_candidates` on their
+   * own and were asked by the forced wrap-up. Read against `taskStops.done`:
+   * a layer where every task is wrapped up is a layer whose agent never
+   * decides, and no amount of budget or context has changed that yet.
+   */
+  tasksWrappedUp: number
+  /**
+   * Wrap-ups that ran and submitted nothing while the provider was complaining
+   * — an `unsupported-setting` here means the forced tool choice never reached
+   * the model, so every `wrappedUp: false` in the sample is a question we never
+   * managed to ask rather than an agent that had nothing.
+   */
+  tasksWrapUpRefused: number
+  /**
+   * Tasks that actually RAN, counted once each — the honest denominator for
+   * the convergence read. `taskStops` cannot serve: it counts `skipped` rows
+   * (tasks the budget never reached) and carries TWO rows for a task the retry
+   * pass re-ran, which `HuntTaskAudit` documents as intentional.
+   */
+  tasksRan: number
   sandbox: { attached: number; created: number; egressOpen: number }
   compress: {
     scans: number
@@ -117,6 +138,9 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
       taskCounts: {},
     },
     taskStops: {},
+    tasksWrappedUp: 0,
+    tasksWrapUpRefused: 0,
+    tasksRan: 0,
     sandbox: { attached: 0, created: 0, egressOpen: 0 },
     compress: {
       scans: 0,
@@ -157,10 +181,23 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     }
 
     const tasks = Array.isArray(audit.tasks) ? audit.tasks : []
+    // Last row wins per task id: a retried task has two, and its outcome is the
+    // later one. `skipped` never ran and is excluded from the denominator.
+    const lastByTask = new Map<string, Record<string, unknown>>()
+    for (const t of tasks) {
+      const row = (t ?? {}) as Record<string, unknown>
+      const id = typeof row.taskId === 'string' ? row.taskId : ''
+      if (id !== '' && row.stopped !== 'skipped') lastByTask.set(id, row)
+    }
+    stats.tasksRan += lastByTask.size
     for (const t of tasks) {
       const stop = (t as { stopped?: unknown } | null)?.stopped
       const key = typeof stop === 'string' ? stop : 'unknown'
       stats.taskStops[key] = (stats.taskStops[key] ?? 0) + 1
+      if ((t as { wrappedUp?: unknown } | null)?.wrappedUp === true)
+        stats.tasksWrappedUp += 1
+      const w = (t as { wrapUpWarnings?: unknown } | null)?.wrapUpWarnings
+      if (Array.isArray(w) && w.length > 0) stats.tasksWrapUpRefused += 1
     }
 
     if (audit.sandbox === 'attached') stats.sandbox.attached += 1
