@@ -225,19 +225,56 @@ The platform is fully responsive and works on:
 
 ## 🔐 GitHub App permissions
 
+A workspace connects GitHub over **two independent grants**, and both are
+visible as their own row in workspace → settings → integrations:
+
+| Grant                   | Identity                    | Buys                                                                                                                     |
+| ----------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **OAuth authorization** | the member who connected it | listing repositories, linking pull requests, creating the repo webhook, comment mirror                                   |
+| **App installation**    | the Lumo App, per workspace | the installation token everything server-side reads and writes GitHub with — including the managed security scan's clone |
+
+They are not interchangeable. An OAuth token is a person (it dies when that
+member leaves or revokes) and its `repo` scope is full repository access; the
+installation is a machine identity scoped to `contents:read`, which is what
+cloning customer code into Lumo's sandbox has to use. **A workspace that has
+only authorized OAuth is not scanned** — the card says so in as many words.
+
 The Lumo GitHub App (`GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY`) needs this
-minimum permission set. Everything Lumo reads or writes on GitHub goes through
-an installation token of this App; the OAuth connection only creates the repo
-webhook.
+minimum permission set:
 
 | Permission      | Access       | Used by                                              |
 | --------------- | ------------ | ---------------------------------------------------- |
-| Contents        | Read         | file reads, PR diffs                                 |
+| Contents        | Read         | file reads, PR diffs, security-scan clone            |
 | Pull requests   | Read & write | PR head sha, change volume, comment mirror (LUM-546) |
 | Issues          | Read & write | comment mirror (issue comments)                      |
 | Checks          | Read         | CI signal for the gate audit (LUM-616)               |
 | Commit statuses | Read         | CI signal (Status API providers)                     |
 | Metadata        | Read         | mandatory                                            |
+
+### Installation flow
+
+`GITHUB_APP_SLUG` names the App in its install URL, and
+`GITHUB_APP_WEBHOOK_SECRET` is the secret configured on the **App's own**
+webhook (a different delivery from the per-repo hooks OAuth creates — both
+arrive at `/api/webhooks/github` and are verified against different secrets).
+
+1. The settings card sends the owner to `/api/github/app/install`, which
+   redirects to the App's install page with an encrypted `state` naming the
+   workspace.
+2. GitHub returns to `/api/github/app/setup`, which re-checks that the
+   signed-in caller is a member of that workspace (the state carries context,
+   never authority), reads the installation, and stores it.
+3. The App webhook keeps the record current: `installation` (created /
+   deleted / suspend / unsuspend / new_permissions_accepted) and
+   `installation_repositories` (added / removed). **Subscribe the App to both.**
+   A suspended or deleted installation drops the record — a workspace that
+   cannot be cloned must not be shown as installed.
+
+**Legacy fallback.** A workspace with no installation record falls back to the
+global `GITHUB_APP_INSTALLATION_ID` env var (Lumo's own installation, from
+before this flow existed) and logs a warning. It is wrong for every other
+workspace; it exists only until Lumo installs through the flow above, and is
+scheduled for removal then.
 
 ## 🛡️ Security scan
 

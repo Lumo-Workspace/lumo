@@ -9,7 +9,19 @@
 export type { SplitIdentifier } from './types'
 
 // Auth
-export { getGithubInstallationToken } from './auth'
+export {
+  getGithubInstallationToken,
+  getGithubAppJwt,
+  createInstallationToken,
+} from './auth'
+
+// App installations (the /app endpoints — install flow, not repository data)
+export {
+  fetchAppInstallation,
+  fetchInstallationRepositories,
+  deleteAppInstallation,
+} from './app-installations'
+export type { AppInstallationAccount } from './app-installations'
 
 // Branch utilities
 export {

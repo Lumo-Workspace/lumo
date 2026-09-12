@@ -52,12 +52,27 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
   )
 
   useEffect(() => {
-    // Handle error redirect from OAuth callback
+    // Handle redirects from the two GitHub callbacks: the OAuth callback
+    // (`github_error`) and the App installation callback (`github_app` /
+    // `github_app_error`). A failed install must say so — silently landing back
+    // on an unchanged card is how a workspace ends up believing it is scanned.
     const params = new URLSearchParams(window.location.search)
+    const appError = params.get('github_app_error')
+    const appResult = params.get('github_app')
+
     if (params.get('github_error')) {
       toast.error(intl.formatMessage({ id: 'github.connectFailed' }))
-      window.history.replaceState({}, '', window.location.pathname)
+    } else if (appError) {
+      toast.error(intl.formatMessage({ id: 'github.installFailed' }))
+    } else if (appResult === 'installed') {
+      toast.success(intl.formatMessage({ id: 'github.installSuccess' }))
+    } else if (appResult === 'requested') {
+      toast.info(intl.formatMessage({ id: 'github.installRequested' }))
+    } else {
+      return
     }
+
+    window.history.replaceState({}, '', window.location.pathname)
   }, [intl])
 
   // Each integration owns its card markup (the cards take heterogeneous props
