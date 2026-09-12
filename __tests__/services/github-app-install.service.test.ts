@@ -19,6 +19,8 @@ jest.mock('@/lib/integrations/github', () => ({
   fetchAppInstallation: jest.fn(),
   fetchInstallationRepositories: jest.fn(),
   deleteAppInstallation: jest.fn(),
+  createInstallationToken: jest.fn(),
+  syncRepoPRs: jest.fn(),
 }))
 
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
@@ -27,6 +29,8 @@ import {
   fetchAppInstallation,
   fetchInstallationRepositories,
   deleteAppInstallation,
+  createInstallationToken,
+  syncRepoPRs,
 } from '@/lib/integrations/github'
 
 type MockedRepo = {
@@ -45,6 +49,9 @@ describe('githubAppInstallService', () => {
     ;(fetchInstallationRepositories as jest.Mock).mockResolvedValue([
       'acme-inc/web',
     ])
+    repo.upsert.mockResolvedValue({ workspaceId: 'w1', installationId: 42 })
+    ;(createInstallationToken as jest.Mock).mockResolvedValue('inst-token')
+    ;(syncRepoPRs as jest.Mock).mockResolvedValue(undefined)
   })
 
   describe('install', () => {
@@ -63,6 +70,34 @@ describe('githubAppInstallService', () => {
         repositories: ['acme-inc/web'],
         installedBy: 'm1',
       })
+    })
+
+    it('backfills the pull requests each reachable repository already has', async () => {
+      await githubAppInstallService.install({
+        workspaceId: 'w1',
+        memberId: 'm1',
+        installationId: 42,
+      })
+
+      expect(syncRepoPRs).toHaveBeenCalledWith(
+        'inst-token',
+        'acme-inc/web',
+        'w1',
+        null
+      )
+    })
+
+    it('still records the installation when the backfill fails', async () => {
+      ;(syncRepoPRs as jest.Mock).mockRejectedValue(new Error('rate limited'))
+
+      await expect(
+        githubAppInstallService.install({
+          workspaceId: 'w1',
+          memberId: 'm1',
+          installationId: 42,
+        })
+      ).resolves.toBeDefined()
+      expect(repo.upsert).toHaveBeenCalled()
     })
 
     it('writes nothing when GitHub rejects the installation read', async () => {
@@ -156,6 +191,14 @@ describe('githubAppInstallService', () => {
         'acme-inc/web',
         'acme-inc/api',
       ])
+      // Only the newly reachable repository is backfilled.
+      expect(syncRepoPRs).toHaveBeenCalledTimes(1)
+      expect(syncRepoPRs).toHaveBeenCalledWith(
+        'inst-token',
+        'acme-inc/api',
+        'w1',
+        null
+      )
     })
 
     it('does nothing for an unknown installation', async () => {

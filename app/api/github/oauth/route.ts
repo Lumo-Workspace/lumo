@@ -5,6 +5,12 @@ import { encrypt } from '@/lib/crypto'
 /**
  * GET /api/github/oauth?workspaceUrl={slug}
  * Initiates the GitHub OAuth flow by redirecting to GitHub's authorization page.
+ *
+ * This grant is an identity link only: it records which GitHub login belongs
+ * to this member, so comments arriving from GitHub can be attributed to them
+ * in Lumo. Everything that reads or writes repositories — listing, PR links,
+ * webhooks, comment mirroring, the security scan — runs as the workspace's App
+ * installation, so no repository scope is requested here.
  */
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth()
@@ -44,7 +50,7 @@ export async function GET(request: NextRequest) {
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/github/callback`,
-    scope: 'repo pull_requests actions admin:repo_hook',
+    scope: 'read:user',
     state,
   })
 

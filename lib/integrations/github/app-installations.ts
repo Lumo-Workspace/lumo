@@ -37,15 +37,22 @@ export async function fetchAppInstallation(
   }
 }
 
+export interface InstallationRepository {
+  fullName: string
+  name: string
+  private: boolean
+}
+
 /**
- * The repositories an installation can reach, as `owner/name`. Uses the
- * installation token — this is the App acting as the installation.
+ * The repositories an installation can reach. Uses the installation token —
+ * this is the App acting as the installation. The set is decided on GitHub's
+ * side (the App's repository selection), never in Lumo.
  */
-export async function fetchInstallationRepositories(
+export async function listInstallationRepositories(
   installationId: number
-): Promise<string[]> {
+): Promise<InstallationRepository[]> {
   const token = await createInstallationToken(installationId)
-  const names: string[] = []
+  const repos: InstallationRepository[] = []
   // GitHub caps page size at 100; a handful of pages is plenty and bounds the
   // work a single callback can do.
   for (let page = 1; page <= 5; page++) {
@@ -56,19 +63,36 @@ export async function fetchInstallationRepositories(
     if (!res.ok) {
       const body = await res.text()
       throw new Error(
-        `GitHub fetchInstallationRepositories failed ${res.status}: ${body.slice(0, 200)}`
+        `GitHub listInstallationRepositories failed ${res.status}: ${body.slice(0, 200)}`
       )
     }
     const data = (await res.json()) as {
-      repositories?: { full_name?: string }[]
+      repositories?: { full_name?: string; name?: string; private?: boolean }[]
     }
-    const page_names = (data.repositories ?? [])
-      .map(r => r.full_name)
-      .filter((n): n is string => Boolean(n))
-    names.push(...page_names)
-    if (page_names.length < 100) break
+    const pageRepos = (data.repositories ?? []).flatMap(r =>
+      r.full_name
+        ? [
+            {
+              fullName: r.full_name,
+              name: r.name ?? r.full_name,
+              private: r.private === true,
+            },
+          ]
+        : []
+    )
+    repos.push(...pageRepos)
+    if (pageRepos.length < 100) break
   }
-  return names
+  return repos
+}
+
+/** Just the `owner/name` strings — what the installation row stores. */
+export async function fetchInstallationRepositories(
+  installationId: number
+): Promise<string[]> {
+  return (await listInstallationRepositories(installationId)).map(
+    r => r.fullName
+  )
 }
 
 /**

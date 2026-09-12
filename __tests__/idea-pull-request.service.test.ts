@@ -16,7 +16,6 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 }))
 jest.mock('@/lib/repositories/github.repository', () => ({
   githubRepository: {
-    findIntegrationByRepo: jest.fn(),
     upsertPullRequest: jest.fn(),
   },
 }))
@@ -27,7 +26,9 @@ jest.mock('@/lib/integrations/github/fetch-pull-request', () => ({
   ...jest.requireActual('@/lib/integrations/github/fetch-pull-request'),
   fetchPullRequest: jest.fn(),
 }))
-jest.mock('@/lib/crypto', () => ({ decrypt: jest.fn(() => 'plaintext-token') }))
+jest.mock('@/lib/integrations/github/auth', () => ({
+  getGithubInstallationToken: jest.fn(),
+}))
 
 import { ideaPullRequestService } from '@/lib/services/idea-pull-request.service'
 import { ideaPullRequestRepository } from '@/lib/repositories/idea-pull-request.repository'
@@ -35,6 +36,9 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { resolveIdeaRef } from '@/lib/services/idea-evidence-resolve'
 import { fetchPullRequest } from '@/lib/integrations/github/fetch-pull-request'
+import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+
+const mockToken = getGithubInstallationToken as jest.Mock
 
 const mockResolve = resolveIdeaRef as jest.Mock
 const mockRepo = ideaPullRequestRepository as jest.Mocked<
@@ -149,10 +153,7 @@ describe('ideaPullRequestService.link', () => {
 
   it('fetches and upserts a PR the workspace does not track yet', async () => {
     mockPrRepo.findByRepoAndNumber.mockResolvedValue(null)
-    mockGh.findIntegrationByRepo.mockResolvedValue({
-      id: 'int1',
-      accessToken: 'enc',
-    } as never)
+    mockToken.mockResolvedValue('inst-token')
     mockFetchPr.mockResolvedValue({
       number: 42,
       title: 'Add thing',
@@ -175,12 +176,17 @@ describe('ideaPullRequestService.link', () => {
       createdById: 'm1',
     })
 
+    // Read as the workspace's App installation, never a member's token.
+    expect(mockFetchPr).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'inst-token', repo: 'acme/app' })
+    )
     expect(mockGh.upsertPullRequest).toHaveBeenCalledWith(
       expect.objectContaining({
         repo: 'acme/app',
         number: 42,
         state: 'merged', // merged wins over GitHub's "closed"
         taskId: null, // an idea citation never claims the PR for a task
+        integrationId: null, // no OAuth integration behind an App read
       })
     )
     expect(mockRepo.create).toHaveBeenCalledWith(
@@ -188,9 +194,11 @@ describe('ideaPullRequestService.link', () => {
     )
   })
 
-  it('reports a workspace with no GitHub integration for the repo as 400', async () => {
+  it('reports a workspace without the GitHub App installed as 400', async () => {
     mockPrRepo.findByRepoAndNumber.mockResolvedValue(null)
-    mockGh.findIntegrationByRepo.mockResolvedValue(null)
+    mockToken.mockRejectedValue(
+      new Error('No GitHubAppInstallation for workspace')
+    )
 
     await expect(
       ideaPullRequestService.link({

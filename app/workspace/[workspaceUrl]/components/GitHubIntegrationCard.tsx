@@ -2,17 +2,10 @@
 
 import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
-import { GitBranch, Plus, X, Loader2, AlertTriangle } from 'lucide-react'
+import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { GitHubIcon } from './GitHubIcon'
 import { IntegrationCard } from './IntegrationCard'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,15 +38,8 @@ export function GitHubIntegrationCard({
     disconnectOpen,
     setDisconnectOpen,
     disconnecting,
-    addRepoOpen,
-    setAddRepoOpen,
-    availableRepos,
-    loadingRepos,
     handleConnect,
     handleDisconnect,
-    handleRemoveRepo,
-    openAddRepo,
-    handleAddRepo,
   } = useGitHubIntegration(workspaceUrl)
   const {
     status: appStatus,
@@ -96,24 +82,11 @@ export function GitHubIntegrationCard({
         disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
         menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
-        {/* The two grants are independent: OAuth authorizes a person, the App
-            installation authorizes the machine identity the security scan
-            clones with. Each keeps its own status and its own action. */}
-        <IntegrationChainRow
-          testId='github-oauth-row'
-          label={intl.formatMessage({ id: 'github.oauthRow' })}
-          description={intl.formatMessage({ id: 'github.oauthRowDesc' })}
-          connected={connected}
-          connectedLabel={intl.formatMessage({ id: 'github.oauthConnected' })}
-          action={
-            oauthMissing && isOwner ? (
-              <Button size='sm' onClick={handleConnect}>
-                {intl.formatMessage({ id: 'common.connect' })}
-              </Button>
-            ) : null
-          }
-        />
-
+        {/* Two grants with different jobs. The App installation is the team's:
+            every repository read and write — PR links, webhooks, comment
+            mirroring, the security scan — runs as it. The OAuth link is
+            personal and optional: it only maps a GitHub login to this member so
+            comments arriving from GitHub are attributed to them. */}
         <IntegrationChainRow
           testId='github-app-row'
           label={intl.formatMessage({ id: 'github.appRow' })}
@@ -158,60 +131,57 @@ export function GitHubIntegrationCard({
           </div>
         ) : null}
 
-        {status?.connected ? (
-          <>
-            {/* Authorized repos */}
-            <div>
-              <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2'>
-                {intl.formatMessage({ id: 'github.authorizedRepos' })}
+        {appInstalled ? (
+          <div>
+            <div className='flex items-center justify-between mb-2'>
+              <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider'>
+                {intl.formatMessage({ id: 'github.appRepos' })}
               </p>
-
-              {status.repositories && status.repositories.length > 0 ? (
-                <ul className='space-y-1.5'>
-                  {status.repositories.map(repo => (
-                    <li
-                      key={repo}
-                      className='flex items-center justify-between px-3 py-2 rounded-lg bg-card border border-border text-sm'
-                    >
-                      <span className='text-foreground font-mono text-xs'>
-                        {repo}
-                      </span>
-                      {isOwner && (
-                        <button
-                          onClick={() => handleRemoveRepo(repo)}
-                          className='text-muted-foreground hover:text-red-500 transition-colors ml-3 shrink-0'
-                          title={intl.formatMessage({
-                            id: 'github.removeRepo',
-                          })}
-                        >
-                          <X size={13} />
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className='text-xs text-muted-foreground italic'>
-                  {intl.formatMessage({ id: 'github.noRepos' })}
-                </p>
-              )}
+              <a
+                href='https://github.com/settings/installations'
+                target='_blank'
+                rel='noreferrer'
+                className='inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors'
+              >
+                {intl.formatMessage({ id: 'github.manageOnGithub' })}
+                <ExternalLink size={11} />
+              </a>
             </div>
-
-            {isOwner && (
-              <div className='flex items-center pt-1'>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  className='gap-1.5'
-                  onClick={openAddRepo}
-                >
-                  <Plus size={13} />
-                  {intl.formatMessage({ id: 'github.addRepo' })}
-                </Button>
-              </div>
+            {appStatus?.repositories && appStatus.repositories.length > 0 ? (
+              <ul className='space-y-1.5'>
+                {appStatus.repositories.map(repo => (
+                  <li
+                    key={repo}
+                    className='px-3 py-2 rounded-lg bg-card border border-border text-sm'
+                  >
+                    <span className='text-foreground font-mono text-xs'>
+                      {repo}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className='text-xs text-muted-foreground italic'>
+                {intl.formatMessage({ id: 'github.appNoRepos' })}
+              </p>
             )}
-          </>
+          </div>
         ) : null}
+
+        <IntegrationChainRow
+          testId='github-oauth-row'
+          label={intl.formatMessage({ id: 'github.oauthRow' })}
+          description={intl.formatMessage({ id: 'github.oauthRowDesc' })}
+          connected={connected}
+          connectedLabel={intl.formatMessage({ id: 'github.oauthConnected' })}
+          action={
+            oauthMissing && isOwner ? (
+              <Button size='sm' onClick={handleConnect}>
+                {intl.formatMessage({ id: 'common.connect' })}
+              </Button>
+            ) : null
+          }
+        />
       </IntegrationCard>
 
       {/* Disconnect confirmation */}
@@ -273,62 +243,6 @@ export function GitHubIntegrationCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Add repo dialog */}
-      <Dialog open={addRepoOpen} onOpenChange={setAddRepoOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {intl.formatMessage({ id: 'github.addRepo' })}
-            </DialogTitle>
-            <DialogDescription>
-              {intl.formatMessage({ id: 'github.addRepoDesc' })}
-            </DialogDescription>
-          </DialogHeader>
-
-          {loadingRepos ? (
-            <div className='flex items-center justify-center py-8'>
-              <Loader2
-                size={20}
-                className='animate-spin text-muted-foreground'
-              />
-            </div>
-          ) : (
-            <ul className='max-h-72 overflow-y-auto space-y-1'>
-              {availableRepos
-                .filter(r => !status?.repositories?.includes(r.fullName))
-                .map(repo => (
-                  <li key={repo.fullName}>
-                    <button
-                      onClick={() => handleAddRepo(repo.fullName)}
-                      className='w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left'
-                    >
-                      <GitBranch
-                        size={14}
-                        className='text-muted-foreground shrink-0'
-                      />
-                      <span className='text-sm text-foreground font-mono'>
-                        {repo.fullName}
-                      </span>
-                      {repo.private && (
-                        <span className='ml-auto text-[10px] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground'>
-                          {intl.formatMessage({ id: 'github.private' })}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                ))}
-              {availableRepos.filter(
-                r => !status?.repositories?.includes(r.fullName)
-              ).length === 0 && (
-                <p className='text-xs text-muted-foreground text-center py-6'>
-                  {intl.formatMessage({ id: 'github.allReposAdded' })}
-                </p>
-              )}
-            </ul>
-          )}
-        </DialogContent>
-      </Dialog>
     </>
   )
 }

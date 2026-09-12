@@ -3,7 +3,10 @@ import { githubAppInstallationRepository } from '@/lib/repositories'
 import {
   fetchAppInstallation,
   fetchInstallationRepositories,
+  listInstallationRepositories,
   deleteAppInstallation,
+  createInstallationToken,
+  syncRepoPRs,
 } from '@/lib/integrations/github'
 
 interface InstallInput {
@@ -36,13 +39,42 @@ function fullNames(repos: { full_name?: string }[] | undefined): string[] {
  * managed security scan clones with an installation token from here, never with
  * an OAuth token.
  */
+/**
+ * Import the pull requests a repository already has, so PRs opened before Lumo
+ * could see the repository still show up on task pages.
+ *
+ * Best-effort and fire-and-forget: a failed backfill must never fail the
+ * installation itself, and the webhook keeps everything current from here on.
+ */
+async function backfillPullRequests(
+  workspaceId: string,
+  installationId: number,
+  repositories: string[]
+): Promise<void> {
+  if (repositories.length === 0) return
+  try {
+    const token = await createInstallationToken(installationId)
+    for (const fullName of repositories) {
+      await syncRepoPRs(token, fullName, workspaceId, null).catch(error =>
+        logger.error(
+          `[github/app] PR backfill failed for ${fullName}: ${String(error)}`
+        )
+      )
+    }
+  } catch (error) {
+    logger.error(
+      `[github/app] PR backfill skipped for installation ${installationId}: ${String(error)}`
+    )
+  }
+}
+
 export const githubAppInstallService = {
   /** Bind an installation to a workspace (installation callback). */
   async install({ workspaceId, memberId, installationId }: InstallInput) {
     const account = await fetchAppInstallation(installationId)
     const repositories = await fetchInstallationRepositories(installationId)
 
-    return githubAppInstallationRepository.upsert({
+    const row = await githubAppInstallationRepository.upsert({
       workspaceId,
       installationId,
       accountLogin: account.accountLogin,
@@ -50,6 +82,10 @@ export const githubAppInstallService = {
       repositories,
       installedBy: memberId,
     })
+
+    await backfillPullRequests(workspaceId, installationId, repositories)
+
+    return row
   },
 
   /**
@@ -60,6 +96,17 @@ export const githubAppInstallService = {
     const row =
       await githubAppInstallationRepository.findByInstallationId(installationId)
     return row?.workspaceId ?? null
+  },
+
+  /**
+   * Live repository list for pickers. `null` when the App is not installed —
+   * the route turns that into the 404 `useGithubRepos` treats as "not connected".
+   */
+  async listRepositories(workspaceId: string) {
+    const row =
+      await githubAppInstallationRepository.findByWorkspace(workspaceId)
+    if (!row) return null
+    return listInstallationRepositories(row.installationId)
   },
 
   /** Installation status for the settings card. */
@@ -184,5 +231,10 @@ export const githubAppInstallService = {
       row.workspaceId,
       next
     )
+
+    const added = fullNames(payload.repositories_added).filter(
+      name => !row.repositories.includes(name)
+    )
+    await backfillPullRequests(row.workspaceId, installationId, added)
   },
 }
