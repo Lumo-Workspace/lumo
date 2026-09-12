@@ -520,6 +520,7 @@ describe('LUM-739 hunt service', () => {
     })
     huntMock.mockResolvedValue({ candidates: [], tokens: 0, stopped: 'done' })
 
+    const t0 = Date.now()
     const out = await securityHuntService.huntBatch(batchInput())
 
     // Worst case in production is ~50 s of attach poll + checkout wait. The
@@ -541,9 +542,29 @@ describe('LUM-739 hunt service', () => {
     expect(timeoutMs).toBeGreaterThan(remaining - reserved - 200)
     expect(timeoutMs).toBeLessThanOrEqual(remaining - reserved + 200)
     // A deadline, not a duration: the window is read off it AFTER the search,
-    // which is the only moment "how much is left" is a known quantity.
-    expect(wrapUpDeadlineAt).toBeGreaterThan(Date.now())
-    expect(wrapUpDeadlineAt).toBeLessThanOrEqual(Date.now() + 60_000)
+    // which is the only moment "how much is left" is a known quantity. Anchored
+    // to when the BATCH started — measured from now, a slow acquisition would
+    // push the handover past a ceiling `timeBudgetMs` says is whole-batch, and
+    // an assertion phrased against `Date.now()` after a ~0 ms mocked search
+    // cannot tell the two apart.
+    expect(wrapUpDeadlineAt).toBeGreaterThanOrEqual(t0 + 60_000 - 5)
+    expect(wrapUpDeadlineAt).toBeLessThanOrEqual(t0 + 60_000 + 5)
+  })
+
+  it('huntBatch does not dock the search for a reserve too small to ask in', async () => {
+    // A third of a short window is under HUNT_WRAP_UP_MIN_MS, so no handover
+    // could ever be made with it. Taking it anyway is the worst of both: the
+    // search is shortened and nothing is bought. HUNT_MIN_BATCH_TIME_MS is
+    // measured against what the SEARCH gets, so it has to see the same number.
+    huntMock.mockResolvedValue({ candidates: [], tokens: 0, stopped: 'done' })
+
+    await securityHuntService.huntBatch({
+      ...batchInput(),
+      timeBudgetMs: 12_000,
+    })
+
+    const { timeoutMs } = huntMock.mock.calls[0]![0]
+    expect(timeoutMs).toBeGreaterThan(11_000)
   })
 
   it('huntBatch does not start a model call on a window acquisition already ate', async () => {

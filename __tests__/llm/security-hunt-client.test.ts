@@ -15,6 +15,7 @@ import {
   renderStartingPointsForPrompt,
   renderTaskForPrompt,
   HUNT_SYSTEM_PROMPT,
+  wrapUpWindowMs,
 } from '@/lib/llm/security-hunt-client'
 // LUM-758 Task 9: the client no longer re-exports `numberLines` — `read_file`
 // is gone — but the service still numbers falsifier snippets with it, so its
@@ -429,17 +430,34 @@ describe('LUM-758 wrap-up accounting', () => {
   function searchOver(stepTokens: number[]) {
     return async (args: unknown) => {
       const { stopWhen } = args as { stopWhen: unknown[] }
-      const steps: { usage: { totalTokens: number }; toolCalls: never[] }[] = []
+      const steps: {
+        usage: { totalTokens: number }
+        toolCalls: { toolName: string }[]
+      }[] = []
       for (const totalTokens of stepTokens) {
-        steps.push({ usage: { totalTokens }, toolCalls: [] })
-        const stop = stopWhen.some(c => {
+        // A search step is a `run_shell` step; the SDK's `do…while` only goes
+        // round again while the step produced client tool calls.
+        steps.push({
+          usage: { totalTokens },
+          toolCalls: [{ toolName: 'run_shell' }],
+        })
+        // `isStopConditionMet` is `Promise.all(conditions)` then `.some()`:
+        // EVERY condition is evaluated, even once one is true. Short-circuiting
+        // here would let a predicate pass that only works from one slot in the
+        // array, and would make the array's order look load-bearing when it is
+        // not.
+        const verdicts = stopWhen.map(c => {
           if (typeof c === 'function') return c({ steps }) === true
           const m = c as { stepCountIs?: number; hasToolCall?: string }
           if (typeof m.stepCountIs === 'number')
             return steps.length >= m.stepCountIs
+          if (typeof m.hasToolCall === 'string')
+            return steps.some(st =>
+              st.toolCalls.some(tc => tc.toolName === m.hasToolCall)
+            )
           return false
         })
-        if (stop) break
+        if (verdicts.some(v => v)) break
       }
       return {
         steps,
@@ -537,6 +555,48 @@ describe('LUM-758 wrap-up accounting', () => {
     expect(out.wrappedUp).toBeUndefined()
   })
 
+  it('prices the replay at the last step, not at the floor', async () => {
+    // 11k spent of 20k with a 10k last step: the replay re-sends that
+    // transcript, so it costs about 10k and the 9k left is not enough. Pricing
+    // it at the 4k floor says yes and bills a 20k task at ~21k — F3's exact
+    // defect. The reserve alone cannot catch this shape: it is priced off the
+    // step BEFORE the one that jumped.
+    gen.mockImplementationOnce(searchOver([1_000, 10_000]))
+
+    const out = await hunt(20_000, 12)
+
+    expect(gen).toHaveBeenCalledTimes(1)
+    expect(out.wrappedUp).toBeUndefined()
+    expect(out.tokens).toBe(11_000)
+  })
+
+  it('reserves the whole replay price, so a small allowance still gets asked', async () => {
+    // 7k is what a late retry pass gets when HUNT_TOKEN_BUDGET is nearly spent.
+    // Any cap on the reserve — a third, a half — sits below the 4k floor here,
+    // so the search would run to the ceiling and the gate would then refuse for
+    // want of exactly the amount the cap withheld.
+    gen.mockImplementationOnce(searchOver([1_000, 1_000, 1_000, 1_000, 1_000]))
+    gen.mockResolvedValueOnce(wrapUp(3_000, true))
+
+    const out = await hunt(7_000, 12)
+
+    expect(gen).toHaveBeenCalledTimes(2)
+    expect(out.wrappedUp).toBe(true)
+  })
+
+  it('does not reserve for a handover the whole allowance could never cover', async () => {
+    // A 4k floor against a 3k budget: the gate refuses however the search ends,
+    // so holding anything back is lost search and nothing else.
+    gen.mockImplementationOnce(searchOver([500, 500, 500, 500, 500, 500]))
+
+    const out = await hunt(3_000, 12)
+
+    expect(gen).toHaveBeenCalledTimes(1)
+    // 5 of 6 steps: the predictive stop still halts before the step that would
+    // cross. With a reserve it would have stopped at 3 and handed back nothing.
+    expect(out.tokens).toBe(2_500)
+  })
+
   it('does not reserve anything when the handover is switched off', async () => {
     // Deadline 0 disables it, and the search must then get the whole
     // allowance — a reserve held for a call that cannot happen is budget
@@ -590,6 +650,20 @@ describe('LUM-758 wrap-up accounting', () => {
     expect(signal).toBeInstanceOf(AbortSignal)
     await new Promise(r => setTimeout(r, 80))
     expect(signal.aborted).toBe(false)
+  })
+
+  it('caps the handover window, and refuses one too short to answer in', () => {
+    const now = 1_000_000
+    // Capped at its own ceiling however far off the deadline is — otherwise a
+    // task with a generous deadline hands one forced call an unbounded window.
+    expect(wrapUpWindowMs(now + 10 * 60_000, now)).toBe(30_000)
+    expect(wrapUpWindowMs(now + 12_000, now)).toBe(12_000)
+    // Under the minimum the abort fires before the first token: billed
+    // upstream, nothing returned. 0 means "do not ask", not "ask with 0 ms".
+    expect(wrapUpWindowMs(now + 4_999, now)).toBe(0)
+    expect(wrapUpWindowMs(now - 1, now)).toBe(0)
+    // 0 is how the caller switches the handover off entirely.
+    expect(wrapUpWindowMs(0, now)).toBe(0)
   })
 
   it('separates "asked and it had nothing" from "never managed to ask"', async () => {

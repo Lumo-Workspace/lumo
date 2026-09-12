@@ -201,6 +201,35 @@ describe('LUM-739 hunt audit', () => {
     expect(stats.tasksWrapUpRefused).toBe(1)
   })
 
+  it('does not count an empty warnings array as a refusal', () => {
+    // `[]` is truthy, so it survives the service's `...(x ? …)` forwarding. A
+    // guard that only checks `Array.isArray` would then read every wrap-up that
+    // worked as one the provider refused — inverting the single number that
+    // says whether we are measuring the agent or our own plumbing.
+    const stats = aggregateHuntAudit([
+      {
+        id: 'empty-warnings',
+        stages: { hunt: 'PARTIAL' },
+        tokenSpent: 100,
+        findings: [],
+        huntAudit: {
+          candidates: 0,
+          tasks: [
+            {
+              taskId: 't1',
+              stopped: 'budget',
+              wrappedUp: true,
+              wrapUpWarnings: [],
+            },
+          ],
+        },
+      },
+    ] as unknown as HuntScanRow[])
+
+    expect(stats.tasksWrappedUp).toBe(1)
+    expect(stats.tasksWrapUpRefused).toBe(0)
+  })
+
   it('reports null rates on an empty input', () => {
     const s = aggregateHuntAudit([])
     expect(s.falsifierRejectRate).toBeNull()

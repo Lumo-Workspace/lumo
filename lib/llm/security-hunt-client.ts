@@ -48,6 +48,21 @@ import {
   HUNT_WRAP_UP_TIMEOUT_MS,
 } from '@/lib/services/security-hunt.config'
 
+/**
+ * How long the handover gets: what is left of the task's deadline, capped at
+ * its own ceiling, and 0 once the deadline is close enough that the abort
+ * would land before the first token. A deadline of 0 means the handover is off.
+ *
+ * Exported because the cap is otherwise only observable by waiting 30 seconds
+ * for an `AbortSignal` to fire, which no test does — so in practice it would
+ * not be observable at all.
+ */
+export function wrapUpWindowMs(deadlineAt: number, now: number): number {
+  if (deadlineAt <= 0) return 0
+  const left = Math.min(HUNT_WRAP_UP_TIMEOUT_MS, deadlineAt - now)
+  return left >= HUNT_WRAP_UP_MIN_MS ? left : 0
+}
+
 /** Longest command the tool schema will accept, in characters. */
 export const HUNT_COMMAND_MAX_CHARS = 600
 
@@ -264,16 +279,22 @@ export async function huntTask(
   // ADMISSION price — the gate below either affords it or does not ask.
   const replayCostOf = (steps: Steps): number =>
     Math.max(lastStepTokens(steps), HUNT_WRAP_UP_MIN_TOKENS)
-  // What the search holds back for it, which is a different question. Never
-  // more than a third of the allowance: a handover that can take the whole
-  // budget stops being a handover and becomes the task, and with a small
-  // `tokenBudget` the flat floor alone would leave the search unable to run a
-  // single step. Holding back less than the replay costs is safe — the gate
-  // still refuses to ask when the real price does not fit.
-  const reserve = (steps: Steps): number =>
-    wrapUpEnabled
-      ? Math.min(replayCostOf(steps), Math.floor(input.tokenBudget / 3))
-      : 0
+  // What the search holds back for it. It has to be the WHOLE price: hold back
+  // less and the gate below refuses for want of exactly the difference, which
+  // is the complement bug this reserve exists to end, re-introduced one step
+  // further along. A cap looks prudent and is not — any cap under the price
+  // makes the handover unreachable for every budget small enough for the cap
+  // to bind.
+  //
+  // The one case worth excluding is a price the allowance could never cover:
+  // there the gate is going to refuse however the search ends, so reserving is
+  // pure lost search. (`tokenBudget` is what is LEFT of HUNT_TOKEN_BUDGET, so
+  // a late retry pass really can get a handful of thousands.)
+  const reserve = (steps: Steps): number => {
+    if (!wrapUpEnabled) return 0
+    const price = replayCostOf(steps)
+    return price <= input.tokenBudget ? price : 0
+  }
   let stoppedOnBudget = false
 
   const result = await generateText({
@@ -305,9 +326,12 @@ export async function huntTask(
       // search step is the one given up. That is the trade on purpose: a late
       // step that finds nothing is worth less than the answer it dies holding.
       //
-      // Stopping first also decides the label: `stoppedOnBudget` is set by the
+      // This predicate also decides the label: `stoppedOnBudget` is set by the
       // condition that actually fired, not inferred afterwards from a total
-      // that the predictive stop has already made sure never crosses.
+      // that the predictive stop has already made sure never crosses. Position
+      // in this array does not matter — `isStopConditionMet` awaits
+      // `Promise.all` over every condition and then `.some()`s the results, so
+      // all of them run even once one is true.
       ({ steps }) => {
         const crossed =
           sumTokens(steps) + lastStepTokens(steps) + reserve(steps) >=
@@ -356,15 +380,13 @@ export async function huntTask(
   // ceiling. Computing it before the search — as a duration handed in with the
   // other inputs — describes a clock that has not started, and the search then
   // spends the very window the number claimed to reserve.
-  const wrapUpMs = wrapUpEnabled
-    ? Math.min(HUNT_WRAP_UP_TIMEOUT_MS, input.wrapUpDeadlineAt - Date.now())
-    : 0
+  const wrapUpMs = wrapUpWindowMs(input.wrapUpDeadlineAt, Date.now())
   let wrappedUp = false
   let wrapWarnings: string[] = []
   if (
     !didSubmit &&
     input.tokenBudget - searchTokens >= replayCost &&
-    wrapUpMs >= HUNT_WRAP_UP_MIN_MS
+    wrapUpMs > 0
   ) {
     try {
       const wrap = await generateText({
