@@ -456,15 +456,21 @@ export const securityHuntService = {
           return error === undefined ? { output } : { output, error }
         },
         tokenBudget: input.tokenBudget,
-        timeoutMs: remainingMs,
+        // The search gets the window MINUS the handover's reserve. Handing it
+        // `remainingMs` and then clamping the handover to "what is left" grants
+        // the handover nothing — the search's own ceiling is the deadline — or,
+        // if the clamp is computed up front as it was, grants it a second
+        // window on top of a ceiling `timeBudgetMs` says is whole-batch. Either
+        // way a later planned task pays. Reserve a third, capped: most searches
+        // end on tokens or steps well inside the wall clock, so the third is
+        // only ever surrendered by a search that was going to be aborted.
+        timeoutMs:
+          remainingMs -
+          Math.min(HUNT_WRAP_UP_TIMEOUT_MS, Math.floor(remainingMs / 3)),
         maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
-        // Clamped to what is left of THIS batch's window, not granted on top
-        // of it: `timeBudgetMs` is a whole-batch ceiling, and an overrun here
-        // is paid by a later planned task being skipped.
-        wrapUpTimeoutMs: Math.min(
-          HUNT_WRAP_UP_TIMEOUT_MS,
-          Math.max(0, input.timeBudgetMs - (Date.now() - started))
-        ),
+        // A deadline, not a duration — the window is read off it after the
+        // search, when how much is left is finally a known quantity.
+        wrapUpDeadlineAt: started + input.timeBudgetMs,
       })
       return {
         candidates: out.candidates,
@@ -476,6 +482,7 @@ export const securityHuntService = {
         elapsedMs: Date.now() - started,
         stopped: out.stopped,
         ...(out.wrappedUp ? { wrappedUp: true } : {}),
+        ...(out.wrapUpWarnings ? { wrapUpWarnings: out.wrapUpWarnings } : {}),
         compress,
         ...vm,
       }

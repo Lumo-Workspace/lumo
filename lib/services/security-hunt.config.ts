@@ -170,6 +170,14 @@ export const HUNT_TASK_TIME_MS = 60_000
 export const HUNT_WRAP_UP_MIN_TOKENS = 4_000
 /** Wall clock for the wrap-up. The search's own window is already spent. */
 export const HUNT_WRAP_UP_TIMEOUT_MS = 30_000
+
+/**
+ * Below this, asking is worse than not asking: the replay's first token has
+ * not arrived before the abort fires, so the call is billed upstream and
+ * returns nothing. The handover is optional; a guaranteed-doomed one is not
+ * worth a task's last two seconds.
+ */
+export const HUNT_WRAP_UP_MIN_MS = 5_000
 /**
  * LUM-758 Task 9 — the floor under what is left of a task's window once the
  * sandbox is in hand. Acquisition is inside the batch's clock (attach poll 30 s
@@ -247,6 +255,14 @@ export interface HuntTaskAudit {
    * where every task is wrapped up is a layer whose agent never decides.
    */
   wrappedUp?: boolean
+  /**
+   * Why a wrap-up that RAN still submitted nothing — the provider's own
+   * warnings, above all an `unsupported-setting` for the forced tool choice.
+   * Absent when it submitted, and absent when it never ran: an empty answer
+   * and a refused request must never read the same, because only one of them
+   * is evidence about the agent.
+   */
+  wrapUpWarnings?: string[]
   taskId: string
   objective: string
   category: HuntCategory
@@ -423,6 +439,14 @@ export interface HuntBatchOutput {
    * finished, and P9 must keep calling such a layer PARTIAL.
    */
   wrappedUp?: boolean
+  /**
+   * Why a wrap-up that RAN still submitted nothing — the provider's own
+   * warnings, above all an `unsupported-setting` for the forced tool choice.
+   * Absent when it submitted, and absent when it never ran: an empty answer
+   * and a refused request must never read the same, because only one of them
+   * is evidence about the agent.
+   */
+  wrapUpWarnings?: string[]
   /** LUM-758 §5.1 — 这一批用的是复用的 VM 还是自建的。 */
   sandbox?: 'attached' | 'created'
   /** Did that VM run with its network egress actually cut? See `HuntSandbox`. */

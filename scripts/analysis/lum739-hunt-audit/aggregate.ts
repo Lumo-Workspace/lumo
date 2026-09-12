@@ -68,6 +68,13 @@ export interface HuntAuditStats {
    */
   tasksWrappedUp: number
   /**
+   * Wrap-ups that ran and submitted nothing while the provider was complaining
+   * — an `unsupported-setting` here means the forced tool choice never reached
+   * the model, so every `wrappedUp: false` in the sample is a question we never
+   * managed to ask rather than an agent that had nothing.
+   */
+  tasksWrapUpRefused: number
+  /**
    * Tasks that actually RAN, counted once each — the honest denominator for
    * the convergence read. `taskStops` cannot serve: it counts `skipped` rows
    * (tasks the budget never reached) and carries TWO rows for a task the retry
@@ -132,6 +139,7 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     },
     taskStops: {},
     tasksWrappedUp: 0,
+    tasksWrapUpRefused: 0,
     tasksRan: 0,
     sandbox: { attached: 0, created: 0, egressOpen: 0 },
     compress: {
@@ -188,6 +196,8 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
       stats.taskStops[key] = (stats.taskStops[key] ?? 0) + 1
       if ((t as { wrappedUp?: unknown } | null)?.wrappedUp === true)
         stats.tasksWrappedUp += 1
+      const w = (t as { wrapUpWarnings?: unknown } | null)?.wrapUpWarnings
+      if (Array.isArray(w) && w.length > 0) stats.tasksWrapUpRefused += 1
     }
 
     if (audit.sandbox === 'attached') stats.sandbox.attached += 1

@@ -123,6 +123,7 @@ const batch = (
     sandbox: 'attached' | 'created'
     egressDenied: boolean
     wrappedUp: boolean
+    wrapUpWarnings: string[]
     compress: {
       calls: number
       noOpCalls: number
@@ -723,6 +724,46 @@ it('carries wrappedUp on the retry pass row too', async () => {
   expect(rows).toHaveLength(2)
   expect(rows[0]!.wrappedUp).toBeUndefined()
   expect(rows[1]).toMatchObject({ taskId: 't1', wrappedUp: true })
+})
+
+// `wrapUpWarnings` rides the same two rows and is dropped the same way. It is
+// the difference between "we asked and it had nothing" and "we never managed
+// to ask"; only one of those says anything about whether the agent converges.
+it('carries wrapUpWarnings onto both the first-pass and retry audit rows', async () => {
+  plan.mockResolvedValue({
+    tasks: [
+      { id: 't1', objective: 'o1', category: 'idor', startingPoints: [] },
+      { id: 't2', objective: 'o2', category: 'ssrf', startingPoints: [] },
+    ],
+    reason: 'two signals',
+    by: 'model',
+    tokens: 100,
+  })
+  hunt
+    .mockImplementationOnce(async () =>
+      batch({ stopped: 'budget', wrapUpWarnings: ['{"type":"a"}'] })
+    )
+    .mockImplementationOnce(async () => batch({ stopped: 'timeout' }))
+    .mockImplementationOnce(async () =>
+      batch({ stopped: 'budget', wrapUpWarnings: ['{"type":"b"}'] })
+    )
+
+  await securityHuntWorkflow(JOB)
+
+  const rows = persist.mock.calls[0]![0].audit.tasks
+  expect(rows[0]).toMatchObject({
+    taskId: 't1',
+    wrapUpWarnings: ['{"type":"a"}'],
+  })
+  expect(
+    rows.find(
+      (r: { taskId: string; stopped: string }) =>
+        r.taskId === 't2' && r.stopped === 'timeout'
+    )!.wrapUpWarnings
+  ).toBeUndefined()
+  expect(rows[rows.length - 1]).toMatchObject({
+    wrapUpWarnings: ['{"type":"b"}'],
+  })
 })
 
 it('carries wrappedUp from the batch into the persisted task audit', async () => {

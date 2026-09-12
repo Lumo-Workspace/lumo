@@ -44,6 +44,8 @@ import {
   HUNT_CLIENT_MAX_RETRIES,
   type HuntTask,
   HUNT_WRAP_UP_MIN_TOKENS,
+  HUNT_WRAP_UP_MIN_MS,
+  HUNT_WRAP_UP_TIMEOUT_MS,
 } from '@/lib/services/security-hunt.config'
 
 /** Longest command the tool schema will accept, in characters. */
@@ -67,11 +69,13 @@ export interface HuntClientInput {
   runShell: (command: string) => Promise<{ output: string; error?: string }>
   tokenBudget: number
   /**
-   * Wall clock for the forced wrap-up call, separate from `timeoutMs`: the
-   * search's window is spent by the time it runs, so reusing that budget would
-   * abort it before it started.
+   * When this task's whole window closes (epoch ms), or 0 to disable the
+   * wrap-up. A DEADLINE, not a duration: a duration has to be computed before
+   * `huntTask` is called, which is before the search has spent anything, so it
+   * can only ever describe a clock that has not started running. The window
+   * the wrap-up actually gets is read off this at the moment it is asked for.
    */
-  wrapUpTimeoutMs: number
+  wrapUpDeadlineAt: number
   timeoutMs: number
   maxSteps: number
 }
@@ -250,6 +254,28 @@ export async function huntTask(
   // `prompt` shorthand would otherwise be unreachable from the second call.
   const promptText = `${renderTaskForPrompt(input.task)}\n\n## Starting points\n${renderStartingPointsForPrompt(input.reasons)}`
 
+  // A deadline of 0 turns the handover off; the search then keeps the whole
+  // allowance rather than reserving for a call that will not happen.
+  const wrapUpEnabled = input.wrapUpDeadlineAt > 0
+  type Steps = ReadonlyArray<{ usage?: { totalTokens?: number | undefined } }>
+  // What the replay will actually cost: it re-sends the whole transcript, so it
+  // prices at about the last step's input, NOT at a flat constant. The floor
+  // covers the degenerate case where no step reported usage. This is the
+  // ADMISSION price — the gate below either affords it or does not ask.
+  const replayCostOf = (steps: Steps): number =>
+    Math.max(lastStepTokens(steps), HUNT_WRAP_UP_MIN_TOKENS)
+  // What the search holds back for it, which is a different question. Never
+  // more than a third of the allowance: a handover that can take the whole
+  // budget stops being a handover and becomes the task, and with a small
+  // `tokenBudget` the flat floor alone would leave the search unable to run a
+  // single step. Holding back less than the replay costs is safe — the gate
+  // still refuses to ask when the real price does not fit.
+  const reserve = (steps: Steps): number =>
+    wrapUpEnabled
+      ? Math.min(replayCostOf(steps), Math.floor(input.tokenBudget / 3))
+      : 0
+  let stoppedOnBudget = false
+
   const result = await generateText({
     model: gateway(GENERATION_MODEL),
     tools,
@@ -261,22 +287,36 @@ export async function huntTask(
     // re-runs the category with a fresh window.
     maxRetries: HUNT_CLIENT_MAX_RETRIES,
     stopWhen: [
-      stepCountIs(input.maxSteps),
-      hasToolCall('submit_candidates'),
       // The budget is checked BETWEEN steps, so `spent >= budget` lets the step
       // that crosses the line run to completion and bills it in full. That is
       // not a rounding error here: a tool loop re-sends the whole transcript
       // every step, and each shell result adds up to HUNT_SHELL_OUTPUT_MAX
       // characters, so late steps are the expensive ones. In prod (PR 970) one
       // task under a 20k ceiling billed 38,262 — a 91% overshoot from a single
-      // uncosted step.
+      // uncosted step. Pricing the next step at the last one's cost stops us
+      // BEFORE it runs.
       //
-      // Pricing the next step at the last one's cost stops us BEFORE it runs.
-      // The ceiling still cannot be exact — the model decides how big the next
-      // step is — but the residual is now bounded by how much one step grows,
-      // not by how large a whole late step can be.
-      ({ steps }) =>
-        sumTokens(steps) + lastStepTokens(steps) >= input.tokenBudget,
+      // `reserve` is what makes the handover reachable. Without it this
+      // predicate stops at `spent + next >= budget` and the wrap-up's gate asks
+      // for `budget - spent >= next` — the two are exact complements, so a
+      // budget-bound search could never afford the handover, which is the ONLY
+      // population it was written for (26 prod scans, zero self-submissions).
+      // The handover's price comes out of the search's allowance, so the last
+      // search step is the one given up. That is the trade on purpose: a late
+      // step that finds nothing is worth less than the answer it dies holding.
+      //
+      // Stopping first also decides the label: `stoppedOnBudget` is set by the
+      // condition that actually fired, not inferred afterwards from a total
+      // that the predictive stop has already made sure never crosses.
+      ({ steps }) => {
+        const crossed =
+          sumTokens(steps) + lastStepTokens(steps) + reserve(steps) >=
+          input.tokenBudget
+        if (crossed) stoppedOnBudget = true
+        return crossed
+      },
+      stepCountIs(input.maxSteps),
+      hasToolCall('submit_candidates'),
     ],
     abortSignal: AbortSignal.timeout(input.timeoutMs),
   })
@@ -299,12 +339,9 @@ export async function huntTask(
   // as the only tool available: an empty list is a valid answer, and a list is
   // better than the silence a counter produces. This is the difference between
   // "found nothing" and "was cut off holding something".
-  // `stopped` answers "what ended the SEARCH", so it has to be derived from
-  // what the search spent. Deriving it after the wrap-up has been added files a
-  // step-capped task as budget-capped whenever the replay is expensive enough
-  // to cross the line on its own — and `taskStops` is exactly the field the
-  // convergence read-out and LUM-762's "budget before the ceiling, steps after"
-  // diagnosis are made of.
+  // What the SEARCH spent, frozen before the handover adds to it: the gate
+  // below asks what the search left behind, and `tokens` stops meaning that the
+  // moment the wrap-up is billed to it.
   const searchTokens = tokens
 
   // The replay re-sends the whole transcript, so it costs about what the last
@@ -313,16 +350,21 @@ export async function huntTask(
   // same uncosted-late-step overshoot LUM-762's predictive stop was written to
   // kill. `HUNT_WRAP_UP_MIN_TOKENS` stays as the floor for the degenerate case
   // where no step reported usage.
-  const replayCost = Math.max(
-    lastStepTokens(result.steps),
-    HUNT_WRAP_UP_MIN_TOKENS
-  )
+  const replayCost = wrapUpEnabled ? replayCostOf(result.steps) : 0
+  // Read AFTER the search, which is the whole point: the window the handover
+  // gets is what is left of this task's deadline now, capped at its own
+  // ceiling. Computing it before the search — as a duration handed in with the
+  // other inputs — describes a clock that has not started, and the search then
+  // spends the very window the number claimed to reserve.
+  const wrapUpMs = wrapUpEnabled
+    ? Math.min(HUNT_WRAP_UP_TIMEOUT_MS, input.wrapUpDeadlineAt - Date.now())
+    : 0
   let wrappedUp = false
   let wrapWarnings: string[] = []
   if (
     !didSubmit &&
     input.tokenBudget - searchTokens >= replayCost &&
-    input.wrapUpTimeoutMs > 0
+    wrapUpMs >= HUNT_WRAP_UP_MIN_MS
   ) {
     try {
       const wrap = await generateText({
@@ -344,8 +386,13 @@ export async function huntTask(
           ...result.response.messages,
           { role: 'user', content: WRAP_UP_INSTRUCTION },
         ],
+        // One step, and one only. `replayCost` is an admission gate, not a
+        // cap — nothing else here stops the SDK from running the tool and then
+        // taking another step to narrate it, on the far side of the ceiling the
+        // search was just made to respect.
+        stopWhen: stepCountIs(1),
         maxRetries: HUNT_CLIENT_MAX_RETRIES,
-        abortSignal: AbortSignal.timeout(input.wrapUpTimeoutMs),
+        abortSignal: AbortSignal.timeout(wrapUpMs),
       })
       tokens += wrap.totalUsage.totalTokens ?? 0
       wrappedUp = wrap.steps.some(s =>
@@ -377,11 +424,7 @@ export async function huntTask(
     // batch still reports the counter that ended its search, so P9 still calls
     // the layer PARTIAL — the acceptance metric must not be moved by making
     // the agent answer under duress.
-    stopped: didSubmit
-      ? 'done'
-      : searchTokens >= input.tokenBudget
-        ? 'budget'
-        : 'steps',
+    stopped: didSubmit ? 'done' : stoppedOnBudget ? 'budget' : 'steps',
     ...(wrappedUp ? { wrappedUp: true } : {}),
     // Only ever set when the wrap-up ran and produced nothing: an empty answer
     // and a refused request must not look the same in the audit.

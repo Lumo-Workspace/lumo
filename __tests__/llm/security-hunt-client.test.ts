@@ -70,7 +70,7 @@ function run(result: unknown) {
     reasons: REASONS,
     runShell,
     tokenBudget: 1000,
-    wrapUpTimeoutMs: 30_000,
+    wrapUpDeadlineAt: Date.now() + 30_000,
     timeoutMs: 5000,
     maxSteps: 4,
   })
@@ -96,15 +96,17 @@ describe('LUM-739 hunt client', () => {
     const call = gen.mock.calls[0]![0]
     expect(call.model).toEqual({ id: GENERATION_MODEL })
     expect(call.stopWhen).toHaveLength(3)
-    expect(call.stopWhen[0]).toEqual({ stepCountIs: 4 })
-    expect(call.stopWhen[1]).toEqual({ hasToolCall: 'submit_candidates' })
+    // The budget stop comes FIRST so it is the one that records why a search
+    // ended when the step cap lands on the same step.
+    expect(call.stopWhen[1]).toEqual({ stepCountIs: 4 })
+    expect(call.stopWhen[2]).toEqual({ hasToolCall: 'submit_candidates' })
     // LUM-758 follow-up — the budget stop prices the step it has NOT run yet.
     // Checking `spent >= budget` let the step that crosses the line run in
     // full, and prod (PR #970) billed 38,262 against a 20,000 ceiling because
     // late steps in a tool loop re-send the whole transcript. Budget here is
     // 1000.
     expect(
-      call.stopWhen[2]({
+      call.stopWhen[0]({
         steps: [
           { usage: { totalTokens: 600 } },
           { usage: { totalTokens: 500 } },
@@ -114,15 +116,15 @@ describe('LUM-739 hunt client', () => {
     // 600 spent, and the next step is priced at the last one's 600 → 1200 ≥
     // 1000, so we stop BEFORE paying for it. Under the old check this was
     // `false` and the budget was then blown by a whole step.
-    expect(call.stopWhen[2]({ steps: [{ usage: { totalTokens: 600 } }] })).toBe(
+    expect(call.stopWhen[0]({ steps: [{ usage: { totalTokens: 600 } }] })).toBe(
       true
     )
     // Still room: 300 spent, next priced at 300 → 600 < 1000.
-    expect(call.stopWhen[2]({ steps: [{ usage: { totalTokens: 300 } }] })).toBe(
+    expect(call.stopWhen[0]({ steps: [{ usage: { totalTokens: 300 } }] })).toBe(
       false
     )
     // No steps yet — nothing to price, and nothing spent.
-    expect(call.stopWhen[2]({ steps: [] })).toBe(false)
+    expect(call.stopWhen[0]({ steps: [] })).toBe(false)
     // LUM-758: the prompt leads with the task's objective and starting
     // points; the category only says how the output gets filed.
     expect(call.prompt).toContain('## Task t1: ' + TASK.objective)
@@ -187,12 +189,12 @@ describe('LUM-739 hunt client', () => {
     ).resolves.toEqual({ output: '', error: 'curl is not allowed' })
   })
 
-  it('reports budget vs steps when nothing was submitted', async () => {
-    const budget = await run({
-      steps: [{ toolCalls: [], usage: { totalTokens: 1000 } }],
-      totalUsage: { totalTokens: 1000 },
-    })
-    expect(budget).toEqual({ candidates: [], tokens: 1000, stopped: 'budget' })
+  // `stopped: 'budget'` cannot be asserted from here: it is now set by the stop
+  // predicate itself, which a wholly-mocked `generateText` never evaluates.
+  // Asserting it from a step literal the test supplied is what let the label
+  // and the predicate drift apart in the first place — see the
+  // 'LUM-758 wrap-up accounting' block, which runs the real predicate.
+  it('reports steps when nothing was submitted, and falls back for missing usage', async () => {
     const steps = await run({
       steps: [
         { toolCalls: [{ toolName: 'run_shell' }], usage: { totalTokens: 10 } },
@@ -323,7 +325,7 @@ describe('LUM-758 wrap-up', () => {
       reasons: REASONS,
       runShell,
       tokenBudget: 20_000,
-      wrapUpTimeoutMs: 30_000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
       timeoutMs: 5000,
       maxSteps: 4,
     })
@@ -353,7 +355,7 @@ describe('LUM-758 wrap-up', () => {
       reasons: REASONS,
       runShell,
       tokenBudget: 20_000,
-      wrapUpTimeoutMs: 30_000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
       timeoutMs: 5000,
       maxSteps: 4,
     })
@@ -377,7 +379,7 @@ describe('LUM-758 wrap-up', () => {
       reasons: REASONS,
       runShell,
       tokenBudget: 20_000,
-      wrapUpTimeoutMs: 30_000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
       timeoutMs: 5000,
       maxSteps: 4,
     })
@@ -396,7 +398,7 @@ describe('LUM-758 wrap-up', () => {
       reasons: REASONS,
       runShell,
       tokenBudget: 20_000,
-      wrapUpTimeoutMs: 30_000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
       timeoutMs: 5000,
       maxSteps: 4,
     })
@@ -407,114 +409,218 @@ describe('LUM-758 wrap-up', () => {
   })
 })
 
-// LUM-758 follow-up, review findings F1 and F3. Both are about the wrap-up
-// paying for itself out of somebody else's account.
+// LUM-758 follow-up — the wrap-up's accounting, driven through the REAL stop
+// predicate.
+//
+// The rest of this file mocks `ai` wholesale, so `stopWhen` is inert: every
+// assertion about where a search stops is an assertion about a literal the
+// test itself supplied. That is how the first cut of this feature shipped with
+// its stop predicate and its wrap-up gate as exact logical complements — the
+// handover could only ever fire for a search that ended on the step cap, and
+// never for the budget-bound ones it was written for. Nothing mocked can see
+// that. So this block runs the client's own predicates over a step sequence.
 describe('LUM-758 wrap-up accounting', () => {
-  const searchEndingOnSteps = (tokens: number, lastStep: number) => ({
+  /**
+   * Walk `stepTokens` the way the SDK would: append a step, then ask the real
+   * `stopWhen` array whether to stop. The budget predicate is ours and is a
+   * function; `stepCountIs` / `hasToolCall` are mocked to plain markers here,
+   * so they are interpreted rather than called.
+   */
+  function searchOver(stepTokens: number[]) {
+    return async (args: unknown) => {
+      const { stopWhen } = args as { stopWhen: unknown[] }
+      const steps: { usage: { totalTokens: number }; toolCalls: never[] }[] = []
+      for (const totalTokens of stepTokens) {
+        steps.push({ usage: { totalTokens }, toolCalls: [] })
+        const stop = stopWhen.some(c => {
+          if (typeof c === 'function') return c({ steps }) === true
+          const m = c as { stepCountIs?: number; hasToolCall?: string }
+          if (typeof m.stepCountIs === 'number')
+            return steps.length >= m.stepCountIs
+          return false
+        })
+        if (stop) break
+      }
+      return {
+        steps,
+        totalUsage: {
+          totalTokens: steps.reduce((n, s) => n + s.usage.totalTokens, 0),
+        },
+        response: { messages: [{ role: 'assistant', content: 'looked' }] },
+      }
+    }
+  }
+
+  const wrapUp = (
+    totalTokens: number,
+    submits: boolean,
+    warnings?: unknown[]
+  ) => ({
     steps: [
-      { usage: { totalTokens: tokens - lastStep }, toolCalls: [] },
-      { usage: { totalTokens: lastStep }, toolCalls: [] },
+      {
+        usage: { totalTokens },
+        toolCalls: submits ? [{ toolName: 'submit_candidates' }] : [],
+      },
     ],
-    totalUsage: { totalTokens: tokens },
-    response: { messages: [{ role: 'assistant', content: 'looked' }] },
+    totalUsage: { totalTokens },
+    ...(warnings ? { warnings } : {}),
   })
 
-  it('reports what ended the SEARCH, not what the wrap-up then spent', async () => {
-    // 10k of a 20k budget, ended on the step cap. The wrap-up costs 12k, so the
-    // total crosses the budget — but the search did not, and `stopped` is the
-    // field `taskStops` and LUM-762's "budget before the ceiling, steps after"
-    // diagnosis are made of.
-    gen
-      .mockResolvedValueOnce(searchEndingOnSteps(10_000, 1_000))
-      .mockResolvedValueOnce({
-        steps: [
-          {
-            usage: { totalTokens: 12_000 },
-            toolCalls: [{ toolName: 'submit_candidates' }],
-          },
-        ],
-        totalUsage: { totalTokens: 12_000 },
-      })
-
-    const out = await huntTask({
+  const hunt = (
+    tokenBudget: number,
+    maxSteps: number,
+    deadlineIn = 30_000,
+    timeoutMs = 5000
+  ) =>
+    huntTask({
       task: TASK,
       reasons: REASONS,
       runShell,
-      tokenBudget: 20_000,
-      wrapUpTimeoutMs: 30_000,
-      timeoutMs: 5000,
-      maxSteps: 4,
+      tokenBudget,
+      maxSteps,
+      timeoutMs,
+      wrapUpDeadlineAt: deadlineIn === 0 ? 0 : Date.now() + deadlineIn,
     })
 
-    expect(out.stopped).toBe('steps')
-    // The money is still all there — only the label is the search's.
-    expect(out.tokens).toBe(22_000)
-    expect(out.wrappedUp).toBe(true)
-  })
+  it('asks a budget-bound search for its findings — the population it exists for', async () => {
+    // Uniform 6k steps against a 20k ceiling: the search stops with room for
+    // the replay precisely because the predicate reserved it. Drop the reserve
+    // and the search runs one step further, leaving less than the replay costs,
+    // and the handover silently never happens — which is what shipped.
+    gen.mockImplementationOnce(searchOver([6_000, 6_000, 6_000, 6_000]))
+    gen.mockResolvedValueOnce(wrapUp(5_000, true))
 
-  it('prices the replay at the last step, not at a flat floor', async () => {
-    // 14k spent, 6k left, and the last step cost 10k — replaying the transcript
-    // costs about that, so asking would blow the ceiling. A flat 4k floor would
-    // have said yes (6k ≥ 4k) and billed a 20k task at ~24k.
-    gen.mockResolvedValueOnce(searchEndingOnSteps(14_000, 10_000))
-
-    const out = await huntTask({
-      task: TASK,
-      reasons: REASONS,
-      runShell,
-      tokenBudget: 20_000,
-      wrapUpTimeoutMs: 30_000,
-      timeoutMs: 5000,
-      maxSteps: 4,
-    })
-
-    expect(gen).toHaveBeenCalledTimes(1)
-    expect(out.wrappedUp).toBeUndefined()
-  })
-
-  it('still asks when the replay genuinely fits', async () => {
-    gen
-      .mockResolvedValueOnce(searchEndingOnSteps(14_000, 2_000))
-      .mockResolvedValueOnce({
-        steps: [
-          {
-            usage: { totalTokens: 300 },
-            toolCalls: [{ toolName: 'submit_candidates' }],
-          },
-        ],
-        totalUsage: { totalTokens: 300 },
-      })
-
-    const out = await huntTask({
-      task: TASK,
-      reasons: REASONS,
-      runShell,
-      tokenBudget: 20_000,
-      wrapUpTimeoutMs: 30_000,
-      timeoutMs: 5000,
-      maxSteps: 4,
-    })
+    const out = await hunt(20_000, 12)
 
     expect(gen).toHaveBeenCalledTimes(2)
     expect(out.wrappedUp).toBe(true)
   })
 
-  it('does not ask when the batch clock left no window for the answer', async () => {
-    // The service clamps `wrapUpTimeoutMs` to what is left of the batch's own
-    // ceiling; zero means asking would only bill an immediate abort.
-    gen.mockResolvedValueOnce(searchEndingOnSteps(10_000, 1_000))
+  it('calls a budget-bound stop "budget", not "steps"', async () => {
+    // The predictive stop halts BEFORE the total crosses, so any label derived
+    // from `spent >= budget` reads false for every well-behaved budget stop and
+    // files it under the step cap. `taskStops` is what separates "the ceiling
+    // is too low" from "the agent will not converge"; conflating the two there
+    // is what makes the next diagnosis unreadable.
+    gen.mockImplementationOnce(searchOver([6_000, 6_000, 6_000, 6_000]))
+    gen.mockResolvedValueOnce(wrapUp(5_000, true))
 
-    const out = await huntTask({
-      task: TASK,
-      reasons: REASONS,
-      runShell,
-      tokenBudget: 20_000,
-      wrapUpTimeoutMs: 0,
-      timeoutMs: 5000,
-      maxSteps: 4,
-    })
+    const out = await hunt(20_000, 12)
+
+    expect(out.stopped).toBe('budget')
+    expect(gen.mock.calls[0][0].stopWhen).toHaveLength(3)
+  })
+
+  it('calls a step-capped stop "steps" even when the handover is expensive', async () => {
+    // 2k of a 40k ceiling over 2 steps: nothing to do with the budget. The
+    // handover then costs 12k, and the total must not relabel the search.
+    gen.mockImplementationOnce(searchOver([1_000, 1_000, 1_000]))
+    gen.mockResolvedValueOnce(wrapUp(12_000, true))
+
+    const out = await hunt(40_000, 2)
+
+    expect(out.stopped).toBe('steps')
+    expect(out.tokens).toBe(14_000)
+    expect(out.wrappedUp).toBe(true)
+  })
+
+  it('does not ask when the last step priced the replay out of what is left', async () => {
+    // A step that jumps in size takes the room its own replay would need. The
+    // floor is not the price of a replay — gating on it bills a 20k task at
+    // ~24k, the same uncosted-late-step overshoot the predictive stop exists
+    // to kill.
+    gen.mockImplementationOnce(searchOver([1_000, 17_500]))
+
+    const out = await hunt(20_000, 12)
 
     expect(gen).toHaveBeenCalledTimes(1)
     expect(out.wrappedUp).toBeUndefined()
+  })
+
+  it('does not reserve anything when the handover is switched off', async () => {
+    // Deadline 0 disables it, and the search must then get the whole
+    // allowance — a reserve held for a call that cannot happen is budget
+    // burned for nothing.
+    gen.mockImplementationOnce(searchOver([6_000, 6_000, 6_000, 6_000]))
+
+    const out = await hunt(20_000, 12, 0)
+
+    expect(gen).toHaveBeenCalledTimes(1)
+    expect(out.tokens).toBe(18_000)
+  })
+
+  it('does not ask when the task deadline leaves no window for an answer', async () => {
+    // Inside HUNT_WRAP_UP_MIN_MS of the deadline the abort fires before the
+    // first token lands: billed upstream, nothing returned.
+    gen.mockImplementationOnce(searchOver([6_000, 6_000, 6_000]))
+
+    const out = await hunt(20_000, 12, 2_000)
+
+    expect(gen).toHaveBeenCalledTimes(1)
+    expect(out.wrappedUp).toBeUndefined()
+  })
+
+  it('bounds the handover to a single step and to the window left on the deadline', async () => {
+    gen.mockImplementationOnce(searchOver([6_000, 6_000, 6_000]))
+    gen.mockResolvedValueOnce(wrapUp(5_000, true))
+
+    await hunt(20_000, 12)
+
+    const call = gen.mock.calls[1][0]
+    // `replayCost` only decides whether to ask; without this the SDK may run
+    // the tool and then take another step to narrate it, past the ceiling.
+    expect(call.stopWhen).toEqual({ stepCountIs: 1 })
+    expect(call.toolChoice).toEqual({
+      type: 'tool',
+      toolName: 'submit_candidates',
+    })
+  })
+
+  it('gives the handover its own clock, not the one the search already spent', async () => {
+    // Two `AbortSignal.timeout`s are always different objects, so comparing
+    // identity proves nothing about duration. Give the SEARCH a 20 ms window
+    // and the task a 30 s deadline: a handover wired to `timeoutMs` is already
+    // aborted a moment later, one wired to the deadline is not.
+    gen.mockImplementationOnce(searchOver([6_000, 6_000, 6_000]))
+    gen.mockResolvedValueOnce(wrapUp(5_000, true))
+
+    await hunt(20_000, 12, 30_000, 20)
+
+    const signal = gen.mock.calls[1][0].abortSignal as AbortSignal
+    expect(signal).toBeInstanceOf(AbortSignal)
+    await new Promise(r => setTimeout(r, 80))
+    expect(signal.aborted).toBe(false)
+  })
+
+  it('separates "asked and it had nothing" from "never managed to ask"', async () => {
+    // A provider that will not honour a forced tool choice does not throw: the
+    // SDK degrades, the model answers in prose, and nothing is submitted. With
+    // the warnings dropped that is indistinguishable in the audit from an agent
+    // that genuinely found nothing — on the single call whose entire purpose is
+    // to tell those two apart.
+    gen.mockImplementationOnce(searchOver([6_000, 6_000, 6_000]))
+    gen.mockResolvedValueOnce(
+      wrapUp(900, false, [
+        { type: 'unsupported-setting', setting: 'toolChoice' },
+      ])
+    )
+
+    const out = await hunt(20_000, 12)
+
+    expect(out.wrappedUp).toBeUndefined()
+    expect(out.wrapUpWarnings).toEqual([
+      JSON.stringify({ type: 'unsupported-setting', setting: 'toolChoice' }),
+    ])
+    expect(out.tokens).toBe(12_900)
+  })
+
+  it('reports no warnings when the handover worked', async () => {
+    gen.mockImplementationOnce(searchOver([6_000, 6_000, 6_000]))
+    gen.mockResolvedValueOnce(wrapUp(900, true, [{ type: 'other' }]))
+
+    const out = await hunt(20_000, 12)
+
+    expect(out.wrappedUp).toBe(true)
+    expect(out.wrapUpWarnings).toBeUndefined()
   })
 })

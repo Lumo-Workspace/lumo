@@ -70,6 +70,7 @@ describe('LUM-739 hunt audit', () => {
       taskStops: {},
       tasksWrappedUp: 0,
       tasksRan: 0,
+      tasksWrapUpRefused: 0,
       sandbox: { attached: 0, created: 0, egressOpen: 0 },
       compress: {
         scans: 0,
@@ -159,6 +160,45 @@ describe('LUM-739 hunt audit', () => {
       outputChars: 0,
       tokens: 16_166,
     })
+  })
+
+  it('counts tasks that RAN once each, and separates a refused handover from an empty one', () => {
+    // The denominator of "submitted on its own" is tasks that ran. A retried
+    // task has two rows and is one task; a `skipped` row never ran at all.
+    // Counting rows instead would inflate the denominator with exactly the
+    // tasks that had no chance to submit, which reads as an agent converging
+    // less than it does — on the number LUM-758's acceptance turns on.
+    const stats = aggregateHuntAudit([
+      {
+        id: 'retry-and-skip',
+        stages: { hunt: 'PARTIAL' },
+        tokenSpent: 100,
+        findings: [],
+        huntAudit: {
+          candidates: 0,
+          tasks: [
+            // t1 ran twice: the retry pass re-ran it after a failure.
+            { taskId: 't1', stopped: 'error' },
+            { taskId: 't1', stopped: 'budget', wrappedUp: true },
+            // t2 was planned and never started — no window left.
+            { taskId: 't2', stopped: 'skipped' },
+            // t3 was asked and the provider dropped the forced tool choice.
+            {
+              taskId: 't3',
+              stopped: 'budget',
+              wrapUpWarnings: ['{"type":"unsupported-setting"}'],
+            },
+          ],
+        },
+      },
+    ] as unknown as HuntScanRow[])
+
+    expect(stats.tasksRan).toBe(2)
+    expect(stats.tasksWrappedUp).toBe(1)
+    // t3 is NOT an agent that had nothing to say — it is a question that never
+    // reached the model. Folded into `wrappedUp: false` it would read as
+    // evidence about the agent, which is the opposite of what it is.
+    expect(stats.tasksWrapUpRefused).toBe(1)
   })
 
   it('reports null rates on an empty input', () => {
