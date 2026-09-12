@@ -78,6 +78,15 @@ export async function POST(request: NextRequest) {
     // Authentic but unplaceable (unknown or uninstalled installation): accept
     // and drop it — a 401 here would put GitHub into an endless retry.
     if (!viaApp) return NextResponse.json({ ok: true })
+
+    // Both hooks are live on this repo, so GitHub sends the same event twice —
+    // once per delivery. The repo hook owns it; handling the App copy as well
+    // would race the inbound comment dedup (which reads before it writes) and
+    // can double-post. Drop this copy and let the repo-hook request do the work.
+    if (webhooks.some(w => w.integration.workspaceId === viaApp)) {
+      return NextResponse.json({ ok: true })
+    }
+
     workspaceId = viaApp
   }
 

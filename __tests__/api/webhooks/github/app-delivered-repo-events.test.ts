@@ -108,6 +108,28 @@ describe('GitHub webhook — repository events delivered by the App', () => {
     expect(resolveWorkspace).not.toHaveBeenCalled()
   })
 
+  it('drops the App copy when the same repo still has a live repo hook for that workspace', async () => {
+    // Both hooks deliver the same event. Processing both races the inbound
+    // dedup (read-then-write) and can double-post a mirrored comment.
+    findWebhooks.mockResolvedValue([
+      {
+        integration: {
+          webhookSecret: 'repo-secret',
+          workspaceId: 'w1',
+          id: 'int1',
+        },
+      },
+    ])
+    // This request carries the App signature, so the repo secret does not match
+    // it — but the repo hook will deliver its own copy separately.
+    verify.mockImplementation((_body, _sig, secret) => secret === 'app-secret')
+
+    const res = await POST(makeRequest('pull_request', prPayload))
+
+    expect(res.status).toBe(200)
+    expect(prHandler).not.toHaveBeenCalled()
+  })
+
   it('accepts but ignores an App delivery from an installation it cannot place', async () => {
     verify.mockImplementation((_body, _sig, secret) => secret === 'app-secret')
     resolveWorkspace.mockResolvedValue(null)
