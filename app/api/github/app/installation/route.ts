@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
-import { githubAppInstallService } from '@/lib/services'
+import { githubAppInstallService } from '@/lib/services/github-app-install.service'
 import { logger } from '@/lib/logger'
 
 /**
@@ -37,6 +37,10 @@ export async function GET(request: NextRequest) {
 /**
  * DELETE /api/github/app/installation?workspaceUrl={slug}
  * Uninstalls the App for this workspace (and drops our record of it).
+ *
+ * Owner-only. Workspace membership is not enough: the installation is what the
+ * managed security scan clones with, so any member could otherwise switch
+ * scanning off for the entire team.
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -50,9 +54,18 @@ export async function DELETE(request: NextRequest) {
     )
     if (ws instanceof NextResponse) return ws
 
-    await githubAppInstallService.uninstall(ws.workspaceId)
+    const memberResult = await requireWorkspaceMember(ws.workspaceId, userId)
+    if (memberResult instanceof NextResponse) return memberResult
+
+    await githubAppInstallService.uninstall(ws.workspaceId, memberResult.role)
     return NextResponse.json({ ok: true })
   } catch (error) {
+    if ((error as { status?: number }).status === 403) {
+      return NextResponse.json(
+        { error: 'Only workspace owners can uninstall the GitHub App' },
+        { status: 403 }
+      )
+    }
     logger.error(`DELETE /api/github/app/installation error: ${String(error)}`)
     return NextResponse.json(
       { error: 'Internal Server Error' },

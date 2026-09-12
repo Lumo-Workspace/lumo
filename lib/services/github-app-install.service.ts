@@ -66,10 +66,22 @@ export const githubAppInstallService = {
   },
 
   /**
-   * Uninstall the App for this workspace. The GitHub-side delete is best-effort
-   * — our row goes either way, so the card can never get stuck.
+   * Uninstall the App for this workspace. Owner-only: the installation is a
+   * shared workspace asset — removing it turns off managed security scanning
+   * for the whole team — so it follows the same rule as disconnecting Slack,
+   * not the OAuth disconnect (which only drops the caller's own token).
+   *
+   * The GitHub-side delete is best-effort — our row goes either way, so the
+   * card can never get stuck.
    */
-  async uninstall(workspaceId: string) {
+  async uninstall(workspaceId: string, memberRole: string) {
+    if (memberRole !== 'OWNER') {
+      throw Object.assign(
+        new Error('Only workspace owners can uninstall the GitHub App'),
+        { status: 403 }
+      )
+    }
+
     const row =
       await githubAppInstallationRepository.findByWorkspace(workspaceId)
     if (!row) return { removed: false } as const
