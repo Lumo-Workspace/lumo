@@ -137,42 +137,26 @@ describe('runOutbound UPDATE', () => {
     expect(prCommentClient.updateIssueComment).not.toHaveBeenCalled()
   })
 
-  it('falls back to BOT_APP token when USER_OAUTH user integration is missing', async () => {
-    // mirror stored as USER_OAUTH, outboundActorUserId: 'm1'
+  it('skips a legacy user-authored mirror instead of 403-looping on GitHub', async () => {
+    // Written before the App-only consolidation: the GitHub comment belongs to
+    // a person, so the App can neither edit nor delete it. Attempting it earns
+    // a 403 whose catch re-enqueues the job — forever.
     ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(
       {
-        id: 'm1',
+        id: 'm-legacy',
         externalSource: 'ISSUE',
         externalId: '999',
         outboundActor: 'USER_OAUTH',
         outboundActorUserId: 'm1',
       }
     )
-    // User has disconnected — integration lookup returns null
-    const { githubRepository } = jest.requireMock(
-      '@/lib/repositories/github.repository'
-    ) as typeof import('@/lib/repositories/github.repository')
-    ;(
-      githubRepository.findIntegrationByUserAndWorkspace as jest.Mock
-    ).mockResolvedValue(null)
-
-    const { getGithubInstallationToken } = jest.requireMock(
-      '@/lib/integrations/github/auth'
-    ) as typeof import('@/lib/integrations/github/auth')
-    ;(getGithubInstallationToken as jest.Mock).mockResolvedValue(
-      'app-token-fallback'
-    )
 
     await prCommentMirrorService.runOutbound('c1', 'UPDATE')
 
-    // Should have fallen back to app token
-    expect(getGithubInstallationToken).toHaveBeenCalled()
-    expect(prCommentClient.updateIssueComment).toHaveBeenCalledWith(
-      expect.objectContaining({ token: 'app-token-fallback' })
-    )
-    // Body should use BOT_APP prefix format (contains attribution text)
-    const callBody = (prCommentClient.updateIssueComment as jest.Mock).mock
-      .calls[0][0].body as string
-    expect(callBody).toContain('在 Lumo 说')
+    expect(prCommentClient.updateIssueComment).not.toHaveBeenCalled()
+    const { prCommentSyncJobRepository } = jest.requireMock(
+      '@/lib/repositories/pr-comment-sync-job.repository'
+    ) as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
+    expect(prCommentSyncJobRepository.enqueue).not.toHaveBeenCalled()
   })
 })

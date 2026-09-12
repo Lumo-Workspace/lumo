@@ -95,4 +95,20 @@ describe('runOutbound DELETE', () => {
     await prCommentMirrorService.runOutbound('c1', 'DELETE')
     expect(prCommentClient.deleteIssueComment).not.toHaveBeenCalled()
   })
+
+  it("skips a legacy user-authored mirror — the App cannot delete a person's comment", async () => {
+    ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(
+      {
+        id: 'm-legacy',
+        externalSource: 'ISSUE',
+        externalId: '999',
+        outboundActor: 'USER_OAUTH',
+        outboundActorUserId: 'm1',
+      }
+    )
+
+    await prCommentMirrorService.runOutbound('c1', 'DELETE')
+
+    expect(prCommentClient.deleteIssueComment).not.toHaveBeenCalled()
+  })
 })
