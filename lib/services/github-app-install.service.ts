@@ -52,6 +52,16 @@ export const githubAppInstallService = {
     })
   },
 
+  /**
+   * Workspace behind an installation id — how a delivery on the App webhook
+   * (which carries no repository row of ours) finds its workspace.
+   */
+  async resolveWorkspaceByInstallation(installationId: number) {
+    const row =
+      await githubAppInstallationRepository.findByInstallationId(installationId)
+    return row?.workspaceId ?? null
+  },
+
   /** Installation status for the settings card. */
   async getStatus(workspaceId: string) {
     const row =

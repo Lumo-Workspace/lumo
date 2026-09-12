@@ -152,7 +152,7 @@ async function resolvePrNumberForCommit(args: {
 export async function handlePullRequest(
   payload: Record<string, unknown>,
   workspaceId: string,
-  integrationId: string
+  integrationId: string | null
 ): Promise<void> {
   const {
     action,
@@ -559,7 +559,7 @@ type InboundAction =
 export async function handleIssueComment(
   payload: Record<string, unknown>,
   workspaceId: string,
-  _integrationId: string
+  _integrationId: string | null
 ): Promise<void> {
   const issue = payload.issue as
     | { number: number; pull_request?: unknown }
@@ -583,7 +583,7 @@ export async function handleIssueComment(
 export async function handlePullRequestReview(
   payload: Record<string, unknown>,
   workspaceId: string,
-  _integrationId: string
+  _integrationId: string | null
 ): Promise<void> {
   const prRef = payload.pull_request as { number: number } | undefined
   if (!prRef) return
@@ -605,7 +605,7 @@ export async function handlePullRequestReview(
 export async function handlePullRequestReviewComment(
   payload: Record<string, unknown>,
   workspaceId: string,
-  _integrationId: string
+  _integrationId: string | null
 ): Promise<void> {
   const prRef = payload.pull_request as { number: number } | undefined
   if (!prRef) return
