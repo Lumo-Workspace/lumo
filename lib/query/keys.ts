@@ -149,6 +149,8 @@ export const queryKeys = {
       ['integrations', 'slack', workspaceUrl] as const,
     github: (workspaceUrl: string) =>
       ['integrations', 'github', workspaceUrl] as const,
+    githubApp: (workspaceUrl: string) =>
+      ['integrations', 'github-app', workspaceUrl] as const,
     githubRepos: (workspaceUrl: string) =>
       ['integrations', 'github-repos', workspaceUrl] as const,
     sentry: (workspaceUrl: string) =>

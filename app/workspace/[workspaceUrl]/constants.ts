@@ -109,6 +109,10 @@ export const API = {
       `/api/github/oauth?workspaceUrl=${workspaceUrl}`,
     integration: '/api/github/integration',
     repos: '/api/github/repos',
+    appInstall: (workspaceUrl: string) =>
+      `/api/github/app/install?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    appInstallation: (workspaceUrl: string) =>
+      `/api/github/app/installation?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
   },
   agent: {
     run: (taskId: string) => `/api/agent/run/${taskId}`,

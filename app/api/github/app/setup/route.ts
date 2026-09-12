@@ -1,0 +1,97 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { decrypt } from '@/lib/crypto'
+import { githubAppInstallService } from '@/lib/services/github-app-install.service'
+import { logger } from '@/lib/logger'
+
+interface InstallState {
+  workspaceId: string
+  workspaceUrl: string
+  memberId: string
+}
+
+function parseState(raw: string | null): InstallState | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(decrypt(raw)) as Partial<InstallState>
+    if (!parsed.workspaceId || !parsed.workspaceUrl) return null
+    return parsed as InstallState
+  } catch {
+    return null
+  }
+}
+
+/**
+ * GET /api/github/app/setup?installation_id={id}&setup_action={action}&state={state}
+ *
+ * Where GitHub sends the user back after installing (or updating) the Lumo
+ * GitHub App. This is the only write path for GitHubAppInstallation from the
+ * browser: it binds an installation to the workspace carried in the signed
+ * `state` we minted in /api/github/app/install.
+ *
+ * The state alone is not trusted for authorization — a user could replay
+ * someone else's link — so the signed-in caller must be a member of the
+ * workspace the state names. Nothing is written when that fails, and every
+ * failure is reported explicitly rather than redirected away silently.
+ */
+export async function GET(request: NextRequest) {
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+  const { userId } = authResult
+
+  const { searchParams } = request.nextUrl
+  const state = parseState(searchParams.get('state'))
+  if (!state) {
+    return NextResponse.json(
+      {
+        error:
+          'This installation link is missing or invalid. Start the installation from your workspace integration settings.',
+      },
+      { status: 400 }
+    )
+  }
+
+  const ws = await getUserWorkspace(userId)
+  if (!ws || ws.workspaceId !== state.workspaceId) {
+    return NextResponse.json(
+      {
+        error:
+          'You are not a member of the workspace this installation was started from.',
+      },
+      { status: 403 }
+    )
+  }
+
+  const settingsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${state.workspaceUrl}/settings/integrations`
+
+  const installationId = Number(searchParams.get('installation_id'))
+  if (!Number.isInteger(installationId) || installationId <= 0) {
+    return NextResponse.json(
+      { error: 'GitHub did not return a valid installation id.' },
+      { status: 400 }
+    )
+  }
+
+  // `request` means the user asked an org owner to approve the install — there
+  // is no installation to record yet.
+  if (searchParams.get('setup_action') === 'request') {
+    return NextResponse.redirect(`${settingsUrl}?github_app=requested`)
+  }
+
+  try {
+    await githubAppInstallService.install({
+      workspaceId: ws.workspaceId,
+      memberId: ws.member.id,
+      installationId,
+    })
+  } catch (error) {
+    logger.error(
+      `[github/app/setup] failed to record installation ${installationId} for workspace ${ws.workspaceId}: ${String(error)}`
+    )
+    return NextResponse.redirect(
+      `${settingsUrl}?github_app_error=install_failed`
+    )
+  }
+
+  return NextResponse.redirect(`${settingsUrl}?github_app=installed`)
+}

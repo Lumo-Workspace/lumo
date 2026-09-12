@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
-import { GitBranch, Plus, X, Loader2 } from 'lucide-react'
+import { GitBranch, Plus, X, Loader2, AlertTriangle } from 'lucide-react'
 import { GitHubIcon } from './GitHubIcon'
-import { IntegrationCard, ConnectedDot } from './IntegrationCard'
+import { IntegrationCard } from './IntegrationCard'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,6 +24,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useGitHubIntegration } from '../hooks/useGitHubIntegration'
+import { useGitHubAppInstallation } from '../hooks/useGitHubAppInstallation'
+import { IntegrationChainRow } from './IntegrationChainRow'
 
 interface GitHubIntegrationCardProps {
   workspaceUrl: string
@@ -53,22 +55,31 @@ export function GitHubIntegrationCard({
     openAddRepo,
     handleAddRepo,
   } = useGitHubIntegration(workspaceUrl)
+  const {
+    status: appStatus,
+    loading: appLoading,
+    uninstallOpen,
+    setUninstallOpen,
+    uninstalling,
+    handleInstall,
+    handleUninstall,
+  } = useGitHubAppInstallation(workspaceUrl)
 
   const connected = status?.connected === true
+  // `undefined` is "not known yet" and must never render as "not set up"
+  // (LUM-684) — only an explicit false unlocks the connect/install affordances.
+  const oauthMissing = status?.connected === false
+  const appInstalled = appStatus?.installed === true
+  const appMissing = appStatus?.installed === false
 
   useEffect(() => {
     onConnectedChange?.(connected)
   }, [connected, onConnectedChange])
 
-  const headerAction = loading ? (
-    <Loader2 size={16} className='animate-spin text-muted-foreground' />
-  ) : status?.connected ? (
-    <ConnectedDot label={intl.formatMessage({ id: 'github.connected' })} />
-  ) : isOwner ? (
-    <Button size='sm' onClick={handleConnect}>
-      {intl.formatMessage({ id: 'common.connect' })}
-    </Button>
-  ) : null
+  const headerAction =
+    loading || appLoading ? (
+      <Loader2 size={16} className='animate-spin text-muted-foreground' />
+    ) : null
 
   return (
     <>
@@ -77,7 +88,6 @@ export function GitHubIntegrationCard({
         title={intl.formatMessage({ id: 'github.title' })}
         description={intl.formatMessage({ id: 'github.description' })}
         headerAction={headerAction}
-        collapsible={connected}
         onReconnect={connected && isOwner ? handleConnect : undefined}
         reconnectLabel={intl.formatMessage({ id: 'common.reauthorize' })}
         onDisconnect={
@@ -86,6 +96,68 @@ export function GitHubIntegrationCard({
         disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
         menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
+        {/* The two grants are independent: OAuth authorizes a person, the App
+            installation authorizes the machine identity the security scan
+            clones with. Each keeps its own status and its own action. */}
+        <IntegrationChainRow
+          testId='github-oauth-row'
+          label={intl.formatMessage({ id: 'github.oauthRow' })}
+          description={intl.formatMessage({ id: 'github.oauthRowDesc' })}
+          connected={connected}
+          connectedLabel={intl.formatMessage({ id: 'github.oauthConnected' })}
+          action={
+            oauthMissing && isOwner ? (
+              <Button size='sm' onClick={handleConnect}>
+                {intl.formatMessage({ id: 'common.connect' })}
+              </Button>
+            ) : null
+          }
+        />
+
+        <IntegrationChainRow
+          testId='github-app-row'
+          label={intl.formatMessage({ id: 'github.appRow' })}
+          description={intl.formatMessage({ id: 'github.appRowDesc' })}
+          connected={appInstalled}
+          connectedLabel={
+            appStatus?.accountLogin
+              ? intl.formatMessage(
+                  { id: 'github.appAccount' },
+                  { account: appStatus.accountLogin }
+                )
+              : intl.formatMessage({ id: 'github.appInstalled' })
+          }
+          action={
+            isOwner && appMissing ? (
+              <Button size='sm' onClick={handleInstall}>
+                {intl.formatMessage({ id: 'github.installApp' })}
+              </Button>
+            ) : isOwner && appInstalled ? (
+              <Button
+                variant='ghost'
+                size='sm'
+                onClick={() => setUninstallOpen(true)}
+              >
+                {intl.formatMessage({ id: 'github.uninstallApp' })}
+              </Button>
+            ) : null
+          }
+        />
+
+        {appMissing ? (
+          <div className='flex items-start gap-2 rounded-lg border border-warning-border bg-warning-subtle px-3 py-2'>
+            <AlertTriangle size={14} className='mt-0.5 shrink-0 text-warning' />
+            <div className='min-w-0'>
+              <p className='text-xs font-medium text-foreground'>
+                {intl.formatMessage({ id: 'github.scanDisabled' })}
+              </p>
+              <p className='text-xs text-muted-foreground'>
+                {intl.formatMessage({ id: 'github.scanDisabledDesc' })}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         {status?.connected ? (
           <>
             {/* Authorized repos */}
@@ -166,6 +238,36 @@ export function GitHubIntegrationCard({
                 <Loader2 size={14} className='animate-spin' />
               ) : (
                 intl.formatMessage({ id: 'common.disconnect' })
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Uninstall App confirmation — independent of the OAuth disconnect */}
+      <AlertDialog open={uninstallOpen} onOpenChange={setUninstallOpen}>
+        <AlertDialogContent size='sm'>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {intl.formatMessage({ id: 'github.uninstallTitle' })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {intl.formatMessage({ id: 'github.uninstallDesc' })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant='outline'>
+              {intl.formatMessage({ id: 'common.cancel' })}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant='destructive'
+              onClick={handleUninstall}
+              disabled={uninstalling}
+            >
+              {uninstalling ? (
+                <Loader2 size={14} className='animate-spin' />
+              ) : (
+                intl.formatMessage({ id: 'github.uninstallApp' })
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
