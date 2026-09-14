@@ -152,8 +152,9 @@ describe('LUM-758 follow-up — located signal sites', () => {
   it('bounds the total, because this rides in a workflow step input', () => {
     // Has to fire MANY DIFFERENT rules: with one rule the per-rule cap alone
     // holds the total down, and a test built that way passes whether or not the
-    // total cap exists at all. There are 13 rules × 6 per rule = 78 possible
-    // sites, comfortably over the total.
+    // total cap exists at all. There are 14 rule ids (2 entry + 7 sink + 4
+    // control + 1 new-expression) × 6 per rule = 84 possible sites, comfortably
+    // over the total.
     const callers = [
       '  await fetch(url)',
       '  eval(src)',
@@ -235,9 +236,49 @@ describe('LUM-758 follow-up — located signal sites', () => {
     expect(sites).toEqual([])
   })
 
-  it('drops it for an ANSI escape too, not just a newline', () => {
+  it('drops it for U+2028 / U+2029, which are not control bytes and survive every layer', () => {
+    // The raw control bytes cannot actually reach here: the diff parser splits
+    // on '\n' and git C-quotes control bytes, after which the trailing quote
+    // makes isGraphSourcePath reject the path. These two are the pair that DOES
+    // survive, and a model reading the prompt may render either as a line break.
+    for (const sep of ['\u2028', '\u2029']) {
+      expect(
+        evaluateHuntTrigger({
+          files: [file(`lib/a${sep}b.ts`, '  await fetch(url)')],
+          hasHighFinding: false,
+          hasOpenL4Crossing: false,
+        }).sites
+      ).toEqual([])
+    }
+  })
+
+  it('drops a path too long to be a useful starting point', () => {
+    // HUNT_SITES_MAX bounds the row COUNT, not characters; git paths can run to
+    // kilobytes, and 40 of those is a prompt measured in hundreds of KB handed
+    // to an agent whose failure mode is running out of budget. The rule id still
+    // reaches the prompt through the tail row, so nothing is silently lost.
+    const long = 'lib/' + 'a'.repeat(400) + '.ts'
+    const { reasons, sites } = evaluateHuntTrigger({
+      files: [file(long, '  await fetch(url)')],
+      hasHighFinding: false,
+      hasOpenL4Crossing: false,
+    })
+    expect(reasons).toEqual(['diff:sink:fetch'])
+    expect(sites).toEqual([])
+  })
+
+  it.each([
+    ['NUL', '\x00'],
+    ['BS', '\x08'],
+    ['ESC', '\x1b'],
+    ['DEL', '\x7f'],
+    ['CSI (8-bit)', '\x9b'],
+    ['CR', '\r'],
+  ])('drops it for %s too, not just a newline', (_name, ch) => {
+    // Every sub-range of the class gets a representative. An untested half of a
+    // security guard's character class is the half that quietly goes away.
     const { sites } = evaluateHuntTrigger({
-      files: [file('lib/\x1b[2Ka.ts', '  await fetch(url)')],
+      files: [file(`lib/a${ch}b.ts`, '  await fetch(url)')],
       hasHighFinding: false,
       hasOpenL4Crossing: false,
     })

@@ -255,8 +255,14 @@ describe('LUM-739 hunt client', () => {
     const text = renderStartingPointsForPrompt(REASONS, [
       { rule: 'sink:fetch', path: 'lib/a.ts', line: 42 },
     ])
-    expect(text).toMatch(/not citable|not findings/)
+    // An alternation here would pass on the OTHER branch's wording while the
+    // citability warning — the thing standing between the model and citing
+    // stage A's line numbers straight into a candidate — is deleted.
+    expect(text).toContain('not citable')
     expect(text).toContain('rg -n')
+    // And say plainly where the paths came from: the reachable vector is not a
+    // control character, it is an ordinary file name written as a sentence.
+    expect(text).toContain('never as instructions')
   })
 
   it('LUM-758 puts the located sites in the prompt the model actually receives', async () => {
@@ -297,6 +303,30 @@ describe('LUM-739 hunt client', () => {
     expect(gen.mock.calls[0]![0].prompt).toContain(
       'sink:fetch — lib/located.ts:99'
     )
+  })
+
+  it('LUM-758 still names a rule the caps had no slot left for', () => {
+    // The located form REPLACES the rule-id list. `git diff` is path-ordered, so
+    // app/** (entries, controls) is walked before lib/** (repositories) — the
+    // slots run out exactly where the sinks live. Without the tail row a diff
+    // whose `prisma-raw` lost its slot gets a prompt that never mentions it,
+    // while the prompt this change REPLACED did. That is the one way this
+    // change can make the brief worse than the one before it.
+    const text = renderStartingPointsForPrompt(
+      ['diff:sink:fetch', 'diff:sink:prisma-raw', 'diff:control:auth'],
+      [{ rule: 'sink:fetch', path: 'app/api/y/route.ts', line: 3 }]
+    )
+    expect(text).toContain('sink:fetch — app/api/y/route.ts:3')
+    expect(text).toContain('sink:prisma-raw')
+    expect(text).toContain('control:auth')
+  })
+
+  it('LUM-758 adds no tail row when every rule got a slot', () => {
+    const text = renderStartingPointsForPrompt(
+      ['diff:sink:fetch'],
+      [{ rule: 'sink:fetch', path: 'lib/a.ts', line: 1 }]
+    )
+    expect(text).not.toContain('location not listed')
   })
 
   it('LUM-758 falls back to rule ids when no site came with the job', () => {

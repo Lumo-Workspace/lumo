@@ -87,8 +87,28 @@ export const HUNT_SITES_PER_RULE_MAX = 6
  * the call site the way it did before this change.
  *
  * `isGraphSourcePath` does not cover this: it only asserts the suffix.
+ *
+ * Scope, honestly: the raw control bytes are DEFENCE IN DEPTH and not a live
+ * hole. `AddedFile.path` has one producer, `addedLinesWithNumbers`, which
+ * splits the diff on '\n' and reads the path off a `+++ b/<path>` header — an
+ * LF cannot survive that split, and git C-quotes any path carrying a control
+ * byte, after which the trailing `"` makes `isGraphSourcePath` reject it.
+ * U+2028 / U+2029 are the pair worth the character class: they are not control
+ * bytes, survive every layer above, and a model reading the prompt may well
+ * render them as a line break. What this guard does NOT address is the vector
+ * that needs no special character at all — a file named as a sentence. That is
+ * handled in the prompt, by saying where the paths came from.
  */
-const PATH_CONTROL_CHARS = /[\x00-\x1f\x7f-\x9f]/
+const PATH_CONTROL_CHARS = /[\x00-\x1f\x7f-\x9f\u2028\u2029]/
+
+/**
+ * A path longer than this is not a starting point worth having. `HUNT_SITES_MAX`
+ * bounds the row COUNT, not the character count, and a git path can run to
+ * kilobytes — 40 of those is a prompt measured in hundreds of KB, handed to an
+ * agent whose whole failure mode is running out of budget. The rule id still
+ * reaches the prompt through the tail row, so nothing is silently lost.
+ */
+const PATH_MAX_CHARS = 200
 
 const ENTRY_TEXT_RULES: ReadonlyArray<{ id: string; re: RegExp }> = [
   {
@@ -144,7 +164,7 @@ export function evaluateHuntTrigger(
     // The single enforcing boundary for this: `sites` leaves here clean, so the
     // persisted job, the prompt renderer and any later consumer can treat a
     // recorded path as a one-line, inert string.
-    if (PATH_CONTROL_CHARS.test(path)) return
+    if (PATH_CONTROL_CHARS.test(path) || path.length > PATH_MAX_CHARS) return
     if (sites.length >= HUNT_SITES_MAX) return
     const n = perRule.get(rule) ?? 0
     if (n >= HUNT_SITES_PER_RULE_MAX) return
