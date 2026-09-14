@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireCronAuth } from '@/lib/api/cron-auth'
 import { runSummaryService } from '@/lib/services/run-summary.service'
 import { logger } from '@/lib/logger'
 
@@ -19,10 +20,8 @@ export const maxDuration = 300
  * /api/internal/fold and the cron routes).
  */
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const unauthorized = requireCronAuth(request)
+  if (unauthorized) return unauthorized
 
   let body: { taskId?: unknown }
   try {

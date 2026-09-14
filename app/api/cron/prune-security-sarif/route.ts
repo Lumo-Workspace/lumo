@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireCronAuth } from '@/lib/api/cron-auth'
 import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
 
 /**
@@ -16,10 +17,8 @@ import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest
  *     ever arrives.
  */
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const unauthorized = requireCronAuth(req)
+  if (unauthorized) return unauthorized
   const result = await securitySarifIngestService.pruneStaleBlobs()
   return NextResponse.json(result)
 }

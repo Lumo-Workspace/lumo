@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireCronAuth } from '@/lib/api/cron-auth'
 import { teamRepository } from '@/lib/repositories/team.repository'
 import { sprintService } from '@/lib/services/sprint.service'
 
@@ -12,12 +13,8 @@ import { sprintService } from '@/lib/services/sprint.service'
  * the no-traffic safety net so transitions (and their notifications) fire even
  * when nobody opens the app.
  */
-export async function GET(req: NextRequest) {
-  // Verify the request is from Vercel Cron.
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export async function GET(req: NextRequest) {  const unauthorized = requireCronAuth(req)
+  if (unauthorized) return unauthorized
 
   const teamIds = await teamRepository.listSprintsEnabledIds()
   const results = await Promise.allSettled(
