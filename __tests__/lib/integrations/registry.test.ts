@@ -9,6 +9,7 @@ describe('integration registry', () => {
     'slack',
     'sentry',
     'github',
+    'githubAccount',
     'figma',
     'googleDrive',
   ]
@@ -21,10 +22,11 @@ describe('integration registry', () => {
     expect(Object.keys(INTEGRATIONS).sort()).toEqual([...ALL_IDS].sort())
   })
 
-  it('classifies kinds correctly (GitHub is TEAM)', () => {
+  it('classifies kinds correctly (the App is TEAM, a member GitHub link is PERSONAL)', () => {
     expect(getIntegrationKind('slack')).toBe('TEAM')
     expect(getIntegrationKind('sentry')).toBe('TEAM')
     expect(getIntegrationKind('github')).toBe('TEAM')
+    expect(getIntegrationKind('githubAccount')).toBe('PERSONAL')
     expect(getIntegrationKind('figma')).toBe('PERSONAL')
     expect(getIntegrationKind('googleDrive')).toBe('PERSONAL')
   })

@@ -16,7 +16,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { useGitHubIntegration } from '../hooks/useGitHubIntegration'
 import { useGitHubAppInstallation } from '../hooks/useGitHubAppInstallation'
 import { IntegrationChainRow } from './IntegrationChainRow'
 
@@ -26,6 +25,13 @@ interface GitHubIntegrationCardProps {
   onConnectedChange?: (connected: boolean) => void
 }
 
+/**
+ * The team's GitHub card: the App installation, and only that. Every
+ * repository read and write — PR links, webhooks, comment mirroring, the
+ * security scan — runs as the installation, so "connected" here means
+ * "installed". A member's own GitHub login lives on the PERSONAL
+ * GitHubAccountCard, not here.
+ */
 export function GitHubIntegrationCard({
   workspaceUrl,
   isOwner,
@@ -33,17 +39,8 @@ export function GitHubIntegrationCard({
 }: GitHubIntegrationCardProps) {
   const intl = useIntl()
   const {
-    status,
-    loading,
-    disconnectOpen,
-    setDisconnectOpen,
-    disconnecting,
-    handleConnect,
-    handleDisconnect,
-  } = useGitHubIntegration(workspaceUrl)
-  const {
     status: appStatus,
-    loading: appLoading,
+    loading,
     uninstallOpen,
     setUninstallOpen,
     uninstalling,
@@ -51,21 +48,18 @@ export function GitHubIntegrationCard({
     handleUninstall,
   } = useGitHubAppInstallation(workspaceUrl)
 
-  const connected = status?.connected === true
   // `undefined` is "not known yet" and must never render as "not set up"
-  // (LUM-684) — only an explicit false unlocks the connect/install affordances.
-  const oauthMissing = status?.connected === false
+  // (LUM-684) — only an explicit false unlocks the install affordance.
   const appInstalled = appStatus?.installed === true
   const appMissing = appStatus?.installed === false
 
   useEffect(() => {
-    onConnectedChange?.(connected)
-  }, [connected, onConnectedChange])
+    onConnectedChange?.(appInstalled)
+  }, [appInstalled, onConnectedChange])
 
-  const headerAction =
-    loading || appLoading ? (
-      <Loader2 size={16} className='animate-spin text-muted-foreground' />
-    ) : null
+  const headerAction = loading ? (
+    <Loader2 size={16} className='animate-spin text-muted-foreground' />
+  ) : null
 
   return (
     <>
@@ -74,19 +68,7 @@ export function GitHubIntegrationCard({
         title={intl.formatMessage({ id: 'github.title' })}
         description={intl.formatMessage({ id: 'github.description' })}
         headerAction={headerAction}
-        onReconnect={connected && isOwner ? handleConnect : undefined}
-        reconnectLabel={intl.formatMessage({ id: 'common.reauthorize' })}
-        onDisconnect={
-          connected && isOwner ? () => setDisconnectOpen(true) : undefined
-        }
-        disconnectLabel={intl.formatMessage({ id: 'common.disconnect' })}
-        menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
-        {/* Two grants with different jobs. The App installation is the team's:
-            every repository read and write — PR links, webhooks, comment
-            mirroring, the security scan — runs as it. The OAuth link is
-            personal and optional: it only maps a GitHub login to this member so
-            comments arriving from GitHub are attributed to them. */}
         <IntegrationChainRow
           testId='github-app-row'
           label={intl.formatMessage({ id: 'github.appRow' })}
@@ -167,54 +149,8 @@ export function GitHubIntegrationCard({
             )}
           </div>
         ) : null}
-
-        <IntegrationChainRow
-          testId='github-oauth-row'
-          label={intl.formatMessage({ id: 'github.oauthRow' })}
-          description={intl.formatMessage({ id: 'github.oauthRowDesc' })}
-          connected={connected}
-          connectedLabel={intl.formatMessage({ id: 'github.oauthConnected' })}
-          action={
-            oauthMissing && isOwner ? (
-              <Button size='sm' onClick={handleConnect}>
-                {intl.formatMessage({ id: 'common.connect' })}
-              </Button>
-            ) : null
-          }
-        />
       </IntegrationCard>
 
-      {/* Disconnect confirmation */}
-      <AlertDialog open={disconnectOpen} onOpenChange={setDisconnectOpen}>
-        <AlertDialogContent size='sm'>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {intl.formatMessage({ id: 'github.disconnectTitle' })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {intl.formatMessage({ id: 'github.disconnectDesc' })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel variant='outline'>
-              {intl.formatMessage({ id: 'common.cancel' })}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant='destructive'
-              onClick={handleDisconnect}
-              disabled={disconnecting}
-            >
-              {disconnecting ? (
-                <Loader2 size={14} className='animate-spin' />
-              ) : (
-                intl.formatMessage({ id: 'common.disconnect' })
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Uninstall App confirmation — independent of the OAuth disconnect */}
       <AlertDialog open={uninstallOpen} onOpenChange={setUninstallOpen}>
         <AlertDialogContent size='sm'>
           <AlertDialogHeader>

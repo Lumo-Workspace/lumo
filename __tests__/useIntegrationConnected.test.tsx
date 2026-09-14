@@ -65,12 +65,12 @@ describe('useIntegrationConnected', () => {
   })
 
   it('reads each integration from its own workspace endpoint', async () => {
-    mockApiFetch.mockResolvedValue({ connected: true })
+    mockApiFetch.mockResolvedValue({ connected: true, installed: true })
 
     for (const [kind, expected] of [
       ['slack', '/api/slack/integration?workspaceUrl=lumo'],
       ['figma', '/api/figma/integration?workspaceUrl=lumo'],
-      ['github', '/api/github/integration?workspaceUrl=lumo'],
+      ['github', '/api/github/app/installation?workspaceUrl=lumo'],
     ] as const) {
       mockApiFetch.mockClear()
       const { wrapper } = makeWrapper()
@@ -82,8 +82,20 @@ describe('useIntegrationConnected', () => {
     }
   })
 
+  it("maps the App installation's `installed` onto `connected` for github", async () => {
+    mockApiFetch.mockResolvedValue({ installed: false })
+    const { wrapper } = makeWrapper()
+    const { result } = renderHook(() => useIntegrationConnected('github'), {
+      wrapper,
+    })
+    await waitFor(() => expect(result.current.connected).toBe(false))
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/github/app/installation?workspaceUrl=lumo'
+    )
+  })
+
   it('reads a connection made on the settings page straight from the shared cache', () => {
-    mockApiFetch.mockResolvedValue({ connected: true })
+    mockApiFetch.mockResolvedValue({ connected: true, installed: true })
     const { qc, wrapper } = makeWrapper()
     // Seed the cache under the exact key the integrations settings page writes,
     // i.e. simulate the user having just connected Slack over there.
