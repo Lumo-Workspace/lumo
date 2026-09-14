@@ -64,6 +64,21 @@ export const cliDispositionBoundaryCrossingSchema = z
   .object({
     disposition: z.enum(['FALSE_POSITIVE', 'CONFIRMED']),
     dispositionNote: z.string().trim().min(1).max(2000).optional(),
+    // LUM-769 read receipt: the token the envelope step obtained from
+    // POST …/disposition/receipt. Required — a write with no receipt is a
+    // 400 before any read, so `--confirm` can never run first.
+    receipt: z.string().min(1).max(512),
+  })
+  .strict()
+
+/**
+ * Body for POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition/receipt
+ * (LUM-769) — the read step of the handshake. Names the ruling the envelope is
+ * being shown for, so the receipt is bound to it. Nothing is written.
+ */
+export const readReceiptRequestSchema = z
+  .object({
+    disposition: z.enum(['FALSE_POSITIVE', 'CONFIRMED']),
   })
   .strict()
 

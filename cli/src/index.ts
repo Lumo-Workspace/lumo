@@ -345,7 +345,7 @@ crossing
 crossing
   .command('disposition <id>')
   .description(
-    "Rule on a boundary crossing from the terminal (LUM-769) through the confirmation protocol: without --confirm it prints the crossing (severity, detail, agent explanations) as a confirmation envelope and exits 4, writing nothing; relay it to the user, and only after they approve re-run with --confirm. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
+    "Rule on a boundary crossing from the terminal (LUM-769) through the confirmation protocol: without --confirm it prints the crossing (severity, detail, agent explanations) as a confirmation envelope with a server-issued read receipt and exits 4, writing nothing; relay it to the user, and only after they approve re-run its confirmCommand (which carries --receipt) — the server refuses any write whose receipt is missing, stale or for another reader. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
   )
   .option(
     '--false-positive',
@@ -359,6 +359,10 @@ crossing
   .option(
     '--task <identifier>',
     'Task the crossing belongs to (defaults to the session-bound task)'
+  )
+  .option(
+    '--receipt <token>',
+    'Read receipt from the envelope step (the confirmCommand carries it); required with --confirm and verified server-side'
   )
   .option(
     '--confirm',

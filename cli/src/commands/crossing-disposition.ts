@@ -13,6 +13,8 @@ export interface CrossingDispositionOptions {
   /** LUM-755 protocol: "the user has approved the envelope". Never
    *  self-supplied by an agent. */
   confirm?: boolean
+  /** LUM-769 read receipt from the envelope step; required with --confirm. */
+  receipt?: string
 }
 
 export type CrossingDispositionTarget = 'FALSE_POSITIVE' | 'CONFIRMED'
@@ -92,11 +94,17 @@ export function describeCrossingDisposition(
  * [--task LUM-N] [--confirm]` — rule on a boundary crossing from the terminal
  * (LUM-769), through the LUM-755 confirmation protocol:
  *
- *   1. without --confirm: read the crossing, print the envelope (exit 4),
- *      write nothing;
+ *   1. without --confirm: read the crossing, obtain a server-signed READ
+ *      RECEIPT for it (bound to crossing, ruling, caller and the crossing's
+ *      current state), print the envelope (exit 4), write nothing;
  *   2. the agent relays every `changes` line; the user approves in chat;
- *   3. with --confirm: POST the ruling to the task-scoped CLI route.
+ *   3. with --confirm --receipt <token>: POST the ruling to the task-scoped
+ *      CLI route, which verifies the receipt before writing.
  *
+ * The receipt makes read-before-write a server-enforced handshake rather than
+ * a convention: `--confirm` with no receipt is refused here before any
+ * request, and a receipt that is forged, expired, for another caller/ruling,
+ * or older than the crossing's latest change is refused by the server.
  * Server-side the ruling is stamped `channel: 'CLI'` so the audit trail keeps
  * it apart from a web-panel click. What stays web-only: reverting to OPEN and
  * the repository suppression rule — neither exists on this path.
@@ -171,13 +179,38 @@ export async function crossingDisposition(
   }
 
   if (!options.confirm) {
+    const issued = await obtainReadReceipt(
+      base,
+      headers,
+      taskId,
+      crossingId,
+      target
+    )
+    if (issued.status === 'error') {
+      console.error(
+        `Error: could not obtain a read receipt for the crossing (${issued.reason}) — nothing was written and no envelope can be issued.`
+      )
+      return 1
+    }
     return emitConfirmation({
       command: 'crossing disposition',
-      changes: describeCrossingDisposition(crossing, target, {
-        taskIdentifier: taskId,
-        note,
-      }),
+      changes: [
+        ...describeCrossingDisposition(crossing, target, {
+          taskIdentifier: taskId,
+          note,
+        }),
+        `Read receipt issued for this crossing as read above — valid until ${issued.expiresAt}; it is void if the crossing changes before the user rules`,
+      ],
+      receipt: { token: issued.receipt, expiresAt: issued.expiresAt },
     })
+  }
+
+  const receipt = options.receipt?.trim()
+  if (!receipt) {
+    console.error(
+      'Error: --confirm requires the read receipt from the envelope (--receipt <token>). Run the command without --confirm first, relay the envelope to the user, then re-run its confirmCommand verbatim.'
+    )
+    return 1
   }
 
   let res: Response
@@ -190,6 +223,7 @@ export async function crossingDisposition(
         body: JSON.stringify({
           disposition: target,
           ...(note ? { dispositionNote: note } : {}),
+          receipt,
         }),
       }
     )
@@ -238,6 +272,62 @@ function pickTarget(
   if (options.falsePositive) return 'FALSE_POSITIVE'
   if (options.confirmed) return 'CONFIRMED'
   return null
+}
+
+type ReceiptResult =
+  | { status: 'ok'; receipt: string; expiresAt: string }
+  | { status: 'error'; reason: string }
+
+/** The read step's server call (LUM-769): sign the crossing as read, for this
+ *  ruling and caller. Fails closed — without a receipt no envelope is issued,
+ *  because its confirmCommand could never be accepted. */
+async function obtainReadReceipt(
+  base: string,
+  headers: Record<string, string>,
+  taskId: string,
+  crossingId: string,
+  target: CrossingDispositionTarget
+): Promise<ReceiptResult> {
+  let res: Response
+  try {
+    res = await fetch(
+      `${base}/api/tasks/${encodeURIComponent(taskId)}/boundary-crossings/${encodeURIComponent(crossingId)}/disposition/receipt`,
+      {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disposition: target }),
+      }
+    )
+  } catch (err) {
+    return {
+      status: 'error',
+      reason: err instanceof Error ? err.message : 'network error',
+    }
+  }
+  if (!res.ok) {
+    const errBody = (await res.json().catch(() => null)) as {
+      error?: unknown
+    } | null
+    const detail =
+      errBody && typeof errBody.error === 'string'
+        ? ` — ${sanitizeField(errBody.error)}`
+        : ''
+    return { status: 'error', reason: `HTTP ${res.status}${detail}` }
+  }
+  let data: { receipt?: unknown; expiresAt?: unknown }
+  try {
+    data = (await res.json()) as { receipt?: unknown; expiresAt?: unknown }
+  } catch {
+    return { status: 'error', reason: 'invalid response body' }
+  }
+  if (typeof data.receipt !== 'string' || data.receipt.length === 0) {
+    return { status: 'error', reason: 'no receipt in response' }
+  }
+  return {
+    status: 'ok',
+    receipt: data.receipt,
+    expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : '',
+  }
 }
 
 type ReadResult =

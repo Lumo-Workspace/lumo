@@ -33,6 +33,21 @@ import type {
  */
 export type DispositionChannel = 'WEB' | 'CLI'
 
+import {
+  crossingStateHash,
+  issueReadReceipt,
+  readReceiptSecret,
+  verifyReadReceipt,
+  type IssuedReceipt,
+  type ReceiptSubject,
+} from '@/lib/boundary-crossing/read-receipt'
+
+/** LUM-769: who is asking for / presenting a read receipt. */
+export interface ReceiptCaller {
+  sessionId: string | null
+  memberId: string
+}
+
 export interface DispositionAttribution {
   /** WorkspaceMember id of the dispositioning human. */
   actorMemberId: string
@@ -1030,6 +1045,117 @@ export const boundaryCrossingService = {
         ? { suppressionRuleId, retroactivelySuppressed, retroactiveCapped }
         : {}),
     }
+  },
+
+  /**
+   * LUM-769 read receipt — the READ half of the CLI disposition handshake.
+   * Signs the crossing as it stands right now (state hash over disposition,
+   * recurrence, explanations, detail…) for one ruling and one caller, and
+   * hands back a short token. Writes nothing. 404 off-task, 503 when no
+   * signing secret is configured (fail closed: no receipt → no CLI ruling).
+   */
+  async issueReadReceipt(
+    taskId: string,
+    crossingId: string,
+    target: 'FALSE_POSITIVE' | 'CONFIRMED',
+    caller: ReceiptCaller
+  ): Promise<IssuedReceipt> {
+    const subject = await this.receiptSubject(
+      taskId,
+      crossingId,
+      target,
+      caller
+    )
+    return issueReadReceipt(this.requireReceiptSecret(), subject)
+  },
+
+  /**
+   * LUM-769 read receipt — the WRITE-side check. Recomputes the subject from
+   * the request context and the crossing's CURRENT state and verifies the
+   * signature: a forged, expired, foreign or stale receipt is a 409 and the
+   * caller must re-run the envelope step. Throws; returns nothing on success.
+   */
+  async verifyReadReceipt(
+    taskId: string,
+    crossingId: string,
+    target: 'FALSE_POSITIVE' | 'CONFIRMED',
+    receipt: string,
+    caller: ReceiptCaller
+  ): Promise<void> {
+    const subject = await this.receiptSubject(
+      taskId,
+      crossingId,
+      target,
+      caller
+    )
+    const verdict = verifyReadReceipt(
+      this.requireReceiptSecret(),
+      receipt,
+      subject
+    )
+    if (verdict.ok) return
+    const why =
+      verdict.reason === 'expired'
+        ? 'the read receipt has expired'
+        : verdict.reason === 'malformed'
+          ? 'the read receipt is malformed'
+          : 'the read receipt does not match this crossing, ruling, caller, or the crossing has changed since it was read'
+    throw Object.assign(
+      new Error(
+        `Refused: ${why}. Re-run the command without --confirm to read the crossing again and get a fresh envelope.`
+      ),
+      { status: 409 }
+    )
+  },
+
+  /** Shared by issue/verify so both sides hash exactly the same state. */
+  async receiptSubject(
+    taskId: string,
+    crossingId: string,
+    target: 'FALSE_POSITIVE' | 'CONFIRMED',
+    caller: ReceiptCaller
+  ): Promise<ReceiptSubject> {
+    const crossing = await boundaryCrossingRepository.findById(crossingId)
+    if (!crossing || crossing.taskId !== taskId) {
+      throw Object.assign(
+        new Error('Boundary-crossing not found on this task'),
+        { status: 404 }
+      )
+    }
+    const explanations =
+      await boundaryCrossingRepository.listExplanationsByCrossingIds([
+        crossingId,
+      ])
+    return {
+      crossingId,
+      taskId,
+      target,
+      sessionId: caller.sessionId,
+      memberId: caller.memberId,
+      stateHash: crossingStateHash({
+        disposition: crossing.disposition,
+        occurrenceCount: crossing.occurrenceCount ?? 1,
+        lastSeenAt: crossing.lastSeenAt,
+        detectedAt: crossing.detectedAt,
+        severity: crossing.severity,
+        category: crossing.category,
+        detail: crossing.detail,
+        explanationIds: explanations.map(e => e.id),
+      }),
+    }
+  },
+
+  requireReceiptSecret(): string {
+    const secret = readReceiptSecret()
+    if (!secret) {
+      throw Object.assign(
+        new Error(
+          'Read-receipt signing is not configured on this server (LUMO_RECEIPT_SECRET / CRON_SECRET) — CLI dispositions are unavailable; use the web panel'
+        ),
+        { status: 503 }
+      )
+    }
+    return secret
   },
 
   /**

@@ -30,6 +30,11 @@ export interface ConfirmationEnvelope {
   command: string
   changes: string[]
   confirmCommand: string
+  /** LUM-769: a server-issued read receipt when the command's write step
+   *  is handshake-gated — `confirmCommand` already carries it as
+   *  `--receipt <token>`; surfaced here for machine readers. Absent on
+   *  commands without a receipt. */
+  receipt?: { token: string; expiresAt: string }
 }
 
 export interface ConfirmationInput {
@@ -41,6 +46,8 @@ export interface ConfirmationInput {
   argv?: string[]
   /** Second-gate flags to add alongside --confirm (e.g. `--force`). */
   extraFlags?: string[]
+  /** LUM-769 read receipt; also appended to confirmCommand as `--receipt <token>`. */
+  receipt?: { token: string; expiresAt: string }
 }
 
 /** The flags a command may carry to signal user approval. */
@@ -80,11 +87,16 @@ export function buildConfirmCommand(
 }
 
 export function buildEnvelope(input: ConfirmationInput): ConfirmationEnvelope {
+  const extraFlags = [
+    ...(input.extraFlags ?? []),
+    ...(input.receipt ? ['--receipt', input.receipt.token] : []),
+  ]
   return {
     status: 'confirmation_required',
     command: input.command,
     changes: input.changes,
-    confirmCommand: buildConfirmCommand(input.argv, input.extraFlags),
+    confirmCommand: buildConfirmCommand(input.argv, extraFlags),
+    ...(input.receipt ? { receipt: input.receipt } : {}),
   }
 }
 
@@ -97,6 +109,9 @@ export function renderConfirmation(
   const lines = [
     `Confirmation required — \`lumo ${envelope.command}\` was not run.`,
     ...envelope.changes.map(c => `  - ${c}`),
+    ...(envelope.receipt
+      ? [`Read receipt issued (valid until ${envelope.receipt.expiresAt}).`]
+      : []),
     'Re-run with --confirm once the user has approved:',
     `  ${envelope.confirmCommand}`,
   ]

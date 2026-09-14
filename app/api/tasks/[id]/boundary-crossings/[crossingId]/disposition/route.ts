@@ -23,6 +23,11 @@ type Params = { params: Promise<{ id: string; crossingId: string }> }
  * here, so the ruling is recorded with `channel: 'CLI'` on its audit row and
  * surfaced as such in the read model, instead of passing as a web click.
  *
+ * Read-before-write is server-enforced: the body must carry the read receipt
+ * the envelope step obtained from `…/disposition/receipt` (missing = 400,
+ * strict schema), and the receipt is verified against the crossing as it is
+ * NOW — forged, expired, foreign or stale = 409, nothing written.
+ *
  * Deliberately narrower than the web route: the body can carry only the two
  * clearing values. The OPEN revert and the LUM-751 repository suppression
  * opt-in are unrepresentable on this schema and stay web-only. Task-scoped:
@@ -52,6 +57,17 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!parsed.success) return zodError(parsed)
 
   try {
+    // LUM-769 handshake: no valid receipt, no write.
+    await boundaryCrossingService.verifyReadReceipt(
+      task.id,
+      crossingId,
+      parsed.data.disposition,
+      parsed.data.receipt,
+      {
+        sessionId: request.headers.get('X-Lumo-Session-Id'),
+        memberId: identity.memberId,
+      }
+    )
     const outcome = await boundaryCrossingService.disposition(
       task.id,
       crossingId,

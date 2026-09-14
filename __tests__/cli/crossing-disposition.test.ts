@@ -2,11 +2,13 @@
  * @jest-environment node
  *
  * LUM-769: `lumo crossing disposition <id> --false-positive | --confirmed`
- * walks the LUM-755 confirmation protocol. Without --confirm it reads the
- * crossing, prints an envelope (severity, category, detail, recurrence, the
- * agent's own explanations, a ⚠ line naming the consequence) and exits 4
- * without any write. With --confirm it POSTs the ruling to the task-scoped
- * CLI route. A crossing read that errors fails closed on both paths.
+ * walks the LUM-755 confirmation protocol with a server-enforced read
+ * receipt. Without --confirm it reads the crossing, obtains a receipt for it
+ * (no write), prints an envelope (severity, category, detail, recurrence, the
+ * agent's own explanations, a ⚠ line naming the consequence, the receipt in
+ * confirmCommand) and exits 4. With --confirm --receipt it POSTs the ruling to
+ * the task-scoped CLI route. A crossing read that errors fails closed on both
+ * paths; --confirm without a receipt is refused before any request.
  */
 jest.mock('@/cli/src/lib/config', () => ({
   readCredentials: jest.fn(() => ({
@@ -42,6 +44,9 @@ const CROSSING = {
   ],
 }
 
+const RECEIPT = 'r1.1000.2000.sig'
+const EXPIRES = '2026-09-14T10:10:00.000Z'
+
 let fetchMock: jest.Mock
 let stdout: string[]
 let stderr: string[]
@@ -55,6 +60,7 @@ function routeFetch(
     session?: unknown
     crossings?: unknown
     post?: unknown
+    receipt?: unknown
   } = {}
 ) {
   fetchMock = jest.fn(async (url: string, init?: { method?: string }) => {
@@ -63,6 +69,12 @@ function routeFetch(
     }
     if (url.endsWith('/boundary-crossings') && !init?.method) {
       return opts.crossings ?? jsonResponse(200, { crossings: [CROSSING] })
+    }
+    if (url.endsWith('/boundary-crossings/cx-1/disposition/receipt')) {
+      return (
+        opts.receipt ??
+        jsonResponse(200, { receipt: RECEIPT, expiresAt: EXPIRES })
+      )
     }
     if (url.endsWith('/boundary-crossings/cx-1/disposition')) {
       return (
@@ -122,12 +134,22 @@ function envelope() {
     command: string
     changes: string[]
     confirmCommand: string
+    receipt?: { token: string; expiresAt: string }
   }
 }
 
+/** Ruling writes only — the receipt POST is a read-step call, not a write. */
 function writes() {
   return fetchMock.mock.calls.filter(
-    ([, init]) => (init as { method?: string } | undefined)?.method === 'POST'
+    ([url, init]) =>
+      (init as { method?: string } | undefined)?.method === 'POST' &&
+      !String(url).endsWith('/receipt')
+  )
+}
+
+function receiptCalls() {
+  return fetchMock.mock.calls.filter(([url]) =>
+    String(url).endsWith('/disposition/receipt')
   )
 }
 
@@ -142,7 +164,7 @@ describe('crossing disposition', () => {
     expect(env.status).toBe('confirmation_required')
     expect(env.command).toBe('crossing disposition')
     expect(env.confirmCommand).toBe(
-      'lumo crossing disposition cx-1 --false-positive --confirm'
+      `lumo crossing disposition cx-1 --false-positive --receipt ${RECEIPT} --confirm`
     )
     const text = env.changes.join('\n')
     expect(env.changes[0]).toBe(
@@ -201,6 +223,7 @@ describe('crossing disposition', () => {
       falsePositive: true,
       note: 'covered elsewhere',
       confirm: true,
+      receipt: RECEIPT,
     })
     expect(code).toBeUndefined()
     const [url, init] = writes()[0] as [string, RequestInit]
@@ -210,6 +233,7 @@ describe('crossing disposition', () => {
     expect(JSON.parse(String(init.body))).toEqual({
       disposition: 'FALSE_POSITIVE',
       dispositionNote: 'covered elsewhere',
+      receipt: RECEIPT,
     })
     expect((init.headers as Record<string, string>)['X-Lumo-Session-Id']).toBe(
       'sess-1'
@@ -221,9 +245,16 @@ describe('crossing disposition', () => {
   })
 
   it('with --confirm: --confirmed sends CONFIRMED with no note field when none was given', async () => {
-    await crossingDisposition('cx-1', { confirmed: true, confirm: true })
+    await crossingDisposition('cx-1', {
+      confirmed: true,
+      confirm: true,
+      receipt: RECEIPT,
+    })
     const [, init] = writes()[0] as [string, RequestInit]
-    expect(JSON.parse(String(init.body))).toEqual({ disposition: 'CONFIRMED' })
+    expect(JSON.parse(String(init.body))).toEqual({
+      disposition: 'CONFIRMED',
+      receipt: RECEIPT,
+    })
   })
 
   it('with --confirm: --task overrides the session binding and a server refusal is a plain exit 1', async () => {
@@ -232,6 +263,7 @@ describe('crossing disposition', () => {
     const code = await crossingDisposition('cx-1', {
       confirmed: true,
       confirm: true,
+      receipt: RECEIPT,
       task: 'LUM-741',
     })
     expect(code).toBe(1)
@@ -248,6 +280,7 @@ describe('crossing disposition', () => {
     const code = await crossingDisposition('cx-1', {
       falsePositive: true,
       confirm: true,
+      receipt: RECEIPT,
     })
     expect(code).toBe(1)
     expect(writes()).toHaveLength(0)
@@ -285,6 +318,7 @@ describe('crossing disposition', () => {
     const code = await crossingDisposition('cx-1', { falsePositive: true })
     expect(code).toBeUndefined()
     expect(writes()).toHaveLength(0)
+    expect(receiptCalls()).toHaveLength(0)
     expect(stdout.join('')).toContain('already FALSE_POSITIVE — nothing to do')
   })
 
@@ -300,6 +334,71 @@ describe('crossing disposition', () => {
     ).toBe(false)
   })
 
+  it('receipt: the read step obtains a server receipt (no write) and the envelope carries it in confirmCommand and as a field', async () => {
+    const code = await crossingDisposition('cx-1', { falsePositive: true })
+    expect(code).toBe(EXIT_CONFIRMATION_REQUIRED)
+    expect(receiptCalls()).toHaveLength(1)
+    const [url, init] = receiptCalls()[0] as [string, RequestInit]
+    expect(url).toBe(
+      'https://api.lumo.test/api/tasks/LUM-741/boundary-crossings/cx-1/disposition/receipt'
+    )
+    expect(JSON.parse(String(init.body))).toEqual({
+      disposition: 'FALSE_POSITIVE',
+    })
+    expect(writes()).toHaveLength(0)
+    const env = envelope()
+    expect(env.receipt).toEqual({ token: RECEIPT, expiresAt: EXPIRES })
+    expect(env.confirmCommand).toContain(`--receipt ${RECEIPT} --confirm`)
+    expect(env.changes.join('\n')).toContain(
+      `Read receipt issued for this crossing as read above — valid until ${EXPIRES}`
+    )
+  })
+
+  it('receipt: when the server cannot issue one the read step fails closed — no envelope, exit 1', async () => {
+    routeFetch({
+      receipt: jsonResponse(503, {
+        error: 'Read-receipt signing is not configured',
+      }),
+    })
+    const code = await crossingDisposition('cx-1', { falsePositive: true })
+    expect(code).toBe(1)
+    expect(stdout.join('')).toBe('')
+    expect(stderr.join('\n')).toMatch(
+      /could not obtain a read receipt .*HTTP 503 — Read-receipt signing is not configured/
+    )
+  })
+
+  it('receipt: --confirm without --receipt is refused locally before any request', async () => {
+    const code = await crossingDisposition('cx-1', {
+      falsePositive: true,
+      confirm: true,
+    })
+    expect(code).toBe(1)
+    expect(writes()).toHaveLength(0)
+    expect(receiptCalls()).toHaveLength(0)
+    expect(stderr.join('\n')).toContain(
+      '--confirm requires the read receipt from the envelope (--receipt <token>)'
+    )
+  })
+
+  it('receipt: a server rejection of the receipt is a plain exit 1 that says to re-run without --confirm', async () => {
+    routeFetch({
+      post: jsonResponse(409, {
+        error:
+          'Refused: the read receipt has expired. Re-run the command without --confirm to read the crossing again and get a fresh envelope.',
+      }),
+    })
+    const code = await crossingDisposition('cx-1', {
+      falsePositive: true,
+      confirm: true,
+      receipt: 'r1.1.2.old',
+    })
+    expect(code).toBe(1)
+    expect(stderr.join('\n')).toMatch(
+      /disposition rejected \(HTTP 409\) — Refused: the read receipt has expired\. Re-run the command without --confirm/
+    )
+  })
+
   it('the command tree lists crossing disposition with its flags (grammar in sync)', () => {
     const cmd = (
       grammarJson as {
@@ -312,6 +411,7 @@ describe('crossing disposition', () => {
       '--confirmed',
       '--note',
       '--task',
+      '--receipt',
       '--confirm',
     ]) {
       expect(Object.keys(cmd?.flags ?? {})).toContain(f)
