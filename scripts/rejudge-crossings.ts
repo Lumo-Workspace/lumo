@@ -20,6 +20,7 @@
  *     scripts/rejudge-crossings.ts --apply                                  # write
  */
 import 'dotenv/config'
+import { readFileSync } from 'fs'
 import { prisma } from '@/lib/db/prisma'
 import {
   boundaryCrossingRejudgeService,
@@ -30,10 +31,14 @@ interface Args {
   apply: boolean
   limit: number
   taskId: string | null
+  /** Dry-run only: judge POLICY_WEAKENING rows against this local file
+   *  instead of reading CLAUDE.md/AGENTS.md through the GitHub App — the
+   *  machine running the script rarely holds the App's private key. */
+  sourceFile: string | null
 }
 
 export function parseArgs(argv: string[]): Args {
-  const out: Args = { apply: false, limit: 200, taskId: null }
+  const out: Args = { apply: false, limit: 200, taskId: null, sourceFile: null }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--apply') {
@@ -47,6 +52,11 @@ export function parseArgs(argv: string[]): Args {
       const v = argv[++i]
       if (!v || v.startsWith('--')) throw new Error('--task expects a task id')
       out.taskId = v
+    } else if (a === '--source-file') {
+      const v = argv[++i]
+      if (!v || v.startsWith('--'))
+        throw new Error('--source-file expects a path')
+      out.sourceFile = v
     } else {
       throw new Error(`unknown argument "${a ?? ''}"`)
     }
@@ -68,9 +78,18 @@ function printDecision(d: RejudgeDecision): void {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
+  if (args.sourceFile && args.apply) {
+    throw new Error(
+      '--source-file is a dry-run aid; an --apply pass must read the source the cron reads (the GitHub App)'
+    )
+  }
+  const localSource = args.sourceFile
+    ? readFileSync(args.sourceFile, 'utf8')
+    : null
   const summary = await boundaryCrossingRejudgeService.sweep({
     limit: args.limit,
     dryRun: !args.apply,
+    ...(localSource != null ? { readSource: async () => localSource } : {}),
   })
   const decisions = args.taskId
     ? summary.decisions.filter(d => d.taskId === args.taskId)
