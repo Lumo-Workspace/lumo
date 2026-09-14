@@ -986,12 +986,25 @@ function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
   }
   const open = result.crossings
   if (open.length === 0) return
+  // LUM-771: say which rows the server DONE gate actually counts — advisory
+  // rows (and, with the gate off, non-HIGH rows) are awareness, not blockers.
+  const blocking = open.filter(c => c.blocking)
+  const rest = open.filter(c => !c.blocking)
   lines.push('')
-  lines.push(`⚠ Open boundary crossings (${open.length} undispositioned):`)
+  lines.push(
+    `⚠ Open boundary crossings (${open.length} undispositioned: ${blocking.length} blocking DONE, ${rest.length} advisory / non-blocking):`
+  )
   for (const c of open) {
     const detail = oneLineDetail(c.detail)
     const tail = detail ? ` — ${detail}` : ''
-    lines.push(`  • [${c.severity}] ${sanitizeField(c.category)}${tail}`)
+    const gate = c.blocking
+      ? ''
+      : c.advisory
+        ? ' (advisory — does not block DONE)'
+        : ' (below the workspace gate — does not block DONE)'
+    lines.push(
+      `  ${c.blocking ? '•' : '◦'} [${c.severity}] ${sanitizeField(c.category)}${gate}${tail}`
+    )
     lines.push(`    ${formatAttribution(c.attribution)}`)
   }
   lines.push(

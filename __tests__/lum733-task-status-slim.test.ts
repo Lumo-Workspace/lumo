@@ -171,6 +171,7 @@ describe('LUM-733 task status slim default', () => {
     const out = formatTaskStatus(PAYLOAD, {
       openCrossings: {
         status: 'ok',
+        gateEnabled: true,
         crossings: [
           {
             id: 'x-1',
@@ -184,12 +185,16 @@ describe('LUM-733 task status slim default', () => {
               worktreeBranch: null,
               model: null,
             },
+            advisory: false,
+            blocking: true,
           },
         ],
       },
       dispositionUrl: 'https://example.test/LUM-9#boundary-crossings',
     })
-    expect(out).toContain('Open boundary crossings (1 undispositioned)')
+    expect(out).toContain(
+      'Open boundary crossings (1 undispositioned: 1 blocking DONE, 0 advisory / non-blocking)'
+    )
     expect(out).toContain('[HIGH] HARDCODED_SECRET')
   })
 })

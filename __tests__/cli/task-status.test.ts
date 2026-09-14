@@ -490,7 +490,9 @@ describe('taskStatus — open boundary crossings (LUM-448)', () => {
     expect(await taskStatus('LUM-9')).toBeUndefined()
     const out = stdout()
     // Count of OPEN (undispositioned) crossings — the dispositioned one is excluded.
-    expect(out).toContain('Open boundary crossings (2 undispositioned)')
+    expect(out).toContain(
+      'Open boundary crossings (2 undispositioned: 2 blocking DONE, 0 advisory / non-blocking)'
+    )
     // Each open crossing shows its severity + category; highest severity first.
     expect(out).toContain('[HIGH] TEST_TAMPERING')
     expect(out).toContain('[LOW] INFRA_TERMINATION')

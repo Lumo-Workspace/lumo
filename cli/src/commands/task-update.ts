@@ -542,17 +542,19 @@ async function runTaskUpdate(
         status === 'DONE' &&
         isDoneGateRefusal(serverMsg)
       ) {
-        const { blockers, unconfirmed } = await collectDoneBlockers({
-          base,
-          token: creds.token,
-          identifier,
-        })
+        const { blockers, unconfirmed, nonBlocking } =
+          await collectDoneBlockers({
+            base,
+            token: creds.token,
+            identifier,
+          })
         return emitBlocked(
           buildBlockedError({
             identifier,
             message: serverMsg as string,
             blockers,
             unconfirmed,
+            nonBlocking,
             apiUrl,
             workspaceSlug: creds.workspaceSlug ?? '',
           })

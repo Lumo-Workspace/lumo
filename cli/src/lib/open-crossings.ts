@@ -29,6 +29,24 @@ export interface OpenCrossing {
   detail: string
   /** Who/what crossed (LUM-469) — model + agent/session attribution. */
   attribution: CrossingAttribution
+  /** LUM-590: advisory crossings surface but never block DONE. */
+  advisory: boolean
+  /** LUM-771: whether the server DONE gate counts this row — the panel /
+   *  `assertNoUnacknowledgedBoundaryCrossings` predicate, computed here so every
+   *  terminal surface agrees with the server instead of listing all open rows. */
+  blocking: boolean
+}
+
+/**
+ * LUM-771: the server's DONE-gate predicate for one open crossing (mirrors
+ * `assertNoUnacknowledgedBoundaryCrossings` and the panel): an advisory row
+ * never blocks; with the workspace gate disabled only HIGH rows block.
+ */
+export function blocksDone(
+  c: { advisory: boolean; severity: CrossingSeverity },
+  gateEnabled: boolean
+): boolean {
+  return !c.advisory && (gateEnabled || c.severity === 'HIGH')
 }
 
 /**
@@ -41,7 +59,13 @@ export interface OpenCrossing {
  * confirm" warning rather than implying zero.
  */
 export type OpenCrossingsResult =
-  | { status: 'ok'; crossings: OpenCrossing[] }
+  | {
+      status: 'ok'
+      crossings: OpenCrossing[]
+      /** LUM-635/771: the workspace's DONE gate for crossings; an older server
+       *  that omits it is read as enabled (fail closed). */
+      gateEnabled: boolean
+    }
   | { status: 'error'; reason: string }
 
 const SEVERITY_RANK: Record<CrossingSeverity, number> = {
@@ -59,6 +83,7 @@ interface RawCrossing {
   detail: string
   disposition: string | null
   attribution?: Partial<CrossingAttribution> | null
+  advisory?: boolean
 }
 
 /** Narrow the raw view's attribution to the terminal's read-only shape, every
@@ -116,24 +141,41 @@ export async function fetchOpenCrossings(
     }
   }
   if (!res.ok) return { status: 'error', reason: `HTTP ${res.status}` }
-  let data: { crossings?: RawCrossing[] }
+  let data: { crossings?: RawCrossing[]; gateEnabled?: unknown }
   try {
-    data = (await res.json()) as { crossings?: RawCrossing[] }
+    data = (await res.json()) as {
+      crossings?: RawCrossing[]
+      gateEnabled?: unknown
+    }
   } catch {
     return { status: 'error', reason: 'invalid response body' }
   }
   const rows = Array.isArray(data.crossings) ? data.crossings : []
+  // LUM-771: only an explicit `false` disables the gate — absent (older server)
+  // or malformed reads as enabled, so a hiccup can never hide a blocker.
+  const gateEnabled = data.gateEnabled !== false
   const crossings = rows
     .filter(c => c.disposition == null)
-    .map(c => ({
-      id: c.id,
-      category: c.category,
-      severity: normalizeSeverity(c.severity),
-      detail: c.detail,
-      attribution: normalizeAttribution(c.attribution),
-    }))
-    .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity])
-  return { status: 'ok', crossings }
+    .map(c => {
+      const severity = normalizeSeverity(c.severity)
+      const advisory = c.advisory === true
+      return {
+        id: c.id,
+        category: c.category,
+        severity,
+        detail: c.detail,
+        attribution: normalizeAttribution(c.attribution),
+        advisory,
+        blocking: blocksDone({ advisory, severity }, gateEnabled),
+      }
+    })
+    // Blocking rows first, then by severity — what the human must act on leads.
+    .sort(
+      (a, b) =>
+        Number(b.blocking) - Number(a.blocking) ||
+        SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity]
+    )
+  return { status: 'ok', crossings, gateEnabled }
 }
 
 /**

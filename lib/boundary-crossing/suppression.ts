@@ -34,15 +34,30 @@ export interface ActiveSuppressionRule {
   reason: string | null
 }
 
+/**
+ * LUM-771 — the stored pattern for a rule that must match one crossing target
+ * EXACTLY. A trailing `*` is the prefix-rule marker, so a target that itself
+ * ends in `*` (`rm -rf __tests__/*`) is escaped as `\*`; stored verbatim it
+ * would silently become a prefix rule over every `rm -rf __tests__/<file>`.
+ * Every rule the service creates from a crossing goes through this.
+ */
+export function exactSuppressionPattern(target: string): string {
+  return target.endsWith('*') ? `${target.slice(0, -1)}\\*` : target
+}
+
 /** Exact target (the LUM-477 coalescing key), or a `prefix*` pattern. A null
- *  target (no coalescing key) never matches — nothing to anchor a rule on. */
+ *  target (no coalescing key) never matches — nothing to anchor a rule on.
+ *  A pattern ending in the escaped `\*` (LUM-771) is an exact match on a
+ *  star-terminated target, never a prefix. */
 export function matchesSuppressionTarget(
   pattern: string,
   target: string | null
 ): boolean {
   if (target == null) return false
-  if (pattern.endsWith('*')) return target.startsWith(pattern.slice(0, -1))
-  return pattern === target
+  const filter = suppressionTargetFilter(pattern)
+  return filter.kind === 'prefix'
+    ? target.startsWith(filter.value)
+    : target === filter.value
 }
 
 export function findSuppressionRule(
@@ -88,6 +103,10 @@ export type SuppressionTargetFilter =
 export function suppressionTargetFilter(
   pattern: string
 ): SuppressionTargetFilter {
+  // LUM-771: `\*` is an escaped literal star (exact), `*` alone is the prefix marker.
+  if (pattern.endsWith('\\*')) {
+    return { kind: 'exact', value: `${pattern.slice(0, -2)}*` }
+  }
   return pattern.endsWith('*')
     ? { kind: 'prefix', value: pattern.slice(0, -1) }
     : { kind: 'exact', value: pattern }
