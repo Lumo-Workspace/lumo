@@ -433,14 +433,20 @@ test('LUM-770: prohibitions keep their cmd-substr predicate and still raise', as
     'deterministic',
     'deterministic',
   ])
-  expect(policy!.rules.every(r => r.predicate?.type === 'cmd-substr')).toBe(
-    true
-  )
+  // LUM-772: the push prohibition is judged on the push destination now
+  // (`push-target`), the other three keep their cmd-substr predicates.
+  expect(policy!.rules.map(r => r.predicate?.type)).toEqual([
+    'push-target',
+    'cmd-substr',
+    'cmd-substr',
+    'cmd-substr',
+  ])
   const refs = (command: string) =>
     detectProjectActionCrossings(bashEvent(command), policy!.rules).map(
       c => c.policyRuleText
     )
   expect(refs('git push origin main')).toEqual(['Never push to main'])
+  expect(refs('git push origin feature/x')).toEqual([])
   expect(refs('node scripts/flush-prod.js')).toEqual(['never run flush-prod'])
   expect(refs('npx prisma migrate deploy')).toEqual([
     'You must never apply prod migrations by hand (prisma migrate deploy)',
@@ -504,6 +510,205 @@ test('LUM-770: the compiler version is part of the source hash so an unchanged C
   ;(client.classifyRules as jest.Mock).mockClear()
   const second = await policyCompilerService.ensureCompiled({
     projectId: 'p770c',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+  })
+  expect(client.classifyRules).not.toHaveBeenCalled()
+  expect(second!.sourceHash).toBe(first!.sourceHash)
+})
+
+// ── LUM-772: push prohibitions are judged on the push destination ────────────
+//
+// GLM compiled "Never push to main or develop directly" (mapped to the
+// built-in PUSH_TO_PROTECTED_BRANCH) with a `cmd-substr: "git push"`
+// predicate — target-blind, so every feature-branch push was a HIGH
+// PROJECT_RULE_VIOLATION (LUM-771: three in one session). Test names below are
+// literal MACHINE checkpointers — do not rename.
+
+const LUM_772_FEATURE_PUSH =
+  'git push -u origin lumo/LUM-771-crossing-fixes 2>&1 | tail -3'
+const LUM_772_PUSH_AND_PR =
+  'git push -q origin lumo/LUM-771-cli-bump && gh pr create --base main --head lumo/LUM-771-cli-bump --title "chore: bump cli [LUM-771]" --body "x"'
+
+test('LUM-772 compiler rewrites push rules to target-aware predicates', async () => {
+  ;(contents.readRepoFile as jest.Mock).mockResolvedValue(
+    '## Forbidden\n- Never push to main or develop directly\n- Never push directly to main or release\n- Never push to main, develop or release\n- Never force-push (git push --force)\n- Never push to main\n'
+  )
+  ;(client.classifyRules as jest.Mock).mockResolvedValue({
+    rules: [
+      // 1. The prod rule exactly as compiled: mapped + target-blind substring
+      //    → deduped onto the built-in (no predicate), still deterministic +
+      //    blocking so no POLICY_WEAKENING is ever emitted for it.
+      {
+        text: 'Never push to main or develop directly',
+        kind: 'action',
+        tier: 'deterministic',
+        mappedCategory: 'PUSH_TO_PROTECTED_BRANCH',
+        predicate: { type: 'cmd-substr', value: 'git push' },
+        severity: 'HIGH',
+        blocking: true,
+        polarity: 'forbid',
+      },
+      // 2. Unmapped, names a branch the built-in does not guard → push-target
+      //    over exactly the named branches (advisory project rule).
+      {
+        text: 'Never push directly to main or release',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: 'git push' },
+        severity: 'HIGH',
+        blocking: false,
+      },
+      // 3. Mapped but names an extra branch → the built-in does not cover it,
+      //    so the push-target predicate is kept alongside the mapping.
+      {
+        text: 'Never push to main, develop or release',
+        kind: 'action',
+        tier: 'deterministic',
+        mappedCategory: 'PUSH_TO_PROTECTED_BRANCH',
+        predicate: { type: 'cmd-substr', value: 'git push origin main' },
+        severity: 'HIGH',
+        blocking: true,
+      },
+      // 4. A push rule that names no branch is not a push-TARGET rule: its own
+      //    predicate is left alone.
+      {
+        text: 'Never force-push (git push --force)',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: '--force' },
+        severity: 'MEDIUM',
+        blocking: false,
+        polarity: 'forbid',
+      },
+      // 5. Mapped with no predicate at all: unchanged (the built-in covers it).
+      {
+        text: 'Never push to main',
+        kind: 'action',
+        tier: 'deterministic',
+        mappedCategory: 'PUSH_TO_PROTECTED_BRANCH',
+        severity: 'MEDIUM',
+        blocking: true,
+      },
+    ],
+  })
+  const policy = await policyCompilerService.ensureCompiled({
+    projectId: 'p772',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+  })
+  const [prod, unmapped, mappedExtra, force, mappedBare] = policy!.rules
+  expect(prod).toMatchObject({
+    tier: 'deterministic',
+    blocking: true,
+    mappedCategory: 'PUSH_TO_PROTECTED_BRANCH',
+  })
+  expect(prod!.predicate).toBeUndefined()
+  expect(unmapped).toMatchObject({
+    tier: 'deterministic',
+    blocking: false,
+    predicate: { type: 'push-target', value: 'main,release' },
+  })
+  expect(mappedExtra).toMatchObject({
+    tier: 'deterministic',
+    blocking: true,
+    predicate: { type: 'push-target', value: 'main,develop,release' },
+  })
+  expect(force!.predicate).toEqual({ type: 'cmd-substr', value: '--force' })
+  expect(mappedBare!.predicate).toBeUndefined()
+  expect(mappedBare!.tier).toBe('deterministic')
+  // No rule in the set is target-blind any more.
+  expect(
+    policy!.rules.some(
+      r => r.predicate?.type === 'cmd-substr' && /push/.test(r.predicate.value)
+    )
+  ).toBe(false)
+
+  const refs = (command: string) =>
+    detectProjectActionCrossings(bashEvent(command), policy!.rules).map(
+      r => r.policyRuleText
+    )
+  // The LUM-771 false positives raise nothing under any of the rules.
+  expect(refs(LUM_772_FEATURE_PUSH)).toEqual([])
+  expect(refs(LUM_772_PUSH_AND_PR)).toEqual([])
+  expect(
+    refs(
+      'lumo crossing explain abc --note "the command was git push -q origin lumo/x + gh pr create --base main"'
+    )
+  ).toEqual([])
+  // Real protected pushes still cite the rules that carry a predicate (the
+  // deduped prod rule is the built-in detector's job, not a project rule).
+  expect(refs('git push origin main')).toEqual([
+    'Never push directly to main or release',
+    'Never push to main, develop or release',
+  ])
+  expect(refs('git push -f origin feature:develop')).toEqual([
+    'Never push to main, develop or release',
+  ])
+  expect(refs('git push origin HEAD:release')).toEqual([
+    'Never push directly to main or release',
+    'Never push to main, develop or release',
+  ])
+  expect(refs('git push --force origin feat')).toEqual([
+    'Never force-push (git push --force)',
+  ])
+})
+
+test('LUM-772: a policy stored by the pre-772 compiler recompiles once via the version hash', async () => {
+  const { createHash } = await import('crypto')
+  const source = '## Forbidden\n- Never push to main or develop directly'
+  ;(contents.readRepoFile as jest.Mock).mockImplementation(
+    async (input: { path: string }) =>
+      input.path === 'CLAUDE.md' ? source : null
+  )
+  const staleHash = createHash('sha256')
+    .update([source, ''].join('\n\n'))
+    .update('\n compiler:lum770')
+    .digest('hex')
+  policyStore.set('p772b', {
+    sourceHash: staleHash,
+    rules: [
+      {
+        id: 'b7cb287dd363426e',
+        text: 'Never push to main or develop directly',
+        kind: 'action',
+        tier: 'deterministic',
+        mappedCategory: 'PUSH_TO_PROTECTED_BRANCH',
+        predicate: { type: 'cmd-substr', value: 'git push' },
+        severity: 'HIGH',
+        blocking: true,
+      },
+    ],
+  })
+  ;(client.classifyRules as jest.Mock).mockResolvedValue({
+    rules: [
+      {
+        text: 'Never push to main or develop directly',
+        kind: 'action',
+        tier: 'deterministic',
+        mappedCategory: 'PUSH_TO_PROTECTED_BRANCH',
+        predicate: { type: 'cmd-substr', value: 'git push' },
+        severity: 'HIGH',
+        blocking: true,
+      },
+    ],
+  })
+
+  const first = await policyCompilerService.ensureCompiled({
+    projectId: 'p772b',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+    taskId: 't1',
+  })
+  expect(client.classifyRules).toHaveBeenCalledTimes(1)
+  expect(first!.sourceHash).not.toBe(staleHash)
+  expect(first!.rules[0]!.predicate).toBeUndefined()
+  // Same id, still deterministic + blocking → no POLICY_WEAKENING crossing.
+  expect(first!.rules[0]!.id).toBe('b7cb287dd363426e')
+  expect(boundaryCrossingRepository.create).not.toHaveBeenCalled()
+  ;(client.classifyRules as jest.Mock).mockClear()
+  const second = await policyCompilerService.ensureCompiled({
+    projectId: 'p772b',
     workspaceId: 'w1',
     fullName: 'o/r',
   })

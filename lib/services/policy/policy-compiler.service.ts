@@ -14,7 +14,8 @@ import { projectPolicyRepository } from '@/lib/repositories/project-policy.repos
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { isReversible } from '@/lib/services/boundary-detector.service'
 import { isObligationText } from './rule-polarity'
-import type { CompiledPolicy, PolicyRule } from './types'
+import { pushRuleShape } from './push-rule'
+import type { CompiledPolicy, PolicyRule, RawPolicyRule } from './types'
 
 /**
  * Part of the policy cache key alongside the source text. Bump it whenever the
@@ -23,7 +24,7 @@ import type { CompiledPolicy, PolicyRule } from './types'
  * of serving a stale rule set until someone edits the doc (LUM-770: the stored
  * policies carried the tsc-obligation-as-prohibition rule).
  */
-const COMPILER_VERSION = 'lum770'
+export const COMPILER_VERSION = 'lum772'
 
 // ── In-memory source cache ────────────────────────────────────────────────────
 // Avoids 2 GitHub API reads on every PostToolUse event (ensureCompiled hot path).
@@ -120,6 +121,72 @@ async function emitWeakening(
   }
 }
 
+/**
+ * The deterministic post-processing every compiled rule goes through — pure,
+ * exported so a STORED policy can be re-run through the current compiler's
+ * view without a model call (the LUM-772 backfill re-judges old crossings
+ * against exactly this):
+ *
+ * - a deterministic rule with neither a known built-in category nor a safe
+ *   predicate is downgraded to semantic tier;
+ * - LUM-770: an OBLIGATION carrying a cmd-substr predicate ("tests + `npx tsc
+ *   --noEmit` pass" before a PR) is downgraded too, and loses the predicate —
+ *   the detector reads cmd-substr as "running this is a violation", which
+ *   inverts a must-do. Either the model's own polarity or the wording guard is
+ *   enough; the guard exists because the model misreading the sentence is the
+ *   failure being fixed;
+ * - LUM-772: a push PROHIBITION ("never push to main or develop") never keeps
+ *   a target-blind predicate (`cmd-substr: "git push"` flagged every
+ *   feature-branch push). Mapped to the built-in PUSH_TO_PROTECTED_BRANCH and
+ *   naming only built-in-guarded branches → no predicate at all (the built-in,
+ *   target-scoped since LUM-464, is the single detector); otherwise → a
+ *   `push-target` predicate over the branches the rule names.
+ */
+export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
+  return rawRules.map(r => {
+    const hasBuiltin =
+      r.mappedCategory != null &&
+      (BUILTIN_CATEGORIES as readonly string[]).includes(r.mappedCategory)
+    const obligationWithCmdSubstr =
+      r.kind === 'action' &&
+      r.predicate?.type === 'cmd-substr' &&
+      (r.polarity === 'require' || isObligationText(r.text))
+    let predicate = obligationWithCmdSubstr ? undefined : r.predicate
+
+    // LUM-772: push prohibitions are judged on the push destination only.
+    const push = obligationWithCmdSubstr ? null : pushRuleShape(r)
+    if (push) {
+      predicate = push.coveredByBuiltin
+        ? undefined
+        : { type: 'push-target', value: push.branches.join(',') }
+    }
+    const hasPredicate = predicate != null
+
+    const tier: PolicyRule['tier'] =
+      obligationWithCmdSubstr ||
+      (r.tier === 'deterministic' && !hasBuiltin && !hasPredicate)
+        ? 'semantic'
+        : r.tier
+
+    const rule: PolicyRule = {
+      id: ruleId(r.text),
+      text: r.text,
+      kind: r.kind,
+      tier,
+      severity: r.severity,
+      // blocking only when mappedCategory resolves to a known built-in.
+      blocking: hasBuiltin,
+    }
+    // Only set optional fields when they are actually present (exactOptionalPropertyTypes).
+    if (r.mappedCategory != null) rule.mappedCategory = r.mappedCategory
+    if (hasPredicate && predicate != null) rule.predicate = predicate
+    if (r.assertion != null) rule.assertion = r.assertion
+    else if (obligationWithCmdSubstr || (push && !hasPredicate && !hasBuiltin))
+      rule.assertion = r.text
+    return rule
+  })
+}
+
 export const policyCompilerService = {
   /**
    * Returns the active compiled policy for a project, recompiling only when
@@ -166,46 +233,8 @@ export const policyCompilerService = {
       return prev ? { sourceHash: prev.sourceHash, rules: prev.rules } : null
     }
 
-    // 4. Apply safety-net: a deterministic rule with neither a known built-in
-    //    category nor a safe predicate is downgraded to semantic tier.
-    //    LUM-770: an OBLIGATION carrying a cmd-substr predicate ("tests +
-    //    `npx tsc --noEmit` pass" before a PR) is downgraded too, and loses
-    //    the predicate — the detector reads cmd-substr as "running this is a
-    //    violation", which inverts a must-do. Either the model's own polarity
-    //    or the wording guard is enough; the guard exists because the model
-    //    misreading the sentence is the failure being fixed.
-    const rules: PolicyRule[] = raw.rules.map(r => {
-      const hasBuiltin =
-        r.mappedCategory != null &&
-        (BUILTIN_CATEGORIES as readonly string[]).includes(r.mappedCategory)
-      const obligationWithCmdSubstr =
-        r.kind === 'action' &&
-        r.predicate?.type === 'cmd-substr' &&
-        (r.polarity === 'require' || isObligationText(r.text))
-      const hasPredicate = r.predicate != null && !obligationWithCmdSubstr
-
-      const tier: PolicyRule['tier'] =
-        obligationWithCmdSubstr ||
-        (r.tier === 'deterministic' && !hasBuiltin && !hasPredicate)
-          ? 'semantic'
-          : r.tier
-
-      const rule: PolicyRule = {
-        id: ruleId(r.text),
-        text: r.text,
-        kind: r.kind,
-        tier,
-        severity: r.severity,
-        // blocking only when mappedCategory resolves to a known built-in.
-        blocking: hasBuiltin,
-      }
-      // Only set optional fields when they are actually present (exactOptionalPropertyTypes).
-      if (r.mappedCategory != null) rule.mappedCategory = r.mappedCategory
-      if (hasPredicate && r.predicate != null) rule.predicate = r.predicate
-      if (r.assertion != null) rule.assertion = r.assertion
-      else if (obligationWithCmdSubstr) rule.assertion = r.text
-      return rule
-    })
+    // 4. Apply the deterministic safety nets (pure; see compileRuleSet).
+    const rules = compileRuleSet(raw.rules)
 
     // 5. Persist the new policy snapshot.
     await projectPolicyRepository.create({

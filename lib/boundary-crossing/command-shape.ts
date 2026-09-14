@@ -14,6 +14,14 @@
  *
  * Conservative by construction: an unknown verb is treated as executing, and a
  * missed split only ever leaves MORE text in a segment (flags more, not less).
+ *
+ * LUM-772: the built-in command matchers run on these segments too, with
+ * `keepGit` — every `git …` segment counts as executing for them (a
+ * `git commit` IS the action for HOOK_BYPASS, and commit-message prose is the
+ * LUM-466 confirmation step's call, not this module's), while the print /
+ * search / lumo / gh-authoring carriers are dropped deterministically, so a
+ * `lumo crossing explain --note "…"` quoting a forbidden command never reaches
+ * a matcher at all.
  */
 
 /**
@@ -27,55 +35,125 @@ export function splitCommandSegments(cmd: string): string[] {
   return cmd.split(/(?:&&|\|\||[;|\n])/)
 }
 
+/** A heredoc operator and its delimiter (`<<EOF`, `<<-EOF`, `<<'EOF'`). */
+const HEREDOC_OP = /^<<-?\s*(['"]?)([A-Za-z_]\w*)\1/
+
 /**
  * Split on the shell separators WITHOUT splitting inside a quoted literal, so a
  * `bash -c 'a && b'` wrapper survives as one segment and can be unwrapped.
  * Used by `executingSegments`.
+ *
+ * LUM-772: a heredoc BODY stays attached to the segment that opens it, so the
+ * intro's verb decides the whole unit — `cat > f <<EOF … EOF` is authored text
+ * and is dropped as one read-only segment (its lines never become segments of
+ * their own), while `bash <<EOF` / `psql <<EOF` keep their body in an
+ * executing segment. An unterminated heredoc falls back to plain line
+ * splitting (nothing is swallowed).
  */
 export function splitSegmentsQuoteAware(cmd: string): string[] {
   const out: string[] = []
   let cur = ''
   let quote: '"' | "'" | null = null
-  for (let i = 0; i < cmd.length; i++) {
+  // A heredoc announced on the current line: its delimiter, and the index in
+  // `out` of the segment that owns it once a separator has pushed that
+  // segment (null while the owner is still `cur`).
+  let heredoc: string | null = null
+  let owner: number | null = null
+  const push = () => {
+    out.push(cur)
+    cur = ''
+    if (heredoc !== null && owner === null) owner = out.length - 1
+  }
+  let i = 0
+  while (i < cmd.length) {
     const c = cmd[i]!
     if (quote) {
       cur += c
       if (c === '\\' && quote === '"' && i + 1 < cmd.length) {
         cur += cmd[++i]!
       } else if (c === quote) quote = null
+      i++
       continue
     }
     if (c === '"' || c === "'") {
       quote = c
       cur += c
+      i++
       continue
     }
     if (c === '\\' && i + 1 < cmd.length) {
       cur += c + cmd[++i]!
-      continue
-    }
-    if (c === '\n' || c === ';') {
-      out.push(cur)
-      cur = ''
-      continue
-    }
-    if (c === '&' && cmd[i + 1] === '&') {
-      out.push(cur)
-      cur = ''
       i++
       continue
     }
+    if (c === '<' && cmd[i + 1] === '<' && heredoc === null) {
+      const m = cmd.slice(i).match(HEREDOC_OP)
+      if (m) {
+        heredoc = m[2]!
+        cur += m[0]
+        i += m[0].length
+        continue
+      }
+    }
+    if (c === '\n') {
+      if (heredoc !== null) {
+        // Body mode: consume whole lines up to and including the terminator.
+        const lines = cmd.slice(i + 1).split('\n')
+        const body: string[] = []
+        let consumed = 0
+        let found = false
+        for (const line of lines) {
+          consumed += line.length + 1
+          body.push(line)
+          if (line.trim() === heredoc) {
+            found = true
+            break
+          }
+        }
+        const delimiter = heredoc
+        heredoc = null
+        if (found) {
+          const text = '\n' + body.join('\n')
+          if (owner !== null) out[owner] = out[owner]!.trimEnd() + text
+          else cur = cur.trimEnd() + text
+          owner = null
+          push()
+          i = Math.min(i + 1 + consumed, cmd.length)
+          continue
+        }
+        // Unterminated `<<${delimiter}`: not a heredoc after all — plain lines.
+        void delimiter
+        owner = null
+      }
+      push()
+      i++
+      continue
+    }
+    if (c === ';') {
+      push()
+      i++
+      continue
+    }
+    if (c === '&' && cmd[i + 1] === '&') {
+      push()
+      i += 2
+      continue
+    }
     if (c === '|') {
-      out.push(cur)
-      cur = ''
-      if (cmd[i + 1] === '|') i++
+      push()
+      i += cmd[i + 1] === '|' ? 2 : 1
       continue
     }
     cur += c
+    i++
   }
   out.push(cur)
   return out
 }
+
+/** `find` executes or deletes what it matches when given one of these —
+ *  `-exec rm {} +`, `-delete` — so such a segment is NOT a read-only search. */
+const FIND_MUTATING_FLAG = /(?:^|\s)-(?:exec|execdir|ok|okdir|delete)\b/
 
 /** Tokens that never carry the verb: env assignments, `!` negation and
  *  common launcher prefixes. */
@@ -232,15 +310,35 @@ export function unwrapShellWrapper(segment: string): string | null {
   return leadingQuotedLiteral(rest.slice(flagAt + 1).join(' '))
 }
 
+/** Options for {@link isReadOnlySegment} / {@link executingSegments}. */
+export interface SegmentScopeOptions {
+  /**
+   * LUM-772: treat EVERY `git …` segment as executing. For the built-in
+   * command matchers a git invocation is itself the action under test (a
+   * `git commit -n` is a hook bypass; a `git push` may target main), and the
+   * commit-message / heredoc prose they carry is judged by the LUM-466
+   * confirmation step — so only the non-git prose carriers (echo / grep / cat
+   * / lumo / gh authoring …) are dropped for them. Off by default: the
+   * project-rule matcher keeps the LUM-751 git read / navigation exemptions.
+   */
+  keepGit?: boolean
+}
+
 /**
  * Whether a single segment can never execute its arguments or write a named
  * external target — print/search tools, git reads and navigation, gh reads and
  * PR/issue authoring, `git commit` (message carrier), the lumo CLI.
  */
-export function isReadOnlySegment(segment: string): boolean {
+export function isReadOnlySegment(
+  segment: string,
+  options: SegmentScopeOptions = {}
+): boolean {
   const { verb, rest } = verbOf(segment)
+  // `find … -exec …` / `-delete` runs or removes what it finds — an executor.
+  if (verb === 'find') return !FIND_MUTATING_FLAG.test(rest.join(' '))
   if (READ_ONLY_VERBS.has(verb)) return true
   if (verb === 'git') {
+    if (options.keepGit) return false
     let j = 0
     while (j < rest.length && rest[j]!.startsWith('-')) j++
     const sub = rest[j] ?? ''
@@ -261,17 +359,21 @@ export function isReadOnlySegment(segment: string): boolean {
  * are dropped and `bash -c '…'` wrappers are unwrapped (recursively, bounded)
  * so the inner command is classified segment by segment. Trimmed, non-empty.
  */
-export function executingSegments(cmd: string, depth = 0): string[] {
+export function executingSegments(
+  cmd: string,
+  options: SegmentScopeOptions = {},
+  depth = 0
+): string[] {
   const out: string[] = []
   for (const raw of splitSegmentsQuoteAware(cmd)) {
     const seg = raw.trim()
     if (!seg) continue
     const inner = depth < 3 ? unwrapShellWrapper(seg) : null
     if (inner != null) {
-      out.push(...executingSegments(inner, depth + 1))
+      out.push(...executingSegments(inner, options, depth + 1))
       continue
     }
-    if (isReadOnlySegment(seg)) continue
+    if (isReadOnlySegment(seg, options)) continue
     out.push(seg)
   }
   return out

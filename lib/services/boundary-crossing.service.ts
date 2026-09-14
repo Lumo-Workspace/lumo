@@ -30,9 +30,11 @@ import type {
  * `lumo crossing disposition … --confirm` — the agent relayed the exit-4
  * confirmation envelope and the user approved in chat, which the server cannot
  * verify, so the channel is recorded on the audit row and surfaced in the read
- * model instead of being folded into the web-click shape.
+ * model instead of being folded into the web-click shape. `SYSTEM` (LUM-772)
+ * is a scripted re-judgement (`scripts/backfill-prv-rejudge.ts`) — no human
+ * actor, never a web click.
  */
-export type DispositionChannel = 'WEB' | 'CLI'
+export type DispositionChannel = 'WEB' | 'CLI' | 'SYSTEM'
 
 import {
   acknowledgeReadReceipt,
@@ -611,10 +613,13 @@ function readTransition(payload: unknown): {
 }
 
 /** LUM-769: the surface a disposition activity came through. Only the CLI path
- *  stamps `channel`; every row without it (web clicks, legacy rows) is WEB. */
+ *  (and the LUM-772 system backfill) stamps `channel`; every row without it
+ *  (web clicks, legacy rows) is WEB. */
 function readChannel(payload: unknown): DispositionChannel {
   const p = (payload ?? {}) as Record<string, unknown>
-  return p.channel === 'CLI' ? 'CLI' : 'WEB'
+  if (p.channel === 'CLI') return 'CLI'
+  if (p.channel === 'SYSTEM') return 'SYSTEM'
+  return 'WEB'
 }
 
 /**
