@@ -2365,5 +2365,7 @@
   "boundary.panel.suppressPreview": "इससे इस रिपॉज़िटरी में इसी प्रकार की मौजूदा {count} चेतावनियाँ भी निपटा दी जाएँगी।",
   "boundary.panel.suppressPreviewCapped": "{cap} से अधिक मेल हैं — केवल सबसे हाल की {cap} ही निपटाई जाएँगी।",
   "boundary.toast.ruleCreatedWithSweep": "रिपॉज़िटरी नियम बनाया गया — इसी प्रकार की मौजूदा {count} चेतावनियाँ निपटाई गईं, और आगे की घटनाएँ स्वतः निपटाई जाएँगी",
-  "boundary.toast.ruleRevokedWithReopen": "नियम वापस लिया गया — इसने जो {count} चेतावनियाँ स्वतः निपटाई थीं वे फिर से लंबित हैं"
+  "boundary.toast.ruleRevokedWithReopen": "नियम वापस लिया गया — इसने जो {count} चेतावनियाँ स्वतः निपटाई थीं वे फिर से लंबित हैं",
+  "boundary.panel.viaCli": "· CLI के ज़रिए",
+  "boundary.panel.viaCliTip": "टर्मिनल से lumo crossing disposition --confirm के ज़रिए तय किया गया: एजेंट ने सीमा-उल्लंघन बताया और उपयोगकर्ता ने चैट में मंज़ूरी दी। अगर वह मंज़ूरी आपकी नहीं थी तो यहाँ सुधारें।"
 }

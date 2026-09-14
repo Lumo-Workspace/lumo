@@ -72,7 +72,13 @@ export interface DispositionChangeView {
   to: BoundaryDisposition | null
   actorId: string | null
   at: string
+  /** LUM-769: `CLI` when the correction came through
+   *  `lumo crossing disposition --confirm`, else `WEB`. */
+  channel: DispositionChannel
 }
+
+/** LUM-769: the surface a ruling came through (mirrors the service type). */
+export type DispositionChannel = 'WEB' | 'CLI'
 
 export interface BoundaryCrossingView {
   id: string
@@ -94,6 +100,11 @@ export interface BoundaryCrossingView {
   editChange: EditChangeView | null
   /** Set when the crossing's disposition was corrected (re-dispositioned). */
   lastDispositionChange: DispositionChangeView | null
+  /** LUM-769: which surface the current ruling came through — `CLI` for
+   *  `lumo crossing disposition --confirm` (user approval relayed by the agent,
+   *  unverifiable server-side), `WEB` for a panel click; null while open or for
+   *  system rulings that wrote no activity row. */
+  dispositionChannel?: DispositionChannel | null
   /** Who/what crossed (LUM-469) — owner, agent/session, model. Always present. */
   attribution: CrossingAttributionView
   /** LUM-542: append-only agent self-explanations ("申辩"), oldest-first; each

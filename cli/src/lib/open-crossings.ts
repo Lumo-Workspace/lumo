@@ -86,9 +86,9 @@ function normalizeSeverity(s: string): CrossingSeverity {
  * first, via the EXISTING LUM-435 read endpoint — `GET …/boundary-crossings`
  * returns every crossing (open and dispositioned); we keep only the
  * undispositioned ones (`disposition == null`). This is the **read/awareness**
- * half of the acceptance loop: there is no new query and, by construction, no
- * way to clear a crossing — disposition stays web + human-only
- * (LUM-426/435/422).
+ * half of the acceptance loop: there is no new query and this helper cannot
+ * clear anything — a ruling goes through `lumo crossing disposition` (exit-4
+ * user approval, LUM-769) or the web panel.
  *
  * Fails *closed*, not open (LUM-480): any transport / non-ok HTTP / parse
  * failure returns `{ status: 'error', reason }` so the caller can say "check
@@ -137,9 +137,9 @@ export async function fetchOpenCrossings(
 }
 
 /**
- * The web deep link where a HUMAN dispositions crossings. Disposition is
- * web-only and human-only (LUM-426/435/422); the terminal only ever points
- * here, it never clears anything itself. Built from the workspace slug +
+ * The web deep link where a human dispositions crossings in the panel — the
+ * counterpart of `lumo crossing disposition` (LUM-769); the awareness surfaces
+ * (task status, DONE_BLOCKED) point here. Built from the workspace slug +
  * identifier alone (the `/my-tasks/<id>` route needs no project slug), so no
  * extra fetch is required.
  */

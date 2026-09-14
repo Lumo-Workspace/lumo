@@ -89,7 +89,71 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Inspect and annotate boundary crossings"
+      "description": "Inspect, annotate and (with user approval) disposition boundary crossings"
+    },
+    "crossing disposition": {
+      "arguments": [{ "name": "id", "required": true, "variadic": false }],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Step 3: the user approved the ruling (never add this on your own initiative). Refused unless the read was confirmed first"
+        },
+        "--confirm-read": {
+          "long": "--confirm-read",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Step 2: the user confirmed they have read the envelope (never add this on your own initiative). Returns the ruling envelope; writes nothing"
+        },
+        "--confirmed": {
+          "long": "--confirmed",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Rule the crossing confirmed (a real issue, acknowledged)"
+        },
+        "--false-positive": {
+          "long": "--false-positive",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Rule the crossing a false positive (not a real issue)"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Optional disposition note recorded with the ruling"
+        },
+        "--receipt": {
+          "long": "--receipt",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Read receipt from the previous step's envelope (its confirmCommand carries it); required with --confirm-read (stage 1 receipt) and --confirm (stage 2 receipt), verified server-side"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Task the crossing belongs to (defaults to the session-bound task)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Rule on a boundary crossing from the terminal (LUM-769) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
     },
     "crossing explain": {
       "arguments": [{ "name": "id", "required": true, "variadic": false }],

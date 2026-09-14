@@ -142,7 +142,7 @@ lumo session attach --steward cmxyz123...                 # by milestone id
 - Moving a task to `in_progress` with **yourself as the effective assignee** (whether already assigned to you or assigned in the same call) → 409. Dispatching to _someone else_ is planning and passes.
 - Red line unchanged: a steward writes no PASS of any kind; DONE stays human-only.
 
-**Backstop (second layer, detector):** commits / PR creations produced during a steward session anyway (the CLI can't stop local git) are recorded as **`STEWARD_IMPLEMENTATION_ARTIFACT` boundary crossings against the milestone** — fail-closed (an unparseable Bash payload records an _unconfirmed_ crossing rather than nothing), disposition stays **web + human-only**, and there is **no CLI clear path** (`crossing explain` remains an appeal, never a clear).
+**Backstop (second layer, detector):** commits / PR creations produced during a steward session anyway (the CLI can't stop local git) are recorded as **`STEWARD_IMPLEMENTATION_ARTIFACT` boundary crossings against the milestone** — fail-closed (an unparseable Bash payload records an _unconfirmed_ crossing rather than nothing), disposition stays **web + human-only** — `lumo crossing disposition` (LUM-769) is task-scoped and cannot reach a milestone crossing — and there is **no CLI clear path** (`crossing explain` remains an appeal, never a clear).
 
 #### When to suggest
 

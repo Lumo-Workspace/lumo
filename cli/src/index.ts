@@ -35,6 +35,10 @@ import {
   type CrossingExplainOptions,
 } from './commands/crossing-explain'
 import {
+  crossingDisposition,
+  type CrossingDispositionOptions,
+} from './commands/crossing-disposition'
+import {
   outcomeShow,
   outcomeRate,
   type OutcomeRateOptions,
@@ -319,7 +323,9 @@ program
 
 const crossing = program
   .command('crossing')
-  .description('Inspect and annotate boundary crossings')
+  .description(
+    'Inspect, annotate and (with user approval) disposition boundary crossings'
+  )
 
 crossing
   .command('explain <id>')
@@ -333,6 +339,42 @@ crossing
   .action(
     wrap((id: unknown, options: unknown) =>
       crossingExplain(id as string, options as CrossingExplainOptions)
+    )
+  )
+
+crossing
+  .command('disposition <id>')
+  .description(
+    "Rule on a boundary crossing from the terminal (LUM-769) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
+  )
+  .option(
+    '--false-positive',
+    'Rule the crossing a false positive (not a real issue)'
+  )
+  .option(
+    '--confirmed',
+    'Rule the crossing confirmed (a real issue, acknowledged)'
+  )
+  .option('--note <text>', 'Optional disposition note recorded with the ruling')
+  .option(
+    '--task <identifier>',
+    'Task the crossing belongs to (defaults to the session-bound task)'
+  )
+  .option(
+    '--receipt <token>',
+    "Read receipt from the previous step's envelope (its confirmCommand carries it); required with --confirm-read (stage 1 receipt) and --confirm (stage 2 receipt), verified server-side"
+  )
+  .option(
+    '--confirm-read',
+    'Step 2: the user confirmed they have read the envelope (never add this on your own initiative). Returns the ruling envelope; writes nothing'
+  )
+  .option(
+    '--confirm',
+    'Step 3: the user approved the ruling (never add this on your own initiative). Refused unless the read was confirmed first'
+  )
+  .action(
+    wrap((id: unknown, options: unknown) =>
+      crossingDisposition(id as string, options as CrossingDispositionOptions)
     )
   )
 

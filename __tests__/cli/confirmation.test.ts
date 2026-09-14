@@ -200,3 +200,60 @@ describe('confirmation helpers', () => {
     })
   })
 })
+
+describe('buildConfirmCommand — multi-step handshake (LUM-769)', () => {
+  it('drops a previous step flag and its --receipt pair, then appends the new receipt and the requested step flag', async () => {
+    const { buildConfirmCommand, buildEnvelope } =
+      await import('@/cli/src/lib/confirmation')
+    // Step 1 → asks for --confirm-read.
+    expect(
+      buildConfirmCommand(
+        ['crossing', 'disposition', 'cx-1', '--false-positive'],
+        ['--receipt', 'r1.tok'],
+        '--confirm-read'
+      )
+    ).toBe(
+      'lumo crossing disposition cx-1 --false-positive --receipt r1.tok --confirm-read'
+    )
+    // Step 2 re-ran from that command → the stale r1 pair and --confirm-read go, r2 + --confirm come.
+    expect(
+      buildConfirmCommand(
+        [
+          'crossing',
+          'disposition',
+          'cx-1',
+          '--false-positive',
+          '--receipt',
+          'r1.tok',
+          '--confirm-read',
+        ],
+        ['--receipt', 'r2.tok'],
+        '--confirm'
+      )
+    ).toBe(
+      'lumo crossing disposition cx-1 --false-positive --receipt r2.tok --confirm'
+    )
+    // `--receipt=value` spelling is stripped too; default flag stays --confirm.
+    expect(
+      buildConfirmCommand(['x', '--receipt=old', '--confirm'], [], undefined)
+    ).toBe('lumo x --confirm')
+    // The envelope threads confirmFlag + receipt through; no receipt → no key.
+    const env = buildEnvelope({
+      command: 'crossing disposition',
+      changes: ['c'],
+      argv: ['crossing', 'disposition', 'cx-1', '--confirmed'],
+      receipt: { token: 'r1.tok', expiresAt: '2026-09-14T10:10:00.000Z' },
+      confirmFlag: '--confirm-read',
+    })
+    expect(env.confirmCommand).toBe(
+      'lumo crossing disposition cx-1 --confirmed --receipt r1.tok --confirm-read'
+    )
+    expect(env.receipt).toEqual({
+      token: 'r1.tok',
+      expiresAt: '2026-09-14T10:10:00.000Z',
+    })
+    expect(
+      'receipt' in buildEnvelope({ command: 'x', changes: ['c'], argv: ['x'] })
+    ).toBe(false)
+  })
+})

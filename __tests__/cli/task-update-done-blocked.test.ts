@@ -248,6 +248,10 @@ describe('task update done blocked', () => {
     expect(err.remediation.join('\n')).toContain(
       'lumo crossing explain cx-1 --note'
     )
+    // LUM-769: the user's CLI path is named, next to the web panel link.
+    expect(err.remediation.join('\n')).toContain(
+      'lumo crossing disposition cx-1 --false-positive'
+    )
     expect(err.remediation.join('\n')).toContain(err.dispositionUrl)
     expect(stderr).toEqual([])
   })
@@ -288,6 +292,9 @@ describe('task update done blocked', () => {
   })
 
   it('remediation never offers a CLI path that clears a blocker', () => {
+    // LUM-769: a boundary crossing may name `lumo crossing disposition` — the
+    // USER's exit-4 path, never a ready-to-run approval — while send-backs and
+    // security findings still get no CLI clear path at all.
     const lines = buildRemediation(
       [
         {
@@ -319,13 +326,25 @@ describe('task update done blocked', () => {
       { identifier: 'LUM-1', dispositionUrl: 'https://x/#boundary-crossings' }
     )
     expect(lines.length).toBe(3)
-    const allowed = ['lumo verify', 'lumo crossing explain', 'lumo task status']
+    const allowed = [
+      'lumo verify',
+      'lumo crossing explain',
+      'lumo crossing disposition',
+      'lumo task status',
+    ]
     for (const l of lines) {
-      expect(l).not.toMatch(/--confirm|--force|--yes/)
+      // No line hands the agent a ready-to-run approval flag.
+      expect(l).not.toMatch(/--confirm\b|--force|--yes/)
       for (const m of l.match(/lumo [a-z]+(?: [a-z]+)?/g) ?? []) {
         expect(allowed.some(a => m.startsWith(a))).toBe(true)
       }
     }
+    const byKind = Object.fromEntries(
+      lines.map(l => [l.split(':')[0], l])
+    ) as Record<string, string>
+    expect(byKind.SEND_BACK).not.toContain('crossing disposition')
+    expect(byKind.SECURITY_FINDING).not.toContain('lumo ')
+    expect(byKind.BOUNDARY_CROSSING).toContain('never self-approve')
     expect(lines.join('\n')).toMatch(/human/i)
   })
 

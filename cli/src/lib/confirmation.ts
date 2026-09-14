@@ -30,6 +30,11 @@ export interface ConfirmationEnvelope {
   command: string
   changes: string[]
   confirmCommand: string
+  /** LUM-769: a server-issued read receipt when the command's write step
+   *  is handshake-gated — `confirmCommand` already carries it as
+   *  `--receipt <token>`; surfaced here for machine readers. Absent on
+   *  commands without a receipt. */
+  receipt?: { token: string; expiresAt: string }
 }
 
 export interface ConfirmationInput {
@@ -41,6 +46,12 @@ export interface ConfirmationInput {
   argv?: string[]
   /** Second-gate flags to add alongside --confirm (e.g. `--force`). */
   extraFlags?: string[]
+  /** LUM-769 read receipt; also appended to confirmCommand as `--receipt <token>`. */
+  receipt?: { token: string; expiresAt: string }
+  /** The approval flag this envelope asks for (default `--confirm`). A
+   *  multi-step handshake (LUM-769) issues an earlier envelope that asks for
+   *  `--confirm-read` first; the flag means "the user approved THIS step". */
+  confirmFlag?: '--confirm' | '--confirm-read'
 }
 
 /** The flags a command may carry to signal user approval. */
@@ -61,30 +72,62 @@ export function shellQuote(arg: string): string {
   return `'${arg.replace(/'/g, `'\\''`)}'`
 }
 
+/** Flags that belong to a previous step of a handshake and must not carry
+ *  over into the next step's command: the step flags themselves and a prior
+ *  `--receipt <token>` pair (the next envelope brings its own receipt). */
+const STEP_FLAGS = new Set(['--confirm', '--confirm-read'])
+
+function stripStepFlags(argv: string[]): string[] {
+  const out: string[] = []
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i] as string
+    if (STEP_FLAGS.has(a)) continue
+    if (a === '--receipt') {
+      i++ // drop its value too
+      continue
+    }
+    if (a.startsWith('--receipt=')) continue
+    out.push(a)
+  }
+  return out
+}
+
 /**
- * Rebuild the invocation the user ran, plus `--confirm` (and any
- * `extraFlags`). Flags already present in argv are never duplicated, and
- * `--confirm` always lands last so the command reads as "…, approved".
+ * Rebuild the invocation the user ran, plus the approval flag (default
+ * `--confirm`) and any `extraFlags`. Step flags and a prior `--receipt` from
+ * an earlier handshake step are dropped first, flags already present in argv
+ * are never duplicated, and the approval flag always lands last so the
+ * command reads as "…, approved".
  */
 export function buildConfirmCommand(
   argv: string[] = process.argv.slice(2),
-  extraFlags: string[] = []
+  extraFlags: string[] = [],
+  confirmFlag: '--confirm' | '--confirm-read' = '--confirm'
 ): string {
-  const kept = argv.filter(a => a !== '--confirm')
+  const kept = stripStepFlags(argv)
   const parts = ['lumo', ...kept.map(shellQuote)]
   for (const flag of extraFlags) {
     if (!kept.includes(flag)) parts.push(flag)
   }
-  parts.push('--confirm')
+  parts.push(confirmFlag)
   return parts.join(' ')
 }
 
 export function buildEnvelope(input: ConfirmationInput): ConfirmationEnvelope {
+  const extraFlags = [
+    ...(input.extraFlags ?? []),
+    ...(input.receipt ? ['--receipt', input.receipt.token] : []),
+  ]
   return {
     status: 'confirmation_required',
     command: input.command,
     changes: input.changes,
-    confirmCommand: buildConfirmCommand(input.argv, input.extraFlags),
+    confirmCommand: buildConfirmCommand(
+      input.argv,
+      extraFlags,
+      input.confirmFlag ?? '--confirm'
+    ),
+    ...(input.receipt ? { receipt: input.receipt } : {}),
   }
 }
 
@@ -97,7 +140,10 @@ export function renderConfirmation(
   const lines = [
     `Confirmation required — \`lumo ${envelope.command}\` was not run.`,
     ...envelope.changes.map(c => `  - ${c}`),
-    'Re-run with --confirm once the user has approved:',
+    ...(envelope.receipt
+      ? [`Read receipt issued (valid until ${envelope.receipt.expiresAt}).`]
+      : []),
+    `Re-run with ${envelope.confirmCommand.endsWith('--confirm-read') ? '--confirm-read' : '--confirm'} once the user has approved:`,
     `  ${envelope.confirmCommand}`,
   ]
   return lines.join('\n') + '\n'
