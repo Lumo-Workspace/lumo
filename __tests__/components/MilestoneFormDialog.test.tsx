@@ -14,10 +14,9 @@ const en: Record<string, string> = {
     'Milestone name, e.g. Agent-Native Sprints',
   'milestone.dialog.description.placeholder':
     'What should this milestone achieve? What are the deliverables and the bar for done? (optional)',
-  'milestone.status.PLANNED': 'Planned',
-  'milestone.status.ACTIVE': 'Active',
-  'milestone.status.COMPLETED': 'Completed',
-  'milestone.status.CANCELLED': 'Cancelled',
+  'milestone.state.active': 'Active',
+  'milestone.state.completed': 'Completed',
+  'milestone.state.archived': 'Archived',
   'milestone.save.error': "Couldn't save milestone. Please try again.",
   'common.cancel': 'Cancel',
   'common.create': 'Create',
@@ -267,11 +266,12 @@ describe('MilestoneFormDialog', () => {
     await userEvent.clear(target)
     await userEvent.type(target, '2026-12-15')
 
-    // Status is edited on the detail page's sidebar, not here — the dialog
-    // neither shows the control nor writes the field, so it can never save back
-    // a value the sidebar has since moved on from.
+    // LUM-714: state is derived (completedAt / archivedAt), so no surface
+    // offers a control for it — least of all this dialog, which must never
+    // save back a lifecycle value.
     expect(screen.queryByLabelText('Status')).not.toBeInTheDocument()
-    expect(screen.queryByText('Planned')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('State')).not.toBeInTheDocument()
+    expect(screen.queryByText('Active')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /Save/ }))
 

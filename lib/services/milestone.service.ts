@@ -44,7 +44,6 @@ import { getActorClerkId } from '@/lib/actor'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 import { waitUntil } from '@vercel/functions'
-import type { MilestoneStatus } from '@prisma/client'
 
 interface CreateInput {
   name: string
@@ -56,22 +55,10 @@ interface CreateInput {
 interface UpdateInput {
   name?: string | undefined
   description?: string | null | undefined
-  status?: MilestoneStatus | undefined
   startDate?: Date | null | undefined
   targetDate?: Date | null | undefined
   /** LUM-644 advisory token budget; null clears it. */
   tokenBudget?: number | null | undefined
-}
-
-/**
- * LUM-643: close-gate escape hatch. `overrideCloseGate` may ONLY be set by a
- * human-initiated path (the PATCH route gates it on the Clerk source — the
- * agent/Bearer path has no override). The override is stamped on the
- * milestone (completedOverride* fields) as a persistent trail.
- */
-interface UpdateMilestoneOptions {
-  overrideCloseGate?: boolean
-  overrideNote?: string | null
 }
 
 /**
@@ -554,8 +541,7 @@ export const milestoneService = {
   async updateMilestone(
     milestoneId: string,
     memberId: string,
-    input: UpdateInput,
-    options?: UpdateMilestoneOptions
+    input: UpdateInput
   ) {
     const existing = await milestoneRepository.findById(milestoneId)
     if (!existing) {
@@ -579,44 +565,6 @@ export const milestoneService = {
     if (input.startDate !== undefined) data.startDate = input.startDate
     if (input.targetDate !== undefined) data.targetDate = input.targetDate
     if (input.tokenBudget !== undefined) data.tokenBudget = input.tokenBudget
-
-    let transitionedToCompleted = false
-    if (input.status !== undefined && input.status !== existing.status) {
-      data.status = input.status
-      if (input.status === 'COMPLETED') {
-        // LUM-643 close gate: exit criteria not adjudicated MET (unadjudicated
-        // or NOT_MET) refuse the close with 409 — unless the caller carries an
-        // explicit human override, which is stamped as a persistent trail.
-        const unresolved =
-          await milestoneExitCriterionRepository.listUnresolved(milestoneId)
-        if (unresolved.length > 0) {
-          if (!options?.overrideCloseGate) {
-            const pending = unresolved.filter(c => c.verdict === null).length
-            const notMet = unresolved.length - pending
-            const preview = unresolved
-              .slice(0, 3)
-              .map(c => `"${c.statement.slice(0, 80)}"`)
-              .join(', ')
-            throw Object.assign(
-              new Error(
-                `Milestone close blocked: ${unresolved.length} exit criteria unresolved (${pending} unadjudicated, ${notMet} NOT_MET) — e.g. ${preview}. Adjudicate them (\`lumo milestone criteria verdict\`) or have a human override the close explicitly.`
-              ),
-              { status: 409 }
-            )
-          }
-          data.completedOverrideAt = new Date()
-          data.completedOverrideByMemberId = memberId
-          data.completedOverrideNote = options.overrideNote ?? null
-        }
-        data.completedAt = new Date()
-        transitionedToCompleted = true
-      } else if (existing.status === 'COMPLETED') {
-        data.completedAt = null
-      }
-      // CANCELLED: do not touch completedAt
-    } else if (input.status !== undefined) {
-      data.status = input.status
-    }
 
     const updated = await milestoneRepository.update(milestoneId, data)
 
@@ -664,13 +612,50 @@ export const milestoneService = {
       )
     }
 
-    // Kick off retro generation without blocking the HTTP response. The
-    // GenerationJob (status: 'pending') created inside the helper is updated to
-    // 'completed' or 'failed' by milestoneSummaryService.generate.
-    if (transitionedToCompleted) {
-      void generateMilestoneRetro(milestoneId)
+    return updated
+  },
+
+  /**
+   * LUM-714 close override — the successor to the old `--status completed`
+   * `?force=1` path. Completion is derived now, so there is no status to set:
+   * this stamps `completedAt` directly, past the LUM-643 exit-criteria gate,
+   * and records the override trail. Human-initiated paths only (the route
+   * gates it on the Clerk source — the agent/Bearer path has no override).
+   *
+   * Without unresolved criteria there is nothing to override, so the call is
+   * refused (409) rather than quietly stamping a completion the rollup would
+   * have reached on its own — or, worse, one the tasks don't support.
+   */
+  async overrideMilestoneClose(
+    milestoneId: string,
+    memberId: string,
+    overrideNote: string | null
+  ) {
+    const existing = await milestoneRepository.findById(milestoneId)
+    if (!existing) {
+      throw Object.assign(new Error('Milestone not found'), { status: 404 })
+    }
+    await projectService.getProject(existing.projectId, memberId)
+
+    const unresolved =
+      await milestoneExitCriterionRepository.listUnresolved(milestoneId)
+    if (unresolved.length === 0) {
+      throw Object.assign(
+        new Error(
+          'Nothing to override: this milestone has no unresolved exit criteria. Completion is derived from task completion.'
+        ),
+        { status: 409 }
+      )
     }
 
+    const updated = await milestoneRepository.update(milestoneId, {
+      completedAt: new Date(),
+      completedOverrideAt: new Date(),
+      completedOverrideByMemberId: memberId,
+      completedOverrideNote: overrideNote,
+    })
+    // Mirrors the derived-completion path: the retro rides on the transition.
+    void generateMilestoneRetro(milestoneId)
     return updated
   },
 

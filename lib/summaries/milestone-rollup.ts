@@ -1,60 +1,75 @@
-import type { MilestoneStatus, TaskStatus } from '@prisma/client'
+import type { TaskStatus } from '@prisma/client'
 
 /**
- * Task-completion status rollup for milestones (LUM-624). Pure decision
- * logic — IO lives in `@/lib/services/milestone-rollup.service`.
+ * Task-completion rollup for milestones (LUM-624, reshaped by LUM-714). Pure
+ * decision logic — IO lives in `@/lib/services/milestone-rollup.service`.
  *
- * A milestone's PLANNED/ACTIVE/COMPLETED lifecycle follows its tasks:
+ * Since LUM-714 a milestone has no stored status. Its state is just:
  *
- *  - PLANNED  → ACTIVE     any task has started (left TODO), not all done
- *  - PLANNED/ACTIVE → COMPLETED   every task is DONE (total > 0)
- *  - COMPLETED → ACTIVE    a non-DONE task (re)appeared — reopened, created,
- *                          or moved in
+ *  - **archived** (`archivedAt`) — the one explicit human choice: put it away.
+ *  - **completed** (`completedAt`) — never chosen, always *derived* from task
+ *    completion and merely materialized as a timestamp.
  *
- * CANCELLED and archived milestones are human terminal choices — rollup
- * never touches them. A milestone with zero tasks carries no signal and is
- * never moved either direction.
+ * So the rollup no longer moves a milestone between lifecycle labels; it
+ * answers one question — does the stored `completedAt` still agree with the
+ * tasks?
+ *
+ *  - `complete` — every task is DONE (total > 0) and `completedAt` is unset
+ *  - `reopen`   — a non-DONE task (re)appeared while `completedAt` was set
+ *
+ * Archived milestones are left alone (a human put them away; task churn
+ * underneath must not resurrect them), and a milestone with zero tasks carries
+ * no signal in either direction.
  */
 
+/** The completion transition the task counts call for. */
+export type MilestoneCompletionChange = 'complete' | 'reopen'
+
 export interface MilestoneRollupInput {
-  status: MilestoneStatus
+  /** The stored completion stamp — `null` means "not completed". */
+  completedAt: Date | null
   archived: boolean
   taskCounts: Record<TaskStatus, number>
   /**
    * LUM-643: active exit criteria not adjudicated MET (unadjudicated or
    * NOT_MET). While > 0 the close gate holds: an all-tasks-DONE milestone is
-   * NOT auto-completed (and reads report no COMPLETED drift) until the
+   * NOT auto-completed (and reads report no completion drift) until the
    * contract is adjudicated or a human overrides explicitly. Omitted → 0
    * (no contract = gate open), preserving pre-LUM-643 caller behavior.
+   *
+   * The gate is one-directional by design — it holds a completion shut, never
+   * a `reopen`. Reopening restores a true statement about the tasks; blocking
+   * it would strand a milestone stamped complete while work is demonstrably
+   * open.
    */
   unresolvedExitCriteria?: number
 }
 
-/** Status drift + missing-schedule hints surfaced on milestone reads. */
+/** Completion drift + missing-schedule hints surfaced on milestone reads. */
 export interface MilestoneStaleness {
   /**
-   * The status the task counts say the milestone should be in, when it
-   * differs from the stored one; `null` when stored status matches reality.
+   * The completion transition the task counts call for, when the stored
+   * `completedAt` disagrees with them; `null` when the two already agree.
    */
-  statusDrift: MilestoneStatus | null
+  completionDrift: MilestoneCompletionChange | null
   /**
-   * True when the milestone is effectively in flight (non-terminal after
-   * accounting for drift) but has no target date — the schedule health
-   * light cannot be computed for it.
+   * True when the milestone is effectively in flight (not completed after
+   * accounting for drift, not archived) but has no target date — the schedule
+   * health light cannot be computed for it.
    */
   datesMissing: boolean
 }
 
 /**
- * The status the rollup rules would move the milestone to, or `null` when no
- * automatic transition applies (already consistent, terminal by human choice,
- * archived, or no tasks to read a signal from).
+ * The completion transition the rollup rules call for, or `null` when none
+ * applies (already consistent, archived, no tasks to read a signal from, or
+ * held by the exit-criteria close gate).
  */
-export function deriveRollupStatus(
+export function deriveCompletionChange(
   input: MilestoneRollupInput
-): MilestoneStatus | null {
-  const { status, archived, taskCounts } = input
-  if (archived || status === 'CANCELLED') return null
+): MilestoneCompletionChange | null {
+  const { completedAt, archived, taskCounts } = input
+  if (archived) return null
 
   const total =
     taskCounts.TODO +
@@ -65,36 +80,36 @@ export function deriveRollupStatus(
 
   const allDone = taskCounts.DONE === total
   if (allDone) {
-    if (status === 'COMPLETED') return null
+    if (completedAt !== null) return null
     // LUM-643 close gate: unresolved exit criteria hold the auto-completion
     // shut — fail-closed, no transition (and no drift hint) until adjudicated.
     if ((input.unresolvedExitCriteria ?? 0) > 0) return null
-    return 'COMPLETED'
+    return 'complete'
   }
 
-  // Tasks remain open from here on.
-  if (status === 'COMPLETED') return 'ACTIVE'
-  const started =
-    taskCounts.IN_PROGRESS + taskCounts.IN_REVIEW + taskCounts.DONE > 0
-  if (status === 'PLANNED' && started) return 'ACTIVE'
-  return null
+  // Tasks remain open — a stamped completion is no longer true.
+  return completedAt !== null ? 'reopen' : null
 }
 
 /**
- * Staleness hints for a milestone read: stored-status drift against the
- * task-derived status, and a missing target date on an in-flight milestone.
- * `datesMissing` is judged against the *effective* status (post-drift), so a
- * milestone about to auto-complete doesn't nag about schedule dates.
+ * Staleness hints for a milestone read: stored-completion drift against the
+ * task counts, and a missing target date on an in-flight milestone.
+ * `datesMissing` is judged against the *effective* completion (post-drift), so
+ * a milestone about to auto-complete doesn't nag about schedule dates.
  */
 export function computeMilestoneStaleness(
   input: MilestoneRollupInput & { targetDate: Date | string | null }
 ): MilestoneStaleness {
-  const statusDrift = deriveRollupStatus(input)
-  const effectiveStatus = statusDrift ?? input.status
-  const terminal =
-    effectiveStatus === 'COMPLETED' || effectiveStatus === 'CANCELLED'
+  const completionDrift = deriveCompletionChange(input)
+  const effectivelyCompleted =
+    completionDrift === 'complete'
+      ? true
+      : completionDrift === 'reopen'
+        ? false
+        : input.completedAt !== null
   return {
-    statusDrift,
-    datesMissing: !input.archived && !terminal && input.targetDate == null,
+    completionDrift,
+    datesMissing:
+      !input.archived && !effectivelyCompleted && input.targetDate == null,
   }
 }

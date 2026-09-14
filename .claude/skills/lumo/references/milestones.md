@@ -28,7 +28,7 @@ Use `--search <text>` to filter to milestones whose **name or description** cont
 - `ON-TRACK` — on schedule (or all tasks done)
 - `AT-RISK` — completion lags elapsed time, or (no start date) the target is within ~7 days with work remaining
 - `OVERDUE` — past the target date with tasks still open
-- `-` — no light applies (status `COMPLETED`/`CANCELLED`, or no target date)
+- `-` — no light applies (the milestone is completed or archived, or has no target date)
 
 ```bash
 lumo milestone list                  # one-project workspace (non-archived only)
@@ -71,9 +71,9 @@ On success: `Created milestone "Q3 Launch"  <id>`.
 
 Accepts UUID or name. With a name, `--project <ref>` is required when the workspace has >1 project.
 
-Prints a key:value header (name, status, **health**, dates, project, description), task counts, and the full task table under the milestone. The `Health:` line shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
+Prints a key:value header (name, state, **health**, dates, project, description), task counts, and the full task table under the milestone. The `Health:` line shows the same target-date risk light as `milestone list` (`ON-TRACK` / `AT-RISK` / `OVERDUE`, or `-` when none applies).
 
-**Staleness hints (LUM-624):** the `Status:` line is annotated `(stale — task progress indicates <STATUS>; auto-updating)` when the stored status lags the task-derived one (the server self-heals the drift in the background — a re-read shows the corrected status), and the `Target:` line is annotated `(no target date — schedule health unavailable)` for an in-flight milestone with no target date.
+**Staleness hints (LUM-624/LUM-714):** the `State:` line is annotated `(stale — task progress indicates completed|active; auto-updating)` when the stored `completedAt` disagrees with the task counts (the server self-heals the drift in the background — a re-read shows the corrected state), and the `Target:` line is annotated `(no target date — schedule health unavailable)` for an in-flight milestone with no target date.
 
 It also prints a **Sprint coverage** section (above the task table) listing which
 sprints the milestone's tasks span — each row shows the sprint number, status, name,
@@ -111,7 +111,6 @@ lumo milestone show 11111111-2222-3333-4444-555555555555
 | `--project <ref>`      | string | Required when identifier is a name and workspace has >1 project.               |
 | `-n, --name <text>`    | string | Cannot be empty.                                                               |
 | `-d, --description <>` | string | `--description ""` clears.                                                     |
-| `-s, --status <value>` | enum   | `planned \| active \| completed \| cancelled`.                                 |
 | `--start <date>`       | string | `--start ""` clears.                                                           |
 | `--target <date>`      | string | `--target ""` clears.                                                          |
 | `--token-budget <n>`   | int    | Advisory token budget (LUM-644), positive integer; `--token-budget ""` clears. |
@@ -122,12 +121,16 @@ At least one field required.
 
 **When to suggest**: when the user wants to cap/track token spend on a milestone ("给这个 milestone 设 token 预算 / budget"), or asks why the Overview shows an over-budget alert.
 
-**Status rolls up automatically (LUM-624):** milestone status follows task completion — PLANNED → ACTIVE when any task starts, → COMPLETED when every task is DONE (stamps `completedAt`, triggers the retro summary), and COMPLETED → ACTIVE when a non-DONE task (re)appears. A manual `--status planned/active/completed` that contradicts task reality gets reconciled back on the next task event or detail read; `--status cancelled` and archived milestones are human terminal choices the rollup never touches. You normally don't need `--status completed` by hand anymore.
+**There is no status flag — state is derived (LUM-714).** A milestone is `active`, `completed`, or `archived`, and only one of those is a choice:
 
-**The close is gated by exit criteria (LUM-643):** when the milestone has exit criteria (see `milestone criteria` below), any row not adjudicated MET — unadjudicated (PENDING) **or** NOT_MET — refuses `--status completed` with **409**, and holds the LUM-624 auto-rollup fail-closed (all tasks DONE keeps the milestone ACTIVE, no retro fires). There is **no CLI/agent override**: the only escape hatch is a human closing via the web with an explicit override (`?force=1` + optional note), stamped on the milestone as a persistent trail (`completedOverride*` — who/when/note, never auto-cleared). To open the gate legitimately, adjudicate the contract with `lumo milestone criteria verdict`.
+- **completed** follows task completion. Every task DONE → the rollup stamps `completedAt` and triggers the retro summary; a non-DONE task (re)appearing clears the stamp. Nothing you can pass to `update` moves it.
+- **archived** is the one explicit human state (`milestone archive` / `unarchive`). Archived milestones are left alone by the rollup and hidden from the default list.
+
+The old `PLANNED` / `ACTIVE` split is gone — a milestone whose tasks have not started is simply active — and `CANCELLED` is expressed by archiving (a milestone archived while incomplete reads as dropped, not delivered).
+
+**The close is gated by exit criteria (LUM-643):** when the milestone has exit criteria (see `milestone criteria` below), any row not adjudicated MET — unadjudicated (PENDING) **or** NOT_MET — holds the LUM-714 derived completion fail-closed: all tasks DONE leaves the milestone active, `completedAt` unstamped, no retro. There is **no CLI/agent override**: the only escape hatch is a human overriding via the web (`POST /api/milestones/<id>/close-override`, Clerk identity only), stamped on the milestone as a persistent trail (`completedOverride*` — who/when/note, never auto-cleared). To open the gate legitimately, adjudicate the contract with `lumo milestone criteria verdict`.
 
 ```bash
-lumo milestone update "Q3 Launch" --status active
 lumo milestone update "Q3 Launch" --target 2026-09-15
 lumo milestone update "Q3 Launch" --description ""
 lumo milestone update "Q3 Launch" --token-budget 50000000
@@ -162,7 +165,7 @@ lumo milestone criteria set "Q3 Launch" --file exit-criteria.json --human
 
 ### `lumo milestone criteria list <identifier>` — print the exit contract
 
-One line per criterion — `<id>  [MET|NOT_MET|PENDING]  SOURCE ⟨REFERENT⟩  statement` — plus an indented `↳` detail line (date · evidence · note) for adjudicated rows, and a trailing gate-state line: either `All exit criteria MET — the close gate is open.` or `N unresolved (pending or NOT_MET) — the close gate refuses status→COMPLETED until adjudicated (human override only via web).`
+One line per criterion — `<id>  [MET|NOT_MET|PENDING]  SOURCE ⟨REFERENT⟩  statement` — plus an indented `↳` detail line (date · evidence · note) for adjudicated rows, and a trailing gate-state line: either `All exit criteria MET — the close gate is open.` or `N unresolved (pending or NOT_MET) — the close gate withholds the derived completion until adjudicated (human override only via web).`
 
 ```bash
 lumo milestone criteria list "Q3 Launch"
@@ -189,7 +192,7 @@ lumo milestone criteria verdict "Q3 Launch" cmexit0002 --unmet --note "read mode
 ### When to suggest `milestone criteria`
 
 - A steward session planning a milestone ("what does done mean for this milestone", "draft exit criteria") → `criteria set`.
-- Before recommending `milestone update --status completed`, or when it just bounced with 409 → `criteria list` to see what holds the gate, then `verdict` per criterion.
+- When a milestone's tasks are all DONE but it has not completed → `criteria list` to see what holds the gate, then `verdict` per criterion.
 - User asks "can we close this milestone / what's blocking the close" → `criteria list` (the gate-state line answers it).
 
 ### `lumo milestone delete <identifier>` — delete a milestone
@@ -287,7 +290,7 @@ Agent-Native Milestones: 1 marked claimable, 1 skipped
 
 Prints the AI-generated retrospective summary for a milestone (mirrors `sprint summary`). `<identifier>` accepts a milestone name or UUID; `--project <ref>` is required when the identifier is a name and the workspace has more than one project. When no summary exists yet the command prints `(no summary generated yet)`.
 
-A summary is generated automatically when a milestone transitions to `COMPLETED` (e.g. via `lumo milestone update <id> --status completed`). The generated report has sections `## Summary`, `## Delivered`, `## Outstanding` plus a one-line `tldr`. Use `--retry` to queue regeneration (e.g. after a failed generation) before fetching — regeneration is async, so the printed result may still be the previous summary or `(no summary generated yet)`.
+A summary is generated automatically when a milestone completes (the LUM-714 derived transition: its last open task turns DONE, with the exit-criteria gate open). The generated report has sections `## Summary`, `## Delivered`, `## Outstanding` plus a one-line `tldr`. Use `--retry` to queue regeneration (e.g. after a failed generation) before fetching — regeneration is async, so the printed result may still be the previous summary or `(no summary generated yet)`.
 
 | Flag              | Type    | Notes                                                                                                  |
 | ----------------- | ------- | ------------------------------------------------------------------------------------------------------ |
@@ -304,7 +307,7 @@ When to suggest: user asks "summarize the milestone", "milestone retro", "give m
 
 ### `lumo milestone changelog <identifier> [--project <ref>] [--json]` — structured changelog (LUM-649)
 
-Assembles a **structured changelog** from the milestone's **DONE tasks + merged PRs + frozen claimSnapshot**. Pure deterministic assembly — **no LLM**, and (unlike `summary`) **no COMPLETED gate**: it runs on a milestone of any status, so an ACTIVE milestone reports "what has shipped so far". Only DONE tasks ever appear. `<identifier>` accepts a milestone name or UUID; `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
+Assembles a **structured changelog** from the milestone's **DONE tasks + merged PRs + frozen claimSnapshot**. Pure deterministic assembly — **no LLM**, and (unlike `summary`) **no completion gate**: it runs on a milestone in any state, so an active milestone reports "what has shipped so far". Only DONE tasks ever appear. `<identifier>` accepts a milestone name or UUID; `--project <ref>` is required when the identifier is a name and the workspace has >1 project.
 
 Honest-reporting contract (why this is more than a task list):
 

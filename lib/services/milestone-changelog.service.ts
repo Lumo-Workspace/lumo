@@ -14,9 +14,9 @@ function httpError(status: number, message: string): never {
 /**
  * LUM-649 — assemble a milestone's automatic changelog from its DONE tasks +
  * merged PRs + frozen claimSnapshot. Pure orchestration: fetch the rows, hand
- * them to the DB-free `buildMilestoneChangelog` fold. No LLM, no COMPLETED gate
- * (unlike the retro summary) — a running milestone reports what has shipped so
- * far; only DONE tasks ever appear regardless of milestone status.
+ * them to the DB-free `buildMilestoneChangelog` fold. No LLM, no completion
+ * gate (unlike the retro summary) — a running milestone reports what has
+ * shipped so far; only DONE tasks ever appear regardless of milestone state.
  */
 export const milestoneChangelogService = {
   async assemble(milestoneId: string): Promise<MilestoneChangelog> {
@@ -49,7 +49,7 @@ export const milestoneChangelogService = {
           )
         : []
 
-    // Baseline reference class: prior COMPLETED milestones of the same project.
+    // Baseline reference class: prior completed milestones of the same project.
     const priorIds = await milestoneRepository.listCompletedIdsInProject(
       milestone.projectId,
       milestoneId
@@ -59,7 +59,8 @@ export const milestoneChangelogService = {
     return buildMilestoneChangelog({
       milestone: {
         name: milestone.name,
-        status: milestone.status,
+        completedAt: milestone.completedAt,
+        archivedAt: milestone.archivedAt,
         startDate: milestone.startDate,
         targetDate: milestone.targetDate,
       },

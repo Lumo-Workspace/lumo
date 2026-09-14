@@ -7,11 +7,11 @@ import {
 } from '@/lib/repositories/initiative.repository'
 import { getDefaultTeam } from '@/lib/team'
 import type { CreateInitiativeInput } from '@/lib/validation/initiative'
-import type {
-  InitiativeStatus,
-  TaskStatus,
-  MilestoneStatus,
-} from '@prisma/client'
+import type { InitiativeStatus, TaskStatus } from '@prisma/client'
+import {
+  milestoneState,
+  type MilestoneState,
+} from '@/lib/summaries/milestone-state'
 
 /**
  * A materialised initiative as returned to callers. `identifier` is the
@@ -66,7 +66,8 @@ export interface InitiativeMilestoneRef {
   id: string
   name: string
   slug: string
-  status: MilestoneStatus
+  /** LUM-714: active | completed | archived — no stored status any more. */
+  state: MilestoneState
   tasks: InitiativeTaskRef[]
 }
 
@@ -120,7 +121,7 @@ export function composeInitiativeContents(
       id: m.id,
       name: m.name,
       slug: m.slug,
-      status: m.status,
+      state: milestoneState(m),
       tasks: m.tasks.map(taskRef),
     })),
     directTasks: row.tasks.filter(t => t.milestoneId === null).map(taskRef),

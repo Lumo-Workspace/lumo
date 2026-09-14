@@ -7,7 +7,7 @@ import type { TaskRow } from '@/cli/src/lib/format'
 const milestone = {
   id: 'm-1',
   name: 'Q3 Launch',
-  status: 'ACTIVE',
+  completedAt: null,
   startDate: '2026-06-01T00:00:00.000Z',
   targetDate: '2026-08-31T00:00:00.000Z',
   archivedAt: null,
@@ -30,7 +30,8 @@ describe('formatMilestoneShow', () => {
   it('renders milestone header + counts + task table', () => {
     const out = formatMilestoneShow(milestone, [task])
     expect(out).toContain('Milestone:    Q3 Launch')
-    expect(out).toContain('Status:       ACTIVE')
+    expect(out).toContain('State:        active')
+    expect(out).toContain('Completed:    no')
     expect(out).toContain('Archived:     no')
     expect(out).toContain('Start:        2026-06-01')
     expect(out).toContain('Target:       2026-08-31')

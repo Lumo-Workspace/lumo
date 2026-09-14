@@ -29,7 +29,7 @@ export interface FilterableTask {
   sprint?: { name: string } | null | undefined
   milestoneId?: string | null | undefined
   milestone?:
-    | { name: string; status?: string; archivedAt?: string | null }
+    | { name: string; completedAt?: string | null; archivedAt?: string | null }
     | null
     | undefined
   assignee?: { agent?: { name: string } | null } | null | undefined
@@ -76,12 +76,16 @@ const CANONICAL_ORDER: Partial<Record<FilterDimension, readonly string[]>> = {
   dueDate: DUE_DATE_BUCKETS,
 }
 
-/** Active = the milestone is being worked now: ACTIVE status, not archived. */
+/**
+ * Active = the milestone is being worked now. Since LUM-714 that is simply
+ * "not archived and not completed" — there is no status to consult, and those
+ * are the only two ways a milestone stops being in flight.
+ */
 export function isActiveMilestone(
   milestone: FilterableTask['milestone']
 ): boolean {
   if (!milestone) return false
-  return milestone.status === 'ACTIVE' && !milestone.archivedAt
+  return !milestone.archivedAt && !milestone.completedAt
 }
 
 /**

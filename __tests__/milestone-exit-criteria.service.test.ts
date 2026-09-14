@@ -38,7 +38,7 @@ function milestoneRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'm-1',
     projectId: 'p-1',
-    status: 'ACTIVE',
+    completedAt: null,
     archivedAt: null,
     ...overrides,
   }
@@ -145,8 +145,11 @@ describe('milestoneExitCriteriaService (LUM-643)', () => {
     expect(mockCritSoftDelete).toHaveBeenCalledWith('c-old-met')
     expect(mockCritDelete).toHaveBeenCalledWith('c-old-pending')
 
-    // The contract locks once the milestone is COMPLETED.
-    mockRepoFindById.mockResolvedValue(milestoneRow({ status: 'COMPLETED' }))
+    // The contract locks once the milestone completes (LUM-714: that is the
+    // completedAt stamp, not a status).
+    mockRepoFindById.mockResolvedValue(
+      milestoneRow({ completedAt: new Date('2026-06-01') })
+    )
     await expect(
       milestoneExitCriteriaService.setCriteria(
         'm-1',

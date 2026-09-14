@@ -6,7 +6,7 @@ import {
 const base: MilestoneShowData = {
   id: 'm-1',
   name: 'Q3 Launch',
-  status: 'ACTIVE',
+  completedAt: null,
   startDate: null,
   targetDate: null,
   archivedAt: null,
@@ -20,7 +20,7 @@ const base: MilestoneShowData = {
         sprintId: 's3',
         number: 3,
         name: 'Sprint 3',
-        status: 'ACTIVE',
+        status: 'ACTIVE' as const,
         taskCount: 6,
         doneCount: 4,
       },
@@ -89,28 +89,29 @@ describe('formatMilestoneShow — sprint coverage', () => {
   })
 })
 
-describe('formatMilestoneShow — staleness hints (LUM-624)', () => {
-  it('annotates status drift and missing target date, silent when absent', () => {
+describe('formatMilestoneShow — staleness hints (LUM-624/LUM-714)', () => {
+  it('annotates completion drift and missing target date, silent when absent', () => {
     const stale = formatMilestoneShow(
       {
         ...base,
-        status: 'PLANNED',
-        staleness: { statusDrift: 'COMPLETED', datesMissing: true },
+        completedAt: null,
+        targetDate: null,
+        staleness: { completionDrift: 'complete', datesMissing: true },
       },
       []
     )
     expect(stale).toContain(
-      'Status:       PLANNED  (stale — task progress indicates COMPLETED; auto-updating)'
+      'State:        active  (stale — task progress indicates completed; auto-updating)'
     )
     expect(stale).toContain(
       'Target:       -  (no target date — schedule health unavailable)'
     )
 
     const clean = formatMilestoneShow(
-      { ...base, staleness: { statusDrift: null, datesMissing: false } },
+      { ...base, staleness: { completionDrift: null, datesMissing: false } },
       []
     )
-    expect(clean).toContain('Status:       ACTIVE\n')
+    expect(clean).toContain('State:        active\n')
     expect(clean).not.toContain('stale')
     expect(clean).not.toContain('no target date')
   })

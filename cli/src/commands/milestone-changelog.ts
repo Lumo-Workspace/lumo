@@ -60,7 +60,7 @@ export interface ChangelogEntryPayload {
 export interface MilestoneChangelogPayload {
   milestone: {
     name: string
-    status: string
+    state: 'active' | 'completed' | 'archived'
     startDate: string | null
     targetDate: string | null
   }
@@ -153,7 +153,7 @@ export function formatMilestoneChangelog(
   cl: MilestoneChangelogPayload
 ): string {
   const lines: string[] = [
-    `# Changelog — ${sanitizeField(cl.milestone.name)} (${cl.milestone.status})`,
+    `# Changelog — ${sanitizeField(cl.milestone.name)} (${cl.milestone.state})`,
   ]
   const window = formatWindow(cl.milestone.startDate, cl.milestone.targetDate)
   if (window) lines.push(window)

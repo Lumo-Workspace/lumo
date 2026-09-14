@@ -1,6 +1,7 @@
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
-import type { MilestoneStatus, TaskStatus } from '@prisma/client'
+import type { TaskStatus } from '@prisma/client'
+import type { MilestoneCompletionChange } from '@/lib/summaries/milestone-rollup'
 import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
 import type { MilestoneWeightedProgress } from '@/lib/summaries/milestone-weighted-progress'
 
@@ -10,7 +11,6 @@ export interface ApiMilestone {
   name: string
   slug: string
   description: string | null
-  status: MilestoneStatus
   startDate: string | null
   targetDate: string | null
   completedAt: string | null
@@ -35,17 +35,18 @@ export interface ApiMilestone {
   weightedProgress?: MilestoneWeightedProgress | null
   /**
    * Target-date health light. Server-enriched on list/detail responses.
-   * `null` when no light applies (terminal status or no target date).
+   * `null` when no light applies (completed, archived, or no target date).
    */
   health?: MilestoneHealth | null
   /**
-   * Staleness hints (LUM-624). Server-enriched on the detail response:
-   * `statusDrift` carries the task-derived status when the stored one lags
-   * behind task completion (the server self-heals it in the background);
-   * `datesMissing` flags an in-flight milestone with no target date.
+   * Staleness hints (LUM-624, reshaped by LUM-714). Server-enriched on the
+   * detail response: `completionDrift` carries the transition the task counts
+   * call for when the stored `completedAt` disagrees with them (the server
+   * self-heals it in the background); `datesMissing` flags an in-flight
+   * milestone with no target date.
    */
   staleness?: {
-    statusDrift: MilestoneStatus | null
+    completionDrift: MilestoneCompletionChange | null
     datesMissing: boolean
   }
   sprintCoverage?: {
@@ -419,7 +420,6 @@ export interface MilestoneCreateInput {
 export interface MilestoneUpdateInput {
   name?: string
   description?: string | null
-  status?: MilestoneStatus
   startDate?: string | null
   targetDate?: string | null
   /** LUM-644 advisory token budget; null clears it. */

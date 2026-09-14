@@ -13,7 +13,8 @@ type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
 export interface MilestoneShowData {
   id: string
   name: string
-  status: string
+  /** LUM-714: derived completion stamp; non-null = the milestone is done. */
+  completedAt: string | null
   startDate: string | null
   targetDate: string | null
   archivedAt: string | null
@@ -28,13 +29,14 @@ export interface MilestoneShowData {
   /** Target-date health light. Server-enriched; null when no light applies. */
   health?: MilestoneHealth | null | undefined
   /**
-   * Staleness hints (LUM-624). `statusDrift` = the task-derived status when
-   * the stored one lags task completion (the server self-heals it in the
-   * background); `datesMissing` = in-flight milestone with no target date.
+   * Staleness hints (LUM-624, LUM-714). `completionDrift` = the transition the
+   * task counts call for when the stored `completedAt` disagrees with them
+   * (the server self-heals it in the background); `datesMissing` = in-flight
+   * milestone with no target date.
    */
   staleness?:
     | {
-        statusDrift: string | null
+        completionDrift: 'complete' | 'reopen' | null
         datesMissing: boolean
       }
     | undefined
@@ -143,15 +145,25 @@ export function formatMilestoneShow(
     m.taskCounts.IN_PROGRESS +
     m.taskCounts.IN_REVIEW +
     m.taskCounts.DONE
-  const statusLine = m.staleness?.statusDrift
-    ? `Status:       ${m.status}  (stale — task progress indicates ${sanitizeField(m.staleness.statusDrift)}; auto-updating)`
-    : `Status:       ${m.status}`
+  // LUM-714: state is derived, so the line reports what the two timestamps
+  // say — and, when the tasks disagree with the stored stamp, what the rollup
+  // is about to do about it.
+  const state = m.archivedAt
+    ? 'archived'
+    : m.completedAt
+      ? 'completed'
+      : 'active'
+  const drift = m.staleness?.completionDrift
+  const stateLine = drift
+    ? `State:        ${state}  (stale — task progress indicates ${drift === 'complete' ? 'completed' : 'active'}; auto-updating)`
+    : `State:        ${state}`
   const targetLine = m.staleness?.datesMissing
     ? `Target:       ${fmtDate(m.targetDate)}  (no target date — schedule health unavailable)`
     : `Target:       ${fmtDate(m.targetDate)}`
   const lines = [
     `Milestone:    ${sanitizeField(m.name)}`,
-    statusLine,
+    stateLine,
+    `Completed:    ${m.completedAt ? m.completedAt.slice(0, 10) : 'no'}`,
     `Archived:     ${m.archivedAt ? m.archivedAt.slice(0, 10) : 'no'}`,
     `Health:       ${fmtHealth(m.health)}`,
     `Start:        ${fmtDate(m.startDate)}`,
@@ -231,7 +243,7 @@ export async function milestoneShow(
     milestone: {
       id: string
       name: string
-      status: string
+      completedAt: string | null
       startDate: string | null
       targetDate: string | null
       archivedAt: string | null
@@ -266,7 +278,7 @@ export async function milestoneShow(
       {
         id: milestone.id,
         name: milestone.name,
-        status: milestone.status,
+        completedAt: milestone.completedAt,
         startDate: milestone.startDate,
         targetDate: milestone.targetDate,
         archivedAt: milestone.archivedAt,

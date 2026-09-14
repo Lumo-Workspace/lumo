@@ -24,7 +24,6 @@ function makeMilestone(over: Partial<ApiMilestone> = {}): ApiMilestone {
     name: 'Beta',
     slug: 'beta',
     description: null,
-    status: 'ACTIVE',
     startDate: null,
     targetDate: null,
     completedAt: null,

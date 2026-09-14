@@ -8,7 +8,8 @@ type MilestoneHealth = 'on-track' | 'at-risk' | 'overdue'
 interface MilestoneRow {
   id: string
   name: string
-  status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
+  /** LUM-714: derived completion stamp; non-null = the milestone is done. */
+  completedAt: string | null
   targetDate: string | null
   createdAt: string
   archivedAt: string | null
@@ -42,24 +43,31 @@ function formatDate(iso: string | null): string {
   return iso.slice(0, 10)
 }
 
+/** LUM-714: the milestone's state, folded from its two timestamps. */
+function rowState(r: MilestoneRow): string {
+  if (r.archivedAt) return 'ARCHIVED'
+  return r.completedAt ? 'COMPLETED' : 'ACTIVE'
+}
+
 /**
  * Render milestones as fixed-width rows:
- *   <STATUS>  <HEALTH>  <target-date or ->  <name>
+ *   <STATE>  <HEALTH>  <target-date or ->  <name>
  *
+ * STATE is ACTIVE / COMPLETED / ARCHIVED (LUM-714) — derived, never stored.
  * HEALTH is the target-date risk light (ON-TRACK / AT-RISK / OVERDUE), or `-`
- * when no light applies (terminal status or no target date).
+ * when no light applies (completed, archived, or no target date).
  *
  * Sorted server-side by targetDate asc nulls last, createdAt asc.
  */
 export function formatMilestoneList(rows: MilestoneRow[]): string {
   if (rows.length === 0) return 'No milestones.'
-  const statusW = Math.max(...rows.map(r => r.status.length))
+  const stateW = Math.max(...rows.map(r => rowState(r).length))
   const healthW = Math.max(...rows.map(r => formatHealth(r.health).length))
   const dateW = Math.max(...rows.map(r => formatDate(r.targetDate).length))
   return rows
     .map(
       r =>
-        `${r.status.padEnd(statusW)}  ${formatHealth(r.health).padEnd(healthW)}  ${formatDate(r.targetDate).padEnd(dateW)}  ${r.archivedAt ? `${sanitizeField(r.name)} (archived)` : sanitizeField(r.name)}`
+        `${rowState(r).padEnd(stateW)}  ${formatHealth(r.health).padEnd(healthW)}  ${formatDate(r.targetDate).padEnd(dateW)}  ${sanitizeField(r.name)}`
     )
     .join('\n')
 }

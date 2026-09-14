@@ -126,18 +126,18 @@ describe('milestoneRepository.update', () => {
   it('passes through fields including completedAt', async () => {
     const updated = {
       id: 'm1',
-      status: 'COMPLETED',
+      name: 'Renamed',
       completedAt: new Date('2026-06-01'),
     }
     mockUpdate.mockResolvedValue(updated)
     const result = await milestoneRepository.update('m1', {
-      status: 'COMPLETED',
+      name: 'Renamed',
       completedAt: new Date('2026-06-01'),
     })
     expect(result).toEqual(updated)
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'm1' },
-      data: { status: 'COMPLETED', completedAt: new Date('2026-06-01') },
+      data: { name: 'Renamed', completedAt: new Date('2026-06-01') },
     })
   })
 })

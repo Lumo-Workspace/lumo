@@ -1,14 +1,12 @@
 /** @jest-environment jsdom */
 
 const en: Record<string, string> = {
-  'milestone.field.status': 'Status',
+  'milestone.field.state': 'State',
   'milestone.field.startDate': 'Start date',
   'milestone.field.targetDate': 'Target date',
-  'milestone.status.ACTIVE': 'Active',
-  'milestone.status.PLANNED': 'Planned',
-  'milestone.status.COMPLETED': 'Completed',
-  'milestone.status.CANCELLED': 'Cancelled',
-  'milestone.archived': 'Archived',
+  'milestone.state.active': 'Active',
+  'milestone.state.completed': 'Completed',
+  'milestone.state.archived': 'Archived',
 }
 
 jest.mock('react-intl', () => ({
@@ -16,38 +14,6 @@ jest.mock('react-intl', () => ({
     locale: 'en',
     formatMessage: ({ id }: { id: string }) => en[id] ?? id,
   }),
-}))
-
-// Radix Select can't open in jsdom — render a native <select> so onValueChange
-// fires on change and we can assert the callback payload.
-jest.mock('@/components/ui/select', () => ({
-  Select: ({
-    value,
-    onValueChange,
-    children: _children,
-    disabled,
-  }: {
-    value: string
-    onValueChange: (v: string) => void
-    children: React.ReactNode
-    disabled?: boolean
-  }) => (
-    <input
-      type='text'
-      data-testid='status-select'
-      value={value}
-      disabled={disabled}
-      onChange={e => onValueChange(e.target.value)}
-    />
-  ),
-  SelectTrigger: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-  SelectValue: () => null,
-  SelectContent: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
-  SelectItem: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 import { render, screen, fireEvent } from '@testing-library/react'
@@ -59,7 +25,7 @@ function setup(
   const onUpdate = jest.fn()
   render(
     <MilestoneSidebar
-      status='ACTIVE'
+      state='active'
       startDate='2026-06-01T00:00:00.000Z'
       targetDate='2026-08-31T00:00:00.000Z'
       archived={false}
@@ -70,12 +36,20 @@ function setup(
   return { onUpdate }
 }
 
-test('changing status calls onUpdate with { status }', () => {
-  const { onUpdate } = setup()
-  fireEvent.change(screen.getByTestId('status-select'), {
-    target: { value: 'COMPLETED' },
-  })
-  expect(onUpdate).toHaveBeenCalledWith({ status: 'COMPLETED' })
+// LUM-714: the rail lost its status control. State is derived (completedAt /
+// archivedAt), so the only thing left to render is a read-out — there must be
+// no way to *set* it from here.
+test('state renders as a read-out, with no control to change it', () => {
+  setup()
+  expect(screen.getByText('State')).toBeInTheDocument()
+  expect(screen.getByText('Active')).toBeInTheDocument()
+  expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  expect(screen.queryByTestId('status-select')).not.toBeInTheDocument()
+})
+
+test('a completed milestone reads "Completed"', () => {
+  setup({ state: 'completed' })
+  expect(screen.getByText('Completed')).toBeInTheDocument()
 })
 
 test('editing start date calls onUpdate with { startDate }', () => {
@@ -104,11 +78,8 @@ test('date inputs prefill from ISO values (sliced to yyyy-mm-dd)', () => {
   )
 })
 
-test('archived disables the controls', () => {
-  setup({ archived: true })
-  expect(
-    (screen.getByTestId('status-select') as HTMLSelectElement).disabled
-  ).toBe(true)
+test('archived disables the date controls', () => {
+  setup({ archived: true, state: 'archived' })
   expect(
     (screen.getByLabelText('Start date') as HTMLInputElement).disabled
   ).toBe(true)

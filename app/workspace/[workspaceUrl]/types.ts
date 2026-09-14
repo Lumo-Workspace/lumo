@@ -238,7 +238,8 @@ export interface ApiTask {
    * non-archived milestones. */
   milestone?: {
     id: string
-    status: import('@prisma/client').MilestoneStatus
+    /** LUM-714: derived completion stamp; non-null = the milestone is done. */
+    completedAt?: string | null
     name: string
     archivedAt?: string | null
   } | null
@@ -380,7 +381,8 @@ export interface TaskDetail {
   milestone?: {
     id: string
     name: string
-    status: import('@prisma/client').MilestoneStatus
+    /** LUM-714: derived completion stamp; non-null = the milestone is done. */
+    completedAt?: string | null
   } | null
   teamId?: string
   /** Whether the owning team has sprints enabled. Sourced from `team.sprintsEnabled`

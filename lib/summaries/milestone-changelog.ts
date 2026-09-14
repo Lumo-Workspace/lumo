@@ -1,5 +1,9 @@
 import { fromSample, noBaseline } from '@/lib/baseline/adapters'
 import { MIN_BASELINE_SAMPLE, type BaselineStat } from '@/lib/baseline/types'
+import {
+  milestoneState,
+  type MilestoneState,
+} from '@/lib/summaries/milestone-state'
 
 /**
  * LUM-649 — automatic milestone changelog. A pure fold over pre-fetched rows
@@ -76,7 +80,8 @@ export interface ChangelogPrRow {
 export interface BuildChangelogInput {
   milestone: {
     name: string
-    status: string
+    completedAt: Date | null
+    archivedAt: Date | null
     startDate: Date | null
     targetDate: Date | null
   }
@@ -85,16 +90,18 @@ export interface BuildChangelogInput {
   /** Merged PRs across those DONE tasks. */
   mergedPrs: ChangelogPrRow[]
   /**
-   * Prior COMPLETED milestones' delivery counts (same project), the reference
+   * Prior completed milestones' delivery counts (same project), the reference
    * class for the headline baselines. Length < MIN_BASELINE_SAMPLE → no base.
    */
   priorMilestoneCounts: Array<{ doneTaskCount: number; mergedPrCount: number }>
 }
 
+export type { MilestoneState }
+
 export interface MilestoneChangelog {
   milestone: {
     name: string
-    status: string
+    state: MilestoneState
     startDate: string | null
     targetDate: string | null
   }
@@ -171,7 +178,7 @@ export function buildMilestoneChangelog(
   return {
     milestone: {
       name: milestone.name,
-      status: milestone.status,
+      state: milestoneState(milestone),
       startDate: milestone.startDate?.toISOString() ?? null,
       targetDate: milestone.targetDate?.toISOString() ?? null,
     },

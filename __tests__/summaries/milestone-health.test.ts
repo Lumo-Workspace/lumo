@@ -11,7 +11,8 @@ const now = new Date('2026-06-02T12:00:00Z')
 
 function input(overrides: Partial<MilestoneHealthInput>): MilestoneHealthInput {
   return {
-    status: 'ACTIVE',
+    completedAt: null,
+    archived: false,
     startDate: null,
     targetDate: new Date('2026-07-01T00:00:00Z'),
     done: 0,
@@ -23,12 +24,17 @@ function input(overrides: Partial<MilestoneHealthInput>): MilestoneHealthInput {
 
 describe('computeMilestoneHealth', () => {
   describe('not applicable (returns null)', () => {
-    it('returns null for COMPLETED milestones', () => {
-      expect(computeMilestoneHealth(input({ status: 'COMPLETED' }))).toBeNull()
+    // LUM-714: the old COMPLETED/CANCELLED pair became completedAt/archived.
+    it('suppresses the health light for a completed milestone', () => {
+      expect(
+        computeMilestoneHealth(
+          input({ completedAt: new Date('2026-06-01T00:00:00Z') })
+        )
+      ).toBeNull()
     })
 
-    it('returns null for CANCELLED milestones', () => {
-      expect(computeMilestoneHealth(input({ status: 'CANCELLED' }))).toBeNull()
+    it('returns null for archived milestones', () => {
+      expect(computeMilestoneHealth(input({ archived: true }))).toBeNull()
     })
 
     it('returns null when there is no target date', () => {
@@ -214,7 +220,8 @@ describe('computeMilestoneHealth', () => {
     it('derives done/total from per-status counts', () => {
       const result = milestoneHealthFromCounts(
         {
-          status: 'ACTIVE',
+          completedAt: null,
+          archivedAt: null,
           startDate: null,
           targetDate: new Date(now.getTime() + 3 * DAY),
         },
@@ -228,7 +235,8 @@ describe('computeMilestoneHealth', () => {
     it('reports on-track when every counted task is done', () => {
       const result = milestoneHealthFromCounts(
         {
-          status: 'ACTIVE',
+          completedAt: null,
+          archivedAt: null,
           startDate: null,
           targetDate: new Date(now.getTime() + 1 * DAY),
         },

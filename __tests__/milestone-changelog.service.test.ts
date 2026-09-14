@@ -76,8 +76,8 @@ describe('milestoneChangelogService.assemble', () => {
 
     const result = await milestoneChangelogService.assemble('m1')
 
-    // Runs on an ACTIVE milestone (did not throw a COMPLETED gate).
-    expect(result.milestone.status).toBe('ACTIVE')
+    // Runs on an in-flight milestone (there is no completion gate here).
+    expect(result.milestone.state).toBe('active')
     // Only the DONE task becomes an entry; the other three statuses are excluded.
     expect(result.entries.map(e => e.identifier)).toEqual(['LUM-5'])
     expect(result.headline.tasksShipped.current).toBe(1)

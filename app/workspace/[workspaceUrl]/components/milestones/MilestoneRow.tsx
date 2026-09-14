@@ -50,7 +50,7 @@ export function MilestoneRow({
   const complete = total > 0 && done === total
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   const dot = milestoneDot({
-    status: milestone.status,
+    completed: milestone.completedAt !== null,
     health: milestone.health,
     stale,
   })

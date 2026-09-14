@@ -56,13 +56,6 @@ enum SprintStatus {
   CLOSED
 }
 
-enum MilestoneStatus {
-  PLANNED
-  ACTIVE
-  COMPLETED
-  CANCELLED
-}
-
 enum InviteStatus {
   PENDING
   ACCEPTED
@@ -1043,7 +1036,7 @@ model Sprint {
 }
 
 model Milestone {
-  id           String          @id @default(cuid())
+  id           String    @id @default(cuid())
   projectId    String
   // LUM-678 (Spec2-16): optional roll-up to a team-level Initiative. Additive and
   // orthogonal to the existing project scoping — a milestone stays project-scoped
@@ -1052,17 +1045,21 @@ model Milestone {
   name         String
   slug         String
   description  String?
-  status       MilestoneStatus @default(PLANNED)
   startDate    DateTime?
   targetDate   DateTime?
+  // LUM-714: milestone state collapsed to active/archived. There is no stored
+  // status — "completed" is derived from task completion and materialized ONLY
+  // as this timestamp (stamped by the rollup when the last open task lands,
+  // cleared when a non-DONE task reappears). `archivedAt` is the one explicit
+  // human state; everything else reads off these two columns.
   completedAt  DateTime?
-  sortOrder    Float           @default(0)
+  sortOrder    Float     @default(0)
   archivedAt   DateTime?
   // LUM-644: advisory token budget — Overview compares burn vs this and the
   // risk queue surfaces an over-budget alert; nothing is ever hard-gated on it.
   tokenBudget  Int?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   // LUM-643: explicit human override of the exit-criteria close gate. Stamped
   // when a human closes the milestone while exit criteria are unresolved
@@ -1095,7 +1092,7 @@ model Milestone {
 
   @@unique([projectId, slug])
   @@index([projectId])
-  @@index([projectId, status])
+  @@index([projectId, completedAt])
   @@index([projectId, sortOrder])
   @@index([projectId, archivedAt])
   @@index([initiativeId])

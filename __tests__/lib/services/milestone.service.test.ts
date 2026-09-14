@@ -182,49 +182,36 @@ describe('milestoneService.updateMilestone status transitions', () => {
     mockRepoFindById.mockResolvedValue({
       id: 'm1',
       projectId: 'p1',
-      status: 'PLANNED',
       completedAt: null,
     })
     mockProjectGet.mockResolvedValue({ id: 'p1' })
   })
 
-  it('writes completedAt when transitioning to COMPLETED', async () => {
+  // LUM-714: updateMilestone is metadata-only. Completion is derived by the
+  // rollup, so no caller-supplied field may ever move `completedAt` here —
+  // that is what kept the old status enum load-bearing.
+  it('never writes completedAt — completion is derived, not patched', async () => {
     mockRepoUpdate.mockResolvedValue({ id: 'm1' })
     await milestoneService.updateMilestone('m1', 'mem1', {
-      status: 'COMPLETED',
+      name: 'Renamed',
+      targetDate: new Date('2026-09-01'),
     })
-    expect(mockRepoUpdate).toHaveBeenCalledWith(
-      'm1',
-      expect.objectContaining({
-        status: 'COMPLETED',
-        completedAt: expect.any(Date),
-      })
-    )
+    const [, payload] = mockRepoUpdate.mock.calls[0]
+    expect(payload).not.toHaveProperty('completedAt')
+    expect(payload).not.toHaveProperty('status')
+    expect(payload.name).toBe('Renamed')
   })
 
-  it('clears completedAt when leaving COMPLETED', async () => {
+  it('refuses to edit an archived milestone', async () => {
     mockRepoFindById.mockResolvedValue({
       id: 'm1',
       projectId: 'p1',
-      status: 'COMPLETED',
-      completedAt: new Date(),
+      completedAt: null,
+      archivedAt: new Date('2026-06-01'),
     })
-    mockRepoUpdate.mockResolvedValue({ id: 'm1' })
-    await milestoneService.updateMilestone('m1', 'mem1', { status: 'ACTIVE' })
-    expect(mockRepoUpdate).toHaveBeenCalledWith(
-      'm1',
-      expect.objectContaining({ status: 'ACTIVE', completedAt: null })
-    )
-  })
-
-  it('does not touch completedAt when transitioning to CANCELLED', async () => {
-    mockRepoUpdate.mockResolvedValue({ id: 'm1' })
-    await milestoneService.updateMilestone('m1', 'mem1', {
-      status: 'CANCELLED',
-    })
-    const [, payload] = mockRepoUpdate.mock.calls[0]
-    expect(payload.status).toBe('CANCELLED')
-    expect(payload).not.toHaveProperty('completedAt')
+    await expect(
+      milestoneService.updateMilestone('m1', 'mem1', { name: 'Renamed' })
+    ).rejects.toMatchObject({ status: 409 })
   })
 })
 

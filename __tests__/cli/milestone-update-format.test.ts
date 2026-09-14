@@ -1,25 +1,14 @@
 /**
  * @jest-environment node
+ *
+ * LUM-714: `lumo milestone update` lost `--status`. Completion is derived from
+ * task completion, so the command is metadata-only — these tests pin that the
+ * payload builder can no longer produce a lifecycle field by any route.
  */
 import {
   buildMilestoneUpdatePayload,
   formatMilestoneUpdateSummary,
-  normalizeMilestoneStatus,
 } from '@/cli/src/commands/milestone-update'
-
-describe('normalizeMilestoneStatus', () => {
-  it('uppercases canonical values', () => {
-    expect(normalizeMilestoneStatus('planned')).toBe('PLANNED')
-    expect(normalizeMilestoneStatus('active')).toBe('ACTIVE')
-    expect(normalizeMilestoneStatus('COMPLETED')).toBe('COMPLETED')
-    expect(normalizeMilestoneStatus('cancelled')).toBe('CANCELLED')
-  })
-
-  it('returns null for unknown values', () => {
-    expect(normalizeMilestoneStatus('done')).toBeNull()
-    expect(normalizeMilestoneStatus('')).toBeNull()
-  })
-})
 
 describe('buildMilestoneUpdatePayload', () => {
   it('returns empty when nothing is set', () => {
@@ -28,28 +17,37 @@ describe('buildMilestoneUpdatePayload', () => {
     expect(flagsGiven).toEqual([])
   })
 
-  it('maps name, description, status, start, target', () => {
+  it('maps name, description, start, target', () => {
     const { payload, flagsGiven } = buildMilestoneUpdatePayload({
       name: 'Q3 v2',
       description: 'updated',
-      status: 'ACTIVE',
       start: '2026-06-01',
       target: '2026-08-31',
     })
     expect(payload).toEqual({
       name: 'Q3 v2',
       description: 'updated',
-      status: 'ACTIVE',
       startDate: '2026-06-01',
       targetDate: '2026-08-31',
     })
     expect(flagsGiven).toEqual([
       '--name',
       '--description',
-      '--status',
       '--start',
       '--target',
     ])
+  })
+
+  it('never emits a status or completedAt field, even if one is passed in', () => {
+    // A stale caller (older shell alias, script, or agent) may still pass
+    // --status. It must be dropped on the floor, not forwarded to the API.
+    const { payload, flagsGiven } = buildMilestoneUpdatePayload({
+      name: 'Q3 v2',
+      status: 'COMPLETED',
+    } as Parameters<typeof buildMilestoneUpdatePayload>[0])
+    expect(payload).not.toHaveProperty('status')
+    expect(payload).not.toHaveProperty('completedAt')
+    expect(flagsGiven).toEqual(['--name'])
   })
 
   it('treats empty string as clear for nullable fields', () => {
@@ -69,11 +67,11 @@ describe('buildMilestoneUpdatePayload', () => {
 describe('formatMilestoneUpdateSummary', () => {
   it('lists changed fields in flag order', () => {
     const line = formatMilestoneUpdateSummary(
-      { name: 'Q3 Launch', status: 'PLANNED', targetDate: null },
-      { status: 'ACTIVE', targetDate: '2026-08-31' }
+      { name: 'Q3 Launch', targetDate: null },
+      { name: 'Q3 Launch v2', targetDate: '2026-08-31' }
     )
     expect(line).toBe(
-      'Updated milestone "Q3 Launch": status PLANNED → ACTIVE, target → 2026-08-31'
+      'Updated milestone "Q3 Launch": name "Q3 Launch" → "Q3 Launch v2", target → 2026-08-31'
     )
   })
 })

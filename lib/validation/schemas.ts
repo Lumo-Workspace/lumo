@@ -641,15 +641,19 @@ export const createMilestoneSchema = z.object({
 export const updateMilestoneSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   description: z.string().max(RICH_TEXT_MAX_LENGTH).nullable().optional(),
-  status: z.enum(['PLANNED', 'ACTIVE', 'COMPLETED', 'CANCELLED']).optional(),
   startDate: z.coerce.date().nullable().optional(),
   targetDate: z.coerce.date().nullable().optional(),
   // LUM-644: advisory token budget — a positive integer within Postgres INT
   // range; null clears it. Never gates anything.
   tokenBudget: z.number().int().min(1).max(2_147_483_647).nullable().optional(),
-  // LUM-643: optional note accompanying a `?force=1` close-gate override
-  // (human/Clerk path only — ignored otherwise). Stamped on the milestone as
-  // completedOverrideNote.
+  // LUM-714: milestone completion is derived from task completion — there is
+  // no status to patch, so this schema carries no lifecycle field at all. The
+  // one human lever over completion is the exit-criteria close override, which
+  // has its own endpoint (POST .../close-override).
+})
+
+// LUM-714: body of the LUM-643 close-gate override (human/Clerk path only).
+export const milestoneCloseOverrideSchema = z.object({
   overrideNote: z.string().trim().min(1).max(2000).optional(),
 })
 
