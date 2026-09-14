@@ -6,7 +6,12 @@
  * later, inside the workflow, only when this says yes.
  */
 import type { AddedFile } from '../types'
-import { SINK_RULES, CONTROL_RULES, matchCallRule } from '../graph/patterns'
+import {
+  SINK_RULES,
+  CONTROL_RULES,
+  NEW_EXPRESSION_SINKS,
+  matchCallRule,
+} from '../graph/patterns'
 import { isGraphSourcePath } from '../graph/imports'
 
 /** The LUM-736 session-guard categories — an OPEN one is intent evidence. */
@@ -75,6 +80,20 @@ const ENTRY_TEXT_RULES: ReadonlyArray<{ id: string; re: RegExp }> = [
 const CALLEE_RE = /([A-Za-z_$][\w$]*(?:\.\$?[A-Za-z_$][\w$]*)*)\s*\(/g
 
 /**
+ * `new X(...)`, tested against the constructor identifier — the shape
+ * `NEW_EXPRESSION_SINKS` is written for, and the one `CALLEE_RE` cannot express:
+ * it captures `Function` from a plain `Function(src)` call just as readily, and
+ * the rule is specifically about construction.
+ *
+ * LUM-758 follow-up. The subgraph builder has consulted this table since
+ * LUM-739 and the trigger never did, so `new Function(userInput)` — a code
+ * injection sink — did not start a hunt at all. `planFallback`'s
+ * `SINK_TO_CATEGORY` already maps `new-function` to `injection`, i.e. the
+ * downstream mapping was written expecting a reason this pass never emitted.
+ */
+const NEW_EXPRESSION_RE = /\bnew\s+([A-Za-z_$][\w$]*)\s*\(/g
+
+/**
  * LUM-740 — the control rules (auth / zod parse / rate limit / workspace
  * scope) that the ADDED lines call, by rule id, across every file. Shared
  * with the claim-faithfulness prefilter: "the diff adds a control" is the
@@ -127,6 +146,13 @@ export function evaluateHuntTrigger(
         if (control) {
           reasons.add(`diff:control:${control.id}`)
           record(`control:${control.id}`, file.path, lineNo)
+        }
+      }
+      for (const m of text.matchAll(NEW_EXPRESSION_RE)) {
+        const ctor = matchCallRule(NEW_EXPRESSION_SINKS, m[1] ?? '')
+        if (ctor) {
+          reasons.add(`diff:sink:${ctor.id}`)
+          record(`sink:${ctor.id}`, file.path, lineNo)
         }
       }
     }

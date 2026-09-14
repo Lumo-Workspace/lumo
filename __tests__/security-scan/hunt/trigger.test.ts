@@ -184,6 +184,38 @@ describe('LUM-758 follow-up — located signal sites', () => {
     )
   })
 
+  it('fires on `new Function(...)`, which the trigger consulted no table for', () => {
+    // NEW_EXPRESSION_SINKS has existed since LUM-739 and only the subgraph
+    // builder ever read it, so a diff adding `new Function(userInput)` — code
+    // injection — started no hunt at all. `planFallback`'s SINK_TO_CATEGORY
+    // already maps `new-function` to `injection`: the downstream mapping was
+    // written for a reason this pass never emitted.
+    const { hunt, reasons, sites } = evaluateHuntTrigger({
+      files: [file('lib/a.ts', 'const x = 1', '  const f = new Function(src)')],
+      hasHighFinding: false,
+      hasOpenL4Crossing: false,
+    })
+    expect(hunt).toBe(true)
+    expect(reasons).toEqual(['diff:sink:new-function'])
+    expect(sites).toEqual([
+      { rule: 'sink:new-function', path: 'lib/a.ts', line: 2 },
+    ])
+  })
+
+  it('does not fire on a plain call to something merely named Function', () => {
+    // The rule is about CONSTRUCTION. Matching the callee table instead would
+    // fire on `Function(src)` and on any local helper called `Function`, and a
+    // trigger that fires on a name rather than a shape spends a hunt budget on
+    // whatever the codebase happens to have named that way.
+    expect(
+      evaluateHuntTrigger({
+        files: [file('lib/a.ts', '  const f = Function(src)')],
+        hasHighFinding: false,
+        hasOpenL4Crossing: false,
+      }).reasons
+    ).toEqual([])
+  })
+
   it('has no site for a reason that has no place — stage-A and L4', () => {
     expect(
       evaluateHuntTrigger({
