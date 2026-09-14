@@ -8,9 +8,21 @@
  * - If CLAUDE.md and AGENTS.md are both absent → return null (no policy).
  * - If the LLM call fails → return the previous policy (or null if first run).
  * - Never throw out of ensureCompiled.
+ *
+ * Single-flight contract (LUM-774): a recompile is keyed on
+ * (projectId, sourceHash) and lands at most ONE row and ONE weakening diff,
+ * however many callers race for it. Two layers, weakest first:
+ * - in-process: concurrent callers in the same instance share one promise
+ *   (one model call). Instance-local — serverless instances don't share it.
+ * - database: `project_policies` has a unique key on (projectId, sourceHash);
+ *   persisting is insert-or-ignore, and only the caller whose insert created
+ *   the row runs `emitWeakening`. A loser serves the winner's row.
  */
 import { createHash } from 'crypto'
-import { projectPolicyRepository } from '@/lib/repositories/project-policy.repository'
+import {
+  projectPolicyRepository,
+  type StoredProjectPolicy,
+} from '@/lib/repositories/project-policy.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { isReversible } from '@/lib/services/boundary-detector.service'
 import { isObligationText } from './rule-polarity'
@@ -35,6 +47,19 @@ const _sourceCache = new Map<string, { source: string | null; at: number }>()
 /** Exported only for test teardown — do not call in production code. */
 export function __resetSourceCache(): void {
   _sourceCache.clear()
+}
+
+// ── In-process single-flight (LUM-774) ───────────────────────────────────────
+// Callers that need the same (projectId, sourceHash) compiled while one is
+// already running share its promise, so a burst of hook events from parallel
+// sessions costs one model call. Instance-local: it dedupes within one
+// serverless instance only — across instances the unique key on
+// project_policies is the guarantee (see compileAndPersist).
+const _inflight = new Map<string, Promise<CompiledPolicy | null>>()
+
+/** Exported only for test teardown — do not call in production code. */
+export function __resetInflight(): void {
+  _inflight.clear()
 }
 
 // The action built-ins that may produce blocking crossings (LUM-590; the three
@@ -90,11 +115,7 @@ async function readSource(
  * in the file" a question worth asking.
  */
 function normalizeForPresence(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[`*]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
+  return text.toLowerCase().replace(/[`*]/g, '').replace(/\s+/g, ' ').trim()
 }
 
 /**
@@ -220,13 +241,99 @@ export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
   })
 }
 
+/**
+ * The expensive half of ensureCompiled — model call, safety nets, persist —
+ * for a source no row exists for yet. Runs at most once per
+ * (projectId, sourceHash) per instance (the in-flight map); across instances
+ * the insert-or-ignore decides who owns the row, and only that owner diffs
+ * against `prev` for POLICY_WEAKENING.
+ */
+async function compileAndPersist(
+  input: {
+    projectId: string
+    workspaceId: string
+    fullName: string
+    taskId?: string
+  },
+  source: string,
+  sourceHash: string,
+  prev: { sourceHash: string; rules: PolicyRule[] } | null
+): Promise<CompiledPolicy | null> {
+  // Classify via LLM (dynamic import so jest.mock intercepts it in tests).
+  const { classifyRules } = await import('@/lib/llm/policy-compiler-client')
+  let raw: Awaited<ReturnType<typeof classifyRules>>
+  try {
+    raw = await classifyRules({
+      sourceText: source,
+      builtinCategories: [...BUILTIN_CATEGORIES],
+    })
+  } catch {
+    // Fail-safe: keep the previous policy so the detector stays live.
+    return prev ? { sourceHash: prev.sourceHash, rules: prev.rules } : null
+  }
+
+  // Apply the deterministic safety nets (pure; see compileRuleSet).
+  const rules = compileRuleSet(raw.rules)
+
+  // Persist — insert-or-ignore on (projectId, sourceHash).
+  const inserted = await projectPolicyRepository.createIfAbsent({
+    projectId: input.projectId,
+    sourceHash,
+    rules,
+  })
+  if (!inserted) {
+    // Another instance persisted this source first. Its row is the policy
+    // (ours may differ — the model is not deterministic), and it already
+    // owns the weakening diff against `prev`; running it again here is how
+    // the same removed rule came to be recorded three times (LUM-774).
+    const winner = await projectPolicyRepository.findByHash(
+      input.projectId,
+      sourceHash
+    )
+    return { sourceHash, rules: winner?.rules ?? rules }
+  }
+
+  // Emit POLICY_WEAKENING for removed deterministic+blocking rules — only
+  // from the compile that created the row.
+  if (prev && input.taskId) {
+    await emitWeakening(prev.rules, rules, input.taskId, source)
+  }
+  return { sourceHash, rules }
+}
+
+/**
+ * The current source was compiled before but is not the active row (the file
+ * was edited past it and then reverted, or a race we lost was already
+ * persisted). No model call: re-activate the stored row by moving its
+ * compiledAt forward — a compare-and-swap, so concurrent re-activators diff
+ * `latest → existing` exactly once — and serve its rules.
+ */
+async function reactivate(
+  existing: StoredProjectPolicy,
+  latest: { sourceHash: string; rules: PolicyRule[] } | null,
+  input: { taskId?: string },
+  source: string
+): Promise<CompiledPolicy> {
+  const won = await projectPolicyRepository.activateIfUnchanged(
+    existing.id,
+    existing.compiledAt,
+    new Date()
+  )
+  if (won && latest && input.taskId) {
+    await emitWeakening(latest.rules, existing.rules, input.taskId, source)
+  }
+  return { sourceHash: existing.sourceHash, rules: existing.rules }
+}
+
 export const policyCompilerService = {
   /**
    * Returns the active compiled policy for a project, recompiling only when
    * the source hash has changed (or no policy exists yet).
    *
    * When taskId is provided and a previous policy existed, emits
-   * POLICY_WEAKENING for any deterministic blocking rules that were removed.
+   * POLICY_WEAKENING for any deterministic blocking rules that were removed —
+   * once per (projectId, sourceHash), from the caller that persisted the row
+   * (LUM-774).
    */
   async ensureCompiled(input: {
     projectId: string
@@ -247,40 +354,31 @@ export const policyCompilerService = {
       .update(`\n\u0000compiler:${COMPILER_VERSION}`)
       .digest('hex')
 
-    // 2. Check cache: if the hash matches the latest stored policy, reuse it.
-    const prev = await projectPolicyRepository.latestForProject(input.projectId)
-    if (prev && prev.sourceHash === sourceHash) {
-      return { sourceHash, rules: prev.rules }
+    // 2. Hot path: the active policy was compiled from this very source.
+    const latest = await projectPolicyRepository.latestForProject(
+      input.projectId
+    )
+    if (latest && latest.sourceHash === sourceHash) {
+      return { sourceHash, rules: latest.rules }
     }
 
-    // 3. Classify via LLM (dynamic import so jest.mock intercepts it in tests).
-    const { classifyRules } = await import('@/lib/llm/policy-compiler-client')
-    let raw: Awaited<ReturnType<typeof classifyRules>>
-    try {
-      raw = await classifyRules({
-        sourceText: source,
-        builtinCategories: [...BUILTIN_CATEGORIES],
-      })
-    } catch {
-      // Fail-safe: keep the previous policy so the detector stays live.
-      return prev ? { sourceHash: prev.sourceHash, rules: prev.rules } : null
-    }
+    // 3. Known but inactive source (revert / already-lost race) → re-activate.
+    const existing = await projectPolicyRepository.findByHash(
+      input.projectId,
+      sourceHash
+    )
+    if (existing) return reactivate(existing, latest, input, source)
 
-    // 4. Apply the deterministic safety nets (pure; see compileRuleSet).
-    const rules = compileRuleSet(raw.rules)
-
-    // 5. Persist the new policy snapshot.
-    await projectPolicyRepository.create({
-      projectId: input.projectId,
-      sourceHash,
-      rules,
-    })
-
-    // 6. Emit POLICY_WEAKENING for removed deterministic+blocking rules.
-    if (prev && input.taskId) {
-      await emitWeakening(prev.rules, rules, input.taskId, source)
-    }
-
-    return { sourceHash, rules }
+    // 4. Never compiled: single-flight the model call + persist per key.
+    const key = `${input.projectId}:${sourceHash}`
+    const running = _inflight.get(key)
+    if (running) return running
+    const run = compileAndPersist(input, source, sourceHash, latest).finally(
+      () => {
+        _inflight.delete(key)
+      }
+    )
+    _inflight.set(key, run)
+    return run
   },
 }
