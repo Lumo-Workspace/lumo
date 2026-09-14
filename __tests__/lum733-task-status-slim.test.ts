@@ -187,6 +187,7 @@ describe('LUM-733 task status slim default', () => {
             },
             advisory: false,
             blocking: true,
+            rejudge: null,
           },
         ],
       },

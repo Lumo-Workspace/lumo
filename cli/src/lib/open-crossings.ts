@@ -35,6 +35,10 @@ export interface OpenCrossing {
    *  `assertNoUnacknowledgedBoundaryCrossings` predicate, computed here so every
    *  terminal surface agrees with the server instead of listing all open rows. */
   blocking: boolean
+  /** LUM-780: why a SYSTEM re-judge made this row advisory (its cause no
+   *  longer holds) — the evidence line; null when never re-judged or against
+   *  an older server that does not send the trail. */
+  rejudge: string | null
 }
 
 /**
@@ -84,6 +88,7 @@ interface RawCrossing {
   disposition: string | null
   attribution?: Partial<CrossingAttribution> | null
   advisory?: boolean
+  rejudge?: { evidence?: unknown } | null
 }
 
 /** Narrow the raw view's attribution to the terminal's read-only shape, every
@@ -167,6 +172,11 @@ export async function fetchOpenCrossings(
         attribution: normalizeAttribution(c.attribution),
         advisory,
         blocking: blocksDone({ advisory, severity }, gateEnabled),
+        rejudge:
+          typeof c.rejudge?.evidence === 'string' &&
+          c.rejudge.evidence.length > 0
+            ? c.rejudge.evidence
+            : null,
       }
     })
     // Blocking rows first, then by severity — what the human must act on leads.

@@ -113,6 +113,10 @@ export interface BoundaryCrossingView {
   /** LUM-590: advisory crossings surface in the panel but never block DONE
    *  (true = advisory / non-blocking). */
   advisory: boolean
+  /** LUM-780: the latest SYSTEM re-judge that made this crossing advisory
+   *  because its cause no longer holds. Optional on the client so an older
+   *  server response (or a fixture) still type-checks; null = never re-judged. */
+  rejudge?: RejudgeView | null
   /** LUM-590: which compiled PolicyRule fired (text ref / id); null when the
    *  crossing was not from a project-rule detector. */
   policyRuleRef: string | null
@@ -133,6 +137,14 @@ export interface BoundaryCrossingView {
    *  null for every other crossing. Both fields are optional on the client so
    *  an older server response (or a fixture) still type-checks. */
   suppressionRule?: SuppressionRuleView | null
+}
+
+/** LUM-780: the re-judge trail shown on an advisory row. */
+export interface RejudgeView {
+  reason: string
+  evidence: string
+  criterionVersion: string | null
+  at: string
 }
 
 /** LUM-542: an append-only agent self-explanation on a crossing. */

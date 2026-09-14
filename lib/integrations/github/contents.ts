@@ -112,6 +112,67 @@ export async function fetchPrDiff(opts: {
   return res.text()
 }
 
+/** One entry of GitHub's `pulls/{n}/files` listing, narrowed to what the
+ *  re-judge reads (LUM-780). */
+export interface PrFileEntry {
+  filename: string
+  /** added | removed | modified | renamed | copied | changed | unchanged */
+  status: string
+}
+
+const PR_FILES_PER_PAGE = 100
+const PR_FILES_MAX_PAGES = 10
+
+/**
+ * LUM-780 — the files a pull request touches, with GitHub's per-file status.
+ * The TEST_FILE_DELETED re-judge asks "does any linked PR remove a tracked
+ * test file"; `status === 'removed'` is the durable, external answer the old
+ * rows (no local-git probe) never had. Paginates up to PR_FILES_MAX_PAGES ×
+ * PR_FILES_PER_PAGE files; throws on any non-2xx or on a PR larger than that
+ * — the caller treats a throw as "unreadable", never as "nothing removed".
+ */
+export async function fetchPrFiles(opts: {
+  workspaceId: string
+  fullName: string
+  prNumber: number
+}): Promise<PrFileEntry[]> {
+  const token = await getGithubInstallationToken(opts.workspaceId)
+  const [owner, repo] = splitFullName(opts.fullName)
+  const out: PrFileEntry[] = []
+  for (let page = 1; page <= PR_FILES_MAX_PAGES; page++) {
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/pulls/${opts.prNumber}/files?per_page=${PR_FILES_PER_PAGE}&page=${page}`,
+      { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
+    )
+    if (!res.ok) {
+      throw Object.assign(
+        new Error(
+          `GitHub API error ${res.status} for PR files ${opts.fullName}#${opts.prNumber}`
+        ),
+        { status: res.status }
+      )
+    }
+    const body = (await res.json()) as unknown
+    if (!Array.isArray(body)) {
+      throw new Error(
+        `GitHub pulls/files payload is not a list for ${opts.fullName}#${opts.prNumber}`
+      )
+    }
+    for (const f of body as Array<Record<string, unknown>>) {
+      if (typeof f.filename !== 'string' || typeof f.status !== 'string') {
+        throw new Error(
+          `GitHub pulls/files entry missing filename/status for ${opts.fullName}#${opts.prNumber}`
+        )
+      }
+      out.push({ filename: f.filename, status: f.status })
+    }
+    if (body.length < PR_FILES_PER_PAGE) return out
+  }
+  throw new Error(
+    `PR ${opts.fullName}#${opts.prNumber} has more than ${PR_FILES_MAX_PAGES * PR_FILES_PER_PAGE} files — file list not read`
+  )
+}
+
 /**
  * LUM-634 — fetches a PR's change-volume stats (additions / deletions /
  * changed_files) from the pulls API JSON. Throws on any non-2xx or on a

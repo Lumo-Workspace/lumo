@@ -2368,5 +2368,7 @@
   "boundary.toast.ruleCreatedWithSweep": "Regla del repositorio creada: se resolvieron {count, plural, one {# alerta existente} other {# alertas existentes}} del mismo tipo y las próximas se tratarán automáticamente",
   "boundary.toast.ruleRevokedWithReopen": "Regla revocada: {count, plural, one {# alerta que trataba automáticamente vuelve a estar abierta} other {# alertas que trataba automáticamente vuelven a estar abiertas}}",
   "boundary.panel.viaCli": "· vía CLI",
-  "boundary.panel.viaCliTip": "Resuelto desde la terminal con lumo crossing disposition --confirm: el agente transmitió el cruce y el usuario lo aprobó en el chat. Corrígelo aquí si esa aprobación no fue tuya."
+  "boundary.panel.viaCliTip": "Resuelto desde la terminal con lumo crossing disposition --confirm: el agente transmitió el cruce y el usuario lo aprobó en el chat. Corrígelo aquí si esa aprobación no fue tuya.",
+  "activity.boundaryRejudged": "reevaluó el cruce de límites como aviso — su causa ya no se sostiene ({reason})",
+  "boundary.panel.rejudged": "Reevaluado por el sistema — ya no bloquea Done: {evidence}"
 }

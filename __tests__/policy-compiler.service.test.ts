@@ -33,6 +33,14 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   getGithubInstallationToken: jest.fn().mockResolvedValue('test-token'),
 }))
 jest.mock('@/lib/integrations/github/contents')
+// LUM-780: the compile triggers a POLICY_WEAKENING re-judge on the project —
+// mocked so the trigger is asserted, not the re-judge itself.
+const rejudgeForProject = jest.fn(async (_i: unknown) => ({ judged: 0 }))
+jest.mock('@/lib/services/boundary-crossing-rejudge.service', () => ({
+  boundaryCrossingRejudgeService: {
+    rejudgePolicyWeakeningForProject: (i: unknown) => rejudgeForProject(i),
+  },
+}))
 jest.mock('@/lib/llm/policy-compiler-client')
 
 // Stateful mock store for projectPolicyRepository.
@@ -1090,4 +1098,83 @@ test('LUM-774: reverting the source to a previously compiled hash re-activates t
   const again = await policyCompilerService.ensureCompiled(base)
   expect(again!.rules).toEqual(a!.rules)
   expect(client.classifyRules).not.toHaveBeenCalled()
+})
+
+// ── LUM-780: re-judge trigger ────────────────────────────────────────────────
+
+describe("LUM-780: a policy change re-judges the project's POLICY_WEAKENING rows", () => {
+  const RULE = {
+    text: 'Never push to main',
+    kind: 'action' as const,
+    tier: 'deterministic' as const,
+    mappedCategory: 'PUSH_TO_PROTECTED_BRANCH',
+    severity: 'MEDIUM' as const,
+    blocking: true,
+  }
+  const base = { projectId: 'p780', workspaceId: 'w1', fullName: 'o/r' }
+
+  it('fires after a fresh compile with the source just read, and not on a cache hit', async () => {
+    ;(contents.readRepoFile as jest.Mock).mockResolvedValue(FORBIDDEN_MD)
+    ;(client.classifyRules as jest.Mock).mockResolvedValue({ rules: [RULE] })
+    await policyCompilerService.ensureCompiled(base)
+    expect(rejudgeForProject).toHaveBeenCalledTimes(1)
+    expect(rejudgeForProject).toHaveBeenCalledWith({
+      projectId: 'p780',
+      source: expect.stringContaining('Never push to main'),
+    })
+    rejudgeForProject.mockClear()
+    await policyCompilerService.ensureCompiled(base) // same hash — cache hit
+    expect(rejudgeForProject).not.toHaveBeenCalled()
+  })
+
+  it('fires on a re-activation (revert to an earlier source)', async () => {
+    ;(contents.readRepoFile as jest.Mock).mockResolvedValue(FORBIDDEN_MD)
+    ;(client.classifyRules as jest.Mock).mockResolvedValue({ rules: [RULE] })
+    await policyCompilerService.ensureCompiled(base) // A
+    __resetSourceCache()
+    ;(contents.readRepoFile as jest.Mock).mockResolvedValue(
+      FORBIDDEN_MD + '\n- extra'
+    )
+    await policyCompilerService.ensureCompiled(base) // B
+    rejudgeForProject.mockClear()
+    __resetSourceCache()
+    ;(contents.readRepoFile as jest.Mock).mockResolvedValue(FORBIDDEN_MD)
+    await policyCompilerService.ensureCompiled(base) // back to A: reactivate, no model call
+    expect(rejudgeForProject).toHaveBeenCalledTimes(1)
+    // The source handed over is the reverted one (CLAUDE.md + AGENTS.md
+    // concatenated by the reader), not the superseded B.
+    const arg = rejudgeForProject.mock.calls[0]?.[0] as { source: string }
+    expect(arg.source).toContain('Never push to main')
+    expect(arg.source).not.toContain('- extra')
+  })
+
+  it('a failing re-judge never fails the compile', async () => {
+    ;(contents.readRepoFile as jest.Mock).mockResolvedValue(FORBIDDEN_MD)
+    ;(client.classifyRules as jest.Mock).mockResolvedValue({ rules: [RULE] })
+    rejudgeForProject.mockRejectedValueOnce(new Error('db down'))
+    const policy = await policyCompilerService.ensureCompiled(base)
+    expect(policy!.rules).toHaveLength(1)
+  })
+
+  it('stamps the rule text on an emitted POLICY_WEAKENING so a later re-judge never has to recover it', async () => {
+    ;(contents.readRepoFile as jest.Mock).mockResolvedValue(FORBIDDEN_MD)
+    ;(client.classifyRules as jest.Mock).mockResolvedValue({ rules: [RULE] })
+    await policyCompilerService.ensureCompiled({ ...base, taskId: 't1' })
+    __resetSourceCache()
+    ;(contents.readRepoFile as jest.Mock).mockResolvedValue(
+      '## Forbidden\n- Use named exports'
+    )
+    ;(client.classifyRules as jest.Mock).mockResolvedValue({ rules: [] })
+    const createSpy = jest
+      .spyOn(boundaryCrossingRepository, 'create')
+      .mockResolvedValue({} as never)
+    await policyCompilerService.ensureCompiled({ ...base, taskId: 't1' })
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        category: 'POLICY_WEAKENING',
+        policyRuleRef: expect.any(String),
+        policyRuleText: 'Never push to main',
+      })
+    )
+  })
 })

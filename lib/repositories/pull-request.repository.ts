@@ -211,6 +211,19 @@ export const pullRequestRepository = {
    * renderer (LUM-122): the inline-card fields plus the cuid `id` so the
    * task-context fragment manifest can reference each PR (LUM-274).
    */
+  /**
+   * LUM-780: every PR linked to a task as (workspace, repo, number, state) —
+   * the coordinates the re-judge needs to ask GitHub for each PR's file list.
+   * Oldest first so the evidence line reads in delivery order.
+   */
+  async listRepoAndNumberByTask(taskId: string) {
+    return prisma.pullRequest.findMany({
+      where: { taskId },
+      select: { workspaceId: true, repo: true, number: true, state: true },
+      orderBy: { number: 'asc' },
+    })
+  },
+
   async listByTask(taskId: string) {
     return prisma.pullRequest.findMany({
       where: { taskId },

@@ -2368,5 +2368,7 @@
   "boundary.toast.ruleCreatedWithSweep": "Aturan repositori dibuat — {count} peringatan sejenis yang sudah ada telah diselesaikan, dan kejadian berikutnya akan ditangani otomatis",
   "boundary.toast.ruleRevokedWithReopen": "Aturan dicabut — {count} peringatan yang tadinya ditangani otomatis kembali terbuka",
   "boundary.panel.viaCli": "· via CLI",
-  "boundary.panel.viaCliTip": "Diputuskan dari terminal dengan lumo crossing disposition --confirm: agen meneruskan pelanggaran batas dan pengguna menyetujuinya di chat. Koreksi di sini jika persetujuan itu bukan dari Anda."
+  "boundary.panel.viaCliTip": "Diputuskan dari terminal dengan lumo crossing disposition --confirm: agen meneruskan pelanggaran batas dan pengguna menyetujuinya di chat. Koreksi di sini jika persetujuan itu bukan dari Anda.",
+  "activity.boundaryRejudged": "menilai ulang pelanggaran batas sebagai peringatan — penyebabnya sudah tidak berlaku ({reason})",
+  "boundary.panel.rejudged": "Dinilai ulang oleh sistem — tidak lagi memblokir Done: {evidence}"
 }

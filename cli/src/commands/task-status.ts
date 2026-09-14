@@ -1009,10 +1009,15 @@ function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
   for (const c of open) {
     const detail = oneLineDetail(c.detail)
     const tail = detail ? ` — ${detail}` : ''
+    // LUM-780: an advisory row that a SYSTEM re-judge produced says why, so
+    // "advisory" reads as a reasoned state rather than a silent downgrade.
+    const rejudged = c.rejudge
+      ? ` · re-judged: ${sanitizeField(c.rejudge)}`
+      : ''
     const gate = c.blocking
       ? ''
       : c.advisory
-        ? ' (advisory — does not block DONE)'
+        ? ` (advisory — does not block DONE${rejudged})`
         : ' (below the workspace gate — does not block DONE)'
     lines.push(
       `  ${c.blocking ? '•' : '◦'} [${c.severity}] ${sanitizeField(c.category)}${gate}${tail}`

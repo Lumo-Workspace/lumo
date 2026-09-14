@@ -328,6 +328,72 @@ export const boundaryCrossingRepository = {
     })
   },
 
+  /**
+   * LUM-780 re-judge read: the OPEN, BLOCKING rows of the re-judgeable
+   * categories — exactly the rows the DONE gate counts (`disposition: null`
+   * + `advisory: false`), never a milestone-scoped steward row (no task, no
+   * PRs, no project source to judge against). Optionally narrowed to one
+   * task (PR-close trigger) or one project (policy-recompile trigger).
+   * Oldest first; capped by `take`.
+   */
+  async findOpenBlockingRejudgeable(input: {
+    categories: BoundaryCrossingCategory[]
+    taskId?: string
+    projectId?: string
+    take: number
+  }) {
+    return prisma.boundaryCrossing.findMany({
+      where: {
+        category: { in: input.categories },
+        disposition: null,
+        advisory: false,
+        taskId: input.taskId ?? { not: null },
+        ...(input.projectId ? { task: { projectId: input.projectId } } : {}),
+      },
+      select: {
+        id: true,
+        taskId: true,
+        category: true,
+        severity: true,
+        detail: true,
+        policyRuleRef: true,
+        policyRuleText: true,
+        task: {
+          select: {
+            projectId: true,
+            project: { select: { workspaceId: true } },
+          },
+        },
+      },
+      orderBy: { detectedAt: 'asc' },
+      take: input.take,
+    })
+  },
+
+  /**
+   * LUM-780 re-judge write: flip ONE crossing from blocking to advisory with
+   * the shape the current detector would have written. The WHERE repeats the
+   * gate predicate so a row a human ruled on (or an earlier pass already
+   * downgraded) in the meantime matches nothing — the caller reads the count
+   * and leaves no trail for a 0. Deliberately no `disposition` key: this is a
+   * re-classification, never a ruling.
+   */
+  async downgradeToAdvisory(
+    id: string,
+    input: { severity: BoundaryCrossingSeverity; detail: string; now: Date }
+  ): Promise<number> {
+    const { count } = await prisma.boundaryCrossing.updateMany({
+      where: { id, disposition: null, advisory: false },
+      data: {
+        advisory: true,
+        severity: input.severity,
+        detail: input.detail,
+        lastSeenAt: input.now,
+      },
+    })
+    return count
+  },
+
   async findById(id: string) {
     return prisma.boundaryCrossing.findUnique({ where: { id }, select: SELECT })
   },

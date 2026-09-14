@@ -1134,6 +1134,28 @@ function CrossingRow({
             </p>
           )}
 
+          {/* LUM-780: a SYSTEM re-judge made this row advisory because its cause
+          no longer holds — say why, so "advisory" reads as a reasoned state,
+          not a silent downgrade. A human can still rule on the row. */}
+          {c.rejudge && (
+            <p
+              data-testid={`boundary-rejudged-${c.id}`}
+              className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'
+            >
+              <Repeat className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+              <span>
+                {intl.formatMessage(
+                  {
+                    id: 'boundary.panel.rejudged',
+                    defaultMessage:
+                      'Re-judged by the system — no longer blocks Done: {evidence}',
+                  },
+                  { evidence: c.rejudge.evidence }
+                )}
+              </span>
+            </p>
+          )}
+
           {/* LUM-751: which repository rule auto-dispositioned this crossing,
           with a one-click soft revoke (human-only server-side). */}
           {c.suppressionRule && (

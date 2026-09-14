@@ -2368,5 +2368,7 @@
   "boundary.toast.ruleCreatedWithSweep": "रिपॉज़िटरी नियम बनाया गया — इसी प्रकार की मौजूदा {count} चेतावनियाँ निपटाई गईं, और आगे की घटनाएँ स्वतः निपटाई जाएँगी",
   "boundary.toast.ruleRevokedWithReopen": "नियम वापस लिया गया — इसने जो {count} चेतावनियाँ स्वतः निपटाई थीं वे फिर से लंबित हैं",
   "boundary.panel.viaCli": "· CLI के ज़रिए",
-  "boundary.panel.viaCliTip": "टर्मिनल से lumo crossing disposition --confirm के ज़रिए तय किया गया: एजेंट ने सीमा-उल्लंघन बताया और उपयोगकर्ता ने चैट में मंज़ूरी दी। अगर वह मंज़ूरी आपकी नहीं थी तो यहाँ सुधारें।"
+  "boundary.panel.viaCliTip": "टर्मिनल से lumo crossing disposition --confirm के ज़रिए तय किया गया: एजेंट ने सीमा-उल्लंघन बताया और उपयोगकर्ता ने चैट में मंज़ूरी दी। अगर वह मंज़ूरी आपकी नहीं थी तो यहाँ सुधारें।",
+  "activity.boundaryRejudged": "सीमा-उल्लंघन को सलाहकार के रूप में पुनर्मूल्यांकित किया — इसका कारण अब लागू नहीं ({reason})",
+  "boundary.panel.rejudged": "सिस्टम द्वारा पुनर्मूल्यांकित — अब Done को अवरुद्ध नहीं करता: {evidence}"
 }

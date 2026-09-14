@@ -2368,5 +2368,7 @@
   "boundary.toast.ruleCreatedWithSweep": "Repository-Regel erstellt — {count, plural, one {# vorhandene Meldung} other {# vorhandene Meldungen}} derselben Art erledigt; künftige Vorkommen werden automatisch behandelt",
   "boundary.toast.ruleRevokedWithReopen": "Regel widerrufen — {count, plural, one {# Meldung, die sie automatisch behandelt hatte, ist} other {# Meldungen, die sie automatisch behandelt hatte, sind}} wieder offen",
   "boundary.panel.viaCli": "· über CLI",
-  "boundary.panel.viaCliTip": "Über das Terminal mit lumo crossing disposition --confirm entschieden: der Agent hat den Grenzverstoß weitergegeben und der Nutzer hat im Chat zugestimmt. Korrigiere es hier, falls diese Zustimmung nicht von dir kam."
+  "boundary.panel.viaCliTip": "Über das Terminal mit lumo crossing disposition --confirm entschieden: der Agent hat den Grenzverstoß weitergegeben und der Nutzer hat im Chat zugestimmt. Korrigiere es hier, falls diese Zustimmung nicht von dir kam.",
+  "activity.boundaryRejudged": "hat die Grenzüberschreitung als Hinweis neu bewertet — ihre Ursache besteht nicht mehr ({reason})",
+  "boundary.panel.rejudged": "Vom System neu bewertet — blockiert Done nicht mehr: {evidence}"
 }

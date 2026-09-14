@@ -2368,5 +2368,7 @@
   "boundary.toast.ruleCreatedWithSweep": "Peraturan repositori dicipta — {count} amaran sedia ada yang sejenis telah diselesaikan, dan kejadian akan datang akan dikendalikan secara automatik",
   "boundary.toast.ruleRevokedWithReopen": "Peraturan dibatalkan — {count} amaran yang dikendalikannya secara automatik kini terbuka semula",
   "boundary.panel.viaCli": "· melalui CLI",
-  "boundary.panel.viaCliTip": "Diputuskan dari terminal dengan lumo crossing disposition --confirm: ejen menyampaikan pelanggaran sempadan dan pengguna meluluskannya dalam sembang. Betulkan di sini jika kelulusan itu bukan daripada anda."
+  "boundary.panel.viaCliTip": "Diputuskan dari terminal dengan lumo crossing disposition --confirm: ejen menyampaikan pelanggaran sempadan dan pengguna meluluskannya dalam sembang. Betulkan di sini jika kelulusan itu bukan daripada anda.",
+  "activity.boundaryRejudged": "menilai semula pelanggaran sempadan sebagai nasihat — puncanya tidak lagi berlaku ({reason})",
+  "boundary.panel.rejudged": "Dinilai semula oleh sistem — tidak lagi menyekat Done: {evidence}"
 }

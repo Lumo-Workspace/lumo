@@ -24,6 +24,8 @@ import {
   type StoredProjectPolicy,
 } from '@/lib/repositories/project-policy.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import { logger } from '@/lib/logger'
+import { ruleTextPresentIn } from '@/lib/boundary-crossing/rejudge-cause'
 import { isReversible } from '@/lib/services/boundary-detector.service'
 import { isObligationText } from './rule-polarity'
 import { pushRuleShape } from './push-rule'
@@ -108,17 +110,6 @@ async function readSource(
 }
 
 /**
- * Markdown-insensitive comparison basis. A rule's `text` is what the classifier
- * extracted, with emphasis and code spans already stripped; the source still
- * carries them, so `source.includes(rule.text)` is false for a rule that is
- * plainly still there. Normalising both sides is what makes "is this text still
- * in the file" a question worth asking.
- */
-function normalizeForPresence(text: string): string {
-  return text.toLowerCase().replace(/[`*]/g, '').replace(/\s+/g, ' ').trim()
-}
-
-/**
  * Crossings for deterministic+blocking rules that no longer are.
  *
  * The discriminator is NOT "did the rule set change" — it is **is the rule's
@@ -154,9 +145,10 @@ async function emitWeakening(
     if (next == null) return true // removed
     return !(next.tier === 'deterministic' && next.blocking) // downgraded
   })
-  const haystack = normalizeForPresence(source)
   for (const r of weakened) {
-    const stillInSource = haystack.includes(normalizeForPresence(r.text))
+    // LUM-780: one shared predicate with the re-judge (tolerates a trailing
+    // classifier gloss on the rule side; the source is never loosened).
+    const stillInSource = ruleTextPresentIn(source, r.text)
     const detail = stillInSource
       ? `The policy compiler stopped treating this rule as deterministic+blocking, but its text is UNCHANGED in CLAUDE.md — a classifier decision, not an edit: "${r.text}"`
       : `A deterministic Forbidden rule was removed from CLAUDE.md: "${r.text}"`
@@ -171,6 +163,9 @@ async function emitWeakening(
       // repository's `?? false` default.
       reversible: isReversible('POLICY_WEAKENING'),
       policyRuleRef: r.id,
+      // LUM-780: the text the re-judge asks the source about — stamped so a
+      // future pass never has to recover it from a clipped detail.
+      policyRuleText: r.text,
     })
   }
 }
@@ -242,6 +237,33 @@ export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
 }
 
 /**
+ * LUM-780: after the active policy changes, the project's OPEN blocking
+ * POLICY_WEAKENING rows are re-judged against the source just read — "is the
+ * rule text still in the file" has a fresh answer at exactly this moment.
+ * Fail-soft and lazily imported: the re-judge service calls back into this
+ * module's reader, and a re-judge failure must never fail a compile.
+ */
+async function rejudgeAfterPolicyChange(
+  projectId: string,
+  source: string
+): Promise<void> {
+  try {
+    const { boundaryCrossingRejudgeService } =
+      await import('@/lib/services/boundary-crossing-rejudge.service')
+    await boundaryCrossingRejudgeService.rejudgePolicyWeakeningForProject({
+      projectId,
+      source,
+    })
+  } catch (error) {
+    logger.warn(
+      `[policy-compiler] POLICY_WEAKENING re-judge failed for project ${projectId}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    )
+  }
+}
+
+/**
  * The expensive half of ensureCompiled — model call, safety nets, persist —
  * for a source no row exists for yet. Runs at most once per
  * (projectId, sourceHash) per instance (the in-flight map); across instances
@@ -298,6 +320,7 @@ async function compileAndPersist(
   if (prev && input.taskId) {
     await emitWeakening(prev.rules, rules, input.taskId, source)
   }
+  await rejudgeAfterPolicyChange(input.projectId, source)
   return { sourceHash, rules }
 }
 
@@ -311,7 +334,7 @@ async function compileAndPersist(
 async function reactivate(
   existing: StoredProjectPolicy,
   latest: { sourceHash: string; rules: PolicyRule[] } | null,
-  input: { taskId?: string },
+  input: { projectId: string; taskId?: string },
   source: string
 ): Promise<CompiledPolicy> {
   const won = await projectPolicyRepository.activateIfUnchanged(
@@ -322,10 +345,24 @@ async function reactivate(
   if (won && latest && input.taskId) {
     await emitWeakening(latest.rules, existing.rules, input.taskId, source)
   }
+  if (won) await rejudgeAfterPolicyChange(input.projectId, source)
   return { sourceHash: existing.sourceHash, rules: existing.rules }
 }
 
 export const policyCompilerService = {
+  /**
+   * LUM-780: the project's current CLAUDE.md + AGENTS.md source (cached 60 s,
+   * installation token) — the state the POLICY_WEAKENING re-judge asks about.
+   * Null when neither file exists or the repo is unreadable.
+   */
+  async readSource(input: {
+    projectId: string
+    workspaceId: string
+    fullName: string
+  }): Promise<string | null> {
+    return readSource(input.projectId, input.workspaceId, input.fullName)
+  },
+
   /**
    * Returns the active compiled policy for a project, recompiling only when
    * the source hash has changed (or no policy exists yet).
