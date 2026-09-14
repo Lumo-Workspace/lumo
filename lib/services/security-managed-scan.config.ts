@@ -43,6 +43,15 @@ export const SANDBOX_TIMEOUT_MS = 12 * 60 * 1000
 export const SANDBOX_TIMEOUT_WITH_HUNT_MS = 20 * 60 * 1000
 /** Same cap as the ingest path's raw (post-gunzip) SARIF size. */
 export const MANAGED_REPORT_MAX_BYTES = 400 * 1024 * 1024
+/**
+ * How much of a failure reason survives onto `PrSecurityScan.error`, enforced
+ * in `security-sarif-ingest.service.ts` (500 with the `external: ` prefix).
+ * Named here because the per-tool detail budget is derived from it: three
+ * tools failing at once must still each get their cause across, and the cause
+ * lives at the TAIL, so an overflow silently eats the last tool's.
+ */
+export const MANAGED_FAILURE_REASON_CHARS = 480
+
 export const MANAGED_SCAN_TOOLS = [
   'gitleaks',
   'semgrep',

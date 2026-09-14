@@ -19,6 +19,7 @@
 import { gunzipSync } from 'node:zlib'
 import { waitUntil } from '@vercel/functions'
 import { logger } from '@/lib/logger'
+import { MANAGED_FAILURE_REASON_CHARS } from '@/lib/services/security-managed-scan.config'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import {
@@ -390,7 +391,11 @@ export const securitySarifIngestService = {
     await prSecurityScanRepository.mergeStages(
       scanId,
       patch,
-      reason ? { error: `${EXTERNAL_ERROR_PREFIX}${reason.slice(0, 480)}` } : {}
+      reason
+        ? {
+            error: `${EXTERNAL_ERROR_PREFIX}${reason.slice(0, MANAGED_FAILURE_REASON_CHARS)}`,
+          }
+        : {}
     )
   },
 

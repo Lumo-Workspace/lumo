@@ -16,13 +16,20 @@ import {
 import { KNOWN_COMMAND_PATHS } from '../parse'
 
 const grammar = grammarJson as CliGrammar
-const HERE = join(process.cwd(), 'scripts/analysis/lum392-cli-friction')
+// Resolved from THIS file, not from `process.cwd()`. A git worktree has no
+// `node_modules` of its own — npm installs live in the main checkout — so
+// `cwd/node_modules/.bin/tsx` is guaranteed ENOENT there, and this repo's whole
+// working style is worktrees. The result was one permanently red test on every
+// worktree run, which is the state where a REAL second failure gets waved
+// through as "that known one". `require.resolve` walks up to the real
+// node_modules the same way every other import in this suite already does.
+const HERE = join(__dirname, '..')
 
 describe('grammar.json drift', () => {
   it('matches a fresh extraction from cli/src (regenerate with emit-grammar.ts on mismatch)', () => {
     const printed = execFileSync(
-      join(process.cwd(), 'node_modules/.bin/tsx'),
-      [join(HERE, 'emit-grammar.ts'), '--print'],
+      process.execPath,
+      [require.resolve('tsx/cli'), join(HERE, 'emit-grammar.ts'), '--print'],
       { encoding: 'utf8', timeout: 120_000 }
     )
     // Compare the command tree only: cliVersion is informational metadata —
