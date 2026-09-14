@@ -572,6 +572,7 @@ export const securityHuntService = {
     const shell: HuntShellStats = {
       calls: 0,
       refused: 0,
+      failed: 0,
       empty: 0,
       outputChars: 0,
       commands: [],
@@ -614,6 +615,7 @@ export const securityHuntService = {
           stopped: 'timeout',
           error: 'sandbox acquisition consumed the task window',
           compress,
+          shell,
           ...vm,
         }
       }
@@ -632,7 +634,27 @@ export const securityHuntService = {
         // reads is the string that runs. The task rides along because the
         // compressor needs to know what "relevant" means (§6).
         runShell: async command => {
+          // Recorded BEFORE the await: the field says "commands the agent asked
+          // to run", and a throw out of `runHuntShell` must not silently erase
+          // the request that caused it.
+          shell.calls += 1
+          const entryIndex = shell.commands.length
+          if (entryIndex < HUNT_SHELL_LOG_MAX) {
+            shell.commands.push({
+              cmd: redactKnownSecrets(command).slice(0, HUNT_SHELL_LOG_CHARS),
+            })
+          }
           const out = await runHuntShell({ handle, task: input.task, command })
+          if (out.denied && entryIndex < HUNT_SHELL_LOG_MAX) {
+            const entry = shell.commands[entryIndex]!
+            entry.denied = true
+            if (out.error !== undefined) {
+              entry.reason = redactKnownSecrets(out.error).slice(
+                0,
+                HUNT_SHELL_LOG_CHARS
+              )
+            }
+          }
           // Counted here and nowhere else, so compression cannot be paid for
           // with money the scan's `tokenSpent` never sees.
           compress.tokens += out.compressTokens
@@ -645,15 +667,13 @@ export const securityHuntService = {
           // that cost a whole task its sight without leaving a trace; counting
           // it is what turns the next diagnosis into a read.
           if (out.compressNoOp) compress.noOpCalls += 1
-          shell.calls += 1
-          if (out.error !== undefined) shell.refused += 1
-          else if (out.output.length === 0) shell.empty += 1
+          // `denied` is the gate; `error` without it is the sandbox. Counting
+          // both as "refused" reads a dead VM as a rejected command.
+          if (out.denied) shell.refused += 1
+          else if (out.error !== undefined) shell.failed += 1
+          // `trim()`: a command that returned only a newline found nothing.
+          else if (out.output.trim().length === 0) shell.empty += 1
           shell.outputChars += out.output.length
-          if (shell.commands.length < HUNT_SHELL_LOG_MAX) {
-            shell.commands.push(
-              redactKnownSecrets(command).slice(0, HUNT_SHELL_LOG_CHARS)
-            )
-          }
           // Only the two fields the model needs. The accounting fields are
           // ours: an `ai` tool result is serialised straight into the
           // transcript, so returning them would spend context on bookkeeping
@@ -694,6 +714,11 @@ export const securityHuntService = {
         tokens: compress.tokens,
         elapsedMs: Date.now() - started,
         stopped: isAbort(error) ? 'timeout' : 'error',
+        // The client only ever reports done|budget|steps, so 'timeout' and
+        // 'error' come EXCLUSIVELY from here and the early return above. Those
+        // are the rows where "did the gate eat the window?" is most live, and
+        // they used to carry no shell stats at all.
+        shell,
         error: message.slice(0, 300),
         compress,
         ...vm,

@@ -479,8 +479,15 @@ export const HUNT_SHELL_LOG_CHARS = 200
 export interface HuntShellStats {
   /** Commands the agent asked to run. */
   calls: number
-  /** …of which the gate refused. A high share here is not a hunt at all. */
+  /**
+   * …of which the GATE refused. A high share here is not a hunt at all.
+   * Counted off `denied`, never off `error`: `error` is also set when the
+   * sandbox itself dies, and reading a dead VM as a rejected command points
+   * the next investigation at the wrong file.
+   */
   refused: number
+  /** …of which the sandbox failed to run at all (VM gone, or SHELL_TIMEOUT_MS). */
+  failed: number
   /** …of which ran and returned nothing: a search that matched no line. */
   empty: number
   /** Total characters handed back to the model, after compression. */
@@ -491,8 +498,13 @@ export interface HuntShellStats {
    * can echo a literal it saw in the repo into its next query, so this goes
    * through `redactKnownSecrets` like every other model-authored string that
    * gets persisted.
+   *
+   * Each carries its own verdict. A flat list beside `refused: 7` says seven
+   * were rejected without saying WHICH seven or why, which is the half of the
+   * answer a reader actually acts on. `reason` is the gate's own text, not the
+   * model's — but it can quote the command back, so it is redacted too.
    */
-  commands: string[]
+  commands: Array<{ cmd: string; denied?: true; reason?: string }>
 }
 
 export interface HuntCompressStats {
@@ -594,8 +606,17 @@ export interface HuntBatchOutput {
    * them out so the audit can answer "was compression worth it".
    */
   compress?: HuntCompressStats
-  /** LUM-758 follow-up — what the agent asked the shell for. */
-  shell?: HuntShellStats
+  /**
+   * LUM-758 follow-up — what the agent asked the shell for.
+   *
+   * REQUIRED, deliberately. The optional form let the timeout and error exits
+   * return without it, and since the client only ever reports
+   * `done | budget | steps`, those two stops come EXCLUSIVELY from those exits
+   * — so every `stopped: 'timeout'` row lost its shell stats by construction,
+   * on precisely the runs where "did the gate eat the window?" is most live.
+   * Required makes that a compile error instead of a review question.
+   */
+  shell: HuntShellStats
   /**
    * LUM-758 follow-up — the search ended on a counter without the agent ever
    * submitting, and a forced wrap-up call asked for what it had. `stopped`

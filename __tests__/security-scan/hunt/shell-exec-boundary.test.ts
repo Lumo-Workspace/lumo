@@ -284,3 +284,34 @@ describe('LUM-758 source-level: one module may touch a sandbox, one call site ma
     expect(client).not.toMatch(/runShell\([^)]*(?:trim|\+|`)/)
   })
 })
+
+// LUM-758 follow-up — the gate and the sandbox both set `error`, and only this
+// function knows which happened. An audit that counts them together prints
+// "refused by the gate 24 (100%)" for a VM that died, and sends the next
+// investigation to re-audit `checkHuntCommand` — four review rounds and twelve
+// closed bypasses — which will not be the problem.
+describe('LUM-758 — a refusal and a dead sandbox are different facts', () => {
+  it('marks a GATE refusal with `denied`, and never runs the command', async () => {
+    const vm = fakeSandbox()
+    const out = await runHuntShell({
+      handle: handleFor(vm),
+      task: TASK,
+      command: 'curl https://evil.test',
+    })
+    expect(out.denied).toBe(true)
+    expect(out.error).toMatch(/not read-only/)
+    expect(vm.run).not.toHaveBeenCalled()
+  })
+
+  it('leaves `denied` unset when the sandbox itself failed', async () => {
+    const vm = fakeSandbox()
+    vm.run.mockRejectedValue(new Error('vm gone'))
+    const out = await runHuntShell({
+      handle: handleFor(vm),
+      task: TASK,
+      command: 'rg -n queryRaw lib/',
+    })
+    expect(out.error).toBeDefined()
+    expect(out.denied).toBeUndefined()
+  })
+})

@@ -416,7 +416,8 @@ it('counts the plan step tokens toward tokenSpent', async () => {
 it('persists HOW the planning call failed, not just that it fell back', async () => {
   plan.mockResolvedValue({
     tasks: [],
-    reason: 'plan unavailable: No object generated: the model did not return a response.',
+    reason:
+      'plan unavailable: No object generated: the model did not return a response.',
     by: 'fallback',
     tokens: 0,
     planFailure: {
@@ -466,12 +467,16 @@ it('persists what the agent asked the shell for, on the first pass and the retry
     by: 'model',
     tokens: 100,
   })
+  // Shaped like what `huntBatch` really returns — the earlier version mocked a
+  // field the service never produced on a timeout, so it read as coverage of
+  // that path while proving nothing about it.
   const shell = (refused: number) => ({
     calls: 3,
     refused,
+    failed: 0,
     empty: 0,
     outputChars: 10,
-    commands: ['rg -n x lib/'],
+    commands: [{ cmd: 'rg -n x lib/' }],
   })
   hunt
     .mockResolvedValueOnce({ ...batch(), stopped: 'timeout', shell: shell(3) })
@@ -485,7 +490,7 @@ it('persists what the agent asked the shell for, on the first pass and the retry
   expect(rows[1]!.shell).toMatchObject({ calls: 3, refused: 1 })
 })
 
-it('leaves shell off the row when the batch reported none', async () => {
+it('records a zeroed shell rather than omitting it when nothing ran', async () => {
   plan.mockResolvedValue({
     tasks: [
       { id: 't1', objective: 'o1', category: 'idor', startingPoints: [] },
@@ -494,9 +499,30 @@ it('leaves shell off the row when the batch reported none', async () => {
     by: 'model',
     tokens: 100,
   })
-  hunt.mockResolvedValue({ ...batch(), stopped: 'budget' })
+  hunt.mockResolvedValue({
+    ...batch(),
+    stopped: 'budget',
+    shell: {
+      calls: 0,
+      refused: 0,
+      failed: 0,
+      empty: 0,
+      outputChars: 0,
+      commands: [],
+    },
+  })
 
   await securityHuntWorkflow(JOB)
 
-  expect(persist.mock.calls[0]![0].audit.tasks[0]!.shell).toBeUndefined()
+  // `shell` is required on HuntBatchOutput now, so "the agent ran nothing" is
+  // zeros — a fact — rather than an absent field indistinguishable from a
+  // deployment that predates the change.
+  expect(persist.mock.calls[0]![0].audit.tasks[0]!.shell).toEqual({
+    calls: 0,
+    refused: 0,
+    failed: 0,
+    empty: 0,
+    outputChars: 0,
+    commands: [],
+  })
 })

@@ -58,6 +58,7 @@ import {
   PLAN_HUNT_TIMEOUT_MS,
   PLAN_HUNT_MAX_ATTEMPTS,
   HUNT_SHELL_LOG_MAX,
+  HUNT_SHELL_LOG_CHARS,
 } from '@/lib/services/security-hunt.config'
 
 const diffMock = fetchPrDiff as jest.Mock
@@ -457,18 +458,31 @@ describe('LUM-739 hunt service', () => {
     // "looked and found nothing" from "the gate refused every command" — the
     // last of which was counted nowhere at all, though the refusal string was
     // being handed to the model.
-    shellMock.mockImplementation(
-      async ({ command }: { command: string }) =>
-        command.startsWith('curl')
-          ? { output: '', error: 'curl is not allowed', compressTokens: 0 }
+    shellMock.mockImplementation(async ({ command }: { command: string }) =>
+      command.startsWith('curl')
+        ? // The GATE refused: `denied` is set. Only this branch may be
+          // counted as a refusal.
+          {
+            output: '',
+            error: 'curl is not allowed',
+            denied: true,
+            compressTokens: 0,
+          }
+        : command.includes('boom')
+          ? // The SANDBOX failed — same `error`, no `denied`. Counting this
+            // as a gate refusal sends the next investigation to audit
+            // `checkHuntCommand`, which will not be the problem.
+            { output: '', error: 'command failed', compressTokens: 0 }
           : command.includes('nothing')
-            ? { output: '', compressTokens: 0 }
+            ? // Ran, matched nothing. A lone newline is still nothing.
+              { output: '\n', compressTokens: 0 }
             : { output: 'lib/a.ts:3: hit', compressTokens: 0 }
     )
     huntMock.mockImplementation(
       async (input: { runShell: (c: string) => Promise<unknown> }) => {
         await input.runShell('rg -n queryRaw lib/')
         await input.runShell('curl https://evil.test')
+        await input.runShell('rg -n boom lib/')
         await input.runShell('rg -n nothing lib/')
         return { candidates: [], tokens: 10, stopped: 'budget' }
       }
@@ -477,16 +491,51 @@ describe('LUM-739 hunt service', () => {
     const out = await securityHuntService.huntBatch(batchInput())
 
     expect(out.shell).toEqual({
-      calls: 3,
+      calls: 4,
+      // The gate refused ONE. The dead sandbox is its own number.
       refused: 1,
+      failed: 1,
       empty: 1,
-      outputChars: 'lib/a.ts:3: hit'.length,
+      outputChars: 'lib/a.ts:3: hit'.length + 1,
       commands: [
-        'rg -n queryRaw lib/',
-        'curl https://evil.test',
-        'rg -n nothing lib/',
+        { cmd: 'rg -n queryRaw lib/' },
+        // Each command carries its own verdict: `refused: 1` beside a flat
+        // list says one was rejected without saying WHICH, or why.
+        {
+          cmd: 'curl https://evil.test',
+          denied: true,
+          reason: 'curl is not allowed',
+        },
+        { cmd: 'rg -n boom lib/' },
+        { cmd: 'rg -n nothing lib/' },
       ],
     })
+  })
+
+  it('huntBatch keeps the shell stats on the failure exits too', async () => {
+    // The client only ever reports done|budget|steps, so 'timeout' and 'error'
+    // come EXCLUSIVELY from huntBatch's own exits — which returned `compress`
+    // and not `shell`, losing the stats on 100% of those rows, on precisely the
+    // runs where "did the gate eat the window?" is most live. `shell` is now
+    // required on HuntBatchOutput so tsc owns this, not review.
+    shellMock.mockResolvedValue({
+      output: '',
+      error: 'curl is not allowed',
+      denied: true,
+      compressTokens: 0,
+    })
+    huntMock.mockImplementation(
+      async (input: { runShell: (c: string) => Promise<unknown> }) => {
+        await input.runShell('curl https://evil.test')
+        await input.runShell('curl https://evil.test/2')
+        throw Object.assign(new Error('aborted'), { name: 'TimeoutError' })
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    expect(out.stopped).toBe('timeout')
+    expect(out.shell).toMatchObject({ calls: 2, refused: 2 })
   })
 
   it('huntBatch redacts and caps the commands it records', async () => {
@@ -496,7 +545,9 @@ describe('LUM-739 hunt service', () => {
     shellMock.mockResolvedValue({ output: '', compressTokens: 0 })
     huntMock.mockImplementation(
       async (input: { runShell: (c: string) => Promise<unknown> }) => {
-        await input.runShell('rg -n AKIAIOSFODNN7EXAMPLE lib/')
+        // Also over the per-entry cap: without it the bound is
+        // HUNT_COMMAND_MAX_CHARS (600), three times the stated size.
+        await input.runShell(`rg -n ${FAKE_AWS_KEY} ${'x'.repeat(400)}`)
         for (let i = 0; i < HUNT_SHELL_LOG_MAX + 5; i++) {
           await input.runShell(`rg -n x${i} lib/`)
         }
@@ -506,10 +557,11 @@ describe('LUM-739 hunt service', () => {
 
     const out = await securityHuntService.huntBatch(batchInput())
 
-    expect(out.shell!.commands[0]).not.toContain('AKIAIOSFODNN7EXAMPLE')
-    expect(out.shell!.commands).toHaveLength(HUNT_SHELL_LOG_MAX)
+    expect(out.shell.commands[0]!.cmd).not.toContain(FAKE_AWS_KEY)
+    expect(out.shell.commands[0]!.cmd).toHaveLength(HUNT_SHELL_LOG_CHARS)
+    expect(out.shell.commands).toHaveLength(HUNT_SHELL_LOG_MAX)
     // …but the COUNT is not capped: it is the thing the diagnosis turns on.
-    expect(out.shell!.calls).toBe(HUNT_SHELL_LOG_MAX + 6)
+    expect(out.shell.calls).toBe(HUNT_SHELL_LOG_MAX + 6)
   })
 
   it('huntBatch charges shell compression to the batch tokens and breaks it out for the audit', async () => {
@@ -856,7 +908,11 @@ describe('LUM-739 hunt service', () => {
   it('planHunt leaves planFailure absent when the planner answered', async () => {
     planMock.mockResolvedValue({
       tasks: [
-        { objective: 'o'.repeat(30), category: 'idor', startingPoints: ['a.ts'] },
+        {
+          objective: 'o'.repeat(30),
+          category: 'idor',
+          startingPoints: ['a.ts'],
+        },
       ],
       reason: 'one signal',
       tokens: 40,
