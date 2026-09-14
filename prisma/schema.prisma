@@ -824,6 +824,9 @@ model ProjectPolicy {
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
+  // LUM-774: one row per compiled source. Concurrent recompiles of the same
+  // source insert-or-ignore against this key and serve the single row.
+  @@unique([projectId, sourceHash])
   @@index([projectId, compiledAt]) // latest + previous lookup
   @@map("project_policies")
 }
