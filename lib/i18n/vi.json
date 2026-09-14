@@ -493,6 +493,7 @@
   "github.installSuccess": "Đã cài GitHub App",
   "github.installRequested": "Đã gửi yêu cầu cài đặt. Chủ sở hữu tổ chức cần phê duyệt.",
   "github.installFailed": "Không thể hoàn tất việc cài GitHub App. Vui lòng thử lại.",
+  "github.installNotConfigured": "GitHub App chưa được cấu hình trên máy chủ này (thiếu GITHUB_APP_SLUG). Hãy nhờ người phụ trách triển khai thiết lập.",
   "sentry.title": "Sentry",
   "sentry.description": "Tự động tạo task từ cảnh báo của Sentry.",
   "sentry.connected": "Đã kết nối",

@@ -493,6 +493,7 @@
   "github.installSuccess": "Приложение GitHub установлено",
   "github.installRequested": "Запрос на установку отправлен. Его должен одобрить владелец организации.",
   "github.installFailed": "Не удалось завершить установку приложения GitHub. Попробуйте ещё раз.",
+  "github.installNotConfigured": "Приложение GitHub не настроено на этом сервере (отсутствует GITHUB_APP_SLUG). Попросите ответственного за развёртывание задать его.",
   "sentry.title": "Sentry",
   "sentry.description": "Автоматически создавать задачи из оповещений Sentry.",
   "sentry.connected": "Подключено",

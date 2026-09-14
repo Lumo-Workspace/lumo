@@ -62,6 +62,8 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
 
     if (params.get('github_error')) {
       toast.error(intl.formatMessage({ id: 'github.connectFailed' }))
+    } else if (appError === 'not_configured') {
+      toast.error(intl.formatMessage({ id: 'github.installNotConfigured' }))
     } else if (appError) {
       toast.error(intl.formatMessage({ id: 'github.installFailed' }))
     } else if (appResult === 'installed') {
