@@ -47,9 +47,11 @@ describe('GET /api/github/app/install', () => {
     expect(location.origin + location.pathname).toBe(
       'https://github.com/apps/lumo-agent/installations/new'
     )
-    const state = JSON.parse(
-      /^enc\((.*)\)$/.exec(location.searchParams.get('state')!)![1]
+    const encrypted = /^enc\((.*)\)$/.exec(
+      location.searchParams.get('state') ?? ''
     )
+    expect(encrypted?.[1]).toBeDefined()
+    const state = JSON.parse(encrypted![1]!)
     expect(state).toEqual({
       memberId: 'm1',
       workspaceId: 'w1',
