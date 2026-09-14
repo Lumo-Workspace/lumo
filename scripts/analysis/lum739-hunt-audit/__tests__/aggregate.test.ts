@@ -68,6 +68,7 @@ describe('LUM-739 hunt audit', () => {
         taskCounts: {},
         failures: {},
         failureShapes: {},
+        repaired: {},
         reasoningTokens: [],
         emptyOutput: 0,
       },
@@ -323,6 +324,27 @@ describe('LUM-739 hunt audit', () => {
     })
     // …and the finish-reason view alone would have read 3 × stop, 1 × length.
     expect(stats.plan.failures).toEqual({ length: 1, stop: 3, unknown: 1 })
+  })
+
+  it('LUM-776: counts model plans that only validated after an envelope repair', () => {
+    const row = (id: string, audit: Record<string, unknown>) => ({
+      id,
+      stages: { hunt: 'RAN' },
+      huntAudit: { plannedBy: 'model', planned: [], ...audit },
+      tokenSpent: 0,
+      findings: [],
+    })
+    const stats = aggregateHuntAudit([
+      row('a', { planRepair: 'missing-tasks' }),
+      row('b', { planRepair: 'missing-tasks' }),
+      row('c', { planRepair: 'wrapped-array' }),
+      row('d', {}),
+    ])
+    expect(stats.plan.by.model).toBe(4)
+    expect(stats.plan.repaired).toEqual({
+      'missing-tasks': 2,
+      'wrapped-array': 1,
+    })
   })
 
   it('reports null rates on an empty input', () => {

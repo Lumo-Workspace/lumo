@@ -68,6 +68,13 @@ export interface HuntAuditStats {
      * before the shape existed are counted under `unclassified`, never guessed.
      */
     failureShapes: Record<string, number>
+    /**
+     * LUM-776 — `plannedBy=model` rows whose answer only validated after
+     * `repairPlanText`, by repair kind. A `missing-tasks` repair is an empty
+     * plan the model never reasoned about: subtract these before reading the
+     * model success rate as "the planner is healthy".
+     */
+    repaired: Record<string, number>
     reasoningTokens: number[]
     emptyOutput: number
   }
@@ -151,6 +158,7 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
       taskCounts: {},
       failures: {},
       failureShapes: {},
+      repaired: {},
       reasoningTokens: [],
       emptyOutput: 0,
     },
@@ -209,6 +217,10 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
       if (typeof pf.reasoningTokens === 'number')
         stats.plan.reasoningTokens.push(pf.reasoningTokens)
       if (pf.textPrefix === '') stats.plan.emptyOutput += 1
+    }
+    if (typeof audit.planRepair === 'string') {
+      stats.plan.repaired[audit.planRepair] =
+        (stats.plan.repaired[audit.planRepair] ?? 0) + 1
     }
     if (Array.isArray(audit.planned)) {
       const n = String(audit.planned.length)

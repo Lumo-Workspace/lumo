@@ -263,6 +263,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       audit.plannedBy = plan.by
       // Only present on a failure, and the only record of HOW it failed.
       if (plan.planFailure) audit.planFailure = plan.planFailure
+      // LUM-776 — a plan the model wrote in the wrong envelope, repaired.
+      if (plan.planRepair) audit.planRepair = plan.planRepair
       // LUM-764 — both default because an in-flight run queued by the previous
       // deployment replays a step result that predates these two fields; the
       // same deploy boundary `job.reasons ?? []` above is written for. `false`

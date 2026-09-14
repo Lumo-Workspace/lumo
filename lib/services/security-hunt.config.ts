@@ -15,6 +15,7 @@ import type {
 
 import type { HuntSignalSite } from '@/lib/security-scan/hunt/trigger'
 import type { PlanFailureFacts } from '@/lib/security-scan/hunt/plan-retry'
+import type { PlanRepairKind } from '@/lib/security-scan/hunt/plan-repair'
 
 export interface HuntJob {
   scanId: string
@@ -262,12 +263,13 @@ export const PLAN_OBJECTIVE_MAX_CHARS = 2_000
  * LUM-776 — the plan-level `reason` has the same trap as `objective`: its
  * zod `.max()` travels to the model as JSON-schema `maxLength`. Production
  * `plannedBy=model` rows (35 scans to 2026-09-14) show reasons up to 462
- * characters against the old cap of 400, so the cap sat INSIDE the natural
- * length — the exact condition LUM-766 measured as "rewrite until the budget
- * is gone". Same rule as the objective: ≥ 50 % over the observed max, pinned
- * by `budget-arithmetic.test.ts`.
+ * characters against the old cap of 400, and the LUM-776 probe (24 real
+ * prompts through the shipped call, cap 1 200) wrote up to 588 — so the old
+ * cap sat INSIDE the natural length, the exact condition LUM-766 measured as
+ * "rewrite until the budget is gone". Same rule as the objective: ≥ 50 % over
+ * the observed max, pinned by `budget-arithmetic.test.ts`.
  */
-export const PLAN_REASON_OBSERVED_MAX_CHARS = 462
+export const PLAN_REASON_OBSERVED_MAX_CHARS = 588
 export const PLAN_REASON_MAX_CHARS = 1_200
 
 /**
@@ -397,6 +399,15 @@ export interface HuntAudit {
    * and neither was readable from what we stored.
    */
   planFailure?: PlanFailureFacts
+  /**
+   * LUM-776 — the model's answer only became a plan through
+   * `repairPlanText` (`wrapped-array`: a bare task array was wrapped;
+   * `missing-tasks`: an object with no `tasks` key was read as an empty
+   * plan). Absent when the model wrote the envelope right. `plannedBy` is
+   * still `model` — the model did answer — but a repaired `{}` is an empty
+   * plan nobody reasoned about, and the read-out must be able to say so.
+   */
+  planRepair?: PlanRepairKind
   /**
    * Who produced `planned`. Three values, and the third is not decoration:
    *   - `model`   — the planner ran and answered.
@@ -528,6 +539,8 @@ export interface PlanHuntOutput {
    * to already (`wrappedUp`, `wrapUpWarnings`, and the located sites).
    */
   planFailure?: PlanFailureFacts
+  /** LUM-776 — see `HuntAudit.planRepair`; set only when `by` is `model`. */
+  planRepair?: PlanRepairKind
 }
 
 /**

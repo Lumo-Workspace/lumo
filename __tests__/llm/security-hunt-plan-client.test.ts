@@ -185,6 +185,46 @@ describe('LUM-758 hunt plan client', () => {
     expect(out.reason).toBe(PLAN_EMPTY_REASON)
   })
 
+  it('LUM-776: repairs the two envelope mistakes through the SDK hook, and says it did', async () => {
+    // Drive the hook the way the SDK does: text failed, ask for a repair,
+    // then parse+validate what came back.
+    const drive = async (text: string) => {
+      gen.mockImplementationOnce(async (opts: any) => {
+        const repaired = await opts.experimental_repairText({
+          text,
+          error: new Error('x'),
+        })
+        if (repaired === null) throw new Error('No object generated')
+        const parsed = opts.schema.safeParse(JSON.parse(repaired))
+        if (!parsed.success) throw new Error('No object generated')
+        return { object: parsed.data, usage: { totalTokens: 10 } }
+      })
+      return planHuntTasks(INPUT)
+    }
+    const empty = await drive('{}')
+    expect(empty.tasks).toEqual([])
+    expect(empty.reason).toBe(PLAN_EMPTY_REASON)
+    expect(empty.repaired).toBe('missing-tasks')
+
+    const wrapped = await drive(JSON.stringify([task()]))
+    expect(wrapped.tasks).toEqual([{ ...task(), id: 't1' }])
+    expect(wrapped.repaired).toBe('wrapped-array')
+
+    // A truncated document is NOT repaired; the failure propagates.
+    await expect(drive('{"tasks":[{"objective":"trace')).rejects.toThrow(
+      'No object generated'
+    )
+  })
+
+  it('LUM-776: a plan that validated first time carries no repair mark', async () => {
+    gen.mockResolvedValueOnce({
+      object: { tasks: [], reason: 'nothing' },
+      usage: { totalTokens: 70 },
+    })
+    const out = await planHuntTasks(INPUT)
+    expect(out).not.toHaveProperty('repaired')
+  })
+
   it('LUM-776: the reason schema admits the length the model actually writes', async () => {
     gen.mockResolvedValueOnce({
       object: { tasks: [], reason: 'nothing' },

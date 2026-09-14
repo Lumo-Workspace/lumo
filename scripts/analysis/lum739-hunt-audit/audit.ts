@@ -111,6 +111,12 @@ async function main(): Promise<void> {
   console.log(
     `plan failures by shape (LUM-776): ${shapes.length === 0 ? '(none)' : shapes.map(([k, n]) => `${k} ${n}`).join(' · ')}`
   )
+  const repaired = Object.entries(stats.plan.repaired).sort(
+    (a, b) => b[1] - a[1]
+  )
+  console.log(
+    `model plans that needed an envelope repair (LUM-776): ${repaired.length === 0 ? '(none)' : repaired.map(([k, n]) => `${k} ${n}`).join(' · ')}`
+  )
   const stops = Object.entries(stats.taskStops).sort((a, b) => b[1] - a[1])
 
   console.log(

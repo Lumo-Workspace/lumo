@@ -416,7 +416,8 @@ it('counts the plan step tokens toward tokenSpent', async () => {
 it('persists HOW the planning call failed, not just that it fell back', async () => {
   plan.mockResolvedValue({
     tasks: [],
-    reason: 'plan unavailable: No object generated: the model did not return a response.',
+    reason:
+      'plan unavailable: No object generated: the model did not return a response.',
     by: 'fallback',
     tokens: 0,
     planFailure: {
@@ -440,6 +441,22 @@ it('persists HOW the planning call failed, not just that it fell back', async ()
   })
 })
 
+it('LUM-776: persists the envelope repair so a repaired {} is never read as a reasoned empty plan', async () => {
+  plan.mockResolvedValue({
+    tasks: [],
+    reason: 'the planner returned no tasks and gave no reason',
+    by: 'model',
+    tokens: 12,
+    planRepair: 'missing-tasks',
+  })
+
+  await securityHuntWorkflow(JOB)
+
+  const audit = persist.mock.calls[0][0].audit
+  expect(audit.plannedBy).toBe('model')
+  expect(audit.planRepair).toBe('missing-tasks')
+})
+
 it('leaves planFailure off the audit when the planner answered', async () => {
   plan.mockResolvedValue({
     tasks: [],
@@ -451,4 +468,5 @@ it('leaves planFailure off the audit when the planner answered', async () => {
   await securityHuntWorkflow(JOB)
 
   expect(persist.mock.calls[0][0].audit.planFailure).toBeUndefined()
+  expect(persist.mock.calls[0][0].audit.planRepair).toBeUndefined()
 })

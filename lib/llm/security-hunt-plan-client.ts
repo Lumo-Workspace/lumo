@@ -27,6 +27,10 @@ import {
   type HuntTask,
 } from '@/lib/services/security-hunt.config'
 import type { FindingSummary } from '@/lib/repositories/pr-security-scan.repository'
+import {
+  repairPlanText,
+  type PlanRepairKind,
+} from '@/lib/security-scan/hunt/plan-repair'
 
 export interface PlanClientInput {
   /**
@@ -238,18 +242,35 @@ export interface PlanHuntTasksResult {
   finishReason: string
   outputTokens: number
   reasoningTokens: number
+  /**
+   * LUM-776 — set when the model's text only became a valid plan through
+   * `repairPlanText`. A repaired `{}` is an empty plan the model never
+   * reasoned about; the audit must be able to tell it from a reasoned `[]`.
+   */
+  repaired?: PlanRepairKind
 }
 
 export async function planHuntTasks(
   input: PlanClientInput,
   overrides: PlanProbeOverrides = {}
 ): Promise<PlanHuntTasksResult> {
+  let repaired: PlanRepairKind | undefined
   const { object, usage, finishReason } = await generateObject({
     model: overrides.model ?? gateway(FAST_MODEL),
     schema: Schema,
     system: PLAN_SYSTEM_PROMPT,
     prompt: buildPlanPrompt(input),
     maxOutputTokens: PLAN_HUNT_TOKEN_BUDGET,
+    // LUM-776 — the SDK calls this once, when the text failed to parse or to
+    // validate, before it gives up. Only the two envelope mistakes are
+    // repaired (see `plan-repair.ts`); everything else stays a failure with
+    // its shape recorded.
+    experimental_repairText: async ({ text }) => {
+      const r = repairPlanText(text)
+      if (r === null) return null
+      repaired = r.kind
+      return r.text
+    },
     ...(overrides.providerOptions
       ? { providerOptions: overrides.providerOptions }
       : {}),
@@ -284,5 +305,6 @@ export async function planHuntTasks(
     finishReason: finishReason ?? 'unknown',
     outputTokens: usage.outputTokens ?? 0,
     reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? 0,
+    ...(repaired ? { repaired } : {}),
   }
 }

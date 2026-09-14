@@ -795,6 +795,26 @@ describe('LUM-739 hunt service', () => {
     expect(planMock).toHaveBeenCalledTimes(PLAN_HUNT_MAX_ATTEMPTS)
   })
 
+  it('planHunt carries the envelope repair onto the output, and leaves it off otherwise', async () => {
+    planMock.mockResolvedValueOnce({
+      tasks: [],
+      reason: 'nothing',
+      tokens: 12,
+      repaired: 'missing-tasks',
+    })
+    const repaired = await securityHuntService.planHunt({
+      job: { ...JOB, reasons: ['diff:sink:prisma-raw'] },
+    })
+    expect(repaired.by).toBe('model')
+    expect(repaired.planRepair).toBe('missing-tasks')
+
+    planMock.mockResolvedValueOnce({ tasks: [], reason: 'nothing', tokens: 12 })
+    const clean = await securityHuntService.planHunt({
+      job: { ...JOB, reasons: ['diff:sink:prisma-raw'] },
+    })
+    expect(clean).not.toHaveProperty('planRepair')
+  })
+
   it('planHunt leaves planFailure absent when the planner answered', async () => {
     planMock.mockResolvedValue({
       tasks: [

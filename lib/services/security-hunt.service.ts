@@ -48,6 +48,7 @@ import {
   describePlanFailure,
   type PlanFailureFacts,
 } from '@/lib/security-scan/hunt/plan-retry'
+import type { PlanRepairKind } from '@/lib/security-scan/hunt/plan-repair'
 import { renderHuntTaskContext } from '@/lib/security-scan/hunt/task-context'
 import { loadHuntTaskContext } from './security-hunt-task-context'
 import {
@@ -180,7 +181,12 @@ export function toHuntFindingRows(
 async function replanWithoutTaskContext(input: {
   job: HuntJob
   findings: FindingSummary[]
-  suppressed: { tasks: HuntTask[]; reason: string; tokens: number }
+  suppressed: {
+    tasks: HuntTask[]
+    reason: string
+    tokens: number
+    repaired?: PlanRepairKind
+  }
 }): Promise<PlanHuntOutput> {
   const { job, findings, suppressed } = input
   const base: PlanHuntOutput = {
@@ -190,6 +196,7 @@ async function replanWithoutTaskContext(input: {
     by: 'model',
     taskContext: true,
     floorForced: [],
+    ...(suppressed.repaired ? { planRepair: suppressed.repaired } : {}),
   }
   try {
     const { planHuntTasks } =
@@ -218,6 +225,7 @@ async function replanWithoutTaskContext(input: {
       tokens,
       by: 'model',
       taskContext: true,
+      ...(clean.repaired ? { planRepair: clean.repaired } : {}),
       floorForced: [
         ...new Set(
           clean.tasks.slice(0, HUNT_MAX_PLANNED_TASKS).map(t => t.category)
@@ -442,8 +450,19 @@ export const securityHuntService = {
           taskContext: taskContextBlock || undefined,
           timeoutMs: PLAN_HUNT_TIMEOUT_MS,
         })
+        // LUM-776 — carried explicitly: object spread would bypass the
+        // excess-property check and the field would ride along unreadable.
+        const planRepair = out.repaired ? { planRepair: out.repaired } : {}
         if (!hasTaskContext) {
-          return { ...out, by: 'model', taskContext: false, floorForced: [] }
+          return {
+            tasks: out.tasks,
+            reason: out.reason,
+            tokens: out.tokens,
+            by: 'model',
+            taskContext: false,
+            floorForced: [],
+            ...planRepair,
+          }
         }
         // LUM-764 — THE control. One set union, here, after the model answered:
         // the prompt carried text the PR author can write, so the plan is
@@ -463,6 +482,7 @@ export const securityHuntService = {
             by: 'model',
             taskContext: true,
             floorForced: forced,
+            ...planRepair,
           }
         }
         // LUM-764 review ① — the floor is EMPTY here, and an empty floor is
