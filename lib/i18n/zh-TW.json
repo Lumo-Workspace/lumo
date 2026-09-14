@@ -472,8 +472,6 @@
   "github.connectFailed": "GitHub 連線失敗，請重試。",
   "github.loadFailed": "載入整合資訊失敗",
   "github.private": "私有",
-  "github.appRow": "已安裝 GitHub App",
-  "github.appRowDesc": "團隊層級。所有儲存庫讀寫——PR 關聯、webhook、留言鏡像、安全掃描——都以它的身分執行",
   "github.appRepos": "App 可存取的儲存庫",
   "github.appNoRepos": "此安裝尚未選擇任何儲存庫。",
   "github.manageOnGithub": "在 GitHub 上管理",

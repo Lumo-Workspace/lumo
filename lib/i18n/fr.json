@@ -472,8 +472,6 @@
   "github.connectFailed": "Échec de la connexion à GitHub. Veuillez réessayer.",
   "github.loadFailed": "Échec du chargement des intégrations",
   "github.private": "privé",
-  "github.appRow": "App GitHub installée",
-  "github.appRowDesc": "Au niveau de l'équipe. Toute lecture et écriture de dépôt — liens de PR, webhooks, miroir des commentaires, analyse de sécurité — s'exécute en son nom",
   "github.appRepos": "Dépôts accessibles à l'app",
   "github.appNoRepos": "Aucun dépôt n'est encore sélectionné pour cette installation.",
   "github.manageOnGithub": "Gérer sur GitHub",

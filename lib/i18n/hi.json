@@ -472,8 +472,6 @@
   "github.connectFailed": "GitHub कनेक्शन विफल हुआ। कृपया पुनः प्रयास करें।",
   "github.loadFailed": "एकीकरण लोड करने में विफल",
   "github.private": "निजी",
-  "github.appRow": "GitHub ऐप इंस्टॉल है",
-  "github.appRowDesc": "टीम-स्तर। रिपॉजिटरी की हर पढ़ाई-लिखाई — PR लिंक, webhook, टिप्पणी मिररिंग, सुरक्षा स्कैन — इसी के रूप में चलती है",
   "github.appRepos": "ऐप जिन रिपॉजिटरी तक पहुँच सकता है",
   "github.appNoRepos": "इस इंस्टॉलेशन के लिए अभी कोई रिपॉजिटरी नहीं चुनी गई है।",
   "github.manageOnGithub": "GitHub पर प्रबंधित करें",

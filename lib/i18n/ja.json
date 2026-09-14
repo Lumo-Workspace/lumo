@@ -472,8 +472,6 @@
   "github.connectFailed": "GitHubの接続に失敗しました。もう一度お試しください。",
   "github.loadFailed": "インテグレーションの読み込みに失敗しました",
   "github.private": "プライベート",
-  "github.appRow": "GitHub App インストール済み",
-  "github.appRowDesc": "チーム単位。リポジトリの読み書き（PR の紐付け、webhook、コメント同期、セキュリティスキャン）はすべてこの App として実行されます",
   "github.appRepos": "App がアクセスできるリポジトリ",
   "github.appNoRepos": "このインストールではまだリポジトリが選択されていません。",
   "github.manageOnGithub": "GitHub で管理",

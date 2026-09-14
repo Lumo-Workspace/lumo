@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import { useIntl } from 'react-intl'
 import { Loader2, AlertTriangle, ExternalLink } from 'lucide-react'
 import { GitHubIcon } from './GitHubIcon'
-import { IntegrationCard } from './IntegrationCard'
+import { IntegrationCard, ConnectedDot } from './IntegrationCard'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -17,7 +17,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useGitHubAppInstallation } from '../hooks/useGitHubAppInstallation'
-import { IntegrationChainRow } from './IntegrationChainRow'
 
 interface GitHubIntegrationCardProps {
   workspaceUrl: string
@@ -26,11 +25,12 @@ interface GitHubIntegrationCardProps {
 }
 
 /**
- * The team's GitHub card: the App installation, and only that. Every
- * repository read and write — PR links, webhooks, comment mirroring, the
- * security scan — runs as the installation, so "connected" here means
- * "installed". A member's own GitHub login lives on the PERSONAL
- * GitHubAccountCard, not here.
+ * The team's GitHub card: the App installation, and only that — same shell
+ * and same behaviour as the Slack card (status dot in the header, collapsible
+ * body, the destructive action in the overflow menu). Every repository read
+ * and write — PR links, webhooks, comment mirroring, the security scan — runs
+ * as the installation, so "connected" here means "installed". A member's own
+ * GitHub login is the PERSONAL GitHubAccountCard, not this.
  */
 export function GitHubIntegrationCard({
   workspaceUrl,
@@ -39,7 +39,7 @@ export function GitHubIntegrationCard({
 }: GitHubIntegrationCardProps) {
   const intl = useIntl()
   const {
-    status: appStatus,
+    status,
     loading,
     uninstallOpen,
     setUninstallOpen,
@@ -50,15 +50,28 @@ export function GitHubIntegrationCard({
 
   // `undefined` is "not known yet" and must never render as "not set up"
   // (LUM-684) — only an explicit false unlocks the install affordance.
-  const appInstalled = appStatus?.installed === true
-  const appMissing = appStatus?.installed === false
+  const installed = status?.installed === true
+  const missing = status?.installed === false
 
   useEffect(() => {
-    onConnectedChange?.(appInstalled)
-  }, [appInstalled, onConnectedChange])
+    onConnectedChange?.(installed)
+  }, [installed, onConnectedChange])
+
+  const installedLabel = status?.accountLogin
+    ? intl.formatMessage(
+        { id: 'github.appAccount' },
+        { account: status.accountLogin }
+      )
+    : intl.formatMessage({ id: 'github.appInstalled' })
 
   const headerAction = loading ? (
     <Loader2 size={16} className='animate-spin text-muted-foreground' />
+  ) : installed ? (
+    <ConnectedDot label={installedLabel} />
+  ) : missing && isOwner ? (
+    <Button size='sm' onClick={handleInstall}>
+      {intl.formatMessage({ id: 'github.installApp' })}
+    </Button>
   ) : null
 
   return (
@@ -68,38 +81,14 @@ export function GitHubIntegrationCard({
         title={intl.formatMessage({ id: 'github.title' })}
         description={intl.formatMessage({ id: 'github.description' })}
         headerAction={headerAction}
+        collapsible={installed}
+        onDisconnect={
+          installed && isOwner ? () => setUninstallOpen(true) : undefined
+        }
+        disconnectLabel={intl.formatMessage({ id: 'github.uninstallApp' })}
+        menuLabel={intl.formatMessage({ id: 'common.moreOptions' })}
       >
-        <IntegrationChainRow
-          testId='github-app-row'
-          label={intl.formatMessage({ id: 'github.appRow' })}
-          description={intl.formatMessage({ id: 'github.appRowDesc' })}
-          connected={appInstalled}
-          connectedLabel={
-            appStatus?.accountLogin
-              ? intl.formatMessage(
-                  { id: 'github.appAccount' },
-                  { account: appStatus.accountLogin }
-                )
-              : intl.formatMessage({ id: 'github.appInstalled' })
-          }
-          action={
-            isOwner && appMissing ? (
-              <Button size='sm' onClick={handleInstall}>
-                {intl.formatMessage({ id: 'github.installApp' })}
-              </Button>
-            ) : isOwner && appInstalled ? (
-              <Button
-                variant='ghost'
-                size='sm'
-                onClick={() => setUninstallOpen(true)}
-              >
-                {intl.formatMessage({ id: 'github.uninstallApp' })}
-              </Button>
-            ) : null
-          }
-        />
-
-        {appMissing ? (
+        {missing ? (
           <div className='flex items-start gap-2 rounded-lg border border-warning-border bg-warning-subtle px-3 py-2'>
             <AlertTriangle size={14} className='mt-0.5 shrink-0 text-warning' />
             <div className='min-w-0'>
@@ -111,43 +100,44 @@ export function GitHubIntegrationCard({
               </p>
             </div>
           </div>
-        ) : null}
-
-        {appInstalled ? (
-          <div>
-            <div className='flex items-center justify-between mb-2'>
-              <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider'>
-                {intl.formatMessage({ id: 'github.appRepos' })}
-              </p>
-              <a
-                href='https://github.com/settings/installations'
-                target='_blank'
-                rel='noreferrer'
-                className='inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors'
-              >
-                {intl.formatMessage({ id: 'github.manageOnGithub' })}
-                <ExternalLink size={11} />
-              </a>
+        ) : installed ? (
+          <>
+            <p className='text-sm text-muted-foreground'>{installedLabel}</p>
+            <div>
+              <div className='flex items-center justify-between mb-2'>
+                <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider'>
+                  {intl.formatMessage({ id: 'github.appRepos' })}
+                </p>
+                <a
+                  href='https://github.com/settings/installations'
+                  target='_blank'
+                  rel='noreferrer'
+                  className='inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors'
+                >
+                  {intl.formatMessage({ id: 'github.manageOnGithub' })}
+                  <ExternalLink size={11} />
+                </a>
+              </div>
+              {status?.repositories && status.repositories.length > 0 ? (
+                <ul className='space-y-1.5'>
+                  {status.repositories.map(repo => (
+                    <li
+                      key={repo}
+                      className='px-3 py-2 rounded-lg bg-card border border-border text-sm'
+                    >
+                      <span className='text-foreground font-mono text-xs'>
+                        {repo}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className='text-xs text-muted-foreground italic'>
+                  {intl.formatMessage({ id: 'github.appNoRepos' })}
+                </p>
+              )}
             </div>
-            {appStatus?.repositories && appStatus.repositories.length > 0 ? (
-              <ul className='space-y-1.5'>
-                {appStatus.repositories.map(repo => (
-                  <li
-                    key={repo}
-                    className='px-3 py-2 rounded-lg bg-card border border-border text-sm'
-                  >
-                    <span className='text-foreground font-mono text-xs'>
-                      {repo}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className='text-xs text-muted-foreground italic'>
-                {intl.formatMessage({ id: 'github.appNoRepos' })}
-              </p>
-            )}
-          </div>
+          </>
         ) : null}
       </IntegrationCard>
 
