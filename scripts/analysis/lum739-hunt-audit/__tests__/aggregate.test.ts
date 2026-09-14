@@ -498,3 +498,125 @@ describe('LUM-758 — the per-task command listing', () => {
     expect(lines.join(' ')).not.toContain('zero')
   })
 })
+
+// LUM-781 — the per-step read-out. `formatShellDetail` is the only reader of
+// `trace` / `stop` / `wrapUp`; a field it does not print is a field nobody
+// can read, which is the gap this task exists to close.
+describe('LUM-781 — the per-step trace read-out', () => {
+  it('prints each command with what it cost, each step with what it said and spent, then the stop and the wrap-up', () => {
+    const lines = formatShellDetail(
+      [
+        {
+          taskId: 't1',
+          stopped: 'budget',
+          shell: {
+            calls: 2,
+            refused: 0,
+            failed: 0,
+            empty: 0,
+            commands: [
+              { cmd: 'cat -n lib/a.ts', chars: 8000, compressed: true },
+              { cmd: 'rg -n x lib/', chars: 12 },
+            ],
+          },
+          trace: [
+            {
+              i: 1,
+              tool: 'run_shell',
+              text: 'Let me read\n  the file  first.',
+              inputTokens: 1200,
+              outputTokens: 80,
+              reasoningTokens: 40,
+              finishReason: 'tool-calls',
+            },
+            { i: 2, inputTokens: 3000, outputTokens: 20, finishReason: 'stop' },
+          ],
+          stop: {
+            by: 'budget',
+            spent: 4300,
+            budget: 20000,
+            reserve: 3020,
+            lastStep: 3020,
+            steps: 2,
+          },
+          wrapUp: {
+            ran: true,
+            submitted: 0,
+            tokens: 3100,
+            finishReason: 'tool-calls',
+            text: 'I found nothing conclusive.',
+          },
+        },
+      ],
+      6
+    )
+    expect(lines).toEqual([
+      't1 budget · 2 cmds (gate refused 0, sandbox failed 0, empty 0)',
+      '      cat -n lib/a.ts  [8000 chars, compressed]',
+      '      rg -n x lib/  [12 chars]',
+      '    #1 tool=run_shell in=1200 out=80 reasoning=40 finish=tool-calls "Let me read the file first."',
+      '    #2 tool=(none) in=3000 out=20 finish=stop',
+      '    stop: budget · spent 4300/20000 · reserve 3020 · last step 3020 · 2 steps',
+      '    wrap-up: ran · submitted 0 · 3100 tokens · finish=tool-calls · "I found nothing conclusive."',
+    ])
+  })
+
+  it('clips a long step text, and says whether the wrap-up was skipped or attempted and lost', () => {
+    const task = (wrapUp: object) => ({
+      taskId: 't1',
+      stopped: 'steps',
+      shell: {
+        calls: 1,
+        refused: 0,
+        failed: 0,
+        empty: 0,
+        commands: [{ cmd: 'rg -n x lib/' }],
+      },
+      trace: [{ i: 1, tool: 'run_shell', text: 'a'.repeat(200) }],
+      wrapUp,
+    })
+    const skipped = formatShellDetail(
+      [task({ ran: false, skipped: 'no-budget' })],
+      6
+    )
+    // A command written before LUM-781 carries no cost, and gets no suffix.
+    expect(skipped[1]).toBe('      rg -n x lib/')
+    expect(skipped[2]).toBe(
+      `    #1 tool=run_shell in=? out=? "${'a'.repeat(160)}…"`
+    )
+    expect(skipped[3]).toBe('    wrap-up: not made (no-budget)')
+
+    const lost = formatShellDetail(
+      [task({ ran: false, error: 'gateway timeout' })],
+      6
+    )
+    expect(lost[3]).toBe('    wrap-up: attempted, failed — gateway timeout')
+  })
+
+  it('prints a row written before the trace existed exactly as before', () => {
+    const lines = formatShellDetail(
+      [
+        {
+          taskId: 't1',
+          stopped: 'budget',
+          shell: {
+            calls: 2,
+            refused: 1,
+            failed: 0,
+            empty: 0,
+            commands: [
+              { cmd: 'rg -n queryRaw lib/' },
+              { cmd: 'curl https://evil.test', denied: true, reason: 'nope' },
+            ],
+          },
+        },
+      ],
+      6
+    )
+    expect(lines).toEqual([
+      't1 budget · 2 cmds (gate refused 1, sandbox failed 0, empty 0)',
+      '      rg -n queryRaw lib/',
+      '    ✗ curl https://evil.test   ← nope',
+    ])
+  })
+})

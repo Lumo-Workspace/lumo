@@ -14,9 +14,14 @@ import {
   huntTask,
   renderStartingPointsForPrompt,
   renderTaskForPrompt,
+  traceOfStep,
   HUNT_SYSTEM_PROMPT,
   wrapUpWindowMs,
 } from '@/lib/llm/security-hunt-client'
+import {
+  HUNT_WRAP_UP_MIN_TOKENS,
+  type HuntStepTrace,
+} from '@/lib/services/security-hunt.config'
 // LUM-758 Task 9: the client no longer re-exports `numberLines` — `read_file`
 // is gone — but the service still numbers falsifier snippets with it, so its
 // truncation stays covered here, from the module that owns it.
@@ -202,7 +207,22 @@ describe('LUM-739 hunt client', () => {
       ],
       totalUsage: { totalTokens: undefined },
     })
-    expect(steps).toEqual({ candidates: [], tokens: 10, stopped: 'steps' })
+    expect(steps).toMatchObject({
+      candidates: [],
+      tokens: 10,
+      stopped: 'steps',
+    })
+    // LUM-781 — the stop and the wrap-up are facts about EVERY search, so
+    // they are always present, never optional fields a row can lose.
+    expect(steps.stop).toEqual({
+      by: 'steps',
+      spent: 10,
+      budget: 1000,
+      reserve: 0,
+      lastStep: 10,
+      steps: 1,
+    })
+    expect(steps.wrapUp).toEqual({ ran: false, skipped: 'no-budget' })
   })
 
   it('numberLines cuts at the char budget', () => {
@@ -235,12 +255,14 @@ describe('LUM-739 hunt client', () => {
   it('LUM-758 gives the agent the file and line the static pass already matched', () => {
     const text = renderStartingPointsForPrompt(REASONS, [
       { rule: 'sink:fetch', path: 'lib/a.ts', line: 42 },
-      { rule: 'entry:next-route-handler', path: 'app/api/y/route.ts', line: 11 },
+      {
+        rule: 'entry:next-route-handler',
+        path: 'app/api/y/route.ts',
+        line: 11,
+      },
     ])
     expect(text).toContain('sink:fetch — lib/a.ts:42')
-    expect(text).toContain(
-      'entry:next-route-handler — app/api/y/route.ts:11'
-    )
+    expect(text).toContain('entry:next-route-handler — app/api/y/route.ts:11')
     // The bare rule-id list is what this replaces; keeping both would spend the
     // saving twice over on the same facts.
     expect(text).not.toContain('find the call sites yourself')
@@ -590,6 +612,61 @@ describe('LUM-758 wrap-up', () => {
   })
 })
 
+/**
+ * Walk `stepTokens` the way the SDK would: append a step, then ask the real
+ * `stopWhen` array whether to stop. The budget predicate is ours and is a
+ * function; `stepCountIs` / `hasToolCall` are mocked to plain markers here,
+ * so they are interpreted rather than called.
+ */
+function searchOver(stepTokens: number[]) {
+  return async (args: unknown) => {
+    const { stopWhen, onStepFinish } = args as {
+      stopWhen: unknown[]
+      onStepFinish?: (step: unknown) => void
+    }
+    const steps: {
+      usage: { totalTokens: number }
+      toolCalls: { toolName: string }[]
+    }[] = []
+    for (const totalTokens of stepTokens) {
+      // A search step is a `run_shell` step; the SDK's `do…while` only goes
+      // round again while the step produced client tool calls.
+      const step = {
+        usage: { totalTokens },
+        toolCalls: [{ toolName: 'run_shell' }],
+      }
+      steps.push(step)
+      // LUM-781 — the SDK fires the step hook after each step, before the
+      // stop conditions are asked.
+      onStepFinish?.(step)
+      // `isStopConditionMet` is `Promise.all(conditions)` then `.some()`:
+      // EVERY condition is evaluated, even once one is true. Short-circuiting
+      // here would let a predicate pass that only works from one slot in the
+      // array, and would make the array's order look load-bearing when it is
+      // not.
+      const verdicts = stopWhen.map(c => {
+        if (typeof c === 'function') return c({ steps }) === true
+        const m = c as { stepCountIs?: number; hasToolCall?: string }
+        if (typeof m.stepCountIs === 'number')
+          return steps.length >= m.stepCountIs
+        if (typeof m.hasToolCall === 'string')
+          return steps.some(st =>
+            st.toolCalls.some(tc => tc.toolName === m.hasToolCall)
+          )
+        return false
+      })
+      if (verdicts.some(v => v)) break
+    }
+    return {
+      steps,
+      totalUsage: {
+        totalTokens: steps.reduce((n, s) => n + s.usage.totalTokens, 0),
+      },
+      response: { messages: [{ role: 'assistant', content: 'looked' }] },
+    }
+  }
+}
+
 // LUM-758 follow-up — the wrap-up's accounting, driven through the REAL stop
 // predicate.
 //
@@ -601,54 +678,6 @@ describe('LUM-758 wrap-up', () => {
 // never for the budget-bound ones it was written for. Nothing mocked can see
 // that. So this block runs the client's own predicates over a step sequence.
 describe('LUM-758 wrap-up accounting', () => {
-  /**
-   * Walk `stepTokens` the way the SDK would: append a step, then ask the real
-   * `stopWhen` array whether to stop. The budget predicate is ours and is a
-   * function; `stepCountIs` / `hasToolCall` are mocked to plain markers here,
-   * so they are interpreted rather than called.
-   */
-  function searchOver(stepTokens: number[]) {
-    return async (args: unknown) => {
-      const { stopWhen } = args as { stopWhen: unknown[] }
-      const steps: {
-        usage: { totalTokens: number }
-        toolCalls: { toolName: string }[]
-      }[] = []
-      for (const totalTokens of stepTokens) {
-        // A search step is a `run_shell` step; the SDK's `do…while` only goes
-        // round again while the step produced client tool calls.
-        steps.push({
-          usage: { totalTokens },
-          toolCalls: [{ toolName: 'run_shell' }],
-        })
-        // `isStopConditionMet` is `Promise.all(conditions)` then `.some()`:
-        // EVERY condition is evaluated, even once one is true. Short-circuiting
-        // here would let a predicate pass that only works from one slot in the
-        // array, and would make the array's order look load-bearing when it is
-        // not.
-        const verdicts = stopWhen.map(c => {
-          if (typeof c === 'function') return c({ steps }) === true
-          const m = c as { stepCountIs?: number; hasToolCall?: string }
-          if (typeof m.stepCountIs === 'number')
-            return steps.length >= m.stepCountIs
-          if (typeof m.hasToolCall === 'string')
-            return steps.some(st =>
-              st.toolCalls.some(tc => tc.toolName === m.hasToolCall)
-            )
-          return false
-        })
-        if (verdicts.some(v => v)) break
-      }
-      return {
-        steps,
-        totalUsage: {
-          totalTokens: steps.reduce((n, s) => n + s.usage.totalTokens, 0),
-        },
-        response: { messages: [{ role: 'assistant', content: 'looked' }] },
-      }
-    }
-  }
-
   const wrapUp = (
     totalTokens: number,
     submits: boolean,
@@ -876,5 +905,281 @@ describe('LUM-758 wrap-up accounting', () => {
 
     expect(out.wrappedUp).toBe(true)
     expect(out.wrapUpWarnings).toBeUndefined()
+  })
+})
+
+// LUM-781 — the per-step trace, the stop facts and the wrap-up facts. All of
+// it is read off values the loop already produced: these tests pin that the
+// numbers recorded are the numbers the predicate used, and that the reason
+// recorded for a skipped wrap-up is the clause that actually decided.
+describe('LUM-781 trace, stop and wrap-up facts', () => {
+  const base = {
+    task: TASK,
+    reasons: REASONS,
+    runShell,
+    tokenBudget: 20_000,
+    wrapUpDeadlineAt: Date.now() + 30_000,
+    timeoutMs: 5000,
+    maxSteps: 12,
+  }
+
+  /** The SDK's step shape, with usage split the way the trace records it. */
+  const sdkStep = (
+    over: Partial<{
+      text: string
+      tool: string
+      inputTokens: number
+      outputTokens: number
+      reasoningTokens: number
+      finishReason: string
+    }>
+  ) => ({
+    text: over.text ?? '',
+    toolCalls: over.tool ? [{ toolName: over.tool }] : [],
+    finishReason: over.finishReason ?? 'tool-calls',
+    usage: {
+      inputTokens: over.inputTokens ?? 0,
+      outputTokens: over.outputTokens ?? 0,
+      totalTokens: (over.inputTokens ?? 0) + (over.outputTokens ?? 0),
+      ...(over.reasoningTokens !== undefined
+        ? { outputTokenDetails: { reasoningTokens: over.reasoningTokens } }
+        : {}),
+    },
+  })
+
+  /**
+   * A search whose steps are given whole: fires the step hook for each, in
+   * order, and returns them — `searchOver` above drives the real predicates,
+   * this one drives the real hook.
+   */
+  const searchOf = (steps: ReturnType<typeof sdkStep>[]) => {
+    return async (args: unknown) => {
+      const { onStepFinish } = args as {
+        onStepFinish?: (step: unknown) => void
+      }
+      for (const st of steps) onStepFinish?.(st)
+      return {
+        steps,
+        totalUsage: {
+          totalTokens: steps.reduce((n, s) => n + s.usage.totalTokens, 0),
+        },
+        response: { messages: [{ role: 'assistant', content: 'looked' }] },
+      }
+    }
+  }
+
+  it('traceOfStep keeps what the step said and spent, and invents nothing for what it did not report', () => {
+    expect(
+      traceOfStep(3, {
+        text: '  Reading a.ts first.  ',
+        toolCalls: [{ toolName: 'run_shell' }],
+        finishReason: 'tool-calls',
+        usage: {
+          inputTokens: 1200,
+          outputTokens: 80,
+          outputTokenDetails: { reasoningTokens: 40 },
+        },
+      })
+    ).toEqual({
+      i: 3,
+      tool: 'run_shell',
+      text: 'Reading a.ts first.',
+      inputTokens: 1200,
+      outputTokens: 80,
+      reasoningTokens: 40,
+      finishReason: 'tool-calls',
+    })
+    // No text, no tool, no usage: the step is its index and nothing else —
+    // a `?` in the read-out, not a 0 that looks like a measurement.
+    expect(traceOfStep(1, { text: '   ', toolCalls: [] })).toEqual({ i: 1 })
+  })
+
+  it('hands every completed step to onStep, in order, with a 1-based index', async () => {
+    const seen: HuntStepTrace[] = []
+    gen.mockImplementationOnce(
+      searchOf([
+        sdkStep({
+          text: 'Let me look at the handler.',
+          tool: 'run_shell',
+          inputTokens: 100,
+          outputTokens: 10,
+          reasoningTokens: 4,
+        }),
+        sdkStep({
+          tool: 'submit_candidates',
+          inputTokens: 200,
+          outputTokens: 20,
+        }),
+      ])
+    )
+
+    const out = await huntTask({ ...base, onStep: s => seen.push(s) })
+
+    expect(seen).toEqual([
+      {
+        i: 1,
+        tool: 'run_shell',
+        text: 'Let me look at the handler.',
+        inputTokens: 100,
+        outputTokens: 10,
+        reasoningTokens: 4,
+        finishReason: 'tool-calls',
+      },
+      {
+        i: 2,
+        tool: 'submit_candidates',
+        inputTokens: 200,
+        outputTokens: 20,
+        finishReason: 'tool-calls',
+      },
+    ])
+    // The agent submitted on its own: the stop says so, and the wrap-up was
+    // skipped for that reason and no other.
+    expect(out.stopped).toBe('done')
+    expect(out.stop).toEqual({
+      by: 'submitted',
+      spent: 330,
+      budget: 20_000,
+      reserve: HUNT_WRAP_UP_MIN_TOKENS,
+      lastStep: 220,
+      steps: 2,
+    })
+    expect(out.wrapUp).toEqual({ ran: false, skipped: 'submitted' })
+    expect(gen).toHaveBeenCalledTimes(1)
+  })
+
+  it('a search without onStep runs exactly as before', async () => {
+    gen.mockImplementationOnce(
+      searchOf([sdkStep({ tool: 'submit_candidates', inputTokens: 50 })])
+    )
+    const out = await huntTask(base)
+    expect(out.stopped).toBe('done')
+    expect(out.stop.steps).toBe(1)
+  })
+
+  // Driven through the REAL stop predicate, so `stop` is checked against the
+  // arithmetic that fired, not against a literal the test supplied.
+  it('records a budget stop with the spend, reserve and last-step price the predicate used', async () => {
+    // 6k steps against 20k: after step 2, 12k + 6k (next) + 6k (reserve) ≥
+    // 20k, so the search stops holding 8k — enough for the 6k replay.
+    gen.mockImplementationOnce(searchOver([6_000, 6_000, 6_000]))
+    gen.mockImplementationOnce(
+      async (call: { tools: Tools; toolChoice: unknown }) => {
+        expect(call.toolChoice).toEqual({
+          type: 'tool',
+          toolName: 'submit_candidates',
+        })
+        await call.tools.submit_candidates!.execute({
+          candidates: [candidate],
+        })
+        return {
+          text: 'Submitting the one path I could confirm.',
+          steps: [
+            {
+              usage: { totalTokens: 900 },
+              toolCalls: [{ toolName: 'submit_candidates' }],
+            },
+          ],
+          totalUsage: { totalTokens: 900 },
+          finishReason: 'tool-calls',
+        }
+      }
+    )
+
+    const out = await huntTask(base)
+
+    expect(out.stopped).toBe('budget')
+    expect(out.stop).toEqual({
+      by: 'budget',
+      spent: 12_000,
+      budget: 20_000,
+      reserve: 6_000,
+      lastStep: 6_000,
+      steps: 2,
+    })
+    expect(out.wrapUp).toEqual({
+      ran: true,
+      submitted: 1,
+      text: 'Submitting the one path I could confirm.',
+      tokens: 900,
+      finishReason: 'tool-calls',
+    })
+    expect(out.candidates).toEqual([candidate])
+    // `spent` is the SEARCH's spend, frozen before the handover was billed.
+    expect(out.tokens).toBe(12_900)
+  })
+
+  it('records a step-cap stop as "steps", and a wrap-up that answered in prose as ran with nothing submitted', async () => {
+    gen.mockImplementationOnce(searchOver([100, 100]))
+    gen.mockResolvedValueOnce({
+      text: 'I did not find a confirmed path.',
+      steps: [{ usage: { totalTokens: 500 }, toolCalls: [] }],
+      totalUsage: { totalTokens: 500 },
+      finishReason: 'stop',
+    })
+
+    const out = await huntTask({ ...base, maxSteps: 2 })
+
+    expect(out.stop).toEqual({
+      by: 'steps',
+      spent: 200,
+      budget: 20_000,
+      reserve: HUNT_WRAP_UP_MIN_TOKENS,
+      lastStep: 100,
+      steps: 2,
+    })
+    expect(out.wrappedUp).toBeUndefined()
+    expect(out.wrapUp).toEqual({
+      ran: true,
+      submitted: 0,
+      text: 'I did not find a confirmed path.',
+      tokens: 500,
+      finishReason: 'stop',
+    })
+  })
+
+  it('names the clause that skipped the wrap-up: no-budget, no-time, disabled', async () => {
+    // no-budget: the replay is priced at the 4k floor, which a 5k allowance
+    // cannot reserve AND still afford after a 3k step.
+    gen.mockImplementationOnce(searchOver([3_000]))
+    const noBudget = await huntTask({ ...base, tokenBudget: 5_000 })
+    expect(noBudget.stop.by).toBe('budget')
+    expect(noBudget.wrapUp).toEqual({ ran: false, skipped: 'no-budget' })
+
+    // no-time: budget is fine, the deadline is not.
+    gen.mockImplementationOnce(searchOver([100, 100]))
+    const noTime = await huntTask({
+      ...base,
+      maxSteps: 2,
+      wrapUpDeadlineAt: Date.now() + 1,
+    })
+    expect(noTime.wrapUp).toEqual({ ran: false, skipped: 'no-time' })
+
+    // disabled: a deadline of 0 is the caller switching the handover off —
+    // and then nothing is reserved for it either.
+    gen.mockImplementationOnce(searchOver([100, 100]))
+    const disabled = await huntTask({
+      ...base,
+      maxSteps: 2,
+      wrapUpDeadlineAt: 0,
+    })
+    expect(disabled.wrapUp).toEqual({ ran: false, skipped: 'disabled' })
+    expect(disabled.stop.reserve).toBe(0)
+    expect(gen).toHaveBeenCalledTimes(3)
+  })
+
+  it('separates a wrap-up that was attempted and lost from one never made', async () => {
+    gen.mockImplementationOnce(searchOver([100, 100]))
+    gen.mockRejectedValueOnce(new Error('gateway timeout ' + 'x'.repeat(300)))
+
+    const out = await huntTask({ ...base, maxSteps: 2 })
+
+    expect(out.wrapUp.ran).toBe(false)
+    expect(out.wrapUp.skipped).toBeUndefined()
+    expect(out.wrapUp.error).toHaveLength(200)
+    expect(out.wrapUp.error).toMatch(/^gateway timeout /)
+    // Fail-soft, as before: the search's outcome is untouched.
+    expect(out.stopped).toBe('steps')
+    expect(out.candidates).toEqual([])
   })
 })

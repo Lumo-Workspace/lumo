@@ -40,7 +40,12 @@ import {
   neutralizeForPromptLine,
   PROMPT_PATH_MAX_CHARS,
 } from '@/lib/security-scan/hunt/prompt-safety'
-import { neutralizeUntrustedTags } from '@/lib/services/security-hunt.config'
+import {
+  neutralizeUntrustedTags,
+  type HuntStepTrace,
+  type HuntStopFacts,
+  type HuntWrapUpFacts,
+} from '@/lib/services/security-hunt.config'
 import {
   HuntCandidateSchema,
   CATEGORY_CWE_HINT,
@@ -113,6 +118,13 @@ export interface HuntClientInput {
   wrapUpDeadlineAt: number
   timeoutMs: number
   maxSteps: number
+  /**
+   * LUM-781 — called once per completed search step, in order, with what the
+   * model said and spent. A callback rather than a field on the output so the
+   * caller keeps the steps that completed BEFORE a timeout or gateway error
+   * threw the call away — the same closure pattern `runShell` uses.
+   */
+  onStep?: (step: HuntStepTrace) => void
 }
 
 /**
@@ -146,6 +158,46 @@ export interface HuntClientOutput {
    * the wrap-up worked or never ran.
    */
   wrapUpWarnings?: string[]
+  /** LUM-781 — how the search ended, with the numbers that ended it. */
+  stop: HuntStopFacts
+  /** LUM-781 — what the hand-over did, or why it was not made. */
+  wrapUp: HuntWrapUpFacts
+}
+
+/**
+ * LUM-781 — one search step as the audit records it. `text` is passed RAW:
+ * the service redacts and clips before it persists, like every other
+ * model-authored string (`shell.commands` go through the same hands).
+ */
+export function traceOfStep(
+  i: number,
+  step: {
+    text?: string
+    toolCalls?: ReadonlyArray<{ toolName: string }>
+    finishReason?: string
+    usage?: {
+      inputTokens?: number | undefined
+      outputTokens?: number | undefined
+      outputTokenDetails?: { reasoningTokens?: number | undefined } | undefined
+    }
+  }
+): HuntStepTrace {
+  const tool = step.toolCalls?.[0]?.toolName
+  const text = step.text?.trim()
+  const reasoning = step.usage?.outputTokenDetails?.reasoningTokens
+  return {
+    i,
+    ...(tool ? { tool } : {}),
+    ...(text ? { text } : {}),
+    ...(typeof step.usage?.inputTokens === 'number'
+      ? { inputTokens: step.usage.inputTokens }
+      : {}),
+    ...(typeof step.usage?.outputTokens === 'number'
+      ? { outputTokens: step.usage.outputTokens }
+      : {}),
+    ...(typeof reasoning === 'number' ? { reasoningTokens: reasoning } : {}),
+    ...(step.finishReason ? { finishReason: step.finishReason } : {}),
+  }
 }
 
 /** Hints, not a map: a long list of ids costs tokens and buys nothing now. */
@@ -380,6 +432,9 @@ export async function huntTask(
     return price <= input.tokenBudget ? price : 0
   }
   let stoppedOnBudget = false
+  // LUM-781 — observation only: counts the steps the loop completes and hands
+  // each to the caller. Nothing below reads it back.
+  let stepIndex = 0
 
   const result = await generateText({
     model: gateway(GENERATION_MODEL),
@@ -426,6 +481,10 @@ export async function huntTask(
       stepCountIs(input.maxSteps),
       hasToolCall('submit_candidates'),
     ],
+    onStepFinish: step => {
+      stepIndex += 1
+      input.onStep?.(traceOfStep(stepIndex, step))
+    },
     abortSignal: AbortSignal.timeout(input.timeoutMs),
   })
 
@@ -467,11 +526,34 @@ export async function huntTask(
   const wrapUpMs = wrapUpWindowMs(input.wrapUpDeadlineAt, Date.now())
   let wrappedUp = false
   let wrapWarnings: string[] = []
+  // LUM-781 — the stop, with the arithmetic that produced it. Read off the
+  // same values the predicate above used; nothing is recomputed differently.
+  const stop: HuntStopFacts = {
+    by: didSubmit ? 'submitted' : stoppedOnBudget ? 'budget' : 'steps',
+    spent: searchTokens,
+    budget: input.tokenBudget,
+    reserve: reserve(result.steps),
+    lastStep: lastStepTokens(result.steps),
+    steps: result.steps.length,
+  }
+  // LUM-781 — why the hand-over was or was not made. Each branch mirrors one
+  // clause of the condition below, in the same order, so the recorded reason
+  // is the clause that actually decided.
+  let wrapUp: HuntWrapUpFacts = didSubmit
+    ? { ran: false, skipped: 'submitted' }
+    : !wrapUpEnabled
+      ? { ran: false, skipped: 'disabled' }
+      : input.tokenBudget - searchTokens < replayCost
+        ? { ran: false, skipped: 'no-budget' }
+        : wrapUpMs <= 0
+          ? { ran: false, skipped: 'no-time' }
+          : { ran: false }
   if (
     !didSubmit &&
     input.tokenBudget - searchTokens >= replayCost &&
     wrapUpMs > 0
   ) {
+    const before = submitted.length
     try {
       const wrap = await generateText({
         model: gateway(GENERATION_MODEL),
@@ -504,6 +586,14 @@ export async function huntTask(
       wrappedUp = wrap.steps.some(s =>
         s.toolCalls.some(c => c.toolName === 'submit_candidates')
       )
+      const wrapText = wrap.text?.trim()
+      wrapUp = {
+        ran: true,
+        submitted: submitted.length - before,
+        ...(wrapText ? { text: wrapText } : {}),
+        tokens: wrap.totalUsage.totalTokens ?? 0,
+        ...(wrap.finishReason ? { finishReason: wrap.finishReason } : {}),
+      }
       // A provider that does not support a forced tool choice does not throw —
       // the SDK degrades and reports it here. The model then answers in prose,
       // nothing is submitted, and `wrappedUp` reads false: "we asked and it had
@@ -513,7 +603,16 @@ export async function huntTask(
       if (!wrappedUp) {
         wrapWarnings = (wrap.warnings ?? []).map(w => JSON.stringify(w))
       }
-    } catch {
+    } catch (error) {
+      // LUM-781 — attempted and lost. Distinct from every `skipped` reason:
+      // those never asked; this asked and got no answer.
+      wrapUp = {
+        ran: false,
+        error: (error instanceof Error ? error.message : String(error)).slice(
+          0,
+          200
+        ),
+      }
       // Fail-soft, like every other optional step in this layer: a wrap-up that
       // cannot run leaves exactly the outcome we would have had without it.
       // Its tokens are lost to us here — the SDK throws without usage — which
@@ -535,5 +634,7 @@ export async function huntTask(
     // Only ever set when the wrap-up ran and produced nothing: an empty answer
     // and a refused request must not look the same in the audit.
     ...(wrapWarnings.length > 0 ? { wrapUpWarnings: wrapWarnings } : {}),
+    stop,
+    wrapUp,
   }
 }

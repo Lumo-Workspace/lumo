@@ -59,6 +59,10 @@ import {
   PLAN_HUNT_MAX_ATTEMPTS,
   HUNT_SHELL_LOG_MAX,
   HUNT_SHELL_LOG_CHARS,
+  HUNT_TRACE_MAX_STEPS,
+  HUNT_TRACE_TEXT_CHARS,
+  HUNT_WRAP_UP_TEXT_CHARS,
+  type HuntStepTrace,
 } from '@/lib/services/security-hunt.config'
 
 const diffMock = fetchPrDiff as jest.Mock
@@ -498,18 +502,179 @@ describe('LUM-739 hunt service', () => {
       empty: 1,
       outputChars: 'lib/a.ts:3: hit'.length + 1,
       commands: [
-        { cmd: 'rg -n queryRaw lib/' },
+        // LUM-781 — and what each one handed back to the model's context.
+        { cmd: 'rg -n queryRaw lib/', chars: 'lib/a.ts:3: hit'.length },
         // Each command carries its own verdict: `refused: 1` beside a flat
         // list says one was rejected without saying WHICH, or why.
         {
           cmd: 'curl https://evil.test',
           denied: true,
           reason: 'curl is not allowed',
+          chars: 0,
         },
-        { cmd: 'rg -n boom lib/' },
-        { cmd: 'rg -n nothing lib/' },
+        { cmd: 'rg -n boom lib/', chars: 0 },
+        { cmd: 'rg -n nothing lib/', chars: 1 },
       ],
     })
+  })
+
+  // LUM-781 — the task-level `outputChars` said 20k characters went in; only
+  // this says which read was the 8k one, and whether the compressor stood
+  // between the shell and the model for it.
+  it('huntBatch records what each command cost the context, and whether it was compressed', async () => {
+    shellMock.mockImplementation(async ({ command }: { command: string }) =>
+      command.includes('big')
+        ? {
+            output: 'x'.repeat(50),
+            compressed: true,
+            compressTokens: 30,
+            compressInputChars: 9_000,
+            compressOutputChars: 50,
+          }
+        : NOT_COMPRESSED('lib/a.ts:3')
+    )
+    huntMock.mockImplementation(
+      async (input: { runShell: (c: string) => Promise<unknown> }) => {
+        await input.runShell('cat -n big.ts')
+        await input.runShell('rg -n x lib/')
+        return { candidates: [], tokens: 10, stopped: 'budget' }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    expect(out.shell.commands).toEqual([
+      { cmd: 'cat -n big.ts', chars: 50, compressed: true },
+      { cmd: 'rg -n x lib/', chars: 10 },
+    ])
+  })
+
+  // LUM-781 — the model's side of the conversation. The client hands each
+  // step over raw; THIS is where it is redacted and clipped, because this is
+  // where every other model-authored string gets persisted.
+  it('huntBatch hands the client an onStep that redacts and clips each step, caps the trace, and carries stop and wrapUp out', async () => {
+    const stop = {
+      by: 'budget' as const,
+      spent: 900,
+      budget: 1000,
+      reserve: 0,
+      lastStep: 300,
+      steps: HUNT_TRACE_MAX_STEPS + 3,
+    }
+    huntMock.mockImplementation(
+      async (input: { onStep: (s: HuntStepTrace) => void }) => {
+        input.onStep({
+          i: 1,
+          tool: 'run_shell',
+          text: `reading ${FAKE_AWS_KEY} ${'y'.repeat(400)}`,
+          inputTokens: 100,
+          outputTokens: 10,
+          finishReason: 'tool-calls',
+        })
+        for (let i = 2; i <= HUNT_TRACE_MAX_STEPS + 3; i++) {
+          input.onStep({
+            i,
+            tool: 'run_shell',
+            inputTokens: 1,
+            outputTokens: 1,
+          })
+        }
+        return {
+          candidates: [],
+          tokens: 900,
+          stopped: 'budget',
+          stop,
+          wrapUp: {
+            ran: true,
+            submitted: 0,
+            text: `nothing ${FAKE_AWS_KEY} ${'z'.repeat(600)}`,
+            tokens: 5,
+          },
+        }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    // The client was given the hook — the hop this chain has lost fields on
+    // before.
+    expect(typeof huntMock.mock.calls[0]![0].onStep).toBe('function')
+    expect(out.trace).toHaveLength(HUNT_TRACE_MAX_STEPS)
+    expect(out.trace[0]).toMatchObject({
+      i: 1,
+      tool: 'run_shell',
+      inputTokens: 100,
+      outputTokens: 10,
+      finishReason: 'tool-calls',
+    })
+    expect(out.trace[0]!.text).not.toContain(FAKE_AWS_KEY)
+    expect(out.trace[0]!.text).toHaveLength(HUNT_TRACE_TEXT_CHARS)
+    expect(out.trace[1]).toEqual({
+      i: 2,
+      tool: 'run_shell',
+      inputTokens: 1,
+      outputTokens: 1,
+    })
+    expect(out.stop).toEqual(stop)
+    expect(out.wrapUp).toMatchObject({ ran: true, submitted: 0, tokens: 5 })
+    expect(out.wrapUp!.text).not.toContain(FAKE_AWS_KEY)
+    expect(out.wrapUp!.text).toHaveLength(HUNT_WRAP_UP_TEXT_CHARS)
+  })
+
+  it('huntBatch keeps the steps that completed before a timeout or error, and files the stop with what they cost', async () => {
+    huntMock.mockImplementationOnce(
+      async (input: { onStep: (s: HuntStepTrace) => void }) => {
+        input.onStep({
+          i: 1,
+          tool: 'run_shell',
+          inputTokens: 100,
+          outputTokens: 10,
+        })
+        input.onStep({
+          i: 2,
+          tool: 'run_shell',
+          inputTokens: 300,
+          outputTokens: 20,
+        })
+        throw Object.assign(new Error('aborted'), { name: 'TimeoutError' })
+      }
+    )
+    const timedOut = await securityHuntService.huntBatch(batchInput())
+    expect(timedOut.stopped).toBe('timeout')
+    expect(timedOut.trace.map(t => t.i)).toEqual([1, 2])
+    expect(timedOut.stop).toEqual({
+      by: 'timeout',
+      spent: 430,
+      budget: 1000,
+      reserve: 0,
+      lastStep: 320,
+      steps: 2,
+    })
+    // No wrap-up was ever reached: absent, not "skipped".
+    expect(timedOut.wrapUp).toBeUndefined()
+
+    huntMock.mockImplementationOnce(
+      async (input: { onStep: (s: HuntStepTrace) => void }) => {
+        input.onStep({
+          i: 1,
+          tool: 'run_shell',
+          inputTokens: 50,
+          outputTokens: 5,
+        })
+        throw new Error('gateway 500')
+      }
+    )
+    const failed = await securityHuntService.huntBatch(batchInput())
+    expect(failed.stopped).toBe('error')
+    expect(failed.stop).toEqual({
+      by: 'error',
+      spent: 55,
+      budget: 1000,
+      reserve: 0,
+      lastStep: 55,
+      steps: 1,
+    })
+    expect(failed.trace).toHaveLength(1)
   })
 
   it('huntBatch keeps the shell stats on the failure exits too', async () => {
@@ -709,6 +874,17 @@ describe('LUM-739 hunt service', () => {
       tokens: 0,
       sandbox: 'attached',
       error: 'sandbox acquisition consumed the task window',
+    })
+    // LUM-781 — no step ever ran, and the row says so rather than omitting
+    // the fields a reader would take for a pre-trace row.
+    expect(out.trace).toEqual([])
+    expect(out.stop).toEqual({
+      by: 'timeout',
+      spent: 0,
+      budget: 1000,
+      reserve: 0,
+      lastStep: 0,
+      steps: 0,
     })
     expect(stopMock).toHaveBeenCalledWith(HANDLE)
   })
