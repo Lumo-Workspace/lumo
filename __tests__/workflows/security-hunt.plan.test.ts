@@ -452,3 +452,51 @@ it('leaves planFailure off the audit when the planner answered', async () => {
 
   expect(persist.mock.calls[0][0].audit.planFailure).toBeUndefined()
 })
+
+// LUM-758 follow-up — the shell stats have to reach the persisted audit on BOTH
+// passes. Four fields in this layer (`wrappedUp`, `wrapUpWarnings`, the located
+// sites, `planFailure`) were each computed, carried, and silently unreadable at
+// exactly this hop.
+it('persists what the agent asked the shell for, on the first pass and the retry', async () => {
+  plan.mockResolvedValue({
+    tasks: [
+      { id: 't1', objective: 'o1', category: 'idor', startingPoints: [] },
+    ],
+    reason: 'one signal',
+    by: 'model',
+    tokens: 100,
+  })
+  const shell = (refused: number) => ({
+    calls: 3,
+    refused,
+    empty: 0,
+    outputChars: 10,
+    commands: ['rg -n x lib/'],
+  })
+  hunt
+    .mockResolvedValueOnce({ ...batch(), stopped: 'timeout', shell: shell(3) })
+    .mockResolvedValueOnce({ ...batch(), stopped: 'budget', shell: shell(1) })
+
+  await securityHuntWorkflow(JOB)
+
+  const rows = persist.mock.calls[0]![0].audit.tasks
+  expect(rows).toHaveLength(2)
+  expect(rows[0]!.shell).toMatchObject({ calls: 3, refused: 3 })
+  expect(rows[1]!.shell).toMatchObject({ calls: 3, refused: 1 })
+})
+
+it('leaves shell off the row when the batch reported none', async () => {
+  plan.mockResolvedValue({
+    tasks: [
+      { id: 't1', objective: 'o1', category: 'idor', startingPoints: [] },
+    ],
+    reason: 'one signal',
+    by: 'model',
+    tokens: 100,
+  })
+  hunt.mockResolvedValue({ ...batch(), stopped: 'budget' })
+
+  await securityHuntWorkflow(JOB)
+
+  expect(persist.mock.calls[0]![0].audit.tasks[0]!.shell).toBeUndefined()
+})

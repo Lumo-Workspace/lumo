@@ -79,6 +79,13 @@ export interface HuntAuditStats {
    */
   tasksWrapUpRefused: number
   /**
+   * LUM-758 follow-up — what the agents asked the shell for, across tasks.
+   * `refused` is the number the whole field was added for: a task whose
+   * commands the gate rejected looks, in every other column, exactly like a
+   * task that searched carefully and found nothing.
+   */
+  shell: { calls: number; refused: number; empty: number; outputChars: number }
+  /**
    * Tasks that actually RAN, counted once each — the honest denominator for
    * the convergence read. `taskStops` cannot serve: it counts `skipped` rows
    * (tasks the budget never reached) and carries TWO rows for a task the retry
@@ -147,6 +154,7 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     taskStops: {},
     tasksWrappedUp: 0,
     tasksWrapUpRefused: 0,
+    shell: { calls: 0, refused: 0, empty: 0, outputChars: 0 },
     tasksRan: 0,
     sandbox: { attached: 0, created: 0, egressOpen: 0 },
     compress: {
@@ -219,6 +227,13 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
         stats.tasksWrappedUp += 1
       const w = (t as { wrapUpWarnings?: unknown } | null)?.wrapUpWarnings
       if (Array.isArray(w) && w.length > 0) stats.tasksWrapUpRefused += 1
+      const sh = (t as { shell?: Record<string, unknown> } | null)?.shell
+      if (sh && typeof sh === 'object') {
+        for (const k of ['calls', 'refused', 'empty', 'outputChars'] as const) {
+          const v = sh[k]
+          if (typeof v === 'number') stats.shell[k] += v
+        }
+      }
     }
 
     if (audit.sandbox === 'attached') stats.sandbox.attached += 1

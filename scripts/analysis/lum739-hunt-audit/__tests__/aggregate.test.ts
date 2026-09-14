@@ -74,6 +74,7 @@ describe('LUM-739 hunt audit', () => {
       tasksWrappedUp: 0,
       tasksRan: 0,
       tasksWrapUpRefused: 0,
+    shell: { calls: 0, refused: 0, empty: 0, outputChars: 0 },
       sandbox: { attached: 0, created: 0, egressOpen: 0 },
       compress: {
         scans: 0,
@@ -284,6 +285,35 @@ describe('LUM-739 hunt audit', () => {
     expect(stats.plan.reasoningTokens).toEqual([7_940, 60])
     // Only the one that emitted nothing at all.
     expect(stats.plan.emptyOutput).toBe(1)
+  })
+
+  it('sums what the agents asked the shell for, refusals separately', () => {
+    // `refused` is the number this whole field exists for: a task whose
+    // commands the gate rejected is indistinguishable, in every other column,
+    // from a task that searched carefully and found nothing.
+    const stats = aggregateHuntAudit([
+      {
+        id: 'a',
+        stages: { hunt: 'PARTIAL' },
+        tokenSpent: 1,
+        findings: [],
+        huntAudit: {
+          candidates: 0,
+          tasks: [
+            { taskId: 't1', stopped: 'budget', shell: { calls: 10, refused: 7, empty: 1, outputChars: 40 } },
+            { taskId: 't2', stopped: 'budget', shell: { calls: 5, refused: 0, empty: 5, outputChars: 0 } },
+            { taskId: 't3', stopped: 'skipped' },
+          ],
+        },
+      },
+    ] as unknown as HuntScanRow[])
+
+    expect(stats.shell).toEqual({
+      calls: 15,
+      refused: 7,
+      empty: 6,
+      outputChars: 40,
+    })
   })
 
   it('reports null rates on an empty input', () => {

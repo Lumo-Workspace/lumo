@@ -107,6 +107,13 @@ async function main(): Promise<void> {
     `submitted on its own: ${stats.taskStops.done ?? 0} / ${stats.tasksRan} tasks that ran · wrapped up: ${stats.tasksWrappedUp}${stats.tasksWrapUpRefused > 0 ? ` · wrap-up refused by provider: ${stats.tasksWrapUpRefused}` : ''}`
   )
 
+  const sh = stats.shell
+  if (sh.calls > 0) {
+    const pct = (n: number) => `${((n / sh.calls) * 100).toFixed(0)}%`
+    console.log(
+      `shell: ${sh.calls} commands · refused by the gate ${sh.refused} (${pct(sh.refused)}) · returned nothing ${sh.empty} (${pct(sh.empty)}) · ${sh.outputChars} chars back`
+    )
+  }
   console.log('')
   console.log('=== Sandbox (LUM-758) ===')
   console.log(

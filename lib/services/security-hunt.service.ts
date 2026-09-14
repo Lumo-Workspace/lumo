@@ -79,6 +79,9 @@ import {
   type HuntBatchInput,
   type HuntBatchOutput,
   type HuntCompressStats,
+  type HuntShellStats,
+  HUNT_SHELL_LOG_MAX,
+  HUNT_SHELL_LOG_CHARS,
   type MechanicalVerifyInput,
   type MechanicalVerifyResult,
   type FalsifierInput,
@@ -563,6 +566,16 @@ export const securityHuntService = {
      * compressions the model's last command triggered whether or not the
      * batch went on to time out.
      */
+    // LUM-758 follow-up — the agent's own side of the conversation. Counted
+    // here because this closure is the ONLY place both the command and its
+    // verdict exist: `huntTask` sees the result, the gate sees the request.
+    const shell: HuntShellStats = {
+      calls: 0,
+      refused: 0,
+      empty: 0,
+      outputChars: 0,
+      commands: [],
+    }
     const compress: HuntCompressStats = {
       calls: 0,
       noOpCalls: 0,
@@ -632,6 +645,15 @@ export const securityHuntService = {
           // that cost a whole task its sight without leaving a trace; counting
           // it is what turns the next diagnosis into a read.
           if (out.compressNoOp) compress.noOpCalls += 1
+          shell.calls += 1
+          if (out.error !== undefined) shell.refused += 1
+          else if (out.output.length === 0) shell.empty += 1
+          shell.outputChars += out.output.length
+          if (shell.commands.length < HUNT_SHELL_LOG_MAX) {
+            shell.commands.push(
+              redactKnownSecrets(command).slice(0, HUNT_SHELL_LOG_CHARS)
+            )
+          }
           // Only the two fields the model needs. The accounting fields are
           // ours: an `ai` tool result is serialised straight into the
           // transcript, so returning them would spend context on bookkeeping
@@ -655,6 +677,7 @@ export const securityHuntService = {
         tokens: out.tokens + compress.tokens,
         elapsedMs: Date.now() - started,
         stopped: out.stopped,
+        shell,
         ...(out.wrappedUp ? { wrappedUp: true } : {}),
         ...(out.wrapUpWarnings ? { wrapUpWarnings: out.wrapUpWarnings } : {}),
         compress,

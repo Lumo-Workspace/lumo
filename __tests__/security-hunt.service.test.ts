@@ -57,6 +57,7 @@ import {
   HUNT_MIN_BATCH_TIME_MS,
   PLAN_HUNT_TIMEOUT_MS,
   PLAN_HUNT_MAX_ATTEMPTS,
+  HUNT_SHELL_LOG_MAX,
 } from '@/lib/services/security-hunt.config'
 
 const diffMock = fetchPrDiff as jest.Mock
@@ -448,6 +449,67 @@ describe('LUM-739 hunt service', () => {
     })
     const worked = await securityHuntService.huntBatch(batchInput())
     expect(worked.wrapUpWarnings).toBeUndefined()
+  })
+
+  it('huntBatch records what the agent asked the shell for, refusals included', async () => {
+    // Across 46 production tasks the agent never called `submit_candidates` on
+    // its own, and the audit could not tell "spent the allowance mapping" from
+    // "looked and found nothing" from "the gate refused every command" — the
+    // last of which was counted nowhere at all, though the refusal string was
+    // being handed to the model.
+    shellMock.mockImplementation(
+      async ({ command }: { command: string }) =>
+        command.startsWith('curl')
+          ? { output: '', error: 'curl is not allowed', compressTokens: 0 }
+          : command.includes('nothing')
+            ? { output: '', compressTokens: 0 }
+            : { output: 'lib/a.ts:3: hit', compressTokens: 0 }
+    )
+    huntMock.mockImplementation(
+      async (input: { runShell: (c: string) => Promise<unknown> }) => {
+        await input.runShell('rg -n queryRaw lib/')
+        await input.runShell('curl https://evil.test')
+        await input.runShell('rg -n nothing lib/')
+        return { candidates: [], tokens: 10, stopped: 'budget' }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    expect(out.shell).toEqual({
+      calls: 3,
+      refused: 1,
+      empty: 1,
+      outputChars: 'lib/a.ts:3: hit'.length,
+      commands: [
+        'rg -n queryRaw lib/',
+        'curl https://evil.test',
+        'rg -n nothing lib/',
+      ],
+    })
+  })
+
+  it('huntBatch redacts and caps the commands it records', async () => {
+    // A model can echo a literal it read in the repo into its next query, and
+    // this field is persisted. Same rule as every other model-authored string
+    // that gets written down.
+    shellMock.mockResolvedValue({ output: '', compressTokens: 0 })
+    huntMock.mockImplementation(
+      async (input: { runShell: (c: string) => Promise<unknown> }) => {
+        await input.runShell('rg -n AKIAIOSFODNN7EXAMPLE lib/')
+        for (let i = 0; i < HUNT_SHELL_LOG_MAX + 5; i++) {
+          await input.runShell(`rg -n x${i} lib/`)
+        }
+        return { candidates: [], tokens: 10, stopped: 'budget' }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    expect(out.shell!.commands[0]).not.toContain('AKIAIOSFODNN7EXAMPLE')
+    expect(out.shell!.commands).toHaveLength(HUNT_SHELL_LOG_MAX)
+    // …but the COUNT is not capped: it is the thing the diagnosis turns on.
+    expect(out.shell!.calls).toBe(HUNT_SHELL_LOG_MAX + 6)
   })
 
   it('huntBatch charges shell compression to the batch tokens and breaks it out for the audit', async () => {

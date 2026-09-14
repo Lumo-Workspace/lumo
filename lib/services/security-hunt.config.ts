@@ -332,6 +332,12 @@ export interface HuntTaskAudit {
    * is evidence about the agent.
    */
   wrapUpWarnings?: string[]
+  /**
+   * LUM-758 follow-up — what THIS task asked the shell for. Per task, not
+   * per run: "which task burned its allowance on refusals" is the question,
+   * and a run-level total cannot answer it.
+   */
+  shell?: HuntShellStats
   taskId: string
   objective: string
   category: HuntCategory
@@ -447,6 +453,48 @@ export interface HuntAudit {
 }
 
 /** One batch's share of `HuntAudit.compress`; summed by the orchestrator. */
+/** How many recorded commands a task's audit carries, and how long each may be. */
+export const HUNT_SHELL_LOG_MAX = 24
+export const HUNT_SHELL_LOG_CHARS = 200
+
+/**
+ * LUM-758 follow-up — what the agent actually DID with its allowance.
+ *
+ * Until this existed a task recorded its total tokens, its elapsed time, the
+ * counter that stopped it, and `candidates: 0`. Across 46 production tasks the
+ * agent never once called `submit_candidates` on its own, and three completely
+ * different explanations are indistinguishable from those four numbers:
+ *
+ *   - it spent the allowance mapping the repository and never got to reasoning
+ *   - it looked, and there was genuinely nothing to report
+ *   - it found a lead and ran out of budget before it could verify it, so it
+ *     correctly declined to submit an unverified suspicion
+ *
+ * And a fourth that nothing would have shown at all: the command gate refusing
+ * what it asked for. `runHuntShell` returns the refusal to the model as
+ * `error`, and that string was passed along and counted nowhere — so a task
+ * whose every command was rejected looks exactly like a task that searched
+ * carefully and found nothing.
+ */
+export interface HuntShellStats {
+  /** Commands the agent asked to run. */
+  calls: number
+  /** …of which the gate refused. A high share here is not a hunt at all. */
+  refused: number
+  /** …of which ran and returned nothing: a search that matched no line. */
+  empty: number
+  /** Total characters handed back to the model, after compression. */
+  outputChars: number
+  /**
+   * The commands themselves, capped and secret-redacted — the only field that
+   * lets a reader tell mapping from reading, or a loop from progress. A model
+   * can echo a literal it saw in the repo into its next query, so this goes
+   * through `redactKnownSecrets` like every other model-authored string that
+   * gets persisted.
+   */
+  commands: string[]
+}
+
 export interface HuntCompressStats {
   /** Compressions that replaced the output. */
   calls: number
@@ -546,6 +594,8 @@ export interface HuntBatchOutput {
    * them out so the audit can answer "was compression worth it".
    */
   compress?: HuntCompressStats
+  /** LUM-758 follow-up — what the agent asked the shell for. */
+  shell?: HuntShellStats
   /**
    * LUM-758 follow-up — the search ended on a counter without the agent ever
    * submitting, and a forced wrap-up call asked for what it had. `stopped`
