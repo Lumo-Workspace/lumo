@@ -124,6 +124,9 @@ const batch = (
     egressDenied: boolean
     wrappedUp: boolean
     wrapUpWarnings: string[]
+    trace: unknown[]
+    stop: unknown
+    wrapUp: unknown
     compress: {
       calls: number
       noOpCalls: number
@@ -790,4 +793,75 @@ it('carries wrappedUp from the batch into the persisted task audit', async () =>
   // need asking", and must never be confused with `false` meaning "we asked
   // and it refused".
   expect(rows[1]!.wrappedUp).toBeUndefined()
+})
+
+// LUM-781 — the trace, the stop facts and the wrap-up facts ride the same two
+// audit rows as `wrappedUp`, and would be dropped the same way. Together they
+// are what turns "budget stop, 0 candidates" into an answer to whether the
+// agent was advancing toward a conclusion or still mapping.
+it('LUM-781 carries trace, stop and wrapUp onto both the first-pass and retry audit rows, and leaves an empty trace absent', async () => {
+  plan.mockResolvedValue({
+    tasks: [
+      { id: 't1', objective: 'o1', category: 'idor', startingPoints: [] },
+      { id: 't2', objective: 'o2', category: 'ssrf', startingPoints: [] },
+    ],
+    reason: 'two signals',
+    by: 'model',
+    tokens: 100,
+  })
+  const trace = [
+    {
+      i: 1,
+      tool: 'run_shell',
+      text: 'Reading the handler.',
+      inputTokens: 100,
+      outputTokens: 10,
+    },
+  ]
+  const stop = {
+    by: 'budget',
+    spent: 900,
+    budget: 1000,
+    reserve: 100,
+    lastStep: 300,
+    steps: 3,
+  }
+  const wrapUp = { ran: true, submitted: 0, tokens: 200 }
+  hunt
+    .mockImplementationOnce(async () =>
+      batch({ stopped: 'budget', trace, stop, wrapUp })
+    )
+    // A batch that timed out before any step completed: `trace` is the empty
+    // array the service always returns, `stop` still says why.
+    .mockImplementationOnce(async () =>
+      batch({ stopped: 'timeout', trace: [], stop: { ...stop, by: 'timeout' } })
+    )
+    .mockImplementationOnce(async () =>
+      batch({
+        stopped: 'budget',
+        trace: [{ i: 1, tool: 'submit_candidates' }],
+        stop,
+        wrapUp: { ran: false, skipped: 'submitted' },
+      })
+    )
+
+  await securityHuntWorkflow(JOB)
+
+  const rows = persist.mock.calls[0]![0].audit.tasks
+  expect(rows[0]).toMatchObject({ taskId: 't1', trace, stop, wrapUp })
+  const timedOut = rows.find(
+    (r: { taskId: string; stopped: string }) =>
+      r.taskId === 't2' && r.stopped === 'timeout'
+  )!
+  expect(timedOut.trace).toBeUndefined()
+  expect(timedOut.stop).toEqual({ ...stop, by: 'timeout' })
+  expect(timedOut.wrapUp).toBeUndefined()
+  // The retry pass writes its own row and carries all three too.
+  expect(rows[rows.length - 1]).toMatchObject({
+    taskId: 't2',
+    stopped: 'budget',
+    trace: [{ i: 1, tool: 'submit_candidates' }],
+    stop,
+    wrapUp: { ran: false, skipped: 'submitted' },
+  })
 })

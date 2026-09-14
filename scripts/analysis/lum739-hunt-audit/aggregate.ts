@@ -313,8 +313,47 @@ export interface ShellDetailTask {
     refused?: number
     failed?: number
     empty?: number
-    commands?: { cmd?: string; denied?: boolean; reason?: string }[]
+    commands?: {
+      cmd?: string
+      denied?: boolean
+      reason?: string
+      chars?: number
+      compressed?: boolean
+    }[]
   }
+  /** LUM-781 — absent on rows written before the trace existed. */
+  trace?: {
+    i?: number
+    tool?: string
+    text?: string
+    inputTokens?: number
+    outputTokens?: number
+    reasoningTokens?: number
+    finishReason?: string
+  }[]
+  stop?: {
+    by?: string
+    spent?: number
+    budget?: number
+    reserve?: number
+    lastStep?: number
+    steps?: number
+  }
+  wrapUp?: {
+    ran?: boolean
+    skipped?: string
+    submitted?: number
+    text?: string
+    tokens?: number
+    finishReason?: string
+    error?: string
+  }
+}
+
+/** One line of prose, flattened, for a fixed-width read-out. */
+function oneLine(text: string, max: number): string {
+  const flat = text.replace(/\s+/g, ' ').trim()
+  return flat.length > max ? `${flat.slice(0, max)}…` : flat
 }
 
 /**
@@ -338,8 +377,35 @@ export function formatShellDetail(
       `${String(t.taskId)} ${String(t.stopped)} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, empty ${sh.empty ?? 0})`
     )
     for (const c of sh.commands ?? []) {
+      const cost =
+        typeof c.chars === 'number'
+          ? `  [${c.chars} chars${c.compressed ? ', compressed' : ''}]`
+          : ''
       out.push(
-        `    ${c.denied ? '✗' : ' '} ${c.cmd ?? ''}${c.reason ? `   ← ${c.reason}` : ''}`
+        `    ${c.denied ? '✗' : ' '} ${c.cmd ?? ''}${cost}${c.reason ? `   ← ${c.reason}` : ''}`
+      )
+    }
+    // LUM-781 — the model's side, step by step, then how it ended. Only when
+    // the row carries them: an older row prints exactly as before.
+    for (const st of t.trace ?? []) {
+      out.push(
+        `    #${st.i ?? '?'} tool=${st.tool ?? '(none)'} in=${st.inputTokens ?? '?'} out=${st.outputTokens ?? '?'}${st.reasoningTokens ? ` reasoning=${st.reasoningTokens}` : ''}${st.finishReason ? ` finish=${st.finishReason}` : ''}${st.text ? ` "${oneLine(st.text, 160)}"` : ''}`
+      )
+    }
+    if (t.stop) {
+      const s = t.stop
+      out.push(
+        `    stop: ${s.by ?? '?'} · spent ${s.spent ?? '?'}/${s.budget ?? '?'} · reserve ${s.reserve ?? 0} · last step ${s.lastStep ?? '?'} · ${s.steps ?? '?'} steps`
+      )
+    }
+    if (t.wrapUp) {
+      const w = t.wrapUp
+      out.push(
+        w.ran
+          ? `    wrap-up: ran · submitted ${w.submitted ?? 0} · ${w.tokens ?? '?'} tokens${w.finishReason ? ` · finish=${w.finishReason}` : ''}${w.text ? ` · "${oneLine(w.text, 200)}"` : ''}`
+          : w.error
+            ? `    wrap-up: attempted, failed — ${oneLine(w.error, 160)}`
+            : `    wrap-up: not made (${w.skipped ?? 'unknown'})`
       )
     }
   }

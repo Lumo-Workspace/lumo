@@ -91,6 +91,12 @@ import {
   type PersistHuntInput,
   type PlanHuntInput,
   type PlanHuntOutput,
+  HUNT_TRACE_MAX_STEPS,
+  HUNT_TRACE_TEXT_CHARS,
+  HUNT_WRAP_UP_TEXT_CHARS,
+  type HuntStepTrace,
+  type HuntStopFacts,
+  type HuntWrapUpFacts,
 } from './security-hunt.config'
 
 const TITLE_MAX = 200
@@ -612,6 +618,50 @@ export const securityHuntService = {
       outputChars: 0,
       tokens: 0,
     }
+    // LUM-781 — the model's side of the conversation, step by step. Filled by
+    // the client's `onStep` callback so a timeout keeps every step that
+    // completed before the window closed; redacted and clipped HERE because
+    // this is where every other model-authored string gets persisted.
+    const trace: HuntStepTrace[] = []
+    const onStep = (step: HuntStepTrace): void => {
+      if (trace.length >= HUNT_TRACE_MAX_STEPS) return
+      trace.push({
+        ...step,
+        ...(step.text
+          ? {
+              text: redactKnownSecrets(step.text).slice(
+                0,
+                HUNT_TRACE_TEXT_CHARS
+              ),
+            }
+          : {}),
+      })
+    }
+    const traceSpent = (): number =>
+      trace.reduce(
+        (n, t) => n + (t.inputTokens ?? 0) + (t.outputTokens ?? 0),
+        0
+      )
+    const traceLast = (): number => {
+      const t = trace[trace.length - 1]
+      return t ? (t.inputTokens ?? 0) + (t.outputTokens ?? 0) : 0
+    }
+    // The stop facts for the two exits the CLIENT never reports: the numbers
+    // come from the trace, which is all that survived the throw.
+    const stopFrom = (by: 'timeout' | 'error'): HuntStopFacts => ({
+      by,
+      spent: traceSpent(),
+      budget: input.tokenBudget,
+      reserve: 0,
+      lastStep: traceLast(),
+      steps: trace.length,
+    })
+    const clipWrapUp = (w: HuntWrapUpFacts): HuntWrapUpFacts => ({
+      ...w,
+      ...(w.text
+        ? { text: redactKnownSecrets(w.text).slice(0, HUNT_WRAP_UP_TEXT_CHARS) }
+        : {}),
+    })
     try {
       // What is left of this task's window after acquisition — the batch's
       // ceiling is a whole-batch ceiling, not a model-call ceiling.
@@ -644,6 +694,8 @@ export const securityHuntService = {
           error: 'sandbox acquisition consumed the task window',
           compress,
           shell,
+          trace,
+          stop: stopFrom('timeout'),
           ...vm,
         }
       }
@@ -683,6 +735,14 @@ export const securityHuntService = {
               )
             }
           }
+          // LUM-781 — what THIS command cost the model's context, and whether
+          // the compressor stood between the shell and the model. The task-
+          // level totals cannot say which read was the 8k one.
+          if (entryIndex < HUNT_SHELL_LOG_MAX) {
+            const entry = shell.commands[entryIndex]!
+            entry.chars = out.output.length
+            if (out.compressed) entry.compressed = true
+          }
           // Counted here and nowhere else, so compression cannot be paid for
           // with money the scan's `tokenSpent` never sees.
           compress.tokens += out.compressTokens
@@ -715,6 +775,7 @@ export const securityHuntService = {
         // A deadline, not a duration — the window is read off it after the
         // search, when how much is left is finally a known quantity.
         wrapUpDeadlineAt: started + input.timeBudgetMs,
+        onStep,
       })
       return {
         candidates: out.candidates,
@@ -728,6 +789,9 @@ export const securityHuntService = {
         shell,
         ...(out.wrappedUp ? { wrappedUp: true } : {}),
         ...(out.wrapUpWarnings ? { wrapUpWarnings: out.wrapUpWarnings } : {}),
+        trace,
+        ...(out.stop ? { stop: out.stop } : {}),
+        ...(out.wrapUp ? { wrapUp: clipWrapUp(out.wrapUp) } : {}),
         compress,
         ...vm,
       }
@@ -747,6 +811,8 @@ export const securityHuntService = {
         // are the rows where "did the gate eat the window?" is most live, and
         // they used to carry no shell stats at all.
         shell,
+        trace,
+        stop: stopFrom(isAbort(error) ? 'timeout' : 'error'),
         error: message.slice(0, 300),
         compress,
         ...vm,

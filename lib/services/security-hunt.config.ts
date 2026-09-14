@@ -364,6 +364,10 @@ export interface HuntTaskAudit {
    * and a run-level total cannot answer it.
    */
   shell?: HuntShellStats
+  /** LUM-781 — see `HuntStepTrace`; absent on rows written before it existed. */
+  trace?: HuntStepTrace[]
+  stop?: HuntStopFacts
+  wrapUp?: HuntWrapUpFacts
   taskId: string
   objective: string
   category: HuntCategory
@@ -539,7 +543,74 @@ export interface HuntShellStats {
    * answer a reader actually acts on. `reason` is the gate's own text, not the
    * model's — but it can quote the command back, so it is redacted too.
    */
-  commands: Array<{ cmd: string; denied?: true; reason?: string }>
+  commands: Array<{
+    cmd: string
+    denied?: true
+    reason?: string
+    /** LUM-781 — characters handed back to the model for THIS command. */
+    chars?: number
+    /** LUM-781 — the output went through the compressor before the model saw it. */
+    compressed?: true
+  }>
+}
+
+/**
+ * LUM-781 — per-step trace of one task's search. `HuntShellStats` says what
+ * the agent asked for; this says what it SAID between asks, what each step
+ * cost, and how the search ended — the three things PR 999's audit (23
+ * whole-file reads, 0 candidates, one wrap-up that answered nothing we kept)
+ * could not answer: is the agent advancing toward a conclusion or still
+ * mapping, which counter actually cut it off and with how much left, and
+ * what did the forced hand-over say.
+ *
+ * Observation only. Nothing here changes the budget, the stop predicates,
+ * the prompts or the wrap-up; every field is derived from what the loop
+ * already produced.
+ */
+export const HUNT_TRACE_MAX_STEPS = 16
+export const HUNT_TRACE_TEXT_CHARS = 300
+export const HUNT_WRAP_UP_TEXT_CHARS = 500
+
+export interface HuntStepTrace {
+  /** 1-based index of the step within the search. */
+  i: number
+  /** The tool this step called, if any (`run_shell` / `submit_candidates`). */
+  tool?: string
+  /** Assistant text written in this step — prefix, secret-redacted. */
+  text?: string
+  inputTokens?: number
+  outputTokens?: number
+  reasoningTokens?: number
+  finishReason?: string
+}
+
+/** How the search ended, with the arithmetic that ended it. */
+export interface HuntStopFacts {
+  by: 'submitted' | 'budget' | 'steps' | 'timeout' | 'error'
+  /** Tokens the search had spent when it stopped. */
+  spent: number
+  budget: number
+  /** What was being held back for the wrap-up at the stop. */
+  reserve: number
+  /** The last step's cost — the price the predictive stop charged the next step at. */
+  lastStep: number
+  steps: number
+}
+
+/** What the forced hand-over did, or why it was not made. */
+export interface HuntWrapUpFacts {
+  /** A wrap-up call came back. */
+  ran: boolean
+  /** Why no call was made. `disabled` = deadline 0 (the caller turned it off). */
+  skipped?: 'submitted' | 'disabled' | 'no-budget' | 'no-time'
+  /** Candidates the wrap-up submitted. */
+  submitted?: number
+  /** What the model answered in prose, if anything — prefix, redacted. */
+  text?: string
+  tokens?: number
+  finishReason?: string
+  /** The call was attempted and threw (timeout / gateway). */
+  error?: string
 }
 
 export interface HuntCompressStats {
@@ -654,6 +725,15 @@ export interface HuntBatchOutput {
    * Required makes that a compile error instead of a review question.
    */
   shell: HuntShellStats
+  /**
+   * LUM-781 — the per-step trace, REQUIRED for the same reason `shell` is:
+   * the timeout and error exits are where "what was it doing when the window
+   * closed" matters most, and an optional field is exactly how those rows
+   * would lose it. Empty when no step completed.
+   */
+  trace: HuntStepTrace[]
+  stop?: HuntStopFacts
+  wrapUp?: HuntWrapUpFacts
   /**
    * LUM-758 follow-up — the search ended on a counter without the agent ever
    * submitting, and a forced wrap-up call asked for what it had. `stopped`
