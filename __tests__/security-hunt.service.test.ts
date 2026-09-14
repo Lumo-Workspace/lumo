@@ -56,6 +56,7 @@ import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
 import {
   HUNT_MIN_BATCH_TIME_MS,
   PLAN_HUNT_TIMEOUT_MS,
+  PLAN_HUNT_MAX_ATTEMPTS,
 } from '@/lib/services/security-hunt.config'
 
 const diffMock = fetchPrDiff as jest.Mock
@@ -752,6 +753,59 @@ describe('LUM-739 hunt service', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('using deterministic fallback')
     )
+  })
+
+  it('planHunt records HOW the planning call failed, not just that it did', async () => {
+    // The message alone ("no object generated") cannot say whether the empty
+    // answer was a model with nothing to say or one that spent its whole
+    // output budget on reasoning — and those need opposite responses. This hop
+    // is where three fields in this layer have already been lost between being
+    // computed and being readable.
+    planMock.mockRejectedValue(
+      Object.assign(
+        new Error('No object generated: the model did not return a response.'),
+        {
+          finishReason: 'length',
+          text: '',
+          usage: {
+            outputTokens: 8_000,
+            outputTokenDetails: { reasoningTokens: 7_940 },
+          },
+        }
+      )
+    )
+
+    const out = await securityHuntService.planHunt({
+      job: { ...JOB, reasons: ['diff:sink:prisma-raw'] },
+    })
+
+    expect(out.by).toBe('fallback')
+    expect(out.planFailure).toEqual({
+      message: 'No object generated: the model did not return a response.',
+      finishReason: 'length',
+      reasoningTokens: 7_940,
+      outputTokens: 8_000,
+      textPrefix: '',
+    })
+    // …and `length` is retryable, so the second window was actually used.
+    expect(planMock).toHaveBeenCalledTimes(PLAN_HUNT_MAX_ATTEMPTS)
+  })
+
+  it('planHunt leaves planFailure absent when the planner answered', async () => {
+    planMock.mockResolvedValue({
+      tasks: [
+        { objective: 'o'.repeat(30), category: 'idor', startingPoints: ['a.ts'] },
+      ],
+      reason: 'one signal',
+      tokens: 40,
+    })
+
+    const out = await securityHuntService.planHunt({
+      job: { ...JOB, reasons: ['diff:sink:prisma-raw'] },
+    })
+
+    expect(out.by).toBe('model')
+    expect(out.planFailure).toBeUndefined()
   })
 
   // LUM-758 follow-up. planHunt never throws, so planHuntStep's platform retry

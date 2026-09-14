@@ -57,6 +57,10 @@ export interface HuntAuditStats {
     }
     /** Distribution of planned-task counts — `0` is the SKIPPED path. */
     taskCounts: Record<string, number>
+    /** LUM-766 follow-up — failed planning calls by `finishReason`. */
+    failures: Record<string, number>
+    reasoningTokens: number[]
+    emptyOutput: number
   }
   /** Why each planned task stopped: done / steps / budget / timeout / error / skipped. */
   taskStops: Record<string, number>
@@ -136,6 +140,9 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     plan: {
       by: { model: 0, fallback: 0, notAttempted: 0, unknown: 0 },
       taskCounts: {},
+      failures: {},
+      reasoningTokens: [],
+      emptyOutput: 0,
     },
     taskStops: {},
     tasksWrappedUp: 0,
@@ -175,6 +182,20 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     if (by === 'model' || by === 'fallback') stats.plan.by[by] += 1
     else if (by === 'not-attempted') stats.plan.by.notAttempted += 1
     else if (by !== undefined) stats.plan.by.unknown += 1
+    // LUM-766 follow-up — why the planner failed, by finish reason. `length`
+    // means the output budget went to reasoning and the JSON never arrived (or
+    // arrived truncated): a budget question. Anything else carrying text is the
+    // model being wrong about the shape: a schema question. The two were
+    // indistinguishable while only the message was stored, and they need
+    // opposite responses.
+    const pf = audit.planFailure as Record<string, unknown> | undefined
+    if (pf && typeof pf === 'object') {
+      const fr = typeof pf.finishReason === 'string' ? pf.finishReason : 'unknown'
+      stats.plan.failures[fr] = (stats.plan.failures[fr] ?? 0) + 1
+      if (typeof pf.reasoningTokens === 'number')
+        stats.plan.reasoningTokens.push(pf.reasoningTokens)
+      if (pf.textPrefix === '') stats.plan.emptyOutput += 1
+    }
     if (Array.isArray(audit.planned)) {
       const n = String(audit.planned.length)
       stats.plan.taskCounts[n] = (stats.plan.taskCounts[n] ?? 0) + 1
