@@ -8,6 +8,10 @@ import { sumTranscriptUsage } from './transcript-usage'
 import { resolveBoundProjectId } from './resolve-project'
 import { resolveBoundTaskIdentifier } from './resolve-bound-task'
 import { autoUpsyncOnDrain } from './memory-auto'
+import {
+  collectDeletedTestFiles,
+  looksLikeDeleteCommand,
+} from './git-deleted-test-files'
 
 /**
  * Hard timeout for the hook POST. On timeout the request is aborted,
@@ -346,6 +350,55 @@ export function augmentBodyWithUsage(path: HookPath, body: string): string {
 }
 
 /**
+ * LUM-779: for a post-tool-use Bash event whose command carries an `rm` /
+ * `git rm`, ask local git which tracked test files are actually missing now
+ * and fold the answer into the body under `_lumo_deleted_test_files`. The
+ * server judges TEST_FILE_DELETED by this list — not by the command text —
+ * so a restore or an `rm` of an untracked scratch probe is recorded advisory
+ * while a real deletion of a tracked test still blocks.
+ *
+ * The three wire states matter: a non-empty list (blocking), an EMPTY list
+ * (probe ran, nothing missing → advisory), and NO field (probe skipped or
+ * git could not answer → the server fails closed). So the field is only ever
+ * attached when the probe returned an array, and a probe that throws leaves
+ * the body untouched. Never blocks or fails the hook.
+ */
+export function augmentBodyWithDeletedTestFiles(
+  path: HookPath,
+  body: string,
+  probe: typeof collectDeletedTestFiles = collectDeletedTestFiles
+): string {
+  if (path !== 'post-tool-use') return body
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(body || '{}')
+  } catch {
+    return body
+  }
+  if (!parsed || typeof parsed !== 'object') return body
+  if (parsed['tool_name'] !== 'Bash') return body
+  const input = parsed['tool_input']
+  const command =
+    input && typeof input === 'object'
+      ? (input as Record<string, unknown>)['command']
+      : undefined
+  if (typeof command !== 'string' || !looksLikeDeleteCommand(command))
+    return body
+  const cwd =
+    typeof parsed['cwd'] === 'string' && parsed['cwd']
+      ? (parsed['cwd'] as string)
+      : process.cwd()
+  let deleted: string[] | null
+  try {
+    deleted = probe(cwd)
+  } catch {
+    return body
+  }
+  if (deleted === null) return body
+  return JSON.stringify({ ...parsed, _lumo_deleted_test_files: deleted })
+}
+
+/**
  * POST the hook body to /api/hooks/<path> with a short timeout. All errors
  * — credential missing, network failure, timeout, non-2xx — are routed to
  * hook.log and then the caller exits 0.
@@ -404,7 +457,9 @@ export async function runHookWithBody(
     const agentEnum = agentToken ? normalizeAgent(agentToken) : null
     if (agentEnum) headers['X-Lumo-Agent'] = agentEnum
 
-    const outgoingBody = augmentBodyWithUsage(path, body) || '{}'
+    const outgoingBody =
+      augmentBodyWithDeletedTestFiles(path, augmentBodyWithUsage(path, body)) ||
+      '{}'
 
     try {
       const res = await fetch(url, {
