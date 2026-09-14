@@ -47,8 +47,11 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import {
   isBlockingFinding,
   latestScanPerPr,
+  loadQueueExitContexts,
   loadSecurityPolicy,
+  queueExitOf,
 } from './pr-security-scan-gate'
+import type { QueueExitReason } from '@/lib/security-scan/queue-exit'
 import {
   DEFAULT_SECURITY_POLICY,
   type SecurityPolicy,
@@ -107,6 +110,13 @@ export interface SecurityFindingView {
   blocking: boolean
   /** LUM-738: already on the default-branch baseline — not introduced by this PR (advisory, muted). */
   persisting: boolean
+  /**
+   * LUM-775: the PR merged or closed and this undispositioned row has left
+   * the queue — derived at read time from PR state × baseline × policy,
+   * never stored. Muted with its reason in the panel; `blocking` is false
+   * while set. null on an open PR and on every dispositioned / persisting row.
+   */
+  queueExit: QueueExitReason | null
   // LUM-739 (hunt rows; null elsewhere) — surfaced by the panel (LUM-740).
   cwe: string | null
   reachability: FindingReachability | null
@@ -222,7 +232,8 @@ function sortFindings<
 
 function toFindingView(
   f: FindingRow,
-  policy: SecurityPolicy
+  policy: SecurityPolicy,
+  queueExit: QueueExitReason | null = null
 ): SecurityFindingView {
   return {
     id: f.id,
@@ -240,8 +251,9 @@ function toFindingView(
     disposition: f.disposition,
     dispositionNote: f.dispositionNote,
     inherited: f.inheritedFromFindingId !== null,
-    blocking: isBlockingFinding(f, policy),
+    blocking: queueExit === null && isBlockingFinding(f, policy),
     persisting: f.persisting,
+    queueExit,
     cwe: f.cwe ?? null,
     reachability: f.reachability ?? null,
     callChain: f.callChain ?? null,
@@ -257,10 +269,14 @@ function isViewComplete(s: ScanWithFindings): boolean {
   return s.status !== 'FAILED' && !s.partial && isCompleteScan(stagesOf(s))
 }
 
+/** LUM-775: the row's queue exit on its PR, or null while it is still queued. */
+type QueueExitOfRow = (row: FindingRow) => QueueExitReason | null
+
 function toScanView(
   s: ScanWithFindings,
   policy: SecurityPolicy,
-  fixed: number
+  fixed: number,
+  queueExit: QueueExitOfRow = () => null
 ): SecurityScanView {
   const stages = stagesOf(s)
   return {
@@ -280,7 +296,9 @@ function toScanView(
     startedAt: s.startedAt.toISOString(),
     finishedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
     fixed,
-    findings: sortFindings(s.findings).map(f => toFindingView(f, policy)),
+    findings: sortFindings(s.findings).map(f =>
+      toFindingView(f, policy, queueExit(f))
+    ),
   }
 }
 
@@ -775,17 +793,24 @@ export const prSecurityScanService = {
     )
     const latest = latestScanPerPr(scans)
     // LUM-740: one policy read per task — every scan is in its workspace.
-    const policy =
+    // LUM-775: plus the default-branch baseline of each repo with a merged
+    // PR, for the queue-exit rules.
+    const [policy, exitContexts] =
       scans.length > 0
-        ? await loadSecurityPolicy(scans[0]!.workspaceId)
-        : DEFAULT_SECURITY_POLICY
+        ? await Promise.all([
+            loadSecurityPolicy(scans[0]!.workspaceId),
+            loadQueueExitContexts(prs, scans[0]!.workspaceId),
+          ])
+        : [DEFAULT_SECURITY_POLICY, new Map()]
     let count = 0
     let suggested = 0
     const out = []
     for (const pr of prs) {
       const scan = latest.get(pr.id)
       const view = scan
-        ? toScanView(scan, policy, await countFixed(scan))
+        ? toScanView(scan, policy, await countFixed(scan), f =>
+            queueExitOf(f, pr, exitContexts, policy)
+          )
         : null
       if (view) {
         count += view.findings.filter(f => f.blocking).length
@@ -793,6 +818,7 @@ export const prSecurityScanService = {
           f =>
             f.disposition === null &&
             !f.persisting &&
+            f.queueExit === null &&
             f.suggestedDisposition !== null
         ).length
       }

@@ -4,6 +4,7 @@ import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
 import {
   externalFailureReason,
+  formatQueueExits,
   SCAN_STAGE_KEYS,
   scanStageLabel,
   scanStageStateLabel,
@@ -260,6 +261,10 @@ export interface TaskStatusResponse {
       /** LUM-738 — optional: absent on an older server. */
       dependencyFindings?: number
       persistingFindings?: number
+      /** LUM-775 — undispositioned rows that left the queue when the PR
+       *  merged / closed, by reason (`RESOLVED_ON_MAIN` / `MERGED_UNREVIEWED`
+       *  / `PR_CLOSED`). Absent on an older server, `{}` on an open PR. */
+      queueExits?: Partial<Record<string, number>>
       /** LUM-762 — per-task L3 hunt coverage read off `huntAudit`.
        *  Absent on an older server, null when the scan stored no usable
        *  audit (a pre-LUM-739 row, or a hunt that failed before its first
@@ -350,7 +355,9 @@ type ScanSummary = NonNullable<
 /** LUM-735 — one line per linked PR's latest scan: `PR #945 · scan CLEAN ·
  *  Secrets: checked · Code scan: checked (2 external findings) ·
  *  Dependencies: checked (1 dependency finding, 1 already on main) ·
- *  AI review: checked · Exploit paths: checked`.
+ *  AI review: checked · Exploit paths: checked`, plus, on a merged / closed
+ *  PR, ` · 3 left the queue (2 resolved on main, 1 merged unreviewed)`
+ *  (LUM-775).
  *  Stage segments only for keys present, in
  *  secrets/external/supplyChain/judge/hunt order (LUM-739 added the hunt
  *  layer); the `(N external findings)` count only decorates the Code scan
@@ -381,6 +388,11 @@ function formatScanSummaryLine(s: ScanSummary): string {
   let line = `  PR #${s.prNumber} · scan ${s.status}`
   if (segments.length > 0) line += ` · ${segments.join(' · ')}`
   if (s.partial) line += ' · partial'
+  // LUM-775: what left the queue because the PR merged / closed, and why —
+  // so a merged PR's line explains where its findings went instead of
+  // silently listing fewer next actions than the scan found.
+  const exits = formatQueueExits(s.queueExits)
+  if (exits) line += ` · ${exits}`
   // LUM-756 (P8): `error` has two writers — only the prefixed, scrubbed
   // scanner reason may be printed, and only the text after the prefix. Stage
   // A's raw crash text carries no prefix and is never shown here (same rule

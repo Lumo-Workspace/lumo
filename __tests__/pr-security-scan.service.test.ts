@@ -50,6 +50,8 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: {
     findLastSarifIngestAt: jest.fn(),
+    // LUM-775: the default-branch baseline behind the merged-PR queue exit.
+    findSecurityBaseline: jest.fn(),
   },
 }))
 jest.mock('@/lib/services/security-managed-scan-start', () => ({
@@ -513,8 +515,25 @@ test('every LLM-authored field is redacted, not just evidence', async () => {
 
 test('getForTask returns the latest scan per PR and the blocking count', async () => {
   prRepo.findManyForSecurityByTaskId.mockResolvedValue([
-    { id: 'pr1', number: 7, title: 'x', url: 'u', state: 'open' },
-    { id: 'pr2', number: 6, title: 'y', url: 'v', state: 'merged' },
+    {
+      id: 'pr1',
+      number: 7,
+      title: 'x',
+      url: 'u',
+      state: 'open',
+      repo: 'o/r',
+      mergedAt: null,
+    },
+    // A merged PR with no scan at all reads nothing — no baseline needed.
+    {
+      id: 'pr2',
+      number: 6,
+      title: 'y',
+      url: 'v',
+      state: 'merged',
+      repo: 'o/r',
+      mergedAt: null,
+    },
   ])
   const base = {
     pullRequestId: 'pr1',
@@ -581,6 +600,106 @@ test('getForTask returns the latest scan per PR and the blocking count', async (
     'f3',
     'f2',
   ])
+  expect(view.prs[0]!.latest?.findings.every(f => f.queueExit === null)).toBe(
+    true
+  )
+})
+
+test('LUM-775 getForTask: a merged PR row carries its queue exit, is not blocking and is left out of the counts', async () => {
+  const baselineRead = projectRepository.findSecurityBaseline as jest.Mock
+  baselineRead.mockResolvedValue({
+    sha: 'main',
+    at: '2026-09-10T11:00:00Z',
+    requestedAt: '2026-09-10T10:30:00Z',
+    fingerprints: ['fp-still-there'],
+    partial: false,
+    tools: ['gitleaks', 'semgrep', 'osv-scanner'],
+  })
+  prRepo.findManyForSecurityByTaskId.mockResolvedValue([
+    {
+      id: 'pr1',
+      number: 7,
+      title: 'x',
+      url: 'u',
+      state: 'merged',
+      repo: 'o/r',
+      mergedAt: new Date('2026-09-10T10:00:00Z'),
+    },
+  ])
+  const finding = (over: object) => ({
+    id: 'f',
+    scanId: 's',
+    kind: 'SECRET',
+    ruleId: 'secret:x',
+    severity: 'HIGH',
+    provenance: 'DETERMINISTIC',
+    filePath: 'a',
+    line: 1,
+    title: 't',
+    detail: 'd',
+    evidence: 'e',
+    fingerprint: 'fp',
+    externalRef: null,
+    disposition: null,
+    dispositionNote: null,
+    dispositionedById: null,
+    dispositionedAt: null,
+    inheritedFromFindingId: null,
+    persisting: false,
+    suggestedDisposition: null,
+    createdAt: new Date(0),
+    ...over,
+  })
+  repo.findLatestByPullRequestIds.mockResolvedValue([
+    {
+      pullRequestId: 'pr1',
+      taskId: 't1',
+      workspaceId: 'w1',
+      trigger: 'PR_EVENT',
+      judgeStatus: 'RAN',
+      truncated: false,
+      detectorVersion: 'v',
+      error: null,
+      finishedAt: null,
+      id: 's',
+      headSha: 'b',
+      status: 'FINDINGS',
+      startedAt: new Date(2000),
+      findings: [
+        finding({ id: 'stays' }),
+        finding({
+          id: 'gone',
+          kind: 'DEPENDENCY',
+          ruleId: 'ext:osv-scanner:GHSA-1',
+          provenance: 'EXTERNAL_TOOL',
+          severity: 'MEDIUM',
+          fingerprint: 'fp-gone',
+          suggestedDisposition: 'FALSE_POSITIVE',
+        }),
+        finding({
+          id: 'fixture',
+          severity: 'LOW',
+          filePath: '__tests__/x.test.ts',
+        }),
+      ],
+    },
+  ] as never)
+  const view = await prSecurityScanService.getForTask('t1')
+  const byId = new Map(
+    view.prs[0]!.latest!.findings.map(f => [f.id, f] as const)
+  )
+  expect(byId.get('stays')).toMatchObject({ queueExit: null, blocking: true })
+  expect(byId.get('gone')).toMatchObject({
+    queueExit: 'RESOLVED_ON_MAIN',
+    blocking: false,
+  })
+  expect(byId.get('fixture')).toMatchObject({
+    queueExit: 'MERGED_UNREVIEWED',
+    blocking: false,
+  })
+  expect(view.blocking.count).toBe(1)
+  expect(view.suggested.count).toBe(0)
+  expect(baselineRead).toHaveBeenCalledWith('w1', 'o/r')
 })
 
 describe('LUM-735 SARIF push — stage A side', () => {
