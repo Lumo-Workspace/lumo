@@ -11,7 +11,12 @@
  *   DOTENV_CONFIG_PATH="$(pwd)/.env.production" npx tsx -r dotenv/config scripts/analysis/lum739-hunt-audit/audit.ts
  */
 import { prisma } from '../../../lib/db/prisma'
-import { aggregateHuntAudit, type HuntScanRow } from './aggregate'
+import {
+  aggregateHuntAudit,
+  formatShellDetail,
+  type HuntScanRow,
+  type ShellDetailTask,
+} from './aggregate'
 
 function pct(n: number | null): string {
   return n === null ? 'n/a' : `${(n * 100).toFixed(1)}%`
@@ -35,6 +40,9 @@ async function main(): Promise<void> {
       },
     },
   })
+  /** How many task rows get the command-by-command listing. */
+  const SHELL_DETAIL_TASKS = 6
+
   const stats = aggregateHuntAudit(scans as unknown as HuntScanRow[])
 
   console.log('=== LUM-739 hunt audit ===')
@@ -106,6 +114,35 @@ async function main(): Promise<void> {
   console.log(
     `submitted on its own: ${stats.taskStops.done ?? 0} / ${stats.tasksRan} tasks that ran · wrapped up: ${stats.tasksWrappedUp}${stats.tasksWrapUpRefused > 0 ? ` · wrap-up refused by provider: ${stats.tasksWrapUpRefused}` : ''}`
   )
+
+  const sh = stats.shell
+  if (sh.calls > 0) {
+    const of = (n: number, d: number) =>
+      d > 0 ? `${n} (${((n / d) * 100).toFixed(0)}%)` : String(n)
+    // `empty` is a rate among commands that RAN — dividing it by every request
+    // would quietly shrink it in exactly the runs where the gate refused most.
+    const ran = sh.calls - sh.refused - sh.failed
+    console.log(
+      `shell: ${sh.calls} commands · refused by the gate ${of(sh.refused, sh.calls)} · sandbox failed ${of(sh.failed, sh.calls)} · of the ${ran} that ran, returned nothing ${of(sh.empty, ran)} · ${sh.outputChars} chars back`
+    )
+  }
+  // LUM-758 follow-up — the per-task detail. The run-level line above says
+  // HOW MUCH; only this says WHAT, and telling "mapped the repo and ran out"
+  // from "the gate rejected everything" from "looked and found nothing" is the
+  // entire reason the field exists. Newest scan first, and only tasks that
+  // actually asked the shell for something.
+  const detailLines = formatShellDetail(
+    (scans as unknown as HuntScanRow[]).flatMap(r => {
+      const a = (r.huntAudit ?? {}) as { tasks?: ShellDetailTask[] }
+      return a.tasks ?? []
+    }),
+    SHELL_DETAIL_TASKS
+  )
+  if (detailLines.length > 0) {
+    console.log('')
+    console.log('=== What the agents actually ran (LUM-758) ===')
+    for (const l of detailLines) console.log(`  ${l}`)
+  }
 
   console.log('')
   console.log('=== Sandbox (LUM-758) ===')

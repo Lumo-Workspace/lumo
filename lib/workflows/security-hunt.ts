@@ -352,6 +352,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           ...(batch.wrapUpWarnings
             ? { wrapUpWarnings: batch.wrapUpWarnings }
             : {}),
+          ...(batch.shell ? { shell: batch.shell } : {}),
         })
         stops[task.id] = batch.stopped
       }
@@ -405,6 +406,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           ...(retry.wrapUpWarnings
             ? { wrapUpWarnings: retry.wrapUpWarnings }
             : {}),
+          ...(retry.shell ? { shell: retry.shell } : {}),
         })
         stops[task.id] = retry.stopped
       }

@@ -79,6 +79,19 @@ export interface HuntAuditStats {
    */
   tasksWrapUpRefused: number
   /**
+   * LUM-758 follow-up — what the agents asked the shell for, across tasks.
+   * `refused` is the number the whole field was added for: a task whose
+   * commands the gate rejected looks, in every other column, exactly like a
+   * task that searched carefully and found nothing.
+   */
+  shell: {
+    calls: number
+    refused: number
+    failed: number
+    empty: number
+    outputChars: number
+  }
+  /**
    * Tasks that actually RAN, counted once each — the honest denominator for
    * the convergence read. `taskStops` cannot serve: it counts `skipped` rows
    * (tasks the budget never reached) and carries TWO rows for a task the retry
@@ -147,6 +160,7 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     taskStops: {},
     tasksWrappedUp: 0,
     tasksWrapUpRefused: 0,
+    shell: { calls: 0, refused: 0, failed: 0, empty: 0, outputChars: 0 },
     tasksRan: 0,
     sandbox: { attached: 0, created: 0, egressOpen: 0 },
     compress: {
@@ -190,7 +204,8 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     // opposite responses.
     const pf = audit.planFailure as Record<string, unknown> | undefined
     if (pf && typeof pf === 'object') {
-      const fr = typeof pf.finishReason === 'string' ? pf.finishReason : 'unknown'
+      const fr =
+        typeof pf.finishReason === 'string' ? pf.finishReason : 'unknown'
       stats.plan.failures[fr] = (stats.plan.failures[fr] ?? 0) + 1
       if (typeof pf.reasoningTokens === 'number')
         stats.plan.reasoningTokens.push(pf.reasoningTokens)
@@ -219,6 +234,19 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
         stats.tasksWrappedUp += 1
       const w = (t as { wrapUpWarnings?: unknown } | null)?.wrapUpWarnings
       if (Array.isArray(w) && w.length > 0) stats.tasksWrapUpRefused += 1
+      const sh = (t as { shell?: Record<string, unknown> } | null)?.shell
+      if (sh && typeof sh === 'object') {
+        for (const k of [
+          'calls',
+          'refused',
+          'failed',
+          'empty',
+          'outputChars',
+        ] as const) {
+          const v = sh[k]
+          if (typeof v === 'number') stats.shell[k] += v
+        }
+      }
     }
 
     if (audit.sandbox === 'attached') stats.sandbox.attached += 1
@@ -249,4 +277,46 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
   stats.inconclusiveToFalsePositiveRate =
     stats.inconclusive > 0 ? stats.falsePositive / stats.inconclusive : null
   return stats
+}
+
+/** One task row's shell stats, as the audit read-out shows them. */
+export interface ShellDetailTask {
+  taskId?: unknown
+  stopped?: unknown
+  shell?: {
+    calls?: number
+    refused?: number
+    failed?: number
+    empty?: number
+    commands?: { cmd?: string; denied?: boolean; reason?: string }[]
+  }
+}
+
+/**
+ * The per-task, command-by-command listing.
+ *
+ * The run-level `shell:` line says HOW MUCH; only this says WHAT — and telling
+ * "mapped the repo and ran out" from "the gate rejected everything" from
+ * "looked and found nothing" is the entire reason the field exists. Extracted
+ * as a pure function so it can be tested: a read-out nothing exercises is the
+ * same "computed, carried, never read" shape this layer has already lost four
+ * fields to.
+ */
+export function formatShellDetail(
+  tasks: ShellDetailTask[],
+  maxTasks: number
+): string[] {
+  const out: string[] = []
+  for (const t of tasks.filter(x => x.shell?.calls).slice(0, maxTasks)) {
+    const sh = t.shell!
+    out.push(
+      `${String(t.taskId)} ${String(t.stopped)} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, empty ${sh.empty ?? 0})`
+    )
+    for (const c of sh.commands ?? []) {
+      out.push(
+        `    ${c.denied ? '✗' : ' '} ${c.cmd ?? ''}${c.reason ? `   ← ${c.reason}` : ''}`
+      )
+    }
+  }
+  return out
 }

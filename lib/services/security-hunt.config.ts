@@ -332,6 +332,12 @@ export interface HuntTaskAudit {
    * is evidence about the agent.
    */
   wrapUpWarnings?: string[]
+  /**
+   * LUM-758 follow-up — what THIS task asked the shell for. Per task, not
+   * per run: "which task burned its allowance on refusals" is the question,
+   * and a run-level total cannot answer it.
+   */
+  shell?: HuntShellStats
   taskId: string
   objective: string
   category: HuntCategory
@@ -447,6 +453,60 @@ export interface HuntAudit {
 }
 
 /** One batch's share of `HuntAudit.compress`; summed by the orchestrator. */
+/** How many recorded commands a task's audit carries, and how long each may be. */
+export const HUNT_SHELL_LOG_MAX = 24
+export const HUNT_SHELL_LOG_CHARS = 200
+
+/**
+ * LUM-758 follow-up — what the agent actually DID with its allowance.
+ *
+ * Until this existed a task recorded its total tokens, its elapsed time, the
+ * counter that stopped it, and `candidates: 0`. Across 46 production tasks the
+ * agent never once called `submit_candidates` on its own, and three completely
+ * different explanations are indistinguishable from those four numbers:
+ *
+ *   - it spent the allowance mapping the repository and never got to reasoning
+ *   - it looked, and there was genuinely nothing to report
+ *   - it found a lead and ran out of budget before it could verify it, so it
+ *     correctly declined to submit an unverified suspicion
+ *
+ * And a fourth that nothing would have shown at all: the command gate refusing
+ * what it asked for. `runHuntShell` returns the refusal to the model as
+ * `error`, and that string was passed along and counted nowhere — so a task
+ * whose every command was rejected looks exactly like a task that searched
+ * carefully and found nothing.
+ */
+export interface HuntShellStats {
+  /** Commands the agent asked to run. */
+  calls: number
+  /**
+   * …of which the GATE refused. A high share here is not a hunt at all.
+   * Counted off `denied`, never off `error`: `error` is also set when the
+   * sandbox itself dies, and reading a dead VM as a rejected command points
+   * the next investigation at the wrong file.
+   */
+  refused: number
+  /** …of which the sandbox failed to run at all (VM gone, or SHELL_TIMEOUT_MS). */
+  failed: number
+  /** …of which ran and returned nothing: a search that matched no line. */
+  empty: number
+  /** Total characters handed back to the model, after compression. */
+  outputChars: number
+  /**
+   * The commands themselves, capped and secret-redacted — the only field that
+   * lets a reader tell mapping from reading, or a loop from progress. A model
+   * can echo a literal it saw in the repo into its next query, so this goes
+   * through `redactKnownSecrets` like every other model-authored string that
+   * gets persisted.
+   *
+   * Each carries its own verdict. A flat list beside `refused: 7` says seven
+   * were rejected without saying WHICH seven or why, which is the half of the
+   * answer a reader actually acts on. `reason` is the gate's own text, not the
+   * model's — but it can quote the command back, so it is redacted too.
+   */
+  commands: Array<{ cmd: string; denied?: true; reason?: string }>
+}
+
 export interface HuntCompressStats {
   /** Compressions that replaced the output. */
   calls: number
@@ -546,6 +606,17 @@ export interface HuntBatchOutput {
    * them out so the audit can answer "was compression worth it".
    */
   compress?: HuntCompressStats
+  /**
+   * LUM-758 follow-up — what the agent asked the shell for.
+   *
+   * REQUIRED, deliberately. The optional form let the timeout and error exits
+   * return without it, and since the client only ever reports
+   * `done | budget | steps`, those two stops come EXCLUSIVELY from those exits
+   * — so every `stopped: 'timeout'` row lost its shell stats by construction,
+   * on precisely the runs where "did the gate eat the window?" is most live.
+   * Required makes that a compile error instead of a review question.
+   */
+  shell: HuntShellStats
   /**
    * LUM-758 follow-up — the search ended on a counter without the agent ever
    * submitting, and a forced wrap-up call asked for what it had. `stopped`
