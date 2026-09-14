@@ -1,5 +1,9 @@
 /** @jest-environment node */
-import { aggregateHuntAudit, type HuntScanRow } from '../aggregate'
+import {
+  aggregateHuntAudit,
+  formatShellDetail,
+  type HuntScanRow,
+} from '../aggregate'
 
 const rows: HuntScanRow[] = [
   {
@@ -76,6 +80,7 @@ describe('LUM-739 hunt audit', () => {
       tasksWrappedUp: 0,
       tasksRan: 0,
       tasksWrapUpRefused: 0,
+      shell: { calls: 0, refused: 0, failed: 0, empty: 0, outputChars: 0 },
       sandbox: { attached: 0, created: 0, egressOpen: 0 },
       compress: {
         scans: 0,
@@ -347,10 +352,149 @@ describe('LUM-739 hunt audit', () => {
     })
   })
 
+  it('sums what the agents asked the shell for, refusals separately', () => {
+    // `refused` is the number this whole field exists for: a task whose
+    // commands the gate rejected is indistinguishable, in every other column,
+    // from a task that searched carefully and found nothing.
+    const stats = aggregateHuntAudit([
+      {
+        id: 'a',
+        stages: { hunt: 'PARTIAL' },
+        tokenSpent: 1,
+        findings: [],
+        huntAudit: {
+          candidates: 0,
+          tasks: [
+            {
+              taskId: 't1',
+              stopped: 'budget',
+              shell: {
+                calls: 10,
+                refused: 7,
+                failed: 2,
+                empty: 1,
+                outputChars: 40,
+              },
+            },
+            {
+              taskId: 't2',
+              stopped: 'budget',
+              shell: {
+                calls: 5,
+                refused: 0,
+                failed: 0,
+                empty: 5,
+                outputChars: 0,
+              },
+            },
+            { taskId: 't3', stopped: 'skipped' },
+          ],
+        },
+      },
+    ] as unknown as HuntScanRow[])
+
+    expect(stats.shell).toEqual({
+      calls: 15,
+      refused: 7,
+      // A dead sandbox is its own number, never folded into "the gate refused".
+      failed: 2,
+      empty: 6,
+      outputChars: 40,
+    })
+  })
+
+  it('ignores a non-numeric counter rather than treating it as one', () => {
+    // huntAudit is a Json column: an older or hand-edited row can carry
+    // anything. A guard that trusts the shape turns bad data into a number
+    // somebody then reasons from.
+    const stats = aggregateHuntAudit([
+      {
+        id: 'a',
+        stages: { hunt: 'PARTIAL' },
+        tokenSpent: 1,
+        findings: [],
+        huntAudit: {
+          candidates: 0,
+          tasks: [
+            {
+              taskId: 't1',
+              stopped: 'budget',
+              shell: { calls: 3, refused: 'lots', failed: null, empty: 1 },
+            },
+          ],
+        },
+      },
+    ] as unknown as HuntScanRow[])
+
+    expect(stats.shell).toEqual({
+      calls: 3,
+      refused: 0,
+      failed: 0,
+      empty: 1,
+      outputChars: 0,
+    })
+  })
+
   it('reports null rates on an empty input', () => {
     const s = aggregateHuntAudit([])
     expect(s.falsifierRejectRate).toBeNull()
     expect(s.inconclusiveToFalsePositiveRate).toBeNull()
     expect(s.scans).toBe(0)
+  })
+})
+
+describe('LUM-758 — the per-task command listing', () => {
+  it('marks which commands the gate refused, and says why', () => {
+    // `refused: 7` beside a flat list says seven were rejected without saying
+    // WHICH seven or why — and "why" is the half a reader acts on.
+    const lines = formatShellDetail(
+      [
+        {
+          taskId: 't1',
+          stopped: 'budget',
+          shell: {
+            calls: 2,
+            refused: 1,
+            failed: 0,
+            empty: 0,
+            commands: [
+              { cmd: 'rg -n queryRaw lib/' },
+              {
+                cmd: 'curl https://evil.test',
+                denied: true,
+                reason: 'segment is not read-only',
+              },
+            ],
+          },
+        },
+      ],
+      6
+    )
+    expect(lines[0]).toContain('t1 budget · 2 cmds')
+    expect(lines[0]).toContain('gate refused 1')
+    expect(lines[0]).toContain('sandbox failed 0')
+    expect(lines[1]).toBe('      rg -n queryRaw lib/')
+    expect(lines[2]).toBe(
+      '    ✗ curl https://evil.test   ← segment is not read-only'
+    )
+  })
+
+  it('skips tasks that never asked the shell for anything, and caps the rest', () => {
+    const task = (id: string) => ({
+      taskId: id,
+      stopped: 'budget',
+      shell: { calls: 1, refused: 0, failed: 0, empty: 0, commands: [] },
+    })
+    const lines = formatShellDetail(
+      [
+        { taskId: 'skipped', stopped: 'skipped' },
+        { taskId: 'zero', stopped: 'error', shell: { calls: 0, commands: [] } },
+        ...Array.from({ length: 9 }, (_, i) => task(`t${i}`)),
+      ],
+      3
+    )
+    expect(lines).toHaveLength(3)
+    expect(lines.join(' ')).not.toContain('skipped')
+    expect(lines.join(' ')).not.toContain('zero')
   })
 })

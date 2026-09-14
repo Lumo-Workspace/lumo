@@ -17,6 +17,10 @@ jest.mock('@/lib/repositories/workspace.repository', () => ({
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
   },
 }))
+// LUM-775: the default-branch baseline behind the merged-PR exit rules.
+jest.mock('@/lib/repositories/project.repository', () => ({
+  projectRepository: { findSecurityBaseline: jest.fn() },
+}))
 
 import {
   assertNoOpenBlockingSecurityFindings,
@@ -24,9 +28,11 @@ import {
 } from '@/lib/services/pr-security-scan-gate'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { projectRepository } from '@/lib/repositories/project.repository'
 
 const scans = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const prs = pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
+const baselineRead = projectRepository.findSecurityBaseline as jest.Mock
 
 const finding = (over: object) => ({
   id: 'f',
@@ -141,4 +147,105 @@ test('no PRs or no scans means nothing blocks', async () => {
     assertNoOpenBlockingSecurityFindings('t1')
   ).resolves.toBeUndefined()
   expect(scans).not.toHaveBeenCalled()
+})
+
+describe('LUM-775 queue exit at the DONE gate', () => {
+  const MERGED_AT = new Date('2026-09-10T10:00:00Z')
+  const freshBaseline = {
+    sha: 'main',
+    at: '2026-09-10T11:00:00Z',
+    requestedAt: '2026-09-10T10:30:00Z',
+    fingerprints: ['fp-still-there'],
+    partial: false,
+    tools: ['gitleaks', 'semgrep', 'osv-scanner'],
+  }
+  const blockExternalHigh = {
+    block: [{ provenance: 'EXTERNAL_TOOL', severity: 'HIGH' }],
+  }
+  const extHigh = (over: object) =>
+    finding({
+      ruleId: 'ext:semgrep:rule',
+      provenance: 'EXTERNAL_TOOL',
+      severity: 'HIGH',
+      persisting: false,
+      ...over,
+    })
+
+  beforeEach(() => {
+    prs.mockResolvedValue([
+      {
+        id: 'pr1',
+        number: 1,
+        title: 'x',
+        url: 'u',
+        state: 'merged',
+        repo: 'o/r',
+        mergedAt: MERGED_AT,
+      },
+    ])
+    baselineRead.mockResolvedValue(freshBaseline)
+  })
+
+  test("a merged PR's deterministic HIGH still blocks — the baseline cannot testify for Lumo's own layers", async () => {
+    scans.mockResolvedValue([
+      scan({ findings: [finding({ persisting: false })] }),
+    ])
+    await expect(
+      assertNoOpenBlockingSecurityFindings('t1')
+    ).rejects.toMatchObject({ status: 409 })
+  })
+
+  test('a policy-blocking external HIGH absent from a fresh baseline is RESOLVED_ON_MAIN and no longer blocks; present → still blocks', async () => {
+    const policyRead = jest.requireMock(
+      '@/lib/repositories/workspace.repository'
+    ).workspaceRepository.findSecurityPolicy as jest.Mock
+    policyRead.mockResolvedValue(blockExternalHigh)
+    scans.mockResolvedValue([
+      scan({ findings: [extHigh({ fingerprint: 'fp-gone' })] }),
+    ])
+    await expect(
+      assertNoOpenBlockingSecurityFindings('t1')
+    ).resolves.toBeUndefined()
+
+    scans.mockResolvedValue([
+      scan({ findings: [extHigh({ fingerprint: 'fp-still-there' })] }),
+    ])
+    await expect(
+      assertNoOpenBlockingSecurityFindings('t1')
+    ).rejects.toMatchObject({ status: 409 })
+
+    // A baseline older than the merge cannot vouch → still blocks (fail-closed).
+    baselineRead.mockResolvedValue({
+      ...freshBaseline,
+      requestedAt: '2026-09-10T09:00:00Z',
+    })
+    scans.mockResolvedValue([
+      scan({ findings: [extHigh({ fingerprint: 'fp-gone' })] }),
+    ])
+    await expect(
+      assertNoOpenBlockingSecurityFindings('t1')
+    ).rejects.toMatchObject({ status: 409 })
+    policyRead.mockResolvedValue(null)
+  })
+
+  test("a closed, unmerged PR's HIGH does not block — nothing landed", async () => {
+    prs.mockResolvedValue([
+      {
+        id: 'pr1',
+        number: 1,
+        title: 'x',
+        url: 'u',
+        state: 'closed',
+        repo: 'o/r',
+        mergedAt: null,
+      },
+    ])
+    scans.mockResolvedValue([
+      scan({ findings: [finding({ persisting: false })] }),
+    ])
+    await expect(
+      assertNoOpenBlockingSecurityFindings('t1')
+    ).resolves.toBeUndefined()
+    expect(baselineRead).not.toHaveBeenCalled()
+  })
 })

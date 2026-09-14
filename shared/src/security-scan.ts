@@ -129,3 +129,63 @@ export function secretDowngradeNote(reason: string | null | undefined): string {
   if (!reason) return ''
   return ` — ${SECRET_DOWNGRADE_LABELS[reason] ?? reason}, downgraded`
 }
+
+/**
+ * LUM-775 — why an undispositioned finding is no longer in the queue.
+ *
+ * A PR finding's review window is the PR. Once the PR is merged or closed
+ * the question changes from "what did this change introduce" to "what is on
+ * main now", and only the default-branch baseline (LUM-738) may answer that.
+ * The exit is DERIVED at read time from PR state × baseline × policy — never
+ * written to the row, so `disposition` stays a human-only column.
+ *
+ * - `RESOLVED_ON_MAIN`: an external-tool finding whose fingerprint is absent
+ *   from a baseline that can testify (landed, whole, requested after the
+ *   merge, ran that tool). The one exit with evidence.
+ * - `MERGED_UNREVIEWED`: the window closed without a decision. Advisory rows
+ *   only — a policy-blocking row stays until a human decides.
+ * - `PR_CLOSED`: closed without merging; nothing landed. Reopening the PR
+ *   puts the row straight back (derived, not stored).
+ */
+export const QUEUE_EXIT_REASONS = [
+  'RESOLVED_ON_MAIN',
+  'MERGED_UNREVIEWED',
+  'PR_CLOSED',
+] as const
+
+export type QueueExitReason = (typeof QUEUE_EXIT_REASONS)[number]
+
+/** One wording per exit on every surface (CLI scan line, analysis report). */
+export const QUEUE_EXIT_LABELS: Record<QueueExitReason, string> = {
+  RESOLVED_ON_MAIN: 'resolved on main',
+  MERGED_UNREVIEWED: 'merged unreviewed',
+  PR_CLOSED: 'PR closed',
+}
+
+/**
+ * `3 left the queue (2 resolved on main, 1 merged unreviewed)`, or null when
+ * nothing left — the caller omits the segment rather than printing a zero.
+ * Reasons print in the declared order; an unknown key (a newer server) is
+ * counted in the total and printed as itself, never dropped.
+ */
+export function formatQueueExits(
+  counts: Partial<Record<string, number>> | null | undefined
+): string | null {
+  if (!counts) return null
+  const parts: string[] = []
+  let total = 0
+  const keys = [
+    ...QUEUE_EXIT_REASONS.filter(k => k in counts),
+    ...Object.keys(counts).filter(
+      k => !(QUEUE_EXIT_REASONS as readonly string[]).includes(k)
+    ),
+  ]
+  for (const key of keys) {
+    const n = counts[key] ?? 0
+    if (n <= 0) continue
+    total += n
+    parts.push(`${n} ${QUEUE_EXIT_LABELS[key as QueueExitReason] ?? key}`)
+  }
+  if (total === 0) return null
+  return `${total} left the queue (${parts.join(', ')})`
+}

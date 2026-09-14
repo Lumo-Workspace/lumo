@@ -507,6 +507,18 @@ export interface HuntShellOutput {
   output: string
   /** Set when the command never ran (denied) or the sandbox itself failed. */
   error?: string
+  /**
+   * Set ONLY when the GATE refused — never when the sandbox failed.
+   *
+   * `error` covers both, and a counter built on it reads a dead VM as a
+   * rejected command. Concretely: the hunt usually attaches to the managed
+   * scan's VM, semgrep saturates it, every `rg` hits SHELL_TIMEOUT_MS and
+   * throws — and an audit line saying "refused by the gate 24 (100%)" then
+   * sends the next investigation to re-audit `checkHuntCommand`, which has had
+   * four review rounds and twelve closed bypasses, and is not the problem.
+   * Only this branch knows which happened, so only this branch may say.
+   */
+  denied?: true
   /** Did a compression actually replace the output? (§6.3 audit) */
   compressed: boolean
   /**
@@ -549,7 +561,8 @@ export async function runHuntShell(
   input: HuntShellInput
 ): Promise<HuntShellOutput> {
   const check = checkHuntCommand(input.command)
-  if (!check.ok) return { ...uncompressed(''), error: check.reason }
+  if (!check.ok)
+    return { ...uncompressed(''), error: check.reason, denied: true }
 
   const { sandbox, cwd, token } = input.handle
   let raw: string

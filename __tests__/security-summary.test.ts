@@ -28,6 +28,7 @@ function finding(over: Partial<SecurityScanView['findings'][number]> = {}) {
     inherited: false,
     blocking: true,
     persisting: false,
+    queueExit: null,
     ...over,
   } as SecurityScanView['findings'][number]
 }
@@ -215,5 +216,50 @@ describe('LUM-738 supplyChain surface — rollup ignores persisting rows', () =>
       allLow: true,
     })
     expect(shouldExpandRow(mixed)).toBe(true)
+  })
+})
+
+describe('LUM-775 queue exit', () => {
+  it('a row that left the queue (merged / closed PR) is neither counted nor expanded for', () => {
+    const summary = summarizeSecurityScans([
+      {
+        latest: scan({
+          findings: [
+            finding({
+              id: 'a',
+              queueExit: 'RESOLVED_ON_MAIN',
+              blocking: false,
+            }),
+            finding({
+              id: 'b',
+              queueExit: 'MERGED_UNREVIEWED',
+              blocking: false,
+              severity: 'LOW',
+            }),
+            finding({ id: 'c', queueExit: 'PR_CLOSED', blocking: false }),
+          ],
+        }),
+      },
+    ])
+    expect(summary.findings).toBe(0)
+    expect(summary.allLow).toBe(false)
+    expect(
+      shouldExpandRow(
+        scan({ findings: [finding({ queueExit: 'MERGED_UNREVIEWED' })] })
+      )
+    ).toBe(false)
+    // A row still in the queue on the same scan keeps the count honest.
+    expect(
+      summarizeSecurityScans([
+        {
+          latest: scan({
+            findings: [
+              finding({ id: 'a', queueExit: 'RESOLVED_ON_MAIN' }),
+              finding({ id: 'b' }),
+            ],
+          }),
+        },
+      ]).findings
+    ).toBe(1)
   })
 })
