@@ -445,6 +445,26 @@ function formatActivityText(
         </span>
       )
     }
+    case 'BOUNDARY_CROSSING_REJUDGED': {
+      // LUM-780: a SYSTEM re-judge — the crossing's cause no longer holds, so
+      // the row is advisory now. Not a disposition; a human can still rule.
+      const reason = typeof p.reason === 'string' ? p.reason : ''
+      return (
+        <span className='inline-flex items-center gap-1 align-middle'>
+          <CheckCircle2 className='h-3.5 w-3.5 text-success' />
+          <span>
+            {intl.formatMessage(
+              {
+                id: 'activity.boundaryRejudged',
+                defaultMessage:
+                  're-judged the boundary-crossing as advisory — its cause no longer holds ({reason})',
+              },
+              { reason: reason.toLowerCase().replace(/_/g, ' ') }
+            )}
+          </span>
+        </span>
+      )
+    }
     case 'BOUNDARY_CROSSING_ACKNOWLEDGED': {
       return (
         <span className='inline-flex items-center gap-1 align-middle'>

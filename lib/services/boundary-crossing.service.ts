@@ -262,6 +262,11 @@ export interface BoundaryCrossingView {
   /** LUM-590: advisory crossings surface in the panel but never block DONE;
    *  a human disposition is encouraged but never required (true = advisory). */
   advisory: boolean
+  /** LUM-780: the latest SYSTEM re-judge that turned this crossing advisory
+   *  because its cause no longer holds — reason, evidence, which criterion
+   *  judged it, when. Null when the row was never re-judged. Read-only trail
+   *  (a BOUNDARY_CROSSING_REJUDGED activity); never a disposition. */
+  rejudge: RejudgeView | null
   /** LUM-590: which compiled PolicyRule fired (text ref / id); null when the
    *  crossing was not from a project-rule detector. */
   policyRuleRef: string | null
@@ -676,6 +681,46 @@ function receiptRefusal(
   return Object.assign(new Error(`Refused: ${why}.`), { status: 409 })
 }
 
+/** LUM-780: what the panel / CLI show for a re-judged advisory crossing. */
+export interface RejudgeView {
+  reason: string
+  evidence: string
+  criterionVersion: string | null
+  at: string
+}
+
+/** A BOUNDARY_CROSSING_REJUDGED activity row as the read model folds it. */
+export interface RejudgeActivityRow {
+  payload: unknown
+  createdAt: Date
+}
+
+/**
+ * LUM-780: the LATEST re-judge trail per crossing, folded from the task's
+ * BOUNDARY_CROSSING_REJUDGED activities (oldest-first). Malformed rows (no
+ * crossing id / no reason) are skipped — a missing trail renders as "not
+ * re-judged", never as a fabricated reason. Pure.
+ */
+export function latestRejudgeByCrossing(
+  rows: RejudgeActivityRow[]
+): Map<string, RejudgeView> {
+  const out = new Map<string, RejudgeView>()
+  for (const row of rows) {
+    const p = (row.payload ?? {}) as Record<string, unknown>
+    const id = p.boundaryCrossingId
+    const reason = p.reason
+    if (typeof id !== 'string' || typeof reason !== 'string') continue
+    out.set(id, {
+      reason,
+      evidence: typeof p.evidence === 'string' ? p.evidence : '',
+      criterionVersion:
+        typeof p.criterionVersion === 'string' ? p.criterionVersion : null,
+      at: iso(row.createdAt) ?? '',
+    })
+  }
+  return out
+}
+
 /** Descending prominence — higher = more severe, surfaced first (LUM-442). */
 const SEVERITY_RANK: Record<BoundaryCrossingSeverity, number> = {
   HIGH: 3,
@@ -708,6 +753,13 @@ export const boundaryCrossingService = {
     // a silent swap. One read for the whole task; folded in memory.
     const changeRows =
       await activityRepository.listDispositionChangesByTask(taskId)
+    // LUM-780: the re-judge trail — why an advisory row no longer blocks.
+    const rejudgeByCrossing = latestRejudgeByCrossing(
+      await activityRepository.listByTaskAndType(
+        taskId,
+        'BOUNDARY_CROSSING_REJUDGED'
+      )
+    )
     const changesByCrossing = new Map<string, DispositionActivityRow[]>()
     for (const row of changeRows) {
       const id = (row.payload as { boundaryCrossingId?: unknown } | null)
@@ -885,6 +937,7 @@ export const boundaryCrossingService = {
         explanations: explanationsByCrossing.get(c.id) ?? [],
         // LUM-590: advisory and policyRuleRef straight from the row.
         advisory: c.advisory,
+        rejudge: rejudgeByCrossing.get(c.id) ?? null,
         policyRuleRef: c.policyRuleRef ?? null,
         // LUM-590: frozen rule text and turn-level agent intent for the three-field
         // display. policyRuleText is the verbatim rule text stored at detection time.

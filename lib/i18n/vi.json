@@ -2368,5 +2368,7 @@
   "boundary.toast.ruleCreatedWithSweep": "Đã tạo quy tắc kho lưu trữ — đã xử lý {count} cảnh báo cùng loại đã có, và các lần sau sẽ được xử lý tự động",
   "boundary.toast.ruleRevokedWithReopen": "Đã thu hồi quy tắc — {count} cảnh báo từng được xử lý tự động đã mở lại",
   "boundary.panel.viaCli": "· qua CLI",
-  "boundary.panel.viaCliTip": "Được phán quyết từ terminal bằng lumo crossing disposition --confirm: agent đã chuyển tiếp vi phạm ranh giới và người dùng đã phê duyệt trong chat. Hãy sửa tại đây nếu phê duyệt đó không phải của bạn."
+  "boundary.panel.viaCliTip": "Được phán quyết từ terminal bằng lumo crossing disposition --confirm: agent đã chuyển tiếp vi phạm ranh giới và người dùng đã phê duyệt trong chat. Hãy sửa tại đây nếu phê duyệt đó không phải của bạn.",
+  "activity.boundaryRejudged": "đã đánh giá lại vi phạm ranh giới thành cảnh báo — nguyên nhân không còn tồn tại ({reason})",
+  "boundary.panel.rejudged": "Hệ thống đã đánh giá lại — không còn chặn Done: {evidence}"
 }

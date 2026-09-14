@@ -2368,5 +2368,7 @@
   "boundary.toast.ruleCreatedWithSweep": "Repository rule created — {count, plural, one {# existing alert} other {# existing alerts}} of the same kind dispositioned, and future occurrences will be auto-handled",
   "boundary.toast.ruleRevokedWithReopen": "Rule revoked — {count, plural, one {# alert} other {# alerts}} it had auto-handled are open again",
   "boundary.panel.viaCli": "· via CLI",
-  "boundary.panel.viaCliTip": "Ruled from the terminal with lumo crossing disposition --confirm: the agent relayed the crossing and the user approved in chat. Correct it here if that approval was not yours."
+  "boundary.panel.viaCliTip": "Ruled from the terminal with lumo crossing disposition --confirm: the agent relayed the crossing and the user approved in chat. Correct it here if that approval was not yours.",
+  "activity.boundaryRejudged": "re-judged the boundary-crossing as advisory — its cause no longer holds ({reason})",
+  "boundary.panel.rejudged": "Re-judged by the system — no longer blocks Done: {evidence}"
 }

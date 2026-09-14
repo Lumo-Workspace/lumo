@@ -21,6 +21,8 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: {
     create: jest.fn(),
     listDispositionChangesByTask: jest.fn(),
+    // LUM-780: the re-judge trail read — empty here.
+    listByTaskAndType: jest.fn().mockResolvedValue([]),
   },
 }))
 jest.mock('@/lib/repositories/member.repository', () => ({

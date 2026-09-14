@@ -2368,5 +2368,7 @@
   "boundary.toast.ruleCreatedWithSweep": "儲存庫規則已建立——已一併處置本儲存庫既有的 {count} 條同類告警，日後的同類越界將自動處置",
   "boundary.toast.ruleRevokedWithReopen": "規則已撤銷——它先前自動處置的 {count} 條告警已重新進入待處置",
   "boundary.panel.viaCli": "· 經 CLI",
-  "boundary.panel.viaCliTip": "由終端 lumo crossing disposition --confirm 裁定：agent 轉述了這條越界記錄，使用者在對話中核准。若該核准不是你本人所為，請在此處更正。"
+  "boundary.panel.viaCliTip": "由終端 lumo crossing disposition --confirm 裁定：agent 轉述了這條越界記錄，使用者在對話中核准。若該核准不是你本人所為，請在此處更正。",
+  "activity.boundaryRejudged": "已將該越界重判為提示——其原因已不成立（{reason}）",
+  "boundary.panel.rejudged": "系統已重判——不再阻擋 Done：{evidence}"
 }
