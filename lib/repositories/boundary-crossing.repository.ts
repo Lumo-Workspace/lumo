@@ -362,6 +362,9 @@ export const boundaryCrossingRepository = {
         dispositionNote: disposition === null ? null : note,
         dispositionedAt: disposition === null ? null : now,
         dispositionedById: disposition === null ? null : actorId,
+        // LUM-771: a human ruling (or reopen) supersedes a rule's stamp — the
+        // list view must stop reporting the rule, mirroring `reopenManyByIds`.
+        suppressionRuleId: null,
       },
     })
   },

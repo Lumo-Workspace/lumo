@@ -58,6 +58,17 @@ export type DoneBlocker =
       statement: string
     }
 
+/** LUM-771: an open crossing the server DONE gate does NOT count (advisory,
+ *  or below HIGH with the workspace gate off) — listed for awareness, never as
+ *  a blocker the agent is told to get dispositioned. */
+export interface NonBlockingCrossing {
+  id: string
+  severity: string
+  category: string
+  detail: string
+  advisory: boolean
+}
+
 export interface BlockedError {
   status: 'blocked'
   code: 'DONE_BLOCKED'
@@ -66,6 +77,8 @@ export interface BlockedError {
   /** The server's 409 text, verbatim. */
   message: string
   blockers: DoneBlocker[]
+  /** LUM-771: open crossings that do not block DONE (see NonBlockingCrossing). */
+  nonBlocking: NonBlockingCrossing[]
   /** Enrichment reads that failed — "could not confirm", never "none". */
   unconfirmed: string[]
   remediation: string[]
@@ -108,10 +121,15 @@ export async function collectDoneBlockers(args: {
   base: string
   token: string
   identifier: string
-}): Promise<{ blockers: DoneBlocker[]; unconfirmed: string[] }> {
+}): Promise<{
+  blockers: DoneBlocker[]
+  unconfirmed: string[]
+  nonBlocking: NonBlockingCrossing[]
+}> {
   const { base, token, identifier } = args
   const blockers: DoneBlocker[] = []
   const unconfirmed: string[] = []
+  const nonBlocking: NonBlockingCrossing[] = []
   const headers = { Authorization: `Bearer ${token}` }
 
   // Send-backs + blocking security findings: the acceptance-status read model.
@@ -161,18 +179,30 @@ export async function collectDoneBlockers(args: {
   if (crossings.status === 'error') {
     unconfirmed.push(`boundary-crossings read failed: ${crossings.reason}`)
   } else {
+    // LUM-771: mirror the server gate — an open row is a blocker only when
+    // the gate counts it; the rest are surfaced separately, never as blockers.
     for (const c of crossings.crossings) {
-      blockers.push({
-        kind: 'BOUNDARY_CROSSING',
-        id: c.id,
-        severity: c.severity,
-        category: c.category,
-        detail: c.detail,
-      })
+      if (c.blocking) {
+        blockers.push({
+          kind: 'BOUNDARY_CROSSING',
+          id: c.id,
+          severity: c.severity,
+          category: c.category,
+          detail: c.detail,
+        })
+      } else {
+        nonBlocking.push({
+          id: c.id,
+          severity: c.severity,
+          category: c.category,
+          detail: c.detail,
+          advisory: c.advisory,
+        })
+      }
     }
   }
 
-  return { blockers, unconfirmed }
+  return { blockers, unconfirmed, nonBlocking }
 }
 
 /**
@@ -219,6 +249,7 @@ export function buildBlockedError(args: {
   message: string
   blockers: DoneBlocker[]
   unconfirmed: string[]
+  nonBlocking?: NonBlockingCrossing[]
   apiUrl: string
   workspaceSlug: string
 }): BlockedError {
@@ -230,6 +261,7 @@ export function buildBlockedError(args: {
     task: args.identifier,
     message: args.message,
     blockers: args.blockers,
+    nonBlocking: args.nonBlocking ?? [],
     unconfirmed: args.unconfirmed,
     remediation: buildRemediation(args.blockers, args.unconfirmed, {
       identifier: args.identifier,
@@ -259,6 +291,16 @@ export function renderBlocked(err: BlockedError, isTTY: boolean): string {
     '',
     err.blockers.length > 0 ? 'Blockers:' : 'Blockers: (none listed)',
     ...err.blockers.map(b => `  • ${sanitizeField(blockerLine(b))}`),
+    ...(err.nonBlocking.length > 0
+      ? [
+          '',
+          'Also open, not blocking DONE (advisory / below the workspace gate):',
+          ...err.nonBlocking.map(
+            c =>
+              `  ◦ [${c.severity}${c.advisory ? ' advisory' : ''}] ${sanitizeField(c.category)} ${c.id}: ${sanitizeField(c.detail)}`
+          ),
+        ]
+      : []),
     ...(err.unconfirmed.length > 0
       ? ['', ...err.unconfirmed.map(u => `  ⚠ ${u}`)]
       : []),

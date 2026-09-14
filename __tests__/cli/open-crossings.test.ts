@@ -58,13 +58,13 @@ describe('fetchOpenCrossings distinguishes failure from empty (LUM-480)', () => 
       .spyOn(global, 'fetch')
       .mockResolvedValue(jsonResponse(200, { crossings: [] }))
     const result = await fetchOpenCrossings(API, TOKEN, TASK)
-    expect(result).toEqual({ status: 'ok', crossings: [] })
+    expect(result).toEqual({ status: 'ok', crossings: [], gateEnabled: true })
   })
 
   it('returns ok-empty when a well-formed 200 omits the crossings field', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse(200, {}))
     const result = await fetchOpenCrossings(API, TOKEN, TASK)
-    expect(result).toEqual({ status: 'ok', crossings: [] })
+    expect(result).toEqual({ status: 'ok', crossings: [], gateEnabled: true })
   })
 
   it('returns an error sentinel on a transport failure', async () => {
