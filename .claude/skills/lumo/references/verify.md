@@ -147,8 +147,8 @@ what's unmet and why (the exact failure tails), and how many rounds are left.
   - **Hunt coverage line** (LUM-762): indented under its scan line whenever the server sends the L3 hunt's per-category audit — `Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done (2 attempts) · t3 race skipped`. `<n>/N done` is how many planned tasks finished (where N is the number of tasks the planning step selected for this scan, typically 0–3). Rows persisted before LUM-758 lack a planned-task count and fall back to the historical 6-category denominator (reading as `/6` instead). Each segment is `[taskId ]<category> <elapsed>s <stop>` — the `taskId` prefix (`t1`, `t2`, …) appears only on current rows where the task graph is present (post-LUM-758), and is omitted on pre-task-graph audit rows, so they render exactly as they always did. Elapsed is summed over the task's attempts; `(N attempts)` when the workflow retried it; no elapsed for a `skipped` task (the scan's budget ran out before its turn). Stop values: `done` · `steps` · `budget` · `timeout` · `error` · `skipped`. Headed by the same display label as the layer's own segment (LUM-763), so the detail line and the line above it never name the layer two different ways. This is the only surface that reads `huntAudit`, so it is where you answer "how long does a healthy task take" and "which tasks never ran" without paging through deploy logs. Absent on an older server and on scans with no usable audit (pre-LUM-739 rows, or a hunt that failed before its first batch) — no line, never a guess.
   - **Persisting findings** (LUM-738): a finding whose fingerprint is already on the repository's default-branch baseline (`persisting`) is not this PR's — it never appears as a next action, is not counted in `openFindings`, and shows muted (_already on the default branch_) in the web panel. Dependency findings (`kind=DEPENDENCY`, from osv-scanner) are advisory: they never block DONE.
   - **Fails closed:** `⚠ Security-scan check failed — could not confirm …` when the scan read errored, and one `⚠ PR #n: … — could not confirm it is clean.` line per open PR whose latest scan is missing / FAILED / still running. Silence means a successful read with nothing open, never a failed check.
-- **Open boundary crossings** — a trailing safety block when the task has ≥1 OPEN (undispositioned) forbidden-action crossing: a count, then one line per crossing `• [SEVERITY] CATEGORY — <clipped detail>` (highest-severity first), each followed by a read-only **attribution** line `↳ by model=<m> · agent=<type>[/branch] · session=<8-char prefix>` (who/what crossed; any dimension that couldn't be resolved server-side prints `unknown`, never a fabricated value), then a pointer to the web acceptance panel. Silent when there are none, so it never overshadows the criteria.
-  - **Read-only awareness** — this surfaces crossings detected elsewhere; there is no CLI path to disposition or clear one. Disposition stays web + human-only: an agent/CLI bearer cannot clear its own crossing from the terminal.
+- **Open boundary crossings** — a trailing safety block when the task has ≥1 OPEN (undispositioned) forbidden-action crossing: a count, then one line per crossing `• [SEVERITY] CATEGORY — <clipped detail>` (highest-severity first), each followed by a read-only **attribution** line `↳ by model=<m> · agent=<type>[/branch] · session=<8-char prefix>` (who/what crossed; any dimension that couldn't be resolved server-side prints `unknown`, never a fabricated value), then a pointer to `lumo crossing disposition` and the web acceptance panel. Silent when there are none, so it never overshadows the criteria.
+  - **Read-only awareness** — this block surfaces crossings detected elsewhere and clears nothing itself. The ruling is the user's: `lumo crossing disposition <id> --false-positive | --confirmed` (exit-4 envelope you relay, LUM-769 — see below) or the web panel. You never self-approve.
   - **The check fails closed:** if the crossings read itself errors (network / server / parse), the block prints `⚠ Boundary-crossing check failed (network/server error) — could not confirm whether any are undispositioned` instead of staying silent. Silence means a successful read with zero open crossings, never a failed check — a hiccup can no longer masquerade as "all clear".
 
 ### Responding to an open crossing — `lumo crossing explain`
@@ -164,10 +164,29 @@ lumo crossing explain <id> --note "this was a generated fixture, not a hand-edit
 This is the **inverse** of dispositioning, but it is the agent/CLI path
 (bearer-only; a clerk/human caller is refused). Behavior:
 
-- it can **only append** an append-only note — it **never clears the crossing or unblocks Done** (disposition stays web + human-only);
+- it can **only append** an append-only note — it **never clears the crossing or unblocks Done** (the user rules, via `lumo crossing disposition` or the web panel);
 - the note is shown to the human reviewer at disposition time, kept for later review, and explicitly labeled _agent self-report · unverified_;
 - `<id>` must be a crossing on the **session-bound task** (resolved from `$CLAUDE_CODE_SESSION_ID`; cross-task targets and unbound/mismatched sessions are rejected);
 - earlier explanations are immutable — a correction is a new note.
+
+### Recording the user's ruling — `lumo crossing disposition` (LUM-769)
+
+When the user has ruled on a crossing — in chat, after you relayed it — record
+that ruling from the terminal instead of sending them to the web panel:
+
+```bash
+lumo crossing disposition <id> --false-positive --note "covered by the run-outbound tests"
+```
+
+It is a gated mutation on the [confirmation protocol](confirmation.md):
+
+- **without `--confirm`** it reads the crossing and prints an exit-4 envelope — severity, category, detail, `Seen ×N` when it recurred, every explanation you left (labelled _agent self-report · unverified_), the note, and a `⚠` line saying that approving clears this crossing's block on DONE (plus `⚠ HIGH severity` / `⚠ Irreversible category` when they apply). Nothing is written. Relay every line; the user rules; then run the `confirmCommand` verbatim. **Never add `--confirm` yourself** — the ruling is theirs, and the server records it as a CLI-channel disposition (shown as _via CLI_ in the panel) precisely because it cannot verify the in-chat approval;
+- **with `--confirm`** it POSTs the ruling (`FALSE_POSITIVE` | `CONFIRMED`, optional note) to the task-scoped route; either value clears that crossing's DONE block. The web panel can still correct it later;
+- the crossing is read first on both paths: a read that errors **fails closed** (exit 1, nothing written), an id not on the task is exit 1, and an already-matching ruling is a no-op (exit 0);
+- `<id>` resolves against the **session-bound task**; `--task <LUM-N>` overrides the binding (e.g. from a terminal with no session, or after DONE unbinds you);
+- **still web-only:** reverting a ruling to OPEN, repository suppression rules (LUM-751), and steward milestone crossings (`STEWARD_IMPLEMENTATION_ARTIFACT` has no task).
+
+After the last blocker is cleared, re-run the original `lumo task update <id> --status done --confirm` — its envelope was already approved.
 
 ### --json contract
 

@@ -89,7 +89,55 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Inspect and annotate boundary crossings"
+      "description": "Inspect, annotate and (with user approval) disposition boundary crossings"
+    },
+    "crossing disposition": {
+      "arguments": [{ "name": "id", "required": true, "variadic": false }],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the confirmation envelope (never add this on your own initiative)"
+        },
+        "--confirmed": {
+          "long": "--confirmed",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Rule the crossing confirmed (a real issue, acknowledged)"
+        },
+        "--false-positive": {
+          "long": "--false-positive",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Rule the crossing a false positive (not a real issue)"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Optional disposition note recorded with the ruling"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Task the crossing belongs to (defaults to the session-bound task)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Rule on a boundary crossing from the terminal (LUM-769) through the confirmation protocol: without --confirm it prints the crossing (severity, detail, agent explanations) as a confirmation envelope and exits 4, writing nothing; relay it to the user, and only after they approve re-run with --confirm. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
     },
     "crossing explain": {
       "arguments": [{ "name": "id", "required": true, "variadic": false }],

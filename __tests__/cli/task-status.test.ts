@@ -499,7 +499,8 @@ describe('taskStatus — open boundary crossings (LUM-448)', () => {
     expect(out).not.toContain('second line ignored')
     // The dispositioned crossing never appears.
     expect(out).not.toContain('HARDCODED_SECRET')
-    // Points at the human-only web disposition panel (no CLI clear path).
+    // Points at the web disposition panel (LUM-769 also names the user's
+    // `lumo crossing disposition` exit-4 path).
     expect(out).toContain('#boundary-crossings')
 
     // --json carries the same open crossings structurally, with severity.

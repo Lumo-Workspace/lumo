@@ -1,0 +1,76 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { requireIdentity } from '@/lib/auth'
+import { resolveTaskParam } from '@/lib/api/resolve-task-param'
+import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
+import { cliDispositionBoundaryCrossingSchema } from '@/lib/validation/boundary-crossing'
+import { zodError } from '@/lib/api/helpers'
+
+export const runtime = 'nodejs'
+
+type Params = { params: Promise<{ id: string; crossingId: string }> }
+
+/**
+ * POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition — the CLI
+ * disposition path (LUM-769): `lumo crossing disposition <id> --false-positive |
+ * --confirmed --confirm`.
+ *
+ * Bearer-only, the mirror of the web disposition route: a Clerk (browser)
+ * identity is refused 403 BEFORE the body is parsed — a human at the web UI
+ * rules in the panel, not through this endpoint. The bearer path exists because
+ * the CLI walks the exit-4 confirmation protocol first (the agent prints the
+ * crossing — severity, detail, its own explanations — the user approves in
+ * chat, the agent re-runs with --confirm). That approval cannot be verified
+ * here, so the ruling is recorded with `channel: 'CLI'` on its audit row and
+ * surfaced as such in the read model, instead of passing as a web click.
+ *
+ * Deliberately narrower than the web route: the body can carry only the two
+ * clearing values. The OPEN revert and the LUM-751 repository suppression
+ * opt-in are unrepresentable on this schema and stay web-only. Task-scoped:
+ * a milestone-bound (steward) crossing has no task and is not reachable here.
+ */
+export async function POST(request: NextRequest, { params }: Params) {
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
+
+  if (identity.source !== 'bearer') {
+    return NextResponse.json(
+      {
+        error:
+          'This is the CLI disposition path (bearer only) — a human at the web UI dispositions a boundary-crossing in the acceptance panel',
+      },
+      { status: 403 }
+    )
+  }
+
+  const { id: rawId, crossingId } = await params
+  const task = await resolveTaskParam(rawId, identity.workspaceId)
+  if (!task)
+    return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+
+  const body = await request.json().catch(() => null)
+  const parsed = cliDispositionBoundaryCrossingSchema.safeParse(body)
+  if (!parsed.success) return zodError(parsed)
+
+  try {
+    const outcome = await boundaryCrossingService.disposition(
+      task.id,
+      crossingId,
+      parsed.data.disposition,
+      parsed.data.dispositionNote ?? null,
+      {
+        actorMemberId: identity.memberId,
+        actorClerkId: identity.clerkId,
+        channel: 'CLI',
+      }
+    )
+    return NextResponse.json({ ...outcome, channel: 'CLI' })
+  } catch (error) {
+    const maybeStatus = (error as { status?: unknown } | null)?.status
+    const status = typeof maybeStatus === 'number' ? maybeStatus : 500
+    const message =
+      status === 500 || !(error instanceof Error)
+        ? 'Internal Server Error'
+        : error.message
+    return NextResponse.json({ error: message }, { status })
+  }
+}

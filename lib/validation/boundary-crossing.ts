@@ -49,3 +49,24 @@ export const explainBoundaryCrossingSchema = z
 export type ExplainBoundaryCrossingInput = z.infer<
   typeof explainBoundaryCrossingSchema
 >
+
+/**
+ * Body for POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition
+ * (LUM-769) — the CLI/agent-bearer disposition path that walks the exit-4
+ * confirmation protocol (`lumo crossing disposition … --confirm`). Strict and
+ * narrower than the web schema on purpose: only the two clearing values are
+ * representable. The `OPEN` revert sentinel and the LUM-751 repository
+ * suppression opt-in are NOT fields here — both stay web-only, so a bearer
+ * caller cannot reopen a crossing or write a project-wide rule from a terminal.
+ * The crossing id is a path param.
+ */
+export const cliDispositionBoundaryCrossingSchema = z
+  .object({
+    disposition: z.enum(['FALSE_POSITIVE', 'CONFIRMED']),
+    dispositionNote: z.string().trim().min(1).max(2000).optional(),
+  })
+  .strict()
+
+export type CliDispositionBoundaryCrossingInput = z.infer<
+  typeof cliDispositionBoundaryCrossingSchema
+>

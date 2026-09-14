@@ -2365,5 +2365,7 @@
   "boundary.panel.suppressPreview": "Ini juga akan menyelesaikan {count} amaran sedia ada yang sejenis dalam repositori ini.",
   "boundary.panel.suppressPreviewCapped": "Lebih daripada {cap} padanan — hanya {cap} yang terbaharu dikendalikan.",
   "boundary.toast.ruleCreatedWithSweep": "Peraturan repositori dicipta — {count} amaran sedia ada yang sejenis telah diselesaikan, dan kejadian akan datang akan dikendalikan secara automatik",
-  "boundary.toast.ruleRevokedWithReopen": "Peraturan dibatalkan — {count} amaran yang dikendalikannya secara automatik kini terbuka semula"
+  "boundary.toast.ruleRevokedWithReopen": "Peraturan dibatalkan — {count} amaran yang dikendalikannya secara automatik kini terbuka semula",
+  "boundary.panel.viaCli": "· melalui CLI",
+  "boundary.panel.viaCliTip": "Diputuskan dari terminal dengan lumo crossing disposition --confirm: ejen menyampaikan pelanggaran sempadan dan pengguna meluluskannya dalam sembang. Betulkan di sini jika kelulusan itu bukan daripada anda."
 }

@@ -2365,5 +2365,7 @@
   "boundary.panel.suppressPreview": "Damit werden auch {count, plural, one {# vorhandene Meldung} other {# vorhandene Meldungen}} derselben Art in diesem Repository erledigt.",
   "boundary.panel.suppressPreviewCapped": "Mehr als {cap} Treffer — nur die {cap} neuesten werden bearbeitet.",
   "boundary.toast.ruleCreatedWithSweep": "Repository-Regel erstellt — {count, plural, one {# vorhandene Meldung} other {# vorhandene Meldungen}} derselben Art erledigt; künftige Vorkommen werden automatisch behandelt",
-  "boundary.toast.ruleRevokedWithReopen": "Regel widerrufen — {count, plural, one {# Meldung, die sie automatisch behandelt hatte, ist} other {# Meldungen, die sie automatisch behandelt hatte, sind}} wieder offen"
+  "boundary.toast.ruleRevokedWithReopen": "Regel widerrufen — {count, plural, one {# Meldung, die sie automatisch behandelt hatte, ist} other {# Meldungen, die sie automatisch behandelt hatte, sind}} wieder offen",
+  "boundary.panel.viaCli": "· über CLI",
+  "boundary.panel.viaCliTip": "Über das Terminal mit lumo crossing disposition --confirm entschieden: der Agent hat den Grenzverstoß weitergegeben und der Nutzer hat im Chat zugestimmt. Korrigiere es hier, falls diese Zustimmung nicht von dir kam."
 }

@@ -23,11 +23,24 @@ import type {
   TaskStatus,
 } from '@prisma/client'
 
+/**
+ * LUM-769: which surface a disposition came through. `WEB` is a human click in
+ * the acceptance panel (a Clerk browser session). `CLI` is
+ * `lumo crossing disposition … --confirm` — the agent relayed the exit-4
+ * confirmation envelope and the user approved in chat, which the server cannot
+ * verify, so the channel is recorded on the audit row and surfaced in the read
+ * model instead of being folded into the web-click shape.
+ */
+export type DispositionChannel = 'WEB' | 'CLI'
+
 export interface DispositionAttribution {
   /** WorkspaceMember id of the dispositioning human. */
   actorMemberId: string
   /** Clerk user id of the dispositioning human. */
   actorClerkId: string
+  /** LUM-769: surface the ruling came through. Absent/`WEB` = the web panel
+   *  (payload shape unchanged); `CLI` is stamped on the audit payload. */
+  channel?: DispositionChannel
 }
 
 /** LUM-751: optional repository-rule opt-in riding a FALSE_POSITIVE ruling. */
@@ -130,6 +143,9 @@ export interface DispositionChangeView {
   to: BoundaryCrossingDisposition | null
   actorId: string | null
   at: string
+  /** LUM-769: `CLI` when the correction came through
+   *  `lumo crossing disposition --confirm`, else `WEB`. */
+  channel: DispositionChannel
 }
 
 /**
@@ -200,6 +216,11 @@ export interface BoundaryCrossingView {
   dispositionNote: string | null
   dispositionedAt: string | null
   dispositionedById: string | null
+  /** LUM-769: which surface the CURRENT disposition came through — `CLI` for
+   *  `lumo crossing disposition --confirm` (user approval relayed by the agent,
+   *  unverifiable server-side), `WEB` for a panel click. Null while open, and
+   *  for system dispositions that wrote no activity row (AUTO_LEGIT / rule). */
+  dispositionChannel: DispositionChannel | null
   remediationTask: RemediationTaskView | null
   /** Inline before→after of the triggering edit, for display-safe crossings only
    *  (LUM-452). Null for non-display-safe (secret-bearing) crossings. */
@@ -554,6 +575,26 @@ function readTransition(payload: unknown): {
   return { from: norm(p.from), to }
 }
 
+/** LUM-769: the surface a disposition activity came through. Only the CLI path
+ *  stamps `channel`; every row without it (web clicks, legacy rows) is WEB. */
+function readChannel(payload: unknown): DispositionChannel {
+  const p = (payload ?? {}) as Record<string, unknown>
+  return p.channel === 'CLI' ? 'CLI' : 'WEB'
+}
+
+/**
+ * LUM-769: the channel of the LATEST disposition activity on a crossing —
+ * initial disposition or correction alike. Rows arrive oldest-first; null when
+ * no activity was ever written (system dispositions such as AUTO_LEGIT or a
+ * repository rule record none). Pure.
+ */
+export function latestDispositionChannel(
+  rows: DispositionActivityRow[]
+): DispositionChannel | null {
+  const last = rows[rows.length - 1]
+  return last ? readChannel(last.payload) : null
+}
+
 /**
  * The latest *correction* among a crossing's disposition activities (LUM-450):
  * the most recent change whose `from` is non-null — i.e. it changed an existing
@@ -573,6 +614,7 @@ export function lastDispositionChange(
       to,
       actorId: row.actorId,
       at: iso(row.createdAt) ?? '',
+      channel: readChannel(row.payload),
     }
   }
   return latest
@@ -773,6 +815,11 @@ export const boundaryCrossingService = {
         dispositionNote: c.dispositionNote,
         dispositionedAt: iso(c.dispositionedAt),
         dispositionedById: c.dispositionedById,
+        // LUM-769: the surface of the current ruling; null while open or when
+        // the ruling was a system one that wrote no activity row.
+        dispositionChannel: c.disposition
+          ? latestDispositionChannel(changesByCrossing.get(c.id) ?? [])
+          : null,
         remediationTask,
         editChange,
         lastDispositionChange: lastDispositionChange(
@@ -833,10 +880,15 @@ export const boundaryCrossingService = {
    * the target equals the current value nothing is written and no redundant
    * audit row is emitted, preserving the original reviewer/timestamp.
    *
-   * RED LINE: a clearing (or re-clearing) action can never originate from an
-   * agent. There is no machine write path to this service — an agent cannot
-   * alter the disposition of its own forbidden action to unblock its own DONE
-   * transition.
+   * Who may reach this service (LUM-769 supersedes the "web-only" half of the
+   * red line): the web route (Clerk human, `channel` absent → WEB) and the
+   * task-scoped CLI route (bearer, `channel: 'CLI'`), which the CLI only calls
+   * after walking the exit-4 confirmation protocol — the agent relays the
+   * envelope, the user approves in chat, and the agent re-runs with --confirm.
+   * That approval is unverifiable server-side, so the channel is stamped on the
+   * audit row and the read model surfaces it. What stays web-only: the OPEN
+   * revert and the LUM-751 suppression opt-in (the CLI schema cannot carry
+   * either).
    */
   async disposition(
     taskId: string,
@@ -963,6 +1015,9 @@ export const boundaryCrossingService = {
         note: note ?? null,
         // LUM-751: the repository rule created with this ruling, if any.
         ...(suppressionRuleId ? { suppressionRuleId } : {}),
+        // LUM-769: stamped only on the CLI path, so a web ruling's payload keeps
+        // its pre-769 shape and the two stay distinguishable in the audit trail.
+        ...(attribution.channel === 'CLI' ? { channel: 'CLI' } : {}),
       },
     })
 

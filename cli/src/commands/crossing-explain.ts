@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { resolveBoundTask } from '../lib/bound-task'
 
 export interface CrossingExplainOptions {
   note?: string
@@ -21,8 +22,9 @@ interface ExplainOutcome {
  *
  * This is the AGENT side of the boundary-crossing review loop and the deliberate
  * inverse of dispositioning: it can only ADD an append-only note for the human
- * reviewer to weigh — it never clears the crossing or unblocks Done (a human
- * dispositions that, in the web acceptance panel). The crossing must belong to
+ * reviewer to weigh — it never clears the crossing or unblocks Done (the user
+ * rules on that: `lumo crossing disposition` through the exit-4 confirmation
+ * protocol, or the web acceptance panel). The crossing must belong to
  * the task this session is bound to; the binding is how the target task is
  * resolved, so run it inside a session attached via `lumo session attach`.
  */
@@ -58,30 +60,9 @@ export async function crossingExplain(
 
   // The crossing is addressed by id, but the route is task-scoped — resolve the
   // bound task from the session so the server can verify the crossing is on it.
-  if (!sessionId) {
-    console.error(
-      'Error: $CLAUDE_CODE_SESSION_ID is not set — run inside a session bound via `lumo session attach <LUM-N>`.'
-    )
-    return 1
-  }
-  let bound: { taskIdentifier: string | null } | null
-  try {
-    const res = await fetch(
-      `${base}/api/sessions/${encodeURIComponent(sessionId)}`,
-      { headers }
-    )
-    bound = res.ok
-      ? ((await res.json()) as { taskIdentifier: string | null })
-      : null
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error(`Error: could not reach Lumo API (${msg})`)
-    return 1
-  }
-  if (!bound?.taskIdentifier) {
-    console.error(
-      'Error: this session is not bound to a task. Run `lumo session attach <LUM-N>` first.'
-    )
+  const bound = await resolveBoundTask({ base, headers, sessionId })
+  if (!bound.ok) {
+    console.error(bound.message)
     return 1
   }
   const taskId = bound.taskIdentifier
@@ -123,7 +104,9 @@ export async function crossingExplain(
   process.stdout.write(
     `✓ Recorded an explanation on crossing ${sanitizeField(outcome.crossingId)}.\n` +
       '  This is an append-only note for the human reviewer — it does not clear ' +
-      'the crossing or unblock Done.\n'
+      'the crossing or unblock Done. Once the user rules, record it with ' +
+      '`lumo crossing disposition <id> --false-positive | --confirmed` (exit-4 envelope) ' +
+      'or in the web panel.\n'
   )
   return
 }

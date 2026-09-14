@@ -31,7 +31,7 @@ export interface TaskStatusOptions {
 }
 
 /** Extra render inputs layered onto the status read model (LUM-448): the task's
- *  OPEN boundary-crossings read result + the human-only web disposition link.
+ *  OPEN boundary-crossings read result + the web disposition panel link.
  *  The result carries an explicit failure state (LUM-480) so a failed check
  *  renders a warning instead of an implicitly-safe empty block. Absent
  *  (`undefined`) means no read was attempted — e.g. a direct `formatTaskStatus`
@@ -994,7 +994,9 @@ function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
     lines.push(`  • [${c.severity}] ${sanitizeField(c.category)}${tail}`)
     lines.push(`    ${formatAttribution(c.attribution)}`)
   }
-  lines.push('  Disposition is human-only in the web acceptance panel:')
+  lines.push(
+    "  Disposition is the user's call: relay each crossing, then `lumo crossing disposition <id> --false-positive | --confirmed` (exit-4 envelope; never self-approve), or the web acceptance panel:"
+  )
   if (extras.dispositionUrl) {
     lines.push(`    ${extras.dispositionUrl}`)
   }

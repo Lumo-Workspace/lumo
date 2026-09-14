@@ -2365,5 +2365,7 @@
   "boundary.panel.suppressPreview": "这还会一并处置本仓库已有的 {count} 条同类告警。",
   "boundary.panel.suppressPreviewCapped": "匹配数超过 {cap} 条——只处置最近的 {cap} 条。",
   "boundary.toast.ruleCreatedWithSweep": "仓库规则已创建——已一并处置本仓库已有的 {count} 条同类告警，以后的同类越界将自动处置",
-  "boundary.toast.ruleRevokedWithReopen": "规则已撤销——它此前自动处置的 {count} 条告警已重新进入待处置"
+  "boundary.toast.ruleRevokedWithReopen": "规则已撤销——它此前自动处置的 {count} 条告警已重新进入待处置",
+  "boundary.panel.viaCli": "· 经 CLI",
+  "boundary.panel.viaCliTip": "由终端 lumo crossing disposition --confirm 裁定：agent 转述了这条越界记录，用户在对话中批准。若该批准不是你本人所为，请在此处更正。"
 }

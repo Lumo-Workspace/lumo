@@ -2365,5 +2365,7 @@
   "boundary.panel.suppressPreview": "Thao tác này cũng sẽ xử lý {count} cảnh báo cùng loại đã có trong kho lưu trữ này.",
   "boundary.panel.suppressPreviewCapped": "Có hơn {cap} kết quả khớp — chỉ {cap} cảnh báo gần đây nhất được xử lý.",
   "boundary.toast.ruleCreatedWithSweep": "Đã tạo quy tắc kho lưu trữ — đã xử lý {count} cảnh báo cùng loại đã có, và các lần sau sẽ được xử lý tự động",
-  "boundary.toast.ruleRevokedWithReopen": "Đã thu hồi quy tắc — {count} cảnh báo từng được xử lý tự động đã mở lại"
+  "boundary.toast.ruleRevokedWithReopen": "Đã thu hồi quy tắc — {count} cảnh báo từng được xử lý tự động đã mở lại",
+  "boundary.panel.viaCli": "· qua CLI",
+  "boundary.panel.viaCliTip": "Được phán quyết từ terminal bằng lumo crossing disposition --confirm: agent đã chuyển tiếp vi phạm ranh giới và người dùng đã phê duyệt trong chat. Hãy sửa tại đây nếu phê duyệt đó không phải của bạn."
 }

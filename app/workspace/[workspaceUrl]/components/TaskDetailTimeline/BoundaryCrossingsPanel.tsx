@@ -844,6 +844,25 @@ function CrossingRow({
                     : '',
                 }
               )}
+          {/* LUM-769: a ruling relayed through the CLI is shown as such — the
+          server cannot verify the in-chat approval, so it never passes as a
+          panel click. */}
+          {!open && c.dispositionChannel === 'CLI' && (
+            <span
+              data-testid={`boundary-via-cli-${c.id}`}
+              className='ml-1'
+              title={intl.formatMessage({
+                id: 'boundary.panel.viaCliTip',
+                defaultMessage:
+                  'Ruled from the terminal with lumo crossing disposition --confirm: the agent relayed the crossing and the user approved in chat. Correct it here if that approval was not yours.',
+              })}
+            >
+              {intl.formatMessage({
+                id: 'boundary.panel.viaCli',
+                defaultMessage: '· via CLI',
+              })}
+            </span>
+          )}
         </span>
       </div>
 

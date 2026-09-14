@@ -4,10 +4,14 @@
  * The confirmation protocol (confirmation.ts, exit 4) covers mutations the
  * USER can approve. Some refusals are different in kind: the server's DONE
  * gates — an unresolved send-back, an undispositioned boundary crossing, a
- * blocking security finding — are verdicts on the agent's own work, and by
- * design there is no CLI path to clear them (the interested party may not
- * adjudicate itself). Echoing the 409 text and exiting 1 left the agent
- * grepping prose to learn that. Instead the CLI now:
+ * blocking security finding — are verdicts on the agent's own work, and the
+ * agent may not adjudicate itself: nothing on `task update` clears them.
+ * Since LUM-769 a boundary crossing does have a terminal path, but it is the
+ * USER's — `lumo crossing disposition` walks the same exit-4 protocol (the
+ * agent relays the crossing, the user rules, the agent re-runs with the
+ * approval flag); send-backs and security findings stay human-side / web.
+ * Echoing the 409 text and exiting 1 left the agent grepping prose to learn
+ * that. Instead the CLI now:
  *
  *   1. recognises the gate refusal (`isDoneGateRefusal`);
  *   2. re-reads the existing read models — `GET …/status` for send-backs and
@@ -172,9 +176,10 @@ export async function collectDoneBlockers(args: {
 }
 
 /**
- * One line per blocker kind present. Every line names a human-side path or
- * the append-only `crossing explain` — never a flag or command that would let
- * the agent clear its own blocker.
+ * One line per blocker kind present. Every line names a human-side path, the
+ * append-only `crossing explain`, or the user-approved `crossing disposition`
+ * (exit-4 protocol) — never a ready-to-run flag that would let the agent
+ * clear its own blocker on its own initiative.
  */
 export function buildRemediation(
   blockers: DoneBlocker[],
@@ -193,7 +198,7 @@ export function buildRemediation(
       .filter(b => b.kind === 'BOUNDARY_CROSSING')
       .map(b => (b as { id: string }).id)
     lines.push(
-      `BOUNDARY_CROSSING: leave a rationale with \`lumo crossing explain ${ids[0]} --note "…"\` (append-only; it does not clear anything). A human dispositions each crossing (false positive / confirmed) at ${ctx.dispositionUrl}`
+      `BOUNDARY_CROSSING: leave a rationale with \`lumo crossing explain ${ids[0]} --note "…"\` (append-only; it does not clear anything), then relay each crossing to the user. Once they rule, record it with \`lumo crossing disposition ${ids[0]} --false-positive\` or \`--confirmed\` — it prints an exit-4 envelope for the user to approve; never self-approve. The web panel also works: ${ctx.dispositionUrl}`
     )
   }
   if (kinds.has('SECURITY_FINDING')) {
@@ -260,7 +265,7 @@ export function renderBlocked(err: BlockedError, isTTY: boolean): string {
     '',
     'What can move it:',
     ...err.remediation.map(r => `  - ${r}`),
-    `  Disposition (human-only): ${err.dispositionUrl}`,
+    `  Web disposition panel: ${err.dispositionUrl}`,
   ]
   return lines.join('\n') + '\n'
 }

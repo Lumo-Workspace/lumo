@@ -35,6 +35,10 @@ import {
   type CrossingExplainOptions,
 } from './commands/crossing-explain'
 import {
+  crossingDisposition,
+  type CrossingDispositionOptions,
+} from './commands/crossing-disposition'
+import {
   outcomeShow,
   outcomeRate,
   type OutcomeRateOptions,
@@ -319,7 +323,9 @@ program
 
 const crossing = program
   .command('crossing')
-  .description('Inspect and annotate boundary crossings')
+  .description(
+    'Inspect, annotate and (with user approval) disposition boundary crossings'
+  )
 
 crossing
   .command('explain <id>')
@@ -333,6 +339,34 @@ crossing
   .action(
     wrap((id: unknown, options: unknown) =>
       crossingExplain(id as string, options as CrossingExplainOptions)
+    )
+  )
+
+crossing
+  .command('disposition <id>')
+  .description(
+    "Rule on a boundary crossing from the terminal (LUM-769) through the confirmation protocol: without --confirm it prints the crossing (severity, detail, agent explanations) as a confirmation envelope and exits 4, writing nothing; relay it to the user, and only after they approve re-run with --confirm. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
+  )
+  .option(
+    '--false-positive',
+    'Rule the crossing a false positive (not a real issue)'
+  )
+  .option(
+    '--confirmed',
+    'Rule the crossing confirmed (a real issue, acknowledged)'
+  )
+  .option('--note <text>', 'Optional disposition note recorded with the ruling')
+  .option(
+    '--task <identifier>',
+    'Task the crossing belongs to (defaults to the session-bound task)'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the confirmation envelope (never add this on your own initiative)'
+  )
+  .action(
+    wrap((id: unknown, options: unknown) =>
+      crossingDisposition(id as string, options as CrossingDispositionOptions)
     )
   )
 
