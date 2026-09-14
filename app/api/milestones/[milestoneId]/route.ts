@@ -25,8 +25,8 @@ export async function GET(request: NextRequest, { params }: Params) {
     )
     const taskCounts = await milestoneRepository.countTasksByStatus(milestoneId)
     const health = milestoneHealthFromCounts(milestone, taskCounts, new Date())
-    // LUM-624: staleness hints for the payload; a detected status drift also
-    // dispatches a background reconcile so stale rows self-heal on read.
+    // LUM-624: staleness hints for the payload; a detected completion drift
+    // also dispatches a background reconcile so stale rows self-heal on read.
     const staleness = await milestoneRollupService.observeOnRead(
       milestone,
       taskCounts
@@ -114,20 +114,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const parsed = updateMilestoneSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
-    // LUM-643: the exit-criteria close-gate override is human-only — honored
-    // exclusively on the Clerk (browser) path. A bearer/agent `?force=1` is a
-    // silent no-op, mirroring the task-level DONE gate (LUM-422 ④).
-    const force =
-      identity.source === 'clerk' &&
-      request.nextUrl.searchParams.get('force') === '1'
-    const { overrideNote, ...update } = parsed.data
     const milestone = await milestoneService.updateMilestone(
       milestoneId,
       identity.memberId,
-      update,
-      force
-        ? { overrideCloseGate: true, overrideNote: overrideNote ?? null }
-        : undefined
+      parsed.data
     )
     return NextResponse.json({ milestone })
   } catch (error) {

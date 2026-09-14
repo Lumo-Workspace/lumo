@@ -56,7 +56,11 @@ export function TaskMilestoneField({
   const [hasOpened, setHasOpened] = useState(false)
   const { milestones, loading } = useMilestones(projectId, 'active', hasOpened)
 
-  const selectable = milestones.filter(m => m.status !== 'CANCELLED')
+  // LUM-714: the old `status !== 'CANCELLED'` filter has no successor to
+  // apply — a cancelled milestone is an archived one now, and the `'active'`
+  // fetch above already excludes archived. Completed milestones stay
+  // selectable, exactly as before (binding a task simply reopens them).
+  const selectable = milestones
 
   // Trigger label: prefer the loaded option (carries targetDate), fall back to
   // the SSR-prefetched name so the name shows on first paint, else placeholder.

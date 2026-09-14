@@ -3,19 +3,10 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveMilestoneId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 
-const ALLOWED_STATUSES = [
-  'PLANNED',
-  'ACTIVE',
-  'COMPLETED',
-  'CANCELLED',
-] as const
-type Status = (typeof ALLOWED_STATUSES)[number]
-
 export interface UpdateMilestoneOptions {
   project?: string
   name?: string
   description?: string
-  status?: string
   start?: string
   target?: string
   /** LUM-644 advisory token budget: a positive integer, '' to clear. */
@@ -25,18 +16,9 @@ export interface UpdateMilestoneOptions {
 interface UpdatePayload {
   name?: string
   description?: string | null
-  status?: Status
   startDate?: string | null
   targetDate?: string | null
   tokenBudget?: number | null
-}
-
-export function normalizeMilestoneStatus(value: string): Status | null {
-  if (!value) return null
-  const upper = value.toUpperCase().replace(/-/g, '_')
-  return (ALLOWED_STATUSES as readonly string[]).includes(upper)
-    ? (upper as Status)
-    : null
 }
 
 /**
@@ -66,10 +48,6 @@ export function buildMilestoneUpdatePayload(opts: UpdateMilestoneOptions): {
     payload.description = opts.description === '' ? null : opts.description
     flagsGiven.push('--description')
   }
-  if (opts.status !== undefined) {
-    payload.status = opts.status as Status
-    flagsGiven.push('--status')
-  }
   if (opts.start !== undefined) {
     payload.startDate = opts.start === '' ? null : opts.start
     flagsGiven.push('--start')
@@ -90,7 +68,6 @@ export function buildMilestoneUpdatePayload(opts: UpdateMilestoneOptions): {
 interface MilestoneSnapshot {
   name: string
   description?: string | null
-  status?: string
   startDate?: string | null
   targetDate?: string | null
   tokenBudget?: number | null
@@ -116,9 +93,6 @@ export function formatMilestoneUpdateSummary(
       after.description === null ? 'description → ∅' : 'description updated'
     )
   }
-  if (after.status !== undefined && after.status !== before.status) {
-    changes.push(`status ${before.status} → ${after.status}`)
-  }
   if (after.startDate !== undefined) {
     changes.push(`start → ${fmtDate(after.startDate)}`)
   }
@@ -139,19 +113,6 @@ export async function milestoneUpdate(
   identifier: string,
   opts: UpdateMilestoneOptions
 ): Promise<number | void> {
-  // Validate status flag eagerly.
-  let normalizedStatus: Status | undefined
-  if (opts.status !== undefined) {
-    const n = normalizeMilestoneStatus(opts.status)
-    if (!n) {
-      console.error(
-        `Error: invalid status "${opts.status}". Allowed: planned, active, completed, cancelled`
-      )
-      return 1
-    }
-    normalizedStatus = n
-  }
-
   // Validate token budget eagerly (LUM-644): positive integer, or '' to clear.
   if (
     opts.tokenBudget !== undefined &&
@@ -163,13 +124,10 @@ export async function milestoneUpdate(
     return 1
   }
 
-  const { payload, flagsGiven } = buildMilestoneUpdatePayload({
-    ...opts,
-    ...(normalizedStatus !== undefined && { status: normalizedStatus }),
-  })
+  const { payload, flagsGiven } = buildMilestoneUpdatePayload(opts)
   if (flagsGiven.length === 0) {
     console.error(
-      'Error: provide at least one field to update (--name, --description, --status, --start, --target, --token-budget)'
+      'Error: provide at least one field to update (--name, --description, --start, --target, --token-budget)'
     )
     return 1
   }

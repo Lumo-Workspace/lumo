@@ -8,6 +8,10 @@ import {
 } from '@/lib/agent-run/active-time'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import {
+  milestoneState,
+  type MilestoneState,
+} from '@/lib/summaries/milestone-state'
 import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
@@ -150,7 +154,7 @@ export interface TaskContext {
     milestone: {
       id: string
       name: string
-      status: 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
+      state: MilestoneState
       targetDate: string | null
       description: string | null
     } | null
@@ -1388,7 +1392,7 @@ export const taskContextService = {
           ? {
               id: milestone.id,
               name: milestone.name,
-              status: milestone.status,
+              state: milestoneState(milestone),
               targetDate: milestone.targetDate
                 ? milestone.targetDate.toISOString()
                 : null,

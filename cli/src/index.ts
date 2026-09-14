@@ -1344,15 +1344,11 @@ milestoneCmd
 milestoneCmd
   .command('update <identifier>')
   .description(
-    'Update a milestone. Provide at least one of --name, --description, --status, --start, --target, --token-budget. Use "" to clear nullable fields.'
+    'Update a milestone. Provide at least one of --name, --description, --start, --target, --token-budget. Use "" to clear nullable fields. Completion is derived from task completion (LUM-714) — there is no status flag.'
   )
   .option('--project <ref>', 'Project name or slug (when identifier is a name)')
   .option('-n, --name <text>', 'New name')
   .option('-d, --description <text>', 'New description (empty string to clear)')
-  .option(
-    '-s, --status <value>',
-    'New status: planned | active | completed | cancelled (case-insensitive)'
-  )
   .option('--start <date>', 'Start date YYYY-MM-DD (empty string to clear)')
   .option('--target <date>', 'Target date YYYY-MM-DD (empty string to clear)')
   .option(

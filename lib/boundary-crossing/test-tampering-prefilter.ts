@@ -102,8 +102,12 @@ export function classifyTestTamperingPrefilter(
   // A legit reason must be POSITIVE evidence — `null` (uncomputable) is not.
   const legitReason =
     input.productionCodeCoChanged === true || input.backingCriterionChanged
+  // LUM-771: a Write has no before side, so "not weakened" is NOT evidence —
+  // `assertionsWeakened` simply could not look. A full-file rewrite must never
+  // clear Stage 1 on its own; it always goes to Stage 2 as AMBIGUOUS.
+  const diffable = input.oldString != null
 
-  if (!weakened && legitReason) return 'LEGIT'
+  if (diffable && !weakened && legitReason) return 'LEGIT'
   if (weakened && !legitReason) return 'WEAKENING'
   return 'AMBIGUOUS'
 }

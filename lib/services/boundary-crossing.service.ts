@@ -4,6 +4,7 @@ import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { crossingSuppressionRuleRepository } from '@/lib/repositories/crossing-suppression-rule.repository'
 import {
+  exactSuppressionPattern,
   isSuppressibleCategory,
   RETROACTIVE_SUPPRESSION_CAP,
 } from '@/lib/boundary-crossing/suppression'
@@ -581,6 +582,16 @@ export interface DispositionActivityRow {
   createdAt: Date | string
 }
 
+/** Every `BoundaryCrossingDisposition` value (the enum is imported as a type
+ *  only, so the runtime set is spelled out; `satisfies` keeps each spelling
+ *  honest against the schema). */
+const DISPOSITION_VALUES: ReadonlySet<string> = new Set([
+  'FALSE_POSITIVE',
+  'CONFIRMED',
+  'AUTO_LEGIT',
+  'AUTO_SUPPRESSED',
+] satisfies BoundaryCrossingDisposition[])
+
 /** Normalize a disposition activity payload's transition, tolerating legacy
  *  rows (pre-LUM-450) that carry only `disposition` (the new value) and no
  *  explicit `from`/`to`. */
@@ -589,8 +600,12 @@ function readTransition(payload: unknown): {
   to: BoundaryCrossingDisposition | null
 } {
   const p = (payload ?? {}) as Record<string, unknown>
+  // LUM-771: every disposition value, including the system ones — a human
+  // correcting AUTO_SUPPRESSED / AUTO_LEGIT is a correction, not a first ruling.
   const norm = (v: unknown): BoundaryCrossingDisposition | null =>
-    v === 'FALSE_POSITIVE' || v === 'CONFIRMED' ? v : null
+    typeof v === 'string' && DISPOSITION_VALUES.has(v)
+      ? (v as BoundaryCrossingDisposition)
+      : null
   const to = 'to' in p ? norm(p.to) : norm(p.disposition)
   return { from: norm(p.from), to }
 }
@@ -994,7 +1009,7 @@ export const boundaryCrossingService = {
           {
             projectId: task.projectId,
             category: crossing.category,
-            targetPattern: crossing.target,
+            targetPattern: exactSuppressionPattern(crossing.target),
             reason: options.suppressionReason ?? null,
             createdById: attribution.actorMemberId,
             sourceCrossingId: crossingId,
@@ -1302,7 +1317,7 @@ export const boundaryCrossingService = {
       await boundaryCrossingRepository.countRetroactiveSuppressionCandidates({
         projectId: task.projectId,
         category: crossing.category,
-        targetPattern: crossing.target,
+        targetPattern: exactSuppressionPattern(crossing.target),
         excludeCrossingId: crossingId,
       })
     return {

@@ -62,7 +62,7 @@ export const loadTaskDetail = cache(
         },
         team: { select: { identifier: true } },
         sprint: { select: { id: true, name: true, status: true } },
-        milestone: { select: { id: true, name: true, status: true } },
+        milestone: { select: { id: true, name: true, completedAt: true } },
       },
     })
     if (!rawTask) notFound()

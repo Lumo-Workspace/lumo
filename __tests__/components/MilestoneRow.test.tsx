@@ -1,10 +1,10 @@
 /** @jest-environment jsdom */
 /**
  * LUM-723 — the milestone list is a table of one-line rows, not a card grid.
- * Each row carries exactly four readings: the status dot, the name, progress
+ * Each row carries exactly four readings: the delivery dot, the name, progress
  * (bar + done/total) and the target date. These tests pin the readings and the
  * two degradations the design calls for: a milestone archived while unfinished
- * greys out and gets tagged, and an overdue target date outranks the status on
+ * greys out and gets tagged, and an overdue target date outranks delivery on
  * the dot (an "Active" label would bury the fact a scanner needs).
  */
 
@@ -15,10 +15,9 @@ const en: Record<string, string> = {
   'milestone.archive': 'Archive',
   'milestone.unarchive': 'Unarchive',
   'common.copyLink': 'Copy link',
-  'milestone.status.ACTIVE': 'Active',
-  'milestone.status.PLANNED': 'Planned',
-  'milestone.status.COMPLETED': 'Completed',
-  'milestone.status.CANCELLED': 'Cancelled',
+  'milestone.state.active': 'Active',
+  'milestone.state.completed': 'Completed',
+  'milestone.state.archived': 'Archived',
   'milestone.health.at-risk': 'At risk',
   'milestone.health.overdue': 'Overdue',
   'milestone.health.on-track': 'On track',
@@ -47,7 +46,6 @@ function milestone(overrides: Partial<ApiMilestone> = {}): ApiMilestone {
     name: 'Q3 Launch',
     slug: 'q3-launch',
     description: null,
-    status: 'ACTIVE',
     startDate: null,
     targetDate: '2026-08-31T00:00:00.000Z',
     completedAt: null,
@@ -73,7 +71,7 @@ function renderRow(m: ApiMilestone, progress = { done: 2, total: 8 }) {
 }
 
 describe('MilestoneRow', () => {
-  it('renders the status dot, title, progress and target date in one row', () => {
+  it('renders the delivery dot, title, progress and target date in one row', () => {
     const { container } = renderRow(milestone())
 
     // The dot announces what it encodes rather than being colour-only.
@@ -120,7 +118,7 @@ describe('MilestoneRow', () => {
   it('carries no incomplete tag when an archived milestone did finish its tasks', () => {
     renderRow(
       milestone({
-        status: 'COMPLETED',
+        completedAt: '2026-06-01T00:00:00.000Z',
         archivedAt: '2026-07-01T00:00:00.000Z',
       }),
       { done: 6, total: 6 }
@@ -130,7 +128,7 @@ describe('MilestoneRow', () => {
     expect(screen.getByLabelText('Completed')).toBeInTheDocument()
   })
 
-  it('lets an overdue target date outrank the status on the dot', () => {
+  it('lets an overdue target date outrank delivery on the dot', () => {
     renderRow(milestone({ health: 'overdue' }))
 
     expect(screen.getByLabelText('Overdue')).toBeInTheDocument()

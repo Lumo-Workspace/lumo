@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.60.0",
+  "cliVersion": "1.61.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -1993,14 +1993,6 @@
           "enumCaseInsensitive": false,
           "description": "Start date YYYY-MM-DD (empty string to clear)"
         },
-        "--status": {
-          "long": "--status",
-          "short": "-s",
-          "value": "required",
-          "enum": ["planned", "active", "completed", "cancelled"],
-          "enumCaseInsensitive": true,
-          "description": "New status: planned | active | completed | cancelled (case-insensitive)"
-        },
         "--target": {
           "long": "--target",
           "short": null,
@@ -2020,7 +2012,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Update a milestone. Provide at least one of --name, --description, --status, --start, --target, --token-budget. Use \"\" to clear nullable fields."
+      "description": "Update a milestone. Provide at least one of --name, --description, --start, --target, --token-budget. Use \"\" to clear nullable fields. Completion is derived from task completion (LUM-714) — there is no status flag."
     },
     "next": {
       "arguments": [],

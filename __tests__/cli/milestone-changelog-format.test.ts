@@ -16,7 +16,7 @@ function sampleChangelog(): MilestoneChangelogPayload {
   return {
     milestone: {
       name: 'Agent-Native Milestones',
-      status: 'ACTIVE',
+      state: 'active' as const,
       startDate: '2026-06-01T00:00:00.000Z',
       targetDate: '2026-07-03T00:00:00.000Z',
     },
@@ -86,9 +86,9 @@ describe('milestone changelog renderer', () => {
     const cl = sampleChangelog()
     const md = formatMilestoneChangelog(cl)
 
-    // Milestone header carries name + status.
+    // Milestone header carries name + derived state (LUM-714).
     expect(md).toContain('Agent-Native Milestones')
-    expect(md).toContain('ACTIVE')
+    expect(md).toContain('(active)')
 
     // Headline counts are baseline-annotated: a real base shows the base value,
     // delta and band; a null base reads as an explicit "no baseline".
