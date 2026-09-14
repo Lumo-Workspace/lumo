@@ -92,6 +92,32 @@ export function normalizeForPresence(text: string): string {
   return text.toLowerCase().replace(/[`*]/g, '').replace(/\s+/g, ' ').trim()
 }
 
+/**
+ * The rule-text side of the presence check. The classifier hands back the
+ * sentence it extracted — and sometimes decorates it: 14 production rows cite
+ * `use only \`prisma migrate deploy\` — … \`_prisma_migrations\` [for production
+ * migrations]`, a trailing bracketed gloss that is nowhere in CLAUDE.md, so a
+ * verbatim `includes` read a rule that is plainly still on line 78 as
+ * "removed" — HIGH, blocking, 14 times. Only a TRAILING `[…]` gloss and
+ * trailing punctuation are stripped, and only on the rule side: the source is
+ * never loosened, so the check can still only pass when the rule's own words
+ * are in the file (fail-closed direction unchanged).
+ */
+export function normalizeRuleTextForPresence(text: string): string {
+  return normalizeForPresence(
+    text.replace(/\s*\[[^\]]*\]\s*$/u, '').replace(/[.;:,]+\s*$/u, '')
+  )
+}
+
+/** Is the rule's text still in the source? One predicate, shared by the
+ *  detector (policy-compiler `emitWeakening`) and the re-judge, so the two
+ *  can never disagree about the same evidence. */
+export function ruleTextPresentIn(source: string, ruleText: string): boolean {
+  const needle = normalizeRuleTextForPresence(ruleText)
+  if (needle.length === 0) return false
+  return normalizeForPresence(source).includes(needle)
+}
+
 /** The rule text an emitted POLICY_WEAKENING quoted in its detail, for rows
  *  written before `policyRuleText` was stamped (LUM-780). Only a complete
  *  quote counts — a `clip`-truncated detail loses its closing quote and must
@@ -136,9 +162,7 @@ export function rejudgePolicyWeakening(
       criterionVersion,
     }
   }
-  const present = normalizeForPresence(source).includes(
-    normalizeForPresence(text)
-  )
+  const present = ruleTextPresentIn(source, text)
   if (!present) {
     return {
       outcome: 'STILL_HOLDS',

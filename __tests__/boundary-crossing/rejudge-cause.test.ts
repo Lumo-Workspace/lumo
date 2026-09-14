@@ -13,6 +13,8 @@ import {
   rejudgePolicyWeakening,
   rejudgeTestFileDeleted,
   removedTestFiles,
+  normalizeRuleTextForPresence,
+  ruleTextPresentIn,
 } from '@/lib/boundary-crossing/rejudge-cause'
 import { EVASION_MARKER } from '@/lib/boundary-crossing/evasion'
 
@@ -55,6 +57,47 @@ describe('normalizeForPresence / ruleTextFromDetail', () => {
   })
 })
 
+describe('ruleTextPresentIn — the rule side tolerates a trailing classifier gloss, the source is never loosened', () => {
+  // The exact production sentence (CLAUDE.md, "Production" bullet) and the
+  // exact text the classifier extracted for it — with its own bracketed gloss.
+  const PROD_LINE =
+    '- **Production**: … Even with authorization: (a) confirm the exact migration(s) about to apply and call out any data-destructive steps before running anything, (b) use **only** `prisma migrate deploy` — never `migrate dev`, `db push`, `migrate reset`, or direct edits to `_prisma_migrations`, (c) verify with `prisma migrate status` against the prod URL afterward.'
+  const EXTRACTED =
+    'use only `prisma migrate deploy` — never `migrate dev`, `db push`, `migrate reset`, or direct edits to `_prisma_migrations` [for production migrations]'
+
+  it('strips only a TRAILING [gloss] and trailing punctuation from the rule text', () => {
+    expect(normalizeRuleTextForPresence(EXTRACTED)).toBe(
+      'use only prisma migrate deploy — never migrate dev, db push, migrate reset, or direct edits to _prisma_migrations'
+    )
+    expect(normalizeRuleTextForPresence('Never push to main.')).toBe(
+      'never push to main'
+    )
+    // A bracket in the middle is part of the rule, not a gloss.
+    expect(normalizeRuleTextForPresence('use [only] deploy')).toBe(
+      'use [only] deploy'
+    )
+  })
+
+  it('finds the glossed production rule in its source line (the 14-row false positive)', () => {
+    expect(ruleTextPresentIn(PROD_LINE, EXTRACTED)).toBe(true)
+  })
+
+  it('still refuses a rule whose own words are not in the source, and an empty rule', () => {
+    expect(
+      ruleTextPresentIn(PROD_LINE, 'never run migrate deploy [for production]')
+    ).toBe(false)
+    expect(ruleTextPresentIn(PROD_LINE, '[only a gloss]')).toBe(false)
+    expect(ruleTextPresentIn(PROD_LINE, '')).toBe(false)
+  })
+
+  it('the source side is not loosened — a gloss in the SOURCE does not help a rule that lacks it', () => {
+    // Symmetric stripping would make these equal; only the rule side strips.
+    expect(
+      ruleTextPresentIn('never push [to main]', 'never push to main')
+    ).toBe(false)
+  })
+})
+
 describe('rejudgePolicyWeakening (criterion: is the rule text still in the source)', () => {
   const version = REJUDGE_CRITERION_VERSION.POLICY_WEAKENING
 
@@ -89,6 +132,19 @@ describe('rejudgePolicyWeakening (criterion: is the rule text still in the sourc
       CLAUDE_MD
     )
     expect(v.outcome).toBe('CAUSE_GONE')
+  })
+
+  it('CAUSE_GONE for the glossed production rule text against the real CLAUDE.md sentence', () => {
+    const v = rejudgePolicyWeakening(
+      {
+        detail: '',
+        policyRuleText:
+          'use only `prisma migrate deploy` — never `migrate dev`, `db push`, `migrate reset`, or direct edits to `_prisma_migrations` [for production migrations]',
+      },
+      '(b) use **only** `prisma migrate deploy` — never `migrate dev`, `db push`, `migrate reset`, or direct edits to `_prisma_migrations`, (c) verify'
+    )
+    expect(v.outcome).toBe('CAUSE_GONE')
+    expect(v.reason).toBe('RULE_TEXT_PRESENT')
   })
 
   it('falls back to the rule text quoted in the detail when the row has none', () => {

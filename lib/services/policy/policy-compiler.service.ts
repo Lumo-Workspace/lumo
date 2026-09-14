@@ -25,7 +25,7 @@ import {
 } from '@/lib/repositories/project-policy.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { logger } from '@/lib/logger'
-import { normalizeForPresence } from '@/lib/boundary-crossing/rejudge-cause'
+import { ruleTextPresentIn } from '@/lib/boundary-crossing/rejudge-cause'
 import { isReversible } from '@/lib/services/boundary-detector.service'
 import { isObligationText } from './rule-polarity'
 import { pushRuleShape } from './push-rule'
@@ -145,9 +145,10 @@ async function emitWeakening(
     if (next == null) return true // removed
     return !(next.tier === 'deterministic' && next.blocking) // downgraded
   })
-  const haystack = normalizeForPresence(source)
   for (const r of weakened) {
-    const stillInSource = haystack.includes(normalizeForPresence(r.text))
+    // LUM-780: one shared predicate with the re-judge (tolerates a trailing
+    // classifier gloss on the rule side; the source is never loosened).
+    const stillInSource = ruleTextPresentIn(source, r.text)
     const detail = stillInSource
       ? `The policy compiler stopped treating this rule as deterministic+blocking, but its text is UNCHANGED in CLAUDE.md — a classifier decision, not an edit: "${r.text}"`
       : `A deterministic Forbidden rule was removed from CLAUDE.md: "${r.text}"`
