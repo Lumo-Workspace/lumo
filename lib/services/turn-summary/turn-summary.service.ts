@@ -1,4 +1,5 @@
 import { FAST_MODEL } from '@/lib/ai/models'
+import { logger } from '@/lib/logger'
 import { generateText } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -36,6 +37,13 @@ const SYSTEM_PROMPT = `你是 Lumo 的 Agent 运行总结助手。给你一个 C
  * Fire-and-forget: read this STOP's surrounding session events, slice
  * the just-ended turn out, ask a small LLM for a one-line description
  * of what happened, and write it back onto the STOP HookEvent row.
+ *
+ * LUM-773 — this is now the SUMMARY-ONLY path: sessions with no bound task
+ * (STOP) and STOP_FAILURE turns. A task-bound STOP gets its summary from the
+ * combined Layer 1 extraction (`layer1Service`), whose single model call
+ * yields both the memory candidates and this same one-liner — the stop route
+ * dispatches to exactly one of the two. Keep the summary contract here and in
+ * `layer1-prompt.ts` (`## turnSummary`) in step.
  *
  * Owns its own error handling (must never throw — invoked from
  * `afterRecord` which itself runs under `waitUntil`). Failure modes:
@@ -80,7 +88,7 @@ export const turnSummaryService = {
 
       await hookEventRepository.setTurnSummary(input.stopEventId, cleaned)
     } catch (error) {
-      console.error(
+      logger.error(
         `[turnSummary] failed event=${input.stopEventId} session=${input.sessionId}:`,
         error
       )

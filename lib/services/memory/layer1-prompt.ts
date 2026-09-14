@@ -72,14 +72,36 @@ Every candidate content object SHOULD include a \`summary\`: a very short label 
 - GOOD (a short label): summary "Enum value + use in one migration fails."
 - Omit \`summary\` only if you genuinely cannot compress the memory below the headline's length. When present it must be non-empty.
 
-# Output — candidate facts
+# Output — turn summary + candidate facts
 
-You output a JSON list of *candidate facts* worth remembering from this turn —
-each a { category, content, scope? } object (same content shapes as above).
-You do NOT decide ADD vs UPDATE vs delete here; a later step compares each
-candidate against existing memories. Your only job: emit the genuinely
-memory-worthy facts as candidates. If nothing in the turn is memory-worthy,
-return an empty candidates list.
+You return ONE JSON object: { "turnSummary": "...", "candidates": [...] }.
+This single call replaces what used to be separate summary and grounding
+calls, so both parts matter.
+
+## turnSummary (always present)
+
+用一句中文（不超过 60 个字）总结这一回合 Agent 实际做了什么——基于事件本身，不要套话。
+- 用动词开头，例如"读了 X、修改 Y、运行 Z"
+- 提到关键文件名或命令时保留原样
+- 不要写"我"或"Agent"，直接写动作
+- 不要解释为什么、不要总结意义、不要写下一步、不要写"完成了"
+- 如果回合只是查询/思考没有副作用，写"查阅 X"或"分析 X"
+- 严格一句话，不换行，不带引号
+
+## candidates
+
+A JSON list of *candidate facts* worth remembering from this turn — each a
+{ category, content, scope?, quote } object (content shapes as above). You do
+NOT decide ADD vs UPDATE vs delete here; a later step compares each candidate
+against existing memories. Your only job: emit the genuinely memory-worthy
+facts as candidates. If nothing in the turn is memory-worthy, return an empty
+candidates list (the turnSummary is still required).
+
+- \`quote\` (REQUIRED on every candidate): a short snippet copied verbatim,
+  character for character, from the Turn section that backs the candidate's
+  core claim (the error, the rule, the decision, the cause). Never paraphrase
+  inside \`quote\` and never quote your own candidate text — a candidate whose
+  quote cannot be found in the turn is discarded without review.
 
 # Scope (optional per candidate)
 
@@ -113,34 +135,25 @@ Tight by default. A whole memory is usually 1–2 lines. Only PROCEDURAL earns a
 - Detail fields (\`outcome\`, \`why\`, \`scope\`, \`workaround\`): a clause or one sentence — not a paragraph. Add a second sentence ONLY when the point is genuinely counter-intuitive and needs the "why". File paths, line numbers, error codes go here when they matter.
 - Don't write to a length. If the lesson is one clause, ship one clause. Don't manufacture "alternatives"/"implications"/narration to look thorough.
 
-The OLD failure mode was cryptic log-lines ("Session.taskId vs payload divergence"). The fix for that over-corrected into AI-flavored over-writing. Aim for the middle: a real engineer's note — clear, specific, and short. Not a slide title, not a paragraph.`
+The OLD failure mode was cryptic log-lines ("Session.taskId vs payload divergence"). The fix for that over-corrected into AI-flavored over-writing. Aim for the middle: a real engineer's note — clear, specific, and short. Not a slide title, not a paragraph.
 
-/**
- * The exact source material the extract LLM reads for a turn. Exported as the
- * single source for the LUM-396 grounding pass — quote spans are verified
- * against this text, so it must be byte-identical to what extraction saw.
- */
-export function buildLayer1SourceText(turnEvents: RawEvent[]): string {
-  return compactEvents(turnEvents, { maxToolCalls: 80 }).text || '(empty turn)'
-}
-
-export function buildLayer1ExtractPrompt(input: BuildPromptInput): BuiltPrompt {
-  const sourceText = buildLayer1SourceText(input.turnEvents)
-
-  const examples = `# Examples
+# Examples
 
 Example 1 — TRAP + a SEPARATE PROCEDURAL, used ONLY because the fix is genuinely multi-step (two migrations). The TRAP has NO \`workaround\` — the fix lives once, in the PROCEDURAL. (PROJECT scope — toolchain lesson applies to every migration task.)
 Turn (excerpt):
   [12:00:01] Bash "npx prisma migrate dev --name add_status" ERR — stderr: P3009: enum can't add value mid-migration
 Output:
-  { "candidates": [
+  { "turnSummary": "运行 prisma migrate dev 加 status 枚举，P3009 报错",
+    "candidates": [
     { "category": "TRAP", "scope": "PROJECT",
+      "quote": "P3009: enum can't add value mid-migration",
       "content": {
         "summary": "Enum value + use in one migration fails",
         "trigger": "Add a Postgres enum value and use it in the same Prisma migration.",
         "outcome": "Fails with P3009 — Postgres won't alter an enum and read the new value in one transaction."
       } },
     { "category": "PROCEDURAL", "scope": "PROJECT",
+      "quote": "P3009: enum can't add value mid-migration",
       "content": {
         "summary": "Add a Postgres enum value safely",
         "workflow": "Add a new Postgres enum value in Prisma",
@@ -161,8 +174,10 @@ BAD output (double-write — the fix written twice: once on the TRAP, again as a
       "content": { "workflow": "Call Slack Web API with form-encoded params", "trigger": "Calling users.info/conversations.info.", "steps": ["Set Content-Type to application/x-www-form-urlencoded.", "Send token=...&user=... as form data."] } } ] }
 
 GOOD output (one home — the one-line fix lives on the TRAP, no PROCEDURAL):
-  { "candidates": [
+  { "turnSummary": "调 Slack users.info 返回 invalid_arguments，改为 form-encoded",
+    "candidates": [
     { "category": "TRAP", "scope": "PROJECT",
+      "quote": "Slack users.info ignores JSON bodies — had to send form-encoded.",
       "content": {
         "summary": "Slack users.info rejects JSON bodies",
         "trigger": "POST Slack users.info / conversations.info with a JSON body.",
@@ -174,8 +189,10 @@ Example 2 — CONVENTION from a user instruction (PROJECT scope — applies to e
 Turn (excerpt):
   [turn end] "Per user: 'all new schemas need to use Zod' — applied to OrgInvite schema."
 Output:
-  { "candidates": [
+  { "turnSummary": "按用户要求把 OrgInvite schema 改为 Zod",
+    "candidates": [
     { "category": "CONVENTION", "scope": "PROJECT",
+      "quote": "all new schemas need to use Zod",
       "content": {
         "rule": "New request/response schemas use Zod, not handwritten types or other validators.",
         "scope": "All new schemas. Existing ones migrate opportunistically — not required."
@@ -187,7 +204,7 @@ Turn (excerpt):
   [09:30:02] Bash "ls components/" OK — stdout: button.tsx card.tsx ...
   [turn end] "I've reviewed the structure."
 Output:
-  { "candidates": [] }
+  { "turnSummary": "查阅 src/app/page.tsx 与 components 目录结构", "candidates": [] }
 
 Example 5 — Headline that's clear without over-writing (contrastive — the two failure modes)
 Turn (excerpt):
@@ -205,8 +222,10 @@ BAD output B (over-written, AI-flavored — narrates the fallout and prescribes 
     } }
 
 GOOD output (clear AND tight — names the cause, states the effect, stops):
-  { "candidates": [
+  { "turnSummary": "分析 SubagentStop 钩子死锁，定位无超时的记忆抽取调用",
+    "candidates": [
     { "category": "TRAP",
+      "quote": "memory-extraction call to the server had no timeout",
       "content": {
         "summary": "Blocking SubagentStop hook deadlocks the parent",
         "trigger": "A SubagentStop hook handler blocks or throws (e.g. an HTTP call with no timeout).",
@@ -234,8 +253,10 @@ BAD output B (right content, but every field over-written into a paragraph — t
     } }
 
 GOOD output (same forces, same alternative, same constraint — one clause each):
-  { "candidates": [
+  { "turnSummary": "决定任务记忆写入从软删除改为硬删除",
+    "candidates": [
     { "category": "DECISION",
+      "quote": "no UI or query ever consumed archived rows",
       "content": {
         "summary": "Memory writes: soft-delete → hard-delete",
         "what": "Memory writes: soft-delete (archivedAt) → hard-delete.",
@@ -258,13 +279,67 @@ BAD output (short, but reads like a paper title — stacked abstract nouns, no v
     } }
 
 GOOD output (say it like you would to a coworker — plain words, real verbs):
-  { "candidates": [
+  { "turnSummary": "调 /api/tasks?assignee=alice 返回了另一个 Alice 的任务",
+    "candidates": [
     { "category": "TRAP",
+      "quote": "the lookup matched on display name and silently took the first row",
       "content": {
         "summary": "Two people share a name, lookup grabs the first",
         "trigger": "Look someone up by the name the user typed, and two people have that name.",
         "outcome": "The code quietly picks the first one → you act on the wrong person and don't notice."
-      } } ] }`
+      } } ] }
+
+# Your output
+Return a JSON object { "turnSummary": "...", "candidates": [...] } matching the schema. If nothing in the turn is memory-worthy, return { "turnSummary": "...", "candidates": [] }.`
+
+/**
+ * LUM-773 skip gate: a turn with NO tool calls whose compacted log is shorter
+ * than this is a pure Q&A / acknowledgement turn — nothing to remember and the
+ * UI already falls back to the assistant's own message for the summary, so the
+ * extraction call is not worth making. Any turn with a tool call is never
+ * gated, however short: a single failing command is exactly the kind of thing
+ * memory exists for. Deliberately small so a one-line user instruction that
+ * sets a convention (Example 2 in the prompt) still gets read.
+ */
+export const LAYER1_TRIVIAL_TURN_MAX_CHARS = 200
+
+export interface TurnSource {
+  /** Byte-identical to what the extract prompt embeds under `# Turn`. */
+  text: string
+  toolCallLineCount: number
+  /** True when the turn is too trivial to spend an extraction call on. */
+  trivial: boolean
+}
+
+/**
+ * The exact source material the extract LLM reads for a turn, plus the facts
+ * the skip gate needs. Single source for local grounding — quotes are checked
+ * against `text`, so it must be what extraction saw.
+ */
+export function classifyTurnSource(turnEvents: RawEvent[]): TurnSource {
+  const compacted = compactEvents(turnEvents, { maxToolCalls: 80 })
+  const text = compacted.text || '(empty turn)'
+  return {
+    text,
+    toolCallLineCount: compacted.toolCallLineCount,
+    trivial:
+      compacted.toolCallLineCount === 0 &&
+      text.length < LAYER1_TRIVIAL_TURN_MAX_CHARS,
+  }
+}
+
+export function buildLayer1SourceText(turnEvents: RawEvent[]): string {
+  return classifyTurnSource(turnEvents).text
+}
+
+/**
+ * LUM-773 — the ONE per-turn extract prompt. Everything static (instructions,
+ * examples, output contract) is in `system`, byte-identical across turns, so
+ * the gateway's prefix cache can serve it; `user` carries only the task
+ * context and the compacted turn.
+ */
+export function buildLayer1ExtractPrompt(input: BuildPromptInput): BuiltPrompt {
+  const sourceText = buildLayer1SourceText(input.turnEvents)
 
   const description = input.task.description?.trim() || '(no description)'
 
@@ -273,12 +348,7 @@ Title: ${input.task.title}
 Description: ${description}
 
 # Turn (compacted Claude Code event log)
-${sourceText}
-
-${examples}
-
-# Your output
-Return a JSON object { "candidates": [...] } matching the schema. If nothing in the turn is memory-worthy, return { "candidates": [] }.`
+${sourceText}`
 
   return { system: SYSTEM_PROMPT, user: userPrompt }
 }

@@ -45,6 +45,9 @@ jest.mock('@/lib/services/memory/manual-dedup', () => ({
 }))
 
 // ── Layer-1-path collaborators ──
+jest.mock('@/lib/repositories/hook-event.repository', () => ({
+  hookEventRepository: { setTurnSummary: jest.fn(async () => {}) },
+}))
 jest.mock('@/lib/services/memory/layer1-input', () => ({
   getLayer1Input: jest.fn(async () => ({
     task: {
@@ -55,14 +58,36 @@ jest.mock('@/lib/services/memory/layer1-input', () => ({
       workspaceId: 'w1',
     },
     existingMemories: [],
-    turnEvents: [],
+    // LUM-773: a real tool-call turn — trivial turns are gated before
+    // extraction, and local grounding needs source text to quote from.
+    turnEvents: [
+      {
+        id: 'evt_pre',
+        type: 'PRE_TOOL_USE',
+        toolName: 'Bash',
+        payload: {
+          tool_input: { command: 'npm run slack:retry' },
+          tool_use_id: 't1',
+        },
+        createdAt: new Date('2026-05-04T12:00:00Z'),
+      },
+      {
+        id: 'evt_stop',
+        type: 'STOP',
+        payload: {
+          last_assistant_message:
+            'Slack webhook retries exhaust after 3 attempts and the notification is silently dropped.',
+        },
+        createdAt: new Date('2026-05-04T12:00:01Z'),
+      },
+    ],
     agent: undefined,
   })),
 }))
 const mockExtract = jest.fn()
 const mockReconcile = jest.fn(async () => [])
 jest.mock('@/lib/services/memory/layer1-extract', () => ({
-  extractLayer1Candidates: (...a: unknown[]) => mockExtract(...(a as [])),
+  extractLayer1Turn: (...a: unknown[]) => mockExtract(...(a as [])),
   reconcileLayer1Candidates: (...a: unknown[]) => mockReconcile(...(a as [])),
 }))
 jest.mock('@/lib/services/memory/ground-candidates', () => ({
@@ -98,6 +123,13 @@ const NOVEL = {
     outcome: 'notification silently dropped; add a dead-letter log',
   },
 }
+// LUM-773: the extract pass attaches a verbatim quote per candidate; both
+// are grounded here so ONLY the constitution gate decides their fate.
+const REDUNDANT_Q = { ...REDUNDANT, quote: 'npm run slack:retry' }
+const NOVEL_Q = {
+  ...NOVEL,
+  quote: 'Slack webhook retries exhaust after 3 attempts',
+}
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -127,11 +159,15 @@ describe('source constitution-redundancy gate (LUM-538)', () => {
 
     // ── Layer-1 path: a redundant + a novel candidate are extracted; only the
     // novel one survives the gate and reaches reconcile. ──
-    mockExtract.mockResolvedValueOnce([REDUNDANT, NOVEL])
+    mockExtract.mockResolvedValueOnce({
+      summary: '运行 slack 重试脚本',
+      candidates: [REDUNDANT_Q, NOVEL_Q],
+    })
     await layer1Service.triggerLayer1Extraction({
       sessionId: 's1',
       taskId: 't1',
       workspaceId: 'w1',
+      stopEventId: 'evt_stop',
     })
     expect(mockReconcile).toHaveBeenCalledTimes(1)
     const reconcileArgs = mockReconcile.mock.calls[0] as unknown as [

@@ -1,4 +1,5 @@
 import { FAST_MODEL } from '@/lib/ai/models'
+import { logger } from '@/lib/logger'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
@@ -10,6 +11,7 @@ import {
 } from './reconcile-parse'
 import type { Layer1Input } from './layer1-input'
 import type { ScoredNeighbor } from './neighbor-retriever'
+import { cleanTurnSummary } from '@/lib/services/meta-reasoning'
 
 // ── Output schema ─────────────────────────────────────────────────────────────
 
@@ -62,19 +64,36 @@ export const layer1OutputSchema = z.object({
 export type Layer1Operation = z.infer<typeof layer1OperationSchema>
 export type Layer1Output = z.infer<typeof layer1OutputSchema>
 
-// ── Pass 1: candidate extraction ───────────────────────────────────────────
+// ── Pass 1: combined turn extraction (LUM-773) ──────────────────────────────
 
 export const layer1CandidateSchema = z.object({
   category: memoryCategorySchema,
   scope: memoryScopeSchema.optional(),
   content: z.unknown(),
+  /**
+   * Verbatim snippet from the turn that backs the candidate. Required by the
+   * prompt; optional in the schema so a missing quote discards ONE candidate
+   * (in `groundCandidatesLocally`) instead of failing the whole object.
+   */
+  quote: z.string().optional(),
 })
 
-export const layer1CandidatesOutputSchema = z.object({
+/**
+ * One call per turn yields both the one-line turn summary (formerly the
+ * separate turn-summary.service flash call) and the memory candidates.
+ */
+export const layer1TurnOutputSchema = z.object({
+  turnSummary: z.string().optional(),
   candidates: z.array(layer1CandidateSchema),
 })
 
 export type Layer1Candidate = z.infer<typeof layer1CandidateSchema>
+
+export interface Layer1TurnExtraction {
+  /** Cleaned one-liner (cleanTurnSummary), or null when absent / rejected. */
+  summary: string | null
+  candidates: Layer1Candidate[]
+}
 
 const MODEL_ID = FAST_MODEL
 
@@ -114,7 +133,7 @@ export async function reconcileLayer1Candidates(
       'memory.layer1'
     )
   } catch (error) {
-    console.error(
+    logger.error(
       `[memory.layer1] reconciliation failed task=${input.task.id}:`,
       error
     )
@@ -123,13 +142,15 @@ export async function reconcileLayer1Candidates(
 }
 
 /**
- * Pass 1: read the turn and emit candidate facts worth remembering — blind to
- * existing memories. Reconciliation (ADD vs UPDATE vs SUPERSEDE vs NOOP) is a
- * separate pass that sees each candidate's neighbors. Failures degrade to [].
+ * Pass 1 (LUM-773): read the turn ONCE and emit (a) the one-line turn summary
+ * and (b) candidate facts worth remembering, each with a verbatim quote —
+ * blind to existing memories. Reconciliation (ADD vs UPDATE vs SUPERSEDE vs
+ * NOOP) is a separate pass that sees each candidate's neighbors. Failures
+ * degrade to an empty extraction.
  */
-export async function extractLayer1Candidates(
+export async function extractLayer1Turn(
   input: Layer1Input
-): Promise<Layer1Candidate[]> {
+): Promise<Layer1TurnExtraction> {
   const { system, user } = buildLayer1ExtractPrompt({
     task: { title: input.task.title, description: input.task.description },
     turnEvents: input.turnEvents,
@@ -137,16 +158,19 @@ export async function extractLayer1Candidates(
   try {
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
-      schema: layer1CandidatesOutputSchema,
+      schema: layer1TurnOutputSchema,
       system,
       prompt: user,
     })
-    return object.candidates
+    return {
+      summary: cleanTurnSummary(object.turnSummary ?? ''),
+      candidates: object.candidates,
+    }
   } catch (error) {
-    console.error(
-      `[memory.layer1] candidate extraction failed task=${input.task.id}:`,
+    logger.error(
+      `[memory.layer1] turn extraction failed task=${input.task.id}:`,
       error
     )
-    return []
+    return { summary: null, candidates: [] }
   }
 }

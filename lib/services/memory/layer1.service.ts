@@ -1,23 +1,27 @@
 import { logger } from '@/lib/logger'
 import { getLayer1Input } from './layer1-input'
-import {
-  extractLayer1Candidates,
-  reconcileLayer1Candidates,
-} from './layer1-extract'
+import { extractLayer1Turn, reconcileLayer1Candidates } from './layer1-extract'
 import { applyLayer1Operations } from './layer1-apply'
-import { groundCandidates } from './ground-candidates'
+import { groundCandidatesLocally } from './local-grounding'
 import { screenCandidate } from './extraction-gate'
 import { loadConstitutionText } from './constitution'
-import { buildLayer1SourceText } from './layer1-prompt'
+import { classifyTurnSource } from './layer1-prompt'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { NEIGHBOR_K } from './neighbor-retriever'
 import { compositeNeighborRetriever } from './embedding-neighbor-retriever'
 import { embedTexts } from '@/lib/ai/embedding'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 
 interface TriggerLayer1Input {
   sessionId: string
   taskId: string | null
   workspaceId: string
+  /**
+   * LUM-773 — the just-inserted STOP event. The combined extraction also
+   * produces the one-line turn summary, which is written back here (what the
+   * standalone turn-summary call used to do for task-bound sessions).
+   */
+  stopEventId: string
 }
 
 /**
@@ -25,10 +29,11 @@ interface TriggerLayer1Input {
  * error handling — must never throw, since the caller (the hook route) has
  * already returned 200 by the time this runs under `waitUntil(...)`.
  *
- * Two-pass reconcile-on-write with a grounding gate (LUM-396):
- *   getLayer1Input → extractLayer1Candidates (Pass 1) → groundCandidates
- *   (quote-or-discard) → per-candidate neighbor retrieval →
- *   reconcileLayer1Candidates (Pass 2) → applyLayer1Operations.
+ * One model call per turn (LUM-773), then reconcile-on-write:
+ *   getLayer1Input → skip gate (trivial turn) → extractLayer1Turn (summary +
+ *   quoted candidates, ONE call) → write summary → groundCandidatesLocally
+ *   (quote-in-source, no LLM) → extraction gate → per-candidate neighbor
+ *   retrieval → reconcileLayer1Candidates (Pass 2) → applyLayer1Operations.
  * Each step degrades to a no-op on failure rather than propagating.
  */
 export const layer1Service = {
@@ -52,22 +57,43 @@ export const layer1Service = {
         return
       }
 
-      // Pass 1 — extract candidate facts, blind to existing memories.
-      const rawCandidates = await extractLayer1Candidates(layer1Input)
-      if (rawCandidates.length === 0) {
+      // Skip gate (LUM-773) — a tool-less, near-empty turn is not worth a
+      // model call; the UI summary falls back to the assistant message.
+      const source = classifyTurnSource(layer1Input.turnEvents)
+      if (source.trivial) {
+        logger.debug(
+          `[memory.layer1] skip session=${input.sessionId} reason=trivial-turn chars=${source.text.length}`
+        )
+        return
+      }
+
+      // Pass 1 — ONE call: turn summary + candidate facts (each with a quote),
+      // blind to existing memories.
+      const extraction = await extractLayer1Turn(layer1Input)
+      if (extraction.summary) {
+        await hookEventRepository.setTurnSummary(
+          input.stopEventId,
+          extraction.summary
+        )
+      }
+      if (extraction.candidates.length === 0) {
         logger.debug(`[memory.layer1] no-candidates session=${input.sessionId}`)
         return
       }
 
-      // Grounding gate (LUM-396) — quote-or-discard against the same turn log
-      // the extract pass read. MUST run before neighbor retrieval / reconcile:
-      // a hallucinated candidate that reaches reconcile can trigger SUPERSEDE
-      // and invalidate a good existing memory. Fail-open inside.
-      const { kept: grounded } = await groundCandidates({
-        sourceText: buildLayer1SourceText(layer1Input.turnEvents),
-        candidates: rawCandidates,
-        logTag: 'memory.layer1',
+      // Grounding gate (LUM-396 → LUM-773 local) — quote-or-discard against
+      // the same turn text the extract pass read, checked locally. MUST run
+      // before neighbor retrieval / reconcile: a hallucinated candidate that
+      // reaches reconcile can trigger SUPERSEDE and invalidate a good memory.
+      const { kept: grounded, discardedCount } = groundCandidatesLocally({
+        sourceText: source.text,
+        candidates: extraction.candidates,
       })
+      if (discardedCount > 0) {
+        logger.info(
+          `[memory.layer1] local grounding kept=${grounded.length} discarded=${discardedCount}`
+        )
+      }
       if (grounded.length === 0) {
         logger.debug(
           `[memory.layer1] no-grounded-candidates session=${input.sessionId}`
@@ -181,7 +207,7 @@ export const layer1Service = {
         result
       )
     } catch (error) {
-      console.error(
+      logger.error(
         `[memory.layer1] unexpected error session=${input.sessionId}:`,
         error
       )

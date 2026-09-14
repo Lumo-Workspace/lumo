@@ -87,12 +87,12 @@ describe('buildLayer1ExtractPrompt', () => {
     expect(out.user).not.toContain('Existing task memories')
   })
 
-  it('user prompt mentions candidates framing', () => {
+  it('system prompt mentions candidates framing', () => {
     const out = buildLayer1ExtractPrompt({
       task: baseTask,
       turnEvents: [],
     })
-    expect(out.user).toContain('candidates')
+    expect(out.system).toContain('candidates')
   })
 
   it('renders "(empty turn)" when turnEvents is empty', () => {
@@ -162,7 +162,7 @@ describe('buildLayer1ExtractPrompt', () => {
       task: baseTask,
       turnEvents: [],
     })
-    expect(out.user).toMatch(/"scope":\s*"PROJECT"/)
+    expect(out.system).toMatch(/"scope":\s*"PROJECT"/)
   })
 
   it('examples use candidate shape (not operations shape)', () => {
@@ -170,9 +170,9 @@ describe('buildLayer1ExtractPrompt', () => {
       task: baseTask,
       turnEvents: [],
     })
-    expect(out.user).toContain('# Examples')
+    expect(out.system).toContain('# Examples')
     // Good examples wrap output in candidates array
-    expect(out.user).toMatch(/"candidates":\s*\[/)
+    expect(out.system).toMatch(/"candidates":\s*\[/)
     // No operation type field in good-path examples
     // The examples still contain "ADD" in BAD outputs for contrast — that's fine.
   })
@@ -186,7 +186,7 @@ describe('buildLayer1ExtractPrompt', () => {
     })
     expect(out.system).toMatch(/summary/i)
     expect(out.system).toMatch(/title/i)
-    expect(out.user).toMatch(/"summary":/)
+    expect(out.system).toMatch(/"summary":/)
   })
 
   it('instructs the model to return { "candidates": [] } for a no-op turn', () => {
@@ -194,7 +194,7 @@ describe('buildLayer1ExtractPrompt', () => {
       task: baseTask,
       turnEvents: [],
     })
-    expect(out.user).toMatch(/\{\s*"candidates":\s*\[\]\s*\}/)
+    expect(out.system).toMatch(/"candidates":\s*\[\]/)
   })
 
   // LUM-316: a trap's fix has ONE home. A one-line fix lives inline on the
@@ -232,9 +232,60 @@ describe('buildLayer1ExtractPrompt', () => {
         turnEvents: [],
       })
       // At least one example TRAP carries the fix inline.
-      expect(out.user).toMatch(/"workaround":/)
+      expect(out.system).toMatch(/"workaround":/)
       // The contrastive BAD example teaches against the double-write.
-      expect(out.user).toMatch(/double-write/i)
+      expect(out.system).toMatch(/double-write/i)
+    })
+  })
+
+  // LUM-773: one combined call per turn. Everything static (instructions,
+  // examples, output contract) sits in the system prompt so the gateway's
+  // prefix cache can hit; the user prompt is ONLY the per-turn material.
+  describe('cache-friendly shape (LUM-773)', () => {
+    it('static instructions and examples live in system and the user prompt holds only task context and turn', () => {
+      const a = buildLayer1ExtractPrompt({
+        task: baseTask,
+        turnEvents: makeBashFailureTurn(),
+      })
+      const b = buildLayer1ExtractPrompt({
+        task: { title: 'Other task', description: null },
+        turnEvents: [],
+      })
+      // Static prefix is byte-identical across turns and tasks.
+      expect(a.system).toBe(b.system)
+      // Examples + output contract are in the prefix, not the per-turn body.
+      expect(a.system).toContain('# Examples')
+      expect(a.system).toContain('# Your output')
+      expect(a.user).not.toContain('# Examples')
+      expect(a.user).not.toContain('BAD output')
+      expect(a.user).not.toContain('# Your output')
+      // The per-turn body carries exactly the task context and the turn.
+      expect(a.user).toContain('# Task context')
+      expect(a.user).toContain(baseTask.title)
+      expect(a.user).toContain('# Turn')
+      expect(a.user).toContain('P3009')
+      const sections = a.user.match(/^# /gm) ?? []
+      expect(sections).toHaveLength(2)
+    })
+
+    it('asks for a one-line Chinese turn summary alongside the candidates', () => {
+      const out = buildLayer1ExtractPrompt({
+        task: baseTask,
+        turnEvents: [],
+      })
+      // The summary contract from turn-summary.service moves in here.
+      expect(out.system).toMatch(/"turnSummary"/)
+      expect(out.system).toMatch(/60 个字/)
+      expect(out.system).toMatch(/动词开头/)
+    })
+
+    it('requires a verbatim quote on every candidate for local grounding', () => {
+      const out = buildLayer1ExtractPrompt({
+        task: baseTask,
+        turnEvents: [],
+      })
+      expect(out.system).toMatch(/"quote"/)
+      expect(out.system).toMatch(/verbatim/i)
     })
   })
 })
