@@ -37,6 +37,11 @@ import { z } from 'zod'
 import { GENERATION_MODEL } from '@/lib/ai/models'
 import type { HuntSignalSite } from '@/lib/security-scan/hunt/trigger'
 import {
+  neutralizeForPromptLine,
+  PROMPT_PATH_MAX_CHARS,
+} from '@/lib/security-scan/hunt/prompt-safety'
+import { neutralizeUntrustedTags } from '@/lib/services/security-hunt.config'
+import {
   HuntCandidateSchema,
   CATEGORY_CWE_HINT,
   type HuntCategory,
@@ -63,6 +68,14 @@ export function wrapUpWindowMs(deadlineAt: number, now: number): number {
   const left = Math.min(HUNT_WRAP_UP_TIMEOUT_MS, deadlineAt - now)
   return left >= HUNT_WRAP_UP_MIN_MS ? left : 0
 }
+
+/**
+ * How much of a planned task's objective reaches the hunt prompt. The plan
+ * schema caps it at `PLAN_OBJECTIVE_MAX_CHARS` (2 000, raised by LUM-766 after
+ * a tighter cap cost 16/16 plans), which is a bound on what the model may
+ * write — not a bound on what a prompt line should carry.
+ */
+const TASK_TEXT_MAX_CHARS = 2_000
 
 /** Longest command the tool schema will accept, in characters. */
 export const HUNT_COMMAND_MAX_CHARS = 600
@@ -274,11 +287,31 @@ function sumTokens(
  * decision rule the mechanical gate and the falsifier will hold it to.
  */
 export function renderTaskForPrompt(task: HuntTask): string {
-  const start =
-    task.startingPoints.length > 0
-      ? `\nStart from: ${task.startingPoints.join(', ')}`
-      : ''
-  return `## Task ${task.id}: ${task.objective}
+  // `objective` and `startingPoints` come from the PLANNING model, which reads
+  // the diff's file names and the Lumo task context — both attacker-influenced.
+  // They are then written into THIS prompt's trusted region, so without this
+  // they are a laundering channel: author text goes in as a file name, comes
+  // back as a task objective, and never passes the path guard on the way.
+  // Dropping is not available here (the objective IS the task), so fold every
+  // line break into a space and clip. The clip is here rather than in the plan
+  // schema on purpose — see `neutralizeForPromptLine`.
+  // Every other boundary in this subsystem applies `neutralizeUntrustedTags`
+  // (the compressor to both its fields, `renderHuntTaskContext`, `runHuntShell`
+  // to the compressed body); this one did not. A forged OPENING tag here cannot
+  // close anything — the real fences arrive later, in tool results — but it
+  // frames the trusted `## Starting points` section that follows as untrusted
+  // content, and pre-declares a fence someone else's data will appear to close.
+  const objective = neutralizeForPromptLine(
+    neutralizeUntrustedTags(task.objective),
+    TASK_TEXT_MAX_CHARS
+  )
+  const points = task.startingPoints
+    .map(p =>
+      neutralizeForPromptLine(neutralizeUntrustedTags(p), PROMPT_PATH_MAX_CHARS)
+    )
+    .filter(p => p.length > 0)
+  const start = points.length > 0 ? `\nStart from: ${points.join(', ')}` : ''
+  return `## Task ${task.id}: ${objective}
 Findings from this task are filed under: ${task.category} (${CATEGORY_CWE_HINT[task.category]})${start}
 ${CATEGORY_BRIEF[task.category]}`
 }
