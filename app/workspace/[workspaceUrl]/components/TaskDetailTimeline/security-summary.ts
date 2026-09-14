@@ -27,15 +27,19 @@ export interface SecurityScanSummary {
   incomplete: number
 }
 
+/** Undispositioned, not already on main, and still in the queue (LUM-775). */
+function isOpenFinding(f: SecurityScanView['findings'][number]): boolean {
+  return f.disposition == null && !f.persisting && f.queueExit == null
+}
+
 export function summarizeSecurityScans(
   prs: Array<{ latest: SecurityScanView | null }>
 ): SecurityScanSummary {
   // LUM-738: a persisting row (already on the default branch) needs no
   // decision from this PR's reviewer — it is neither counted nor expanded for.
+  // LUM-775: nor does a row that left the queue when its PR merged / closed.
   const undispositioned = prs.flatMap(({ latest }) =>
-    latest
-      ? latest.findings.filter(f => f.disposition == null && !f.persisting)
-      : []
+    latest ? latest.findings.filter(isOpenFinding) : []
   )
   return {
     prs: prs.length,
@@ -61,8 +65,7 @@ export function summarizeSecurityScans(
  */
 export function shouldExpandRow(latest: SecurityScanView | null): boolean {
   if (!latest) return false
-  if (latest.findings.some(f => f.disposition == null && !f.persisting))
-    return true
+  if (latest.findings.some(isOpenFinding)) return true
   if (!latest.complete) return true
   return latest.stages.external === 'FAILED' && latest.error != null
 }

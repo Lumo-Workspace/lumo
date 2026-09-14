@@ -455,8 +455,11 @@ function FindingRow({
 
   // LUM-738: a finding already on the default branch is not this PR's —
   // muted, labelled, and its HIGH loses the red so the eye lands on new rows.
+  // LUM-775: same treatment for a row that left the queue when the PR
+  // merged / closed — the label says why, and a human can still decide.
+  const muted = finding.persisting || finding.queueExit != null
   const severityTone =
-    finding.severity === 'HIGH' && !finding.persisting
+    finding.severity === 'HIGH' && !muted
       ? 'text-destructive'
       : 'text-muted-foreground'
 
@@ -465,8 +468,9 @@ function FindingRow({
       data-testid={`security-finding-${finding.id}`}
       data-blocking={finding.blocking}
       data-persisting={finding.persisting}
+      data-queue-exit={finding.queueExit ?? undefined}
       className={`rounded-sm border border-border px-2 py-1.5${
-        finding.persisting ? ' opacity-60' : ''
+        muted ? ' opacity-60' : ''
       }`}
     >
       <div className='flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption'>
@@ -535,6 +539,16 @@ function FindingRow({
             className='rounded-sm bg-muted px-1 text-muted-foreground'
           >
             {intl.formatMessage({ id: 'securityScan.finding.persisting' })}
+          </span>
+        )}
+        {finding.queueExit && (
+          <span
+            data-testid='finding-queue-exit'
+            className='rounded-sm bg-muted px-1 text-muted-foreground'
+          >
+            {intl.formatMessage({
+              id: `securityScan.finding.queueExit.${finding.queueExit}`,
+            })}
           </span>
         )}
         {finding.disposition && (

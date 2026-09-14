@@ -25,11 +25,17 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findHeaderById: jest.fn() },
 }))
+// LUM-775: the default-branch baseline, read once per repo for merged/closed
+// PRs — the only witness to "is this still on main".
+jest.mock('@/lib/repositories/project.repository', () => ({
+  projectRepository: { findSecurityBaseline: jest.fn() },
+}))
 
 import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { projectRepository } from '@/lib/repositories/project.repository'
 
 const latest = prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 const unnotified =
@@ -37,6 +43,7 @@ const unnotified =
 const mark = prSecurityScanRepository.markAgentNotified as jest.Mock
 const prs = pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
 const header = taskRepository.findHeaderById as jest.Mock
+const baselineRead = projectRepository.findSecurityBaseline as jest.Mock
 
 const finding = (over: object) => ({
   id: 'f',
@@ -229,6 +236,7 @@ describe('LUM-735 scans array', () => {
         openFindings: 2,
         dependencyFindings: 0,
         persistingFindings: 0,
+        queueExits: {},
         hunt: null,
       },
       {
@@ -241,6 +249,7 @@ describe('LUM-735 scans array', () => {
         openFindings: 0,
         dependencyFindings: 0,
         persistingFindings: 0,
+        queueExits: {},
         hunt: null,
       },
     ])
@@ -271,6 +280,7 @@ describe('LUM-735 scans array', () => {
         openFindings: 0,
         dependencyFindings: 0,
         persistingFindings: 0,
+        queueExits: {},
         hunt: null,
       },
     ])
@@ -486,5 +496,127 @@ describe('LUM-738 supplyChain surface — reminder', () => {
         persistingFindings: 2,
       }),
     ])
+  })
+})
+
+describe('LUM-775 queue exit — findings on merged / closed PRs', () => {
+  const MERGED_AT = new Date('2026-09-10T10:00:00Z')
+  const freshBaseline = {
+    sha: 'main',
+    at: '2026-09-10T11:00:00Z',
+    requestedAt: '2026-09-10T10:30:00Z',
+    fingerprints: ['fp-still-there'],
+    partial: false,
+    tools: ['gitleaks', 'semgrep', 'osv-scanner'],
+  }
+  const mergedPr = (over: object = {}) =>
+    pr({ state: 'merged', repo: 'o/r', mergedAt: MERGED_AT, ...over })
+  const dep = (over: object) =>
+    finding({
+      kind: 'DEPENDENCY',
+      ruleId: 'ext:osv-scanner:GHSA-1',
+      severity: 'MEDIUM',
+      provenance: 'EXTERNAL_TOOL',
+      filePath: 'package-lock.json',
+      line: null,
+      persisting: false,
+      ...over,
+    })
+
+  beforeEach(() => {
+    baselineRead.mockResolvedValue(freshBaseline)
+  })
+
+  it('a merged PR: advisories leave the queue, a blocking deterministic HIGH stays, and the scan summary counts the exits', async () => {
+    prs.mockResolvedValue([mergedPr()])
+    latest.mockResolvedValue([
+      scan({
+        id: 's1',
+        findings: [
+          dep({ id: 'gone', scanId: 's1', fingerprint: 'fp-gone' }),
+          dep({ id: 'onmain', scanId: 's1', fingerprint: 'fp-still-there' }),
+          finding({
+            id: 'fixture',
+            scanId: 's1',
+            severity: 'LOW',
+            filePath: '__tests__/x.test.ts',
+            secretDowngrade: 'DOWNGRADED_PATH',
+            persisting: false,
+          }),
+          finding({ id: 'high', scanId: 's1', persisting: false }),
+        ],
+      }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.findings.map(f => f.id)).toEqual(['high'])
+    expect(state.blockingCount).toBe(1)
+    expect(state.scans[0]).toMatchObject({
+      openFindings: 1,
+      queueExits: { RESOLVED_ON_MAIN: 1, MERGED_UNREVIEWED: 2 },
+    })
+    expect(baselineRead).toHaveBeenCalledTimes(1)
+    expect(baselineRead).toHaveBeenCalledWith('ws', 'o/r')
+  })
+
+  it('a stale baseline cannot vouch: the dependency row is MERGED_UNREVIEWED, not RESOLVED_ON_MAIN', async () => {
+    baselineRead.mockResolvedValue({
+      ...freshBaseline,
+      requestedAt: '2026-09-10T09:00:00Z',
+    })
+    prs.mockResolvedValue([mergedPr()])
+    latest.mockResolvedValue([
+      scan({
+        id: 's1',
+        findings: [dep({ id: 'gone', scanId: 's1', fingerprint: 'fp-gone' })],
+      }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.findings).toEqual([])
+    expect(state.scans[0]?.queueExits).toEqual({ MERGED_UNREVIEWED: 1 })
+  })
+
+  it('a closed, unmerged PR exits everything as PR_CLOSED without reading a baseline', async () => {
+    prs.mockResolvedValue([pr({ state: 'closed', repo: 'o/r' })])
+    latest.mockResolvedValue([
+      scan({
+        id: 's1',
+        findings: [finding({ id: 'high', scanId: 's1', persisting: false })],
+      }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.findings).toEqual([])
+    expect(state.scans[0]?.queueExits).toEqual({ PR_CLOSED: 1 })
+    expect(baselineRead).not.toHaveBeenCalled()
+  })
+
+  it('open PRs never consult the baseline and never exit', async () => {
+    prs.mockResolvedValue([pr({ repo: 'o/r' })])
+    latest.mockResolvedValue([
+      scan({
+        id: 's1',
+        findings: [dep({ id: 'd', scanId: 's1', fingerprint: 'fp-gone' })],
+      }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.findings.map(f => f.id)).toEqual(['d'])
+    expect(state.scans[0]?.queueExits).toEqual({})
+    expect(baselineRead).not.toHaveBeenCalled()
+  })
+
+  it('a failed baseline read is "cannot vouch", not a crash: advisories still exit unreviewed, blocking rows stay', async () => {
+    baselineRead.mockRejectedValue(new Error('db down'))
+    prs.mockResolvedValue([mergedPr()])
+    latest.mockResolvedValue([
+      scan({
+        id: 's1',
+        findings: [
+          dep({ id: 'gone', scanId: 's1', fingerprint: 'fp-gone' }),
+          finding({ id: 'high', scanId: 's1', persisting: false }),
+        ],
+      }),
+    ])
+    const state = await prSecurityReminderService.loadOpenFindingsForTask('t-1')
+    expect(state.findings.map(f => f.id)).toEqual(['high'])
+    expect(state.scans[0]?.queueExits).toEqual({ MERGED_UNREVIEWED: 1 })
   })
 })

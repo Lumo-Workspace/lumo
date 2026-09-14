@@ -324,6 +324,34 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
     }
   })
 
+  it('LUM-775: a merged PR line says what left the queue and why; an open PR (or an older server) prints nothing extra', () => {
+    const out = formatTaskStatus(
+      payload({
+        securityFindings: {
+          open: 0,
+          blocking: 0,
+          unconfirmedPrs: [],
+          scans: [
+            scanRow({
+              openFindings: 0,
+              queueExits: { MERGED_UNREVIEWED: 2, RESOLVED_ON_MAIN: 3 },
+            }),
+            scanRow({ prNumber: 13, queueExits: {} }),
+            scanRow({ prNumber: 14 }),
+          ],
+        },
+      })
+    )
+    expect(out).toContain(
+      '  PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · Dependencies: checked · AI review: checked · 5 left the queue (3 resolved on main, 2 merged unreviewed)'
+    )
+    expect(out).toContain(
+      '  PR #13 · scan FINDINGS · Secrets: checked · Code scan: checked · Dependencies: checked · AI review: checked\n'
+    )
+    expect(out).not.toMatch(/PR #13 .*left the queue/)
+    expect(out).not.toMatch(/PR #14 .*left the queue/)
+  })
+
   it('prints the supplyChain segment in order with the dependency count and its already-on-main share', () => {
     const out = formatTaskStatus(
       payload({

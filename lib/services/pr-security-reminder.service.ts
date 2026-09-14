@@ -22,8 +22,11 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import {
   isBlockingFinding,
   latestScanPerPr,
+  loadQueueExitContexts,
   loadSecurityPolicy,
+  queueExitOf,
 } from '@/lib/services/pr-security-scan-gate'
+import type { QueueExitReason } from '@/lib/security-scan/queue-exit'
 import { DEFAULT_SECURITY_POLICY } from '@/lib/security-scan/policy'
 import {
   renderPreToolUseSecurityReminder,
@@ -71,6 +74,13 @@ export interface TaskSecurityScanSummary {
    * no coverage line rather than guessing.
    */
   hunt: HuntCoverage | null
+  /**
+   * LUM-775 — undispositioned, non-persisting rows on this scan that have
+   * left the queue because the PR merged or closed, by reason. Derived at
+   * read time (never stored); `{}` on an open PR. Additive: an older CLI
+   * ignores it.
+   */
+  queueExits: Partial<Record<QueueExitReason, number>>
 }
 
 export interface TaskSecurityOpenState {
@@ -115,22 +125,41 @@ export const prSecurityReminderService = {
     )
     const latest = latestScanPerPr(scans)
     // LUM-740: the workspace policy decides which open findings block DONE.
-    const policy =
+    // LUM-775: the default-branch baselines decide which rows on merged PRs
+    // have left the queue — read only when some PR is no longer open.
+    const [policy, exitContexts] =
       scans.length > 0
-        ? await loadSecurityPolicy(scans[0]!.workspaceId)
-        : DEFAULT_SECURITY_POLICY
+        ? await Promise.all([
+            loadSecurityPolicy(scans[0]!.workspaceId),
+            loadQueueExitContexts(prs, scans[0]!.workspaceId),
+          ])
+        : [DEFAULT_SECURITY_POLICY, new Map()]
     const findings: OpenSecurityFinding[] = []
     const unconfirmedPrs: UnconfirmedPr[] = []
     const latestScans: TaskSecurityOpenState['latestScans'] = []
     const scanSummaries: TaskSecurityScanSummary[] = []
     for (const pr of prs) {
       const scan = latest.get(pr.id)
+      // LUM-775: which undispositioned, non-persisting rows have left the
+      // queue (merged / closed PR), and why — computed once per row here and
+      // shared by the summary counters and the reminder list below.
+      const exits = new Map<string, QueueExitReason>()
+      if (scan) {
+        for (const f of scan.findings) {
+          if (f.disposition !== null || f.persisting) continue
+          const exit = queueExitOf(f, pr, exitContexts, policy)
+          if (exit) exits.set(f.id, exit)
+        }
+      }
       if (scan) {
         latestScans.push({
           scanId: scan.id,
           prNumber: pr.number,
           headSha: scan.headSha,
         })
+        const queueExits: Partial<Record<QueueExitReason, number>> = {}
+        for (const exit of exits.values())
+          queueExits[exit] = (queueExits[exit] ?? 0) + 1
         scanSummaries.push({
           prNumber: pr.number,
           status: scan.status,
@@ -141,12 +170,13 @@ export const prSecurityReminderService = {
             f => f.provenance === 'EXTERNAL_TOOL' && f.kind !== 'DEPENDENCY'
           ).length,
           openFindings: scan.findings.filter(
-            f => f.disposition === null && !f.persisting
+            f => f.disposition === null && !f.persisting && !exits.has(f.id)
           ).length,
           dependencyFindings: scan.findings.filter(f => f.kind === 'DEPENDENCY')
             .length,
           persistingFindings: scan.findings.filter(f => f.persisting).length,
           hunt: parseHuntCoverage(scan.huntAudit),
+          queueExits,
         })
       }
       const reason = unconfirmedReason(scan)
@@ -160,6 +190,10 @@ export const prSecurityReminderService = {
         // introduced or can fix here; the panel shows it muted, the reminder
         // and the next-actions list leave it out.
         if (f.persisting) continue
+        // LUM-775: the PR merged or closed and this row has left the queue —
+        // the panel shows it muted with the reason; the reminder, the
+        // next-actions list and `openFindings` leave it out.
+        if (exits.has(f.id)) continue
         findings.push({
           id: f.id,
           kind: f.kind,

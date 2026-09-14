@@ -180,7 +180,17 @@ export const pullRequestRepository = {
     return prisma.pullRequest.findMany({
       where: { taskId },
       orderBy: { number: 'desc' },
-      select: { id: true, number: true, title: true, url: true, state: true },
+      select: {
+        id: true,
+        number: true,
+        title: true,
+        url: true,
+        state: true,
+        // LUM-775: the queue-exit rules key on PR state × merge time × the
+        // repo's default-branch baseline.
+        repo: true,
+        mergedAt: true,
+      },
     })
   },
 
