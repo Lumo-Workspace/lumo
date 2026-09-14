@@ -40,6 +40,7 @@ import {
   neutralizeForPromptLine,
   PROMPT_PATH_MAX_CHARS,
 } from '@/lib/security-scan/hunt/prompt-safety'
+import { neutralizeUntrustedTags } from '@/lib/services/security-hunt.config'
 import {
   HuntCandidateSchema,
   CATEGORY_CWE_HINT,
@@ -294,9 +295,20 @@ export function renderTaskForPrompt(task: HuntTask): string {
   // Dropping is not available here (the objective IS the task), so fold every
   // line break into a space and clip. The clip is here rather than in the plan
   // schema on purpose — see `neutralizeForPromptLine`.
-  const objective = neutralizeForPromptLine(task.objective, TASK_TEXT_MAX_CHARS)
+  // Every other boundary in this subsystem applies `neutralizeUntrustedTags`
+  // (the compressor to both its fields, `renderHuntTaskContext`, `runHuntShell`
+  // to the compressed body); this one did not. A forged OPENING tag here cannot
+  // close anything — the real fences arrive later, in tool results — but it
+  // frames the trusted `## Starting points` section that follows as untrusted
+  // content, and pre-declares a fence someone else's data will appear to close.
+  const objective = neutralizeForPromptLine(
+    neutralizeUntrustedTags(task.objective),
+    TASK_TEXT_MAX_CHARS
+  )
   const points = task.startingPoints
-    .map(p => neutralizeForPromptLine(p, PROMPT_PATH_MAX_CHARS))
+    .map(p =>
+      neutralizeForPromptLine(neutralizeUntrustedTags(p), PROMPT_PATH_MAX_CHARS)
+    )
     .filter(p => p.length > 0)
   const start = points.length > 0 ? `\nStart from: ${points.join(', ')}` : ''
   return `## Task ${task.id}: ${objective}

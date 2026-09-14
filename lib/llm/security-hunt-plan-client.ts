@@ -13,7 +13,10 @@ import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
 import { FAST_MODEL } from '@/lib/ai/models'
-import { isPromptSafePath } from '@/lib/security-scan/hunt/prompt-safety'
+import {
+  isPromptSafePath,
+  neutralizeForPromptLine,
+} from '@/lib/security-scan/hunt/prompt-safety'
 import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
@@ -56,6 +59,15 @@ export interface PlanClientInput {
 
 /** 提示词里最多列多少条路径；其余折成一行计数，避免 diff 很大时刷屏。 */
 const PROMPT_MAX_PATHS = 60
+
+/** Render bounds for stage-A finding text. Neither field is bounded upstream. */
+const FINDING_TITLE_MAX_CHARS = 200
+const FINDING_ID_MAX_CHARS = 120
+
+/** Whole-prompt ceiling, and the fence the clip must never leave hanging open. */
+const PROMPT_MAX_CHARS = 20_000
+const TASK_CONTEXT_OPEN = '<untrusted-task-context>'
+const TASK_CONTEXT_CLOSE = '</untrusted-task-context>'
 
 const TaskSchema = z.object({
   objective: z
@@ -126,11 +138,22 @@ function clip(text: string, max: number): string {
  * decision is actually made on — out of the prompt.
  */
 function buildPrompt(i: PlanClientInput): string {
+  // The A4 judge authors `title` after reading the RAW diff, and its schema is
+  // `z.string().describe('… ≤ 80 chars')` — a hint to the model, enforcing
+  // nothing. `ruleId` is `ext:<runSlug>:<id>` for SARIF-ingested findings, i.e.
+  // arbitrary text out of an uploaded document. Both land in THIS prompt's
+  // trusted region, which is the same laundering shape as the planner's own
+  // output reaching the hunt prompt — attacker text, through a model, into a
+  // brief — just through a different model, so the guard on the other channel
+  // never sees it. A title carrying newlines forges a section header.
   const findings =
     i.findings.length === 0
       ? '(none)'
       : i.findings
-          .map(f => `- [${f.severity}] ${f.ruleId}: ${f.title}`)
+          .map(
+            f =>
+              `- [${f.severity}] ${neutralizeForPromptLine(f.ruleId, FINDING_ID_MAX_CHARS)}: ${neutralizeForPromptLine(f.title, FINDING_TITLE_MAX_CHARS)}`
+          )
           .join('\n')
   // These are file names out of the pull request, so the PR author chose them,
   // and they land in the TRUSTED region of the prompt that decides whether to
@@ -138,12 +161,32 @@ function buildPrompt(i: PlanClientInput): string {
   // the brief; `applyPlanFloor` blunts outright suppression but, by its own
   // documentation, not dilution. Same rule as the located signal sites.
   const safe = i.touchedPaths.filter(isPromptSafePath)
+  const dropped = i.touchedPaths.length - safe.length
   const shown = safe.slice(0, PROMPT_MAX_PATHS)
   const rest = safe.length - shown.length
   const paths =
     shown.map(p => `- ${p}`).join('\n') +
-    (rest > 0 ? `\n- …and ${rest} more` : '')
-  return clip(
+    (rest > 0 ? `\n- …and ${rest} more` : '') +
+    // Dropping is the right treatment for a path — a folded one is no longer a
+    // path, and would satisfy the "name a file to start at" rule with a name
+    // `rg` cannot find, sending the agent to spend its allowance on nothing.
+    // But a silent drop is a suppression primitive: name a file so it is
+    // dropped and the planner never proposes a task for it. Saying how many
+    // went turns that into a signal. (Everything else still sees the file:
+    // `reasons` is built before the drop, the floor still forces its category,
+    // stage A reads the diff, and the agent has the whole checkout.)
+    (dropped > 0
+      ? `\n- …and ${dropped} more whose names are not usable as paths`
+      : '')
+  // The untrusted block goes LAST so a task with 40 criteria loses its own tail
+  // rather than pushing the routing signals out. But the tail it loses includes
+  // its own CLOSING TAG: the outer clip does not know the fence exists, and a
+  // prompt that ends inside an unclosed untrusted block leaves author-written
+  // text in the strongest position a prompt has — last — with no marker saying
+  // where it stops. Reserve the closing tag's room, and re-close after clipping
+  // so the fence holds whatever the budget does.
+  const context = i.taskContext ? `\n${i.taskContext}\n` : ''
+  const body =
     `## Trigger reasons — the entry / sink / control rules this diff matched
 ${i.reasons.map(r => `- ${r}`).join('\n') || '(none)'}
 
@@ -155,9 +198,13 @@ ${paths || '(none)'}
 ${findings}
 
 Which investigation tasks are worth running for this diff?
-${i.taskContext ? `\n${i.taskContext}\n` : ''}`,
-    20_000
-  )
+` + context
+  const clipped = clip(body, PROMPT_MAX_CHARS)
+  // Only when the clip actually cut into an open fence.
+  return clipped.includes(TASK_CONTEXT_OPEN) &&
+    !clipped.includes(TASK_CONTEXT_CLOSE)
+    ? `${clipped}\n${TASK_CONTEXT_CLOSE}`
+    : clipped
 }
 
 export async function planHuntTasks(input: PlanClientInput): Promise<{
