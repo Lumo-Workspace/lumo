@@ -4,8 +4,12 @@ import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { canonicalizeToEnglish } from './memory/canonicalize-language'
 import { resolveManualDedup } from './memory/manual-dedup'
-import { screenCandidate, type ScreenReason } from './memory/extraction-gate'
-import { loadConstitutionText } from './memory/constitution'
+import { screenCandidate } from './memory/extraction-gate'
+import { formatScreenRejection } from './memory/screen-rejection'
+import {
+  loadConstitutionSource,
+  type ConstitutionScope,
+} from './memory/constitution'
 import type { MemoryCategory, TaskArtifactAgent } from '@prisma/client'
 import type { MemoryContent } from '@/lib/memory/schemas'
 import type { Prisma } from '@prisma/client'
@@ -20,24 +24,24 @@ function httpError(message: string, status: number): Error {
  * documents with a 422 (the CLI surfaces the message) — the same screen the
  * Layer-1 extraction path applies, so manual adds can't smuggle in what
  * extraction now filters. Returns without throwing when the candidate is clean.
+ *
+ * The constitution is the PROJECT's own CLAUDE.md / AGENTS.md, read from its
+ * linked repository (LUM-778) — never the server's cwd — and the rejection
+ * names that repo and quotes the matched line so the user can verify it.
  */
 async function screenManualCandidate(
+  scope: ConstitutionScope,
   category: MemoryCategory,
   content: unknown
 ): Promise<void> {
+  const constitution = await loadConstitutionSource(scope)
   const verdict = screenCandidate({
     category,
     content,
-    constitution: await loadConstitutionText(),
+    constitution: constitution.text,
   })
   if (verdict.ok) return
-  const messages: Record<ScreenReason, string> = {
-    INCOMPLETE_FACT:
-      'Memory rejected: this reads as an incomplete fact — give the headline an actionable claim (what happens / what to do), not a bare fragment.',
-    CONSTITUTION_REDUNDANT:
-      'Memory rejected: this is already documented in the project constitution (CLAUDE.md / AGENTS.md). Memory is for knowledge not already in code or docs.',
-  }
-  throw httpError(messages[verdict.reason], 422)
+  throw httpError(formatScreenRejection(verdict, constitution.repo), 422)
 }
 
 export type CreateOutcome = 'ADD' | 'UPDATE' | 'SUPERSEDE' | 'NOOP'
@@ -130,7 +134,11 @@ export const memoryManagementService = {
     input: CreateForProjectInput
   ): Promise<CreateMemoryResult> {
     const content = await canonicalizeToEnglish(input.category, input.content)
-    await screenManualCandidate(input.category, content)
+    await screenManualCandidate(
+      { projectId: input.projectId, workspaceId: input.workspaceId },
+      input.category,
+      content
+    )
     const text = memoryContentToText(input.category, content)
     const vector = await embedCandidate(text)
     const pool = (await memoryRepository.listForProject(input.projectId)).map(
@@ -193,7 +201,11 @@ export const memoryManagementService = {
 
   async createForTask(input: CreateForTaskInput): Promise<CreateMemoryResult> {
     const content = await canonicalizeToEnglish(input.category, input.content)
-    await screenManualCandidate(input.category, content)
+    await screenManualCandidate(
+      { projectId: input.projectId, workspaceId: input.workspaceId },
+      input.category,
+      content
+    )
     const text = memoryContentToText(input.category, content)
     const vector = await embedCandidate(text)
     const pool = (await memoryRepository.listForTask(input.taskId)).map(m => ({

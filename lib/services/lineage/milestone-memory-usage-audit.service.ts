@@ -1,12 +1,16 @@
 import { milestoneMemoryEdgeRepository } from '@/lib/repositories/milestone-memory-edge.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { projectRepository } from '@/lib/repositories/project.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import {
   compactEvents,
   type RawEvent,
 } from '@/lib/services/session-summary/compact-events'
-import { loadConstitutionText } from '@/lib/services/memory/constitution'
+import {
+  loadConstitutionText,
+  type ConstitutionScope,
+} from '@/lib/services/memory/constitution'
 import { logger } from '@/lib/logger'
 import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
 
@@ -21,7 +25,8 @@ import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
  */
 async function auditSession(
   sessionId: string,
-  milestoneName: string
+  milestoneName: string,
+  scope: ConstitutionScope
 ): Promise<void> {
   const edges = await milestoneMemoryEdgeRepository.findSessionEdges(sessionId)
   if (edges.length === 0) return
@@ -44,7 +49,8 @@ async function auditSession(
   // (and its callers') jest path — see project_ai_sdk_gateway_jest_trap.
   const { judgeFragmentUsage } =
     await import('@/lib/services/lineage/usage-judge')
-  const constitution = await loadConstitutionText()
+  // The milestone's PROJECT's own CLAUDE.md / AGENTS.md (LUM-778).
+  const constitution = await loadConstitutionText(scope)
   const { used, unused } = await judgeFragmentUsage({
     // The steward session is milestone-bound, not task-bound; the milestone
     // name is the closest "what was this session working on" the judge needs.
@@ -85,6 +91,14 @@ export const milestoneMemoryUsageAuditService = {
     try {
       const milestone = await milestoneRepository.findById(milestoneId)
       if (!milestone) return
+      const project = await projectRepository.findWorkspaceId(
+        milestone.projectId
+      )
+      if (!project) return
+      const scope: ConstitutionScope = {
+        projectId: milestone.projectId,
+        workspaceId: project.workspaceId,
+      }
       const sessionIds =
         await milestoneMemoryEdgeRepository.listConsumerSessionIds(milestoneId)
       if (sessionIds.length === 0) return
@@ -93,7 +107,7 @@ export const milestoneMemoryUsageAuditService = {
       for (const id of sessionIds) {
         if (voted.has(id)) continue
         try {
-          await auditSession(id, milestone.name)
+          await auditSession(id, milestone.name, scope)
         } catch (err) {
           logger.error(
             `[lineage.milestoneMemoryUsage] session=${id} failed`,

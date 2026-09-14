@@ -25,6 +25,13 @@ const judgeMock = jest.fn()
 jest.mock('@/lib/services/lineage/usage-judge', () => ({
   judgeFragmentUsage: (...a: unknown[]) => judgeMock(...a),
 }))
+// LUM-778: the constitution is the task's PROJECT's own — loaded per
+// (projectId, workspaceId), never from the server cwd.
+const loadConstitutionTextMock = jest.fn(async () => 'CLAUDE.md text')
+jest.mock('@/lib/services/memory/constitution', () => ({
+  loadConstitutionText: (...a: unknown[]) =>
+    loadConstitutionTextMock(...(a as [])),
+}))
 
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
@@ -38,6 +45,8 @@ beforeEach(() => {
   ;(taskRepository.getTitleAndStatus as jest.Mock).mockResolvedValue({
     title: 'T',
     status: 'DONE',
+    projectId: 'p1',
+    project: { workspaceId: 'w1' },
   })
   ;(sessionRepository.listForTask as jest.Mock).mockResolvedValue([
     { id: 's1' },
@@ -87,6 +96,32 @@ describe('auditForTask', () => {
       [{ fragmentType: 'MEMORY', fragmentId: 'm1' }],
       { mode: 'additive' }
     )
+    // The judge's marginal-value gate compares against the task's own
+    // project constitution (LUM-778).
+    expect(loadConstitutionTextMock).toHaveBeenCalledWith({
+      projectId: 'p1',
+      workspaceId: 'w1',
+    })
+    expect(judgeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskTitle: 'T',
+        constitution: 'CLAUDE.md text',
+      })
+    )
+  })
+
+  it('cron backstop resolves the constitution scope from the session task (LUM-778)', async () => {
+    ;(lineageEdgeRepository.listUnvotedSessionIdsForDoneTasks as jest.Mock) =
+      jest.fn().mockResolvedValue(['s9'])
+    ;(sessionRepository.findTaskTitleForSession as jest.Mock).mockResolvedValue(
+      { title: 'Cron task', projectId: 'p2', project: { workspaceId: 'w2' } }
+    )
+    judgeMock.mockResolvedValue({ used: [], unused: [] })
+    await fragmentUsageAuditService.auditDoneTaskSessions(5)
+    expect(loadConstitutionTextMock).toHaveBeenCalledWith({
+      projectId: 'p2',
+      workspaceId: 'w2',
+    })
   })
 
   it('skips a session that already has a vote (guard)', async () => {

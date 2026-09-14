@@ -10,7 +10,7 @@ jest.mock('@/lib/services/memory/extraction-gate', () => ({
   screenCandidate: () => ({ ok: true }),
 }))
 jest.mock('@/lib/services/memory/constitution', () => ({
-  loadConstitutionText: async () => null,
+  loadConstitutionSource: async () => ({ text: null, repo: null }),
 }))
 const mockResolveDedup = jest.fn()
 jest.mock('@/lib/services/memory/manual-dedup', () => ({

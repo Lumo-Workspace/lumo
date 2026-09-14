@@ -13,11 +13,22 @@ const CONSTITUTION = [
 ].join('\n')
 
 // Shared: the gate loads the constitution through this module on both paths.
+// LUM-778: every call carries the (projectId, workspaceId) scope — the
+// constitution is the project's own, never the server's cwd.
+const mockLoadConstitutionText = jest.fn(async () => CONSTITUTION)
+const mockLoadConstitutionSource = jest.fn(async () => ({
+  text: CONSTITUTION,
+  repo: 'acme/app',
+}))
 jest.mock('@/lib/services/memory/constitution', () => ({
-  loadConstitutionText: jest.fn(async () => CONSTITUTION),
+  loadConstitutionText: (...a: unknown[]) =>
+    mockLoadConstitutionText(...(a as [])),
+  loadConstitutionSource: (...a: unknown[]) =>
+    mockLoadConstitutionSource(...(a as [])),
   loadConstitution: jest.fn(async () => ({
     claudeMd: CONSTITUTION,
     agentsMd: null,
+    repo: 'acme/app',
   })),
 }))
 jest.mock('@/lib/ai/embedding', () => ({
@@ -144,8 +155,15 @@ describe('source constitution-redundancy gate (LUM-538)', () => {
         content: REDUNDANT.content,
         actorMemberId: 'm1',
       })
-    ).rejects.toMatchObject({ status: 422 })
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('acme/app'),
+    })
     expect(mockCreate).not.toHaveBeenCalled()
+    expect(mockLoadConstitutionSource).toHaveBeenCalledWith({
+      projectId: 'p1',
+      workspaceId: 'w1',
+    })
 
     const ok = await memoryManagementService.createForProject({
       projectId: 'p1',
@@ -168,6 +186,10 @@ describe('source constitution-redundancy gate (LUM-538)', () => {
       taskId: 't1',
       workspaceId: 'w1',
       stopEventId: 'evt_stop',
+    })
+    expect(mockLoadConstitutionText).toHaveBeenCalledWith({
+      projectId: 'p1',
+      workspaceId: 'w1',
     })
     expect(mockReconcile).toHaveBeenCalledTimes(1)
     const reconcileArgs = mockReconcile.mock.calls[0] as unknown as [
