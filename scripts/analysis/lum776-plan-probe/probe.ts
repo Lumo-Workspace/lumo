@@ -32,11 +32,15 @@ import {
 import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
+  PLAN_HUNT_MAX_ATTEMPTS,
   PLAN_HUNT_TIMEOUT_MS,
   PLAN_HUNT_TOKEN_BUDGET,
   PLAN_OBJECTIVE_MAX_CHARS,
 } from '../../../lib/services/security-hunt.config'
-import { describePlanFailure } from '../../../lib/security-scan/hunt/plan-retry'
+import {
+  describePlanFailure,
+  isTransientPlanError,
+} from '../../../lib/security-scan/hunt/plan-retry'
 import { VARIANTS, type ProbeVariant } from './variants'
 import type { CorpusEntry } from './build-corpus'
 
@@ -52,6 +56,16 @@ export interface ProbeCall {
   tasks?: number
   objectiveChars?: number[]
   reasonChars?: number
+  /** Set when the plan only validated through `repairPlanText` (shipped-schema variants). */
+  repaired?: string
+  /**
+   * Attempts this call took, mirroring `planHunt`'s retry: a transient
+   * failure (timeout / transport / `length` / empty output) gets one fresh
+   * window, exactly as production gives it. `attemptFailures` lists the
+   * failures of the attempts that were retried; `failure` is the final one.
+   */
+  attempts: number
+  attemptFailures?: Array<{ shape: string; finishReason?: string }>
   failure?: {
     shape: string
     message: string
@@ -70,7 +84,15 @@ export interface ProbeResults {
     promptChars: number
     promptSha256: string
   }>
-  variants: Record<string, { config: ProbeVariant; calls: ProbeCall[] }>
+  variants: Record<
+    string,
+    {
+      config: ProbeVariant
+      /** 1 = single-shot (the candidate rows); PLAN_HUNT_MAX_ATTEMPTS = as shipped. */
+      attemptsAllowed: number
+      calls: ProbeCall[]
+    }
+  >
 }
 
 /** The schema as it was before LUM-776 — the control. */
@@ -92,10 +114,39 @@ function arg(name: string, fallback?: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : fallback
 }
 
+/**
+ * One call with the shipped retry semantics on top: `planHunt` gives a
+ * transient failure one more fresh window, so a probe that stops at the first
+ * `length` measures a stricter thing than production runs.
+ */
 async function runOne(
   variant: ProbeVariant,
-  entry: CorpusEntry
+  entry: CorpusEntry,
+  attemptsAllowed: number
 ): Promise<ProbeCall> {
+  const attemptFailures: NonNullable<ProbeCall['attemptFailures']> = []
+  for (let attempt = 1; ; attempt++) {
+    const { call, error } = await runAttempt(variant, entry)
+    const done: ProbeCall = {
+      ...call,
+      attempts: attempt,
+      ...(attemptFailures.length > 0 ? { attemptFailures } : {}),
+    }
+    if (call.ok || attempt >= attemptsAllowed || !isTransientPlanError(error))
+      return done
+    attemptFailures.push({
+      shape: call.failure!.shape,
+      ...(call.failure!.finishReason
+        ? { finishReason: call.failure!.finishReason }
+        : {}),
+    })
+  }
+}
+
+async function runAttempt(
+  variant: ProbeVariant,
+  entry: CorpusEntry
+): Promise<{ call: Omit<ProbeCall, 'attempts'>; error?: unknown }> {
   const input: PlanClientInput = {
     ...entry.input,
     timeoutMs: PLAN_HUNT_TIMEOUT_MS,
@@ -116,17 +167,19 @@ async function runOne(
         abortSignal: AbortSignal.timeout(input.timeoutMs),
       })
       return {
-        variant: variant.name,
-        promptId: entry.id,
-        ok: true,
-        latencyMs: Date.now() - started,
-        finishReason: finishReason ?? 'unknown',
-        outputTokens: usage.outputTokens ?? 0,
-        reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? 0,
-        totalTokens: usage.totalTokens ?? 0,
-        tasks: object.tasks.length,
-        objectiveChars: object.tasks.map(t => t.objective.length),
-        reasonChars: object.reason.length,
+        call: {
+          variant: variant.name,
+          promptId: entry.id,
+          ok: true,
+          latencyMs: Date.now() - started,
+          finishReason: finishReason ?? 'unknown',
+          outputTokens: usage.outputTokens ?? 0,
+          reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? 0,
+          totalTokens: usage.totalTokens ?? 0,
+          tasks: object.tasks.length,
+          objectiveChars: object.tasks.map(t => t.objective.length),
+          reasonChars: object.reason.length,
+        },
       }
     }
     const out = await planHuntTasks(input, {
@@ -136,35 +189,43 @@ async function runOne(
         : {}),
     })
     return {
-      variant: variant.name,
-      promptId: entry.id,
-      ok: true,
-      latencyMs: Date.now() - started,
-      finishReason: out.finishReason,
-      outputTokens: out.outputTokens,
-      reasoningTokens: out.reasoningTokens,
-      totalTokens: out.tokens,
-      tasks: out.tasks.length,
-      objectiveChars: out.tasks.map(t => t.objective.length),
-      reasonChars: out.reason.length,
+      call: {
+        variant: variant.name,
+        promptId: entry.id,
+        ok: true,
+        latencyMs: Date.now() - started,
+        finishReason: out.finishReason,
+        outputTokens: out.outputTokens,
+        reasoningTokens: out.reasoningTokens,
+        totalTokens: out.tokens,
+        tasks: out.tasks.length,
+        objectiveChars: out.tasks.map(t => t.objective.length),
+        reasonChars: out.reason.length,
+        ...(out.repaired ? { repaired: out.repaired } : {}),
+      },
     }
   } catch (error) {
     const f = describePlanFailure(error)
     return {
-      variant: variant.name,
-      promptId: entry.id,
-      ok: false,
-      latencyMs: Date.now() - started,
-      ...(f.finishReason ? { finishReason: f.finishReason } : {}),
-      ...(f.outputTokens !== undefined ? { outputTokens: f.outputTokens } : {}),
-      ...(f.reasoningTokens !== undefined
-        ? { reasoningTokens: f.reasoningTokens }
-        : {}),
-      failure: {
-        shape: f.shape,
-        message: f.message.slice(0, 200),
+      error,
+      call: {
+        variant: variant.name,
+        promptId: entry.id,
+        ok: false,
+        latencyMs: Date.now() - started,
         ...(f.finishReason ? { finishReason: f.finishReason } : {}),
-        ...(f.textPrefix !== undefined ? { textPrefix: f.textPrefix } : {}),
+        ...(f.outputTokens !== undefined
+          ? { outputTokens: f.outputTokens }
+          : {}),
+        ...(f.reasoningTokens !== undefined
+          ? { reasoningTokens: f.reasoningTokens }
+          : {}),
+        failure: {
+          shape: f.shape,
+          message: f.message.slice(0, 200),
+          ...(f.finishReason ? { finishReason: f.finishReason } : {}),
+          ...(f.textPrefix !== undefined ? { textPrefix: f.textPrefix } : {}),
+        },
       },
     }
   }
@@ -199,10 +260,12 @@ export function summarize(calls: ProbeCall[]): string {
   for (const c of calls)
     if (c.failure) shapes[c.failure.shape] = (shapes[c.failure.shape] ?? 0) + 1
   const empty = ok.filter(c => c.tasks === 0).length
+  const repaired = ok.filter(c => c.repaired).length
+  const retried = calls.filter(c => c.attempts > 1).length
   const reasoning = ok.map(c => c.reasoningTokens ?? 0)
   const lat = ok.map(c => c.latencyMs)
   return (
-    `ok ${ok.length}/${calls.length} · empty plans ${empty}/${ok.length} · ` +
+    `ok ${ok.length}/${calls.length} · empty plans ${empty}/${ok.length} · repaired ${repaired} · retried ${retried} · ` +
     `latency p50 ${pct(lat, 50)} p90 ${pct(lat, 90)} max ${pct(lat, 100)} ms · ` +
     `reasoning p50 ${pct(reasoning, 50)} max ${pct(reasoning, 100)} · ` +
     `failures ${JSON.stringify(shapes)}`
@@ -214,6 +277,11 @@ async function main(): Promise<void> {
   if (!corpusPath) throw new Error('--corpus <file> is required')
   const out = arg('--out', path.join(__dirname, 'results.json'))!
   const width = Number(arg('--concurrency', '4'))
+  // As shipped: `planHunt` retries a transient failure once. `--single-shot`
+  // measures one attempt per prompt instead (the candidate rows were run so).
+  const attemptsAllowed = process.argv.includes('--single-shot')
+    ? 1
+    : PLAN_HUNT_MAX_ATTEMPTS
   const names = arg('--variants')?.split(',')
   const variants = names
     ? VARIANTS.filter(v => names.includes(v.name))
@@ -243,16 +311,18 @@ async function main(): Promise<void> {
     console.log(`\n=== ${variant.name} — ${variant.why}`)
     const calls = await pool(
       corpus.map(e => async () => {
-        const c = await runOne(variant, e)
+        const c = await runOne(variant, e, attemptsAllowed)
         console.log(
           `  ${e.id} ${c.ok ? 'ok ' : 'ERR'} ${String(c.latencyMs).padStart(6)}ms finish=${c.finishReason ?? '-'} reasoning=${c.reasoningTokens ?? '-'} out=${c.outputTokens ?? '-'} tasks=${c.tasks ?? '-'}` +
+            (c.attempts > 1 ? ` attempts=${c.attempts}` : '') +
+            (c.repaired ? ` repaired=${c.repaired}` : '') +
             (c.failure ? ` [${c.failure.shape}] ${c.failure.message}` : '')
         )
         return c
       }),
       width
     )
-    results.variants[variant.name] = { config: variant, calls }
+    results.variants[variant.name] = { config: variant, attemptsAllowed, calls }
     console.log(`  → ${summarize(calls)}`)
     writeFileSync(out, JSON.stringify(results, null, 2))
   }

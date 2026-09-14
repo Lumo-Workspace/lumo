@@ -23,6 +23,8 @@ is what `__tests__/probe-results.test.ts` holds the shipped configuration to.
    (`huntAudit.plannedBy` ∈ {model, fallback}); the diff comes from GitHub via
    `gh`, the trigger reasons / touched paths are recomputed with the shipped
    `evaluateHuntTrigger`, findings and task context are read from production.
+   Entries that render the SAME prompt (two pushes to one PR touching the same
+   files) are dropped — the same prompt twice is one sample.
 
 2. Run the variants (needs `AI_GATEWAY_API_KEY`):
 
@@ -42,6 +44,10 @@ is what `__tests__/probe-results.test.ts` holds the shipped configuration to.
    ```bash
    npx jest scripts/analysis/lum776-plan-probe/__tests__/probe-results.test.ts
    ```
+
+   The shipped variant is run with the shipped retry (`PLAN_HUNT_MAX_ATTEMPTS`
+   windows, transient failures only); `--single-shot` measures one attempt per
+   prompt, which is how the candidate rows in the committed results were run.
 
 ## Reading the numbers
 

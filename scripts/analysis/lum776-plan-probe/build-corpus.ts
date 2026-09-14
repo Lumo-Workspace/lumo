@@ -4,8 +4,11 @@
  *
  * LUM-766 learned this the hard way: the same prompt repeated 19 times is one
  * sample, not nineteen, and a slim synthetic prompt reported ~50% success where
- * real ones scored 0/16. Every prompt here is a distinct (PR, head sha) pair
- * whose scan really ran the planner (`plannedBy` ∈ {model, fallback}).
+ * real ones scored 0/16. Every prompt here is a distinct PROMPT: a (PR, head
+ * sha) pair whose scan really ran the planner (`plannedBy` ∈ {model,
+ * fallback}), deduplicated on the rendered prompt's hash — two pushes to the
+ * same PR that touched the same files with the same rules render the same
+ * prompt, and the first corpus counted six of those as separate samples.
  *
  * READ-ONLY against production: it reads `PrSecurityScan` + findings + the
  * task context the planner would load, and fetches each PR's diff from GitHub
@@ -18,6 +21,7 @@
  *     scripts/analysis/lum776-plan-probe/build-corpus.ts --out /abs/corpus.json [--take 24]
  */
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { prisma } from '../../../lib/db/prisma'
 import { prSecurityScanRepository } from '../../../lib/repositories/pr-security-scan.repository'
@@ -26,7 +30,10 @@ import { evaluateHuntTrigger } from '../../../lib/security-scan/hunt/trigger'
 import { isGraphSourcePath } from '../../../lib/security-scan/graph/imports'
 import { renderHuntTaskContext } from '../../../lib/security-scan/hunt/task-context'
 import { loadHuntTaskContext } from '../../../lib/services/security-hunt-task-context'
-import type { PlanClientInput } from '../../../lib/llm/security-hunt-plan-client'
+import {
+  buildPlanPrompt,
+  type PlanClientInput,
+} from '../../../lib/llm/security-hunt-plan-client'
 
 export interface CorpusEntry {
   id: string
@@ -77,6 +84,7 @@ async function main(): Promise<void> {
     },
   })
   const seen = new Set<string>()
+  const seenPrompt = new Set<string>()
   const corpus: CorpusEntry[] = []
   for (const s of scans) {
     if (corpus.length >= take) break
@@ -111,18 +119,27 @@ async function main(): Promise<void> {
     const taskContext = renderHuntTaskContext(
       await loadHuntTaskContext(s.taskId)
     )
+    const input: Omit<PlanClientInput, 'timeoutMs'> = {
+      reasons: trigger.reasons,
+      touchedPaths: files.map(f => f.path).filter(isGraphSourcePath),
+      findings,
+      ...(taskContext ? { taskContext } : {}),
+    }
+    const hash = createHash('sha256')
+      .update(buildPlanPrompt({ ...input, timeoutMs: 0 }))
+      .digest('hex')
+    if (seenPrompt.has(hash)) {
+      console.error(`skip ${key}: renders the same prompt as an earlier entry`)
+      continue
+    }
+    seenPrompt.add(hash)
     corpus.push({
       id: `p${String(corpus.length + 1).padStart(2, '0')}`,
       scanId: s.id,
       pr: s.pullRequest.number,
       headSha: s.headSha,
       plannedByInProd: audit.plannedBy,
-      input: {
-        reasons: trigger.reasons,
-        touchedPaths: files.map(f => f.path).filter(isGraphSourcePath),
-        findings,
-        ...(taskContext ? { taskContext } : {}),
-      },
+      input,
     })
     console.error(
       `ok ${key}: reasons=${trigger.reasons.length} paths=${files.length} findings=${findings.length} ctx=${taskContext.length}`
