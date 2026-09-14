@@ -64,9 +64,9 @@ export const cliDispositionBoundaryCrossingSchema = z
   .object({
     disposition: z.enum(['FALSE_POSITIVE', 'CONFIRMED']),
     dispositionNote: z.string().trim().min(1).max(2000).optional(),
-    // LUM-769 read receipt: the token the envelope step obtained from
+    // LUM-769 read receipt: the STAGE-2 token (`--confirm-read` step) from
     // POST …/disposition/receipt. Required — a write with no receipt is a
-    // 400 before any read, so `--confirm` can never run first.
+    // 400 before any read; a stage-1 token is a 409 ("confirm read first").
     receipt: z.string().min(1).max(512),
   })
   .strict()
@@ -79,6 +79,10 @@ export const cliDispositionBoundaryCrossingSchema = z
 export const readReceiptRequestSchema = z
   .object({
     disposition: z.enum(['FALSE_POSITIVE', 'CONFIRMED']),
+    // Stage 2 (`--confirm-read`): present the stage-1 receipt to acknowledge
+    // reading; the server returns the stage-2 receipt the write requires.
+    // Absent = stage 1 (issue a fresh read receipt).
+    acknowledge: z.string().min(1).max(512).optional(),
   })
   .strict()
 

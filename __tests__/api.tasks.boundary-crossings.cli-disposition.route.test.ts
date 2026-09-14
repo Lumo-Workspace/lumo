@@ -24,6 +24,7 @@ jest.mock('@/lib/services/boundary-crossing.service', () => ({
   boundaryCrossingService: {
     disposition: jest.fn(),
     issueReadReceipt: jest.fn(),
+    acknowledgeReadReceipt: jest.fn(),
     verifyReadReceipt: jest.fn(),
   },
 }))
@@ -33,8 +34,14 @@ const mockFindByIdentifier =
   taskRepository.findByWorkspaceIdentifier as jest.Mock
 const mockDisposition = boundaryCrossingService.disposition as jest.Mock
 const mockIssue = boundaryCrossingService.issueReadReceipt as jest.Mock
+const mockAck = boundaryCrossingService.acknowledgeReadReceipt as jest.Mock
 const mockVerify = boundaryCrossingService.verifyReadReceipt as jest.Mock
-const RECEIPT = 'r1.1.2.sig'
+const RECEIPT = 'r2.1.2.3.sig'
+const R1 = 'r1.1.2.sig'
+const HANDSHAKE = {
+  readAt: '2026-09-14T10:00:00.000Z',
+  readAcknowledgedAt: '2026-09-14T10:01:00.000Z',
+}
 
 const CLERK_IDENTITY = {
   clerkId: 'clerk-1',
@@ -70,10 +77,20 @@ beforeEach(() => {
     crossingId: 'bc-1',
     disposition: 'FALSE_POSITIVE',
   })
-  mockVerify.mockResolvedValue(undefined)
+  mockVerify.mockResolvedValue(HANDSHAKE)
   mockIssue.mockResolvedValue({
-    receipt: RECEIPT,
+    receipt: R1,
+    stage: 'READ',
     expiresAt: '2026-09-14T10:10:00.000Z',
+    readAt: HANDSHAKE.readAt,
+    readAcknowledgedAt: null,
+  })
+  mockAck.mockResolvedValue({
+    receipt: RECEIPT,
+    stage: 'ACK',
+    expiresAt: '2026-09-14T10:11:00.000Z',
+    readAt: HANDSHAKE.readAt,
+    readAcknowledgedAt: HANDSHAKE.readAcknowledgedAt,
   })
 })
 
@@ -117,7 +134,12 @@ describe('POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition (CLI,
       'bc-1',
       'FALSE_POSITIVE',
       'covered by run-outbound tests',
-      { actorMemberId: 'member-1', actorClerkId: 'clerk-1', channel: 'CLI' }
+      {
+        actorMemberId: 'member-1',
+        actorClerkId: 'clerk-1',
+        channel: 'CLI',
+        handshake: HANDSHAKE,
+      }
     )
     // The LUM-751 suppression options are never forwarded from this route.
     expect(mockDisposition.mock.calls[0]).toHaveLength(5)
@@ -167,6 +189,24 @@ describe('POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition (CLI,
       expect(mockVerify).not.toHaveBeenCalled()
     }
   )
+
+  it('receipt: confirming with a stage-1 receipt (read not acknowledged) is a 409 that says to confirm the read first, nothing written', async () => {
+    mockVerify.mockRejectedValueOnce(
+      Object.assign(
+        new Error(
+          'Refused: read not yet acknowledged — run the command with --confirm-read (the receipt from the envelope) first; only the receipt that step returns is accepted with --confirm.'
+        ),
+        { status: 409 }
+      )
+    )
+    const { request } = req({ disposition: 'CONFIRMED', receipt: R1 })
+    const res = await POST(request, params)
+    expect(res.status).toBe(409)
+    await expect(res.json()).resolves.toEqual({
+      error: expect.stringMatching(/read not yet acknowledged.*--confirm-read/),
+    })
+    expect(mockDisposition).not.toHaveBeenCalled()
+  })
 
   it('receipt rejected by the server (forged / expired / stale / another reader) is a 409 and nothing is written', async () => {
     mockVerify.mockRejectedValueOnce(
@@ -221,22 +261,56 @@ describe('POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition/recei
     expect(mockIssue).not.toHaveBeenCalled()
   })
 
-  it('receipt route signs the crossing for the named ruling and this caller, and writes nothing', async () => {
+  it('receipt route stage 1 signs the crossing for the named ruling and this caller, and writes nothing', async () => {
     const { request } = req(
       { disposition: 'CONFIRMED' },
       { 'X-Lumo-Session-Id': 'sess-1' }
     )
     const res = await POST_RECEIPT(request, params)
     expect(res.status).toBe(200)
-    await expect(res.json()).resolves.toEqual({
-      receipt: RECEIPT,
-      expiresAt: '2026-09-14T10:10:00.000Z',
+    await expect(res.json()).resolves.toMatchObject({
+      receipt: R1,
+      stage: 'READ',
+      readAcknowledgedAt: null,
     })
     expect(mockIssue).toHaveBeenCalledWith('t-1', 'bc-1', 'CONFIRMED', {
       sessionId: 'sess-1',
       memberId: 'member-1',
     })
+    expect(mockAck).not.toHaveBeenCalled()
     expect(mockDisposition).not.toHaveBeenCalled()
+  })
+
+  it('receipt route stage 2 (acknowledge) verifies the stage-1 receipt and returns the stage-2 receipt, writing nothing', async () => {
+    const { request } = req(
+      { disposition: 'CONFIRMED', acknowledge: R1 },
+      { 'X-Lumo-Session-Id': 'sess-1' }
+    )
+    const res = await POST_RECEIPT(request, params)
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      receipt: RECEIPT,
+      stage: 'ACK',
+      readAcknowledgedAt: HANDSHAKE.readAcknowledgedAt,
+    })
+    expect(mockAck).toHaveBeenCalledWith('t-1', 'bc-1', 'CONFIRMED', R1, {
+      sessionId: 'sess-1',
+      memberId: 'member-1',
+    })
+    expect(mockIssue).not.toHaveBeenCalled()
+    expect(mockDisposition).not.toHaveBeenCalled()
+
+    // A bad stage-1 receipt at the acknowledge step is the service's 409.
+    mockAck.mockRejectedValueOnce(
+      Object.assign(new Error('Refused: the read receipt has expired.'), {
+        status: 409,
+      })
+    )
+    const stale = await POST_RECEIPT(
+      req({ disposition: 'CONFIRMED', acknowledge: 'r1.0.0.old' }).request,
+      params
+    )
+    expect(stale.status).toBe(409)
   })
 
   it('receipt route body is strict and the service 404 / 503 pass through', async () => {

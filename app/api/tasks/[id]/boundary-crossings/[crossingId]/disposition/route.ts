@@ -23,10 +23,13 @@ type Params = { params: Promise<{ id: string; crossingId: string }> }
  * here, so the ruling is recorded with `channel: 'CLI'` on its audit row and
  * surfaced as such in the read model, instead of passing as a web click.
  *
- * Read-before-write is server-enforced: the body must carry the read receipt
- * the envelope step obtained from `…/disposition/receipt` (missing = 400,
- * strict schema), and the receipt is verified against the crossing as it is
- * NOW — forged, expired, foreign or stale = 409, nothing written.
+ * Read-then-acknowledge-then-write is server-enforced: the body must carry
+ * the STAGE-2 receipt the `--confirm-read` step obtained from
+ * `…/disposition/receipt` (missing = 400, strict schema), and the receipt is
+ * verified against the crossing as it is NOW — a stage-1 receipt (read but
+ * never acknowledged) is 409 "confirm read first"; forged, expired, foreign or
+ * stale = 409 too; nothing is written on any refusal. The handshake's
+ * timestamps (shown / read acknowledged / confirmed) land on the audit row.
  *
  * Deliberately narrower than the web route: the body can carry only the two
  * clearing values. The OPEN revert and the LUM-751 repository suppression
@@ -57,8 +60,8 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!parsed.success) return zodError(parsed)
 
   try {
-    // LUM-769 handshake: no valid receipt, no write.
-    await boundaryCrossingService.verifyReadReceipt(
+    // LUM-769 handshake: no valid stage-2 receipt, no write.
+    const handshake = await boundaryCrossingService.verifyReadReceipt(
       task.id,
       crossingId,
       parsed.data.disposition,
@@ -77,6 +80,7 @@ export async function POST(request: NextRequest, { params }: Params) {
         actorMemberId: identity.memberId,
         actorClerkId: identity.clerkId,
         channel: 'CLI',
+        handshake,
       }
     )
     return NextResponse.json({ ...outcome, channel: 'CLI' })

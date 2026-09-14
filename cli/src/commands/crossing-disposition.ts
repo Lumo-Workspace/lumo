@@ -10,10 +10,13 @@ export interface CrossingDispositionOptions {
   confirmed?: boolean
   note?: string
   task?: string
-  /** LUM-755 protocol: "the user has approved the envelope". Never
-   *  self-supplied by an agent. */
+  /** LUM-769 step 2: "the user confirmed they read the envelope". Never
+   *  self-supplied by an agent. Takes the stage-1 receipt via --receipt. */
+  confirmRead?: boolean
+  /** LUM-755 protocol step 3: "the user approved the ruling". Never
+   *  self-supplied by an agent. Takes the stage-2 receipt via --receipt. */
   confirm?: boolean
-  /** LUM-769 read receipt from the envelope step; required with --confirm. */
+  /** LUM-769 read receipt from the previous step's envelope. */
   receipt?: string
 }
 
@@ -33,7 +36,7 @@ export interface CrossingForDisposition {
 }
 
 /**
- * The changes[] block of the disposition envelope (exit 4): what ruling is
+ * The changes[] block of the read envelope (step 1, exit 4): what ruling is
  * about to be recorded, on which crossing, with everything the user needs to
  * judge it — severity, category, detail, recurrence, and the agent's own
  * explanations (labelled as an unverified self-report). The ⚠ lines carry
@@ -90,21 +93,55 @@ export function describeCrossingDisposition(
 }
 
 /**
+ * The changes[] block of the ruling envelope (step 2, exit 4): the read is
+ * acknowledged and recorded; what remains is the ruling itself.
+ */
+export function describeRulingConfirmation(
+  crossing: CrossingForDisposition,
+  target: CrossingDispositionTarget,
+  ctx: {
+    taskIdentifier: string
+    note?: string | undefined
+    readAt: string
+    readAcknowledgedAt: string
+  }
+): string[] {
+  const lines = [
+    `Read acknowledged for crossing ${sanitizeField(crossing.id)} (shown ${ctx.readAt}, acknowledged ${ctx.readAcknowledgedAt}) — recorded with the ruling`,
+    `Step 2 of 2 — record the ruling: ${crossing.disposition ?? 'OPEN'} → ${target} on ${ctx.taskIdentifier}`,
+  ]
+  if (ctx.note) lines.push(`Note to record: ${sanitizeField(ctx.note)}`)
+  lines.push(
+    crossing.advisory
+      ? 'Advisory crossing — it never blocked DONE; the ruling is for the record only'
+      : `⚠ Approving clears this crossing's block on moving ${ctx.taskIdentifier} to DONE`
+  )
+  return lines
+}
+
+/**
  * `lumo crossing disposition <id> --false-positive | --confirmed [--note …]
- * [--task LUM-N] [--confirm]` — rule on a boundary crossing from the terminal
- * (LUM-769), through the LUM-755 confirmation protocol:
+ * [--task LUM-N] [--receipt <token>] [--confirm-read | --confirm]` — rule on
+ * a boundary crossing from the terminal (LUM-769), through a THREE-step
+ * confirmation handshake the server enforces:
  *
- *   1. without --confirm: read the crossing, obtain a server-signed READ
- *      RECEIPT for it (bound to crossing, ruling, caller and the crossing's
- *      current state), print the envelope (exit 4), write nothing;
- *   2. the agent relays every `changes` line; the user approves in chat;
- *   3. with --confirm --receipt <token>: POST the ruling to the task-scoped
- *      CLI route, which verifies the receipt before writing.
+ *   1. no step flag: read the crossing, obtain a stage-1 READ RECEIPT
+ *      (bound to crossing, ruling, caller and the crossing's current state),
+ *      print the read envelope (exit 4), write nothing. Its confirmCommand
+ *      carries `--receipt <r1> --confirm-read`;
+ *   2. `--confirm-read --receipt <r1>`: the user confirmed they read it. The
+ *      server verifies r1 and issues the stage-2 receipt; the CLI prints the
+ *      ruling envelope (exit 4), write nothing. Its confirmCommand carries
+ *      `--receipt <r2> --confirm`;
+ *   3. `--confirm --receipt <r2>`: the user approved the ruling. The server
+ *      verifies r2 — a stage-1 receipt is refused with "confirm read first",
+ *      as is anything forged, expired, foreign or stale — then writes, with
+ *      the shown / acknowledged / confirmed timestamps on the audit row.
  *
- * The receipt makes read-before-write a server-enforced handshake rather than
- * a convention: `--confirm` with no receipt is refused here before any
- * request, and a receipt that is forged, expired, for another caller/ruling,
- * or older than the crossing's latest change is refused by the server.
+ * Skipping or reordering a step is refused at the CLI before any request
+ * where it can be told locally (no receipt, a stage-1 receipt with --confirm,
+ * a stage-2 receipt with --confirm-read) and by the server otherwise. The
+ * agent relays each envelope and never supplies a step flag on its own.
  * Server-side the ruling is stamped `channel: 'CLI'` so the audit trail keeps
  * it apart from a web-panel click. What stays web-only: reverting to OPEN and
  * the repository suppression rule — neither exists on this path.
@@ -126,7 +163,45 @@ export async function crossingDisposition(
     )
     return 1
   }
+  if (options.confirmRead && options.confirm) {
+    console.error(
+      'Error: --confirm-read and --confirm are separate steps — run them one at a time, each from the envelope the previous step printed.'
+    )
+    return 1
+  }
   const note = options.note?.trim() || undefined
+  const receipt = options.receipt?.trim() || undefined
+
+  // Local ordering checks — cheap, and they name the missing step before any
+  // request goes out. The server re-checks all of them.
+  if (options.confirm) {
+    if (!receipt) {
+      console.error(
+        'Error: --confirm requires the stage-2 read receipt (--receipt <token>) from the --confirm-read step. Run the command without any step flag first, relay the envelope, confirm the read, relay that envelope, then re-run its confirmCommand verbatim.'
+      )
+      return 1
+    }
+    if (receipt.startsWith('r1.')) {
+      console.error(
+        'Error: read not yet acknowledged — this is the stage-1 receipt. Run the command with --confirm-read --receipt <this token> first (after the user confirms they read the envelope); only the receipt that step returns is accepted with --confirm.'
+      )
+      return 1
+    }
+  }
+  if (options.confirmRead) {
+    if (!receipt) {
+      console.error(
+        'Error: --confirm-read requires the read receipt (--receipt <token>) from the envelope. Run the command without any step flag first and relay the envelope.'
+      )
+      return 1
+    }
+    if (receipt.startsWith('r2.')) {
+      console.error(
+        'Error: this receipt already acknowledges the read — the next step is --confirm with this same receipt (after the user approves the ruling).'
+      )
+      return 1
+    }
+  }
 
   const creds = readCredentials()
   if (!creds) {
@@ -153,7 +228,7 @@ export async function crossingDisposition(
   }
   const taskId = bound.taskIdentifier
 
-  // Read the crossing first, on both paths: the envelope needs it, and a
+  // Read the crossing first, on every path: the envelopes need it, and a
   // confirmed write against a crossing that can't be read must not go out
   // (fail closed — a read hiccup never turns into a blind ruling).
   const read = await readCrossing(base, headers, taskId, crossingId)
@@ -178,14 +253,11 @@ export async function crossingDisposition(
     return
   }
 
-  if (!options.confirm) {
-    const issued = await obtainReadReceipt(
-      base,
-      headers,
-      taskId,
-      crossingId,
-      target
-    )
+  // Step 1 — read envelope.
+  if (!options.confirmRead && !options.confirm) {
+    const issued = await requestReceipt(base, headers, taskId, crossingId, {
+      disposition: target,
+    })
     if (issued.status === 'error') {
       console.error(
         `Error: could not obtain a read receipt for the crossing (${issued.reason}) — nothing was written and no envelope can be issued.`
@@ -199,20 +271,39 @@ export async function crossingDisposition(
           taskIdentifier: taskId,
           note,
         }),
-        `Read receipt issued for this crossing as read above — valid until ${issued.expiresAt}; it is void if the crossing changes before the user rules`,
+        `Step 1 of 2 — read receipt issued for this crossing as read above (valid until ${issued.expiresAt}; void if the crossing changes). Next: the user confirms they have READ it, then run the command below; the ruling itself is confirmed in a second envelope`,
       ],
+      confirmFlag: '--confirm-read',
       receipt: { token: issued.receipt, expiresAt: issued.expiresAt },
     })
   }
 
-  const receipt = options.receipt?.trim()
-  if (!receipt) {
-    console.error(
-      'Error: --confirm requires the read receipt from the envelope (--receipt <token>). Run the command without --confirm first, relay the envelope to the user, then re-run its confirmCommand verbatim.'
-    )
-    return 1
+  // Step 2 — acknowledge the read, get the stage-2 receipt, ruling envelope.
+  if (options.confirmRead) {
+    const issued = await requestReceipt(base, headers, taskId, crossingId, {
+      disposition: target,
+      acknowledge: receipt as string,
+    })
+    if (issued.status === 'error') {
+      console.error(
+        `Error: read acknowledgement rejected (${issued.reason}) — nothing was written.`
+      )
+      return 1
+    }
+    return emitConfirmation({
+      command: 'crossing disposition',
+      changes: describeRulingConfirmation(crossing, target, {
+        taskIdentifier: taskId,
+        note,
+        readAt: issued.readAt,
+        readAcknowledgedAt: issued.readAcknowledgedAt ?? issued.readAt,
+      }),
+      confirmFlag: '--confirm',
+      receipt: { token: issued.receipt, expiresAt: issued.expiresAt },
+    })
   }
 
+  // Step 3 — the write.
   let res: Response
   try {
     res = await fetch(
@@ -256,11 +347,11 @@ export async function crossingDisposition(
   }
   const url = dispositionUrl(apiUrl, creds.workspaceSlug ?? '', taskId)
   process.stdout.write(
-    `✓ Dispositioned crossing ${sanitizeField(outcome.crossingId)} as ${outcome.disposition ?? 'OPEN'} (approval relayed via CLI).\n` +
+    `✓ Dispositioned crossing ${sanitizeField(outcome.crossingId)} as ${outcome.disposition ?? 'OPEN'} (read acknowledged and ruling approved via CLI).\n` +
       (crossing.advisory
         ? ''
         : `  This clears its block on moving ${taskId} to DONE. `) +
-      `The ruling is audited on the task timeline as a CLI-channel disposition; it can be corrected in the web panel: ${url}\n`
+      `The ruling is audited on the task timeline as a CLI-channel disposition with the shown / read-acknowledged / confirmed times; it can be corrected in the web panel: ${url}\n`
   )
   return
 }
@@ -275,18 +366,24 @@ function pickTarget(
 }
 
 type ReceiptResult =
-  | { status: 'ok'; receipt: string; expiresAt: string }
+  | {
+      status: 'ok'
+      receipt: string
+      expiresAt: string
+      readAt: string
+      readAcknowledgedAt: string | null
+    }
   | { status: 'error'; reason: string }
 
-/** The read step's server call (LUM-769): sign the crossing as read, for this
- *  ruling and caller. Fails closed — without a receipt no envelope is issued,
- *  because its confirmCommand could never be accepted. */
-async function obtainReadReceipt(
+/** The handshake's server call (LUM-769): stage 1 without `acknowledge`,
+ *  stage 2 with the stage-1 receipt in it. Fails closed — without a receipt
+ *  no envelope is issued, because its confirmCommand could never be accepted. */
+async function requestReceipt(
   base: string,
   headers: Record<string, string>,
   taskId: string,
   crossingId: string,
-  target: CrossingDispositionTarget
+  body: { disposition: CrossingDispositionTarget; acknowledge?: string }
 ): Promise<ReceiptResult> {
   let res: Response
   try {
@@ -295,7 +392,7 @@ async function obtainReadReceipt(
       {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ disposition: target }),
+        body: JSON.stringify(body),
       }
     )
   } catch (err) {
@@ -314,19 +411,30 @@ async function obtainReadReceipt(
         : ''
     return { status: 'error', reason: `HTTP ${res.status}${detail}` }
   }
-  let data: { receipt?: unknown; expiresAt?: unknown }
+  let data: {
+    receipt?: unknown
+    expiresAt?: unknown
+    readAt?: unknown
+    readAcknowledgedAt?: unknown
+  }
   try {
-    data = (await res.json()) as { receipt?: unknown; expiresAt?: unknown }
+    data = (await res.json()) as typeof data
   } catch {
     return { status: 'error', reason: 'invalid response body' }
   }
   if (typeof data.receipt !== 'string' || data.receipt.length === 0) {
     return { status: 'error', reason: 'no receipt in response' }
   }
+  const str = (v: unknown): string => (typeof v === 'string' ? v : '')
   return {
     status: 'ok',
     receipt: data.receipt,
-    expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : '',
+    expiresAt: str(data.expiresAt),
+    readAt: str(data.readAt),
+    readAcknowledgedAt:
+      typeof data.readAcknowledgedAt === 'string'
+        ? data.readAcknowledgedAt
+        : null,
   }
 }
 

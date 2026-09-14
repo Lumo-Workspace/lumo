@@ -1,14 +1,17 @@
 /**
  * @jest-environment node
  *
- * LUM-769 — the read receipt is a stateless, server-signed proof that the
- * envelope step ran for THIS crossing, THIS ruling, THIS caller, against the
- * crossing's CURRENT state. Anything else fails verification.
+ * LUM-769 — the read receipts are stateless, server-signed proofs that the
+ * handshake steps ran for THIS crossing, THIS ruling, THIS caller, against
+ * the crossing's CURRENT state: stage 1 (envelope shown) → stage 2 (read
+ * acknowledged) → write, which accepts stage 2 only. Anything else fails.
  */
 import {
+  acknowledgeReadReceipt,
   crossingStateHash,
   issueReadReceipt,
   readReceiptSecret,
+  receiptStageOf,
   verifyReadReceipt,
   READ_RECEIPT_TTL_MS,
   type ReceiptCrossingState,
@@ -17,6 +20,8 @@ import {
 
 const SECRET = 'test-secret'
 const T0 = new Date('2026-09-14T10:00:00.000Z')
+const T1 = new Date('2026-09-14T10:01:00.000Z')
+const T2 = new Date('2026-09-14T10:02:00.000Z')
 
 const state: ReceiptCrossingState = {
   disposition: null,
@@ -38,21 +43,77 @@ const subject: ReceiptSubject = {
   stateHash: crossingStateHash(state),
 }
 
+function ack(now = T1) {
+  const r1 = issueReadReceipt(SECRET, subject, T0)
+  const out = acknowledgeReadReceipt(SECRET, r1.receipt, subject, now)
+  if (!out.ok) throw new Error(`ack failed: ${out.reason}`)
+  return { r1, r2: out.issued }
+}
+
 describe('read receipt (LUM-769)', () => {
-  it('receipt round-trips for the same subject and state, within its TTL', () => {
-    const issued = issueReadReceipt(SECRET, subject, T0)
-    expect(issued.receipt).toMatch(/^r1\.\d+\.\d+\.[A-Za-z0-9_-]+$/)
-    expect(issued.expiresAt).toBe(
+  it('receipt stage 1 round-trips for the same subject and state, within its TTL', () => {
+    const r1 = issueReadReceipt(SECRET, subject, T0)
+    expect(r1.receipt).toMatch(/^r1\.\d+\.\d+\.[A-Za-z0-9_-]+$/)
+    expect(r1.stage).toBe('READ')
+    expect(r1.readAt).toBe(T0.toISOString())
+    expect(r1.readAcknowledgedAt).toBeNull()
+    expect(r1.expiresAt).toBe(
       new Date(T0.getTime() + READ_RECEIPT_TTL_MS).toISOString()
     )
+    expect(verifyReadReceipt(SECRET, r1.receipt, subject, T1)).toEqual({
+      ok: true,
+      stage: 'READ',
+      readAt: T0.toISOString(),
+      readAcknowledgedAt: null,
+    })
+    expect(receiptStageOf(r1.receipt)).toBe('READ')
+  })
+
+  it('receipt stage 2 is issued only from a valid stage-1 receipt and carries the read time forward', () => {
+    const { r1, r2 } = ack()
+    expect(r2.receipt).toMatch(/^r2\.\d+\.\d+\.\d+\.[A-Za-z0-9_-]+$/)
+    expect(r2.stage).toBe('ACK')
+    expect(r2.readAt).toBe(T0.toISOString())
+    expect(r2.readAcknowledgedAt).toBe(T1.toISOString())
+    expect(receiptStageOf(r2.receipt)).toBe('ACK')
     expect(
-      verifyReadReceipt(
+      verifyReadReceipt(SECRET, r2.receipt, subject, T2, {
+        requireStage: 'ACK',
+      })
+    ).toEqual({
+      ok: true,
+      stage: 'ACK',
+      readAt: T0.toISOString(),
+      readAcknowledgedAt: T1.toISOString(),
+    })
+    // Acknowledging twice, or acknowledging a forged/foreign token, is refused.
+    expect(acknowledgeReadReceipt(SECRET, r2.receipt, subject, T2)).toEqual({
+      ok: false,
+      reason: 'mismatch',
+    })
+    expect(
+      acknowledgeReadReceipt(
         SECRET,
-        issued.receipt,
-        subject,
-        new Date(T0.getTime() + 1000)
+        r1.receipt,
+        { ...subject, target: 'CONFIRMED' },
+        T1
       )
-    ).toEqual({ ok: true })
+    ).toEqual({ ok: false, reason: 'mismatch' })
+    expect(acknowledgeReadReceipt(SECRET, 'nope', subject, T1)).toEqual({
+      ok: false,
+      reason: 'malformed',
+    })
+  })
+
+  it('receipt: confirming with a stage-1 token is refused as not_acknowledged — read must be confirmed first', () => {
+    const r1 = issueReadReceipt(SECRET, subject, T0)
+    expect(
+      verifyReadReceipt(SECRET, r1.receipt, subject, T1, {
+        requireStage: 'ACK',
+      })
+    ).toEqual({ ok: false, reason: 'not_acknowledged' })
+    // …and it stays a plain valid stage-1 token without the requirement.
+    expect(verifyReadReceipt(SECRET, r1.receipt, subject, T1).ok).toBe(true)
   })
 
   const drifts: Array<[string, Partial<ReceiptSubject>]> = [
@@ -64,30 +125,46 @@ describe('read receipt (LUM-769)', () => {
     ['another member', { memberId: 'm-2' }],
   ]
   it.each(drifts)(
-    'receipt is rejected as mismatch when used for %s',
+    'receipt (both stages) is rejected as mismatch when used for %s',
     (_label, drift) => {
-      const issued = issueReadReceipt(SECRET, subject, T0)
+      const { r1, r2 } = ack()
+      const other = { ...subject, ...drift }
+      expect(verifyReadReceipt(SECRET, r1.receipt, other, T1)).toEqual({
+        ok: false,
+        reason: 'mismatch',
+      })
       expect(
-        verifyReadReceipt(SECRET, issued.receipt, { ...subject, ...drift }, T0)
+        verifyReadReceipt(SECRET, r2.receipt, other, T2, {
+          requireStage: 'ACK',
+        })
       ).toEqual({ ok: false, reason: 'mismatch' })
     }
   )
 
-  it('receipt is voided by any change to the crossing state it was read against', () => {
-    const issued = issueReadReceipt(SECRET, subject, T0)
-    const drifts: Array<Partial<typeof state>> = [
+  it('receipt (both stages) is voided by any change to the crossing state it was read against', () => {
+    const { r1, r2 } = ack()
+    const changes: Array<Partial<ReceiptCrossingState>> = [
       { disposition: 'CONFIRMED' },
       { occurrenceCount: 3, lastSeenAt: '2026-09-14T09:30:00.000Z' },
       { explanationIds: ['ex-1', 'ex-2', 'ex-3'] },
       { detail: 'deleted __tests__/y.test.ts' },
       { severity: 'HIGH' },
     ]
-    for (const d of drifts) {
+    for (const d of changes) {
       const changed = {
         ...subject,
         stateHash: crossingStateHash({ ...state, ...d }),
       }
-      expect(verifyReadReceipt(SECRET, issued.receipt, changed, T0)).toEqual({
+      expect(verifyReadReceipt(SECRET, r1.receipt, changed, T1)).toEqual({
+        ok: false,
+        reason: 'mismatch',
+      })
+      expect(
+        verifyReadReceipt(SECRET, r2.receipt, changed, T2, {
+          requireStage: 'ACK',
+        })
+      ).toEqual({ ok: false, reason: 'mismatch' })
+      expect(acknowledgeReadReceipt(SECRET, r1.receipt, changed, T1)).toEqual({
         ok: false,
         reason: 'mismatch',
       })
@@ -102,38 +179,58 @@ describe('read receipt (LUM-769)', () => {
   })
 
   it('receipt is rejected when expired, forged, signed with another secret, or malformed', () => {
-    const issued = issueReadReceipt(SECRET, subject, T0)
+    const { r1, r2 } = ack()
+    const late = new Date(T1.getTime() + READ_RECEIPT_TTL_MS + 1)
+    expect(verifyReadReceipt(SECRET, r1.receipt, subject, late)).toEqual({
+      ok: false,
+      reason: 'expired',
+    })
     expect(
-      verifyReadReceipt(
-        SECRET,
-        issued.receipt,
-        subject,
-        new Date(T0.getTime() + READ_RECEIPT_TTL_MS + 1)
-      )
+      verifyReadReceipt(SECRET, r2.receipt, subject, late, {
+        requireStage: 'ACK',
+      })
     ).toEqual({ ok: false, reason: 'expired' })
-    expect(verifyReadReceipt('other', issued.receipt, subject, T0)).toEqual({
+    expect(verifyReadReceipt('other', r1.receipt, subject, T1)).toEqual({
       ok: false,
       reason: 'mismatch',
     })
-    const [v, iat, exp] = issued.receipt.split('.')
+    const [v, iat, exp, sig] = r1.receipt.split('.')
     expect(
-      verifyReadReceipt(SECRET, `${v}.${iat}.${exp}.AAAA`, subject, T0)
-    ).toEqual({ ok: false, reason: 'mismatch' })
+      verifyReadReceipt(SECRET, `${v}.${iat}.${exp}.AAAA`, subject, T1)
+    ).toEqual({
+      ok: false,
+      reason: 'mismatch',
+    })
     // Stretching the expiry breaks the signature — exp is inside the message.
     expect(
       verifyReadReceipt(
         SECRET,
-        `${v}.${iat}.${Number(exp) + 60_000}.${issued.receipt.split('.')[3]}`,
+        `${v}.${iat}.${Number(exp) + 60_000}.${sig}`,
         subject,
-        T0
+        T1
       )
     ).toEqual({ ok: false, reason: 'mismatch' })
-    for (const bad of ['', 'r1', 'r0.1.2.sig', 'r1.x.y.sig', 'r1.1.2.']) {
-      expect(verifyReadReceipt(SECRET, bad, subject, T0)).toEqual({
+    // Relabelling a stage-1 token as stage 2 breaks the signature too.
+    expect(
+      verifyReadReceipt(SECRET, `r2.${iat}.${iat}.${exp}.${sig}`, subject, T1, {
+        requireStage: 'ACK',
+      })
+    ).toEqual({ ok: false, reason: 'mismatch' })
+    for (const bad of [
+      '',
+      'r1',
+      'r0.1.2.sig',
+      'r1.x.y.sig',
+      'r1.1.2.',
+      'r2.1.2.sig',
+      'r1.1.2.3.sig',
+    ]) {
+      expect(verifyReadReceipt(SECRET, bad, subject, T1)).toEqual({
         ok: false,
         reason: 'malformed',
       })
     }
+    expect(receiptStageOf('r0.1.2.sig')).toBeNull()
   })
 
   it('receipt secret: LUMO_RECEIPT_SECRET wins, CRON_SECRET is the fallback, nothing configured is null (fail closed)', () => {

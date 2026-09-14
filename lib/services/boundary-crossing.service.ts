@@ -34,11 +34,13 @@ import type {
 export type DispositionChannel = 'WEB' | 'CLI'
 
 import {
+  acknowledgeReadReceipt,
   crossingStateHash,
   issueReadReceipt,
   readReceiptSecret,
   verifyReadReceipt,
   type IssuedReceipt,
+  type ReceiptFailure,
   type ReceiptSubject,
 } from '@/lib/boundary-crossing/read-receipt'
 
@@ -56,6 +58,9 @@ export interface DispositionAttribution {
   /** LUM-769: surface the ruling came through. Absent/`WEB` = the web panel
    *  (payload shape unchanged); `CLI` is stamped on the audit payload. */
   channel?: DispositionChannel
+  /** LUM-769 handshake timestamps (CLI path only): when the envelope was
+   *  shown and when reading was acknowledged — recorded on the audit row. */
+  handshake?: { readAt: string; readAcknowledgedAt: string }
 }
 
 /** LUM-751: optional repository-rule opt-in riding a FALSE_POSITIVE ruling. */
@@ -635,6 +640,22 @@ export function lastDispositionChange(
   return latest
 }
 
+/** LUM-769: one 409 per receipt failure, naming the step that must run next. */
+function receiptRefusal(
+  failure: ReceiptFailure,
+  step: '--confirm-read' | '--confirm'
+): Error & { status: number } {
+  const why =
+    failure.reason === 'not_acknowledged'
+      ? 'read not yet acknowledged — run the command with --confirm-read (the receipt from the envelope) first; only the receipt that step returns is accepted with --confirm'
+      : failure.reason === 'expired'
+        ? `the read receipt has expired. Re-run the command without ${step} to read the crossing again and get a fresh envelope`
+        : failure.reason === 'malformed'
+          ? `the read receipt is malformed. Re-run the command without ${step} to get a fresh envelope`
+          : `the read receipt does not match this crossing, ruling, caller, or the crossing has changed since it was read. Re-run the command without ${step} to read the crossing again and get a fresh envelope`
+  return Object.assign(new Error(`Refused: ${why}.`), { status: 409 })
+}
+
 /** Descending prominence — higher = more severe, surfaced first (LUM-442). */
 const SEVERITY_RANK: Record<BoundaryCrossingSeverity, number> = {
   HIGH: 3,
@@ -1032,7 +1053,22 @@ export const boundaryCrossingService = {
         ...(suppressionRuleId ? { suppressionRuleId } : {}),
         // LUM-769: stamped only on the CLI path, so a web ruling's payload keeps
         // its pre-769 shape and the two stay distinguishable in the audit trail.
-        ...(attribution.channel === 'CLI' ? { channel: 'CLI' } : {}),
+        // The handshake timestamps make the process auditable like a terms
+        // acceptance: shown at readAt, read acknowledged at readAcknowledgedAt,
+        // ruling confirmed at confirmedAt.
+        ...(attribution.channel === 'CLI'
+          ? {
+              channel: 'CLI',
+              ...(attribution.handshake
+                ? {
+                    readAt: attribution.handshake.readAt,
+                    readAcknowledgedAt:
+                      attribution.handshake.readAcknowledgedAt,
+                    confirmedAt: new Date().toISOString(),
+                  }
+                : {}),
+            }
+          : {}),
       },
     })
 
@@ -1070,10 +1106,40 @@ export const boundaryCrossingService = {
   },
 
   /**
+   * LUM-769 read receipt — stage 2, "the user confirmed they read it". Verifies
+   * the stage-1 receipt against the crossing as it is NOW and issues the
+   * stage-2 receipt the write step requires. Writes nothing. 409 on a forged,
+   * expired, foreign or stale stage-1 receipt.
+   */
+  async acknowledgeReadReceipt(
+    taskId: string,
+    crossingId: string,
+    target: 'FALSE_POSITIVE' | 'CONFIRMED',
+    receipt: string,
+    caller: ReceiptCaller
+  ): Promise<IssuedReceipt> {
+    const subject = await this.receiptSubject(
+      taskId,
+      crossingId,
+      target,
+      caller
+    )
+    const out = acknowledgeReadReceipt(
+      this.requireReceiptSecret(),
+      receipt,
+      subject
+    )
+    if (out.ok) return out.issued
+    throw receiptRefusal(out, '--confirm-read')
+  },
+
+  /**
    * LUM-769 read receipt — the WRITE-side check. Recomputes the subject from
-   * the request context and the crossing's CURRENT state and verifies the
-   * signature: a forged, expired, foreign or stale receipt is a 409 and the
-   * caller must re-run the envelope step. Throws; returns nothing on success.
+   * the request context and the crossing's CURRENT state and verifies a
+   * STAGE-2 receipt: a stage-1 receipt (read, never acknowledged) is refused
+   * with "confirm read first"; a forged, expired, foreign or stale receipt is
+   * refused too. Every refusal is a 409 and nothing is written. Returns the
+   * handshake timestamps for the audit row.
    */
   async verifyReadReceipt(
     taskId: string,
@@ -1081,7 +1147,7 @@ export const boundaryCrossingService = {
     target: 'FALSE_POSITIVE' | 'CONFIRMED',
     receipt: string,
     caller: ReceiptCaller
-  ): Promise<void> {
+  ): Promise<{ readAt: string; readAcknowledgedAt: string }> {
     const subject = await this.receiptSubject(
       taskId,
       crossingId,
@@ -1091,21 +1157,17 @@ export const boundaryCrossingService = {
     const verdict = verifyReadReceipt(
       this.requireReceiptSecret(),
       receipt,
-      subject
+      subject,
+      new Date(),
+      { requireStage: 'ACK' }
     )
-    if (verdict.ok) return
-    const why =
-      verdict.reason === 'expired'
-        ? 'the read receipt has expired'
-        : verdict.reason === 'malformed'
-          ? 'the read receipt is malformed'
-          : 'the read receipt does not match this crossing, ruling, caller, or the crossing has changed since it was read'
-    throw Object.assign(
-      new Error(
-        `Refused: ${why}. Re-run the command without --confirm to read the crossing again and get a fresh envelope.`
-      ),
-      { status: 409 }
-    )
+    if (verdict.ok) {
+      return {
+        readAt: verdict.readAt,
+        readAcknowledgedAt: verdict.readAcknowledgedAt ?? verdict.readAt,
+      }
+    }
+    throw receiptRefusal(verdict, '--confirm')
   },
 
   /** Shared by issue/verify so both sides hash exactly the same state. */

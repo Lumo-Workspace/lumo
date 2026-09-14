@@ -11,12 +11,21 @@ type Params = { params: Promise<{ id: string; crossingId: string }> }
 
 /**
  * POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition/receipt —
- * the READ step of the CLI disposition handshake (LUM-769). Bearer-only like
- * the write route. The CLI calls it while building the exit-4 envelope; the
- * server signs the crossing's current state for the named ruling and this
- * caller (session + member) and returns a short receipt. Nothing is written.
- * The write route refuses any `--confirm` that does not present a receipt
- * still matching the crossing — so a ruling can only follow a read.
+ * the READ and READ-ACKNOWLEDGED steps of the CLI disposition handshake
+ * (LUM-769). Bearer-only like the write route.
+ *
+ * - body `{ disposition }`: stage 1 — the CLI calls it while building the
+ *   exit-4 envelope; the server signs the crossing's current state for the
+ *   named ruling and this caller (session + member) and returns a stage-1
+ *   receipt.
+ * - body `{ disposition, acknowledge: <stage-1 receipt> }`: stage 2 — the
+ *   user confirmed they read the envelope (`--confirm-read`); the server
+ *   verifies the stage-1 receipt against the crossing as it is NOW and returns
+ *   the stage-2 receipt the write route requires.
+ *
+ * Nothing is written by either. The write route refuses any `--confirm` that
+ * does not present a stage-2 receipt still matching the crossing — so a ruling
+ * can only follow a read AND an acknowledged read, in that order.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   const identity = await requireIdentity(request)
@@ -42,15 +51,24 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!parsed.success) return zodError(parsed)
 
   try {
-    const issued = await boundaryCrossingService.issueReadReceipt(
-      task.id,
-      crossingId,
-      parsed.data.disposition,
-      {
-        sessionId: request.headers.get('X-Lumo-Session-Id'),
-        memberId: identity.memberId,
-      }
-    )
+    const caller = {
+      sessionId: request.headers.get('X-Lumo-Session-Id'),
+      memberId: identity.memberId,
+    }
+    const issued = parsed.data.acknowledge
+      ? await boundaryCrossingService.acknowledgeReadReceipt(
+          task.id,
+          crossingId,
+          parsed.data.disposition,
+          parsed.data.acknowledge,
+          caller
+        )
+      : await boundaryCrossingService.issueReadReceipt(
+          task.id,
+          crossingId,
+          parsed.data.disposition,
+          caller
+        )
     return NextResponse.json(issued)
   } catch (error) {
     const maybeStatus = (error as { status?: unknown } | null)?.status

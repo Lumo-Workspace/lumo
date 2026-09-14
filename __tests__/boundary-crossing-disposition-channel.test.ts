@@ -56,13 +56,22 @@ beforeEach(() => {
 })
 
 describe('disposition channel (LUM-769)', () => {
-  it('a CLI attribution stamps channel CLI on the audit payload', async () => {
+  it('a CLI attribution stamps channel CLI and the handshake timestamps on the audit payload', async () => {
+    const startedAt = Date.now()
     await boundaryCrossingService.disposition(
       't-1',
       'cx-1',
       'FALSE_POSITIVE',
       'relayed approval',
-      { actorMemberId: 'm-1', actorClerkId: 'c-1', channel: 'CLI' }
+      {
+        actorMemberId: 'm-1',
+        actorClerkId: 'c-1',
+        channel: 'CLI',
+        handshake: {
+          readAt: '2026-09-14T10:00:00.000Z',
+          readAcknowledgedAt: '2026-09-14T10:01:00.000Z',
+        },
+      }
     )
     expect(mockCreate).toHaveBeenCalledTimes(1)
     const payload = mockCreate.mock.calls[0][0].payload as Record<
@@ -75,7 +84,14 @@ describe('disposition channel (LUM-769)', () => {
       to: 'FALSE_POSITIVE',
       note: 'relayed approval',
       channel: 'CLI',
+      readAt: '2026-09-14T10:00:00.000Z',
+      readAcknowledgedAt: '2026-09-14T10:01:00.000Z',
     })
+    // Confirmed at write time — a real ISO timestamp taken during the call.
+    const confirmedAt = new Date(payload.confirmedAt as string).getTime()
+    expect(Number.isNaN(confirmedAt)).toBe(false)
+    expect(confirmedAt).toBeGreaterThanOrEqual(startedAt)
+    expect(confirmedAt).toBeLessThanOrEqual(Date.now())
   })
 
   it('the web attribution keeps the pre-769 payload shape (no channel key)', async () => {

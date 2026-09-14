@@ -1,34 +1,52 @@
 import { createHash, createHmac, timingSafeEqual } from 'crypto'
 
 /**
- * Read receipt for the CLI disposition handshake (LUM-769).
+ * Read receipts for the CLI disposition handshake (LUM-769).
  *
  * The exit-4 confirmation protocol is a convention: nothing stops an agent
- * from running `--confirm` first. The receipt turns the ordering into a
- * server-enforced handshake, the way a web form is loaded before it is
- * submitted:
+ * from running `--confirm` first. The receipts turn the ordering into a
+ * server-enforced, three-step handshake — the way a web form is loaded, the
+ * "I have read this" box is ticked, and only then the submit button works:
  *
- *   1. the envelope step asks the server for a receipt — the server signs
- *      (crossing, task, target ruling, caller session/member, current crossing
- *      STATE, issued/expiry) and hands back a short token, writing nothing;
- *   2. the `--confirm` step must carry that token; the server recomputes the
- *      same message from the request + the crossing as it is NOW and checks
- *      the signature.
+ *   1. READ    — the envelope step asks the server for a stage-1 receipt: the
+ *                server signs (crossing, task, target ruling, caller
+ *                session/member, the crossing's CURRENT state, issued/expiry)
+ *                and hands back a short token, writing nothing;
+ *   2. ACK     — `--confirm-read` presents that token; the server verifies it
+ *                and issues a stage-2 receipt that additionally carries the
+ *                read time — "the user acknowledged reading this";
+ *   3. CONFIRM — `--confirm` must present a STAGE-2 token; a stage-1 token
+ *                (read but never acknowledged) is refused with
+ *                `not_acknowledged`, and the write records both timestamps on
+ *                its audit row.
  *
- * So a write can only follow a read of the same crossing, for the same ruling,
- * by the same caller, and only while the crossing still looks like what was
- * read (a recurrence, a new explanation or a ruling in between changes the
- * state hash and voids the receipt). What it cannot prove is that the human
- * actually looked at the relayed envelope — that stays a protocol rule, which
- * is why the ruling is still stamped `channel: 'CLI'`.
+ * At every step the server recomputes the same message from the request and
+ * the crossing as it is NOW, so a write can only follow a read AND an
+ * acknowledgement of the same crossing, for the same ruling, by the same
+ * caller, and only while the crossing still looks like what was read (a
+ * recurrence, a new explanation or a ruling in between changes the state hash
+ * and voids every outstanding receipt). What it cannot prove is that the
+ * human personally ticked the box — the agent relays each step — which is why
+ * the ruling is still stamped `channel: 'CLI'`.
  *
- * Stateless by design: no table, no migration, nothing persisted on the read
- * step. The token is `r1.<iat>.<exp>.<sig>` — every other field lives in the
- * request context, so a mismatch on any of them simply fails the signature.
+ * Stateless by design: no table, no migration, nothing persisted before the
+ * write. Tokens are `r1.<iat>.<exp>.<sig>` and `r2.<readAt>.<iat>.<exp>.<sig>`
+ * — every other field lives in the request context, so a mismatch on any of
+ * them simply fails the signature.
  */
 
 export const READ_RECEIPT_TTL_MS = 10 * 60 * 1000
-const VERSION = 'r1'
+
+/** READ = stage 1 (envelope shown); ACK = stage 2 (read acknowledged). */
+export type ReceiptStage = 'READ' | 'ACK'
+const STAGE_PREFIX: Record<ReceiptStage, string> = { READ: 'r1', ACK: 'r2' }
+
+/** The stage a token claims, from its prefix — null when it is neither. */
+export function receiptStageOf(receipt: string): ReceiptStage | null {
+  if (receipt.startsWith('r1.')) return 'READ'
+  if (receipt.startsWith('r2.')) return 'ACK'
+  return null
+}
 
 /** The crossing fields whose change must void an outstanding receipt. */
 export interface ReceiptCrossingState {
@@ -56,15 +74,27 @@ export interface ReceiptSubject {
 
 export interface IssuedReceipt {
   receipt: string
+  stage: ReceiptStage
   expiresAt: string
+  /** When the envelope was first shown (stage-1 issue time). */
+  readAt: string
+  /** When reading was acknowledged — set on stage-2 receipts only. */
+  readAcknowledgedAt: string | null
+}
+
+export type ReceiptFailure = {
+  ok: false
+  reason: 'malformed' | 'expired' | 'mismatch' | 'not_acknowledged'
 }
 
 export type ReceiptVerdict =
-  | { ok: true }
   | {
-      ok: false
-      reason: 'malformed' | 'expired' | 'mismatch'
+      ok: true
+      stage: ReceiptStage
+      readAt: string
+      readAcknowledgedAt: string | null
     }
+  | ReceiptFailure
 
 const iso = (v: Date | string | null): string =>
   v == null ? '' : v instanceof Date ? v.toISOString() : String(v)
@@ -84,15 +114,22 @@ export function crossingStateHash(state: ReceiptCrossingState): string {
   return createHash('sha256').update(canonical, 'utf8').digest('hex')
 }
 
-function message(subject: ReceiptSubject, iat: number, exp: number): string {
+function message(
+  stage: ReceiptStage,
+  subject: ReceiptSubject,
+  readAt: number,
+  iat: number,
+  exp: number
+): string {
   return [
-    VERSION,
+    STAGE_PREFIX[stage],
     subject.crossingId,
     subject.taskId,
     subject.target,
     subject.sessionId ?? '',
     subject.memberId,
     subject.stateHash,
+    String(readAt),
     String(iat),
     String(exp),
   ].join('|')
@@ -104,50 +141,109 @@ function sign(secret: string, msg: string): string {
     .digest('base64url')
 }
 
+function build(
+  secret: string,
+  stage: ReceiptStage,
+  subject: ReceiptSubject,
+  readAt: number,
+  now: Date,
+  ttlMs: number
+): IssuedReceipt {
+  const iat = now.getTime()
+  const exp = iat + ttlMs
+  const sig = sign(secret, message(stage, subject, readAt, iat, exp))
+  const prefix = STAGE_PREFIX[stage]
+  const receipt =
+    stage === 'READ'
+      ? `${prefix}.${iat}.${exp}.${sig}`
+      : `${prefix}.${readAt}.${iat}.${exp}.${sig}`
+  return {
+    receipt,
+    stage,
+    expiresAt: new Date(exp).toISOString(),
+    readAt: new Date(readAt).toISOString(),
+    readAcknowledgedAt: stage === 'ACK' ? new Date(iat).toISOString() : null,
+  }
+}
+
+/** Stage 1: the envelope was built for this subject. Writes nothing. */
 export function issueReadReceipt(
   secret: string,
   subject: ReceiptSubject,
   now: Date = new Date(),
   ttlMs: number = READ_RECEIPT_TTL_MS
 ): IssuedReceipt {
-  const iat = now.getTime()
-  const exp = iat + ttlMs
-  const sig = sign(secret, message(subject, iat, exp))
+  return build(secret, 'READ', subject, now.getTime(), now, ttlMs)
+}
+
+/**
+ * Stage 2: the user acknowledged reading the envelope. Verifies the stage-1
+ * receipt for this subject and issues the stage-2 receipt that carries the
+ * original read time forward. A stage-2 token presented here is refused as
+ * `mismatch` (acknowledging twice is not a thing).
+ */
+export function acknowledgeReadReceipt(
+  secret: string,
+  readReceipt: string,
+  subject: ReceiptSubject,
+  now: Date = new Date(),
+  ttlMs: number = READ_RECEIPT_TTL_MS
+): { ok: true; issued: IssuedReceipt } | ReceiptFailure {
+  const verdict = verifyReadReceipt(secret, readReceipt, subject, now)
+  if (!verdict.ok) return verdict
+  if (verdict.stage !== 'READ') return { ok: false, reason: 'mismatch' }
+  const readAt = new Date(verdict.readAt).getTime()
   return {
-    receipt: `${VERSION}.${iat}.${exp}.${sig}`,
-    expiresAt: new Date(exp).toISOString(),
+    ok: true,
+    issued: build(secret, 'ACK', subject, readAt, now, ttlMs),
   }
 }
 
 /**
- * Pure verification. The caller supplies the subject as it stands NOW (path
- * params, body target, headers, identity, fresh state hash); any drift from
- * what was signed reads as `mismatch`. Timing-safe on the signature compare.
+ * Pure verification of either stage. The caller supplies the subject as it
+ * stands NOW (path params, body target, headers, identity, fresh state hash);
+ * any drift from what was signed reads as `mismatch`. Pass
+ * `requireStage: 'ACK'` on the write path — a valid stage-1 token then fails
+ * as `not_acknowledged`, so the caller can say exactly which step is missing.
+ * Timing-safe on the signature compare.
  */
 export function verifyReadReceipt(
   secret: string,
   receipt: string,
   subject: ReceiptSubject,
-  now: Date = new Date()
+  now: Date = new Date(),
+  options: { requireStage?: ReceiptStage } = {}
 ): ReceiptVerdict {
   const parts = receipt.split('.')
-  if (parts.length !== 4 || parts[0] !== VERSION) {
+  const stage = receiptStageOf(receipt)
+  if (stage === null) return { ok: false, reason: 'malformed' }
+  const expectedLen = stage === 'READ' ? 4 : 5
+  if (parts.length !== expectedLen) return { ok: false, reason: 'malformed' }
+  const nums = parts.slice(1, -1).map(Number)
+  const sig = parts[parts.length - 1] ?? ''
+  if (nums.some(n => !Number.isInteger(n)) || sig.length === 0) {
     return { ok: false, reason: 'malformed' }
   }
-  const iat = Number(parts[1])
-  const exp = Number(parts[2])
-  const sig = parts[3] ?? ''
-  if (!Number.isInteger(iat) || !Number.isInteger(exp) || sig.length === 0) {
-    return { ok: false, reason: 'malformed' }
-  }
-  const expected = sign(secret, message(subject, iat, exp))
+  const [readAt, iat, exp] =
+    stage === 'READ'
+      ? [nums[0] as number, nums[0] as number, nums[1] as number]
+      : [nums[0] as number, nums[1] as number, nums[2] as number]
+  const expected = sign(secret, message(stage, subject, readAt, iat, exp))
   const a = Buffer.from(sig)
   const b = Buffer.from(expected)
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
     return { ok: false, reason: 'mismatch' }
   }
   if (now.getTime() > exp) return { ok: false, reason: 'expired' }
-  return { ok: true }
+  if (options.requireStage && options.requireStage !== stage) {
+    return { ok: false, reason: 'not_acknowledged' }
+  }
+  return {
+    ok: true,
+    stage,
+    readAt: new Date(readAt).toISOString(),
+    readAcknowledgedAt: stage === 'ACK' ? new Date(iat).toISOString() : null,
+  }
 }
 
 /**
