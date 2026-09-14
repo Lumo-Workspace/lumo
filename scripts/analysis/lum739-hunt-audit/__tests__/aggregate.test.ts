@@ -66,6 +66,9 @@ describe('LUM-739 hunt audit', () => {
       plan: {
         by: { model: 0, fallback: 0, notAttempted: 0, unknown: 0 },
         taskCounts: {},
+      failures: {},
+      reasoningTokens: [],
+      emptyOutput: 0,
       },
       taskStops: {},
       tasksWrappedUp: 0,
@@ -228,6 +231,59 @@ describe('LUM-739 hunt audit', () => {
 
     expect(stats.tasksWrappedUp).toBe(1)
     expect(stats.tasksWrapUpRefused).toBe(0)
+  })
+
+  it('counts plan failures by finish reason, so budget and schema are told apart', () => {
+    // These were indistinguishable while only the error message was stored:
+    // "no object generated" covered both a model that spent its whole output
+    // budget on reasoning and one that was simply wrong about the shape. The
+    // first wants a retry; the second must not get one.
+    const stats = aggregateHuntAudit([
+      {
+        id: 'a',
+        stages: { hunt: 'PARTIAL' },
+        tokenSpent: 1,
+        findings: [],
+        huntAudit: {
+          candidates: 0,
+          plannedBy: 'fallback',
+          planFailure: {
+            message: 'm',
+            finishReason: 'length',
+            reasoningTokens: 7_940,
+            textPrefix: '',
+          },
+        },
+      },
+      {
+        id: 'b',
+        stages: { hunt: 'PARTIAL' },
+        tokenSpent: 1,
+        findings: [],
+        huntAudit: {
+          candidates: 0,
+          plannedBy: 'fallback',
+          planFailure: {
+            message: 'm',
+            finishReason: 'stop',
+            reasoningTokens: 60,
+            textPrefix: '{"tasks":[]}',
+          },
+        },
+      },
+      {
+        id: 'c',
+        stages: { hunt: 'RAN' },
+        tokenSpent: 1,
+        findings: [],
+        huntAudit: { candidates: 0, plannedBy: 'model' },
+      },
+    ] as unknown as HuntScanRow[])
+
+    expect(stats.plan.failures).toEqual({ length: 1, stop: 1 })
+    expect(stats.plan.reasoningTokens).toEqual([7_940, 60])
+    // Only the one that emitted nothing at all.
+    expect(stats.plan.emptyOutput).toBe(1)
   })
 
   it('reports null rates on an empty input', () => {

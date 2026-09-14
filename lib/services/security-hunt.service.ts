@@ -43,7 +43,11 @@ import {
   categoriesToTasks,
   applyPlanFloor,
 } from '@/lib/security-scan/hunt/plan-fallback'
-import { isTransientPlanError } from '@/lib/security-scan/hunt/plan-retry'
+import {
+  isTransientPlanError,
+  describePlanFailure,
+  type PlanFailureFacts,
+} from '@/lib/security-scan/hunt/plan-retry'
 import { renderHuntTaskContext } from '@/lib/security-scan/hunt/task-context'
 import { loadHuntTaskContext } from './security-hunt-task-context'
 import {
@@ -381,7 +385,11 @@ export const securityHuntService = {
       await loadHuntTaskContext(job.taskId)
     )
     const hasTaskContext = taskContextBlock !== ''
-    const fallback = (reason: string): PlanHuntOutput => ({
+    const fallback = (
+      reason: string,
+      failure?: PlanFailureFacts
+    ): PlanHuntOutput => ({
+      ...(failure ? { planFailure: failure } : {}),
       tasks: categoriesToTasks(floor),
       reason,
       by: 'fallback',
@@ -411,6 +419,7 @@ export const securityHuntService = {
     // "give up"; the planner is cheap (≤ PLAN_HUNT_TOKEN_BUDGET) so the retry
     // costs far less than the plan quality it saves.
     let lastError = ''
+    let lastFailure: PlanFailureFacts | undefined
     for (let attempt = 1; attempt <= PLAN_HUNT_MAX_ATTEMPTS; attempt++) {
       try {
         const { planHuntTasks } =
@@ -477,7 +486,8 @@ export const securityHuntService = {
           suppressed: out,
         })
       } catch (error) {
-        lastError = messageOf(error)
+        lastFailure = describePlanFailure(error)
+        lastError = lastFailure.message
         // Only a transient deserves the second window. A schema-validation
         // failure is the model being wrong about the shape, and it will be wrong
         // the same way again — retrying it just burns the budget twice.
@@ -491,9 +501,12 @@ export const securityHuntService = {
       }
     }
     logger.warn(
-      `[security-hunt] plan failed scan=${job.scanId}, using deterministic fallback: ${lastError}`
+      `[security-hunt] plan failed scan=${job.scanId}, using deterministic fallback: ${lastError}` +
+        (lastFailure?.finishReason
+          ? ` [finish=${lastFailure.finishReason} reasoning=${lastFailure.reasoningTokens ?? '?'} output=${lastFailure.outputTokens ?? '?'}]`
+          : '')
     )
-    return fallback(`plan unavailable: ${lastError.slice(0, 200)}`)
+    return fallback(`plan unavailable: ${lastError.slice(0, 200)}`, lastFailure)
   },
 
   /**

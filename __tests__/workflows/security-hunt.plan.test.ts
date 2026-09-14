@@ -408,3 +408,47 @@ it('counts the plan step tokens toward tokenSpent', async () => {
   // 900 (plan) + 1000 (one task batch)
   expect(result.tokenSpent).toBe(1_900)
 })
+
+// LUM-766 follow-up — the failure facts have to reach the persisted audit, or
+// the next diagnosis is another experiment instead of a read. Three fields in
+// this layer (`wrappedUp`, `wrapUpWarnings`, the located sites) were each
+// computed, carried, and silently unreadable at exactly this hop.
+it('persists HOW the planning call failed, not just that it fell back', async () => {
+  plan.mockResolvedValue({
+    tasks: [],
+    reason: 'plan unavailable: No object generated: the model did not return a response.',
+    by: 'fallback',
+    tokens: 0,
+    planFailure: {
+      message: 'No object generated: the model did not return a response.',
+      finishReason: 'length',
+      reasoningTokens: 7_940,
+      outputTokens: 8_000,
+      textPrefix: '',
+    },
+  })
+
+  await securityHuntWorkflow(JOB)
+
+  const { audit } = persist.mock.calls[0][0]
+  expect(audit.planFailure).toEqual({
+    message: 'No object generated: the model did not return a response.',
+    finishReason: 'length',
+    reasoningTokens: 7_940,
+    outputTokens: 8_000,
+    textPrefix: '',
+  })
+})
+
+it('leaves planFailure off the audit when the planner answered', async () => {
+  plan.mockResolvedValue({
+    tasks: [],
+    reason: 'nothing worth hunting',
+    by: 'model',
+    tokens: 300,
+  })
+
+  await securityHuntWorkflow(JOB)
+
+  expect(persist.mock.calls[0][0].audit.planFailure).toBeUndefined()
+})

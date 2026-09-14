@@ -14,6 +14,7 @@ import type {
 } from '@/lib/security-scan/hunt/mechanical-verify'
 
 import type { HuntSignalSite } from '@/lib/security-scan/hunt/trigger'
+import type { PlanFailureFacts } from '@/lib/security-scan/hunt/plan-retry'
 
 export interface HuntJob {
   scanId: string
@@ -360,6 +361,19 @@ export interface HuntAudit {
   planned?: HuntTask[]
   plannedReason?: string
   /**
+   * LUM-766 follow-up — how a FAILED planning call actually ended, when it
+   * failed. Absent on a plan that worked.
+   *
+   * The message alone could not answer the only two questions that matter when
+   * the planner stops producing plans: was the empty answer a model with
+   * nothing to say or one that spent its whole output budget on reasoning
+   * (`finishReason`, `reasoningTokens`), and WHICH field did a schema miss
+   * miss (`textPrefix` — the raw output that failed validation). Both failures
+   * happened in production on the same day and they need opposite responses,
+   * and neither was readable from what we stored.
+   */
+  planFailure?: PlanFailureFacts
+  /**
    * Who produced `planned`. Three values, and the third is not decoration:
    *   - `model`   — the planner ran and answered.
    *   - `fallback`— the planner ran and FAILED, so `planFallback` decided.
@@ -482,6 +496,14 @@ export interface PlanHuntOutput {
   taskContext?: boolean
   /** 地板强制补进计划、模型自己没给的类别（`applyPlanFloor` 的 `forced`）。 */
   floorForced?: HuntCategory[]
+  /**
+   * LUM-766 follow-up — set only when `by` is `fallback`: how the planning call
+   * that failed actually ended. Object spread bypasses TypeScript's excess
+   * property check, so without this declaration the field is produced, carried
+   * and silently unreadable — the exact shape this layer has lost three fields
+   * to already (`wrappedUp`, `wrapUpWarnings`, and the located sites).
+   */
+  planFailure?: PlanFailureFacts
 }
 
 /**
