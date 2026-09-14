@@ -6,7 +6,10 @@ import {
   compactEvents,
   type RawEvent,
 } from '@/lib/services/session-summary/compact-events'
-import { loadConstitutionText } from '@/lib/services/memory/constitution'
+import {
+  loadConstitutionText,
+  type ConstitutionScope,
+} from '@/lib/services/memory/constitution'
 import { logger } from '@/lib/logger'
 import type { LineageFragmentType } from '@prisma/client'
 import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
@@ -17,10 +20,17 @@ import type { JudgeFragment } from '@/lib/services/lineage/usage-judge'
  * votes used=true ONLY with concrete evidence; everything else stays NULL.
  * Additive vote: never writes false. Best-effort, never throws.
  */
-async function auditSession(
-  sessionId: string,
-  taskTitle: string
-): Promise<void> {
+interface AuditTask {
+  title: string
+  projectId: string
+  project: { workspaceId: string }
+}
+
+function constitutionScopeOf(task: AuditTask): ConstitutionScope {
+  return { projectId: task.projectId, workspaceId: task.project.workspaceId }
+}
+
+async function auditSession(sessionId: string, task: AuditTask): Promise<void> {
   const edges = await lineageEdgeRepository.findSessionFragmentEdges(sessionId)
   if (edges.length === 0) return
 
@@ -48,9 +58,11 @@ async function auditSession(
   // (and its callers') jest path — see project_ai_sdk_gateway_jest_trap.
   const { judgeFragmentUsage } =
     await import('@/lib/services/lineage/usage-judge')
-  const constitution = await loadConstitutionText()
+  // The constitution the marginal-value gate compares against is the task's
+  // PROJECT's own CLAUDE.md / AGENTS.md (LUM-778), not the server's cwd.
+  const constitution = await loadConstitutionText(constitutionScopeOf(task))
   const { used, unused } = await judgeFragmentUsage({
-    taskTitle,
+    taskTitle: task.title,
     fragments,
     eventLog,
     constitution,
@@ -97,7 +109,7 @@ export const fragmentUsageAuditService = {
       for (const id of ids) {
         if (voted.has(id)) continue
         try {
-          await auditSession(id, task.title)
+          await auditSession(id, task)
         } catch (err) {
           logger.error(`[lineage.usageAudit] session=${id} failed`, err)
         }
@@ -123,7 +135,7 @@ export const fragmentUsageAuditService = {
         if (edges.length === 0) continue
         const task = await sessionRepository.findTaskTitleForSession(id)
         if (!task) continue
-        await auditSession(id, task.title)
+        await auditSession(id, task)
       } catch (err) {
         logger.error(`[lineage.usageAudit] cron session=${id} failed`, err)
       }

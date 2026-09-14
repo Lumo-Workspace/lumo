@@ -32,8 +32,8 @@ export interface Layer2Input {
     content: unknown
   }>
   /**
-   * The project constitution — CLAUDE.md / AGENTS.md read from the repo root.
-   * Layer 2 must NOT promote a lesson the constitution already documents
+   * The project constitution — CLAUDE.md / AGENTS.md read from the project's
+   * linked repository (LUM-778). Layer 2 must NOT promote a lesson the constitution already documents
    * (memory exists for knowledge invisible in code/docs), so the prompt feeds
    * these files into the dedup decision. Either field is null when the file is
    * absent or unreadable (graceful degrade — the prompt renders "(none)").
@@ -68,7 +68,10 @@ export async function getLayer2Input(
   const existingProjectMemories =
     await memoryRepository.findActiveProjectMemories(projectId)
 
-  const constitution = await loadConstitution()
+  const { claudeMd, agentsMd } = await loadConstitution({
+    projectId: project.id,
+    workspaceId: project.workspaceId,
+  })
 
   return {
     project: {
@@ -89,6 +92,6 @@ export async function getLayer2Input(
       category: m.category,
       content: m.content,
     })),
-    constitution,
+    constitution: { claudeMd, agentsMd },
   }
 }

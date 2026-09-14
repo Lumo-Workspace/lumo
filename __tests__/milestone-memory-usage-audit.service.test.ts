@@ -28,6 +28,14 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     findById: (...a: any[]) => mockMilestoneFindById(...a),
   },
 }))
+// LUM-778: the constitution is read per (project, workspace) — the audit
+// resolves the milestone's project to its workspace first.
+const mockFindWorkspaceId = jest.fn().mockResolvedValue({ workspaceId: 'w1' })
+jest.mock('@/lib/repositories/project.repository', () => ({
+  projectRepository: {
+    findWorkspaceId: (...a: any[]) => mockFindWorkspaceId(...a),
+  },
+}))
 
 const mockListEvents = jest.fn()
 jest.mock('@/lib/repositories/session.repository', () => ({
@@ -40,8 +48,9 @@ jest.mock('@/lib/services/session-summary/compact-events', () => ({
   compactEvents: () => ({ text: 'agent edited route.ts and ran jest' }),
 }))
 
+const mockLoadConstitutionText = jest.fn().mockResolvedValue('CLAUDE.md text')
 jest.mock('@/lib/services/memory/constitution', () => ({
-  loadConstitutionText: async () => 'CLAUDE.md text',
+  loadConstitutionText: (...a: any[]) => mockLoadConstitutionText(...a),
 }))
 
 // The audit reuses the SAME judge as the task flywheel — mock the module the
@@ -60,6 +69,7 @@ describe('milestoneMemoryUsageAuditService (LUM-648)', () => {
     mockMilestoneFindById.mockResolvedValue({
       id: 'ms',
       name: 'Beta milestone',
+      projectId: 'p1',
     })
     // Two steward sessions consumed prior-milestone memory; s2 already voted.
     mockListConsumerSessionIds.mockResolvedValue(['s1', 's2'])
@@ -114,6 +124,14 @@ describe('milestoneMemoryUsageAuditService (LUM-648)', () => {
         constitution: 'CLAUDE.md text',
       })
     )
+
+    // LUM-778: the constitution is the milestone's project's own, resolved
+    // through the project's workspace — never the server cwd.
+    expect(mockFindWorkspaceId).toHaveBeenCalledWith('p1')
+    expect(mockLoadConstitutionText).toHaveBeenCalledWith({
+      projectId: 'p1',
+      workspaceId: 'w1',
+    })
 
     // used=true stamped on m1; used=false on m2; m3 left NULL (abstained).
     expect(mockApplyUsageVote).toHaveBeenCalledWith('s1', ['m1'])

@@ -103,9 +103,14 @@ export const layer1Service = {
 
       // Extraction gate (LUM-538) — drop incomplete-fact fragments and entries
       // the project constitution already documents, at the SOURCE. Deterministic
-      // (no gateway call). Constitution load fails open to null (redundancy check
-      // skipped); the incomplete-fact check always runs.
-      const constitutionText = await loadConstitutionText()
+      // (no gateway call). The constitution is the task's PROJECT's own
+      // CLAUDE.md / AGENTS.md from its linked repo (LUM-778); the load fails
+      // open to null (redundancy check skipped); the incomplete-fact check
+      // always runs.
+      const constitutionText = await loadConstitutionText({
+        projectId: layer1Input.task.projectId,
+        workspaceId: layer1Input.task.workspaceId,
+      })
       let droppedIncomplete = 0
       let droppedRedundant = 0
       const candidates = grounded.filter(c => {

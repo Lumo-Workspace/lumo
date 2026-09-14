@@ -28,9 +28,26 @@ import { bigramSimilarity } from '@/lib/similarity'
  * both directions (drop the bad, keep the good) with no gateway.
  */
 
-export type ScreenReason = 'INCOMPLETE_FACT' | 'CONSTITUTION_REDUNDANT'
+/** Every reason the gate can reject for — exhaustive, so message mappings can be
+ * tested against the full set (LUM-778). */
+export const SCREEN_REASONS = [
+  'INCOMPLETE_FACT',
+  'CONSTITUTION_REDUNDANT',
+] as const
 
-export type ScreenResult = { ok: true } | { ok: false; reason: ScreenReason }
+export type ScreenReason = (typeof SCREEN_REASONS)[number]
+
+/**
+ * A rejection carries what a user would need to verify it: a
+ * CONSTITUTION_REDUNDANT verdict names the constitution line it matched
+ * (LUM-778 — a rejection that points at an unnamed line in an unnamed file is
+ * indistinguishable from a made-up reason).
+ */
+export type ScreenFailure =
+  | { ok: false; reason: 'INCOMPLETE_FACT' }
+  | { ok: false; reason: 'CONSTITUTION_REDUNDANT'; matchedLine: string }
+
+export type ScreenResult = { ok: true } | ScreenFailure
 
 /** Per-category headline field — the one that must carry a complete proposition. */
 function primaryFieldText(category: MemoryCategory, content: unknown): string {
@@ -195,7 +212,19 @@ export function isConstitutionRedundant(
   content: unknown,
   constitution: string | null
 ): boolean {
-  return isTextConstitutionRedundant(
+  return findConstitutionRedundantLine(category, content, constitution) !== null
+}
+
+/**
+ * The constitution line the candidate restates, or null when it restates
+ * none (or the constitution is unavailable — fail-open).
+ */
+export function findConstitutionRedundantLine(
+  category: MemoryCategory,
+  content: unknown,
+  constitution: string | null
+): string | null {
+  return findTextConstitutionRedundantLine(
     memoryContentToText(category, content),
     constitution
   )
@@ -211,13 +240,25 @@ export function isTextConstitutionRedundant(
   text: string | null | undefined,
   constitution: string | null
 ): boolean {
-  if (!constitution) return false
-  if (!text) return false
+  return findTextConstitutionRedundantLine(text, constitution) !== null
+}
+
+/**
+ * Text-level core: the first constitution line whose bigram similarity to
+ * `text` clears the floor, or null. Null (fail-open) when the constitution is
+ * unavailable or the text is empty.
+ */
+export function findTextConstitutionRedundantLine(
+  text: string | null | undefined,
+  constitution: string | null
+): string | null {
+  if (!constitution) return null
+  if (!text) return null
   for (const line of constitutionLines(constitution)) {
     if (bigramSimilarity(text, line) >= CONSTITUTION_REDUNDANCY_FLOOR)
-      return true
+      return line
   }
-  return false
+  return null
 }
 
 /**
@@ -232,10 +273,13 @@ export function screenCandidate(input: {
   if (isIncompleteFact(input.category, input.content)) {
     return { ok: false, reason: 'INCOMPLETE_FACT' }
   }
-  if (
-    isConstitutionRedundant(input.category, input.content, input.constitution)
-  ) {
-    return { ok: false, reason: 'CONSTITUTION_REDUNDANT' }
+  const matchedLine = findConstitutionRedundantLine(
+    input.category,
+    input.content,
+    input.constitution
+  )
+  if (matchedLine !== null) {
+    return { ok: false, reason: 'CONSTITUTION_REDUNDANT', matchedLine }
   }
   return { ok: true }
 }

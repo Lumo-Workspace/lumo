@@ -340,7 +340,13 @@ export const taskRepository = {
   async getTitleAndStatus(taskId: string) {
     return prisma.task.findUnique({
       where: { id: taskId },
-      select: { title: true, status: true },
+      select: {
+        title: true,
+        status: true,
+        // LUM-778: the usage audit reads the constitution per (project, workspace).
+        projectId: true,
+        project: { select: { workspaceId: true } },
+      },
     })
   },
 

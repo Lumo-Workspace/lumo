@@ -759,7 +759,16 @@ export const sessionRepository = {
   async findTaskTitleForSession(sessionId: string) {
     const row = await prisma.session.findUnique({
       where: { id: sessionId },
-      select: { task: { select: { title: true } } },
+      select: {
+        task: {
+          select: {
+            title: true,
+            // LUM-778: the usage audit reads the constitution per (project, workspace).
+            projectId: true,
+            project: { select: { workspaceId: true } },
+          },
+        },
+      },
     })
     return row?.task ?? null
   },
