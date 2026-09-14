@@ -493,6 +493,7 @@
   "github.installSuccess": "GitHub ऐप इंस्टॉल हो गया",
   "github.installRequested": "इंस्टॉल करने का अनुरोध भेजा गया। इसे संगठन के स्वामी को स्वीकृत करना होगा।",
   "github.installFailed": "GitHub ऐप की इंस्टॉलेशन पूरी नहीं हो सकी। कृपया फिर से प्रयास करें।",
+  "github.installNotConfigured": "इस सर्वर पर GitHub ऐप कॉन्फ़िगर नहीं है (GITHUB_APP_SLUG मौजूद नहीं है)। डिप्लॉयमेंट संभालने वाले से इसे सेट करने को कहें।",
   "sentry.title": "Sentry",
   "sentry.description": "Sentry अलर्ट से स्वचालित रूप से कार्य बनाएं।",
   "sentry.connected": "जुड़ा हुआ",

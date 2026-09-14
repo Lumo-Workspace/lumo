@@ -493,6 +493,7 @@
   "github.installSuccess": "App GitHub installée",
   "github.installRequested": "Installation demandée. Un propriétaire de l'organisation doit l'approuver.",
   "github.installFailed": "Impossible de terminer l'installation de l'app GitHub. Veuillez réessayer.",
+  "github.installNotConfigured": "L'app GitHub n'est pas configurée sur ce serveur (GITHUB_APP_SLUG manquant). Demandez à la personne responsable du déploiement de la définir.",
   "sentry.title": "Sentry",
   "sentry.description": "Créer automatiquement des tâches à partir des alertes Sentry.",
   "sentry.connected": "Connecté",

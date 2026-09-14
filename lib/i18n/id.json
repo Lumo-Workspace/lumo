@@ -493,6 +493,7 @@
   "github.installSuccess": "Aplikasi GitHub terpasang",
   "github.installRequested": "Permintaan pemasangan terkirim. Pemilik organisasi harus menyetujuinya.",
   "github.installFailed": "Tidak dapat menyelesaikan pemasangan aplikasi GitHub. Silakan coba lagi.",
+  "github.installNotConfigured": "Aplikasi GitHub belum dikonfigurasi di server ini (GITHUB_APP_SLUG tidak ada). Minta penanggung jawab deployment untuk mengaturnya.",
   "sentry.title": "Sentry",
   "sentry.description": "Buat tugas otomatis dari peringatan Sentry.",
   "sentry.connected": "Tersambung",

@@ -493,6 +493,7 @@
   "github.installSuccess": "已安裝 GitHub App",
   "github.installRequested": "已送出安裝申請，需要組織擁有者核准。",
   "github.installFailed": "無法完成 GitHub App 安裝，請再試一次。",
+  "github.installNotConfigured": "此伺服器尚未設定 GitHub App（缺少 GITHUB_APP_SLUG）。請聯絡負責部署的人設定。",
   "sentry.title": "Sentry",
   "sentry.description": "自動從 Sentry 警報建立任務。",
   "sentry.connected": "已連線",
