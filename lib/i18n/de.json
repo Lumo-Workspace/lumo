@@ -472,8 +472,6 @@
   "github.connectFailed": "GitHub-Verbindung fehlgeschlagen. Bitte versuchen Sie es erneut.",
   "github.loadFailed": "Integrationen konnten nicht geladen werden",
   "github.private": "privat",
-  "github.appRow": "GitHub App installiert",
-  "github.appRowDesc": "Teamweit. Jeder Lese- und Schreibzugriff auf Repositories – PR-Verknüpfungen, Webhooks, Kommentar-Spiegelung, Sicherheitsscan – läuft über sie",
   "github.appRepos": "Für die App erreichbare Repositories",
   "github.appNoRepos": "Für diese Installation sind noch keine Repositories ausgewählt.",
   "github.manageOnGithub": "Auf GitHub verwalten",

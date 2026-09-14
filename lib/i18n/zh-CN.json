@@ -472,8 +472,6 @@
   "github.connectFailed": "GitHub 连接失败，请重试。",
   "github.loadFailed": "加载集成信息失败",
   "github.private": "私有",
-  "github.appRow": "已安装 GitHub App",
-  "github.appRowDesc": "团队级。所有仓库读写——PR 关联、webhook、评论镜像、安全扫描——都以它的身份运行",
   "github.appRepos": "App 可访问的仓库",
   "github.appNoRepos": "此安装尚未选择任何仓库。",
   "github.manageOnGithub": "在 GitHub 上管理",

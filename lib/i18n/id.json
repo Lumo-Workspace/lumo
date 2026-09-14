@@ -472,8 +472,6 @@
   "github.connectFailed": "Koneksi GitHub gagal. Silakan coba lagi.",
   "github.loadFailed": "Gagal memuat integrasi",
   "github.private": "privat",
-  "github.appRow": "Aplikasi GitHub terpasang",
-  "github.appRowDesc": "Tingkat tim. Semua baca-tulis repositori — tautan PR, webhook, cermin komentar, pemindaian keamanan — berjalan sebagai aplikasi ini",
   "github.appRepos": "Repositori yang dapat diakses aplikasi",
   "github.appNoRepos": "Belum ada repositori yang dipilih untuk pemasangan ini.",
   "github.manageOnGithub": "Kelola di GitHub",

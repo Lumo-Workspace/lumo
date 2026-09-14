@@ -472,8 +472,6 @@
   "github.connectFailed": "Kết nối GitHub thất bại. Vui lòng thử lại.",
   "github.loadFailed": "Tải tích hợp thất bại",
   "github.private": "riêng tư",
-  "github.appRow": "Đã cài GitHub App",
-  "github.appRowDesc": "Cấp nhóm. Mọi thao tác đọc/ghi kho lưu trữ — liên kết PR, webhook, phản chiếu bình luận, quét bảo mật — đều chạy dưới danh nghĩa App này",
   "github.appRepos": "Kho lưu trữ App có thể truy cập",
   "github.appNoRepos": "Chưa chọn kho lưu trữ nào cho lần cài đặt này.",
   "github.manageOnGithub": "Quản lý trên GitHub",

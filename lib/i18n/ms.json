@@ -472,8 +472,6 @@
   "github.connectFailed": "Sambungan GitHub gagal. Sila cuba lagi.",
   "github.loadFailed": "Gagal memuatkan integrasi",
   "github.private": "peribadi",
-  "github.appRow": "Apl GitHub dipasang",
-  "github.appRowDesc": "Peringkat pasukan. Semua bacaan dan tulisan repositori — pautan PR, webhook, cerminan komen, imbasan keselamatan — berjalan sebagai apl ini",
   "github.appRepos": "Repositori yang boleh dicapai apl",
   "github.appNoRepos": "Belum ada repositori dipilih untuk pemasangan ini.",
   "github.manageOnGithub": "Urus di GitHub",

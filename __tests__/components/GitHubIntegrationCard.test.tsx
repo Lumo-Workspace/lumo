@@ -2,17 +2,16 @@
 
 /**
  * GitHubIntegrationCard is the TEAM GitHub card and shows the App
- * installation only. A member's own GitHub login is a PERSONAL card
- * (GitHubAccountCard) and must never appear here.
- * - non-owners get no Install / Uninstall control;
+ * installation only, in the same shape as the Slack card: status dot in the
+ * header, collapsible body, Uninstall in the overflow (⋯) menu.
+ * - non-owners get no Install button and no overflow menu;
  * - an un-installed App says security scanning is not enabled;
  * - "connected" reported to the page means "installed".
+ * A member's own GitHub login is a PERSONAL card and never appears here.
  */
 const messages: Record<string, string> = {
   'github.title': 'GitHub',
   'github.description': 'desc',
-  'github.appRow': 'GitHub App installed',
-  'github.appRowDesc': 'Lets Lumo scan this workspace with its own token',
   'github.appInstalled': 'Installed',
   'github.appAccount': 'Installed on {account}',
   'github.installApp': 'Install',
@@ -25,13 +24,16 @@ const messages: Record<string, string> = {
   'github.appNoRepos': 'No repositories selected',
   'github.manageOnGithub': 'Manage on GitHub',
   'common.cancel': 'Cancel',
+  'common.moreOptions': 'More options',
 }
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
-    formatMessage: ({ id, ...rest }: { id: string }) => {
-      const values = (rest as { values?: Record<string, string> }).values
+    formatMessage: (
+      { id }: { id: string },
+      values?: Record<string, string>
+    ) => {
       const raw = messages[id] ?? id
       return values ? raw.replace(/\{(\w+)\}/g, (_, k) => values[k] ?? '') : raw
     },
@@ -57,60 +59,67 @@ jest.mock(
   () => ({ useGitHubAppInstallation: () => mockAppHook })
 )
 
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { GitHubIntegrationCard } from '@/app/workspace/[workspaceUrl]/components/GitHubIntegrationCard'
 
-describe('GitHubIntegrationCard (team: App installation only)', () => {
+function expandBody() {
+  // Two buttons carry aria-expanded=false (the ⋯ menu trigger and the
+  // chevron toggle); the chevron is the one without aria-haspopup.
+  const chevron = screen
+    .getAllByRole('button', { expanded: false })
+    .find(b => !b.hasAttribute('aria-haspopup'))
+  fireEvent.click(chevron!)
+}
+
+describe('GitHubIntegrationCard (team: App installation, Slack-shaped)', () => {
   beforeEach(() => {
     mockAppHook.status = null
     mockAppHook.loading = false
     jest.clearAllMocks()
   })
 
-  it('carries no personal OAuth row, menu or Connect control', () => {
-    mockAppHook.status = { installed: true, accountLogin: 'acme-inc' }
+  it('shows a status dot, a collapsible body and Uninstall in the menu once installed', () => {
+    mockAppHook.status = {
+      installed: true,
+      accountLogin: 'acme-inc',
+      repositories: ['acme-inc/web'],
+    }
     render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
 
-    expect(screen.queryByTestId('github-oauth-row')).not.toBeInTheDocument()
+    // Header: dot, no Install button, no inline Uninstall.
+    expect(screen.getByText('Installed on acme-inc')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: /Connect|More options/ })
+      screen.queryByRole('button', { name: /Install$|Uninstall/ })
     ).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'More options' })
+    ).toBeInTheDocument()
+
+    // Body is collapsed until the chevron is clicked.
+    expect(screen.queryByText('acme-inc/web')).not.toBeInTheDocument()
+    expandBody()
+    expect(screen.getByText('acme-inc/web')).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: /Manage on GitHub/ })
+    ).toHaveAttribute('href', 'https://github.com/settings/installations')
   })
 
-  it('says security scanning is not enabled while the App is not installed', () => {
+  it('offers Install in the header and says scanning is not enabled while missing', () => {
     mockAppHook.status = { installed: false }
     render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
 
     expect(
       screen.getByText('Security scanning is not enabled')
     ).toBeInTheDocument()
-    expect(
-      within(screen.getByTestId('github-app-row')).getByRole('button', {
-        name: 'Install',
-      })
-    ).toBeInTheDocument()
-  })
-
-  it('drops the warning and offers Uninstall once installed', () => {
-    mockAppHook.status = { installed: true, accountLogin: 'acme-inc' }
-    render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
-
-    expect(
-      screen.queryByText('Security scanning is not enabled')
-    ).not.toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Uninstall' })
-    ).toBeInTheDocument()
-  })
-
-  it('starts the installation from the App row', () => {
-    mockAppHook.status = { installed: false }
-    render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
     fireEvent.click(screen.getByRole('button', { name: 'Install' }))
     expect(mockAppHook.handleInstall).toHaveBeenCalled()
+    // Nothing to collapse and nothing to uninstall yet.
+    expect(
+      screen.queryByRole('button', { name: 'More options' })
+    ).not.toBeInTheDocument()
   })
 
-  it('gives non-owners neither Install nor Uninstall', () => {
+  it('gives non-owners neither Install nor the overflow menu', () => {
     mockAppHook.status = { installed: false }
     const { rerender } = render(
       <GitHubIntegrationCard workspaceUrl='acme' isOwner={false} />
@@ -122,26 +131,22 @@ describe('GitHubIntegrationCard (team: App installation only)', () => {
     mockAppHook.status = { installed: true, accountLogin: 'acme-inc' }
     rerender(<GitHubIntegrationCard workspaceUrl='acme' isOwner={false} />)
     expect(
-      screen.queryByRole('button', { name: 'Uninstall' })
+      screen.queryByRole('button', { name: 'More options' })
     ).not.toBeInTheDocument()
   })
 
-  it('lists the installation repositories read-only, managed on GitHub', () => {
-    mockAppHook.status = {
-      installed: true,
-      accountLogin: 'acme-inc',
-      repositories: ['acme-inc/web', 'acme-inc/api'],
-    }
+  it('confirms before uninstalling', () => {
+    mockAppHook.status = { installed: true, accountLogin: 'acme-inc' }
+    mockAppHook.uninstallOpen = true
     render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
 
-    expect(screen.getByText('acme-inc/web')).toBeInTheDocument()
-    expect(screen.getByText('acme-inc/api')).toBeInTheDocument()
-    expect(
-      screen.getByRole('link', { name: /Manage on GitHub/ })
-    ).toHaveAttribute('href', 'https://github.com/settings/installations')
+    expect(screen.getByText('Uninstall the GitHub App?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Uninstall' }))
+    expect(mockAppHook.handleUninstall).toHaveBeenCalled()
+    mockAppHook.uninstallOpen = false
   })
 
-  it('reports "connected" to the page as installed, and never before the read resolves', () => {
+  it('reports "connected" to the page as installed, never before the read resolves', () => {
     const onConnectedChange = jest.fn()
     mockAppHook.loading = true
     const { rerender } = render(
@@ -151,8 +156,6 @@ describe('GitHubIntegrationCard (team: App installation only)', () => {
         onConnectedChange={onConnectedChange}
       />
     )
-    // `undefined` is "not known yet" (LUM-684): reported as not connected,
-    // but nothing on screen treats it as "not set up".
     expect(
       screen.queryByRole('button', { name: 'Install' })
     ).not.toBeInTheDocument()

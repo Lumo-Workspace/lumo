@@ -472,8 +472,6 @@
   "github.connectFailed": "GitHub 연결에 실패했습니다. 다시 시도해 주세요.",
   "github.loadFailed": "연동 정보를 불러오는 데 실패했습니다",
   "github.private": "비공개",
-  "github.appRow": "GitHub App 설치됨",
-  "github.appRowDesc": "팀 단위. 저장소 읽기·쓰기(PR 연결, webhook, 댓글 미러링, 보안 검사)는 모두 이 App으로 실행됩니다",
   "github.appRepos": "App이 접근할 수 있는 저장소",
   "github.appNoRepos": "이 설치에 아직 선택된 저장소가 없습니다.",
   "github.manageOnGithub": "GitHub에서 관리",
