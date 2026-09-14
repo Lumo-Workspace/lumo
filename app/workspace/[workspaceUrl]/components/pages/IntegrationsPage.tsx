@@ -11,6 +11,7 @@ import {
   type IntegrationKind,
 } from '@/lib/integrations/registry'
 import { GitHubIntegrationCard } from '../GitHubIntegrationCard'
+import { GitHubAccountCard } from '../GitHubAccountCard'
 import { SlackIntegrationCard } from '../SlackIntegrationCard'
 import { SentryIntegrationCard } from '../SentryIntegrationCard'
 import { FigmaIntegrationCard } from '../FigmaIntegrationCard'
@@ -37,6 +38,10 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
     () => ({
       github: (c: boolean) =>
         setConnectedMap(p => (p.github === c ? p : { ...p, github: c })),
+      githubAccount: (c: boolean) =>
+        setConnectedMap(p =>
+          p.githubAccount === c ? p : { ...p, githubAccount: c }
+        ),
       slack: (c: boolean) =>
         setConnectedMap(p => (p.slack === c ? p : { ...p, slack: c })),
       sentry: (c: boolean) =>
@@ -99,6 +104,9 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
         isOwner={isOwner}
         onConnectedChange={reporters.sentry}
       />
+    ),
+    githubAccount: (
+      <GitHubAccountCard onConnectedChange={reporters.githubAccount} />
     ),
     figma: <FigmaIntegrationCard onConnectedChange={reporters.figma} />,
     googleDrive: (

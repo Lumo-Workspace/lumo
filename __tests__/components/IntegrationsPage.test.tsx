@@ -21,6 +21,7 @@ const messages: Record<string, string> = {
   'slack.title': 'Slack',
   'sentry.title': 'Sentry',
   'figma.title': 'Figma',
+  'githubAccount.title': 'GitHub account',
   'googleDrive.title': 'Google Drive',
 }
 
@@ -66,6 +67,10 @@ jest.mock(
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/SentryIntegrationCard',
   () => ({ SentryIntegrationCard: mockCard('sentry') })
+)
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/GitHubAccountCard',
+  () => ({ GitHubAccountCard: mockCard('githubAccount') })
 )
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/FigmaIntegrationCard',
@@ -117,6 +122,11 @@ describe('IntegrationsPage', () => {
     expect(team.querySelector('[data-testid="card-slack"]')).toBeTruthy()
     expect(team.querySelector('[data-testid="card-sentry"]')).toBeTruthy()
     expect(team.querySelector('[data-testid="card-figma"]')).toBeNull()
+    // A member's own GitHub link is personal — it must not sit in TEAM.
+    expect(team.querySelector('[data-testid="card-githubAccount"]')).toBeNull()
+    expect(
+      personal.querySelector('[data-testid="card-githubAccount"]')
+    ).toBeTruthy()
 
     expect(personal.textContent).toContain('Personal integrations')
     expect(personal.querySelector('[data-testid="card-figma"]')).toBeTruthy()
@@ -126,9 +136,16 @@ describe('IntegrationsPage', () => {
     expect(personal.querySelector('[data-testid="card-github"]')).toBeNull()
   })
 
-  it('renders all five integration cards exactly once', () => {
+  it('renders all six integration cards exactly once', () => {
     render(<IntegrationsPage isOwner />)
-    for (const id of ['github', 'slack', 'sentry', 'figma', 'googleDrive']) {
+    for (const id of [
+      'github',
+      'slack',
+      'sentry',
+      'githubAccount',
+      'figma',
+      'googleDrive',
+    ]) {
       expect(screen.getAllByTestId(`card-${id}`)).toHaveLength(1)
     }
   })
@@ -147,6 +164,11 @@ describe('IntegrationsPage', () => {
     // TEAM: GitHub < Sentry < Slack (registry order is slack/sentry/github)
     expect(orderOf('card-github')).toBeLessThan(orderOf('card-sentry'))
     expect(orderOf('card-sentry')).toBeLessThan(orderOf('card-slack'))
+    // PERSONAL: Figma < GitHub account < Google Drive
+    expect(orderOf('card-figma')).toBeLessThan(orderOf('card-githubAccount'))
+    expect(orderOf('card-githubAccount')).toBeLessThan(
+      orderOf('card-googleDrive')
+    )
     // PERSONAL: Figma < Google Drive
     expect(orderOf('card-figma')).toBeLessThan(orderOf('card-googleDrive'))
   })
