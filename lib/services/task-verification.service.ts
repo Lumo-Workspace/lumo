@@ -35,12 +35,24 @@ import { taskClaimSnapshotService } from '@/lib/services/task-claim-snapshot.ser
 import { taskCriteriaSnapshotService } from '@/lib/services/task-criteria-snapshot.service'
 import { isValidTaskTransition } from '@/lib/task/state-machine'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import { logger } from '@/lib/logger'
+import {
+  prSecurityReminderService,
+  type TaskSecurityScanSummary,
+} from '@/lib/services/pr-security-reminder.service'
+import {
+  findingStatement,
+  type UnconfirmedPr,
+} from '@/lib/security-scan/agent-reminder'
+import type {
+  FindingProvenance,
+  FindingSeverity,
+} from '@/lib/repositories/pr-security-scan.repository'
 import {
   aggregateRetroStruggle,
   type RetroStruggleAggregate,
 } from '@/lib/services/retro-struggle'
 import type { MachineVerdictInput } from '@/lib/validation/acceptance'
-import { effectiveReferentKind } from '@/shared/src/referent-kind'
 
 /**
  * Default ceiling on machine verification rounds (milestone spec). The
@@ -320,6 +332,52 @@ export interface TrendModel {
   }
 }
 
+export interface NextActionCriterion {
+  kind: 'CRITERION'
+  criterionId: string
+  statement: string
+  verifierType: 'MACHINE' | 'HUMAN'
+  checkpointer: string | null
+  judgeSteps: string | null
+  source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
+  addedAtRound: number
+  rejectionReason: string | null
+}
+export interface NextActionSecurityFinding {
+  kind: 'SECURITY_FINDING'
+  findingId: string
+  statement: string
+  severity: FindingSeverity
+  provenance: FindingProvenance
+  blocking: boolean
+  prNumber: number
+  ruleId: string
+  filePath: string
+  line: number | null
+  /**
+   * LUM-758 follow-up (secret: rows) — why the severity was lowered to LOW.
+   * Additive: absent on an older server, and on any row with no downgrade.
+   */
+  secretDowngrade?: string | null
+}
+/**
+ * One entry of the declarative plan. `kind` discriminates (LUM-737):
+ * CRITERION = an unmet acceptance criterion (the pre-737 shape, now tagged);
+ * SECURITY_FINDING = an undispositioned PR security finding — outside the
+ * contract but a hard constraint on DONE when `blocking`. Additive: consumers
+ * that pre-date `kind` should treat a missing kind as CRITERION.
+ */
+export type NextAction = NextActionCriterion | NextActionSecurityFinding
+export interface TaskSecurityFindingsSummary {
+  open: number
+  blocking: number
+  unconfirmedPrs: UnconfirmedPr[]
+  /** LUM-735 — per-PR scan summary passed through from the reminder service,
+   *  for `lumo task status` to render one line per scan. Additive: optional
+   *  so an older cached/serialized summary without it still type-checks. */
+  scans?: TaskSecurityScanSummary[]
+}
+
 export interface TaskAcceptanceStatus {
   version: typeof TASK_STATUS_SCHEMA_VERSION
   task: { id: string; identifier: string; title: string; status: string }
@@ -363,17 +421,12 @@ export interface TaskAcceptanceStatus {
     rejectionReason: string | null
     rejectionReasonEnum: string | null
   }>
-  /** Unmet criteria (latest verdict is not a pass) — the declarative plan. */
-  nextActions: Array<{
-    criterionId: string
-    statement: string
-    verifierType: 'MACHINE' | 'HUMAN'
-    checkpointer: string | null
-    judgeSteps: string | null
-    source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
-    addedAtRound: number
-    rejectionReason: string | null
-  }>
+  /** Unmet criteria + undispositioned security findings — the declarative plan. */
+  nextActions: NextAction[]
+  /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
+   *  confirm) — distinct from `{ open: 0, … }`, a successful read with
+   *  nothing open. */
+  securityFindings: TaskSecurityFindingsSummary | null
   /** The latest live (non-withdrawn) human verdict action — the one the undo
    *  button targets (LUM-586). Null when no live human verdict exists (nothing
    *  to undo). actorName is null when the member row cannot be resolved cheaply
@@ -498,38 +551,6 @@ export const taskVerificationService = {
             .join(', ')}`
         ),
         { status: 400 }
-      )
-    }
-
-    // LUM-605: referent_kind is a gate here, not a mirror. A criterion declared
-    // EXTERNAL_FACT whose checkpointer does not actually invoke external tooling
-    // (effectiveReferentKind → UNVERIFIED_ASSERTION) cannot launder a clean
-    // machine-PASS: a green here only re-confirms agent-authored state, the exact
-    // LUM-601 fakeGit shape. We block the round BEFORE any write (no round burned,
-    // status untouched) and hand back explicit dispositions — re-ground the check
-    // against a real external fact, or honestly re-declare the referent kind —
-    // rather than hard-rejecting (an agent may legitimately point at external
-    // behavior). A reported FAIL is let through: there is no false green to stop.
-    const ungrounded = results
-      .filter(r => r.verdict === 'PASS')
-      .map(r => machineById.get(r.criterionId)!)
-      .filter(
-        c =>
-          effectiveReferentKind({
-            declared: c.referentKind ?? null,
-            verifierType: 'MACHINE',
-            checkpointer: c.checkpointer,
-          }) === 'UNVERIFIED_ASSERTION'
-      )
-    if (ungrounded.length > 0) {
-      const ids = ungrounded.map(c => c.id).join(', ')
-      throw Object.assign(
-        new Error(
-          `Round blocked (no round burned): ${ungrounded.length} ${
-            ungrounded.length === 1 ? 'criterion is' : 'criteria are'
-          } declared EXTERNAL_FACT but the checkpointer does not invoke external tooling (git/gh/curl/psql/…), so a PASS only re-confirms agent-authored state — it cannot be accepted as a clean machine verification. Re-ground the check against a real external fact, or honestly re-declare referentKind as AGENT_CONSTRUCTED_STATE (\`lumo task criteria set\`), then re-run \`lumo verify\`. Affected: ${ids}`
-        ),
-        { status: 422 }
       )
     }
 
@@ -745,6 +766,7 @@ export const taskVerificationService = {
       withdrawnActionIds,
       latestWithdrawal,
       latestHumanVerdictAction,
+      securityState,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -779,6 +801,18 @@ export const taskVerificationService = {
       verificationRunWithdrawalRepository.latestByTask(taskId),
       // LUM-586: latest live (non-withdrawn) human verdict action — the undo target.
       verificationRunRepository.latestHumanVerdictAction(taskId),
+      // LUM-737: undispositioned PR security findings. Fail-closed: a read
+      // failure becomes `securityFindings: null` ("could not confirm"), never a
+      // 500 on the whole self-check and never an implicit "clean".
+      prSecurityReminderService
+        .loadOpenFindingsForTask(taskId)
+        .catch((error: unknown) => {
+          logger.warn('taskStatus.securityRead.failed', {
+            taskId,
+            error: error instanceof Error ? error.message : String(error),
+          })
+          return null
+        }),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -1179,20 +1213,48 @@ export const taskVerificationService = {
       removedCriteria,
       verificationHistory,
       lastRoundFailures,
-      nextActions: unmet.map(c => {
-        const latest = latestByCriterion.get(c.id)
-        return {
-          criterionId: c.id,
-          statement: c.statement,
-          verifierType: c.verifierType,
-          checkpointer: c.checkpointer,
-          judgeSteps: c.judgeSteps,
-          source: c.source,
-          addedAtRound: c.addedAtRound,
-          rejectionReason:
-            latest?.verdict === 'FAIL' ? latest.rejectionReason : null,
-        }
-      }),
+      nextActions: [
+        ...unmet.map((c): NextActionCriterion => {
+          const latest = latestByCriterion.get(c.id)
+          return {
+            kind: 'CRITERION',
+            criterionId: c.id,
+            statement: c.statement,
+            verifierType: c.verifierType,
+            checkpointer: c.checkpointer,
+            judgeSteps: c.judgeSteps,
+            source: c.source,
+            addedAtRound: c.addedAtRound,
+            rejectionReason:
+              latest?.verdict === 'FAIL' ? latest.rejectionReason : null,
+          }
+        }),
+        // LUM-737: findings come after the contract — they are constraints on
+        // DONE, not criteria; already severity/provenance-sorted by the service.
+        ...(securityState?.findings ?? []).map(
+          (f): NextActionSecurityFinding => ({
+            kind: 'SECURITY_FINDING',
+            findingId: f.id,
+            statement: findingStatement(f),
+            severity: f.severity,
+            provenance: f.provenance,
+            blocking: f.blocking,
+            prNumber: f.prNumber,
+            ruleId: f.ruleId,
+            filePath: f.filePath,
+            line: f.line,
+            secretDowngrade: f.secretDowngrade ?? null,
+          })
+        ),
+      ],
+      securityFindings: securityState
+        ? {
+            open: securityState.findings.length,
+            blocking: securityState.blockingCount,
+            unconfirmedPrs: securityState.unconfirmedPrs,
+            scans: securityState.scans,
+          }
+        : null,
     }
   },
 

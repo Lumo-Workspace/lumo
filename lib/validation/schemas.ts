@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { securityPolicySchema } from '@/lib/security-scan/policy'
 
 /**
  * Max length for rich-text body fields (HTML serialized client-side).
@@ -70,6 +71,9 @@ export const createWorkspaceSchema = z.object({
 export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
   verificationMaxRounds: z.number().int().min(1).max(10).optional(),
   acceptanceMode: z.boolean().optional(),
+  // LUM-740: the DONE-block policy table; `null` resets to the default.
+  // LLM_JUDGE is not an accepted provenance — see lib/security-scan/policy.ts.
+  securityPolicy: securityPolicySchema.nullable().optional(),
 })
 
 // ─── Project ────────────────────────────────────────────────────────────────

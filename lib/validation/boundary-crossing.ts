@@ -15,6 +15,11 @@ export const dispositionBoundaryCrossingSchema = z
     crossingId: z.string().min(1),
     disposition: z.enum(['FALSE_POSITIVE', 'CONFIRMED', 'OPEN']),
     dispositionNote: z.string().trim().min(1).max(2000).optional(),
+    // LUM-751: opt a FALSE_POSITIVE into a per-repository suppression rule
+    // (ignored for any other disposition). The service refuses the HIGH
+    // classes with 422 before anything is written.
+    suppressSimilarInProject: z.boolean().optional(),
+    suppressionReason: z.string().trim().min(1).max(500).optional(),
   })
   .strict()
 
@@ -43,4 +48,44 @@ export const explainBoundaryCrossingSchema = z
 
 export type ExplainBoundaryCrossingInput = z.infer<
   typeof explainBoundaryCrossingSchema
+>
+
+/**
+ * Body for POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition
+ * (LUM-769) — the CLI/agent-bearer disposition path that walks the exit-4
+ * confirmation protocol (`lumo crossing disposition … --confirm`). Strict and
+ * narrower than the web schema on purpose: only the two clearing values are
+ * representable. The `OPEN` revert sentinel and the LUM-751 repository
+ * suppression opt-in are NOT fields here — both stay web-only, so a bearer
+ * caller cannot reopen a crossing or write a project-wide rule from a terminal.
+ * The crossing id is a path param.
+ */
+export const cliDispositionBoundaryCrossingSchema = z
+  .object({
+    disposition: z.enum(['FALSE_POSITIVE', 'CONFIRMED']),
+    dispositionNote: z.string().trim().min(1).max(2000).optional(),
+    // LUM-769 read receipt: the STAGE-2 token (`--confirm-read` step) from
+    // POST …/disposition/receipt. Required — a write with no receipt is a
+    // 400 before any read; a stage-1 token is a 409 ("confirm read first").
+    receipt: z.string().min(1).max(512),
+  })
+  .strict()
+
+/**
+ * Body for POST /api/tasks/[id]/boundary-crossings/[crossingId]/disposition/receipt
+ * (LUM-769) — the read step of the handshake. Names the ruling the envelope is
+ * being shown for, so the receipt is bound to it. Nothing is written.
+ */
+export const readReceiptRequestSchema = z
+  .object({
+    disposition: z.enum(['FALSE_POSITIVE', 'CONFIRMED']),
+    // Stage 2 (`--confirm-read`): present the stage-1 receipt to acknowledge
+    // reading; the server returns the stage-2 receipt the write requires.
+    // Absent = stage 1 (issue a fresh read receipt).
+    acknowledge: z.string().min(1).max(512).optional(),
+  })
+  .strict()
+
+export type CliDispositionBoundaryCrossingInput = z.infer<
+  typeof cliDispositionBoundaryCrossingSchema
 >

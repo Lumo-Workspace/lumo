@@ -124,9 +124,29 @@ function statusView(over: Record<string, unknown> = {}) {
   }
 }
 
-function renderAcceptanceTab() {
+/** LUM-733: per-criterion pass / send-back controls only render while a
+ *  send-back stands (some criterion's latest verdict is FAIL). */
+const SEND_BACK_STANDING = {
+  criteria: statusView().criteria.map((c: Record<string, unknown>) =>
+    c.id === 'h1'
+      ? {
+          ...c,
+          latestVerdict: {
+            round: 1,
+            verdict: 'FAIL',
+            evidencePointer: null,
+            rejectionReason: 'copy still off',
+            rejectionReasonEnum: null,
+            recordedAt: '2026-06-01T00:00:00.000Z',
+          },
+        }
+      : c
+  ),
+}
+
+function renderAcceptanceTab(over: Record<string, unknown> = {}) {
   mockUseTaskStatus.mockReturnValue({
-    data: statusView(),
+    data: statusView(over),
     loading: false,
     error: null,
     refresh: jest.fn(),
@@ -167,11 +187,17 @@ describe('Acceptance tab — zone tooltips', () => {
   // caption, not by a hover tooltip. Assert that inline self-explanation.
   it('machine zone header explains machine verification inline (summary caption)', () => {
     renderAcceptanceTab()
+    // LUM-496: an unverified machine check blocks Done, so the default (unjudged)
+    // fixture surfaces it in the NEEDS ACTION card rather than the Machine-verified
+    // records card. Same contract as before: the header and its summary caption
+    // carry the meaning inline — no hover tooltip.
     expect(
-      screen.getByRole('button', { name: /Machine-verified/ })
+      screen.getByText('Machine checks awaiting verification')
     ).toBeInTheDocument()
-    // The summary caption states the verified count (0 of the unjudged fixture).
-    expect(screen.getByText(/machine-verified/)).toBeInTheDocument()
+    expect(screen.getByText('0 verified · 1 awaiting')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Machine-verified/ })
+    ).toBeNull()
   })
 
   // LUM-620: the human zone matches the machine zone — a collapsible summary
@@ -229,19 +255,19 @@ function renderWithCriteria(criteria: Record<string, unknown>[]) {
 // criterion in the default fixture is unverified so its VerdictControls render.
 describe('Verdict action tooltips (send-back)', () => {
   it('send-back button is itself the tooltip trigger — no nested button inside it', () => {
-    renderAcceptanceTab()
+    renderAcceptanceTab(SEND_BACK_STANDING)
     const sendBack = screen.getByTestId('verdict-sendback-h1')
     expect(sendBack.querySelector('button')).toBeNull()
   })
 
   it('pass button is itself the tooltip trigger — no nested button inside it', () => {
-    renderAcceptanceTab()
+    renderAcceptanceTab(SEND_BACK_STANDING)
     const passBtn = screen.getByTestId('verdict-pass-h1')
     expect(passBtn.querySelector('button')).toBeNull()
   })
 
   it('focusing the pass button reveals the pass tip text', async () => {
-    renderAcceptanceTab()
+    renderAcceptanceTab(SEND_BACK_STANDING)
     act(() => {
       screen.getByTestId('verdict-pass-h1').focus()
     })
@@ -251,7 +277,7 @@ describe('Verdict action tooltips (send-back)', () => {
   })
 
   it('focusing the send-back button reveals the send-back tip text', async () => {
-    renderAcceptanceTab()
+    renderAcceptanceTab(SEND_BACK_STANDING)
     act(() => {
       screen.getByTestId('verdict-sendback-h1').focus()
     })

@@ -1,16 +1,39 @@
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
-import { decrypt } from '@/lib/crypto'
+import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
+import { dispatchLumoCi } from '@/lib/services/lumo-ci-dispatch'
 import {
   fetchPullRequest,
   parsePrUrl,
   toPrState,
 } from '@/lib/integrations/github/fetch-pull-request'
+import { waitUntil } from '@vercel/functions'
 
 // Re-exported for existing importers; the implementation moved to
 // lib/integrations/github/fetch-pull-request.ts so the idea-evidence link path
 // can share it (LUM-684).
+
+/**
+ * Reading a PR by URL is done as the workspace's App installation — the
+ * machine identity every other GitHub read uses — never with a member's token.
+ */
+async function installationTokenOr400(workspaceId: string): Promise<string> {
+  // Lazy: auth.ts loads @octokit/auth-app, which must not ride along with this
+  // service into every module graph that touches tasks (same reason
+  // github.service imports the integration lazily).
+  const { getGithubInstallationToken } =
+    await import('@/lib/integrations/github/auth')
+  try {
+    return await getGithubInstallationToken(workspaceId)
+  } catch {
+    throw Object.assign(
+      new Error('GitHub App is not installed for this workspace'),
+      { status: 400 }
+    )
+  }
+}
+
 export { parsePrUrl }
 
 /**
@@ -70,19 +93,10 @@ export async function linkPullRequest(
       }
       pr = existing
     } else {
-      const integration = await githubRepository.findIntegrationByRepo(
-        workspaceId,
-        parsed.repo
-      )
-      if (!integration) {
-        throw Object.assign(
-          new Error('GitHub integration not configured for this repository'),
-          { status: 400 }
-        )
-      }
+      const token = await installationTokenOr400(workspaceId)
 
       const ghPr = await fetchPullRequest({
-        token: decrypt(integration.accessToken),
+        token,
         repo: parsed.repo,
         number: parsed.number,
       })
@@ -97,7 +111,8 @@ export async function linkPullRequest(
       const upserted = await githubRepository.upsertPullRequest({
         workspaceId,
         taskId: null,
-        integrationId: integration.id,
+        // Read as the App installation — there is no OAuth integration behind it.
+        integrationId: null,
         repo: parsed.repo,
         number: ghPr.number,
         title: ghPr.title,
@@ -133,7 +148,16 @@ export async function linkPullRequest(
     })
   }
 
-  return pullRequestRepository.updateTaskId(pr!.id, taskId)
+  const linked = await pullRequestRepository.updateTaskId(pr!.id, taskId)
+  // LUM-732: a manually linked PR (any state — merged history included) gets
+  // one scan of its current head. Registered with waitUntil (not a bare
+  // `void`) so the runtime keeps the function alive until the dispatch
+  // settles — a dropped promise here reads as "clean" at the DONE gate.
+  waitUntil(dispatchPrSecurityScan(linked.id, 'PR_LINK'))
+  // LUM-746: and one managed CI run of its current head (the request path
+  // fetches the sha and declines non-open PRs).
+  waitUntil(dispatchLumoCi(linked.id, 'PR_LINK'))
+  return linked
 }
 
 /**

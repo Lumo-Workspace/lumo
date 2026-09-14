@@ -202,6 +202,19 @@ enum BoundaryCrossingCategory {
   // unparseable Bash payload in a steward session records an unconfirmed
   // crossing rather than nothing. Disposition stays web + human-only.
   STEWARD_IMPLEMENTATION_ARTIFACT
+  // LUM-736 (Security Scan v2, L4 Session Guard): three deterministic, no-LLM
+  // classes on the existing detectAndRecord chain (disposition human-only,
+  // crossing explain, DONE gate). All MEDIUM + reversible; no finding row.
+  // SENSITIVE_PATH_EDIT — an Edit/Write landed on a sensitive path (auth/,
+  //   middleware.ts / proxy.ts, .github/workflows/, a lockfile,
+  //   prisma/schema.prisma); the default path set is replaceable by a
+  //   ProjectPolicy path-glob rule mapped to this category.
+  // HOOK_BYPASS — a Bash segment ran git commit/push --no-verify or HUSKY=0.
+  // TEST_FILE_DELETED — an rm / git rm segment targeted *.test.* / *.spec.* /
+  //   __tests__/ (a Bash delete; TEST_TAMPERING stays the Edit/Write class).
+  SENSITIVE_PATH_EDIT
+  HOOK_BYPASS
+  TEST_FILE_DELETED
 }
 
 enum BoundaryCrossingDisposition {
@@ -214,6 +227,10 @@ enum BoundaryCrossingDisposition {
   // (which carries a dispositionedById) so an auditor can tell "system auto" from
   // "human ruled". A human can still re-open or re-dispose it (LUM-450).
   AUTO_LEGIT
+  // LUM-751: a SYSTEM auto-disposition by a human-authored per-repository
+  // CrossingSuppressionRule. Recorded (audit) but out of the open queue and
+  // non-DONE-blocking; carries suppressionRuleId, never a dispositionedById.
+  AUTO_SUPPRESSED
 }
 
 // LUM-442: severity tier per boundary-crossing (OpenAI frequency×severity model).
@@ -292,6 +309,7 @@ model Workspace {
   outcomeSignals          OutcomeSignal[]
   taskDependencies        TaskDependency[]
   gateSignals             GateSignal[]
+  lumoCiRuns              LumoCiRun[]
   ideas                   Idea[]
   priorities              Priority[]
   planRuns                PlanRun[]
@@ -316,6 +334,12 @@ model Workspace {
   // (schema, write/read paths, CLI, DONE gate, contract injection for tasks
   // that already have criteria) is always-on and never gated by this flag.
   acceptanceMode Boolean @default(false)
+
+  // LUM-740: which { provenance, severity } pairs block DONE —
+  // { block: [{ provenance, severity }] }. null = the 732 default (only an
+  // undispositioned DETERMINISTIC HIGH blocks). LLM_JUDGE is refused by the
+  // API schema and ignored by the reader: an LLM finding can never block.
+  securityPolicy Json?
 
   @@map("workspaces")
 }
@@ -767,21 +791,22 @@ model Project {
   /// Per-project cooldown so the daily cron doesn't re-run the LLM every day.
   lastMemoryFoldAttemptAt        DateTime?
 
-  workspace             Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  team                  Team                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  createdBy             WorkspaceMember        @relation("ProjectCreator", fields: [createdByMemberId], references: [id])
-  owner                 WorkspaceMember?       @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
-  tasks                 Task[]
-  milestones            Milestone[]
-  views                 View[]
-  slackChannels         SlackChannel[]
-  repositories          ProjectRepository[]
-  sentryProjectMappings SentryProjectMapping[]
-  documents             Document[]
-  priorityOverrides     PriorityOverride[]
-  summaries             ProjectSummary[]
-  memories              Memory[]
-  projectPolicies       ProjectPolicy[]
+  workspace                Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  team                     Team                      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdBy                WorkspaceMember           @relation("ProjectCreator", fields: [createdByMemberId], references: [id])
+  owner                    WorkspaceMember?          @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  tasks                    Task[]
+  milestones               Milestone[]
+  views                    View[]
+  slackChannels            SlackChannel[]
+  repositories             ProjectRepository[]
+  sentryProjectMappings    SentryProjectMapping[]
+  documents                Document[]
+  priorityOverrides        PriorityOverride[]
+  summaries                ProjectSummary[]
+  memories                 Memory[]
+  projectPolicies          ProjectPolicy[]
+  crossingSuppressionRules CrossingSuppressionRule[]
 
   @@index([workspaceId])
   @@index([teamId])
@@ -803,13 +828,48 @@ model ProjectPolicy {
   @@map("project_policies")
 }
 
+// LUM-751: a human-authored, per-repository false-positive rule. A later
+// detection of the same (category, target) in the project is still recorded
+// but auto-dispositioned AUTO_SUPPRESSED (system, no human actor). Created only
+// from a human FALSE_POSITIVE disposition (Clerk); never for the HIGH classes
+// (HARDCODED_SECRET / DESTRUCTIVE_DB_COMMAND / EXFILTRATION_PUBLIC /
+// CLOUD_DATA_DELETION / INFRA_TERMINATION). Soft-revoked, never deleted.
+model CrossingSuppressionRule {
+  id               String                   @id @default(cuid())
+  projectId        String
+  category         BoundaryCrossingCategory
+  // Exact crossing `target` (the LUM-477 coalescing key) or a `prefix*` glob.
+  targetPattern    String
+  reason           String?
+  createdById      String // WorkspaceMember id of the human who ruled
+  sourceCrossingId String? // the crossing whose disposition created the rule
+  createdAt        DateTime                 @default(now())
+  revokedAt        DateTime?
+  revokedById      String?
+
+  project   Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  crossings BoundaryCrossing[]
+
+  @@index([projectId, category])
+  @@map("crossing_suppression_rules")
+}
+
 model ProjectRepository {
-  id        String   @id @default(cuid())
-  projectId String
-  fullName  String // "owner/repo"
-  name      String // short repo name
-  isDefault Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id                String    @id @default(cuid())
+  projectId         String
+  fullName          String // "owner/repo"
+  name              String // short repo name
+  isDefault         Boolean   @default(false)
+  // LUM-735: last successful SARIF ingest for this repo — null means the
+  // repo has never pushed a scan (panel shows NOT_CONFIGURED, not PENDING).
+  lastSarifIngestAt DateTime?
+  // LUM-738: { sha, at, fingerprints[], partial, tools[] } of the last managed
+  // baseline scan of the default branch (`requestedAt` while a run is in
+  // flight and `at` is null). Diff-aware substitute for findings that have no
+  // line-level diff (dependencies): a PR finding whose fingerprint is in the
+  // set is `persisting`, not new. null = never scanned.
+  securityBaseline  Json?
+  createdAt         DateTime  @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -895,6 +955,7 @@ model Task {
   sessions                   Session[]
   activities                 TaskActivity[]
   boundaryCrossings          BoundaryCrossing[]          @relation("CrossingTask")
+  securityScans              PrSecurityScan[]
   remediatesCrossings        BoundaryCrossing[]          @relation("CrossingRemediation")
   documentMentions           DocumentMention[]
   priorityOverrides          PriorityOverride[]
@@ -919,6 +980,7 @@ model Task {
   blockingEdges              TaskDependency[]            @relation("TaskBlocking")
   autoBlocks                 AutoBlock[]
   gateSignals                GateSignal[]
+  lumoCiRuns                 LumoCiRun[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1292,10 +1354,14 @@ model BoundaryCrossing {
   // the first time a human clicks "Explain" in the panel; null = not yet generated.
   // Advisory only — never touches disposition or the DONE gate.
   systemExplanation String?
+  // LUM-751: the suppression rule that auto-dispositioned this crossing
+  // (disposition = AUTO_SUPPRESSED). Null for every other crossing.
+  suppressionRuleId String?
 
   task            Task?                         @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
   milestone       Milestone?                    @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
   remediationTask Task?                         @relation("CrossingRemediation", fields: [remediationTaskId], references: [id], onDelete: SetNull)
+  suppressionRule CrossingSuppressionRule?      @relation(fields: [suppressionRuleId], references: [id], onDelete: SetNull)
   // LUM-542: append-only agent self-explanations ("申辩"). A purely additive
   // annotation layer — never read by the DONE gate, never a disposition.
   explanations    BoundaryCrossingExplanation[]
@@ -1305,6 +1371,7 @@ model BoundaryCrossing {
   @@index([taskId, category, target])
   // LUM-640: milestone-scoped coalescing lookup for steward-session crossings.
   @@index([milestoneId, category, target])
+  @@index([suppressionRuleId])
   @@map("boundary_crossings")
 }
 
@@ -1331,6 +1398,212 @@ model BoundaryCrossingExplanation {
 
   @@index([crossingId, createdAt])
   @@map("boundary_crossing_explanations")
+}
+
+// ── LUM-732: PR security scan ───────────────────────────────────────────────
+// One scan per (pullRequestId, headSha). Findings are the scan's children.
+// Secrets are NEVER stored raw — `evidence` is redacted before the row is
+// written, `fingerprint` is a truncated sha256 used only for cross-push
+// disposition inheritance.
+
+enum PrSecurityScanStatus {
+  PENDING
+  RUNNING
+  CLEAN
+  FINDINGS
+  FAILED
+}
+
+enum PrSecurityScanTrigger {
+  PR_EVENT
+  PR_LINK
+  // LUM-735: scan row created by a CI SARIF push before any webhook ran.
+  SARIF_PUSH
+}
+
+enum PrSecurityJudgeStatus {
+  RAN
+  UNAVAILABLE
+  SKIPPED
+}
+
+enum PrSecurityFindingKind {
+  SECRET
+  VULNERABILITY
+  // LUM-738: a vulnerable dependency reported by osv-scanner (no line-level diff).
+  DEPENDENCY
+}
+
+enum PrSecurityFindingSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PrSecurityFindingProvenance {
+  DETERMINISTIC
+  LLM_JUDGE
+  EXTERNAL_TOOL
+}
+
+enum PrSecurityFindingDisposition {
+  FALSE_POSITIVE
+  ACCEPTED_RISK
+}
+
+// LUM-739: can an entry point reach the sink without passing a control?
+enum PrSecurityReachability {
+  EXTERNAL
+  INTERNAL
+  UNKNOWN
+}
+
+// LUM-739: the falsifier can only refute or fail to refute — never confirm.
+enum PrSecurityFalsifierVerdict {
+  REJECT
+  INCONCLUSIVE
+}
+
+// LUM-758 follow-up: why a deterministic secret hit was lowered to LOW. Mirrors
+// `SecretDowngradeReason` in lib/security-scan/types.ts — the scanner is the
+// only writer. Downgrading is never suppression: the row is still reported, so
+// a reader needs the cause to tell "recognised placeholder" from "real leak".
+enum PrSecuritySecretDowngrade {
+  PLACEHOLDER_VALUE
+  DOWNGRADED_PATH
+}
+
+// LUM-740: what a human did with an LLM-suggested disposition — confirmed it
+// (chose the suggested disposition) or overruled it (chose another). The
+// pair (suggestedDisposition, suggestionOutcome) is the judge-precision data
+// of spec §12 R2.
+enum PrSecuritySuggestionOutcome {
+  CONFIRMED
+  OVERRULED
+}
+
+model PrSecurityScan {
+  id               String                 @id @default(cuid())
+  pullRequestId    String
+  // The PR's task at scan time (denormalised for per-task reads); SetNull.
+  taskId           String?
+  workspaceId      String
+  headSha          String
+  status           PrSecurityScanStatus   @default(PENDING)
+  trigger          PrSecurityScanTrigger
+  judgeStatus      PrSecurityJudgeStatus?
+  // The diff exceeded the judge budget — the LLM pass saw only a prefix.
+  truncated        Boolean                @default(false)
+  // LUM-735: per-layer outcome { secrets|external|supplyChain|judge|hunt:
+  // RAN|FAILED|SKIPPED|NOT_CONFIGURED|PARTIAL }. null on rows written before
+  // this column existed — the service derives a legacy view from judgeStatus.
+  stages           Json?
+  // LUM-735: some layer hit its budget/cap; the scan is honest but not whole.
+  partial          Boolean                @default(false)
+  // e.g. "secrets@1;judge@1" — lets a later detector bump decide to rescan.
+  detectorVersion  String
+  error            String?
+  startedAt        DateTime               @default(now())
+  finishedAt       DateTime?
+  // LUM-737: when the agent was first reminded (via the next PreToolUse hook)
+  // that this scan carries undispositioned findings. Set once per scan row so
+  // the reminder fires exactly once; null = not yet reminded. Orthogonal to
+  // disposition and the DONE gate (which key only on the findings).
+  agentNotifiedAt  DateTime?
+  // LUM-739: tokens the L3 hunt + falsifier spent on this scan. null = not
+  // metered (team rule: null ≠ 0).
+  tokenSpent       Int?
+  // LUM-739: { candidates, rejected: [{ reason, category, sink }],
+  // falsifierRejects, falsifierRejected, categories, subgraph, error? }.
+  huntAudit        Json?
+  // LUM-745: the Vercel Workflow run id of the Lumo-managed scan stage A
+  // started for this row; null = no managed run (BYO, disabled, or start()
+  // failed). Read by supersede / the 45-min sweep (cancel + stop) and by the
+  // per-workspace hourly cap (count).
+  managedRunId     String?
+  // LUM-740: the GitHub issue-comment id of the per-PR summary this scan
+  // last wrote (or reused from an earlier scan of the same PR). The
+  // write-back upserts by this id, so concurrent writers converge on ONE
+  // summary; null until the first create.
+  summaryCommentId String?
+  // LUM-740: when the suggested-disposition pass finished for this scan
+  // (null = not yet). The PR write-back holds EXTERNAL_TOOL inline comments
+  // until then, so a concurrent hunt sync cannot post rows the pass is about
+  // to mark as suggested false positives.
+  suggestedAt      DateTime?
+  // LUM-740: tokens the suggested-disposition pass spent (own column — the
+  // hunt owns `tokenSpent` and overwrites it). null = not metered.
+  suggestionTokens Int?
+
+  pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+  task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  findings    PrSecurityFinding[]
+
+  @@unique([pullRequestId, headSha])
+  @@index([taskId])
+  @@index([workspaceId, startedAt])
+  @@index([startedAt])
+  @@map("pr_security_scans")
+}
+
+model PrSecurityFinding {
+  id                     String                        @id @default(cuid())
+  scanId                 String
+  kind                   PrSecurityFindingKind
+  // secret:<pattern-id> | vuln:<kind> | ext:<tool>
+  ruleId                 String
+  severity               PrSecurityFindingSeverity
+  provenance             PrSecurityFindingProvenance
+  filePath               String
+  // New-file line number; null when the LLM judge could not place it.
+  line                   Int?
+  title                  String
+  detail                 String
+  // Redacted triggering line — the raw secret never reaches this column.
+  evidence               String
+  fingerprint            String
+  // EXTERNAL_TOOL only: the rule's helpUri from the SARIF the repo's CI pushed (LUM-735).
+  externalRef            String?
+  disposition            PrSecurityFindingDisposition?
+  dispositionNote        String?
+  dispositionedById      String?
+  dispositionedAt        DateTime?
+  // Set when the disposition was copied from an earlier finding with the same
+  // fingerprint on the same PR (cross-push inheritance).
+  inheritedFromFindingId String?
+  // LUM-740 (EXTERNAL_TOOL rows): the falsifier REJECTed the finding, so a
+  // FALSE_POSITIVE disposition is *suggested* with its reason — `disposition`
+  // itself is never written by the LLM. `suggestionOutcome` records the
+  // human's decision on the suggestion (confirm / overrule) for R2.
+  suggestedDisposition   PrSecurityFindingDisposition?
+  suggestedReason        String?
+  suggestionOutcome      PrSecuritySuggestionOutcome?
+  // LUM-739 (hunt:* rows only): CWE id, entry-reachability of the sink, the
+  // symbol-level call chain [{ from, to }] (no code), and the falsifier's
+  // verdict — always INCONCLUSIVE on a persisted row (REJECTs never land).
+  cwe                    String?
+  reachability           PrSecurityReachability?
+  callChain              Json?
+  falsifierVerdict       PrSecurityFalsifierVerdict?
+  // LUM-738: the same fingerprint is already on the default branch's security
+  // baseline (ProjectRepository.securityBaseline) — this PR did not introduce
+  // it. Advisory: rendered muted, excluded from open/reminder counts.
+  persisting             Boolean                       @default(false)
+  // LUM-758 follow-up (secret: rows only): WHY the severity was lowered to LOW.
+  // The scanner already computes it; persisting it is what lets the reminder
+  // and `lumo task status` say *why* a row is advisory, instead of a
+  // recognised placeholder in a test fixture reading as an unexplained
+  // credential. Null on every non-secret row and on a hit that was not
+  // downgraded — never inferred from `detail` (see SecretDowngradeReason).
+  secretDowngrade        PrSecuritySecretDowngrade?
+  createdAt              DateTime                      @default(now())
+
+  scan PrSecurityScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId])
+  @@index([fingerprint])
+  @@index([scanId, provenance, severity])
+  @@map("pr_security_findings")
 }
 
 // ─── Notifications ───────────────────────────────────────────────────────────
@@ -1491,6 +1764,8 @@ model PullRequest {
   integration      GitHubIntegration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
   mirroredComments PrCommentMirror[]
   ideaCitations    IdeaPullRequest[]
+  securityScans    PrSecurityScan[]
+  lumoCiRuns       LumoCiRun[]
 
   @@unique([repo, number])
   @@index([workspaceId])
@@ -1544,6 +1819,9 @@ model ApiKey {
   label             String // user-given name, e.g. "My laptop"
   keyHash           String    @unique // SHA-256(fullKey) as hex
   keyPrefix         String // first 16 chars of key, for display ("lum_xxxxxxxx...")
+  // LUM-735: null = full CLI/MCP access; 'security:ingest' = only the SARIF
+  // upload/complete routes (the key that lives in a repo secret).
+  scope             String?
   createdAt         DateTime  @default(now())
   lastUsedAt        DateTime?
   revokedAt         DateTime?
@@ -2126,6 +2404,37 @@ model GateSignal {
 
   @@index([taskId, createdAt])
   @@map("gate_signals")
+}
+
+// LUM-746: one Lumo-managed CI run (typecheck + test in a Vercel Sandbox) per
+// (pull request, head sha). The unique key is the "same sha runs once" rule;
+// the row tracks the workflow run for supersede/cancel and counts toward the
+// per-workspace hourly cap. Verdicts themselves land in GateSignal
+// (source 'lumo_sandbox'); this row only says whether the harness finished.
+model LumoCiRun {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  taskId        String
+  pullRequestId String
+  prNumber      Int
+  headSha       String
+  // PENDING | DONE | FAILED | SUPERSEDED
+  status        String    @default("PENDING")
+  // Vercel Workflow run id once start() succeeded; null = never started.
+  runId         String?
+  // Harness failure reason (never a gate verdict).
+  error         String?
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  task        Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  pullRequest PullRequest @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([pullRequestId, headSha])
+  @@index([workspaceId, startedAt])
+  @@index([taskId])
+  @@map("lumo_ci_runs")
 }
 
 // LUM-640: a session's legal form. IMPLEMENTATION = the classic task-bound

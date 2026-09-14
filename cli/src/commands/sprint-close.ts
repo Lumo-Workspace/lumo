@@ -3,12 +3,16 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
 import { formatTaskListTable, type TaskRow } from '../lib/format'
 import { sanitizeField } from '../lib/sanitize'
+import {
+  emitConfirmation,
+  isConfirmed,
+  type ConfirmFlags,
+} from '../lib/confirmation'
 
-export interface CloseSprintOptions {
+export interface CloseSprintOptions extends ConfirmFlags {
   team?: string
   moveAll?: boolean
   backlogAll?: boolean
-  yes?: boolean
 }
 
 export type CloseDecision = 'moveToNext' | 'backToBacklog'
@@ -21,7 +25,8 @@ export function buildCloseDecisions(
   tasks: (TaskRow & { id: string })[],
   mode: 'move' | 'backlog'
 ): Record<string, CloseDecision> {
-  const decision: CloseDecision = mode === 'move' ? 'moveToNext' : 'backToBacklog'
+  const decision: CloseDecision =
+    mode === 'move' ? 'moveToNext' : 'backToBacklog'
   const result: Record<string, CloseDecision> = {}
   for (const task of tasks) {
     if (task.status !== 'DONE') {
@@ -47,11 +52,38 @@ export function formatUnfinishedRefusal(
     formatTaskListTable(unfinished),
     '',
     'To resolve, pass one of:',
-    '  --move-all --yes     move all unfinished tasks to the next sprint',
-    '  --backlog-all --yes  return all unfinished tasks to the backlog',
-    '  Web UI               decide task-by-task at lumo.so',
+    '  --move-all --confirm     move all unfinished tasks to the next sprint',
+    '  --backlog-all --confirm  return all unfinished tasks to the backlog',
+    '  Web UI                   decide task-by-task at lumo.so',
   ]
   return lines.join('\n')
+}
+
+/**
+ * The changes[] block for the `--move-all` / `--backlog-all` confirmation
+ * envelope (LUM-755): the sprint, and every unfinished task with where it goes.
+ */
+export function describeSprintClose(
+  number: number,
+  name: string,
+  tasks: (TaskRow & { id: string })[],
+  mode: 'move' | 'backlog'
+): string[] {
+  const unfinished = tasks.filter(t => t.status !== 'DONE')
+  const lines = [`Will close sprint #${number} "${sanitizeField(name)}"`]
+  if (unfinished.length === 0) {
+    lines.push('No unfinished tasks — nothing is moved')
+    return lines
+  }
+  const ids = unfinished.map(t => `${t.teamIdentifier}-${t.number}`).join(', ')
+  const dest =
+    mode === 'move' ? 'move to the next sprint' : 'return to the backlog'
+  lines.push(
+    sanitizeField(
+      `${unfinished.length} unfinished task${unfinished.length === 1 ? '' : 's'} ${dest}: ${ids}`
+    )
+  )
+  return lines
 }
 
 export async function sprintClose(
@@ -62,15 +94,6 @@ export async function sprintClose(
   if (opts.moveAll && opts.backlogAll) {
     console.error(
       'Error: --move-all and --backlog-all are mutually exclusive. Pick one.'
-    )
-    return 1
-  }
-
-  // CLI-side: mode flags require --yes.
-  if ((opts.moveAll || opts.backlogAll) && !opts.yes) {
-    const flag = opts.moveAll ? '--move-all' : '--backlog-all'
-    console.error(
-      `Error: ${flag} requires --yes to confirm. Re-run with --yes.`
     )
     return 1
   }
@@ -145,6 +168,20 @@ export async function sprintClose(
       return 1
     }
     // All tasks done — post with empty decisions.
+  }
+
+  // LUM-755: a mode flag without --confirm → envelope listing every task
+  // that would move, computed from the real sprint state; nothing is posted.
+  if ((opts.moveAll || opts.backlogAll) && !isConfirmed(opts)) {
+    return emitConfirmation({
+      command: 'sprint close',
+      changes: describeSprintClose(
+        sprint.number,
+        sprint.name,
+        tasks,
+        opts.moveAll ? 'move' : 'backlog'
+      ),
+    })
   }
 
   // Build decisions map.

@@ -29,22 +29,18 @@ import { plan, planStatus, type PlanOptions } from './commands/plan'
 import { cost } from './commands/cost'
 import { priority, priorityList } from './commands/priority'
 import { criteriaAudit } from './commands/criteria-audit'
-import { fidelityShow, type FidelityShowOptions } from './commands/fidelity'
 import { verify } from './commands/verify'
-import {
-  verdict,
-  collectCriterion,
-  type VerdictOptions,
-} from './commands/verdict'
 import {
   crossingExplain,
   type CrossingExplainOptions,
 } from './commands/crossing-explain'
 import {
-  outcomeRecord,
+  crossingDisposition,
+  type CrossingDispositionOptions,
+} from './commands/crossing-disposition'
+import {
   outcomeShow,
   outcomeRate,
-  type OutcomeRecordOptions,
   type OutcomeRateOptions,
 } from './commands/outcome'
 import { taskContext } from './commands/task-context'
@@ -195,6 +191,21 @@ const collect = (val: string, acc: string[]): string[] => [...acc, val]
 
 type CommandFn = (...args: unknown[]) => Promise<number | void>
 
+/**
+ * Exit-code convention (LUM-755). A command returns the code to propagate:
+ *   0 / undefined  success
+ *   1              general error (message on stderr)
+ *   4              confirmation required — a mutation that needs the user's
+ *                  approval printed a `confirmation_required` envelope on
+ *                  stdout (see cli/src/lib/confirmation.ts); re-run the
+ *                  envelope's `confirmCommand` once the user has approved
+ *   5              blocked by a human-only gate — the server refused the
+ *                  change (today: a DONE gate) and the CLI printed a
+ *                  `DONE_BLOCKED` error on stdout listing every blocker
+ *                  (see cli/src/lib/blocked-error.ts); nothing on the CLI
+ *                  can clear it — relay it, don't retry
+ * 2 (auth) and 3 (validation) are reserved for a later pass.
+ */
 function wrap(fn: CommandFn) {
   return async (...args: unknown[]) => {
     try {
@@ -299,7 +310,7 @@ program
   )
   .option(
     '--note <text>',
-    'Required self-report — what you did and why it is ready (LUM-597). Recorded as your claim (source AGENT) when the round passes into IN_REVIEW, and checked against the diff for faithfulness.'
+    'Optional one-line self-report — what you did and why it is ready. When given, it is recorded as your claim (source AGENT) when the round passes into IN_REVIEW.'
   )
   .action(
     wrap((task: unknown, options: unknown) =>
@@ -310,41 +321,11 @@ program
     )
   )
 
-program
-  .command('verdict [task]')
-  .description(
-    'Acceptance verdict (LUM-422). --pass opens the browser to the human verdict bar focused on Pass (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task.'
-  )
-  .option(
-    '--pass',
-    'Open the verdict bar focused on Pass (human one-click; no write)'
-  )
-  .option(
-    '--fail',
-    'Record an AGENT send-back (verdict FAIL) — requires --reason'
-  )
-  .option(
-    '--reason <enum>',
-    'Rejection reason for --fail: CRITERION_UNMET | EVIDENCE_INSUFFICIENT | CHECK_EXECUTION_ERROR | SCOPE_MISMATCH | OTHER (case-insensitive)'
-  )
-  .option(
-    '--note <text>',
-    'Optional send-back narrative, posted as a task comment'
-  )
-  .option(
-    '--criterion <id>',
-    'Narrow a --fail to specific criteria (repeatable); omitted = the whole contract',
-    collectCriterion
-  )
-  .action(
-    wrap((task: unknown, options: unknown) =>
-      verdict(task as string | undefined, options as VerdictOptions)
-    )
-  )
-
 const crossing = program
   .command('crossing')
-  .description('Inspect and annotate boundary crossings')
+  .description(
+    'Inspect, annotate and (with user approval) disposition boundary crossings'
+  )
 
 crossing
   .command('explain <id>')
@@ -361,9 +342,45 @@ crossing
     )
   )
 
+crossing
+  .command('disposition <id>')
+  .description(
+    "Rule on a boundary crossing from the terminal (LUM-769) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
+  )
+  .option(
+    '--false-positive',
+    'Rule the crossing a false positive (not a real issue)'
+  )
+  .option(
+    '--confirmed',
+    'Rule the crossing confirmed (a real issue, acknowledged)'
+  )
+  .option('--note <text>', 'Optional disposition note recorded with the ruling')
+  .option(
+    '--task <identifier>',
+    'Task the crossing belongs to (defaults to the session-bound task)'
+  )
+  .option(
+    '--receipt <token>',
+    "Read receipt from the previous step's envelope (its confirmCommand carries it); required with --confirm-read (stage 1 receipt) and --confirm (stage 2 receipt), verified server-side"
+  )
+  .option(
+    '--confirm-read',
+    'Step 2: the user confirmed they have read the envelope (never add this on your own initiative). Returns the ruling envelope; writes nothing'
+  )
+  .option(
+    '--confirm',
+    'Step 3: the user approved the ruling (never add this on your own initiative). Refused unless the read was confirmed first'
+  )
+  .action(
+    wrap((id: unknown, options: unknown) =>
+      crossingDisposition(id as string, options as CrossingDispositionOptions)
+    )
+  )
+
 const outcome = program
   .command('outcome')
-  .description('Read / record the post-hoc outcome well (LUM-598)')
+  .description('Read the post-hoc outcome well (LUM-598)')
 
 outcome
   .command('show <task>')
@@ -371,29 +388,6 @@ outcome
     'Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a "pass") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied.'
   )
   .action(wrap((task: unknown) => outcomeShow(task as string)))
-
-outcome
-  .command('record <task>')
-  .description(
-    'Record a human-observed post-hoc REJECTION of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; there is no "mark satisfied" counterpart — the well only asserts rejection.'
-  )
-  .requiredOption(
-    '--note <text>',
-    'What reality did (the observed referent), e.g. "reverted in #812 after a prod incident"'
-  )
-  .option(
-    '--kind <kind>',
-    'reverted | rolled_back | ci_regression | downstream_redirect | bypassed | manual (case-insensitive; default: manual)'
-  )
-  .option(
-    '--occurred-at <iso>',
-    'When the event happened (ISO 8601; defaults to now)'
-  )
-  .action(
-    wrap((task: unknown, options: unknown) =>
-      outcomeRecord(task as string, options as OutcomeRecordOptions)
-    )
-  )
 
 outcome
   .command('rate')
@@ -660,22 +654,6 @@ criteria
   )
   .action(wrap(() => criteriaAudit()))
 
-const fidelity = program
-  .command('fidelity')
-  .description('Mechanical fidelity read-outs (LUM-610)')
-
-fidelity
-  .command('show <task>')
-  .description(
-    'Per delivery snapshot (LUM-609): the grounding composition of the frozen contract (grounded / self-confirming / inconclusive) and the independence signal (criteria ADDED/UPDATED after work started = backward-inference suspects). A composition table, not a single score — direction is never judged. inconclusive is surfaced, never swallowed.'
-  )
-  .option('--json', 'Emit the report as JSON')
-  .action(
-    wrap((task: unknown, options: unknown) =>
-      fidelityShow(task as string, options as FidelityShowOptions)
-    )
-  )
-
 const session = program
   .command('session')
   .description('Manage per-terminal coding-session context')
@@ -740,15 +718,22 @@ task
 task
   .command('status [task]')
   .description(
-    'Acceptance self-check (LUM-344): contract with latest verdicts, verification history, current round, and nextActions (unmet criteria). Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected.'
+    'Acceptance self-check (LUM-344): contract with latest verdicts, current round, nextActions (unmet criteria + undispositioned security findings, LUM-737), and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected. --full adds the dashboard sections (verification rollup, history, cost, struggle/rework trail, trend).'
   )
   .option(
     '--json',
     'Emit the versioned machine-readable payload (version field; breaking changes bump it)'
   )
+  .option(
+    '--full',
+    'Also print the dashboard sections: verification rollup, history, cost, struggle/rework trail, trend'
+  )
   .action(
     wrap((taskArg, options) =>
-      taskStatus(taskArg as string | undefined, options as { json?: boolean })
+      taskStatus(
+        taskArg as string | undefined,
+        options as { json?: boolean; full?: boolean }
+      )
     )
   )
 
@@ -914,11 +899,21 @@ taskDeps
   .action(wrap((id, edge) => taskDepsDismiss(id as string, edge as string)))
 taskDeps
   .command('rm <identifier> <edge>')
-  .option('--yes', 'skip confirmation')
-  .description('Delete a dependency edge')
+  .description(
+    'Delete a dependency edge. Without --confirm: exit 4 + a confirmation envelope describing the edge.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((id, edge, opts) =>
-      taskDepsRm(id as string, edge as string, opts as { yes?: boolean })
+      taskDepsRm(
+        id as string,
+        edge as string,
+        opts as { confirm?: boolean; yes?: boolean }
+      )
     )
   )
 
@@ -1115,14 +1110,20 @@ taskArtifact
 
 taskArtifact
   .command('rm <task> <artifact-id>')
-  .description('Delete an artifact from a task. Irreversible — requires --yes.')
-  .option('--yes', 'Confirm deletion (required, no interactive prompt)')
+  .description(
+    'Delete an artifact from a task (irreversible). Without --confirm: exit 4 + a confirmation envelope naming the artifact.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((taskId: unknown, artifactId: unknown, options: unknown) =>
       taskArtifactRm(
         taskId as string,
         artifactId as string,
-        options as { yes?: boolean }
+        options as { confirm?: boolean; yes?: boolean }
       )
     )
   )
@@ -1210,11 +1211,17 @@ memoryCmd
 
 memoryCmd
   .command('rm <memoryId>')
-  .description('Delete a memory (hard delete). Requires --yes.')
-  .option('--yes', 'Confirm deletion')
+  .description(
+    'Delete a memory (hard delete). Without --confirm: exit 4 + a confirmation envelope showing the card.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((id: unknown, opts: unknown) =>
-      memoryRm(id as string, opts as { yes?: boolean })
+      memoryRm(id as string, opts as { confirm?: boolean; yes?: boolean })
     )
   )
 
@@ -1357,15 +1364,19 @@ milestoneCmd
 milestoneCmd
   .command('delete <identifier>')
   .description(
-    'Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Requires --yes.'
+    'Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Without --confirm: exit 4 + a confirmation envelope with the task count.'
   )
   .option('--project <ref>', 'Project name or slug (when identifier is a name)')
-  .option('--yes', 'Required: confirm deletion without TTY prompt')
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       milestoneDelete(
         identifier as string,
-        options as { project?: string; yes?: boolean }
+        options as { project?: string; confirm?: boolean; yes?: boolean }
       )
     )
   )
@@ -1643,10 +1654,14 @@ sprintCmd
 sprintCmd
   .command('delete <identifier>')
   .description(
-    'Delete a DRAFT sprint. Requires --yes. Server rejects ACTIVE/CLOSED sprints.'
+    'Delete a DRAFT sprint. Without --confirm: exit 4 + a confirmation envelope with the task count. Server rejects ACTIVE/CLOSED sprints.'
   )
   .option('--team <ref>', 'Team name or UUID (informational)')
-  .option('--yes', 'Confirm deletion')
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       sprintDelete(identifier as string, options as Record<string, unknown>)
@@ -1666,12 +1681,16 @@ sprintCmd
 sprintCmd
   .command('close <identifier>')
   .description(
-    'Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all --yes to move unfinished tasks to the next sprint, or --backlog-all --yes to return them to the backlog.'
+    'Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all to move unfinished tasks to the next sprint, or --backlog-all to return them to the backlog; either mode without --confirm exits 4 with a confirmation envelope listing the tasks that would move.'
   )
   .option('--team <ref>', 'Team name or UUID (informational)')
   .option('--move-all', 'Move all unfinished tasks to the next sprint')
   .option('--backlog-all', 'Return all unfinished tasks to the backlog')
-  .option('--yes', 'Required when --move-all or --backlog-all is set')
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((identifier, options) =>
       sprintClose(identifier as string, options as Record<string, unknown>)
@@ -1904,7 +1923,11 @@ doc
   )
   .option(
     '--force',
-    'Re-derive the source even when one already exists (default: refused with 409)'
+    'Re-derive the source even when one already exists. Without it an existing source yields exit 4 + a confirmation envelope whose confirmCommand carries --force --confirm.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved replacing the existing source (LUM-755); pair with --force as the envelope instructs'
   )
   .option(
     '--if-revision <n>',
@@ -1917,6 +1940,7 @@ doc
         opts as {
           allowShrink?: boolean
           force?: boolean
+          confirm?: boolean
           ifRevision?: string
         }
       )
@@ -1951,11 +1975,20 @@ doc
 
 doc
   .command('delete <doc>')
-  .description('Delete a document (requires --yes)')
-  .option('--yes', 'Confirm deletion')
+  .description(
+    'Delete a document and everything nested under it. Without --confirm: exit 4 + a confirmation envelope with the title.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
   .action(
     wrap((reference, opts) =>
-      docDelete(reference as string | undefined, opts as Record<string, string>)
+      docDelete(
+        reference as string | undefined,
+        opts as { confirm?: boolean; yes?: boolean }
+      )
     )
   )
 
@@ -2079,6 +2112,10 @@ task
     collect,
     []
   )
+  .option(
+    '--confirm',
+    'With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt.'
+  )
   .action(
     wrap((identifier, options) =>
       taskUpdate(identifier as string, options as Record<string, string>)
@@ -2119,10 +2156,14 @@ worktree
 worktree
   .command('rm <identifier>')
   .description(
-    'Remove the worktree for a task (git worktree remove). Requires --yes. Refuses a dirty worktree unless --force. Keeps the branch unless --delete-branch.'
+    'Remove the worktree for a task (git worktree remove). Without --confirm — or with uncommitted changes and no --force — exits 4 with a confirmation envelope naming the path, branch and what would be discarded. Keeps the branch unless --delete-branch.'
   )
-  .option('--yes', 'Confirm removal (required, no interactive prompt)')
-  .option('--force', 'Remove even with uncommitted changes')
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
+  .option('--force', 'Remove even with uncommitted changes (discards them)')
   .option(
     '--delete-branch',
     'Also delete the branch (git branch -d; refuses if unmerged)'
@@ -2131,7 +2172,12 @@ worktree
     wrap((identifier, options) =>
       worktreeRm(
         identifier as string,
-        options as { yes?: boolean; force?: boolean; deleteBranch?: boolean }
+        options as {
+          confirm?: boolean
+          yes?: boolean
+          force?: boolean
+          deleteBranch?: boolean
+        }
       )
     )
   )

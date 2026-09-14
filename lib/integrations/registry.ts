@@ -4,9 +4,10 @@
  * TEAM     — workspace-wide, ownerless system behavior (one install serves all).
  * PERSONAL — scoped to an individual member's account access.
  *
- * GitHub is classified TEAM: the team App installation (stable backend for
- * agent-created PRs) is the backbone. The existing personal OAuth code is left
- * untouched and is not modeled as a personal capability line in this phase.
+ * GitHub is two lines. `github` (TEAM) is the App installation — every
+ * repository read and write, from PR links to the security scan, runs as it.
+ * `githubAccount` (PERSONAL) is a member's OAuth link: identity only, so
+ * comments arriving from GitHub are attributed to the member who wrote them.
  */
 export type IntegrationKind = 'TEAM' | 'PERSONAL'
 
@@ -14,6 +15,7 @@ export type IntegrationId =
   | 'slack'
   | 'sentry'
   | 'github'
+  | 'githubAccount'
   | 'figma'
   | 'googleDrive'
 
@@ -26,6 +28,7 @@ export const INTEGRATIONS = {
   slack: { id: 'slack', kind: 'TEAM' },
   sentry: { id: 'sentry', kind: 'TEAM' },
   github: { id: 'github', kind: 'TEAM' },
+  githubAccount: { id: 'githubAccount', kind: 'PERSONAL' },
   figma: { id: 'figma', kind: 'PERSONAL' },
   googleDrive: { id: 'googleDrive', kind: 'PERSONAL' },
 } as const satisfies Record<IntegrationId, IntegrationDescriptor>

@@ -1,0 +1,75 @@
+export * from './types'
+export { addedLinesWithNumbers } from './diff-lines'
+export {
+  scanSecrets,
+  redactKnownSecrets,
+  MAX_SCANNED_LINE_CHARS,
+} from './scan-secrets'
+export {
+  redactSecret,
+  redactLine,
+  maskQuotedValues,
+  secretFingerprint,
+  vulnerabilityFingerprint,
+  sarifFingerprint,
+  dependencyFingerprint,
+  shannonEntropy,
+} from './redact'
+export {
+  SECRET_PATTERNS,
+  isDowngradedPath,
+  isPlaceholderValue,
+} from './secret-patterns'
+export { truncateSecurityDiff, SECURITY_DIFF_MAX_CHARS } from './truncate'
+export {
+  stagesOf,
+  EXTERNAL_ERROR_PREFIX,
+  type StagesOfScanInput,
+} from './stages'
+export {
+  parseSarif,
+  normalizeSarif,
+  changedLinesOf,
+  sarifSeverity,
+  sarifKind,
+  toolSlug,
+  isSupplyChainTool,
+  parseDependencyMessage,
+  ecosystemOfLockfile,
+  MAX_SARIF_FINDINGS,
+  type NormalizeResult,
+} from './sarif'
+// LUM-739 — L3 hunt (pure halves)
+export { inheritDispositions } from './inherit-dispositions'
+export {
+  HUNT_CATEGORIES,
+  CATEGORY_CWE_HINT,
+  HuntCandidateSchema,
+  huntFingerprint,
+  type HuntCategory,
+  type HuntCandidate,
+} from './hunt/candidate'
+export {
+  mechanicalVerify,
+  type RejectedCandidate,
+  type VerifiedCandidate,
+  type MechanicalVerifyResult,
+} from './hunt/mechanical-verify'
+export {
+  evaluateHuntTrigger,
+  addedControlCallIds,
+  L4_CROSSING_CATEGORIES,
+  type HuntTriggerInput,
+  type HuntTriggerResult,
+} from './hunt/trigger'
+// LUM-740 — the workspace policy table
+export {
+  DEFAULT_SECURITY_POLICY,
+  securityPolicySchema,
+  parseSecurityPolicy,
+  isBlockingUnderPolicy,
+  type SecurityPolicy,
+  type SecurityPolicyRule,
+} from './policy'
+export { extractDiffHunk, DIFF_HUNK_RADIUS } from './diff-snippet'
+export { suggestionOutcomeFor } from './suggestion'

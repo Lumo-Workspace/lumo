@@ -12,6 +12,13 @@
 // waitUntil callback — the outer call returns immediately and the trigger
 // has not been invoked yet by the time updateTaskWithSideEffects returns.
 const waitUntilPromises: Array<Promise<unknown>> = []
+// LUM-732: the DONE gate now consults the PR security scan. No linked PR here,
+// so the real gate short-circuits before touching the scan repository.
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {
+    findManyForSecurityByTaskId: jest.fn().mockResolvedValue([]),
+  },
+}))
 jest.mock('@vercel/functions', () => ({
   waitUntil: (p: Promise<unknown>) => {
     waitUntilPromises.push(p)

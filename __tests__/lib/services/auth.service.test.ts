@@ -81,9 +81,24 @@ describe('authService.verifyApiKey', () => {
     expect(result).toEqual({
       user: { id: 'user_abc123' },
       workspace: { id: 'ws_xyz789', slug: 'lumo', name: 'Lumo' },
-      apiKey: { id: 'key_def456', name: 'Claude Code', prefix: 'lum_5ffb06' },
+      apiKey: {
+        id: 'key_def456',
+        name: 'Claude Code',
+        prefix: 'lum_5ffb06',
+        scope: null,
+      },
     })
     expect(repo.touchApiKeyLastUsed).toHaveBeenCalledTimes(1)
+  })
+
+  it('surfaces a non-null scope (e.g. security:ingest) on the returned apiKey', async () => {
+    repo.findApiKeyByHashForVerify.mockResolvedValue(
+      makeApiKey({ scope: 'security:ingest' }) as never
+    )
+
+    const result = await authService.verifyApiKey('lum_valid_token')
+
+    expect(result?.apiKey.scope).toBe('security:ingest')
   })
 
   it('does NOT call Clerk (verifyApiKey is DB-only)', async () => {

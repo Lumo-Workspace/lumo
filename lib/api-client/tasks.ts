@@ -191,13 +191,47 @@ export const tasksClient = {
     taskId: string,
     crossingId: string,
     disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN',
-    dispositionNote?: string
+    dispositionNote?: string,
+    // LUM-751: opt a FALSE_POSITIVE into a per-repository suppression rule.
+    options?: { suppressSimilarInProject?: boolean; suppressionReason?: string }
   ) {
     return apiFetch<T>(API.tasks.boundaryDisposition(taskId), {
       method: 'POST',
-      body: dispositionNote
-        ? { crossingId, disposition, dispositionNote }
-        : { crossingId, disposition },
+      body: {
+        crossingId,
+        disposition,
+        ...(dispositionNote ? { dispositionNote } : {}),
+        ...(options?.suppressSimilarInProject
+          ? {
+              suppressSimilarInProject: true,
+              ...(options.suppressionReason
+                ? { suppressionReason: options.suppressionReason }
+                : {}),
+            }
+          : {}),
+      },
+    })
+  },
+
+  /**
+   * How many existing crossings in this repository a suppression rule built
+   * from this crossing would dispose (LUM-759) — read-only, Clerk-session only.
+   * Returns { suppressible, count, capped, cap }; shown next to the opt-in so
+   * the human sees the blast radius before committing the ruling.
+   */
+  previewCrossingSuppressionScope<T>(taskId: string, crossingId: string) {
+    return apiFetch<T>(API.tasks.boundarySuppressionPreview(taskId, crossingId))
+  },
+
+  /**
+   * Soft-revoke a repository suppression rule (LUM-751), which since LUM-759
+   * also returns the crossings it had suppressed to the open queue.
+   * Clerk-session only — the server refuses bearer (agent) identities. Returns
+   * { ruleId, revokedAt, reopenedCount }.
+   */
+  revokeCrossingSuppressionRule<T>(taskId: string, ruleId: string) {
+    return apiFetch<T>(API.tasks.boundarySuppressionRule(taskId, ruleId), {
+      method: 'DELETE',
     })
   },
 
@@ -268,16 +302,40 @@ export const tasksClient = {
     return apiFetch<T>(API.tasks.forecast(taskId))
   },
 
-  retrospective<T>(taskId: string) {
-    return apiFetch<T>(API.tasks.retrospective(taskId))
-  },
-
   progress<T>(taskId: string) {
     return apiFetch<T>(API.tasks.progress(taskId))
   },
 
   gates<T>(taskId: string) {
     return apiFetch<T>(API.tasks.gates(taskId))
+  },
+
+  /** LUM-732: latest security scan per linked PR + DONE-blocking count. */
+  securityScans<T>(taskId: string) {
+    return apiFetch<T>(API.tasks.securityScans(taskId))
+  },
+
+  /** LUM-732: human-only disposition of one security finding. */
+  dispositionSecurityFinding<T>(
+    taskId: string,
+    findingId: string,
+    body: { disposition: 'FALSE_POSITIVE' | 'ACCEPTED_RISK'; note?: string }
+  ) {
+    return apiFetch<T>(
+      API.tasks.securityFindingDisposition(taskId, findingId),
+      {
+        method: 'POST',
+        body,
+      }
+    )
+  },
+
+  /** LUM-740: human-only — confirm every LLM-suggested false positive on the task. */
+  bulkDispositionSecurityFindings<T>(taskId: string) {
+    return apiFetch<T>(API.tasks.securityFindingsBulkDisposition(taskId), {
+      method: 'POST',
+      body: { disposition: 'FALSE_POSITIVE', scope: 'SUGGESTED' },
+    })
   },
 
   getTimeline<T>(taskId: string, cursor?: string | null, limit?: number) {

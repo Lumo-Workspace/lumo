@@ -21,22 +21,19 @@ lumo verify LUM-42 --note "…"            # explicit task (overrides the sessio
 lumo verify --note "…" --timeout 900     # per-checkpointer timeout in seconds (default 600)
 ```
 
-**`--note` is required (LUM-597)** whenever a round will actually be posted (the
-task has MACHINE criteria). It is your one-line self-report — what you did and
-why it is ready ("我改了 X,因为 Y 可验收"). When the round all-passes and the
-task flips to IN*REVIEW, the note is frozen as the task's **claim** (provenance
-`AGENT` — the汇报者's own voice, not a summarizer paraphrase) and is checked
-against the diff for faithfulness. Capturing the claim is deterministic ("不填不
-让 post"); whether it is \_truthful* is the faithfulness audit's job — so don't
-under- or over-state it. A missing/blank note is refused **before** the round is
-posted, so no round is burned; just re-run with one. (An old CLI that omits it
-still verifies — the claim degrades to the synthesized run-summary fallback.)
+**`--note` is optional (LUM-733).** It is your one-line self-report — what
+you did and why it is ready ("我改了 X,因为 Y 可验收"). When given and the round
+all-passes into IN_REVIEW, it is frozen as the task's claim (source `AGENT`) and
+judged for faithfulness in the background; when omitted the round still posts
+and the claim degrades to the synthesized run summary. It is never a
+precondition for verifying — don't hold a round back to word it.
 
 ## What one round does
 
 1. Loads the task's acceptance contract and picks out MACHINE criteria.
-2. Runs each checkpointer locally (shell, cwd = current directory), one at a
-   time, echoing PASS/FAIL as it goes.
+2. Runs each checkpointer locally (shell, cwd = current directory, env = the
+   CLI's own minus its private `LUMO_NO_HINTS` mute — `--no-hints` never
+   reaches a checkpointer), one at a time, echoing PASS/FAIL as it goes.
 3. POSTs the structured verdicts; the server records one VerificationRun per
    criterion at round = previous max + 1 and mirrors each verdict as a
    TaskActivity event.
@@ -64,16 +61,15 @@ errors.
 
 ## Edge cases
 
-| Case                                            | Behavior                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **No contract yet**                             | Error pointing at `lumo task criteria set`; draft the contract first (criteria.md golden rule).                                                                                                                                                                                                                                                                                                                                          |
-| **HUMAN-only contract** (zero MACHINE criteria) | Nothing to run; CLI says so and suggests `lumo task update <id> --status in_review` for human review. No server write happens.                                                                                                                                                                                                                                                                                                           |
-| **Partial round**                               | A round must cover every MACHINE criterion; the CLI always runs all of them and the server rejects partial rounds.                                                                                                                                                                                                                                                                                                                       |
-| **`REVIEW_ADDED` criteria**                     | Criteria added during review appear in the contract and are picked up automatically by the next round.                                                                                                                                                                                                                                                                                                                                   |
-| **Session bound to a different task**           | Server returns 409, surfaced as an error. No advisory printed; the verify round is rejected outright.                                                                                                                                                                                                                                                                                                                                    |
-| **Ungrounded EXTERNAL_FACT PASS** (LUM-605)     | A reported PASS on a criterion declared `EXTERNAL_FACT` whose checkpointer doesn't invoke external tooling (e.g. `npx jest …`) is blocked with **422 — no round burned**; the task does **not** move to IN_REVIEW. Fix it for free: re-ground the checkpointer against a real external fact, or honestly re-declare `referentKind` as `AGENT_CONSTRUCTED_STATE` (`lumo task criteria set`), then re-run. See criteria.md "referentKind". |
-| **Provably-unbound session**                    | Response carries `bindingAdvisory: 'unbound'`; prints `⚠ Working unbound — this verify ran from a Claude Code session not attached to the task.` Recorded as a `SESSION_BINDING_MISSING` boundary crossing (visible in `lumo task status` open crossings). Run `lumo session attach <LUM-N>` before the next verify.                                                                                                                     |
-| **Unconfirmed session binding**                 | `bindingAdvisory: 'unconfirmed'` → softer advisory `⚠ Could not confirm this session is attached to the task.` Same remediation: `lumo session attach <LUM-N>`.                                                                                                                                                                                                                                                                          |
+| Case                                            | Behavior                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No contract yet**                             | Error pointing at `lumo task criteria set`; draft the contract first (criteria.md golden rule).                                                                                                                                                                                                                      |
+| **HUMAN-only contract** (zero MACHINE criteria) | Nothing to run; CLI says so and suggests `lumo task update <id> --status in_review` for human review. No server write happens.                                                                                                                                                                                       |
+| **Partial round**                               | A round must cover every MACHINE criterion; the CLI always runs all of them and the server rejects partial rounds.                                                                                                                                                                                                   |
+| **`REVIEW_ADDED` criteria**                     | Criteria added during review appear in the contract and are picked up automatically by the next round.                                                                                                                                                                                                               |
+| **Session bound to a different task**           | Server returns 409, surfaced as an error. No advisory printed; the verify round is rejected outright.                                                                                                                                                                                                                |
+| **Provably-unbound session**                    | Response carries `bindingAdvisory: 'unbound'`; prints `⚠ Working unbound — this verify ran from a Claude Code session not attached to the task.` Recorded as a `SESSION_BINDING_MISSING` boundary crossing (visible in `lumo task status` open crossings). Run `lumo session attach <LUM-N>` before the next verify. |
+| **Unconfirmed session binding**                 | `bindingAdvisory: 'unconfirmed'` → softer advisory `⚠ Could not confirm this session is attached to the task.` Same remediation: `lumo session attach <LUM-N>`.                                                                                                                                                      |
 
 ## Round discipline
 
@@ -105,8 +101,9 @@ nothing and burns no round. Defaults to the session-bound task; an explicit
 identifier overrides.
 
 ```bash
-lumo task status            # session-bound task
+lumo task status            # session-bound task (core: criteria / next actions / open crossings)
 lumo task status LUM-42     # explicit task
+lumo task status --full     # + verification rollup, history, cost, struggle trail, trend
 lumo task status --json     # versioned machine-readable payload
 ```
 
@@ -125,19 +122,16 @@ what's unmet and why (the exact failure tails), and how many rounds are left.
 ### What it prints
 
 - **Header** — task identifier/title/status + `verification round N/M` (`M` = the workspace's `verificationMaxRounds`; round 0 = never verified) + an escalation warning when the machine loop is exhausted.
-- **Claim vs verification** — 规律 2 声称vs核验: the headline contrast, printed right after the header (whenever the contract exists), so the report shows **both** columns instead of only the verification one. Two sides:
-  - **Claim** — what the agent _says_ it did: an **unverified self-report** (`agent self-report · estimated, not verification`), estimate-tier provenance (估, not 测). Sourced by layering (LUM-597, preference `AGENT > RUN_SUMMARY > DIGEST > null`): if you supplied a `lumo verify --note`, that **own self-report** is the claim (`↳ source: agent self-report (verify --note)`) — the汇报者's voice, what faithfulness judges. Absent a self-report (old CLI / non-verify path) it degrades to the summarizer paraphrase, labelled honestly (`↳ source: synthesized run summary (no self-report)`). **Fail-closed**: when only a raw STOP turn digest exists it prints `generating — the formal run summary is still being synthesized` and **withholds the raw digest**; with no material at all it prints `not generated yet — …`, never a fabricated claim.
-  - **Verification** — what was actually _confirmed_ (measured): the machine-verification rollup `N machine-verified / M human override (of T MACHINE criteria)` over the active MACHINE criteria (relocated here from its old standalone line under `Criteria`), plus `X of Y criteria met by their latest verdict`. **Fail-closed**: before any round runs it prints `no verification has run yet — the claim is unconfirmed` rather than implying a pass.
-  - **Faithfulness** — the third state over the two columns: whether the CLAIM itself is _true_, read from the persisted faithfulness verdict (no LLM at read time), printed as `▸ Faithfulness — does the claim match the delivery`. One of `faithful` / `overstated` (claim says more than the diff/PR shows) / `under-reported` (claim says less) / `unjudgeable`, with an `· evidence: PR #N · <sha>` pointer when the judge cited one. **Fail-closed**: `not yet judged` (no verdict — distinct from a real `unjudgeable` verdict) and `… (stale — re-checked on the next batch)` (judged against an older claim snapshot, the verdict still shown) are surfaced explicitly. Omitted only against an older server that doesn't emit it.
-  - Carried in `--json` as `claim { text, source }` (`source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null`; `AGENT` = the verify self-report, `RUN_SUMMARY`/`DIGEST` = the synthesized fallback; `text: null` = none generated) and `faithfulness { state, verdict, evidence, diffShas, prNumbers, judgedAt, judgedClaimAt }` (`state` adds `PENDING`/`STALE` over the four verdicts). Omitted only against an older server that doesn't emit the field. The machine-verification rollup is still carried top-level as `machineVerification`.
+- **Default = the self-check core (LUM-733):** header, Criteria, Last round failures, Next actions, Open boundary crossings. The dashboard sections below (**Verification**, **History**, **Cost**, **Struggle**, **Trend**) print only with `--full` — they are human-dashboard material and cost context. The claim text and faithfulness verdict are no longer rendered in the terminal (`--json` still carries `claim` / `faithfulness` for scripts).
+- **Verification** (`--full`) — the measured rollup `N machine-verified / M human override (of T MACHINE criteria)` plus `X of Y criteria met by their latest verdict`; before any round it prints `no verification has run yet`.
 - **Criteria** — every criterion as `<glyph> <id>  [TYPE]  SOURCE@rN statement` (✓ latest verdict passed / ✗ failed / ○ no verdict yet) with its checkpointer and latest verdict line (failure tail on fail). `REVIEW_ADDED@rN` provenance is visible per row.
   - A passing **MACHINE** criterion's verdict line carries a machine-state tag derived from the read model's `machinePassed` flag, NOT the latest verdict: `· machine-verified` when a checkpointer actually passed it (even after a human later signs the task off), or `· human override (no machine pass)` when it passes only on a human sign-off with no machine run underneath. This keeps the terminal honest with web — a machine-verified criterion that a human co-signed no longer reads as a plain human pass.
   - A verdict's **evidence is drillable**, rendered as an indented `↳ evidence:` line under the verdict (PASS _and_ FAIL) instead of the inert raw pointer that used to ride the verdict line — so a conclusion points at real proof you can act on, not just the `check:` command: a `cmd:` pointer prints the actual command + exit code (`ran \`…\` → exit N · re-run to reproduce`), a `file:`pointer prints a terminal-clickable`path:line`, and a `commit:` pointer prints a navigable web URL (`<repo>/commit/<hash>`, resolved from the local git `origin`remote) or a`git show <hash>`fallback when no remote resolves. A criterion that **requires evidence but has none recorded yet** (e.g. a HUMAN evidence criterion before sign-off) renders an explicit`↳ evidence: pending — no reference recorded yet`(fail-closed) instead of a bare, dead`[evidence]` tag.
   - A pass can carry a **`⚠ pre-edit version`** note: the criterion was changed after that verdict (reworded, or its checkpointer was swapped so the recorded evidence ran a different command). The pass still counts as met (a stale pass does not block DONE — render-only signal), but it vouches for an older version — **re-run `lumo verify` to re-confirm against the current criterion.** This is the habit whenever you edit a MACHINE criterion's checkpointer mid-task: change the check, then re-verify so the green is honest.
-- **History** — one line per recorded round: `rN · timestamp · X PASS / Y FAIL`.
+- **History** (`--full`) — one line per recorded round: `rN · timestamp · X PASS / Y FAIL`.
 - **Last round failures** — the most recent round's FAIL verdicts with their rejection reasons (why the last round bounced).
-- **Cost** — 规律 1: the costs a human should weigh, on the same report as the verdict instead of scattered across the web delivery card and `task lineage`. Three lines: **Tokens** (total input+output+cache across the task's sessions), **Active time** (non-idle agent seconds — Σ per-turn `STOP − prompt`), and **Rework rounds** (verify rounds that recorded a FAIL). Read from the **same** server-side source the web delivery card consumes (`retrospectiveRepository.loadActuals`), so the two reports cannot drift. Token cost is **fail-closed**: when no session usage was recorded it prints `Tokens: not recorded (no session usage captured)`, kept distinct from a measured `0` (没测到 vs 花了0). Carried in `--json` as `cost { tokenCost, activeTimeSec, reworkRounds }` (`tokenCost: null` = not measured). Omitted only against an older server that doesn't emit the field.
-- **Struggle / rework / outstanding** — the anti-mum-and-deaf block: **always printed when the contract exists, even on a clean 0-unmet task** so a passing task still shows its scars instead of wiping them to a single PASS count. Lists, when present:
+- **Cost** (`--full`) — 规律 1: the costs a human should weigh, on the same report as the verdict instead of scattered across the web delivery card and `task lineage`. Three lines: **Tokens** (total input+output+cache across the task's sessions), **Active time** (non-idle agent seconds — Σ per-turn `STOP − prompt`), and **Rework rounds** (verify rounds that recorded a FAIL). Read from the **same** server-side source the web delivery card consumes (`retrospectiveRepository.loadActuals`), so the two reports cannot drift. Token cost is **fail-closed**: when no session usage was recorded it prints `Tokens: not recorded (no session usage captured)`, kept distinct from a measured `0` (没测到 vs 花了0). Carried in `--json` as `cost { tokenCost, activeTimeSec, reworkRounds }` (`tokenCost: null` = not measured). Omitted only against an older server that doesn't emit the field.
+- **Struggle / rework / outstanding** (`--full`) — the anti-mum-and-deaf block: **always printed when the contract exists, even on a clean 0-unmet task** so a passing task still shows its scars instead of wiping them to a single PASS count. Lists, when present:
   - **rework rounds** — verify rounds that had a FAIL;
   - **send-backs** — criteria sent back by a human/agent verdict (a MACHINE verify-loop FAIL is not a 打回), with their open/resolved lifecycle, preserved even for since-removed criteria;
   - **leftover follow-ups** — criteria whose latest verdict is `PASS_WITH_FOLLOWUP`;
@@ -146,11 +140,15 @@ what's unmet and why (the exact failure tails), and how many rounds are left.
 
   When the trail is genuinely empty it states the **basis** (`None recorded — N rounds run, 0 FAIL, no send-backs, no reopens, no leftover follow-ups`); when nothing has been verified yet it says so (`No verification has run yet — cannot confirm there were no difficulties`) rather than rendering an implicitly-clean slate. Carried in `--json` as `struggleTrail` (incl. `pullRequests` + `reopens`).
 
-- **Trend** — 规律 7 趋势非快照: the _movement_ of the key quantities across the task's attempts, not a single snapshot. Where History/Cost/Struggle list current values, this shows direction: **Pass rate** across verification rounds (`r1 60% → r2 100% (↑ +40pts)`), **Cost/session** across the task's sessions (`4.2K → 1.1K tokens (↓), 5.3K total` — per-session spend from the same source as the **Cost** total, so the trajectory's points sum to it), and **Rework** accrual (`3 accrued — 1 FAIL round, 1 reopen, +1 PR cycle (↑ from 0)`). **Honest about a single point:** with only one round and one session every quantity is one data point, so it prints `Single attempt so far — no trajectory yet (a trend needs ≥2 rounds or sessions)` rather than drawing a fake arrow off one value. When nothing was verified and no cost was measured it says `No verification rounds or measured cost yet — nothing to trend`. Carried in `--json` as `trend { passRate[], cost[], rework{} }`. Omitted only against an older server.
+- **Trend** (`--full`) — 规律 7 趋势非快照: the _movement_ of the key quantities across the task's attempts, not a single snapshot. Where History/Cost/Struggle list current values, this shows direction: **Pass rate** across verification rounds (`r1 60% → r2 100% (↑ +40pts)`), **Cost/session** across the task's sessions (`4.2K → 1.1K tokens (↓), 5.3K total` — per-session spend from the same source as the **Cost** total, so the trajectory's points sum to it), and **Rework** accrual (`3 accrued — 1 FAIL round, 1 reopen, +1 PR cycle (↑ from 0)`). **Honest about a single point:** with only one round and one session every quantity is one data point, so it prints `Single attempt so far — no trajectory yet (a trend needs ≥2 rounds or sessions)` rather than drawing a fake arrow off one value. When nothing was verified and no cost was measured it says `No verification rounds or measured cost yet — nothing to trend`. Carried in `--json` as `trend { passRate[], cost[], rework{} }`. Omitted only against an older server.
 
-- **Next actions** — the unmet criteria (latest verdict is not a pass: failed or never verified, HUMAN ones included). This list IS the plan — recomputed from the event log on every read, never maintained separately. Empty + rounds recorded = awaiting human adjudication.
-- **Open boundary crossings** — a trailing safety block when the task has ≥1 OPEN (undispositioned) forbidden-action crossing: a count, then one line per crossing `• [SEVERITY] CATEGORY — <clipped detail>` (highest-severity first), each followed by a read-only **attribution** line `↳ by model=<m> · agent=<type>[/branch] · session=<8-char prefix>` (who/what crossed; any dimension that couldn't be resolved server-side prints `unknown`, never a fabricated value), then a pointer to the web acceptance panel. Silent when there are none, so it never overshadows the criteria.
-  - **Read-only awareness** — this surfaces crossings detected elsewhere; there is no CLI path to disposition or clear one. Disposition stays web + human-only: an agent/CLI bearer cannot clear its own crossing from the terminal.
+- **Next actions** — the unmet criteria (latest verdict is not a pass: failed or never verified, HUMAN ones included) followed by any **undispositioned PR security findings** (LUM-737) as `• [SECURITY] [SEVERITY] PROVENANCE ruleId — file:line — title (PR #n · blocks DONE | advisory[ — <cause>, downgraded])`. The trailing **downgrade cause** appears only on deterministic `secret:*` rows the scanner lowered to LOW — `placeholder value` (the matched string looks like `…EXAMPLE`, `YOUR_…`, `CHANGEME`…) or `test/fixture/doc path`. Downgrading is **not** suppression: the row is still reported so a human decides, and the cause is what lets you tell a recognised test fixture from a real leak without opening the file. Absent on rows scanned before the cause was recorded, and on any row that was not downgraded — silence means "not downgraded", never "cause unknown". This list IS the plan — recomputed from the event log + the latest scan per linked PR on every read, never maintained separately. The header counts them separately: `Next actions (N unmet · M security findings)`. A finding is **not** a criterion: fix it and push (a fixed fingerprint disappears from the next scan) or a human dispositions it in the web delivery panel — there is no CLI path to clear one, and a `blocks DONE` finding refuses DONE with 409. Empty + rounds recorded = awaiting human adjudication.
+  - **Per-PR scan status** (LUM-735): before the unconfirmed-PR lines, one line per linked PR that has a latest scan (open or closed alike): `PR #945 · scan CLEAN · Secrets: checked · Code scan: checked (2 external findings) · Dependencies: checked (1 dependency finding, 1 already on main) · AI review: checked · Exploit paths: ⚠ incomplete` — stage segments only for keys present, in secrets/external/supplyChain/judge/hunt order. **The stage keys are internal; what prints is their display label** (LUM-763, `shared/src/security-scan.ts`, shared with the GitHub PR summary so the two cannot drift): `secrets`→Secrets, `external`→Code scan, `supplyChain`→Dependencies, `judge`→AI review, `hunt`→Exploit paths; states render as `RAN`→checked, `SKIPPED`→skipped, `NOT_CONFIGURED`→off, `PENDING`→scanning, `PARTIAL`→⚠ incomplete, `SUPERSEDED`→⚠ superseded, `FAILED`→✗ failed. "checked" means the layer completed, **not** that it found nothing — findings are counted in their own segments and in the next-actions list (`hunt` = the L3 vulnerability hunt, LUM-739: absent when `LUMO_SECURITY_HUNT=off`, `SKIPPED` when no trigger fired, `PENDING` while the workflow runs, `RAN` / `PARTIAL` (budget hit, a planned task that never finished, or more surviving candidates than the falsifier cap) / `FAILED`; its findings are `LLM_JUDGE` advisory, never `blocks DONE`); `(N external findings)` (singular at 1) decorates only the Code scan segment, and only when N > 0; `(N dependency findings[, M already on main])` (LUM-738; singular at 1) decorates only the Dependencies segment, only when N > 0, and prints bare `Dependencies: <state>` against an older server without the counts; ` · partial` appended when the scan is partial; and, when `stages.external === 'FAILED'` and a **scrubbed scanner reason** was recorded (the `error` column carries the `external: ` provenance prefix), an appended ` — <reason without the prefix, tail 200 chars>` — an unprefixed `error` (stage A's own raw crash text) is never printed here, same P8 rule as the web panel and the PR summary (LUM-756). Fed by the additive `securityFindings.scans` array; omitted entirely (no lines) against an older server that doesn't send it.
+  - **Hunt coverage line** (LUM-762): indented under its scan line whenever the server sends the L3 hunt's per-category audit — `Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done (2 attempts) · t3 race skipped`. `<n>/N done` is how many planned tasks finished (where N is the number of tasks the planning step selected for this scan, typically 0–3). Rows persisted before LUM-758 lack a planned-task count and fall back to the historical 6-category denominator (reading as `/6` instead). Each segment is `[taskId ]<category> <elapsed>s <stop>` — the `taskId` prefix (`t1`, `t2`, …) appears only on current rows where the task graph is present (post-LUM-758), and is omitted on pre-task-graph audit rows, so they render exactly as they always did. Elapsed is summed over the task's attempts; `(N attempts)` when the workflow retried it; no elapsed for a `skipped` task (the scan's budget ran out before its turn). Stop values: `done` · `steps` · `budget` · `timeout` · `error` · `skipped`. Headed by the same display label as the layer's own segment (LUM-763), so the detail line and the line above it never name the layer two different ways. This is the only surface that reads `huntAudit`, so it is where you answer "how long does a healthy task take" and "which tasks never ran" without paging through deploy logs. Absent on an older server and on scans with no usable audit (pre-LUM-739 rows, or a hunt that failed before its first batch) — no line, never a guess.
+  - **Persisting findings** (LUM-738): a finding whose fingerprint is already on the repository's default-branch baseline (`persisting`) is not this PR's — it never appears as a next action, is not counted in `openFindings`, and shows muted (_already on the default branch_) in the web panel. Dependency findings (`kind=DEPENDENCY`, from osv-scanner) are advisory: they never block DONE.
+  - **Fails closed:** `⚠ Security-scan check failed — could not confirm …` when the scan read errored, and one `⚠ PR #n: … — could not confirm it is clean.` line per open PR whose latest scan is missing / FAILED / still running. Silence means a successful read with nothing open, never a failed check.
+- **Open boundary crossings** — a trailing safety block when the task has ≥1 OPEN (undispositioned) forbidden-action crossing: a count, then one line per crossing `• [SEVERITY] CATEGORY — <clipped detail>` (highest-severity first), each followed by a read-only **attribution** line `↳ by model=<m> · agent=<type>[/branch] · session=<8-char prefix>` (who/what crossed; any dimension that couldn't be resolved server-side prints `unknown`, never a fabricated value), then a pointer to `lumo crossing disposition` and the web acceptance panel. Silent when there are none, so it never overshadows the criteria.
+  - **Read-only awareness** — this block surfaces crossings detected elsewhere and clears nothing itself. The ruling is the user's: `lumo crossing disposition <id> --false-positive | --confirmed` (exit-4 envelope you relay, LUM-769 — see below) or the web panel. You never self-approve.
   - **The check fails closed:** if the crossings read itself errors (network / server / parse), the block prints `⚠ Boundary-crossing check failed (network/server error) — could not confirm whether any are undispositioned` instead of staying silent. Silence means a successful read with zero open crossings, never a failed check — a hiccup can no longer masquerade as "all clear".
 
 ### Responding to an open crossing — `lumo crossing explain`
@@ -166,10 +164,31 @@ lumo crossing explain <id> --note "this was a generated fixture, not a hand-edit
 This is the **inverse** of dispositioning, but it is the agent/CLI path
 (bearer-only; a clerk/human caller is refused). Behavior:
 
-- it can **only append** an append-only note — it **never clears the crossing or unblocks Done** (disposition stays web + human-only);
+- it can **only append** an append-only note — it **never clears the crossing or unblocks Done** (the user rules, via `lumo crossing disposition` or the web panel);
 - the note is shown to the human reviewer at disposition time, kept for later review, and explicitly labeled _agent self-report · unverified_;
 - `<id>` must be a crossing on the **session-bound task** (resolved from `$CLAUDE_CODE_SESSION_ID`; cross-task targets and unbound/mismatched sessions are rejected);
 - earlier explanations are immutable — a correction is a new note.
+
+### Recording the user's ruling — `lumo crossing disposition` (LUM-769)
+
+When the user has ruled on a crossing — in chat, after you relayed it — record
+that ruling from the terminal instead of sending them to the web panel:
+
+```bash
+lumo crossing disposition <id> --false-positive --note "covered by the run-outbound tests"
+```
+
+It is a gated mutation on the [confirmation protocol](confirmation.md), as a **three-step** handshake — two envelopes, two separate approvals from the user, and the server enforces the order:
+
+- **Step 1 — no step flag.** Reads the crossing, obtains a server-signed stage-1 **read receipt**, and prints an exit-4 envelope — severity, category, detail, `Seen ×N` when it recurred, every explanation you left (labelled _agent self-report · unverified_), the note, a `⚠` line saying that approving clears this crossing's block on DONE (plus `⚠ HIGH severity` / `⚠ Irreversible category` when they apply), and `Step 1 of 2 — read receipt issued … valid until <time>`. Nothing is written. Relay every line and **ask the user to confirm they have read it** — this envelope's `confirmCommand` ends in `--receipt <r1> --confirm-read`, not `--confirm`;
+- **Step 2 — `--confirm-read --receipt <r1>`**, only after the user says they read it. The server verifies r1 and returns the stage-2 receipt; the CLI prints a second exit-4 envelope for the ruling itself — `Read acknowledged … (shown <t1>, acknowledged <t2>)`, `Step 2 of 2 — record the ruling: OPEN → FALSE_POSITIVE`, the note, the ⚠ consequence line. Still nothing written. Relay it and **ask the user to approve the ruling** — its `confirmCommand` ends in `--receipt <r2> --confirm`;
+- **Step 3 — `--confirm --receipt <r2>`**, only after the user approves. POSTs the ruling (`FALSE_POSITIVE` | `CONFIRMED`, optional note, the stage-2 receipt); either value clears that crossing's DONE block, and the audit row records the shown / read-acknowledged / confirmed times. The web panel can still correct it later. **Never add `--confirm-read` or `--confirm` yourself** — each is the user's approval of that step, and the server records the ruling as a CLI-channel disposition (shown as _via CLI_ in the panel) precisely because it cannot verify the in-chat approvals;
+- **the receipts are the server's ordering check** (LUM-769): each is bound to the crossing, the ruling, your session/member and the crossing's state at read time, and expires after 10 minutes. Confirming the ruling with the stage-1 receipt (read not yet acknowledged) is refused — locally before any request, and by the server with 409 — and told to run `--confirm-read` first; a step flag without its receipt, or both step flags at once, is refused locally; a receipt that is forged, expired, for another reader/ruling, or older than the crossing's latest change (a recurrence, a new explanation, a ruling) is refused by the server with 409 and nothing is written — re-run without a step flag for a fresh envelope. If the server cannot issue receipts (no signing secret configured) step 1 fails closed and no envelope is printed;
+- the crossing is read first on both paths: a read that errors **fails closed** (exit 1, nothing written), an id not on the task is exit 1, and an already-matching ruling is a no-op (exit 0);
+- `<id>` resolves against the **session-bound task**; `--task <LUM-N>` overrides the binding (e.g. from a terminal with no session, or after DONE unbinds you);
+- **still web-only:** reverting a ruling to OPEN, repository suppression rules (LUM-751), and steward milestone crossings (`STEWARD_IMPLEMENTATION_ARTIFACT` has no task).
+
+After the last blocker is cleared, re-run the original `lumo task update <id> --status done --confirm` — its envelope was already approved.
 
 ### --json contract
 
@@ -181,50 +200,33 @@ fields don't. Pin on `version` when scripting against it.
 - the payload carries a top-level `machineVerification` aggregate `{ total, machineVerified, humanOverridden }` over the active MACHINE criteria — read these, not `latestVerdict` alone, to tell a machine-verified criterion from a human override;
 - open boundary crossings ride along as an additive top-level `openCrossings`, each entry `{ id, category, severity, detail, attribution }` where `attribution` is `{ workspaceMemberId, sessionId, agent, worktreeBranch, model }` with every field nullable — null = unknown, never fabricated; the array length is the count. Same read-only awareness, no write path;
 - **`openCrossings` is `null` when the crossings check failed** — distinct from `[]` (a successful read with zero open crossings). Script consumers must treat `null` as "unknown / could not confirm", **not** "safe".
+- `nextActions` entries carry a `kind` discriminator (LUM-737): `CRITERION` (the pre-737 shape: `criterionId`, `statement`, `verifierType`, `checkpointer`, `judgeSteps`, `source`, `addedAtRound`, `rejectionReason`) or `SECURITY_FINDING` (`findingId`, `statement`, `severity`, `provenance`, `blocking`, `prNumber`, `ruleId`, `filePath`, `line`). Additive — a missing `kind` means `CRITERION`; do not index every entry by `criterionId`;
+- a top-level `securityFindings` summary `{ open, blocking, unconfirmedPrs: [{ number, reason: NONE|FAILED|PENDING|RUNNING }], scans?: [{ prNumber, status, stages, partial, error, externalFindings, openFindings }] }`; **`null` means the scan read failed** — treat as "unknown / could not confirm", not "safe". `scans` is additive (LUM-735) — absent against an older server, one entry per linked PR with a latest scan otherwise.
 
 `status` reads; `verify` judges. Running status never starts a round, never
 escalates, and never changes task state — loop rules (the workspace round cap,
 IN_REVIEW on all-pass, human-only DONE) live entirely in `lumo verify` and the
 server.
 
-## lumo verdict — the three verdict channels
+## Verdict channels
 
-`lumo verify` is the MACHINE channel. `lumo verdict` covers the other two — the
-HUMAN pass and the AGENT send-back — under one red line: **no passing data row is
-ever agent-produced.**
-
-```bash
-lumo verdict --pass
-lumo verdict LUM-42 --pass
-lumo verdict --fail --reason CRITERION_UNMET --note "the retry path is still missing"
-lumo verdict LUM-42 --fail --reason scope_mismatch --criterion c-abc123
-```
-
-### --pass — a deep link, never a write
-
-This resolves the task, then opens the browser to its verdict bar focused on
-Pass. **The CLI writes nothing** — PASS only ever lands from a human's own click
-(Clerk session). Use this to hand a finished task to a human for the final pass;
-it carries them one click from recording it.
-
-### --fail — the AGENT send-back
-
-`--fail --reason <enum>` records a real verdict row server-side with
-verifierType=AGENT (a channel distinct from MACHINE and HUMAN, so "machine
-all-pass but human FAIL" stays an uncontaminated signal). The verdict is
-hard-coded FAIL — there is no agent path to a passing verdict. It:
-
-- `--reason <enum>` required (case-insensitive): `CRITERION_UNMET | EVIDENCE_INSUFFICIENT | CHECK_EXECUTION_ERROR | SCOPE_MISMATCH | OTHER` — the agent pays the structured tax a human send-back is spared;
-- `--note <text>` optional, posted as a task comment (@mentions and images for free) and summarized onto the verdict row;
-- `--criterion <id>` repeatable, narrows the send-back; omitted, it fans out to the whole contract;
-- `round` = the current max (not a new round); bounces the task back to IN_PROGRESS, with the unmet criteria surfacing through `lumo task status`.
+`lumo verify` is the MACHINE channel. The only other channel is the **human**
+one: a person records PASS or a send-back (FAIL) in the web verdict bar (Clerk
+session). There is no agent-facing verdict command — the former
+`lumo verdict --fail` AGENT send-back was removed in LUM-733 (17 rows all-time,
+none in the last 30 days); when the machine loop runs out of rounds the task is
+escalated to a human instead. **No passing data row is ever agent-produced.**
 
 ### The DONE gate
 
-Once any criterion's latest verdict is FAIL — machine, AGENT, or human — moving
+Once any criterion's latest verdict is FAIL — machine or human — moving
 the task to DONE on the agent/CLI path is refused with **409** and the unresolved
 items listed. Clear the send-back (fix + re-verify, or a human PASS) before
-`lumo task update <id> --status done`.
+`lumo task update <id> --status done` — which itself walks the confirmation
+protocol: without `--confirm` it exits 4 with an envelope for the user to
+approve, and when the server gate still refuses it exits 5 with a structured
+`DONE_BLOCKED` error listing every blocker (LUM-755, see [tasks.md](tasks.md)
+and [confirmation.md](confirmation.md)).
 
 - A task with no criteria, or whose criteria were never adjudicated, transitions freely — **the gate only blocks an actual send-back, never an un-adjudicated criterion.**
 - When the machine loop has left a task IN_REVIEW with no send-back standing, the agent may move it to DONE directly; a human-PASS row is a provable manual override, not a required ticket.
@@ -259,9 +261,7 @@ When someone reports a defect in conversation, your action depends on whether th
 task has **ever entered IN_REVIEW**:
 
 - **Not yet** (still your first working pass) → just fix it and continue. No verdict needed — nothing was claimed complete, so there's nothing to contradict.
-- **Already submitted** (entered IN_REVIEW / DONE / merged) → **do not silently fix and re-pass.** Either:
-  - record your own send-back `lumo verdict --fail` (noting it was human-reported — this is _your_ honest concurrence, not a forged human verdict), or
-  - ask the reporter to record a human FAIL via the web UI / Slack (the only channel that can attribute it to a human).
+- **Already submitted** (entered IN_REVIEW / DONE / merged) → **do not silently fix and re-pass.** Ask the reporter to record a human send-back (FAIL) via the web verdict bar / Slack — the only channel that can attribute it to a human — then fix in place and re-run `lumo verify` so the fix lands as a fresh machine round on the record.
 
 If the defect is a **new requirement** not covered by any criterion, first
 transcribe it with `lumo task criteria set --human`, then proceed. You can never

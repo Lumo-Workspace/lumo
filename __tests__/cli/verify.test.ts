@@ -63,7 +63,7 @@ const PASS_OUTCOME = {
   nextActions: [],
 }
 
-// LUM-597: a round may only be posted with the agent's required self-report.
+// LUM-597/LUM-733: the agent's optional self-report, sent with the round when given.
 const NOTE = 'implemented X in foo.ts because Y; tests + tsc pass'
 
 let writeSpy: jest.SpyInstance
@@ -98,6 +98,25 @@ function stderr(): string {
 }
 
 describe('runCheckpointer', () => {
+  it('does not leak the CLI-only LUMO_NO_HINTS mute into the checkpointer env', () => {
+    // `lumo verify --no-hints` folds the flag into process.env; a checkpointer
+    // that inherits it (e.g. a jest suite covering the hints block) would fail
+    // for a reason unrelated to the criterion.
+    const old = process.env.LUMO_NO_HINTS
+    process.env.LUMO_NO_HINTS = '1'
+    try {
+      runCheckpointer('c-1', 'npx jest x.test.ts', 1000)
+    } finally {
+      if (old === undefined) delete process.env.LUMO_NO_HINTS
+      else process.env.LUMO_NO_HINTS = old
+    }
+    const opts = mockSpawn.mock.calls[0]![1] as { env?: NodeJS.ProcessEnv }
+    expect(opts.env).toBeDefined()
+    expect(opts.env!.LUMO_NO_HINTS).toBeUndefined()
+    // The rest of the environment still reaches the check.
+    expect(opts.env!.PATH).toBe(process.env.PATH)
+  })
+
   it('exit 0 → PASS with a cmd evidence pointer', () => {
     mockSpawn.mockReturnValue(spawnResult({ status: 0 }))
     const v = runCheckpointer('c-1', 'npx jest', 1000)
@@ -302,36 +321,5 @@ describe('verify — the loop', () => {
     expect(stderr()).toContain('HTTP 409')
     expect(stderr()).toContain('capped')
     expect(stderr()).not.toContain('\x1b')
-  })
-
-  it('LUM-597: requires --note before posting a round (no note → exit 1, no spawn, no POST)', async () => {
-    const fetchSpy = jest
-      .spyOn(global, 'fetch')
-      .mockImplementation(async url => {
-        const u = String(url)
-        if (u.endsWith('/criteria'))
-          return jsonResponse(200, { criteria: [MACHINE_CRITERION] })
-        throw new Error(`unexpected fetch ${u}`)
-      })
-    // No note supplied — the self-report is mandatory.
-    expect(await verify('LUM-9')).toBe(1)
-    expect(stderr()).toContain('--note is required')
-    // No checkpointer ran and no round was posted (no round burned).
-    expect(mockSpawn).not.toHaveBeenCalled()
-    expect(
-      fetchSpy.mock.calls.some(c => String(c[0]).endsWith('/verify'))
-    ).toBe(false)
-  })
-
-  it('LUM-597: rejects a blank/whitespace note', async () => {
-    jest.spyOn(global, 'fetch').mockImplementation(async url => {
-      const u = String(url)
-      if (u.endsWith('/criteria'))
-        return jsonResponse(200, { criteria: [MACHINE_CRITERION] })
-      throw new Error(`unexpected fetch ${u}`)
-    })
-    expect(await verify('LUM-9', { note: '   ' })).toBe(1)
-    expect(stderr()).toContain('--note is required')
-    expect(mockSpawn).not.toHaveBeenCalled()
   })
 })

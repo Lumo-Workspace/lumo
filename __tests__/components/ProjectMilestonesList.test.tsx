@@ -35,10 +35,9 @@ const en: Record<string, string> = {
   'milestone.archiveConfirm.confirm': 'Archive anyway',
   'common.cancel': 'Cancel',
   'milestone.targetDate.none': 'No target date',
-  'milestone.status.ACTIVE': 'Active status',
-  'milestone.status.PLANNED': 'Planned status',
-  'milestone.status.COMPLETED': 'Completed status',
-  'milestone.status.CANCELLED': 'Cancelled status',
+  'milestone.state.active': 'Active state',
+  'milestone.state.completed': 'Completed state',
+  'milestone.state.archived': 'Archived state',
   'milestone.list.incomplete': 'Incomplete',
   'milestone.list.archivedIncomplete': 'Archived while incomplete',
 }

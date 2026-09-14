@@ -70,7 +70,12 @@ jest.mock(
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/BoundaryCrossingsPanel',
   () => ({
-    BoundaryCrossingsPanel: () => <div id='boundary-crossings' />,
+    // LUM-496: the tab mounts the panel twice — the open subset in NEEDS
+    // ACTION, the dispositioned one in the records — so the stub distinguishes
+    // them by the `subset` prop the tab passes.
+    BoundaryCrossingsPanel: ({ subset }: { subset?: string }) => (
+      <div id={subset === 'open' ? 'record-crossings' : 'boundary-crossings'} />
+    ),
   })
 )
 
@@ -522,14 +527,50 @@ describe('header verdict surface + section order (LUM-467)', () => {
 // override behind a secondary affordance; the task-level pass-all / send-back-all
 // quick action stays available.
 describe('per-criterion verdict controls', () => {
+  /** A HUMAN criterion a human already sent back — the standing send-back
+   *  that (LUM-733) unlocks the per-criterion controls on the other rows. */
+  function sentBackHuman(): TaskAcceptanceStatusView['criteria'][number] {
+    return {
+      ...unjudgedHuman(),
+      id: 'h9',
+      statement: 'sent back earlier',
+      latestVerdict: {
+        round: 1,
+        verdict: 'FAIL',
+        evidencePointer: null,
+        rejectionReason: 'not there yet',
+        rejectionReasonEnum: null,
+        recordedAt: '2026-06-01T00:00:00.000Z',
+      },
+    } as TaskAcceptanceStatusView['criteria'][number]
+  }
   function reviewView(): TaskAcceptanceStatusView {
     return statusView({
       task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'IN_REVIEW' },
-      criteria: [machinePass(), unjudgedHuman()],
+      criteria: [machinePass(), unjudgedHuman(), sentBackHuman()],
     })
   }
 
   beforeEach(() => mockSubmit.mockResolvedValue({}))
+
+  it('LUM-733: per-criterion controls stay hidden until a send-back stands — the whole-task decision is the default', () => {
+    set(
+      statusView({
+        task: {
+          id: 't1',
+          identifier: 'LUM-1',
+          title: 'x',
+          status: 'IN_REVIEW',
+        },
+        criteria: [machinePass(), unjudgedHuman()],
+      })
+    )
+    render_()
+    expandMachine()
+    expect(screen.queryByTestId('verdict-pass-h1')).toBeNull()
+    expect(screen.queryByTestId('verdict-sendback-h1')).toBeNull()
+    expect(screen.queryByTestId('verdict-override-m1')).toBeNull()
+  })
 
   it('exposes prominent pass / send-back on the HUMAN row and a secondary override on the machine-passed row', () => {
     set(reviewView())
@@ -690,9 +731,12 @@ describe('change-state markers and removed criteria (LUM-437)', () => {
       })
     )
     render_()
-    // LUM-572: the removed-criteria audit now sits inside the collapsed Run
-    // report group — expand it before asserting the header is visible.
-    fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+    // LUM-572: the removed-criteria audit sits inside the Run report group.
+    // LUM-496: that group opens by default, so the header is already reachable.
+    expect(screen.getByRole('button', { name: /Run report/i })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
 
     // C — section header with count is visible.
     expect(screen.getByText('Removed · kept for audit')).toBeInTheDocument()

@@ -12,6 +12,7 @@ export interface ApiKeyRecord {
   keyPrefix: string
   createdAt: string
   lastUsedAt: string | null
+  scope: string | null
 }
 
 export interface NewKeyResult extends ApiKeyRecord {
@@ -30,7 +31,9 @@ interface UseApiKeysReturn {
   revokeTarget: ApiKeyRecord | null
   setRevokeTarget: (target: ApiKeyRecord | null) => void
   revoking: boolean
+  creatingIngest: boolean
   handleCreate: () => Promise<void>
+  handleCreateIngestKey: () => Promise<void>
   handleRevoke: () => Promise<void>
   handleCopy: () => Promise<void>
 }
@@ -62,6 +65,7 @@ export function useApiKeys(): UseApiKeysReturn {
   const [copied, setCopied] = useState(false)
   const [revokeTarget, setRevokeTarget] = useState<ApiKeyRecord | null>(null)
   const [revoking, setRevoking] = useState(false)
+  const [creatingIngest, setCreatingIngest] = useState(false)
 
   const handleCreate = useCallback(async () => {
     if (!label.trim()) return
@@ -83,6 +87,25 @@ export function useApiKeys(): UseApiKeysReturn {
       setCreating(false)
     }
   }, [label, intl, queryClient])
+
+  const handleCreateIngestKey = useCallback(async () => {
+    setCreatingIngest(true)
+    try {
+      const result = await apiFetch<NewKeyResult>('/api/users/api-keys', {
+        method: 'POST',
+        body: { label: 'CI ingest', scope: 'security:ingest' },
+      })
+      setNewKey(result)
+      queryClient.setQueryData<ApiKeyRecord[]>(QUERY_KEY, prev => [
+        result,
+        ...(prev ?? []),
+      ])
+    } catch {
+      toast.error(intl.formatMessage({ id: 'apiKeys.createFailed' }))
+    } finally {
+      setCreatingIngest(false)
+    }
+  }, [intl, queryClient])
 
   const handleRevoke = useCallback(async () => {
     if (!revokeTarget) return
@@ -122,7 +145,9 @@ export function useApiKeys(): UseApiKeysReturn {
     revokeTarget,
     setRevokeTarget,
     revoking,
+    creatingIngest,
     handleCreate,
+    handleCreateIngestKey,
     handleRevoke,
     handleCopy,
   }

@@ -12,9 +12,13 @@ export const API = {
     lineage: (identifier: string) => `/api/tasks/lineage/${identifier}`,
     status: (identifier: string) => `/api/tasks/${identifier}/status`,
     forecast: (taskId: string) => `/api/tasks/${taskId}/forecast`,
-    retrospective: (taskId: string) => `/api/tasks/${taskId}/retrospective`,
     progress: (taskId: string) => `/api/tasks/${taskId}/progress`,
     gates: (taskId: string) => `/api/tasks/${taskId}/gates`,
+    securityScans: (taskId: string) => `/api/tasks/${taskId}/security-scans`,
+    securityFindingDisposition: (taskId: string, findingId: string) =>
+      `/api/tasks/${taskId}/security-findings/${findingId}/disposition`,
+    securityFindingsBulkDisposition: (taskId: string) =>
+      `/api/tasks/${taskId}/security-findings/bulk-disposition`,
     humanVerdict: (taskId: string) => `/api/tasks/${taskId}/human-verdict`,
     criteria: (taskId: string) => `/api/tasks/${taskId}/criteria`,
     boundaryCrossings: (taskId: string) =>
@@ -25,6 +29,12 @@ export const API = {
       `/api/tasks/${taskId}/boundary-crossings/${crossingId}/remediation`,
     boundarySystemExplain: (taskId: string, crossingId: string) =>
       `/api/tasks/${taskId}/boundary-crossings/${crossingId}/system-explain`,
+    // LUM-751: soft-revoke a repository suppression rule (Clerk-only).
+    boundarySuppressionRule: (taskId: string, ruleId: string) =>
+      `/api/tasks/${taskId}/boundary-crossings/suppression-rules/${ruleId}`,
+    // LUM-759: read-only blast radius of a rule built from this crossing.
+    boundarySuppressionPreview: (taskId: string, crossingId: string) =>
+      `/api/tasks/${taskId}/boundary-crossings/${crossingId}/suppression-preview`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
     workspace: '/api/tasks/workspace',
@@ -99,6 +109,10 @@ export const API = {
       `/api/github/oauth?workspaceUrl=${workspaceUrl}`,
     integration: '/api/github/integration',
     repos: '/api/github/repos',
+    appInstall: (workspaceUrl: string) =>
+      `/api/github/app/install?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    appInstallation: (workspaceUrl: string) =>
+      `/api/github/app/installation?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
   },
   agent: {
     run: (taskId: string) => `/api/agent/run/${taskId}`,

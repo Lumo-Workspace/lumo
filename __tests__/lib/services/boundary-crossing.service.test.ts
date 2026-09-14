@@ -479,6 +479,8 @@ describe('boundaryCrossingService.listAll — acceptance read model', () => {
       from: 'FALSE_POSITIVE',
       to: 'CONFIRMED',
       actorId: 'actor-2',
+      // LUM-769: a web-panel correction (no channel on the payload) reads WEB.
+      channel: 'WEB',
       at: '2026-06-11T02:00:00.000Z',
     })
   })

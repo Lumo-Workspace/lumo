@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.58.0",
+  "cliVersion": "1.60.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -89,7 +89,71 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Inspect and annotate boundary crossings"
+      "description": "Inspect, annotate and (with user approval) disposition boundary crossings"
+    },
+    "crossing disposition": {
+      "arguments": [{ "name": "id", "required": true, "variadic": false }],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Step 3: the user approved the ruling (never add this on your own initiative). Refused unless the read was confirmed first"
+        },
+        "--confirm-read": {
+          "long": "--confirm-read",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Step 2: the user confirmed they have read the envelope (never add this on your own initiative). Returns the ruling envelope; writes nothing"
+        },
+        "--confirmed": {
+          "long": "--confirmed",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Rule the crossing confirmed (a real issue, acknowledged)"
+        },
+        "--false-positive": {
+          "long": "--false-positive",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Rule the crossing a false positive (not a real issue)"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Optional disposition note recorded with the ruling"
+        },
+        "--receipt": {
+          "long": "--receipt",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Read receipt from the previous step's envelope (its confirmCommand carries it); required with --confirm-read (stage 1 receipt) and --confirm (stage 2 receipt), verified server-side"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Task the crossing belongs to (defaults to the session-bound task)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Rule on a boundary crossing from the terminal (LUM-769) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
     },
     "crossing explain": {
       "arguments": [{ "name": "id", "required": true, "variadic": false }],
@@ -239,18 +303,26 @@
     "doc delete": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--yes": {
           "long": "--yes",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Confirm deletion"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a document (requires --yes)"
+      "description": "Delete a document and everything nested under it. Without --confirm: exit 4 + a confirmation envelope with the title."
     },
     "doc diff": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -423,13 +495,21 @@
           "enumCaseInsensitive": false,
           "description": "Commit even if the rebuilt source re-renders with fewer tables/rows/headings than the stored body (default: rejected with 422)"
         },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved replacing the existing source (LUM-755); pair with --force as the envelope instructs"
+        },
         "--force": {
           "long": "--force",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Re-derive the source even when one already exists (default: refused with 409)"
+          "description": "Re-derive the source even when one already exists. Without it an existing source yields exit 4 + a confirmation envelope whose confirmCommand carries --force --confirm."
         },
         "--if-revision": {
           "long": "--if-revision",
@@ -632,29 +712,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Update an existing document. <doc> accepts a cuid or a case-insensitive title (ambiguous titles fail with candidates). Replacement body comes from --content, --file, or piped stdin (pick one). A body update that drops tables/rows/headings versus the stored body is rejected with 422 (structure guard) unless --allow-shrink is passed. --tag/--tag-id (bulk replace) cannot be combined with --add-tag/--add-tag-id/--remove-tag/--remove-tag-id."
-    },
-    "fidelity": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Mechanical fidelity read-outs (LUM-610)"
-    },
-    "fidelity show": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit the report as JSON"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Per delivery snapshot (LUM-609): the grounding composition of the frozen contract (grounded / self-confirming / inconclusive) and the independence signal (criteria ADDED/UPDATED after work started = backward-inference suspects). A composition table, not a single score — direction is never judged. inconclusive is surfaced, never swallowed."
     },
     "hook": {
       "arguments": [],
@@ -1363,18 +1420,26 @@
         { "name": "memoryId", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--yes": {
           "long": "--yes",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Confirm deletion"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a memory (hard delete). Requires --yes."
+      "description": "Delete a memory (hard delete). Without --confirm: exit 4 + a confirmation envelope showing the card."
     },
     "memory show": {
       "arguments": [
@@ -1658,6 +1723,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--project": {
           "long": "--project",
           "short": null,
@@ -1672,12 +1745,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Required: confirm deletion without TTY prompt"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Requires --yes."
+      "description": "Delete a milestone. Tasks under it keep their data (milestoneId is cleared). Without --confirm: exit 4 + a confirmation envelope with the task count."
     },
     "milestone list": {
       "arguments": [],
@@ -1970,7 +2043,7 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Read / record the post-hoc outcome well (LUM-598)"
+      "description": "Read the post-hoc outcome well (LUM-598)"
     },
     "outcome rate": {
       "arguments": [],
@@ -1995,45 +2068,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Trust × post-hoc fate: per delivery-time forecast-confidence bracket, the post-hoc REJECTED rate from the outcome well. Honest by construction — thin brackets read \"insufficient\" and the high-vs-low comparison stays \"inconclusive\" until the well has enough signal. The rate is a LOWER BOUND (no signal = INCONCLUSIVE, never satisfied)."
-    },
-    "outcome record": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {
-        "--kind": {
-          "long": "--kind",
-          "short": null,
-          "value": "required",
-          "enum": [
-            "reverted",
-            "rolled_back",
-            "ci_regression",
-            "downstream_redirect",
-            "bypassed",
-            "manual"
-          ],
-          "enumCaseInsensitive": true,
-          "description": "reverted | rolled_back | ci_regression | downstream_redirect | bypassed | manual (case-insensitive; default: manual)"
-        },
-        "--note": {
-          "long": "--note",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "What reality did (the observed referent), e.g. \"reverted in #812 after a prod incident\""
-        },
-        "--occurred-at": {
-          "long": "--occurred-at",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "When the event happened (ISO 8601; defaults to now)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Record a human-observed post-hoc REJECTION of a delivery (revert / rollback / CI regression / downstream redirect / bypass). Append-only; there is no \"mark satisfied\" counterpart — the well only asserts rejection."
     },
     "outcome show": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
@@ -2358,6 +2392,14 @@
           "enumCaseInsensitive": false,
           "description": "Return all unfinished tasks to the backlog"
         },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--move-all": {
           "long": "--move-all",
           "short": null,
@@ -2380,12 +2422,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Required when --move-all or --backlog-all is set"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all --yes to move unfinished tasks to the next sprint, or --backlog-all --yes to return them to the backlog."
+      "description": "Close an ACTIVE sprint. With no unfinished tasks, closes immediately. Pass --move-all to move unfinished tasks to the next sprint, or --backlog-all to return them to the backlog; either mode without --confirm exits 4 with a confirmation envelope listing the tasks that would move."
     },
     "sprint create": {
       "arguments": [],
@@ -2432,6 +2474,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--team": {
           "long": "--team",
           "short": null,
@@ -2446,12 +2496,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Confirm deletion"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a DRAFT sprint. Requires --yes. Server rejects ACTIVE/CLOSED sprints."
+      "description": "Delete a DRAFT sprint. Without --confirm: exit 4 + a confirmation envelope with the task count. Server rejects ACTIVE/CLOSED sprints."
     },
     "sprint list": {
       "arguments": [],
@@ -2690,18 +2740,26 @@
         { "name": "artifact-id", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--yes": {
           "long": "--yes",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Confirm deletion (required, no interactive prompt)"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete an artifact from a task. Irreversible — requires --yes."
+      "description": "Delete an artifact from a task (irreversible). Without --confirm: exit 4 + a confirmation envelope naming the artifact."
     },
     "task artifact show": {
       "arguments": [
@@ -3016,18 +3074,26 @@
         { "name": "edge", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--yes": {
           "long": "--yes",
           "short": null,
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "skip confirmation"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a dependency edge"
+      "description": "Delete a dependency edge. Without --confirm: exit 4 + a confirmation envelope describing the edge."
     },
     "task figma": {
       "arguments": [],
@@ -3334,6 +3400,14 @@
     "task status": {
       "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also print the dashboard sections: verification rollup, history, cost, struggle/rework trail, trend"
+        },
         "--json": {
           "long": "--json",
           "short": null,
@@ -3345,7 +3419,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Acceptance self-check (LUM-344): contract with latest verdicts, verification history, current round, and nextActions (unmet criteria). Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected."
+      "description": "Acceptance self-check (LUM-344): contract with latest verdicts, current round, nextActions (unmet criteria + undispositioned security findings, LUM-737), and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected. --full adds the dashboard sections (verification rollup, history, cost, struggle/rework trail, trend)."
     },
     "task update": {
       "arguments": [
@@ -3383,6 +3457,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Mark the task agent-claimable (surfaces in `lumo next --claimable`)"
+        },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "With --status done: the user has approved the DONE transition shown in the confirmation envelope (LUM-755). Without it, --status done exits 4 and prints the envelope (status change, every linked PR, a ⚠ line for unmerged ones) instead of a prompt."
         },
         "--description": {
           "long": "--description",
@@ -3501,60 +3583,6 @@
       "isInvokable": true,
       "description": "Check npm for a newer @lumoai/cli and install it globally if available."
     },
-    "verdict": {
-      "arguments": [{ "name": "task", "required": false, "variadic": false }],
-      "flags": {
-        "--criterion": {
-          "long": "--criterion",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Narrow a --fail to specific criteria (repeatable); omitted = the whole contract"
-        },
-        "--fail": {
-          "long": "--fail",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Record an AGENT send-back (verdict FAIL) — requires --reason"
-        },
-        "--note": {
-          "long": "--note",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Optional send-back narrative, posted as a task comment"
-        },
-        "--pass": {
-          "long": "--pass",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Open the verdict bar focused on Pass (human one-click; no write)"
-        },
-        "--reason": {
-          "long": "--reason",
-          "short": null,
-          "value": "required",
-          "enum": [
-            "CRITERION_UNMET",
-            "EVIDENCE_INSUFFICIENT",
-            "CHECK_EXECUTION_ERROR",
-            "SCOPE_MISMATCH",
-            "OTHER"
-          ],
-          "enumCaseInsensitive": true,
-          "description": "Rejection reason for --fail: CRITERION_UNMET | EVIDENCE_INSUFFICIENT | CHECK_EXECUTION_ERROR | SCOPE_MISMATCH | OTHER (case-insensitive)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Acceptance verdict (LUM-422). --pass opens the browser to the human verdict bar focused on Pass (a deep link — records nothing; a passing row is only ever a human click). --fail --reason <enum> records an AGENT send-back and bounces the task to IN_PROGRESS. Defaults to the session-bound task."
-    },
     "verify": {
       "arguments": [{ "name": "task", "required": false, "variadic": false }],
       "flags": {
@@ -3564,7 +3592,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Required self-report — what you did and why it is ready (LUM-597). Recorded as your claim (source AGENT) when the round passes into IN_REVIEW, and checked against the diff for faithfulness."
+          "description": "Optional one-line self-report — what you did and why it is ready. When given, it is recorded as your claim (source AGENT) when the round passes into IN_REVIEW."
         },
         "--timeout": {
           "long": "--timeout",
@@ -3640,6 +3668,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
         "--delete-branch": {
           "long": "--delete-branch",
           "short": null,
@@ -3654,7 +3690,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Remove even with uncommitted changes"
+          "description": "Remove even with uncommitted changes (discards them)"
         },
         "--yes": {
           "long": "--yes",
@@ -3662,12 +3698,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Confirm removal (required, no interactive prompt)"
+          "description": "Alias of --confirm (kept for compatibility)"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Remove the worktree for a task (git worktree remove). Requires --yes. Refuses a dirty worktree unless --force. Keeps the branch unless --delete-branch."
+      "description": "Remove the worktree for a task (git worktree remove). Without --confirm — or with uncommitted changes and no --force — exits 4 with a confirmation envelope naming the path, branch and what would be discarded. Keeps the branch unless --delete-branch."
     }
   }
 }

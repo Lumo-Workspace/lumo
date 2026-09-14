@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { randomBytes, createHash } from 'crypto'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { API_KEY_SCOPES } from '@/lib/services/auth.service'
 
 /**
  * GET /api/users/api-keys
@@ -53,6 +54,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'label is required' }, { status: 400 })
     }
 
+    const scopeRaw = body?.scope
+    const scope: string | null =
+      scopeRaw === undefined || scopeRaw === null ? null : String(scopeRaw)
+    if (
+      scope !== null &&
+      !(API_KEY_SCOPES as readonly string[]).includes(scope)
+    ) {
+      return NextResponse.json({ error: 'invalid scope' }, { status: 400 })
+    }
+
     // Generate key: "lum_" + 64 random hex chars = 68 chars total
     const raw = randomBytes(32).toString('hex')
     const key = `lum_${raw}`
@@ -64,6 +75,7 @@ export async function POST(request: Request) {
       label,
       keyHash,
       keyPrefix,
+      scope,
     })
 
     // Return the full key only on creation

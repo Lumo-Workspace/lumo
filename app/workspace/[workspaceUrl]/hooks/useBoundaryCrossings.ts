@@ -4,10 +4,35 @@ import { useQuery } from '@tanstack/react-query'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 
-// AUTO_LEGIT (LUM-478) is a SYSTEM disposition the read model can surface; a
-// human can only WRITE FALSE_POSITIVE | CONFIRMED | OPEN (see the api-client),
-// never AUTO_LEGIT.
-export type BoundaryDisposition = 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT'
+// AUTO_LEGIT (LUM-478) and AUTO_SUPPRESSED (LUM-751, a human-authored
+// repository rule applied by the system) are SYSTEM dispositions the read model
+// can surface; a human can only WRITE FALSE_POSITIVE | CONFIRMED | OPEN (see
+// the api-client), never a system value.
+export type BoundaryDisposition =
+  | 'FALSE_POSITIVE'
+  | 'CONFIRMED'
+  | 'AUTO_LEGIT'
+  | 'AUTO_SUPPRESSED'
+
+/**
+ * LUM-759: read-only blast radius of a rule the human has not created yet —
+ * how many ALREADY-RECORDED alerts of the same kind in this repository the
+ * rule would dispose alongside the crossing being ruled on.
+ */
+export interface SuppressionPreview {
+  suppressible: boolean
+  count: number
+  capped: boolean
+  cap: number
+}
+
+/** LUM-751: the repository rule behind an AUTO_SUPPRESSED disposition. */
+export interface SuppressionRuleView {
+  id: string
+  reason: string | null
+  /** Set once a human revoked the rule; future occurrences are open again. */
+  revokedAt: string | null
+}
 export type BoundarySeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 
 export interface RemediationTaskView {
@@ -47,7 +72,13 @@ export interface DispositionChangeView {
   to: BoundaryDisposition | null
   actorId: string | null
   at: string
+  /** LUM-769: `CLI` when the correction came through
+   *  `lumo crossing disposition --confirm`, else `WEB`. */
+  channel: DispositionChannel
 }
+
+/** LUM-769: the surface a ruling came through (mirrors the service type). */
+export type DispositionChannel = 'WEB' | 'CLI'
 
 export interface BoundaryCrossingView {
   id: string
@@ -69,6 +100,11 @@ export interface BoundaryCrossingView {
   editChange: EditChangeView | null
   /** Set when the crossing's disposition was corrected (re-dispositioned). */
   lastDispositionChange: DispositionChangeView | null
+  /** LUM-769: which surface the current ruling came through — `CLI` for
+   *  `lumo crossing disposition --confirm` (user approval relayed by the agent,
+   *  unverifiable server-side), `WEB` for a panel click; null while open or for
+   *  system rulings that wrote no activity row. */
+  dispositionChannel?: DispositionChannel | null
   /** Who/what crossed (LUM-469) — owner, agent/session, model. Always present. */
   attribution: CrossingAttributionView
   /** LUM-542: append-only agent self-explanations ("申辩"), oldest-first; each
@@ -90,6 +126,13 @@ export interface BoundaryCrossingView {
    *  crossing; null = not yet generated (human must click "Explain"). ADVISORY
    *  ONLY — never changes disposition or the DONE gate. */
   systemExplanation: string | null
+  /** LUM-751: the category may be rule-suppressed AND the crossing carries a
+   *  coalescing target — the panel offers the per-repository opt-in only then. */
+  suppressible?: boolean
+  /** LUM-751: the rule that auto-dispositioned this crossing (AUTO_SUPPRESSED);
+   *  null for every other crossing. Both fields are optional on the client so
+   *  an older server response (or a fixture) still type-checks. */
+  suppressionRule?: SuppressionRuleView | null
 }
 
 /** LUM-542: an append-only agent self-explanation on a crossing. */

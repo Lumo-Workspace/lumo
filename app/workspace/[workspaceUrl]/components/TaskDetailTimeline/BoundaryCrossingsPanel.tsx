@@ -24,11 +24,13 @@ import {
   Repeat,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
+import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import {
   useBoundaryCrossings,
   type BoundaryCrossingView,
   type CrossingAttributionView,
   type EditChangeView,
+  type SuppressionPreview,
 } from '../../hooks/useBoundaryCrossings'
 import type { WorkspaceMemberInfo } from '../../types'
 import { InfoTooltip } from './InfoTooltip'
@@ -40,6 +42,7 @@ import {
   boundarySeverityLabel,
 } from './boundary-format'
 import { systemExplainState } from './boundary-explain'
+import { groupCrossings, type CrossingGroup } from './crossing-groups'
 export { systemExplainState } from './boundary-explain'
 
 /**
@@ -78,6 +81,23 @@ interface BoundaryCrossingsPanelProps {
   agentActors?: { actorId: string; name: string }[]
   /** Refresh the acceptance banner after a disposition/remediation changes state. */
   onChanged?: () => void
+  /**
+   * LUM-496: which slice of the task's crossings this instance renders.
+   * 'open' = still awaiting a disposition (the NEEDS ACTION zone),
+   * 'dispositioned' = already ruled on (the records zone),
+   * 'all' (default) = every crossing, the pre-LUM-496 behaviour.
+   */
+  subset?: 'open' | 'dispositioned' | 'all'
+  /** Anchor id for deep links; defaults to the historic `#boundary-crossings`. */
+  anchorId?: string
+  /**
+   * LUM-496 prep (Task 5): an additional anchor id kept alive for old deep
+   * links that still point at the pre-split id. When set, an empty
+   * `<span id={legacyAnchorId} />` renders immediately before the panel root,
+   * and the hash-scroll effect also fires for this id. Undefined by default —
+   * no change for today's callers.
+   */
+  legacyAnchorId?: string
 }
 
 /**
@@ -95,6 +115,9 @@ export function BoundaryCrossingsPanel({
   members = [],
   agentActors = [],
   onChanged,
+  subset = 'all',
+  anchorId = BOUNDARY_CROSSINGS_ANCHOR,
+  legacyAnchorId,
 }: BoundaryCrossingsPanelProps) {
   const intl = useIntl()
   // gateEnabled defaults true on destructure too — an older mock/response
@@ -109,8 +132,51 @@ export function BoundaryCrossingsPanel({
   })
   const [pending, setPending] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
+  // LUM-751: per-crossing opt-in to a repository suppression rule + its reason.
+  const [suppress, setSuppress] = useState<Record<string, boolean>>({})
+  const [suppressReasons, setSuppressReasons] = useState<
+    Record<string, string>
+  >({})
+  // LUM-759: the blast radius of the rule the human is about to create — how
+  // many ALREADY-RECORDED alerts of the same kind in this repository it will
+  // dispose alongside this one. Fetched when the opt-in is ticked, so the
+  // number is shown before the ruling is committed, never after.
+  const [suppressPreviews, setSuppressPreviews] = useState<
+    Record<string, SuppressionPreview | 'loading'>
+  >({})
 
-  const openCrossings = crossings.filter(c => c.disposition == null)
+  const toggleSuppress = (crossingId: string, on: boolean) => {
+    setSuppress(prev => ({ ...prev, [crossingId]: on }))
+    if (!on || suppressPreviews[crossingId]) return
+    setSuppressPreviews(prev => ({ ...prev, [crossingId]: 'loading' }))
+    void tasksClient
+      .previewCrossingSuppressionScope<SuppressionPreview>(
+        taskIdentifier,
+        crossingId
+      )
+      .then(preview =>
+        setSuppressPreviews(prev => ({ ...prev, [crossingId]: preview }))
+      )
+      .catch(() =>
+        // Advisory only — a failed preview must never block the ruling itself,
+        // so the count line just stays absent.
+        setSuppressPreviews(prev =>
+          Object.fromEntries(
+            Object.entries(prev).filter(([key]) => key !== crossingId)
+          )
+        )
+      )
+  }
+
+  // LUM-496: an instance renders one slice of the task's crossings; 'all' keeps
+  // the historic single-panel behaviour for callers that pass no subset.
+  const visible =
+    subset === 'open'
+      ? crossings.filter(c => c.disposition == null)
+      : subset === 'dispositioned'
+        ? crossings.filter(c => c.disposition != null)
+        : crossings
+  const openCrossings = visible.filter(c => c.disposition == null)
   const openCount = openCrossings.length
   // LUM-635: the subset that actually blocks DONE, mirroring the server gate
   // (assertNoUnacknowledgedBoundaryCrossings): advisory never blocks (LUM-590);
@@ -119,14 +185,60 @@ export function BoundaryCrossingsPanel({
     c => !c.advisory && (gateEnabled || c.severity === 'HIGH')
   ).length
 
-  const [expanded, setExpanded] = useState(() => openCount > 0)
+  const [expanded, setExpanded] = useState(
+    () => subset !== 'dispositioned' && openCount > 0
+  )
   const prevOpen = useRef(openCount)
   useEffect(() => {
     if (openCount > prevOpen.current) setExpanded(true) // re-open if a new undisposed crossing arrives
     prevOpen.current = openCount
   }, [openCount])
 
-  if (crossings.length === 0) return null
+  // Per-category group folds (LUM-496). A manual toggle sticks; until then the
+  // first group holding an open, non-advisory crossing is the one open by
+  // default — the decision the reviewer has to make next.
+  const groups = groupCrossings(visible, { gateEnabled })
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>(
+    {}
+  )
+  const defaultOpenCategory =
+    subset === 'dispositioned'
+      ? null
+      : (groups.find(g =>
+          g.crossings.some(
+            c =>
+              c.disposition == null &&
+              !c.advisory &&
+              (gateEnabled || c.severity === 'HIGH')
+          )
+        )?.category ?? null)
+  const isGroupOpen = (g: CrossingGroup) =>
+    groupOverrides[g.category] ?? g.category === defaultOpenCategory
+  const toggleGroup = (g: CrossingGroup) =>
+    setGroupOverrides(prev => ({
+      ...prev,
+      [g.category]: !(prev[g.category] ?? g.category === defaultOpenCategory),
+    }))
+
+  // Hash deep link (the verdict bar's "Review the crossings below" link routes
+  // to /record#boundary-crossings). The panel mounts AFTER that navigation, so
+  // the browser's native fragment jump finds nothing — scroll ourselves into
+  // view once we actually render (crossings loaded), if the hash names us.
+  const panelRef = useRef<HTMLDivElement>(null)
+  const hasCrossings = visible.length > 0
+  useEffect(() => {
+    if (!hasCrossings) return
+    if (typeof window === 'undefined') return
+    const hash = window.location.hash
+    if (
+      hash !== `#${anchorId}` &&
+      (!legacyAnchorId || hash !== `#${legacyAnchorId}`)
+    )
+      return
+    panelRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [hasCrossings, anchorId, legacyAnchorId])
+
+  if (!hasCrossings) return null
 
   const afterChange = () => {
     void refresh()
@@ -147,23 +259,90 @@ export function BoundaryCrossingsPanel({
   ) => {
     setPending(crossingId)
     const note = notes[crossingId]?.trim()
+    // LUM-751: the repository-rule opt-in rides a FALSE_POSITIVE ruling only;
+    // the option argument is passed only when ticked, so the plain call shape
+    // (and its callers' expectations) is unchanged otherwise.
+    const wantsRule =
+      verdict === 'FALSE_POSITIVE' && suppress[crossingId] === true
+    const reason = suppressReasons[crossingId]?.trim()
     void tasksClient
-      .dispositionBoundaryCrossing(
+      .dispositionBoundaryCrossing<{ retroactivelySuppressed?: number }>(
         taskIdentifier,
         crossingId,
         verdict,
-        note || undefined
+        note || undefined,
+        ...(wantsRule
+          ? [
+              {
+                suppressSimilarInProject: true,
+                ...(reason ? { suppressionReason: reason } : {}),
+              },
+            ]
+          : [])
       )
-      .then(() => {
+      .then(res => {
+        // LUM-759: a rule now clears the repository's existing alerts too —
+        // report how many, so the click's real effect is visible.
+        const swept = res?.retroactivelySuppressed ?? 0
         toast.success(
           verdict === 'OPEN'
             ? intl.formatMessage({
                 id: 'boundary.toast.reopened',
                 defaultMessage: 'Crossing reopened — Done is blocked again',
               })
+            : wantsRule && swept > 0
+              ? intl.formatMessage(
+                  {
+                    id: 'boundary.toast.ruleCreatedWithSweep',
+                    defaultMessage:
+                      'Repository rule created — {count, plural, one {# existing alert} other {# existing alerts}} of the same kind dispositioned, and future occurrences will be auto-handled',
+                  },
+                  { count: swept }
+                )
+              : wantsRule
+                ? intl.formatMessage({
+                    id: 'boundary.toast.ruleCreated',
+                    defaultMessage:
+                      'Crossing dispositioned and a repository rule created — future occurrences will be auto-handled',
+                  })
+                : intl.formatMessage({
+                    id: 'boundary.toast.dispositioned',
+                    defaultMessage:
+                      'Crossing dispositioned — Done is unblocked',
+                  })
+        )
+        afterChange()
+      })
+      .catch(errorToast)
+      .finally(() => setPending(null))
+  }
+
+  // LUM-751: soft-revoke the repository rule behind an auto-suppressed
+  // crossing — future occurrences record OPEN again. Human-only server-side.
+  const revokeRule = (crossingId: string, ruleId: string) => {
+    setPending(crossingId)
+    void tasksClient
+      .revokeCrossingSuppressionRule<{ reopenedCount?: number }>(
+        taskIdentifier,
+        ruleId
+      )
+      .then(res => {
+        // LUM-759: revoking also puts back what the rule had silenced.
+        const reopened = res?.reopenedCount ?? 0
+        toast.success(
+          reopened > 0
+            ? intl.formatMessage(
+                {
+                  id: 'boundary.toast.ruleRevokedWithReopen',
+                  defaultMessage:
+                    'Rule revoked — {count, plural, one {# alert} other {# alerts}} it had auto-handled are open again',
+                },
+                { count: reopened }
+              )
             : intl.formatMessage({
-                id: 'boundary.toast.dispositioned',
-                defaultMessage: 'Crossing dispositioned — Done is unblocked',
+                id: 'boundary.toast.ruleRevoked',
+                defaultMessage:
+                  'Rule revoked — future occurrences will be open again',
               })
         )
         afterChange()
@@ -217,134 +396,257 @@ export function BoundaryCrossingsPanel({
     // (same row grammar — colored border, status header, dispositioned/total
     // count). Blocking open crossings escalate to danger; converged (all
     // dispositioned) reads neutral gray — handled isn't an achievement.
-    <div
-      id='boundary-crossings'
-      className={`overflow-hidden rounded-lg border ${
-        blockingCount > 0 ? 'border-danger-border' : 'border-border'
-      }`}
-    >
-      <button
-        type='button'
-        data-testid='boundary-summary-toggle'
-        aria-expanded={expanded}
-        onClick={() => setExpanded(e => !e)}
-        className={`flex w-full items-center gap-2 px-4 py-2.5 text-left ${
-          blockingCount > 0 ? 'bg-danger-subtle' : 'bg-muted/30'
+    <>
+      {/* LUM-496 prep (Task 5): keeps an old deep link (e.g. #boundary-crossings)
+      landing on the panel even after the id it targets moves to legacyAnchorId. */}
+      {legacyAnchorId && <span id={legacyAnchorId} />}
+      <div
+        id={anchorId}
+        ref={panelRef}
+        className={`overflow-hidden rounded-lg border ${
+          blockingCount > 0 ? 'border-danger-border' : 'border-border'
         }`}
       >
-        <ChevronRight
-          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
-          aria-hidden
-        />
-        {blockingCount > 0 ? (
-          <AlertTriangle className='size-4 shrink-0 text-danger' aria-hidden />
-        ) : (
-          <ShieldCheck
-            className='size-4 shrink-0 text-muted-foreground'
-            aria-hidden
-          />
-        )}
-        <span className='text-body-strong text-foreground'>
-          {intl.formatMessage({
-            id: 'boundary.panel.title',
-            defaultMessage: 'Boundary crossings',
-          })}
-        </span>
-        <span
-          className={`text-caption ${
-            blockingCount > 0 ? 'text-danger' : 'text-muted-foreground/70'
+        <button
+          type='button'
+          data-testid='boundary-summary-toggle'
+          aria-expanded={expanded}
+          onClick={() => setExpanded(e => !e)}
+          className={`flex w-full items-center gap-2 px-4 py-2.5 text-left ${
+            blockingCount > 0 ? 'bg-danger-subtle' : 'bg-muted/30'
           }`}
         >
-          {blockingCount > 0
-            ? intl.formatMessage(
-                {
-                  id: 'boundary.zone.blocksDone',
-                  defaultMessage:
-                    '{count} open — blocks Done until dispositioned',
-                },
-                { count: blockingCount }
-              )
-            : openCount > 0
-              ? intl.formatMessage(
-                  {
-                    id: 'boundary.zone.openNonBlocking',
-                    defaultMessage: '{count} open — non-blocking',
-                  },
-                  { count: openCount }
-                )
-              : intl.formatMessage(
-                  {
-                    id: 'boundary.zone.allDispositioned',
-                    defaultMessage: 'All {count} dispositioned — none blocking',
-                  },
-                  { count: crossings.length }
-                )}
-        </span>
-        <span className='ml-auto text-caption text-muted-foreground'>
-          {crossings.length - openCount}/{crossings.length}
-        </span>
-      </button>
+          <ChevronRight
+            className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-90' : ''}`}
+            aria-hidden
+          />
+          {blockingCount > 0 ? (
+            <AlertTriangle
+              className='size-4 shrink-0 text-danger'
+              aria-hidden
+            />
+          ) : (
+            <ShieldCheck
+              className='size-4 shrink-0 text-muted-foreground'
+              aria-hidden
+            />
+          )}
+          <span className='text-body-strong text-foreground'>
+            {subset === 'dispositioned'
+              ? intl.formatMessage({
+                  id: 'record.crossings.resolvedTitle',
+                  defaultMessage: 'Boundary crossings · dispositioned',
+                })
+              : intl.formatMessage({
+                  id: 'boundary.panel.title',
+                  defaultMessage: 'Boundary crossings',
+                })}
+          </span>
+          {subset === 'dispositioned' ? null : (
+            <span
+              className={`text-caption ${
+                blockingCount > 0 ? 'text-danger' : 'text-muted-foreground/70'
+              }`}
+            >
+              {subset === 'open'
+                ? blockingCount > 0
+                  ? intl.formatMessage(
+                      {
+                        id: 'record.crossings.openTitle',
+                        defaultMessage:
+                          '{count} open — blocks Done until dispositioned',
+                      },
+                      { count: openCount }
+                    )
+                  : intl.formatMessage(
+                      {
+                        id: 'boundary.zone.openNonBlocking',
+                        defaultMessage: '{count} open — non-blocking',
+                      },
+                      { count: openCount }
+                    )
+                : blockingCount > 0
+                  ? intl.formatMessage(
+                      {
+                        id: 'boundary.zone.blocksDone',
+                        defaultMessage:
+                          '{count} open — blocks Done until dispositioned',
+                      },
+                      { count: blockingCount }
+                    )
+                  : openCount > 0
+                    ? intl.formatMessage(
+                        {
+                          id: 'boundary.zone.openNonBlocking',
+                          defaultMessage: '{count} open — non-blocking',
+                        },
+                        { count: openCount }
+                      )
+                    : intl.formatMessage(
+                        {
+                          id: 'boundary.zone.allDispositioned',
+                          defaultMessage:
+                            'All {count} dispositioned — none blocking',
+                        },
+                        { count: visible.length }
+                      )}
+            </span>
+          )}
+          <span className='ml-auto text-caption text-muted-foreground'>
+            {subset === 'dispositioned'
+              ? visible.length
+              : `${visible.length - openCount}/${visible.length}`}
+          </span>
+        </button>
 
-      {expanded && (
-        <div className='border-t border-border px-4 py-3'>
-          {blockingCount > 0 && (
-            <p className='mb-3 flex items-start gap-1.5 text-xs text-muted-foreground'>
-              <Lock className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+        {expanded && (
+          <div className='border-t border-border px-4 py-3'>
+            {blockingCount > 0 && (
+              <p className='mb-3 flex items-start gap-1.5 text-xs text-muted-foreground'>
+                <Lock className='mt-0.5 size-3.5 shrink-0' aria-hidden />
+                <span>
+                  {intl.formatMessage({
+                    id: 'boundary.panel.blockedNote',
+                    defaultMessage:
+                      "This task can't move to Done until each open crossing is dispositioned by a human — as a false positive, or confirmed.",
+                  })}
+                </span>
+              </p>
+            )}
+
+            {/* LUM-496: crossings are grouped by category so a long queue reads
+          as a handful of decisions. Only the wrapper groups — every per-crossing
+          affordance below is unchanged. */}
+            <div className='space-y-2'>
+              {groups.map(g => (
+                <div
+                  key={g.category}
+                  className='overflow-hidden rounded-md border border-border'
+                >
+                  <button
+                    type='button'
+                    data-testid={`crossing-group-${g.category}`}
+                    aria-expanded={isGroupOpen(g)}
+                    onClick={() => toggleGroup(g)}
+                    className='flex w-full flex-wrap items-center gap-2 bg-muted/20 px-3 py-2 text-left'
+                  >
+                    <ChevronRight
+                      className={`size-4 shrink-0 text-muted-foreground transition-transform ${
+                        isGroupOpen(g) ? 'rotate-90' : ''
+                      }`}
+                      aria-hidden
+                    />
+                    <span className='text-[13px] font-medium text-foreground'>
+                      {boundaryCategoryLabel(g.category, intl)}
+                    </span>
+                    <Badge
+                      tone={
+                        g.severity === 'HIGH'
+                          ? 'danger'
+                          : g.severity === 'LOW'
+                            ? 'muted'
+                            : 'warning'
+                      }
+                    >
+                      {intl.formatMessage(
+                        {
+                          id: 'boundary.panel.severityBadge',
+                          defaultMessage: '{severity} severity',
+                        },
+                        { severity: boundarySeverityLabel(g.severity, intl) }
+                      )}
+                    </Badge>
+                    {/* LUM-590: a group whose every crossing is advisory never
+                  blocks Done — said in words, not in a new colour. */}
+                    {g.advisory && (
+                      <span className='text-caption text-muted-foreground'>
+                        {' · '}
+                        {intl.formatMessage({
+                          id: 'record.crossings.advisory',
+                          defaultMessage: 'advisory',
+                        })}
+                      </span>
+                    )}
+                    <span className='ml-auto text-caption text-muted-foreground'>
+                      {intl.formatMessage(
+                        {
+                          id: 'record.crossings.groupCount',
+                          defaultMessage: '{open} open / {total}',
+                        },
+                        { open: g.open, total: g.total }
+                      )}
+                    </span>
+                  </button>
+
+                  {isGroupOpen(g) && (
+                    <div className='space-y-2 border-t border-border px-3 py-2'>
+                      {g.crossings.map(c => (
+                        <CrossingRow
+                          key={c.id}
+                          crossing={c}
+                          intl={intl}
+                          taskIdentifier={taskIdentifier}
+                          workspaceUrl={workspaceUrl}
+                          pending={pending === c.id}
+                          note={notes[c.id] ?? ''}
+                          reviewerName={reviewerName(c.dispositionedById)}
+                          ownerName={ownerName(
+                            c.attribution?.workspaceMemberId ?? null
+                          )}
+                          changeReviewerName={reviewerName(
+                            c.lastDispositionChange?.actorId ?? null
+                          )}
+                          onNote={v =>
+                            setNotes(prev => ({ ...prev, [c.id]: v }))
+                          }
+                          onDisposition={verdict => disposition(c.id, verdict)}
+                          onSpawnRemediation={() => spawnRemediation(c.id)}
+                          onExplainDone={afterChange}
+                          suppress={suppress[c.id] ?? false}
+                          suppressReason={suppressReasons[c.id] ?? ''}
+                          onSuppressChange={v => toggleSuppress(c.id, v)}
+                          suppressPreview={suppressPreviews[c.id]}
+                          onSuppressReason={v =>
+                            setSuppressReasons(prev => ({
+                              ...prev,
+                              [c.id]: v,
+                            }))
+                          }
+                          onRevokeRule={() => {
+                            if (c.suppressionRule)
+                              revokeRule(c.id, c.suppressionRule.id)
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <p className='mt-3 flex items-center gap-1 text-[11px] text-muted-foreground/80'>
+              <UserCheck className='size-3.5 shrink-0' aria-hidden />
+              {intl.formatMessage({
+                id: 'boundary.panel.humanOnly',
+                defaultMessage:
+                  'Only a signed-in human can disposition a crossing — the agent/CLI path is closed by design.',
+              })}
+            </p>
+
+            <p className='mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground/80'>
+              <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden />
               <span>
                 {intl.formatMessage({
-                  id: 'boundary.panel.blockedNote',
+                  id: 'boundary.panel.defenseInDepth',
                   defaultMessage:
-                    "This task can't move to Done until each open crossing is dispositioned by a human — as a false positive, or confirmed.",
+                    'Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee.',
                 })}
               </span>
             </p>
-          )}
-
-          <div className='space-y-2'>
-            {crossings.map(c => (
-              <CrossingRow
-                key={c.id}
-                crossing={c}
-                intl={intl}
-                taskIdentifier={taskIdentifier}
-                workspaceUrl={workspaceUrl}
-                pending={pending === c.id}
-                note={notes[c.id] ?? ''}
-                reviewerName={reviewerName(c.dispositionedById)}
-                ownerName={ownerName(c.attribution?.workspaceMemberId ?? null)}
-                changeReviewerName={reviewerName(
-                  c.lastDispositionChange?.actorId ?? null
-                )}
-                onNote={v => setNotes(prev => ({ ...prev, [c.id]: v }))}
-                onDisposition={verdict => disposition(c.id, verdict)}
-                onSpawnRemediation={() => spawnRemediation(c.id)}
-                onExplainDone={afterChange}
-              />
-            ))}
           </div>
-
-          <p className='mt-3 flex items-center gap-1 text-[11px] text-muted-foreground/80'>
-            <UserCheck className='size-3.5 shrink-0' aria-hidden />
-            {intl.formatMessage({
-              id: 'boundary.panel.humanOnly',
-              defaultMessage:
-                'Only a signed-in human can disposition a crossing — the agent/CLI path is closed by design.',
-            })}
-          </p>
-
-          <p className='mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground/80'>
-            <Info className='mt-0.5 size-3.5 shrink-0' aria-hidden />
-            <span>
-              {intl.formatMessage({
-                id: 'boundary.panel.defenseInDepth',
-                defaultMessage:
-                  'Defense-in-depth, not a hard boundary: this runs after the action and can be evaded (e.g. obfuscated commands). A clean panel is not proof nothing happened — treat it as one signal, not a guarantee.',
-              })}
-            </span>
-          </p>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -362,6 +664,12 @@ function CrossingRow({
   onDisposition,
   onSpawnRemediation,
   onExplainDone,
+  suppress,
+  suppressReason,
+  onSuppressChange,
+  suppressPreview,
+  onSuppressReason,
+  onRevokeRule,
 }: {
   crossing: BoundaryCrossingView
   intl: ReturnType<typeof useIntl>
@@ -376,6 +684,14 @@ function CrossingRow({
   onDisposition: (verdict: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN') => void
   onSpawnRemediation: () => void
   onExplainDone: () => void
+  /** LUM-751: repository-rule opt-in state + revoke. */
+  suppress: boolean
+  suppressReason: string
+  onSuppressChange: (v: boolean) => void
+  /** LUM-759: how many existing alerts the rule would dispose too. */
+  suppressPreview: SuppressionPreview | 'loading' | undefined
+  onSuppressReason: (v: string) => void
+  onRevokeRule: () => void
 }) {
   const [cmdOpen, setCmdOpen] = useState(false)
   const [explainLoading, setExplainLoading] = useState(false)
@@ -489,12 +805,19 @@ function CrossingRow({
             {boundaryDispositionLabel('AUTO_LEGIT', intl)}
           </Badge>
         )}
+        {/* LUM-751: system-dispositioned by a human-authored repository rule —
+        on record, out of the open queue, non-blocking; revocable below. */}
+        {c.disposition === 'AUTO_SUPPRESSED' && (
+          <Badge tone='muted'>
+            {boundaryDispositionLabel('AUTO_SUPPRESSED', intl)}
+          </Badge>
+        )}
         {c.disposition ? (
           <InfoTooltip
             label={intl.formatMessage({
               id: 'boundary.tip.disposition',
               defaultMessage:
-                'How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), or auto-cleared by the system.',
+                'How this crossing was resolved: false positive (not a real issue), confirmed (a real issue), auto-cleared by the system, or auto-dispositioned by a repository rule a human created.',
             })}
           />
         ) : null}
@@ -521,6 +844,25 @@ function CrossingRow({
                     : '',
                 }
               )}
+          {/* LUM-769: a ruling relayed through the CLI is shown as such — the
+          server cannot verify the in-chat approval, so it never passes as a
+          panel click. */}
+          {!open && c.dispositionChannel === 'CLI' && (
+            <span
+              data-testid={`boundary-via-cli-${c.id}`}
+              className='ml-1'
+              title={intl.formatMessage({
+                id: 'boundary.panel.viaCliTip',
+                defaultMessage:
+                  'Ruled from the terminal with lumo crossing disposition --confirm: the agent relayed the crossing and the user approved in chat. Correct it here if that approval was not yours.',
+              })}
+            >
+              {intl.formatMessage({
+                id: 'boundary.panel.viaCli',
+                defaultMessage: '· via CLI',
+              })}
+            </span>
+          )}
         </span>
       </div>
 
@@ -792,6 +1134,51 @@ function CrossingRow({
             </p>
           )}
 
+          {/* LUM-751: which repository rule auto-dispositioned this crossing,
+          with a one-click soft revoke (human-only server-side). */}
+          {c.suppressionRule && (
+            <p
+              className='mt-2 text-[11px] text-muted-foreground'
+              data-testid={`crossing-suppression-rule-${c.id}`}
+            >
+              {intl.formatMessage(
+                {
+                  id: 'boundary.panel.suppressedByRule',
+                  defaultMessage:
+                    'Auto-dispositioned by repository rule {rule}{reason}',
+                },
+                {
+                  rule: c.suppressionRule.id.slice(0, 8),
+                  reason: c.suppressionRule.reason
+                    ? ` — ${c.suppressionRule.reason}`
+                    : '',
+                }
+              )}
+              {c.suppressionRule.revokedAt ? (
+                <span>
+                  {' · '}
+                  {intl.formatMessage({
+                    id: 'boundary.panel.ruleRevoked',
+                    defaultMessage: 'rule revoked',
+                  })}
+                </span>
+              ) : (
+                <button
+                  type='button'
+                  data-testid={`boundary-revoke-rule-${c.id}`}
+                  disabled={pending}
+                  onClick={onRevokeRule}
+                  className='ml-2 underline hover:text-foreground disabled:opacity-50'
+                >
+                  {intl.formatMessage({
+                    id: 'boundary.panel.revokeRule',
+                    defaultMessage: 'Revoke rule',
+                  })}
+                </button>
+              )}
+            </p>
+          )}
+
           {open && (
             <div className='mt-2.5 space-y-2'>
               <input
@@ -805,6 +1192,72 @@ function CrossingRow({
                 })}
                 className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
               />
+              {/* LUM-751: per-repository auto-handle opt-in — only for a
+              suppressible category with a coalescing target; never on the
+              HIGH classes (the server refuses those with 422 anyway). */}
+              {c.suppressible && (
+                <label className='flex items-center gap-2 text-[11px] text-muted-foreground'>
+                  <input
+                    type='checkbox'
+                    data-testid={`boundary-suppress-similar-${c.id}`}
+                    checked={suppress}
+                    disabled={pending}
+                    onChange={e => onSuppressChange(e.target.checked)}
+                  />
+                  {intl.formatMessage({
+                    id: 'boundary.panel.suppressSimilar',
+                    defaultMessage:
+                      'Auto-handle this kind in this repository from now on (false positive only)',
+                  })}
+                </label>
+              )}
+              {/* LUM-759: the blast radius, before the ruling is committed —
+              ticking the box will dispose this repository's existing alerts of
+              the same kind too, so say how many. */}
+              {c.suppressible &&
+                suppress &&
+                suppressPreview &&
+                suppressPreview !== 'loading' &&
+                suppressPreview.count > 0 && (
+                  <p
+                    data-testid={`boundary-suppress-preview-${c.id}`}
+                    className='text-[11px] text-muted-foreground'
+                  >
+                    {intl.formatMessage(
+                      {
+                        id: 'boundary.panel.suppressPreview',
+                        defaultMessage:
+                          'This will also dispose {count, plural, one {# existing alert} other {# existing alerts}} of the same kind in this repository.',
+                      },
+                      { count: suppressPreview.count }
+                    )}
+                    {suppressPreview.capped
+                      ? ` ${intl.formatMessage(
+                          {
+                            id: 'boundary.panel.suppressPreviewCapped',
+                            defaultMessage:
+                              'More than {cap} match — only the {cap} most recent are handled.',
+                          },
+                          { cap: suppressPreview.cap }
+                        )}`
+                      : ''}
+                  </p>
+                )}
+              {c.suppressible && suppress && (
+                <input
+                  type='text'
+                  data-testid={`boundary-suppress-reason-${c.id}`}
+                  value={suppressReason}
+                  disabled={pending}
+                  onChange={e => onSuppressReason(e.target.value)}
+                  placeholder={intl.formatMessage({
+                    id: 'boundary.panel.suppressReasonPlaceholder',
+                    defaultMessage:
+                      'Why this is never a real crossing here (optional)',
+                  })}
+                  className='w-full rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-1 focus:ring-ring'
+                />
+              )}
               <div className='flex items-center gap-2'>
                 <button
                   type='button'

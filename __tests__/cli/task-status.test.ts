@@ -236,9 +236,10 @@ describe('taskStatus — output', () => {
     expect(parsed.nextActions).toHaveLength(2)
   })
 
-  it('human output shows verdicts, history, failures, and next actions', async () => {
+  it('human output shows verdicts, history (--full), failures, and next actions', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue(jsonResponse(200, PAYLOAD))
-    expect(await taskStatus('LUM-9')).toBeUndefined()
+    // LUM-733: History is a --full section; the default report is the core.
+    expect(await taskStatus('LUM-9', { full: true })).toBeUndefined()
     const out = stdout()
     expect(out).toContain('LUM-9  do the thing')
     expect(out).toContain('verification round 1/3')
@@ -421,13 +422,13 @@ describe('taskStatus — machine-verified vs human-override (LUM-470)', () => {
   })
 
   it('task status shows the machine-verification aggregate of verified vs override', async () => {
-    const out = formatTaskStatus(SIGNED_PAYLOAD)
-    // LUM-564: the rollup now lives on the verification side of the
-    // "Claim vs verification" pairing rather than as a standalone line.
+    // LUM-733: the rollup lives in the --full "Verification" section.
+    const out = formatTaskStatus(SIGNED_PAYLOAD, { full: true })
     expect(out).toContain(
       '1 machine-verified / 1 human override (of 2 MACHINE criteria)'
     )
-    expect(out).toContain('Claim vs verification:')
+    expect(out).toContain('Verification:')
+    expect(formatTaskStatus(SIGNED_PAYLOAD)).not.toContain('Verification:')
 
     // --json carries the aggregate so a consumer never reads the rollup as all-human.
     statusFetch(SIGNED_PAYLOAD)
@@ -498,7 +499,8 @@ describe('taskStatus — open boundary crossings (LUM-448)', () => {
     expect(out).not.toContain('second line ignored')
     // The dispositioned crossing never appears.
     expect(out).not.toContain('HARDCODED_SECRET')
-    // Points at the human-only web disposition panel (no CLI clear path).
+    // Points at the web disposition panel (LUM-769 also names the user's
+    // `lumo crossing disposition` exit-4 path).
     expect(out).toContain('#boundary-crossings')
 
     // --json carries the same open crossings structurally, with severity.

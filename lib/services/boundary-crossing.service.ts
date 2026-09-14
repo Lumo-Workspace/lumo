@@ -2,6 +2,11 @@ import { createHash } from 'crypto'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
+import { crossingSuppressionRuleRepository } from '@/lib/repositories/crossing-suppression-rule.repository'
+import {
+  isSuppressibleCategory,
+  RETROACTIVE_SUPPRESSION_CAP,
+} from '@/lib/boundary-crossing/suppression'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -18,11 +23,50 @@ import type {
   TaskStatus,
 } from '@prisma/client'
 
+/**
+ * LUM-769: which surface a disposition came through. `WEB` is a human click in
+ * the acceptance panel (a Clerk browser session). `CLI` is
+ * `lumo crossing disposition … --confirm` — the agent relayed the exit-4
+ * confirmation envelope and the user approved in chat, which the server cannot
+ * verify, so the channel is recorded on the audit row and surfaced in the read
+ * model instead of being folded into the web-click shape.
+ */
+export type DispositionChannel = 'WEB' | 'CLI'
+
+import {
+  acknowledgeReadReceipt,
+  crossingStateHash,
+  issueReadReceipt,
+  readReceiptSecret,
+  verifyReadReceipt,
+  type IssuedReceipt,
+  type ReceiptFailure,
+  type ReceiptSubject,
+} from '@/lib/boundary-crossing/read-receipt'
+
+/** LUM-769: who is asking for / presenting a read receipt. */
+export interface ReceiptCaller {
+  sessionId: string | null
+  memberId: string
+}
+
 export interface DispositionAttribution {
   /** WorkspaceMember id of the dispositioning human. */
   actorMemberId: string
   /** Clerk user id of the dispositioning human. */
   actorClerkId: string
+  /** LUM-769: surface the ruling came through. Absent/`WEB` = the web panel
+   *  (payload shape unchanged); `CLI` is stamped on the audit payload. */
+  channel?: DispositionChannel
+  /** LUM-769 handshake timestamps (CLI path only): when the envelope was
+   *  shown and when reading was acknowledged — recorded on the audit row. */
+  handshake?: { readAt: string; readAcknowledgedAt: string }
+}
+
+/** LUM-751: optional repository-rule opt-in riding a FALSE_POSITIVE ruling. */
+export interface DispositionOptions {
+  suppressSimilarInProject?: boolean
+  suppressionReason?: string | null
 }
 
 export interface DispositionOutcome {
@@ -30,6 +74,31 @@ export interface DispositionOutcome {
   /** The crossing's disposition after the write; null when reverted to OPEN
    *  (undispositioned) by a re-disposition (LUM-450). */
   disposition: BoundaryCrossingDisposition | null
+  /** LUM-751: the repository suppression rule created alongside a
+   *  FALSE_POSITIVE when the human opted in; null otherwise. */
+  suppressionRuleId?: string | null
+  /** LUM-759: how many ALREADY-RECORDED open crossings that new rule
+   *  retroactively dispositioned. Present only when a rule was created. */
+  retroactivelySuppressed?: number
+  /** LUM-759: true when there were more matches than the per-creation cap and
+   *  only the most recent {@link RETROACTIVE_SUPPRESSION_CAP} were stamped —
+   *  the caller tells the human rather than silently truncating. */
+  retroactiveCapped?: boolean
+}
+
+/** LUM-759: read-only blast radius of a rule the human has not created yet. */
+export interface SuppressionScopePreview {
+  /** Whether a rule can be built from this crossing at all (suppressible
+   *  category with a coalescing target) — the panel hides the opt-in
+   *  otherwise, and the server would refuse it with 422. */
+  suppressible: boolean
+  /** Existing OPEN crossings in this project, other than this one, that the
+   *  rule would dispose. Capped-aware: never more than `cap`. */
+  count: number
+  /** True when there are more matches than `cap` — only the most recent `cap`
+   *  would be stamped. */
+  capped: boolean
+  cap: number
 }
 
 export interface SpawnRemediationOutcome {
@@ -94,6 +163,9 @@ export interface DispositionChangeView {
   to: BoundaryCrossingDisposition | null
   actorId: string | null
   at: string
+  /** LUM-769: `CLI` when the correction came through
+   *  `lumo crossing disposition --confirm`, else `WEB`. */
+  channel: DispositionChannel
 }
 
 /**
@@ -164,6 +236,11 @@ export interface BoundaryCrossingView {
   dispositionNote: string | null
   dispositionedAt: string | null
   dispositionedById: string | null
+  /** LUM-769: which surface the CURRENT disposition came through — `CLI` for
+   *  `lumo crossing disposition --confirm` (user approval relayed by the agent,
+   *  unverifiable server-side), `WEB` for a panel click. Null while open, and
+   *  for system dispositions that wrote no activity row (AUTO_LEGIT / rule). */
+  dispositionChannel: DispositionChannel | null
   remediationTask: RemediationTaskView | null
   /** Inline before→after of the triggering edit, for display-safe crossings only
    *  (LUM-452). Null for non-display-safe (secret-bearing) crossings. */
@@ -195,6 +272,16 @@ export interface BoundaryCrossingView {
    *  crossing; null = not yet generated (human must click "Explain"). ADVISORY
    *  ONLY — never changes disposition or the DONE gate. */
   systemExplanation: string | null
+  /** LUM-751: the category may be rule-suppressed AND the crossing carries a
+   *  coalescing target — the panel offers the per-repository opt-in only then. */
+  suppressible: boolean
+  /** LUM-751: the rule that auto-dispositioned this crossing (AUTO_SUPPRESSED);
+   *  null for every other crossing. */
+  suppressionRule: {
+    id: string
+    reason: string | null
+    revokedAt: string | null
+  } | null
 }
 
 /**
@@ -508,6 +595,26 @@ function readTransition(payload: unknown): {
   return { from: norm(p.from), to }
 }
 
+/** LUM-769: the surface a disposition activity came through. Only the CLI path
+ *  stamps `channel`; every row without it (web clicks, legacy rows) is WEB. */
+function readChannel(payload: unknown): DispositionChannel {
+  const p = (payload ?? {}) as Record<string, unknown>
+  return p.channel === 'CLI' ? 'CLI' : 'WEB'
+}
+
+/**
+ * LUM-769: the channel of the LATEST disposition activity on a crossing —
+ * initial disposition or correction alike. Rows arrive oldest-first; null when
+ * no activity was ever written (system dispositions such as AUTO_LEGIT or a
+ * repository rule record none). Pure.
+ */
+export function latestDispositionChannel(
+  rows: DispositionActivityRow[]
+): DispositionChannel | null {
+  const last = rows[rows.length - 1]
+  return last ? readChannel(last.payload) : null
+}
+
 /**
  * The latest *correction* among a crossing's disposition activities (LUM-450):
  * the most recent change whose `from` is non-null — i.e. it changed an existing
@@ -527,9 +634,26 @@ export function lastDispositionChange(
       to,
       actorId: row.actorId,
       at: iso(row.createdAt) ?? '',
+      channel: readChannel(row.payload),
     }
   }
   return latest
+}
+
+/** LUM-769: one 409 per receipt failure, naming the step that must run next. */
+function receiptRefusal(
+  failure: ReceiptFailure,
+  step: '--confirm-read' | '--confirm'
+): Error & { status: number } {
+  const why =
+    failure.reason === 'not_acknowledged'
+      ? 'read not yet acknowledged — run the command with --confirm-read (the receipt from the envelope) first; only the receipt that step returns is accepted with --confirm'
+      : failure.reason === 'expired'
+        ? `the read receipt has expired. Re-run the command without ${step} to read the crossing again and get a fresh envelope`
+        : failure.reason === 'malformed'
+          ? `the read receipt is malformed. Re-run the command without ${step} to get a fresh envelope`
+          : `the read receipt does not match this crossing, ruling, caller, or the crossing has changed since it was read. Re-run the command without ${step} to read the crossing again and get a fresh envelope`
+  return Object.assign(new Error(`Refused: ${why}.`), { status: 409 })
 }
 
 /** Descending prominence — higher = more severe, surfaced first (LUM-442). */
@@ -727,6 +851,11 @@ export const boundaryCrossingService = {
         dispositionNote: c.dispositionNote,
         dispositionedAt: iso(c.dispositionedAt),
         dispositionedById: c.dispositionedById,
+        // LUM-769: the surface of the current ruling; null while open or when
+        // the ruling was a system one that wrote no activity row.
+        dispositionChannel: c.disposition
+          ? latestDispositionChannel(changesByCrossing.get(c.id) ?? [])
+          : null,
         remediationTask,
         editChange,
         lastDispositionChange: lastDispositionChange(
@@ -753,6 +882,15 @@ export const boundaryCrossingService = {
           : null,
         // LUM-590: cached system-generated explanation; null = not yet generated.
         systemExplanation: c.systemExplanation ?? null,
+        // LUM-751: repository-rule affordances.
+        suppressible: isSuppressibleCategory(c.category) && c.target != null,
+        suppressionRule: c.suppressionRule
+          ? {
+              id: c.suppressionRule.id,
+              reason: c.suppressionRule.reason ?? null,
+              revokedAt: iso(c.suppressionRule.revokedAt),
+            }
+          : null,
       }
     })
     // Surface by severity (LUM-442) — HIGH first. Stable: the repository already
@@ -778,17 +916,23 @@ export const boundaryCrossingService = {
    * the target equals the current value nothing is written and no redundant
    * audit row is emitted, preserving the original reviewer/timestamp.
    *
-   * RED LINE: a clearing (or re-clearing) action can never originate from an
-   * agent. There is no machine write path to this service — an agent cannot
-   * alter the disposition of its own forbidden action to unblock its own DONE
-   * transition.
+   * Who may reach this service (LUM-769 supersedes the "web-only" half of the
+   * red line): the web route (Clerk human, `channel` absent → WEB) and the
+   * task-scoped CLI route (bearer, `channel: 'CLI'`), which the CLI only calls
+   * after walking the exit-4 confirmation protocol — the agent relays the
+   * envelope, the user approves in chat, and the agent re-runs with --confirm.
+   * That approval is unverifiable server-side, so the channel is stamped on the
+   * audit row and the read model surfaces it. What stays web-only: the OPEN
+   * revert and the LUM-751 suppression opt-in (the CLI schema cannot carry
+   * either).
    */
   async disposition(
     taskId: string,
     crossingId: string,
     target: BoundaryCrossingDisposition | null,
     note: string | null,
-    attribution: DispositionAttribution
+    attribution: DispositionAttribution,
+    options: DispositionOptions = {}
   ): Promise<DispositionOutcome> {
     const crossing = await boundaryCrossingRepository.findById(crossingId)
     if (!crossing || crossing.taskId !== taskId) {
@@ -798,24 +942,95 @@ export const boundaryCrossingService = {
       )
     }
 
+    // LUM-751: a FALSE_POSITIVE may opt the whole repository out of this
+    // (category, target) shape. Checked and written BEFORE the disposition so a
+    // refused rule (HIGH class / no target) leaves the crossing untouched. The
+    // rule is keyed on the crossing's own coalescing target — the same key the
+    // detector matches on — and attributed to the human member who ruled.
+    let suppressionRuleId: string | null = null
+    let retroactivelySuppressed = 0
+    let retroactiveCapped = false
+    // Resolved lazily and at most once: the rule sweep needs the Actor for its
+    // audit rows, and so does the disposition write below.
+    let resolvedActorId: string | null = null
+    let actorResolved = false
+    const actorId = async () => {
+      if (!actorResolved) {
+        const actor = await memberRepository.findActorByMemberId(
+          attribution.actorMemberId
+        )
+        resolvedActorId = actor?.id ?? null
+        actorResolved = true
+      }
+      return resolvedActorId
+    }
+    if (options.suppressSimilarInProject && target === 'FALSE_POSITIVE') {
+      if (!isSuppressibleCategory(crossing.category)) {
+        throw Object.assign(
+          new Error(
+            `${crossing.category} crossings cannot be rule-suppressed — this class always needs a human decision`
+          ),
+          { status: 422 }
+        )
+      }
+      if (!crossing.target) {
+        throw Object.assign(
+          new Error(
+            'This crossing has no coalescing target to build a repository rule from'
+          ),
+          { status: 422 }
+        )
+      }
+      const task = await taskRepository.findWithProject(taskId)
+      if (!task) {
+        throw Object.assign(new Error('Task not found'), { status: 404 })
+      }
+      // LUM-759: the rule is created AND applied backwards in one transaction
+      // — every existing open crossing of the same shape in this project is
+      // stamped with it. Before 759 a rule only bound future detections, so
+      // ruling once still left every already-recorded occurrence in the queue.
+      const created =
+        await crossingSuppressionRuleRepository.createWithRetroactiveSweep(
+          {
+            projectId: task.projectId,
+            category: crossing.category,
+            targetPattern: crossing.target,
+            reason: options.suppressionReason ?? null,
+            createdById: attribution.actorMemberId,
+            sourceCrossingId: crossingId,
+          },
+          {
+            limit: RETROACTIVE_SUPPRESSION_CAP,
+            actorId: await actorId(),
+            now: new Date(),
+          }
+        )
+      suppressionRuleId = created.id
+      retroactivelySuppressed = created.suppressedCount
+      retroactiveCapped = created.capped
+    }
+
     const from = crossing.disposition
 
     // No-op when the disposition isn't actually changing — keeps the original
     // reviewer/timestamp and emits no redundant audit row (idempotent).
     if (from === target) {
-      return { crossingId, disposition: target }
+      return {
+        crossingId,
+        disposition: target,
+        ...(suppressionRuleId
+          ? { suppressionRuleId, retroactivelySuppressed, retroactiveCapped }
+          : {}),
+      }
     }
 
-    const actor = await memberRepository.findActorByMemberId(
-      attribution.actorMemberId
-    )
-    const actorId = actor?.id ?? null
+    const writerActorId = await actorId()
 
     await boundaryCrossingRepository.disposition(
       crossingId,
       target,
       note,
-      actorId,
+      writerActorId,
       new Date()
     )
     // Append-only audit of THIS change. `from`/`to` carry the transition (null
@@ -824,7 +1039,7 @@ export const boundaryCrossingService = {
     // never rewrites this one (criterion 2).
     await activityRepository.create({
       taskId,
-      actorId,
+      actorId: writerActorId,
       type: 'BOUNDARY_CROSSING_DISPOSITIONED',
       payload: {
         boundaryCrossingId: crossingId,
@@ -834,10 +1049,268 @@ export const boundaryCrossingService = {
         to: target,
         disposition: target,
         note: note ?? null,
+        // LUM-751: the repository rule created with this ruling, if any.
+        ...(suppressionRuleId ? { suppressionRuleId } : {}),
+        // LUM-769: stamped only on the CLI path, so a web ruling's payload keeps
+        // its pre-769 shape and the two stay distinguishable in the audit trail.
+        // The handshake timestamps make the process auditable like a terms
+        // acceptance: shown at readAt, read acknowledged at readAcknowledgedAt,
+        // ruling confirmed at confirmedAt.
+        ...(attribution.channel === 'CLI'
+          ? {
+              channel: 'CLI',
+              ...(attribution.handshake
+                ? {
+                    readAt: attribution.handshake.readAt,
+                    readAcknowledgedAt:
+                      attribution.handshake.readAcknowledgedAt,
+                    confirmedAt: new Date().toISOString(),
+                  }
+                : {}),
+            }
+          : {}),
       },
     })
 
-    return { crossingId, disposition: target }
+    // Additive: the rule id rides along only when one was created, so existing
+    // callers and their assertions see the pre-751 shape otherwise.
+    return {
+      crossingId,
+      disposition: target,
+      ...(suppressionRuleId
+        ? { suppressionRuleId, retroactivelySuppressed, retroactiveCapped }
+        : {}),
+    }
+  },
+
+  /**
+   * LUM-769 read receipt — the READ half of the CLI disposition handshake.
+   * Signs the crossing as it stands right now (state hash over disposition,
+   * recurrence, explanations, detail…) for one ruling and one caller, and
+   * hands back a short token. Writes nothing. 404 off-task, 503 when no
+   * signing secret is configured (fail closed: no receipt → no CLI ruling).
+   */
+  async issueReadReceipt(
+    taskId: string,
+    crossingId: string,
+    target: 'FALSE_POSITIVE' | 'CONFIRMED',
+    caller: ReceiptCaller
+  ): Promise<IssuedReceipt> {
+    const subject = await this.receiptSubject(
+      taskId,
+      crossingId,
+      target,
+      caller
+    )
+    return issueReadReceipt(this.requireReceiptSecret(), subject)
+  },
+
+  /**
+   * LUM-769 read receipt — stage 2, "the user confirmed they read it". Verifies
+   * the stage-1 receipt against the crossing as it is NOW and issues the
+   * stage-2 receipt the write step requires. Writes nothing. 409 on a forged,
+   * expired, foreign or stale stage-1 receipt.
+   */
+  async acknowledgeReadReceipt(
+    taskId: string,
+    crossingId: string,
+    target: 'FALSE_POSITIVE' | 'CONFIRMED',
+    receipt: string,
+    caller: ReceiptCaller
+  ): Promise<IssuedReceipt> {
+    const subject = await this.receiptSubject(
+      taskId,
+      crossingId,
+      target,
+      caller
+    )
+    const out = acknowledgeReadReceipt(
+      this.requireReceiptSecret(),
+      receipt,
+      subject
+    )
+    if (out.ok) return out.issued
+    throw receiptRefusal(out, '--confirm-read')
+  },
+
+  /**
+   * LUM-769 read receipt — the WRITE-side check. Recomputes the subject from
+   * the request context and the crossing's CURRENT state and verifies a
+   * STAGE-2 receipt: a stage-1 receipt (read, never acknowledged) is refused
+   * with "confirm read first"; a forged, expired, foreign or stale receipt is
+   * refused too. Every refusal is a 409 and nothing is written. Returns the
+   * handshake timestamps for the audit row.
+   */
+  async verifyReadReceipt(
+    taskId: string,
+    crossingId: string,
+    target: 'FALSE_POSITIVE' | 'CONFIRMED',
+    receipt: string,
+    caller: ReceiptCaller
+  ): Promise<{ readAt: string; readAcknowledgedAt: string }> {
+    const subject = await this.receiptSubject(
+      taskId,
+      crossingId,
+      target,
+      caller
+    )
+    const verdict = verifyReadReceipt(
+      this.requireReceiptSecret(),
+      receipt,
+      subject,
+      new Date(),
+      { requireStage: 'ACK' }
+    )
+    if (verdict.ok) {
+      return {
+        readAt: verdict.readAt,
+        readAcknowledgedAt: verdict.readAcknowledgedAt ?? verdict.readAt,
+      }
+    }
+    throw receiptRefusal(verdict, '--confirm')
+  },
+
+  /** Shared by issue/verify so both sides hash exactly the same state. */
+  async receiptSubject(
+    taskId: string,
+    crossingId: string,
+    target: 'FALSE_POSITIVE' | 'CONFIRMED',
+    caller: ReceiptCaller
+  ): Promise<ReceiptSubject> {
+    const crossing = await boundaryCrossingRepository.findById(crossingId)
+    if (!crossing || crossing.taskId !== taskId) {
+      throw Object.assign(
+        new Error('Boundary-crossing not found on this task'),
+        { status: 404 }
+      )
+    }
+    const explanations =
+      await boundaryCrossingRepository.listExplanationsByCrossingIds([
+        crossingId,
+      ])
+    return {
+      crossingId,
+      taskId,
+      target,
+      sessionId: caller.sessionId,
+      memberId: caller.memberId,
+      stateHash: crossingStateHash({
+        disposition: crossing.disposition,
+        occurrenceCount: crossing.occurrenceCount ?? 1,
+        lastSeenAt: crossing.lastSeenAt,
+        detectedAt: crossing.detectedAt,
+        severity: crossing.severity,
+        category: crossing.category,
+        detail: crossing.detail,
+        explanationIds: explanations.map(e => e.id),
+      }),
+    }
+  },
+
+  requireReceiptSecret(): string {
+    const secret = readReceiptSecret()
+    if (!secret) {
+      throw Object.assign(
+        new Error(
+          'Read-receipt signing is not configured on this server (LUMO_RECEIPT_SECRET / CRON_SECRET) — CLI dispositions are unavailable; use the web panel'
+        ),
+        { status: 503 }
+      )
+    }
+    return secret
+  },
+
+  /**
+   * LUM-751: soft-revoke a repository suppression rule from a task in the
+   * rule's project. Human-only (the route refuses bearer identities before
+   * anything is read); the row is kept for audit — there is no delete path.
+   * Idempotent: an already-revoked rule returns its original revokedAt.
+   */
+  async revokeSuppressionRule(
+    taskId: string,
+    ruleId: string,
+    attribution: DispositionAttribution
+  ): Promise<{ ruleId: string; revokedAt: string; reopenedCount: number }> {
+    const [task, rule] = await Promise.all([
+      taskRepository.findWithProject(taskId),
+      crossingSuppressionRuleRepository.findById(ruleId),
+    ])
+    if (!task || !rule || rule.projectId !== task.projectId) {
+      throw Object.assign(
+        new Error("Suppression rule not found for this task's project"),
+        { status: 404 }
+      )
+    }
+    if (rule.revokedAt) {
+      // Idempotent: the first revoke already reopened what it had suppressed,
+      // and re-running must not reopen a crossing dispositioned since then.
+      return {
+        ruleId,
+        revokedAt: rule.revokedAt.toISOString(),
+        reopenedCount: 0,
+      }
+    }
+    const now = new Date()
+    const actor = await memberRepository.findActorByMemberId(
+      attribution.actorMemberId
+    )
+    // LUM-759: revoking undoes what the rule silenced, in the same transaction
+    // as the soft revoke — otherwise taking a rule back would only bind the
+    // future while everything it already suppressed stayed suppressed.
+    const { reopenedCount } =
+      await crossingSuppressionRuleRepository.revokeWithRestore(
+        ruleId,
+        attribution.actorMemberId,
+        actor?.id ?? null,
+        now
+      )
+    return { ruleId, revokedAt: now.toISOString(), reopenedCount }
+  },
+
+  /**
+   * LUM-759 — read-only: how many existing crossings a rule built from this
+   * crossing would dispose right now. Shown in the panel next to the opt-in so
+   * the human sees the blast radius BEFORE committing the ruling. Writes
+   * nothing, and deliberately runs the same predicate the sweep does, so the
+   * number shown is the number that gets stamped.
+   */
+  async previewSuppressionScope(
+    taskId: string,
+    crossingId: string
+  ): Promise<SuppressionScopePreview> {
+    const crossing = await boundaryCrossingRepository.findById(crossingId)
+    if (!crossing || crossing.taskId !== taskId) {
+      throw Object.assign(
+        new Error('Boundary-crossing not found on this task'),
+        {
+          status: 404,
+        }
+      )
+    }
+    const base = {
+      count: 0,
+      capped: false,
+      cap: RETROACTIVE_SUPPRESSION_CAP,
+    }
+    if (!isSuppressibleCategory(crossing.category) || !crossing.target) {
+      return { ...base, suppressible: false }
+    }
+    const task = await taskRepository.findWithProject(taskId)
+    if (!task) throw Object.assign(new Error('Task not found'), { status: 404 })
+
+    const matches =
+      await boundaryCrossingRepository.countRetroactiveSuppressionCandidates({
+        projectId: task.projectId,
+        category: crossing.category,
+        targetPattern: crossing.target,
+        excludeCrossingId: crossingId,
+      })
+    return {
+      suppressible: true,
+      count: Math.min(matches, RETROACTIVE_SUPPRESSION_CAP),
+      capped: matches > RETROACTIVE_SUPPRESSION_CAP,
+      cap: RETROACTIVE_SUPPRESSION_CAP,
+    }
   },
 
   /**

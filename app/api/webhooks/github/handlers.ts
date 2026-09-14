@@ -20,6 +20,11 @@ import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
 import { ciSignalService } from '@/lib/services/ci-signal.service'
+import {
+  dispatchPrSecurityScan,
+  shouldScanOnPrEvent,
+} from '@/lib/services/pr-security-scan-dispatch'
+import { dispatchLumoCi } from '@/lib/services/lumo-ci-dispatch'
 import { logger } from '@/lib/logger'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -32,7 +37,9 @@ type GitHubPR = {
   merged: boolean
   draft: boolean
   user: { login: string }
-  head: { ref: string }
+  // LUM-746: `sha` is on every pull_request payload; optional so a stripped
+  // payload degrades to a head fetch on the request path.
+  head: { ref: string; sha?: string }
   base: { ref: string }
   merged_at: string | null
   closed_at: string | null
@@ -145,7 +152,7 @@ async function resolvePrNumberForCommit(args: {
 export async function handlePullRequest(
   payload: Record<string, unknown>,
   workspaceId: string,
-  integrationId: string
+  integrationId: string | null
 ): Promise<void> {
   const {
     action,
@@ -171,7 +178,7 @@ export async function handlePullRequest(
 
   const task = await findTaskForBranch(pr.head.ref, workspaceId)
 
-  await githubService.upsertPullRequest({
+  const prRow = await githubService.upsertPullRequest({
     workspaceId,
     taskId: task?.id ?? null,
     integrationId,
@@ -210,6 +217,16 @@ export async function handlePullRequest(
   }
 
   if (!task) return
+
+  // LUM-732: every push to a task-linked open PR gets a security scan of its
+  // current head. The worker dedups on (pr, headSha), so redelivery is harmless.
+  if (shouldScanOnPrEvent(action, state)) {
+    waitUntil(dispatchPrSecurityScan(prRow.id, 'PR_EVENT'))
+    // LUM-746: the same pushes get a Lumo-managed CI run (typecheck + test
+    // in a sandbox → independent gate signals). Same-sha dedup is the
+    // request path's job, so redelivery is harmless here too.
+    waitUntil(dispatchLumoCi(prRow.id, 'PR_EVENT', pr.head.sha))
+  }
 
   // Close the task's lineage edges when this PR reaches a terminal state
   // (merged → MERGED, closed → REJECTED). Detached; the stamp is idempotent so
@@ -357,6 +374,35 @@ export async function handlePush(
   )
 
   const branchName = ref.slice('refs/heads/'.length)
+
+  // LUM-738 — a push to the default branch moves the repository security
+  // baseline: refresh the default-branch fingerprint set that decides
+  // whether a PR's dependency finding is new or already there. Detached +
+  // fail-soft, and BEFORE the task lookup below — `main` maps to no task.
+  if (branchName === repository.default_branch) {
+    // Dynamic import: the baseline service reaches github/contents → auth
+    // (octokit, ESM) and the workflow start; keeping it off this module's
+    // static graph keeps the webhook handlers loadable where that chain is
+    // not (the same boundary stage A draws around the LLM gateway).
+    waitUntil(
+      import('@/lib/services/security-baseline.service')
+        .then(({ securityBaselineService }) =>
+          securityBaselineService.requestFromPush({
+            workspaceId,
+            repo: repository.full_name,
+            sha: head_commit.id,
+          })
+        )
+        .then(() => undefined)
+        .catch(err => {
+          logger.warn(
+            '[webhook] security baseline request failed:',
+            err instanceof Error ? err.message : String(err)
+          )
+        })
+    )
+  }
+
   const task = await findTaskForBranch(branchName, workspaceId)
   if (!task) return
 
@@ -513,7 +559,7 @@ type InboundAction =
 export async function handleIssueComment(
   payload: Record<string, unknown>,
   workspaceId: string,
-  _integrationId: string
+  _integrationId: string | null
 ): Promise<void> {
   const issue = payload.issue as
     | { number: number; pull_request?: unknown }
@@ -537,7 +583,7 @@ export async function handleIssueComment(
 export async function handlePullRequestReview(
   payload: Record<string, unknown>,
   workspaceId: string,
-  _integrationId: string
+  _integrationId: string | null
 ): Promise<void> {
   const prRef = payload.pull_request as { number: number } | undefined
   if (!prRef) return
@@ -559,7 +605,7 @@ export async function handlePullRequestReview(
 export async function handlePullRequestReviewComment(
   payload: Record<string, unknown>,
   workspaceId: string,
-  _integrationId: string
+  _integrationId: string | null
 ): Promise<void> {
   const prRef = payload.pull_request as { number: number } | undefined
   if (!prRef) return

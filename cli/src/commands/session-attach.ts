@@ -16,6 +16,8 @@ interface BoundResponse {
   memorySection: string
   /** Dependency blocker warning (LUM-172). Absent on older servers. */
   blockerWarningSection?: string
+  /** Undispositioned security findings (LUM-737). Absent on older servers. */
+  securityFindingsSection?: string
   /** Acceptance contract (or draft nudge); absent on older servers. */
   criteriaSection?: string
   /** Absent on older servers — the block is simply omitted (LUM-686). */
@@ -48,7 +50,7 @@ interface StewardBoundResponse {
  * a different binding requires a brand-new Claude Code session.
  *
  * A STEWARD session plans and accepts only: task create/update, criteria
- * set, deps confirm/dismiss, verdict --fail, milestone add/remove and all
+ * set, deps confirm/dismiss, milestone add/remove and all
  * reads pass; `lumo verify` and self-dispatch are refused with 409, and
  * implementation artifacts (commits/PRs) are recorded as boundary crossings.
  */
@@ -179,6 +181,12 @@ export async function sessionAttach(
   if (body.blockerWarningSection) {
     console.log('')
     console.log(sanitizeField(body.blockerWarningSection))
+  }
+  // LUM-737: security findings next — same slot as the hook envelope (after
+  // the blocker, before the contract).
+  if (body.securityFindingsSection) {
+    console.log('')
+    console.log(sanitizeField(body.securityFindingsSection))
   }
   // Contract next: it's what the upcoming work is judged against (LUM-342).
   if (body.criteriaSection) {
@@ -311,7 +319,7 @@ async function stewardAttach(args: {
   console.log('')
   console.log('Governance role — plan & accept only (lifetime lock):')
   console.log(
-    '  allowed: task create/update · criteria set (incl. --human) · deps confirm/dismiss · verdict --fail · milestone add/remove · all reads'
+    '  allowed: task create/update · criteria set (incl. --human) · deps confirm/dismiss · milestone add/remove · all reads'
   )
   console.log(
     '  blocked: lumo verify (409, no round burned) · moving a task to in_progress assigned to yourself · attaching a task'

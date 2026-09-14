@@ -1,6 +1,11 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import {
+  emitConfirmation,
+  isConfirmed,
+  type ConfirmFlags,
+} from '../lib/confirmation'
 
 interface ResolveResponse {
   id: string
@@ -362,25 +367,38 @@ export async function taskDepsDismiss(
   )
 }
 
-/** `lumo task deps rm <LUM-N> <edge> --yes` */
+/** The changes[] block for the `task deps rm` confirmation envelope. */
+export function describeDepsRm(identifier: string, edge: DepEdge): string[] {
+  const dir = edge.direction === 'BLOCKED_BY' ? 'blocked by' : 'blocks'
+  return [
+    sanitizeField(
+      `Will delete dependency edge [${shortId(edge.id)}] from ${identifier}: ${dir} ${edge.other.identifier} "${edge.other.title}" (${edge.status}, ${edge.source})`
+    ),
+    'The edge row is hard-deleted; both tasks are otherwise untouched',
+  ]
+}
+
+/** `lumo task deps rm <LUM-N> <edge> --confirm` */
 export async function taskDepsRm(
   identifier: string | undefined,
   selector: string | undefined,
-  opts: { yes?: boolean }
+  opts: ConfirmFlags
 ): Promise<number | void> {
   if (!identifier || !selector) {
-    console.error('Error: usage: lumo task deps rm <LUM-42> <edge> --yes')
-    return 1
-  }
-  if (!opts.yes) {
-    console.error(
-      'Error: refusing to delete without --yes. Re-run with --yes to confirm.'
-    )
+    console.error('Error: usage: lumo task deps rm <LUM-42> <edge> --confirm')
     return 1
   }
   const resolved = await resolveTaskAndEdge(identifier, selector)
   if (typeof resolved === 'number') return resolved
   const { ctx, task, edge } = resolved
+  // LUM-755: the edge is resolved first so the envelope can say exactly
+  // which row would go; without --confirm nothing is sent.
+  if (!isConfirmed(opts)) {
+    return emitConfirmation({
+      command: 'task deps rm',
+      changes: describeDepsRm(task.identifier, edge),
+    })
+  }
   const res = await depsFetch(
     ctx,
     `/api/tasks/${encodeURIComponent(task.id)}/dependencies/${encodeURIComponent(edge.id)}`,

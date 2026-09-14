@@ -2,7 +2,8 @@
  * @jest-environment node
  *
  * LUM-587 — guards the consolidation of LLM model ids into lib/ai/models.ts and
- * the Sonnet 4.5→4.6 / Opus 4.7→4.8 upgrade.
+ * the Sonnet 4.5→4.6 / Opus 4.7→4.8 upgrade; LUM-748 moved the last two
+ * Anthropic tiers (CONTENT, POLICY_COMPILER) onto zai/glm-5.2.
  *
  * Two id spaces exist and must not be confused:
  *  - Gateway format (provider-prefixed, e.g. `anthropic/claude-sonnet-4.6`) —
@@ -97,9 +98,27 @@ test('models module exposes upgraded reasoning and content model ids', () => {
   // 桶1 VERIFIER swapped Sonnet 4.6 → GPT-5.5 (LUM-588 A/B gate explicitly
   // WAIVED by the user; catalog-resolve probe only). Gateway format, version dot.
   expect(REASONING_MODEL).toBe('openai/gpt-5.5')
-  // 桶3 (LUM-592): content generation dropped Opus + the native SDK; now Sonnet
-  // via the gateway → provider-prefixed.
-  expect(CONTENT_MODEL).toBe('anthropic/claude-sonnet-4.6')
+  // 桶3 (LUM-592 → LUM-748): content generation dropped Opus + the native SDK
+  // for Sonnet via the gateway, then Sonnet → GLM-5.2 (gate WAIVED by the user).
+  expect(CONTENT_MODEL).toBe('zai/glm-5.2')
+})
+
+test('content and policy-compiler tiers repointed to zai/glm-5.2', () => {
+  // LUM-748: the last two Anthropic gateway call sites (桶3 CONTENT, 桶5
+  // POLICY_COMPILER) moved to GLM-5.2 (not 5.3 — see the registry comment on
+  // its whitespace-loop degeneration). Gateway format, version dot — the
+  // catalog has `zai/glm-5.2`, NOT `zai/glm-5-2`.
+  expect(CONTENT_MODEL).toBe('zai/glm-5.2')
+  expect(POLICY_COMPILER_MODEL).toBe('zai/glm-5.2')
+
+  // No provider-prefixed Anthropic id may remain in the registry; the ids the
+  // registry exports are the single source of truth for every call site.
+  const registry = readFileSync(join(LIB_DIR, 'ai/models.ts'), 'utf8')
+  const exportedIds = [
+    ...registry.matchAll(/export const \w+_MODEL = '([^']+)'/g),
+  ].flatMap(m => (m[1] ? [m[1]] : []))
+  expect(exportedIds.length).toBeGreaterThan(0)
+  expect(exportedIds.filter(id => id.startsWith('anthropic/'))).toEqual([])
 })
 
 test('lib runtime has no inline gateway claude model literals', () => {
@@ -113,9 +132,11 @@ test('lib runtime has no inline gateway claude model literals', () => {
 })
 
 test('session summary content routes through the gateway, native anthropic sdk removed', () => {
-  // 桶3 (LUM-592): content generation moved to the gateway → provider-prefixed,
-  // and the native @anthropic-ai/sdk exception is gone.
-  expect(CONTENT_MODEL.startsWith('anthropic/')).toBe(true)
+  // 桶3 (LUM-592): content generation moved to the gateway → provider-prefixed
+  // (`<provider>/<model>`), and the native @anthropic-ai/sdk exception is gone.
+  // LUM-748 moved the provider off Anthropic; the invariant is "gateway
+  // format", not "anthropic".
+  expect(CONTENT_MODEL).toMatch(/^[a-z0-9-]+\/[a-z0-9.-]+$/)
 
   const templates = readFileSync(
     join(LIB_DIR, 'services/session-summary/templates.ts'),
@@ -194,10 +215,11 @@ test('generation tier repointed to deepseek-v4-pro', () => {
   }
 })
 
-test('policy-compiler tier pinned to opus, sourced from the registry', () => {
-  // 桶5 POLICY_COMPILER (LUM-590) — the per-project rule compiler rides Opus 4.8
-  // via the gateway → provider-prefixed, version dot (not dash).
-  expect(POLICY_COMPILER_MODEL).toBe('anthropic/claude-opus-4.8')
+test('policy-compiler tier pinned to glm-5.2, sourced from the registry', () => {
+  // 桶5 POLICY_COMPILER (LUM-590) — the per-project rule compiler rode Opus 4.8,
+  // now GLM-5.2 (LUM-748), via the gateway → provider-prefixed, version dot
+  // (not dash).
+  expect(POLICY_COMPILER_MODEL).toBe('zai/glm-5.2')
 
   const src = readFileSync(
     join(LIB_DIR, 'llm/policy-compiler-client.ts'),

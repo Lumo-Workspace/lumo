@@ -91,6 +91,22 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT',
         defaultMessage: 'implementation artifact from a steward session',
       })
+    // LUM-736 L4 Session Guard
+    case 'SENSITIVE_PATH_EDIT':
+      return intl.formatMessage({
+        id: 'boundary.category.SENSITIVE_PATH_EDIT',
+        defaultMessage: 'edited a sensitive path',
+      })
+    case 'HOOK_BYPASS':
+      return intl.formatMessage({
+        id: 'boundary.category.HOOK_BYPASS',
+        defaultMessage: 'bypassed git hooks',
+      })
+    case 'TEST_FILE_DELETED':
+      return intl.formatMessage({
+        id: 'boundary.category.TEST_FILE_DELETED',
+        defaultMessage: 'deleted a test file',
+      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
   }
@@ -120,9 +136,17 @@ export function boundarySeverityLabel(
   }
 }
 
-/** Label for a disposition (LUM-435; AUTO_LEGIT added LUM-478). */
+/** Every disposition the read model can surface (LUM-435; AUTO_LEGIT LUM-478;
+ *  AUTO_SUPPRESSED LUM-751). */
+export type BoundaryDispositionValue =
+  | 'FALSE_POSITIVE'
+  | 'CONFIRMED'
+  | 'AUTO_LEGIT'
+  | 'AUTO_SUPPRESSED'
+
+/** Label for a disposition (LUM-435; AUTO_LEGIT added LUM-478; AUTO_SUPPRESSED LUM-751). */
 export function boundaryDispositionLabel(
-  disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT',
+  disposition: BoundaryDispositionValue,
   intl: ReturnType<typeof useIntl>
 ): string {
   if (disposition === 'FALSE_POSITIVE')
@@ -134,6 +158,11 @@ export function boundaryDispositionLabel(
     return intl.formatMessage({
       id: 'boundary.disposition.autoLegit',
       defaultMessage: 'auto-resolved (legit)',
+    })
+  if (disposition === 'AUTO_SUPPRESSED')
+    return intl.formatMessage({
+      id: 'boundary.disposition.autoSuppressed',
+      defaultMessage: 'auto-dispositioned by rule',
     })
   return intl.formatMessage({
     id: 'boundary.disposition.confirmed',
@@ -147,7 +176,7 @@ export function boundaryDispositionLabel(
  * disposition "corrected from -> to" line and the timeline change marker.
  */
 export function boundaryDispositionOrOpenLabel(
-  disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'AUTO_LEGIT' | null,
+  disposition: BoundaryDispositionValue | null,
   intl: ReturnType<typeof useIntl>
 ): string {
   return disposition === null

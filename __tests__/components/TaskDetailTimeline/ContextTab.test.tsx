@@ -25,9 +25,13 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useWebLinks', () => ({
 jest.mock('@/app/workspace/[workspaceUrl]/components/LinkPrPopover', () => ({
   LinkPrPopover: () => <div />,
 }))
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
+  useSecurityScans: () => ({ data: undefined, isLoading: false }),
+}))
 jest.mock('@/app/workspace/[workspaceUrl]/components/pr-helpers', () => ({
   PrStateBadge: () => <span />,
   CiIcon: () => <span />,
+  SecurityScanBadge: () => <span />,
 }))
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/SpecArtifactGroup',

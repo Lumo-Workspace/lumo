@@ -5,7 +5,11 @@
  * Verifies that the new categories PROJECT_RULE_VIOLATION and POLICY_WEAKENING
  * are properly localized and do NOT fall through to the raw default fallback.
  */
-import { boundaryCategoryLabel } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/boundary-format'
+import {
+  boundaryCategoryLabel,
+  boundaryDispositionLabel,
+  boundaryDispositionOrOpenLabel,
+} from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/boundary-format'
 import type { useIntl } from 'react-intl'
 
 /** Minimal intl stub that records which message id was requested. */
@@ -39,6 +43,21 @@ test('boundaryCategoryLabel returns localized label for POLICY_WEAKENING (not ra
   expect(label).toBe('weakened a blocking policy rule')
 })
 
+// LUM-736: the three L4 Session Guard categories must not fall through to the
+// raw-enum default either.
+test.each([
+  ['SENSITIVE_PATH_EDIT', 'sensitive path edit', 'edited a sensitive path'],
+  ['HOOK_BYPASS', 'hook bypass', 'bypassed git hooks'],
+  ['TEST_FILE_DELETED', 'test file deleted', 'deleted a test file'],
+])(
+  'boundaryCategoryLabel returns localized label for %s (not raw default)',
+  (category, rawDefault, expected) => {
+    const label = boundaryCategoryLabel(category, makeIntl())
+    expect(label).not.toBe(rawDefault)
+    expect(label).toBe(expected)
+  }
+)
+
 test('boundaryCategoryLabel still handles existing known categories', () => {
   const intl = makeIntl()
   expect(boundaryCategoryLabel('HARDCODED_SECRET', intl)).toBe(
@@ -53,5 +72,15 @@ test('boundaryCategoryLabel falls through to default for unknown categories', ()
   const intl = makeIntl()
   expect(boundaryCategoryLabel('SOME_NEW_UNKNOWN', intl)).toBe(
     'some new unknown'
+  )
+})
+
+test('LUM-751: boundaryDispositionLabel renders the rule-suppressed system disposition', () => {
+  const intl = makeIntl()
+  expect(boundaryDispositionLabel('AUTO_SUPPRESSED', intl)).toBe(
+    'auto-dispositioned by rule'
+  )
+  expect(boundaryDispositionOrOpenLabel('AUTO_SUPPRESSED', intl)).toBe(
+    'auto-dispositioned by rule'
   )
 })

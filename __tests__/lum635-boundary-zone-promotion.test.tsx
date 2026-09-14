@@ -300,6 +300,9 @@ it('single panel keeps open and dispositioned crossings with the defense-in-dept
   expect(panel.contains(screen.getByTestId('crossing-toggle-bc-open'))).toBe(
     true
   )
+  // LUM-496: the settled crossing sits in its own (collapsed) category group —
+  // still the SAME panel, one fold away.
+  fireEvent.click(screen.getByTestId('crossing-group-TEST_TAMPERING'))
   expect(panel.contains(screen.getByTestId('crossing-toggle-bc-done'))).toBe(
     true
   )

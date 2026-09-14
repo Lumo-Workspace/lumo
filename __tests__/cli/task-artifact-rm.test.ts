@@ -34,23 +34,15 @@ describe('taskArtifactRm', () => {
     expect(code).toBe(1)
   })
 
-  it('errors when --yes is not set', async () => {
-    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(noContent)
-    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    const code = await taskArtifactRm('LUM-9', 'a1', {})
-    expect(code).toBe(1)
-    expect(fetchSpy).not.toHaveBeenCalled()
-    expect(errSpy).toHaveBeenCalledWith(
-      expect.stringContaining('--yes is required')
-    )
-  })
+  // Without --confirm the command walks the confirmation protocol (exit 4 +
+  // envelope) — covered in confirmation-protocol.test.ts.
 
   it('DELETEs the single-artifact route on success', async () => {
     const writeSpy = jest
       .spyOn(process.stdout, 'write')
       .mockImplementation(() => true)
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(noContent)
-    const code = await taskArtifactRm('LUM-9', 'a1', { yes: true })
+    const code = await taskArtifactRm('LUM-9', 'a1', { confirm: true })
     expect(code).toBeUndefined()
     const [url, init] = fetchSpy.mock.calls[0]!
     expect(String(url)).toBe('https://api.test/api/tasks/LUM-9/artifacts/a1')
@@ -62,7 +54,7 @@ describe('taskArtifactRm', () => {
   it('returns 1 and prints the server message on 404', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue(notFound)
     const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
-    const code = await taskArtifactRm('LUM-9', 'a-x', { yes: true })
+    const code = await taskArtifactRm('LUM-9', 'a-x', { confirm: true })
     expect(code).toBe(1)
     expect(errSpy).toHaveBeenCalledWith(
       expect.stringContaining('Artifact not found')

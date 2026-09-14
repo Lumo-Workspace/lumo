@@ -52,6 +52,23 @@ function tail(s: string, max: number): string {
 }
 
 /**
+ * The environment a checkpointer runs in: the CLI's own, minus the flags the
+ * CLI folds into process.env for itself. `--no-hints` becomes
+ * `LUMO_NO_HINTS=1` (see index.ts preAction) and would otherwise be inherited
+ * by e.g. a jest suite that covers the hints block, failing it for a reason
+ * unrelated to the criterion (LUM-752).
+ */
+const CLI_ONLY_ENV = ['LUMO_NO_HINTS'] as const
+
+export function checkpointerEnv(
+  base: NodeJS.ProcessEnv = process.env
+): NodeJS.ProcessEnv {
+  const env = { ...base }
+  for (const k of CLI_ONLY_ENV) delete env[k]
+  return env
+}
+
+/**
  * Execute one MACHINE checkpointer in the local repo (runs client-side — the
  * server can't run repo tests) and fold the result into a structured verdict.
  * Exit 0 = PASS with a `cmd:` evidence pointer; non-zero = CRITERION_UNMET;
@@ -68,6 +85,7 @@ export function runCheckpointer(
     timeout: timeoutMs,
     maxBuffer: MAX_OUTPUT_BUFFER,
     cwd: process.cwd(),
+    env: checkpointerEnv(),
   })
 
   if (r.error) {
@@ -216,21 +234,12 @@ export async function verify(
     return
   }
 
-  // ── Require the self-report (LUM-597) ────────────────────────────────────
-  // Requesting acceptance is a structured action; `--note` is the agent's
-  // mandatory self-report. It is captured deterministically here (the agent
-  // can't be made to phrase it well, but it can be made to provide one); its
-  // truthfulness is the faithfulness audit's job downstream. No note → no round
-  // is posted (no round burned), so re-running with one is free.
-  const note = options.note?.trim()
-  if (!note) {
-    console.error(
-      'Error: --note is required — state what you did and why it is ready, e.g.\n' +
-        `  lumo verify ${taskId} --note "implemented X in foo.ts because Y; tests + tsc pass"\n` +
-        'This self-report is recorded as your claim and checked against the diff for faithfulness.'
-    )
-    return 1
-  }
+  // ── Optional self-report (LUM-733) ───────────────────────────────────────
+  // `--note` is the agent's one-line self-report. When given it rides with the
+  // round and is frozen as the task's claim (source AGENT) on IN_REVIEW; when
+  // omitted the round still posts and the claim degrades to the synthesized
+  // run summary. It is never a precondition for verifying.
+  const note = options.note?.trim() || undefined
 
   // ── Execute every checkpointer locally ───────────────────────────────────
   process.stdout.write(

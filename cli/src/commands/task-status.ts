@@ -3,6 +3,13 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
 import {
+  externalFailureReason,
+  SCAN_STAGE_KEYS,
+  scanStageLabel,
+  scanStageStateLabel,
+  secretDowngradeNote,
+} from '../../../shared/src/security-scan'
+import {
   fetchOpenCrossings,
   dispositionUrl,
   type OpenCrossingsResult,
@@ -16,15 +23,22 @@ import {
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
   json?: boolean
+  /** LUM-733: also print the dashboard sections (verification rollup,
+   *  history, cost, struggle/rework trail, trend). Off by default — the agent
+   *  self-check is the criteria, the next actions (including undispositioned
+   *  security findings, LUM-737), and any open crossings. */
+  full?: boolean
 }
 
 /** Extra render inputs layered onto the status read model (LUM-448): the task's
- *  OPEN boundary-crossings read result + the human-only web disposition link.
+ *  OPEN boundary-crossings read result + the web disposition panel link.
  *  The result carries an explicit failure state (LUM-480) so a failed check
  *  renders a warning instead of an implicitly-safe empty block. Absent
  *  (`undefined`) means no read was attempted — e.g. a direct `formatTaskStatus`
  *  call in a unit test — and the block is skipped entirely. */
 export interface TaskStatusExtras {
+  /** LUM-733: render the dashboard sections too (see TaskStatusOptions.full). */
+  full?: boolean
   openCrossings?: OpenCrossingsResult
   dispositionUrl?: string
   /** The repo's https web base (e.g. https://github.com/owner/repo), resolved
@@ -191,22 +205,246 @@ export interface TaskStatusResponse {
     rejectionReason: string | null
     rejectionReasonEnum: string | null
   }>
-  nextActions: Array<{
-    criterionId: string
-    statement: string
-    verifierType: 'MACHINE' | 'HUMAN'
-    checkpointer: string | null
-    judgeSteps: string | null
-    source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
-    addedAtRound: number
-    rejectionReason: string | null
-  }>
+  /** LUM-737: `kind` discriminates; absent (older server) = CRITERION. */
+  nextActions: Array<
+    | {
+        kind?: 'CRITERION'
+        criterionId: string
+        statement: string
+        verifierType: 'MACHINE' | 'HUMAN'
+        checkpointer: string | null
+        judgeSteps: string | null
+        source: 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
+        addedAtRound: number
+        rejectionReason: string | null
+      }
+    | {
+        kind: 'SECURITY_FINDING'
+        findingId: string
+        statement: string
+        severity: 'LOW' | 'MEDIUM' | 'HIGH'
+        provenance: 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
+        blocking: boolean
+        prNumber: number
+        ruleId: string
+        filePath: string
+        line: number | null
+        /** LUM-758 follow-up: why a secret row is LOW. Absent on an older server. */
+        secretDowngrade?: string | null
+      }
+  >
+  /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
+   *  confirm); optional so a new CLI tolerates an older server. */
+  securityFindings?: {
+    open: number
+    blocking: number
+    unconfirmedPrs: Array<{
+      number: number
+      reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING'
+    }>
+    /** LUM-735 — one entry per linked PR with a latest scan (open or closed
+     *  PRs alike). Optional/absent on an older server — additive field. */
+    scans?: Array<{
+      prNumber: number
+      status: 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
+      stages: Partial<
+        Record<
+          'secrets' | 'external' | 'supplyChain' | 'judge' | 'hunt',
+          string
+        >
+      >
+      partial: boolean
+      error: string | null
+      externalFindings: number
+      openFindings: number
+      /** LUM-738 — optional: absent on an older server. */
+      dependencyFindings?: number
+      persistingFindings?: number
+      /** LUM-762 — per-task L3 hunt coverage read off `huntAudit`.
+       *  Absent on an older server, null when the scan stored no usable
+       *  audit (a pre-LUM-739 row, or a hunt that failed before its first
+       *  batch). LUM-758: a row is one PLANNED TASK, so `taskId` is what
+       *  tells two rows of the same category apart — absent on pre-task-graph
+       *  audits and on an older server. */
+      hunt?: {
+        total: number
+        done: number
+        categories: Array<{
+          taskId?: string
+          objective?: string
+          category: string
+          stopped: string
+          elapsedMs: number
+          tokens: number
+          candidates: number
+          attempts: number
+        }>
+      } | null
+    }>
+  } | null
 }
 
 const REASON_TAIL = 400
 
 function tail(s: string, max: number): string {
   return s.length > max ? `…${s.slice(-max)}` : s
+}
+
+type NextActionItem = TaskStatusResponse['nextActions'][number]
+type CriterionAction = Extract<NextActionItem, { criterionId: string }>
+type SecurityAction = Extract<NextActionItem, { kind: 'SECURITY_FINDING' }>
+
+/** A missing `kind` is an older server's criterion entry (LUM-737 additive rule). */
+function isSecurityAction(a: NextActionItem): a is SecurityAction {
+  return a.kind === 'SECURITY_FINDING'
+}
+function splitNextActions(actions: NextActionItem[]): {
+  criteria: CriterionAction[]
+  security: SecurityAction[]
+} {
+  const criteria: CriterionAction[] = []
+  const security: SecurityAction[] = []
+  for (const a of actions) {
+    if (isSecurityAction(a)) security.push(a)
+    else criteria.push(a)
+  }
+  return { criteria, security }
+}
+
+/** Same line grammar as the session-start / PreToolUse reminders. */
+function formatSecurityAction(a: SecurityAction): string {
+  const where = a.line == null ? a.filePath : `${a.filePath}:${a.line}`
+  const title = sanitizeField(a.statement.split(' — ').slice(1).join(' — '))
+  const tag = a.blocking ? 'blocks DONE' : 'advisory'
+  // LUM-758 follow-up: a downgraded row is still reported on purpose, so the
+  // line has to say WHY it is LOW — otherwise a placeholder the scanner already
+  // recognised reads as an unexplained credential.
+  const note = sanitizeField(secretDowngradeNote(a.secretDowngrade))
+  return `[${a.severity}] ${a.provenance} ${sanitizeField(a.ruleId)} — ${sanitizeField(where)} — ${title} (PR #${a.prNumber} · ${tag}${note})`
+}
+
+const SECURITY_HINT =
+  'Fix the findings and push (a fixed finding disappears on the next scan), or ask a human to disposition them in the web delivery panel — disposition is human-only, you cannot disposition them yourself, and a blocking finding refuses DONE with 409.'
+
+/** Render the `[SECURITY]` next-action lines (LUM-737 review): shared by the
+ *  criteria-present Next actions block and the zero-criteria early return so
+ *  undispositioned findings render identically either way. */
+function pushSecurityActions(
+  lines: string[],
+  securityActions: SecurityAction[]
+): void {
+  for (const a of securityActions) {
+    lines.push(`  • [SECURITY] ${formatSecurityAction(a)}`)
+  }
+}
+
+/** Fail-closed security coverage lines (LUM-737): a failed read and every
+ *  open PR without a successful scan are stated, never left silent. */
+const EXTERNAL_ERROR_TAIL = 200
+const SCAN_STAGE_ORDER = SCAN_STAGE_KEYS
+
+type ScanSummary = NonNullable<
+  NonNullable<TaskStatusResponse['securityFindings']>['scans']
+>[number]
+
+/** LUM-735 — one line per linked PR's latest scan: `PR #945 · scan CLEAN ·
+ *  Secrets: checked · Code scan: checked (2 external findings) ·
+ *  Dependencies: checked (1 dependency finding, 1 already on main) ·
+ *  AI review: checked · Exploit paths: checked`.
+ *  Stage segments only for keys present, in
+ *  secrets/external/supplyChain/judge/hunt order (LUM-739 added the hunt
+ *  layer); the `(N external findings)` count only decorates the Code scan
+ *  segment, the dependency count (LUM-738, with its already-on-main share)
+ *  only the Dependencies segment, and each only when N > 0.
+ *  LUM-763: the stage keys are internal — what prints is the display label
+ *  from `shared/src/security-scan.ts`, the same map the GitHub PR summary
+ *  and the web panel render from. */
+function formatScanSummaryLine(s: ScanSummary): string {
+  const segments: string[] = []
+  for (const key of SCAN_STAGE_ORDER) {
+    const state = s.stages[key]
+    if (!state) continue
+    const head = `${scanStageLabel(key)}: ${scanStageStateLabel(state)}`
+    if (key === 'external' && s.externalFindings > 0) {
+      const noun = s.externalFindings === 1 ? 'finding' : 'findings'
+      segments.push(`${head} (${s.externalFindings} external ${noun})`)
+    } else if (key === 'supplyChain' && (s.dependencyFindings ?? 0) > 0) {
+      const n = s.dependencyFindings ?? 0
+      const noun = n === 1 ? 'finding' : 'findings'
+      const persisting = s.persistingFindings ?? 0
+      const tail = persisting > 0 ? `, ${persisting} already on main` : ''
+      segments.push(`${head} (${n} dependency ${noun}${tail})`)
+    } else {
+      segments.push(head)
+    }
+  }
+  let line = `  PR #${s.prNumber} · scan ${s.status}`
+  if (segments.length > 0) line += ` · ${segments.join(' · ')}`
+  if (s.partial) line += ' · partial'
+  // LUM-756 (P8): `error` has two writers — only the prefixed, scrubbed
+  // scanner reason may be printed, and only the text after the prefix. Stage
+  // A's raw crash text carries no prefix and is never shown here (same rule
+  // as the web panel and the PR summary).
+  const reason =
+    s.stages.external === 'FAILED' ? externalFailureReason(s.error) : null
+  if (reason) {
+    line += ` — ${sanitizeField(tail(reason, EXTERNAL_ERROR_TAIL))}`
+  }
+  return line
+}
+
+/**
+ * LUM-762 — the hunt's per-task read-out, one indented line under its scan:
+ * `Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done
+ * (2 attempts) · t3 race skipped`. Headed by the same display label as the
+ * layer's own segment (LUM-763) — the detail line and the line above it
+ * must not name the layer two different ways. This is the only place the stored `huntAudit` surfaces, so
+ * it is what answers "how long does a healthy batch take" and "which ones
+ * never ran" (`skipped`) without paging through deploy logs. Elapsed time is
+ * summed over a task's attempts; a skipped task has none to print.
+ *
+ * LUM-758: a plan may hold two tasks of the same category, so the row is led
+ * by its task id. Pre-task-graph audits carry no id — the row then prints
+ * exactly as it always did.
+ */
+function formatHuntCoverageLine(
+  hunt: NonNullable<ScanSummary['hunt']>
+): string {
+  const parts = hunt.categories.map(c => {
+    const attempts = c.attempts > 1 ? ` (${c.attempts} attempts)` : ''
+    const spent =
+      c.stopped === 'skipped' ? '' : `${(c.elapsedMs / 1000).toFixed(1)}s `
+    const id = c.taskId === undefined ? '' : `${c.taskId} `
+    return `${id}${c.category} ${spent}${c.stopped}${attempts}`
+  })
+  return `    ${scanStageLabel('hunt')} ${hunt.done}/${hunt.total} done · ${parts.join(' · ')}`
+}
+
+function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
+  if (data.securityFindings === undefined) return // older server
+  if (data.securityFindings === null) {
+    lines.push(
+      '⚠ Security-scan check failed — could not confirm whether any findings are undispositioned.'
+    )
+    return
+  }
+  // LUM-735: absent `scans` = older server; tolerate silently, no block.
+  for (const s of data.securityFindings.scans ?? []) {
+    lines.push(formatScanSummaryLine(s))
+    // LUM-762: absent/null = older server or no usable audit — stay silent.
+    if (s.hunt && s.hunt.categories.length > 0) {
+      lines.push(formatHuntCoverageLine(s.hunt))
+    }
+  }
+  for (const u of data.securityFindings.unconfirmedPrs) {
+    const why =
+      u.reason === 'NONE'
+        ? 'no security scan has run'
+        : u.reason === 'FAILED'
+          ? 'security scan FAILED'
+          : `security scan still ${u.reason}`
+    lines.push(`⚠ PR #${u.number}: ${why} — could not confirm it is clean.`)
+  }
 }
 
 /**
@@ -233,25 +471,43 @@ export function formatTaskStatus(
     )
   }
 
+  // LUM-737 (whole-branch review): split once, up front, so both the
+  // zero-criteria early return below and the --full rollup can render/count
+  // undispositioned security findings without either dropping them or
+  // subtracting them from the criteria-met arithmetic.
+  const { criteria: unmetCriteria, security: securityActions } =
+    splitNextActions(data.nextActions)
+
   if (data.criteria.length === 0) {
     lines.push('')
     lines.push(
-      `No acceptance criteria on ${t.identifier} — draft 3–7 and submit with lumo task criteria set ${t.identifier} --file <criteria.json>`
+      `No acceptance criteria on ${t.identifier} — draft them and submit with lumo task criteria set ${t.identifier} --file <criteria.json>`
     )
+    if (securityActions.length > 0) {
+      lines.push('')
+      lines.push(
+        `Next actions (0 unmet · ${securityActions.length} security finding${securityActions.length === 1 ? '' : 's'}):`
+      )
+      pushSecurityActions(lines, securityActions)
+      lines.push(SECURITY_HINT)
+    }
+    pushSecurityCoverage(lines, data)
     pushOpenCrossings(lines, extras)
     return lines.join('\n') + '\n'
   }
 
-  // LUM-564 声称 vs 核验: the agent's CLAIM (what it says it did) paired with
-  // the measured verification conclusion (what was actually confirmed) — the
-  // two columns regular 規律2 wants, instead of only the verification one. The
-  // machine-verification rollup (LUM-470) lives on the verification side here
-  // rather than as a standalone line, so the contrast is in one place.
-  pushClaimVsVerification(lines, data)
+  // LUM-733: the default report is the agent's self-check — criteria, next
+  // actions (including undispositioned security findings, LUM-737), and any
+  // open crossings. The dashboard sections (verification rollup, history,
+  // cost, struggle trail, trend) are human-dashboard material and cost
+  // context, so they only render under --full. The claim / faithfulness
+  // columns are no longer rendered in the terminal at all (the judge still
+  // runs server-side; --json carries its fields).
+  if (extras.full) pushVerificationRollup(lines, unmetCriteria.length, data)
 
   lines.push('')
   lines.push(
-    `Criteria (${data.criteria.length} total, ${data.nextActions.length} unmet):`
+    `Criteria (${data.criteria.length} total, ${unmetCriteria.length} unmet):`
   )
   for (const c of data.criteria) {
     const glyph =
@@ -334,7 +590,7 @@ export function formatTaskStatus(
     }
   }
 
-  if (data.verificationHistory.length > 0) {
+  if (extras.full && data.verificationHistory.length > 0) {
     lines.push('')
     lines.push('History:')
     for (const h of data.verificationHistory) {
@@ -357,21 +613,26 @@ export function formatTaskStatus(
     }
   }
 
-  pushCost(lines, data)
-
-  pushStruggleTrail(lines, data)
-  pushTrend(lines, data)
+  if (extras.full) {
+    pushCost(lines, data)
+    pushStruggleTrail(lines, data)
+    pushTrend(lines, data)
+  }
 
   lines.push('')
-  if (data.nextActions.length === 0) {
+  const securityLabel =
+    securityActions.length === 0
+      ? ''
+      : ` · ${securityActions.length} security finding${securityActions.length === 1 ? '' : 's'}`
+  if (unmetCriteria.length === 0 && securityActions.length === 0) {
     lines.push(
       data.currentRound > 0
         ? 'All criteria met by their latest verdicts — awaiting human adjudication.'
         : 'Nothing unmet — but no verification has run; run `lumo verify` to judge the contract.'
     )
   } else {
-    lines.push(`Next actions (${data.nextActions.length} unmet):`)
-    for (const a of data.nextActions) {
+    lines.push(`Next actions (${unmetCriteria.length} unmet${securityLabel}):`)
+    for (const a of unmetCriteria) {
       lines.push(`  • [${a.verifierType}] ${sanitizeField(a.statement)}`)
       if (a.checkpointer) {
         lines.push(`    check: ${sanitizeField(a.checkpointer)}`)
@@ -382,12 +643,12 @@ export function formatTaskStatus(
         )
       }
     }
+    // LUM-737: findings after the contract — constraints on DONE, not criteria.
+    pushSecurityActions(lines, securityActions)
     if (data.escalated) {
       lines.push('Wait for human direction before touching these.')
-    } else {
-      const hasMachine = data.nextActions.some(
-        a => a.verifierType === 'MACHINE'
-      )
+    } else if (unmetCriteria.length > 0) {
+      const hasMachine = unmetCriteria.some(a => a.verifierType === 'MACHINE')
       const left = data.maxRounds - data.currentRound
       lines.push(
         hasMachine
@@ -395,7 +656,9 @@ export function formatTaskStatus(
           : 'Remaining criteria are HUMAN-only — finish the work and hand off for human review.'
       )
     }
+    if (securityActions.length > 0) lines.push(SECURITY_HINT)
   }
+  pushSecurityCoverage(lines, data)
 
   pushOpenCrossings(lines, extras)
   return lines.join('\n') + '\n'
@@ -443,120 +706,34 @@ function fmtDuration(totalSec: number): string {
  * claim text is same-source with the web card (latest session's LLM run
  * summary, else its STOP turn digest) so the two surfaces cannot drift.
  */
-function pushClaimVsVerification(
+/**
+ * LUM-733: the measured verification rollup (--full only) — machine-verified
+ * vs human-override over the MACHINE criteria, and how many criteria are met.
+ * The former "Claim vs verification" pairing (claim text + faithfulness
+ * verdict) is no longer rendered in the terminal.
+ */
+function pushVerificationRollup(
   lines: string[],
+  unmetCriteriaCount: number,
   data: TaskStatusResponse
 ): void {
   lines.push('')
-  lines.push('Claim vs verification:')
-
-  // ── Claim (声称): the agent's self-report — estimate-tier, never measured.
-  lines.push('  ▸ Claim — what the agent says it did')
-  lines.push('    (agent self-report · estimated, not verification):')
-  const claim = data.claim
-  if (claim && claim.source === 'AGENT' && claim.text) {
-    // LUM-597: the agent's OWN self-report (attached to verify) — the
-    // authoritative claim faithfulness judges, not a summarizer paraphrase.
-    for (const cl of sanitizeField(claim.text).split('\n')) {
-      lines.push(`      ${cl}`)
-    }
-    lines.push('      ↳ source: agent self-report (verify --note)')
-  } else if (claim && claim.source === 'RUN_SUMMARY' && claim.text) {
-    for (const cl of sanitizeField(claim.text).split('\n')) {
-      lines.push(`      ${cl}`)
-    }
-    lines.push('      ↳ source: synthesized run summary (no self-report)')
-  } else if (claim && claim.source === 'DIGEST') {
-    // LUM-583 ③ / LUM-574: a raw turn digest is not a claim — withhold it and
-    // say the formal summary is still generating, same-source with the web card.
-    lines.push(
-      '      generating — the formal run summary is still being synthesized'
-    )
-  } else {
-    // Fail-closed: no run summary → say so, never invent a claim. Run summaries
-    // are synthesized when the bound task reaches DONE (LUM-481).
-    lines.push(
-      '      not generated yet — the agent run summary is synthesized when the task reaches DONE'
-    )
-  }
-
-  // ── Faithfulness (LUM-583): the third state — is the claim itself true? Read
-  // from the persisted LUM-582 verdict; PENDING (not yet judged) is distinct
-  // from UNJUDGEABLE (a real verdict), STALE keeps the verdict but flags a
-  // pending re-check. Skipped only when the server didn't emit it (older server).
-  pushFaithfulness(lines, data.faithfulness)
-
-  // ── Verification (核验): the measured verdict — machine-verified vs override.
-  lines.push('  ▸ Verification — what was actually confirmed (measured):')
+  lines.push('Verification:')
   const mv = data.machineVerification
   if (data.currentRound === 0) {
-    // Nothing verified yet — the claim stands unconfirmed. Don't imply a pass.
-    lines.push('      no verification has run yet — the claim is unconfirmed')
-  } else {
-    if (mv.total > 0) {
-      lines.push(
-        `      ${mv.machineVerified} machine-verified / ${mv.humanOverridden} human override (of ${mv.total} MACHINE criteria)`
-      )
-    }
-    const met = data.criteria.length - data.nextActions.length
+    lines.push('  no verification has run yet')
+    return
+  }
+  if (mv.total > 0) {
     lines.push(
-      `      ${met} of ${data.criteria.length} criteria met by their latest verdict`
+      `  ${mv.machineVerified} machine-verified / ${mv.humanOverridden} human override (of ${mv.total} MACHINE criteria)`
     )
   }
-}
-
-/**
- * Append the "Faithfulness" conclusion (LUM-583) — the third state over the
- * 声称/核验 columns: whether the agent's CLAIM is itself TRUE, judged
- * independently against the delivery (LUM-582). Same read model the web honest
- * report renders, so the two surfaces cannot drift. Fail-closed: PENDING (not
- * yet judged) reads distinctly from UNJUDGEABLE (a real verdict), and STALE
- * keeps the prior verdict while flagging a pending re-check. Skipped only when
- * the server didn't emit the field (older server) — never fabricated.
- */
-function pushFaithfulness(
-  lines: string[],
-  f: TaskStatusResponse['faithfulness']
-): void {
-  if (!f) return // older server: field absent → don't fabricate a conclusion.
-  const verdictPhrase = (
-    v: 'FAITHFUL' | 'UNDERREPORT' | 'OVERSTATED' | 'UNJUDGEABLE'
-  ): string => {
-    switch (v) {
-      case 'FAITHFUL':
-        return 'faithful — the claim matches the delivery'
-      case 'OVERSTATED':
-        return 'overstated — the claim says more than the diff/PR shows'
-      case 'UNDERREPORT':
-        return 'under-reported — the claim says less than the diff/PR shows'
-      default:
-        return "unjudgeable — couldn't decide from the diff/PR"
-    }
-  }
-  let body: string
-  if (f.state === 'PENDING') {
-    body =
-      'not yet judged — the faithfulness check runs in a batch after delivery'
-  } else if (f.state === 'STALE') {
-    body = `${f.verdict ? verdictPhrase(f.verdict) : 'judged'} (stale — re-checked on the next batch)`
-  } else {
-    body = verdictPhrase(f.state)
-  }
-  const ev: string[] = []
-  if (f.prNumbers.length > 0) {
-    ev.push(`PR ${f.prNumbers.map(n => `#${n}`).join(', ')}`)
-  }
-  if (f.diffShas.length > 0) {
-    ev.push(
-      f.diffShas
-        .slice(0, 3)
-        .map(s => sanitizeField(s).slice(0, 7))
-        .join(' ')
-    )
-  }
-  lines.push('  ▸ Faithfulness — does the claim match the delivery (LUM-583):')
+  // LUM-737 (whole-branch review): `unmetCriteriaCount` excludes SECURITY_FINDING
+  // next actions — met/unmet counts criteria only, never security findings.
+  const met = data.criteria.length - unmetCriteriaCount
   lines.push(
-    `      ${body}${ev.length > 0 ? ` · evidence: ${ev.join(' · ')}` : ''}`
+    `  ${met} of ${data.criteria.length} criteria met by their latest verdict`
   )
 }
 
@@ -817,7 +994,9 @@ function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
     lines.push(`  • [${c.severity}] ${sanitizeField(c.category)}${tail}`)
     lines.push(`    ${formatAttribution(c.attribution)}`)
   }
-  lines.push('  Disposition is human-only in the web acceptance panel:')
+  lines.push(
+    "  Disposition is the user's call: relay each crossing, then `lumo crossing disposition <id> --false-positive | --confirmed` (exit-4 envelope; never self-approve), or the web acceptance panel:"
+  )
   if (extras.dispositionUrl) {
     lines.push(`    ${extras.dispositionUrl}`)
   }
@@ -921,6 +1100,7 @@ export async function taskStatus(
   }
   process.stdout.write(
     formatTaskStatus(data, {
+      full: options.full === true,
       openCrossings: crossingsResult,
       dispositionUrl: dispositionUrl(
         base,

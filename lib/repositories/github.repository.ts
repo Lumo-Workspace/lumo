@@ -14,7 +14,8 @@ export interface UpsertIntegrationData {
 export interface UpsertPullRequestData {
   workspaceId: string
   taskId: string | null
-  integrationId: string
+  /** null when the PR reached us over the App webhook rather than an OAuth repo hook. */
+  integrationId: string | null
   repo: string
   number: number
   title: string

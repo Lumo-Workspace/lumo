@@ -2,8 +2,30 @@ import { updateTask } from '@/lib/services/task-state.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 
 // updateTask's own deps — mocked so the test isolates the LUM-422 ④ DONE gate.
+// LUM-732: the DONE gate now consults the PR security scan. Defaults to "no
+// linked PR" so the real gate short-circuits before touching the scan
+// repository for every test except the dedicated security-gate block below.
+// LUM-740: the workspace policy read behind every "blocking" decision;
+// null = the 732 default these expectations were written against.
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findSecurityPolicy: jest.fn().mockResolvedValue(null),
+  },
+}))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {
+    findManyForSecurityByTaskId: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+  prSecurityScanRepository: {
+    findLatestByPullRequestIds: jest.fn(),
+  },
+}))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findForUpdate: jest.fn(), update: jest.fn() },
 }))
@@ -43,6 +65,10 @@ const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
 const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
 const listCriteria = acceptanceCriterionRepository.listByTask as jest.Mock
+const findSecurityPrs =
+  pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
+const findLatestScans =
+  prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
 
 const TASK = {
   id: 't-1',
@@ -67,6 +93,8 @@ beforeEach(() => {
   listCriteria.mockResolvedValue([
     { id: 'c-1', statement: 'the retry path is covered' },
   ])
+  findSecurityPrs.mockResolvedValue([])
+  findLatestScans.mockResolvedValue([])
 })
 
 const failMap = () =>
@@ -138,5 +166,113 @@ describe('LUM-422 ④ DONE gate', () => {
       updateTask('t-1', { status: 'IN_REVIEW' })
     ).resolves.toBeDefined()
     expect(latestRuns).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-732 DONE gate — PR security findings (end-to-end through updateTask)', () => {
+  it('refuses DONE with 409 while a linked PR has an undispositioned deterministic HIGH finding', async () => {
+    findSecurityPrs.mockResolvedValue([
+      { id: 'pr1', number: 1, title: 'x', url: 'u', state: 'open' },
+    ])
+    findLatestScans.mockResolvedValue([
+      {
+        id: 's1',
+        pullRequestId: 'pr1',
+        taskId: 't-1',
+        workspaceId: 'w-1',
+        headSha: 'a',
+        status: 'FINDINGS',
+        trigger: 'PR_EVENT',
+        judgeStatus: 'RAN',
+        truncated: false,
+        detectorVersion: 'v1',
+        error: null,
+        startedAt: new Date(1000),
+        finishedAt: null,
+        findings: [
+          {
+            id: 'f1',
+            scanId: 's1',
+            kind: 'SECRET',
+            ruleId: 'secret:aws-access-key-id',
+            severity: 'HIGH',
+            provenance: 'DETERMINISTIC',
+            filePath: 'src/cfg.ts',
+            line: 1,
+            title: 't',
+            detail: 'd',
+            evidence: 'e',
+            fingerprint: 'fp',
+            externalRef: null,
+            disposition: null,
+            dispositionNote: null,
+            dispositionedById: null,
+            dispositionedAt: null,
+            inheritedFromFindingId: null,
+            createdAt: new Date(0),
+          },
+        ],
+      },
+    ])
+
+    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining('security finding'),
+    })
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('lets a human override the gate (overrideDoneGate) past the open security finding', async () => {
+    findSecurityPrs.mockResolvedValue([
+      { id: 'pr1', number: 1, title: 'x', url: 'u', state: 'open' },
+    ])
+    findLatestScans.mockResolvedValue([
+      {
+        id: 's1',
+        pullRequestId: 'pr1',
+        taskId: 't-1',
+        workspaceId: 'w-1',
+        headSha: 'a',
+        status: 'FINDINGS',
+        trigger: 'PR_EVENT',
+        judgeStatus: 'RAN',
+        truncated: false,
+        detectorVersion: 'v1',
+        error: null,
+        startedAt: new Date(1000),
+        finishedAt: null,
+        findings: [
+          {
+            id: 'f1',
+            scanId: 's1',
+            kind: 'SECRET',
+            ruleId: 'secret:aws-access-key-id',
+            severity: 'HIGH',
+            provenance: 'DETERMINISTIC',
+            filePath: 'src/cfg.ts',
+            line: 1,
+            title: 't',
+            detail: 'd',
+            evidence: 'e',
+            fingerprint: 'fp',
+            externalRef: null,
+            disposition: null,
+            dispositionNote: null,
+            dispositionedById: null,
+            dispositionedAt: null,
+            inheritedFromFindingId: null,
+            createdAt: new Date(0),
+          },
+        ],
+      },
+    ])
+
+    await expect(
+      updateTask('t-1', { status: 'DONE' }, null, { overrideDoneGate: true })
+    ).resolves.toBeDefined()
+    expect(update).toHaveBeenCalled()
+    // Overridden → the gate short-circuits before ever consulting the scan
+    // repository (mirrors the LUM-422 ④ override behavior above).
+    expect(findSecurityPrs).not.toHaveBeenCalled()
   })
 })

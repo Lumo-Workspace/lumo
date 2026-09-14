@@ -2,7 +2,7 @@
  * Scoped styles for the Lumo marketing homepage (Lumo Homepage.dc.html).
  *
  * INTENTIONAL BRAND FORK. This surface has its own warm "paper" identity —
- * cream background, Newsreader serif display, JetBrains Mono accents — distinct
+ * cream background, Schibsted Grotesk display, JetBrains Mono accents — distinct
  * from both the app shell and the existing dark launch-ui landing. Values are
  * kept as the design's literal hex/px so the implementation stays pixel-faithful;
  * a CSS Module scopes every class so nothing leaks into the rest of the app.
@@ -35,7 +35,7 @@
   --line-4: #e2dbcc;
   --line-soft: #f0ebe0;
 
-  --font-display: var(--font-newsreader), Georgia, serif;
+  --font-display: var(--font-schibsted), 'Helvetica Neue', Arial, sans-serif;
   --font-body:
     var(--font-hanken), -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
@@ -112,9 +112,10 @@
 }
 .brandName {
   font-family: var(--font-display);
-  font-size: 23px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 .navLinks {
   display: flex;
@@ -195,7 +196,7 @@
 }
 .heroTitle {
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 60px;
   line-height: 1.04;
   letter-spacing: -0.02em;
@@ -395,6 +396,14 @@
   gap: 10px;
   font-size: 13.5px;
   color: var(--text-1);
+}
+.acSource {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-mut);
+  white-space: nowrap;
+  flex: none;
 }
 .acCheck {
   width: 17px;

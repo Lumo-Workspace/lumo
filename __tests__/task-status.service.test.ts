@@ -1,6 +1,7 @@
 import {
   taskVerificationService,
   TASK_STATUS_SCHEMA_VERSION,
+  type NextActionCriterion,
 } from '@/lib/services/task-verification.service'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
@@ -355,14 +356,21 @@ describe('statusForTask — nextActions', () => {
 
     const s = await taskVerificationService.statusForTask('t-1')
 
-    expect(s.nextActions.map(a => a.criterionId).sort()).toEqual([
-      'c-1',
-      'c-human',
-    ])
-    const failAction = s.nextActions.find(a => a.criterionId === 'c-1')!
+    expect(
+      s.nextActions
+        .flatMap(a => (a.kind === 'CRITERION' ? [a.criterionId] : []))
+        .sort()
+    ).toEqual(['c-1', 'c-human'])
+    const failAction = s.nextActions.find(
+      (a): a is NextActionCriterion =>
+        a.kind === 'CRITERION' && a.criterionId === 'c-1'
+    )!
     expect(failAction.rejectionReason).toBe('regressed')
     expect(failAction.checkpointer).toBe('npx jest x.test.ts')
-    const humanAction = s.nextActions.find(a => a.criterionId === 'c-human')!
+    const humanAction = s.nextActions.find(
+      (a): a is NextActionCriterion =>
+        a.kind === 'CRITERION' && a.criterionId === 'c-human'
+    )!
     expect(humanAction.rejectionReason).toBeNull()
     expect(humanAction.verifierType).toBe('HUMAN')
   })

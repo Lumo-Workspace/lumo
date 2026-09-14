@@ -14,12 +14,19 @@ interface IntegrationStatusResponse {
   connected: boolean
 }
 
+/** The App installation reports `installed`, not `connected`. */
+interface AppInstallationResponse {
+  installed: boolean
+}
+
 const ENDPOINT: Record<WorkspaceIntegration, (workspaceUrl: string) => string> =
   {
     slack: workspaceUrl => API.slack.integration(workspaceUrl),
     figma: workspaceUrl => API.figma.integration(workspaceUrl),
-    github: workspaceUrl =>
-      `${API.github.integration}?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    // "GitHub connected" for a feature surface means the workspace can reach
+    // repositories — that is the team App installation, not a member's
+    // personal OAuth link (which is identity only).
+    github: workspaceUrl => API.github.appInstallation(workspaceUrl),
   }
 
 const QUERY_KEY: Record<
@@ -28,7 +35,7 @@ const QUERY_KEY: Record<
 > = {
   slack: queryKeys.integrations.slack,
   figma: queryKeys.integrations.figma,
-  github: queryKeys.integrations.github,
+  github: queryKeys.integrations.githubApp,
 }
 
 export interface IntegrationConnection {
@@ -61,8 +68,14 @@ export function useIntegrationConnected(
 
   const query = useQuery<IntegrationStatusResponse>({
     queryKey: QUERY_KEY[integration](workspaceUrl),
-    queryFn: () =>
-      apiFetch<IntegrationStatusResponse>(ENDPOINT[integration](workspaceUrl)),
+    queryFn: async () => {
+      const url = ENDPOINT[integration](workspaceUrl)
+      if (integration === 'github') {
+        const app = await apiFetch<AppInstallationResponse>(url)
+        return { connected: app.installed }
+      }
+      return apiFetch<IntegrationStatusResponse>(url)
+    },
     // staleTime is deliberately left to the app default (30s) so this shares
     // the settings page's freshness exactly. A longer window would pin a stale
     // `connected: false` after a connect — refetchOnWindowFocus is off app-wide

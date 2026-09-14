@@ -10,6 +10,16 @@ import {
 import { formatCreateOutput } from '@/cli/src/commands/task-create'
 import { computeNextSteps } from '@/lib/context/render/next-steps'
 
+// The mute is read from the environment (`LUMO_NO_HINTS`). Pin these tests to
+// an unmuted env so a caller's shell can't flip their outcome.
+const OLD_NO_HINTS = process.env.LUMO_NO_HINTS
+beforeEach(() => {
+  delete process.env.LUMO_NO_HINTS
+})
+afterAll(() => {
+  if (OLD_NO_HINTS !== undefined) process.env.LUMO_NO_HINTS = OLD_NO_HINTS
+})
+
 /** Collects writes so a test can assert on a stream without touching the real one. */
 function sink() {
   const chunks: string[] = []

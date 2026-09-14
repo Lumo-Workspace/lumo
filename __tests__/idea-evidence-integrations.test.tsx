@@ -81,8 +81,10 @@ function givenWorkspaceIntegrations(connected: {
       return Promise.resolve({ connected: connected.slack ?? false })
     if (url.startsWith('/api/figma/integration'))
       return Promise.resolve({ connected: connected.figma ?? false })
-    if (url.startsWith('/api/github/integration'))
-      return Promise.resolve({ connected: connected.github ?? false })
+    // "GitHub connected" for an evidence surface is the team App installation
+    // (can this workspace reach repositories?), which reports `installed`.
+    if (url.startsWith('/api/github/app/installation'))
+      return Promise.resolve({ installed: connected.github ?? false })
     return Promise.reject(new Error(`unexpected fetch: ${url}`))
   })
 }

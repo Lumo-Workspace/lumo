@@ -17,6 +17,7 @@ import {
   type BoundTaskRef,
 } from '@/lib/services/task-create-binding'
 import type { TaskPriority } from '@prisma/client'
+import { resolvePublicUrl } from '@/lib/utils/public-url'
 import {
   computeNextSteps,
   type NextStep,
@@ -219,13 +220,6 @@ async function resolveAssigneeActorId(args: {
   }
 
   throw httpError(400, `no member matches "${assigneeRef}".`)
-}
-
-const DEFAULT_PUBLIC_URL = 'https://www.uselumo.ai'
-
-function resolvePublicUrl(): string {
-  const v = process.env.LUMO_PUBLIC_URL?.trim()
-  return v && v.length > 0 ? v.replace(/\/+$/, '') : DEFAULT_PUBLIC_URL
 }
 
 async function createFromCli(args: {
@@ -653,6 +647,17 @@ export interface ShowTaskFromCliResult {
     label: string
     email: string | null
   } | null
+  /**
+   * LUM-731: linked PRs with their synced state, so `lumo task update
+   * --status done` can show which ones are not merged before asking for
+   * confirmation. `getTaskDetail` refreshes open PRs from GitHub first.
+   */
+  pullRequests: Array<{
+    number: number
+    title: string | null
+    url: string | null
+    state: string | null
+  }>
 }
 
 async function showFromCli(args: {
@@ -709,6 +714,12 @@ async function showFromCli(args: {
     teamId: detail.teamId,
     project: { id: detail.project.id, name: detail.project.name },
     assignee,
+    pullRequests: detail.pullRequests.map(pr => ({
+      number: pr.number,
+      title: pr.title,
+      url: pr.url,
+      state: pr.state,
+    })),
   })
 }
 

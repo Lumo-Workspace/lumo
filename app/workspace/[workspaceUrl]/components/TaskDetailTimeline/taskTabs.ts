@@ -75,3 +75,36 @@ export function resolveTab(slug: string | undefined): ResolvedTab | null {
   if (section) return { tab: 'dossier', section }
   return null
 }
+
+/**
+ * DOM id of the boundary-crossings panel inside the Record tab. The verdict
+ * bar's DONE-blocked "Review the crossings below" link (LUM-454) targets it as
+ * a URL hash; the panel scrolls itself into view on mount when the hash names
+ * it, because the link is clicked from ABOVE the tabs and the panel may not be
+ * mounted yet (it only renders inside the Record tab).
+ */
+export const BOUNDARY_CROSSINGS_ANCHOR = 'boundary-crossings'
+
+const TAB_SEGMENTS = new Set<string>([
+  ...Object.values(TAB_SLUGS).filter(slug => slug !== ''),
+  ...Object.keys(LEGACY_SECTION_SLUG),
+])
+
+/**
+ * The bare task URL (no tab segment) for the current pathname: strips a
+ * trailing tab / legacy-section segment if present. Mirrors the basePath
+ * derivation in TimelineTabs for callers that only have `usePathname()`.
+ */
+export function taskBasePath(pathname: string): string {
+  const trimmed = pathname.replace(/\/+$/, '')
+  const cut = trimmed.lastIndexOf('/')
+  if (cut < 0) return trimmed
+  return TAB_SEGMENTS.has(trimmed.slice(cut + 1))
+    ? trimmed.slice(0, cut)
+    : trimmed
+}
+
+/** Deep link into the Record tab, landing on the boundary-crossings panel. */
+export function boundaryCrossingsHref(pathname: string): string {
+  return `${taskBasePath(pathname)}/${TAB_SLUGS.dossier}#${BOUNDARY_CROSSINGS_ANCHOR}`
+}

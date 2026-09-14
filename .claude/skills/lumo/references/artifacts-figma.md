@@ -46,12 +46,13 @@ Prints one artifact's key:value header (id, kind, title, agent, source, order, t
 lumo task artifact show LUM-42 cma_xxx
 ```
 
-#### `lumo task artifact rm <task> <artifact-id> --yes`
+#### `lumo task artifact rm <task> <artifact-id> --confirm`
 
-Deletes an artifact from a task. Irreversible — `--yes` is required and there is no interactive prompt (agent-friendly). On success prints `Removed <artifact-id> from <task>`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
+Deletes an artifact from a task. Irreversible. Without `--confirm` the CLI fetches the artifact and exits **4** with a confirmation envelope naming it (`Will delete artifact cma_xxx "API spec" (SPEC) from LUM-42` · `Artifact deletion is irreversible`) — no DELETE is sent; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). `--yes` is a legacy alias. On success prints `Removed <artifact-id> from <task>`. A 404 (task or artifact missing in this workspace) prints the server message and exits 1.
 
 ```bash
-lumo task artifact rm LUM-42 cma_xxx --yes
+lumo task artifact rm LUM-42 cma_xxx            # exit 4 + envelope
+lumo task artifact rm LUM-42 cma_xxx --confirm  # after the user approved
 ```
 
 When to suggest: after running a spec/plan workflow in Claude Code, offer to record the product(s) with `task artifact add` (one call per artifact) — always pass `--source` with the framework you used. Use `task artifact list` to see what's already recorded, `task artifact show` to inspect a single artifact's content, `task artifact update` to fix a wrong kind/title/source without re-uploading, and `task artifact rm` to drop one that's wrong or stale.

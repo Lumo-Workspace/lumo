@@ -46,3 +46,28 @@ describe('formatHookStdoutLines (pre-tool-use collision warning)', () => {
     expect(parsed.hookSpecificOutput.additionalContext).not.toContain('\x1b')
   })
 })
+
+describe('formatHookStdoutLines (pre-tool-use security reminder, LUM-737)', () => {
+  it('joins collision, crossing and security parts into one envelope, in that order', () => {
+    const lines = formatHookStdoutLines('pre-tool-use', {
+      collisionWarning: 'COLLISION',
+      crossingReminder: 'CROSSING',
+      securityReminder: 'SECURITY',
+    })
+    expect(lines).toHaveLength(1)
+    const parsed = JSON.parse(lines[0]!)
+    expect(parsed.hookSpecificOutput.additionalContext).toBe(
+      'COLLISION\n\nCROSSING\n\nSECURITY'
+    )
+  })
+
+  it('emits the security reminder alone and strips control characters from it', () => {
+    const lines = formatHookStdoutLines('pre-tool-use', {
+      securityReminder: 'found \x1b[31mkey\x1b[0m',
+    })
+    expect(lines).toHaveLength(1)
+    const ctx = JSON.parse(lines[0]!).hookSpecificOutput.additionalContext
+    expect(ctx).toContain('found')
+    expect(ctx).not.toContain('\x1b')
+  })
+})

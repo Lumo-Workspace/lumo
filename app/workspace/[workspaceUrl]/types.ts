@@ -994,14 +994,41 @@ export interface TaskAcceptanceStatusView {
     rejectionReason: string | null
     rejectionReasonEnum: string | null
   }>
-  nextActions: Array<{
-    criterionId: string
-    statement: string
-    verifierType: 'MACHINE' | 'HUMAN'
-    checkpointer: string | null
-    judgeSteps: string | null
-    source: CriterionSource
-    addedAtRound: number
-    rejectionReason: string | null
-  }>
+  /** LUM-737: `kind` discriminates criteria from security findings; a missing
+   *  kind (older server) means CRITERION. */
+  nextActions: Array<
+    | {
+        kind?: 'CRITERION'
+        criterionId: string
+        statement: string
+        verifierType: 'MACHINE' | 'HUMAN'
+        checkpointer: string | null
+        judgeSteps: string | null
+        source: CriterionSource
+        addedAtRound: number
+        rejectionReason: string | null
+      }
+    | {
+        kind: 'SECURITY_FINDING'
+        findingId: string
+        statement: string
+        severity: 'LOW' | 'MEDIUM' | 'HIGH'
+        provenance: 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
+        blocking: boolean
+        prNumber: number
+        ruleId: string
+        filePath: string
+        line: number | null
+      }
+  >
+  /** LUM-737: null = the scan read failed (could not confirm). Optional so an
+   *  older server is tolerated. */
+  securityFindings?: {
+    open: number
+    blocking: number
+    unconfirmedPrs: Array<{
+      number: number
+      reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING'
+    }>
+  } | null
 }

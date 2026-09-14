@@ -7,6 +7,15 @@
  * already rides on GET /api/tasks/[id]/status; this proves the web renders it
  * same-source, fail-closed, with no rendering drift from the CLI.
  */
+// The shared `formatDurationSec` (LUM-642) behind the Cost tile's active-time
+// caption uses the `duration.*` keys, which carry no defaultMessage — the mock
+// needs their en copy to render a real duration instead of the key.
+const mockDurationMessages: Record<string, string> = {
+  'duration.hours': '{hours}h',
+  'duration.minutes': '{minutes}m',
+  'duration.seconds': '{seconds}s',
+}
+
 jest.mock('react-intl', () => ({
   useIntl: () => ({
     locale: 'en',
@@ -14,7 +23,7 @@ jest.mock('react-intl', () => ({
       { id, defaultMessage }: { id: string; defaultMessage?: string },
       values?: Record<string, unknown>
     ) => {
-      let msg = defaultMessage ?? id
+      let msg = defaultMessage ?? mockDurationMessages[id] ?? id
       msg = msg.replace(
         /\{(\w+),\s*plural,\s*one\s*\{([^}]*)\}\s*other\s*\{([^}]*)\}\}/g,
         (_m, key, one, other) => {
@@ -162,10 +171,19 @@ function render_() {
     />
   )
   // LUM-572/620: struggle / trend live inside the collapsed "Run report" group;
-  // cost + verification history moved into the collapsed "Evidence & audit
-  // trail" card (LUM-620). Expand both so these same-source sections render. The
-  // claim-vs-verification pairing stays above them, unaffected.
-  fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+  // verification history lives in the collapsed "Evidence & audit trail" card
+  // (LUM-620). LUM-496: the cost read-out is now the Run report's Cost KPI tile
+  // (visible as soon as the group is open) and the struggle trail folds behind
+  // its own heading inside that group. Expand everything so these same-source
+  // sections render.
+  const runReport = screen.getByRole('button', { name: /Run report/i })
+  if (runReport.getAttribute('aria-expanded') === 'false') {
+    fireEvent.click(runReport)
+  }
+  const struggle = screen.queryByRole('button', {
+    name: /Struggle \/ rework \/ outstanding/i,
+  })
+  if (struggle) fireEvent.click(struggle)
   fireEvent.click(screen.getByText('Evidence & audit trail'))
   return result
 }
@@ -227,13 +245,19 @@ describe('struggle section', () => {
     )
     render_()
     expect(screen.getByText('the bounced criterion')).toBeInTheDocument()
-    expect(screen.getByText(/PR iterations/)).toBeInTheDocument()
+    // LUM-496: the Run report also has a "PR iterations" KPI tile, so match the
+    // struggle trail's own labelled line ("PR iterations: ") specifically.
+    expect(screen.getByText(/PR iterations:/)).toBeInTheDocument()
     expect(screen.getByText(/Reopened/)).toBeInTheDocument()
   })
 })
 
 // ── LUM-560 ───────────────────────────────────────────────────────────────────
-describe('cost section', () => {
+// LUM-496: the cost read-out is the Run report's Cost / Rework KPI tiles — the
+// same `data.cost` fields, same fail-closed rule (a null reads "not recorded",
+// never 0). The tests below moved onto the tiles; the honesty contract they
+// pin is unchanged.
+describe('cost tiles', () => {
   it('renders token spend, active time and rework rounds', () => {
     set(
       statusView({
@@ -242,17 +266,26 @@ describe('cost section', () => {
     )
     render_()
     expect(screen.getByText('Cost')).toBeInTheDocument()
-    expect(screen.getByText(/1\.2M/)).toBeInTheDocument()
+    expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('1.2M')
+    // LUM-560/LUM-642: active time is the Cost tile's second sub-caption,
+    // through the one shared duration formatter — it did not survive the tile
+    // rewrite as a heading of its own, but the reading itself must not vanish.
+    expect(screen.getByTestId('tile-costTokens')).toHaveTextContent(
+      'Active time 2m 14s'
+    )
+    expect(screen.getByTestId('tile-rework')).toHaveTextContent('1')
   })
 
-  it('shows an explicit not-recorded line when token cost was never measured', () => {
+  it('shows an explicit not-recorded value when token cost was never measured', () => {
     set(
       statusView({
         cost: { tokenCost: null, activeTimeSec: 0, reworkRounds: 0 },
       })
     )
     render_()
-    expect(screen.getByText(/not recorded/i)).toBeInTheDocument()
+    expect(screen.getByTestId('tile-costTokens')).toHaveTextContent(
+      /not recorded/i
+    )
   })
 
   it('renders a measured zero as 0, distinct from not-recorded', () => {
@@ -260,8 +293,9 @@ describe('cost section', () => {
       statusView({ cost: { tokenCost: 0, activeTimeSec: 0, reworkRounds: 0 } })
     )
     render_()
-    expect(screen.queryByText(/not recorded/i)).toBeNull()
-    expect(screen.getByTestId('cost-tokens')).toHaveTextContent('0')
+    const tile = screen.getByTestId('tile-costTokens')
+    expect(tile).not.toHaveTextContent(/not recorded/i)
+    expect(tile).toHaveTextContent('0')
   })
 })
 
@@ -366,58 +400,3 @@ describe('evidence drilldown', () => {
 })
 
 // ── LUM-564 ───────────────────────────────────────────────────────────────────
-describe('claim vs verification', () => {
-  it('pairs the agent claim with an estimated provenance badge against the measured rollup', () => {
-    set(
-      statusView({
-        currentRound: 1,
-        claim: {
-          text: 'Implemented the four sections and wired them in.',
-          source: 'RUN_SUMMARY',
-        },
-        machineVerification: {
-          total: 2,
-          machineVerified: 2,
-          humanOverridden: 0,
-        },
-        criteria: [
-          machinePass(),
-          machinePass({ id: 'm2', statement: 'second' }),
-        ],
-      })
-    )
-    render_()
-    expect(screen.getByText('Claim vs verification')).toBeInTheDocument()
-    expect(
-      screen.getByText('Implemented the four sections and wired them in.')
-    ).toBeInTheDocument()
-    // LUM-597: a RUN_SUMMARY claim is a summarizer paraphrase fallback, so the
-    // provenance reads SYNTHESIZED (the authoritative source is the agent's own
-    // self-report, source AGENT).
-    expect(screen.getByTestId('claim-provenance')).toHaveTextContent(/synthes/i)
-    // the measured rollup phrase — distinct from the machine-zone header.
-    expect(
-      screen.getByText(/2 machine-verified · 0 human override/)
-    ).toBeInTheDocument()
-  })
-
-  it('collapses the claim line entirely when there is no claim (no empty box)', () => {
-    set(statusView({ claim: { text: null, source: null } }))
-    render_()
-    // LUM-597 decision-first: with no claim the reality-check row disappears,
-    // but the verification block — the decision surface — is always present.
-    expect(screen.queryByTestId('claim-reality-check')).toBeNull()
-    expect(screen.getByTestId('verification-main')).toBeInTheDocument()
-  })
-
-  it('marks the verification side unconfirmed before any round has run', () => {
-    set(
-      statusView({
-        currentRound: 0,
-        claim: { text: 'did the thing', source: 'DIGEST' },
-      })
-    )
-    render_()
-    expect(screen.getByText(/unconfirmed/i)).toBeInTheDocument()
-  })
-})

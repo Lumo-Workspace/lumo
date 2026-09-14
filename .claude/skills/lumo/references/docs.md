@@ -164,12 +164,13 @@ lumo doc move "Sub-doc" --root
 - User says "move doc X under Y", "reparent X to root", "promote X to top level".
 - After `doc create`, if the user realizes the new doc should live elsewhere — suggest `doc move` rather than recreating.
 
-## `lumo doc delete <doc> --yes` — delete a document
+## `lumo doc delete <doc> --confirm` — delete a document
 
-Requires `--yes`; no interactive prompt (agent-friendly).
+Deletes the document **and every document nested under it**. Without `--confirm` the CLI looks the doc up and exits **4** with a confirmation envelope (`Will delete document cmd_xxx "Title"` + the nested-docs rule) — nothing is deleted; relay `changes` to the user and re-run `confirmCommand` on approval ([confirmation.md](confirmation.md)). `--yes` is a legacy alias.
 
 ```bash
-lumo doc delete cmd_xxx --yes
+lumo doc delete cmd_xxx            # exit 4 + envelope
+lumo doc delete cmd_xxx --confirm  # after the user approved
 ```
 
 ## `lumo doc bind <doc> <task>` / `lumo doc unbind <doc> <task>` — task linkage

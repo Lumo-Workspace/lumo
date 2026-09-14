@@ -9,7 +9,7 @@ The acceptance contract is a small set of structured criteria the task's work is
 If `lumo task context` / session-start shows the draft reminder ("This task has no acceptance criteria yet. …") instead of a contract, you MUST draft and submit criteria before starting implementation:
 
 1. Read the task description, comments, linked resources, and memory first — the contract distills what "done" means, so understand the task before writing it.
-2. Draft **3–7 criteria** for a typical multi-file task (soft range — the server warns outside it but never rejects; if you genuinely need more, merge related checks instead). Scale the count down for small tasks (see "Scale the contract to the task size").
+2. Draft **3–7 criteria** for a typical multi-file task (drafting guidance only — the server enforces no count; if you genuinely need more, merge related checks instead). Scale the count down for small tasks (see "Scale the contract to the task size").
 3. `lumo task criteria set <task> --file <criteria.json>` — submit.
 
 ### The reference-class block (outside view) — LUM-497
@@ -89,20 +89,15 @@ The 3–7 range is calibrated for typical multi-file tasks. Criterion count must
 
 ### judgeSteps — agent-drafted judging steps for HUMAN criteria
 
-**`referentKind` — what the criterion anchors (required, and a real gate as of LUM-605):**
+**`referentKind` — derived by the system, not declared (LUM-733):**
 
-Every criterion declares one `referentKind` — the only dimension that decides whether a PASS is independent or self-confirming. Required on every item (the API rejects a missing one with 400):
+You do not declare a referent kind. The server derives it from the checkpointer at write time and stores the result:
 
-- `EXTERNAL_FACT` — anchored on a fact the agent cannot author: a git SHA / diff, CI status, an HTTP probe, a DB row, `prisma migrate status`. **Only honest when the checkpointer actually invokes external tooling** (`git`/`gh`/`curl`/`psql`/…) AND its output or exit status reaches the verdict (piped into an assertion, captured in `$(…)`, or the terminal command whose exit IS the verdict). A no-op or output-discarded external command (`git --version && cat frozen.txt | grep`) does **not** count.
-- `AGENT_CONSTRUCTED_STATE` — passes by checking output the agent itself produced: **your own jest/vitest/tsc/node/tsx tests, build, type-check**. This is the honest kind for almost every code task's checks. Green here is self-confirming — that's fine, just label it truthfully.
-- `PENDING_OUTCOME` — truth lands post-delivery (a downstream regression, a revert). Has no check today: it **cannot** be MACHINE (the API rejects PENDING_OUTCOME + MACHINE). Draft it HUMAN or leave it out of the encoded contract.
+- MACHINE + a checkpointer that actually **consumes** an external tool (`git`/`gh`/`curl`/`psql`/`prisma migrate status`…, its exit or output reaching the verdict) → `EXTERNAL_FACT` — a fact the agent cannot author.
+- MACHINE + anything else (`jest`/`vitest`/`tsc`/`node`/`tsx`, your own build or type-check) → `AGENT_CONSTRUCTED_STATE` — green is self-confirming, which is the honest kind for almost every code task's checks.
+- HUMAN → no checkpointer to read; an optional `"referentKind": "EXTERNAL_FACT" | "AGENT_CONSTRUCTED_STATE"` is kept as-is, otherwise the row stays unclassified.
 
-**The gate (LUM-605):** declaring `EXTERNAL_FACT` + MACHINE on a checkpointer that doesn't ground external (e.g. `npx jest …`) is the LUM-601 fakeGit shape — it would launder a self-confirming green into a "verified external fact". The system now downgrades it to `UNVERIFIED_ASSERTION` and:
-
-- at **`criteria set`** — stores it but returns a non-rejecting ⚠ warning naming the criterion (re-ground or re-declare);
-- at **`lumo verify`** — a PASS on it is **blocked with 422 (no round burned)**; the round does not land and the task does not move to IN_REVIEW until you either re-ground the checkpointer against a real external fact, or honestly re-declare it `AGENT_CONSTRUCTED_STATE`. Both fixes are free (no round consumed).
-
-Don't reach for `EXTERNAL_FACT` to look stronger — a jest test is `AGENT_CONSTRUCTED_STATE`, full stop. Reserve `EXTERNAL_FACT` for checks that truly read external state, or use a HUMAN criterion for "a person ran the real system and observed X" (HUMAN is never mechanically downgraded).
+A `referentKind` on a MACHINE item is accepted for backward compatibility and ignored. `PENDING_OUTCOME` is no longer a task-criterion kind (it remains on milestone exit criteria only) — leave post-delivery truths out of the encoded contract. There is no verify-time gate to trip: because the kind follows the check, a jest-checked criterion can never be stored as an "external fact".
 
 A HUMAN criterion is judged by a person, not a checkpointer — so don't hand them a bare assertion ("the copy reads naturally") and make them reverse-engineer what to do. Attach **`judgeSteps`**: short, human-readable instructions the adjudication card renders verbatim (light markdown, URLs made clickable). Structured labour is yours; the human just follows the steps.
 
@@ -142,14 +137,12 @@ Two real-repo invariant examples — `prisma/migrations/` files never deleted (t
   {
     "statement": "No file under prisma/migrations/ is deleted by this change (vs origin/main)",
     "verifierType": "MACHINE",
-    "checkpointer": "bash -c \"test -z \\\"$(git diff --diff-filter=D --name-only origin/main -- prisma/migrations/)\\\"\"",
-    "referentKind": "EXTERNAL_FACT"
+    "checkpointer": "bash -c \"test -z \\\"$(git diff --diff-filter=D --name-only origin/main -- prisma/migrations/)\\\"\""
   },
   {
     "statement": "Live-doc keeps its table structure after the edit (no rows/headings dropped)",
     "verifierType": "MACHINE",
-    "checkpointer": "npx tsx scripts/verify-live-doc.ts <docId> docs/live-docs/<file>.md",
-    "referentKind": "AGENT_CONSTRUCTED_STATE"
+    "checkpointer": "npx tsx scripts/verify-live-doc.ts <docId> docs/live-docs/<file>.md"
   }
 ]
 ```
@@ -167,8 +160,7 @@ One invariant criterion is usually enough — it's the guardrail, not the whole 
   {
     "statement": "PUT /api/tasks/[id]/criteria rejects a second AGENT_DRAFT submission with 409",
     "verifierType": "MACHINE",
-    "checkpointer": "npx jest __tests__/task-criteria.service.test.ts -t 'agent lock'",
-    "referentKind": "AGENT_CONSTRUCTED_STATE"
+    "checkpointer": "npx jest __tests__/task-criteria.service.test.ts -t 'agent lock'"
   },
   {
     "statement": "The criteria section reads naturally as part of the task statement",
@@ -180,7 +172,6 @@ One invariant criterion is usually enough — it's the guardrail, not the whole 
     "statement": "Session-start injection shows the contract ahead of memory",
     "verifierType": "MACHINE",
     "checkpointer": "npx jest __tests__/cli/hook-runner-session-start-stdout.test.ts",
-    "referentKind": "AGENT_CONSTRUCTED_STATE",
     "evidenceRequired": true
   }
 ]
@@ -191,7 +182,7 @@ Fields:
 - `statement` — required, ≤2000 chars.
 - `verifierType` — `"MACHINE"` | `"HUMAN"`.
 - `checkpointer` — required for MACHINE.
-- `referentKind` — **required**, `"EXTERNAL_FACT"` | `"AGENT_CONSTRUCTED_STATE"` | `"PENDING_OUTCOME"` (see "referentKind" above). Your own tests/build/type-check are `AGENT_CONSTRUCTED_STATE`; `EXTERNAL_FACT` is gated (warned at set, 422 at verify) unless the checkpointer truly grounds external; `PENDING_OUTCOME` can't be MACHINE.
+- `referentKind` — optional and advisory; the stored kind is derived from the checkpointer (see "referentKind" above). Only meaningful on a HUMAN criterion (`"EXTERNAL_FACT"` | `"AGENT_CONSTRUCTED_STATE"`).
 - `evidenceRequired` — optional, default false.
 - `judgeSteps` — optional, ≤2000 chars; agent-drafted human-judging steps for a HUMAN criterion (see "judgeSteps" above).
 - `id` — only in `--human` revisions (see below).
@@ -263,7 +254,7 @@ lumo criteria audit
    - `EXTERNAL_FACT` — declared as externally observable (git SHA, CI status, DB row) and the checkpointer invokes real external tooling
    - `AGENT_CONSTRUCTED_STATE` — passes by checking output the agent itself produced
    - `PENDING_OUTCOME` — deferred to post-hoc falsifier
-   - `UNVERIFIED_ASSERTION` — declared `EXTERNAL_FACT` but the checkpointer does **not** actually invoke external tooling (git/CI/HTTP); auto-downgraded. As of LUM-605 this is an **enforced gate, not just a label**: `lumo task criteria set` warns on it, and `lumo verify` blocks a PASS on it with **422 (no round burned)** until it's re-grounded or honestly re-declared `AGENT_CONSTRUCTED_STATE` (see references/criteria.md "referentKind")
+   - `UNVERIFIED_ASSERTION` — a legacy row declared `EXTERNAL_FACT` (before LUM-733 derivation) whose checkpointer does **not** actually invoke external tooling (git/CI/HTTP); reported as-is. New rows can't land here — the kind is derived from the checkpointer at write time (see "referentKind")
    - `UNCLASSIFIED` — legacy rows predating the `referentKind` field (null in DB)
 
 2. **Self-confirming-green headline ratio** — `(AGENT_CONSTRUCTED_STATE + UNVERIFIED_ASSERTION) / classified`. Criteria in these two buckets pass by confirming only the agent's own work, not an independent external state.

@@ -1,7 +1,6 @@
 import { ideaPullRequestRepository } from '@/lib/repositories/idea-pull-request.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
-import { decrypt } from '@/lib/crypto'
 import {
   fetchPullRequest,
   parsePrUrl,
@@ -22,6 +21,27 @@ const err = (message: string, status: number) =>
  * several ideas and a task at once, and attaching it here never moves it away
  * from a task.
  */
+
+/**
+ * Reading a PR by URL is done as the workspace's App installation — the
+ * machine identity every other GitHub read uses — never with a member's token.
+ */
+async function installationTokenOr400(workspaceId: string): Promise<string> {
+  // Lazy: auth.ts loads @octokit/auth-app, which must not ride along with this
+  // service into every module graph that touches tasks (same reason
+  // github.service imports the integration lazily).
+  const { getGithubInstallationToken } =
+    await import('@/lib/integrations/github/auth')
+  try {
+    return await getGithubInstallationToken(workspaceId)
+  } catch {
+    throw Object.assign(
+      new Error('GitHub App is not installed for this workspace'),
+      { status: 400 }
+    )
+  }
+}
+
 export const ideaPullRequestService = {
   async list(input: { workspaceId: string; ideaRef: string }) {
     const { ideaId } = await resolveIdeaRef(input)
@@ -120,16 +140,10 @@ async function resolveByUrl(url: string, workspaceId: string): Promise<string> {
     return existing.id
   }
 
-  const integration = await githubRepository.findIntegrationByRepo(
-    workspaceId,
-    parsed.repo
-  )
-  if (!integration) {
-    throw err('GitHub integration not configured for this repository', 400)
-  }
+  const token = await installationTokenOr400(workspaceId)
 
   const ghPr = await fetchPullRequest({
-    token: decrypt(integration.accessToken),
+    token,
     repo: parsed.repo,
     number: parsed.number,
   })
@@ -139,7 +153,8 @@ async function resolveByUrl(url: string, workspaceId: string): Promise<string> {
     workspaceId,
     // Citing a PR on an idea must never claim it for a task.
     taskId: null,
-    integrationId: integration.id,
+    // Read as the App installation — there is no OAuth integration behind it.
+    integrationId: null,
     repo: parsed.repo,
     number: ghPr.number,
     title: ghPr.title,

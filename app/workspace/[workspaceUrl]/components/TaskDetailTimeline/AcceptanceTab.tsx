@@ -16,6 +16,7 @@ import {
 import { tasksClient } from '@/lib/api-client'
 import { effectiveReferentKind } from '@/shared/src/referent-kind'
 import { useTaskStatus } from '../../hooks/useTaskStatus'
+import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
 import type {
   TaskAcceptanceStatusView,
   TaskStatusCriterionView,
@@ -28,13 +29,18 @@ import type {
 import type { MentionSources } from '@/types/mention'
 import { VerdictGlyph } from './items/AcceptanceBatchItem'
 import { BoundaryCrossingsPanel } from './BoundaryCrossingsPanel'
+import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import { EvidenceRef, deriveRepoWebUrl } from './evidence-ref'
 import {
-  ClaimVsVerification,
-  CostSection,
   StruggleTrailSection,
   TrendSection,
+  STRUGGLE_TITLE,
+  STRUGGLE_TIP,
 } from './HonestReportSections'
+import { RecordStatusStrip } from './RecordStatusStrip'
+import { deriveRecordGaps } from './record-gaps'
+import { RunReportTiles } from './RunReportTiles'
+import { deriveRunReportTiles } from './run-report-tiles'
 import { InfoTooltip } from './InfoTooltip'
 import { ActionTooltip } from './ActionTooltip'
 import { VerdictDecision, type HumanVerdictResult } from './VerdictDecision'
@@ -69,6 +75,13 @@ interface AcceptanceTabProps {
    *  (alongside boundary crossings + claim-vs-verification) rather than buried
    *  in the Agent runs sub-section. Null when there are no PRs/signals. */
   gatesSlot?: ReactNode
+  /** LUM-732: per-PR security scan findings; null when the task has no PRs. */
+  securitySlot?: ReactNode
+  /** LUM-496: how many undispositioned security findings hard-block DONE
+   *  (`securityScans.blocking.count`, fetched at the dossier level next to the
+   *  slot above). >0 moves `securitySlot` into the NEEDS ACTION zone; 0 (the
+   *  default, i.e. "no security signal here") leaves it in the records. */
+  securityBlocking?: number
   /** Open the Run report group on mount — e.g. a legacy deep link targets an
    *  evidence sub-section nested inside it. */
   reportInitiallyOpen?: boolean
@@ -101,6 +114,9 @@ function toSetItems(
     ...(c.referentKind ? { referentKind: c.referentKind } : {}),
   }))
 }
+
+/** LUM-496: the Run report group's initial fold state (see the tab body). */
+const RUN_REPORT_OPEN_BY_DEFAULT = true
 
 // ── Dossier group shell (LUM-581) ────────────────────────────────────────────
 //
@@ -643,6 +659,29 @@ function JudgeStepsBlock({ c }: { c: TaskStatusCriterionView }) {
   )
 }
 
+/** LUM-496: the criterion's provenance, spelled out for the NEEDS ACTION
+ *  machine card's "MACHINE · Agent-constructed" chip. AGENT_DRAFT is the
+ *  default (and the label for anything unrecognised). */
+function machineSourceLabel(
+  source: string,
+  intl: ReturnType<typeof useIntl>
+): string {
+  if (source === 'HUMAN_EDIT')
+    return intl.formatMessage({
+      id: 'record.machine.source.human',
+      defaultMessage: 'Human-edited',
+    })
+  if (source === 'REVIEW_ADDED')
+    return intl.formatMessage({
+      id: 'record.machine.source.review',
+      defaultMessage: 'Review-added',
+    })
+  return intl.formatMessage({
+    id: 'record.machine.source.agent',
+    defaultMessage: 'Agent-constructed',
+  })
+}
+
 function CriterionRow({
   c,
   interactive,
@@ -653,6 +692,7 @@ function CriterionRow({
   onDelete,
   mutating = false,
   repoWebUrl = null,
+  awaiting = false,
 }: {
   c: TaskStatusCriterionView
   interactive: boolean
@@ -664,6 +704,11 @@ function CriterionRow({
   mutating?: boolean
   /** Repo web base for drilling a `commit:` evidence pointer into a URL (LUM-563). */
   repoWebUrl?: string | null
+  /** LUM-496: the row is listed in the NEEDS ACTION machine card — it wears the
+   *  "Awaiting verification" chip, spells its provenance out ("MACHINE ·
+   *  Agent-constructed") and labels the existing evidence disclosure "View
+   *  output". Nothing else about the row changes. */
+  awaiting?: boolean
 }) {
   const intl = useIntl()
   const [showCheck, setShowCheck] = useState(false)
@@ -779,9 +824,36 @@ function CriterionRow({
           </div>
         )}
         <div className='mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]'>
-          <span className={`rounded-sm px-1.5 py-0.5 font-medium ${badge.cls}`}>
-            {badge.label}
-          </span>
+          {/* LUM-496: in the NEEDS ACTION card the honest state badge (Failed /
+              Passed-by-override) is kept and joined by the explicit "Awaiting
+              verification" chip — a machine check that no checkpointer has
+              passed is still awaiting, whatever the latest verdict says. An
+              unjudged row already reads "Awaiting verification", so it carries
+              that chip alone rather than the same words twice. */}
+          {awaiting && v ? (
+            <span
+              className={`rounded-sm px-1.5 py-0.5 font-medium ${badge.cls}`}
+            >
+              {badge.label}
+            </span>
+          ) : null}
+          {awaiting ? (
+            <span
+              data-testid={`machine-awaiting-${c.id}`}
+              className='rounded-sm bg-warning-subtle border border-warning-border px-1.5 py-0.5 font-medium text-foreground'
+            >
+              {intl.formatMessage({
+                id: 'record.machine.awaiting',
+                defaultMessage: 'Awaiting verification',
+              })}
+            </span>
+          ) : (
+            <span
+              className={`rounded-sm px-1.5 py-0.5 font-medium ${badge.cls}`}
+            >
+              {badge.label}
+            </span>
+          )}
           {/* LUM-457 — downgrade marker: a pass against a pre-edit version. */}
           {stalePass ? (
             <span
@@ -803,7 +875,15 @@ function CriterionRow({
             </span>
           ) : null}
           <span className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'>
-            {c.verifierType}
+            {awaiting
+              ? intl.formatMessage(
+                  {
+                    id: 'record.machine.source',
+                    defaultMessage: 'MACHINE · {source}',
+                  },
+                  { source: machineSourceLabel(c.source, intl) }
+                )
+              : c.verifierType}
           </span>
           {/* LUM-602: referent kind badge — only when declared (null → no badge,
               matching CLI no-noise behavior for legacy rows). UNVERIFIED_ASSERTION
@@ -852,8 +932,10 @@ function CriterionRow({
               </span>
             ) : null
           ) : null}
-          {/* Provenance only when notable — AGENT_DRAFT is the silent default. */}
-          {c.source !== 'AGENT_DRAFT' ? (
+          {/* Provenance only when notable — AGENT_DRAFT is the silent default.
+              In the awaiting variant the provenance already rides on the
+              "MACHINE · …" chip above, so this pill would repeat it. */}
+          {c.source !== 'AGENT_DRAFT' && !awaiting ? (
             <span
               className={`rounded-sm px-1.5 py-0.5 font-medium ${SOURCE_PILL[c.source] ?? 'border border-border text-muted-foreground'}`}
             >
@@ -970,10 +1052,18 @@ function CriterionRow({
                         id: 'acceptance.hideCheck',
                         defaultMessage: 'Hide check output',
                       })
-                    : intl.formatMessage({
-                        id: 'acceptance.viewCheck',
-                        defaultMessage: 'View check output',
-                      })}
+                    : awaiting
+                      ? // LUM-496: the NEEDS ACTION card's "View output ›"
+                        // affordance IS this disclosure — same toggle, the
+                        // mockup's wording.
+                        intl.formatMessage({
+                          id: 'record.machine.viewOutput',
+                          defaultMessage: 'View output',
+                        })
+                      : intl.formatMessage({
+                          id: 'acceptance.viewCheck',
+                          defaultMessage: 'View check output',
+                        })}
                   <ChevronRight
                     className={`size-3 transition-transform ${showCheck ? 'rotate-90' : ''}`}
                     aria-hidden
@@ -1280,10 +1370,20 @@ export function AcceptanceTab({
   latestRunSummary,
   evidenceSlot,
   gatesSlot,
+  securitySlot,
+  securityBlocking = 0,
   reportInitiallyOpen = false,
 }: AcceptanceTabProps) {
   const intl = useIntl()
   const { data, loading, error, refresh, optimisticallyPass } = useTaskStatus({
+    identifier: taskIdentifier,
+    enabled,
+  })
+  // LUM-496: the same react-query cache the crossings panel reads (one key →
+  // one fetch), so the Done-gap strip and the zone split can be derived here
+  // without lifting the fetch to the dossier. `gateEnabled` defaults to true —
+  // an older response without the field must err toward "open blocks".
+  const { crossings, gateEnabled = true } = useBoundaryCrossings({
     identifier: taskIdentifier,
     enabled,
   })
@@ -1292,7 +1392,14 @@ export function AcceptanceTab({
   // LUM-572: the trailing report sections (history / cost / struggle / trend /
   // removed) fold into one collapsed "Run report" group so the surface reads
   // decision → criteria → boundary, with the after-the-fact report tucked away.
-  const [runReportOpen, setRunReportOpen] = useState(reportInitiallyOpen)
+  // LUM-496: the group opens by default — its KPI tiles are the record's
+  // glanceable summary, with the narrative sub-sections collapsed inside it. A
+  // legacy evidence deep link (`reportInitiallyOpen`) needs exactly that, so it
+  // is satisfied by the same default; the prop stays part of the contract so a
+  // future default flip can't silently break those URLs.
+  const [runReportOpen, setRunReportOpen] = useState<boolean>(
+    reportInitiallyOpen || RUN_REPORT_OPEN_BY_DEFAULT
+  )
   // Machine zone fold (LUM-451). null = follow the smart default (collapsed when
   // every machine criterion passes); an explicit boolean is the user's toggle.
   const [machineOpen, setMachineOpen] = useState<boolean | null>(null)
@@ -1310,6 +1417,9 @@ export function AcceptanceTab({
   // signals tucked one click away. (LUM-635: boundary crossings moved out —
   // an open crossing is an actionable Done-blocker, not forensics.)
   const [auditOpen, setAuditOpen] = useState(false)
+  // LUM-496: the struggle trail folds behind its own heading inside the Run
+  // report — the KPI tiles carry the headline numbers above it.
+  const [struggleOpen, setStruggleOpen] = useState(false)
   const [mutating, setMutating] = useState(false)
 
   // The acceptance tab is only ever rendered inside the Clerk web UI — the
@@ -1427,6 +1537,15 @@ export function AcceptanceTab({
 
   // Inline human verdict controls only while the task awaits adjudication.
   const interactive = data.task.status === 'IN_REVIEW'
+  // LUM-733: the human's default action is one whole-task Pass / Send back
+  // (the header VerdictDecision). Per-criterion controls are only useful once a
+  // send-back stands — to say WHICH criterion is still unmet — so the rows stay
+  // passive until then (182 human verdict actions on record, 0 per-criterion
+  // splits, 0 FAILs: the per-row controls were pure overhead on the happy path).
+  const sendBackStanding = data.criteria.some(
+    c => c.latestVerdict?.verdict === 'FAIL'
+  )
+  const rowInteractive = interactive && sendBackStanding
 
   // LUM-563: derive the repo web base from the task's synced PRs so a `commit:`
   // evidence pointer drills to a navigable URL; null → the renderer's git-show
@@ -1446,12 +1565,15 @@ export function AcceptanceTab({
   const machineVerified = machineStats.verified
   const machineOverridden = machineStats.overridden
   const machineFailed = machineStats.failed
-  // Smart default (LUM-451): collapse only when every machine criterion is
-  // genuinely checkpointer-verified — surface the zone whenever a check fails,
-  // is unjudged, OR is being carried by a human override (the honest signal).
   const allMachineVerified =
     machineCriteria.length > 0 && machineVerified === machineCriteria.length
-  const machineZoneOpen = machineOpen ?? !allMachineVerified
+  // LUM-496: the Machine-verified card is a RECORD in every state, so it starts
+  // collapsed in every state. LUM-451's smart default ("expand when something
+  // is unverified") is now carried by the zone split itself — an unverified
+  // check sits, always visible, in the NEEDS ACTION card above, so expanding
+  // the record card would only repeat what the reviewer already saw. The
+  // header toggle still opens it on demand.
+  const machineZoneOpen = machineOpen ?? false
   // LUM-572: mirror the smart default for the human zone — collapse once every
   // human criterion carries a PASS; any unresolved one keeps it open by default.
   const allHumanResolved =
@@ -1472,6 +1594,179 @@ export function AcceptanceTab({
   const humanPending =
     humanCriteria.length > 0 && humanUnresolvedCount > 0 && !taskAccepted
   const humanAllJudged = humanCriteria.length > 0 && !humanPending
+
+  // ── LUM-496 · zone split ─────────────────────────────────────────────────
+  //
+  // Decision-first rule: a unit sits in NEEDS ACTION iff acting on it changes
+  // whether the task can reach Done — machine checks no checkpointer has
+  // passed, unjudged human calls, open boundary crossings, blocking security
+  // findings. Everything else is a record. Membership is derived from the data
+  // on every render (the same `deriveRecordGaps` the status strip reads), never
+  // moved by hand.
+  const gaps = deriveRecordGaps({
+    data,
+    crossings,
+    gateEnabled,
+    securityBlocking,
+  })
+  const isMachineVerified = (c: TaskStatusCriterionView) =>
+    c.machinePassed && isPass(c.latestVerdict?.verdict)
+  const machineVerifiedCriteria = machineCriteria.filter(isMachineVerified)
+  // A DONE task has nothing left to act on (`gaps.machineAwaiting` is 0 for the
+  // same reason): the unverified checks stop being a NEEDS ACTION card and join
+  // the record card below, where the honest verified/total + override/failed
+  // caption still says what a checkpointer actually passed.
+  const machineAwaitingCriteria = taskAccepted
+    ? []
+    : machineCriteria.filter(c => !isMachineVerified(c))
+  const machineRecordCriteria = taskAccepted
+    ? machineCriteria
+    : machineVerifiedCriteria
+  const showSecurityFirst = gaps.securityBlocking > 0
+  const hasNeedsAction =
+    machineAwaitingCriteria.length > 0 ||
+    humanPending ||
+    gaps.crossingsOpen > 0 ||
+    showSecurityFirst
+  // The zone's note has to match what the zone actually contains (review
+  // F4/F5). "Clear these and the task can be marked Done" is a lie on a task
+  // already accepted (nothing here gates a decision that was taken), and an
+  // overstatement when the only open items are advisory: they need a
+  // disposition for the record, but Done never waited on them.
+  const needsActionNoteId = gaps.taskDone
+    ? 'record.zone.needsActionDoneNote'
+    : gaps.crossingsOpen > 0 &&
+        gaps.crossingsBlocking === 0 &&
+        machineAwaitingCriteria.length === 0 &&
+        !humanPending &&
+        gaps.securityBlocking === 0
+      ? 'record.zone.needsActionAdvisoryNote'
+      : 'record.zone.needsActionNote'
+  const needsActionNote = {
+    'record.zone.needsActionDoneNote':
+      'Open items recorded after the task was accepted.',
+    'record.zone.needsActionAdvisoryNote':
+      'These do not block Done, but each still needs a disposition.',
+    'record.zone.needsActionNote':
+      'Clear these and the task can be marked Done.',
+  }[needsActionNoteId]
+
+  // The human zone renders exactly once: pending → NEEDS ACTION, otherwise as
+  // the resolved record below. It survives an empty human criteria list while
+  // the contract is editable because it carries the add-criterion entry.
+  const showHumanZone = humanCriteria.length > 0 || canEdit
+  // …and with no human criterion yet it is exactly that: an empty shell whose
+  // only content is the add-criterion entry. It gets its own header copy —
+  // "Needs your judgment 0/0" claimed a pending call that does not exist.
+  const humanEmptyShell = humanCriteria.length === 0
+
+  // LUM-620's human zone markup, unchanged apart from the anchor it carries —
+  // rendered in whichever zone its state puts it in.
+  const humanZone = (anchorId?: string) => (
+    <div
+      id={anchorId}
+      className={`overflow-hidden rounded-lg border ${
+        humanPending
+          ? 'border-status-in-review-border'
+          : humanAllJudged
+            ? 'border-success-border'
+            : 'border-border'
+      }`}
+    >
+      <button
+        type='button'
+        onClick={() => setHumanOpen(!humanZoneOpen)}
+        aria-expanded={humanZoneOpen}
+        className={`flex w-full items-center gap-2 border-b px-4 py-2.5 text-left ${
+          humanPending
+            ? 'border-status-in-review-border bg-status-in-review-subtle'
+            : humanAllJudged
+              ? 'border-success-border bg-success-subtle'
+              : 'border-border bg-muted/30'
+        }`}
+      >
+        <ChevronRight
+          className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
+          aria-hidden
+        />
+        {humanAllJudged ? (
+          <CheckCircle2 className='size-4 shrink-0 text-success' aria-hidden />
+        ) : (
+          <UserCheck
+            className={`size-4 shrink-0 ${humanPending ? 'text-status-in-review' : 'text-muted-foreground'}`}
+            aria-hidden
+          />
+        )}
+        <span className='text-body-strong text-foreground'>
+          {humanEmptyShell
+            ? intl.formatMessage({
+                id: 'record.human.emptyTitle',
+                defaultMessage: 'Human acceptance criteria',
+              })
+            : humanAllJudged
+              ? intl.formatMessage({
+                  id: 'acceptance.zone.humanResolved',
+                  defaultMessage: 'Human-judged',
+                })
+              : intl.formatMessage({
+                  id: 'acceptance.zone.human',
+                  defaultMessage: 'Needs your judgment',
+                })}
+        </span>
+        <span
+          className={`text-caption ${
+            humanPending
+              ? 'text-status-in-review'
+              : humanAllJudged
+                ? 'text-success'
+                : 'text-muted-foreground/70'
+          }`}
+        >
+          {humanAllJudged
+            ? intl.formatMessage(
+                {
+                  id: 'acceptance.zone.humanAllResolved',
+                  defaultMessage: 'All {count} judged',
+                },
+                { count: humanCriteria.length }
+              )
+            : intl.formatMessage({
+                id: 'acceptance.zone.humanNote',
+                defaultMessage: 'not machine-checkable',
+              })}
+        </span>
+        {/* An empty shell has nothing to count — "0/0" reads like a failure. */}
+        {humanEmptyShell ? null : (
+          <span className='ml-auto text-caption text-muted-foreground'>
+            {humanCriteria.length - humanUnresolvedCount}/{humanCriteria.length}
+          </span>
+        )}
+      </button>
+      {humanZoneOpen ? (
+        <div className='px-1 pb-1'>
+          {humanCriteria.map(c => (
+            <CriterionRow
+              key={c.id}
+              c={c}
+              interactive={rowInteractive}
+              submitting={submitting}
+              onVerdict={submitVerdict}
+              editable={canEdit}
+              onSaveStatement={editStatement}
+              onDelete={deleteCriterion}
+              mutating={mutating}
+              repoWebUrl={repoWebUrl}
+            />
+          ))}
+          {canEdit ? (
+            <div className='px-2 pb-1'>
+              <AddCriterionRow onAdd={addCriterion} mutating={mutating} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
 
   return (
     <div className='space-y-5 py-1'>
@@ -1495,426 +1790,451 @@ export function AcceptanceTab({
         />
       )}
 
-      {/* LUM-619: one "Acceptance" container holds the whole verdict region.
-          Verdict basis — the acceptance criteria + the verification record —
-          sits above an audit-only separator; the forensic signals (mechanical
-          gates + claim-vs-verification) sit below it, surfaced for the
-          reviewer but explicitly NOT inputs to the verdict (the LUM-614
-          audit-only ≠ verdict red line). LUM-635: boundary crossings sit
-          between the two — actionable (an open one blocks Done) yet still not
-          a verdict input. LUM-600: with no contract the criteria block is
-          swapped for the empty note; every contract-independent section still
-          renders. */}
-      <DossierGroup
-        title={intl.formatMessage({
-          id: 'acceptance.container.title',
-          defaultMessage: 'Acceptance',
-        })}
-        open={acceptanceOpen}
-        onToggle={() => setAcceptanceOpen(o => !o)}
-      >
-        <div className='space-y-4'>
-          {hasCriteria ? (
-            <div className='space-y-3'>
-              {/* LUM-620: human "Needs your judgment" leads — it holds the
-                  actionable, not-machine-checkable calls, elevated above the
-                  machine summary. Its accent is state-aware: in-review magenta
-                  while a call is pending, success green once every one is judged
-                  (or the task is accepted), muted when the section is empty.
-                  With zero human criteria the zone stays only while the
-                  contract is still editable (it carries the add-criterion
-                  entry); on a DONE task an empty 0/0 zone is pure noise. */}
-              {humanCriteria.length > 0 || canEdit ? (
-                <div
-                  className={`overflow-hidden rounded-lg border ${
-                    humanPending
-                      ? 'border-status-in-review-border'
-                      : humanAllJudged
-                        ? 'border-success-border'
-                        : 'border-border'
-                  }`}
-                >
-                  <button
-                    type='button'
-                    onClick={() => setHumanOpen(!humanZoneOpen)}
-                    aria-expanded={humanZoneOpen}
-                    className={`flex w-full items-center gap-2 border-b px-4 py-2.5 text-left ${
-                      humanPending
-                        ? 'border-status-in-review-border bg-status-in-review-subtle'
-                        : humanAllJudged
-                          ? 'border-success-border bg-success-subtle'
-                          : 'border-border bg-muted/30'
-                    }`}
-                  >
-                    <ChevronRight
-                      className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
-                      aria-hidden
-                    />
-                    {humanAllJudged ? (
-                      <CheckCircle2
-                        className='size-4 shrink-0 text-success'
-                        aria-hidden
-                      />
-                    ) : (
-                      <UserCheck
-                        className={`size-4 shrink-0 ${humanPending ? 'text-status-in-review' : 'text-muted-foreground'}`}
-                        aria-hidden
-                      />
-                    )}
-                    <span className='text-body-strong text-foreground'>
-                      {humanAllJudged
-                        ? intl.formatMessage({
-                            id: 'acceptance.zone.humanResolved',
-                            defaultMessage: 'Human-judged',
-                          })
-                        : intl.formatMessage({
-                            id: 'acceptance.zone.human',
-                            defaultMessage: 'Needs your judgment',
-                          })}
-                    </span>
-                    <span
-                      className={`text-caption ${
-                        humanPending
-                          ? 'text-status-in-review'
-                          : humanAllJudged
-                            ? 'text-success'
-                            : 'text-muted-foreground/70'
-                      }`}
-                    >
-                      {humanAllJudged
-                        ? intl.formatMessage(
-                            {
-                              id: 'acceptance.zone.humanAllResolved',
-                              defaultMessage: 'All {count} judged',
-                            },
-                            { count: humanCriteria.length }
-                          )
-                        : intl.formatMessage({
-                            id: 'acceptance.zone.humanNote',
-                            defaultMessage: 'not machine-checkable',
-                          })}
-                    </span>
-                    <span className='ml-auto text-caption text-muted-foreground'>
-                      {humanCriteria.length - humanUnresolvedCount}/
-                      {humanCriteria.length}
-                    </span>
-                  </button>
-                  {humanZoneOpen ? (
-                    <div className='px-1 pb-1'>
-                      {humanCriteria.length > 0
-                        ? humanCriteria.map(c => (
-                            <CriterionRow
-                              key={c.id}
-                              c={c}
-                              interactive={interactive}
-                              submitting={submitting}
-                              onVerdict={submitVerdict}
-                              editable={canEdit}
-                              onSaveStatement={editStatement}
-                              onDelete={deleteCriterion}
-                              mutating={mutating}
-                              repoWebUrl={repoWebUrl}
-                            />
-                          ))
-                        : null}
-                      {canEdit ? (
-                        <div className='px-2 pb-1'>
-                          <AddCriterionRow
-                            onAdd={addCriterion}
-                            mutating={mutating}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+      {/* LUM-496: "still needed for Done", with anchor chips into each gap.
+          The chips only link when the NEEDS ACTION zone (and therefore the
+          anchors they point at) is actually on the page. */}
+      <RecordStatusStrip gaps={gaps} interactive={hasNeedsAction} />
 
-              {/* LUM-620: machine-verified demoted to a collapsible green
-                  summary — one glance says "all N checks passed", expandable to
-                  the rows. Smart default: collapsed once every check is
-                  genuinely checkpointer-verified. */}
-              {machineCriteria.length > 0 ? (
-                <div
-                  className={`overflow-hidden rounded-lg border ${allMachineVerified ? 'border-success-border' : 'border-border'}`}
-                >
-                  <button
-                    type='button'
-                    onClick={() => setMachineOpen(!machineZoneOpen)}
-                    aria-expanded={machineZoneOpen}
-                    className={`flex w-full items-center gap-2 px-4 py-2.5 text-left ${allMachineVerified ? 'bg-success-subtle' : 'bg-muted/30'}`}
-                  >
-                    <ChevronRight
-                      className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
-                      aria-hidden
-                    />
-                    <CheckCircle2
-                      className={`size-4 shrink-0 ${allMachineVerified ? 'text-success' : 'text-muted-foreground'}`}
-                      aria-hidden
-                    />
-                    <span className='text-body-strong text-foreground'>
-                      {intl.formatMessage({
-                        id: 'acceptance.zone.machine',
-                        defaultMessage: 'Machine-verified',
-                      })}
-                    </span>
-                    <span
-                      className={`text-caption ${allMachineVerified ? 'text-success' : 'text-muted-foreground/70'}`}
-                    >
-                      {allMachineVerified
-                        ? intl.formatMessage(
-                            {
-                              id: 'acceptance.zone.machineAllPass',
-                              defaultMessage: 'All {count} machine-verified',
-                            },
-                            { count: machineCriteria.length }
-                          )
-                        : [
-                            intl.formatMessage(
-                              {
-                                id: 'acceptance.zone.machineVerifiedCount',
-                                defaultMessage: '{count} machine-verified',
-                              },
-                              { count: machineVerified }
-                            ),
-                            machineOverridden > 0
-                              ? intl.formatMessage(
-                                  {
-                                    id: 'acceptance.zone.machineOverrideCount',
-                                    defaultMessage: '{count} human override',
-                                  },
-                                  { count: machineOverridden }
-                                )
-                              : null,
-                            machineFailed > 0
-                              ? intl.formatMessage(
-                                  {
-                                    id: 'acceptance.zone.machineFailedCount',
-                                    defaultMessage: '{count} failed',
-                                  },
-                                  { count: machineFailed }
-                                )
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
-                    </span>
-                    <span className='ml-auto text-caption text-muted-foreground'>
-                      {machineVerified}/{machineCriteria.length}
-                    </span>
-                  </button>
-                  {machineZoneOpen ? (
-                    <div className='border-t border-border'>
-                      {machineCriteria.map(c => (
-                        <CriterionRow
-                          key={c.id}
-                          c={c}
-                          interactive={interactive}
-                          submitting={submitting}
-                          onVerdict={submitVerdict}
-                          editable={false}
-                          repoWebUrl={repoWebUrl}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
+      {/* ── NEEDS ACTION ──────────────────────────────────────────────────
+          Everything whose resolution moves the task toward Done. Rendered
+          only when it has at least one child — a task with nothing left owes
+          the reviewer no zone. */}
+      {hasNeedsAction ? (
+        <section data-testid='record-needs-action' className='space-y-3'>
+          <div>
+            <div className='text-body-strong text-foreground'>
+              {intl.formatMessage({
+                id: 'record.zone.needsAction',
+                defaultMessage: 'Needs action',
+              })}
             </div>
-          ) : (
-            emptyContractNote
-          )}
-
-          {/* LUM-635: boundary crossings promoted to a third zone, sibling of
-              the human/machine criteria zones. An open crossing is a human-only
-              to-do that blocks Done (a policy gate — not part of the acceptance
-              verdict, the LUM-614 red line is untouched), so it doesn't belong
-              inside the collapsed audit fold. Out here the #boundary-crossings
-              anchor is permanent, so the verdict bar's DONE-blocked "View
-              crossings" link (LUM-454) always has a target. Renders null when
-              the task has no crossings. */}
-          <BoundaryCrossingsPanel
-            taskIdentifier={taskIdentifier}
-            enabled={enabled}
-            workspaceUrl={workspaceUrl}
-            members={members}
-            agentActors={agentActors}
-            onChanged={() => {
-              void refresh?.()
-            }}
-          />
-
-          {/* LUM-620: Claim vs verification — the agent's self-report next to
-              what we measured. Audit-only: it does NOT decide the verdict
-              (LUM-614 red line). */}
-          {hasCriteria ? <ClaimVsVerification data={data} /> : null}
-
-          {/* LUM-620: Evidence & audit trail — the demoted, collapsed forensic
-              zone. Verification rounds + mechanical gates + run cost.
-              Audit-only: none of it is an input to the verdict (LUM-614 red
-              line); hierarchy carried by demotion, not color. */}
-          <div className='overflow-hidden rounded-lg border border-border bg-muted/20'>
-            <button
-              type='button'
-              onClick={() => setAuditOpen(o => !o)}
-              aria-expanded={auditOpen}
-              className='flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/40'
+            <p
+              data-testid='record-needs-action-note'
+              className='text-caption text-muted-foreground'
             >
-              <ChevronRight
-                className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${auditOpen ? 'rotate-90' : ''}`}
-                aria-hidden
-              />
-              <ScrollText
-                className='size-4 shrink-0 text-muted-foreground'
-                aria-hidden
-              />
-              <span className='text-body-strong text-foreground'>
-                {intl.formatMessage({
-                  id: 'acceptance.audit.title',
-                  defaultMessage: 'Evidence & audit trail',
-                })}
-              </span>
-              <span
-                data-testid='audit-only-divider'
-                className='text-caption text-muted-foreground/70'
-              >
-                {intl.formatMessage({
-                  id: 'acceptance.auditOnly.label',
-                  defaultMessage:
-                    "Audit-only — these signals don't decide the verdict",
-                })}
-              </span>
-            </button>
-            {auditOpen ? (
-              <div className='space-y-4 border-t border-border px-4 py-4'>
-                {/* Verification record — how the verdict was reached (rounds). */}
-                <VerificationHistory data={data} />
-
-                {/* Mechanical gates (per PR; LUM-617). Injected from the dossier
-                    level; null when there are no PRs/signals. */}
-                {gatesSlot}
-
-                {/* Run cost — tokens / active time / rework rounds (LUM-560). */}
-                <CostSection data={data} />
-              </div>
-            ) : null}
+              {intl.formatMessage({
+                id: needsActionNoteId,
+                defaultMessage: needsActionNote,
+              })}
+            </p>
           </div>
-        </div>
-      </DossierGroup>
 
-      {/* LUM-572 · Run report — the after-the-fact record, folded into one
-          collapsed group so the surface above reads decision → criteria →
-          boundary, with history / cost / struggle / trend / removed tucked away.
-          LUM-581: carded into the uniform DossierGroup shell. */}
-      <DossierGroup
-        title={intl.formatMessage({
-          id: 'acceptance.runReport.title',
-          defaultMessage: 'Run report',
-        })}
-        open={runReportOpen}
-        onToggle={() => setRunReportOpen(o => !o)}
-      >
-        <div className='space-y-4'>
-          {/* LUM-561/562 honest-report sections — the struggle the all-pass
-          count would wipe, and the movement across attempts. Mirror the
-          Struggle / Trend blocks `lumo task status` prints, same-source so the
-          two surfaces cannot drift. (LUM-620: Cost moved up into the Acceptance
-          container's Evidence & audit trail, alongside the other forensics.) */}
-          <StruggleTrailSection data={data} />
-          <TrendSection data={data} />
-
-          {/* C — Removed criteria section */}
-          {data.removedCriteria.length > 0 ? (
-            <div>
-              <button
-                type='button'
-                onClick={() => setRemovedOpen(o => !o)}
-                aria-expanded={removedOpen}
-                className='mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground'
-              >
-                <Archive className='size-3.5' aria-hidden />
-                {intl.formatMessage({
-                  id: 'acceptance.removed.title',
-                  defaultMessage: 'Removed · kept for audit',
-                })}
-                <span className='text-muted-foreground/70'>
-                  ({data.removedCriteria.length})
-                </span>
-                <ChevronRight
-                  className={`size-3.5 transition-transform ${removedOpen ? 'rotate-90' : ''}`}
+          {/* Machine checks still awaiting a checkpointer pass (a human
+              override counts as awaiting — honest per machineRollup). Only
+              the awaiting rows are listed; the verified ones are a record. */}
+          {machineAwaitingCriteria.length > 0 ? (
+            <div
+              id='record-machine'
+              data-testid='record-machine-awaiting'
+              className='overflow-hidden rounded-lg border border-warning-border'
+            >
+              <div className='flex w-full items-center gap-2 bg-warning-subtle px-4 py-2.5'>
+                <AlertTriangle
+                  className='size-4 shrink-0 text-warning'
                   aria-hidden
                 />
-              </button>
-              {removedOpen ? (
-                <div className='overflow-hidden rounded-md border border-border bg-muted/30'>
-                  {data.removedCriteria.map((rc: RemovedCriterionView) => (
-                    <div
-                      key={rc.id}
-                      className='flex gap-3 px-3 py-3 border-t border-border/60 first:border-t-0'
-                    >
-                      <Trash2
-                        className='mt-0.5 size-3.5 text-muted-foreground shrink-0'
-                        aria-hidden
-                      />
-                      <div className='min-w-0 flex-1'>
-                        <div className='text-[13px] leading-snug text-muted-foreground line-through'>
-                          {rc.statement}
-                        </div>
-                        <div className='mt-1.5 flex flex-wrap gap-1.5 text-[11px]'>
-                          {rc.removedAtRound != null ? (
-                            <span className='rounded-sm border border-border px-1.5 py-0.5 font-medium text-muted-foreground'>
-                              {intl.formatMessage(
-                                {
-                                  id: 'acceptance.removed.atRound',
-                                  defaultMessage: 'Removed at round {round}',
-                                },
-                                { round: rc.removedAtRound }
-                              )}
-                            </span>
-                          ) : null}
-                          {rc.lastVerdict ? (
-                            <span
-                              className={`rounded-sm px-1.5 py-0.5 font-medium ${rc.lastVerdict.verdict === 'FAIL' ? 'bg-danger-subtle border border-danger-border text-foreground' : 'border border-border text-muted-foreground'}`}
-                            >
-                              {intl.formatMessage(
-                                {
-                                  id: 'acceptance.removed.lastVerdict',
-                                  defaultMessage: 'last verdict: {v}',
-                                },
-                                { v: rc.lastVerdict.verdict }
-                              )}
-                            </span>
-                          ) : null}
-                          <span className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'>
-                            {rc.verifierType}
-                          </span>
-                        </div>
-                        {rc.runCount > 0 ? (
-                          <div className='mt-1 text-[11px] italic text-muted-foreground/70'>
-                            {intl.formatMessage(
-                              {
-                                id: 'acceptance.removed.runsPreserved',
-                                defaultMessage:
-                                  '{n} verification run(s) preserved',
-                              },
-                              { n: rc.runCount }
-                            )}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
+                <span className='text-body-strong text-foreground'>
+                  {intl.formatMessage({
+                    id: 'record.machine.awaitingTitle',
+                    defaultMessage: 'Machine checks awaiting verification',
+                  })}
+                </span>
+                <span className='text-caption text-muted-foreground'>
+                  {intl.formatMessage(
+                    {
+                      id: 'record.machine.awaitingSummary',
+                      defaultMessage:
+                        '{verified} verified · {awaiting} awaiting',
+                    },
+                    {
+                      verified: gaps.machineVerified,
+                      awaiting: gaps.machineAwaiting,
+                    }
+                  )}
+                </span>
+                <span className='ml-auto text-caption text-muted-foreground'>
+                  {gaps.machineVerified}/{gaps.machineTotal}
+                </span>
+              </div>
+              <div className='border-t border-border'>
+                {machineAwaitingCriteria.map(c => (
+                  <CriterionRow
+                    key={c.id}
+                    c={c}
+                    interactive={rowInteractive}
+                    submitting={submitting}
+                    onVerdict={submitVerdict}
+                    editable={false}
+                    repoWebUrl={repoWebUrl}
+                    awaiting
+                  />
+                ))}
+              </div>
             </div>
           ) : null}
 
-          {/* LUM-572: the evidence & causality sub-sections (agent runs,
+          {/* The human calls, while any is unjudged. */}
+          {humanPending && showHumanZone ? humanZone('record-human') : null}
+
+          {/* Open crossings — each needs a human disposition before Done.
+              `legacyAnchorId` keeps the verdict bar's #boundary-crossings
+              deep link (LUM-454) landing here. */}
+          {gaps.crossingsOpen > 0 ? (
+            <BoundaryCrossingsPanel
+              taskIdentifier={taskIdentifier}
+              enabled={enabled}
+              workspaceUrl={workspaceUrl}
+              members={members}
+              agentActors={agentActors}
+              onChanged={() => {
+                void refresh?.()
+              }}
+              subset='open'
+              anchorId='record-crossings'
+              legacyAnchorId={BOUNDARY_CROSSINGS_ANCHOR}
+            />
+          ) : null}
+
+          {/* LUM-732: an undispositioned blocking finding hard-blocks DONE
+              (the API returns 409) — that is an action, not a record. Shown
+              here instead of (never as well as) in the records below. */}
+          {showSecurityFirst ? securitySlot : null}
+        </section>
+      ) : null}
+
+      {/* ── RECORDS ───────────────────────────────────────────────────────
+          Everything already settled: kept, legible, out of the way. */}
+      <div data-testid='record-records' className='space-y-5'>
+        <div className='flex items-center gap-2'>
+          <span className='text-caption uppercase tracking-wide text-muted-foreground'>
+            {intl.formatMessage({
+              id: 'record.zone.records',
+              defaultMessage: 'Records · no action needed',
+            })}
+          </span>
+          <span className='h-px flex-1 bg-border' aria-hidden />
+        </div>
+
+        <DossierGroup
+          title={intl.formatMessage({
+            id: 'acceptance.container.title',
+            defaultMessage: 'Acceptance',
+          })}
+          open={acceptanceOpen}
+          onToggle={() => setAcceptanceOpen(o => !o)}
+        >
+          <div className='space-y-4'>
+            {hasCriteria ? (
+              <div className='space-y-3'>
+                {/* The human zone in its resolved form (green, collapsed by
+                    the LUM-572 smart default) — or, with no human criteria
+                    yet, the editable shell carrying the add-criterion entry. */}
+                {!humanPending && showHumanZone ? humanZone() : null}
+
+                {/* LUM-620's machine-verified card: the checkpointer-backed
+                    passes (plus, on a DONE task, the checks nobody is waiting
+                    on any more) — a record, so collapsed by default. */}
+                {machineRecordCriteria.length > 0 ? (
+                  <div
+                    className={`overflow-hidden rounded-lg border ${allMachineVerified ? 'border-success-border' : 'border-border'}`}
+                  >
+                    <button
+                      type='button'
+                      onClick={() => setMachineOpen(!machineZoneOpen)}
+                      aria-expanded={machineZoneOpen}
+                      className={`flex w-full items-center gap-2 px-4 py-2.5 text-left ${allMachineVerified ? 'bg-success-subtle' : 'bg-muted/30'}`}
+                    >
+                      <ChevronRight
+                        className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${machineZoneOpen ? 'rotate-90' : ''}`}
+                        aria-hidden
+                      />
+                      <CheckCircle2
+                        className={`size-4 shrink-0 ${allMachineVerified ? 'text-success' : 'text-muted-foreground'}`}
+                        aria-hidden
+                      />
+                      <span className='text-body-strong text-foreground'>
+                        {intl.formatMessage({
+                          id: 'acceptance.zone.machine',
+                          defaultMessage: 'Machine-verified',
+                        })}
+                      </span>
+                      <span
+                        className={`text-caption ${allMachineVerified ? 'text-success' : 'text-muted-foreground/70'}`}
+                      >
+                        {allMachineVerified
+                          ? intl.formatMessage(
+                              {
+                                id: 'acceptance.zone.machineAllPass',
+                                defaultMessage: 'All {count} machine-verified',
+                              },
+                              { count: machineCriteria.length }
+                            )
+                          : [
+                              intl.formatMessage(
+                                {
+                                  id: 'acceptance.zone.machineVerifiedCount',
+                                  defaultMessage: '{count} machine-verified',
+                                },
+                                { count: machineVerified }
+                              ),
+                              machineOverridden > 0
+                                ? intl.formatMessage(
+                                    {
+                                      id: 'acceptance.zone.machineOverrideCount',
+                                      defaultMessage: '{count} human override',
+                                    },
+                                    { count: machineOverridden }
+                                  )
+                                : null,
+                              machineFailed > 0
+                                ? intl.formatMessage(
+                                    {
+                                      id: 'acceptance.zone.machineFailedCount',
+                                      defaultMessage: '{count} failed',
+                                    },
+                                    { count: machineFailed }
+                                  )
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                      </span>
+                      <span className='ml-auto text-caption text-muted-foreground'>
+                        {machineVerified}/{machineCriteria.length}
+                      </span>
+                    </button>
+                    {machineZoneOpen ? (
+                      <div className='border-t border-border'>
+                        {machineRecordCriteria.map(c => (
+                          <CriterionRow
+                            key={c.id}
+                            c={c}
+                            interactive={rowInteractive}
+                            submitting={submitting}
+                            onVerdict={submitVerdict}
+                            editable={false}
+                            repoWebUrl={repoWebUrl}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              emptyContractNote
+            )}
+
+            {/* Crossings already ruled on — the record of who decided what.
+                Renders null when there are none. It carries the legacy
+                #boundary-crossings anchor whenever no open-subset panel is
+                mounted above to carry it (never both — one id, one element). */}
+            <BoundaryCrossingsPanel
+              taskIdentifier={taskIdentifier}
+              enabled={enabled}
+              workspaceUrl={workspaceUrl}
+              members={members}
+              agentActors={agentActors}
+              onChanged={() => {
+                void refresh?.()
+              }}
+              subset='dispositioned'
+              anchorId='record-crossings-dispositioned'
+              {...(gaps.crossingsOpen === 0
+                ? { legacyAnchorId: BOUNDARY_CROSSINGS_ANCHOR }
+                : {})}
+            />
+
+            {/* LUM-620: Evidence & audit trail — the demoted, collapsed
+                forensic zone: verification rounds + mechanical gates.
+                Audit-only: none of it is an input to the verdict (LUM-614 red
+                line). LUM-496: run cost left for the Run report's KPI tile. */}
+            <div className='overflow-hidden rounded-lg border border-border bg-muted/20'>
+              <button
+                type='button'
+                onClick={() => setAuditOpen(o => !o)}
+                aria-expanded={auditOpen}
+                className='flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/40'
+              >
+                <ChevronRight
+                  className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${auditOpen ? 'rotate-90' : ''}`}
+                  aria-hidden
+                />
+                <ScrollText
+                  className='size-4 shrink-0 text-muted-foreground'
+                  aria-hidden
+                />
+                <span className='text-body-strong text-foreground'>
+                  {intl.formatMessage({
+                    id: 'acceptance.audit.title',
+                    defaultMessage: 'Evidence & audit trail',
+                  })}
+                </span>
+                <span
+                  data-testid='audit-only-divider'
+                  className='text-caption text-muted-foreground/70'
+                >
+                  {intl.formatMessage({
+                    id: 'acceptance.auditOnly.label',
+                    defaultMessage:
+                      "Audit-only — these signals don't decide the verdict",
+                  })}
+                </span>
+              </button>
+              {auditOpen ? (
+                <div className='space-y-4 border-t border-border px-4 py-4'>
+                  {/* Verification record — how the verdict was reached. */}
+                  <VerificationHistory data={data} />
+
+                  {/* Mechanical gates (per PR; LUM-617). Injected from the
+                      dossier level; null when there are no PRs/signals. */}
+                  {gatesSlot}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </DossierGroup>
+
+        {/* LUM-732: the security scan as a record, when nothing in it blocks
+            (a blocking finding puts it in NEEDS ACTION above instead). */}
+        {showSecurityFirst ? null : securitySlot}
+
+        {/* LUM-572 · Run report — the after-the-fact record. LUM-496: the four
+            KPI tiles read at a glance; trend, struggle, removed and the
+            evidence sub-sections stay one click away below them. */}
+        <DossierGroup
+          title={intl.formatMessage({
+            id: 'acceptance.runReport.title',
+            defaultMessage: 'Run report',
+          })}
+          open={runReportOpen}
+          onToggle={() => setRunReportOpen(o => !o)}
+        >
+          <div className='space-y-4'>
+            <RunReportTiles tiles={deriveRunReportTiles(data)} />
+
+            <TrendSection data={data} />
+
+            {/* LUM-561's struggle trail, folded — the tiles carry the headline
+                numbers; the scars they summarize are one click below. */}
+            {data.struggleTrail ? (
+              <div className='overflow-hidden rounded-md border border-border'>
+                <div className='flex items-center gap-1 px-1'>
+                  <button
+                    type='button'
+                    aria-expanded={struggleOpen}
+                    onClick={() => setStruggleOpen(o => !o)}
+                    className='flex flex-1 items-center gap-2 px-2 py-2 text-left text-body-strong text-foreground'
+                  >
+                    <ChevronRight
+                      className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${struggleOpen ? 'rotate-90' : ''}`}
+                      aria-hidden
+                    />
+                    {intl.formatMessage(STRUGGLE_TITLE)}
+                  </button>
+                  <InfoTooltip label={intl.formatMessage(STRUGGLE_TIP)} />
+                </div>
+                {struggleOpen ? (
+                  <div className='border-t border-border px-3 py-3'>
+                    <StruggleTrailSection data={data} headless />
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* C — Removed criteria section */}
+            {data.removedCriteria.length > 0 ? (
+              <div>
+                <button
+                  type='button'
+                  onClick={() => setRemovedOpen(o => !o)}
+                  aria-expanded={removedOpen}
+                  className='mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground'
+                >
+                  <Archive className='size-3.5' aria-hidden />
+                  {intl.formatMessage({
+                    id: 'acceptance.removed.title',
+                    defaultMessage: 'Removed · kept for audit',
+                  })}
+                  <span className='text-muted-foreground/70'>
+                    ({data.removedCriteria.length})
+                  </span>
+                  <ChevronRight
+                    className={`size-3.5 transition-transform ${removedOpen ? 'rotate-90' : ''}`}
+                    aria-hidden
+                  />
+                </button>
+                {removedOpen ? (
+                  <div className='overflow-hidden rounded-md border border-border bg-muted/30'>
+                    {data.removedCriteria.map((rc: RemovedCriterionView) => (
+                      <div
+                        key={rc.id}
+                        className='flex gap-3 px-3 py-3 border-t border-border/60 first:border-t-0'
+                      >
+                        <Trash2
+                          className='mt-0.5 size-3.5 text-muted-foreground shrink-0'
+                          aria-hidden
+                        />
+                        <div className='min-w-0 flex-1'>
+                          <div className='text-[13px] leading-snug text-muted-foreground line-through'>
+                            {rc.statement}
+                          </div>
+                          <div className='mt-1.5 flex flex-wrap gap-1.5 text-[11px]'>
+                            {rc.removedAtRound != null ? (
+                              <span className='rounded-sm border border-border px-1.5 py-0.5 font-medium text-muted-foreground'>
+                                {intl.formatMessage(
+                                  {
+                                    id: 'acceptance.removed.atRound',
+                                    defaultMessage: 'Removed at round {round}',
+                                  },
+                                  { round: rc.removedAtRound }
+                                )}
+                              </span>
+                            ) : null}
+                            {rc.lastVerdict ? (
+                              <span
+                                className={`rounded-sm px-1.5 py-0.5 font-medium ${rc.lastVerdict.verdict === 'FAIL' ? 'bg-danger-subtle border border-danger-border text-foreground' : 'border border-border text-muted-foreground'}`}
+                              >
+                                {intl.formatMessage(
+                                  {
+                                    id: 'acceptance.removed.lastVerdict',
+                                    defaultMessage: 'last verdict: {v}',
+                                  },
+                                  { v: rc.lastVerdict.verdict }
+                                )}
+                              </span>
+                            ) : null}
+                            <span className='rounded-sm border border-border px-1.5 py-0.5 text-muted-foreground'>
+                              {rc.verifierType}
+                            </span>
+                          </div>
+                          {rc.runCount > 0 ? (
+                            <div className='mt-1 text-[11px] italic text-muted-foreground/70'>
+                              {intl.formatMessage(
+                                {
+                                  id: 'acceptance.removed.runsPreserved',
+                                  defaultMessage:
+                                    '{n} verification run(s) preserved',
+                                },
+                                { n: rc.runCount }
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* LUM-572: the evidence & causality sub-sections (agent runs,
                 lineage, injected memory) fold in at the tail, so the whole
                 after-the-fact record sits under one Run report group. */}
-          {evidenceSlot}
-        </div>
-      </DossierGroup>
+            {evidenceSlot}
+          </div>
+        </DossierGroup>
+      </div>
     </div>
   )
 }

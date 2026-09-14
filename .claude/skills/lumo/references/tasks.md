@@ -120,14 +120,46 @@ The server's transition matrix (`lib/task/state-machine.ts`):
 
 Practical rules:
 
-- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls.
+- **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls. That one call **walks the confirmation protocol** (see below): without `--confirm` it exits 4 with an envelope, never a prompt.
 - **Under the verify flow you don't set `in_review`/`done` at all** — `lumo verify` moves the task to IN_REVIEW on all-pass and the DONE adjudication is human-only.
 - **A DONE task can be reopened** — to IN_REVIEW, IN_PROGRESS, or TODO. Reopening is a plain status change and does not alter any recorded acceptance verdict; verdict adjudication is human-only and has no CLI path. To attach context without reopening, `lumo task comment` works.
+
+### `--status done` requires `--confirm` — the confirmation envelope (LUM-755)
+
+DONE is the one status move that needs a human's sign-off. It no longer prompts (LUM-731's interactive yes/no question is gone): run without `--confirm`, the CLI looks the task up, prints a **confirmation envelope** on stdout and exits **4** with nothing sent — no PATCH, and no tag resolution either. The envelope's `changes` carry everything the old prompt showed, including a trailing `⚠` line when a linked PR has not merged (that line replaces the old second prompt — the protocol is one step, and you relay the whole block). Full protocol: [confirmation.md](confirmation.md).
+
+```bash
+lumo task update LUM-48 --status done
+# exit 4, stdout (JSON when piped; the same lines as text on a TTY):
+# {
+#   "status": "confirmation_required",
+#   "command": "task update",
+#   "changes": [
+#     "Will move LUM-48 \"Title\" to DONE",
+#     "Status: IN_REVIEW → DONE",
+#     "#926  merged   refactor: panel  https://github.com/o/r/pull/926",
+#     "#930  open     feat: wip        https://github.com/o/r/pull/930",
+#     "⚠ 1 linked pull request not merged: #930 open"
+#   ],
+#   "confirmCommand": "lumo task update LUM-48 --status done --confirm"
+# }
+```
+
+With no linked PR the PR lines collapse to `Pull requests: none linked` and there is no `⚠` line. Other flags on the same call (`--title`, `--add-tag`…) are preserved in `confirmCommand`.
+
+- **Show `changes` to the user and wait for an explicit yes**, then run `confirmCommand` unchanged. `--confirm` means the user confirmed — never add it on your own.
+- With `--confirm` the PATCH goes out directly. The server's own DONE gates still apply on top — an unresolved send-back, an undispositioned boundary crossing or a blocking security finding refuses with **409**, which the CLI turns into a structured **`DONE_BLOCKED` error on stdout with exit 5**: the 409 text verbatim, a `blockers[]` with ids (built from `task status` + the crossings read model), and `remediation` lines that only name human-side or user-approved paths. Nothing on `task update` clears any of them — relay, don't retry. A boundary crossing is the one blocker with a terminal path, `lumo crossing disposition <id> …` (itself exit-4: the user rules, never you); once every blocker is cleared, re-run this `--confirm` call. See [confirmation.md](confirmation.md) "When the gate is human-only". Any other 409 stays plain text, exit 1.
+- `--confirm` is the only flag: there is no `--yes` or `--force` on `task update`. Every other status (`todo` / `in_progress` / `in_review`) PATCHes directly and ignores `--confirm`.
+- A failed lookup (404, network) exits 1 before any envelope.
+
+```bash
+lumo task update LUM-48 --status done --confirm   # only after the user approved the envelope
+```
 
 ### When to suggest `task update`
 
 - The user describes a state change in natural language (e.g. "mark LUM-48 as in progress", "rename LUM-12 to ...", "assign LUM-30 to me", "bump the priority on LUM-7").
-- After the agent finishes a task and the user confirms — offer to move it to `done`.
+- After the agent finishes a task and the user confirms — tell the user to run `lumo task update LUM-N --status done` in their terminal (it prompts for confirmation; an agent shell is non-TTY and is refused).
 - Multiple status changes in a row should each be a separate `update` invocation rather than batched.
 
 ### Sprint output format

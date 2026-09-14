@@ -225,6 +225,24 @@ export const memoryRepository = {
   },
 
   /**
+   * LUM-764 — the project's ACTIVE TRAP memories, newest first and bounded.
+   * The L3 hunt planner reads them as "what has this team already walked
+   * into"; it is a FAST-bucket routing call with a per-section item cap, so
+   * pulling every project memory and filtering in memory would be an
+   * unbounded read to throw most of away. Scope is not narrowed to PROJECT:
+   * a trap distilled on a task is the same warning, and the planner has no
+   * use for the distinction.
+   */
+  async findActiveTrapMemoriesByProject(projectId: string, limit: number) {
+    return prisma.memory.findMany({
+      where: { projectId, category: 'TRAP', status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: { id: true, content: true, createdAt: true },
+    })
+  },
+
+  /**
    * All task-scoped memories grouped by sourceSessionId. Used by the Agent
    * Run timeline so each Run card can show the memories that were sedimented
    * during that Claude Code session.

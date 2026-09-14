@@ -1,5 +1,4 @@
 import { githubRepository } from '@/lib/repositories/github.repository'
-import { decrypt } from '@/lib/crypto'
 import type { UpsertIntegrationData } from '@/lib/repositories/github.repository'
 
 // ── GitHub Service ──────────────────────────────────────────────────────────
@@ -51,108 +50,9 @@ export const githubService = {
     return githubRepository.upsertIntegration(data)
   },
 
-  /** Set webhook secret on integration if not already set. */
-  async ensureWebhookSecret(
-    integrationId: string,
-    currentSecret: string | null
-  ) {
-    if (currentSecret) return currentSecret
-    const { randomBytes } = await import('crypto')
-    const webhookSecret = randomBytes(32).toString('hex')
-    await githubRepository.updateIntegration(integrationId, { webhookSecret })
-    return webhookSecret
-  },
-
-  /** Update the list of authorized repositories. */
-  async updateRepositories(integrationId: string, repositories: string[]) {
-    return githubRepository.updateIntegrationRepositories(
-      integrationId,
-      repositories
-    )
-  },
-
   /** Delete integration by id. */
   async deleteIntegration(id: string) {
     return githubRepository.deleteIntegration(id)
-  },
-
-  /**
-   * Update authorized repos: create webhooks for added repos, delete for removed.
-   * Returns the updated repository list.
-   */
-  async updateAuthorizedRepos(
-    workspaceId: string,
-    memberId: string,
-    repositories: string[]
-  ) {
-    const integration = await githubRepository.findIntegrationWithWebhooks(
-      workspaceId,
-      memberId
-    )
-    if (!integration) {
-      throw Object.assign(new Error('GitHub not connected'), { status: 404 })
-    }
-
-    const token = decrypt(integration.accessToken)
-
-    // Generate + persist webhook secret if not yet set
-    const webhookSecret = await this.ensureWebhookSecret(
-      integration.id,
-      integration.webhookSecret
-    )
-
-    const oldRepos = integration.repositories
-    const addedRepos = repositories.filter(r => !oldRepos.includes(r))
-    const removedRepos = oldRepos.filter(r => !repositories.includes(r))
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/github`
-
-    const { createRepoWebhook, deleteRepoWebhook, syncRepoPRs } =
-      await import('@/lib/integrations/github')
-
-    // Create webhooks for newly added repos; track failures to exclude from saved list
-    const failedRepos = new Set<string>()
-    for (const fullName of addedRepos) {
-      const slash = fullName.indexOf('/')
-      const owner = fullName.slice(0, slash)
-      const repo = fullName.slice(slash + 1)
-      try {
-        const hookId = await createRepoWebhook(
-          token,
-          owner,
-          repo,
-          webhookUrl,
-          webhookSecret
-        )
-        await this.upsertWebhook(integration.id, fullName, hookId)
-
-        void syncRepoPRs(token, fullName, workspaceId, integration.id).catch(
-          err =>
-            console.error(`[github] syncRepoPRs failed for ${fullName}:`, err)
-        )
-      } catch (err) {
-        console.error(`[github] createRepoWebhook failed for ${fullName}:`, err)
-        failedRepos.add(fullName)
-      }
-    }
-
-    // Delete webhooks for removed repos
-    for (const fullName of removedRepos) {
-      const slash = fullName.indexOf('/')
-      const owner = fullName.slice(0, slash)
-      const repo = fullName.slice(slash + 1)
-      const hook = integration.webhooks.find(h => h.repo === fullName)
-      if (hook) {
-        await deleteRepoWebhook(token, owner, repo, hook.githubHookId)
-        await this.deleteWebhook(integration.id, fullName)
-      }
-    }
-
-    const successfulRepos = repositories.filter(r => !failedRepos.has(r))
-    const updated = await this.updateRepositories(
-      integration.id,
-      successfulRepos
-    )
-    return updated
   },
 
   // ── Webhooks ────────────────────────────────────────────────────────────

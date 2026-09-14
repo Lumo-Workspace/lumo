@@ -8,9 +8,10 @@
  * session-summary was removed in 桶3/LUM-592; every call site now routes the
  * gateway, so there is a single id space.
  *
- * Catalog probed 2026-06-24: `anthropic/claude-sonnet-4.6` resolves. Do NOT
- * "normalise" the gateway dot to a dash — `anthropic/claude-sonnet-4-6` is NOT
- * in the catalog and would 400.
+ * Catalog probed 2026-06-24 / 2026-09-10: `anthropic/claude-sonnet-4.6` and
+ * `zai/glm-5.2` resolve. Do NOT "normalise" the gateway dot to a dash —
+ * `anthropic/claude-sonnet-4-6` / `zai/glm-5-2` are NOT in the catalog and
+ * would 400.
  */
 
 /**
@@ -39,10 +40,18 @@ export const GENERATION_MODEL = 'deepseek/deepseek-v4-pro'
 /**
  * 桶3 CONTENT tier — session-summary structured content generation (6 forced-
  * schema templates). Dropped Opus + the native Anthropic SDK for Sonnet 4.6 via
- * the gateway (LUM-592). Doubles as the `contentModel` value stamped on the
- * session record. Gateway format.
+ * the gateway (LUM-592); then Sonnet 4.6 → GLM-5.2 (LUM-748) — the LUM-588
+ * lineage A/B gate was explicitly WAIVED by the user for this swap; it ships on
+ * a 6-template `generateObject` schema-conformance probe
+ * (`scripts/probe-glm-structured.ts --templates`), NOT an accuracy eval.
+ * GLM-5.2, not 5.3: sampled on the debug template, 5.3 degenerated into a
+ * whitespace loop mid-JSON until the token cap (5/53 default sampling, 1/56 at
+ * temperature 0 → AI_NoObjectGeneratedError); 5.2 was 0/120. Doubles as the
+ * `contentModel` value stamped on the session record. Gateway format;
+ * catalog-probed 2026-09-10 (`zai/glm-5.2` resolves — keep the version dot,
+ * do NOT dash-normalise).
  */
-export const CONTENT_MODEL = 'anthropic/claude-sonnet-4.6'
+export const CONTENT_MODEL = 'zai/glm-5.2'
 
 /**
  * Lightweight translation (i18n Slack-context tooling). Routed to DeepSeek via
@@ -71,17 +80,24 @@ export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
 
 /**
  * 桶5 POLICY_COMPILER tier — compiling a project's CLAUDE.md/AGENTS.md into
- * classified PolicyRule records (LUM-590). Pinned to Opus 4.8: this single
- * run-at-rest, hash-cached call drives the whole per-project detector — the
- * quality of its action/code + deterministic/semantic classification and its
- * predicate/built-in mapping decides what the deterministic-block tier can
- * catch at all. Run-at-rest + cached, so the dearer model's cost is bounded
- * (once per project per CLAUDE.md change), and accuracy dominates. Kept its own
- * constant so it never shares — and so can never be cheapened by — the verifier
- * (桶1) tier. Gateway format; catalog-probed 2026-06-25 (`anthropic/claude-opus-4.8`
- * resolves — like Sonnet, keep the version dot, do NOT dash-normalise).
+ * classified PolicyRule records (LUM-590). This single run-at-rest, hash-cached
+ * call drives the whole per-project detector — the quality of its action/code +
+ * deterministic/semantic classification and its predicate/built-in mapping
+ * decides what the deterministic-block tier can catch at all. Run-at-rest +
+ * cached, so cost is bounded (once per project per CLAUDE.md change) and
+ * accuracy dominates. Kept its own constant so it never shares — and so can
+ * never be cheapened by — the verifier (桶1) tier.
+ *
+ * Opus 4.8 → GLM-5.2 (LUM-748): the LUM-588 A/B gate was explicitly WAIVED by
+ * the user; ships on a CLAUDE.md classification probe
+ * (`scripts/probe-glm-structured.ts --policy`) that asserts the Forbidden
+ * rules map to their built-ins, NOT an accuracy eval (3/3 runs mapped all four
+ * Forbidden rules, 0 prose misclassified). Same 5.2-over-5.3 reasoning as
+ * CONTENT_MODEL — 5.3's whitespace-loop degeneration has more exposure on
+ * this longer output. Gateway format; catalog-probed 2026-09-10
+ * (`zai/glm-5.2` resolves — keep the version dot, do NOT dash-normalise).
  */
-export const POLICY_COMPILER_MODEL = 'anthropic/claude-opus-4.8'
+export const POLICY_COMPILER_MODEL = 'zai/glm-5.2'
 
 /**
  * The embedding model id lives in `./embedding` (`EMBEDDING_MODEL`), coupled to

@@ -1,21 +1,19 @@
 /**
  * @jest-environment node
  */
-import { formatDeleteRefusal } from '@/cli/src/commands/sprint-delete'
+import { describeSprintDelete } from '@/cli/src/commands/sprint-delete'
 
-describe('formatDeleteRefusal', () => {
-  it('refuses with task count', () => {
-    expect(formatDeleteRefusal(3, 'Sprint 3', 5)).toBe(
-      'Refusing to delete sprint #3 "Sprint 3" without --yes.\n' +
-        '5 tasks under it will keep their data; only sprintId is cleared.\n' +
-        'Re-run with --yes to confirm.'
-    )
+describe('describeSprintDelete (confirmation envelope changes[])', () => {
+  it('lists the sprint and the task-impact line', () => {
+    expect(describeSprintDelete(3, 'Sprint 3', 5)).toEqual([
+      'Will delete sprint #3 "Sprint 3"',
+      '5 tasks under it keep their data; only sprintId is cleared',
+    ])
   })
 
-  it('omits task line when zero', () => {
-    expect(formatDeleteRefusal(4, 'Sprint 4', 0)).toBe(
-      'Refusing to delete sprint #4 "Sprint 4" without --yes.\n' +
-        'Re-run with --yes to confirm.'
-    )
+  it('omits the task line when zero', () => {
+    expect(describeSprintDelete(4, 'Sprint 4', 0)).toEqual([
+      'Will delete sprint #4 "Sprint 4"',
+    ])
   })
 })

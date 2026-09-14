@@ -223,6 +223,193 @@ The platform is fully responsive and works on:
 - Tablet (768px - 1023px)
 - Mobile (320px - 767px)
 
+## 🔐 GitHub App permissions
+
+A workspace connects GitHub over **two grants with different jobs**, both
+shown as their own row in workspace → settings → integrations:
+
+| Grant                               | Identity                    | Does                                                                                                                                     |
+| ----------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **App installation** (team)         | the Lumo App, per workspace | everything that touches a repository: repo list, PR links, webhooks, comment mirroring, the managed security scan's clone                |
+| **OAuth link** (personal, optional) | the member who linked it    | identity only — records which GitHub login is this member, so comments arriving from GitHub are attributed to them in Lumo (`read:user`) |
+
+Nothing runs on a member's token. Every mirrored comment is posted by the App
+with an attribution line linking back to the Lumo comment; the App cannot
+speak as a person, and that link is what preserves "who said this". The
+repository set is chosen in GitHub's install settings, not in Lumo. **A
+workspace without the App installed is not scanned** — the card says so.
+
+The Lumo GitHub App (`GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY`) needs this
+minimum permission set:
+
+| Permission      | Access       | Used by                                              |
+| --------------- | ------------ | ---------------------------------------------------- |
+| Contents        | Read         | file reads, PR diffs, security-scan clone            |
+| Pull requests   | Read & write | PR head sha, change volume, comment mirror (LUM-546) |
+| Issues          | Read & write | comment mirror (issue comments)                      |
+| Checks          | Read         | CI signal for the gate audit (LUM-616)               |
+| Commit statuses | Read         | CI signal (Status API providers)                     |
+| Metadata        | Read         | mandatory                                            |
+
+### Installation flow
+
+`GITHUB_APP_SLUG` names the App in its install URL, and
+`GITHUB_APP_WEBHOOK_SECRET` is the secret configured on the **App's own**
+webhook (a different delivery from the per-repo hooks OAuth creates — both
+arrive at `/api/webhooks/github` and are verified against different secrets).
+
+1. The settings card sends the owner to `/api/github/app/install`, which
+   redirects to the App's install page with an encrypted `state` naming the
+   workspace.
+2. GitHub returns to `/api/github/app/setup`, which re-checks that the
+   signed-in caller is a member of that workspace (the state carries context,
+   never authority), reads the installation, and stores it.
+3. The App webhook keeps the record current: `installation` (created /
+   deleted / suspend / unsuspend / new_permissions_accepted) and
+   `installation_repositories` (added / removed). A suspended or deleted
+   installation drops the record — a workspace that cannot be cloned must not
+   be shown as installed. Newly reachable repositories get their existing pull
+   requests backfilled.
+4. Repository events (`pull_request`, `push`, `check_suite`, `status`,
+   `issue_comment`, `pull_request_review`, `pull_request_review_comment`)
+   arrive on the same App webhook and are attributed through `installation.id`.
+   **Subscribe the App to all of these.** Repo hooks created by the old OAuth
+   flow still deliver too; while one exists for a repository the App copy of
+   that event is dropped so nothing is handled twice, and the App takes over
+   on its own once the hook is removed (disconnecting the OAuth link deletes
+   the hooks it created).
+
+**Legacy fallback.** A workspace with no installation record falls back to the
+global `GITHUB_APP_INSTALLATION_ID` env var (Lumo's own installation, from
+before this flow existed) and logs a warning. It is wrong for every other
+workspace; it exists only until Lumo installs through the flow above, and is
+scheduled for removal then.
+
+## 🛡️ Security scan
+
+Lumo runs semgrep, gitleaks and osv-scanner itself for every pull request of
+a repository the GitHub App is installed on — no workflow file, no secret, no
+GitHub Actions minutes, and no GitHub Advanced Security are required. The
+PR's head commit is shallow-cloned into a one-shot Vercel Sandbox microVM
+owned by Lumo (the same vendor that hosts the app), scanned, and the VM is
+destroyed; only findings on lines the PR added are kept, redacted, and
+nothing else from the repository is stored. Results show up in three places:
+the task's security panel, a review on the pull request itself (one summary
+comment plus inline comments on the affected lines, deduplicated across
+re-scans), and `lumo task status`, which prints one line per PR with each
+scan layer's state and any scanner failure reason.
+
+**Dependencies.** osv-scanner reads the repository's lockfiles and manifests
+inside that same sandbox and queries the public [osv.dev](https://osv.dev)
+API for known advisories — package names and versions leave the sandbox for
+that lookup, nothing else. A vulnerable dependency has no "line the PR added",
+so Lumo keeps a per-repository baseline instead: the fingerprint set of the
+default branch's last scan, refreshed on every push to that branch (and built
+lazily the first time a PR is scanned). A dependency finding already in the
+baseline is shown muted as _already on the default branch_; only the ones a
+PR introduces count as open. Dependency findings are advisory and never block
+a task from reaching Done.
+
+**Bring your own scanner (optional).** Teams that want their own tools or
+rule sets can push SARIF to `POST /api/integrations/security/sarif/upload` +
+`/complete` from any CI, authenticated with a GitHub Actions OIDC token or a
+CI ingest key. No secret is required from a GitHub Actions workflow: it
+requests its own OIDC ID token (`permissions.id-token: write`) and Lumo
+verifies that token's `repository` and `ref` claims to authenticate the push;
+a CI ingest key (Lumo → Settings → API keys, sent as `LUMO_SECURITY_TOKEN`) is
+the fallback for CI systems other than GitHub Actions. This path runs in the
+customer's own CI and consumes their Actions minutes — Lumo's managed scan
+above does not. Each scanner job gzips its SARIF report and uploads it
+directly to a private Vercel Blob, then tells Lumo the report is ready to
+fetch. Diff-aware filtering — keeping only the lines the PR actually added —
+happens on Lumo's side after ingest. The blob is deleted once Lumo has parsed
+it, and any report that fails to parse is deleted 24h later; a report whose
+ingest never even started is swept after 48h. GitHub only issues the OIDC
+token on the `pull_request` event, and does not issue it to a fork's PR
+workflow run, so nothing is reported for fork PRs from this path.
+
+**What the OIDC token proves — and what it doesn't.** The token identifies the
+repository, not a person, so anyone who can push a branch to the repository can
+have a workflow run push security reports for that repository's pull requests —
+exactly the trust the repository already places in its own CI. Pull requests
+opened from forks receive no OIDC token at all and are therefore never reported
+on. Reports are attributed to the workspace that owns the `PullRequest` row
+they land on, so re-linking a repository to another workspace leaves the old
+workspace's existing PR rows (and their findings) where they are.
+
+**Unknown-vulnerability hunt (L3).** When a pull request touches an API
+route or server action, a dangerous call (raw SQL, child processes, `fetch`,
+`eval`, file writes, LLM calls) or an authentication / validation check, Lumo
+builds an in-memory call subgraph of the touched TypeScript files plus their
+direct imports, sends that map — and, on demand, the touched files — to the
+model gateway for a bounded hunt across six checklists (IDOR, injection,
+SSRF, prompt injection, races, business logic), mechanically checks every
+candidate against the subgraph (symbols, line numbers and the full call
+chain must exist), and lets a second model try to refute what survives.
+Only unrefuted candidates become findings, always advisory: they never block
+Done. Budget ≤ 150k tokens / 200 s per scan; nothing from the repository is
+stored beyond the finding's symbols, line numbers and redacted text. Set
+`LUMO_SECURITY_HUNT=off` to disable the hunt for a deployment.
+
+**Policy, suggestions and what reaches the PR (LUM-740).** Which findings
+block a task from reaching Done is a per-workspace policy
+(`Workspace.securityPolicy`, `{ "block": [{ "provenance", "severity" }] }`,
+set through `PATCH /api/workspaces/me`); unset, only an undispositioned
+pattern-matched (deterministic) HIGH finding blocks, exactly as before. LLM
+findings — the hunt above and the LLM review — can never be configured to
+block: the API refuses the value and the reader ignores it. Every
+external-tool finding also goes through a falsifier once (a second model
+that may only refute, never confirm — `LUMO_SECURITY_SUGGEST=off` disables
+it); a refutation becomes a _suggested_ false positive with the model's
+reasoning, shown in the panel with a one-click "confirm all" for humans, and
+each confirm or overrule is recorded so the suggestion's precision can be
+measured (`scripts/analysis/lum740-suggestion-precision`). To keep the pull
+request readable, LOW-severity findings (test and fixture paths, placeholder
+values) and suggested false positives get no inline comment — the summary
+comment carries one line for each group and links to Lumo — and the summary
+itself is updated in place by the comment id stored on the scan, so
+concurrent scan layers never post a second one. A GitHub check-run
+(`lumo/security`) is deliberately not posted: it would need the App's
+`Checks: write` permission, which every installation would have to
+re-accept, and the summary comment already carries the same verdict; it will
+be added when a team asks for it as a required status in branch protection.
+
+**Trust boundary.** The managed scan uses the App's existing `Contents: read`
+permission — no new GitHub permission is requested — and the clone lives only
+inside the one-shot Vercel Sandbox VM for the duration of the scan before the
+VM is destroyed. Set `LUMO_MANAGED_SCAN=off` to disable the managed scan for a
+deployment; the BYO path above still works when it is off.
+
+**Cost controls.** Every managed scan is a 2 vCPU Vercel Sandbox capped at
+12 minutes. Three guards keep a webhook storm from turning into a bill: when
+a pull request gets a newer commit, the still-pending scan of the older commit
+is marked _superseded_, its workflow run is cancelled and its sandbox stopped;
+a scan whose scanner has not reported within 45 minutes is marked failed by a
+sweep that runs every 15 minutes, so nothing reads "scanning" forever; and
+each workspace may start at most `LUMO_MANAGED_SCAN_HOURLY_CAP` managed scans
+per rolling hour (default 20) — beyond that the scan is recorded as failed
+with a `rate-limited` reason and no sandbox starts. The hard ceiling is
+Vercel's own Spend Management (project → Settings → Billing → Spend
+Management): set an amount, a notification email, and enable pausing so a
+runaway never outlives the budget. That setting is made once in the
+dashboard, not in code.
+
+**Managed CI.** The same sandbox machinery runs the repository's own checks.
+When a pull request linked to a Lumo task is opened or gets a new commit,
+Lumo clones that exact commit into a 4 vCPU sandbox, installs dependencies,
+and runs `tsc --noEmit` and `jest --ci` (sharded across several commands, two
+by default). Each check that finishes is recorded as an independent gate
+signal on the task, so the delivery-gates panel shows a typecheck and test
+verdict produced on Lumo's machine rather than the agent's self-report — the
+signal an agent cannot skip or fake. A check that never finished — the clone
+was not the head commit, the command was killed, the VM was lost — records
+nothing at all: the panel falls back to the self-reported run rather than
+showing an invented failure. Runs are deduplicated per commit, a newer commit
+supersedes the still-pending run of the older one (cancelled, VM stopped), and
+each workspace may start at most `LUMO_MANAGED_CI_HOURLY_CAP` runs per rolling
+hour (default 10). `LUMO_MANAGED_CI=off` disables it; `LUMO_CI_JEST_SHARDS`
+and `LUMO_CI_JEST_IGNORE` tune the jest run.
+
 ## 🚀 Deployment
 
 ### Vercel (Recommended)

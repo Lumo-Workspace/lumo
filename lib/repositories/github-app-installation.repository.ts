@@ -17,6 +17,37 @@ export const githubAppInstallationRepository = {
     })
   },
 
+  /** The fields the settings card renders — account + repository scope. */
+  async findStatusByWorkspace(workspaceId: string) {
+    return prisma.gitHubAppInstallation.findUnique({
+      where: { workspaceId },
+      select: {
+        installationId: true,
+        accountLogin: true,
+        accountType: true,
+        repositories: true,
+        createdAt: true,
+      },
+    })
+  },
+
+  /**
+   * Reverse lookup for App-level webhook events: `installation` and
+   * `installation_repositories` payloads carry no repository, so the only
+   * handle back to a workspace is the installation id itself.
+   */
+  async findByInstallationId(installationId: number) {
+    return prisma.gitHubAppInstallation.findFirst({
+      where: { installationId },
+      select: {
+        id: true,
+        workspaceId: true,
+        installationId: true,
+        repositories: true,
+      },
+    })
+  },
+
   async upsert(data: UpsertGitHubAppInstallationData) {
     return prisma.gitHubAppInstallation.upsert({
       where: { workspaceId: data.workspaceId },
@@ -37,7 +68,21 @@ export const githubAppInstallationRepository = {
     })
   },
 
+  async updateRepositories(workspaceId: string, repositories: string[]) {
+    return prisma.gitHubAppInstallation.update({
+      where: { workspaceId },
+      data: { repositories },
+    })
+  },
+
   async delete(workspaceId: string) {
     return prisma.gitHubAppInstallation.delete({ where: { workspaceId } })
+  },
+
+  /** Idempotent delete used by the `installation` webhook (deleted/suspend). */
+  async deleteByInstallationId(installationId: number) {
+    return prisma.gitHubAppInstallation.deleteMany({
+      where: { installationId },
+    })
   },
 }

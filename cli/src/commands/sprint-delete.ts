@@ -2,21 +2,28 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import {
+  emitConfirmation,
+  isConfirmed,
+  type ConfirmFlags,
+} from '../lib/confirmation'
 
-export interface DeleteSprintOptions {
+export interface DeleteSprintOptions extends ConfirmFlags {
   team?: string
-  yes?: boolean
 }
 
-export function formatDeleteRefusal(
+/** The changes[] block for the confirmation envelope (LUM-755). */
+export function describeSprintDelete(
   number: number,
   name: string,
   taskCount: number
-): string {
-  const head = `Refusing to delete sprint #${number} "${sanitizeField(name)}" without --yes.`
-  const tail = `Re-run with --yes to confirm.`
-  if (taskCount === 0) return `${head}\n${tail}`
-  return `${head}\n${taskCount} tasks under it will keep their data; only sprintId is cleared.\n${tail}`
+): string[] {
+  const lines = [`Will delete sprint #${number} "${sanitizeField(name)}"`]
+  if (taskCount > 0)
+    lines.push(
+      `${taskCount} tasks under it keep their data; only sprintId is cleared`
+    )
+  return lines
 }
 
 export async function sprintDelete(
@@ -70,9 +77,11 @@ export async function sprintDelete(
     progress: { total: number }
   }
 
-  if (!opts.yes) {
-    console.error(formatDeleteRefusal(sprint.number, sprint.name, progress.total))
-    return 1
+  if (!isConfirmed(opts)) {
+    return emitConfirmation({
+      command: 'sprint delete',
+      changes: describeSprintDelete(sprint.number, sprint.name, progress.total),
+    })
   }
 
   let res: Response

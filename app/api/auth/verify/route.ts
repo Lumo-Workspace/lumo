@@ -34,6 +34,14 @@ export async function GET(request: Request) {
     if (!identity) {
       return NextResponse.json(UNAUTHORIZED, { status: 401 })
     }
+    if ((identity.apiKey.scope ?? null) !== null) {
+      return NextResponse.json(
+        {
+          error: 'This key is scoped to CI ingest and cannot be used to log in',
+        },
+        { status: 401 }
+      )
+    }
 
     const profile = await authService.fetchUserProfile(identity.user.id)
 

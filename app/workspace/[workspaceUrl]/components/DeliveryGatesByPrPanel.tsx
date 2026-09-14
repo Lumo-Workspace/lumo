@@ -91,38 +91,7 @@ export function DeliveryGatesByPrPanel({ perPr }: { perPr: PerPrGateAudit }) {
   const keys = columnKeys(perPr)
 
   return (
-    <div
-      data-testid='gate-audit-by-pr-panel'
-      className='mt-4 border-t border-border pt-3'
-    >
-      <p className='mb-1 flex items-center gap-2 text-caption text-muted-foreground'>
-        <span>
-          {intl.formatMessage({
-            id: 'gates.title',
-            defaultMessage: 'Mechanical gates',
-          })}
-        </span>
-        <span className='rounded-sm bg-muted px-1.5'>
-          {intl.formatMessage({
-            id: 'gates.auditTag',
-            defaultMessage: 'audit',
-          })}
-        </span>
-      </p>
-      <p className='text-caption text-muted-foreground'>
-        {intl.formatMessage({
-          id: 'gates.guardrail.verdict',
-          defaultMessage:
-            'Verifies that checks ran, not that the work is correct',
-        })}
-      </p>
-      <p className='mb-2 text-caption text-muted-foreground'>
-        {intl.formatMessage({
-          id: 'gates.guardrail.adjudication',
-          defaultMessage: 'Adjudication lives in the acceptance tab',
-        })}
-      </p>
-
+    <div data-testid='gate-audit-by-pr-panel' className='mt-4'>
       <table className='w-full table-fixed'>
         <thead>
           <tr className='border-b border-border text-left'>

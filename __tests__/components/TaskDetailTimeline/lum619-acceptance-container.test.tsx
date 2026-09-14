@@ -2,8 +2,8 @@
 /**
  * LUM-619: the Record tab collapses into a single "Acceptance" container.
  * Verdict basis (criteria + Verification record) sits above an audit-only
- * separator; the forensic signals (mechanical gates + boundary crossings +
- * claim-vs-verification) sit below it, clearly marked as not deciding the
+ * separator; the forensic signals (mechanical gates + boundary crossings)
+ * sit below it, clearly marked as not deciding the
  * verdict. The after-the-fact metrics fold into a Run report group tucked at
  * the bottom — which no longer holds the verification record or the gates.
  */
@@ -34,6 +34,18 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskStatus', () => ({
   useTaskStatus: jest.fn(),
 }))
 
+// LUM-496: the tab reads the crossings itself (same react-query key the panel
+// uses) to derive the Done-gap zones — stub it like the other data hooks.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
+  useBoundaryCrossings: jest.fn(() => ({
+    crossings: [],
+    gateEnabled: true,
+    loading: false,
+    error: null,
+    refresh: jest.fn(),
+  })),
+}))
+
 // Stub the boundary panel to a bare anchor so ordering can be asserted without
 // a full BoundaryCrossingView fixture. `#boundary-crossings` is the real root id.
 jest.mock(
@@ -52,15 +64,22 @@ jest.mock(
 )
 
 // Stub the honest-report leaf sections to bare anchors so we can assert both
-// their position (claim in the audit zone) and Run-report membership (cost /
+// their Run-report membership (cost /
 // struggle / trend) without their data subtrees.
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/HonestReportSections',
   () => ({
-    ClaimVsVerification: () => <div data-testid='claim-vs' />,
     CostSection: () => <div data-testid='cost' />,
     StruggleTrailSection: () => <div data-testid='struggle' />,
     TrendSection: () => <div data-testid='trend' />,
+    // LUM-496: the tab labels the struggle disclosure with the section's own
+    // heading copy, and the KPI tiles reuse the module's token formatter.
+    STRUGGLE_TITLE: {
+      id: 'acceptance.struggle.title',
+      defaultMessage: 'Struggle / rework / outstanding',
+    },
+    STRUGGLE_TIP: { id: 'acceptance.struggle.tip', defaultMessage: 'tip' },
+    fmtTokens: (n: number) => String(n),
   })
 )
 
@@ -103,6 +122,15 @@ function statusView(
     escalated: false,
     criteria: [],
     machineVerification: { total: 0, machineVerified: 0, humanOverridden: 0 },
+    // LUM-496: the struggle disclosure only mounts for a task whose read model
+    // actually carries a trail (an older server's absent trail is never faked).
+    struggleTrail: {
+      reworkRounds: [],
+      sendBacks: [],
+      followUps: [],
+      pullRequests: [],
+      reopens: [],
+    },
     removedCriteria: [],
     verificationHistory: [],
     lastRoundFailures: [],
@@ -201,19 +229,19 @@ it('LUM-619 acceptance container orders criteria then verification record then a
   )
   const { container } = renderTab()
 
-  // LUM-635 IA: criteria → boundary crossings zone → claim strip →
+  // LUM-635 IA: criteria → boundary crossings zone →
   // "Evidence & audit trail" card, whose body (record, gates, cost) is
   // collapsed by default. The boundary panel sits with the zones — an open
   // crossing is an actionable Done-blocker — so its anchor is live even while
   // the audit card is collapsed. Expand the card to assert the remaining
   // forensic signals' order.
   const criteria = screen.getByText('Machine-verified')
-  const claim = screen.getByTestId('claim-vs')
   const auditCard = screen.getByText('Evidence & audit trail')
   const boundary = container.querySelector('#boundary-crossings')
   precedes(criteria, boundary)
-  precedes(boundary, claim)
-  precedes(claim, auditCard)
+  precedes(boundary, auditCard)
+  // LUM-733: the claim strip no longer exists on the tab.
+  expect(screen.queryByTestId('claim-vs')).toBeNull()
 
   fireEvent.click(auditCard)
   const record = screen.getByText('Verification record')
@@ -302,10 +330,14 @@ it('LUM-619 run report holds only the after-the-fact metrics', () => {
   renderTab({
     evidenceSlot: <div data-testid='evidence-slot' />,
   })
-  // Expand both the Evidence & audit trail card (so the verification record
-  // actually mounts) and the Run report group.
+  // Expand the Evidence & audit trail card so the verification record actually
+  // mounts; LUM-496: the Run report group is already open by default.
   fireEvent.click(screen.getByText('Evidence & audit trail'))
-  fireEvent.click(screen.getByRole('button', { name: /Run report/i }))
+  // LUM-496: the struggle trail sits behind its own collapsed disclosure inside
+  // the group — open it so its body mounts.
+  fireEvent.click(
+    screen.getByRole('button', { name: /Struggle \/ rework \/ outstanding/i })
+  )
   const runReportGroup = screen.getByRole('button', { name: /Run report/i })
     .parentElement as HTMLElement
 
@@ -327,7 +359,6 @@ it('LUM-619 run report holds only the after-the-fact metrics', () => {
   )
   expect(runReportGroup.querySelector('[data-testid="gates-slot"]')).toBeNull()
   expect(runReportGroup.querySelector('#boundary-crossings')).toBeNull()
-  expect(runReportGroup.querySelector('[data-testid="claim-vs"]')).toBeNull()
 })
 
 it('LUM-619 acceptance container keeps boundary crossings without a contract', () => {

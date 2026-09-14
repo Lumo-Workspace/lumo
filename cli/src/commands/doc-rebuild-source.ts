@@ -6,8 +6,9 @@ import {
 } from '../lib/api'
 import { lookupDocId } from '../lib/resolve-doc-id'
 import { sanitizeField } from '../lib/sanitize'
+import { emitConfirmation, type ConfirmFlags } from '../lib/confirmation'
 
-export interface DocRebuildSourceOptions {
+export interface DocRebuildSourceOptions extends ConfirmFlags {
   allowShrink?: boolean
   force?: boolean
   ifRevision?: string
@@ -21,7 +22,9 @@ export interface DocRebuildSourceOptions {
  * re-enabling `doc show --raw` / `diff` / `patch` / `append`. The rebuilt source
  * is structure-guarded server-side: any table/tr/heading shrink is rejected 422
  * (zero silent flattening — LUM-410 口径) unless --allow-shrink is passed. A doc
- * that already has a source is refused 409 unless --force re-derives it.
+ * that already has a source is refused 409 unless --force re-derives it —
+ * that refusal is surfaced as a confirmation envelope (LUM-755): exit 4 with
+ * the server's reason and a confirmCommand carrying `--force --confirm`.
  */
 export async function docRebuildSource(
   reference: string | undefined,
@@ -77,13 +80,20 @@ export async function docRebuildSource(
   if (!res.ok) {
     const text = await res.text()
     const message = extractErrorMessage(text)
+    if (res.status === 409 && !opts.force) {
+      // The --force gate: nothing was written. Hand back the protocol
+      // envelope so the agent shows the user what --force would replace.
+      return emitConfirmation({
+        command: 'doc rebuild-source',
+        changes: [
+          sanitizeField(message),
+          `Will replace the existing (byte-faithful) markdown source of ${id} with a freshly serialized one — inspect it first with \`lumo doc show ${reference} --raw\``,
+        ],
+        extraFlags: ['--force'],
+      })
+    }
     if (res.status === 409) {
       console.error(`Error: ${sanitizeField(message)}`)
-      console.error(
-        'Hint: the doc already has a markdown source. Inspect it with ' +
-          `\`lumo doc show ${reference} --raw\`; pass --force only if you intend ` +
-          'to replace it with a freshly serialized one.'
-      )
       return 1
     }
     if (res.status === 422) {

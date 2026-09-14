@@ -1,7 +1,10 @@
 import {
   TAB_SLUGS,
+  BOUNDARY_CROSSINGS_ANCHOR,
   tabFromSlug,
   resolveTab,
+  taskBasePath,
+  boundaryCrossingsHref,
 } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/taskTabs'
 
 describe('taskTabs slug mapping', () => {
@@ -103,5 +106,43 @@ describe('taskTabs resolveTab legacy slug mapping', () => {
 
   it('returns null for an unknown slug so the caller normalizes the URL', () => {
     expect(resolveTab('does-not-exist')).toBeNull()
+  })
+})
+
+// The verdict bar's "Review the crossings below" link lives ABOVE the tabs, so
+// it must be able to route to the Record tab from any tab. taskBasePath strips
+// the current tab segment (if any) off the pathname so the target is built
+// from the bare task URL; boundaryCrossingsHref appends the record slug + the
+// panel's anchor.
+describe('taskBasePath / boundaryCrossingsHref', () => {
+  it('returns a bare task path unchanged', () => {
+    expect(taskBasePath('/workspace/w/projects/p/tasks/LUM-1')).toBe(
+      '/workspace/w/projects/p/tasks/LUM-1'
+    )
+    expect(taskBasePath('/my-tasks/LUM-1')).toBe('/my-tasks/LUM-1')
+  })
+
+  it('strips a current tab segment', () => {
+    expect(taskBasePath('/my-tasks/LUM-1/activity')).toBe('/my-tasks/LUM-1')
+    expect(taskBasePath('/my-tasks/LUM-1/context')).toBe('/my-tasks/LUM-1')
+    expect(taskBasePath('/my-tasks/LUM-1/record')).toBe('/my-tasks/LUM-1')
+  })
+
+  it('strips a legacy section segment', () => {
+    expect(taskBasePath('/my-tasks/LUM-1/delivery')).toBe('/my-tasks/LUM-1')
+    expect(taskBasePath('/my-tasks/LUM-1/lineage')).toBe('/my-tasks/LUM-1')
+    expect(taskBasePath('/my-tasks/LUM-1/memory')).toBe('/my-tasks/LUM-1')
+  })
+
+  it('tolerates a trailing slash', () => {
+    expect(taskBasePath('/my-tasks/LUM-1/')).toBe('/my-tasks/LUM-1')
+    expect(taskBasePath('/my-tasks/LUM-1/record/')).toBe('/my-tasks/LUM-1')
+  })
+
+  it('builds the record-tab deep link to the crossings panel', () => {
+    expect(boundaryCrossingsHref('/my-tasks/LUM-1/activity')).toBe(
+      `/my-tasks/LUM-1/record#${BOUNDARY_CROSSINGS_ANCHOR}`
+    )
+    expect(BOUNDARY_CROSSINGS_ANCHOR).toBe('boundary-crossings')
   })
 })

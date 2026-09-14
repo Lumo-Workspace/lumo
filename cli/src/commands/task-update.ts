@@ -5,6 +5,13 @@ import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
 import { emitNextSteps, type NextStep } from '../lib/next-steps'
+import { emitConfirmation } from '../lib/confirmation'
+import {
+  buildBlockedError,
+  collectDoneBlockers,
+  emitBlocked,
+  isDoneGateRefusal,
+} from '../lib/blocked-error'
 
 const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
@@ -29,6 +36,12 @@ export interface UpdateTaskOptions {
   removeTagId?: string[]
   /** Commander sets this to false for `--no-hints` (LUM-686). */
   hints?: boolean
+  /**
+   * LUM-755: the user has approved the DONE transition shown in the
+   * confirmation envelope. Only meaningful with `--status done`; there is
+   * deliberately no `--yes` alias on this command.
+   */
+  confirm?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +172,135 @@ export function formatUpdatedTaskLine(task: {
   return head
 }
 
+// ---------------------------------------------------------------------------
+// LUM-755: DONE confirmation envelope (supersedes LUM-731's y/N prompt)
+// ---------------------------------------------------------------------------
+
+/** The slice of a linked PR the DONE envelope needs to show. */
+export interface LinkedPr {
+  number: number
+  title: string | null
+  url: string | null
+  state: string | null
+}
+
+/**
+ * Split linked PRs into merged vs everything else. "Unmerged" is deliberately
+ * broad — open, closed-without-merge, draft (state "open"), or an unknown
+ * state all count — because the question the ⚠ line asks is "are you sure
+ * the work actually landed?", and only `merged` answers yes.
+ */
+export function partitionLinkedPrs(prs: LinkedPr[]): {
+  merged: LinkedPr[]
+  unmerged: LinkedPr[]
+} {
+  const merged: LinkedPr[] = []
+  const unmerged: LinkedPr[] = []
+  for (const pr of prs) {
+    if (pr.state === 'merged') merged.push(pr)
+    else unmerged.push(pr)
+  }
+  return { merged, unmerged }
+}
+
+function formatPrLine(pr: LinkedPr): string {
+  const state = (pr.state ?? 'unknown').padEnd(7)
+  const title = pr.title ? sanitizeField(pr.title) : '(untitled)'
+  const url = pr.url ? `  ${pr.url}` : ''
+  return `#${pr.number}  ${state}  ${title}${url}`
+}
+
+/**
+ * The changes[] block of the DONE envelope: what is about to change, every
+ * linked PR with its synced state, and — last — a ⚠ line naming the PRs that
+ * have not merged. That single line replaces LUM-731's second y/N prompt:
+ * the protocol is one step, and the agent relays the whole block verbatim.
+ */
+export function describeDoneTransition(
+  task: { identifier: string; title: string; status: string },
+  prs: LinkedPr[]
+): string[] {
+  const escapedTitle = sanitizeField(task.title).replace(/"/g, '\\"')
+  const lines = [
+    `Will move ${task.identifier} "${escapedTitle}" to DONE`,
+    `Status: ${task.status} → DONE`,
+  ]
+  if (prs.length === 0) {
+    lines.push('Pull requests: none linked')
+    return lines
+  }
+  for (const pr of prs) lines.push(formatPrLine(pr))
+  const { unmerged } = partitionLinkedPrs(prs)
+  if (unmerged.length > 0) {
+    const summary = unmerged
+      .map(pr => `#${pr.number} ${pr.state ?? 'unknown'}`)
+      .join(', ')
+    lines.push(
+      `⚠ ${unmerged.length} linked pull request${unmerged.length === 1 ? '' : 's'} not merged: ${summary}`
+    )
+  }
+  return lines
+}
+
+/**
+ * Look the task up and emit the DONE confirmation envelope (exit 4). Runs
+ * before any side effect — tag find-or-create included — so a refused DONE
+ * leaves nothing behind. Returns the exit code to propagate; prints its own
+ * error on a failed lookup.
+ */
+async function emitDoneConfirmation(args: {
+  base: string
+  apiUrl: string
+  token: string
+  identifier: string
+}): Promise<number> {
+  const { base, apiUrl, token, identifier } = args
+  const showUrl = `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
+  let res: Response
+  try {
+    res = await fetch(showUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
+    return 1
+  }
+  if (res.status === 401) {
+    console.error('Error: API key invalid or revoked. Run `lumo auth login`.')
+    return 1
+  }
+  if (!res.ok) {
+    let serverMsg: string | null = null
+    try {
+      const errBody = (await res.json()) as { error?: string }
+      if (typeof errBody.error === 'string') serverMsg = errBody.error
+    } catch {
+      // not JSON
+    }
+    console.error(
+      serverMsg
+        ? `Error: ${sanitizeField(serverMsg)}`
+        : `Error: task lookup failed (HTTP ${res.status})`
+    )
+    return 1
+  }
+
+  const { task } = (await res.json()) as {
+    task: {
+      identifier: string
+      title: string
+      status: string
+      /** Absent on older servers — treated as "none linked". */
+      pullRequests?: LinkedPr[]
+    }
+  }
+  return emitConfirmation({
+    command: 'task update',
+    changes: describeDoneTransition(task, task.pullRequests ?? []),
+  })
+}
+
 /**
  * Thin wrapper so the next-step block always lands last (LUM-686). The update
  * flow has several success exits — a plain PATCH, plus the sprint bind/unbind
@@ -266,6 +408,17 @@ async function runTaskUpdate(
   }
 
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
+
+  // LUM-755: DONE without --confirm stops here with the confirmation
+  // envelope — before tag resolution (find-or-create) or any other write.
+  if (status === 'DONE' && !opts.confirm) {
+    return emitDoneConfirmation({
+      base: trimTrailingSlash(apiUrl),
+      apiUrl,
+      token: creds.token,
+      identifier,
+    })
+  }
 
   // Resolve tag refs into ids
   let tagIds: string[] | undefined
@@ -380,6 +533,30 @@ async function runTaskUpdate(
         if (typeof errBody.error === 'string') serverMsg = errBody.error
       } catch {
         // Body wasn't JSON; fall through to status-only message
+      }
+      // LUM-755: a DONE refused by a server gate (send-back / boundary
+      // crossing / blocking security finding) is a human-only block, not a
+      // generic error — surface it structured (exit 5) with every blocker.
+      if (
+        res.status === 409 &&
+        status === 'DONE' &&
+        isDoneGateRefusal(serverMsg)
+      ) {
+        const { blockers, unconfirmed } = await collectDoneBlockers({
+          base,
+          token: creds.token,
+          identifier,
+        })
+        return emitBlocked(
+          buildBlockedError({
+            identifier,
+            message: serverMsg as string,
+            blockers,
+            unconfirmed,
+            apiUrl,
+            workspaceSlug: creds.workspaceSlug ?? '',
+          })
+        )
       }
       if (serverMsg) {
         console.error(`Error: ${sanitizeField(serverMsg)}`)

@@ -51,6 +51,8 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
 
 jest.mock('next/navigation', () => ({
   useSearchParams: () => ({ get: () => null }),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => '/my-tasks/LUM-1',
 }))
 
 // Bare anchor so ordering / presence can be asserted without a full fixture.
@@ -69,6 +71,14 @@ jest.mock(
     CostSection: () => <div data-testid='cost' />,
     StruggleTrailSection: () => <div data-testid='struggle' />,
     TrendSection: () => <div data-testid='trend' />,
+    // LUM-496: the struggle disclosure borrows the section's heading copy; the
+    // KPI tiles borrow its token formatter.
+    STRUGGLE_TITLE: {
+      id: 'acceptance.struggle.title',
+      defaultMessage: 'Struggle / rework / outstanding',
+    },
+    STRUGGLE_TIP: { id: 'acceptance.struggle.tip', defaultMessage: 'tip' },
+    fmtTokens: (n: number) => String(n),
   })
 )
 
@@ -173,6 +183,7 @@ function renderTab() {
       enabled
       onVerdictRecorded={jest.fn()}
       gatesSlot={<div data-testid='gates-slot' />}
+      securitySlot={<div data-testid='security-slot' />}
     />
   )
 }
@@ -215,7 +226,8 @@ describe('LUM-620 · Acceptance redesign', () => {
     unmount()
 
     // Contract still editable (not DONE) → the zone stays even at zero
-    // criteria: it carries the add-criterion entry.
+    // criteria: it carries the add-criterion entry. LUM-496: at zero criteria
+    // it wears its own empty-shell title — there is no pending call to name.
     mockStatus.mockReturnValue({
       data: statusView({ criteria: [crit('MACHINE', 'PASS')] }),
       loading: false,
@@ -224,7 +236,7 @@ describe('LUM-620 · Acceptance redesign', () => {
       optimisticallyPass: jest.fn(),
     })
     renderTab()
-    expect(screen.getByText('Needs your judgment')).toBeInTheDocument()
+    expect(screen.getByText('Human acceptance criteria')).toBeInTheDocument()
   })
 
   it('decision hero Approve submits a task-level PASS verdict', async () => {
@@ -296,8 +308,30 @@ describe('LUM-620 · Acceptance redesign', () => {
     // card — expand it, then assert every signal is present (nothing dropped).
     fireEvent.click(screen.getByText('Evidence & audit trail'))
     expect(screen.getByTestId('gates-slot')).toBeInTheDocument()
-    expect(screen.getByTestId('cost')).toBeInTheDocument()
     expect(screen.getByText('Verification record')).toBeInTheDocument()
+    // LUM-496: run cost left the fold for the Run report's Cost KPI tile —
+    // still rendered, one group down, not dropped.
+    expect(screen.queryByTestId('cost')).toBeNull()
+    expect(screen.getByTestId('tile-costTokens')).toBeInTheDocument()
+  })
+
+  it('security scan sits OUTSIDE the audit fold — visible while it is collapsed', () => {
+    // LUM-732 review I3: an undispositioned HIGH finding hard-blocks DONE, so
+    // the panel carrying that banner is an actionable to-do like the boundary
+    // crossings (LUM-635) — not forensics. Filed under "audit-only — these
+    // signals don't decide the verdict" it was both hidden by default and
+    // labelled as not mattering, while the API refuses the DONE transition.
+    mockStatus.mockReturnValue({
+      data: statusView({ criteria: [crit('HUMAN', null)] }),
+      loading: false,
+      error: null,
+      refresh: jest.fn(),
+      optimisticallyPass: jest.fn(),
+    })
+    renderTab()
+    // Fold still closed: its own contents are absent, the security slot is not.
+    expect(screen.queryByTestId('gates-slot')).toBeNull()
+    expect(screen.getByTestId('security-slot')).toBeInTheDocument()
   })
 
   it('human zone reads resolved (not a pending call) once every human criterion is judged', () => {
