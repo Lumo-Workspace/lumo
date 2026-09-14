@@ -170,7 +170,8 @@ const ALL_REPORTS = {
 type Fake = { run: jest.Mock; readFile: jest.Mock; stop: jest.Mock }
 function fakeSandbox(
   files: Record<string, string | null>,
-  exits: Record<string, number> = {}
+  exits: Record<string, number> = {},
+  stderrs: Record<string, string> = {}
 ): Fake {
   const run = jest.fn(async (_cmd: string, args: string[]) => {
     const script = args.join(' ')
@@ -179,7 +180,7 @@ function fakeSandbox(
       : script.includes('gitleaks')
         ? 'gitleaks'
         : 'semgrep'
-    return { exitCode: exits[tool] ?? 0, stdout: '', stderr: '' }
+    return { exitCode: exits[tool] ?? 0, stdout: '', stderr: stderrs[tool] ?? '' }
   })
   const readFile = jest.fn(async (path: string) => {
     const v = files[path]
@@ -626,6 +627,107 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     expect(out.gitleaks.kind).toBe('ok')
     expect(out.semgrep.kind).toBe('ok')
     expect(logger.warn).not.toHaveBeenCalled()
+  })
+
+  // LUM-738 follow-up. osv-scanner v2 documents exit codes as BANDS: 1–126 are
+  // result-related, 127 general, 128 no packages, 129–255 non-result. We were
+  // failing everything outside {0, 1, 128}, so a code from the documented
+  // result band was discarded UNREAD — production hit exit 2 and the layer
+  // landed FAILED with zero findings while its report sat in /tmp.
+  it('an undocumented code inside the result band still uses the report it produced', async () => {
+    const sb = fakeSandbox(ALL_REPORTS, { 'osv-scanner': 2 })
+    create.mockResolvedValue(sb)
+
+    const out = await securityManagedScanService.scanRepository(JOB)
+
+    expect(out['osv-scanner'].kind).toBe('ok')
+    expect(sb.readFile).toHaveBeenCalledWith('/tmp/osv.sarif')
+    // Said out loud — an undocumented code recurring deserves attention.
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('documented result band')
+    )
+  })
+
+  it('the band has edges: 126 reads its report, 127 does not', async () => {
+    create.mockResolvedValue(fakeSandbox(ALL_REPORTS, { 'osv-scanner': 126 }))
+    expect(
+      (await securityManagedScanService.scanRepository(JOB))['osv-scanner'].kind
+    ).toBe('ok')
+
+    create.mockResolvedValue(fakeSandbox(ALL_REPORTS, { 'osv-scanner': 127 }))
+    expect(
+      (await securityManagedScanService.scanRepository(JOB))['osv-scanner'].kind
+    ).toBe('failed')
+  })
+
+  it('a result-band code with no report is still a failure, and now says why', async () => {
+    // The exit code alone could not settle this: `set -e` surfaces curl's codes
+    // from the same script, and curl's own 2 means "failed to initialize". The
+    // number was the entire record; the tool's last words were only ever in a
+    // log line.
+    const sb = fakeSandbox(
+      { ...ALL_REPORTS, '/tmp/osv.sarif': null },
+      { 'osv-scanner': 2 },
+      { 'osv-scanner': 'failed to resolve api.osv.dev: temporary failure' }
+    )
+    create.mockResolvedValue(sb)
+
+    const out = await securityManagedScanService.scanRepository(JOB)
+
+    expect(out['osv-scanner']).toEqual({
+      kind: 'failed',
+      reason: expect.stringContaining('osv-scanner exit 2'),
+    })
+    expect((out['osv-scanner'] as { reason: string }).reason).toContain(
+      'temporary failure'
+    )
+  })
+
+  it('never puts the installation token in the reason it persists', async () => {
+    // This string is rendered to the customer as the scanner's own reason.
+    const sb = fakeSandbox(
+      { ...ALL_REPORTS, '/tmp/osv.sarif': null },
+      { 'osv-scanner': 2 },
+      { 'osv-scanner': `clone failed for https://x-access-token:${TOKEN}@github.com/o/r` }
+    )
+    create.mockResolvedValue(sb)
+
+    const reason = (
+      (await securityManagedScanService.scanRepository(JOB))[
+        'osv-scanner'
+      ] as { reason: string }
+    ).reason
+    expect(reason).not.toContain(TOKEN)
+  })
+
+  it('the band belongs to osv-scanner alone — semgrep exit 2 is still a failure', async () => {
+    // The band is osv-scanner's documented contract, not a general rule.
+    // semgrep exit 2 is an error in semgrep's own scheme; widening this to
+    // every tool would swallow that.
+    create.mockResolvedValue(fakeSandbox(ALL_REPORTS, { semgrep: 2 }))
+
+    const out = await securityManagedScanService.scanRepository(JOB)
+
+    expect(out.semgrep.kind).toBe('failed')
+    expect(out['osv-scanner'].kind).toBe('ok')
+  })
+
+  it('bounds the reason it persists — stderr can be a whole build log', async () => {
+    const sb = fakeSandbox(
+      { ...ALL_REPORTS, '/tmp/osv.sarif': null },
+      { 'osv-scanner': 2 },
+      { 'osv-scanner': 'x'.repeat(5_000) + ' the actual cause' }
+    )
+    create.mockResolvedValue(sb)
+
+    const reason = (
+      (await securityManagedScanService.scanRepository(JOB))[
+        'osv-scanner'
+      ] as { reason: string }
+    ).reason
+    expect(reason.length).toBeLessThan(300)
+    // Kept from the TAIL: that is where a tool puts the thing that went wrong.
+    expect(reason).toContain('the actual cause')
   })
 
   it('any other exit (129 API failed, 127 generic, 90 sha guard) is that tool’s deterministic failure', async () => {

@@ -85,7 +85,36 @@ const SCRIPT_BODY: Record<ManagedScanTool, string> = {
 const HEAD_SHA_RE = /^[0-9a-f]{7,40}$/
 
 /** osv-scanner: "No package sources found" (cmd/osv-scanner/internal/cmd/run.go). */
+/**
+ * How much of a failed tool's stderr is persisted onto the scan row. Short on
+ * purpose: this string is rendered to the customer as the scanner's reason
+ * (`externalFailureReason`), and the tail is where the cause is.
+ */
+const MANAGED_FAILURE_DETAIL_CHARS = 160
+
 const OSV_NO_PACKAGE_SOURCES_EXIT = 128
+
+/**
+ * osv-scanner v2 documents its exit codes as BANDS, not as a list
+ * (google.github.io/osv-scanner/output): 0 no findings, 1 findings, **1–126
+ * reserved for result-related errors**, 127 general error, 128 no packages,
+ * 129–255 reserved for non-result errors.
+ *
+ * We treated everything outside {0, 1, 128} as a tool failure, so a code from
+ * the documented result band was discarded unread. Production hit exit 2 —
+ * which the docs do not name individually but do place inside that band — and
+ * the layer landed FAILED with zero findings, on a run whose report may well
+ * have been sitting in /tmp.
+ *
+ * The exit code alone cannot settle it (`set -e` also surfaces `curl`'s codes
+ * from the same script, and curl's 2 is "failed to initialize"), so this is
+ * deliberately NOT an allow-list of codes we have guessed the meaning of. An
+ * unusual code inside the band is a question, and the answer is whether the
+ * tool produced a readable report: results that parse are results, whatever
+ * the number was. Anything outside the band, or inside it with no report, is
+ * a failure — and now says WHY.
+ */
+const OSV_RESULT_BAND: readonly [number, number] = [1, 126]
 
 /**
  * Guards against a mis-rooted or wrong-revision sandbox scanning the wrong
@@ -110,6 +139,24 @@ function isSuccessExit(tool: ManagedScanTool, code: number): boolean {
 /** A non-success exit that is a fact about the tree, not a failure of the tool. */
 function isSkipExit(tool: ManagedScanTool, code: number): boolean {
   return tool === 'osv-scanner' && code === OSV_NO_PACKAGE_SOURCES_EXIT
+}
+
+/**
+ * An exit that osv-scanner documents as being ABOUT THE RESULTS rather than
+ * about the tool. Worth reading the report for; not worth guessing at.
+ */
+function isResultBandExit(tool: ManagedScanTool, code: number): boolean {
+  const [lo, hi] = OSV_RESULT_BAND
+  return tool === 'osv-scanner' && code >= lo && code <= hi
+}
+
+/** stderr, token-scrubbed and flattened to one short line, safe to persist. */
+function failureDetail(stderr: string, token: string): string {
+  const tail = scrubToken(stderr, token)
+    .replace(/[\r\n]+/g, ' ')
+    .trim()
+    .slice(-MANAGED_FAILURE_DETAIL_CHARS)
+  return tail.length > 0 ? `: ${tail}` : ''
 }
 
 function message(error: unknown): string {
@@ -145,7 +192,10 @@ async function runTool(
     )
     return { skipped: `${tool} found no package sources` }
   }
-  if (!isSuccessExit(tool, result.exitCode)) {
+  const unusualResultCode =
+    !isSuccessExit(tool, result.exitCode) &&
+    isResultBandExit(tool, result.exitCode)
+  if (!isSuccessExit(tool, result.exitCode) && !unusualResultCode) {
     logger.warn(
       `[security-managed-scan] ${logSafe(tool)} exit ${result.exitCode} ${label}: ${scrubToken(
         result.stderr,
@@ -154,10 +204,36 @@ async function runTool(
         .replace(/[\r\n]+/g, ' ')
         .slice(0, 200)}`
     )
-    return { failed: `${tool} exit ${result.exitCode}` }
+    // The number alone sent one of these to production unexplained. Carry the
+    // tool's own last words: this string is the whole record a reader gets.
+    return {
+      failed: `${tool} exit ${result.exitCode}${failureDetail(result.stderr, token)}`,
+    }
   }
   const report = await sandbox.readFile(REPORT_PATH[tool])
-  if (!report) return { failed: `${tool} produced no report` }
+  if (!report) {
+    if (unusualResultCode) {
+      logger.warn(
+        `[security-managed-scan] ${logSafe(tool)} exit ${result.exitCode} and no report ${label}: ${scrubToken(
+          result.stderr,
+          token
+        )
+          .replace(/[\r\n]+/g, ' ')
+          .slice(0, 200)}`
+      )
+      return {
+        failed: `${tool} exit ${result.exitCode}${failureDetail(result.stderr, token)}`,
+      }
+    }
+    return { failed: `${tool} produced no report` }
+  }
+  if (unusualResultCode) {
+    // Results that parse are results. Say the code out loud anyway — an
+    // undocumented one recurring is worth someone's attention.
+    logger.warn(
+      `[security-managed-scan] ${logSafe(tool)} exit ${result.exitCode} (documented result band) but produced a report ${label}, using it`
+    )
+  }
   if (report.byteLength > MANAGED_REPORT_MAX_BYTES) {
     logger.error(
       `[security-managed-scan] ${logSafe(tool)} report ${report.byteLength}B exceeds cap ${label}`
