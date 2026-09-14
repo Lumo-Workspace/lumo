@@ -730,6 +730,115 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     expect(reason).toContain('the actual cause')
   })
 
+  it('the sha guard stays absolute: exit 90 fails even with a report present', async () => {
+    // 90 sits inside [1,126]. A guard whose whole job is "this is the wrong
+    // tree, report nothing" must not become conditional on whether a report
+    // happens to exist — and the old regression test could not see this,
+    // because it stubbed the report away.
+    create.mockResolvedValue(fakeSandbox(ALL_REPORTS, { 'osv-scanner': 90 }))
+
+    const out = await securityManagedScanService.scanRepository(JOB)
+
+    expect(out['osv-scanner'].kind).toBe('failed')
+  })
+
+  it('redacts a secret quoted in a failing tool’s stderr before persisting it', async () => {
+    // This string is not a log line: it becomes PrSecurityScan.error and from
+    // there the GitHub PR comment, which is emailed to every watcher. gitleaks
+    // and semgrep talk ABOUT matched content, so their stderr can quote the
+    // very secret the layer exists to find. scrubToken only knows the
+    // installation token.
+    const sb = fakeSandbox(ALL_REPORTS, { gitleaks: 3 }, {
+      gitleaks: 'WRN leak found file=src/db.ts secret=AKIAABCDEFGHIJKLMNOP rule=aws-access-token',
+    })
+    create.mockResolvedValue(sb)
+
+    const reason = (
+      (await securityManagedScanService.scanRepository(JOB)).gitleaks as {
+        reason: string
+      }
+    ).reason
+    expect(reason).not.toContain('AKIAABCDEFGHIJKLMNOP')
+    expect(reason).toContain('gitleaks exit 3')
+  })
+
+  it('carries stderr for every tool, not only osv-scanner', async () => {
+    // The detail is in the shared failure branch. Pinning only osv leaves the
+    // publishing path for the other two untested — which is how a secret gets
+    // out through semgrep instead.
+    create.mockResolvedValue(
+      fakeSandbox(ALL_REPORTS, { semgrep: 2 }, { semgrep: 'rule file parse error at line 9' })
+    )
+    const out = await securityManagedScanService.scanRepository(JOB)
+    expect((out.semgrep as { reason: string }).reason).toContain(
+      'rule file parse error at line 9'
+    )
+  })
+
+  it('does not engage the band on the ordinary success exits', async () => {
+    // Without the `!isSuccessExit` conjunct the "documented result band"
+    // warning fires on every normal findings run, and exit 1 with no report
+    // reports the exit code instead of "produced no report".
+    const sb = fakeSandbox(
+      { ...ALL_REPORTS, '/tmp/osv.sarif': null },
+      { 'osv-scanner': 1 }
+    )
+    create.mockResolvedValue(sb)
+
+    const out = await securityManagedScanService.scanRepository(JOB)
+
+    expect(out['osv-scanner']).toEqual({
+      kind: 'failed',
+      reason: 'osv-scanner produced no report',
+    })
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      expect.stringContaining('documented result band')
+    )
+  })
+
+  it('says out loud when a band code produced no report — the shape of the incident', async () => {
+    const sb = fakeSandbox(
+      { ...ALL_REPORTS, '/tmp/osv.sarif': null },
+      { 'osv-scanner': 2 },
+      { 'osv-scanner': 'curl: (2) failed to initialize' }
+    )
+    create.mockResolvedValue(sb)
+
+    await securityManagedScanService.scanRepository(JOB)
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('and no report')
+    )
+  })
+
+  it('the band excludes gitleaks as well as semgrep', async () => {
+    // gitleaks' success set is {0}, so widening the band to it would make its
+    // exit 1 an "unusual result code" and start reading its report.
+    create.mockResolvedValue(fakeSandbox(ALL_REPORTS, { gitleaks: 1 }))
+    const out = await securityManagedScanService.scanRepository(JOB)
+    expect(out.gitleaks.kind).toBe('failed')
+  })
+
+  it('trims before budgeting, so trailing blank lines cannot eat the window', async () => {
+    const sb = fakeSandbox(
+      { ...ALL_REPORTS, '/tmp/osv.sarif': null },
+      { 'osv-scanner': 2 },
+      // ` \n` pairs, not bare newlines: `/[\r\n]+/g` collapses a RUN of
+      // newlines to ONE space, so 300 of them fold to nothing and would not
+      // exercise the trim at all. The literal spaces are what survive the
+      // flatten and can eat the whole window.
+      { 'osv-scanner': 'the real cause is here' + ' \n'.repeat(300) }
+    )
+    create.mockResolvedValue(sb)
+
+    const reason = (
+      (await securityManagedScanService.scanRepository(JOB))[
+        'osv-scanner'
+      ] as { reason: string }
+    ).reason
+    expect(reason).toContain('the real cause is here')
+  })
+
   it('any other exit (129 API failed, 127 generic, 90 sha guard) is that tool’s deterministic failure', async () => {
     for (const code of [129, 127, 90]) {
       jest.clearAllMocks()

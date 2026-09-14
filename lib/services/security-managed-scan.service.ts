@@ -30,12 +30,15 @@ import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.re
 import {
   addedLinesWithNumbers,
   changedLinesOf,
+  MAX_SCANNED_LINE_CHARS,
   normalizeSarif,
   parseSarif,
+  redactKnownSecrets,
 } from '@/lib/security-scan'
 import {
   BASELINE_MAX_FINGERPRINTS,
   GITLEAKS_URL,
+  MANAGED_FAILURE_REASON_CHARS,
   MANAGED_REPORT_MAX_BYTES,
   MANAGED_SCAN_TOOLS,
   OSV_SCANNER_URL,
@@ -90,7 +93,19 @@ const HEAD_SHA_RE = /^[0-9a-f]{7,40}$/
  * purpose: this string is rendered to the customer as the scanner's reason
  * (`externalFailureReason`), and the tail is where the cause is.
  */
-const MANAGED_FAILURE_DETAIL_CHARS = 160
+const MANAGED_FAILURE_DETAIL_CHARS = Math.floor(
+  MANAGED_FAILURE_REASON_CHARS / MANAGED_SCAN_TOOLS.length
+)
+
+/**
+ * The P9 checkout guard's exit. It sits INSIDE osv-scanner's result band, so
+ * the band has to exclude it by name: a guard whose whole job is "this is the
+ * wrong tree, do not report anything" must not become conditional on whether a
+ * report happens to exist. Unreachable in a fresh one-shot VM today — but the
+ * guard exists against the unforeseen, and LUM-758's `keepAlive` already lets a
+ * second workflow attach to the same VM's /tmp.
+ */
+const SHA_GUARD_EXIT = 90
 
 const OSV_NO_PACKAGE_SOURCES_EXIT = 128
 
@@ -124,7 +139,7 @@ const OSV_RESULT_BAND: readonly [number, number] = [1, 126]
  * (see `HEAD_SHA_RE`) before this is ever called.
  */
 function scriptFor(tool: ManagedScanTool, headSha: string): string {
-  const guard = `test "$(git rev-parse HEAD 2>/dev/null | cut -c1-${headSha.length})" = "${headSha}" || exit 90; `
+  const guard = `test "$(git rev-parse HEAD 2>/dev/null | cut -c1-${headSha.length})" = "${headSha}" || exit ${SHA_GUARD_EXIT}; `
   return guard + SCRIPT_BODY[tool]
 }
 
@@ -147,15 +162,32 @@ function isSkipExit(tool: ManagedScanTool, code: number): boolean {
  */
 function isResultBandExit(tool: ManagedScanTool, code: number): boolean {
   const [lo, hi] = OSV_RESULT_BAND
-  return tool === 'osv-scanner' && code >= lo && code <= hi
+  return (
+    tool === 'osv-scanner' &&
+    code !== SHA_GUARD_EXIT &&
+    code >= lo &&
+    code <= hi
+  )
 }
 
-/** stderr, token-scrubbed and flattened to one short line, safe to persist. */
+/**
+ * stderr, made safe to PUBLISH. This string does not stay in a log: it becomes
+ * `PrSecurityScan.error`, and from there the GitHub PR comment, the web panel
+ * and `lumo task status`. `scrubToken` only knows the installation token —
+ * gitleaks and semgrep speak about matched content, so their stderr can quote
+ * the very secret the layer exists to find, and "Code scan failed: …" is then
+ * emailed to every watcher of the pull request.
+ *
+ * Window ordering is load-bearing: `redactKnownSecrets` scans from the HEAD and
+ * drops everything past its cap, so redacting the raw string would discard the
+ * tail — which under `set -e` is where the failing command speaks. Cut the tail
+ * window first, redact inside it, then cut to the budget.
+ */
 function failureDetail(stderr: string, token: string): string {
-  const tail = scrubToken(stderr, token)
-    .replace(/[\r\n]+/g, ' ')
-    .trim()
-    .slice(-MANAGED_FAILURE_DETAIL_CHARS)
+  const flat = scrubToken(stderr, token).replace(/[\r\n]+/g, ' ').trim()
+  const tail = redactKnownSecrets(flat.slice(-MAX_SCANNED_LINE_CHARS)).slice(
+    -MANAGED_FAILURE_DETAIL_CHARS
+  )
   return tail.length > 0 ? `: ${tail}` : ''
 }
 
