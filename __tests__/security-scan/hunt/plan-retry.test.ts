@@ -2,6 +2,8 @@ import {
   isTransientPlanError,
   describePlanFailure,
   PLAN_FAILURE_TEXT_CHARS,
+  classifyPlanFailure,
+  PLAN_FAILURE_SHAPES,
 } from '@/lib/security-scan/hunt/plan-retry'
 
 // LUM-758 follow-up. `planHunt` never throws, so `planHuntStep`'s platform
@@ -90,7 +92,10 @@ describe('LUM-766 follow-up — a budget miss is not a shape miss', () => {
       isTransientPlanError(
         noObject({
           finishReason: 'length',
-          usage: { outputTokens: 8_000, outputTokenDetails: { reasoningTokens: 7_940 } },
+          usage: {
+            outputTokens: 8_000,
+            outputTokenDetails: { reasoningTokens: 7_940 },
+          },
         })
       )
     ).toBe(true)
@@ -159,14 +164,21 @@ describe('LUM-766 follow-up — a budget miss is not a shape miss', () => {
 describe('LUM-766 follow-up — what a failed plan records', () => {
   it('keeps the finish reason, the reasoning spend and the raw output', () => {
     const facts = describePlanFailure(
-      Object.assign(new Error('No object generated: response did not match schema.'), {
-        finishReason: 'stop',
-        text: '{"tasks":[]}',
-        usage: { outputTokens: 120, outputTokenDetails: { reasoningTokens: 60 } },
-      })
+      Object.assign(
+        new Error('No object generated: response did not match schema.'),
+        {
+          finishReason: 'stop',
+          text: '{"tasks":[]}',
+          usage: {
+            outputTokens: 120,
+            outputTokenDetails: { reasoningTokens: 60 },
+          },
+        }
+      )
     )
     expect(facts).toEqual({
       message: 'No object generated: response did not match schema.',
+      shape: 'schema-mismatch',
       finishReason: 'stop',
       reasoningTokens: 60,
       outputTokens: 120,
@@ -176,18 +188,148 @@ describe('LUM-766 follow-up — what a failed plan records', () => {
   })
 
   it('distinguishes "emitted nothing" from "emitted something unparseable"', () => {
-    expect(describePlanFailure(Object.assign(new Error('x'), { text: '' })).textPrefix).toBe('')
+    expect(
+      describePlanFailure(Object.assign(new Error('x'), { text: '' }))
+        .textPrefix
+    ).toBe('')
     expect(describePlanFailure(new Error('x')).textPrefix).toBeUndefined()
   })
 
   it('clips the raw output rather than carrying a whole response into the audit', () => {
     const facts = describePlanFailure(
-      Object.assign(new Error('x'), { text: 'a'.repeat(PLAN_FAILURE_TEXT_CHARS + 500) })
+      Object.assign(new Error('x'), {
+        text: 'a'.repeat(PLAN_FAILURE_TEXT_CHARS + 500),
+      })
     )
     expect(facts.textPrefix).toHaveLength(PLAN_FAILURE_TEXT_CHARS)
   })
 
   it('survives an error carrying none of it', () => {
-    expect(describePlanFailure('boom')).toEqual({ message: 'boom' })
+    expect(describePlanFailure('boom')).toEqual({
+      message: 'boom',
+      shape: 'unknown',
+    })
+  })
+})
+
+/**
+ * LUM-776. Production booked four planner failures in one day under ONE
+ * message prefix — "No object generated" — that hides two opposite failures.
+ * The audit and the acceptance read-out count on `shape`, never on prose.
+ */
+describe('LUM-776 — every planning failure gets a stable shape', () => {
+  const noObject = (message: string, over: Record<string, unknown> = {}) =>
+    Object.assign(new Error(message), over)
+
+  it('the two "No object generated" sub-shapes land on different values', () => {
+    // PR #990 14:02Z: the model did not return a response (budget → reasoning).
+    expect(
+      classifyPlanFailure(
+        noObject('No object generated: the model did not return a response.', {
+          finishReason: 'length',
+          text: '',
+          usage: {
+            outputTokens: 8_000,
+            outputTokenDetails: { reasoningTokens: 7_990 },
+          },
+        })
+      )
+    ).toBe('budget-exhausted')
+    // PR #994 15:21Z: `{"tasks": []}`, finish=stop, zero reasoning — a field missed.
+    expect(
+      classifyPlanFailure(
+        noObject('No object generated: response did not match schema.', {
+          finishReason: 'stop',
+          text: '{\n  "tasks": []\n}',
+          usage: {
+            outputTokens: 8,
+            outputTokenDetails: { reasoningTokens: 0 },
+          },
+        })
+      )
+    ).toBe('schema-mismatch')
+  })
+
+  it('an empty answer without a finish reason is empty-output, not a schema miss', () => {
+    expect(
+      classifyPlanFailure(
+        noObject('No object generated: the model did not return a response.')
+      )
+    ).toBe('empty-output')
+    expect(
+      classifyPlanFailure(
+        noObject('No object generated: the model did not return a response.', {
+          text: '',
+        })
+      )
+    ).toBe('empty-output')
+  })
+
+  it('a truncated JSON is a budget miss even though the SDK calls it a schema miss', () => {
+    expect(
+      classifyPlanFailure(
+        noObject('No object generated: response did not match schema.', {
+          finishReason: 'length',
+          text: '{"tasks":[{"objective":"trace the id from',
+        })
+      )
+    ).toBe('budget-exhausted')
+  })
+
+  it('names our abort and the gateway timeout the same thing', () => {
+    expect(
+      classifyPlanFailure(
+        Object.assign(new Error('x'), { name: 'TimeoutError' })
+      )
+    ).toBe('timeout')
+    expect(classifyPlanFailure(new Error('Delay was aborted'))).toBe('timeout')
+    // PR #980's prod shape before LUM-766.
+    expect(
+      classifyPlanFailure(
+        new Error(
+          'Invalid error response format: Gateway request failed: The operation was aborted due to timeout'
+        )
+      )
+    ).toBe('timeout')
+  })
+
+  it('tells transport from timeout, and leaves the rest unknown', () => {
+    expect(classifyPlanFailure(new Error('Gateway returned 503'))).toBe(
+      'transport'
+    )
+    expect(classifyPlanFailure(new Error('read ECONNRESET'))).toBe('transport')
+    expect(classifyPlanFailure(new Error('400 bad request'))).toBe('unknown')
+    expect(classifyPlanFailure(null)).toBe('unknown')
+  })
+
+  it('a schema miss that mentions a transport word is still a schema miss', () => {
+    expect(
+      classifyPlanFailure(
+        new Error(
+          'AI_NoObjectGeneratedError: no object generated after timeout'
+        )
+      )
+    ).toBe('schema-mismatch')
+  })
+
+  it('the retry decision is a view over the shape, so the two can never disagree', () => {
+    const samples: unknown[] = [
+      noObject('No object generated: the model did not return a response.'),
+      noObject('No object generated: response did not match schema.', {
+        finishReason: 'stop',
+        text: '{"tasks":[]}',
+      }),
+      noObject('x', { finishReason: 'length' }),
+      new Error('Delay was aborted'),
+      new Error('Gateway returned 503'),
+      new Error('something else entirely'),
+    ]
+    for (const e of samples) {
+      const shape = classifyPlanFailure(e)
+      expect(PLAN_FAILURE_SHAPES).toContain(shape)
+      expect(isTransientPlanError(e)).toBe(
+        shape !== 'schema-mismatch' && shape !== 'unknown'
+      )
+    }
   })
 })

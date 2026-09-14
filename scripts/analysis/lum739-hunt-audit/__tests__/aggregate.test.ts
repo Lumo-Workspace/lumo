@@ -66,9 +66,10 @@ describe('LUM-739 hunt audit', () => {
       plan: {
         by: { model: 0, fallback: 0, notAttempted: 0, unknown: 0 },
         taskCounts: {},
-      failures: {},
-      reasoningTokens: [],
-      emptyOutput: 0,
+        failures: {},
+        failureShapes: {},
+        reasoningTokens: [],
+        emptyOutput: 0,
       },
       taskStops: {},
       tasksWrappedUp: 0,
@@ -281,9 +282,47 @@ describe('LUM-739 hunt audit', () => {
     ] as unknown as HuntScanRow[])
 
     expect(stats.plan.failures).toEqual({ length: 1, stop: 1 })
+    // LUM-766 rows carry no shape yet — counted as such, never guessed.
+    expect(stats.plan.failureShapes).toEqual({ unclassified: 2 })
     expect(stats.plan.reasoningTokens).toEqual([7_940, 60])
     // Only the one that emitted nothing at all.
     expect(stats.plan.emptyOutput).toBe(1)
+  })
+
+  // LUM-776 — the finish reason cannot separate the two production shapes
+  // (`stop` on both an empty plan and a schema miss; absent on a timeout);
+  // `shape` is the field the acceptance read-out counts on.
+  it('counts plan failures by their stable shape', () => {
+    const failed = (shape: string, finishReason?: string) => ({
+      id: shape,
+      stages: { hunt: 'RAN' },
+      huntAudit: {
+        plannedBy: 'fallback',
+        plannedReason: `plan unavailable [${shape}]: whatever the SDK said`,
+        planFailure: {
+          message: 'whatever the SDK said',
+          shape,
+          ...(finishReason ? { finishReason } : {}),
+        },
+      },
+      tokenSpent: 0,
+      findings: [],
+    })
+    const stats = aggregateHuntAudit([
+      failed('budget-exhausted', 'length'),
+      failed('empty-output', 'stop'),
+      failed('schema-mismatch', 'stop'),
+      failed('schema-mismatch', 'stop'),
+      failed('timeout'),
+    ])
+    expect(stats.plan.failureShapes).toEqual({
+      'budget-exhausted': 1,
+      'empty-output': 1,
+      'schema-mismatch': 2,
+      timeout: 1,
+    })
+    // …and the finish-reason view alone would have read 3 × stop, 1 × length.
+    expect(stats.plan.failures).toEqual({ length: 1, stop: 3, unknown: 1 })
   })
 
   it('reports null rates on an empty input', () => {

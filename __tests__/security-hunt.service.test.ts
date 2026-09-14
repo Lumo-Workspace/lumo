@@ -750,6 +750,8 @@ describe('LUM-739 hunt service', () => {
     expect(out.tokens).toBe(0)
     expect(out.reason).toContain('plan unavailable')
     expect(out.reason).toContain('gateway 500')
+    // LUM-776 — the stable shape rides in the reason as a greppable prefix.
+    expect(out.reason).toMatch(/^plan unavailable \[transport\]: /)
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('using deterministic fallback')
     )
@@ -782,6 +784,8 @@ describe('LUM-739 hunt service', () => {
     expect(out.by).toBe('fallback')
     expect(out.planFailure).toEqual({
       message: 'No object generated: the model did not return a response.',
+      // LUM-776 — the stable shape the audit counts on, and the prefix.
+      shape: 'budget-exhausted',
       finishReason: 'length',
       reasoningTokens: 7_940,
       outputTokens: 8_000,
@@ -794,7 +798,11 @@ describe('LUM-739 hunt service', () => {
   it('planHunt leaves planFailure absent when the planner answered', async () => {
     planMock.mockResolvedValue({
       tasks: [
-        { objective: 'o'.repeat(30), category: 'idor', startingPoints: ['a.ts'] },
+        {
+          objective: 'o'.repeat(30),
+          category: 'idor',
+          startingPoints: ['a.ts'],
+        },
       ],
       reason: 'one signal',
       tokens: 40,

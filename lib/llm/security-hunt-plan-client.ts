@@ -9,7 +9,7 @@
  * 静态 import 了 `ai` / `@ai-sdk/gateway`：本模块只能经 service 的
  * `await import()` 到达（jest TransformStream 陷阱）。
  */
-import { generateObject } from 'ai'
+import { generateObject, type LanguageModel } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
 import { FAST_MODEL } from '@/lib/ai/models'
@@ -20,8 +20,10 @@ import {
 import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
+  PLAN_EMPTY_REASON,
   PLAN_HUNT_TOKEN_BUDGET,
   PLAN_OBJECTIVE_MAX_CHARS,
+  PLAN_REASON_MAX_CHARS,
   type HuntTask,
 } from '@/lib/services/security-hunt.config'
 import type { FindingSummary } from '@/lib/repositories/pr-security-scan.repository'
@@ -95,10 +97,21 @@ const Schema = z.object({
     .describe(
       'The investigation tasks worth spending budget on for THIS diff. An empty array is a valid and common answer — it means this pull request is not worth hunting.'
     ),
-  reason: z.string().max(400),
+  // LUM-776 — optional, and the cap sits above the natural length (see
+  // PLAN_REASON_MAX_CHARS). Required + 400 turned production's `{"tasks": []}`
+  // into a schema failure, and the fallback it bought ran tasks the model had
+  // just said were not worth running.
+  reason: z
+    .string()
+    .max(PLAN_REASON_MAX_CHARS)
+    .optional()
+    .describe(
+      'One or two sentences on why these tasks (or none) — which signal decided it.'
+    ),
 })
 
-const SYSTEM_PROMPT = `You route a security hunt. Given a pull request's diff summary, you decide which investigation tasks — if any — are worth spending an expensive analysis budget on.
+/** Exported for the LUM-776 probe, which measures the shipped prompt. */
+export const PLAN_SYSTEM_PROMPT = `You route a security hunt. Given a pull request's diff summary, you decide which investigation tasks — if any — are worth spending an expensive analysis budget on.
 
 Categories (used only to type each task's output; they need not be exhaustive or evenly spread across a plan):
 - idor: an object id from the request reaches a repository/Prisma call with no membership, ownership or workspace check.
@@ -137,7 +150,7 @@ function clip(text: string, max: number): string {
  * pushing the trigger reasons and touched paths — the signals the routing
  * decision is actually made on — out of the prompt.
  */
-function buildPrompt(i: PlanClientInput): string {
+export function buildPlanPrompt(i: PlanClientInput): string {
   // The A4 judge authors `title` after reading the RAW diff, and its schema is
   // `z.string().describe('… ≤ 80 chars')` — a hint to the model, enforcing
   // nothing. `ruleId` is `ext:<runSlug>:<id>` for SARIF-ingested findings, i.e.
@@ -207,17 +220,39 @@ Which investigation tasks are worth running for this diff?
     : clipped
 }
 
-export async function planHuntTasks(input: PlanClientInput): Promise<{
+/**
+ * LUM-776 — probe-only knobs. `scripts/analysis/lum776-plan-probe/probe.ts`
+ * A/B-tests the planner on real prompts THROUGH this function, so the thing
+ * measured is the thing shipped; production passes nothing here.
+ */
+export interface PlanProbeOverrides {
+  model?: LanguageModel
+  providerOptions?: Parameters<typeof generateObject>[0]['providerOptions']
+}
+
+export interface PlanHuntTasksResult {
   tasks: HuntTask[]
   reason: string
   tokens: number
-}> {
-  const { object, usage } = await generateObject({
-    model: gateway(FAST_MODEL),
+  /** How the call ended and what it spent — the probe's read-out. */
+  finishReason: string
+  outputTokens: number
+  reasoningTokens: number
+}
+
+export async function planHuntTasks(
+  input: PlanClientInput,
+  overrides: PlanProbeOverrides = {}
+): Promise<PlanHuntTasksResult> {
+  const { object, usage, finishReason } = await generateObject({
+    model: overrides.model ?? gateway(FAST_MODEL),
     schema: Schema,
-    system: SYSTEM_PROMPT,
-    prompt: buildPrompt(input),
+    system: PLAN_SYSTEM_PROMPT,
+    prompt: buildPlanPrompt(input),
     maxOutputTokens: PLAN_HUNT_TOKEN_BUDGET,
+    ...(overrides.providerOptions
+      ? { providerOptions: overrides.providerOptions }
+      : {}),
     // 0, not 1: with an SDK retry the abort signal lands inside the library's
     // exponential-backoff *sleep* rather than inside a request — prod (PR 969)
     // failed as `Delay was aborted`, the LUM-762 signature, having spent the
@@ -242,7 +277,12 @@ export async function planHuntTasks(input: PlanClientInput): Promise<{
     .map((t, i) => ({ ...t, id: `t${i + 1}` }))
   return {
     tasks,
-    reason: object.reason,
+    // An absent reason is a legal empty plan, not a failure (LUM-776); the
+    // placeholder keeps `plannedReason` readable in the audit.
+    reason: object.reason?.trim() || PLAN_EMPTY_REASON,
     tokens: usage.totalTokens ?? 0,
+    finishReason: finishReason ?? 'unknown',
+    outputTokens: usage.outputTokens ?? 0,
+    reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? 0,
   }
 }

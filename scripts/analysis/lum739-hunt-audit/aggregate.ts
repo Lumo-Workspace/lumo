@@ -59,6 +59,15 @@ export interface HuntAuditStats {
     taskCounts: Record<string, number>
     /** LUM-766 follow-up — failed planning calls by `finishReason`. */
     failures: Record<string, number>
+    /**
+     * LUM-776 — the same failures by their STABLE shape (`planFailure.shape`:
+     * budget-exhausted / empty-output / schema-mismatch / timeout / transport /
+     * unknown). `failures` keys on the provider's finish reason, which is
+     * absent on a timeout and `stop` on both an empty plan and a schema miss;
+     * this is the read-out the acceptance criterion counts on. Rows written
+     * before the shape existed are counted under `unclassified`, never guessed.
+     */
+    failureShapes: Record<string, number>
     reasoningTokens: number[]
     emptyOutput: number
   }
@@ -141,6 +150,7 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
       by: { model: 0, fallback: 0, notAttempted: 0, unknown: 0 },
       taskCounts: {},
       failures: {},
+      failureShapes: {},
       reasoningTokens: [],
       emptyOutput: 0,
     },
@@ -190,8 +200,12 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     // opposite responses.
     const pf = audit.planFailure as Record<string, unknown> | undefined
     if (pf && typeof pf === 'object') {
-      const fr = typeof pf.finishReason === 'string' ? pf.finishReason : 'unknown'
+      const fr =
+        typeof pf.finishReason === 'string' ? pf.finishReason : 'unknown'
       stats.plan.failures[fr] = (stats.plan.failures[fr] ?? 0) + 1
+      const shape = typeof pf.shape === 'string' ? pf.shape : 'unclassified'
+      stats.plan.failureShapes[shape] =
+        (stats.plan.failureShapes[shape] ?? 0) + 1
       if (typeof pf.reasoningTokens === 'number')
         stats.plan.reasoningTokens.push(pf.reasoningTokens)
       if (pf.textPrefix === '') stats.plan.emptyOutput += 1

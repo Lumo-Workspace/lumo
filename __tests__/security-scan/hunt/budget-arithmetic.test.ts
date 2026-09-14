@@ -12,6 +12,8 @@ import {
   PLAN_HUNT_LATENCY_RESIDUAL_P99_MS,
   PLAN_OBJECTIVE_OBSERVED_MAX_CHARS,
   PLAN_OBJECTIVE_MAX_CHARS,
+  PLAN_REASON_OBSERVED_MAX_CHARS,
+  PLAN_REASON_MAX_CHARS,
 } from '@/lib/services/security-hunt.config'
 
 // LUM-758 follow-up: the per-task ceiling is not a free-floating number — it is
@@ -71,6 +73,15 @@ describe('hunt budget arithmetic', () => {
   it('LUM-766: the objective cap leaves at least 50% over the longest objective the model wrote', () => {
     expect(PLAN_OBJECTIVE_MAX_CHARS).toBeGreaterThanOrEqual(
       PLAN_OBJECTIVE_OBSERVED_MAX_CHARS * 1.5
+    )
+  })
+
+  // LUM-776: same trap as the objective, one level up. The plan's `reason`
+  // cap is sent as JSON-schema maxLength; production `plannedBy=model` rows
+  // wrote reasons up to 462 chars against a cap of 400.
+  it('LUM-776: the reason cap leaves at least 50% over the longest reason the model wrote', () => {
+    expect(PLAN_REASON_MAX_CHARS).toBeGreaterThanOrEqual(
+      PLAN_REASON_OBSERVED_MAX_CHARS * 1.5
     )
   })
 

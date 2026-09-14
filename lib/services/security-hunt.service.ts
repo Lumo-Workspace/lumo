@@ -506,7 +506,15 @@ export const securityHuntService = {
           ? ` [finish=${lastFailure.finishReason} reasoning=${lastFailure.reasoningTokens ?? '?'} output=${lastFailure.outputTokens ?? '?'}]`
           : '')
     )
-    return fallback(`plan unavailable: ${lastError.slice(0, 200)}`, lastFailure)
+    // LUM-776 — the shape rides in the reason as a stable, greppable prefix
+    // (`plan unavailable [schema-mismatch]: …`), so a prod read-out can count
+    // failures without parsing the SDK's prose; `planFailure.shape` carries the
+    // same value as data.
+    const shape = lastFailure ? ` [${lastFailure.shape}]` : ''
+    return fallback(
+      `plan unavailable${shape}: ${lastError.slice(0, 200)}`,
+      lastFailure
+    )
   },
 
   /**
