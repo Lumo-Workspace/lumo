@@ -17,6 +17,7 @@ import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
   PLAN_HUNT_TOKEN_BUDGET,
+  PLAN_OBJECTIVE_MAX_CHARS,
   type HuntTask,
 } from '@/lib/services/security-hunt.config'
 import type { FindingSummary } from '@/lib/repositories/pr-security-scan.repository'
@@ -59,7 +60,7 @@ const TaskSchema = z.object({
   objective: z
     .string()
     .min(20)
-    .max(400)
+    .max(PLAN_OBJECTIVE_MAX_CHARS)
     .describe(
       'What to investigate, specific to THIS diff: which signal it follows and what path is worth tracing from it. A generic objective like "check the permission logic carefully" is useless — it gives the analyst nothing to start from.'
     ),

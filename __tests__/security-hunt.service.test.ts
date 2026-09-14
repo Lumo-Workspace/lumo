@@ -53,7 +53,10 @@ import {
   stopHuntSandbox,
 } from '@/lib/services/security-hunt-sandbox'
 import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
-import { HUNT_MIN_BATCH_TIME_MS } from '@/lib/services/security-hunt.config'
+import {
+  HUNT_MIN_BATCH_TIME_MS,
+  PLAN_HUNT_TIMEOUT_MS,
+} from '@/lib/services/security-hunt.config'
 
 const diffMock = fetchPrDiff as jest.Mock
 const readMock = readRepoFile as jest.Mock
@@ -722,7 +725,7 @@ describe('LUM-739 hunt service', () => {
     expect(arg.findings).toEqual([
       { severity: 'HIGH', ruleId: 'hunt:idor', title: 'no owner check' },
     ])
-    expect(arg.timeoutMs).toBe(20_000)
+    expect(arg.timeoutMs).toBe(PLAN_HUNT_TIMEOUT_MS)
   })
 
   it('planHunt never throws: an LLM failure falls back to the deterministic planner, never widening past what planFallback returns', async () => {
@@ -770,6 +773,40 @@ describe('LUM-739 hunt service', () => {
     expect(planMock).toHaveBeenCalledTimes(2)
     expect(out.by).toBe('model')
     expect(out.tasks).toHaveLength(1)
+  })
+
+  // LUM-766: the production signature. A window that aborts mid-reasoning is
+  // transient by contract, and the retry must be a fresh window of the SAME
+  // size — a shorter second window would only re-run the coin flip.
+  it('LUM-766: a planner timeout gets a second full window', async () => {
+    planMock
+      .mockRejectedValueOnce(
+        new Error(
+          'Gateway request failed: The operation was aborted due to timeout'
+        )
+      )
+      .mockResolvedValueOnce({
+        tasks: [
+          {
+            id: 't1',
+            objective: 'trace the scan id into the repository call',
+            category: 'idor',
+            startingPoints: ['lib/services/x.ts'],
+          },
+        ],
+        reason: 'raw id reaches a repository call',
+        tokens: 900,
+      })
+    const job = { ...JOB, reasons: ['diff:sink:prisma-raw'] }
+
+    const out = await securityHuntService.planHunt({ job })
+
+    expect(planMock).toHaveBeenCalledTimes(2)
+    for (const [arg] of planMock.mock.calls) {
+      expect(arg.timeoutMs).toBe(PLAN_HUNT_TIMEOUT_MS)
+    }
+    expect(out.by).toBe('model')
+    expect(out.reason).toBe('raw id reaches a repository call')
   })
 
   it('planHunt does not retry a model that got the shape wrong', async () => {

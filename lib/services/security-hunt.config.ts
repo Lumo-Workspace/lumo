@@ -199,21 +199,71 @@ export const HUNT_MIN_BATCH_TIME_MS = 10_000
 export const HUNT_TOKEN_BUDGET = 120_000
 export const HUNT_TIME_BUDGET_MS = 240_000
 
-/** LUM-758 §4.3 — 规划步自身的预算。它是路由决策，不是分析。 */
-export const PLAN_HUNT_TOKEN_BUDGET = 5_000
+/**
+ * LUM-766 — 规划步在真实 prompt 上的实测（16 份：真实验收合同 + 真实 PR 文件表，
+ * 经 shipped `planHuntTasks`，2026-09-14，共 47 次开推理成功样本）。下面的预算
+ * 常量各自钉在这些读数上，`budget-arithmetic.test.ts` 持有余量系数。改读数要
+ * 附新的测量。
+ *
+ * - 输出需求：FAST_MODEL 是推理模型，这个 schema 上每次规划要先花 200–4 700 个
+ *   reasoning token 再写 100–700 个文本 token，且**重尾**（同一份 prompt 两次跑
+ *   1 938 / 3 912）。观测到的输出 max ≈ 5 400。
+ * - 吞吐：ms ≈ 输出 token × 10.8（≈ 92 tok/s），样本 p10 79 / p0 58 tok/s；
+ *   回归残差 p99 ≈ 7 s（网关排队等固定开销）。
+ * - objective 篇幅：上限 1000 时 max 961，上限 1200 时 max 1058——模型不贴着
+ *   上限写，但会随上限略伸长。
+ */
+export const PLAN_HUNT_OBSERVED_OUTPUT_MAX = 5_400
+/** 取样本 p10 再向下取整——上界要按慢的那头算。 */
+export const PLAN_HUNT_OBSERVED_THROUGHPUT_P10_TPS = 75
+export const PLAN_HUNT_LATENCY_RESIDUAL_P99_MS = 7_000
+export const PLAN_OBJECTIVE_OBSERVED_MAX_CHARS = 1_100
 
 /**
- * 规划步的墙钟上限。远小于 HUNT_TASK_TIME_MS：一次无工具的 FAST 调用
- * 拖到 20s 就说明网关有问题，此时确定性兜底比继续等更划算。
+ * LUM-758 §4.3 — 规划步自身的输出预算。它是路由决策，不是分析。
+ *
+ * LUM-766：它是**尾部上限**，必须盖过实测输出需求并留余量。旧值 5 000 贴着
+ * 观测 max，重尾一来就 finish=length → 零输出 → 退确定性兜底，而且 length /
+ * schema 失败被判非瞬时、**不重试**。8 000 ≈ 1.5 × 观测 max。
  */
-export const PLAN_HUNT_TIMEOUT_MS = 20_000
+export const PLAN_HUNT_TOKEN_BUDGET = 8_000
+
+/**
+ * LUM-766 — 规划任务 `objective` 的字符上限，**必须高于模型的自然篇幅并留
+ * ≥ 50% 余量**（用户裁定）。这个数不是「截断长度」：zod 的 .max() 会作为
+ * JSON-schema `maxLength` 随请求发给模型，上限低于自然篇幅时，推理模型会在
+ * 推理里反复重写去凑，直到把 PLAN_HUNT_TOKEN_BUDGET 整个烧光、一个字不输出
+ * （finish=length，16 次里 13 次），剩下的写出来也过不了校验——旧值 400 在真实
+ * prompt 上 0/16 成功。超上限 = schema 失败 → 非瞬时 → 不重试 → 整次扫描退兜底。
+ * 2 000 ≈ 1.8 × 观测 max：即使篇幅随上限再伸长一成，仍有 ≥ 50% 余量。
+ */
+export const PLAN_OBJECTIVE_MAX_CHARS = 2_000
+
+/**
+ * 规划步的墙钟上限。LUM-766（用户裁定：至少覆盖 p99.9）：几十个样本量不出
+ * p99.9，站得住的是**解析上界**——预算封顶了输出，所以
+ *   延迟 ≤ PLAN_HUNT_TOKEN_BUDGET ÷ 最慢吞吐 + 固定开销
+ *   = 8 000 ÷ 75 tok/s + 7 s ≈ 114 s，取 120 s。
+ * 这是 p100（给定预算），自然盖过 p99.9。注意分母用的是样本 p10 吞吐而不是
+ * 均值：上界按慢的那头算。
+ *
+ * 20 s 那版的前提「一次无工具的 FAST 调用拖到 20s 就说明网关有问题」是错的：
+ * 健康调用 p50 就在 20 s 上下，20 s 正好切在分布中位数上——每次尝试一半概率
+ * 被自己的 abort 打断，两次尝试后仍有约四分之一的扫描退成罐头任务（生产
+ * 13 次里 7 次 by=fallback，理由全是 "aborted due to timeout"）。
+ *
+ * 关掉 reasoning 不是出路：2–10 s 返回，但 16 次里 13 次空计划。
+ */
+export const PLAN_HUNT_TIMEOUT_MS = 120_000
 /**
  * Attempts at the planning call, each with a FRESH `PLAN_HUNT_TIMEOUT_MS`
  * window. `planHunt` never throws, so `planHuntStep`'s platform retry can never
  * fire — without this the first transient gateway blip degrades the scan's plan
  * to the deterministic fallback for good (prod, PR 969). Two, not more: the
- * fallback is a real answer, not an error path, and a third window would push
- * planning past a minute before any hunting starts.
+ * fallback is a real answer, not an error path, and with a window that covers
+ * the whole output budget (LUM-766) a timeout means the gateway did not
+ * answer — two windows already equal the hunt's own time budget
+ * (HUNT_TIME_BUDGET_MS); a third would put planning above the hunt itself.
  */
 export const PLAN_HUNT_MAX_ATTEMPTS = 2
 
