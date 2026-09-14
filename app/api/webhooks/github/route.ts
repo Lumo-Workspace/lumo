@@ -50,23 +50,45 @@ export async function POST(request: NextRequest) {
   const repoFullName = (
     payload.repository as { full_name?: string } | undefined
   )?.full_name
-  if (!repoFullName) return NextResponse.json({ ok: true })
 
-  // Find all integrations that registered a webhook for this repo
-  const webhooks = await githubService.findWebhooksByRepo(repoFullName)
-
-  // Find the one whose secret validates this signature
+  // Delivery 1: a repo hook the OAuth connection created — workspace from the
+  // repository name, signature against that integration's own secret.
+  const webhooks = repoFullName
+    ? await githubService.findWebhooksByRepo(repoFullName)
+    : []
   const matched = webhooks.find(
     w =>
       w.integration.webhookSecret &&
       verifyGitHubSignature(body, signature, w.integration.webhookSecret)
   )
 
-  if (!matched) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  let workspaceId: string
+  let integrationId: string | null = null
 
-  const { workspaceId, id: integrationId } = matched.integration
+  if (matched) {
+    workspaceId = matched.integration.workspaceId
+    integrationId = matched.integration.id
+  } else {
+    // Delivery 2: the App's own webhook, which carries no per-repo secret and
+    // no GitHubWebhook row. Same events, different envelope.
+    const viaApp = await resolveAppDelivery(body, signature, payload)
+    if (viaApp === 'UNAUTHENTICATED') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    // Authentic but unplaceable (unknown or uninstalled installation): accept
+    // and drop it — a 401 here would put GitHub into an endless retry.
+    if (!viaApp) return NextResponse.json({ ok: true })
+
+    // Both hooks are live on this repo, so GitHub sends the same event twice —
+    // once per delivery. The repo hook owns it; handling the App copy as well
+    // would race the inbound comment dedup (which reads before it writes) and
+    // can double-post. Drop this copy and let the repo-hook request do the work.
+    if (webhooks.some(w => w.integration.workspaceId === viaApp)) {
+      return NextResponse.json({ ok: true })
+    }
+
+    workspaceId = viaApp
+  }
 
   try {
     switch (event) {
@@ -131,4 +153,30 @@ async function handleAppEvent(
   }
 
   return NextResponse.json({ ok: true })
+}
+
+/**
+ * Authenticate a repository event that arrived on the App webhook and map it to
+ * a workspace through `installation.id` — the only handle such a delivery
+ * carries, since it has no GitHubWebhook row behind it.
+ *
+ * Returns the workspace id, `null` when the delivery is authentic but belongs
+ * to an installation we cannot place, and 'UNAUTHENTICATED' when it is not an
+ * App delivery at all.
+ */
+async function resolveAppDelivery(
+  body: string,
+  signature: string | null,
+  payload: Record<string, unknown>
+): Promise<string | null | 'UNAUTHENTICATED'> {
+  const secret = process.env.GITHUB_APP_WEBHOOK_SECRET
+  if (!secret || !verifyGitHubSignature(body, signature, secret)) {
+    return 'UNAUTHENTICATED'
+  }
+
+  const installationId = (payload.installation as { id?: number } | undefined)
+    ?.id
+  if (!installationId) return null
+
+  return githubAppInstallService.resolveWorkspaceByInstallation(installationId)
 }

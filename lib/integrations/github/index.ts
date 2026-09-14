@@ -19,9 +19,13 @@ export {
 export {
   fetchAppInstallation,
   fetchInstallationRepositories,
+  listInstallationRepositories,
   deleteAppInstallation,
 } from './app-installations'
-export type { AppInstallationAccount } from './app-installations'
+export type {
+  AppInstallationAccount,
+  InstallationRepository,
+} from './app-installations'
 
 // Branch utilities
 export {

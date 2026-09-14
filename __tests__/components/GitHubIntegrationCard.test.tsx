@@ -28,11 +28,9 @@ const messages: Record<string, string> = {
   'github.uninstallTitle': 'Uninstall the GitHub App?',
   'github.uninstallDesc': 'Lumo will no longer scan this workspace.',
   'github.connectedAs': 'Connected as',
-  'github.authorizedRepos': 'Authorized repositories',
-  'github.noRepos': 'No repositories',
-  'github.addRepo': 'Add repository',
-  'github.addRepoDesc': 'Pick a repo',
-  'github.removeRepo': 'Remove',
+  'github.appRepos': 'Repositories the App can reach',
+  'github.appNoRepos': 'No repositories selected',
+  'github.manageOnGithub': 'Manage on GitHub',
   'github.disconnectTitle': 'Disconnect GitHub',
   'github.disconnectDesc': 'Are you sure?',
   'common.connect': 'Connect',
@@ -60,15 +58,8 @@ const mockHook = {
   disconnectOpen: false,
   setDisconnectOpen: jest.fn(),
   disconnecting: false,
-  addRepoOpen: false,
-  setAddRepoOpen: jest.fn(),
-  availableRepos: [] as { fullName: string; name: string; private: boolean }[],
-  loadingRepos: false,
   handleConnect: jest.fn(),
   handleDisconnect: jest.fn(),
-  handleRemoveRepo: jest.fn(),
-  openAddRepo: jest.fn(),
-  handleAddRepo: jest.fn(),
 }
 
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useGitHubIntegration', () => ({
@@ -114,11 +105,43 @@ describe('GitHubIntegrationCard', () => {
     }
     render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
 
-    // The connected body is visible ...
-    expect(screen.getByText('Authorized repositories')).toBeInTheDocument()
+    // The OAuth row reads as linked ...
+    expect(screen.getByTestId('github-oauth-row').textContent).toContain(
+      'Authorized'
+    )
     // ... but the personal account identity line is gone.
     expect(screen.queryByText('Connected as')).not.toBeInTheDocument()
     expect(screen.queryByText(/octocat/)).not.toBeInTheDocument()
+  })
+
+  it('lists the installation repositories read-only, managed on GitHub', () => {
+    mockHook.status = { connected: false }
+    mockAppHook.status = {
+      installed: true,
+      accountLogin: 'acme-inc',
+      repositories: ['acme-inc/web', 'acme-inc/api'],
+    }
+    render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
+
+    expect(screen.getByText('acme-inc/web')).toBeInTheDocument()
+    expect(screen.getByText('acme-inc/api')).toBeInTheDocument()
+    // The set is chosen in GitHub's install settings — no add/remove here.
+    expect(
+      screen.getByRole('link', { name: /Manage on GitHub/ })
+    ).toHaveAttribute('href', 'https://github.com/settings/installations')
+    expect(
+      screen.queryByRole('button', { name: /Add repository|Remove/ })
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not show the repository list before the App is installed', () => {
+    mockHook.status = { connected: true, repositories: ['acme/web'] }
+    mockAppHook.status = { installed: false }
+    render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
+
+    expect(
+      screen.queryByText('Repositories the App can reach')
+    ).not.toBeInTheDocument()
   })
 
   it('shows no Connect button to non-owners when disconnected', () => {

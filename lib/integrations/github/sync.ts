@@ -35,7 +35,8 @@ export async function syncRepoPRs(
   token: string,
   fullName: string,
   workspaceId: string,
-  integrationId: string
+  /** null when the backfill runs off the App installation rather than an OAuth integration. */
+  integrationId: string | null
 ): Promise<void> {
   const res = await fetch(
     `https://api.github.com/repos/${fullName}/pulls?state=all&per_page=100&sort=updated&direction=desc`,

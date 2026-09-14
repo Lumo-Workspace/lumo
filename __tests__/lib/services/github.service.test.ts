@@ -91,33 +91,6 @@ describe('requireIntegrationWithWebhooks', () => {
   })
 })
 
-// ── ensureWebhookSecret ─────────────────────────────────────────────────
-
-describe('ensureWebhookSecret', () => {
-  it('returns existing secret if present', async () => {
-    const result = await githubService.ensureWebhookSecret(
-      'int-1',
-      'existing-secret'
-    )
-
-    expect(result).toBe('existing-secret')
-    expect(mockRepo.updateIntegration).not.toHaveBeenCalled()
-  })
-
-  it('generates and stores a new secret when null', async () => {
-    mockRepo.updateIntegration.mockResolvedValue({} as never)
-
-    const result = await githubService.ensureWebhookSecret('int-1', null)
-
-    expect(result).toHaveLength(64) // 32 bytes = 64 hex chars
-    expect(mockRepo.updateIntegration).toHaveBeenCalledWith('int-1', {
-      webhookSecret: result,
-    })
-  })
-})
-
-// ── findWorkspaceSlug ───────────────────────────────────────────────────
-
 describe('findWorkspaceSlug', () => {
   it('returns slug when found', async () => {
     mockRepo.findWorkspaceSlug.mockResolvedValue({ slug: 'my-ws' })

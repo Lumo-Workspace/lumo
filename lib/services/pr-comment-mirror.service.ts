@@ -1,6 +1,5 @@
 import { logger } from '@/lib/logger'
 import { githubRepository } from '@/lib/repositories/github.repository'
-import { decrypt } from '@/lib/crypto'
 import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
 import { waitUntil } from '@vercel/functions'
 import type { OutboundActorKind, PrCommentSource } from '@prisma/client'
@@ -29,51 +28,24 @@ interface Repo {
   name: string
 }
 
-interface OutboundActorResult {
-  actor: OutboundActorKind
-  token: string
-  userId: string | null
-}
-
-const CACHE_TTL_MS = 10 * 60 * 1000
-const writeCache = new Map<string, { until: number; canWrite: boolean }>()
-
-async function canWriteRepo(
-  token: string,
-  repo: Repo,
-  userId: string
-): Promise<boolean> {
-  const key = `${userId}:${repo.owner}/${repo.name}`
-  const cached = writeCache.get(key)
-  if (cached && cached.until > Date.now()) return cached.canWrite
-  const res = await fetch(
-    `https://api.github.com/repos/${repo.owner}/${repo.name}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-      },
-    }
+/**
+ * A mirror written before LUM-741's consolidation, whose GitHub comment was
+ * posted by a person's OAuth token.
+ *
+ * GitHub does not let one identity edit or delete another's comment, so the App
+ * simply cannot touch these — attempting it returns 403 and the catch below
+ * would re-enqueue the job forever. Skip instead: the Lumo-side edit or delete
+ * still happens, and the stale GitHub comment keeps its link back to Lumo.
+ */
+function isLegacyUserAuthored(mirror: {
+  id: string
+  outboundActor: OutboundActorKind
+}): boolean {
+  if (mirror.outboundActor !== 'USER_OAUTH') return false
+  logger.info(
+    `[pr-comment-mirror] skipping outbound sync for legacy user-authored mirror ${mirror.id} — the Lumo App cannot edit or delete a comment posted by a person`
   )
-  if (!res.ok) {
-    writeCache.set(key, { until: Date.now() + CACHE_TTL_MS, canWrite: false })
-    return false
-  }
-  const body = (await res.json()) as { permissions?: { push?: boolean } }
-  const canWrite = body.permissions?.push === true
-  writeCache.set(key, { until: Date.now() + CACHE_TTL_MS, canWrite })
-  return canWrite
-}
-
-interface ResolveActorInput {
-  workspaceId: string
-  authorUserId: string
-  repo: Repo
-}
-
-/** Exposed only for testing — clears the in-process write-permission cache. */
-export function _clearWriteCacheForTesting() {
-  writeCache.clear()
+  return true
 }
 
 function parseRepo(repo: string): Repo {
@@ -113,9 +85,13 @@ async function resolveAuthorDisplayName(actorId: string): Promise<string> {
   }
 }
 
+/**
+ * Every outbound comment is posted by the Lumo App, so the body always carries
+ * the author attribution prefix — the App cannot speak as a person, and the
+ * link back to the Lumo comment is what preserves "who said this".
+ */
 async function buildOutboundBody(
   comment: { body: string; authorActorId: string | null },
-  actor: OutboundActorKind,
   commentUrl: string
 ): Promise<{ body: string; bodyHash: string }> {
   const rendered = lumoHtmlToGithubMarkdown(comment.body, _clerkId => {
@@ -123,11 +99,6 @@ async function buildOutboundBody(
     return null
   })
 
-  if (actor === 'USER_OAUTH') {
-    return { body: rendered, bodyHash: computeBodyHash(rendered) }
-  }
-
-  // BOT_APP: prefix with author attribution
   const authorName = comment.authorActorId
     ? await resolveAuthorDisplayName(comment.authorActorId)
     : 'Someone'
@@ -156,20 +127,7 @@ async function runOutboundCreate(commentId: string) {
     }
     // Previous attempt inserted a placeholder but failed before GitHub responded.
     // Check whether the POST actually went through (list-and-match).
-    const memberForActorEarly = comment.authorActorId
-      ? await memberRepository.findByActorId(comment.authorActorId)
-      : null
-    const actorResultEarly = memberForActorEarly
-      ? await prCommentMirrorService.resolveOutboundActor({
-          workspaceId: pr.workspaceId,
-          authorUserId: memberForActorEarly.id,
-          repo,
-        })
-      : {
-          actor: 'BOT_APP' as const,
-          token: await getGithubInstallationToken(pr.workspaceId),
-          userId: null,
-        }
+    const appToken = await getGithubInstallationToken(pr.workspaceId)
     const since = new Date(existingMirror.lastSyncedAt.getTime() - 5 * 60_000)
     // Branch on the original mirror's source so we hit the right GH endpoint —
     // listIssueCommentsSince does NOT include review-line comments and vice versa.
@@ -179,19 +137,15 @@ async function runOutboundCreate(commentId: string) {
             repo,
             prNumber: pr.number,
             since,
-            token: actorResultEarly.token,
+            token: appToken,
           })
         : await prCommentClient.listIssueCommentsSince({
             repo,
             prNumber: pr.number,
             since,
-            token: actorResultEarly.token,
+            token: appToken,
           })
-    const { bodyHash: pendingHash } = await buildOutboundBody(
-      comment,
-      existingMirror.outboundActor,
-      ''
-    )
+    const { bodyHash: pendingHash } = await buildOutboundBody(comment, '')
     const matched = recent.find(c => computeBodyHash(c.body) === pendingHash)
     if (matched) {
       // The POST already went through — resolve the placeholder with the GH-provided
@@ -212,10 +166,9 @@ async function runOutboundCreate(commentId: string) {
       : ''
     const { body: retryBody } = await buildOutboundBody(
       comment,
-      existingMirror.outboundActor,
       retryCommentUrl
     )
-    const retryToken = actorResultEarly.token
+    const retryToken = appToken
     try {
       const isReviewLineReplyRetry =
         existingMirror.externalSource === 'REVIEW_LINE' &&
@@ -264,39 +217,22 @@ async function runOutboundCreate(commentId: string) {
   }
   const isReviewLineReply = parentMirror?.externalSource === 'REVIEW_LINE'
 
-  // Resolve outbound actor identity. findByActorId returns { id, workspaceId } — no extra args.
-  const memberForActor = comment.authorActorId
-    ? await memberRepository.findByActorId(comment.authorActorId)
-    : null
-  const actorResult = memberForActor
-    ? await prCommentMirrorService.resolveOutboundActor({
-        workspaceId: pr.workspaceId,
-        authorUserId: memberForActor.id,
-        repo,
-      })
-    : {
-        actor: 'BOT_APP' as const,
-        token: await getGithubInstallationToken(pr.workspaceId),
-        userId: null,
-      }
+  // One outbound identity: the workspace's App installation.
+  const createToken = await getGithubInstallationToken(pr.workspaceId)
 
   const task = await taskRepository.findForComment(comment.taskId)
   const commentUrl = task
     ? `${buildTaskUrl(task.project.workspace.slug, task.project.name, task.team.identifier, task.number)}#comment-${commentId}`
     : ''
-  const { body, bodyHash } = await buildOutboundBody(
-    comment,
-    actorResult.actor,
-    commentUrl
-  )
+  const { body, bodyHash } = await buildOutboundBody(comment, commentUrl)
 
   // Reserve mirror BEFORE the GitHub call
   const mirror = await prCommentMirrorRepository.reserve({
     commentId,
     pullRequestId: pr.id,
     externalSource: isReviewLineReply ? 'REVIEW_LINE' : 'ISSUE',
-    outboundActor: actorResult.actor,
-    outboundActorUserId: actorResult.userId,
+    outboundActor: 'BOT_APP',
+    outboundActorUserId: null,
     bodyHash,
     inReplyToExternalId: isReviewLineReply ? parentMirror!.externalId : null,
   })
@@ -308,13 +244,13 @@ async function runOutboundCreate(commentId: string) {
           prNumber: pr.number,
           inReplyTo: Number(parentMirror!.externalId),
           body,
-          token: actorResult.token,
+          token: createToken,
         })
       : await prCommentClient.createIssueComment({
           repo,
           prNumber: pr.number,
           body,
-          token: actorResult.token,
+          token: createToken,
         })
 
     await prCommentMirrorRepository.resolvePlaceholder(mirror.id, {
@@ -348,45 +284,14 @@ async function runOutboundUpdate(commentId: string) {
   if (!pr) return
   const repo = parseRepo(pr.repo)
 
-  // Lock actor to mirror.outboundActor (do not re-resolve from comment.authorActorId)
-  let actorKind = mirror.outboundActor
-  let token: string
-  if (
-    mirror.outboundActor === 'USER_OAUTH' &&
-    mirror.outboundActorUserId != null
-  ) {
-    const integration =
-      await githubRepository.findIntegrationByUserAndWorkspace(
-        pr.workspaceId,
-        mirror.outboundActorUserId
-      )
-    if (
-      integration &&
-      (await canWriteRepo(
-        decrypt(integration.accessToken),
-        repo,
-        mirror.outboundActorUserId
-      ))
-    ) {
-      token = decrypt(integration.accessToken)
-    } else {
-      // User disconnected or lost write access — fall back to BOT_APP but preserve BOT_APP body shape
-      actorKind = 'BOT_APP'
-      token = await getGithubInstallationToken(pr.workspaceId)
-    }
-  } else {
-    token = await getGithubInstallationToken(pr.workspaceId)
-  }
+  if (isLegacyUserAuthored(mirror)) return
+  const token = await getGithubInstallationToken(pr.workspaceId)
 
   const updateTask = await taskRepository.findForComment(comment.taskId)
   const updateCommentUrl = updateTask
     ? `${buildTaskUrl(updateTask.project.workspace.slug, updateTask.project.name, updateTask.team.identifier, updateTask.number)}#comment-${commentId}`
     : ''
-  const { body, bodyHash } = await buildOutboundBody(
-    comment,
-    actorKind,
-    updateCommentUrl
-  )
+  const { body, bodyHash } = await buildOutboundBody(comment, updateCommentUrl)
 
   try {
     const response =
@@ -436,33 +341,8 @@ async function runOutboundDelete(commentId: string) {
 
   const repo = parseRepo(pr.repo)
 
-  // For DELETE: use mirror.outboundActor (do not re-resolve from comment.authorActorId).
-  // If USER_OAUTH user is no longer available, fall back to BOT_APP token.
-  let token: string
-  if (
-    mirror.outboundActor === 'USER_OAUTH' &&
-    mirror.outboundActorUserId != null
-  ) {
-    const integration =
-      await githubRepository.findIntegrationByUserAndWorkspace(
-        pr.workspaceId,
-        mirror.outboundActorUserId
-      )
-    if (
-      integration &&
-      (await canWriteRepo(
-        decrypt(integration.accessToken),
-        repo,
-        mirror.outboundActorUserId
-      ))
-    ) {
-      token = decrypt(integration.accessToken)
-    } else {
-      token = await getGithubInstallationToken(pr.workspaceId)
-    }
-  } else {
-    token = await getGithubInstallationToken(pr.workspaceId)
-  }
+  if (isLegacyUserAuthored(mirror)) return
+  const token = await getGithubInstallationToken(pr.workspaceId)
 
   try {
     if (mirror.externalSource === 'REVIEW_LINE') {
@@ -831,27 +711,6 @@ async function runInboundCore(payload: InboundPayload) {
 }
 
 export const prCommentMirrorService = {
-  async resolveOutboundActor(
-    input: ResolveActorInput
-  ): Promise<OutboundActorResult> {
-    const integration =
-      await githubRepository.findIntegrationByUserAndWorkspace(
-        input.workspaceId,
-        input.authorUserId
-      )
-    if (integration) {
-      const token = decrypt(integration.accessToken)
-      if (await canWriteRepo(token, input.repo, input.authorUserId)) {
-        return { actor: 'USER_OAUTH', token, userId: input.authorUserId }
-      }
-    }
-    // getGithubInstallationToken(workspaceId) resolves the per-workspace GitHub
-    // App installation; falls back to the GITHUB_APP_INSTALLATION_ID env var when
-    // the workspace has no GitHubAppInstallation row (legacy/single-App setups).
-    const appToken = await getGithubInstallationToken(input.workspaceId)
-    return { actor: 'BOT_APP', token: appToken, userId: null }
-  },
-
   async runOutbound(commentId: string, op: 'CREATE' | 'UPDATE' | 'DELETE') {
     // Drain pending OUTBOUND jobs for the same task before proceeding.
     const comment = await commentRepository.findById(commentId)

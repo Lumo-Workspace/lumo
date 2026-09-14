@@ -76,17 +76,12 @@ const basePr = {
 }
 
 describe('runOutbound CREATE', () => {
-  let resolveActorSpy: jest.SpyInstance
-
   beforeEach(() => {
     jest.clearAllMocks()
     const { prCommentSyncJobRepository: sjRepo } = jest.requireMock(
       '@/lib/repositories/pr-comment-sync-job.repository'
     ) as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
     ;(sjRepo.findDueByTask as jest.Mock).mockResolvedValue([])
-    resolveActorSpy = jest
-      .spyOn(prCommentMirrorService, 'resolveOutboundActor')
-      .mockResolvedValue({ actor: 'BOT_APP', token: 'tok', userId: null })
     ;(commentRepository.findById as jest.Mock).mockResolvedValue(baseComment)
     ;(pullRequestRepository.findByTaskId as jest.Mock).mockResolvedValue(basePr)
     ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(
@@ -109,10 +104,6 @@ describe('runOutbound CREATE', () => {
     })
   })
 
-  afterEach(() => {
-    resolveActorSpy.mockRestore()
-  })
-
   it('reserves a mirror row before calling GitHub', async () => {
     await prCommentMirrorService.runOutbound('c1', 'CREATE')
     const reserveMock = prCommentMirrorRepository.reserve as jest.Mock
@@ -130,7 +121,7 @@ describe('runOutbound CREATE', () => {
       repo: { owner: 'foo', name: 'bar' },
       prNumber: 42,
       body: expect.stringContaining('hello'),
-      token: 'tok',
+      token: 'app-token',
     })
   })
 
@@ -162,26 +153,21 @@ describe('runOutbound CREATE', () => {
     expect(prCommentClient.createIssueComment).not.toHaveBeenCalled()
   })
 
-  it('prefixes body with author attribution when actor is BOT_APP', async () => {
+  it('prefixes body with author attribution (the App cannot speak as a person)', async () => {
     await prCommentMirrorService.runOutbound('c1', 'CREATE')
     const body = (prCommentClient.createIssueComment as jest.Mock).mock
       .calls[0][0].body
     expect(body).toMatch(/在 Lumo 说/)
   })
 
-  it('does not prefix when actor is USER_OAUTH', async () => {
-    resolveActorSpy.mockResolvedValue({
-      actor: 'USER_OAUTH',
-      token: 'tok',
-      userId: 'm1',
-    })
+  it('posts as the App installation, never as a member token', async () => {
     await prCommentMirrorService.runOutbound('c1', 'CREATE')
-    const body = (prCommentClient.createIssueComment as jest.Mock).mock
-      .calls[0][0].body
-    expect(body).not.toMatch(/在 Lumo 说/)
+    expect(prCommentClient.createIssueComment).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'app-token' })
+    )
   })
 
-  it('mirrors unauthored comments (null authorActorId) via BOT_APP instead of silently no-opping', async () => {
+  it('mirrors unauthored comments (null authorActorId) instead of silently no-opping', async () => {
     ;(commentRepository.findById as jest.Mock).mockResolvedValue({
       id: 'c1',
       taskId: 't1',
@@ -190,10 +176,7 @@ describe('runOutbound CREATE', () => {
       type: 'USER',
       parentId: null,
     })
-    // resolveOutboundActor should NOT be called — no memberForActor lookup path
-    resolveActorSpy.mockClear()
     await prCommentMirrorService.runOutbound('c1', 'CREATE')
-    expect(resolveActorSpy).not.toHaveBeenCalled()
     expect(prCommentClient.createIssueComment).toHaveBeenCalled()
   })
 
@@ -234,16 +217,17 @@ describe('runOutbound CREATE', () => {
 })
 
 describe('runOutbound CREATE — retry idempotency', () => {
-  let resolveActorSpy: jest.SpyInstance
+  // The pending body is the same attribution-prefixed markdown every outbound
+  // comment carries; the list-and-match hash is computed over it with an empty
+  // comment url, so the fixture below must match that shape exactly.
+  const PENDING_BODY = '**[Someone]() 在 Lumo 说：**\n\nhello'
 
-  // Use USER_OAUTH so there's no BOT_APP prefix — body on GitHub is just the
-  // plain rendered markdown ('hello'), making hash comparison deterministic.
   const pendingMirror = {
     id: 'm-existing',
     externalId: 'pending-abc123',
     externalSource: 'ISSUE' as const,
-    outboundActor: 'USER_OAUTH' as const,
-    outboundActorUserId: 'm1',
+    outboundActor: 'BOT_APP' as const,
+    outboundActorUserId: null,
     inReplyToExternalId: null,
     lastSyncedAt: new Date('2026-05-24T00:00:00Z'),
     bodyHash: '',
@@ -255,9 +239,6 @@ describe('runOutbound CREATE — retry idempotency', () => {
       '@/lib/repositories/pr-comment-sync-job.repository'
     ) as typeof import('@/lib/repositories/pr-comment-sync-job.repository')
     ;(sjRepo.findDueByTask as jest.Mock).mockResolvedValue([])
-    resolveActorSpy = jest
-      .spyOn(prCommentMirrorService, 'resolveOutboundActor')
-      .mockResolvedValue({ actor: 'USER_OAUTH', token: 'tok', userId: 'm1' })
     ;(commentRepository.findById as jest.Mock).mockResolvedValue(baseComment)
     ;(pullRequestRepository.findByTaskId as jest.Mock).mockResolvedValue(basePr)
     ;(memberRepository.findByActorId as jest.Mock).mockResolvedValue({
@@ -277,10 +258,6 @@ describe('runOutbound CREATE — retry idempotency', () => {
     })
   })
 
-  afterEach(() => {
-    resolveActorSpy.mockRestore()
-  })
-
   it('non-pending existing mirror → no-op (already created)', async () => {
     ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(
       {
@@ -297,13 +274,12 @@ describe('runOutbound CREATE — retry idempotency', () => {
     ;(prCommentMirrorRepository.findByCommentId as jest.Mock).mockResolvedValue(
       pendingMirror
     )
-    // <p>hello</p> → lumoHtmlToGithubMarkdown → 'hello' (USER_OAUTH, no prefix)
     ;(prCommentClient.listIssueCommentsSince as jest.Mock).mockResolvedValue([
       {
         id: 777,
         node_id: 'IC_777',
         html_url: 'https://github.com/foo/bar/pull/42#issuecomment-777',
-        body: 'hello',
+        body: PENDING_BODY,
         updated_at: '2026-05-24T01:23:45Z',
         user: { id: 1 },
       },
@@ -335,7 +311,7 @@ describe('runOutbound CREATE — retry idempotency', () => {
         id: 1010,
         node_id: 'PRRC_1010',
         html_url: 'https://github.com/foo/bar/pull/42#discussion_r1010',
-        body: 'hello',
+        body: PENDING_BODY,
         updated_at: '2026-05-24T02:00:00Z',
         user: { id: 1 },
       },

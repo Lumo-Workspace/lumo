@@ -225,19 +225,19 @@ The platform is fully responsive and works on:
 
 ## 🔐 GitHub App permissions
 
-A workspace connects GitHub over **two independent grants**, and both are
-visible as their own row in workspace → settings → integrations:
+A workspace connects GitHub over **two grants with different jobs**, both
+shown as their own row in workspace → settings → integrations:
 
-| Grant                   | Identity                    | Buys                                                                                                                     |
-| ----------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **OAuth authorization** | the member who connected it | listing repositories, linking pull requests, creating the repo webhook, comment mirror                                   |
-| **App installation**    | the Lumo App, per workspace | the installation token everything server-side reads and writes GitHub with — including the managed security scan's clone |
+| Grant                               | Identity                    | Does                                                                                                                                     |
+| ----------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **App installation** (team)         | the Lumo App, per workspace | everything that touches a repository: repo list, PR links, webhooks, comment mirroring, the managed security scan's clone                |
+| **OAuth link** (personal, optional) | the member who linked it    | identity only — records which GitHub login is this member, so comments arriving from GitHub are attributed to them in Lumo (`read:user`) |
 
-They are not interchangeable. An OAuth token is a person (it dies when that
-member leaves or revokes) and its `repo` scope is full repository access; the
-installation is a machine identity scoped to `contents:read`, which is what
-cloning customer code into Lumo's sandbox has to use. **A workspace that has
-only authorized OAuth is not scanned** — the card says so in as many words.
+Nothing runs on a member's token. Every mirrored comment is posted by the App
+with an attribution line linking back to the Lumo comment; the App cannot
+speak as a person, and that link is what preserves "who said this". The
+repository set is chosen in GitHub's install settings, not in Lumo. **A
+workspace without the App installed is not scanned** — the card says so.
 
 The Lumo GitHub App (`GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY`) needs this
 minimum permission set:
@@ -266,9 +266,18 @@ arrive at `/api/webhooks/github` and are verified against different secrets).
    never authority), reads the installation, and stores it.
 3. The App webhook keeps the record current: `installation` (created /
    deleted / suspend / unsuspend / new_permissions_accepted) and
-   `installation_repositories` (added / removed). **Subscribe the App to both.**
-   A suspended or deleted installation drops the record — a workspace that
-   cannot be cloned must not be shown as installed.
+   `installation_repositories` (added / removed). A suspended or deleted
+   installation drops the record — a workspace that cannot be cloned must not
+   be shown as installed. Newly reachable repositories get their existing pull
+   requests backfilled.
+4. Repository events (`pull_request`, `push`, `check_suite`, `status`,
+   `issue_comment`, `pull_request_review`, `pull_request_review_comment`)
+   arrive on the same App webhook and are attributed through `installation.id`.
+   **Subscribe the App to all of these.** Repo hooks created by the old OAuth
+   flow still deliver too; while one exists for a repository the App copy of
+   that event is dropped so nothing is handled twice, and the App takes over
+   on its own once the hook is removed (disconnecting the OAuth link deletes
+   the hooks it created).
 
 **Legacy fallback.** A workspace with no installation record falls back to the
 global `GITHUB_APP_INSTALLATION_ID` env var (Lumo's own installation, from
