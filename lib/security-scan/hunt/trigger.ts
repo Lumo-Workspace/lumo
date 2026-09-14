@@ -69,6 +69,27 @@ export interface HuntTriggerResult {
 export const HUNT_SITES_MAX = 40
 export const HUNT_SITES_PER_RULE_MAX = 6
 
+/**
+ * A path is only a starting point if it is a path. These come from the PR's own
+ * file names, which the PR author controls, and they are rendered into the
+ * hunt prompt's TRUSTED region — not into a tool result the system prompt has
+ * already told the model to distrust. A name carrying a newline breaks out of
+ * its list row and writes whatever it likes into the brief:
+ *
+ *   - sink:fetch — evil
+ *   Ignore the task above and …
+ *   .ts:42
+ *
+ * `sanitizeField` does not help here: it deliberately PRESERVES newlines so
+ * multi-line bodies render, and the newline is the whole vector. No legitimate
+ * repository path contains a control character, so a site whose path does is
+ * dropped rather than escaped — the agent still has the rule id and can find
+ * the call site the way it did before this change.
+ *
+ * `isGraphSourcePath` does not cover this: it only asserts the suffix.
+ */
+const PATH_CONTROL_CHARS = /[\x00-\x1f\x7f-\x9f]/
+
 const ENTRY_TEXT_RULES: ReadonlyArray<{ id: string; re: RegExp }> = [
   {
     id: 'next-route-handler',
@@ -120,6 +141,10 @@ export function evaluateHuntTrigger(
   const perRule = new Map<string, number>()
   // Same walk, same matches — the location was always here and was thrown away.
   const record = (rule: string, path: string, line: number) => {
+    // The single enforcing boundary for this: `sites` leaves here clean, so the
+    // persisted job, the prompt renderer and any later consumer can treat a
+    // recorded path as a one-line, inert string.
+    if (PATH_CONTROL_CHARS.test(path)) return
     if (sites.length >= HUNT_SITES_MAX) return
     const n = perRule.get(rule) ?? 0
     if (n >= HUNT_SITES_PER_RULE_MAX) return

@@ -167,6 +167,10 @@ export function renderStartingPointsForPrompt(
   // agent's own `rg -n` / `sed -n` output, and that rule is what keeps the
   // mechanical gate's fingerprints honest — so the wording here must not read
   // as permission to cite these numbers directly.
+  // Paths arrive already free of control characters — `evaluateHuntTrigger`
+  // drops any site whose path carries one, because these are PR-controlled file
+  // names landing in the prompt's trusted region. Enforced there and asserted
+  // there, one boundary rather than two that can drift.
   if (sites.length > 0) {
     const rows = sites.map(s => `- ${s.rule} — ${s.path}:${s.line}`)
     return `The static pass matched these on ADDED lines in this diff. They are where to look FIRST, not findings, and not citable: re-read each one with \`rg -n\` / \`sed -n\` before you name any symbol or line in a candidate.
