@@ -13,7 +13,17 @@ import { createHash } from 'crypto'
 import { projectPolicyRepository } from '@/lib/repositories/project-policy.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { isReversible } from '@/lib/services/boundary-detector.service'
+import { isObligationText } from './rule-polarity'
 import type { CompiledPolicy, PolicyRule } from './types'
+
+/**
+ * Part of the policy cache key alongside the source text. Bump it whenever the
+ * prompt or the post-processing below changes what a given CLAUDE.md compiles
+ * to, so every project recompiles exactly once on its next hook event instead
+ * of serving a stale rule set until someone edits the doc (LUM-770: the stored
+ * policies carried the tsc-obligation-as-prohibition rule).
+ */
+const COMPILER_VERSION = 'lum770'
 
 // ── In-memory source cache ────────────────────────────────────────────────────
 // Avoids 2 GitHub API reads on every PostToolUse event (ensureCompiled hot path).
@@ -132,7 +142,10 @@ export const policyCompilerService = {
     )
     if (source == null) return null
 
-    const sourceHash = createHash('sha256').update(source).digest('hex')
+    const sourceHash = createHash('sha256')
+      .update(source)
+      .update(`\n\u0000compiler:${COMPILER_VERSION}`)
+      .digest('hex')
 
     // 2. Check cache: if the hash matches the latest stored policy, reuse it.
     const prev = await projectPolicyRepository.latestForProject(input.projectId)
@@ -155,14 +168,25 @@ export const policyCompilerService = {
 
     // 4. Apply safety-net: a deterministic rule with neither a known built-in
     //    category nor a safe predicate is downgraded to semantic tier.
+    //    LUM-770: an OBLIGATION carrying a cmd-substr predicate ("tests +
+    //    `npx tsc --noEmit` pass" before a PR) is downgraded too, and loses
+    //    the predicate — the detector reads cmd-substr as "running this is a
+    //    violation", which inverts a must-do. Either the model's own polarity
+    //    or the wording guard is enough; the guard exists because the model
+    //    misreading the sentence is the failure being fixed.
     const rules: PolicyRule[] = raw.rules.map(r => {
       const hasBuiltin =
         r.mappedCategory != null &&
         (BUILTIN_CATEGORIES as readonly string[]).includes(r.mappedCategory)
-      const hasPredicate = r.predicate != null
+      const obligationWithCmdSubstr =
+        r.kind === 'action' &&
+        r.predicate?.type === 'cmd-substr' &&
+        (r.polarity === 'require' || isObligationText(r.text))
+      const hasPredicate = r.predicate != null && !obligationWithCmdSubstr
 
       const tier: PolicyRule['tier'] =
-        r.tier === 'deterministic' && !hasBuiltin && !hasPredicate
+        obligationWithCmdSubstr ||
+        (r.tier === 'deterministic' && !hasBuiltin && !hasPredicate)
           ? 'semantic'
           : r.tier
 
@@ -177,8 +201,9 @@ export const policyCompilerService = {
       }
       // Only set optional fields when they are actually present (exactOptionalPropertyTypes).
       if (r.mappedCategory != null) rule.mappedCategory = r.mappedCategory
-      if (r.predicate != null) rule.predicate = r.predicate
+      if (hasPredicate && r.predicate != null) rule.predicate = r.predicate
       if (r.assertion != null) rule.assertion = r.assertion
+      else if (obligationWithCmdSubstr) rule.assertion = r.text
       return rule
     })
 

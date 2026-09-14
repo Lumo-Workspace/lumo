@@ -25,6 +25,7 @@ import {
 import {
   confirmActionCrossing,
   isActionConfirmCategory,
+  stripHeredocBodies,
   stripProse,
   type ActionConfirmInput,
   type ActionConfirmJudge,
@@ -259,7 +260,12 @@ function matchDestructiveDb(cmd: string): boolean {
  * the command.)
  */
 function matchNewNpmDependency(cmd: string): boolean {
-  for (const raw of executingSegments(cmd)) {
+  // LUM-770: a heredoc body is authored text (a script or doc being written),
+  // not an install — drop it before segmenting, or its lines become segments
+  // of their own and `'npm install x'` inside a probe script trips the rule.
+  // NEW_NPM_DEPENDENCY never reaches the LUM-466 prose confirmation, so this
+  // is the only place the body can be excluded.
+  for (const raw of executingSegments(stripHeredocBodies(cmd))) {
     const seg = raw.split('#')[0] ?? ''
     if (/\b(?:yarn|pnpm|bun)\s+add\s+\S/.test(seg)) return true
     const m = seg.match(/\bnpm\s+(?:i|install|add)\b(.*)$/)
