@@ -18,6 +18,7 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
+import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossing-rejudge-trigger'
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
 import { ciSignalService } from '@/lib/services/ci-signal.service'
 import {
@@ -236,6 +237,9 @@ export async function handlePullRequest(
     // Auto-judge claim faithfulness the moment a delivery merges (LUM-612).
     // No-op for 'closed'; the hourly cron is the reconciliation backstop.
     enqueueFaithfulnessJudgeOnMerge(state, task.id)
+    // LUM-780: the review window closed — re-judge the task's blocking
+    // TEST_FILE_DELETED crossings against every linked PR's file list.
+    enqueueCrossingRejudgeOnPrClose(state, task.id)
   }
 
   const workspaceSlug = await githubService.findWorkspaceSlug(workspaceId)
