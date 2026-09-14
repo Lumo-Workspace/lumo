@@ -207,7 +207,7 @@ export const layer1Service = {
         result
       )
     } catch (error) {
-      console.error(
+      logger.error(
         `[memory.layer1] unexpected error session=${input.sessionId}:`,
         error
       )

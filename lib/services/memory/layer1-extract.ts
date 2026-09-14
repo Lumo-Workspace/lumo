@@ -1,4 +1,5 @@
 import { FAST_MODEL } from '@/lib/ai/models'
+import { logger } from '@/lib/logger'
 import { z } from 'zod'
 import { generateObject } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
@@ -132,7 +133,7 @@ export async function reconcileLayer1Candidates(
       'memory.layer1'
     )
   } catch (error) {
-    console.error(
+    logger.error(
       `[memory.layer1] reconciliation failed task=${input.task.id}:`,
       error
     )
@@ -166,7 +167,7 @@ export async function extractLayer1Turn(
       candidates: object.candidates,
     }
   } catch (error) {
-    console.error(
+    logger.error(
       `[memory.layer1] turn extraction failed task=${input.task.id}:`,
       error
     )

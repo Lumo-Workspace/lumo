@@ -1,4 +1,5 @@
 import { FAST_MODEL } from '@/lib/ai/models'
+import { logger } from '@/lib/logger'
 import { generateText } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { sessionRepository } from '@/lib/repositories/session.repository'
@@ -87,7 +88,7 @@ export const turnSummaryService = {
 
       await hookEventRepository.setTurnSummary(input.stopEventId, cleaned)
     } catch (error) {
-      console.error(
+      logger.error(
         `[turnSummary] failed event=${input.stopEventId} session=${input.sessionId}:`,
         error
       )
