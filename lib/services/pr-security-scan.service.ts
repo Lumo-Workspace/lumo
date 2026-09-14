@@ -711,6 +711,10 @@ export const prSecurityScanService = {
           // tell a `stage-a:high` PR that touched code from one that touched
           // none, and the planner needs it to place a signal at all.
           touchedSourcePaths: files.map(f => f.path).filter(isGraphSourcePath),
+          // LUM-758 follow-up: the SAME walk's located hits — which rule fired,
+          // in which file, on which added line. Computed already; discarding it
+          // is what made the agent re-derive it with `rg` on its own budget.
+          signalSites: huntTrigger.sites,
           // LUM-758 §5.1: false means no managed scan VM is coming, so the
           // hunt goes straight to creating its own instead of polling 30 s.
           managedScanStarted: managedRunStarted,

@@ -172,6 +172,17 @@ describe('LUM-739 hunt trigger', () => {
       // could have fired, which is what short circuit A and the planner
       // prompt both need and what nothing else in the job carries.
       touchedSourcePaths: ['app/api/x/route.ts'],
+      // LUM-758 follow-up: the SAME walk's located hits. Dropped here, the
+      // agent is back to `rg`-ing for a call site stage A already had in hand,
+      // and nothing downstream can tell the difference — the prompt just
+      // silently falls back to the rule-id list.
+      signalSites: [
+        {
+          rule: 'entry:next-route-handler',
+          path: 'app/api/x/route.ts',
+          line: 1,
+        },
+      ],
       // LUM-758: LUMO_MANAGED_SCAN is off in this suite, so no VM is coming —
       // the hunt must not spend 30 s polling for one.
       managedScanStarted: false,

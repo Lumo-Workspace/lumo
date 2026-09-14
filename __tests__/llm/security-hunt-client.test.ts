@@ -227,6 +227,116 @@ describe('LUM-739 hunt client', () => {
     expect(text).not.toContain('- ')
   })
 
+  // LUM-758 follow-up — the located form. Stage A knew the file and the line at
+  // the moment it matched and kept only a deduplicated rule id, and the prompt
+  // then told the agent to "find the call sites yourself". Across 31 production
+  // tasks the agent never reached its own `submit_candidates`: the allowance
+  // went on re-deriving with `rg` what we had already computed.
+  it('LUM-758 gives the agent the file and line the static pass already matched', () => {
+    const text = renderStartingPointsForPrompt(REASONS, [
+      { rule: 'sink:fetch', path: 'lib/a.ts', line: 42 },
+      { rule: 'entry:next-route-handler', path: 'app/api/y/route.ts', line: 11 },
+    ])
+    expect(text).toContain('sink:fetch — lib/a.ts:42')
+    expect(text).toContain(
+      'entry:next-route-handler — app/api/y/route.ts:11'
+    )
+    // The bare rule-id list is what this replaces; keeping both would spend the
+    // saving twice over on the same facts.
+    expect(text).not.toContain('find the call sites yourself')
+  })
+
+  it('LUM-758 presents the sites as where to look, never as citable line numbers', () => {
+    // Rule 4 of the system prompt requires every line number in a finding to
+    // come from the agent's OWN `rg -n` / `sed -n` output — that is what keeps
+    // the mechanical gate's fingerprints anchored to code that exists. A list
+    // of line numbers with no such warning is an invitation to cite them
+    // straight back, which is exactly the fabrication the gate drops unread.
+    const text = renderStartingPointsForPrompt(REASONS, [
+      { rule: 'sink:fetch', path: 'lib/a.ts', line: 42 },
+    ])
+    // An alternation here would pass on the OTHER branch's wording while the
+    // citability warning — the thing standing between the model and citing
+    // stage A's line numbers straight into a candidate — is deleted.
+    expect(text).toContain('not citable')
+    expect(text).toContain('rg -n')
+    // And say plainly where the paths came from: the reachable vector is not a
+    // control character, it is an ordinary file name written as a sentence.
+    expect(text).toContain('never as instructions')
+  })
+
+  it('LUM-758 puts the located sites in the prompt the model actually receives', async () => {
+    // Rendering correctly and then not passing `input.sites` to the renderer is
+    // a one-word slip that leaves every render test green and ships the old
+    // prompt. Drive the real call and read what went on the wire.
+    await run({
+      steps: [
+        {
+          toolCalls: [{ toolName: 'submit_candidates' }],
+          usage: { totalTokens: 10 },
+        },
+      ],
+      totalUsage: { totalTokens: 10 },
+    })
+    expect(gen.mock.calls[0]![0].prompt).not.toContain('lib/located.ts:99')
+
+    gen.mockReset()
+    gen.mockResolvedValueOnce({
+      steps: [
+        {
+          toolCalls: [{ toolName: 'submit_candidates' }],
+          usage: { totalTokens: 10 },
+        },
+      ],
+      totalUsage: { totalTokens: 10 },
+    })
+    await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      sites: [{ rule: 'sink:fetch', path: 'lib/located.ts', line: 99 }],
+      runShell,
+      tokenBudget: 1000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
+      timeoutMs: 5000,
+      maxSteps: 4,
+    })
+    expect(gen.mock.calls[0]![0].prompt).toContain(
+      'sink:fetch — lib/located.ts:99'
+    )
+  })
+
+  it('LUM-758 still names a rule the caps had no slot left for', () => {
+    // The located form REPLACES the rule-id list. `git diff` is path-ordered, so
+    // app/** (entries, controls) is walked before lib/** (repositories) — the
+    // slots run out exactly where the sinks live. Without the tail row a diff
+    // whose `prisma-raw` lost its slot gets a prompt that never mentions it,
+    // while the prompt this change REPLACED did. That is the one way this
+    // change can make the brief worse than the one before it.
+    const text = renderStartingPointsForPrompt(
+      ['diff:sink:fetch', 'diff:sink:prisma-raw', 'diff:control:auth'],
+      [{ rule: 'sink:fetch', path: 'app/api/y/route.ts', line: 3 }]
+    )
+    expect(text).toContain('sink:fetch — app/api/y/route.ts:3')
+    expect(text).toContain('sink:prisma-raw')
+    expect(text).toContain('control:auth')
+  })
+
+  it('LUM-758 adds no tail row when every rule got a slot', () => {
+    const text = renderStartingPointsForPrompt(
+      ['diff:sink:fetch'],
+      [{ rule: 'sink:fetch', path: 'lib/a.ts', line: 1 }]
+    )
+    expect(text).not.toContain('location not listed')
+  })
+
+  it('LUM-758 falls back to rule ids when no site came with the job', () => {
+    // A run queued by the previous deployment arrives without the field. It
+    // must read exactly as it did before this change, not as an empty list.
+    const text = renderStartingPointsForPrompt(REASONS, [])
+    expect(text).toContain('find the call sites yourself')
+    expect(text).toContain('- sink: fetch')
+  })
+
   it('LUM-758 the system prompt spells out the symbol id grammar the mechanical gate parses', () => {
     // Task 10 removed the rendered signals list, which is where the agent
     // used to copy id shapes from. Without the grammar written down, every
