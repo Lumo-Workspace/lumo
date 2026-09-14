@@ -3,6 +3,8 @@ import type {
   BoundaryCrossingSeverity,
 } from '@prisma/client'
 import { createHash } from 'crypto'
+// LUM-779: single-sourced with the CLI's local-git probe — see the module doc.
+import { TEST_FILE_TARGET } from '../../shared/src/test-file-path'
 import {
   scanSecrets,
   type RawSecretFinding,
@@ -138,6 +140,26 @@ function readCommand(payload: unknown): string | null {
   if (!input || typeof input !== 'object') return null
   const cmd = (input as Record<string, unknown>).command
   return typeof cmd === 'string' ? cmd : null
+}
+
+/**
+ * LUM-779: the CLI post-tool-use hook folds `_lumo_deleted_test_files` into a
+ * Bash payload whose command looked like a delete — the tracked test files that
+ * are ACTUALLY missing after the command ran (working tree + index vs HEAD, and
+ * commits not on the base branch). Three states, and the difference between
+ * the last two is the whole point:
+ *   - string[] (maybe empty) → the probe ran; this is the verdict
+ *   - null                   → no field / malformed → the probe did not run
+ * A malformed field reads as absent so a broken client can never downgrade.
+ */
+export const DELETED_TEST_FILES_FIELD = '_lumo_deleted_test_files'
+
+export function readDeletedTestFiles(payload: unknown): string[] | null {
+  if (!payload || typeof payload !== 'object') return null
+  const raw = (payload as Record<string, unknown>)[DELETED_TEST_FILES_FIELD]
+  if (!Array.isArray(raw)) return null
+  if (!raw.every(v => typeof v === 'string')) return null
+  return raw as string[]
 }
 
 /** Pull written file content (Write `content` / Edit `new_string`) for secret scanning. */
@@ -507,10 +529,6 @@ function segmentBypassesHooks(seg: string): boolean {
   return false
 }
 
-/** A delete target that is a test file / test tree — `*.test.*`, `*.spec.*`,
- *  or anything under a `__tests__/` segment. */
-const TEST_FILE_TARGET = /(?:\.(?:test|spec)\.|(?:^|\/)__tests__(?:\/|$))/
-
 /**
  * `rm` / `git rm` whose OWN delete targets are test files. Segment-scoped like
  * matchMigrationDelete (LUM-511): the test path must be an argument of the rm
@@ -791,6 +809,56 @@ function matchCommand(cmd: string, evasion: boolean): DetectedCrossing[] {
 }
 
 /**
+ * LUM-779: judge TEST_FILE_DELETED by NET deletion, not by command text.
+ *
+ * The matcher answers "did the command look like it deleted a test file". That
+ * is the wrong question — the same question POLICY_WEAKENING asked before
+ * LUM-770 ("did the rule set change" instead of "is the rule text still in the
+ * file"). Four production hits in one day were a restore from HEAD, a restore
+ * from a .bak, and two `rm`s of scratch probes the agent had created seconds
+ * earlier and that never entered git. None deleted a test; all blocked DONE.
+ * Worse, they landed on the task doing the most rigorous mutation testing —
+ * a guard that makes the right thing expensive.
+ *
+ * The right question is "is a tracked test file missing now". The CLI answers
+ * it from local git (`readDeletedTestFiles`), and this step applies the verdict:
+ *   - probe ran, ≥1 tracked test missing → blocking, as before (detail names them)
+ *   - probe ran, nothing missing          → advisory: recorded, never blocks DONE
+ *   - probe did not run                   → unchanged: fail-closed (blocking)
+ *
+ * The path matcher is deliberately NOT loosened (no "/tmp doesn't count"): a
+ * real deletion of a tracked test must block exactly as before — the fix for a
+ * false positive must not disarm the true positive (the LUM-770 lesson).
+ * Pure + exported for tests.
+ */
+export function applyNetDeletionState(
+  crossings: DetectedCrossing[],
+  deleted: string[] | null
+): DetectedCrossing[] {
+  if (deleted === null) return crossings
+  return crossings.map(c => {
+    if (c.category !== 'TEST_FILE_DELETED') return c
+    // Verdict first: `clip` caps the detail, and the verdict must survive a
+    // long command line — the command is also the coalescing target.
+    if (deleted.length > 0) {
+      return {
+        ...c,
+        detail: clip(
+          `Tracked test file(s) missing after this command: ${deleted.join(', ')} — ${c.detail}`
+        ),
+      }
+    }
+    return {
+      ...c,
+      advisory: true,
+      detail: clip(
+        `No tracked test file is missing after this command (a restore, or an untracked scratch file) — advisory — ${c.detail}`
+      ),
+    }
+  })
+}
+
+/**
  * Pure taxonomy match. Returns every boundary the event crosses (a command can
  * trip more than one rule). No I/O — safe to unit-test exhaustively.
  */
@@ -802,7 +870,12 @@ export function detectCrossings(
   if (cmd) {
     // 1) Literal scan.
     const literal = matchCommand(cmd, false)
-    out.push(...literal)
+    // LUM-779: TEST_FILE_DELETED is judged by what is missing from the repo,
+    // not by what the command text looked like. Only the literal pass is
+    // eligible — an evasion-decoded delete keeps its HIGH, never advisory.
+    out.push(
+      ...applyNetDeletionState(literal, readDeletedTestFiles(input.payload))
+    )
     // 2) Evasion-aware scan: decode base64-looking tokens and re-run the same
     //    matchers. Only surface a category the literal pass missed — so an
     //    obfuscated forbidden command is still flagged (headline case) without
@@ -1843,7 +1916,9 @@ export const boundaryDetectorService = {
           input.taskId,
           c.category,
           c.target,
-          new Date()
+          new Date(),
+          // LUM-779: never coalesce across the advisory line.
+          c.advisory ?? false
         )
         if (coalesced > 0) continue
         // LUM-478: a deterministic high-confidence legit TEST_TAMPERING edit is

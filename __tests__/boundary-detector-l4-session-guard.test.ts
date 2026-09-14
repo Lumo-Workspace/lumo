@@ -573,3 +573,182 @@ describe('SENSITIVE_PATH_EDIT — Edit/Write on a sensitive path (LUM-736)', () 
     )
   })
 })
+
+// --- TEST_FILE_DELETED — judged by net deletion, not command text (LUM-779) --
+
+/**
+ * LUM-779: the command text is a LEAD, the repo state is the verdict. The CLI
+ * post-tool-use hook folds `_lumo_deleted_test_files` into the payload — the
+ * tracked test files that are actually missing after the command ran (vs HEAD
+ * and vs the base branch). The detector reads that field:
+ *
+ *   - present and non-empty → a tracked test really went away → blocking (as before)
+ *   - present and empty     → a restore / an untracked scratch probe → advisory
+ *   - absent                → older CLI or git could not answer → fail-closed (blocking)
+ *
+ * The path matcher is NOT loosened: a `/tmp` or probe-looking path still trips
+ * the matcher — only the state check can downgrade it.
+ */
+describe('TEST_FILE_DELETED — net deletion, not command text (LUM-779)', () => {
+  const bashWithState = (command: string, deleted: string[] | undefined) => ({
+    toolName: 'Bash',
+    filePath: null,
+    payload: {
+      tool_input: { command },
+      ...(deleted !== undefined ? { _lumo_deleted_test_files: deleted } : {}),
+    },
+  })
+  const testFileDeleted = (command: string, deleted: string[] | undefined) =>
+    detectCrossings(bashWithState(command, deleted)).filter(
+      c => c.category === 'TEST_FILE_DELETED'
+    )
+
+  it('LUM-779 no-net-deletion: rm of an untracked scratch probe (state lists nothing missing) is recorded advisory', () => {
+    const [hit] = testFileDeleted(
+      'rm -f __tests__/security-scan/hunt/zz-probe.test.ts; git status --porcelain',
+      []
+    )
+    expect(hit).toBeDefined()
+    expect(hit?.advisory).toBe(true)
+    expect(hit?.severity).toBe('MEDIUM')
+    expect(hit?.detail).toContain('No tracked test file is missing')
+  })
+
+  it('LUM-779 no-net-deletion: a restore-then-rm round trip that leaves the tracked file in place is advisory', () => {
+    const [hit] = testFileDeleted(
+      'rm __tests__/workflows/security-hunt.workflow.test.ts && git checkout -- __tests__/workflows/security-hunt.workflow.test.ts',
+      []
+    )
+    expect(hit?.advisory).toBe(true)
+  })
+
+  it('LUM-779 tracked-deletion: a tracked test file that is really missing after the command stays blocking (non-advisory MEDIUM)', () => {
+    const [hit] = testFileDeleted('rm __tests__/foo.test.ts', [
+      '__tests__/foo.test.ts',
+    ])
+    expect(hit).toBeDefined()
+    expect(hit?.advisory).toBeFalsy()
+    expect(hit?.severity).toBe('MEDIUM')
+    expect(hit?.detail).toContain('__tests__/foo.test.ts')
+  })
+
+  it('LUM-779 tracked-deletion: git rm of a whole __tests__ tree with tracked files missing stays blocking', () => {
+    const [hit] = testFileDeleted('git rm -r __tests__/fixtures', [
+      '__tests__/fixtures/a.json',
+      '__tests__/fixtures/b.test.ts',
+    ])
+    expect(hit?.advisory).toBeFalsy()
+  })
+
+  it('LUM-779 tracked-deletion: the path matcher is not loosened — a /tmp or probe-looking test path still trips the matcher', () => {
+    expect(categories('rm -f /tmp/gate.test.ts')).toContain('TEST_FILE_DELETED')
+    expect(categories('rm -f .superpowers/sdd/probe-cmd.test.ts')).toContain(
+      'TEST_FILE_DELETED'
+    )
+    // …and with the state saying a tracked test IS missing, it blocks.
+    const [hit] = testFileDeleted(
+      'rm -f /tmp/gate.test.ts __tests__/x.test.ts',
+      ['__tests__/x.test.ts']
+    )
+    expect(hit?.advisory).toBeFalsy()
+  })
+
+  it('LUM-779 fail-closed: without the git-state field (older CLI / git could not answer) the legacy blocking behaviour is kept', () => {
+    const [hit] = testFileDeleted('rm __tests__/foo.test.ts', undefined)
+    expect(hit).toBeDefined()
+    expect(hit?.advisory).toBeFalsy()
+    expect(hit?.severity).toBe('MEDIUM')
+  })
+
+  it('LUM-779 fail-closed: a malformed state field (not an array of strings) is treated as absent', () => {
+    const malformed = detectCrossings({
+      toolName: 'Bash',
+      filePath: null,
+      payload: {
+        tool_input: { command: 'rm __tests__/foo.test.ts' },
+        _lumo_deleted_test_files: 'nope',
+      },
+    }).filter(c => c.category === 'TEST_FILE_DELETED')
+    expect(malformed[0]?.advisory).toBeFalsy()
+    // An array with non-string entries is malformed too: absent, not a verdict.
+    const nonStrings = detectCrossings({
+      toolName: 'Bash',
+      filePath: null,
+      payload: {
+        tool_input: { command: 'rm __tests__/foo.test.ts' },
+        _lumo_deleted_test_files: [42, null],
+      },
+    }).filter(c => c.category === 'TEST_FILE_DELETED')
+    expect(nonStrings[0]?.advisory).toBeFalsy()
+    expect(nonStrings[0]?.detail).toBe('rm __tests__/foo.test.ts')
+  })
+
+  it('LUM-779 fail-closed: an evasion-decoded delete is never downgraded, even with an empty state list', () => {
+    const encoded = Buffer.from('rm __tests__/foo.test.ts').toString('base64')
+    const [hit] = testFileDeleted(`echo ${encoded} | base64 -d | sh`, [])
+    expect(hit).toBeDefined()
+    expect(hit?.severity).toBe('HIGH')
+    expect(hit?.advisory).toBeFalsy()
+  })
+
+  it('LUM-779: the state field only ever touches TEST_FILE_DELETED — a sibling category on the same line is untouched', () => {
+    const all = detectCrossings(
+      bashWithState('rm __tests__/foo.test.ts && git push origin main', [])
+    )
+    const push = all.find(c => c.category === 'PUSH_TO_PROTECTED_BRANCH')
+    expect(push).toBeDefined()
+    expect(push?.advisory).toBeFalsy()
+  })
+})
+
+describe('TEST_FILE_DELETED — recorder keys the coalesce on the advisory side (LUM-779)', () => {
+  const coalesce = boundaryCrossingRepository.coalesceRecurrence as jest.Mock
+
+  beforeEach(() => {
+    createCrossing.mockReset()
+    createCrossing.mockResolvedValue({ id: 'bc-1' })
+    createActivity.mockReset()
+    coalesce.mockReset()
+    coalesce.mockResolvedValue(0)
+  })
+
+  const record = (deleted: string[] | undefined) =>
+    boundaryDetectorService.detectAndRecord({
+      taskId: 'task-1',
+      hookEventId: 'evt-1',
+      toolName: 'Bash',
+      filePath: null,
+      payload: {
+        tool_input: { command: 'rm __tests__/x.test.ts' },
+        ...(deleted !== undefined ? { _lumo_deleted_test_files: deleted } : {}),
+      },
+    })
+
+  it('LUM-779: an advisory TEST_FILE_DELETED coalesces only with advisory rows and is persisted advisory', async () => {
+    await record([])
+    expect(coalesce).toHaveBeenCalledWith(
+      'task-1',
+      'TEST_FILE_DELETED',
+      'rm __tests__/x.test.ts',
+      expect.any(Date),
+      true
+    )
+    expect(createCrossing).toHaveBeenCalledWith(
+      expect.objectContaining({ category: 'TEST_FILE_DELETED', advisory: true })
+    )
+  })
+
+  it('LUM-779: a blocking TEST_FILE_DELETED coalesces only with blocking rows', async () => {
+    await record(['__tests__/x.test.ts'])
+    expect(coalesce).toHaveBeenCalledWith(
+      'task-1',
+      'TEST_FILE_DELETED',
+      'rm __tests__/x.test.ts',
+      expect.any(Date),
+      false
+    )
+    const created = createCrossing.mock.calls[0]![0]
+    expect(created.category).toBe('TEST_FILE_DELETED')
+    expect(created.advisory ?? false).toBe(false)
+  })
+})

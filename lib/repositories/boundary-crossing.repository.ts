@@ -222,11 +222,23 @@ export const boundaryCrossingRepository = {
     taskId: string,
     category: BoundaryCrossingCategory,
     target: string | null,
-    now: Date
+    now: Date,
+    // LUM-779: a recurrence never coalesces across the advisory line — an OPEN
+    // advisory row (probe said nothing tracked was missing) must not absorb a
+    // later BLOCKING recurrence of the same segment, or the true positive
+    // disappears behind the false one. Callers that don't say which side they
+    // are on keep the legacy (taskId, category, target, open) key.
+    advisory?: boolean
   ): Promise<number> {
     if (target == null) return 0
     const { count } = await prisma.boundaryCrossing.updateMany({
-      where: { taskId, category, target, disposition: null },
+      where: {
+        taskId,
+        category,
+        target,
+        disposition: null,
+        ...(advisory !== undefined ? { advisory } : {}),
+      },
       data: { occurrenceCount: { increment: 1 }, lastSeenAt: now },
     })
     return count
