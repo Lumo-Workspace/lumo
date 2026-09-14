@@ -321,6 +321,30 @@ export const boundaryCrossingRepository = {
   },
 
   /**
+   * LUM-772 backfill read: every OPEN PROJECT_RULE_VIOLATION a compiled rule
+   * produced, with the owning project (for the stored policy) and the hook
+   * event id (for the full command — `detail` may be clipped). Oldest first.
+   */
+  async findOpenByPolicyRuleRef(policyRuleRef: string) {
+    return prisma.boundaryCrossing.findMany({
+      where: {
+        category: 'PROJECT_RULE_VIOLATION',
+        policyRuleRef,
+        disposition: null,
+      },
+      select: {
+        id: true,
+        taskId: true,
+        hookEventId: true,
+        detail: true,
+        policyRuleText: true,
+        task: { select: { projectId: true } },
+      },
+      orderBy: { detectedAt: 'asc' },
+    })
+  },
+
+  /**
    * Every human-dispositioned crossing, projected to just {category,
    * disposition} for the read-only false-positive-rate measurement (LUM-449).
    * A pure read — open (disposition: null) crossings are excluded because they

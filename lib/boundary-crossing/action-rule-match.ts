@@ -24,11 +24,13 @@ import { executingSegments } from './command-shape'
 export function matchActionRule(value: string, command: string): boolean {
   const needle = value.trim()
   if (!needle) return false
-  // Order matters: heredoc bodies go first (their lines would otherwise split
-  // into segments of their own), then segment + unwrap wrappers (a `bash -c
-  // "…"` body must survive to be classified), then quoted literals are emptied
-  // per executing segment so `-m` / `--body` / `--note` text never matches.
-  return executingSegments(stripHeredocBodies(command)).some(seg =>
-    stripQuotedLiterals(seg).includes(needle)
+  // Order matters: segment + unwrap wrappers first (a `bash -c "…"` body must
+  // survive to be classified; LUM-772 — a heredoc body stays attached to the
+  // segment that opens it, so a `git commit -F - <<EOF` message is dropped
+  // with its carrier and never splits into segments of its own), then heredoc
+  // bodies and quoted literals are emptied per executing segment so `-m` /
+  // `--body` / `--note` text never matches.
+  return executingSegments(command).some(seg =>
+    stripQuotedLiterals(stripHeredocBodies(seg)).includes(needle)
   )
 }

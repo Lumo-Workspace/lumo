@@ -38,6 +38,7 @@ import {
   executingSegments,
 } from '@/lib/boundary-crossing/command-shape'
 import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
+import { matchPushTarget } from '@/lib/boundary-crossing/push-target-match'
 import {
   EVASION_MARKER,
   isEvasionDecoded,
@@ -121,6 +122,13 @@ const DETAIL_MAX = 200
 function clip(s: string): string {
   const t = s.trim().replace(/\s+/g, ' ')
   return t.length > DETAIL_MAX ? `${t.slice(0, DETAIL_MAX)}…` : t
+}
+
+/** Was this stored `detail` produced by `clip` truncating the command? A
+ *  clipped detail is not the whole command, so nothing may be re-judged from
+ *  it alone (LUM-772 backfill). */
+export function isClippedDetail(detail: string): boolean {
+  return detail.length === DETAIL_MAX + 1 && detail.endsWith('…')
 }
 
 /** Pull the Bash command text out of a PostToolUse payload (unindexed JSON). */
@@ -261,12 +269,14 @@ function matchDestructiveDb(cmd: string): boolean {
  */
 function matchNewNpmDependency(cmd: string): boolean {
   // LUM-770: a heredoc body is authored text (a script or doc being written),
-  // not an install — drop it before segmenting, or its lines become segments
-  // of their own and `'npm install x'` inside a probe script trips the rule.
-  // NEW_NPM_DEPENDENCY never reaches the LUM-466 prose confirmation, so this
-  // is the only place the body can be excluded.
-  for (const raw of executingSegments(stripHeredocBodies(cmd))) {
-    const seg = raw.split('#')[0] ?? ''
+  // not an install. LUM-772: the body now rides with the segment that opens it
+  // (`cat > f <<EOF` is dropped whole as a read-only carrier), and is stripped
+  // from any executing segment that still carries one, so `'npm install x'`
+  // inside a probe script never trips the rule. NEW_NPM_DEPENDENCY never
+  // reaches the LUM-466 prose confirmation, so this is the only place the
+  // body can be excluded.
+  for (const raw of executingSegments(cmd)) {
+    const seg = stripHeredocBodies(raw).split('#')[0] ?? ''
     if (/\b(?:yarn|pnpm|bun)\s+add\s+\S/.test(seg)) return true
     const m = seg.match(/\bnpm\s+(?:i|install|add)\b(.*)$/)
     if (!m) continue
@@ -718,6 +728,10 @@ const COMMAND_MATCHERS: ReadonlyArray<{
   { category: 'TEST_FILE_DELETED', fn: matchTestFileDelete },
 ]
 
+/** The command-shaped categories, for parity guards in tests (LUM-772). */
+export const COMMAND_MATCHER_CATEGORIES: ReadonlyArray<BoundaryCrossingCategory> =
+  COMMAND_MATCHERS.map(m => m.category)
+
 /**
  * The coalescing target (LUM-477) for an action-class crossing: the single shell
  * segment that actually tripped the matcher, NOT the whole command line. So
@@ -737,11 +751,32 @@ function fingerprintSegment(cmd: string, fn: (cmd: string) => boolean): string {
   return clip(cmd)
 }
 
-/** Run the command-shaped matchers and emit a crossing per hit. */
+/**
+ * Run the command-shaped matchers and emit a crossing per hit.
+ *
+ * LUM-772: matchers only ever see the EXECUTING segments of the line. The
+ * print / search / lumo / gh-authoring carriers (`echo`, `grep`, `cat`,
+ * `lumo crossing explain --note "…"`, `gh pr create --body "…"`) are dropped
+ * deterministically — their arguments are text, never actions — so a note
+ * quoting `git push origin main` can no longer even become a candidate (the
+ * LUM-466 LLM step used to be the only thing standing between it and a
+ * recorded crossing, and it is allowed to fail closed). `git …` segments are
+ * all kept (`keepGit`): a `git commit` IS the action for HOOK_BYPASS, and its
+ * message prose stays the confirmation step's call. Heredoc bodies are kept
+ * too — an interpreter (`bash <<EOF`) may execute them; Stage 1 + the judge
+ * decide. A `bash -c '…'` wrapper is unwrapped, so a wrapped real action is
+ * still matched and a wrapped grep is still a grep. A heredoc body rides with
+ * the segment that opens it, so `cat > f <<EOF` (with whatever the body says)
+ * is dropped whole, while `bash <<EOF` / `git commit -F - <<EOF` keep theirs
+ * for the matcher — and, for the latter, the confirmation step.
+ */
 function matchCommand(cmd: string, evasion: boolean): DetectedCrossing[] {
   const out: DetectedCrossing[] = []
+  // The carrier-free command: executing segments only, re-joined so a matcher
+  // that reads context across segments (an env var + a curl) still sees it.
+  const executing = executingSegments(cmd, { keepGit: true }).join('\n')
   for (const { category, fn } of COMMAND_MATCHERS) {
-    if (!fn(cmd)) continue
+    if (!fn(executing)) continue
     out.push({
       category,
       detail: clip(evasion ? `${EVASION_MARKER}${cmd}` : cmd),
@@ -1681,8 +1716,15 @@ export function detectProjectActionCrossings(
     // LUM-751: segment-scoped + prose-stripped (lib/boundary-crossing/
     // action-rule-match) — a read-only / PR-target reference or a quoted
     // keyword no longer counts as a violation.
+    // LUM-772: a push prohibition compiles to `push-target` and is judged on
+    // the push's OWN destination (a feature push next to `gh pr create --base
+    // main` is not a push to main).
     const hit =
-      p.type === 'cmd-substr' ? matchActionRule(p.value, command) : false
+      p.type === 'cmd-substr'
+        ? matchActionRule(p.value, command)
+        : p.type === 'push-target'
+          ? matchPushTarget(p.value, command)
+          : false
     if (!hit) continue
     out.push({
       category: 'PROJECT_RULE_VIOLATION',

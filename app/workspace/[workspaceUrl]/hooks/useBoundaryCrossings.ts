@@ -78,7 +78,7 @@ export interface DispositionChangeView {
 }
 
 /** LUM-769: the surface a ruling came through (mirrors the service type). */
-export type DispositionChannel = 'WEB' | 'CLI'
+export type DispositionChannel = 'WEB' | 'CLI' | 'SYSTEM'
 
 export interface BoundaryCrossingView {
   id: string

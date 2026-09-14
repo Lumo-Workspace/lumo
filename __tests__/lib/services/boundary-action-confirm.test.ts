@@ -87,13 +87,15 @@ describe('LUM-466 action-category prose confirmation', () => {
       )
     )
 
-    // The matcher would have flagged PUSH_TO_PROTECTED_BRANCH on both; the
-    // confirmation suppresses them. Nothing is persisted.
+    // Nothing is persisted for either. The commit-message candidate reached
+    // Stage 2 and the confirmation suppressed it; the PR body never became a
+    // candidate at all — LUM-772 drops `gh pr create` (a read-only authoring
+    // segment) before any matcher runs, so no model call is spent on it.
     expect(recordedCategories()).not.toContain('PUSH_TO_PROTECTED_BRANCH')
     expect(createCrossing).not.toHaveBeenCalled()
     expect(createActivity).not.toHaveBeenCalled()
-    // The LLM was consulted (the candidate reached Stage 2), once per command.
-    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(confirm.mock.calls[0]?.[0]?.command).toContain('git commit -m')
   })
 
   it('real forbidden actions still record and uncertain or failed confirmation keeps the flag', async () => {

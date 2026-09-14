@@ -72,6 +72,90 @@ describe('command-shape (LUM-751)', () => {
     }
   })
 
+  it('LUM-772: find with -exec / -delete executes, keepGit keeps every git segment', () => {
+    expect(isReadOnlySegment('find . -name "*.log"')).toBe(true)
+    expect(isReadOnlySegment('find prisma/migrations -name x -delete')).toBe(
+      false
+    )
+    expect(
+      isReadOnlySegment('find __tests__ -name "*.test.ts" -exec rm {} +')
+    ).toBe(false)
+    // Default: git reads / commit are read-only (LUM-751 project-rule idiom).
+    expect(isReadOnlySegment('git commit -m "x"')).toBe(true)
+    expect(isReadOnlySegment('git log origin/main..HEAD')).toBe(true)
+    // keepGit: a git invocation is itself the action under test.
+    expect(isReadOnlySegment('git commit -m "x"', { keepGit: true })).toBe(
+      false
+    )
+    expect(
+      isReadOnlySegment('git log origin/main..HEAD', { keepGit: true })
+    ).toBe(false)
+    // …while non-git prose carriers stay dropped either way.
+    expect(
+      isReadOnlySegment(
+        'lumo crossing explain abc --note "git push origin main"',
+        { keepGit: true }
+      )
+    ).toBe(true)
+    expect(isReadOnlySegment('echo "git commit -n"', { keepGit: true })).toBe(
+      true
+    )
+    expect(
+      executingSegments(
+        'lumo task comment LUM-1 "a; b && c" && git commit -m "d" && git push origin feat',
+        { keepGit: true }
+      )
+    ).toEqual(['git commit -m "d"', 'git push origin feat'])
+    expect(
+      executingSegments(
+        'lumo task comment LUM-1 "a; b && c" && git commit -m "d" && git push origin feat'
+      )
+    ).toEqual(['git push origin feat'])
+  })
+
+  it('LUM-772: a heredoc body stays with the segment that opens it', () => {
+    // Read-only carrier: dropped whole, its lines never become segments.
+    expect(
+      executingSegments(
+        "cat > probe.ts <<'EOF'\nconst hint = 'npm install left-pad'\nEOF\ngit add probe.ts"
+      )
+    ).toEqual(['git add probe.ts'])
+    // Executing carrier: the body rides along in one segment.
+    expect(executingSegments('psql <<EOF\nselect 1\nEOF')).toEqual([
+      'psql <<EOF\nselect 1\nEOF',
+    ])
+    // The owner is the segment holding `<<`, even after a pipe on that line.
+    expect(executingSegments('cat <<EOF | node run.js\nx\nEOF')).toEqual([
+      'node run.js',
+    ])
+    expect(executingSegments('node <<EOF | tee log\nx\nEOF')).toEqual([
+      'node <<EOF\nx\nEOF',
+    ])
+    // Text after the terminator is ordinary again.
+    expect(
+      executingSegments(
+        "git commit -F - <<'EOF'\nfix: never push to main\nEOF\ngit push origin feat && echo done"
+      )
+    ).toEqual(['git push origin feat'])
+    expect(
+      executingSegments(
+        "git commit -F - <<'EOF'\nfix: never push to main\nEOF\ngit push origin feat",
+        { keepGit: true }
+      )
+    ).toEqual([
+      "git commit -F - <<'EOF'\nfix: never push to main\nEOF",
+      'git push origin feat',
+    ])
+    // Unterminated: nothing is swallowed — plain line splitting.
+    expect(
+      executingSegments('git commit -F - <<EOF\nline one\ngit push origin feat')
+    ).toEqual(['line one', 'git push origin feat'])
+    // A quoted `<<` is not a heredoc.
+    expect(executingSegments('echo "<<EOF" && node x.js')).toEqual([
+      'node x.js',
+    ])
+  })
+
   it('executingSegments drops read-only segments and recurses into wrappers', () => {
     expect(executingSegments('git log main && git push origin main')).toEqual([
       'git push origin main',

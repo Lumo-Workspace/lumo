@@ -36,6 +36,29 @@ interface FindRecentOtherSessionWritesParams {
 // ── HookEvent Repository ──────────────────────────────────────────────────────
 
 export const hookEventRepository = {
+  /**
+   * LUM-772: the Bash command each of these events carried
+   * (`payload.tool_input.command`), keyed by event id. Events without a
+   * readable command are absent from the map. Used by the crossing backfill
+   * to re-judge on the FULL command rather than the clipped `detail`.
+   */
+  async findCommandsByIds(ids: string[]): Promise<Map<string, string>> {
+    const out = new Map<string, string>()
+    if (ids.length === 0) return out
+    const rows = await prisma.hookEvent.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, payload: true },
+    })
+    for (const row of rows) {
+      const payload = row.payload as {
+        tool_input?: { command?: unknown }
+      } | null
+      const command = payload?.tool_input?.command
+      if (typeof command === 'string') out.set(row.id, command)
+    }
+    return out
+  },
+
   /** Record a Claude Code hook event for audit and activity tracking. */
   async createHookEvent(data: CreateHookEventData) {
     return prisma.hookEvent.create({
