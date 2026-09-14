@@ -102,6 +102,33 @@ export const projectPolicyRepository = {
   },
 
   /**
+   * LUM-780: the verbatim text of a rule by its id (`sha256(text)[:16]`),
+   * searched across the project's stored policies newest-first. A
+   * POLICY_WEAKENING written before `policyRuleText` was stamped carries only
+   * the ref; the text is what the re-judge asks the source about. Null when no
+   * stored policy of this project ever carried the id.
+   */
+  async findRuleTextByRef(
+    projectId: string,
+    ruleRef: string
+  ): Promise<string | null> {
+    const rows = await prisma.projectPolicy.findMany({
+      where: { projectId },
+      orderBy: { compiledAt: 'desc' },
+      select: { rules: true },
+      take: 20,
+    })
+    for (const row of rows) {
+      const rules = row.rules as PolicyRule[]
+      const hit = rules.find(r => r.id === ruleRef)
+      if (hit && typeof hit.text === 'string' && hit.text.length > 0) {
+        return hit.text
+      }
+    }
+    return null
+  },
+
+  /**
    * Makes an existing row the active policy again by moving its `compiledAt`
    * to `now` — but only if the row still carries the `compiledAt` the caller
    * saw (compare-and-swap). Two callers re-activating the same row see the

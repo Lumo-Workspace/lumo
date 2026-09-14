@@ -159,6 +159,11 @@ enum TaskActivityType {
   BOUNDARY_CROSSING_ACKNOWLEDGED
   BOUNDARY_CROSSING_DISPOSITIONED
   BOUNDARY_CROSSING_REMEDIATION_SPAWNED
+  // LUM-780: a SYSTEM re-judge flipped an OPEN blocking crossing to advisory
+  // because its cause no longer holds (rule text still in the source / no linked
+  // PR removes a tracked test file). Append-only trail: reason + evidence +
+  // criterion version. Never a disposition.
+  BOUNDARY_CROSSING_REJUDGED
   TASK_SPUN_OFF
   // LUM-511 Phase 4: judge-confirmed laundering markers (task-level — fed into
   // the flywheel negative class; not VerificationRuns, which require a criterion).
