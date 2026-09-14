@@ -24,10 +24,45 @@ export interface HuntTriggerInput {
   hasOpenL4Crossing: boolean
 }
 
+/**
+ * One located rule hit: the rule that fired and the added line it fired on.
+ *
+ * LUM-758 follow-up. `reasons` is a deduplicated set of rule ids, so it says a
+ * sink fired and never where — and the hunt agent was told, in so many words,
+ * to "find the call sites yourself". It then spent its budget re-deriving with
+ * `rg` what this pass already knew and discarded: across 31 production tasks it
+ * never once reached its own `submit_candidates`, because mapping consumed the
+ * allowance that was meant for reasoning.
+ *
+ * `line` is the added line's number in the file at the head sha, which is what
+ * the agent's checkout has. It is a STARTING POINT, not a citable fact: the
+ * prompt says so, because the system prompt's rule 4 requires every line number
+ * in a finding to come from the agent's own `rg -n` / `sed -n` output.
+ */
+export interface HuntSignalSite {
+  /** `entry:next-route-handler`, `sink:fetch`, `control:zod-parse`. */
+  rule: string
+  path: string
+  line: number
+}
+
 export interface HuntTriggerResult {
   hunt: boolean
   reasons: string[]
+  /**
+   * The located hits behind `reasons`, capped. Empty when the only reasons are
+   * `stage-a:high` / `l4:open-crossing`, which have no site.
+   */
+  sites: HuntSignalSite[]
 }
+
+/**
+ * Caps on the located hits. The total bounds the workflow step input this rides
+ * in; the per-rule cap stops one noisy rule (a `zod-parse` on every handler)
+ * from crowding out the single `sink` that is the reason to hunt at all.
+ */
+export const HUNT_SITES_MAX = 40
+export const HUNT_SITES_PER_RULE_MAX = 6
 
 const ENTRY_TEXT_RULES: ReadonlyArray<{ id: string; re: RegExp }> = [
   {
@@ -62,22 +97,41 @@ export function evaluateHuntTrigger(
   input: HuntTriggerInput
 ): HuntTriggerResult {
   const reasons = new Set<string>()
+  const sites: HuntSignalSite[] = []
+  const perRule = new Map<string, number>()
+  // Same walk, same matches — the location was always here and was thrown away.
+  const record = (rule: string, path: string, line: number) => {
+    if (sites.length >= HUNT_SITES_MAX) return
+    const n = perRule.get(rule) ?? 0
+    if (n >= HUNT_SITES_PER_RULE_MAX) return
+    perRule.set(rule, n + 1)
+    sites.push({ rule, path, line })
+  }
   for (const file of input.files) {
     if (!isGraphSourcePath(file.path)) continue
-    for (const { text } of file.lines) {
+    for (const { text, lineNo } of file.lines) {
       for (const rule of ENTRY_TEXT_RULES) {
-        if (rule.re.test(text)) reasons.add(`diff:entry:${rule.id}`)
+        if (rule.re.test(text)) {
+          reasons.add(`diff:entry:${rule.id}`)
+          record(`entry:${rule.id}`, file.path, lineNo)
+        }
       }
       for (const m of text.matchAll(CALLEE_RE)) {
         const callee = m[1] ?? ''
         const sink = matchCallRule(SINK_RULES, callee)
-        if (sink) reasons.add(`diff:sink:${sink.id}`)
+        if (sink) {
+          reasons.add(`diff:sink:${sink.id}`)
+          record(`sink:${sink.id}`, file.path, lineNo)
+        }
         const control = matchCallRule(CONTROL_RULES, callee)
-        if (control) reasons.add(`diff:control:${control.id}`)
+        if (control) {
+          reasons.add(`diff:control:${control.id}`)
+          record(`control:${control.id}`, file.path, lineNo)
+        }
       }
     }
   }
   if (input.hasHighFinding) reasons.add('stage-a:high')
   if (input.hasOpenL4Crossing) reasons.add('l4:open-crossing')
-  return { hunt: reasons.size > 0, reasons: [...reasons] }
+  return { hunt: reasons.size > 0, reasons: [...reasons], sites }
 }

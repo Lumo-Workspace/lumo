@@ -596,6 +596,10 @@ export const securityHuntService = {
       const out = await huntTask({
         task: input.task,
         reasons: input.job.reasons,
+        // Stage A already located every one of those rule hits; passing them
+        // is the difference between the agent reasoning about known call sites
+        // and spending its allowance rediscovering them.
+        sites: input.job.signalSites ?? [],
         // The ONLY path from the model to the VM. The handle goes in whole so
         // the credential guard cannot be skipped by construction, and the
         // command goes through untouched so the string `checkHuntCommand`

@@ -13,6 +13,8 @@ import type {
   MechanicalVerifyResult,
 } from '@/lib/security-scan/hunt/mechanical-verify'
 
+import type { HuntSignalSite } from '@/lib/security-scan/hunt/trigger'
+
 export interface HuntJob {
   scanId: string
   pullRequestId: string
@@ -44,6 +46,22 @@ export interface HuntJob {
    *     HUNT_TASK_TOKEN_MAX.
    */
   touchedSourcePaths: string[]
+  /**
+   * LUM-758 follow-up — the located rule hits behind `reasons`: which rule
+   * fired, in which file, on which added line.
+   *
+   * `reasons` is a deduplicated set of rule ids and `touchedSourcePaths` is a
+   * flat file list, so between them the layer could say a sink fired and which
+   * files were touched, but never which line — and the agent's prompt said, in
+   * so many words, "find the call sites yourself". It then spent its allowance
+   * re-deriving with `rg` what stage A had already computed and discarded.
+   *
+   * OPTIONAL, and every reader must tolerate its absence: a run queued by the
+   * previous deployment arrives mid-flight without it, and a required field
+   * would turn that whole deploy window into FAILED scans — the same hazard
+   * `reasons` / `touchedSourcePaths` already carry defaults for.
+   */
+  signalSites?: HuntSignalSite[]
   /**
    * LUM-758 §5.1 — did stage A actually start the managed scan for this sha?
    * Decides whether `attachOrCreateHuntSandbox` waits for that VM to show up

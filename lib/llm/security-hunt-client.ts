@@ -35,6 +35,7 @@ import { generateText, tool, stepCountIs, hasToolCall } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
 import { GENERATION_MODEL } from '@/lib/ai/models'
+import type { HuntSignalSite } from '@/lib/security-scan/hunt/trigger'
 import {
   HuntCandidateSchema,
   CATEGORY_CWE_HINT,
@@ -74,6 +75,12 @@ export interface HuntClientInput {
    * location: the agent reads the whole checkout through `run_shell`.
    */
   reasons: string[]
+  /**
+   * The same hits, located. Optional because a run queued by the previous
+   * deployment carries none; when it is empty the prompt falls back to the
+   * rule-id list, which is what every scan before this change got.
+   */
+  sites?: HuntSignalSite[]
   /**
    * Injected by the service. One command, already allow-listed, scrubbed of
    * the installation token, secret-redacted and truncated — see
@@ -143,7 +150,33 @@ const DIFF_REASON = 'diff:'
  * `stage-a:high` / `l4:open-crossing` are dropped: they say the pull request
  * is worth looking at, not where to look.
  */
-export function renderStartingPointsForPrompt(reasons: string[]): string {
+export function renderStartingPointsForPrompt(
+  reasons: string[],
+  sites: HuntSignalSite[] = []
+): string {
+  // The located form. Stage A walked every added line of every source file and
+  // knew, at the moment it matched, both the file and the line — then kept only
+  // a deduplicated rule id and told the agent to "find the call sites yourself".
+  // Re-deriving that with `rg` is the first thing the agent does and it is not
+  // cheap: across 31 production tasks the agent never once reached its own
+  // `submit_candidates`, because the allowance went on mapping instead of
+  // reasoning. Handing back what we already computed costs ~40 tokens.
+  //
+  // These are explicitly STARTING POINTS, not citable facts. Rule 4 of the
+  // system prompt requires every line number in a finding to come from the
+  // agent's own `rg -n` / `sed -n` output, and that rule is what keeps the
+  // mechanical gate's fingerprints honest — so the wording here must not read
+  // as permission to cite these numbers directly.
+  if (sites.length > 0) {
+    const rows = sites.map(s => `- ${s.rule} — ${s.path}:${s.line}`)
+    return `The static pass matched these on ADDED lines in this diff. They are where to look FIRST, not findings, and not citable: re-read each one with \`rg -n\` / \`sed -n\` before you name any symbol or line in a candidate.
+${rows.join('\n')}`
+  }
+  return renderRuleIdsOnly(reasons)
+}
+
+/** The pre-LUM-758-follow-up form: rule ids with no location. */
+function renderRuleIdsOnly(reasons: string[]): string {
   const rows = reasons
     .filter(r => r.startsWith(DIFF_REASON))
     .map(r => `- ${r.slice(DIFF_REASON.length).replace(':', ': ')}`)
@@ -267,7 +300,7 @@ export async function huntTask(
 
   // Named so the wrap-up can replay the same opening turn; `generateText`'s
   // `prompt` shorthand would otherwise be unreachable from the second call.
-  const promptText = `${renderTaskForPrompt(input.task)}\n\n## Starting points\n${renderStartingPointsForPrompt(input.reasons)}`
+  const promptText = `${renderTaskForPrompt(input.task)}\n\n## Starting points\n${renderStartingPointsForPrompt(input.reasons, input.sites ?? [])}`
 
   // A deadline of 0 turns the handover off; the search then keeps the whole
   // allowance rather than reserving for a call that will not happen.

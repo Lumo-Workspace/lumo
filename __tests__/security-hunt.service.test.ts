@@ -91,6 +91,7 @@ const JOB = {
   headSha: 'b'.repeat(40),
   reasons: ['diff:sink:prisma-raw'],
   touchedSourcePaths: ['lib/s.ts'],
+  signalSites: [{ rule: 'sink:prisma-raw', path: 'lib/s.ts', line: 12 }],
   managedScanStarted: true,
 }
 
@@ -384,6 +385,11 @@ describe('LUM-739 hunt service', () => {
     })
     // …and the file reader is gone: the checkout, not the GitHub API.
     expect(huntMock.mock.calls[0]![0].readFile).toBeUndefined()
+    // LUM-758 follow-up — the located sites reach the model call. This hop is
+    // the one the `wrappedUp` and `wrapUpWarnings` fields were each lost on
+    // once already: computed, carried, and then never handed to the thing that
+    // needed them, with every other assertion still green.
+    expect(huntMock.mock.calls[0]![0].sites).toEqual(JOB.signalSites)
     // LUM-758 Task 10: no subgraph is serialised into a batch's step input
     // any more — the agent stopped reading it in Task 9.
     expect(huntMock.mock.calls[0]![0].subgraph).toBeUndefined()
