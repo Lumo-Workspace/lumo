@@ -12,19 +12,25 @@ export async function POST(request: Request) {
       // without an active auto-block (incl. human-applied tags). Detached.
       waitUntil(autoBlockService.onProgressRecorded(ctx.sessionId))
 
-      // Stop marks the end of a Claude Code turn. Two parallel side effects:
-      //   1. Layer 1 memory extraction — what to remember from this turn
-      //   2. Turn summary — what the agent actually did this turn
+      // Stop marks the end of a Claude Code turn. ONE detached side effect
+      // (LUM-773 — previously two, each re-reading the same turn):
+      //   - task-bound session → Layer 1 extraction, whose single model call
+      //     yields both the memory candidates AND the turn summary;
+      //   - no bound task → nothing to extract, so only the summary-only call.
       // Both keep the function alive past the response via waitUntil and own
       // their error handling (must never throw).
       if (!ctx.sessionId) return
-      waitUntil(
-        layer1Service.triggerLayer1Extraction({
-          sessionId: ctx.sessionId,
-          taskId: ctx.taskId,
-          workspaceId: ctx.workspaceId,
-        })
-      )
+      if (ctx.taskId) {
+        waitUntil(
+          layer1Service.triggerLayer1Extraction({
+            sessionId: ctx.sessionId,
+            taskId: ctx.taskId,
+            workspaceId: ctx.workspaceId,
+            stopEventId: ctx.eventId,
+          })
+        )
+        return
+      }
       waitUntil(
         turnSummaryService.generateAndStore({
           stopEventId: ctx.eventId,
