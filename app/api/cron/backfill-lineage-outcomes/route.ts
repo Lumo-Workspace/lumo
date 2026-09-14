@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireCronAuth } from '@/lib/api/cron-auth'
 import { lineageOutcomeService } from '@/lib/services/lineage-outcome.service'
 import { fragmentUsageAuditService } from '@/lib/services/lineage/fragment-usage-audit.service'
 import { memoryCompactionService } from '@/lib/services/memory/compaction.service'
@@ -37,10 +38,8 @@ const FAITHFULNESS_BATCH = 20
 export const maxDuration = 800
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const unauthorized = requireCronAuth(req)
+  if (unauthorized) return unauthorized
   const outcomes = await lineageOutcomeService.sweepDoneTaskEdges()
   const compaction = await memoryCompactionService.sweepColdProjectMemories()
   // ── LUM-172: shared-file dependency candidates (pure-DB, before LLM segment) ──

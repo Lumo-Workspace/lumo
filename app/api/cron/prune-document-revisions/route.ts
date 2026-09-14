@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireCronAuth } from '@/lib/api/cron-auth'
 import { documentRevisionService } from '@/lib/services'
 
 /**
@@ -7,10 +8,8 @@ import { documentRevisionService } from '@/lib/services'
  * revisions (24h keep-all -> 7d daily -> older weekly; first + manual kept).
  */
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const unauthorized = requireCronAuth(req)
+  if (unauthorized) return unauthorized
   const result = await documentRevisionService.pruneRevisions()
   return NextResponse.json(result)
 }

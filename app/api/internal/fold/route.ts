@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireCronAuth } from '@/lib/api/cron-auth'
 import { foldService } from '@/lib/services/memory/fold.service'
 
 export const runtime = 'nodejs'
@@ -17,10 +18,8 @@ export const maxDuration = 300
  * only: gated by the shared CRON_SECRET (same convention as the cron routes).
  */
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const unauthorized = requireCronAuth(request)
+  if (unauthorized) return unauthorized
 
   let body: { projectId?: unknown; sourceSessionId?: unknown }
   try {
