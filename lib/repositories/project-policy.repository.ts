@@ -119,7 +119,7 @@ export const projectPolicyRepository = {
       take: 20,
     })
     for (const row of rows) {
-      const rules = row.rules as PolicyRule[]
+      const rules = row.rules as unknown as PolicyRule[]
       const hit = rules.find(r => r.id === ruleRef)
       if (hit && typeof hit.text === 'string' && hit.text.length > 0) {
         return hit.text
