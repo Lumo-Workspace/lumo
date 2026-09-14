@@ -28,6 +28,11 @@ const RuleSchema = z.object({
   assertion: z.string().optional(),
   severity: z.enum(['LOW', 'MEDIUM', 'HIGH']),
   blocking: z.boolean(),
+  // LUM-770: does the rule forbid something or require something? A
+  // cmd-substr predicate is only meaningful on a prohibition (the detector
+  // flags any command containing it), so the service strips it from
+  // obligations. Optional so an older/partial model output still parses.
+  polarity: z.enum(['forbid', 'require']).optional(),
 })
 
 // ── System prompt ─────────────────────────────────────────────────────────────
@@ -41,6 +46,9 @@ For each concrete rule, output:
 - when semantic: set tier="semantic" with an assertion string
 - blocking: true ONLY when mappedCategory is set AND it matches a known built-in category
 - severity: HIGH for security/data-loss rules, MEDIUM for process rules, LOW for style rules
+- polarity: "forbid" when the rule prohibits an action or pattern ("never", "do not", "only CI may"); "require" when it obliges one ("must", "always", "before opening a PR: X passes", a checklist item)
+
+A cmd-substr predicate is a PROHIBITION: the detector flags every executed command that contains the substring. NEVER attach a cmd-substr predicate to a "require" rule — running a required command (e.g. "tests + npx tsc --noEmit pass" before a PR) is compliance, not a violation. A must-do / checklist item is polarity="require", tier="semantic" with an assertion, or is ignored when nothing observable can check it.
 
 Never invent regex you are unsure of — downgrade to semantic instead.
 Ignore prose that is not an enforceable rule.

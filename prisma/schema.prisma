@@ -825,7 +825,7 @@ model Project {
 model ProjectPolicy {
   id         String   @id @default(cuid())
   projectId  String
-  sourceHash String // sha256 of concatenated CLAUDE.md + AGENTS.md source
+  sourceHash String // sha256 of concatenated CLAUDE.md + AGENTS.md source + compiler version (LUM-770)
   rules      Json // PolicyRule[] (see lib/services/policy/types.ts)
   compiledAt DateTime @default(now())
 

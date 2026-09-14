@@ -108,3 +108,25 @@ describe('NEW_NPM_DEPENDENCY only for a segment naming a package', () => {
     )
   })
 })
+
+// ── LUM-770: a heredoc body is authored text, not an install ─────────────────
+describe('NEW_NPM_DEPENDENCY ignores heredoc bodies', () => {
+  it('LUM-770: npm install inside a heredoc body raises no NEW_NPM_DEPENDENCY', () => {
+    // Writing a probe script whose source mentions the install command.
+    expect(
+      cats(
+        "cat > scripts/probe.ts <<'EOF'\nconst hint = 'run npm install left-pad first'\nconsole.log(hint)\nEOF"
+      )
+    ).not.toContain('NEW_NPM_DEPENDENCY')
+    expect(
+      cats(
+        'cat > README.md <<EOF\n## Setup\n\nnpm install left-pad\nEOF\ngit add README.md'
+      )
+    ).not.toContain('NEW_NPM_DEPENDENCY')
+    // A real install outside the heredoc still trips it.
+    expect(
+      cats("cat > notes.txt <<'EOF'\nsee below\nEOF\nnpm install left-pad")
+    ).toContain('NEW_NPM_DEPENDENCY')
+    expect(cats('npm install left-pad')).toContain('NEW_NPM_DEPENDENCY')
+  })
+})

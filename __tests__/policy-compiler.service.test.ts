@@ -296,3 +296,217 @@ test('downgrading a deterministic+blocking rule to semantic emits POLICY_WEAKENI
   const callArg = createSpy.mock.calls[0]?.[0] as { detail: string }
   expect(callArg.detail).toMatch(/downgraded/)
 })
+
+// ── LUM-770: obligations must never become cmd-substr prohibitions ───────────
+//
+// The detector treats every deterministic cmd-substr action rule as "running a
+// command containing this substring is a violation". GLM compiled the PR
+// Checklist line ("tests + `npx tsc --noEmit` pass" — a MUST-DO) into exactly
+// such a rule, so every real `npx tsc --noEmit` was recorded as a
+// PROJECT_RULE_VIOLATION (LUM-766 crossing). Test names below are literal
+// MACHINE checkpointers — do not rename.
+
+import { detectProjectActionCrossings } from '@/lib/services/boundary-detector.service'
+
+const CHECKLIST_MD =
+  '## PR Checklist\n\nBefore opening a PR: tests + `npx tsc --noEmit` pass, no `console.log`; branch/PR-title follow the **Git** conventions.'
+
+/** The exact LUM-766 command: a read-only cat, then tsc piped into grep. */
+const LUM_766_COMMAND =
+  'cd "/Users/x/lumo" && cat tmp/plan.log && npx tsc --noEmit 2>&1 | grep -E "error TS" | head -20'
+
+const bashEvent = (command: string) => ({
+  toolName: 'Bash',
+  payload: { tool_input: { command } },
+})
+
+test('LUM-770: an obligation with a cmd-substr predicate compiles to semantic and the LUM-766 tsc command raises no PROJECT_RULE_VIOLATION', async () => {
+  ;(contents.readRepoFile as jest.Mock).mockResolvedValue(CHECKLIST_MD)
+  ;(client.classifyRules as jest.Mock).mockResolvedValue({
+    rules: [
+      // What GLM actually emitted for the checklist line, with the model
+      // correctly reporting the rule as an obligation.
+      {
+        text: 'Run `npx tsc --noEmit` and the tests prior to a PR',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: 'tsc --noEmit' },
+        severity: 'MEDIUM',
+        blocking: false,
+        polarity: 'require',
+      },
+      // The model mislabels the polarity — the wording itself is a checklist
+      // item with no prohibition in it, so the text guard must still catch it.
+      {
+        text: 'Before opening a PR: tests + `npx tsc --noEmit` pass',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: 'npx tsc' },
+        severity: 'MEDIUM',
+        blocking: false,
+        polarity: 'forbid',
+      },
+      // The "tests" half of the same line, from a model that reports no
+      // polarity at all.
+      {
+        text: 'Tests must pass before opening a PR',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: 'npm test' },
+        severity: 'MEDIUM',
+        blocking: false,
+      },
+    ],
+  })
+  const policy = await policyCompilerService.ensureCompiled({
+    projectId: 'p770',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+  })
+  expect(policy!.rules).toHaveLength(3)
+  for (const r of policy!.rules) {
+    expect(r.tier).toBe('semantic')
+    expect(r.predicate).toBeUndefined()
+    expect(r.assertion).toBe(r.text)
+  }
+  expect(
+    detectProjectActionCrossings(bashEvent(LUM_766_COMMAND), policy!.rules)
+  ).toEqual([])
+  expect(
+    detectProjectActionCrossings(bashEvent('npm test'), policy!.rules)
+  ).toEqual([])
+})
+
+test('LUM-770: prohibitions keep their cmd-substr predicate and still raise', async () => {
+  ;(contents.readRepoFile as jest.Mock).mockResolvedValue(
+    '## Forbidden\n- Never push to main\n- never run flush-prod\n- You must never apply prod migrations by hand\n- Migrations must only be applied by CI'
+  )
+  ;(client.classifyRules as jest.Mock).mockResolvedValue({
+    rules: [
+      {
+        text: 'Never push to main',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: 'git push origin main' },
+        severity: 'MEDIUM',
+        blocking: false,
+        polarity: 'forbid',
+      },
+      {
+        text: 'never run flush-prod',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: 'flush-prod' },
+        severity: 'HIGH',
+        blocking: false,
+      },
+      // "must" + "never": a prohibition phrased with an obligation verb.
+      {
+        text: 'You must never apply prod migrations by hand (prisma migrate deploy)',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: 'prisma migrate deploy' },
+        severity: 'HIGH',
+        blocking: false,
+        polarity: 'forbid',
+      },
+      // "must only": an exclusivity rule is a prohibition on everyone else.
+      {
+        text: 'Migrations must only be applied by CI (prisma migrate reset is forbidden locally)',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: 'prisma migrate reset' },
+        severity: 'HIGH',
+        blocking: false,
+        polarity: 'forbid',
+      },
+    ],
+  })
+  const policy = await policyCompilerService.ensureCompiled({
+    projectId: 'p770b',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+  })
+  expect(policy!.rules.map(r => r.tier)).toEqual([
+    'deterministic',
+    'deterministic',
+    'deterministic',
+    'deterministic',
+  ])
+  expect(policy!.rules.every(r => r.predicate?.type === 'cmd-substr')).toBe(
+    true
+  )
+  const refs = (command: string) =>
+    detectProjectActionCrossings(bashEvent(command), policy!.rules).map(
+      c => c.policyRuleText
+    )
+  expect(refs('git push origin main')).toEqual(['Never push to main'])
+  expect(refs('node scripts/flush-prod.js')).toEqual(['never run flush-prod'])
+  expect(refs('npx prisma migrate deploy')).toEqual([
+    'You must never apply prod migrations by hand (prisma migrate deploy)',
+  ])
+  expect(refs('npx prisma migrate reset --force')).toEqual([
+    'Migrations must only be applied by CI (prisma migrate reset is forbidden locally)',
+  ])
+})
+
+test('LUM-770: the compiler version is part of the source hash so an unchanged CLAUDE.md recompiles once', async () => {
+  const { createHash } = await import('crypto')
+  // The stored row was compiled by the pre-LUM-770 compiler: keyed on the bare
+  // sha256 of the source, carrying the bad tsc rule.
+  // readSource concatenates CLAUDE.md + AGENTS.md (absent → '') with '\n\n'.
+  ;(contents.readRepoFile as jest.Mock).mockImplementation(
+    async (input: { path: string }) =>
+      input.path === 'CLAUDE.md' ? CHECKLIST_MD : null
+  )
+  const plainHash = createHash('sha256')
+    .update([CHECKLIST_MD, ''].join('\n\n'))
+    .digest('hex')
+  policyStore.set('p770c', {
+    sourceHash: plainHash,
+    rules: [
+      {
+        id: 'stale-tsc',
+        text: 'Before opening a PR: tests + `npx tsc --noEmit` pass',
+        kind: 'action',
+        tier: 'deterministic',
+        predicate: { type: 'cmd-substr', value: 'tsc --noEmit' },
+        severity: 'MEDIUM',
+        blocking: false,
+      },
+    ],
+  })
+  ;(client.classifyRules as jest.Mock).mockResolvedValue({
+    rules: [
+      {
+        text: 'Before opening a PR: tests + `npx tsc --noEmit` pass',
+        kind: 'action',
+        tier: 'semantic',
+        assertion: 'tsc and tests pass before a PR',
+        severity: 'MEDIUM',
+        blocking: false,
+        polarity: 'require',
+      },
+    ],
+  })
+
+  const first = await policyCompilerService.ensureCompiled({
+    projectId: 'p770c',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+  })
+  // Recompiled despite the unchanged source — the stale rule is gone.
+  expect(client.classifyRules).toHaveBeenCalledTimes(1)
+  expect(first!.sourceHash).not.toBe(plainHash)
+  expect(first!.rules.map(r => r.tier)).toEqual(['semantic'])
+
+  // …and only once: the second call hits the new key.
+  ;(client.classifyRules as jest.Mock).mockClear()
+  const second = await policyCompilerService.ensureCompiled({
+    projectId: 'p770c',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+  })
+  expect(client.classifyRules).not.toHaveBeenCalled()
+  expect(second!.sourceHash).toBe(first!.sourceHash)
+})
