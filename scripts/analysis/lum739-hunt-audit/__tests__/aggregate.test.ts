@@ -71,6 +71,8 @@ describe('LUM-739 hunt audit', () => {
         by: { model: 0, fallback: 0, notAttempted: 0, unknown: 0 },
         taskCounts: {},
         failures: {},
+        failureShapes: {},
+        repaired: {},
         reasoningTokens: [],
         emptyOutput: 0,
       },
@@ -286,9 +288,68 @@ describe('LUM-739 hunt audit', () => {
     ] as unknown as HuntScanRow[])
 
     expect(stats.plan.failures).toEqual({ length: 1, stop: 1 })
+    // LUM-766 rows carry no shape yet — counted as such, never guessed.
+    expect(stats.plan.failureShapes).toEqual({ unclassified: 2 })
     expect(stats.plan.reasoningTokens).toEqual([7_940, 60])
     // Only the one that emitted nothing at all.
     expect(stats.plan.emptyOutput).toBe(1)
+  })
+
+  // LUM-776 — the finish reason cannot separate the two production shapes
+  // (`stop` on both an empty plan and a schema miss; absent on a timeout);
+  // `shape` is the field the acceptance read-out counts on.
+  it('counts plan failures by their stable shape', () => {
+    const failed = (shape: string, finishReason?: string) => ({
+      id: shape,
+      stages: { hunt: 'RAN' },
+      huntAudit: {
+        plannedBy: 'fallback',
+        plannedReason: `plan unavailable [${shape}]: whatever the SDK said`,
+        planFailure: {
+          message: 'whatever the SDK said',
+          shape,
+          ...(finishReason ? { finishReason } : {}),
+        },
+      },
+      tokenSpent: 0,
+      findings: [],
+    })
+    const stats = aggregateHuntAudit([
+      failed('budget-exhausted', 'length'),
+      failed('empty-output', 'stop'),
+      failed('schema-mismatch', 'stop'),
+      failed('schema-mismatch', 'stop'),
+      failed('timeout'),
+    ])
+    expect(stats.plan.failureShapes).toEqual({
+      'budget-exhausted': 1,
+      'empty-output': 1,
+      'schema-mismatch': 2,
+      timeout: 1,
+    })
+    // …and the finish-reason view alone would have read 3 × stop, 1 × length.
+    expect(stats.plan.failures).toEqual({ length: 1, stop: 3, unknown: 1 })
+  })
+
+  it('LUM-776: counts model plans that only validated after an envelope repair', () => {
+    const row = (id: string, audit: Record<string, unknown>) => ({
+      id,
+      stages: { hunt: 'RAN' },
+      huntAudit: { plannedBy: 'model', planned: [], ...audit },
+      tokenSpent: 0,
+      findings: [],
+    })
+    const stats = aggregateHuntAudit([
+      row('a', { planRepair: 'missing-tasks' }),
+      row('b', { planRepair: 'missing-tasks' }),
+      row('c', { planRepair: 'wrapped-array' }),
+      row('d', {}),
+    ])
+    expect(stats.plan.by.model).toBe(4)
+    expect(stats.plan.repaired).toEqual({
+      'missing-tasks': 2,
+      'wrapped-array': 1,
+    })
   })
 
   it('sums what the agents asked the shell for, refusals separately', () => {

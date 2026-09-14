@@ -59,6 +59,22 @@ export interface HuntAuditStats {
     taskCounts: Record<string, number>
     /** LUM-766 follow-up — failed planning calls by `finishReason`. */
     failures: Record<string, number>
+    /**
+     * LUM-776 — the same failures by their STABLE shape (`planFailure.shape`:
+     * budget-exhausted / empty-output / schema-mismatch / timeout / transport /
+     * unknown). `failures` keys on the provider's finish reason, which is
+     * absent on a timeout and `stop` on both an empty plan and a schema miss;
+     * this is the read-out the acceptance criterion counts on. Rows written
+     * before the shape existed are counted under `unclassified`, never guessed.
+     */
+    failureShapes: Record<string, number>
+    /**
+     * LUM-776 — `plannedBy=model` rows whose answer only validated after
+     * `repairPlanText`, by repair kind. A `missing-tasks` repair is an empty
+     * plan the model never reasoned about: subtract these before reading the
+     * model success rate as "the planner is healthy".
+     */
+    repaired: Record<string, number>
     reasoningTokens: number[]
     emptyOutput: number
   }
@@ -154,6 +170,8 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
       by: { model: 0, fallback: 0, notAttempted: 0, unknown: 0 },
       taskCounts: {},
       failures: {},
+      failureShapes: {},
+      repaired: {},
       reasoningTokens: [],
       emptyOutput: 0,
     },
@@ -207,9 +225,16 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
       const fr =
         typeof pf.finishReason === 'string' ? pf.finishReason : 'unknown'
       stats.plan.failures[fr] = (stats.plan.failures[fr] ?? 0) + 1
+      const shape = typeof pf.shape === 'string' ? pf.shape : 'unclassified'
+      stats.plan.failureShapes[shape] =
+        (stats.plan.failureShapes[shape] ?? 0) + 1
       if (typeof pf.reasoningTokens === 'number')
         stats.plan.reasoningTokens.push(pf.reasoningTokens)
       if (pf.textPrefix === '') stats.plan.emptyOutput += 1
+    }
+    if (typeof audit.planRepair === 'string') {
+      stats.plan.repaired[audit.planRepair] =
+        (stats.plan.repaired[audit.planRepair] ?? 0) + 1
     }
     if (Array.isArray(audit.planned)) {
       const n = String(audit.planned.length)

@@ -1,0 +1,1649 @@
+{
+  "generatedAt": "2026-09-14T16:07:38.971Z",
+  "corpus": [
+    {
+      "id": "p01",
+      "pr": 994,
+      "headSha": "f04e42f1ef09d8e37867a745fff5acb7699bd517",
+      "plannedByInProd": "fallback",
+      "promptChars": 4301,
+      "promptSha256": "72f6e20d1856db1a0c6eb856e8a27636bc9a4159671cafbeb752ee66f3bcecf2"
+    },
+    {
+      "id": "p02",
+      "pr": 984,
+      "headSha": "a0c57105d1ffdfffc7f23fe8e559379b8fbaaeaa",
+      "plannedByInProd": "model",
+      "promptChars": 5881,
+      "promptSha256": "5633047246ace0065cc6dcdcaf6504640459bf32bee13338eb35342f5fabb08b"
+    },
+    {
+      "id": "p03",
+      "pr": 987,
+      "headSha": "0a95b6c9fed04ea8c1b86fdd64cf4d047396792a",
+      "plannedByInProd": "model",
+      "promptChars": 4505,
+      "promptSha256": "814e0c14a9e7835479d507a530660c62912fdb563d99a7debb8d00b7da8d8eca"
+    },
+    {
+      "id": "p06",
+      "pr": 984,
+      "headSha": "65d2c9a262ff23d650859e9b8e1c02abd6904294",
+      "plannedByInProd": "model",
+      "promptChars": 5856,
+      "promptSha256": "db74bdd1a7fd57186c3d22011d460435d1bfd13f2467c80ccecb19598dc3b1d6"
+    },
+    {
+      "id": "p07",
+      "pr": 923,
+      "headSha": "9df39f9f8dedc59f65b8d32cdbe9c07f9537cea5",
+      "plannedByInProd": "model",
+      "promptChars": 6634,
+      "promptSha256": "5851f663e8f95122a274cce9c04856b78cc88445664f636601194ac8df6476ad"
+    },
+    {
+      "id": "p08",
+      "pr": 982,
+      "headSha": "13209caffdd9f82ca648eef58f160c2743cabbc6",
+      "plannedByInProd": "model",
+      "promptChars": 3924,
+      "promptSha256": "f730c35129660b5e4f4f38ea90db013c02215e630ac6ab81e42cddb4723629bb"
+    },
+    {
+      "id": "p09",
+      "pr": 980,
+      "headSha": "c5ec47b3d227ab89921273084722f42733aee08f",
+      "plannedByInProd": "fallback",
+      "promptChars": 5730,
+      "promptSha256": "744ede19a268f05bce4696d8dd3d8acc0fc8f67d226a8b54a8b197dcca2e80d0"
+    },
+    {
+      "id": "p10",
+      "pr": 980,
+      "headSha": "ea169f0cc8d8f20e4e63698dd567077dcfd87a26",
+      "plannedByInProd": "model",
+      "promptChars": 5693,
+      "promptSha256": "de791b8a2a1c7acc6addb95c5c5821c2241900240b0ea5cc67177738c20fa1d2"
+    },
+    {
+      "id": "p11",
+      "pr": 980,
+      "headSha": "ea7d8a823696d2f77429e1ff750f8f8647fe4cde",
+      "plannedByInProd": "fallback",
+      "promptChars": 5490,
+      "promptSha256": "2390ca2e9e286bf0b5b16d571de671402cb17e1491220fe5322e40c268fe386b"
+    },
+    {
+      "id": "p12",
+      "pr": 977,
+      "headSha": "2e5416e63bddf144adbe9d62cefa4d0db4fb961c",
+      "plannedByInProd": "model",
+      "promptChars": 4229,
+      "promptSha256": "b0a3ef52ff6b46c299a5a914886f1f4475c4859caa936ace7b4ace289fd8d9f3"
+    },
+    {
+      "id": "p13",
+      "pr": 977,
+      "headSha": "43a4cf9edd56894e07c71a2cb02aa13faca237ad",
+      "plannedByInProd": "model",
+      "promptChars": 4229,
+      "promptSha256": "63a32924bc78caf990cf83030d45f1a52fdde4fbc765fafdf3ae17ff366ebddb"
+    },
+    {
+      "id": "p14",
+      "pr": 975,
+      "headSha": "37ded1703500df6d4f586a014f4d7d29910a873b",
+      "plannedByInProd": "model",
+      "promptChars": 4225,
+      "promptSha256": "9af86a1d4feaa40bcf2c1b5abdb13a72e406740187e0c5248839a52588c387bb"
+    },
+    {
+      "id": "p15",
+      "pr": 974,
+      "headSha": "e6c6775561e7a6d6897fcf2c1e1d9c3b78dc60fd",
+      "plannedByInProd": "fallback",
+      "promptChars": 5194,
+      "promptSha256": "e1e7bff2ac615d3653ba0a3e77748baa8c9bee72f0379da89cabd10201013d30"
+    },
+    {
+      "id": "p16",
+      "pr": 973,
+      "headSha": "a1cae1e60b7a05421971c1c53d2409eefb138bbe",
+      "plannedByInProd": "fallback",
+      "promptChars": 5769,
+      "promptSha256": "ef299005207b67e530eade0e05cf9f135434bc4a99feb0bb39a92a99262835d1"
+    },
+    {
+      "id": "p19",
+      "pr": 973,
+      "headSha": "76ab436e5e5dc2822303361a25d850ed631bce93",
+      "plannedByInProd": "fallback",
+      "promptChars": 5727,
+      "promptSha256": "ca9329849924858d6c2d6891c1d7a6b18bbaac01b36c0332be458599d96b2ff1"
+    },
+    {
+      "id": "p20",
+      "pr": 973,
+      "headSha": "1f0442c40fc312eedeea2d69c5562d1d7ac28201",
+      "plannedByInProd": "model",
+      "promptChars": 5480,
+      "promptSha256": "e39d918619a7a4f7654549100938439a50d59417296ac67a3f50d02d1f7bff36"
+    },
+    {
+      "id": "p22",
+      "pr": 969,
+      "headSha": "58763cb219407942f90a788c16762f778831b81d",
+      "plannedByInProd": "model",
+      "promptChars": 3966,
+      "promptSha256": "12d9ae5f03c5096ebf66029fb8949ae1efbf5ed98659098a07cbb624d96521df"
+    },
+    {
+      "id": "p24",
+      "pr": 972,
+      "headSha": "855ee1bcc5f8403da7fae295ea14aad91fe3a7fc",
+      "plannedByInProd": "model",
+      "promptChars": 5922,
+      "promptSha256": "c07a619c18a8e555dc437616f34f46e2d12be1228236bfd4564657b8a1ed0534"
+    }
+  ],
+  "variants": {
+    "flash-reasoning": {
+      "config": {
+        "name": "flash-reasoning",
+        "model": "deepseek/deepseek-v4-flash",
+        "schema": "shipped",
+        "why": "the shipped call: FAST bucket, provider default reasoning, relaxed schema"
+      },
+      "attemptsAllowed": 2,
+      "calls": [
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p01",
+          "ok": true,
+          "latencyMs": 30058,
+          "finishReason": "stop",
+          "outputTokens": 3321,
+          "reasoningTokens": 2639,
+          "totalTokens": 6040,
+          "tasks": 3,
+          "objectiveChars": [635, 695, 627],
+          "reasonChars": 421,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p02",
+          "ok": true,
+          "latencyMs": 35814,
+          "finishReason": "stop",
+          "outputTokens": 3300,
+          "reasoningTokens": 2634,
+          "totalTokens": 6572,
+          "tasks": 3,
+          "objectiveChars": [653, 731, 728],
+          "reasonChars": 493,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p03",
+          "ok": true,
+          "latencyMs": 26963,
+          "finishReason": "stop",
+          "outputTokens": 2763,
+          "reasoningTokens": 2379,
+          "totalTokens": 5251,
+          "tasks": 2,
+          "objectiveChars": [510, 598],
+          "reasonChars": 406,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p06",
+          "ok": true,
+          "latencyMs": 1134,
+          "finishReason": "stop",
+          "outputTokens": 6,
+          "reasoningTokens": 0,
+          "totalTokens": 2886,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 48,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p07",
+          "ok": true,
+          "latencyMs": 19540,
+          "finishReason": "stop",
+          "outputTokens": 1750,
+          "reasoningTokens": 1154,
+          "totalTokens": 4909,
+          "tasks": 3,
+          "objectiveChars": [705, 543, 547],
+          "reasonChars": 529,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p08",
+          "ok": true,
+          "latencyMs": 15178,
+          "finishReason": "stop",
+          "outputTokens": 1517,
+          "reasoningTokens": 1271,
+          "totalTokens": 4164,
+          "tasks": 1,
+          "objectiveChars": [728],
+          "reasonChars": 287,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p09",
+          "ok": true,
+          "latencyMs": 18819,
+          "finishReason": "stop",
+          "outputTokens": 2020,
+          "reasoningTokens": 1512,
+          "totalTokens": 4886,
+          "tasks": 2,
+          "objectiveChars": [713, 803],
+          "reasonChars": 343,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p10",
+          "ok": true,
+          "latencyMs": 13049,
+          "finishReason": "stop",
+          "outputTokens": 1625,
+          "reasoningTokens": 1106,
+          "totalTokens": 4479,
+          "tasks": 2,
+          "objectiveChars": [685, 766],
+          "reasonChars": 386,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p11",
+          "ok": true,
+          "latencyMs": 18832,
+          "finishReason": "stop",
+          "outputTokens": 1750,
+          "reasoningTokens": 1405,
+          "totalTokens": 4538,
+          "tasks": 1,
+          "objectiveChars": [877],
+          "reasonChars": 447,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p12",
+          "ok": true,
+          "latencyMs": 34221,
+          "finishReason": "stop",
+          "outputTokens": 2515,
+          "reasoningTokens": 2085,
+          "totalTokens": 4902,
+          "tasks": 2,
+          "objectiveChars": [663, 618],
+          "reasonChars": 447,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p13",
+          "ok": true,
+          "latencyMs": 23133,
+          "finishReason": "stop",
+          "outputTokens": 2162,
+          "reasoningTokens": 1832,
+          "totalTokens": 4549,
+          "tasks": 2,
+          "objectiveChars": [546, 422],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p14",
+          "ok": true,
+          "latencyMs": 26015,
+          "finishReason": "stop",
+          "outputTokens": 2023,
+          "reasoningTokens": 1483,
+          "totalTokens": 4401,
+          "tasks": 3,
+          "objectiveChars": [703, 537, 662],
+          "reasonChars": 336,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p15",
+          "ok": true,
+          "latencyMs": 24151,
+          "finishReason": "stop",
+          "outputTokens": 1608,
+          "reasoningTokens": 1243,
+          "totalTokens": 4274,
+          "tasks": 2,
+          "objectiveChars": [540, 547],
+          "reasonChars": 339,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p16",
+          "ok": true,
+          "latencyMs": 1654,
+          "finishReason": "stop",
+          "outputTokens": 2,
+          "reasoningTokens": 0,
+          "totalTokens": 2854,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 48,
+          "repaired": "missing-tasks",
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p19",
+          "ok": true,
+          "latencyMs": 35442,
+          "finishReason": "stop",
+          "outputTokens": 3182,
+          "reasoningTokens": 2642,
+          "totalTokens": 6406,
+          "tasks": 2,
+          "objectiveChars": [947, 801],
+          "reasonChars": 435,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p20",
+          "ok": true,
+          "latencyMs": 1296,
+          "finishReason": "stop",
+          "outputTokens": 8,
+          "reasoningTokens": 0,
+          "totalTokens": 2765,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 48,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p22",
+          "ok": true,
+          "latencyMs": 27891,
+          "finishReason": "stop",
+          "outputTokens": 2698,
+          "reasoningTokens": 1989,
+          "totalTokens": 5325,
+          "tasks": 3,
+          "objectiveChars": [718, 766, 735],
+          "reasonChars": 630,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning",
+          "promptId": "p24",
+          "ok": true,
+          "latencyMs": 16048,
+          "finishReason": "stop",
+          "outputTokens": 1778,
+          "reasoningTokens": 1456,
+          "totalTokens": 5059,
+          "tasks": 1,
+          "objectiveChars": [1038],
+          "reasonChars": 330,
+          "attempts": 1
+        }
+      ]
+    },
+    "flash-reasoning-pre-repair": {
+      "config": {
+        "name": "flash-reasoning-pre-repair",
+        "model": "deepseek/deepseek-v4-flash",
+        "schema": "shipped",
+        "why": "the shipped call BEFORE the envelope repair (relaxed schema only), single-shot \u2014 the baseline the repair is judged against; parsed back from the first probe run log"
+      },
+      "attemptsAllowed": 1,
+      "calls": [
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p01",
+          "ok": true,
+          "latencyMs": 27804,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 2879,
+          "outputTokens": 3321,
+          "tasks": 2
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p02",
+          "ok": true,
+          "latencyMs": 27948,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 2206,
+          "outputTokens": 2748,
+          "tasks": 2
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p03",
+          "ok": true,
+          "latencyMs": 27622,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 3387,
+          "outputTokens": 3899,
+          "tasks": 2
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p06",
+          "ok": true,
+          "latencyMs": 1639,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 0,
+          "outputTokens": 6,
+          "tasks": 0
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p07",
+          "ok": false,
+          "latencyMs": 91079,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 7054,
+          "outputTokens": 7609,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "No object generated: response did not match schema."
+          }
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p08",
+          "ok": true,
+          "latencyMs": 14984,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 1339,
+          "outputTokens": 1454,
+          "tasks": 0
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p09",
+          "ok": false,
+          "latencyMs": 107055,
+          "attempts": 1,
+          "finishReason": "length",
+          "reasoningTokens": 8000,
+          "outputTokens": 8000,
+          "failure": {
+            "shape": "budget-exhausted",
+            "message": "No object generated: the model did not return a response."
+          }
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p10",
+          "ok": true,
+          "latencyMs": 20594,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 1990,
+          "outputTokens": 2652,
+          "tasks": 3
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p11",
+          "ok": true,
+          "latencyMs": 21369,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 1817,
+          "outputTokens": 2227,
+          "tasks": 2
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p12",
+          "ok": true,
+          "latencyMs": 44642,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 4747,
+          "outputTokens": 5433,
+          "tasks": 3
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p13",
+          "ok": true,
+          "latencyMs": 1443,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 0,
+          "outputTokens": 7,
+          "tasks": 0
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p14",
+          "ok": false,
+          "latencyMs": 1549,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 0,
+          "outputTokens": 2,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "No object generated: response did not match schema."
+          }
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p15",
+          "ok": true,
+          "latencyMs": 17116,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 1161,
+          "outputTokens": 1782,
+          "tasks": 3
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p16",
+          "ok": true,
+          "latencyMs": 27778,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 2672,
+          "outputTokens": 3291,
+          "tasks": 3
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p19",
+          "ok": true,
+          "latencyMs": 19663,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 1346,
+          "outputTokens": 1945,
+          "tasks": 3
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p20",
+          "ok": true,
+          "latencyMs": 17977,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 1492,
+          "outputTokens": 1907,
+          "tasks": 2
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p22",
+          "ok": true,
+          "latencyMs": 27584,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 2756,
+          "outputTokens": 3043,
+          "tasks": 1
+        },
+        {
+          "variant": "flash-reasoning-pre-repair",
+          "promptId": "p24",
+          "ok": true,
+          "latencyMs": 2182,
+          "attempts": 1,
+          "finishReason": "stop",
+          "reasoningTokens": 0,
+          "outputTokens": 7,
+          "tasks": 0
+        }
+      ]
+    },
+    "flash-reasoning-old-schema": {
+      "config": {
+        "name": "flash-reasoning-old-schema",
+        "model": "deepseek/deepseek-v4-flash",
+        "schema": "old",
+        "why": "control \u2014 the same call with the pre-LUM-776 schema (reason required, max 400)"
+      },
+      "calls": [
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p01",
+          "ok": false,
+          "latencyMs": 1472,
+          "finishReason": "stop",
+          "outputTokens": 8,
+          "reasoningTokens": 0,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "No object generated: response did not match schema.",
+            "finishReason": "stop",
+            "textPrefix": "{\n  \"tasks\": []\n}"
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p02",
+          "ok": false,
+          "latencyMs": 1418,
+          "finishReason": "stop",
+          "outputTokens": 7,
+          "reasoningTokens": 0,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "No object generated: response did not match schema.",
+            "finishReason": "stop",
+            "textPrefix": "{ \"tasks\": [] }"
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p03",
+          "ok": true,
+          "latencyMs": 36926,
+          "finishReason": "stop",
+          "outputTokens": 5173,
+          "reasoningTokens": 4821,
+          "totalTokens": 7486,
+          "tasks": 2,
+          "objectiveChars": [524, 377],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p06",
+          "ok": true,
+          "latencyMs": 12808,
+          "finishReason": "stop",
+          "outputTokens": 2393,
+          "reasoningTokens": 1917,
+          "totalTokens": 5274,
+          "tasks": 3,
+          "objectiveChars": [502, 421, 387],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p07",
+          "ok": true,
+          "latencyMs": 15083,
+          "finishReason": "stop",
+          "outputTokens": 1516,
+          "reasoningTokens": 1158,
+          "totalTokens": 4500,
+          "tasks": 2,
+          "objectiveChars": [462, 474],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p08",
+          "ok": true,
+          "latencyMs": 35274,
+          "finishReason": "stop",
+          "outputTokens": 3722,
+          "reasoningTokens": 3440,
+          "totalTokens": 6194,
+          "tasks": 1,
+          "objectiveChars": [700],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p09",
+          "ok": true,
+          "latencyMs": 26311,
+          "finishReason": "stop",
+          "outputTokens": 2408,
+          "reasoningTokens": 1945,
+          "totalTokens": 5099,
+          "tasks": 2,
+          "objectiveChars": [737, 724],
+          "reasonChars": 234,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p10",
+          "ok": true,
+          "latencyMs": 21282,
+          "finishReason": "stop",
+          "outputTokens": 2477,
+          "reasoningTokens": 1850,
+          "totalTokens": 5156,
+          "tasks": 2,
+          "objectiveChars": [839, 906],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p11",
+          "ok": true,
+          "latencyMs": 21492,
+          "finishReason": "stop",
+          "outputTokens": 1829,
+          "reasoningTokens": 1402,
+          "totalTokens": 4442,
+          "tasks": 2,
+          "objectiveChars": [627, 599],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p12",
+          "ok": true,
+          "latencyMs": 34288,
+          "finishReason": "stop",
+          "outputTokens": 3510,
+          "reasoningTokens": 3013,
+          "totalTokens": 5722,
+          "tasks": 2,
+          "objectiveChars": [808, 711],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p13",
+          "ok": false,
+          "latencyMs": 1730,
+          "finishReason": "stop",
+          "outputTokens": 74,
+          "reasoningTokens": 0,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "No object generated: response did not match schema.",
+            "finishReason": "stop",
+            "textPrefix": "{\n  \"tasks\": [\n    {\n      \"objective\": \"Trace the child_process usage in any file outside __tests__/. The diff touches only __tests__/api/github/app-install.test.ts for this sink, so no production path exists. Skip.\",\n      \"category\": \"injection\",\n      \"startingPoints\": []\n    }\n  ]\n}"
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p14",
+          "ok": false,
+          "latencyMs": 1055,
+          "finishReason": "stop",
+          "outputTokens": 8,
+          "reasoningTokens": 0,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "No object generated: response did not match schema.",
+            "finishReason": "stop",
+            "textPrefix": "{\n  \"tasks\": []\n}"
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p15",
+          "ok": false,
+          "latencyMs": 3357,
+          "finishReason": "stop",
+          "outputTokens": 437,
+          "reasoningTokens": 0,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "No object generated: response did not match schema.",
+            "finishReason": "stop",
+            "textPrefix": "{\n  \"tasks\": [\n    {\n      \"objective\": \"Trace the DELETE /api/github/app/installation handler in app/api/github/app/installation/route.ts to confirm that the authorization check requires OWNER role (not just any workspace member). The trigger shows both 'auth' and 'workspace-scope' control rules; t"
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p16",
+          "ok": true,
+          "latencyMs": 19163,
+          "finishReason": "stop",
+          "outputTokens": 2188,
+          "reasoningTokens": 1794,
+          "totalTokens": 5249,
+          "tasks": 2,
+          "objectiveChars": [592, 578],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p19",
+          "ok": true,
+          "latencyMs": 25223,
+          "finishReason": "stop",
+          "outputTokens": 2898,
+          "reasoningTokens": 2279,
+          "totalTokens": 5947,
+          "tasks": 3,
+          "objectiveChars": [649, 656, 680],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p20",
+          "ok": true,
+          "latencyMs": 17312,
+          "finishReason": "stop",
+          "outputTokens": 1750,
+          "reasoningTokens": 1370,
+          "totalTokens": 4716,
+          "tasks": 2,
+          "objectiveChars": [569, 562],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p22",
+          "ok": true,
+          "latencyMs": 57851,
+          "finishReason": "stop",
+          "outputTokens": 7277,
+          "reasoningTokens": 6749,
+          "totalTokens": 9729,
+          "tasks": 2,
+          "objectiveChars": [756, 820],
+          "reasonChars": 400,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-reasoning-old-schema",
+          "promptId": "p24",
+          "ok": false,
+          "latencyMs": 1068,
+          "finishReason": "stop",
+          "outputTokens": 3,
+          "reasoningTokens": 0,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "No object generated: response did not match schema.",
+            "finishReason": "stop",
+            "textPrefix": "{ }"
+          },
+          "attempts": 1
+        }
+      ],
+      "attemptsAllowed": 1
+    },
+    "flash-no-reasoning": {
+      "config": {
+        "name": "flash-no-reasoning",
+        "model": "deepseek/deepseek-v4-flash",
+        "providerOptions": {
+          "deepseek": {
+            "reasoningEffort": "none"
+          }
+        },
+        "schema": "shipped",
+        "why": "candidate \u2014 cheapest change: same bucket, reasoning off (LUM-766 saw 13/16 empty plans under the old caps)"
+      },
+      "calls": [
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p01",
+          "ok": true,
+          "latencyMs": 1994,
+          "finishReason": "stop",
+          "outputTokens": 88,
+          "reasoningTokens": 0,
+          "totalTokens": 2807,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 374,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p02",
+          "ok": true,
+          "latencyMs": 3497,
+          "finishReason": "stop",
+          "outputTokens": 223,
+          "reasoningTokens": 0,
+          "totalTokens": 3495,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 1052,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p03",
+          "ok": true,
+          "latencyMs": 3339,
+          "finishReason": "stop",
+          "outputTokens": 154,
+          "reasoningTokens": 0,
+          "totalTokens": 2642,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 659,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p06",
+          "ok": true,
+          "latencyMs": 3336,
+          "finishReason": "stop",
+          "outputTokens": 227,
+          "reasoningTokens": 0,
+          "totalTokens": 3491,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 968,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p07",
+          "ok": true,
+          "latencyMs": 2365,
+          "finishReason": "stop",
+          "outputTokens": 139,
+          "reasoningTokens": 0,
+          "totalTokens": 3298,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 626,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p08",
+          "ok": true,
+          "latencyMs": 2106,
+          "finishReason": "stop",
+          "outputTokens": 160,
+          "reasoningTokens": 0,
+          "totalTokens": 2807,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 686,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p09",
+          "ok": true,
+          "latencyMs": 2461,
+          "finishReason": "stop",
+          "outputTokens": 185,
+          "reasoningTokens": 0,
+          "totalTokens": 3051,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 834,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p10",
+          "ok": true,
+          "latencyMs": 2251,
+          "finishReason": "stop",
+          "outputTokens": 125,
+          "reasoningTokens": 0,
+          "totalTokens": 2979,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 569,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p11",
+          "ok": true,
+          "latencyMs": 14657,
+          "finishReason": "stop",
+          "outputTokens": 756,
+          "reasoningTokens": 0,
+          "totalTokens": 3544,
+          "tasks": 3,
+          "objectiveChars": [834, 814, 834],
+          "reasonChars": 378,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p12",
+          "ok": true,
+          "latencyMs": 9087,
+          "finishReason": "stop",
+          "outputTokens": 666,
+          "reasoningTokens": 0,
+          "totalTokens": 3053,
+          "tasks": 3,
+          "objectiveChars": [864, 768, 685],
+          "reasonChars": 409,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p13",
+          "ok": true,
+          "latencyMs": 1277,
+          "finishReason": "stop",
+          "outputTokens": 6,
+          "reasoningTokens": 0,
+          "totalTokens": 2009,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 48,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p14",
+          "ok": true,
+          "latencyMs": 5061,
+          "finishReason": "stop",
+          "outputTokens": 525,
+          "reasoningTokens": 0,
+          "totalTokens": 2520,
+          "tasks": 3,
+          "objectiveChars": [608, 628, 769],
+          "reasonChars": 48,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p15",
+          "ok": true,
+          "latencyMs": 6265,
+          "finishReason": "stop",
+          "outputTokens": 618,
+          "reasoningTokens": 0,
+          "totalTokens": 3284,
+          "tasks": 3,
+          "objectiveChars": [598, 617, 674],
+          "reasonChars": 407,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p16",
+          "ok": true,
+          "latencyMs": 5346,
+          "finishReason": "stop",
+          "outputTokens": 579,
+          "reasoningTokens": 0,
+          "totalTokens": 3432,
+          "tasks": 3,
+          "objectiveChars": [653, 648, 665],
+          "reasonChars": 48,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p19",
+          "ok": true,
+          "latencyMs": 3439,
+          "finishReason": "stop",
+          "outputTokens": 224,
+          "reasoningTokens": 0,
+          "totalTokens": 3448,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 973,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p20",
+          "ok": true,
+          "latencyMs": 3041,
+          "finishReason": "stop",
+          "outputTokens": 151,
+          "reasoningTokens": 0,
+          "totalTokens": 3292,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 663,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p22",
+          "ok": true,
+          "latencyMs": 1572,
+          "finishReason": "stop",
+          "outputTokens": 7,
+          "reasoningTokens": 0,
+          "totalTokens": 2250,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 48,
+          "attempts": 1
+        },
+        {
+          "variant": "flash-no-reasoning",
+          "promptId": "p24",
+          "ok": true,
+          "latencyMs": 1847,
+          "finishReason": "stop",
+          "outputTokens": 8,
+          "reasoningTokens": 0,
+          "totalTokens": 2905,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 48,
+          "attempts": 1
+        }
+      ],
+      "attemptsAllowed": 1
+    },
+    "haiku-4.5": {
+      "config": {
+        "name": "haiku-4.5",
+        "model": "anthropic/claude-haiku-4.5",
+        "schema": "shipped",
+        "why": "candidate \u2014 a non-reasoning model for what is a structured routing decision"
+      },
+      "calls": [
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p01",
+          "ok": false,
+          "latencyMs": 10110,
+          "finishReason": "stop",
+          "outputTokens": 639,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "No object generated: response did not match schema.",
+            "finishReason": "stop",
+            "textPrefix": "{\"tasks\":[{\"objective\":\"Verify that all 9 cron route handlers (backfill-lineage-outcomes, prune-document-revisions, prune-security-sarif, roll-sprints, sweep-security-scans, and the internal routes) correctly implement the CRON_SECRET authentication check. The team recorded a trap where L3 reported "
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p02",
+          "ok": true,
+          "latencyMs": 9823,
+          "finishReason": "stop",
+          "outputTokens": 501,
+          "reasoningTokens": 0,
+          "totalTokens": 4602,
+          "tasks": 3,
+          "objectiveChars": [491, 372, 387],
+          "reasonChars": 514,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p03",
+          "ok": true,
+          "latencyMs": 6918,
+          "finishReason": "stop",
+          "outputTokens": 222,
+          "reasoningTokens": 0,
+          "totalTokens": 3306,
+          "tasks": 0,
+          "objectiveChars": [],
+          "reasonChars": 1012,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p06",
+          "ok": true,
+          "latencyMs": 8994,
+          "finishReason": "stop",
+          "outputTokens": 578,
+          "reasoningTokens": 0,
+          "totalTokens": 4670,
+          "tasks": 3,
+          "objectiveChars": [480, 468, 508],
+          "reasonChars": 438,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p07",
+          "ok": true,
+          "latencyMs": 7569,
+          "finishReason": "stop",
+          "outputTokens": 473,
+          "reasoningTokens": 0,
+          "totalTokens": 4286,
+          "tasks": 3,
+          "objectiveChars": [419, 377, 365],
+          "reasonChars": 547,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p08",
+          "ok": true,
+          "latencyMs": 8489,
+          "finishReason": "stop",
+          "outputTokens": 555,
+          "reasoningTokens": 0,
+          "totalTokens": 3995,
+          "tasks": 3,
+          "objectiveChars": [450, 438, 434],
+          "reasonChars": 542,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p09",
+          "ok": true,
+          "latencyMs": 8298,
+          "finishReason": "stop",
+          "outputTokens": 530,
+          "reasoningTokens": 0,
+          "totalTokens": 4001,
+          "tasks": 3,
+          "objectiveChars": [417, 365, 293],
+          "reasonChars": 589,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p10",
+          "ok": true,
+          "latencyMs": 12730,
+          "finishReason": "stop",
+          "outputTokens": 592,
+          "reasoningTokens": 0,
+          "totalTokens": 4050,
+          "tasks": 3,
+          "objectiveChars": [483, 449, 417],
+          "reasonChars": 586,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p11",
+          "ok": true,
+          "latencyMs": 7756,
+          "finishReason": "stop",
+          "outputTokens": 527,
+          "reasoningTokens": 0,
+          "totalTokens": 3916,
+          "tasks": 3,
+          "objectiveChars": [429, 376, 386],
+          "reasonChars": 547,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p12",
+          "ok": true,
+          "latencyMs": 7004,
+          "finishReason": "stop",
+          "outputTokens": 401,
+          "reasoningTokens": 0,
+          "totalTokens": 3335,
+          "tasks": 3,
+          "objectiveChars": [354, 362, 302],
+          "reasonChars": 524,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p13",
+          "ok": true,
+          "latencyMs": 7130,
+          "finishReason": "stop",
+          "outputTokens": 460,
+          "reasoningTokens": 0,
+          "totalTokens": 3394,
+          "tasks": 3,
+          "objectiveChars": [462, 399, 364],
+          "reasonChars": 463,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p14",
+          "ok": true,
+          "latencyMs": 6475,
+          "finishReason": "stop",
+          "outputTokens": 434,
+          "reasoningTokens": 0,
+          "totalTokens": 3363,
+          "tasks": 3,
+          "objectiveChars": [450, 396, 338],
+          "reasonChars": 465,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p15",
+          "ok": true,
+          "latencyMs": 6833,
+          "finishReason": "stop",
+          "outputTokens": 439,
+          "reasoningTokens": 0,
+          "totalTokens": 3700,
+          "tasks": 3,
+          "objectiveChars": [366, 327, 368],
+          "reasonChars": 478,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p16",
+          "ok": true,
+          "latencyMs": 7454,
+          "finishReason": "stop",
+          "outputTokens": 487,
+          "reasoningTokens": 0,
+          "totalTokens": 4540,
+          "tasks": 3,
+          "objectiveChars": [429, 336, 301],
+          "reasonChars": 518,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p19",
+          "ok": true,
+          "latencyMs": 7940,
+          "finishReason": "stop",
+          "outputTokens": 597,
+          "reasoningTokens": 0,
+          "totalTokens": 4635,
+          "tasks": 3,
+          "objectiveChars": [564, 437, 408],
+          "reasonChars": 532,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p20",
+          "ok": true,
+          "latencyMs": 6953,
+          "finishReason": "stop",
+          "outputTokens": 457,
+          "reasoningTokens": 0,
+          "totalTokens": 4411,
+          "tasks": 3,
+          "objectiveChars": [436, 366, 300],
+          "reasonChars": 463,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p22",
+          "ok": true,
+          "latencyMs": 10146,
+          "finishReason": "stop",
+          "outputTokens": 652,
+          "reasoningTokens": 0,
+          "totalTokens": 4028,
+          "tasks": 3,
+          "objectiveChars": [491, 493, 553],
+          "reasonChars": 650,
+          "attempts": 1
+        },
+        {
+          "variant": "haiku-4.5",
+          "promptId": "p24",
+          "ok": true,
+          "latencyMs": 7478,
+          "finishReason": "stop",
+          "outputTokens": 520,
+          "reasoningTokens": 0,
+          "totalTokens": 4623,
+          "tasks": 3,
+          "objectiveChars": [481, 446, 382],
+          "reasonChars": 495,
+          "attempts": 1
+        }
+      ],
+      "attemptsAllowed": 1
+    },
+    "gpt-4.1-mini": {
+      "config": {
+        "name": "gpt-4.1-mini",
+        "model": "openai/gpt-4.1-mini",
+        "schema": "shipped",
+        "why": "candidate \u2014 second non-reasoning model, cheap"
+      },
+      "calls": [
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p01",
+          "ok": false,
+          "latencyMs": 486,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p02",
+          "ok": false,
+          "latencyMs": 543,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p03",
+          "ok": false,
+          "latencyMs": 581,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p06",
+          "ok": false,
+          "latencyMs": 511,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p07",
+          "ok": false,
+          "latencyMs": 814,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p08",
+          "ok": false,
+          "latencyMs": 386,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p09",
+          "ok": false,
+          "latencyMs": 409,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p10",
+          "ok": false,
+          "latencyMs": 413,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p11",
+          "ok": false,
+          "latencyMs": 726,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p12",
+          "ok": false,
+          "latencyMs": 454,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p13",
+          "ok": false,
+          "latencyMs": 375,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p14",
+          "ok": false,
+          "latencyMs": 441,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p15",
+          "ok": false,
+          "latencyMs": 998,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p16",
+          "ok": false,
+          "latencyMs": 2807,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p19",
+          "ok": false,
+          "latencyMs": 757,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p20",
+          "ok": false,
+          "latencyMs": 478,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p22",
+          "ok": false,
+          "latencyMs": 521,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        },
+        {
+          "variant": "gpt-4.1-mini",
+          "promptId": "p24",
+          "ok": false,
+          "latencyMs": 1053,
+          "failure": {
+            "shape": "schema-mismatch",
+            "message": "Invalid schema for response_format 'response': In context=(), 'required' is required to be supplied and to be an array including every key in properties. Missing 'reason'."
+          },
+          "attempts": 1
+        }
+      ],
+      "attemptsAllowed": 1
+    }
+  }
+}

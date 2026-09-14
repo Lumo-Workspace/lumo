@@ -864,6 +864,8 @@ describe('LUM-739 hunt service', () => {
     expect(out.tokens).toBe(0)
     expect(out.reason).toContain('plan unavailable')
     expect(out.reason).toContain('gateway 500')
+    // LUM-776 — the stable shape rides in the reason as a greppable prefix.
+    expect(out.reason).toMatch(/^plan unavailable \[transport\]: /)
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('using deterministic fallback')
     )
@@ -896,6 +898,8 @@ describe('LUM-739 hunt service', () => {
     expect(out.by).toBe('fallback')
     expect(out.planFailure).toEqual({
       message: 'No object generated: the model did not return a response.',
+      // LUM-776 — the stable shape the audit counts on, and the prefix.
+      shape: 'budget-exhausted',
       finishReason: 'length',
       reasoningTokens: 7_940,
       outputTokens: 8_000,
@@ -903,6 +907,26 @@ describe('LUM-739 hunt service', () => {
     })
     // …and `length` is retryable, so the second window was actually used.
     expect(planMock).toHaveBeenCalledTimes(PLAN_HUNT_MAX_ATTEMPTS)
+  })
+
+  it('planHunt carries the envelope repair onto the output, and leaves it off otherwise', async () => {
+    planMock.mockResolvedValueOnce({
+      tasks: [],
+      reason: 'nothing',
+      tokens: 12,
+      repaired: 'missing-tasks',
+    })
+    const repaired = await securityHuntService.planHunt({
+      job: { ...JOB, reasons: ['diff:sink:prisma-raw'] },
+    })
+    expect(repaired.by).toBe('model')
+    expect(repaired.planRepair).toBe('missing-tasks')
+
+    planMock.mockResolvedValueOnce({ tasks: [], reason: 'nothing', tokens: 12 })
+    const clean = await securityHuntService.planHunt({
+      job: { ...JOB, reasons: ['diff:sink:prisma-raw'] },
+    })
+    expect(clean).not.toHaveProperty('planRepair')
   })
 
   it('planHunt leaves planFailure absent when the planner answered', async () => {

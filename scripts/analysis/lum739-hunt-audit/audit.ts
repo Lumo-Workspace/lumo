@@ -103,6 +103,28 @@ async function main(): Promise<void> {
         : counts.map(k => `${k}→${stats.plan.taskCounts[k]}`).join(' · ')
     }`
   )
+  // LUM-766 follow-up / LUM-776 — why the planner failed, two ways: by the
+  // provider's finish reason (budget vs shape) and by the stable shape the
+  // acceptance read-out counts on. `unclassified` = rows older than the field.
+  const fails = Object.entries(stats.plan.failures).sort((a, b) => b[1] - a[1])
+  const shapes = Object.entries(stats.plan.failureShapes).sort(
+    (a, b) => b[1] - a[1]
+  )
+  console.log(
+    `plan failures by finish reason: ${fails.length === 0 ? '(none)' : fails.map(([k, n]) => `${k} ${n}`).join(' · ')}` +
+      (stats.plan.emptyOutput > 0
+        ? ` · emitted nothing ${stats.plan.emptyOutput}`
+        : '')
+  )
+  console.log(
+    `plan failures by shape (LUM-776): ${shapes.length === 0 ? '(none)' : shapes.map(([k, n]) => `${k} ${n}`).join(' · ')}`
+  )
+  const repaired = Object.entries(stats.plan.repaired).sort(
+    (a, b) => b[1] - a[1]
+  )
+  console.log(
+    `model plans that needed an envelope repair (LUM-776): ${repaired.length === 0 ? '(none)' : repaired.map(([k, n]) => `${k} ${n}`).join(' · ')}`
+  )
   const stops = Object.entries(stats.taskStops).sort((a, b) => b[1] - a[1])
 
   console.log(
