@@ -218,7 +218,11 @@ test('removing a Forbidden rule emits POLICY_WEAKENING with no agent disposition
     expect.objectContaining({
       category: 'POLICY_WEAKENING',
       taskId: 't1',
+      // The text really is gone from the file — a person deleted it. This is
+      // the only shape that blocks a DONE, and it must keep blocking: the fix
+      // for the false positives must not quietly disarm the true positive.
       advisory: false,
+      severity: 'HIGH',
       // LUM-630: a committed CLAUDE.md edit is repo state — reversible, and
       // the create site must say so explicitly (no repository default).
       reversible: true,
@@ -226,16 +230,20 @@ test('removing a Forbidden rule emits POLICY_WEAKENING with no agent disposition
   )
 })
 
-test('downgrading a deterministic+blocking rule to semantic emits POLICY_WEAKENING with same policyRuleRef', async () => {
-  // The rule text is IDENTICAL in both prev and next — same id (sha256 of text).
-  // Only the LLM reclassification changes tier from deterministic to semantic,
-  // and blocking from true to false. This verifies the downgrade path is caught.
+test('a same-text reclassification is the COMPILER changing its mind, not a person weakening the policy', async () => {
+  // The id IS sha256(text), so an identical id means identical text means
+  // nobody edited that rule. Reporting it as a HIGH, DONE-blocking "policy
+  // weakening" was how LUM-770's own safety net — which deliberately downgrades
+  // an obligation carrying a cmd-substr predicate — came to report ITSELF as an
+  // attack on the policy, four times in a day, against an untouched CLAUDE.md.
+  // Still recorded: a classifier that quietly stops treating a Forbidden line
+  // as deterministic does leave the project less protected. But advisory, and
+  // attributed to the compiler.
   const createSpy = jest
     .spyOn(boundaryCrossingRepository, 'create')
     .mockResolvedValue(undefined as never)
 
   const ruleText = 'Never delete files in prisma/migrations/'
-  // Compute the same id the service would compute: sha256(text).slice(0,16)
   const { createHash } = await import('crypto')
   const expectedRuleId = createHash('sha256')
     .update(ruleText)
@@ -256,9 +264,6 @@ test('downgrading a deterministic+blocking rule to semantic emits POLICY_WEAKENI
       },
     ],
   })
-
-  // Source still contains the same rule text — so the new compilation will
-  // produce the same id. But classifyRules now returns tier:'semantic'.
   ;(contents.readRepoFile as jest.Mock).mockResolvedValue(
     `## Forbidden\n- ${ruleText}`
   )
@@ -267,7 +272,7 @@ test('downgrading a deterministic+blocking rule to semantic emits POLICY_WEAKENI
       {
         text: ruleText,
         kind: 'action',
-        tier: 'semantic', // downgraded — same text, weaker classification
+        tier: 'semantic',
         assertion: 'do not delete migration files',
         severity: 'HIGH',
         blocking: false,
@@ -282,19 +287,116 @@ test('downgrading a deterministic+blocking rule to semantic emits POLICY_WEAKENI
     taskId: 't2',
   })
 
-  // Must fire exactly once for the downgraded rule.
   expect(createSpy).toHaveBeenCalledTimes(1)
-  expect(createSpy).toHaveBeenCalledWith(
-    expect.objectContaining({
-      category: 'POLICY_WEAKENING',
-      taskId: 't2',
-      advisory: false,
-      policyRuleRef: expectedRuleId,
-    })
+  const arg = createSpy.mock.calls[0]?.[0] as {
+    detail: string
+    advisory: boolean
+    severity: string
+    policyRuleRef: string
+  }
+  expect(arg.policyRuleRef).toBe(expectedRuleId)
+  // Does not block anyone's DONE, and does not read as a human action.
+  expect(arg.advisory).toBe(true)
+  expect(arg.severity).toBe('MEDIUM')
+  expect(arg.detail).toContain('UNCHANGED')
+  expect(arg.detail).not.toMatch(/removed from/)
+})
+
+test('a rule the compiler simply stopped emitting is not a removal while its text is still in the file', async () => {
+  // The other half of the same defect: rule identity is sha256 of LLM-extracted
+  // text, so a classifier that paraphrases by one character mints a new id and
+  // the old one reads as "removed" — from a file nobody touched.
+  const createSpy = jest
+    .spyOn(boundaryCrossingRepository, 'create')
+    .mockResolvedValue(undefined as never)
+
+  jest.spyOn(projectPolicyRepository, 'latestForProject').mockResolvedValue({
+    sourceHash: 'old',
+    rules: [
+      {
+        id: 'r1',
+        text: 'Never push to main',
+        kind: 'action',
+        tier: 'deterministic',
+        mappedCategory: 'PUSH_TO_PROTECTED_BRANCH',
+        severity: 'MEDIUM',
+        blocking: true,
+      },
+    ],
+  })
+  // The line is STILL THERE — the classifier just phrased it differently.
+  ;(contents.readRepoFile as jest.Mock).mockResolvedValue(
+    '## Forbidden\n- Never push to main'
   )
-  // The detail must mention "downgraded", not "removed" — non-vacuous check.
-  const callArg = createSpy.mock.calls[0]?.[0] as { detail: string }
-  expect(callArg.detail).toMatch(/downgraded/)
+  ;(client.classifyRules as jest.Mock).mockResolvedValue({
+    rules: [
+      {
+        text: 'Never push directly to main',
+        kind: 'action',
+        tier: 'deterministic',
+        mappedCategory: 'PUSH_TO_PROTECTED_BRANCH',
+        severity: 'MEDIUM',
+      },
+    ],
+  })
+
+  await policyCompilerService.ensureCompiled({
+    projectId: 'p5',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+    taskId: 't3',
+  })
+
+  expect(createSpy).toHaveBeenCalledTimes(1)
+  const arg = createSpy.mock.calls[0]?.[0] as {
+    advisory: boolean
+    severity: string
+  }
+  expect(arg.advisory).toBe(true)
+  expect(arg.severity).toBe('MEDIUM')
+})
+
+test('markdown emphasis and code spans do not make a present rule look removed', async () => {
+  // The production shape. CLAUDE.md writes the rule inside a long bullet with
+  // bold markers and code spans; the classifier hands back the stripped text.
+  // A raw `source.includes(rule.text)` is false for every such rule, which
+  // would turn this fix into the very false positive it removes.
+  const createSpy = jest
+    .spyOn(boundaryCrossingRepository, 'create')
+    .mockResolvedValue(undefined as never)
+
+  const stripped =
+    'Never prisma migrate reset or direct-UPDATE _prisma_migrations without explicit user approval'
+
+  jest.spyOn(projectPolicyRepository, 'latestForProject').mockResolvedValue({
+    sourceHash: 'old',
+    rules: [
+      {
+        id: 'r9',
+        text: stripped,
+        kind: 'action',
+        tier: 'deterministic',
+        mappedCategory: 'MIGRATION_FILE_DELETED',
+        severity: 'HIGH',
+        blocking: true,
+      },
+    ],
+  })
+  ;(contents.readRepoFile as jest.Mock).mockResolvedValue(
+    '- **Dev**: schema changes are applied locally. **NEVER** `prisma migrate reset`\n  or Direct-Update `_prisma_migrations` without Explicit User Approval.'
+  )
+  ;(client.classifyRules as jest.Mock).mockResolvedValue({ rules: [] })
+
+  await policyCompilerService.ensureCompiled({
+    projectId: 'p6',
+    workspaceId: 'w1',
+    fullName: 'o/r',
+    taskId: 't4',
+  })
+
+  expect(createSpy).toHaveBeenCalledTimes(1)
+  const arg = createSpy.mock.calls[0]?.[0] as { advisory: boolean }
+  expect(arg.advisory).toBe(true)
 })
 
 // ── LUM-770: obligations must never become cmd-substr prohibitions ───────────

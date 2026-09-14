@@ -83,15 +83,48 @@ async function readSource(
 }
 
 /**
- * Emit POLICY_WEAKENING crossings for every deterministic+blocking rule that
- * was present in prevRules but is either absent from nextRules (removed) or
- * is present with a weaker classification (downgraded — same id, but no longer
- * deterministic+blocking). Keyed on stable rule id (sha256 of text).
+ * Markdown-insensitive comparison basis. A rule's `text` is what the classifier
+ * extracted, with emphasis and code spans already stripped; the source still
+ * carries them, so `source.includes(rule.text)` is false for a rule that is
+ * plainly still there. Normalising both sides is what makes "is this text still
+ * in the file" a question worth asking.
+ */
+function normalizeForPresence(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[`*]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Crossings for deterministic+blocking rules that no longer are.
+ *
+ * The discriminator is NOT "did the rule set change" — it is **is the rule's
+ * text still in the source**. Those are different questions, and conflating
+ * them is what made this detector cry wolf:
+ *
+ *  - `sourceHash` is salted with COMPILER_VERSION, so bumping the compiler
+ *    forces a recompile of an UNCHANGED CLAUDE.md. LUM-770 bumped it, and its
+ *    own safety net — which deliberately downgrades an obligation carrying a
+ *    cmd-substr predicate — then reported itself as a HIGH policy weakening.
+ *  - rule identity is `sha256(text)` of LLM-extracted text, so a classifier
+ *    that paraphrases by one character produces a new id and the old one reads
+ *    as "removed". Observed 4 times for one untouched rule in a single day.
+ *
+ * A rule whose text is still in the file was not weakened by a person. That is
+ * still worth recording — a classifier that quietly stops treating a Forbidden
+ * line as deterministic leaves the project less protected in practice — but as
+ * ADVISORY, attributed to the compiler, and not blocking anyone's DONE.
+ *
+ * A same-id difference is definitionally this case: the id IS the text hash, so
+ * identical id means identical text means nobody edited that rule.
  */
 async function emitWeakening(
   prevRules: PolicyRule[],
   nextRules: PolicyRule[],
-  taskId: string
+  taskId: string,
+  source: string
 ): Promise<void> {
   const nextById = new Map(nextRules.map(r => [r.id, r]))
   const weakened = prevRules.filter(r => {
@@ -100,17 +133,17 @@ async function emitWeakening(
     if (next == null) return true // removed
     return !(next.tier === 'deterministic' && next.blocking) // downgraded
   })
+  const haystack = normalizeForPresence(source)
   for (const r of weakened) {
-    const next = nextById.get(r.id)
-    const detail =
-      next == null
-        ? `A deterministic Forbidden rule was removed from CLAUDE.md: "${r.text}"`
-        : `A deterministic Forbidden rule was downgraded (${r.tier} -> ${next.tier}): "${r.text}"`
+    const stillInSource = haystack.includes(normalizeForPresence(r.text))
+    const detail = stillInSource
+      ? `The policy compiler stopped treating this rule as deterministic+blocking, but its text is UNCHANGED in CLAUDE.md — a classifier decision, not an edit: "${r.text}"`
+      : `A deterministic Forbidden rule was removed from CLAUDE.md: "${r.text}"`
     await boundaryCrossingRepository.create({
       taskId,
       category: 'POLICY_WEAKENING',
-      severity: 'HIGH',
-      advisory: false,
+      severity: stillInSource ? 'MEDIUM' : 'HIGH',
+      advisory: stillInSource,
       detail,
       target: `weakening:${r.id}`,
       // LUM-630: route through the taxonomy instead of eating the
@@ -245,7 +278,7 @@ export const policyCompilerService = {
 
     // 6. Emit POLICY_WEAKENING for removed deterministic+blocking rules.
     if (prev && input.taskId) {
-      await emitWeakening(prev.rules, rules, input.taskId)
+      await emitWeakening(prev.rules, rules, input.taskId, source)
     }
 
     return { sourceHash, rules }
