@@ -50,12 +50,13 @@ The `acceptance` block at the end applies LUM-787's contract: ≥ 2 of 3 tasks
 is the pre-deploy evidence attached to LUM-787: PR 1008 (head `02cf887c`)
 on the shipped `HUNT_MODEL` (qwen3-coder-plus) sized the way the workflow
 sizes a scan — 51 touched source files → cap 5, oversized; three planned
-tasks each allocated the 45k ceiling and a 90 s window — 3/3 `done`,
-14 / 13 / 12 steps, refused 0, 37–41k tokens per task. Earlier rungs of the
-same model on the same diff: flat 20k → 3/3 `done` at 6 / 5 / 5 steps; flat
-30k → 2/3 at 9 / 8 / 9; 45k with the old 12-step cap → 2/3, all three at
-12 steps with 6–12k unspent (which is why the cap moved to 16 and the window
-follows the allowance). The fix itself was tuned on
+tasks each allocated the 80k ceiling and a 96 s window — 3/3 `done`,
+22 / 21 / 21 steps, refused 0, 73–75k tokens and 43–58 s per task, one
+candidate submitted. Earlier rungs of the same model on the same diff: flat
+20k → 3/3 `done` at 6 / 5 / 5 steps; flat 30k → 2/3 at 9 / 8 / 9; 45k with
+the old 12-step cap → 2/3, all three at 12 steps with 6–12k unspent (which
+is why the cap moved with the allowance and the window follows it); 45k
+with a 16-step cap → 3/3 at 14 / 13 / 12. The fix itself was tuned on
 DeepSeek V4-Pro over three replays, 2026-09-15:
 
 | run | change under test                                                     | result                                                                                                                                                                                                     |
