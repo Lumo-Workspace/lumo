@@ -75,6 +75,34 @@ export interface HuntJob {
   managedScanStarted: boolean
 }
 
+/**
+ * LUM-782 — what the start-up probe found on the VM a batch ran on. Three
+ * disjoint lists over `HUNT_SHELL_COMMANDS`, and the third is not padding:
+ *   - `present`   — the probe ran and the tool answered.
+ *   - `missing`   — the shell answered exit 127 (`command not found`): the
+ *     binary is not on PATH, and every agent command naming it would fail the
+ *     same way while looking, in every other column, like a search that
+ *     found nothing.
+ *   - `unverified` — the probe itself could not run (VM gone, timeout, or a
+ *     probe the gate refused — a bug the tests pin). No claim either way; an
+ *     unverified tool is never reported to the model as missing.
+ */
+export interface HuntToolProbe {
+  present: string[]
+  missing: string[]
+  unverified: string[]
+}
+
+/**
+ * LUM-782 — the tools the hunt cannot do without. The system prompt takes
+ * line numbers from `rg -n` / `grep -n`; a VM with `rg` missing degrades to
+ * `grep` (the prompt says so), a VM with BOTH missing has nothing to search
+ * with, and `huntBatch` refuses to start the model rather than let it burn
+ * its allowance on `command not found` — the layer lands FAILED with the
+ * reason, honestly.
+ */
+export const HUNT_SEARCH_TOOLS: readonly string[] = ['rg', 'grep']
+
 /** LUM-758 §5.1 — how long to wait for the managed scan's VM, and how often to look. */
 export const HUNT_SANDBOX_ATTACH_WAIT_MS = 30_000
 export const HUNT_SANDBOX_ATTACH_POLL_MS = 3_000
@@ -457,6 +485,16 @@ export interface HuntAudit {
    */
   egressDenied?: boolean
   /**
+   * LUM-782 — the allowlisted tools as the VM actually had them, pessimistic
+   * across batches: a tool missing in ANY batch is missing for the run (the
+   * same shape as `egressDenied`). Absent on rows written before the probe
+   * existed, and on a run where no batch ever got a VM. The tool description
+   * and `HUNT_SHELL_COMMANDS` are derived from one list; this is the third
+   * declaration — what was really installed — that had never been checked
+   * against the other two.
+   */
+  tools?: HuntToolProbe
+  /**
    * LUM-758 §6.3 — what the shell-output compressor cost and what it bought,
    * over every `run_shell` call of every batch of this scan. This step was
    * scoped as "only if still over budget", so it ships measurable and
@@ -527,6 +565,15 @@ export interface HuntShellStats {
   refused: number
   /** …of which the sandbox failed to run at all (VM gone, or SHELL_TIMEOUT_MS). */
   failed: number
+  /**
+   * LUM-782 — …of which the shell RAN but could not find the program (exit
+   * 127, or dash's `: not found` on stderr). Neither `refused` nor `failed`
+   * saw these: `sandbox.run` resolves on a non-zero exit, so a `command not
+   * found` came back as ordinary output and was counted as a command that
+   * ran and returned something. A task whose every `rg` did this read exactly
+   * like a task that searched carefully — the shape LUM-782 was opened on.
+   */
+  notFound: number
   /** …of which ran and returned nothing: a search that matched no line. */
   empty: number
   /** Total characters handed back to the model, after compression. */
@@ -551,6 +598,10 @@ export interface HuntShellStats {
     chars?: number
     /** LUM-781 — the output went through the compressor before the model saw it. */
     compressed?: true
+    /** LUM-782 — the shell's exit code; absent when the gate refused or the sandbox failed. */
+    exit?: number
+    /** LUM-782 — the shell could not find the program (see `notFound`). */
+    notFound?: true
   }>
 }
 
@@ -753,6 +804,8 @@ export interface HuntBatchOutput {
   sandbox?: 'attached' | 'created'
   /** Did that VM run with its network egress actually cut? See `HuntSandbox`. */
   egressDenied?: boolean
+  /** LUM-782 — what the start-up probe found on this batch's VM. */
+  tools?: HuntToolProbe
 }
 
 export interface MechanicalVerifyInput {

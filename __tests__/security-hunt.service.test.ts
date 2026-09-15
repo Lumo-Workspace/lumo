@@ -16,6 +16,7 @@ jest.mock('@/lib/llm/security-hunt-client', () => ({ huntTask: jest.fn() }))
 // these tests can say what `huntBatch` does WITH it.
 jest.mock('@/lib/services/security-hunt-sandbox', () => ({
   attachOrCreateHuntSandbox: jest.fn(),
+  probeHuntTools: jest.fn(),
   runHuntShell: jest.fn(),
   readHuntFile: jest.fn(),
   stopHuntSandbox: jest.fn().mockResolvedValue(undefined),
@@ -51,6 +52,7 @@ import {
   runHuntShell,
   readHuntFile,
   stopHuntSandbox,
+  probeHuntTools,
 } from '@/lib/services/security-hunt-sandbox'
 import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
 import {
@@ -64,6 +66,7 @@ import {
   HUNT_WRAP_UP_TEXT_CHARS,
   type HuntStepTrace,
 } from '@/lib/services/security-hunt.config'
+import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
 
 const diffMock = fetchPrDiff as jest.Mock
 const readMock = readRepoFile as jest.Mock
@@ -71,6 +74,7 @@ const huntMock = huntTask as jest.Mock
 const falsifyMock = falsifyCandidate as jest.Mock
 const planMock = planHuntTasks as jest.Mock
 const attachMock = attachOrCreateHuntSandbox as jest.Mock
+const probeMock = probeHuntTools as jest.Mock
 const shellMock = runHuntShell as jest.Mock
 const readHuntFileMock = readHuntFile as jest.Mock
 const stopMock = stopHuntSandbox as jest.Mock
@@ -150,9 +154,25 @@ const NOT_COMPRESSED = (output: string) => ({
   compressOutputChars: 0,
 })
 
+/** LUM-782 — the common case: the VM has everything the allowlist promises. */
+const ALL_PRESENT = () => ({
+  present: [...HUNT_SHELL_COMMANDS],
+  missing: [],
+  unverified: [],
+})
+/** A probe that found `missing` gone and everything else there. */
+const PROBE = (missing: string[], unverified: string[] = []) => ({
+  present: HUNT_SHELL_COMMANDS.filter(
+    t => !missing.includes(t) && !unverified.includes(t)
+  ),
+  missing,
+  unverified,
+})
+
 beforeEach(() => {
   jest.clearAllMocks()
   attachMock.mockResolvedValue(HANDLE)
+  probeMock.mockResolvedValue(ALL_PRESENT())
   shellMock.mockResolvedValue(NOT_COMPRESSED(''))
   readHuntFileMock.mockResolvedValue(null)
   stopMock.mockResolvedValue(undefined)
@@ -499,6 +519,7 @@ describe('LUM-739 hunt service', () => {
       // The gate refused ONE. The dead sandbox is its own number.
       refused: 1,
       failed: 1,
+      notFound: 0,
       empty: 1,
       outputChars: 'lib/a.ts:3: hit'.length + 1,
       commands: [
@@ -1372,6 +1393,133 @@ describe('LUM-739 hunt service', () => {
       huntAudit: { error: 'x'.repeat(500) },
       tokenSpent: 12,
       partial: false,
+    })
+  })
+
+  /**
+   * LUM-782 — the batch asks the VM what it has BEFORE the model's first step,
+   * and what the VM answers decides what the model is told. The fatal case
+   * throws ABOVE the try, like the acquisition throw, so the workflow's P9
+   * stamps FAILED with the reason instead of a PARTIAL claiming the hunt ran.
+   */
+  describe('LUM-782 — the start-up probe decides what the model is told', () => {
+    it('LUM-782 probe: huntBatch probes the VM before the first model step, hands the result to the client and carries it out', async () => {
+      const probe = PROBE(['rg'])
+      probeMock.mockResolvedValue(probe)
+      huntMock.mockResolvedValueOnce({
+        candidates: [],
+        tokens: 5,
+        stopped: 'done',
+      })
+
+      const out = await securityHuntService.huntBatch(batchInput())
+
+      // The WHOLE handle, so the probe runs on the scrubbed VM this batch uses.
+      expect(probeMock).toHaveBeenCalledTimes(1)
+      expect(probeMock.mock.calls[0]![0]).toBe(HANDLE)
+      // Probe first, model second — the model is told what the probe found.
+      expect(probeMock.mock.invocationCallOrder[0]!).toBeLessThan(
+        huntMock.mock.invocationCallOrder[0]!
+      )
+      expect(huntMock.mock.calls[0]![0].tools).toEqual(probe)
+      // …and the fact rides out on the batch, where the workflow folds it into
+      // `huntAudit.tools` — a probe computed and dropped here would be the same
+      // gap `wrappedUp` and the compression no-op counter each fell into once.
+      expect(out.tools).toEqual(probe)
+    })
+
+    it('LUM-782 probe: the error and timeout exits carry the probe too', async () => {
+      const probe = PROBE(['rg'])
+      probeMock.mockResolvedValue(probe)
+      huntMock.mockRejectedValueOnce(new Error('gateway down'))
+
+      const out = await securityHuntService.huntBatch(batchInput())
+
+      expect(out.stopped).toBe('error')
+      expect(out.tools).toEqual(probe)
+    })
+
+    it('LUM-782 missing: with rg and grep both missing, huntBatch refuses to start the model, stops the VM it holds, and throws so the layer lands FAILED', async () => {
+      probeMock.mockResolvedValue(PROBE(['rg', 'grep']))
+
+      await expect(securityHuntService.huntBatch(batchInput())).rejects.toThrow(
+        /rg, grep all missing/
+      )
+
+      // Not one model token was spent finding out.
+      expect(huntMock).not.toHaveBeenCalled()
+      expect(shellMock).not.toHaveBeenCalled()
+      // A VM booted for nothing is not left to run out its 20 minutes.
+      expect(stopMock).toHaveBeenCalledWith(HANDLE)
+    })
+
+    it('LUM-782 missing: rg missing alone is not fatal — grep carries the search, and the model is told', async () => {
+      probeMock.mockResolvedValue(PROBE(['rg']))
+      huntMock.mockResolvedValueOnce({
+        candidates: [],
+        tokens: 5,
+        stopped: 'done',
+      })
+
+      const out = await securityHuntService.huntBatch(batchInput())
+
+      expect(out.stopped).toBe('done')
+      expect(huntMock.mock.calls[0]![0].tools.missing).toEqual(['rg'])
+    })
+
+    it('LUM-782 missing: an unverified search tool never counts as missing — the batch runs', async () => {
+      // The probe could not run (VM hiccup): no claim, no refusal.
+      probeMock.mockResolvedValue(PROBE([], ['rg', 'grep']))
+      huntMock.mockResolvedValueOnce({
+        candidates: [],
+        tokens: 5,
+        stopped: 'done',
+      })
+
+      const out = await securityHuntService.huntBatch(batchInput())
+
+      expect(out.stopped).toBe('done')
+      expect(huntMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('LUM-782 not found: a command the shell could not find is counted as notFound — not empty, not failed — and its exit code is kept', async () => {
+      shellMock.mockImplementation(async ({ command }: { command: string }) =>
+        command.includes('gone')
+          ? {
+              ...NOT_COMPRESSED('\n[stderr]\nsh: 1: rg: not found'),
+              exitCode: 127,
+              commandNotFound: true,
+            }
+          : { ...NOT_COMPRESSED('lib/a.ts:3: hit'), exitCode: 0 }
+      )
+      huntMock.mockImplementation(
+        async (input: { runShell: (c: string) => Promise<unknown> }) => {
+          await input.runShell('rg -n gone lib/')
+          await input.runShell('grep -rn x lib/')
+          return { candidates: [], tokens: 1, stopped: 'done' }
+        }
+      )
+
+      const out = await securityHuntService.huntBatch(batchInput())
+
+      expect(out.shell).toMatchObject({
+        calls: 2,
+        refused: 0,
+        failed: 0,
+        notFound: 1,
+        // dash's message is on stderr, so the output is not empty — and it must
+        // not read as a search that matched nothing either.
+        empty: 0,
+      })
+      expect(out.shell.commands).toEqual([
+        {
+          cmd: 'rg -n gone lib/',
+          chars: '\n[stderr]\nsh: 1: rg: not found'.length,
+          exit: 127,
+          notFound: true,
+        },
+        { cmd: 'grep -rn x lib/', chars: 'lib/a.ts:3: hit'.length, exit: 0 },
+      ])
     })
   })
 })

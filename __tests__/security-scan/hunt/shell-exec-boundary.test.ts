@@ -52,11 +52,14 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   attachOrCreateHuntSandbox,
+  probeHuntTools,
   runHuntShell,
 } from '@/lib/services/security-hunt-sandbox'
 import {
   HUNT_SHELL_BIN,
+  HUNT_SHELL_COMMANDS,
   HUNT_SHELL_FLAG,
+  HUNT_SHELL_PROBES,
 } from '@/lib/security-scan/hunt/shell-allowlist'
 import { findRepoSandboxByTag } from '@/lib/integrations/vercel-sandbox'
 
@@ -313,5 +316,46 @@ describe('LUM-758 — a refusal and a dead sandbox are different facts', () => {
     })
     expect(out.error).toBeDefined()
     expect(out.denied).toBeUndefined()
+  })
+})
+
+/**
+ * LUM-782 — the start-up probe is OUR command, but it must not get a private
+ * door: it exists to answer "would this tool run for the agent", and an exec
+ * path the gate never saw could answer that for a different PATH, a
+ * different shell, or a command the agent could never send. So the probes
+ * take exactly the agent's route — the real gate, then the one `sh -c` site.
+ */
+describe('LUM-782 probe — our own probes take the agent’s path, not a private one', () => {
+  it('LUM-782 probe commands are checked by the real gate and run through the single sh -c choke point', async () => {
+    const vm = fakeSandbox()
+
+    await probeHuntTools(handleFor(vm))
+
+    const probes = HUNT_SHELL_COMMANDS.map(t => HUNT_SHELL_PROBES[t])
+    // Every probe went through the pass-through spy on the REAL gate…
+    expect(mockChecked).toEqual(probes)
+    // …and then through `sh -c`, as one argv entry, byte-identical.
+    expect(vm.run.mock.calls.map(c => c[0])).toEqual(
+      probes.map(() => HUNT_SHELL_BIN)
+    )
+    expect(vm.run.mock.calls.map(c => c[1])).toEqual(
+      probes.map(p => [HUNT_SHELL_FLAG, p])
+    )
+  })
+
+  it('LUM-782 probe: the sandbox module still has exactly one exec site that runs a command string', () => {
+    const sandboxModule = codeOf('lib/services/security-hunt-sandbox.ts')
+    const execSites = [...sandboxModule.matchAll(/\.run\(/g)].map(m =>
+      sandboxModule.slice(m.index, m.index + 200)
+    )
+    // The probe did not add a second `sh` site: `probeHuntTools` calls the
+    // same function `runHuntShell` does, and that function owns the only
+    // `.run(` that ever sees a command string.
+    expect(execSites.filter(site => /\bcommand\b/.test(site))).toHaveLength(1)
+    expect(sandboxModule).not.toMatch(/HUNT_SHELL_PROBES[^\n]*\.run\(/)
+    // And the probe table is only ever read inside the probe.
+    const mentions = sandboxModule.match(/HUNT_SHELL_PROBES\[/g) ?? []
+    expect(mentions).toHaveLength(1)
   })
 })

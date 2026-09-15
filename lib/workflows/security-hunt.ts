@@ -106,6 +106,35 @@ function recordSandbox(audit: HuntAudit, batch: HuntBatchOutput): void {
 }
 
 /**
+ * LUM-782 — fold one batch's start-up probe into the run's tool inventory.
+ * Pure and synchronous like `recordSandbox`, and pessimistic in the same
+ * way: a tool missing on ANY batch's VM is missing for the run (the attach
+ * path and the create path can land on different VMs inside one scan), an
+ * unverified tool stays unverified unless some batch proved it missing, and
+ * `present` is what no batch contradicted. A batch that never got a VM has
+ * nothing to say and leaves the field alone — absent still means "never
+ * probed", which every pre-LUM-782 row also is.
+ */
+function recordTools(audit: HuntAudit, batch: HuntBatchOutput): void {
+  const probe = batch.tools
+  if (!probe) return
+  const missing = new Set([...(audit.tools?.missing ?? []), ...probe.missing])
+  const unverified = new Set(
+    [...(audit.tools?.unverified ?? []), ...probe.unverified].filter(
+      tool => !missing.has(tool)
+    )
+  )
+  const present = [
+    ...new Set([...(audit.tools?.present ?? []), ...probe.present]),
+  ].filter(tool => !missing.has(tool) && !unverified.has(tool))
+  audit.tools = {
+    present,
+    missing: [...missing],
+    unverified: [...unverified],
+  }
+}
+
+/**
  * LUM-758 §6.3 — fold one batch's compression bill into the run's. Pure and
  * synchronous like `recordSandbox`, so the deterministic body stays
  * deterministic.
@@ -337,6 +366,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         elapsedMs += batch.elapsedMs
         raw.push(...batch.candidates)
         recordSandbox(audit, batch)
+        recordTools(audit, batch)
         recordCompress(audit, batch)
         audit.tasks.push({
           taskId: task.id,
@@ -397,6 +427,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         elapsedMs += retry.elapsedMs
         raw.push(...retry.candidates)
         recordSandbox(audit, retry)
+        recordTools(audit, retry)
         recordCompress(audit, retry)
         audit.tasks.push({
           taskId: task.id,

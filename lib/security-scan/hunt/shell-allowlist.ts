@@ -24,8 +24,8 @@
  *      全部由这一个扫描覆盖，不再各写一个探测器。
  *   3. 逐段：先 `isReadOnlySegment`（只读吗），**再**命令名白名单
  *      （`HUNT_SHELL_COMMANDS`，且不接受任何带 `/` 的路径），最后按命令做
- *      **参数级**闸门（`sed -i`、`sed` 脚本里的 `e`/`w`、`rg --pre`、
- *      `ast-grep -U` 这些「用允许的动词干写/执行」的旗标）。
+ *      **参数级**闸门（`sed -i`、`sed` 脚本里的 `e`/`w`、`rg --pre` 这些
+ *      「用允许的动词干写/执行」的旗标）。
  *
  * 一条贯穿三层的教训（LUM-758 两轮复盘）：**任何一个构造都必须至少有一层完整地
  * 认得它，两层之间不能互相假设对方会兜底**。双引号里的 `$(…)` 曾经被 `scanSegment`
@@ -50,17 +50,50 @@ import {
   unwrapShellWrapper,
 } from '@/lib/boundary-crossing/command-shape'
 
-/** 只读检索工具。`head`/`tail`/`wc` 是管道收尾的常用件，同样只读。 */
+/**
+ * 只读检索工具。`head`/`tail`/`wc` 是管道收尾的常用件，同样只读。
+ *
+ * LUM-782 — this list is the SINGLE source for "what the agent may run": the
+ * `run_shell` tool description is derived from it (`describeRunShellTool`),
+ * and every entry is probed on the VM at start-up (`probeHuntTools`) through
+ * the commands in `HUNT_SHELL_PROBES` below. `ast-grep` used to be here: it was
+ * allowed, recommended to the model, and never installed in
+ * `vercel/sandbox/universal` (live probe 2026-09-14: exit 127; the image's
+ * Dockerfile installs `ripgrep` and no ast-grep) — the agent spent steps on a
+ * tool that did not exist. Removed rather than installed: its canonical
+ * `$A` / `$$$` patterns fight the double-quote rule of this gate, and text
+ * search is what the sandbox actually has.
+ */
 export const HUNT_SHELL_COMMANDS: readonly string[] = [
   'rg',
   'grep',
   'sed',
   'cat',
-  'ast-grep',
   'head',
   'tail',
   'wc',
 ]
+
+/**
+ * LUM-782 — one start-up probe per allowlisted tool, run BEFORE the agent's
+ * first step on the same VM it will use. Each probe is an ordinary allowlisted
+ * command: it goes through `checkHuntCommand` and the same `sh -c` choke point
+ * as an agent command (no back door for our own commands), and a shell that
+ * cannot find the binary answers exit 127. `--version` everywhere except
+ * `sed`, whose flag gate only admits the read-only flags it knows: `-n p` over
+ * /dev/null prints nothing and exits 0 on GNU and uutils sed alike.
+ * `shell-allowlist.test.ts` pins that the keys are exactly
+ * `HUNT_SHELL_COMMANDS` and that every probe passes the gate.
+ */
+export const HUNT_SHELL_PROBES: Readonly<Record<string, string>> = {
+  rg: 'rg --version',
+  grep: 'grep --version',
+  sed: 'sed -n p /dev/null',
+  cat: 'cat --version',
+  head: 'head --version',
+  tail: 'tail --version',
+  wc: 'wc --version',
+}
 
 /**
  * LUM-758 Task 9 — **the shell this gate was written against**, and the only
@@ -108,7 +141,7 @@ const ECHO_LIMIT = 120
  * glob 的四个字符 `*` `?` `[` `]` 曾经**被有意放进来**（「它们又不执行什么」），
  * 第五轮复盘把它们移了出去：`scanSegment` 分词的是**写下来的那串字面量**，而
  * `sh -c` 执行的是**展开之后的 argv**——于是逐工具的旗标闸门（`rgGate` /
- * `sedGate` / `astGrepGate`）审的和跑的根本不是同一组实参。被审 PR 只要加一个叫
+ * `sedGate`）审的和跑的根本不是同一组实参。被审 PR 只要加一个叫
  * `--pre=sh` 的文件（合法 git 路径，不含 `/`），模型写下 `rg -n queryRaw *`，
  * shell 展开后 rg 拿到的就是 `RG_DENIED_FLAGS` 专门要拦的那个旗标，对着 PR 自带
  * 的内容执行 `sh`；`sed -i` 同形。hunt **attach 到托管扫描那台 VM** 时出网是
@@ -116,7 +149,7 @@ const ECHO_LIMIT = 120
  * 本地执行。这不是「将来某个新元字符」那一类（那类天然落在白名单外，闸门的收敛
  * 性论证覆盖得住），而是本分支已经关掉的「审的串 == 跑的串」不变式在 **argv
  * 一级**的孪生体。引号里的 glob 照常放行（`rg -g '!*.test.ts'`、
- * `rg --pre-glob "*.md"`、`ast-grep -p 'fetch($$$)'`）——shell 不展开引号里的
+ * `rg --pre-glob "*.md"`）——shell 不展开引号里的
  * glob，被审的串和被执行的 argv 仍然一致，真实检索也确实需要它们。
  */
 const SAFE_UNQUOTED_CHAR = /^[A-Za-z0-9_\-.\/=,:+@%~#]$|^[^\x00-\x7f]$/
@@ -138,7 +171,7 @@ type SegmentScan = {
 
 /**
  * 双引号里的 `$` 什么时候只是个字面美元号。四种放行：
- *   - `$name`（`ast-grep --pattern "$A.$queryRaw($B)"` 的元变量）；
+ *   - `$name`（`rg -n "$HOME" lib/` 这类普通变量引用，不会执行什么）；
  *   - `${name}`，且**整个花括号形状必须严格匹配**（`grep -n "${HOME}"`）——
  *     只看开头一个字符曾经是三轮复盘之前的老 bug（第四轮复盘）：`${x@P}`
  *     （bash≥4.4 把 `x` 的值当 prompt 串重新展开，会执行命令替换）、
@@ -563,63 +596,10 @@ function rgGate(args: readonly string[]): string | null {
   return null
 }
 
-/** ast-grep 旗标里会改写文件的那些（长旗标形式，子命令无关）。 */
-const AST_GREP_DENIED_FLAGS = new Set([
-  '--update-all',
-  '--rewrite',
-  '--interactive',
-])
-
-/**
- * 确认是只读的 ast-grep 子命令：`run`（默认动作，检索 + 可选 rewrite）、
- * `scan`（跑 rule 配置检索，rule 里的 autofix 靠 `-U`/`--update-all` 才会落地，
- * 已经单独拦）。没有子命令（第一个实参就是旗标）等价于隐式 `run`。
- *
- * 子命令面比这张表大（`test`、`lsp`、`completions`……），但本闸门只认得住
- * 自己数得清的：数不清的一律拒，不去猜哪些是只读的——`new` 会往 checkout 里
- * 生成 `sgconfig.yml`/`rules/`，正是「这是只读沙箱」这句理由要挡的东西，之前
- * 因为这里只看旗标、不看子命令，`ast-grep new …` 一直被放行。
- */
-const AST_GREP_READ_SUBCOMMANDS = new Set(['run', 'scan'])
-
-function astGrepGate(args: readonly string[]): string | null {
-  let subcommand: string | null = null
-  let rest = args
-  const first = args[0]
-  if (first !== undefined && !first.startsWith('-')) {
-    subcommand = first
-    rest = args.slice(1)
-    if (!AST_GREP_READ_SUBCOMMANDS.has(subcommand)) {
-      return `ast-grep subcommand '${subcommand}' is not allowed; this sandbox only allows read-only search (no subcommand, 'run', or 'scan')`
-    }
-  }
-  for (const arg of rest) {
-    const name = arg.startsWith('--') ? arg.split('=')[0]! : arg
-    if (AST_GREP_DENIED_FLAGS.has(name)) {
-      return `ast-grep flag '${name}' rewrites files; this sandbox is read-only`
-    }
-    if (arg.startsWith('--') || !arg.startsWith('-') || arg === '-') continue
-    // 短旗标簇，逐字符判。`-U`/`-i` 在任何子命令下都是写/交互式改写。`-r` 是
-    // 唯一随子命令改义的字母：`run` 里是 `--rewrite`（写），`scan` 里是
-    // `--rule`（只读，指定 rule 配置文件路径）——同一个字母，两种子命令，语义
-    // 相反，必须按 `subcommand` 分开判，不能只看旗标。
-    for (const ch of arg.slice(1)) {
-      if (ch === 'U' || ch === 'i') {
-        return `ast-grep flag '${arg}' rewrites files; this sandbox is read-only`
-      }
-      if (ch === 'r' && subcommand !== 'scan') {
-        return `ast-grep flag '${arg}' rewrites files; this sandbox is read-only`
-      }
-    }
-  }
-  return null
-}
-
 /** 允许的动词里，哪些旗标会把「只读检索」变成写/执行。 */
 const FLAG_GATES: Record<string, (args: readonly string[]) => string | null> = {
   sed: sedGate,
   rg: rgGate,
-  'ast-grep': astGrepGate,
 }
 
 function checkSegment(segment: string, depth: number): HuntCommandCheck {

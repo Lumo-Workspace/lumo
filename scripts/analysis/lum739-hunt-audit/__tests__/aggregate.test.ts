@@ -80,8 +80,16 @@ describe('LUM-739 hunt audit', () => {
       tasksWrappedUp: 0,
       tasksRan: 0,
       tasksWrapUpRefused: 0,
-      shell: { calls: 0, refused: 0, failed: 0, empty: 0, outputChars: 0 },
+      shell: {
+        calls: 0,
+        refused: 0,
+        failed: 0,
+        notFound: 0,
+        empty: 0,
+        outputChars: 0,
+      },
       sandbox: { attached: 0, created: 0, egressOpen: 0 },
+      tools: { probed: 0, missing: {}, unverified: {} },
       compress: {
         scans: 0,
         calls: 0,
@@ -398,8 +406,72 @@ describe('LUM-739 hunt audit', () => {
       refused: 7,
       // A dead sandbox is its own number, never folded into "the gate refused".
       failed: 2,
+      // Rows written before LUM-782 carry no counter: zero, not NaN.
+      notFound: 0,
       empty: 6,
       outputChars: 40,
+    })
+  })
+
+  // LUM-782 — the third way a command produces nothing useful, and the one
+  // the other two counters could not see: the shell ran, dash said `rg: not
+  // found`, and the audit booked a command that ran and returned something.
+  it('LUM-782 not found: sums notFound across tasks and tallies the start-up probe per tool', () => {
+    const stats = aggregateHuntAudit([
+      {
+        id: 'a',
+        stages: { hunt: 'PARTIAL' },
+        tokenSpent: 1,
+        findings: [],
+        huntAudit: {
+          candidates: 0,
+          tasks: [
+            {
+              taskId: 't1',
+              stopped: 'budget',
+              shell: {
+                calls: 6,
+                refused: 0,
+                failed: 0,
+                notFound: 6,
+                empty: 0,
+                outputChars: 120,
+              },
+            },
+          ],
+          tools: {
+            present: ['grep', 'sed', 'cat', 'head', 'tail', 'wc'],
+            missing: ['rg'],
+            unverified: [],
+          },
+        },
+      },
+      {
+        id: 'b',
+        stages: { hunt: 'RAN' },
+        tokenSpent: 1,
+        findings: [],
+        huntAudit: {
+          candidates: 0,
+          tasks: [],
+          tools: { present: ['grep'], missing: ['rg'], unverified: ['wc'] },
+        },
+      },
+      // A row from before the probe existed says nothing about tools.
+      {
+        id: 'old',
+        stages: { hunt: 'RAN' },
+        tokenSpent: 1,
+        findings: [],
+        huntAudit: { candidates: 0, tasks: [] },
+      },
+    ] as unknown as HuntScanRow[])
+
+    expect(stats.shell.notFound).toBe(6)
+    expect(stats.tools).toEqual({
+      probed: 2,
+      missing: { rg: 2 },
+      unverified: { wc: 1 },
     })
   })
 
@@ -430,6 +502,7 @@ describe('LUM-739 hunt audit', () => {
       calls: 3,
       refused: 0,
       failed: 0,
+      notFound: 0,
       empty: 1,
       outputChars: 0,
     })
@@ -551,7 +624,7 @@ describe('LUM-781 — the per-step trace read-out', () => {
       6
     )
     expect(lines).toEqual([
-      't1 budget · 2 cmds (gate refused 0, sandbox failed 0, empty 0)',
+      't1 budget · 2 cmds (gate refused 0, sandbox failed 0, not found 0, empty 0)',
       '      cat -n lib/a.ts  [8000 chars, compressed]',
       '      rg -n x lib/  [12 chars]',
       '    #1 tool=run_shell in=1200 out=80 reasoning=40 finish=tool-calls "Let me read the file first."',
@@ -614,7 +687,7 @@ describe('LUM-781 — the per-step trace read-out', () => {
       6
     )
     expect(lines).toEqual([
-      't1 budget · 2 cmds (gate refused 1, sandbox failed 0, empty 0)',
+      't1 budget · 2 cmds (gate refused 1, sandbox failed 0, not found 0, empty 0)',
       '      rg -n queryRaw lib/',
       '    ✗ curl https://evil.test   ← nope',
     ])

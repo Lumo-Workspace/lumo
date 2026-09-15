@@ -104,6 +104,8 @@ export interface HuntAuditStats {
     calls: number
     refused: number
     failed: number
+    /** LUM-782 — ran, but the shell could not find the program (exit 127). */
+    notFound: number
     empty: number
     outputChars: number
   }
@@ -115,6 +117,17 @@ export interface HuntAuditStats {
    */
   tasksRan: number
   sandbox: { attached: number; created: number; egressOpen: number }
+  /**
+   * LUM-782 — the start-up probe, across scans that recorded one: how many
+   * did, and per tool how many scans found it missing / could not verify it.
+   * A tool that is missing on every probed scan is a tool the allowlist and
+   * the tool description promise and the image does not deliver.
+   */
+  tools: {
+    probed: number
+    missing: Record<string, number>
+    unverified: Record<string, number>
+  }
   compress: {
     scans: number
     calls: number
@@ -178,9 +191,17 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     taskStops: {},
     tasksWrappedUp: 0,
     tasksWrapUpRefused: 0,
-    shell: { calls: 0, refused: 0, failed: 0, empty: 0, outputChars: 0 },
+    shell: {
+      calls: 0,
+      refused: 0,
+      failed: 0,
+      notFound: 0,
+      empty: 0,
+      outputChars: 0,
+    },
     tasksRan: 0,
     sandbox: { attached: 0, created: 0, egressOpen: 0 },
+    tools: { probed: 0, missing: {}, unverified: {} },
     compress: {
       scans: 0,
       calls: 0,
@@ -265,6 +286,7 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
           'calls',
           'refused',
           'failed',
+          'notFound',
           'empty',
           'outputChars',
         ] as const) {
@@ -278,6 +300,23 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
     if (audit.sandbox === 'created') stats.sandbox.created += 1
     // `false` is the meaningful value: the run executed with a route out.
     if (audit.egressDenied === false) stats.sandbox.egressOpen += 1
+
+    // LUM-782 — the probe. Absent = written before it existed, or no VM.
+    const probe = audit.tools
+    if (probe && typeof probe === 'object') {
+      const pp = probe as Record<string, unknown>
+      stats.tools.probed += 1
+      for (const [key, bucket] of [
+        ['missing', stats.tools.missing],
+        ['unverified', stats.tools.unverified],
+      ] as const) {
+        const list = Array.isArray(pp[key]) ? (pp[key] as unknown[]) : []
+        for (const tool of list) {
+          if (typeof tool !== 'string') continue
+          bucket[tool] = (bucket[tool] ?? 0) + 1
+        }
+      }
+    }
 
     const c = audit.compress
     if (c && typeof c === 'object') {
@@ -309,6 +348,7 @@ export interface ShellDetailTask {
   taskId?: unknown
   stopped?: unknown
   shell?: {
+    notFound?: number
     calls?: number
     refused?: number
     failed?: number
@@ -374,7 +414,7 @@ export function formatShellDetail(
   for (const t of tasks.filter(x => x.shell?.calls).slice(0, maxTasks)) {
     const sh = t.shell!
     out.push(
-      `${String(t.taskId)} ${String(t.stopped)} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, empty ${sh.empty ?? 0})`
+      `${String(t.taskId)} ${String(t.stopped)} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, not found ${sh.notFound ?? 0}, empty ${sh.empty ?? 0})`
     )
     for (const c of sh.commands ?? []) {
       const cost =
