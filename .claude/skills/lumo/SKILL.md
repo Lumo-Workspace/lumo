@@ -1,6 +1,6 @@
 ---
 name: lumo
-description: 'Use when the user mentions a Lumo task id (LUM-N, or any team prefix like SPEC-12) or the `lumo` CLI, in any language; is starting, resuming, or about to claim completion of a task; asks what to work on next; or works with any Lumo resource — task context, sessions, acceptance criteria, machine verification, tasks, ideas, plan runs (the idea→plan converter), projects, milestones, sprints, docs, artifacts, Figma links, dependencies, team memory, priorities, or worktrees. Key triggers: "LUM-", "lumo", "task context", "session attach", "verify", "task status", "acceptance criteria", "what should I work on", "resume task".'
+description: 'Use when the user mentions a Lumo task id (LUM-N, or any team prefix like SPEC-12) or the `lumo` CLI, in any language; is starting, resuming, or about to claim completion of a task; asks what to work on next; or works with any Lumo resource — task context, sessions, acceptance criteria, machine verification, tasks, ideas, plan runs (the idea→plan converter), projects, milestones, sprints, docs, artifacts, Figma links, dependencies, team memory, priorities, PR security scans, or worktrees. Key triggers: "LUM-", "lumo", "task context", "session attach", "verify", "task status", "acceptance criteria", "what should I work on", "resume task".'
 ---
 
 ## Prerequisites
@@ -25,6 +25,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | --------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | `setup`, `auth login/logout`, `whoami`, `update`                                        | [references/onboarding.md](references/onboarding.md)           |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)       | [references/task-context.md](references/task-context.md)       |
+| `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail)  | [references/pr-scan.md](references/pr-scan.md)                 |
 | `task create/update/list/show/comment`, `next`                                          | [references/tasks.md](references/tasks.md)                     |
 | `task deps add/list/confirm/dismiss/rm` (dependency edges)                              | [references/task-deps.md](references/task-deps.md)             |
 | `idea*` — capture pool, lifecycle, evidence, comments                                   | [references/ideas.md](references/ideas.md)                     |
@@ -63,6 +64,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task comments list <id>` — comment thread, capped to the output budget (`--full` prints every comment; read-only; ≠ `task comment`)
 - `lumo task pr show <id> <number>` — synced PR metadata (v1)
 - `lumo task lineage <id>` — read-only causal-trail audit: fragments that fed the task + each one's disclosure tag/outcome, the run's token/loop cost, a disclosure-funnel summary, and a Top-5 "operations by token cost"; `--signal` appends workspace-level usage signal-health (see [task-context.md](references/task-context.md))
+
+### Pull requests by number — see [pr-scan.md](references/pr-scan.md)
+
+- `lumo pr scan <number> [--repo owner/repo] [--all] [--full] [--json]` — one PR's security scans by number, linked to a task or not: layer line (same labels as `task status`), every finding incl. dispositioned ones + their source, hunt coverage; `--full` per-task hunt detail, `--all` every head. Read-only.
 
 ### Tasks — see [tasks.md](references/tasks.md)
 
@@ -207,6 +212,7 @@ Don't guess these:
 - No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new Claude Code session
 - No steward "role switch" or un-steward — `session attach --steward` is the same lifetime lock on a milestone; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
 - No `lumo task delete` — tasks can't be deleted from the CLI (web UI only)
+- No `lumo pr show` / `lumo scan` — the by-number security read-out is `lumo pr scan <number>`; `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` — it's `lumo task artifact update`
 - No `lumo auth status` — identity check is `lumo whoami`
 - No `--body` on `lumo task comment` — the body is a positional arg: `lumo task comment LUM-N "text"`

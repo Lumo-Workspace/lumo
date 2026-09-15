@@ -83,6 +83,7 @@ import {
   taskDepsRm,
 } from './commands/task-deps'
 import { taskPrShow } from './commands/task-pr-show'
+import { prScan, type PrScanOptions } from './commands/pr-scan'
 import { taskLineage } from './commands/task-lineage'
 import { projectList } from './commands/project-list'
 import { milestoneList } from './commands/milestone-list'
@@ -642,6 +643,36 @@ priorityCmd
     'Print the team priority append history, newest-first (the current declaration is marked with *).'
   )
   .action(wrap(() => priorityList()))
+
+const pr = program
+  .command('pr')
+  .description('Inspect pull requests by number — linked to a task or not')
+
+pr.command('scan <number>')
+  .description(
+    'Security scans of one PR in the workspace, by PR number (LUM-788): the latest head by default — layer states (same labels as task status / the GitHub summary), every finding incl. dispositioned ones with disposition + source, and the hunt coverage line. Read-only; disposition is web-only.'
+  )
+  .option(
+    '--repo <owner/repo>',
+    'Narrow to one repo when the same PR number exists in several (the error lists the candidates)'
+  )
+  .option(
+    '--all',
+    "Every pushed head's scan, newest first, instead of the latest only"
+  )
+  .option(
+    '--full',
+    'Append the per-task hunt detail: commands (with gate refusals), step trace, stop arithmetic, wrap-up, sites, model, diff sizing'
+  )
+  .option(
+    '--json',
+    'Emit the versioned machine-readable payload ({ pullRequest, scans[].stages / findings[] / hunt.tasks[] })'
+  )
+  .action(
+    wrap((number, options) =>
+      prScan(number as string, options as PrScanOptions)
+    )
+  )
 
 const criteria = program
   .command('criteria')

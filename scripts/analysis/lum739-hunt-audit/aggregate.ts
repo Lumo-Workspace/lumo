@@ -343,125 +343,13 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
   return stats
 }
 
-/** One task row's shell stats, as the audit read-out shows them. */
-export interface ShellDetailTask {
-  taskId?: unknown
-  stopped?: unknown
-  /** LUM-787 — the model the search ran on; absent on older rows. */
-  model?: string
-  /** LUM-787 follow-up — sites the task had to cover (its allocation weight). */
-  sites?: number
-  shell?: {
-    notFound?: number
-    calls?: number
-    refused?: number
-    failed?: number
-    empty?: number
-    /** LUM-787 — absent on rows written before the per-step ceiling existed, and when nothing was clipped. */
-    stepClipped?: number
-    commands?: {
-      cmd?: string
-      denied?: boolean
-      reason?: string
-      chars?: number
-      compressed?: boolean
-      /** LUM-787 — cut by the per-step ceiling. */
-      clipped?: boolean
-    }[]
-  }
-  /** LUM-781 — absent on rows written before the trace existed. */
-  trace?: {
-    i?: number
-    tool?: string
-    text?: string
-    inputTokens?: number
-    outputTokens?: number
-    reasoningTokens?: number
-    finishReason?: string
-    /** LUM-787 — characters of older results elided from what this step was sent. */
-    elidedChars?: number
-  }[]
-  stop?: {
-    by?: string
-    spent?: number
-    budget?: number
-    reserve?: number
-    lastStep?: number
-    /** LUM-787 — the price the next step was charged at. */
-    next?: number
-    steps?: number
-  }
-  wrapUp?: {
-    ran?: boolean
-    skipped?: string
-    submitted?: number
-    text?: string
-    tokens?: number
-    finishReason?: string
-    error?: string
-  }
-}
-
-/** One line of prose, flattened, for a fixed-width read-out. */
-function oneLine(text: string, max: number): string {
-  const flat = text.replace(/\s+/g, ' ').trim()
-  return flat.length > max ? `${flat.slice(0, max)}…` : flat
-}
-
 /**
- * The per-task, command-by-command listing.
- *
- * The run-level `shell:` line says HOW MUCH; only this says WHAT — and telling
- * "mapped the repo and ran out" from "the gate rejected everything" from
- * "looked and found nothing" is the entire reason the field exists. Extracted
- * as a pure function so it can be tested: a read-out nothing exercises is the
- * same "computed, carried, never read" shape this layer has already lost four
- * fields to.
+ * LUM-788 — the per-task printer moved to `shared/src/hunt-audit.ts` so the
+ * CLI (`lumo pr scan --full`) and this report print the same lines from one
+ * implementation. Re-exported here so `audit.ts` and the tests keep their
+ * import path.
  */
-export function formatShellDetail(
-  tasks: ShellDetailTask[],
-  maxTasks: number
-): string[] {
-  const out: string[] = []
-  for (const t of tasks.filter(x => x.shell?.calls).slice(0, maxTasks)) {
-    const sh = t.shell!
-    // LUM-787 — the clip count prints only when the row carries it: an older
-    // row, and a row from a search that never hit the ceiling, read as before.
-    out.push(
-      `${String(t.taskId)} ${String(t.stopped)}${t.model ? ` · ${t.model}` : ''}${typeof t.sites === 'number' ? ` · ${t.sites} sites` : ''} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, not found ${sh.notFound ?? 0}, empty ${sh.empty ?? 0}${sh.stepClipped ? `, step-clipped ${sh.stepClipped}` : ''})`
-    )
-    for (const c of sh.commands ?? []) {
-      const cost =
-        typeof c.chars === 'number'
-          ? `  [${c.chars} chars${c.compressed ? ', compressed' : ''}${c.clipped ? ', clipped' : ''}]`
-          : ''
-      out.push(
-        `    ${c.denied ? '✗' : ' '} ${c.cmd ?? ''}${cost}${c.reason ? `   ← ${c.reason}` : ''}`
-      )
-    }
-    // LUM-781 — the model's side, step by step, then how it ended. Only when
-    // the row carries them: an older row prints exactly as before.
-    for (const st of t.trace ?? []) {
-      out.push(
-        `    #${st.i ?? '?'} tool=${st.tool ?? '(none)'} in=${st.inputTokens ?? '?'} out=${st.outputTokens ?? '?'}${st.reasoningTokens ? ` reasoning=${st.reasoningTokens}` : ''}${st.elidedChars ? ` elided=${st.elidedChars}` : ''}${st.finishReason ? ` finish=${st.finishReason}` : ''}${st.text ? ` "${oneLine(st.text, 160)}"` : ''}`
-      )
-    }
-    if (t.stop) {
-      const s = t.stop
-      out.push(
-        `    stop: ${s.by ?? '?'} · spent ${s.spent ?? '?'}/${s.budget ?? '?'} · reserve ${s.reserve ?? 0} · last step ${s.lastStep ?? '?'}${typeof s.next === 'number' ? ` · next ${s.next}` : ''} · ${s.steps ?? '?'} steps`
-      )
-    }
-    if (t.wrapUp) {
-      const w = t.wrapUp
-      out.push(
-        w.ran
-          ? `    wrap-up: ran · submitted ${w.submitted ?? 0} · ${w.tokens ?? '?'} tokens${w.finishReason ? ` · finish=${w.finishReason}` : ''}${w.text ? ` · "${oneLine(w.text, 200)}"` : ''}`
-          : w.error
-            ? `    wrap-up: attempted, failed — ${oneLine(w.error, 160)}`
-            : `    wrap-up: not made (${w.skipped ?? 'unknown'})`
-      )
-    }
-  }
-  return out
-}
+export {
+  formatShellDetail,
+  type ShellDetailTask,
+} from '../../../shared/src/hunt-audit'
