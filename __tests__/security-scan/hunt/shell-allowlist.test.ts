@@ -28,7 +28,7 @@ const denied = (cmd: string) => {
  *  ——reason 里会原样回显被拒的那一段，只做子串匹配的话「回显了输入」就能免费
  *  满足断言，测不出「这一段真的被拆出来单独判过」。 */
 const NOT_ALLOWED = (name: string) =>
-  `command '${name}' is not allowed; allowed: rg, grep, sed, cat, head, tail, wc`
+  `command '${name}' is not allowed; allowed: rg, grep, sed, cat, head, tail, wc, ls, find`
 const NOT_READ_ONLY = (segment: string) =>
   `segment is not read-only: ${segment}`
 const METACHAR = (char: string, segment: string) =>
@@ -389,7 +389,7 @@ describe('checkHuntCommand', () => {
 
   it('names the offending command in the reason so the model can correct itself', () => {
     expect(denied('git status').reason).toBe(
-      "command 'git' is not allowed; allowed: rg, grep, sed, cat, head, tail, wc"
+      "command 'git' is not allowed; allowed: rg, grep, sed, cat, head, tail, wc, ls, find"
     )
   })
 })
@@ -437,5 +437,50 @@ describe('LUM-782 — the allowlist, the tool description and the VM agree', () 
       // probe the gate refuses would report the tool `unverified` forever.
       expect(checkHuntCommand(probe)).toEqual({ ok: true })
     }
+  })
+
+  // LUM-787 follow-up (user decision) — `ls` and `find` join the allowlist as
+  // listers; `find`'s executing / deleting / file-writing actions are refused
+  // by name, on top of `isReadOnlySegment`'s own refusal.
+  describe('LUM-787 ls and find are allowlisted as read-only listers', () => {
+    it('admits plain listing forms', () => {
+      for (const cmd of [
+        'ls lib/services',
+        'ls -la lib/services/ | grep -i sandbox',
+        'find lib -name "*.test.ts"',
+        "find . -type f -name '*.ts' | head -50",
+        'find lib/services -maxdepth 1 -type f | wc -l',
+      ]) {
+        expect(checkHuntCommand(cmd)).toEqual({ ok: true })
+      }
+    })
+
+    it('refuses every find action that executes, deletes or writes', () => {
+      for (const cmd of [
+        "find . -name '*.ts' -exec cat {} +",
+        "find . -name '*.ts' -execdir cat {} +",
+        "find . -name '*.ts' -ok cat {} +",
+        "find . -name '*.ts' -okdir cat {} +",
+        'find . -name "*.log" -delete',
+        'find . -name "*.ts" -fprint /tmp/out',
+        'find . -name "*.ts" -fprint0 /tmp/out',
+        'find . -name "*.ts" -fprintf /tmp/out "%p"',
+        'find . -name "*.ts" -fls /tmp/out',
+      ]) {
+        const verdict = checkHuntCommand(cmd)
+        expect(verdict.ok).toBe(false)
+      }
+      // The gate's own reason for the write-only actions, which the read-only
+      // classifier alone would let through.
+      expect(checkHuntCommand('find . -name "*.ts" -fprint /tmp/out')).toEqual({
+        ok: false,
+        reason: expect.stringContaining("find action '-fprint'"),
+      })
+    })
+
+    it('still refuses an unquoted wildcard on the new listers — the character policy is unchanged', () => {
+      expect(checkHuntCommand('ls lib/services/*').ok).toBe(false)
+      expect(checkHuntCommand('find . -name *.ts').ok).toBe(false)
+    })
   })
 })

@@ -199,13 +199,19 @@ export function describeRunShellTool(tools?: HuntToolProbe): string {
   // example naming `rg` on a VM without it would send the model after a
   // program that is not there (the LUM-782 test pins that no example does).
   const search = names.includes('rg') ? 'rg' : 'grep -rn'
-  const listing = names.includes('rg')
-    ? ' To list files, use \`rg --files <dir>\`.'
-    : ''
+  const listers = [
+    names.includes('ls') ? '\`ls <dir>\`' : '',
+    names.includes('find')
+      ? '\`find <dir> -name "*.ts"\` (quote the pattern)'
+      : '',
+    names.includes('rg') ? '\`rg --files <dir>\`' : '',
+  ].filter(Boolean)
+  const listing =
+    listers.length > 0 ? ` To list files, use ${listers.join(', ')}.` : ''
   const glob = names.includes('rg')
     ? '\`rg -g "*.ts" -n <pattern> <dir>\`'
     : '\`grep -rn --include="*.ts" <pattern> <dir>\`'
-  return `Run ONE read-only shell command in a checkout of the pull request at its head sha, from the repository root. Allowed: ${allowed} (pipes between them are fine). Network, writes, git, npm and shell redirections (\`>\`, \`2>\`) are refused — there is no git and no diff in the checkout. Do not chain commands with \`;\` or \`&&\`; only the allowed tools exist (no ls, echo or find).${listing} Never use an unquoted shell wildcard (\`*\`, \`?\`, \`[…]\`) — the gate refuses the whole call; give \`${search}\` a directory to walk, or quote the glob (${glob}). Output is truncated per command, and all commands of one step share a ceiling of ${HUNT_STEP_OUTPUT_MAX} characters, so a narrow command beats a wide one. Long output may come back as a LOSSY extract of the lines a cheap model judged relevant to this task — when a line you need may have been dropped, re-run a narrower command.`
+  return `Run ONE read-only shell command in a checkout of the pull request at its head sha, from the repository root. Allowed: ${allowed} (pipes between them are fine). Network, writes, git, npm and shell redirections (\`>\`, \`2>\`) are refused — there is no git and no diff in the checkout. Do not chain commands with \`;\` or \`&&\`; only the allowed tools exist (no echo, no git); \`find\` may only list and test (no -exec, -delete or file-writing actions).${listing} Never use an unquoted shell wildcard (\`*\`, \`?\`, \`[…]\`) — the gate refuses the whole call; give \`${search}\` a directory to walk, or quote the glob (${glob}). Output is truncated per command, and all commands of one step share a ceiling of ${HUNT_STEP_OUTPUT_MAX} characters, so a narrow command beats a wide one. Long output may come back as a LOSSY extract of the lines a cheap model judged relevant to this task — when a line you need may have been dropped, re-run a narrower command.`
 }
 
 /**
@@ -401,7 +407,7 @@ export const HUNT_SYSTEM_PROMPT = `You are an application-security researcher hu
 
 The checkout is a plain tree at the head sha: there is no git, no diff and no history in it. What this pull request changed is listed under Starting points — never run git, and never redirect (\`>\`, \`2>\`); the gate refuses both and the call is wasted.
 
-Your allowance is small — about four to six tool steps in all — and every step re-sends the whole transcript, so output you asked for keeps costing. Read narrowly: \`rg -n\` with a little context, \`sed -n\` slices of at most ~60 lines, never whole files. Each run_shell call is ONE command (a pipeline between the allowed tools is fine); never chain with \`;\` or \`&&\`, and only the allowed tools exist — there is no ls, echo or find. Never write an unquoted wildcard (\`lib/*.ts\`): the gate refuses the whole call. Give \`rg\` a directory instead, or quote the glob (\`rg -g "*.ts"\`). Older results are elided from what you re-read, so write down what you learned. Call submit_candidates yourself before the allowance runs out — an empty list is fine, and a search that is cut off submits nothing.
+Your allowance is small — about four to six tool steps in all — and every step re-sends the whole transcript, so output you asked for keeps costing. Read narrowly: \`rg -n\` with a little context, \`sed -n\` slices of at most ~60 lines, never whole files. Each run_shell call is ONE command (a pipeline between the allowed tools is fine); never chain with \`;\` or \`&&\`, and only the allowed tools exist — there is no echo and no git; \`find\` may only list and test. Never write an unquoted wildcard (\`lib/*.ts\`): the gate refuses the whole call. Give \`rg\` a directory instead, or quote the glob (\`rg -g "*.ts"\`). Older results are elided from what you re-read, so write down what you learned. Call submit_candidates yourself before the allowance runs out — an empty list is fine, and a search that is cut off submits nothing.
 
 Rules:
 1. Only name symbols that exist in code you actually read with run_shell. Never guess a symbol, file or line number.

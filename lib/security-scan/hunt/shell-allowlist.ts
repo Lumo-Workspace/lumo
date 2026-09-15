@@ -72,6 +72,14 @@ export const HUNT_SHELL_COMMANDS: readonly string[] = [
   'head',
   'tail',
   'wc',
+  // LUM-787 follow-up (user decision): the first production rerun on the
+  // bounded loop was refused on `ls` and `find` — the model's own words for
+  // "what is in this directory", which the prompt forbade without offering
+  // a substitute. Both are read-only listers; `find` carries executing and
+  // deleting flags, which `findGate` below refuses by name (and
+  // `isReadOnlySegment` refuses independently — two layers, as always).
+  'ls',
+  'find',
 ]
 
 /**
@@ -93,6 +101,8 @@ export const HUNT_SHELL_PROBES: Readonly<Record<string, string>> = {
   head: 'head --version',
   tail: 'tail --version',
   wc: 'wc --version',
+  ls: 'ls --version',
+  find: 'find --version',
 }
 
 /**
@@ -596,10 +606,40 @@ function rgGate(args: readonly string[]): string | null {
   return null
 }
 
+/**
+ * LUM-787 follow-up — `find` flags that execute, delete or write. Named here
+ * even though `isReadOnlySegment` already refuses the executing ones: the
+ * two layers must each recognise the construct on their own (the lesson at
+ * the top of this file), and this list also covers the file-WRITING
+ * actions (`-fprint`, `-fprintf`, `-fls`, `-fprint0`) that a "read-only"
+ * classifier does not think of as mutation.
+ */
+const FIND_DENIED_FLAGS = new Set([
+  '-exec',
+  '-execdir',
+  '-ok',
+  '-okdir',
+  '-delete',
+  '-fprint',
+  '-fprint0',
+  '-fprintf',
+  '-fls',
+])
+
+function findGate(args: readonly string[]): string | null {
+  for (const arg of args) {
+    if (FIND_DENIED_FLAGS.has(arg)) {
+      return `find action '${arg}' executes, deletes or writes; not allowed (find may only list and test)`
+    }
+  }
+  return null
+}
+
 /** 允许的动词里，哪些旗标会把「只读检索」变成写/执行。 */
 const FLAG_GATES: Record<string, (args: readonly string[]) => string | null> = {
   sed: sedGate,
   rg: rgGate,
+  find: findGate,
 }
 
 function checkSegment(segment: string, depth: number): HuntCommandCheck {
