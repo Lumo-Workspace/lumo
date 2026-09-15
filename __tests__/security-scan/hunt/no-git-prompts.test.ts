@@ -75,6 +75,8 @@ describe('LUM-787 no prompt sends the agent after git or a diff', () => {
       `share a ceiling of ${HUNT_STEP_OUTPUT_MAX} characters`
     )
     expect(description).toContain('Do not chain commands with `;` or `&&`')
-    expect(description).toContain('never use an unquoted shell wildcard')
+    expect(description).toContain('Never use an unquoted shell wildcard')
+    // …and a listing affordance, so `ls`/`find` have a sanctioned substitute.
+    expect(description).toContain('rg --files <dir>')
   })
 })

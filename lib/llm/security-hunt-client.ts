@@ -192,10 +192,20 @@ export function allowedToolsFor(tools?: HuntToolProbe): string[] {
  * found missing disappears from it for that run.
  */
 export function describeRunShellTool(tools?: HuntToolProbe): string {
-  const allowed = allowedToolsFor(tools)
-    .map(tool => TOOL_LABELS[tool] ?? tool)
-    .join(', ')
-  return `Run ONE read-only shell command in a checkout of the pull request at its head sha, from the repository root. Allowed: ${allowed} (pipes between them are fine). Network, writes, git, npm and shell redirections (\`>\`, \`2>\`) are refused — there is no git and no diff in the checkout. Do not chain commands with \`;\` or \`&&\`; only the allowed tools exist (no ls, echo or find); and never use an unquoted shell wildcard (\`*\`, \`?\`, \`[…]\`) — the gate refuses it, so name files explicitly or quote the pattern (\`rg -n "x" lib/services/\` walks the directory, \`rg -g "*.ts"\` is a quoted glob). Output is truncated per command, and all commands of one step share a ceiling of ${HUNT_STEP_OUTPUT_MAX} characters, so a narrow command beats a wide one. Long output may come back as a LOSSY extract of the lines a cheap model judged relevant to this task — when a line you need may have been dropped, re-run a narrower command.`
+  const names = allowedToolsFor(tools)
+  const allowed = names.map(tool => TOOL_LABELS[tool] ?? tool).join(', ')
+  // LUM-787 follow-up — the two shapes the first production rerun was refused
+  // on, with the replacement spelled in whatever search tool THIS VM has: an
+  // example naming `rg` on a VM without it would send the model after a
+  // program that is not there (the LUM-782 test pins that no example does).
+  const search = names.includes('rg') ? 'rg' : 'grep -rn'
+  const listing = names.includes('rg')
+    ? ' To list files, use \`rg --files <dir>\`.'
+    : ''
+  const glob = names.includes('rg')
+    ? '\`rg -g "*.ts" -n <pattern> <dir>\`'
+    : '\`grep -rn --include="*.ts" <pattern> <dir>\`'
+  return `Run ONE read-only shell command in a checkout of the pull request at its head sha, from the repository root. Allowed: ${allowed} (pipes between them are fine). Network, writes, git, npm and shell redirections (\`>\`, \`2>\`) are refused — there is no git and no diff in the checkout. Do not chain commands with \`;\` or \`&&\`; only the allowed tools exist (no ls, echo or find).${listing} Never use an unquoted shell wildcard (\`*\`, \`?\`, \`[…]\`) — the gate refuses the whole call; give \`${search}\` a directory to walk, or quote the glob (${glob}). Output is truncated per command, and all commands of one step share a ceiling of ${HUNT_STEP_OUTPUT_MAX} characters, so a narrow command beats a wide one. Long output may come back as a LOSSY extract of the lines a cheap model judged relevant to this task — when a line you need may have been dropped, re-run a narrower command.`
 }
 
 /**
