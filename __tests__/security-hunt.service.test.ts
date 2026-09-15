@@ -737,9 +737,10 @@ describe('LUM-739 hunt service', () => {
     shellMock.mockResolvedValue({ output: '', compressTokens: 0 })
     huntMock.mockImplementation(
       async (input: { runShell: (c: string) => Promise<unknown> }) => {
-        // Also over the per-entry cap: without it the bound is
-        // HUNT_COMMAND_MAX_CHARS (600), three times the stated size.
-        await input.runShell(`rg -n ${FAKE_AWS_KEY} ${'x'.repeat(400)}`)
+        // Also over the per-entry cap (LUM-787 follow-up: 1 000, above the
+        // tool schema's 600 so a real command is never cut — this one is
+        // built past both to prove the cap is still there).
+        await input.runShell(`rg -n ${FAKE_AWS_KEY} ${'x'.repeat(1_200)}`)
         for (let i = 0; i < HUNT_SHELL_LOG_MAX + 5; i++) {
           await input.runShell(`rg -n x${i} lib/`)
         }
