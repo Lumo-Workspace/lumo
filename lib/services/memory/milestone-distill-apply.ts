@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { scanMemoryContent } from '@/lib/services/content-signals'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { embedTexts } from '@/lib/ai/embedding'
@@ -94,6 +95,7 @@ export async function applyMilestoneDistillOperations(
             content: validated as Prisma.InputJsonValue,
             sourceSessionId: null,
             createdByMemberId: null,
+            contentSignals: scanMemoryContent(category, validated),
           },
           tx
         )

@@ -33,9 +33,14 @@ import { NO_RELEVANT_LINES } from '@/lib/security-scan/hunt/compress-usable'
 import { neutralizeForPromptLine } from '@/lib/security-scan/hunt/prompt-safety'
 import {
   HUNT_COMPRESS_TOKEN_BUDGET,
-  neutralizeUntrustedTags,
   type HuntCategory,
 } from '@/lib/services/security-hunt.config'
+import {
+  detectInjectionSignals,
+  guardUntrustedContent,
+  neutralizeWrapperEscapes,
+  renderInlineSignalMarker,
+} from '@/shared/src/untrusted-content'
 
 export interface CompressInput {
   /**
@@ -74,18 +79,29 @@ Rules:
 /** Render bound for the planned objective inside the compressor's brief. */
 const COMPRESS_OBJECTIVE_MAX_CHARS = 2_000
 
-function buildPrompt(input: CompressInput): string {
+/** Exported for tests — the prompt is the whole safety surface of this client. */
+export function buildCompressPrompt(input: CompressInput): string {
   // The objective is the PLANNING model's free text, and that model reads the
-  // diff's file names and the Lumo task context. `neutralizeUntrustedTags`
+  // diff's file names and the Lumo task context. `neutralizeWrapperEscapes`
   // stops it forging the fence below; it does not stop it breaking its own
   // line. This prompt decides which lines of every `run_shell` result survive
   // into the agent's context, so an instruction smuggled in here suppresses
-  // EVIDENCE rather than merely diluting a brief.
-  return `Objective: ${neutralizeForPromptLine(neutralizeUntrustedTags(input.objective), COMPRESS_OBJECTIVE_MAX_CHARS)}
+  // EVIDENCE rather than merely diluting a brief. LUM-783: both the objective
+  // (inline marker) and the output (block-head notice) also carry the
+  // instruction-shape signal count, so the compressor is told what it holds.
+  const objective = neutralizeForPromptLine(
+    neutralizeWrapperEscapes(input.objective),
+    COMPRESS_OBJECTIVE_MAX_CHARS
+  )
+  const objectiveMarker = renderInlineSignalMarker(
+    detectInjectionSignals(objective).signals
+  )
+  const output = guardUntrustedContent(input.output)
+  return `Objective: ${objective}${objectiveMarker}
 Category: ${input.category}
 
 <untrusted-command-output>
-${neutralizeUntrustedTags(input.output)}
+${[...output.notices, output.text].join('\n')}
 </untrusted-command-output>
 
 Keep the lines of the output above that bear on the objective.`
@@ -97,7 +113,7 @@ export async function compressShellOutput(
   const result = await generateText({
     model: gateway(FAST_MODEL),
     system: SYSTEM_PROMPT,
-    prompt: buildPrompt(input),
+    prompt: buildCompressPrompt(input),
     maxOutputTokens: HUNT_COMPRESS_TOKEN_BUDGET,
     // One retry, for the reason HUNT_CLIENT_MAX_RETRIES exists: the SDK's
     // default sits in backoff, and this call is on the hunt's clock.

@@ -29,6 +29,7 @@ import { markdownToHtml } from '@/lib/utils/markdown-tiptap'
 import { useArtifacts, type OptimisticArtifact } from '../hooks/useArtifacts'
 import { RichTextViewer } from './RichTextViewer'
 import { AgentBadge, AgentAvatar } from './AgentBadge'
+import { ContentSignalsBadge } from './ContentSignalsBadge'
 
 interface Props {
   taskId: string
@@ -133,6 +134,10 @@ export function SpecArtifactGroup({ taskId }: Props) {
                     {a.title}
                   </span>
                 </button>
+                <ContentSignalsBadge
+                  signals={a.contentSignals}
+                  className='shrink-0'
+                />
                 <AgentBadge agent={a.agent} />
                 {!a.loading && (
                   <>

@@ -1280,6 +1280,12 @@ model Comment {
   quotedCommentId String? // which specific comment this reply is quoting
   type            CommentType @default(USER)
 
+  /// LUM-783: content-level injection scan of this row's untrusted text,
+  /// written at write time ({ counts, wrapperEscapes, total, scannedAt } —
+  /// see shared/src/untrusted-content.ts). Null = clean or not yet scanned.
+  /// Recorded on the SOURCE, never as a boundary crossing on the agent.
+  contentSignals Json?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -2665,6 +2671,12 @@ model Memory {
   /// TASK/PROJECT rows. SetNull on milestone delete keeps the distilled lesson.
   milestoneId String?
 
+  /// LUM-783: content-level injection scan of this row's untrusted text,
+  /// written at write time ({ counts, wrapperEscapes, total, scannedAt } —
+  /// see shared/src/untrusted-content.ts). Null = clean or not yet scanned.
+  /// Recorded on the SOURCE, never as a boundary crossing on the agent.
+  contentSignals Json?
+
   workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   task            Task?            @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -2751,6 +2763,12 @@ model TaskSlackContext {
   summary            String?
   summaryGeneratedAt DateTime?
 
+  /// LUM-783: content-level injection scan of this row's untrusted text,
+  /// written at write time ({ counts, wrapperEscapes, total, scannedAt } —
+  /// see shared/src/untrusted-content.ts). Null = clean or not yet scanned.
+  /// Recorded on the SOURCE, never as a boundary crossing on the agent.
+  contentSignals Json?
+
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -2781,6 +2799,12 @@ model TaskWebLink {
 
   body          String?   @db.Text
   bodyFetchedAt DateTime?
+
+  /// LUM-783: content-level injection scan of this row's untrusted text,
+  /// written at write time ({ counts, wrapperEscapes, total, scannedAt } —
+  /// see shared/src/untrusted-content.ts). Null = clean or not yet scanned.
+  /// Recorded on the SOURCE, never as a boundary crossing on the agent.
+  contentSignals Json?
 
   createdById String
   createdAt   DateTime @default(now())
@@ -2817,6 +2841,12 @@ model TaskArtifact {
   order   Int               @default(0)
 
   summary String? @db.Text
+
+  /// LUM-783: content-level injection scan of this row's untrusted text,
+  /// written at write time ({ counts, wrapperEscapes, total, scannedAt } —
+  /// see shared/src/untrusted-content.ts). Null = clean or not yet scanned.
+  /// Recorded on the SOURCE, never as a boundary crossing on the agent.
+  contentSignals Json?
 
   createdById String? // WorkspaceMember.id; nullable, intentionally no FK relation
   createdAt   DateTime @default(now())

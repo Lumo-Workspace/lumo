@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { scanMemoryContent } from '@/lib/services/content-signals'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
@@ -117,6 +118,10 @@ async function applyFold(
     projectId,
     workspaceId,
     sourceSessionId,
+    contentSignals: scanMemoryContent(
+      proposal.category,
+      proposal.coarseContent
+    ),
   })
   try {
     const [vec] = await embedTexts([

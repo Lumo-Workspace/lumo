@@ -247,7 +247,9 @@ describe('applyLayer1Operations', () => {
     expect(repo.updateContent).toHaveBeenCalledWith(
       'mem_trap',
       expect.objectContaining({ trigger: expect.any(String) }),
-      expect.anything()
+      expect.anything(),
+      // LUM-783: the new content is scanned on the way in; clean → null.
+      null
     )
   })
 
@@ -326,7 +328,9 @@ describe('applyLayer1Operations', () => {
     expect(repo.supersede).toHaveBeenCalledWith(
       'mem_old',
       { rule: 'REST is fine now', scope: 'all new endpoints' },
-      expect.anything()
+      expect.anything(),
+      // LUM-783: the replacement row carries its own scan; clean → null.
+      null
     )
     expect(setEmb).toHaveBeenCalledWith(
       'mem_new',

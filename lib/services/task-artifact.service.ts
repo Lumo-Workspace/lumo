@@ -2,6 +2,7 @@ import { taskArtifactRepository } from '@/lib/repositories/task-artifact.reposit
 import { contentSummaryService } from '@/lib/services/content-summary.service'
 import { waitUntil } from '@vercel/functions'
 import type { TaskArtifactAgent } from '@prisma/client'
+import { scanContent } from '@/lib/services/content-signals'
 
 export interface AddArtifactInput {
   taskId: string
@@ -38,6 +39,8 @@ export const taskArtifactService = {
       agent: input.agent,
       order,
       createdById: input.actorMemberId,
+      // LUM-783: title + content are agent/member-authored untrusted text.
+      contentSignals: scanContent(input.title, input.content),
     })
 
     // Artifact content is immutable, so summarize once at creation and cache it.
@@ -75,10 +78,24 @@ export const taskArtifactService = {
     artifactId: string,
     patch: UpdateArtifactInput
   ) {
+    // LUM-783: content is immutable, so only a title change moves the scan;
+    // re-scan against the stored content so the summary stays whole-card.
+    let data: UpdateArtifactInput & {
+      contentSignals?: ReturnType<typeof scanContent>
+    } = patch
+    if (patch.title !== undefined) {
+      const existing = await taskArtifactRepository.findById(artifactId, taskId)
+      if (existing) {
+        data = {
+          ...patch,
+          contentSignals: scanContent(patch.title, existing.content),
+        }
+      }
+    }
     const count = await taskArtifactRepository.updateById(
       artifactId,
       taskId,
-      patch
+      data
     )
     if (count === 0) {
       throw Object.assign(new Error('Artifact not found'), { status: 404 })

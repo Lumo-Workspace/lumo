@@ -11,6 +11,7 @@ import {
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import { waitUntil } from '@vercel/functions'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
+import { scanSlackSnapshot } from '@/lib/services/content-signals'
 
 function err(message: string, status: number): Error & { status: number } {
   return Object.assign(new Error(message), { status })
@@ -127,6 +128,8 @@ export const taskSlackContextService = {
       snapshot,
       snapshotAt: new Date(),
       createdById: input.actorMemberId,
+      // LUM-783: record injection-shaped content on the source card.
+      contentSignals: scanSlackSnapshot(snapshot),
     })
 
     scheduleSlackSummary(created.id, snapshot)
@@ -170,7 +173,8 @@ export const taskSlackContextService = {
     const updated = await taskSlackContextRepository.updateSnapshot(
       contextId,
       snapshot,
-      null
+      null,
+      scanSlackSnapshot(snapshot)
     )
 
     scheduleSlackSummary(contextId, snapshot)

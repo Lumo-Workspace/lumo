@@ -44,6 +44,8 @@ function makeOptimisticPlaceholder(
     agent: payload.agent,
     order: Number.MAX_SAFE_INTEGER,
     summary: null,
+    // LUM-783: the server scans content on write; a placeholder is unscanned.
+    contentSignals: null,
     createdById: null,
     createdAt: now,
     updatedAt: now,

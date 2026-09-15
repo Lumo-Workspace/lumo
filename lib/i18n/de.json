@@ -2370,5 +2370,13 @@
   "boundary.panel.viaCli": "· über CLI",
   "boundary.panel.viaCliTip": "Über das Terminal mit lumo crossing disposition --confirm entschieden: der Agent hat den Grenzverstoß weitergegeben und der Nutzer hat im Chat zugestimmt. Korrigiere es hier, falls diese Zustimmung nicht von dir kam.",
   "activity.boundaryRejudged": "hat die Grenzüberschreitung als Hinweis neu bewertet — ihre Ursache besteht nicht mehr ({reason})",
-  "boundary.panel.rejudged": "Vom System neu bewertet — blockiert Done nicht mehr: {evidence}"
+  "boundary.panel.rejudged": "Vom System neu bewertet — blockiert Done nicht mehr: {evidence}",
+  "contentSignals.badge": "Verdacht auf Injection",
+  "contentSignals.tooltip": "{count, plural, one {# verdächtiges anweisungsartiges Signal} other {# verdächtige anweisungsartige Signale}} in diesem Inhalt erkannt: {details}. Er wird weiterhin angezeigt und eingespeist, aber Agenten werden angewiesen, ihn als Daten und nicht als Anweisungen zu behandeln.",
+  "contentSignals.kind.imperative": "imperative Anweisung",
+  "contentSignals.kind.hiddenComment": "in einem Kommentar versteckter Text",
+  "contentSignals.kind.invisibleChars": "unsichtbare Zeichen",
+  "contentSignals.kind.encodedBlob": "kodierter Datenblock",
+  "contentSignals.kind.scriptLink": "Skript-Link",
+  "contentSignals.kind.wrapperEscape": "schließendes Wrapper-Tag"
 }

@@ -2370,5 +2370,13 @@
   "boundary.panel.viaCli": "· via CLI",
   "boundary.panel.viaCliTip": "Ruled from the terminal with lumo crossing disposition --confirm: the agent relayed the crossing and the user approved in chat. Correct it here if that approval was not yours.",
   "activity.boundaryRejudged": "re-judged the boundary-crossing as advisory — its cause no longer holds ({reason})",
-  "boundary.panel.rejudged": "Re-judged by the system — no longer blocks Done: {evidence}"
+  "boundary.panel.rejudged": "Re-judged by the system — no longer blocks Done: {evidence}",
+  "contentSignals.badge": "Suspected injection",
+  "contentSignals.tooltip": "{count, plural, one {# suspected instruction-like signal} other {# suspected instruction-like signals}} detected in this content: {details}. It is still shown and injected, but agents are told to treat it as data, not instructions.",
+  "contentSignals.kind.imperative": "imperative directive",
+  "contentSignals.kind.hiddenComment": "text hidden in a comment",
+  "contentSignals.kind.invisibleChars": "invisible characters",
+  "contentSignals.kind.encodedBlob": "encoded blob",
+  "contentSignals.kind.scriptLink": "script link",
+  "contentSignals.kind.wrapperEscape": "wrapper-closing tag"
 }

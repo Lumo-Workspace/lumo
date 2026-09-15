@@ -2370,5 +2370,13 @@
   "boundary.panel.viaCli": "· qua CLI",
   "boundary.panel.viaCliTip": "Được phán quyết từ terminal bằng lumo crossing disposition --confirm: agent đã chuyển tiếp vi phạm ranh giới và người dùng đã phê duyệt trong chat. Hãy sửa tại đây nếu phê duyệt đó không phải của bạn.",
   "activity.boundaryRejudged": "đã đánh giá lại vi phạm ranh giới thành cảnh báo — nguyên nhân không còn tồn tại ({reason})",
-  "boundary.panel.rejudged": "Hệ thống đã đánh giá lại — không còn chặn Done: {evidence}"
+  "boundary.panel.rejudged": "Hệ thống đã đánh giá lại — không còn chặn Done: {evidence}",
+  "contentSignals.badge": "Nghi ngờ tiêm lệnh",
+  "contentSignals.tooltip": "Phát hiện {count, plural, other {# tín hiệu đáng ngờ giống chỉ thị}} trong nội dung này: {details}. Nội dung vẫn được hiển thị và đưa vào, nhưng các agent được yêu cầu coi đó là dữ liệu, không phải chỉ thị.",
+  "contentSignals.kind.imperative": "chỉ thị mệnh lệnh",
+  "contentSignals.kind.hiddenComment": "văn bản ẩn trong bình luận",
+  "contentSignals.kind.invisibleChars": "ký tự ẩn",
+  "contentSignals.kind.encodedBlob": "khối dữ liệu mã hóa",
+  "contentSignals.kind.scriptLink": "liên kết script",
+  "contentSignals.kind.wrapperEscape": "thẻ đóng lớp bọc"
 }

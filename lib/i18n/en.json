@@ -2370,5 +2370,13 @@
   "boundary.toast.ruleCreatedWithSweep": "Repository rule created — {count, plural, one {# existing alert} other {# existing alerts}} of the same kind dispositioned, and future occurrences will be auto-handled",
   "boundary.toast.ruleRevokedWithReopen": "Rule revoked — {count, plural, one {# alert} other {# alerts}} it had auto-handled are open again",
   "boundary.panel.viaCli": "· via CLI",
-  "boundary.panel.viaCliTip": "Ruled from the terminal with lumo crossing disposition --confirm: the agent relayed the crossing and the user approved in chat. Correct it here if that approval was not yours."
+  "boundary.panel.viaCliTip": "Ruled from the terminal with lumo crossing disposition --confirm: the agent relayed the crossing and the user approved in chat. Correct it here if that approval was not yours.",
+  "contentSignals.badge": "Suspected injection",
+  "contentSignals.tooltip": "{count, plural, one {# suspected instruction-like signal} other {# suspected instruction-like signals}} detected in this content: {details}. It is still shown and injected, but agents are told to treat it as data, not instructions.",
+  "contentSignals.kind.imperative": "imperative directive",
+  "contentSignals.kind.hiddenComment": "text hidden in a comment",
+  "contentSignals.kind.invisibleChars": "invisible characters",
+  "contentSignals.kind.encodedBlob": "encoded blob",
+  "contentSignals.kind.scriptLink": "script link",
+  "contentSignals.kind.wrapperEscape": "wrapper-closing tag"
 }

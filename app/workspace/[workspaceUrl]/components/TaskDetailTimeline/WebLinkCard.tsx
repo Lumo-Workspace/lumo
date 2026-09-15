@@ -6,13 +6,17 @@ import { RefreshCw, Trash2, Link } from 'lucide-react'
 import type { OptimisticWebLink } from '../../hooks/useWebLinks'
 import { useNow } from '@/hooks/use-now'
 import { formatRelativeAgo } from '@/lib/datetime/relative'
+import { ContentSignalsBadge } from '../ContentSignalsBadge'
 
 interface Props {
   // Owner-agnostic: the card only reads fields common to both the task- and
   // idea-scoped web link resources, so it accepts either by omitting the
   // owner id field (`taskId`) neither the Idea variant carries nor the card
-  // uses (LUM-681 reuse boundary).
-  link: Omit<OptimisticWebLink, 'taskId'>
+  // uses (LUM-681 reuse boundary). `contentSignals` (LUM-783) is optional for
+  // the same reason — only task links are scanned today.
+  link: Omit<OptimisticWebLink, 'taskId' | 'contentSignals'> & {
+    contentSignals?: unknown
+  }
   onRefresh: (linkId: string) => Promise<void>
   onRemove: (linkId: string) => Promise<void>
 }
@@ -81,6 +85,10 @@ export function WebLinkCard({
               <p className='text-body-strong text-foreground truncate'>
                 {link.title}
               </p>
+              <ContentSignalsBadge
+                signals={link.contentSignals}
+                className='shrink-0'
+              />
               <div className='flex items-center gap-1 flex-shrink-0 ml-1'>
                 <button
                   onClick={e => {
@@ -149,6 +157,7 @@ export function WebLinkCard({
                 <p className='text-caption text-muted-foreground truncate'>
                   {link.url}
                 </p>
+                <ContentSignalsBadge signals={link.contentSignals} />
                 <p
                   className={`mt-0.5 text-caption ${
                     link.loading

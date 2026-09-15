@@ -137,22 +137,11 @@ export const HUNT_SHELL_COMPRESS_MIN = 2_000
  */
 export const HUNT_COMPRESS_TOKEN_BUDGET = 2_000
 
-/**
- * Defang the untrusted-block delimiters inside text that is ABOUT to be put
- * inside one. Both boundaries this crosses are prompt boundaries — the
- * compressor's `<untrusted-command-output>` block and the hunt model's
- * `<untrusted-compressed-output>` block — and repository text legitimately
- * contains such tags (this repo's own `lib/memory/render.ts` writes them), so
- * a `rg untrusted` would otherwise let file content close the block it is
- * quoted inside and continue as if it were the prompt.
- *
- * Pure and dependency-free so the workflow bundle stays import-light; lives
- * here because both sides of the boundary (`lib/llm`, `lib/services`) already
- * import this module and neither may import the other.
- */
-export function neutralizeUntrustedTags(text: string): string {
-  return text.replace(/<(\/?)(untrusted-[a-z-]*)>/gi, '($1$2)')
-}
+// `neutralizeUntrustedTags` (LUM-758) lived here so the workflow bundle stayed
+// import-light. LUM-783 generalised it to every fence shape as
+// `neutralizeWrapperEscapes` in `shared/src/untrusted-content.ts` (pure,
+// dependency-free, byte-identical on the `untrusted-*` subset); every caller
+// imports from there now and this module carries no runtime copy.
 
 /**
  * The six checklist categories, in run order. Duplicated from

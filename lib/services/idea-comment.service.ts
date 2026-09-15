@@ -1,4 +1,5 @@
 import { commentRepository } from '@/lib/repositories/comment.repository'
+import { scanContent } from '@/lib/services/content-signals'
 import { ideaActivityRepository } from '@/lib/repositories/idea-activity.repository'
 import { assertSingleCommentOwner } from '@/lib/comment-owner'
 import { resolveIdeaInTeam } from './idea.service'
@@ -68,6 +69,8 @@ export const ideaCommentService = {
       ideaId: idea.id,
       authorActorId: args.authorActorId,
       body: args.body,
+      // LUM-783: same scan as task comments — one Comment table, one rule.
+      contentSignals: scanContent(args.body),
     })
 
     await ideaActivityRepository.create({

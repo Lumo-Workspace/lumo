@@ -103,6 +103,8 @@ describe('createForProject', () => {
       sourceSessionId: null,
       createdByMemberId: 'mem1',
       agent: undefined,
+      // LUM-783: content scanned on write; clean → null.
+      contentSignals: null,
     })
   })
 
@@ -160,6 +162,7 @@ describe('createForTask', () => {
       // LUM-397: a manual task-scoped add has an unambiguous birth task.
       sourceTaskId: 't1',
       agent: undefined,
+      contentSignals: null,
     })
   })
 
@@ -490,10 +493,13 @@ describe('createForProject — canonicalize + dedup', () => {
       content: { trigger: 't', outcome: 'o' },
       actorMemberId: 'mem1',
     })
-    expect(mockUpdateContent).toHaveBeenCalledWith('n1', {
-      trigger: 't',
-      outcome: 'o',
-    })
+    expect(mockUpdateContent).toHaveBeenCalledWith(
+      'n1',
+      { trigger: 't', outcome: 'o' },
+      undefined,
+      // LUM-783: the neighbour's new content is scanned; clean → null.
+      null
+    )
     expect(mockCreate).not.toHaveBeenCalled()
     expect(r).toEqual({ outcome: 'UPDATE', memory: { id: 'n1' } })
   })
@@ -512,10 +518,12 @@ describe('createForProject — canonicalize + dedup', () => {
       content: { trigger: 't', outcome: 'o' },
       actorMemberId: 'mem1',
     })
-    expect(mockSupersede).toHaveBeenCalledWith('n1', {
-      trigger: 't',
-      outcome: 'o',
-    })
+    expect(mockSupersede).toHaveBeenCalledWith(
+      'n1',
+      { trigger: 't', outcome: 'o' },
+      undefined,
+      null
+    )
     expect(r).toEqual({ outcome: 'SUPERSEDE', memory: { id: 'new9' } })
   })
 })

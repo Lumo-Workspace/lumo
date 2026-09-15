@@ -30,6 +30,7 @@ function makeArtifact(over: Partial<TaskArtifact> = {}): TaskArtifact {
     agent: over.agent ?? 'CLAUDE_CODE',
     order: over.order ?? 0,
     summary: over.summary ?? null,
+    contentSignals: over.contentSignals ?? null,
     createdById: over.createdById ?? null,
     createdAt: over.createdAt ?? new Date('2026-05-20T00:00:00.000Z'),
     updatedAt: over.updatedAt ?? new Date('2026-05-20T00:00:00.000Z'),

@@ -2370,5 +2370,13 @@
   "boundary.panel.viaCli": "· CLI के ज़रिए",
   "boundary.panel.viaCliTip": "टर्मिनल से lumo crossing disposition --confirm के ज़रिए तय किया गया: एजेंट ने सीमा-उल्लंघन बताया और उपयोगकर्ता ने चैट में मंज़ूरी दी। अगर वह मंज़ूरी आपकी नहीं थी तो यहाँ सुधारें।",
   "activity.boundaryRejudged": "सीमा-उल्लंघन को सलाहकार के रूप में पुनर्मूल्यांकित किया — इसका कारण अब लागू नहीं ({reason})",
-  "boundary.panel.rejudged": "सिस्टम द्वारा पुनर्मूल्यांकित — अब Done को अवरुद्ध नहीं करता: {evidence}"
+  "boundary.panel.rejudged": "सिस्टम द्वारा पुनर्मूल्यांकित — अब Done को अवरुद्ध नहीं करता: {evidence}",
+  "contentSignals.badge": "संदिग्ध इंजेक्शन",
+  "contentSignals.tooltip": "इस सामग्री में {count, plural, one {# संदिग्ध निर्देश-जैसा संकेत} other {# संदिग्ध निर्देश-जैसे संकेत}} मिले: {details}. इसे अब भी दिखाया और इंजेक्ट किया जाता है, लेकिन एजेंटों को इसे निर्देश नहीं, डेटा मानने को कहा जाता है।",
+  "contentSignals.kind.imperative": "आदेशात्मक निर्देश",
+  "contentSignals.kind.hiddenComment": "टिप्पणी में छिपा पाठ",
+  "contentSignals.kind.invisibleChars": "अदृश्य वर्ण",
+  "contentSignals.kind.encodedBlob": "एन्कोडेड ब्लॉब",
+  "contentSignals.kind.scriptLink": "स्क्रिप्ट लिंक",
+  "contentSignals.kind.wrapperEscape": "रैपर बंद करने वाला टैग"
 }

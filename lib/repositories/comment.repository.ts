@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
+import type { ContentSignals } from '@/shared/src/untrusted-content'
+import { contentSignalsData } from './content-signals-column'
 
 interface CreateCommentData {
   taskId: string
@@ -6,6 +8,8 @@ interface CreateCommentData {
   body: string
   parentId: string | null
   quotedCommentId: string | null
+  /** LUM-783: scan of the body; null = clean, omit = not scanned. */
+  contentSignals?: ContentSignals | null
 }
 
 /**
@@ -17,6 +21,8 @@ interface CreateIdeaCommentData {
   ideaId: string
   authorActorId: string
   body: string
+  /** LUM-783: scan of the body; null = clean, omit = not scanned. */
+  contentSignals?: ContentSignals | null
 }
 
 export const commentRepository = {
@@ -54,6 +60,7 @@ export const commentRepository = {
         body: data.body,
         parentId: null,
         quotedCommentId: null,
+        ...contentSignalsData(data.contentSignals),
       },
     })
   },
@@ -77,7 +84,10 @@ export const commentRepository = {
   },
 
   async create(data: CreateCommentData) {
-    return prisma.comment.create({ data })
+    const { contentSignals, ...rest } = data
+    return prisma.comment.create({
+      data: { ...rest, ...contentSignalsData(contentSignals) },
+    })
   },
 
   async findByIdWithTask(id: string) {
@@ -89,8 +99,14 @@ export const commentRepository = {
     })
   },
 
-  async update(id: string, data: { body: string }) {
-    return prisma.comment.update({ where: { id }, data })
+  async update(
+    id: string,
+    data: { body: string; contentSignals?: ContentSignals | null }
+  ) {
+    return prisma.comment.update({
+      where: { id },
+      data: { body: data.body, ...contentSignalsData(data.contentSignals) },
+    })
   },
 
   /** Soft-delete: sets deletedAt to now. */

@@ -2370,5 +2370,13 @@
   "boundary.panel.viaCli": "· через CLI",
   "boundary.panel.viaCliTip": "Решение принято из терминала командой lumo crossing disposition --confirm: агент передал нарушение границы, а пользователь одобрил его в чате. Исправьте здесь, если это одобрение было не вашим.",
   "activity.boundaryRejudged": "пересмотрел нарушение границы как рекомендацию — его причина больше не действует ({reason})",
-  "boundary.panel.rejudged": "Пересмотрено системой — больше не блокирует Done: {evidence}"
+  "boundary.panel.rejudged": "Пересмотрено системой — больше не блокирует Done: {evidence}",
+  "contentSignals.badge": "Подозрение на инъекцию",
+  "contentSignals.tooltip": "В этом содержимом обнаружено {count, plural, one {# подозрительный сигнал, похожий на инструкцию} few {# подозрительных сигнала, похожих на инструкции} many {# подозрительных сигналов, похожих на инструкции} other {# подозрительных сигнала, похожих на инструкции}}: {details}. Оно по-прежнему показывается и передаётся, но агентам указано считать его данными, а не инструкциями.",
+  "contentSignals.kind.imperative": "повелительная директива",
+  "contentSignals.kind.hiddenComment": "текст, скрытый в комментарии",
+  "contentSignals.kind.invisibleChars": "невидимые символы",
+  "contentSignals.kind.encodedBlob": "закодированный блок",
+  "contentSignals.kind.scriptLink": "скриптовая ссылка",
+  "contentSignals.kind.wrapperEscape": "закрывающий тег обёртки"
 }

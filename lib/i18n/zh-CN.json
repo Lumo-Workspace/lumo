@@ -2370,5 +2370,13 @@
   "boundary.toast.ruleCreatedWithSweep": "仓库规则已创建——已一并处置本仓库已有的 {count} 条同类告警，以后的同类越界将自动处置",
   "boundary.toast.ruleRevokedWithReopen": "规则已撤销——它此前自动处置的 {count} 条告警已重新进入待处置",
   "boundary.panel.viaCli": "· 经 CLI",
-  "boundary.panel.viaCliTip": "由终端 lumo crossing disposition --confirm 裁定：agent 转述了这条越界记录，用户在对话中批准。若该批准不是你本人所为，请在此处更正。"
+  "boundary.panel.viaCliTip": "由终端 lumo crossing disposition --confirm 裁定：agent 转述了这条越界记录，用户在对话中批准。若该批准不是你本人所为，请在此处更正。",
+  "contentSignals.badge": "疑似注入",
+  "contentSignals.tooltip": "在此内容中检测到 {count, plural, other {# 个疑似指令性信号}}：{details}。内容仍会照常显示并注入，但会提示 agent 将其视为数据而非指令。",
+  "contentSignals.kind.imperative": "指令性祈使",
+  "contentSignals.kind.hiddenComment": "注释中隐藏的正文",
+  "contentSignals.kind.invisibleChars": "不可见字符",
+  "contentSignals.kind.encodedBlob": "编码数据块",
+  "contentSignals.kind.scriptLink": "脚本链接",
+  "contentSignals.kind.wrapperEscape": "包装块闭合标签"
 }

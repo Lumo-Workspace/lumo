@@ -48,6 +48,8 @@ function makeOptimisticPlaceholder(
     fetchError: null,
     body: null,
     bodyFetchedAt: null,
+    // LUM-783: the server scans metadata/body on write; a placeholder is unscanned.
+    contentSignals: null,
     createdById: '',
     createdAt: new Date(),
     updatedAt: new Date(),

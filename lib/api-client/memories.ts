@@ -17,6 +17,8 @@ export interface MemoryRow {
   createdByMemberId: string | null
   createdAt: string
   updatedAt: string
+  /** LUM-783: write-time injection scan of the content; null = clean. */
+  contentSignals?: unknown
 }
 
 interface CreateBody {

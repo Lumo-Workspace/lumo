@@ -2370,5 +2370,13 @@
   "boundary.panel.viaCli": "· vía CLI",
   "boundary.panel.viaCliTip": "Resuelto desde la terminal con lumo crossing disposition --confirm: el agente transmitió el cruce y el usuario lo aprobó en el chat. Corrígelo aquí si esa aprobación no fue tuya.",
   "activity.boundaryRejudged": "reevaluó el cruce de límites como aviso — su causa ya no se sostiene ({reason})",
-  "boundary.panel.rejudged": "Reevaluado por el sistema — ya no bloquea Done: {evidence}"
+  "boundary.panel.rejudged": "Reevaluado por el sistema — ya no bloquea Done: {evidence}",
+  "contentSignals.badge": "Posible inyección",
+  "contentSignals.tooltip": "{count, plural, one {# señal sospechosa con forma de instrucción} other {# señales sospechosas con forma de instrucción}} detectadas en este contenido: {details}. Se sigue mostrando e inyectando, pero se indica a los agentes que lo traten como datos, no como instrucciones.",
+  "contentSignals.kind.imperative": "directiva imperativa",
+  "contentSignals.kind.hiddenComment": "texto oculto en un comentario",
+  "contentSignals.kind.invisibleChars": "caracteres invisibles",
+  "contentSignals.kind.encodedBlob": "bloque codificado",
+  "contentSignals.kind.scriptLink": "enlace de script",
+  "contentSignals.kind.wrapperEscape": "etiqueta de cierre del envoltorio"
 }

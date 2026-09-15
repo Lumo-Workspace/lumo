@@ -2370,5 +2370,13 @@
   "boundary.panel.viaCli": "· melalui CLI",
   "boundary.panel.viaCliTip": "Diputuskan dari terminal dengan lumo crossing disposition --confirm: ejen menyampaikan pelanggaran sempadan dan pengguna meluluskannya dalam sembang. Betulkan di sini jika kelulusan itu bukan daripada anda.",
   "activity.boundaryRejudged": "menilai semula pelanggaran sempadan sebagai nasihat — puncanya tidak lagi berlaku ({reason})",
-  "boundary.panel.rejudged": "Dinilai semula oleh sistem — tidak lagi menyekat Done: {evidence}"
+  "boundary.panel.rejudged": "Dinilai semula oleh sistem — tidak lagi menyekat Done: {evidence}",
+  "contentSignals.badge": "Disyaki suntikan",
+  "contentSignals.tooltip": "{count, plural, other {# isyarat mencurigakan berbentuk arahan}} dikesan dalam kandungan ini: {details}. Ia masih dipaparkan dan disuntik, tetapi ejen diberitahu untuk menganggapnya sebagai data, bukan arahan.",
+  "contentSignals.kind.imperative": "arahan imperatif",
+  "contentSignals.kind.hiddenComment": "teks tersembunyi dalam komen",
+  "contentSignals.kind.invisibleChars": "aksara tidak kelihatan",
+  "contentSignals.kind.encodedBlob": "blok terenkod",
+  "contentSignals.kind.scriptLink": "pautan skrip",
+  "contentSignals.kind.wrapperEscape": "teg penutup pembalut"
 }

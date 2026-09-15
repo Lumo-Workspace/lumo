@@ -1,6 +1,7 @@
 // lib/services/comment.service.ts
 import { parseMentionedUserClerkIds } from '@/lib/editor/parse-mentions'
 import { commentRepository } from '@/lib/repositories/comment.repository'
+import { scanContent } from '@/lib/services/content-signals'
 import { memberRepository } from '@/lib/repositories'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
@@ -90,7 +91,11 @@ export const commentService = {
         })
       }
     }
-    return commentRepository.create(input)
+    // LUM-783: the body is member/agent-authored untrusted text.
+    return commentRepository.create({
+      ...input,
+      contentSignals: scanContent(input.body),
+    })
   },
 
   /** Parse @mention clerkIds from comment body HTML. Excludes author and __agent__. */
@@ -171,7 +176,11 @@ export const commentService = {
       sendChannelNotification(
         workspaceId,
         'comment_mention',
-        { ...mentionPayload, taskId, taskIdentifier: `${teamIdentifier}-${taskNumber}` },
+        {
+          ...mentionPayload,
+          taskId,
+          taskIdentifier: `${teamIdentifier}-${taskNumber}`,
+        },
         projectId
       )
     )
@@ -285,6 +294,7 @@ export const commentService = {
   }) {
     const updated = await commentRepository.update(input.commentId, {
       body: input.body,
+      contentSignals: scanContent(input.body),
     })
     await prCommentMirrorService.scheduleOutbound(input.commentId, 'UPDATE', {
       mirrorOrigin: input.mirrorOrigin ?? 'user',

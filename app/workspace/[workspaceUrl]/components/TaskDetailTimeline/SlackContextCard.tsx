@@ -7,6 +7,7 @@ import type { SlackContextResource } from '@/lib/api-client/slack-contexts'
 import { formatRelativeAgo } from '@/lib/datetime/relative'
 import { useNow } from '@/hooks/use-now'
 import { SlackMrkdwn } from './slackMrkdwn'
+import { ContentSignalsBadge } from '../ContentSignalsBadge'
 
 interface Props {
   // Owner-agnostic: the card only reads fields common to both the task- and
@@ -66,6 +67,7 @@ export function SlackContextCard({
         >
           #{context.slackChannelName ?? 'channel'}
         </a>
+        <ContentSignalsBadge signals={context.contentSignals} />
         <span>·</span>
         <span>{root?.userName ?? `@${root?.userId ?? '?'}`}</span>
         <span>·</span>

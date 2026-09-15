@@ -9,6 +9,7 @@ import { resolveCommentAuthor } from '../comment-utils'
 import { CommentAvatar } from '../CommentAvatar'
 import { CommentActions } from './CommentActions'
 import { CommentEditMode } from './CommentEditMode'
+import { ContentSignalsBadge } from '../ContentSignalsBadge'
 import { CommentQuote, previewCommentText } from './CommentQuote'
 import type { useTaskComments } from '../../hooks/useTaskComments'
 import type { MentionSources } from '@/types/mention'
@@ -90,6 +91,7 @@ export function ReplyItem({
             {rWasEdited &&
               ` · ${intl.formatMessage({ id: 'comment.edited', defaultMessage: 'edited' })}`}
           </span>
+          <ContentSignalsBadge signals={reply.contentSignals} />
         </div>
         {rIsEditing ? (
           <CommentEditMode

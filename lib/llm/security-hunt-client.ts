@@ -41,12 +41,16 @@ import {
   PROMPT_PATH_MAX_CHARS,
 } from '@/lib/security-scan/hunt/prompt-safety'
 import {
-  neutralizeUntrustedTags,
   type HuntStepTrace,
   type HuntStopFacts,
   type HuntWrapUpFacts,
   type HuntToolProbe,
 } from '@/lib/services/security-hunt.config'
+import {
+  detectInjectionSignals,
+  neutralizeWrapperEscapes,
+  renderInlineSignalMarker,
+} from '@/shared/src/untrusted-content'
 import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
 import {
   HuntCandidateSchema,
@@ -413,23 +417,31 @@ export function renderTaskForPrompt(task: HuntTask): string {
   // Dropping is not available here (the objective IS the task), so fold every
   // line break into a space and clip. The clip is here rather than in the plan
   // schema on purpose — see `neutralizeForPromptLine`.
-  // Every other boundary in this subsystem applies `neutralizeUntrustedTags`
+  // Every other boundary in this subsystem applies `neutralizeWrapperEscapes`
   // (the compressor to both its fields, `renderHuntTaskContext`, `runHuntShell`
   // to the compressed body); this one did not. A forged OPENING tag here cannot
   // close anything — the real fences arrive later, in tool results — but it
   // frames the trusted `## Starting points` section that follows as untrusted
   // content, and pre-declares a fence someone else's data will appear to close.
+  // LUM-783: an objective shaped like an instruction ("ignore the previous
+  // …") is still the task, but it is labelled as such on its own line.
   const objective = neutralizeForPromptLine(
-    neutralizeUntrustedTags(task.objective),
+    neutralizeWrapperEscapes(task.objective),
     TASK_TEXT_MAX_CHARS
+  )
+  const objectiveMarker = renderInlineSignalMarker(
+    detectInjectionSignals(objective).signals
   )
   const points = task.startingPoints
     .map(p =>
-      neutralizeForPromptLine(neutralizeUntrustedTags(p), PROMPT_PATH_MAX_CHARS)
+      neutralizeForPromptLine(
+        neutralizeWrapperEscapes(p),
+        PROMPT_PATH_MAX_CHARS
+      )
     )
     .filter(p => p.length > 0)
   const start = points.length > 0 ? `\nStart from: ${points.join(', ')}` : ''
-  return `## Task ${task.id}: ${objective}
+  return `## Task ${task.id}: ${objective}${objectiveMarker}
 Findings from this task are filed under: ${task.category} (${CATEGORY_CWE_HINT[task.category]})${start}
 ${CATEGORY_BRIEF[task.category]}`
 }
