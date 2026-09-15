@@ -53,3 +53,26 @@ of PR 1008 (head `02cf887c`), 2026-09-15:
 
 The production row these were replayed against had all three tasks stopped
 `budget` at step 2–3, 0 candidates, two `no-budget` wrap-ups.
+
+## Model comparison (same diff, same three tasks, )
+
+Run after the LUM-787 fix, 2026-09-15, one replay each — a single sample per
+model, so read the shape, not the decimals. "text" = steps in which the model
+wrote prose between tool calls (what survives elision); cost is the search's
+token bill at the gateway's list price.
+
+| model                      | done | steps (stop)                    | tokens | elapsed | reasoning tok | text  | candidates | est. cost |
+| -------------------------- | ---- | ------------------------------- | ------ | ------- | ------------- | ----- | ---------- | --------- |
+| `deepseek/deepseek-v4-pro` | 3/3  | 5 / 4 / 4 (done, done, done)    | 40,424 | 64s     | 1298          | 0/13  | 0          | $0.030    |
+| `alibaba/qwen3-coder-plus` | 2/3  | 6 / 5 / 6 (done, budget, done)  | 47,819 | 50s     | 0             | 17/17 | 1          | $0.053    |
+| `alibaba/qwen3.7-plus`     | 2/3  | 6 / 5 / 3 (done, done, timeout) | 30,155 | 86s     | 1261          | 0/14  | 0          | $0.019    |
+| `zai/glm-5.2`              | 3/3  | 4 / 5 / 5 (done, done, done)    | 41,224 | 95s     | 2865          | 9/14  | 0          | $0.041    |
+| `zai/glm-5.3-flash`        | 3/3  | 3 / 5 / 5 (done, done, done)    | 37,932 | 65s     | 2253          | 4/13  | 0          | $0.007    |
+
+Notes: t3 hit the 40 s search window at step 3 (≈13 s per
+step, no compressor involved); t1 submitted at step 3 with a
+reasoned "the flagged sink is a RegExp" — an early stop, not a starved one;
+is the only model that narrates every step (17/17) and
+the only one that submitted a candidate (rejected downstream: symbol ids off
+the grammar). Production stays on GENERATION_MODEL; a swap is a LUM-588 A/B
+decision, not this task's.

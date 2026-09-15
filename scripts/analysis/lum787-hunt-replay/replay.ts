@@ -28,6 +28,8 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { gateway } from '@ai-sdk/gateway'
+import { GENERATION_MODEL } from '../../../lib/ai/models'
 import {
   createRepoSandbox,
   denySandboxEgress,
@@ -86,6 +88,8 @@ interface Args {
   tasks: string
   out: string
   diffFile?: string
+  /** Gateway model id to hunt with; default GENERATION_MODEL (what production runs). */
+  model: string
 }
 
 function parseArgs(argv: string[]): Args {
@@ -97,7 +101,7 @@ function parseArgs(argv: string[]): Args {
   const sha = get('--sha')
   if (!Number.isInteger(pr) || !sha) {
     throw new Error(
-      'usage: --pr <number> --sha <head sha> [--repo o/r] [--tasks f] [--out f] [--diff-file f]'
+      'usage: --pr <number> --sha <head sha> [--repo o/r] [--tasks f] [--out f] [--diff-file f] [--model <gateway id>]'
     )
   }
   const here = path.dirname(new URL(import.meta.url).pathname)
@@ -107,6 +111,7 @@ function parseArgs(argv: string[]): Args {
     repo: get('--repo') ?? 'Lumo-Workspace/lumo',
     tasks: get('--tasks') ?? path.join(here, `pr${pr}-tasks.json`),
     out: get('--out') ?? path.join(here, `results-pr${pr}.json`),
+    model: get('--model') ?? GENERATION_MODEL,
     ...(get('--diff-file') ? { diffFile: get('--diff-file') } : {}),
   }
 }
@@ -133,7 +138,8 @@ async function runTask(
   tools: HuntToolProbe,
   task: HuntTask,
   reasons: string[],
-  sites: HuntSignalSite[]
+  sites: HuntSignalSite[],
+  modelId: string
 ): Promise<HuntTaskAudit & { submitted: unknown[] }> {
   const started = Date.now()
   const shell: HuntShellStats = {
@@ -238,6 +244,7 @@ async function runTask(
       maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
       wrapUpDeadlineAt: started + HUNT_TASK_TIME_MS,
       onStep,
+      ...(modelId === GENERATION_MODEL ? {} : { model: gateway(modelId) }),
     })
     return {
       ...base,
@@ -300,6 +307,9 @@ async function main(): Promise<void> {
     `diff: ${files.length} files with added lines · trigger.hunt=${trigger.hunt} · reasons: ${trigger.reasons.join(', ') || '(none)'} · sites: ${trigger.sites.length}`
   )
   console.log(`tasks: ${tasks.map(t => `${t.id}:${t.category}`).join(' · ')}`)
+  console.log(
+    `model: ${args.model}${args.model === GENERATION_MODEL ? ' (GENERATION_MODEL)' : ' (override)'}`
+  )
 
   const token = execFileSync('gh', ['auth', 'token'], {
     encoding: 'utf8',
@@ -340,7 +350,14 @@ async function main(): Promise<void> {
     for (const task of tasks) {
       console.log(`\n--- ${task.id} (${task.category}) ---`)
       results.push(
-        await runTask(handle, tools, task, trigger.reasons, trigger.sites)
+        await runTask(
+          handle,
+          tools,
+          task,
+          trigger.reasons,
+          trigger.sites,
+          args.model
+        )
       )
     }
   } finally {
@@ -375,6 +392,7 @@ async function main(): Promise<void> {
         pr: args.pr,
         sha: args.sha,
         repo: args.repo,
+        model: args.model,
         trigger: { reasons: trigger.reasons, sites: trigger.sites },
         sandbox: { name: sandbox.name, egressDenied },
         tasks: results,

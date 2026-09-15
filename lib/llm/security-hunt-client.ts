@@ -31,7 +31,13 @@
  * already gated, scrubbed and truncated. Keeping the exec boundary in one
  * place is what makes `checkHuntCommand`'s four review rounds worth anything.
  */
-import { generateText, tool, stepCountIs, hasToolCall } from 'ai'
+import {
+  generateText,
+  tool,
+  stepCountIs,
+  hasToolCall,
+  type LanguageModel,
+} from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
 import { GENERATION_MODEL } from '@/lib/ai/models'
@@ -149,6 +155,14 @@ export interface HuntClientInput {
    * chasing a program that is not there.
    */
   tools?: HuntToolProbe
+  /**
+   * LUM-787 — probe-only, like `PlanProbeOverrides` on the planner: the
+   * replay script (`scripts/analysis/lum787-hunt-replay`) A/B-tests the
+   * hunt on another model THROUGH this function, so the thing measured is
+   * the thing shipped. Production passes nothing here and runs
+   * GENERATION_MODEL.
+   */
+  model?: LanguageModel
 }
 
 /**
@@ -545,8 +559,9 @@ export async function huntTask(
   // are sequential, so one slot is enough.
   let pendingElidedChars = 0
 
+  const model = input.model ?? gateway(GENERATION_MODEL)
   const result = await generateText({
-    model: gateway(GENERATION_MODEL),
+    model,
     tools,
     system,
     prompt: promptText,
@@ -708,7 +723,7 @@ export async function huntTask(
     const before = submitted.length
     try {
       const wrap = await generateText({
-        model: gateway(GENERATION_MODEL),
+        model,
         // BOTH tools are declared, and `toolChoice` is what actually removes
         // the search. Declaring only `submit_candidates` would leave the
         // replayed transcript full of `run_shell` calls and results naming a
