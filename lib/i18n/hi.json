@@ -1209,7 +1209,6 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "संवेदनशील पाथ संपादित किया",
   "boundary.category.HOOK_BYPASS": "git हुक बायपास किए",
   "boundary.category.TEST_FILE_DELETED": "टेस्ट फ़ाइल हटाई",
-  "boundary.category.SELF_DISPOSITION": "एजेंट द्वारा किया गया निपटान (वापस लिया गया)",
   "boundary.advisoryBadge": "सलाह",
   "boundary.severity.high": "उच्च",
   "boundary.severity.medium": "मध्यम",
@@ -2371,7 +2370,5 @@
   "boundary.panel.viaCli": "· CLI के ज़रिए",
   "boundary.panel.viaCliTip": "टर्मिनल से lumo crossing disposition --confirm के ज़रिए तय किया गया: एजेंट ने सीमा-उल्लंघन बताया और उपयोगकर्ता ने चैट में मंज़ूरी दी। अगर वह मंज़ूरी आपकी नहीं थी तो यहाँ सुधारें।",
   "activity.boundaryRejudged": "सीमा-उल्लंघन को सलाहकार के रूप में पुनर्मूल्यांकित किया — इसका कारण अब लागू नहीं ({reason})",
-  "activity.securityFindingDispositioned": "CLI से एक सुरक्षा निष्कर्ष को {to} के रूप में निपटाया",
-  "activity.securityFindingReopened": "एक सुरक्षा निष्कर्ष फिर से खोला (पहले {from} था) — निर्णय एजेंट ने किया था और उसे वापस लिया गया",
   "boundary.panel.rejudged": "सिस्टम द्वारा पुनर्मूल्यांकित — अब Done को अवरुद्ध नहीं करता: {evidence}"
 }

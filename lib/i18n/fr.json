@@ -1209,7 +1209,6 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "a modifié un chemin sensible",
   "boundary.category.HOOK_BYPASS": "a contourné les hooks git",
   "boundary.category.TEST_FILE_DELETED": "a supprimé un fichier de test",
-  "boundary.category.SELF_DISPOSITION": "disposition émise par l'agent (annulée)",
   "boundary.advisoryBadge": "Avis",
   "boundary.severity.high": "élevée",
   "boundary.severity.medium": "moyenne",
@@ -2371,7 +2370,5 @@
   "boundary.panel.viaCli": "· via CLI",
   "boundary.panel.viaCliTip": "Tranché depuis le terminal avec lumo crossing disposition --confirm : l’agent a relayé le franchissement et l’utilisateur a approuvé dans le chat. Corrigez-le ici si cette approbation n’était pas la vôtre.",
   "activity.boundaryRejudged": "a réévalué le franchissement de limite comme avertissement — sa cause ne tient plus ({reason})",
-  "activity.securityFindingDispositioned": "a classé une découverte de sécurité comme {to} via la CLI",
-  "activity.securityFindingReopened": "a rouvert une découverte de sécurité (était {from}) — la décision venait de l'agent et a été annulée",
   "boundary.panel.rejudged": "Réévalué par le système — ne bloque plus Done : {evidence}"
 }

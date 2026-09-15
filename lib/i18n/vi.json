@@ -1209,7 +1209,6 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "đã chỉnh sửa đường dẫn nhạy cảm",
   "boundary.category.HOOK_BYPASS": "đã bỏ qua git hook",
   "boundary.category.TEST_FILE_DELETED": "đã xóa tệp kiểm thử",
-  "boundary.category.SELF_DISPOSITION": "quyết định do agent đưa ra (đã hoàn tác)",
   "boundary.advisoryBadge": "Khuyến cáo",
   "boundary.severity.high": "cao",
   "boundary.severity.medium": "trung bình",
@@ -2371,7 +2370,5 @@
   "boundary.panel.viaCli": "· qua CLI",
   "boundary.panel.viaCliTip": "Được phán quyết từ terminal bằng lumo crossing disposition --confirm: agent đã chuyển tiếp vi phạm ranh giới và người dùng đã phê duyệt trong chat. Hãy sửa tại đây nếu phê duyệt đó không phải của bạn.",
   "activity.boundaryRejudged": "đã đánh giá lại vi phạm ranh giới thành cảnh báo — nguyên nhân không còn tồn tại ({reason})",
-  "activity.securityFindingDispositioned": "đã xử lý một phát hiện bảo mật là {to} qua CLI",
-  "activity.securityFindingReopened": "đã mở lại một phát hiện bảo mật (trước đó là {from}) — quyết định do agent đưa ra và đã bị hoàn tác",
   "boundary.panel.rejudged": "Hệ thống đã đánh giá lại — không còn chặn Done: {evidence}"
 }

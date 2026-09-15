@@ -104,9 +104,9 @@ export async function crossingExplain(
   process.stdout.write(
     `✓ Recorded an explanation on crossing ${sanitizeField(outcome.crossingId)}.\n` +
       '  This is an append-only note for the human reviewer — it does not clear ' +
-      "the crossing or unblock Done. The ruling is the user's: they run " +
-      '`lumo crossing disposition <id> --false-positive | --confirmed --task <LUM-N>` ' +
-      'in their own terminal (refused inside an agent session), or rule in the web panel.\n'
+      'the crossing or unblock Done. Once the user rules, record it with ' +
+      '`lumo crossing disposition <id> --false-positive | --confirmed` (exit-4 envelope) ' +
+      'or in the web panel.\n'
   )
   return
 }

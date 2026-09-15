@@ -1209,7 +1209,6 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "mengedit jalur sensitif",
   "boundary.category.HOOK_BYPASS": "melewati git hook",
   "boundary.category.TEST_FILE_DELETED": "menghapus file pengujian",
-  "boundary.category.SELF_DISPOSITION": "disposisi yang dikeluarkan agen (dibatalkan)",
   "boundary.advisoryBadge": "Saran",
   "boundary.severity.high": "tinggi",
   "boundary.severity.medium": "sedang",
@@ -2371,7 +2370,5 @@
   "boundary.panel.viaCli": "· via CLI",
   "boundary.panel.viaCliTip": "Diputuskan dari terminal dengan lumo crossing disposition --confirm: agen meneruskan pelanggaran batas dan pengguna menyetujuinya di chat. Koreksi di sini jika persetujuan itu bukan dari Anda.",
   "activity.boundaryRejudged": "menilai ulang pelanggaran batas sebagai peringatan — penyebabnya sudah tidak berlaku ({reason})",
-  "activity.securityFindingDispositioned": "menetapkan temuan keamanan sebagai {to} lewat CLI",
-  "activity.securityFindingReopened": "membuka kembali temuan keamanan (sebelumnya {from}) — keputusan dibuat oleh agen dan telah dibatalkan",
   "boundary.panel.rejudged": "Dinilai ulang oleh sistem — tidak lagi memblokir Done: {evidence}"
 }
