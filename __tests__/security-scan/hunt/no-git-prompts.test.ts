@@ -59,6 +59,9 @@ describe('LUM-787 no prompt sends the agent after git or a diff', () => {
     // `echo` and `ls`, both refused.
     expect(HUNT_SYSTEM_PROMPT).toContain('never chain with `;` or `&&`')
     expect(HUNT_SYSTEM_PROMPT).toContain('there is no ls, echo or find')
+    // The first production rerun (PR 1014): 4 of 6 refusals were unquoted
+    // `*` globs, a shape the prompt had never mentioned.
+    expect(HUNT_SYSTEM_PROMPT).toContain('Never write an unquoted wildcard')
     expect(HUNT_SYSTEM_PROMPT).toContain(
       'Call submit_candidates yourself before the allowance runs out'
     )
@@ -72,5 +75,6 @@ describe('LUM-787 no prompt sends the agent after git or a diff', () => {
       `share a ceiling of ${HUNT_STEP_OUTPUT_MAX} characters`
     )
     expect(description).toContain('Do not chain commands with `;` or `&&`')
+    expect(description).toContain('never use an unquoted shell wildcard')
   })
 })
