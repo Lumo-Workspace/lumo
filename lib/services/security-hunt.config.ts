@@ -244,7 +244,7 @@ export interface HuntTask {
   startingPoints: string[]
 }
 
-/** §11.5 —— 3 个才像个图；3 × HUNT_TASK_TOKEN_MAX = 60k = 验收目标均值。 */
+/** §11.5 —— 3 个才像个图；3 × HUNT_TASK_TOKEN_MAX = 90k = 验收目标均值（LUM-787 后续：原 60k）。 */
 export const HUNT_MAX_PLANNED_TASKS = 3
 /**
  * Per-task token ceiling. Two constraints define this number, and
@@ -266,7 +266,16 @@ export const HUNT_MAX_PLANNED_TASKS = 3
  * ceiling only together with HUNT_MAX_PLANNED_TASKS, so the arithmetic above
  * still holds.
  */
-export const HUNT_TASK_TOKEN_MAX = 20_000
+//
+// LUM-787 follow-up (2026-09-15, user decision) — 20k → 30k. With the
+// transcript bounded (per-step ceiling + elision) a step costs a steady
+// 3–4k, ~1.9k of which is the fixed prompt re-sent every step, and the
+// wrap-up holds 4k; 20k therefore bought exactly 4–5 steps, and the first
+// six production tasks on the new loop (PR 1012) ended `budget` in three
+// of six — no longer starved by their own growth, but by the line itself.
+// 30k buys ~7–8 steps at the same per-step cost. HUNT_TOKEN_BUDGET moves
+// with it so the arithmetic below (3 tasks + one retry each) still holds.
+export const HUNT_TASK_TOKEN_MAX = 30_000
 export const HUNT_TASK_TIME_MS = 60_000
 /**
  * Room a task must still have before the forced wrap-up call is worth making.
@@ -301,9 +310,11 @@ export const HUNT_MIN_BATCH_TIME_MS = 10_000
  * 120k/240s：762 的放大在 prod 被证伪（166k–236k 全部 PARTIAL、0 finding），
  * 真正的成本源是「无条件跑 6 类」而不是预算太小。任务数降到 ≤3 之后，
  * 3 任务 × 20k = 60k（= 验收目标均值）跑完 pass 1，剩下的额度足够整轮补跑；
+ * LUM-787 后续把每任务提到 30k（transcript 有界后 20k 只够 4–5 步），总量随之
+ * 180k：3 × 30k = 90k 跑完 pass 1，仍留一整轮补跑。
  * 时间上 3 × 60s = 180s 跑完 pass 1，240s 里还留得下一次补跑。
  */
-export const HUNT_TOKEN_BUDGET = 120_000
+export const HUNT_TOKEN_BUDGET = 180_000
 export const HUNT_TIME_BUDGET_MS = 240_000
 
 /**
@@ -578,7 +589,7 @@ export interface HuntAudit {
    * The real win is therefore a PRICE win — tokens moved off the hunt model
    * and onto FAST — and `tokenSpent` cannot show it, because it adds FAST and
    * GENERATION tokens 1:1. A compression that lowers the dollar cost of a
-   * scan can RAISE its "average tokenSpent ≤ 60k" number. Keep or revert this
+   * scan can RAISE its "average tokenSpent ≤ 90k" number. Keep or revert this
    * step on price (tokens × each model's rate), never on `tokenSpent`; the
    * budget guard is the only thing `tokenSpent` is for here.
    *
@@ -589,7 +600,7 @@ export interface HuntAudit {
    * - `tokens`: EVERY token compression spent, duds included, and the same
    *   number is inside the batch's `tokens` (and so inside `tokenSpent`).
    *   Counting it anywhere else would let compression be paid for with money
-   *   the "average tokenSpent ≤ 60k" metric cannot see.
+   *   the "average tokenSpent ≤ 90k" metric cannot see.
    */
   compress?: HuntCompressStats
   error?: string

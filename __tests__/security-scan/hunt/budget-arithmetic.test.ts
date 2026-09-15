@@ -20,7 +20,8 @@ import {
 // pinned on both sides. Raising it alone silently breaks either the acceptance
 // target or the scan budget, and neither failure is visible until prod.
 describe('hunt budget arithmetic', () => {
-  const ACCEPTANCE_TARGET_MEAN_TOKENS = 60_000
+  // LUM-787 follow-up: 60k → 90k with the per-task ceiling (see HUNT_TASK_TOKEN_MAX).
+  const ACCEPTANCE_TARGET_MEAN_TOKENS = 90_000
 
   it('a full plan bills at most the acceptance target mean', () => {
     expect(HUNT_MAX_PLANNED_TASKS * HUNT_TASK_TOKEN_MAX).toBeLessThanOrEqual(
@@ -195,10 +196,12 @@ describe('LUM-787 step ceiling × elision × predictive stop', () => {
     // t2's first step: six commands, 25 639 characters, `stop.steps: 2`,
     // `wrapUp.skipped: no-budget`. If the model of a step cannot reproduce
     // the failure it was built from, its verdict on the fix means nothing.
+    // 20k literally: the row being reproduced ran under the ceiling of its
+    // day, not under whatever the constant is now.
     const prod = simulateSearch({
       resultCharsPerStep: 25_639,
       elide: false,
-      budget: HUNT_TASK_TOKEN_MAX,
+      budget: 20_000,
     })
     expect(prod.steps).toBe(2)
     expect(prod.wrapUpAffordable).toBe(false)
@@ -217,9 +220,24 @@ describe('LUM-787 step ceiling × elision × predictive stop', () => {
     // at three. Both constants are tuned together, against this test.
   })
 
-  it('HUNT_TOKEN_BUDGET is unchanged — LUM-758 falsified "the budget is too small"', () => {
-    expect(HUNT_TOKEN_BUDGET).toBe(120_000)
-    expect(HUNT_TASK_TOKEN_MAX).toBe(20_000)
+  it('LUM-787 follow-up: the per-task ceiling and the scan budget moved together, and the wrap-up floor did not', () => {
+    // 20k → 30k on the user's call after the first six production tasks on
+    // the bounded loop ended `budget` three times at 4–5 steps; 120k → 180k
+    // keeps "three tasks plus one retry each" inside the scan budget. The
+    // 4k wrap-up floor stays: production wrap-ups bill 3.4–4.1k.
+    expect(HUNT_TASK_TOKEN_MAX).toBe(30_000)
+    expect(HUNT_TOKEN_BUDGET).toBe(180_000)
+    expect(HUNT_WRAP_UP_MIN_TOKENS).toBe(4_000)
+  })
+
+  it('LUM-787 follow-up: at the raised ceiling the simulated search completes at least six steps with the wrap-up still affordable', () => {
+    const raised = simulateSearch({
+      resultCharsPerStep: HUNT_STEP_OUTPUT_MAX,
+      elide: true,
+      budget: HUNT_TASK_TOKEN_MAX,
+    })
+    expect(raised.steps).toBeGreaterThanOrEqual(6)
+    expect(raised.wrapUpAffordable).toBe(true)
   })
 
   it('the step ceiling sits under the per-command cap, so the compressor still sees a whole command', () => {
