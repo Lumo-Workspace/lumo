@@ -675,6 +675,7 @@ describe('LUM-781 — the per-step trace read-out', () => {
           taskId: 't2',
           stopped: 'done',
           model: 'alibaba/qwen3-coder-plus',
+          sites: 2,
           shell: {
             calls: 2,
             refused: 0,
@@ -710,7 +711,7 @@ describe('LUM-781 — the per-step trace read-out', () => {
       6
     )
     expect(lines).toEqual([
-      't2 done · alibaba/qwen3-coder-plus · 2 cmds (gate refused 0, sandbox failed 0, not found 0, empty 0, step-clipped 1)',
+      't2 done · alibaba/qwen3-coder-plus · 2 sites · 2 cmds (gate refused 0, sandbox failed 0, not found 0, empty 0, step-clipped 1)',
       "      sed -n '1,60p' lib/a.ts  [2000 chars]",
       "      sed -n '1,60p' lib/b.ts  [560 chars, clipped]",
       '    #1 tool=run_shell in=1900 out=300',

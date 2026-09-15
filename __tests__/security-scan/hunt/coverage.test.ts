@@ -2,7 +2,10 @@
 // LUM-762: huntAudit was write-only — no API, no UI, triage meant reading
 // Vercel logs. This is the read side: a defensive parse of the raw Json
 // column into "which categories ran, how long did each take".
-import { parseHuntCoverage } from '@/lib/security-scan/hunt/coverage'
+import {
+  formatHuntCoverage,
+  parseHuntCoverage,
+} from '@/lib/security-scan/hunt/coverage'
 import { HUNT_CATEGORIES } from '@/lib/services/security-hunt.config'
 
 const row = (over: Record<string, unknown> = {}) => ({
@@ -247,5 +250,38 @@ describe('LUM-762 hunt coverage', () => {
         attempts: 1,
       },
     ])
+  })
+
+  // LUM-787 follow-up — a diff past the size the top tier can cover is said
+  // so on the line, whatever the tasks' stops read.
+  it('LUM-787 follow-up: an oversized diff is parsed and printed as partial coverage', () => {
+    const raw = {
+      planned: [{ id: 't1' }],
+      tasks: [
+        {
+          taskId: 't1',
+          category: 'injection',
+          stopped: 'done',
+          elapsedMs: 1000,
+          tokens: 10,
+          candidates: 0,
+        },
+      ],
+      diff: { sourceFiles: 57, sites: 12, taskCap: 5, oversized: true },
+    }
+    const coverage = parseHuntCoverage(raw)!
+    expect(coverage.oversized).toEqual({ sourceFiles: 57 })
+    expect(formatHuntCoverage(coverage)).toBe(
+      '1/1 done · t1 injection 1.0s done · oversized (57 source files, partial coverage)'
+    )
+    // Not oversized, or written before the field existed: nothing added.
+    const small = parseHuntCoverage({
+      ...raw,
+      diff: { ...raw.diff, oversized: false },
+    })!
+    expect(small.oversized).toBeUndefined()
+    expect(formatHuntCoverage(small)).toBe('1/1 done · t1 injection 1.0s done')
+    const older = parseHuntCoverage({ planned: raw.planned, tasks: raw.tasks })!
+    expect(older.oversized).toBeUndefined()
   })
 })

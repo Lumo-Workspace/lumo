@@ -283,6 +283,8 @@ describe('LUM-739 hunt workflow', () => {
       tokens: 1000,
       elapsedMs: 5000,
       stopped: 'done',
+      // LUM-787 follow-up — the allocation weight, 0 here: the JOB carries no sites.
+      sites: 0,
     })
     expect(order[order.length - 1]).toBe('sync')
     expect(order.filter(o => o === 'hunt')).toHaveLength(2)
@@ -414,6 +416,9 @@ describe('LUM-739 hunt workflow', () => {
         tokens: 0,
         elapsedMs: 0,
         stopped: 'skipped',
+        // LUM-787 follow-up — the allocation weight is recorded even for a
+        // task that never ran.
+        sites: 0,
       }))
     )
   })

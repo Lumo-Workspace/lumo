@@ -349,6 +349,8 @@ export interface ShellDetailTask {
   stopped?: unknown
   /** LUM-787 — the model the search ran on; absent on older rows. */
   model?: string
+  /** LUM-787 follow-up — sites the task had to cover (its allocation weight). */
+  sites?: number
   shell?: {
     notFound?: number
     calls?: number
@@ -426,7 +428,7 @@ export function formatShellDetail(
     // LUM-787 — the clip count prints only when the row carries it: an older
     // row, and a row from a search that never hit the ceiling, read as before.
     out.push(
-      `${String(t.taskId)} ${String(t.stopped)}${t.model ? ` · ${t.model}` : ''} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, not found ${sh.notFound ?? 0}, empty ${sh.empty ?? 0}${sh.stepClipped ? `, step-clipped ${sh.stepClipped}` : ''})`
+      `${String(t.taskId)} ${String(t.stopped)}${t.model ? ` · ${t.model}` : ''}${typeof t.sites === 'number' ? ` · ${t.sites} sites` : ''} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, not found ${sh.notFound ?? 0}, empty ${sh.empty ?? 0}${sh.stepClipped ? `, step-clipped ${sh.stepClipped}` : ''})`
     )
     for (const c of sh.commands ?? []) {
       const cost =

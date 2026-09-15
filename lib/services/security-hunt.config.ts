@@ -244,8 +244,28 @@ export interface HuntTask {
   startingPoints: string[]
 }
 
-/** §11.5 —— 3 个才像个图；3 × HUNT_TASK_TOKEN_MAX = 90k = 验收目标均值（LUM-787 后续：原 60k）。 */
+/**
+ * §11.5 —— 3 个才像个图；这是最小档（改动 ≤ HUNT_TASK_CAP_TIERS[0] 个源文件）。
+ * LUM-787 后续：任务数随改动源文件数分档放宽（`plannedTaskCap`），封顶
+ * HUNT_MAX_PLANNED_TASKS_CEILING；3 × HUNT_TASK_TOKEN_MEAN = 90k = 最小档的
+ * 验收目标均值（原 60k）。
+ */
 export const HUNT_MAX_PLANNED_TASKS = 3
+export const HUNT_MAX_PLANNED_TASKS_CEILING = 5
+/** 改动源文件数 → 可规划任务数。最后一档兜住其余。 */
+export const HUNT_TASK_CAP_TIERS: ReadonlyArray<{
+  sourceFiles: number
+  tasks: number
+}> = [
+  { sourceFiles: 12, tasks: 3 },
+  { sourceFiles: 30, tasks: 4 },
+  { sourceFiles: Number.POSITIVE_INFINITY, tasks: 5 },
+]
+/**
+ * 改动源文件数超过这个数，最高档也只能看一角：审计 `diff.oversized` 与覆盖行
+ * 标出来，比再加预算诚实。
+ */
+export const HUNT_OVERSIZED_SOURCE_FILES = 40
 /**
  * Per-task token ceiling. Two constraints define this number, and
  * `__tests__/security-scan/hunt/budget-arithmetic.test.ts` pins both:
@@ -267,15 +287,27 @@ export const HUNT_MAX_PLANNED_TASKS = 3
  * still holds.
  */
 //
-// LUM-787 follow-up (2026-09-15, user decision) — 20k → 30k. With the
-// transcript bounded (per-step ceiling + elision) a step costs a steady
-// 3–4k, ~1.9k of which is the fixed prompt re-sent every step, and the
-// wrap-up holds 4k; 20k therefore bought exactly 4–5 steps, and the first
-// six production tasks on the new loop (PR 1012) ended `budget` in three
-// of six — no longer starved by their own growth, but by the line itself.
-// 30k buys ~7–8 steps at the same per-step cost. HUNT_TOKEN_BUDGET moves
-// with it so the arithmetic below (3 tasks + one retry each) still holds.
-export const HUNT_TASK_TOKEN_MAX = 30_000
+// LUM-787 follow-up (2026-09-15, user decision) — the flat 20k became a
+// band. With the transcript bounded (per-step ceiling + elision) a step
+// costs a steady 3–4k, ~1.9k of which is the fixed prompt re-sent every
+// step, and the wrap-up holds 4k; 20k therefore bought exactly 4–5 steps,
+// and the first six production tasks on the new loop (PR 1012) ended
+// `budget` in three of six — no longer starved by their own growth, but by
+// the line itself. And a task briefed to check six call sites got the same
+// line as one briefed to check one.
+//
+//   MIN  — the floor every task gets (the old flat ceiling: 4–5 steps).
+//   MEAN — what a task gets in an even split; `cap × MEAN` is the pass-1
+//          budget of a scan (~7–8 steps).
+//   MAX  — the ceiling a site-heavy task may be allocated (~11–12 steps).
+//
+// `lib/security-scan/hunt/allocation.ts` splits `cap × MEAN` by the sites
+// each task has to cover; `huntTokenBudget(cap)` is twice that, so every
+// task can be retried once. The `_MAX` name is kept because it is still
+// the most any one batch may be handed.
+export const HUNT_TASK_TOKEN_MIN = 20_000
+export const HUNT_TASK_TOKEN_MEAN = 30_000
+export const HUNT_TASK_TOKEN_MAX = 45_000
 export const HUNT_TASK_TIME_MS = 60_000
 /**
  * Room a task must still have before the forced wrap-up call is worth making.
@@ -310,12 +342,20 @@ export const HUNT_MIN_BATCH_TIME_MS = 10_000
  * 120k/240s：762 的放大在 prod 被证伪（166k–236k 全部 PARTIAL、0 finding），
  * 真正的成本源是「无条件跑 6 类」而不是预算太小。任务数降到 ≤3 之后，
  * 3 任务 × 20k = 60k（= 验收目标均值）跑完 pass 1，剩下的额度足够整轮补跑；
- * LUM-787 后续把每任务提到 30k（transcript 有界后 20k 只够 4–5 步），总量随之
- * 180k：3 × 30k = 90k 跑完 pass 1，仍留一整轮补跑。
- * 时间上 3 × 60s = 180s 跑完 pass 1，240s 里还留得下一次补跑。
+ * LUM-787 后续把每任务均值提到 30k（transcript 有界后 20k 只够 4–5 步），总量
+ * 随任务数分档：`huntTokenBudget(cap)` = cap × 30k × 2，最小档 180k —— 3 × 30k
+ * = 90k 跑完 pass 1，仍留一整轮补跑；时间 `huntTimeBudgetMs(cap)` = (cap + 1)
+ * × 60s，最小档 240s（3 × 60s 跑完 pass 1，还留一次补跑）。下面两个常量是
+ * 最小档的值，供不知道 cap 的读者用。
  */
-export const HUNT_TOKEN_BUDGET = 180_000
-export const HUNT_TIME_BUDGET_MS = 240_000
+export function huntTokenBudget(cap: number): number {
+  return Math.max(1, cap) * HUNT_TASK_TOKEN_MEAN * 2
+}
+export function huntTimeBudgetMs(cap: number): number {
+  return (Math.max(1, cap) + 1) * HUNT_TASK_TIME_MS
+}
+export const HUNT_TOKEN_BUDGET = huntTokenBudget(HUNT_MAX_PLANNED_TASKS)
+export const HUNT_TIME_BUDGET_MS = huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS)
 
 /**
  * LUM-766 — 规划步在真实 prompt 上的实测（16 份：真实验收合同 + 真实 PR 文件表，
@@ -465,6 +505,12 @@ export interface HuntTaskAudit {
   /** LUM-781 — see `HuntStepTrace`; absent on rows written before it existed. */
   trace?: HuntStepTrace[]
   /**
+   * LUM-787 follow-up — signal sites this task had to cover, the weight its
+   * token allowance was allocated by (`stop.budget` is the allowance).
+   * Absent on rows written before the allocator existed.
+   */
+  sites?: number
+  /**
    * LUM-787 — the gateway model id the search ran on (HUNT_MODEL at the
    * time). Absent on rows written before the field existed, which all ran
    * `deepseek/deepseek-v4-pro`. Without this a model swap is unreadable in
@@ -500,6 +546,19 @@ export interface HuntAudit {
   subgraph: { files: number; symbols: number; edges: number; partial: boolean }
   /** LUM-758 — 规划步选了哪些任务；`[]` = 这个 PR 不值得 hunt。 */
   planned?: HuntTask[]
+  /**
+   * LUM-787 follow-up — what the hunt was sized to: the diff's touched
+   * source files and lit signal sites, the task cap they bought, and
+   * whether the diff is past HUNT_OVERSIZED_SOURCE_FILES (the hunt then
+   * covered a corner of it, however the tasks ended). Absent on rows
+   * written before the allocator existed.
+   */
+  diff?: {
+    sourceFiles: number
+    sites: number
+    taskCap: number
+    oversized: boolean
+  }
   plannedReason?: string
   /**
    * LUM-766 follow-up — how a FAILED planning call actually ended, when it

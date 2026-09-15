@@ -48,6 +48,7 @@ import {
   admitStepOutput,
   newStepLedger,
 } from '@/lib/security-scan/hunt/step-output'
+import { plannedTaskCap } from '@/lib/security-scan/hunt/allocation'
 import {
   isTransientPlanError,
   describePlanFailure,
@@ -70,7 +71,6 @@ import {
   type HuntSandbox,
 } from './security-hunt-sandbox'
 import {
-  HUNT_MAX_PLANNED_TASKS,
   HUNT_MAX_STEPS_PER_CATEGORY,
   HUNT_SEARCH_TOOLS,
   HUNT_WRAP_UP_TIMEOUT_MS,
@@ -223,6 +223,7 @@ async function replanWithoutTaskContext(input: {
       findings,
       // The whole point of the second call: no task block.
       timeoutMs: PLAN_HUNT_TIMEOUT_MS,
+      maxTasks: plannedTaskCap(job.touchedSourcePaths.length),
     })
     const tokens = suppressed.tokens + clean.tokens
     if (clean.tasks.length === 0) {
@@ -235,18 +236,15 @@ async function replanWithoutTaskContext(input: {
     logger.warn(
       `[security-hunt] plan emptied with task context but not without it scan=${job.scanId}; using the clean plan`
     )
+    const cap = plannedTaskCap(job.touchedSourcePaths.length)
     return {
-      tasks: clean.tasks.slice(0, HUNT_MAX_PLANNED_TASKS),
+      tasks: clean.tasks.slice(0, cap),
       reason: `re-planned without the task text, which had emptied the plan: ${clean.reason}`,
       tokens,
       by: 'model',
       taskContext: true,
       ...(clean.repaired ? { planRepair: clean.repaired } : {}),
-      floorForced: [
-        ...new Set(
-          clean.tasks.slice(0, HUNT_MAX_PLANNED_TASKS).map(t => t.category)
-        ),
-      ],
+      floorForced: [...new Set(clean.tasks.slice(0, cap).map(t => t.category))],
     }
   } catch (error) {
     logger.warn(
@@ -465,6 +463,8 @@ export const securityHuntService = {
           // re-reading the task.
           taskContext: taskContextBlock || undefined,
           timeoutMs: PLAN_HUNT_TIMEOUT_MS,
+          // LUM-787 follow-up — the cap is the diff's, not a constant.
+          maxTasks: plannedTaskCap(job.touchedSourcePaths.length),
         })
         // LUM-776 — carried explicitly: object spread would bypass the
         // excess-property check and the field would ride along unreadable.
@@ -488,7 +488,7 @@ export const securityHuntService = {
         const { tasks, forced } = applyPlanFloor(
           out.tasks,
           floor,
-          HUNT_MAX_PLANNED_TASKS
+          plannedTaskCap(job.touchedSourcePaths.length)
         )
         if (tasks.length > 0 || floor.length > 0) {
           return {

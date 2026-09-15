@@ -70,6 +70,12 @@ export interface PlanClientInput {
    */
   taskContext?: string | undefined
   timeoutMs: number
+  /**
+   * LUM-787 follow-up — how many tasks this scan may plan
+   * (`plannedTaskCap` of the diff's touched source files). Defaults to the
+   * smallest tier so a caller that predates the allocator plans as before.
+   */
+  maxTasks?: number
 }
 
 /** 提示词里最多列多少条路径；其余折成一行计数，避免 diff 很大时刷屏。 */
@@ -103,25 +109,39 @@ const TaskSchema = z.object({
     ),
 })
 
-const Schema = z.object({
-  tasks: z
-    .array(TaskSchema)
-    .max(HUNT_MAX_PLANNED_TASKS)
-    .describe(
-      'The investigation tasks worth spending budget on for THIS diff. An empty array is a valid and common answer — it means this pull request is not worth hunting.'
-    ),
-  // LUM-776 — optional, and the cap sits above the natural length (see
-  // PLAN_REASON_MAX_CHARS). Required + 400 turned production's `{"tasks": []}`
-  // into a schema failure, and the fallback it bought ran tasks the model had
-  // just said were not worth running.
-  reason: z
-    .string()
-    .max(PLAN_REASON_MAX_CHARS)
-    .optional()
-    .describe(
-      'One or two sentences on why these tasks (or none) — which signal decided it.'
-    ),
-})
+const schemaFor = (maxTasks: number) =>
+  z.object({
+    tasks: z
+      .array(TaskSchema)
+      .max(maxTasks)
+      .describe(
+        'The investigation tasks worth spending budget on for THIS diff. An empty array is a valid and common answer — it means this pull request is not worth hunting.'
+      ),
+    // LUM-776 — optional, and the cap sits above the natural length (see
+    // PLAN_REASON_MAX_CHARS). Required + 400 turned production's `{"tasks": []}`
+    // into a schema failure, and the fallback it bought ran tasks the model had
+    // just said were not worth running.
+    reason: z
+      .string()
+      .max(PLAN_REASON_MAX_CHARS)
+      .optional()
+      .describe(
+        'One or two sentences on why these tasks (or none) — which signal decided it.'
+      ),
+  })
+/** The smallest tier's schema — what every scan used before the allocator. */
+const Schema = schemaFor(HUNT_MAX_PLANNED_TASKS)
+
+/**
+ * LUM-787 follow-up — the prompt names the cap, and the cap is per scan.
+ * `PLAN_SYSTEM_PROMPT` is the smallest tier's text (what the probe measures).
+ */
+export function planSystemPrompt(maxTasks: number): string {
+  return PLAN_SYSTEM_PROMPT.replace(
+    `1. Propose AT MOST ${HUNT_MAX_PLANNED_TASKS} tasks.`,
+    `1. Propose AT MOST ${maxTasks} tasks.`
+  )
+}
 
 /** Exported for the LUM-776 probe, which measures the shipped prompt. */
 export const PLAN_SYSTEM_PROMPT = `You route a security hunt. Given a pull request's diff summary, you decide which investigation tasks — if any — are worth spending an expensive analysis budget on.
@@ -285,10 +305,11 @@ export async function planHuntTasks(
   overrides: PlanProbeOverrides = {}
 ): Promise<PlanHuntTasksResult> {
   let repaired: PlanRepairKind | undefined
+  const maxTasks = input.maxTasks ?? HUNT_MAX_PLANNED_TASKS
   const { object, usage, finishReason } = await generateObject({
     model: overrides.model ?? gateway(FAST_MODEL),
-    schema: Schema,
-    system: PLAN_SYSTEM_PROMPT,
+    schema: maxTasks === HUNT_MAX_PLANNED_TASKS ? Schema : schemaFor(maxTasks),
+    system: planSystemPrompt(maxTasks),
     prompt: buildPlanPrompt(input),
     maxOutputTokens: PLAN_HUNT_TOKEN_BUDGET,
     // LUM-776 — the SDK calls this once, when the text failed to parse or to
@@ -324,7 +345,7 @@ export async function planHuntTasks(
     return true
   })
   const tasks: HuntTask[] = deduped
-    .slice(0, HUNT_MAX_PLANNED_TASKS)
+    .slice(0, maxTasks)
     .map((t, i) => ({ ...t, id: `t${i + 1}` }))
   return {
     tasks,

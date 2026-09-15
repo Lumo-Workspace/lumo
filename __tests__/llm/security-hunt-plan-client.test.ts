@@ -10,8 +10,12 @@ jest.mock('ai', () => ({ generateObject: jest.fn() }))
 jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { generateObject } from 'ai'
-import { planHuntTasks } from '@/lib/llm/security-hunt-plan-client'
 import {
+  planHuntTasks,
+  PLAN_SYSTEM_PROMPT,
+} from '@/lib/llm/security-hunt-plan-client'
+import {
+  HUNT_MAX_PLANNED_TASKS,
   PLAN_EMPTY_REASON,
   PLAN_HUNT_TIMEOUT_MS,
   PLAN_REASON_MAX_CHARS,
@@ -518,5 +522,38 @@ describe('LUM-758 hunt plan client', () => {
     const out = await planHuntTasks(INPUT)
 
     expect(out.tasks.map(t => t.category)).toEqual(['idor', 'injection'])
+  })
+
+  // LUM-787 follow-up — the cap is the diff's, not a constant: the schema's
+  // array bound, the prompt's rule 1 and the slice all follow `maxTasks`.
+  it('LUM-787 follow-up: maxTasks widens the schema, the prompt and the slice; the default is the smallest tier', async () => {
+    const five = Array.from({ length: 5 }, (_, i) => ({
+      objective: `trace request input into sink number ${i} in lib/s${i}.ts`,
+      category: 'injection' as const,
+      startingPoints: [`lib/s${i}.ts`],
+    }))
+    gen.mockResolvedValueOnce({
+      object: { tasks: five, reason: 'five sinks' },
+      usage: { totalTokens: 100 },
+    })
+    const wide = await planHuntTasks({ ...INPUT, maxTasks: 5 })
+    expect(wide.tasks).toHaveLength(5)
+    expect(wide.tasks.map(t => t.id)).toEqual(['t1', 't2', 't3', 't4', 't5'])
+    const wideCall = gen.mock.calls[0]![0]
+    expect(wideCall.system).toContain('Propose AT MOST 5 tasks.')
+    expect(wideCall.system).not.toContain(
+      `Propose AT MOST ${HUNT_MAX_PLANNED_TASKS} tasks.`
+    )
+
+    gen.mockResolvedValueOnce({
+      object: { tasks: five, reason: 'five sinks' },
+      usage: { totalTokens: 100 },
+    })
+    const narrow = await planHuntTasks(INPUT)
+    expect(narrow.tasks).toHaveLength(HUNT_MAX_PLANNED_TASKS)
+    expect(gen.mock.calls[1]![0].system).toContain(
+      `Propose AT MOST ${HUNT_MAX_PLANNED_TASKS} tasks.`
+    )
+    expect(gen.mock.calls[1]![0].system).toBe(PLAN_SYSTEM_PROMPT)
   })
 })
