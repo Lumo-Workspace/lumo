@@ -136,7 +136,15 @@ const LONG = 'lib/a.ts:3: hit\n'.repeat(400)
 const bodyOf = (output: string): string =>
   output.replace(/^[\s\S]*?\n\n/, '').replace(/\n<\/untrusted-.*>$/, '')
 
-beforeEach(() => jest.clearAllMocks())
+// LUM-787 — the compressor is off unless this is set; these tests are about
+// the compressor, so they run with it on.
+beforeEach(() => {
+  jest.clearAllMocks()
+  process.env.LUMO_HUNT_COMPRESS = 'on'
+})
+afterAll(() => {
+  delete process.env.LUMO_HUNT_COMPRESS
+})
 
 describe('LUM-758 §6 shell output compression', () => {
   // The prod incident this guard exists for: one task fed 38,585 characters of

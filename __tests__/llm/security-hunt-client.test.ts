@@ -14,6 +14,7 @@ import {
   allowedToolsFor,
   describeRunShellTool,
   huntTask,
+  renderBudgetLine,
   renderStartingPointsForPrompt,
   renderTaskForPrompt,
   renderToolAvailability,
@@ -21,6 +22,11 @@ import {
   HUNT_SYSTEM_PROMPT,
   wrapUpWindowMs,
 } from '@/lib/llm/security-hunt-client'
+import {
+  nextStepTokens,
+  stepsLeftForecast,
+} from '@/lib/security-scan/hunt/budget'
+import { elisionStub } from '@/lib/security-scan/hunt/transcript'
 import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
 import {
   HUNT_WRAP_UP_MIN_TOKENS,
@@ -224,6 +230,7 @@ describe('LUM-739 hunt client', () => {
       budget: 1000,
       reserve: 0,
       lastStep: 10,
+      next: 10,
       steps: 1,
     })
     expect(steps.wrapUp).toEqual({ ran: false, skipped: 'no-budget' })
@@ -1046,6 +1053,8 @@ describe('LUM-781 trace, stop and wrap-up facts', () => {
       budget: 20_000,
       reserve: HUNT_WRAP_UP_MIN_TOKENS,
       lastStep: 220,
+      // LUM-787 — the pricier of the last two steps (220 over 110).
+      next: 220,
       steps: 2,
     })
     expect(out.wrapUp).toEqual({ ran: false, skipped: 'submitted' })
@@ -1099,6 +1108,7 @@ describe('LUM-781 trace, stop and wrap-up facts', () => {
       budget: 20_000,
       reserve: 6_000,
       lastStep: 6_000,
+      next: 6_000,
       steps: 2,
     })
     expect(out.wrapUp).toEqual({
@@ -1130,6 +1140,7 @@ describe('LUM-781 trace, stop and wrap-up facts', () => {
       budget: 20_000,
       reserve: HUNT_WRAP_UP_MIN_TOKENS,
       lastStep: 100,
+      next: 100,
       steps: 2,
     })
     expect(out.wrappedUp).toBeUndefined()
@@ -1299,5 +1310,295 @@ describe('LUM-782 — the three declarations of "what the agent may run" cannot 
     const note = renderToolAvailability(probe(['wc']))
     expect(note).toContain('NOT installed — wc')
     expect(note).not.toContain('grep -rn')
+  })
+})
+
+// LUM-787 — what the model is SENT versus what happened. A tool loop re-sends
+// its transcript every step, so at HUNT_TASK_TOKEN_MAX the number of steps a
+// task gets is decided by transcript growth. `prepareStep` elides older tool
+// results from the copy the model reads (the SDK's own copy and the audit
+// keep every byte), and carries a budget gauge in the system prompt; the
+// wrap-up replay is elided the same way, which is what its reserve is priced
+// on.
+describe('LUM-787 transcript elision', () => {
+  const base = {
+    task: TASK,
+    reasons: REASONS,
+    runShell,
+    tokenBudget: 20_000,
+    wrapUpDeadlineAt: Date.now() + 30_000,
+    timeoutMs: 5000,
+    maxSteps: 12,
+  }
+
+  type Prepared = { messages?: unknown[]; system?: string } | undefined
+  const lastUser = (p: Prepared): string =>
+    (p!.messages![p!.messages!.length - 1] as { role: string; content: string })
+      .content
+  const resultOf = (m: unknown): { output: string } =>
+    (m as { content: Array<{ output: { value: { output: string } } }> })
+      .content[0]!.output.value
+
+  /**
+   * Drive `prepareStep` and `onStepFinish` the way the SDK does: before each
+   * step, `prepareStep` sees the transcript so far (prompt + every completed
+   * step's assistant and tool messages); after it, the step's messages are
+   * appended and the hook fires. Steps bill `stepTokens[i]`. What
+   * `prepareStep` returned for each step is collected into `prepared`, and
+   * the full transcript into `transcript` — the SDK's `response.messages`.
+   */
+  function searchWithTranscript(
+    outputs: string[],
+    stepTokens: number[],
+    prepared: Prepared[],
+    transcript: unknown[]
+  ) {
+    return async (args: unknown) => {
+      const { prepareStep, onStepFinish, prompt } = args as {
+        prepareStep: (o: unknown) => Prepared | Promise<Prepared>
+        onStepFinish?: (step: unknown) => void
+        prompt: string
+      }
+      const steps: unknown[] = []
+      for (const [i, output] of outputs.entries()) {
+        prepared.push(
+          await prepareStep({
+            steps: [...steps],
+            stepNumber: i,
+            messages: [{ role: 'user', content: prompt }, ...transcript],
+            model: {},
+            experimental_context: undefined,
+          })
+        )
+        const id = `c${i}`
+        transcript.push({
+          role: 'assistant',
+          content: [
+            { type: 'text', text: `step ${i + 1}` },
+            {
+              type: 'tool-call',
+              toolCallId: id,
+              toolName: 'run_shell',
+              input: { command: `sed -n '1,80p' ${id}.ts` },
+            },
+          ],
+        })
+        transcript.push({
+          role: 'tool',
+          content: [
+            {
+              type: 'tool-result',
+              toolCallId: id,
+              toolName: 'run_shell',
+              output: { type: 'json', value: { output } },
+            },
+          ],
+        })
+        const step = {
+          usage: { totalTokens: stepTokens[i] ?? 0 },
+          toolCalls: [{ toolName: 'run_shell' }],
+        }
+        steps.push(step)
+        onStepFinish?.(step)
+      }
+      return {
+        steps,
+        totalUsage: { totalTokens: stepTokens.reduce((a, b) => a + b, 0) },
+        response: { messages: transcript },
+      }
+    }
+  }
+
+  it('sends step 1 untouched, then elides older results and carries a budget gauge from step 2 on', async () => {
+    const prepared: Prepared[] = []
+    const transcript: unknown[] = []
+    const seen: HuntStepTrace[] = []
+    const big = (c: string) => c.repeat(2_000)
+    gen.mockImplementationOnce(
+      searchWithTranscript(
+        [big('a'), big('b'), 'lib/c.ts:3: hit'],
+        [1_000, 2_000, 3_000],
+        prepared,
+        transcript
+      )
+    )
+    gen.mockResolvedValueOnce({
+      steps: [{ usage: { totalTokens: 500 }, toolCalls: [] }],
+      totalUsage: { totalTokens: 500 },
+      text: 'nothing confirmed',
+      finishReason: 'stop',
+    })
+
+    const out = await huntTask({ ...base, onStep: s => seen.push(s) })
+
+    // Step 1: nothing to elide, nothing spent — the opening call is what
+    // every scan before this sent, byte for byte.
+    expect(prepared[0]).toBeUndefined()
+    // Step 2: one completed step, and it is the latest — its result stays
+    // whole; the only change is the gauge appended as the last message.
+    // steps left = (20 000 − 1 000 spent − 4 000 reserve) / 1 000 dearest = 15.
+    expect(prepared[1]!.system).toBeUndefined()
+    expect(prepared[1]!.messages).toHaveLength(4)
+    expect(resultOf(prepared[1]!.messages![2])).toEqual({ output: big('a') })
+    expect(lastUser(prepared[1])).toBe(renderBudgetLine(1_000, 20_000, 1, 15))
+    expect(lastUser(prepared[1])).toContain(
+      "Budget: 5% of this task's token allowance is spent after 1 step. About 15 more search steps fit"
+    )
+    // Step 3: step 1's result is older than the latest → stubbed; step 2's
+    // is the latest → whole. The gauge counts both steps.
+    // steps left = (20 000 − 3 000 − 4 000) / 2 000 dearest = 6.
+    const third = prepared[2]!
+    expect(third.system).toBeUndefined()
+    expect(lastUser(third)).toBe(renderBudgetLine(3_000, 20_000, 2, 6))
+    expect(lastUser(third)).toContain('About 6 more search steps fit')
+    expect(third.messages).toHaveLength(6)
+    expect(resultOf(third.messages![2])).toEqual({
+      output: elisionStub(2_000),
+    })
+    expect(resultOf(third.messages![4])).toEqual({ output: big('b') })
+    // The SDK's transcript — what the audit and the replay start from — is
+    // untouched.
+    expect(resultOf(transcript[1])).toEqual({ output: big('a') })
+    expect(resultOf(transcript[3])).toEqual({ output: big('b') })
+    // The trace says what each step was spared reading.
+    expect(seen.map(s => s.elidedChars)).toEqual([undefined, undefined, 2_000])
+
+    // The wrap-up replays the same elided view: steps 1 and 2 stubbed, the
+    // latest (a short hit) whole, and the instruction last.
+    const wrap = gen.mock.calls[1]![0] as { messages: unknown[] }
+    expect(wrap.messages).toHaveLength(8)
+    expect(resultOf(wrap.messages[2])).toEqual({ output: elisionStub(2_000) })
+    expect(resultOf(wrap.messages[4])).toEqual({ output: elisionStub(2_000) })
+    expect(resultOf(wrap.messages[6])).toEqual({ output: 'lib/c.ts:3: hit' })
+    expect(out.wrapUp.ran).toBe(true)
+  })
+
+  it('renderBudgetLine is a percentage and a step count the model can act on, and names the last step as such', () => {
+    expect(renderBudgetLine(6_560, 20_000, 2, 3)).toBe(
+      "Budget: 33% of this task's token allowance is spent after 2 steps. About 3 more search steps fit; call submit_candidates before they run out."
+    )
+    // One left = the predicate stops after this step: say so, or the model
+    // spends it on one more command and is wrapped up instead of done.
+    expect(renderBudgetLine(15_000, 20_000, 4, 1)).toBe(
+      "Budget: 75% of this task's token allowance is spent after 4 steps. This is the LAST step the allowance permits: do not run another command — call submit_candidates now with what you have verified. An empty list is fine."
+    )
+    expect(renderBudgetLine(25_000, 20_000, 5, 0)).toContain('Budget: 100%')
+    expect(renderBudgetLine(0, 0, 0, 0)).toContain('Budget: 0%')
+  })
+
+  it('tells the model when the step it is about to take is the last the predicate will admit', async () => {
+    const prepared: Prepared[] = []
+    const transcript: unknown[] = []
+    // 6k, 6k against 20k: after step 2, (20k − 12k − 6k reserve) / 6k = 0 →
+    // the predicate stops. After step 1: (20k − 6k − 6k) / 6k = 1 → the
+    // second step is the last one, and its system prompt must say so.
+    gen.mockImplementationOnce(
+      searchWithTranscript(['a', 'b'], [6_000, 6_000], prepared, transcript)
+    )
+    gen.mockResolvedValueOnce({
+      steps: [{ usage: { totalTokens: 100 }, toolCalls: [] }],
+      totalUsage: { totalTokens: 100 },
+    })
+    await huntTask(base)
+    expect(lastUser(prepared[1])).toContain('This is the LAST step')
+  })
+
+  it('stepsLeftForecast prices every future step at the dearest step so far, never below 1', () => {
+    const at = (...t: number[]) =>
+      t.map(totalTokens => ({ usage: { totalTokens } }))
+    // (20 000 − 6 000 − 4 000) / 3 000 = 3 — priced at the dearest, not the last.
+    expect(stepsLeftForecast(at(3_000, 2_000, 1_000), 20_000, 4_000)).toBe(3)
+    // A dear step floors the reserve too: (20k − 12k − 6k) / 6k = 0 → 1.
+    expect(stepsLeftForecast(at(6_000, 6_000), 20_000, 4_000)).toBe(1)
+    expect(stepsLeftForecast([], 20_000, 4_000)).toBe(16_000)
+  })
+})
+
+// LUM-787 — the predictive stop prices the next step at the last step PLUS
+// its observed growth. `lastStep` alone is a floor in a transcript that only
+// grows; PR 1008's t1 passed the predicate on it and then found the wrap-up
+// it had "reserved" for cost more than was left.
+describe('LUM-787 predictive stop prices growth', () => {
+  it('nextStepTokens: the pricier of the last two steps', () => {
+    expect(nextStepTokens([])).toBe(0)
+    expect(nextStepTokens([{ usage: { totalTokens: 5 } }])).toBe(5)
+    expect(
+      nextStepTokens([
+        { usage: { totalTokens: 5 } },
+        { usage: { totalTokens: 8 } },
+      ])
+    ).toBe(8)
+    // The elided transcript oscillates: a cheap step after a dear one does
+    // not mean the next is cheap — the dear one is the bound.
+    expect(
+      nextStepTokens([
+        { usage: { totalTokens: 8 } },
+        { usage: { totalTokens: 5 } },
+      ])
+    ).toBe(8)
+  })
+
+  it('stops a dear-then-cheap search while the wrap-up is still affordable, and records the price it charged', async () => {
+    // 3k, 7k against 20k: after step 2, 10k + 7k + 7k = 24k → stop holding
+    // 10k, enough for the 7k replay. Priced at the last step alone the
+    // predicate would have read the same here; the difference shows on the
+    // cheap-after-dear shape below.
+    gen.mockImplementationOnce(searchOver([3_000, 7_000, 5_000]))
+    gen.mockResolvedValueOnce({
+      steps: [
+        {
+          usage: { totalTokens: 5_000 },
+          toolCalls: [{ toolName: 'submit_candidates' }],
+        },
+      ],
+      totalUsage: { totalTokens: 5_000 },
+      finishReason: 'tool-calls',
+    })
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      maxSteps: 12,
+      timeoutMs: 5000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
+    })
+
+    expect(out.stop).toEqual({
+      by: 'budget',
+      spent: 10_000,
+      budget: 20_000,
+      reserve: 7_000,
+      lastStep: 7_000,
+      next: 7_000,
+      steps: 2,
+    })
+    expect(out.wrapUp.ran).toBe(true)
+    expect(out.tokens).toBe(15_000)
+  })
+
+  it('prices a cheap step after a dear one at the dear one', async () => {
+    // 5k, 2k against 20k: 7k + 5k + 5k = 17k → continue; the price recorded
+    // for the next step is 5k, not 2k.
+    gen.mockImplementationOnce(searchOver([5_000, 2_000]))
+    gen.mockResolvedValueOnce({
+      steps: [{ usage: { totalTokens: 100 }, toolCalls: [] }],
+      totalUsage: { totalTokens: 100 },
+    })
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 20_000,
+      maxSteps: 2,
+      timeoutMs: 5000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
+    })
+    expect(out.stop).toMatchObject({
+      by: 'steps',
+      next: 5_000,
+      lastStep: 2_000,
+    })
   })
 })

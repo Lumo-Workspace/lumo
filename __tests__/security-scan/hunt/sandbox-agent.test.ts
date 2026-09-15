@@ -107,7 +107,15 @@ const JOB = {
   headSha: 'a'.repeat(40),
 }
 
-beforeEach(() => jest.clearAllMocks())
+// LUM-787 — the compressor is off unless this is set; these tests are about
+// the compressor, so they run with it on.
+beforeEach(() => {
+  jest.clearAllMocks()
+  process.env.LUMO_HUNT_COMPRESS = 'on'
+})
+afterAll(() => {
+  delete process.env.LUMO_HUNT_COMPRESS
+})
 
 describe('attachOrCreateHuntSandbox', () => {
   it('attaches to the managed scan VM when one is alive', async () => {
@@ -451,6 +459,28 @@ describe('runHuntShell', () => {
     // truncation fallback — which must not un-redact anything either.
     expect(long.output).not.toContain('AKIAIOSFODNN7EXAMPLE')
     expect(long.output).not.toContain('ghs_secret_token')
+  })
+
+  it('LUM-787: with LUMO_HUNT_COMPRESS unset the compressor is never called, and long output is plainly truncated', async () => {
+    delete process.env.LUMO_HUNT_COMPRESS
+    const vm = fakeSandbox()
+    vm.run.mockResolvedValue({
+      exitCode: 0,
+      stdout: `${'lib/a.ts:9: filler'.padEnd(100, ' ')}\n`.repeat(300),
+      stderr: '',
+    })
+
+    const out = await runHuntShell({
+      handle: handleFor(vm, 't'),
+      task: TASK,
+      command: 'cat big.ts',
+    })
+
+    expect(compressShellOutput).not.toHaveBeenCalled()
+    expect(out.compressed).toBe(false)
+    expect(out.compressTokens).toBe(0)
+    expect(out.output.length).toBeLessThanOrEqual(HUNT_SHELL_OUTPUT_MAX)
+    expect(out.output).toMatch(/truncated/)
   })
 
   it('truncates output at HUNT_SHELL_OUTPUT_MAX', async () => {

@@ -146,14 +146,22 @@ export function applyPlanFloor(
   }
 }
 
+/**
+ * LUM-787 — these used to open with "Across the diff, …". The agent has no
+ * diff: its checkout is a plain tree at the head sha, with no git in the
+ * allowlist and no history to diff against (PR 1008's t1 spent two of five
+ * calls on `git diff`, both refused). The only view of "what changed" it
+ * gets is the Starting points section the hunt prompt renders from stage
+ * A's located signal sites, so that is what the objective points at.
+ */
 const FALLBACK_OBJECTIVE: Readonly<Record<HuntCategory, string>> = {
-  idor: 'Across the diff, find object ids taken from a request that reach a repository or Prisma call with no membership, ownership or workspace check.',
+  idor: 'In the files this pull request touched (the paths under Starting points), find object ids taken from a request that reach a repository or Prisma call with no membership, ownership or workspace check.',
   injection:
-    'Across the diff, find request-derived strings reaching $queryRaw*, child_process, eval / new Function, or a filesystem path without parsing or an allow-list.',
-  ssrf: 'Across the diff, find request-derived URLs or hosts reaching fetch / redirect without an allow-list.',
+    'In the files this pull request touched (the paths under Starting points), find request-derived strings reaching $queryRaw*, child_process, eval / new Function, or a filesystem path without parsing or an allow-list.',
+  ssrf: 'In the files this pull request touched (the paths under Starting points), find request-derived URLs or hosts reaching fetch / redirect without an allow-list.',
   prompt_injection:
-    'Across the diff, find untrusted text reaching an LLM call as instructions, or model output executed / persisted as trusted.',
-  race: 'Across the diff, find check-then-act on shared rows without a transaction, row lock or unique constraint.',
+    'In the files this pull request touched (the paths under Starting points), find untrusted text reaching an LLM call as instructions, or model output executed / persisted as trusted.',
+  race: 'In the files this pull request touched (the paths under Starting points), find check-then-act on shared rows without a transaction, row lock or unique constraint.',
   logic:
-    'Across the diff, find a state machine, gate or quota that can be skipped by calling entries out of order or with an unexpected role.',
+    'In the files this pull request touched (the paths under Starting points), find a state machine, gate or quota that can be skipped by calling entries out of order or with an unexpected role.',
 }

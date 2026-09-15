@@ -353,12 +353,16 @@ export interface ShellDetailTask {
     refused?: number
     failed?: number
     empty?: number
+    /** LUM-787 — absent on rows written before the per-step ceiling existed, and when nothing was clipped. */
+    stepClipped?: number
     commands?: {
       cmd?: string
       denied?: boolean
       reason?: string
       chars?: number
       compressed?: boolean
+      /** LUM-787 — cut by the per-step ceiling. */
+      clipped?: boolean
     }[]
   }
   /** LUM-781 — absent on rows written before the trace existed. */
@@ -370,6 +374,8 @@ export interface ShellDetailTask {
     outputTokens?: number
     reasoningTokens?: number
     finishReason?: string
+    /** LUM-787 — characters of older results elided from what this step was sent. */
+    elidedChars?: number
   }[]
   stop?: {
     by?: string
@@ -377,6 +383,8 @@ export interface ShellDetailTask {
     budget?: number
     reserve?: number
     lastStep?: number
+    /** LUM-787 — the price the next step was charged at. */
+    next?: number
     steps?: number
   }
   wrapUp?: {
@@ -413,13 +421,15 @@ export function formatShellDetail(
   const out: string[] = []
   for (const t of tasks.filter(x => x.shell?.calls).slice(0, maxTasks)) {
     const sh = t.shell!
+    // LUM-787 — the clip count prints only when the row carries it: an older
+    // row, and a row from a search that never hit the ceiling, read as before.
     out.push(
-      `${String(t.taskId)} ${String(t.stopped)} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, not found ${sh.notFound ?? 0}, empty ${sh.empty ?? 0})`
+      `${String(t.taskId)} ${String(t.stopped)} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, not found ${sh.notFound ?? 0}, empty ${sh.empty ?? 0}${sh.stepClipped ? `, step-clipped ${sh.stepClipped}` : ''})`
     )
     for (const c of sh.commands ?? []) {
       const cost =
         typeof c.chars === 'number'
-          ? `  [${c.chars} chars${c.compressed ? ', compressed' : ''}]`
+          ? `  [${c.chars} chars${c.compressed ? ', compressed' : ''}${c.clipped ? ', clipped' : ''}]`
           : ''
       out.push(
         `    ${c.denied ? '✗' : ' '} ${c.cmd ?? ''}${cost}${c.reason ? `   ← ${c.reason}` : ''}`
@@ -429,13 +439,13 @@ export function formatShellDetail(
     // the row carries them: an older row prints exactly as before.
     for (const st of t.trace ?? []) {
       out.push(
-        `    #${st.i ?? '?'} tool=${st.tool ?? '(none)'} in=${st.inputTokens ?? '?'} out=${st.outputTokens ?? '?'}${st.reasoningTokens ? ` reasoning=${st.reasoningTokens}` : ''}${st.finishReason ? ` finish=${st.finishReason}` : ''}${st.text ? ` "${oneLine(st.text, 160)}"` : ''}`
+        `    #${st.i ?? '?'} tool=${st.tool ?? '(none)'} in=${st.inputTokens ?? '?'} out=${st.outputTokens ?? '?'}${st.reasoningTokens ? ` reasoning=${st.reasoningTokens}` : ''}${st.elidedChars ? ` elided=${st.elidedChars}` : ''}${st.finishReason ? ` finish=${st.finishReason}` : ''}${st.text ? ` "${oneLine(st.text, 160)}"` : ''}`
       )
     }
     if (t.stop) {
       const s = t.stop
       out.push(
-        `    stop: ${s.by ?? '?'} · spent ${s.spent ?? '?'}/${s.budget ?? '?'} · reserve ${s.reserve ?? 0} · last step ${s.lastStep ?? '?'} · ${s.steps ?? '?'} steps`
+        `    stop: ${s.by ?? '?'} · spent ${s.spent ?? '?'}/${s.budget ?? '?'} · reserve ${s.reserve ?? 0} · last step ${s.lastStep ?? '?'}${typeof s.next === 'number' ? ` · next ${s.next}` : ''} · ${s.steps ?? '?'} steps`
       )
     }
     if (t.wrapUp) {

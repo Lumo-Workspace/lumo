@@ -44,6 +44,10 @@ import {
   applyPlanFloor,
 } from '@/lib/security-scan/hunt/plan-fallback'
 import {
+  admitStepOutput,
+  newStepLedger,
+} from '@/lib/security-scan/hunt/step-output'
+import {
   isTransientPlanError,
   describePlanFailure,
   type PlanFailureFacts,
@@ -647,7 +651,13 @@ export const securityHuntService = {
     // completed before the window closed; redacted and clipped HERE because
     // this is where every other model-authored string gets persisted.
     const trace: HuntStepTrace[] = []
+    // LUM-787 — the per-step output ledger. The SDK runs a step's tool calls
+    // and THEN fires the step hook, so the hook is the step boundary: reset
+    // here, before the trace cap can return early, or a long search would
+    // stop resetting exactly when it matters.
+    let ledger = newStepLedger()
     const onStep = (step: HuntStepTrace): void => {
+      ledger = newStepLedger()
       if (trace.length >= HUNT_TRACE_MAX_STEPS) return
       trace.push({
         ...step,
@@ -752,6 +762,13 @@ export const securityHuntService = {
             })
           }
           const out = await runHuntShell({ handle, task: input.task, command })
+          // LUM-787 — admitted into the step's ceiling AFTER the per-command
+          // cap and the compressor have had their turn: this is the last
+          // hand before the model, and the only one that knows what the
+          // step's other commands already returned. A refusal or a failure
+          // returns '' and costs the step nothing.
+          const admitted = admitStepOutput(ledger, out.output)
+          if (admitted.clipped) shell.stepClipped = (shell.stepClipped ?? 0) + 1
           if (out.denied && entryIndex < HUNT_SHELL_LOG_MAX) {
             const entry = shell.commands[entryIndex]!
             entry.denied = true
@@ -767,8 +784,9 @@ export const securityHuntService = {
           // level totals cannot say which read was the 8k one.
           if (entryIndex < HUNT_SHELL_LOG_MAX) {
             const entry = shell.commands[entryIndex]!
-            entry.chars = out.output.length
+            entry.chars = admitted.output.length
             if (out.compressed) entry.compressed = true
+            if (admitted.clipped) entry.clipped = true
             // LUM-782 — the exit code was always there and never kept.
             if (out.exitCode !== undefined) entry.exit = out.exitCode
             if (out.commandNotFound) entry.notFound = true
@@ -796,12 +814,13 @@ export const securityHuntService = {
           else if (out.commandNotFound) shell.notFound += 1
           // `trim()`: a command that returned only a newline found nothing.
           else if (out.output.trim().length === 0) shell.empty += 1
-          shell.outputChars += out.output.length
+          shell.outputChars += admitted.output.length
           // Only the two fields the model needs. The accounting fields are
           // ours: an `ai` tool result is serialised straight into the
           // transcript, so returning them would spend context on bookkeeping
           // in the very call this whole step exists to make smaller.
-          const { output, error } = out
+          const { error } = out
+          const output = admitted.output
           return error === undefined ? { output } : { output, error }
         },
         tokenBudget: input.tokenBudget,

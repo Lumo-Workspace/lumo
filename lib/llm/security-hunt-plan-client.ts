@@ -132,6 +132,8 @@ Categories (used only to type each task's output; they need not be exhaustive or
 
 You are given the rule ids a fast static pass matched in the diff and the list of TypeScript source files the diff touched — not the diff itself. An analyst with the full checkout and a shell will carry each task out, so a task names the file and the path worth tracing; it does not have to name the line.
 
+The analyst's checkout is a plain read-only tree at the head sha: it has no git, no diff and no history, and its budget is a handful of shell steps. An objective that says "across the diff", or asks the analyst to diff, compare or list what changed, cannot be carried out — name the files and symbols from the touched-files list instead, and say what to trace between them.
+
 The static pass does not exclude test paths, fixtures or scripts. A sink rule that fired only in a file under __tests__/, a *.test.ts, a fixture or a one-off script is not a production path, and a task built on it burns the whole budget on nothing.
 
 For each task, give:

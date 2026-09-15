@@ -1,0 +1,318 @@
+{
+  "generatedAt": "2026-09-15T08:23:36.424Z",
+  "pr": 1008,
+  "sha": "02cf887c71ce603cba0158f4edb9017fb0e747d7",
+  "repo": "Lumo-Workspace/lumo",
+  "trigger": {
+    "reasons": ["diff:sink:child-process"],
+    "sites": [
+      {
+        "rule": "sink:child-process",
+        "path": "shared/src/untrusted-content.ts",
+        "line": 247
+      }
+    ]
+  },
+  "sandbox": {
+    "name": "chocolate-large-landfowl-47EJ1s",
+    "egressDenied": true
+  },
+  "tasks": [
+    {
+      "taskId": "t1",
+      "objective": "In the files this pull request touched (the paths under Starting points), find request-derived strings reaching $queryRaw*, child_process, eval / new Function, or a filesystem path without parsing or an allow-list.",
+      "category": "injection",
+      "candidates": 0,
+      "tokens": 14153,
+      "elapsedMs": 25028,
+      "stopped": "done",
+      "shell": {
+        "calls": 4,
+        "refused": 0,
+        "failed": 0,
+        "notFound": 0,
+        "empty": 0,
+        "outputChars": 4176,
+        "commands": [
+          {
+            "cmd": "sed -n '220,…(len 8)' shared/src/untrusted-content.ts",
+            "chars": 1450,
+            "exit": 0
+          },
+          {
+            "cmd": "sed -n '235,…(len 8)' shared/src/untrusted-content.ts",
+            "chars": 757,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \"chil…(len 103)\" shared/src/untrusted-content.ts",
+            "chars": 45,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \"^(ex…(len 65)\" shared/src/untrusted-content.ts",
+            "chars": 1924,
+            "exit": 0
+          }
+        ]
+      },
+      "trace": [
+        {
+          "i": 1,
+          "tool": "run_shell",
+          "inputTokens": 2022,
+          "outputTokens": 162,
+          "reasoningTokens": 102,
+          "finishReason": "tool-calls"
+        },
+        {
+          "i": 2,
+          "tool": "run_shell",
+          "inputTokens": 2735,
+          "outputTokens": 84,
+          "reasoningTokens": 24,
+          "finishReason": "tool-calls"
+        },
+        {
+          "i": 3,
+          "tool": "run_shell",
+          "inputTokens": 2587,
+          "outputTokens": 149,
+          "reasoningTokens": 58,
+          "finishReason": "tool-calls",
+          "elidedChars": 1450
+        },
+        {
+          "i": 4,
+          "tool": "run_shell",
+          "inputTokens": 2565,
+          "outputTokens": 210,
+          "reasoningTokens": 137,
+          "finishReason": "tool-calls",
+          "elidedChars": 2207
+        },
+        {
+          "i": 5,
+          "tool": "submit_candidates",
+          "inputTokens": 3462,
+          "outputTokens": 177,
+          "reasoningTokens": 131,
+          "finishReason": "tool-calls",
+          "elidedChars": 2207
+        }
+      ],
+      "stop": {
+        "by": "submitted",
+        "spent": 14153,
+        "budget": 20000,
+        "reserve": 4000,
+        "lastStep": 3639,
+        "next": 3639,
+        "steps": 5
+      },
+      "wrapUp": {
+        "ran": false,
+        "skipped": "submitted"
+      },
+      "submitted": []
+    },
+    {
+      "taskId": "t2",
+      "objective": "Verify the wrapper-escape defense on the prompt boundary cannot be defeated by case/whitespace/unicode variants. Trace how escapesWrapper and neutralizeWrapperEscapes in shared/src/untrusted-content.ts are invoked at the call sites that build the hunt context (lib/security-scan/hunt/task-context.ts, lib/memory/render.ts, lib/memory/fold.service.ts) and confirm a workspace-controllable string such as a forged </system-reminder>, </untrusted-linked-context> or <untrusted-*> with mixed case or interior whitespace cannot close the data region and become instructions. If it can, the agent would act on attacker text and its subsequent shell commands execute through lib/services/security-hunt-sandbox.ts runHuntShell (the child-process sink that fired). Include a sanity probe that a multi-line/unicode zero-width or bidi mutation of a closing tag is also neutralized.",
+      "category": "prompt_injection",
+      "candidates": 0,
+      "tokens": 13281,
+      "elapsedMs": 20374,
+      "stopped": "done",
+      "shell": {
+        "calls": 6,
+        "refused": 0,
+        "failed": 0,
+        "notFound": 0,
+        "empty": 1,
+        "outputChars": 5836,
+        "commands": [
+          {
+            "cmd": "sed -n '1,290p' shared/src/untrusted-content.ts",
+            "chars": 2602,
+            "clipped": true,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \"esca…(len 62)\" lib/security-scan/hunt/task-context.ts lib/memory/render.ts lib/memory/fold.service.ts lib/services/security-hunt-sandbox.ts",
+            "chars": 201,
+            "clipped": true,
+            "exit": 2
+          },
+          {
+            "cmd": "rg -n \"esca…(len 39)\" shared/src/untrusted-content.ts",
+            "chars": 351,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \"esca…(len 39)\" lib/security-scan/hunt/task-context.ts lib/memory/render.ts lib/memory/fold.service.ts",
+            "chars": 81,
+            "exit": 2
+          },
+          {
+            "cmd": "sed -n '90,150p' shared/src/untrusted-content.ts",
+            "chars": 2601,
+            "clipped": true,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \"fold…(len 52)\" lib/memory lib/security-scan/hunt",
+            "chars": 0,
+            "exit": 1
+          }
+        ],
+        "stepClipped": 3
+      },
+      "trace": [
+        {
+          "i": 1,
+          "tool": "run_shell",
+          "inputTokens": 2214,
+          "outputTokens": 235,
+          "reasoningTokens": 87,
+          "finishReason": "tool-calls"
+        },
+        {
+          "i": 2,
+          "tool": "run_shell",
+          "inputTokens": 3375,
+          "outputTokens": 169,
+          "reasoningTokens": 35,
+          "finishReason": "tool-calls"
+        },
+        {
+          "i": 3,
+          "tool": "run_shell",
+          "inputTokens": 2892,
+          "outputTokens": 159,
+          "reasoningTokens": 42,
+          "finishReason": "tool-calls",
+          "elidedChars": 2803
+        },
+        {
+          "i": 4,
+          "tool": "submit_candidates",
+          "inputTokens": 3833,
+          "outputTokens": 404,
+          "reasoningTokens": 358,
+          "finishReason": "tool-calls",
+          "elidedChars": 3154
+        }
+      ],
+      "stop": {
+        "by": "submitted",
+        "spent": 13281,
+        "budget": 20000,
+        "reserve": 4237,
+        "lastStep": 4237,
+        "next": 4237,
+        "steps": 4
+      },
+      "wrapUp": {
+        "ran": false,
+        "skipped": "submitted"
+      },
+      "submitted": []
+    },
+    {
+      "taskId": "t3",
+      "objective": "Check that every injection point that feeds workspace-generated content into the LLM prompt this diff claims to have converted actually routes through the shared untrusted-content module, and that none bypasses it and lands raw in a prompt section. The new call sites are the comment/artifact/memory/web-link paths: lib/services/idea-comment.service.ts, lib/services/task-artifact.service.ts, lib/services/task-slack-context.service.ts, lib/services/task-web-link.service.ts, lib/services/comment.service.ts and lib/services/memory-management.service.ts. For each, confirm the raw stored text (not just a preview) is wrapped/neutralized before appearing in any session-start, task-context or steward-milestone prompt section; any un-wrapped path is a direct route for a boundary crossing whose terminal effect is the agent executing attacker-imperative commands via the sandbox child-process sink in lib/services/security-hunt-sandbox.ts.",
+      "category": "prompt_injection",
+      "candidates": 0,
+      "tokens": 12990,
+      "elapsedMs": 19248,
+      "stopped": "done",
+      "shell": {
+        "calls": 3,
+        "refused": 0,
+        "failed": 0,
+        "notFound": 0,
+        "empty": 0,
+        "outputChars": 7806,
+        "commands": [
+          {
+            "cmd": "rg -n \"untr…(len 48)\" shared/src/untrusted-content.ts lib/services/idea-comment.service.ts lib/services/task-artifact.service.ts lib/services/task-slack-context.service.ts lib/services/task-web-link.s",
+            "chars": 2602,
+            "clipped": true,
+            "exit": 0
+          },
+          {
+            "cmd": "sed -n '1,280p' shared/src/untrusted-content.ts",
+            "chars": 2602,
+            "clipped": true,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \"esca…(len 46)\" shared/src/untrusted-content.ts lib/services/idea-comment.service.ts lib/services/task-artifact.service.ts lib/services/task-slack-context.service.ts lib/services/task-web-link.s",
+            "chars": 2602,
+            "clipped": true,
+            "exit": 0
+          }
+        ],
+        "stepClipped": 3
+      },
+      "trace": [
+        {
+          "i": 1,
+          "tool": "run_shell",
+          "inputTokens": 2211,
+          "outputTokens": 195,
+          "reasoningTokens": 75,
+          "finishReason": "tool-calls"
+        },
+        {
+          "i": 2,
+          "tool": "run_shell",
+          "inputTokens": 3148,
+          "outputTokens": 82,
+          "reasoningTokens": 22,
+          "finishReason": "tool-calls"
+        },
+        {
+          "i": 3,
+          "tool": "run_shell",
+          "inputTokens": 3398,
+          "outputTokens": 173,
+          "reasoningTokens": 55,
+          "finishReason": "tool-calls",
+          "elidedChars": 2602
+        },
+        {
+          "i": 4,
+          "tool": "submit_candidates",
+          "inputTokens": 3565,
+          "outputTokens": 218,
+          "reasoningTokens": 172,
+          "finishReason": "tool-calls",
+          "elidedChars": 5204
+        }
+      ],
+      "stop": {
+        "by": "submitted",
+        "spent": 12990,
+        "budget": 20000,
+        "reserve": 4000,
+        "lastStep": 3783,
+        "next": 3783,
+        "steps": 4
+      },
+      "wrapUp": {
+        "ran": false,
+        "skipped": "submitted"
+      },
+      "submitted": []
+    }
+  ],
+  "acceptance": {
+    "done": 3,
+    "minSteps": 4,
+    "refused": 0,
+    "clipped": 6,
+    "pass": true
+  }
+}
