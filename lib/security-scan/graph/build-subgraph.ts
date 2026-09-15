@@ -66,13 +66,18 @@ export function listImports(path: string, source: string): string[] {
 
 // ── internals ───────────────────────────────────────────────────────────────
 
-interface ImportBinding {
+export interface ImportBinding {
   module: string
   /** Exported name, `'default'`, or `'*'` for a namespace import. */
   imported: string
 }
 
-interface FileCtx {
+/**
+ * One parsed input file. Exported (LUM-785) so `llm-output-flow.ts` can run
+ * its own pass over the same parse and the same symbol ids the subgraph
+ * carries, instead of re-deriving either.
+ */
+export interface FileCtx {
   path: string
   sf: ts.SourceFile
   useServer: boolean
@@ -224,13 +229,45 @@ function declare(ctx: FileCtx, g: GraphBuilder): void {
 }
 
 /** `a.b.c` for a property chain of identifiers (or `this`); null otherwise. */
-function calleeText(expr: ts.Expression): string | null {
+export function calleeText(expr: ts.Expression): string | null {
   if (ts.isIdentifier(expr)) return expr.text
   if (expr.kind === ts.SyntaxKind.ThisKeyword) return 'this'
   if (ts.isPropertyAccessExpression(expr)) {
     const left = calleeText(expr.expression)
     if (left === null) return null
     return `${left}.${expr.name.text}`
+  }
+  return null
+}
+
+/**
+ * The symbol id a dotted callee resolves to — same file by lexical name, or
+ * another input file through an import binding — or null when the graph
+ * does not know it (bare packages, unresolved names). Shared by the call-edge
+ * pass and the LUM-785 llm-output flow pass so both see the same edges.
+ */
+export function resolveCallee(
+  ctx: FileCtx,
+  known: ReadonlySet<string>,
+  callee: string
+): string | null {
+  const local = `${ctx.path}#${callee}`
+  if (known.has(local)) return local
+  const dot = callee.indexOf('.')
+  const head = dot === -1 ? callee : callee.slice(0, dot)
+  const rest = dot === -1 ? '' : callee.slice(dot + 1)
+  const binding = ctx.imports.get(head)
+  if (!binding) return null
+  for (const cand of resolveImportCandidates(ctx.path, binding.module)) {
+    let name: string
+    if (binding.imported === '*') {
+      if (!rest) return null
+      name = rest
+    } else {
+      name = rest ? `${binding.imported}.${rest}` : binding.imported
+    }
+    const id = `${cand}#${name}`
+    if (known.has(id)) return id
   }
   return null
 }
@@ -259,27 +296,8 @@ function link(ctx: FileCtx, g: GraphBuilder, known: Set<string>): void {
     return moduleId
   }
 
-  const resolveTarget = (callee: string): string | null => {
-    const local = `${path}#${callee}`
-    if (known.has(local)) return local
-    const dot = callee.indexOf('.')
-    const head = dot === -1 ? callee : callee.slice(0, dot)
-    const rest = dot === -1 ? '' : callee.slice(dot + 1)
-    const binding = ctx.imports.get(head)
-    if (!binding) return null
-    for (const cand of resolveImportCandidates(path, binding.module)) {
-      let name: string
-      if (binding.imported === '*') {
-        if (!rest) return null
-        name = rest
-      } else {
-        name = rest ? `${binding.imported}.${rest}` : binding.imported
-      }
-      const id = `${cand}#${name}`
-      if (known.has(id)) return id
-    }
-    return null
-  }
+  const resolveTarget = (callee: string): string | null =>
+    resolveCallee(ctx, known, callee)
 
   const visit = (node: ts.Node): void => {
     if (ts.isCallExpression(node)) {
@@ -345,7 +363,15 @@ function link(ctx: FileCtx, g: GraphBuilder, known: Set<string>): void {
   visit(sf)
 }
 
-export function buildSubgraph(inputs: SourceFileInput[]): Subgraph {
+/** The subgraph plus the parse it was built from (LUM-785). */
+export interface GraphBuild {
+  subgraph: Subgraph
+  ctxs: FileCtx[]
+  /** Every function-like symbol id declared across the inputs. */
+  known: ReadonlySet<string>
+}
+
+export function buildGraph(inputs: SourceFileInput[]): GraphBuild {
   const g = new GraphBuilder()
   const ctxs: FileCtx[] = inputs.map(i => {
     const sf = parse(i.path, i.source)
@@ -366,8 +392,16 @@ export function buildSubgraph(inputs: SourceFileInput[]): Subgraph {
     touched: i.touched,
   }))
   return {
-    symbols: [...g.symbols.values()],
-    edges: [...g.edges.values()],
-    files,
+    subgraph: {
+      symbols: [...g.symbols.values()],
+      edges: [...g.edges.values()],
+      files,
+    },
+    ctxs,
+    known,
   }
+}
+
+export function buildSubgraph(inputs: SourceFileInput[]): Subgraph {
+  return buildGraph(inputs).subgraph
 }

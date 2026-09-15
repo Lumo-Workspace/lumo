@@ -19,6 +19,8 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),
+  // LUM-785: stage A's graph rules read touched files; null = not found.
+  readRepoFile: jest.fn().mockResolvedValue(null),
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {

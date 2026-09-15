@@ -36,6 +36,11 @@ import {
   redactKnownSecrets,
 } from '@/lib/security-scan'
 import {
+  LLM_SEMGREP_RULES_YAML,
+  SEMGREP_CUSTOM_RULES_EOF,
+  SEMGREP_CUSTOM_RULES_PATH,
+} from '@/lib/security-scan/semgrep-rules'
+import {
   BASELINE_MAX_FINGERPRINTS,
   GITLEAKS_URL,
   MANAGED_FAILURE_REASON_CHARS,
@@ -77,7 +82,23 @@ const REPORT_PATH: Record<ManagedScanTool, string> = {
 
 const SCRIPT_BODY: Record<ManagedScanTool, string> = {
   gitleaks: `set -e; curl -sSL "${GITLEAKS_URL}" | tar -xz -C /tmp gitleaks; /tmp/gitleaks dir . --report-format sarif --report-path ${REPORT_PATH.gitleaks} --exit-code 0 --no-banner`,
-  semgrep: `set -e; python3 -m pip install --quiet semgrep==${SEMGREP_VERSION}; semgrep scan ${SEMGREP_CONFIGS.map(c => `--config ${c}`).join(' ')} --sarif --output ${REPORT_PATH.semgrep} --metrics=off`,
+  // LUM-785: Lumo's own rules ride along as a dotfile written into the
+  // checkout root (see `SEMGREP_CUSTOM_RULES_PATH` for why not /tmp), loaded
+  // FIRST so a registry pack cannot override them, and removed again once
+  // semgrep has run. The quoted heredoc keeps the YAML byte-for-byte (no
+  // expansion of `$V` / `${…}` metavariables). semgrep's exit code is kept
+  // across the cleanup: exit 1 = findings, which `isSuccessExit` accepts.
+  semgrep: [
+    'set -e',
+    `python3 -m pip install --quiet semgrep==${SEMGREP_VERSION}`,
+    `cat > ${SEMGREP_CUSTOM_RULES_PATH} <<'${SEMGREP_CUSTOM_RULES_EOF}'`,
+    LLM_SEMGREP_RULES_YAML.replace(/\n$/, ''),
+    SEMGREP_CUSTOM_RULES_EOF,
+    'code=0',
+    `semgrep scan --config ${SEMGREP_CUSTOM_RULES_PATH} ${SEMGREP_CONFIGS.map(c => `--config ${c}`).join(' ')} --sarif --output ${REPORT_PATH.semgrep} --metrics=off || code=$?`,
+    `rm -f ${SEMGREP_CUSTOM_RULES_PATH}`,
+    'exit $code',
+  ].join('\n'),
   // Release binary (no package manager); `scan source -r .` walks every
   // lockfile / manifest osv-scanner knows; SARIF goes to a file so stdout
   // (which may echo advisory text) is never parsed.
@@ -184,7 +205,9 @@ function isResultBandExit(tool: ManagedScanTool, code: number): boolean {
  * window first, redact inside it, then cut to the budget.
  */
 function failureDetail(stderr: string, token: string): string {
-  const flat = scrubToken(stderr, token).replace(/[\r\n]+/g, ' ').trim()
+  const flat = scrubToken(stderr, token)
+    .replace(/[\r\n]+/g, ' ')
+    .trim()
   const tail = redactKnownSecrets(flat.slice(-MAX_SCANNED_LINE_CHARS)).slice(
     -MANAGED_FAILURE_DETAIL_CHARS
   )
