@@ -73,6 +73,8 @@ export interface HuntCategoryCoverage {
 }
 
 export interface HuntCoverage {
+  /** LUM-787 follow-up — the diff exceeded HUNT_OVERSIZED_SOURCE_FILES; the hunt covered a corner. */
+  oversized?: { sourceFiles: number }
   /**
    * LUM-758 — how many tasks the planning step picked for this scan
    * (`audit.planned.length`), not `HUNT_CATEGORIES.length`: a scan plans
@@ -167,10 +169,21 @@ export function parseHuntCoverage(raw: unknown): HuntCoverage | null {
   const planned = (raw as { planned?: unknown }).planned
   const total = Array.isArray(planned) ? planned.length : HUNT_CATEGORIES.length
 
+  // LUM-787 follow-up — a diff past the size the top tier can cover is
+  // said so on the line, whatever the tasks' stops read.
+  const diff = (raw as { diff?: unknown }).diff
+  const oversized =
+    diff !== null &&
+    typeof diff === 'object' &&
+    (diff as { oversized?: unknown }).oversized === true
+      ? { sourceFiles: count((diff as { sourceFiles?: unknown }).sourceFiles) }
+      : undefined
+
   return {
     total,
     done: categories.filter(c => c.stopped === 'done').length,
     categories,
+    ...(oversized ? { oversized } : {}),
   }
 }
 
@@ -191,5 +204,14 @@ export function formatHuntCoverage(coverage: HuntCoverage): string {
     const id = c.taskId === undefined ? '' : `${c.taskId} `
     return `${id}${c.category} ${spent}${c.stopped}${attempts}`
   })
-  return [`${coverage.done}/${coverage.total} done`, ...parts].join(' · ')
+  const oversized = coverage.oversized
+    ? [
+        `oversized (${coverage.oversized.sourceFiles} source files, partial coverage)`,
+      ]
+    : []
+  return [
+    `${coverage.done}/${coverage.total} done`,
+    ...parts,
+    ...oversized,
+  ].join(' · ')
 }

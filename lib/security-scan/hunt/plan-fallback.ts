@@ -15,7 +15,7 @@ import {
 } from '@/lib/services/security-hunt.config'
 
 /** sink 规则 id（`lib/security-scan/graph/patterns.ts`）→ 类别。 */
-const SINK_TO_CATEGORY: Readonly<Record<string, HuntCategory>> = {
+export const SINK_TO_CATEGORY: Readonly<Record<string, HuntCategory>> = {
   'prisma-raw': 'injection',
   'child-process': 'injection',
   eval: 'injection',

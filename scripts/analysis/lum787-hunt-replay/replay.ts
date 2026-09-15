@@ -53,7 +53,6 @@ import {
   HUNT_SHELL_LOG_CHARS,
   HUNT_SHELL_LOG_MAX,
   HUNT_TASK_TIME_MS,
-  HUNT_TASK_TOKEN_MAX,
   HUNT_TRACE_MAX_STEPS,
   HUNT_TRACE_TEXT_CHARS,
   HUNT_WRAP_UP_MIN_MS,
@@ -74,6 +73,12 @@ import {
   type HuntSignalSite,
 } from '../../../lib/security-scan/hunt/trigger'
 import { categoriesToTasks } from '../../../lib/security-scan/hunt/plan-fallback'
+import {
+  allocateTaskBudgets,
+  isOversized,
+  plannedTaskCap,
+} from '../../../lib/security-scan/hunt/allocation'
+import { isGraphSourcePath } from '../../../lib/security-scan/graph/imports'
 import {
   admitStepOutput,
   newStepLedger,
@@ -139,7 +144,8 @@ async function runTask(
   task: HuntTask,
   reasons: string[],
   sites: HuntSignalSite[],
-  modelId: string
+  modelId: string,
+  allowance: { tokenBudget: number; sites: number; timeBudgetMs: number }
 ): Promise<HuntTaskAudit & { submitted: unknown[] }> {
   const started = Date.now()
   const shell: HuntShellStats = {
@@ -175,17 +181,15 @@ async function runTask(
       `  [${task.id}] step ${step.i} tool=${step.tool ?? '-'} in=${step.inputTokens ?? '?'} out=${step.outputTokens ?? '?'}${step.elidedChars ? ` elided=${step.elidedChars}` : ''}\n`
     )
   }
-  const reserveMs = Math.min(
-    HUNT_WRAP_UP_TIMEOUT_MS,
-    Math.floor(HUNT_TASK_TIME_MS / 3)
-  )
-  const searchMs =
-    HUNT_TASK_TIME_MS - (reserveMs >= HUNT_WRAP_UP_MIN_MS ? reserveMs : 0)
+  const windowMs = allowance.timeBudgetMs
+  const reserveMs = Math.min(HUNT_WRAP_UP_TIMEOUT_MS, Math.floor(windowMs / 3))
+  const searchMs = windowMs - (reserveMs >= HUNT_WRAP_UP_MIN_MS ? reserveMs : 0)
   const base = {
     taskId: task.id,
     objective: task.objective,
     category: task.category,
     model: modelId,
+    sites: allowance.sites,
   }
   try {
     const out = await huntTask({
@@ -240,10 +244,10 @@ async function runTask(
         const output = admitted.output
         return error === undefined ? { output } : { output, error }
       },
-      tokenBudget: HUNT_TASK_TOKEN_MAX,
+      tokenBudget: allowance.tokenBudget,
       timeoutMs: searchMs,
       maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
-      wrapUpDeadlineAt: started + HUNT_TASK_TIME_MS,
+      wrapUpDeadlineAt: started + windowMs,
       onStep,
       ...(modelId === HUNT_MODEL ? {} : { model: gateway(modelId) }),
     })
@@ -301,6 +305,10 @@ async function main(): Promise<void> {
     hasOpenL4Crossing: false,
   })
   const tasks = loadTasks(args.tasks)
+  // LUM-787 follow-up — size the replay the way the workflow sizes a scan.
+  const sourceFiles = files.filter(f => isGraphSourcePath(f.path)).length
+  const cap = plannedTaskCap(sourceFiles)
+  const allocation = allocateTaskBudgets(tasks, trigger.sites, cap)
   console.log(
     `=== LUM-787 hunt replay · PR #${args.pr} @ ${args.sha.slice(0, 8)} ===`
   )
@@ -308,6 +316,9 @@ async function main(): Promise<void> {
     `diff: ${files.length} files with added lines · trigger.hunt=${trigger.hunt} · reasons: ${trigger.reasons.join(', ') || '(none)'} · sites: ${trigger.sites.length}`
   )
   console.log(`tasks: ${tasks.map(t => `${t.id}:${t.category}`).join(' · ')}`)
+  console.log(
+    `sizing: ${sourceFiles} source files → cap ${cap}${isOversized(sourceFiles) ? ' (oversized)' : ''} · allocation ${tasks.map(t => `${t.id}=${allocation.get(t.id)?.tokenBudget}tok/${allocation.get(t.id)?.timeBudgetMs}ms/${allocation.get(t.id)?.sites} sites`).join(' · ')}`
+  )
   console.log(
     `model: ${args.model}${args.model === HUNT_MODEL ? ' (HUNT_MODEL)' : ' (override)'}`
   )
@@ -357,7 +368,12 @@ async function main(): Promise<void> {
           task,
           trigger.reasons,
           trigger.sites,
-          args.model
+          args.model,
+          allocation.get(task.id) ?? {
+            tokenBudget: 0,
+            sites: 0,
+            timeBudgetMs: HUNT_TASK_TIME_MS,
+          }
         )
       )
     }
@@ -394,6 +410,7 @@ async function main(): Promise<void> {
         sha: args.sha,
         repo: args.repo,
         model: args.model,
+        sizing: { sourceFiles, cap, oversized: isOversized(sourceFiles) },
         trigger: { reasons: trigger.reasons, sites: trigger.sites },
         sandbox: { name: sandbox.name, egressDenied },
         tasks: results,

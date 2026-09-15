@@ -20,21 +20,47 @@ import {
 // pinned on both sides. Raising it alone silently breaks either the acceptance
 // target or the scan budget, and neither failure is visible until prod.
 describe('hunt budget arithmetic', () => {
-  const ACCEPTANCE_TARGET_MEAN_TOKENS = 60_000
+  // LUM-787 follow-up: 60k → 90k → 150k with the per-task band (see HUNT_TASK_TOKEN_MEAN).
+  const ACCEPTANCE_TARGET_MEAN_TOKENS = 150_000
 
-  it('a full plan bills at most the acceptance target mean', () => {
-    expect(HUNT_MAX_PLANNED_TASKS * HUNT_TASK_TOKEN_MAX).toBeLessThanOrEqual(
+  // LUM-787 follow-up: the per-task number is a band (MIN / MEAN / MAX) and
+  // the allocator splits `cap × MEAN`; what the pins guard is the split's
+  // sum, not a flat product.
+  it('a full plan bills at most the acceptance target mean, however the sites fall', () => {
+    expect(HUNT_MAX_PLANNED_TASKS * HUNT_TASK_TOKEN_MEAN).toBeLessThanOrEqual(
       ACCEPTANCE_TARGET_MEAN_TOKENS
     )
+    const tasks = ['injection', 'ssrf', 'idor'].map((c, i) => ({
+      id: `t${i + 1}`,
+      category: c as 'injection',
+      startingPoints: [],
+    }))
+    for (const sites of [
+      [],
+      [{ rule: 'sink:prisma-raw', path: 'a.ts', line: 1 }],
+      Array.from({ length: 40 }, (_, i) => ({
+        rule: 'sink:fetch',
+        path: `f${i}.ts`,
+        line: 1,
+      })),
+    ]) {
+      const out = allocateTaskBudgets(tasks, sites, HUNT_MAX_PLANNED_TASKS)
+      const sum = [...out.values()].reduce((n, a) => n + a.tokenBudget, 0)
+      expect(sum).toBeLessThanOrEqual(ACCEPTANCE_TARGET_MEAN_TOKENS)
+    }
   })
 
-  it('a full plan plus one retry each still fits the scan budget', () => {
-    expect(
-      HUNT_MAX_PLANNED_TASKS * HUNT_TASK_TOKEN_MAX * 2
-    ).toBeLessThanOrEqual(HUNT_TOKEN_BUDGET)
-    expect(HUNT_MAX_PLANNED_TASKS * HUNT_TASK_TIME_MS * 2).toBeLessThanOrEqual(
-      HUNT_TIME_BUDGET_MS * 2
-    )
+  it('a full plan plus one retry each still fits the scan budget, at every tier', () => {
+    for (const cap of [3, 4, 5]) {
+      expect(cap * HUNT_TASK_TOKEN_MEAN * 2).toBeLessThanOrEqual(
+        huntTokenBudget(cap)
+      )
+      expect(cap * HUNT_TASK_TIME_MS + HUNT_TASK_TIME_MS).toBeLessThanOrEqual(
+        huntTimeBudgetMs(cap)
+      )
+    }
+    expect(HUNT_TOKEN_BUDGET).toBe(huntTokenBudget(HUNT_MAX_PLANNED_TASKS))
+    expect(HUNT_TIME_BUDGET_MS).toBe(huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS))
   })
 
   it('a full plan fits the time budget without retries', () => {
@@ -111,8 +137,13 @@ describe('hunt budget arithmetic', () => {
 // (`nextStepTokens`, the reserve, the wrap-up gate) over the observed shape
 // of a step, so the per-step ceiling and the elision constants are judged
 // against the physics production runs on, not against a hope.
+import { allocateTaskBudgets } from '@/lib/security-scan/hunt/allocation'
 import {
   HUNT_ELIDE_KEEP_STEPS,
+  HUNT_TASK_TOKEN_MEAN,
+  HUNT_TASK_TOKEN_MIN,
+  huntTimeBudgetMs,
+  huntTokenBudget,
   HUNT_OBSERVED_PROMPT_TOKENS,
   HUNT_OBSERVED_RESULT_CHARS_PER_TOKEN,
   HUNT_OBSERVED_STEP_OUTPUT_TOKENS,
@@ -195,20 +226,23 @@ describe('LUM-787 step ceiling × elision × predictive stop', () => {
     // t2's first step: six commands, 25 639 characters, `stop.steps: 2`,
     // `wrapUp.skipped: no-budget`. If the model of a step cannot reproduce
     // the failure it was built from, its verdict on the fix means nothing.
+    // 20k literally: the row being reproduced ran under the ceiling of its
+    // day, not under whatever the constant is now.
     const prod = simulateSearch({
       resultCharsPerStep: 25_639,
       elide: false,
-      budget: HUNT_TASK_TOKEN_MAX,
+      budget: 20_000,
     })
     expect(prod.steps).toBe(2)
     expect(prod.wrapUpAffordable).toBe(false)
   })
 
   it('with the per-step ceiling and elision a task completes at least four steps AND can still afford its wrap-up', () => {
+    // At the FLOOR — the allowance every task is guaranteed.
     const fixed = simulateSearch({
       resultCharsPerStep: HUNT_STEP_OUTPUT_MAX,
       elide: true,
-      budget: HUNT_TASK_TOKEN_MAX,
+      budget: HUNT_TASK_TOKEN_MIN,
     })
     expect(fixed.steps).toBeGreaterThanOrEqual(4)
     expect(fixed.wrapUpAffordable).toBe(true)
@@ -217,9 +251,38 @@ describe('LUM-787 step ceiling × elision × predictive stop', () => {
     // at three. Both constants are tuned together, against this test.
   })
 
-  it('HUNT_TOKEN_BUDGET is unchanged — LUM-758 falsified "the budget is too small"', () => {
-    expect(HUNT_TOKEN_BUDGET).toBe(120_000)
-    expect(HUNT_TASK_TOKEN_MAX).toBe(20_000)
+  it('LUM-787 follow-up: the per-task band and the scan budget moved together, and the wrap-up floor did not', () => {
+    // The flat 20k became a band on the user's call after the first six
+    // production tasks on the bounded loop ended `budget` three times at
+    // 4–5 steps, then was raised again to line up with a diff-reading
+    // review's input: 30k floor / 50k mean / 80k ceiling, split by sites;
+    // the scan budget is twice pass 1 (300k at the smallest tier) so every
+    // task can be retried. The 4k wrap-up floor stays: production wrap-ups
+    // bill 3.4–4.1k.
+    expect(HUNT_TASK_TOKEN_MIN).toBe(30_000)
+    expect(HUNT_TASK_TOKEN_MEAN).toBe(50_000)
+    expect(HUNT_TASK_TOKEN_MAX).toBe(80_000)
+    expect(HUNT_TOKEN_BUDGET).toBe(300_000)
+    expect(HUNT_WRAP_UP_MIN_TOKENS).toBe(4_000)
+  })
+
+  it('LUM-787 follow-up: at the mean the simulated search completes at least nine steps, at the ceiling at least twelve, with the wrap-up affordable', () => {
+    const mean = simulateSearch({
+      resultCharsPerStep: HUNT_STEP_OUTPUT_MAX,
+      elide: true,
+      budget: HUNT_TASK_TOKEN_MEAN,
+    })
+    expect(mean.steps).toBeGreaterThanOrEqual(9)
+    expect(mean.wrapUpAffordable).toBe(true)
+    const ceiling = simulateSearch({
+      resultCharsPerStep: HUNT_STEP_OUTPUT_MAX,
+      elide: true,
+      budget: HUNT_TASK_TOKEN_MAX,
+    })
+    // The per-step cost still creeps (assistant text + stubs), so the
+    // ceiling buys fewer than 80k ÷ 3.2k.
+    expect(ceiling.steps).toBeGreaterThanOrEqual(12)
+    expect(ceiling.wrapUpAffordable).toBe(true)
   })
 
   it('the step ceiling sits under the per-command cap, so the compressor still sees a whole command', () => {

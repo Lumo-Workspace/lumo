@@ -42,6 +42,10 @@ import {
   HUNT_MAX_FALSIFIED,
   type HuntTask,
 } from '@/lib/services/security-hunt.config'
+import {
+  allocateTaskBudgets,
+  plannedTaskCap,
+} from '@/lib/security-scan/hunt/allocation'
 import { HUNT_CATEGORIES as CANDIDATE_CATEGORIES } from '@/lib/security-scan/hunt/candidate'
 
 const verifyGraph = buildVerifySubgraphStep as jest.Mock
@@ -112,6 +116,14 @@ const PLANNED: HuntTask[] = [
     startingPoints: [],
   },
 ]
+
+/** What the allocator hands each PLANNED task under this JOB (no sites, cap 3). */
+const allocatedFor = (id: string) =>
+  allocateTaskBudgets(
+    PLANNED,
+    [],
+    plannedTaskCap(JOB.touchedSourcePaths.length)
+  ).get(id)!
 
 const batch = (
   over: Partial<{
@@ -225,17 +237,24 @@ describe('LUM-739 hunt workflow', () => {
     expect(hunt.mock.calls.map(c => c[0].task)).toEqual([...PLANNED])
     // LUM-762: every batch is bounded by the per-task ceiling, so a wedged
     // task can no longer spend the whole scan's window.
+    // LUM-787 follow-up: the batch is bounded by what the allocator handed
+    // this task (two tasks under a cap of three: each at the ceiling, 90 s).
+    const allocated = allocateTaskBudgets(
+      PLANNED,
+      [],
+      plannedTaskCap(JOB.touchedSourcePaths.length)
+    )
     expect(hunt.mock.calls[0]![0]).toMatchObject({
       job: JOB,
-      tokenBudget: HUNT_TASK_TOKEN_MAX,
-      timeBudgetMs: HUNT_TASK_TIME_MS,
+      tokenBudget: allocated.get('t1')!.tokenBudget,
+      timeBudgetMs: allocated.get('t1')!.timeBudgetMs,
     })
     // LUM-758 Task 10: the subgraph is not the agent's field of view, so it
     // is not serialised into a batch's step input at all.
     expect(hunt.mock.calls[0]![0].subgraph).toBeUndefined()
     expect(hunt.mock.calls[1]![0]).toMatchObject({
-      tokenBudget: HUNT_TASK_TOKEN_MAX,
-      timeBudgetMs: HUNT_TASK_TIME_MS,
+      tokenBudget: allocated.get('t2')!.tokenBudget,
+      timeBudgetMs: allocated.get('t2')!.timeBudgetMs,
     })
     // LUM-758 Task 10: the gate's graph is built AFTER the hunt, from the
     // candidates it is about to judge — not from a window drawn before the
@@ -283,6 +302,8 @@ describe('LUM-739 hunt workflow', () => {
       tokens: 1000,
       elapsedMs: 5000,
       stopped: 'done',
+      // LUM-787 follow-up — the allocation weight, 0 here: the JOB carries no sites.
+      sites: 0,
     })
     expect(order[order.length - 1]).toBe('sync')
     expect(order.filter(o => o === 'hunt')).toHaveLength(2)
@@ -342,7 +363,7 @@ describe('LUM-739 hunt workflow', () => {
     expect(hunt).toHaveBeenCalledTimes(3)
     expect(hunt.mock.calls[2]![0]).toMatchObject({
       task: PLANNED[0],
-      timeBudgetMs: HUNT_TASK_TIME_MS,
+      timeBudgetMs: allocatedFor('t1').timeBudgetMs,
     })
     const persisted = persist.mock.calls[0]![0]
     expect(persisted.partial).toBe(false)
@@ -364,8 +385,8 @@ describe('LUM-739 hunt workflow', () => {
     )
     await securityHuntWorkflow(JOB)
     expect(hunt.mock.calls[0]![0]).toMatchObject({
-      timeBudgetMs: HUNT_TASK_TIME_MS,
-      tokenBudget: HUNT_TASK_TOKEN_MAX,
+      timeBudgetMs: allocatedFor('t1').timeBudgetMs,
+      tokenBudget: allocatedFor('t1').tokenBudget,
     })
     // Second task: only the remainder is left, and that is less than the
     // ceiling — the batch gets the smaller of the two.
@@ -388,9 +409,17 @@ describe('LUM-739 hunt workflow', () => {
     expect(
       HUNT_TASK_TIME_MS * (HUNT_MAX_PLANNED_TASKS + 1)
     ).toBeLessThanOrEqual(HUNT_TIME_BUDGET_MS)
-    expect(
-      HUNT_TASK_TOKEN_MAX * (HUNT_MAX_PLANNED_TASKS + 1)
-    ).toBeLessThanOrEqual(HUNT_TOKEN_BUDGET)
+    // LUM-787 follow-up: allowances are allocated, not flat — what fits is
+    // "every allocation plus one retry of the largest", and no single
+    // allocation may exceed half the scan (the retry pass must be able to
+    // re-run it).
+    const allocations = allocateTaskBudgets(PLANNED, [], HUNT_MAX_PLANNED_TASKS)
+    const sum = [...allocations.values()].reduce((n, a) => n + a.tokenBudget, 0)
+    const largest = Math.max(
+      ...[...allocations.values()].map(a => a.tokenBudget)
+    )
+    expect(sum + largest).toBeLessThanOrEqual(HUNT_TOKEN_BUDGET)
+    expect(HUNT_TASK_TOKEN_MAX * 2).toBeLessThanOrEqual(HUNT_TOKEN_BUDGET)
   })
 
   it('LUM-762 records unrun tasks as skipped in huntAudit', async () => {
@@ -414,6 +443,9 @@ describe('LUM-739 hunt workflow', () => {
         tokens: 0,
         elapsedMs: 0,
         stopped: 'skipped',
+        // LUM-787 follow-up — the allocation weight is recorded even for a
+        // task that never ran.
+        sites: 0,
       }))
     )
   })

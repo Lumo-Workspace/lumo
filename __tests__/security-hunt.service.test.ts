@@ -68,7 +68,10 @@ import {
 } from '@/lib/services/security-hunt.config'
 import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
 import { stepClipNote } from '@/lib/security-scan/hunt/step-output'
-import { HUNT_STEP_OUTPUT_MAX } from '@/lib/services/security-hunt.config'
+import {
+  HUNT_MAX_STEPS_PER_CATEGORY,
+  HUNT_STEP_OUTPUT_MAX,
+} from '@/lib/services/security-hunt.config'
 import { HUNT_MODEL } from '@/lib/ai/models'
 
 const diffMock = fetchPrDiff as jest.Mock
@@ -411,7 +414,7 @@ describe('LUM-739 hunt service', () => {
       task: TASK,
       reasons: JOB.reasons,
       tokenBudget: 1000,
-      maxSteps: 12,
+      maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
     })
     // …and the file reader is gone: the checkout, not the GitHub API.
     expect(huntMock.mock.calls[0]![0].readFile).toBeUndefined()

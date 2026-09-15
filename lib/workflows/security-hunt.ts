@@ -47,10 +47,10 @@
  * reason in `huntAudit.error`; nothing in hand → FAILED, as before.
  */
 import {
-  HUNT_TOKEN_BUDGET,
-  HUNT_TIME_BUDGET_MS,
+  huntTokenBudget,
+  huntTimeBudgetMs,
   HUNT_TASK_TIME_MS,
-  HUNT_TASK_TOKEN_MAX,
+  HUNT_TASK_TOKEN_MIN,
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_MAX_FALSIFIED,
   type HuntJob,
@@ -61,6 +61,11 @@ import {
   type HuntFindingInput,
   type HuntResult,
 } from '@/lib/services/security-hunt.config'
+import {
+  allocateTaskBudgets,
+  isOversized,
+  plannedTaskCap,
+} from '@/lib/security-scan/hunt/allocation'
 import type { Subgraph } from '@/lib/security-scan/graph/types'
 import {
   buildVerifySubgraphStep,
@@ -318,6 +323,32 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       }
 
       const planned: HuntTask[] = plan.tasks
+      // LUM-787 follow-up — the hunt is sized to the diff: the task cap
+      // came from the touched source files (the planner was told it), the
+      // scan's token/time budgets follow the cap, and each task's pass-1
+      // allowance is split by the sites it has to cover. All recorded, so
+      // a `budget` stop can be read against what the task was handed.
+      const sourceFiles = job.touchedSourcePaths.length
+      const taskCap = plannedTaskCap(sourceFiles)
+      const tokenBudgetTotal = huntTokenBudget(taskCap)
+      const timeBudgetTotal = huntTimeBudgetMs(taskCap)
+      const allocation = allocateTaskBudgets(
+        planned,
+        job.signalSites ?? [],
+        taskCap
+      )
+      audit.diff = {
+        sourceFiles,
+        sites: (job.signalSites ?? []).length,
+        taskCap,
+        oversized: isOversized(sourceFiles),
+      }
+      const allowanceOf = (task: HuntTask): number =>
+        allocation.get(task.id)?.tokenBudget ?? HUNT_TASK_TOKEN_MIN
+      const windowOf = (task: HuntTask): number =>
+        allocation.get(task.id)?.timeBudgetMs ?? HUNT_TASK_TIME_MS
+      const sitesOf = (task: HuntTask): number =>
+        allocation.get(task.id)?.sites ?? 0
       /**
        * Each planned task's latest outcome — the retry pass and P9 read it.
        * Keyed by `task.id`, NOT by category: two tasks may share a category
@@ -335,8 +366,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         // sandbox", not "more than zero" — otherwise the tail of the budget is
         // spent acquiring a VM for a model call that aborts on arrival.
         if (
-          tokenSpent >= HUNT_TOKEN_BUDGET ||
-          HUNT_TIME_BUDGET_MS - elapsedMs < HUNT_MIN_BATCH_TIME_MS
+          tokenSpent >= tokenBudgetTotal ||
+          timeBudgetTotal - elapsedMs < HUNT_MIN_BATCH_TIME_MS
         ) {
           audit.tasks.push({
             taskId: task.id,
@@ -346,6 +377,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             tokens: 0,
             elapsedMs: 0,
             stopped: 'skipped',
+            sites: sitesOf(task),
           })
           stops[task.id] = 'skipped'
           continue
@@ -354,13 +386,10 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           job,
           task,
           tokenBudget: Math.min(
-            HUNT_TASK_TOKEN_MAX,
-            HUNT_TOKEN_BUDGET - tokenSpent
+            allowanceOf(task),
+            tokenBudgetTotal - tokenSpent
           ),
-          timeBudgetMs: Math.min(
-            HUNT_TASK_TIME_MS,
-            HUNT_TIME_BUDGET_MS - elapsedMs
-          ),
+          timeBudgetMs: Math.min(windowOf(task), timeBudgetTotal - elapsedMs),
         })
         tokenSpent += batch.tokens
         elapsedMs += batch.elapsedMs
@@ -386,6 +415,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             : {}),
           ...(batch.shell ? { shell: batch.shell } : {}),
           ...(batch.model ? { model: batch.model } : {}),
+          sites: sitesOf(task),
           // LUM-781 — the model's side of the conversation and how it ended.
           ...(batch.trace && batch.trace.length > 0
             ? { trace: batch.trace }
@@ -408,21 +438,18 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         const stop = stops[task.id]
         if (stop !== 'timeout' && stop !== 'error') continue
         if (
-          tokenSpent >= HUNT_TOKEN_BUDGET ||
-          HUNT_TIME_BUDGET_MS - elapsedMs < HUNT_MIN_BATCH_TIME_MS
+          tokenSpent >= tokenBudgetTotal ||
+          timeBudgetTotal - elapsedMs < HUNT_MIN_BATCH_TIME_MS
         )
           break
         const retry = await huntTaskStep({
           job,
           task,
           tokenBudget: Math.min(
-            HUNT_TASK_TOKEN_MAX,
-            HUNT_TOKEN_BUDGET - tokenSpent
+            allowanceOf(task),
+            tokenBudgetTotal - tokenSpent
           ),
-          timeBudgetMs: Math.min(
-            HUNT_TASK_TIME_MS,
-            HUNT_TIME_BUDGET_MS - elapsedMs
-          ),
+          timeBudgetMs: Math.min(windowOf(task), timeBudgetTotal - elapsedMs),
         })
         tokenSpent += retry.tokens
         elapsedMs += retry.elapsedMs
@@ -448,6 +475,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             : {}),
           ...(retry.shell ? { shell: retry.shell } : {}),
           ...(retry.model ? { model: retry.model } : {}),
+          sites: sitesOf(task),
           ...(retry.trace && retry.trace.length > 0
             ? { trace: retry.trace }
             : {}),

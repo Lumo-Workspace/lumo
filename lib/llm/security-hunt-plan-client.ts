@@ -29,6 +29,7 @@ import {
 import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
+  HUNT_MAX_PLANNED_TASKS_CEILING,
   PLAN_EMPTY_REASON,
   PLAN_HUNT_TOKEN_BUDGET,
   PLAN_OBJECTIVE_MAX_CHARS,
@@ -70,6 +71,12 @@ export interface PlanClientInput {
    */
   taskContext?: string | undefined
   timeoutMs: number
+  /**
+   * LUM-787 follow-up — how many tasks this scan may plan
+   * (`plannedTaskCap` of the diff's touched source files). Defaults to the
+   * smallest tier so a caller that predates the allocator plans as before.
+   */
+  maxTasks?: number
 }
 
 /** 提示词里最多列多少条路径；其余折成一行计数，避免 diff 很大时刷屏。 */
@@ -103,25 +110,83 @@ const TaskSchema = z.object({
     ),
 })
 
-const Schema = z.object({
-  tasks: z
-    .array(TaskSchema)
-    .max(HUNT_MAX_PLANNED_TASKS)
-    .describe(
-      'The investigation tasks worth spending budget on for THIS diff. An empty array is a valid and common answer — it means this pull request is not worth hunting.'
-    ),
-  // LUM-776 — optional, and the cap sits above the natural length (see
-  // PLAN_REASON_MAX_CHARS). Required + 400 turned production's `{"tasks": []}`
-  // into a schema failure, and the fallback it bought ran tasks the model had
-  // just said were not worth running.
-  reason: z
-    .string()
-    .max(PLAN_REASON_MAX_CHARS)
-    .optional()
-    .describe(
-      'One or two sentences on why these tasks (or none) — which signal decided it.'
-    ),
+const schemaFor = (maxTasks: number) =>
+  z.object({
+    tasks: z
+      .array(TaskSchema)
+      .max(maxTasks)
+      .describe(
+        'The investigation tasks worth spending budget on for THIS diff. An empty array is a valid and common answer — it means this pull request is not worth hunting.'
+      ),
+    // LUM-776 — optional, and the cap sits above the natural length (see
+    // PLAN_REASON_MAX_CHARS). Required + 400 turned production's `{"tasks": []}`
+    // into a schema failure, and the fallback it bought ran tasks the model had
+    // just said were not worth running.
+    reason: z
+      .string()
+      .max(PLAN_REASON_MAX_CHARS)
+      .optional()
+      .describe(
+        'One or two sentences on why these tasks (or none) — which signal decided it.'
+      ),
+  })
+/** The smallest tier's schema — what every scan used before the allocator. */
+const Schema = schemaFor(HUNT_MAX_PLANNED_TASKS)
+/** The cap is bounded to the tier ceiling before it touches the prompt. */
+const MaxTasksSchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(HUNT_MAX_PLANNED_TASKS_CEILING)
+
+/**
+ * LUM-787 follow-up — the planner's inputs are bounded by a schema before
+ * they are rendered into the prompt (`lumo.llm.untrusted-input-in-ai-sdk-
+ * prompt`: parse first, then prompt). Everything here is attacker-adjacent —
+ * file names from the PR, finding titles the judge wrote after reading the
+ * raw diff, the task block the PR author can write — and `buildPlanPrompt`
+ * neutralises each line; this layer caps how MUCH of it may arrive. Caps
+ * TRUNCATE rather than reject: a PR with 6 000 touched files must still be
+ * planned, just from the first 5 000 of them, and a rejection here would
+ * silently degrade the scan to the deterministic fallback.
+ */
+const PLAN_INPUT_REASONS_MAX = 500
+const PLAN_INPUT_PATHS_MAX = 5_000
+const PLAN_INPUT_FINDINGS_MAX = 2_000
+const PLAN_INPUT_TEXT_MAX = 4_000
+const PLAN_INPUT_CONTEXT_MAX = 200_000
+const bounded = (max: number) =>
+  z.string().transform(s => (s.length > max ? s.slice(0, max) : s))
+export const PlanPromptInputSchema = z.object({
+  reasons: z
+    .array(bounded(PLAN_INPUT_TEXT_MAX))
+    .transform(a => a.slice(0, PLAN_INPUT_REASONS_MAX)),
+  touchedPaths: z
+    .array(bounded(PLAN_INPUT_TEXT_MAX))
+    .transform(a => a.slice(0, PLAN_INPUT_PATHS_MAX)),
+  findings: z
+    .array(
+      z.object({
+        severity: bounded(64),
+        ruleId: bounded(PLAN_INPUT_TEXT_MAX),
+        title: bounded(PLAN_INPUT_TEXT_MAX),
+      })
+    )
+    .transform(a => a.slice(0, PLAN_INPUT_FINDINGS_MAX)),
+  taskContext: bounded(PLAN_INPUT_CONTEXT_MAX).optional(),
 })
+export type PlanPromptInput = z.infer<typeof PlanPromptInputSchema>
+
+/**
+ * LUM-787 follow-up — the prompt names the cap, and the cap is per scan.
+ * `PLAN_SYSTEM_PROMPT` is the smallest tier's text (what the probe measures).
+ */
+export function planSystemPrompt(maxTasks: number): string {
+  return PLAN_SYSTEM_PROMPT.replace(
+    `1. Propose AT MOST ${HUNT_MAX_PLANNED_TASKS} tasks.`,
+    `1. Propose AT MOST ${maxTasks} tasks.`
+  )
+}
 
 /** Exported for the LUM-776 probe, which measures the shipped prompt. */
 export const PLAN_SYSTEM_PROMPT = `You route a security hunt. Given a pull request's diff summary, you decide which investigation tasks — if any — are worth spending an expensive analysis budget on.
@@ -165,7 +230,9 @@ function clip(text: string, max: number): string {
  * pushing the trigger reasons and touched paths — the signals the routing
  * decision is actually made on — out of the prompt.
  */
-export function buildPlanPrompt(i: PlanClientInput): string {
+// Accepts the raw client input too (the probe and the fixture tests hand it
+// the whole thing); production passes the schema-bounded shape.
+export function buildPlanPrompt(i: PlanPromptInput | PlanClientInput): string {
   // The A4 judge authors `title` after reading the RAW diff, and its schema is
   // `z.string().describe('… ≤ 80 chars')` — a hint to the model, enforcing
   // nothing. `ruleId` is `ext:<runSlug>:<id>` for SARIF-ingested findings, i.e.
@@ -285,11 +352,18 @@ export async function planHuntTasks(
   overrides: PlanProbeOverrides = {}
 ): Promise<PlanHuntTasksResult> {
   let repaired: PlanRepairKind | undefined
+  // LUM-787 follow-up — the cap reaches the system prompt, so it is parsed
+  // (bounded to the tier ceiling) rather than trusted as a number: the
+  // planner's prompt is the one string in this file that must never carry
+  // anything but our own text.
+  const maxTasks = MaxTasksSchema.parse(
+    input.maxTasks ?? HUNT_MAX_PLANNED_TASKS
+  )
   const { object, usage, finishReason } = await generateObject({
     model: overrides.model ?? gateway(FAST_MODEL),
-    schema: Schema,
-    system: PLAN_SYSTEM_PROMPT,
-    prompt: buildPlanPrompt(input),
+    schema: maxTasks === HUNT_MAX_PLANNED_TASKS ? Schema : schemaFor(maxTasks),
+    system: planSystemPrompt(maxTasks),
+    prompt: buildPlanPrompt(PlanPromptInputSchema.parse(input)),
     maxOutputTokens: PLAN_HUNT_TOKEN_BUDGET,
     // LUM-776 — the SDK calls this once, when the text failed to parse or to
     // validate, before it gives up. Only the two envelope mistakes are
@@ -324,7 +398,7 @@ export async function planHuntTasks(
     return true
   })
   const tasks: HuntTask[] = deduped
-    .slice(0, HUNT_MAX_PLANNED_TASKS)
+    .slice(0, maxTasks)
     .map((t, i) => ({ ...t, id: `t${i + 1}` }))
   return {
     tasks,
