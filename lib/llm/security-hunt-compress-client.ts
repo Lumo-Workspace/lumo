@@ -37,10 +37,13 @@ import {
 } from '@/lib/services/security-hunt.config'
 import {
   detectInjectionSignals,
-  guardUntrustedContent,
   neutralizeWrapperEscapes,
   renderInlineSignalMarker,
 } from '@/shared/src/untrusted-content'
+import {
+  guardInjectedText,
+  redactPromptLine,
+} from '@/lib/security-scan/inject-guard'
 
 export interface CompressInput {
   /**
@@ -89,14 +92,18 @@ export function buildCompressPrompt(input: CompressInput): string {
   // EVIDENCE rather than merely diluting a brief. LUM-783: both the objective
   // (inline marker) and the output (block-head notice) also carry the
   // instruction-shape signal count, so the compressor is told what it holds.
+  // LUM-784: both are also secret-redacted first. The output arrives already
+  // redacted by `runHuntShell`; running the registry again here is cheap and
+  // makes this prompt safe on its own, not by a caller's promise.
+  const redactedObjective = redactPromptLine(input.objective)
   const objective = neutralizeForPromptLine(
-    neutralizeWrapperEscapes(input.objective),
+    neutralizeWrapperEscapes(redactedObjective.text),
     COMPRESS_OBJECTIVE_MAX_CHARS
   )
-  const objectiveMarker = renderInlineSignalMarker(
+  const objectiveMarker = `${redactedObjective.marker}${renderInlineSignalMarker(
     detectInjectionSignals(objective).signals
-  )
-  const output = guardUntrustedContent(input.output)
+  )}`
+  const output = guardInjectedText(input.output)
   return `Objective: ${objective}${objectiveMarker}
 Category: ${input.category}
 

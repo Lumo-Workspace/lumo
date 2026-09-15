@@ -23,6 +23,10 @@ import {
   renderInlineSignalMarker,
 } from '@/shared/src/untrusted-content'
 import {
+  redactForInjection,
+  renderInlineRedactionMarker,
+} from '@/lib/security-scan/inject-guard'
+import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
   PLAN_EMPTY_REASON,
@@ -170,22 +174,29 @@ export function buildPlanPrompt(i: PlanClientInput): string {
   // never sees it. A title carrying newlines forges a section header.
   // LUM-783: a title carrying a fence tag is defanged, and one shaped like an
   // instruction is labelled inline — the finding still routes the hunt.
+  // LUM-784: a credential the judge echoed into a title is redacted first
+  // (persisted titles already are; this makes the prompt safe by itself).
   const findings =
     i.findings.length === 0
       ? '(none)'
       : i.findings
           .map(f => {
+            const redactedId = redactForInjection(f.ruleId)
+            const redactedTitle = redactForInjection(f.title)
             const ruleId = neutralizeForPromptLine(
-              neutralizeWrapperEscapes(f.ruleId),
+              neutralizeWrapperEscapes(redactedId.text),
               FINDING_ID_MAX_CHARS
             )
             const title = neutralizeForPromptLine(
-              neutralizeWrapperEscapes(f.title),
+              neutralizeWrapperEscapes(redactedTitle.text),
               FINDING_TITLE_MAX_CHARS
             )
-            const marker = renderInlineSignalMarker(
+            const marker = `${renderInlineRedactionMarker({
+              redactedCount:
+                redactedId.redactedCount + redactedTitle.redactedCount,
+            })}${renderInlineSignalMarker(
               detectInjectionSignals(`${ruleId}: ${title}`).signals
-            )
+            )}`
             return `- [${f.severity}] ${ruleId}: ${title}${marker}`
           })
           .join('\n')

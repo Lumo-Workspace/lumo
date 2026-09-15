@@ -230,7 +230,11 @@ describe('GET /api/ideas/[id]/slack-contexts/[contextId]/snapshot', () => {
       paramsP({ id: 'LUM-I8', contextId: 'sc_1' })
     )
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ snapshot: { messages: [] } })
+    // LUM-784: the tier-2 egress carries the redaction count beside the snapshot.
+    expect(await res.json()).toEqual({
+      snapshot: { messages: [] },
+      redactedSecrets: 0,
+    })
   })
 
   it('404 when snapshot belongs to a different idea', async () => {
@@ -353,7 +357,8 @@ describe('GET /api/ideas/[id]/web-links/[linkId]/body', () => {
       paramsP({ id: 'LUM-I8', linkId: 'wl_1' })
     )
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ body: 'body text' })
+    // LUM-784: the tier-2 egress carries the redaction count beside the body.
+    expect(await res.json()).toEqual({ body: 'body text', redactedSecrets: 0 })
     expect(ideaWebLinkService.fetchBody).toHaveBeenCalledWith('w1', 'wl_1')
   })
 

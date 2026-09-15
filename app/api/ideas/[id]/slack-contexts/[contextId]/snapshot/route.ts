@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveIdeaRef } from '@/lib/services/idea-evidence-resolve'
 import { ideaSlackContextRepository } from '@/lib/repositories'
+import { redactSlackSnapshotForInjection } from '@/lib/security-scan/inject-guard'
 
 export const runtime = 'nodejs'
 
@@ -39,7 +40,13 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (!context || context.ideaId !== ideaId)
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    return NextResponse.json({ snapshot: context.snapshot })
+    // LUM-784: the stored bodies go straight into the agent's context via
+    // `slack show` — redact every registry secret on the way out and tell the
+    // CLI how many, so it can print the notice.
+    const { snapshot, redactedSecrets } = redactSlackSnapshotForInjection(
+      context.snapshot
+    )
+    return NextResponse.json({ snapshot, redactedSecrets })
   } catch (err) {
     return errorResponse(
       err,

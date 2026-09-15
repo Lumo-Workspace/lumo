@@ -1,6 +1,6 @@
 import type { MemoryCategory, MemoryScope } from '@prisma/client'
 import { sanitizeField } from '@/lib/utils/sanitize'
-import { guardUntrustedContent } from '@/shared/src/untrusted-content'
+import { guardInjectedText } from '@/lib/security-scan/inject-guard'
 import { parseMemoryContent } from './schemas'
 
 /**
@@ -94,7 +94,9 @@ export function wrapUntrustedMemory(section: string): string {
   // LUM-783: on top of the control-char strip — neutralize any fence-shaped
   // tag so the body cannot close this block early, and flag content shaped
   // like an instruction with a visible notice at the block head.
-  const guarded = guardUntrustedContent(clean)
+  // LUM-784: and before either, redact every registry secret — a credential
+  // in a memory row is masked here, the last point before the model.
+  const guarded = guardInjectedText(clean)
   return [
     '<untrusted-team-memory>',
     ...guarded.notices,
@@ -302,8 +304,8 @@ export function wrapUntrustedLinked(section: string): string {
   // (LLM Slack summaries, fetched web bodies, PR text) is untrusted free text.
   const clean = sanitizeField(section)
   if (clean.trim() === '') return ''
-  // LUM-783: same two-layer guard as wrapUntrustedMemory.
-  const guarded = guardUntrustedContent(clean)
+  // LUM-783 + LUM-784: same redact-then-guard chain as wrapUntrustedMemory.
+  const guarded = guardInjectedText(clean)
   return [
     '<untrusted-linked-context>',
     ...guarded.notices,
@@ -349,9 +351,9 @@ export function wrapUntrustedLinkedGroup(sections: string[]): string[] {
       preambleEmitted = true
       return wrapUntrustedLinked(section)
     }
-    // LUM-783: continuation blocks are guarded too — a follow-up section is
-    // the same injection surface with a shorter preamble.
-    const guarded = guardUntrustedContent(clean)
+    // LUM-783 + LUM-784: continuation blocks are redacted and guarded too — a
+    // follow-up section is the same injection surface with a shorter preamble.
+    const guarded = guardInjectedText(clean)
     return [
       '<untrusted-linked-context>',
       ...guarded.notices,

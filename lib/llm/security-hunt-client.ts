@@ -51,6 +51,7 @@ import {
   neutralizeWrapperEscapes,
   renderInlineSignalMarker,
 } from '@/shared/src/untrusted-content'
+import { redactPromptLine } from '@/lib/security-scan/inject-guard'
 import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
 import {
   HuntCandidateSchema,
@@ -425,17 +426,20 @@ export function renderTaskForPrompt(task: HuntTask): string {
   // content, and pre-declares a fence someone else's data will appear to close.
   // LUM-783: an objective shaped like an instruction ("ignore the previous
   // …") is still the task, but it is labelled as such on its own line.
+  // LUM-784: and a credential the planner echoed out of the task context is
+  // redacted before it is written here — first, so nothing below sees it.
+  const redactedObjective = redactPromptLine(task.objective)
   const objective = neutralizeForPromptLine(
-    neutralizeWrapperEscapes(task.objective),
+    neutralizeWrapperEscapes(redactedObjective.text),
     TASK_TEXT_MAX_CHARS
   )
-  const objectiveMarker = renderInlineSignalMarker(
+  const objectiveMarker = `${redactedObjective.marker}${renderInlineSignalMarker(
     detectInjectionSignals(objective).signals
-  )
+  )}`
   const points = task.startingPoints
     .map(p =>
       neutralizeForPromptLine(
-        neutralizeWrapperEscapes(p),
+        neutralizeWrapperEscapes(redactPromptLine(p).text),
         PROMPT_PATH_MAX_CHARS
       )
     )

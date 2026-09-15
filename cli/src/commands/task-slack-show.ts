@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { reportPull } from '../lib/report-pull'
+import { printRedactionNotice } from '../lib/redaction-notice'
 
 interface SlackMessage {
   ts?: string
@@ -68,7 +69,10 @@ export async function taskSlackShow(
     return 1
   }
 
-  const { snapshot } = (await res.json()) as { snapshot: SlackSnapshot | null }
+  const { snapshot, redactedSecrets } = (await res.json()) as {
+    snapshot: SlackSnapshot | null
+    redactedSecrets?: number
+  }
   const messages = snapshot?.messages ?? []
   if (messages.length === 0) {
     console.log('(no messages in stored snapshot)')
@@ -78,6 +82,8 @@ export async function taskSlackShow(
       console.log(`${author}: ${sanitizeField(m.text)}`)
     }
   }
+
+  printRedactionNotice(redactedSecrets)
 
   // LUM-500: stamp the disclosure funnel. The contextId arg == lineage
   // SLACK_CONTEXT fragmentId. Fire-and-forget — never blocks, swallows failures.

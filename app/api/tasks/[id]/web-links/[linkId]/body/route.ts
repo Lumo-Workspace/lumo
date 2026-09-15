@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { taskWebLinkService } from '@/lib/services/task-web-link.service'
+import { redactWebBodyForInjection } from '@/lib/security-scan/inject-guard'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -65,7 +66,10 @@ export async function GET(request: NextRequest, { params }: Params) {
       identity.workspaceId,
       linkId
     )
-    return NextResponse.json({ body })
+    // LUM-784: the body is printed verbatim into the agent's context by
+    // `web show` — redact every registry secret on the way out; the count
+    // lets the CLI print the notice.
+    return NextResponse.json(redactWebBodyForInjection(body))
   } catch (err) {
     return errorResponse(err, 'GET /api/tasks/[id]/web-links/[linkId]/body')
   }

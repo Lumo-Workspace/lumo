@@ -23,7 +23,7 @@
  * Pure and I/O-free: the reads live in `security-hunt-task-context.ts`.
  */
 import { sanitizeField } from '@/lib/utils/sanitize'
-import { guardUntrustedContent } from '@/shared/src/untrusted-content'
+import { guardInjectedText } from '@/lib/security-scan/inject-guard'
 
 /**
  * The task signals the planner gets, already flattened to display lines by the
@@ -121,8 +121,10 @@ export function renderHuntTaskContext(context: HuntTaskContext): string {
   // so it cannot close the block below it and continue as prompt, and flag
   // instruction-shaped content with a notice at the block head. This repo's
   // own source writes such tags, so a criterion quoting one is ordinary, not
-  // an attack — and either way it must not be able to escape.
-  const guarded = guardUntrustedContent(sanitizeField(body))
+  // an attack — and either way it must not be able to escape. LUM-784 runs
+  // the secret redaction ahead of both: a credential pasted into a criterion
+  // or a trap must not ride into the planner's prompt (or its step I/O).
+  const guarded = guardInjectedText(sanitizeField(body))
   const clean = guarded.text
   const clipped =
     clean.length > TASK_CONTEXT_MAX_CHARS

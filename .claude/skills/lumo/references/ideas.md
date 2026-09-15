@@ -50,7 +50,7 @@ lumo idea update LUM-I42 --status dropped
 
 `lumo idea slack add|show|rm`, `lumo idea web add|show|rm`, `lumo idea figma add|list|rm|refresh|context` (LUM-681) attach and inspect supporting evidence, mirroring the `task slack/web/figma` source-card commands but hitting `/api/ideas/:id/...`. `<idea>` is the `LUM-I<n>` id.
 
-`show` / `context` are **Tier-2 retrieval** (stored snapshot / fetched body / cached design metadata — no live re-fetch) and stamp the disclosure funnel like their task-side counterparts. `figma refresh` re-fetches metadata for every link on the idea.
+`show` / `context` are **Tier-2 retrieval** (stored snapshot / fetched body / cached design metadata — no live re-fetch) and stamp the disclosure funnel like their task-side counterparts. `figma refresh` re-fetches metadata for every link on the idea. `slack show` / `web show` redact registry secrets server-side before printing and end with a `⚠ N suspected credential(s) were redacted before injection …` line when any were (LUM-784, same as the task-side commands).
 
 **When to suggest**: the user wants to attach evidence (a Slack discussion, a spec link, a Figma mock) to an idea **before** it goes through `lumo plan` — the converter carries that evidence forward into the resulting task/initiative. Prefer attaching to the idea over waiting until after conversion.
 

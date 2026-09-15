@@ -34,6 +34,7 @@ import {
   scanSecrets,
   truncateSecurityDiff,
   redactKnownSecrets,
+  redactForInjection,
   vulnerabilityFingerprint,
   INCOMPLETE_STAGE_STATES,
   stagesOf,
@@ -611,7 +612,14 @@ export const prSecurityScanService = {
           // Dynamic import keeps @ai-sdk/gateway out of the static graph.
           const { judgeSecurity } =
             await import('@/lib/llm/security-judge-client')
-          const { findings } = await judgeSecurity({ diff: capped.text })
+          // LUM-784: the diff is untrusted text about to enter a model's
+          // context — every registry secret is masked before the judge sees
+          // it. Secrets are stage A's job (deterministic, above); the judge
+          // still sees the `AKIA…(len 20)` shape if it wants to reason about
+          // a hardcoded credential, it just never sees the value.
+          const { findings } = await judgeSecurity({
+            diff: redactForInjection(capped.text).text,
+          })
           judgeStatus = 'RAN'
           for (const j of findings) {
             const isCredential = j.kind === 'hardcoded_credential'
