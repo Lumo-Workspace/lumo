@@ -552,54 +552,6 @@ function formatActivityText(
         </span>
       )
     }
-    case 'SECURITY_FINDING_DISPOSITIONED': {
-      // LUM-750: a CLI-channel finding ruling (to = the disposition) or the
-      // SYSTEM rollback of an agent-issued one (to = null, from = what it was).
-      const findingLabel = (v: unknown): string =>
-        v === 'FALSE_POSITIVE'
-          ? intl.formatMessage({
-              id: 'securityScan.disposition.FALSE_POSITIVE',
-              defaultMessage: 'False positive',
-            })
-          : v === 'ACCEPTED_RISK'
-            ? intl.formatMessage({
-                id: 'securityScan.disposition.ACCEPTED_RISK',
-                defaultMessage: 'Accepted risk',
-              })
-            : intl.formatMessage({
-                id: 'boundary.disposition.open',
-                defaultMessage: 'open',
-              })
-      const reopened = p.to == null
-      return (
-        <span className='inline-flex items-center gap-1 align-middle'>
-          {reopened ? (
-            <ShieldAlert className='h-3.5 w-3.5 text-warning' />
-          ) : (
-            <CheckCircle2 className='h-3.5 w-3.5 text-success' />
-          )}
-          <span>
-            {reopened
-              ? intl.formatMessage(
-                  {
-                    id: 'activity.securityFindingReopened',
-                    defaultMessage:
-                      'reopened a security finding (was {from}) — the ruling was agent-issued and was rolled back',
-                  },
-                  { from: findingLabel(p.from) }
-                )
-              : intl.formatMessage(
-                  {
-                    id: 'activity.securityFindingDispositioned',
-                    defaultMessage:
-                      'dispositioned a security finding as {to} via CLI',
-                  },
-                  { to: findingLabel(p.to) }
-                )}
-          </span>
-        </span>
-      )
-    }
     case 'BOUNDARY_CROSSING_REMEDIATION_SPAWNED': {
       return (
         <span className='inline-flex items-center gap-1 align-middle'>

@@ -107,12 +107,6 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.TEST_FILE_DELETED',
         defaultMessage: 'deleted a test file',
       })
-    // LUM-750
-    case 'SELF_DISPOSITION':
-      return intl.formatMessage({
-        id: 'boundary.category.SELF_DISPOSITION',
-        defaultMessage: 'agent-issued disposition (rolled back)',
-      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
   }

@@ -269,46 +269,15 @@ const GH_READ_ONLY = new Set([
   'api',
 ])
 
-/** `env` options that take the next token as their value (`env -u NAME`),
- *  and the flag-shaped ones that take none (`env -i`, `env --unset=NAME`). */
-const ENV_OPT_WITH_VALUE = /^(?:-u|--unset)$/
-const ENV_OPT_BARE = /^(?:-i|--ignore-environment|--unset=.+|-)$/
-
 /** The verb token of a segment: skip env assignments / sudo / npx etc., strip a
- *  path prefix and wrapping quotes. Returns the remaining tokens too.
- *
- *  LUM-750: `env -u CLAUDE_CODE_SESSION_ID lumo …` skips the `env` options
- *  as well — stripping the session variable is exactly how a disposition
- *  command would dodge the CLI's environment guard, so the verb must still
- *  resolve to `lumo` behind it. */
+ *  path prefix and wrapping quotes. Returns the remaining tokens too. */
 function verbOf(segment: string): { verb: string; rest: string[] } {
   const toks = segment.trim().split(/\s+/).filter(Boolean)
   let i = 0
-  while (i < toks.length - 1) {
-    const t = toks[i]!
-    if (PREFIX_TOKEN.test(t)) {
-      i++
-      if (t === 'env') {
-        while (i < toks.length - 1) {
-          const o = toks[i]!
-          if (ENV_OPT_WITH_VALUE.test(o)) i += 2
-          else if (ENV_OPT_BARE.test(o)) i += 1
-          else break
-        }
-      }
-      continue
-    }
-    break
-  }
+  while (i < toks.length - 1 && PREFIX_TOKEN.test(toks[i]!)) i++
   const raw = toks[i] ?? ''
   const verb = raw.replace(/^["'$(]+/, '').replace(/^.*\//, '')
   return { verb, rest: toks.slice(i + 1) }
-}
-
-/** Public view of {@link verbOf} for matchers that key on the verb position
- *  (LUM-750 self-disposition: `lumo crossing|finding disposition …`). */
-export function commandVerb(segment: string): { verb: string; rest: string[] } {
-  return verbOf(segment)
 }
 
 /** The body of a leading quoted literal (single-quoted, double-quoted with
@@ -353,15 +322,6 @@ export interface SegmentScopeOptions {
    * project-rule matcher keeps the LUM-751 git read / navigation exemptions.
    */
   keepGit?: boolean
-  /**
-   * LUM-750: treat a `lumo …` segment as executing. Only the self-disposition
-   * matcher sets this — for it the lumo invocation IS the action under test
-   * (`lumo crossing disposition` / `lumo finding disposition`), matched at the
-   * verb position so `--note "…"` prose in any other lumo command still never
-   * reaches a matcher. Off by default: everywhere else the lumo CLI stays the
-   * prose carrier LUM-772 made it.
-   */
-  keepLumo?: boolean
 }
 
 /**
@@ -376,7 +336,6 @@ export function isReadOnlySegment(
   const { verb, rest } = verbOf(segment)
   // `find … -exec …` / `-delete` runs or removes what it finds — an executor.
   if (verb === 'find') return !FIND_MUTATING_FLAG.test(rest.join(' '))
-  if (verb === 'lumo' && options.keepLumo) return false
   if (READ_ONLY_VERBS.has(verb)) return true
   if (verb === 'git') {
     if (options.keepGit) return false
