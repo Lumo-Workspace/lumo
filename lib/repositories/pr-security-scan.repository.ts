@@ -174,6 +174,41 @@ export interface ScanWithFindings {
 }
 
 /**
+ * LUM-788 — one finding as the by-PR scan read-out (`lumo pr scan`) loads
+ * it. `evidence` is absent by construction, the same P8 rule as
+ * `ReviewFindingRow`: the read-out is printed into an agent's terminal, and
+ * a column the query never loads is a column no renderer can leak.
+ */
+export type ReadoutFindingRow = Omit<FindingRow, 'evidence'>
+
+/**
+ * LUM-788 — one scan row with everything `lumo pr scan` prints: the layer
+ * facts, the findings (without evidence), the raw hunt audit and the token
+ * spend. Same columns as `ScanWithFindings` minus the write-path-only ones
+ * (`agentNotifiedAt`, `summaryCommentId`, `suggestedAt`, `suggestionTokens`).
+ */
+export interface ScanReadoutRow {
+  id: string
+  pullRequestId: string
+  workspaceId: string
+  headSha: string
+  status: ScanStatus
+  trigger: ScanTrigger
+  judgeStatus: JudgeStatus | null
+  truncated: boolean
+  stages: ScanStages | null
+  partial: boolean
+  detectorVersion: string
+  error: string | null
+  startedAt: Date
+  finishedAt: Date | null
+  /** null = not metered (team rule: null ≠ 0). */
+  tokenSpent: number | null
+  huntAudit: unknown
+  findings: ReadoutFindingRow[]
+}
+
+/**
  * LUM-735 Task 2 — the finding columns the PR write-back renders, and only
  * those. `evidence` is absent by construction: P8's red line stops being a
  * rule the builder has to remember and becomes a column the query never
@@ -843,6 +878,73 @@ export const prSecurityScanRepository = {
       include: { findings: { orderBy: { createdAt: 'asc' } } },
     })
     return rows as unknown as ScanWithFindings[]
+  },
+
+  /**
+   * LUM-788 — a PR's scans newest-first (one row per pushed head), each with
+   * its findings minus `evidence`. `take` = null reads the whole history
+   * (`lumo pr scan --all`); the default read passes 1 for the latest head.
+   */
+  async listByPullRequest(
+    pullRequestId: string,
+    take: number | null
+  ): Promise<ScanReadoutRow[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: { pullRequestId },
+      orderBy: { startedAt: 'desc' },
+      ...(take === null ? {} : { take }),
+      select: {
+        id: true,
+        pullRequestId: true,
+        workspaceId: true,
+        headSha: true,
+        status: true,
+        trigger: true,
+        judgeStatus: true,
+        truncated: true,
+        stages: true,
+        partial: true,
+        detectorVersion: true,
+        error: true,
+        startedAt: true,
+        finishedAt: true,
+        tokenSpent: true,
+        huntAudit: true,
+        findings: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            scanId: true,
+            kind: true,
+            ruleId: true,
+            severity: true,
+            provenance: true,
+            filePath: true,
+            line: true,
+            title: true,
+            detail: true,
+            fingerprint: true,
+            externalRef: true,
+            disposition: true,
+            dispositionNote: true,
+            dispositionedById: true,
+            dispositionedAt: true,
+            inheritedFromFindingId: true,
+            cwe: true,
+            reachability: true,
+            callChain: true,
+            falsifierVerdict: true,
+            suggestedDisposition: true,
+            suggestedReason: true,
+            suggestionOutcome: true,
+            persisting: true,
+            secretDowngrade: true,
+            createdAt: true,
+          },
+        },
+      },
+    })
+    return rows as unknown as ScanReadoutRow[]
   },
 
   /**

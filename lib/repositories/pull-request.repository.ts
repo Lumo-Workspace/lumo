@@ -108,6 +108,36 @@ export const pullRequestRepository = {
     })
   },
 
+  /**
+   * LUM-788 — the PR(s) a workspace knows under `number`, for the by-number
+   * scan read-out (`lumo pr scan`). Scoped by workspace so a number that
+   * belongs to another workspace is simply not found (no existence leak);
+   * `repo` narrows to one row when the same number exists in several repos.
+   * The task join is optional — an unlinked PR is readable too.
+   */
+  async findByNumberInWorkspace(
+    workspaceId: string,
+    number: number,
+    repo: string | null
+  ) {
+    return prisma.pullRequest.findMany({
+      where: { workspaceId, number, ...(repo ? { repo } : {}) },
+      orderBy: { repo: 'asc' },
+      select: {
+        id: true,
+        repo: true,
+        number: true,
+        title: true,
+        url: true,
+        state: true,
+        mergedAt: true,
+        task: {
+          select: { number: true, team: { select: { identifier: true } } },
+        },
+      },
+    })
+  },
+
   /** Find a PR by ID with task info. */
   async findById(id: string) {
     return prisma.pullRequest.findUnique({

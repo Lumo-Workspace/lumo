@@ -30,3 +30,24 @@ export const bulkDispositionSecurityFindingsSchema = z
 export type BulkDispositionSecurityFindingsInput = z.infer<
   typeof bulkDispositionSecurityFindingsSchema
 >
+
+/**
+ * Query for GET /api/pull-requests/[number]/scans (LUM-788, `lumo pr scan`).
+ * `number` is the path segment; `repo` narrows a number that exists in
+ * several repos; `all` reads every head's scan instead of the latest.
+ */
+export const pullRequestScanReadoutQuerySchema = z.object({
+  number: z.coerce.number().int().positive(),
+  repo: z
+    .string()
+    .regex(/^[\w.-]+\/[\w.-]+$/, 'repo must be owner/repo')
+    .optional(),
+  all: z
+    .enum(['1', 'true', '0', 'false'])
+    .optional()
+    .transform(v => v === '1' || v === 'true'),
+})
+
+export type PullRequestScanReadoutQuery = z.infer<
+  typeof pullRequestScanReadoutQuerySchema
+>

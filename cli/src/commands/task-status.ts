@@ -4,12 +4,9 @@ import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
 import {
   externalFailureReason,
-  formatQueueExits,
-  SCAN_STAGE_KEYS,
-  scanStageLabel,
-  scanStageStateLabel,
   secretDowngradeNote,
 } from '../../../shared/src/security-scan'
+import { formatHuntCoverageLine, formatScanLayerTail } from '../lib/scan-format'
 import {
   fetchOpenCrossings,
   dispositionUrl,
@@ -345,91 +342,30 @@ function pushSecurityActions(
 
 /** Fail-closed security coverage lines (LUM-737): a failed read and every
  *  open PR without a successful scan are stated, never left silent. */
-const EXTERNAL_ERROR_TAIL = 200
-const SCAN_STAGE_ORDER = SCAN_STAGE_KEYS
-
 type ScanSummary = NonNullable<
   NonNullable<TaskStatusResponse['securityFindings']>['scans']
 >[number]
 
 /** LUM-735 — one line per linked PR's latest scan: `PR #945 · scan CLEAN ·
- *  Secrets: checked · Code scan: checked (2 external findings) ·
- *  Dependencies: checked (1 dependency finding, 1 already on main) ·
- *  AI review: checked · Exploit paths: checked`, plus, on a merged / closed
- *  PR, ` · 3 left the queue (2 resolved on main, 1 merged unreviewed)`
- *  (LUM-775).
- *  Stage segments only for keys present, in
- *  secrets/external/supplyChain/judge/hunt order (LUM-739 added the hunt
- *  layer); the `(N external findings)` count only decorates the Code scan
- *  segment, the dependency count (LUM-738, with its already-on-main share)
- *  only the Dependencies segment, and each only when N > 0.
- *  LUM-763: the stage keys are internal — what prints is the display label
- *  from `shared/src/security-scan.ts`, the same map the GitHub PR summary
- *  and the web panel render from. */
+ *  Secrets: checked · Code scan: checked (2 external findings) · …` — the
+ *  layer grammar lives in `cli/src/lib/scan-format.ts`, shared with
+ *  `lumo pr scan` (LUM-788) so the two surfaces cannot drift.
+ *  LUM-756 (P8): `error` has two writers — only the prefixed, scrubbed
+ *  scanner reason may be printed, and only when the layer FAILED. */
 function formatScanSummaryLine(s: ScanSummary): string {
-  const segments: string[] = []
-  for (const key of SCAN_STAGE_ORDER) {
-    const state = s.stages[key]
-    if (!state) continue
-    const head = `${scanStageLabel(key)}: ${scanStageStateLabel(state)}`
-    if (key === 'external' && s.externalFindings > 0) {
-      const noun = s.externalFindings === 1 ? 'finding' : 'findings'
-      segments.push(`${head} (${s.externalFindings} external ${noun})`)
-    } else if (key === 'supplyChain' && (s.dependencyFindings ?? 0) > 0) {
-      const n = s.dependencyFindings ?? 0
-      const noun = n === 1 ? 'finding' : 'findings'
-      const persisting = s.persistingFindings ?? 0
-      const tail = persisting > 0 ? `, ${persisting} already on main` : ''
-      segments.push(`${head} (${n} dependency ${noun}${tail})`)
-    } else {
-      segments.push(head)
-    }
-  }
-  let line = `  PR #${s.prNumber} · scan ${s.status}`
-  if (segments.length > 0) line += ` · ${segments.join(' · ')}`
-  if (s.partial) line += ' · partial'
-  // LUM-775: what left the queue because the PR merged / closed, and why —
-  // so a merged PR's line explains where its findings went instead of
-  // silently listing fewer next actions than the scan found.
-  const exits = formatQueueExits(s.queueExits)
-  if (exits) line += ` · ${exits}`
-  // LUM-756 (P8): `error` has two writers — only the prefixed, scrubbed
-  // scanner reason may be printed, and only the text after the prefix. Stage
-  // A's raw crash text carries no prefix and is never shown here (same rule
-  // as the web panel and the PR summary).
-  const reason =
-    s.stages.external === 'FAILED' ? externalFailureReason(s.error) : null
-  if (reason) {
-    line += ` — ${sanitizeField(tail(reason, EXTERNAL_ERROR_TAIL))}`
-  }
-  return line
-}
-
-/**
- * LUM-762 — the hunt's per-task read-out, one indented line under its scan:
- * `Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done
- * (2 attempts) · t3 race skipped`. Headed by the same display label as the
- * layer's own segment (LUM-763) — the detail line and the line above it
- * must not name the layer two different ways. This is the only place the stored `huntAudit` surfaces, so
- * it is what answers "how long does a healthy batch take" and "which ones
- * never ran" (`skipped`) without paging through deploy logs. Elapsed time is
- * summed over a task's attempts; a skipped task has none to print.
- *
- * LUM-758: a plan may hold two tasks of the same category, so the row is led
- * by its task id. Pre-task-graph audits carry no id — the row then prints
- * exactly as it always did.
- */
-function formatHuntCoverageLine(
-  hunt: NonNullable<ScanSummary['hunt']>
-): string {
-  const parts = hunt.categories.map(c => {
-    const attempts = c.attempts > 1 ? ` (${c.attempts} attempts)` : ''
-    const spent =
-      c.stopped === 'skipped' ? '' : `${(c.elapsedMs / 1000).toFixed(1)}s `
-    const id = c.taskId === undefined ? '' : `${c.taskId} `
-    return `${id}${c.category} ${spent}${c.stopped}${attempts}`
-  })
-  return `    ${scanStageLabel('hunt')} ${hunt.done}/${hunt.total} done · ${parts.join(' · ')}`
+  return (
+    `  PR #${s.prNumber} · scan ${s.status}` +
+    formatScanLayerTail({
+      stages: s.stages,
+      partial: s.partial,
+      externalFindings: s.externalFindings,
+      dependencyFindings: s.dependencyFindings,
+      persistingFindings: s.persistingFindings,
+      queueExits: s.queueExits,
+      externalFailureReason:
+        s.stages.external === 'FAILED' ? externalFailureReason(s.error) : null,
+    })
+  )
 }
 
 function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
@@ -445,7 +381,7 @@ function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
     lines.push(formatScanSummaryLine(s))
     // LUM-762: absent/null = older server or no usable audit — stay silent.
     if (s.hunt && s.hunt.categories.length > 0) {
-      lines.push(formatHuntCoverageLine(s.hunt))
+      lines.push(`    ${formatHuntCoverageLine(s.hunt)}`)
     }
   }
   for (const u of data.securityFindings.unconfirmedPrs) {
