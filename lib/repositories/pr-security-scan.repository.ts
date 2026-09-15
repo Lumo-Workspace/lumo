@@ -1064,6 +1064,98 @@ export const prSecurityScanRepository = {
     return count
   },
 
+  // ── LUM-750: CLI disposition handshake + agent self-disposition rollback ──
+
+  /**
+   * The rows the bulk (`--all-suggested-fp`) ruling would touch on the given
+   * scans — exactly the WHERE of `confirmSuggestedByScanIds`, projected to
+   * what the receipt binds and the envelope lists. Ordered by id so the set
+   * is stable between the read step and the write.
+   */
+  async findSuggestedFalsePositivesByScanIds(
+    scanIds: string[]
+  ): Promise<
+    Array<
+      Pick<
+        FindingRow,
+        | 'id'
+        | 'scanId'
+        | 'ruleId'
+        | 'severity'
+        | 'provenance'
+        | 'filePath'
+        | 'line'
+        | 'title'
+        | 'fingerprint'
+        | 'disposition'
+        | 'suggestedDisposition'
+        | 'suggestedReason'
+      >
+    >
+  > {
+    if (scanIds.length === 0) return []
+    const rows = await prisma.prSecurityFinding.findMany({
+      where: {
+        scanId: { in: scanIds },
+        suggestedDisposition: 'FALSE_POSITIVE',
+        disposition: null,
+      },
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        scanId: true,
+        ruleId: true,
+        severity: true,
+        provenance: true,
+        filePath: true,
+        line: true,
+        title: true,
+        fingerprint: true,
+        disposition: true,
+        suggestedDisposition: true,
+        suggestedReason: true,
+      },
+    })
+    return rows as unknown as Array<
+      Pick<
+        FindingRow,
+        | 'id'
+        | 'scanId'
+        | 'ruleId'
+        | 'severity'
+        | 'provenance'
+        | 'filePath'
+        | 'line'
+        | 'title'
+        | 'fingerprint'
+        | 'disposition'
+        | 'suggestedDisposition'
+        | 'suggestedReason'
+      >
+    >
+  },
+
+  /**
+   * Revert a finding to OPEN (undispositioned): the ruling, its note, actor
+   * and time are cleared and the LUM-740 suggestion verdict is unset so the
+   * suggestion stands again. The SYSTEM rollback of an agent-issued
+   * disposition (LUM-750) is the only caller; the audit trail is the
+   * SECURITY_FINDING_DISPOSITIONED activity the service writes alongside.
+   */
+  async clearDisposition(findingId: string): Promise<FindingRow> {
+    const row = await prisma.prSecurityFinding.update({
+      where: { id: findingId },
+      data: {
+        disposition: null,
+        dispositionNote: null,
+        dispositionedById: null,
+        dispositionedAt: null,
+        suggestionOutcome: null,
+      },
+    })
+    return row as unknown as FindingRow
+  },
+
   // ── LUM-740: summary comment id ───────────────────────────────────────────
 
   /** The per-PR summary comment an earlier scan of this PR already owns. */

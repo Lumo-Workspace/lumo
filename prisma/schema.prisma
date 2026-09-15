@@ -164,6 +164,13 @@ enum TaskActivityType {
   // PR removes a tracked test file). Append-only trail: reason + evidence +
   // criterion version. Never a disposition.
   BOUNDARY_CROSSING_REJUDGED
+  // LUM-750: a security finding was dispositioned (or reverted to OPEN) through
+  // a channel that needs an audit trail beyond the finding row itself — the CLI
+  // handshake (`channel: 'CLI'`, shown / read-acknowledged / confirmed times)
+  // and the SYSTEM rollback of an agent-issued disposition (`from`/`to` +
+  // reason 'reverted: agent-issued'). Web-panel rulings keep writing only the
+  // row (pre-750 shape). Append-only, like BOUNDARY_CROSSING_DISPOSITIONED.
+  SECURITY_FINDING_DISPOSITIONED
   TASK_SPUN_OFF
   // LUM-511 Phase 4: judge-confirmed laundering markers (task-level — fed into
   // the flywheel negative class; not VerificationRuns, which require a criterion).
@@ -220,6 +227,15 @@ enum BoundaryCrossingCategory {
   SENSITIVE_PATH_EDIT
   HOOK_BYPASS
   TEST_FILE_DELETED
+  // LUM-750: an AGENT session issued `lumo crossing disposition` /
+  // `lumo finding disposition` — the interested party ruling on its own
+  // blocker. The LUM-769 handshake cannot prove a human ticked each step (the
+  // agent relays them), so this is the second layer: the Bash hook stream is
+  // matched at the verb position (prose carriers never trip it), the crossing
+  // is HIGH + irreversible + never rule-suppressible, and the referenced
+  // CLI-channel disposition(s) are rolled back to OPEN with an append-only
+  // trail. A human terminal never produces a hook event, so it never trips.
+  SELF_DISPOSITION
 }
 
 enum BoundaryCrossingDisposition {

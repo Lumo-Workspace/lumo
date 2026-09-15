@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "sensiblen Pfad bearbeitet",
   "boundary.category.HOOK_BYPASS": "Git-Hooks umgangen",
   "boundary.category.TEST_FILE_DELETED": "Testdatei gelöscht",
+  "boundary.category.SELF_DISPOSITION": "vom Agenten ausgesprochene Disposition (zurückgenommen)",
   "boundary.advisoryBadge": "Hinweis",
   "boundary.severity.high": "hoch",
   "boundary.severity.medium": "mittel",
@@ -2370,5 +2371,7 @@
   "boundary.panel.viaCli": "· über CLI",
   "boundary.panel.viaCliTip": "Über das Terminal mit lumo crossing disposition --confirm entschieden: der Agent hat den Grenzverstoß weitergegeben und der Nutzer hat im Chat zugestimmt. Korrigiere es hier, falls diese Zustimmung nicht von dir kam.",
   "activity.boundaryRejudged": "hat die Grenzüberschreitung als Hinweis neu bewertet — ihre Ursache besteht nicht mehr ({reason})",
+  "activity.securityFindingDispositioned": "hat einen Sicherheitsbefund per CLI als {to} eingestuft",
+  "activity.securityFindingReopened": "hat einen Sicherheitsbefund wieder geöffnet (war {from}) — die Einstufung kam vom Agenten und wurde zurückgenommen",
   "boundary.panel.rejudged": "Vom System neu bewertet — blockiert Done nicht mehr: {evidence}"
 }

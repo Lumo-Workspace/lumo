@@ -38,7 +38,9 @@ import type { PolicyRule } from '@/lib/services/policy/types'
 import {
   splitCommandSegments as splitCommandSegmentsShared,
   executingSegments,
+  commandVerb,
 } from '@/lib/boundary-crossing/command-shape'
+import type { SelfDispositionRef } from '@/lib/services/self-disposition-rollback.service'
 import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
 import { matchPushTarget } from '@/lib/boundary-crossing/push-target-match'
 import {
@@ -82,6 +84,9 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 export interface BoundaryDetectionInput {
   taskId: string
   hookEventId?: string | null
+  /** LUM-750: the agent session the event came from — recorded on the
+   *  self-disposition rollback trail. Optional: older callers omit it. */
+  sessionId?: string | null
   toolName: string | null
   filePath: string | null
   payload: unknown
@@ -117,6 +122,9 @@ export interface DetectedCrossing {
   policyRuleRef?: string
   /** LUM-590: frozen verbatim text of the policy rule at detection time. */
   policyRuleText?: string
+  /** LUM-750: set ONLY on a SELF_DISPOSITION crossing — what the agent-issued
+   *  disposition command named, so the recorder can roll that ruling back. */
+  selfDisposition?: SelfDispositionRef
 }
 
 const DETAIL_MAX = 200
@@ -661,6 +669,9 @@ export function severityFor(
     case 'EXFILTRATION_PUBLIC':
     case 'CLOUD_DATA_DELETION':
     case 'INFRA_TERMINATION':
+    // LUM-750: the interested party ruling on its own blocker — always a
+    // human decision, never below the gate, never rule-suppressible.
+    case 'SELF_DISPOSITION':
       return 'HIGH'
     default:
       return 'MEDIUM'
@@ -808,6 +819,82 @@ function matchCommand(cmd: string, evasion: boolean): DetectedCrossing[] {
   return out
 }
 
+// --- LUM-750: agent self-disposition ----------------------------------------
+
+/** The disposition commands, as `lumo <resource> disposition …`. */
+const DISPOSITION_RESOURCES = new Set(['crossing', 'finding'])
+/** Flags of those commands that take a value token. */
+const DISPOSITION_VALUE_FLAGS = new Set(['--note', '--task', '--receipt'])
+/** A launcher that runs the CLI from source / a built entry (`node dist/…`). */
+const NODE_LAUNCHER = /^(?:node|tsx|ts-node|bun)$/
+const LUMO_ENTRY = /(?:^|\/)(?:lumo|index\.[cm]?[jt]s|lumo\.[cm]?[jt]s)$/
+
+/** A `--flag=value` split, or null. */
+function splitAssigned(tok: string): [string, string] | null {
+  const eq = tok.indexOf('=')
+  if (!tok.startsWith('--') || eq < 0) return null
+  return [tok.slice(0, eq), tok.slice(eq + 1)]
+}
+
+const unquote = (s: string): string => s.replace(/^["']+|["']+$/g, '')
+
+/**
+ * LUM-750 — match an AGENT-issued disposition command in the executing
+ * segments of a Bash payload: `lumo crossing disposition …` or
+ * `lumo finding disposition …`, matched at the VERB position (after env
+ * assignments, `env -u …`, sudo/npx, a path prefix, a `bash -c` wrapper, or a
+ * `node <entry>` launcher). Prose carriers are dropped before matching (LUM-772
+ * segment scoping, with `lumo` kept only for this matcher), and a lumo command
+ * that merely QUOTES the phrase — `lumo crossing explain --note "…"`,
+ * `lumo task comment …` — never matches because its own verb pair differs.
+ *
+ * Returns one hit per matched segment with what it named: the positional id
+ * (or null for the bulk `--all-suggested-fp` form) and `--task` when present,
+ * so the recorder can roll exactly that ruling back. Pure; exported for tests.
+ */
+export function detectSelfDisposition(
+  cmd: string
+): Array<{ target: string; ref: SelfDispositionRef }> {
+  const out: Array<{ target: string; ref: SelfDispositionRef }> = []
+  for (const seg of executingSegments(cmd, { keepGit: true, keepLumo: true })) {
+    let { verb, rest } = commandVerb(seg)
+    if (NODE_LAUNCHER.test(verb) && rest[0] && LUMO_ENTRY.test(rest[0])) {
+      verb = 'lumo'
+      rest = rest.slice(1)
+    }
+    if (verb !== 'lumo') continue
+    const resource = rest[0] ?? ''
+    if (!DISPOSITION_RESOURCES.has(resource) || rest[1] !== 'disposition') {
+      continue
+    }
+    const ref: SelfDispositionRef = {
+      kind: resource as 'crossing' | 'finding',
+      id: null,
+      taskIdentifier: null,
+      bulk: false,
+    }
+    const args = rest.slice(2)
+    for (let i = 0; i < args.length; i++) {
+      const tok = args[i]!
+      const assigned = splitAssigned(tok)
+      const flag = assigned ? assigned[0] : tok
+      if (flag === '--all-suggested-fp') {
+        ref.bulk = true
+        continue
+      }
+      if (DISPOSITION_VALUE_FLAGS.has(flag)) {
+        const value = assigned ? assigned[1] : (args[++i] ?? '')
+        if (flag === '--task') ref.taskIdentifier = unquote(value) || null
+        continue
+      }
+      if (tok.startsWith('-')) continue
+      if (ref.id === null) ref.id = unquote(tok) || null
+    }
+    out.push({ target: clip(seg), ref })
+  }
+  return out
+}
+
 /**
  * LUM-779: judge TEST_FILE_DELETED by NET deletion, not by command text.
  *
@@ -886,6 +973,33 @@ export function detectCrossings(
         if (seen.has(m.category)) continue
         seen.add(m.category)
         out.push(m)
+      }
+    }
+    // 3) LUM-750: an agent-issued disposition command. Its own matcher (the
+    //    lumo CLI is a prose carrier for every other class) and its own
+    //    recording branch (the referenced ruling is rolled back). HIGH on the
+    //    literal pass already; an evasion-decoded hit is HIGH + marked.
+    for (const hit of detectSelfDisposition(cmd)) {
+      out.push({
+        category: 'SELF_DISPOSITION',
+        detail: clip(cmd),
+        severity: 'HIGH',
+        target: hit.target,
+        selfDisposition: hit.ref,
+      })
+    }
+    if (!out.some(c => c.category === 'SELF_DISPOSITION')) {
+      for (const decoded of decodeBase64Segments(cmd)) {
+        const hit = detectSelfDisposition(decoded)[0]
+        if (!hit) continue
+        out.push({
+          category: 'SELF_DISPOSITION',
+          detail: clip(`${EVASION_MARKER}${cmd}`),
+          severity: 'HIGH',
+          target: hit.target,
+          selfDisposition: hit.ref,
+        })
+        break
       }
     }
   }
@@ -1886,6 +2000,12 @@ export const boundaryDetectorService = {
         }
       }
 
+      // LUM-750: the agent-issued disposition commands this event carried —
+      // each is rolled back once its SELF_DISPOSITION row is on record (or
+      // coalesced into an existing one), so the recorded crossing and the
+      // reverted ruling always travel together.
+      const selfHits: Array<{ ref: SelfDispositionRef; rowId: string | null }> =
+        []
       for (const c of confirmed) {
         // LUM-477: coalesce a recurrence of an OPEN crossing with the same
         // (taskId, category, target) — bump its count/lastSeenAt instead of
@@ -1920,7 +2040,12 @@ export const boundaryDetectorService = {
           // LUM-779: never coalesce across the advisory line.
           c.advisory ?? false
         )
-        if (coalesced > 0) continue
+        if (coalesced > 0) {
+          if (c.selfDisposition) {
+            selfHits.push({ ref: c.selfDisposition, rowId: null })
+          }
+          continue
+        }
         // LUM-478: a deterministic high-confidence legit TEST_TAMPERING edit is
         // recorded for audit but auto-resolved with the system AUTO_LEGIT
         // disposition — no human actor, out of the open queue (the gate and the
@@ -1976,6 +2101,33 @@ export const boundaryDetectorService = {
                 : {}),
           },
         })
+        if (c.selfDisposition) {
+          selfHits.push({ ref: c.selfDisposition, rowId: row.id })
+        }
+      }
+      // LUM-750: roll back what the agent-issued disposition command(s) wrote
+      // — the referenced CLI-channel ruling(s) go back to OPEN with an
+      // append-only trail. Dynamic import keeps the rollback module (and its
+      // repositories) off the hot path of every other event; fail-soft like
+      // the rest of the chain (the crossing is already on record).
+      if (selfHits.length > 0) {
+        try {
+          const { selfDispositionRollbackService } =
+            await import('@/lib/services/self-disposition-rollback.service')
+          await selfDispositionRollbackService.rollback({
+            taskId: input.taskId,
+            refs: selfHits.map(h => h.ref),
+            selfDispositionCrossingId:
+              selfHits.find(h => h.rowId)?.rowId ?? null,
+            agentSessionId: input.sessionId ?? null,
+            hookEventId: input.hookEventId ?? null,
+          })
+        } catch (error) {
+          console.error(
+            'boundaryDetectorService self-disposition rollback error:',
+            error
+          )
+        }
       }
       // LUM-511 Phase 4: silent-fix detection (post-submission edit with no
       // recorded send-back). Separate from the crossing loop — it records a

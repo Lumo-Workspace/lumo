@@ -228,12 +228,15 @@ export function buildRemediation(
       .filter(b => b.kind === 'BOUNDARY_CROSSING')
       .map(b => (b as { id: string }).id)
     lines.push(
-      `BOUNDARY_CROSSING: leave a rationale with \`lumo crossing explain ${ids[0]} --note "…"\` (append-only; it does not clear anything), then relay each crossing to the user. Once they rule, record it with \`lumo crossing disposition ${ids[0]} --false-positive\` or \`--confirmed\` — it prints an exit-4 envelope for the user to approve; never self-approve. The web panel also works: ${ctx.dispositionUrl}`
+      `BOUNDARY_CROSSING: leave a rationale with \`lumo crossing explain ${ids[0]} --note "…"\` (append-only; it does not clear anything), then relay each crossing to the user. The ruling is theirs to record, in their OWN terminal: \`lumo crossing disposition ${ids[0]} --false-positive | --confirmed --task ${ctx.identifier}\` (refused inside an agent session; an agent-issued run is recorded as SELF_DISPOSITION and rolled back). The web panel also works: ${ctx.dispositionUrl}`
     )
   }
   if (kinds.has('SECURITY_FINDING')) {
+    const ids = blockers
+      .filter(b => b.kind === 'SECURITY_FINDING')
+      .map(b => (b as { findingId: string }).findingId)
     lines.push(
-      'SECURITY_FINDING: fix and push — a fixed fingerprint disappears from the next scan — or a human marks it false positive / accepted risk in the web delivery panel.'
+      `SECURITY_FINDING: fix and push — a fixed fingerprint disappears from the next scan — or relay it to the user, who rules in their OWN terminal: \`lumo finding disposition ${ids[0]} --false-positive | --accept-risk --task ${ctx.identifier}\` (refused inside an agent session; an agent-issued run is recorded as SELF_DISPOSITION and rolled back), or marks it false positive / accepted risk in the web delivery panel.`
     )
   }
   if (unconfirmed.length > 0) {

@@ -39,6 +39,10 @@ import {
   type CrossingDispositionOptions,
 } from './commands/crossing-disposition'
 import {
+  findingDisposition,
+  type FindingDispositionOptions,
+} from './commands/finding-disposition'
+import {
   outcomeShow,
   outcomeRate,
   type OutcomeRateOptions,
@@ -345,7 +349,7 @@ crossing
 crossing
   .command('disposition <id>')
   .description(
-    "Rule on a boundary crossing from the terminal (LUM-769) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
+    "Record the USER's ruling on a boundary crossing from THEIR OWN terminal (LUM-769/750) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after reading it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> approves the ruling — writes. Confirming before the read is acknowledged is refused. Refused inside an agent session (CLAUDE_CODE_SESSION_ID / CLAUDECODE set): an agent relays the crossing and asks the user to run this; an agent-issued run is recorded as a SELF_DISPOSITION crossing (HIGH) and rolled back. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. --task <LUM-N> names the task (no session binding exists in a plain terminal)."
   )
   .option(
     '--false-positive',
@@ -358,7 +362,7 @@ crossing
   .option('--note <text>', 'Optional disposition note recorded with the ruling')
   .option(
     '--task <identifier>',
-    'Task the crossing belongs to (defaults to the session-bound task)'
+    'Task the crossing belongs to (required in a plain terminal — there is no session binding there)'
   )
   .option(
     '--receipt <token>',
@@ -366,15 +370,64 @@ crossing
   )
   .option(
     '--confirm-read',
-    'Step 2: the user confirmed they have read the envelope (never add this on your own initiative). Returns the ruling envelope; writes nothing'
+    'Step 2: you have read the envelope. Returns the ruling envelope; writes nothing'
   )
   .option(
     '--confirm',
-    'Step 3: the user approved the ruling (never add this on your own initiative). Refused unless the read was confirmed first'
+    'Step 3: you approve the ruling. Refused unless the read was confirmed first'
   )
   .action(
     wrap((id: unknown, options: unknown) =>
       crossingDisposition(id as string, options as CrossingDispositionOptions)
+    )
+  )
+
+const finding = program
+  .command('finding')
+  .description(
+    'Security findings on a task: the USER records a ruling from their own terminal (LUM-750)'
+  )
+
+finding
+  .command('disposition [id]')
+  .description(
+    "Record the USER's ruling on a PR security finding from THEIR OWN terminal (LUM-750) through the same three-step handshake as `crossing disposition`: (1) no step flag — prints the finding (severity, provenance, rule, file:line, title, the falsifier's suggestion) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after reading it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> approves the ruling — writes. Confirming before the read is acknowledged is refused. Bulk: `--all-suggested-fp` (no id) rules FALSE_POSITIVE on every undispositioned finding the LLM falsifier suggested as a false positive — the envelope lists each row and the write touches exactly those. Refused inside an agent session (CLAUDE_CODE_SESSION_ID / CLAUDECODE set): an agent relays the finding and asks the user to run this; an agent-issued run is recorded as a SELF_DISPOSITION crossing (HIGH) and rolled back. Either ruling clears the finding's block on DONE and is audited as a CLI-channel disposition. --task <LUM-N> names the task (no session binding exists in a plain terminal); finding ids are listed by `lumo task status`."
+  )
+  .option(
+    '--false-positive',
+    'Rule the finding a false positive (not a real issue)'
+  )
+  .option(
+    '--accept-risk',
+    'Rule the finding an accepted risk (real, knowingly carried)'
+  )
+  .option(
+    '--all-suggested-fp',
+    'Bulk: rule every undispositioned suggested-false-positive finding on the task FALSE_POSITIVE (takes no id; the envelope lists each row)'
+  )
+  .option('--note <text>', 'Optional disposition note recorded with the ruling')
+  .option(
+    '--task <identifier>',
+    'Task the finding belongs to (required in a plain terminal — there is no session binding there)'
+  )
+  .option(
+    '--receipt <token>',
+    "Read receipt from the previous step's envelope (its confirmCommand carries it); required with --confirm-read (stage 1 receipt) and --confirm (stage 2 receipt), verified server-side"
+  )
+  .option(
+    '--confirm-read',
+    'Step 2: you have read the envelope. Returns the ruling envelope; writes nothing'
+  )
+  .option(
+    '--confirm',
+    'Step 3: you approve the ruling. Refused unless the read was confirmed first'
+  )
+  .action(
+    wrap((id: unknown, options: unknown) =>
+      findingDisposition(
+        id as string | undefined,
+        options as FindingDispositionOptions
+      )
     )
   )
 

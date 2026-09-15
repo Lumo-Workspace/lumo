@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "編輯了敏感路徑",
   "boundary.category.HOOK_BYPASS": "繞過了 git 鉤子",
   "boundary.category.TEST_FILE_DELETED": "刪除了測試檔案",
+  "boundary.category.SELF_DISPOSITION": "agent 自行處置（已回滾）",
   "boundary.advisoryBadge": "提示",
   "boundary.severity.high": "高",
   "boundary.severity.medium": "中",
@@ -2370,5 +2371,7 @@
   "boundary.panel.viaCli": "· 經 CLI",
   "boundary.panel.viaCliTip": "由終端 lumo crossing disposition --confirm 裁定：agent 轉述了這條越界記錄，使用者在對話中核准。若該核准不是你本人所為，請在此處更正。",
   "activity.boundaryRejudged": "已將該越界重判為提示——其原因已不成立（{reason}）",
+  "activity.securityFindingDispositioned": "透過 CLI 將一則安全發現處置為 {to}",
+  "activity.securityFindingReopened": "重新開啟了一則安全發現（原為 {from}）—— 該處置由 agent 發出，已回滾",
   "boundary.panel.rejudged": "系統已重判——不再阻擋 Done：{evidence}"
 }

@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "민감한 경로를 편집함",
   "boundary.category.HOOK_BYPASS": "git 훅을 우회함",
   "boundary.category.TEST_FILE_DELETED": "테스트 파일을 삭제함",
+  "boundary.category.SELF_DISPOSITION": "에이전트가 내린 처분 (되돌림)",
   "boundary.advisoryBadge": "권고",
   "boundary.severity.high": "높음",
   "boundary.severity.medium": "중간",
@@ -2370,5 +2371,7 @@
   "boundary.panel.viaCli": "· CLI 경유",
   "boundary.panel.viaCliTip": "터미널에서 lumo crossing disposition --confirm 으로 판정됨: 에이전트가 경계 위반을 전달하고 사용자가 채팅에서 승인했습니다. 그 승인이 본인이 아니라면 여기서 수정하세요.",
   "activity.boundaryRejudged": "경계 침범을 참고 사항으로 재판정함 — 원인이 더 이상 유효하지 않음 ({reason})",
+  "activity.securityFindingDispositioned": "CLI에서 보안 발견 항목을 {to}(으)로 처분함",
+  "activity.securityFindingReopened": "보안 발견 항목을 다시 열었음 (이전: {from}) — 처분을 에이전트가 내렸으므로 되돌림",
   "boundary.panel.rejudged": "시스템이 재판정함 — 더 이상 Done을 막지 않음: {evidence}"
 }

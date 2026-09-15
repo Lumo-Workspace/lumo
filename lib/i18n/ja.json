@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "機密パスを編集した",
   "boundary.category.HOOK_BYPASS": "git フックをバイパスした",
   "boundary.category.TEST_FILE_DELETED": "テストファイルを削除した",
+  "boundary.category.SELF_DISPOSITION": "エージェントによる処置（差し戻し済み）",
   "boundary.advisoryBadge": "アドバイザリー",
   "boundary.severity.high": "高",
   "boundary.severity.medium": "中",
@@ -2370,5 +2371,7 @@
   "boundary.panel.viaCli": "· CLI 経由",
   "boundary.panel.viaCliTip": "ターミナルから lumo crossing disposition --confirm で裁定されました。エージェントが越境を伝え、ユーザーがチャットで承認しています。その承認があなたのものでなければ、ここで修正してください。",
   "activity.boundaryRejudged": "境界越えを注意扱いに再判定しました — 原因が解消済み（{reason}）",
+  "activity.securityFindingDispositioned": "CLI からセキュリティ検出を {to} として処置した",
+  "activity.securityFindingReopened": "セキュリティ検出を再オープンした（以前は {from}）— 処置はエージェントが行ったため差し戻された",
   "boundary.panel.rejudged": "システムが再判定 — Done をブロックしなくなりました: {evidence}"
 }

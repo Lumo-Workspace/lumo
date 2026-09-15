@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "edited a sensitive path",
   "boundary.category.HOOK_BYPASS": "bypassed git hooks",
   "boundary.category.TEST_FILE_DELETED": "deleted a test file",
+  "boundary.category.SELF_DISPOSITION": "agent-issued disposition (rolled back)",
   "boundary.advisoryBadge": "Advisory",
   "boundary.severity.high": "high",
   "boundary.severity.medium": "medium",
@@ -2370,5 +2371,7 @@
   "boundary.panel.viaCli": "· via CLI",
   "boundary.panel.viaCliTip": "Ruled from the terminal with lumo crossing disposition --confirm: the agent relayed the crossing and the user approved in chat. Correct it here if that approval was not yours.",
   "activity.boundaryRejudged": "re-judged the boundary-crossing as advisory — its cause no longer holds ({reason})",
+  "activity.securityFindingDispositioned": "dispositioned a security finding as {to} via CLI",
+  "activity.securityFindingReopened": "reopened a security finding (was {from}) — the ruling was agent-issued and was rolled back",
   "boundary.panel.rejudged": "Re-judged by the system — no longer blocks Done: {evidence}"
 }

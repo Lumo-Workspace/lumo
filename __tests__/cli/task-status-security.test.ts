@@ -93,10 +93,10 @@ describe('lumo task status — security findings (LUM-737)', () => {
     expect(out).toContain('Next actions (1 unmet · 2 security findings):')
     expect(out).toContain('  • [MACHINE] route rejects bad input')
     expect(out).toContain(
-      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE)'
+      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE · id f1)'
     )
     expect(out).toContain(
-      '  • [SECURITY] [HIGH] LLM_JUDGE vuln:sqli — lib/q.ts — raw query (PR #12 · advisory)'
+      '  • [SECURITY] [HIGH] LLM_JUDGE vuln:sqli — lib/q.ts — raw query (PR #12 · advisory · id f2)'
     )
     expect(out.indexOf('[MACHINE]')).toBeLessThan(out.indexOf('[SECURITY]'))
     // Mixed: the criteria hint AND the findings hint.
@@ -104,7 +104,7 @@ describe('lumo task status — security findings (LUM-737)', () => {
       'Fix the unmet criteria, then run `lumo verify` (2 rounds left).'
     )
     expect(out).toContain('Fix the findings and push')
-    expect(out).toContain('human-only')
+    expect(out).toContain('cannot disposition them yourself')
   })
 
   it('security-only plan: no criteria hint, findings hint only', () => {
@@ -220,10 +220,10 @@ describe('lumo task status — zero-criteria security rendering (LUM-737 review)
     )
     expect(out).toContain('No acceptance criteria on LUM-9')
     expect(out).toContain(
-      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE)'
+      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE · id f1)'
     )
     expect(out).toContain('Fix the findings and push')
-    expect(out).toContain('human-only')
+    expect(out).toContain('cannot disposition them yourself')
   })
 
   // LUM-758 follow-up: the scanner downgrades a recognised placeholder or a
@@ -246,7 +246,7 @@ describe('lumo task status — zero-criteria security rendering (LUM-737 review)
       })
     )
     expect(out).toContain(
-      '  • [SECURITY] [LOW] DETERMINISTIC secret:aws-access-key-id — __tests__/security-scan/hunt/compress.test.ts:219 — AWS access key id (PR #12 · advisory — placeholder value, downgraded)'
+      '  • [SECURITY] [LOW] DETERMINISTIC secret:aws-access-key-id — __tests__/security-scan/hunt/compress.test.ts:219 — AWS access key id (PR #12 · advisory — placeholder value, downgraded · id f1)'
     )
   })
 
@@ -257,7 +257,7 @@ describe('lumo task status — zero-criteria security rendering (LUM-737 review)
       zeroCriteriaPayload({ nextActions: [SECURITY_ACTION] })
     )
     expect(out).toContain(
-      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE)'
+      '  • [SECURITY] [HIGH] DETERMINISTIC secret:aws-access-key-id — lib/cfg.ts:12 — AWS access key id (PR #12 · blocks DONE · id f1)'
     )
   })
 
