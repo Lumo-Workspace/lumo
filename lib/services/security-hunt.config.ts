@@ -453,6 +453,13 @@ export interface HuntTaskAudit {
   shell?: HuntShellStats
   /** LUM-781 — see `HuntStepTrace`; absent on rows written before it existed. */
   trace?: HuntStepTrace[]
+  /**
+   * LUM-787 — the gateway model id the search ran on (HUNT_MODEL at the
+   * time). Absent on rows written before the field existed, which all ran
+   * `deepseek/deepseek-v4-pro`. Without this a model swap is unreadable in
+   * the audit that judges it.
+   */
+  model?: string
   stop?: HuntStopFacts
   wrapUp?: HuntWrapUpFacts
   taskId: string
@@ -836,6 +843,8 @@ export interface HuntBatchOutput {
   /** Raw submissions — validated by the mechanical gate, not here. */
   candidates: unknown[]
   tokens: number
+  /** LUM-787 — the model the search ran on; see `HuntTaskAudit.model`. */
+  model?: string
   /**
    * Wall clock for the WHOLE batch, sandbox acquisition included. The
    * orchestrator's `HUNT_TIME_BUDGET_MS` is spent on this number, and the

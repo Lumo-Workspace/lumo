@@ -36,6 +36,28 @@ export const REASONING_MODEL = 'openai/gpt-5.5'
  * constant. Gateway format.
  */
 export const GENERATION_MODEL = 'deepseek/deepseek-v4-pro'
+/**
+ * 桶 HUNT — the L3 security hunt's tool-calling search (`huntTask`: the
+ * search steps and the forced wrap-up replay; the planner stays on
+ * FAST_MODEL, the falsifier on its own tier). Split off GENERATION_MODEL by
+ * LUM-787 so the hunt can be swapped without touching the summaries /
+ * description / decompose call sites that share 桶2.
+ *
+ * DeepSeek V4-Pro → Qwen3-Coder-Plus (LUM-787): on the same diff (PR 1008,
+ * head 02cf887c) replayed through the shipped loop after the step-budget
+ * fix, seven models were compared one run each (table in
+ * `scripts/analysis/lum787-hunt-replay/README.md`). Qwen3-Coder-Plus was
+ * the only model that narrated every step — the only kind of memory that
+ * survives transcript elision — and the only one to submit a candidate;
+ * DeepSeek V4-Pro reached the same step counts but wrote no text at all
+ * (reasoning only, which is not replayed). The LUM-588 lineage A/B gate was
+ * explicitly WAIVED by the user for this swap; it ships on that replay
+ * comparison (n = 1 per model), NOT an accuracy eval, and the hunt audit
+ * row now records `model` so the swap can be read back. ~$0.05 per scan at
+ * list price vs ~$0.03. Gateway format; catalog-resolved 2026-09-15 by the
+ * replay itself.
+ */
+export const HUNT_MODEL = 'alibaba/qwen3-coder-plus'
 
 /**
  * 桶3 CONTENT tier — session-summary structured content generation (6 forced-

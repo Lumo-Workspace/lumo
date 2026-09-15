@@ -8,7 +8,7 @@ jest.mock('ai', () => ({
 jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { generateText } from 'ai'
-import { GENERATION_MODEL } from '@/lib/ai/models'
+import { HUNT_MODEL } from '@/lib/ai/models'
 import { HUNT_CLIENT_MAX_RETRIES } from '@/lib/services/security-hunt.config'
 import {
   allowedToolsFor,
@@ -110,7 +110,8 @@ describe('LUM-739 hunt client', () => {
       totalUsage: { totalTokens: 300 },
     })
     const call = gen.mock.calls[0]![0]
-    expect(call.model).toEqual({ id: GENERATION_MODEL })
+    // LUM-787 — the hunt's own bucket, split off GENERATION_MODEL.
+    expect(call.model).toEqual({ id: HUNT_MODEL })
     expect(call.stopWhen).toHaveLength(3)
     // The budget stop comes FIRST so it is the one that records why a search
     // ended when the step cap lands on the same step.

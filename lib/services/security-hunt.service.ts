@@ -18,6 +18,7 @@
  * through `readHuntFile` (see the exec-boundary test).
  */
 import { logger } from '@/lib/logger'
+import { HUNT_MODEL } from '@/lib/ai/models'
 import { readRepoFile } from '@/lib/integrations/github/contents'
 import {
   redactKnownSecrets,
@@ -838,6 +839,7 @@ export const securityHuntService = {
         // metric both read this one — a compression billed anywhere else
         // would be spend the ≤60k target cannot see.
         tokens: out.tokens + compress.tokens,
+        model: HUNT_MODEL,
         elapsedMs: Date.now() - started,
         stopped: out.stopped,
         shell,

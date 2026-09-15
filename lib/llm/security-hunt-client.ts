@@ -21,7 +21,7 @@
  *
  * Static imports of `ai` / `@ai-sdk/gateway`: this module MUST only be
  * reached via `await import()` from service code (jest TransformStream
- * trap). GENERATION_MODEL (桶2): many cheap tool calls; the adversarial
+ * trap). HUNT_MODEL (桶 HUNT, LUM-787): many cheap tool calls; the adversarial
  * judgment is the falsifier's (`security-falsifier-client.ts`), not this.
  *
  * The model's only way to answer is the `submit_candidates` tool, so the
@@ -40,7 +40,7 @@ import {
 } from 'ai'
 import { gateway } from '@ai-sdk/gateway'
 import { z } from 'zod'
-import { GENERATION_MODEL } from '@/lib/ai/models'
+import { HUNT_MODEL } from '@/lib/ai/models'
 import type { HuntSignalSite } from '@/lib/security-scan/hunt/trigger'
 import {
   neutralizeForPromptLine,
@@ -160,7 +160,7 @@ export interface HuntClientInput {
    * replay script (`scripts/analysis/lum787-hunt-replay`) A/B-tests the
    * hunt on another model THROUGH this function, so the thing measured is
    * the thing shipped. Production passes nothing here and runs
-   * GENERATION_MODEL.
+   * HUNT_MODEL.
    */
   model?: LanguageModel
 }
@@ -559,7 +559,7 @@ export async function huntTask(
   // are sequential, so one slot is enough.
   let pendingElidedChars = 0
 
-  const model = input.model ?? gateway(GENERATION_MODEL)
+  const model = input.model ?? gateway(HUNT_MODEL)
   const result = await generateText({
     model,
     tools,

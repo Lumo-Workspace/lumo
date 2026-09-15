@@ -29,7 +29,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { gateway } from '@ai-sdk/gateway'
-import { GENERATION_MODEL } from '../../../lib/ai/models'
+import { HUNT_MODEL } from '../../../lib/ai/models'
 import {
   createRepoSandbox,
   denySandboxEgress,
@@ -88,7 +88,7 @@ interface Args {
   tasks: string
   out: string
   diffFile?: string
-  /** Gateway model id to hunt with; default GENERATION_MODEL (what production runs). */
+  /** Gateway model id to hunt with; default HUNT_MODEL (what production runs). */
   model: string
 }
 
@@ -111,7 +111,7 @@ function parseArgs(argv: string[]): Args {
     repo: get('--repo') ?? 'Lumo-Workspace/lumo',
     tasks: get('--tasks') ?? path.join(here, `pr${pr}-tasks.json`),
     out: get('--out') ?? path.join(here, `results-pr${pr}.json`),
-    model: get('--model') ?? GENERATION_MODEL,
+    model: get('--model') ?? HUNT_MODEL,
     ...(get('--diff-file') ? { diffFile: get('--diff-file') } : {}),
   }
 }
@@ -185,6 +185,7 @@ async function runTask(
     taskId: task.id,
     objective: task.objective,
     category: task.category,
+    model: modelId,
   }
   try {
     const out = await huntTask({
@@ -244,7 +245,7 @@ async function runTask(
       maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
       wrapUpDeadlineAt: started + HUNT_TASK_TIME_MS,
       onStep,
-      ...(modelId === GENERATION_MODEL ? {} : { model: gateway(modelId) }),
+      ...(modelId === HUNT_MODEL ? {} : { model: gateway(modelId) }),
     })
     return {
       ...base,
@@ -308,7 +309,7 @@ async function main(): Promise<void> {
   )
   console.log(`tasks: ${tasks.map(t => `${t.id}:${t.category}`).join(' · ')}`)
   console.log(
-    `model: ${args.model}${args.model === GENERATION_MODEL ? ' (GENERATION_MODEL)' : ' (override)'}`
+    `model: ${args.model}${args.model === HUNT_MODEL ? ' (HUNT_MODEL)' : ' (override)'}`
   )
 
   const token = execFileSync('gh', ['auth', 'token'], {

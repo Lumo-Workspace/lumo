@@ -20,7 +20,8 @@ DOTENV_CONFIG_PATH="$(pwd)/.env.local" npx tsx -r dotenv/config \
   scripts/analysis/lum787-hunt-replay/replay.ts --pr 1008 --sha 02cf887c71ce603cba0158f4edb9017fb0e747d7
 ```
 
-The shell-output compressor is off by default (LUM-787); set
+`--model` defaults to `HUNT_MODEL` (what production runs). The shell-output
+compressor is off by default (LUM-787); set
 `LUMO_HUNT_COMPRESS=on` to replay with it on and compare.
 
 Flags: `--repo owner/repo` (default `Lumo-Workspace/lumo`), `--tasks <file>`
@@ -42,8 +43,10 @@ The `acceptance` block at the end applies LUM-787's contract: ≥ 2 of 3 tasks
 `done`, every task ≥ 4 steps, gate refused 0.
 
 `results-pr*.json` files are run output; the committed `results-pr1008.json`
-is the pre-deploy evidence attached to LUM-787 — the third of three replays
-of PR 1008 (head `02cf887c`), 2026-09-15:
+is the pre-deploy evidence attached to LUM-787: PR 1008 (head `02cf887c`)
+on the shipped `HUNT_MODEL` (qwen3-coder-plus, second sample — 3/3 `done`,
+6 / 5 / 5 steps, 1 candidate, refused 0). The fix itself was tuned on
+DeepSeek V4-Pro over three replays, 2026-09-15:
 
 | run | change under test                                                     | result                                                                                                                                                                                                     |
 | --- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -61,13 +64,14 @@ model, so read the shape, not the decimals. "text" = steps in which the model
 wrote prose between tool calls (what survives elision); cost is the search's
 token bill at the gateway's list price.
 
-| model                      | done | steps (stop)                    | tokens | elapsed | reasoning tok | text  | candidates | est. cost |
-| -------------------------- | ---- | ------------------------------- | ------ | ------- | ------------- | ----- | ---------- | --------- |
-| `deepseek/deepseek-v4-pro` | 3/3  | 5 / 4 / 4 (done, done, done)    | 40,424 | 64s     | 1298          | 0/13  | 0          | $0.030    |
-| `alibaba/qwen3-coder-plus` | 2/3  | 6 / 5 / 6 (done, budget, done)  | 47,819 | 50s     | 0             | 17/17 | 1          | $0.053    |
-| `alibaba/qwen3.7-plus`     | 2/3  | 6 / 5 / 3 (done, done, timeout) | 30,155 | 86s     | 1261          | 0/14  | 0          | $0.019    |
-| `zai/glm-5.2`              | 3/3  | 4 / 5 / 5 (done, done, done)    | 41,224 | 95s     | 2865          | 9/14  | 0          | $0.041    |
-| `zai/glm-5.3-flash`        | 3/3  | 3 / 5 / 5 (done, done, done)    | 37,932 | 65s     | 2253          | 4/13  | 0          | $0.007    |
+| model                            | done | steps (stop)                    | tokens | elapsed | reasoning tok | text  | candidates | est. cost |
+| -------------------------------- | ---- | ------------------------------- | ------ | ------- | ------------- | ----- | ---------- | --------- |
+| `deepseek/deepseek-v4-pro`       | 3/3  | 5 / 4 / 4 (done, done, done)    | 40,424 | 64s     | 1298          | 0/13  | 0          | $0.030    |
+| `alibaba/qwen3-coder-plus`       | 2/3  | 6 / 5 / 6 (done, budget, done)  | 47,819 | 50s     | 0             | 17/17 | 1          | $0.053    |
+| `alibaba/qwen3-coder-plus` (2nd) | 3/3  | 6 / 5 / 5 (done, done, done)    | 42,339 | —       | 0             | —     | 1          | ≈$0.05    |
+| `alibaba/qwen3.7-plus`           | 2/3  | 6 / 5 / 3 (done, done, timeout) | 30,155 | 86s     | 1261          | 0/14  | 0          | $0.019    |
+| `zai/glm-5.2`                    | 3/3  | 4 / 5 / 5 (done, done, done)    | 41,224 | 95s     | 2865          | 9/14  | 0          | $0.041    |
+| `zai/glm-5.3-flash`              | 3/3  | 3 / 5 / 5 (done, done, done)    | 37,932 | 65s     | 2253          | 4/13  | 0          | $0.007    |
 
 | `moonshotai/kimi-k2.5` | 0/3 | 2 / 2 / 2 (steps, steps, steps) | 16,721 | 25s | 0 | 1/6 | 0 | $0.011 |
 | `moonshotai/kimi-k2.7-code` | 1/3 | 6 / 5 / 5 (done, timeout, budget) | 30,804 | 86s | 1726 | 0/16 | 0 | $0.048 |
@@ -77,11 +81,10 @@ step, no compressor involved); `glm-5.3-flash` t1 submitted at step 3 with a
 reasoned "the flagged sink is a RegExp" — an early stop, not a starved one;
 `qwen3-coder-plus` is the only model that narrates every step (17/17) and
 the only one that submitted a candidate (rejected downstream: symbol ids off
-the grammar); `kimi-k2.5` stopped calling tools at step 2 in all three tasks —
+the grammar) — and is what LUM-787 shipped as `HUNT_MODEL`, on the user's
+call; `kimi-k2.5` stopped calling tools at step 2 in all three tasks —
 it answered the first step with prose and no tool call, so the loop ended
 (`steps`), and its forced wrap-up ignored `toolChoice` once. Step 2 is the
 first step that carries the trailing budget message, so a Kimi-2.5 run with
 the gauge off is the A/B still owed before blaming either side;
-`kimi-k2.7-code` ran the loop normally (6 / 5 / 5). Production stays on
-GENERATION_MODEL; a swap is a LUM-588 A/B
-decision, not this task's.
+`kimi-k2.7-code` ran the loop normally (6 / 5 / 5).

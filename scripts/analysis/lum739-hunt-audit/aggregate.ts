@@ -347,6 +347,8 @@ export function aggregateHuntAudit(rows: HuntScanRow[]): HuntAuditStats {
 export interface ShellDetailTask {
   taskId?: unknown
   stopped?: unknown
+  /** LUM-787 — the model the search ran on; absent on older rows. */
+  model?: string
   shell?: {
     notFound?: number
     calls?: number
@@ -424,7 +426,7 @@ export function formatShellDetail(
     // LUM-787 — the clip count prints only when the row carries it: an older
     // row, and a row from a search that never hit the ceiling, read as before.
     out.push(
-      `${String(t.taskId)} ${String(t.stopped)} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, not found ${sh.notFound ?? 0}, empty ${sh.empty ?? 0}${sh.stepClipped ? `, step-clipped ${sh.stepClipped}` : ''})`
+      `${String(t.taskId)} ${String(t.stopped)}${t.model ? ` · ${t.model}` : ''} · ${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, not found ${sh.notFound ?? 0}, empty ${sh.empty ?? 0}${sh.stepClipped ? `, step-clipped ${sh.stepClipped}` : ''})`
     )
     for (const c of sh.commands ?? []) {
       const cost =

@@ -69,6 +69,7 @@ import {
 import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
 import { stepClipNote } from '@/lib/security-scan/hunt/step-output'
 import { HUNT_STEP_OUTPUT_MAX } from '@/lib/services/security-hunt.config'
+import { HUNT_MODEL } from '@/lib/ai/models'
 
 const diffMock = fetchPrDiff as jest.Mock
 const readMock = readRepoFile as jest.Mock
@@ -1496,6 +1497,16 @@ describe('LUM-739 hunt service', () => {
         ],
       })
       expect(out.shell).not.toHaveProperty('stepClipped')
+    })
+
+    it('huntBatch records the model the search ran on', async () => {
+      huntMock.mockResolvedValue({
+        candidates: [],
+        tokens: 10,
+        stopped: 'done',
+      })
+      const out = await securityHuntService.huntBatch(batchInput())
+      expect(out.model).toBe(HUNT_MODEL)
     })
   })
 
