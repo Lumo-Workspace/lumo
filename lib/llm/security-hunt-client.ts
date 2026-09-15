@@ -45,7 +45,9 @@ import {
   type HuntStepTrace,
   type HuntStopFacts,
   type HuntWrapUpFacts,
+  type HuntToolProbe,
 } from '@/lib/services/security-hunt.config'
+import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
 import {
   HuntCandidateSchema,
   CATEGORY_CWE_HINT,
@@ -125,6 +127,70 @@ export interface HuntClientInput {
    * threw the call away — the same closure pattern `runShell` uses.
    */
   onStep?: (step: HuntStepTrace) => void
+  /**
+   * LUM-782 — what the start-up probe found on this batch's VM. Optional
+   * only for callers that have no VM to probe (tests, the wrap-up replay);
+   * the service always passes it. Decides which tools the model is TOLD it
+   * may use: a tool the probe found missing is dropped from the tool
+   * description and named in the system prompt, so the model is never sent
+   * chasing a program that is not there.
+   */
+  tools?: HuntToolProbe
+}
+
+/**
+ * LUM-782 — how each allowlisted tool is named to the model. `sed` is spelled
+ * with its read-only flag because that is the only form the gate admits
+ * without a script argument review; everything else is its bare name.
+ */
+const TOOL_LABELS: Readonly<Record<string, string>> = { sed: 'sed -n' }
+
+/**
+ * LUM-782 — the tools the model may be told about: `HUNT_SHELL_COMMANDS`
+ * minus what the probe found missing. `unverified` tools stay: the probe
+ * made no claim about them, and stripping a working tool on a probe hiccup
+ * would cost more than one failed call.
+ */
+export function allowedToolsFor(tools?: HuntToolProbe): string[] {
+  const missing = new Set(tools?.missing ?? [])
+  return HUNT_SHELL_COMMANDS.filter(tool => !missing.has(tool))
+}
+
+/**
+ * LUM-782 — the `run_shell` description, DERIVED from `HUNT_SHELL_COMMANDS`
+ * rather than typed out beside it. It was a hand-written list for months and
+ * named `ast-grep`, which the gate allowed and the image never had; a list
+ * the gate and the description share cannot disagree, and a tool the probe
+ * found missing disappears from it for that run.
+ */
+export function describeRunShellTool(tools?: HuntToolProbe): string {
+  const allowed = allowedToolsFor(tools)
+    .map(tool => TOOL_LABELS[tool] ?? tool)
+    .join(', ')
+  return `Run ONE read-only shell command in a checkout of the pull request at its head sha, from the repository root. Allowed: ${allowed} (pipes between them are fine). Network, writes, git and npm are refused. Output is truncated, and long output comes back as a LOSSY extract of the lines a cheap model judged relevant to this task — when a line you need may have been dropped, re-run a narrower command.`
+}
+
+/**
+ * LUM-782 — the system-prompt addendum for a VM that lacks something. Empty
+ * when nothing is missing, so the prompt every scan has sent so far stays
+ * byte-identical in the common case. When `rg` is gone but `grep` is not,
+ * rule 4's "line numbers come from `rg -n`" is redirected to `grep -n`
+ * explicitly — the rule is the one the mechanical gate's line checks depend
+ * on, and a model told only "rg is missing" would have to guess the
+ * replacement.
+ */
+export function renderToolAvailability(tools?: HuntToolProbe): string {
+  const missing = tools?.missing ?? []
+  if (missing.length === 0) return ''
+  const lines = [
+    `Tool availability, probed in this sandbox at start-up: NOT installed — ${missing.join(', ')}. Any call to them fails with "command not found"; do not try them.`,
+  ]
+  if (missing.includes('rg') && !missing.includes('grep')) {
+    lines.push(
+      'Take line numbers from `grep -rn` (and `sed -n` for ranges) instead of `rg -n`.'
+    )
+  }
+  return `\n\n${lines.join(' ')}`
 }
 
 /**
@@ -375,8 +441,9 @@ export async function huntTask(
 
   const tools = {
     run_shell: tool({
-      description:
-        'Run ONE read-only shell command in a checkout of the pull request at its head sha, from the repository root. Allowed: rg, grep, sed -n, cat, ast-grep, head, tail, wc (pipes between them are fine). Network, writes, git and npm are refused. Output is truncated, and long output comes back as a LOSSY extract of the lines a cheap model judged relevant to this task — when a line you need may have been dropped, re-run a narrower command.',
+      // LUM-782 — derived from the gate's own list, minus what the probe
+      // found missing on this VM. Never a hand-written list again.
+      description: describeRunShellTool(input.tools),
       inputSchema: z.object({
         command: z
           .string()
@@ -404,6 +471,9 @@ export async function huntTask(
   // Named so the wrap-up can replay the same opening turn; `generateText`'s
   // `prompt` shorthand would otherwise be unreachable from the second call.
   const promptText = `${renderTaskForPrompt(input.task)}\n\n## Starting points\n${renderStartingPointsForPrompt(input.reasons, input.sites ?? [])}`
+  // LUM-782 — the same system prompt for the search and the wrap-up replay,
+  // with the VM's tool inventory appended when something is missing.
+  const system = `${HUNT_SYSTEM_PROMPT}${renderToolAvailability(input.tools)}`
 
   // A deadline of 0 turns the handover off; the search then keeps the whole
   // allowance rather than reserving for a call that will not happen.
@@ -439,7 +509,7 @@ export async function huntTask(
   const result = await generateText({
     model: gateway(GENERATION_MODEL),
     tools,
-    system: HUNT_SYSTEM_PROMPT,
+    system,
     prompt: promptText,
     // LUM-762: the SDK's default 2 retries sit in exponential backoff, which
     // is where the production abort ("Delay was aborted") landed — the window
@@ -568,7 +638,7 @@ export async function huntTask(
         // it, so the shape is chosen to make the question moot.
         tools,
         toolChoice: { type: 'tool', toolName: 'submit_candidates' },
-        system: HUNT_SYSTEM_PROMPT,
+        system,
         messages: [
           { role: 'user', content: promptText },
           ...result.response.messages,

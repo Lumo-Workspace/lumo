@@ -11,13 +11,17 @@ import { generateText } from 'ai'
 import { GENERATION_MODEL } from '@/lib/ai/models'
 import { HUNT_CLIENT_MAX_RETRIES } from '@/lib/services/security-hunt.config'
 import {
+  allowedToolsFor,
+  describeRunShellTool,
   huntTask,
   renderStartingPointsForPrompt,
   renderTaskForPrompt,
+  renderToolAvailability,
   traceOfStep,
   HUNT_SYSTEM_PROMPT,
   wrapUpWindowMs,
 } from '@/lib/llm/security-hunt-client'
+import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
 import {
   HUNT_WRAP_UP_MIN_TOKENS,
   type HuntStepTrace,
@@ -1181,5 +1185,119 @@ describe('LUM-781 trace, stop and wrap-up facts', () => {
     // Fail-soft, as before: the search's outcome is untouched.
     expect(out.stopped).toBe('steps')
     expect(out.candidates).toEqual([])
+  })
+})
+
+/**
+ * LUM-782 — three places declared what the agent may run: the tool
+ * description (hand-written, read by the model), the gate's allowlist, and
+ * the sandbox image. The first two are now ONE list, and the third is probed
+ * at start-up and fed back into the first. These pin the client's half.
+ */
+describe('LUM-782 — the three declarations of "what the agent may run" cannot drift', () => {
+  /** A search that submitted on its first step — the minimal `generateText` answer. */
+  const SUBMITTED = () => ({
+    steps: [
+      {
+        toolCalls: [{ toolName: 'submit_candidates' }],
+        usage: { totalTokens: 10 },
+      },
+    ],
+    totalUsage: { totalTokens: 10 },
+    response: { messages: [] },
+  })
+  const probe = (missing: string[], unverified: string[] = []) => ({
+    present: HUNT_SHELL_COMMANDS.filter(
+      t => !missing.includes(t) && !unverified.includes(t)
+    ),
+    missing,
+    unverified,
+  })
+  /** The bare command names a piece of prompt text mentions in backticks. */
+  const named = (text: string) =>
+    [...text.matchAll(/`([a-z][a-z0-9-]*)(?: [^`]*)?`/g)].map(m => m[1]!)
+
+  it('LUM-782 alignment: the tool description is derived from HUNT_SHELL_COMMANDS and names nothing else', () => {
+    const description = describeRunShellTool()
+    const listed = /Allowed: (.*?) \(pipes/.exec(description)![1]!
+    // Same members, same order, `sed` spelled with its read-only flag.
+    expect(listed.split(', ').map(s => s.split(' ')[0])).toEqual([
+      ...HUNT_SHELL_COMMANDS,
+    ])
+    expect(listed).toContain('sed -n')
+    // The tool that was promised for months and never installed.
+    expect(description).not.toContain('ast-grep')
+    expect(HUNT_SHELL_COMMANDS).not.toContain('ast-grep')
+  })
+
+  it('LUM-782 alignment: every command the system prompt or the tool description names is in the allowlist', () => {
+    const fromPrompt = named(HUNT_SYSTEM_PROMPT)
+    // The extractor really does see rule 4's tools (a regex that matched
+    // nothing would pass the loop below vacuously).
+    expect(fromPrompt).toEqual(expect.arrayContaining(['rg', 'grep', 'sed']))
+    for (const name of [...fromPrompt, ...named(describeRunShellTool())]) {
+      expect(HUNT_SHELL_COMMANDS).toContain(name)
+    }
+  })
+
+  it('LUM-782 missing: a tool the probe found missing leaves the description, and the system prompt says so — rg missing redirects rule 4 to grep', async () => {
+    gen.mockResolvedValueOnce(SUBMITTED())
+
+    await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 1000,
+      wrapUpDeadlineAt: 0,
+      timeoutMs: 5000,
+      maxSteps: 4,
+      tools: probe(['rg']),
+    })
+
+    const call = gen.mock.calls[0]![0]
+    const description = (call.tools as Record<string, { description: string }>)
+      .run_shell!.description
+    expect(description).not.toMatch(/\brg\b/)
+    expect(description).toContain('Allowed: grep, sed -n, cat, head, tail, wc')
+    // The prompt every scan has sent so far comes first, unchanged…
+    expect(call.system.startsWith(HUNT_SYSTEM_PROMPT)).toBe(true)
+    // …then the VM's inventory, with the replacement for rule 4 spelled out.
+    expect(call.system).toContain('NOT installed — rg')
+    expect(call.system).toContain('command not found')
+    expect(call.system).toContain('grep -rn')
+  })
+
+  it('LUM-782 missing: with nothing missing the system prompt is byte-identical to HUNT_SYSTEM_PROMPT and the description lists every tool', async () => {
+    gen.mockResolvedValueOnce(SUBMITTED())
+
+    await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 1000,
+      wrapUpDeadlineAt: 0,
+      timeoutMs: 5000,
+      maxSteps: 4,
+      tools: probe([]),
+    })
+
+    const call = gen.mock.calls[0]![0]
+    expect(call.system).toBe(HUNT_SYSTEM_PROMPT)
+    expect(
+      (call.tools as Record<string, { description: string }>).run_shell!
+        .description
+    ).toBe(describeRunShellTool())
+  })
+
+  it('LUM-782 missing: an unverified tool is neither dropped from the description nor announced as missing', () => {
+    // The probe made no claim; stripping a working tool on a probe hiccup
+    // would cost more than one failed call.
+    expect(allowedToolsFor(probe([], ['wc']))).toEqual([...HUNT_SHELL_COMMANDS])
+    expect(renderToolAvailability(probe([], ['wc']))).toBe('')
+    expect(renderToolAvailability(undefined)).toBe('')
+    // …and a missing tool other than rg is named without the grep redirect.
+    const note = renderToolAvailability(probe(['wc']))
+    expect(note).toContain('NOT installed — wc')
+    expect(note).not.toContain('grep -rn')
   })
 })

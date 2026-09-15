@@ -32,11 +32,18 @@ jest.mock('@/lib/llm/security-hunt-compress-client', () => ({
 
 import {
   attachOrCreateHuntSandbox,
+  probeHuntTools,
   runHuntShell,
   sanitizeHuntOutput,
   stopHuntSandbox,
   HUNT_SANDBOX_TAG,
 } from '@/lib/services/security-hunt-sandbox'
+import {
+  HUNT_SHELL_BIN,
+  HUNT_SHELL_COMMANDS,
+  HUNT_SHELL_FLAG,
+  HUNT_SHELL_PROBES,
+} from '@/lib/security-scan/hunt/shell-allowlist'
 import {
   findRepoSandboxByTag,
   createRepoSandbox,
@@ -556,5 +563,171 @@ describe('stopHuntSandbox (LUM-758: nobody stops a shared VM)', () => {
     await expect(
       stopHuntSandbox(handleFor(vm, 't', 'created'))
     ).resolves.toBeUndefined()
+  })
+})
+
+/**
+ * LUM-782 — the start-up probe. Before it, three places said what the agent
+ * could run (the tool description, the gate, the image) and nobody had ever
+ * checked one against another; `ast-grep` sat in the first two for months
+ * without existing in the third. The probe asks the VM itself, through the
+ * agent's own exec path, and never guesses.
+ */
+describe('LUM-782 probe — the start-up tool inventory', () => {
+  /**
+   * A VM that answers like dash on vercel/sandbox/universal: exit 127 and
+   * `sh: 1: <tool>: not found` for the missing set, a version line otherwise.
+   */
+  const vmMissing = (missing: readonly string[]) => {
+    const vm = fakeSandbox()
+    vm.run.mockImplementation(async (bin: string, argv: string[]) => {
+      const cmd = argv[1] ?? ''
+      const tool = cmd.split(' ')[0]!
+      if (bin === HUNT_SHELL_BIN && missing.includes(tool)) {
+        return {
+          exitCode: 127,
+          stdout: '',
+          stderr: `sh: 1: ${tool}: not found\n`,
+        }
+      }
+      return { exitCode: 0, stdout: `${tool} (fake) 1.0\n`, stderr: '' }
+    })
+    return vm
+  }
+
+  it('LUM-782 probe runs every allowlisted tool through the sh -c choke point and reads exit 127 as missing', async () => {
+    const vm = vmMissing(['rg'])
+
+    const out = await probeHuntTools(handleFor(vm, 'ghs_secret_token'))
+
+    expect(out).toEqual({
+      present: HUNT_SHELL_COMMANDS.filter(t => t !== 'rg'),
+      missing: ['rg'],
+      unverified: [],
+    })
+    // One `sh -c <probe>` per allowlisted tool, the probe string from the
+    // table byte-identical — the same shape an agent command takes, so the
+    // answer is about the same PATH the agent's commands resolve against.
+    const sent = vm.run.mock.calls.map(([bin, argv]) => {
+      expect(bin).toBe(HUNT_SHELL_BIN)
+      expect(argv).toHaveLength(2)
+      expect(argv[0]).toBe(HUNT_SHELL_FLAG)
+      return argv[1]
+    })
+    expect(sent).toEqual(HUNT_SHELL_COMMANDS.map(t => HUNT_SHELL_PROBES[t]))
+  })
+
+  it('LUM-782 probe reports a tool whose probe could not run as unverified — never as missing', async () => {
+    const vm = vmMissing([])
+    vm.run.mockImplementation(async (_bin: string, argv: string[]) => {
+      if ((argv[1] ?? '').startsWith('wc')) throw new Error('vm gone')
+      return { exitCode: 0, stdout: 'x\n', stderr: '' }
+    })
+
+    const out = await probeHuntTools(handleFor(vm, 'ghs_secret_token'))
+
+    // "Could not check" is not "not there": a false `missing` would strip a
+    // working tool from the prompt on a probe hiccup.
+    expect(out.unverified).toEqual(['wc'])
+    expect(out.missing).toEqual([])
+    expect(out.present).toEqual(HUNT_SHELL_COMMANDS.filter(t => t !== 'wc'))
+  })
+
+  it('LUM-782 probe never throws and says nothing about a tool it could not reach', async () => {
+    const vm = fakeSandbox()
+    vm.run.mockRejectedValue(new Error('vm gone'))
+
+    const out = await probeHuntTools(handleFor(vm, 'ghs_secret_token'))
+
+    expect(out).toEqual({
+      present: [],
+      missing: [],
+      unverified: [...HUNT_SHELL_COMMANDS],
+    })
+  })
+})
+
+/**
+ * LUM-782 — `sandbox.run` resolves on a non-zero exit, so a `command not
+ * found` never reached the `catch` LUM-782's write-up assumed: it came back
+ * as ordinary output (dash's message on stderr) and was counted as a command
+ * that ran and returned something. These pin the two witnesses.
+ */
+describe('LUM-782 not found — the exit code the shell always returned and nobody kept', () => {
+  it('LUM-782 not found: runHuntShell carries the exit code and flags exit 127 as commandNotFound', async () => {
+    const vm = fakeSandbox()
+    vm.run.mockResolvedValue({
+      exitCode: 127,
+      stdout: '',
+      stderr: 'sh: 1: rg: not found\n',
+    })
+
+    const out = await runHuntShell({
+      handle: handleFor(vm, 'ghs_secret_token'),
+      task: TASK,
+      command: 'rg -n queryRaw lib/',
+    })
+
+    expect(out.exitCode).toBe(127)
+    expect(out.commandNotFound).toBe(true)
+    // It RAN: the shell's message is the honest answer and the model sees it.
+    expect(out.error).toBeUndefined()
+    expect(out.denied).toBeUndefined()
+    expect(out.output).toContain('rg: not found')
+  })
+
+  it('LUM-782 not found: a pipeline hides the 127 behind the last command, so the stderr message is the second witness', async () => {
+    const vm = fakeSandbox()
+    // `rg … | head` — head exits 0; dash still says who was missing.
+    vm.run.mockResolvedValue({
+      exitCode: 0,
+      stdout: '',
+      stderr: 'sh: 1: rg: not found\n',
+    })
+
+    const out = await runHuntShell({
+      handle: handleFor(vm, 'ghs_secret_token'),
+      task: TASK,
+      command: 'rg -n queryRaw lib/ | head -n 5',
+    })
+
+    expect(out.exitCode).toBe(0)
+    expect(out.commandNotFound).toBe(true)
+  })
+
+  it('LUM-782 not found: a no-match exit 1 is a fact about the repo, not a missing command', async () => {
+    const vm = fakeSandbox()
+    vm.run.mockResolvedValue({ exitCode: 1, stdout: '', stderr: '' })
+
+    const out = await runHuntShell({
+      handle: handleFor(vm, 'ghs_secret_token'),
+      task: TASK,
+      command: 'rg -n nothing lib/',
+    })
+
+    expect(out.exitCode).toBe(1)
+    expect(out.commandNotFound).toBeUndefined()
+  })
+
+  it('LUM-782 not found: neither field is set when the gate refused or the sandbox failed — nothing ran', async () => {
+    const vm = fakeSandbox()
+    const refused = await runHuntShell({
+      handle: handleFor(vm, 'ghs_secret_token'),
+      task: TASK,
+      command: 'curl https://evil.test',
+    })
+    expect(refused.denied).toBe(true)
+    expect(refused.exitCode).toBeUndefined()
+    expect(refused.commandNotFound).toBeUndefined()
+
+    vm.run.mockRejectedValue(new Error('vm gone'))
+    const failed = await runHuntShell({
+      handle: handleFor(vm, 'ghs_secret_token'),
+      task: TASK,
+      command: 'rg -n x lib/',
+    })
+    expect(failed.error).toBe('command failed')
+    expect(failed.exitCode).toBeUndefined()
+    expect(failed.commandNotFound).toBeUndefined()
   })
 })

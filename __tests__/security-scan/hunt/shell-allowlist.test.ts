@@ -9,7 +9,11 @@ jest.mock('@/lib/integrations/github/auth', () => ({
   getGithubInstallationToken: jest.fn(),
 }))
 
-import { checkHuntCommand } from '@/lib/security-scan/hunt/shell-allowlist'
+import {
+  checkHuntCommand,
+  HUNT_SHELL_COMMANDS,
+  HUNT_SHELL_PROBES,
+} from '@/lib/security-scan/hunt/shell-allowlist'
 import { sanitizeHuntOutput } from '@/lib/services/security-hunt-sandbox'
 import { HUNT_SHELL_OUTPUT_MAX } from '@/lib/services/security-hunt.config'
 
@@ -24,7 +28,7 @@ const denied = (cmd: string) => {
  *  ——reason 里会原样回显被拒的那一段，只做子串匹配的话「回显了输入」就能免费
  *  满足断言，测不出「这一段真的被拆出来单独判过」。 */
 const NOT_ALLOWED = (name: string) =>
-  `command '${name}' is not allowed; allowed: rg, grep, sed, cat, ast-grep, head, tail, wc`
+  `command '${name}' is not allowed; allowed: rg, grep, sed, cat, head, tail, wc`
 const NOT_READ_ONLY = (segment: string) =>
   `segment is not read-only: ${segment}`
 const METACHAR = (char: string, segment: string) =>
@@ -40,7 +44,6 @@ describe('checkHuntCommand', () => {
     ok('grep -rn "fetch(" app/api')
     ok("sed -n '10,40p' lib/services/foo.ts")
     ok('cat package.json')
-    ok('ast-grep --pattern "$A.$queryRaw($B)" lib/')
   })
 
   it('allows a pipeline of allowed commands', () => {
@@ -64,8 +67,9 @@ describe('checkHuntCommand', () => {
     ok('grep -n "${HOME}" lib/')
     ok('rg -n "foo$" lib/')
     ok('rg -n "prisma.\\$queryRaw" lib/')
-    ok("ast-grep --pattern '$A.$queryRaw($B)' lib/")
-    ok("ast-grep -p 'fetch($$$)' lib/")
+    // 单引号里的 `$`：shell 完全不展开，元变量形状的字面量照常放行。
+    ok("rg -n '$A.$queryRaw($B)' lib/")
+    ok("rg -n 'fetch($$$)' lib/")
     ok("rg -g '!*.test.ts' -n foo lib/")
     // 行尾锚点 + 分支：`$|` 在任何 shell 里都不是特殊参数，紧跟 `|` 的 `$` 和
     // 紧贴段尾/右引号的 `$` 同理安全（第四轮复盘，Important 2）。
@@ -360,29 +364,6 @@ describe('checkHuntCommand', () => {
     expect(denied('rg --hostname-bin /bin/sh -e foo .').reason).toBe(
       "rg flag '--hostname-bin' runs an external program; not allowed"
     )
-    expect(
-      denied('ast-grep -U --rewrite "x" --pattern "y" lib/').reason
-    ).toMatch(/rewrites files/)
-    expect(denied('ast-grep --rewrite=x -p y .').reason).toMatch(
-      /rewrites files/
-    )
-    // Minor 4（第四轮复盘）：`ast-grep new` 会往 checkout 里生成
-    // `sgconfig.yml`/`rules/`，之前的闸门只看旗标、不看子命令，放行了它。
-    expect(denied('ast-grep new').reason).toBe(
-      "ast-grep subcommand 'new' is not allowed; this sandbox only allows read-only search (no subcommand, 'run', or 'scan')"
-    )
-    expect(denied('ast-grep new --lang ts').reason).toBe(
-      "ast-grep subcommand 'new' is not allowed; this sandbox only allows read-only search (no subcommand, 'run', or 'scan')"
-    )
-    // `-r` 随子命令改义：`run` 里是 `--rewrite`（写），`scan` 里是 `--rule`
-    // （只读）。之前把 `-r` 当成任何子命令下都危险，`ast-grep scan -r rule.yml`
-    // 这个正常检索被误拒。
-    expect(denied('ast-grep run -r x -p y .').reason).toBe(
-      "ast-grep flag '-r' rewrites files; this sandbox is read-only"
-    )
-    expect(denied('ast-grep -r x -p y .').reason).toBe(
-      "ast-grep flag '-r' rewrites files; this sandbox is read-only"
-    )
 
     // 只读的脚本 / 旗标仍然放行——拒绝正常检索的闸门同样是坏的。
     ok("sed -n '10,40p' lib/services/foo.ts")
@@ -390,10 +371,6 @@ describe('checkHuntCommand', () => {
     ok("sed -n '/foo bar/p' lib/x.ts")
     ok("sed 's/a b/c/' lib/x.ts")
     ok('rg --pre-glob "*.md" -n x .')
-    ok('ast-grep -p "console.log($A)" -l ts lib/')
-    ok('ast-grep run -p "console.log($A)" -l ts lib/')
-    ok('ast-grep scan -r rule.yml lib/')
-    ok('ast-grep scan --rule=rule.yml lib/')
   })
 
   it('rejects an empty or unparseable command', () => {
@@ -412,7 +389,53 @@ describe('checkHuntCommand', () => {
 
   it('names the offending command in the reason so the model can correct itself', () => {
     expect(denied('git status').reason).toBe(
-      "command 'git' is not allowed; allowed: rg, grep, sed, cat, ast-grep, head, tail, wc"
+      "command 'git' is not allowed; allowed: rg, grep, sed, cat, head, tail, wc"
     )
+  })
+})
+
+/**
+ * LUM-782 — three places declared "what the agent may run" (the tool
+ * description the model reads, this allowlist, the sandbox image) and none
+ * was ever checked against the others: `ast-grep` was allowed here and
+ * recommended to the model for months while `vercel/sandbox/universal` never
+ * shipped it (live probe 2026-09-14: `sh -c 'ast-grep --version'` → exit 127;
+ * the image's Dockerfile installs `ripgrep`, no ast-grep). These pin the two
+ * halves the gate owns: the tool is gone, and every remaining tool has a
+ * start-up probe that this very gate admits.
+ */
+describe('LUM-782 — the allowlist, the tool description and the VM agree', () => {
+  it('LUM-782 ast-grep is no longer allowed: it was never installed in the sandbox image', () => {
+    expect(HUNT_SHELL_COMMANDS).not.toContain('ast-grep')
+    // Refused as an unknown command, with the same reason every other
+    // stranger gets — not a special case, not a softer message.
+    expect(denied('ast-grep -p "console.log($A)" -l ts lib/').reason).toBe(
+      NOT_ALLOWED('ast-grep')
+    )
+    expect(denied("ast-grep --pattern '$A.$queryRaw($B)' lib/").reason).toBe(
+      NOT_ALLOWED('ast-grep')
+    )
+    expect(denied('ast-grep scan -r rule.yml lib/').reason).toBe(
+      NOT_ALLOWED('ast-grep')
+    )
+    // Hidden behind an allowed command in a pipeline: still refused.
+    expect(denied('rg -l queryRaw lib/ | ast-grep -p y').reason).toBe(
+      NOT_ALLOWED('ast-grep')
+    )
+  })
+
+  it('LUM-782 alignment: every allowlisted tool has exactly one start-up probe, and every probe passes the gate it will be run through', () => {
+    // Keys === the allowlist: a tool added to one table and not the other is
+    // a compile-time-invisible drift this assertion turns into a red test.
+    expect(Object.keys(HUNT_SHELL_PROBES).sort()).toEqual(
+      [...HUNT_SHELL_COMMANDS].sort()
+    )
+    for (const [tool, probe] of Object.entries(HUNT_SHELL_PROBES)) {
+      // The probe exercises THAT tool (not, say, `cat` reading rg's binary).
+      expect(probe.split(' ')[0]).toBe(tool)
+      // …and the gate admits it: the probe takes the agent's exec path, so a
+      // probe the gate refuses would report the tool `unverified` forever.
+      expect(checkHuntCommand(probe)).toEqual({ ok: true })
+    }
   })
 })

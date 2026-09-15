@@ -144,8 +144,12 @@ async function main(): Promise<void> {
     // `empty` is a rate among commands that RAN — dividing it by every request
     // would quietly shrink it in exactly the runs where the gate refused most.
     const ran = sh.calls - sh.refused - sh.failed
+    // LUM-782 — `not found` is the third way a command can produce nothing
+    // useful, and the one neither `refused` nor `failed` could see: the shell
+    // ran, dash said `rg: not found`, and the audit counted a command that
+    // ran and returned something.
     console.log(
-      `shell: ${sh.calls} commands · refused by the gate ${of(sh.refused, sh.calls)} · sandbox failed ${of(sh.failed, sh.calls)} · of the ${ran} that ran, returned nothing ${of(sh.empty, ran)} · ${sh.outputChars} chars back`
+      `shell: ${sh.calls} commands · refused by the gate ${of(sh.refused, sh.calls)} · sandbox failed ${of(sh.failed, sh.calls)} · of the ${ran} that ran, command not found ${of(sh.notFound, ran)} · returned nothing ${of(sh.empty, ran)} · ${sh.outputChars} chars back`
     )
   }
   // LUM-758 follow-up — the per-task detail. The run-level line above says
@@ -170,6 +174,18 @@ async function main(): Promise<void> {
   console.log('=== Sandbox (LUM-758) ===')
   console.log(
     `attached ${stats.sandbox.attached} · created ${stats.sandbox.created} · ran with egress open ${stats.sandbox.egressOpen}`
+  )
+  // LUM-782 — what the VM actually had, against what the allowlist promises.
+  const tl = stats.tools
+  const per = (m: Record<string, number>) =>
+    Object.entries(m)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, n]) => `${k} ${n}`)
+      .join(' · ')
+  console.log(
+    tl.probed === 0
+      ? 'tools: no scan recorded a start-up probe (rows predate LUM-782)'
+      : `tools: probed on ${tl.probed} scans · missing: ${Object.keys(tl.missing).length === 0 ? '(none)' : per(tl.missing)} · unverified: ${Object.keys(tl.unverified).length === 0 ? '(none)' : per(tl.unverified)}`
   )
 
   console.log('')

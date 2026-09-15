@@ -58,6 +58,7 @@ import {
 } from '@/lib/repositories/pr-security-scan.repository'
 import {
   attachOrCreateHuntSandbox,
+  probeHuntTools,
   readHuntFile,
   runHuntShell,
   stopHuntSandbox,
@@ -66,6 +67,7 @@ import {
 import {
   HUNT_MAX_PLANNED_TASKS,
   HUNT_MAX_STEPS_PER_CATEGORY,
+  HUNT_SEARCH_TOOLS,
   HUNT_WRAP_UP_TIMEOUT_MS,
   HUNT_WRAP_UP_MIN_MS,
   HUNT_MIN_BATCH_TIME_MS,
@@ -592,7 +594,28 @@ export const securityHuntService = {
       headSha: input.job.headSha,
       managedScanStarted: input.job.managedScanStarted,
     })
-    const vm = { sandbox: handle.origin, egressDenied: handle.egressDenied }
+    // LUM-782 — before the model's first step: is what we are about to tell
+    // it "allowed" actually on this VM's PATH? Same gate, same `sh -c` as its
+    // own commands. Never throws; a probe that could not run says `unverified`.
+    const tools = await probeHuntTools(handle)
+    if (HUNT_SEARCH_TOOLS.every(tool => tools.missing.includes(tool))) {
+      // Nothing to search with. Rule 4 of the prompt takes line numbers from
+      // `rg -n` / `grep -n`; with neither, every step the model takes ends in
+      // `command not found` and the whole allowance is burned finding that
+      // out. Refuse to start instead: this sits ABOVE the try on purpose, like
+      // the acquisition throw, so the step's retry policy gets it and P9
+      // stamps the layer FAILED with the reason — not a PARTIAL claiming the
+      // hunt ran. A VM we booted for nothing must not run out its 20 minutes.
+      await stopHuntSandbox(handle)
+      throw new Error(
+        `sandbox has none of the hunt's search tools on PATH (${HUNT_SEARCH_TOOLS.join(', ')} all missing); refusing to run the agent`
+      )
+    }
+    const vm = {
+      sandbox: handle.origin,
+      egressDenied: handle.egressDenied,
+      tools,
+    }
     /**
      * LUM-758 §6.3 — this batch's share of the compression bill, accumulated
      * across every `run_shell` the model makes. It is returned on EVERY exit
@@ -607,6 +630,7 @@ export const securityHuntService = {
       calls: 0,
       refused: 0,
       failed: 0,
+      notFound: 0,
       empty: 0,
       outputChars: 0,
       commands: [],
@@ -708,6 +732,9 @@ export const securityHuntService = {
         // is the difference between the agent reasoning about known call sites
         // and spending its allowance rediscovering them.
         sites: input.job.signalSites ?? [],
+        // LUM-782 — the probe's answer decides what the model is told it may
+        // run, and what it is told is missing.
+        tools,
         // The ONLY path from the model to the VM. The handle goes in whole so
         // the credential guard cannot be skipped by construction, and the
         // command goes through untouched so the string `checkHuntCommand`
@@ -742,6 +769,9 @@ export const securityHuntService = {
             const entry = shell.commands[entryIndex]!
             entry.chars = out.output.length
             if (out.compressed) entry.compressed = true
+            // LUM-782 — the exit code was always there and never kept.
+            if (out.exitCode !== undefined) entry.exit = out.exitCode
+            if (out.commandNotFound) entry.notFound = true
           }
           // Counted here and nowhere else, so compression cannot be paid for
           // with money the scan's `tokenSpent` never sees.
@@ -759,6 +789,11 @@ export const securityHuntService = {
           // both as "refused" reads a dead VM as a rejected command.
           if (out.denied) shell.refused += 1
           else if (out.error !== undefined) shell.failed += 1
+          // LUM-782 — the shell ran and could not find the program. Counted
+          // BEFORE `empty`: dash prints the message on stderr, which the
+          // model sees, so the output is not empty — and it must not be
+          // counted as a search that matched nothing either.
+          else if (out.commandNotFound) shell.notFound += 1
           // `trim()`: a command that returned only a newline found nothing.
           else if (out.output.trim().length === 0) shell.empty += 1
           shell.outputChars += out.output.length

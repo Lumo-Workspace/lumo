@@ -122,6 +122,7 @@ const batch = (
     error: string
     sandbox: 'attached' | 'created'
     egressDenied: boolean
+    tools: { present: string[]; missing: string[]; unverified: string[] }
     wrappedUp: boolean
     wrapUpWarnings: string[]
     trace: unknown[]
@@ -507,6 +508,55 @@ describe('LUM-739 hunt workflow', () => {
     )
     await securityHuntWorkflow(JOB)
     expect(persist.mock.calls[0]![0].audit.sandbox).toBe('attached')
+  })
+
+  it('LUM-782 probe: folds each batch’s tool inventory pessimistically — missing on any VM is missing for the run', async () => {
+    hunt
+      .mockImplementationOnce(async () =>
+        batch({
+          tools: { present: ['rg', 'grep'], missing: [], unverified: ['wc'] },
+        })
+      )
+      // A second batch may land on a different VM (attach vs create), so a
+      // tool it found missing is missing for the run, and a tool the first
+      // batch could not verify is not verified by the second's VM.
+      .mockImplementationOnce(async () =>
+        batch({
+          tools: { present: ['grep', 'wc'], missing: ['rg'], unverified: [] },
+        })
+      )
+
+    await securityHuntWorkflow(JOB)
+
+    expect(persist.mock.calls[0]![0].audit.tools).toEqual({
+      present: ['grep'],
+      missing: ['rg'],
+      unverified: ['wc'],
+    })
+  })
+
+  it('LUM-782 probe: leaves `tools` unset when no batch ever got a VM', async () => {
+    await securityHuntWorkflow(JOB)
+    // Absent means "never probed" — the same as every pre-LUM-782 row.
+    expect(persist.mock.calls[0]![0].audit.tools).toBeUndefined()
+  })
+
+  it('LUM-782 missing: a batch that refuses to start for want of a search tool lands the layer FAILED with that reason', async () => {
+    const reason =
+      "sandbox has none of the hunt's search tools on PATH (rg, grep all missing); refusing to run the agent"
+    hunt.mockImplementation(async () => {
+      throw new Error(reason)
+    })
+
+    await expect(securityHuntWorkflow(JOB)).resolves.toEqual({
+      outcome: 'FAILED',
+      scanId: 's1',
+      reason,
+    })
+    // Not a PARTIAL claiming the hunt ran: nothing was submitted, nothing
+    // is persisted as a result, and the reason is on the row.
+    expect(persist).not.toHaveBeenCalled()
+    expect(markFailed).toHaveBeenCalledWith('s1', reason, 0)
   })
 
   it('LUM-758 leaves the sandbox fields unset when no batch ever got a VM', async () => {

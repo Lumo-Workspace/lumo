@@ -35,6 +35,8 @@ import { redactKnownSecrets } from '@/lib/security-scan'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import {
   checkHuntCommand,
+  HUNT_SHELL_COMMANDS,
+  HUNT_SHELL_PROBES,
   HUNT_SHELL_BIN,
   HUNT_SHELL_FLAG,
 } from '@/lib/security-scan/hunt/shell-allowlist'
@@ -54,6 +56,7 @@ import {
   HUNT_SHELL_OUTPUT_MAX,
   neutralizeUntrustedTags,
   type HuntTask,
+  type HuntToolProbe,
 } from './security-hunt.config'
 
 /**
@@ -519,6 +522,23 @@ export interface HuntShellOutput {
    * Only this branch knows which happened, so only this branch may say.
    */
   denied?: true
+  /**
+   * LUM-782 — the shell's exit code, when the command ran at all. Absent on
+   * a gate refusal and on a sandbox failure. `sandbox.run` RESOLVES on a
+   * non-zero exit (rg/grep exit 1 on "no match", which is a fact, not a
+   * failure), so until this field existed the exit code was read and dropped
+   * on the floor — and a `command not found` (127) was indistinguishable
+   * from a search that matched nothing.
+   */
+  exitCode?: number
+  /**
+   * LUM-782 — the shell ran but could not find the program: exit 127, or
+   * dash's `sh: 1: rg: not found` on stderr (a pipeline hides the 127 behind
+   * the last command's exit, the message does not). The command's output is
+   * still handed to the model — it is the honest answer — but this flag is
+   * how `HuntShellStats.notFound` learns it happened.
+   */
+  commandNotFound?: true
   /** Did a compression actually replace the output? (§6.3 audit) */
   compressed: boolean
   /**
@@ -560,22 +580,63 @@ const COMPRESS_TAG = 'untrusted-compressed-output'
 export async function runHuntShell(
   input: HuntShellInput
 ): Promise<HuntShellOutput> {
-  const check = checkHuntCommand(input.command)
-  if (!check.ok)
-    return { ...uncompressed(''), error: check.reason, denied: true }
+  const exec = await execGated(input.handle, input.command)
+  if (!exec.ok) {
+    return exec.denied
+      ? { ...uncompressed(''), error: exec.reason, denied: true }
+      : { ...uncompressed(''), error: exec.reason }
+  }
+  const { token } = input.handle
+  // REDACTION FIRST, always. `sanitizeHuntOutput` is the boundary the locked
+  // criterion names: the token scrub and `redactKnownSecrets` happen here, so
+  // by construction there is no path on which raw output reaches the
+  // compressor — which is a model, and gets no more trust than the hunt model.
+  const compressed = await compressOrTruncate(
+    sanitizeHuntOutput(exec.raw, token),
+    input.task,
+    token
+  )
+  return {
+    ...compressed,
+    exitCode: exec.exitCode,
+    ...(isCommandNotFound(exec.exitCode, exec.raw)
+      ? { commandNotFound: true as const }
+      : {}),
+  }
+}
 
-  const { sandbox, cwd, token } = input.handle
-  let raw: string
+type GatedExec =
+  | { ok: true; raw: string; exitCode: number }
+  | { ok: false; denied: true; reason: string }
+  | { ok: false; denied?: undefined; reason: string }
+
+/**
+ * LUM-782 — THE choke point, shared by the agent's commands (`runHuntShell`)
+ * and our own start-up probes (`probeHuntTools`). One function on purpose:
+ * the probe must answer "would THIS command, as the agent would send it,
+ * run" — so it goes through the same gate and the same `sh -c`, and a probe
+ * that took a private exec path would be a back door the gate never saw.
+ *
+ * The command goes from `checkHuntCommand` to `sandbox.run` untouched — no
+ * wrapping, no re-quoting, no interpolation — and the shell is the one the
+ * gate's parsing was written and fuzzed against (HUNT_SHELL_BIN /
+ * HUNT_SHELL_FLAG live next to that parser for exactly this reason).
+ * `__tests__/security-scan/hunt/shell-exec-boundary.test.ts` fails if any of
+ * that changes. Raw output is NOT sanitized here: the two callers redact it
+ * on their own side of the boundary (the probe never returns it at all).
+ */
+async function execGated(
+  handle: HuntSandbox,
+  command: string
+): Promise<GatedExec> {
+  const check = checkHuntCommand(command)
+  if (!check.ok) return { ok: false, denied: true, reason: check.reason }
+
+  const { sandbox, cwd, token } = handle
   try {
-    // THE choke point. `input.command` goes from `checkHuntCommand` (above) to
-    // here untouched — no wrapping, no re-quoting, no interpolation — and the
-    // shell is the one the gate's parsing was written and fuzzed against
-    // (HUNT_SHELL_BIN / _FLAG live next to that parser for exactly this
-    // reason). `__tests__/security-scan/hunt/shell-exec-boundary.test.ts`
-    // fails if any of that changes.
     const result = await sandbox.run(
       HUNT_SHELL_BIN,
-      [HUNT_SHELL_FLAG, input.command],
+      [HUNT_SHELL_FLAG, command],
       {
         cwd,
         timeoutMs: SHELL_TIMEOUT_MS,
@@ -583,20 +644,80 @@ export async function runHuntShell(
     )
     // grep/rg exiting 1 on "no match" is a fact, not a failure — both streams
     // go to the model either way.
-    raw = `${result.stdout}${result.stderr ? `\n[stderr]\n${result.stderr}` : ''}`
+    return {
+      ok: true,
+      exitCode: result.exitCode,
+      raw: `${result.stdout}${result.stderr ? `\n[stderr]\n${result.stderr}` : ''}`,
+    }
   } catch (error) {
     logger.warn(`[security-hunt] shell failed: ${scrub(short(error), token)}`)
-    return { ...uncompressed(''), error: 'command failed' }
+    return { ok: false, reason: 'command failed' }
   }
-  // REDACTION FIRST, always. `sanitizeHuntOutput` is the boundary the locked
-  // criterion names: the token scrub and `redactKnownSecrets` happen here, so
-  // by construction there is no path on which raw output reaches the
-  // compressor — which is a model, and gets no more trust than the hunt model.
-  return await compressOrTruncate(
-    sanitizeHuntOutput(raw, token),
-    input.task,
-    token
-  )
+}
+
+/** POSIX: the shell could not find the command. */
+const EXIT_COMMAND_NOT_FOUND = 127
+/**
+ * dash (the `sh` of vercel/sandbox/universal) reports a missing program as
+ * `sh: 1: rg: not found`; in a pipeline that 127 is hidden behind the last
+ * command's exit, so the message is the second witness.
+ */
+const NOT_FOUND_LINE = /^sh: \d+: [^\n]*: not found$/m
+
+function isCommandNotFound(exitCode: number, raw: string): boolean {
+  return exitCode === EXIT_COMMAND_NOT_FOUND || NOT_FOUND_LINE.test(raw)
+}
+
+/**
+ * LUM-782 — the boot probe: is every tool the agent is told it may use
+ * actually on this VM's PATH? Three declarations used to exist with nobody
+ * checking any against the others — the tool description the model reads,
+ * the gate's `HUNT_SHELL_COMMANDS`, and what the image really installs — and
+ * `ast-grep` sat in the first two for months without existing in the third.
+ *
+ * Runs once per batch, on the VM that batch will use, BEFORE its first model
+ * step: `HUNT_SHELL_COMMANDS.length` tiny commands (`rg --version` and the
+ * like, see `HUNT_SHELL_PROBES`), each through `execGated` — the gate and the
+ * choke point the agent's own commands take, so a probe cannot pass where an
+ * agent command would be refused, and the answer is about the same PATH the
+ * agent's `sh -c` resolves. Never throws: a probe that could not run leaves
+ * its tool `unverified`, which is an honest "no claim" rather than a false
+ * "missing" that would strip a working tool from the prompt.
+ */
+export async function probeHuntTools(
+  handle: HuntSandbox
+): Promise<HuntToolProbe> {
+  const probe: HuntToolProbe = { present: [], missing: [], unverified: [] }
+  for (const tool of HUNT_SHELL_COMMANDS) {
+    const probeCommand = HUNT_SHELL_PROBES[tool]
+    if (probeCommand === undefined) {
+      // A tool with no probe is a drift between the two tables the tests pin;
+      // record it rather than pretend it was checked.
+      logger.error(`[security-hunt] no start-up probe defined for '${tool}'`)
+      probe.unverified.push(tool)
+      continue
+    }
+    const exec = await execGated(handle, probeCommand)
+    if (!exec.ok) {
+      if (exec.denied) {
+        // Our own probe being refused by our own gate is a bug, not a fact
+        // about the VM — say so loudly, but claim nothing about the tool.
+        logger.error(
+          `[security-hunt] start-up probe for '${tool}' refused by the gate: ${exec.reason}`
+        )
+      }
+      probe.unverified.push(tool)
+      continue
+    }
+    if (isCommandNotFound(exec.exitCode, exec.raw)) probe.missing.push(tool)
+    else probe.present.push(tool)
+  }
+  if (probe.missing.length > 0 || probe.unverified.length > 0) {
+    logger.warn(
+      `[security-hunt] start-up probe: missing=[${probe.missing.join(', ')}] unverified=[${probe.unverified.join(', ')}] present=[${probe.present.join(', ')}]`
+    )
+  }
+  return probe
 }
 
 /**
