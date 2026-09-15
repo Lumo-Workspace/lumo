@@ -277,6 +277,8 @@ describe('taskWebLinkService.refreshWebLink', () => {
       description: undefined,
       imageUrl: undefined,
       faviconUrl: undefined,
+      // LUM-783: refreshed metadata is re-scanned; clean → null.
+      contentSignals: null,
     })
   })
 
@@ -392,7 +394,9 @@ describe('taskWebLinkService.fetchBody', () => {
     expect(assertOrder).toBeLessThan(fetchOrder)
     expect(repoUpdateBody).toHaveBeenCalledWith(
       'wl_1',
-      expect.stringContaining('Hello world')
+      expect.stringContaining('Hello world'),
+      // LUM-783: the fetched body is scanned; clean → null.
+      null
     )
   })
 

@@ -279,6 +279,8 @@ export interface ApiComment {
   type: 'USER' | 'AGENT'
   createdAt: string
   updatedAt: string
+  /** LUM-783: write-time injection scan of the body; null = clean. */
+  contentSignals?: unknown
   /** Only present on top-level comments (parentId === null). */
   replies?: ApiComment[]
 }

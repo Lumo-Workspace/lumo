@@ -2370,5 +2370,13 @@
   "boundary.panel.viaCli": "· 經 CLI",
   "boundary.panel.viaCliTip": "由終端 lumo crossing disposition --confirm 裁定：agent 轉述了這條越界記錄，使用者在對話中核准。若該核准不是你本人所為，請在此處更正。",
   "activity.boundaryRejudged": "已將該越界重判為提示——其原因已不成立（{reason}）",
-  "boundary.panel.rejudged": "系統已重判——不再阻擋 Done：{evidence}"
+  "boundary.panel.rejudged": "系統已重判——不再阻擋 Done：{evidence}",
+  "contentSignals.badge": "疑似注入",
+  "contentSignals.tooltip": "在此內容中偵測到 {count, plural, other {# 個疑似指令性訊號}}：{details}。內容仍會照常顯示並注入，但會提示 agent 將其視為資料而非指令。",
+  "contentSignals.kind.imperative": "指令性祈使",
+  "contentSignals.kind.hiddenComment": "註解中隱藏的內文",
+  "contentSignals.kind.invisibleChars": "不可見字元",
+  "contentSignals.kind.encodedBlob": "編碼資料區塊",
+  "contentSignals.kind.scriptLink": "指令碼連結",
+  "contentSignals.kind.wrapperEscape": "包裝區塊結尾標籤"
 }

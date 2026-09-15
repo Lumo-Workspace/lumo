@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useIntl } from 'react-intl'
 import type { MemoryCategory, TaskArtifactAgent } from '@prisma/client'
 import { AgentBadge } from '../AgentBadge'
+import { ContentSignalsBadge } from '../ContentSignalsBadge'
 import {
   parseMemoryContent,
   type TrapContent,
@@ -38,6 +39,8 @@ interface MemoryCardItem {
   category: MemoryCategory
   agent: TaskArtifactAgent
   content: unknown
+  /** LUM-783: write-time injection scan of the content; null = clean. */
+  contentSignals?: unknown
 }
 
 interface MemoryCardProps {
@@ -101,6 +104,7 @@ export function MemoryCard({
             {intl.formatMessage({ id: style.labelId })}
           </span>
           {trustBadge}
+          <ContentSignalsBadge signals={item.contentSignals} />
         </span>
         {source ? (
           <span className='shrink-0 text-[10px] text-muted-foreground transition-opacity group-hover:opacity-0'>

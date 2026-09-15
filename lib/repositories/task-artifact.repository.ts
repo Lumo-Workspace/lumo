@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import type { TaskArtifactAgent } from '@prisma/client'
+import type { ContentSignals } from '@/shared/src/untrusted-content'
+import { contentSignalsData } from './content-signals-column'
 
 export interface CreateTaskArtifactInput {
   taskId: string
@@ -11,6 +13,8 @@ export interface CreateTaskArtifactInput {
   agent: TaskArtifactAgent
   order: number
   createdById: string | null
+  /** LUM-783: scan of title + content; null = clean, omit = not scanned. */
+  contentSignals?: ContentSignals | null
 }
 
 export interface UpdateTaskArtifactInput {
@@ -18,11 +22,16 @@ export interface UpdateTaskArtifactInput {
   title?: string | undefined
   source?: string | undefined
   agent?: TaskArtifactAgent | undefined
+  /** LUM-783: re-scan when the title changes (content is immutable). */
+  contentSignals?: ContentSignals | null
 }
 
 export const taskArtifactRepository = {
   async create(input: CreateTaskArtifactInput) {
-    return prisma.taskArtifact.create({ data: input })
+    const { contentSignals, ...rest } = input
+    return prisma.taskArtifact.create({
+      data: { ...rest, ...contentSignalsData(contentSignals) },
+    })
   },
 
   async listByTask(taskId: string) {
@@ -67,6 +76,7 @@ export const taskArtifactRepository = {
         ...(data.title !== undefined ? { title: data.title } : {}),
         ...(data.source !== undefined ? { source: data.source } : {}),
         ...(data.agent !== undefined ? { agent: data.agent } : {}),
+        ...contentSignalsData(data.contentSignals),
       },
     })
     return count

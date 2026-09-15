@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { scanMemoryContent } from '@/lib/services/content-signals'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { embedTexts } from '@/lib/ai/embedding'
@@ -88,9 +89,7 @@ export async function applyLayer2Operations(
   // A-MEM reuse guardrail (LUM-325): high-trust (usage) SUPERSEDE targets are
   // resolved up front in one batched lineage lookup and left ACTIVE.
   const guardedSupersedeIds = await resolveGuardedSupersedeIds(
-    input.operations
-      .filter(op => op.type === 'SUPERSEDE')
-      .map(op => op.id)
+    input.operations.filter(op => op.type === 'SUPERSEDE').map(op => op.id)
   )
 
   // Phase 1: validate each op and collect resolved entries for embedding.
@@ -136,13 +135,14 @@ export async function applyLayer2Operations(
       const text = memoryContentToText(existingCategory, validated)
       resolvedWrites.push({
         text,
-        buildPlan: (vector) => async tx => {
+        buildPlan: vector => async tx => {
           // Option B: new ACTIVE row carries the new content; embedding belongs
           // on that new row, not the superseded original.
           const { newId } = await memoryRepository.supersede(
             id,
             validated as Prisma.InputJsonValue,
-            tx
+            tx,
+            scanMemoryContent(existingCategory, validated)
           )
           result.superseded++
           if (vector !== undefined) {
@@ -171,7 +171,7 @@ export async function applyLayer2Operations(
       const text = memoryContentToText(category, validated)
       resolvedWrites.push({
         text,
-        buildPlan: (vector) => async tx => {
+        buildPlan: vector => async tx => {
           const created = await memoryRepository.create(
             {
               workspaceId: input.workspaceId,
@@ -182,6 +182,7 @@ export async function applyLayer2Operations(
               content: validated as Prisma.InputJsonValue,
               sourceSessionId: input.sourceSessionId ?? null,
               createdByMemberId: null,
+              contentSignals: scanMemoryContent(category, validated),
             },
             tx
           )
@@ -221,11 +222,12 @@ export async function applyLayer2Operations(
     const text = memoryContentToText(existingCategory, validated)
     resolvedWrites.push({
       text,
-      buildPlan: (vector) => async tx => {
+      buildPlan: vector => async tx => {
         await memoryRepository.updateContent(
           id,
           validated as Prisma.InputJsonValue,
-          tx
+          tx,
+          scanMemoryContent(existingCategory, validated)
         )
         result.updated++
         if (vector !== undefined) {
@@ -240,7 +242,9 @@ export async function applyLayer2Operations(
   // Phase 2: batch-embed texts not already in precomputedEmbeddings.
   // This happens OUTSIDE the DB transaction so a gateway failure never aborts
   // the content write (best-effort).
-  const vectorByText = new Map<string, number[]>(input.precomputedEmbeddings ?? [])
+  const vectorByText = new Map<string, number[]>(
+    input.precomputedEmbeddings ?? []
+  )
   const missingTexts = resolvedWrites
     .map(r => r.text)
     .filter(t => t.length > 0 && !vectorByText.has(t))

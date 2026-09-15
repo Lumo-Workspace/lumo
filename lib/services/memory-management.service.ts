@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { scanMemoryContent } from '@/lib/services/content-signals'
 import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { canonicalizeToEnglish } from './memory/canonicalize-language'
@@ -159,7 +160,9 @@ export const memoryManagementService = {
     if (resolution.kind === 'UPDATE') {
       await memoryRepository.updateContent(
         resolution.id,
-        resolution.content as Prisma.InputJsonValue
+        resolution.content as Prisma.InputJsonValue,
+        undefined,
+        scanMemoryContent(input.category, resolution.content)
       )
       await stampEmbeddingBestEffort(
         resolution.id,
@@ -171,7 +174,9 @@ export const memoryManagementService = {
     if (resolution.kind === 'SUPERSEDE') {
       const { newId } = await memoryRepository.supersede(
         resolution.id,
-        resolution.content as Prisma.InputJsonValue
+        resolution.content as Prisma.InputJsonValue,
+        undefined,
+        scanMemoryContent(input.category, resolution.content)
       )
       await stampEmbeddingBestEffort(newId, input.category, resolution.content)
       return { outcome: 'SUPERSEDE', memory: { id: newId } }
@@ -187,6 +192,7 @@ export const memoryManagementService = {
       sourceSessionId: null,
       createdByMemberId: input.actorMemberId,
       agent: input.agent,
+      contentSignals: scanMemoryContent(input.category, content),
     })
     // Reuse the vector already computed for dedup retrieval (same text) instead
     // of re-embedding. If that embed failed (vector undefined), fall back to a
@@ -228,7 +234,9 @@ export const memoryManagementService = {
     if (resolution.kind === 'UPDATE') {
       await memoryRepository.updateContent(
         resolution.id,
-        resolution.content as Prisma.InputJsonValue
+        resolution.content as Prisma.InputJsonValue,
+        undefined,
+        scanMemoryContent(input.category, resolution.content)
       )
       await stampEmbeddingBestEffort(
         resolution.id,
@@ -240,7 +248,9 @@ export const memoryManagementService = {
     if (resolution.kind === 'SUPERSEDE') {
       const { newId } = await memoryRepository.supersede(
         resolution.id,
-        resolution.content as Prisma.InputJsonValue
+        resolution.content as Prisma.InputJsonValue,
+        undefined,
+        scanMemoryContent(input.category, resolution.content)
       )
       await stampEmbeddingBestEffort(newId, input.category, resolution.content)
       return { outcome: 'SUPERSEDE', memory: { id: newId } }
@@ -257,6 +267,7 @@ export const memoryManagementService = {
       // Manual task-scoped adds have an unambiguous birth task (LUM-397).
       sourceTaskId: input.taskId,
       agent: input.agent,
+      contentSignals: scanMemoryContent(input.category, content),
     })
     // Reuse the vector already computed for dedup retrieval (same text) instead
     // of re-embedding. If that embed failed (vector undefined), fall back to a

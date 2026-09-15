@@ -1,5 +1,9 @@
 import { sanitizeField } from '@/shared/src/sanitize'
 import {
+  detectInjectionSignals,
+  neutralizeWrapperEscapes,
+} from '@/shared/src/untrusted-content'
+import {
   CROSSING_LABELS,
   labelFor,
   REJECTION_LABELS,
@@ -47,9 +51,22 @@ const LABEL_MAX = 80
  * documented ANCHOR_MAX_LINES cap. Collapsing whitespace runs keeps the name
  * inline; the length cap keeps one long name from crowding out the contract.
  * sanitizeField stays in the chain — this is in addition to it, not instead.
+ *
+ * LUM-783: the same block is why the shared content guard is applied in its
+ * HARD form here. A fence-shaped tag in the name is defanged like everywhere
+ * else; but a name shaped like an instruction cannot be annotated with a
+ * notice line (the block has no untrusted wrapper to put it in, and a line
+ * would break ANCHOR_MAX_LINES), so it is withheld and replaced by a
+ * placeholder that states why. The statistics still render.
  */
 function scopeName(label: string): string {
-  const flat = sanitizeField(label).replace(/\s+/g, ' ').trim()
+  const flat = neutralizeWrapperEscapes(sanitizeField(label))
+    .replace(/\s+/g, ' ')
+    .trim()
+  const { signals } = detectInjectionSignals(flat)
+  if (signals.length > 0) {
+    return `[scope name withheld — ${signals.length} suspected instruction-like ${signals.length === 1 ? 'signal' : 'signals'}]`
+  }
   return flat.length > LABEL_MAX ? `${flat.slice(0, LABEL_MAX)}…` : flat
 }
 

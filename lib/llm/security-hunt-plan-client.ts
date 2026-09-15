@@ -18,6 +18,11 @@ import {
   neutralizeForPromptLine,
 } from '@/lib/security-scan/hunt/prompt-safety'
 import {
+  detectInjectionSignals,
+  neutralizeWrapperEscapes,
+  renderInlineSignalMarker,
+} from '@/shared/src/untrusted-content'
+import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
   PLAN_EMPTY_REASON,
@@ -163,14 +168,26 @@ export function buildPlanPrompt(i: PlanClientInput): string {
   // output reaching the hunt prompt — attacker text, through a model, into a
   // brief — just through a different model, so the guard on the other channel
   // never sees it. A title carrying newlines forges a section header.
+  // LUM-783: a title carrying a fence tag is defanged, and one shaped like an
+  // instruction is labelled inline — the finding still routes the hunt.
   const findings =
     i.findings.length === 0
       ? '(none)'
       : i.findings
-          .map(
-            f =>
-              `- [${f.severity}] ${neutralizeForPromptLine(f.ruleId, FINDING_ID_MAX_CHARS)}: ${neutralizeForPromptLine(f.title, FINDING_TITLE_MAX_CHARS)}`
-          )
+          .map(f => {
+            const ruleId = neutralizeForPromptLine(
+              neutralizeWrapperEscapes(f.ruleId),
+              FINDING_ID_MAX_CHARS
+            )
+            const title = neutralizeForPromptLine(
+              neutralizeWrapperEscapes(f.title),
+              FINDING_TITLE_MAX_CHARS
+            )
+            const marker = renderInlineSignalMarker(
+              detectInjectionSignals(`${ruleId}: ${title}`).signals
+            )
+            return `- [${f.severity}] ${ruleId}: ${title}${marker}`
+          })
           .join('\n')
   // These are file names out of the pull request, so the PR author chose them,
   // and they land in the TRUSTED region of the prompt that decides whether to

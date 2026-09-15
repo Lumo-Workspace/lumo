@@ -56,6 +56,8 @@ describe('idea comment round-trips through ideaId', () => {
       ideaId: 'idea-1',
       authorActorId: 'actor-1',
       body: 'first comment',
+      // LUM-783: the body is scanned on write; clean → null.
+      contentSignals: null,
     })
     expect(created).toMatchObject({
       id: 'c1',

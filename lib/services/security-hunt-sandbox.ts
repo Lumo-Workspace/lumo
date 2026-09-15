@@ -54,10 +54,10 @@ import {
   HUNT_SANDBOX_ATTACH_WAIT_MS,
   HUNT_SHELL_COMPRESS_MIN,
   HUNT_SHELL_OUTPUT_MAX,
-  neutralizeUntrustedTags,
   type HuntTask,
   type HuntToolProbe,
 } from './security-hunt.config'
+import { guardUntrustedContent } from '@/shared/src/untrusted-content'
 
 /**
  * Tag key marking a VM the hunt booted itself, so "who paid for this VM" is
@@ -763,9 +763,10 @@ async function compressOrTruncate(
     // Charged even if the body turns out to be useless below: the gateway
     // billed for the call, so the scan's budget must see it.
     tokens = result.tokens
-    const body = neutralizeUntrustedTags(sanitizeField(result.text))
-      .trim()
-      .slice(0, HUNT_SHELL_OUTPUT_MAX)
+    // LUM-783: the shared guard — fence tags defanged, instruction-shaped
+    // content counted; the notices ride inside the fence below.
+    const guarded = guardUntrustedContent(sanitizeField(result.text))
+    const body = guarded.text.trim().slice(0, HUNT_SHELL_OUTPUT_MAX)
     // A compressor that answered but said nothing is not a compression — it is
     // a refusal wearing an answer's clothes, and acting on it hands the hunt
     // model an empty view of a repository that was not empty. The old guard
@@ -789,7 +790,7 @@ async function compressOrTruncate(
       }
     }
     return {
-      output: fence(body),
+      output: fence(body, guarded.notices),
       compressed: true,
       compressTokens: tokens,
       compressInputChars: redacted.length,
@@ -824,9 +825,10 @@ function uncompressed(output: string): HuntShellOutput {
  * is LOSSY — because a hunt model that read "(no relevant lines)" as proof of
  * absence would draw a conclusion from a cheap model's omission.
  */
-function fence(body: string): string {
+function fence(body: string, notices: readonly string[] = []): string {
   return [
     `<${COMPRESS_TAG}>`,
+    ...notices,
     'NOTE TO ASSISTANT: a cheap model compressed the command output below to',
     'the lines it judged relevant, so it is LOSSY — absence of a line here is',
     'not evidence of absence in the repository; re-run a narrower command to',

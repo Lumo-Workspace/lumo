@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
+import type { ContentSignals } from '@/shared/src/untrusted-content'
+import { contentSignalsData } from './content-signals-column'
 import { Prisma } from '@prisma/client'
 import type {
   MemoryCategory,
@@ -16,6 +18,8 @@ const MEMORY_ROW_SELECT = {
   createdByMemberId: true,
   createdAt: true,
   updatedAt: true,
+  // LUM-783: the panel card renders a warning badge off this column.
+  contentSignals: true,
 } as const
 
 interface CreateMemoryInput {
@@ -28,6 +32,8 @@ interface CreateMemoryInput {
   sourceSessionId: string | null
   createdByMemberId: string | null
   agent?: TaskArtifactAgent | undefined
+  /** LUM-783: scan of the content text; null = clean, omit = not scanned. */
+  contentSignals?: ContentSignals | null
   /**
    * Scope pointer for MILESTONE-scope rows (LUM-647) — the milestone whose
    * close-retro distilled this lesson. Null/omitted for TASK/PROJECT rows.
@@ -464,6 +470,7 @@ export const memoryRepository = {
         createdByMemberId: input.createdByMemberId,
         sourceTaskId: input.sourceTaskId ?? null,
         ...(input.agent !== undefined ? { agent: input.agent } : {}),
+        ...contentSignalsData(input.contentSignals),
       },
       select: { id: true },
     })
@@ -472,12 +479,14 @@ export const memoryRepository = {
   async updateContent(
     id: string,
     content: Prisma.InputJsonValue,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
+    /** LUM-783: scan of the NEW content; omit = leave the column as is. */
+    contentSignals?: ContentSignals | null
   ) {
     const client = tx ?? prisma
     return client.memory.update({
       where: { id },
-      data: { content },
+      data: { content, ...contentSignalsData(contentSignals) },
       select: { id: true },
     })
   },
@@ -504,7 +513,9 @@ export const memoryRepository = {
   async supersede(
     oldId: string,
     content: Prisma.InputJsonValue,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
+    /** LUM-783: scan of the NEW content, stored on the replacement row. */
+    contentSignals?: ContentSignals | null
   ): Promise<{ newId: string }> {
     const client = tx ?? prisma
     const old = await client.memory.findUniqueOrThrow({
@@ -535,6 +546,7 @@ export const memoryRepository = {
         // Birth record travels with the lineage chain (LUM-397): the
         // replacement row keeps the original's birth task.
         sourceTaskId: old.sourceTaskId,
+        ...contentSignalsData(contentSignals),
       },
       select: { id: true },
     })
@@ -572,6 +584,8 @@ export const memoryRepository = {
     projectId: string
     workspaceId: string
     sourceSessionId?: string | null
+    /** LUM-783: scan of the coarse card's content. */
+    contentSignals?: ContentSignals | null
   }): Promise<{ coarseId: string }> {
     return prisma.$transaction(async tx => {
       const stillActive = await tx.memory.findMany({
@@ -602,6 +616,7 @@ export const memoryRepository = {
           createdByMemberId: null,
           sourceSessionId: params.sourceSessionId ?? null,
           sourceTaskId: null,
+          ...contentSignalsData(params.contentSignals),
         },
         select: { id: true },
       })

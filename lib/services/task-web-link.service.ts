@@ -5,6 +5,7 @@ import {
   fetchWithFallback,
   normalizeUrl,
 } from '@/lib/integrations/og-metadata/fetch-with-fallback'
+import { scanWebLink } from '@/lib/services/content-signals'
 
 // Cap stored body so a giant page can't bloat the row / agent context window.
 const MAX_BODY_CHARS = 50_000
@@ -43,6 +44,11 @@ export const taskWebLinkService = {
           fetchedAt: new Date(),
           fetchError: null,
           createdById: input.actorMemberId,
+          // LUM-783: fetched metadata is untrusted text — scan it on the way in.
+          contentSignals: scanWebLink({
+            title: og.data.title,
+            description: og.data.description,
+          }),
         }
       : {
           taskId: input.taskId,
@@ -57,6 +63,7 @@ export const taskWebLinkService = {
           fetchedAt: null,
           fetchError: og.error,
           createdById: input.actorMemberId,
+          contentSignals: null,
         }
 
     return taskWebLinkRepository.create(payload)
@@ -75,6 +82,13 @@ export const taskWebLinkService = {
         description: og.data.description,
         imageUrl: og.data.imageUrl,
         faviconUrl: og.data.faviconUrl,
+        // LUM-783: re-scan the whole card — new metadata plus what is stored.
+        contentSignals: scanWebLink({
+          title: og.data.title,
+          description: og.data.description,
+          note: link.note,
+          body: link.body,
+        }),
       })
     }
     return taskWebLinkRepository.updateFetch(linkId, {
@@ -96,7 +110,17 @@ export const taskWebLinkService = {
     const res = await fetch(link.url)
     const html = await res.text()
     const body = htmlToMarkdown(html).slice(0, MAX_BODY_CHARS)
-    await taskWebLinkRepository.updateBody(linkId, body)
+    // LUM-783: the body is the largest untrusted text a card carries.
+    await taskWebLinkRepository.updateBody(
+      linkId,
+      body,
+      scanWebLink({
+        title: link.title,
+        description: link.description,
+        note: link.note,
+        body,
+      })
+    )
     return body
   },
 

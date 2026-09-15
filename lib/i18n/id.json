@@ -2370,5 +2370,13 @@
   "boundary.panel.viaCli": "· via CLI",
   "boundary.panel.viaCliTip": "Diputuskan dari terminal dengan lumo crossing disposition --confirm: agen meneruskan pelanggaran batas dan pengguna menyetujuinya di chat. Koreksi di sini jika persetujuan itu bukan dari Anda.",
   "activity.boundaryRejudged": "menilai ulang pelanggaran batas sebagai peringatan — penyebabnya sudah tidak berlaku ({reason})",
-  "boundary.panel.rejudged": "Dinilai ulang oleh sistem — tidak lagi memblokir Done: {evidence}"
+  "boundary.panel.rejudged": "Dinilai ulang oleh sistem — tidak lagi memblokir Done: {evidence}",
+  "contentSignals.badge": "Dugaan injeksi",
+  "contentSignals.tooltip": "{count, plural, other {# sinyal mencurigakan berbentuk instruksi}} terdeteksi dalam konten ini: {details}. Konten tetap ditampilkan dan disuntikkan, tetapi agen diberi tahu untuk memperlakukannya sebagai data, bukan instruksi.",
+  "contentSignals.kind.imperative": "perintah imperatif",
+  "contentSignals.kind.hiddenComment": "teks tersembunyi di komentar",
+  "contentSignals.kind.invisibleChars": "karakter tak terlihat",
+  "contentSignals.kind.encodedBlob": "blok terenkode",
+  "contentSignals.kind.scriptLink": "tautan skrip",
+  "contentSignals.kind.wrapperEscape": "tag penutup pembungkus"
 }

@@ -306,6 +306,8 @@ describe('refreshContext', () => {
           expect.objectContaining({ ts: '1700000000.000100', text: 'fresh' }),
         ],
       }),
+      null,
+      // LUM-783: the refreshed snapshot is re-scanned; clean text → null.
       null
     )
   })

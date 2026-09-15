@@ -2370,5 +2370,13 @@
   "boundary.panel.viaCli": "· via CLI",
   "boundary.panel.viaCliTip": "Tranché depuis le terminal avec lumo crossing disposition --confirm : l’agent a relayé le franchissement et l’utilisateur a approuvé dans le chat. Corrigez-le ici si cette approbation n’était pas la vôtre.",
   "activity.boundaryRejudged": "a réévalué le franchissement de limite comme avertissement — sa cause ne tient plus ({reason})",
-  "boundary.panel.rejudged": "Réévalué par le système — ne bloque plus Done : {evidence}"
+  "boundary.panel.rejudged": "Réévalué par le système — ne bloque plus Done : {evidence}",
+  "contentSignals.badge": "Injection suspectée",
+  "contentSignals.tooltip": "{count, plural, one {# signal suspect ressemblant à une instruction} other {# signaux suspects ressemblant à des instructions}} détecté(s) dans ce contenu : {details}. Il reste affiché et injecté, mais les agents sont invités à le traiter comme des données, pas comme des instructions.",
+  "contentSignals.kind.imperative": "directive impérative",
+  "contentSignals.kind.hiddenComment": "texte caché dans un commentaire",
+  "contentSignals.kind.invisibleChars": "caractères invisibles",
+  "contentSignals.kind.encodedBlob": "bloc encodé",
+  "contentSignals.kind.scriptLink": "lien de script",
+  "contentSignals.kind.wrapperEscape": "balise de fermeture du conteneur"
 }

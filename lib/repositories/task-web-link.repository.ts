@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
+import type { ContentSignals } from '@/shared/src/untrusted-content'
+import { contentSignalsData } from './content-signals-column'
 
 export interface CreateTaskWebLinkInput {
   taskId: string
@@ -13,6 +15,8 @@ export interface CreateTaskWebLinkInput {
   fetchedAt: Date | null
   fetchError: string | null
   createdById: string // WorkspaceMember.id
+  /** LUM-783: scan of title/description; null = clean, omit = not scanned. */
+  contentSignals?: ContentSignals | null
 }
 
 export type UpdateFetchInput =
@@ -22,12 +26,17 @@ export type UpdateFetchInput =
       description: string | null | undefined
       imageUrl: string | null | undefined
       faviconUrl: string | null | undefined
+      /** LUM-783: scan of the refreshed metadata (+ stored note/body). */
+      contentSignals?: ContentSignals | null
     }
   | { ok: false; error: string }
 
 export const taskWebLinkRepository = {
   async create(input: CreateTaskWebLinkInput) {
-    return prisma.taskWebLink.create({ data: input })
+    const { contentSignals, ...rest } = input
+    return prisma.taskWebLink.create({
+      data: { ...rest, ...contentSignalsData(contentSignals) },
+    })
   },
 
   async listByTask(taskId: string) {
@@ -57,6 +66,7 @@ export const taskWebLinkRepository = {
           faviconUrl: fetch.faviconUrl ?? null,
           fetchedAt: new Date(),
           fetchError: null,
+          ...contentSignalsData(fetch.contentSignals),
         },
       })
     }
@@ -66,10 +76,19 @@ export const taskWebLinkRepository = {
     })
   },
 
-  async updateBody(id: string, body: string) {
+  async updateBody(
+    id: string,
+    body: string,
+    /** LUM-783: scan of the fetched body (+ stored metadata). */
+    contentSignals?: ContentSignals | null
+  ) {
     return prisma.taskWebLink.update({
       where: { id },
-      data: { body, bodyFetchedAt: new Date() },
+      data: {
+        body,
+        bodyFetchedAt: new Date(),
+        ...contentSignalsData(contentSignals),
+      },
     })
   },
 

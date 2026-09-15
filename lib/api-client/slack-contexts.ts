@@ -1,5 +1,6 @@
 import { apiFetch } from './base'
 import type { SlackContextSnapshot } from '@/types/slack-context'
+import type { ContentSignals } from '@/shared/src/untrusted-content'
 
 export interface SlackContextResource {
   id: string
@@ -15,6 +16,8 @@ export interface SlackContextResource {
   snapshot: SlackContextSnapshot
   snapshotAt: string
   refreshError: string | null
+  /** LUM-783: write-time injection scan of the snapshot; null = clean. Optional so the idea-scoped variant still fits the shared card. */
+  contentSignals?: ContentSignals | null
   createdById: string
   createdAt: string
   updatedAt: string
