@@ -67,6 +67,9 @@ import {
   type HuntStepTrace,
 } from '@/lib/services/security-hunt.config'
 import { HUNT_SHELL_COMMANDS } from '@/lib/security-scan/hunt/shell-allowlist'
+import { stepClipNote } from '@/lib/security-scan/hunt/step-output'
+import { HUNT_STEP_OUTPUT_MAX } from '@/lib/services/security-hunt.config'
+import { HUNT_MODEL } from '@/lib/ai/models'
 
 const diffMock = fetchPrDiff as jest.Mock
 const readMock = readRepoFile as jest.Mock
@@ -1402,6 +1405,111 @@ describe('LUM-739 hunt service', () => {
    * throws ABOVE the try, like the acquisition throw, so the workflow's P9
    * stamps FAILED with the reason instead of a PARTIAL claiming the hunt ran.
    */
+  // LUM-787 — the per-step ceiling. `runHuntShell` caps one command; this is
+  // the cap on what a step's parallel commands return TOGETHER, applied here
+  // because this closure is the only place that sees every command of the
+  // step, and reset on the step hook because the SDK fires it after the
+  // step's tools have run.
+  describe('LUM-787 step output ceiling', () => {
+    it("admits a step's outputs into HUNT_STEP_OUTPUT_MAX together, tells the model why, records the clip, and starts the next step fresh", async () => {
+      shellMock.mockImplementation(async ({ command }: { command: string }) =>
+        NOT_COMPRESSED(
+          command.includes('big-a')
+            ? 'a'.repeat(2_000)
+            : command.includes('big-b')
+              ? 'b'.repeat(1_000)
+              : command.includes('hit')
+                ? 'lib/a.ts:3: hit'
+                : 'd'.repeat(2_000)
+        )
+      )
+      const handed: string[] = []
+      huntMock.mockImplementation(
+        async (input: {
+          runShell: (c: string) => Promise<{ output: string }>
+          onStep?: (s: HuntStepTrace) => void
+        }) => {
+          handed.push((await input.runShell("sed -n '1,60p' big-a.ts")).output)
+          handed.push((await input.runShell("sed -n '1,30p' big-b.ts")).output)
+          handed.push((await input.runShell('rg -n hit lib/')).output)
+          // The step boundary: the SDK fires the hook after the step's tools.
+          input.onStep?.({ i: 1, tool: 'run_shell' })
+          handed.push((await input.runShell("sed -n '1,60p' big-d.ts")).output)
+          return { candidates: [], tokens: 10, stopped: 'budget' }
+        }
+      )
+
+      const out = await securityHuntService.huntBatch(batchInput())
+
+      // 2 000 fits; 1 000 more does not — cut to the 400 left, with the note.
+      expect(handed[0]).toBe('a'.repeat(2_000))
+      expect(handed[1]).toBe(
+        `${'b'.repeat(HUNT_STEP_OUTPUT_MAX - 2_000)}${stepClipNote(1_000 - (HUNT_STEP_OUTPUT_MAX - 2_000), HUNT_STEP_OUTPUT_MAX)}`
+      )
+      // A short hit goes through even with the step full.
+      expect(handed[2]).toBe('lib/a.ts:3: hit')
+      // The next step starts with a fresh ledger.
+      expect(handed[3]).toBe('d'.repeat(2_000))
+
+      expect(out.shell.stepClipped).toBe(1)
+      expect(out.shell.commands).toEqual([
+        { cmd: "sed -n '1,60p' big-a.ts", chars: 2_000 },
+        // `chars` is what the model actually saw: the fragment plus the note.
+        {
+          cmd: "sed -n '1,30p' big-b.ts",
+          chars: handed[1]!.length,
+          clipped: true,
+        },
+        { cmd: 'rg -n hit lib/', chars: 'lib/a.ts:3: hit'.length },
+        { cmd: "sed -n '1,60p' big-d.ts", chars: 2_000 },
+      ])
+      expect(out.shell.outputChars).toBe(
+        2_000 + handed[1]!.length + 'lib/a.ts:3: hit'.length + 2_000
+      )
+    })
+
+    it('a step under the ceiling hands every output through byte-identical and records no clip', async () => {
+      shellMock.mockResolvedValue(NOT_COMPRESSED('x'.repeat(1_000)))
+      const handed: string[] = []
+      huntMock.mockImplementation(
+        async (input: {
+          runShell: (c: string) => Promise<{ output: string }>
+        }) => {
+          handed.push((await input.runShell('rg -n a lib/')).output)
+          handed.push((await input.runShell('rg -n b lib/')).output)
+          return { candidates: [], tokens: 10, stopped: 'budget' }
+        }
+      )
+
+      const out = await securityHuntService.huntBatch(batchInput())
+
+      expect(handed).toEqual(['x'.repeat(1_000), 'x'.repeat(1_000)])
+      expect(out.shell).toEqual({
+        calls: 2,
+        refused: 0,
+        failed: 0,
+        notFound: 0,
+        empty: 0,
+        outputChars: 2_000,
+        commands: [
+          { cmd: 'rg -n a lib/', chars: 1_000 },
+          { cmd: 'rg -n b lib/', chars: 1_000 },
+        ],
+      })
+      expect(out.shell).not.toHaveProperty('stepClipped')
+    })
+
+    it('huntBatch records the model the search ran on', async () => {
+      huntMock.mockResolvedValue({
+        candidates: [],
+        tokens: 10,
+        stopped: 'done',
+      })
+      const out = await securityHuntService.huntBatch(batchInput())
+      expect(out.model).toBe(HUNT_MODEL)
+    })
+  })
+
   describe('LUM-782 — the start-up probe decides what the model is told', () => {
     it('LUM-782 probe: huntBatch probes the VM before the first model step, hands the result to the client and carries it out', async () => {
       const probe = PROBE(['rg'])

@@ -666,6 +666,59 @@ describe('LUM-781 — the per-step trace read-out', () => {
     expect(lost[3]).toBe('    wrap-up: attempted, failed — gateway timeout')
   })
 
+  // LUM-787 — the per-step ceiling, the elision and the growth-priced stop
+  // each leave a mark on the row; the read-out prints each only when present.
+  it('prints the step clip, the elided characters and the next-step price when the row carries them', () => {
+    const lines = formatShellDetail(
+      [
+        {
+          taskId: 't2',
+          stopped: 'done',
+          model: 'alibaba/qwen3-coder-plus',
+          shell: {
+            calls: 2,
+            refused: 0,
+            failed: 0,
+            empty: 0,
+            stepClipped: 1,
+            commands: [
+              { cmd: "sed -n '1,60p' lib/a.ts", chars: 2000 },
+              { cmd: "sed -n '1,60p' lib/b.ts", chars: 560, clipped: true },
+            ],
+          },
+          trace: [
+            { i: 1, tool: 'run_shell', inputTokens: 1900, outputTokens: 300 },
+            {
+              i: 3,
+              tool: 'submit_candidates',
+              inputTokens: 4100,
+              outputTokens: 200,
+              elidedChars: 2000,
+            },
+          ],
+          stop: {
+            by: 'submitted',
+            spent: 9800,
+            budget: 20000,
+            reserve: 4400,
+            lastStep: 4300,
+            next: 4400,
+            steps: 3,
+          },
+        },
+      ],
+      6
+    )
+    expect(lines).toEqual([
+      't2 done · alibaba/qwen3-coder-plus · 2 cmds (gate refused 0, sandbox failed 0, not found 0, empty 0, step-clipped 1)',
+      "      sed -n '1,60p' lib/a.ts  [2000 chars]",
+      "      sed -n '1,60p' lib/b.ts  [560 chars, clipped]",
+      '    #1 tool=run_shell in=1900 out=300',
+      '    #3 tool=submit_candidates in=4100 out=200 elided=2000',
+      '    stop: submitted · spent 9800/20000 · reserve 4400 · last step 4300 · next 4400 · 3 steps',
+    ])
+  })
+
   it('prints a row written before the trace existed exactly as before', () => {
     const lines = formatShellDetail(
       [

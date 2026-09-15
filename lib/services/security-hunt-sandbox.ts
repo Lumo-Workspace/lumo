@@ -13,7 +13,10 @@
  * a cheap model before it is returned. That happens strictly after the
  * redaction above (the compressor is a model, and gets no more trust than the
  * hunt model), it is skipped below HUNT_SHELL_COMPRESS_MIN, and it fails soft
- * to plain truncation — see `compressOrTruncate`.
+ * to plain truncation — see `compressOrTruncate`. LUM-787 switched it OFF by
+ * default (`isHuntShellCompressEnabled`, env `LUMO_HUNT_COMPRESS=on`): on
+ * the measurement it produced nothing usable and held each step for up to
+ * COMPRESS_TIMEOUT_MS of a 40-second search window.
  *
  * That scrub is exact-match, and the allowlisted tools (`sed`, `rg`, …) can
  * transform text — so it cannot be the only defence. The load-bearing one is
@@ -54,6 +57,7 @@ import {
   HUNT_SANDBOX_ATTACH_WAIT_MS,
   HUNT_SHELL_COMPRESS_MIN,
   HUNT_SHELL_OUTPUT_MAX,
+  isHuntShellCompressEnabled,
   type HuntTask,
   type HuntToolProbe,
 } from './security-hunt.config'
@@ -747,7 +751,13 @@ async function compressOrTruncate(
   task: HuntTask,
   token: string
 ): Promise<HuntShellOutput> {
-  if (redacted.length < HUNT_SHELL_COMPRESS_MIN) return uncompressed(redacted)
+  // LUM-787 — off by default; see `isHuntShellCompressEnabled`.
+  if (
+    !isHuntShellCompressEnabled() ||
+    redacted.length < HUNT_SHELL_COMPRESS_MIN
+  ) {
+    return uncompressed(redacted)
+  }
 
   let tokens = 0
   try {

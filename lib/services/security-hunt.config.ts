@@ -118,6 +118,59 @@ export const HUNT_CHECKOUT_WAIT_MS = 20_000
 export const HUNT_CHECKOUT_POLL_MS = 1_000
 /** Characters of one shell command's output that may reach the model. */
 export const HUNT_SHELL_OUTPUT_MAX = 8_000
+/**
+ * LUM-787 — characters ALL of one step's `run_shell` results may add to the
+ * transcript together. The per-command cap above bounds one result; the
+ * model decides how many commands one step fires, and in prod (PR 1008) it
+ * fired six to eight in parallel, each up to 8 000 characters. One such step
+ * added ~9k tokens to a transcript every later step re-sends, and under
+ * HUNT_TASK_TOKEN_MAX the predictive stop then had no choice but to end the
+ * search at step 2 — three of three tasks, zero candidates.
+ *
+ * The number is what the arithmetic in `budget-arithmetic.test.ts` allows:
+ * with the observed prompt size and per-step output below, and older
+ * results elided from the transcript (HUNT_ELIDE_*), this is the largest
+ * per-step growth at which a task still completes four steps AND can afford
+ * its wrap-up under HUNT_TASK_TOKEN_MAX. It is small on purpose — a 20k
+ * allowance in a loop that re-sends its transcript buys four to five steps
+ * and nothing more — and the prompt tells the agent so. Raising it alone
+ * buys the step-2 death back.
+ */
+export const HUNT_STEP_OUTPUT_MAX = 2_400
+/**
+ * LUM-787 — transcript elision. From the step after next, a tool result is
+ * replaced in what the model re-reads by a short stub naming how much was
+ * dropped; the latest step's results stay whole (HUNT_ELIDE_KEEP_STEPS), and
+ * a result at or under HUNT_ELIDE_MIN_CHARS stays whole at any age — a stub
+ * longer than the thing it replaces saves nothing. The stub keeps NO head of
+ * the output: the arithmetic below has no room for one, and what the agent
+ * needs to remember it has already written into its own text between steps.
+ *
+ * Elision touches only what the model is SENT; `result.response.messages`
+ * and the audit keep the full results. The wrap-up replay is elided the
+ * same way, which is what keeps its price (`stop.reserve`) bounded.
+ */
+export const HUNT_ELIDE_KEEP_STEPS = 1
+export const HUNT_ELIDE_MIN_CHARS = 120
+/**
+ * LUM-787 — the observed shape of a search step, measured on the PR 1008
+ * scan (`huntAudit` of cmu2ceb8o000004i73xo2g6n8, 2026-09-15). The
+ * arithmetic test walks a simulated search on these and the constants above,
+ * so a change to any of them is judged against the same physics the
+ * production stop predicate runs on. Change a reading only with a new
+ * measurement.
+ *
+ * - prompt: the first step's input (system + task + tool schemas), 1 727–1 929.
+ * - output per step: text + reasoning billed to a step, max 744 (t2 step 2).
+ * - text carried per step: the assistant text and tool-call JSON that stays
+ *   in the transcript — the output minus the reasoning, ≈ 200.
+ * - result chars per token: the tool-result JSON is escaped before the
+ *   tokenizer sees it; t1 step 1→2 grew 2 981 tokens on ≈ 8 150 characters.
+ */
+export const HUNT_OBSERVED_PROMPT_TOKENS = 1_930
+export const HUNT_OBSERVED_STEP_OUTPUT_TOKENS = 750
+export const HUNT_OBSERVED_STEP_TEXT_TOKENS = 200
+export const HUNT_OBSERVED_RESULT_CHARS_PER_TOKEN = 3
 
 /**
  * LUM-758 §6 — below this many characters the output is NOT compressed. This
@@ -130,6 +183,23 @@ export const HUNT_SHELL_OUTPUT_MAX = 8_000
  * read 2 000 characters of `rg` output perfectly well.
  */
 export const HUNT_SHELL_COMPRESS_MIN = 2_000
+/**
+ * LUM-787 — the compressor is OFF unless `LUMO_HUNT_COMPRESS=on`. LUM-758
+ * §6.3 shipped it "measurable and revertible"; this is the revert, on the
+ * measurement. Replaying PR 1008's hunt locally (`scripts/analysis/
+ * lum787-hunt-replay`), six compressions produced ZERO usable bodies — three
+ * `(no relevant lines)` sentinels, three `Delay was aborted` — and each one
+ * held the step for up to COMPRESS_TIMEOUT_MS on a 40-second search window:
+ * two of three tasks ended `timeout` at step 2 with the token budget barely
+ * touched. The production row had done no better (1 usable of 4 charged).
+ * With HUNT_STEP_OUTPUT_MAX bounding what a step may add anyway, the
+ * compressor's remaining job — choosing WHICH lines of a long dump survive —
+ * is done by the model re-running a narrower command, which the step-clip
+ * note tells it to do. Flip the env to measure it again.
+ */
+export function isHuntShellCompressEnabled(): boolean {
+  return process.env.LUMO_HUNT_COMPRESS === 'on'
+}
 /**
  * Output ceiling of ONE compression call. 2k tokens can be well over
  * HUNT_SHELL_OUTPUT_MAX characters, which is why the compressed body is
@@ -383,6 +453,13 @@ export interface HuntTaskAudit {
   shell?: HuntShellStats
   /** LUM-781 — see `HuntStepTrace`; absent on rows written before it existed. */
   trace?: HuntStepTrace[]
+  /**
+   * LUM-787 — the gateway model id the search ran on (HUNT_MODEL at the
+   * time). Absent on rows written before the field existed, which all ran
+   * `deepseek/deepseek-v4-pro`. Without this a model swap is unreadable in
+   * the audit that judges it.
+   */
+  model?: string
   stop?: HuntStopFacts
   wrapUp?: HuntWrapUpFacts
   taskId: string
@@ -565,7 +642,17 @@ export interface HuntShellStats {
   notFound: number
   /** …of which ran and returned nothing: a search that matched no line. */
   empty: number
-  /** Total characters handed back to the model, after compression. */
+  /**
+   * LUM-787 — …of which had their output CUT by the per-step ceiling
+   * (HUNT_STEP_OUTPUT_MAX): the step's commands together returned more than
+   * one step may add to the transcript. Absent when no command was clipped,
+   * so a row from a step under the ceiling reads exactly as before. A task
+   * whose every step clips is a task firing too many commands at once — the
+   * prompt tells the model the ceiling, and this is the number that says
+   * whether it listened.
+   */
+  stepClipped?: number
+  /** Total characters handed back to the model, after compression and clipping. */
   outputChars: number
   /**
    * The commands themselves, capped and secret-redacted — the only field that
@@ -591,6 +678,8 @@ export interface HuntShellStats {
     exit?: number
     /** LUM-782 — the shell could not find the program (see `notFound`). */
     notFound?: true
+    /** LUM-787 — the output was cut by the per-step ceiling; `chars` is what survived. */
+    clipped?: true
   }>
 }
 
@@ -622,6 +711,12 @@ export interface HuntStepTrace {
   outputTokens?: number
   reasoningTokens?: number
   finishReason?: string
+  /**
+   * LUM-787 — characters of OLDER tool results that were elided from the
+   * transcript this step was sent (see HUNT_ELIDE_KEEP_STEPS). Absent when
+   * nothing was elided, which is every step before the third.
+   */
+  elidedChars?: number
 }
 
 /** How the search ended, with the arithmetic that ended it. */
@@ -632,8 +727,17 @@ export interface HuntStopFacts {
   budget: number
   /** What was being held back for the wrap-up at the stop. */
   reserve: number
-  /** The last step's cost — the price the predictive stop charged the next step at. */
+  /** The last step's cost. */
   lastStep: number
+  /**
+   * LUM-787 — the price the predictive stop charged the next step at: the
+   * pricier of the last two steps (see `nextStepTokens`). Before this the
+   * next step was priced at `lastStep` alone, and a step dearer than the one
+   * before it then cost more than it was charged for — which is how a search
+   * could pass the predicate and still leave less than its wrap-up needed.
+   * Absent on rows written before the field existed.
+   */
+  next?: number
   steps: number
 }
 
@@ -739,6 +843,8 @@ export interface HuntBatchOutput {
   /** Raw submissions — validated by the mechanical gate, not here. */
   candidates: unknown[]
   tokens: number
+  /** LUM-787 — the model the search ran on; see `HuntTaskAudit.model`. */
+  model?: string
   /**
    * Wall clock for the WHOLE batch, sandbox acquisition included. The
    * orchestrator's `HUNT_TIME_BUDGET_MS` is spent on this number, and the

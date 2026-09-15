@@ -100,3 +100,130 @@ describe('hunt budget arithmetic', () => {
     )
   })
 })
+
+// LUM-787 — the arithmetic of a tool loop that re-sends its transcript, on
+// the shipped constants. The stop predicate charges every step at what the
+// transcript costs to re-send, so how many steps a 20k allowance buys is
+// decided by how fast the transcript grows — and PR 1008's scan showed what
+// unbounded growth buys: 6–8 parallel commands at up to 8k characters each,
+// ~9k tokens added in one step, three of three tasks stopped at step 2 with
+// no wrap-up. The simulation below walks the SAME predicate
+// (`nextStepTokens`, the reserve, the wrap-up gate) over the observed shape
+// of a step, so the per-step ceiling and the elision constants are judged
+// against the physics production runs on, not against a hope.
+import {
+  HUNT_ELIDE_KEEP_STEPS,
+  HUNT_OBSERVED_PROMPT_TOKENS,
+  HUNT_OBSERVED_RESULT_CHARS_PER_TOKEN,
+  HUNT_OBSERVED_STEP_OUTPUT_TOKENS,
+  HUNT_OBSERVED_STEP_TEXT_TOKENS,
+  HUNT_SHELL_OUTPUT_MAX,
+  HUNT_STEP_OUTPUT_MAX,
+  HUNT_WRAP_UP_MIN_TOKENS,
+} from '@/lib/services/security-hunt.config'
+import {
+  lastStepTokens,
+  nextStepTokens,
+  sumTokens,
+} from '@/lib/security-scan/hunt/budget'
+import { elisionStub } from '@/lib/security-scan/hunt/transcript'
+
+/**
+ * Commands per step in the simulation. The prompt asks for one or two; prod
+ * fired six to eight. Four is the pessimistic middle: it decides how many
+ * elision stubs an old step leaves behind, which is the one cost elision
+ * does not remove.
+ */
+const SIM_COMMANDS_PER_STEP = 4
+const SIM_MAX_STEPS = 12
+
+/**
+ * One simulated search. Step k is sent the prompt, the assistant text of
+ * every earlier step, and every earlier step's results — whole, or (with
+ * elision) whole for the latest HUNT_ELIDE_KEEP_STEPS and a stub for the
+ * rest. Its bill is that input plus the observed per-step output. After each
+ * step the shipped predicate decides whether the next one runs.
+ */
+function simulateSearch(opts: {
+  resultCharsPerStep: number
+  elide: boolean
+  budget: number
+}) {
+  const perToken = HUNT_OBSERVED_RESULT_CHARS_PER_TOKEN
+  const resultTokens = Math.ceil(opts.resultCharsPerStep / perToken)
+  const stubTokens = Math.ceil(
+    (SIM_COMMANDS_PER_STEP *
+      elisionStub(Math.ceil(opts.resultCharsPerStep / SIM_COMMANDS_PER_STEP))
+        .length) /
+      perToken
+  )
+  const steps: Array<{ usage: { totalTokens: number } }> = []
+  for (let k = 1; k <= SIM_MAX_STEPS; k++) {
+    const prior = k - 1
+    let input =
+      HUNT_OBSERVED_PROMPT_TOKENS + prior * HUNT_OBSERVED_STEP_TEXT_TOKENS
+    if (opts.elide) {
+      const whole = Math.min(prior, HUNT_ELIDE_KEEP_STEPS)
+      input += whole * resultTokens + (prior - whole) * stubTokens
+    } else {
+      input += prior * resultTokens
+    }
+    steps.push({
+      usage: { totalTokens: input + HUNT_OBSERVED_STEP_OUTPUT_TOKENS },
+    })
+    // The client's predicate, verbatim in shape: next step at
+    // `nextStepTokens` (the pricier of the last two), the replay reserved at
+    // the same price (floored), and no reserve for a price the allowance
+    // could never cover.
+    const price = Math.max(nextStepTokens(steps), HUNT_WRAP_UP_MIN_TOKENS)
+    const reserve = price <= opts.budget ? price : 0
+    if (sumTokens(steps) + nextStepTokens(steps) + reserve >= opts.budget) {
+      break
+    }
+  }
+  const spent = sumTokens(steps)
+  const replay = Math.max(lastStepTokens(steps), HUNT_WRAP_UP_MIN_TOKENS)
+  return {
+    steps: steps.length,
+    spent,
+    wrapUpAffordable: opts.budget - spent >= replay,
+  }
+}
+
+describe('LUM-787 step ceiling × elision × predictive stop', () => {
+  it('the simulation reproduces PR 1008: one unbounded step of 25.6k characters ends the search at step 2, wrap-up unaffordable', () => {
+    // t2's first step: six commands, 25 639 characters, `stop.steps: 2`,
+    // `wrapUp.skipped: no-budget`. If the model of a step cannot reproduce
+    // the failure it was built from, its verdict on the fix means nothing.
+    const prod = simulateSearch({
+      resultCharsPerStep: 25_639,
+      elide: false,
+      budget: HUNT_TASK_TOKEN_MAX,
+    })
+    expect(prod.steps).toBe(2)
+    expect(prod.wrapUpAffordable).toBe(false)
+  })
+
+  it('with the per-step ceiling and elision a task completes at least four steps AND can still afford its wrap-up', () => {
+    const fixed = simulateSearch({
+      resultCharsPerStep: HUNT_STEP_OUTPUT_MAX,
+      elide: true,
+      budget: HUNT_TASK_TOKEN_MAX,
+    })
+    expect(fixed.steps).toBeGreaterThanOrEqual(4)
+    expect(fixed.wrapUpAffordable).toBe(true)
+    // Neither half is optional: at this ceiling WITHOUT elision the third
+    // step already carries two steps' worth of results and the search stops
+    // at three. Both constants are tuned together, against this test.
+  })
+
+  it('HUNT_TOKEN_BUDGET is unchanged — LUM-758 falsified "the budget is too small"', () => {
+    expect(HUNT_TOKEN_BUDGET).toBe(120_000)
+    expect(HUNT_TASK_TOKEN_MAX).toBe(20_000)
+  })
+
+  it('the step ceiling sits under the per-command cap, so the compressor still sees a whole command', () => {
+    expect(HUNT_STEP_OUTPUT_MAX).toBeLessThanOrEqual(HUNT_SHELL_OUTPUT_MAX)
+    expect(HUNT_STEP_OUTPUT_MAX).toBeGreaterThan(0)
+  })
+})

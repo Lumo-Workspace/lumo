@@ -385,6 +385,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             ? { wrapUpWarnings: batch.wrapUpWarnings }
             : {}),
           ...(batch.shell ? { shell: batch.shell } : {}),
+          ...(batch.model ? { model: batch.model } : {}),
           // LUM-781 — the model's side of the conversation and how it ended.
           ...(batch.trace && batch.trace.length > 0
             ? { trace: batch.trace }
@@ -446,6 +447,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             ? { wrapUpWarnings: retry.wrapUpWarnings }
             : {}),
           ...(retry.shell ? { shell: retry.shell } : {}),
+          ...(retry.model ? { model: retry.model } : {}),
           ...(retry.trace && retry.trace.length > 0
             ? { trace: retry.trace }
             : {}),
