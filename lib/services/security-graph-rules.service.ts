@@ -123,9 +123,16 @@ export interface GraphRulesResult {
   rows: NewFindingInput[]
   /** Files the graph was built from (touched + one-hop imports). */
   files: number
-  /** True when a read failed or a cap was hit — the answer is a lower bound. */
+  /**
+   * True only when a read FAILED: the layer could not do its job and the scan
+   * is marked partial (P9). A cap that was hit is `capped`, not partial —
+   * LUM-762 established that a bounded graph is the rule's design, not a
+   * truncated run, and letting the cap set `partial` made PARTIAL routine.
+   */
   partial: boolean
-  /** The first failure, when `partial` is due to one. */
+  /** SUBGRAPH_MAX_FILES / GRAPH_RULE_MAX_READS was hit; the answer is a lower bound by design. */
+  capped: boolean
+  /** The failure, when `partial`. */
   error?: string
 }
 
@@ -154,20 +161,20 @@ export async function collectDiffGraphInputs(
       path,
       ref: job.headSha,
     })
-): Promise<{ inputs: SourceFileInput[]; partial: boolean }> {
+): Promise<{ inputs: SourceFileInput[]; capped: boolean }> {
   const touched = [...new Set(job.touchedSourcePaths)]
     .filter(isReadablePath)
     .sort()
   const inputs: SourceFileInput[] = []
   const attempted = new Set<string>()
   let reads = 0
-  let partial = false
+  let capped = false
 
   const fetch = async (path: string, isTouched: boolean): Promise<boolean> => {
     if (attempted.has(path)) return false
     attempted.add(path)
     if (inputs.length >= SUBGRAPH_MAX_FILES || reads >= GRAPH_RULE_MAX_READS) {
-      partial = true
+      capped = true
       return false
     }
     reads += 1
@@ -188,29 +195,32 @@ export async function collectDiffGraphInputs(
       }
     }
   }
-  return { inputs, partial }
+  return { inputs, capped }
 }
 
 export const securityGraphRulesService = {
   /** Never throws — see the module header. */
   async run(job: GraphRulesJob): Promise<GraphRulesResult> {
     if (job.touchedSourcePaths.length === 0) {
-      return { rows: [], files: 0, partial: false }
+      return { rows: [], files: 0, partial: false, capped: false }
     }
     try {
-      const { inputs, partial } = await collectDiffGraphInputs(job)
-      if (inputs.length === 0) return { rows: [], files: 0, partial }
+      const { inputs, capped } = await collectDiffGraphInputs(job)
+      if (inputs.length === 0)
+        return { rows: [], files: 0, partial: false, capped }
       const { flows } = findLlmOutputFlows(inputs)
       return {
         rows: toGraphRuleRows(job.scanId, flows),
         files: inputs.length,
-        partial,
+        partial: false,
+        capped,
       }
     } catch (error) {
       return {
         rows: [],
         files: 0,
         partial: true,
+        capped: false,
         error: (error instanceof Error ? error.message : String(error)).slice(
           0,
           300

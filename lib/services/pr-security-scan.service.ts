@@ -484,7 +484,8 @@ export const prSecurityScanService = {
       // right here in process — no VM, no model, no falsifier. DETERMINISTIC
       // rows: a HIGH one blocks DONE under the default policy, exactly like a
       // secret. Fail-soft: a read that fails makes the scan `partial` with the
-      // reason logged, never a FAILED stage A.
+      // reason logged, never a FAILED stage A. Hitting the file/read cap is
+      // NOT partial — a bounded graph is this rule's design (LUM-762).
       const touchedSourcePaths = files
         .map(f => f.path)
         .filter(isGraphSourcePath)
@@ -496,6 +497,11 @@ export const prSecurityScanService = {
         touchedSourcePaths,
       })
       if (graph.partial) partial = true
+      if (graph.capped) {
+        logger.info(
+          `[pr-security-scan] graph rules capped pr=${pr.id} files=${graph.files}`
+        )
+      }
       if (graph.error) {
         logger.warn(
           `[pr-security-scan] graph rules partial pr=${pr.id} sha=${headSha}: ${graph.error}`

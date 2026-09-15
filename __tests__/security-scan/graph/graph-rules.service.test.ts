@@ -27,7 +27,7 @@ describe('LUM-785 graph rules service', () => {
       'app/api/x/b.tsx': 'export const b = () => 2\n',
     }
     const read = jest.fn(async (p: string) => files[p] ?? null)
-    const { inputs, partial } = await collectDiffGraphInputs(
+    const { inputs, capped } = await collectDiffGraphInputs(
       {
         ...job,
         touchedSourcePaths: [
@@ -38,7 +38,7 @@ describe('LUM-785 graph rules service', () => {
       },
       read
     )
-    expect(partial).toBe(false)
+    expect(capped).toBe(false)
     expect(inputs.map(i => [i.path, i.touched])).toEqual([
       ['app/api/x/route.ts', true],
       ['lib/a/index.ts', false],
@@ -55,18 +55,18 @@ describe('LUM-785 graph rules service', () => {
     ])
   })
 
-  it('caps files at SUBGRAPH_MAX_FILES and reads at GRAPH_RULE_MAX_READS, reporting partial', async () => {
+  it('caps files at SUBGRAPH_MAX_FILES and reads at GRAPH_RULE_MAX_READS, reporting capped (not partial)', async () => {
     const touched = Array.from(
       { length: SUBGRAPH_MAX_FILES + 5 },
       (_, i) => `lib/f${i}.ts`
     )
     const read = jest.fn(async () => 'export const x = 1\n')
-    const { inputs, partial } = await collectDiffGraphInputs(
+    const { inputs, capped } = await collectDiffGraphInputs(
       { ...job, touchedSourcePaths: touched },
       read
     )
     expect(inputs).toHaveLength(SUBGRAPH_MAX_FILES)
-    expect(partial).toBe(true)
+    expect(capped).toBe(true)
     expect(GRAPH_RULE_MAX_READS).toBeGreaterThan(SUBGRAPH_MAX_FILES)
   })
 
