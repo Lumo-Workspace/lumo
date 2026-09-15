@@ -80,6 +80,17 @@ export const HUNT_SHELL_COMMANDS: readonly string[] = [
   // `isReadOnlySegment` refuses independently — two layers, as always).
   'ls',
   'find',
+  // …and the rest of the refusals the first 60 production scans recorded
+  // (28 of 425 commands): `echo` as a separator between chained reads,
+  // `pwd`, and the pipeline finishers `sort` / `uniq` / `cut`. All print to
+  // stdout only — `sort -o` / `--output` writes a file and `sortGate`
+  // refuses it. `awk` stays out: its scripts can run programs and write
+  // files, and would need a script gate like `sed`'s.
+  'echo',
+  'pwd',
+  'sort',
+  'uniq',
+  'cut',
 ]
 
 /**
@@ -103,6 +114,11 @@ export const HUNT_SHELL_PROBES: Readonly<Record<string, string>> = {
   wc: 'wc --version',
   ls: 'ls --version',
   find: 'find --version',
+  echo: 'echo ok',
+  pwd: 'pwd',
+  sort: 'sort --version',
+  uniq: 'uniq --version',
+  cut: 'cut --version',
 }
 
 /**
@@ -635,11 +651,26 @@ function findGate(args: readonly string[]): string | null {
   return null
 }
 
+/** `sort -o FILE` / `--output=FILE` writes the result to a file. */
+function sortGate(args: readonly string[]): string | null {
+  for (const arg of args) {
+    // `-o FILE`, `-oFILE`, and `-o` folded into a short-flag cluster (`-ro`).
+    if (!arg.startsWith('--') && /^-[a-zA-Z]*o/.test(arg)) {
+      return "sort flag '-o' writes a file; not allowed"
+    }
+    if (arg === '--output' || arg.startsWith('--output=')) {
+      return "sort flag '--output' writes a file; not allowed"
+    }
+  }
+  return null
+}
+
 /** 允许的动词里，哪些旗标会把「只读检索」变成写/执行。 */
 const FLAG_GATES: Record<string, (args: readonly string[]) => string | null> = {
   sed: sedGate,
   rg: rgGate,
   find: findGate,
+  sort: sortGate,
 }
 
 function checkSegment(segment: string, depth: number): HuntCommandCheck {

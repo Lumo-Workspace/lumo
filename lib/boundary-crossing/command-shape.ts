@@ -165,6 +165,7 @@ const PREFIX_TOKEN =
  *  bodies are exactly the prose that used to self-hit (LUM-640). */
 const READ_ONLY_VERBS = new Set([
   'echo',
+  'pwd',
   'printf',
   'grep',
   'egrep',

@@ -58,7 +58,10 @@ describe('LUM-787 no prompt sends the agent after git or a diff', () => {
     // The replay showed what "one or two commands per step" buys: `;`-chained
     // `echo` and `ls`, both refused.
     expect(HUNT_SYSTEM_PROMPT).toContain('never chain with `;` or `&&`')
-    expect(HUNT_SYSTEM_PROMPT).toContain('there is no echo and no git')
+    expect(HUNT_SYSTEM_PROMPT).toContain('there is no git and no awk')
+    // 4 of the first 60 production scans' 28 refusals were unquoted `[` in
+    // Next.js dynamic-route paths — legitimate paths in this repo.
+    expect(HUNT_SYSTEM_PROMPT).toContain('Quote paths that contain `[` or `]`')
     // The first production rerun (PR 1014): 4 of 6 refusals were unquoted
     // `*` globs, a shape the prompt had never mentioned.
     expect(HUNT_SYSTEM_PROMPT).toContain('Never write an unquoted wildcard')
@@ -83,5 +86,6 @@ describe('LUM-787 no prompt sends the agent after git or a diff', () => {
     expect(description).toContain('`ls <dir>`')
     expect(description).toContain('`find <dir> -name "*.ts"`')
     expect(description).toContain('no -exec, -delete or file-writing actions')
+    expect(description).toContain('Quote any path that contains `[` or `]`')
   })
 })

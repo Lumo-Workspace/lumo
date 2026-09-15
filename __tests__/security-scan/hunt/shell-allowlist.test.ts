@@ -28,7 +28,7 @@ const denied = (cmd: string) => {
  *  ——reason 里会原样回显被拒的那一段，只做子串匹配的话「回显了输入」就能免费
  *  满足断言，测不出「这一段真的被拆出来单独判过」。 */
 const NOT_ALLOWED = (name: string) =>
-  `command '${name}' is not allowed; allowed: rg, grep, sed, cat, head, tail, wc, ls, find`
+  `command '${name}' is not allowed; allowed: rg, grep, sed, cat, head, tail, wc, ls, find, echo, pwd, sort, uniq, cut`
 const NOT_READ_ONLY = (segment: string) =>
   `segment is not read-only: ${segment}`
 const METACHAR = (char: string, segment: string) =>
@@ -389,7 +389,7 @@ describe('checkHuntCommand', () => {
 
   it('names the offending command in the reason so the model can correct itself', () => {
     expect(denied('git status').reason).toBe(
-      "command 'git' is not allowed; allowed: rg, grep, sed, cat, head, tail, wc, ls, find"
+      "command 'git' is not allowed; allowed: rg, grep, sed, cat, head, tail, wc, ls, find, echo, pwd, sort, uniq, cut"
     )
   })
 })
@@ -481,6 +481,41 @@ describe('LUM-782 — the allowlist, the tool description and the VM agree', () 
     it('still refuses an unquoted wildcard on the new listers — the character policy is unchanged', () => {
       expect(checkHuntCommand('ls lib/services/*').ok).toBe(false)
       expect(checkHuntCommand('find . -name *.ts').ok).toBe(false)
+    })
+  })
+
+  // LUM-787 follow-up — the rest of the refusals the first 60 production scans
+  // recorded: echo as a separator, pwd, and the sort/uniq/cut pipeline
+  // finishers. sort's file-writing flag is refused by name.
+  describe('LUM-787 echo, pwd, sort, uniq and cut are allowlisted', () => {
+    it('admits them in the shapes the agent used', () => {
+      for (const cmd of [
+        "sed -n '50,90p' lib/a.ts; echo '---'; sed -n '90,140p' lib/a.ts",
+        'pwd',
+        'rg --files lib/security-scan | sort',
+        'rg -n "import" lib/ | cut -d: -f1 | sort | uniq -c | sort -rn | head -20',
+        "cat 'app/api/pull-requests/[number]/scans/route.ts'",
+      ]) {
+        expect(checkHuntCommand(cmd)).toEqual({ ok: true })
+      }
+    })
+
+    it('refuses sort writing to a file, in every spelling', () => {
+      for (const cmd of [
+        'rg --files lib | sort -o /tmp/out',
+        'rg --files lib | sort --output=/tmp/out',
+        'rg --files lib | sort --output /tmp/out',
+        'rg --files lib | sort -ro /tmp/out',
+      ]) {
+        expect(checkHuntCommand(cmd).ok).toBe(false)
+      }
+    })
+
+    it('still refuses an unquoted Next.js dynamic-route path and awk', () => {
+      expect(
+        checkHuntCommand('cat app/api/pull-requests/[number]/scans/route.ts').ok
+      ).toBe(false)
+      expect(checkHuntCommand("awk '{print $1}' lib/a.ts").ok).toBe(false)
     })
   })
 })
