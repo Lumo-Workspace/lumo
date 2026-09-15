@@ -44,8 +44,9 @@ The `acceptance` block at the end applies LUM-787's contract: ≥ 2 of 3 tasks
 
 `results-pr*.json` files are run output; the committed `results-pr1008.json`
 is the pre-deploy evidence attached to LUM-787: PR 1008 (head `02cf887c`)
-on the shipped `HUNT_MODEL` (qwen3-coder-plus, second sample — 3/3 `done`,
-6 / 5 / 5 steps, 1 candidate, refused 0). The fix itself was tuned on
+on the shipped `HUNT_MODEL` (qwen3-coder-plus) at the raised 30k per-task
+ceiling — 2/3 `done`, 9 / 8 / 9 steps, refused 0, 23.6–26.8k tokens per
+task (the 20k run of the same model went 3/3 `done` at 6 / 5 / 5 steps). The fix itself was tuned on
 DeepSeek V4-Pro over three replays, 2026-09-15:
 
 | run | change under test                                                     | result                                                                                                                                                                                                     |

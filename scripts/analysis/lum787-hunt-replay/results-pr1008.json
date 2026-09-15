@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-15T08:44:09.091Z",
+  "generatedAt": "2026-09-15T09:06:28.430Z",
   "pr": 1008,
   "sha": "02cf887c71ce603cba0158f4edb9017fb0e747d7",
   "repo": "Lumo-Workspace/lumo",
@@ -15,7 +15,7 @@
     ]
   },
   "sandbox": {
-    "name": "black-potential-chickadee-HfMAmP",
+    "name": "amethyst-perfect-marsupial-EBvMKd",
     "egressDenied": true
   },
   "tasks": [
@@ -25,16 +25,17 @@
       "category": "injection",
       "model": "alibaba/qwen3-coder-plus",
       "candidates": 0,
-      "tokens": 14012,
-      "elapsedMs": 15084,
-      "stopped": "done",
+      "tokens": 26802,
+      "elapsedMs": 22861,
+      "stopped": "budget",
+      "wrappedUp": true,
       "shell": {
-        "calls": 5,
+        "calls": 9,
         "refused": 0,
         "failed": 0,
         "notFound": 0,
-        "empty": 2,
-        "outputChars": 588,
+        "empty": 1,
+        "outputChars": 5148,
         "commands": [
           {
             "cmd": "sed -n '240,…(len 8)' shared/src/untrusted-content.ts",
@@ -42,138 +43,44 @@
             "exit": 0
           },
           {
+            "cmd": "rg -n \"chil…(len 29)\" shared/src/untrusted-content.ts",
+            "chars": 224,
+            "exit": 0
+          },
+          {
+            "cmd": "sed -n '240,…(len 8)' shared/src/untrusted-content.ts",
+            "chars": 688,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -A5 -B5 \"requ…(len 83)\" shared/src/untrusted-content.ts",
+            "chars": 0,
+            "exit": 1
+          },
+          {
             "cmd": "wc -l shared/src/untrusted-content.ts",
             "chars": 36,
             "exit": 0
           },
           {
-            "cmd": "rg -n \"chil…(len 32)\" shared/src/untrusted-content.ts",
-            "chars": 0,
-            "exit": 1
-          },
-          {
-            "cmd": "sed -n '247p' shared/src/untrusted-content.ts",
-            "chars": 41,
+            "cmd": "rg -n \"exec…(len 74)\" shared/src/untrusted-content.ts",
+            "chars": 224,
             "exit": 0
           },
           {
-            "cmd": "rg -n \"\\$qu…(len 37)\" shared/src/untrusted-content.ts",
-            "chars": 0,
-            "exit": 1
-          }
-        ]
-      },
-      "trace": [
-        {
-          "i": 1,
-          "tool": "run_shell",
-          "text": "I'll i…(len 114)'s a potential child process usage with untrusted content.\n\nLet me examine this file around line 247:",
-          "inputTokens": 1954,
-          "outputTokens": 89,
-          "reasoningTokens": 0,
-          "finishReason": "tool-calls"
-        },
-        {
-          "i": 2,
-          "tool": "run_shell",
-          "text": "The previous output didn't sh…(len 98)",
-          "inputTokens": 2255,
-          "outputTokens": 59,
-          "reasoningTokens": 0,
-          "finishReason": "tool-calls"
-        },
-        {
-          "i": 3,
-          "tool": "run_shell",
-          "text": "Let me search for child_process usage in the file:",
-          "inputTokens": 2215,
-          "outputTokens": 54,
-          "reasoningTokens": 0,
-          "finishReason": "tool-calls",
-          "elidedChars": 511
-        },
-        {
-          "i": 4,
-          "tool": "run_shell",
-          "text": "Let me check the exact line 247 mentioned in the starting point:",
-          "inputTokens": 2287,
-          "outputTokens": 52,
-          "reasoningTokens": 0,
-          "finishReason": "tool-calls",
-          "elidedChars": 511
-        },
-        {
-          "i": 5,
-          "tool": "run_shell",
-          "text": "Let me search for any potentially dangerous functions around the area that might handle untrusted content:",
-          "inputTokens": 2371,
-          "outputTokens": 63,
-          "reasoningTokens": 0,
-          "finishReason": "tool-calls",
-          "elidedChars": 511
-        },
-        {
-          "i": 6,
-          "tool": "submit_candidates",
-          "text": "Based on my investigation of the file `shar…(len 31)`, I found that the line 247 mentioned in the starting point contains a regex execution loop (`whil…(len 36)`), but I did not find any actual usage of child_process, eval, new Function, or other dangerous operations that would constitute an injecti",
-          "inputTokens": 2467,
-          "outputTokens": 146,
-          "reasoningTokens": 0,
-          "finishReason": "tool-calls",
-          "elidedChars": 511
-        }
-      ],
-      "stop": {
-        "by": "submitted",
-        "spent": 14012,
-        "budget": 20000,
-        "reserve": 4000,
-        "lastStep": 2613,
-        "next": 2613,
-        "steps": 6
-      },
-      "wrapUp": {
-        "ran": false,
-        "skipped": "submitted"
-      },
-      "submitted": []
-    },
-    {
-      "taskId": "t2",
-      "objective": "Verify the wrapper-escape defense on the prompt boundary cannot be defeated by case/whitespace/unicode variants. Trace how escapesWrapper and neutralizeWrapperEscapes in shared/src/untrusted-content.ts are invoked at the call sites that build the hunt context (lib/security-scan/hunt/task-context.ts, lib/memory/render.ts, lib/memory/fold.service.ts) and confirm a workspace-controllable string such as a forged </system-reminder>, </untrusted-linked-context> or <untrusted-*> with mixed case or interior whitespace cannot close the data region and become instructions. If it can, the agent would act on attacker text and its subsequent shell commands execute through lib/services/security-hunt-sandbox.ts runHuntShell (the child-process sink that fired). Include a sanity probe that a multi-line/unicode zero-width or bidi mutation of a closing tag is also neutralized.",
-      "category": "prompt_injection",
-      "model": "alibaba/qwen3-coder-plus",
-      "candidates": 1,
-      "tokens": 14752,
-      "elapsedMs": 18645,
-      "stopped": "done",
-      "shell": {
-        "calls": 4,
-        "refused": 0,
-        "failed": 0,
-        "notFound": 0,
-        "empty": 1,
-        "outputChars": 7091,
-        "commands": [
-          {
-            "cmd": "rg -n \"esca…(len 40)\" shared/src/untrusted-content.ts",
-            "chars": 0,
-            "exit": 1
+            "cmd": "sed -n '240,…(len 8)' shared/src/untrusted-content.ts",
+            "chars": 511,
+            "exit": 0
           },
           {
-            "cmd": "cat shared/src/untrusted-content.ts",
-            "chars": 2602,
+            "cmd": "rg -B5 -A10 \"matc…(len 8)\" shared/src/untrusted-content.ts",
+            "chars": 2601,
             "clipped": true,
             "exit": 0
           },
           {
-            "cmd": "head -n 50 shared/src/untrusted-content.ts",
-            "chars": 2304,
-            "exit": 0
-          },
-          {
-            "cmd": "sed -n '20,80p' shared/src/untrusted-content.ts",
-            "chars": 2185,
+            "cmd": "sed -n '240,…(len 8)' shared/src/untrusted-content.ts",
+            "chars": 353,
             "exit": 0
           }
         ],
@@ -183,93 +90,260 @@
         {
           "i": 1,
           "tool": "run_shell",
-          "text": "I'll i…(len 181)",
-          "inputTokens": 2128,
-          "outputTokens": 75,
+          "text": "I'll i…(len 189)",
+          "inputTokens": 1954,
+          "outputTokens": 79,
           "reasoningTokens": 0,
           "finishReason": "tool-calls"
         },
         {
           "i": 2,
           "tool": "run_shell",
-          "text": "Let me check the content of the untrusted-content.ts file to understand the wrapper escape functions:",
-          "inputTokens": 2261,
-          "outputTokens": 47,
+          "text": "It seems line 247 doesn't sh…(len 91)",
+          "inputTokens": 2245,
+          "outputTokens": 67,
           "reasoningTokens": 0,
           "finishReason": "tool-calls"
         },
         {
           "i": 3,
           "tool": "run_shell",
-          "text": "Let me get the rest of the untrusted-content.ts file to see the actual implementation:",
-          "inputTokens": 3156,
-          "outputTokens": 51,
+          "text": "Let me get more context around the area that might contain the child_process usage:",
+          "inputTokens": 2292,
+          "outputTokens": 56,
           "reasoningTokens": 0,
-          "finishReason": "tool-calls"
+          "finishReason": "tool-calls",
+          "elidedChars": 511
         },
         {
           "i": 4,
           "tool": "run_shell",
-          "text": "Let me continue to see the actual functions I need to examine:",
-          "inputTokens": 3172,
-          "outputTokens": 51,
+          "text": "Let me search more broadly for any child process related functions in the file:",
+          "inputTokens": 2503,
+          "outputTokens": 73,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 735
+        },
+        {
+          "i": 5,
+          "tool": "run_shell",
+          "text": "Let me check the entire file to understand what's ha…(len 28)",
+          "inputTokens": 2422,
+          "outputTokens": 48,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 1423
+        },
+        {
+          "i": 6,
+          "tool": "run_shell",
+          "text": "Let me search for any potentially dangerous functions in the file that could be related to injection:",
+          "inputTokens": 2498,
+          "outputTokens": 75,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 1423
+        },
+        {
+          "i": 7,
+          "tool": "run_shell",
+          "text": "Let me look more closely at the area around line 247 and see what the regex pattern is doing:",
+          "inputTokens": 2680,
+          "outputTokens": 63,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 1423
+        },
+        {
+          "i": 8,
+          "tool": "run_shell",
+          "text": "Let me search more specifically for the function that might be using untrusted content with potential injection:",
+          "inputTokens": 2853,
+          "outputTokens": 58,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 1647
+        },
+        {
+          "i": 9,
+          "tool": "run_shell",
+          "text": "Let me look for the specific area that was flagged around line 247:",
+          "inputTokens": 3689,
+          "outputTokens": 57,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 2158
+        }
+      ],
+      "stop": {
+        "by": "budget",
+        "spent": 23712,
+        "budget": 30000,
+        "reserve": 4000,
+        "lastStep": 3746,
+        "next": 3746,
+        "steps": 9
+      },
+      "wrapUp": {
+        "ran": true,
+        "submitted": 0,
+        "tokens": 3090,
+        "finishReason": "tool-calls"
+      },
+      "submitted": []
+    },
+    {
+      "taskId": "t2",
+      "objective": "Verify the wrapper-escape defense on the prompt boundary cannot be defeated by case/whitespace/unicode variants. Trace how escapesWrapper and neutralizeWrapperEscapes in shared/src/untrusted-content.ts are invoked at the call sites that build the hunt context (lib/security-scan/hunt/task-context.ts, lib/memory/render.ts, lib/memory/fold.service.ts) and confirm a workspace-controllable string such as a forged </system-reminder>, </untrusted-linked-context> or <untrusted-*> with mixed case or interior whitespace cannot close the data region and become instructions. If it can, the agent would act on attacker text and its subsequent shell commands execute through lib/services/security-hunt-sandbox.ts runHuntShell (the child-process sink that fired). Include a sanity probe that a multi-line/unicode zero-width or bidi mutation of a closing tag is also neutralized.",
+      "category": "prompt_injection",
+      "model": "alibaba/qwen3-coder-plus",
+      "candidates": 0,
+      "tokens": 23602,
+      "elapsedMs": 20490,
+      "stopped": "done",
+      "shell": {
+        "calls": 7,
+        "refused": 0,
+        "failed": 0,
+        "notFound": 0,
+        "empty": 2,
+        "outputChars": 9320,
+        "commands": [
+          {
+            "cmd": "cat shared/src/untrusted-content.ts",
+            "chars": 2602,
+            "clipped": true,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \".\" shared/src/untrusted-content.ts",
+            "chars": 2602,
+            "clipped": true,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \"esca…(len 54)\" shared/src/untrusted-content.ts",
+            "chars": 0,
+            "exit": 1
+          },
+          {
+            "cmd": "rg -n \"runH…(len 12)\" lib/services/security-hunt-sandbox.ts",
+            "chars": 108,
+            "exit": 0
+          },
+          {
+            "cmd": "sed -n '575,…(len 8)' lib/services/security-hunt-sandbox.ts",
+            "chars": 1704,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \"untr…(len 18)\" lib/security-scan/hunt/task-context.ts",
+            "chars": 0,
+            "exit": 1
+          },
+          {
+            "cmd": "head -n 50 shared/src/untrusted-content.ts",
+            "chars": 2304,
+            "exit": 0
+          }
+        ],
+        "stepClipped": 2
+      },
+      "trace": [
+        {
+          "i": 1,
+          "tool": "run_shell",
+          "text": "I'll i…(len 181)",
+          "inputTokens": 2128,
+          "outputTokens": 61,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls"
+        },
+        {
+          "i": 2,
+          "tool": "run_shell",
+          "text": "Let me get the complete content of the untrusted-content.ts file to understand the wrapper escape defense mechanisms:",
+          "inputTokens": 3077,
+          "outputTokens": 52,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls"
+        },
+        {
+          "i": 3,
+          "tool": "run_shell",
+          "text": "Let me get more specific information about the key functions mentioned in the task:",
+          "inputTokens": 3251,
+          "outputTokens": 63,
           "reasoningTokens": 0,
           "finishReason": "tool-calls",
           "elidedChars": 2602
         },
         {
-          "i": 5,
-          "tool": "submit_candidates",
-          "text": "Based on my analysis of the code, I found the prompt injection vulnerability related to wrapper-escape defense. Here's wh…(len 1175)",
-          "inputTokens": 3264,
-          "outputTokens": 547,
+          "i": 4,
+          "tool": "run_shell",
+          "text": "Let me check the security-hunt-sandbox.ts file first since it was mentioned as containing the child-process sink:",
+          "inputTokens": 2454,
+          "outputTokens": 61,
           "reasoningTokens": 0,
           "finishReason": "tool-calls",
-          "elidedChars": 4906
+          "elidedChars": 5204
+        },
+        {
+          "i": 5,
+          "tool": "run_shell",
+          "text": "Let me examine the security-hunt-sandbox.ts file around the runHuntShell function to understand the child process execution:",
+          "inputTokens": 2576,
+          "outputTokens": 67,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 5204
+        },
+        {
+          "i": 6,
+          "tool": "run_shell",
+          "text": "Let me check the task-context.ts file which was mentioned as one of the places where the wrapper functionality is used:",
+          "inputTokens": 3192,
+          "outputTokens": 63,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 5204
+        },
+        {
+          "i": 7,
+          "tool": "run_shell",
+          "text": "Let me check the actual content of the key files to understand the implementation:",
+          "inputTokens": 2770,
+          "outputTokens": 48,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 6908
+        },
+        {
+          "i": 8,
+          "tool": "submit_candidates",
+          "text": "Based on my analysis of the code, I found the key components related to the wrapper-escape defense mechanism. From the content I examined, I can see that there are functions designed to handle untrusted content and prevent wrapper escapes in the shared/src/untrusted-content.ts file.\n\nHowever, I need",
+          "inputTokens": 3600,
+          "outputTokens": 139,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 6908
         }
       ],
       "stop": {
         "by": "submitted",
-        "spent": 14752,
-        "budget": 20000,
+        "spent": 23602,
+        "budget": 30000,
         "reserve": 4000,
-        "lastStep": 3811,
-        "next": 3811,
-        "steps": 5
+        "lastStep": 3739,
+        "next": 3739,
+        "steps": 8
       },
       "wrapUp": {
         "ran": false,
         "skipped": "submitted"
       },
-      "submitted": [
-        {
-          "category": "prompt_injection",
-          "cwe": "CWE-1427",
-          "severity": "HIGH",
-          "sink": {
-            "symbol": "runHuntShell",
-            "file": "shared/src/untrusted-content.ts",
-            "line": 247
-          },
-          "entry": {
-            "symbol": "neutralizeWrapperEscapes",
-            "file": "shared/src/untrusted-content.ts",
-            "line": 247
-          },
-          "call_chain": [
-            {
-              "from": "shared/src/untrusted-content.ts#neutralizeWrapperEscapes",
-              "to": "lib/security-scan/hunt/task-context.ts#buildHuntContext@247"
-            },
-            {
-              "from": "lib/security-scan/hunt/task-context.ts#buildHuntContext@247",
-              "to": "lib/services/security-hunt-sandbox.ts#runHuntShell@247"
-            }
-          ],
-          "precondition": "An attacker controls input that contains forged wrapper closing tags with mixed case, interior whitespace, or Unicode variants like '(/system-reminder)' or '(/untrusted-linked-context)'",
-          "claim": "The wrapper-escape defense in neutralizeWrapperEscapes does not properly handle case/whitespace/unicode variants, allowing attackers to break out of untrusted content wrappers and inject instructions that will be executed as shell commands through runHuntShell."
-        }
-      ]
+      "submitted": []
     },
     {
       "taskId": "t3",
@@ -277,16 +351,16 @@
       "category": "prompt_injection",
       "model": "alibaba/qwen3-coder-plus",
       "candidates": 0,
-      "tokens": 13575,
-      "elapsedMs": 12722,
+      "tokens": 24969,
+      "elapsedMs": 23061,
       "stopped": "done",
       "shell": {
-        "calls": 4,
+        "calls": 8,
         "refused": 0,
         "failed": 0,
         "notFound": 0,
-        "empty": 1,
-        "outputChars": 4713,
+        "empty": 2,
+        "outputChars": 5163,
         "commands": [
           {
             "cmd": "rg -n \"task…(len 78)\" --type=ts",
@@ -305,9 +379,29 @@
             "exit": 0
           },
           {
-            "cmd": "rg -n \"arti…(len 35)\" --type=ts | head -10",
-            "chars": 815,
+            "cmd": "rg -n \"arti…(len 35)\" lib/",
+            "chars": 219,
             "exit": 0
+          },
+          {
+            "cmd": "sed -n '175,…(len 8)' lib/services/task-context.service.ts",
+            "chars": 803,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \"arti…(len 15)\" lib/services/task-context.service.ts",
+            "chars": 159,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -n \"rend…(len 21)\" lib/services/task-context.service.ts",
+            "chars": 84,
+            "exit": 0
+          },
+          {
+            "cmd": "rg -A 10 -B 2 \"cons…(len 27)\" lib/services/task-context.service.ts",
+            "chars": 0,
+            "exit": 1
           }
         ],
         "stepClipped": 1
@@ -316,18 +410,18 @@
         {
           "i": 1,
           "tool": "run_shell",
-          "text": "I'll i…(len 291)'s look at the starting point files to understand the current implementation:",
+          "text": "I'll e…(len 114)'t bypass it to land raw in prompts. Let me start by looking at the service files mentioned.",
           "inputTokens": 2130,
-          "outputTokens": 113,
+          "outputTokens": 88,
           "reasoningTokens": 0,
           "finishReason": "tool-calls"
         },
         {
           "i": 2,
           "tool": "run_shell",
-          "text": "Let me check the specific files mentioned in the starting points:",
-          "inputTokens": 2301,
-          "outputTokens": 41,
+          "text": "Let me check the specific files directly:",
+          "inputTokens": 2276,
+          "outputTokens": 37,
           "reasoningTokens": 0,
           "finishReason": "tool-calls"
         },
@@ -335,7 +429,7 @@
           "i": 3,
           "tool": "run_shell",
           "text": "Let me get the rest of the task-artifact service file:",
-          "inputTokens": 3080,
+          "inputTokens": 3051,
           "outputTokens": 52,
           "reasoningTokens": 0,
           "finishReason": "tool-calls"
@@ -343,32 +437,72 @@
         {
           "i": 4,
           "tool": "run_shell",
-          "text": "Let me check how artifacts are used in prompts by looking for references to task artifacts in prompt-related code:",
-          "inputTokens": 2822,
-          "outputTokens": 63,
+          "text": "Let me check how artifacts are used in prompts by examining where they might be incorporated:",
+          "inputTokens": 2793,
+          "outputTokens": 51,
           "reasoningTokens": 0,
           "finishReason": "tool-calls",
           "elidedChars": 2601
         },
         {
           "i": 5,
-          "tool": "submit_candidates",
-          "text": "Based on my analysis of the prompt injection issue, I found that several service files handle untrusted content that could potentially reach LLM prompts without proper sanitization. However, due to the limited information I was able to retrieve from the codebase, I cannot definitively confirm the ex",
-          "inputTokens": 2881,
-          "outputTokens": 92,
+          "tool": "run_shell",
+          "text": "Let me check the task-context service where artifacts are pre-rendered to see if proper sanitization occurs:",
+          "inputTokens": 2590,
+          "outputTokens": 61,
           "reasoningTokens": 0,
           "finishReason": "tool-calls",
           "elidedChars": 3898
+        },
+        {
+          "i": 6,
+          "tool": "run_shell",
+          "text": "Let me check where the artifact content is actually constructed and whether it passes through untrusted-content:",
+          "inputTokens": 2890,
+          "outputTokens": 53,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 4117
+        },
+        {
+          "i": 7,
+          "tool": "run_shell",
+          "text": "Let me check the renderArtifactSection function to see if it properly sanitizes content:",
+          "inputTokens": 2778,
+          "outputTokens": 52,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 4920
+        },
+        {
+          "i": 8,
+          "tool": "run_shell",
+          "text": "Let me find the actual implementation of renderArtifactSection:",
+          "inputTokens": 2851,
+          "outputTokens": 54,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 5079
+        },
+        {
+          "i": 9,
+          "tool": "submit_candidates",
+          "text": "Based on my analysis of the provided code, I can see that the system has implemented proper sanitization measures. The key finding is that the `rend…(len 21)` function (at line 1245 in lib/services/task-context.service.ts) properly wraps artifact content with the `untr…(len 16)` function before incl",
+          "inputTokens": 2938,
+          "outputTokens": 224,
+          "reasoningTokens": 0,
+          "finishReason": "tool-calls",
+          "elidedChars": 5079
         }
       ],
       "stop": {
         "by": "submitted",
-        "spent": 13575,
-        "budget": 20000,
+        "spent": 24969,
+        "budget": 30000,
         "reserve": 4000,
-        "lastStep": 2973,
-        "next": 2973,
-        "steps": 5
+        "lastStep": 3162,
+        "next": 3162,
+        "steps": 9
       },
       "wrapUp": {
         "ran": false,
@@ -378,10 +512,10 @@
     }
   ],
   "acceptance": {
-    "done": 3,
-    "minSteps": 5,
+    "done": 2,
+    "minSteps": 8,
     "refused": 0,
-    "clipped": 2,
+    "clipped": 4,
     "pass": true
   }
 }
