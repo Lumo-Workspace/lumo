@@ -325,11 +325,12 @@ function formatSecurityAction(a: SecurityAction): string {
   // line has to say WHY it is LOW — otherwise a placeholder the scanner already
   // recognised reads as an unexplained credential.
   const note = sanitizeField(secretDowngradeNote(a.secretDowngrade))
-  return `[${a.severity}] ${a.provenance} ${sanitizeField(a.ruleId)} — ${sanitizeField(where)} — ${title} (PR #${a.prNumber} · ${tag}${note})`
+  // LUM-750: the id is what the user passes to `lumo finding disposition`.
+  return `[${a.severity}] ${a.provenance} ${sanitizeField(a.ruleId)} — ${sanitizeField(where)} — ${title} (PR #${a.prNumber} · ${tag}${note} · id ${sanitizeField(a.findingId)})`
 }
 
 const SECURITY_HINT =
-  'Fix the findings and push (a fixed finding disappears on the next scan), or ask a human to disposition them in the web delivery panel — disposition is human-only, you cannot disposition them yourself, and a blocking finding refuses DONE with 409.'
+  "Fix the findings and push (a fixed finding disappears on the next scan), or relay them to the user — disposition is the user's call: they run `lumo finding disposition <id> --false-positive | --accept-risk --task <LUM-N>` in their OWN terminal (refused inside an agent session; an agent-issued run is recorded as SELF_DISPOSITION and rolled back) or rule in the web delivery panel. You cannot disposition them yourself, and a blocking finding refuses DONE with 409."
 
 /** Render the `[SECURITY]` next-action lines (LUM-737 review): shared by the
  *  criteria-present Next actions block and the zero-criteria early return so
@@ -1025,7 +1026,7 @@ function pushOpenCrossings(lines: string[], extras: TaskStatusExtras): void {
     lines.push(`    ${formatAttribution(c.attribution)}`)
   }
   lines.push(
-    "  Disposition is the user's call: relay each crossing, then `lumo crossing disposition <id> --false-positive | --confirmed` (exit-4 envelope; never self-approve), or the web acceptance panel:"
+    "  Disposition is the user's call: relay each crossing; the user runs `lumo crossing disposition <id> --false-positive | --confirmed --task <LUM-N>` in their OWN terminal (refused inside an agent session — an agent-issued run is recorded as SELF_DISPOSITION and rolled back), or rules in the web acceptance panel:"
   )
   if (extras.dispositionUrl) {
     lines.push(`    ${extras.dispositionUrl}`)

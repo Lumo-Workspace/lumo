@@ -34,6 +34,15 @@ describe('LUM-736 L4 Session Guard taxonomy', () => {
   })
 })
 
+describe('LUM-750 SELF_DISPOSITION taxonomy', () => {
+  it('is HIGH severity (always a human decision, never below the gate)', () => {
+    expect(severityFor('SELF_DISPOSITION')).toBe('HIGH')
+  })
+  it('is irreversible', () => {
+    expect(isReversible('SELF_DISPOSITION')).toBe(false)
+  })
+})
+
 describe('reversibility taxonomy — world/external-state boundary (LUM-516)', () => {
   const REVERSIBLE: BoundaryCrossingCategory[] = [
     'NEW_NPM_DEPENDENCY',
@@ -60,6 +69,9 @@ describe('reversibility taxonomy — world/external-state boundary (LUM-516)', (
     'EXFILTRATION_PUBLIC',
     'CLOUD_DATA_DELETION',
     'INFRA_TERMINATION',
+    // LUM-750: an agent ruling on its own blocker — the ruling is rolled back,
+    // but the act itself is not undone by any repo operation.
+    'SELF_DISPOSITION',
   ]
   // Target-dependent categories are classified per-origin, not as a whole —
   // covered by their own describe block below.

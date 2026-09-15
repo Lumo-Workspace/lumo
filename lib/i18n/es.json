@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "editó una ruta sensible",
   "boundary.category.HOOK_BYPASS": "omitió los hooks de git",
   "boundary.category.TEST_FILE_DELETED": "eliminó un archivo de prueba",
+  "boundary.category.SELF_DISPOSITION": "disposición emitida por el agente (revertida)",
   "boundary.advisoryBadge": "Aviso",
   "boundary.severity.high": "alta",
   "boundary.severity.medium": "media",
@@ -2370,5 +2371,7 @@
   "boundary.panel.viaCli": "· vía CLI",
   "boundary.panel.viaCliTip": "Resuelto desde la terminal con lumo crossing disposition --confirm: el agente transmitió el cruce y el usuario lo aprobó en el chat. Corrígelo aquí si esa aprobación no fue tuya.",
   "activity.boundaryRejudged": "reevaluó el cruce de límites como aviso — su causa ya no se sostiene ({reason})",
+  "activity.securityFindingDispositioned": "clasificó un hallazgo de seguridad como {to} desde la CLI",
+  "activity.securityFindingReopened": "reabrió un hallazgo de seguridad (era {from}): la decisión la emitió el agente y se revirtió",
   "boundary.panel.rejudged": "Reevaluado por el sistema — ya no bloquea Done: {evidence}"
 }

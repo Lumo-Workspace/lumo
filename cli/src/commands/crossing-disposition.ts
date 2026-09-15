@@ -4,6 +4,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { emitConfirmation } from '../lib/confirmation'
 import { resolveBoundTask } from '../lib/bound-task'
 import { dispositionUrl } from '../lib/open-crossings'
+import { agentSessionRefusal, insideAgentSession } from '../lib/agent-env-guard'
 
 export interface CrossingDispositionOptions {
   falsePositive?: boolean
@@ -140,16 +141,31 @@ export function describeRulingConfirmation(
  *
  * Skipping or reordering a step is refused at the CLI before any request
  * where it can be told locally (no receipt, a stage-1 receipt with --confirm,
- * a stage-2 receipt with --confirm-read) and by the server otherwise. The
- * agent relays each envelope and never supplies a step flag on its own.
+ * a stage-2 receipt with --confirm-read) and by the server otherwise.
  * Server-side the ruling is stamped `channel: 'CLI'` so the audit trail keeps
  * it apart from a web-panel click. What stays web-only: reverting to OPEN and
  * the repository suppression rule — neither exists on this path.
+ *
+ * LUM-750 — who runs it: the USER, in their own terminal. The handshake
+ * cannot prove a human ticked each step when an agent relays them, so inside
+ * an agent session (CLAUDE_CODE_SESSION_ID / CLAUDECODE set) the command
+ * refuses before any request and tells the agent to hand the row to the
+ * user. Outside a session there is no binding, so `--task <LUM-N>` names the
+ * task. An agent-issued run that dodges the guard is recorded by the boundary
+ * detector as a SELF_DISPOSITION crossing (HIGH) and its ruling rolled back.
  */
 export async function crossingDisposition(
   crossingId: string | undefined,
   options: CrossingDispositionOptions = {}
 ): Promise<number | void> {
+  if (insideAgentSession()) {
+    console.error(
+      agentSessionRefusal(
+        `lumo crossing disposition ${crossingId?.trim() || '<id>'} --false-positive | --confirmed`
+      )
+    )
+    return 1
+  }
   if (!crossingId || crossingId.trim() === '') {
     console.error(
       'Error: a crossing id is required: lumo crossing disposition <id> --false-positive | --confirmed'

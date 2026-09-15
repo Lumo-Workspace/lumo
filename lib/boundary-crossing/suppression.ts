@@ -20,6 +20,9 @@ export const NON_SUPPRESSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> 
     'EXFILTRATION_PUBLIC',
     'CLOUD_DATA_DELETION',
     'INFRA_TERMINATION',
+    // LUM-750: an agent ruling on its own blocker is never a repository-wide
+    // false positive — no rule may ever auto-clear it.
+    'SELF_DISPOSITION',
   ])
 
 export function isSuppressibleCategory(c: BoundaryCrossingCategory): boolean {

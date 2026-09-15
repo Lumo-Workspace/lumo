@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "menyunting laluan sensitif",
   "boundary.category.HOOK_BYPASS": "memintas git hook",
   "boundary.category.TEST_FILE_DELETED": "memadam fail ujian",
+  "boundary.category.SELF_DISPOSITION": "disposisi yang dikeluarkan ejen (dibatalkan)",
   "boundary.advisoryBadge": "Nasihat",
   "boundary.severity.high": "tinggi",
   "boundary.severity.medium": "sederhana",
@@ -2370,5 +2371,7 @@
   "boundary.panel.viaCli": "· melalui CLI",
   "boundary.panel.viaCliTip": "Diputuskan dari terminal dengan lumo crossing disposition --confirm: ejen menyampaikan pelanggaran sempadan dan pengguna meluluskannya dalam sembang. Betulkan di sini jika kelulusan itu bukan daripada anda.",
   "activity.boundaryRejudged": "menilai semula pelanggaran sempadan sebagai nasihat — puncanya tidak lagi berlaku ({reason})",
+  "activity.securityFindingDispositioned": "menetapkan penemuan keselamatan sebagai {to} melalui CLI",
+  "activity.securityFindingReopened": "membuka semula penemuan keselamatan (sebelumnya {from}) — keputusan dibuat oleh ejen dan telah dibatalkan",
   "boundary.panel.rejudged": "Dinilai semula oleh sistem — tidak lagi menyekat Done: {evidence}"
 }

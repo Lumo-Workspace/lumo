@@ -61,15 +61,48 @@ export interface ReceiptCrossingState {
   explanationIds: string[]
 }
 
+/**
+ * LUM-750: what a receipt is about. `crossing` (LUM-769, the default) binds
+ * one boundary crossing; `finding` binds one PR security finding; `findings`
+ * binds the whole set of suggested-false-positive findings on a task (the
+ * `--all-suggested-fp` bulk ruling). The kind is part of the signed message,
+ * so a receipt issued for a crossing can never be presented for a finding
+ * whose id happens to collide, and vice versa.
+ */
+export type ReceiptSubjectKind = 'crossing' | 'finding' | 'findings'
+
+/** The rulings a receipt can be bound to, across every subject kind. */
+export type ReceiptTarget = 'FALSE_POSITIVE' | 'CONFIRMED' | 'ACCEPTED_RISK'
+
 export interface ReceiptSubject {
+  /**
+   * The subject id: the crossing id (kind `crossing`), the finding id (kind
+   * `finding`), or the bulk key `task:<taskId>` (kind `findings`). Named for
+   * the LUM-769 origin; the kind says what it is.
+   */
   crossingId: string
+  /** Defaults to `crossing` when absent (LUM-769 callers and tokens). */
+  kind?: ReceiptSubjectKind
   taskId: string
-  target: 'FALSE_POSITIVE' | 'CONFIRMED'
+  target: ReceiptTarget
   /** Caller session (X-Lumo-Session-Id); null when the CLI ran unbound. */
   sessionId: string | null
   /** Workspace member behind the bearer key. */
   memberId: string
   stateHash: string
+}
+
+/** LUM-750: the finding fields whose change must void an outstanding receipt
+ *  — the ruling, the severity/provenance the envelope showed, the fingerprint
+ *  and rule the row stands for, and the falsifier's suggestion (a bulk
+ *  ruling's whole premise). */
+export interface ReceiptFindingState {
+  disposition: string | null
+  severity: string
+  provenance: string
+  fingerprint: string
+  ruleId: string
+  suggestedDisposition: string | null
 }
 
 export interface IssuedReceipt {
@@ -114,6 +147,35 @@ export function crossingStateHash(state: ReceiptCrossingState): string {
   return createHash('sha256').update(canonical, 'utf8').digest('hex')
 }
 
+/** LUM-750: deterministic digest of one finding's receipt-relevant state. */
+export function findingStateHash(state: ReceiptFindingState): string {
+  const canonical = JSON.stringify([
+    state.disposition ?? null,
+    state.severity,
+    state.provenance,
+    state.fingerprint,
+    state.ruleId,
+    state.suggestedDisposition ?? null,
+  ])
+  return createHash('sha256').update(canonical, 'utf8').digest('hex')
+}
+
+/**
+ * LUM-750: digest of a SET of findings for the bulk ruling — each row's id and
+ * state, sorted by id so order never matters. A row joining or leaving the set
+ * (a new scan, a ruling in between) or changing state voids the receipt.
+ */
+export function findingsSetStateHash(
+  rows: Array<{ id: string } & ReceiptFindingState>
+): string {
+  const canonical = JSON.stringify(
+    [...rows]
+      .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+      .map(r => [r.id, findingStateHash(r)])
+  )
+  return createHash('sha256').update(canonical, 'utf8').digest('hex')
+}
+
 function message(
   stage: ReceiptStage,
   subject: ReceiptSubject,
@@ -121,8 +183,12 @@ function message(
   iat: number,
   exp: number
 ): string {
+  // LUM-750: the kind is signed in for the non-crossing subjects; a crossing
+  // subject keeps the LUM-769 message byte-for-byte (tokens stay valid).
+  const kind = subject.kind ?? 'crossing'
   return [
     STAGE_PREFIX[stage],
+    ...(kind === 'crossing' ? [] : [`kind=${kind}`]),
     subject.crossingId,
     subject.taskId,
     subject.target,
@@ -258,4 +324,29 @@ export function readReceiptSecret(
 ): string | null {
   const s = env.LUMO_RECEIPT_SECRET || env.CRON_SECRET
   return s && s.length > 0 ? s : null
+}
+
+/**
+ * LUM-750: the human-readable refusal for a receipt failure, naming the step
+ * the caller must run next. Shared by every handshake-gated write so the
+ * crossing and finding paths refuse in the same words. `step` is the flag the
+ * failed request carried (`--confirm-read` or `--confirm`).
+ */
+export function describeReceiptFailure(
+  failure: ReceiptFailure,
+  step: '--confirm-read' | '--confirm',
+  subject: 'crossing' | 'finding' | 'findings' = 'crossing'
+): string {
+  const noun =
+    subject === 'findings' ? 'the suggested findings' : `the ${subject}`
+  switch (failure.reason) {
+    case 'not_acknowledged':
+      return 'read not yet acknowledged — run the command with --confirm-read (the receipt from the envelope) first; only the receipt that step returns is accepted with --confirm'
+    case 'expired':
+      return `the read receipt has expired. Re-run the command without ${step} to read ${noun} again and get a fresh envelope`
+    case 'malformed':
+      return `the read receipt is malformed. Re-run the command without ${step} to get a fresh envelope`
+    default:
+      return `the read receipt does not match ${noun}, ruling, caller, or ${noun} changed since it was read. Re-run the command without ${step} to read ${noun} again and get a fresh envelope`
+  }
 }

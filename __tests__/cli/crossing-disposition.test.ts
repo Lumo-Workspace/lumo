@@ -60,6 +60,7 @@ let stderr: string[]
 const savedArgv = process.argv
 const savedIsTTY = process.stdout.isTTY
 const savedSession = process.env.CLAUDE_CODE_SESSION_ID
+const savedClaudeCode = process.env.CLAUDECODE
 
 /** Route each URL the command may hit. */
 function routeFetch(
@@ -136,7 +137,11 @@ beforeEach(() => {
     value: false,
     configurable: true,
   })
-  process.env.CLAUDE_CODE_SESSION_ID = 'sess-1'
+  // LUM-750: the command is the user's, run in a plain terminal — no agent
+  // markers, the task named by --task (see disposition-env-guard.test.ts for
+  // the refusal inside an agent session).
+  delete process.env.CLAUDE_CODE_SESSION_ID
+  delete process.env.CLAUDECODE
   process.argv = [
     'node',
     'lumo',
@@ -157,6 +162,8 @@ afterEach(() => {
   })
   if (savedSession === undefined) delete process.env.CLAUDE_CODE_SESSION_ID
   else process.env.CLAUDE_CODE_SESSION_ID = savedSession
+  if (savedClaudeCode === undefined) delete process.env.CLAUDECODE
+  else process.env.CLAUDECODE = savedClaudeCode
 })
 
 function envelope() {
@@ -184,9 +191,13 @@ function receiptCalls() {
   )
 }
 
+/** The user's invocation: --task names the task (a plain terminal has no binding). */
+const run = (o: Parameters<typeof crossingDisposition>[1]) =>
+  crossingDisposition('cx-1', { task: 'LUM-741', ...o })
+
 describe('crossing disposition', () => {
   it('without --confirm: prints the envelope on stdout, exits 4, sends no write', async () => {
-    const code = await crossingDisposition('cx-1', { falsePositive: true })
+    const code = await run({ falsePositive: true })
     expect(code).toBe(EXIT_CONFIRMATION_REQUIRED)
     expect(writes()).toHaveLength(0)
     expect(stderr).toEqual([])
@@ -258,7 +269,7 @@ describe('crossing disposition', () => {
 
   it('receipt: step 2 --confirm-read acknowledges the read (no write) and prints the ruling envelope carrying the stage-2 receipt and --confirm', async () => {
     process.argv.push('--receipt', R1, '--confirm-read')
-    const code = await crossingDisposition('cx-1', {
+    const code = await run({
       falsePositive: true,
       note: 'covered elsewhere',
       confirmRead: true,
@@ -299,7 +310,7 @@ describe('crossing disposition', () => {
       R2,
       '--confirm'
     )
-    const code = await crossingDisposition('cx-1', {
+    const code = await run({
       falsePositive: true,
       note: 'covered elsewhere',
       confirm: true,
@@ -315,9 +326,10 @@ describe('crossing disposition', () => {
       dispositionNote: 'covered elsewhere',
       receipt: R2,
     })
-    expect((init.headers as Record<string, string>)['X-Lumo-Session-Id']).toBe(
-      'sess-1'
-    )
+    // A plain terminal has no session to attribute.
+    expect(
+      (init.headers as Record<string, string>)['X-Lumo-Session-Id']
+    ).toBeUndefined()
     const out = stdout.join('')
     expect(out).toContain('✓ Dispositioned crossing cx-1 as FALSE_POSITIVE')
     expect(out).toContain('clears its block on moving LUM-741 to DONE')
@@ -325,7 +337,7 @@ describe('crossing disposition', () => {
   })
 
   it('with --confirm: --confirmed sends CONFIRMED with no note field when none was given', async () => {
-    await crossingDisposition('cx-1', {
+    await run({
       confirmed: true,
       confirm: true,
       receipt: R2,
@@ -340,7 +352,7 @@ describe('crossing disposition', () => {
   it('with --confirm: --task overrides the session binding and a server refusal is a plain exit 1', async () => {
     delete process.env.CLAUDE_CODE_SESSION_ID
     routeFetch({ post: jsonResponse(403, { error: 'nope' }) })
-    const code = await crossingDisposition('cx-1', {
+    const code = await run({
       confirmed: true,
       confirm: true,
       receipt: R2,
@@ -357,7 +369,7 @@ describe('crossing disposition', () => {
 
   it('fails closed when the crossing read errors: no envelope, no write, exit 1', async () => {
     routeFetch({ crossings: jsonResponse(500, { error: 'boom' }) })
-    const code = await crossingDisposition('cx-1', {
+    const code = await run({
       falsePositive: true,
       confirm: true,
       receipt: R2,
@@ -372,14 +384,14 @@ describe('crossing disposition', () => {
 
   it('fails closed when the crossing is not on the task, and when no ruling flag or both are given', async () => {
     routeFetch({ crossings: jsonResponse(200, { crossings: [] }) })
-    expect(await crossingDisposition('cx-1', { falsePositive: true })).toBe(1)
+    expect(await run({ falsePositive: true })).toBe(1)
     expect(stderr.join('\n')).toContain('crossing cx-1 not found on LUM-741')
     expect(writes()).toHaveLength(0)
 
     stderr = []
-    expect(await crossingDisposition('cx-1', {})).toBe(1)
+    expect(await run({})).toBe(1)
     expect(
-      await crossingDisposition('cx-1', {
+      await run({
         falsePositive: true,
         confirmed: true,
       })
@@ -395,7 +407,7 @@ describe('crossing disposition', () => {
         crossings: [{ ...CROSSING, disposition: 'FALSE_POSITIVE' }],
       }),
     })
-    const code = await crossingDisposition('cx-1', { falsePositive: true })
+    const code = await run({ falsePositive: true })
     expect(code).toBeUndefined()
     expect(writes()).toHaveLength(0)
     expect(receiptCalls()).toHaveLength(0)
@@ -406,7 +418,7 @@ describe('crossing disposition', () => {
     routeFetch({ session: jsonResponse(200, { taskIdentifier: null }) })
     const code = await crossingDisposition('cx-1', { falsePositive: true })
     expect(code).toBe(1)
-    expect(stderr.join('\n')).toContain('not bound to a task')
+    expect(stderr.join('\n')).toMatch(/not set|not bound/)
     expect(
       fetchMock.mock.calls.some(([u]) =>
         String(u).endsWith('/boundary-crossings')
@@ -415,7 +427,7 @@ describe('crossing disposition', () => {
   })
 
   it('receipt: the read step obtains a stage-1 receipt (no write) and the envelope carries it in confirmCommand and as a field', async () => {
-    const code = await crossingDisposition('cx-1', { falsePositive: true })
+    const code = await run({ falsePositive: true })
     expect(code).toBe(EXIT_CONFIRMATION_REQUIRED)
     expect(receiptCalls()).toHaveLength(1)
     const [url, init] = receiptCalls()[0] as [string, RequestInit]
@@ -438,7 +450,7 @@ describe('crossing disposition', () => {
         error: 'Read-receipt signing is not configured',
       }),
     })
-    const code = await crossingDisposition('cx-1', { falsePositive: true })
+    const code = await run({ falsePositive: true })
     expect(code).toBe(1)
     expect(stdout.join('')).toBe('')
     expect(stderr.join('\n')).toMatch(
@@ -447,7 +459,7 @@ describe('crossing disposition', () => {
   })
 
   it('receipt: --confirm without --receipt is refused locally before any request', async () => {
-    const code = await crossingDisposition('cx-1', {
+    const code = await run({
       falsePositive: true,
       confirm: true,
     })
@@ -460,7 +472,7 @@ describe('crossing disposition', () => {
   })
 
   it('receipt: confirming the ruling before the read is acknowledged is refused locally and told to confirm the read first', async () => {
-    const code = await crossingDisposition('cx-1', {
+    const code = await run({
       falsePositive: true,
       confirm: true,
       receipt: R1,
@@ -480,7 +492,7 @@ describe('crossing disposition', () => {
       }),
     })
     // A token the CLI cannot classify locally (crafted prefix) goes to the server.
-    const code = await crossingDisposition('cx-1', {
+    const code = await run({
       falsePositive: true,
       confirm: true,
       receipt: 'r2.forged',
@@ -493,7 +505,7 @@ describe('crossing disposition', () => {
 
   it('receipt: --confirm-read without a receipt, with a stage-2 receipt, or together with --confirm is refused locally', async () => {
     expect(
-      await crossingDisposition('cx-1', {
+      await run({
         falsePositive: true,
         confirmRead: true,
       })
@@ -503,7 +515,7 @@ describe('crossing disposition', () => {
     )
     stderr = []
     expect(
-      await crossingDisposition('cx-1', {
+      await run({
         falsePositive: true,
         confirmRead: true,
         receipt: R2,
@@ -514,7 +526,7 @@ describe('crossing disposition', () => {
     )
     stderr = []
     expect(
-      await crossingDisposition('cx-1', {
+      await run({
         falsePositive: true,
         confirmRead: true,
         confirm: true,
@@ -534,7 +546,7 @@ describe('crossing disposition', () => {
           'Refused: the read receipt has expired. Re-run the command without --confirm-read to read the crossing again and get a fresh envelope.',
       }),
     })
-    const code = await crossingDisposition('cx-1', {
+    const code = await run({
       falsePositive: true,
       confirmRead: true,
       receipt: R1,
@@ -553,7 +565,7 @@ describe('crossing disposition', () => {
           'Refused: the read receipt has expired. Re-run the command without --confirm to read the crossing again and get a fresh envelope.',
       }),
     })
-    const code = await crossingDisposition('cx-1', {
+    const code = await run({
       falsePositive: true,
       confirm: true,
       receipt: 'r2.1.2.3.old',
