@@ -24,6 +24,10 @@ DOTENV_CONFIG_PATH="$(pwd)/.env.local" npx tsx -r dotenv/config \
 compressor is off by default (LUM-787); set
 `LUMO_HUNT_COMPRESS=on` to replay with it on and compare.
 
+The replay sizes itself like the workflow (`plannedTaskCap`,
+`allocateTaskBudgets`, `isOversized` from `lib/security-scan/hunt/allocation.ts`)
+and prints the `sizing:` line before the tasks run.
+
 Flags: `--repo owner/repo` (default `Lumo-Workspace/lumo`), `--tasks <file>`
 (default `pr<N>-tasks.json` beside the script), `--out <file>` (default
 `results-pr<N>.json` beside the script), `--diff-file <file>` (skip `gh pr
@@ -44,9 +48,14 @@ The `acceptance` block at the end applies LUM-787's contract: ≥ 2 of 3 tasks
 
 `results-pr*.json` files are run output; the committed `results-pr1008.json`
 is the pre-deploy evidence attached to LUM-787: PR 1008 (head `02cf887c`)
-on the shipped `HUNT_MODEL` (qwen3-coder-plus) at the raised 30k per-task
-ceiling — 2/3 `done`, 9 / 8 / 9 steps, refused 0, 23.6–26.8k tokens per
-task (the 20k run of the same model went 3/3 `done` at 6 / 5 / 5 steps). The fix itself was tuned on
+on the shipped `HUNT_MODEL` (qwen3-coder-plus) sized the way the workflow
+sizes a scan — 51 touched source files → cap 5, oversized; three planned
+tasks each allocated the 45k ceiling and a 90 s window — 3/3 `done`,
+14 / 13 / 12 steps, refused 0, 37–41k tokens per task. Earlier rungs of the
+same model on the same diff: flat 20k → 3/3 `done` at 6 / 5 / 5 steps; flat
+30k → 2/3 at 9 / 8 / 9; 45k with the old 12-step cap → 2/3, all three at
+12 steps with 6–12k unspent (which is why the cap moved to 16 and the window
+follows the allowance). The fix itself was tuned on
 DeepSeek V4-Pro over three replays, 2026-09-15:
 
 | run | change under test                                                     | result                                                                                                                                                                                                     |
