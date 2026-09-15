@@ -11,7 +11,9 @@ jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { generateObject } from 'ai'
 import {
+  buildPlanPrompt,
   planHuntTasks,
+  PlanPromptInputSchema,
   PLAN_SYSTEM_PROMPT,
 } from '@/lib/llm/security-hunt-plan-client'
 import {
@@ -555,5 +557,39 @@ describe('LUM-758 hunt plan client', () => {
       `Propose AT MOST ${HUNT_MAX_PLANNED_TASKS} tasks.`
     )
     expect(gen.mock.calls[1]![0].system).toBe(PLAN_SYSTEM_PROMPT)
+  })
+
+  // LUM-787 follow-up — the inputs are bounded by a schema before they are
+  // rendered (parse first, then prompt). The bounds truncate, never reject:
+  // an oversized PR is planned from a prefix of its inputs, not degraded to
+  // the deterministic fallback by a validation throw.
+  it('LUM-787 follow-up: the planner inputs are parsed through a truncating schema before the prompt', async () => {
+    const huge = {
+      ...INPUT,
+      reasons: Array.from({ length: 700 }, (_, i) => `diff:sink:r${i}`),
+      touchedPaths: Array.from({ length: 6_000 }, (_, i) => `lib/f${i}.ts`),
+      findings: [
+        {
+          severity: 'HIGH',
+          ruleId: 'x'.repeat(10_000),
+          title: 'y'.repeat(10_000),
+        },
+      ],
+      taskContext: `<untrusted-task-context>${'z'.repeat(300_000)}</untrusted-task-context>`,
+    }
+    const parsed = PlanPromptInputSchema.parse(huge)
+    expect(parsed.reasons).toHaveLength(500)
+    expect(parsed.touchedPaths).toHaveLength(5_000)
+    expect(parsed.findings[0]!.ruleId).toHaveLength(4_000)
+    expect(parsed.taskContext).toHaveLength(200_000)
+    // …and the call site goes through it: the prompt the model gets is the
+    // bounded one, still clipped to the prompt ceiling downstream.
+    gen.mockResolvedValueOnce({
+      object: { tasks: [], reason: 'nothing' },
+      usage: { totalTokens: 10 },
+    })
+    await planHuntTasks(huge)
+    expect(gen.mock.calls[0]![0].prompt).toBe(buildPlanPrompt(parsed))
+    expect(gen.mock.calls[0]![0].prompt.length).toBeLessThanOrEqual(20_100)
   })
 })

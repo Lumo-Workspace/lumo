@@ -140,6 +140,44 @@ const MaxTasksSchema = z
   .max(HUNT_MAX_PLANNED_TASKS_CEILING)
 
 /**
+ * LUM-787 follow-up — the planner's inputs are bounded by a schema before
+ * they are rendered into the prompt (`lumo.llm.untrusted-input-in-ai-sdk-
+ * prompt`: parse first, then prompt). Everything here is attacker-adjacent —
+ * file names from the PR, finding titles the judge wrote after reading the
+ * raw diff, the task block the PR author can write — and `buildPlanPrompt`
+ * neutralises each line; this layer caps how MUCH of it may arrive. Caps
+ * TRUNCATE rather than reject: a PR with 6 000 touched files must still be
+ * planned, just from the first 5 000 of them, and a rejection here would
+ * silently degrade the scan to the deterministic fallback.
+ */
+const PLAN_INPUT_REASONS_MAX = 500
+const PLAN_INPUT_PATHS_MAX = 5_000
+const PLAN_INPUT_FINDINGS_MAX = 2_000
+const PLAN_INPUT_TEXT_MAX = 4_000
+const PLAN_INPUT_CONTEXT_MAX = 200_000
+const bounded = (max: number) =>
+  z.string().transform(s => (s.length > max ? s.slice(0, max) : s))
+export const PlanPromptInputSchema = z.object({
+  reasons: z
+    .array(bounded(PLAN_INPUT_TEXT_MAX))
+    .transform(a => a.slice(0, PLAN_INPUT_REASONS_MAX)),
+  touchedPaths: z
+    .array(bounded(PLAN_INPUT_TEXT_MAX))
+    .transform(a => a.slice(0, PLAN_INPUT_PATHS_MAX)),
+  findings: z
+    .array(
+      z.object({
+        severity: bounded(64),
+        ruleId: bounded(PLAN_INPUT_TEXT_MAX),
+        title: bounded(PLAN_INPUT_TEXT_MAX),
+      })
+    )
+    .transform(a => a.slice(0, PLAN_INPUT_FINDINGS_MAX)),
+  taskContext: bounded(PLAN_INPUT_CONTEXT_MAX).optional(),
+})
+export type PlanPromptInput = z.infer<typeof PlanPromptInputSchema>
+
+/**
  * LUM-787 follow-up — the prompt names the cap, and the cap is per scan.
  * `PLAN_SYSTEM_PROMPT` is the smallest tier's text (what the probe measures).
  */
@@ -192,7 +230,9 @@ function clip(text: string, max: number): string {
  * pushing the trigger reasons and touched paths — the signals the routing
  * decision is actually made on — out of the prompt.
  */
-export function buildPlanPrompt(i: PlanClientInput): string {
+// Accepts the raw client input too (the probe and the fixture tests hand it
+// the whole thing); production passes the schema-bounded shape.
+export function buildPlanPrompt(i: PlanPromptInput | PlanClientInput): string {
   // The A4 judge authors `title` after reading the RAW diff, and its schema is
   // `z.string().describe('… ≤ 80 chars')` — a hint to the model, enforcing
   // nothing. `ruleId` is `ext:<runSlug>:<id>` for SARIF-ingested findings, i.e.
@@ -323,7 +363,7 @@ export async function planHuntTasks(
     model: overrides.model ?? gateway(FAST_MODEL),
     schema: maxTasks === HUNT_MAX_PLANNED_TASKS ? Schema : schemaFor(maxTasks),
     system: planSystemPrompt(maxTasks),
-    prompt: buildPlanPrompt(input),
+    prompt: buildPlanPrompt(PlanPromptInputSchema.parse(input)),
     maxOutputTokens: PLAN_HUNT_TOKEN_BUDGET,
     // LUM-776 — the SDK calls this once, when the text failed to parse or to
     // validate, before it gives up. Only the two envelope mistakes are
