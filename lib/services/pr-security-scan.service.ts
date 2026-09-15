@@ -62,12 +62,13 @@ import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
 import { isHuntEnabled } from './security-hunt.config'
 import { startSecurityHunt } from './security-hunt-start'
+import { securityGraphRulesService } from './security-graph-rules.service'
 import { securityBaselineService } from './security-baseline.service'
 // No LLM/gateway import inside — safe to import statically from stage A.
 import { securityPrReviewService } from './security-pr-review.service'
 import { waitUntil } from '@vercel/functions'
 
-export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1;hunt@1'
+export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1;hunt@1;graph@1'
 
 /**
  * LUM-735 — how long stages.external may sit PENDING (the repo has pushed
@@ -476,6 +477,32 @@ export const prSecurityScanService = {
         secretDowngrade: f.downgrade ?? null,
       }))
 
+      // ── A1b: deterministic graph rules (LUM-785) ────────────────────────
+      // `llm-output-to-sink`: a model-call result reaching a raw-SQL / shell /
+      // eval / fs-write / fetch call with no zod-parse on the path, decided
+      // from the diff subgraph (touched TS/TSX files + one hop of imports)
+      // right here in process — no VM, no model, no falsifier. DETERMINISTIC
+      // rows: a HIGH one blocks DONE under the default policy, exactly like a
+      // secret. Fail-soft: a read that fails makes the scan `partial` with the
+      // reason logged, never a FAILED stage A.
+      const touchedSourcePaths = files
+        .map(f => f.path)
+        .filter(isGraphSourcePath)
+      const graph = await securityGraphRulesService.run({
+        scanId,
+        workspaceId: pr.workspaceId,
+        repo: pr.repo,
+        headSha,
+        touchedSourcePaths,
+      })
+      if (graph.partial) partial = true
+      if (graph.error) {
+        logger.warn(
+          `[pr-security-scan] graph rules partial pr=${pr.id} sha=${headSha}: ${graph.error}`
+        )
+      }
+      const graphRows: NewFindingInput[] = graph.rows
+
       // ── L3 trigger, first pass (LUM-758) ────────────────────────────────
       // The managed scan has to know whether to keep its VM alive for the
       // hunt BEFORE it is started, so the trigger is evaluated here, where
@@ -486,7 +513,10 @@ export const prSecurityScanService = {
       // started — just means the hunt boots its own VM, which is a first-class
       // path (§2), not a failure.
       const hasOpenCrossing = await hasOpenL4Crossing(pr.taskId)
-      const secretHigh = secretRows.some(r => r.severity === 'HIGH')
+      // LUM-785: a graph-rule HIGH is stage A's own finding too.
+      const secretHigh = [...secretRows, ...graphRows].some(
+        r => r.severity === 'HIGH'
+      )
       const huntWantedForVm =
         isHuntEnabled() &&
         files.length > 0 &&
@@ -693,7 +723,10 @@ export const prSecurityScanService = {
 
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
-      const rows = inheritDispositions([...secretRows, ...judgeRows], prior)
+      const rows = inheritDispositions(
+        [...secretRows, ...graphRows, ...judgeRows],
+        prior
+      )
 
       // `status` stays "are there findings" (732 semantics — FAILED still
       // means the worker itself broke and is re-run in place). Whether the
@@ -736,7 +769,7 @@ export const prSecurityScanService = {
           // source files it could have fired in. Short circuit A needs it to
           // tell a `stage-a:high` PR that touched code from one that touched
           // none, and the planner needs it to place a signal at all.
-          touchedSourcePaths: files.map(f => f.path).filter(isGraphSourcePath),
+          touchedSourcePaths,
           // LUM-758 follow-up: the SAME walk's located hits — which rule fired,
           // in which file, on which added line. Computed already; discarding it
           // is what made the agent re-derive it with `rg` on its own budget.

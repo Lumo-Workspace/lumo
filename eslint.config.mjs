@@ -1,4 +1,4 @@
-import coreWebVitals from 'eslint-config-next/core-web-vitals';
+import coreWebVitals from 'eslint-config-next/core-web-vitals'
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -43,6 +43,13 @@ export default [
     },
   },
   {
-    ignores: ['node_modules/', '.next/', 'out/', 'build/'],
+    // LUM-785: semgrep rule fixtures are deliberately bad code, not sources.
+    ignores: [
+      'node_modules/',
+      '.next/',
+      'out/',
+      'build/',
+      'security/semgrep-rules/',
+    ],
   },
-];
+]

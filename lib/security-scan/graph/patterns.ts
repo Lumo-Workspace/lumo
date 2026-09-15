@@ -64,6 +64,21 @@ export const SINK_RULES: readonly CallRule[] = [
   { id: 'redirect', callee: /(^|\.)(redirect|permanentRedirect)$/ },
 ]
 
+/**
+ * LUM-785 — taint SOURCES: calls whose return value is model output. The
+ * same callees stay in SINK_RULES as `llm-call` (what goes INTO the model is
+ * the hunt's prompt-injection concern); this table is about what comes OUT.
+ * `llm-output-flow.ts` follows a result bound from one of these to a
+ * `LLM_OUTPUT_TARGET_SINKS` call with no `zod-parse` on the path.
+ */
+export const SOURCE_RULES: readonly CallRule[] = [
+  {
+    id: 'llm-output',
+    callee:
+      /(^|\.)(generateText|generateObject|streamText|streamObject)$|\.(chat\.completions|completions|messages|responses)\.create$/,
+  },
+]
+
 /** `new X(...)` sinks — tested against the constructor identifier. */
 export const NEW_EXPRESSION_SINKS: readonly CallRule[] = [
   { id: 'new-function', callee: /^Function$/ },

@@ -289,7 +289,12 @@ scheduled for removal then.
 
 Lumo runs semgrep, gitleaks and osv-scanner itself for every pull request of
 a repository the GitHub App is installed on — no workflow file, no secret, no
-GitHub Actions minutes, and no GitHub Advanced Security are required. The
+GitHub Actions minutes, and no GitHub Advanced Security are required. semgrep
+loads the registry packs plus Lumo's own rules for LLM-specific defects
+(`security/semgrep-rules/`: request input reaching a prompt unparsed, a system
+prompt built from runtime values), and the diff subgraph is checked for a model
+result that reaches raw SQL, a shell, `eval`, a file write or `fetch` with no
+schema parse in between — reported deterministically, without a model. The
 PR's head commit is shallow-cloned into a one-shot Vercel Sandbox microVM
 owned by Lumo (the same vendor that hosts the app), scanned, and the VM is
 destroyed; only findings on lines the PR added are kept, redacted, and
