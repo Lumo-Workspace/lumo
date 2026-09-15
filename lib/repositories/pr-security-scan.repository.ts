@@ -1142,8 +1142,9 @@ export const prSecurityScanRepository = {
    * disposition (LUM-750) is the only caller; the audit trail is the
    * SECURITY_FINDING_DISPOSITIONED activity the service writes alongside.
    */
-  async clearDisposition(findingId: string): Promise<FindingRow> {
-    const row = await prisma.prSecurityFinding.update({
+  async clearDisposition(findingId: string): Promise<void> {
+    // ISP: the caller discards the row — select nothing but the key.
+    await prisma.prSecurityFinding.update({
       where: { id: findingId },
       data: {
         disposition: null,
@@ -1152,8 +1153,8 @@ export const prSecurityScanRepository = {
         dispositionedAt: null,
         suggestionOutcome: null,
       },
+      select: { id: true },
     })
-    return row as unknown as FindingRow
   },
 
   // ── LUM-740: summary comment id ───────────────────────────────────────────
