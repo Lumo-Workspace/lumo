@@ -688,8 +688,13 @@ export interface HuntAudit {
 
 /** One batch's share of `HuntAudit.compress`; summed by the orchestrator. */
 /** How many recorded commands a task's audit carries, and how long each may be. */
-export const HUNT_SHELL_LOG_MAX = 24
-export const HUNT_SHELL_LOG_CHARS = 200
+// LUM-787 follow-up (user decision): with the allowlist widened to git and
+// awk, EVERY command a task issues is kept, in full — the audit is what the
+// widening is answerable to. A task issues at most HUNT_MAX_STEPS_PER_CATEGORY
+// steps of a handful of calls each, far under the cap, and a command is at
+// most HUNT_COMMAND_MAX_CHARS (600) long, so 1 000 keeps it whole.
+export const HUNT_SHELL_LOG_MAX = 1_000
+export const HUNT_SHELL_LOG_CHARS = 1_000
 
 /**
  * LUM-758 follow-up — what the agent actually DID with its allowance.

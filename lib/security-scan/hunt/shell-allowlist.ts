@@ -72,6 +72,33 @@ export const HUNT_SHELL_COMMANDS: readonly string[] = [
   'head',
   'tail',
   'wc',
+  // LUM-787 follow-up (user decision): the first production rerun on the
+  // bounded loop was refused on `ls` and `find` — the model's own words for
+  // "what is in this directory", which the prompt forbade without offering
+  // a substitute. Both are read-only listers; `find` carries executing and
+  // deleting flags, which `findGate` below refuses by name (and
+  // `isReadOnlySegment` refuses independently — two layers, as always).
+  'ls',
+  'find',
+  // …and the rest of the refusals the first 60 production scans recorded
+  // (28 of 425 commands): `echo` as a separator between chained reads,
+  // `pwd`, and the pipeline finishers `sort` / `uniq` / `cut`. All print to
+  // stdout only — `sort -o` / `--output` writes a file and `sortGate`
+  // refuses it. `awk` stays out: its scripts can run programs and write
+  // files, and would need a script gate like `sed`'s.
+  'echo',
+  'pwd',
+  'sort',
+  'uniq',
+  'cut',
+  // LUM-787 follow-up (user decision, with every command now recorded in
+  // the audit): `git` limited to read-only subcommands by `gitGate` — the
+  // checkout is a depth-1 clone, so there is no history to diff against,
+  // but `log`/`show`/`blame`/`ls-files`/`grep` answer real questions — and
+  // `awk` limited by `awkGate` to scripts that neither run programs
+  // (`system`, `getline` from a command) nor write (`>`, `|`).
+  'git',
+  'awk',
 ]
 
 /**
@@ -93,7 +120,53 @@ export const HUNT_SHELL_PROBES: Readonly<Record<string, string>> = {
   head: 'head --version',
   tail: 'tail --version',
   wc: 'wc --version',
+  ls: 'ls --version',
+  find: 'find --version',
+  echo: 'echo ok',
+  pwd: 'pwd',
+  sort: 'sort --version',
+  uniq: 'uniq --version',
+  cut: 'cut --version',
+  // `git log -0` rather than `--version`: the read-only classifier needs a
+  // subcommand to judge, and `-0` prints nothing.
+  git: 'git log -0',
+  awk: "awk 'BEGIN{exit 0}'",
 }
+
+/**
+ * LUM-787 follow-up — the ONLY exception to the character whitelist below:
+ * an unquoted glob (`*`, `?`, `[…]`) is admitted when the segment's command
+ * is one whose argv cannot turn a FILE NAME into an action. The fifth review
+ * round's attack still stands for every other tool: a PR adds a file named
+ * `--pre=sh` (a legal git path), `rg -n x *` expands it into rg's
+ * program-running flag, and the flag gates never see the expansion because
+ * they read the written tokens, not the shell's argv. `cat`, `head`, `tail`,
+ * `wc`, `ls`, `grep`, `echo`, `cut` and `uniq` have no flag that executes or
+ * writes, so an expanded name can at worst be misread as an option that
+ * prints or fails. `rg`, `sed`, `find`, `sort`, `git` and `awk` do — for
+ * them the glob must be quoted (`rg -g "*.ts"`), which the tool description
+ * says.
+ */
+const GLOB_SAFE_COMMANDS = new Set([
+  'cat',
+  'head',
+  'tail',
+  'wc',
+  'ls',
+  'grep',
+  'echo',
+  'cut',
+  'uniq',
+])
+const GLOB_CHARS = new Set(['*', '?', '[', ']'])
+
+/**
+ * LUM-787 follow-up — the two redirections that only ever discard or merge
+ * stderr. Recognised as whole, unquoted, whitespace-delimited tokens at a
+ * token boundary and dropped from the argv the flag gates see (the shell
+ * consumes them too). Any other `>` stays a refusal.
+ */
+const STDERR_REDIRECT_TOKENS = ['2>/dev/null', '2>&1'] as const
 
 /**
  * LUM-758 Task 9 — **the shell this gate was written against**, and the only
@@ -157,6 +230,9 @@ const SAFE_UNQUOTED_CHAR = /^[A-Za-z0-9_\-.\/=,:+@%~#]$|^[^\x00-\x7f]$/
 type SegmentScan = {
   /** 去掉引号 / 反斜杠转义后的实参（shell 真正会交给程序的那些）。 */
   tokens: string[]
+  /** LUM-787 — 引号外的第一个 glob 字符（`*` `?` `[` `]`），没有则 null。是否
+   *  放行由 `checkSegment` 按命令名决定（`GLOB_SAFE_COMMANDS`）。 */
+  glob: string | null
   /** 不安全字符（引号外的，或双引号内仍会被 shell 展开的 `` ` ``/`$`），没有则
    *  null。 */
   unsafe: string | null
@@ -208,6 +284,7 @@ function isLiteralDollar(text: string, i: number): boolean {
 function scanSegment(segment: string): SegmentScan {
   const tokens: string[] = []
   let unsafe: string | null = null
+  let glob: string | null = null
   let unsafeInDoubleQuote = false
   let cur = ''
   let started = false
@@ -243,6 +320,20 @@ function scanSegment(segment: string): SegmentScan {
       cur += c
       continue
     }
+    // LUM-787 — `2>/dev/null` / `2>&1` as a whole unquoted token: consumed
+    // here, never pushed as an argument. Anywhere else `>` and `&` stay
+    // outside the safe set below.
+    if (!started) {
+      const redirect = STDERR_REDIRECT_TOKENS.find(
+        t =>
+          segment.startsWith(t, i) &&
+          (i + t.length === segment.length || /\s/.test(segment[i + t.length]!))
+      )
+      if (redirect) {
+        i += redirect.length - 1
+        continue
+      }
+    }
     if (c === '"' || c === "'") {
       quote = c
       started = true
@@ -268,13 +359,18 @@ function scanSegment(segment: string): SegmentScan {
     // 吃掉一个引号，闸门以为换行在引号里）。词中的 `#` 不受影响，引号内和反斜杠
     // 转义的 `#`（`rg -n "#"`、`rg -n '#\[derive'`、`rg -n \#foo`）根本走不到这里。
     if (c === '#' && !started && unsafe === null) unsafe = '#'
-    if (unsafe === null && !SAFE_UNQUOTED_CHAR.test(c)) unsafe = c
+    if (GLOB_CHARS.has(c)) {
+      if (glob === null) glob = c
+    } else if (unsafe === null && !SAFE_UNQUOTED_CHAR.test(c)) {
+      unsafe = c
+    }
     cur += c
     started = true
   }
   flush()
   return {
     tokens,
+    glob,
     unsafe,
     unsafeInDoubleQuote,
     unbalancedQuote: quote !== null,
@@ -596,10 +692,175 @@ function rgGate(args: readonly string[]): string | null {
   return null
 }
 
+/**
+ * LUM-787 follow-up — `find` flags that execute, delete or write. Named here
+ * even though `isReadOnlySegment` already refuses the executing ones: the
+ * two layers must each recognise the construct on their own (the lesson at
+ * the top of this file), and this list also covers the file-WRITING
+ * actions (`-fprint`, `-fprintf`, `-fls`, `-fprint0`) that a "read-only"
+ * classifier does not think of as mutation.
+ */
+const FIND_DENIED_FLAGS = new Set([
+  '-exec',
+  '-execdir',
+  '-ok',
+  '-okdir',
+  '-delete',
+  '-fprint',
+  '-fprint0',
+  '-fprintf',
+  '-fls',
+])
+
+function findGate(args: readonly string[]): string | null {
+  for (const arg of args) {
+    if (FIND_DENIED_FLAGS.has(arg)) {
+      return `find action '${arg}' executes, deletes or writes; not allowed (find may only list and test)`
+    }
+  }
+  return null
+}
+
+/** `sort -o FILE` / `--output=FILE` writes the result to a file. */
+function sortGate(args: readonly string[]): string | null {
+  for (const arg of args) {
+    // `-o FILE`, `-oFILE`, and `-o` folded into a short-flag cluster (`-ro`).
+    if (!arg.startsWith('--') && /^-[a-zA-Z]*o/.test(arg)) {
+      return "sort flag '-o' writes a file; not allowed"
+    }
+    if (arg === '--output' || arg.startsWith('--output=')) {
+      return "sort flag '--output' writes a file; not allowed"
+    }
+  }
+  return null
+}
+
+/**
+ * LUM-787 follow-up — git, read-only subset. The checkout is a depth-1 clone
+ * at the head sha (`createRepoSandbox`), so history-walking is one commit
+ * deep; what is worth allowing is the file-level view. Two things are
+ * refused by name: global options that make git RUN something or read
+ * another repository (`-c` can set `core.pager` / `diff.external`,
+ * `--exec-path` points git at other binaries, `-p`/`--paginate` forces the
+ * pager, `--git-dir`/`--work-tree`/`-C` leave the checkout), and the
+ * subcommand options that write or run (`--output`, `--ext-diff`,
+ * `--textconv`, `--open-files-in-pager`). `isReadOnlySegment` refuses the
+ * writing subcommands independently.
+ */
+const GIT_HUNT_SUBCOMMANDS = new Set([
+  'log',
+  'show',
+  'blame',
+  'diff',
+  'ls-files',
+  'ls-tree',
+  'rev-parse',
+  'rev-list',
+  'cat-file',
+  'grep',
+  'status',
+  'shortlog',
+  'name-rev',
+  'describe',
+])
+const GIT_DENIED_GLOBAL = new Set([
+  '-c',
+  '-C',
+  '-p',
+  '--paginate',
+  '--config-env',
+  '--exec-path',
+  '--git-dir',
+  '--work-tree',
+  '--namespace',
+  '--super-prefix',
+])
+const GIT_DENIED_OPTIONS = new Set([
+  '--output',
+  '--ext-diff',
+  '--textconv',
+  '--open-files-in-pager',
+  '-O',
+])
+
+function gitGate(args: readonly string[]): string | null {
+  let i = 0
+  // Global options come before the subcommand.
+  for (; i < args.length && args[i]!.startsWith('-'); i++) {
+    const name = args[i]!.split('=')[0]!
+    if (GIT_DENIED_GLOBAL.has(name)) {
+      return `git option '${name}' runs a program or leaves the checkout; not allowed`
+    }
+  }
+  const sub = args[i]
+  if (sub === undefined) return 'git needs a subcommand'
+  if (!GIT_HUNT_SUBCOMMANDS.has(sub)) {
+    return `git subcommand '${sub}' is not allowed; read-only: ${[...GIT_HUNT_SUBCOMMANDS].join(', ')}`
+  }
+  for (const arg of args.slice(i + 1)) {
+    const name = arg.startsWith('--') ? arg.split('=')[0]! : arg
+    if (GIT_DENIED_OPTIONS.has(name)) {
+      return `git option '${name}' writes a file or runs a program; not allowed`
+    }
+  }
+  return null
+}
+
+/**
+ * LUM-787 follow-up — awk, read-only subset. The script is inspected as
+ * text: `system(…)` runs a program, `getline` can read from a command,
+ * `|` pipes to one, `>` / `>>` write a file, and gawk's `@load` /
+ * `@include` load code. `-f`/`--file` (a script the gate cannot read),
+ * `-e`/`--source`/`--exec` (more script text) and `-l`/`--load` /
+ * `-i`/`--include` (extensions) are refused by name. A comparison written
+ * as `$1 > 5` is refused too — a false positive the reason names; write it
+ * as a filter with `grep` or `rg` instead.
+ */
+const AWK_DENIED_FLAGS = new Set([
+  '-f',
+  '--file',
+  '-e',
+  '--source',
+  '--exec',
+  '-E',
+  '-l',
+  '--load',
+  '-i',
+  '--include',
+])
+const AWK_SCRIPT_DENIED = /system\s*\(|getline|\||>|@load|@include/
+
+function awkGate(args: readonly string[]): string | null {
+  let script: string | undefined
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!
+    if (script === undefined && arg.startsWith('-') && arg !== '-') {
+      const name = arg.startsWith('--') ? arg.split('=')[0]! : arg.slice(0, 2)
+      if (AWK_DENIED_FLAGS.has(name)) {
+        return `awk option '${name}' loads a script or extension the gate cannot inspect; not allowed`
+      }
+      // `-F x` / `-v x=y` take a value when written separately.
+      if ((arg === '-F' || arg === '-v') && i + 1 < args.length) i++
+      continue
+    }
+    if (script === undefined) script = arg
+  }
+  if (script === undefined) return 'awk needs a script'
+  const hit = AWK_SCRIPT_DENIED.exec(script)
+  if (hit) {
+    return `awk script uses '${hit[0]}', which runs a program or writes (a '>' comparison counts too — filter with grep/rg instead); not allowed: ${script.slice(0, 60)}`
+  }
+  return null
+}
+
 /** 允许的动词里，哪些旗标会把「只读检索」变成写/执行。 */
 const FLAG_GATES: Record<string, (args: readonly string[]) => string | null> = {
   sed: sedGate,
   rg: rgGate,
+  find: findGate,
+  sort: sortGate,
+  git: gitGate,
+  awk: awkGate,
 }
 
 function checkSegment(segment: string, depth: number): HuntCommandCheck {
@@ -648,6 +909,14 @@ function checkSegment(segment: string, depth: number): HuntCommandCheck {
     return {
       ok: false,
       reason: `command '${name}' is not allowed; allowed: ${ALLOWED_LIST}`,
+    }
+  }
+  // LUM-787 — an unquoted glob is admitted only where an expanded file name
+  // cannot become an executing or writing flag (see GLOB_SAFE_COMMANDS).
+  if (scan.glob !== null && !GLOB_SAFE_COMMANDS.has(name)) {
+    return {
+      ok: false,
+      reason: `unquoted wildcard '${scan.glob}' is allowed only for ${[...GLOB_SAFE_COMMANDS].join(', ')} — for '${name}' an expanded file name could become a flag; quote the pattern (rg -g "*.ts", find . -name "*.ts") or name the files: ${echo}`,
     }
   }
   const gate = FLAG_GATES[name]
