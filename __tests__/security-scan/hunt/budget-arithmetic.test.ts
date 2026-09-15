@@ -20,8 +20,8 @@ import {
 // pinned on both sides. Raising it alone silently breaks either the acceptance
 // target or the scan budget, and neither failure is visible until prod.
 describe('hunt budget arithmetic', () => {
-  // LUM-787 follow-up: 60k → 90k with the per-task ceiling (see HUNT_TASK_TOKEN_MAX).
-  const ACCEPTANCE_TARGET_MEAN_TOKENS = 90_000
+  // LUM-787 follow-up: 60k → 90k → 150k with the per-task band (see HUNT_TASK_TOKEN_MEAN).
+  const ACCEPTANCE_TARGET_MEAN_TOKENS = 150_000
 
   // LUM-787 follow-up: the per-task number is a band (MIN / MEAN / MAX) and
   // the allocator splits `cap × MEAN`; what the pins guard is the split's
@@ -254,24 +254,25 @@ describe('LUM-787 step ceiling × elision × predictive stop', () => {
   it('LUM-787 follow-up: the per-task band and the scan budget moved together, and the wrap-up floor did not', () => {
     // The flat 20k became a band on the user's call after the first six
     // production tasks on the bounded loop ended `budget` three times at
-    // 4–5 steps: 20k floor / 30k mean / 45k ceiling, split by sites; the
-    // scan budget is twice pass 1 (180k at the smallest tier) so every task
-    // can be retried. The 4k wrap-up floor stays: production wrap-ups bill
-    // 3.4–4.1k.
-    expect(HUNT_TASK_TOKEN_MIN).toBe(20_000)
-    expect(HUNT_TASK_TOKEN_MEAN).toBe(30_000)
-    expect(HUNT_TASK_TOKEN_MAX).toBe(45_000)
-    expect(HUNT_TOKEN_BUDGET).toBe(180_000)
+    // 4–5 steps, then was raised again to line up with a diff-reading
+    // review's input: 30k floor / 50k mean / 80k ceiling, split by sites;
+    // the scan budget is twice pass 1 (300k at the smallest tier) so every
+    // task can be retried. The 4k wrap-up floor stays: production wrap-ups
+    // bill 3.4–4.1k.
+    expect(HUNT_TASK_TOKEN_MIN).toBe(30_000)
+    expect(HUNT_TASK_TOKEN_MEAN).toBe(50_000)
+    expect(HUNT_TASK_TOKEN_MAX).toBe(80_000)
+    expect(HUNT_TOKEN_BUDGET).toBe(300_000)
     expect(HUNT_WRAP_UP_MIN_TOKENS).toBe(4_000)
   })
 
-  it('LUM-787 follow-up: at the mean the simulated search completes at least six steps, at the ceiling at least eight, with the wrap-up affordable', () => {
+  it('LUM-787 follow-up: at the mean the simulated search completes at least nine steps, at the ceiling at least twelve, with the wrap-up affordable', () => {
     const mean = simulateSearch({
       resultCharsPerStep: HUNT_STEP_OUTPUT_MAX,
       elide: true,
       budget: HUNT_TASK_TOKEN_MEAN,
     })
-    expect(mean.steps).toBeGreaterThanOrEqual(6)
+    expect(mean.steps).toBeGreaterThanOrEqual(9)
     expect(mean.wrapUpAffordable).toBe(true)
     const ceiling = simulateSearch({
       resultCharsPerStep: HUNT_STEP_OUTPUT_MAX,
@@ -279,8 +280,8 @@ describe('LUM-787 step ceiling × elision × predictive stop', () => {
       budget: HUNT_TASK_TOKEN_MAX,
     })
     // The per-step cost still creeps (assistant text + stubs), so the
-    // ceiling buys eight, not eleven.
-    expect(ceiling.steps).toBeGreaterThanOrEqual(8)
+    // ceiling buys fewer than 80k ÷ 3.2k.
+    expect(ceiling.steps).toBeGreaterThanOrEqual(12)
     expect(ceiling.wrapUpAffordable).toBe(true)
   })
 

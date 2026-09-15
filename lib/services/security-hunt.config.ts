@@ -296,18 +296,25 @@ export const HUNT_OVERSIZED_SOURCE_FILES = 40
 // the line itself. And a task briefed to check six call sites got the same
 // line as one briefed to check one.
 //
-//   MIN  — the floor every task gets (the old flat ceiling: 4–5 steps).
+//   MIN  — the floor every task gets.
 //   MEAN — what a task gets in an even split; `cap × MEAN` is the pass-1
-//          budget of a scan (~7–8 steps).
-//   MAX  — the ceiling a site-heavy task may be allocated (~11–12 steps).
+//          budget of a scan.
+//   MAX  — the ceiling a site-heavy task may be allocated.
+//
+// Second raise (same day, user decision): 20k/30k/45k → 30k/50k/80k. The
+// hunt pays ~1.9k of fixed prompt per step and reads ≤ 2 400 characters per
+// step, so 45k bought ~14 steps ≈ 34k characters of code — a fraction of
+// what a diff-reading review of a medium PR (100–150k input) sees. At
+// 30k/50k/80k a cap-3 scan's pass 1 is 150k and a cap-5 scan's total 500k,
+// the band the user's PR-review estimate puts medium and large PRs in.
 //
 // `lib/security-scan/hunt/allocation.ts` splits `cap × MEAN` by the sites
 // each task has to cover; `huntTokenBudget(cap)` is twice that, so every
 // task can be retried once. The `_MAX` name is kept because it is still
 // the most any one batch may be handed.
-export const HUNT_TASK_TOKEN_MIN = 20_000
-export const HUNT_TASK_TOKEN_MEAN = 30_000
-export const HUNT_TASK_TOKEN_MAX = 45_000
+export const HUNT_TASK_TOKEN_MIN = 30_000
+export const HUNT_TASK_TOKEN_MEAN = 50_000
+export const HUNT_TASK_TOKEN_MAX = 80_000
 export const HUNT_TASK_TIME_MS = 60_000
 /**
  * Room a task must still have before the forced wrap-up call is worth making.
@@ -342,11 +349,11 @@ export const HUNT_MIN_BATCH_TIME_MS = 10_000
  * 120k/240s：762 的放大在 prod 被证伪（166k–236k 全部 PARTIAL、0 finding），
  * 真正的成本源是「无条件跑 6 类」而不是预算太小。任务数降到 ≤3 之后，
  * 3 任务 × 20k = 60k（= 验收目标均值）跑完 pass 1，剩下的额度足够整轮补跑；
- * LUM-787 后续把每任务均值提到 30k（transcript 有界后 20k 只够 4–5 步），总量
- * 随任务数分档：`huntTokenBudget(cap)` = cap × 30k × 2，最小档 180k —— 3 × 30k
- * = 90k 跑完 pass 1，仍留一整轮补跑；时间 `huntTimeBudgetMs(cap)` = (cap + 1)
- * × 60s，最小档 240s（3 × 60s 跑完 pass 1，还留一次补跑）。下面两个常量是
- * 最小档的值，供不知道 cap 的读者用。
+ * LUM-787 后续把每任务均值提到 30k 再到 50k（transcript 有界后 20k 只够 4–5
+ * 步；45k 也只相当于读 ~34k 字符代码），总量随任务数分档：`huntTokenBudget(cap)`
+ * = cap × 50k × 2，最小档 300k —— 3 × 50k = 150k 跑完 pass 1，仍留一整轮补跑；
+ * 时间 `huntTimeBudgetMs(cap)` = cap × 60s + 最大任务一次重试（96s）。下面两个
+ * 常量是最小档的值，供不知道 cap 的读者用。
  */
 export function huntTokenBudget(cap: number): number {
   return Math.max(1, cap) * HUNT_TASK_TOKEN_MEAN * 2
@@ -461,10 +468,11 @@ export const PLAN_HUNT_TIMEOUT_MS = 120_000
 export const PLAN_HUNT_MAX_ATTEMPTS = 2
 
 /** Tool-calling rounds one category batch may take. */
-// LUM-787 follow-up: 12 → 16, the audit's own trace cap. At the 45k ceiling
-// the replay's three tasks all hit 12 steps with 6–12k of allowance unspent;
-// a ceiling the step cap makes unreachable is a ceiling on paper.
-export const HUNT_MAX_STEPS_PER_CATEGORY = 16
+// LUM-787 follow-up: 12 → 16 → 32, kept equal to the audit's trace cap. At
+// the 45k ceiling the replay's three tasks all hit 12 steps with 6–12k of
+// allowance unspent; a ceiling the step cap makes unreachable is a ceiling
+// on paper. At 80k and ~3.2k a step the search can take ~25 steps.
+export const HUNT_MAX_STEPS_PER_CATEGORY = 32
 /**
  * LUM-762 — retries INSIDE one model call. The AI SDK's default (2) spends
  * the category's window sitting in exponential backoff — the production
@@ -779,7 +787,7 @@ export interface HuntShellStats {
  * the prompts or the wrap-up; every field is derived from what the loop
  * already produced.
  */
-export const HUNT_TRACE_MAX_STEPS = 16
+export const HUNT_TRACE_MAX_STEPS = 32
 export const HUNT_TRACE_TEXT_CHARS = 300
 export const HUNT_WRAP_UP_TEXT_CHARS = 500
 

@@ -65,23 +65,24 @@ describe('LUM-787 sizing the hunt to the diff', () => {
         cap * HUNT_TASK_TIME_MS + taskTimeMs(HUNT_TASK_TOKEN_MAX)
       )
     }
-    // The smallest tier is the user's 30k × 3 = 90k pass 1, 180k total.
-    expect(huntTokenBudget(HUNT_MAX_PLANNED_TASKS)).toBe(180_000)
-    expect(huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS)).toBe(270_000)
+    // The smallest tier is the user's 50k × 3 = 150k pass 1, 300k total.
+    expect(huntTokenBudget(HUNT_MAX_PLANNED_TASKS)).toBe(300_000)
+    expect(huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS)).toBe(276_000)
   })
 
   it('taskTimeMs follows the allowance: 60 s at the mean and below, proportionally more above', () => {
     expect(taskTimeMs(HUNT_TASK_TOKEN_MIN)).toBe(HUNT_TASK_TIME_MS)
     expect(taskTimeMs(HUNT_TASK_TOKEN_MEAN)).toBe(HUNT_TASK_TIME_MS)
-    expect(taskTimeMs(HUNT_TASK_TOKEN_MAX)).toBe(90_000)
+    expect(taskTimeMs(HUNT_TASK_TOKEN_MAX)).toBe(96_000)
     expect(taskTimeMs(0)).toBe(HUNT_TASK_TIME_MS)
   })
 
   it('the step cap can spend the ceiling and the audit can hold every step', () => {
-    // 45k at ~3.2k per step is ~14 steps; a 12-step cap left 6–12k unspent
-    // on the replay. And the trace keeps HUNT_TRACE_MAX_STEPS rows — a cap
-    // above it would run steps the audit cannot show.
-    expect(HUNT_MAX_STEPS_PER_CATEGORY).toBeGreaterThanOrEqual(14)
+    // 80k at ~3.2k per step is ~25 steps; a 12-step cap left 6–12k of a 45k
+    // allowance unspent on the replay. And the trace keeps
+    // HUNT_TRACE_MAX_STEPS rows — a cap above it would run steps the audit
+    // cannot show.
+    expect(HUNT_MAX_STEPS_PER_CATEGORY).toBeGreaterThanOrEqual(25)
     expect(HUNT_MAX_STEPS_PER_CATEGORY).toBeLessThanOrEqual(
       HUNT_TRACE_MAX_STEPS
     )
@@ -146,21 +147,21 @@ describe('LUM-787 sizing the hunt to the diff', () => {
       { id: 't3', category: 'prompt_injection' as const, startingPoints: [] },
     ]
     const out = allocateTaskBudgets(tasks, sites, 3)
-    // Pass 1 = 90k; floor 3 × 20k = 60k; remainder 30k by weights 1 : 1 : 6.
+    // Pass 1 = 150k; floor 3 × 30k = 90k; remainder 60k by weights 1 : 1 : 6.
     expect(out.get('t1')).toEqual({
       sites: 1,
-      tokenBudget: 20_000 + 3_750,
+      tokenBudget: 30_000 + 7_500,
       timeBudgetMs: HUNT_TASK_TIME_MS,
     })
     expect(out.get('t2')).toEqual({
       sites: 0,
-      tokenBudget: 20_000 + 3_750,
+      tokenBudget: 30_000 + 7_500,
       timeBudgetMs: HUNT_TASK_TIME_MS,
     })
     expect(out.get('t3')).toEqual({
       sites: 6,
-      tokenBudget: 20_000 + 22_500,
-      timeBudgetMs: 85_000,
+      tokenBudget: 30_000 + 45_000,
+      timeBudgetMs: 90_000,
     })
     const sum = [...out.values()].reduce((n, a) => n + a.tokenBudget, 0)
     expect(sum).toBeLessThanOrEqual(3 * HUNT_TASK_TOKEN_MEAN)
