@@ -29,6 +29,7 @@ import {
 import {
   HUNT_CATEGORIES,
   HUNT_MAX_PLANNED_TASKS,
+  HUNT_MAX_PLANNED_TASKS_CEILING,
   PLAN_EMPTY_REASON,
   PLAN_HUNT_TOKEN_BUDGET,
   PLAN_OBJECTIVE_MAX_CHARS,
@@ -131,6 +132,12 @@ const schemaFor = (maxTasks: number) =>
   })
 /** The smallest tier's schema — what every scan used before the allocator. */
 const Schema = schemaFor(HUNT_MAX_PLANNED_TASKS)
+/** The cap is bounded to the tier ceiling before it touches the prompt. */
+const MaxTasksSchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(HUNT_MAX_PLANNED_TASKS_CEILING)
 
 /**
  * LUM-787 follow-up — the prompt names the cap, and the cap is per scan.
@@ -305,7 +312,13 @@ export async function planHuntTasks(
   overrides: PlanProbeOverrides = {}
 ): Promise<PlanHuntTasksResult> {
   let repaired: PlanRepairKind | undefined
-  const maxTasks = input.maxTasks ?? HUNT_MAX_PLANNED_TASKS
+  // LUM-787 follow-up — the cap reaches the system prompt, so it is parsed
+  // (bounded to the tier ceiling) rather than trusted as a number: the
+  // planner's prompt is the one string in this file that must never carry
+  // anything but our own text.
+  const maxTasks = MaxTasksSchema.parse(
+    input.maxTasks ?? HUNT_MAX_PLANNED_TASKS
+  )
   const { object, usage, finishReason } = await generateObject({
     model: overrides.model ?? gateway(FAST_MODEL),
     schema: maxTasks === HUNT_MAX_PLANNED_TASKS ? Schema : schemaFor(maxTasks),

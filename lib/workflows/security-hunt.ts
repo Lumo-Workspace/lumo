@@ -345,6 +345,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       }
       const allowanceOf = (task: HuntTask): number =>
         allocation.get(task.id)?.tokenBudget ?? HUNT_TASK_TOKEN_MIN
+      const windowOf = (task: HuntTask): number =>
+        allocation.get(task.id)?.timeBudgetMs ?? HUNT_TASK_TIME_MS
       const sitesOf = (task: HuntTask): number =>
         allocation.get(task.id)?.sites ?? 0
       /**
@@ -387,10 +389,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             allowanceOf(task),
             tokenBudgetTotal - tokenSpent
           ),
-          timeBudgetMs: Math.min(
-            HUNT_TASK_TIME_MS,
-            timeBudgetTotal - elapsedMs
-          ),
+          timeBudgetMs: Math.min(windowOf(task), timeBudgetTotal - elapsedMs),
         })
         tokenSpent += batch.tokens
         elapsedMs += batch.elapsedMs
@@ -450,10 +449,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             allowanceOf(task),
             tokenBudgetTotal - tokenSpent
           ),
-          timeBudgetMs: Math.min(
-            HUNT_TASK_TIME_MS,
-            timeBudgetTotal - elapsedMs
-          ),
+          timeBudgetMs: Math.min(windowOf(task), timeBudgetTotal - elapsedMs),
         })
         tokenSpent += retry.tokens
         elapsedMs += retry.elapsedMs

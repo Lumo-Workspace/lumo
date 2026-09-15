@@ -351,8 +351,18 @@ export const HUNT_MIN_BATCH_TIME_MS = 10_000
 export function huntTokenBudget(cap: number): number {
   return Math.max(1, cap) * HUNT_TASK_TOKEN_MEAN * 2
 }
+/**
+ * LUM-787 follow-up — a task's wall clock follows its token allowance
+ * (`taskTimeMs` in allocation.ts: 60 s at the mean, 90 s at the ceiling,
+ * never under 60 s), so the scan's clock is the pass-1 sum — at most cap ×
+ * HUNT_TASK_TIME_MS, because allowances sum to cap × MEAN — plus one retry
+ * of the longest task.
+ */
 export function huntTimeBudgetMs(cap: number): number {
-  return (Math.max(1, cap) + 1) * HUNT_TASK_TIME_MS
+  return (
+    Math.max(1, cap) * HUNT_TASK_TIME_MS +
+    Math.ceil((HUNT_TASK_TIME_MS * HUNT_TASK_TOKEN_MAX) / HUNT_TASK_TOKEN_MEAN)
+  )
 }
 export const HUNT_TOKEN_BUDGET = huntTokenBudget(HUNT_MAX_PLANNED_TASKS)
 export const HUNT_TIME_BUDGET_MS = huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS)
@@ -451,7 +461,10 @@ export const PLAN_HUNT_TIMEOUT_MS = 120_000
 export const PLAN_HUNT_MAX_ATTEMPTS = 2
 
 /** Tool-calling rounds one category batch may take. */
-export const HUNT_MAX_STEPS_PER_CATEGORY = 12
+// LUM-787 follow-up: 12 → 16, the audit's own trace cap. At the 45k ceiling
+// the replay's three tasks all hit 12 steps with 6–12k of allowance unspent;
+// a ceiling the step cap makes unreachable is a ceiling on paper.
+export const HUNT_MAX_STEPS_PER_CATEGORY = 16
 /**
  * LUM-762 — retries INSIDE one model call. The AI SDK's default (2) spends
  * the category's window sitting in exponential backoff — the production

@@ -31,6 +31,7 @@ import {
   HUNT_MAX_PLANNED_TASKS_CEILING,
   HUNT_OVERSIZED_SOURCE_FILES,
   HUNT_TASK_CAP_TIERS,
+  HUNT_TASK_TIME_MS,
   HUNT_TASK_TOKEN_MAX,
   HUNT_TASK_TOKEN_MEAN,
   HUNT_TASK_TOKEN_MIN,
@@ -84,6 +85,21 @@ export interface TaskAllocation {
   sites: number
   /** Pass-1 token allowance. */
   tokenBudget: number
+  /** Wall clock for the batch, scaled with the allowance (see `taskTimeMs`). */
+  timeBudgetMs: number
+}
+
+/**
+ * A task's window follows its allowance: at the 45k ceiling the replay ran
+ * 12 steps in 28–34 s of a 40 s search window, so a token allowance the
+ * clock cannot spend is an allowance on paper. HUNT_TASK_TIME_MS at the
+ * mean, proportionally more above it, never less than HUNT_TASK_TIME_MS.
+ */
+export function taskTimeMs(tokenBudget: number): number {
+  return Math.max(
+    HUNT_TASK_TIME_MS,
+    Math.round((HUNT_TASK_TIME_MS * tokenBudget) / HUNT_TASK_TOKEN_MEAN)
+  )
 }
 
 /**
@@ -105,9 +121,14 @@ export function allocateTaskBudgets(
   const total = weights.reduce((a, b) => a + b, 0)
   tasks.forEach((t, i) => {
     const share = Math.floor((remainder * weights[i]!) / total)
+    const tokenBudget = Math.min(
+      HUNT_TASK_TOKEN_MAX,
+      HUNT_TASK_TOKEN_MIN + share
+    )
     out.set(t.id, {
       sites: taskSiteCount(t, sites),
-      tokenBudget: Math.min(HUNT_TASK_TOKEN_MAX, HUNT_TASK_TOKEN_MIN + share),
+      tokenBudget,
+      timeBudgetMs: taskTimeMs(tokenBudget),
     })
   })
   return out

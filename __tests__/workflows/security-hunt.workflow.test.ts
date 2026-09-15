@@ -42,6 +42,11 @@ import {
   HUNT_MAX_FALSIFIED,
   type HuntTask,
 } from '@/lib/services/security-hunt.config'
+import {
+  allocateTaskBudgets,
+  plannedTaskCap,
+  taskTimeMs,
+} from '@/lib/security-scan/hunt/allocation'
 import { HUNT_CATEGORIES as CANDIDATE_CATEGORIES } from '@/lib/security-scan/hunt/candidate'
 
 const verifyGraph = buildVerifySubgraphStep as jest.Mock
@@ -225,17 +230,24 @@ describe('LUM-739 hunt workflow', () => {
     expect(hunt.mock.calls.map(c => c[0].task)).toEqual([...PLANNED])
     // LUM-762: every batch is bounded by the per-task ceiling, so a wedged
     // task can no longer spend the whole scan's window.
+    // LUM-787 follow-up: the batch is bounded by what the allocator handed
+    // this task (two tasks under a cap of three: each at the ceiling, 90 s).
+    const allocated = allocateTaskBudgets(
+      PLANNED,
+      [],
+      plannedTaskCap(JOB.touchedSourcePaths.length)
+    )
     expect(hunt.mock.calls[0]![0]).toMatchObject({
       job: JOB,
-      tokenBudget: HUNT_TASK_TOKEN_MAX,
-      timeBudgetMs: HUNT_TASK_TIME_MS,
+      tokenBudget: allocated.get('t1')!.tokenBudget,
+      timeBudgetMs: allocated.get('t1')!.timeBudgetMs,
     })
     // LUM-758 Task 10: the subgraph is not the agent's field of view, so it
     // is not serialised into a batch's step input at all.
     expect(hunt.mock.calls[0]![0].subgraph).toBeUndefined()
     expect(hunt.mock.calls[1]![0]).toMatchObject({
-      tokenBudget: HUNT_TASK_TOKEN_MAX,
-      timeBudgetMs: HUNT_TASK_TIME_MS,
+      tokenBudget: allocated.get('t2')!.tokenBudget,
+      timeBudgetMs: allocated.get('t2')!.timeBudgetMs,
     })
     // LUM-758 Task 10: the gate's graph is built AFTER the hunt, from the
     // candidates it is about to judge — not from a window drawn before the
@@ -344,7 +356,7 @@ describe('LUM-739 hunt workflow', () => {
     expect(hunt).toHaveBeenCalledTimes(3)
     expect(hunt.mock.calls[2]![0]).toMatchObject({
       task: PLANNED[0],
-      timeBudgetMs: HUNT_TASK_TIME_MS,
+      timeBudgetMs: taskTimeMs(HUNT_TASK_TOKEN_MAX),
     })
     const persisted = persist.mock.calls[0]![0]
     expect(persisted.partial).toBe(false)
@@ -366,7 +378,7 @@ describe('LUM-739 hunt workflow', () => {
     )
     await securityHuntWorkflow(JOB)
     expect(hunt.mock.calls[0]![0]).toMatchObject({
-      timeBudgetMs: HUNT_TASK_TIME_MS,
+      timeBudgetMs: taskTimeMs(HUNT_TASK_TOKEN_MAX),
       tokenBudget: HUNT_TASK_TOKEN_MAX,
     })
     // Second task: only the remainder is left, and that is less than the

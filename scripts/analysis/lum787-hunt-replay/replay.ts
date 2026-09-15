@@ -145,7 +145,7 @@ async function runTask(
   reasons: string[],
   sites: HuntSignalSite[],
   modelId: string,
-  allowance: { tokenBudget: number; sites: number }
+  allowance: { tokenBudget: number; sites: number; timeBudgetMs: number }
 ): Promise<HuntTaskAudit & { submitted: unknown[] }> {
   const started = Date.now()
   const shell: HuntShellStats = {
@@ -181,12 +181,9 @@ async function runTask(
       `  [${task.id}] step ${step.i} tool=${step.tool ?? '-'} in=${step.inputTokens ?? '?'} out=${step.outputTokens ?? '?'}${step.elidedChars ? ` elided=${step.elidedChars}` : ''}\n`
     )
   }
-  const reserveMs = Math.min(
-    HUNT_WRAP_UP_TIMEOUT_MS,
-    Math.floor(HUNT_TASK_TIME_MS / 3)
-  )
-  const searchMs =
-    HUNT_TASK_TIME_MS - (reserveMs >= HUNT_WRAP_UP_MIN_MS ? reserveMs : 0)
+  const windowMs = allowance.timeBudgetMs
+  const reserveMs = Math.min(HUNT_WRAP_UP_TIMEOUT_MS, Math.floor(windowMs / 3))
+  const searchMs = windowMs - (reserveMs >= HUNT_WRAP_UP_MIN_MS ? reserveMs : 0)
   const base = {
     taskId: task.id,
     objective: task.objective,
@@ -250,7 +247,7 @@ async function runTask(
       tokenBudget: allowance.tokenBudget,
       timeoutMs: searchMs,
       maxSteps: HUNT_MAX_STEPS_PER_CATEGORY,
-      wrapUpDeadlineAt: started + HUNT_TASK_TIME_MS,
+      wrapUpDeadlineAt: started + windowMs,
       onStep,
       ...(modelId === HUNT_MODEL ? {} : { model: gateway(modelId) }),
     })
@@ -320,7 +317,7 @@ async function main(): Promise<void> {
   )
   console.log(`tasks: ${tasks.map(t => `${t.id}:${t.category}`).join(' · ')}`)
   console.log(
-    `sizing: ${sourceFiles} source files → cap ${cap}${isOversized(sourceFiles) ? ' (oversized)' : ''} · allocation ${tasks.map(t => `${t.id}=${allocation.get(t.id)?.tokenBudget}/${allocation.get(t.id)?.sites} sites`).join(' · ')}`
+    `sizing: ${sourceFiles} source files → cap ${cap}${isOversized(sourceFiles) ? ' (oversized)' : ''} · allocation ${tasks.map(t => `${t.id}=${allocation.get(t.id)?.tokenBudget}tok/${allocation.get(t.id)?.timeBudgetMs}ms/${allocation.get(t.id)?.sites} sites`).join(' · ')}`
   )
   console.log(
     `model: ${args.model}${args.model === HUNT_MODEL ? ' (HUNT_MODEL)' : ' (override)'}`
@@ -372,7 +369,11 @@ async function main(): Promise<void> {
           trigger.reasons,
           trigger.sites,
           args.model,
-          allocation.get(task.id) ?? { tokenBudget: 0, sites: 0 }
+          allocation.get(task.id) ?? {
+            tokenBudget: 0,
+            sites: 0,
+            timeBudgetMs: HUNT_TASK_TIME_MS,
+          }
         )
       )
     }

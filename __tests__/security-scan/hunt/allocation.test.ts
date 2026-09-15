@@ -5,6 +5,7 @@ import {
   plannedTaskCap,
   siteCategory,
   taskSiteCount,
+  taskTimeMs,
 } from '@/lib/security-scan/hunt/allocation'
 import {
   HUNT_MAX_PLANNED_TASKS,
@@ -16,7 +17,9 @@ import {
   HUNT_TASK_TOKEN_MIN,
   huntTimeBudgetMs,
   huntTokenBudget,
+  HUNT_MAX_STEPS_PER_CATEGORY,
   HUNT_TASK_TIME_MS,
+  HUNT_TRACE_MAX_STEPS,
 } from '@/lib/services/security-hunt.config'
 import type { HuntSignalSite } from '@/lib/security-scan/hunt/trigger'
 
@@ -56,11 +59,32 @@ describe('LUM-787 sizing the hunt to the diff', () => {
   it('the scan budgets follow the cap: pass 1 is cap × mean, the total leaves a retry of every task', () => {
     for (const cap of [3, 4, 5]) {
       expect(huntTokenBudget(cap)).toBe(cap * HUNT_TASK_TOKEN_MEAN * 2)
-      expect(huntTimeBudgetMs(cap)).toBe((cap + 1) * HUNT_TASK_TIME_MS)
+      // The clock: pass-1 sum (≤ cap × 60 s) plus one retry of the longest
+      // window a task can be allocated (the ceiling's 90 s).
+      expect(huntTimeBudgetMs(cap)).toBe(
+        cap * HUNT_TASK_TIME_MS + taskTimeMs(HUNT_TASK_TOKEN_MAX)
+      )
     }
     // The smallest tier is the user's 30k × 3 = 90k pass 1, 180k total.
     expect(huntTokenBudget(HUNT_MAX_PLANNED_TASKS)).toBe(180_000)
-    expect(huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS)).toBe(240_000)
+    expect(huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS)).toBe(270_000)
+  })
+
+  it('taskTimeMs follows the allowance: 60 s at the mean and below, proportionally more above', () => {
+    expect(taskTimeMs(HUNT_TASK_TOKEN_MIN)).toBe(HUNT_TASK_TIME_MS)
+    expect(taskTimeMs(HUNT_TASK_TOKEN_MEAN)).toBe(HUNT_TASK_TIME_MS)
+    expect(taskTimeMs(HUNT_TASK_TOKEN_MAX)).toBe(90_000)
+    expect(taskTimeMs(0)).toBe(HUNT_TASK_TIME_MS)
+  })
+
+  it('the step cap can spend the ceiling and the audit can hold every step', () => {
+    // 45k at ~3.2k per step is ~14 steps; a 12-step cap left 6–12k unspent
+    // on the replay. And the trace keeps HUNT_TRACE_MAX_STEPS rows — a cap
+    // above it would run steps the audit cannot show.
+    expect(HUNT_MAX_STEPS_PER_CATEGORY).toBeGreaterThanOrEqual(14)
+    expect(HUNT_MAX_STEPS_PER_CATEGORY).toBeLessThanOrEqual(
+      HUNT_TRACE_MAX_STEPS
+    )
   })
 
   it('isOversized flags a diff past the source-file threshold', () => {
@@ -123,9 +147,21 @@ describe('LUM-787 sizing the hunt to the diff', () => {
     ]
     const out = allocateTaskBudgets(tasks, sites, 3)
     // Pass 1 = 90k; floor 3 × 20k = 60k; remainder 30k by weights 1 : 1 : 6.
-    expect(out.get('t1')).toEqual({ sites: 1, tokenBudget: 20_000 + 3_750 })
-    expect(out.get('t2')).toEqual({ sites: 0, tokenBudget: 20_000 + 3_750 })
-    expect(out.get('t3')).toEqual({ sites: 6, tokenBudget: 20_000 + 22_500 })
+    expect(out.get('t1')).toEqual({
+      sites: 1,
+      tokenBudget: 20_000 + 3_750,
+      timeBudgetMs: HUNT_TASK_TIME_MS,
+    })
+    expect(out.get('t2')).toEqual({
+      sites: 0,
+      tokenBudget: 20_000 + 3_750,
+      timeBudgetMs: HUNT_TASK_TIME_MS,
+    })
+    expect(out.get('t3')).toEqual({
+      sites: 6,
+      tokenBudget: 20_000 + 22_500,
+      timeBudgetMs: 85_000,
+    })
     const sum = [...out.values()].reduce((n, a) => n + a.tokenBudget, 0)
     expect(sum).toBeLessThanOrEqual(3 * HUNT_TASK_TOKEN_MEAN)
     for (const a of out.values()) {
