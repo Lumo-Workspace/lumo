@@ -3,6 +3,7 @@ import {
   detectInjectionSignals,
   neutralizeWrapperEscapes,
 } from '@/shared/src/untrusted-content'
+import { redactForInjection } from '@/lib/security-scan/scan-secrets'
 import {
   CROSSING_LABELS,
   labelFor,
@@ -58,9 +59,14 @@ const LABEL_MAX = 80
  * notice line (the block has no untrusted wrapper to put it in, and a line
  * would break ANCHOR_MAX_LINES), so it is withheld and replaced by a
  * placeholder that states why. The statistics still render.
+ *
+ * LUM-784: a registry secret in the name is redacted first (`AKIA…(len 20)`
+ * is self-describing, so no notice line is needed — and none would fit).
  */
 function scopeName(label: string): string {
-  const flat = neutralizeWrapperEscapes(sanitizeField(label))
+  const flat = neutralizeWrapperEscapes(
+    redactForInjection(sanitizeField(label)).text
+  )
     .replace(/\s+/g, ' ')
     .trim()
   const { signals } = detectInjectionSignals(flat)

@@ -274,3 +274,103 @@ export function redactKnownSecrets(line: string): string {
   const redacted = matches.length === 0 ? line : redactAll(line, matches)
   return maskQuotedValues(redacted)
 }
+
+/**
+ * LUM-784 — redaction for text that is about to be INJECTED into a model's
+ * context: task-context sections (memory, Slack, web, Figma, PR, artifact),
+ * steward memory, the agent security reminder, the reference-class anchor,
+ * the criteria card, the three hunt prompt clients, the tier-2 Slack / web
+ * bodies and the LLM-judge diff. Until this existed, those paths ran only
+ * `sanitizeField` (control chars) and the LUM-783 content guard — a plaintext
+ * credential in a Slack thread was handed to the model by Lumo itself, and
+ * from there into Vercel step I/O.
+ *
+ * Contract, in priority order:
+ *
+ * 1. **Never returns unscanned raw text.** Same red line as
+ *    `redactKnownSecrets`: a line over `MAX_SCANNED_LINE_CHARS` is scanned up
+ *    to the cap and the remainder DROPPED behind `…(truncated)` — truncation
+ *    is counted so the injection point can say so, but it is never a skip.
+ * 2. **Pure and cheap.** Per line, every registry pattern once, no I/O, no
+ *    allocation when nothing matches: secret-free text comes back as the
+ *    same string (`===`), so the hot session-start path pays only the scan.
+ * 3. **Redaction does not depend on the LUM-734 downgrade rules; only the
+ *    count does.** A placeholder value (`AKIAIOSFODNN7EXAMPLE`) or a hit in a
+ *    text known to come from a test/fixture/doc path is masked exactly like a
+ *    live credential — the model never needs the raw form — but it is
+ *    reported in `downgradedCount`, not `redactedCount`, so the block-head
+ *    notice ("N suspected credentials redacted") is not raised by a doc key.
+ *
+ * Deliberately NOT `maskQuotedValues`: that pass masks every quoted string of
+ * eight or more characters, which is right for LLM-authored *evidence* and
+ * wrong for prose ("he said "ship it tomorrow"" must survive verbatim). Here
+ * only the registry decides what is a secret — the zero-change guarantee for
+ * ordinary text is part of the contract, see criterion 2 of LUM-784.
+ */
+export interface InjectionRedaction {
+  /** The text with every registry match redacted (`AKIA…(len 20)` form). */
+  text: string
+  /**
+   * Suspected credentials redacted — distinct captured values per line that
+   * the downgrade rules did NOT lower. This is the number a notice shows.
+   */
+  redactedCount: number
+  /**
+   * Values redacted all the same but judged placeholder / fixture-path by the
+   * LUM-734 rules — masked, not announced.
+   */
+  downgradedCount: number
+  /** Lines over `MAX_SCANNED_LINE_CHARS`: scanned to the cap, tail dropped. */
+  truncatedLines: number
+}
+
+export interface InjectionRedactionOptions {
+  /**
+   * Repository path the text was taken from, when the caller knows it (a diff
+   * hunk, a file body). Drives `isDowngradedPath`; free text such as a Slack
+   * message has no path and passes nothing.
+   */
+  path?: string
+}
+
+const NO_REDACTION = Object.freeze({
+  redactedCount: 0,
+  downgradedCount: 0,
+  truncatedLines: 0,
+})
+
+export function redactForInjection(
+  text: string,
+  opts: InjectionRedactionOptions = {}
+): InjectionRedaction {
+  if (text === '') return { text, ...NO_REDACTION }
+  const pathDowngraded = opts.path != null && isDowngradedPath(opts.path)
+  let redactedCount = 0
+  let downgradedCount = 0
+  let truncatedLines = 0
+  let changed = false
+  const lines = text.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    const overCap = line.length > MAX_SCANNED_LINE_CHARS
+    const head = overCap ? line.slice(0, MAX_SCANNED_LINE_CHARS) : line
+    const matches = collectMatches(head)
+    if (matches.length > 0) {
+      for (const value of new Set(matches.map(m => m.value))) {
+        if (pathDowngraded || isPlaceholderValue(value)) downgradedCount++
+        else redactedCount++
+      }
+    }
+    if (!overCap && matches.length === 0) continue
+    const redacted = matches.length === 0 ? head : redactAll(head, matches)
+    lines[i] = overCap ? `${redacted}${TRUNCATION_MARKER}` : redacted
+    changed = true
+    if (overCap) truncatedLines++
+  }
+  return {
+    text: changed ? lines.join('\n') : text,
+    redactedCount,
+    downgradedCount,
+    truncatedLines,
+  }
+}

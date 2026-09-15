@@ -14,6 +14,7 @@
 import { secretDowngradeNote } from '@/shared/src/security-scan'
 import type { SecretDowngradeReason } from '@/lib/security-scan/types'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import { redactForInjection } from '@/lib/security-scan/scan-secrets'
 import { wrapUntrustedLinked } from '@/lib/memory/render'
 import type {
   FindingProvenance,
@@ -76,9 +77,15 @@ function location(f: ReminderFinding): string {
   return f.line == null ? f.filePath : `${f.filePath}:${f.line}`
 }
 
-/** Plain sentence, no tags — what `task status` carries as the action `statement`. */
+/**
+ * Plain sentence, no tags — what `task status` carries as the action
+ * `statement`. Not wrapped, so it gets the LUM-784 redaction directly (the
+ * wrapped lines below get it through `wrapUntrustedLinked`).
+ */
 export function findingStatement(f: ReminderFinding): string {
-  return sanitizeField(`${f.ruleId} at ${location(f)} — ${f.title}`)
+  return redactForInjection(
+    sanitizeField(`${f.ruleId} at ${location(f)} — ${f.title}`)
+  ).text
 }
 
 export function formatFindingLine(f: ReminderFinding): string {

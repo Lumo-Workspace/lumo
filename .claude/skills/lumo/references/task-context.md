@@ -51,7 +51,7 @@ All five are **read-only** (no live Slack/GitHub/Figma calls except the web body
 
 ### `lumo task slack show <identifier> <contextId>` — full Slack thread snapshot
 
-Prints the **stored** snapshot (no live Slack call), one line per message as `author: text`. Author falls back to `@<userId>` when the display name is missing. Empty snapshot prints `(no messages in stored snapshot)`.
+Prints the **stored** snapshot (no live Slack call), one line per message as `author: text`. Author falls back to `@<userId>` when the display name is missing. Empty snapshot prints `(no messages in stored snapshot)`. Registry secrets in message bodies are redacted server-side before printing (`AKIA…(len 20)` form, LUM-784); when any were, a trailing `⚠ N suspected credential(s) were redacted before injection …` line says so — the tokens are redactions, not the source text.
 
 ```bash
 lumo task slack show LUM-42 ctx_abc123
@@ -59,7 +59,7 @@ lumo task slack show LUM-42 ctx_abc123
 
 ### `lumo task web show <identifier> <linkId>` — fetched web link body
 
-Fetches the page body on demand behind the SSRF guard (cached after first read), printed as plain text. Empty body prints `(empty body)`. Fetch failures (blocked host, timeout) print the server's error message.
+Fetches the page body on demand behind the SSRF guard (cached after first read), printed as plain text. Empty body prints `(empty body)`. Fetch failures (blocked host, timeout) print the server's error message. Registry secrets in the body are redacted server-side before printing, with the same trailing `⚠ N suspected credential(s) were redacted …` line as `slack show` when any were (LUM-784).
 
 ```bash
 lumo task web show LUM-42 wl_abc123

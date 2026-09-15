@@ -3,8 +3,20 @@ export { addedLinesWithNumbers } from './diff-lines'
 export {
   scanSecrets,
   redactKnownSecrets,
+  redactForInjection,
   MAX_SCANNED_LINE_CHARS,
+  type InjectionRedaction,
+  type InjectionRedactionOptions,
 } from './scan-secrets'
+// LUM-784 — redact + guard at every injection boundary
+export {
+  guardInjectedText,
+  redactPromptLine,
+  redactSlackSnapshotForInjection,
+  renderInlineRedactionMarker,
+  renderRedactionNotices,
+  type GuardedInjectedText,
+} from './inject-guard'
 export {
   redactSecret,
   redactLine,

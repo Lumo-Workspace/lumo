@@ -57,7 +57,7 @@ import {
   type HuntTask,
   type HuntToolProbe,
 } from './security-hunt.config'
-import { guardUntrustedContent } from '@/shared/src/untrusted-content'
+import { guardInjectedText } from '@/lib/security-scan/inject-guard'
 
 /**
  * Tag key marking a VM the hunt booted itself, so "who paid for this VM" is
@@ -764,8 +764,10 @@ async function compressOrTruncate(
     // billed for the call, so the scan's budget must see it.
     tokens = result.tokens
     // LUM-783: the shared guard — fence tags defanged, instruction-shaped
-    // content counted; the notices ride inside the fence below.
-    const guarded = guardUntrustedContent(sanitizeField(result.text))
+    // content counted; the notices ride inside the fence below. LUM-784:
+    // the compressor is a model, and a model can echo a credential it was
+    // never shown — its answer is redacted again before it is fenced.
+    const guarded = guardInjectedText(sanitizeField(result.text))
     const body = guarded.text.trim().slice(0, HUNT_SHELL_OUTPUT_MAX)
     // A compressor that answered but said nothing is not a compression — it is
     // a refusal wearing an answer's clothes, and acting on it hands the hunt

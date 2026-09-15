@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { reportPull } from '../lib/report-pull'
+import { printRedactionNotice } from '../lib/redaction-notice'
 
 /**
  * `lumo task web show <LUM-N> <link-id>`
@@ -66,12 +67,17 @@ export async function taskWebShow(
     return 1
   }
 
-  const { body } = (await res.json()) as { body: string | null }
+  const { body, redactedSecrets } = (await res.json()) as {
+    body: string | null
+    redactedSecrets?: number
+  }
   if (!body || body.trim().length === 0) {
     console.log('(empty body)')
   } else {
     console.log(sanitizeField(body))
   }
+
+  printRedactionNotice(redactedSecrets)
 
   // LUM-500: stamp the disclosure funnel. The linkId arg == lineage WEB_LINK
   // fragmentId. Fire-and-forget — never blocks output, swallows failures.

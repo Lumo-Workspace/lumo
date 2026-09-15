@@ -1,5 +1,6 @@
 import { makeBudgetSection } from '@/lib/context/budget'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import { redactForInjection } from '@/lib/security-scan/scan-secrets'
 import {
   effectiveReferentKind,
   type DeclarableReferentKind,
@@ -20,6 +21,15 @@ export interface CriterionCard {
 const CRITERIA_HEADING = '## Acceptance criteria (contract)'
 
 const MANIFEST_STATEMENT_MAX = 80
+
+/**
+ * LUM-346 control-char strip + LUM-784 secret redaction, in that order. The
+ * contract is trusted framing and carries no untrusted wrapper to put a
+ * notice in, so the redaction token (`ghp_…(len 40)`) is the whole signal.
+ */
+function cleanText(value: string): string {
+  return redactForInjection(sanitizeField(value)).text
+}
 
 /**
  * Provenance suffix for a criterion line. The round-0 agent draft is the
@@ -52,15 +62,15 @@ export function criterionCard(c: CriterionCard): string {
       ? ` · ⟨${effectiveReferentKind({ declared: c.referentKind, verifierType: c.verifierType, checkpointer: c.checkpointer })}⟩`
       : ''
   const lines: string[] = [
-    `- [${c.verifierType}] ${sanitizeField(c.statement)}${provenanceTag(c)}${evidence}${kindTag}`,
+    `- [${c.verifierType}] ${cleanText(c.statement)}${provenanceTag(c)}${evidence}${kindTag}`,
   ]
-  if (c.checkpointer) lines.push(`  ↳ check: ${sanitizeField(c.checkpointer)}`)
+  if (c.checkpointer) lines.push(`  ↳ check: ${cleanText(c.checkpointer)}`)
   return lines.join('\n')
 }
 
 /** One-line manifest for an overflowed criterion. Same strip as the card. */
 export function criterionManifest(c: CriterionCard): string {
-  const statement = sanitizeField(c.statement)
+  const statement = cleanText(c.statement)
   const s =
     statement.length > MANIFEST_STATEMENT_MAX
       ? `${statement.slice(0, MANIFEST_STATEMENT_MAX)}…`
