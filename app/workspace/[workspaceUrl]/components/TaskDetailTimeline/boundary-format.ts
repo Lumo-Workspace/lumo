@@ -107,6 +107,12 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.TEST_FILE_DELETED',
         defaultMessage: 'deleted a test file',
       })
+    // LUM-793 memory-poison write gate
+    case 'USED_TRAP_MEMORY_DELETED':
+      return intl.formatMessage({
+        id: 'boundary.category.USED_TRAP_MEMORY_DELETED',
+        defaultMessage: 'deleted a proven-useful trap memory',
+      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
   }

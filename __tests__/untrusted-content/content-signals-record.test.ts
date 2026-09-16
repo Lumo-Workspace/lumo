@@ -50,6 +50,11 @@ jest.mock('@/lib/repositories/comment.repository', () => ({
     listAllForTask: jest.fn(),
   },
 }))
+// LUM-793: the memory write gate reads the project's compiled policy — stub
+// it so this suite stays DB-free.
+jest.mock('@/lib/repositories/project-policy.repository', () => ({
+  projectPolicyRepository: { latestForProject: async () => null },
+}))
 const mockMemCreate = jest.fn()
 const mockMemUpdateContent = jest.fn()
 const mockMemSupersede = jest.fn()
@@ -177,6 +182,22 @@ const HIT = {
   counts: { IMPERATIVE: 1 },
   wrapperEscapes: 1,
   total: 2,
+  scannedAt: expect.any(String),
+}
+
+/**
+ * LUM-793: memory is the one source card whose writes are now GATED — an
+ * IMPERATIVE / HIDDEN_COMMENT / ENCODED_BLOB hit is refused instead of stored.
+ * A wrapper escape stays soft everywhere, memory included: the injection
+ * boundary neutralizes wrapper tags unconditionally (LUM-792), and this repo's
+ * own memory legitimately talks about the fencing machinery.
+ */
+const MEMORY_SOFT =
+  'The renderer closes the block with </untrusted-linked-context> and neutralizes it.'
+const MEMORY_SOFT_HIT = {
+  counts: {},
+  wrapperEscapes: 1,
+  total: 1,
   scannedAt: expect.any(String),
 }
 
@@ -422,27 +443,36 @@ describe('memory', () => {
 
   it('records the scan on a manual ADD', async () => {
     await memoryManagementService.createForProject(
-      input({ trigger: INJECTED, outcome: 'o' })
+      input({ trigger: MEMORY_SOFT, outcome: 'o' })
     )
     expect(mockMemCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ contentSignals: HIT })
+      expect.objectContaining({ contentSignals: MEMORY_SOFT_HIT })
     )
+  })
+
+  it('refuses a blocking-signal write outright (LUM-793)', async () => {
+    await expect(
+      memoryManagementService.createForProject(
+        input({ trigger: INJECTED, outcome: 'o' })
+      )
+    ).rejects.toMatchObject({ status: 422 })
+    expect(mockMemCreate).not.toHaveBeenCalled()
   })
 
   it('carries the scan into UPDATE and SUPERSEDE resolutions', async () => {
     mockResolveDedup.mockResolvedValueOnce({
       kind: 'UPDATE',
       id: 'n1',
-      content: { trigger: INJECTED, outcome: 'o' },
+      content: { trigger: MEMORY_SOFT, outcome: 'o' },
     })
     await memoryManagementService.createForProject(
       input({ trigger: 'x', outcome: 'o' })
     )
     expect(mockMemUpdateContent).toHaveBeenCalledWith(
       'n1',
-      { trigger: INJECTED, outcome: 'o' },
+      { trigger: MEMORY_SOFT, outcome: 'o' },
       undefined,
-      HIT
+      MEMORY_SOFT_HIT
     )
     mockResolveDedup.mockResolvedValueOnce({
       kind: 'SUPERSEDE',
@@ -458,6 +488,20 @@ describe('memory', () => {
       undefined,
       null
     )
+  })
+
+  it('refuses a dedup resolution that merges into blocking content', async () => {
+    mockResolveDedup.mockResolvedValueOnce({
+      kind: 'UPDATE',
+      id: 'n1',
+      content: { trigger: INJECTED, outcome: 'o' },
+    })
+    await expect(
+      memoryManagementService.createForProject(
+        input({ trigger: 'x', outcome: 'o' })
+      )
+    ).rejects.toMatchObject({ status: 422 })
+    expect(mockMemUpdateContent).not.toHaveBeenCalled()
   })
 })
 

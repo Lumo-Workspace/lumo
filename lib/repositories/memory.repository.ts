@@ -409,12 +409,17 @@ export const memoryRepository = {
       content?: Prisma.InputJsonValue
       scope?: MemoryScope
       taskId?: string | null
+      /** LUM-793: scan of the NEW content; omit = leave the column as is. */
+      contentSignals?: ContentSignals | null
     },
     tx?: Prisma.TransactionClient
   ) {
     const client = tx ?? prisma
     const data: Prisma.MemoryUpdateInput = {}
     if (patch.content !== undefined) data.content = patch.content
+    if (patch.contentSignals !== undefined) {
+      Object.assign(data, contentSignalsData(patch.contentSignals))
+    }
     if (patch.scope !== undefined) data.scope = patch.scope
     if (patch.taskId !== undefined) {
       data.task =

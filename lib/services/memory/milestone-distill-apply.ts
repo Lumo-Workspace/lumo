@@ -1,8 +1,8 @@
 import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
-import { scanMemoryContent } from '@/lib/services/content-signals'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { memoryContentToText } from '@/lib/memory/content-text'
+import { loadMemoryWriteGate } from './write-gate'
 import { embedTexts } from '@/lib/ai/embedding'
 import type { MemoryCategory, Prisma } from '@prisma/client'
 import type { MilestoneDistillCandidate } from './milestone-distill-extract'
@@ -59,6 +59,9 @@ export async function applyMilestoneDistillOperations(
   const resolvedWrites: ResolvedWrite[] = []
   const seenThisBatch = new Set<string>()
 
+  // LUM-793: write-time poison gate, loaded once for the batch.
+  const writeGate = await loadMemoryWriteGate(input.projectId)
+
   for (const candidate of input.candidates) {
     let validated: unknown
     try {
@@ -73,6 +76,15 @@ export async function applyMilestoneDistillOperations(
     }
 
     const category = candidate.category
+    const screened = writeGate.screen(category, validated)
+    if (!screened.ok) {
+      logger.warn(
+        `[memory.milestone-distill] dropped candidate — ${screened.message}`
+      )
+      result.skipped++
+      continue
+    }
+    const signals = screened.signals
     const text = memoryContentToText(category, validated)
     const key = dupKey(category, text)
     if (existingTexts.has(key) || seenThisBatch.has(key)) {
@@ -95,7 +107,7 @@ export async function applyMilestoneDistillOperations(
             content: validated as Prisma.InputJsonValue,
             sourceSessionId: null,
             createdByMemberId: null,
-            contentSignals: scanMemoryContent(category, validated),
+            contentSignals: signals,
           },
           tx
         )

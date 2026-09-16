@@ -12,6 +12,12 @@ jest.mock('@/lib/services/memory/extraction-gate', () => ({
 jest.mock('@/lib/services/memory/constitution', () => ({
   loadConstitutionSource: async () => ({ text: null, repo: null }),
 }))
+// LUM-793: the write gate reads the project's compiled policy; stub it so the
+// suite stays DB-free (no rules → the injection/directive checks still run).
+jest.mock('@/lib/repositories/project-policy.repository', () => ({
+  projectPolicyRepository: { latestForProject: async () => null },
+}))
+
 const mockResolveDedup = jest.fn()
 jest.mock('@/lib/services/memory/manual-dedup', () => ({
   resolveManualDedup: (...a: any[]) => mockResolveDedup(...a),
@@ -207,6 +213,8 @@ describe('editContent', () => {
     await memoryManagementService.editContent('m1', { rule: 'r', scope: 's' })
     expect(mockUpdate).toHaveBeenCalledWith('m1', {
       content: { rule: 'r', scope: 's' },
+      // LUM-793: an edit re-scans and re-stamps the row's signal summary.
+      contentSignals: null,
     })
   })
 
@@ -316,6 +324,7 @@ describe('promoteToProject', () => {
       scope: 'PROJECT',
       taskId: null,
       content: { rule: 'r', scope: 's' },
+      contentSignals: null,
     })
     expect(result).toEqual({ id: 'm1' })
   })
@@ -369,6 +378,7 @@ describe('editContent — canonicalize', () => {
     })
     expect(mockUpdate).toHaveBeenCalledWith('m1', {
       content: { trigger: 'EN', outcome: 'EN out' },
+      contentSignals: null,
     })
   })
 })

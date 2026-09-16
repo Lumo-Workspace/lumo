@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "menyunting laluan sensitif",
   "boundary.category.HOOK_BYPASS": "memintas git hook",
   "boundary.category.TEST_FILE_DELETED": "memadam fail ujian",
+  "boundary.category.USED_TRAP_MEMORY_DELETED": "memadam memori perangkap yang terbukti berguna",
   "boundary.advisoryBadge": "Nasihat",
   "boundary.severity.high": "tinggi",
   "boundary.severity.medium": "sederhana",

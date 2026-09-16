@@ -655,6 +655,11 @@ export function severityFor(
     case 'SENSITIVE_PATH_EDIT':
     case 'HOOK_BYPASS':
     case 'TEST_FILE_DELETED':
+    // LUM-793: deleting a proven-useful TRAP memory destroys team knowledge but
+    // is not data-destructive to a customer's world — MEDIUM, in the same
+    // visible-and-dismissable tier as TEST_FILE_DELETED (its nearest analogue:
+    // "something that was protecting us stopped existing").
+    case 'USED_TRAP_MEMORY_DELETED':
       return 'MEDIUM'
     case 'HARDCODED_SECRET':
     case 'DESTRUCTIVE_DB_COMMAND':

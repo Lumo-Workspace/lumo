@@ -117,7 +117,13 @@ export async function DELETE(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    await memoryManagementService.delete(memoryId)
+    // LUM-793: the detector needs the caller's identity + Claude Code session
+    // to attribute a used-TRAP deletion to the task the agent is working on.
+    await memoryManagementService.delete(memoryId, {
+      sessionId: request.headers.get('X-Lumo-Session-Id'),
+      memberId: identity.memberId,
+      source: identity.source,
+    })
     return new NextResponse(null, { status: 204 })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {

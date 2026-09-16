@@ -1,13 +1,14 @@
 import { Prisma } from '@prisma/client'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
-import { scanMemoryContent } from '@/lib/services/content-signals'
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { computeProjectFoldProposals } from '@/lib/services/memory/fold-compute'
+import { loadMemoryWriteGate } from '@/lib/services/memory/write-gate'
 import { lineageService } from '@/lib/services/lineage.service'
 import type { FoldProposal } from '@/lib/memory/fold-schemas'
 import { logger } from '@/lib/logger'
+import type { MemoryWriteGate } from '@/lib/services/memory/write-gate'
 
 /** Target resident ACTIVE PROJECT memory budget — the MEMORY.md-style cap the
  *  fold pass shrinks a project back down to (best-effort; fold-only can't always
@@ -104,13 +105,27 @@ async function pruneToCap(
   return res.count
 }
 
-/** Apply one proposal: many→one supersede, then best-effort embed the coarse card. */
-async function applyFold(
+/**
+ * Apply one proposal: many→one supersede, then best-effort embed the coarse
+ * card. The coarse card is LLM-written text about to become a resident
+ * PROJECT memory, so it passes the LUM-793 write gate like any other write —
+ * a rejected proposal is dropped (the sources stay ACTIVE and the pass moves
+ * to the next cluster) rather than folded into a poisoned card.
+ */
+export async function applyFold(
   projectId: string,
   workspaceId: string,
   proposal: FoldProposal,
-  sourceSessionId: string | null
+  sourceSessionId: string | null,
+  gate: MemoryWriteGate
 ): Promise<void> {
+  const screened = gate.screen(proposal.category, proposal.coarseContent)
+  if (!screened.ok) {
+    throw Object.assign(
+      new Error(`fold aborted: coarse card rejected — ${screened.message}`),
+      { status: 422 }
+    )
+  }
   const { coarseId } = await memoryRepository.foldInto({
     sourceIds: proposal.sourceIds,
     coarseContent: proposal.coarseContent as Prisma.InputJsonValue,
@@ -118,10 +133,7 @@ async function applyFold(
     projectId,
     workspaceId,
     sourceSessionId,
-    contentSignals: scanMemoryContent(
-      proposal.category,
-      proposal.coarseContent
-    ),
+    contentSignals: screened.signals,
   })
   try {
     const [vec] = await embedTexts([
@@ -190,6 +202,7 @@ export const foldService = {
           { maxProposals: FOLD_MAX_CLUSTERS_PER_RUN }
         )
         proposals.sort((a, b) => b.sourceIds.length - a.sourceIds.length)
+        const writeGate = await loadMemoryWriteGate(projectId)
         let remaining = active.length
         let folded = 0
         for (const proposal of proposals) {
@@ -199,7 +212,8 @@ export const foldService = {
               projectId,
               state.workspaceId,
               proposal,
-              sourceSessionId
+              sourceSessionId,
+              writeGate
             )
             folded++
             remaining -= proposal.sourceIds.length - 1

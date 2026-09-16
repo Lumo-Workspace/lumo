@@ -239,6 +239,13 @@ enum BoundaryCrossingCategory {
   // CLI-channel disposition(s) are rolled back to OPEN with an append-only
   // trail. A human terminal never produces a hook event, so it never trips.
   SELF_DISPOSITION
+  // LUM-793: an agent hard-deleted a TRAP memory that had already been judged
+  // *used* on at least one other task — the one crossing in the memory-poison
+  // work, because deleting is an AGENT ACTION (the other three classes are
+  // content problems, recorded on the memory row per LUM-783, never on the
+  // agent). Irreversible: `memoryRepository.delete` is a hard delete, so
+  // unlike an archive there is nothing to restore.
+  USED_TRAP_MEMORY_DELETED
 }
 
 enum BoundaryCrossingDisposition {

@@ -72,6 +72,9 @@ describe('reversibility taxonomy — world/external-state boundary (LUM-516)', (
     // LUM-750: an agent ruling on its own blocker — the ruling is rolled back,
     // but the act itself is not undone by any repo operation.
     'SELF_DISPOSITION',
+    // LUM-793: `memoryRepository.delete` is a HARD delete (not the reversible
+    // ACTIVE→ARCHIVED retire), so the memory row and its content are gone.
+    'USED_TRAP_MEMORY_DELETED',
   ]
   // Target-dependent categories are classified per-origin, not as a whole —
   // covered by their own describe block below.

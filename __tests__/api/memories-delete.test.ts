@@ -29,7 +29,13 @@ it('204 deletes the memory', async () => {
   ;(memoryManagementService.delete as jest.Mock).mockResolvedValue(undefined)
   const res = await DELETE(req(), params('m1'))
   expect(res.status).toBe(204)
-  expect(memoryManagementService.delete).toHaveBeenCalledWith('m1')
+  // LUM-793: the route hands the service the caller's identity + Claude Code
+  // session so a used-TRAP deletion can be attributed to the bound task.
+  expect(memoryManagementService.delete).toHaveBeenCalledWith('m1', {
+    sessionId: null,
+    memberId: 'm1',
+    source: 'bearer',
+  })
 })
 
 it('404 when the memory is missing', async () => {

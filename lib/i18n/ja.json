@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "機密パスを編集した",
   "boundary.category.HOOK_BYPASS": "git フックをバイパスした",
   "boundary.category.TEST_FILE_DELETED": "テストファイルを削除した",
+  "boundary.category.USED_TRAP_MEMORY_DELETED": "有用と実証されたトラップメモリーを削除した",
   "boundary.advisoryBadge": "アドバイザリー",
   "boundary.severity.high": "高",
   "boundary.severity.medium": "中",

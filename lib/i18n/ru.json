@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "изменён чувствительный путь",
   "boundary.category.HOOK_BYPASS": "обойдены git-хуки",
   "boundary.category.TEST_FILE_DELETED": "удалён тестовый файл",
+  "boundary.category.USED_TRAP_MEMORY_DELETED": "удалена подтверждённо полезная память о ловушке",
   "boundary.advisoryBadge": "Предупреждение",
   "boundary.severity.high": "высокая",
   "boundary.severity.medium": "средняя",

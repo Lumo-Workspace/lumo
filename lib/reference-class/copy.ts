@@ -42,6 +42,7 @@ export const CROSSING_LABELS: Record<BoundaryCrossingCategory, string> = {
   HOOK_BYPASS: 'bypassed git hooks',
   TEST_FILE_DELETED: 'deleted a test file',
   SELF_DISPOSITION: 'agent-issued disposition',
+  USED_TRAP_MEMORY_DELETED: 'deleted a proven-useful trap memory',
 }
 
 export const REJECTION_PROMPTS: Record<VerificationRejectionReason, string> = {
@@ -98,6 +99,8 @@ export const CROSSING_PROMPTS: Record<BoundaryCrossingCategory, string> = {
     'Tasks here have deleted test files — does this change remove a test, and what still covers what it covered?',
   SELF_DISPOSITION:
     'Tasks here have had the agent rule on its own blocker — when a crossing or finding lands, will you relay it to the user and let them run the disposition?',
+  USED_TRAP_MEMORY_DELETED:
+    'Tasks here have deleted a trap memory other tasks were proven to use — if a memory looks wrong, will you correct it rather than remove it?',
 }
 
 /** Display name for a signal value; unmapped values render as the raw key. */

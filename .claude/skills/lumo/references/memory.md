@@ -226,6 +226,35 @@ Content is **always normalized to English** before storing — the memory store 
 a single canonical language. If you supply text in another language the CLI
 translates it automatically; the stored memory will be in English.
 
+### The write gate — what gets refused (LUM-793)
+
+Memory is the one agent-writable store that is re-injected into **every** future
+session, so the content checks run at **write** time, not only at injection
+time. Every path — `memory add`, `memory push`, the web form, `PATCH
+/api/memories/<id>`, and the LLM curation / fold passes — goes through the same
+gate. A refusal is a **422** with the matched sentence quoted; nothing is
+stored. Three reasons:
+
+| Reason             | What trips it                                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `INJECTION_SIGNAL` | An imperative aimed at the model, text hidden in a comment, or a long encoded blob.                               |
+| `AGENT_DIRECTIVE`  | A **standing order to future agents** — "from now on you must …", 「以后每次…都要…」 — rather than a description. |
+| `POLICY_CONFLICT`  | The text permits what a deterministic, blocking CLAUDE.md rule forbids; the message names the rule id.            |
+
+What does **not** trip it: ordinary imperative PROCEDURAL steps ("Run `lumo
+verify` when done", "All tests go in `__tests__/`"), or invisible characters /
+`javascript:` links — those are still stored and marked on the row, exactly as
+LUM-783 does for every other source card.
+
+**If a write is refused, rewrite the memory as a description of what happens**
+(what the trap is, what the convention is) instead of an instruction to whoever
+reads it next. Do not try to smuggle the same sentence past the gate.
+
+`lumo memory rm` on a **TRAP** memory that other tasks were already judged to
+have _used_ records a `USED_TRAP_MEMORY_DELETED` boundary crossing against the
+bound task (it blocks DONE until dispositioned). Correct or retire such a memory
+rather than deleting it; deleting a never-used memory records nothing.
+
 ### Lumo memory vs the harness memory tool
 
 Claude Code / the Claude API may expose a file-based **memory tool** (a

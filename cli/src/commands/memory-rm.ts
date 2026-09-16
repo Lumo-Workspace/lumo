@@ -61,7 +61,14 @@ export async function memoryRm(
   const apiUrl = resolveAuthedApiUrl(creds.apiUrl)
   const base = trimTrailingSlash(apiUrl)
   const url = `${base}/api/memories/${encodeURIComponent(memoryId)}`
-  const headers = { Authorization: `Bearer ${creds.token}` }
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${creds.token}`,
+  }
+  // LUM-793: the server attributes a used-TRAP deletion to the task this
+  // session is attached to — without the header it can prove no binding and
+  // records nothing.
+  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
   const notFound = `Error: memory ${memoryId} not found — pass the full memory id (cuid) from \`lumo task memory list\` / \`lumo project memory list\`; truncated id prefixes are not resolved`
 
   // LUM-755: without --confirm, fetch the card so the envelope shows what
