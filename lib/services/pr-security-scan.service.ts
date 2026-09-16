@@ -478,15 +478,20 @@ export const prSecurityScanService = {
         secretDowngrade: f.downgrade ?? null,
       }))
 
-      // ── A1b: deterministic graph rules (LUM-785) ────────────────────────
-      // `llm-output-to-sink`: a model-call result reaching a raw-SQL / shell /
-      // eval / fs-write / fetch call with no zod-parse on the path, decided
-      // from the diff subgraph (touched TS/TSX files + one hop of imports)
-      // right here in process — no VM, no model, no falsifier. DETERMINISTIC
-      // rows: a HIGH one blocks DONE under the default policy, exactly like a
-      // secret. Fail-soft: a read that fails makes the scan `partial` with the
-      // reason logged, never a FAILED stage A. Hitting the file/read cap is
-      // NOT partial — a bounded graph is this rule's design (LUM-762).
+      // ── A1b: deterministic graph rules (LUM-785, LUM-794) ───────────────
+      // Two rules over one read of the diff subgraph (touched TS/TSX files +
+      // one hop of imports), decided right here in process — no VM, no model,
+      // no falsifier:
+      //   `llm-output-to-sink`  — a model-call result reaching a raw-SQL /
+      //     shell / eval / fs-write / fetch call with no zod-parse on the path
+      //     (HIGH for the code-execution sinks, so it blocks DONE under the
+      //     default policy, exactly like a secret).
+      //   `agent-loop-unbounded` — a model call inside a loop with no step
+      //     ceiling and no exit path at all (always MEDIUM: a cost and
+      //     availability defect, advisory under the default policy).
+      // Fail-soft: a read that fails makes the scan `partial` with the reason
+      // logged, never a FAILED stage A. Hitting the file/read cap is NOT
+      // partial — a bounded graph is these rules' design (LUM-762).
       const touchedSourcePaths = files
         .map(f => f.path)
         .filter(isGraphSourcePath)

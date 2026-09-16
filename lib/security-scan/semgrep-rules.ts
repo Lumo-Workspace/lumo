@@ -245,4 +245,148 @@ rules:
           - pattern-not: |
               {..., role: "system", content: "..." + "...", ...}
           - focus-metavariable: $S
+
+  # ── LUM-794 — agent loops with no budget ───────────────────────────────────
+  # A tool-calling model loop whose only stop condition is the model deciding
+  # to stop. Cost / availability, not data loss: MEDIUM (5.0), advisory.
+
+  - id: lumo.llm.agent-loop-no-step-cap
+    message: >-
+      An AI SDK tool loop (\`tools:\` is passed) with neither \`stopWhen\` nor
+      \`maxSteps\`. The only thing that ends this loop is the model choosing not
+      to call another tool — one confused turn and it runs until the request
+      times out, billing every step. Give it a step ceiling:
+      \`stopWhen: [stepCountIs(N)]\` (SDK v5) or \`maxSteps: N\` (v4).
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      subcategory: [audit]
+      cwe: 'CWE-770: Allocation of Resources Without Limits or Throttling'
+      technology: [llm, ai-sdk]
+      confidence: HIGH
+      likelihood: MEDIUM
+      impact: MEDIUM
+      security-severity: '5.0'
+      source: https://github.com/Lumo-Workspace/lumo/blob/main/security/semgrep-rules/llm.yaml
+      references:
+        - https://cwe.mitre.org/data/definitions/770.html
+        - https://ai-sdk.dev/docs/ai-sdk-core/agents
+    patterns:
+      - pattern: |
+          $FN({..., tools: $T, ...}, ...)
+      - metavariable-regex:
+          metavariable: $FN
+          regex: ^(generateText|streamText)$
+      - pattern-not: |
+          $FN({..., stopWhen: $S, ...}, ...)
+      - pattern-not: |
+          $FN({..., maxSteps: $M, ...}, ...)
+
+  - id: lumo.llm.agent-loop-non-step-stop
+    message: >-
+      An AI SDK tool loop whose \`stopWhen\` carries no step-count condition —
+      it ends only when the model produces the awaited shape (e.g.
+      \`hasToolCall(...)\`). A model that never produces it loops without a
+      ceiling. Add \`stepCountIs(N)\` to the \`stopWhen\` list.
+    languages: [typescript, javascript]
+    severity: WARNING
+    metadata:
+      category: security
+      subcategory: [audit]
+      cwe: 'CWE-770: Allocation of Resources Without Limits or Throttling'
+      technology: [llm, ai-sdk]
+      confidence: MEDIUM
+      likelihood: MEDIUM
+      impact: MEDIUM
+      security-severity: '5.0'
+      source: https://github.com/Lumo-Workspace/lumo/blob/main/security/semgrep-rules/llm.yaml
+      references:
+        - https://cwe.mitre.org/data/definitions/770.html
+        - https://ai-sdk.dev/docs/ai-sdk-core/agents
+    patterns:
+      - pattern: |
+          $FN({..., tools: $T, ..., stopWhen: $S, ...}, ...)
+      - metavariable-regex:
+          metavariable: $FN
+          regex: ^(generateText|streamText)$
+      # Only decide when \`stopWhen\` is spelled out at the call site: a list or
+      # a single predicate. A \`stopWhen: STOP\` naming a constant elsewhere is
+      # not decidable from here, and this layer stays silent rather than noisy.
+      - metavariable-pattern:
+          metavariable: $S
+          pattern-either:
+            - pattern: |
+                [...]
+            - pattern: |
+                $P(...)
+      - pattern-not: |
+          $FN({..., stopWhen: [..., stepCountIs(...), ...], ...}, ...)
+      - pattern-not: |
+          $FN({..., stopWhen: stepCountIs(...), ...}, ...)
+      - pattern-not: |
+          $FN({..., maxSteps: $M, ...}, ...)
+
+  - id: lumo.llm.agent-step-cap-from-request
+    message: >-
+      The step ceiling of an agent loop is request-derived (\`maxSteps\` or
+      \`stepCountIs(...)\` reads a caller-controlled value). A cap the caller
+      picks is not a cap: one request asking for a million steps spends a
+      million steps' worth of tokens. Clamp it against a server-side constant
+      before it reaches the loop.
+    languages: [typescript, javascript]
+    severity: WARNING
+    mode: taint
+    metadata:
+      category: security
+      subcategory: [vuln]
+      cwe: 'CWE-770: Allocation of Resources Without Limits or Throttling'
+      technology: [llm, ai-sdk]
+      confidence: MEDIUM
+      likelihood: MEDIUM
+      impact: MEDIUM
+      security-severity: '5.0'
+      source: https://github.com/Lumo-Workspace/lumo/blob/main/security/semgrep-rules/llm.yaml
+      references:
+        - https://cwe.mitre.org/data/definitions/770.html
+        - https://ai-sdk.dev/docs/ai-sdk-core/agents
+    # Request-derived ONLY — deliberately NOT the "any function parameter"
+    # source the prompt-injection rules use. A step cap threaded through an
+    # internal \`input.maxSteps\` (this repo's own hunt client) is a budget
+    # passed between our own layers, not an attacker's number.
+    pattern-sources:
+      - pattern-either:
+          - pattern: $REQ.body
+          - pattern: $REQ.query
+          - pattern: $REQ.params
+          - pattern: $REQ.headers
+          - pattern: $REQ.nextUrl.searchParams
+          - pattern: await $REQ.json()
+          - pattern: await $REQ.text()
+          - pattern: await $REQ.formData()
+          - pattern: $REQ.json()
+          - pattern: $REQ.text()
+          - pattern: $REQ.formData()
+          - pattern: searchParams.get(...)
+          - pattern: formData.get(...)
+          - pattern: body.$KEY
+    # A clamp against a server-side constant is the fix, so it is the
+    # sanitizer — as is a schema parse.
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Math.min(...)
+          - pattern: $S.parse(...)
+          - pattern: $S.safeParse(...)
+          - pattern: $S.parseAsync(...)
+          - pattern: $S.safeParseAsync(...)
+          - pattern: await $S.parseAsync(...)
+          - pattern: await $S.safeParseAsync(...)
+    pattern-sinks:
+      - patterns:
+          - pattern: |
+              {..., maxSteps: $V, ...}
+          - focus-metavariable: $V
+      - patterns:
+          - pattern: stepCountIs($V)
+          - focus-metavariable: $V
 `

@@ -119,17 +119,31 @@ describe('LUM-785 semgrep custom rules', () => {
     expect(LLM_SEMGREP_RULES_YAML).toBe(onDisk)
     // The heredoc terminator must never occur inside the body.
     expect(onDisk).not.toContain(SEMGREP_CUSTOM_RULES_EOF)
-    // The three rules this task ships, with the metadata the SARIF
-    // normalisation turns into severity and externalRef.
-    for (const id of [
+    // Every rule the pack ships, with the metadata the SARIF normalisation
+    // turns into severity and externalRef. LUM-785 shipped the first three;
+    // LUM-794 added the three agent-loop-budget rules.
+    const ruleIds = [
       'lumo.llm.untrusted-input-in-prompt',
       'lumo.llm.untrusted-input-in-ai-sdk-prompt',
       'lumo.llm.system-prompt-from-runtime-value',
-    ]) {
+      'lumo.llm.agent-loop-no-step-cap',
+      'lumo.llm.agent-loop-non-step-stop',
+      'lumo.llm.agent-step-cap-from-request',
+    ]
+    for (const id of ruleIds) {
       expect(onDisk).toContain(`- id: ${id}`)
+      // …and it reaches the sandbox, which is what actually loads them.
+      expect(LLM_SEMGREP_RULES_YAML).toContain(`- id: ${id}`)
     }
+    // Every rule carries the two metadata keys, and no rule is left out of
+    // this list: the counts are the pack size, not a sample of it.
     // Prettier may re-quote the YAML scalars; either quote style is fine.
-    expect((onDisk.match(/security-severity: ['"]/g) ?? []).length).toBe(3)
-    expect((onDisk.match(/\n\s+source: https:\/\//g) ?? []).length).toBe(3)
+    expect((onDisk.match(/^  - id: /gm) ?? []).length).toBe(ruleIds.length)
+    expect((onDisk.match(/security-severity: ['"]/g) ?? []).length).toBe(
+      ruleIds.length
+    )
+    expect((onDisk.match(/\n\s+source: https:\/\//g) ?? []).length).toBe(
+      ruleIds.length
+    )
   })
 })
