@@ -994,3 +994,30 @@ describe('verdictActionId in VERIFICATION_RUN_RECORDED activity (LUM-586 C2)', (
     expect(actionIds.size).toBe(1)
   })
 })
+
+// LUM-789: the rendering split (isUnmetForDisplay treats an un-adjudicated
+// HUMAN criterion as a tacit pass) must NOT leak into the adjudication path.
+// `allMet` here stays `every criterion isPassVerdict` — proven by keeping one
+// of two HUMAN criteria un-adjudicated and confirming the task does not jump
+// to DONE.
+describe('LUM-789 regression: allMet is unaffected by the display split', () => {
+  it('合同里还有未裁定的 HUMAN 项时，单条 PASS 不得把任务推成 DONE', async () => {
+    // Two HUMAN criteria still unjudged; passing one leaves the other unmet —
+    // rendering treats c-h2 as a tacit pass, but adjudication must not.
+    listCriteria.mockResolvedValue([
+      { ...CRITERIA[0], id: 'c-1' },
+      { ...CRITERIA[2], id: 'c-h1' },
+      { ...CRITERIA[2], id: 'c-h2' },
+    ])
+    latestRuns.mockResolvedValue(
+      new Map([['c-1', { criterionId: 'c-1', round: 2, verdict: 'PASS' }]])
+    )
+    const out = await taskHumanVerdictService.recordHumanVerdict(
+      't-1',
+      { verdict: 'PASS', criterionIds: ['c-h1'] },
+      ATTR
+    )
+    expect(out.taskStatus).toBe('IN_REVIEW')
+    expect(out.taskStatus).not.toBe('DONE')
+  })
+})

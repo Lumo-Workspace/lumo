@@ -1,4 +1,5 @@
 import { runInTransaction } from '@/lib/db/transaction'
+import { isUnmetForDisplay } from '@/lib/acceptance/unmet-display'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
@@ -913,8 +914,8 @@ export const taskVerificationService = {
         rejectionReasonEnum: r.rejectionReasonEnum,
       }))
 
-    const unmet = criteria.filter(
-      c => !isPassVerdict(latestByCriterion.get(c.id)?.verdict)
+    const unmet = criteria.filter(c =>
+      isUnmetForDisplay(c, latestByCriterion.get(c.id))
     )
 
     // LUM-456: a MACHINE criterion is genuinely machine-verified only when an
