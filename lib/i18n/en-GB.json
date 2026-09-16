@@ -2378,5 +2378,10 @@
   "contentSignals.kind.invisibleChars": "invisible characters",
   "contentSignals.kind.encodedBlob": "encoded blob",
   "contentSignals.kind.scriptLink": "script link",
-  "contentSignals.kind.wrapperEscape": "wrapper-closing tag"
+  "contentSignals.kind.wrapperEscape": "wrapper-closing tag",
+  "acceptance.confirmContract": "Confirm contract",
+  "acceptance.contractUnconfirmed": "This contract has not been confirmed by a human yet. Confirming records that you agree with what \"done\" means here — it does not close the task.",
+  "acceptance.pendingBadge": "{count} pending",
+  "activity.contractConfirmed": "confirmed {count} of the acceptance criteria",
+  "activity.contractConfirmedViaEdit": "confirmed the acceptance contract (via edit)"
 }

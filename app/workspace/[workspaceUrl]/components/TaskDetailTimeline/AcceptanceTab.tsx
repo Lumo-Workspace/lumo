@@ -14,6 +14,11 @@ import {
   UserCheck,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
+import { Button } from '@/components/ui/button'
+// LUM-789: zero-import so this 'use client' component never drags Prisma
+// into the browser bundle — same rendering split the CLI/task-status nudge
+// already use for "is this criterion a to-do".
+import { isUnmetForDisplay } from '@/lib/acceptance/unmet-display'
 import { effectiveReferentKind } from '@/shared/src/referent-kind'
 import { useTaskStatus } from '../../hooks/useTaskStatus'
 import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
@@ -1421,6 +1426,10 @@ export function AcceptanceTab({
   // report — the KPI tiles carry the headline numbers above it.
   const [struggleOpen, setStruggleOpen] = useState(false)
   const [mutating, setMutating] = useState(false)
+  // LUM-789: the one-time "Confirm contract" POST. No optimistic update — the
+  // button just disappears on the next refetch once every row carries a
+  // confirmedAt, same as reviseContract's plain loading flag below.
+  const [confirming, setConfirming] = useState(false)
 
   // The acceptance tab is only ever rendered inside the Clerk web UI — the
   // agent/CLI has no DOM — so a viewer here is by construction a human. The
@@ -1452,6 +1461,21 @@ export function AcceptanceTab({
     },
     [taskIdentifier, refresh, optimisticallyPass]
   )
+
+  // LUM-789: confirming records that a human agrees with what "done" means
+  // here. It never touches task status and has no gate of its own — the
+  // server route (`/criteria/confirm`) only ever stamps confirmedAt columns
+  // and appends a CONTRACT_CONFIRMED activity, so this is a plain refetch,
+  // not an optimistic flip like submitVerdict above.
+  const confirmContract = useCallback(async () => {
+    setConfirming(true)
+    try {
+      await tasksClient.confirmCriteria(taskIdentifier)
+    } finally {
+      setConfirming(false)
+      void refresh?.()
+    }
+  }, [taskIdentifier, refresh])
 
   const reviseContract = useCallback(
     async (items: CriteriaSetItemInput[]) => {
@@ -1534,6 +1558,15 @@ export function AcceptanceTab({
   // run report, the evidence slot) keeps rendering, so "本次运行 / agent runs /
   // lineage / cost" stay visible without a contract.
   const hasCriteria = data.criteria.length > 0
+
+  // LUM-789: the badge's "still open" count — the tacit-pass rendering split
+  // (Task 1), not the DONE-gate split. An un-adjudicated HUMAN criterion
+  // reads as settled here; a genuinely unmet MACHINE criterion (or an
+  // explicit HUMAN FAIL) still counts.
+  const pendingCount = data.criteria.filter(c =>
+    isUnmetForDisplay(c, c.latestVerdict ?? undefined)
+  ).length
+  const contractUnconfirmed = data.criteria.some(c => c.confirmedAt == null)
 
   // Inline human verdict controls only while the task awaits adjudication.
   const interactive = data.task.status === 'IN_REVIEW'
@@ -1788,6 +1821,51 @@ export function AcceptanceTab({
           latestRunSummary={latestRunSummary}
           {...(mentionSources ? { mentionSources } : {})}
         />
+      )}
+
+      {/* LUM-789: the tacit-pass badge + the one-time "Confirm contract"
+          affordance. Both live at the top of the contract block — the badge
+          because it is the honest "still open" count (an un-adjudicated
+          HUMAN row no longer inflates it), the button because confirming is
+          optional, never gates Done, and disappears for good once every row
+          carries a confirmedAt. */}
+      {hasCriteria && (
+        <div className='flex items-center gap-2'>
+          <span
+            data-testid='pending-count'
+            className='text-caption text-muted-foreground'
+          >
+            {intl.formatMessage(
+              {
+                id: 'acceptance.pendingBadge',
+                defaultMessage: '{count} pending',
+              },
+              { count: pendingCount }
+            )}
+          </span>
+          {contractUnconfirmed && (
+            <>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => void confirmContract()}
+                disabled={confirming}
+              >
+                {intl.formatMessage({
+                  id: 'acceptance.confirmContract',
+                  defaultMessage: 'Confirm contract',
+                })}
+              </Button>
+              <InfoTooltip
+                label={intl.formatMessage({
+                  id: 'acceptance.contractUnconfirmed',
+                  defaultMessage:
+                    'This contract has not been confirmed by a human yet. Confirming records that you agree with what "done" means here — it does not close the task.',
+                })}
+              />
+            </>
+          )}
+        </div>
       )}
 
       {/* LUM-496: "still needed for Done", with anchor chips into each gap.

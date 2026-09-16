@@ -382,6 +382,44 @@ function formatActivityText(
         </>
       )
     }
+    case 'CONTRACT_CONFIRMED': {
+      // LUM-789: `confirmedCount` means something different depending on
+      // `via` (task-criteria-confirm.service.ts vs the HUMAN_EDIT auto-
+      // confirm in task-criteria.service.ts) — only newly-stamped rows for
+      // web/cli, but every row a revision touched (including an already-
+      // confirmed row re-stamped) for HUMAN_EDIT. Never render it as one
+      // comparable number across `via`: show it for web/cli, omit it for
+      // HUMAN_EDIT, where it is a side effect of the edit, not a standalone
+      // count worth surfacing.
+      const via = p.via === 'cli' || p.via === 'HUMAN_EDIT' ? p.via : 'web'
+      const count = typeof p.confirmedCount === 'number' ? p.confirmedCount : 0
+      const label =
+        via === 'HUMAN_EDIT'
+          ? intl.formatMessage({
+              id: 'activity.contractConfirmedViaEdit',
+              defaultMessage: 'confirmed the acceptance contract (via edit)',
+            })
+          : intl.formatMessage(
+              {
+                id: 'activity.contractConfirmed',
+                defaultMessage: 'confirmed {count} of the acceptance criteria',
+              },
+              { count }
+            )
+      return (
+        <>
+          {label}
+          {via === 'cli' ? (
+            <span className='text-muted-foreground'>
+              {intl.formatMessage({
+                id: 'boundary.panel.viaCli',
+                defaultMessage: '· via CLI',
+              })}
+            </span>
+          ) : null}
+        </>
+      )
+    }
     case 'VERIFICATION_RUN_RECORDED': {
       // verdict / round are bare structured data (same route as LineageTab);
       // only the prose around them is translated.

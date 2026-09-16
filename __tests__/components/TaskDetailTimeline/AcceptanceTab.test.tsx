@@ -50,6 +50,8 @@ jest.mock('@/lib/api-client', () => ({
     submitHumanVerdict: jest.fn().mockResolvedValue({}),
     dispositionBoundaryCrossing: jest.fn().mockResolvedValue({}),
     spawnBoundaryRemediation: jest.fn().mockResolvedValue({}),
+    // LUM-789: the "Confirm contract" button's POST.
+    confirmCriteria: jest.fn().mockResolvedValue({ confirmedCount: 1 }),
   },
 }))
 
@@ -92,6 +94,7 @@ import type {
 
 const mockStatus = useTaskStatus as jest.Mock
 const mockSubmit = tasksClient.submitHumanVerdict as jest.Mock
+const mockConfirm = tasksClient.confirmCriteria as jest.Mock
 
 function statusView(
   over: Partial<TaskAcceptanceStatusView> = {}
@@ -824,5 +827,73 @@ describe('referentKind badge (LUM-602)', () => {
     render_()
     expandMachine()
     expect(screen.queryByTestId('referent-kind-badge')).toBeNull()
+  })
+})
+
+// ── LUM-789: tacit-pass badge + "Confirm contract" ─────────────────────────
+// An un-adjudicated HUMAN criterion is a tacit pass, not a to-do (Task 1's
+// isUnmetForDisplay) — the badge must not count it, unlike a genuinely unmet
+// MACHINE criterion. Separately, an un-confirmed contract surfaces one
+// optional "Confirm contract" affordance; confirming never touches task
+// status (it has no gate of its own).
+describe('LUM-789: contract confirmation', () => {
+  it('未裁定的 HUMAN 项不计入待办徽章', () => {
+    set(
+      statusView({
+        criteria: [
+          unjudgedHuman({ id: 'c1', confirmedAt: null }),
+          machinePass({
+            id: 'c2',
+            latestVerdict: null,
+            machinePassed: false,
+            confirmedAt: null,
+          }),
+        ],
+      })
+    )
+    render_()
+    expect(screen.getByTestId('pending-count')).toHaveTextContent('1')
+  })
+
+  it('合同未确认时显示「确认合同」按钮', () => {
+    set(
+      statusView({
+        criteria: [unjudgedHuman({ id: 'c1', confirmedAt: null })],
+      })
+    )
+    render_()
+    expect(
+      screen.getByRole('button', { name: /confirm contract/i })
+    ).toBeInTheDocument()
+  })
+
+  it('合同已全部确认时不显示「确认合同」按钮', () => {
+    set(
+      statusView({
+        criteria: [
+          unjudgedHuman({ id: 'c1', confirmedAt: '2026-06-10T10:00:00.000Z' }),
+        ],
+      })
+    )
+    render_()
+    expect(
+      screen.queryByRole('button', { name: /confirm contract/i })
+    ).toBeNull()
+  })
+
+  it('点击「确认合同」调用 tasksClient.confirmCriteria 并刷新，不改任务状态', async () => {
+    const refresh = jest.fn()
+    mockStatus.mockReturnValue({
+      data: statusView({
+        criteria: [unjudgedHuman({ id: 'c1', confirmedAt: null })],
+      }),
+      loading: false,
+      error: null,
+      refresh,
+    })
+    render_()
+    fireEvent.click(screen.getByRole('button', { name: /confirm contract/i }))
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalledWith('LUM-1'))
+    await waitFor(() => expect(refresh).toHaveBeenCalled())
   })
 })

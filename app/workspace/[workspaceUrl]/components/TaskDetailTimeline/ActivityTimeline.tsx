@@ -80,6 +80,8 @@ const FILTER_CATEGORIES = [
       'CRITERION_CHANGED',
       'VERIFICATION_RUN_RECORDED',
       'VERIFICATION_ESCALATED',
+      // LUM-789: a human confirming the acceptance contract.
+      'CONTRACT_CONFIRMED',
     ]),
   },
   {

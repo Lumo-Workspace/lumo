@@ -2378,5 +2378,10 @@
   "contentSignals.kind.invisibleChars": "不可視文字",
   "contentSignals.kind.encodedBlob": "エンコードされたブロブ",
   "contentSignals.kind.scriptLink": "スクリプトリンク",
-  "contentSignals.kind.wrapperEscape": "ラッパーを閉じるタグ"
+  "contentSignals.kind.wrapperEscape": "ラッパーを閉じるタグ",
+  "acceptance.confirmContract": "契約を確認",
+  "acceptance.contractUnconfirmed": "この契約はまだ人によって確認されていません。確認すると、ここでの「完了」の意味に同意したことが記録されます——タスクは閉じられません。",
+  "acceptance.pendingBadge": "{count} 件保留中",
+  "activity.contractConfirmed": "受け入れ基準のうち {count} 件を確認しました",
+  "activity.contractConfirmedViaEdit": "編集により受け入れ契約を確認しました"
 }

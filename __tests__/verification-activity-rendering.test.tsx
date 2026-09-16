@@ -102,3 +102,54 @@ describe('CRITERION_CHANGED', () => {
     expect(screen.queryByText('criterion changed')).not.toBeInTheDocument()
   })
 })
+
+// LUM-789: confirming the acceptance contract renders through its own case —
+// and `confirmedCount` must not be shown as one comparable number across
+// `via` (web/cli count only newly-stamped rows; HUMAN_EDIT counts every row
+// the revision touched, including a re-stamped already-confirmed one).
+describe('CONTRACT_CONFIRMED', () => {
+  it('renders the confirmed count for a web confirmation', () => {
+    renderItem(
+      entry('CONTRACT_CONFIRMED', {
+        via: 'web',
+        confirmedCount: 2,
+        criterionIds: ['c1', 'c2'],
+        reconfirm: false,
+      })
+    )
+    expect(
+      screen.getByText(/confirmed 2 of the acceptance criteria/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText('contract confirmed')).not.toBeInTheDocument()
+  })
+
+  it('marks a CLI confirmation distinctly', () => {
+    renderItem(
+      entry('CONTRACT_CONFIRMED', {
+        via: 'cli',
+        confirmedCount: 1,
+        criterionIds: ['c1'],
+        reconfirm: false,
+      })
+    )
+    expect(
+      screen.getByText(/confirmed 1 of the acceptance criteria/)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/via CLI/)).toBeInTheDocument()
+  })
+
+  it('omits the count for a HUMAN_EDIT auto-confirm — that number counts every touched row, not just new stamps', () => {
+    renderItem(
+      entry('CONTRACT_CONFIRMED', {
+        via: 'HUMAN_EDIT',
+        confirmedCount: 5,
+        criterionIds: ['c1'],
+        reconfirm: true,
+      })
+    )
+    expect(
+      screen.getByText(/confirmed the acceptance contract \(via edit\)/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/5/)).not.toBeInTheDocument()
+  })
+})

@@ -2378,5 +2378,10 @@
   "contentSignals.kind.invisibleChars": "अदृश्य वर्ण",
   "contentSignals.kind.encodedBlob": "एन्कोडेड ब्लॉब",
   "contentSignals.kind.scriptLink": "स्क्रिप्ट लिंक",
-  "contentSignals.kind.wrapperEscape": "रैपर बंद करने वाला टैग"
+  "contentSignals.kind.wrapperEscape": "रैपर बंद करने वाला टैग",
+  "acceptance.confirmContract": "अनुबंध की पुष्टि करें",
+  "acceptance.contractUnconfirmed": "इस अनुबंध की अभी तक किसी व्यक्ति द्वारा पुष्टि नहीं हुई है। पुष्टि करने से यह दर्ज होता है कि आप यहाँ \"पूर्ण\" के अर्थ से सहमत हैं — इससे कार्य बंद नहीं होता।",
+  "acceptance.pendingBadge": "{count} लंबित",
+  "activity.contractConfirmed": "स्वीकृति मानदंडों में से {count} की पुष्टि की",
+  "activity.contractConfirmedViaEdit": "संपादन के ज़रिए स्वीकृति अनुबंध की पुष्टि की"
 }

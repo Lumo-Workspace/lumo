@@ -2378,5 +2378,10 @@
   "contentSignals.kind.invisibleChars": "unsichtbare Zeichen",
   "contentSignals.kind.encodedBlob": "kodierter Datenblock",
   "contentSignals.kind.scriptLink": "Skript-Link",
-  "contentSignals.kind.wrapperEscape": "schließendes Wrapper-Tag"
+  "contentSignals.kind.wrapperEscape": "schließendes Wrapper-Tag",
+  "acceptance.confirmContract": "Vertrag bestätigen",
+  "acceptance.contractUnconfirmed": "Dieser Vertrag wurde noch nicht von einem Menschen bestätigt. Das Bestätigen hält fest, dass du damit einverstanden bist, was „erledigt“ hier bedeutet — es schließt die Aufgabe nicht ab.",
+  "acceptance.pendingBadge": "{count} ausstehend",
+  "activity.contractConfirmed": "hat {count} der Abnahmekriterien bestätigt",
+  "activity.contractConfirmedViaEdit": "hat den Abnahmevertrag (per Bearbeitung) bestätigt"
 }

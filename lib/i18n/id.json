@@ -2378,5 +2378,10 @@
   "contentSignals.kind.invisibleChars": "karakter tak terlihat",
   "contentSignals.kind.encodedBlob": "blok terenkode",
   "contentSignals.kind.scriptLink": "tautan skrip",
-  "contentSignals.kind.wrapperEscape": "tag penutup pembungkus"
+  "contentSignals.kind.wrapperEscape": "tag penutup pembungkus",
+  "acceptance.confirmContract": "Konfirmasi kontrak",
+  "acceptance.contractUnconfirmed": "Kontrak ini belum dikonfirmasi oleh manusia. Mengonfirmasi mencatat bahwa Anda setuju dengan arti \"selesai\" di sini — ini tidak menutup tugas.",
+  "acceptance.pendingBadge": "{count} menunggu",
+  "activity.contractConfirmed": "mengonfirmasi {count} dari kriteria penerimaan",
+  "activity.contractConfirmedViaEdit": "mengonfirmasi kontrak penerimaan (melalui pengeditan)"
 }

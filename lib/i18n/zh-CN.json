@@ -2378,5 +2378,10 @@
   "contentSignals.kind.invisibleChars": "不可见字符",
   "contentSignals.kind.encodedBlob": "编码数据块",
   "contentSignals.kind.scriptLink": "脚本链接",
-  "contentSignals.kind.wrapperEscape": "包装块闭合标签"
+  "contentSignals.kind.wrapperEscape": "包装块闭合标签",
+  "acceptance.confirmContract": "确认合约",
+  "acceptance.contractUnconfirmed": "此合约尚未经人工确认。确认表示你认可这里「完成」的含义——它不会关闭任务。",
+  "acceptance.pendingBadge": "{count} 项待处理",
+  "activity.contractConfirmed": "确认了 {count} 条验收标准",
+  "activity.contractConfirmedViaEdit": "通过编辑确认了验收合约"
 }

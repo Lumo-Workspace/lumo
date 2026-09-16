@@ -2378,5 +2378,10 @@
   "contentSignals.kind.invisibleChars": "ký tự ẩn",
   "contentSignals.kind.encodedBlob": "khối dữ liệu mã hóa",
   "contentSignals.kind.scriptLink": "liên kết script",
-  "contentSignals.kind.wrapperEscape": "thẻ đóng lớp bọc"
+  "contentSignals.kind.wrapperEscape": "thẻ đóng lớp bọc",
+  "acceptance.confirmContract": "Xác nhận hợp đồng",
+  "acceptance.contractUnconfirmed": "Hợp đồng này chưa được con người xác nhận. Việc xác nhận ghi lại rằng bạn đồng ý với ý nghĩa của \"hoàn thành\" ở đây — nó không đóng nhiệm vụ.",
+  "acceptance.pendingBadge": "{count} đang chờ",
+  "activity.contractConfirmed": "đã xác nhận {count} trong số các tiêu chí nghiệm thu",
+  "activity.contractConfirmedViaEdit": "đã xác nhận hợp đồng nghiệm thu (qua chỉnh sửa)"
 }

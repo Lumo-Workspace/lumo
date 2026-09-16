@@ -2378,5 +2378,10 @@
   "contentSignals.kind.invisibleChars": "невидимые символы",
   "contentSignals.kind.encodedBlob": "закодированный блок",
   "contentSignals.kind.scriptLink": "скриптовая ссылка",
-  "contentSignals.kind.wrapperEscape": "закрывающий тег обёртки"
+  "contentSignals.kind.wrapperEscape": "закрывающий тег обёртки",
+  "acceptance.confirmContract": "Подтвердить контракт",
+  "acceptance.contractUnconfirmed": "Этот контракт ещё не подтверждён человеком. Подтверждение фиксирует, что вы согласны с тем, что здесь означает «готово», — оно не закрывает задачу.",
+  "acceptance.pendingBadge": "{count} в ожидании",
+  "activity.contractConfirmed": "подтвердил(а) {count} из критериев приёмки",
+  "activity.contractConfirmedViaEdit": "подтвердил(а) контракт приёмки (через редактирование)"
 }

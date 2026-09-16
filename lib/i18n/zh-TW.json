@@ -2378,5 +2378,10 @@
   "contentSignals.kind.invisibleChars": "不可見字元",
   "contentSignals.kind.encodedBlob": "編碼資料區塊",
   "contentSignals.kind.scriptLink": "指令碼連結",
-  "contentSignals.kind.wrapperEscape": "包裝區塊結尾標籤"
+  "contentSignals.kind.wrapperEscape": "包裝區塊結尾標籤",
+  "acceptance.confirmContract": "確認合約",
+  "acceptance.contractUnconfirmed": "此合約尚未經人工確認。確認表示你認可這裡「完成」的含義——它不會關閉任務。",
+  "acceptance.pendingBadge": "{count} 項待處理",
+  "activity.contractConfirmed": "確認了 {count} 條驗收標準",
+  "activity.contractConfirmedViaEdit": "透過編輯確認了驗收合約"
 }
