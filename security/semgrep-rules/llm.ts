@@ -186,3 +186,17 @@ export function systemLiteralConcat() {
     prompt: 'Hi',
   })
 }
+
+// ── LUM-785 验收证据（临时） ────────────────────────────────────────────────
+// 这个函数由一个临时 PR 加入，唯一目的是让生产环境的托管扫描在**本 PR 新增的
+// 行**上报出一条 `ext:semgrep:lumo.llm.*`，作为「semgrep 步真的加载了自写规则」
+// 的外部事实。裁定完成后该 PR 关闭，不合并。
+
+export async function evidenceUnparsedBodyIntoPrompt(req: Request) {
+  const body = await req.json()
+  return generateText({
+    model,
+    // ruleid: lumo.llm.untrusted-input-in-ai-sdk-prompt
+    prompt: `LUM-785 evidence, summarise this: ${body.note}`,
+  })
+}
