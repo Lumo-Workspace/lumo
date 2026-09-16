@@ -51,6 +51,26 @@ describe('LUM-798 gate read-out', () => {
     )
   })
 
+  it('still reports a scan that ran the new gate and had nothing to judge', () => {
+    // The first production scan on the new gate submitted zero candidates.
+    // Folding that in with "no tally on the row" would hide the one number
+    // the probe exists for — the same zero-versus-never confusion the task
+    // is about, reproduced one level up in the read-out.
+    const r = readGateResults([
+      row({
+        audit: {
+          candidates: 0,
+          rejected: [],
+          resolution: { subgraph: 0, sinkRule: 0, sandbox: 0, rejected: 0 },
+          falsifierRejects: 0,
+        },
+      }),
+    ])
+    expect(r.scansWithResolution).toBe(1)
+    expect(r.scansWithGateResult).toBe(0)
+    expect(r.rejectionRate).toBeNull()
+  })
+
   it('counts a pre-LUM-798 scan as a gate result without a resolution tally', () => {
     const r = readGateResults([
       row({
