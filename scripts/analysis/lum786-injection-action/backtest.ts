@@ -66,7 +66,7 @@ const EXCERPT = 200
  * the same literal-count bucket so a fragment with 30 literals is never
  * compared against one with 2.
  */
-function literalBucket(n: number): string {
+export function literalBucket(n: number): string {
   if (n <= 1) return '1'
   if (n <= 2) return '2'
   if (n <= 3) return '3'
@@ -95,7 +95,7 @@ const ACTING_TOOLS = [
 
 // ─── Repo vocabulary (what the agent knew anyway) ─────────────────────────────
 
-function repoVocabulary(): Vocabulary {
+export function repoVocabulary(): Vocabulary {
   const texts: string[] = []
   try {
     texts.push(
@@ -126,7 +126,7 @@ function repoVocabulary(): Vocabulary {
   return buildVocabulary([prefixed])
 }
 
-function mergeVocab(...vs: Vocabulary[]): Vocabulary {
+export function mergeVocab(...vs: Vocabulary[]): Vocabulary {
   const known = new Set<string>()
   for (const v of vs) for (const k of v.known) known.add(k)
   return { known }
@@ -295,13 +295,13 @@ function reconstruct(
   return null
 }
 
-function signalCount(v: unknown): number {
+export function signalCount(v: unknown): number {
   return isContentSignals(v) ? v.total : 0
 }
 
 // ─── Reading the action stream ────────────────────────────────────────────────
 
-function payloadText(payload: unknown): string {
+export function payloadText(payload: unknown): string {
   const p = payload as Record<string, unknown> | null
   const input = (p?.tool_input ?? {}) as Record<string, unknown>
   const parts: string[] = []
@@ -447,7 +447,7 @@ function add(t: Tally, c: Candidate): void {
   }
 }
 
-function bucketLag(seconds: number): string {
+export function bucketLag(seconds: number): string {
   if (seconds < 60) return '<1m'
   if (seconds < 600) return '1-10m'
   if (seconds < 3600) return '10-60m'
@@ -456,7 +456,7 @@ function bucketLag(seconds: number): string {
   return '>24h'
 }
 
-function bucketTurn(d: number | null): string {
+export function bucketTurn(d: number | null): string {
   if (d == null) return 'unknown'
   if (d === 0) return 'same turn'
   if (d <= 2) return '1-2 turns'
@@ -465,7 +465,7 @@ function bucketTurn(d: number | null): string {
 }
 
 /** Deterministic PRNG so a re-run reproduces the same sample (mulberry32). */
-function makeRand(seed: number): () => number {
+export function makeRand(seed: number): () => number {
   let a = seed >>> 0
   return () => {
     a = (a + 0x6d2b79f5) >>> 0
@@ -725,8 +725,14 @@ async function main(): Promise<void> {
   await prisma.$disconnect()
 }
 
-main().catch(async err => {
-  console.error(err)
-  await prisma.$disconnect()
-  process.exit(1)
-})
+// Guarded so the pure helpers above can be imported by
+// `__tests__/backtest-helpers.test.ts` without opening a database connection
+// and replaying production. An unguarded top-level `main()` makes a module
+// unimportable, which is why nothing here had a test.
+if (require.main === module) {
+  main().catch(async err => {
+    console.error(err)
+    await prisma.$disconnect()
+    process.exit(1)
+  })
+}
