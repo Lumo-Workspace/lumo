@@ -58,6 +58,16 @@ export const taskCriteriaConfirmService = {
         )
 
       if (confirmedCount > 0) {
+        // `confirmedCount` here means something different from the
+        // `CONTRACT_CONFIRMED` event written by the HUMAN_EDIT auto-confirm
+        // path (applyContractDiff in task-criteria.service.ts): here it
+        // counts only rows that were PREVIOUSLY unconfirmed and just got
+        // their first stamp — `confirmAllActive`'s where-clause only ever
+        // touches `confirmedAt: null` rows, and a no-op re-confirm (count 0)
+        // writes no event at all. The HUMAN_EDIT path instead counts every
+        // row the revision touched, including ones re-stamped despite
+        // already being confirmed. Do not compare this field across `via`
+        // values without accounting for that.
         await activityRepository.create(
           {
             taskId,

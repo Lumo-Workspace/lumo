@@ -378,39 +378,91 @@ describe('LUM-789 confirmContract', () => {
       expect(contractConfirmedCalls()).toHaveLength(1)
     })
 
-    it('改过文本后重新确认时 reconfirm 为 true,且原事件仍在(历史是追加的)', async () => {
-      await taskCriteriaConfirmService.confirmContract(taskId, memberId, 'cli')
-      const firstCall = contractConfirmedCalls()[0]!
-      expect(firstCall.payload.reconfirm).toBe(false)
+    // Review finding Q2: the previous version of this test built its mixed
+    // confirmed/unconfirmed state by writing `confirmedAt: null` directly
+    // through the repository — no product code path ever resets a
+    // criterion's confirmedAt to null (the only writers are
+    // `confirmAllActive` and the two HUMAN_EDIT stamps), so that scenario was
+    // unreachable in production. This version drives the *reachable* path
+    // end to end through the real services: confirm the contract, then an
+    // AGENT_DRAFT revision (work already started) adds a new criterion —
+    // proven by the 'AGENT_DRAFT 写入永不自动确认' suite above to land
+    // unconfirmed — then confirm again.
+    it('确认后由 AGENT_DRAFT 新增一条未确认的 criterion,重新确认时 reconfirm 为 true 且原事件仍在(历史是追加的)', async () => {
+      const existing = await acceptanceCriterionRepository.listByTask(taskId)
+      expect(existing).toHaveLength(3)
 
-      // Simulate a subsequent text edit resetting one row's confirmation
-      // (the reset mechanics belong to another task; here we only need the
-      // precondition: a contract with a mix of confirmed and unconfirmed rows).
-      const rows = await acceptanceCriterionRepository.listByTask(taskId)
-      const editedId = rows[0]!.id
-      await acceptanceCriterionRepository.update(editedId, {
-        confirmedAt: null,
-        confirmedByMemberId: null,
-      } as never)
+      const first = await taskCriteriaConfirmService.confirmContract(
+        taskId,
+        memberId,
+        'cli'
+      )
+      expect(first.confirmedCount).toBe(3)
+
+      // Work already started (workStartedAt != null) → identity-preserving
+      // diff: the 3 existing rows are resubmitted unchanged (no update), one
+      // new row is added with no id (create). AGENT_DRAFT never auto-confirms
+      // (see the suite above), so the new row lands with confirmedAt: null —
+      // this is the only way an already-confirmed contract picks up an
+      // unconfirmed row in production.
+      await taskCriteriaService.submitDraft(
+        taskId,
+        [
+          ...existing.map(c => ({
+            id: c.id,
+            statement: c.statement,
+            verifierType: c.verifierType,
+            checkpointer: c.checkpointer,
+          })),
+          {
+            statement: '新增一条未确认的验收项',
+            verifierType: 'MACHINE',
+            checkpointer: 'npx jest',
+          },
+        ],
+        { actorMemberId: memberId, sourceSessionId: null, origin: 'cli' },
+        'IN_PROGRESS' satisfies TaskStatus,
+        new Date('2026-06-02')
+      )
+
+      const afterDraft = await acceptanceCriterionRepository.listByTask(taskId)
+      expect(afterDraft).toHaveLength(4)
+      const added = afterDraft.find(c => !existing.some(e => e.id === c.id))!
+      expect(added.confirmedAt).toBeNull()
+      // Still exactly the one CONTRACT_CONFIRMED event from step 1 — the
+      // AGENT_DRAFT add wrote no confirmation event of its own.
+      expect(contractConfirmedCalls()).toHaveLength(1)
 
       const second = await taskCriteriaConfirmService.confirmContract(
         taskId,
         memberId,
         'cli'
       )
+      // Only the newly added row gets stamped — this is what falsifies an
+      // "overwrite" implementation: if `confirmAllActive` re-stamped every
+      // active row instead of only the still-unconfirmed one, this would be
+      // 4, not 1 (see Fix wave notes in task-4b-report.md for a demonstrated
+      // failure under that mutation).
       expect(second.confirmedCount).toBe(1)
 
       const calls = contractConfirmedCalls()
-      // The original first-confirmation event is still there, untouched —
-      // this is the append-only assertion the task exists for.
+      // The append-only load: two distinct events exist, and the FIRST one's
+      // content is exactly what it was when written — untouched by the
+      // second confirm — rather than being merged/overwritten into one row.
       expect(calls).toHaveLength(2)
-      expect(calls[0]).toBe(firstCall)
-      expect(calls[0]!.payload.reconfirm).toBe(false)
+      expect(calls[0]!.payload).toMatchObject({
+        via: 'cli',
+        confirmedCount: 3,
+        reconfirm: false,
+      })
+      expect(
+        (calls[0]!.payload.criterionIds as string[]).slice().sort()
+      ).toEqual(existing.map(c => c.id).sort())
       expect(calls[1]!.payload).toMatchObject({
         via: 'cli',
         confirmedCount: 1,
         reconfirm: true,
-        criterionIds: [editedId],
+        criterionIds: [added.id],
       })
     })
 

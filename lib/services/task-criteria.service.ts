@@ -150,14 +150,17 @@ async function applyContractDiff(
   })
   const runsByCriterion =
     await verificationRunRepository.latestRunsByCriterion(taskId)
-  // LUM-789: a HUMAN_EDIT revision auto-confirms the rows it touches — record
-  // that as one CONTRACT_CONFIRMED activity for the whole revision (not one
-  // per row). `reconfirm` reflects whether the contract already had ANY
-  // previously-confirmed row before this revision.
-  const reconfirm =
-    cfg.source === 'HUMAN_EDIT' && existing.some(c => c.confirmedAt !== null)
-  const autoConfirmedIds: string[] = []
   await runInTransaction(async tx => {
+    // LUM-789: a HUMAN_EDIT revision auto-confirms the rows it touches —
+    // record that as one CONTRACT_CONFIRMED activity for the whole revision
+    // (not one per row). `reconfirm` reflects whether the contract already
+    // had ANY previously-confirmed row before this revision. Declared inside
+    // the callback (not hoisted above `runInTransaction`) so a future retry
+    // wrapper re-runs this body from a clean slate instead of accumulating
+    // ids/re-deriving `reconfirm` across attempts.
+    const reconfirm =
+      cfg.source === 'HUMAN_EDIT' && existing.some(c => c.confirmedAt !== null)
+    const autoConfirmedIds: string[] = []
     for (const c of toDelete) {
       if (runsByCriterion.has(c.id)) {
         await acceptanceCriterionRepository.softDelete(c.id, tx)
@@ -247,6 +250,16 @@ async function applyContractDiff(
     // LUM-789: one CONTRACT_CONFIRMED for the whole revision, not per row —
     // and only when this revision actually stamped something (a revision that
     // only deletes rows writes no confirmation event).
+    //
+    // `confirmedCount` here means something different from the
+    // `confirmContract` (task-criteria-confirm.service.ts) event of the same
+    // type: there it counts only rows that were PREVIOUSLY unconfirmed and
+    // just got their first stamp (a no-op re-confirm writes no event at all).
+    // Here it counts every row this revision stamped, including a row that
+    // was already confirmed and gets re-stamped as part of the same edit — a
+    // HUMAN_EDIT update always (re-)confirms the rows it touches, so there is
+    // no "already confirmed, skip" branch to filter on. Do not compare this
+    // field across `via` values without accounting for that.
     if (cfg.source === 'HUMAN_EDIT' && autoConfirmedIds.length > 0) {
       await activityRepository.create(
         {
