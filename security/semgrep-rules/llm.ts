@@ -82,6 +82,29 @@ export function constantPrompt() {
   })
 }
 
+// LUM-793 — `content` is a sink only as a MESSAGE part (an object that also
+// carries `role`). A domain object that merely has a `content` field is not a
+// prompt, however untrusted its text: the repo is full of them (memory cards,
+// comments, documents, artifacts) and matching the bare property name made 101
+// of them findings.
+
+declare function screenMemoryContent(input: {
+  category: string
+  content: unknown
+}): boolean
+
+export function domainObjectWithContentField(content: unknown) {
+  // ok: lumo.llm.untrusted-input-in-prompt
+  return screenMemoryContent({ category: 'TRAP', content })
+}
+
+declare function pushTurn(turn: { role: string; content: string }): void
+
+export function messagePartOutsideMessagesArray(userText: string) {
+  // ruleid: lumo.llm.untrusted-input-in-prompt
+  pushTurn({ role: 'user', content: `Summarise: ${userText}` })
+}
+
 // ── lumo.llm.untrusted-input-in-ai-sdk-prompt ──────────────────────────────
 
 export async function aiSdkPromptFromBody(req: Request) {
