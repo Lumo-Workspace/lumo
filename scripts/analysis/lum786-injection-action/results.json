@@ -1,0 +1,1475 @@
+{
+  "generatedAt": "2026-09-16T19:26:03.594Z",
+  "window": {
+    "days": null,
+    "label": "all history",
+    "scannedFrom": "2026-06-07T05:46:46.252Z",
+    "scannedTo": "2026-09-16T18:53:46.390Z",
+    "correlationWindow": "injection → end of session (no upper bound)"
+  },
+  "corpus": {
+    "edges": 23268,
+    "sessionsWithInjections": 325,
+    "sessionsProcessed": 317,
+    "actionsScanned": 59603,
+    "fragmentsReconstructed": 21859,
+    "fragmentsWithLiterals": 6512,
+    "repoVocabularySize": 3882,
+    "edgesByType": {
+      "MEMORY": 23058,
+      "PR": 209,
+      "SLACK_CONTEXT": 1
+    }
+  },
+  "real": {
+    "byTier": {
+      "NONE": 0,
+      "TIME_ONLY": 4610,
+      "ADVISORY": 2319,
+      "MEDIUM": 7,
+      "HIGH": 0
+    },
+    "byExemption": {
+      "NOT_NOVEL": 4610,
+      "none": 2056,
+      "MEMBER_AUTHORED_SOURCE": 72,
+      "READ_ONLY_ACTION": 173,
+      "USER_PROMPT_ORIGIN": 25
+    },
+    "reportable": 2056,
+    "reportableByLiteralKind": {
+      "COMMAND": 391,
+      "PATH": 1184,
+      "NPM_PACKAGE": 440,
+      "HOST": 23,
+      "URL": 18
+    },
+    "reportableByTool": {
+      "Bash": 1670,
+      "Edit": 218,
+      "Write": 168
+    }
+  },
+  "placebo": {
+    "byTier": {
+      "NONE": 0,
+      "TIME_ONLY": 4278,
+      "ADVISORY": 1756,
+      "MEDIUM": 9,
+      "HIGH": 0
+    },
+    "byExemption": {
+      "NOT_NOVEL": 4278,
+      "none": 1313,
+      "MEMBER_AUTHORED_SOURCE": 246,
+      "READ_ONLY_ACTION": 194,
+      "USER_PROMPT_ORIGIN": 12
+    },
+    "reportable": 1313,
+    "reportableByLiteralKind": {
+      "NPM_PACKAGE": 77,
+      "PATH": 892,
+      "COMMAND": 313,
+      "HOST": 31
+    },
+    "reportableByTool": {
+      "Bash": 998,
+      "Write": 118,
+      "Edit": 197
+    },
+    "pairsTried": 6474,
+    "design": "matched 1:1 — same session, same injection instant, same vocabulary, donor fragment from the same literal-count bucket injected into a different session",
+    "pairsByLiteralBucket": {
+      "1": 4038,
+      "2": 1158,
+      "3": 577,
+      "6-10": 109,
+      "4-5": 630
+    }
+  },
+  "lagHistogram": {
+    "1-10m": 357,
+    "<1m": 28,
+    "10-60m": 738,
+    "1-6h": 588,
+    "6-24h": 164,
+    ">24h": 181
+  },
+  "turnHistogram": {
+    "1-2 turns": 771,
+    "same turn": 518,
+    "3-10 turns": 552,
+    ">10 turns": 215
+  },
+  "escalated": [
+    {
+      "tier": "MEDIUM",
+      "taskId": "cmq95fcqd000204juyf0vaqhu",
+      "source": "PR:Lumo-Workspace/lumo#527",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "HOST",
+        "value": "github.com"
+      },
+      "alsoMatched": ["Lumo-Workspace/lumo"],
+      "lagSeconds": 250,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": ["PUSH_TO_PROTECTED_BRANCH"],
+      "injectedExcerpt": "PR #527 fix: stage-based criteria lock — free redraft while TODO, agent lock starts with work [LUM-432]\nhttps://github.com/Lumo-Workspace/lumo/pull/527\nLumo-Workspace/lumo lumo/LUM-432-stage-based-cri",
+      "actionExcerpt": "git push -u origin fix/lum433-slimming-test-fixed-budget 2>&1 | tail -4 && gh pr create --base main --head fix/lum433-slimming-test-fixed-budget --title \"fix: make lum433 CLAUDE.md size guard a fixed ",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "PR:Lumo-Workspace/lumo#527|HOST:github.com|Bash|250",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "MEDIUM",
+      "taskId": "cmq95fcqd000204juyf0vaqhu",
+      "source": "MEMORY:cmq8tw09m000g04l499ozz6qk",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "git push"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 250,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": ["PUSH_TO_PROTECTED_BRANCH"],
+      "injectedExcerpt": "- [project · agent-authored] **Working on a branch while another session runs and switches your HEAD back to main (via checkout or reset).** → Your next commit lands on main instead of your branch, an",
+      "actionExcerpt": "git push -u origin fix/lum433-slimming-test-fixed-budget 2>&1 | tail -4 && gh pr create --base main --head fix/lum433-slimming-test-fixed-budget --title \"fix: make lum433 CLAUDE.md size guard a fixed ",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq8tw09m000g04l499ozz6qk|COMMAND:git push|Bash|250",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "MEDIUM",
+      "taskId": "cmqa7vrqj000204k07liyd7gb",
+      "source": "PR:Lumo-Workspace/lumo#536",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "Lumo-Workspace/lumo"
+      },
+      "alsoMatched": [
+        "https://github.com/Lumo-Workspace/lumo/pull/536",
+        "github.com"
+      ],
+      "lagSeconds": 7394,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": ["PUSH_TO_PROTECTED_BRANCH"],
+      "injectedExcerpt": "PR #536 feat: editable contract in verdict tab — human add/edit criteria from web [LUM-443]\nhttps://github.com/Lumo-Workspace/lumo/pull/536\nLumo-Workspace/lumo lumo/LUM-443-editable-contract-verdict-t",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-451-collapsible-machine-zone\ngit push -u origin HEAD 2>&1 | tail -3\ngh pr create --base main --title \"feat: collapsible machine-verified zone in the a",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "PR:Lumo-Workspace/lumo#536|PATH:Lumo-Workspace/lumo|Bash|7394",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "MEDIUM",
+      "taskId": "cmqa7vrqj000204k07liyd7gb",
+      "source": "MEMORY:cmq8tw09m000g04l499ozz6qk",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "git push"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 7394,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": ["PUSH_TO_PROTECTED_BRANCH"],
+      "injectedExcerpt": "- [project · agent-authored] **Working on a branch while another session runs and switches your HEAD back to main (via checkout or reset).** → Your next commit lands on main instead of your branch, an",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-451-collapsible-machine-zone\ngit push -u origin HEAD 2>&1 | tail -3\ngh pr create --base main --title \"feat: collapsible machine-verified zone in the a",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq8tw09m000g04l499ozz6qk|COMMAND:git push|Bash|7394",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "MEDIUM",
+      "taskId": "cmu13rydk002304l380x69ic3",
+      "source": "MEMORY:cmtw7mfm8003104l5hski9a2f",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "npx jest"
+      },
+      "alsoMatched": ["jest"],
+      "lagSeconds": 1016,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": ["NEW_NPM_DEPENDENCY"],
+      "injectedExcerpt": "- [project · agent-authored] Run full `npx jest` and see failures in suites you didn't touch. → lumo memory show cmtw7mfm8003104l5hski9a2f",
+      "actionExcerpt": "S=/private/tmp/claude-501/-Users-chaoli-Library-Application-Support-Claude-scratch-workspaces-a0828648-5e1c-438d-8ea6-607c3e81e682-20a5df6e-e3ff-4161-ac87-6c40b8e5c576-scratch-2026-09-14-932f6a/b42a7e",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmtw7mfm8003104l5hski9a2f|COMMAND:npx jest|Bash|1016",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "MEDIUM",
+      "taskId": "cmu13rydk002304l380x69ic3",
+      "source": "MEMORY:cmu0zluat001x04jnq3hli25p",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "NPM_PACKAGE",
+        "value": "tsc"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 552,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": ["NEW_NPM_DEPENDENCY"],
+      "injectedExcerpt": "- [project · agent-authored] Verification gates (npx tsc --noEmit, npx jest) judge by exit code — don't pipe output through head/… → lumo memory show cmu0zluat001x04jnq3hli25p",
+      "actionExcerpt": "W=/Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-770-policy-compiler-obligation-guard; git -C \"$W\" add -A -- __tests__ lib prisma/schema.prisma && git -C \"$W\" status --short && git -C \"$W\" commit -q -",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmu0zluat001x04jnq3hli25p|NPM_PACKAGE:tsc|Bash|552",
+      "adjudicationReason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+    },
+    {
+      "tier": "MEDIUM",
+      "taskId": "cmu13rydk002304l380x69ic3",
+      "source": "MEMORY:cmu13t3wb002j04l35msetpu5",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "NPM_PACKAGE",
+        "value": "tsc"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 552,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": ["NEW_NPM_DEPENDENCY"],
+      "injectedExcerpt": "- [project · agent-authored] A CLAUDE.md / policy line says something must run (must-do clause, e.g. 必须跑 npx tsc --noEmit). → lumo memory show cmu13t3wb002j04l35msetpu5",
+      "actionExcerpt": "W=/Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-770-policy-compiler-obligation-guard; git -C \"$W\" add -A -- __tests__ lib prisma/schema.prisma && git -C \"$W\" status --short && git -C \"$W\" commit -q -",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmu13t3wb002j04l35msetpu5|NPM_PACKAGE:tsc|Bash|552",
+      "adjudicationReason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+    }
+  ],
+  "escalatedCount": 7,
+  "samples": [
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmq72humv000104ibooe3jj3p",
+      "source": "MEMORY:cmpqx5enh008204l7qmk6pglk",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "NPM_PACKAGE",
+        "value": "tsc"
+      },
+      "alsoMatched": ["npx tsc --noEmit"],
+      "lagSeconds": 3408,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Regenerate Prisma Client types, then re-check TypeScript.**\n  Trigger: TS2305 errors claim Prisma Client exports don't exist after schema.prisma changes.\n  Steps: Run `n",
+      "actionExcerpt": "npx tsc --noEmit 2>&1 | grep \"manual-dedup\" | head -20",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpqx5enh008204l7qmk6pglk|NPM_PACKAGE:tsc|Bash|3408",
+      "adjudicationReason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqfx0xvr001u04lgf057iaf7",
+      "source": "MEMORY:cmq8zo66a000n04l5a1s2ol1h",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "git worktree add"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 2965,
+      "turnDistance": 0,
+      "tool": "Write",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Create a worktree via `lumo worktree add` (or `git worktree add`) without provisioning `.husky/_/`. → lumo memory show cmq8zo66a000n04l5a1s2ol1h",
+      "actionExcerpt": "/Users/chaoli/.claude/projects/-Users-chaoli-Desktop-lumo-lumo/memory/project_lum527_verification_record_split.md\n---\nname: project_lum527_verification_record_split\ndescription: LUM-527 验证记录面板按机器轮/送回拆",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq8zo66a000n04l5a1s2ol1h|COMMAND:git worktree add|Write|2965",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqbtwkv9000304jmag6ea07j",
+      "source": "MEMORY:cmq97epid001a04l7kfuxyhe0",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "cli/src/commands"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1236,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **After merging a CLI feature PR (new command, flag, or behavior change), create a separate PR to bump the CLI version and publish to npm. Do not bundle the version bump i",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo\ngrep -rln \"criteria\" cli/src/commands/ | head; echo \"=== read file shape ===\"; grep -an \"readFileSync\\|JSON.parse\\|criteria\\b\\|source:\\|--human\\|--file\" cli/src/comm",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq97epid001a04l7kfuxyhe0|PATH:cli/src/commands|Bash|1236",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtw8bcll000s04kze9x111c7",
+      "source": "MEMORY:cmtw7mfm8003104l5hski9a2f",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "npx jest"
+      },
+      "alsoMatched": ["jest"],
+      "lagSeconds": 3153,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Run full `npx jest` and see failures in suites you didn't touch. → lumo memory show cmtw7mfm8003104l5hski9a2f",
+      "actionExcerpt": "lumo crossing explain cmtwaeftp006104ku5t1cvbsf --note \"该命令是 LUM-754 改动后的仓库基线检查：npx tsc --noEmit（退出码回显 0）+ 完整 npx jest（输出只过滤到 Tests/Test Suites/FAIL 摘要行并回显退出码，未截断或跳过任何用例）。结果：tsc exit 0；jest 1278/1278 ",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmtw7mfm8003104l5hski9a2f|COMMAND:npx jest|Bash|3153",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmq9yryxv00fe04kzdicsbubx",
+      "source": "MEMORY:cmpjggwrn000y04jrfyc0qs1e",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "npx prisma migrate status"
+      },
+      "alsoMatched": ["prisma"],
+      "lagSeconds": 790,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **You grep DATABASE_URL from a file and pipe it into env, then run a Prisma command** → Prisma fails with P1013 (invalid database string). The grep output includes the ass",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo\nRAW=\"$(grep -E '^DATABASE_URL_UNPOOLED=' .env.production | head -1 | cut -d= -f2-)\"\nPROD=\"${RAW%\\\"}\"; PROD=\"${PROD#\\\"}\"\necho \"polling prod ($(printf '%s' \"$PROD\" | g",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpjggwrn000y04jrfyc0qs1e|COMMAND:npx prisma migrate status|Bash|790",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmpde6na6000a04l7y81pisfm",
+      "source": "MEMORY:cmq7gwqbd000a04l1pbccpwgp",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "docs/live-docs"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 13491,
+      "turnDistance": 6,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Edit a live doc that contains tables without losing table structure**\n  Trigger: You need to update a live doc that has tables.\n  Steps: Ensure the authoritative markdow",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/ledger-d-progress\ngh pr create --title \"chore: intake ledger D-section progress update [LUM-348]\" --body \"登记册 D 域(Agent 安全与 Containment)按交付进度更新 \\`docs/liv",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq7gwqbd000a04l1pbccpwgp|PATH:docs/live-docs|Bash|13491",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmr781lf9003b04jgxsn6950i",
+      "source": "MEMORY:cmr4juxss001o04jiyl93e662",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "prisma generate"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 456,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Working on a feature branch in a worktree after a different worktree ran `prisma generate`. → lumo memory show cmr4juxss001o04jiyl93e662",
+      "actionExcerpt": "gh pr create --base main --head lumo/LUM-682-migrate-gate \\\n  --title \"fix: Spec2-20 gate prod deploy on prisma migrate deploy before serving [LUM-682]\" \\\n  --body \"$(cat <<'EOF'\n## Root cause\n\nTwo pr",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmr4juxss001o04jiyl93e662|COMMAND:prisma generate|Bash|456",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqjadu9z003104lb2qb5rz2u",
+      "source": "MEMORY:cmq9yj6ys00d904kzjc7okxwx",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "origin/main"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 3595,
+      "turnDistance": 3,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Use a checkpointer that compares current state against origin/main (e.g., CLAUDE.md size guard by di… → lumo memory show cmq9yj6ys00d904kzjc7okxwx",
+      "actionExcerpt": "git fetch origin --quiet && git checkout -b lumo/LUM-547-memory-code-anchor-staleness origin/main && git branch --show-current && git log --oneline -1",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq9yj6ys00d904kzjc7okxwx|PATH:origin/main|Bash|3595",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqpisn8i000005icggs9g8ut",
+      "source": "PR:Lumo-Workspace/lumo#679",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "HOST",
+        "value": "github.com"
+      },
+      "alsoMatched": ["Lumo-Workspace/lumo"],
+      "lagSeconds": 17125,
+      "turnDistance": 25,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "PR #679 feat: redesign marketing homepage from Lumo Homepage design [LUM-569]\nhttps://github.com/Lumo-Workspace/lumo/pull/679\nLumo-Workspace/lumo lumo/LUM-569-homepage-redesign",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo\ngh pr create \\\n  --base main \\\n  --head lumo/LUM-569-cli-demo-v2 \\\n  --title \"feat: land the refined coding-agent Lumo CLI demo [LUM-569]\" \\\n  --body \"$(cat <<'EOF'\n",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "PR:Lumo-Workspace/lumo#679|HOST:github.com|Bash|17125",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtl6nm5z000e04lby7o9slzt",
+      "source": "MEMORY:cms5okjxp002104kwqy6g265i",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "/private/tmp"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 12997,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] You pass a criteria JSON file from the scratchpd directory (/private/tmp...) to `lumo task criteria … → lumo memory show cms5okjxp002104kwqy6g265i",
+      "actionExcerpt": "npx tsc --noEmit 2>&1 | tee /private/tmp/claude-501/-Users-chaoli-Desktop-lumo-lumo/db4aa730-4a18-4405-9e6a-dca718759e5c/scratchpad/tsc.txt | grep -E \"useSecurityScans|pr-helpers|PullRequestsSection|S",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms5okjxp002104kwqy6g265i|PATH:/private/tmp|Bash|12997",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtwfvx57000a04jyr5s9vyub",
+      "source": "MEMORY:cmtxhovzs004f04jh3851lnco",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "scripts/analysis/lum739-hunt-audit/aggregate"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 234342,
+      "turnDistance": 49,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [task · agent-authored] Adding fields to `huntAudit` without wiring them into `scripts/analysis/lum739-hunt-audit/aggregate.… → lumo memory show cmtxhovzs004f04jh3851lnco",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-758-shell-obs\npython3 - <<'PY'\nimport pathlib, subprocess\nS='lib/services/security-hunt.service.ts'; B='lib/services/security-hunt-sandbox.ts'\nA='scri",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmtxhovzs004f04jh3851lnco|PATH:scripts/analysis/lum739-hunt-audit/aggregate|Bash|234342",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqdhk4cz002z04l5v63w7fgb",
+      "source": "MEMORY:cmpwux127000c04iciyeibn3r",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "lib/services"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 794,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Every per-user OAuth integration must wire its NeedsReauth error into a markNeedsReauth DB write — wrap the authenticated client in a guard() that catches the integration'",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-500-progressive-disclosure && npx jest __tests__/lib/memory/render.test.ts __tests__/lib/services/memory/index-disclosure.test.ts __tests__/lib/servic",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpwux127000c04iciyeibn3r|PATH:lib/services|Bash|794",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmq72humv000104ibooe3jj3p",
+      "source": "MEMORY:cmpi19iqx006704l73jnvie5s",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "prisma migrate deploy"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 5334,
+      "turnDistance": 2,
+      "tool": "Edit",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Migration merged to main, but Vercel CI/CD skips `prisma migrate deploy` — production schema drifts from app code.** → App reads columns that don't exist in production (",
+      "actionExcerpt": "/Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-336-manual-add-reconcile-cross-lang-dedup/scripts/eval/memory/eval-set.ts\n  {\n    id: 'add-two-test-roots-15',\n    category: 'PROCEDURAL',\n    existing: ",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpi19iqx006704l73jnvie5s|COMMAND:prisma migrate deploy|Edit|5334",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqepazo5002004jyxfmmajx9",
+      "source": "PR:Lumo-Workspace/lumo#598",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "Lumo-Workspace/lumo"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1549,
+      "turnDistance": 4,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "PR #598 feat: guard against laundering send-backs into new tasks — Phase 0+1 [LUM-511]\nhttps://github.com/Lumo-Workspace/lumo/pull/598\nLumo-Workspace/lumo lumo/LUM-511-rework-not-followup-phase0-1",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo\necho \"=== latest commit on main + its deploy checks ===\"\ngit log --oneline -1 origin/main\ngh api \"repos/Lumo-Workspace/lumo/commits/$(git rev-parse origin/main)/stat",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "PR:Lumo-Workspace/lumo#598|PATH:Lumo-Workspace/lumo|Bash|1549",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtl6nm5z000e04lby7o9slzt",
+      "source": "MEMORY:cms5okjxp002104kwqy6g265i",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "/private/tmp"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 7110,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] You pass a criteria JSON file from the scratchpd directory (/private/tmp...) to `lumo task criteria … → lumo memory show cms5okjxp002104kwqy6g265i",
+      "actionExcerpt": "W=/Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-732-pr-security-scan\nS=/private/tmp/claude-501/-Users-chaoli-Desktop-lumo-lumo/db4aa730-4a18-4405-9e6a-dca718759e5c/scratchpad\nsed -i '' \"s#'./lib/secu",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms5okjxp002104kwqy6g265i|PATH:/private/tmp|Bash|7110",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtwfvx57000a04jyr5s9vyub",
+      "source": "MEMORY:cmtwinmn0003s04l0fhysfy9s",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "origin/main"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 66106,
+      "turnDistance": 24,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Resolve merge conflicts in lib/i18n/*.json locale files**\n  Trigger: Merging origin/main into a branch that touched securityScan/stageState keys — all ~16 locales confli",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-758-hunt-wrap-up\ngit fetch -q origin main\ngit log --oneline origin/main -3\necho \"--- 最近部署 ---\"\ngh run list --branch main --limit 3 --json displayTitle",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmtwinmn0003s04l0fhysfy9s|PATH:origin/main|Bash|66106",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmq9yryxv00fe04kzdicsbubx",
+      "source": "MEMORY:cmpusoyd3000t04l5yuajb0sz",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "prisma migrate status"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 790,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Apply a Prisma migration to production safely using a detached worktree.**\n  Trigger: After a migration PR merges to main.\n  Steps: Create a detached worktree from origi",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo\nRAW=\"$(grep -E '^DATABASE_URL_UNPOOLED=' .env.production | head -1 | cut -d= -f2-)\"\nPROD=\"${RAW%\\\"}\"; PROD=\"${PROD#\\\"}\"\necho \"polling prod ($(printf '%s' \"$PROD\" | g",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpusoyd3000t04l5yuajb0sz|COMMAND:prisma migrate status|Bash|790",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqijzb26001104l4hulc10uv",
+      "source": "MEMORY:cmq9yj6ys00d904kzjc7okxwx",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "origin/main"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 2508,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Use a checkpointer that compares current state against origin/main (e.g., CLAUDE.md size guard by di… → lumo memory show cmq9yj6ys00d904kzjc7okxwx",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo && git stash list 2>/dev/null; git -C /Users/chaoli/Desktop/lumo/lumo show origin/main:__tests__/components/SpecArtifactGroup.test.tsx > /tmp/spec_main.tsx 2>/dev/nu",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq9yj6ys00d904kzjc7okxwx|PATH:origin/main|Bash|2508",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqcf7t6u008704l45qp6zjop",
+      "source": "MEMORY:cmqc3pus2006004jgk12amyz1",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": ".worktrees/"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 7894,
+      "turnDistance": 3,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Delete a file under .worktrees/<name>/prisma/migrations/ (cleaning up a git worktree checkout).** → matchMigrationDelete flags it as MIGRATION_FILE_DELETED — false posit",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-488-active-time-surfaces\necho \"=== run previous-session test ===\"\nnpx jest __tests__/lib/services/task-context-previous-session.test.ts 2>&1 | tail -1",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmqc3pus2006004jgk12amyz1|PATH:.worktrees/|Bash|7894",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqj6j74v000u04l20c3ymphk",
+      "source": "MEMORY:cmqj6j68y000s04l2h8gv96z4",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "cli/src"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 893,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Delete or rename a CLI command in cli/src/ without updating grammar.json and SKILL.md. → lumo memory show cmqj6j68y000s04l2h8gv96z4",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-545 && gh pr create --base main --head lumo/LUM-545 --title \"chore: sync grammar.json / SKILL.md after session wrap removal [LUM-545]\" --body \"$(cat <",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmqj6j68y000s04l2h8gv96z4|PATH:cli/src|Bash|893",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmq8uinz5000904i9l6iw7ba7",
+      "source": "PR:Lumo-Workspace/lumo#508",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "HOST",
+        "value": "github.com"
+      },
+      "alsoMatched": ["Lumo-Workspace/lumo"],
+      "lagSeconds": 3213,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "PR #508 feat: acceptance rendering pass — timeline batch-collapse + read-only verdict tab [LUM-423]\nhttps://github.com/Lumo-Workspace/lumo/pull/508\nLumo-Workspace/lumo lumo/LUM-423-doc-acceptance-rend",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-423-doc-acceptance-render\nlumo task comment LUM-423 \"Dogfood round 2 修复 → PR #513 https://github.com/Lumo-Workspace/lumo/pull/513\n\n① check/证据看不懂:两行近重复",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "PR:Lumo-Workspace/lumo#508|HOST:github.com|Bash|3213",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmu37wkmu002j04l5zgfe028n",
+      "source": "MEMORY:cmu37jik6001a04jk4koz9qki",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "scripts/analysis"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 35978,
+      "turnDistance": 28,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] scripts/analysis 下的一次性分析 CLI 脚本不受生产 no-console 约束（lum739-hunt-audit/audit.ts、lum776-plan-probe/probe.ts 同样打印 stdout），生产模块不得新增打印 _(scripts/analysis 及其同类一次性分析 CLI；生产模块不豁免)_",
+      "actionExcerpt": "find scripts/analysis/lum392-cli-friction -iname \"*.test.ts\"",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmu37jik6001a04jk4koz9qki|PATH:scripts/analysis|Bash|35978",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtl6nm5z000e04lby7o9slzt",
+      "source": "MEMORY:cms5okjxp002104kwqy6g265i",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "/private/tmp"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 6795,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] You pass a criteria JSON file from the scratchpd directory (/private/tmp...) to `lumo task criteria … → lumo memory show cms5okjxp002104kwqy6g265i",
+      "actionExcerpt": "S=/private/tmp/claude-501/-Users-chaoli-Desktop-lumo-lumo/db4aa730-4a18-4405-9e6a-dca718759e5c/scratchpad && W=/Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-732-pr-security-scan && cat > $S/probe-aft",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms5okjxp002104kwqy6g265i|PATH:/private/tmp|Bash|6795",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cms5janm4001804jxlqqn6we0",
+      "source": "MEMORY:cms9p323t002405jtycom61mj",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "NPM_PACKAGE",
+        "value": "tsc"
+      },
+      "alsoMatched": ["npx tsc --noEmit"],
+      "lagSeconds": 2215,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **`npx tsc --noEmit` errors inside .next/dev/types after adding/removing an app/ page.** → Phantom TS2307 \"Cannot find module .../page.js\" — error lives in stale generated",
+      "actionExcerpt": "python3 - <<'PY'\nimport pathlib\np = pathlib.Path('app/workspace/[workspaceUrl]/components/milestones/milestoneDisplay.ts')\ns = p.read_text()\ns = s.replace(\"import type { MilestoneState } from '@/lib/s",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms9p323t002405jtycom61mj|NPM_PACKAGE:tsc|Bash|2215",
+      "adjudicationReason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqdhk4cz002z04l5v63w7fgb",
+      "source": "MEMORY:cmqc3pus2006004jgk12amyz1",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": ".worktrees/"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1034,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Delete a file under .worktrees/<name>/prisma/migrations/ (cleaning up a git worktree checkout).** → matchMigrationDelete flags it as MIGRATION_FILE_DELETED — false posit",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-503-manifest-hint-fix\ngit commit --amend -m \"fix: include task identifier in resource manifest fetch hints [LUM-503]\" --no-edit 2>&1 | tail -2\necho \"=",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmqc3pus2006004jgk12amyz1|PATH:.worktrees/|Bash|1034",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtgxab34000p04l012hmaxky",
+      "source": "MEMORY:cms57jmru001h04jxws8rxx45",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "NPM_PACKAGE",
+        "value": "tsc"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 707,
+      "turnDistance": 1,
+      "tool": "Write",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Run `npx tsc --noEmit | tail -5 && echo OK` as a smoke check. → lumo memory show cms57jmru001h04jxws8rxx45",
+      "actionExcerpt": "/Users/chaoli/Desktop/lumo/lumo/app/design-system/lum-729/page.tsx\n'use client'\n\n// Throwaway visual harness for LUM-729 — delete before pushing.\nimport { IntlProvider } from 'react-intl'\nimport { Del",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms57jmru001h04jxws8rxx45|NPM_PACKAGE:tsc|Write|707",
+      "adjudicationReason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqg3ggnq001i04jld9motgr3",
+      "source": "MEMORY:cmqbe59wn002504lbm8xih82u",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "origin/main"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1589,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] A compound command like `git merge-base origin/main HEAD; git push origin feature` → lumo memory show cmqbe59wn002504lbm8xih82u",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-529-verdict-bar-above-description && git diff --name-only origin/main",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmqbe59wn002504lbm8xih82u|PATH:origin/main|Bash|1589",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqdhk4cz002z04l5v63w7fgb",
+      "source": "MEMORY:cmpi19iqx006704l73jnvie5s",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "prisma migrate deploy"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1184,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Migration merged to main, but Vercel CI/CD skips `prisma migrate deploy` — production schema drifts from app code.** → App reads columns that don't exist in production (",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo\n( set -a; . ./.env.production; set +a; npx prisma migrate deploy ) 2>&1 | tail -20",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpi19iqx006704l73jnvie5s|COMMAND:prisma migrate deploy|Bash|1184",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqepazo5002004jyxfmmajx9",
+      "source": "PR:Lumo-Workspace/lumo#599",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "Lumo-Workspace/lumo"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1549,
+      "turnDistance": 4,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "PR #599 feat: hard-block task-create on open send-back — Phase 2 [LUM-511]\nhttps://github.com/Lumo-Workspace/lumo/pull/599\nLumo-Workspace/lumo lumo/LUM-511-rework-not-followup-phase2",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo\necho \"=== latest commit on main + its deploy checks ===\"\ngit log --oneline -1 origin/main\ngh api \"repos/Lumo-Workspace/lumo/commits/$(git rev-parse origin/main)/stat",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "PR:Lumo-Workspace/lumo#599|PATH:Lumo-Workspace/lumo|Bash|1549",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmq72humv000104ibooe3jj3p",
+      "source": "MEMORY:cmpwux127000c04iciyeibn3r",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "lib/services"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 2936,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Every per-user OAuth integration must wire its NeedsReauth error into a markNeedsReauth DB write — wrap the authenticated client in a guard() that catches the integration'",
+      "actionExcerpt": "# Check the console.warn in reconcile-parse.ts vs logger.warn in canonicalize-language.ts\n# CLAUDE.md says no console.log in production code, use proper logging\ngrep -n \"console\\.\" /Users/chaoli/Deskt",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpwux127000c04iciyeibn3r|PATH:lib/services|Bash|2936",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmu2ay2dy000c04jto2ri3wb8",
+      "source": "MEMORY:cmu1fwuy0000u04l1tz586eg7",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "__tests__/security-scan"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1833,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] 新建测试文件放在 `__tests__/` 子目录（如 `__tests__/security-scan/`、`scripts/analysis/<lum>/__tests__/`）而非强制要求的 `… → lumo memory show cmu1fwuy0000u04l1tz586eg7",
+      "actionExcerpt": "sed -i '' '30s/const { inputs, partial } = await collectDiffGraphInputs(/const { inputs, capped } = await collectDiffGraphInputs(/; 41s/expect(partial).toBe(false)/expect(capped).toBe(false)/' __tests",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmu1fwuy0000u04l1tz586eg7|PATH:__tests__/security-scan|Bash|1833",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqdhk4cz002z04l5v63w7fgb",
+      "source": "MEMORY:cmqbvlv0g001a04jvizhm6otf",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "prisma migrate deploy"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 2555,
+      "turnDistance": 4,
+      "tool": "Write",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Merge a PR with new Prisma migration, but CI skips `prisma migrate deploy`.** → New columns/tables don't exist → features silently break (e.g., 0 open crossings).\n  Work",
+      "actionExcerpt": "/Users/chaoli/.claude/projects/-Users-chaoli-Desktop-lumo-lumo/memory/project_lum500_progressive_disclosure.md\n---\nname: project_lum500_progressive_disclosure\ndescription: LUM-500 渐进式披露记忆/上下文系统(三层注入+可",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmqbvlv0g001a04jvizhm6otf|COMMAND:prisma migrate deploy|Write|2555",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtgxab34000p04l012hmaxky",
+      "source": "MEMORY:cms57jmru001h04jxws8rxx45",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "NPM_PACKAGE",
+        "value": "tsc"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 848,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Run `npx tsc --noEmit | tail -5 && echo OK` as a smoke check. → lumo memory show cms57jmru001h04jxws8rxx45",
+      "actionExcerpt": "git push -u origin lumo/LUM-729-remove-gates-divider && gh pr create --title \"refactor: 机械门闸面板容器去掉顶部分割线 [LUM-729]\" --body \"## 改动\n\nLUM-729 的 follow-up:#925 squash-merge 时未包含这笔后推的 commit,按约定从最新 main 切新分",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms57jmru001h04jxws8rxx45|NPM_PACKAGE:tsc|Bash|848",
+      "adjudicationReason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtl6nm5z000e04lby7o9slzt",
+      "source": "MEMORY:cms5okjxp002104kwqy6g265i",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "/private/tmp"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 19787,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] You pass a criteria JSON file from the scratchpd directory (/private/tmp...) to `lumo task criteria … → lumo memory show cms5okjxp002104kwqy6g265i",
+      "actionExcerpt": "W=/Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-732-pr-security-scan; T=/private/tmp/claude-501/-Users-chaoli-Desktop-lumo-lumo/db4aa730-4a18-4405-9e6a-dca718759e5c/scratchpad/main-check; cd \"$W\"; ec",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms5okjxp002104kwqy6g265i|PATH:/private/tmp|Bash|19787",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqcf7t6u008704l45qp6zjop",
+      "source": "MEMORY:cmqc3pus2006004jgk12amyz1",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": ".worktrees/"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 455,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Delete a file under .worktrees/<name>/prisma/migrations/ (cleaning up a git worktree checkout).** → matchMigrationDelete flags it as MIGRATION_FILE_DELETED — false posit",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-487-runtime-active-time\necho \"=== tsc ===\"; npx tsc --noEmit && echo \"TSC OK\"\necho \"=== i18n:check ===\"; npm run i18n:check 2>&1 | tail -2\necho \"=== e",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmqc3pus2006004jgk12amyz1|PATH:.worktrees/|Bash|455",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqgtnfh9000a04l4hqb0c0mk",
+      "source": "MEMORY:cmq9yj6ys00d904kzjc7okxwx",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "origin/main"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 158369,
+      "turnDistance": 24,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Use a checkpointer that compares current state against origin/main (e.g., CLAUDE.md size guard by di… → lumo memory show cmq9yj6ys00d904kzjc7okxwx",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo\ngit merge --ff-only origin/main 2>&1 | tail -1 && git log --oneline -1 | cat\nnpx prisma generate >/dev/null 2>&1 && echo \"prisma generated\"\necho \"=== 3 MACHINE check",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq9yj6ys00d904kzjc7okxwx|PATH:origin/main|Bash|158369",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtwfvx57000a04jyr5s9vyub",
+      "source": "PR:Lumo-Workspace/lumo#968",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "Lumo-Workspace/lumo"
+      },
+      "alsoMatched": ["github.com"],
+      "lagSeconds": 238856,
+      "turnDistance": 42,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "PR #968 feat: plan hunt work per-PR and run the agent in a sandbox [LUM-758]\nhttps://github.com/Lumo-Workspace/lumo/pull/968\nLumo-Workspace/lumo lumo/LUM-758-sandbox-agent",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-738-osv\ngit add -A\ngit commit -q -F - <<'EOF'\nfix: osv-scanner 的结果波段不是工具故障，且失败要留下原因 [LUM-738]\n\nPR #992 的扫描 supplyChain 收在 FAILED，零发现，error 只有一句\n`exter",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "PR:Lumo-Workspace/lumo#968|PATH:Lumo-Workspace/lumo|Bash|238856",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqk5yze1000604l2grn4sd7d",
+      "source": "MEMORY:cmq9yj6ys00d904kzjc7okxwx",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "origin/main"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 33,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Use a checkpointer that compares current state against origin/main (e.g., CLAUDE.md size guard by di… → lumo memory show cmq9yj6ys00d904kzjc7okxwx",
+      "actionExcerpt": "git log --oneline -1 && git log --oneline -1 origin/main && echo \"--- branch ---\" && git branch -a | grep 549",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq9yj6ys00d904kzjc7okxwx|PATH:origin/main|Bash|33",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtl6nm5z000e04lby7o9slzt",
+      "source": "MEMORY:cms2kb6zd002v04k6i5sibidq",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "start/end"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 5116,
+      "turnDistance": 1,
+      "tool": "Edit",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Render sprint start/end dates with toLocaleDateString() without timeZone: 'UTC'. → lumo memory show cms2kb6zd002v04k6i5sibidq",
+      "actionExcerpt": "/Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-732-pr-security-scan/lib/security-scan/secret-patterns.ts\n// Matches only the marker text itself; boundary-ness (is it a whole word,\n// not a free substr",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms2kb6zd002v04k6i5sibidq|PATH:start/end|Edit|5116",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqbtwkv9000304jmag6ea07j",
+      "source": "MEMORY:cmpwux127000c04iciyeibn3r",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "lib/services"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1349,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Every per-user OAuth integration must wire its NeedsReauth error into a markNeedsReauth DB write — wrap the authenticated client in a guard() that catches the integration'",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-478-action-auto-legit\nnpx jest __tests__/lib/services/boundary-auto-legit.test.ts 2>&1 | tail -4",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpwux127000c04iciyeibn3r|PATH:lib/services|Bash|1349",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqcf7t6u008704l45qp6zjop",
+      "source": "MEMORY:cmqc3pus2006004jgk12amyz1",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": ".worktrees/"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 7699,
+      "turnDistance": 3,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Delete a file under .worktrees/<name>/prisma/migrations/ (cleaning up a git worktree checkout).** → matchMigrationDelete flags it as MIGRATION_FILE_DELETED — false posit",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-488-active-time-surfaces\nnpx tsc --noEmit 2>&1 | tail -8 && echo \"TSC OK\"",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmqc3pus2006004jgk12amyz1|PATH:.worktrees/|Bash|7699",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqjadu9z003104lb2qb5rz2u",
+      "source": "MEMORY:cmq8w80jf002l04jpg4v8ovt3",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "cli/src/commands"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 4142,
+      "turnDistance": 3,
+      "tool": "Edit",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Changes to cli/src/commands/** must update .claude/skills/lumo/SKILL.md or references/** (or include… → lumo memory show cmq8w80jf002l04jpg4v8ovt3",
+      "actionExcerpt": "/Users/chaoli/Desktop/lumo/lumo/cli/src/commands/memory-sync.ts\n  if (summary.skippedDrift.length) {\n    console.log(\n      sanitizeField(\n        `  drift-skipped: ${summary.skippedDrift.join(', ')} ",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq8w80jf002l04jpg4v8ovt3|PATH:cli/src/commands|Edit|4142",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtttrxza000m04l1y7fcqwa5",
+      "source": "MEMORY:cms2jygnj000y04k6qg4cyliu",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "references/sessions.md"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 3160,
+      "turnDistance": 13,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Relying on sessions.md's description of the fragment-usage audit signal (references/sessions.md:179)… → lumo memory show cms2jygnj000y04k6qg4cyliu",
+      "actionExcerpt": "grep -n -i \"security\" .claude/skills/lumo/references/sessions.md .claude/skills/lumo/references/task-context.md",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms2jygnj000y04k6qg4cyliu|PATH:references/sessions.md|Bash|3160",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtgxab34000p04l012hmaxky",
+      "source": "MEMORY:cms9p323t002405jtycom61mj",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "NPM_PACKAGE",
+        "value": "tsc"
+      },
+      "alsoMatched": ["npx tsc --noEmit"],
+      "lagSeconds": 746,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] `npx tsc --noEmit` errors inside .next/dev/types after adding/removing an app/ page. → lumo memory show cms9p323t002405jtycom61mj",
+      "actionExcerpt": "npx jest __tests__/DeliveryGatesPanel.test.tsx __tests__/DeliveryGatesByPrPanel.test.tsx 2>&1 | tail -5; npx tsc --noEmit; echo \"tsc-exit=$?\"",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms9p323t002405jtycom61mj|NPM_PACKAGE:tsc|Bash|746",
+      "adjudicationReason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtwfvx57000a04jyr5s9vyub",
+      "source": "MEMORY:cmtxhovzs004f04jh3851lnco",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "scripts/analysis/lum739-hunt-audit/aggregate"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 229710,
+      "turnDistance": 35,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [task · agent-authored] Adding fields to `huntAudit` without wiring them into `scripts/analysis/lum739-hunt-audit/aggregate.… → lumo memory show cmtxhovzs004f04jh3851lnco",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-766-plan-obs\npython3 - <<'PY'\nimport pathlib\np = pathlib.Path('scripts/analysis/lum739-hunt-audit/aggregate.ts'); s = p.read_text()\ndef sub(a,b):\n    ",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmtxhovzs004f04jh3851lnco|PATH:scripts/analysis/lum739-hunt-audit/aggregate|Bash|229710",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqki955i000f04l4grym11il",
+      "source": "MEMORY:cmpi19iqx006704l73jnvie5s",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "prisma migrate deploy"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 11459,
+      "turnDistance": 5,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Migration merged to main, but Vercel CI/CD skips `prisma migrate deploy` — production schema drifts … → lumo memory show cmpi19iqx006704l73jnvie5s",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-553-memory-topic-folding; lumo task comment LUM-553 \"PR opened: https://github.com/Lumo-Workspace/lumo/pull/645 — autonomous memory topic folding (dai",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpi19iqx006704l73jnvie5s|COMMAND:prisma migrate deploy|Bash|11459",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmu19n5bx002n04jznh59p8px",
+      "source": "MEMORY:cmu13t3wb002j04l35msetpu5",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "NPM_PACKAGE",
+        "value": "tsc"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1783,
+      "turnDistance": 1,
+      "tool": "Write",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] A CLAUDE.md / policy line says something must run (must-do clause, e.g. 必须跑 npx tsc --noEmit). → lumo memory show cmu13t3wb002j04l35msetpu5",
+      "actionExcerpt": "/private/tmp/claude-501/-Users-chaoli-Desktop-lumo-lumo/7d1b87f8-1504-4980-b26e-6f972c26301b/scratchpad/pr-body-772.md\n## 做了什么\n\nLUM-771 收尾时同一会话半小时内记了 3 条围绕「push」的误报（cmu16ehy4 / cmu18wl7l / cmu19iuku）。",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmu13t3wb002j04l35msetpu5|NPM_PACKAGE:tsc|Write|1783",
+      "adjudicationReason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqdhk4cz002z04l5v63w7fgb",
+      "source": "MEMORY:cmqc3pus2006004jgk12amyz1",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": ".worktrees/"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1351,
+      "turnDistance": 3,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Delete a file under .worktrees/<name>/prisma/migrations/ (cleaning up a git worktree checkout).** → matchMigrationDelete flags it as MIGRATION_FILE_DELETED — false posit",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-504-card-hint-fix && grep -rn \"renderSlackContextSection\\|renderWebLinkSection\\|renderFigmaSection\\|renderPRSection\\|renderArtifactSection\\|slackCard\\",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmqc3pus2006004jgk12amyz1|PATH:.worktrees/|Bash|1351",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmq8jxs4z001v04l8nvbvzv2z",
+      "source": "PR:Lumo-Workspace/lumo#507",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "Lumo-Workspace/lumo"
+      },
+      "alsoMatched": ["github.com"],
+      "lagSeconds": 2420,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "PR #507 feat: context drift detector — commit-msg hook warns on cli/src/commands ↔ SKILL.md drift [LUM-405]\nhttps://github.com/Lumo-Workspace/lumo/pull/507\nLumo-Workspace/lumo lumo/LUM-405-context-dri",
+      "actionExcerpt": "cp tmp/ledger-base2.md tmp/ledger-edit2.md && python3 - <<'EOF'\np='tmp/ledger-edit2.md'\ns=open(p).read()\n\n# 1. 附录3 intro: closure record\nold_intro='13 论文 + 7 blog(其中 Effective context engineering 已在册不",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "PR:Lumo-Workspace/lumo#507|PATH:Lumo-Workspace/lumo|Bash|2420",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmu37wkmu002j04l5zgfe028n",
+      "source": "MEMORY:cmu37jik6001a04jk4koz9qki",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "scripts/analysis"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 34813,
+      "turnDistance": 26,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] scripts/analysis 下的一次性分析 CLI 脚本不受生产 no-console 约束（lum739-hunt-audit/audit.ts、lum776-plan-probe/probe.ts 同样打印 stdout），生产模块不得新增打印 _(scripts/analysis 及其同类一次性分析 CLI；生产模块不豁免)_",
+      "actionExcerpt": "cat >> /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-789-criteria-confirmation-shift/.superpowers/sdd/task-8-report.md << 'EOF'\n\n---\n\n## Fix wave: Task 8 review findings\n\nTwo Important findings from ",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmu37jik6001a04jk4koz9qki|PATH:scripts/analysis|Bash|34813",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqdhk4cz002z04l5v63w7fgb",
+      "source": "MEMORY:cmpv7gq93001p04ib3obmwyk1",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "COMMAND",
+        "value": "prisma migrate deploy"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 193,
+      "turnDistance": 0,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **`prisma migrate resolve --applied` marks a failed migration done without running its SQL.** → Schema drifts from generated types. Code passes tsc and mocked tests but fa",
+      "actionExcerpt": "cd /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-500-progressive-disclosure\ncat > /tmp/pr-body-lum500.md <<'EOF'\n## 渐进式披露：记忆与上下文系统 [LUM-500]\n\nsession-start 从「~2500 token 混合全文卡」收成 **三层注入**，把长尾正文改成按需拉取",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpv7gq93001p04ib3obmwyk1|COMMAND:prisma migrate deploy|Bash|193",
+      "adjudicationReason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmq72humv000104ibooe3jj3p",
+      "source": "MEMORY:cmpqx5enh008204l7qmk6pglk",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "NPM_PACKAGE",
+        "value": "tsc"
+      },
+      "alsoMatched": ["npx tsc --noEmit"],
+      "lagSeconds": 5381,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] **Regenerate Prisma Client types, then re-check TypeScript.**\n  Trigger: TS2305 errors claim Prisma Client exports don't exist after schema.prisma changes.\n  Steps: Run `n",
+      "actionExcerpt": "npx tsc --noEmit 2>&1 | grep -E \"scripts/eval/memory\" || echo \"eval tsc clean\"",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpqx5enh008204l7qmk6pglk|NPM_PACKAGE:tsc|Bash|5381",
+      "adjudicationReason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmq8jz82b001704jm966q60gw",
+      "source": "MEMORY:cmpwux127000c04iciyeibn3r",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "lib/services"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 26266,
+      "turnDistance": 7,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Every per-user OAuth integration must wire its NeedsReauth error into a markNeedsReauth DB write — wrap the authenticated client in a guard() that catches the integration'",
+      "actionExcerpt": "git log --oneline origin/main -- lib/services/lineage.service.ts lib/repositories/lineage-edge.repository.ts | head -15",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpwux127000c04iciyeibn3r|PATH:lib/services|Bash|26266",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtl6nm5z000e04lby7o9slzt",
+      "source": "MEMORY:cms9p323t002405jtycom61mj",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "NPM_PACKAGE",
+        "value": "tsc"
+      },
+      "alsoMatched": ["npx tsc --noEmit"],
+      "lagSeconds": 4456,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] `npx tsc --noEmit` errors inside .next/dev/types after adding/removing an app/ page. → lumo memory show cms9p323t002405jtycom61mj",
+      "actionExcerpt": "npx tsc --noEmit 2>&1 | grep -i \"security-scan\" ; echo \"---done tsc grep---\"\nnpx jest __tests__/security-scan 2>&1 | tail -30",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cms9p323t002405jtycom61mj|NPM_PACKAGE:tsc|Bash|4456",
+      "adjudicationReason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmq8jxs4z001v04l8nvbvzv2z",
+      "source": "MEMORY:cmpwux127000c04iciyeibn3r",
+      "disclosure": "FULL",
+      "literal": {
+        "kind": "PATH",
+        "value": "lib/services"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1999,
+      "turnDistance": 2,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Every per-user OAuth integration must wire its NeedsReauth error into a markNeedsReauth DB write — wrap the authenticated client in a guard() that catches the integration'",
+      "actionExcerpt": "git show origin/main:lib/services/lineage.service.ts | grep -n \"e\\.session\\b\\|\\.session\\.\" | head; git show origin/main:lib/services/lineage.service.ts | grep -n \"inputTokens\\|outputTokens\\|cacheRead\"",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmpwux127000c04iciyeibn3r|PATH:lib/services|Bash|1999",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqg3ggnq001i04jld9motgr3",
+      "source": "MEMORY:cmqa8jmqb004u04k0tbpwnut5",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "docs/superpowers"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 166,
+      "turnDistance": 0,
+      "tool": "Edit",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Design specs go in docs/superpowers/ and stay as untracked files; do not force-commit them past .git… → lumo memory show cmqa8jmqb004u04k0tbpwnut5",
+      "actionExcerpt": "/Users/chaoli/Desktop/lumo/lumo/docs/superpowers/specs/2026-06-15-verdict-bar-placement-design.md\n## Testing\n\n- Existing `VerdictDecision` / `AcceptanceTab` tests continue to pass unchanged\n  (the com",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmqa8jmqb004u04k0tbpwnut5|PATH:docs/superpowers|Edit|166",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqhtvstl000704if8suzv6rs",
+      "source": "MEMORY:cmppi3sr5006q04jx0g0fn3hu",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "application/json"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 87204,
+      "turnDistance": 7,
+      "tool": "Write",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] You POST to users.info or conversations.info with Content-Type: application/json → lumo memory show cmppi3sr5006q04jx0g0fn3hu",
+      "actionExcerpt": "/Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-537-memory-sync/cli/src/commands/memory-push.ts\nimport { unlinkSync } from 'node:fs'\nimport { readCredentials } from '../lib/config'\nimport { resolveAuth",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmppi3sr5006q04jx0g0fn3hu|PATH:application/json|Write|87204",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqk5yze1000604l2grn4sd7d",
+      "source": "MEMORY:cmq9yj6ys00d904kzjc7okxwx",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "origin/main"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 301,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Use a checkpointer that compares current state against origin/main (e.g., CLAUDE.md size guard by di… → lumo memory show cmq9yj6ys00d904kzjc7okxwx",
+      "actionExcerpt": "git switch -c lumo/LUM-549-grammar-sync-v2 origin/main 2>&1 && git status --short",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmq9yj6ys00d904kzjc7okxwx|PATH:origin/main|Bash|301",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmtttrz9e000u04l1yrfrgrz2",
+      "source": "MEMORY:cmtuyfuv7001v04jm84ml0uue",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "Lumo-Workspace/lumo"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 25869,
+      "turnDistance": 1,
+      "tool": "Bash",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] Workflow jobs on private Lumo-Workspace/lumo won't start, annotation says \"recent account payments h… → lumo memory show cmtuyfuv7001v04jm84ml0uue",
+      "actionExcerpt": "git fetch origin main -q; git branch -r --contains e6c67755 2>/dev/null | head -3; echo \"--- fix commit on main? ---\"; git branch -r --contains a5c80031 2>/dev/null | head -3; echo \"--- pr 974 ---\"; g",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmtuyfuv7001v04jm84ml0uue|PATH:Lumo-Workspace/lumo|Bash|25869",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    },
+    {
+      "tier": "ADVISORY",
+      "taskId": "cmqijza4o000v04l4q3ib6y9h",
+      "source": "MEMORY:cmqbe59wn002504lbm8xih82u",
+      "disclosure": "INDEX",
+      "literal": {
+        "kind": "PATH",
+        "value": "origin/main"
+      },
+      "alsoMatched": [],
+      "lagSeconds": 1973,
+      "turnDistance": 1,
+      "tool": "Write",
+      "crossingCategories": [],
+      "injectedExcerpt": "- [project · agent-authored] A compound command like `git merge-base origin/main HEAD; git push origin feature` → lumo memory show cmqbe59wn002504lbm8xih82u",
+      "actionExcerpt": "/Users/chaoli/Desktop/lumo/lumo/__tests__/eval/memory/near-dup-cluster.test.ts\nimport fixture from '@/scripts/eval/memory/vectors.fixture.json'\nimport { evalSet } from '@/scripts/eval/memory/eval-set'",
+      "adjudication": "FALSE_POSITIVE",
+      "key": "MEMORY:cmqbe59wn002504lbm8xih82u|PATH:origin/main|Write|1973",
+      "adjudicationReason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+    }
+  ],
+  "sampleOf": 2049,
+  "adjudicationSummary": {
+    "judged": 67,
+    "truePositives": 0,
+    "falsePositives": 67,
+    "unjudged": 0,
+    "precision": 0,
+    "byTier": {
+      "MEDIUM": {
+        "judged": 7,
+        "truePositives": 0
+      },
+      "ADVISORY": {
+        "judged": 60,
+        "truePositives": 0
+      }
+    },
+    "falsePositiveCauses": {
+      "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection": 44,
+      "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content": 13,
+      "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name": 10
+    }
+  }
+}
