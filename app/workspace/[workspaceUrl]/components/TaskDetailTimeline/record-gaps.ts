@@ -1,6 +1,10 @@
 import type { TaskAcceptanceStatusView } from '../../types'
 import type { BoundaryCrossingView } from '../../hooks/useBoundaryCrossings'
-import { isPass, machineRollup } from './verdict-status'
+import { machineRollup } from './verdict-status'
+// LUM-789: the tacit-pass rendering split — an un-adjudicated HUMAN criterion
+// is not a to-do, only an explicit FAIL (a real send-back) is. Zero-import so
+// this 'use client' tree never drags Prisma into the browser bundle.
+import { isUnmetForDisplay } from '@/lib/acceptance/unmet-display'
 
 /**
  * The Done-gap counts (LUM-496): what still blocks the task from reaching
@@ -20,8 +24,11 @@ export interface RecordGaps {
    *  card renders `verified/total` plus its override/failed caption from them). */
   machineTotal: number
   machineVerified: number
-  /** HUMAN criteria without a live PASS; forced to 0 once the task is DONE —
-   *  there is nothing left to judge on a closed task. */
+  /** HUMAN criteria that are unmet for display purposes (LUM-789's
+   *  `isUnmetForDisplay`: an explicit FAIL, or a live verdict that isn't a
+   *  PASS — an un-adjudicated criterion is a tacit pass, not a gap); forced
+   *  to 0 once the task is DONE — there is nothing left to judge on a closed
+   *  task. */
   humanPending: number
   humanTotal: number
   /** Crossings with no disposition yet (`disposition == null`), regardless of
@@ -64,9 +71,16 @@ export function deriveRecordGaps(input: {
 
   const humanCriteria = data.criteria.filter(c => c.verifierType === 'HUMAN')
   const humanTotal = humanCriteria.length
+  // LUM-789: an un-adjudicated HUMAN criterion no longer counts — only an
+  // explicit FAIL (a real send-back) does. Matches the DONE gate itself
+  // (task-state.service.ts's assertNoUnresolvedSendBack only ever blocked on
+  // a FAIL), so this "still needed for Done" count stops overstating what
+  // actually gates Done.
   const humanPending = taskDone
     ? 0
-    : humanCriteria.filter(c => !isPass(c.latestVerdict?.verdict)).length
+    : humanCriteria.filter(c =>
+        isUnmetForDisplay(c, c.latestVerdict ?? undefined)
+      ).length
 
   const openCrossings = crossings.filter(c => c.disposition == null)
   const crossingsOpen = openCrossings.length

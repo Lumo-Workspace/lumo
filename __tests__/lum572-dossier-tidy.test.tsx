@@ -365,14 +365,26 @@ describe('human judgment zone', () => {
     expect(screen.getByText('reads naturally')).toBeInTheDocument()
     unmount()
 
-    // An unresolved human criterion (no PASS) keeps the zone open by default.
+    // LUM-789 overturns this fixture: a null-verdict (never-adjudicated) HUMAN
+    // criterion is now a tacit pass, so it no longer keeps the zone "unresolved"
+    // — an explicit FAIL (a real send-back) is what still does. The smart
+    // default this half of the test exercises (unresolved → open) is otherwise
+    // unchanged.
     setStatus(
       statusView({
         criteria: [
           humanCriterion({
             id: 'h2',
             statement: 'still pending judgment',
-            latestVerdict: null,
+            latestVerdict: {
+              round: 1,
+              verdict: 'FAIL',
+              verifierType: 'HUMAN',
+              evidencePointer: null,
+              rejectionReason: 'copy still off',
+              rejectionReasonEnum: null,
+              recordedAt: '2026-06-10T10:00:00.000Z',
+            },
           }),
         ] as never,
       })

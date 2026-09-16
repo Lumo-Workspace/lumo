@@ -1607,12 +1607,6 @@ export function AcceptanceTab({
   // the record card would only repeat what the reviewer already saw. The
   // header toggle still opens it on demand.
   const machineZoneOpen = machineOpen ?? false
-  // LUM-572: mirror the smart default for the human zone — collapse once every
-  // human criterion carries a PASS; any unresolved one keeps it open by default.
-  const allHumanResolved =
-    humanCriteria.length > 0 &&
-    humanCriteria.every(c => isPass(c.latestVerdict?.verdict))
-  const humanZoneOpen = humanOpen ?? !allHumanResolved
   // LUM-620 follow-up: the human zone reflects STATE, not a constant pending
   // magenta. While there are unresolved calls (and the task hasn't been
   // accepted) it wears the actionable in-review magenta; once every human
@@ -1620,13 +1614,28 @@ export function AcceptanceTab({
   // resolved green so a Done task no longer reads as "still needs your
   // judgment". The task-level Approve marks the task DONE without necessarily
   // recording a per-criterion HUMAN verdict, so DONE alone resolves the zone.
-  const humanUnresolvedCount = humanCriteria.filter(
-    c => !isPass(c.latestVerdict?.verdict)
+  // LUM-789: an un-adjudicated HUMAN criterion is a tacit pass, not a to-do —
+  // only an explicit FAIL (a real send-back) keeps the zone "unresolved".
+  // Same isUnmetForDisplay split as record-gaps.ts's humanPending and the
+  // pending-count badge above, so this file stops running two different
+  // "is this criterion a to-do" rules against itself.
+  const humanUnresolvedCount = humanCriteria.filter(c =>
+    isUnmetForDisplay(c, c.latestVerdict ?? undefined)
   ).length
   const taskAccepted = data.task.status === 'DONE'
   const humanPending =
     humanCriteria.length > 0 && humanUnresolvedCount > 0 && !taskAccepted
   const humanAllJudged = humanCriteria.length > 0 && !humanPending
+  // LUM-572: mirror the smart default for the human zone — collapse once it
+  // reads resolved; any unresolved one keeps it open by default. LUM-789: this
+  // used to run its own "every criterion carries a PASS" predicate, which drifted
+  // out of step with `humanAllJudged` above the moment an un-adjudicated
+  // criterion stopped counting as a to-do — a zone could show the resolved
+  // "Human-judged" header while still defaulting open as if something were
+  // pending. Reusing `humanAllJudged` keeps the fold default and the header
+  // label reading off the same signal.
+  const allHumanResolved = humanAllJudged
+  const humanZoneOpen = humanOpen ?? !allHumanResolved
 
   // ── LUM-496 · zone split ─────────────────────────────────────────────────
   //

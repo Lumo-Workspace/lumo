@@ -2,11 +2,17 @@
 /**
  * LUM-496 — the Record tab is composed by DECISION, not by data type: a unit
  * sits in NEEDS ACTION iff acting on it changes whether the task can reach
- * Done (machine checks no checkpointer has passed, unjudged human calls, open
- * boundary crossings, blocking security findings); everything else is a
- * record below. These tests pin zone membership per state, the anchors the
- * status strip links to (including the legacy #boundary-crossings deep link),
- * and the Run report's default folds.
+ * Done (machine checks no checkpointer has passed, an unresolved HUMAN
+ * send-back, open boundary crossings, blocking security findings); everything
+ * else is a record below. These tests pin zone membership per state, the
+ * anchors the status strip links to (including the legacy #boundary-crossings
+ * deep link), and the Run report's default folds.
+ *
+ * LUM-789: a HUMAN criterion that was simply never adjudicated is a tacit
+ * pass, not a to-do — only an explicit FAIL (a real send-back) still counts,
+ * matching the DONE gate itself (task-state.service.ts's
+ * assertNoUnresolvedSendBack only ever blocked on a FAIL). "unjudged human
+ * calls" was removed from the sentence above for that reason.
  */
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -76,6 +82,11 @@ const MACHINE_PASS = {
   recordedAt: '2026-06-10T10:00:00.000Z',
 }
 const HUMAN_PASS = { ...MACHINE_PASS, verifierType: 'HUMAN' as const }
+const HUMAN_FAIL = {
+  ...HUMAN_PASS,
+  verdict: 'FAIL' as const,
+  evidencePointer: null,
+}
 
 function criterion(
   over: Partial<TaskStatusCriterionView> = {}
@@ -319,8 +330,25 @@ describe('machine checks by state', () => {
 })
 
 describe('human calls by state', () => {
-  it('an unjudged call sits in NEEDS ACTION under the #record-human anchor', () => {
+  // LUM-789 overturns this test's old title/expectations ("an unjudged call
+  // sits in NEEDS ACTION") — a criterion that was simply never adjudicated is
+  // now a tacit pass, so it reads as a resolved record instead, exactly like
+  // an explicit PASS below. See the companion "explicit FAIL" test for the
+  // direction that still puts a human call in NEEDS ACTION.
+  it('an unjudged call is a tacit pass — it is a record, not a NEEDS ACTION item', () => {
     setStatus(statusView({ criteria: [humanCriterion()] }))
+    const { container } = renderTab()
+
+    expect(screen.queryByTestId('record-needs-action')).toBeNull()
+    expect(container.querySelector('#record-human')).toBeNull()
+    const resolved = screen.getByRole('button', { name: /Human-judged/ })
+    expect(records()).toContainElement(resolved)
+  })
+
+  it('an explicit FAIL still sits in NEEDS ACTION under the #record-human anchor', () => {
+    setStatus(
+      statusView({ criteria: [humanCriterion({ latestVerdict: HUMAN_FAIL })] })
+    )
     const { container } = renderTab()
 
     const zone = container.querySelector('#record-human')!

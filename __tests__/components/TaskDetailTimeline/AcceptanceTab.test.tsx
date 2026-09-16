@@ -194,6 +194,14 @@ function expandMachine() {
   fireEvent.click(screen.getByRole('button', { name: /Machine-verified/i }))
 }
 
+// LUM-789: an un-adjudicated HUMAN criterion is a tacit pass, so a zone with
+// nothing but such rows now smart-collapses into the resolved "Human-judged"
+// record instead of staying open as "Needs your judgment" — expand it the
+// same way expandMachine() does for its zone.
+function expandHuman() {
+  fireEvent.click(screen.getByRole('button', { name: /Human-judged/i }))
+}
+
 beforeEach(() => jest.clearAllMocks())
 
 it('renders an empty state when the task has no criteria', () => {
@@ -281,6 +289,9 @@ it('renders each criterion with a result badge, type, and notable provenance', (
   )
   render_()
   expandMachine()
+  // LUM-789: r1 is unjudged, hence a tacit pass — its zone now smart-collapses
+  // into "Human-judged" by default.
+  expandHuman()
   expect(screen.getByText('route returns 409 on lock')).toBeInTheDocument()
   expect(screen.getByText('Passed')).toBeInTheDocument()
   // REVIEW_ADDED provenance is explicitly visible; the unjudged HUMAN result.
@@ -300,6 +311,9 @@ it('renders judgeSteps on a HUMAN criterion card with a clickable URL (LUM-465)'
     })
   )
   render_()
+  // LUM-789: the lone criterion is unjudged, hence a tacit pass — its zone
+  // now smart-collapses into "Human-judged" by default.
+  expandHuman()
   expect(screen.getByText('How to judge')).toBeInTheDocument()
   const link = screen.getByRole('link', { name: 'https://app.test/x' })
   expect(link).toHaveAttribute('href', 'https://app.test/x')
@@ -308,6 +322,8 @@ it('renders judgeSteps on a HUMAN criterion card with a clickable URL (LUM-465)'
 it('shows the missing-guidance fallback for a HUMAN criterion without judgeSteps (LUM-465)', () => {
   set(statusView({ criteria: [unjudgedHuman({ judgeSteps: null })] }))
   render_()
+  // LUM-789: same tacit-pass smart-collapse as the test above.
+  expandHuman()
   expect(screen.getByTestId('judge-steps-missing')).toBeInTheDocument()
   expect(screen.queryByText('How to judge')).toBeNull()
 })

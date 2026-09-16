@@ -190,9 +190,14 @@ function renderTab() {
 
 describe('LUM-620 · Acceptance redesign', () => {
   it('human judgment zone renders above the machine-verified zone', () => {
+    // LUM-789 overturns this fixture: a null-verdict (un-adjudicated) HUMAN
+    // criterion is now a tacit pass and no longer lands in NEEDS ACTION, so it
+    // can no longer stand in for "the human zone is pending" here. An explicit
+    // FAIL (a real send-back) is what still puts the zone in NEEDS ACTION —
+    // this test only cares about DOM ordering once it's there.
     mockStatus.mockReturnValue({
       data: statusView({
-        criteria: [crit('MACHINE', 'PASS'), crit('HUMAN', null)],
+        criteria: [crit('MACHINE', 'PASS'), crit('HUMAN', 'FAIL')],
       }),
       loading: false,
       error: null,

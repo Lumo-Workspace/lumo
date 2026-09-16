@@ -203,8 +203,13 @@ describe('Acceptance tab — zone tooltips', () => {
   // LUM-620: the human zone matches the machine zone — a collapsible summary
   // whose meaning is carried inline by the "Needs your judgment" / "Human-judged"
   // header + a "not machine-checkable" caption, not by a hover tooltip.
+  //
+  // LUM-789: the default fixture's un-adjudicated h1 is now a tacit pass, so
+  // it no longer puts the zone in its pending "Needs your judgment" state —
+  // use SEND_BACK_STANDING (h1 explicitly FAILed) to keep exercising that
+  // state, same as the per-criterion-control tests below it.
   it('human zone explains itself inline (header + not-machine-checkable caption)', () => {
-    renderAcceptanceTab()
+    renderAcceptanceTab(SEND_BACK_STANDING)
     expect(
       screen.getByRole('button', { name: /Needs your judgment/ })
     ).toBeInTheDocument()
@@ -447,6 +452,9 @@ describe('Judge steps & history tooltips', () => {
         judgeSteps: 'Open the dialog. Confirm the layout. Pass if no overlap.',
       }),
     ])
+    // LUM-789: the lone criterion is unjudged, hence a tacit pass — its zone
+    // now smart-collapses into "Human-judged" by default.
+    fireEvent.click(screen.getByRole('button', { name: /Human-judged/i }))
     expect(
       screen.getByLabelText(
         'Agent-drafted guidance for the human reviewer: where to look and what counts as pass or fail.'
