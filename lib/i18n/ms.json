@@ -2382,6 +2382,13 @@
   "acceptance.confirmContract": "Sahkan kontrak",
   "acceptance.contractUnconfirmed": "Kontrak ini belum disahkan oleh manusia. Mengesahkan merekodkan bahawa anda bersetuju dengan maksud \"selesai\" di sini — ia tidak menutup tugas.",
   "acceptance.pendingBadge": "{count} menunggu",
-  "activity.contractConfirmed": "mengesahkan {count} daripada kriteria penerimaan",
-  "activity.contractConfirmedViaEdit": "mengesahkan kontrak penerimaan (melalui penyuntingan)"
+  "activity.contractConfirmed": "mengesahkan {count} kriteria penerimaan",
+  "activity.contractConfirmedViaEdit": "mengesahkan kontrak penerimaan (melalui penyuntingan)",
+  "acceptance.confirmError": "Gagal mengesahkan — cuba lagi",
+  "acceptance.zone.humanTacit": "Diterima seperti draf",
+  "acceptance.zone.humanTacitNote": "Tiada bantahan — belum dinilai satu per satu",
+  "acceptance.zone.humanMixed": "Sebahagian dinilai",
+  "acceptance.zone.humanMixedNote": "{judged}/{total} dinilai, selebihnya diterima seperti draf",
+  "record.gap.humanTacit": "Diterima seperti draf",
+  "record.gap.humanMixed": "{judged}/{total} dinilai, selebihnya diterima seperti draf"
 }

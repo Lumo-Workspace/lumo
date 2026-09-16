@@ -81,7 +81,11 @@ function mockStatusSet(data: ReturnType<typeof statusView>) {
 // with the row's Edit/Delete affordances or the add-criterion entry, same as
 // this suite always had to for a resolved zone.
 function expandHuman() {
-  fireEvent.click(screen.getByRole('button', { name: /Human-judged/i }))
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: /Human-judged|Accepted as drafted|Partly judged/i,
+    })
+  )
 }
 
 function statusView(over: Record<string, unknown> = {}) {
@@ -104,6 +108,7 @@ function statusView(over: Record<string, unknown> = {}) {
         changeState: null,
         changedAtRound: null,
         lastEdit: null,
+        confirmedAt: null,
       },
       {
         id: 'h1',
@@ -117,6 +122,7 @@ function statusView(over: Record<string, unknown> = {}) {
         changeState: null,
         changedAtRound: null,
         lastEdit: null,
+        confirmedAt: null,
       },
     ],
     removedCriteria: [],

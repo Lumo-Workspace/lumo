@@ -107,6 +107,7 @@ function criterion(
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
     ...over,
   } as TaskStatusCriterionView
 }
@@ -341,7 +342,12 @@ describe('human calls by state', () => {
 
     expect(screen.queryByTestId('record-needs-action')).toBeNull()
     expect(container.querySelector('#record-human')).toBeNull()
-    const resolved = screen.getByRole('button', { name: /Human-judged/ })
+    // I-1 (Task 7 review): the lone criterion has no explicit PASS, so the
+    // resolved header reads "Accepted as drafted", not "Human-judged" — that
+    // word would claim a judgment nobody made.
+    const resolved = screen.getByRole('button', {
+      name: /Accepted as drafted/,
+    })
     expect(records()).toContainElement(resolved)
   })
 

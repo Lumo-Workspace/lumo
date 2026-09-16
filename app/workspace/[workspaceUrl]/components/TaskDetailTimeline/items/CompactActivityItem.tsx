@@ -402,7 +402,14 @@ function formatActivityText(
           : intl.formatMessage(
               {
                 id: 'activity.contractConfirmed',
-                defaultMessage: 'confirmed {count} of the acceptance criteria',
+                // M-3 (Task 7 review): "confirmed N of the acceptance
+                // criteria" read as partial even at full coverage (N ===
+                // the whole contract). ICU plural instead of "of the ..."
+                // reads naturally whether N is the whole contract or not,
+                // while staying truthful about what `count` means for
+                // this `via` (web/cli: newly-stamped rows only).
+                defaultMessage:
+                  '{count, plural, one {confirmed # acceptance criterion} other {confirmed # acceptance criteria}}',
               },
               { count }
             )

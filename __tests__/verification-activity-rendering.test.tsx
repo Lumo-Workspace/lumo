@@ -12,6 +12,16 @@ jest.mock('react-intl', () => ({
       values?: Record<string, unknown>
     ) => {
       let msg = defaultMessage ?? id
+      // M-3 (Task 7 review): activity.contractConfirmed needs real ICU plural
+      // ("1 criterion" vs "N criteria") — mirror AcceptanceTab.test.tsx's mock
+      // instead of working around the limitation with awkward copy.
+      msg = msg.replace(
+        /\{(\w+),\s*plural,\s*one\s*\{([^}]*)\}\s*other\s*\{([^}]*)\}\}/g,
+        (_m, key, one, other) => {
+          const n = Number(values?.[key] ?? 0)
+          return (n === 1 ? one : other).replace('#', String(n))
+        }
+      )
       for (const [k, v] of Object.entries(values ?? {})) {
         msg = msg.replace(`{${k}}`, String(v))
       }
@@ -117,8 +127,10 @@ describe('CONTRACT_CONFIRMED', () => {
         reconfirm: false,
       })
     )
+    // M-3 (Task 7 review): ICU plural, not "N of the acceptance criteria" —
+    // the latter read as partial even at full coverage.
     expect(
-      screen.getByText(/confirmed 2 of the acceptance criteria/)
+      screen.getByText(/confirmed 2 acceptance criteria/)
     ).toBeInTheDocument()
     expect(screen.queryByText('contract confirmed')).not.toBeInTheDocument()
   })
@@ -132,8 +144,10 @@ describe('CONTRACT_CONFIRMED', () => {
         reconfirm: false,
       })
     )
+    // Singular ICU branch: "criterion", not "criteria" (the two words don't
+    // collide as substrings, so this alone proves the branch taken).
     expect(
-      screen.getByText(/confirmed 1 of the acceptance criteria/)
+      screen.getByText(/confirmed 1 acceptance criterion/)
     ).toBeInTheDocument()
     expect(screen.getByText(/via CLI/)).toBeInTheDocument()
   })

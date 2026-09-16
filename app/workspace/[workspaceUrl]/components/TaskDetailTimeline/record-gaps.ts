@@ -1,6 +1,6 @@
 import type { TaskAcceptanceStatusView } from '../../types'
 import type { BoundaryCrossingView } from '../../hooks/useBoundaryCrossings'
-import { machineRollup } from './verdict-status'
+import { isPass, machineRollup } from './verdict-status'
 // LUM-789: the tacit-pass rendering split — an un-adjudicated HUMAN criterion
 // is not a to-do, only an explicit FAIL (a real send-back) is. Zero-import so
 // this 'use client' tree never drags Prisma into the browser bundle.
@@ -31,6 +31,12 @@ export interface RecordGaps {
    *  task. */
   humanPending: number
   humanTotal: number
+  /** HUMAN criteria with a genuine explicit PASS verdict — i.e. a human
+   *  actually looked at it and signed off, as opposed to a tacit pass (never
+   *  adjudicated, LUM-789). Callers need this to avoid claiming "judged" for
+   *  a criterion nobody looked at; `humanTotal - humanPending` alone can't
+   *  distinguish the two once an un-adjudicated criterion counts as resolved. */
+  humanJudged: number
   /** Crossings with no disposition yet (`disposition == null`), regardless of
    *  whether they block Done. */
   crossingsOpen: number
@@ -81,6 +87,12 @@ export function deriveRecordGaps(input: {
     : humanCriteria.filter(c =>
         isUnmetForDisplay(c, c.latestVerdict ?? undefined)
       ).length
+  // Measured regardless of taskDone — this is a record of what actually
+  // happened (a real human PASS), not a "still needed" count, so it is never
+  // zeroed by the DONE rule the way humanPending is.
+  const humanJudged = humanCriteria.filter(c =>
+    isPass(c.latestVerdict?.verdict)
+  ).length
 
   const openCrossings = crossings.filter(c => c.disposition == null)
   const crossingsOpen = openCrossings.length
@@ -103,6 +115,7 @@ export function deriveRecordGaps(input: {
     machineVerified: machine.verified,
     humanPending,
     humanTotal,
+    humanJudged,
     crossingsOpen,
     crossingsBlocking,
     crossingsTotal,

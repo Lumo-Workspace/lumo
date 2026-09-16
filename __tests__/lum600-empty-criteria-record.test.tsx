@@ -125,6 +125,7 @@ function machinePass(
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
     ...over,
   }
 }

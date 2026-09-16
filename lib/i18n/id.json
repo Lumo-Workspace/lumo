@@ -2382,6 +2382,13 @@
   "acceptance.confirmContract": "Konfirmasi kontrak",
   "acceptance.contractUnconfirmed": "Kontrak ini belum dikonfirmasi oleh manusia. Mengonfirmasi mencatat bahwa Anda setuju dengan arti \"selesai\" di sini — ini tidak menutup tugas.",
   "acceptance.pendingBadge": "{count} menunggu",
-  "activity.contractConfirmed": "mengonfirmasi {count} dari kriteria penerimaan",
-  "activity.contractConfirmedViaEdit": "mengonfirmasi kontrak penerimaan (melalui pengeditan)"
+  "activity.contractConfirmed": "mengonfirmasi {count} kriteria penerimaan",
+  "activity.contractConfirmedViaEdit": "mengonfirmasi kontrak penerimaan (melalui pengeditan)",
+  "acceptance.confirmError": "Gagal mengonfirmasi — coba lagi",
+  "acceptance.zone.humanTacit": "Diterima sesuai draf",
+  "acceptance.zone.humanTacitNote": "Tidak ada keberatan — belum dinilai satu per satu",
+  "acceptance.zone.humanMixed": "Sebagian dinilai",
+  "acceptance.zone.humanMixedNote": "{judged}/{total} dinilai, sisanya diterima sesuai draf",
+  "record.gap.humanTacit": "Diterima sesuai draf",
+  "record.gap.humanMixed": "{judged}/{total} dinilai, sisanya diterima sesuai draf"
 }

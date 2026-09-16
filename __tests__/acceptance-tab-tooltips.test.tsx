@@ -101,6 +101,7 @@ function statusView(over: Record<string, unknown> = {}) {
         changeState: null,
         changedAtRound: null,
         lastEdit: null,
+        confirmedAt: null,
       },
       {
         id: 'h1',
@@ -114,6 +115,7 @@ function statusView(over: Record<string, unknown> = {}) {
         changeState: null,
         changedAtRound: null,
         lastEdit: null,
+        confirmedAt: null,
       },
     ],
     removedCriteria: [],
@@ -235,6 +237,7 @@ function machineCriterion(over: Record<string, unknown> = {}) {
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
     ...over,
   }
 }
@@ -402,6 +405,7 @@ function humanCriterion(over: Record<string, unknown> = {}) {
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
     ...over,
   }
 }
@@ -453,8 +457,13 @@ describe('Judge steps & history tooltips', () => {
       }),
     ])
     // LUM-789: the lone criterion is unjudged, hence a tacit pass — its zone
-    // now smart-collapses into "Human-judged" by default.
-    fireEvent.click(screen.getByRole('button', { name: /Human-judged/i }))
+    // now smart-collapses (and, since nobody actually judged it, reads
+    // "Accepted as drafted" rather than "Human-judged" — I-1, Task 7 review).
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Human-judged|Accepted as drafted|Partly judged/i,
+      })
+    )
     expect(
       screen.getByLabelText(
         'Agent-drafted guidance for the human reviewer: where to look and what counts as pass or fail.'

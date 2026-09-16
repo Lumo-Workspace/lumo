@@ -2382,6 +2382,13 @@
   "acceptance.confirmContract": "Confirmer le contrat",
   "acceptance.contractUnconfirmed": "Ce contrat n'a pas encore été confirmé par un humain. Confirmer enregistre que vous êtes d'accord avec ce que « terminé » signifie ici — cela ne clôture pas la tâche.",
   "acceptance.pendingBadge": "{count} en attente",
-  "activity.contractConfirmed": "a confirmé {count} des critères d'acceptation",
-  "activity.contractConfirmedViaEdit": "a confirmé le contrat d'acceptation (via une modification)"
+  "activity.contractConfirmed": "a confirmé {count, plural, one {# critère d'acceptation} other {# critères d'acceptation}}",
+  "activity.contractConfirmedViaEdit": "a confirmé le contrat d'acceptation (via une modification)",
+  "acceptance.confirmError": "Impossible de confirmer — veuillez réessayer",
+  "acceptance.zone.humanTacit": "Accepté tel quel",
+  "acceptance.zone.humanTacitNote": "Aucune objection soulevée — non jugé individuellement",
+  "acceptance.zone.humanMixed": "Partiellement jugé",
+  "acceptance.zone.humanMixedNote": "{judged}/{total} jugés, le reste accepté tel quel",
+  "record.gap.humanTacit": "Accepté tel quel",
+  "record.gap.humanMixed": "{judged}/{total} jugés, le reste accepté tel quel"
 }

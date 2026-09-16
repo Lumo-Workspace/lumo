@@ -76,6 +76,7 @@ const reviewCrit: TaskStatusCriterionView = {
   changeState: null,
   changedAtRound: null,
   lastEdit: null,
+  confirmedAt: null,
 } as unknown as TaskStatusCriterionView
 
 function reviewData(): TaskAcceptanceStatusView {

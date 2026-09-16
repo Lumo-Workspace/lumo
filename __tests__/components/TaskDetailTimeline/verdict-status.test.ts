@@ -59,6 +59,7 @@ const crit = (
   changeState: null,
   changedAtRound: null,
   lastEdit: null,
+  confirmedAt: null,
 })
 
 describe('deriveVerdictStatus', () => {

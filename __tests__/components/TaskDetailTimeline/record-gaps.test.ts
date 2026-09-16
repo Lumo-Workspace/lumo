@@ -66,6 +66,7 @@ function crit(
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
   }
 }
 
@@ -118,6 +119,7 @@ describe('deriveRecordGaps', () => {
       machineVerified: 0,
       humanPending: 0,
       humanTotal: 0,
+      humanJudged: 0,
       crossingsOpen: 0,
       crossingsBlocking: 0,
       crossingsTotal: 0,

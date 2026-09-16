@@ -2382,6 +2382,13 @@
   "acceptance.confirmContract": "Xác nhận hợp đồng",
   "acceptance.contractUnconfirmed": "Hợp đồng này chưa được con người xác nhận. Việc xác nhận ghi lại rằng bạn đồng ý với ý nghĩa của \"hoàn thành\" ở đây — nó không đóng nhiệm vụ.",
   "acceptance.pendingBadge": "{count} đang chờ",
-  "activity.contractConfirmed": "đã xác nhận {count} trong số các tiêu chí nghiệm thu",
-  "activity.contractConfirmedViaEdit": "đã xác nhận hợp đồng nghiệm thu (qua chỉnh sửa)"
+  "activity.contractConfirmed": "đã xác nhận {count} tiêu chí nghiệm thu",
+  "activity.contractConfirmedViaEdit": "đã xác nhận hợp đồng nghiệm thu (qua chỉnh sửa)",
+  "acceptance.confirmError": "Không thể xác nhận — vui lòng thử lại",
+  "acceptance.zone.humanTacit": "Chấp nhận theo bản nháp",
+  "acceptance.zone.humanTacitNote": "Không có phản đối — chưa phán quyết từng mục",
+  "acceptance.zone.humanMixed": "Phán quyết một phần",
+  "acceptance.zone.humanMixedNote": "{judged}/{total} đã phán quyết, phần còn lại chấp nhận theo bản nháp",
+  "record.gap.humanTacit": "Chấp nhận theo bản nháp",
+  "record.gap.humanMixed": "{judged}/{total} đã phán quyết, phần còn lại chấp nhận theo bản nháp"
 }

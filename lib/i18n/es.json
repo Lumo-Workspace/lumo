@@ -2382,6 +2382,13 @@
   "acceptance.confirmContract": "Confirmar contrato",
   "acceptance.contractUnconfirmed": "Este contrato aún no ha sido confirmado por una persona. Confirmar registra que estás de acuerdo con lo que significa \"hecho\" aquí; no cierra la tarea.",
   "acceptance.pendingBadge": "{count} pendientes",
-  "activity.contractConfirmed": "confirmó {count} de los criterios de aceptación",
-  "activity.contractConfirmedViaEdit": "confirmó el contrato de aceptación (mediante edición)"
+  "activity.contractConfirmed": "confirmó {count, plural, one {# criterio de aceptación} other {# criterios de aceptación}}",
+  "activity.contractConfirmedViaEdit": "confirmó el contrato de aceptación (mediante edición)",
+  "acceptance.confirmError": "No se pudo confirmar — inténtalo de nuevo",
+  "acceptance.zone.humanTacit": "Aceptado tal como se redactó",
+  "acceptance.zone.humanTacitNote": "Sin objeciones — no evaluado individualmente",
+  "acceptance.zone.humanMixed": "Parcialmente evaluado",
+  "acceptance.zone.humanMixedNote": "{judged}/{total} evaluados, el resto aceptado tal como se redactó",
+  "record.gap.humanTacit": "Aceptado tal como se redactó",
+  "record.gap.humanMixed": "{judged}/{total} evaluados, el resto aceptado tal como se redactó"
 }

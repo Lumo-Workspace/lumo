@@ -130,6 +130,7 @@ function statusView(
         changeState: null,
         changedAtRound: null,
         lastEdit: null,
+        confirmedAt: null,
       },
     ],
     machineVerification: { total: 1, machineVerified: 1, humanOverridden: 0 },
@@ -327,6 +328,7 @@ describe('human judgment zone', () => {
       changeState: null,
       changedAtRound: null,
       lastEdit: null,
+      confirmedAt: null,
       ...over,
     }
   }

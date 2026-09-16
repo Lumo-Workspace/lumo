@@ -833,7 +833,7 @@ export interface TaskStatusCriterionView {
    *  confirmed. Confirmation is never a to-do and never blocks DONE — it only
    *  drives the optional "Confirm contract" affordance on this tab and the
    *  `task status` nudge. */
-  confirmedAt?: string | null
+  confirmedAt: string | null
 }
 
 /** Honest machine-verification rollup over the active MACHINE criteria

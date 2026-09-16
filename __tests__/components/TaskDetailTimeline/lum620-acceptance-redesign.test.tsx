@@ -153,6 +153,7 @@ function crit(
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
     ...over,
   } as unknown as TaskStatusCriterionView
 }
@@ -370,7 +371,16 @@ describe('LUM-620 · Acceptance redesign', () => {
       optimisticallyPass: jest.fn(),
     })
     renderTab()
-    expect(screen.getByText('Human-judged')).toBeInTheDocument()
+    // LUM-789 overturns this assertion (I-1, Task 7 review): neither
+    // criterion carries an explicit PASS, so "Human-judged" would falsely
+    // claim adjudication that never happened — the honest copy for "resolved,
+    // but nobody actually looked at it" is "Accepted as drafted". The zone
+    // header (a button) and the RecordStatusStrip chip (a span) both now say
+    // it, honestly, so scope to the header button specifically.
+    expect(
+      screen.getByRole('button', { name: /Accepted as drafted/ })
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Human-judged')).toBeNull()
     expect(screen.queryByText('Needs your judgment')).toBeNull()
   })
 })

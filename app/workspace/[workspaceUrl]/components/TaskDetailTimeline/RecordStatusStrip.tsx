@@ -152,13 +152,35 @@ export function RecordStatusStrip({
         data-testid='gap-human'
         className={chipClass('success')}
       >
-        {intl.formatMessage(
-          {
-            id: 'record.gap.humanDone',
-            defaultMessage: 'Human-judged {done}/{total}',
-          },
-          { done: gaps.humanTotal - gaps.humanPending, total: gaps.humanTotal }
-        )}
+        {/* I-1 (Task 7 review): `gaps.humanJudged` counts genuine explicit
+            PASSes — the old `humanTotal - humanPending` fraction became
+            vacuous once an un-adjudicated criterion stopped counting as
+            pending (this branch only renders once humanPending is 0, so
+            that subtraction is always total/total now) and, worse, "Human-
+            judged" claimed judgment for a contract nobody looked at. Same
+            3-way split as AcceptanceTab's zone header/caption: all genuinely
+            judged / none judged (tacit) / a mix. */}
+        {gaps.humanJudged === gaps.humanTotal
+          ? intl.formatMessage(
+              {
+                id: 'record.gap.humanDone',
+                defaultMessage: 'Human-judged {done}/{total}',
+              },
+              { done: gaps.humanJudged, total: gaps.humanTotal }
+            )
+          : gaps.humanJudged === 0
+            ? intl.formatMessage({
+                id: 'record.gap.humanTacit',
+                defaultMessage: 'Accepted as drafted',
+              })
+            : intl.formatMessage(
+                {
+                  id: 'record.gap.humanMixed',
+                  defaultMessage:
+                    '{judged}/{total} judged, rest accepted as drafted',
+                },
+                { judged: gaps.humanJudged, total: gaps.humanTotal }
+              )}
       </span>
     ) : null
 

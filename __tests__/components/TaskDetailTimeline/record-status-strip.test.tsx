@@ -41,6 +41,7 @@ function gaps(p: Partial<RecordGaps> = {}): RecordGaps {
     machineVerified: 0,
     humanPending: 0,
     humanTotal: 0,
+    humanJudged: 0,
     crossingsOpen: 0,
     crossingsBlocking: 0,
     crossingsTotal: 0,
@@ -126,12 +127,42 @@ describe('RecordStatusStrip', () => {
 
   it('renders the human-done badge (not a link) when all human criteria are judged', () => {
     render(
-      <RecordStatusStrip gaps={gaps({ humanTotal: 2, humanPending: 0 })} />
+      <RecordStatusStrip
+        gaps={gaps({ humanTotal: 2, humanPending: 0, humanJudged: 2 })}
+      />
     )
     const chip = screen.getByTestId('gap-human')
     expect(chip.tagName).toBe('SPAN')
     expect(chip).toHaveTextContent('Human-judged 2/2')
     expect(chip.className).toContain('text-success')
+  })
+
+  // I-1 (Task 7 review): the old `humanTotal - humanPending` fraction became
+  // vacuous once an un-adjudicated criterion stopped counting as pending
+  // (this branch only renders once humanPending is 0, so the subtraction was
+  // always total/total) — worse, it labelled a contract nobody looked at as
+  // "Human-judged". These two pin the honest replacement.
+  it('renders "Accepted as drafted" (not "Human-judged") when nothing was actually judged', () => {
+    render(
+      <RecordStatusStrip
+        gaps={gaps({ humanTotal: 2, humanPending: 0, humanJudged: 0 })}
+      />
+    )
+    const chip = screen.getByTestId('gap-human')
+    expect(chip).toHaveTextContent('Accepted as drafted')
+    expect(chip).not.toHaveTextContent('Human-judged')
+  })
+
+  it('renders the mixed copy when some but not all human criteria were judged', () => {
+    render(
+      <RecordStatusStrip
+        gaps={gaps({ humanTotal: 2, humanPending: 0, humanJudged: 1 })}
+      />
+    )
+    const chip = screen.getByTestId('gap-human')
+    expect(chip).toHaveTextContent('1/2 judged, rest accepted as drafted')
+    expect(chip).not.toHaveTextContent('Human-judged')
+    expect(chip).not.toHaveTextContent('Accepted as drafted')
   })
 
   it('omits the human chip entirely when there are no human criteria', () => {

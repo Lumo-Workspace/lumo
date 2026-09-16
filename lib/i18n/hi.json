@@ -2382,6 +2382,13 @@
   "acceptance.confirmContract": "अनुबंध की पुष्टि करें",
   "acceptance.contractUnconfirmed": "इस अनुबंध की अभी तक किसी व्यक्ति द्वारा पुष्टि नहीं हुई है। पुष्टि करने से यह दर्ज होता है कि आप यहाँ \"पूर्ण\" के अर्थ से सहमत हैं — इससे कार्य बंद नहीं होता।",
   "acceptance.pendingBadge": "{count} लंबित",
-  "activity.contractConfirmed": "स्वीकृति मानदंडों में से {count} की पुष्टि की",
-  "activity.contractConfirmedViaEdit": "संपादन के ज़रिए स्वीकृति अनुबंध की पुष्टि की"
+  "activity.contractConfirmed": "{count} स्वीकृति मानदंडों की पुष्टि की",
+  "activity.contractConfirmedViaEdit": "संपादन के ज़रिए स्वीकृति अनुबंध की पुष्टि की",
+  "acceptance.confirmError": "पुष्टि नहीं की जा सकी — पुनः प्रयास करें",
+  "acceptance.zone.humanTacit": "मसौदे के अनुसार स्वीकृत",
+  "acceptance.zone.humanTacitNote": "कोई आपत्ति नहीं — व्यक्तिगत रूप से निर्णयित नहीं",
+  "acceptance.zone.humanMixed": "आंशिक रूप से निर्णयित",
+  "acceptance.zone.humanMixedNote": "{judged}/{total} निर्णयित, शेष मसौदे के अनुसार स्वीकृत",
+  "record.gap.humanTacit": "मसौदे के अनुसार स्वीकृत",
+  "record.gap.humanMixed": "{judged}/{total} निर्णयित, शेष मसौदे के अनुसार स्वीकृत"
 }

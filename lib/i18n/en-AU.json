@@ -2382,6 +2382,13 @@
   "acceptance.confirmContract": "Confirm contract",
   "acceptance.contractUnconfirmed": "This contract has not been confirmed by a human yet. Confirming records that you agree with what \"done\" means here — it does not close the task.",
   "acceptance.pendingBadge": "{count} pending",
-  "activity.contractConfirmed": "confirmed {count} of the acceptance criteria",
-  "activity.contractConfirmedViaEdit": "confirmed the acceptance contract (via edit)"
+  "activity.contractConfirmed": "{count, plural, one {confirmed # acceptance criterion} other {confirmed # acceptance criteria}}",
+  "activity.contractConfirmedViaEdit": "confirmed the acceptance contract (via edit)",
+  "acceptance.confirmError": "Couldn't confirm — try again",
+  "acceptance.zone.humanTacit": "Accepted as drafted",
+  "acceptance.zone.humanTacitNote": "No objections raised — not individually judged",
+  "acceptance.zone.humanMixed": "Partly judged",
+  "acceptance.zone.humanMixedNote": "{judged} of {total} judged, rest accepted as drafted",
+  "record.gap.humanTacit": "Accepted as drafted",
+  "record.gap.humanMixed": "{judged}/{total} judged, rest accepted as drafted"
 }

@@ -2382,6 +2382,13 @@
   "acceptance.confirmContract": "契約を確認",
   "acceptance.contractUnconfirmed": "この契約はまだ人によって確認されていません。確認すると、ここでの「完了」の意味に同意したことが記録されます——タスクは閉じられません。",
   "acceptance.pendingBadge": "{count} 件保留中",
-  "activity.contractConfirmed": "受け入れ基準のうち {count} 件を確認しました",
-  "activity.contractConfirmedViaEdit": "編集により受け入れ契約を確認しました"
+  "activity.contractConfirmed": "受け入れ基準を {count} 件確認しました",
+  "activity.contractConfirmedViaEdit": "編集により受け入れ契約を確認しました",
+  "acceptance.confirmError": "確認できませんでした — もう一度お試しください",
+  "acceptance.zone.humanTacit": "ドラフトのまま承認",
+  "acceptance.zone.humanTacitNote": "異議なし — 個別には判定していません",
+  "acceptance.zone.humanMixed": "一部判定済み",
+  "acceptance.zone.humanMixedNote": "{judged}/{total} 件判定済み、残りはドラフトのまま承認",
+  "record.gap.humanTacit": "ドラフトのまま承認",
+  "record.gap.humanMixed": "{judged}/{total} 件判定済み、残りはドラフトのまま承認"
 }

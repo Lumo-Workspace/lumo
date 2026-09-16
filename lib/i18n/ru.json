@@ -2382,6 +2382,13 @@
   "acceptance.confirmContract": "Подтвердить контракт",
   "acceptance.contractUnconfirmed": "Этот контракт ещё не подтверждён человеком. Подтверждение фиксирует, что вы согласны с тем, что здесь означает «готово», — оно не закрывает задачу.",
   "acceptance.pendingBadge": "{count} в ожидании",
-  "activity.contractConfirmed": "подтвердил(а) {count} из критериев приёмки",
-  "activity.contractConfirmedViaEdit": "подтвердил(а) контракт приёмки (через редактирование)"
+  "activity.contractConfirmed": "подтвердил(а) {count, plural, one {# критерий приёмки} few {# критерия приёмки} many {# критериев приёмки} other {# критерия приёмки}}",
+  "activity.contractConfirmedViaEdit": "подтвердил(а) контракт приёмки (через редактирование)",
+  "acceptance.confirmError": "Не удалось подтвердить — повторите попытку",
+  "acceptance.zone.humanTacit": "Принято как есть",
+  "acceptance.zone.humanTacitNote": "Возражений нет — не оценивалось по отдельности",
+  "acceptance.zone.humanMixed": "Частично оценено",
+  "acceptance.zone.humanMixedNote": "{judged}/{total} оценено, остальное принято как есть",
+  "record.gap.humanTacit": "Принято как есть",
+  "record.gap.humanMixed": "{judged}/{total} оценено, остальное принято как есть"
 }

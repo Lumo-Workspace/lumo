@@ -2383,5 +2383,12 @@
   "acceptance.contractUnconfirmed": "此合约尚未经人工确认。确认表示你认可这里「完成」的含义——它不会关闭任务。",
   "acceptance.pendingBadge": "{count} 项待处理",
   "activity.contractConfirmed": "确认了 {count} 条验收标准",
-  "activity.contractConfirmedViaEdit": "通过编辑确认了验收合约"
+  "activity.contractConfirmedViaEdit": "通过编辑确认了验收合约",
+  "acceptance.confirmError": "确认失败——请重试",
+  "acceptance.zone.humanTacit": "按原样通过",
+  "acceptance.zone.humanTacitNote": "无异议——未逐项裁决",
+  "acceptance.zone.humanMixed": "部分裁决",
+  "acceptance.zone.humanMixedNote": "{judged}/{total} 已裁决，其余按原样通过",
+  "record.gap.humanTacit": "按原样通过",
+  "record.gap.humanMixed": "{judged}/{total} 已裁决，其余按原样通过"
 }

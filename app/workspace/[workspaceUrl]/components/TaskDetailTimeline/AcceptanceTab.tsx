@@ -1430,6 +1430,12 @@ export function AcceptanceTab({
   // button just disappears on the next refetch once every row carries a
   // confirmedAt, same as reviseContract's plain loading flag below.
   const [confirming, setConfirming] = useState(false)
+  // I-2 (Task 7 review): apiFetch throws ApiClientError on any non-ok
+  // response — a bare try/finally with no catch let that become an
+  // unhandled promise rejection, silently re-enabling the button with no
+  // feedback and the contract still unconfirmed. Same pattern CriterionRow's
+  // inline-edit Save already uses for its saveError state.
+  const [confirmError, setConfirmError] = useState(false)
 
   // The acceptance tab is only ever rendered inside the Clerk web UI — the
   // agent/CLI has no DOM — so a viewer here is by construction a human. The
@@ -1469,11 +1475,14 @@ export function AcceptanceTab({
   // not an optimistic flip like submitVerdict above.
   const confirmContract = useCallback(async () => {
     setConfirming(true)
+    setConfirmError(false)
     try {
       await tasksClient.confirmCriteria(taskIdentifier)
+      void refresh?.()
+    } catch {
+      setConfirmError(true)
     } finally {
       setConfirming(false)
-      void refresh?.()
     }
   }, [taskIdentifier, refresh])
 
@@ -1562,11 +1571,26 @@ export function AcceptanceTab({
   // LUM-789: the badge's "still open" count — the tacit-pass rendering split
   // (Task 1), not the DONE-gate split. An un-adjudicated HUMAN criterion
   // reads as settled here; a genuinely unmet MACHINE criterion (or an
-  // explicit HUMAN FAIL) still counts.
-  const pendingCount = data.criteria.filter(c =>
-    isUnmetForDisplay(c, c.latestVerdict ?? undefined)
-  ).length
-  const contractUnconfirmed = data.criteria.some(c => c.confirmedAt == null)
+  // explicit HUMAN FAIL) still counts. Same DONE rule as record-gaps.ts's
+  // machineAwaiting/humanPending: a closed task owes the reviewer no more
+  // action, so this badge must read 0 there too — otherwise a DONE task with
+  // an unverified MACHINE criterion (common: a task-level Approve marks DONE
+  // without per-criterion machine verdicts) shows "1 pending" directly above
+  // the green accepted chip, two adjacent counters disagreeing.
+  const pendingCount =
+    data.task.status === 'DONE'
+      ? 0
+      : data.criteria.filter(c =>
+          isUnmetForDisplay(c, c.latestVerdict ?? undefined)
+        ).length
+  // M-1: the migration is deliberately backfill-free, so every pre-LUM-789
+  // contract reads unconfirmed forever — without the DONE guard the button
+  // would sit on every historical and every closed task. A DONE task has
+  // nothing left to confirm into (same "closed task, no more action" rule as
+  // pendingCount/humanPending/machineAwaiting above).
+  const contractUnconfirmed =
+    data.task.status !== 'DONE' &&
+    data.criteria.some(c => c.confirmedAt == null)
 
   // Inline human verdict controls only while the task awaits adjudication.
   const interactive = data.task.status === 'IN_REVIEW'
@@ -1625,17 +1649,33 @@ export function AcceptanceTab({
   const taskAccepted = data.task.status === 'DONE'
   const humanPending =
     humanCriteria.length > 0 && humanUnresolvedCount > 0 && !taskAccepted
-  const humanAllJudged = humanCriteria.length > 0 && !humanPending
+  // Renamed from `humanAllJudged` (Task 7 review, I-1): "resolved" ≠ "judged"
+  // — the zone can be resolved with zero explicit human verdicts (every row a
+  // tacit pass). `humanJudgedCount` below is the honest "how many did a human
+  // actually look at" figure the copy needs to stay truthful.
+  const humanResolved = humanCriteria.length > 0 && !humanPending
+  // I-1: how many HUMAN criteria carry a genuine explicit PASS, as opposed to
+  // a tacit one nobody adjudicated. Drives the 3-way copy split below — "all
+  // judged" / "none judged, accepted as drafted" / "some judged, rest
+  // accepted as drafted" — so a resolved zone never claims judgment that
+  // didn't happen.
+  const humanJudgedCount = humanCriteria.filter(c =>
+    isPass(c.latestVerdict?.verdict)
+  ).length
+  const humanNoneJudged = humanResolved && humanJudgedCount === 0
+  const humanAllExplicitlyJudged =
+    humanResolved && humanJudgedCount === humanCriteria.length
+  const humanSomeJudged =
+    humanResolved && !humanNoneJudged && !humanAllExplicitlyJudged
   // LUM-572: mirror the smart default for the human zone — collapse once it
   // reads resolved; any unresolved one keeps it open by default. LUM-789: this
   // used to run its own "every criterion carries a PASS" predicate, which drifted
-  // out of step with `humanAllJudged` above the moment an un-adjudicated
+  // out of step with `humanResolved` above the moment an un-adjudicated
   // criterion stopped counting as a to-do — a zone could show the resolved
-  // "Human-judged" header while still defaulting open as if something were
-  // pending. Reusing `humanAllJudged` keeps the fold default and the header
-  // label reading off the same signal.
-  const allHumanResolved = humanAllJudged
-  const humanZoneOpen = humanOpen ?? !allHumanResolved
+  // header while still defaulting open as if something were pending. Reusing
+  // `humanResolved` keeps the fold default and the header label reading off
+  // the same signal.
+  const humanZoneOpen = humanOpen ?? !humanResolved
 
   // ── LUM-496 · zone split ─────────────────────────────────────────────────
   //
@@ -1702,6 +1742,51 @@ export function AcceptanceTab({
   // "Needs your judgment 0/0" claimed a pending call that does not exist.
   const humanEmptyShell = humanCriteria.length === 0
 
+  // I-1 (Task 7 review): a resolved zone must not claim "judged" when it was
+  // actually a tacit pass — nobody looked at it, it just wasn't sent back.
+  // Three states, split on humanJudgedCount vs humanCriteria.length: every
+  // criterion carries a genuine explicit PASS (keep the existing "Human-
+  // judged" / "All N judged" copy), none do (a fresh, never-adjudicated
+  // contract — the *normal* post-LUM-789 state — gets copy that says so
+  // honestly instead of "judged"), or some do and some don't (must not claim
+  // either extreme).
+  const humanZoneHeaderMsg = humanAllExplicitlyJudged
+    ? { id: 'acceptance.zone.humanResolved', defaultMessage: 'Human-judged' }
+    : humanNoneJudged
+      ? {
+          id: 'acceptance.zone.humanTacit',
+          defaultMessage: 'Accepted as drafted',
+        }
+      : humanSomeJudged
+        ? { id: 'acceptance.zone.humanMixed', defaultMessage: 'Partly judged' }
+        : { id: 'acceptance.zone.human', defaultMessage: 'Needs your judgment' }
+  const humanZoneCaption = humanAllExplicitlyJudged
+    ? intl.formatMessage(
+        {
+          id: 'acceptance.zone.humanAllResolved',
+          defaultMessage: 'All {count} judged',
+        },
+        { count: humanCriteria.length }
+      )
+    : humanNoneJudged
+      ? intl.formatMessage({
+          id: 'acceptance.zone.humanTacitNote',
+          defaultMessage: 'No objections raised — not individually judged',
+        })
+      : humanSomeJudged
+        ? intl.formatMessage(
+            {
+              id: 'acceptance.zone.humanMixedNote',
+              defaultMessage:
+                '{judged} of {total} judged, rest accepted as drafted',
+            },
+            { judged: humanJudgedCount, total: humanCriteria.length }
+          )
+        : intl.formatMessage({
+            id: 'acceptance.zone.humanNote',
+            defaultMessage: 'not machine-checkable',
+          })
+
   // LUM-620's human zone markup, unchanged apart from the anchor it carries —
   // rendered in whichever zone its state puts it in.
   const humanZone = (anchorId?: string) => (
@@ -1710,7 +1795,7 @@ export function AcceptanceTab({
       className={`overflow-hidden rounded-lg border ${
         humanPending
           ? 'border-status-in-review-border'
-          : humanAllJudged
+          : humanResolved
             ? 'border-success-border'
             : 'border-border'
       }`}
@@ -1722,7 +1807,7 @@ export function AcceptanceTab({
         className={`flex w-full items-center gap-2 border-b px-4 py-2.5 text-left ${
           humanPending
             ? 'border-status-in-review-border bg-status-in-review-subtle'
-            : humanAllJudged
+            : humanResolved
               ? 'border-success-border bg-success-subtle'
               : 'border-border bg-muted/30'
         }`}
@@ -1731,7 +1816,7 @@ export function AcceptanceTab({
           className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
           aria-hidden
         />
-        {humanAllJudged ? (
+        {humanResolved ? (
           <CheckCircle2 className='size-4 shrink-0 text-success' aria-hidden />
         ) : (
           <UserCheck
@@ -1745,37 +1830,18 @@ export function AcceptanceTab({
                 id: 'record.human.emptyTitle',
                 defaultMessage: 'Human acceptance criteria',
               })
-            : humanAllJudged
-              ? intl.formatMessage({
-                  id: 'acceptance.zone.humanResolved',
-                  defaultMessage: 'Human-judged',
-                })
-              : intl.formatMessage({
-                  id: 'acceptance.zone.human',
-                  defaultMessage: 'Needs your judgment',
-                })}
+            : intl.formatMessage(humanZoneHeaderMsg)}
         </span>
         <span
           className={`text-caption ${
             humanPending
               ? 'text-status-in-review'
-              : humanAllJudged
+              : humanResolved
                 ? 'text-success'
                 : 'text-muted-foreground/70'
           }`}
         >
-          {humanAllJudged
-            ? intl.formatMessage(
-                {
-                  id: 'acceptance.zone.humanAllResolved',
-                  defaultMessage: 'All {count} judged',
-                },
-                { count: humanCriteria.length }
-              )
-            : intl.formatMessage({
-                id: 'acceptance.zone.humanNote',
-                defaultMessage: 'not machine-checkable',
-              })}
+          {humanZoneCaption}
         </span>
         {/* An empty shell has nothing to count — "0/0" reads like a failure. */}
         {humanEmptyShell ? null : (
@@ -1839,41 +1905,56 @@ export function AcceptanceTab({
           optional, never gates Done, and disappears for good once every row
           carries a confirmedAt. */}
       {hasCriteria && (
-        <div className='flex items-center gap-2'>
-          <span
-            data-testid='pending-count'
-            className='text-caption text-muted-foreground'
-          >
-            {intl.formatMessage(
-              {
-                id: 'acceptance.pendingBadge',
-                defaultMessage: '{count} pending',
-              },
-              { count: pendingCount }
+        <div className='space-y-1'>
+          <div className='flex items-center gap-2'>
+            <span
+              data-testid='pending-count'
+              className='text-caption text-muted-foreground'
+            >
+              {intl.formatMessage(
+                {
+                  id: 'acceptance.pendingBadge',
+                  defaultMessage: '{count} pending',
+                },
+                { count: pendingCount }
+              )}
+            </span>
+            {contractUnconfirmed && (
+              <>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => void confirmContract()}
+                  disabled={confirming}
+                >
+                  {intl.formatMessage({
+                    id: 'acceptance.confirmContract',
+                    defaultMessage: 'Confirm contract',
+                  })}
+                </Button>
+                <InfoTooltip
+                  label={intl.formatMessage({
+                    id: 'acceptance.contractUnconfirmed',
+                    defaultMessage:
+                      'This contract has not been confirmed by a human yet. Confirming records that you agree with what "done" means here — it does not close the task.',
+                  })}
+                />
+              </>
             )}
-          </span>
-          {contractUnconfirmed && (
-            <>
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => void confirmContract()}
-                disabled={confirming}
-              >
-                {intl.formatMessage({
-                  id: 'acceptance.confirmContract',
-                  defaultMessage: 'Confirm contract',
-                })}
-              </Button>
-              <InfoTooltip
-                label={intl.formatMessage({
-                  id: 'acceptance.contractUnconfirmed',
-                  defaultMessage:
-                    'This contract has not been confirmed by a human yet. Confirming records that you agree with what "done" means here — it does not close the task.',
-                })}
-              />
-            </>
-          )}
+          </div>
+          {/* I-2: a failed confirm POST must say so, not just silently
+              re-enable the button with no feedback. */}
+          {confirmError ? (
+            <div
+              data-testid='confirm-contract-error'
+              className='text-caption text-danger'
+            >
+              {intl.formatMessage({
+                id: 'acceptance.confirmError',
+                defaultMessage: "Couldn't confirm — try again",
+              })}
+            </div>
+          ) : null}
         </div>
       )}
 

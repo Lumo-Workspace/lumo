@@ -2382,6 +2382,13 @@
   "acceptance.confirmContract": "Vertrag bestätigen",
   "acceptance.contractUnconfirmed": "Dieser Vertrag wurde noch nicht von einem Menschen bestätigt. Das Bestätigen hält fest, dass du damit einverstanden bist, was „erledigt“ hier bedeutet — es schließt die Aufgabe nicht ab.",
   "acceptance.pendingBadge": "{count} ausstehend",
-  "activity.contractConfirmed": "hat {count} der Abnahmekriterien bestätigt",
-  "activity.contractConfirmedViaEdit": "hat den Abnahmevertrag (per Bearbeitung) bestätigt"
+  "activity.contractConfirmed": "hat {count, plural, one {# Abnahmekriterium} other {# Abnahmekriterien}} bestätigt",
+  "activity.contractConfirmedViaEdit": "hat den Abnahmevertrag (per Bearbeitung) bestätigt",
+  "acceptance.confirmError": "Bestätigen fehlgeschlagen — erneut versuchen",
+  "acceptance.zone.humanTacit": "Wie vorgeschlagen akzeptiert",
+  "acceptance.zone.humanTacitNote": "Keine Einwände — nicht einzeln beurteilt",
+  "acceptance.zone.humanMixed": "Teilweise beurteilt",
+  "acceptance.zone.humanMixedNote": "{judged}/{total} beurteilt, Rest wie vorgeschlagen akzeptiert",
+  "record.gap.humanTacit": "Wie vorgeschlagen akzeptiert",
+  "record.gap.humanMixed": "{judged}/{total} beurteilt, Rest wie vorgeschlagen akzeptiert"
 }
