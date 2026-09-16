@@ -245,6 +245,7 @@ unconfirmed contract closes exactly like a confirmed one.
 | Flag        | Meaning                                                                                |
 | ----------- | -------------------------------------------------------------------------------------- |
 | `--confirm` | The user approved, after seeing every criterion. Required to write; absent by default. |
+| `--yes`     | Legacy alias of `--confirm`. Prefer `--confirm` in new invocations.                    |
 
 It follows the [confirmation protocol](confirmation.md) exactly — two calls,
 never a prompt:
