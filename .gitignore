@@ -133,3 +133,6 @@ temp/
 /generated/prisma
 .worktrees/
 /.swc
+
+# LUM-798 probe output (local read-out of production scan counts)
+scripts/analysis/lum798-gate-probe/gate-readout.json
