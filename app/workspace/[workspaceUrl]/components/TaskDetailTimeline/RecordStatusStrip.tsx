@@ -15,7 +15,7 @@ export interface RecordStatusStripProps {
   interactive?: boolean
 }
 
-type Tone = 'danger' | 'warning' | 'inReview' | 'success'
+type Tone = 'danger' | 'warning' | 'inReview' | 'success' | 'neutral'
 
 const toneClasses: Record<Tone, string> = {
   danger: 'border-danger-border bg-danger-subtle text-danger',
@@ -23,6 +23,11 @@ const toneClasses: Record<Tone, string> = {
   inReview:
     'border-status-in-review-border bg-status-in-review-subtle text-status-in-review',
   success: 'border-success-border bg-success-subtle text-success',
+  // Design call (Task 7 re-review): the resolved-but-not-genuinely-judged
+  // states (tacit / mixed) must not wear full success green. Same neutral
+  // badge treatment CriterionRow's default provenance pill already uses
+  // (`border border-border text-muted-foreground`) — no new tokens.
+  neutral: 'border-border text-muted-foreground',
 }
 
 const chipClass = (tone: Tone) =>
@@ -150,16 +155,25 @@ export function RecordStatusStrip({
       <span
         key='human'
         data-testid='gap-human'
-        className={chipClass('success')}
+        className={chipClass(
+          gaps.humanJudged === gaps.humanTotal ? 'success' : 'neutral'
+        )}
       >
-        {/* I-1 (Task 7 review): `gaps.humanJudged` counts genuine explicit
-            PASSes — the old `humanTotal - humanPending` fraction became
-            vacuous once an un-adjudicated criterion stopped counting as
-            pending (this branch only renders once humanPending is 0, so
-            that subtraction is always total/total now) and, worse, "Human-
-            judged" claimed judgment for a contract nobody looked at. Same
-            3-way split as AcceptanceTab's zone header/caption: all genuinely
-            judged / none judged (tacit) / a mix. */}
+        {/* I-1 (Task 7 review), corrected by N-1 (re-review): `gaps.humanJudged`
+            counts ANY explicit verdict, PASS or FAIL, not PASS-only — a FAIL is
+            still a judgment (someone raised an objection), and it's only
+            reachable here via the human-authoritative DONE-gate override
+            (an unresolved FAIL otherwise 409s), so counting PASS-only would
+            have put that FAIL in the same "nobody looked" bucket as a truly
+            tacit criterion. The old `humanTotal - humanPending` fraction was
+            also vacuous once an un-adjudicated criterion stopped counting as
+            pending (this branch only renders once humanPending is 0, so that
+            subtraction was always total/total). Same 3-way split as
+            AcceptanceTab's zone header/caption, including tone: full success
+            green only when every criterion is genuinely judged; tacit/mixed
+            get the neutral badge (design call, Task 7 re-review) so "nobody
+            looked" and "a human verified this" don't look identical at a
+            glance. */}
         {gaps.humanJudged === gaps.humanTotal
           ? intl.formatMessage(
               {

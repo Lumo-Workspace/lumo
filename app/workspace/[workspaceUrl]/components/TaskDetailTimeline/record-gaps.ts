@@ -1,6 +1,6 @@
 import type { TaskAcceptanceStatusView } from '../../types'
 import type { BoundaryCrossingView } from '../../hooks/useBoundaryCrossings'
-import { isPass, machineRollup } from './verdict-status'
+import { machineRollup } from './verdict-status'
 // LUM-789: the tacit-pass rendering split — an un-adjudicated HUMAN criterion
 // is not a to-do, only an explicit FAIL (a real send-back) is. Zero-import so
 // this 'use client' tree never drags Prisma into the browser bundle.
@@ -31,11 +31,15 @@ export interface RecordGaps {
    *  task. */
   humanPending: number
   humanTotal: number
-  /** HUMAN criteria with a genuine explicit PASS verdict — i.e. a human
-   *  actually looked at it and signed off, as opposed to a tacit pass (never
-   *  adjudicated, LUM-789). Callers need this to avoid claiming "judged" for
-   *  a criterion nobody looked at; `humanTotal - humanPending` alone can't
-   *  distinguish the two once an un-adjudicated criterion counts as resolved. */
+  /** HUMAN criteria carrying ANY explicit verdict (PASS or FAIL) — i.e. a
+   *  human actually looked at it, as opposed to a tacit pass (never
+   *  adjudicated, LUM-789). Deliberately not PASS-only (N-1, Task 7
+   *  re-review): a FAIL is still a judgment — someone raised an objection —
+   *  and counting PASS-only put a DONE-gate-overridden FAIL in the same
+   *  bucket as a criterion nobody ever looked at. Callers need this to avoid
+   *  claiming "judged" for a criterion nobody looked at; `humanTotal -
+   *  humanPending` alone can't distinguish the two once an un-adjudicated
+   *  criterion counts as resolved. */
   humanJudged: number
   /** Crossings with no disposition yet (`disposition == null`), regardless of
    *  whether they block Done. */
@@ -88,11 +92,10 @@ export function deriveRecordGaps(input: {
         isUnmetForDisplay(c, c.latestVerdict ?? undefined)
       ).length
   // Measured regardless of taskDone — this is a record of what actually
-  // happened (a real human PASS), not a "still needed" count, so it is never
-  // zeroed by the DONE rule the way humanPending is.
-  const humanJudged = humanCriteria.filter(c =>
-    isPass(c.latestVerdict?.verdict)
-  ).length
+  // happened (a human recorded a verdict), not a "still needed" count, so it
+  // is never zeroed by the DONE rule the way humanPending is. Any explicit
+  // verdict counts, not just PASS (N-1) — see the field doc above.
+  const humanJudged = humanCriteria.filter(c => c.latestVerdict != null).length
 
   const openCrossings = crossings.filter(c => c.disposition == null)
   const crossingsOpen = openCrossings.length

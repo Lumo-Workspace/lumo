@@ -1651,20 +1651,24 @@ export function AcceptanceTab({
     humanCriteria.length > 0 && humanUnresolvedCount > 0 && !taskAccepted
   // Renamed from `humanAllJudged` (Task 7 review, I-1): "resolved" ≠ "judged"
   // — the zone can be resolved with zero explicit human verdicts (every row a
-  // tacit pass). `humanJudgedCount` below is the honest "how many did a human
-  // actually look at" figure the copy needs to stay truthful.
+  // tacit pass). `humanEngagedCount` below is the honest "how many did a
+  // human actually look at" figure the copy needs to stay truthful.
   const humanResolved = humanCriteria.length > 0 && !humanPending
-  // I-1: how many HUMAN criteria carry a genuine explicit PASS, as opposed to
-  // a tacit one nobody adjudicated. Drives the 3-way copy split below — "all
-  // judged" / "none judged, accepted as drafted" / "some judged, rest
-  // accepted as drafted" — so a resolved zone never claims judgment that
-  // didn't happen.
-  const humanJudgedCount = humanCriteria.filter(c =>
-    isPass(c.latestVerdict?.verdict)
+  // N-1 (Task 7 re-review): this must count ANY explicit verdict (PASS or
+  // FAIL), not just PASS. A resolved zone can carry a FAIL — only reachable
+  // through the human-authoritative DONE-gate override
+  // (task-state.service.ts:214), since an unresolved FAIL otherwise 409s —
+  // and a criterion someone explicitly rejected was absolutely "judged": an
+  // objection *was* raised. Counting PASS only put that FAIL in the same
+  // bucket as a criterion nobody ever looked at, and rendered "Accepted as
+  // drafted" / "No objections raised" underneath its own rejection reason —
+  // the exact false-tacit-claim I-1 existed to kill, just relocated.
+  const humanEngagedCount = humanCriteria.filter(
+    c => c.latestVerdict != null
   ).length
-  const humanNoneJudged = humanResolved && humanJudgedCount === 0
+  const humanNoneJudged = humanResolved && humanEngagedCount === 0
   const humanAllExplicitlyJudged =
-    humanResolved && humanJudgedCount === humanCriteria.length
+    humanResolved && humanEngagedCount === humanCriteria.length
   const humanSomeJudged =
     humanResolved && !humanNoneJudged && !humanAllExplicitlyJudged
   // LUM-572: mirror the smart default for the human zone — collapse once it
@@ -1744,12 +1748,12 @@ export function AcceptanceTab({
 
   // I-1 (Task 7 review): a resolved zone must not claim "judged" when it was
   // actually a tacit pass — nobody looked at it, it just wasn't sent back.
-  // Three states, split on humanJudgedCount vs humanCriteria.length: every
-  // criterion carries a genuine explicit PASS (keep the existing "Human-
-  // judged" / "All N judged" copy), none do (a fresh, never-adjudicated
-  // contract — the *normal* post-LUM-789 state — gets copy that says so
-  // honestly instead of "judged"), or some do and some don't (must not claim
-  // either extreme).
+  // Three states, split on humanEngagedCount vs humanCriteria.length: every
+  // criterion carries an explicit verdict, PASS or FAIL (keep the existing
+  // "Human-judged" / "All N judged" copy — a FAIL is still a judgment), none
+  // do (a fresh, never-adjudicated contract — the *normal* post-LUM-789 state
+  // — gets copy that says so honestly instead of "judged"), or some do and
+  // some don't (must not claim either extreme).
   const humanZoneHeaderMsg = humanAllExplicitlyJudged
     ? { id: 'acceptance.zone.humanResolved', defaultMessage: 'Human-judged' }
     : humanNoneJudged
@@ -1780,7 +1784,7 @@ export function AcceptanceTab({
               defaultMessage:
                 '{judged} of {total} judged, rest accepted as drafted',
             },
-            { judged: humanJudgedCount, total: humanCriteria.length }
+            { judged: humanEngagedCount, total: humanCriteria.length }
           )
         : intl.formatMessage({
             id: 'acceptance.zone.humanNote',
@@ -1795,7 +1799,7 @@ export function AcceptanceTab({
       className={`overflow-hidden rounded-lg border ${
         humanPending
           ? 'border-status-in-review-border'
-          : humanResolved
+          : humanAllExplicitlyJudged
             ? 'border-success-border'
             : 'border-border'
       }`}
@@ -1807,7 +1811,7 @@ export function AcceptanceTab({
         className={`flex w-full items-center gap-2 border-b px-4 py-2.5 text-left ${
           humanPending
             ? 'border-status-in-review-border bg-status-in-review-subtle'
-            : humanResolved
+            : humanAllExplicitlyJudged
               ? 'border-success-border bg-success-subtle'
               : 'border-border bg-muted/30'
         }`}
@@ -1816,7 +1820,12 @@ export function AcceptanceTab({
           className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
           aria-hidden
         />
-        {humanResolved ? (
+        {/* Design call (Task 7 re-review): tacit/mixed keep the muted,
+            non-resolved UserCheck — only a genuinely fully-adjudicated
+            contract earns the green CheckCircle2. Resolved-but-not-judged
+            used to look visually identical to "a human verified this"; only
+            the caption differed. */}
+        {humanAllExplicitlyJudged ? (
           <CheckCircle2 className='size-4 shrink-0 text-success' aria-hidden />
         ) : (
           <UserCheck
@@ -1836,7 +1845,7 @@ export function AcceptanceTab({
           className={`text-caption ${
             humanPending
               ? 'text-status-in-review'
-              : humanResolved
+              : humanAllExplicitlyJudged
                 ? 'text-success'
                 : 'text-muted-foreground/70'
           }`}

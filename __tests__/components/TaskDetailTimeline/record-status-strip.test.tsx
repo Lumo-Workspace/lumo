@@ -151,6 +151,9 @@ describe('RecordStatusStrip', () => {
     const chip = screen.getByTestId('gap-human')
     expect(chip).toHaveTextContent('Accepted as drafted')
     expect(chip).not.toHaveTextContent('Human-judged')
+    // Design call (Task 7 re-review): tacit is not full success green.
+    expect(chip.className).not.toContain('text-success')
+    expect(chip.className).toContain('text-muted-foreground')
   })
 
   it('renders the mixed copy when some but not all human criteria were judged', () => {
@@ -162,7 +165,13 @@ describe('RecordStatusStrip', () => {
     const chip = screen.getByTestId('gap-human')
     expect(chip).toHaveTextContent('1/2 judged, rest accepted as drafted')
     expect(chip).not.toHaveTextContent('Human-judged')
-    expect(chip).not.toHaveTextContent('Accepted as drafted')
+    // N-3 (Task 7 re-review): a plain substring match here only passed
+    // because the mixed string's trailing clause happens to be lower-case
+    // ("rest accepted as drafted") — anchor it so this pins intent, not a
+    // capitalization accident.
+    expect(chip).not.toHaveTextContent(/^Accepted as drafted$/)
+    // Design call: mixed is not full success green either.
+    expect(chip.className).not.toContain('text-success')
   })
 
   it('omits the human chip entirely when there are no human criteria', () => {
