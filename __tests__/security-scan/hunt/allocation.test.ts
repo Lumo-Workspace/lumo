@@ -18,6 +18,7 @@ import {
   huntTimeBudgetMs,
   huntTokenBudget,
   HUNT_MAX_STEPS_PER_CATEGORY,
+  HUNT_BATCH_WINDOW_CEILING_MS,
   HUNT_TASK_TIME_MS,
   HUNT_TRACE_MAX_STEPS,
 } from '@/lib/services/security-hunt.config'
@@ -65,16 +66,26 @@ describe('LUM-787 sizing the hunt to the diff', () => {
         cap * HUNT_TASK_TIME_MS + taskTimeMs(HUNT_TASK_TOKEN_MAX)
       )
     }
-    // The smallest tier is the user's 50k × 3 = 150k pass 1, 300k total.
-    expect(huntTokenBudget(HUNT_MAX_PLANNED_TASKS)).toBe(300_000)
-    expect(huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS)).toBe(276_000)
+    // LUM-758 ×10: 最小档是 500k × 3 = 1.5M pass 1，总额 3M；时钟是 3 个
+    // 满窗口加一次重试的满窗口。
+    expect(huntTokenBudget(HUNT_MAX_PLANNED_TASKS)).toBe(3_000_000)
+    expect(huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS)).toBe(1_120_000)
   })
 
-  it('taskTimeMs follows the allowance: 60 s at the mean and below, proportionally more above', () => {
-    expect(taskTimeMs(HUNT_TASK_TOKEN_MIN)).toBe(HUNT_TASK_TIME_MS)
-    expect(taskTimeMs(HUNT_TASK_TOKEN_MEAN)).toBe(HUNT_TASK_TIME_MS)
-    expect(taskTimeMs(HUNT_TASK_TOKEN_MAX)).toBe(96_000)
-    expect(taskTimeMs(0)).toBe(HUNT_TASK_TIME_MS)
+  // LUM-758 ×10 之后按额度成比例放大这件事**死了**：一个批次是一个
+  // `'use step'`，窗口上限 280s 已经是 300s 函数时限允许的最大值，而最小档的
+  // 300k 也花不完它。所以每个任务拿到的都是同一个满窗口——这不是简化，是
+  // 天花板压下来的结果，taskTimeMs 的注释里写明了。
+  it('taskTimeMs is pinned at the one-step window ceiling for every allowance', () => {
+    for (const budget of [
+      0,
+      HUNT_TASK_TOKEN_MIN,
+      HUNT_TASK_TOKEN_MEAN,
+      HUNT_TASK_TOKEN_MAX,
+    ]) {
+      expect(taskTimeMs(budget)).toBe(HUNT_BATCH_WINDOW_CEILING_MS)
+    }
+    expect(HUNT_TASK_TIME_MS).toBe(HUNT_BATCH_WINDOW_CEILING_MS)
   })
 
   it('the step cap can spend the ceiling and the audit can hold every step', () => {
@@ -82,10 +93,13 @@ describe('LUM-787 sizing the hunt to the diff', () => {
     // allowance unspent on the replay. And the trace keeps
     // HUNT_TRACE_MAX_STEPS rows — a cap above it would run steps the audit
     // cannot show.
+    // LUM-758 ×10: 步数上限由「窗口内花得掉多少 token / 一步多少 token」推出，
+    // 追踪上限跟着它走，所以不变量还是同一条——审计装得下跑过的每一步。
     expect(HUNT_MAX_STEPS_PER_CATEGORY).toBeGreaterThanOrEqual(25)
     expect(HUNT_MAX_STEPS_PER_CATEGORY).toBeLessThanOrEqual(
       HUNT_TRACE_MAX_STEPS
     )
+    expect(HUNT_MAX_STEPS_PER_CATEGORY).toBeGreaterThan(32)
   })
 
   it('isOversized flags a diff past the source-file threshold', () => {
@@ -147,21 +161,21 @@ describe('LUM-787 sizing the hunt to the diff', () => {
       { id: 't3', category: 'prompt_injection' as const, startingPoints: [] },
     ]
     const out = allocateTaskBudgets(tasks, sites, 3)
-    // Pass 1 = 150k; floor 3 × 30k = 90k; remainder 60k by weights 1 : 1 : 6.
+    // Pass 1 = 1.5M; floor 3 × 300k = 900k; remainder 600k by weights 1 : 1 : 6.
     expect(out.get('t1')).toEqual({
       sites: 1,
-      tokenBudget: 30_000 + 7_500,
+      tokenBudget: 300_000 + 75_000,
       timeBudgetMs: HUNT_TASK_TIME_MS,
     })
     expect(out.get('t2')).toEqual({
       sites: 0,
-      tokenBudget: 30_000 + 7_500,
+      tokenBudget: 300_000 + 75_000,
       timeBudgetMs: HUNT_TASK_TIME_MS,
     })
     expect(out.get('t3')).toEqual({
       sites: 6,
-      tokenBudget: 30_000 + 45_000,
-      timeBudgetMs: 90_000,
+      tokenBudget: 300_000 + 450_000,
+      timeBudgetMs: HUNT_TASK_TIME_MS,
     })
     const sum = [...out.values()].reduce((n, a) => n + a.tokenBudget, 0)
     expect(sum).toBeLessThanOrEqual(3 * HUNT_TASK_TOKEN_MEAN)

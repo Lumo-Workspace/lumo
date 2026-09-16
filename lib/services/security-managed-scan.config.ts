@@ -40,7 +40,11 @@ export const SANDBOX_TIMEOUT_MS = 12 * 60 * 1000
  * rationale on SANDBOX_TIMEOUT_MS above simply does not apply to the shared
  * case. Do not "fix" this value back down to match it.
  */
-export const SANDBOX_TIMEOUT_WITH_HUNT_MS = 20 * 60 * 1000
+// LUM-758 (×10): 20 → 35 分钟。cap-5 的 huntTimeBudgetMs 现在是 28 分钟，
+// 再加克隆/attach 与规划步；平台上限是 45 分钟（Hobby，Pro/Enterprise 更高），
+// 所以 35 分钟在任何档位上都是合法值。budget-arithmetic 钉住「沙箱活得比它要
+// 跑的 hunt 久」，否则 VM 会在任务跑完之前被回收。
+export const SANDBOX_TIMEOUT_WITH_HUNT_MS = 35 * 60 * 1000
 /** Same cap as the ingest path's raw (post-gunzip) SARIF size. */
 export const MANAGED_REPORT_MAX_BYTES = 400 * 1024 * 1024
 /**

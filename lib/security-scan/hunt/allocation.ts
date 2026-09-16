@@ -31,6 +31,7 @@ import {
   HUNT_MAX_PLANNED_TASKS_CEILING,
   HUNT_OVERSIZED_SOURCE_FILES,
   HUNT_TASK_CAP_TIERS,
+  HUNT_BATCH_WINDOW_CEILING_MS,
   HUNT_TASK_TIME_MS,
   HUNT_TASK_TOKEN_MAX,
   HUNT_TASK_TOKEN_MEAN,
@@ -96,9 +97,15 @@ export interface TaskAllocation {
  * mean, proportionally more above it, never less than HUNT_TASK_TIME_MS.
  */
 export function taskTimeMs(tokenBudget: number): number {
-  return Math.max(
-    HUNT_TASK_TIME_MS,
-    Math.round((HUNT_TASK_TIME_MS * tokenBudget) / HUNT_TASK_TOKEN_MEAN)
+  // LUM-758 (×10): 上界是硬的。一个任务的搜索是一个 `'use step'`，再大的额度
+  // 也换不来比 HUNT_BATCH_WINDOW_CEILING_MS 更长的一次执行；超出的部分是纸面
+  // 额度，`huntSpendableTokens` 与 budget-arithmetic 把它记在明处。
+  return Math.min(
+    HUNT_BATCH_WINDOW_CEILING_MS,
+    Math.max(
+      HUNT_TASK_TIME_MS,
+      Math.round((HUNT_TASK_TIME_MS * tokenBudget) / HUNT_TASK_TOKEN_MEAN)
+    )
   )
 }
 
