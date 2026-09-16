@@ -56,6 +56,18 @@ export function readGateResults(rows: HuntAuditRow[]): GateReadout {
     if (row.huntStage === null && a === null) continue
     out.scansWithHunt += 1
     if (a === null) continue
+    // "Did the new gate RUN" is asked first and unconditionally. A scan whose
+    // hunt submitted nothing still ran it, and folding that case in with
+    // "no tally on the row" would reproduce, in the read-out, the exact
+    // zero-versus-never confusion this task exists to remove.
+    const res = a.resolution
+    if (res && typeof res === 'object') {
+      out.scansWithResolution += 1
+      const r = res as Record<string, unknown>
+      out.resolution.subgraph += int(r.subgraph)
+      out.resolution.sinkRule += int(r.sinkRule)
+      out.resolution.sandbox += int(r.sandbox)
+    }
     const rejected = Array.isArray(a.rejected) ? a.rejected : []
     const candidates = int(a.candidates)
     if (candidates === 0 && rejected.length === 0) continue
@@ -65,14 +77,6 @@ export function readGateResults(rows: HuntAuditRow[]): GateReadout {
     for (const r of rejected as Record<string, unknown>[]) {
       const reason = typeof r.reason === 'string' ? r.reason : '(none)'
       byReason.set(reason, (byReason.get(reason) ?? 0) + 1)
-    }
-    const res = a.resolution
-    if (res && typeof res === 'object') {
-      out.scansWithResolution += 1
-      const r = res as Record<string, unknown>
-      out.resolution.subgraph += int(r.subgraph)
-      out.resolution.sinkRule += int(r.sinkRule)
-      out.resolution.sandbox += int(r.sandbox)
     }
     // A falsifier verdict is a REJECT counted in the audit, or an
     // INCONCLUSIVE that became a finding — both are "the gate let something
