@@ -603,6 +603,12 @@ describe('LUM-782 — the allowlist, the tool description and the VM agree', () 
         'git diff HEAD~1 --stat',
         'git --no-pager log -1',
         'git log -0',
+        // 大小写敏感：被拒的是 `-O`（--open-files-in-pager，会起 pager
+        // 进程）。`git ls-files -o` 的小写 `-o` 是 --others，只列未跟踪
+        // 文件，完全只读——簇判据不能把它连坐。
+        'git ls-files -o',
+        'git ls-files -oc lib',
+        'git log -n5 --oneline',
       ]) {
         expect(checkHuntCommand(cmd)).toEqual({ ok: true })
       }
@@ -614,10 +620,15 @@ describe('LUM-782 — the allowlist, the tool description and the VM agree', () 
         'git log --output=/tmp/x',
         'git show --ext-diff HEAD',
         'git grep -O vi foo',
-        // LUM-758: 附着取值——git 真的执行了它，闸门原来只看整串名字。
+        // LUM-758: 附着取值与短选项簇——两种写法在镜像里都真的执行了
+        // /bin/echo，而按整串名字比对的闸门两种都放行。第二组是 PR 1023
+        // 的扫描在第一版修复上报出来的：`-O` 可以不在簇的第一位。
         'git grep -O/bin/echo foo',
         'git grep -Ovi foo',
         'git log -Ovi',
+        'git grep -nO/bin/echo foo',
+        'git grep -iO/bin/echo foo',
+        'git grep -inO/bin/echo foo',
         'git push origin main',
         'git checkout -b x',
         'git commit -m x',

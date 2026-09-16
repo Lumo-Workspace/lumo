@@ -749,15 +749,29 @@ function deniedLongPrefix(
   )
 }
 
-/** `-O/bin/sh` / `-Ovi` 都是 `-O` 带了附着值。 */
-function deniedShortAttached(
+/**
+ * `-O/bin/sh`、`-Ovi`、`-nO/bin/sh` 都是同一个 `-O`：短选项既可以**成簇**，
+ * 值又可以**附着**，所以被拒的那个字母可以出现在簇里的任何位置。
+ *
+ * 这一版是 PR 1023 的扫描在这个文件**自己的修复上**又报出来的：第一版只认
+ * 了「附着」（比对前两个字符），镜像里 `git grep -nO/bin/echo needle` 照样
+ * 执行了 /bin/echo。判据因此改成「簇里出现过这个字母」，大小写敏感——
+ * `git log -0` 的 `0` 不是 `O`。`sortGate` 的 `-o` 一直就是这么判的。
+ *
+ * 误拒的方向是安全的一侧：附着值里恰好含同一个字母（`git grep -eOrder`）
+ * 会被拒，理由里点名了是哪个旗标，改写成分开的两个参数即可。
+ */
+function deniedShortCluster(
   arg: string,
   denied: readonly string[]
 ): string | null {
   if (arg.startsWith('--') || !arg.startsWith('-') || arg.length < 2)
     return null
-  const name = arg.slice(0, 2)
-  return denied.includes(name) ? name : null
+  for (const d of denied) {
+    if (d.length !== 2 || !/^-[A-Za-z]$/.test(d)) continue
+    if (new RegExp(`^-[A-Za-z]*${d[1]!}`).test(arg)) return d
+  }
+  return null
 }
 
 /**
@@ -845,7 +859,7 @@ function gitGate(args: readonly string[]): string | null {
     const arg = args[i]!
     const name =
       (GIT_DENIED_GLOBAL.has(arg.split('=')[0]!) ? arg.split('=')[0]! : null) ??
-      deniedShortAttached(arg, globals)
+      deniedShortCluster(arg, globals)
     if (name) {
       return `git option '${name}' runs a program or leaves the checkout; not allowed`
     }
@@ -856,14 +870,15 @@ function gitGate(args: readonly string[]): string | null {
     return `git subcommand '${sub}' is not allowed; read-only: ${[...GIT_HUNT_SUBCOMMANDS].join(', ')}`
   }
   // The real PR 1015 hole: subcommand options go through git's parse-options,
-  // which takes a short option's value ATTACHED. `git grep -O/bin/echo` ran
-  // /bin/echo in the image while the gate saw the whole `-O/bin/echo` as an
-  // unknown name and waved it through.
+  // which takes a short option's value ATTACHED and lets shorts CLUSTER, so
+  // `-O` can sit anywhere in the token. `git grep -O/bin/echo needle` and
+  // `git grep -nO/bin/echo needle` both ran /bin/echo in the image while the
+  // gate saw one unknown name and waved it through.
   for (const arg of args.slice(i + 1)) {
     const exact = arg.startsWith('--') ? arg.split('=')[0]! : arg
     const name =
       (GIT_DENIED_OPTIONS.has(exact) ? exact : null) ??
-      deniedShortAttached(arg, options)
+      deniedShortCluster(arg, options)
     if (name) {
       return `git option '${name}' writes a file or runs a program; not allowed`
     }
