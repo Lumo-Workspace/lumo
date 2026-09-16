@@ -67,10 +67,28 @@ export async function taskCriteriaConfirm(
     console.error(`Error: could not read the contract (HTTP ${listRes.status})`)
     return 1
   }
-  const { criteria } = (await listRes.json()) as { criteria: CriterionRow[] }
+  const { criteria, status } = (await listRes.json()) as {
+    criteria: CriterionRow[]
+    /** N-5 (whole-branch review, second pass): absent on an older server —
+     *  falls through to the write attempt, which still gets the real 409. */
+    status?: string
+  }
   if (criteria.length === 0) {
     console.error(
       `Error: ${identifier} has no acceptance criteria — nothing to confirm.`
+    )
+    return 1
+  }
+  // N-5: pre-check DONE before printing the exit-4 envelope — without this,
+  // the envelope promises a write ("Will record YOUR confirmation…") that
+  // `confirmContract`'s own DONE guard (Finding 5, first review) always
+  // refuses with 409, so a DONE task only ever discovered that on the
+  // SECOND call, after the user had already approved a write that was never
+  // going to happen. Same terminal-lock framing as `criteria set --human`'s
+  // DONE 409 and the server's own message.
+  if (status === 'DONE') {
+    console.error(
+      `Error: ${identifier} is DONE — the acceptance contract is locked. Reopen it (status → in_progress) to confirm the contract.`
     )
     return 1
   }

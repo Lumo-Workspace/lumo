@@ -306,9 +306,24 @@ once the contract reads back the way they actually want it.
   contract starts unconfirmed, and there is deliberately **no flag to skip
   confirmation** — there's nothing to skip. `lumo task status` prints a
   one-line nudge (`Contract unconfirmed (N criteria) — lumo task criteria
-confirm LUM-42`) when criteria are unconfirmed, but it's advisory, not a
-  blocker: absence of confirmation is not an error state anywhere in this
-  system.
+confirm LUM-42`) when criteria are unconfirmed **and the task isn't DONE**,
+  but it's advisory, not a blocker: absence of confirmation is not an error
+  state anywhere in this system.
+- **DONE is a terminal lock on confirming, same as on editing.** The
+  migration that added `confirmedAt` is deliberately backfill-free, so every
+  contract drafted before LUM-789 reads unconfirmed forever — without a DONE
+  guard the nudge above would sit on every historical, already-shipped task.
+  `lumo task status` suppresses the nudge once the task is DONE, and
+  `lumo task criteria confirm` itself pre-checks the task's status (carried
+  on the same `GET /api/tasks/[id]/criteria` read used to build the
+  confirmation envelope — no extra round trip) and refuses with exit 1
+  _before_ printing the envelope, so it never promises a write it can't
+  deliver. The server backs this with its own 409
+  (`taskCriteriaConfirmService.confirmContract`, same terminal-lock message
+  family as `criteria set --human`'s DONE 409) in case an older CLI skips the
+  pre-check. Confirming after delivery would record a human "agreeing" to
+  the contract after the fact — the exact inversion LUM-789 exists to
+  prevent (the touchpoint is supposed to be at draft time, not after DONE).
 - **`--human` self-confirms by construction — this is accepted, not a bug.**
   A `criteria set --human` revision stamps every row it touches as
   `confirmedAt`/`confirmedByMemberId` in the same write (see "Record a human

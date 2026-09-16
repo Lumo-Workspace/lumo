@@ -70,6 +70,15 @@ export type VerdictStatusKind =
   | 'done'
   | 'doneNoHumanVerdict'
   | 'allPassed'
+  // N-3 (whole-branch review, second pass): repurposed. Under the tacit-pass
+  // `met` (Finding 3), the ORIGINAL "MACHINE done, HUMAN hasn't judged yet"
+  // meaning became unreachable — `met === total` now fires whenever every
+  // MACHINE criterion is verified and no HUMAN criterion holds an explicit
+  // FAIL, which is exactly `machineAllPass`'s own precondition. Rather than
+  // leave that dead slot as a tombstone (plus grow a 17th kind and a 17th
+  // locale key), it now carries N-1's tacit-aware "met, but not every HUMAN
+  // criterion carries an explicit verdict" state — neutral tone, honest
+  // "accepted as drafted" copy, never the green allPassed check.
   | 'machineAwaitingHuman'
   | 'inProgress'
 
@@ -83,6 +92,12 @@ export interface VerdictStatus {
   gateBlocked: boolean
   round: number
   maxRounds: number
+  /** N-1: how many HUMAN criteria carry an explicit verdict, out of how many
+   *  exist — the ICU values for the (repurposed) `machineAwaitingHuman`
+   *  kind's title, which must say "N/M judged, rest accepted as drafted"
+   *  rather than a bare "criteria met" that hides whether anyone looked. */
+  humanJudgedCount: number
+  humanTotal: number
 }
 
 export function deriveVerdictStatus(
@@ -105,12 +120,21 @@ export function deriveVerdictStatus(
   const anyHumanVerdict = data.criteria.some(
     c => c.latestVerdict?.verifierType === 'HUMAN'
   )
-  // "Machine acceptance passed" must mean a checkpointer actually passed every
-  // MACHINE criterion (LUM-456) — a human override does not count, or the banner
-  // would impersonate machine verification.
-  const machineStats = machineRollup(data.criteria)
-  const machineAllPass =
-    machineStats.total > 0 && machineStats.verified === machineStats.total
+
+  // N-1 (whole-branch review, second pass): F3 fixed `met`'s number but left
+  // `kind`/`tone` running the pre-LUM-789 rule — "every criterion met" still
+  // meant `allPassed` (green check, "All criteria met") even when every
+  // HUMAN criterion in the contract was a tacit pass nobody looked at. That
+  // relocated the false "adjudicated" claim from the count onto the icon and
+  // title instead of removing it. Same judged/tacit/mixed split
+  // AcceptanceTab.tsx's `humanAllExplicitlyJudged` already uses — vacuously
+  // true when there are no HUMAN criteria at all (a MACHINE-only contract
+  // has nothing to tacitly accept, so it stays a plain, honest `allPassed`).
+  const humanCriteria = data.criteria.filter(c => c.verifierType === 'HUMAN')
+  const humanJudgedCount = humanCriteria.filter(
+    c => c.latestVerdict != null
+  ).length
+  const humanAllExplicitlyJudged = humanJudgedCount === humanCriteria.length
 
   let tone: VerdictTone = 'neutral'
   let kind: VerdictStatusKind = 'inProgress'
@@ -124,20 +148,17 @@ export function deriveVerdictStatus(
   } else if (data.task.status === 'DONE') {
     tone = 'success'
     kind = anyHumanVerdict ? 'done' : 'doneNoHumanVerdict'
-  } else if (met === total && total > 0) {
+  } else if (met === total && total > 0 && humanAllExplicitlyJudged) {
     tone = 'success'
     kind = 'allPassed'
-  } else if (machineAllPass) {
-    // Finding 3 note: under the tacit-pass `met` above, this branch is no
-    // longer reachable by an un-adjudicated HUMAN criterion alone — a HUMAN
-    // row with no verdict now counts as met, so `met === total` already fired
-    // above whenever every MACHINE criterion is also verified (`hasFail`
-    // caught the one HUMAN case — an explicit FAIL — that would otherwise
-    // land here). Left in place as a defensive fallback (and because
-    // `VerdictStatusKind`/its chrome are still exhaustively typed against
-    // it) rather than deleted, since removing the kind is a bigger surface
-    // than this fix asked for.
-    tone = 'success'
+  } else if (met === total && total > 0) {
+    // N-3: the repurposed `machineAwaitingHuman` slot — everything is met
+    // (nothing blocks Done), but at least one HUMAN criterion settled as a
+    // tacit pass rather than an actual verdict. Neutral, not success; the
+    // title (VerdictDecision.tsx) renders `humanJudgedCount`/`humanTotal`
+    // into honest "N/M judged, rest accepted as drafted" copy instead of a
+    // bare "criteria met" that hides whether anyone actually looked.
+    tone = 'neutral'
     kind = 'machineAwaitingHuman'
   }
 
@@ -151,5 +172,7 @@ export function deriveVerdictStatus(
     gateBlocked: hasFail,
     round: data.currentRound,
     maxRounds: data.maxRounds,
+    humanJudgedCount,
+    humanTotal: humanCriteria.length,
   }
 }

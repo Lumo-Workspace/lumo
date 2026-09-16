@@ -18,9 +18,15 @@ import {
  */
 export const nextStepsService = {
   /**
-   * Suggestions for a task that already exists. Three cheap reads — criterion
-   * count, open-crossing flag, latest verdict per criterion — none of which
-   * fan out with task size.
+   * Suggestions for a task that already exists. Three reads — the criteria
+   * rows, an open-crossing flag, and the latest verdict per criterion.
+   * N-5 (whole-branch review, second pass): the first of those used to be a
+   * cheap `countByTask`; Finding 6 (first review) swapped it for
+   * `listByTask` (full criterion rows, incl. `verifierType`) because
+   * `isUnmetForDisplay` needs more than a count — so this now fans out with
+   * criterion count, same as the other two reads already did. Still small in
+   * practice (a contract rarely exceeds a few dozen rows) and still three
+   * reads, just no longer three *O(1)* ones.
    */
   async forExistingTask(args: {
     taskId: string

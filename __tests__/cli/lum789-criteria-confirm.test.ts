@@ -27,9 +27,10 @@ function listOk(
     statement: string
     verifierType: 'MACHINE' | 'HUMAN'
     confirmedAt: string | null
-  }>
+  }>,
+  status?: string
 ) {
-  return jsonResponse(200, { criteria, judgeStepsWarning: null })
+  return jsonResponse(200, { criteria, judgeStepsWarning: null, status })
 }
 
 const unconfirmedCriteria = [
@@ -189,5 +190,51 @@ describe('LUM-789 lumo task criteria confirm', () => {
     expect(stderrBuf.join('\n')).toContain(
       'API key invalid or revoked. Run `lumo auth login`.'
     )
+  })
+
+  // N-5 (whole-branch review, second pass): a DONE task must refuse BEFORE
+  // the exit-4 envelope prints — the envelope's "Will record YOUR
+  // confirmation…" promise is a lie on a DONE task (the server's own 409,
+  // Finding 5 first review, always refuses it). Falsifies both directions:
+  // a DONE task never gets the envelope or a write attempt; a non-DONE task
+  // is unaffected by the new pre-check.
+  describe('N-5: DONE 预检', () => {
+    it('DONE 任务不打确认信封、不发 GET 之外的任何请求，直接报错退出', async () => {
+      fetchMock.mockResolvedValueOnce(listOk(unconfirmedCriteria, 'DONE'))
+      const code = await taskCriteriaConfirm('LUM-42', {})
+      expect(code).toBe(1)
+      expect(stdout()).not.toContain('confirmation_required')
+      expect(stdout()).toBe('')
+      expect(stderrBuf.join('\n')).toContain('is DONE')
+      expect(fetchMock).toHaveBeenCalledTimes(1) // the GET only — no POST.
+      expect(postConfirmCalls()).toHaveLength(0)
+    })
+
+    it('DONE 任务即使带 --confirm 也在预检处拦下，从不发 POST', async () => {
+      fetchMock.mockResolvedValueOnce(listOk(unconfirmedCriteria, 'DONE'))
+      const code = await taskCriteriaConfirm('LUM-42', { confirm: true })
+      expect(code).toBe(1)
+      expect(postConfirmCalls()).toHaveLength(0)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    // Falsifies the other direction: a non-DONE status must not trip the new
+    // guard — the existing envelope/write paths stay reachable.
+    it('非 DONE 状态（如 IN_REVIEW）不受预检影响，信封照常打出', async () => {
+      fetchMock.mockResolvedValueOnce(listOk(unconfirmedCriteria, 'IN_REVIEW'))
+      const code = await taskCriteriaConfirm('LUM-42', {})
+      expect(code).toBe(4)
+      expect(stdout()).toContain('confirmation_required')
+    })
+
+    // Falsifies "the pre-check is mandatory / breaks older servers": an
+    // older server that doesn't yet send `status` (undefined, not 'DONE')
+    // must fall through to the existing behaviour unchanged.
+    it('server 未带 status 字段（旧版本）时预检放行，走原有路径', async () => {
+      fetchMock.mockResolvedValueOnce(listOk(unconfirmedCriteria))
+      const code = await taskCriteriaConfirm('LUM-42', {})
+      expect(code).toBe(4)
+      expect(stdout()).toContain('confirmation_required')
+    })
   })
 })

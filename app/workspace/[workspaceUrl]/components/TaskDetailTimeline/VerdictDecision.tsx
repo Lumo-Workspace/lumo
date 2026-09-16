@@ -66,13 +66,19 @@ interface VerdictDecisionProps {
 
 // Status-banner chrome: status.kind → icon + title message id. Mirrors the
 // (now-absorbed) AcceptanceTab VerdictBanner so the rendered output is identical.
+// N-1/N-3: `machineAwaitingHuman` is the repurposed "met, but a HUMAN
+// criterion is still a tacit pass" kind — it keeps the muted UserCheck (same
+// design call AcceptanceTab's per-row tacit badge already made: "nobody
+// looked" must not look visually identical to "a human verified this"), not
+// the green CheckCircle2 that `allPassed` earns by having every criterion
+// explicitly judged.
 const KIND_ICON = {
   escalated: AlertTriangle,
   sentBack: XCircle,
   done: CheckCircle2,
   doneNoHumanVerdict: CheckCircle2,
   allPassed: CheckCircle2,
-  machineAwaitingHuman: CheckCircle2,
+  machineAwaitingHuman: UserCheck,
   inProgress: Clock,
 } as const satisfies Record<VerdictStatusKind, typeof Clock>
 
@@ -434,7 +440,14 @@ export function VerdictDecision({
           { id: KIND_TITLE_ID[status.kind] },
           { count: status.failCount }
         )
-      : intl.formatMessage({ id: KIND_TITLE_ID[status.kind] })
+      : status.kind === 'machineAwaitingHuman'
+        ? // N-1: honest "N/M judged, rest accepted as drafted" — never a bare
+          // "criteria met" that would hide whether anyone actually looked.
+          intl.formatMessage(
+            { id: KIND_TITLE_ID[status.kind] },
+            { judged: status.humanJudgedCount, total: status.humanTotal }
+          )
+        : intl.formatMessage({ id: KIND_TITLE_ID[status.kind] })
   const gate = intl.formatMessage({
     id: status.gateBlocked
       ? 'acceptance.banner.gateBlocked'

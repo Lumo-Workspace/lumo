@@ -80,9 +80,14 @@ describe('GET /api/tasks/[id]/criteria', () => {
     expect(mockFindByIdentifier).toHaveBeenCalledWith('w-1', 'LUM', 42)
     expect(mockList).toHaveBeenCalledWith('t-1')
     expect(res.status).toBe(200)
+    // N-5 (whole-branch review, second pass): the route now also carries the
+    // task's status (already resolved by `resolveTaskParam`, no extra query)
+    // so `lumo task criteria confirm` can pre-check DONE before printing its
+    // exit-4 envelope, instead of discovering the 409 on the second call.
     expect(await res.json()).toEqual({
       criteria: [{ id: 'c-1' }],
       warning: null,
+      status: 'TODO',
     })
   })
 
