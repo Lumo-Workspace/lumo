@@ -242,6 +242,9 @@ function readHuntTasks(
         'notFound',
         'empty',
         'stepClipped',
+        // LUM-799 — commands the task re-ran; the counter that tells a search
+        // that narrowed down from one that looped.
+        'repeated',
       ] as const) {
         const v = num(s[k])
         if (v !== null) shell[k] = v
@@ -308,6 +311,8 @@ function readHuntTasks(
         'lastStep',
         'next',
         'steps',
+        // LUM-799 — the repeat streak the search ended on.
+        'repeatSteps',
       ] as const) {
         const v = num(s[k])
         if (v !== null) stop[k] = v

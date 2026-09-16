@@ -30,6 +30,10 @@ const STOPS: readonly HuntCategoryStop[] = [
   'done',
   'steps',
   'budget',
+  // LUM-799 — a row this list does not know is DROPPED, so a stop reason that
+  // ships without being added here makes the task disappear from the coverage
+  // line rather than read as unrecognised.
+  'no-progress',
   'timeout',
   'error',
   'skipped',

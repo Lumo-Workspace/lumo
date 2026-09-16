@@ -112,7 +112,7 @@ describe('LUM-739 hunt client', () => {
     const call = gen.mock.calls[0]![0]
     // LUM-787 — the hunt's own bucket, split off GENERATION_MODEL.
     expect(call.model).toEqual({ id: HUNT_MODEL })
-    expect(call.stopWhen).toHaveLength(3)
+    expect(call.stopWhen).toHaveLength(4)
     // The budget stop comes FIRST so it is the one that records why a search
     // ended when the step cap lands on the same step.
     expect(call.stopWhen[1]).toEqual({ stepCountIs: 4 })
@@ -630,7 +630,7 @@ describe('LUM-758 wrap-up', () => {
  * function; `stepCountIs` / `hasToolCall` are mocked to plain markers here,
  * so they are interpreted rather than called.
  */
-function searchOver(stepTokens: number[]) {
+function searchOver(stepTokens: number[], commands?: string[]) {
   return async (args: unknown) => {
     const { stopWhen, onStepFinish } = args as {
       stopWhen: unknown[]
@@ -638,14 +638,27 @@ function searchOver(stepTokens: number[]) {
     }
     const steps: {
       usage: { totalTokens: number }
-      toolCalls: { toolName: string }[]
+      toolCalls: { toolName: string; input: { command: string } }[]
     }[] = []
     for (const totalTokens of stepTokens) {
       // A search step is a `run_shell` step; the SDK's `do…while` only goes
       // round again while the step produced client tool calls.
+      //
+      // LUM-799 — with a command on it, because one of the predicates now
+      // reads what the step asked the shell for. The default is a DISTINCT
+      // command per step: a search that asks for something new every step is
+      // the shape every other test in this block means, and defaulting to a
+      // constant would silently subject all of them to the no-progress stop.
       const step = {
         usage: { totalTokens },
-        toolCalls: [{ toolName: 'run_shell' }],
+        toolCalls: [
+          {
+            toolName: 'run_shell',
+            input: {
+              command: commands?.[steps.length] ?? `cat f${steps.length}.ts`,
+            },
+          },
+        ],
       }
       steps.push(step)
       // LUM-781 — the SDK fires the step hook after each step, before the
@@ -747,7 +760,7 @@ describe('LUM-758 wrap-up accounting', () => {
     const out = await hunt(20_000, 12)
 
     expect(out.stopped).toBe('budget')
-    expect(gen.mock.calls[0][0].stopWhen).toHaveLength(3)
+    expect(gen.mock.calls[0][0].stopWhen).toHaveLength(4)
   })
 
   it('calls a step-capped stop "steps" even when the handover is expensive', async () => {
@@ -1601,5 +1614,104 @@ describe('LUM-787 predictive stop prices growth', () => {
       next: 5_000,
       lastStep: 2_000,
     })
+  })
+})
+
+/**
+ * LUM-799 — the no-progress stop, driven through the client's REAL predicate
+ * array (`searchOver` above), because the thing under test is precisely that
+ * the loop ends before its counters do.
+ */
+describe('LUM-799 no-progress stop', () => {
+  const wrapUpResult = (totalTokens: number) => ({
+    steps: [
+      {
+        usage: { totalTokens },
+        toolCalls: [{ toolName: 'submit_candidates' }],
+      },
+    ],
+    totalUsage: { totalTokens },
+  })
+
+  it('no-progress stop labels the search and still asks it for its findings', async () => {
+    // Three new reads, then nothing but re-reads. Neither counter is anywhere
+    // near: 6 × 1k against a 100k allowance and a cap of 40 steps — in prod
+    // that gap was 46 steps and 477k tokens wide (PR 1032 t2).
+    const commands = [
+      'cat a.ts',
+      "sed -n '1,40p' a.ts",
+      "sed -n '40,80p' a.ts",
+      "sed -n '1,40p' a.ts",
+      "sed -n '40,80p' a.ts",
+      "sed -n '1,40p' a.ts",
+      "sed -n '40,80p' a.ts",
+      "sed -n '1,40p' a.ts",
+    ]
+    gen.mockImplementationOnce(
+      searchOver(
+        [1_000, 1_000, 1_000, 1_000, 1_000, 1_000, 1_000, 1_000],
+        commands
+      )
+    )
+    gen.mockResolvedValueOnce(wrapUpResult(2_000))
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 100_000,
+      maxSteps: 40,
+      timeoutMs: 5_000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
+    })
+
+    // Stopped on the sixth step: the fourth, fifth and sixth all asked only
+    // for slices steps 2 and 3 had already read.
+    expect(out.stop.steps).toBe(6)
+    expect(out.stopped).toBe('no-progress')
+    expect(out.stop.by).toBe('no-progress')
+    expect(out.stop.repeatSteps).toBe(3)
+    // Neither counter fired — which is the whole point of the new stop.
+    expect(out.stop.spent).toBeLessThan(out.stop.budget)
+    // And the search is asked for what it holds, exactly as a budget-bound
+    // one is: stopping the loop must not throw the answer away.
+    expect(gen).toHaveBeenCalledTimes(2)
+    expect(out.wrappedUp).toBe(true)
+    expect(out.wrapUp).toMatchObject({ ran: true, submitted: 0 })
+  })
+
+  it('no-progress leaves a search that keeps reading new code alone, and still records the near miss', async () => {
+    const commands = [
+      'cat a.ts',
+      'cat b.ts',
+      'cat a.ts',
+      'cat b.ts',
+      'cat c.ts',
+      'cat a.ts',
+      'cat b.ts',
+    ]
+    gen.mockImplementationOnce(
+      searchOver([1_000, 1_000, 1_000, 1_000, 1_000, 1_000, 1_000], commands)
+    )
+    gen.mockResolvedValueOnce(wrapUpResult(2_000))
+
+    const out = await huntTask({
+      task: TASK,
+      reasons: REASONS,
+      runShell,
+      tokenBudget: 100_000,
+      maxSteps: 7,
+      timeoutMs: 5_000,
+      wrapUpDeadlineAt: Date.now() + 30_000,
+    })
+
+    // Ran to its step cap: two repeats in a row is t1's shape, and t1
+    // submitted on its own.
+    expect(out.stop.steps).toBe(7)
+    expect(out.stopped).toBe('steps')
+    expect(out.stop.by).toBe('steps')
+    // The streak is recorded anyway — how close a search came is the number
+    // that says whether the threshold is set anywhere near right.
+    expect(out.stop.repeatSteps).toBe(2)
   })
 })
