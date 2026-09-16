@@ -312,10 +312,69 @@ export const HUNT_OVERSIZED_SOURCE_FILES = 40
 // each task has to cover; `huntTokenBudget(cap)` is twice that, so every
 // task can be retried once. The `_MAX` name is kept because it is still
 // the most any one batch may be handed.
-export const HUNT_TASK_TOKEN_MIN = 30_000
-export const HUNT_TASK_TOKEN_MEAN = 50_000
-export const HUNT_TASK_TOKEN_MAX = 80_000
-export const HUNT_TASK_TIME_MS = 60_000
+//
+// LUM-758 第三次抬（2026-09-16，user decision）：30k/50k/80k → ×10。
+//
+// 起因是 PR 1024 的扫描 t1 停在 `budget`。把账拉出来之后，「预算相对步价太
+// 紧」这个直觉并不成立——t1 的预算已经是单步价的 11.5 倍（57,692 / 5,009），
+// 它用满 12 步仍没收敛，而同样 6 sites、同样 57,692 的 t2 用 14 步交了卷。
+// 差别不在预算档位，在任务本身要读多少东西。用户据此裁定：与其继续在「几倍」
+// 上微调，不如把量级整个抬上去。
+//
+//   MIN  30_000 → 300_000
+//   MEAN 50_000 → 500_000
+//   MAX  80_000 → 800_000
+//
+// 抬 token 一项是抬不动的，另外两道天花板必须同时移（见下面各自的推导）：
+// 步数上限（32 步 × 4k ≈ 128k，远不够花）和批次时钟（60s × 1,350 tok/s ≈
+// 81k，更不够花）。
+export const HUNT_TASK_TOKEN_MIN = 300_000
+export const HUNT_TASK_TOKEN_MEAN = 500_000
+export const HUNT_TASK_TOKEN_MAX = 800_000
+
+/**
+ * LUM-758 — 一个任务的搜索跑在**一个** `'use step'`（`huntTaskStep`）里，因此
+ * 受这个仓库 API 路由的 `maxDuration = 300` 约束。留 20s 给步骤自身的开销，
+ * 280s 是一个批次窗口的物理上限——不是一个可以调的偏好。
+ */
+export const HUNT_BATCH_WINDOW_CEILING_MS = 280_000
+
+/**
+ * LUM-758 — PR 1024 扫描（944d3af）实测的两个读数，取**下界**，所以由它们推
+ * 导出来的上限都偏大而不是偏小：
+ *
+ *   单步计费   t1 5 009 · t2 4 744 · t3 4 070   → 取 4 000
+ *   吞吐       t1 1 368 · t2 1 789 · t3 1 406 tok/s → 取 1 350
+ *
+ * 注意这与上面 `HUNT_OBSERVED_*` 那套 LUM-787 的读数并不一致：那套推出来约
+ * 3.8k/步，注释也写 "a steady 3–4k"，而生产实测是 4.0–5.0k。两者都保留：
+ * 那套是**模拟**单步构成的分项读数（`budget-arithmetic` 的搜索模拟走它），
+ * 这两个是**整步计费与整批吞吐**的端到端读数，用来推导时钟与步数上限。
+ */
+export const HUNT_OBSERVED_STEP_TOKENS = 4_000
+export const HUNT_OBSERVED_THROUGHPUT_TPS = 1_350
+
+/**
+ * 一个批次在窗口上限内**真正花得掉**多少 token。
+ *
+ * 这是 ×10 之后诚实的那半句：MAX 是 800k，而一个 step 的 300s 只够花掉约
+ * 378k。差额不是浪费，是**纸面额度**——代码库对这件事一直有同一句话，
+ * "a token allowance the clock cannot spend is an allowance on paper"。
+ * `budget-arithmetic.test.ts` 把这个差额钉出来，所以它是一个被记录的事实，
+ * 而不是一个下次才在生产里发现的意外。要真正花掉 800k，得把一个任务的搜索
+ * 拆到多个 workflow step 上续跑，那是改结构，不是改常量。
+ */
+export function huntSpendableTokens(
+  windowMs: number = HUNT_BATCH_WINDOW_CEILING_MS
+): number {
+  return Math.floor((windowMs / 1_000) * HUNT_OBSERVED_THROUGHPUT_TPS)
+}
+
+/**
+ * 批次时钟。×10 之前是 60s——按实测吞吐只够花掉约 81k，连抬之前的 MIN(30k)
+ * 都刚够，抬之后就是瓶颈本身。现在直接给到窗口物理上限。
+ */
+export const HUNT_TASK_TIME_MS = HUNT_BATCH_WINDOW_CEILING_MS
 /**
  * Room a task must still have before the forced wrap-up call is worth making.
  * The wrap-up replays the whole transcript, so it costs about what a late
@@ -366,10 +425,13 @@ export function huntTokenBudget(cap: number): number {
  * of the longest task.
  */
 export function huntTimeBudgetMs(cap: number): number {
-  return (
-    Math.max(1, cap) * HUNT_TASK_TIME_MS +
+  // 重试那一项也要夹在窗口上限内：一个 batch 是一个 step，再大的额度也换不来
+  // 比 HUNT_BATCH_WINDOW_CEILING_MS 更长的一次执行。
+  const longestRetryMs = Math.min(
+    HUNT_BATCH_WINDOW_CEILING_MS,
     Math.ceil((HUNT_TASK_TIME_MS * HUNT_TASK_TOKEN_MAX) / HUNT_TASK_TOKEN_MEAN)
   )
+  return Math.max(1, cap) * HUNT_TASK_TIME_MS + longestRetryMs
 }
 export const HUNT_TOKEN_BUDGET = huntTokenBudget(HUNT_MAX_PLANNED_TASKS)
 export const HUNT_TIME_BUDGET_MS = huntTimeBudgetMs(HUNT_MAX_PLANNED_TASKS)
@@ -472,7 +534,13 @@ export const PLAN_HUNT_MAX_ATTEMPTS = 2
 // the 45k ceiling the replay's three tasks all hit 12 steps with 6–12k of
 // allowance unspent; a ceiling the step cap makes unreachable is a ceiling
 // on paper. At 80k and ~3.2k a step the search can take ~25 steps.
-export const HUNT_MAX_STEPS_PER_CATEGORY = 32
+// LUM-758 (×10): 不再手写。步数上限现在从「这个窗口里花得掉多少 token」除以
+// 「一步多少 token」推出来——32 步在 4k 步价下只够 128k，抬了额度却不抬它，
+// 任务会从停在 `budget` 变成停在 `steps`（PR 1022 就是这么停的），额度一样花
+// 不掉。派生而不是手写，是为了改了步价读数或窗口上限之后它自己跟着动。
+export const HUNT_MAX_STEPS_PER_CATEGORY = Math.ceil(
+  huntSpendableTokens() / HUNT_OBSERVED_STEP_TOKENS
+)
 /**
  * LUM-762 — retries INSIDE one model call. The AI SDK's default (2) spends
  * the category's window sitting in exponential backoff — the production
@@ -792,7 +860,11 @@ export interface HuntShellStats {
  * the prompts or the wrap-up; every field is derived from what the loop
  * already produced.
  */
-export const HUNT_TRACE_MAX_STEPS = 32
+// LUM-758 (×10): 跟着 HUNT_MAX_STEPS_PER_CATEGORY 走，而不是手写 32。不变量
+// 是「审计装得下每一步」——步数上限抬到 95 而追踪停在 32，就会有 63 步跑过却
+// 无法回看。这个 session 正是靠这份逐步追踪（PR 995 加的）才看出 t1 把预算花
+// 在对同一个文件翻页上，丢掉它等于丢掉诊断下一次的唯一手段。
+export const HUNT_TRACE_MAX_STEPS = HUNT_MAX_STEPS_PER_CATEGORY
 export const HUNT_TRACE_TEXT_CHARS = 300
 export const HUNT_WRAP_UP_TEXT_CHARS = 500
 

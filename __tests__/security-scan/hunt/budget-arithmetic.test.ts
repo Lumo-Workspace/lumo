@@ -1,5 +1,8 @@
 import {
+  HUNT_BATCH_WINDOW_CEILING_MS,
   HUNT_MAX_PLANNED_TASKS,
+  HUNT_MAX_STEPS_PER_CATEGORY,
+  HUNT_OBSERVED_STEP_TOKENS,
   HUNT_TASK_TOKEN_MAX,
   HUNT_TASK_TIME_MS,
   HUNT_TOKEN_BUDGET,
@@ -14,14 +17,19 @@ import {
   PLAN_OBJECTIVE_MAX_CHARS,
   PLAN_REASON_OBSERVED_MAX_CHARS,
   PLAN_REASON_MAX_CHARS,
+  huntSpendableTokens,
 } from '@/lib/services/security-hunt.config'
 
 // LUM-758 follow-up: the per-task ceiling is not a free-floating number — it is
 // pinned on both sides. Raising it alone silently breaks either the acceptance
 // target or the scan budget, and neither failure is visible until prod.
 describe('hunt budget arithmetic', () => {
-  // LUM-787 follow-up: 60k → 90k → 150k with the per-task band (see HUNT_TASK_TOKEN_MEAN).
-  const ACCEPTANCE_TARGET_MEAN_TOKENS = 150_000
+  // LUM-787 follow-up: 60k → 90k → 150k with the per-task band; LUM-758
+  // (2026-09-16, user decision) ×10 → 1.5M. 注意 Lumo 上 LUM-758 第 8 条验收
+  // 写的仍是「均值 ≤ 60k」——那个数在 PR 1013 定下 30k–80k/站点时就已经和实现
+  // 矛盾了，这次 ×10 只是把矛盾放大到无法回避。合同口径由人裁定，这里记录的是
+  // 实现侧的目标值。
+  const ACCEPTANCE_TARGET_MEAN_TOKENS = 1_500_000
 
   // LUM-787 follow-up: the per-task number is a band (MIN / MEAN / MAX) and
   // the allocator splits `cap × MEAN`; what the pins guard is the split's
@@ -137,7 +145,11 @@ describe('hunt budget arithmetic', () => {
 // (`nextStepTokens`, the reserve, the wrap-up gate) over the observed shape
 // of a step, so the per-step ceiling and the elision constants are judged
 // against the physics production runs on, not against a hope.
-import { allocateTaskBudgets } from '@/lib/security-scan/hunt/allocation'
+import {
+  allocateTaskBudgets,
+  taskTimeMs,
+} from '@/lib/security-scan/hunt/allocation'
+import { SANDBOX_TIMEOUT_WITH_HUNT_MS } from '@/lib/services/security-managed-scan.config'
 import {
   HUNT_ELIDE_KEEP_STEPS,
   HUNT_TASK_TOKEN_MEAN,
@@ -259,10 +271,11 @@ describe('LUM-787 step ceiling × elision × predictive stop', () => {
     // the scan budget is twice pass 1 (300k at the smallest tier) so every
     // task can be retried. The 4k wrap-up floor stays: production wrap-ups
     // bill 3.4–4.1k.
-    expect(HUNT_TASK_TOKEN_MIN).toBe(30_000)
-    expect(HUNT_TASK_TOKEN_MEAN).toBe(50_000)
-    expect(HUNT_TASK_TOKEN_MAX).toBe(80_000)
-    expect(HUNT_TOKEN_BUDGET).toBe(300_000)
+    // LUM-758（2026-09-16, user decision）×10：30k/50k/80k → 300k/500k/800k。
+    expect(HUNT_TASK_TOKEN_MIN).toBe(300_000)
+    expect(HUNT_TASK_TOKEN_MEAN).toBe(500_000)
+    expect(HUNT_TASK_TOKEN_MAX).toBe(800_000)
+    expect(HUNT_TOKEN_BUDGET).toBe(3_000_000)
     expect(HUNT_WRAP_UP_MIN_TOKENS).toBe(4_000)
   })
 
@@ -288,5 +301,44 @@ describe('LUM-787 step ceiling × elision × predictive stop', () => {
   it('the step ceiling sits under the per-command cap, so the compressor still sees a whole command', () => {
     expect(HUNT_STEP_OUTPUT_MAX).toBeLessThanOrEqual(HUNT_SHELL_OUTPUT_MAX)
     expect(HUNT_STEP_OUTPUT_MAX).toBeGreaterThan(0)
+  })
+
+  // LUM-758 (×10) — 抬 token 一项抬不动，另外两道天花板必须跟着动。下面三条
+  // 各钉一道，任何一道被单独改回去都会红。
+  describe('the ×10 band is actually reachable', () => {
+    it('the step cap is not the binding ceiling: the window can afford that many steps', () => {
+      expect(
+        HUNT_MAX_STEPS_PER_CATEGORY * HUNT_OBSERVED_STEP_TOKENS
+      ).toBeGreaterThanOrEqual(huntSpendableTokens())
+      // 抬额度却留着 32 步，任务只会从停在 budget 变成停在 steps（PR 1022）。
+      expect(HUNT_MAX_STEPS_PER_CATEGORY).toBeGreaterThan(32)
+    })
+
+    it('one batch never asks for more wall clock than one workflow step has', () => {
+      for (const budget of [
+        HUNT_TASK_TOKEN_MIN,
+        HUNT_TASK_TOKEN_MEAN,
+        HUNT_TASK_TOKEN_MAX,
+      ]) {
+        expect(taskTimeMs(budget)).toBeLessThanOrEqual(
+          HUNT_BATCH_WINDOW_CEILING_MS
+        )
+      }
+      expect(huntTimeBudgetMs(5)).toBeLessThanOrEqual(
+        SANDBOX_TIMEOUT_WITH_HUNT_MS
+      )
+    })
+
+    // 诚实的那半句：×10 之后 MAX 有一截是花不掉的。这条不是「通过」，是把
+    // 差额记录在案——要真花掉它，得把一个任务的搜索拆到多个 step 上续跑。
+    it('records how much of the ceiling the clock cannot spend', () => {
+      const spendable = huntSpendableTokens()
+      expect(spendable).toBeLessThan(HUNT_TASK_TOKEN_MAX)
+      expect(spendable).toBeGreaterThanOrEqual(HUNT_TASK_TOKEN_MIN)
+      expect({
+        ceiling: HUNT_TASK_TOKEN_MAX,
+        spendableInOneStep: spendable,
+      }).toEqual({ ceiling: 800_000, spendableInOneStep: 378_000 })
+    })
   })
 })
