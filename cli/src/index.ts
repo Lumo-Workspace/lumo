@@ -67,6 +67,7 @@ import { memoryFold } from './commands/memory-fold'
 import { taskArtifactAdd } from './commands/task-artifact-add'
 import { taskCriteriaSet } from './commands/task-criteria-set'
 import { taskCriteriaList } from './commands/task-criteria-list'
+import { taskCriteriaConfirm } from './commands/task-criteria-confirm'
 import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
@@ -1063,6 +1064,22 @@ taskCriteria
     'List a task\u2019s acceptance criteria (id, type, provenance, checkpointer)'
   )
   .action(wrap((taskId: unknown) => taskCriteriaList(taskId as string)))
+
+taskCriteria
+  .command('confirm <task>')
+  .description(
+    'Record the USER\u2019s confirmation of the acceptance contract (LUM-789). Gated: without --confirm it prints a confirmation envelope listing every criterion and exits 4, writing nothing. Confirming never blocks DONE \u2014 an unconfirmed contract still closes normally.'
+  )
+  .option('--confirm', 'The user has approved this contract')
+  .option('--yes', 'Legacy alias of --confirm')
+  .action(
+    wrap((taskId: unknown, options: unknown) =>
+      taskCriteriaConfirm(
+        taskId as string,
+        options as { confirm?: boolean; yes?: boolean }
+      )
+    )
+  )
 
 const taskArtifact = task
   .command('artifact')
