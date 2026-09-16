@@ -714,3 +714,25 @@ describe('formatTaskStatus — send-back lifecycle (Phase 5)', () => {
     expect(out).not.toMatch(/send-back/)
   })
 })
+
+describe('formatTaskStatus — LUM-789 closing line for sent-back HUMAN criteria', () => {
+  it('LUM-789: 只剩被送回的 HUMAN 项时，收尾语讲送回而不是「交接给人 review」', () => {
+    const out = formatTaskStatus({
+      ...PAYLOAD,
+      nextActions: [
+        {
+          criterionId: 'c1',
+          statement: '登录页在移动端可用',
+          verifierType: 'HUMAN',
+          checkpointer: null,
+          judgeSteps: null,
+          source: 'AGENT_DRAFT',
+          addedAtRound: 0,
+          rejectionReason: '按钮被键盘挡住',
+        },
+      ],
+    })
+    expect(out).toContain('sent back')
+    expect(out).not.toContain('hand off for human review')
+  })
+})

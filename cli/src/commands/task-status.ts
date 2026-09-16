@@ -601,7 +601,9 @@ export function formatTaskStatus(
       lines.push(
         hasMachine
           ? `Fix the unmet criteria, then run \`lumo verify\` (${left} round${left === 1 ? '' : 's'} left).`
-          : 'Remaining criteria are HUMAN-only — finish the work and hand off for human review.'
+          : // LUM-789: 未裁定的 HUMAN 项已按 tacit pass 处理，不会走到这里。
+            // 剩下的 HUMAN 项只可能是被明确送回的 —— 说送回，不说交接。
+            'The remaining criteria were sent back by a human — address the reasons above, then run `lumo verify`.'
       )
     }
     if (securityActions.length > 0) lines.push(SECURITY_HINT)
