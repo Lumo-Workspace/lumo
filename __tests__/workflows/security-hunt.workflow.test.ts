@@ -84,6 +84,9 @@ const SUBGRAPH = {
   edges: [{ from: 'x', to: 'y' }],
   files: [{ path: 'a.ts', lineCount: 3, touched: true }],
 }
+/** LUM-798 — what the same read of the checkout could confirm. */
+const EVIDENCE = { sightings: ['a.ts:2:s1'], missingFiles: ['a.ts.gone'] }
+const NO_EVIDENCE = { sightings: [], missingFiles: [] }
 const candidate = (n: number) => ({
   category: 'idor',
   cwe: 'CWE-639',
@@ -162,7 +165,7 @@ beforeEach(() => {
   order = []
   verifyGraph.mockImplementation(async () => {
     order.push('buildVerifyGraph')
-    return SUBGRAPH
+    return { subgraph: SUBGRAPH, evidence: EVIDENCE }
   })
   plan.mockResolvedValue({
     tasks: [...PLANNED],
@@ -176,7 +179,11 @@ beforeEach(() => {
   })
   verify.mockImplementation(async () => {
     order.push('verify')
-    return { accepted: [], rejected: [] }
+    return {
+      accepted: [],
+      rejected: [],
+      resolution: { subgraph: 0, sinkRule: 0, sandbox: 0, rejected: 0 },
+    }
   })
   falsify.mockImplementation(async () => {
     order.push('falsify')
@@ -272,6 +279,7 @@ describe('LUM-739 hunt workflow', () => {
     expect(verify).toHaveBeenCalledWith({
       subgraph: SUBGRAPH,
       candidates: [{ raw: 1 }, { raw: 2 }, { raw: 3 }],
+      evidence: EVIDENCE,
     })
     expect(falsify).toHaveBeenCalledTimes(2)
     expect(falsify.mock.calls[0]![0]).toEqual({
@@ -609,7 +617,10 @@ describe('LUM-739 hunt workflow', () => {
     hunt.mockImplementation(async () => batch({ candidates: [{ raw: 1 }] }))
     // A graph built from one candidate's files — i.e. a "small" one, which
     // under the old rule was indistinguishable from a truncated one.
-    verifyGraph.mockImplementation(async () => SUBGRAPH)
+    verifyGraph.mockImplementation(async () => ({
+      subgraph: SUBGRAPH,
+      evidence: EVIDENCE,
+    }))
 
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
       outcome: 'RAN',
@@ -624,6 +635,32 @@ describe('LUM-739 hunt workflow', () => {
     })
   })
 
+  it('LUM-798 persists the gate resolution tally and survives a pre-LUM-798 step result', async () => {
+    hunt.mockImplementation(async () => batch({ candidates: [{ raw: 1 }] }))
+    // A run that suspended before this deploy replays the OLD step result out
+    // of the workflow memo: a bare `Subgraph`, no evidence envelope.
+    verifyGraph.mockImplementation(async () => SUBGRAPH)
+    const resolution = { subgraph: 1, sinkRule: 2, sandbox: 3, rejected: 4 }
+    verify.mockImplementation(async () => ({
+      accepted: [],
+      rejected: [],
+      resolution,
+    }))
+
+    await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
+      outcome: 'RAN',
+    })
+    // It loses the sandbox tier (there is no evidence to replay) rather than
+    // throwing halfway through a scan that already paid for its hunt.
+    expect(verify).toHaveBeenCalledWith({
+      subgraph: SUBGRAPH,
+      candidates: [{ raw: 1 }, { raw: 1 }],
+      evidence: NO_EVIDENCE,
+    })
+    // The tally is what makes the gate's rejection RATE readable off a scan.
+    expect(persist.mock.calls[0]![0].audit.resolution).toEqual(resolution)
+  })
+
   it('LUM-758 does not build a verification subgraph when no candidate was submitted', async () => {
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
       outcome: 'RAN',
@@ -633,6 +670,7 @@ describe('LUM-739 hunt workflow', () => {
     expect(verify).toHaveBeenCalledWith({
       subgraph: { symbols: [], edges: [], files: [] },
       candidates: [],
+      evidence: NO_EVIDENCE,
     })
     expect(persist.mock.calls[0]![0].audit.subgraph).toEqual({
       files: 0,

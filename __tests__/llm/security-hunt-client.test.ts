@@ -443,8 +443,9 @@ describe('LUM-739 hunt client', () => {
 
   it('LUM-758 the system prompt spells out the symbol id grammar the mechanical gate parses', () => {
     // Task 10 removed the rendered signals list, which is where the agent
-    // used to copy id shapes from. Without the grammar written down, every
-    // submission would be dropped as `symbol-not-in-subgraph`.
+    // used to copy id shapes from. LUM-798 stopped the gate from requiring a
+    // subgraph id, but the grammar still decides whether the call chain can
+    // be read at all — so it stays written down.
     expect(HUNT_SYSTEM_PROMPT).toContain('app/api/x/route.ts#POST')
     expect(HUNT_SYSTEM_PROMPT).toContain('lib/s.ts#prisma.$queryRawUnsafe@42')
     expect(HUNT_SYSTEM_PROMPT).toContain('#<module>')

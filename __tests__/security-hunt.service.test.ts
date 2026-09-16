@@ -144,6 +144,7 @@ const candidate = {
   claim: `raw sql from body — key ${FAKE_AWS_KEY} leaked`,
   reachability: 'EXTERNAL' as const,
   fingerprint: 'c'.repeat(16),
+  resolvedBy: 'subgraph' as const,
 }
 
 /**
@@ -240,7 +241,7 @@ describe('LUM-739 hunt service', () => {
       return null
     })
 
-    const graph = await securityHuntService.buildVerifySubgraph({
+    const { subgraph: graph } = await securityHuntService.buildVerifySubgraph({
       job: JOB,
       candidates: [
         {
@@ -286,7 +287,7 @@ describe('LUM-739 hunt service', () => {
       (_, i) => ({ sink: { file: `lib/f${String(i).padStart(2, '0')}.ts` } })
     )
 
-    const graph = await securityHuntService.buildVerifySubgraph({
+    const { subgraph: graph } = await securityHuntService.buildVerifySubgraph({
       job: JOB,
       candidates,
     })
@@ -302,7 +303,7 @@ describe('LUM-739 hunt service', () => {
   it('buildVerifySubgraph never reads outside the checkout, whatever path a candidate names', async () => {
     readHuntFileMock.mockResolvedValue('export const x = 1\n')
 
-    const graph = await securityHuntService.buildVerifySubgraph({
+    const { subgraph: graph } = await securityHuntService.buildVerifySubgraph({
       job: JOB,
       candidates: [
         { sink: { file: '../../../etc/evil.ts' } },
@@ -321,7 +322,7 @@ describe('LUM-739 hunt service', () => {
     // of them is junk, or names a non-TS path, or points out of the
     // checkout" is reachable — and then there is nothing to read. Booting or
     // even attaching a VM for zero reads is pure cost.
-    const graph = await securityHuntService.buildVerifySubgraph({
+    const { subgraph: graph } = await securityHuntService.buildVerifySubgraph({
       job: JOB,
       candidates: [
         { sink: { file: 'docs/a.md' } },

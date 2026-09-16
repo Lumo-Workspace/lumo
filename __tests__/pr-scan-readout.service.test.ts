@@ -325,6 +325,7 @@ describe('prScanReadoutService.getForPullRequest', () => {
         huntAudit: {
           candidates: 2,
           rejected: [{ reason: 'edge-not-in-subgraph: x' }],
+          resolution: { subgraph: 1, sinkRule: 0, sandbox: 0, rejected: 1 },
           falsifierRejects: 1,
           plannedBy: 'model',
           plannedReason: 'two sinks lit',
@@ -413,6 +414,13 @@ describe('prScanReadoutService.getForPullRequest', () => {
       falsifierRejects: 1,
       mechanicallyRejected: 1,
       error: null,
+    })
+    // LUM-798 — the gate's rejection RATE, readable straight off the scan.
+    expect(hunt.resolution).toEqual({
+      subgraph: 1,
+      sinkRule: 0,
+      sandbox: 0,
+      rejected: 1,
     })
     expect(hunt.tasks).toHaveLength(2)
     const t1 = hunt.tasks[0]!

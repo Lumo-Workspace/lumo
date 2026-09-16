@@ -69,6 +69,13 @@ export interface PrScanHunt {
   candidates: number | null
   falsifierRejects: number | null
   mechanicallyRejected: number | null
+  /** LUM-798 — how the mechanical gate placed each candidate; null on older scans. */
+  resolution: {
+    subgraph: number
+    sinkRule: number
+    sandbox: number
+    rejected: number
+  } | null
   error: string | null
   tasks: ShellDetailTask[]
 }
@@ -184,6 +191,15 @@ function formatHuntHeader(h: PrScanHunt): string {
   if (h.candidates !== null) parts.push(`candidates ${h.candidates}`)
   if (h.mechanicallyRejected !== null)
     parts.push(`mechanically rejected ${h.mechanicallyRejected}`)
+  // LUM-798 — the same drop, broken out by what placed the candidate. Reading
+  // "rejected 23 of 23" off a scan is what told us the gate had never judged
+  // anything; the breakdown is what says whether that has changed.
+  if (h.resolution) {
+    const r = h.resolution
+    parts.push(
+      `resolved by subgraph ${r.subgraph} · sink rule ${r.sinkRule} · sandbox ${r.sandbox} · rejected ${r.rejected}`
+    )
+  }
   if (h.falsifierRejects !== null)
     parts.push(`falsifier rejects ${h.falsifierRejects}`)
   if (h.error) parts.push(`error: ${sanitizeField(h.error)}`)
