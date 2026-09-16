@@ -1285,9 +1285,18 @@ function buildEditDiff(
 const judgeCache = new Map<string, Promise<JudgeVerdict>>()
 const JUDGE_CACHE_MAX = 500
 
-function judgeCacheKey(j: JudgeInput): string {
+/**
+ * Cache key for one judge call. The three fields are joined with a NUL,
+ * which cannot occur inside a diff or a criterion statement.
+ *
+ * LUM-796: the separator is written as the escape `\u0000`, never as a
+ * literal 0x00 byte — a literal NUL makes grep/rg classify this whole
+ * file as binary and silently return no matches. Exported so the escape's
+ * byte-identity is pinned by a golden vector in the guard test.
+ */
+export function judgeCacheKey(j: JudgeInput): string {
   return createHash('sha256')
-    .update(`${j.criterion} ${j.testDiff} ${j.codeDiff ?? ''}`)
+    .update(`${j.criterion}\u0000${j.testDiff}\u0000${j.codeDiff ?? ''}`)
     .digest('hex')
 }
 

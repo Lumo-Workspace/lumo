@@ -285,9 +285,8 @@ function featureBlock(points: Labeled[]) {
 async function main() {
   const check = process.argv.includes('--check')
   const { prisma } = await import('@/lib/db/prisma')
-  const { verificationRunRepository } = await import(
-    '@/lib/repositories/verification-run.repository'
-  )
+  const { verificationRunRepository } =
+    await import('@/lib/repositories/verification-run.repository')
 
   // Action stream labeled at the EVENT level (see header for why not
   // Session.taskId). POST_TOOL_USE(+FAILURE) only — one row per completed
@@ -354,7 +353,7 @@ async function main() {
   // is still that task's trajectory through the session.
   const segments = new Map<string, ActionRow[]>()
   for (const row of rows) {
-    const key = `${row.sessionId ?? 'nosession'} ${row.taskId}`
+    const key = `${row.sessionId ?? 'nosession'}\u0000${row.taskId}`
     const list = segments.get(key) ?? []
     list.push(row)
     segments.set(key, list)
@@ -386,7 +385,7 @@ async function main() {
     const redundantReads = rereadNoWrite.reduce((s, [, n]) => s + (n - 1), 0)
 
     features.push({
-      sessionId: key.split(' ')[0]!,
+      sessionId: key.split('\u0000')[0]!,
       taskId,
       taskIdentifier: task.identifier,
       stratum: stratumOfTask(taskId),
@@ -467,8 +466,7 @@ async function main() {
     }
     agg.segments++
     agg.actions += f.actions
-    if (f.firstActionAt < agg.firstActionAt)
-      agg.firstActionAt = f.firstActionAt
+    if (f.firstActionAt < agg.firstActionAt) agg.firstActionAt = f.firstActionAt
     if (f.repeat1Arg !== null && f.actions >= 2) {
       agg.repeatNumer += f.repeat1Arg * (f.actions - 1)
       agg.repeatDenom += f.actions - 1
@@ -514,8 +512,7 @@ async function main() {
       : eligible.filter(
           f =>
             f.stratum === 'MERGED_VERIFIED' ||
-            (f.stratum === 'MERGED' &&
-              f.firstActionAt.getTime() >= windowStart)
+            (f.stratum === 'MERGED' && f.firstActionAt.getTime() >= windowStart)
         )
   const timeMatchedSensitivity =
     timeMatched === null
@@ -547,8 +544,7 @@ async function main() {
   const unresolvedStatusDist: Record<string, number> = {}
   for (const t of taskById.values())
     if (t.status !== 'DONE')
-      unresolvedStatusDist[t.status] =
-        (unresolvedStatusDist[t.status] ?? 0) + 1
+      unresolvedStatusDist[t.status] = (unresolvedStatusDist[t.status] ?? 0) + 1
 
   const report = {
     generatedFor: 'LUM-403',
@@ -619,8 +615,7 @@ async function main() {
         },
       },
       stepCount: {
-        primary:
-          'actions per segment (absolute) — all segments with ≥1 action',
+        primary: 'actions per segment (absolute) — all segments with ≥1 action',
         ...featureBlock(
           points(
             features.filter(f => f.actions > 0),

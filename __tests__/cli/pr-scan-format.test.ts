@@ -377,12 +377,12 @@ describe('formatPrScan', () => {
         scans: [
           scan({
             counts: { ...scan().counts, findings: 1, open: 1, blocking: 1 },
-            findings: [finding({ title: 'x[0my', ruleId: 'a b' })],
+            findings: [finding({ title: 'x[0my', ruleId: 'a\u0000b' })],
           }),
         ],
       })
     )
-    expect(out).not.toMatch(/[ --]/)
+    expect(out).not.toMatch(/[\x00-\x08\x0b-\x1f\x7f]/)
     expect(out).toContain('evil[31m title')
   })
 

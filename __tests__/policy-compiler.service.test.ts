@@ -802,7 +802,7 @@ test('LUM-772: a policy stored by the pre-772 compiler recompiles once via the v
   )
   const staleHash = createHash('sha256')
     .update([source, ''].join('\n\n'))
-    .update('\n compiler:lum770')
+    .update('\n\u0000compiler:lum770')
     .digest('hex')
   seedPolicy('p772b', staleHash, [
     {
