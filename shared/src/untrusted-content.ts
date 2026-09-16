@@ -29,6 +29,14 @@
  *
  * Layered on top of `sanitizeField`, never instead of it: callers strip
  * control characters first, then guard.
+ *
+ * LUM-791 — the signal patterns match a *normalized copy* of the text
+ * (`normalizeForMatching`) while every reported offset and excerpt comes from
+ * the original. Before that, one invisible character bought a full bypass:
+ * `ig<U+200B>nore all previous instructions` matched no imperative pattern,
+ * and a lone zero-width is deliberately below `WEAK_INVISIBLE_MIN_RUN`, so
+ * both defences missed it at once. Normalization is orthogonal to precision —
+ * it widens no pattern, it only stops padding characters from being a bypass.
  */
 
 export type InjectionSignalKind =
@@ -162,21 +170,52 @@ const IMPERATIVE_EN: RegExp[] = [
   /\b(?:run|execute)\s+(?:the\s+following|this|these|the\s+below)\s+(?:commands?|scripts?|code|instructions?|steps?|payload)\b/i,
 ]
 
+/**
+ * Chinese is normally written without spaces between words, so inserting one
+ * costs a human reader nothing and used to break a contiguous character class
+ * outright (`忽略 之前 的所有指令` → no match). Every ZH pattern therefore
+ * joins its parts with a bounded separator class instead of butting them
+ * together. `{0,3}` keeps the gap too small to bridge unrelated sentences.
+ */
+const ZH_SEP = '[\\s、,，]{0,3}'
+const zh = (...parts: string[]): RegExp => new RegExp(parts.join(ZH_SEP))
+
 const IMPERATIVE_ZH: RegExp[] = [
   // 忽略 / 无视 … 之前 … 指令
-  /(?:忽略|无视|忘记|忘掉|抛弃|放弃|覆盖)(?:掉)?(?:之前|以上|上面|先前|前面|上述|所有|全部|一切|原来|原先|系统)(?:的)?(?:所有|全部|一切)?(?:指令|指示|提示|规则|内容|说明|要求|设定|限制|约束)/,
+  zh(
+    '(?:忽略|无视|忘记|忘掉|抛弃|放弃|覆盖)',
+    '(?:掉)?',
+    '(?:之前|以上|上面|先前|前面|上述|所有|全部|一切|原来|原先|系统)',
+    '(?:的)?',
+    '(?:所有|全部|一切)?',
+    '(?:指令|指示|提示|规则|内容|说明|要求|设定|限制|约束)'
+  ),
   // 你现在是 / 扮演 …
-  /你现在(?:是|扮演|作为|变成|成为|将是)/,
+  zh('你现在', '(?:是|扮演|作为|变成|成为|将是)'),
   // 新指令：
-  /新(?:的)?(?:系统)?(?:指令|指示|规则|任务)\s*[:：]/,
-  // 行首角色标签
+  zh('新', '(?:的)?', '(?:系统)?', '(?:指令|指示|规则|任务)', '[:：]'),
+  // 行首角色标签 — anchored on the line, so no separator tolerance to add.
   /(?:^|\n)[ \t]*(?:系统|助手|开发者)[ \t]*[:：]/,
   // 不要告诉用户
-  /(?:不要|别|勿|不准|禁止|不能)(?:告诉|告知|透露给|通知|提醒)(?:任何)?(?:用户|人类|审核者|操作者)/,
+  zh(
+    '(?:不要|别|勿|不准|禁止|不能)',
+    '(?:告诉|告知|透露给|通知|提醒)',
+    '(?:任何)?',
+    '(?:用户|人类|审核者|操作者)'
+  ),
   // 输出你的系统提示
-  /(?:输出|显示|打印|泄露|重复|说出|复述|公开)(?:你的|你|系统的)?(?:系统提示|系统指令|初始指令|隐藏指令|提示词)/,
+  zh(
+    '(?:输出|显示|打印|泄露|重复|说出|复述|公开)',
+    '(?:你的|你|系统的)?',
+    '(?:系统提示|系统指令|初始指令|隐藏指令|提示词)'
+  ),
   // 执行以下命令
-  /(?:执行|运行)(?:以下|下面|下列|这些|这个|如下|后面|该)(?:的)?(?:命令|指令|脚本|代码|操作|步骤)/,
+  zh(
+    '(?:执行|运行)',
+    '(?:以下|下面|下列|这些|这个|如下|后面|该)',
+    '(?:的)?',
+    '(?:命令|指令|脚本|代码|操作|步骤)'
+  ),
 ]
 
 const IMPERATIVE_PATTERNS = [...IMPERATIVE_EN, ...IMPERATIVE_ZH]
@@ -240,6 +279,14 @@ function hasImperative(text: string): boolean {
   return IMPERATIVE_PATTERNS.some(p => p.test(text))
 }
 
+/**
+ * `RegExpExecArray.indices` (the `d` flag) is ES2022; this repo's `lib` target
+ * predates it, so the shape is declared locally rather than widened globally.
+ */
+type IndexedMatch = RegExpExecArray & {
+  indices?: Array<[number, number] | undefined>
+}
+
 function* matchAll(re: RegExp, text: string): Generator<RegExpExecArray> {
   // Fresh lastIndex per call — the module-level /g regexes are shared.
   re.lastIndex = 0
@@ -247,6 +294,134 @@ function* matchAll(re: RegExp, text: string): Generator<RegExpExecArray> {
   while ((m = re.exec(text)) !== null) {
     yield m
     if (m[0].length === 0) re.lastIndex++
+  }
+}
+
+// ─── Matching-time normalization (LUM-791) ───────────────────────────────────
+
+/**
+ * Hard cap on how many characters the normalizer will rewrite. Text longer
+ * than this is never truncated — the tail is carried through verbatim — but
+ * the rewriting work (and the offset table it builds) stays bounded, because
+ * every injection point runs this on its hot path.
+ */
+export const NORMALIZE_MAX_CHARS = 1_000_000
+
+/**
+ * Compatibility forms that are the same letter in another dress: full-width
+ * ASCII (U+FF01-FF60, U+FFE0-FFEE), Latin ligatures, circled / parenthesised
+ * letters and digits, and the mathematical alphanumerics. Ordinary CJK,
+ * emoji and half-width katakana sit outside these ranges and are left alone.
+ * Held as a source string so the escapes stay readable in review.
+ */
+const COMPAT_RANGES =
+  '\\u2460-\\u24FF\\uFB00-\\uFB06\\uFF01-\\uFF60\\uFFE0-\\uFFEE\\u{1D400}-\\u{1D7FF}'
+
+/** A single cheap scan: is there anything in here to rewrite at all? */
+const NEEDS_NORMALIZE = new RegExp(
+  `\\p{Cf}|[^\\S\\n]{2,}|[^\\S\\n\\x20]|[${COMPAT_RANGES}]`,
+  'u'
+)
+
+/**
+ * The three rewrite classes, in precedence order:
+ *
+ *  1. Unicode format characters (Cf) — zero-width, bidi controls, unicode
+ *     tags, soft hyphen, BOM. Dropped: none of them carry meaning to a reader,
+ *     all of them break a literal match.
+ *  2. Horizontal whitespace runs — tabs, NBSP, the full-width space U+3000 —
+ *     folded to one ASCII space. Newlines are deliberately NOT folded: the
+ *     role-label patterns are anchored on the start of a line.
+ *  3. Compatibility forms (COMPAT_RANGES), folded with NFKC.
+ */
+const REWRITE = new RegExp(`\\p{Cf}+|[^\\S\\n]+|[${COMPAT_RANGES}]+`, 'gu')
+const ALL_FORMAT = /^\p{Cf}+$/u
+const ALL_HORIZONTAL_WS = /^[^\S\n]+$/
+
+function rewriteRun(run: string): string {
+  if (ALL_FORMAT.test(run)) return ''
+  if (ALL_HORIZONTAL_WS.test(run)) return ' '
+  return run.normalize('NFKC')
+}
+
+export interface NormalizedText {
+  /** The text the patterns are matched against. */
+  text: string
+  /** False when normalization was a no-op and `text` IS the input. */
+  changed: boolean
+  /** Map an offset in `text` back to its offset in the original input. */
+  toOriginalIndex(index: number): number
+}
+
+/**
+ * Build the copy the injection patterns are matched against, plus the offset
+ * table that maps every position in it back to the original text.
+ *
+ * Pure: no module state, no shared `lastIndex`, same input → same output.
+ * Never throws. Text that needs nothing takes a fast path and is returned
+ * as-is, which is the overwhelmingly common case on the hot path.
+ */
+export function normalizeForMatching(text: string): NormalizedText {
+  if (!text || !NEEDS_NORMALIZE.test(text)) {
+    return {
+      text,
+      changed: false,
+      toOriginalIndex: (i: number) => Math.min(Math.max(i, 0), text.length),
+    }
+  }
+
+  const limit = Math.min(text.length, NORMALIZE_MAX_CHARS)
+  const head = text.slice(0, limit)
+  const pieces: string[] = []
+  // Checkpoints: normalized offset ↔ original offset, recorded at each
+  // rewrite. Between two checkpoints the mapping is a constant shift, so the
+  // table costs O(number of rewrites), not O(length).
+  const normAt: number[] = [0]
+  const origAt: number[] = [0]
+  let norm = 0
+  let copied = 0
+
+  const re = new RegExp(REWRITE.source, REWRITE.flags)
+  let m: RegExpExecArray | null
+  while ((m = re.exec(head)) !== null) {
+    const run = m[0]
+    if (run.length === 0) {
+      re.lastIndex++
+      continue
+    }
+    const replacement = rewriteRun(run)
+    if (replacement === run) continue
+
+    pieces.push(head.slice(copied, m.index), replacement)
+    norm += m.index - copied + replacement.length
+    copied = m.index + run.length
+    if (normAt[normAt.length - 1] === norm) origAt[origAt.length - 1] = copied
+    else {
+      normAt.push(norm)
+      origAt.push(copied)
+    }
+  }
+  // Everything left: the rest of the head plus any tail beyond the cap.
+  pieces.push(text.slice(copied))
+  const out = pieces.join('')
+
+  return {
+    text: out,
+    changed: out !== text,
+    toOriginalIndex: (i: number) => {
+      if (i <= 0) return 0
+      let lo = 0
+      let hi = normAt.length - 1
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1
+        if (normAt[mid]! <= i) lo = mid
+        else hi = mid - 1
+      }
+      // A compatibility fold can be longer than its source, so clamp to the
+      // next checkpoint rather than running past it.
+      const ceiling = lo + 1 < origAt.length ? origAt[lo + 1]! : text.length
+      return Math.min(origAt[lo]! + (i - normAt[lo]!), ceiling, text.length)
+    },
   }
 }
 
@@ -259,46 +434,56 @@ export function detectInjectionSignals(text: string): InjectionSignalReport {
   if (!text) return { signals: [] }
   const signals: InjectionSignal[] = []
 
+  // Patterns run against the normalized copy; every offset and excerpt the
+  // caller sees is translated back to the original text (LUM-791).
+  const normalized = normalizeForMatching(text)
+  const scan = normalized.text
+  const original = (start: number, end: number): string =>
+    text.slice(
+      normalized.toOriginalIndex(start),
+      normalized.toOriginalIndex(end)
+    )
+
   // ① imperative directives (EN + ZH)
   for (const p of IMPERATIVE_PATTERNS) {
     const g = new RegExp(
       p.source,
       p.flags.includes('g') ? p.flags : `${p.flags}g`
     )
-    for (const m of matchAll(g, text)) {
+    for (const m of matchAll(g, scan)) {
       signals.push({
         kind: 'IMPERATIVE',
-        index: m.index,
-        excerpt: excerpt(m[0]),
+        index: normalized.toOriginalIndex(m.index),
+        excerpt: excerpt(original(m.index, m.index + m[0].length)),
       })
     }
   }
 
   // ② text hidden in HTML / Markdown comments
-  for (const m of matchAll(HTML_COMMENT, text)) {
-    const body = m[1] ?? ''
-    const dense = body.replace(/\s+/g, '')
-    if (dense.length >= HIDDEN_COMMENT_MIN_CHARS || hasImperative(body)) {
+  //    The body is *tested* on the normalized copy (so a zero-width inside the
+  //    comment cannot hide its imperative) and *shown* from the original.
+  const comment = (re: RegExp, groups: number[]): void => {
+    const d = new RegExp(re.source, `${re.flags}d`)
+    for (const m of matchAll(d, scan)) {
+      const g = groups.find(i => m[i] !== undefined)
+      if (g === undefined) continue
+      const body = m[g] ?? ''
+      const dense = body.replace(/\s+/g, '')
+      if (dense.length < HIDDEN_COMMENT_MIN_CHARS && !hasImperative(body))
+        continue
+      const span = (m as IndexedMatch).indices?.[g]
       signals.push({
         kind: 'HIDDEN_COMMENT',
-        index: m.index,
-        excerpt: excerpt(body),
+        index: normalized.toOriginalIndex(m.index),
+        excerpt: excerpt(span ? original(span[0], span[1]) : body),
       })
     }
   }
-  for (const m of matchAll(MARKDOWN_COMMENT, text)) {
-    const body = m[1] ?? m[2] ?? m[3] ?? ''
-    const dense = body.replace(/\s+/g, '')
-    if (dense.length >= HIDDEN_COMMENT_MIN_CHARS || hasImperative(body)) {
-      signals.push({
-        kind: 'HIDDEN_COMMENT',
-        index: m.index,
-        excerpt: excerpt(body),
-      })
-    }
-  }
+  comment(HTML_COMMENT, [1])
+  comment(MARKDOWN_COMMENT, [1, 2, 3])
 
-  // ③ zero-width / bidi / tag characters
+  // ③ zero-width / bidi / tag characters — on the ORIGINAL text by
+  //    definition: these are exactly the characters normalization removes.
   {
     const strong = [...matchAll(STRONG_INVISIBLE, text)]
     // A leading BOM is a file artefact, not a hidden character.
@@ -322,7 +507,8 @@ export function detectInjectionSignals(text: string): InjectionSignalReport {
     }
   }
 
-  // ④ long high-entropy base64 / hex runs
+  // ④ long high-entropy base64 / hex runs — on the ORIGINAL text: the length
+  //    floor and the entropy floors are calibrated against raw runs.
   for (const m of matchAll(ENCODED_RUN, text)) {
     const run = m[0]
     const floor = HEX_ONLY.test(run) ? HEX_MIN_ENTROPY : BASE64_MIN_ENTROPY
@@ -335,14 +521,15 @@ export function detectInjectionSignals(text: string): InjectionSignalReport {
     }
   }
 
-  // ⑤ javascript: / vbscript: / data:<mime> links
+  // ⑤ javascript: / vbscript: / data:<mime> links — also on the normalized
+  //    copy, so `java<U+200B>script:` cannot slip past the `\s*` tolerance.
   for (const p of SCRIPT_LINK_PATTERNS) {
     const g = new RegExp(p.source, `${p.flags}g`)
-    for (const m of matchAll(g, text)) {
+    for (const m of matchAll(g, scan)) {
       signals.push({
         kind: 'SCRIPT_LINK',
-        index: m.index,
-        excerpt: excerpt(m[0]),
+        index: normalized.toOriginalIndex(m.index),
+        excerpt: excerpt(original(m.index, m.index + m[0].length)),
       })
     }
   }
