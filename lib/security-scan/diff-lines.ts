@@ -87,3 +87,110 @@ export function addedLinesWithNumbers(diff: string): AddedFile[] {
 
   return files.filter(f => f.lines.length > 0)
 }
+
+/** One file's slice of a unified diff, headers included. */
+export interface DiffFileSection {
+  /**
+   * `null` for anything that is not attributable to a file: text before the
+   * first header, and a section whose `+++` said `/dev/null` (a deletion).
+   */
+  path: string | null
+  /** The section's exact text — concatenating sections rebuilds the diff. */
+  text: string
+}
+
+/**
+ * PURE — cut a unified diff into per-file sections WITHOUT letting diff
+ * content impersonate a header.
+ *
+ * This is the same trap the doc-comment above records for
+ * `addedLinesWithNumbers` (LUM-732 review C2), and it is worse here: a naive
+ * `split(/^diff --git /m)` lets an ADDED line whose own text starts with
+ * `diff --git a/x b/x` open a fake section, so a caller that decides what to
+ * review per file can be steered — push the real payload into a section
+ * labelled with an innocent path, or out of the selection entirely. So the
+ * hunk line-budget is tracked exactly as it is above: inside a hunk the first
+ * character is authoritative and NOTHING is read as a header until the
+ * declared budget is spent.
+ *
+ * A diff with no `diff --git` lines (a plain `diff -u`) sections on `--- `
+ * instead, so the function works on both shapes.
+ */
+export function splitDiffByFile(diff: string): DiffFileSection[] {
+  const sections: DiffFileSection[] = []
+  let lines: string[] = []
+  let path: string | null = null
+  let started = false
+  let oldLeft = 0
+  let newLeft = 0
+
+  const flush = (): void => {
+    if (lines.length === 0) return
+    sections.push({ path, text: lines.join('\n') })
+    lines = []
+    path = null
+  }
+
+  for (const raw of diff.split('\n')) {
+    const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw
+
+    if (oldLeft > 0 || newLeft > 0) {
+      const head = line[0]
+      if (head === '+') {
+        newLeft = Math.max(0, newLeft - 1)
+        lines.push(raw)
+        continue
+      }
+      if (head === '-') {
+        oldLeft = Math.max(0, oldLeft - 1)
+        lines.push(raw)
+        continue
+      }
+      if (head === '\\') {
+        lines.push(raw)
+        continue
+      }
+      if (head === ' ' || line === '') {
+        oldLeft = Math.max(0, oldLeft - 1)
+        newLeft = Math.max(0, newLeft - 1)
+        lines.push(raw)
+        continue
+      }
+      // Not a shape any hunk body has: the hunk is over, re-read as a header.
+      oldLeft = 0
+      newLeft = 0
+    }
+
+    const isGitHeader = line.startsWith('diff --git ')
+    // Only section on `--- ` while no `diff --git ` has ever been seen, so a
+    // GitHub-shaped diff is not cut twice per file.
+    const isPlainHeader = !started && line.startsWith('--- ')
+    if (isGitHeader || isPlainHeader) {
+      if (isGitHeader) started = true
+      flush()
+      lines.push(raw)
+      continue
+    }
+
+    if (line.startsWith('+++ ')) {
+      path =
+        line === '+++ /dev/null'
+          ? null
+          : line.startsWith('+++ b/')
+            ? line.slice(6)
+            : line.slice(4)
+      lines.push(raw)
+      continue
+    }
+
+    const hunk = HUNK_HEADER.exec(line)
+    if (hunk) {
+      oldLeft = hunk[1] === undefined ? 1 : Number(hunk[1])
+      newLeft = hunk[3] === undefined ? 1 : Number(hunk[3])
+    }
+    lines.push(raw)
+  }
+
+  flush()
+  return sections
+}

@@ -1337,6 +1337,70 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     )
   })
 
+  // LUM-758 — 上面那条只钉了 `truncated`/`partial` 两个标志位。截断之后
+  // `stages.judge` 一直还是 'RAN'，在 PR 行里渲染成 “AI review: checked”：
+  // 一个整文件没看过的层在宣称自己通过了。P9 说安全信号不得声称未建立的结论。
+  test('a judge that ran over a trimmed diff records PARTIAL, not RAN', async () => {
+    const bigDiff = [
+      '--- a/src/a.ts',
+      '+++ b/src/a.ts',
+      '@@ -1,0 +1,1 @@',
+      `+const x = "${'x'.repeat(SECURITY_DIFF_MAX_CHARS + 10)}"`,
+    ].join('\n')
+    fetchPrDiff.mockResolvedValue(bigDiff)
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      expect.anything(),
+      expect.objectContaining({
+        stages: expect.objectContaining({ judge: 'PARTIAL' }),
+      })
+    )
+  })
+
+  // LUM-758 — 预算按字节位置切时，一个文件有没有被 AI review 看过，取决于
+  // 它的文件名排第几。`zz/sink.ts` 排最后，永远落在刀口之后。
+  test('the judge is handed the file carrying the signal even when it sorts last', async () => {
+    const section = (path: string, body: string[]): string =>
+      [
+        `diff --git a/${path} b/${path}`,
+        `--- a/${path}`,
+        `+++ b/${path}`,
+        `@@ -0,0 +1,${body.length} @@`,
+        ...body.map(l => `+${l}`),
+      ].join('\n')
+    // 尺寸卡在「恰好装得下两个」：sink 文件如果很小，贪心的跳过-继续
+    // 无论排序如何都会把它捎带进去，测试就守不住优先级这件事本身。
+    const filler = Array.from(
+      { length: 1400 },
+      (_, i) => `const pad${i} = ${i}`
+    )
+    const bigDiff = [
+      section('app/a.ts', filler),
+      section('lib/b.ts', filler),
+      section('zz/sink.ts', [...filler, 'exec(userInput)']),
+    ].join('\n')
+    expect(bigDiff.length).toBeGreaterThan(SECURITY_DIFF_MAX_CHARS)
+    expect(bigDiff.slice(0, SECURITY_DIFF_MAX_CHARS)).not.toContain(
+      'exec(userInput)'
+    )
+
+    fetchPrDiff.mockResolvedValue(bigDiff)
+    judgeSecurity.mockResolvedValue({ findings: [] })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+
+    const calls = judgeSecurity.mock.calls as unknown[][]
+    const seen = (calls[calls.length - 1]![0] as { diff: string }).diff
+    expect(seen).toContain('exec(userInput)')
+    expect(seen).toContain('files omitted to fit the review budget')
+  })
+
   test('stagesOf derives a legacy view from judgeStatus when stages is null', () => {
     expect(stagesOf({ stages: null, judgeStatus: 'RAN' })).toEqual({
       secrets: 'RAN',
