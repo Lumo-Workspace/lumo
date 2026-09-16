@@ -1,0 +1,337 @@
+[
+  {
+    "key": "PR:Lumo-Workspace/lumo#527|HOST:github.com|Bash|250",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmq8tw09m000g04l499ozz6qk|COMMAND:git push|Bash|250",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "PR:Lumo-Workspace/lumo#536|PATH:Lumo-Workspace/lumo|Bash|7394",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmq8tw09m000g04l499ozz6qk|COMMAND:git push|Bash|7394",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "MEMORY:cmtw7mfm8003104l5hski9a2f|COMMAND:npx jest|Bash|1016",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "MEMORY:cmu0zluat001x04jnq3hli25p|NPM_PACKAGE:tsc|Bash|552",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+  },
+  {
+    "key": "MEMORY:cmu13t3wb002j04l35msetpu5|NPM_PACKAGE:tsc|Bash|552",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+  },
+  {
+    "key": "MEMORY:cmpqx5enh008204l7qmk6pglk|NPM_PACKAGE:tsc|Bash|3408",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+  },
+  {
+    "key": "MEMORY:cmq8zo66a000n04l5a1s2ol1h|COMMAND:git worktree add|Write|2965",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "MEMORY:cmq97epid001a04l7kfuxyhe0|PATH:cli/src/commands|Bash|1236",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmtw7mfm8003104l5hski9a2f|COMMAND:npx jest|Bash|3153",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "MEMORY:cmpjggwrn000y04jrfyc0qs1e|COMMAND:npx prisma migrate status|Bash|790",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "MEMORY:cmq7gwqbd000a04l1pbccpwgp|PATH:docs/live-docs|Bash|13491",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmr4juxss001o04jiyl93e662|COMMAND:prisma generate|Bash|456",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "MEMORY:cmq9yj6ys00d904kzjc7okxwx|PATH:origin/main|Bash|3595",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "PR:Lumo-Workspace/lumo#679|HOST:github.com|Bash|17125",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cms5okjxp002104kwqy6g265i|PATH:/private/tmp|Bash|12997",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmtxhovzs004f04jh3851lnco|PATH:scripts/analysis/lum739-hunt-audit/aggregate|Bash|234342",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmpwux127000c04iciyeibn3r|PATH:lib/services|Bash|794",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmpi19iqx006704l73jnvie5s|COMMAND:prisma migrate deploy|Edit|5334",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "PR:Lumo-Workspace/lumo#598|PATH:Lumo-Workspace/lumo|Bash|1549",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cms5okjxp002104kwqy6g265i|PATH:/private/tmp|Bash|7110",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmtwinmn0003s04l0fhysfy9s|PATH:origin/main|Bash|66106",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmpusoyd3000t04l5yuajb0sz|COMMAND:prisma migrate status|Bash|790",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "MEMORY:cmq9yj6ys00d904kzjc7okxwx|PATH:origin/main|Bash|2508",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmqc3pus2006004jgk12amyz1|PATH:.worktrees/|Bash|7894",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmqj6j68y000s04l2h8gv96z4|PATH:cli/src|Bash|893",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "PR:Lumo-Workspace/lumo#508|HOST:github.com|Bash|3213",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmu37jik6001a04jk4koz9qki|PATH:scripts/analysis|Bash|35978",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cms5okjxp002104kwqy6g265i|PATH:/private/tmp|Bash|6795",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cms9p323t002405jtycom61mj|NPM_PACKAGE:tsc|Bash|2215",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+  },
+  {
+    "key": "MEMORY:cmqc3pus2006004jgk12amyz1|PATH:.worktrees/|Bash|1034",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cms57jmru001h04jxws8rxx45|NPM_PACKAGE:tsc|Write|707",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+  },
+  {
+    "key": "MEMORY:cmqbe59wn002504lbm8xih82u|PATH:origin/main|Bash|1589",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmpi19iqx006704l73jnvie5s|COMMAND:prisma migrate deploy|Bash|1184",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "PR:Lumo-Workspace/lumo#599|PATH:Lumo-Workspace/lumo|Bash|1549",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmpwux127000c04iciyeibn3r|PATH:lib/services|Bash|2936",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmu1fwuy0000u04l1tz586eg7|PATH:__tests__/security-scan|Bash|1833",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmqbvlv0g001a04jvizhm6otf|COMMAND:prisma migrate deploy|Write|2555",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "MEMORY:cms57jmru001h04jxws8rxx45|NPM_PACKAGE:tsc|Bash|848",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+  },
+  {
+    "key": "MEMORY:cms5okjxp002104kwqy6g265i|PATH:/private/tmp|Bash|19787",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmqc3pus2006004jgk12amyz1|PATH:.worktrees/|Bash|455",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmq9yj6ys00d904kzjc7okxwx|PATH:origin/main|Bash|158369",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "PR:Lumo-Workspace/lumo#968|PATH:Lumo-Workspace/lumo|Bash|238856",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmq9yj6ys00d904kzjc7okxwx|PATH:origin/main|Bash|33",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cms2kb6zd002v04k6i5sibidq|PATH:start/end|Edit|5116",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmpwux127000c04iciyeibn3r|PATH:lib/services|Bash|1349",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmqc3pus2006004jgk12amyz1|PATH:.worktrees/|Bash|7699",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmq8w80jf002l04jpg4v8ovt3|PATH:cli/src/commands|Edit|4142",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cms2jygnj000y04k6qg4cyliu|PATH:references/sessions.md|Bash|3160",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cms9p323t002405jtycom61mj|NPM_PACKAGE:tsc|Bash|746",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+  },
+  {
+    "key": "MEMORY:cmtxhovzs004f04jh3851lnco|PATH:scripts/analysis/lum739-hunt-audit/aggregate|Bash|229710",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmpi19iqx006704l73jnvie5s|COMMAND:prisma migrate deploy|Bash|11459",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "MEMORY:cmu13t3wb002j04l35msetpu5|NPM_PACKAGE:tsc|Write|1783",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+  },
+  {
+    "key": "MEMORY:cmqc3pus2006004jgk12amyz1|PATH:.worktrees/|Bash|1351",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "PR:Lumo-Workspace/lumo#507|PATH:Lumo-Workspace/lumo|Bash|2420",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmu37jik6001a04jk4koz9qki|PATH:scripts/analysis|Bash|34813",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmpv7gq93001p04ib3obmwyk1|COMMAND:prisma migrate deploy|Bash|193",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is a standard toolchain command the team runs in nearly every session (tsc/jest/prisma/git) — reproducing it says nothing about the injected content"
+  },
+  {
+    "key": "MEMORY:cmpqx5enh008204l7qmk6pglk|NPM_PACKAGE:tsc|Bash|5381",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+  },
+  {
+    "key": "MEMORY:cmpwux127000c04iciyeibn3r|PATH:lib/services|Bash|26266",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cms9p323t002405jtycom61mj|NPM_PACKAGE:tsc|Bash|4456",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: extraction artifact — `npx tsc` parses as an npm package install, so the token `tsc` was treated as a package name"
+  },
+  {
+    "key": "MEMORY:cmpwux127000c04iciyeibn3r|PATH:lib/services|Bash|1999",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmqa8jmqb004u04k0tbpwnut5|PATH:docs/superpowers|Edit|166",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmppi3sr5006q04jx0g0fn3hu|PATH:application/json|Write|87204",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmq9yj6ys00d904kzjc7okxwx|PATH:origin/main|Bash|301",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmtuyfuv7001v04jm84ml0uue|PATH:Lumo-Workspace/lumo|Bash|25869",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  },
+  {
+    "key": "MEMORY:cmqbe59wn002504lbm8xih82u|PATH:origin/main|Write|1973",
+    "verdict": "FALSE_POSITIVE",
+    "reason": "false positive: the literal is everyday vocabulary of this repository (a path, the repo slug, github.com) that the novelty filter failed to exclude — the agent had every reason to produce it without the injection"
+  }
+]
