@@ -37,6 +37,14 @@
  * and a lone zero-width is deliberately below `WEAK_INVISIBLE_MIN_RUN`, so
  * both defences missed it at once. Normalization is orthogonal to precision —
  * it widens no pattern, it only stops padding characters from being a bypass.
+ *
+ * LUM-792 — the wrapper half needed the same medicine, on the harder path:
+ * `escapesWrapper` matched the tag name literally, so
+ * `</untrusted<U+200B>-team-memory>` — which an LLM reads as a closing tag —
+ * was not one, and the fence could be closed early. Tag matching now runs on
+ * the normalized copy as well, while the rewrite still happens in the
+ * original text. The same round widened the ZH imperatives from word-level to
+ * character-level separator tolerance.
  */
 
 export type InjectionSignalKind =
@@ -101,41 +109,122 @@ const WRAPPER_NAME =
  * stops `system-reminderx` from matching while still letting the greedy
  * `untrusted-[…]*` end on a `-` (the legacy regex matched `<untrusted->`).
  *
- * Built from a source string so the two consumers can hold a `g` and a
- * non-`g` instance: a shared `/g` regex advances `lastIndex` on `.test()` and
- * would make `escapesWrapper` flip-flop on repeated calls (the trap
- * `prompt-safety.ts` documents).
+ * Built from a source string, and every consumer compiles its own instance
+ * rather than sharing one: a shared `/g` regex advances `lastIndex` on
+ * `.test()` and would make `escapesWrapper` flip-flop on repeated calls (the
+ * trap `prompt-safety.ts` documents).
  */
 const WRAPPER_TAG_SOURCE = `<\\s*(\\/?)\\s*(${WRAPPER_NAME})(?=[\\s>\\/])([^<>]*)>`
-const WRAPPER_TAG = new RegExp(WRAPPER_TAG_SOURCE, 'i')
-const WRAPPER_TAG_G = new RegExp(WRAPPER_TAG_SOURCE, 'gi')
+
+/**
+ * The same shape anchored to a whole string. It answers one question about a
+ * span: is this *literally* a tag, or does it only read as one once padding
+ * has been normalized away?
+ */
+const WRAPPER_TAG_EXACT = new RegExp(`^${WRAPPER_TAG_SOURCE}$`, 'i')
+
+/** Angle brackets, including the full-width forms NFKC folds into them. */
+const ANGLE_OPEN = /[<\uFF1C]/g
+const ANGLE_CLOSE = /[>\uFF1E]/g
+
+/** A fence-shaped tag, as a half-open span of the ORIGINAL text. */
+interface WrapperTagSpan {
+  start: number
+  end: number
+}
+
+/**
+ * Every fence-shaped tag in `text`.
+ *
+ * LUM-792 — matched against the NORMALIZED copy, for the same reason the
+ * signal patterns are (LUM-791): the literal regex read the tag name and
+ * nothing else, so one invisible character inside it bought a full bypass —
+ * and on *this* path the consequence is not one missing advisory, it is a
+ * fence the content can close early. An LLM reads
+ * `</untrusted<U+200B>-team-memory>` as a closing tag; so must we.
+ *
+ * Spans come back in ORIGINAL coordinates because the caller rewrites the
+ * real text, not the copy. The end offset is mapped from the match's LAST
+ * character rather than from the position after it: an offset sitting exactly
+ * on a rewrite checkpoint resolves to the far side of it, which would swallow
+ * whatever padding happens to follow the tag.
+ */
+function findWrapperTags(text: string): WrapperTagSpan[] {
+  if (!text) return []
+  const norm = normalizeForMatching(text)
+  const re = new RegExp(WRAPPER_TAG_SOURCE, 'gi')
+  const spans: WrapperTagSpan[] = []
+  let m: RegExpExecArray | null
+  while ((m = re.exec(norm.text)) !== null) {
+    const length = m[0].length
+    if (length === 0) {
+      re.lastIndex++
+      continue
+    }
+    const start = norm.toOriginalIndex(m.index)
+    const end = Math.min(
+      norm.toOriginalIndex(m.index + length - 1) + 1,
+      text.length
+    )
+    const prev = spans[spans.length - 1]
+    if (end <= start || (prev !== undefined && start < prev.end)) continue
+    spans.push({ start, end })
+  }
+  return spans
+}
 
 /** True when the text carries any fence-shaped tag, opening or closing. */
 export function escapesWrapper(text: string): boolean {
-  return WRAPPER_TAG.test(text)
+  return findWrapperTags(text).length > 0
 }
 
 /** How many fence-shaped tags the text carries. */
 export function countWrapperEscapes(text: string): number {
-  return text.match(WRAPPER_TAG_G)?.length ?? 0
+  return findWrapperTags(text).length
 }
 
 /**
- * Turn every fence-shaped tag into inert text: `<x>` → `(x)`, `</x>` → `(/x)`,
- * whitespace collapsed, attributes kept (a reviewer should still see what the
- * content tried to do). Iterates to a fixpoint so removing an inner tag can
- * never reassemble an outer one.
+ * The inert form of one tag span.
+ *
+ * A span that is literally a tag gets the canonical LUM-783 rendering —
+ * `<x a="1">` → `(x a="1")`, `</x>` → `(/x)`, whitespace collapsed — which is
+ * what keeps the `untrusted-*` subset byte-identical to LUM-758's
+ * `neutralizeUntrustedTags`.
+ *
+ * A span that only reads as a tag once normalized was padded on purpose.
+ * There the brackets are defanged and every other character is kept, the
+ * padding included: the reason this module neutralizes rather than drops is
+ * that a reviewer gets to see what the content tried to do, and stripping the
+ * invisible characters would erase exactly the part worth seeing. Nothing
+ * that can parse as a tag survives either way — the brackets are gone.
+ */
+function inertTag(raw: string): string {
+  const literal = WRAPPER_TAG_EXACT.exec(raw)
+  if (literal) {
+    const attrs = (literal[3] ?? '').trim().replace(/\s+/g, ' ')
+    return `(${literal[1] ?? ''}${literal[2] ?? ''}${attrs ? ` ${attrs}` : ''})`
+  }
+  return raw.replace(ANGLE_OPEN, '(').replace(ANGLE_CLOSE, ')')
+}
+
+/**
+ * Turn every fence-shaped tag into inert text. Iterates to a fixpoint so
+ * removing an inner tag can never reassemble an outer one.
  */
 export function neutralizeWrapperEscapes(text: string): string {
   let out = text
   for (let i = 0; i < 8; i++) {
-    const next = out.replace(
-      WRAPPER_TAG_G,
-      (_m, slash: string, name: string, attrs: string) => {
-        const a = attrs.trim().replace(/\s+/g, ' ')
-        return `(${slash}${name}${a ? ` ${a}` : ''})`
-      }
-    )
+    const spans = findWrapperTags(out)
+    if (spans.length === 0) return out
+    let next = ''
+    let cursor = 0
+    for (const span of spans) {
+      next +=
+        out.slice(cursor, span.start) +
+        inertTag(out.slice(span.start, span.end))
+      cursor = span.end
+    }
+    next += out.slice(cursor)
     if (next === out) return out
     out = next
   }
@@ -176,9 +265,26 @@ const IMPERATIVE_EN: RegExp[] = [
  * outright (`忽略 之前 的所有指令` → no match). Every ZH pattern therefore
  * joins its parts with a bounded separator class instead of butting them
  * together. `{0,3}` keeps the gap too small to bridge unrelated sentences.
+ *
+ * LUM-792 — the same trick one level down. `忽 略 之 前 的 所 有 指 令`
+ * separates every *character*, which the word-level tolerance above does not
+ * cover; a human reads straight through it, and on origin/main it produced
+ * zero signals. `looseZh` therefore also admits a separator between two
+ * adjacent CJK characters — **at most one**, which is the whole precision
+ * story: a run would let ordinary prose drift into a match, and
+ * `忽 然 想 起 之 前 的 那 些 指 令` has to stay clean. English is
+ * space-delimited already and none of this touches it.
  */
 const ZH_SEP = '[\\s、,，]{0,3}'
-const zh = (...parts: string[]): RegExp => new RegExp(parts.join(ZH_SEP))
+const ZH_CHAR_SEP = '[\\s、,，]?'
+const ADJACENT_ZH = /[\u4e00-\u9fff](?=[\u4e00-\u9fff])/gu
+
+/** Admit one separator between each pair of adjacent CJK characters. */
+const looseZh = (source: string): string =>
+  source.replace(ADJACENT_ZH, m => `${m}${ZH_CHAR_SEP}`)
+
+const zh = (...parts: string[]): RegExp =>
+  new RegExp(parts.map(looseZh).join(ZH_SEP))
 
 const IMPERATIVE_ZH: RegExp[] = [
   // 忽略 / 无视 … 之前 … 指令
@@ -194,8 +300,8 @@ const IMPERATIVE_ZH: RegExp[] = [
   zh('你现在', '(?:是|扮演|作为|变成|成为|将是)'),
   // 新指令：
   zh('新', '(?:的)?', '(?:系统)?', '(?:指令|指示|规则|任务)', '[:：]'),
-  // 行首角色标签 — anchored on the line, so no separator tolerance to add.
-  /(?:^|\n)[ \t]*(?:系统|助手|开发者)[ \t]*[:：]/,
+  // 行首角色标签 — anchored on the line, so no *leading* separator tolerance.
+  new RegExp(`(?:^|\\n)[ \\t]*${looseZh('(?:系统|助手|开发者)')}[ \\t]*[:：]`),
   // 不要告诉用户
   zh(
     '(?:不要|别|勿|不准|禁止|不能)',
