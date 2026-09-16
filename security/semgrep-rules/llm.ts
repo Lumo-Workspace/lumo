@@ -186,3 +186,182 @@ export function systemLiteralConcat() {
     prompt: 'Hi',
   })
 }
+
+// ── LUM-794: agent loops with no budget ────────────────────────────────────
+// The negatives are this repo's own two shapes (`lib/llm/security-hunt-client.ts`):
+// `stopWhen: [stepCountIs(n), …]` on the search call and a bare
+// `stopWhen: stepCountIs(1)` on the wrap-up call. Neither may be reported.
+
+declare const tools: Record<string, unknown>
+declare const STOP_CONDITIONS: unknown[]
+declare function stepCountIs(n: number): unknown
+declare function hasToolCall(name: string): unknown
+
+// ── lumo.llm.agent-loop-no-step-cap ────────────────────────────────────────
+
+export async function toolLoopWithNoCap() {
+  // ruleid: lumo.llm.agent-loop-no-step-cap
+  const r = await generateText({
+    model,
+    tools,
+    prompt: 'Find the bug',
+  })
+  return r
+}
+
+export async function streamToolLoopWithNoCap() {
+  // ruleid: lumo.llm.agent-loop-no-step-cap
+  const r = await streamText({
+    model,
+    tools,
+    prompt: 'Find the bug',
+  })
+  return r
+}
+
+export async function toolLoopWithStepCountIsArray() {
+  // ok: lumo.llm.agent-loop-no-step-cap
+  const r = await generateText({
+    model,
+    tools,
+    prompt: 'Find the bug',
+    // ok: lumo.llm.agent-loop-non-step-stop
+    stopWhen: [stepCountIs(24), hasToolCall('submit_candidates')],
+  })
+  return r
+}
+
+export async function toolLoopWithBareStepCountIs() {
+  // ok: lumo.llm.agent-loop-no-step-cap
+  const r = await generateText({
+    model,
+    tools,
+    toolChoice: { type: 'tool', toolName: 'submit_candidates' },
+    prompt: 'Wrap up',
+    // ok: lumo.llm.agent-loop-non-step-stop
+    stopWhen: stepCountIs(1),
+  })
+  return r
+}
+
+export async function toolLoopWithMaxSteps() {
+  // ok: lumo.llm.agent-loop-no-step-cap
+  const r = await generateText({
+    model,
+    tools,
+    prompt: 'Find the bug',
+    maxSteps: 8,
+  })
+  return r
+}
+
+export async function noToolsNoLoop() {
+  // ok: lumo.llm.agent-loop-no-step-cap
+  const r = await generateText({
+    model,
+    prompt: 'Summarise this constant',
+  })
+  return r
+}
+
+// ── lumo.llm.agent-loop-non-step-stop ──────────────────────────────────────
+
+export async function toolLoopStopsOnlyOnToolCall() {
+  // ruleid: lumo.llm.agent-loop-non-step-stop
+  const r = await generateText({
+    model,
+    tools,
+    prompt: 'Find the bug',
+    stopWhen: [hasToolCall('submit_candidates')],
+  })
+  return r
+}
+
+export async function toolLoopBareNonStepStop() {
+  // ruleid: lumo.llm.agent-loop-non-step-stop
+  const r = await streamText({
+    model,
+    tools,
+    prompt: 'Find the bug',
+    stopWhen: hasToolCall('submit_candidates'),
+  })
+  return r
+}
+
+export async function toolLoopStopFromNamedConstant() {
+  // The list lives elsewhere — not decidable here, so the rule stays quiet.
+  // ok: lumo.llm.agent-loop-non-step-stop
+  const r = await generateText({
+    model,
+    tools,
+    prompt: 'Find the bug',
+    stopWhen: STOP_CONDITIONS,
+  })
+  return r
+}
+
+export async function toolLoopNonStepStopButMaxSteps() {
+  // ok: lumo.llm.agent-loop-non-step-stop
+  const r = await generateText({
+    model,
+    tools,
+    prompt: 'Find the bug',
+    maxSteps: 12,
+    stopWhen: [hasToolCall('submit_candidates')],
+  })
+  return r
+}
+
+// ── lumo.llm.agent-step-cap-from-request ───────────────────────────────────
+
+export async function stepCapFromBody(req: Request) {
+  const body = await req.json()
+  return generateText({
+    model,
+    tools,
+    prompt: 'Go',
+    // ruleid: lumo.llm.agent-step-cap-from-request
+    maxSteps: body.steps,
+  })
+}
+
+export async function stepCapFromSearchParams(req: {
+  nextUrl: { searchParams: URLSearchParams }
+}) {
+  const n = Number(req.nextUrl.searchParams.get('steps'))
+  return generateText({
+    model,
+    tools,
+    prompt: 'Go',
+    stopWhen: [
+      // ruleid: lumo.llm.agent-step-cap-from-request
+      stepCountIs(n),
+    ],
+  })
+}
+
+export async function stepCapFromInternalInput(input: { maxSteps: number }) {
+  return generateText({
+    model,
+    tools,
+    prompt: 'Go',
+    stopWhen: [
+      // An internal budget threaded between our own layers is not a
+      // caller-controlled number.
+      // ok: lumo.llm.agent-step-cap-from-request
+      stepCountIs(input.maxSteps),
+    ],
+  })
+}
+
+export async function stepCapClampedAgainstConstant(req: Request) {
+  const body = await req.json()
+  const steps = Math.min(Number(body.steps) || 1, 20)
+  return generateText({
+    model,
+    tools,
+    prompt: 'Go',
+    // ok: lumo.llm.agent-step-cap-from-request
+    maxSteps: steps,
+  })
+}

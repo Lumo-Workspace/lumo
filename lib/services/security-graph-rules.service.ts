@@ -1,10 +1,11 @@
 /**
- * LUM-785 — the I/O half of the deterministic graph rules (spec §6 L3,
- * "llm-output → sink"). Runs INSIDE stage A, in process, before the managed
- * scan and the hunt are even started: it reads the PR's touched TS/TSX files
- * plus one hop of their imports at the head sha, builds the diff subgraph,
- * and turns every `findLlmOutputFlows` flow into a DETERMINISTIC finding row.
- * The pure logic lives in `lib/security-scan/graph/llm-output-flow.ts`.
+ * LUM-785 — the I/O half of the deterministic graph rules (spec §6 L3).
+ * Runs INSIDE stage A, in process, before the managed scan and the hunt are
+ * even started: it reads the PR's touched TS/TSX files plus one hop of their
+ * imports at the head sha, builds the diff subgraph, and turns what the pure
+ * rules find into DETERMINISTIC finding rows. Two rules ride the same read:
+ *   - "llm-output → sink" (LUM-785, `graph/llm-output-flow.ts`)
+ *   - "agent loop with no budget" (LUM-794, `graph/agent-loop.ts`)
  *
  * Why here and not in the hunt workflow: the hunt is routinely PARTIAL and is
  * only started when its trigger fires; this rule is decidable from the graph
@@ -32,6 +33,13 @@ import {
   LLM_OUTPUT_SINK_META,
   type LlmOutputFlow,
 } from '@/lib/security-scan/graph/llm-output-flow'
+import {
+  findUnboundedAgentLoops,
+  AGENT_LOOP_RULE_PREFIX,
+  AGENT_LOOP_SEVERITY,
+  AGENT_LOOP_SHAPE_META,
+  type AgentLoopFinding,
+} from '@/lib/security-scan/graph/agent-loop'
 import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
 import type { NewFindingInput } from '@/lib/repositories/pr-security-scan.repository'
 
@@ -105,6 +113,64 @@ export function toGraphRuleRows(
       cwe: meta.cwe,
       reachability: f.reachability,
       callChain,
+    }
+  })
+}
+
+/**
+ * `sha256(agent-loop-unbounded:<shape>:<functionSymbol>:<callee>)`. No line
+ * number: the loop keeps its identity when code above it moves, which is what
+ * makes a disposition on an earlier scan still apply.
+ */
+export function agentLoopFingerprint(
+  shape: string,
+  symbol: string,
+  callee: string
+): string {
+  return createHash('sha256')
+    .update(`${AGENT_LOOP_RULE_PREFIX}:${shape}:${symbol}:${callee}`)
+    .digest('hex')
+    .slice(0, 16)
+}
+
+/** Pure; exported for tests. One finding row per unbounded loop. */
+export function toAgentLoopRows(
+  scanId: string,
+  loops: AgentLoopFinding[]
+): NewFindingInput[] {
+  return loops.map(l => {
+    const meta = AGENT_LOOP_SHAPE_META[l.shape]
+    return {
+      scanId,
+      kind: 'VULNERABILITY' as const,
+      ruleId: `${AGENT_LOOP_RULE_PREFIX}:${l.shape}`,
+      severity: AGENT_LOOP_SEVERITY,
+      provenance: 'DETERMINISTIC' as const,
+      filePath: clean(l.file, PATH_MAX),
+      line: l.line,
+      title: clean(
+        `Model call ${l.call.callee} runs inside ${meta.label}`,
+        TITLE_MAX
+      ),
+      detail: clean(
+        `${l.symbol} calls ${l.call.callee} at ${l.file}:${l.call.line} from ` +
+          `${meta.label} (${l.file}:${l.line}; reachability ${l.reachability}). ` +
+          `Nothing in the loop can end it except the model itself: there is no step ` +
+          `counter, no break, no return and no throw on any path. One turn that keeps ` +
+          `asking for another tool call runs until the request times out, and every ` +
+          `step is billed. Give the loop a step ceiling it owns — a counter it checks, ` +
+          `or the AI SDK's own stopWhen: [stepCountIs(N)] / maxSteps: N.`,
+        DETAIL_MAX
+      ),
+      evidence: clean(
+        `${l.symbol} → ${l.call.symbol ?? `${l.file}#${l.call.callee}@${l.call.line}`}`,
+        EVIDENCE_MAX
+      ),
+      fingerprint: agentLoopFingerprint(l.shape, l.symbol, l.call.callee),
+      externalRef: null,
+      disposition: null,
+      cwe: meta.cwe,
+      reachability: l.reachability,
     }
   })
 }
@@ -209,8 +275,12 @@ export const securityGraphRulesService = {
       if (inputs.length === 0)
         return { rows: [], files: 0, partial: false, capped }
       const { flows } = findLlmOutputFlows(inputs)
+      const { findings: loops } = findUnboundedAgentLoops(inputs)
       return {
-        rows: toGraphRuleRows(job.scanId, flows),
+        rows: [
+          ...toGraphRuleRows(job.scanId, flows),
+          ...toAgentLoopRows(job.scanId, loops),
+        ],
         files: inputs.length,
         partial: false,
         capped,

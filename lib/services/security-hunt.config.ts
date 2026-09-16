@@ -538,8 +538,19 @@ export const PLAN_HUNT_MAX_ATTEMPTS = 2
 // 「一步多少 token」推出来——32 步在 4k 步价下只够 128k，抬了额度却不抬它，
 // 任务会从停在 `budget` 变成停在 `steps`（PR 1022 就是这么停的），额度一样花
 // 不掉。派生而不是手写，是为了改了步价读数或窗口上限之后它自己跟着动。
-export const HUNT_MAX_STEPS_PER_CATEGORY = Math.ceil(
-  huntSpendableTokens() / HUNT_OBSERVED_STEP_TOKENS
+// LUM-794: the derivation is a named function, not an expression inlined
+// into the constant, so the invariant "the cap FOLLOWS the budget" is
+// testable as behaviour (feed it a bigger window, get a bigger cap) rather
+// than only as a re-statement of this line.
+export function huntMaxStepsPerCategory(
+  spendableTokens: number,
+  stepTokens: number
+): number {
+  return Math.ceil(spendableTokens / stepTokens)
+}
+export const HUNT_MAX_STEPS_PER_CATEGORY = huntMaxStepsPerCategory(
+  huntSpendableTokens(),
+  HUNT_OBSERVED_STEP_TOKENS
 )
 /**
  * LUM-762 — retries INSIDE one model call. The AI SDK's default (2) spends
