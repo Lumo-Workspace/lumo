@@ -102,6 +102,9 @@ export interface TaskStatusResponse {
       closingPrNumber?: number
       closingPrUrl?: string
     } | null
+    /** LUM-789: when a human confirmed this contract item (ISO), null =
+     *  unconfirmed. Never blocks DONE — only feeds the `task status` nudge. */
+    confirmedAt: string | null
   }>
   /** Honest machine-verification rollup over the active MACHINE criteria
    *  (LUM-456): genuine checkpointer passes vs human overrides. Mirrored from
@@ -413,6 +416,15 @@ export function formatTaskStatus(
       ? 'no verification rounds yet'
       : `verification round ${data.currentRound}/${data.maxRounds}`
   lines.push(`Status: ${t.status} · ${roundLabel}`)
+
+  // LUM-789: 追认入口。出现在用户本来就要打开这个任务的时刻,永不拦 DONE。
+  const unconfirmed = data.criteria.filter(c => c.confirmedAt == null)
+  if (unconfirmed.length > 0) {
+    lines.push(
+      `Contract unconfirmed (${unconfirmed.length} criteri${unconfirmed.length === 1 ? 'on' : 'a'}) — lumo task criteria confirm ${t.identifier}`
+    )
+  }
+
   if (data.escalated) {
     lines.push(
       '⚠ Escalated: the machine loop is exhausted — a human has been paged. Stop retrying lumo verify.'

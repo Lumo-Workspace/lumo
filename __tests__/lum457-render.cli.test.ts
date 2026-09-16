@@ -36,6 +36,7 @@ function criterion(over: Partial<TaskStatusResponse['criteria'][number]> = {}) {
     verdictStale: false,
     checkMismatch: false,
     machinePassed: true,
+    confirmedAt: '2026-06-01T00:00:00Z',
     latestVerdict: {
       round: 1,
       verdict: 'PASS' as const,

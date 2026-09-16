@@ -184,6 +184,10 @@ export interface TaskStatusCriterion {
    *  FAIL that is now resolved (with the resolving round + best-effort closing
    *  PR) or still open; null when the criterion was never sent back. */
   sendBackResolution: SendBackResolution | null
+  /** LUM-789: 人确认这条合同项的时间（ISO），null = 未确认。未确认**不**是
+   *  待办、**不**拦 DONE —— 它只让 `task status` 与 web 任务详情各出现一处
+   *  可选的追认入口。 */
+  confirmedAt: string | null
 }
 
 /** A criterion that was removed (soft-deleted / tombstoned) from the live
@@ -1203,6 +1207,7 @@ export const taskVerificationService = {
             runs,
             lifecyclePrs
           ),
+          confirmedAt: c.confirmedAt ? c.confirmedAt.toISOString() : null,
         }
       }),
       machineVerification,

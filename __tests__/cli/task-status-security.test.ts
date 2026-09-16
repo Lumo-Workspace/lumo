@@ -56,6 +56,7 @@ function payload(over: Partial<TaskStatusResponse> = {}): TaskStatusResponse {
         verdictStale: false,
         checkMismatch: false,
         machinePassed: false,
+        confirmedAt: '2026-06-01T00:00:00Z',
         latestVerdict: null,
       },
     ],
@@ -182,6 +183,7 @@ describe('lumo task status — security findings (LUM-737)', () => {
             verdictStale: false,
             checkMismatch: false,
             machinePassed: true,
+            confirmedAt: '2026-06-01T00:00:00Z',
             latestVerdict: {
               round: 1,
               verdict: 'PASS',

@@ -48,6 +48,9 @@ const PAYLOAD: TaskStatusResponse = {
       verdictStale: false,
       checkMismatch: false,
       machinePassed: false,
+      // LUM-789: confirmed by default so unrelated fixture consumers don't
+      // pick up the "Contract unconfirmed" hint incidentally.
+      confirmedAt: '2026-06-01T00:00:00.000Z',
       latestVerdict: {
         round: 1,
         verdict: 'FAIL',
@@ -69,6 +72,7 @@ const PAYLOAD: TaskStatusResponse = {
       verdictStale: false,
       checkMismatch: false,
       machinePassed: false,
+      confirmedAt: '2026-06-01T00:00:00.000Z',
       latestVerdict: null,
     },
     {
@@ -83,6 +87,7 @@ const PAYLOAD: TaskStatusResponse = {
       verdictStale: false,
       checkMismatch: false,
       machinePassed: false,
+      confirmedAt: '2026-06-01T00:00:00.000Z',
       latestVerdict: {
         round: 1,
         verdict: 'PASS',
@@ -344,6 +349,7 @@ const SIGNED_PAYLOAD: TaskStatusResponse = {
       verdictStale: false,
       checkMismatch: false,
       machinePassed: true,
+      confirmedAt: '2026-06-01T00:00:00.000Z',
       latestVerdict: {
         round: 2,
         verdict: 'PASS',
@@ -365,6 +371,7 @@ const SIGNED_PAYLOAD: TaskStatusResponse = {
       verdictStale: false,
       checkMismatch: false,
       machinePassed: false,
+      confirmedAt: '2026-06-01T00:00:00.000Z',
       latestVerdict: {
         round: 2,
         verdict: 'PASS',
@@ -734,5 +741,59 @@ describe('formatTaskStatus — LUM-789 closing line for sent-back HUMAN criteria
     })
     expect(out).toContain('sent back')
     expect(out).not.toContain('hand off for human review')
+  })
+})
+
+// ── LUM-789: unconfirmed-contract nudge in `task status` ───────────────────
+/** `n` of PAYLOAD's 3 criteria left unconfirmed (confirmedAt: null), the rest
+ *  confirmed — built off the shared fixture so row shape stays realistic. */
+function fixtureWithUnconfirmedCriteria(n: number): TaskStatusResponse {
+  return {
+    ...PAYLOAD,
+    criteria: PAYLOAD.criteria.map((c, i) => ({
+      ...c,
+      confirmedAt: i < n ? null : '2026-06-01T00:00:00.000Z',
+    })),
+  }
+}
+
+/** Every criterion confirmed — the hint must not appear. */
+function fixtureWithAllConfirmed(): TaskStatusResponse {
+  return {
+    ...PAYLOAD,
+    criteria: PAYLOAD.criteria.map(c => ({
+      ...c,
+      confirmedAt: '2026-06-01T00:00:00.000Z',
+    })),
+  }
+}
+
+describe('formatTaskStatus — LUM-789 unconfirmed-contract hint', () => {
+  it('LUM-789: 合同有未确认项时打提示行,并指向 criteria confirm', () => {
+    const out = formatTaskStatus(fixtureWithUnconfirmedCriteria(2))
+    expect(out).toContain('Contract unconfirmed (2 criteria)')
+    expect(out).toContain('lumo task criteria confirm')
+  })
+
+  it('LUM-789: 合同全部已确认时不打提示行', () => {
+    const out = formatTaskStatus(fixtureWithAllConfirmed())
+    expect(out).not.toContain('Contract unconfirmed')
+  })
+
+  it('LUM-789: 零条件合同(尚无 criteria)不打未确认提示——没有合同就没有可确认的东西', () => {
+    const out = formatTaskStatus({
+      ...PAYLOAD,
+      criteria: [],
+      verificationHistory: [],
+      lastRoundFailures: [],
+      nextActions: [],
+      currentRound: 0,
+    })
+    expect(out).not.toContain('Contract unconfirmed')
+  })
+
+  it('LUM-789: 只剩 1 条未确认时用单数 criterion', () => {
+    const out = formatTaskStatus(fixtureWithUnconfirmedCriteria(1))
+    expect(out).toContain('Contract unconfirmed (1 criterion)')
   })
 })

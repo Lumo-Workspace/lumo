@@ -34,6 +34,7 @@ const PAYLOAD: TaskStatusResponse = {
       verdictStale: false,
       checkMismatch: false,
       machinePassed: true,
+      confirmedAt: '2026-06-01T00:00:00Z',
       latestVerdict: {
         round: 2,
         verdict: 'PASS',
@@ -55,6 +56,7 @@ const PAYLOAD: TaskStatusResponse = {
       verdictStale: false,
       checkMismatch: false,
       machinePassed: false,
+      confirmedAt: '2026-06-01T00:00:00Z',
       latestVerdict: {
         round: 2,
         verdict: 'FAIL',
