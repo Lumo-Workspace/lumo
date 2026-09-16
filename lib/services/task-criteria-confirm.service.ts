@@ -1,4 +1,7 @@
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
+import { runInTransaction } from '@/lib/db/transaction'
 
 export interface ConfirmContractOutcome {
   /** 本次真正盖上确认戳的行数；已全部确认时为 0（幂等 no-op）。 */
@@ -14,25 +17,64 @@ export const taskCriteriaConfirmService = {
    * 合同照常可以走 `--status done` 的 exit-4 握手。
    *
    * 幂等：已确认的行不被重写，所以重复调用不会篡改原确认人/时间。
+   *
+   * Task 4b：确认成功（confirmedCount > 0）时在同一事务里追加一条
+   * CONTRACT_CONFIRMED 活动 —— confirmedAt/confirmedByMemberId 两列只存
+   * 最新状态，这条事件流补上「都记录下来」的历史。幂等 no-op 不留痕。
    */
   async confirmContract(
     taskId: string,
-    actorMemberId: string
+    actorMemberId: string,
+    origin: 'web' | 'cli'
   ): Promise<ConfirmContractOutcome> {
-    const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-    if (criteria.length === 0) {
-      throw Object.assign(
-        new Error(
-          'This task has no acceptance criteria — there is no contract to confirm'
-        ),
-        { status: 400 }
+    const callerActor =
+      await memberRepository.findActorByMemberId(actorMemberId)
+    const actorId = callerActor?.id ?? null
+
+    return runInTransaction(async tx => {
+      const criteria = await acceptanceCriterionRepository.listByTask(
+        taskId,
+        tx
       )
-    }
-    const confirmedCount = await acceptanceCriterionRepository.confirmAllActive(
-      taskId,
-      actorMemberId,
-      new Date()
-    )
-    return { confirmedCount }
+      if (criteria.length === 0) {
+        throw Object.assign(
+          new Error(
+            'This task has no acceptance criteria — there is no contract to confirm'
+          ),
+          { status: 400 }
+        )
+      }
+      const unconfirmedIds = criteria
+        .filter(c => c.confirmedAt === null)
+        .map(c => c.id)
+      const reconfirm = criteria.some(c => c.confirmedAt !== null)
+
+      const confirmedCount =
+        await acceptanceCriterionRepository.confirmAllActive(
+          taskId,
+          actorMemberId,
+          new Date(),
+          tx
+        )
+
+      if (confirmedCount > 0) {
+        await activityRepository.create(
+          {
+            taskId,
+            actorId,
+            type: 'CONTRACT_CONFIRMED',
+            payload: {
+              via: origin,
+              confirmedCount,
+              criterionIds: unconfirmedIds,
+              reconfirm,
+            },
+          },
+          tx
+        )
+      }
+
+      return { confirmedCount }
+    })
   },
 }

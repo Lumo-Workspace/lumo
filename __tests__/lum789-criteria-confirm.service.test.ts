@@ -154,6 +154,21 @@ import type { TaskStatus } from '@prisma/client'
 import { taskCriteriaConfirmService } from '@/lib/services/task-criteria-confirm.service'
 import { taskCriteriaService } from '@/lib/services/task-criteria.service'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
+import { activityRepository } from '@/lib/repositories/activity.repository'
+
+const createMock = activityRepository.create as jest.Mock
+
+/** Pull out just the CONTRACT_CONFIRMED calls made to the mocked activityRepository.create. */
+function contractConfirmedCalls(): Array<{
+  taskId: string
+  actorId: string | null
+  type: string
+  payload: Record<string, unknown>
+}> {
+  return createMock.mock.calls
+    .map(([data]) => data)
+    .filter(d => d.type === 'CONTRACT_CONFIRMED')
+}
 
 const taskId = 't-789'
 const emptyTaskId = 't-empty'
@@ -169,7 +184,8 @@ describe('LUM-789 confirmContract', () => {
   it('把全部未删除的 criterion 盖上 confirmedAt + confirmedByMemberId', async () => {
     const result = await taskCriteriaConfirmService.confirmContract(
       taskId,
-      memberId
+      memberId,
+      'cli'
     )
     expect(result.confirmedCount).toBe(3)
     const rows = await acceptanceCriterionRepository.listByTask(taskId)
@@ -180,12 +196,13 @@ describe('LUM-789 confirmContract', () => {
   })
 
   it('已确认的合同重复确认是幂等的,不报错也不改写原时间戳', async () => {
-    await taskCriteriaConfirmService.confirmContract(taskId, memberId)
+    await taskCriteriaConfirmService.confirmContract(taskId, memberId, 'cli')
     const first = (await acceptanceCriterionRepository.listByTask(taskId))[0]!
       .confirmedAt
     const again = await taskCriteriaConfirmService.confirmContract(
       taskId,
-      memberId
+      memberId,
+      'cli'
     )
     expect(again.confirmedCount).toBe(0)
     const second = (await acceptanceCriterionRepository.listByTask(taskId))[0]!
@@ -200,7 +217,7 @@ describe('LUM-789 confirmContract', () => {
 
   it('没有合同时抛 400', async () => {
     await expect(
-      taskCriteriaConfirmService.confirmContract(emptyTaskId, memberId)
+      taskCriteriaConfirmService.confirmContract(emptyTaskId, memberId, 'cli')
     ).rejects.toMatchObject({ status: 400 })
   })
 
@@ -321,6 +338,149 @@ describe('LUM-789 confirmContract', () => {
         expect(r.confirmedAt).toBeNull()
         expect(r.confirmedByMemberId).toBeNull()
       }
+    })
+  })
+
+  // LUM-789 Task 4b: 用户裁定「都记录下来」——confirmedAt/confirmedByMemberId
+  // 只能存最新状态,这里的 CONTRACT_CONFIRMED 事件流补上历史。
+  describe('CONTRACT_CONFIRMED 追加历史', () => {
+    it('首次确认写一条 CONTRACT_CONFIRMED,reconfirm 为 false,criterionIds 等于被盖戳的集合', async () => {
+      const existing = await acceptanceCriterionRepository.listByTask(taskId)
+      const result = await taskCriteriaConfirmService.confirmContract(
+        taskId,
+        memberId,
+        'cli'
+      )
+      const calls = contractConfirmedCalls()
+      expect(calls).toHaveLength(1)
+      expect(calls[0]!.taskId).toBe(taskId)
+      expect(calls[0]!.payload).toMatchObject({
+        via: 'cli',
+        confirmedCount: result.confirmedCount,
+        reconfirm: false,
+      })
+      expect(
+        (calls[0]!.payload.criterionIds as string[]).slice().sort()
+      ).toEqual(existing.map(c => c.id).sort())
+    })
+
+    it('幂等重复确认(confirmedCount === 0)不写事件', async () => {
+      await taskCriteriaConfirmService.confirmContract(taskId, memberId, 'cli')
+      expect(contractConfirmedCalls()).toHaveLength(1)
+
+      const again = await taskCriteriaConfirmService.confirmContract(
+        taskId,
+        memberId,
+        'cli'
+      )
+      expect(again.confirmedCount).toBe(0)
+      // No new CONTRACT_CONFIRMED activity from the no-op second call.
+      expect(contractConfirmedCalls()).toHaveLength(1)
+    })
+
+    it('改过文本后重新确认时 reconfirm 为 true,且原事件仍在(历史是追加的)', async () => {
+      await taskCriteriaConfirmService.confirmContract(taskId, memberId, 'cli')
+      const firstCall = contractConfirmedCalls()[0]!
+      expect(firstCall.payload.reconfirm).toBe(false)
+
+      // Simulate a subsequent text edit resetting one row's confirmation
+      // (the reset mechanics belong to another task; here we only need the
+      // precondition: a contract with a mix of confirmed and unconfirmed rows).
+      const rows = await acceptanceCriterionRepository.listByTask(taskId)
+      const editedId = rows[0]!.id
+      await acceptanceCriterionRepository.update(editedId, {
+        confirmedAt: null,
+        confirmedByMemberId: null,
+      } as never)
+
+      const second = await taskCriteriaConfirmService.confirmContract(
+        taskId,
+        memberId,
+        'cli'
+      )
+      expect(second.confirmedCount).toBe(1)
+
+      const calls = contractConfirmedCalls()
+      // The original first-confirmation event is still there, untouched —
+      // this is the append-only assertion the task exists for.
+      expect(calls).toHaveLength(2)
+      expect(calls[0]).toBe(firstCall)
+      expect(calls[0]!.payload.reconfirm).toBe(false)
+      expect(calls[1]!.payload).toMatchObject({
+        via: 'cli',
+        confirmedCount: 1,
+        reconfirm: true,
+        criterionIds: [editedId],
+      })
+    })
+
+    it('via 正确区分 web / cli', async () => {
+      await taskCriteriaConfirmService.confirmContract(taskId, memberId, 'web')
+      expect(contractConfirmedCalls()[0]!.payload.via).toBe('web')
+    })
+
+    it('HUMAN_EDIT 自动确认写入 via: HUMAN_EDIT 的 CONTRACT_CONFIRMED', async () => {
+      await taskCriteriaService.reviseAsHuman(
+        taskId,
+        [{ statement: '登录页在移动端可用', verifierType: 'HUMAN' }],
+        { actorMemberId: memberId, sourceSessionId: null, origin: 'cli' },
+        'IN_PROGRESS' satisfies TaskStatus
+      )
+      const calls = contractConfirmedCalls()
+      expect(calls).toHaveLength(1)
+      expect(calls[0]!.payload).toMatchObject({ via: 'HUMAN_EDIT' })
+    })
+
+    it('HUMAN_EDIT 一次修订触碰多行只写一条 CONTRACT_CONFIRMED,不是每行一条', async () => {
+      const existing = await acceptanceCriterionRepository.listByTask(taskId)
+      expect(existing).toHaveLength(3)
+      const [a, b] = existing
+
+      // Edit two existing rows + add one new row in the same revision — three
+      // rows get the auto-confirm stamp in one call.
+      await taskCriteriaService.reviseAsHuman(
+        taskId,
+        [
+          ...existing.map(c => ({
+            id: c.id,
+            statement:
+              c.id === a!.id
+                ? '编辑后的说法 A'
+                : c.id === b!.id
+                  ? '编辑后的说法 B'
+                  : c.statement,
+            verifierType: c.verifierType,
+            checkpointer: c.checkpointer,
+          })),
+          { statement: '新增一条', verifierType: 'HUMAN' },
+        ],
+        { actorMemberId: memberId, sourceSessionId: null, origin: 'cli' },
+        'IN_PROGRESS' satisfies TaskStatus
+      )
+
+      const calls = contractConfirmedCalls()
+      expect(calls).toHaveLength(1)
+      expect(calls[0]!.payload.confirmedCount).toBe(3)
+      expect(calls[0]!.payload.criterionIds).toHaveLength(3)
+    })
+
+    it('AGENT_DRAFT 写入(submitDraft)不产生 CONTRACT_CONFIRMED', async () => {
+      const existing = await acceptanceCriterionRepository.listByTask(taskId)
+      await taskCriteriaService.submitDraft(
+        taskId,
+        [
+          ...existing.map(c => ({
+            id: c.id,
+            statement: 'agent revised',
+            verifierType: c.verifierType,
+            checkpointer: c.checkpointer,
+          })),
+        ],
+        { actorMemberId: memberId, sourceSessionId: null, origin: 'cli' },
+        'IN_PROGRESS' satisfies TaskStatus,
+        new Date('2026-06-02')
+      )
+      expect(contractConfirmedCalls()).toHaveLength(0)
     })
   })
 })

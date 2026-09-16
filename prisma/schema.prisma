@@ -176,6 +176,9 @@ enum TaskActivityType {
   // the flywheel negative class; not VerificationRuns, which require a criterion).
   SPINOFF_LAUNDERED
   SILENT_FIX_DETECTED
+  // LUM-789: 一次合同确认动作。与 CRITERION_CHANGED 分开,因为确认不是合同漂移——
+  // 后者有 4 个下游消费者把它当漂移信号读。列存最新状态,本事件流存全历史。
+  CONTRACT_CONFIRMED
 }
 
 enum BoundaryCrossingCategory {

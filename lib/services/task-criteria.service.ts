@@ -150,6 +150,13 @@ async function applyContractDiff(
   })
   const runsByCriterion =
     await verificationRunRepository.latestRunsByCriterion(taskId)
+  // LUM-789: a HUMAN_EDIT revision auto-confirms the rows it touches — record
+  // that as one CONTRACT_CONFIRMED activity for the whole revision (not one
+  // per row). `reconfirm` reflects whether the contract already had ANY
+  // previously-confirmed row before this revision.
+  const reconfirm =
+    cfg.source === 'HUMAN_EDIT' && existing.some(c => c.confirmedAt !== null)
+  const autoConfirmedIds: string[] = []
   await runInTransaction(async tx => {
     for (const c of toDelete) {
       if (runsByCriterion.has(c.id)) {
@@ -186,6 +193,7 @@ async function applyContractDiff(
         },
         tx
       )
+      if (cfg.source === 'HUMAN_EDIT') autoConfirmedIds.push(u.id)
       await recordCriterionChanged(tx, {
         taskId,
         actorId: cfg.actorId,
@@ -222,6 +230,7 @@ async function applyContractDiff(
         },
         tx
       )
+      if (cfg.source === 'HUMAN_EDIT') autoConfirmedIds.push(created.id)
       await recordCriterionChanged(tx, {
         taskId,
         actorId: cfg.actorId,
@@ -233,6 +242,26 @@ async function applyContractDiff(
         before: null,
         after: criterionSnapshot(created),
       })
+    }
+
+    // LUM-789: one CONTRACT_CONFIRMED for the whole revision, not per row —
+    // and only when this revision actually stamped something (a revision that
+    // only deletes rows writes no confirmation event).
+    if (cfg.source === 'HUMAN_EDIT' && autoConfirmedIds.length > 0) {
+      await activityRepository.create(
+        {
+          taskId,
+          actorId: cfg.actorId,
+          type: 'CONTRACT_CONFIRMED',
+          payload: {
+            via: 'HUMAN_EDIT',
+            confirmedCount: autoConfirmedIds.length,
+            criterionIds: autoConfirmedIds,
+            reconfirm,
+          },
+        },
+        tx
+      )
     }
   })
 

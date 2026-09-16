@@ -21,9 +21,12 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Task not found' }, { status: 404 })
 
   try {
+    const origin =
+      identity.source === 'clerk' ? ('web' as const) : ('cli' as const)
     const result = await taskCriteriaConfirmService.confirmContract(
       task.id,
-      identity.memberId
+      identity.memberId,
+      origin
     )
     return NextResponse.json(result, { status: 201 })
   } catch (err) {
