@@ -721,15 +721,79 @@ function findGate(args: readonly string[]): string | null {
   return null
 }
 
-/** `sort -o FILE` / `--output=FILE` writes the result to a file. */
+/**
+ * LUM-758 — 选项闸门必须比对工具真正接受的**拼写族**，而不是一个字面量。
+ * 这两个 helper 是 PR 1015 两个 HIGH 的共同病因修复。镜像里实测
+ * (vercel/sandbox/universal: uutils coreutils 0.8.0, git):
+ *
+ *   sort --comp=/tmp/x  -> 执行 /tmp/x     (--compress-program 的前缀缩写)
+ *   sort --o=/tmp/x     -> 写出文件        (--output 的前缀缩写)
+ *   git grep -O/bin/echo -> 执行 /bin/echo (短选项附着取值)
+ *
+ * 前两个走 getopt 风格的**前缀缩写**：任何是被拒名字前缀的写法都被同一个
+ * 解析器接受。第三个走**附着取值**：`-Oxxx` 与 `-O xxx` 等价。按字面量比对
+ * 的闸门，离一个洞永远只差一种拼法。
+ *
+ * 反过来的方向是安全的：`--output-delimiter` 不是 `--output` 的缩写(它更长)，
+ * 所以不会被误拒。
+ */
+function deniedLongPrefix(
+  arg: string,
+  denied: readonly string[]
+): string | null {
+  if (!arg.startsWith('--')) return null
+  const name = arg.slice(2).split('=')[0]!
+  if (name.length === 0) return null
+  return (
+    denied.find(d => d.startsWith('--') && d.slice(2).startsWith(name)) ?? null
+  )
+}
+
+/**
+ * `-O/bin/sh`、`-Ovi`、`-nO/bin/sh` 都是同一个 `-O`：短选项既可以**成簇**，
+ * 值又可以**附着**，所以被拒的那个字母可以出现在簇里的任何位置。
+ *
+ * 这一版是 PR 1023 的扫描在这个文件**自己的修复上**又报出来的：第一版只认
+ * 了「附着」（比对前两个字符），镜像里 `git grep -nO/bin/echo needle` 照样
+ * 执行了 /bin/echo。判据因此改成「簇里出现过这个字母」，大小写敏感——
+ * `git log -0` 的 `0` 不是 `O`。`sortGate` 的 `-o` 一直就是这么判的。
+ *
+ * 误拒的方向是安全的一侧：附着值里恰好含同一个字母（`git grep -eOrder`）
+ * 会被拒，理由里点名了是哪个旗标，改写成分开的两个参数即可。
+ */
+function deniedShortCluster(
+  arg: string,
+  denied: readonly string[]
+): string | null {
+  if (arg.startsWith('--') || !arg.startsWith('-') || arg.length < 2)
+    return null
+  for (const d of denied) {
+    if (d.length !== 2 || !/^-[A-Za-z]$/.test(d)) continue
+    if (new RegExp(`^-[A-Za-z]*${d[1]!}`).test(arg)) return d
+  }
+  return null
+}
+
+/**
+ * `sort -o FILE` / `--output=FILE` 写文件；`--compress-program=PROG` 直接
+ * **执行 PROG**（排序落临时文件时调用它压缩），是这张白名单上最短的一条
+ * 任意执行路径。两者都按前缀缩写比对——见 `deniedLongPrefix`。
+ */
+const SORT_DENIED_LONG = ['--output', '--compress-program'] as const
+const SORT_LONG_REASON: Record<string, string> = {
+  '--output': 'writes a file',
+  '--compress-program': 'runs a program',
+}
+
 function sortGate(args: readonly string[]): string | null {
   for (const arg of args) {
     // `-o FILE`, `-oFILE`, and `-o` folded into a short-flag cluster (`-ro`).
     if (!arg.startsWith('--') && /^-[a-zA-Z]*o/.test(arg)) {
       return "sort flag '-o' writes a file; not allowed"
     }
-    if (arg === '--output' || arg.startsWith('--output=')) {
-      return "sort flag '--output' writes a file; not allowed"
+    const long = deniedLongPrefix(arg, SORT_DENIED_LONG)
+    if (long) {
+      return `sort flag '${long}' ${SORT_LONG_REASON[long]}; not allowed (written as '${arg.split('=')[0]}')`
     }
   }
   return null
@@ -784,11 +848,19 @@ const GIT_DENIED_OPTIONS = new Set([
 ])
 
 function gitGate(args: readonly string[]): string | null {
+  const globals = [...GIT_DENIED_GLOBAL]
+  const options = [...GIT_DENIED_OPTIONS]
   let i = 0
-  // Global options come before the subcommand.
+  // Global options come before the subcommand. git itself refuses an attached
+  // global (`-cfoo=bar` -> "unknown option", verified in the image), so this
+  // loop is not the hole PR 1015 was flagged for — but it costs nothing to
+  // recognise the spelling here too, and it keeps both loops on one rule.
   for (; i < args.length && args[i]!.startsWith('-'); i++) {
-    const name = args[i]!.split('=')[0]!
-    if (GIT_DENIED_GLOBAL.has(name)) {
+    const arg = args[i]!
+    const name =
+      (GIT_DENIED_GLOBAL.has(arg.split('=')[0]!) ? arg.split('=')[0]! : null) ??
+      deniedShortCluster(arg, globals)
+    if (name) {
       return `git option '${name}' runs a program or leaves the checkout; not allowed`
     }
   }
@@ -797,9 +869,17 @@ function gitGate(args: readonly string[]): string | null {
   if (!GIT_HUNT_SUBCOMMANDS.has(sub)) {
     return `git subcommand '${sub}' is not allowed; read-only: ${[...GIT_HUNT_SUBCOMMANDS].join(', ')}`
   }
+  // The real PR 1015 hole: subcommand options go through git's parse-options,
+  // which takes a short option's value ATTACHED and lets shorts CLUSTER, so
+  // `-O` can sit anywhere in the token. `git grep -O/bin/echo needle` and
+  // `git grep -nO/bin/echo needle` both ran /bin/echo in the image while the
+  // gate saw one unknown name and waved it through.
   for (const arg of args.slice(i + 1)) {
-    const name = arg.startsWith('--') ? arg.split('=')[0]! : arg
-    if (GIT_DENIED_OPTIONS.has(name)) {
+    const exact = arg.startsWith('--') ? arg.split('=')[0]! : arg
+    const name =
+      (GIT_DENIED_OPTIONS.has(exact) ? exact : null) ??
+      deniedShortCluster(arg, options)
+    if (name) {
       return `git option '${name}' writes a file or runs a program; not allowed`
     }
   }

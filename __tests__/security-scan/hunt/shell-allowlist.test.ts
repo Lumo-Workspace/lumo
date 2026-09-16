@@ -517,6 +517,51 @@ describe('LUM-782 — the allowlist, the tool description and the VM agree', () 
       }
     })
 
+    // LUM-758 — #1015 的两个 HIGH（AI review 扫自己那次 PR 扫出来的）加上
+    // 一个它没报的同族洞。每一条都在真实镜像 vercel/sandbox/universal 里
+    // 跑过，不是从文档推的：
+    //   sort (uutils coreutils 0.8.0) 接受 getopt 风格的前缀缩写，
+    //     `--comp=/tmp/cp.sh` 真的创建了 /tmp/EXECUTED；`--o=/tmp/p1`
+    //     真的把结果写进了文件。
+    //   git parse-options 接受短选项附着取值，
+    //     `git grep -O/bin/echo needle` 真的执行了 /bin/echo。
+    // 共同病因：闸门按**字面量**比对选项名，而工具接受一个**拼写族**。
+    it('refuses sort --compress-program, which runs a program, in every abbreviation', () => {
+      for (const cmd of [
+        'rg --files lib | sort --compress-program=/tmp/x',
+        'rg --files lib | sort --compress-program /tmp/x',
+        'rg --files lib | sort --compress-progra=/tmp/x',
+        'rg --files lib | sort --comp=/tmp/x',
+        'rg --files lib | sort --c=/tmp/x',
+      ]) {
+        expect(checkHuntCommand(cmd).ok).toBe(false)
+      }
+    })
+
+    it('refuses every prefix abbreviation of sort --output, not just the full spelling', () => {
+      for (const cmd of [
+        'rg --files lib | sort --o=/tmp/out',
+        'rg --files lib | sort --ou=/tmp/out',
+        'rg --files lib | sort --outp=/tmp/out',
+        'rg --files lib | sort --outpu /tmp/out',
+      ]) {
+        expect(checkHuntCommand(cmd).ok).toBe(false)
+      }
+    })
+
+    it('keeps sort flags that are not abbreviations of a denied one', () => {
+      // 方向性：`--output-delimiter` 比 `--output` 长，不是它的缩写，
+      // 所以前缀规则不能把无关的长旗标一起拒掉。
+      for (const cmd of [
+        'rg --files lib | sort -rn | head -5',
+        'rg --files lib | sort --numeric-sort',
+        'rg --files lib | sort --unique --reverse',
+        'rg --files lib | sort --field-separator=: --key=1',
+      ]) {
+        expect(checkHuntCommand(cmd)).toEqual({ ok: true })
+      }
+    })
+
     it('admits an unquoted Next.js dynamic-route path for cat and refuses it for rg', () => {
       expect(
         checkHuntCommand('cat app/api/pull-requests/[number]/scans/route.ts')
@@ -558,6 +603,12 @@ describe('LUM-782 — the allowlist, the tool description and the VM agree', () 
         'git diff HEAD~1 --stat',
         'git --no-pager log -1',
         'git log -0',
+        // 大小写敏感：被拒的是 `-O`（--open-files-in-pager，会起 pager
+        // 进程）。`git ls-files -o` 的小写 `-o` 是 --others，只列未跟踪
+        // 文件，完全只读——簇判据不能把它连坐。
+        'git ls-files -o',
+        'git ls-files -oc lib',
+        'git log -n5 --oneline',
       ]) {
         expect(checkHuntCommand(cmd)).toEqual({ ok: true })
       }
@@ -569,6 +620,15 @@ describe('LUM-782 — the allowlist, the tool description and the VM agree', () 
         'git log --output=/tmp/x',
         'git show --ext-diff HEAD',
         'git grep -O vi foo',
+        // LUM-758: 附着取值与短选项簇——两种写法在镜像里都真的执行了
+        // /bin/echo，而按整串名字比对的闸门两种都放行。第二组是 PR 1023
+        // 的扫描在第一版修复上报出来的：`-O` 可以不在簇的第一位。
+        'git grep -O/bin/echo foo',
+        'git grep -Ovi foo',
+        'git log -Ovi',
+        'git grep -nO/bin/echo foo',
+        'git grep -iO/bin/echo foo',
+        'git grep -inO/bin/echo foo',
         'git push origin main',
         'git checkout -b x',
         'git commit -m x',
