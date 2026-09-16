@@ -36,6 +36,10 @@ describe('LUM-798 symbol names', () => {
       'findWithPermission',
     ])
     expect(nameTokens('generateText')).toEqual(['generateText'])
+    // A symbol id has no spaces, so a space means prose followed: production
+    // submitted `RegExp constructor`, whose last token (`constructor`) is
+    // both the wrong identifier and generic enough to match the wrong line.
+    expect(nameTokens('RegExp constructor')).toEqual(['RegExp'])
     // Taking every token would let a generic prefix match any line at all.
     expect(nameTokens('prisma.$queryRawUnsafe')).not.toContain('prisma')
   })
@@ -74,6 +78,77 @@ describe('LUM-798 sink rules place a library callee', () => {
     // `next-server-action` needs the file's first line, which a symbol id
     // does not carry — so it abstains rather than claiming a match.
     expect(matchEntryRule('lib/actions/save.ts', 'save')).toBeNull()
+  })
+})
+
+/**
+ * The 25 sink names production actually submitted (every `huntAudit.rejected`
+ * row on record as of 2026-09-16, read straight off the column). They are the
+ * task's evidence, so they are pinned here rather than paraphrased: tier (a)
+ * has to place the ones no `<file>#<name>` id could ever exist for, and must
+ * NOT place a name that is simply made up.
+ */
+const PRODUCTION_REJECTED_SINKS = [
+  'cli/src/commands/finding-disposition.ts#insideAgentSession@182',
+  'fetch',
+  'exec',
+  'AcceptanceCriterionRepository.update',
+  'gitGate',
+  'child_process',
+  'pullRequestRepository.findById',
+  'agentLoop.process',
+  'SecurityGraphRulesService#toGraphRuleRows',
+  'documentRepository.findWithPermission',
+  'hasExitPath',
+  'recordUsedTrapMemoryDeletion',
+  'RegExp constructor',
+  'RegExp',
+  'memoryRepository.create',
+  'child-process',
+  'recordUsedTrapMemoryDeletion',
+  'writeFileSync',
+  'writeFileSync',
+  'generateText',
+  'generateText',
+  'generateText',
+  'generateText',
+  'taskService.update',
+  'summarize',
+]
+
+describe('LUM-798 against the 25 candidates production really rejected', () => {
+  it('places every library callee by rule, and places nothing that was made up', () => {
+    const placed = PRODUCTION_REJECTED_SINKS.filter(
+      s => matchSinkRule(s) !== null
+    )
+    // 10 of 25 need no file read at all: a library callee cannot carry an id,
+    // which is the whole of rejection class ①.
+    expect(placed).toEqual([
+      'fetch',
+      'exec',
+      'child_process',
+      'child-process',
+      'writeFileSync',
+      'writeFileSync',
+      'generateText',
+      'generateText',
+      'generateText',
+      'generateText',
+    ])
+    // `gitGate` is the one the task identified as a hallucination — no rule
+    // may place it, and with nothing on its line to sight it stays rejected.
+    expect(matchSinkRule('gitGate')).toBeNull()
+  })
+
+  it('looks for a real identifier on behalf of every remaining candidate', () => {
+    for (const sink of PRODUCTION_REJECTED_SINKS) {
+      if (matchSinkRule(sink) !== null) continue
+      const tokens = nameTokens(symbolNameOf(sink))
+      expect(tokens.length).toBeGreaterThan(0)
+      // Never a bare `constructor`/prose word: what goes to the line has to
+      // be something that could actually be written there.
+      expect(tokens[0]).toMatch(/^[A-Za-z_$][A-Za-z0-9_$.]*$/)
+    }
   })
 })
 

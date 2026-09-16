@@ -63,13 +63,20 @@ export function symbolNameOf(id: string): string {
  * receiver. Only the LAST token, deliberately: taking every token would let a
  * generic prefix (`process`, `db`) match any line at all, and the point of
  * the sighting is that the named line really is where the symbol is used.
+ *
+ * A symbol id never contains a space, so when one does the rest is PROSE and
+ * the identifier is the first word: production submitted `RegExp constructor`
+ * (1 of the 25 rejections), where the last token, `constructor`, is both the
+ * wrong thing to look for and generic enough to match the wrong line.
  */
 export function nameTokens(name: string): string[] {
-  const tokens = name
+  const word = name.trim().split(/\s+/)[0] ?? ''
+  if (word === '') return []
+  const tokens = word
     .split(/[^A-Za-z0-9_$]+/)
     .filter(t => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(t))
   const last = tokens[tokens.length - 1]
-  return last !== undefined && last !== name ? [name, last] : name ? [name] : []
+  return last !== undefined && last !== word ? [word, last] : [word]
 }
 
 function identifierMatcher(token: string): RegExp {
