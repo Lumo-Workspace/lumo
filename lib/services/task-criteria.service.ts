@@ -91,6 +91,10 @@ interface DiffApplyConfig {
   round: number
   causeTag?: CriteriaCauseTag | undefined
   actorId: string | null
+  /** LUM-789: WorkspaceMember id of the human caller — stamped as
+   *  confirmedByMemberId on rows touched under a HUMAN_EDIT `source` (a human
+   *  revision auto-confirms; the agent path never sets this). */
+  actorMemberId: string
 }
 
 /**
@@ -168,7 +172,18 @@ async function applyContractDiff(
     for (const u of toUpdate) {
       await acceptanceCriterionRepository.update(
         u.id,
-        { ...u.desired, source: cfg.source },
+        {
+          ...u.desired,
+          source: cfg.source,
+          // LUM-789: a human hand-editing the contract auto-confirms it —
+          // no separate confirmation step to require of them afterward.
+          ...(cfg.source === 'HUMAN_EDIT'
+            ? {
+                confirmedAt: new Date(),
+                confirmedByMemberId: cfg.actorMemberId,
+              }
+            : {}),
+        },
         tx
       )
       await recordCriterionChanged(tx, {
@@ -196,6 +211,14 @@ async function applyContractDiff(
           referentKind: deriveReferentKind(c),
           source: createSource,
           addedAtRound: cfg.round,
+          // LUM-789: a human hand-editing the contract auto-confirms it —
+          // no separate confirmation step to require of them afterward.
+          ...(cfg.source === 'HUMAN_EDIT'
+            ? {
+                confirmedAt: new Date(),
+                confirmedByMemberId: cfg.actorMemberId,
+              }
+            : {}),
         },
         tx
       )
@@ -432,6 +455,7 @@ export const taskCriteriaService = {
           source: 'AGENT_DRAFT',
           round,
           actorId,
+          actorMemberId: attribution.actorMemberId,
         })
       } else {
         // First TODO (never started): free full-group replace. A never-started
@@ -569,6 +593,7 @@ export const taskCriteriaService = {
       round: currentRound,
       causeTag,
       actorId,
+      actorMemberId: attribution.actorMemberId,
     })
 
     if (
