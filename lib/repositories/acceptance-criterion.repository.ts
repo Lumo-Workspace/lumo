@@ -54,6 +54,8 @@ const criterionSelect = {
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
+  confirmedAt: true,
+  confirmedByMemberId: true,
 } satisfies Prisma.AcceptanceCriterionSelect
 
 /**

@@ -3496,6 +3496,13 @@ model AcceptanceCriterion {
   // survives (the run FK is onDelete: Cascade). null = active.
   deletedAt        DateTime?
 
+  // LUM-789: 人对合同的一次性确认。null = 未确认（自然默认态,不是需要声明的
+  // 例外——agent 起草即写 null,不存在「跳过确认」的 flag）。确认永不拦 DONE:
+  // 它只在 task status / web 任务详情各出现一行提示,追认是可选的。
+  // HUMAN_EDIT 来源的 criterion 由服务层在写入时直接置为已确认(人亲手写的)。
+  confirmedAt         DateTime?
+  confirmedByMemberId String?
+
   task             Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
   verificationRuns VerificationRun[]
 
