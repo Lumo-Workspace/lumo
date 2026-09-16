@@ -71,6 +71,10 @@ describe('LUM-739 graph mechanical verify', () => {
     expect(rejected[0]!.reason).toMatch(/^schema:call_chain:/)
   })
 
+  // LUM-798 renamed this reason: `symbol-not-in-subgraph` described the
+  // CHECK, not the defect, and in production it was the answer to every
+  // candidate ever submitted. `x#y@1` is still rejected — it names nothing in
+  // the repository — but now it says so.
   it('rejects unknown symbols, non-entry entries, bad lines, missing edges, broken chains and duplicates', () => {
     const unknownSink = {
       ...good(),
@@ -104,7 +108,7 @@ describe('LUM-739 graph mechanical verify', () => {
     ])
     expect(accepted).toHaveLength(1)
     expect(rejected.map(r => r.reason)).toEqual([
-      'symbol-not-in-subgraph:x#y@1',
+      'symbol-not-found-in-repo:x#y@1',
       `entry-not-entry:${ROUTE}#plain`,
       `line-out-of-range:${SERVICE}:99`,
       `edge-not-in-subgraph:${ROUTE}#PATCH->${SINK}`,

@@ -19,6 +19,7 @@ const candidate = {
   claim: 'workspace id from the path is not checked against membership',
   reachability: 'EXTERNAL' as const,
   fingerprint: 'a'.repeat(16),
+  resolvedBy: 'subgraph' as const,
 }
 
 describe('LUM-739 falsifier client', () => {

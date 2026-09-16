@@ -147,6 +147,7 @@ const HUNT: NonNullable<PrScanEntry['hunt']> = {
   candidates: 2,
   falsifierRejects: 1,
   mechanicallyRejected: 1,
+  resolution: { subgraph: 1, sinkRule: 0, sandbox: 0, rejected: 1 },
   error: null,
   tasks: [
     {
@@ -324,7 +325,7 @@ describe('formatPrScan', () => {
     })
     const lines = out.split('\n')
     const at = lines.indexOf(
-      '  Hunt: planned by model — two sinks lit · diff 14 source files · 9 sites · task cap 4 · oversized (a corner of the diff was covered) · candidates 2 · mechanically rejected 1 · falsifier rejects 1'
+      '  Hunt: planned by model — two sinks lit · diff 14 source files · 9 sites · task cap 4 · oversized (a corner of the diff was covered) · candidates 2 · mechanically rejected 1 · resolved by subgraph 1 · sink rule 0 · sandbox 0 · rejected 1 · falsifier rejects 1'
     )
     expect(at).toBeGreaterThan(0)
     expect(lines.slice(at + 1, at + 9)).toEqual([
@@ -337,6 +338,15 @@ describe('formatPrScan', () => {
       '        stop: steps · spent 19000/30000 · reserve 0 · last step ? · 4 steps',
       '',
     ])
+  })
+
+  it('LUM-798 a scan written before the gate counted resolutions prints as it always did', () => {
+    const out = formatPrScan(
+      payload({ scans: [scan({ hunt: { ...HUNT, resolution: null } })] }),
+      { full: true }
+    )
+    expect(out).toContain('mechanically rejected 1 · falsifier rejects 1')
+    expect(out).not.toContain('resolved by')
   })
 
   it('says when a scan has no findings, when tokens were not metered, and lists every head under --all', () => {

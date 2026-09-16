@@ -117,6 +117,17 @@ export interface HuntReadoutView {
   candidates: number | null
   falsifierRejects: number | null
   mechanicallyRejected: number | null
+  /**
+   * LUM-798 — how the mechanical gate placed each candidate's sink. Absent on
+   * scans written before the gate counted it; the four numbers partition
+   * `candidates`, so `rejected / candidates` is the gate's rejection rate.
+   */
+  resolution: {
+    subgraph: number
+    sinkRule: number
+    sandbox: number
+    rejected: number
+  } | null
   /** The layer's own failure reason (P9: lives in the audit, not the shared `error` column). */
   error: string | null
   /** The raw per-task rows (commands, trace, stop, wrap-up, sites, model), free text redacted. */
@@ -365,6 +376,23 @@ function readHunt(
         })()
       : null
   const rejected = Array.isArray(audit?.rejected) ? audit.rejected.length : null
+  const resolutionRaw = audit?.resolution
+  const resolution =
+    resolutionRaw && typeof resolutionRaw === 'object'
+      ? (() => {
+          const r = resolutionRaw as Record<string, unknown>
+          const subgraph = num(r.subgraph)
+          const sinkRule = num(r.sinkRule)
+          const sandbox = num(r.sandbox)
+          const rejectedCount = num(r.rejected)
+          return subgraph === null ||
+            sinkRule === null ||
+            sandbox === null ||
+            rejectedCount === null
+            ? null
+            : { subgraph, sinkRule, sandbox, rejected: rejectedCount }
+        })()
+      : null
   return {
     coverage: parseHuntCoverage(raw),
     plannedBy: str(audit?.plannedBy),
@@ -373,6 +401,7 @@ function readHunt(
     candidates: num(audit?.candidates),
     falsifierRejects: num(audit?.falsifierRejects),
     mechanicallyRejected: rejected,
+    resolution,
     error: cleanText(audit?.error, DETAIL_MAX, tally) ?? null,
     tasks: readHuntTasks(raw, tally),
   }

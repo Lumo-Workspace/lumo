@@ -9,6 +9,8 @@
 import type { Subgraph } from '@/lib/security-scan/graph/types'
 import type {
   RejectedCandidate,
+  RepoEvidence,
+  ResolutionTally,
   VerifiedCandidate,
   MechanicalVerifyResult,
 } from '@/lib/security-scan/hunt/mechanical-verify'
@@ -632,6 +634,14 @@ export interface HuntTaskAudit {
 export interface HuntAudit {
   candidates: number
   rejected: RejectedCandidate[]
+  /**
+   * LUM-798 — where every submission went: placed by the subgraph, by a sink
+   * rule, by a sandbox sighting of its own file:line, or rejected. The four
+   * partition `candidates`, so the gate's rejection RATE is readable straight
+   * off the audit — which is the number this change has to move (it was
+   * 23/23 across all of production). Absent on rows written before it.
+   */
+  resolution?: ResolutionTally
   falsifierRejects: number
   falsifierRejected: Array<{ category: string; sink: string; reason: string }>
   tasks: HuntTaskAudit[]
@@ -1007,6 +1017,17 @@ export interface VerifySubgraphInput {
   candidates: unknown[]
 }
 
+/**
+ * LUM-798 — the read returns the graph AND what it could confirm about the
+ * candidates' own `file:line` claims. Both come out of the same pass over the
+ * checkout, so the second answer is free; splitting them into two steps would
+ * mean a second sandbox attach for bytes already read.
+ */
+export interface VerifySubgraphOutput {
+  subgraph: Subgraph
+  evidence: RepoEvidence
+}
+
 export interface HuntBatchInput {
   job: HuntJob
   /**
@@ -1085,6 +1106,11 @@ export interface HuntBatchOutput {
 export interface MechanicalVerifyInput {
   subgraph: Subgraph
   candidates: unknown[]
+  /**
+   * LUM-798 — absent on a run resumed across the deploy that introduced it;
+   * the gate then simply has one fewer tier and says so in `resolution`.
+   */
+  evidence?: RepoEvidence
 }
 export type { MechanicalVerifyResult }
 

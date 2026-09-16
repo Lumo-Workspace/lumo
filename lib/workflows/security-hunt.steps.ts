@@ -6,9 +6,9 @@
  * for facts the run must record (see the service header).
  */
 import { securityHuntService } from '@/lib/services/security-hunt.service'
-import type { Subgraph } from '@/lib/security-scan/graph/types'
 import type {
   VerifySubgraphInput,
+  VerifySubgraphOutput,
   HuntBatchInput,
   HuntBatchOutput,
   MechanicalVerifyInput,
@@ -28,7 +28,7 @@ import type {
  */
 export async function buildVerifySubgraphStep(
   input: VerifySubgraphInput
-): Promise<Subgraph> {
+): Promise<VerifySubgraphOutput> {
   'use step'
   return securityHuntService.buildVerifySubgraph(input)
 }

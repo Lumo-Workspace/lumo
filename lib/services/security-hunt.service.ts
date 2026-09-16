@@ -31,9 +31,11 @@ import {
 } from '@/lib/security-scan/graph/build-subgraph'
 import { isGraphSourcePath } from '@/lib/security-scan/graph/imports'
 import {
-  SUBGRAPH_MAX_FILES,
-  type Subgraph,
-} from '@/lib/security-scan/graph/types'
+  candidateSymbolRefs,
+  sightingsInSource,
+  type SymbolRef,
+} from '@/lib/security-scan/hunt/repo-symbols'
+import { SUBGRAPH_MAX_FILES } from '@/lib/security-scan/graph/types'
 import { numberLines } from '@/lib/security-scan/hunt/snippet'
 import {
   parseHuntCoverage,
@@ -84,6 +86,7 @@ import {
   type HuntTask,
   type HuntAudit,
   type VerifySubgraphInput,
+  type VerifySubgraphOutput,
   type HuntBatchInput,
   type HuntBatchOutput,
   type HuntCompressStats,
@@ -332,17 +335,35 @@ function collectVerifyPaths(candidates: unknown[]): string[] {
   return [...paths].sort().slice(0, SUBGRAPH_MAX_FILES)
 }
 
-/** The graph itself: those files, read out of the checkout. */
-async function collectVerifySubgraph(
+/**
+ * The graph itself: those files, read out of the checkout — and, LUM-798, the
+ * two facts the same bytes can settle for free while they are open. A file
+ * that will not open is recorded as missing (the candidate named a path the
+ * repository does not have); a file that opens is asked whether the lines the
+ * candidates pointed at really carry the identifiers they claimed.
+ */
+async function collectVerifyGraph(
   handle: HuntSandbox,
-  paths: string[]
-): Promise<Subgraph> {
+  paths: string[],
+  candidates: unknown[]
+): Promise<VerifySubgraphOutput> {
+  const refs: SymbolRef[] = candidates.flatMap(candidateSymbolRefs)
   const inputs: SourceFileInput[] = []
+  const sightings: string[] = []
+  const missingFiles: string[] = []
   for (const path of paths) {
     const source = await readHuntFile(handle, path)
-    if (source !== null) inputs.push({ path, source, touched: true })
+    if (source === null) {
+      missingFiles.push(path)
+      continue
+    }
+    inputs.push({ path, source, touched: true })
+    sightings.push(...sightingsInSource(refs, path, source))
   }
-  return buildSubgraph(inputs)
+  return {
+    subgraph: buildSubgraph(inputs),
+    evidence: { sightings, missingFiles },
+  }
 }
 
 export const securityHuntService = {
@@ -357,7 +378,9 @@ export const securityHuntService = {
    * outcome before LUM-762. Files come from the sandbox checkout, which is
    * right there, so this costs no GitHub calls at all.
    */
-  async buildVerifySubgraph(input: VerifySubgraphInput): Promise<Subgraph> {
+  async buildVerifySubgraph(
+    input: VerifySubgraphInput
+  ): Promise<VerifySubgraphOutput> {
     // Which files to read is a PURE question, so ask it first. `candidates`
     // is unvalidated model output here: every one of them may name a
     // non-TS path, a path out of the checkout, or nothing at all, and then
@@ -365,7 +388,12 @@ export const securityHuntService = {
     // zero files is pure cost — the same guard the workflow already applies
     // one level up for `raw.length === 0`.
     const paths = collectVerifyPaths(input.candidates)
-    if (paths.length === 0) return { symbols: [], edges: [], files: [] }
+    if (paths.length === 0) {
+      return {
+        subgraph: { symbols: [], edges: [], files: [] },
+        evidence: { sightings: [], missingFiles: [] },
+      }
+    }
     // A step's input must be serialisable, so a live `HuntSandbox` (it
     // carries methods) cannot cross the boundary: this acquires its own
     // handle down the same attach-or-create path `huntBatch` uses. By now the
@@ -378,7 +406,7 @@ export const securityHuntService = {
       managedScanStarted: input.job.managedScanStarted,
     })
     try {
-      return await collectVerifySubgraph(handle, paths)
+      return await collectVerifyGraph(handle, paths, input.candidates)
     } finally {
       // Stops the VM only if this call created it — see `stopHuntSandbox`.
       await stopHuntSandbox(handle)
@@ -879,7 +907,7 @@ export const securityHuntService = {
   },
 
   mechanicalVerify(input: MechanicalVerifyInput): MechanicalVerifyResult {
-    return mechanicalVerify(input.subgraph, input.candidates)
+    return mechanicalVerify(input.subgraph, input.candidates, input.evidence)
   },
 
   /**

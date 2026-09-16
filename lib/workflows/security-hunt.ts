@@ -60,6 +60,7 @@ import {
   type HuntBatchOutput,
   type HuntFindingInput,
   type HuntResult,
+  type VerifySubgraphOutput,
 } from '@/lib/services/security-hunt.config'
 import {
   allocateTaskBudgets,
@@ -80,6 +81,26 @@ import { syncPrReviewBestEffort } from './security-scan-helpers'
 
 function reasonOf(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 500)
+}
+
+const EMPTY_VERIFY_GRAPH: VerifySubgraphOutput = {
+  subgraph: { symbols: [], edges: [], files: [] },
+  evidence: { sightings: [], missingFiles: [] },
+}
+
+/**
+ * LUM-798 — the verification read used to return a bare `Subgraph`. A run
+ * that suspended before this deploy resumes with the OLD step result replayed
+ * out of the workflow's memo, so accept both shapes: the old one simply has
+ * no sighting evidence, and the gate loses one of its three tiers rather than
+ * throwing halfway through a scan that already paid for its hunt.
+ */
+function normalizeVerifyGraph(
+  built: VerifySubgraphOutput | Subgraph
+): VerifySubgraphOutput {
+  return 'subgraph' in built
+    ? built
+    : { subgraph: built, evidence: { sightings: [], missingFiles: [] } }
 }
 
 /**
@@ -521,10 +542,13 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
      * read zero files would be pure cost — the empty graph is the right answer
      * and the gate agrees with it.
      */
-    const subgraph: Subgraph =
+    const built =
       raw.length === 0
-        ? { symbols: [], edges: [], files: [] }
-        : await buildVerifySubgraphStep({ job, candidates: raw })
+        ? EMPTY_VERIFY_GRAPH
+        : normalizeVerifyGraph(
+            await buildVerifySubgraphStep({ job, candidates: raw })
+          )
+    const subgraph: Subgraph = built.subgraph
     audit.subgraph = {
       files: subgraph.files.length,
       symbols: subgraph.symbols.length,
@@ -542,9 +566,14 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     const verified = await mechanicalVerifyStep({
       subgraph,
       candidates: raw,
+      evidence: built.evidence,
     })
     audit.candidates = raw.length
     audit.rejected = verified.rejected
+    // LUM-798 — the rejection RATE, not just the rejected rows. The rows were
+    // always here and all 23 of them said the same word; what nobody could
+    // read off the audit was how many candidates the gate placed and how.
+    audit.resolution = verified.resolution
 
     const findings: HuntFindingInput[] = []
     const toFalsify = verified.accepted.slice(0, HUNT_MAX_FALSIFIED)
