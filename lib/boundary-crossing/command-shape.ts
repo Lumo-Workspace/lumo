@@ -270,10 +270,26 @@ const GH_READ_ONLY = new Set([
   'api',
 ])
 
+/** `VAR=$(cmd …` — an assignment whose value is a command substitution. The
+ *  verb is the substituted COMMAND, not the assignment: LUM-795's prod case is
+ *  `DESC=$(cat <<'EOF' … EOF)`, a `lumo task create -d` description built from
+ *  a heredoc. Without this the whole token reads as a plain env assignment, the
+ *  segment's verb reads as the heredoc operator, and the authored text reaches
+ *  the matchers — the carrier gap LUM-772 closed for `lumo` / `gh`. */
+const ASSIGN_SUBST = /^[A-Za-z_][A-Za-z0-9_]*=\$?\(+/
+
 /** The verb token of a segment: skip env assignments / sudo / npx etc., strip a
  *  path prefix and wrapping quotes. Returns the remaining tokens too. */
 function verbOf(segment: string): { verb: string; rest: string[] } {
   const toks = segment.trim().split(/\s+/).filter(Boolean)
+  // `VAR=$(cmd …`: look INSIDE the substitution. Bounded — each unwrap drops the
+  // matched prefix, so the token strictly shrinks.
+  const subst = toks[0]?.match(ASSIGN_SUBST)
+  if (subst) {
+    const head = toks[0]!.slice(subst[0].length)
+    const inner = head.length > 0 ? [head, ...toks.slice(1)] : toks.slice(1)
+    if (inner.length > 0) return verbOf(inner.join(' '))
+  }
   let i = 0
   while (i < toks.length - 1 && PREFIX_TOKEN.test(toks[i]!)) i++
   const raw = toks[i] ?? ''
