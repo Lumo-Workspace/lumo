@@ -975,3 +975,121 @@ describe('formatTaskStatus — Finding 2: closing-line honesty', () => {
     )
   })
 })
+
+// ── Relocation six (whole-branch review, third pass): `pushVerificationRollup`
+// (--full) built its `met` count from the same isUnmetForDisplay-filtered
+// `unmetCriteriaCount` Findings 1/2 already fixed everywhere else, but kept
+// the old "N of M criteria met by their latest verdict" wording — asserting
+// a verdict for a tacit-pass HUMAN row that has none. Three statements about
+// the same criterion in one --full report; the rollup contradicted the `~`
+// row right below it and the closing line at the bottom. ───────────────────
+describe('formatTaskStatus — Relocation six: Verification rollup no longer asserts a verdict', () => {
+  const machineTemplate = PAYLOAD.criteria[0]! // MACHINE-shaped, overridden below
+  const humanTemplate = PAYLOAD.criteria[2]! // HUMAN-shaped, overridden below
+
+  it('mixed contract, one passing MACHINE + one un-adjudicated HUMAN: rollup says "2 of 2 criteria met" with no verdict claim, and does not contradict the ~ row or the closing line', () => {
+    const out = formatTaskStatus(
+      {
+        ...PAYLOAD,
+        currentRound: 1,
+        machineVerification: {
+          total: 1,
+          machineVerified: 1,
+          humanOverridden: 0,
+        },
+        criteria: [
+          {
+            ...machineTemplate,
+            id: 'm-passed',
+            checkpointer: 'npx jest x.test.ts',
+            machinePassed: true,
+            latestVerdict: {
+              round: 1,
+              verdict: 'PASS',
+              evidencePointer: 'cmd:npx jest x.test.ts#exit=0',
+              rejectionReason: null,
+              rejectionReasonEnum: null,
+              recordedAt: '2026-06-02T10:00:00.000Z',
+            },
+          },
+          {
+            ...humanTemplate,
+            id: 'h-tacit',
+            checkpointer: null,
+            machinePassed: false,
+            latestVerdict: null,
+          },
+        ],
+        lastRoundFailures: [],
+        nextActions: [], // server already excludes the tacit HUMAN row
+      },
+      { full: true }
+    )
+    // The fix: no verdict claim, count only.
+    expect(out).toContain('2 of 2 criteria met')
+    expect(out).not.toContain('criteria met by their latest verdict')
+    // The three statements about h-tacit must now agree, not contradict:
+    // rollup says "2 of 2 met"...
+    expect(out).toContain('2 of 2 criteria met')
+    // ...the row reads as tacit, not a real verdict...
+    expect(out).toMatch(/~ h-tacit/)
+    expect(out).toContain(
+      '(tacit pass — no objection raised, not individually judged)'
+    )
+    // ...and the closing line says the same tacit truth, not "awaiting".
+    expect(out).toContain(
+      'All criteria met — no objection raised on the HUMAN criteria; not individually judged.'
+    )
+    expect(out).not.toContain('awaiting human adjudication')
+  })
+
+  // Falsifies the other direction: an un-adjudicated MACHINE criterion must
+  // still NOT count as met in the rollup — the tacit-pass exemption is
+  // HUMAN-only, so "1 of 2" (not "2 of 2") is the honest count here.
+  it('falsifies the other direction: an un-adjudicated MACHINE criterion is still not met in the rollup', () => {
+    const out = formatTaskStatus(
+      {
+        ...PAYLOAD,
+        currentRound: 1,
+        machineVerification: {
+          total: 1,
+          machineVerified: 0,
+          humanOverridden: 0,
+        },
+        criteria: [
+          {
+            ...machineTemplate,
+            id: 'm-open',
+            checkpointer: 'npx jest y.test.ts',
+            machinePassed: false,
+            latestVerdict: null,
+          },
+          {
+            ...humanTemplate,
+            id: 'h-tacit',
+            checkpointer: null,
+            machinePassed: false,
+            latestVerdict: null,
+          },
+        ],
+        lastRoundFailures: [],
+        nextActions: [
+          {
+            criterionId: 'm-open',
+            statement: machineTemplate.statement,
+            verifierType: 'MACHINE',
+            checkpointer: 'npx jest y.test.ts',
+            judgeSteps: null,
+            source: 'AGENT_DRAFT',
+            addedAtRound: 0,
+            rejectionReason: null,
+          },
+        ],
+      },
+      { full: true }
+    )
+    expect(out).toContain('1 of 2 criteria met')
+    expect(out).not.toContain('2 of 2 criteria met')
+    expect(out).not.toContain('criteria met by their latest verdict')
+  })
+})

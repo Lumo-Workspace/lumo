@@ -199,7 +199,12 @@ describe('lumo task status — security findings (LUM-737)', () => {
       }),
       { full: true }
     )
-    expect(out).toContain('1 of 1 criteria met by their latest verdict')
+    // Relocation six (whole-branch review, third pass): dropped "by their
+    // latest verdict" — the rollup's `met` count is isUnmetForDisplay-based
+    // now (Findings 1/2), so a tacit-pass HUMAN row with no verdict would
+    // count as met here without ever having "a latest verdict" to point at.
+    expect(out).toContain('1 of 1 criteria met')
+    expect(out).not.toContain('criteria met by their latest verdict')
     expect(out).not.toContain('-1 of 1 criteria met')
   })
 })

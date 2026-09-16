@@ -743,10 +743,15 @@ function pushVerificationRollup(
   }
   // LUM-737 (whole-branch review): `unmetCriteriaCount` excludes SECURITY_FINDING
   // next actions — met/unmet counts criteria only, never security findings.
+  //
+  // Relocation six (whole-branch review, third pass): `unmetCriteriaCount` is
+  // now isUnmetForDisplay-filtered (Findings 1/2) — a tacit-pass HUMAN
+  // criterion (no verdict, never adjudicated) counts as met here too. "met by
+  // their latest verdict" asserted a verdict that row doesn't have; dropped
+  // the claim rather than the count, so this line agrees with the `~` row
+  // and the closing line instead of contradicting them.
   const met = data.criteria.length - unmetCriteriaCount
-  lines.push(
-    `  ${met} of ${data.criteria.length} criteria met by their latest verdict`
-  )
+  lines.push(`  ${met} of ${data.criteria.length} criteria met`)
 }
 
 /**
