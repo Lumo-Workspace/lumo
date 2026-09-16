@@ -26,7 +26,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     const result = await taskCriteriaConfirmService.confirmContract(
       task.id,
       identity.memberId,
-      origin
+      origin,
+      task.status
     )
     return NextResponse.json(result, { status: 201 })
   } catch (err) {

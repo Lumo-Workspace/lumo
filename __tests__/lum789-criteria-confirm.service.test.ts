@@ -173,6 +173,11 @@ function contractConfirmedCalls(): Array<{
 const taskId = 't-789'
 const emptyTaskId = 't-empty'
 const memberId = 'member-1'
+// Finding 5: confirmContract now takes the task's status so it can 409 on
+// DONE (see the dedicated describe block below) — every other test here
+// exercises a task that's still open, so thread the same non-DONE status
+// through everywhere.
+const ACTIVE: TaskStatus = 'IN_PROGRESS'
 
 beforeEach(() => {
   reset()
@@ -185,7 +190,8 @@ describe('LUM-789 confirmContract', () => {
     const result = await taskCriteriaConfirmService.confirmContract(
       taskId,
       memberId,
-      'cli'
+      'cli',
+      ACTIVE
     )
     expect(result.confirmedCount).toBe(3)
     const rows = await acceptanceCriterionRepository.listByTask(taskId)
@@ -196,13 +202,19 @@ describe('LUM-789 confirmContract', () => {
   })
 
   it('已确认的合同重复确认是幂等的,不报错也不改写原时间戳', async () => {
-    await taskCriteriaConfirmService.confirmContract(taskId, memberId, 'cli')
+    await taskCriteriaConfirmService.confirmContract(
+      taskId,
+      memberId,
+      'cli',
+      ACTIVE
+    )
     const first = (await acceptanceCriterionRepository.listByTask(taskId))[0]!
       .confirmedAt
     const again = await taskCriteriaConfirmService.confirmContract(
       taskId,
       memberId,
-      'cli'
+      'cli',
+      ACTIVE
     )
     expect(again.confirmedCount).toBe(0)
     const second = (await acceptanceCriterionRepository.listByTask(taskId))[0]!
@@ -217,7 +229,12 @@ describe('LUM-789 confirmContract', () => {
 
   it('没有合同时抛 400', async () => {
     await expect(
-      taskCriteriaConfirmService.confirmContract(emptyTaskId, memberId, 'cli')
+      taskCriteriaConfirmService.confirmContract(
+        emptyTaskId,
+        memberId,
+        'cli',
+        ACTIVE
+      )
     ).rejects.toMatchObject({ status: 400 })
   })
 
@@ -265,6 +282,37 @@ describe('LUM-789 confirmContract', () => {
     expect(updated.statement).toBe('编辑后的说法')
     expect(updated.confirmedAt).not.toBeNull()
     expect(updated.confirmedByMemberId).toBe(memberId)
+
+    // Finding 7 (whole-branch review): this is the partial-edit case the
+    // finding names — `toUpdate` in applyContractDiff skips rows whose
+    // content is unchanged, so the other two existing rows (resubmitted
+    // verbatim, never confirmed before via `seed()`) must NOT get silently
+    // stamped just because they rode along in the same submission. The old
+    // code comment here claimed HUMAN_EDIT leaves "no separate confirmation
+    // step to require... afterward" — false for exactly these two rows,
+    // which still need `criteria confirm` (or their own edit) to ever get a
+    // stamp. Falsifies the other direction too: if `applyContractDiff` ever
+    // started confirming the whole contract on any touch (the overclaim the
+    // old comment made), this would fail.
+    const untouched = rows.filter(r => r.id !== target.id)
+    expect(untouched).toHaveLength(2)
+    for (const r of untouched) {
+      expect(r.confirmedAt).toBeNull()
+      expect(r.confirmedByMemberId).toBeNull()
+    }
+
+    // The CONTRACT_CONFIRMED event this partial edit wrote must count only
+    // the one row it actually touched — this is the same `count` the
+    // CompactActivityItem label now renders as "confirmed 1 edited
+    // acceptance criterion", so a regression here would desync the audit
+    // event from what the timeline claims.
+    const calls = contractConfirmedCalls()
+    expect(calls).toHaveLength(1)
+    expect(calls[0]!.payload).toMatchObject({
+      via: 'HUMAN_EDIT',
+      confirmedCount: 1,
+      criterionIds: [target.id],
+    })
   })
 
   // Finding 1: without the `cfg.source === 'HUMAN_EDIT'` gate in
@@ -349,7 +397,8 @@ describe('LUM-789 confirmContract', () => {
       const result = await taskCriteriaConfirmService.confirmContract(
         taskId,
         memberId,
-        'cli'
+        'cli',
+        ACTIVE
       )
       const calls = contractConfirmedCalls()
       expect(calls).toHaveLength(1)
@@ -365,13 +414,19 @@ describe('LUM-789 confirmContract', () => {
     })
 
     it('幂等重复确认(confirmedCount === 0)不写事件', async () => {
-      await taskCriteriaConfirmService.confirmContract(taskId, memberId, 'cli')
+      await taskCriteriaConfirmService.confirmContract(
+        taskId,
+        memberId,
+        'cli',
+        ACTIVE
+      )
       expect(contractConfirmedCalls()).toHaveLength(1)
 
       const again = await taskCriteriaConfirmService.confirmContract(
         taskId,
         memberId,
-        'cli'
+        'cli',
+        ACTIVE
       )
       expect(again.confirmedCount).toBe(0)
       // No new CONTRACT_CONFIRMED activity from the no-op second call.
@@ -395,7 +450,8 @@ describe('LUM-789 confirmContract', () => {
       const first = await taskCriteriaConfirmService.confirmContract(
         taskId,
         memberId,
-        'cli'
+        'cli',
+        ACTIVE
       )
       expect(first.confirmedCount).toBe(3)
 
@@ -436,7 +492,8 @@ describe('LUM-789 confirmContract', () => {
       const second = await taskCriteriaConfirmService.confirmContract(
         taskId,
         memberId,
-        'cli'
+        'cli',
+        ACTIVE
       )
       // Only the newly added row gets stamped — this is what falsifies an
       // "overwrite" implementation: if `confirmAllActive` re-stamped every
@@ -467,7 +524,12 @@ describe('LUM-789 confirmContract', () => {
     })
 
     it('via 正确区分 web / cli', async () => {
-      await taskCriteriaConfirmService.confirmContract(taskId, memberId, 'web')
+      await taskCriteriaConfirmService.confirmContract(
+        taskId,
+        memberId,
+        'web',
+        ACTIVE
+      )
       expect(contractConfirmedCalls()[0]!.payload.via).toBe('web')
     })
 
@@ -533,6 +595,48 @@ describe('LUM-789 confirmContract', () => {
         new Date('2026-06-02')
       )
       expect(contractConfirmedCalls()).toHaveLength(0)
+    })
+  })
+
+  // Finding 5 (whole-branch review): confirming a DONE task's contract would
+  // record a human "agreeing" to it after delivery — the exact inversion
+  // LUM-789 exists to prevent (the touchpoint is supposed to be at draft
+  // time, not after the work shipped). `criteria set --human` already 409s
+  // on DONE (task-criteria.service.ts); confirmContract was the one
+  // criteria-table mutation that skipped that terminal lock.
+  describe('Finding 5: confirmContract 拒绝 DONE 任务', () => {
+    it('DONE 任务抛 409,且不写入任何确认戳或 CONTRACT_CONFIRMED', async () => {
+      await expect(
+        taskCriteriaConfirmService.confirmContract(
+          taskId,
+          memberId,
+          'cli',
+          'DONE' satisfies TaskStatus
+        )
+      ).rejects.toMatchObject({ status: 409 })
+
+      // Falsify the "409 but silently half-writes" failure mode too: the
+      // rows must stay exactly as unconfirmed as before the rejected call.
+      const rows = await acceptanceCriterionRepository.listByTask(taskId)
+      for (const r of rows) {
+        expect(r.confirmedAt).toBeNull()
+        expect(r.confirmedByMemberId).toBeNull()
+      }
+      expect(contractConfirmedCalls()).toHaveLength(0)
+    })
+
+    // Falsifies the other direction: the guard must key off the actual
+    // status passed in, not reject everything — a non-DONE task (including
+    // IN_REVIEW, the status a task carries while awaiting the human verdict
+    // that precedes DONE) must still confirm normally.
+    it('非 DONE 任务(如 IN_REVIEW)仍可正常确认', async () => {
+      const result = await taskCriteriaConfirmService.confirmContract(
+        taskId,
+        memberId,
+        'cli',
+        'IN_REVIEW' satisfies TaskStatus
+      )
+      expect(result.confirmedCount).toBe(3)
     })
   })
 })

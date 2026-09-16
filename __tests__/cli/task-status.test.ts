@@ -289,7 +289,13 @@ describe('taskStatus — output', () => {
     expect(out).toContain('lumo task criteria set LUM-9')
   })
 
-  it('all-met contract hands off to human adjudication', () => {
+  // Finding 2 (whole-branch review): every criterion here — including the
+  // HUMAN one — carries an explicit PASS verdict, so a human already DID
+  // adjudicate it. "Awaiting human adjudication" was never honest for this
+  // scenario (nothing is awaited — the verdicts already exist); it's doubly
+  // wrong for the un-adjudicated/tacit-pass case covered by the dedicated
+  // "Finding 2: closing-line honesty" suite below.
+  it('all-met, all-explicitly-judged contract says so — not "awaiting" a verdict that already exists', () => {
     const met = PAYLOAD.criteria.map(c => ({
       ...c,
       latestVerdict: {
@@ -307,7 +313,10 @@ describe('taskStatus — output', () => {
       lastRoundFailures: [],
       nextActions: [],
     })
-    expect(out).toContain('awaiting human adjudication')
+    expect(out).not.toContain('awaiting human adjudication')
+    expect(out).toContain(
+      'All criteria met by their latest verdicts — human-judged.'
+    )
   })
 
   it('strips ANSI from server-provided free text in human output', () => {
@@ -795,5 +804,174 @@ describe('formatTaskStatus — LUM-789 unconfirmed-contract hint', () => {
   it('LUM-789: 只剩 1 条未确认时用单数 criterion', () => {
     const out = formatTaskStatus(fixtureWithUnconfirmedCriteria(1))
     expect(out).toContain('Contract unconfirmed (1 criterion)')
+  })
+
+  // Finding 5: the nudge must never sit on a DONE task — the migration is
+  // backfill-free, so every historical contract reads unconfirmed forever,
+  // and following the nudge on a DONE task would confirm a contract after
+  // delivery (see lib/services/task-criteria-confirm.service.ts's own 409).
+  it('LUM-789 Finding 5: DONE 任务即使有未确认项也不打提示行', () => {
+    const out = formatTaskStatus({
+      ...fixtureWithUnconfirmedCriteria(2),
+      task: { ...PAYLOAD.task, status: 'DONE' },
+    })
+    expect(out).not.toContain('Contract unconfirmed')
+  })
+
+  // Falsifies the other direction: a non-DONE task must still see the nudge
+  // (the DONE guard must be status-specific, not a blanket suppression).
+  it('LUM-789 Finding 5: 非 DONE 任务(如 IN_REVIEW)有未确认项时仍打提示行', () => {
+    const out = formatTaskStatus({
+      ...fixtureWithUnconfirmedCriteria(2),
+      task: { ...PAYLOAD.task, status: 'IN_REVIEW' },
+    })
+    expect(out).toContain('Contract unconfirmed (2 criteria)')
+  })
+})
+
+// ── Finding 1 (whole-branch review): the per-criterion glyph + verdict line
+// must derive from the same isUnmetForDisplay the header's unmet count and
+// server's nextActions use — a tacit-pass HUMAN row (un-adjudicated, no
+// verdict) must render as settled, never as an open circle "awaiting"
+// something, while a genuinely unverified MACHINE row must still render as
+// open. Falsifies both directions in one fixture. ─────────────────────────
+describe('formatTaskStatus — Finding 1: tacit-pass glyph honesty', () => {
+  const template = PAYLOAD.criteria[2]! // borrowed shape, every relevant field overridden below
+  function criterion(
+    over: Partial<TaskStatusResponse['criteria'][number]>
+  ): TaskStatusResponse['criteria'][number] {
+    return {
+      ...template,
+      id: 'x',
+      checkpointer: null,
+      machinePassed: false,
+      latestVerdict: null,
+      ...over,
+    }
+  }
+
+  it('a tacit-pass HUMAN row (no verdict) never reads as an open circle awaiting something', () => {
+    const out = formatTaskStatus({
+      ...PAYLOAD,
+      currentRound: 1,
+      criteria: [
+        criterion({
+          id: 'h-tacit',
+          statement: 'tacit human criterion',
+          verifierType: 'HUMAN',
+        }),
+      ],
+      // The server already excludes a tacit-pass HUMAN row from nextActions
+      // (task-verification.service.ts's isUnmetForDisplay) — the fixture
+      // must reflect that, or this test would just be checking the CLI
+      // against itself.
+      nextActions: [],
+    })
+    expect(out).toContain('Criteria (1 total, 0 unmet):')
+    // Not the "still open" circle...
+    expect(out).not.toMatch(/○ h-tacit/)
+    // ...and not a real, judged pass either — it never got a verdict.
+    expect(out).not.toMatch(/✓ h-tacit/)
+    expect(out).toMatch(/~ h-tacit/)
+    expect(out).not.toContain('(no verdict yet)')
+    expect(out).toContain(
+      '(tacit pass — no objection raised, not individually judged)'
+    )
+  })
+
+  it('falsifies the other direction: a MACHINE row with no verdict is still genuinely unmet — open circle, "no verdict yet", counted', () => {
+    const out = formatTaskStatus({
+      ...PAYLOAD,
+      currentRound: 1,
+      criteria: [
+        criterion({
+          id: 'm-open',
+          statement: 'unverified machine criterion',
+          verifierType: 'MACHINE',
+          checkpointer: 'npx jest y.test.ts',
+        }),
+      ],
+      nextActions: [
+        {
+          criterionId: 'm-open',
+          statement: 'unverified machine criterion',
+          verifierType: 'MACHINE',
+          checkpointer: 'npx jest y.test.ts',
+          judgeSteps: null,
+          source: 'AGENT_DRAFT',
+          addedAtRound: 0,
+          rejectionReason: null,
+        },
+      ],
+    })
+    expect(out).toContain('Criteria (1 total, 1 unmet):')
+    expect(out).toMatch(/○ m-open/)
+    expect(out).not.toMatch(/~ m-open/)
+    expect(out).toContain('(no verdict yet)')
+  })
+})
+
+// ── Finding 2 (whole-branch review): the closing "all settled" line must not
+// claim "awaiting human adjudication" once a HUMAN criterion is settled as a
+// tacit pass — mirrors the web's three-way judged/tacit/mixed split
+// (749bdbf2) instead of one unconditional claim. ───────────────────────────
+describe('formatTaskStatus — Finding 2: closing-line honesty', () => {
+  const base = PAYLOAD.criteria[2]!
+  function humanCrit(
+    id: string,
+    latestVerdict: TaskStatusResponse['criteria'][number]['latestVerdict']
+  ): TaskStatusResponse['criteria'][number] {
+    return { ...base, id, checkpointer: null, latestVerdict }
+  }
+  const PASS_V = {
+    round: 1,
+    verdict: 'PASS' as const,
+    evidencePointer: null,
+    rejectionReason: null,
+    rejectionReasonEnum: null,
+    recordedAt: '2026-06-02T10:00:01.000Z',
+  }
+
+  function settled(
+    criteria: TaskStatusResponse['criteria']
+  ): ReturnType<typeof formatTaskStatus> {
+    return formatTaskStatus({
+      ...PAYLOAD,
+      currentRound: 1,
+      criteria,
+      nextActions: [], // everything settled server-side
+      lastRoundFailures: [],
+    })
+  }
+
+  it('no HUMAN criteria at all: plain "met", no adjudication claim either way', () => {
+    const out = settled([{ ...base, id: 'm1', verifierType: 'MACHINE' }])
+    expect(out).not.toContain('awaiting human adjudication')
+    expect(out).toContain('All criteria met by their latest verdicts.')
+  })
+
+  it('none judged (pure tacit): must not claim "awaiting adjudication" — nothing is pending', () => {
+    const out = settled([humanCrit('h1', null), humanCrit('h2', null)])
+    expect(out).not.toContain('awaiting human adjudication')
+    expect(out).toContain(
+      'no objection raised on the HUMAN criteria; not individually judged'
+    )
+  })
+
+  it('all explicitly judged: says human-judged, not "awaiting" — the verdicts already exist', () => {
+    const out = settled([humanCrit('h1', PASS_V), humanCrit('h2', PASS_V)])
+    expect(out).not.toContain('awaiting human adjudication')
+    expect(out).toContain(
+      'All criteria met by their latest verdicts — human-judged.'
+    )
+  })
+
+  it('mixed: neither extreme — states the split honestly', () => {
+    const out = settled([humanCrit('h1', PASS_V), humanCrit('h2', null)])
+    expect(out).not.toContain('awaiting human adjudication')
+    expect(out).not.toContain('human-judged.')
+    expect(out).toContain(
+      '1/2 HUMAN criteria explicitly judged, the rest accepted as drafted'
+    )
   })
 })

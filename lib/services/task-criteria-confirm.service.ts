@@ -1,3 +1,4 @@
+import type { TaskStatus } from '@prisma/client'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
@@ -21,12 +22,29 @@ export const taskCriteriaConfirmService = {
    * Task 4b：确认成功（confirmedCount > 0）时在同一事务里追加一条
    * CONTRACT_CONFIRMED 活动 —— confirmedAt/confirmedByMemberId 两列只存
    * 最新状态，这条事件流补上「都记录下来」的历史。幂等 no-op 不留痕。
+   *
+   * Finding 5 (whole-branch review): DONE is a terminal lock here too, same
+   * as `taskCriteriaService.submitDraft`'s DONE 409 — a contract confirmed
+   * *after* delivery inverts the entire point of moving the touchpoint
+   * earlier (draft-time, not review-time). `taskStatus` is threaded in by the
+   * caller (already resolved via `resolveTaskParam`/the CLI's own status
+   * read), the same pattern `submitDraft` uses, so this service never queries
+   * Prisma for it directly.
    */
   async confirmContract(
     taskId: string,
     actorMemberId: string,
-    origin: 'web' | 'cli'
+    origin: 'web' | 'cli',
+    taskStatus: TaskStatus
   ): Promise<ConfirmContractOutcome> {
+    if (taskStatus === 'DONE') {
+      throw Object.assign(
+        new Error(
+          'Acceptance contract locked — the task is DONE. Reopen it (status → in_progress) to confirm the contract; confirming after delivery would record a human agreeing to it after the fact.'
+        ),
+        { status: 409 }
+      )
+    }
     const callerActor =
       await memberRepository.findActorByMemberId(actorMemberId)
     const actorId = callerActor?.id ?? null

@@ -386,19 +386,26 @@ function formatActivityText(
       // LUM-789: `confirmedCount` means something different depending on
       // `via` (task-criteria-confirm.service.ts vs the HUMAN_EDIT auto-
       // confirm in task-criteria.service.ts) — only newly-stamped rows for
-      // web/cli, but every row a revision touched (including an already-
+      // web/cli, but every row THIS revision touched (including an already-
       // confirmed row re-stamped) for HUMAN_EDIT. Never render it as one
-      // comparable number across `via`: show it for web/cli, omit it for
-      // HUMAN_EDIT, where it is a side effect of the edit, not a standalone
-      // count worth surfacing.
+      // comparable number across `via` — but Finding 7 (whole-branch review):
+      // for HUMAN_EDIT the count is exactly "how many criteria this edit
+      // touched", which is worth surfacing, not omitting. The old label
+      // ("confirmed the acceptance contract") claimed the WHOLE contract was
+      // confirmed, which a partial edit (some rows unchanged, hence skipped —
+      // see task-criteria.service.ts's `toUpdate`) does not deliver.
       const via = p.via === 'cli' || p.via === 'HUMAN_EDIT' ? p.via : 'web'
       const count = typeof p.confirmedCount === 'number' ? p.confirmedCount : 0
       const label =
         via === 'HUMAN_EDIT'
-          ? intl.formatMessage({
-              id: 'activity.contractConfirmedViaEdit',
-              defaultMessage: 'confirmed the acceptance contract (via edit)',
-            })
+          ? intl.formatMessage(
+              {
+                id: 'activity.contractConfirmedViaEdit',
+                defaultMessage:
+                  '{count, plural, one {confirmed # edited acceptance criterion} other {confirmed # edited acceptance criteria}}',
+              },
+              { count }
+            )
           : intl.formatMessage(
               {
                 id: 'activity.contractConfirmed',

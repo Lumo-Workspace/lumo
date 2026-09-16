@@ -185,8 +185,16 @@ async function applyContractDiff(
         {
           ...u.desired,
           source: cfg.source,
-          // LUM-789: a human hand-editing the contract auto-confirms it —
-          // no separate confirmation step to require of them afterward.
+          // LUM-789: a human hand-editing THIS row auto-confirms it — no
+          // separate confirmation step to require for this row afterward.
+          // Finding 7 (whole-branch review): this used to read "auto-
+          // confirms it/the contract", which overclaimed — `toUpdate` above
+          // skips rows whose content didn't change, so a revision that edits
+          // only some criteria leaves the untouched rows exactly as
+          // (un)confirmed as they were; they still need a separate
+          // `criteria confirm` if they were never confirmed. Partial is
+          // intentional (the human only wrote some of it) — only the words
+          // changed here, not the stamping behaviour.
           ...(cfg.source === 'HUMAN_EDIT'
             ? {
                 confirmedAt: new Date(),
@@ -222,8 +230,16 @@ async function applyContractDiff(
           referentKind: deriveReferentKind(c),
           source: createSource,
           addedAtRound: cfg.round,
-          // LUM-789: a human hand-editing the contract auto-confirms it —
-          // no separate confirmation step to require of them afterward.
+          // LUM-789: a human hand-editing THIS row auto-confirms it — no
+          // separate confirmation step to require for this row afterward.
+          // Finding 7 (whole-branch review): this used to read "auto-
+          // confirms it/the contract", which overclaimed — `toUpdate` above
+          // skips rows whose content didn't change, so a revision that edits
+          // only some criteria leaves the untouched rows exactly as
+          // (un)confirmed as they were; they still need a separate
+          // `criteria confirm` if they were never confirmed. Partial is
+          // intentional (the human only wrote some of it) — only the words
+          // changed here, not the stamping behaviour.
           ...(cfg.source === 'HUMAN_EDIT'
             ? {
                 confirmedAt: new Date(),

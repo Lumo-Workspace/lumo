@@ -1,6 +1,7 @@
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { isUnmetForDisplay } from '@/lib/acceptance/unmet-display'
 import {
   computeNextSteps,
   type NextStep,
@@ -33,8 +34,8 @@ export const nextStepsService = {
      */
     criteriaNudgeAlreadyShown: boolean
   }): Promise<NextStep[]> {
-    const [criteriaCount, hasOpenCrossing, latestRuns] = await Promise.all([
-      acceptanceCriterionRepository.countByTask(args.taskId),
+    const [criteria, hasOpenCrossing, latestRuns] = await Promise.all([
+      acceptanceCriterionRepository.listByTask(args.taskId),
       boundaryCrossingRepository.hasOpenForTask(args.taskId),
       verificationRunRepository.latestRunsByCriterion(args.taskId),
     ])
@@ -44,13 +45,25 @@ export const nextStepsService = {
     // past the highest round already judged.
     const verifyRound =
       runs.length === 0 ? 0 : Math.max(...runs.map(r => r.round)) + 1
-    const hasUnmetCriteria =
-      runs.some(r => r.verdict === 'FAIL') || runs.length < criteriaCount
+    // Finding 6 (whole-branch review): this used to be a run-count heuristic
+    // (`runs.some(FAIL) || runs.length < criteriaCount`) that counted ANY
+    // run-less criterion as unmet — HUMAN included. A tacit-pass HUMAN
+    // criterion (never adjudicated, never sent back) would then make a
+    // reopened IN_REVIEW task's injected next-step claim "left criteria
+    // unmet — read them before re-verifying" while `lumo task status` in the
+    // same breath reports 0 unmet: a token-priced dead end with no unmet
+    // criterion to actually go read. Derive it from the same
+    // isUnmetForDisplay the server's nextActions and `lumo task status`
+    // already use, so every surface agrees.
+    const hasUnmetCriteria = criteria.some(c => {
+      const run = latestRuns.get(c.id)
+      return isUnmetForDisplay(c, run ? { verdict: run.verdict } : undefined)
+    })
 
     return computeNextSteps({
       taskIdentifier: args.taskIdentifier,
       status: args.status,
-      hasCriteria: criteriaCount > 0,
+      hasCriteria: criteria.length > 0,
       sessionBound: args.sessionBound,
       openCrossings: hasOpenCrossing ? 1 : 0,
       verifyRound,

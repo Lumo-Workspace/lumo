@@ -3,6 +3,11 @@ import type {
   TaskAcceptanceStatusView,
   TaskStatusCriterionView,
 } from '../../types'
+// LUM-789 whole-branch review (Finding 3): the hero ring/banner must count a
+// tacit-pass HUMAN criterion (un-adjudicated, no verdict) as met — the same
+// rule the NEEDS ACTION/record zone split and the CLI already use. Zero-
+// import, so pulling it into this 'use client' module never drags Prisma in.
+import { isUnmetForDisplay } from '@/lib/acceptance/unmet-display'
 
 export function isPass(verdict: string | undefined): boolean {
   return verdict === 'PASS' || verdict === 'PASS_WITH_FOLLOWUP'
@@ -84,7 +89,14 @@ export function deriveVerdictStatus(
   data: TaskAcceptanceStatusView
 ): VerdictStatus {
   const total = data.criteria.length
-  const met = data.criteria.filter(c => isPass(c.latestVerdict?.verdict)).length
+  // Finding 3: `met` must count a tacit-pass HUMAN criterion (un-adjudicated,
+  // no verdict) as met, not as outstanding — otherwise the hero ring/banner
+  // ran a stricter, pre-LUM-789 rule than the record zone directly below it,
+  // producing a "0/2 met · Acceptance in progress" banner sitting right above
+  // the zone's own honest "0 pending · Accepted as drafted".
+  const met = data.criteria.filter(
+    c => !isUnmetForDisplay(c, c.latestVerdict ?? undefined)
+  ).length
   const failCount = data.criteria.filter(
     c => c.latestVerdict?.verdict === 'FAIL'
   ).length
@@ -116,6 +128,15 @@ export function deriveVerdictStatus(
     tone = 'success'
     kind = 'allPassed'
   } else if (machineAllPass) {
+    // Finding 3 note: under the tacit-pass `met` above, this branch is no
+    // longer reachable by an un-adjudicated HUMAN criterion alone — a HUMAN
+    // row with no verdict now counts as met, so `met === total` already fired
+    // above whenever every MACHINE criterion is also verified (`hasFail`
+    // caught the one HUMAN case — an explicit FAIL — that would otherwise
+    // land here). Left in place as a defensive fallback (and because
+    // `VerdictStatusKind`/its chrome are still exhaustively typed against
+    // it) rather than deleted, since removing the kind is a bigger surface
+    // than this fix asked for.
     tone = 'success'
     kind = 'machineAwaitingHuman'
   }

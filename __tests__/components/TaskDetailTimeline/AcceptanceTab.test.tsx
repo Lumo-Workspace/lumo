@@ -304,7 +304,12 @@ it('renders each criterion with a result badge, type, and notable provenance', (
   expect(screen.getByText('Passed')).toBeInTheDocument()
   // REVIEW_ADDED provenance is explicitly visible; the unjudged HUMAN result.
   expect(screen.getByText('REVIEW_ADDED')).toBeInTheDocument()
-  expect(screen.getByText('Awaiting human verdict')).toBeInTheDocument()
+  // Finding 4 (whole-branch review): a HUMAN row with no verdict is a tacit
+  // pass (LUM-789) — the badge must not say "Awaiting human verdict" (that
+  // claims something is pending, contradicting the zone header right above
+  // it, which already reads "Accepted as drafted").
+  expect(screen.getByText('No objection raised')).toBeInTheDocument()
+  expect(screen.queryByText('Awaiting human verdict')).not.toBeInTheDocument()
 })
 
 it('renders judgeSteps on a HUMAN criterion card with a clickable URL (LUM-465)', () => {

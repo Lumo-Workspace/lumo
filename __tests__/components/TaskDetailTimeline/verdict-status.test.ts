@@ -96,14 +96,35 @@ describe('deriveVerdictStatus', () => {
     expect(s.round).toBe(3)
     expect(s.maxRounds).toBe(5)
   })
-  it('machineAwaitingHuman: all MACHINE criteria checkpointer-verified but HUMAN criterion unmet', () => {
-    // MACHINE criterion with machinePassed=true — counts as verified in machineRollup
-    // HUMAN criterion with no verdict — unmet, so met !== total
+  // Finding 3 (whole-branch review): this scenario used to assert
+  // `machineAwaitingHuman` because `met` only counted an explicit PASS — a
+  // HUMAN criterion nobody ever adjudicated made `met !== total` forever.
+  // That's the exact bug the finding names: the banner would show "1/2 met ·
+  // awaiting human verdict" directly above the record zone's already-correct
+  // "0 pending · Accepted as drafted". A tacit-pass HUMAN criterion is now
+  // met, so this reaches allPassed instead — see the companion test below for
+  // the direction that still needs an actual `machineAwaitingHuman`-shaped
+  // gap (there isn't a reachable one; see the code comment at its call site).
+  it('an un-adjudicated HUMAN criterion is a tacit pass: all-MACHINE-verified + no HUMAN verdict -> allPassed, met=total', () => {
     const s = deriveVerdictStatus(
       view({ criteria: [crit('PASS', 'MACHINE'), crit(null, 'HUMAN')] })
     )
-    expect(s.kind).toBe('machineAwaitingHuman')
+    expect(s.kind).toBe('allPassed')
     expect(s.tone).toBe('success')
+    expect(s.met).toBe(2)
+    expect(s.total).toBe(2)
+  })
+
+  // Falsifies the other direction: a genuinely unverified MACHINE criterion
+  // must still NOT count as met, tacit-pass or not — only HUMAN criteria get
+  // the tacit-pass exemption (isUnmetForDisplay never extends it to MACHINE).
+  it('an unverified MACHINE criterion still keeps met below total, even alongside a tacit HUMAN pass', () => {
+    const s = deriveVerdictStatus(
+      view({ criteria: [crit(null, 'MACHINE'), crit(null, 'HUMAN')] })
+    )
+    expect(s.met).toBe(1)
+    expect(s.total).toBe(2)
+    expect(s.kind).not.toBe('allPassed')
   })
   it('DONE task: doneNoHumanVerdict when no criterion has a HUMAN verdict, done when one does', () => {
     const noHuman = deriveVerdictStatus(

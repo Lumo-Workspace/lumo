@@ -373,12 +373,18 @@ function resultBadge(
       }),
       cls: 'bg-danger-subtle border border-danger-border text-foreground',
     }
+  // Finding 4 (whole-branch review): a HUMAN criterion with no verdict is a
+  // tacit pass (LUM-789) — the zone header/caption above it already say so
+  // ("Accepted as drafted" / "No objections raised"), but this per-row badge
+  // used to say "Awaiting human verdict" regardless, contradicting its own
+  // zone. Only a MACHINE criterion with no verdict is genuinely still
+  // outstanding, so it keeps the "awaiting" copy.
   return {
     label:
       c.verifierType === 'HUMAN'
         ? intl.formatMessage({
-            id: 'acceptance.result.awaitingHuman',
-            defaultMessage: 'Awaiting human verdict',
+            id: 'acceptance.result.tacitPass',
+            defaultMessage: 'No objection raised',
           })
         : intl.formatMessage({
             id: 'acceptance.result.awaitingCheck',
