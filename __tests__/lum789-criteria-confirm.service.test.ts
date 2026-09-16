@@ -150,6 +150,7 @@ jest.mock('@/lib/services/comment.service', () => ({
 jest.mock('@/lib/actor', () => ({ getHumanActorId: jest.fn(async () => null) }))
 jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
 
+import type { TaskStatus } from '@prisma/client'
 import { taskCriteriaConfirmService } from '@/lib/services/task-criteria-confirm.service'
 import { taskCriteriaService } from '@/lib/services/task-criteria.service'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
@@ -189,7 +190,12 @@ describe('LUM-789 confirmContract', () => {
     expect(again.confirmedCount).toBe(0)
     const second = (await acceptanceCriterionRepository.listByTask(taskId))[0]!
       .confirmedAt
-    expect(second).toEqual(first)
+    // Reviewer note: two `new Date()` calls inside the same millisecond would
+    // make `.toEqual` pass even if the second confirm *did* overwrite the
+    // stamp — `again.confirmedCount === 0` above is what actually pins the
+    // no-op, but assert on the exact same object (never reassigned) so this
+    // line means what it looks like it means, independent of clock ticks.
+    expect(second).toBe(first)
   })
 
   it('没有合同时抛 400', async () => {
@@ -203,12 +209,118 @@ describe('LUM-789 confirmContract', () => {
       taskId,
       [{ statement: '登录页在移动端可用', verifierType: 'HUMAN' }],
       { actorMemberId: memberId, sourceSessionId: null, origin: 'cli' },
-      'IN_PROGRESS' as any
+      'IN_PROGRESS' satisfies TaskStatus
     )
     const rows =
       await acceptanceCriterionRepository.listByTaskIncludingDeleted(taskId)
     const created = rows.find(r => r.statement === '登录页在移动端可用')!
     expect(created.confirmedAt).not.toBeNull()
     expect(created.confirmedByMemberId).toBe(memberId)
+  })
+
+  // Finding 3: the Step-6 case above only exercises the `toCreate` branch of
+  // the auto-confirm stamp (its item carries no `id`). Drive an edit of an
+  // *existing* criterion — items WITH ids — so the `toUpdate` branch
+  // (task-criteria.service.ts's applyContractDiff, ~line 172-186) is
+  // actually exercised too.
+  it('HUMAN_EDIT 修订编辑一条已有 criterion(带 id)也直接带上确认戳', async () => {
+    const existing = await acceptanceCriterionRepository.listByTask(taskId)
+    expect(existing).toHaveLength(3)
+    const target = existing[0]!
+
+    // Resubmit the full desired list with every id kept, so this is a pure
+    // update (not a create or a delete) — only target's statement changes.
+    await taskCriteriaService.reviseAsHuman(
+      taskId,
+      existing.map(c => ({
+        id: c.id,
+        statement: c.id === target.id ? '编辑后的说法' : c.statement,
+        verifierType: c.verifierType,
+        checkpointer: c.checkpointer,
+      })),
+      { actorMemberId: memberId, sourceSessionId: null, origin: 'cli' },
+      'IN_PROGRESS' satisfies TaskStatus
+    )
+
+    const rows = await acceptanceCriterionRepository.listByTask(taskId)
+    expect(rows).toHaveLength(3)
+    const updated = rows.find(r => r.id === target.id)!
+    expect(updated.statement).toBe('编辑后的说法')
+    expect(updated.confirmedAt).not.toBeNull()
+    expect(updated.confirmedByMemberId).toBe(memberId)
+  })
+
+  // Finding 1: without the `cfg.source === 'HUMAN_EDIT'` gate in
+  // applyContractDiff, an agent-drafted submission would silently
+  // self-confirm too — destroying the "exactly one human touchpoint"
+  // premise of this feature. Pin both AGENT_DRAFT code paths to NULL.
+  describe('AGENT_DRAFT 写入永不自动确认', () => {
+    it('工作开始前的整份替换(submitDraft, workStartedAt=null)不盖确认戳', async () => {
+      const existing = await acceptanceCriterionRepository.listByTask(taskId)
+      expect(existing).toHaveLength(3)
+
+      await taskCriteriaService.submitDraft(
+        taskId,
+        [
+          {
+            statement: 'replacement A',
+            verifierType: 'MACHINE',
+            checkpointer: 'npx jest',
+          },
+          {
+            statement: 'replacement B',
+            verifierType: 'MACHINE',
+            checkpointer: 'npx jest',
+          },
+        ],
+        { actorMemberId: memberId, sourceSessionId: null, origin: 'cli' },
+        'TODO' satisfies TaskStatus,
+        null
+      )
+
+      const rows = await acceptanceCriterionRepository.listByTask(taskId)
+      expect(rows).toHaveLength(2)
+      for (const r of rows) {
+        expect(r.confirmedAt).toBeNull()
+        expect(r.confirmedByMemberId).toBeNull()
+      }
+    })
+
+    it('工作已开始的 identity-preserving diff(submitDraft, workStartedAt≠null)不盖确认戳', async () => {
+      const existing = await acceptanceCriterionRepository.listByTask(taskId)
+      expect(existing).toHaveLength(3)
+      const target = existing[0]!
+
+      // One update (target's statement changes) + one create (no id) in the
+      // same submission, so both the toUpdate and toCreate branches of the
+      // AGENT_DRAFT diff path run.
+      await taskCriteriaService.submitDraft(
+        taskId,
+        [
+          ...existing.map(c => ({
+            id: c.id,
+            statement:
+              c.id === target.id ? 'agent revised statement' : c.statement,
+            verifierType: c.verifierType,
+            checkpointer: c.checkpointer,
+          })),
+          {
+            statement: 'agent new criterion',
+            verifierType: 'MACHINE',
+            checkpointer: 'npx jest',
+          },
+        ],
+        { actorMemberId: memberId, sourceSessionId: null, origin: 'cli' },
+        'IN_PROGRESS' satisfies TaskStatus,
+        new Date('2026-06-02')
+      )
+
+      const rows = await acceptanceCriterionRepository.listByTask(taskId)
+      expect(rows).toHaveLength(4)
+      for (const r of rows) {
+        expect(r.confirmedAt).toBeNull()
+        expect(r.confirmedByMemberId).toBeNull()
+      }
+    })
   })
 })

@@ -219,9 +219,11 @@ export const acceptanceCriterionRepository = {
   async confirmAllActive(
     taskId: string,
     memberId: string,
-    at: Date
+    at: Date,
+    tx?: Prisma.TransactionClient
   ): Promise<number> {
-    const { count } = await prisma.acceptanceCriterion.updateMany({
+    const client = tx ?? prisma
+    const { count } = await client.acceptanceCriterion.updateMany({
       where: { taskId, deletedAt: null, confirmedAt: null },
       data: { confirmedAt: at, confirmedByMemberId: memberId },
     })

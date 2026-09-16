@@ -31,7 +31,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       err && typeof err === 'object' && 'status' in err
         ? (err as { status: number }).status
         : 500
-    const message = err instanceof Error ? err.message : 'Confirm failed'
+    const message =
+      status === 500 || !(err instanceof Error)
+        ? 'Internal Server Error'
+        : err.message
     return NextResponse.json({ error: message }, { status })
   }
 }
