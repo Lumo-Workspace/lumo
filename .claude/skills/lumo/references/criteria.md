@@ -230,6 +230,97 @@ Print the contract: `<id>  [MACHINE|HUMAN]  SOURCE@rN  [evidence]  statement` pl
 lumo task criteria list LUM-42
 ```
 
+### `lumo task criteria confirm <task> [--confirm]` — LUM-789
+
+Record the **user's** one-time confirmation that they've seen and agreed to
+the acceptance contract. This is the plan's one structural human touchpoint:
+confirming right after drafting is cheap — the contract is small and fresh in
+the human's head — confirming after implementation is done is expensive
+rework by comparison. Confirming is **read-only with respect to DONE**: it
+never closes the task and there is no gate anywhere that requires it. An
+unconfirmed contract closes exactly like a confirmed one.
+
+**Flags:**
+
+| Flag        | Meaning                                                                                |
+| ----------- | -------------------------------------------------------------------------------------- |
+| `--confirm` | The user approved, after seeing every criterion. Required to write; absent by default. |
+
+It follows the [confirmation protocol](confirmation.md) exactly — two calls,
+never a prompt:
+
+**Step 1 — without `--confirm` (writes nothing):**
+
+```bash
+lumo task criteria confirm LUM-42
+```
+
+```json
+{
+  "status": "confirmation_required",
+  "command": "task criteria confirm",
+  "changes": [
+    "Will record YOUR confirmation of the acceptance contract on LUM-42",
+    "1 of 2 criteria are not yet confirmed",
+    "  [HUMAN] 登录页在移动端可用 (already confirmed)",
+    "  [MACHINE] npx tsc --noEmit 通过",
+    "Confirming does NOT close the task and never blocks DONE — it records that a human agreed to what \"done\" means here",
+    "To change the contract instead, run `lumo task criteria set <task> --file <criteria.json> --human`"
+  ],
+  "confirmCommand": "lumo task criteria confirm LUM-42 --confirm"
+}
+```
+
+Every criterion in the contract is listed as `  [MACHINE|HUMAN] statement`,
+with `(already confirmed)` appended to rows that already carry a
+`confirmedAt`. Read the `N of M criteria are not yet confirmed` line and
+every criterion line to the user — this envelope IS the "read the contract
+aloud" step. A task with no criteria yet refuses (exit 1): draft one first.
+
+**Step 2 — after the user approves, re-run with `--confirm`:**
+
+```bash
+lumo task criteria confirm LUM-42 --confirm
+# Confirmed the acceptance contract on LUM-42 (2 criteria newly confirmed)
+```
+
+`confirmedCount` counts only rows that were **previously unconfirmed** and
+just received their first stamp — re-running on an already-fully-confirmed
+contract is an idempotent no-op (`0 criteria newly confirmed`), never an
+error, and never overwrites who confirmed it or when.
+
+### When to suggest it
+
+Right after you finish drafting the contract with `lumo task criteria set`
+and have read every criterion aloud to the user in chat — that's the moment
+their agreement is cheapest to capture. If the user instead says "change X"
+or otherwise wants the contract itself different, that's **not** a
+confirmation — run `lumo task criteria set <task> --file <criteria.json>
+--human` to transcribe their edit (see above); only offer `criteria confirm`
+once the contract reads back the way they actually want it.
+
+### Two things a future reader will get wrong
+
+- **Unconfirmed is the default, not a deviation.** Every fresh `AGENT_DRAFT`
+  contract starts unconfirmed, and there is deliberately **no flag to skip
+  confirmation** — there's nothing to skip. `lumo task status` prints a
+  one-line nudge (`Contract unconfirmed (N criteria) — lumo task criteria
+confirm LUM-42`) when criteria are unconfirmed, but it's advisory, not a
+  blocker: absence of confirmation is not an error state anywhere in this
+  system.
+- **`--human` self-confirms by construction — this is accepted, not a bug.**
+  A `criteria set --human` revision stamps every row it touches as
+  `confirmedAt`/`confirmedByMemberId` in the same write (see "Record a human
+  contract revision" above) — `HUMAN_EDIT` is the source tag the **caller**
+  declares on the request, not verified proof of human authorship. An agent
+  that calls `--human` on its own initiative therefore confirms its own
+  contract with nobody in the loop. This is a known, deliberate trade-off the
+  user ruled on for LUM-789, not something to "fix" by adding a separate
+  confirm step to the `--human` path — `--human` is already reserved for
+  transcribing a human's own stated decision (never for the agent's own
+  edits), so the self-confirmation only ever fires on a caller that already
+  violated that rule.
+
 ## Injection behavior
 
 - **Session start** (bound task): the contract is the highest-priority section in the injection budget — ahead of memory/PR/Slack/Figma/web. If a still-open task has no criteria, the draft reminder is injected instead.

@@ -3007,6 +3007,30 @@
       "isInvokable": false,
       "description": "Acceptance criteria — the task’s verification contract (LUM-342)"
     },
+    "task criteria confirm": {
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved this contract"
+        },
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Legacy alias of --confirm"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Record the USER’s confirmation of the acceptance contract (LUM-789). Gated: without --confirm it prints a confirmation envelope listing every criterion and exits 4, writing nothing. Confirming never blocks DONE — an unconfirmed contract still closes normally."
+    },
     "task criteria list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
