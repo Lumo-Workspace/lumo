@@ -25,6 +25,9 @@ export interface CreateAcceptanceCriterionInput {
   addedAtRound?: number
   /** What this criterion anchors (LUM-602). Omitted → null (legacy/unclassified). */
   referentKind?: ReferentKind | null
+  /** LUM-789: HUMAN_EDIT 来源写入时由服务层直接置位（人亲手写的合同天然已确认）。 */
+  confirmedAt?: Date | null
+  confirmedByMemberId?: string | null
 }
 
 /** Patch for a HUMAN_EDIT revision. The 3–7 soft cap and the agent-lock rule
@@ -38,6 +41,9 @@ export interface UpdateAcceptanceCriterionInput {
   judgeSteps?: string | null
   source?: AcceptanceCriterionSource
   referentKind?: ReferentKind | null
+  /** LUM-789: HUMAN_EDIT 来源写入时由服务层直接置位（人亲手写的合同天然已确认）。 */
+  confirmedAt?: Date | null
+  confirmedByMemberId?: string | null
 }
 
 const criterionSelect = {
@@ -54,6 +60,8 @@ const criterionSelect = {
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
+  confirmedAt: true,
+  confirmedByMemberId: true,
 } satisfies Prisma.AcceptanceCriterionSelect
 
 /**
@@ -124,6 +132,12 @@ export const acceptanceCriterionRepository = {
         referentKind: input.referentKind ?? null,
         ...(input.addedAtRound !== undefined
           ? { addedAtRound: input.addedAtRound }
+          : {}),
+        ...(input.confirmedAt !== undefined
+          ? { confirmedAt: input.confirmedAt }
+          : {}),
+        ...(input.confirmedByMemberId !== undefined
+          ? { confirmedByMemberId: input.confirmedByMemberId }
           : {}),
       },
       select: criterionSelect,
@@ -196,6 +210,24 @@ export const acceptanceCriterionRepository = {
       data: patch,
       select: criterionSelect,
     })
+  },
+
+  /**
+   * LUM-789: 盖确认戳。只动**未删除且尚未确认**的行 —— 重复确认是幂等的
+   * no-op，原确认人与时间戳不被覆盖。返回本次真正盖上的行数。
+   */
+  async confirmAllActive(
+    taskId: string,
+    memberId: string,
+    at: Date,
+    tx?: Prisma.TransactionClient
+  ): Promise<number> {
+    const client = tx ?? prisma
+    const { count } = await client.acceptanceCriterion.updateMany({
+      where: { taskId, deletedAt: null, confirmedAt: null },
+      data: { confirmedAt: at, confirmedByMemberId: memberId },
+    })
+    return count
   },
 
   /**

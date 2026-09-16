@@ -76,6 +76,7 @@ const crit = (
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
   }) as TaskStatusCriterionView
 
 function baseData(

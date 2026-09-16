@@ -91,6 +91,10 @@ interface DiffApplyConfig {
   round: number
   causeTag?: CriteriaCauseTag | undefined
   actorId: string | null
+  /** LUM-789: WorkspaceMember id of the human caller — stamped as
+   *  confirmedByMemberId on rows touched under a HUMAN_EDIT `source` (a human
+   *  revision auto-confirms; the agent path never sets this). */
+  actorMemberId: string
 }
 
 /**
@@ -147,6 +151,16 @@ async function applyContractDiff(
   const runsByCriterion =
     await verificationRunRepository.latestRunsByCriterion(taskId)
   await runInTransaction(async tx => {
+    // LUM-789: a HUMAN_EDIT revision auto-confirms the rows it touches —
+    // record that as one CONTRACT_CONFIRMED activity for the whole revision
+    // (not one per row). `reconfirm` reflects whether the contract already
+    // had ANY previously-confirmed row before this revision. Declared inside
+    // the callback (not hoisted above `runInTransaction`) so a future retry
+    // wrapper re-runs this body from a clean slate instead of accumulating
+    // ids/re-deriving `reconfirm` across attempts.
+    const reconfirm =
+      cfg.source === 'HUMAN_EDIT' && existing.some(c => c.confirmedAt !== null)
+    const autoConfirmedIds: string[] = []
     for (const c of toDelete) {
       if (runsByCriterion.has(c.id)) {
         await acceptanceCriterionRepository.softDelete(c.id, tx)
@@ -168,9 +182,29 @@ async function applyContractDiff(
     for (const u of toUpdate) {
       await acceptanceCriterionRepository.update(
         u.id,
-        { ...u.desired, source: cfg.source },
+        {
+          ...u.desired,
+          source: cfg.source,
+          // LUM-789: a human hand-editing THIS row auto-confirms it — no
+          // separate confirmation step to require for this row afterward.
+          // Finding 7 (whole-branch review): this used to read "auto-
+          // confirms it/the contract", which overclaimed — `toUpdate` above
+          // skips rows whose content didn't change, so a revision that edits
+          // only some criteria leaves the untouched rows exactly as
+          // (un)confirmed as they were; they still need a separate
+          // `criteria confirm` if they were never confirmed. Partial is
+          // intentional (the human only wrote some of it) — only the words
+          // changed here, not the stamping behaviour.
+          ...(cfg.source === 'HUMAN_EDIT'
+            ? {
+                confirmedAt: new Date(),
+                confirmedByMemberId: cfg.actorMemberId,
+              }
+            : {}),
+        },
         tx
       )
+      if (cfg.source === 'HUMAN_EDIT') autoConfirmedIds.push(u.id)
       await recordCriterionChanged(tx, {
         taskId,
         actorId: cfg.actorId,
@@ -196,9 +230,26 @@ async function applyContractDiff(
           referentKind: deriveReferentKind(c),
           source: createSource,
           addedAtRound: cfg.round,
+          // LUM-789: a human hand-editing THIS row auto-confirms it — no
+          // separate confirmation step to require for this row afterward.
+          // Finding 7 (whole-branch review): this used to read "auto-
+          // confirms it/the contract", which overclaimed — `toUpdate` above
+          // skips rows whose content didn't change, so a revision that edits
+          // only some criteria leaves the untouched rows exactly as
+          // (un)confirmed as they were; they still need a separate
+          // `criteria confirm` if they were never confirmed. Partial is
+          // intentional (the human only wrote some of it) — only the words
+          // changed here, not the stamping behaviour.
+          ...(cfg.source === 'HUMAN_EDIT'
+            ? {
+                confirmedAt: new Date(),
+                confirmedByMemberId: cfg.actorMemberId,
+              }
+            : {}),
         },
         tx
       )
+      if (cfg.source === 'HUMAN_EDIT') autoConfirmedIds.push(created.id)
       await recordCriterionChanged(tx, {
         taskId,
         actorId: cfg.actorId,
@@ -210,6 +261,36 @@ async function applyContractDiff(
         before: null,
         after: criterionSnapshot(created),
       })
+    }
+
+    // LUM-789: one CONTRACT_CONFIRMED for the whole revision, not per row —
+    // and only when this revision actually stamped something (a revision that
+    // only deletes rows writes no confirmation event).
+    //
+    // `confirmedCount` here means something different from the
+    // `confirmContract` (task-criteria-confirm.service.ts) event of the same
+    // type: there it counts only rows that were PREVIOUSLY unconfirmed and
+    // just got their first stamp (a no-op re-confirm writes no event at all).
+    // Here it counts every row this revision stamped, including a row that
+    // was already confirmed and gets re-stamped as part of the same edit — a
+    // HUMAN_EDIT update always (re-)confirms the rows it touches, so there is
+    // no "already confirmed, skip" branch to filter on. Do not compare this
+    // field across `via` values without accounting for that.
+    if (cfg.source === 'HUMAN_EDIT' && autoConfirmedIds.length > 0) {
+      await activityRepository.create(
+        {
+          taskId,
+          actorId: cfg.actorId,
+          type: 'CONTRACT_CONFIRMED',
+          payload: {
+            via: 'HUMAN_EDIT',
+            confirmedCount: autoConfirmedIds.length,
+            criterionIds: autoConfirmedIds,
+            reconfirm,
+          },
+        },
+        tx
+      )
     }
   })
 
@@ -432,6 +513,7 @@ export const taskCriteriaService = {
           source: 'AGENT_DRAFT',
           round,
           actorId,
+          actorMemberId: attribution.actorMemberId,
         })
       } else {
         // First TODO (never started): free full-group replace. A never-started
@@ -569,6 +651,7 @@ export const taskCriteriaService = {
       round: currentRound,
       causeTag,
       actorId,
+      actorMemberId: attribution.actorMemberId,
     })
 
     if (

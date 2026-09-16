@@ -324,9 +324,9 @@ describe('statusForTask — round derivation', () => {
 })
 
 describe('statusForTask — nextActions', () => {
-  it('contains exactly the criteria whose latest verdict is not a pass', async () => {
+  it('LUM-789: contains a FAILed criterion and an un-adjudicated MACHINE criterion, but not an un-adjudicated HUMAN one (tacit pass) nor a PASS/PASS_WITH_FOLLOWUP', async () => {
     listCriteria.mockResolvedValue([
-      criterion(), // FAILed in r2 after passing r1 → unmet
+      criterion(), // FAILed in r2 after passing r1 → unmet (explicit send-back is a real signal)
       criterion({ id: 'c-pass' }), // PASS → met
       criterion({ id: 'c-followup' }), // PASS_WITH_FOLLOWUP → met
       criterion({
@@ -334,7 +334,12 @@ describe('statusForTask — nextActions', () => {
         verifierType: 'HUMAN',
         checkpointer: null,
         statement: 'copy reads well',
-      }), // never verified → unmet
+      }), // never verified, HUMAN → tacit pass (LUM-789), NOT unmet
+      criterion({
+        id: 'c-machine-unjudged',
+        checkpointer: 'npx jest z.test.ts',
+        statement: 'z endpoint returns 200',
+      }), // never verified, MACHINE → genuinely unmet (no checkpointer run yet)
     ])
     listRuns.mockResolvedValue([
       run({ verdict: 'PASS' }),
@@ -356,23 +361,29 @@ describe('statusForTask — nextActions', () => {
 
     const s = await taskVerificationService.statusForTask('t-1')
 
+    // LUM-789 pair: the FAILed criterion and the un-adjudicated MACHINE
+    // criterion are the only two genuinely unmet — this is what makes the
+    // rule falsifiable (a bug dropping ALL un-adjudicated criteria, not just
+    // the tacit-pass HUMAN ones, would still slip past a test that only
+    // asserted c-human's absence).
     expect(
       s.nextActions
         .flatMap(a => (a.kind === 'CRITERION' ? [a.criterionId] : []))
         .sort()
-    ).toEqual(['c-1', 'c-human'])
+    ).toEqual(['c-1', 'c-machine-unjudged'])
     const failAction = s.nextActions.find(
       (a): a is NextActionCriterion =>
         a.kind === 'CRITERION' && a.criterionId === 'c-1'
     )!
     expect(failAction.rejectionReason).toBe('regressed')
     expect(failAction.checkpointer).toBe('npx jest x.test.ts')
-    const humanAction = s.nextActions.find(
+    const machineUnjudgedAction = s.nextActions.find(
       (a): a is NextActionCriterion =>
-        a.kind === 'CRITERION' && a.criterionId === 'c-human'
+        a.kind === 'CRITERION' && a.criterionId === 'c-machine-unjudged'
     )!
-    expect(humanAction.rejectionReason).toBeNull()
-    expect(humanAction.verifierType).toBe('HUMAN')
+    expect(machineUnjudgedAction.rejectionReason).toBeNull()
+    expect(machineUnjudgedAction.verifierType).toBe('MACHINE')
+    expect(machineUnjudgedAction.checkpointer).toBe('npx jest z.test.ts')
   })
 
   it('latest verdict wins — a FAIL fixed by a later PASS drops out', async () => {

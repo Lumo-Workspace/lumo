@@ -28,6 +28,7 @@ function baseResponse(judgeSteps: string | null): TaskStatusResponse {
         verdictStale: false,
         checkMismatch: false,
         machinePassed: false,
+        confirmedAt: '2026-06-01T00:00:00Z',
         latestVerdict: null,
       },
     ],

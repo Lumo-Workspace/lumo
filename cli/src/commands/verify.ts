@@ -229,7 +229,10 @@ export async function verify(
   if (machine.length === 0) {
     process.stdout.write(
       `${taskId} has no MACHINE criteria — nothing for the machine loop to run.\n` +
-        `The contract is HUMAN-only; finish your work and hand off for human review (lumo task update ${taskId} --status in_review).\n`
+        // LUM-789: 未裁定的 HUMAN 项按 tacit pass 处理，除非被人明确送回，
+        // 否则不构成"必须交接给人 review"的义务 —— 别再说 hand off。
+        `HUMAN criteria pass tacitly unless one is explicitly sent back by a human; ` +
+        `no hand-off is required. Move on with \`lumo task update ${taskId} --status in_review\`.\n`
     )
     return
   }

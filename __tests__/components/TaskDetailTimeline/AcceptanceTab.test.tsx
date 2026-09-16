@@ -50,6 +50,8 @@ jest.mock('@/lib/api-client', () => ({
     submitHumanVerdict: jest.fn().mockResolvedValue({}),
     dispositionBoundaryCrossing: jest.fn().mockResolvedValue({}),
     spawnBoundaryRemediation: jest.fn().mockResolvedValue({}),
+    // LUM-789: the "Confirm contract" button's POST.
+    confirmCriteria: jest.fn().mockResolvedValue({ confirmedCount: 1 }),
   },
 }))
 
@@ -92,6 +94,7 @@ import type {
 
 const mockStatus = useTaskStatus as jest.Mock
 const mockSubmit = tasksClient.submitHumanVerdict as jest.Mock
+const mockConfirm = tasksClient.confirmCriteria as jest.Mock
 
 function statusView(
   over: Partial<TaskAcceptanceStatusView> = {}
@@ -139,6 +142,7 @@ function machinePass(
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
     ...over,
   }
 }
@@ -171,6 +175,7 @@ function unjudgedHuman(
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
     ...over,
   }
 }
@@ -189,6 +194,18 @@ function render_() {
 // criterion passes. Tests that assert on a passing machine ROW must expand it.
 function expandMachine() {
   fireEvent.click(screen.getByRole('button', { name: /Machine-verified/i }))
+}
+
+// LUM-789: an un-adjudicated HUMAN criterion is a tacit pass, so a zone with
+// nothing but such rows now smart-collapses into the resolved "Human-judged"
+// record instead of staying open as "Needs your judgment" — expand it the
+// same way expandMachine() does for its zone.
+function expandHuman() {
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: /Human-judged|Accepted as drafted|Partly judged/i,
+    })
+  )
 }
 
 beforeEach(() => jest.clearAllMocks())
@@ -243,6 +260,7 @@ it('leads with the header verdict surface', () => {
           changeState: null,
           changedAtRound: null,
           lastEdit: null,
+          confirmedAt: null,
         },
       ],
     })
@@ -272,17 +290,26 @@ it('renders each criterion with a result badge, type, and notable provenance', (
           changeState: null,
           changedAtRound: null,
           lastEdit: null,
+          confirmedAt: null,
         },
       ],
     })
   )
   render_()
   expandMachine()
+  // LUM-789: r1 is unjudged, hence a tacit pass — its zone now smart-collapses
+  // into "Human-judged" by default.
+  expandHuman()
   expect(screen.getByText('route returns 409 on lock')).toBeInTheDocument()
   expect(screen.getByText('Passed')).toBeInTheDocument()
   // REVIEW_ADDED provenance is explicitly visible; the unjudged HUMAN result.
   expect(screen.getByText('REVIEW_ADDED')).toBeInTheDocument()
-  expect(screen.getByText('Awaiting human verdict')).toBeInTheDocument()
+  // Finding 4 (whole-branch review): a HUMAN row with no verdict is a tacit
+  // pass (LUM-789) — the badge must not say "Awaiting human verdict" (that
+  // claims something is pending, contradicting the zone header right above
+  // it, which already reads "Accepted as drafted").
+  expect(screen.getByText('No objection raised')).toBeInTheDocument()
+  expect(screen.queryByText('Awaiting human verdict')).not.toBeInTheDocument()
 })
 
 it('renders judgeSteps on a HUMAN criterion card with a clickable URL (LUM-465)', () => {
@@ -297,6 +324,9 @@ it('renders judgeSteps on a HUMAN criterion card with a clickable URL (LUM-465)'
     })
   )
   render_()
+  // LUM-789: the lone criterion is unjudged, hence a tacit pass — its zone
+  // now smart-collapses into "Human-judged" by default.
+  expandHuman()
   expect(screen.getByText('How to judge')).toBeInTheDocument()
   const link = screen.getByRole('link', { name: 'https://app.test/x' })
   expect(link).toHaveAttribute('href', 'https://app.test/x')
@@ -305,6 +335,8 @@ it('renders judgeSteps on a HUMAN criterion card with a clickable URL (LUM-465)'
 it('shows the missing-guidance fallback for a HUMAN criterion without judgeSteps (LUM-465)', () => {
   set(statusView({ criteria: [unjudgedHuman({ judgeSteps: null })] }))
   render_()
+  // LUM-789: same tacit-pass smart-collapse as the test above.
+  expandHuman()
   expect(screen.getByTestId('judge-steps-missing')).toBeInTheDocument()
   expect(screen.queryByText('How to judge')).toBeNull()
 })
@@ -824,5 +856,142 @@ describe('referentKind badge (LUM-602)', () => {
     render_()
     expandMachine()
     expect(screen.queryByTestId('referent-kind-badge')).toBeNull()
+  })
+})
+
+// ── LUM-789: tacit-pass badge + "Confirm contract" ─────────────────────────
+// An un-adjudicated HUMAN criterion is a tacit pass, not a to-do (Task 1's
+// isUnmetForDisplay) — the badge must not count it, unlike a genuinely unmet
+// MACHINE criterion. Separately, an un-confirmed contract surfaces one
+// optional "Confirm contract" affordance; confirming never touches task
+// status (it has no gate of its own).
+describe('LUM-789: contract confirmation', () => {
+  it('未裁定的 HUMAN 项不计入待办徽章', () => {
+    set(
+      statusView({
+        criteria: [
+          unjudgedHuman({ id: 'c1', confirmedAt: null }),
+          machinePass({
+            id: 'c2',
+            latestVerdict: null,
+            machinePassed: false,
+            confirmedAt: null,
+          }),
+        ],
+      })
+    )
+    render_()
+    // M-2 (Task 7 review): a plain substring match ('1') also passes on "10
+    // pending" / "11 pending" — anchor the whole string.
+    expect(screen.getByTestId('pending-count')).toHaveTextContent(/^1 pending$/)
+  })
+
+  it('合同未确认时显示「确认合同」按钮', () => {
+    set(
+      statusView({
+        criteria: [unjudgedHuman({ id: 'c1', confirmedAt: null })],
+      })
+    )
+    render_()
+    expect(
+      screen.getByRole('button', { name: /confirm contract/i })
+    ).toBeInTheDocument()
+  })
+
+  it('合同已全部确认时不显示「确认合同」按钮', () => {
+    set(
+      statusView({
+        criteria: [
+          unjudgedHuman({ id: 'c1', confirmedAt: '2026-06-10T10:00:00.000Z' }),
+        ],
+      })
+    )
+    render_()
+    expect(
+      screen.queryByRole('button', { name: /confirm contract/i })
+    ).toBeNull()
+  })
+
+  it('点击「确认合同」调用 tasksClient.confirmCriteria 并刷新，不改任务状态', async () => {
+    const refresh = jest.fn()
+    mockStatus.mockReturnValue({
+      data: statusView({
+        criteria: [unjudgedHuman({ id: 'c1', confirmedAt: null })],
+      }),
+      loading: false,
+      error: null,
+      refresh,
+    })
+    render_()
+    fireEvent.click(screen.getByRole('button', { name: /confirm contract/i }))
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalledWith('LUM-1'))
+    await waitFor(() => expect(refresh).toHaveBeenCalled())
+  })
+
+  // I-2 (Task 7 review): apiFetch throws ApiClientError on any non-ok
+  // response — a bare try/finally with no catch let that become an
+  // unhandled promise rejection, silently re-enabling the button with no
+  // feedback and the contract still unconfirmed.
+  it('confirm 失败时显示错误提示并保留按钮，不静默吞掉', async () => {
+    const refresh = jest.fn()
+    mockConfirm.mockRejectedValueOnce(new Error('network error'))
+    mockStatus.mockReturnValue({
+      data: statusView({
+        criteria: [unjudgedHuman({ id: 'c1', confirmedAt: null })],
+      }),
+      loading: false,
+      error: null,
+      refresh,
+    })
+    render_()
+    fireEvent.click(screen.getByRole('button', { name: /confirm contract/i }))
+    await waitFor(() =>
+      expect(screen.getByTestId('confirm-contract-error')).toBeInTheDocument()
+    )
+    // The button is still there, re-enabled — not a silent no-op.
+    const button = screen.getByRole('button', { name: /confirm contract/i })
+    expect(button).not.toBeDisabled()
+    // A failed POST never touched anything server-side, so no refetch either.
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  // I-3 (Task 7 review): record-gaps.ts's machineAwaiting/humanPending both
+  // force 0 on a DONE task ("a closed task owes the reviewer no action") —
+  // the pending-count badge must honor the same rule, or a DONE task with an
+  // unverified MACHINE criterion (common: a task-level Approve marks DONE
+  // without per-criterion machine verdicts) shows "1 pending" directly above
+  // the green accepted chip.
+  it('DONE 任务的待办徽章强制为 0，即使存在未核验的 MACHINE 项', () => {
+    set(
+      statusView({
+        task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [
+          machinePass({
+            id: 'c2',
+            latestVerdict: null,
+            machinePassed: false,
+            confirmedAt: null,
+          }),
+        ],
+      })
+    )
+    render_()
+    expect(screen.getByTestId('pending-count')).toHaveTextContent(/^0 pending$/)
+  })
+
+  // M-1 (Task 7 review): the migration is backfill-free, so every pre-
+  // LUM-789 contract reads unconfirmed forever — without a DONE guard the
+  // button would sit on every historical and every closed task.
+  it('DONE 任务不显示「确认合同」按钮，即使 confirmedAt 仍是 null', () => {
+    set(
+      statusView({
+        task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [unjudgedHuman({ id: 'c1', confirmedAt: null })],
+      })
+    )
+    render_()
+    expect(
+      screen.queryByRole('button', { name: /confirm contract/i })
+    ).toBeNull()
   })
 })

@@ -14,6 +14,11 @@ import {
   UserCheck,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
+import { Button } from '@/components/ui/button'
+// LUM-789: zero-import so this 'use client' component never drags Prisma
+// into the browser bundle — same rendering split the CLI/task-status nudge
+// already use for "is this criterion a to-do".
+import { isUnmetForDisplay } from '@/lib/acceptance/unmet-display'
 import { effectiveReferentKind } from '@/shared/src/referent-kind'
 import { useTaskStatus } from '../../hooks/useTaskStatus'
 import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
@@ -368,12 +373,18 @@ function resultBadge(
       }),
       cls: 'bg-danger-subtle border border-danger-border text-foreground',
     }
+  // Finding 4 (whole-branch review): a HUMAN criterion with no verdict is a
+  // tacit pass (LUM-789) — the zone header/caption above it already say so
+  // ("Accepted as drafted" / "No objections raised"), but this per-row badge
+  // used to say "Awaiting human verdict" regardless, contradicting its own
+  // zone. Only a MACHINE criterion with no verdict is genuinely still
+  // outstanding, so it keeps the "awaiting" copy.
   return {
     label:
       c.verifierType === 'HUMAN'
         ? intl.formatMessage({
-            id: 'acceptance.result.awaitingHuman',
-            defaultMessage: 'Awaiting human verdict',
+            id: 'acceptance.result.tacitPass',
+            defaultMessage: 'No objection raised',
           })
         : intl.formatMessage({
             id: 'acceptance.result.awaitingCheck',
@@ -1421,6 +1432,16 @@ export function AcceptanceTab({
   // report — the KPI tiles carry the headline numbers above it.
   const [struggleOpen, setStruggleOpen] = useState(false)
   const [mutating, setMutating] = useState(false)
+  // LUM-789: the one-time "Confirm contract" POST. No optimistic update — the
+  // button just disappears on the next refetch once every row carries a
+  // confirmedAt, same as reviseContract's plain loading flag below.
+  const [confirming, setConfirming] = useState(false)
+  // I-2 (Task 7 review): apiFetch throws ApiClientError on any non-ok
+  // response — a bare try/finally with no catch let that become an
+  // unhandled promise rejection, silently re-enabling the button with no
+  // feedback and the contract still unconfirmed. Same pattern CriterionRow's
+  // inline-edit Save already uses for its saveError state.
+  const [confirmError, setConfirmError] = useState(false)
 
   // The acceptance tab is only ever rendered inside the Clerk web UI — the
   // agent/CLI has no DOM — so a viewer here is by construction a human. The
@@ -1452,6 +1473,24 @@ export function AcceptanceTab({
     },
     [taskIdentifier, refresh, optimisticallyPass]
   )
+
+  // LUM-789: confirming records that a human agrees with what "done" means
+  // here. It never touches task status and has no gate of its own — the
+  // server route (`/criteria/confirm`) only ever stamps confirmedAt columns
+  // and appends a CONTRACT_CONFIRMED activity, so this is a plain refetch,
+  // not an optimistic flip like submitVerdict above.
+  const confirmContract = useCallback(async () => {
+    setConfirming(true)
+    setConfirmError(false)
+    try {
+      await tasksClient.confirmCriteria(taskIdentifier)
+      void refresh?.()
+    } catch {
+      setConfirmError(true)
+    } finally {
+      setConfirming(false)
+    }
+  }, [taskIdentifier, refresh])
 
   const reviseContract = useCallback(
     async (items: CriteriaSetItemInput[]) => {
@@ -1535,6 +1574,30 @@ export function AcceptanceTab({
   // lineage / cost" stay visible without a contract.
   const hasCriteria = data.criteria.length > 0
 
+  // LUM-789: the badge's "still open" count — the tacit-pass rendering split
+  // (Task 1), not the DONE-gate split. An un-adjudicated HUMAN criterion
+  // reads as settled here; a genuinely unmet MACHINE criterion (or an
+  // explicit HUMAN FAIL) still counts. Same DONE rule as record-gaps.ts's
+  // machineAwaiting/humanPending: a closed task owes the reviewer no more
+  // action, so this badge must read 0 there too — otherwise a DONE task with
+  // an unverified MACHINE criterion (common: a task-level Approve marks DONE
+  // without per-criterion machine verdicts) shows "1 pending" directly above
+  // the green accepted chip, two adjacent counters disagreeing.
+  const pendingCount =
+    data.task.status === 'DONE'
+      ? 0
+      : data.criteria.filter(c =>
+          isUnmetForDisplay(c, c.latestVerdict ?? undefined)
+        ).length
+  // M-1: the migration is deliberately backfill-free, so every pre-LUM-789
+  // contract reads unconfirmed forever — without the DONE guard the button
+  // would sit on every historical and every closed task. A DONE task has
+  // nothing left to confirm into (same "closed task, no more action" rule as
+  // pendingCount/humanPending/machineAwaiting above).
+  const contractUnconfirmed =
+    data.task.status !== 'DONE' &&
+    data.criteria.some(c => c.confirmedAt == null)
+
   // Inline human verdict controls only while the task awaits adjudication.
   const interactive = data.task.status === 'IN_REVIEW'
   // LUM-733: the human's default action is one whole-task Pass / Send back
@@ -1574,12 +1637,6 @@ export function AcceptanceTab({
   // the record card would only repeat what the reviewer already saw. The
   // header toggle still opens it on demand.
   const machineZoneOpen = machineOpen ?? false
-  // LUM-572: mirror the smart default for the human zone — collapse once every
-  // human criterion carries a PASS; any unresolved one keeps it open by default.
-  const allHumanResolved =
-    humanCriteria.length > 0 &&
-    humanCriteria.every(c => isPass(c.latestVerdict?.verdict))
-  const humanZoneOpen = humanOpen ?? !allHumanResolved
   // LUM-620 follow-up: the human zone reflects STATE, not a constant pending
   // magenta. While there are unresolved calls (and the task hasn't been
   // accepted) it wears the actionable in-review magenta; once every human
@@ -1587,13 +1644,48 @@ export function AcceptanceTab({
   // resolved green so a Done task no longer reads as "still needs your
   // judgment". The task-level Approve marks the task DONE without necessarily
   // recording a per-criterion HUMAN verdict, so DONE alone resolves the zone.
-  const humanUnresolvedCount = humanCriteria.filter(
-    c => !isPass(c.latestVerdict?.verdict)
+  // LUM-789: an un-adjudicated HUMAN criterion is a tacit pass, not a to-do —
+  // only an explicit FAIL (a real send-back) keeps the zone "unresolved".
+  // Same isUnmetForDisplay split as record-gaps.ts's humanPending and the
+  // pending-count badge above, so this file stops running two different
+  // "is this criterion a to-do" rules against itself.
+  const humanUnresolvedCount = humanCriteria.filter(c =>
+    isUnmetForDisplay(c, c.latestVerdict ?? undefined)
   ).length
   const taskAccepted = data.task.status === 'DONE'
   const humanPending =
     humanCriteria.length > 0 && humanUnresolvedCount > 0 && !taskAccepted
-  const humanAllJudged = humanCriteria.length > 0 && !humanPending
+  // Renamed from `humanAllJudged` (Task 7 review, I-1): "resolved" ≠ "judged"
+  // — the zone can be resolved with zero explicit human verdicts (every row a
+  // tacit pass). `humanEngagedCount` below is the honest "how many did a
+  // human actually look at" figure the copy needs to stay truthful.
+  const humanResolved = humanCriteria.length > 0 && !humanPending
+  // N-1 (Task 7 re-review): this must count ANY explicit verdict (PASS or
+  // FAIL), not just PASS. A resolved zone can carry a FAIL — only reachable
+  // through the human-authoritative DONE-gate override
+  // (task-state.service.ts:214), since an unresolved FAIL otherwise 409s —
+  // and a criterion someone explicitly rejected was absolutely "judged": an
+  // objection *was* raised. Counting PASS only put that FAIL in the same
+  // bucket as a criterion nobody ever looked at, and rendered "Accepted as
+  // drafted" / "No objections raised" underneath its own rejection reason —
+  // the exact false-tacit-claim I-1 existed to kill, just relocated.
+  const humanEngagedCount = humanCriteria.filter(
+    c => c.latestVerdict != null
+  ).length
+  const humanNoneJudged = humanResolved && humanEngagedCount === 0
+  const humanAllExplicitlyJudged =
+    humanResolved && humanEngagedCount === humanCriteria.length
+  const humanSomeJudged =
+    humanResolved && !humanNoneJudged && !humanAllExplicitlyJudged
+  // LUM-572: mirror the smart default for the human zone — collapse once it
+  // reads resolved; any unresolved one keeps it open by default. LUM-789: this
+  // used to run its own "every criterion carries a PASS" predicate, which drifted
+  // out of step with `humanResolved` above the moment an un-adjudicated
+  // criterion stopped counting as a to-do — a zone could show the resolved
+  // header while still defaulting open as if something were pending. Reusing
+  // `humanResolved` keeps the fold default and the header label reading off
+  // the same signal.
+  const humanZoneOpen = humanOpen ?? !humanResolved
 
   // ── LUM-496 · zone split ─────────────────────────────────────────────────
   //
@@ -1660,6 +1752,51 @@ export function AcceptanceTab({
   // "Needs your judgment 0/0" claimed a pending call that does not exist.
   const humanEmptyShell = humanCriteria.length === 0
 
+  // I-1 (Task 7 review): a resolved zone must not claim "judged" when it was
+  // actually a tacit pass — nobody looked at it, it just wasn't sent back.
+  // Three states, split on humanEngagedCount vs humanCriteria.length: every
+  // criterion carries an explicit verdict, PASS or FAIL (keep the existing
+  // "Human-judged" / "All N judged" copy — a FAIL is still a judgment), none
+  // do (a fresh, never-adjudicated contract — the *normal* post-LUM-789 state
+  // — gets copy that says so honestly instead of "judged"), or some do and
+  // some don't (must not claim either extreme).
+  const humanZoneHeaderMsg = humanAllExplicitlyJudged
+    ? { id: 'acceptance.zone.humanResolved', defaultMessage: 'Human-judged' }
+    : humanNoneJudged
+      ? {
+          id: 'acceptance.zone.humanTacit',
+          defaultMessage: 'Accepted as drafted',
+        }
+      : humanSomeJudged
+        ? { id: 'acceptance.zone.humanMixed', defaultMessage: 'Partly judged' }
+        : { id: 'acceptance.zone.human', defaultMessage: 'Needs your judgment' }
+  const humanZoneCaption = humanAllExplicitlyJudged
+    ? intl.formatMessage(
+        {
+          id: 'acceptance.zone.humanAllResolved',
+          defaultMessage: 'All {count} judged',
+        },
+        { count: humanCriteria.length }
+      )
+    : humanNoneJudged
+      ? intl.formatMessage({
+          id: 'acceptance.zone.humanTacitNote',
+          defaultMessage: 'No objections raised — not individually judged',
+        })
+      : humanSomeJudged
+        ? intl.formatMessage(
+            {
+              id: 'acceptance.zone.humanMixedNote',
+              defaultMessage:
+                '{judged} of {total} judged, rest accepted as drafted',
+            },
+            { judged: humanEngagedCount, total: humanCriteria.length }
+          )
+        : intl.formatMessage({
+            id: 'acceptance.zone.humanNote',
+            defaultMessage: 'not machine-checkable',
+          })
+
   // LUM-620's human zone markup, unchanged apart from the anchor it carries —
   // rendered in whichever zone its state puts it in.
   const humanZone = (anchorId?: string) => (
@@ -1668,7 +1805,7 @@ export function AcceptanceTab({
       className={`overflow-hidden rounded-lg border ${
         humanPending
           ? 'border-status-in-review-border'
-          : humanAllJudged
+          : humanAllExplicitlyJudged
             ? 'border-success-border'
             : 'border-border'
       }`}
@@ -1680,7 +1817,7 @@ export function AcceptanceTab({
         className={`flex w-full items-center gap-2 border-b px-4 py-2.5 text-left ${
           humanPending
             ? 'border-status-in-review-border bg-status-in-review-subtle'
-            : humanAllJudged
+            : humanAllExplicitlyJudged
               ? 'border-success-border bg-success-subtle'
               : 'border-border bg-muted/30'
         }`}
@@ -1689,7 +1826,12 @@ export function AcceptanceTab({
           className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${humanZoneOpen ? 'rotate-90' : ''}`}
           aria-hidden
         />
-        {humanAllJudged ? (
+        {/* Design call (Task 7 re-review): tacit/mixed keep the muted,
+            non-resolved UserCheck — only a genuinely fully-adjudicated
+            contract earns the green CheckCircle2. Resolved-but-not-judged
+            used to look visually identical to "a human verified this"; only
+            the caption differed. */}
+        {humanAllExplicitlyJudged ? (
           <CheckCircle2 className='size-4 shrink-0 text-success' aria-hidden />
         ) : (
           <UserCheck
@@ -1703,37 +1845,18 @@ export function AcceptanceTab({
                 id: 'record.human.emptyTitle',
                 defaultMessage: 'Human acceptance criteria',
               })
-            : humanAllJudged
-              ? intl.formatMessage({
-                  id: 'acceptance.zone.humanResolved',
-                  defaultMessage: 'Human-judged',
-                })
-              : intl.formatMessage({
-                  id: 'acceptance.zone.human',
-                  defaultMessage: 'Needs your judgment',
-                })}
+            : intl.formatMessage(humanZoneHeaderMsg)}
         </span>
         <span
           className={`text-caption ${
             humanPending
               ? 'text-status-in-review'
-              : humanAllJudged
+              : humanAllExplicitlyJudged
                 ? 'text-success'
                 : 'text-muted-foreground/70'
           }`}
         >
-          {humanAllJudged
-            ? intl.formatMessage(
-                {
-                  id: 'acceptance.zone.humanAllResolved',
-                  defaultMessage: 'All {count} judged',
-                },
-                { count: humanCriteria.length }
-              )
-            : intl.formatMessage({
-                id: 'acceptance.zone.humanNote',
-                defaultMessage: 'not machine-checkable',
-              })}
+          {humanZoneCaption}
         </span>
         {/* An empty shell has nothing to count — "0/0" reads like a failure. */}
         {humanEmptyShell ? null : (
@@ -1788,6 +1911,66 @@ export function AcceptanceTab({
           latestRunSummary={latestRunSummary}
           {...(mentionSources ? { mentionSources } : {})}
         />
+      )}
+
+      {/* LUM-789: the tacit-pass badge + the one-time "Confirm contract"
+          affordance. Both live at the top of the contract block — the badge
+          because it is the honest "still open" count (an un-adjudicated
+          HUMAN row no longer inflates it), the button because confirming is
+          optional, never gates Done, and disappears for good once every row
+          carries a confirmedAt. */}
+      {hasCriteria && (
+        <div className='space-y-1'>
+          <div className='flex items-center gap-2'>
+            <span
+              data-testid='pending-count'
+              className='text-caption text-muted-foreground'
+            >
+              {intl.formatMessage(
+                {
+                  id: 'acceptance.pendingBadge',
+                  defaultMessage: '{count} pending',
+                },
+                { count: pendingCount }
+              )}
+            </span>
+            {contractUnconfirmed && (
+              <>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => void confirmContract()}
+                  disabled={confirming}
+                >
+                  {intl.formatMessage({
+                    id: 'acceptance.confirmContract',
+                    defaultMessage: 'Confirm contract',
+                  })}
+                </Button>
+                <InfoTooltip
+                  label={intl.formatMessage({
+                    id: 'acceptance.contractUnconfirmed',
+                    defaultMessage:
+                      'This contract has not been confirmed by a human yet. Confirming records that you agree with what "done" means here — it does not close the task.',
+                  })}
+                />
+              </>
+            )}
+          </div>
+          {/* I-2: a failed confirm POST must say so, not just silently
+              re-enable the button with no feedback. */}
+          {confirmError ? (
+            <div
+              data-testid='confirm-contract-error'
+              className='text-caption text-danger'
+            >
+              {intl.formatMessage({
+                id: 'acceptance.confirmError',
+                defaultMessage: "Couldn't confirm — try again",
+              })}
+            </div>
+          ) : null}
+        </div>
       )}
 
       {/* LUM-496: "still needed for Done", with anchor chips into each gap.

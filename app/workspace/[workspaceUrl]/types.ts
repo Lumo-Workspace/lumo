@@ -829,6 +829,11 @@ export interface TaskStatusCriterionView {
     closingPrNumber?: number
     closingPrUrl?: string
   } | null
+  /** LUM-789: when a human confirmed this contract row (ISO), null = not yet
+   *  confirmed. Confirmation is never a to-do and never blocks DONE — it only
+   *  drives the optional "Confirm contract" affordance on this tab and the
+   *  `task status` nudge. */
+  confirmedAt: string | null
 }
 
 /** Honest machine-verification rollup over the active MACHINE criteria

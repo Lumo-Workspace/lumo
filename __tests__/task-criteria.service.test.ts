@@ -110,6 +110,8 @@ function criterion(over: Record<string, unknown> = {}) {
     createdAt: new Date('2026-06-01'),
     updatedAt: new Date('2026-06-01'),
     deletedAt: null,
+    confirmedAt: null,
+    confirmedByMemberId: null,
     ...over,
   }
 }

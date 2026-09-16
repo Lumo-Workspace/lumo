@@ -17,6 +17,13 @@ import {
   formatEvidenceDrilldown,
   resolveRepoWebUrl,
 } from '../lib/evidence-display'
+// LUM-789 whole-branch review (Findings 1/2): the CLI must not run a second,
+// disagreeing "is this criterion unmet" rule against the server's nextActions
+// split — both derive from the same isUnmetForDisplay so a tacit-pass HUMAN
+// row reads as settled everywhere in one report, never "0 unmet" in the
+// header and an open circle in the body. Zero-import — safe to pull into the
+// CLI package the same way client components pull it into the web bundle.
+import { isUnmetForDisplay } from '../../../lib/acceptance/unmet-display'
 
 export interface TaskStatusOptions {
   /** Emit the versioned machine-readable payload instead of prose. */
@@ -102,6 +109,9 @@ export interface TaskStatusResponse {
       closingPrNumber?: number
       closingPrUrl?: string
     } | null
+    /** LUM-789: when a human confirmed this contract item (ISO), null =
+     *  unconfirmed. Never blocks DONE — only feeds the `task status` nudge. */
+    confirmedAt: string | null
   }>
   /** Honest machine-verification rollup over the active MACHINE criteria
    *  (LUM-456): genuine checkpointer passes vs human overrides. Mirrored from
@@ -396,10 +406,34 @@ function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
 }
 
 /**
+ * Finding 2: the closing line for a fully-settled contract (no unmet
+ * criteria, no open security findings). Mirrors the web's three-way split
+ * (AcceptanceTab.tsx's humanNoneJudged / humanSomeJudged /
+ * humanAllExplicitlyJudged, from commit 749bdbf2) instead of unconditionally
+ * claiming "awaiting human adjudication" — which is false the moment even one
+ * HUMAN criterion settled as a tacit pass rather than an actual verdict.
+ */
+function contractSettledLine(criteria: TaskStatusResponse['criteria']): string {
+  const humanCriteria = criteria.filter(c => c.verifierType === 'HUMAN')
+  if (humanCriteria.length === 0) {
+    return 'All criteria met by their latest verdicts.'
+  }
+  const judgedCount = humanCriteria.filter(c => c.latestVerdict != null).length
+  if (judgedCount === humanCriteria.length) {
+    return 'All criteria met by their latest verdicts — human-judged.'
+  }
+  if (judgedCount === 0) {
+    return 'All criteria met — no objection raised on the HUMAN criteria; not individually judged.'
+  }
+  return `All criteria met — ${judgedCount}/${humanCriteria.length} HUMAN criteria explicitly judged, the rest accepted as drafted.`
+}
+
+/**
  * Render the acceptance status as prose. Same row grammar as
  * `criteria list` (`<id>  [TYPE]  SOURCE@rN  statement`) with a verdict
- * glyph in front — ✓ pass, ✗ fail, ○ no verdict yet — so REVIEW_ADDED
- * provenance stays explicitly visible in every row.
+ * glyph in front — ✓ pass, ✗ fail, ○ no verdict yet, ~ tacit pass (settled,
+ * un-adjudicated HUMAN criterion) — so REVIEW_ADDED provenance stays
+ * explicitly visible in every row.
  */
 export function formatTaskStatus(
   data: TaskStatusResponse,
@@ -413,6 +447,21 @@ export function formatTaskStatus(
       ? 'no verification rounds yet'
       : `verification round ${data.currentRound}/${data.maxRounds}`
   lines.push(`Status: ${t.status} · ${roundLabel}`)
+
+  // LUM-789: 追认入口。出现在用户本来就要打开这个任务的时刻,永不拦 DONE。
+  // Finding 5: the migration is backfill-free, so every pre-LUM-789 contract
+  // reads unconfirmed forever — without the DONE guard this nudge would sit
+  // on every historical and every closed task forever, inviting exactly the
+  // after-delivery "confirm" that defeats the point of moving the touchpoint
+  // earlier. Mirrors AcceptanceTab.tsx's `contractUnconfirmed` guard.
+  const unconfirmed =
+    t.status === 'DONE' ? [] : data.criteria.filter(c => c.confirmedAt == null)
+  if (unconfirmed.length > 0) {
+    lines.push(
+      `Contract unconfirmed (${unconfirmed.length} criteri${unconfirmed.length === 1 ? 'on' : 'a'}) — lumo task criteria confirm ${t.identifier}`
+    )
+  }
+
   if (data.escalated) {
     lines.push(
       '⚠ Escalated: the machine loop is exhausted — a human has been paged. Stop retrying lumo verify.'
@@ -458,9 +507,18 @@ export function formatTaskStatus(
     `Criteria (${data.criteria.length} total, ${unmetCriteria.length} unmet):`
   )
   for (const c of data.criteria) {
+    // Finding 1: derive from the same isUnmetForDisplay the header's
+    // `unmet` count and the server's nextActions already use. A HUMAN
+    // criterion with no verdict is a tacit pass (settled, nobody objected) —
+    // it must not render as an open circle awaiting something, but it also
+    // didn't get an actual verdict, so it stays visually distinct from a
+    // real ✓ pass (LUM-789's "keep the judged-vs-tacit distinction honest").
+    const unmet = isUnmetForDisplay(c, c.latestVerdict ?? undefined)
     const glyph =
       c.latestVerdict == null
-        ? '○'
+        ? unmet
+          ? '○' // MACHINE, no verdict — genuinely still open
+          : '~' // HUMAN, no verdict — tacit pass, settled but unjudged
         : c.latestVerdict.verdict === 'FAIL'
           ? '✗'
           : '✓'
@@ -483,7 +541,11 @@ export function formatTaskStatus(
     }
     const v = c.latestVerdict
     if (v == null) {
-      lines.push('      (no verdict yet)')
+      lines.push(
+        unmet
+          ? '      (no verdict yet)'
+          : '      (tacit pass — no objection raised, not individually judged)'
+      )
     } else if (v.verdict === 'FAIL') {
       const why = v.rejectionReason
         ? ` — ${sanitizeField(tail(v.rejectionReason, REASON_TAIL))}`
@@ -575,7 +637,7 @@ export function formatTaskStatus(
   if (unmetCriteria.length === 0 && securityActions.length === 0) {
     lines.push(
       data.currentRound > 0
-        ? 'All criteria met by their latest verdicts — awaiting human adjudication.'
+        ? contractSettledLine(data.criteria)
         : 'Nothing unmet — but no verification has run; run `lumo verify` to judge the contract.'
     )
   } else {
@@ -601,7 +663,9 @@ export function formatTaskStatus(
       lines.push(
         hasMachine
           ? `Fix the unmet criteria, then run \`lumo verify\` (${left} round${left === 1 ? '' : 's'} left).`
-          : 'Remaining criteria are HUMAN-only — finish the work and hand off for human review.'
+          : // LUM-789: 未裁定的 HUMAN 项已按 tacit pass 处理，不会走到这里。
+            // 剩下的 HUMAN 项只可能是被明确送回的 —— 说送回，不说交接。
+            'The remaining criteria were sent back by a human — address the reasons above, then run `lumo verify`.'
       )
     }
     if (securityActions.length > 0) lines.push(SECURITY_HINT)
@@ -679,10 +743,15 @@ function pushVerificationRollup(
   }
   // LUM-737 (whole-branch review): `unmetCriteriaCount` excludes SECURITY_FINDING
   // next actions — met/unmet counts criteria only, never security findings.
+  //
+  // Relocation six (whole-branch review, third pass): `unmetCriteriaCount` is
+  // now isUnmetForDisplay-filtered (Findings 1/2) — a tacit-pass HUMAN
+  // criterion (no verdict, never adjudicated) counts as met here too. "met by
+  // their latest verdict" asserted a verdict that row doesn't have; dropped
+  // the claim rather than the count, so this line agrees with the `~` row
+  // and the closing line instead of contradicting them.
   const met = data.criteria.length - unmetCriteriaCount
-  lines.push(
-    `  ${met} of ${data.criteria.length} criteria met by their latest verdict`
-  )
+  lines.push(`  ${met} of ${data.criteria.length} criteria met`)
 }
 
 /**

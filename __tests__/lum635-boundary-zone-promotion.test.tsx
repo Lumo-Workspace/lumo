@@ -126,6 +126,7 @@ function machineCriterion(): TaskStatusCriterionView {
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
   }
 }
 

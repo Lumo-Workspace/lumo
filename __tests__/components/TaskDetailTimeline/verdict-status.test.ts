@@ -59,6 +59,7 @@ const crit = (
   changeState: null,
   changedAtRound: null,
   lastEdit: null,
+  confirmedAt: null,
 })
 
 describe('deriveVerdictStatus', () => {
@@ -95,14 +96,87 @@ describe('deriveVerdictStatus', () => {
     expect(s.round).toBe(3)
     expect(s.maxRounds).toBe(5)
   })
-  it('machineAwaitingHuman: all MACHINE criteria checkpointer-verified but HUMAN criterion unmet', () => {
-    // MACHINE criterion with machinePassed=true — counts as verified in machineRollup
-    // HUMAN criterion with no verdict — unmet, so met !== total
+  // N-1 (whole-branch review, second pass): F3 fixed `met`'s number but left
+  // `kind`/`tone` running the pre-LUM-789 rule, so this exact scenario still
+  // rendered a green CheckCircle2 + "All criteria met" — the false
+  // "adjudicated" claim had relocated from the count onto the icon/title
+  // instead of disappearing. `met === total` is necessary but not
+  // sufficient for `allPassed`: every HUMAN criterion must also carry an
+  // explicit verdict, or this lands on the repurposed `machineAwaitingHuman`
+  // kind (neutral tone, honest "N/M judged, rest accepted as drafted" copy).
+  describe('N-1: allPassed requires every HUMAN criterion to be explicitly judged, not just met=total', () => {
+    it('nobody judged: a tacit-pass HUMAN criterion keeps kind neutral, never the green allPassed', () => {
+      const s = deriveVerdictStatus(
+        view({ criteria: [crit('PASS', 'MACHINE'), crit(null, 'HUMAN')] })
+      )
+      expect(s.met).toBe(2)
+      expect(s.total).toBe(2)
+      expect(s.kind).toBe('machineAwaitingHuman')
+      expect(s.tone).toBe('neutral')
+      expect(s.humanJudgedCount).toBe(0)
+      expect(s.humanTotal).toBe(1)
+    })
+
+    it('some judged (mixed): still neutral, never allPassed — humanJudgedCount reflects the split', () => {
+      const s = deriveVerdictStatus(
+        view({
+          criteria: [
+            crit('PASS', 'MACHINE'),
+            crit('PASS', 'HUMAN'),
+            crit(null, 'HUMAN'),
+          ],
+        })
+      )
+      expect(s.met).toBe(3)
+      expect(s.total).toBe(3)
+      expect(s.kind).toBe('machineAwaitingHuman')
+      expect(s.tone).toBe('neutral')
+      expect(s.humanJudgedCount).toBe(1)
+      expect(s.humanTotal).toBe(2)
+    })
+
+    // Falsifies the other direction: once every HUMAN criterion carries an
+    // explicit verdict, the contract really was adjudicated — `allPassed`
+    // (green check, "All criteria met") is the honest state here, not the
+    // neutral tacit-aware kind.
+    it('all judged: allPassed/success once every HUMAN criterion carries an explicit verdict', () => {
+      const s = deriveVerdictStatus(
+        view({ criteria: [crit('PASS', 'MACHINE'), crit('PASS', 'HUMAN')] })
+      )
+      expect(s.met).toBe(2)
+      expect(s.total).toBe(2)
+      expect(s.kind).toBe('allPassed')
+      expect(s.tone).toBe('success')
+      expect(s.humanJudgedCount).toBe(1)
+      expect(s.humanTotal).toBe(1)
+    })
+
+    // No HUMAN criteria at all: vacuously "every HUMAN criterion judged" —
+    // a MACHINE-only contract has nothing to tacitly accept, so it stays the
+    // plain, honest `allPassed` (matches the CLI's Finding-2 "no HUMAN
+    // criteria at all" case, which also skips the adjudication clause).
+    it('no HUMAN criteria: allPassed/success — nothing to tacitly accept', () => {
+      const s = deriveVerdictStatus(
+        view({ criteria: [crit('PASS', 'MACHINE')] })
+      )
+      expect(s.kind).toBe('allPassed')
+      expect(s.tone).toBe('success')
+      expect(s.humanJudgedCount).toBe(0)
+      expect(s.humanTotal).toBe(0)
+    })
+  })
+
+  // Falsifies the other direction: a genuinely unverified MACHINE criterion
+  // must still NOT count as met, tacit-pass or not — only HUMAN criteria get
+  // the tacit-pass exemption (isUnmetForDisplay never extends it to MACHINE).
+  it('an unverified MACHINE criterion still keeps met below total, even alongside a tacit HUMAN pass', () => {
     const s = deriveVerdictStatus(
-      view({ criteria: [crit('PASS', 'MACHINE'), crit(null, 'HUMAN')] })
+      view({ criteria: [crit(null, 'MACHINE'), crit(null, 'HUMAN')] })
     )
-    expect(s.kind).toBe('machineAwaitingHuman')
-    expect(s.tone).toBe('success')
+    expect(s.met).toBe(1)
+    expect(s.total).toBe(2)
+    expect(s.kind).not.toBe('allPassed')
+    expect(s.kind).not.toBe('machineAwaitingHuman')
   })
   it('DONE task: doneNoHumanVerdict when no criterion has a HUMAN verdict, done when one does', () => {
     const noHuman = deriveVerdictStatus(

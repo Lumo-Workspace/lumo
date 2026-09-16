@@ -117,6 +117,7 @@ const crit = (
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
   }) as TaskStatusCriterionView
 
 function baseData(
@@ -252,10 +253,15 @@ describe('VerdictDecision', () => {
     )
   })
 
-  // All-PASS machine criteria with the task still awaiting a human verdict
-  // derives kind `machineAwaitingHuman` / `allPassed` — assert the header path
-  // wires through a passing title (not a failing one).
-  it('header variant renders a passing title when every criterion passes', () => {
+  // N-4 (whole-branch review, second pass): two MACHINE-only PASS criteria —
+  // no HUMAN criterion in the contract at all, so `humanAllExplicitlyJudged`
+  // is vacuously true and `deriveVerdictStatus` can ONLY land on `allPassed`
+  // here, never the repurposed `machineAwaitingHuman` (that kind now needs an
+  // actual un/partly-judged HUMAN criterion — see verdict-status.test.ts's
+  // "N-1" suite). The old two-arm regex passed regardless of which kind the
+  // code produced; tightened to the one reachable id so a real regression
+  // (e.g. `allPassed` wrongly requiring something it shouldn't) still fails.
+  it('header variant renders the allPassed title when every (MACHINE-only) criterion passes', () => {
     render(
       <VerdictDecision
         variant='header'
@@ -266,9 +272,7 @@ describe('VerdictDecision', () => {
     )
     const banner = screen.getByTestId('verdict-status')
     expect(banner).not.toHaveTextContent('acceptance.banner.sentBack')
-    expect(banner.textContent).toMatch(
-      /acceptance\.banner\.(allPassed|machineAwaitingHuman)/
-    )
+    expect(banner.textContent).toMatch(/acceptance\.banner\.allPassed/)
   })
 
   it('header variant + IN_REVIEW renders both the banner and the action buttons', () => {

@@ -2,11 +2,17 @@
 /**
  * LUM-496 — the Record tab is composed by DECISION, not by data type: a unit
  * sits in NEEDS ACTION iff acting on it changes whether the task can reach
- * Done (machine checks no checkpointer has passed, unjudged human calls, open
- * boundary crossings, blocking security findings); everything else is a
- * record below. These tests pin zone membership per state, the anchors the
- * status strip links to (including the legacy #boundary-crossings deep link),
- * and the Run report's default folds.
+ * Done (machine checks no checkpointer has passed, an unresolved HUMAN
+ * send-back, open boundary crossings, blocking security findings); everything
+ * else is a record below. These tests pin zone membership per state, the
+ * anchors the status strip links to (including the legacy #boundary-crossings
+ * deep link), and the Run report's default folds.
+ *
+ * LUM-789: a HUMAN criterion that was simply never adjudicated is a tacit
+ * pass, not a to-do — only an explicit FAIL (a real send-back) still counts,
+ * matching the DONE gate itself (task-state.service.ts's
+ * assertNoUnresolvedSendBack only ever blocked on a FAIL). "unjudged human
+ * calls" was removed from the sentence above for that reason.
  */
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -76,6 +82,11 @@ const MACHINE_PASS = {
   recordedAt: '2026-06-10T10:00:00.000Z',
 }
 const HUMAN_PASS = { ...MACHINE_PASS, verifierType: 'HUMAN' as const }
+const HUMAN_FAIL = {
+  ...HUMAN_PASS,
+  verdict: 'FAIL' as const,
+  evidencePointer: null,
+}
 
 function criterion(
   over: Partial<TaskStatusCriterionView> = {}
@@ -96,6 +107,7 @@ function criterion(
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
     ...over,
   } as TaskStatusCriterionView
 }
@@ -319,8 +331,36 @@ describe('machine checks by state', () => {
 })
 
 describe('human calls by state', () => {
-  it('an unjudged call sits in NEEDS ACTION under the #record-human anchor', () => {
+  // LUM-789 overturns this test's old title/expectations ("an unjudged call
+  // sits in NEEDS ACTION") — a criterion that was simply never adjudicated is
+  // now a tacit pass, so it reads as a resolved record instead, exactly like
+  // an explicit PASS below. See the companion "explicit FAIL" test for the
+  // direction that still puts a human call in NEEDS ACTION.
+  it('an unjudged call is a tacit pass — it is a record, not a NEEDS ACTION item', () => {
     setStatus(statusView({ criteria: [humanCriterion()] }))
+    const { container } = renderTab()
+
+    expect(screen.queryByTestId('record-needs-action')).toBeNull()
+    expect(container.querySelector('#record-human')).toBeNull()
+    // I-1 (Task 7 review): the lone criterion has no explicit PASS, so the
+    // resolved header reads "Accepted as drafted", not "Human-judged" — that
+    // word would claim a judgment nobody made.
+    const resolved = screen.getByRole('button', {
+      name: /Accepted as drafted/,
+    })
+    expect(records()).toContainElement(resolved)
+    // Design call (Task 7 re-review): tacit keeps the muted, non-resolved
+    // UserCheck, not the green CheckCircle2 — "nobody looked" must not look
+    // visually identical to "a human verified this".
+    expect(resolved.querySelector('.lucide-circle-check')).toBeNull()
+    expect(resolved.querySelector('.lucide-user-check')).not.toBeNull()
+    expect(resolved.className).not.toContain('border-success-border')
+  })
+
+  it('an explicit FAIL still sits in NEEDS ACTION under the #record-human anchor', () => {
+    setStatus(
+      statusView({ criteria: [humanCriterion({ latestVerdict: HUMAN_FAIL })] })
+    )
     const { container } = renderTab()
 
     const zone = container.querySelector('#record-human')!
@@ -343,6 +383,62 @@ describe('human calls by state', () => {
     expect(records()).toContainElement(resolved)
     // Resolved → collapsed by default (the LUM-572 smart default).
     expect(resolved).toHaveAttribute('aria-expanded', 'false')
+    // Design call (Task 7 re-review): genuine adjudication keeps the green
+    // CheckCircle2 — only a tacit/mixed zone loses it.
+    expect(resolved.querySelector('.lucide-circle-check')).not.toBeNull()
+    expect(resolved.className).toContain('border-success-border')
+  })
+
+  // N-1 (Task 7 re-review): a DONE task can carry an unresolved HUMAN FAIL —
+  // reachable only through the human-authoritative DONE-gate override
+  // (task-state.service.ts:214), since an unresolved FAIL otherwise 409s.
+  // Counting PASS-only for "was this judged" put that FAIL in the same
+  // bucket as a criterion nobody ever looked at, rendering "Accepted as
+  // drafted" / "No objections raised" directly above its own rejection
+  // reason — a false claim that an objection was never raised, when one was.
+  it('a DONE task with an explicit HUMAN FAIL is never rendered as a tacit pass', () => {
+    setStatus(
+      statusView({
+        task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+        criteria: [humanCriterion({ latestVerdict: HUMAN_FAIL })],
+      })
+    )
+    renderTab()
+    expect(screen.queryByText('Accepted as drafted')).toBeNull()
+    expect(
+      screen.queryByText('No objections raised — not individually judged')
+    ).toBeNull()
+    // Honest instead: a human did rule on it (the verdict was FAIL), so this
+    // reads as genuinely judged, not tacit — full success styling included.
+    const resolved = screen.getByRole('button', { name: /Human-judged/ })
+    expect(resolved).toBeInTheDocument()
+    expect(resolved.querySelector('.lucide-circle-check')).not.toBeNull()
+  })
+
+  // N-2 (Task 7 re-review): the MIXED state (some HUMAN criteria genuinely
+  // judged, some never adjudicated) was previously live but completely
+  // untested — nothing exercised humanSomeJudged / acceptance.zone.humanMixed
+  // / humanMixedNote, including the {judged}/{total} placeholders.
+  it('a mix of one PASSed and one never-adjudicated HUMAN criterion reads as partly judged, not either extreme', () => {
+    setStatus(
+      statusView({
+        criteria: [
+          humanCriterion({ id: 'h1', latestVerdict: HUMAN_PASS }),
+          humanCriterion({ id: 'h2', statement: 'still untouched' }),
+        ],
+      })
+    )
+    renderTab()
+    const mixed = screen.getByRole('button', { name: /Partly judged/ })
+    expect(records()).toContainElement(mixed)
+    expect(mixed).toHaveTextContent('1 of 2 judged, rest accepted as drafted')
+    expect(screen.queryByText('Human-judged')).toBeNull()
+    expect(screen.queryByText('Accepted as drafted')).toBeNull()
+    // Design call: mixed does not get the green CheckCircle2 either — the
+    // muted UserCheck stays, same as tacit.
+    expect(mixed.querySelector('.lucide-circle-check')).toBeNull()
+    expect(mixed.querySelector('.lucide-user-check')).not.toBeNull()
+    expect(mixed.className).not.toContain('border-success-border')
   })
 
   it('with no human criterion yet the editable shell has its own title and no 0/0 count', () => {

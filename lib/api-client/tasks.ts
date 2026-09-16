@@ -175,6 +175,19 @@ export const tasksClient = {
     })
   },
 
+  /**
+   * Record a human's confirmation of the acceptance contract (LUM-789). No
+   * request body — confirms the whole live contract. Idempotent (already-
+   * confirmed rows are left alone) and never changes task status or blocks
+   * anything; it is a record, not a gate.
+   */
+  confirmCriteria(taskId: string) {
+    return apiFetch<{ confirmedCount: number }>(
+      API.tasks.criteriaConfirm(taskId),
+      { method: 'POST' }
+    )
+  },
+
   /** List ALL of a task's boundary-crossings, open and dispositioned (LUM-435). */
   listBoundaryCrossings<T>(taskId: string) {
     return apiFetch<T>(API.tasks.boundaryCrossings(taskId), { method: 'GET' })

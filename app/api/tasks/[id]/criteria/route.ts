@@ -21,7 +21,12 @@ export async function GET(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Task not found' }, { status: 404 })
 
   const result = await taskCriteriaService.listForTask(task.id)
-  return NextResponse.json(result)
+  // N-5 (whole-branch review, second pass): carry the task's status alongside
+  // the contract — already resolved above via `resolveTaskParam`, no extra
+  // query — so `lumo task criteria confirm`'s dry-run envelope can pre-check
+  // DONE and refuse before promising a write the server's own 409
+  // (`taskCriteriaConfirmService.confirmContract`) would refuse anyway.
+  return NextResponse.json({ ...result, status: task.status })
 }
 
 /**

@@ -12,6 +12,16 @@ jest.mock('react-intl', () => ({
       values?: Record<string, unknown>
     ) => {
       let msg = defaultMessage ?? id
+      // M-3 (Task 7 review): activity.contractConfirmed needs real ICU plural
+      // ("1 criterion" vs "N criteria") — mirror AcceptanceTab.test.tsx's mock
+      // instead of working around the limitation with awkward copy.
+      msg = msg.replace(
+        /\{(\w+),\s*plural,\s*one\s*\{([^}]*)\}\s*other\s*\{([^}]*)\}\}/g,
+        (_m, key, one, other) => {
+          const n = Number(values?.[key] ?? 0)
+          return (n === 1 ? one : other).replace('#', String(n))
+        }
+      )
       for (const [k, v] of Object.entries(values ?? {})) {
         msg = msg.replace(`{${k}}`, String(v))
       }
@@ -100,5 +110,91 @@ describe('CRITERION_CHANGED', () => {
       screen.getByText(op === 'DELETED' ? /old statement/ : /new statement/)
     ).toBeInTheDocument()
     expect(screen.queryByText('criterion changed')).not.toBeInTheDocument()
+  })
+})
+
+// LUM-789: confirming the acceptance contract renders through its own case —
+// and `confirmedCount` means different things across `via` (web/cli count
+// only newly-stamped rows; HUMAN_EDIT counts every row the revision touched,
+// including a re-stamped already-confirmed one) so the two must never be
+// captioned as one comparable number. Finding 7 (whole-branch review): that
+// doesn't mean hiding the HUMAN_EDIT count — it means wording it honestly
+// ("edited N criteria", not "confirmed the [whole] contract").
+describe('CONTRACT_CONFIRMED', () => {
+  it('renders the confirmed count for a web confirmation', () => {
+    renderItem(
+      entry('CONTRACT_CONFIRMED', {
+        via: 'web',
+        confirmedCount: 2,
+        criterionIds: ['c1', 'c2'],
+        reconfirm: false,
+      })
+    )
+    // M-3 (Task 7 review): ICU plural, not "N of the acceptance criteria" —
+    // the latter read as partial even at full coverage.
+    expect(
+      screen.getByText(/confirmed 2 acceptance criteria/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText('contract confirmed')).not.toBeInTheDocument()
+  })
+
+  it('marks a CLI confirmation distinctly', () => {
+    renderItem(
+      entry('CONTRACT_CONFIRMED', {
+        via: 'cli',
+        confirmedCount: 1,
+        criterionIds: ['c1'],
+        reconfirm: false,
+      })
+    )
+    // Singular ICU branch: "criterion", not "criteria" (the two words don't
+    // collide as substrings, so this alone proves the branch taken).
+    expect(
+      screen.getByText(/confirmed 1 acceptance criterion/)
+    ).toBeInTheDocument()
+    expect(screen.getByText(/via CLI/)).toBeInTheDocument()
+  })
+
+  // Finding 7 (whole-branch review): the old label ("confirmed the
+  // acceptance contract (via edit)") claimed the WHOLE contract was
+  // confirmed regardless of how many rows the edit actually touched — a
+  // partial edit (some criteria unchanged, hence skipped by `toUpdate`)
+  // doesn't deliver that. The count for HUMAN_EDIT is exactly "how many
+  // criteria this edit touched" (see task-criteria.service.ts), so it's
+  // honest to show — the label now says "edited", distinguishing it from
+  // the web/cli confirm-command count without a separate chip.
+  it('shows the touched-row count for a HUMAN_EDIT auto-confirm, worded as "edited" — plural', () => {
+    renderItem(
+      entry('CONTRACT_CONFIRMED', {
+        via: 'HUMAN_EDIT',
+        confirmedCount: 5,
+        criterionIds: ['c1'],
+        reconfirm: true,
+      })
+    )
+    expect(
+      screen.getByText(/confirmed 5 edited acceptance criteria/)
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/confirmed the acceptance contract/)
+    ).not.toBeInTheDocument()
+  })
+
+  // Falsifies the other direction: a revision that touched exactly one
+  // criterion must read as singular, not plural — proving the count is
+  // actually threaded through (not a hardcoded plural string).
+  it('a HUMAN_EDIT auto-confirm touching one criterion reads singular', () => {
+    renderItem(
+      entry('CONTRACT_CONFIRMED', {
+        via: 'HUMAN_EDIT',
+        confirmedCount: 1,
+        criterionIds: ['c1'],
+        reconfirm: true,
+      })
+    )
+    expect(
+      screen.getByText(/confirmed 1 edited acceptance criterion\b/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/criteria/)).not.toBeInTheDocument()
   })
 })

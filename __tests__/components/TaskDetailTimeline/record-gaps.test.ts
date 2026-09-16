@@ -66,6 +66,7 @@ function crit(
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
   }
 }
 
@@ -118,6 +119,7 @@ describe('deriveRecordGaps', () => {
       machineVerified: 0,
       humanPending: 0,
       humanTotal: 0,
+      humanJudged: 0,
       crossingsOpen: 0,
       crossingsBlocking: 0,
       crossingsTotal: 0,
@@ -216,11 +218,35 @@ describe('deriveRecordGaps', () => {
     expect(g.canBeDone).toBe(true)
   })
 
-  it('human: unjudged criteria on a non-DONE task count as pending', () => {
+  // LUM-789: overturns the pre-existing "unjudged HUMAN criteria count as
+  // pending" rule this test used to assert (title and expectations both
+  // updated — a fresh, never-adjudicated HUMAN criterion is now a tacit
+  // pass, matching the DONE gate itself, which only ever blocked on an
+  // explicit FAIL). See the companion "explicit FAIL" case right below for
+  // the direction that must still hold.
+  it('human: an un-adjudicated criterion is a tacit pass — it does NOT count as pending', () => {
     const g = deriveRecordGaps({
       data: view({
         criteria: [
           crit(null, { verifier: 'HUMAN' }),
+          crit('PASS', { verifier: 'HUMAN' }),
+        ],
+      }),
+      crossings: [],
+      gateEnabled: true,
+    })
+    expect(g.humanTotal).toBe(2)
+    expect(g.humanPending).toBe(0)
+    expect(g.canBeDone).toBe(true)
+  })
+
+  // The other direction of the same LUM-789 split: an explicit FAIL is a real
+  // send-back, not a tacit pass, so it must still hold canBeDone false.
+  it('human: an explicit FAIL still counts as pending', () => {
+    const g = deriveRecordGaps({
+      data: view({
+        criteria: [
+          crit('FAIL', { verifier: 'HUMAN' }),
           crit('PASS', { verifier: 'HUMAN' }),
         ],
       }),

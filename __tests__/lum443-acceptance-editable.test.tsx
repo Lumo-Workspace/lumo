@@ -75,6 +75,19 @@ function mockStatusSet(data: ReturnType<typeof statusView>) {
   })
 }
 
+// LUM-789: the fixture's lone HUMAN criterion (h1) carries no verdict at
+// all — a tacit pass now, not a to-do — so its zone smart-collapses into the
+// resolved "Human-judged" record by default. Expand it before interacting
+// with the row's Edit/Delete affordances or the add-criterion entry, same as
+// this suite always had to for a resolved zone.
+function expandHuman() {
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: /Human-judged|Accepted as drafted|Partly judged/i,
+    })
+  )
+}
+
 function statusView(over: Record<string, unknown> = {}) {
   return {
     version: 1,
@@ -95,6 +108,7 @@ function statusView(over: Record<string, unknown> = {}) {
         changeState: null,
         changedAtRound: null,
         lastEdit: null,
+        confirmedAt: null,
       },
       {
         id: 'h1',
@@ -108,6 +122,7 @@ function statusView(over: Record<string, unknown> = {}) {
         changeState: null,
         changedAtRound: null,
         lastEdit: null,
+        confirmedAt: null,
       },
     ],
     removedCriteria: [],
@@ -133,6 +148,7 @@ describe('AcceptanceTab editable contract human zone', () => {
         onVerdictRecorded={jest.fn()}
       />
     )
+    expandHuman()
     fireEvent.click(screen.getByLabelText('Edit criterion'))
     const ta = screen.getByDisplayValue('UX feels right')
     fireEvent.change(ta, { target: { value: 'UX feels great' } })
@@ -167,6 +183,7 @@ describe('AcceptanceTab editable contract human zone', () => {
         onVerdictRecorded={jest.fn()}
       />
     )
+    expandHuman()
     fireEvent.click(screen.getByLabelText('Delete criterion'))
     fireEvent.click(screen.getByText('Remove'))
     await waitFor(() => expect(reviseCriteria).toHaveBeenCalled())
@@ -185,6 +202,7 @@ describe('AcceptanceTab editable contract human zone', () => {
         onVerdictRecorded={jest.fn()}
       />
     )
+    expandHuman()
     expect(screen.getAllByLabelText('Edit criterion')).toHaveLength(1)
   })
 
@@ -214,6 +232,7 @@ describe('AcceptanceTab editable contract human zone', () => {
         onVerdictRecorded={jest.fn()}
       />
     )
+    expandHuman()
     fireEvent.change(screen.getByPlaceholderText(/Add a criterion/i), {
       target: { value: 'new judgment call' },
     })
@@ -238,6 +257,7 @@ describe('AcceptanceTab editable contract human zone', () => {
         onVerdictRecorded={jest.fn()}
       />
     )
+    expandHuman()
     fireEvent.click(screen.getByLabelText('Edit criterion'))
     const ta = screen.getByDisplayValue('UX feels right')
     fireEvent.change(ta, { target: { value: 'UX feels great' } })

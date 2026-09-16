@@ -21,6 +21,10 @@ export const API = {
       `/api/tasks/${taskId}/security-findings/bulk-disposition`,
     humanVerdict: (taskId: string) => `/api/tasks/${taskId}/human-verdict`,
     criteria: (taskId: string) => `/api/tasks/${taskId}/criteria`,
+    // LUM-789: record a human's one-time confirmation of the acceptance
+    // contract. Never gates DONE — a plain POST, no body.
+    criteriaConfirm: (taskId: string) =>
+      `/api/tasks/${taskId}/criteria/confirm`,
     boundaryCrossings: (taskId: string) =>
       `/api/tasks/${taskId}/boundary-crossings`,
     boundaryDisposition: (taskId: string) =>

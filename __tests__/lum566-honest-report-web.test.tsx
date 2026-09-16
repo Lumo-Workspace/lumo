@@ -149,6 +149,7 @@ function machinePass(
     changeState: null,
     changedAtRound: null,
     lastEdit: null,
+    confirmedAt: null,
     ...over,
   }
 }
@@ -190,6 +191,16 @@ function render_() {
 
 function expandMachine() {
   fireEvent.click(screen.getByRole('button', { name: /Machine-verified/i }))
+}
+
+// LUM-789: an un-adjudicated HUMAN criterion is a tacit pass, so a zone with
+// nothing but such rows now smart-collapses into "Human-judged" by default.
+function expandHuman() {
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: /Human-judged|Accepted as drafted|Partly judged/i,
+    })
+  )
 }
 
 beforeEach(() => jest.clearAllMocks())
@@ -390,11 +401,15 @@ describe('evidence drilldown', () => {
             changeState: null,
             changedAtRound: null,
             lastEdit: null,
+            confirmedAt: null,
           },
         ],
       })
     )
     render_()
+    // LUM-789: the lone criterion is unjudged, hence a tacit pass — its zone
+    // now smart-collapses into "Human-judged" by default.
+    expandHuman()
     expect(screen.getByText(/evidence pending/i)).toBeInTheDocument()
   })
 })

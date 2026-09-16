@@ -382,6 +382,58 @@ function formatActivityText(
         </>
       )
     }
+    case 'CONTRACT_CONFIRMED': {
+      // LUM-789: `confirmedCount` means something different depending on
+      // `via` (task-criteria-confirm.service.ts vs the HUMAN_EDIT auto-
+      // confirm in task-criteria.service.ts) — only newly-stamped rows for
+      // web/cli, but every row THIS revision touched (including an already-
+      // confirmed row re-stamped) for HUMAN_EDIT. Never render it as one
+      // comparable number across `via` — but Finding 7 (whole-branch review):
+      // for HUMAN_EDIT the count is exactly "how many criteria this edit
+      // touched", which is worth surfacing, not omitting. The old label
+      // ("confirmed the acceptance contract") claimed the WHOLE contract was
+      // confirmed, which a partial edit (some rows unchanged, hence skipped —
+      // see task-criteria.service.ts's `toUpdate`) does not deliver.
+      const via = p.via === 'cli' || p.via === 'HUMAN_EDIT' ? p.via : 'web'
+      const count = typeof p.confirmedCount === 'number' ? p.confirmedCount : 0
+      const label =
+        via === 'HUMAN_EDIT'
+          ? intl.formatMessage(
+              {
+                id: 'activity.contractConfirmedViaEdit',
+                defaultMessage:
+                  '{count, plural, one {confirmed # edited acceptance criterion} other {confirmed # edited acceptance criteria}}',
+              },
+              { count }
+            )
+          : intl.formatMessage(
+              {
+                id: 'activity.contractConfirmed',
+                // M-3 (Task 7 review): "confirmed N of the acceptance
+                // criteria" read as partial even at full coverage (N ===
+                // the whole contract). ICU plural instead of "of the ..."
+                // reads naturally whether N is the whole contract or not,
+                // while staying truthful about what `count` means for
+                // this `via` (web/cli: newly-stamped rows only).
+                defaultMessage:
+                  '{count, plural, one {confirmed # acceptance criterion} other {confirmed # acceptance criteria}}',
+              },
+              { count }
+            )
+      return (
+        <>
+          {label}
+          {via === 'cli' ? (
+            <span className='text-muted-foreground'>
+              {intl.formatMessage({
+                id: 'boundary.panel.viaCli',
+                defaultMessage: '· via CLI',
+              })}
+            </span>
+          ) : null}
+        </>
+      )
+    }
     case 'VERIFICATION_RUN_RECORDED': {
       // verdict / round are bare structured data (same route as LineageTab);
       // only the prose around them is translated.

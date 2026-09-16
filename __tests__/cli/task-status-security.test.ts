@@ -56,6 +56,7 @@ function payload(over: Partial<TaskStatusResponse> = {}): TaskStatusResponse {
         verdictStale: false,
         checkMismatch: false,
         machinePassed: false,
+        confirmedAt: '2026-06-01T00:00:00Z',
         latestVerdict: null,
       },
     ],
@@ -182,6 +183,7 @@ describe('lumo task status — security findings (LUM-737)', () => {
             verdictStale: false,
             checkMismatch: false,
             machinePassed: true,
+            confirmedAt: '2026-06-01T00:00:00Z',
             latestVerdict: {
               round: 1,
               verdict: 'PASS',
@@ -197,7 +199,12 @@ describe('lumo task status — security findings (LUM-737)', () => {
       }),
       { full: true }
     )
-    expect(out).toContain('1 of 1 criteria met by their latest verdict')
+    // Relocation six (whole-branch review, third pass): dropped "by their
+    // latest verdict" — the rollup's `met` count is isUnmetForDisplay-based
+    // now (Findings 1/2), so a tacit-pass HUMAN row with no verdict would
+    // count as met here without ever having "a latest verdict" to point at.
+    expect(out).toContain('1 of 1 criteria met')
+    expect(out).not.toContain('criteria met by their latest verdict')
     expect(out).not.toContain('-1 of 1 criteria met')
   })
 })
