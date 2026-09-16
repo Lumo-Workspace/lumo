@@ -35,6 +35,9 @@ export {
 export {
   truncateSecurityDiff,
   packSecurityDiff,
+  judgeDiffTier,
+  JUDGE_DIFF_BUDGET_TIERS,
+  JUDGE_TIMEOUT_CEILING_MS,
   SECURITY_DIFF_MAX_CHARS,
 } from './truncate'
 export type { SecurityDiffBudget } from './truncate'

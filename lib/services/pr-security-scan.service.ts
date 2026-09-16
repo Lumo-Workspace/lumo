@@ -33,6 +33,7 @@ import {
   addedLinesWithNumbers,
   scanSecrets,
   packSecurityDiff,
+  judgeDiffTier,
   redactKnownSecrets,
   redactForInjection,
   vulnerabilityFingerprint,
@@ -649,14 +650,18 @@ export const prSecurityScanService = {
         // LUM-758: the budget is spent on WHOLE files, the ones the static
         // pass already flagged first — never on a character offset, which
         // made a file's coverage depend on where its name sorted.
+        // LUM-758: 预算按改动源文件数分档，与 L3 hunt 同一组档位边界。定值
+        // 60k 编码的是成本而不是容量，而成本该随要审的代码量走。
+        const tier = judgeDiffTier(touchedSourcePaths.length)
         const capped = packSecurityDiff(diff, {
           priorityPaths: triggerFirstPass?.sites.map(site => site.path) ?? [],
+          maxChars: tier.chars,
         })
         truncated = capped.truncated
         if (truncated) {
           partial = true
           logger.info(
-            `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
+            `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} tier=${tier.chars} sourceFiles=${touchedSourcePaths.length} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
           )
         }
         try {
@@ -670,6 +675,7 @@ export const prSecurityScanService = {
           // a hardcoded credential, it just never sees the value.
           const { findings } = await judgeSecurity({
             diff: redactForInjection(capped.text).text,
+            timeoutMs: tier.timeoutMs,
           })
           judgeStatus = 'RAN'
           for (const j of findings) {

@@ -2,8 +2,12 @@ import { splitDiffByFile } from '@/lib/security-scan/diff-lines'
 import {
   packSecurityDiff,
   truncateSecurityDiff,
+  judgeDiffTier,
+  JUDGE_DIFF_BUDGET_TIERS,
+  JUDGE_TIMEOUT_CEILING_MS,
   SECURITY_DIFF_MAX_CHARS,
 } from '@/lib/security-scan/truncate'
+import { HUNT_TASK_CAP_TIERS } from '@/lib/services/security-hunt.config'
 
 function fileSection(path: string, body: string): string {
   const added = body.split('\n')
@@ -164,5 +168,45 @@ describe('packSecurityDiff', () => {
     })
     const long = fileSection('x.ts', bulk(8000))
     expect(truncateSecurityDiff(long).truncated).toBe(true)
+  })
+})
+
+describe('judgeDiffTier', () => {
+  it('grows the budget with the number of changed source files', () => {
+    expect(judgeDiffTier(1).chars).toBe(SECURITY_DIFF_MAX_CHARS)
+    expect(judgeDiffTier(12).chars).toBe(SECURITY_DIFF_MAX_CHARS)
+    expect(judgeDiffTier(13).chars).toBeGreaterThan(SECURITY_DIFF_MAX_CHARS)
+    expect(judgeDiffTier(31).chars).toBeGreaterThan(judgeDiffTier(30).chars)
+    expect(judgeDiffTier(10_000).chars).toBe(judgeDiffTier(31).chars)
+  })
+
+  // 两层用同一个信号判断「这个 PR 有多大」。各自一套数字的话，同一个 PR 会
+  // 在 L2 算「小」、在 L3 算「大」——档位边界必须是同一组。
+  it('uses the same size bands as the L3 hunt', () => {
+    expect(JUDGE_DIFF_BUDGET_TIERS.map(t => t.sourceFiles)).toEqual(
+      HUNT_TASK_CAP_TIERS.map(t => t.sourceFiles)
+    )
+  })
+
+  // 预算能随 PR 变大，超时不能：await judge 的 worker 封顶 300s。
+  it('never lets a tier ask for more time than one call is allowed', () => {
+    for (const tier of JUDGE_DIFF_BUDGET_TIERS) {
+      expect(tier.timeoutMs).toBeLessThanOrEqual(JUDGE_TIMEOUT_CEILING_MS)
+    }
+    expect(judgeDiffTier(10_000).timeoutMs).toBe(JUDGE_TIMEOUT_CEILING_MS)
+  })
+
+  it('reviews a big PR whole where the flat budget would have dropped most of it', () => {
+    const many = Array.from({ length: 31 }, (_, i) =>
+      fileSection(`lib/f${i}.ts`, bulk(120))
+    ).join('\n')
+    expect(many.length).toBeGreaterThan(SECURITY_DIFF_MAX_CHARS)
+
+    const flat = packSecurityDiff(many, { maxChars: SECURITY_DIFF_MAX_CHARS })
+    const tiered = packSecurityDiff(many, { maxChars: judgeDiffTier(31).chars })
+
+    expect(flat.dropped.length).toBeGreaterThan(0)
+    expect(tiered.dropped).toEqual([])
+    expect(tiered.truncated).toBe(false)
   })
 })

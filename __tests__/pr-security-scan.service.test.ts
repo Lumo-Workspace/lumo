@@ -102,7 +102,10 @@ import { waitUntil } from '@vercel/functions'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
 import { secretFingerprint } from '@/lib/security-scan/redact'
-import { SECURITY_DIFF_MAX_CHARS } from '@/lib/security-scan'
+import {
+  SECURITY_DIFF_MAX_CHARS,
+  JUDGE_TIMEOUT_CEILING_MS,
+} from '@/lib/security-scan'
 
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
@@ -1399,6 +1402,50 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     const seen = (calls[calls.length - 1]![0] as { diff: string }).diff
     expect(seen).toContain('exec(userInput)')
     expect(seen).toContain('files omitted to fit the review budget')
+  })
+
+  // LUM-758 — 预算按改动源文件数分档。定值 60k 编码的是成本而不是容量，
+  // 而成本该随要审的代码量走（L3 hunt 早就是这么分档的）。
+  test('a big PR gets the wider budget and the matching timeout, not the flat 60k', async () => {
+    const section = (path: string, body: string[]): string =>
+      [
+        `diff --git a/${path} b/${path}`,
+        `--- a/${path}`,
+        `+++ b/${path}`,
+        `@@ -0,0 +1,${body.length} @@`,
+        ...body.map(l => `+${l}`),
+      ].join('\n')
+    const bigDiff = Array.from({ length: 31 }, (_, i) =>
+      section(
+        `lib/f${i}.ts`,
+        Array.from({ length: 120 }, (_, j) => `const pad${j} = ${j}`)
+      )
+    ).join('\n')
+    expect(bigDiff.length).toBeGreaterThan(SECURITY_DIFF_MAX_CHARS)
+
+    fetchPrDiff.mockResolvedValue(bigDiff)
+    judgeSecurity.mockResolvedValue({ findings: [] })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+
+    const calls = judgeSecurity.mock.calls as unknown[][]
+    const last = calls[calls.length - 1]![0] as {
+      diff: string
+      timeoutMs: number
+    }
+    expect(last.timeoutMs).toBe(JUDGE_TIMEOUT_CEILING_MS)
+    // 分档之后整个 PR 都进得去：没有 omission marker，层也不是 PARTIAL。
+    expect(last.diff).not.toContain('files omitted')
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      expect.anything(),
+      expect.objectContaining({
+        truncated: false,
+        stages: expect.objectContaining({ judge: 'RAN' }),
+      })
+    )
   })
 
   test('stagesOf derives a legacy view from judgeStatus when stages is null', () => {

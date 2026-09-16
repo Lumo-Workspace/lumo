@@ -20,7 +20,58 @@
  */
 import { splitDiffByFile } from './diff-lines'
 
+/**
+ * 最小档的预算，也是 `packSecurityDiff` 的默认值（LUM-732 立的数）。
+ */
 export const SECURITY_DIFF_MAX_CHARS = 60_000
+
+/**
+ * 一次 judge 调用的超时上限。await 它的 worker 封顶 300s，扣掉确定性那一遍
+ * 和落库，单次调用最多给到这里——所以预算不能顺着 PR 大小一直往上抬。
+ */
+export const JUDGE_TIMEOUT_CEILING_MS = 180_000
+
+/**
+ * LUM-758 — 改动源文件数 → judge 的 diff 预算与超时。
+ *
+ * 此前是所有 PR 一律 60,000 字符：那个数是 LUM-732 初版带进来的，从未被推导
+ * 过，而它编码的其实是**成本**，不是容量（60k 字符 ≈ 15k token，对
+ * REASONING_MODEL 远不是上限）。成本本来就该随要审的代码量走，L3 hunt 早就
+ * 是这么做的（`HUNT_TASK_CAP_TIERS`）。
+ *
+ * 档位边界刻意与 `HUNT_TASK_CAP_TIERS` 用同一组数字（12 / 30 / ∞）：两层用
+ * 同一个信号判断「这个 PR 有多大」，各用一套数字只会让它们对同一个 PR 得出
+ * 不同的「大」。
+ *
+ * 最高档不再往上抬，而不是继续加预算：单次调用受 300s worker 约束，再大的
+ * PR 只能看一角——此时 `stages.judge` 记 PARTIAL 并报出丢了哪些文件，比一个
+ * 抬到跑不完的数字诚实。这与 `HUNT_OVERSIZED_SOURCE_FILES` 是同一条规矩。
+ */
+export const JUDGE_DIFF_BUDGET_TIERS: ReadonlyArray<{
+  sourceFiles: number
+  chars: number
+  timeoutMs: number
+}> = [
+  { sourceFiles: 12, chars: SECURITY_DIFF_MAX_CHARS, timeoutMs: 120_000 },
+  { sourceFiles: 30, chars: 120_000, timeoutMs: JUDGE_TIMEOUT_CEILING_MS },
+  {
+    sourceFiles: Number.POSITIVE_INFINITY,
+    chars: 180_000,
+    timeoutMs: JUDGE_TIMEOUT_CEILING_MS,
+  },
+]
+
+/** 落在哪一档。最后一档兜住其余，所以永远有结果。 */
+export function judgeDiffTier(sourceFiles: number): {
+  sourceFiles: number
+  chars: number
+  timeoutMs: number
+} {
+  return (
+    JUDGE_DIFF_BUDGET_TIERS.find(t => sourceFiles <= t.sourceFiles) ??
+    JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!
+  )
+}
 
 export interface SecurityDiffBudget {
   /** What the judge sees. */
