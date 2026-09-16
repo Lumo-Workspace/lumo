@@ -222,6 +222,18 @@ describe('verify — contract edge cases', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1)
     expect(mockSpawn).not.toHaveBeenCalled()
   })
+
+  it('LUM-789: HUMAN-only contract points at in_review, not a hand-off obligation', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(jsonResponse(200, { criteria: [HUMAN_CRITERION] }))
+    expect(await verify('LUM-9')).toBeUndefined()
+    const out = stdout()
+    expect(out).toContain('tacit')
+    expect(out).toContain('sent back')
+    expect(out).toContain('lumo task update LUM-9 --status in_review')
+    expect(out).not.toContain('hand off for human review')
+  })
 })
 
 describe('verify — the loop', () => {
