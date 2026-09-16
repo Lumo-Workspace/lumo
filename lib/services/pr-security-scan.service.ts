@@ -32,7 +32,8 @@ import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
 import {
   addedLinesWithNumbers,
   scanSecrets,
-  truncateSecurityDiff,
+  packSecurityDiff,
+  judgeDiffTier,
   redactKnownSecrets,
   redactForInjection,
   vulnerabilityFingerprint,
@@ -523,14 +524,19 @@ export const prSecurityScanService = {
       const secretHigh = [...secretRows, ...graphRows].some(
         r => r.severity === 'HIGH'
       )
+      // LUM-758: evaluated even when the hunt is off, because the judge (A4)
+      // reads `sites` off it to decide which files fit in its budget. Pure and
+      // cheap; the hunt flag only decides whether the VM is kept alive.
+      const triggerFirstPass =
+        files.length > 0
+          ? evaluateHuntTrigger({
+              files,
+              hasHighFinding: secretHigh,
+              hasOpenL4Crossing: hasOpenCrossing,
+            })
+          : null
       const huntWantedForVm =
-        isHuntEnabled() &&
-        files.length > 0 &&
-        evaluateHuntTrigger({
-          files,
-          hasHighFinding: secretHigh,
-          hasOpenL4Crossing: hasOpenCrossing,
-        }).hunt
+        isHuntEnabled() && (triggerFirstPass?.hunt ?? false)
 
       // ── A2: external oracle — SARIF pushed by the repo's own CI, or the
       // Lumo-managed scan (LUM-735) ────────────────────────────────────────
@@ -641,9 +647,23 @@ export const prSecurityScanService = {
       let truncated = false
       const judgeRows: NewFindingInput[] = []
       if (files.length > 0) {
-        const capped = truncateSecurityDiff(diff)
+        // LUM-758: the budget is spent on WHOLE files, the ones the static
+        // pass already flagged first — never on a character offset, which
+        // made a file's coverage depend on where its name sorted.
+        // LUM-758: 预算按改动源文件数分档，与 L3 hunt 同一组档位边界。定值
+        // 60k 编码的是成本而不是容量，而成本该随要审的代码量走。
+        const tier = judgeDiffTier(touchedSourcePaths.length)
+        const capped = packSecurityDiff(diff, {
+          priorityPaths: triggerFirstPass?.sites.map(site => site.path) ?? [],
+          maxChars: tier.chars,
+        })
         truncated = capped.truncated
-        if (truncated) partial = true
+        if (truncated) {
+          partial = true
+          logger.info(
+            `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} tier=${tier.chars} sourceFiles=${touchedSourcePaths.length} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
+          )
+        }
         try {
           // Dynamic import keeps @ai-sdk/gateway out of the static graph.
           const { judgeSecurity } =
@@ -655,6 +675,7 @@ export const prSecurityScanService = {
           // a hardcoded credential, it just never sees the value.
           const { findings } = await judgeSecurity({
             diff: redactForInjection(capped.text).text,
+            timeoutMs: tier.timeoutMs,
           })
           judgeStatus = 'RAN'
           for (const j of findings) {
@@ -701,9 +722,17 @@ export const prSecurityScanService = {
       }
       // judgeStatus stays the 732 column; stages.judge is the same fact in
       // the per-layer vocabulary so the panel has ONE rule for "complete".
+      //
+      // LUM-758: a judge that ran over a budget-trimmed diff is PARTIAL, not
+      // RAN. It used to render as "AI review: checked" while whole files had
+      // never been looked at — a layer claiming a pass it did not establish,
+      // which is the one thing spec P9 forbids. `partial` was already true at
+      // the scan level; this puts the fact on the line that is wrong.
       stages.judge =
         judgeStatus === 'RAN'
-          ? 'RAN'
+          ? truncated
+            ? 'PARTIAL'
+            : 'RAN'
           : judgeStatus === 'UNAVAILABLE'
             ? 'FAILED'
             : 'SKIPPED'

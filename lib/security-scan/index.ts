@@ -32,7 +32,15 @@ export {
   isDowngradedPath,
   isPlaceholderValue,
 } from './secret-patterns'
-export { truncateSecurityDiff, SECURITY_DIFF_MAX_CHARS } from './truncate'
+export {
+  truncateSecurityDiff,
+  packSecurityDiff,
+  judgeDiffTier,
+  JUDGE_DIFF_BUDGET_TIERS,
+  JUDGE_TIMEOUT_CEILING_MS,
+  SECURITY_DIFF_MAX_CHARS,
+} from './truncate'
+export type { SecurityDiffBudget } from './truncate'
 export {
   stagesOf,
   EXTERNAL_ERROR_PREFIX,

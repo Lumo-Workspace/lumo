@@ -63,6 +63,12 @@ For every finding quote exactly one added line verbatim as evidence and give the
 
 export interface SecurityJudgeInput {
   diff: string
+  /**
+   * LUM-758 — 必填，不给默认值：diff 预算按 PR 大小分档之后，一个 180k 字符
+   * 的输入配 60k 档的超时就是把大 PR 变成 UNAVAILABLE（比截断更糟）。设成必填
+   * 是让 tsc 而不是我来保证档与超时不脱钩。上限见 JUDGE_TIMEOUT_CEILING_MS。
+   */
+  timeoutMs: number
 }
 
 export interface SecurityJudgeFinding {
@@ -75,14 +81,18 @@ export interface SecurityJudgeFinding {
   evidence: string
 }
 
-/**
- * Hard ceiling on one judge call. The worker that awaits this is capped at
- * 300s and the deterministic pass has already run by then, so a gateway that
- * never answers must not take the whole scan down with it: the abort throws,
- * the service's fail-soft catch stamps judgeStatus UNAVAILABLE, and the
+/*
+ * Hard ceiling on one judge call: the worker that awaits it is capped at 300s
+ * and the deterministic pass has already run by then, so a gateway that never
+ * answers must not take the whole scan down with it — the abort throws, the
+ * service's fail-soft catch stamps judgeStatus UNAVAILABLE, and the
  * pattern-match findings still land (LUM-732 review I6).
+ *
+ * LUM-758: the number now comes from the caller's budget tier
+ * (`judgeDiffTier`), because it is the same constraint as the diff budget seen
+ * from the other side. It was a module constant while every PR got the same
+ * 60k diff.
  */
-const JUDGE_TIMEOUT_MS = 120_000
 
 export async function judgeSecurity(
   input: SecurityJudgeInput
@@ -92,7 +102,7 @@ export async function judgeSecurity(
     schema: SecurityJudgeSchema,
     system: SECURITY_JUDGE_SYSTEM_PROMPT,
     prompt: `Unified diff:\n${input.diff.trim().length > 0 ? input.diff : '(empty diff)'}`,
-    abortSignal: AbortSignal.timeout(JUDGE_TIMEOUT_MS),
+    abortSignal: AbortSignal.timeout(input.timeoutMs),
   })
   return { findings: object.findings }
 }
