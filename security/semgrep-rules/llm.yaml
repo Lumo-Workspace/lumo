@@ -77,6 +77,14 @@ rules:
           - pattern: await $S.parseAsync(...)
           - pattern: await $S.safeParseAsync(...)
     pattern-sinks:
+      # LUM-793: `content` is matched only as a MESSAGE part — an object that
+      # also carries `role`. The bare `{..., content: $V, ...}` sink this
+      # replaces keyed on the property NAME, so every non-LLM object literal
+      # with a `content` field (a memory card, a comment, a document, an
+      # artifact) was a finding: 112 hits repo-wide, 11 of them at a real
+      # prompt site. The rule's own message always said "message `content`";
+      # this is that sentence, expressed as a pattern. `messages` / `prompt` /
+      # `system` are unchanged — they are prompt-only property names.
       - patterns:
           - pattern-either:
               - pattern: |
@@ -86,7 +94,7 @@ rules:
               - pattern: |
                   {..., system: $V, ...}
               - pattern: |
-                  {..., content: $V, ...}
+                  {..., role: $R, content: $V, ...}
           - pattern-not-inside: generateText(...)
           - pattern-not-inside: generateObject(...)
           - pattern-not-inside: streamText(...)

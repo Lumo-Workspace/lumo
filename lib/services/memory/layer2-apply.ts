@@ -1,11 +1,11 @@
 import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
-import { scanMemoryContent } from '@/lib/services/content-signals'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { resolveGuardedSupersedeIds } from './supersede-guard'
+import { loadMemoryWriteGate } from './write-gate'
 import type { MemoryCategory, Prisma } from '@prisma/client'
 import type { Layer2Operation } from './layer2-extract'
 
@@ -92,6 +92,9 @@ export async function applyLayer2Operations(
     input.operations.filter(op => op.type === 'SUPERSEDE').map(op => op.id)
   )
 
+  // LUM-793: write-time poison gate for the consolidation pass, loaded once.
+  const writeGate = await loadMemoryWriteGate(input.projectId)
+
   // Phase 1: validate each op and collect resolved entries for embedding.
   type Plan = (tx: Prisma.TransactionClient) => Promise<void>
 
@@ -131,6 +134,15 @@ export async function applyLayer2Operations(
         result.skipped++
         continue
       }
+      const supersedeScreen = writeGate.screen(existingCategory, validated)
+      if (!supersedeScreen.ok) {
+        logger.warn(
+          `[memory.layer2] dropped SUPERSEDE id=${op.id} — ${supersedeScreen.message}`
+        )
+        result.skipped++
+        continue
+      }
+      const supersedeSignals = supersedeScreen.signals
       const id = op.id
       const text = memoryContentToText(existingCategory, validated)
       resolvedWrites.push({
@@ -142,7 +154,7 @@ export async function applyLayer2Operations(
             id,
             validated as Prisma.InputJsonValue,
             tx,
-            scanMemoryContent(existingCategory, validated)
+            supersedeSignals
           )
           result.superseded++
           if (vector !== undefined) {
@@ -165,6 +177,13 @@ export async function applyLayer2Operations(
         continue
       }
       const category = op.category
+      const addScreen = writeGate.screen(category, validated)
+      if (!addScreen.ok) {
+        logger.warn(`[memory.layer2] dropped ADD — ${addScreen.message}`)
+        result.skipped++
+        continue
+      }
+      const addSignals = addScreen.signals
       const citedSourceIds = (op.sourceMemoryIds ?? []).filter(id =>
         validSourceIds.has(id)
       )
@@ -182,7 +201,7 @@ export async function applyLayer2Operations(
               content: validated as Prisma.InputJsonValue,
               sourceSessionId: input.sourceSessionId ?? null,
               createdByMemberId: null,
-              contentSignals: scanMemoryContent(category, validated),
+              contentSignals: addSignals,
             },
             tx
           )
@@ -218,6 +237,15 @@ export async function applyLayer2Operations(
       result.skipped++
       continue
     }
+    const updateScreen = writeGate.screen(existingCategory, validated)
+    if (!updateScreen.ok) {
+      logger.warn(
+        `[memory.layer2] dropped UPDATE id=${op.id} — ${updateScreen.message}`
+      )
+      result.skipped++
+      continue
+    }
+    const updateSignals = updateScreen.signals
     const id = op.id
     const text = memoryContentToText(existingCategory, validated)
     resolvedWrites.push({
@@ -227,7 +255,7 @@ export async function applyLayer2Operations(
           id,
           validated as Prisma.InputJsonValue,
           tx,
-          scanMemoryContent(existingCategory, validated)
+          updateSignals
         )
         result.updated++
         if (vector !== undefined) {

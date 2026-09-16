@@ -1,10 +1,10 @@
 import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
-import { scanMemoryContent } from '@/lib/services/content-signals'
 import { parseMemoryContent } from '@/lib/memory/schemas'
 import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { resolveGuardedSupersedeIds } from './supersede-guard'
+import { loadMemoryWriteGate } from './write-gate'
 import type { MemoryCategory, Prisma, TaskArtifactAgent } from '@prisma/client'
 import type { Layer1Operation } from './layer1-extract'
 
@@ -78,9 +78,23 @@ export async function applyLayer1Operations(
   // A-MEM reuse guardrail (LUM-325): resolve which SUPERSEDE targets are
   // high-trust (usage signal) up front, in one batched lineage lookup outside
   // the transaction. Guarded targets keep their existing ACTIVE row.
-  const guardedSupersedeIds = await resolveGuardedSupersedeIds(
-    input.operations.filter(op => op.type === 'SUPERSEDE').map(op => op.id)
+  //
+  // LUM-793 extends the same guard to DELETE. A curation pass could hard-delete
+  // a battle-tested memory outright, which is strictly worse than overwriting
+  // it — and being automated, there is no agent to attribute a crossing to. The
+  // agent-initiated path (`lumo memory rm`) is the one that records a crossing;
+  // here the right answer is simply not to delete.
+  const guardedIds = await resolveGuardedSupersedeIds(
+    input.operations
+      .filter(op => op.type === 'SUPERSEDE' || op.type === 'DELETE')
+      .map(op => op.id)
   )
+
+  // LUM-793: the write-time poison gate, loaded once for the batch. A
+  // curation pass is an LLM reading untrusted transcript text, so it is a
+  // poisoning path like any other — a rejected candidate is dropped the same
+  // way a schema-invalid one is.
+  const writeGate = await loadMemoryWriteGate(input.projectId)
 
   // Phase 1: validate each op and collect resolved entries for embedding.
   // For ADD/UPDATE/SUPERSEDE we capture the text and a plan-builder.
@@ -104,6 +118,13 @@ export async function applyLayer1Operations(
         result.skipped++
         continue
       }
+      if (guardedIds.has(op.id)) {
+        logger.info(
+          `[memory.layer1] guarded DELETE id=${op.id} — high-trust (usage) memory left active`
+        )
+        result.skipped++
+        continue
+      }
       deletePlans.push(async tx => {
         await memoryRepository.delete(op.id, tx)
         result.deleted++
@@ -111,7 +132,7 @@ export async function applyLayer1Operations(
       continue
     }
     if (op.type === 'SUPERSEDE') {
-      if (guardedSupersedeIds.has(op.id)) {
+      if (guardedIds.has(op.id)) {
         logger.info(
           `[memory.layer1] guarded SUPERSEDE id=${op.id} — high-trust (usage) memory left active`
         )
@@ -134,6 +155,15 @@ export async function applyLayer1Operations(
         result.skipped++
         continue
       }
+      const supersedeScreen = writeGate.screen(existingCategory, validated)
+      if (!supersedeScreen.ok) {
+        logger.warn(
+          `[memory.layer1] dropped SUPERSEDE id=${op.id} — ${supersedeScreen.message}`
+        )
+        result.skipped++
+        continue
+      }
+      const supersedeSignals = supersedeScreen.signals
       const id = op.id
       const text = memoryContentToText(existingCategory, validated)
       resolvedWrites.push({
@@ -145,7 +175,7 @@ export async function applyLayer1Operations(
             id,
             validated as Prisma.InputJsonValue,
             tx,
-            scanMemoryContent(existingCategory, validated)
+            supersedeSignals
           )
           result.superseded++
           if (vector !== undefined) {
@@ -168,6 +198,13 @@ export async function applyLayer1Operations(
         continue
       }
       const category = op.category
+      const addScreen = writeGate.screen(category, validated)
+      if (!addScreen.ok) {
+        logger.warn(`[memory.layer1] dropped ADD — ${addScreen.message}`)
+        result.skipped++
+        continue
+      }
+      const addSignals = addScreen.signals
       // PROJECT-scope memories MUST have taskId=null so they aren't double-
       // counted under the source task's view (they're surfaced via the
       // project-scope path on every task in the project). LLM omits scope
@@ -193,7 +230,7 @@ export async function applyLayer1Operations(
               // lookup this column restores.
               sourceTaskId: input.taskId,
               ...(input.agent !== undefined ? { agent: input.agent } : {}),
-              contentSignals: scanMemoryContent(category, validated),
+              contentSignals: addSignals,
             },
             tx
           )
@@ -222,6 +259,15 @@ export async function applyLayer1Operations(
       result.skipped++
       continue
     }
+    const updateScreen = writeGate.screen(existingCategory, validated)
+    if (!updateScreen.ok) {
+      logger.warn(
+        `[memory.layer1] dropped UPDATE id=${op.id} — ${updateScreen.message}`
+      )
+      result.skipped++
+      continue
+    }
+    const updateSignals = updateScreen.signals
     const id = op.id
     const text = memoryContentToText(existingCategory, validated)
     resolvedWrites.push({
@@ -231,7 +277,7 @@ export async function applyLayer1Operations(
           id,
           validated as Prisma.InputJsonValue,
           tx,
-          scanMemoryContent(existingCategory, validated)
+          updateSignals
         )
         result.updated++
         if (vector !== undefined) {

@@ -1210,6 +1210,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "编辑了敏感路径",
   "boundary.category.HOOK_BYPASS": "绕过了 git 钩子",
   "boundary.category.TEST_FILE_DELETED": "删除了测试文件",
+  "boundary.category.USED_TRAP_MEMORY_DELETED": "删除了已被证明有用的陷阱记忆",
   "boundary.advisoryBadge": "提示",
   "boundary.severity.high": "高",
   "boundary.severity.medium": "中",

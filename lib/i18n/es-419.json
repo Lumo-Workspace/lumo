@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "editó una ruta sensible",
   "boundary.category.HOOK_BYPASS": "omitió los hooks de git",
   "boundary.category.TEST_FILE_DELETED": "eliminó un archivo de prueba",
+  "boundary.category.USED_TRAP_MEMORY_DELETED": "eliminó una memoria de trampa de utilidad probada",
   "boundary.advisoryBadge": "Aviso",
   "boundary.severity.high": "alta",
   "boundary.severity.medium": "media",

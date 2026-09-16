@@ -1,6 +1,6 @@
 import { logger } from '@/lib/logger'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
-import { scanMemoryContent } from '@/lib/services/content-signals'
+import type { ContentSignals } from '@/lib/services/content-signals'
 import { embedTexts } from '@/lib/ai/embedding'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { canonicalizeToEnglish } from './memory/canonicalize-language'
@@ -11,6 +11,11 @@ import {
   loadConstitutionSource,
   type ConstitutionScope,
 } from './memory/constitution'
+import { loadMemoryWriteGate, type MemoryWriteGate } from './memory/write-gate'
+import {
+  recordUsedTrapMemoryDeletion,
+  type UsedTrapDeletionInput,
+} from './memory/used-trap-delete'
 import type { MemoryCategory, TaskArtifactAgent } from '@prisma/client'
 import type { MemoryContent } from '@/lib/memory/schemas'
 import type { Prisma } from '@prisma/client'
@@ -43,6 +48,26 @@ async function screenManualCandidate(
   })
   if (verdict.ok) return
   throw httpError(formatScreenRejection(verdict, constitution.repo), 422)
+}
+
+/**
+ * LUM-793 poison gate for every manual write path (web form, CLI
+ * `memory project add` / `memory push`, `PATCH /api/memories/[id]` — all four
+ * funnel through this service). Runs BEFORE any repository call, so a
+ * rejected memory never reaches the database: this is the whole point of
+ * moving the check from injection time to write time.
+ *
+ * Returns the `contentSignals` summary for the accepted content, so the caller
+ * does not scan the same text twice.
+ */
+function screenWith(
+  gate: MemoryWriteGate,
+  category: MemoryCategory,
+  content: unknown
+): ContentSignals | null {
+  const verdict = gate.screen(category, content)
+  if (!verdict.ok) throw httpError(verdict.message, 422)
+  return verdict.signals
 }
 
 export type CreateOutcome = 'ADD' | 'UPDATE' | 'SUPERSEDE' | 'NOOP'
@@ -140,6 +165,8 @@ export const memoryManagementService = {
       input.category,
       content
     )
+    const gate = await loadMemoryWriteGate(input.projectId)
+    const signals = screenWith(gate, input.category, content)
     const text = memoryContentToText(input.category, content)
     const vector = await embedCandidate(text)
     const pool = (await memoryRepository.listForProject(input.projectId)).map(
@@ -162,7 +189,9 @@ export const memoryManagementService = {
         resolution.id,
         resolution.content as Prisma.InputJsonValue,
         undefined,
-        scanMemoryContent(input.category, resolution.content)
+        // The dedup merge produced NEW text — screen what actually lands, not
+        // just the candidate that walked in (LUM-793).
+        screenWith(gate, input.category, resolution.content)
       )
       await stampEmbeddingBestEffort(
         resolution.id,
@@ -176,7 +205,9 @@ export const memoryManagementService = {
         resolution.id,
         resolution.content as Prisma.InputJsonValue,
         undefined,
-        scanMemoryContent(input.category, resolution.content)
+        // The dedup merge produced NEW text — screen what actually lands, not
+        // just the candidate that walked in (LUM-793).
+        screenWith(gate, input.category, resolution.content)
       )
       await stampEmbeddingBestEffort(newId, input.category, resolution.content)
       return { outcome: 'SUPERSEDE', memory: { id: newId } }
@@ -192,7 +223,8 @@ export const memoryManagementService = {
       sourceSessionId: null,
       createdByMemberId: input.actorMemberId,
       agent: input.agent,
-      contentSignals: scanMemoryContent(input.category, content),
+      // Already computed by the poison gate on this exact text (LUM-793).
+      contentSignals: signals,
     })
     // Reuse the vector already computed for dedup retrieval (same text) instead
     // of re-embedding. If that embed failed (vector undefined), fall back to a
@@ -212,6 +244,8 @@ export const memoryManagementService = {
       input.category,
       content
     )
+    const gate = await loadMemoryWriteGate(input.projectId)
+    const signals = screenWith(gate, input.category, content)
     const text = memoryContentToText(input.category, content)
     const vector = await embedCandidate(text)
     const pool = (await memoryRepository.listForTask(input.taskId)).map(m => ({
@@ -236,7 +270,9 @@ export const memoryManagementService = {
         resolution.id,
         resolution.content as Prisma.InputJsonValue,
         undefined,
-        scanMemoryContent(input.category, resolution.content)
+        // The dedup merge produced NEW text — screen what actually lands, not
+        // just the candidate that walked in (LUM-793).
+        screenWith(gate, input.category, resolution.content)
       )
       await stampEmbeddingBestEffort(
         resolution.id,
@@ -250,7 +286,9 @@ export const memoryManagementService = {
         resolution.id,
         resolution.content as Prisma.InputJsonValue,
         undefined,
-        scanMemoryContent(input.category, resolution.content)
+        // The dedup merge produced NEW text — screen what actually lands, not
+        // just the candidate that walked in (LUM-793).
+        screenWith(gate, input.category, resolution.content)
       )
       await stampEmbeddingBestEffort(newId, input.category, resolution.content)
       return { outcome: 'SUPERSEDE', memory: { id: newId } }
@@ -267,7 +305,8 @@ export const memoryManagementService = {
       // Manual task-scoped adds have an unambiguous birth task (LUM-397).
       sourceTaskId: input.taskId,
       agent: input.agent,
-      contentSignals: scanMemoryContent(input.category, content),
+      // Already computed by the poison gate on this exact text (LUM-793).
+      contentSignals: signals,
     })
     // Reuse the vector already computed for dedup retrieval (same text) instead
     // of re-embedding. If that embed failed (vector undefined), fall back to a
@@ -285,8 +324,20 @@ export const memoryManagementService = {
     const canonical = existing
       ? await canonicalizeToEnglish(existing.category, content)
       : content
+    // LUM-793: an edit is a write. A memory that could not be created with
+    // this text must not be reachable by editing an innocent row into it.
+    const signals = existing
+      ? screenWith(
+          await loadMemoryWriteGate(existing.projectId),
+          existing.category,
+          canonical
+        )
+      : undefined
     const updated = await memoryRepository.update(memoryId, {
       content: canonical as Prisma.InputJsonValue,
+      // LUM-783 marks the row; before LUM-793 an edit left the old scan in
+      // place, so a row could carry signals its current text no longer has.
+      ...(signals !== undefined ? { contentSignals: signals } : {}),
     })
     if (existing) {
       await stampEmbeddingBestEffort(memoryId, existing.category, canonical)
@@ -304,11 +355,23 @@ export const memoryManagementService = {
       content !== undefined
         ? await canonicalizeToEnglish(existing.category, content)
         : undefined
+    // LUM-793: a promote that also rewrites content is an edit — same gate.
+    const signals =
+      canonical !== undefined
+        ? screenWith(
+            await loadMemoryWriteGate(existing.projectId),
+            existing.category,
+            canonical
+          )
+        : undefined
     const updated = await memoryRepository.update(memoryId, {
       scope: 'PROJECT',
       taskId: null,
       ...(canonical !== undefined
-        ? { content: canonical as Prisma.InputJsonValue }
+        ? {
+            content: canonical as Prisma.InputJsonValue,
+            contentSignals: signals ?? null,
+          }
         : {}),
     })
     if (canonical !== undefined) {
@@ -317,7 +380,23 @@ export const memoryManagementService = {
     return updated
   },
 
-  async delete(memoryId: string) {
+  /**
+   * Hard-delete a memory. `actor` is the request's identity + Claude Code
+   * session; when it is present the LUM-793 detector runs FIRST, so an agent
+   * removing a TRAP other tasks were judged to have used leaves a boundary
+   * crossing behind instead of a silent gap. Omitting `actor` (internal
+   * callers with no request context) skips detection, never the delete.
+   */
+  async delete(
+    memoryId: string,
+    actor?: Omit<UsedTrapDeletionInput, 'memory'>
+  ) {
+    if (actor) {
+      const existing = await memoryRepository.findByIdWithWorkspace(memoryId)
+      if (existing) {
+        await recordUsedTrapMemoryDeletion({ memory: existing, ...actor })
+      }
+    }
     await memoryRepository.delete(memoryId)
   },
 }

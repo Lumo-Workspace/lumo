@@ -1209,6 +1209,7 @@
   "boundary.category.SENSITIVE_PATH_EDIT": "sensiblen Pfad bearbeitet",
   "boundary.category.HOOK_BYPASS": "Git-Hooks umgangen",
   "boundary.category.TEST_FILE_DELETED": "Testdatei gelöscht",
+  "boundary.category.USED_TRAP_MEMORY_DELETED": "nachweislich genutzte Fallstrick-Erinnerung gelöscht",
   "boundary.advisoryBadge": "Hinweis",
   "boundary.severity.high": "hoch",
   "boundary.severity.medium": "mittel",
