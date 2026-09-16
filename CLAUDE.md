@@ -21,7 +21,7 @@ Stack: Next.js 14 (App Router), TypeScript, Prisma, Neon Postgres, Clerk auth, T
 
 ## Testing
 
-- Use Jest; test files in **tests** directory
+- Use Jest; new tests go under `__tests__/` (a small legacy `tests/` tree also runs)
 - File naming: \*.test.ts
 - Run tests: npm test
 - Every new function needs at least one test
