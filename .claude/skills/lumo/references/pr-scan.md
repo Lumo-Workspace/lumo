@@ -76,6 +76,8 @@ Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished … · 
         wrap-up: not made (submitted)
     t2 steps · alibaba/qwen3-coder-plus · 6 sites · no shell commands
         stop: steps · spent 19000/30000 · reserve 0 · last step ? · 4 steps
+    t3 no-progress · alibaba/qwen3-coder-plus · 1 sites · 24 cmds (gate refused 0, sandbox failed 0, not found 0, empty 1, repeated 6)
+        stop: no-progress · spent 99000/666666 · reserve 5000 · last step 5000 · 24 steps · 3 repeat steps
 ```
 
 Same printer as the lum739 audit report (`shared/src/hunt-audit.ts`), so the
@@ -86,7 +88,16 @@ with the gate's reason), the step trace (`#i tool= in= out= reasoning= elided=
 finish= "text"`), the `stop:` arithmetic (spent/budget, reserve held for the
 wrap-up, last step's cost, the price the next step was charged at, steps),
 and the wrap-up outcome. Fields a row was written without are simply not
-printed — an older scan prints exactly what it recorded. `oversized` on the
+printed — an older scan prints exactly what it recorded.
+
+`stop: no-progress` (LUM-799) is the search stopping itself: it spent
+`HUNT_NO_PROGRESS_STEPS` steps in a row asking the shell only for commands an
+earlier step had already run, so it was reading nothing new, and the forced
+wrap-up was made to collect what it held. `repeated N` on the header counts
+those re-runs for every task (a converging search repeats a slice once or
+twice; the loop this was written for repeated 46 of 73), and `N repeat steps`
+on the stop line is the streak the search ended on — printed whatever ended
+it, so a near miss is visible on a `budget` or `steps` row too. `oversized` on the
 diff line means the PR exceeded the hunt's source-file ceiling and the tasks
 covered a corner of it.
 

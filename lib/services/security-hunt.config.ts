@@ -555,6 +555,27 @@ export const HUNT_MAX_STEPS_PER_CATEGORY = huntMaxStepsPerCategory(
   HUNT_OBSERVED_STEP_TOKENS
 )
 /**
+ * LUM-799 — consecutive steps that ask the shell only for commands an
+ * earlier step already ran, before the search is stopped for making no
+ * progress (`noProgressStreak`).
+ *
+ * Three, calibrated against the scan that opened this task (PR 1032,
+ * 58adbdb) rather than picked for roundness. Its three tasks:
+ *
+ *   - t2 alternated two already-issued `sed` slices from step 22 on and
+ *     burned 477k tokens before submitting: three in a row first happens at
+ *     step 24 of 74.
+ *   - t1 searched, repeated a slice at most TWICE in a row, and submitted on
+ *     its own at step 40.
+ *   - t3 repeated one command once and submitted at step 17.
+ *
+ * So 3 is the smallest value that catches the loop and still clears both
+ * searches that converged by themselves — and a threshold that killed those
+ * would be worse than the loop, because a search stopped early is a search
+ * that answers from less than it read.
+ */
+export const HUNT_NO_PROGRESS_STEPS = 3
+/**
  * LUM-762 — retries INSIDE one model call. The AI SDK's default (2) spends
  * the category's window sitting in exponential backoff — the production
  * signature was `Delay was aborted`, an abort that landed mid-backoff. One
@@ -567,7 +588,21 @@ export const HUNT_MAX_FALSIFIED = 20
 export const HUNT_SNIPPET_RADIUS = 25
 export const HUNT_AUDIT_MAX_REJECTED = 50
 
-export type HuntBatchStop = 'done' | 'steps' | 'budget' | 'timeout' | 'error'
+/**
+ * LUM-799 — `'no-progress'` is a stop the SEARCH made, not a counter it hit:
+ * the agent spent HUNT_NO_PROGRESS_STEPS steps asking only for output it had
+ * already been shown. It is deliberately its own value rather than folded
+ * into `'steps'`: "the ceiling was too low" and "the agent stopped advancing"
+ * call for opposite responses, and a scan that raises the budget in answer to
+ * a loop pays for the loop ten times over (LUM-758 ×10 did exactly that).
+ */
+export type HuntBatchStop =
+  | 'done'
+  | 'steps'
+  | 'budget'
+  | 'no-progress'
+  | 'timeout'
+  | 'error'
 /**
  * LUM-762 — `'skipped'` is audit-only: the category never ran because the
  * scan's budget was gone before its turn. Before this it left no row at all,
@@ -828,6 +863,15 @@ export interface HuntShellStats {
   /** …of which ran and returned nothing: a search that matched no line. */
   empty: number
   /**
+   * LUM-799 — …of which had ALREADY been run by this task. The checkout does
+   * not change under the agent, so a repeat returns bytes the model has seen
+   * and costs a whole step to re-read. Counted for every task, including the
+   * ones the no-progress stop never fired on: `71 cmds, repeated 46` and
+   * `39 cmds, repeated 3` are the two shapes this layer has to tell apart,
+   * and the stop reason alone cannot. Absent when nothing was repeated.
+   */
+  repeated?: number
+  /**
    * LUM-787 — …of which had their output CUT by the per-step ceiling
    * (HUNT_STEP_OUTPUT_MAX): the step's commands together returned more than
    * one step may add to the transcript. Absent when no command was clipped,
@@ -910,7 +954,17 @@ export interface HuntStepTrace {
 
 /** How the search ended, with the arithmetic that ended it. */
 export interface HuntStopFacts {
-  by: 'submitted' | 'budget' | 'steps' | 'timeout' | 'error'
+  by: 'submitted' | 'budget' | 'steps' | 'no-progress' | 'timeout' | 'error'
+  /**
+   * LUM-799 — steps at the stop that had asked the shell only for commands an
+   * earlier step already ran (`noProgressStreak`). Recorded on EVERY stop, not
+   * just the one it caused: on a `no-progress` row it is the streak that fired,
+   * and on the others it is how close the search came — which is the number
+   * that says whether HUNT_NO_PROGRESS_STEPS is set anywhere near right.
+   * Absent when the search never repeated a command at the end, and on rows
+   * written before the field existed.
+   */
+  repeatSteps?: number
   /** Tokens the search had spent when it stopped. */
   spent: number
   budget: number

@@ -66,6 +66,7 @@ import {
 } from '@/lib/security-scan/hunt/candidate'
 import {
   HUNT_CLIENT_MAX_RETRIES,
+  HUNT_NO_PROGRESS_STEPS,
   HUNT_STEP_OUTPUT_MAX,
   type HuntTask,
   HUNT_WRAP_UP_MIN_TOKENS,
@@ -80,6 +81,11 @@ import {
   sumTokens,
   type UsageSteps,
 } from '@/lib/security-scan/hunt/budget'
+import {
+  isNoProgress,
+  noProgressStreak,
+  type ProgressStep,
+} from '@/lib/security-scan/hunt/progress'
 
 /**
  * How long the handover gets: what is left of the task's deadline, capped at
@@ -260,7 +266,7 @@ An empty list is correct and expected if you did not verify anything. Do not inv
 export interface HuntClientOutput {
   candidates: unknown[]
   tokens: number
-  stopped: 'done' | 'steps' | 'budget'
+  stopped: 'done' | 'steps' | 'budget' | 'no-progress'
   /**
    * The search hit its ceiling without ever calling `submit_candidates`, and a
    * forced wrap-up call asked for whatever it had. `stopped` deliberately still
@@ -577,6 +583,10 @@ export async function huntTask(
     return price <= input.tokenBudget ? price : 0
   }
   let stoppedOnBudget = false
+  // LUM-799 — set by the no-progress predicate below, read when the stop is
+  // labelled. Like `stoppedOnBudget` it records the condition that actually
+  // fired rather than inferring the reason afterwards from the totals.
+  let stoppedOnNoProgress = false
   // LUM-781 — observation only: counts the steps the loop completes and hands
   // each to the caller. Nothing below reads it back.
   let stepIndex = 0
@@ -635,6 +645,24 @@ export async function huntTask(
       },
       stepCountIs(input.maxSteps),
       hasToolCall('submit_candidates'),
+      // LUM-799 — the search has stopped reading anything new. The budget
+      // stop above prices the NEXT step and the step cap counts them; neither
+      // can see that the last three steps asked only for output the model had
+      // already been shown, so a loop runs until one of the counters happens
+      // to end it — 46 wasted steps and 477k tokens in prod (PR 1032).
+      //
+      // Stopping here is not giving up on the task: `submit_candidates` was
+      // never called, so the forced wrap-up below asks the same transcript for
+      // whatever it holds. The loop gives up the steps it was going to spend
+      // re-reading; it does not give up the answer.
+      ({ steps }) => {
+        const crossed = isNoProgress(
+          steps as ReadonlyArray<ProgressStep>,
+          HUNT_NO_PROGRESS_STEPS
+        )
+        if (crossed) stoppedOnNoProgress = true
+        return crossed
+      },
     ],
     // LUM-787 — what the model is SENT each step, as opposed to what
     // happened: older tool results are elided (the transcript the SDK keeps,
@@ -720,14 +748,31 @@ export async function huntTask(
   let wrapWarnings: string[] = []
   // LUM-781 — the stop, with the arithmetic that produced it. Read off the
   // same values the predicate above used; nothing is recomputed differently.
+  // LUM-799 — the repeat streak the search ended on, recorded whatever ended
+  // it: on a no-progress stop it is the streak that fired, elsewhere it is the
+  // near miss. Computed off the SDK's own steps, the same input the predicate
+  // read.
+  const repeatSteps = noProgressStreak(
+    result.steps as ReadonlyArray<ProgressStep>
+  )
   const stop: HuntStopFacts = {
-    by: didSubmit ? 'submitted' : stoppedOnBudget ? 'budget' : 'steps',
+    // LUM-799 — no-progress outranks the budget when both fired on the same
+    // step: they are then the same event seen twice (a loop that ran until the
+    // allowance ran out), and only one of the two names the cause.
+    by: didSubmit
+      ? 'submitted'
+      : stoppedOnNoProgress
+        ? 'no-progress'
+        : stoppedOnBudget
+          ? 'budget'
+          : 'steps',
     spent: searchTokens,
     budget: input.tokenBudget,
     reserve: reserve(result.steps),
     lastStep: lastStepTokens(result.steps),
     next: nextStepTokens(result.steps),
     steps: result.steps.length,
+    ...(repeatSteps > 0 ? { repeatSteps } : {}),
   }
   // LUM-781 — why the hand-over was or was not made. Each branch mirrors one
   // clause of the condition below, in the same order, so the recorded reason
@@ -825,7 +870,13 @@ export async function huntTask(
     // batch still reports the counter that ended its search, so P9 still calls
     // the layer PARTIAL — the acceptance metric must not be moved by making
     // the agent answer under duress.
-    stopped: didSubmit ? 'done' : stoppedOnBudget ? 'budget' : 'steps',
+    stopped: didSubmit
+      ? 'done'
+      : stoppedOnNoProgress
+        ? 'no-progress'
+        : stoppedOnBudget
+          ? 'budget'
+          : 'steps',
     ...(wrappedUp ? { wrappedUp: true } : {}),
     // Only ever set when the wrap-up ran and produced nothing: an empty answer
     // and a refused request must not look the same in the audit.

@@ -457,6 +457,71 @@ describe('prScanReadoutService.getForPullRequest', () => {
     expect(hunt.tasks[1]).not.toHaveProperty('shell')
   })
 
+  it('LUM-799 no-progress rows carry their stop reason and both repeat counters', async () => {
+    // The two numbers this task adds are only worth computing if they reach a
+    // reader: a stop reason the read-out drops is the "computed, carried,
+    // never read" shape this layer has already lost four fields to.
+    listScans.mockResolvedValue([
+      scan({
+        huntAudit: {
+          candidates: 0,
+          rejected: [],
+          falsifierRejects: 0,
+          planned: [{ id: 't2' }],
+          tasks: [
+            {
+              taskId: 't2',
+              objective: 'the loop',
+              category: 'idor',
+              stopped: 'no-progress',
+              elapsedMs: 40_000,
+              tokens: 99_000,
+              candidates: 1,
+              shell: {
+                calls: 24,
+                refused: 0,
+                failed: 0,
+                notFound: 0,
+                empty: 1,
+                repeated: 6,
+                commands: [],
+              },
+              stop: {
+                by: 'no-progress',
+                spent: 99_000,
+                budget: 666_666,
+                reserve: 5_000,
+                lastStep: 5_000,
+                steps: 24,
+                repeatSteps: 3,
+              },
+              wrapUp: { ran: true, submitted: 1, tokens: 5_000 },
+            },
+          ],
+        },
+      }),
+    ])
+    const view = await prScanReadoutService.getForPullRequest('ws-1', {
+      number: 1032,
+      all: false,
+    })
+    const hunt = view.scans[0]!.hunt!
+    // The coverage line still lists the task: an unknown stop value is
+    // DROPPED by the parse, so a task that looped would vanish from the very
+    // read-out that has to explain where the tokens went.
+    expect(hunt.coverage!.categories).toHaveLength(1)
+    expect(hunt.coverage!.categories[0]).toMatchObject({
+      taskId: 't2',
+      stopped: 'no-progress',
+    })
+    expect(hunt.tasks[0]).toMatchObject({
+      taskId: 't2',
+      stopped: 'no-progress',
+      stop: { by: 'no-progress', steps: 24, repeatSteps: 3 },
+    })
+    expect(hunt.tasks[0]!.shell).toMatchObject({ calls: 24, repeated: 6 })
+  })
+
   it('returns hunt: null when the scan has no hunt layer and no audit', async () => {
     listScans.mockResolvedValue([
       scan({ stages: { secrets: 'RAN', judge: 'RAN' }, huntAudit: null }),

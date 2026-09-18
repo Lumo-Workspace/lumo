@@ -50,6 +50,7 @@ import {
   admitStepOutput,
   newStepLedger,
 } from '@/lib/security-scan/hunt/step-output'
+import { normalizeCommand } from '@/lib/security-scan/hunt/progress'
 import { plannedTaskCap } from '@/lib/security-scan/hunt/allocation'
 import {
   isTransientPlanError,
@@ -685,6 +686,8 @@ export const securityHuntService = {
     // here, before the trace cap can return early, or a long search would
     // stop resetting exactly when it matters.
     let ledger = newStepLedger()
+    // LUM-799 — every command this task has already asked for, normalised.
+    const issued = new Set<string>()
     const onStep = (step: HuntStepTrace): void => {
       ledger = newStepLedger()
       if (trace.length >= HUNT_TRACE_MAX_STEPS) return
@@ -784,6 +787,15 @@ export const securityHuntService = {
           // to run", and a throw out of `runHuntShell` must not silently erase
           // the request that caused it.
           shell.calls += 1
+          // LUM-799 — counted here, against what the agent ASKED for, so a
+          // refusal or a dead VM still counts as a repeat: re-asking for a
+          // command that was refused is the same non-progress as re-asking for
+          // one that answered. The client's stop reads the same requests off
+          // the SDK's steps; this is the number a reader gets afterwards,
+          // including on the tasks the stop never fired on.
+          const normalized = normalizeCommand(command)
+          if (issued.has(normalized)) shell.repeated = (shell.repeated ?? 0) + 1
+          issued.add(normalized)
           const entryIndex = shell.commands.length
           if (entryIndex < HUNT_SHELL_LOG_MAX) {
             shell.commands.push({

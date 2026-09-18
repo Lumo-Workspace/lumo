@@ -284,4 +284,23 @@ describe('LUM-762 hunt coverage', () => {
     const older = parseHuntCoverage({ planned: raw.planned, tasks: raw.tasks })!
     expect(older.oversized).toBeUndefined()
   })
+
+  it('LUM-799 no-progress rows survive the stop vocabulary', () => {
+    // A stop value this parse does not know is dropped, row and all — so a
+    // task stopped for looping would leave the coverage line reading as if it
+    // had never been planned.
+    const coverage = parseHuntCoverage({
+      planned: [{ id: 't1' }, { id: 't2' }],
+      tasks: [
+        row({ taskId: 't1', stopped: 'done' }),
+        row({ taskId: 't2', stopped: 'no-progress', category: 'injection' }),
+      ],
+    })
+    expect(coverage!.categories.map(c => c.stopped)).toEqual([
+      'done',
+      'no-progress',
+    ])
+    expect(coverage!.done).toBe(1)
+    expect(formatHuntCoverage(coverage!)).toContain('no-progress')
+  })
 })

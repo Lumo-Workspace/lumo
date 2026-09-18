@@ -27,6 +27,8 @@ export interface ShellDetailTask {
     empty?: number
     /** LUM-787 — absent on rows written before the per-step ceiling existed, and when nothing was clipped. */
     stepClipped?: number
+    /** LUM-799 — commands this task had already run once; absent when none was. */
+    repeated?: number
     commands?: {
       cmd?: string
       denied?: boolean
@@ -58,6 +60,8 @@ export interface ShellDetailTask {
     /** LUM-787 — the price the next step was charged at. */
     next?: number
     steps?: number
+    /** LUM-799 — trailing steps that asked only for already-issued commands. */
+    repeatSteps?: number
   }
   wrapUp?: {
     ran?: boolean
@@ -98,7 +102,7 @@ export function formatHuntTaskDetail(
     // the clip count likewise: an older row, and a row from a search that
     // never hit the ceiling, read as before.
     const cmds = sh?.calls
-      ? `${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, not found ${sh.notFound ?? 0}, empty ${sh.empty ?? 0}${sh.stepClipped ? `, step-clipped ${sh.stepClipped}` : ''})`
+      ? `${sh.calls} cmds (gate refused ${sh.refused ?? 0}, sandbox failed ${sh.failed ?? 0}, not found ${sh.notFound ?? 0}, empty ${sh.empty ?? 0}${sh.stepClipped ? `, step-clipped ${sh.stepClipped}` : ''}${sh.repeated ? `, repeated ${sh.repeated}` : ''})`
       : 'no shell commands'
     out.push(
       `${String(t.taskId)} ${String(t.stopped)}${t.model ? ` · ${t.model}` : ''}${typeof t.sites === 'number' ? ` · ${t.sites} sites` : ''} · ${cmds}`
@@ -122,7 +126,7 @@ export function formatHuntTaskDetail(
     if (t.stop) {
       const s = t.stop
       out.push(
-        `    stop: ${s.by ?? '?'} · spent ${s.spent ?? '?'}/${s.budget ?? '?'} · reserve ${s.reserve ?? 0} · last step ${s.lastStep ?? '?'}${typeof s.next === 'number' ? ` · next ${s.next}` : ''} · ${s.steps ?? '?'} steps`
+        `    stop: ${s.by ?? '?'} · spent ${s.spent ?? '?'}/${s.budget ?? '?'} · reserve ${s.reserve ?? 0} · last step ${s.lastStep ?? '?'}${typeof s.next === 'number' ? ` · next ${s.next}` : ''} · ${s.steps ?? '?'} steps${s.repeatSteps ? ` · ${s.repeatSteps} repeat steps` : ''}`
       )
     }
     if (t.wrapUp) {

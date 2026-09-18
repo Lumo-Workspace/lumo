@@ -546,6 +546,41 @@ describe('LUM-739 hunt service', () => {
     })
   })
 
+  it('LUM-799 huntBatch counts the commands a task re-ran, refusals included', async () => {
+    // The stop predicate reads the same repeats off the model's steps; this
+    // is the number a reader gets afterwards, and it has to be there on the
+    // tasks the stop never fired on too — `39 cmds, repeated 3` and
+    // `73 cmds, repeated 46` are the two shapes the audit must tell apart.
+    shellMock.mockImplementation(async ({ command }: { command: string }) =>
+      command.startsWith('curl')
+        ? {
+            output: '',
+            error: 'curl is not allowed',
+            denied: true,
+            compressTokens: 0,
+          }
+        : { output: 'hit', compressTokens: 0 }
+    )
+    huntMock.mockImplementation(
+      async (input: { runShell: (c: string) => Promise<unknown> }) => {
+        await input.runShell('rg -n queryRaw lib/')
+        // Whitespace only — the same command line.
+        await input.runShell('rg  -n   queryRaw lib/')
+        await input.runShell('cat lib/a.ts')
+        // A refused command re-asked for is no more progress than an
+        // answered one re-asked for.
+        await input.runShell('curl https://evil.test')
+        await input.runShell('curl https://evil.test')
+        return { candidates: [], tokens: 10, stopped: 'no-progress' }
+      }
+    )
+
+    const out = await securityHuntService.huntBatch(batchInput())
+
+    expect(out.shell).toMatchObject({ calls: 5, refused: 2, repeated: 2 })
+    expect(out.stopped).toBe('no-progress')
+  })
+
   // LUM-781 — the task-level `outputChars` said 20k characters went in; only
   // this says which read was the 8k one, and whether the compressor stood
   // between the shell and the model for it.
