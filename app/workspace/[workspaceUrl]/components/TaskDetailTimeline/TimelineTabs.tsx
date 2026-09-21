@@ -11,6 +11,7 @@ import { ActivityTimeline } from './ActivityTimeline'
 import { TaskDetailComments } from '../TaskDetailComments'
 import { ContextTab } from './ContextTab'
 import { TaskDossier } from './TaskDossier'
+import { TestCasesTab } from './TestCasesTab'
 import { type HumanVerdictResult } from './VerdictDecision'
 import type { TaskDetail } from '../../types'
 import type { MentionSources } from '@/types/mention'
@@ -31,6 +32,8 @@ interface TimelinePresence {
   hasLineage: boolean
   hasCriteria: boolean
   hasOpenCrossings: boolean
+  /** LUM-801：服务端预判，避免 Tests tab 等客户端探针回来才出现（首帧闪）。 */
+  hasTestCases: boolean
 }
 
 interface TimelineTabsProps {
@@ -200,6 +203,15 @@ export function TimelineTabs({
             defaultMessage: 'Record',
           })}
         </button>
+        <button
+          className={tabClass(activeTab === 'tests')}
+          onClick={() => selectTab('tests')}
+        >
+          {intl.formatMessage({
+            id: 'testCases.tab',
+            defaultMessage: 'Tests',
+          })}
+        </button>
       </div>
 
       {activeTab === 'activity' && (
@@ -242,6 +254,13 @@ export function TimelineTabs({
           hasMemories={hasMemories}
           targetSection={dossierTargetSection}
           {...(mentionSources ? { mentionSources } : {})}
+        />
+      )}
+      {activeTab === 'tests' && (
+        <TestCasesTab
+          taskId={taskId}
+          taskIdentifier={taskIdentifier}
+          enabled={activeTab === 'tests'}
         />
       )}
     </div>

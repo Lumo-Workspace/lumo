@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.69.0",
+  "cliVersion": "1.69.1",
   "commands": {
     "auth": {
       "arguments": [],
@@ -3491,6 +3491,235 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Acceptance self-check (LUM-344): contract with latest verdicts, current round, nextActions (unmet criteria + undispositioned security findings, LUM-737), and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected. --full adds the dashboard sections (verification rollup, history, cost, struggle/rework trail, trend)."
+    },
+    "task testcase": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Structured test cases on a task (setup / steps / verification / expected) and their run records"
+    },
+    "task testcase add": {
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
+      "flags": {
+        "--expected": {
+          "long": "--expected",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Expected result"
+        },
+        "--setup": {
+          "long": "--setup",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Preconditions, e.g. \"The user is on the Dashboard.\""
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "One execution step (repeatable, ordered). At least one is required."
+        },
+        "--title": {
+          "long": "--title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Test case title"
+        },
+        "--verify": {
+          "long": "--verify",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "One verification step (repeatable, ordered). May be omitted entirely."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in."
+    },
+    "task testcase list": {
+      "arguments": [{ "name": "task", "required": true, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List a task's test cases with each one's latest run (result, environment, commit)"
+    },
+    "task testcase rm": {
+      "arguments": [
+        { "name": "task/case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        },
+        "--yes": {
+          "long": "--yes",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Alias of --confirm (kept for compatibility)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Remove a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope."
+    },
+    "task testcase run": {
+      "arguments": [
+        { "name": "task/case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--commit": {
+          "long": "--commit",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Override the auto-detected commit (default: git rev-parse HEAD in the cwd)"
+        },
+        "--env": {
+          "long": "--env",
+          "short": null,
+          "value": "required",
+          "enum": ["local", "preview", "production"],
+          "enumCaseInsensitive": true,
+          "description": "local | preview | production (case-insensitive; no default - say where this ran)"
+        },
+        "--evidence": {
+          "long": "--evidence",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Evidence link (repeatable)"
+        },
+        "--evidence-file": {
+          "long": "--evidence-file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)"
+        },
+        "--failed-step": {
+          "long": "--failed-step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)"
+        },
+        "--failed-verify": {
+          "long": "--failed-verify",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Free-text note about this run"
+        },
+        "--pr": {
+          "long": "--pr",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The PR whose change this run exercised (must be linked to this task)"
+        },
+        "--result": {
+          "long": "--result",
+          "short": null,
+          "value": "required",
+          "enum": ["pass", "fail", "blocked"],
+          "enumCaseInsensitive": true,
+          "description": "pass | fail | blocked (case-insensitive)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in."
+    },
+    "task testcase show": {
+      "arguments": [
+        { "name": "task/case", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Show one test case (four sections, 1-based step numbers) plus its run history. Handle: LUM-42/TC3"
+    },
+    "task testcase update": {
+      "arguments": [
+        { "name": "task/case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--expected": {
+          "long": "--expected",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New expected result"
+        },
+        "--setup": {
+          "long": "--setup",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New preconditions"
+        },
+        "--step": {
+          "long": "--step",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Replacement step (repeatable, ordered) - replaces the whole steps list"
+        },
+        "--title": {
+          "long": "--title",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New title"
+        },
+        "--verify": {
+          "long": "--verify",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Replacement verification step (repeatable, ordered) - replaces the whole list"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field."
     },
     "task update": {
       "arguments": [

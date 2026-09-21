@@ -20,7 +20,10 @@ export interface GitHubPullRequestPayload {
   merged: boolean
   draft: boolean
   user: { login: string }
-  head: { ref: string }
+  // LUM-801: `sha` was always in GitHub's payload — this declaration just
+  // narrowed it away. It is what a TestCaseRun's recorded commit is compared
+  // against to tell a still-current run from one the PR has moved past.
+  head: { ref: string; sha: string }
   base: { ref: string }
   merged_at: string | null
   closed_at: string | null

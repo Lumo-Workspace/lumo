@@ -60,6 +60,7 @@ interface TaskDetailPageProps {
     hasLineage: boolean
     hasCriteria: boolean
     hasOpenCrossings: boolean
+    hasTestCases: boolean
   }
 }
 

@@ -82,3 +82,4 @@ export {
   referenceClassRepository,
   type TaskScope,
 } from './reference-class.repository'
+export { testCaseRepository } from './test-case.repository'

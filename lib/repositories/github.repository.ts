@@ -23,6 +23,11 @@ export interface UpsertPullRequestData {
   state: string
   authorLogin: string
   headBranch: string
+  // LUM-801: the PR's current head commit. GitHub's PR payload always carries
+  // head.sha. undefined = this caller does not know it (e.g. a check_suite
+  // event) — the update path then omits the key entirely rather than nulling
+  // a recorded sha, same contract as mergeCommitSha below.
+  headSha?: string | undefined
   baseBranch: string
   isDraft: boolean
   mergeCommitSha?: string | null
@@ -175,6 +180,7 @@ export const githubRepository = {
         state: data.state,
         authorLogin: data.authorLogin,
         headBranch: data.headBranch,
+        headSha: data.headSha ?? null,
         baseBranch: data.baseBranch,
         isDraft: data.isDraft,
         mergeCommitSha: data.mergeCommitSha ?? null,
@@ -193,6 +199,10 @@ export const githubRepository = {
         // Only set on merge; never clobber a recorded SHA back to null on a
         // later non-merge event for the same PR.
         ...(data.mergeCommitSha ? { mergeCommitSha: data.mergeCommitSha } : {}),
+        // LUM-801: same rule for the head SHA — an event that does not carry a
+        // PR head object (check_suite) must leave the recorded value alone,
+        // otherwise TestCaseRun freshness silently degrades to `unknown`.
+        ...(data.headSha ? { headSha: data.headSha } : {}),
         ...(data.taskId ? { taskId: data.taskId } : {}),
         // LUM-634: write change volume only when the payload carried it (0 is
         // a legitimate value — the guard is `!= null`, not falsiness), so a

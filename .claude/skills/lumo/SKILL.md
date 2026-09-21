@@ -33,6 +33,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `initiative create/list` (`LUM-INIT-<n>`)                                               | [references/initiatives.md](references/initiatives.md)         |
 | `task artifact*`, `task figma*`                                                         | [references/artifacts-figma.md](references/artifacts-figma.md) |
 | `task criteria set/list/confirm`, drafting the acceptance contract                      | [references/criteria.md](references/criteria.md)               |
+| `task testcase add/list/show/update/rm/run`（结构化用例 + 执行记录）                    | [references/test-cases.md](references/test-cases.md)           |
 | `verify`, `task status` — machine verification loop, claim-done flow, self-check/resume | [references/verify.md](references/verify.md)                   |
 | `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5             | [references/task-context.md](references/task-context.md)       |
 | `outcome show/rate` — post-hoc outcome well (falsifier oracle, rejection-only)          | [references/outcome.md](references/outcome.md)                 |
@@ -110,6 +111,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task criteria set <task> --file <criteria.json> [--human] [--cause <tag>]` — submit the whole contract (full-group replace). Default = agent draft (AGENT_DRAFT, editable until DONE); `--human` = a HUMAN_EDIT revision transcribed from the conversation; `--cause` annotates why the contract drifted. See [criteria.md](references/criteria.md)
 - `lumo task criteria list <task>` — print the contract (id, MACHINE/HUMAN, provenance source@round, checkpointer)
 - `lumo task criteria confirm <task> [--confirm]` — record the **user's** confirmation of the contract; without `--confirm` it exits 4 with an envelope listing every criterion (writes nothing). Never blocks DONE. See [criteria.md](references/criteria.md)
+
+### Test cases (可反复执行的用例 + 执行记录) — see [test-cases.md](references/test-cases.md)
+
+- `lumo task testcase add/list/show/update/rm/run` — 任务下可反复执行的结构化用例 + append-only 执行记录。**与验收合同平行、互不替代**：合同管「任务算不算做完」，用例管「这条剧本跑下来什么结果、在哪个环境、跑的哪版代码」。`run --env` 必填无默认
 
 ### Verification (machine acceptance loop) — see [verify.md](references/verify.md)
 

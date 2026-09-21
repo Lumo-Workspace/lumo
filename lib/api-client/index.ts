@@ -48,3 +48,4 @@ export type {
   ClusterGateView,
   ConfirmClusterGateResponse,
 } from './plan-runs'
+export { testCasesClient } from './test-cases'

@@ -190,6 +190,7 @@ export async function handlePullRequest(
     state,
     authorLogin: pr.user.login,
     headBranch: pr.head.ref,
+    headSha: pr.head.sha,
     baseBranch: pr.base.ref,
     isDraft: pr.draft,
     // LUM-598 groundwork: persist the merge commit SHA so future automated

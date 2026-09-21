@@ -207,6 +207,7 @@ function renderPage(queryClient = new QueryClient()) {
           // LUM-431: the verdict bar now gates on the task having a contract.
           hasCriteria: true,
           hasOpenCrossings: false,
+          hasTestCases: false,
         }}
       />
     </QueryClientProvider>
