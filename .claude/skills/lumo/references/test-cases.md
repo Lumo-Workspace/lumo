@@ -48,6 +48,16 @@ TC1	Dashboard 页脚 FDIC 披露	3 steps / 2 verify	FAIL on LOCAL @a1b2c3d (2026
 lumo task testcase show LUM-42/TC3
 ```
 
+带证据的 run，每条证据**自己占一行**（文件名 + url），缩进挂在那条 run 底下——终端里能打开一份证据的唯一形式就是 url，计数打不开（LUM-805）：
+
+```
+  2026-09-21  FAIL on LOCAL  #123 @a1b2c3d  step 2: assert: the footer shows the FDIC line  — 页脚只剩版权行
+      footer.png  https://blob.example.com/test-evidence/…/abc.png
+      jest.log  https://blob.example.com/test-evidence/…/def.log
+```
+
+形状不认识的证据条目会被整条丢掉而不是报错——一条脏证据不该让 `show` 挂掉。web 端同一份数据在任务的 Tests tab 里出缩略图。
+
 ## `lumo task testcase update <task/case>` — 改用例
 
 Flag 与 `add` 相同，至少给一个。
