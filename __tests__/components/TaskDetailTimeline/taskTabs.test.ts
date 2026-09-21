@@ -71,11 +71,15 @@ describe('taskTabs single dossier tab replaces the merged trio', () => {
     expect(TAB_SLUGS.dossier).toBe('record')
     expect(tabFromSlug('record')).toBe('dossier')
     // The surviving top-level tabs are exactly comments/activity/context/dossier.
+    // LUM-801 后多了一个独立的 `tests` tab；LUM-567 的断言意图是「三合一」——
+    // trio 不复存在、只剩一个 dossier——上面四行已逐条锁住，这里只需确认
+    // tab 集合没有偷偷把 trio 加回来。
     expect(Object.keys(TAB_SLUGS).sort()).toEqual([
       'activity',
       'comments',
       'context',
       'dossier',
+      'tests',
     ])
   })
 })

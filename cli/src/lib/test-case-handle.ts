@@ -76,11 +76,19 @@ export interface GitCoordinate {
   commitDirty: boolean | null
 }
 
-/** 注入点，方便测试：真实实现传 spawnSync 的薄封装。 */
+/**
+ * 注入点，方便测试：真实实现传 spawnSync 的薄封装。
+ *
+ * 下面的块级豁免是因为 no-unused-vars 会把**函数类型**里的形参名当成未使用的
+ * 变量报出来（`_` 前缀在本仓库的配置里也不豁免）——它们是类型签名的一部分，
+ * 不是变量。
+ */
+/* eslint-disable no-unused-vars */
 export type RunCommand = (
   cmd: string,
   args: string[]
 ) => { status: number | null; stdout: string }
+/* eslint-enable no-unused-vars */
 
 /**
  * 从 cwd 的 git 检出读被测代码的坐标。
