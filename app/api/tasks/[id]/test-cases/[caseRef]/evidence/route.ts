@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'node:crypto'
 import { put } from '@vercel/blob'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
@@ -45,8 +46,9 @@ function extFor(mime: string, filename: string): string {
  * by loosening the documents-image route, which serves a different surface.
  *
  * Blobs are `access: 'public'` (repo-wide for @vercel/blob): the URL is
- * unguessable but publicly fetchable, the same exposure as document images.
- * Accepted knowingly — see the design spec §6.3.
+ * publicly fetchable, so its unguessability is the only thing protecting the
+ * file. The path segment is therefore a CSPRNG uuid, not Math.random().
+ * The public-access exposure itself is accepted knowingly — design spec §6.3.
  */
 export async function POST(request: NextRequest, { params }: Params) {
   const identity = await requireIdentity(request)
@@ -102,7 +104,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     size: number
   }> = []
   for (const file of files) {
-    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    // 这些 blob 是 access: 'public'（仓库范围的既有约定），所以路径的**不可猜测
+    // 性就是唯一的防线** —— 证据截图可能拍到客户数据。用 CSPRNG 而不是
+    // Math.random()（后者是 /api/upload/image 的既有写法，约 31 bit 熵 + 一个
+    // 可预测的时间戳，对「唯一防线」这个角色不够）。
+    const unique = randomUUID()
     const pathname = `test-evidence/${task.id}/${testCase.id}/${unique}.${extFor(file.type, file.name)}`
     const blob = await put(pathname, file, {
       access: 'public',
