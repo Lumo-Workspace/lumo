@@ -356,6 +356,43 @@ describe('deriveRunFreshness', () => {
     ).toBe('fresh')
   })
 
+  it('matches an abbreviated run sha against a full current sha', () => {
+    // LUM-801 走查时抓到的：schema 允许 7–40 位、CLI 的 --commit 接受缩写、
+    // 文档示例就写着 `--commit 80b62a3`，但比较是精确相等 —— 于是同一个
+    // commit 的 7 位写法被判 stale、40 位写法判 fresh。
+    expect(
+      deriveRunFreshness(
+        run({ commitSha: '80b62a3' }),
+        pr('80b62a32645da6374f33f32d56e07d83613ead88')
+      ).state
+    ).toBe('fresh')
+  })
+
+  it('still reports stale when the abbreviation does not match', () => {
+    expect(
+      deriveRunFreshness(
+        run({ commitSha: '80b62a3' }),
+        pr('945ae96348360a8b696160d43d4c04246e8ca663')
+      ).state
+    ).toBe('stale')
+  })
+
+  it('matches regardless of which side is abbreviated', () => {
+    expect(
+      deriveRunFreshness(
+        run({ commitSha: '80b62a32645da6374f33f32d56e07d83613ead88' }),
+        pr('80b62a3')
+      ).state
+    ).toBe('fresh')
+  })
+
+  it('compares case-insensitively', () => {
+    expect(
+      deriveRunFreshness(run({ commitSha: '80B62A3' }), pr('80b62a32645da637'))
+        .state
+    ).toBe('fresh')
+  })
+
   it('a dirty run is never fresh, even when the sha matches', () => {
     expect(
       deriveRunFreshness(run({ commitDirty: true }), pr('abc1234')).state
