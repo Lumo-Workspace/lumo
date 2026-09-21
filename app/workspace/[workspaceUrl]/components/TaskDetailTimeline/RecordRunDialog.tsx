@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { TestCase } from '@prisma/client'
 import type { RecordRunBody } from '@/lib/validation/test-case'
-import type { TaskPullRequestSnapshot } from '@/lib/services/task-test-case.service'
+import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 
 const RESULTS = ['PASS', 'FAIL', 'BLOCKED'] as const
 const ENVIRONMENTS = ['LOCAL', 'PREVIEW', 'PRODUCTION'] as const

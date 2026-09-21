@@ -6,7 +6,7 @@ import {
   testCasesClient,
   type TestCaseWithLatestRun,
 } from '@/lib/api-client/test-cases'
-import type { TaskPullRequestSnapshot } from '@/lib/services/task-test-case.service'
+import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 import type {
   CreateTestCaseBody,
   UpdateTestCaseBody,

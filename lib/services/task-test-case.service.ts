@@ -12,6 +12,16 @@ import type {
   UpdateTestCaseBody,
   RecordRunBody,
 } from '@/lib/validation/test-case'
+// 陈旧性推导住在一个**不碰 prisma** 的纯模块里，客户端组件才能直接 import 它
+// （从这里 import 会把 Prisma + pg 拖进浏览器 bundle）。这里 re-export 只是
+// 为了服务端调用方的便利。
+import {
+  deriveRunFreshness,
+  type RunFreshness,
+  type TaskPullRequestSnapshot,
+} from '@/lib/test-cases/freshness'
+
+export { deriveRunFreshness, type RunFreshness, type TaskPullRequestSnapshot }
 
 export interface TestCaseAttribution {
   /** WorkspaceMember id of the caller. */
@@ -20,66 +30,15 @@ export interface TestCaseAttribution {
   sourceSessionId: string | null
 }
 
-export interface TaskPullRequestSnapshot {
-  id: string
-  number: number
-  title: string
-  url: string
-  state: string
-  headSha: string | null
-  mergeCommitSha: string | null
-}
-
 export type TestCaseWithLatestRun = TestCaseRow & {
   latestRun: TestCaseRunRow | null
 }
-
-export type RunFreshness =
-  | { state: 'fresh'; currentSha: string }
-  | { state: 'stale'; currentSha: string }
-  | { state: 'dirty'; currentSha: string | null }
-  | { state: 'unknown'; currentSha: string | null }
 
 function fail(message: string, status: number): never {
   throw Object.assign(new Error(message), { status })
 }
 
 const VALID_ENVIRONMENTS = ['LOCAL', 'PREVIEW', 'PRODUCTION'] as const
-
-/**
- * 这条 run 验的还是 PR 现在的代码吗？
- *
- * **Fail-closed**：缺任何一半（run 没记 sha、PR 的 head 还没同步到、run 压根没绑
- * PR）一律 `unknown`，**绝不**乐观地报 `fresh`。一个假的 `fresh` 比一个诚实的
- * `unknown` 危险得多——前者会让人以为验过了。
- *
- * `commitDirty` 优先于一切：跑的时候工作区是脏的，那个 sha 就不代表被测代码，
- * 哪怕它和 PR head 一模一样也不算 fresh。
- *
- * PR 已合并时比的是 `mergeCommitSha`：生产环境那次执行对应的是合并 commit，
- * 不是 PR 头。
- *
- * 纯函数，**不落列**：存一个 isStale，PR 一 push 它就开始撒谎。
- */
-export function deriveRunFreshness(
-  run: Pick<TestCaseRunRow, 'pullRequestId' | 'commitSha' | 'commitDirty'>,
-  pr: TaskPullRequestSnapshot | null
-): RunFreshness {
-  const current =
-    pr === null
-      ? null
-      : pr.state === 'merged'
-        ? (pr.mergeCommitSha ?? pr.headSha)
-        : pr.headSha
-
-  if (run.commitDirty === true) return { state: 'dirty', currentSha: current }
-  if (!run.pullRequestId || !run.commitSha || !current)
-    return { state: 'unknown', currentSha: current }
-
-  return run.commitSha === current
-    ? { state: 'fresh', currentSha: current }
-    : { state: 'stale', currentSha: current }
-}
 
 /**
  * 校验失败定位并返回要快照的原文。

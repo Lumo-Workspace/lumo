@@ -13,6 +13,7 @@ import {
   type TaskPullRequestSnapshot,
 } from '@/lib/services/task-test-case.service'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
+import type { Prisma } from '@prisma/client'
 
 jest.mock('@/lib/repositories/test-case.repository', () => ({
   testCaseRepository: {
@@ -63,10 +64,16 @@ const attribution = { actorMemberId: 'm-1', sourceSessionId: 'sess-1' }
 beforeEach(() => {
   jest.clearAllMocks()
   repo.listTaskPullRequests.mockResolvedValue([])
-  repo.createRun.mockImplementation(
-    async (input: Record<string, unknown>) =>
-      ({ id: 'run-1', createdAt: new Date('2026-02-01'), ...input }) as never
-  )
+  // createRun 的返回就是它收到的 input 加上 id/createdAt —— 测试只关心传进去的
+  // 字段，所以这里原样回抛。
+  repo.createRun.mockImplementation(async input => ({
+    ...input,
+    // 写入类型是 InputJsonValue，读出来的行类型是 JsonValue —— 只有这一个字段
+    // 需要窄一下，其余原样回抛。
+    evidence: input.evidence as Prisma.JsonValue,
+    id: 'run-1',
+    createdAt: new Date('2026-02-01'),
+  }))
 })
 
 describe('recordRun — environment', () => {

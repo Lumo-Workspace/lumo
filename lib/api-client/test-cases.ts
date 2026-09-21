@@ -5,7 +5,7 @@ import type {
   UpdateTestCaseBody,
   RecordRunBody,
 } from '@/lib/validation/test-case'
-import type { TaskPullRequestSnapshot } from '@/lib/services/task-test-case.service'
+import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 
 export type TestCaseWithLatestRun = TestCase & {
   latestRun: TestCaseRun | null

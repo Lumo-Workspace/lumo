@@ -5,7 +5,7 @@ import type { TestCaseRun } from '@prisma/client'
 import {
   deriveRunFreshness,
   type TaskPullRequestSnapshot,
-} from '@/lib/services/task-test-case.service'
+} from '@/lib/test-cases/freshness'
 
 /**
  * LUM-801: 环境徽标。

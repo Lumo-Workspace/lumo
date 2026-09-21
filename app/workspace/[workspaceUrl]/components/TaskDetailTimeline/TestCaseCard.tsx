@@ -3,7 +3,7 @@
 import { useIntl } from 'react-intl'
 import type { TestCaseRun } from '@prisma/client'
 import type { TestCaseWithLatestRun } from '@/lib/api-client/test-cases'
-import type { TaskPullRequestSnapshot } from '@/lib/services/task-test-case.service'
+import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 import { RunHistoryList } from './RunHistoryList'
 
 interface TestCaseCardProps {
