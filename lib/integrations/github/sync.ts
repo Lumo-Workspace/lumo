@@ -25,7 +25,7 @@ interface GhListPR {
   state: string
   draft: boolean
   user: { login: string }
-  head: { ref: string }
+  head: { ref: string; sha: string }
   base: { ref: string }
   merged_at: string | null
   closed_at: string | null
@@ -89,6 +89,7 @@ export async function syncRepoPRs(
         state,
         authorLogin: pr.user.login,
         headBranch: pr.head.ref,
+        headSha: pr.head.sha,
         baseBranch: pr.base.ref,
         isDraft: pr.draft,
         mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,

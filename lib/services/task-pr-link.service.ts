@@ -120,6 +120,7 @@ export async function linkPullRequest(
         state,
         authorLogin: ghPr.user.login,
         headBranch: ghPr.head.ref,
+        headSha: ghPr.head.sha,
         baseBranch: ghPr.base.ref,
         isDraft: ghPr.draft,
         mergedAt: ghPr.merged_at ? new Date(ghPr.merged_at) : null,
