@@ -162,3 +162,13 @@ export {
   type AnchorProbe,
   type StaleVerdict,
 } from './code-anchor'
+
+// ── Test case run evidence (read side) (LUM-805) ─────────────────────────────
+export {
+  parseEvidenceEntries,
+  isImageEvidence,
+  evidenceLabel,
+  type EvidenceEntry,
+  type EvidenceFile,
+  type EvidenceLink,
+} from './test-case-evidence'

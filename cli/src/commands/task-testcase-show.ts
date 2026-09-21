@@ -1,5 +1,6 @@
 import { apiContext, apiCall, printNumbered } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
+import { formatEvidenceLines } from '../lib/test-case-evidence'
 
 interface RunRow {
   id: string
@@ -116,13 +117,13 @@ export async function taskTestCaseShow(
         ? `  ${run.failedPhase === 'STEPS' ? 'step' : 'verification'} ${run.failedIndex + 1}` +
           (run.failedStepText ? `: ${run.failedStepText}` : '')
         : ''
-    const evidence = Array.isArray(run.evidence) ? run.evidence.length : 0
     console.log(
       `  ${run.createdAt.slice(0, 10)}  ${run.result} on ${run.environment}` +
         freshnessNote(run, pullRequests) +
         at +
-        (run.note ? `  — ${run.note}` : '') +
-        (evidence > 0 ? `  [${evidence} evidence]` : '')
+        (run.note ? `  — ${run.note}` : '')
     )
+    // 证据一条一行：终端里能「打开」一份证据的唯一形式是 url，计数打不开。
+    for (const line of formatEvidenceLines(run.evidence)) console.log(line)
   }
 }

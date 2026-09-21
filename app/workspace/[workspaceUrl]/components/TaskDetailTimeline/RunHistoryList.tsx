@@ -6,6 +6,7 @@ import {
   deriveRunFreshness,
   type TaskPullRequestSnapshot,
 } from '@/lib/test-cases/freshness'
+import { EvidenceStrip } from './TestCaseEvidence'
 
 /**
  * LUM-801: 环境徽标。
@@ -95,7 +96,6 @@ export function RunHistoryList({
   return (
     <ul className='flex flex-col gap-1.5'>
       {runs.map(r => {
-        const evidence = Array.isArray(r.evidence) ? r.evidence : []
         // failedIndex 存的是 0-based，显示回 1-based（与步骤编号对齐）。
         const locator =
           r.failedPhase && r.failedIndex !== null
@@ -131,14 +131,7 @@ export function RunHistoryList({
             {r.note ? (
               <span className='text-muted-foreground'>{r.note}</span>
             ) : null}
-            {evidence.length > 0 ? (
-              <span className='text-muted-foreground'>
-                {intl.formatMessage(
-                  { id: 'testCases.evidence' },
-                  { count: evidence.length }
-                )}
-              </span>
-            ) : null}
+            <EvidenceStrip evidence={r.evidence} />
           </li>
         )
       })}
