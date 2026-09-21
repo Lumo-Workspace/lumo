@@ -179,6 +179,13 @@ enum TaskActivityType {
   // LUM-789: 一次合同确认动作。与 CRITERION_CHANGED 分开,因为确认不是合同漂移——
   // 后者有 4 个下游消费者把它当漂移信号读。列存最新状态,本事件流存全历史。
   CONTRACT_CONFIRMED
+  // LUM-801: 任务级 test case 的生命周期与执行记录。与 CRITERION_CHANGED 分开——
+  // test case 不是验收合同,读 CRITERION_CHANGED 当漂移信号的下游消费者不该看到
+  // test case 的噪声。
+  TEST_CASE_ADDED
+  TEST_CASE_UPDATED
+  TEST_CASE_REMOVED
+  TEST_CASE_RUN_RECORDED
 }
 
 enum BoundaryCrossingCategory {
@@ -1015,6 +1022,8 @@ model Task {
   autoBlocks                 AutoBlock[]
   gateSignals                GateSignal[]
   lumoCiRuns                 LumoCiRun[]
+  testCases                  TestCase[]
+  testCaseRuns               TestCaseRun[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -1782,6 +1791,14 @@ model PullRequest {
   baseBranch     String
   isDraft        Boolean   @default(false)
   ciStatus       String? // null | "pending" | "success" | "failure"
+  // LUM-801: the PR's CURRENT head commit. GitHub's PR payload has always
+  // carried head.sha — the repo's own type declarations narrowed it away to
+  // `head: { ref: string }`. Needed so a TestCaseRun recorded against a commit
+  // can be told apart from one the PR has since moved past.
+  // Nullable: rows predating this column, and the check_suite webhook path
+  // (which has no PR head object), leave it null. NEVER overwrite an existing
+  // value with null — an upsert without a sha must omit the key entirely.
+  headSha        String?
   // LUM-598: merge commit SHA GitHub reports when the PR merges. Groundwork for
   // the post-hoc outcome well — future automated revert detection maps a later
   // "Revert <sha>" back to the delivery via this column. Additive + nullable:
@@ -1806,6 +1823,7 @@ model PullRequest {
   ideaCitations    IdeaPullRequest[]
   securityScans    PrSecurityScan[]
   lumoCiRuns       LumoCiRun[]
+  testCaseRuns     TestCaseRun[]
 
   @@unique([repo, number])
   @@index([workspaceId])
@@ -3652,4 +3670,115 @@ model ClaimFaithfulnessVerdict {
 
   @@index([verdict])
   @@map("claim_faithfulness_verdicts")
+}
+
+// ─── Test cases (LUM-801) ───────────────────────────────────────────────────
+// 与 AcceptanceCriterion 平行的独立资源：可反复执行的结构化用例 + append-only
+// 执行记录。它不是验收合同——合同回答「这个任务算不算做完」,用例回答「这条剧本
+// 跑下来是什么结果、在哪个环境、跑的哪版代码」。
+// Migration: 20260921_add_test_cases
+
+enum TestEnvironment {
+  LOCAL
+  PREVIEW
+  PRODUCTION
+}
+
+enum TestCaseRunResult {
+  PASS
+  FAIL
+  /// 前置条件 / 环境不满足,用例**根本没跑起来**。正因如此它不携带失败定位
+  /// （没跑起来,「挂在第几步」无意义）。跑到一半被外部因素卡住记 FAIL + 定位 + note。
+  BLOCKED
+}
+
+enum TestCasePhase {
+  STEPS
+  VERIFICATION
+}
+
+model TestCase {
+  id           String    @id @default(cuid())
+  taskId       String
+  /// 任务内 1-based 顺序号,兼作展示序（v1 不支持重排序）。CLI 句柄 = LUM-12/TC3。
+  /// 分配走 max+1 事务 + P2002 重试（同 Idea 编号,LUM-661）。
+  number       Int
+  title        String
+  setup        String?
+  /// 有序。元素顺序即执行顺序。
+  steps        String[]
+  /// 有序,可为空数组（不是每条用例都有复验段）。
+  verification String[]
+  expected     String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  /// 软删除墓碑：run→case 的审计链必须活着（同 AcceptanceCriterion.deletedAt）。
+  /// 即使还没有 run 也软删,避免两条删除语义。
+  deletedAt    DateTime?
+
+  task Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  runs TestCaseRun[]
+
+  @@unique([taskId, number])
+  @@index([taskId, deletedAt])
+  @@map("test_cases")
+}
+
+/// Append-only 事件日志：一次执行一行,**永不 update、永不 delete**。
+/// 不存在这两条路径——不是「有但禁用」。纠正一次误记的办法是再 append 一条。
+model TestCaseRun {
+  id         String @id @default(cuid())
+  testCaseId String
+  /// 反范式：任务级查询免 join。
+  taskId     String
+
+  result      TestCaseRunResult
+  /// 没有默认值。整个 feature 的目的就是分清这次跑在哪,给默认值等于鼓励
+  /// 不假思索地填 LOCAL —— 服务层缺失即 400。
+  environment TestEnvironment
+
+  /// FAIL 时的失败定位。哪一段的第几条（**0-based**；CLI 表面是 1-based）。
+  /// 非 FAIL 必须为 null。定位本身可选（可能确实不知道哪步挂的）。
+  failedPhase    TestCasePhase?
+  failedIndex    Int?
+  /// 判决时刻的原文快照——用例后来被改写,这条 run 仍读得懂。名字里的 step
+  /// 是泛指：failedPhase 为 VERIFICATION 时快照的是复验段那一条。
+  /// 同 VerificationRun 反范式 verifierType 的做法。
+  failedStepText String?
+
+  /// 证据数组。每项二选一：
+  ///   { type: 'link', url, label? }
+  ///   { type: 'file', url, filename, contentType, size }
+  /// 行是 append-only 的,JSON 在这里安全（同 TaskCriteriaSnapshot.criteria）。
+  evidence Json @default("[]")
+
+  note String?
+
+  /// 这次执行的**代码坐标**。environment 回答「在哪跑」,这两列回答「跑的哪版代码」。
+  /// 只绑 PR 号是不够的：PR 一 push,这条 run 就悄悄过时了。陈旧性由读端比对
+  /// commitSha 与 PR 当前 head 推导（deriveRunFreshness）,**不落列**——存下来的
+  /// fresh 第二天就是谎话。
+  pullRequestId String?
+  /// 被测代码的 commit。null = **未记录**,不是「没变过」。
+  commitSha     String?
+  /// 跑的时候工作区是否有未提交改动。null = 未知；true = 这个 sha 不完全代表
+  /// 被测代码,该 run 连 fresh 都不算数。绝不兜底成 false。
+  commitDirty   Boolean?
+
+  /// WorkspaceMember id。无 FK（同 VerificationRunWithdrawal.withdrawnById）。
+  executedByMemberId String?
+  /// X-Lumo-Session-Id。无 FK 的取证指针（同 VerificationRun.sourceSessionId）——
+  /// 被清理的 session 不应抹掉出处。
+  sourceSessionId    String?
+
+  createdAt DateTime @default(now())
+
+  testCase    TestCase     @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  task        Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  pullRequest PullRequest? @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
+
+  @@index([testCaseId, createdAt])
+  @@index([taskId, createdAt])
+  @@index([pullRequestId])
+  @@map("test_case_runs")
 }
