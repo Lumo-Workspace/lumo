@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 import styles from './home.module.css'
 
-type RowKind = 'mono' | 'plain' | 'good'
+type RowKind = 'mono' | 'plain' | 'good' | 'warn'
 
 interface HowRow {
   label: string
@@ -22,59 +22,68 @@ interface HowTab {
   rows: HowRow[]
 }
 
+// The three beats have to agree with the rest of the page, which they did not:
+// step three used to sell an LLM judge and a "judge confidence" reading, while
+// the Verification card (and reference 9) now argue the opposite — a judge's
+// self-assessment is the thing being replaced, not the proof. Step three is
+// therefore test cases + scan findings, and the panels no longer show a clean
+// board: run #4821 raises boundary flags on the Guardrails card and PR #482
+// carries 8 findings on the Security card, so those same numbers appear here.
+// The last row is deliberately not "VERIFIED": a machine pass does not close a
+// task — a person does.
 const TABS: HowTab[] = [
   {
-    label: 'Plan',
+    label: 'Define',
     step: 'Step one',
-    title: 'Break work into verifiable tasks.',
-    body: 'Define what "done" means up front. Each task carries acceptance criteria your agents — and your reviewers — are held to.',
+    title: 'Agree on done before the agent starts.',
+    body: 'Write down what "done" means before anyone writes code — the criteria, and the test cases that prove them. After that, done stops being a matter of opinion.',
     points: [
-      'Crisp, testable acceptance criteria',
+      'Acceptance criteria agreed up front',
+      'Test cases written before the code',
       'Dependencies detected automatically',
-      'Roll tasks into sprints & milestones',
     ],
     panelLabel: 'TASK · checkout-revamp',
     rows: [
       { label: 'Acceptance criteria', val: '8 defined', kind: 'mono' },
-      { label: 'Complexity', val: 'Medium', kind: 'plain' },
+      { label: 'Test cases', val: '3 written', kind: 'mono' },
       { label: 'Dependencies', val: '2 resolved', kind: 'plain' },
       { label: 'Assigned to', val: 'agent · sonnet', kind: 'mono' },
     ],
   },
   {
-    label: 'Dispatch',
+    label: 'Run',
     step: 'Step two',
-    title: 'Hand off, and watch the spend.',
-    body: 'Send the task to your agents. Lumo meters tokens, runtime, and cost live — so a runaway loop is visible in seconds, not at invoice time.',
+    title: 'Hand it off, and watch what it touches.',
+    body: 'Send the task to your agents. Every boundary the run crosses — a rewritten test, a key pasted into config, a force-push at main — is recorded the moment it happens. Tokens, runtime, and cost are metered alongside it, so a runaway loop shows up in seconds rather than on the invoice.',
     points: [
-      'Live token & cost metering',
+      'Boundary crossings recorded as they happen',
+      'Live token, runtime & cost metering',
       'Budget thresholds with alerts',
-      'Boundary crossings flagged in real time',
     ],
     panelLabel: 'RUN #4821 · live',
     rows: [
+      { label: 'Boundary flags', val: '3 recorded', kind: 'warn' },
       { label: 'Tokens used', val: '847K / 1M', kind: 'mono' },
       { label: 'Runtime', val: '2h 14m', kind: 'plain' },
       { label: 'Cost so far', val: '$3.41', kind: 'mono' },
-      { label: 'Boundary flags', val: '0', kind: 'good' },
     ],
   },
   {
-    label: 'Verify',
+    label: 'Prove',
     step: 'Step three',
-    title: 'Ship only what passes.',
-    body: 'Every criterion is checked before a task can close. What passes moves to Verified; what fails is returned with the exact gap to fix.',
+    title: 'Nothing closes on the agent’s word.',
+    body: 'Every test case is run and the result is kept with its evidence. Every pull request is scanned. What fails comes back with the exact gap — and passing the machine checks still is not the same as being done.',
     points: [
-      'Automated + LLM-judged checks',
-      'Failed criteria sent back with context',
-      'Full verification history per task',
+      'Test results kept with their evidence',
+      'Pull requests scanned before they merge',
+      'A person closes the task, not the agent',
     ],
-    panelLabel: 'VERIFICATION · 8/8',
+    panelLabel: 'VERIFICATION · LUM-204',
     rows: [
-      { label: 'Criteria passed', val: '8 / 8', kind: 'good' },
-      { label: 'Judge confidence', val: 'High', kind: 'plain' },
-      { label: 'Test tampering', val: 'None', kind: 'good' },
-      { label: 'Verdict', val: 'VERIFIED', kind: 'good' },
+      { label: 'Test cases', val: '3 / 3 PASS', kind: 'good' },
+      { label: 'Evidence', val: '4 screenshots', kind: 'mono' },
+      { label: 'Scan findings', val: '8 open', kind: 'warn' },
+      { label: 'Status', val: 'IN REVIEW', kind: 'plain' },
     ],
   },
 ]
@@ -82,6 +91,7 @@ const TABS: HowTab[] = [
 function rowValClass(kind: RowKind) {
   if (kind === 'mono') return `${styles.howRowVal} ${styles.howRowValMono}`
   if (kind === 'good') return `${styles.howRowVal} ${styles.howRowValGood}`
+  if (kind === 'warn') return `${styles.howRowVal} ${styles.howRowValWarn}`
   return styles.howRowVal
 }
 
@@ -94,7 +104,9 @@ export function HowItWorks() {
       <div className={styles.sectionInner}>
         <div className={styles.sectionHeadCenter}>
           <div className={styles.eyebrow}>How it works</div>
-          <h2 className={styles.h2}>Plan it. Dispatch it. Verify it.</h2>
+          <h2 className={styles.h2}>
+            Define done. Let it run. Check the proof.
+          </h2>
         </div>
 
         <div
