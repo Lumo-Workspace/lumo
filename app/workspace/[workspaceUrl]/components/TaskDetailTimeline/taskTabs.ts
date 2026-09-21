@@ -1,4 +1,10 @@
-export type TabValue = 'comments' | 'activity' | 'context' | 'dossier'
+/**
+ * LUM-801 新增 `tests`：任务的 test case 与执行记录。它**不进** dossier
+ * （Record tab）——dossier 是「决策优先 + 事后证据」的验收面板，而 test case 是
+ * 开工前/中写的执行剧本，语义是拧的；且 AcceptanceTab.tsx 已 2400+ 行，是整个
+ * Record tab 的全部表面，不宜再承载。
+ */
+export type TabValue = 'comments' | 'activity' | 'context' | 'dossier' | 'tests'
 
 /**
  * The four named, deep-linkable regions live *inside* the dossier (LUM-567).
@@ -24,6 +30,7 @@ export const TAB_SLUGS: Record<TabValue, string> = {
   activity: 'activity',
   context: 'context',
   dossier: 'record',
+  tests: 'tests',
 }
 
 const SLUG_TO_TAB: Record<string, TabValue> = Object.fromEntries(

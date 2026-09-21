@@ -136,6 +136,15 @@ export const testCaseRepository = {
     throw lastError
   },
 
+  /** 便宜的存在性检查，供 SSR 的 tab 预判用（避免 Tests tab 首帧闪）。 */
+  async hasForTask(taskId: string): Promise<boolean> {
+    const found = await prisma.testCase.findFirst({
+      where: { taskId, deletedAt: null },
+      select: { id: true },
+    })
+    return found !== null
+  },
+
   listForTask(taskId: string): Promise<TestCaseRow[]> {
     return prisma.testCase.findMany({
       where: { taskId, deletedAt: null },

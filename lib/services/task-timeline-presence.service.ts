@@ -2,6 +2,7 @@ import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 
 /**
  * Whether each of the "rare" timeline tabs (Memory / Lineage / Acceptance) has
@@ -20,6 +21,8 @@ export interface TaskTimelinePresence {
   hasLineage: boolean
   hasCriteria: boolean
   hasOpenCrossings: boolean
+  /** LUM-801: Tests tab 是否有内容。tab 本身恒显示，这个只用来避免首帧闪。 */
+  hasTestCases: boolean
 }
 
 export const taskTimelinePresenceService = {
@@ -31,21 +34,29 @@ export const taskTimelinePresenceService = {
    * Run in parallel — they're independent indexed lookups.
    */
   async getPresence(taskId: string): Promise<TaskTimelinePresence> {
-    const [hasMemories, hasLineage, criterionCount, hasOpenCrossings] =
-      await Promise.all([
-        memoryRepository.hasForTask(taskId),
-        lineageEdgeRepository.hasForTask(taskId),
-        // Acceptance tab: any criterion (the contract) → tab is shown.
-        acceptanceCriterionRepository.countByTask(taskId),
-        // Delivery sub-tab default: any OPEN crossing → land on Acceptance.
-        boundaryCrossingRepository.hasOpenForTask(taskId),
-      ])
+    const [
+      hasMemories,
+      hasLineage,
+      criterionCount,
+      hasOpenCrossings,
+      hasTestCases,
+    ] = await Promise.all([
+      memoryRepository.hasForTask(taskId),
+      lineageEdgeRepository.hasForTask(taskId),
+      // Acceptance tab: any criterion (the contract) → tab is shown.
+      acceptanceCriterionRepository.countByTask(taskId),
+      // Delivery sub-tab default: any OPEN crossing → land on Acceptance.
+      boundaryCrossingRepository.hasOpenForTask(taskId),
+      // LUM-801: Tests tab content presence.
+      testCaseRepository.hasForTask(taskId),
+    ])
 
     return {
       hasMemories,
       hasLineage,
       hasCriteria: criterionCount > 0,
       hasOpenCrossings,
+      hasTestCases,
     }
   },
 }
