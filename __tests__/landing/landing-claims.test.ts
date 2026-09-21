@@ -96,7 +96,7 @@ describe('landing claims LUM-804', () => {
   it('security findings list only names layers the scan actually has', () => {
     const block = arrayLiteral(readLanding('lumo-home.tsx'), 'SCAN_FINDINGS')
     const layers = [...block.matchAll(/meta: '([^·']+)·/g)].map(m =>
-      m[1].trim()
+      (m[1] ?? '').trim()
     )
 
     expect(layers.length).toBeGreaterThan(0)
