@@ -9,10 +9,24 @@ interface FaqItem {
   a: string
 }
 
+// Questions phrased the way a visitor would actually type them, and answers
+// held to what the code does. Two things this file used to get wrong:
+//   - it sold "an LLM judge for the fuzzy ones" and a task auto-moving to
+//     Verified. Reference 9 and the Verification card argue the opposite, and
+//     a machine pass does not close a task here — a person does.
+//   - it named Linear and Notion as integrations. The registry
+//     (lib/integrations/registry.ts) is slack, sentry, github, githubAccount,
+//     figma, googleDrive — those are the ones named below.
+// The encryption sentence is likewise scoped to what lib/crypto.ts actually
+// encrypts (third-party credentials), not to "all sensitive data".
 const FAQS: FaqItem[] = [
   {
-    q: 'How does Lumo verify an agent actually built the right thing?',
-    a: 'You attach acceptance criteria to every task. When an agent reports done, Lumo runs each criterion — tests, checks, and an LLM judge for the fuzzy ones — and only moves the task to Verified when all of them pass. Anything that fails is sent back with the specific gap.',
+    q: 'What if the agent just says it’s done?',
+    a: 'It cannot close the task on its own word. Every acceptance criterion names the check that proves it, and every test case is run with its result appended — the environment, the commit it ran against, and screenshots as evidence. The run log is append-only, so a wrong verdict is corrected by adding a row, never by quietly editing one. A machine pass moves the task to review; a person closes it.',
+  },
+  {
+    q: 'What happens when the scan finds something?',
+    a: 'Every pull request runs five layers before it merges — secrets, code scan, dependencies, AI review, and an agent that hunts for a working exploit path. Each finding lands on the PR with a severity and a fingerprint, and boundary crossings your agents made along the way are recorded separately. A layer that finished means it was checked, not that it was clean: Lumo reports what it established and never claims safety it did not.',
   },
   {
     q: 'Which agents and models does Lumo work with?',
@@ -23,12 +37,12 @@ const FAQS: FaqItem[] = [
     a: 'Every run reports usage back to Lumo automatically. You get live per-task, per-agent, and per-sprint rollups for tokens, runtime, and dollar cost, with budget thresholds that alert before a run overspends.',
   },
   {
-    q: 'Can my team keep using the tools we already have?',
-    a: 'Yes. Lumo plugs into GitHub, Linear, Slack, Notion and more, so humans plan and review where they already work while agents execute against the same source of truth.',
+    q: 'Do we have to leave the tools we already use?',
+    a: 'No. Lumo connects to GitHub, Slack, Figma, Google Drive and Sentry, so humans plan and review where they already work while agents execute against the same source of truth.',
   },
   {
-    q: 'Is our code and data secure?',
-    a: 'Sensitive data is encrypted at rest with AES-256-GCM, access is scoped per team, and you can export or delete everything on demand. Lumo never trains on your repositories.',
+    q: 'Do you train on our code?',
+    a: 'No — your repositories are never used for training. Third-party credentials are encrypted with AES-256-GCM before they are stored, access is scoped per team, and you can export or delete everything on demand.',
   },
 ]
 

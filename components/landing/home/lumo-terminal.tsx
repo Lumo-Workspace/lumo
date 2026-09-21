@@ -8,9 +8,12 @@ import styles from './home.module.css'
 
 // What working with Lumo actually looks like inside a coding agent: you point it
 // at a task with one command, it runs prechecks, then drives the lumo CLI as
-// tool calls (attach + context → verify) and reports back — the real agent
-// transcript shape, kept model-/tool-neutral ("coding agent"). Commands and
-// output are the genuine ones from the lumo skill.
+// tool calls (attach + context → test-case runs → PR scan → verify) and reports
+// back — the real agent transcript shape, kept model-/tool-neutral ("coding
+// agent"). Commands are the genuine ones: `lumo task testcase run <task>/TC<n>
+// --result <r> --env <e> [--evidence-file …]` and `lumo pr scan <number>` both
+// match cli/src/commands/. The run ends IN_REVIEW with findings still open,
+// because the agent does not get to close its own task.
 const QUERY = '/lumo LUM-204'
 
 interface ToolStep {
@@ -53,6 +56,29 @@ const STEPS: Step[] = [
   },
   {
     kind: 'tool',
+    cmd: 'lumo task testcase run LUM-204/TC1 --result pass --env preview \\\n  --evidence-file step-2.png --evidence-file verify-1.png',
+    out: [
+      'Uploaded 2 evidence files (png)',
+      'Recorded PASS · TC1 · preview · commit 4f2a9c1 (clean)',
+    ],
+    more: 'TC2, TC3 recorded — 3/3 PASS',
+  },
+  {
+    kind: 'say',
+    text: 'Cases pass. Scanning the PR before I hand it back.',
+  },
+  {
+    kind: 'tool',
+    cmd: 'lumo pr scan 482',
+    out: [
+      'Scanning PR #482 — 5 layers',
+      'Secrets 1 · Code scan 2 · Dependencies 3 · AI review 1 · Exploit paths 1',
+      '⚠ 8 findings — 2 HIGH need a human before merge',
+    ],
+    more: '+11 lines',
+  },
+  {
+    kind: 'tool',
     cmd: 'lumo verify LUM-204',
     out: [
       'Verifying LUM-204 — 3 MACHINE criteria',
@@ -64,7 +90,7 @@ const STEPS: Step[] = [
   },
   {
     kind: 'say',
-    text: 'Done — LUM-204 is in review. Every check passed; tokens and time logged.',
+    text: 'LUM-204 is in review: 3/3 cases passed with evidence, 8 scan findings left for you. I can’t close it — that’s yours.',
   },
 ]
 
@@ -73,6 +99,8 @@ const THINK_MS = 520 // pause before the agent starts
 const STEP_MS = 620 // delay between revealed steps
 
 const isOkLine = (l: string) => l.includes('✓') || l.includes('PASS')
+// A findings line is attention, not success — it must never render green.
+const isWarnLine = (l: string) => l.includes('⚠')
 
 export function LumoTerminal() {
   const [qTyped, setQTyped] = useState(0)
@@ -213,7 +241,11 @@ export function LumoTerminal() {
                         <div
                           key={j}
                           className={
-                            isOkLine(l) ? styles.termOkLine : undefined
+                            isWarnLine(l)
+                              ? styles.termWarnLine
+                              : isOkLine(l)
+                                ? styles.termOkLine
+                                : undefined
                           }
                         >
                           {l}
