@@ -203,6 +203,12 @@
   margin: 0 0 24px;
   text-wrap: balance;
 }
+/* Each sentence of the h1 gets its own line box: the headline's whole effect is
+   the two-sentence contrast, so a wrap must never straddle the period. Each
+   sentence still balances internally at narrow widths. */
+.heroTitleSentence {
+  display: block;
+}
 .heroLede {
   font-size: 19px;
   line-height: 1.55;
@@ -210,14 +216,11 @@
   max-width: 460px;
   margin: 0 0 20px;
 }
-.heroProof {
-  font-size: 14.5px;
-  line-height: 1.5;
-  color: var(--text-3);
-  max-width: 460px;
-  margin: 0 0 32px;
-  padding-left: 14px;
-  border-left: 2px solid var(--accent);
+/* The two promises the lede is built around — lifted out of the paragraph's
+   body color so they read at a glance, without competing with .stat's accent. */
+.ledeKey {
+  color: var(--text-1);
+  font-weight: 600;
 }
 .heroActions {
   display: flex;
@@ -318,11 +321,11 @@
   font-size: 15.5px;
   font-weight: 600;
 }
-.badgeVerified {
+.badgeReview {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--good);
-  background: #e6f0e6;
+  color: var(--text-2);
+  background: var(--line-soft);
   padding: 3px 9px;
   border-radius: 20px;
   flex: none;
@@ -397,6 +400,30 @@
   font-size: 13.5px;
   color: var(--text-1);
 }
+/* An unresolved row in the hero handoff: same slot as .acCheck, accent instead
+   of green, because these are the items still waiting on a person. */
+.acWarn {
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+.mockFoot {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-mono);
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-3);
+}
 .acSource {
   margin-left: auto;
   font-family: var(--font-mono);
@@ -415,13 +442,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: none;
-}
-.acOpen {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1.5px solid #d5cdbc;
   flex: none;
 }
 
@@ -683,6 +703,9 @@
 }
 .termOkLine {
   color: var(--good);
+}
+.termWarnLine {
+  color: var(--accent);
 }
 .termMore {
   color: var(--text-mono);
@@ -959,30 +982,176 @@
   font-size: 11px;
   color: var(--good);
 }
-.acItemSm {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--text-1);
-}
-.acItemSmOpen {
-  color: var(--text-faint);
-}
-.acCheckSm {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--good);
-  color: #fff;
-  font-size: 9px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-}
 
 /* Context sources */
+/* PR security-scan panel (08 · SECURITY). Counts use the accent, never the
+   "good" green: a findings count is attention, not reassurance. */
+.scanCount {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+}
+.runVerdict {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 3px 6px;
+  flex: none;
+  color: #2f6b45;
+  background: #d9ecdf;
+}
+/* 04 test-case body: a label column plus the case's own fields, so the panel
+   shows what a Lumo test case is (setup / ordered steps / verify / expected)
+   rather than a title with a tick next to it. */
+.tcTitle {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.35;
+  margin-bottom: 12px;
+}
+.tcRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+.tcLabel {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--text-mono);
+  width: 46px;
+  flex: none;
+  padding-top: 2px;
+}
+.tcBody {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-1);
+  min-width: 0;
+}
+.tcStep {
+  display: flex;
+  gap: 8px;
+}
+.tcNum {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  flex: none;
+  padding-top: 1px;
+}
+
+/* The evidence a run carries, drawn at the size a reader can actually read:
+   a small browser frame per uploaded screenshot, captioned with the filename
+   and size the evidence entry stores. Drawn in CSS — no image is shipped. */
+.shotGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+.shot {
+  margin: 0;
+  border: 1px solid var(--line-4);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--card);
+}
+.shotBar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--card-3);
+  border-bottom: 1px solid var(--line-3);
+}
+.shotDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--line-4);
+  flex: none;
+}
+.shotUrl {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--text-faint);
+  margin-left: 4px;
+}
+.shotBody {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 78px;
+}
+.shotLine {
+  height: 5px;
+  border-radius: 2px;
+  background: var(--line-soft);
+}
+.shotLineShort {
+  width: 58%;
+}
+.shotField {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--text-2);
+  border: 1px solid var(--line-3);
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+.shotBtn {
+  align-self: flex-start;
+  margin-top: auto;
+  font-size: 8.5px;
+  font-weight: 600;
+  color: var(--paper);
+  background: var(--ink);
+  border-radius: 4px;
+  padding: 4px 9px;
+}
+.shotOkRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.shotOk {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #d9ecdf;
+  color: var(--good);
+  font-size: 8px;
+  line-height: 13px;
+  text-align: center;
+  flex: none;
+}
+.shotOkText {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.shotCap {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--text-faint);
+  padding: 6px 8px;
+  border-top: 1px solid var(--line-3);
+}
+
+/* Tail line under the 08 findings list: the findings that did not fit. */
+.scanMore {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-top: 11px;
+}
 .srcGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1221,6 +1390,10 @@
 .howRowValGood {
   font-family: var(--font-mono);
   color: var(--good);
+}
+.howRowValWarn {
+  font-family: var(--font-mono);
+  color: var(--accent);
 }
 .fade {
   animation: lumoFade 0.4s ease both;
