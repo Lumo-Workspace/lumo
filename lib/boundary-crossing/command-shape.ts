@@ -155,10 +155,31 @@ export function splitSegmentsQuoteAware(cmd: string): string[] {
  *  `-exec rm {} +`, `-delete` — so such a segment is NOT a read-only search. */
 const FIND_MUTATING_FLAG = /(?:^|\s)-(?:exec|execdir|ok|okdir|delete)\b/
 
-/** Tokens that never carry the verb: env assignments, `!` negation and
- *  common launcher prefixes. */
+/** Tokens that never carry the verb: env assignments, `!` negation, common
+ *  launcher prefixes, and the control-flow keywords that INTRODUCE a command.
+ *
+ *  LUM-802: `then` / `do` / `else` / `elif` / `if` / `while` / `until` are each
+ *  followed by a whole command, so the verb is the next token — without this,
+ *  `then echo "…"` read as an unknown verb (executing) while a bare
+ *  `echo "…"` was dropped, and the built-in matchers (which, unlike
+ *  `matchActionRule`, do not strip quoted literals) saw the prose of every
+ *  `if <bad thing>; then echo "<text naming the bad thing>"` monitor script.
+ *  Skipping the keyword only ever EXPOSES the real verb: `then rm -rf …`
+ *  resolves to `rm` and stays executing, so nothing an action matcher used to
+ *  catch is swallowed.
+ *
+ *  Deliberately NOT here:
+ *  - `done` / `fi` / `esac` close a block and are followed by nothing. They
+ *    form single-token segments, which the `i < toks.length - 1` guard below
+ *    never skips anyway; leaving them unknown keeps them executing (harmless —
+ *    a lone keyword matches nothing) rather than teaching the classifier that
+ *    a bare word is safe.
+ *  - `for` / `case` / `in` are followed by a variable name or a word list, not
+ *    a command (`for f in $(ls)`), so skipping them would promote a non-verb
+ *    token to verb. Both classify as executing either way, so there is nothing
+ *    to gain and a misread to lose. */
 const PREFIX_TOKEN =
-  /^(?:[A-Za-z_][A-Za-z0-9_]*=|!$|sudo$|env$|time$|nohup$|command$|exec$|npx$|pnpm$|bunx$|yarn$)/
+  /^(?:[A-Za-z_][A-Za-z0-9_]*=|!$|sudo$|env$|time$|nohup$|command$|exec$|npx$|pnpm$|bunx$|yarn$|if$|elif$|then$|else$|while$|until$|do$)/
 
 /** Print / search / read tools — they execute nothing they are handed. `lumo`
  *  is Lumo's own CLI: it never runs shell text, and its `--note` / comment
