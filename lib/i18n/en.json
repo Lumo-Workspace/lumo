@@ -2447,5 +2447,7 @@
   "workspaceSettings.verification.description": "Set how many machine verification rounds a task may run before it escalates to a human. Human review is never limited by this.",
   "workspaceSettings.verification.maxRounds": "Max machine rounds",
   "workspaceSettings.verificationUpdateFailed": "Failed to update verification settings",
-  "workspaceSettings.verificationUpdated": "Verification settings updated"
+  "workspaceSettings.verificationUpdated": "Verification settings updated",
+  "testCases.field.evidenceFiles.tooMany": "You picked {count} files — at most {max} per run.",
+  "testCases.field.evidenceFiles.tooLarge": "“{filename}” is {size} MB — each file must be {max} MB or smaller."
 }

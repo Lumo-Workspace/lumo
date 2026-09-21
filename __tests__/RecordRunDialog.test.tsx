@@ -6,7 +6,7 @@
  * 成 LOCAL，而且没人会注意到。
  */
 import '@testing-library/jest-dom'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 jest.mock('react-intl', () => {
@@ -130,6 +130,90 @@ describe('failure locator', () => {
       }),
       []
     )
+  })
+})
+
+describe('evidence file guards', () => {
+  // 浏览器补验时抓到的（LUM-801）：两种违规原本共用静态提示那一句，用户看到
+  // 同一句话一灰一红出现两次，既不知道违的是「太多」还是「太大」，也不知道
+  // 自己的实际值；而且被拒时原生 input 仍显示已选中，组件其实一个都没收。
+  const fileInput = () =>
+    document.querySelector('input[type="file"]') as HTMLInputElement
+
+  // jsdom 没有 DataTransfer，直接把 FileList 形状定义上去。
+  // 注意：jsdom 按规范禁止给 file input 的 value 赋非空值，所以「被拒时清空
+  // 原生 input」这件事没法直接断言 —— 改为断言它真正的后果：被拒的文件不会
+  // 被偷偷提交上去（见下面的 onSubmit 断言）。
+  function attach(files: File[]) {
+    const input = fileInput()
+    const list = {
+      ...files,
+      length: files.length,
+      item: (i: number) => files[i] ?? null,
+      [Symbol.iterator]: function* () {
+        yield* files
+      },
+    } as unknown as FileList
+    Object.defineProperty(input, 'files', {
+      value: list,
+      configurable: true,
+      writable: true,
+    })
+    fireEvent.change(input)
+    return input
+  }
+
+  const sixFiles = () =>
+    Array.from(
+      { length: 6 },
+      (_, i) => new File(['x'], `p${i}.txt`, { type: 'text/plain' })
+    )
+
+  it('names the actual count when too many files are picked', () => {
+    setup()
+    attach(sixFiles())
+    expect(screen.getByText(/you picked 6 files/i)).toBeInTheDocument()
+  })
+
+  it('names the offending file and its size when one is too large', () => {
+    setup()
+    attach([
+      new File([new Uint8Array(11 * 1024 * 1024)], 'huge.txt', {
+        type: 'text/plain',
+      }),
+    ])
+    expect(screen.getByText(/huge\.txt/)).toBeInTheDocument()
+    expect(screen.getByText(/11\.0 MB/)).toBeInTheDocument()
+  })
+
+  it('does not reuse the static hint text as the error', () => {
+    setup()
+    attach(sixFiles())
+    // 提示仍在（它是说明），但错误不能是同一句话
+    const hint = screen.getByText(/up to 10 MB each, 5 files max/i)
+    const error = screen.getByText(/you picked 6 files/i)
+    expect(hint).not.toBe(error)
+    expect(error.textContent).not.toEqual(hint.textContent)
+  })
+
+  it('never submits files it rejected', async () => {
+    const onSubmit = setup()
+    attach(sixFiles())
+    await userEvent.selectOptions(
+      screen.getByLabelText(/environment/i),
+      'LOCAL'
+    )
+    await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
+    expect(onSubmit).toHaveBeenCalledWith(expect.anything(), [])
+  })
+
+  it('accepts a valid selection and clears a previous error', () => {
+    setup()
+    attach(sixFiles())
+    expect(screen.getByText(/you picked 6 files/i)).toBeInTheDocument()
+
+    attach([new File(['ok'], 'fine.txt', { type: 'text/plain' })])
+    expect(screen.queryByText(/you picked/i)).not.toBeInTheDocument()
   })
 })
 

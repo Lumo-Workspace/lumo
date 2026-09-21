@@ -2447,5 +2447,7 @@
   "testCases.section.setup": "사전 조건",
   "testCases.section.steps": "단계",
   "testCases.section.verification": "재확인",
-  "testCases.tab": "테스트"
+  "testCases.tab": "테스트",
+  "testCases.field.evidenceFiles.tooMany": "{count}개를 선택했습니다 — 실행당 최대 {max}개입니다.",
+  "testCases.field.evidenceFiles.tooLarge": "「{filename}」은(는) {size} MB입니다 — 파일당 {max} MB 이하여야 합니다."
 }

@@ -2447,5 +2447,7 @@
   "testCases.section.setup": "前置條件",
   "testCases.section.steps": "執行步驟",
   "testCases.section.verification": "複驗",
-  "testCases.tab": "測試"
+  "testCases.tab": "測試",
+  "testCases.field.evidenceFiles.tooMany": "你選了 {count} 個檔案——每次執行最多 {max} 個。",
+  "testCases.field.evidenceFiles.tooLarge": "「{filename}」有 {size} MB——單一檔案不能超過 {max} MB。"
 }

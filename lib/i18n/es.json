@@ -2447,5 +2447,7 @@
   "testCases.section.setup": "Precondiciones",
   "testCases.section.steps": "Pasos",
   "testCases.section.verification": "Recomprobación",
-  "testCases.tab": "Pruebas"
+  "testCases.tab": "Pruebas",
+  "testCases.field.evidenceFiles.tooMany": "Has elegido {count} archivos: como máximo {max} por ejecución.",
+  "testCases.field.evidenceFiles.tooLarge": "«{filename}» ocupa {size} MB: cada archivo debe ser de {max} MB o menos."
 }

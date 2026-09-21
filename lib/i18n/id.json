@@ -2447,5 +2447,7 @@
   "testCases.section.setup": "Prakondisi",
   "testCases.section.steps": "Langkah",
   "testCases.section.verification": "Pemeriksaan ulang",
-  "testCases.tab": "Tes"
+  "testCases.tab": "Tes",
+  "testCases.field.evidenceFiles.tooMany": "Kamu memilih {count} berkas — maksimal {max} per eksekusi.",
+  "testCases.field.evidenceFiles.tooLarge": "“{filename}” berukuran {size} MB — tiap berkas maksimal {max} MB."
 }
