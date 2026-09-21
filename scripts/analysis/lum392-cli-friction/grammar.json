@@ -3591,7 +3591,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Override the auto-detected commit (default: git rev-parse HEAD in the cwd)"
+          "description": "Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)"
         },
         "--env": {
           "long": "--env",

@@ -1295,7 +1295,7 @@ taskTestCase
   )
   .option(
     '--commit <sha>',
-    'Override the auto-detected commit (default: git rev-parse HEAD in the cwd)'
+    'Which commit this run exercised. Auto-detected from local git ONLY for --env local; required to record one for preview/production (the local checkout is not what they run)'
   )
   .option(
     '--failed-step <n>',

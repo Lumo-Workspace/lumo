@@ -6,6 +6,7 @@ import {
   splitCaseHandle,
   resolveRunLocator,
   readGitCoordinate,
+  resolveCommitCoordinate,
 } from '../lib/test-case-handle'
 
 export interface TestCaseRunOptions {
@@ -112,13 +113,17 @@ export async function taskTestCaseRun(
     prNumber = Number(raw)
   }
 
-  // 代码坐标：--commit 覆盖自动值；不在 git 仓库里就留 null，不编造。
-  const git = readGitCoordinate((cmd, args) =>
-    spawnSync(cmd, args, { encoding: 'utf8' })
-  )
-  const commitSha = options.commit?.trim() || git.commitSha
-  // 显式给了 --commit 就不再声称知道工作区脏不脏。
-  const commitDirty = options.commit ? null : git.commitDirty
+  // 代码坐标。只有 --env local 会从本地 git 推断——见 resolveCommitCoordinate
+  // 的注释：本地检出跑的不是 production / preview 跑的东西。
+  const coord = resolveCommitCoordinate({
+    env,
+    commit: options.commit,
+    readGit: () =>
+      readGitCoordinate((cmd, args) =>
+        spawnSync(cmd, args, { encoding: 'utf8' })
+      ),
+  })
+  const { commitSha, commitDirty } = coord
 
   const ctx = apiContext()
   if (!ctx) return 1
@@ -195,8 +200,8 @@ export async function taskTestCaseRun(
   if (commitSha) {
     const dirty = commitDirty === true ? ' (uncommitted changes present)' : ''
     console.log(`Commit: ${commitSha.slice(0, 7)}${dirty}`)
-  } else {
-    console.log('Commit: not recorded (not a git checkout)')
+  } else if (coord.hint) {
+    console.log(coord.hint)
   }
   if (evidence.length > 0) console.log(`Evidence: ${evidence.length} item(s)`)
 }

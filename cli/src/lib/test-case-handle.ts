@@ -110,3 +110,51 @@ export function readGitCoordinate(run: RunCommand): GitCoordinate {
   const dirty = status.status === 0 ? status.stdout.trim().length > 0 : null
   return { commitSha: sha, commitDirty: dirty }
 }
+
+export interface CommitCoordinate {
+  commitSha: string | null
+  commitDirty: boolean | null
+  /** 非 null 时，命令应把它打给用户，解释为什么没记 commit。 */
+  hint: string | null
+}
+
+/**
+ * 决定一条 run 要不要记 commit 坐标，以及记什么。
+ *
+ * **只有 `--env local` 才允许从本地 git 推断。** 本地检出跑的不是
+ * production / preview 跑的东西：把操作者的 HEAD 记成「生产验过的 commit」
+ * 是假话，而且陈旧性判定可能因此把它标成 `fresh` —— 一个假的「已验证」，
+ * 正是整个 fail-closed 设计要防的东西（LUM-801 走查时从截图里看出来的：
+ * 一条 `--env production` 的 run 记着本地 #1038 分支的 HEAD）。
+ *
+ * 非 local 环境要记 commit，必须显式 `--commit <sha>` —— 由人断言「生产上
+ * 跑的就是这个」，而不是让工具去猜。
+ */
+export function resolveCommitCoordinate(args: {
+  env: string
+  commit?: string | undefined
+  readGit: () => GitCoordinate
+}): CommitCoordinate {
+  const explicit = args.commit?.trim()
+  if (explicit) {
+    // 显式指定时不再声称知道工作区脏不脏。
+    return { commitSha: explicit, commitDirty: null, hint: null }
+  }
+
+  if (args.env !== 'LOCAL') {
+    return {
+      commitSha: null,
+      commitDirty: null,
+      hint:
+        `Commit: not recorded — the local checkout is not what ${args.env.toLowerCase()} runs. ` +
+        `Pass --commit <sha> to state which commit was exercised.`,
+    }
+  }
+
+  const git = args.readGit()
+  return {
+    commitSha: git.commitSha,
+    commitDirty: git.commitDirty,
+    hint: git.commitSha ? null : 'Commit: not recorded (not a git checkout)',
+  }
+}
