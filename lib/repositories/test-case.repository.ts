@@ -222,16 +222,25 @@ export const testCaseRepository = {
     })
   },
 
-  /** 任务列表视图用：每条用例的最近一次 run。 */
-  async latestRunPerCase(taskId: string): Promise<Map<string, TestCaseRunRow>> {
+  /**
+   * 任务下所有 run，按用例分组、每组新到旧。
+   *
+   * 这本来就是一次查询把全部 run 取出来——早先的版本取完只留每组第一条，
+   * 于是卡片上那个标着「Run history」的区域永远只显示最近一次（LUM-801
+   * 走查时被自己的 TC1 抓到）。丢弃数据并没有省下任何查询，所以直接返回全量。
+   */
+  async runsPerCase(taskId: string): Promise<Map<string, TestCaseRunRow[]>> {
     const rows = await prisma.testCaseRun.findMany({
       where: { taskId },
       orderBy: { createdAt: 'desc' },
       select: runSelect,
     })
-    const latest = new Map<string, TestCaseRunRow>()
-    for (const r of rows)
-      if (!latest.has(r.testCaseId)) latest.set(r.testCaseId, r)
-    return latest
+    const grouped = new Map<string, TestCaseRunRow[]>()
+    for (const r of rows) {
+      const list = grouped.get(r.testCaseId)
+      if (list) list.push(r)
+      else grouped.set(r.testCaseId, [r])
+    }
+    return grouped
   },
 }

@@ -30,8 +30,14 @@ export interface TestCaseAttribution {
   sourceSessionId: string | null
 }
 
-export type TestCaseWithLatestRun = TestCaseRow & {
-  latestRun: TestCaseRunRow | null
+/**
+ * 列表里的一条用例，带它**全部**的执行记录（新到旧）。
+ *
+ * 卡片上的区域叫「Run history」，就得给得出全部历史——只给最近一条会让标题
+ * 撒谎（LUM-801 的 TC1 就是这么 FAIL 的）。
+ */
+export type TestCaseWithRuns = TestCaseRow & {
+  runs: TestCaseRunRow[]
 }
 
 function fail(message: string, status: number): never {
@@ -100,19 +106,16 @@ async function resolveActorId(memberId: string): Promise<string | null> {
  */
 export const taskTestCaseService = {
   async listForTask(taskId: string): Promise<{
-    testCases: TestCaseWithLatestRun[]
+    testCases: TestCaseWithRuns[]
     pullRequests: TaskPullRequestSnapshot[]
   }> {
-    const [cases, latest, pullRequests] = await Promise.all([
+    const [cases, runs, pullRequests] = await Promise.all([
       testCaseRepository.listForTask(taskId),
-      testCaseRepository.latestRunPerCase(taskId),
+      testCaseRepository.runsPerCase(taskId),
       testCaseRepository.listTaskPullRequests(taskId),
     ])
     return {
-      testCases: cases.map(c => ({
-        ...c,
-        latestRun: latest.get(c.id) ?? null,
-      })),
+      testCases: cases.map(c => ({ ...c, runs: runs.get(c.id) ?? [] })),
       pullRequests,
     }
   },

@@ -5,13 +5,13 @@ interface ListRow {
   title: string
   steps: string[]
   verification: string[]
-  latestRun: {
+  runs: Array<{
     result: string
     environment: string
     createdAt: string
     commitSha: string | null
     commitDirty: boolean | null
-  } | null
+  }>
 }
 
 export async function taskTestCaseList(
@@ -41,7 +41,8 @@ export async function taskTestCaseList(
   }
 
   for (const c of cases) {
-    const run = c.latestRun
+    // runs 新到旧，第一条就是最近一次
+    const run = c.runs[0]
     // 「跑在哪个环境」必须出现在摘要行里——这是整个 feature 的目的。
     let last = 'never run'
     if (run) {

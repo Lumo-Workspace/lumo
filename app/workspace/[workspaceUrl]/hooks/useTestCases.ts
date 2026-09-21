@@ -4,7 +4,7 @@ import { useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   testCasesClient,
-  type TestCaseWithLatestRun,
+  type TestCaseWithRuns,
 } from '@/lib/api-client/test-cases'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 import type {
@@ -15,12 +15,12 @@ import type {
 import { queryKeys } from '@/lib/query/keys'
 
 interface TestCasesData {
-  testCases: TestCaseWithLatestRun[]
+  testCases: TestCaseWithRuns[]
   pullRequests: TaskPullRequestSnapshot[]
 }
 
 export interface UseTestCasesResult {
-  testCases: TestCaseWithLatestRun[]
+  testCases: TestCaseWithRuns[]
   pullRequests: TaskPullRequestSnapshot[]
   loading: boolean
   error: string | null

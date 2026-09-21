@@ -134,7 +134,7 @@ export function TestCasesTab({
             <TestCaseCard
               testCase={c}
               taskIdentifier={taskIdentifier}
-              runs={c.latestRun ? [c.latestRun] : []}
+              runs={c.runs}
               pullRequests={pullRequests}
               onRecordRun={() => setMode({ kind: 'run', caseId: c.id })}
               onEdit={() => setMode({ kind: 'edit', caseId: c.id })}

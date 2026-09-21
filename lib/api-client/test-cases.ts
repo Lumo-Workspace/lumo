@@ -7,8 +7,9 @@ import type {
 } from '@/lib/validation/test-case'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 
-export type TestCaseWithLatestRun = TestCase & {
-  latestRun: TestCaseRun | null
+/** 列表里的一条用例，带它全部的执行记录（新到旧）。 */
+export type TestCaseWithRuns = TestCase & {
+  runs: TestCaseRun[]
 }
 
 export interface UploadedEvidenceFile {
@@ -20,7 +21,7 @@ export interface UploadedEvidenceFile {
 
 export const testCasesClient = {
   list(taskId: string): Promise<{
-    testCases: TestCaseWithLatestRun[]
+    testCases: TestCaseWithRuns[]
     pullRequests: TaskPullRequestSnapshot[]
   }> {
     return apiFetch(`/api/tasks/${taskId}/test-cases`)
