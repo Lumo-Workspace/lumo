@@ -75,7 +75,7 @@ lumo task testcase rm LUM-42/TC3
 | `--result <r>`           | **必填**。`pass` / `fail` / `blocked`                                               |
 | `--env <e>`              | **必填，没有默认值**。`local` / `preview` / `production`                            |
 | `--pr <number>`          | 这次跑的是哪个 PR 的改动。必须是本任务名下的 PR                                     |
-| `--commit <sha>`         | 覆盖自动探测到的 commit                                                             |
+| `--commit <sha>`         | 这次跑的是哪个 commit。**`--env local` 之外必须显式给**，否则不记                   |
 | `--failed-step <n>`      | **1-based**，仅 FAIL 可用，与 `--failed-verify` 互斥                                |
 | `--failed-verify <n>`    | **1-based**，仅 FAIL 可用，与 `--failed-step` 互斥                                  |
 | `--note <text>`          | 这次执行的自由文本备注                                                              |
@@ -90,7 +90,15 @@ lumo task testcase run LUM-42/TC3 --result fail --env local --pr 123 --failed-st
 lumo task testcase run LUM-42/TC3 --result pass --env production
 ```
 
-`commitSha` / `commitDirty` **自动填**：`git rev-parse HEAD` + `git status --porcelain`。不在 git 仓库里就都留 null（不编造）。给了 `--commit` 时 dirty 置 null——显式指定 commit 就不再声称知道工作区状态。
+**commit 坐标只在 `--env local` 时自动探测**（`git rev-parse HEAD` + `git status --porcelain`）。不在 git 仓库里就留 null，不编造。
+
+`--env preview` / `--env production` **不会**去读本地 git —— 本地检出跑的不是那些环境跑的东西。把操作者的 HEAD 记成「生产验过的 commit」是假话；更糟的是如果本地 HEAD 恰好等于 PR head，陈旧性会把它判成 `fresh`，等于伪造一条「生产已验证」。非 local 要记 commit，**必须显式** `--commit <sha>`：由人断言「线上跑的就是这个」，而不是让工具猜。
+
+```bash
+lumo task testcase run LUM-42/TC3 --result pass --env production --pr 123 --commit 80b62a3
+```
+
+给了 `--commit` 时 `commitDirty` 置 null —— 显式指定 commit 就不再声称知道工作区状态。
 
 ---
 
@@ -118,11 +126,12 @@ PR 已合并时比的是 merge commit，不是 PR 头——生产上那次执行
 - 用户问「这条用例上次跑是什么结果」「这个还验过吗」→ `testcase show`。
 - PR 合并、部署完成之后 → 提醒补一次 `--env production` 的执行记录。本地绿和生产上真的验过是两回事。
 
-## 语义坑（最容易搞错的六条）
+## 语义坑（最容易搞错的七条）
 
 1. **`--env` 必填无默认。** 整个 feature 的目的就是分清跑在哪；别去猜一个值填进去。
 2. **`BLOCKED` = 用例根本没跑起来**（前置条件 / 环境不满足），因此**不能**带 `--failed-step`。跑到一半被外部因素卡住，记 `--result fail` + 定位 + `--note`。
 3. **`--failed-step` / `--failed-verify` 是 1-based**，和终端里打印的编号对齐。
-4. **`update` 的 `--step` 是整段替换**，不是追加。
-5. **`rm` 是软删**，run 历史仍在；且走确认信封，agent 不得自补 `--confirm`。
-6. **test case 不是验收合同。** 用例跑绿不代表任务可以 DONE；DONE 看的是 `lumo verify` 与 `lumo task status`。
+4. **`--env production` / `preview` 不自动探 commit**。本地检出 ≠ 线上跑的代码；要记就显式 `--commit`。
+5. **`update` 的 `--step` 是整段替换**，不是追加。
+6. **`rm` 是软删**，run 历史仍在；且走确认信封，agent 不得自补 `--confirm`。
+7. **test case 不是验收合同。** 用例跑绿不代表任务可以 DONE；DONE 看的是 `lumo verify` 与 `lumo task status`。

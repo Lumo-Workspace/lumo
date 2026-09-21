@@ -10,6 +10,7 @@ import {
   toZeroBased,
   resolveRunLocator,
   readGitCoordinate,
+  resolveCommitCoordinate,
 } from '@/cli/src/lib/test-case-handle'
 
 describe('splitCaseHandle', () => {
@@ -130,5 +131,65 @@ describe('readGitCoordinate', () => {
     const run = (_c: string, args: string[]) =>
       args[1] === 'HEAD' ? ok('a1b2c3d4e5f6\n') : boom()
     expect(readGitCoordinate(run).commitDirty).toBeNull()
+  })
+})
+
+describe('resolveCommitCoordinate', () => {
+  // LUM-801 走查时从截图里看出来的：一条 `--env production` 的 run 记着操作者
+  // 本地 #1038 分支的 HEAD。本地检出跑的不是生产跑的东西 —— 那个 commit 从未
+  // 上过生产。更糟的是，如果本地 HEAD 恰好等于 PR head，陈旧性会把它判成
+  // `fresh`，等于伪造一条「生产已验证」。
+  const cleanGit = () => ({ commitSha: 'a1b2c3d4', commitDirty: false })
+  const noGit = () => ({ commitSha: null, commitDirty: null })
+
+  it('auto-detects from local git for a LOCAL run', () => {
+    expect(
+      resolveCommitCoordinate({ env: 'LOCAL', readGit: cleanGit })
+    ).toEqual({ commitSha: 'a1b2c3d4', commitDirty: false, hint: null })
+  })
+
+  it('never auto-detects for PRODUCTION — the local checkout is not what prod runs', () => {
+    const r = resolveCommitCoordinate({ env: 'PRODUCTION', readGit: cleanGit })
+    expect(r.commitSha).toBeNull()
+    expect(r.commitDirty).toBeNull()
+    expect(r.hint).toMatch(/not what production runs/i)
+  })
+
+  it('never auto-detects for PREVIEW either', () => {
+    const r = resolveCommitCoordinate({ env: 'PREVIEW', readGit: cleanGit })
+    expect(r.commitSha).toBeNull()
+    expect(r.hint).toMatch(/not what preview runs/i)
+  })
+
+  it('does not even consult git for a non-local run', () => {
+    const readGit = jest.fn(cleanGit)
+    resolveCommitCoordinate({ env: 'PRODUCTION', readGit })
+    expect(readGit).not.toHaveBeenCalled()
+  })
+
+  it('accepts an explicit --commit for any environment', () => {
+    expect(
+      resolveCommitCoordinate({
+        env: 'PRODUCTION',
+        commit: ' 80b62a3 ',
+        readGit: cleanGit,
+      })
+    ).toEqual({ commitSha: '80b62a3', commitDirty: null, hint: null })
+  })
+
+  it('an explicit --commit stops claiming to know the worktree state', () => {
+    const r = resolveCommitCoordinate({
+      env: 'LOCAL',
+      commit: 'deadbee',
+      readGit: () => ({ commitSha: 'a1b2c3d4', commitDirty: true }),
+    })
+    expect(r.commitSha).toBe('deadbee')
+    expect(r.commitDirty).toBeNull()
+  })
+
+  it('hints when a LOCAL run is outside a git checkout', () => {
+    const r = resolveCommitCoordinate({ env: 'LOCAL', readGit: noGit })
+    expect(r.commitSha).toBeNull()
+    expect(r.hint).toMatch(/not a git checkout/i)
   })
 })
