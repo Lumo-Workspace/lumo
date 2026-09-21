@@ -29,6 +29,25 @@ export interface RunCoordinate {
   commitDirty: boolean | null
 }
 
+/**
+ * 两个 commit sha 是否指同一个 commit。
+ *
+ * 按**较短那个的长度**取前缀比较，大小写不敏感。
+ *
+ * 为什么不能直接 `===`：run 的 `commitSha` 允许 7–40 位 hex（见
+ * `lib/validation/test-case.ts`），CLI 的 `--commit` 也接受缩写——git 全生态
+ * 都这么用，本仓库自己的文档示例写的就是 `--commit 80b62a3`。而 PR 存的
+ * headSha / mergeCommitSha 是 40 位全长。精确相等会让**任何缩写 sha 永远判
+ * stale**：LUM-801 走查时，同一个 commit 的 7 位写法和 40 位写法在同一条
+ * 用例上被判成了两种结果。
+ *
+ * 前缀比较的碰撞风险按 7 位 hex 约 1/2.7 亿，且 git 本身就依赖这个约定。
+ */
+function sameCommit(a: string, b: string): boolean {
+  const n = Math.min(a.length, b.length)
+  return a.slice(0, n).toLowerCase() === b.slice(0, n).toLowerCase()
+}
+
 export type RunFreshness =
   | { state: 'fresh'; currentSha: string }
   | { state: 'stale'; currentSha: string }
@@ -65,7 +84,7 @@ export function deriveRunFreshness(
   if (!run.pullRequestId || !run.commitSha || !current)
     return { state: 'unknown', currentSha: current }
 
-  return run.commitSha === current
+  return sameCommit(run.commitSha, current)
     ? { state: 'fresh', currentSha: current }
     : { state: 'stale', currentSha: current }
 }
