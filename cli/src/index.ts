@@ -72,6 +72,12 @@ import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
 import { taskArtifactUpdate } from './commands/task-artifact-update'
+import { taskTestCaseAdd } from './commands/task-testcase-add'
+import { taskTestCaseList } from './commands/task-testcase-list'
+import { taskTestCaseShow } from './commands/task-testcase-show'
+import { taskTestCaseUpdate } from './commands/task-testcase-update'
+import { taskTestCaseRm } from './commands/task-testcase-rm'
+import { taskTestCaseRun } from './commands/task-testcase-run'
 import { taskSlackShow } from './commands/task-slack-show'
 import { taskWebShow } from './commands/task-web-show'
 import { taskFigmaContext } from './commands/task-figma-context'
@@ -1173,6 +1179,148 @@ taskArtifact
         artifactId as string,
         options as { confirm?: boolean; yes?: boolean }
       )
+    )
+  )
+
+const taskTestCase = task
+  .command('testcase')
+  .description(
+    'Structured test cases on a task (setup / steps / verification / expected) and their run records'
+  )
+
+taskTestCase
+  .command('add <task>')
+  .description(
+    'Add a test case. --step / --verify are repeatable and keep the order they appear in.'
+  )
+  .requiredOption('--title <title>', 'Test case title')
+  .option(
+    '--setup <text>',
+    'Preconditions, e.g. "The user is on the Dashboard."'
+  )
+  .option(
+    '--step <text>',
+    'One execution step (repeatable, ordered). At least one is required.',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--verify <text>',
+    'One verification step (repeatable, ordered). May be omitted entirely.',
+    collect,
+    [] as string[]
+  )
+  .requiredOption('--expected <text>', 'Expected result')
+  .action(
+    wrap((taskId: unknown, options: unknown) =>
+      taskTestCaseAdd(taskId as string, options as Record<string, never>)
+    )
+  )
+
+taskTestCase
+  .command('list <task>')
+  .description(
+    "List a task's test cases with each one's latest run (result, environment, commit)"
+  )
+  .action(wrap((taskId: unknown) => taskTestCaseList(taskId as string)))
+
+taskTestCase
+  .command('show <task/case>')
+  .description(
+    'Show one test case (four sections, 1-based step numbers) plus its run history. Handle: LUM-42/TC3'
+  )
+  .action(wrap((handle: unknown) => taskTestCaseShow(handle as string)))
+
+taskTestCase
+  .command('update <task/case>')
+  .description(
+    'Edit a test case. --step / --verify REPLACE the whole list (they do not append). Provide at least one field.'
+  )
+  .option('--title <title>', 'New title')
+  .option('--setup <text>', 'New preconditions')
+  .option(
+    '--step <text>',
+    'Replacement step (repeatable, ordered) - replaces the whole steps list',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--verify <text>',
+    'Replacement verification step (repeatable, ordered) - replaces the whole list',
+    collect,
+    [] as string[]
+  )
+  .option('--expected <text>', 'New expected result')
+  .action(
+    wrap((handle: unknown, options: unknown) =>
+      taskTestCaseUpdate(handle as string, options as Record<string, never>)
+    )
+  )
+
+taskTestCase
+  .command('rm <task/case>')
+  .description(
+    'Remove a test case (soft delete - its run history stays readable). Without --confirm: exit 4 + a confirmation envelope.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
+  .action(
+    wrap((handle: unknown, options: unknown) =>
+      taskTestCaseRm(
+        handle as string,
+        options as { confirm?: boolean; yes?: boolean }
+      )
+    )
+  )
+
+taskTestCase
+  .command('run <task/case>')
+  .description(
+    'Record one execution. --env is REQUIRED and has no default - a run must say which environment it ran in.'
+  )
+  .requiredOption(
+    '--result <result>',
+    'pass | fail | blocked (case-insensitive)'
+  )
+  .requiredOption(
+    '--env <environment>',
+    'local | preview | production (case-insensitive; no default - say where this ran)'
+  )
+  .option(
+    '--pr <number>',
+    'The PR whose change this run exercised (must be linked to this task)'
+  )
+  .option(
+    '--commit <sha>',
+    'Override the auto-detected commit (default: git rev-parse HEAD in the cwd)'
+  )
+  .option(
+    '--failed-step <n>',
+    '1-based index into the steps list (FAIL only; mutually exclusive with --failed-verify)'
+  )
+  .option(
+    '--failed-verify <n>',
+    '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
+  )
+  .option('--note <text>', 'Free-text note about this run')
+  .option(
+    '--evidence <url>',
+    'Evidence link (repeatable)',
+    collect,
+    [] as string[]
+  )
+  .option(
+    '--evidence-file <path>',
+    'Local file to upload as evidence: png/jpeg/webp/gif/txt/log/json, max 10 MB each, 5 files (repeatable)',
+    collect,
+    [] as string[]
+  )
+  .action(
+    wrap((handle: unknown, options: unknown) =>
+      taskTestCaseRun(handle as string, options as Record<string, never>)
     )
   )
 
