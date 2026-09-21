@@ -2715,5 +2715,6 @@
   "securityScan.prTooLarge.fileLimit": "PR ini mengubah {files} fail; imbasan keselamatan dijalankan pada PR dengan paling banyak {cap} fail (had GitHub memulangkan diff), jadi tiada apa-apa yang diimbas. Untuk mengimbasnya, pecahkan kepada PR yang lebih kecil atau kecilkan skopnya.",
   "securityScan.prTooLarge.diffRefusedFiles": "GitHub tidak memulangkan diff PR ini kerana ia terlalu besar ({files} fail diubah), jadi tiada apa-apa yang diimbas. Untuk mengimbasnya, pecahkan kepada PR yang lebih kecil atau kecilkan skopnya.",
   "securityScan.prTooLarge.diffRefused": "GitHub tidak memulangkan diff PR ini kerana ia terlalu besar, jadi tiada apa-apa yang diimbas. Untuk mengimbasnya, pecahkan kepada PR yang lebih kecil atau kecilkan skopnya.",
-  "securityScan.stageReason.prTooLarge": "Tidak dijalankan: PR ini terlalu besar untuk diimbas. Pecahkan kepada PR yang lebih kecil atau kecilkan skopnya untuk mengimbasnya."
+  "securityScan.stageReason.prTooLarge": "Tidak dijalankan: PR ini terlalu besar untuk diimbas. Pecahkan kepada PR yang lebih kecil atau kecilkan skopnya untuk mengimbasnya.",
+  "language.switcher.label": "Bahasa"
 }

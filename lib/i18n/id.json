@@ -2715,5 +2715,6 @@
   "securityScan.prTooLarge.fileLimit": "PR ini mengubah {files} file; pemindaian keamanan berjalan pada PR dengan paling banyak {cap} file (batas GitHub mengembalikan diff), jadi tidak ada yang dipindai. Agar dipindai, pecah menjadi PR yang lebih kecil atau persempit cakupannya.",
   "securityScan.prTooLarge.diffRefusedFiles": "GitHub tidak mengembalikan diff PR ini karena terlalu besar ({files} file diubah), jadi tidak ada yang dipindai. Agar dipindai, pecah menjadi PR yang lebih kecil atau persempit cakupannya.",
   "securityScan.prTooLarge.diffRefused": "GitHub tidak mengembalikan diff PR ini karena terlalu besar, jadi tidak ada yang dipindai. Agar dipindai, pecah menjadi PR yang lebih kecil atau persempit cakupannya.",
-  "securityScan.stageReason.prTooLarge": "Tidak dijalankan: PR ini terlalu besar untuk dipindai. Pecah menjadi PR yang lebih kecil atau persempit cakupannya agar dipindai."
+  "securityScan.stageReason.prTooLarge": "Tidak dijalankan: PR ini terlalu besar untuk dipindai. Pecah menjadi PR yang lebih kecil atau persempit cakupannya agar dipindai.",
+  "language.switcher.label": "Bahasa"
 }

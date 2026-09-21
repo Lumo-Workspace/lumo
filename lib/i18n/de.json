@@ -2715,5 +2715,6 @@
   "securityScan.prTooLarge.fileLimit": "Dieser PR ändert {files} Dateien; Sicherheitsscans laufen für PRs mit bis zu {cap} Dateien (mehr liefert GitHub nicht als Diff), daher wurde nichts darin gescannt. Damit er gescannt wird, teile ihn in kleinere PRs auf oder verkleinere seinen Umfang.",
   "securityScan.prTooLarge.diffRefusedFiles": "GitHub hat den Diff dieses PRs nicht geliefert, weil er zu groß ist ({files} geänderte Dateien), daher wurde nichts darin gescannt. Damit er gescannt wird, teile ihn in kleinere PRs auf oder verkleinere seinen Umfang.",
   "securityScan.prTooLarge.diffRefused": "GitHub hat den Diff dieses PRs nicht geliefert, weil er zu groß ist, daher wurde nichts darin gescannt. Damit er gescannt wird, teile ihn in kleinere PRs auf oder verkleinere seinen Umfang.",
-  "securityScan.stageReason.prTooLarge": "Nicht ausgeführt: Dieser PR ist zu groß zum Scannen. Teile ihn in kleinere PRs auf oder verkleinere seinen Umfang, damit er gescannt wird."
+  "securityScan.stageReason.prTooLarge": "Nicht ausgeführt: Dieser PR ist zu groß zum Scannen. Teile ihn in kleinere PRs auf oder verkleinere seinen Umfang, damit er gescannt wird.",
+  "language.switcher.label": "Sprache"
 }

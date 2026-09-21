@@ -7,26 +7,11 @@ import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api-client'
 import { CACHE_KEY } from '../constants'
 import { queryKeys } from '@/lib/query/keys'
+import type { SupportedLocale } from '@/lib/i18n/locales'
 
 export interface Preferences {
   theme: 'light' | 'dark' | 'system'
-  locale:
-    | 'en'
-    | 'zh-CN'
-    | 'zh-TW'
-    | 'en-GB'
-    | 'en-AU'
-    | 'es-ES'
-    | 'es-419'
-    | 'fr'
-    | 'de'
-    | 'ja'
-    | 'ko'
-    | 'hi'
-    | 'ru'
-    | 'vi'
-    | 'id'
-    | 'ms'
+  locale: SupportedLocale
   timezone: string
   notifyInAppAssigned: boolean
   notifyInAppComment: boolean

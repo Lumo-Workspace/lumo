@@ -2715,5 +2715,6 @@
   "securityScan.prTooLarge.fileLimit": "この PR は {files} 個のファイルを変更しています。セキュリティスキャンの対象は変更ファイルが {cap} 個までの PR です（GitHub が diff を返す上限）。そのため、この PR は一切スキャンされていません。スキャンするには、PR を小さく分割するか変更範囲を絞ってください。",
   "securityScan.prTooLarge.diffRefusedFiles": "PR が大きすぎるため、GitHub がこの PR の diff を返しませんでした（{files} 個のファイルを変更）。そのため、この PR は一切スキャンされていません。スキャンするには、PR を小さく分割するか変更範囲を絞ってください。",
   "securityScan.prTooLarge.diffRefused": "PR が大きすぎるため、GitHub がこの PR の diff を返しませんでした。そのため、この PR は一切スキャンされていません。スキャンするには、PR を小さく分割するか変更範囲を絞ってください。",
-  "securityScan.stageReason.prTooLarge": "未実行：この PR は大きすぎてスキャンできません。PR を小さく分割するか変更範囲を絞るとスキャンされます。"
+  "securityScan.stageReason.prTooLarge": "未実行：この PR は大きすぎてスキャンできません。PR を小さく分割するか変更範囲を絞るとスキャンされます。",
+  "language.switcher.label": "言語"
 }
