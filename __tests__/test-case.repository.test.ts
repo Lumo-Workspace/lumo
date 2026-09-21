@@ -163,18 +163,26 @@ describe('listRuns', () => {
   })
 })
 
-describe('latestRunPerCase', () => {
-  it('keeps only the newest run for each case', async () => {
+describe('runsPerCase', () => {
+  // LUM-801 走查时 TC1 就挂在这儿：早先的版本一次取出全部 run，却只留下每组
+  // 第一条，于是卡片上标着「Run history」的区域永远只有最近一次。丢弃并不
+  // 省查询，所以必须返回全量。
+  it('returns every run per case, newest first — not just the latest', async () => {
     mockRunFindMany.mockResolvedValue([
       { id: 'r3', testCaseId: 'tc-1', createdAt: new Date('2026-03-01') },
       { id: 'r2', testCaseId: 'tc-1', createdAt: new Date('2026-02-01') },
       { id: 'r1', testCaseId: 'tc-2', createdAt: new Date('2026-01-01') },
     ])
 
-    const latest = await testCaseRepository.latestRunPerCase('t-1')
+    const grouped = await testCaseRepository.runsPerCase('t-1')
 
-    expect(latest.get('tc-1')?.id).toBe('r3')
-    expect(latest.get('tc-2')?.id).toBe('r1')
+    expect(grouped.get('tc-1')?.map(r => r.id)).toEqual(['r3', 'r2'])
+    expect(grouped.get('tc-2')?.map(r => r.id)).toEqual(['r1'])
+  })
+
+  it('returns an empty map entry-free result for a task with no runs', async () => {
+    mockRunFindMany.mockResolvedValue([])
+    expect((await testCaseRepository.runsPerCase('t-1')).size).toBe(0)
   })
 })
 

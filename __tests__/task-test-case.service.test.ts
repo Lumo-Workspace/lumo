@@ -24,7 +24,7 @@ jest.mock('@/lib/repositories/test-case.repository', () => ({
     softDelete: jest.fn(),
     createRun: jest.fn(),
     listRuns: jest.fn(),
-    latestRunPerCase: jest.fn(),
+    runsPerCase: jest.fn(),
     listTaskPullRequests: jest.fn(),
   },
 }))
@@ -360,6 +360,28 @@ describe('deriveRunFreshness', () => {
     expect(
       deriveRunFreshness(run({ commitDirty: true }), pr('abc1234')).state
     ).toBe('dirty')
+  })
+})
+
+describe('listForTask', () => {
+  it('carries every run for each case, not only the latest', async () => {
+    repo.listForTask.mockResolvedValue([testCase])
+    repo.runsPerCase.mockResolvedValue(
+      new Map([['tc-1', [{ id: 'r2' }, { id: 'r1' }]]]) as never
+    )
+
+    const { testCases } = await taskTestCaseService.listForTask('t-1')
+
+    expect(testCases[0]!.runs.map(r => r.id)).toEqual(['r2', 'r1'])
+  })
+
+  it('gives a case with no runs an empty array', async () => {
+    repo.listForTask.mockResolvedValue([testCase])
+    repo.runsPerCase.mockResolvedValue(new Map())
+
+    const { testCases } = await taskTestCaseService.listForTask('t-1')
+
+    expect(testCases[0]!.runs).toEqual([])
   })
 })
 

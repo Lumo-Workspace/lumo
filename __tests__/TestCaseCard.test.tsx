@@ -53,7 +53,6 @@ const testCase = {
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
   deletedAt: null,
-  latestRun: null,
 }
 
 const run = (over: Record<string, unknown> = {}) => ({
@@ -134,6 +133,31 @@ describe('TestCaseCard', () => {
   it('says "never run" when there is no run history', () => {
     renderCard()
     expect(screen.getByText(/never run/i)).toBeInTheDocument()
+  })
+})
+
+describe('run history shows every run', () => {
+  // LUM-801 走查时 TC1 挂在这条：区域标题是「Run history」，但早先只传了
+  // 最近一次 run 进来，刷新后先前那条就消失了。标题承诺什么就得给什么。
+  it('renders all runs, not just the latest', () => {
+    renderCard({
+      runs: [
+        run({ id: 'r2', result: 'PASS', environment: 'PRODUCTION' }),
+        run({
+          id: 'r1',
+          result: 'FAIL',
+          environment: 'LOCAL',
+          failedPhase: 'STEPS',
+          failedIndex: 1,
+          failedStepText: 'assert: the footer shows the FDIC membership line',
+        }),
+      ],
+    })
+    expect(screen.getByText('Pass')).toBeInTheDocument()
+    expect(screen.getByText('Fail')).toBeInTheDocument()
+    expect(screen.getByText('Production')).toBeInTheDocument()
+    expect(screen.getByText('Local')).toBeInTheDocument()
+    expect(screen.getByText(/failed at step 2/i)).toBeInTheDocument()
   })
 })
 

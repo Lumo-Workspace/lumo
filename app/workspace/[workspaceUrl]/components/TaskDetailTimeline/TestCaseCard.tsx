@@ -2,12 +2,12 @@
 
 import { useIntl } from 'react-intl'
 import type { TestCaseRun } from '@prisma/client'
-import type { TestCaseWithLatestRun } from '@/lib/api-client/test-cases'
+import type { TestCaseWithRuns } from '@/lib/api-client/test-cases'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 import { RunHistoryList } from './RunHistoryList'
 
 interface TestCaseCardProps {
-  testCase: TestCaseWithLatestRun
+  testCase: TestCaseWithRuns
   taskIdentifier: string
   runs: TestCaseRun[]
   /** 本任务关联的 PR 快照，用于推导每条 run 的陈旧性。 */
