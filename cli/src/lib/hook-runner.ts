@@ -187,6 +187,9 @@ export function formatHookStdoutLines(
     // Tier-0 acceptance contract: what the session's work is judged against
     // (LUM-342).
     body.criteriaSection,
+    // LUM-807: the test-case nudge follows the contract — same "before the
+    // first line of code" moment, and one line long.
+    body.testCaseSection,
     // Tier-1 prior-session progress (LUM-500), server-rendered.
     body.progressSection,
     body.memorySection,
@@ -217,6 +220,8 @@ type SessionStartBody = {
     taskTitle?: string
   }
   criteriaSection?: string
+  /** LUM-807: "## Test cases" nudge; absent on older servers. */
+  testCaseSection?: string
   /** LUM-500 Tier-1: server-rendered prior-session progress summary. */
   progressSection?: string
   memorySection?: string

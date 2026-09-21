@@ -24,6 +24,8 @@ interface TaskContextResponse {
   }
   memorySection?: string
   criteriaSection?: string
+  /** LUM-807: "## Test cases" nudge; absent on older servers. */
+  testCaseSection?: string
   slackContextSection?: string
   webLinkSection?: string
   figmaSection?: string
@@ -136,6 +138,11 @@ export function formatTaskContextMarkdown(
   // against, so it reads as part of the task statement itself.
   if (data.criteriaSection && data.criteriaSection.trim().length > 0) {
     lines.push(sanitizeField(data.criteriaSection.trimEnd()))
+    lines.push('')
+  }
+  // LUM-807: the test-case nudge, same slot as at session start.
+  if (data.testCaseSection && data.testCaseSection.trim().length > 0) {
+    lines.push(sanitizeField(data.testCaseSection.trimEnd()))
     lines.push('')
   }
 

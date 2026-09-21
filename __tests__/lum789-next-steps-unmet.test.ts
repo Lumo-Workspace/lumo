@@ -14,6 +14,13 @@
  */
 
 const computeNextStepsMock = jest.fn((_input: unknown) => [] as unknown[])
+// LUM-807: the next-step rules ask whether the task has a script and a PR.
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: { listIdAndNumberByTask: jest.fn(async () => []) },
+}))
+jest.mock('@/lib/repositories/test-case.repository', () => ({
+  testCaseRepository: { hasForTask: jest.fn(async () => false) },
+}))
 jest.mock('@/lib/context/render/next-steps', () => ({
   computeNextSteps: (input: unknown) => computeNextStepsMock(input),
 }))

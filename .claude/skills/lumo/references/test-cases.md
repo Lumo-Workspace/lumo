@@ -129,6 +129,28 @@ PR 已合并时比的是 merge commit，不是 PR 头——生产上那次执行
 
 ---
 
+---
+
+## 流程里的提醒（LUM-807）
+
+CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR，其余三处要求任务已有 linked PR 且零用例**。四处都是提示，**都不阻塞 DONE、不消耗 verify 轮次**。
+
+| 位置                               | 门槛              | 长相                                           |
+| ---------------------------------- | ----------------- | ---------------------------------------------- |
+| `session attach` / `task context`  | 零用例（不看 PR） | `## Test cases` 小节，紧挨验收合同             |
+| `Next:` 块                         | 有 PR + 零用例    | 一条 `lumo task testcase add …` 建议，排在最后 |
+| `lumo verify` 全绿转 IN_REVIEW     | 有 PR + 零用例    | `Tip:` 一行，提示把刚手验的剧本沉淀下来        |
+| `lumo task status` 的 next actions | 有 PR + 零用例    | `• [TEST CASE] … (advisory)` + `run:` 命令行   |
+
+几条语义：
+
+- **开工那处不卡 PR 是故意的**：开工时通常还没有 PR，卡了这条提醒就永远不出现。
+- **`Next:` 块里的这条排在最末**，让位给越界、合同、verify——那些才是真拦交付的。`NEXT_STEPS_MAX=3` 的上限没变，被挤掉就不显示。
+- **同一屏不重复**：`session attach` / `task context` 已经渲染了 `## Test cases` 小节，它们的 `Next:` 块就不再重复这条。
+- **FAIL 轮不提醒**：那一屏属于失败原因。
+- **`task status` 的这条是 advisory**：`kind: 'TEST_CASE'`，没有 `blocking` 字段，不计入 `N unmet` 的算术，DONE 闸门读都不读它。
+- 任务一旦有任意一条用例（或已 DONE），四处全部静默。
+
 ## When to suggest
 
 - 用户描述一条**可反复执行的手工验证剧本**（有前置条件、有编号步骤、有预期结果）→ `testcase add`，而不是塞进验收标准的 `judgeSteps`。`judgeSteps` 是给人做一次性裁定用的；test case 是要跑很多次的。

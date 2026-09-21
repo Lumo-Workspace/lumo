@@ -9,6 +9,12 @@
  * predates this module) and ride down on the API response. The CLI only renders.
  */
 
+import {
+  remindOnDelivery,
+  testCaseNextStep,
+  type TestCaseReminderState,
+} from './test-case-reminder'
+
 export type TaskStatusForNextSteps =
   | 'TODO'
   | 'IN_PROGRESS'
@@ -40,6 +46,19 @@ export interface NextStepsInput {
    * the same advice twice on one screen is exactly the noise the cap fights.
    */
   criteriaNudgeAlreadyShown: boolean
+  /**
+   * LUM-807: test-case reminder state. The rule below fires only on the
+   * delivery-time gate (a PR exists, no script recorded); `remindOnDelivery`
+   * in `test-case-reminder.ts` owns that decision so the `Next:` block, the
+   * verify line and the `task status` advisory can never disagree.
+   */
+  testCase?: TestCaseReminderState | undefined
+  /**
+   * True when the same response already renders the start-of-work test-case
+   * section (`session attach`, `task context`) — same duplicate-suppression
+   * contract as `criteriaNudgeAlreadyShown`.
+   */
+  testCaseNudgeAlreadyShown?: boolean | undefined
 }
 
 /**
@@ -66,6 +85,8 @@ export function computeNextSteps(input: NextStepsInput): NextStep[] {
     verifyRound,
     hasUnmetCriteria,
     criteriaNudgeAlreadyShown,
+    testCase,
+    testCaseNudgeAlreadyShown,
   } = input
 
   // A delivered task has nothing to suggest; adjudication is human-only.
@@ -124,6 +145,18 @@ export function computeNextSteps(input: NextStepsInput): NextStep[] {
       command: 'lumo verify --note "<self-report>"',
       why: 'Run the machine acceptance loop before claiming the task is done',
     })
+  }
+
+  // LUM-807, last on purpose: recording a script is routine progress, never a
+  // blocker. It yields the cap to the crossing / contract / verify rules above
+  // — and stays silent when the same response already renders the start-of-work
+  // test-case section.
+  if (
+    testCase !== undefined &&
+    !testCaseNudgeAlreadyShown &&
+    remindOnDelivery(testCase)
+  ) {
+    steps.push(testCaseNextStep(id))
   }
 
   return steps.slice(0, NEXT_STEPS_MAX)

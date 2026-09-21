@@ -118,4 +118,69 @@ describe('computeNextSteps', () => {
       false
     )
   })
+  it('next step suggests testcase add only with a linked PR and zero test cases', () => {
+    const delivering: Partial<NextStepsInput> = {
+      status: 'IN_PROGRESS',
+      hasCriteria: true,
+      sessionBound: true,
+      testCase: { hasTestCases: false, hasLinkedPr: true, taskDone: false },
+    }
+
+    // PR open, no script recorded → the suggestion appears…
+    const open = computeNextSteps(input(delivering))
+    expect(
+      commands(open).some(c => c.startsWith('lumo task testcase add LUM-686'))
+    ).toBe(true)
+    // …and yields to the rules that actually gate delivery: it is last.
+    const openCommands = commands(open)
+    expect(openCommands[openCommands.length - 1]).toContain('task testcase add')
+    expect(commands(open)).toContain('lumo verify --note "<self-report>"')
+
+    // No PR yet: the delivery gate keeps the Next: block quiet (the
+    // start-of-work section owns that moment instead).
+    const early = computeNextSteps(
+      input({
+        ...delivering,
+        testCase: { hasTestCases: false, hasLinkedPr: false, taskDone: false },
+      })
+    )
+    expect(commands(early).some(c => c.includes('testcase add'))).toBe(false)
+
+    // A script already exists → nothing to ask for.
+    const recorded = computeNextSteps(
+      input({
+        ...delivering,
+        testCase: { hasTestCases: true, hasLinkedPr: true, taskDone: false },
+      })
+    )
+    expect(commands(recorded).some(c => c.includes('testcase add'))).toBe(false)
+
+    // The surfaces that already render the start-of-work section do not
+    // repeat it as a step.
+    const alreadyShown = computeNextSteps(
+      input({ ...delivering, testCaseNudgeAlreadyShown: true })
+    )
+    expect(commands(alreadyShown).some(c => c.includes('testcase add'))).toBe(
+      false
+    )
+
+    // An older server sends no test-case state at all — the rule stays silent
+    // rather than guessing.
+    const legacy = computeNextSteps(
+      input({ ...delivering, testCase: undefined })
+    )
+    expect(commands(legacy).some(c => c.includes('testcase add'))).toBe(false)
+
+    // Blockers still win the cap: crossing + contract + verify leave no slot.
+    const crowded = computeNextSteps(
+      input({
+        ...delivering,
+        hasCriteria: false,
+        openCrossings: 1,
+        sessionBound: false,
+      })
+    )
+    expect(crowded).toHaveLength(NEXT_STEPS_MAX)
+    expect(commands(crowded).some(c => c.includes('testcase add'))).toBe(false)
+  })
 })

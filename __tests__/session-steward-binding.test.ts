@@ -10,6 +10,13 @@
  *   - multiple steward sessions may coexist on one milestone
  *   - IMPLEMENTATION sessions bind tasks exactly as before (regression)
  */
+// LUM-807: the next-step rules ask whether the task has a script and a PR.
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: { listIdAndNumberByTask: jest.fn(async () => []) },
+}))
+jest.mock('@/lib/repositories/test-case.repository', () => ({
+  testCaseRepository: { hasForTask: jest.fn(async () => false) },
+}))
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
     upsertWithTaskId: jest.fn(),
@@ -42,6 +49,8 @@ jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: {
     buildMemorySectionForTask: jest.fn(),
     buildCriteriaSectionForTask: jest.fn(),
+    // LUM-807: the attach payload carries the test-case nudge beside the contract.
+    buildTestCaseSectionForTask: jest.fn(),
     buildPreviousSessionRecoveryForTask: jest.fn(),
   },
 }))
@@ -152,6 +161,7 @@ beforeEach(() => {
   } as never)
   ctx.buildMemorySectionForTask.mockResolvedValue('')
   ctx.buildCriteriaSectionForTask.mockResolvedValue('')
+  ctx.buildTestCaseSectionForTask.mockResolvedValue('')
   ctx.buildPreviousSessionRecoveryForTask.mockResolvedValue(null)
   deps.buildBlockerWarningSectionForTask.mockResolvedValue('')
 })

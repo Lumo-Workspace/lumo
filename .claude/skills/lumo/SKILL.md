@@ -114,7 +114,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Test cases (可反复执行的用例 + 执行记录) — see [test-cases.md](references/test-cases.md)
 
-- `lumo task testcase add/list/show/update/rm/run` — 任务下可反复执行的结构化用例 + append-only 执行记录。**与验收合同平行、互不替代**：合同管「任务算不算做完」，用例管「这条剧本跑下来什么结果、在哪个环境、跑的哪版代码」。`run --env` 必填无默认
+- `lumo task testcase add/list/show/update/rm/run` — 任务下可反复执行的结构化用例 + append-only 执行记录。**与验收合同平行、互不替代**：合同管「任务算不算做完」，用例管「这条剧本跑下来什么结果、在哪个环境、跑的哪版代码」。`run --env` 必填无默认。零用例时 CLI 会在 attach/context、`Next:`、verify 全绿、`task status` 四处提醒记用例（纯提示，从不拦 DONE）
 
 ### Verification (machine acceptance loop) — see [verify.md](references/verify.md)
 

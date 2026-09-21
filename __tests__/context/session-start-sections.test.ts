@@ -36,8 +36,16 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
 jest.mock('@/lib/services/task-figma-link.service', () => ({
   taskFigmaLinkService: { listForTask: jest.fn(async () => []) },
 }))
+// LUM-807: existence check behind the "## Test cases" nudge.
+jest.mock('@/lib/repositories/test-case.repository', () => ({
+  testCaseRepository: { hasForTask: jest.fn(async () => false) },
+}))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
-  pullRequestRepository: { listByTask: jest.fn(async () => []) },
+  pullRequestRepository: {
+    listByTask: jest.fn(async () => []),
+    // LUM-807: the test-case reminder asks whether the task has any PR.
+    listIdAndNumberByTask: jest.fn(async () => []),
+  },
 }))
 
 import { taskContextService } from '@/lib/services/task-context.service'
