@@ -67,12 +67,49 @@ export function RecordRunDialog({
     })),
   ]
 
-  function handleFiles(list: FileList | null) {
-    const picked = Array.from(list ?? [])
-    if (picked.length > MAX_FILES || picked.some(f => f.size > MAX_BYTES)) {
-      setError(intl.formatMessage({ id: 'testCases.field.evidenceFiles.hint' }))
+  /**
+   * 两种违规要分开报，并且带上实际数字。
+   *
+   * 早先这里把静态提示那句原样当错误文案用：用户选了 6 个文件，看到的是同一
+   * 句话出现两次（一灰一红），既不知道违的是「太多」还是「太大」，也不知道
+   * 自己的实际值。浏览器补验时抓到的（LUM-801）。
+   *
+   * 被拒时还必须清空原生 input —— 否则它仍显示「已选择 6 个文件」而组件一个
+   * 都没收下，用户以为传上去了，实际会记下一条不带任何证据的 run。
+   */
+  function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? [])
+    const reject = (message: string) => {
+      setError(message)
+      setFiles([])
+      e.target.value = ''
+    }
+
+    if (picked.length > MAX_FILES) {
+      reject(
+        intl.formatMessage(
+          { id: 'testCases.field.evidenceFiles.tooMany' },
+          { count: picked.length, max: MAX_FILES }
+        )
+      )
       return
     }
+
+    const oversized = picked.find(f => f.size > MAX_BYTES)
+    if (oversized) {
+      reject(
+        intl.formatMessage(
+          { id: 'testCases.field.evidenceFiles.tooLarge' },
+          {
+            filename: oversized.name,
+            size: (oversized.size / 1024 / 1024).toFixed(1),
+            max: MAX_BYTES / 1024 / 1024,
+          }
+        )
+      )
+      return
+    }
+
     setError(null)
     setFiles(picked)
   }
@@ -213,7 +250,7 @@ export function RecordRunDialog({
           type='file'
           multiple
           accept='image/png,image/jpeg,image/webp,image/gif,text/plain,application/json'
-          onChange={e => handleFiles(e.target.files)}
+          onChange={handleFiles}
         />
         <span className='text-[11px] text-muted-foreground'>
           {intl.formatMessage({ id: 'testCases.field.evidenceFiles.hint' })}

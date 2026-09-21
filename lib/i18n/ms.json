@@ -2447,5 +2447,7 @@
   "testCases.section.setup": "Prasyarat",
   "testCases.section.steps": "Langkah",
   "testCases.section.verification": "Semakan semula",
-  "testCases.tab": "Ujian"
+  "testCases.tab": "Ujian",
+  "testCases.field.evidenceFiles.tooMany": "Anda memilih {count} fail — maksimum {max} setiap pelaksanaan.",
+  "testCases.field.evidenceFiles.tooLarge": "“{filename}” bersaiz {size} MB — setiap fail maksimum {max} MB."
 }

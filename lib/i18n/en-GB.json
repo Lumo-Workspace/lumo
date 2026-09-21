@@ -2447,5 +2447,7 @@
   "testCases.section.setup": "Setup",
   "testCases.section.steps": "Steps",
   "testCases.section.verification": "Verification",
-  "testCases.tab": "Tests"
+  "testCases.tab": "Tests",
+  "testCases.field.evidenceFiles.tooMany": "You picked {count} files — at most {max} per run.",
+  "testCases.field.evidenceFiles.tooLarge": "“{filename}” is {size} MB — each file must be {max} MB or smaller."
 }

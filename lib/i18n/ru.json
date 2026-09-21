@@ -2447,5 +2447,7 @@
   "testCases.section.setup": "Предусловия",
   "testCases.section.steps": "Шаги",
   "testCases.section.verification": "Повторная проверка",
-  "testCases.tab": "Тесты"
+  "testCases.tab": "Тесты",
+  "testCases.field.evidenceFiles.tooMany": "Выбрано файлов: {count} — не больше {max} за одно выполнение.",
+  "testCases.field.evidenceFiles.tooLarge": "«{filename}» весит {size} МБ — каждый файл должен быть не больше {max} МБ."
 }

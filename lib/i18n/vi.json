@@ -2447,5 +2447,7 @@
   "testCases.section.setup": "Điều kiện tiên quyết",
   "testCases.section.steps": "Các bước",
   "testCases.section.verification": "Kiểm lại",
-  "testCases.tab": "Kiểm thử"
+  "testCases.tab": "Kiểm thử",
+  "testCases.field.evidenceFiles.tooMany": "Bạn đã chọn {count} tệp — tối đa {max} mỗi lần chạy.",
+  "testCases.field.evidenceFiles.tooLarge": "“{filename}” nặng {size} MB — mỗi tệp tối đa {max} MB."
 }

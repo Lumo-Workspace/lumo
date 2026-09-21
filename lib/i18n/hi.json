@@ -2447,5 +2447,7 @@
   "testCases.section.setup": "पूर्व-शर्तें",
   "testCases.section.steps": "चरण",
   "testCases.section.verification": "पुनः-जाँच",
-  "testCases.tab": "टेस्ट"
+  "testCases.tab": "टेस्ट",
+  "testCases.field.evidenceFiles.tooMany": "आपने {count} फ़ाइलें चुनी हैं — प्रति निष्पादन अधिकतम {max}।",
+  "testCases.field.evidenceFiles.tooLarge": "「{filename}」 {size} MB का है — हर फ़ाइल {max} MB या उससे छोटी होनी चाहिए।"
 }
