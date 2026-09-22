@@ -3,6 +3,13 @@ import { createHash, createHmac, timingSafeEqual } from 'crypto'
 /**
  * Read receipts for the CLI disposition handshake (LUM-769).
  *
+ * LUM-812 generalised this from crossings to any dispositionable subject; it
+ * lives under `lib/disposition/` rather than `lib/boundary-crossing/` for that
+ * reason. The subject is opaque here — `kind` + `subjectId` + a caller-computed
+ * `stateHash` — so a second handshake never needs a second implementation of
+ * the ordering rules. `kind` is part of the signed message, so a receipt issued
+ * for a crossing can never be replayed against a test-case defect.
+ *
  * The exit-4 confirmation protocol is a convention: nothing stops an agent
  * from running `--confirm` first. The receipts turn the ordering into a
  * server-enforced, three-step handshake — the way a web form is loaded, the
@@ -61,10 +68,21 @@ export interface ReceiptCrossingState {
   explanationIds: string[]
 }
 
+/** Which kind of thing is being ruled on. Part of the signed message. */
+export type ReceiptSubjectKind = 'CROSSING' | 'TEST_CASE_DEFECT'
+
 export interface ReceiptSubject {
-  crossingId: string
+  kind: ReceiptSubjectKind
+  subjectId: string
   taskId: string
-  target: 'FALSE_POSITIVE' | 'CONFIRMED'
+  /**
+   * The ruling this receipt pre-authorises, as that subject's own enum value
+   * (`FALSE_POSITIVE` | `CONFIRMED` for a crossing, `KNOWN_DEFECT` |
+   * `NOT_A_DEFECT` for a test-case defect). Opaque here on purpose — widening
+   * it is what lets one handshake serve both; each caller still types its own
+   * value at its own boundary.
+   */
+  target: string
   /** Caller session (X-Lumo-Session-Id); null when the CLI ran unbound. */
   sessionId: string | null
   /** Workspace member behind the bearer key. */
@@ -123,7 +141,8 @@ function message(
 ): string {
   return [
     STAGE_PREFIX[stage],
-    subject.crossingId,
+    subject.kind,
+    subject.subjectId,
     subject.taskId,
     subject.target,
     subject.sessionId ?? '',
@@ -136,6 +155,9 @@ function message(
 }
 
 function sign(secret: string, msg: string): string {
+  // The salt keeps its historical value on purpose: changing it would void
+  // every receipt in flight at deploy time. Domain separation between subject
+  // kinds comes from `subject.kind` inside the signed message, not the salt.
   return createHmac('sha256', `lumo-crossing-read-receipt:${secret}`)
     .update(msg, 'utf8')
     .digest('base64url')
@@ -258,4 +280,28 @@ export function readReceiptSecret(
 ): string | null {
   const s = env.LUMO_RECEIPT_SECRET || env.CRON_SECRET
   return s && s.length > 0 ? s : null
+}
+
+/**
+ * The 409 a refused receipt turns into.
+ *
+ * `noun` is what the caller calls the thing being ruled on ('crossing',
+ * 'test case run'). The crossing wording is preserved verbatim by its default
+ * — LUM-769's tests assert these strings, and generalising the handshake is
+ * not a licence to reword them.
+ */
+export function receiptRefusal(
+  failure: ReceiptFailure,
+  step: '--confirm-read' | '--confirm',
+  noun = 'crossing'
+): Error & { status: number } {
+  const why =
+    failure.reason === 'not_acknowledged'
+      ? 'read not yet acknowledged — run the command with --confirm-read (the receipt from the envelope) first; only the receipt that step returns is accepted with --confirm'
+      : failure.reason === 'expired'
+        ? `the read receipt has expired. Re-run the command without ${step} to read the ${noun} again and get a fresh envelope`
+        : failure.reason === 'malformed'
+          ? `the read receipt is malformed. Re-run the command without ${step} to get a fresh envelope`
+          : `the read receipt does not match this ${noun}, ruling, caller, or the ${noun} has changed since it was read. Re-run the command without ${step} to read the ${noun} again and get a fresh envelope`
+  return Object.assign(new Error(`Refused: ${why}.`), { status: 409 })
 }

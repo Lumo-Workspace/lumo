@@ -3555,6 +3555,64 @@
       "isInvokable": true,
       "description": "Add a test case. --step / --verify are repeatable and keep the order they appear in."
     },
+    "task testcase disposition": {
+      "arguments": [
+        { "name": "task/case", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Step 3 — THE USER's approval of the ruling. Never add this yourself."
+        },
+        "--confirm-read": {
+          "long": "--confirm-read",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
+        },
+        "--known-defect": {
+          "long": "--known-defect",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "We accept this defect and ship anyway (does NOT claim it is fixed)"
+        },
+        "--not-a-defect": {
+          "long": "--not-a-defect",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The failure was mis-attributed to the implementation"
+        },
+        "--note": {
+          "long": "--note",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Why this ruling"
+        },
+        "--receipt": {
+          "long": "--receipt",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The read receipt from the previous step of the handshake"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Rule on a test case whose latest run proved an implementation defect — clears that run's block on DONE. Three-step handshake; never add a step flag yourself."
+    },
     "task testcase list": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},

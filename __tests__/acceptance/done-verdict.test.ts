@@ -118,26 +118,127 @@ describe('computeDoneVerdict — blocker order matches the order the gate has al
   })
 })
 
+/**
+ * LUM-812: 这一组原本断言「PROVEN_DEFECT 也只是 advisory」。那条规则被推翻了
+ * ——按 Autonoma 的口径「只有证明了坏才拦」，带证据的 defect 正是证明了坏。
+ * 其余信号一个字没动：它们说的都是「我没能证明」，不是「我证明了坏」。
+ */
 describe('advisories never change the decision', () => {
-  it.each(['PROVEN_DEFECT', 'UNPROVEN_PASS', 'CASE_OUTDATED'] as const)(
+  it.each(['UNPROVEN_PASS', 'CASE_OUTDATED'] as const)(
     'advisories never change the decision — a %s test-case signal leaves a clean task CLEAR',
     signal => {
       const v = computeDoneVerdict(
-        snapshot({ testCases: [{ number: 3, title: 'Footer', signal }] })
+        snapshot({
+          testCases: [
+            {
+              number: 3,
+              title: 'Footer',
+              signal,
+              runId: 'r1',
+              dispositioned: false,
+            },
+          ],
+        })
       )
       expect(v.decision).toBe('CLEAR')
       expect(v.blockers).toEqual([])
       expect(v.advisories).toEqual([
-        { plane: 'TEST_CASE', signal, number: 3, title: 'Footer' },
+        { plane: 'TEST_CASE', signal, number: 3, title: 'Footer', runId: 'r1' },
       ])
     }
   )
+
+  it('a proven defect blocks while every other test-case signal stays advisory', () => {
+    const others = ['UNPROVEN_PASS', 'CASE_OUTDATED'] as const
+    const v = computeDoneVerdict(
+      snapshot({
+        testCases: [
+          ...others.map((signal, i) => ({
+            number: i + 1,
+            title: `case ${i + 1}`,
+            signal,
+            runId: `r${i + 1}`,
+            dispositioned: false,
+          })),
+          {
+            number: 9,
+            title: 'Footer keeps the nav row',
+            signal: 'PROVEN_DEFECT' as const,
+            runId: 'r9',
+            dispositioned: false,
+          },
+        ],
+      })
+    )
+
+    expect(v.decision).toBe('BLOCKED')
+    expect(v.blockers).toEqual([
+      {
+        plane: 'TEST_CASE_DEFECT',
+        items: [{ number: 9, title: 'Footer keeps the nav row', runId: 'r9' }],
+      },
+    ])
+    // 其余两类照旧只进 advisories，一条都没被升级。
+    expect(v.advisories.map(a => a.signal).sort()).toEqual([
+      'CASE_OUTDATED',
+      'PROVEN_DEFECT',
+      'UNPROVEN_PASS',
+    ])
+  })
+
+  it('a dispositioned defect stops blocking the gate but stays on the record as an advisory', () => {
+    const v = computeDoneVerdict(
+      snapshot({
+        testCases: [
+          {
+            number: 9,
+            title: 'Footer keeps the nav row',
+            signal: 'PROVEN_DEFECT',
+            runId: 'r9',
+            dispositioned: true,
+          },
+        ],
+      })
+    )
+    expect(v.decision).toBe('CLEAR')
+    expect(v.blockers).toEqual([])
+    expect(v.advisories).toHaveLength(1)
+  })
+
+  it('the test-case plane is checked last so every existing first-blocker stays what it was', () => {
+    const v = computeDoneVerdict(
+      snapshot({
+        sendBacks: [{ criterionId: 'c1', statement: 'it works' }],
+        testCases: [
+          {
+            number: 1,
+            title: 'x',
+            signal: 'PROVEN_DEFECT',
+            runId: 'r1',
+            dispositioned: false,
+          },
+        ],
+      })
+    )
+    expect(v.blockers.map(b => b.plane)).toEqual([
+      'SEND_BACK',
+      'TEST_CASE_DEFECT',
+    ])
+  })
 
   it('advisories never change the decision — they do not rescue a blocked task either', () => {
     const v = computeDoneVerdict(
       snapshot({
         sendBacks: [{ criterionId: 'c1', statement: 's' }],
-        testCases: [{ number: 1, title: 'x', signal: 'UNPROVEN_PASS' }],
+        testCases: [
+          {
+            number: 1,
+            title: 'x',
+            signal: 'UNPROVEN_PASS',
+            runId: 'r1',
+            dispositioned: false,
+          },
+        ],
       })
     )
     expect(v.decision).toBe('BLOCKED')

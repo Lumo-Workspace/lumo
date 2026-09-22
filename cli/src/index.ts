@@ -78,6 +78,7 @@ import { taskTestCaseShow } from './commands/task-testcase-show'
 import { taskTestCaseUpdate } from './commands/task-testcase-update'
 import { taskTestCaseRm } from './commands/task-testcase-rm'
 import { taskTestCaseRun } from './commands/task-testcase-run'
+import { taskTestCaseDisposition } from './commands/task-testcase-disposition'
 import { taskSlackShow } from './commands/task-slack-show'
 import { taskWebShow } from './commands/task-web-show'
 import { taskFigmaContext } from './commands/task-figma-context'
@@ -1339,6 +1340,41 @@ taskTestCase
   .action(
     wrap((handle: unknown, options: unknown) =>
       taskTestCaseRun(handle as string, options as Record<string, never>)
+    )
+  )
+
+taskTestCase
+  .command('disposition <task/case>')
+  .description(
+    "Rule on a test case whose latest run proved an implementation defect — clears that run's block on DONE. Three-step handshake; never add a step flag yourself."
+  )
+  .option(
+    '--known-defect',
+    'We accept this defect and ship anyway (does NOT claim it is fixed)'
+  )
+  .option(
+    '--not-a-defect',
+    'The failure was mis-attributed to the implementation'
+  )
+  .option('--note <text>', 'Why this ruling')
+  .option(
+    '--receipt <token>',
+    'The read receipt from the previous step of the handshake'
+  )
+  .option(
+    '--confirm-read',
+    "Step 2 — THE USER's confirmation that they read the envelope. Never add this yourself."
+  )
+  .option(
+    '--confirm',
+    "Step 3 — THE USER's approval of the ruling. Never add this yourself."
+  )
+  .action(
+    wrap((handle: unknown, options: unknown) =>
+      taskTestCaseDisposition(
+        handle as string,
+        options as Record<string, never>
+      )
     )
   )
 

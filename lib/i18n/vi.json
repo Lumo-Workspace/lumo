@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "Bất kỳ môi trường nào",
   "testCases.form.requiresEnv.hint": "So khớp chính xác — kết quả đạt ghi ở nơi khác sẽ bị hạ xuống chưa xác nhận.",
   "testCases.requiresEnv.badge": "Chỉ có giá trị trên {env}",
-  "testCases.result.UNPROVEN": "Chưa xác nhận"
+  "testCases.result.UNPROVEN": "Chưa xác nhận",
+  "testCases.disposition.KNOWN_DEFECT": "Lỗi đã biết",
+  "testCases.disposition.NOT_A_DEFECT": "Không phải lỗi",
+  "testCases.disposition.blocking": "Đang chặn DONE — cần người quyết định:",
+  "testCases.disposition.action.KNOWN_DEFECT": "Chấp nhận và phát hành",
+  "testCases.disposition.action.NOT_A_DEFECT": "Không phải lỗi"
 }

@@ -4,6 +4,7 @@ import { verificationRunRepository } from '@/lib/repositories/verification-run.r
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 
 // updateTask's own deps — mocked so the test isolates the LUM-422 ④ DONE gate.
 // LUM-732: the DONE gate now consults the PR security scan. Defaults to "no
@@ -52,6 +53,15 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
+// LUM-812: the DONE gate now consults the test-case plane fail-closed (a proven,
+// undispositioned defect blocks). Default it to "no test cases" so these tests
+// keep isolating the gate they were written for.
+jest.mock('@/lib/repositories/test-case.repository', () => ({
+  testCaseRepository: {
+    listForTask: jest.fn(() => Promise.resolve([])),
+    runsPerCase: jest.fn(() => Promise.resolve(new Map())),
+  },
+}))
 // LUM-426 boundary gate runs alongside the send-back gate on DONE — default it
 // to "nothing flagged" so these tests keep isolating the LUM-422 ④ gate.
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
@@ -69,6 +79,8 @@ const findSecurityPrs =
   pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
 const findLatestScans =
   prSecurityScanRepository.findLatestByPullRequestIds as jest.Mock
+const listTestCases = testCaseRepository.listForTask as jest.Mock
+const runsPerCase = testCaseRepository.runsPerCase as jest.Mock
 
 const TASK = {
   id: 't-1',
@@ -95,7 +107,41 @@ beforeEach(() => {
   ])
   findSecurityPrs.mockResolvedValue([])
   findLatestScans.mockResolvedValue([])
+  listTestCases.mockResolvedValue([])
+  runsPerCase.mockResolvedValue(new Map())
 })
+
+/**
+ * LUM-812 装配：一条用例 + 它最新那条 run。`disposition` 是 run 自己身上的
+ * 那一行（null = 还没人裁定）。
+ */
+function defectRun(over: { disposition?: unknown } = {}) {
+  listTestCases.mockResolvedValue([
+    {
+      id: 'tc-1',
+      number: 9,
+      title: 'Footer keeps the nav row',
+      requiredEnvironment: null,
+    },
+  ])
+  runsPerCase.mockResolvedValue(
+    new Map([
+      [
+        'tc-1',
+        [
+          {
+            id: 'run-9',
+            result: 'FAIL',
+            environment: 'LOCAL',
+            failureAttribution: 'IMPLEMENTATION_DEFECT',
+            unprovenVerification: [],
+            disposition: over.disposition ?? null,
+          },
+        ],
+      ],
+    ])
+  )
+}
 
 const failMap = () =>
   new Map([['c-1', { criterionId: 'c-1', verdict: 'FAIL' }]])
@@ -274,5 +320,69 @@ describe('LUM-732 DONE gate — PR security findings (end-to-end through updateT
     // Overridden → the gate short-circuits before ever consulting the scan
     // repository (mirrors the LUM-422 ④ override behavior above).
     expect(findSecurityPrs).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-812 DONE gate — a proven test-case defect (end-to-end through updateTask)', () => {
+  it('a proven defect run blocks the DONE transition and names the case', async () => {
+    latestRuns.mockResolvedValue(passMap())
+    defectRun()
+
+    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
+      status: 409,
+    })
+    expect(update).not.toHaveBeenCalled()
+
+    // 文案得点名是哪条用例，否则读的人还得自己去翻 run 历史。
+    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toThrow(
+      /TC9 "Footer keeps the nav row"/
+    )
+    // 并且说清楚清闸的办法是人裁定一次，不是「先把 bug 修好」。
+    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toThrow(
+      /Fixing the defect first is not required/
+    )
+  })
+
+  it('lets the transition through once a human has dispositioned that run', async () => {
+    latestRuns.mockResolvedValue(passMap())
+    defectRun({
+      disposition: {
+        id: 'd-1',
+        disposition: 'KNOWN_DEFECT',
+        note: 'shipping with it, tracked in LUM-900',
+        dispositionedById: 'm-1',
+        dispositionedAt: new Date(),
+        channel: 'WEB',
+      },
+    })
+
+    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
+    expect(update).toHaveBeenCalled()
+  })
+
+  it('does not block on a FAIL that was attributed to anything other than the implementation', async () => {
+    latestRuns.mockResolvedValue(passMap())
+    listTestCases.mockResolvedValue([
+      { id: 'tc-1', number: 4, title: 'Stale copy', requiredEnvironment: null },
+    ])
+    runsPerCase.mockResolvedValue(
+      new Map([
+        [
+          'tc-1',
+          [
+            {
+              id: 'run-4',
+              result: 'FAIL',
+              environment: 'LOCAL',
+              failureAttribution: 'CASE_OUTDATED',
+              unprovenVerification: [],
+              disposition: null,
+            },
+          ],
+        ],
+      ])
+    )
+
+    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
   })
 })

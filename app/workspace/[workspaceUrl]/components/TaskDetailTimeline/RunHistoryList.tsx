@@ -2,6 +2,7 @@
 
 import { useIntl } from 'react-intl'
 import type { TestCaseRun } from '@prisma/client'
+import type { TestCaseRunView } from '@/lib/api-client/test-cases'
 import {
   deriveRunFreshness,
   type TaskPullRequestSnapshot,
@@ -156,15 +157,77 @@ function AttributionBadge({ run }: { run: TestCaseRun }) {
   )
 }
 
+/**
+ * LUM-812: 一条已裁定的 run 上的那枚徽章。
+ *
+ * 裁定过的缺陷**仍然显示**——清掉的是「拦」，不是「有这回事」。
+ */
+function DispositionBadge({ run }: { run: TestCaseRunView }) {
+  const intl = useIntl()
+  if (!run.disposition) return null
+  return (
+    <span className='rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground'>
+      {intl.formatMessage({
+        id: `testCases.disposition.${run.disposition.disposition}`,
+      })}
+    </span>
+  )
+}
+
+/** 这条 run 是不是「已证明为坏、还没人裁定」——唯一会拦 DONE 的形态。 */
+function isUndispositionedDefect(run: TestCaseRunView): boolean {
+  return (
+    run.result === 'FAIL' &&
+    run.failureAttribution === 'IMPLEMENTATION_DEFECT' &&
+    run.disposition === null
+  )
+}
+
+/**
+ * LUM-812: 未裁定的已证缺陷上的两个按钮。
+ *
+ * 两个值都清闸，所以并排放、不分主次——把其中一个做成主按钮，等于暗示有个
+ * 「正确答案」，而这里要的是人真的读一眼再选。
+ */
+function DisposeControl({
+  runId,
+  onDispose,
+}: {
+  runId: string
+  onDispose: (runId: string, ruling: 'KNOWN_DEFECT' | 'NOT_A_DEFECT') => void
+}) {
+  const intl = useIntl()
+  return (
+    <span className='flex items-center gap-2'>
+      <span className='text-muted-foreground'>
+        {intl.formatMessage({ id: 'testCases.disposition.blocking' })}
+      </span>
+      {(['KNOWN_DEFECT', 'NOT_A_DEFECT'] as const).map(ruling => (
+        <button
+          key={ruling}
+          type='button'
+          onClick={() => onDispose(runId, ruling)}
+          className='text-foreground underline-offset-2 hover:underline'
+        >
+          {intl.formatMessage({ id: `testCases.disposition.action.${ruling}` })}
+        </button>
+      ))}
+    </span>
+  )
+}
+
 export function RunHistoryList({
   runs,
   pullRequests,
   requiredEnvironment,
+  onDispose,
 }: {
-  runs: TestCaseRun[]
+  runs: TestCaseRunView[]
   pullRequests: TaskPullRequestSnapshot[]
   /** 用例的目标环境（扁平传入，不从 run 反向摸用例——LoD）。 */
   requiredEnvironment: CeilingEnvironment | null
+  /** 落裁定。缺省 = 这个读端不提供裁定入口。 */
+  onDispose?: (runId: string, ruling: 'KNOWN_DEFECT' | 'NOT_A_DEFECT') => void
 }) {
   const intl = useIntl()
   if (runs.length === 0) {
@@ -198,6 +261,10 @@ export function RunHistoryList({
             <VerdictBadge run={r} requiredEnvironment={requiredEnvironment} />
             <EnvironmentBadge environment={r.environment} />
             <AttributionBadge run={r} />
+            <DispositionBadge run={r} />
+            {onDispose && isUndispositionedDefect(r) ? (
+              <DisposeControl runId={r.id} onDispose={onDispose} />
+            ) : null}
             <time className='text-muted-foreground'>
               {new Date(r.createdAt).toISOString().slice(0, 10)}
             </time>

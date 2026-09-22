@@ -225,6 +225,54 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 | `UNPROVEN_PASS` | 最新 run 报了 PASS，但被上述上限封顶 |
 | `CASE_OUTDATED` | 最新 run 是 `--cause outdated`       |
 
-**永远是 advisory：它们从不改变「这个任务能不能 DONE」**（LUM-801 的红线不变）。
-DONE 闸只看三样东西——未解决的送回、未处置的越界、拦截级安全发现——判定收在
-`lib/acceptance/done-verdict.ts` 一处。用例进闸会逆向激励「干脆不记 run」。
+LUM-812 起**只有 `PROVEN_DEFECT` 拦 DONE**，另外两个仍是纯 advisory。按 Autonoma
+的口径：只有「证明了坏」才拦，「没测完」「自己挂了」都放行。
+
+DONE 闸现在看四样东西——未解决的送回、未处置的越界、拦截级安全发现、**未裁定的
+已证缺陷**——判定仍收在 `lib/acceptance/done-verdict.ts` 一处。
+
+LUM-801 原本立「用例从不拦 DONE」，理由是进闸会逆向激励「干脆不记 run」。那个担心
+是真的，所以这一面**不是硬墙**：一次人类裁定就清（见下），代价从「必须先修好」降到
+「得有人拍一次板」。
+
+能拦闸的信号**只能来自 agent 自报的归因 + 证据**，永远不能来自 LLM 判定
+（LUM-740：LLM_JUDGE 的发现不拦 DONE，API schema 拒绝 + reader 忽略）。
+
+## `lumo task testcase disposition`（LUM-812）
+
+对一条「证明了坏」的 run 落人类裁定，清掉它对 DONE 的拦截。
+
+```bash
+lumo task testcase disposition LUM-42/TC3 --known-defect --note "tracked in LUM-900"
+```
+
+| 裁定值           | 含义                         |
+| ---------------- | ---------------------------- |
+| `--known-defect` | 认这个缺陷，照发（发布决定） |
+| `--not-a-defect` | 归因错了，不是实现的锅       |
+
+**两个值都清闸**（同越界的 FALSE_POSITIVE / CONFIRMED）——闸门问的是「有没有人看过
+一眼并拍板」，不是「缺陷修了没」。
+
+### 三步握手，与 `crossing disposition` 同一套协议
+
+1. **不带步骤 flag**：读那条 run、取 stage-1 回执、打 exit-4 信封。什么都不写。转述给
+   用户，**等他说读过了**；信封的 `confirmCommand` 以 `--confirm-read` 结尾；
+2. **`--confirm-read --receipt <r1>`**：换 stage-2 回执，打第二个信封（裁定本身）。仍然
+   什么都不写。转述，**等他批准裁定**；
+3. **`--confirm --receipt <r2>`**：落库。
+
+**`--confirm-read` / `--confirm` 永远不要自己加**——每一个都代表用户对那一步的批准。
+服务端无法核实聊天里的批准，所以裁定被记为 `channel: 'CLI'`（web 面板上点的记
+`'WEB'`）。服务端**不按身份拒人**：LUM-750 的 agent 守卫已在 PR 1006 撤回。
+
+### 几条语义
+
+- **裁的永远是最新那条 run。** 闸门只看最新一条，对旧 run 下裁定清不掉任何东西 →
+  409。
+- **裁定绑在那条 run 上，不是绑在用例上。** 之后再记一条新的 defect run，闸门重新拦
+  ——这是设计，不是 bug：新证据需要新的一次拍板。
+- **读完信封到确认之间状态变了，回执就失效**（有人先在 web 裁了 / 冒出更新的 run），
+  409 且什么都不写。重跑不带步骤 flag 拿新信封。
+- **只有带证据的 `--cause defect` 能被裁定。** 其余结果从来就没拦过 DONE，没有可清的
+  东西 → 409。
