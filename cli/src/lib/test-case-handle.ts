@@ -158,3 +158,32 @@ export function resolveCommitCoordinate(args: {
     hint: git.commitSha ? null : 'Commit: not recorded (not a git checkout)',
   }
 }
+
+/**
+ * LUM-807 follow-up: the missing-evidence line.
+ *
+ * A run row without evidence records a verdict and nothing that backs it —
+ * "PASS on LOCAL" is exactly the claim a reader cannot re-check, which is the
+ * failure mode the whole test-case feature exists to end. Nothing in the CLI
+ * or SKILL.md used to ask for evidence: the flags were documented, the moment
+ * to use them never was, so a run got recorded and the terminal output was
+ * gone. This is that ask, printed only when it is still actionable (zero
+ * evidence attached).
+ *
+ * A FAIL says it louder on purpose: a failure nobody can reproduce is the one
+ * row where the missing output costs the most.
+ *
+ * Returns `null` when evidence is present — callers append unconditionally.
+ */
+export function evidenceHint(args: {
+  evidenceCount: number
+  result: string
+}): string | null {
+  if (args.evidenceCount > 0) return null
+  const how =
+    'attach the command output with --evidence-file <path> ' +
+    '(txt/log/json/png…, up to 5) or --evidence <url>'
+  return args.result === 'FAIL'
+    ? `No evidence attached — a FAIL nobody can re-read is a verdict, not a finding: ${how}.`
+    : `No evidence attached — this run records a verdict nobody else can re-read: ${how}.`
+}

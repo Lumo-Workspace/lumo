@@ -7,6 +7,7 @@ import {
   resolveRunLocator,
   readGitCoordinate,
   resolveCommitCoordinate,
+  evidenceHint,
 } from '../lib/test-case-handle'
 
 export interface TestCaseRunOptions {
@@ -204,4 +205,9 @@ export async function taskTestCaseRun(
     console.log(coord.hint)
   }
   if (evidence.length > 0) console.log(`Evidence: ${evidence.length} item(s)`)
+  // LUM-807 follow-up: ask for the output while it is still on screen. The
+  // gate lives in `evidenceHint` (null once evidence rode along), so this
+  // call site cannot drift away from it.
+  const hint = evidenceHint({ evidenceCount: evidence.length, result })
+  if (hint) console.log(hint)
 }

@@ -100,6 +100,8 @@ lumo task testcase run LUM-42/TC3 --result fail --env local --pr 123 --failed-st
 lumo task testcase run LUM-42/TC3 --result pass --env production
 ```
 
+记完 run 时若一条证据都没有，CLI 会打一行 `No evidence attached — …`（`--result fail` 措辞更重）。提醒而已：不拦、不改结果，带了任意一条证据就不再出现。
+
 **commit 坐标只在 `--env local` 时自动探测**（`git rev-parse HEAD` + `git status --porcelain`）。不在 git 仓库里就留 null，不编造。
 
 `--env preview` / `--env production` **不会**去读本地 git —— 本地检出跑的不是那些环境跑的东西。把操作者的 HEAD 记成「生产验过的 commit」是假话；更糟的是如果本地 HEAD 恰好等于 PR head，陈旧性会把它判成 `fresh`，等于伪造一条「生产已验证」。非 local 要记 commit，**必须显式** `--commit <sha>`：由人断言「线上跑的就是这个」，而不是让工具猜。
@@ -155,10 +157,11 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 
 - 用户描述一条**可反复执行的手工验证剧本**（有前置条件、有编号步骤、有预期结果）→ `testcase add`，而不是塞进验收标准的 `judgeSteps`。`judgeSteps` 是给人做一次性裁定用的；test case 是要跑很多次的。
 - 用户说「我在本地跑过了」「我在生产上试了一下」→ `testcase run --env <...>` 把它留痕。这正是这个 feature 存在的理由：把「谁在哪跑过」从某个人的记忆里搬进记录。
+- **记 run 的同时就把证据带上**（`--evidence-file <path>` / `--evidence <url>`）。跑之前先把命令输出 `tee` 成一个 `.log`，别等记完 run 再回头找——那时候终端已经滚掉了。`--result fail` 基本必须带（失败在哪一步、当时屏幕上是什么，光靠 `--note` 复述不回来）；`pass` 也尽量带，否则记录里只剩「PASS on LOCAL」这一句谁都复核不了的断言。CLI 在零证据时会打一行提醒（LUM-807 follow-up）。
 - 用户问「这条用例上次跑是什么结果」「这个还验过吗」→ `testcase show`。
 - PR 合并、部署完成之后 → 提醒补一次 `--env production` 的执行记录。本地绿和生产上真的验过是两回事。
 
-## 语义坑（最容易搞错的七条）
+## 语义坑（最容易搞错的八条）
 
 1. **`--env` 必填无默认。** 整个 feature 的目的就是分清跑在哪；别去猜一个值填进去。
 2. **`BLOCKED` = 用例根本没跑起来**（前置条件 / 环境不满足），因此**不能**带 `--failed-step`。跑到一半被外部因素卡住，记 `--result fail` + 定位 + `--note`。
@@ -167,3 +170,4 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 5. **`update` 的 `--step` 是整段替换**，不是追加。
 6. **`rm` 是软删**，run 历史仍在；且走确认信封，agent 不得自补 `--confirm`。
 7. **test case 不是验收合同。** 用例跑绿不代表任务可以 DONE；DONE 看的是 `lumo verify` 与 `lumo task status`。
+8. **一条没有证据的 run 只是个断言。** `PASS on LOCAL` 本身不可复核——它把「凭什么说它绿」留在了某个人的记忆里，正是这个 feature 要终结的东西。证据要在跑的当下留（`tee` 到 `.log` 再 `--evidence-file`），事后补不回来。零证据时 CLI 会提醒一行，但它只是提醒：**不阻塞、也不会替你留档**。
