@@ -75,6 +75,20 @@ export function TestCaseCard({
           {taskIdentifier}/TC{testCase.number}
         </span>
         <span className='text-body text-foreground'>{testCase.title}</span>
+        {testCase.requiredEnvironment ? (
+          // LUM-808: 这条用例只有在该环境跑才证明得了东西。放在标题行是因为
+          // 它约束的是**整条用例**，不是某一次执行。
+          <span className='rounded-sm border border-dashed border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground'>
+            {intl.formatMessage(
+              { id: 'testCases.requiresEnv.badge' },
+              {
+                env: intl.formatMessage({
+                  id: `testCases.env.${testCase.requiredEnvironment}`,
+                }),
+              }
+            )}
+          </span>
+        ) : null}
       </header>
 
       {testCase.setup ? (
@@ -100,7 +114,11 @@ export function TestCaseCard({
       </Section>
 
       <Section title={intl.formatMessage({ id: 'testCases.runHistory' })}>
-        <RunHistoryList runs={runs} pullRequests={pullRequests} />
+        <RunHistoryList
+          runs={runs}
+          pullRequests={pullRequests}
+          requiredEnvironment={testCase.requiredEnvironment}
+        />
       </Section>
 
       <footer className='mt-3 flex gap-3 text-[11px]'>

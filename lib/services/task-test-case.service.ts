@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client'
+import type { Prisma, TestCaseFailureAttribution } from '@prisma/client'
 import { runInTransaction } from '@/lib/db/transaction'
 import {
   testCaseRepository,
@@ -20,8 +20,10 @@ import {
   type RunFreshness,
   type TaskPullRequestSnapshot,
 } from '@/lib/test-cases/freshness'
+import { deriveRunCeiling, type RunCeiling } from '@/lib/test-cases/provability'
 
 export { deriveRunFreshness, type RunFreshness, type TaskPullRequestSnapshot }
+export { deriveRunCeiling, type RunCeiling }
 
 export interface TestCaseAttribution {
   /** WorkspaceMember id of the caller. */
@@ -93,6 +95,82 @@ function resolveLocator(
   }
 }
 
+/**
+ * LUM-808 步骤 1：校验 FAIL 的归因。
+ *
+ * 红线（勿「顺手放宽」）：
+ * - 只有 FAIL 谈「谁的锅」。PASS / BLOCKED 带归因即 400。
+ * - FAIL 必须归因。`UNKNOWN` 是合法答案——逼出一个乱填的归因只会污染统计。
+ * - **不对称的举证责任**：只有 IMPLEMENTATION_DEFECT 需要至少一条 evidence。
+ *   另两类是「我没能证明」，举证责任轻。这一条同时是「先落证据、再下结论」
+ *   的强制点：想说是实现的锅，就不能凭「我记得当时是这样」。
+ */
+function resolveAttribution(
+  body: RecordRunBody
+): TestCaseFailureAttribution | null {
+  const attribution = body.failureAttribution ?? null
+
+  if (body.result !== 'FAIL') {
+    if (attribution !== null) {
+      fail(
+        `A ${body.result} run cannot carry a failure attribution (only FAIL can).`,
+        400
+      )
+    }
+    return null
+  }
+  if (attribution === null) {
+    fail(
+      'A FAIL run must say whose fault it is: failureAttribution is one of ' +
+        'IMPLEMENTATION_DEFECT | CASE_OUTDATED | EXTERNAL_BLOCK | UNKNOWN.',
+      400
+    )
+  }
+  if (
+    attribution === 'IMPLEMENTATION_DEFECT' &&
+    (body.evidence ?? []).length === 0
+  ) {
+    fail(
+      'IMPLEMENTATION_DEFECT needs at least one evidence entry — claiming the ' +
+        'implementation is at fault is the one attribution that carries a burden ' +
+        'of proof. Attach evidence, or record CASE_OUTDATED / EXTERNAL_BLOCK / UNKNOWN.',
+      400
+    )
+  }
+  return attribution
+}
+
+/**
+ * LUM-808 步骤 2：把「本次没能观察到的复验条目」下标解析成带原文快照的条目。
+ *
+ * 快照原文的理由同 failedStepText：用例后来被改写，这条 run 仍读得懂。
+ * 下标必须落在该用例 verification[] 的范围内；重复下标去重（同一条说两遍
+ * 不增加信息，却会让读端的计数撒谎）。
+ */
+function resolveUnproven(
+  testCase: TestCaseRow,
+  body: RecordRunBody
+): Array<{ index: number; text: string }> {
+  const raw = body.unprovenVerification ?? []
+  if (raw.length === 0) return []
+
+  const seen = new Set<number>()
+  const out: Array<{ index: number; text: string }> = []
+  for (const index of raw) {
+    if (index < 0 || index >= testCase.verification.length) {
+      fail(
+        `unprovenVerification index ${index} is out of range for VERIFICATION ` +
+          `(length ${testCase.verification.length}).`,
+        400
+      )
+    }
+    if (seen.has(index)) continue
+    seen.add(index)
+    out.push({ index, text: testCase.verification[index]! })
+  }
+  return out
+}
+
 async function resolveActorId(memberId: string): Promise<string | null> {
   const actor = await memberRepository.findActorByMemberId(memberId)
   return actor?.id ?? null
@@ -150,6 +228,7 @@ export const taskTestCaseService = {
           steps: body.steps,
           verification: body.verification,
           expected: body.expected,
+          requiredEnvironment: body.requiredEnvironment ?? null,
         },
         tx
       )
@@ -191,6 +270,9 @@ export const taskTestCaseService = {
             ? { verification: body.verification }
             : {}),
           ...(body.expected !== undefined ? { expected: body.expected } : {}),
+          ...(body.requiredEnvironment !== undefined
+            ? { requiredEnvironment: body.requiredEnvironment ?? null }
+            : {}),
         },
         tx
       )
@@ -247,12 +329,18 @@ export const taskTestCaseService = {
     })
   },
 
-  /** Append 一条执行记录。**没有对应的 update / delete**。 */
+  /**
+   * Append 一条执行记录。**没有对应的 update / delete**。
+   *
+   * 返回值带上 `ceiling`（LUM-808）：封顶后的结论是**推导**出来的、不落列，
+   * 但调用方需要它才能当场把降级摆到用户脸上。推导在这里做一次，CLI 与 web
+   * 都只渲染，不重算——一份规则一处实现。
+   */
   async recordRun(
     testCase: TestCaseRow,
     body: RecordRunBody,
     attribution: TestCaseAttribution
-  ): Promise<{ run: TestCaseRunRow }> {
+  ): Promise<{ run: TestCaseRunRow; ceiling: RunCeiling }> {
     // environment 没有默认值。Zod 已挡住大多数情况，这里是 service 侧的
     // 独立闸门（内部调用方绕过 route 时同样受约束）。
     if (!body.environment || !VALID_ENVIRONMENTS.includes(body.environment)) {
@@ -263,6 +351,8 @@ export const taskTestCaseService = {
     }
 
     const locator = resolveLocator(testCase, body)
+    const failureAttribution = resolveAttribution(body)
+    const unprovenVerification = resolveUnproven(testCase, body)
 
     // PR 按**号**上线，在这里按任务作用域解析成 id。号必须属于这个任务——
     // 不做跨任务引用，否则陈旧性比较会拿错 head。
@@ -291,6 +381,9 @@ export const taskTestCaseService = {
           failedPhase: locator.failedPhase ?? null,
           failedIndex: locator.failedIndex,
           failedStepText: locator.failedStepText,
+          failureAttribution,
+          unprovenVerification:
+            unprovenVerification as unknown as Prisma.InputJsonValue,
           evidence: (body.evidence ?? []) as unknown as Prisma.InputJsonValue,
           note: body.note ?? null,
           pullRequestId,
@@ -313,12 +406,23 @@ export const taskTestCaseService = {
             runId: created.id,
             result: created.result,
             environment: created.environment,
+            failureAttribution,
           },
         },
         tx
       )
       return created
     })
-    return { run }
+    return {
+      run,
+      ceiling: deriveRunCeiling(
+        {
+          result: run.result,
+          environment: run.environment,
+          unprovenVerification,
+        },
+        { requiredEnvironment: testCase.requiredEnvironment }
+      ),
+    }
   },
 }

@@ -116,6 +116,10 @@ export function TestCaseForm({
     initial?.verification ?? []
   )
   const [expected, setExpected] = useState(initial?.expected ?? '')
+  // LUM-808: 这条用例只有在该环境跑才证明得了东西。空 = 不限（合法默认）。
+  const [requiredEnvironment, setRequiredEnvironment] = useState<
+    '' | 'LOCAL' | 'PREVIEW' | 'PRODUCTION'
+  >(initial?.requiredEnvironment ?? '')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -142,6 +146,7 @@ export function TestCaseForm({
         steps: cleanSteps,
         verification: cleanVerification,
         expected: expected.trim(),
+        requiredEnvironment: requiredEnvironment || null,
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -199,6 +204,31 @@ export function TestCaseForm({
           value={expected}
           onChange={e => setExpected(e.target.value)}
         />
+      </label>
+
+      <label className='flex flex-col gap-1 text-body text-muted-foreground'>
+        {intl.formatMessage({ id: 'testCases.form.requiresEnv' })}
+        <select
+          className={fieldClass}
+          value={requiredEnvironment}
+          onChange={e =>
+            setRequiredEnvironment(
+              e.target.value as '' | 'LOCAL' | 'PREVIEW' | 'PRODUCTION'
+            )
+          }
+        >
+          <option value=''>
+            {intl.formatMessage({ id: 'testCases.form.requiresEnv.any' })}
+          </option>
+          {(['LOCAL', 'PREVIEW', 'PRODUCTION'] as const).map(env => (
+            <option key={env} value={env}>
+              {intl.formatMessage({ id: `testCases.env.${env}` })}
+            </option>
+          ))}
+        </select>
+        <span className='text-[11px]'>
+          {intl.formatMessage({ id: 'testCases.form.requiresEnv.hint' })}
+        </span>
       </label>
 
       {error ? <p className='text-body text-destructive'>{error}</p> : null}

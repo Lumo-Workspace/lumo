@@ -3510,6 +3510,14 @@
           "enumCaseInsensitive": false,
           "description": "Expected result"
         },
+        "--requires-env": {
+          "long": "--requires-env",
+          "short": null,
+          "value": "required",
+          "enum": ["local", "preview", "production"],
+          "enumCaseInsensitive": true,
+          "description": "local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy"
+        },
         "--setup": {
           "long": "--setup",
           "short": null,
@@ -3585,6 +3593,14 @@
         { "name": "task/case", "required": true, "variadic": false }
       ],
       "flags": {
+        "--cause": {
+          "long": "--cause",
+          "short": null,
+          "value": "required",
+          "enum": ["defect", "outdated", "external", "unknown"],
+          "enumCaseInsensitive": true,
+          "description": "Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only \"defect\" carries a burden of proof (needs at least one --evidence / --evidence-file); \"unknown\" is a real answer"
+        },
         "--commit": {
           "long": "--commit",
           "short": null,
@@ -3656,6 +3672,14 @@
           "enum": ["pass", "fail", "blocked"],
           "enumCaseInsensitive": true,
           "description": "pass | fail | blocked (case-insensitive)"
+        },
+        "--unproven": {
+          "long": "--unproven",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check"
         }
       },
       "hasSubcommands": false,
@@ -3683,6 +3707,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "New expected result"
+        },
+        "--requires-env": {
+          "long": "--requires-env",
+          "short": null,
+          "value": "required",
+          "enum": ["local", "preview", "production", "none"],
+          "enumCaseInsensitive": true,
+          "description": "local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass \"none\" to clear it. Matched exactly: there is no environment hierarchy"
         },
         "--setup": {
           "long": "--setup",

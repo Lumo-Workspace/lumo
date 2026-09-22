@@ -108,6 +108,17 @@ describe('failure locator', () => {
     ).toBeInTheDocument()
   })
 
+  it('refuses to submit a FAIL with no cause picked', async () => {
+    const onSubmit = setup()
+    await userEvent.selectOptions(screen.getByLabelText(/result/i), 'FAIL')
+    await userEvent.selectOptions(
+      screen.getByLabelText(/environment/i),
+      'LOCAL'
+    )
+    await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
   it('submits a 0-based index for the step the user picked', async () => {
     const onSubmit = setup()
     await userEvent.selectOptions(screen.getByLabelText(/result/i), 'FAIL')
@@ -118,6 +129,12 @@ describe('failure locator', () => {
     await userEvent.selectOptions(
       screen.getByLabelText(/failed at/i),
       'STEPS:1'
+    )
+    // LUM-808: 一条 FAIL 现在必须说清是谁的锅。这条测的是定位换算，
+    // 选举证责任最轻的那一个。
+    await userEvent.selectOptions(
+      screen.getByLabelText(/whose fault/i),
+      'UNKNOWN'
     )
     await userEvent.click(screen.getByRole('button', { name: /^record$/i }))
 

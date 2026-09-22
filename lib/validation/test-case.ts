@@ -45,6 +45,12 @@ export const createTestCaseBodySchema = z.object({
   /** 可以为空：不是每条用例都有复验段。 */
   verification: stepList(0),
   expected: z.string().trim().min(1).max(MAX_TEXT_LEN),
+  /**
+   * LUM-808: 这条用例只有在该环境跑才证明得了东西。null / 省略 = 不限。
+   * 比较是**精确相等**，没有环境层级——一条测本地工具链的用例，在生产跑
+   * 并不能证明它。
+   */
+  requiredEnvironment: z.enum(['LOCAL', 'PREVIEW', 'PRODUCTION']).nullish(),
 })
 
 export const updateTestCaseBodySchema = createTestCaseBodySchema
@@ -63,6 +69,26 @@ export const recordRunBodySchema = z.object({
   /** 0-based。CLI 表面是 1-based，转换在 CLI 侧完成。 */
   failedPhase: z.enum(['STEPS', 'VERIFICATION']).nullish(),
   failedIndex: z.number().int().nonnegative().nullish(),
+  /**
+   * LUM-808 步骤 1: FAIL 是谁的锅。跨字段规则（FAIL 必填、非 FAIL 禁带、
+   * IMPLEMENTATION_DEFECT 必须带证据）是业务规则，活在 service。
+   */
+  failureAttribution: z
+    .enum([
+      'IMPLEMENTATION_DEFECT',
+      'CASE_OUTDATED',
+      'EXTERNAL_BLOCK',
+      'UNKNOWN',
+    ])
+    .nullish(),
+  /**
+   * LUM-808 步骤 2: 本次没能观察到的复验条目下标。**0-based**，CLI 表面
+   * 1-based。范围校验与原文快照在 service（要读用例当前的 verification[]）。
+   */
+  unprovenVerification: z
+    .array(z.number().int().nonnegative())
+    .max(MAX_STEPS)
+    .optional(),
   note: z.string().trim().max(MAX_NOTE_LEN).nullish(),
   evidence: z.array(evidenceEntrySchema).max(MAX_EVIDENCE_ENTRIES).optional(),
   /**

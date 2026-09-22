@@ -1,5 +1,6 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
+import { resolveRequiredEnvironment } from '../lib/test-case-verdict'
 
 export interface TestCaseUpdateOptions {
   title?: string
@@ -7,6 +8,7 @@ export interface TestCaseUpdateOptions {
   step?: string[]
   verify?: string[]
   expected?: string
+  requiresEnv?: string
 }
 
 export async function taskTestCaseUpdate(
@@ -39,9 +41,19 @@ export async function taskTestCaseUpdate(
     patch.verification = options.verify.map(s => s.trim()).filter(Boolean)
   }
 
+  // 三态：没给 flag = 不碰库里的值；`none` = 清除；具体值 = 设定。
+  const requiredEnvironment = resolveRequiredEnvironment(options.requiresEnv)
+  if (!requiredEnvironment.ok) {
+    console.error(`Error: ${requiredEnvironment.error}`)
+    return 1
+  }
+  if (requiredEnvironment.value !== undefined) {
+    patch.requiredEnvironment = requiredEnvironment.value
+  }
+
   if (Object.keys(patch).length === 0) {
     console.error(
-      'Error: provide at least one field to update (--title / --setup / --step / --verify / --expected).'
+      'Error: provide at least one field to update (--title / --setup / --step / --verify / --expected / --requires-env).'
     )
     return 1
   }

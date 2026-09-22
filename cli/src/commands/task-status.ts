@@ -227,6 +227,13 @@ export interface TaskStatusResponse {
         rejectionReason: string | null
       }
     | {
+        kind: 'TEST_CASE_VERDICT'
+        signal: 'PROVEN_DEFECT' | 'UNPROVEN_PASS' | 'CASE_OUTDATED'
+        number: number
+        title: string
+        advisory: true
+      }
+    | {
         kind: 'SECURITY_FINDING'
         findingId: string
         statement: string
@@ -313,6 +320,10 @@ type NextActionItem = TaskStatusResponse['nextActions'][number]
 type CriterionAction = Extract<NextActionItem, { criterionId: string }>
 type SecurityAction = Extract<NextActionItem, { kind: 'SECURITY_FINDING' }>
 type TestCaseAction = Extract<NextActionItem, { kind: 'TEST_CASE' }>
+type TestCaseVerdictAction = Extract<
+  NextActionItem,
+  { kind: 'TEST_CASE_VERDICT' }
+>
 
 /** A missing `kind` is an older server's criterion entry (LUM-737 additive rule). */
 function isSecurityAction(a: NextActionItem): a is SecurityAction {
@@ -324,20 +335,30 @@ function isSecurityAction(a: NextActionItem): a is SecurityAction {
 function isTestCaseAction(a: NextActionItem): a is TestCaseAction {
   return a.kind === 'TEST_CASE'
 }
+/** LUM-808. Same reason as above — an advisory must never land in the
+ *  criteria bucket, where it would read as something the task must satisfy. */
+function isTestCaseVerdictAction(
+  a: NextActionItem
+): a is TestCaseVerdictAction {
+  return a.kind === 'TEST_CASE_VERDICT'
+}
 function splitNextActions(actions: NextActionItem[]): {
   criteria: CriterionAction[]
   security: SecurityAction[]
   testCase: TestCaseAction[]
+  testCaseVerdict: TestCaseVerdictAction[]
 } {
   const criteria: CriterionAction[] = []
   const security: SecurityAction[] = []
   const testCase: TestCaseAction[] = []
+  const testCaseVerdict: TestCaseVerdictAction[] = []
   for (const a of actions) {
     if (isSecurityAction(a)) security.push(a)
     else if (isTestCaseAction(a)) testCase.push(a)
+    else if (isTestCaseVerdictAction(a)) testCaseVerdict.push(a)
     else criteria.push(a)
   }
-  return { criteria, security, testCase }
+  return { criteria, security, testCase, testCaseVerdict }
 }
 
 /** One advisory line + the command that clears it (LUM-807). */
@@ -345,6 +366,27 @@ function pushTestCaseActions(lines: string[], actions: TestCaseAction[]): void {
   for (const a of actions) {
     lines.push(`  • [TEST CASE] ${sanitizeField(a.statement)} (advisory)`)
     lines.push(`    run: ${sanitizeField(a.command)}`)
+  }
+}
+
+/**
+ * LUM-808: 判决层的 advisory。措辞刻意与 FAIL 分开 —— UNPROVEN 不是失败，
+ * 是「没能确认」；把它写成红的会让人去修一个没坏的东西。
+ */
+const VERDICT_LABEL: Record<TestCaseVerdictAction['signal'], string> = {
+  PROVEN_DEFECT: 'implementation defect, with evidence',
+  UNPROVEN_PASS: 'reported PASS, capped to UNPROVEN',
+  CASE_OUTDATED: 'the case is out of date, not the code',
+}
+
+function pushTestCaseVerdictActions(
+  lines: string[],
+  actions: TestCaseVerdictAction[]
+): void {
+  for (const a of actions) {
+    lines.push(
+      `  • [TEST CASE] TC${a.number} ${sanitizeField(a.title)} — ${VERDICT_LABEL[a.signal]} (advisory)`
+    )
   }
 }
 
@@ -501,6 +543,7 @@ export function formatTaskStatus(
     criteria: unmetCriteria,
     security: securityActions,
     testCase: testCaseActions,
+    testCaseVerdict: testCaseVerdictActions,
   } = splitNextActions(data.nextActions)
 
   if (data.criteria.length === 0) {
@@ -519,6 +562,10 @@ export function formatTaskStatus(
     if (testCaseActions.length > 0) {
       lines.push('')
       pushTestCaseActions(lines, testCaseActions)
+    }
+    if (testCaseVerdictActions.length > 0) {
+      lines.push('')
+      pushTestCaseVerdictActions(lines, testCaseVerdictActions)
     }
     pushSecurityCoverage(lines, data)
     pushOpenCrossings(lines, extras)
@@ -707,6 +754,9 @@ export function formatTaskStatus(
     }
     if (securityActions.length > 0) lines.push(SECURITY_HINT)
   }
+  // LUM-808: 判决层 advisory 在两条分支之外统一渲染 —— 它和「有没有未满足的
+  // 验收项」无关，读的是用例最新一次跑出来的结论。
+  pushTestCaseVerdictActions(lines, testCaseVerdictActions)
   pushSecurityCoverage(lines, data)
 
   pushOpenCrossings(lines, extras)

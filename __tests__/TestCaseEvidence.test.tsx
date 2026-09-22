@@ -77,7 +77,13 @@ const logFile = {
 
 describe('run evidence is visible, not just counted', () => {
   it('renders image evidence as a clickable thumbnail linking to the file', () => {
-    render(<RunHistoryList runs={[run([screenshot])]} pullRequests={[]} />)
+    render(
+      <RunHistoryList
+        requiredEnvironment={null}
+        runs={[run([screenshot])]}
+        pullRequests={[]}
+      />
+    )
 
     const thumbnail = screen.getByAltText('footer.png')
     expect(thumbnail).toBeInTheDocument()
@@ -87,7 +93,13 @@ describe('run evidence is visible, not just counted', () => {
   })
 
   it('opens the original in a new tab without leaking the referrer', () => {
-    render(<RunHistoryList runs={[run([screenshot])]} pullRequests={[]} />)
+    render(
+      <RunHistoryList
+        requiredEnvironment={null}
+        runs={[run([screenshot])]}
+        pullRequests={[]}
+      />
+    )
 
     const link = screen.getByAltText('footer.png').closest('a')
     expect(link).toHaveAttribute('target', '_blank')
@@ -95,7 +107,13 @@ describe('run evidence is visible, not just counted', () => {
   })
 
   it('renders a non-image file as a named link instead of a thumbnail', () => {
-    render(<RunHistoryList runs={[run([logFile])]} pullRequests={[]} />)
+    render(
+      <RunHistoryList
+        requiredEnvironment={null}
+        runs={[run([logFile])]}
+        pullRequests={[]}
+      />
+    )
 
     expect(screen.getByRole('link', { name: 'jest.log' })).toHaveAttribute(
       'href',
@@ -107,6 +125,7 @@ describe('run evidence is visible, not just counted', () => {
   it('renders a link entry by its label', () => {
     render(
       <RunHistoryList
+        requiredEnvironment={null}
         runs={[
           run([
             {
@@ -128,7 +147,11 @@ describe('run evidence is visible, not just counted', () => {
 
   it('no longer prints a bare count in place of the evidence', () => {
     render(
-      <RunHistoryList runs={[run([screenshot, logFile])]} pullRequests={[]} />
+      <RunHistoryList
+        requiredEnvironment={null}
+        runs={[run([screenshot, logFile])]}
+        pullRequests={[]}
+      />
     )
 
     // 计数只作为列表的 aria-label 留给读屏，不再占据可见的一行。
@@ -141,6 +164,7 @@ describe('run evidence is visible, not just counted', () => {
   it('keeps the run row readable when the evidence payload is junk', () => {
     const rendered = render(
       <RunHistoryList
+        requiredEnvironment={null}
         runs={[run(['nope', null, { type: 'wormhole' }])]}
         pullRequests={[]}
       />

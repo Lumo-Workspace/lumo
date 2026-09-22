@@ -3697,6 +3697,22 @@ enum TestCasePhase {
   VERIFICATION
 }
 
+/// LUM-808 步骤 1：一条 FAIL 是谁的锅。
+/// **新枚举类型**，不是给 TestCaseRunResult ADD VALUE —— 后者会撞上
+/// 「PG 禁止同事务使用刚添加的 enum 值」。
+/// 举证责任刻意不对称：只有 IMPLEMENTATION_DEFECT 需要额外举证（>=1 条
+/// evidence，service 强制），另两类是「我没能证明」，白给。
+enum TestCaseFailureAttribution {
+  /// 被测实现的锅。唯一背举证责任的一类。
+  IMPLEMENTATION_DEFECT
+  /// 用例过时（UI / 文案漂移），实现没问题。
+  CASE_OUTDATED
+  /// 跑到一半被外部因素卡住（对比 BLOCKED：那是根本没跑起来）。
+  EXTERNAL_BLOCK
+  /// 没判断出来。**这是合法答案，不是逃避** —— 逼出一个乱填的归因只会污染统计。
+  UNKNOWN
+}
+
 model TestCase {
   id           String    @id @default(cuid())
   taskId       String
@@ -3710,6 +3726,10 @@ model TestCase {
   /// 有序,可为空数组（不是每条用例都有复验段）。
   verification String[]
   expected     String
+  /// LUM-808 步骤 2：这条用例只有在该环境跑才证明得了东西。null = 不限。
+  /// **精确相等，没有 PRODUCTION ⊇ PREVIEW ⊇ LOCAL 的层级** —— 一条测本地
+  /// 工具链的用例，在生产跑并不能证明它。
+  requiredEnvironment TestEnvironment?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   /// 软删除墓碑：run→case 的审计链必须活着（同 AcceptanceCriterion.deletedAt）。
@@ -3745,6 +3765,17 @@ model TestCaseRun {
   /// 是泛指：failedPhase 为 VERIFICATION 时快照的是复验段那一条。
   /// 同 VerificationRun 反范式 verifierType 的做法。
   failedStepText String?
+
+  /// LUM-808 步骤 1：FAIL 的归因。非 FAIL 必须为 null。
+  /// 可空是因为归因机制上线前的行只能是 null —— run 是 append-only，
+  /// **不回填**。null 读作「记录于归因机制之前」，不是「没归因」。
+  failureAttribution TestCaseFailureAttribution?
+
+  /// LUM-808 步骤 2：本次**没能观察到**的复验条目。元素：{ index, text }。
+  /// text 是判决时刻的原文快照（同 failedStepText 的理由：用例后来被改写，
+  /// 这条 run 仍读得懂）。非空 → 一个上报的 PASS 被封顶为 UNPROVEN。
+  /// 封顶后的结论由读端推导（deriveRunCeiling），**不落列**。
+  unprovenVerification Json @default("[]")
 
   /// 证据数组。每项二选一：
   ///   { type: 'link', url, label? }

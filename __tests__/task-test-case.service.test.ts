@@ -54,6 +54,7 @@ const testCase = {
   ],
   verification: ['refresh: the page'],
   expected: 'The disclosure is visible.',
+  requiredEnvironment: null,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
   deletedAt: null,
@@ -71,6 +72,7 @@ beforeEach(() => {
     // 写入类型是 InputJsonValue，读出来的行类型是 JsonValue —— 只有这一个字段
     // 需要窄一下，其余原样回抛。
     evidence: input.evidence as Prisma.JsonValue,
+    unprovenVerification: input.unprovenVerification as Prisma.JsonValue,
     id: 'run-1',
     createdAt: new Date('2026-02-01'),
   }))
@@ -160,7 +162,8 @@ describe('recordRun — failure locator', () => {
   it('accepts a FAIL with no locator at all', async () => {
     const { run } = await taskTestCaseService.recordRun(
       testCase,
-      { result: 'FAIL', environment: 'LOCAL' },
+      // LUM-808: FAIL 现在必须归因；这条测的是定位，用举证责任最轻的 UNKNOWN。
+      { result: 'FAIL', environment: 'LOCAL', failureAttribution: 'UNKNOWN' },
       attribution
     )
     expect(run.failedPhase).toBeNull()
@@ -175,6 +178,7 @@ describe('recordRun — failure locator', () => {
         environment: 'LOCAL',
         failedPhase: 'STEPS',
         failedIndex: 1,
+        failureAttribution: 'UNKNOWN',
       },
       attribution
     )
@@ -195,6 +199,7 @@ describe('recordRun — failure locator', () => {
         environment: 'LOCAL',
         failedPhase: 'VERIFICATION',
         failedIndex: 0,
+        failureAttribution: 'UNKNOWN',
       },
       attribution
     )

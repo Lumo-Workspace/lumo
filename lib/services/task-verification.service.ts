@@ -52,6 +52,7 @@ import {
   findingStatement,
   type UnconfirmedPr,
 } from '@/lib/security-scan/agent-reminder'
+import { readTestCaseAdvisories } from '@/lib/services/done-verdict.service'
 import type {
   FindingProvenance,
   FindingSeverity,
@@ -393,6 +394,20 @@ export interface NextActionSecurityFinding {
  * no severity, no `blocking` flag to be true — it can only ever be advice.
  * The DONE gate never reads it.
  */
+/**
+ * LUM-808: 一条用例最新 run 的**判决**信号。和上面的 TEST_CASE 一样只是建议
+ * ——`blocking` 这个字段根本不存在，DONE 闸不读它（用例从不拦 DONE，LUM-801）。
+ * 信号本身来自与闸同一个纯函数，所以这里和 409 不会各说各话。
+ */
+export interface NextActionTestCaseVerdict {
+  kind: 'TEST_CASE_VERDICT'
+  signal: 'PROVEN_DEFECT' | 'UNPROVEN_PASS' | 'CASE_OUTDATED'
+  /** 用例序号（LUM-42/TC3 里的 3）。 */
+  number: number
+  title: string
+  advisory: true
+}
+
 export interface NextActionTestCase {
   kind: 'TEST_CASE'
   statement: string
@@ -403,6 +418,7 @@ export interface NextActionTestCase {
 }
 
 export type NextAction =
+  | NextActionTestCaseVerdict
   | NextActionCriterion
   | NextActionSecurityFinding
   | NextActionTestCase
@@ -842,6 +858,7 @@ export const taskVerificationService = {
       latestHumanVerdictAction,
       securityState,
       testCaseState,
+      testCaseVerdicts,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -895,6 +912,9 @@ export const taskVerificationService = {
       testCaseReminderService
         .stateForTask({ taskId, taskDone: false })
         .catch(() => null),
+      // LUM-808: 每条用例最新 run 的判决信号。与 DONE 闸同一份推导
+      // （done-verdict.service），fail-soft —— advisory 读不出来不该拖垮 status。
+      readTestCaseAdvisories(taskId),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -1348,6 +1368,17 @@ export const taskVerificationService = {
               },
             ]
           : []),
+        // LUM-808: 判决层的 advisory —— 已举证的实现缺陷、被封顶成 UNPROVEN
+        // 的 PASS、过时的用例。永远排在最后，永远不改「能不能 DONE」。
+        ...testCaseVerdicts.map(
+          (v): NextActionTestCaseVerdict => ({
+            kind: 'TEST_CASE_VERDICT',
+            signal: v.signal,
+            number: v.number,
+            title: v.title,
+            advisory: true,
+          })
+        ),
       ],
       securityFindings: securityState
         ? {

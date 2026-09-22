@@ -2,7 +2,8 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
+import { collectSendBackPlane } from '@/lib/services/done-verdict.service'
+import { hasUnresolvedSendBack } from '@/lib/acceptance/done-verdict'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { taskService } from '@/lib/services/task.service'
@@ -280,14 +281,11 @@ async function createFromCli(args: {
           title: bound.task.title,
           status: bound.task.status,
         }
-        // Layer 2: mirror the DONE gate (task-state.service.ts
-        // assertNoUnresolvedSendBack) — any criterion whose latest verdict is
-        // FAIL is a standing send-back.
-        const latest = await verificationRunRepository.latestRunsByCriterion(
-          bound.task.id
-        )
-        boundTaskHasOpenSendBack = [...latest.values()].some(
-          r => r.verdict === 'FAIL'
+        // Layer 2: 问的是「有没有未解决的送回」——和 DONE 闸共享的**一个具名
+        // 概念**，不是同一个问题。以前这里自己手写 `.some(r => …)`，于是同一条
+        // 规则有了两处实现（LUM-808 收的就是这个）。现在只准问，不准算。
+        boundTaskHasOpenSendBack = hasUnresolvedSendBack(
+          await collectSendBackPlane(bound.task.id)
         )
       }
     }

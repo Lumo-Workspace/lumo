@@ -3,9 +3,6 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
-import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import {
   invalidTransitionMessage,
   isValidTaskTransition,
@@ -17,7 +14,8 @@ import { captureRetrospectiveSnapshotInBackground } from '@/lib/services/retrosp
 import { dispatchProjectFold } from '@/lib/services/memory/fold-dispatch'
 import { dispatchRunSummaries } from '@/lib/services/run-summary-dispatch'
 import { dispatchPolicyCheck } from '@/lib/services/policy/policy-check-dispatch'
-import { assertNoOpenBlockingSecurityFindings } from '@/lib/services/pr-security-scan-gate'
+import { readDoneVerdict } from '@/lib/services/done-verdict.service'
+import { renderDoneBlockMessage } from '@/lib/acceptance/done-verdict'
 import { normalizeRichText } from '@/lib/utils/markdown'
 import { waitUntil } from '@vercel/functions'
 import type {
@@ -41,100 +39,29 @@ export interface UpdateTaskOptions {
 }
 
 /**
- * LUM-422 ④ DONE gate. Refuse a DONE transition while any criterion's latest
- * verdict is FAIL (machine / AGENT / human channel — any unresolved send-back).
- * Only blocks a real send-back: a never-adjudicated criterion does NOT block
- * (no one sent it back = tacit pass — otherwise we'd force humans back to
- * clicking). Tasks with no criteria / no runs short-circuit free (zero extra
- * cost, silent-philosophy). Throws 409 with the unresolved items; the caller
- * (agent/CLI) cannot override, a human path passes overrideDoneGate to confirm.
+ * LUM-422 ④ + LUM-426 + LUM-732 DONE gate —— 现在只有**一处**判定。
+ *
+ * 规则本身住在 `lib/acceptance/done-verdict.ts`（纯函数），数据收集住在
+ * `lib/services/done-verdict.service.ts`。这里只做两件事：把快照喂进去，
+ * 把第一个 blocker 抛成 409。
+ *
+ * 行为与收拢前**逐字一致**：blocker 的顺序就是旧代码三个 await 的顺序
+ * （送回 → 越界 → 安全），409 文案由 `renderDoneBlockMessage` 原样保留。
+ * 那三条规则各自的例外（tacit pass、HIGH 无视 workspace opt-out、LLM 发现
+ * 永远只是 advisory）都在纯函数里，连同它们为什么存在的注释。
+ *
+ * 只有人授权的路径（web 上越过软提示的 Clerk 确认）能用 `overrideDoneGate`
+ * 绕过；agent / CLI 路径不传，所以一个未解决的送回永远拦得住它的 DONE。
  */
-async function assertNoUnresolvedSendBack(taskId: string): Promise<void> {
-  const latest = await verificationRunRepository.latestRunsByCriterion(taskId)
-  if (latest.size === 0) return
-  const failed = [...latest.values()].filter(r => r.verdict === 'FAIL')
-  if (failed.length === 0) return
-
-  const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-  const statementById = new Map(criteria.map(c => [c.id, c.statement]))
-  const items = failed
-    .map(r => `• ${statementById.get(r.criterionId) ?? r.criterionId}`)
-    .join('\n')
-  throw Object.assign(
-    new Error(
-      `Cannot move this task to DONE — ${failed.length} unresolved send-back${
-        failed.length === 1 ? '' : 's'
-      } on the acceptance contract:\n${items}\nResolve them (see \`lumo task status\`) and re-verify, or have a human override.`
-    ),
-    { status: 409 }
-  )
-}
-
-/**
- * LUM-426 DONE gate. Refuse a DONE transition while any boundary-crossing on
- * the task is unacknowledged — a forbidden action (push to main, a deleted
- * migration, a hardcoded secret, a new dependency, a destructive DB command)
- * the agent took and no human has signed off on yet. Mirrors LUM-422's
- * assertNoUnresolvedSendBack: short-circuits free when nothing is flagged
- * (the common case, so existing DONE paths pay one empty query), and is
- * bypassed only by a human-authoritative overrideDoneGate.
- *
- * The flagging half (recording the crossing) is always on; THIS half — the
- * DONE block — is the only part the workspace toggle governs. Opening the gate
- * (boundaryGateEnabled = false) drops the 409 but never the marker. The toggle
- * is read only after an open crossing is found, so a clean task never touches
- * it. Throws 409 with the undispositioned items.
- *
- * LUM-435: "open" now means undispositioned. Either disposition a human records
- * — FALSE_POSITIVE (not actually a crossing) or CONFIRMED (a real one, owned) —
- * clears the gate; the function name is unchanged for continuity.
- *
- * LUM-442: a HIGH-severity open crossing (secret leak, destructive DB, public
- * exfiltration, cloud-data deletion, infra termination, or an evasion-decoded
- * action) forces this block even where the workspace opted the gate out — the
- * opt-out is an escape hatch for noise, not a licence to ship the most
- * dangerous actions unreviewed. It stays clearable by a human disposition
- * (FALSE_POSITIVE included), so it's "a human must look", never a hard wall.
- */
-async function assertNoUnacknowledgedBoundaryCrossings(
+async function assertDoneGateClear(
   taskId: string,
   workspaceId: string
 ): Promise<void> {
-  const open =
-    await boundaryCrossingRepository.findUndispositionedByTask(taskId)
-  if (open.length === 0) return
-
-  const enabled =
-    await boundaryCrossingRepository.isGateEnabledForWorkspace(workspaceId)
-  const hasHigh = open.some(c => c.severity === 'HIGH')
-  if (!enabled && !hasHigh) return
-
-  // LUM-454: a COMPACT message — count + per-category counts, never each
-  // crossing's full `detail`. A TEST_TAMPERING detail embeds the whole criterion
-  // statement, so the old per-crossing join made N same-category crossings a
-  // wall of repeated text (LUM-445). The full detail lives on the crossings
-  // panel; the 409 only needs to say how many and of what kind, so CLI/API
-  // consumers get a sane line too.
-  const byCategory = new Map<string, number>()
-  for (const c of open) {
-    byCategory.set(c.category, (byCategory.get(c.category) ?? 0) + 1)
-  }
-  const summary = [...byCategory.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([category, count]) => `${count} ${category}`)
-    .join(', ')
-  throw Object.assign(
-    new Error(
-      `Cannot move this task to DONE — ${open.length} undispositioned boundary-crossing${
-        open.length === 1 ? '' : 's'
-      } (forbidden action${
-        open.length === 1 ? '' : 's'
-      } taken during this task): ${summary}. A human must disposition ${
-        open.length === 1 ? 'it' : 'them'
-      } (false positive or confirmed) on the task timeline, or open the gate for this workspace.`
-    ),
-    { status: 409 }
-  )
+  const verdict = await readDoneVerdict(taskId, workspaceId)
+  if (verdict.decision === 'CLEAR') return
+  throw Object.assign(new Error(renderDoneBlockMessage(verdict.blockers[0]!)), {
+    status: 409,
+  })
 }
 
 async function isDescendant(
@@ -207,20 +134,11 @@ export async function updateTask(
       )
     }
 
-    // LUM-422 ④ + LUM-426 DONE gates: a DONE transition is blocked while an
-    // unresolved send-back stands on the acceptance contract OR an
-    // unacknowledged boundary-crossing stands on the task, unless a human
-    // overrides. All three short-circuit free when nothing is flagged.
+    // LUM-808: the DONE gate now has exactly one address — see
+    // `lib/acceptance/done-verdict.ts`. Do not re-derive any of its planes
+    // here (or anywhere else); ask it.
     if (rest.status === 'DONE' && !opts?.overrideDoneGate) {
-      await assertNoUnresolvedSendBack(taskId)
-      await assertNoUnacknowledgedBoundaryCrossings(
-        taskId,
-        task.project.workspaceId
-      )
-      // LUM-732: an undispositioned deterministic HIGH security finding on a
-      // linked PR's latest scan blocks DONE (not subject to the boundary-gate
-      // workspace opt-out — same shape as the hasHigh rule above).
-      await assertNoOpenBlockingSecurityFindings(taskId)
+      await assertDoneGateClear(taskId, task.project.workspaceId)
     }
   }
 
