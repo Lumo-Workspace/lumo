@@ -70,7 +70,6 @@ export interface HuntTriggerResult {
 export const HUNT_SITES_MAX = 40
 export const HUNT_SITES_PER_RULE_MAX = 6
 
-
 const ENTRY_TEXT_RULES: ReadonlyArray<{ id: string; re: RegExp }> = [
   {
     id: 'next-route-handler',
@@ -80,6 +79,28 @@ const ENTRY_TEXT_RULES: ReadonlyArray<{ id: string; re: RegExp }> = [
 ]
 
 const CALLEE_RE = /([A-Za-z_$][\w$]*(?:\.\$?[A-Za-z_$][\w$]*)*)\s*\(/g
+
+/**
+ * LUM-809 — the callee as it really was written, not as `CALLEE_RE` could
+ * spell it.
+ *
+ * `CALLEE_RE` can only start at an identifier, so a receiver it has no grammar
+ * for — a regex literal, a string, a call result, an index — is dropped and
+ * the property read comes back looking bare: `/re/.exec(s)` and an imported
+ * `exec(cmd)` both arrive as `exec`. The rule tables are then asked a question
+ * about a call shape that never existed, and `(^|\.)` vs `^…$` — the very
+ * distinction they use to separate a method from a free function — decides
+ * nothing.
+ *
+ * A match whose preceding character is `.` is exactly the case the regex could
+ * not start: the receiver is not an identifier chain. Restoring the leading
+ * dot reports that in the vocabulary the tables already speak, and lines a
+ * dropped receiver up with a captured one (`x.exec` and `/re/.exec` now answer
+ * the same). Only `.` qualifies — `a/exec(x)` is division, not a receiver.
+ */
+function calleeAt(text: string, index: number, captured: string): string {
+  return index > 0 && text[index - 1] === '.' ? `.${captured}` : captured
+}
 
 /**
  * `new X(...)`, tested against the constructor identifier — the shape
@@ -106,7 +127,10 @@ export function addedControlCallIds(files: AddedFile[]): string[] {
   for (const file of files) {
     for (const { text } of file.lines) {
       for (const m of text.matchAll(CALLEE_RE)) {
-        const control = matchCallRule(CONTROL_RULES, m[1] ?? '')
+        const control = matchCallRule(
+          CONTROL_RULES,
+          calleeAt(text, m.index, m[1] ?? '')
+        )
         if (control) ids.add(control.id)
       }
     }
@@ -144,7 +168,7 @@ export function evaluateHuntTrigger(
         }
       }
       for (const m of text.matchAll(CALLEE_RE)) {
-        const callee = m[1] ?? ''
+        const callee = calleeAt(text, m.index, m[1] ?? '')
         const sink = matchCallRule(SINK_RULES, callee)
         if (sink) {
           reasons.add(`diff:sink:${sink.id}`)

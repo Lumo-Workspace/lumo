@@ -47,8 +47,30 @@ export const SINK_RULES: readonly CallRule[] = [
     callee: /\.\$(queryRaw|queryRawUnsafe|executeRaw|executeRawUnsafe)$/,
   },
   {
+    /**
+     * LUM-809 — `exec` is the only name here that collides with the standard
+     * library, and the collision is one-sided: `RegExp.prototype.exec` ALWAYS
+     * has a receiver (`/re/.exec(s)`, `RE.exec(s)`), while `child_process`'s is
+     * imported and called bare or read off the module object. So `exec` is
+     * accepted bare or module-qualified, never off an arbitrary receiver; the
+     * rest of the family has no homonym and keeps the `(^|.)` form.
+     *
+     * The old rule took `.exec` from anything: all 76 `.exec(` call sites in
+     * this repo are regexes and none is a child process, and on LUM-808's scan
+     * two regex literals in a test file were the entire trigger surface — the
+     * hunt then spent 97,432 tokens on them and submitted a candidate the
+     * mechanical gate had to throw away.
+     *
+     * Known gap, taken knowingly: a namespace import under any other name
+     * (`import * as cp` → `cp.exec(...)`) is not matched, because nothing in
+     * the callee text tells it apart from a regex held in a variable. The
+     * unambiguous names above still cover that import, and `exec` under an
+     * alias is the narrow case — a blind spot beats a rule that cried wolf on
+     * every regex in the repository.
+     */
     id: 'child-process',
-    callee: /(^|\.)(exec|execSync|execFile|execFileSync|spawn|spawnSync)$/,
+    callee:
+      /(^|\.)(execSync|execFile|execFileSync|spawn|spawnSync)$|^exec$|^(child_process|childProcess)\.exec$/,
   },
   { id: 'fetch', callee: /^fetch$/ },
   { id: 'eval', callee: /^eval$/ },
