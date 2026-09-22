@@ -84,6 +84,19 @@ const runSelect = {
   executedByMemberId: true,
   sourceSessionId: true,
   createdAt: true,
+  // LUM-812: 这条 run 的人类裁定（null = 还没人裁）。跟着 run 一起出来是因为
+  // 每个读端（DONE 闸、run 历史、CLI show）都要它——分两次查会让「拦不拦」
+  // 和「显示什么」读到两个时刻的状态。
+  disposition: {
+    select: {
+      id: true,
+      disposition: true,
+      note: true,
+      dispositionedById: true,
+      dispositionedAt: true,
+      channel: true,
+    },
+  },
 } as const
 
 const taskPrSelect = {
@@ -254,5 +267,53 @@ export const testCaseRepository = {
       else grouped.set(r.testCaseId, [r])
     }
     return grouped
+  },
+
+  /**
+   * LUM-812: 一条 run，连同处置路径要校验的一切——它属于哪个用例/任务、归因是
+   * 什么、有没有证据、已有裁定，以及**它是不是该用例最新的一条**。
+   *
+   * 最新与否要一起查：闸门只看每条用例最新一条 run，所以对一条已被更新的 run
+   * 下裁定是无意义的（裁了也清不掉闸）。这也是 receipt 状态哈希的输入之一——
+   * 读完信封到确认之间冒出一条新 run，未确认的 receipt 必须失效。
+   */
+  async findRunForDisposition(runId: string) {
+    const run = await prisma.testCaseRun.findUnique({
+      where: { id: runId },
+      select: {
+        id: true,
+        taskId: true,
+        testCaseId: true,
+        result: true,
+        failureAttribution: true,
+        evidence: true,
+        createdAt: true,
+        disposition: {
+          select: { id: true, disposition: true, dispositionedAt: true },
+        },
+        testCase: {
+          select: { id: true, number: true, title: true, deletedAt: true },
+        },
+      },
+    })
+    if (!run) return null
+    const latest = await prisma.testCaseRun.findFirst({
+      where: { testCaseId: run.testCaseId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    })
+    return { ...run, isLatestForCase: latest?.id === run.id }
+  },
+
+  /** 写入一条裁定。runId 唯一 —— 重复裁定由唯一索引挡住（P2002）。 */
+  createDisposition(input: {
+    runId: string
+    taskId: string
+    disposition: 'KNOWN_DEFECT' | 'NOT_A_DEFECT'
+    note: string | null
+    dispositionedById: string
+    channel: 'WEB' | 'CLI'
+  }) {
+    return prisma.testCaseRunDisposition.create({ data: input })
   },
 }

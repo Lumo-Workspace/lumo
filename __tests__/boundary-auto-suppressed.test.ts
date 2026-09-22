@@ -48,6 +48,15 @@ let rules: Array<{
   revokedAt: Date | null
 }> = []
 
+// LUM-812: the DONE gate now consults the test-case plane fail-closed (a proven,
+// undispositioned defect blocks). Default it to "no test cases" so this suite
+// keeps isolating what it was written for.
+jest.mock('@/lib/repositories/test-case.repository', () => ({
+  testCaseRepository: {
+    listForTask: jest.fn(() => Promise.resolve([])),
+    runsPerCase: jest.fn(() => Promise.resolve(new Map())),
+  },
+}))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
     findManyForSecurityByTaskId: jest.fn().mockResolvedValue([]),

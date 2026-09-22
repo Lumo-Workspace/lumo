@@ -32,6 +32,12 @@ export interface UseTestCasesResult {
     payload: RecordRunBody,
     files: File[]
   ) => Promise<void>
+  /** LUM-812: 对一条已证缺陷的 run 落裁定，清它对 DONE 的拦截。 */
+  disposeDefect: (
+    runId: string,
+    ruling: 'KNOWN_DEFECT' | 'NOT_A_DEFECT',
+    note?: string | null
+  ) => Promise<void>
 }
 
 /**
@@ -102,6 +108,27 @@ export function useTestCases(
     [taskId, refresh]
   )
 
+  /**
+   * LUM-812: 对一条已证缺陷的 run 落裁定。
+   *
+   * 裁完必须 refresh —— 拦闸与否是从 run 上的裁定推出来的，不刷新的话卡片还
+   * 显示着「未裁定」，而 DONE 闸那边已经放行了。
+   */
+  const disposeDefect = useCallback(
+    async (
+      runId: string,
+      ruling: 'KNOWN_DEFECT' | 'NOT_A_DEFECT',
+      note?: string | null
+    ) => {
+      await testCasesClient.disposeDefect(taskId, runId, {
+        disposition: ruling,
+        note: note ?? null,
+      })
+      await refresh()
+    },
+    [taskId, refresh]
+  )
+
   return {
     testCases: query.data?.testCases ?? [],
     pullRequests: query.data?.pullRequests ?? [],
@@ -111,5 +138,6 @@ export function useTestCases(
     update,
     remove,
     recordRun,
+    disposeDefect,
   }
 }

@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "कोई भी परिवेश",
   "testCases.form.requiresEnv.hint": "ठीक-ठीक मिलान — कहीं और दर्ज किया गया पास अप्रमाणित तक सीमित कर दिया जाता है।",
   "testCases.requiresEnv.badge": "केवल {env} पर प्रमाणित",
-  "testCases.result.UNPROVEN": "अप्रमाणित"
+  "testCases.result.UNPROVEN": "अप्रमाणित",
+  "testCases.disposition.KNOWN_DEFECT": "ज्ञात दोष",
+  "testCases.disposition.NOT_A_DEFECT": "दोष नहीं है",
+  "testCases.disposition.blocking": "DONE रोका गया — किसी व्यक्ति को निर्णय लेना होगा:",
+  "testCases.disposition.action.KNOWN_DEFECT": "स्वीकार करें और भेजें",
+  "testCases.disposition.action.NOT_A_DEFECT": "दोष नहीं है"
 }

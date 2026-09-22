@@ -114,3 +114,34 @@ export type CreateTestCaseBody = z.infer<typeof createTestCaseBodySchema>
 export type UpdateTestCaseBody = z.infer<typeof updateTestCaseBodySchema>
 export type RecordRunBody = z.infer<typeof recordRunBodySchema>
 export type EvidenceEntry = z.infer<typeof evidenceEntrySchema>
+
+/**
+ * LUM-812: 对一条 PROVEN_DEFECT run 的裁定。
+ *
+ * 两个值都清闸——闸门问的是「有没有人拍过板」，不是「缺陷修了没」。
+ */
+export const defectRulingSchema = z.enum(['KNOWN_DEFECT', 'NOT_A_DEFECT'])
+
+/** 握手的第 1、2 步。`acknowledge` 在场 = 第 2 步。两步都不写任何东西。 */
+export const defectReceiptRequestSchema = z
+  .object({
+    disposition: defectRulingSchema,
+    acknowledge: z.string().min(1).max(512).optional(),
+  })
+  .strict()
+
+/**
+ * 落裁定。`receipt` 只在 CLI（bearer）来路上必填——web 面板上就是那个人自己
+ * 在点，没有需要转述的批准，也就没有要证明顺序的东西。必填与否由服务层按
+ * channel 判，schema 这里保持可选。
+ */
+export const disposeDefectBodySchema = z
+  .object({
+    disposition: defectRulingSchema,
+    note: z.string().trim().max(MAX_NOTE_LEN).nullish(),
+    receipt: z.string().min(1).max(512).optional(),
+  })
+  .strict()
+
+export type DefectReceiptRequest = z.infer<typeof defectReceiptRequestSchema>
+export type DisposeDefectBody = z.infer<typeof disposeDefectBodySchema>

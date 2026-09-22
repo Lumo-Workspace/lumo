@@ -1,5 +1,10 @@
 import { apiFetch } from './base'
-import type { TestCase, TestCaseRun } from '@prisma/client'
+import type {
+  TestCase,
+  TestCaseRun,
+  TestCaseDefectDisposition,
+  TestCaseDispositionChannel,
+} from '@prisma/client'
 import type {
   CreateTestCaseBody,
   UpdateTestCaseBody,
@@ -7,9 +12,29 @@ import type {
 } from '@/lib/validation/test-case'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 
+/**
+ * LUM-812: 一条 run 上的人类裁定。null = 还没人裁。
+ *
+ * 单独写出来而不是用 Prisma 的行类型：组件只需要这四个字段，`select` 里也只
+ * 取了这些（ISP）。
+ */
+export interface RunDisposition {
+  id: string
+  disposition: TestCaseDefectDisposition
+  note: string | null
+  dispositionedById: string
+  dispositionedAt: string | Date
+  channel: TestCaseDispositionChannel
+}
+
+/** 读端看到的一条 run —— Prisma 的行，外加它的裁定。 */
+export type TestCaseRunView = TestCaseRun & {
+  disposition: RunDisposition | null
+}
+
 /** 列表里的一条用例，带它全部的执行记录（新到旧）。 */
 export type TestCaseWithRuns = TestCase & {
-  runs: TestCaseRun[]
+  runs: TestCaseRunView[]
 }
 
 export interface UploadedEvidenceFile {
@@ -25,6 +50,26 @@ export const testCasesClient = {
     pullRequests: TaskPullRequestSnapshot[]
   }> {
     return apiFetch(`/api/tasks/${taskId}/test-cases`)
+  },
+
+  /**
+   * LUM-812: 对一条「证明了坏」的 run 落裁定，清掉它对 DONE 的拦截。
+   *
+   * web 这条路不带回执——面板上就是那个人自己在点，没有需要转述的批准。
+   * 服务端按身份来源打 `channel: 'WEB'`。
+   */
+  disposeDefect(
+    taskId: string,
+    runId: string,
+    payload: { disposition: TestCaseDefectDisposition; note?: string | null }
+  ): Promise<RunDisposition> {
+    return apiFetch(
+      `/api/tasks/${taskId}/test-case-runs/${runId}/disposition`,
+      {
+        method: 'POST',
+        body: payload,
+      }
+    )
   },
 
   add(

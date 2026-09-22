@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "Любая среда",
   "testCases.form.requiresEnv.hint": "Точное совпадение — успех, записанный в другом месте, понижается до «не подтверждено».",
   "testCases.requiresEnv.badge": "Доказывает только на {env}",
-  "testCases.result.UNPROVEN": "Не подтверждено"
+  "testCases.result.UNPROVEN": "Не подтверждено",
+  "testCases.disposition.KNOWN_DEFECT": "Известный дефект",
+  "testCases.disposition.NOT_A_DEFECT": "Не дефект",
+  "testCases.disposition.blocking": "Блокирует DONE — решение принимает человек:",
+  "testCases.disposition.action.KNOWN_DEFECT": "Принять и выпустить",
+  "testCases.disposition.action.NOT_A_DEFECT": "Не дефект"
 }

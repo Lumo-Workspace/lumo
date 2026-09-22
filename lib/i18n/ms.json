@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "Mana-mana persekitaran",
   "testCases.form.requiresEnv.hint": "Padanan tepat — lulus yang direkodkan di tempat lain diturunkan kepada belum terbukti.",
   "testCases.requiresEnv.badge": "Hanya sah pada {env}",
-  "testCases.result.UNPROVEN": "Belum terbukti"
+  "testCases.result.UNPROVEN": "Belum terbukti",
+  "testCases.disposition.KNOWN_DEFECT": "Kecacatan diketahui",
+  "testCases.disposition.NOT_A_DEFECT": "Bukan kecacatan",
+  "testCases.disposition.blocking": "Menyekat DONE — seseorang perlu memutuskan:",
+  "testCases.disposition.action.KNOWN_DEFECT": "Terima dan hantar",
+  "testCases.disposition.action.NOT_A_DEFECT": "Bukan kecacatan"
 }

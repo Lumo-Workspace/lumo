@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "不限环境",
   "testCases.form.requiresEnv.hint": "精确匹配——在别处记的通过一律封顶为未能确认。",
   "testCases.requiresEnv.badge": "仅在 {env} 成立",
-  "testCases.result.UNPROVEN": "未能确认"
+  "testCases.result.UNPROVEN": "未能确认",
+  "testCases.disposition.KNOWN_DEFECT": "已知缺陷",
+  "testCases.disposition.NOT_A_DEFECT": "不是缺陷",
+  "testCases.disposition.blocking": "正在拦截 DONE —— 需要人来裁定：",
+  "testCases.disposition.action.KNOWN_DEFECT": "认了，照发",
+  "testCases.disposition.action.NOT_A_DEFECT": "不是缺陷"
 }

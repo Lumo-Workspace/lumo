@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "Beliebige Umgebung",
   "testCases.form.requiresEnv.hint": "Exakte Übereinstimmung — ein anderswo erfasstes Bestanden wird auf unbelegt gedeckelt.",
   "testCases.requiresEnv.badge": "Beweist nur auf {env}",
-  "testCases.result.UNPROVEN": "Unbelegt"
+  "testCases.result.UNPROVEN": "Unbelegt",
+  "testCases.disposition.KNOWN_DEFECT": "Bekannter Defekt",
+  "testCases.disposition.NOT_A_DEFECT": "Kein Defekt",
+  "testCases.disposition.blocking": "Blockiert DONE — ein Mensch muss entscheiden:",
+  "testCases.disposition.action.KNOWN_DEFECT": "Akzeptieren und ausliefern",
+  "testCases.disposition.action.NOT_A_DEFECT": "Kein Defekt"
 }

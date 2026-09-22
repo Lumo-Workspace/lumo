@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "不限環境",
   "testCases.form.requiresEnv.hint": "精確比對——在別處記的通過一律封頂為未能確認。",
   "testCases.requiresEnv.badge": "僅在 {env} 成立",
-  "testCases.result.UNPROVEN": "未能確認"
+  "testCases.result.UNPROVEN": "未能確認",
+  "testCases.disposition.KNOWN_DEFECT": "已知缺陷",
+  "testCases.disposition.NOT_A_DEFECT": "不是缺陷",
+  "testCases.disposition.blocking": "正在攔截 DONE —— 需要人來裁定：",
+  "testCases.disposition.action.KNOWN_DEFECT": "認了，照發",
+  "testCases.disposition.action.NOT_A_DEFECT": "不是缺陷"
 }

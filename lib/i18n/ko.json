@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "환경 제한 없음",
   "testCases.form.requiresEnv.hint": "정확히 일치해야 합니다. 다른 곳에서 기록된 통과는 확인 못 함으로 낮춰집니다.",
   "testCases.requiresEnv.badge": "{env}에서만 유효",
-  "testCases.result.UNPROVEN": "확인 못 함"
+  "testCases.result.UNPROVEN": "확인 못 함",
+  "testCases.disposition.KNOWN_DEFECT": "알려진 결함",
+  "testCases.disposition.NOT_A_DEFECT": "결함 아님",
+  "testCases.disposition.blocking": "DONE 차단 중 — 담당자의 판단이 필요합니다:",
+  "testCases.disposition.action.KNOWN_DEFECT": "감수하고 배포",
+  "testCases.disposition.action.NOT_A_DEFECT": "결함 아님"
 }

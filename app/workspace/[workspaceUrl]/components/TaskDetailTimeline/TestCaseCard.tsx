@@ -1,18 +1,22 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import type { TestCaseRun } from '@prisma/client'
-import type { TestCaseWithRuns } from '@/lib/api-client/test-cases'
+import type {
+  TestCaseRunView,
+  TestCaseWithRuns,
+} from '@/lib/api-client/test-cases'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 import { RunHistoryList } from './RunHistoryList'
 
 interface TestCaseCardProps {
   testCase: TestCaseWithRuns
   taskIdentifier: string
-  runs: TestCaseRun[]
+  runs: TestCaseRunView[]
   /** 本任务关联的 PR 快照，用于推导每条 run 的陈旧性。 */
   pullRequests: TaskPullRequestSnapshot[]
   onRecordRun: () => void
+  /** LUM-812: 对一条已证缺陷的 run 落裁定（清它对 DONE 的拦截）。 */
+  onDispose?: (runId: string, ruling: 'KNOWN_DEFECT' | 'NOT_A_DEFECT') => void
   onEdit: () => void
   onRemove: () => void
 }
@@ -66,6 +70,7 @@ export function TestCaseCard({
   onRecordRun,
   onEdit,
   onRemove,
+  onDispose,
 }: TestCaseCardProps) {
   const intl = useIntl()
   return (
@@ -118,6 +123,7 @@ export function TestCaseCard({
           runs={runs}
           pullRequests={pullRequests}
           requiredEnvironment={testCase.requiredEnvironment}
+          {...(onDispose ? { onDispose } : {})}
         />
       </Section>
 

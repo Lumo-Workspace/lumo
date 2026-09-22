@@ -39,6 +39,15 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
+// LUM-812: the DONE gate now consults the test-case plane fail-closed (a proven,
+// undispositioned defect blocks). Default it to "no test cases" so these tests
+// keep isolating the gate they were written for.
+jest.mock('@/lib/repositories/test-case.repository', () => ({
+  testCaseRepository: {
+    listForTask: jest.fn(() => Promise.resolve([])),
+    runsPerCase: jest.fn(() => Promise.resolve(new Map())),
+  },
+}))
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
     create: jest.fn(),

@@ -66,6 +66,11 @@ async function collectCrossingPlane(
  *
  * 只取最新一条：run 是 append-only 日志，纠正一次误记的办法是再 append 一条，
  * 所以「现在是什么状态」永远等于最后那一条。
+ *
+ * LUM-812: 处置态从这条 run 自己身上读（`latest.disposition`），**不查历史**。
+ * 这正是「处置绑定在 run 上」的落点——处置完之后再 append 一条新的 defect run，
+ * 新那条的 disposition 是 null，闸门重新拦住。若改成「这个用例被处置过吗」，
+ * 一次处置就永久放行了。
  */
 async function collectTestCasePlane(
   taskId: string
@@ -99,40 +104,46 @@ async function collectTestCasePlane(
     }
 
     if (signal) {
-      out.push({ number: testCase.number, title: testCase.title, signal })
+      out.push({
+        number: testCase.number,
+        title: testCase.title,
+        signal,
+        runId: latest.id,
+        dispositioned: latest.disposition !== null,
+      })
     }
   }
   return out
 }
 
 /**
- * advisory 面是 **fail-soft** 的：它按定义改变不了 decision，所以它自己出错
- * 也绝不该拖垮 DONE 闸——既不该把一个干净的任务拦下来，也不该把这次转换
- * 打崩。拦截面则相反，一律 fail-closed：查不出来就不能放行。
+ * 只要 test case 的信号，**读端专用**（`task status` 的 next actions）。
  *
- * 这条不对称是刻意的，别「统一」成一种错误处理。
+ * 这里 fail-soft：读不出来就少显示几行提示，不该让整个 status 打不开。
+ *
+ * ## 为什么闸门不能共用这个（LUM-812 改了前提）
+ *
+ * LUM-808 时这一面纯 advisory，按定义改不了 decision，所以它自己出错也绝不该
+ * 拖垮 DONE 闸——fail-soft 是对的。**PROVEN_DEFECT 升成拦截面之后这个前提没了**：
+ * 再 fail-soft，一次查询失败就会让一条本该拦闸的 defect 静默消失、任务照过，
+ * 而且日志里只有一行 warn。
+ *
+ * 所以闸门走 `collectTestCasePlane`（fail-closed，抛出去），读端走这个。
+ * 拦截面一律 fail-closed「查不出来就不能放行」这条老规矩一个字没变——变的是
+ * 这一面现在归哪类。别把两条路径「统一」回一种错误处理。
  */
-async function collectTestCasePlaneSoft(
+export async function readTestCaseAdvisories(
   taskId: string
 ): Promise<DoneVerdictSnapshot['testCases']> {
   try {
     return await collectTestCasePlane(taskId)
   } catch (error) {
-    logger.warn('done-verdict: test-case advisory plane unavailable', {
+    logger.warn('done-verdict: test-case signals unavailable for read-out', {
       taskId,
       error: error instanceof Error ? error.message : String(error),
     })
     return []
   }
-}
-
-/**
- * 只要 test case 的 advisory 信号（读端用）。fail-soft，与闸共用同一份推导。
- */
-export function readTestCaseAdvisories(
-  taskId: string
-): Promise<DoneVerdictSnapshot['testCases']> {
-  return collectTestCasePlaneSoft(taskId)
 }
 
 /** 一次收齐四个 plane。 */
@@ -145,7 +156,8 @@ export async function collectDoneVerdictSnapshot(
       collectSendBackPlane(taskId),
       collectCrossingPlane(taskId, workspaceId),
       listOpenBlockingFindings(taskId),
-      collectTestCasePlaneSoft(taskId),
+      // fail-closed：这一面能拦闸了（LUM-812），查不出来就不能放行。
+      collectTestCasePlane(taskId),
     ]
   )
   return { sendBacks, crossings, securityFindings, testCases }

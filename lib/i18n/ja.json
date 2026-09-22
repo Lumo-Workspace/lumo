@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "環境を限定しない",
   "testCases.form.requiresEnv.hint": "完全一致で判定します。他の環境で記録された合格はすべて未確認に格下げされます。",
   "testCases.requiresEnv.badge": "{env} でのみ有効",
-  "testCases.result.UNPROVEN": "未確認"
+  "testCases.result.UNPROVEN": "未確認",
+  "testCases.disposition.KNOWN_DEFECT": "既知の不具合",
+  "testCases.disposition.NOT_A_DEFECT": "不具合ではない",
+  "testCases.disposition.blocking": "DONE をブロック中 — 人による判断が必要です:",
+  "testCases.disposition.action.KNOWN_DEFECT": "承知のうえでリリース",
+  "testCases.disposition.action.NOT_A_DEFECT": "不具合ではない"
 }

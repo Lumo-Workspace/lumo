@@ -42,10 +42,10 @@ import {
   issueReadReceipt,
   readReceiptSecret,
   verifyReadReceipt,
+  receiptRefusal,
   type IssuedReceipt,
-  type ReceiptFailure,
   type ReceiptSubject,
-} from '@/lib/boundary-crossing/read-receipt'
+} from '@/lib/disposition/read-receipt'
 
 /** LUM-769: who is asking for / presenting a read receipt. */
 export interface ReceiptCaller {
@@ -666,21 +666,6 @@ export function lastDispositionChange(
 }
 
 /** LUM-769: one 409 per receipt failure, naming the step that must run next. */
-function receiptRefusal(
-  failure: ReceiptFailure,
-  step: '--confirm-read' | '--confirm'
-): Error & { status: number } {
-  const why =
-    failure.reason === 'not_acknowledged'
-      ? 'read not yet acknowledged — run the command with --confirm-read (the receipt from the envelope) first; only the receipt that step returns is accepted with --confirm'
-      : failure.reason === 'expired'
-        ? `the read receipt has expired. Re-run the command without ${step} to read the crossing again and get a fresh envelope`
-        : failure.reason === 'malformed'
-          ? `the read receipt is malformed. Re-run the command without ${step} to get a fresh envelope`
-          : `the read receipt does not match this crossing, ruling, caller, or the crossing has changed since it was read. Re-run the command without ${step} to read the crossing again and get a fresh envelope`
-  return Object.assign(new Error(`Refused: ${why}.`), { status: 409 })
-}
-
 /** LUM-780: what the panel / CLI show for a re-judged advisory crossing. */
 export interface RejudgeView {
   reason: string
@@ -1262,7 +1247,11 @@ export const boundaryCrossingService = {
         crossingId,
       ])
     return {
-      crossingId,
+      // LUM-812: the handshake is shared with the test-case defect plane, so
+      // the subject carries its kind — a crossing receipt can never be replayed
+      // against a defect ruling.
+      kind: 'CROSSING',
+      subjectId: crossingId,
       taskId,
       target,
       sessionId: caller.sessionId,

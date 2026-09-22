@@ -186,6 +186,11 @@ enum TaskActivityType {
   TEST_CASE_UPDATED
   TEST_CASE_REMOVED
   TEST_CASE_RUN_RECORDED
+  // LUM-812: a human ruled on a PROVEN_DEFECT run (KNOWN_DEFECT / NOT_A_DEFECT).
+  // Append-only trail; the mutable state lives on TestCaseRunDisposition. CLI-channel
+  // rulings additionally carry the handshake's shown / read-acknowledged times in
+  // metadata (same shape as SECURITY_FINDING_DISPOSITIONED, LUM-750).
+  TEST_CASE_DEFECT_DISPOSITIONED
 }
 
 enum BoundaryCrossingCategory {
@@ -1024,6 +1029,7 @@ model Task {
   lumoCiRuns                 LumoCiRun[]
   testCases                  TestCase[]
   testCaseRuns               TestCaseRun[]
+  testCaseRunDispositions    TestCaseRunDisposition[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -3713,28 +3719,45 @@ enum TestCaseFailureAttribution {
   UNKNOWN
 }
 
+/// LUM-812: 一条 PROVEN_DEFECT run 的人类裁定。**两个值都清闸**（同越界的
+/// FALSE_POSITIVE / CONFIRMED 都清闸）——闸门问的从来不是「缺陷修了没」，
+/// 而是「有没有人看过一眼并拍板」。
+enum TestCaseDefectDisposition {
+  /// 认这个缺陷，照发。是个发布决定，不是对归因的否认。
+  KNOWN_DEFECT
+  /// 归因错了，这不是实现的锅（用例过时 / 外部因素 / 误判）。
+  NOT_A_DEFECT
+}
+
+/// LUM-812: 裁定是从哪条路进来的。CLI 的三步握手**证明不了人本人点的头**
+/// （agent 在转述每一步），所以来源必须留痕 —— 同 LUM-769 给越界打 channel 的理由。
+enum TestCaseDispositionChannel {
+  WEB
+  CLI
+}
+
 model TestCase {
-  id           String    @id @default(cuid())
-  taskId       String
+  id                  String           @id @default(cuid())
+  taskId              String
   /// 任务内 1-based 顺序号,兼作展示序（v1 不支持重排序）。CLI 句柄 = LUM-12/TC3。
   /// 分配走 max+1 事务 + P2002 重试（同 Idea 编号,LUM-661）。
-  number       Int
-  title        String
-  setup        String?
+  number              Int
+  title               String
+  setup               String?
   /// 有序。元素顺序即执行顺序。
-  steps        String[]
+  steps               String[]
   /// 有序,可为空数组（不是每条用例都有复验段）。
-  verification String[]
-  expected     String
+  verification        String[]
+  expected            String
   /// LUM-808 步骤 2：这条用例只有在该环境跑才证明得了东西。null = 不限。
   /// **精确相等，没有 PRODUCTION ⊇ PREVIEW ⊇ LOCAL 的层级** —— 一条测本地
   /// 工具链的用例，在生产跑并不能证明它。
   requiredEnvironment TestEnvironment?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
   /// 软删除墓碑：run→case 的审计链必须活着（同 AcceptanceCriterion.deletedAt）。
   /// 即使还没有 run 也软删,避免两条删除语义。
-  deletedAt    DateTime?
+  deletedAt           DateTime?
 
   task Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
   runs TestCaseRun[]
@@ -3804,12 +3827,46 @@ model TestCaseRun {
 
   createdAt DateTime @default(now())
 
-  testCase    TestCase     @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
-  task        Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  pullRequest PullRequest? @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
+  disposition TestCaseRunDisposition?
+  testCase    TestCase                @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+  task        Task                    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  pullRequest PullRequest?            @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
 
   @@index([testCaseId, createdAt])
   @@index([taskId, createdAt])
   @@index([pullRequestId])
   @@map("test_case_runs")
+}
+
+/// LUM-812: 一条 PROVEN_DEFECT run 的**人类处置**——第四条 DONE 拦截面的清闸口。
+///
+/// 为什么单开一行而不是加列到 TestCaseRun：后者是 append-only 事件日志（永不
+/// update、永不 delete，「不存在这两条路径」），装不下可变状态。同 BoundaryCrossing
+/// 从 TaskActivity 里分出来的理由——append-only 的东西承载不了可变的处置态。
+///
+/// **处置绑定在被处置的那一条 run 上**（runId 唯一），不是绑在用例上。闸门读的是
+/// 每条用例最新一条 run 的信号，所以处置完之后再 append 一条新的 defect run，新
+/// 信号不被旧处置遮蔽，闸门重新拦住。绑在用例上就成了「处置一次永久放行」，
+/// 整个拦截面立刻变摆设。
+model TestCaseRunDisposition {
+  id     String @id @default(cuid())
+  /// 唯一：一条 run 最多一个裁定。要改判就在 web 面板上改这一行（同越界可改判）。
+  runId  String @unique
+  /// 反范式：任务级查询免 join（同 TestCaseRun.taskId）。
+  taskId String
+
+  disposition TestCaseDefectDisposition
+  note        String?
+
+  /// WorkspaceMember id。无 FK（同 BoundaryCrossing.dispositionedById）——
+  /// 被清理的成员不应抹掉处置的出处。
+  dispositionedById String
+  dispositionedAt   DateTime                   @default(now())
+  channel           TestCaseDispositionChannel
+
+  run  TestCaseRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  task Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("test_case_run_dispositions")
 }

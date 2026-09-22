@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "Cualquier entorno",
   "testCases.form.requiresEnv.hint": "Coincidencia exacta: un aprobado registrado en otro sitio se limita a sin probar.",
   "testCases.requiresEnv.badge": "Solo prueba en {env}",
-  "testCases.result.UNPROVEN": "Sin probar"
+  "testCases.result.UNPROVEN": "Sin probar",
+  "testCases.disposition.KNOWN_DEFECT": "Defecto conocido",
+  "testCases.disposition.NOT_A_DEFECT": "No es un defecto",
+  "testCases.disposition.blocking": "Bloquea DONE — una persona debe decidir:",
+  "testCases.disposition.action.KNOWN_DEFECT": "Aceptar y publicar",
+  "testCases.disposition.action.NOT_A_DEFECT": "No es un defecto"
 }

@@ -16,7 +16,7 @@ import {
   READ_RECEIPT_TTL_MS,
   type ReceiptCrossingState,
   type ReceiptSubject,
-} from '@/lib/boundary-crossing/read-receipt'
+} from '@/lib/disposition/read-receipt'
 
 const SECRET = 'test-secret'
 const T0 = new Date('2026-09-14T10:00:00.000Z')
@@ -35,7 +35,8 @@ const state: ReceiptCrossingState = {
 }
 
 const subject: ReceiptSubject = {
-  crossingId: 'cx-1',
+  kind: 'CROSSING' as const,
+  subjectId: 'cx-1',
   taskId: 't-1',
   target: 'FALSE_POSITIVE',
   sessionId: 'sess-1',
@@ -117,7 +118,7 @@ describe('read receipt (LUM-769)', () => {
   })
 
   const drifts: Array<[string, Partial<ReceiptSubject>]> = [
-    ['another crossing', { crossingId: 'cx-2' }],
+    ['another crossing', { subjectId: 'cx-2' }],
     ['another task', { taskId: 't-2' }],
     ['the other ruling', { target: 'CONFIRMED' }],
     ['another session', { sessionId: 'sess-2' }],

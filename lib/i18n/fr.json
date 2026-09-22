@@ -2466,5 +2466,10 @@
   "testCases.form.requiresEnv.any": "N'importe quel environnement",
   "testCases.form.requiresEnv.hint": "Correspondance exacte — une réussite enregistrée ailleurs est plafonnée à non prouvée.",
   "testCases.requiresEnv.badge": "Ne prouve que sur {env}",
-  "testCases.result.UNPROVEN": "Non prouvé"
+  "testCases.result.UNPROVEN": "Non prouvé",
+  "testCases.disposition.KNOWN_DEFECT": "Défaut connu",
+  "testCases.disposition.NOT_A_DEFECT": "Pas un défaut",
+  "testCases.disposition.blocking": "Bloque DONE — un humain doit trancher :",
+  "testCases.disposition.action.KNOWN_DEFECT": "Accepter et livrer",
+  "testCases.disposition.action.NOT_A_DEFECT": "Pas un défaut"
 }

@@ -45,6 +45,7 @@ export function TestCasesTab({
     update,
     remove,
     recordRun,
+    disposeDefect,
   } = useTestCases(taskId, enabled)
   const [mode, setMode] = useState<Mode>({ kind: 'idle' })
 
@@ -139,6 +140,7 @@ export function TestCasesTab({
               onRecordRun={() => setMode({ kind: 'run', caseId: c.id })}
               onEdit={() => setMode({ kind: 'edit', caseId: c.id })}
               onRemove={() => void handleRemove(c.number)}
+              onDispose={(runId, ruling) => void disposeDefect(runId, ruling)}
             />
           )}
           {mode.kind === 'run' && mode.caseId === c.id && active ? (

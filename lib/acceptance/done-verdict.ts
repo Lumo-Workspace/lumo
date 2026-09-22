@@ -59,7 +59,15 @@ export interface DoneVerdictSnapshot {
   }
   /** 已按 workspace policy 过滤过的、未处置的**拦截级**发现。 */
   securityFindings: Array<{ ruleId: string; filePath: string }>
-  testCases: Array<{ number: number; title: string; signal: TestCaseSignal }>
+  testCases: Array<{
+    number: number
+    title: string
+    signal: TestCaseSignal
+    /** 产出这个信号的那一条 run —— 处置就挂在它身上。 */
+    runId: string
+    /** 这一条 run 已被人裁定过（KNOWN_DEFECT 或 NOT_A_DEFECT 都算）。 */
+    dispositioned: boolean
+  }>
 }
 
 export type Blocker =
@@ -74,12 +82,23 @@ export type Blocker =
       total: number
       byRule: Array<[string, number]>
     }
+  /**
+   * LUM-812: 最新一条 run 是**带证据的** IMPLEMENTATION_DEFECT，且还没人裁定过。
+   * 不做计数摘要而是逐条列出：一个任务上的用例是个位数，而「是哪条用例坏了」
+   * 恰恰是这条消息唯一有用的信息（对比越界/安全那两面动辄几十条、detail 里还
+   * 嵌着整段原文，所以那两面只给计数）。
+   */
+  | {
+      plane: 'TEST_CASE_DEFECT'
+      items: Array<{ number: number; title: string; runId: string }>
+    }
 
 export interface Advisory {
   plane: 'TEST_CASE'
   signal: TestCaseSignal
   number: number
   title: string
+  runId: string
 }
 
 export interface DoneVerdict {
@@ -129,9 +148,24 @@ function crossingsBlock(crossings: DoneVerdictSnapshot['crossings']): boolean {
 /**
  * 这个任务现在能不能转 DONE，以及什么在拦它。
  *
- * test case 的信号只进 `advisories`，**永远不改 decision**：与 Autonoma 的
- * merge gate 同调（只有「证明了坏」才拦，没测完 / 自己挂了都放行），也保住
- * LUM-801 立的「用例从不拦 DONE」。用例进闸会逆向激励「干脆不记 run」。
+ * ## test case 这一面（LUM-812 改写了 LUM-801 的规则）
+ *
+ * 与 Autonoma 的 merge gate 同调：**只有「证明了坏」才拦**，没测完 / 自己挂了
+ * 都放行。落到这里就是——
+ *
+ * | 信号 | 说的是 | 进哪 |
+ * |---|---|---|
+ * | `PROVEN_DEFECT` | 我证明了实现是坏的（带证据） | **blockers** |
+ * | `UNPROVEN_PASS` | 我没能证明它是好的 | advisories |
+ * | `CASE_OUTDATED` | 用例自己过时了 | advisories |
+ *
+ * LUM-801 原本立的是「用例从不拦 DONE」，理由是进闸会逆向激励「干脆不记 run」。
+ * 那个担心是真的，所以这里**不是硬墙**：一次人类处置就清（`dispositioned`），
+ * 语义是「已知缺陷，照发」——同越界的 FALSE_POSITIVE / CONFIRMED 都清闸。
+ * 代价从「必须先修好」降到「得有人拍一次板」，逆向激励也就没了。
+ *
+ * 能拦闸的信号**只能来自 agent 自报的归因 + 证据**，永远不能来自 LLM 判定
+ * （LUM-740：LLM_JUDGE 的发现不拦 DONE，API schema 拒绝 + reader 忽略）。
  */
 export function computeDoneVerdict(s: DoneVerdictSnapshot): DoneVerdict {
   const blockers: Blocker[] = []
@@ -153,15 +187,32 @@ export function computeDoneVerdict(s: DoneVerdictSnapshot): DoneVerdict {
       byRule: tally(s.securityFindings.map(f => f.ruleId)),
     })
   }
+  // 排在最后：上面三面的 await 顺序是历史行为，调用方抛第一个 blocker。
+  // 新面插在任何一个前面，都会悄悄改掉既有任务看到的那条 409 文案。
+  const provenDefects = s.testCases.filter(
+    tc => tc.signal === 'PROVEN_DEFECT' && !tc.dispositioned
+  )
+  if (provenDefects.length > 0) {
+    blockers.push({
+      plane: 'TEST_CASE_DEFECT',
+      items: provenDefects.map(tc => ({
+        number: tc.number,
+        title: tc.title,
+        runId: tc.runId,
+      })),
+    })
+  }
 
   return {
     decision: blockers.length > 0 ? 'BLOCKED' : 'CLEAR',
     blockers,
+    // 已处置的 defect 仍然留在 advisories —— 清掉的是「拦」，不是「有这回事」。
     advisories: s.testCases.map(tc => ({
       plane: 'TEST_CASE' as const,
       signal: tc.signal,
       number: tc.number,
       title: tc.title,
+      runId: tc.runId,
     })),
   }
 }
@@ -201,9 +252,23 @@ export function renderDoneBlockMessage(blocker: Blocker): string {
     } (false positive or confirmed) on the task timeline, or open the gate for this workspace.`
   }
 
-  const n = blocker.total
-  const summary = blocker.byRule.map(([rule, c]) => `${rule} ×${c}`).join(', ')
-  return `Cannot move this task to DONE — ${n} undispositioned blocking security finding${
+  if (blocker.plane === 'SECURITY_FINDING') {
+    const n = blocker.total
+    const summary = blocker.byRule
+      .map(([rule, c]) => `${rule} ×${c}`)
+      .join(', ')
+    return `Cannot move this task to DONE — ${n} undispositioned blocking security finding${
+      n === 1 ? '' : 's'
+    } (${summary}). A human must mark each as false positive or accepted risk.`
+  }
+
+  // LUM-812. 末句刻意点明「不必先修好」：这一面拦的是「没人拍过板」，不是
+  // 「缺陷还在」。少了这句，读的人会以为闸门在要求他先去修 bug。
+  const n = blocker.items.length
+  const cases = blocker.items.map(i => `TC${i.number} "${i.title}"`).join(', ')
+  return `Cannot move this task to DONE — ${n} test case${
     n === 1 ? '' : 's'
-  } (${summary}). A human must mark each as false positive or accepted risk.`
+  } whose latest run proved an implementation defect with evidence: ${cases}. A human must disposition ${
+    n === 1 ? 'it' : 'each'
+  } on the task timeline (known defect — ship anyway, or not a defect). Fixing the defect first is not required to clear this.`
 }
