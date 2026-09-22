@@ -655,9 +655,11 @@ export const prSecurityScanService = {
         // LUM-758: the budget is spent on WHOLE files, the ones the static
         // pass already flagged first — never on a character offset, which
         // made a file's coverage depend on where its name sorted.
-        // LUM-758: 预算按改动源文件数分档，与 L3 hunt 同一组档位边界。定值
-        // 60k 编码的是成本而不是容量，而成本该随要审的代码量走。
-        const tier = judgeDiffTier(touchedSourcePaths.length)
+        // LUM-811: 预算按 diff 自身的字符长度分档——选档量必须等于被配给量。
+        // LUM-758 拿改动源文件数选档、发的却是字符预算，于是文件少而胖的 PR
+        // 比文件多而瘦的 PR 拿到更少的预算；`judgeDiffTier` 现在只收 diff，
+        // 再把别的量喂进来是 tsc 错误。天花板（180k / 180s）不动。
+        const tier = judgeDiffTier(diff)
         const capped = packSecurityDiff(diff, {
           priorityPaths: triggerFirstPass?.sites.map(site => site.path) ?? [],
           maxChars: tier.chars,
@@ -666,7 +668,7 @@ export const prSecurityScanService = {
         if (truncated) {
           partial = true
           logger.info(
-            `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} tier=${tier.chars} sourceFiles=${touchedSourcePaths.length} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
+            `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} tier=${tier.chars} diffChars=${diff.length} sourceFiles=${touchedSourcePaths.length} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
           )
         }
         try {
