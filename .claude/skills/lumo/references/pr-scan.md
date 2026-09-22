@@ -43,6 +43,7 @@ https://github.com/Lumo-Workspace/lumo/pull/1013
 
 Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished … · trigger PR_EVENT · 61,000 tokens
   Secrets: checked · Code scan: ✗ failed (1 external finding) · Dependencies: checked · AI review: checked · Exploit paths: checked — gitleaks exit 2
+    AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%
     Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done (2 attempts) · t3 race skipped
   Findings: 6 (2 open · 1 blocks DONE · 3 dispositioned · 1 already on main)
     [HIGH] DETERMINISTIC secret:aws-access-key-id — src/cfg.ts:12 — AWS access key id (blocks DONE)
@@ -54,6 +55,13 @@ Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished … · 
 - **Header** — repo, PR state, and `task LUM-N` or `no linked task`.
 - **Scan line** — short head sha, scan status (`PENDING` / `RUNNING` / `CLEAN` / `FINDINGS` / `FAILED`), timestamps, trigger, and the hunt's token spend (`tokens not metered` when the row carries null — null is never printed as 0).
 - **Layer line** — the same five-layer grammar and display labels as `lumo task status` and the GitHub PR summary (`Secrets` · `Code scan` · `Dependencies` · `AI review` · `Exploit paths`; states `checked` / `✗ failed` / `skipped` / `off` / `scanning` / `⚠ incomplete` / `⚠ superseded`). `checked` means the layer completed, not that it found nothing. A trailing `· partial` means a layer hit its cap; `· N left the queue (…)` explains where a merged/closed PR's undispositioned rows went (LUM-775); an external-scanner reason prints only in its scrubbed form.
+- **Budget line** (LUM-814) — the AI-review layer's own arithmetic, printed whenever the layer exists, truncated or not:
+  - reviewed whole: `AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%`
+  - truncated: `AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 · 12 of 41 files dropped, 31.5% of the diff unreviewed`
+  - no record: `AI review budget: not recorded on this scan` — a scan from before the column existed, or one whose judge never reached the budget step. Never read it as a spend of zero; same fail-closed rule as `tokens not metered`. Only scans run after LUM-814 carry the numbers, so an old PR needs a re-scan to show them.
+
+  The dropped share is measured in **characters of the diff**, not in files — one dropped lockfile and one dropped route handler are not the same loss. No threshold is flagged (there is no `near cap` marker): the percentage is the signal. The count of changed **source files** is deliberately absent — LUM-811 stopped selecting the tier by it, and printing it here would imply a relationship that no longer exists.
+
 - **Coverage line** — `Exploit paths done/total` plus one `t<n> <category> <seconds> <stop>` cell per planned hunt task (LUM-762). Absent when the scan stored no usable audit.
 - **Findings** — every row of the scan, dispositioned ones included, one tag each in parentheses:
   - `blocks DONE` / `advisory` — open (undispositioned, not on main, still in the queue); the split follows the workspace policy.
@@ -122,6 +130,7 @@ before the gate counted it.
   scans: [ { id, headSha, status, trigger, judgeStatus, truncated,
              stages: { secrets?, external?, supplyChain?, judge?, hunt? },
              partial, externalFailureReason, startedAt, finishedAt, tokenSpent,
+             judgeBudget: { diffChars, tierChars, reviewedChars, coveredFiles, droppedFiles } | null,
              counts: { findings, open, blocking, dispositioned, persisting, externalFindings, dependencyFindings },
              queueExits: { RESOLVED_ON_MAIN?, MERGED_UNREVIEWED?, PR_CLOSED? },
              findings: [ { id, kind, ruleId, severity, provenance, filePath, line, title, detail,

@@ -9,6 +9,7 @@ import type {
   SecretDowngradeReason,
 } from '@/lib/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
+import type { JudgeBudget } from '@/lib/security-scan/judge-budget'
 
 export type ScanStatus = 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
 export type ScanTrigger = 'PR_EVENT' | 'PR_LINK' | 'SARIF_PUSH'
@@ -86,6 +87,14 @@ export interface FinalizeScanInput {
   status: ScanStatus
   judgeStatus: JudgeStatus | null
   truncated: boolean
+  /**
+   * LUM-814 — the judge's budget arithmetic, or null when this scan never
+   * reached the budget step (an empty diff, or a crash before the judge).
+   * null is NOT written: it leaves whatever is on the row alone, the same
+   * ingest-ownership rule the stages merge follows — a stage-A crash must not
+   * erase a number an earlier writer established.
+   */
+  judgeBudget?: JudgeBudget | null
   /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
   stages: ScanStages
   /** LUM-735 — a layer hit its cap; results are honest but not whole. */
@@ -205,6 +214,8 @@ export interface ScanReadoutRow {
   /** null = not metered (team rule: null ≠ 0). */
   tokenSpent: number | null
   huntAudit: unknown
+  /** LUM-814's budget Json, raw. The read-out parses it with `parseJudgeBudget`. */
+  judgeBudget: unknown
   findings: ReadoutFindingRow[]
 }
 
@@ -525,6 +536,12 @@ export const prSecurityScanRepository = {
           status: input.status,
           judgeStatus: input.judgeStatus,
           truncated: input.truncated,
+          ...(input.judgeBudget
+            ? {
+                judgeBudget:
+                  input.judgeBudget as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
           stages,
           partial,
           error: input.error ?? keptError ?? null,
@@ -574,6 +591,12 @@ export const prSecurityScanRepository = {
           status: final.status,
           judgeStatus: final.judgeStatus,
           truncated: final.truncated,
+          ...(final.judgeBudget
+            ? {
+                judgeBudget:
+                  final.judgeBudget as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
           stages,
           partial,
           error: final.error ?? keptError ?? null,
@@ -910,6 +933,7 @@ export const prSecurityScanRepository = {
         finishedAt: true,
         tokenSpent: true,
         huntAudit: true,
+        judgeBudget: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {

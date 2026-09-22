@@ -41,6 +41,8 @@ export {
   SECURITY_DIFF_MAX_CHARS,
 } from './truncate'
 export type { SecurityDiffBudget } from './truncate'
+export { parseJudgeBudget } from './judge-budget'
+export type { JudgeBudget } from './judge-budget'
 export {
   stagesOf,
   EXTERNAL_ERROR_PREFIX,

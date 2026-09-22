@@ -5,6 +5,8 @@ import { printRedactionNotice } from '../lib/redaction-notice'
 import {
   formatHuntCoverageLine,
   formatScanLayerTail,
+  formatJudgeBudgetLine,
+  type JudgeBudgetLine,
   type HuntCoverageInput,
 } from '../lib/scan-format'
 import {
@@ -93,6 +95,8 @@ export interface PrScanEntry {
   startedAt: string
   finishedAt: string | null
   tokenSpent: number | null
+  /** LUM-814 — the judge's budget arithmetic; absent on an older server, null = not recorded. */
+  judgeBudget?: JudgeBudgetLine | null
   counts: {
     findings: number
     open: number
@@ -227,6 +231,14 @@ function formatScan(s: PrScanEntry, full: boolean): string[] {
   })
   // The tail starts with ` · `; on its own line the leading separator goes.
   if (tail) lines.push(`  ${tail.replace(/^ · /, '')}`)
+  // LUM-814: the judge's budget arithmetic, one line under the layer it
+  // belongs to and before the hunt's own detail — stage order, same as the
+  // segments above. Printed whenever the layer exists, including when it was
+  // not truncated: "reviewed whole with 2.2% of the tier left" is a fact the
+  // `truncated` boolean above could never carry.
+  if (s.stages.judge) {
+    lines.push(`    ${formatJudgeBudgetLine(s.judgeBudget ?? null)}`)
+  }
   if (s.hunt?.coverage && s.hunt.coverage.categories.length > 0) {
     lines.push(`    ${formatHuntCoverageLine(s.hunt.coverage)}`)
   }

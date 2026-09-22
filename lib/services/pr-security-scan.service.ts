@@ -42,6 +42,7 @@ import {
   evaluateHuntTrigger,
   L4_CROSSING_CATEGORIES,
   type ScanStages,
+  type JudgeBudget,
 } from '@/lib/security-scan'
 import { isGraphSourcePath } from '@/lib/security-scan/graph/imports'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
@@ -650,6 +651,10 @@ export const prSecurityScanService = {
       // ── A4: LLM judge (advisory, fail-soft) ─────────────────────────────
       let judgeStatus: JudgeStatus = 'SKIPPED'
       let truncated = false
+      // LUM-814: what the budget pass decided, for the scan row. null until
+      // the pass actually runs — a scan with no files never had a budget, and
+      // "not recorded" is the honest reading of that, not a budget of zero.
+      let judgeBudget: JudgeBudget | null = null
       const judgeRows: NewFindingInput[] = []
       if (files.length > 0) {
         // LUM-758: the budget is spent on WHOLE files, the ones the static
@@ -665,6 +670,16 @@ export const prSecurityScanService = {
           maxChars: tier.chars,
         })
         truncated = capped.truncated
+        // LUM-814: recorded whether or not it truncated — the untruncated
+        // case is the one the old `truncated` boolean could say nothing
+        // about, and it is where the near-misses live.
+        judgeBudget = {
+          diffChars: diff.length,
+          tierChars: tier.chars,
+          reviewedChars: capped.reviewedChars,
+          coveredFiles: capped.covered.length,
+          droppedFiles: capped.dropped.length,
+        }
         if (truncated) {
           partial = true
           logger.info(
@@ -785,6 +800,7 @@ export const prSecurityScanService = {
         status,
         judgeStatus,
         truncated,
+        judgeBudget,
         stages,
         partial,
         ...(externalError ? { error: externalError } : {}),

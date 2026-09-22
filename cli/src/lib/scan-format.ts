@@ -89,6 +89,80 @@ export function formatScanLayerTail(s: ScanLayerLineInput): string {
   return line
 }
 
+/**
+ * LUM-814 — the judge's budget arithmetic as the server recorded it. Shape
+ * frozen: an older CLI must keep working against a newer server, and this CLI
+ * must keep working against a server that has no such column (the field is
+ * absent, which reads the same as "not recorded").
+ */
+export interface JudgeBudgetLine {
+  diffChars: number
+  tierChars: number
+  reviewedChars: number
+  coveredFiles: number
+  droppedFiles: number
+}
+
+function count(n: number): string {
+  return n.toLocaleString('en-US')
+}
+
+/**
+ * LUM-814 — one line of budget arithmetic under the layer line:
+ *
+ *   `AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%`
+ *   `AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 ·
+ *    12 of 41 files dropped, 30.9% of the diff unreviewed`
+ *   `AI review budget: not recorded on this scan`
+ *
+ * It is unconditional by design. `truncated` alone cannot tell a PR that
+ * spent 2% of its tier from one that spent 98%, and the near-miss is exactly
+ * the case worth seeing: both print `AI review: checked` and read identically
+ * without these numbers. Deciding to print them only on truncation would say
+ * nothing about any PR that was reviewed whole — which is most of them.
+ *
+ * `null` prints "not recorded", never a budget of zero: a scan from before
+ * the column existed spent an unknown amount, not nothing. Same fail-closed
+ * rule as `tokens not metered`.
+ *
+ * Headroom is clamped at zero and no threshold is flagged. A "near cap"
+ * marker would need a constant nobody derived, and the percentage already
+ * says how near it is — whoever reads 2.2% does not need to be told twice.
+ * The count of changed SOURCE FILES is deliberately absent: LUM-811 stopped
+ * selecting the tier by it, so printing it beside the budget would imply a
+ * relationship that no longer exists.
+ *
+ * Headed by the same display label as the layer's own segment (LUM-763), so
+ * the two lines cannot name the layer two different ways.
+ */
+export function formatJudgeBudgetLine(b: JudgeBudgetLine | null): string {
+  const head = `${scanStageLabel('judge')} budget`
+  if (b === null) return `${head}: not recorded on this scan`
+  const parts = [
+    `diff ${count(b.diffChars)} chars`,
+    `tier ${count(b.tierChars)}`,
+  ]
+  if (b.droppedFiles > 0) {
+    if (b.diffChars > b.tierChars)
+      parts.push(`over by ${count(b.diffChars - b.tierChars)}`)
+    const total = b.coveredFiles + b.droppedFiles
+    // Share of the DIFF left unreviewed, not the share of files: one dropped
+    // lockfile and one dropped route handler are not the same loss.
+    const unreviewed =
+      b.diffChars > 0
+        ? ((b.diffChars - b.reviewedChars) / b.diffChars) * 100
+        : 0
+    parts.push(
+      `${count(b.droppedFiles)} of ${count(total)} files dropped, ${unreviewed.toFixed(1)}% of the diff unreviewed`
+    )
+  } else {
+    const left = Math.max(0, b.tierChars - b.diffChars)
+    const pct = b.tierChars > 0 ? (left / b.tierChars) * 100 : 0
+    parts.push(`${count(left)} left, ${pct.toFixed(1)}%`)
+  }
+  return `${head}: ${parts.join(' · ')}`
+}
+
 /** LUM-762 — one planned task's coverage row (shape frozen for older CLIs). */
 export interface HuntCoverageRow {
   taskId?: string | undefined

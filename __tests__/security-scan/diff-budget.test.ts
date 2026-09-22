@@ -84,7 +84,27 @@ describe('packSecurityDiff', () => {
       truncated: false,
       covered: ['app/a.ts'],
       dropped: [],
+      reviewedChars: diff.length,
     })
+  })
+
+  // LUM-814: `reviewedChars` is what the SCAN RECORD reports as reviewed, so
+  // it must count diff only. `text.length` includes the omission marker —
+  // prose the judge reads that the diff never contained — and using it would
+  // report more of the diff reviewed than exists on a heavily dropped PR.
+  it('counts reviewed characters of the diff, excluding the omission marker', () => {
+    const diff = [
+      fileSection('a.ts', bulk(3000)),
+      fileSection('b.ts', bulk(3000)),
+      fileSection('c.ts', 'const c = 1'),
+    ].join('\n')
+
+    const packed = packSecurityDiff(diff)
+    expect(packed.truncated).toBe(true)
+    expect(packed.text).toContain('files omitted to fit the review budget')
+    expect(packed.reviewedChars).toBeLessThan(packed.text.length)
+    expect(packed.reviewedChars).toBeLessThan(diff.length)
+    expect(packed.reviewedChars).toBeLessThanOrEqual(SECURITY_DIFF_MAX_CHARS)
   })
 
   // The defect this replaces: the cut was positional, so a file's coverage
