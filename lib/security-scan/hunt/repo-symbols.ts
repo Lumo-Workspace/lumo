@@ -99,12 +99,30 @@ const SINK_RULES_BY_ID = new Map<string, CallRule>(
  * recognises, so no `<file>#<name>` id is required of it. A library function
  * cannot have one, and demanding it is what made `generateText` unverifiable.
  */
+/**
+ * LUM-809 — placement is the permissive direction, and `exec` is where the
+ * two directions genuinely disagree.
+ *
+ * `SINK_RULES` stopped taking `exec` off an arbitrary receiver because that
+ * table also DETECTS: it reads raw diff lines, where `RE.exec(s)` is a regex
+ * 76 times out of 76 in this repository and lighting the hunt on one costs a
+ * six-figure token budget. Here nothing is being detected — an agent has
+ * already found a call and named its sink, so `cp.exec` is a plausible thing
+ * to be handed and placing it costs nothing. Refusing it is the LUM-798
+ * failure exactly: a candidate killed over naming, before any check that
+ * could have judged the code.
+ */
+const PLACEMENT_ONLY_SINKS: readonly CallRule[] = [
+  { id: 'child-process', callee: /(^|\.)exec$/ },
+]
+
 export function matchSinkRule(symbol: string): CallRule | null {
   const name = symbolNameOf(symbol)
   return (
     matchCallRule(SINK_RULES, name) ??
     matchCallRule(NEW_EXPRESSION_SINKS, name) ??
     SINK_RULES_BY_ID.get(name.replace(/_/g, '-')) ??
+    matchCallRule(PLACEMENT_ONLY_SINKS, name) ??
     null
   )
 }
