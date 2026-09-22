@@ -103,23 +103,33 @@ describe('LUM-809 child-process sink: the receiver decides', () => {
   it('no dot-exec call site in the repo reads as a child-process sink', () => {
     // The real inventory, not a fixture: every tracked line that calls `.exec(`
     // on something. The module-qualified forms are the ones that SHOULD hit, so
-    // they are the only exclusion — anything else hitting means the collision is
-    // back.
+    // they are the only exclusion — anything else hitting means the collision
+    // is back.
     const out = execFileSync(
       'git',
       ['grep', '-I', '-hE', '\\.exec\\(', '--', '*.ts', '*.tsx'],
       { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
     )
-    const lines = out
-      .split('\n')
-      .filter(l => l.includes('.exec('))
-      .filter(l => !/\b(child_process|childProcess)\.exec\(/.test(l))
+
+    // Probe the `<receiver>.exec(` fragment, not the whole line: a line can
+    // carry other calls, and this very file's header comment mentions both
+    // `/re/.exec(s)` and a bare `exec(cmd)` in one sentence — feeding the line
+    // whole would score the prose's bare call against the dotted claim.
+    const RECEIVER_EXEC = /(\S+?)\.exec\(/g
+    const fragments = [
+      ...new Set(
+        out
+          .split('\n')
+          .flatMap(line => [...line.matchAll(RECEIVER_EXEC)].map(m => m[0]))
+          .filter(f => !/(child_process|childProcess)\.exec\($/.test(f))
+      ),
+    ]
 
     // A sweep that swept nothing would pass for the wrong reason.
-    expect(lines.length).toBeGreaterThan(50)
+    expect(fragments.length).toBeGreaterThan(50)
 
-    const hits = lines.filter(l =>
-      textSinks(l).includes('diff:sink:child-process')
+    const hits = fragments.filter(f =>
+      textSinks(`${f}arg)`).includes('diff:sink:child-process')
     )
     expect(hits).toEqual([])
   })
