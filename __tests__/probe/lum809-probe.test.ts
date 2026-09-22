@@ -1,4 +1,5 @@
 /** @jest-environment node */
+import { exec } from 'node:child_process'
 /**
  * LUM-809 probe — throwaway. This branch exists only so `lumo pr scan` can be
  * read against the rule now deployed in production; it is never merged.
@@ -16,3 +17,14 @@ describe('LUM-809 probe', () => {
     expect(m?.[1]).toBe('42')
   })
 })
+
+/**
+ * LUM-809 probe, reverse direction. Never invoked, and the command is a
+ * literal, so there is nothing tainted here to find — the point is only that
+ * a bare call to the imported name is still RECOGNISED as a child process
+ * after the rule was narrowed. If this half does not light the layer, the
+ * narrowing went too far and real sinks stopped being seen.
+ */
+export function neverRun(): void {
+  exec('true', () => {})
+}
