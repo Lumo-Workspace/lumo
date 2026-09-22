@@ -20,6 +20,8 @@ interface BoundResponse {
   securityFindingsSection?: string
   /** Acceptance contract (or draft nudge); absent on older servers. */
   criteriaSection?: string
+  /** LUM-807: "## Test cases" nudge; absent on older servers. */
+  testCaseSection?: string
   /** Absent on older servers — the block is simply omitted (LUM-686). */
   nextSteps?: NextStep[]
 }
@@ -192,6 +194,12 @@ export async function sessionAttach(
   if (body.criteriaSection) {
     console.log('')
     console.log(sanitizeField(body.criteriaSection))
+  }
+  // LUM-807: test-case nudge right after the contract — the contract says what
+  // "done" means, this says what script proves it again tomorrow.
+  if (body.testCaseSection) {
+    console.log('')
+    console.log(sanitizeField(body.testCaseSection))
   }
   if (body.memorySection !== '') {
     console.log('')

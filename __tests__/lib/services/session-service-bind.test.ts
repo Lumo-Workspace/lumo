@@ -25,6 +25,8 @@ jest.mock('@/lib/services/task.service', () => ({
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: {
     buildMemorySectionForTask: jest.fn(),
+    // LUM-807: attach carries the test-case nudge beside the contract.
+    buildTestCaseSectionForTask: jest.fn(async () => ''),
     buildCriteriaSectionForTask: jest.fn(),
     buildPreviousSessionRecoveryForTask: jest.fn(),
   },
@@ -123,6 +125,8 @@ describe('sessionService.bindSessionToTask', () => {
       retaggedEventCount: 3,
       memorySection: '',
       criteriaSection: '',
+      // LUM-807: the test-case nudge rides alongside the contract.
+      testCaseSection: '',
       previousSession: null,
       blockerWarningSection: '',
       securityFindingsSection: '',

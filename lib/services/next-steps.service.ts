@@ -2,6 +2,7 @@ import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-cri
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { isUnmetForDisplay } from '@/lib/acceptance/unmet-display'
+import { testCaseReminderService } from '@/lib/services/test-case-reminder.service'
 import {
   computeNextSteps,
   type NextStep,
@@ -39,12 +40,29 @@ export const nextStepsService = {
      * the same advice would print twice on one screen.
      */
     criteriaNudgeAlreadyShown: boolean
+    /**
+     * LUM-807: true for the surfaces that already render the start-of-work
+     * test-case section, so the delivery-time suggestion doesn't repeat it.
+     */
+    testCaseNudgeAlreadyShown?: boolean | undefined
   }): Promise<NextStep[]> {
-    const [criteria, hasOpenCrossing, latestRuns] = await Promise.all([
-      acceptanceCriterionRepository.listByTask(args.taskId),
-      boundaryCrossingRepository.hasOpenForTask(args.taskId),
-      verificationRunRepository.latestRunsByCriterion(args.taskId),
-    ])
+    const [criteria, hasOpenCrossing, latestRuns, testCase] = await Promise.all(
+      [
+        acceptanceCriterionRepository.listByTask(args.taskId),
+        boundaryCrossingRepository.hasOpenForTask(args.taskId),
+        verificationRunRepository.latestRunsByCriterion(args.taskId),
+        // LUM-807: two existence checks; the rule table decides what they
+        // mean. Degrades to `undefined` on a read failure — the rule then
+        // stays silent, exactly as it does against an older server. An
+        // advisory suggestion must never take a task command down with it.
+        testCaseReminderService
+          .stateForTask({
+            taskId: args.taskId,
+            taskDone: args.status === 'DONE',
+          })
+          .catch(() => undefined),
+      ]
+    )
 
     const runs = [...latestRuns.values()]
     // Rounds are 0-indexed on the run rows; the round the task is *on* is one
@@ -75,6 +93,8 @@ export const nextStepsService = {
       verifyRound,
       hasUnmetCriteria,
       criteriaNudgeAlreadyShown: args.criteriaNudgeAlreadyShown,
+      testCase,
+      testCaseNudgeAlreadyShown: args.testCaseNudgeAlreadyShown ?? false,
     })
   },
 }

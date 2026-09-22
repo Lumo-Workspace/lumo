@@ -240,6 +240,13 @@ export interface TaskStatusResponse {
         /** LUM-758 follow-up: why a secret row is LOW. Absent on an older server. */
         secretDowngrade?: string | null
       }
+    /** LUM-807: advisory only — never blocks DONE, never counted as unmet. */
+    | {
+        kind: 'TEST_CASE'
+        statement: string
+        command: string
+        advisory: true
+      }
   >
   /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
    *  confirm); optional so a new CLI tolerates an older server. */
@@ -305,22 +312,40 @@ function tail(s: string, max: number): string {
 type NextActionItem = TaskStatusResponse['nextActions'][number]
 type CriterionAction = Extract<NextActionItem, { criterionId: string }>
 type SecurityAction = Extract<NextActionItem, { kind: 'SECURITY_FINDING' }>
+type TestCaseAction = Extract<NextActionItem, { kind: 'TEST_CASE' }>
 
 /** A missing `kind` is an older server's criterion entry (LUM-737 additive rule). */
 function isSecurityAction(a: NextActionItem): a is SecurityAction {
   return a.kind === 'SECURITY_FINDING'
 }
+/** LUM-807. Split out explicitly: the default bucket is the *criteria* one,
+ *  which feeds `unmet` arithmetic and the verify prompt — an advisory row
+ *  landing there would read as a criterion the task must satisfy. */
+function isTestCaseAction(a: NextActionItem): a is TestCaseAction {
+  return a.kind === 'TEST_CASE'
+}
 function splitNextActions(actions: NextActionItem[]): {
   criteria: CriterionAction[]
   security: SecurityAction[]
+  testCase: TestCaseAction[]
 } {
   const criteria: CriterionAction[] = []
   const security: SecurityAction[] = []
+  const testCase: TestCaseAction[] = []
   for (const a of actions) {
     if (isSecurityAction(a)) security.push(a)
+    else if (isTestCaseAction(a)) testCase.push(a)
     else criteria.push(a)
   }
-  return { criteria, security }
+  return { criteria, security, testCase }
+}
+
+/** One advisory line + the command that clears it (LUM-807). */
+function pushTestCaseActions(lines: string[], actions: TestCaseAction[]): void {
+  for (const a of actions) {
+    lines.push(`  • [TEST CASE] ${sanitizeField(a.statement)} (advisory)`)
+    lines.push(`    run: ${sanitizeField(a.command)}`)
+  }
 }
 
 /** Same line grammar as the session-start / PreToolUse reminders. */
@@ -472,8 +497,11 @@ export function formatTaskStatus(
   // zero-criteria early return below and the --full rollup can render/count
   // undispositioned security findings without either dropping them or
   // subtracting them from the criteria-met arithmetic.
-  const { criteria: unmetCriteria, security: securityActions } =
-    splitNextActions(data.nextActions)
+  const {
+    criteria: unmetCriteria,
+    security: securityActions,
+    testCase: testCaseActions,
+  } = splitNextActions(data.nextActions)
 
   if (data.criteria.length === 0) {
     lines.push('')
@@ -487,6 +515,10 @@ export function formatTaskStatus(
       )
       pushSecurityActions(lines, securityActions)
       lines.push(SECURITY_HINT)
+    }
+    if (testCaseActions.length > 0) {
+      lines.push('')
+      pushTestCaseActions(lines, testCaseActions)
     }
     pushSecurityCoverage(lines, data)
     pushOpenCrossings(lines, extras)
@@ -640,6 +672,9 @@ export function formatTaskStatus(
         ? contractSettledLine(data.criteria)
         : 'Nothing unmet — but no verification has run; run `lumo verify` to judge the contract.'
     )
+    // LUM-807: a settled contract is exactly when the advisory is worth
+    // reading — nothing is being blocked, and the script is still unrecorded.
+    pushTestCaseActions(lines, testCaseActions)
   } else {
     lines.push(`Next actions (${unmetCriteria.length} unmet${securityLabel}):`)
     for (const a of unmetCriteria) {
@@ -655,6 +690,8 @@ export function formatTaskStatus(
     }
     // LUM-737: findings after the contract — constraints on DONE, not criteria.
     pushSecurityActions(lines, securityActions)
+    // LUM-807: advisory last — after everything that can actually hold DONE.
+    pushTestCaseActions(lines, testCaseActions)
     if (data.escalated) {
       lines.push('Wait for human direction before touching these.')
     } else if (unmetCriteria.length > 0) {

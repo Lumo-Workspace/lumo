@@ -69,6 +69,9 @@ export async function POST(
       // Attaching is what just happened.
       sessionBound: true,
       criteriaNudgeAlreadyShown: true,
+      // LUM-807: same reasoning for the test-case nudge — the response carries
+      // the section, so the rule table must not repeat it as a step.
+      testCaseNudgeAlreadyShown: true,
     })
     return NextResponse.json({ ...bound, nextSteps })
   } catch (error) {

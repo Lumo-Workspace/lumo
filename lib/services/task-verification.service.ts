@@ -36,6 +36,13 @@ import { taskClaimSnapshotService } from '@/lib/services/task-claim-snapshot.ser
 import { taskCriteriaSnapshotService } from '@/lib/services/task-criteria-snapshot.service'
 import { isValidTaskTransition } from '@/lib/task/state-machine'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import {
+  remindOnDelivery,
+  renderTestCaseVerifyNudge,
+  testCaseAddCommand,
+  TEST_CASE_ADVISORY_STATEMENT,
+} from '@/lib/context/render/test-case-reminder'
+import { testCaseReminderService } from '@/lib/services/test-case-reminder.service'
 import { logger } from '@/lib/logger'
 import {
   prSecurityReminderService,
@@ -100,6 +107,14 @@ export interface MachineRoundOutcome {
     checkpointer: string | null
     rejectionReason: string | null
   }>
+  /**
+   * LUM-807: one-line reminder to record the script this round was verified
+   * by hand with, rendered only on an all-pass round that delivered a task
+   * with a PR and no test case. `null` everywhere else — including every FAIL
+   * round, where the agent has failures to read, not scripts to write.
+   * Advisory: it neither gates the round nor touches the DONE path.
+   */
+  testCaseNudge: string | null
 }
 
 /**
@@ -372,7 +387,25 @@ export interface NextActionSecurityFinding {
  * contract but a hard constraint on DONE when `blocking`. Additive: consumers
  * that pre-date `kind` should treat a missing kind as CRITERION.
  */
-export type NextAction = NextActionCriterion | NextActionSecurityFinding
+/**
+ * LUM-807: the advisory row for a task that has a PR but no recorded test
+ * case. Deliberately shaped like a finding row minus everything that gates:
+ * no severity, no `blocking` flag to be true — it can only ever be advice.
+ * The DONE gate never reads it.
+ */
+export interface NextActionTestCase {
+  kind: 'TEST_CASE'
+  statement: string
+  /** The command that resolves it; the CLI prints it verbatim. */
+  command: string
+  /** Always `true` — spelled out so a reader never has to infer it. */
+  advisory: true
+}
+
+export type NextAction =
+  | NextActionCriterion
+  | NextActionSecurityFinding
+  | NextActionTestCase
 export interface TaskSecurityFindingsSummary {
   open: number
   blocking: number
@@ -485,6 +518,34 @@ function cleanNullable(value: string | null | undefined): string | null {
   if (value == null) return null
   const cleaned = sanitizeField(value).trim()
   return cleaned.length > 0 ? cleaned : null
+}
+
+/**
+ * LUM-807: the all-pass verify nudge. Reads the reminder state and renders the
+ * one-liner only when a PR exists and no script is recorded. Self-catching —
+ * a passing round must never fail because a reminder could not be computed.
+ */
+async function testCaseDeliveryNudge(
+  taskId: string,
+  detail: unknown
+): Promise<string | null> {
+  try {
+    const d = detail as {
+      number?: number
+      status?: string
+      team?: { identifier?: string }
+    } | null
+    const prefix = d?.team?.identifier
+    if (!prefix || d?.number == null) return null
+    const state = await testCaseReminderService.stateForTask({
+      taskId,
+      taskDone: d.status === 'DONE',
+    })
+    if (!remindOnDelivery(state)) return null
+    return renderTestCaseVerifyNudge(`${prefix}-${d.number}`)
+  } catch {
+    return null
+  }
 }
 
 export const taskVerificationService = {
@@ -690,6 +751,10 @@ export const taskVerificationService = {
           attribution.sourceSessionId
         )
       }
+      // LUM-807: the delivery moment — the agent has just re-run something by
+      // hand, so this is the cheapest point to ask for it in a re-runnable
+      // form. Best-effort: a read failure must never fail a passing round.
+      const testCaseNudge = await testCaseDeliveryNudge(taskId, detail)
       return {
         round,
         maxRounds,
@@ -698,6 +763,7 @@ export const taskVerificationService = {
         taskStatus,
         results: cleaned,
         nextActions: [],
+        testCaseNudge,
       }
     }
 
@@ -743,6 +809,9 @@ export const taskVerificationService = {
         checkpointer: machineById.get(r.criterionId)?.checkpointer ?? null,
         rejectionReason: r.rejectionReason,
       })),
+      // A failing round has failures to read; a test-case ask here would
+      // compete with them for attention (LUM-807).
+      testCaseNudge: null,
     }
   },
 
@@ -772,6 +841,7 @@ export const taskVerificationService = {
       latestWithdrawal,
       latestHumanVerdictAction,
       securityState,
+      testCaseState,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -818,6 +888,13 @@ export const taskVerificationService = {
           })
           return null
         }),
+      // LUM-807: two existence checks behind the same service every other
+      // surface uses, so the advisory row can never disagree with the `Next:`
+      // suggestion or the attach nudge. `taskDone` is refined off the header
+      // below — the read itself doesn't need it.
+      testCaseReminderService
+        .stateForTask({ taskId, taskDone: false })
+        .catch(() => null),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -1252,6 +1329,25 @@ export const taskVerificationService = {
             secretDowngrade: f.secretDowngrade ?? null,
           })
         ),
+        // LUM-807: last, and advisory-only. A missing test case is not a
+        // constraint on DONE — unlike a blocking finding it never refuses the
+        // transition, and `unmetCriteriaCount` (contract rows only) ignores it.
+        ...(testCaseState !== null &&
+        remindOnDelivery({
+          ...testCaseState,
+          taskDone: header.status === 'DONE',
+        })
+          ? [
+              {
+                kind: 'TEST_CASE' as const,
+                statement: TEST_CASE_ADVISORY_STATEMENT,
+                command: testCaseAddCommand(
+                  `${header.team.identifier}-${header.number}`
+                ),
+                advisory: true as const,
+              },
+            ]
+          : []),
       ],
       securityFindings: securityState
         ? {

@@ -22,6 +22,8 @@ export async function POST(request: Request) {
       const sessionId = ctx.sessionId
       const binding = await sessionRepository.findTaskBinding(sessionId)
       let criteriaSection = ''
+      // LUM-807: "## Test cases" nudge, injected beside the contract.
+      let testCaseSection = ''
       let progressSection = ''
       let memorySection = ''
       let linkedResourcesSection = ''
@@ -67,6 +69,7 @@ export async function POST(request: Request) {
           ),
         ])
         criteriaSection = sections.criteriaSection
+        testCaseSection = sections.testCaseSection
         progressSection = progress
         memorySection = sections.memorySection
         linkedResourcesSection = sections.linkedResourcesSection
@@ -192,6 +195,7 @@ export async function POST(request: Request) {
         sessionId,
         taskBinding: binding,
         criteriaSection,
+        testCaseSection,
         progressSection,
         memorySection,
         linkedResourcesSection,

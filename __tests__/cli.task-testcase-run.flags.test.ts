@@ -11,6 +11,7 @@ import {
   resolveRunLocator,
   readGitCoordinate,
   resolveCommitCoordinate,
+  evidenceHint,
 } from '@/cli/src/lib/test-case-handle'
 
 describe('splitCaseHandle', () => {
@@ -191,5 +192,33 @@ describe('resolveCommitCoordinate', () => {
     const r = resolveCommitCoordinate({ env: 'LOCAL', readGit: noGit })
     expect(r.commitSha).toBeNull()
     expect(r.hint).toMatch(/not a git checkout/i)
+  })
+})
+
+/**
+ * LUM-807 follow-up. The gap this closes was found by walking the flow: the
+ * flags existed and were documented, but nothing ever asked for evidence at
+ * the one moment the output is still on screen — so a run got recorded as a
+ * bare "PASS on LOCAL" with the transcript already gone.
+ */
+describe('evidenceHint', () => {
+  it('run without evidence prints a hint and a fail run says it louder', () => {
+    const pass = evidenceHint({ evidenceCount: 0, result: 'PASS' })
+    expect(pass).toContain('--evidence-file')
+    expect(pass).toContain('nobody else can re-read')
+
+    // A FAIL is the row where a missing transcript costs the most.
+    const fail = evidenceHint({ evidenceCount: 0, result: 'FAIL' })
+    expect(fail).toContain('--evidence-file')
+    expect(fail).toContain('a verdict, not a finding')
+    expect(fail).not.toEqual(pass)
+
+    // BLOCKED is not a failure of the thing under test — ordinary wording.
+    expect(evidenceHint({ evidenceCount: 0, result: 'BLOCKED' })).toEqual(pass)
+
+    // Nothing to ask for once evidence rode along — the caller appends
+    // unconditionally, so silence has to come from here.
+    expect(evidenceHint({ evidenceCount: 1, result: 'PASS' })).toBeNull()
+    expect(evidenceHint({ evidenceCount: 3, result: 'FAIL' })).toBeNull()
   })
 })

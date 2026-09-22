@@ -60,6 +60,11 @@ import {
   renderCriteriaDraftNudge,
 } from '@/lib/context/render'
 import {
+  remindAtStart,
+  renderTestCaseStartNudge,
+} from '@/lib/context/render/test-case-reminder'
+import { testCaseReminderService } from '@/lib/services/test-case-reminder.service'
+import {
   stripPrMirrorHeader,
   REVIEW_HEADER,
 } from '@/lib/integrations/github/markdown-bridge'
@@ -173,6 +178,12 @@ export interface TaskContext {
    * one needs a migration plus the LUM-276 write-key==read-key read side).
    */
   criteriaSection: string
+  /**
+   * Pre-rendered "## Test cases" nudge (LUM-807); empty once the task has a
+   * recorded script, and on DONE tasks. Ungated by PR on purpose — see
+   * `lib/context/render/test-case-reminder.ts`.
+   */
+  testCaseSection: string
   /** Pre-rendered "## Slack Context" markdown; empty when no contexts attached. */
   slackContextSection: string
   /** Pre-rendered "## Web Links" markdown; empty when no links attached. */
@@ -685,6 +696,27 @@ export const taskContextService = {
   },
 
   /**
+   * Build the standalone "## Test cases" nudge for a task (LUM-807): one short
+   * block telling the agent to record a re-runnable script, shown while the
+   * task has none. No PR gate — at attach/context time there is usually no PR
+   * yet, and gating on one would hide the reminder exactly when acting on it
+   * is cheapest. Empty string for a missing/DONE task, or once a script
+   * exists.
+   */
+  async buildTestCaseSectionForTask(
+    taskId: string,
+    taskIdentifier: string,
+    status: string
+  ): Promise<string> {
+    return testCaseReminderService
+      .stateForTask({ taskId, taskDone: status === 'DONE' })
+      .then(state =>
+        remindAtStart(state) ? renderTestCaseStartNudge(taskIdentifier) : ''
+      )
+      .catch(() => '')
+  },
+
+  /**
    * Build the session-start injection payload for a bound task: memory plus the
    * linked Slack/web/Figma/PR cards, all sharing one global token budget
    * (priority memory > PR > Slack > Figma > web). Overflowed cards degrade to a
@@ -697,6 +729,8 @@ export const taskContextService = {
    */
   async buildSessionStartSections(taskId: string): Promise<{
     criteriaSection: string
+    /** LUM-807: "## Test cases" nudge ('' once a script exists or on DONE). */
+    testCaseSection: string
     memorySection: string
     linkedResourcesSection: string
     /** LUM-737: undispositioned security findings on the task's PRs ('' = nothing to show). */
@@ -725,6 +759,7 @@ export const taskContextService = {
     }
     const empty = {
       criteriaSection: '',
+      testCaseSection: '',
       memorySection: '',
       linkedResourcesSection: '',
       securityFindingsSection: '',
@@ -897,6 +932,18 @@ export const taskContextService = {
             )
           : ''
 
+    // LUM-807: the test-case nudge sits beside the contract — same moment
+    // (before the first line of code), different question: the contract says
+    // what "done" means, this says what script proves it again tomorrow.
+    // Isolated like every other section here: a reminder that cannot be
+    // computed renders empty rather than failing the whole injection.
+    const testCaseSection = await testCaseReminderService
+      .stateForTask({ taskId, taskDone: task.status === 'DONE' })
+      .then(state =>
+        remindAtStart(state) ? renderTestCaseStartNudge(taskIdentifier) : ''
+      )
+      .catch(() => '')
+
     // LUM-500: linked resources are Tier-2 — each renders as a clean manifest
     // block (heading + one descriptive one-line manifest per card), never a
     // full budgeted card. An agent reads the index and pulls only what it
@@ -1013,6 +1060,7 @@ export const taskContextService = {
       // value; adding one means a migration + the LUM-276 write-key==read-key
       // contract on the read side — deferred rather than half-joined).
       criteriaSection,
+      testCaseSection,
       memorySection,
       linkedResourcesSection: wrapUntrustedLinked(linkedJoined),
       securityFindingsSection,
@@ -1264,6 +1312,18 @@ export const taskContextService = {
       }
     }
 
+    // LUM-807: the test-case nudge rides alongside the contract — `task
+    // context` is the same read-the-context moment, and a script recorded now
+    // is one that can be re-run for the life of the task.
+    const testCaseSection = await testCaseReminderService
+      .stateForTask({ taskId: resolved.id, taskDone: full.status === 'DONE' })
+      .then(state =>
+        remindAtStart(state)
+          ? renderTestCaseStartNudge(resolved.identifier)
+          : ''
+      )
+      .catch(() => '')
+
     // Mentioned documents (EXPLICIT + CONTENT, workspace-visibility filtered).
     const docs = (await miscRepository.findDocumentsForContext(
       resolved.id,
@@ -1402,6 +1462,7 @@ export const taskContextService = {
       },
       memorySection,
       criteriaSection,
+      testCaseSection,
       // LUM-347 follow-up: every member/externally-authored free-text section
       // crosses the same LUM-140 injection surface when the CLI prints it, so
       // it leaves the service wrapped — mirroring what buildSessionStartSections

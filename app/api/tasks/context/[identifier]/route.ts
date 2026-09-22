@@ -31,6 +31,8 @@ export async function GET(
     status: result.task.status as TaskStatusForNextSteps,
     sessionBound: true,
     criteriaNudgeAlreadyShown: true,
+    // LUM-807: ditto for the test-case nudge the payload already carries.
+    testCaseNudgeAlreadyShown: true,
   })
   return NextResponse.json({ ...result, nextSteps })
 }

@@ -27,6 +27,8 @@ interface RoundOutcome {
   round: number
   maxRounds: number
   allPassed: boolean
+  /** LUM-807: one-line test-case reminder; absent on older servers. */
+  testCaseNudge?: string | null
   escalated: boolean
   taskStatus: string
   bindingAdvisory?: 'unbound' | 'unconfirmed' | null
@@ -319,6 +321,12 @@ export async function verify(
       `✓ All MACHINE criteria passed — task is now ${outcome.taskStatus}.\n` +
         `Stop here: human adjudication (and any HUMAN criteria) take over from this point.\n`
     )
+    // LUM-807: advisory, and last — the stop-here line above stays the
+    // operative instruction. Server-rendered and only present when the task
+    // has a PR but no recorded script.
+    if (outcome.testCaseNudge) {
+      process.stdout.write(`${sanitizeField(outcome.testCaseNudge)}\n`)
+    }
     return
   }
 
