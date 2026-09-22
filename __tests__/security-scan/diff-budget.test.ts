@@ -172,28 +172,106 @@ describe('packSecurityDiff', () => {
 })
 
 describe('judgeDiffTier', () => {
-  it('grows the budget with the number of changed source files', () => {
-    expect(judgeDiffTier(1).chars).toBe(SECURITY_DIFF_MAX_CHARS)
-    expect(judgeDiffTier(12).chars).toBe(SECURITY_DIFF_MAX_CHARS)
-    expect(judgeDiffTier(13).chars).toBeGreaterThan(SECURITY_DIFF_MAX_CHARS)
-    expect(judgeDiffTier(31).chars).toBeGreaterThan(judgeDiffTier(30).chars)
-    expect(judgeDiffTier(10_000).chars).toBe(judgeDiffTier(31).chars)
+  /** A diff of exactly `n` characters — the tier only ever reads its length. */
+  const diffOf = (n: number): string => 'x'.repeat(n)
+
+  const LENGTHS = [
+    0, 1, 1_000, 59_999, 60_000, 60_001, 100_000, 119_999, 120_000, 120_001,
+    150_000, 179_999, 180_000, 180_001, 500_000, 5_000_000,
+  ]
+
+  // LUM-811 — the whole point: the quantity that PICKS the tier is the
+  // quantity the tier HANDS OUT. Under the old file-count proxy a 6-file,
+  // 171k-char PR landed in the 60k tier and lost 65% of itself.
+  it('covers any diff up to the ceiling', () => {
+    for (const n of LENGTHS) {
+      const tier = judgeDiffTier(diffOf(n))
+      if (n <= 180_000) {
+        expect(tier.chars).toBeGreaterThanOrEqual(n)
+      } else {
+        // Past the ceiling nothing covers it — that is LUM-758's red line,
+        // and the scan says PARTIAL rather than asking for a number the
+        // 300s worker cannot deliver.
+        expect(tier.chars).toBe(180_000)
+      }
+    }
   })
 
-  // 两层用同一个信号判断「这个 PR 有多大」。各自一套数字的话，同一个 PR 会
-  // 在 L2 算「小」、在 L3 算「大」——档位边界必须是同一组。
-  it('uses the same size bands as the L3 hunt', () => {
-    expect(JUDGE_DIFF_BUDGET_TIERS.map(t => t.sourceFiles)).toEqual(
-      HUNT_TASK_CAP_TIERS.map(t => t.sourceFiles)
-    )
+  // The reverse interval stated as the invariant it violated: budget and
+  // timeout are monotone non-decreasing in diff length. This is what made
+  // 10 of 19 truncations across 80 merged PRs avoidable.
+  it('never gives a larger diff a smaller budget', () => {
+    const sorted = [...LENGTHS].sort((a, b) => a - b)
+    for (let i = 1; i < sorted.length; i++) {
+      const smaller = judgeDiffTier(diffOf(sorted[i - 1]!))
+      const larger = judgeDiffTier(diffOf(sorted[i]!))
+      expect(larger.chars).toBeGreaterThanOrEqual(smaller.chars)
+      expect(larger.timeoutMs).toBeGreaterThanOrEqual(smaller.timeoutMs)
+    }
   })
 
-  // 预算能随 PR 变大，超时不能：await judge 的 worker 封顶 300s。
-  it('never lets a tier ask for more time than one call is allowed', () => {
+  // Two specimens measured off this repo's own merged PRs (LUM-811): both
+  // were truncated by the file-count proxy, neither is anywhere near the
+  // ceiling. Sizes are what `git show` reports, rounded to the nearest 1k.
+  it('reviews the LUM-811 specimens whole', () => {
+    // PR 1028 — 6 changed source files, 170,955 chars. Old tier: 60k (65%
+    // of it dropped). PR 972, with 13 source files and 28,561 chars, got
+    // 120k the same week.
+    const pr1028 = diffOf(171_000)
+    expect(judgeDiffTier(pr1028).chars).toBe(180_000)
+    expect(
+      packSecurityDiff(pr1028, { maxChars: judgeDiffTier(pr1028).chars })
+        .truncated
+    ).toBe(false)
+
+    // PR 1046 (LUM-808) — 26 changed source files, 137,962 chars. Old tier:
+    // 120k, `AI review: ⚠ incomplete · diff truncated`.
+    const pr1046 = diffOf(138_000)
+    expect(judgeDiffTier(pr1046).chars).toBe(180_000)
+    expect(
+      packSecurityDiff(pr1046, { maxChars: judgeDiffTier(pr1046).chars })
+        .truncated
+    ).toBe(false)
+  })
+
+  // LUM-758's red line, unmoved by LUM-811: the top tier is still 180k, no tier
+  // asks for more time than one call is allowed, and a diff that genuinely
+  // exceeds the ceiling is still reported as truncated with its dropped
+  // files named — 9 of the 80 measured PRs are in exactly that case.
+  it('leaves the LUM-758 ceiling untouched', () => {
+    const top = JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!
+    expect(top.chars).toBe(180_000)
     for (const tier of JUDGE_DIFF_BUDGET_TIERS) {
       expect(tier.timeoutMs).toBeLessThanOrEqual(JUDGE_TIMEOUT_CEILING_MS)
     }
-    expect(judgeDiffTier(10_000).timeoutMs).toBe(JUDGE_TIMEOUT_CEILING_MS)
+    expect(judgeDiffTier(diffOf(5_000_000)).timeoutMs).toBe(
+      JUDGE_TIMEOUT_CEILING_MS
+    )
+
+    const oversized = Array.from({ length: 40 }, (_, i) =>
+      fileSection(`lib/f${i}.ts`, bulk(400))
+    ).join('\n')
+    expect(oversized.length).toBeGreaterThan(top.chars)
+    const packed = packSecurityDiff(oversized, {
+      maxChars: judgeDiffTier(oversized).chars,
+    })
+    expect(packed.truncated).toBe(true)
+    expect(packed.dropped.length).toBeGreaterThan(0)
+  })
+
+  // Why L2 and L3 legitimately measure different things — see the comment
+  // block above JUDGE_DIFF_BUDGET_TIERS. hunt hands out TASKS, a quantity no
+  // diff can be measured for, so file count is its only available proxy;
+  // the judge hands out CHARACTERS, which `diff.length` already knows. Same
+  // three-tier shape, each measured in its own unit.
+  it('measures itself in the unit it hands out, unlike the L3 hunt', () => {
+    expect(JUDGE_DIFF_BUDGET_TIERS).toHaveLength(HUNT_TASK_CAP_TIERS.length)
+    for (const tier of JUDGE_DIFF_BUDGET_TIERS) {
+      expect(tier).not.toHaveProperty('sourceFiles')
+    }
+    for (const tier of HUNT_TASK_CAP_TIERS) {
+      expect(tier).toHaveProperty('sourceFiles')
+    }
   })
 
   it('reviews a big PR whole where the flat budget would have dropped most of it', () => {
@@ -203,7 +281,9 @@ describe('judgeDiffTier', () => {
     expect(many.length).toBeGreaterThan(SECURITY_DIFF_MAX_CHARS)
 
     const flat = packSecurityDiff(many, { maxChars: SECURITY_DIFF_MAX_CHARS })
-    const tiered = packSecurityDiff(many, { maxChars: judgeDiffTier(31).chars })
+    const tiered = packSecurityDiff(many, {
+      maxChars: judgeDiffTier(many).chars,
+    })
 
     expect(flat.dropped.length).toBeGreaterThan(0)
     expect(tiered.dropped).toEqual([])

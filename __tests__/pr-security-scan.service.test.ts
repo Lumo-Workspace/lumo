@@ -105,7 +105,31 @@ import { secretFingerprint } from '@/lib/security-scan/redact'
 import {
   SECURITY_DIFF_MAX_CHARS,
   JUDGE_TIMEOUT_CEILING_MS,
+  JUDGE_DIFF_BUDGET_TIERS,
 } from '@/lib/security-scan'
+
+/** 最高档的字符预算——越过它才谈得上截断（LUM-811）。 */
+const JUDGE_DIFF_TOP_TIER_CHARS =
+  JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!.chars
+
+/**
+ * 一份真的越过最高档的 diff（LUM-811）。选档量改成 diff 长度之后，刚过 60k
+ * 的 diff 会落进 120k 档、整份审完——要触发截断，fixture 必须越过 180k。
+ * 铺成很多正常长度的行而不是一行超长：扫描器逐行跑正则，一条 18 万字符的行
+ * 会把这个测试从半秒拖到一分钟。
+ */
+function overTopTierDiff(): string {
+  const line = (i: number): string =>
+    `const pad${i} = ${i} // ${'y'.repeat(24)}`
+  const n = Math.ceil(JUDGE_DIFF_TOP_TIER_CHARS / (line(0).length + 2)) + 200
+  const added = Array.from({ length: n }, (_, i) => line(i))
+  return [
+    '--- a/src/a.ts',
+    '+++ b/src/a.ts',
+    `@@ -0,0 +1,${added.length} @@`,
+    ...added.map(l => `+${l}`),
+  ].join('\n')
+}
 
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
@@ -1322,12 +1346,7 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
   })
 
   test('a diff over SECURITY_DIFF_MAX_CHARS marks the judge truncated and the scan partial', async () => {
-    const bigDiff = [
-      '--- a/src/a.ts',
-      '+++ b/src/a.ts',
-      '@@ -1,0 +1,1 @@',
-      `+const x = "${'x'.repeat(SECURITY_DIFF_MAX_CHARS + 10)}"`,
-    ].join('\n')
+    const bigDiff = overTopTierDiff()
     fetchPrDiff.mockResolvedValue(bigDiff)
     await prSecurityScanService.run({
       pullRequestId: 'pr1',
@@ -1344,12 +1363,7 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
   // `stages.judge` 一直还是 'RAN'，在 PR 行里渲染成 “AI review: checked”：
   // 一个整文件没看过的层在宣称自己通过了。P9 说安全信号不得声称未建立的结论。
   test('a judge that ran over a trimmed diff records PARTIAL, not RAN', async () => {
-    const bigDiff = [
-      '--- a/src/a.ts',
-      '+++ b/src/a.ts',
-      '@@ -1,0 +1,1 @@',
-      `+const x = "${'x'.repeat(SECURITY_DIFF_MAX_CHARS + 10)}"`,
-    ].join('\n')
+    const bigDiff = overTopTierDiff()
     fetchPrDiff.mockResolvedValue(bigDiff)
     await prSecurityScanService.run({
       pullRequestId: 'pr1',
@@ -1378,7 +1392,7 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     // 尺寸卡在「恰好装得下两个」：sink 文件如果很小，贪心的跳过-继续
     // 无论排序如何都会把它捎带进去，测试就守不住优先级这件事本身。
     const filler = Array.from(
-      { length: 1400 },
+      { length: 4200 },
       (_, i) => `const pad${i} = ${i}`
     )
     const bigDiff = [
@@ -1386,8 +1400,8 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
       section('lib/b.ts', filler),
       section('zz/sink.ts', [...filler, 'exec(userInput)']),
     ].join('\n')
-    expect(bigDiff.length).toBeGreaterThan(SECURITY_DIFF_MAX_CHARS)
-    expect(bigDiff.slice(0, SECURITY_DIFF_MAX_CHARS)).not.toContain(
+    expect(bigDiff.length).toBeGreaterThan(JUDGE_DIFF_TOP_TIER_CHARS)
+    expect(bigDiff.slice(0, JUDGE_DIFF_TOP_TIER_CHARS)).not.toContain(
       'exec(userInput)'
     )
 
@@ -1438,6 +1452,62 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     expect(last.timeoutMs).toBe(JUDGE_TIMEOUT_CEILING_MS)
     // 分档之后整个 PR 都进得去：没有 omission marker，层也不是 PARTIAL。
     expect(last.diff).not.toContain('files omitted')
+    expect(repo.persistResult).toHaveBeenCalledWith(
+      's1',
+      expect.anything(),
+      expect.objectContaining({
+        truncated: false,
+        stages: expect.objectContaining({ judge: 'RAN' }),
+      })
+    )
+  })
+
+  // LUM-811 — LUM-758 按改动源文件数选档、发的却是字符预算，于是有一段反向
+  // 区间：文件少而胖的 PR 比文件多而瘦的 PR 拿到更少的预算。这个 PR 就是那
+  // 个形状（实测标本 PR 1028：6 个源文件、170,955 字符），旧规则给它 60k、丢
+  // 掉六成；选档量改成 diff 自身的长度之后它整份进得去。
+  test('sizes the judge budget by diff length, not changed source file count', async () => {
+    const section = (path: string, body: string[]): string =>
+      [
+        `diff --git a/${path} b/${path}`,
+        `--- a/${path}`,
+        `+++ b/${path}`,
+        `@@ -0,0 +1,${body.length} @@`,
+        ...body.map(l => `+${l}`),
+      ].join('\n')
+    // 6 个源文件——旧规则下这是最小档（≤12 个文件 → 60k）——但每个都很胖。
+    const fatDiff = Array.from({ length: 6 }, (_, i) =>
+      section(
+        `lib/fat${i}.ts`,
+        Array.from(
+          { length: 530 },
+          (_, j) => `const pad${j} = ${j} // ${'y'.repeat(20)}`
+        )
+      )
+    ).join('\n')
+    const sourceFiles = fatDiff
+      .split('\n')
+      .filter(l => l.startsWith('diff --git ')).length
+    expect(sourceFiles).toBe(6)
+    expect(fatDiff.length).toBeGreaterThan(120_000)
+    expect(fatDiff.length).toBeLessThan(180_000)
+
+    fetchPrDiff.mockResolvedValue(fatDiff)
+    judgeSecurity.mockResolvedValue({ findings: [] })
+    await prSecurityScanService.run({
+      pullRequestId: 'pr1',
+      trigger: 'PR_EVENT',
+    })
+
+    const calls = judgeSecurity.mock.calls as unknown[][]
+    const last = calls[calls.length - 1]![0] as {
+      diff: string
+      timeoutMs: number
+    }
+    expect(last.timeoutMs).toBe(JUDGE_TIMEOUT_CEILING_MS)
+    expect(last.diff).not.toContain('files omitted')
+    // 每个文件都被看到了，一个没丢。
+    for (let i = 0; i < 6; i++) expect(last.diff).toContain(`lib/fat${i}.ts`)
     expect(repo.persistResult).toHaveBeenCalledWith(
       's1',
       expect.anything(),
