@@ -105,6 +105,13 @@ export interface SecurityDiffBudget {
   covered: string[]
   /** Paths it did NOT, in diff order. This is what `truncated` used to hide. */
   dropped: string[]
+  /**
+   * LUM-814 — characters OF THE DIFF that were packed in, excluding the
+   * omission marker this function appends. It is the numerator of "how much
+   * of the diff was actually reviewed"; `text.length` is not, because the
+   * marker is prose the judge reads but the diff never contained.
+   */
+  reviewedChars: number
 }
 
 /**
@@ -141,6 +148,7 @@ export function packSecurityDiff(
       truncated: false,
       covered: named.map(s => s.path!),
       dropped: [],
+      reviewedChars: diff.length,
     }
   }
 
@@ -185,6 +193,7 @@ export function packSecurityDiff(
       truncated: true,
       covered: [],
       dropped: named.map(s => s.path!),
+      reviewedChars: maxChars,
     }
   }
 
@@ -197,6 +206,7 @@ export function packSecurityDiff(
     truncated: dropped.length > 0,
     covered,
     dropped,
+    reviewedChars: text.length,
   }
 }
 

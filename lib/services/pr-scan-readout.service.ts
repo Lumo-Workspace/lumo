@@ -45,6 +45,10 @@ import {
   parseHuntCoverage,
   type HuntCoverage,
 } from '@/lib/security-scan/hunt/coverage'
+import {
+  parseJudgeBudget,
+  type JudgeBudget,
+} from '@/lib/security-scan/judge-budget'
 import type {
   ScanStages,
   SecretDowngradeReason,
@@ -149,6 +153,12 @@ export interface ScanReadoutView {
   finishedAt: string | null
   /** null = not metered (team rule: null ≠ 0). */
   tokenSpent: number | null
+  /**
+   * LUM-814 — the judge's budget arithmetic; null = not recorded on this scan
+   * (a row written before the column existed, or a scan whose judge never
+   * reached the budget step). null is never "spent nothing".
+   */
+  judgeBudget: JudgeBudget | null
   counts: {
     findings: number
     open: number
@@ -516,6 +526,7 @@ export const prScanReadoutService = {
         startedAt: scan.startedAt.toISOString(),
         finishedAt: scan.finishedAt ? scan.finishedAt.toISOString() : null,
         tokenSpent: scan.tokenSpent,
+        judgeBudget: parseJudgeBudget(scan.judgeBudget),
         counts: {
           findings: findings.length,
           open: findings.filter(f => f.open).length,

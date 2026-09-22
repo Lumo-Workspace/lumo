@@ -1549,6 +1549,12 @@ model PrSecurityScan {
   judgeStatus      PrSecurityJudgeStatus?
   // The diff exceeded the judge budget — the LLM pass saw only a prefix.
   truncated        Boolean                @default(false)
+  // LUM-814: the judge's budget arithmetic — { diffChars, tierChars,
+  // reviewedChars, coveredFiles, droppedFiles }. null = not recorded (a row
+  // written before this column, or a scan whose judge never reached the
+  // budget step). null is NOT zero: `truncated` alone cannot tell a PR that
+  // spent 2% of its tier from one that spent 98%.
+  judgeBudget      Json?
   // LUM-735: per-layer outcome { secrets|external|supplyChain|judge|hunt:
   // RAN|FAILED|SKIPPED|NOT_CONFIGURED|PARTIAL }. null on rows written before
   // this column existed — the service derives a legacy view from judgeStatus.

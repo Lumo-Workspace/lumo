@@ -300,13 +300,16 @@ describe('formatPrScan', () => {
     expect(lines[5]).toBe(
       '  Secrets: checked · Code scan: ✗ failed (1 external finding) · Dependencies: checked (1 dependency finding, 1 already on main) · AI review: checked · Exploit paths: checked · 1 left the queue (1 merged unreviewed) — gitleaks exit 2'
     )
-    expect(lines[6]).toBe(
+    // LUM-814: the judge's own arithmetic sits under the layer line, ahead of
+    // the hunt's detail — stage order, matching the segments above.
+    expect(lines[6]).toBe('    AI review budget: not recorded on this scan')
+    expect(lines[7]).toBe(
       '    Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done (2 attempts) · t3 race skipped'
     )
-    expect(lines[7]).toBe(
+    expect(lines[8]).toBe(
       '  Findings: 6 (2 open · 1 blocks DONE · 3 dispositioned · 1 already on main)'
     )
-    expect(lines.slice(8, 14)).toEqual([
+    expect(lines.slice(9, 15)).toEqual([
       '    [HIGH] DETERMINISTIC secret:aws-access-key-id — src/cfg.ts:12 — AWS access key id (blocks DONE)',
       '    [LOW] DETERMINISTIC secret:generic-api-key — src/cfg.ts:12 — AWS access key id — placeholder value, downgraded (FALSE_POSITIVE · human · "doc example")',
       '    [MEDIUM] EXTERNAL_TOOL ext:codeql:js/sql-injection — src/cfg.ts — AWS access key id (ACCEPTED_RISK · inherited from an earlier scan of this PR)',
@@ -545,5 +548,97 @@ describe('prScan (command)', () => {
       '  lumo pr scan 7 --repo a/one',
       '  lumo pr scan 7 --repo a/two',
     ])
+  })
+})
+
+/**
+ * LUM-814 — the judge's budget arithmetic.
+ *
+ * The specimens are real: PR 1051 (117,408 chars, 34 source files) and
+ * PR 1052 (168,516 chars, 6 source files) both printed `AI review: checked`
+ * and nothing else, so the read-out could not tell "2.2% of the tier left"
+ * from "rescued from dropping 64% of itself". These cases pin the line that
+ * separates them.
+ */
+describe('formatPrScan judge budget', () => {
+  const withBudget = (
+    budget: NonNullable<PrScanEntry['judgeBudget']> | null
+  ): string => formatPrScan(payload({ scans: [scan({ judgeBudget: budget })] }))
+
+  it('LUM-814 judge budget line prints chars, tier and remaining headroom when the diff was reviewed whole', () => {
+    // PR 1051's real arithmetic: nothing dropped, and only 2.2% to spare.
+    const out = withBudget({
+      diffChars: 117_408,
+      tierChars: 120_000,
+      reviewedChars: 117_408,
+      coveredFiles: 34,
+      droppedFiles: 0,
+    })
+    expect(out).toContain(
+      'AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%'
+    )
+    // The near-miss is visible WITHOUT --full or --json: that is the point.
+    expect(out).not.toContain('not recorded')
+  })
+
+  it('LUM-814 judge budget line separates two scans that both read "AI review: checked"', () => {
+    // PR 1052: a bigger diff, but further from its tier than PR 1051 is.
+    const out = withBudget({
+      diffChars: 168_516,
+      tierChars: 180_000,
+      reviewedChars: 168_516,
+      coveredFiles: 6,
+      droppedFiles: 0,
+    })
+    expect(out).toContain(
+      'AI review budget: diff 168,516 chars · tier 180,000 · 11,484 left, 6.4%'
+    )
+  })
+
+  it('LUM-814 judge budget line prints the overage and the unreviewed share of the diff when truncated', () => {
+    const out = withBudget({
+      diffChars: 261_400,
+      tierChars: 180_000,
+      reviewedChars: 179_100,
+      coveredFiles: 29,
+      droppedFiles: 12,
+    })
+    expect(out).toContain(
+      'AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 · 12 of 41 files dropped, 31.5% of the diff unreviewed'
+    )
+  })
+
+  it('LUM-814 unrecorded budget reads as not recorded, never as a spend of zero', () => {
+    // A scan written before the column existed. Fail-closed, same rule as
+    // `tokens not metered`: unknown is not "spent nothing".
+    expect(withBudget(null)).toContain(
+      'AI review budget: not recorded on this scan'
+    )
+    // An older server omits the field entirely — same reading.
+    const out = formatPrScan(payload({ scans: [scan()] }))
+    expect(out).toContain('AI review budget: not recorded on this scan')
+    expect(out).not.toContain('diff 0 chars')
+  })
+
+  it('LUM-814 judge budget line is absent when the scan carries no judge layer at all', () => {
+    const out = formatPrScan(
+      payload({
+        scans: [scan({ stages: { secrets: 'RAN' }, judgeBudget: null })],
+      })
+    )
+    expect(out).not.toContain('AI review budget')
+  })
+
+  it('LUM-814 judge budget line names no threshold and no source-file count', () => {
+    // Q2/Q3 rulings on this task: no derived-from-nothing "near cap" marker,
+    // and no by-source-file-count comparison (LUM-811 retired that rule).
+    const out = withBudget({
+      diffChars: 117_408,
+      tierChars: 120_000,
+      reviewedChars: 117_408,
+      coveredFiles: 34,
+      droppedFiles: 0,
+    })
+    expect(out).not.toMatch(/near cap|source file/i)
   })
 })
