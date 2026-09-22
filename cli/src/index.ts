@@ -1211,6 +1211,10 @@ taskTestCase
     [] as string[]
   )
   .requiredOption('--expected <text>', 'Expected result')
+  .option(
+    '--requires-env <environment>',
+    'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
+  )
   .action(
     wrap((taskId: unknown, options: unknown) =>
       taskTestCaseAdd(taskId as string, options as Record<string, never>)
@@ -1251,6 +1255,10 @@ taskTestCase
     [] as string[]
   )
   .option('--expected <text>', 'New expected result')
+  .option(
+    '--requires-env <environment>',
+    'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
+  )
   .action(
     wrap((handle: unknown, options: unknown) =>
       taskTestCaseUpdate(handle as string, options as Record<string, never>)
@@ -1304,6 +1312,16 @@ taskTestCase
   .option(
     '--failed-verify <n>',
     '1-based index into the verification list (FAIL only; mutually exclusive with --failed-step)'
+  )
+  .option(
+    '--cause <cause>',
+    'Why it failed: defect | outdated | external | unknown (case-insensitive). REQUIRED on --result fail, refused otherwise. Only "defect" carries a burden of proof (needs at least one --evidence / --evidence-file); "unknown" is a real answer'
+  )
+  .option(
+    '--unproven <n>',
+    '1-based index of a verification step this run could NOT observe (repeatable). A reported PASS that declares one is capped to UNPROVEN - you cannot pass on what you did not check',
+    collect,
+    [] as string[]
   )
   .option('--note <text>', 'Free-text note about this run')
   .option(

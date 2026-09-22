@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "Pemeriksaan ulang",
   "testCases.tab": "Tes",
   "testCases.field.evidenceFiles.tooMany": "Kamu memilih {count} berkas — maksimal {max} per eksekusi.",
-  "testCases.field.evidenceFiles.tooLarge": "“{filename}” berukuran {size} MB — tiap berkas maksimal {max} MB."
+  "testCases.field.evidenceFiles.tooLarge": "“{filename}” berukuran {size} MB — tiap berkas maksimal {max} MB.",
+  "testCases.cause.CASE_OUTDATED": "Kasus sudah usang",
+  "testCases.cause.EXTERNAL_BLOCK": "Terhenti di tengah jalan",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "Cacat implementasi",
+  "testCases.cause.UNKNOWN": "Tidak bisa dipastikan",
+  "testCases.ceiling.environment": "kasus ini hanya membuktikan sesuatu di {env}",
+  "testCases.ceiling.unobserved": "{count} langkah verifikasi tidak sempat diamati",
+  "testCases.field.cause": "Salah siapa kali ini?",
+  "testCases.field.cause.needsEvidence": "Menyebut cacat implementasi butuh minimal satu bukti.",
+  "testCases.field.cause.placeholder": "Pilih penyebab…",
+  "testCases.field.cause.required": "Eksekusi yang gagal harus menyebutkan penyebabnya.",
+  "testCases.field.unproven": "Tidak sempat diamati",
+  "testCases.field.unproven.hint": "Centang apa saja yang sebenarnya tidak diperiksa kali ini. Lulus dengan centang tersisa dicatat sebagai belum terbukti.",
+  "testCases.form.requiresEnv": "Hanya membuktikan sesuatu di",
+  "testCases.form.requiresEnv.any": "Lingkungan mana pun",
+  "testCases.form.requiresEnv.hint": "Dicocokkan persis — lulus yang dicatat di tempat lain diturunkan jadi belum terbukti.",
+  "testCases.requiresEnv.badge": "Hanya berlaku di {env}",
+  "testCases.result.UNPROVEN": "Belum terbukti"
 }

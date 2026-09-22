@@ -6,6 +6,10 @@ import {
   deriveRunFreshness,
   type TaskPullRequestSnapshot,
 } from '@/lib/test-cases/freshness'
+import {
+  deriveRunCeiling,
+  type CeilingEnvironment,
+} from '@/lib/test-cases/provability'
 import { EvidenceStrip } from './TestCaseEvidence'
 
 /**
@@ -78,12 +82,89 @@ function CodeCoordinate({
   )
 }
 
+/**
+ * LUM-808: run 的**判决**——不是它上报的结果，是受本次能力边界封顶之后的结论。
+ *
+ * 一条报了 PASS 却验不了目标环境的 run，和一个真 PASS 在库里长得一模一样；
+ * 这个徽章就是让它们在屏幕上长得不一样。UNPROVEN 不是失败，措辞上要与 FAIL
+ * 分开——它说的是「没能确认」。
+ */
+function VerdictBadge({
+  run,
+  requiredEnvironment,
+}: {
+  run: TestCaseRun
+  requiredEnvironment: CeilingEnvironment | null
+}) {
+  const intl = useIntl()
+  const ceiling = deriveRunCeiling(
+    {
+      result: run.result,
+      environment: run.environment,
+      unprovenVerification: (run.unprovenVerification ??
+        []) as unknown as Array<{ index: number; text: string }>,
+    },
+    { requiredEnvironment }
+  )
+
+  if (ceiling.effective !== 'UNPROVEN') {
+    return (
+      <span className='text-body-strong text-foreground'>
+        {intl.formatMessage({ id: `testCases.result.${run.result}` })}
+      </span>
+    )
+  }
+
+  const why =
+    ceiling.reason === 'environment'
+      ? intl.formatMessage(
+          { id: 'testCases.ceiling.environment' },
+          {
+            env: intl.formatMessage({
+              id: `testCases.env.${ceiling.requiredEnvironment}`,
+            }),
+          }
+        )
+      : intl.formatMessage(
+          { id: 'testCases.ceiling.unobserved' },
+          { count: ceiling.unobserved.length }
+        )
+
+  return (
+    <span className='flex flex-wrap items-baseline gap-1'>
+      <span className='text-muted-foreground line-through'>
+        {intl.formatMessage({ id: `testCases.result.${run.result}` })}
+      </span>
+      <span className='text-body-strong text-foreground'>
+        {intl.formatMessage({ id: 'testCases.result.UNPROVEN' })}
+      </span>
+      <span className='text-muted-foreground'>{why}</span>
+    </span>
+  )
+}
+
+/** LUM-808: 一条 FAIL 是谁的锅。非 FAIL 不渲染。 */
+function AttributionBadge({ run }: { run: TestCaseRun }) {
+  const intl = useIntl()
+  if (!run.failureAttribution) return null
+  return (
+    <span className='rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground'>
+      {intl.formatMessage({
+        id: `testCases.cause.${run.failureAttribution}`,
+      })}
+    </span>
+  )
+}
+
 export function RunHistoryList({
   runs,
   pullRequests,
+  requiredEnvironment,
 }: {
   runs: TestCaseRun[]
   pullRequests: TaskPullRequestSnapshot[]
+  /** 用例的目标环境（扁平传入，不从 run 反向摸用例——LoD）。 */
+  requiredEnvironment: CeilingEnvironment | null
 }) {
   const intl = useIntl()
   if (runs.length === 0) {
@@ -114,10 +195,9 @@ export function RunHistoryList({
             key={r.id}
             className='flex flex-wrap items-center gap-2 text-[11px]'
           >
-            <span className='text-body-strong text-foreground'>
-              {intl.formatMessage({ id: `testCases.result.${r.result}` })}
-            </span>
+            <VerdictBadge run={r} requiredEnvironment={requiredEnvironment} />
             <EnvironmentBadge environment={r.environment} />
+            <AttributionBadge run={r} />
             <time className='text-muted-foreground'>
               {new Date(r.createdAt).toISOString().slice(0, 10)}
             </time>

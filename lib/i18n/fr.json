@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "Revérification",
   "testCases.tab": "Tests",
   "testCases.field.evidenceFiles.tooMany": "Vous avez choisi {count} fichiers — {max} au maximum par exécution.",
-  "testCases.field.evidenceFiles.tooLarge": "« {filename} » fait {size} Mo — chaque fichier doit faire {max} Mo au maximum."
+  "testCases.field.evidenceFiles.tooLarge": "« {filename} » fait {size} Mo — chaque fichier doit faire {max} Mo au maximum.",
+  "testCases.cause.CASE_OUTDATED": "Cas obsolète",
+  "testCases.cause.EXTERNAL_BLOCK": "Bloqué en cours de route",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "Défaut d'implémentation",
+  "testCases.cause.UNKNOWN": "Impossible à déterminer",
+  "testCases.ceiling.environment": "ce cas ne prouve quelque chose que sur {env}",
+  "testCases.ceiling.unobserved": "{count, plural, one {# étape de vérification n'a pas été observée} other {# étapes de vérification n'ont pas été observées}}",
+  "testCases.field.cause": "D'où venait le problème ?",
+  "testCases.field.cause.needsEvidence": "Invoquer un défaut d'implémentation exige au moins une preuve.",
+  "testCases.field.cause.placeholder": "Choisir une cause…",
+  "testCases.field.cause.required": "Une exécution en échec doit indiquer la cause.",
+  "testCases.field.unproven": "N'a pas pu être observé",
+  "testCases.field.unproven.hint": "Cochez ce que cette exécution n'a pas réellement pu vérifier. Une réussite avec une case cochée est enregistrée comme non prouvée.",
+  "testCases.form.requiresEnv": "Ne prouve quelque chose que sur",
+  "testCases.form.requiresEnv.any": "N'importe quel environnement",
+  "testCases.form.requiresEnv.hint": "Correspondance exacte — une réussite enregistrée ailleurs est plafonnée à non prouvée.",
+  "testCases.requiresEnv.badge": "Ne prouve que sur {env}",
+  "testCases.result.UNPROVEN": "Non prouvé"
 }

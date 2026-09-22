@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "재확인",
   "testCases.tab": "테스트",
   "testCases.field.evidenceFiles.tooMany": "{count}개를 선택했습니다 — 실행당 최대 {max}개입니다.",
-  "testCases.field.evidenceFiles.tooLarge": "「{filename}」은(는) {size} MB입니다 — 파일당 {max} MB 이하여야 합니다."
+  "testCases.field.evidenceFiles.tooLarge": "「{filename}」은(는) {size} MB입니다 — 파일당 {max} MB 이하여야 합니다.",
+  "testCases.cause.CASE_OUTDATED": "케이스가 낡음",
+  "testCases.cause.EXTERNAL_BLOCK": "도중에 외부 요인으로 막힘",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "구현 결함",
+  "testCases.cause.UNKNOWN": "판단할 수 없음",
+  "testCases.ceiling.environment": "이 케이스는 {env}에서 실행해야만 무언가를 증명합니다",
+  "testCases.ceiling.unobserved": "검증 항목 {count}개를 확인하지 못했습니다",
+  "testCases.field.cause": "누구의 문제였나요?",
+  "testCases.field.cause.needsEvidence": "구현 결함이라고 하려면 증거 파일이 최소 1개 필요합니다.",
+  "testCases.field.cause.placeholder": "원인 선택…",
+  "testCases.field.cause.required": "실패를 기록하려면 원인을 밝혀야 합니다.",
+  "testCases.field.unproven": "확인하지 못한 항목",
+  "testCases.field.unproven.hint": "이번에 실제로 확인하지 못한 검증 항목을 선택하세요. 선택을 남긴 채 통과로 기록하면 확인 못 함으로 처리됩니다.",
+  "testCases.form.requiresEnv": "이 환경에서만 증명됨",
+  "testCases.form.requiresEnv.any": "환경 제한 없음",
+  "testCases.form.requiresEnv.hint": "정확히 일치해야 합니다. 다른 곳에서 기록된 통과는 확인 못 함으로 낮춰집니다.",
+  "testCases.requiresEnv.badge": "{env}에서만 유효",
+  "testCases.result.UNPROVEN": "확인 못 함"
 }

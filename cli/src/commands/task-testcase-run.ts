@@ -9,6 +9,12 @@ import {
   resolveCommitCoordinate,
   evidenceHint,
 } from '../lib/test-case-handle'
+import {
+  resolveFailureCause,
+  resolveUnprovenIndices,
+  formatRunOutcome,
+  type RunCeiling,
+} from '../lib/test-case-verdict'
 
 export interface TestCaseRunOptions {
   result?: string
@@ -17,6 +23,8 @@ export interface TestCaseRunOptions {
   commit?: string
   failedStep?: string
   failedVerify?: string
+  cause?: string
+  unproven?: string[]
   note?: string
   evidence?: string[]
   evidenceFile?: string[]
@@ -43,6 +51,8 @@ interface RunResponse {
     environment: string
     failedStepText: string | null
   }
+  /** LUM-808: 服务端推导的封顶结论。CLI 只渲染，不重算。 */
+  ceiling: RunCeiling
 }
 
 interface UploadResponse {
@@ -99,6 +109,24 @@ export async function taskTestCaseRun(
     console.error(
       `Error: a ${result} run cannot carry a failure locator. BLOCKED means the case never ran; use --result fail to point at a step.`
     )
+    return 1
+  }
+
+  // LUM-808 步骤 1：FAIL 必须说清是谁的锅。服务端有同样的闸门，这里挡一道
+  // 只是为了不让人白跑一趟网络。
+  const cause = resolveFailureCause(
+    options.cause,
+    result as 'PASS' | 'FAIL' | 'BLOCKED'
+  )
+  if (!cause.ok) {
+    console.error(`Error: ${cause.error}`)
+    return 1
+  }
+
+  // LUM-808 步骤 2：本次没能观察到的复验条目（1-based → 0-based）。
+  const unproven = resolveUnprovenIndices(options.unproven)
+  if (!unproven.ok) {
+    console.error(`Error: ${unproven.error}`)
     return 1
   }
 
@@ -180,6 +208,8 @@ export async function taskTestCaseRun(
         environment: env,
         failedPhase: locator.failedPhase,
         failedIndex: locator.failedIndex,
+        failureAttribution: cause.cause,
+        unprovenVerification: unproven.indices,
         note: options.note?.trim() || null,
         pullRequestNumber: prNumber,
         commitSha,
@@ -191,12 +221,19 @@ export async function taskTestCaseRun(
   )
   if (!r.ok || !r.data) return 1
 
-  const where = r.data.run.failedStepText
-    ? `  at: ${r.data.run.failedStepText}`
-    : ''
+  // LUM-808: 被封顶时这一行自己就说清「我报的是什么 / 实际结论是什么 /
+  // 因为哪条边界」——自己报的 PASS 当场降级，比事后在网页上发现有用得多。
   console.log(
-    `Recorded ${handle}: ${r.data.run.result} on ${r.data.run.environment}${where}`
+    formatRunOutcome({
+      handle,
+      reported: r.data.run.result,
+      environment: r.data.run.environment,
+      ceiling: r.data.ceiling ?? { effective: r.data.run.result as 'PASS' },
+    })
   )
+  if (r.data.run.failedStepText) {
+    console.log(`  at: ${r.data.run.failedStepText}`)
+  }
   if (prNumber !== null) console.log(`PR: #${prNumber}`)
   if (commitSha) {
     const dirty = commitDirty === true ? ' (uncommitted changes present)' : ''

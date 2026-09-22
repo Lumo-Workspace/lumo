@@ -2449,5 +2449,22 @@
   "workspaceSettings.verificationUpdateFailed": "Failed to update verification settings",
   "workspaceSettings.verificationUpdated": "Verification settings updated",
   "testCases.field.evidenceFiles.tooMany": "You picked {count} files — at most {max} per run.",
-  "testCases.field.evidenceFiles.tooLarge": "“{filename}” is {size} MB — each file must be {max} MB or smaller."
+  "testCases.field.evidenceFiles.tooLarge": "“{filename}” is {size} MB — each file must be {max} MB or smaller.",
+  "testCases.cause.CASE_OUTDATED": "Case outdated",
+  "testCases.cause.EXTERNAL_BLOCK": "Blocked partway",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "Implementation defect",
+  "testCases.cause.UNKNOWN": "Could not tell",
+  "testCases.ceiling.environment": "this case only proves anything on {env}",
+  "testCases.ceiling.unobserved": "{count, plural, one {# verification step went unobserved} other {# verification steps went unobserved}}",
+  "testCases.field.cause": "Whose fault was it?",
+  "testCases.field.cause.needsEvidence": "Claiming an implementation defect needs at least one evidence file.",
+  "testCases.field.cause.placeholder": "Choose a cause…",
+  "testCases.field.cause.required": "A failing run must say whose fault it was.",
+  "testCases.field.unproven": "Could not observe",
+  "testCases.field.unproven.hint": "Tick anything this run could not actually check. A pass that leaves one ticked is recorded as unproven.",
+  "testCases.form.requiresEnv": "Only proves anything on",
+  "testCases.form.requiresEnv.any": "Any environment",
+  "testCases.form.requiresEnv.hint": "Matched exactly — a pass recorded anywhere else is capped to unproven.",
+  "testCases.requiresEnv.badge": "Only proves on {env}",
+  "testCases.result.UNPROVEN": "Unproven"
 }

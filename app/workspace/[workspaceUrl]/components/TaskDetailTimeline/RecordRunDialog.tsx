@@ -7,6 +7,12 @@ import type { RecordRunBody } from '@/lib/validation/test-case'
 import type { TaskPullRequestSnapshot } from '@/lib/test-cases/freshness'
 
 const RESULTS = ['PASS', 'FAIL', 'BLOCKED'] as const
+const CAUSES = [
+  'IMPLEMENTATION_DEFECT',
+  'CASE_OUTDATED',
+  'EXTERNAL_BLOCK',
+  'UNKNOWN',
+] as const
 const ENVIRONMENTS = ['LOCAL', 'PREVIEW', 'PRODUCTION'] as const
 const MAX_FILES = 5
 const MAX_BYTES = 10 * 1024 * 1024
@@ -45,6 +51,10 @@ export function RecordRunDialog({
   >('')
   const [prNumber, setPrNumber] = useState('')
   const [locator, setLocator] = useState('')
+  // LUM-808: 没有默认选中值，同 environment —— 归因也是要人明说的东西。
+  const [cause, setCause] = useState<'' | (typeof CAUSES)[number]>('')
+  // LUM-808: 本次没能观察到的复验条目（0-based 下标）。
+  const [unproven, setUnproven] = useState<number[]>([])
   const [note, setNote] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -121,6 +131,20 @@ export function RecordRunDialog({
       )
       return
     }
+    if (result === 'FAIL' && cause === '') {
+      setError(intl.formatMessage({ id: 'testCases.field.cause.required' }))
+      return
+    }
+    if (
+      result === 'FAIL' &&
+      cause === 'IMPLEMENTATION_DEFECT' &&
+      files.length === 0
+    ) {
+      setError(
+        intl.formatMessage({ id: 'testCases.field.cause.needsEvidence' })
+      )
+      return
+    }
     const [phase, index] = locator ? locator.split(':') : [null, null]
     setBusy(true)
     try {
@@ -135,6 +159,9 @@ export function RecordRunDialog({
           // 下拉的 value 里已经是 0-based（label 才是 1-based）。
           failedIndex:
             result === 'FAIL' && index != null ? Number(index) : null,
+          failureAttribution: result === 'FAIL' ? cause || null : null,
+          // 报了 PASS 却勾了未观察项 → 服务端把它封顶成 UNPROVEN。
+          unprovenVerification: unproven,
           note: note.trim() || null,
           pullRequestNumber: prNumber ? Number(prNumber) : null,
           // web 端不自己编 sha：父组件按所选 PR 快照它当下的 head。
@@ -232,6 +259,55 @@ export function RecordRunDialog({
             ))}
           </select>
         </label>
+      ) : null}
+
+      {result === 'FAIL' ? (
+        <label className='flex flex-col gap-1 text-body text-muted-foreground'>
+          {intl.formatMessage({ id: 'testCases.field.cause' })}
+          <select
+            className={fieldClass}
+            value={cause}
+            onChange={e =>
+              setCause(e.target.value as '' | (typeof CAUSES)[number])
+            }
+          >
+            <option value=''>
+              {intl.formatMessage({ id: 'testCases.field.cause.placeholder' })}
+            </option>
+            {CAUSES.map(c => (
+              <option key={c} value={c}>
+                {intl.formatMessage({ id: `testCases.cause.${c}` })}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+
+      {testCase.verification.length > 0 ? (
+        <fieldset className='flex flex-col gap-1 text-body text-muted-foreground'>
+          <legend>
+            {intl.formatMessage({ id: 'testCases.field.unproven' })}
+          </legend>
+          <p className='text-[11px]'>
+            {intl.formatMessage({ id: 'testCases.field.unproven.hint' })}
+          </p>
+          {testCase.verification.map((text, i) => (
+            <label key={i} className='flex items-start gap-2'>
+              <input
+                type='checkbox'
+                checked={unproven.includes(i)}
+                onChange={e =>
+                  setUnproven(prev =>
+                    e.target.checked ? [...prev, i] : prev.filter(x => x !== i)
+                  )
+                }
+              />
+              <span>
+                {i + 1}. {text}
+              </span>
+            </label>
+          ))}
+        </fieldset>
       ) : null}
 
       <label className='flex flex-col gap-1 text-body text-muted-foreground'>

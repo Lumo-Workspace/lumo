@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "复验",
   "testCases.tab": "测试",
   "testCases.field.evidenceFiles.tooMany": "你选了 {count} 个文件——每次执行最多 {max} 个。",
-  "testCases.field.evidenceFiles.tooLarge": "「{filename}」有 {size} MB——单个文件不能超过 {max} MB。"
+  "testCases.field.evidenceFiles.tooLarge": "「{filename}」有 {size} MB——单个文件不能超过 {max} MB。",
+  "testCases.cause.CASE_OUTDATED": "用例过时",
+  "testCases.cause.EXTERNAL_BLOCK": "中途被外部卡住",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "实现缺陷",
+  "testCases.cause.UNKNOWN": "没判断出来",
+  "testCases.ceiling.environment": "这条用例只有在 {env} 跑才证明得了东西",
+  "testCases.ceiling.unobserved": "有 {count} 条复验没能观察到",
+  "testCases.field.cause": "这次是谁的锅？",
+  "testCases.field.cause.needsEvidence": "说是实现缺陷，至少要附一份证据文件。",
+  "testCases.field.cause.placeholder": "选择归因…",
+  "testCases.field.cause.required": "记一条失败必须说清是谁的锅。",
+  "testCases.field.unproven": "没能观察到",
+  "testCases.field.unproven.hint": "勾出这次实际没检查的复验条目。勾了还报通过，会被记成未能确认。",
+  "testCases.form.requiresEnv": "只有在这个环境才证明得了",
+  "testCases.form.requiresEnv.any": "不限环境",
+  "testCases.form.requiresEnv.hint": "精确匹配——在别处记的通过一律封顶为未能确认。",
+  "testCases.requiresEnv.badge": "仅在 {env} 成立",
+  "testCases.result.UNPROVEN": "未能确认"
 }

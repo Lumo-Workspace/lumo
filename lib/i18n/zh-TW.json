@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "複驗",
   "testCases.tab": "測試",
   "testCases.field.evidenceFiles.tooMany": "你選了 {count} 個檔案——每次執行最多 {max} 個。",
-  "testCases.field.evidenceFiles.tooLarge": "「{filename}」有 {size} MB——單一檔案不能超過 {max} MB。"
+  "testCases.field.evidenceFiles.tooLarge": "「{filename}」有 {size} MB——單一檔案不能超過 {max} MB。",
+  "testCases.cause.CASE_OUTDATED": "用例過時",
+  "testCases.cause.EXTERNAL_BLOCK": "中途被外部卡住",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "實作缺陷",
+  "testCases.cause.UNKNOWN": "判斷不出來",
+  "testCases.ceiling.environment": "這條用例只有在 {env} 執行才證明得了東西",
+  "testCases.ceiling.unobserved": "有 {count} 條複驗沒能觀察到",
+  "testCases.field.cause": "這次是誰的問題？",
+  "testCases.field.cause.needsEvidence": "說是實作缺陷，至少要附一份證據檔案。",
+  "testCases.field.cause.placeholder": "選擇歸因…",
+  "testCases.field.cause.required": "記一條失敗必須說清是誰的問題。",
+  "testCases.field.unproven": "沒能觀察到",
+  "testCases.field.unproven.hint": "勾出這次實際沒檢查的複驗條目。勾了還報通過，會記成未能確認。",
+  "testCases.form.requiresEnv": "只有在這個環境才證明得了",
+  "testCases.form.requiresEnv.any": "不限環境",
+  "testCases.form.requiresEnv.hint": "精確比對——在別處記的通過一律封頂為未能確認。",
+  "testCases.requiresEnv.badge": "僅在 {env} 成立",
+  "testCases.result.UNPROVEN": "未能確認"
 }

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import type {
   Prisma,
+  TestCaseFailureAttribution,
   TestCasePhase,
   TestCaseRunResult,
   TestEnvironment,
@@ -13,6 +14,9 @@ export interface CreateTestCaseInput {
   steps: string[]
   verification: string[]
   expected: string
+  /** LUM-808: 省略 / null = 不限。与 run 的 environment 不同，这里「不限」
+   *  是有意义的默认，不需要逼调用方表态。 */
+  requiredEnvironment?: TestEnvironment | null
 }
 
 export interface UpdateTestCaseInput {
@@ -21,6 +25,7 @@ export interface UpdateTestCaseInput {
   steps?: string[]
   verification?: string[]
   expected?: string
+  requiredEnvironment?: TestEnvironment | null
 }
 
 export interface CreateRunInput {
@@ -31,6 +36,10 @@ export interface CreateRunInput {
   failedPhase: TestCasePhase | null
   failedIndex: number | null
   failedStepText: string | null
+  /** LUM-808: 非 FAIL 必须为 null。 */
+  failureAttribution: TestCaseFailureAttribution | null
+  /** LUM-808: [{ index, text }]，判决时刻的原文快照。 */
+  unprovenVerification: Prisma.InputJsonValue
   evidence: Prisma.InputJsonValue
   note: string | null
   /** 代码坐标（LUM-801）。null = 未记录，不是「没变过」。 */
@@ -50,6 +59,7 @@ const caseSelect = {
   steps: true,
   verification: true,
   expected: true,
+  requiredEnvironment: true,
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
@@ -64,6 +74,8 @@ const runSelect = {
   failedPhase: true,
   failedIndex: true,
   failedStepText: true,
+  failureAttribution: true,
+  unprovenVerification: true,
   evidence: true,
   note: true,
   pullRequestId: true,

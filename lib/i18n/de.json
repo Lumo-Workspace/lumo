@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "Gegenprüfung",
   "testCases.tab": "Tests",
   "testCases.field.evidenceFiles.tooMany": "Du hast {count} Dateien gewählt – höchstens {max} pro Ausführung.",
-  "testCases.field.evidenceFiles.tooLarge": "„{filename}“ ist {size} MB groß – jede Datei darf höchstens {max} MB haben."
+  "testCases.field.evidenceFiles.tooLarge": "„{filename}“ ist {size} MB groß – jede Datei darf höchstens {max} MB haben.",
+  "testCases.cause.CASE_OUTDATED": "Testfall veraltet",
+  "testCases.cause.EXTERNAL_BLOCK": "Unterwegs blockiert",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "Fehler in der Implementierung",
+  "testCases.cause.UNKNOWN": "Nicht feststellbar",
+  "testCases.ceiling.environment": "Dieser Fall beweist nur etwas auf {env}",
+  "testCases.ceiling.unobserved": "{count, plural, one {# Prüfschritt blieb unbeobachtet} other {# Prüfschritte blieben unbeobachtet}}",
+  "testCases.field.cause": "Woran lag es?",
+  "testCases.field.cause.needsEvidence": "Für einen Implementierungsfehler braucht es mindestens einen Nachweis.",
+  "testCases.field.cause.placeholder": "Ursache wählen …",
+  "testCases.field.cause.required": "Ein fehlgeschlagener Lauf muss die Ursache benennen.",
+  "testCases.field.unproven": "Nicht überprüfbar",
+  "testCases.field.unproven.hint": "Markiere alles, was dieser Lauf nicht wirklich prüfen konnte. Ein Bestanden mit Markierung wird als unbelegt erfasst.",
+  "testCases.form.requiresEnv": "Beweist nur etwas auf",
+  "testCases.form.requiresEnv.any": "Beliebige Umgebung",
+  "testCases.form.requiresEnv.hint": "Exakte Übereinstimmung — ein anderswo erfasstes Bestanden wird auf unbelegt gedeckelt.",
+  "testCases.requiresEnv.badge": "Beweist nur auf {env}",
+  "testCases.result.UNPROVEN": "Unbelegt"
 }

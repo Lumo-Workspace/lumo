@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "Kiểm lại",
   "testCases.tab": "Kiểm thử",
   "testCases.field.evidenceFiles.tooMany": "Bạn đã chọn {count} tệp — tối đa {max} mỗi lần chạy.",
-  "testCases.field.evidenceFiles.tooLarge": "“{filename}” nặng {size} MB — mỗi tệp tối đa {max} MB."
+  "testCases.field.evidenceFiles.tooLarge": "“{filename}” nặng {size} MB — mỗi tệp tối đa {max} MB.",
+  "testCases.cause.CASE_OUTDATED": "Ca kiểm thử đã lỗi thời",
+  "testCases.cause.EXTERNAL_BLOCK": "Bị chặn giữa chừng",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "Lỗi trong phần cài đặt",
+  "testCases.cause.UNKNOWN": "Không xác định được",
+  "testCases.ceiling.environment": "ca kiểm thử này chỉ chứng minh được điều gì trên {env}",
+  "testCases.ceiling.unobserved": "{count} bước xác minh chưa quan sát được",
+  "testCases.field.cause": "Lỗi thuộc về đâu?",
+  "testCases.field.cause.needsEvidence": "Muốn khẳng định là lỗi cài đặt thì cần ít nhất một bằng chứng.",
+  "testCases.field.cause.placeholder": "Chọn nguyên nhân…",
+  "testCases.field.cause.required": "Một lần chạy thất bại phải nêu rõ nguyên nhân.",
+  "testCases.field.unproven": "Không quan sát được",
+  "testCases.field.unproven.hint": "Đánh dấu những gì lần chạy này thực sự chưa kiểm tra. Báo đạt mà còn dấu tích sẽ được ghi là chưa xác nhận.",
+  "testCases.form.requiresEnv": "Chỉ chứng minh được trên",
+  "testCases.form.requiresEnv.any": "Bất kỳ môi trường nào",
+  "testCases.form.requiresEnv.hint": "So khớp chính xác — kết quả đạt ghi ở nơi khác sẽ bị hạ xuống chưa xác nhận.",
+  "testCases.requiresEnv.badge": "Chỉ có giá trị trên {env}",
+  "testCases.result.UNPROVEN": "Chưa xác nhận"
 }

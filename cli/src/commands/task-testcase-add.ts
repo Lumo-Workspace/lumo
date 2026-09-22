@@ -1,4 +1,5 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
+import { resolveRequiredEnvironment } from '../lib/test-case-verdict'
 
 export interface TestCaseAddOptions {
   title?: string
@@ -6,6 +7,7 @@ export interface TestCaseAddOptions {
   step?: string[]
   verify?: string[]
   expected?: string
+  requiresEnv?: string
 }
 
 interface AddResponse {
@@ -40,6 +42,12 @@ export async function taskTestCaseAdd(
     return 1
   }
 
+  const requiredEnvironment = resolveRequiredEnvironment(options.requiresEnv)
+  if (!requiredEnvironment.ok) {
+    console.error(`Error: ${requiredEnvironment.error}`)
+    return 1
+  }
+
   const ctx = apiContext()
   if (!ctx) return 1
 
@@ -54,6 +62,7 @@ export async function taskTestCaseAdd(
         steps,
         verification,
         expected,
+        requiredEnvironment: requiredEnvironment.value ?? null,
       },
     },
     'test case create'

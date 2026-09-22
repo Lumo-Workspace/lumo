@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "Recomprobación",
   "testCases.tab": "Pruebas",
   "testCases.field.evidenceFiles.tooMany": "Has elegido {count} archivos: como máximo {max} por ejecución.",
-  "testCases.field.evidenceFiles.tooLarge": "«{filename}» ocupa {size} MB: cada archivo debe ser de {max} MB o menos."
+  "testCases.field.evidenceFiles.tooLarge": "«{filename}» ocupa {size} MB: cada archivo debe ser de {max} MB o menos.",
+  "testCases.cause.CASE_OUTDATED": "Caso desactualizado",
+  "testCases.cause.EXTERNAL_BLOCK": "Bloqueado a mitad de camino",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "Defecto de implementación",
+  "testCases.cause.UNKNOWN": "No se pudo determinar",
+  "testCases.ceiling.environment": "este caso solo prueba algo en {env}",
+  "testCases.ceiling.unobserved": "{count, plural, one {# paso de verificación quedó sin observar} other {# pasos de verificación quedaron sin observar}}",
+  "testCases.field.cause": "¿De quién fue el fallo?",
+  "testCases.field.cause.needsEvidence": "Afirmar un defecto de implementación exige al menos una evidencia.",
+  "testCases.field.cause.placeholder": "Elige una causa…",
+  "testCases.field.cause.required": "Una ejecución fallida debe indicar la causa.",
+  "testCases.field.unproven": "No se pudo observar",
+  "testCases.field.unproven.hint": "Marca lo que esta ejecución no pudo comprobar de verdad. Un aprobado con algo marcado se registra como sin probar.",
+  "testCases.form.requiresEnv": "Solo prueba algo en",
+  "testCases.form.requiresEnv.any": "Cualquier entorno",
+  "testCases.form.requiresEnv.hint": "Coincidencia exacta: un aprobado registrado en otro sitio se limita a sin probar.",
+  "testCases.requiresEnv.badge": "Solo prueba en {env}",
+  "testCases.result.UNPROVEN": "Sin probar"
 }

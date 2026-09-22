@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "再確認",
   "testCases.tab": "テスト",
   "testCases.field.evidenceFiles.tooMany": "{count} 件選択されています。1 回の実行につき最大 {max} 件です。",
-  "testCases.field.evidenceFiles.tooLarge": "「{filename}」は {size} MB です。1 ファイル {max} MB までにしてください。"
+  "testCases.field.evidenceFiles.tooLarge": "「{filename}」は {size} MB です。1 ファイル {max} MB までにしてください。",
+  "testCases.cause.CASE_OUTDATED": "ケースが古い",
+  "testCases.cause.EXTERNAL_BLOCK": "途中で外部要因により中断",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "実装の不具合",
+  "testCases.cause.UNKNOWN": "判断できなかった",
+  "testCases.ceiling.environment": "このケースは {env} で実行したときしか何も証明しません",
+  "testCases.ceiling.unobserved": "{count} 件の検証項目を確認できていません",
+  "testCases.field.cause": "原因はどこにありますか？",
+  "testCases.field.cause.needsEvidence": "実装の不具合と主張するには、証拠ファイルが少なくとも 1 件必要です。",
+  "testCases.field.cause.placeholder": "原因を選択…",
+  "testCases.field.cause.required": "失敗の記録には原因の指定が必要です。",
+  "testCases.field.unproven": "確認できなかった項目",
+  "testCases.field.unproven.hint": "今回実際に確認できなかった検証項目にチェックを入れてください。チェックが残ったまま合格と記録すると、未確認として扱われます。",
+  "testCases.form.requiresEnv": "この環境でのみ証明できる",
+  "testCases.form.requiresEnv.any": "環境を限定しない",
+  "testCases.form.requiresEnv.hint": "完全一致で判定します。他の環境で記録された合格はすべて未確認に格下げされます。",
+  "testCases.requiresEnv.badge": "{env} でのみ有効",
+  "testCases.result.UNPROVEN": "未確認"
 }

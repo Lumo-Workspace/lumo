@@ -88,12 +88,51 @@ lumo task testcase rm LUM-42/TC3
 | `--commit <sha>`         | 这次跑的是哪个 commit。**`--env local` 之外必须显式给**，否则不记                   |
 | `--failed-step <n>`      | **1-based**，仅 FAIL 可用，与 `--failed-verify` 互斥                                |
 | `--failed-verify <n>`    | **1-based**，仅 FAIL 可用，与 `--failed-step` 互斥                                  |
+| `--cause <c>`            | **FAIL 必填、非 FAIL 禁带**。`defect` / `outdated` / `external` / `unknown`         |
+| `--unproven <n>`         | **1-based**，本次没能观察到的复验条目，可重复。见下方「可证明性上限」               |
 | `--note <text>`          | 这次执行的自由文本备注                                                              |
 | `--evidence <url>`       | 证据链接，可重复                                                                    |
 | `--evidence-file <path>` | 上传本地文件作证据，可重复。png/jpeg/webp/gif/txt/log/json，单个 ≤ 10 MB，最多 5 个 |
 
 ```bash
-lumo task testcase run LUM-42/TC3 --result fail --env local --pr 123 --failed-step 2 --note "页脚只剩版权行" --evidence-file ./screenshot.png
+lumo task testcase run LUM-42/TC3 --result fail --env local --pr 123 --failed-step 2 --cause defect --note "页脚只剩版权行" --evidence-file ./screenshot.png
+```
+
+### FAIL 的归因（LUM-808）
+
+`--result fail` 必须说清是谁的锅。四个值，**举证责任刻意不对称**：
+
+| `--cause`  | 含义                                                       | 额外要求                |
+| ---------- | ---------------------------------------------------------- | ----------------------- |
+| `defect`   | 被测实现的锅                                               | **≥1 条证据**，否则 400 |
+| `outdated` | 用例过时（UI / 文案漂移），实现没问题                      | 无                      |
+| `external` | 跑到一半被外部因素卡住（对比 `blocked`：那是根本没跑起来） | 无                      |
+| `unknown`  | 没判断出来                                                 | 无                      |
+
+`unknown` 是**合法答案，不是逃避**——逼出一个乱填的归因只会污染统计。只有
+`defect` 背举证责任：说是实现的锅，就得先把证据落库，不能凭「我记得当时是这样」。
+
+### 可证明性上限（LUM-808）
+
+`--env` 记的是「在哪跑」，这一层记的是「这次能验什么 / 验不了什么」，然后**按边界
+封顶结论**：自己声明验不了的事，不能报 PASS，最多报 `UNPROVEN`（没能确认）。
+
+两条边界：
+
+- **用例侧**：`testcase add/update --requires-env <local|preview|production>`。声明一次，
+  之后在别处记的 PASS 一律封顶。**精确相等，没有 `production ⊇ preview ⊇ local` 的层级**
+  ——一条测本地工具链的用例，在生产跑并不能证明它。`--requires-env none` 清除。
+- **run 侧**：`--unproven <n>`（1-based，可重复）标出这次没能观察到的复验条目。
+
+封顶**只作用于 PASS**。FAIL / BLOCKED 原样保留——「证明了坏」不需要能力上限。
+`UNPROVEN` 只由读端推导，**不落库**：`TestCaseRunResult` 仍然只有
+`PASS` / `FAIL` / `BLOCKED`。
+
+回显会把降级摆在脸上：
+
+```bash
+lumo task testcase run LUM-42/TC3 --result pass --env local
+# Recorded LUM-42/TC3: PASS on LOCAL → UNPROVEN (this case only proves anything on PRODUCTION)
 ```
 
 ```bash
@@ -137,12 +176,13 @@ PR 已合并时比的是 merge commit，不是 PR 头——生产上那次执行
 
 CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR，其余三处要求任务已有 linked PR 且零用例**。四处都是提示，**都不阻塞 DONE、不消耗 verify 轮次**。
 
-| 位置                               | 门槛              | 长相                                           |
-| ---------------------------------- | ----------------- | ---------------------------------------------- |
-| `session attach` / `task context`  | 零用例（不看 PR） | `## Test cases` 小节，紧挨验收合同             |
-| `Next:` 块                         | 有 PR + 零用例    | 一条 `lumo task testcase add …` 建议，排在最后 |
-| `lumo verify` 全绿转 IN_REVIEW     | 有 PR + 零用例    | `Tip:` 一行，提示把刚手验的剧本沉淀下来        |
-| `lumo task status` 的 next actions | 有 PR + 零用例    | `• [TEST CASE] … (advisory)` + `run:` 命令行   |
+| 位置                               | 门槛              | 长相                                                                 |
+| ---------------------------------- | ----------------- | -------------------------------------------------------------------- |
+| `session attach` / `task context`  | 零用例（不看 PR） | `## Test cases` 小节，紧挨验收合同                                   |
+| `Next:` 块                         | 有 PR + 零用例    | 一条 `lumo task testcase add …` 建议，排在最后                       |
+| `lumo verify` 全绿转 IN_REVIEW     | 有 PR + 零用例    | `Tip:` 一行，提示把刚手验的剧本沉淀下来                              |
+| `lumo task status` 的 next actions | 有 PR + 零用例    | `• [TEST CASE] … (advisory)` + `run:` 命令行                         |
+| `lumo task status` 的 next actions | 用例有判决信号    | `• [TEST CASE] TC3 … — reported PASS, capped to UNPROVEN (advisory)` |
 
 几条语义：
 
@@ -161,7 +201,7 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 - 用户问「这条用例上次跑是什么结果」「这个还验过吗」→ `testcase show`。
 - PR 合并、部署完成之后 → 提醒补一次 `--env production` 的执行记录。本地绿和生产上真的验过是两回事。
 
-## 语义坑（最容易搞错的八条）
+## 语义坑（最容易搞错的十条）
 
 1. **`--env` 必填无默认。** 整个 feature 的目的就是分清跑在哪；别去猜一个值填进去。
 2. **`BLOCKED` = 用例根本没跑起来**（前置条件 / 环境不满足），因此**不能**带 `--failed-step`。跑到一半被外部因素卡住，记 `--result fail` + 定位 + `--note`。
@@ -170,4 +210,21 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 5. **`update` 的 `--step` 是整段替换**，不是追加。
 6. **`rm` 是软删**，run 历史仍在；且走确认信封，agent 不得自补 `--confirm`。
 7. **test case 不是验收合同。** 用例跑绿不代表任务可以 DONE；DONE 看的是 `lumo verify` 与 `lumo task status`。
-8. **一条没有证据的 run 只是个断言。** `PASS on LOCAL` 本身不可复核——它把「凭什么说它绿」留在了某个人的记忆里，正是这个 feature 要终结的东西。证据要在跑的当下留（`tee` 到 `.log` 再 `--evidence-file`），事后补不回来。零证据时 CLI 会提醒一行，但它只是提醒：**不阻塞、也不会替你留档**。
+8. **`--cause unknown` 是合法答案。** FAIL 必须归因，但「没判断出来」本身就是一种诚实的归因；不要为了填满字段瞎选一个 `defect`（它还会因缺证据被 400 挡回来）。
+9. **`UNPROVEN` 不是 FAIL。** 它说的是「这次没能确认」，不是「测出问题了」。看到它别去修一个没坏的东西——去补上验得了的那次执行。
+10. **一条没有证据的 run 只是个断言。** `PASS on LOCAL` 本身不可复核——它把「凭什么说它绿」留在了某个人的记忆里，正是这个 feature 要终结的东西。证据要在跑的当下留（`tee` 到 `.log` 再 `--evidence-file`），事后补不回来。零证据时 CLI 会提醒一行，但它只是提醒：**不阻塞、也不会替你留档**。
+
+## 判决信号进 `task status`（LUM-808）
+
+每条用例**最新一条** run 会产出至多一个 advisory 信号，出现在 `lumo task status`
+的 next actions 末尾：
+
+| 信号            | 触发                                 |
+| --------------- | ------------------------------------ |
+| `PROVEN_DEFECT` | 最新 run 是带证据的 `--cause defect` |
+| `UNPROVEN_PASS` | 最新 run 报了 PASS，但被上述上限封顶 |
+| `CASE_OUTDATED` | 最新 run 是 `--cause outdated`       |
+
+**永远是 advisory：它们从不改变「这个任务能不能 DONE」**（LUM-801 的红线不变）。
+DONE 闸只看三样东西——未解决的送回、未处置的越界、拦截级安全发现——判定收在
+`lib/acceptance/done-verdict.ts` 一处。用例进闸会逆向激励「干脆不记 run」。

@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "Semakan semula",
   "testCases.tab": "Ujian",
   "testCases.field.evidenceFiles.tooMany": "Anda memilih {count} fail — maksimum {max} setiap pelaksanaan.",
-  "testCases.field.evidenceFiles.tooLarge": "“{filename}” bersaiz {size} MB — setiap fail maksimum {max} MB."
+  "testCases.field.evidenceFiles.tooLarge": "“{filename}” bersaiz {size} MB — setiap fail maksimum {max} MB.",
+  "testCases.cause.CASE_OUTDATED": "Kes sudah lapuk",
+  "testCases.cause.EXTERNAL_BLOCK": "Tersekat di pertengahan",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "Kecacatan pelaksanaan",
+  "testCases.cause.UNKNOWN": "Tidak dapat dipastikan",
+  "testCases.ceiling.environment": "kes ini hanya membuktikan sesuatu pada {env}",
+  "testCases.ceiling.unobserved": "{count} langkah pengesahan tidak sempat diperhatikan",
+  "testCases.field.cause": "Salah siapa kali ini?",
+  "testCases.field.cause.needsEvidence": "Mendakwa kecacatan pelaksanaan memerlukan sekurang-kurangnya satu bukti.",
+  "testCases.field.cause.placeholder": "Pilih puncanya…",
+  "testCases.field.cause.required": "Larian yang gagal mesti menyatakan puncanya.",
+  "testCases.field.unproven": "Tidak dapat diperhatikan",
+  "testCases.field.unproven.hint": "Tandakan apa-apa yang larian ini sebenarnya tidak periksa. Lulus dengan tanda tertinggal direkodkan sebagai belum terbukti.",
+  "testCases.form.requiresEnv": "Hanya membuktikan sesuatu pada",
+  "testCases.form.requiresEnv.any": "Mana-mana persekitaran",
+  "testCases.form.requiresEnv.hint": "Padanan tepat — lulus yang direkodkan di tempat lain diturunkan kepada belum terbukti.",
+  "testCases.requiresEnv.badge": "Hanya sah pada {env}",
+  "testCases.result.UNPROVEN": "Belum terbukti"
 }

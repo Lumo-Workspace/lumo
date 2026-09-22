@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "Повторная проверка",
   "testCases.tab": "Тесты",
   "testCases.field.evidenceFiles.tooMany": "Выбрано файлов: {count} — не больше {max} за одно выполнение.",
-  "testCases.field.evidenceFiles.tooLarge": "«{filename}» весит {size} МБ — каждый файл должен быть не больше {max} МБ."
+  "testCases.field.evidenceFiles.tooLarge": "«{filename}» весит {size} МБ — каждый файл должен быть не больше {max} МБ.",
+  "testCases.cause.CASE_OUTDATED": "Сценарий устарел",
+  "testCases.cause.EXTERNAL_BLOCK": "Прервано на полпути",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "Дефект реализации",
+  "testCases.cause.UNKNOWN": "Не удалось определить",
+  "testCases.ceiling.environment": "этот сценарий что-то доказывает только на {env}",
+  "testCases.ceiling.unobserved": "{count, plural, one {# шаг проверки остался без наблюдения} few {# шага проверки остались без наблюдения} many {# шагов проверки остались без наблюдения} other {# шагов проверки остались без наблюдения}}",
+  "testCases.field.cause": "В чём была причина?",
+  "testCases.field.cause.needsEvidence": "Чтобы заявить о дефекте реализации, нужно хотя бы одно доказательство.",
+  "testCases.field.cause.placeholder": "Выберите причину…",
+  "testCases.field.cause.required": "Для неудачного прогона нужно указать причину.",
+  "testCases.field.unproven": "Не удалось проверить",
+  "testCases.field.unproven.hint": "Отметьте то, что этот прогон на самом деле не проверил. Успех с отметкой записывается как не подтверждённый.",
+  "testCases.form.requiresEnv": "Что-то доказывает только на",
+  "testCases.form.requiresEnv.any": "Любая среда",
+  "testCases.form.requiresEnv.hint": "Точное совпадение — успех, записанный в другом месте, понижается до «не подтверждено».",
+  "testCases.requiresEnv.badge": "Доказывает только на {env}",
+  "testCases.result.UNPROVEN": "Не подтверждено"
 }

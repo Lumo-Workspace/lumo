@@ -2449,5 +2449,22 @@
   "testCases.section.verification": "पुनः-जाँच",
   "testCases.tab": "टेस्ट",
   "testCases.field.evidenceFiles.tooMany": "आपने {count} फ़ाइलें चुनी हैं — प्रति निष्पादन अधिकतम {max}।",
-  "testCases.field.evidenceFiles.tooLarge": "「{filename}」 {size} MB का है — हर फ़ाइल {max} MB या उससे छोटी होनी चाहिए।"
+  "testCases.field.evidenceFiles.tooLarge": "「{filename}」 {size} MB का है — हर फ़ाइल {max} MB या उससे छोटी होनी चाहिए।",
+  "testCases.cause.CASE_OUTDATED": "केस पुराना पड़ गया",
+  "testCases.cause.EXTERNAL_BLOCK": "बीच में बाहरी वजह से रुका",
+  "testCases.cause.IMPLEMENTATION_DEFECT": "कार्यान्वयन की खामी",
+  "testCases.cause.UNKNOWN": "तय नहीं कर पाए",
+  "testCases.ceiling.environment": "यह केस केवल {env} पर चलने से ही कुछ साबित करता है",
+  "testCases.ceiling.unobserved": "{count, plural, one {# सत्यापन चरण देखा नहीं गया} other {# सत्यापन चरण देखे नहीं गए}}",
+  "testCases.field.cause": "गलती किसकी थी?",
+  "testCases.field.cause.needsEvidence": "कार्यान्वयन की खामी बताने के लिए कम से कम एक प्रमाण चाहिए।",
+  "testCases.field.cause.placeholder": "कारण चुनें…",
+  "testCases.field.cause.required": "विफल रन में कारण बताना ज़रूरी है।",
+  "testCases.field.unproven": "देख नहीं पाए",
+  "testCases.field.unproven.hint": "जो इस रन में सचमुच जाँच नहीं पाए, उसे चुनें। चुनाव रहते हुए पास दर्ज करने पर वह अप्रमाणित माना जाएगा।",
+  "testCases.form.requiresEnv": "केवल इस परिवेश पर प्रमाणित",
+  "testCases.form.requiresEnv.any": "कोई भी परिवेश",
+  "testCases.form.requiresEnv.hint": "ठीक-ठीक मिलान — कहीं और दर्ज किया गया पास अप्रमाणित तक सीमित कर दिया जाता है।",
+  "testCases.requiresEnv.badge": "केवल {env} पर प्रमाणित",
+  "testCases.result.UNPROVEN": "अप्रमाणित"
 }
