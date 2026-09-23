@@ -29,6 +29,7 @@ import { taskQueryService } from '@/lib/services/task-query.service'
 import {
   adjacentTranspositions,
   buildTextMatchSql,
+  FUZZY_FALLBACK_SIMILARITY,
   FUZZY_STRICT,
   taskRepository,
 } from '@/lib/repositories/task.repository'
@@ -116,13 +117,13 @@ describe('adjacent transpositions (LUM-821 swap fallback)', () => {
     expect(buildTextMatchSql('ws1', ['oauht'], 500).values).not.toContain(
       '%oauth%'
     )
-    const q = buildTextMatchSql('ws1', ['oauht'], 500, { transpositions: true })
+    const q = buildTextMatchSql('ws1', ['oauht'], 500, { tier: 'swap' })
     expect(q.values).toEqual(expect.arrayContaining(['%oauth%', '%oahut%']))
   })
 
   it('short and identifier terms never get swap variants', () => {
     for (const term of ['bug', 'LUM-821', '4242']) {
-      const q = buildTextMatchSql('ws1', [term], 500, { transpositions: true })
+      const q = buildTextMatchSql('ws1', [term], 500, { tier: 'swap' })
       for (const v of adjacentTranspositions(term)) {
         expect(q.values).not.toContain(`%${v}%`)
       }
@@ -130,37 +131,61 @@ describe('adjacent transpositions (LUM-821 swap fallback)', () => {
   })
 })
 
-describe('taskRepository.findByWorkspaceWithFilters — fuzzy wiring', () => {
-  it('fuzzy: ranks via the trigram query (threshold set tx-locally), filters by those ids, returns score order', async () => {
-    mockTransaction.mockResolvedValue([
-      [],
-      [
-        { id: 't-best', score: 1.9 },
-        { id: 't-typo', score: 0.4 },
-      ],
+describe('taskRepository.findByWorkspaceWithFilters — tiered fallback (exact → trigram → swap)', () => {
+  // exact tier = a bare $queryRaw; fuzzy / swap tiers = a $transaction batch
+  // (set_config + ranked query). The mock records every $queryRaw build.
+  const ranked = () =>
+    mockQueryRaw.mock.calls
+      .map(c => c[0])
+      .filter(q => q && typeof q === 'object' && 'text' in q) as Array<{
+      text: string
+      values: unknown[]
+    }>
+
+  it('exact tier with hits: returns them ranked, and NEVER runs a typo tier (sweep: `content` must not widen to "context")', async () => {
+    mockQueryRaw.mockResolvedValueOnce([
+      { id: 't-best', score: 2 },
+      { id: 't-other', score: 1 },
     ])
-    // Prisma returns board order; the repository must re-sort by score.
-    mockFindMany.mockResolvedValue([{ id: 't-typo' }, { id: 't-best' }])
+    mockFindMany.mockResolvedValue([{ id: 't-other' }, { id: 't-best' }])
     const rows = await taskRepository.findByWorkspaceWithFilters('ws1', {
-      q: 'oauht redirect',
+      q: 'content',
       fuzzy: true,
       statuses: ['TODO'],
     })
-    expect(rows.map(r => r.id)).toEqual(['t-best', 't-typo'])
+    expect(rows.map(r => r.id)).toEqual(['t-best', 't-other'])
+    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(ranked()[0]!.text).not.toContain('<<%')
     const where = mockFindMany.mock.calls[0]![0].where
-    expect(where.id).toEqual({ in: ['t-best', 't-typo'] })
+    expect(where.id).toEqual({ in: ['t-best', 't-other'] })
     expect(where.status).toEqual({ in: ['TODO'] })
-    expect(where.AND).toBeUndefined()
-    const [setCall] = mockQueryRaw.mock.calls
+  })
+
+  it('no exact hits → trigram tier (threshold set tx-locally); swap tier not reached when it finds something', async () => {
+    mockQueryRaw.mockResolvedValueOnce([]) // exact tier
+    mockTransaction.mockResolvedValueOnce([
+      [],
+      [{ id: 't-search', score: 0.4 }],
+    ])
+    mockFindMany.mockResolvedValue([{ id: 't-search' }])
+    await taskRepository.findByWorkspaceWithFilters('ws1', {
+      q: 'serch',
+      fuzzy: true,
+    })
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    const [, setCall, fuzzyQ] = mockQueryRaw.mock.calls
     expect(String(setCall![0].join('?'))).toContain(
       "set_config('pg_trgm.strict_word_similarity_threshold'"
     )
-    expect(setCall!.slice(1)).toEqual(['0.4'])
+    expect(setCall!.slice(1)).toEqual([String(FUZZY_FALLBACK_SIMILARITY)])
+    expect(fuzzyQ![0].text).toContain('<<%')
+    expect(fuzzyQ![0].values).not.toContain('%esrch%')
   })
 
-  it('runs the swap fallback only when the normal pass matched nothing', async () => {
+  it('no exact and no trigram hits → swap tier', async () => {
+    mockQueryRaw.mockResolvedValueOnce([]) // exact tier
     mockTransaction
-      .mockResolvedValueOnce([[], []]) // normal pass: no hits
+      .mockResolvedValueOnce([[], []]) // trigram tier: nothing
       .mockResolvedValueOnce([[], [{ id: 't-oauth', score: 0.85 }]])
     mockFindMany.mockResolvedValue([{ id: 't-oauth' }])
     const rows = await taskRepository.findByWorkspaceWithFilters('ws1', {
@@ -169,29 +194,18 @@ describe('taskRepository.findByWorkspaceWithFilters — fuzzy wiring', () => {
     })
     expect(mockTransaction).toHaveBeenCalledTimes(2)
     expect(rows.map(r => r.id)).toEqual(['t-oauth'])
-    // the second batch's ranked query carries the swap pattern
-    const secondRanked = mockQueryRaw.mock.calls[3]![0]
-    expect(secondRanked.values).toContain('%oauth%')
+    const all = ranked()
+    expect(all[all.length - 1]!.values).toContain('%oauth%')
   })
 
-  it('no fallback when the normal pass has hits (`form` must never widen to "from")', async () => {
-    mockTransaction.mockResolvedValue([[], [{ id: 't-form', score: 1 }]])
-    mockFindMany.mockResolvedValue([{ id: 't-form' }])
-    await taskRepository.findByWorkspaceWithFilters('ws1', {
-      q: 'form',
-      fuzzy: true,
-    })
-    expect(mockTransaction).toHaveBeenCalledTimes(1)
-  })
-
-  it('no fallback when no term is typo-eligible', async () => {
-    mockTransaction.mockResolvedValue([[], []])
+  it('no typo tiers when no term is typo-eligible', async () => {
+    mockQueryRaw.mockResolvedValueOnce([])
     mockFindMany.mockResolvedValue([])
     await taskRepository.findByWorkspaceWithFilters('ws1', {
       q: 'bug LUM-9',
       fuzzy: true,
     })
-    expect(mockTransaction).toHaveBeenCalledTimes(1)
+    expect(mockTransaction).not.toHaveBeenCalled()
   })
 
   it('exact (fuzzy off): no raw query, Prisma substring clauses as before', async () => {
