@@ -27,6 +27,19 @@ export interface WorktreeConfig {
 
 export const WORKTREE_CONFIG_PATH = path.join('.lumo', 'worktree.json')
 
+/**
+ * A config path must stay inside the repo: relative, non-empty, and with no
+ * `..` segment. linkPaths/copyPaths are joined onto both the main checkout
+ * (source) and the new worktree (destination), so `../x` or `/etc/x` would
+ * let a repo's committed config read or write outside either of them.
+ */
+export function isRepoRelativePath(p: string): boolean {
+  if (p.trim() === '' || path.isAbsolute(p) || /^[A-Za-z]:/.test(p)) {
+    return false
+  }
+  return !p.split(/[\\/]+/).includes('..')
+}
+
 function stringArray(v: unknown): string[] | undefined {
   return Array.isArray(v) && v.every(x => typeof x === 'string')
     ? (v as string[])
@@ -59,8 +72,21 @@ export function parseWorktreeConfig(text: string): {
   for (const key of ['linkPaths', 'copyPaths', 'notes'] as const) {
     if (!(key in obj)) continue
     const arr = stringArray(obj[key])
-    if (arr) config[key] = arr
-    else problems.push(`${key} must be an array of strings`)
+    if (!arr) {
+      problems.push(`${key} must be an array of strings`)
+      continue
+    }
+    if (key === 'notes') {
+      config[key] = arr
+      continue
+    }
+    config[key] = arr.filter(p => {
+      if (isRepoRelativePath(p)) return true
+      problems.push(
+        `${key} entry "${p}" ignored — must be a relative path inside the repo`
+      )
+      return false
+    })
   }
   if ('verifyCommand' in obj) {
     if (typeof obj.verifyCommand === 'string' && obj.verifyCommand.trim()) {

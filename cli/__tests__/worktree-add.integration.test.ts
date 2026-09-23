@@ -153,6 +153,43 @@ describe('worktree add real git', () => {
     ).toBe(true)
   })
 
+  it('never links or copies outside the repo from .lumo/worktree.json', async () => {
+    // A target outside both checkouts that a hostile config would aim at.
+    const outside = path.join(sb.tmp, 'outside')
+    fs.mkdirSync(outside)
+    fs.writeFileSync(path.join(outside, 'secret'), 'keep me\n')
+    // A tracked symlink pointing out of the repo: `escape/x` looks relative.
+    fs.symlinkSync(outside, path.join(sb.main, 'escape'))
+    git(sb.main, 'add', 'escape')
+    git(sb.main, 'commit', '-q', '-m', 'symlink')
+    git(sb.main, 'push', '-q', 'origin', 'master')
+    fs.mkdirSync(path.join(sb.main, '.lumo'))
+    fs.writeFileSync(
+      path.join(sb.main, '.lumo', 'worktree.json'),
+      JSON.stringify({
+        copyPaths: [
+          '../outside',
+          path.join(outside, 'secret'),
+          'escape/secret',
+        ],
+        linkPaths: ['../../x', 'escape/linked'],
+      })
+    )
+    const { result, err, out } = await captureOutput(() =>
+      inDir(sb.main, () => worktreeAdd('LUM-13', undefined, {}))
+    )
+    expect(result).toBe(0)
+    expect(err).toMatch(/"\.\.\/outside" ignored/)
+    expect(err).toMatch(/"\.\.\/\.\.\/x" ignored/)
+    expect(out).toMatch(/escape\/secret resolves outside the repo; not copied/)
+    expect(out).toMatch(/escape\/linked resolves outside the repo; not linked/)
+    expect(fs.readdirSync(outside).sort()).toEqual(['secret'])
+    expect(fs.readFileSync(path.join(outside, 'secret'), 'utf8')).toBe(
+      'keep me\n'
+    )
+    expect(fs.existsSync(path.join(sb.tmp, 'x'))).toBe(false)
+  })
+
   it('asks for --base when the default branch cannot be determined', async () => {
     git(sb.main, 'remote', 'remove', 'origin')
     const { result, err } = await captureOutput(() =>

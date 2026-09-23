@@ -14,6 +14,7 @@ import {
 } from '../lib/worktree'
 import { resolveWorktreeTaskId } from '../lib/worktree-ref'
 import {
+  isRepoRelativePath,
   readWorktreeConfig,
   WORKTREE_CONFIG_PATH,
   type WorktreeConfig,
@@ -48,6 +49,25 @@ export function planWorktreeFiles(
     copy = hooks ? [hooks] : []
   }
   return { link, copy }
+}
+
+/**
+ * True when `target` — resolved through any symlinks on its existing
+ * ancestors — stays inside `base`. Guards against a tracked symlink in the
+ * repo (e.g. `vendor -> /etc`) turning a clean relative config path into a
+ * read or write outside the checkout.
+ */
+export function staysInside(target: string, base: string): boolean {
+  let probe = path.resolve(target)
+  while (!fs.existsSync(probe) && path.dirname(probe) !== probe) {
+    probe = path.dirname(probe)
+  }
+  const real = path.join(
+    fs.realpathSync(probe),
+    path.relative(probe, path.resolve(target))
+  )
+  const rel = path.relative(fs.realpathSync(base), real)
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))
 }
 
 /**
@@ -116,8 +136,19 @@ export function createTaskWorktree(args: {
   }
 
   const plan = planWorktreeFiles(root, config)
+  // Re-checked here, not only when parsing: the paths are joined onto both
+  // the main checkout and the new worktree, and must never leave either.
+  plan.link = plan.link.filter(isRepoRelativePath)
+  plan.copy = plan.copy.filter(isRepoRelativePath)
+  const escapes = (rel: string) =>
+    !staysInside(path.join(root, rel), root) ||
+    !staysInside(path.join(dir, rel), dir)
   for (const rel of plan.link) {
     const src = path.join(root, rel)
+    if (escapes(rel)) {
+      console.log(`Warning: ${rel} resolves outside the repo; not linked`)
+      continue
+    }
     if (!fs.existsSync(src)) {
       console.log(`Warning: ${rel} is not in the main checkout; not linked`)
       continue
@@ -128,6 +159,10 @@ export function createTaskWorktree(args: {
   }
   for (const rel of plan.copy) {
     const src = path.join(root, rel)
+    if (escapes(rel)) {
+      console.log(`Warning: ${rel} resolves outside the repo; not copied`)
+      continue
+    }
     if (!fs.existsSync(src)) {
       // The one warning that matters: husky routes hooks through this dir,
       // so without it git silently skips every hook in the worktree.

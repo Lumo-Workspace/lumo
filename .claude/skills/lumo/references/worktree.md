@@ -29,7 +29,10 @@ just `LUM-` (the `<LUM-N>` in the examples below is just a placeholder):
 
 Committed at the repo root. No file = plain, repo-agnostic behaviour. A key
 that is present **replaces** the auto-detected default for that key; a
-malformed file only prints warnings, it never blocks a command.
+malformed file only prints warnings, it never blocks a command. `linkPaths` /
+`copyPaths` entries must be relative paths inside the repo — an absolute
+path, a `..` segment, or one that resolves outside the checkout through a
+symlink is skipped with a warning.
 
 | Key             | Default when absent                                                   | Notes                                                          |
 | --------------- | --------------------------------------------------------------------- | -------------------------------------------------------------- |

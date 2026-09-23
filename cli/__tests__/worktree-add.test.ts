@@ -50,6 +50,9 @@ describe('worktreeAdd', () => {
     )
     mockFs.mkdirSync.mockReturnValue(undefined as never)
     mockFs.symlinkSync.mockReturnValue(undefined as never)
+    // No symlinks in the fake tree: every path resolves to itself.
+    mockFs.realpathSync.mockImplementation(((p: fs.PathLike) =>
+      String(p)) as never)
   })
 
   it('rejects an unparseable id', async () => {

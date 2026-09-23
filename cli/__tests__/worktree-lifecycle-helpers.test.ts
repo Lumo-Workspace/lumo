@@ -61,6 +61,18 @@ describe('parseWorktreeConfig', () => {
     ])
   })
 
+  it('drops link/copy paths that leave the repo', () => {
+    const r = parseWorktreeConfig(
+      JSON.stringify({
+        linkPaths: ['node_modules', '../x', '/abs', 'a/../../b', 'C:\\x'],
+        copyPaths: ['.husky/_', ''],
+      })
+    )
+    expect(r.config.linkPaths).toEqual(['node_modules'])
+    expect(r.config.copyPaths).toEqual(['.husky/_'])
+    expect(r.problems).toHaveLength(5)
+  })
+
   it('treats invalid JSON as an empty config with a problem', () => {
     const r = parseWorktreeConfig('{nope')
     expect(r.config).toEqual({})
