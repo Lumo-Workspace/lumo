@@ -1,6 +1,8 @@
+import { Fragment } from 'react'
+
 import styles from './home.module.css'
 
-type Verdict = 'yes' | 'partial' | 'no' | 'undocumented'
+type Verdict = 'yes' | 'partial' | 'addon' | 'no' | 'undocumented'
 
 interface CompetitorCell {
   verdict: Verdict
@@ -15,6 +17,12 @@ interface CompareRow {
   linear: CompetitorCell
   jira: CompetitorCell
   asana: CompetitorCell
+}
+
+interface CompareGroup {
+  title: string
+  question: string
+  rows: CompareRow[]
 }
 
 export const COMPETITORS = ['linear', 'jira', 'asana'] as const
@@ -36,202 +44,229 @@ export const OFFICIAL_DOMAINS: Record<(typeof COMPETITORS)[number], string[]> =
 const VERDICT_LABEL: Record<Verdict, string> = {
   yes: 'Yes',
   partial: 'Partly',
+  addon: 'Add-on',
   no: 'No',
   undocumented: 'Not in docs',
 }
 
-// Every competitor cell was read off that vendor's own docs, changelog or
-// pricing page on 2026-09-23 and cites the page it came from; the page makes
-// the same promise out loud below the table. Where a vendor ships something
-// adjacent (Rovo's AI acceptance check, Linear's delegated-issue owner), the
-// cell says "Partly" and names it rather than rounding it down to "No" — this
-// table is only worth publishing if a Linear or Jira user reading it would
-// agree with their own column. "Not in docs" means we looked and found
-// nothing, which is weaker than "No" and is labelled as such.
-// Lumo cells are held to what the code does: the scan gate blocks per the
-// workspace security policy (lib/services/pr-security-scan-gate.ts, default
-// deterministic HIGH), and a machine pass moves a task to review, not Done.
-export const COMPARE_ROWS: CompareRow[] = [
+// The table only compares the two things Lumo is for: QA (did the agent's
+// work really pass?) and security (did it ship a hole?). Rows every tool has
+// — handing a task to an agent, sprints, docs — were cut on purpose.
+//
+// Every competitor cell was read off that vendor's own docs, changelog,
+// integration or marketplace page on 2026-09-23 and cites the page it came
+// from; the page makes the same promise out loud below the table. Where a
+// vendor ships something adjacent (Rovo Dev's AI review, Xray/Zephyr on the
+// Marketplace), the cell says "Partly" or "Add-on" and names it rather than
+// rounding it down to "No" — the table is only worth publishing if a Jira
+// user would agree with their own column. "Not in docs" means we looked and
+// found nothing, which is weaker than "No" and is labelled as such.
+//
+// Lumo cells are held to what the code does: test tampering, deleted tests
+// and weakened criteria are BoundaryCrossingCategory values
+// (TEST_TAMPERING / TEST_FILE_DELETED / CONTRACT_WEAKENING); the scan layers
+// are SCAN_STAGE_LABELS; the scan gate blocks per the workspace security
+// policy (lib/services/pr-security-scan-gate.ts, default deterministic HIGH)
+// until a person dispositions the finding; a machine pass moves a task to
+// review, not Done.
+export const COMPARE_GROUPS: CompareGroup[] = [
   {
-    capability: 'Hand a task to a coding agent',
-    lumo: {
-      verdict: 'yes',
-      note: 'Claude Code, Codex, Cursor, Copilot and more pull the assembled task context from the CLI.',
-    },
-    linear: {
-      verdict: 'yes',
-      note: 'Delegate an issue to Cursor, Codex, Copilot and others.',
-      source: 'https://linear.app/docs/agents-in-linear',
-    },
-    jira: {
-      verdict: 'yes',
-      note: 'Assign a work item to Claude, Cursor, Codex, Copilot or Rovo Dev.',
-      source: 'https://www.atlassian.com/software/jira/dev',
-    },
-    asana: {
-      verdict: 'partial',
-      note: 'Command by Asana, Enterprise plans only.',
-      source: 'https://asana.com/product/command',
-    },
+    title: 'QA',
+    question: 'The agent says it’s done. Did it actually pass?',
+    rows: [
+      {
+        capability: 'Acceptance criteria that actually run',
+        lumo: {
+          verdict: 'yes',
+          note: 'Each criterion names a check; every run records pass or fail with evidence.',
+        },
+        linear: {
+          verdict: 'no',
+          note: 'Coding sessions can test and screenshot, but nothing is scored per criterion.',
+          source: 'https://linear.app/docs/coding-sessions',
+        },
+        jira: {
+          verdict: 'partial',
+          note: 'Rovo Dev has an AI read the PR against the criteria. Advisory, and no tests run.',
+          source:
+            'https://support.atlassian.com/rovo/docs/check-acceptance-criteria-in-a-code-review/',
+        },
+        asana: {
+          verdict: 'undocumented',
+          note: 'No executable acceptance criteria in its product docs.',
+          source: 'https://asana.com/product/command',
+        },
+      },
+      {
+        capability: 'Test cases with a run log and evidence',
+        lumo: {
+          verdict: 'yes',
+          note: 'Steps and expected result; every run appends its verdict, environment, commit and screenshots.',
+        },
+        linear: {
+          verdict: 'addon',
+          note: 'Not native; third-party tools like Testmo link runs to issues.',
+          source: 'https://linear.app/integrations/testmo',
+        },
+        jira: {
+          verdict: 'addon',
+          note: 'Not native; Marketplace apps like Xray and Zephyr.',
+          source: 'https://marketplace.atlassian.com/apps/1213259',
+        },
+        asana: {
+          verdict: 'addon',
+          note: 'Not native; third-party apps like Qase.',
+          source: 'https://asana.com/apps/qase',
+        },
+      },
+      {
+        capability: 'Catches an agent gaming its own tests',
+        lumo: {
+          verdict: 'yes',
+          note: 'Editing a checked test, deleting a test or weakening a criterion is flagged on the task.',
+        },
+        linear: {
+          verdict: 'undocumented',
+          note: 'Nothing on checking agent work against its tests.',
+          source:
+            'https://linear.app/changelog/2026-03-24-introducing-linear-agent',
+        },
+        jira: {
+          verdict: 'undocumented',
+          note: 'Rovo Dev review doesn’t describe tamper detection.',
+          source: 'https://www.atlassian.com/software/rovo-dev/code-review',
+        },
+        asana: {
+          verdict: 'undocumented',
+          note: 'Nothing on tests in Command.',
+          source: 'https://asana.com/product/command',
+        },
+      },
+      {
+        capability: 'An agent can’t close its own task',
+        lumo: {
+          verdict: 'yes',
+          note: 'A machine pass moves the task to review. A person closes it.',
+        },
+        linear: {
+          verdict: 'partial',
+          note: 'A delegated issue keeps a human owner; merging still auto-closes it.',
+          source: 'https://linear.app/docs/agents-in-linear',
+        },
+        jira: {
+          verdict: 'partial',
+          note: 'Possible if you add an approval step to the workflow yourself.',
+          source:
+            'https://www.atlassian.com/software/jira/guides/agentic-engineering/guardrails-and-safety',
+        },
+        asana: {
+          verdict: 'partial',
+          note: 'AI Teammates have human review checkpoints.',
+          source: 'https://asana.com/product/ai/ai-teammates',
+        },
+      },
+    ],
   },
   {
-    capability: 'Acceptance criteria that actually run',
-    lumo: {
-      verdict: 'yes',
-      note: 'Each criterion names a check; every run records pass or fail with evidence.',
-    },
-    linear: {
-      verdict: 'no',
-      note: 'Coding sessions can test and screenshot, but nothing is scored per criterion.',
-      source: 'https://linear.app/docs/coding-sessions',
-    },
-    jira: {
-      verdict: 'partial',
-      note: 'Rovo Dev has an AI read the PR against the criteria. Advisory, and no tests run.',
-      source:
-        'https://support.atlassian.com/rovo/docs/check-acceptance-criteria-in-a-code-review/',
-    },
-    asana: {
-      verdict: 'undocumented',
-      note: 'No executable acceptance criteria in its product docs.',
-      source: 'https://asana.com/product/command',
-    },
-  },
-  {
-    capability: 'An agent can’t close its own task',
-    lumo: {
-      verdict: 'yes',
-      note: 'A machine pass moves the task to review. A person closes it.',
-    },
-    linear: {
-      verdict: 'partial',
-      note: 'A delegated issue keeps a human owner; merging still auto-closes it.',
-      source: 'https://linear.app/docs/agents-in-linear',
-    },
-    jira: {
-      verdict: 'partial',
-      note: 'Possible if you add an approval step to the workflow yourself.',
-      source:
-        'https://www.atlassian.com/software/jira/guides/agentic-engineering/guardrails-and-safety',
-    },
-    asana: {
-      verdict: 'partial',
-      note: 'AI Teammates have human review checkpoints.',
-      source: 'https://asana.com/product/ai/ai-teammates',
-    },
-  },
-  {
-    capability: 'PR security scan that holds the task open',
-    lumo: {
-      verdict: 'yes',
-      note: 'Five layers on every PR; blocking findings keep the task out of Done until a person rules.',
-    },
-    linear: {
-      verdict: 'no',
-      note: 'Diffs reviews code in Linear; no security scanning.',
-      source: 'https://linear.app/changelog/2026-05-27-linear-diffs',
-    },
-    jira: {
-      verdict: 'partial',
-      note: 'Rovo Dev flags vulnerabilities as advice; the Security tab shows Snyk or GitHub findings.',
-      source: 'https://www.atlassian.com/software/rovo-dev/code-review',
-    },
-    asana: {
-      verdict: 'no',
-      note: 'The GitHub widget shows review and build status only.',
-      source: 'https://help.asana.com/s/article/github-and-asana-integration',
-    },
-  },
-  {
-    capability: 'Flags agents that break project rules',
-    lumo: {
-      verdict: 'yes',
-      note: 'Boundary crossings, like a rewritten test or a bypassed hook, land on the task.',
-    },
-    linear: {
-      verdict: 'no',
-      note: 'Agent guidance is instructions only; nothing checks it was followed.',
-      source: 'https://linear.app/docs/agents-in-linear',
-    },
-    jira: {
-      verdict: 'no',
-      note: 'Permissions and an audit trail; no detection of rule breaks.',
-      source:
-        'https://www.atlassian.com/software/jira/guides/agentic-engineering/guardrails-and-safety',
-    },
-    asana: {
-      verdict: 'undocumented',
-      note: 'AI actions are logged; no rule-break detection described.',
-      source: 'https://asana.com/product/ai/ai-teammates',
-    },
-  },
-  {
-    capability: 'Team memory agents reuse',
-    lumo: {
-      verdict: 'yes',
-      note: 'What one run learns is shared with the team and fed into the next task’s context.',
-    },
-    linear: {
-      verdict: 'partial',
-      note: 'Admin-written guidance; the agent does not learn across sessions.',
-      source: 'https://linear.app/docs/linear-agent',
-    },
-    jira: {
-      verdict: 'partial',
-      note: 'Rovo Dev CLI memory lives in local AGENTS.md files.',
-      source:
-        'https://support.atlassian.com/rovo/docs/use-memory-in-rovo-dev-cli/',
-    },
-    asana: {
-      verdict: 'partial',
-      note: 'Shared memory in Command, Enterprise plans only.',
-      source: 'https://asana.com/product/command',
-    },
-  },
-  {
-    capability: 'Agent cost per task',
-    lumo: {
-      verdict: 'yes',
-      note: 'Tokens and dollars per task, per agent and per sprint.',
-    },
-    linear: {
-      verdict: 'partial',
-      note: 'Usage by model; no per-issue rollup.',
-      source: 'https://linear.app/changelog/2026-08-20-coding-environments',
-    },
-    jira: {
-      verdict: 'partial',
-      note: 'Sessions listed per work item; credits tracked per user, not per item.',
-      source:
-        'https://support.atlassian.com/jira-software-cloud/docs/view-and-manage-agent-sessions-in-jira/',
-    },
-    asana: {
-      verdict: 'no',
-      note: 'Priced per AI request; no per-task cost view.',
-      source: 'https://asana.com/pricing',
-    },
-  },
-  {
-    capability: 'Sprints, milestones and docs',
-    lumo: { verdict: 'yes', note: 'All three, on the same tasks.' },
-    linear: {
-      verdict: 'yes',
-      note: 'Cycles, project milestones and documents.',
-      source: 'https://linear.app/docs/use-cycles',
-    },
-    jira: {
-      verdict: 'partial',
-      note: 'Sprints and timeline; docs live in Confluence.',
-      source:
-        'https://support.atlassian.com/jira-cloud-administration/docs/explore-jira-cloud-plans/',
-    },
-    asana: {
-      verdict: 'partial',
-      note: 'Milestones native; sprints are a board pattern, no docs product.',
-      source: 'https://asana.com/pricing',
-    },
+    title: 'Security',
+    question: 'It shipped the feature. Did it ship a hole with it?',
+    rows: [
+      {
+        capability: 'Secrets, code and dependency scan on the PR',
+        lumo: {
+          verdict: 'yes',
+          note: 'Built in, on every PR; each finding carries a severity and a fingerprint.',
+        },
+        linear: {
+          verdict: 'no',
+          note: 'Shows the PR’s overall check status; no scanning.',
+          source: 'https://linear.app/docs/diffs',
+        },
+        jira: {
+          verdict: 'partial',
+          note: 'Shows findings from Snyk or GitHub; Rovo Dev AI review flags some issues.',
+          source:
+            'https://support.atlassian.com/jira-cloud-administration/docs/what-is-the-security-feature/',
+        },
+        asana: {
+          verdict: 'no',
+          note: 'The GitHub app shows review, build and PR status only.',
+          source: 'https://asana.com/apps/github',
+        },
+      },
+      {
+        capability: 'An agent that hunts for a working exploit',
+        lumo: {
+          verdict: 'yes',
+          note: 'After AI review, an agent works the diff for an exploit path you could actually hit.',
+        },
+        linear: {
+          verdict: 'undocumented',
+          note: 'No security review in Diffs.',
+          source: 'https://linear.app/docs/diffs',
+        },
+        jira: {
+          verdict: 'undocumented',
+          note: 'Rovo Dev reviews and drafts fixes; no exploit hunting.',
+          source: 'https://www.atlassian.com/software/rovo-dev/code-review',
+        },
+        asana: {
+          verdict: 'undocumented',
+          note: 'Not described for Command or AI Teammates.',
+          source: 'https://asana.com/product/command',
+        },
+      },
+      {
+        capability: 'Findings hold the task until a person rules',
+        lumo: {
+          verdict: 'yes',
+          note: 'A blocking finding keeps the task out of Done until someone marks it false positive or accepted risk.',
+        },
+        linear: {
+          verdict: 'undocumented',
+          note: 'No security findings to gate on.',
+          source: 'https://linear.app/docs/diffs',
+        },
+        jira: {
+          verdict: 'undocumented',
+          note: 'Findings can be linked and prioritized; no Done gate described.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/manage-security-vulnerabilities-in-jira/',
+        },
+        asana: {
+          verdict: 'undocumented',
+          note: 'No security findings to gate on.',
+          source: 'https://asana.com/apps/github',
+        },
+      },
+      {
+        capability: 'Flags risky agent actions as they happen',
+        lumo: {
+          verdict: 'yes',
+          note: 'A push to a protected branch, a skipped hook or a destructive DB command lands on the task.',
+        },
+        linear: {
+          verdict: 'no',
+          note: 'Agent guidance is instructions only; nothing checks it was followed.',
+          source: 'https://linear.app/docs/agents-in-linear',
+        },
+        jira: {
+          verdict: 'no',
+          note: 'Permissions and an audit trail; no detection of rule breaks.',
+          source:
+            'https://www.atlassian.com/software/jira/guides/agentic-engineering/guardrails-and-safety',
+        },
+        asana: {
+          verdict: 'undocumented',
+          note: 'AI actions are logged; no rule-break detection described.',
+          source: 'https://asana.com/product/ai/ai-teammates',
+        },
+      },
+    ],
   },
 ]
+
+export const COMPARE_ROWS: CompareRow[] = COMPARE_GROUPS.flatMap(g => g.rows)
 
 function verdictClass(verdict: Verdict): string | undefined {
   if (verdict === 'yes') return `${styles.compareVerdict} ${styles.compareYes}`
@@ -245,12 +280,15 @@ export function Compare() {
     <section id='compare' className={styles.sectionPlain}>
       <div className={styles.sectionInner}>
         <div className={styles.sectionHeadLeft}>
-          <div className={styles.eyebrow}>Head to head</div>
-          <h2 className={styles.h2}>Lumo vs. Linear, Jira and Asana.</h2>
+          <div className={styles.eyebrow}>Lumo vs. Linear, Jira and Asana</div>
+          <h2 className={`${styles.h2} ${styles.compareTitle}`}>
+            They track the work. Lumo checks it.
+          </h2>
           <p className={styles.compareLede}>
-            All four can hand work to an agent. The difference is what happens
-            when the agent says it&apos;s done. Linear, Jira and Asana are
-            broader tools for planning; Lumo is built for checking the work.
+            All four can hand a task to a coding agent. Then Linear, Jira and
+            Asana stop: at an overall CI badge, an AI review comment, or a
+            test-management add-on. Lumo runs the checks itself, and the task
+            doesn&apos;t close until they pass and a person signs off.
           </p>
         </div>
 
@@ -275,50 +313,71 @@ export function Compare() {
               </tr>
             </thead>
             <tbody>
-              {COMPARE_ROWS.map(row => (
-                <tr key={row.capability}>
-                  <th scope='row' className={styles.compareCap}>
-                    {row.capability}
-                  </th>
-                  <td className={styles.compareLumo} data-label='Lumo'>
-                    <span className={verdictClass(row.lumo.verdict)}>
-                      {VERDICT_LABEL[row.lumo.verdict]}
-                    </span>
-                    <span className={styles.compareNote}>{row.lumo.note}</span>
-                  </td>
-                  {COMPETITORS.map(key => {
-                    const cell = row[key]
-                    return (
-                      <td key={key} data-label={COMPETITOR_NAMES[key]}>
-                        <span className={verdictClass(cell.verdict)}>
-                          {VERDICT_LABEL[cell.verdict]}
+              {COMPARE_GROUPS.map(group => (
+                <Fragment key={group.title}>
+                  <tr className={styles.compareGroupRow}>
+                    <th
+                      scope='colgroup'
+                      colSpan={COMPETITORS.length + 2}
+                      className={styles.compareGroup}
+                    >
+                      <span className={styles.compareGroupTitle}>
+                        {group.title}
+                      </span>
+                      <span className={styles.compareGroupQuestion}>
+                        {group.question}
+                      </span>
+                    </th>
+                  </tr>
+                  {group.rows.map(row => (
+                    <tr key={row.capability}>
+                      <th scope='row' className={styles.compareCap}>
+                        {row.capability}
+                      </th>
+                      <td className={styles.compareLumo} data-label='Lumo'>
+                        <span className={verdictClass(row.lumo.verdict)}>
+                          {VERDICT_LABEL[row.lumo.verdict]}
                         </span>
                         <span className={styles.compareNote}>
-                          {cell.note}{' '}
-                          <a
-                            href={cell.source}
-                            className={styles.compareSource}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                            aria-label={`${COMPETITOR_NAMES[key]} source for ${row.capability}`}
-                          >
-                            source
-                          </a>
+                          {row.lumo.note}
                         </span>
                       </td>
-                    )
-                  })}
-                </tr>
+                      {COMPETITORS.map(key => {
+                        const cell = row[key]
+                        return (
+                          <td key={key} data-label={COMPETITOR_NAMES[key]}>
+                            <span className={verdictClass(cell.verdict)}>
+                              {VERDICT_LABEL[cell.verdict]}
+                            </span>
+                            <span className={styles.compareNote}>
+                              {cell.note}{' '}
+                              <a
+                                href={cell.source}
+                                className={styles.compareSource}
+                                target='_blank'
+                                rel='noopener noreferrer'
+                                aria-label={`${COMPETITOR_NAMES[key]} source for ${row.capability}`}
+                              >
+                                source
+                              </a>
+                            </span>
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
         </div>
 
         <p className={styles.compareFootnote}>
-          Checked against each vendor&apos;s own docs, changelog and pricing
-          pages on September 23, 2026 — every cell links to the page it came
-          from. &ldquo;Not in docs&rdquo; means we looked and found nothing, not
-          that the feature can&apos;t exist. These products ship fast; if a cell
+          Checked against each vendor&apos;s own docs, integration and
+          marketplace pages on September 23, 2026 — every cell links to the page
+          it came from. &ldquo;Not in docs&rdquo; means we looked and found
+          nothing, not that the feature can&apos;t exist; &ldquo;Add-on&rdquo;
+          means a separate third-party app. These products ship fast; if a cell
           is out of date, the source link is the tiebreaker.
         </p>
       </div>

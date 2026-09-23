@@ -71,9 +71,9 @@ describe('homepage compare section LUM-827', () => {
         ...COMPETITORS.map(key => COMPETITOR_NAMES[key]),
       ])
     )
-    expect(within(section as HTMLElement).getAllByRole('row').length).toBe(
-      COMPARE_ROWS.length + 1
-    )
+    expect(
+      within(section as HTMLElement).getAllByRole('rowheader')
+    ).toHaveLength(COMPARE_ROWS.length)
 
     const navLink = screen.getByRole('link', { name: 'Compare' })
     expect(navLink).toHaveAttribute('href', '#compare')
