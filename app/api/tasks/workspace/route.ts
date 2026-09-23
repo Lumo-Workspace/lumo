@@ -15,13 +15,6 @@ function parseList(
   return arr.length ? arr : undefined
 }
 
-/** UTC midnight of a YYYY-MM-DD day, shifted by `plusDays`. */
-function calendarDayStart(day: string, plusDays = 0): Date {
-  const d = new Date(`${day}T00:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + plusDays)
-  return d
-}
-
 export async function GET(request: NextRequest) {
   try {
     const identity = await requireIdentity(request)
@@ -43,14 +36,9 @@ export async function GET(request: NextRequest) {
     })
     if (!parsed.success) return zodError(parsed)
 
-    const { dueAfter, dueBefore, ...rest } = parsed.data
     const tasks = await taskQueryService.findForWorkspace(
       identity.workspaceId,
-      {
-        ...rest,
-        dueAfter: dueAfter ? calendarDayStart(dueAfter) : undefined,
-        dueBefore: dueBefore ? calendarDayStart(dueBefore, 1) : undefined,
-      }
+      parsed.data
     )
 
     return NextResponse.json({

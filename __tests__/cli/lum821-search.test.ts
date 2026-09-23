@@ -20,6 +20,7 @@ import {
   taskSearch,
 } from '@/cli/src/commands/task-search'
 import { resolveAssigneeRefs, type Directory } from '@/cli/src/lib/directory'
+import { localDayLabel, localDayStart } from '@/cli/src/lib/local-day'
 
 const DIR: Directory = {
   members: [
@@ -121,7 +122,7 @@ describe('formatSearchTable', () => {
           status: 'TODO',
           priority: 'HIGH',
           teamIdentifier: 'LUM',
-          dueDate: '2026-09-30T00:00:00.000Z',
+          dueDate: localDayStart('2026-09-30')!,
           assigneeActorId: 'act-alice',
           project: { id: 'p1', name: 'lumo' },
         },
@@ -233,9 +234,32 @@ describe('taskSearch end-to-end (mocked fetch)', () => {
     ).toBe(false)
   })
 
-  it('rejects a non-ISO due date before any network call', async () => {
-    const code = await taskSearch(undefined, { dueBefore: '30/09/2026' })
-    expect(code).toBe(1)
+  it('rejects a non-ISO or impossible due date before any network call', async () => {
+    expect(await taskSearch(undefined, { dueBefore: '30/09/2026' })).toBe(1)
+    expect(await taskSearch(undefined, { dueAfter: '2026-02-31' })).toBe(1)
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('sends inclusive local days as a local-midnight instant window', async () => {
+    await taskSearch(undefined, {
+      dueAfter: '2026-09-01',
+      dueBefore: '2026-09-30',
+    })
+    const call = fetchMock.mock.calls
+      .map(c => String(c[0]))
+      .find(u => u.includes('/api/tasks/workspace'))!
+    const p = new URL(call).searchParams
+    expect(p.get('dueAfter')).toBe(new Date(2026, 8, 1).toISOString())
+    expect(p.get('dueBefore')).toBe(new Date(2026, 9, 1).toISOString())
+  })
+})
+
+describe('local-day helpers', () => {
+  it('round-trips a local day and rejects impossible days', () => {
+    const iso = localDayStart('2026-09-30')!
+    expect(localDayLabel(iso)).toBe('2026-09-30')
+    expect(localDayLabel(localDayStart('2026-12-31', 1)!)).toBe('2027-01-01')
+    expect(localDayStart('2026-02-31')).toBeNull()
+    expect(localDayStart('2026/09/30')).toBeNull()
   })
 })

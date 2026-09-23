@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { sanitizeField } from '../lib/sanitize'
+import { localDayLabel, localDayStart } from '../lib/local-day'
 import { apiCall, apiContext } from '../lib/test-case-api'
 import {
   actorNameMap,
@@ -21,7 +22,6 @@ import {
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
-const DAY_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export interface TaskSearchOptions {
   assignee?: string[]
@@ -121,7 +121,7 @@ export function formatSearchTable(
     assignee: t.assigneeActorId
       ? sanitizeField(names.get(t.assigneeActorId) ?? '?')
       : '-',
-    due: t.dueDate ? t.dueDate.slice(0, 10) : '-',
+    due: t.dueDate ? localDayLabel(t.dueDate) : '-',
     title: sanitizeField(t.title),
   }))
   const cols = [
@@ -158,12 +158,20 @@ export async function taskSearch(
     )
     return 1
   }
-  for (const [flag, v] of [
-    ['--due-before', opts.dueBefore],
-    ['--due-after', opts.dueAfter],
+  // Both bounds are inclusive local days → the instant window
+  // [dueAfter 00:00 local, dueBefore+1 00:00 local).
+  const dueAfter =
+    opts.dueAfter !== undefined ? localDayStart(opts.dueAfter) : undefined
+  const dueBefore =
+    opts.dueBefore !== undefined ? localDayStart(opts.dueBefore, 1) : undefined
+  for (const [flag, raw, v] of [
+    ['--due-after', opts.dueAfter, dueAfter],
+    ['--due-before', opts.dueBefore, dueBefore],
   ] as const) {
-    if (v !== undefined && !DAY_RE.test(v)) {
-      console.error(`Error: ${flag} expects YYYY-MM-DD, got "${v}"`)
+    if (raw !== undefined && v === null) {
+      console.error(
+        `Error: ${flag} expects a valid YYYY-MM-DD date, got "${raw}"`
+      )
       return 1
     }
   }
@@ -261,8 +269,8 @@ export async function taskSearch(
     projectIds,
     milestoneIds,
     sprintIds,
-    dueAfter: opts.dueAfter,
-    dueBefore: opts.dueBefore,
+    dueAfter: dueAfter ?? undefined,
+    dueBefore: dueBefore ?? undefined,
   })
   const r = await apiCall<SearchResponse>(ctx, path, {}, 'task search')
   if (!r.ok || !r.data) return 1

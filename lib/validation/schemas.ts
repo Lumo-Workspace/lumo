@@ -664,15 +664,6 @@ export const listMilestonesQuerySchema = z.object({
 
 // ─── Workspace Task Filters ────────────────────────────────────────────────
 
-const calendarDaySchema = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected a YYYY-MM-DD date')
-  .refine(v => {
-    // Round-trip check: rejects Feb 31 etc. (which JS either NaNs or rolls over).
-    const d = new Date(`${v}T00:00:00Z`)
-    return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(v)
-  }, 'Invalid date')
-
 export const workspaceTaskFiltersSchema = z.object({
   projectIds: z.array(z.string()).optional(),
   milestoneIds: z.array(z.string()).optional(),
@@ -685,10 +676,11 @@ export const workspaceTaskFiltersSchema = z.object({
   tagIds: z.array(z.string()).optional(),
   sprintIds: z.array(z.string()).optional(),
   q: z.string().trim().min(1).max(200).optional(),
-  // YYYY-MM-DD calendar days (UTC), both inclusive; the route turns them into
-  // a [dueAfter 00:00Z, dueBefore+1d 00:00Z) instant window.
-  dueAfter: calendarDaySchema.optional(),
-  dueBefore: calendarDaySchema.optional(),
+  // Instant window [dueAfter, dueBefore). Due dates are stored as the
+  // author's local midnight, so the caller (who knows its timezone) turns
+  // calendar days into instants — the server never guesses a zone.
+  dueAfter: z.coerce.date().optional(),
+  dueBefore: z.coerce.date().optional(),
 })
 
 // ─── Task Dependencies ─────────────────────────────────────────────────────

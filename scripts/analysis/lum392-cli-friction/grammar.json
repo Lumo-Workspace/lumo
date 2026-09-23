@@ -3482,7 +3482,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Due on or after YYYY-MM-DD (UTC)"
+          "description": "Due on or after YYYY-MM-DD (your local day)"
         },
         "--due-before": {
           "long": "--due-before",
@@ -3490,7 +3490,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Due on or before YYYY-MM-DD (UTC)"
+          "description": "Due on or before YYYY-MM-DD (your local day)"
         },
         "--json": {
           "long": "--json",

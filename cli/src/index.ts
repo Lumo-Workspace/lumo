@@ -778,8 +778,8 @@ task
   .option('-m, --milestone <ref>', 'Milestone name or UUID')
   .option('--sprint <ref>', 'Sprint number or UUID')
   .option('--team <ref>', 'Team to resolve --sprint against')
-  .option('--due-after <date>', 'Due on or after YYYY-MM-DD (UTC)')
-  .option('--due-before <date>', 'Due on or before YYYY-MM-DD (UTC)')
+  .option('--due-after <date>', 'Due on or after YYYY-MM-DD (your local day)')
+  .option('--due-before <date>', 'Due on or before YYYY-MM-DD (your local day)')
   .option('-n, --limit <count>', 'Show only the first N tasks')
   .option('--json', 'Emit the raw result as JSON')
   .action(

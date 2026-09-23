@@ -229,7 +229,7 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 | `--project <ref>`                 | string              | Project name or slug.                                                                            |
 | `-m, --milestone <ref>`           | string              | Milestone name or UUID.                                                                          |
 | `--sprint <ref>` / `--team <ref>` | string              | Sprint number or UUID (`--team` disambiguates the number).                                       |
-| `--due-after` / `--due-before`    | `YYYY-MM-DD`        | Inclusive UTC calendar days.                                                                     |
+| `--due-after` / `--due-before`    | `YYYY-MM-DD`        | Inclusive calendar days in your local timezone (same as the web due-date picker).                |
 | `-n, --limit <count>`             | integer             | Show only the first N rows.                                                                      |
 | `--json`                          | boolean             | Raw `{ tasks, truncated }`.                                                                      |
 

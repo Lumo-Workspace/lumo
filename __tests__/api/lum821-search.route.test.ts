@@ -37,10 +37,10 @@ beforeEach(() => {
 })
 
 describe('GET /api/tasks/workspace — LUM-821 filters', () => {
-  it('parses sprint, unassigned, q and turns due days into a UTC instant window', async () => {
+  it('parses sprint, unassigned, q and the due instant window', async () => {
     const res = await GET(
       req(
-        '?sprintIds=s1&unassigned=1&q=oauth%20bug&dueAfter=2026-09-01&dueBefore=2026-09-30'
+        '?sprintIds=s1&unassigned=1&q=oauth%20bug&dueAfter=2026-08-31T16:00:00.000Z&dueBefore=2026-09-30T16:00:00.000Z'
       )
     )
     expect(res.status).toBe(200)
@@ -48,17 +48,14 @@ describe('GET /api/tasks/workspace — LUM-821 filters', () => {
       sprintIds: ['s1'],
       unassigned: true,
       q: 'oauth bug',
-      dueAfter: new Date('2026-09-01T00:00:00Z'),
-      // inclusive last day → exclusive next-midnight bound
-      dueBefore: new Date('2026-10-01T00:00:00Z'),
+      dueAfter: new Date('2026-08-31T16:00:00.000Z'),
+      dueBefore: new Date('2026-09-30T16:00:00.000Z'),
     })
   })
 
-  it('rejects a malformed or impossible due date with 400', async () => {
-    for (const bad of ['?dueBefore=09/30/2026', '?dueAfter=2026-02-31']) {
-      const res = await GET(req(bad))
-      expect(res.status).toBe(400)
-    }
+  it('rejects an unparseable due bound with 400', async () => {
+    const res = await GET(req('?dueBefore=not-a-date'))
+    expect(res.status).toBe(400)
     expect(mockFind).not.toHaveBeenCalled()
   })
 })
