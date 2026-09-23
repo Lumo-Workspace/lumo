@@ -22,6 +22,17 @@ export default [
     },
   },
   {
+    // The base rule can't read TypeScript: it flags parameter names inside
+    // function *types* (`(runId: string) => void`) as unused variables. The
+    // typescript-eslint version (already registered by eslint-config-next)
+    // understands type positions and still reports real unused bindings.
+    files: ['**/*.ts', '**/*.tsx'],
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'warn',
+    },
+  },
+  {
     // Layered architecture: the Service layer must not access Prisma directly.
     // Use runInTransaction from @/lib/db/transaction and the repositories in
     // @/lib/repositories. (@/lib/db/errors and @/lib/db/transaction stay allowed.)
