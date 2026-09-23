@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
+import { zodError } from '@/lib/api/helpers'
 import { createTagSchema } from '@/lib/validation/schemas'
 import { tagService } from '@/lib/services'
 
 /**
  * GET /api/tags — List all tags in the current workspace.
+ * Browser session or CLI bearer (LUM-821: `lumo tag list`, `task search --tag`).
  */
-export async function GET(_request: NextRequest) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
+export async function GET(request: NextRequest) {
+  const ws = await requireIdentity(request)
   if (ws instanceof NextResponse) return ws
 
   const raw = await tagService.listTags(ws.workspaceId)
@@ -32,11 +29,7 @@ export async function GET(_request: NextRequest) {
  * POST /api/tags — Create a tag in the current workspace.
  */
 export async function POST(request: NextRequest) {
-  const authResult = await requireAuth()
-  if (authResult instanceof NextResponse) return authResult
-  const { userId } = authResult
-
-  const ws = await requireUserWorkspace(userId)
+  const ws = await requireIdentity(request)
   if (ws instanceof NextResponse) return ws
 
   const body = await request.json()

@@ -26,7 +26,8 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `setup`, `auth login/logout`, `whoami`, `update`                                        | [references/onboarding.md](references/onboarding.md)           |
 | `task context`, retrieval (`slack/web/figma context`, `comments list`, `pr show`)       | [references/task-context.md](references/task-context.md)       |
 | `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail)  | [references/pr-scan.md](references/pr-scan.md)                 |
-| `task create/update/list/show/comment`, `next`                                          | [references/tasks.md](references/tasks.md)                     |
+| `task create/update/list/search/statuses/show/comment`, `next`                          | [references/tasks.md](references/tasks.md)                     |
+| `member list` — workspace directory (the refs `--assignee` accepts)                     | [references/members.md](references/members.md)                 |
 | `task deps add/list/confirm/dismiss/rm` (dependency edges)                              | [references/task-deps.md](references/task-deps.md)             |
 | `idea*` — capture pool, lifecycle, evidence, comments                                   | [references/ideas.md](references/ideas.md)                     |
 | `plan`, `plan status` — the idea→plan converter run                                     | [references/plan-runs.md](references/plan-runs.md)             |
@@ -75,9 +76,15 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task create <title> [flags]` — create a task. **Mid-task** (your session is bound to an in-flight task) it requires `--rework-of <id>` (redirects you to fix the existing task — creates nothing) or `--new-scope` (genuinely new, out-of-scope work). On a send-back, fix in place / amend the contract instead of spinning off a new task — see [verify.md](references/verify.md) and [criteria.md](references/criteria.md).
 - `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags; `--claimable`/`--not-claimable` set the agent-claimable marker (LUM-646). `--status done` without `--confirm` exits 4 with a confirmation envelope (see [confirmation.md](references/confirmation.md))
 - `lumo task list [flags]` — list tasks assigned to you
+- `lumo task search [query] [flags]` — search the whole workspace (any assignee; `--assignee none`, `--tag`, `--status`, `--priority`, `--sprint`, `--due-before/--due-after`); query terms are ANDed substrings of title/description
+- `lumo task statuses` — status set + allowed transitions + priorities, as the server defines them
 - `lumo next [--count N] [--claimable]` — recommend the next task to work on (read-only). `--claimable` restricts to the autonomy boundary: only tasks that are claimable ∩ unblocked (F3 topology) ∩ within milestone budget (F2); old server degrades gracefully to the standard ranking (LUM-646)
 - `lumo task show <id>` — print one task's detail
 - `lumo task comment <id> <body>` — leave a comment
+
+### Members — see [members.md](references/members.md)
+
+- `lumo member list [--json]` — members (name, email, role) + agent actors
 
 ### Ideas (team-level capture pool) — see [ideas.md](references/ideas.md)
 
@@ -139,7 +146,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Outcome well (post-hoc oracle) — see [outcome.md](references/outcome.md)
 
 - `lumo outcome show <task>` — read the post-hoc outcome well: the **falsifier** verdict (`REJECTED` | `INCONCLUSIVE` — never a "pass") plus its backing rejection signals. `INCONCLUSIVE` = no rejection on record, **not** "satisfied".
-- `lumo outcome rate [--min N] [--json]` — workspace **trust × post-hoc-fate** join (LUM-603, LUM-606): per delivery-time **verification-friction** bucket (`no-verification` / `single-round` / `multi-round-or-sendback` — two raw counts frozen at delivery, replacing the saturating forecast-confidence axis), the post-hoc REJECTED rate from the well. Honest by construction — thin buckets read `insufficient` (no fabricated rate), the single-round-vs-multi comparison stays `inconclusive` until CIs separate, and the rate is a **lower bound** (no signal = INCONCLUSIVE, never satisfied). Bucket names are value-neutral — direction is decided by the correlation, never welded into the label. Under-sampled today by design — the skeleton produces real strata once the well fills.
+- `lumo outcome rate [--min N] [--json]` — workspace trust × post-hoc-fate join per verification-friction bucket; thin buckets read `insufficient`, rates are lower bounds (see [outcome.md](references/outcome.md))
 
 ### Artifacts & Figma — see [artifacts-figma.md](references/artifacts-figma.md)
 

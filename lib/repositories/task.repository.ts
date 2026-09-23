@@ -14,7 +14,15 @@ export interface WorkspaceTaskFilters {
   statuses?: TaskStatus[] | undefined
   priorities?: TaskPriority[] | undefined
   assigneeActorIds?: string[] | undefined
+  /** Match tasks with no assignee (ORed with assigneeActorIds when both set). */
+  unassigned?: boolean | undefined
   tagIds?: string[] | undefined
+  sprintIds?: string[] | undefined
+  /** Whitespace-separated terms, all required; each a case-insensitive substring of title/description, or a task number (`42`, `LUM-42`). */
+  q?: string | undefined
+  /** Inclusive due-date window bounds (dueBefore is an exclusive upper instant). */
+  dueAfter?: Date | undefined
+  dueBefore?: Date | undefined
 }
 
 export interface TaskUpdateData {
@@ -691,15 +699,52 @@ export const taskRepository = {
     if (filters.priorities?.length) {
       where.priority = { in: filters.priorities }
     }
-    if (filters.assigneeActorIds?.length) {
+    if (filters.assigneeActorIds?.length && filters.unassigned) {
+      where.OR = [
+        { assigneeActorId: { in: filters.assigneeActorIds } },
+        { assigneeActorId: null },
+      ]
+    } else if (filters.assigneeActorIds?.length) {
       where.assigneeActorId = { in: filters.assigneeActorIds }
+    } else if (filters.unassigned) {
+      where.assigneeActorId = null
     }
     if (filters.tagIds?.length) {
       where.taskTags = { some: { tagId: { in: filters.tagIds } } }
     }
+    if (filters.sprintIds?.length) {
+      where.sprintId = { in: filters.sprintIds }
+    }
+    // Each whitespace-separated term must appear (AND), in title or
+    // description, case-insensitive substring — `oauth redirect` matches
+    // "Fix OAuth callback redirect". A number term (`42` / `LUM-42`) also
+    // matches the task number.
+    const terms = (filters.q ?? '').trim().split(/\s+/).filter(Boolean)
+    if (terms.length) {
+      where.AND = terms.map(term => {
+        const textMatch: Prisma.TaskWhereInput[] = [
+          { title: { contains: term, mode: 'insensitive' } },
+          { description: { contains: term, mode: 'insensitive' } },
+        ]
+        const num = /^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$/.exec(term)
+        if (num) textMatch.push({ number: Number(num[1]) })
+        return { OR: textMatch }
+      })
+    }
+    if (filters.dueAfter || filters.dueBefore) {
+      where.dueDate = {
+        ...(filters.dueAfter ? { gte: filters.dueAfter } : {}),
+        ...(filters.dueBefore ? { lt: filters.dueBefore } : {}),
+      }
+    }
     return prisma.task.findMany({
       where,
-      include: TASK_LIST_INCLUDE,
+      // project name rides along so CLI search rows can show it; the shared
+      // list include stays untouched for board consumers.
+      include: {
+        ...TASK_LIST_INCLUDE,
+        project: { select: { id: true, name: true } },
+      },
       orderBy: { order: 'asc' },
       take: WORKSPACE_TASK_QUERY_LIMIT,
     })

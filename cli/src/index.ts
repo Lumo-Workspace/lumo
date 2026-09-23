@@ -47,6 +47,9 @@ import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
 import { taskList } from './commands/task-list'
+import { taskSearch } from './commands/task-search'
+import { taskStatuses } from './commands/task-statuses'
+import { memberList } from './commands/member-list'
 import { taskShow } from './commands/task-show'
 import { taskStatus } from './commands/task-status'
 import { taskComment } from './commands/task-comment'
@@ -748,6 +751,52 @@ task
   .action(wrap(options => taskList(options as Record<string, string>)))
 
 task
+  .command('search [query]')
+  .description(
+    'Search tasks across the whole workspace (any assignee). [query] matches title/description (or a task number like LUM-42); every filter is applied server-side.'
+  )
+  .option(
+    '-a, --assignee <ref>',
+    'Assignee — me, an email, a member or agent name, or none for unassigned; repeatable (ORed)',
+    collect,
+    []
+  )
+  .option('--tag <name>', 'Tag name (repeatable = any of)', collect, [])
+  .option(
+    '-s, --status <value>',
+    'Status: todo | in_progress | in_review | done (case-insensitive; repeatable or comma-separated)',
+    collect,
+    []
+  )
+  .option(
+    '-p, --priority <level>',
+    'Priority: low | medium | high | urgent (case-insensitive; repeatable or comma-separated)',
+    collect,
+    []
+  )
+  .option('--project <ref>', 'Project name or slug')
+  .option('-m, --milestone <ref>', 'Milestone name or UUID')
+  .option('--sprint <ref>', 'Sprint number or UUID')
+  .option('--team <ref>', 'Team to resolve --sprint against')
+  .option('--due-after <date>', 'Due on or after YYYY-MM-DD (UTC)')
+  .option('--due-before <date>', 'Due on or before YYYY-MM-DD (UTC)')
+  .option('-n, --limit <count>', 'Show only the first N tasks')
+  .option('--json', 'Emit the raw result as JSON')
+  .action(
+    wrap((query, options) =>
+      taskSearch(query as string | undefined, options as Record<string, never>)
+    )
+  )
+
+task
+  .command('statuses')
+  .description(
+    'Show the task status set, allowed transitions and priorities, as served by the API.'
+  )
+  .option('--json', 'Emit the catalog as JSON')
+  .action(wrap(options => taskStatuses(options as { json?: boolean })))
+
+task
   .command('show <identifier>')
   .description(
     'Show a single task: title, status, priority, assignee, project, URL, description.'
@@ -1385,6 +1434,18 @@ taskTestCase
       )
     )
   )
+
+const memberCmd = program
+  .command('member')
+  .description('Inspect workspace members from the terminal')
+
+memberCmd
+  .command('list')
+  .description(
+    'List workspace members (name, email, role) and agent actors — the refs `--assignee` accepts.'
+  )
+  .option('--json', 'Emit the directory as JSON')
+  .action(wrap(options => memberList(options as { json?: boolean })))
 
 const projectCmd = program
   .command('project')

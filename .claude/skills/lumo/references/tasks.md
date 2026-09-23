@@ -214,6 +214,47 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 - The user asks "what am I working on", "what tasks do I have", "list my tasks", "show me my queue".
 - Before suggesting a status change ("mark something as done"), if no task ID is in context — run `task list` first to surface candidates.
 
+### `lumo task search [query] [flags]` — search tasks across the workspace (LUM-821)
+
+`task list` only shows **your** tasks; `task search` spans every member — the CLI counterpart of a Jira JQL search or Linear `list_issues`. Every filter runs server-side (`GET /api/tasks/workspace`), results capped at 500 (a `(result capped …)` line says so).
+
+`[query]` is split on whitespace and **every term must appear** (AND), each as a case-insensitive substring of the title or description — `oauth redirect` matches "Fix OAuth callback redirect". A number term (`42`, `LUM-42`) also matches the task number. It is substring matching, not typo-tolerant fuzzy search.
+
+| Flag                              | Type                | Notes                                                                                            |
+| --------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
+| `-a, --assignee <ref>`            | string (repeatable) | `me`, an email, a member name, an agent name, or `none` (unassigned). Repeats are ORed.          |
+| `--tag <name>`                    | string (repeatable) | Tag name, matched case-insensitively (any of). Unknown name = error — search never creates tags. |
+| `-s, --status <value>`            | enum (repeatable)   | `todo \| in_progress \| in_review \| done`; repeat or comma-separate.                            |
+| `-p, --priority <level>`          | enum (repeatable)   | `low \| medium \| high \| urgent`; repeat or comma-separate.                                     |
+| `--project <ref>`                 | string              | Project name or slug.                                                                            |
+| `-m, --milestone <ref>`           | string              | Milestone name or UUID.                                                                          |
+| `--sprint <ref>` / `--team <ref>` | string              | Sprint number or UUID (`--team` disambiguates the number).                                       |
+| `--due-after` / `--due-before`    | `YYYY-MM-DD`        | Inclusive UTC calendar days.                                                                     |
+| `-n, --limit <count>`             | integer             | Show only the first N rows.                                                                      |
+| `--json`                          | boolean             | Raw `{ tasks, truncated }`.                                                                      |
+
+```bash
+lumo task search "oauth redirect"
+lumo task search --assignee none --status todo --priority high --priority urgent
+lumo task search --assignee alice@example.com --tag bug --sprint 3
+lumo task search --due-before 2026-09-30 --status todo --status in_progress
+```
+
+Output: `LUM-42  TODO  HIGH  lumo  Alice  2026-09-30  Fix OAuth` (id · status · priority · project · assignee · due · title; `-` = none).
+
+### When to suggest `task search`
+
+- "Find the task about X", "what's unassigned", "what's Alice working on", "what's overdue / due this week", "high-priority bugs in sprint 3".
+- Before creating a task — search first to avoid a duplicate.
+
+### `lumo task statuses [--json]` — the workflow as the server defines it
+
+Prints the status set with each status's allowed transitions, the priorities, and which status is gated (`DONE`: needs the user's `--confirm` and a clear DONE gate). Served by `GET /api/tasks/statuses`, so it tracks the real state machine.
+
+```bash
+lumo task statuses
+```
+
 ### `lumo next [--count <N>] [--claimable]` — recommend the next task to work on
 
 Ranks the tasks assigned to you and prints the top N (default 3), each with a
