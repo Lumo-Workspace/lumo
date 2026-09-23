@@ -110,7 +110,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo task criteria set <task> --file <criteria.json> [--human] [--cause <tag>]` — submit the whole contract (full-group replace). Default = agent draft (AGENT_DRAFT, editable until DONE); `--human` = a HUMAN_EDIT revision transcribed from the conversation; `--cause` annotates why the contract drifted. See [criteria.md](references/criteria.md)
 - `lumo task criteria list <task>` — print the contract (id, MACHINE/HUMAN, provenance source@round, checkpointer)
-- `lumo task criteria confirm <task> [--confirm]` — record the **user's** confirmation of the contract; without `--confirm` it exits 4 with an envelope listing every criterion (writes nothing). Never blocks DONE. See [criteria.md](references/criteria.md)
+- `lumo task criteria confirm <task> [--confirm]` — record the **user's** confirmation of the contract; without `--confirm` it exits 4 with an envelope listing every criterion (writes nothing). Never blocks DONE; `lumo verify` refuses an unconfirmed contract, and agent edits un-confirm it (LUM-819). See [criteria.md](references/criteria.md)
 
 ### Test cases (可反复执行的用例 + 执行记录) — see [test-cases.md](references/test-cases.md)
 
@@ -234,7 +234,7 @@ Don't guess these:
 
 1. `lumo session attach LUM-42` — bind this session (the binding is a lifetime lock; one session = one task)
 2. `lumo task context LUM-42` — load background; review unresolved items, PR-review todos, the description
-3. **If the task has no acceptance criteria** (context shows the draft reminder, not a contract): draft outcome-level criteria sized to the task (3–7 for a typical multi-file task; 1–2 for a micro task) and submit them with `lumo task criteria set` **before writing the first line of code**. When a `### Reference class (outside view)` block follows the reminder, draft against it — it lists how similar delivered tasks actually failed; treat it as material to reason from, never as a checklist to cover. See [criteria.md](references/criteria.md)
+3. **If the task has no acceptance criteria** (context shows the draft reminder, not a contract): draft outcome-level criteria sized to the task (3–7 for a typical multi-file task; 1–2 for a micro task) and submit them with `lumo task criteria set` **before writing the first line of code**. When a `### Reference class (outside view)` block follows the reminder, draft against it — it lists how similar delivered tasks actually failed; treat it as material to reason from, never as a checklist to cover. Then relay `lumo task criteria confirm` — verify needs a confirmed contract. See [criteria.md](references/criteria.md)
 4. Do the work
 5. **Before claiming done: `lumo verify`** — the machine half of the acceptance loop. Fix failures and re-run (the cap is workspace-configurable — see the `Round N/M` line in the output). All-pass → task moves to IN_REVIEW and you stop. See [verify.md](references/verify.md)
 

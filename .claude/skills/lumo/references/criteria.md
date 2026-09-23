@@ -237,8 +237,23 @@ the acceptance contract. This is the plan's one structural human touchpoint:
 confirming right after drafting is cheap — the contract is small and fresh in
 the human's head — confirming after implementation is done is expensive
 rework by comparison. Confirming is **read-only with respect to DONE**: it
-never closes the task and there is no gate anywhere that requires it. An
-unconfirmed contract closes exactly like a confirmed one.
+never closes the task, and an unconfirmed contract closes exactly like a
+confirmed one.
+
+**It does gate verification (LUM-819).** `lumo verify` opens a machine round
+only when **every** active criterion (MACHINE and HUMAN) is confirmed. Against
+an unconfirmed contract the CLI stops before running any checkpointer, and the
+server refuses the round with `409 CONTRACT_UNCONFIRMED` — no VerificationRun is
+written and **no round is used**. The `Next:` hints suggest `criteria confirm`
+instead of `verify` while that holds.
+
+**Any agent edit un-confirms the whole contract.** A `criteria set` (without
+`--human`) that actually rewords, adds or deletes a criterion clears every
+confirmation stamp, so the next `lumo verify` stops at the gate and the user
+sees the changed contract before a round can run — loosening your own criteria
+mid-task surfaces instead of passing silently. An identical resubmit changes
+nothing (before work starts too), and a `--human` revision confirms the rows it
+touches, as before.
 
 **Flags:**
 
@@ -292,7 +307,9 @@ error, and never overwrites who confirmed it or when.
 
 ### When to suggest it
 
-Right after you finish drafting the contract with `lumo task criteria set`
+Whenever `lumo verify` or the `Next:` block says the contract is unconfirmed
+(after drafting, or after you edited the contract), and right after you finish
+drafting the contract with `lumo task criteria set`
 and have read every criterion aloud to the user in chat — that's the moment
 their agreement is cheapest to capture. If the user instead says "change X"
 or otherwise wants the contract itself different, that's **not** a
