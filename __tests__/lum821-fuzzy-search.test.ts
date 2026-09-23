@@ -28,9 +28,7 @@ import { requireIdentity } from '@/lib/auth'
 import { taskQueryService } from '@/lib/services/task-query.service'
 import {
   buildTextMatchSql,
-  FUZZY_FLOOR,
   FUZZY_STRICT,
-  FUZZY_WORD,
   taskRepository,
 } from '@/lib/repositories/task.repository'
 import { GET } from '@/app/api/tasks/workspace/route'
@@ -51,14 +49,13 @@ describe('buildTextMatchSql', () => {
     )
   })
 
-  it('fuzzy branch uses the indexable <<% prefilter and the tuned thresholds', () => {
-    const q = buildTextMatchSql('ws1', ['oauht'], 500)
+  it('fuzzy branch is the indexable strict <<% operator only (one threshold, 0.4)', () => {
+    const q = buildTextMatchSql('ws1', ['serch'], 500)
     expect(q.text).toContain('<<% t."title"')
     expect(q.text).toContain('strict_word_similarity(')
-    expect(q.values).toEqual(
-      expect.arrayContaining([FUZZY_STRICT, FUZZY_WORD, FUZZY_FLOOR])
-    )
-    expect([FUZZY_STRICT, FUZZY_WORD, FUZZY_FLOOR]).toEqual([0.4, 0.5, 0.32])
+    // the dropped word-similarity branch (prod: `probe` ≡ `oauht` in score) must not come back
+    expect(q.text).not.toMatch(/(^|[^_])word_similarity\(/)
+    expect(FUZZY_STRICT).toBe(0.4)
   })
 
   it('terms under 4 chars stay exact (no trigram branch) — `bug` must not match "Budget"', () => {
@@ -78,7 +75,7 @@ describe('buildTextMatchSql', () => {
       expect(buildTextMatchSql('ws1', [term], 500).text).not.toContain('<<%')
     }
     // a normal 4+ char word in the same query still does
-    expect(buildTextMatchSql('ws1', ['LUM-821', 'oauht'], 500).text).toContain(
+    expect(buildTextMatchSql('ws1', ['LUM-821', 'serch'], 500).text).toContain(
       '<<%'
     )
   })
@@ -114,7 +111,7 @@ describe('taskRepository.findByWorkspaceWithFilters — fuzzy wiring', () => {
     expect(String(setCall![0].join('?'))).toContain(
       "set_config('pg_trgm.strict_word_similarity_threshold'"
     )
-    expect(setCall!.slice(1)).toEqual(['0.32'])
+    expect(setCall!.slice(1)).toEqual(['0.4'])
   })
 
   it('exact (fuzzy off): no raw query, Prisma substring clauses as before', async () => {
