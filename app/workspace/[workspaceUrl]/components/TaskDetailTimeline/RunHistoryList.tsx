@@ -174,13 +174,35 @@ function DispositionBadge({ run }: { run: TestCaseRunView }) {
   )
 }
 
-/** 这条 run 是不是「已证明为坏、还没人裁定」——唯一会拦 DONE 的形态。 */
+/** 这条 run 是不是「已证明为坏、还没人裁定」。 */
 function isUndispositionedDefect(run: TestCaseRunView): boolean {
   return (
     run.result === 'FAIL' &&
     run.failureAttribution === 'IMPLEMENTATION_DEFECT' &&
     run.disposition === null
   )
+}
+
+/**
+ * 哪条 run 该挂裁定按钮——至多一条：该用例**最新**的那条，且它是未裁定的已证缺陷。
+ *
+ * 闸门只读每条用例最新一条 run，服务端也拒绝对非最新 run 下裁定（409，裁了也
+ * 清不掉任何东西）。在更早的未裁定 defect run 上挂「Blocking DONE」+ 按钮，
+ * 既说错了（它不拦），点下去也只会报错（LUM-812/TC1 生产复跑发现）。
+ *
+ * 按 createdAt 取最新，不依赖调用方传入的顺序。
+ */
+export function ruleableRunId(runs: TestCaseRunView[]): string | null {
+  let latest: TestCaseRunView | null = null
+  for (const r of runs) {
+    // 类型上是 Date，JSON 过来的运行时是字符串 —— new Date() 两者都吃。
+    if (
+      !latest ||
+      new Date(r.createdAt).getTime() > new Date(latest.createdAt).getTime()
+    )
+      latest = r
+  }
+  return latest && isUndispositionedDefect(latest) ? latest.id : null
 }
 
 /**
@@ -237,6 +259,7 @@ export function RunHistoryList({
       </p>
     )
   }
+  const ruleable = onDispose ? ruleableRunId(runs) : null
   return (
     <ul className='flex flex-col gap-1.5'>
       {runs.map(r => {
@@ -262,7 +285,7 @@ export function RunHistoryList({
             <EnvironmentBadge environment={r.environment} />
             <AttributionBadge run={r} />
             <DispositionBadge run={r} />
-            {onDispose && isUndispositionedDefect(r) ? (
+            {onDispose && r.id === ruleable ? (
               <DisposeControl runId={r.id} onDispose={onDispose} />
             ) : null}
             <time className='text-muted-foreground'>
