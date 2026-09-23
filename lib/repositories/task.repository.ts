@@ -218,6 +218,9 @@ const TASK_DETAIL_INCLUDE = {
       state: true,
       authorLogin: true,
       headBranch: true,
+      // LUM-825: lets the CLI tell a squash-merged worktree branch (local HEAD
+      // == the merged PR's head) from one with commits added after the merge.
+      headSha: true,
       ciStatus: true,
       mergedAt: true,
       createdAt: true,

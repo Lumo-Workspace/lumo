@@ -690,6 +690,8 @@ export interface ShowTaskFromCliResult {
     title: string | null
     url: string | null
     state: string | null
+    /** LUM-825: the PR's current head commit; null when never synced. */
+    headSha: string | null
   }>
   /** LUM-821: due instant (local midnight of the due day) or null. */
   dueDate: string | null
@@ -761,6 +763,7 @@ async function showFromCli(args: {
       title: pr.title,
       url: pr.url,
       state: pr.state,
+      headSha: pr.headSha ?? null,
     })),
     dueDate: detail.dueDate ? new Date(detail.dueDate).toISOString() : null,
     parent: detail.parent
