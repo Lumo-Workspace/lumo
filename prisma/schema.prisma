@@ -1626,6 +1626,16 @@ model PrSecurityScan {
   // LUM-740: tokens the suggested-disposition pass spent (own column — the
   // hunt owns `tokenSpent` and overwrites it). null = not metered.
   suggestionTokens Int?
+  // LUM-822: the hunt's own run bookkeeping, so a hunt that never reports can
+  // be retried once and then failed by the stale-hunt sweep. `huntJob` is the
+  // HuntJob stage A started with (null = no hunt, or a row from before this
+  // column — such a row is failed, never retried); `huntAttempts` counts
+  // starts (0 on older rows); `huntStartedAt` is when the latest one began.
+  // A hunt write carrying an attempt older than `huntAttempts` is dropped.
+  huntJob          Json?
+  huntRunId        String?
+  huntAttempts     Int                    @default(0)
+  huntStartedAt    DateTime?
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)

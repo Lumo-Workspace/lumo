@@ -62,8 +62,11 @@ import {
 import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
-import { isHuntEnabled } from './security-hunt.config'
-import { startSecurityHunt } from './security-hunt-start'
+import { isHuntEnabled, type HuntJob } from './security-hunt.config'
+import {
+  recordHuntStartBestEffort,
+  startSecurityHunt,
+} from './security-hunt-start'
 import { securityGraphRulesService } from './security-graph-rules.service'
 import { securityBaselineService } from './security-baseline.service'
 // No LLM/gateway import inside — safe to import statically from stage A.
@@ -810,7 +813,7 @@ export const prSecurityScanService = {
       // row so the panel never waits for a run that does not exist.
       let huntRunStarted = false
       if (huntWanted) {
-        const runId = await startSecurityHunt({
+        const huntJob: HuntJob = {
           scanId,
           pullRequestId: pr.id,
           taskId: pr.taskId,
@@ -835,9 +838,12 @@ export const prSecurityScanService = {
           // LUM-758 §5.1: false means no managed scan VM is coming, so the
           // hunt goes straight to creating its own instead of polling 30 s.
           managedScanStarted: managedRunStarted,
-        })
-        if (runId) huntRunStarted = true
-        else
+        }
+        const runId = await startSecurityHunt(huntJob)
+        if (runId) {
+          huntRunStarted = true
+          await recordHuntStartBestEffort(scanId, huntJob, runId)
+        } else
           await prSecurityScanRepository.mergeStages(scanId, { hunt: 'FAILED' })
       }
       // LUM-735 Task 2: the findings are on the row — put them on the PR.

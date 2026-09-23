@@ -50,6 +50,7 @@ jest.mock('@/lib/services/security-managed-scan-start', () => ({
 }))
 jest.mock('@/lib/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
+  recordHuntStartBestEffort: jest.fn(),
 }))
 // LUM-758: the VM-sharing cases below turn the managed scan ON, which drags
 // in supersede / the hourly cap / the baseline request.
@@ -72,7 +73,10 @@ import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.re
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
-import { startSecurityHunt } from '@/lib/services/security-hunt-start'
+import {
+  recordHuntStartBestEffort,
+  startSecurityHunt,
+} from '@/lib/services/security-hunt-start'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
 import { waitUntil } from '@vercel/functions'
 import * as gh from '@/lib/integrations/github/contents'
@@ -92,6 +96,7 @@ const fetchPrHeadSha = gh.fetchPrHeadSha as jest.Mock
 const judgeSecurity = judge.judgeSecurity as jest.Mock
 const startManaged = startSecurityManagedScan as jest.Mock
 const startHunt = startSecurityHunt as jest.Mock
+const recordHuntStart = recordHuntStartBestEffort as jest.Mock
 const syncReview = securityPrReviewService.sync as jest.Mock
 const waitUntilMock = waitUntil as jest.Mock
 
@@ -201,6 +206,22 @@ describe('LUM-739 hunt trigger', () => {
     expect(persistedStages().hunt).toBe('PENDING')
     expect(repo.mergeStages).toHaveBeenCalledWith('s1', { hunt: 'FAILED' })
     expect(waitUntilMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('LUM-822: a started hunt records its job and run id for the stale-hunt sweep; a failed start records nothing', async () => {
+    fetchPrDiff.mockResolvedValue(ROUTE_DIFF)
+    await run()
+    expect(recordHuntStart).toHaveBeenCalledTimes(1)
+    const [scanId, job, runId] = recordHuntStart.mock.calls[0]!
+    expect(scanId).toBe('s1')
+    expect(runId).toBe('run_h1')
+    // Exactly the job the run was started with — the retry's input.
+    expect(job).toEqual(startHunt.mock.calls[0]![0])
+
+    recordHuntStart.mockClear()
+    startHunt.mockResolvedValue(null)
+    await run()
+    expect(recordHuntStart).not.toHaveBeenCalled()
   })
 
   it('a plain diff with no pattern, no HIGH finding and no crossing: hunt=SKIPPED, nothing started, PR synced', async () => {

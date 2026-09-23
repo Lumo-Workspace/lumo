@@ -51,6 +51,7 @@ jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
 }))
 jest.mock('@/lib/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
+  recordHuntStartBestEffort: jest.fn(),
 }))
 jest.mock('@/lib/services/security-baseline.service', () => ({
   securityBaselineService: {},

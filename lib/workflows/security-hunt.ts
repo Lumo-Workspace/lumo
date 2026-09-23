@@ -199,10 +199,15 @@ function recordCompress(audit: HuntAudit, batch: HuntBatchOutput): void {
 async function markHuntFailedBestEffort(
   scanId: string,
   reason: string,
-  tokenSpent: number
+  tokenSpent: number,
+  attempt: number | undefined
 ): Promise<void> {
   try {
-    await markHuntFailedStep(scanId, reason, tokenSpent)
+    // LUM-822: only a retry carries its attempt; stage A's run keeps the
+    // three-argument call it always made.
+    if (attempt === undefined)
+      await markHuntFailedStep(scanId, reason, tokenSpent)
+    else await markHuntFailedStep(scanId, reason, tokenSpent, attempt)
   } catch {
     // Retries exhausted inside the step; the service already logged it.
   }
@@ -526,7 +531,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
      * says so.
      */
     if (failure !== undefined && raw.length === 0) {
-      await markHuntFailedBestEffort(scanId, failure, tokenSpent)
+      await markHuntFailedBestEffort(scanId, failure, tokenSpent, job.attempt)
       await syncPrReviewBestEffort(scanId)
       return { outcome: 'FAILED', scanId, reason: failure }
     }
@@ -614,7 +619,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     // cannot answer must not become an INCONCLUSIVE finding by default (P2),
     // and a persist that failed has written nothing.
     const reason = reasonOf(error)
-    await markHuntFailedBestEffort(scanId, reason, tokenSpent)
+    await markHuntFailedBestEffort(scanId, reason, tokenSpent, job.attempt)
     await syncPrReviewBestEffort(scanId)
     return { outcome: 'FAILED', scanId, reason }
   }

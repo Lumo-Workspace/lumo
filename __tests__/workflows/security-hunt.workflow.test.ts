@@ -599,6 +599,14 @@ describe('LUM-739 hunt workflow', () => {
     expect(markFailed).toHaveBeenCalledWith('s1', reason, 0)
   })
 
+  it('LUM-822: a retry run stamps its FAILED with its attempt, so it is not mistaken for the dropped one', async () => {
+    hunt.mockImplementation(async () => {
+      throw new Error('sandbox gone')
+    })
+    await securityHuntWorkflow({ ...JOB, attempt: 2 })
+    expect(markFailed).toHaveBeenCalledWith('s1', 'sandbox gone', 0, 2)
+  })
+
   it('LUM-758 leaves the sandbox fields unset when no batch ever got a VM', async () => {
     // Pre-Task-9 batches carry neither field; an absent VM is not "attached".
     await securityHuntWorkflow(JOB)

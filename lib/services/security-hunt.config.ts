@@ -75,6 +75,12 @@ export interface HuntJob {
    * those cases polling would only burn 30 s.
    */
   managedScanStarted: boolean
+  /**
+   * LUM-822 — which start of this scan's hunt this is. Absent on the run stage
+   * A starts (= attempt 1); the stale-hunt sweep's one retry carries 2. Every
+   * write the run makes carries it, so a superseded attempt cannot land.
+   */
+  attempt?: number
 }
 
 /**
@@ -103,6 +109,12 @@ export interface HuntToolProbe {
  * its allowance on `command not found` — the layer lands FAILED with the
  * reason, honestly.
  */
+/**
+ * Tag key marking a VM the hunt booted itself, so "who paid for this VM" is
+ * answerable after the fact. It is applied IN ADDITION to `lumoScan`, never
+ * instead of it — see the tags comment in `security-hunt-sandbox.ts#create`.
+ */
+export const HUNT_SANDBOX_TAG = 'lumoHunt'
 export const HUNT_SEARCH_TOOLS: readonly string[] = ['rg', 'grep']
 
 /** LUM-758 §5.1 — how long to wait for the managed scan's VM, and how often to look. */

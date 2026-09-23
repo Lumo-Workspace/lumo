@@ -965,6 +965,9 @@ export const securityHuntService = {
         huntAudit: capAudit(input.audit),
         tokenSpent: input.tokenSpent,
         partial: input.partial,
+        ...(input.job.attempt !== undefined
+          ? { attempt: input.job.attempt }
+          : {}),
       }
     )
     // LUM-762: the completion rate of this layer is the thing being watched,
@@ -986,13 +989,15 @@ export const securityHuntService = {
   async markFailed(
     scanId: string,
     reason: string,
-    tokenSpent: number
+    tokenSpent: number,
+    attempt?: number
   ): Promise<void> {
     await prSecurityScanRepository.persistHuntResult(scanId, [], {
       hunt: 'FAILED',
       huntAudit: { error: reason.slice(0, 500) },
       tokenSpent,
       partial: false,
+      ...(attempt !== undefined ? { attempt } : {}),
     })
   },
 }
