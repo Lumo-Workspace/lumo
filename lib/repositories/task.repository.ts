@@ -43,11 +43,14 @@ export const FUZZY_MIN_TERM_LENGTH = 4
  * those 0.27 / 0.44. Catches `serch` `oauht` `redirct` `filtr` `migraton`
  * `dashbord`; rejects `sprint`→"Split printing", `cache`→"Crash",
  * `token`→"Tooltip". Known misses: `sprnt`-style double deletions.
+ * FUZZY_FLOOR was 0.30 until a production run showed `serch` also pulling in
+ * every "server" title (strict exactly 0.300); `oauht`→"OAuth", the case the
+ * second branch exists for, is 0.333 — hence 0.32.
  */
 export const FUZZY_STRICT = 0.4
 export const FUZZY_WORD = 0.5
 /** Pre-filter cut-off for the indexable `<<%` operator (≤ both branches). */
-export const FUZZY_FLOOR = 0.3
+export const FUZZY_FLOOR = 0.32
 
 const TASK_NUMBER_TERM = /^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$/
 
@@ -79,7 +82,9 @@ export function buildTextMatchSql(
   for (const term of terms) {
     const pat = likePattern(term)
     const num = TASK_NUMBER_TERM.exec(term)
-    const fuzzy = term.length >= FUZZY_MIN_TERM_LENGTH
+    // Identifier / number terms (`42`, `LUM-821`) match exactly: fuzzily,
+    // `LUM-821` scores 0.5 against every title quoting another `LUM-71`.
+    const fuzzy = term.length >= FUZZY_MIN_TERM_LENGTH && !num
     const alts: PrismaSql.Sql[] = [
       PrismaSql.sql`t."title" ILIKE ${pat}`,
       PrismaSql.sql`t."description" ILIKE ${pat}`,
