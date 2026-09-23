@@ -24,6 +24,9 @@ function run(over: Partial<CeilingRun> = {}): CeilingRun {
     result: 'PASS',
     environment: 'LOCAL',
     unprovenVerification: [],
+    // LUM-819: 本文件测的是环境 / 未观察两条轴，默认附一条证据，免得零证据
+    // 这条第三轴抢先封顶。零证据的断言在 test-case-ceiling.no-evidence.test.ts。
+    evidenceCount: 1,
     ...over,
   }
 }

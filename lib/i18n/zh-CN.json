@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "没判断出来",
   "testCases.ceiling.environment": "这条用例只有在 {env} 跑才证明得了东西",
   "testCases.ceiling.unobserved": "有 {count} 条复验没能观察到",
+  "testCases.ceiling.noEvidence": "没有附证据——别人无法复看这次通过",
   "testCases.field.cause": "这次是谁的锅？",
   "testCases.field.cause.needsEvidence": "说是实现缺陷，至少要附一份证据文件。",
   "testCases.field.cause.placeholder": "选择归因…",

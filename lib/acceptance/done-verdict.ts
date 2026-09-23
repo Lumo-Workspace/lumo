@@ -49,6 +49,12 @@ export type TestCaseSignal =
   /** 最新 run 是 CASE_OUTDATED —— 该改用例了，不是该改实现。 */
   | 'CASE_OUTDATED'
 
+/**
+ * LUM-819: `UNPROVEN_PASS` 是被哪条边界封顶的。只随 `UNPROVEN_PASS` 出现，
+ * 纯读端展示用——闸门从不读它（UNPROVEN 永远只是 advisory）。
+ */
+export type TestCaseCeilingReason = 'environment' | 'unobserved' | 'no-evidence'
+
 export interface DoneVerdictSnapshot {
   sendBacks: SendBackPlane
   crossings: {
@@ -67,6 +73,8 @@ export interface DoneVerdictSnapshot {
     runId: string
     /** 这一条 run 已被人裁定过（KNOWN_DEFECT 或 NOT_A_DEFECT 都算）。 */
     dispositioned: boolean
+    /** LUM-819: 仅 `UNPROVEN_PASS` 带——封顶原因。 */
+    ceilingReason?: TestCaseCeilingReason
   }>
 }
 
@@ -99,6 +107,8 @@ export interface Advisory {
   number: number
   title: string
   runId: string
+  /** LUM-819: 仅 `UNPROVEN_PASS` 带——封顶原因。 */
+  ceilingReason?: TestCaseCeilingReason
 }
 
 export interface DoneVerdict {
@@ -213,6 +223,7 @@ export function computeDoneVerdict(s: DoneVerdictSnapshot): DoneVerdict {
       number: tc.number,
       title: tc.title,
       runId: tc.runId,
+      ...(tc.ceilingReason ? { ceilingReason: tc.ceilingReason } : {}),
     })),
   }
 }

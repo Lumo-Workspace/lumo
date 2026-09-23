@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "Không xác định được",
   "testCases.ceiling.environment": "ca kiểm thử này chỉ chứng minh được điều gì trên {env}",
   "testCases.ceiling.unobserved": "{count} bước xác minh chưa quan sát được",
+  "testCases.ceiling.noEvidence": "chưa đính kèm bằng chứng — người khác không thể xem lại kết quả đạt này",
   "testCases.field.cause": "Lỗi thuộc về đâu?",
   "testCases.field.cause.needsEvidence": "Muốn khẳng định là lỗi cài đặt thì cần ít nhất một bằng chứng.",
   "testCases.field.cause.placeholder": "Chọn nguyên nhân…",

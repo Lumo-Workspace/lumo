@@ -8,6 +8,7 @@ import {
   type TaskPullRequestSnapshot,
 } from '@/lib/test-cases/freshness'
 import {
+  countEvidence,
   deriveRunCeiling,
   type CeilingEnvironment,
 } from '@/lib/test-cases/provability'
@@ -104,6 +105,7 @@ function VerdictBadge({
       environment: run.environment,
       unprovenVerification: (run.unprovenVerification ??
         []) as unknown as Array<{ index: number; text: string }>,
+      evidenceCount: countEvidence(run.evidence),
     },
     { requiredEnvironment }
   )
@@ -126,10 +128,12 @@ function VerdictBadge({
             }),
           }
         )
-      : intl.formatMessage(
-          { id: 'testCases.ceiling.unobserved' },
-          { count: ceiling.unobserved.length }
-        )
+      : ceiling.reason === 'unobserved'
+        ? intl.formatMessage(
+            { id: 'testCases.ceiling.unobserved' },
+            { count: ceiling.unobserved.length }
+          )
+        : intl.formatMessage({ id: 'testCases.ceiling.noEvidence' })
 
   return (
     <span className='flex flex-wrap items-baseline gap-1'>

@@ -118,6 +118,7 @@ export type RunCeiling =
       reason: 'unobserved'
       unobserved: Array<{ index: number; text: string }>
     }
+  | { effective: 'UNPROVEN'; reason: 'no-evidence' }
   | { effective: 'FAIL' }
   | { effective: 'BLOCKED' }
 
@@ -142,6 +143,9 @@ export function formatRunOutcome(outcome: RunOutcome): string {
 
   if (ceiling.reason === 'environment') {
     return `${head} → UNPROVEN (this case only proves anything on ${ceiling.requiredEnvironment})`
+  }
+  if (ceiling.reason === 'no-evidence') {
+    return `${head} → UNPROVEN (no evidence attached — nobody else can re-read this PASS)`
   }
   // 下标回到 1-based 的表面。
   const items = ceiling.unobserved

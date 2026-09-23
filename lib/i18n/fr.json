@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "Impossible à déterminer",
   "testCases.ceiling.environment": "ce cas ne prouve quelque chose que sur {env}",
   "testCases.ceiling.unobserved": "{count, plural, one {# étape de vérification n'a pas été observée} other {# étapes de vérification n'ont pas été observées}}",
+  "testCases.ceiling.noEvidence": "aucune preuve jointe — personne d'autre ne peut relire ce succès",
   "testCases.field.cause": "D'où venait le problème ?",
   "testCases.field.cause.needsEvidence": "Invoquer un défaut d'implémentation exige au moins une preuve.",
   "testCases.field.cause.placeholder": "Choisir une cause…",

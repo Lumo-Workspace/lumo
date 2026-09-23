@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "판단할 수 없음",
   "testCases.ceiling.environment": "이 케이스는 {env}에서 실행해야만 무언가를 증명합니다",
   "testCases.ceiling.unobserved": "검증 항목 {count}개를 확인하지 못했습니다",
+  "testCases.ceiling.noEvidence": "첨부된 증거가 없습니다 — 다른 사람이 이 통과 결과를 다시 확인할 수 없습니다",
   "testCases.field.cause": "누구의 문제였나요?",
   "testCases.field.cause.needsEvidence": "구현 결함이라고 하려면 증거 파일이 최소 1개 필요합니다.",
   "testCases.field.cause.placeholder": "원인 선택…",

@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "Tidak dapat dipastikan",
   "testCases.ceiling.environment": "kes ini hanya membuktikan sesuatu pada {env}",
   "testCases.ceiling.unobserved": "{count} langkah pengesahan tidak sempat diperhatikan",
+  "testCases.ceiling.noEvidence": "tiada bukti dilampirkan — orang lain tidak dapat menyemak semula keputusan lulus ini",
   "testCases.field.cause": "Salah siapa kali ini?",
   "testCases.field.cause.needsEvidence": "Mendakwa kecacatan pelaksanaan memerlukan sekurang-kurangnya satu bukti.",
   "testCases.field.cause.placeholder": "Pilih puncanya…",

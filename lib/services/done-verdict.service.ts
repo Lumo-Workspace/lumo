@@ -14,12 +14,13 @@ import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 import { listOpenBlockingFindings } from '@/lib/services/pr-security-scan-gate'
 import { logger } from '@/lib/logger'
-import { deriveRunCeiling } from '@/lib/test-cases/provability'
+import { countEvidence, deriveRunCeiling } from '@/lib/test-cases/provability'
 import {
   computeDoneVerdict,
   type DoneVerdictSnapshot,
   type DoneVerdict,
   type SendBackPlane,
+  type TestCaseCeilingReason,
   type TestCaseSignal,
 } from '@/lib/acceptance/done-verdict'
 
@@ -86,6 +87,7 @@ async function collectTestCasePlane(
     if (!latest) continue
 
     let signal: TestCaseSignal | null = null
+    let ceilingReason: TestCaseCeilingReason | undefined
     if (latest.failureAttribution === 'IMPLEMENTATION_DEFECT') {
       signal = 'PROVEN_DEFECT'
     } else if (latest.failureAttribution === 'CASE_OUTDATED') {
@@ -97,10 +99,14 @@ async function collectTestCasePlane(
           environment: latest.environment,
           unprovenVerification: (latest.unprovenVerification ??
             []) as unknown as Array<{ index: number; text: string }>,
+          evidenceCount: countEvidence(latest.evidence),
         },
         { requiredEnvironment: testCase.requiredEnvironment }
       )
-      if (ceiling.effective === 'UNPROVEN') signal = 'UNPROVEN_PASS'
+      if (ceiling.effective === 'UNPROVEN') {
+        signal = 'UNPROVEN_PASS'
+        ceilingReason = ceiling.reason
+      }
     }
 
     if (signal) {
@@ -110,6 +116,7 @@ async function collectTestCasePlane(
         signal,
         runId: latest.id,
         dispositioned: latest.disposition !== null,
+        ...(ceilingReason ? { ceilingReason } : {}),
       })
     }
   }

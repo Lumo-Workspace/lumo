@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "判断できなかった",
   "testCases.ceiling.environment": "このケースは {env} で実行したときしか何も証明しません",
   "testCases.ceiling.unobserved": "{count} 件の検証項目を確認できていません",
+  "testCases.ceiling.noEvidence": "証拠が添付されていません — 他の人がこの成功を確認し直せません",
   "testCases.field.cause": "原因はどこにありますか？",
   "testCases.field.cause.needsEvidence": "実装の不具合と主張するには、証拠ファイルが少なくとも 1 件必要です。",
   "testCases.field.cause.placeholder": "原因を選択…",

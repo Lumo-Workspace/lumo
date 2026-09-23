@@ -38,6 +38,8 @@ export interface CoverageRun {
   result: 'PASS' | 'FAIL' | 'BLOCKED'
   environment: CeilingEnvironment
   unprovenVerification: Array<{ index: number; text: string }>
+  /** LUM-819: 附了几条证据（零证据的 PASS 被封顶成 UNPROVEN）。 */
+  evidenceCount: number
   /** 跑的哪版代码。null = **未记录**，不是「没变过」。 */
   commitSha: string | null
   /** 跑的时候工作区脏不脏。null = 未知，绝不兜底成 false。 */

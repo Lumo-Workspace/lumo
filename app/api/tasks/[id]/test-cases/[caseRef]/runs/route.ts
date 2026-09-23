@@ -35,12 +35,20 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!parsed.success) return zodError(parsed)
 
   try {
-    return NextResponse.json(
-      await taskTestCaseService.recordRun(testCase, parsed.data, {
-        actorMemberId: identity.memberId,
-        sourceSessionId: request.headers.get('X-Lumo-Session-Id'),
-      })
-    )
+    const outcome = await taskTestCaseService.recordRun(testCase, parsed.data, {
+      actorMemberId: identity.memberId,
+      sourceSessionId: request.headers.get('X-Lumo-Session-Id'),
+    })
+    // LUM-819 兼容：≤1.69.x 的 CLI 只认 environment / unobserved 两种原因，
+    // 其余一律按 unobserved 读 `ceiling.unobserved.map(…)`——没有这个字段会在
+    // run 已落库之后崩掉。多带一个空数组让老 CLI 降级成一行不完整的说明，
+    // 而不是报错退出。新 CLI 按 reason 分支，不读这个字段。
+    const ceiling =
+      outcome.ceiling.effective === 'UNPROVEN' &&
+      outcome.ceiling.reason === 'no-evidence'
+        ? { ...outcome.ceiling, unobserved: [] }
+        : outcome.ceiling
+    return NextResponse.json({ ...outcome, ceiling })
   } catch (error) {
     const maybe = (error as { status?: unknown } | null)?.status
     const status = typeof maybe === 'number' ? maybe : 500

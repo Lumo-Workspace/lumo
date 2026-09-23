@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "No se pudo determinar",
   "testCases.ceiling.environment": "este caso solo prueba algo en {env}",
   "testCases.ceiling.unobserved": "{count, plural, one {# paso de verificación quedó sin observar} other {# pasos de verificación quedaron sin observar}}",
+  "testCases.ceiling.noEvidence": "sin evidencia adjunta: nadie más puede revisar este resultado",
   "testCases.field.cause": "¿De quién fue el fallo?",
   "testCases.field.cause.needsEvidence": "Afirmar un defecto de implementación exige al menos una evidencia.",
   "testCases.field.cause.placeholder": "Elige una causa…",

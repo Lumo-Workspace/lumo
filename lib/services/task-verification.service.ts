@@ -413,6 +413,8 @@ export interface NextActionTestCaseVerdict {
   /** 用例序号（LUM-42/TC3 里的 3）。 */
   number: number
   title: string
+  /** LUM-819: 仅 `UNPROVEN_PASS` 带——被哪条边界封顶。 */
+  ceilingReason?: 'environment' | 'unobserved' | 'no-evidence'
   advisory: true
 }
 
@@ -1420,6 +1422,7 @@ export const taskVerificationService = {
             signal: v.signal,
             number: v.number,
             title: v.title,
+            ...(v.ceilingReason ? { ceilingReason: v.ceilingReason } : {}),
             advisory: true,
           })
         ),

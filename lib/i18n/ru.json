@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "Не удалось определить",
   "testCases.ceiling.environment": "этот сценарий что-то доказывает только на {env}",
   "testCases.ceiling.unobserved": "{count, plural, one {# шаг проверки остался без наблюдения} few {# шага проверки остались без наблюдения} many {# шагов проверки остались без наблюдения} other {# шагов проверки остались без наблюдения}}",
+  "testCases.ceiling.noEvidence": "доказательства не приложены — никто другой не сможет перепроверить этот успех",
   "testCases.field.cause": "В чём была причина?",
   "testCases.field.cause.needsEvidence": "Чтобы заявить о дефекте реализации, нужно хотя бы одно доказательство.",
   "testCases.field.cause.placeholder": "Выберите причину…",

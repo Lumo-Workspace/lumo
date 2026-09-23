@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "Nicht feststellbar",
   "testCases.ceiling.environment": "Dieser Fall beweist nur etwas auf {env}",
   "testCases.ceiling.unobserved": "{count, plural, one {# Prüfschritt blieb unbeobachtet} other {# Prüfschritte blieben unbeobachtet}}",
+  "testCases.ceiling.noEvidence": "kein Beleg angehängt – niemand sonst kann diesen Erfolg nachprüfen",
   "testCases.field.cause": "Woran lag es?",
   "testCases.field.cause.needsEvidence": "Für einen Implementierungsfehler braucht es mindestens einen Nachweis.",
   "testCases.field.cause.placeholder": "Ursache wählen …",

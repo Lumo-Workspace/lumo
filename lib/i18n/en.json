@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "Could not tell",
   "testCases.ceiling.environment": "this case only proves anything on {env}",
   "testCases.ceiling.unobserved": "{count, plural, one {# verification step went unobserved} other {# verification steps went unobserved}}",
+  "testCases.ceiling.noEvidence": "no evidence attached — nobody else can re-read this pass",
   "testCases.field.cause": "Whose fault was it?",
   "testCases.field.cause.needsEvidence": "Claiming an implementation defect needs at least one evidence file.",
   "testCases.field.cause.placeholder": "Choose a cause…",

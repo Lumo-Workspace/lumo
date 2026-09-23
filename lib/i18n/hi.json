@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "तय नहीं कर पाए",
   "testCases.ceiling.environment": "यह केस केवल {env} पर चलने से ही कुछ साबित करता है",
   "testCases.ceiling.unobserved": "{count, plural, one {# सत्यापन चरण देखा नहीं गया} other {# सत्यापन चरण देखे नहीं गए}}",
+  "testCases.ceiling.noEvidence": "कोई साक्ष्य संलग्न नहीं — कोई और इस पास को दोबारा नहीं देख सकता",
   "testCases.field.cause": "गलती किसकी थी?",
   "testCases.field.cause.needsEvidence": "कार्यान्वयन की खामी बताने के लिए कम से कम एक प्रमाण चाहिए।",
   "testCases.field.cause.placeholder": "कारण चुनें…",

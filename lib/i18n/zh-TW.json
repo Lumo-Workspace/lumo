@@ -2456,6 +2456,7 @@
   "testCases.cause.UNKNOWN": "判斷不出來",
   "testCases.ceiling.environment": "這條用例只有在 {env} 執行才證明得了東西",
   "testCases.ceiling.unobserved": "有 {count} 條複驗沒能觀察到",
+  "testCases.ceiling.noEvidence": "沒有附證據——別人無法複看這次通過",
   "testCases.field.cause": "這次是誰的問題？",
   "testCases.field.cause.needsEvidence": "說是實作缺陷，至少要附一份證據檔案。",
   "testCases.field.cause.placeholder": "選擇歸因…",
