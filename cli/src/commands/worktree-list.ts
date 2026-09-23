@@ -36,6 +36,9 @@ export async function worktreeList(): Promise<number> {
     return 0
   }
 
+  // LUM-825: the link column only means something in a repo that has a
+  // node_modules to link — elsewhere "MISSING" would be noise.
+  const nodeRepo = fs.existsSync(path.join(mainRoot, 'node_modules'))
   for (const e of entries) {
     const base = path.basename(e.path)
     const id = taskIdOf(base, e.branch)
@@ -43,10 +46,10 @@ export async function worktreeList(): Promise<number> {
       gitOutput(['status', '--porcelain'], e.path).length > 0
         ? 'dirty'
         : 'clean'
-    const nm = nodeModulesLinked(e.path) ? 'linked' : 'MISSING'
-    console.log(
-      `${id}\t${e.branch ?? '(detached)'}\t${dirty}\tnode_modules:${nm}\t${e.path}`
-    )
+    const nm = nodeRepo
+      ? `\tnode_modules:${nodeModulesLinked(e.path) ? 'linked' : 'MISSING'}`
+      : ''
+    console.log(`${id}\t${e.branch ?? '(detached)'}\t${dirty}${nm}\t${e.path}`)
   }
   return 0
 }

@@ -130,9 +130,9 @@ lumo worktree prune --confirm    # after the user approved
 
 ## `lumo worktree list`
 
-Lists worktrees under `.worktrees/` with task id, branch, dirty state, and
-whether `node_modules` is symlinked (a `MISSING` link is the first thing to
-check when jest/tsc misbehaves in a Node repo). Read-only; runnable from
+Lists worktrees under `.worktrees/` with task id, branch, dirty state, and —
+only when the main checkout has a `node_modules` — whether it is symlinked (a
+`MISSING` link is the first thing to check when jest/tsc misbehaves). Read-only; runnable from
 anywhere in the repo.
 
 ```bash
