@@ -53,6 +53,8 @@ import {
   type UnconfirmedPr,
 } from '@/lib/security-scan/agent-reminder'
 import { readTestCaseAdvisories } from '@/lib/services/done-verdict.service'
+import { readCriterionCoverage } from '@/lib/services/criterion-coverage.service'
+import { deriveCoverageGaps, type LinkedCase } from '@/lib/test-cases/coverage'
 import type {
   FindingProvenance,
   FindingSeverity,
@@ -204,6 +206,12 @@ export interface TaskStatusCriterion {
    *  待办、**不**拦 DONE —— 它只让 `task status` 与 web 任务详情各出现一处
    *  可选的追认入口。 */
   confirmedAt: string | null
+  /** LUM-815: 声明覆盖本标准的用例（按序号），各带最近一次执行。空数组 =
+   *  **没有任何用例覆盖它** —— 这条标准至今只有话，没有可复跑的证据。
+   *
+   *  纯渲染信号：用例跑绿**不**抬升 latestVerdict、**不**改 unmet 计数、
+   *  **不**参与 DONE 闸。它只回答「验没验」，从不回答「验得对不对」。 */
+  linkedCases: LinkedCase[]
 }
 
 /** A criterion that was removed (soft-deleted / tombstoned) from the live
@@ -417,11 +425,28 @@ export interface NextActionTestCase {
   advisory: true
 }
 
+/**
+ * LUM-815: 一条**没有任何用例覆盖**的验收标准。
+ *
+ * 和上面两个 test-case 信号一样纯属建议——`blocking` 这个字段根本不存在，
+ * DONE 闸不读它。缺口不是失败：它只是说「这条标准至今没有可复跑的证据撑着」。
+ * 拿它拦门会立刻把这个功能变成新的摩擦，然后被关掉。
+ */
+export interface NextActionCoverageGap {
+  kind: 'COVERAGE_GAP'
+  criterionId: string
+  statement: string
+  /** 解决它的命令；CLI 逐字打印。 */
+  command: string
+  advisory: true
+}
+
 export type NextAction =
   | NextActionTestCaseVerdict
   | NextActionCriterion
   | NextActionSecurityFinding
   | NextActionTestCase
+  | NextActionCoverageGap
 export interface TaskSecurityFindingsSummary {
   open: number
   blocking: number
@@ -859,6 +884,7 @@ export const taskVerificationService = {
       securityState,
       testCaseState,
       testCaseVerdicts,
+      coverage,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -915,6 +941,9 @@ export const taskVerificationService = {
       // LUM-808: 每条用例最新 run 的判决信号。与 DONE 闸同一份推导
       // （done-verdict.service），fail-soft —— advisory 读不出来不该拖垮 status。
       readTestCaseAdvisories(taskId),
+      // LUM-815: 用例覆盖。fail-soft **向沉默的方向**——读不出来时 cases 为
+      // null，一条缺口都不报（兜底成空数组会把每条标准都报成未覆盖）。
+      readCriterionCoverage(taskId),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -1305,6 +1334,7 @@ export const taskVerificationService = {
             lifecyclePrs
           ),
           confirmedAt: c.confirmedAt ? c.confirmedAt.toISOString() : null,
+          linkedCases: coverage.byCriterion.get(c.id) ?? [],
         }
       }),
       machineVerification,
@@ -1368,6 +1398,20 @@ export const taskVerificationService = {
               },
             ]
           : []),
+        // LUM-815: 覆盖缺口 —— 合同里一条用例都没有的标准。advisory-only,
+        // 不计入 unmetCriteriaCount(那只数合同行的裁定), 不进 DONE 闸的
+        // blocker 集合。`coverage.cases === null` = 没读出来 → 一条都不报。
+        ...(coverage.cases === null
+          ? []
+          : deriveCoverageGaps(criteria, coverage.cases).map(
+              (gap): NextActionCoverageGap => ({
+                kind: 'COVERAGE_GAP',
+                criterionId: gap.id,
+                statement: gap.statement,
+                command: `lumo task testcase add ${header.team.identifier}-${header.number} --criterion ${gap.id.slice(0, 8)} --title "<title>" --step "<step>" --expected "<result>"`,
+                advisory: true,
+              })
+            )),
         // LUM-808: 判决层的 advisory —— 已举证的实现缺陷、被封顶成 UNPROVEN
         // 的 PASS、过时的用例。永远排在最后，永远不改「能不能 DONE」。
         ...testCaseVerdicts.map(

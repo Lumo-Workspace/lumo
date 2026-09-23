@@ -3502,6 +3502,14 @@
     "task testcase add": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {
+        "--criterion": {
+          "long": "--criterion",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Which acceptance criterion this case covers: an id or a >=6-char id prefix from `lumo task criteria list`. Optional - an unlinked case is perfectly legal. A covered criterion stops showing up as a coverage gap; the case NEVER adjudicates it"
+        },
         "--expected": {
           "long": "--expected",
           "short": null,
@@ -3758,6 +3766,14 @@
         { "name": "task/case", "required": true, "variadic": false }
       ],
       "flags": {
+        "--criterion": {
+          "long": "--criterion",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Which acceptance criterion this case covers: an id or a >=6-char id prefix from `lumo task criteria list`. Pass \"\" to unlink (the case itself is untouched). Omit to leave the link as it is"
+        },
         "--expected": {
           "long": "--expected",
           "short": null,

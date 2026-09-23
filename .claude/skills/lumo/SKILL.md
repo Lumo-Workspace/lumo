@@ -114,7 +114,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Test cases (可反复执行的用例 + 执行记录) — see [test-cases.md](references/test-cases.md)
 
-- `lumo task testcase add/list/show/update/rm/run/disposition` — 任务下可反复执行的结构化用例 + append-only 执行记录。**与验收合同平行、互不替代**：合同管「任务算不算做完」，用例管「这条剧本跑下来什么结果、在哪个环境、跑的哪版代码」。`run --env` 必填无默认。**唯一拦 DONE 的用例信号**是最新一条 run 为带证据的 `--cause defect`（LUM-812，其余全 advisory），清闸走 `testcase disposition` 三步握手
+- `lumo task testcase add/list/show/update/rm/run/disposition` — 任务下可反复执行的结构化用例 + append-only 执行记录。**与验收合同平行、互不替代**：合同管「任务算不算做完」，用例管「这条剧本跑下来什么结果、在哪个环境、跑的哪版代码」。`run --env` 必填无默认。`add/update --criterion <id|前缀>` 声明它覆盖哪条验收标准（可空；只进读出面与覆盖缺口提示，**绝不代判那条标准**，LUM-815）。**唯一拦 DONE 的用例信号**是最新一条 run 为带证据的 `--cause defect`（LUM-812，其余全 advisory），清闸走 `testcase disposition` 三步握手
 
 ### Verification (machine acceptance loop) — see [verify.md](references/verify.md)
 

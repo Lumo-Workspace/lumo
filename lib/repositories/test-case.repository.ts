@@ -17,6 +17,9 @@ export interface CreateTestCaseInput {
   /** LUM-808: 省略 / null = 不限。与 run 的 environment 不同，这里「不限」
    *  是有意义的默认，不需要逼调用方表态。 */
   requiredEnvironment?: TestEnvironment | null
+  /** LUM-815: 覆盖哪条验收标准。省略 / null = 未声明——合法且常见，
+   *  同任务校验在 service 层（本层是哑写层）。 */
+  criterionId?: string | null
 }
 
 export interface UpdateTestCaseInput {
@@ -26,6 +29,8 @@ export interface UpdateTestCaseInput {
   verification?: string[]
   expected?: string
   requiredEnvironment?: TestEnvironment | null
+  /** LUM-815: null 解绑，字符串改绑，省略不动。 */
+  criterionId?: string | null
 }
 
 export interface CreateRunInput {
@@ -60,6 +65,7 @@ const caseSelect = {
   verification: true,
   expected: true,
   requiredEnvironment: true,
+  criterionId: true,
   createdAt: true,
   updatedAt: true,
   deletedAt: true,
