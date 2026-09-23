@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "Respalda el criterio de aceptación: {statement}",
   "runReviews.item.criterion.changed": "Respalda un criterio que ya no está en el contrato: {statement}",
   "runReviews.item.criterion.none": "No vinculado a ningún criterio de aceptación",
+  "runReviews.item.contractFallback": "No vinculado a ningún criterio de aceptación: ver el contrato de esta tarea ({count, plural, one {# criterio} other {# criterios}})",
   "runReviews.item.script": "Guion — {steps, plural, one {# paso} other {# pasos}}, {verification, plural, one {# comprobación} other {# comprobaciones}}",
   "runReviews.item.setup": "Preparación",
   "runReviews.item.steps": "Pasos",

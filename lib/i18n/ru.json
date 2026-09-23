@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "Подтверждает критерий приёмки: {statement}",
   "runReviews.item.criterion.changed": "Подтверждает критерий, которого больше нет в контракте: {statement}",
   "runReviews.item.criterion.none": "Не привязан к критерию приёмки",
+  "runReviews.item.contractFallback": "Не привязан к критерию приёмки — показать контракт задачи (критериев: {count})",
   "runReviews.item.script": "Сценарий — шагов: {steps}, проверок: {verification}",
   "runReviews.item.setup": "Предусловия",
   "runReviews.item.steps": "Шаги",

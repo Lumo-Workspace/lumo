@@ -222,9 +222,12 @@ function useLinkedRunId(runs: TestCaseRunView[]): string | null {
     const hit = runs.find(r => window.location.hash === `#${runAnchorId(r.id)}`)
     if (!hit) return
     setLinked(hit.id)
+    // 瞬时跳转，不用 smooth：锚点落地的惯例本来就是直接到位；几千像素的平滑
+    // 滚动既慢，又依赖动画真的播放（页面在后台 / 不合成帧时它原地不动——
+    // LUM-819 生产复查时实测 scrollTop 两秒后仍为 0）。
     document
       .getElementById(runAnchorId(hit.id))
-      ?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+      ?.scrollIntoView?.({ block: 'center' })
   }, [runs])
   return linked
 }

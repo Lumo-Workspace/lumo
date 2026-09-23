@@ -44,6 +44,11 @@ export interface ReviewPoolItem {
   expected: string
   criterion: CriterionLink
   pr: { number: number; url: string } | null
+  /**
+   * LUM-819 返工：用例**没声明**覆盖哪条标准时，该任务的整份现行合同，当兜底
+   * 对照物。声明了（active / changed）就是空数组——那时对照物是那一条标准。
+   */
+  taskContract: string[]
 }
 
 /** 任务页上一条 run 的最新复核（谁、何时、结论）。 */
@@ -96,6 +101,7 @@ function toPoolItem(row: ReviewCandidateRow): ReviewPoolItem {
     pr: row.pullRequest
       ? { number: row.pullRequest.number, url: row.pullRequest.url }
       : null,
+    taskContract: [],
   }
 }
 
@@ -129,9 +135,7 @@ export const testCaseReviewService = {
    * fail-soft：读不出来就少一行提示，不该让整个 status 打不开（同
    * `readTestCaseAdvisories`）。**永远不进 DONE 闸**——闸门不读复核数据。
    */
-  async sentBackForTask(
-    taskId: string
-  ): Promise<
+  async sentBackForTask(taskId: string): Promise<
     Array<{
       number: number
       title: string
@@ -191,8 +195,16 @@ export const testCaseReviewService = {
       opts.sampleSize ?? REVIEW_SAMPLE_SIZE,
       opts.random
     )
+    const items = sample.map(r => toPoolItem(byId.get(r.id)!))
+    // 只为「没声明覆盖哪条标准」的卡片取合同——声明了的，对照物就是那一条。
+    const unlinked = items.filter(i => i.criterion.kind === 'none')
+    const contracts = await testCaseRunReviewRepository.contractsForTasks([
+      ...new Set(unlinked.map(i => byId.get(i.runId)!.taskId)),
+    ])
+    for (const i of unlinked)
+      i.taskContract = contracts.get(byId.get(i.runId)!.taskId) ?? []
     return {
-      sample: sample.map(r => toPoolItem(byId.get(r.id)!)),
+      sample: items,
       poolSize: pool.length,
       rate: deriveFalseReportRate(reviews),
     }

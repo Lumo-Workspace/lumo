@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "為這條驗收標準作證：{statement}",
   "runReviews.item.criterion.changed": "作證的這條標準已不在合約裡：{statement}",
   "runReviews.item.criterion.none": "沒有聲明覆蓋哪條驗收標準",
+  "runReviews.item.contractFallback": "沒有聲明覆蓋哪條驗收標準——展開看這個任務的整份合約（{count} 條）",
   "runReviews.item.script": "劇本——{steps} 個步驟，{verification} 條複驗",
   "runReviews.item.setup": "前置條件",
   "runReviews.item.steps": "步驟",

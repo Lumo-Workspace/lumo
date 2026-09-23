@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "Atteste le critère d'acceptation : {statement}",
   "runReviews.item.criterion.changed": "Atteste un critère qui n'est plus dans le contrat : {statement}",
   "runReviews.item.criterion.none": "Lié à aucun critère d'acceptation",
+  "runReviews.item.contractFallback": "Lié à aucun critère d'acceptation — voir le contrat de cette tâche ({count, plural, one {# critère} other {# critères}})",
   "runReviews.item.script": "Scénario — {steps, plural, one {# étape} other {# étapes}}, {verification, plural, one {# vérification} other {# vérifications}}",
   "runReviews.item.setup": "Préconditions",
   "runReviews.item.steps": "Étapes",

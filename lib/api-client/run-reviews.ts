@@ -23,6 +23,8 @@ export interface ReviewPoolItem {
   expected: string
   criterion: CriterionLink
   pr: { number: number; url: string } | null
+  /** 用例没声明覆盖哪条标准时，该任务整份现行合同（兜底对照物）。 */
+  taskContract: string[]
 }
 
 export interface ReviewPoolView {

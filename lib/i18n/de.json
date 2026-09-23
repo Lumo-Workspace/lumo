@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "Belegt das Abnahmekriterium: {statement}",
   "runReviews.item.criterion.changed": "Belegt ein Kriterium, das nicht mehr im Vertrag steht: {statement}",
   "runReviews.item.criterion.none": "Mit keinem Abnahmekriterium verknüpft",
+  "runReviews.item.contractFallback": "Mit keinem Abnahmekriterium verknüpft – Vertrag dieser Aufgabe anzeigen ({count, plural, one {# Kriterium} other {# Kriterien}})",
   "runReviews.item.script": "Ablauf – {steps, plural, one {# Schritt} other {# Schritte}}, {verification, plural, one {# Prüfpunkt} other {# Prüfpunkte}}",
   "runReviews.item.setup": "Voraussetzungen",
   "runReviews.item.steps": "Schritte",

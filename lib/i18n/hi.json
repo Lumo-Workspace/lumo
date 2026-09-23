@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "इस स्वीकृति मानदंड का प्रमाण: {statement}",
   "runReviews.item.criterion.changed": "ऐसे मानदंड का प्रमाण जो अब अनुबंध में नहीं है: {statement}",
   "runReviews.item.criterion.none": "किसी स्वीकृति मानदंड से जुड़ा नहीं",
+  "runReviews.item.contractFallback": "किसी स्वीकृति मानदंड से जुड़ा नहीं — इस कार्य का अनुबंध देखें ({count} मानदंड)",
   "runReviews.item.script": "स्क्रिप्ट — {steps} चरण, {verification} सत्यापन जाँच",
   "runReviews.item.setup": "पूर्व शर्तें",
   "runReviews.item.steps": "चरण",

@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "이 인수 기준을 뒷받침합니다: {statement}",
   "runReviews.item.criterion.changed": "더 이상 계약에 없는 기준을 뒷받침합니다: {statement}",
   "runReviews.item.criterion.none": "인수 기준과 연결되어 있지 않음",
+  "runReviews.item.contractFallback": "인수 기준과 연결되어 있지 않음 — 이 작업의 계약 보기 ({count}개)",
   "runReviews.item.script": "스크립트 — 단계 {steps}개, 검증 {verification}개",
   "runReviews.item.setup": "사전 조건",
   "runReviews.item.steps": "단계",

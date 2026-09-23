@@ -92,4 +92,30 @@ describe('RunHistoryList — spot-check verdicts', () => {
     expect(row('r-ok').className).not.toMatch(/outline/)
     expect(row('r-none')).not.toHaveTextContent(/Spot-check/)
   })
+
+  it('a deep link jumps straight to the linked run', () => {
+    // jsdom has no scrollIntoView — install a spy on the prototype
+    const spy = jest.fn()
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: spy,
+    })
+    window.location.hash = '#run-r-target'
+    render(
+      <RunHistoryList
+        runs={[run('r-other', null), run('r-target', null)]}
+        pullRequests={[]}
+        requiredEnvironment={null}
+      />
+    )
+    expect(spy).toHaveBeenCalledTimes(1)
+    const [opts] = spy.mock.calls[0]!
+    expect(opts).toEqual({ block: 'center' })
+    // no smooth animation: it must land even when the page is not compositing
+    expect(opts).not.toHaveProperty('behavior')
+    expect(spy.mock.contexts[0]).toBe(document.getElementById('run-r-target'))
+    expect(document.getElementById('run-r-target')!.className).toMatch(
+      /outline/
+    )
+  })
 })

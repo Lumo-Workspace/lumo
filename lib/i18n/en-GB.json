@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "Vouches for acceptance criterion: {statement}",
   "runReviews.item.criterion.changed": "Vouches for a criterion that is no longer in the contract: {statement}",
   "runReviews.item.criterion.none": "Not linked to an acceptance criterion",
+  "runReviews.item.contractFallback": "Not linked to an acceptance criterion — show this task's contract ({count, plural, one {# criterion} other {# criteria}})",
   "runReviews.item.script": "Script — {steps, plural, one {# step} other {# steps}}, {verification, plural, one {# verification check} other {# verification checks}}",
   "runReviews.item.setup": "Setup",
   "runReviews.item.steps": "Steps",

@@ -35,6 +35,7 @@ jest.mock('@/lib/repositories/test-case-run-review.repository', () => ({
     listForWorkspace: jest.fn(),
     listPassCandidates: jest.fn(),
     findCandidate: jest.fn(),
+    contractsForTasks: jest.fn(async () => new Map()),
   },
 }))
 
