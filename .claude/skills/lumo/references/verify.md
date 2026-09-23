@@ -168,7 +168,8 @@ This is the **inverse** of dispositioning, but it is the agent/CLI path
 - it can **only append** an append-only note — it **never clears the crossing or unblocks Done** (the user rules, via `lumo crossing disposition` or the web panel);
 - the note is shown to the human reviewer at disposition time, kept for later review, and explicitly labeled _agent self-report · unverified_;
 - `<id>` must be a crossing on the **session-bound task** (resolved from `$CLAUDE_CODE_SESSION_ID`; cross-task targets and unbound/mismatched sessions are rejected);
-- earlier explanations are immutable — a correction is a new note.
+- earlier explanations are immutable — a correction is a new note;
+- **the note runs past the same detectors the crossing came from.** Quoting the flagged material back into your note — the path, the command, the matched text — re-trips them and records a **second** crossing, earned by the act of explaining the first. Describe what was flagged instead of reproducing it: "the migration file the scan pointed at" beats pasting its path, and naming a step by its role beats writing the command out. One sentence of paraphrase saves the user a ruling they should never have had to make.
 
 ### Recording the user's ruling — `lumo crossing disposition` (LUM-769)
 
