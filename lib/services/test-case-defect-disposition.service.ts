@@ -22,7 +22,7 @@
  */
 import { createHash } from 'crypto'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
-import { activityRepository } from '@/lib/repositories/activity.repository'
+import { memberRepository } from '@/lib/repositories/member.repository'
 import {
   acknowledgeReadReceipt,
   issueReadReceipt,
@@ -218,31 +218,33 @@ export const testCaseDefectDispositionService = {
       }
     }
 
-    const row = await testCaseRepository.createDisposition({
-      runId,
-      taskId,
-      disposition: ruling,
-      note: input.note?.trim() || null,
-      dispositionedById: caller.memberId,
-      channel,
-    })
+    // TaskActivity.actorId 指向 Actor，不是 Member —— 直接塞 memberId 会撞
+    // task_activities_actorId_fkey（LUM-812/TC1 生产 500 的根因）。解析方式同越界侧。
+    const actor = await memberRepository.findActorByMemberId(caller.memberId)
+    const note = input.note?.trim() || null
 
-    // 行存最新状态，事件流存全历史（同 CRITERION_CHANGED 的分工）。
-    await activityRepository.create({
-      taskId,
-      type: 'TEST_CASE_DEFECT_DISPOSITIONED',
-      actorId: caller.memberId,
-      payload: {
+    // 行存最新状态，事件流存全历史（同 CRITERION_CHANGED 的分工）；两者同事务。
+    return testCaseRepository.createDisposition(
+      {
         runId,
-        caseNumber: run.testCase.number,
-        caseTitle: run.testCase.title,
+        taskId,
         disposition: ruling,
-        note: input.note?.trim() || null,
+        note,
+        dispositionedById: caller.memberId,
         channel,
-        ...(handshake ?? {}),
       },
-    })
-
-    return row
+      {
+        actorId: actor?.id ?? null,
+        payload: {
+          runId,
+          caseNumber: run.testCase.number,
+          caseTitle: run.testCase.title,
+          disposition: ruling,
+          note,
+          channel,
+          ...(handshake ?? {}),
+        },
+      }
+    )
   },
 }

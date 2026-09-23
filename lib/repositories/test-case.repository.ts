@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { activityRepository } from '@/lib/repositories/activity.repository'
 import type {
   Prisma,
   TestCaseFailureAttribution,
@@ -311,15 +312,36 @@ export const testCaseRepository = {
     return { ...run, isLatestForCase: latest?.id === run.id }
   },
 
-  /** 写入一条裁定。runId 唯一 —— 重复裁定由唯一索引挡住（P2002）。 */
-  createDisposition(input: {
-    runId: string
-    taskId: string
-    disposition: 'KNOWN_DEFECT' | 'NOT_A_DEFECT'
-    note: string | null
-    dispositionedById: string
-    channel: 'WEB' | 'CLI'
-  }) {
-    return prisma.testCaseRunDisposition.create({ data: input })
+  /**
+   * 写入一条裁定 + 它的 TEST_CASE_DEFECT_DISPOSITIONED 事件，同一事务。
+   * runId 唯一 —— 重复裁定由唯一索引挡住（P2002）。
+   *
+   * 必须原子：裁定行一落库闸门就清了，若事件写失败而行留着，调用方拿到 500、
+   * 时间线上却没有这次裁定（LUM-812/TC1 生产实测：actorId 外键失败时正是如此）。
+   */
+  createDisposition(
+    input: {
+      runId: string
+      taskId: string
+      disposition: 'KNOWN_DEFECT' | 'NOT_A_DEFECT'
+      note: string | null
+      dispositionedById: string
+      channel: 'WEB' | 'CLI'
+    },
+    activity: { actorId: string | null; payload: Record<string, unknown> }
+  ) {
+    return prisma.$transaction(async tx => {
+      const row = await tx.testCaseRunDisposition.create({ data: input })
+      await activityRepository.create(
+        {
+          taskId: input.taskId,
+          actorId: activity.actorId,
+          type: 'TEST_CASE_DEFECT_DISPOSITIONED',
+          payload: activity.payload,
+        },
+        tx
+      )
+      return row
+    })
   },
 }

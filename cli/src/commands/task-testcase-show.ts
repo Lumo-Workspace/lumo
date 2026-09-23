@@ -2,6 +2,7 @@ import { apiContext, apiCall, printNumbered } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { formatEvidenceLines } from '../lib/test-case-evidence'
 import { sanitizeField } from '../lib/sanitize'
+import { formatDispositionLine } from '../lib/test-case-disposition'
 
 interface RunRow {
   id: string
@@ -16,6 +17,8 @@ interface RunRow {
   commitSha: string | null
   commitDirty: boolean | null
   createdAt: string
+  /** LUM-812: 人类裁定（KNOWN_DEFECT / NOT_A_DEFECT）。Optional —— 旧服务端不发。 */
+  disposition?: unknown
 }
 
 interface PrRow {
@@ -153,6 +156,9 @@ export async function taskTestCaseShow(
         at +
         (run.note ? `  — ${run.note}` : '')
     )
+    // LUM-812: 裁定清的是「拦」不是「有这回事」—— run 照打，底下注明谁拍过板。
+    const ruled = formatDispositionLine(run.disposition)
+    if (ruled) console.log(ruled)
     // 证据一条一行：终端里能「打开」一份证据的唯一形式是 url，计数打不开。
     for (const line of formatEvidenceLines(run.evidence)) console.log(line)
   }

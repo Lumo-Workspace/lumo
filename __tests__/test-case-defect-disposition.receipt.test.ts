@@ -19,8 +19,12 @@ jest.mock('@/lib/repositories/test-case.repository', () => ({
     createDisposition: jest.fn(),
   },
 }))
-jest.mock('@/lib/repositories/activity.repository', () => ({
-  activityRepository: { create: jest.fn() },
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: {
+    findActorByMemberId: jest.fn(async (memberId: string) => ({
+      id: `actor-of-${memberId}`,
+    })),
+  },
 }))
 
 const findRun = testCaseRepository.findRunForDisposition as jest.Mock

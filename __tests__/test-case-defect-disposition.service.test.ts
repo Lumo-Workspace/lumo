@@ -22,8 +22,12 @@ jest.mock('@/lib/repositories/test-case.repository', () => ({
     runsPerCase: jest.fn(),
   },
 }))
-jest.mock('@/lib/repositories/activity.repository', () => ({
-  activityRepository: { create: jest.fn() },
+jest.mock('@/lib/repositories/member.repository', () => ({
+  memberRepository: {
+    findActorByMemberId: jest.fn(async (memberId: string) => ({
+      id: `actor-of-${memberId}`,
+    })),
+  },
 }))
 jest.mock('@/lib/repositories/verification-run.repository', () => ({
   verificationRunRepository: {
@@ -198,6 +202,35 @@ describe('LUM-812 — provenance, not identity', () => {
       receipt: r2.receipt,
     })
     expect(cli).toMatchObject({ channel: 'CLI' })
+  })
+
+  it('the activity event is attributed to the caller’s Actor, not their member id', async () => {
+    // TaskActivity.actorId → Actor.id。LUM-812/TC1 生产实测：传 memberId 撞
+    // task_activities_actorId_fkey，调用方拿 500，时间线缺这次裁定。
+    findRun.mockResolvedValue(runRow())
+    await testCaseDefectDispositionService.rule({
+      taskId: 't-1',
+      runId: 'run-9',
+      ruling: 'KNOWN_DEFECT',
+      note: '  shipping with it  ',
+      caller: CALLER,
+      channel: 'WEB',
+    })
+    expect(createDisposition).toHaveBeenCalledTimes(1)
+    const [row, activity] = createDisposition.mock.calls[0]
+    expect(row).toMatchObject({
+      dispositionedById: 'm-1',
+      note: 'shipping with it',
+    })
+    expect(activity.actorId).toBe('actor-of-m-1')
+    expect(activity.actorId).not.toBe(CALLER.memberId)
+    expect(activity.payload).toMatchObject({
+      runId: 'run-9',
+      caseNumber: 9,
+      disposition: 'KNOWN_DEFECT',
+      note: 'shipping with it',
+      channel: 'WEB',
+    })
   })
 
   it('a CLI ruling with no receipt at all is refused', async () => {

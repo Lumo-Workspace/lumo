@@ -74,6 +74,14 @@ lumo task testcase show LUM-42/TC3
       jest.log  https://blob.example.com/test-evidence/…/def.log
 ```
 
+已被人类裁定过的 run（见下方 `testcase disposition`）在证据行之前多一行裁定说明——裁定清掉的是「拦」，不是「有这回事」，那条 run 照常显示：
+
+```
+  2026-09-23  FAIL on LOCAL  @0f27392  step 1: …  — 页脚只剩版权行
+      ✓ ruled KNOWN_DEFECT via CLI 2026-09-23  — tracked in LUM-900
+      footer.png  https://blob.example.com/test-evidence/…/abc.png
+```
+
 形状不认识的证据条目会被整条丢掉而不是报错——一条脏证据不该让 `show` 挂掉。web 端同一份数据在任务的 Tests tab 里出缩略图。
 
 ## `lumo task testcase update <task/case>` — 改用例

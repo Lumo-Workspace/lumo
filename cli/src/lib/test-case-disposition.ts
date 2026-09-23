@@ -8,6 +8,8 @@
  * 措辞与越界那条命令刻意同构：同一套三步协议不该长出两种说法。
  */
 
+import { sanitizeField } from './sanitize'
+
 export type DefectRuling = 'KNOWN_DEFECT' | 'NOT_A_DEFECT'
 
 export interface DispositionFlags {
@@ -154,4 +156,29 @@ export function describeDefectRuling(
     '⚠ This clears the DONE block for that run. A later run that proves the defect again will block afresh.'
   )
   return lines
+}
+
+/**
+ * `testcase show` 里挂在一条 run 底下的裁定行。没有裁定（或形状不认识）→ null，
+ * 一行都不打——与证据行同样的「脏数据不让 show 挂掉」口径。
+ *
+ * 裁定清掉的是「拦」，不是「有这回事」：那条 run 照常显示，只是多一行说明
+ * 谁在哪条路上拍过板。旧服务端不发 `disposition` 字段，同样落到 null。
+ */
+export function formatDispositionLine(disposition: unknown): string | null {
+  if (!disposition || typeof disposition !== 'object') return null
+  const d = disposition as Record<string, unknown>
+  if (d.disposition !== 'KNOWN_DEFECT' && d.disposition !== 'NOT_A_DEFECT')
+    return null
+  const channel =
+    d.channel === 'CLI' || d.channel === 'WEB' ? ` via ${d.channel}` : ''
+  const at =
+    typeof d.dispositionedAt === 'string'
+      ? ` ${d.dispositionedAt.slice(0, 10)}`
+      : ''
+  const note =
+    typeof d.note === 'string' && d.note.trim()
+      ? `  — ${sanitizeField(d.note.trim())}`
+      : ''
+  return `      ✓ ruled ${d.disposition}${channel}${at}${note}`
 }
