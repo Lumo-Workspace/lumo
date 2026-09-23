@@ -4,6 +4,11 @@
  * LUM-551 — `session attach` triggers a best-effort downsync after a 2xx bind;
  * a sync failure never changes the attach's exit code.
  */
+// LUM-825: the local worktree step shells out to git against the real
+// checkout; these suites test the bind output, so keep it inert here.
+jest.mock('@/cli/src/lib/worktree-attach', () => ({
+  attachWorktreeStep: jest.fn(),
+}))
 jest.mock('@/cli/src/lib/config', () => ({ readCredentials: jest.fn() }))
 jest.mock('@/cli/src/lib/resolve-project', () => ({
   resolveBoundProjectId: jest.fn(),

@@ -32,6 +32,8 @@ describe('worktreeList', () => {
       args[0] === 'worktree' ? LIST : ''
     )
     mockFs.lstatSync.mockReturnValue({ isSymbolicLink: () => true } as never)
+    // A Node repo: the main checkout has node_modules (LUM-825).
+    mockFs.existsSync.mockReturnValue(true)
     logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined)
   })
   afterEach(() => logSpy.mockRestore())
@@ -63,6 +65,16 @@ describe('worktreeList', () => {
     expect(row).toBeDefined()
     expect(row).toContain('dirty')
     expect(row).toContain('node_modules:MISSING')
+  })
+
+  it('omits the node_modules column in a repo without node_modules', async () => {
+    mockFs.existsSync.mockReturnValue(false)
+    expect(await worktreeList()).toBe(0)
+    const row = logSpy.mock.calls
+      .map(c => String(c[0]))
+      .find(l => l.includes('/repo/.worktrees/LUM-267-scaffold'))
+    expect(row).toBeDefined()
+    expect(row).not.toContain('node_modules')
   })
 
   it('prints an empty notice when none exist', async () => {

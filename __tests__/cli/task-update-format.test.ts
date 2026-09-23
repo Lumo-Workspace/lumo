@@ -151,6 +151,12 @@ describe('formatUpdatedTaskLine', () => {
 // We mock away all I/O: readCredentials, resolveTagRefs, fetch.
 // The mutex check must fire BEFORE any network call (no lookupTaskId needed).
 // ---------------------------------------------------------------------------
+// LUM-825: DONE also cleans up the task's local git worktrees; these suites
+// test the API flow, so never let it touch the real checkout's worktrees.
+jest.mock('@/cli/src/lib/worktree-cleanup', () => ({
+  ...jest.requireActual('@/cli/src/lib/worktree-cleanup'),
+  planTaskWorktreeCleanup: jest.fn(() => null),
+}))
 jest.mock('@/cli/src/lib/config', () => ({
   readCredentials: jest.fn(() => ({
     token: 'tok',

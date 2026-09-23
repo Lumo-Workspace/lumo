@@ -9,6 +9,9 @@ jest.mock('../src/lib/worktree', () => {
     isMainCheckout: jest.fn(),
     getRepoRoot: jest.fn(),
     runGit: jest.fn(),
+    detectDefaultBranch: jest.fn(),
+    huskyHooksPath: jest.fn(),
+    ensureWorktreesExcluded: jest.fn(),
   }
 })
 jest.mock('fs')
@@ -17,18 +20,39 @@ const mockFs = fs as jest.Mocked<typeof fs>
 const isMain = wt.isMainCheckout as jest.Mock
 const repoRoot = wt.getRepoRoot as jest.Mock
 const runGit = wt.runGit as jest.Mock
+const detectDefault = wt.detectDefaultBranch as jest.Mock
+const huskyPath = wt.huskyHooksPath as jest.Mock
+
+/**
+ * git fake: the task branch exists only when `branchExists`; every other git
+ * call succeeds. The remote default branch is `main` and husky is off unless
+ * a test says otherwise. Real-git behaviour (a `master` remote, a plain
+ * non-Node repo, .lumo/worktree.json) is covered end-to-end in
+ * worktree-add.integration.test.ts (LUM-825).
+ */
+function fakeGit(opts: { branchExists?: boolean }) {
+  return (args: string[]) =>
+    args[0] === 'rev-parse'
+      ? { status: opts.branchExists ? 0 : 1, stdout: '', stderr: '' }
+      : { status: 0, stdout: '', stderr: '' }
+}
 
 describe('worktreeAdd', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     isMain.mockReturnValue(true)
     repoRoot.mockReturnValue('/repo')
+    detectDefault.mockReturnValue('main')
+    huskyPath.mockReturnValue(null)
     runGit.mockReturnValue({ status: 0, stdout: '', stderr: '' })
     mockFs.existsSync.mockImplementation((p: fs.PathLike) =>
       String(p).endsWith('node_modules')
     )
     mockFs.mkdirSync.mockReturnValue(undefined as never)
     mockFs.symlinkSync.mockReturnValue(undefined as never)
+    // No symlinks in the fake tree: every path resolves to itself.
+    mockFs.realpathSync.mockImplementation(((p: fs.PathLike) =>
+      String(p)) as never)
   })
 
   it('rejects an unparseable id', async () => {
@@ -48,11 +72,7 @@ describe('worktreeAdd', () => {
 
   it('creates the worktree off origin/main and symlinks node_modules', async () => {
     // rev-parse --verify (branch missing) → status 1; everything else → 0
-    runGit.mockImplementation((args: string[]) =>
-      args[0] === 'rev-parse'
-        ? { status: 1, stdout: '', stderr: '' }
-        : { status: 0, stdout: '', stderr: '' }
-    )
+    runGit.mockImplementation(fakeGit({}))
     expect(await worktreeAdd('LUM-267', 'scaffold', {})).toBe(0)
 
     const calls = runGit.mock.calls.map(c => c[0])
@@ -74,11 +94,7 @@ describe('worktreeAdd', () => {
   it('continues without symlinking when main has no node_modules', async () => {
     // Nothing exists: target dir absent (no early-error) AND no node_modules src.
     mockFs.existsSync.mockReturnValue(false)
-    runGit.mockImplementation((args: string[]) =>
-      args[0] === 'rev-parse'
-        ? { status: 1, stdout: '', stderr: '' }
-        : { status: 0, stdout: '', stderr: '' }
-    )
+    runGit.mockImplementation(fakeGit({}))
     expect(await worktreeAdd('LUM-267', 'scaffold', {})).toBe(0)
     expect(mockFs.symlinkSync).not.toHaveBeenCalled()
   })
@@ -89,11 +105,8 @@ describe('worktreeAdd', () => {
       const s = String(p)
       return s.endsWith('node_modules') || s.endsWith('.husky/_')
     })
-    runGit.mockImplementation((args: string[]) =>
-      args[0] === 'rev-parse'
-        ? { status: 1, stdout: '', stderr: '' }
-        : { status: 0, stdout: '', stderr: '' }
-    )
+    huskyPath.mockReturnValue('.husky/_')
+    runGit.mockImplementation(fakeGit({}))
     expect(await worktreeAdd('LUM-267', 'scaffold', {})).toBe(0)
     expect(mockFs.cpSync).toHaveBeenCalledWith(
       '/repo/.husky/_',
@@ -103,25 +116,24 @@ describe('worktreeAdd', () => {
   })
 
   it('warns when main checkout has no husky shim instead of silently skipping', async () => {
-    // node_modules present, but the husky shim was never generated in main.
+    // node_modules present and husky owns hooks, but the shim was never
+    // generated in main.
     mockFs.existsSync.mockImplementation((p: fs.PathLike) =>
       String(p).endsWith('node_modules')
     )
-    runGit.mockImplementation((args: string[]) =>
-      args[0] === 'rev-parse'
-        ? { status: 1, stdout: '', stderr: '' }
-        : { status: 0, stdout: '', stderr: '' }
-    )
+    huskyPath.mockReturnValue('.husky/_')
+    runGit.mockImplementation(fakeGit({}))
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
     expect(await worktreeAdd('LUM-267', 'scaffold', {})).toBe(0)
     expect(mockFs.cpSync).not.toHaveBeenCalled()
     const out = logSpy.mock.calls.map(c => c.join(' ')).join('\n')
-    expect(out).toMatch(/husky/i)
+    expect(out).toMatch(/\.husky\/_ is not in the main checkout/)
+    expect(out).toMatch(/hooks will NOT run/)
     logSpy.mockRestore()
   })
 
   it('reuses an existing branch (no -b) and skips fetch with --no-fetch', async () => {
-    runGit.mockReturnValue({ status: 0, stdout: '', stderr: '' }) // rev-parse → 0 = branch exists
+    runGit.mockImplementation(fakeGit({ branchExists: true }))
     expect(await worktreeAdd('LUM-267', undefined, { noFetch: true })).toBe(0)
 
     const calls = runGit.mock.calls.map(c => c[0])

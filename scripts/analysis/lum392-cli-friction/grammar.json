@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.73.8",
+  "cliVersion": "1.74.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -2504,6 +2504,14 @@
         { "name": "identifier", "required": true, "variadic": false }
       ],
       "flags": {
+        "--no-worktree": {
+          "long": "--no-worktree",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Do not create a worktree even when .lumo/worktree.json sets autoWorktree"
+        },
         "--steward": {
           "long": "--steward",
           "short": null,
@@ -2511,6 +2519,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Bind as a STEWARD (governance) session to a milestone (id, name, or slug) instead of a task. Steward sessions plan and accept only: lumo verify is refused (409, no round burned), self-dispatch to in_progress is refused, and implementation commits/PRs are recorded as boundary crossings."
+        },
+        "--worktree": {
+          "long": "--worktree",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Create this task's worktree under .worktrees/ when none exists (LUM-825; only from the main checkout; failures never fail attach). Default: .lumo/worktree.json autoWorktree, else off."
         }
       },
       "hasSubcommands": false,
@@ -4471,7 +4487,7 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Scaffold, remove, and list parallel git worktrees under .worktrees/ (node_modules symlink + prisma/jest gotcha guidance). Local dev tooling; run from the main checkout."
+      "description": "Scaffold, remove, list and prune per-task git worktrees under .worktrees/. Repo-specific links/copies/notes come from .lumo/worktree.json. Local dev tooling; run add/rm from the main checkout."
     },
     "worktree add": {
       "arguments": [
@@ -4485,7 +4501,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Branch off this ref instead of origin/main (skips fetch)"
+          "description": "Branch off this ref instead of the remote default branch (skips fetch)"
         },
         "--no-fetch": {
           "long": "--no-fetch",
@@ -4493,7 +4509,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Do not `git fetch origin main` before branching"
+          "description": "Do not fetch the remote default branch before branching"
         },
         "--verify": {
           "long": "--verify",
@@ -4501,12 +4517,12 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Run `npx jest` in the new worktree to confirm a clean baseline"
+          "description": "Run verifyCommand from .lumo/worktree.json in the new worktree to confirm a clean baseline"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off origin/main, symlink node_modules to the main checkout, and print prisma/jest guidance. Run from the main checkout."
+      "description": "Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off the remote default branch (origin/HEAD), link node_modules when present, copy the husky shim when husky owns hooks, and apply .lumo/worktree.json (linkPaths, copyPaths, notes). Run from the main checkout."
     },
     "worktree list": {
       "arguments": [],
@@ -4514,6 +4530,22 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List worktrees under .worktrees/: task id, branch, dirty state, and whether node_modules is symlinked."
+    },
+    "worktree prune": {
+      "arguments": [],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Remove the worktrees of tasks that are already DONE (closed on the web or another machine too). Keeps any worktree with uncommitted changes, commits that are neither pushed nor the head of a merged linked PR, or the current directory inside it. Without --confirm exits 4 with an envelope listing what goes and what stays. Never deletes branches."
     },
     "worktree rm": {
       "arguments": [

@@ -122,3 +122,30 @@ describe('showFromCli — due / parent / subtasks', () => {
     ])
   })
 })
+
+describe('showFromCli — linked PR head sha (LUM-825)', () => {
+  it('passes each PR headSha through, null when never synced', async () => {
+    svc.getTaskDetail!.mockResolvedValueOnce({
+      ...(await svc.getTaskDetail!()),
+      pullRequests: [
+        {
+          number: 1,
+          title: 'a',
+          url: 'u1',
+          state: 'merged',
+          headSha: 'abc123',
+        },
+        { number: 2, title: 'b', url: 'u2', state: 'open', headSha: null },
+      ],
+    })
+    const r = await taskCliService.showFromCli({
+      workspaceId: 'ws_1',
+      workspaceSlug: 'ws',
+      identifier: 'LUM-48',
+    })
+    expect(r.pullRequests).toEqual([
+      { number: 1, title: 'a', url: 'u1', state: 'merged', headSha: 'abc123' },
+      { number: 2, title: 'b', url: 'u2', state: 'open', headSha: null },
+    ])
+  })
+})

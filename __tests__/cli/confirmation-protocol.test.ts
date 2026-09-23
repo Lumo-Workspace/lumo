@@ -44,6 +44,8 @@ jest.mock('@/cli/src/lib/worktree', () => ({
     },
   ]),
   findWorktreeByTaskId: jest.fn((entries: unknown[]) => entries[0]),
+  // LUM-825: rm now asks for every match (and refuses when there are several).
+  findWorktreesByTaskId: jest.fn((entries: unknown[]) => entries.slice(0, 1)),
 }))
 
 import { taskDepsRm } from '@/cli/src/commands/task-deps'

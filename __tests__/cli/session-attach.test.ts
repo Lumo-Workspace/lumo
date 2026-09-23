@@ -1,6 +1,11 @@
 /**
  * @jest-environment node
  */
+// LUM-825: the local worktree step shells out to git against the real
+// checkout; these suites test the bind output, so keep it inert here.
+jest.mock('@/cli/src/lib/worktree-attach', () => ({
+  attachWorktreeStep: jest.fn(),
+}))
 jest.mock('@/cli/src/lib/config', () => ({
   readCredentials: jest.fn(),
 }))

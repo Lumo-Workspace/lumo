@@ -1,0 +1,11 @@
+{
+  "linkPaths": ["node_modules"],
+  "copyPaths": [".husky/_"],
+  "verifyCommand": "npx jest",
+  "autoWorktree": true,
+  "notes": [
+    "prisma: the generated client is SHARED via the node_modules symlink. Don't run `prisma generate` mid-work across parallel worktrees; verify with jest, and do generate+tsc atomically once at the end.",
+    "jest: always run it from INSIDE this worktree (cd first), or the cli/package.json haste collision silently runs the wrong tests.",
+    "npm: never `npm install` / `npm ci` inside a worktree — npm replaces the node_modules symlink with a full standalone tree. Install in the main checkout only."
+  ]
+}
