@@ -58,7 +58,7 @@ describe('buildTextMatchSql', () => {
     expect(q.values).toEqual(
       expect.arrayContaining([FUZZY_STRICT, FUZZY_WORD, FUZZY_FLOOR])
     )
-    expect([FUZZY_STRICT, FUZZY_WORD, FUZZY_FLOOR]).toEqual([0.4, 0.5, 0.3])
+    expect([FUZZY_STRICT, FUZZY_WORD, FUZZY_FLOOR]).toEqual([0.4, 0.5, 0.32])
   })
 
   it('terms under 4 chars stay exact (no trigram branch) — `bug` must not match "Budget"', () => {
@@ -71,6 +71,16 @@ describe('buildTextMatchSql', () => {
     const q = buildTextMatchSql('ws1', ['LUM-42'], 500)
     expect(q.text).toContain('t."number" = $')
     expect(q.values).toContain(42)
+  })
+
+  it('identifier / number terms never fuzzy-match (prod: `LUM-821` pulled in every title quoting `LUM-71`)', () => {
+    for (const term of ['LUM-821', '4242']) {
+      expect(buildTextMatchSql('ws1', [term], 500).text).not.toContain('<<%')
+    }
+    // a normal 4+ char word in the same query still does
+    expect(buildTextMatchSql('ws1', ['LUM-821', 'oauht'], 500).text).toContain(
+      '<<%'
+    )
   })
 
   it('escapes LIKE wildcards so `50%` / `a_b` match literally', () => {
@@ -104,7 +114,7 @@ describe('taskRepository.findByWorkspaceWithFilters — fuzzy wiring', () => {
     expect(String(setCall![0].join('?'))).toContain(
       "set_config('pg_trgm.strict_word_similarity_threshold'"
     )
-    expect(setCall!.slice(1)).toEqual(['0.3'])
+    expect(setCall!.slice(1)).toEqual(['0.32'])
   })
 
   it('exact (fuzzy off): no raw query, Prisma substring clauses as before', async () => {
