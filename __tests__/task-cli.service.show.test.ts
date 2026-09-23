@@ -214,6 +214,8 @@ describe('taskCliService.showFromCli — linked pull requests (LUM-731)', () => 
         title: 'feat: wip',
         url: 'https://github.com/o/r/pull/930',
         state: 'open',
+        // LUM-825: the fixture row predates headSha → surfaced as null.
+        headSha: null,
       },
     ])
   })
