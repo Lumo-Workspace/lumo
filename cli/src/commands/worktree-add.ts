@@ -14,13 +14,19 @@ import {
 } from '../lib/worktree'
 import { resolveWorktreeTaskId } from '../lib/worktree-ref'
 import {
+  emitConfirmation,
+  isConfirmed,
+  type ConfirmFlags,
+} from '../lib/confirmation'
+import { sanitizeField } from '../lib/sanitize'
+import {
   isRepoRelativePath,
   readWorktreeConfig,
   WORKTREE_CONFIG_PATH,
   type WorktreeConfig,
 } from '../lib/worktree-config'
 
-export interface WorktreeAddOptions {
+export interface WorktreeAddOptions extends ConfirmFlags {
   base?: string | undefined
   noFetch?: boolean | undefined
   verify?: boolean | undefined
@@ -231,6 +237,32 @@ export async function worktreeAdd(
     console.error(`Warning: ${WORKTREE_CONFIG_PATH}: ${p}`)
   }
 
+  // `verifyCommand` is a shell command from a committed repo file — the user
+  // sees it and approves it before anything happens (exit 4, nothing
+  // created), so a hostile repo cannot run code on `--verify` alone.
+  const verifyCommand =
+    opts.verify && config.verifyCommand ? config.verifyCommand : null
+  // What the user approves must be byte-for-byte what runs: a command with
+  // control characters (e.g. terminal escapes that hide part of it) would
+  // display differently from how it executes, so it is refused outright.
+  if (verifyCommand && sanitizeField(verifyCommand) !== verifyCommand) {
+    console.error(
+      `Error: verifyCommand in ${WORKTREE_CONFIG_PATH} contains control characters; refusing to show or run it`
+    )
+    return 1
+  }
+  if (verifyCommand && !isConfirmed(opts)) {
+    return emitConfirmation({
+      command: 'worktree add',
+      changes: [
+        `Will create worktree .worktrees/${deriveWorktreeDirName(taskId, slug)} on branch ${deriveBranchName(taskId, slug)}`,
+        `Will then run this shell command from ${WORKTREE_CONFIG_PATH} inside it:`,
+        `  ${verifyCommand}`,
+        'Only confirm if you trust this repository to run it',
+      ],
+    })
+  }
+
   const result = createTaskWorktree({ root, taskId, slug, opts, config })
   if (!result.ok) {
     console.error(`Error: ${result.error}`)
@@ -245,7 +277,10 @@ export async function worktreeAdd(
       )
       return 0
     }
-    console.log(`Running baseline: ${config.verifyCommand} …`)
+    // Printed again at run time: this is the command actually executed.
+    console.log(
+      `Running baseline (${WORKTREE_CONFIG_PATH}): ${verifyCommand} …`
+    )
     const v = spawnSync(config.verifyCommand, {
       cwd: result.dir,
       stdio: 'inherit',

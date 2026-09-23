@@ -2681,15 +2681,25 @@ worktree
   )
   .option(
     '--verify',
-    'Run verifyCommand from .lumo/worktree.json in the new worktree to confirm a clean baseline'
+    'Run verifyCommand from .lumo/worktree.json in the new worktree to confirm a clean baseline. Without --confirm, exits 4 showing the exact command and creates nothing.'
+  )
+  .option(
+    '--confirm',
+    'The user has seen and approved the verifyCommand shown in the confirmation envelope (LUM-755). Only meaningful with --verify.'
   )
   .action(
     wrap((identifier, slug, options) => {
-      const o = options as { base?: string; fetch?: boolean; verify?: boolean }
+      const o = options as {
+        base?: string
+        fetch?: boolean
+        verify?: boolean
+        confirm?: boolean
+      }
       return worktreeAdd(identifier as string, slug as string | undefined, {
         base: o.base,
         noFetch: o.fetch === false,
         verify: o.verify,
+        confirm: o.confirm,
       })
     })
   )

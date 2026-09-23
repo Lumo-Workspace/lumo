@@ -10,6 +10,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { worktreeAdd } from '../src/commands/worktree-add'
 import { parseWorktreeConfig } from '../src/lib/worktree-config'
+import { EXIT_CONFIRMATION_REQUIRED } from '../src/lib/confirmation'
 import {
   captureOutput,
   git,
@@ -109,11 +110,25 @@ describe('worktree add real git', () => {
         verifyCommand: 'touch verified.txt',
       })
     )
-    const { result, out } = await captureOutput(() =>
+    const dir = path.join(sb.main, '.worktrees', 'LUM-10')
+
+    // --verify without --confirm: the exact command is shown, nothing created.
+    const gate = await captureOutput(() =>
       inDir(sb.main, () => worktreeAdd('LUM-10', undefined, { verify: true }))
     )
+    expect(gate.result).toBe(EXIT_CONFIRMATION_REQUIRED)
+    const env = JSON.parse(gate.out) as { changes: string[] }
+    expect(env.changes).toContain('  touch verified.txt')
+    expect(fs.existsSync(dir)).toBe(false)
+
+    // Approved: created, the command printed again, then run.
+    const { result, out } = await captureOutput(() =>
+      inDir(sb.main, () =>
+        worktreeAdd('LUM-10', undefined, { verify: true, confirm: true })
+      )
+    )
     expect(result).toBe(0)
-    const dir = path.join(sb.main, '.worktrees', 'LUM-10')
+    expect(out).toContain('touch verified.txt')
     expect(fs.lstatSync(path.join(dir, 'vendor-cache')).isSymbolicLink()).toBe(
       true
     )
@@ -188,6 +203,32 @@ describe('worktree add real git', () => {
       'keep me\n'
     )
     expect(fs.existsSync(path.join(sb.tmp, 'x'))).toBe(false)
+  })
+
+  it('refuses a verifyCommand with control characters, even with --confirm', async () => {
+    fs.mkdirSync(path.join(sb.main, '.lumo'))
+    fs.writeFileSync(
+      path.join(sb.main, '.lumo', 'worktree.json'),
+      JSON.stringify({ verifyCommand: 'echo ok\u001b[8m; touch pwned.txt' })
+    )
+    const r = await captureOutput(() =>
+      inDir(sb.main, () =>
+        worktreeAdd('LUM-14', undefined, { verify: true, confirm: true })
+      )
+    )
+    expect(r.result).toBe(1)
+    expect(r.err).toMatch(/control characters/)
+    expect(fs.existsSync(path.join(sb.main, '.worktrees', 'LUM-14'))).toBe(
+      false
+    )
+  })
+
+  it('--verify without a configured verifyCommand needs no confirmation', async () => {
+    const r = await captureOutput(() =>
+      inDir(sb.main, () => worktreeAdd('LUM-15', undefined, { verify: true }))
+    )
+    expect(r.result).toBe(0)
+    expect(r.err).toMatch(/needs "verifyCommand"/)
   })
 
   it('asks for --base when the default branch cannot be determined', async () => {
