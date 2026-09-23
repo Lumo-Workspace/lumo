@@ -192,6 +192,11 @@ export const cliCreateTaskSchema = z.object({
   milestoneRef: z.string().trim().min(1).max(200).optional(),
   reworkOfRef: z.string().trim().min(1).max(200).optional(),
   newScope: z.boolean().optional().default(false),
+  // LUM-821: the CLI sends the local-midnight instant of `--due YYYY-MM-DD`
+  // (same storage convention as the web DueDatePicker).
+  dueDate: z.string().datetime().optional(),
+  /** Parent task identifier (LUM-N) — must be in the same project. */
+  parentRef: z.string().trim().min(1).max(200).optional(),
   ...tagIdsShape,
 })
 
@@ -220,6 +225,9 @@ export const cliUpdateTaskSchema = z
     // LUM-646: agent-claimable triage marker. Set by `lumo task update
     // --claimable|--no-claimable` and by `lumo milestone triage` (batch).
     claimable: z.boolean().optional(),
+    // LUM-821: null clears. dueDate is an instant (local midnight of the day).
+    dueDate: z.string().datetime().nullable().optional(),
+    parentRef: z.string().trim().min(1).max(200).nullable().optional(),
     ...tagIdsShape,
     ...tagsIncrementalShape,
   })

@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { localDayLabel } from '../lib/local-day'
 
 interface ShowResponse {
   task: {
@@ -18,6 +19,10 @@ interface ShowResponse {
       label: string
       email: string | null
     } | null
+    /** LUM-821 — optional so an older server still renders. */
+    dueDate?: string | null
+    parent?: { identifier: string; title: string } | null
+    subtasks?: Array<{ identifier: string; title: string; status: string }>
   }
 }
 
@@ -41,7 +46,24 @@ export function formatTaskShow(task: ShowResponse['task']): string {
   } else {
     lines.push('Assignee:  (unassigned)')
   }
+  if (task.dueDate) lines.push(`Due:       ${localDayLabel(task.dueDate)}`)
+  if (task.parent) {
+    lines.push(
+      `Parent:    ${task.parent.identifier}  ${sanitizeField(task.parent.title)}`
+    )
+  }
   lines.push(`URL:       ${task.url}`)
+  if (task.subtasks && task.subtasks.length > 0) {
+    lines.push('')
+    lines.push(`Subtasks (${task.subtasks.length}):`)
+    const w = Math.max(...task.subtasks.map(c => c.identifier.length))
+    const sw = Math.max(...task.subtasks.map(c => c.status.length))
+    for (const c of task.subtasks) {
+      lines.push(
+        `  ${c.identifier.padEnd(w)}  ${c.status.padEnd(sw)}  ${sanitizeField(c.title)}`
+      )
+    }
+  }
   const body = task.descriptionMarkdown ?? task.description
   if (body && body.trim().length > 0) {
     lines.push('')

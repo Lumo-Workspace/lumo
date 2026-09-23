@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { truncateUnitsToBudget } from '../../../shared/src/output-budget'
+import { shortCommentId } from '../lib/comment-ref'
 
 interface ResolveResponse {
   id: string
@@ -34,7 +35,7 @@ export interface CommentThreadOptions {
  * HTML; the CLI only needs the visible text. We collapse block tags to newlines
  * and drop the rest, then decode the handful of entities that survive.
  */
-function htmlToPlainText(html: string): string {
+export function commentPlainText(html: string): string {
   return html
     .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
@@ -53,8 +54,10 @@ function htmlToPlainText(html: string): string {
 function renderCommentBlock(c: CommentNode, indent: string): string {
   const lines: string[] = []
   const author = sanitizeField(c.authorActorId ?? 'unknown')
-  lines.push(`${indent}${author} · ${c.createdAt}`)
-  const text = sanitizeField(htmlToPlainText(c.body))
+  // `#<short id>` is the handle `task comment --reply-to` and
+  // `task comments edit/rm` take (LUM-821).
+  lines.push(`${indent}#${shortCommentId(c.id)} · ${author} · ${c.createdAt}`)
+  const text = sanitizeField(commentPlainText(c.body))
   for (const line of (text || '(empty)').split('\n')) {
     lines.push(`${indent}${line}`)
   }

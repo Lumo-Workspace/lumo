@@ -50,6 +50,7 @@ import { taskList } from './commands/task-list'
 import { taskSearch } from './commands/task-search'
 import { taskStatuses } from './commands/task-statuses'
 import { memberList } from './commands/member-list'
+import { tagCreate, tagList } from './commands/tag'
 import { taskShow } from './commands/task-show'
 import { taskStatus } from './commands/task-status'
 import { taskComment } from './commands/task-comment'
@@ -86,6 +87,7 @@ import { taskSlackShow } from './commands/task-slack-show'
 import { taskWebShow } from './commands/task-web-show'
 import { taskFigmaContext } from './commands/task-figma-context'
 import { taskCommentList } from './commands/task-comment-list'
+import { taskCommentEdit, taskCommentRm } from './commands/task-comment-manage'
 import {
   taskDepsList,
   taskDepsAdd,
@@ -830,9 +832,17 @@ task
   .description(
     'Add a comment to a task. Body is plain text — quote it to pass spaces or newlines.'
   )
+  .option(
+    '--reply-to <comment>',
+    'Reply to a top-level comment: its #id from `task comments list` (unique prefix of 6+ chars)'
+  )
   .action(
-    wrap((identifier, body) =>
-      taskComment(identifier as string, body as string)
+    wrap((identifier, body, opts) =>
+      taskComment(
+        identifier as string,
+        body as string,
+        opts as { replyTo?: string }
+      )
     )
   )
 
@@ -849,6 +859,11 @@ task
   .option('-a, --assignee <ref>', 'Assignee email, name, or "me" (default: me)')
   .option('--project <ref>', 'Project name or slug')
   .option('--milestone <ref>', 'Milestone name (case-insensitive)')
+  .option('--due <date>', 'Due date, YYYY-MM-DD (your local day)')
+  .option(
+    '--parent <id>',
+    'Parent task (LUM-N, same project) — creates this as a subtask'
+  )
   .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
   .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
   .option(
@@ -939,7 +954,7 @@ taskFigma
 // adding a comment, and commander disallows a duplicate name.
 const taskComments = task
   .command('comments')
-  .description('Inspect the full task comment thread')
+  .description('Read and manage the task comment thread')
 taskComments
   .command('list <identifier>')
   .description(
@@ -949,6 +964,34 @@ taskComments
   .action(
     wrap((id, opts) =>
       taskCommentList(id as string, opts as { full?: boolean })
+    )
+  )
+taskComments
+  .command('edit <identifier> <comment> <body>')
+  .description(
+    'Replace the text of one of your own comments. <comment> is its #id from `task comments list` (unique prefix of 6+ chars).'
+  )
+  .action(
+    wrap((id, comment, body) =>
+      taskCommentEdit(id as string, comment as string, body as string)
+    )
+  )
+taskComments
+  .command('rm <identifier> <comment>')
+  .description(
+    'Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the deletion shown in the confirmation envelope. Without it the command exits 4 and deletes nothing.'
+  )
+  .action(
+    wrap((id, comment, opts) =>
+      taskCommentRm(
+        id as string,
+        comment as string,
+        opts as { confirm?: boolean }
+      )
     )
   )
 
@@ -1446,6 +1489,30 @@ memberCmd
   )
   .option('--json', 'Emit the directory as JSON')
   .action(wrap(options => memberList(options as { json?: boolean })))
+
+const tagCmd = program
+  .command('tag')
+  .description('Workspace tags (labels) from the terminal')
+
+tagCmd
+  .command('list')
+  .description(
+    'List workspace tags with their color and how many tasks / docs carry each.'
+  )
+  .option('--json', 'Emit the tags as JSON')
+  .action(wrap(options => tagList(options as { json?: boolean })))
+
+tagCmd
+  .command('create <name>')
+  .description(
+    'Create a tag (≤30 chars). A duplicate name is refused (409). To tag a task, use `task update --add-tag`.'
+  )
+  .option('--color <hex>', 'Tag color as #rrggbb')
+  .action(
+    wrap((name, options) =>
+      tagCreate(name as string, options as { color?: string })
+    )
+  )
 
 const projectCmd = program
   .command('project')
@@ -2396,6 +2463,14 @@ task
   .option(
     '--sprint <ref>',
     'Sprint number or UUID to bind the task to; empty string to unbind from current sprint'
+  )
+  .option(
+    '--due <date>',
+    'Due date, YYYY-MM-DD (your local day); empty string to clear'
+  )
+  .option(
+    '--parent <id>',
+    'Parent task (LUM-N, same project); empty string to detach from its parent'
   )
   .option(
     '--claimable',

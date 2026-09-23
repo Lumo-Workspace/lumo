@@ -1,6 +1,8 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { apiContext } from '../lib/test-case-api'
+import { fetchThread, pickComment } from '../lib/comment-ref'
 
 interface ResolveResponse {
   id: string
@@ -28,7 +30,8 @@ interface CommentResponse {
  */
 export async function taskComment(
   identifier: string | undefined,
-  body: string | undefined
+  body: string | undefined,
+  opts: { replyTo?: string } = {}
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
@@ -82,6 +85,32 @@ export async function taskComment(
   const resolved = (await resolveRes.json()) as ResolveResponse
 
   // 2. POST the comment.
+  // LUM-821: --reply-to <comment> resolves the short id against the thread.
+  // Threads are one level deep, so replying to a reply is refused with the
+  // top-level comment to reply to instead.
+  let parentId: string | undefined
+  if (opts.replyTo !== undefined) {
+    const ctx = apiContext()
+    if (!ctx) return 1
+    const thread = await fetchThread(ctx, resolved.id)
+    if (!thread) return 1
+    const pick = pickComment(thread, opts.replyTo)
+    if (!pick.ok) {
+      console.error(`Error: ${pick.error}`)
+      return 1
+    }
+    if (pick.isReply) {
+      const top = thread.find(c =>
+        (c.replies ?? []).some(r => r.id === pick.comment.id)
+      )
+      console.error(
+        `Error: #${opts.replyTo} is itself a reply and threads are one level deep — reply to #${top ? top.id.slice(0, 8) : '<parent>'} instead`
+      )
+      return 1
+    }
+    parentId = pick.comment.id
+  }
+
   let postRes: Response
   try {
     postRes = await fetch(
@@ -92,7 +121,7 @@ export async function taskComment(
           Authorization: `Bearer ${creds.token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify(parentId ? { body, parentId } : { body }),
       }
     )
   } catch (err) {
@@ -123,6 +152,8 @@ export async function taskComment(
 
   const data = (await postRes.json()) as CommentResponse
   process.stdout.write(
-    `Commented on ${resolved.identifier}  (comment ${data.comment.id})\n`
+    parentId
+      ? `Replied on ${resolved.identifier} to #${parentId.slice(0, 8)}  (comment ${data.comment.id})\n`
+      : `Commented on ${resolved.identifier}  (comment ${data.comment.id})\n`
   )
 }

@@ -75,7 +75,7 @@ lumo task figma context LUM-42 cfl_abc123
 
 ### `lumo task comments list <identifier>` — comment thread
 
-Prints the thread: each comment as `author · createdAt` then its plain-text body (bodies stored as HTML, stripped to text). Replies indent two spaces under their parent. Author falls back to `unknown`. No comments prints `(no comments)`.
+Prints the thread: each comment as `#<short id> · author · createdAt` then its plain-text body (bodies stored as HTML, stripped to text). Replies indent two spaces under their parent. Author falls back to `unknown`. No comments prints `(no comments)`.
 
 - `lumo task comments list LUM-42` — capped to the output budget (25,000 tokens; every printed line spends from your context). On overflow, truncates and ends in a fetch-more pointer: `… +N more comments not shown (output capped at 25,000 tokens) — read the whole thread with: lumo task comments list <id> --full`.
 - `lumo task comments list LUM-42 --full` — every comment, uncapped. Use only when you actually need the whole thread.
@@ -85,7 +85,7 @@ lumo task comments list LUM-42          # capped to the output budget
 lumo task comments list LUM-42 --full   # every comment, no cap
 ```
 
-**Plural, and distinct from `task comment`** — `task comments list` _reads_ the whole thread (this read-only retrieval command); `task comment <identifier> <body>` _writes_ a single new comment (see Task Management). Don't confuse the two.
+**Plural, and distinct from `task comment`** — `task comments list` _reads_ the whole thread (this read-only retrieval command); `task comment <identifier> <body>` _writes_ a single new comment (see Task Management). Don't confuse the two. The `#<short id>` is the handle for `task comment --reply-to` and `task comments edit/rm` (LUM-821, see Task Management).
 
 ### `lumo task pr show <identifier> <number>` — synced PR metadata
 

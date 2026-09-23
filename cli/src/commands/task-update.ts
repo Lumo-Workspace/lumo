@@ -4,6 +4,7 @@ import { normalizePriority } from './task-create'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { localDayStart } from '../lib/local-day'
 import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { emitConfirmation } from '../lib/confirmation'
 import {
@@ -24,6 +25,10 @@ export interface UpdateTaskOptions {
   assignee?: string
   milestone?: string
   sprint?: string
+  /** LUM-821: due day YYYY-MM-DD (local timezone); "" clears. */
+  due?: string
+  /** LUM-821: parent task identifier; "" clears (detaches the subtask). */
+  parent?: string
   /** LUM-646: `--claimable` sets the agent-claimable marker true. */
   claimable?: boolean
   /** LUM-646: `--not-claimable` sets it false. Mutually exclusive with the above. */
@@ -141,6 +146,16 @@ export function buildUpdatePayload(opts: UpdateTaskOptions): {
   if (opts.milestone !== undefined) {
     payload.milestoneRef = opts.milestone === '' ? null : opts.milestone
     flagsGiven.push('--milestone')
+  }
+  // LUM-821: a due day becomes its local-midnight instant (the web picker's
+  // storage convention). The caller validates the day first.
+  if (opts.due !== undefined) {
+    payload.dueDate = opts.due === '' ? null : localDayStart(opts.due)
+    flagsGiven.push('--due')
+  }
+  if (opts.parent !== undefined) {
+    payload.parentRef = opts.parent === '' ? null : opts.parent
+    flagsGiven.push('--parent')
   }
   // LUM-646: resolved agent-claimable marker (true/false). The caller collapses
   // --claimable / --not-claimable into this single tri-state before building.
@@ -359,6 +374,13 @@ async function runTaskUpdate(
   else if (opts.notClaimable) claimable = false
 
   // Normalize status / priority before payload build.
+  if (opts.due !== undefined && opts.due !== '' && !localDayStart(opts.due)) {
+    console.error(
+      `Error: --due expects a valid YYYY-MM-DD date (or "" to clear), got "${opts.due}"`
+    )
+    return 1
+  }
+
   let status: Status | undefined
   if (opts.status !== undefined) {
     const n = normalizeStatus(opts.status)
@@ -396,7 +418,7 @@ async function runTaskUpdate(
 
   if (flagsGiven.length === 0 && !hasTagFields && !hasSprintFlag) {
     console.error(
-      'Error: provide at least one field to update (--title, --description, --status, --priority, --assignee, --milestone, --sprint, --tag, --add-tag, --remove-tag)'
+      'Error: provide at least one field to update (--title, --description, --status, --priority, --assignee, --milestone, --sprint, --due, --parent, --tag, --add-tag, --remove-tag)'
     )
     return 1
   }
