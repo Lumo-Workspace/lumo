@@ -53,7 +53,9 @@ export const FUZZY_MIN_TERM_LENGTH = 4
  *
  * The matched title word must also be at least (term length − 1) long: a
  * later production run showed `probe` matching "DeepSeek V4-Pro" (strict 0.43
- * against the 3-letter prefix word "pro"), which no typo explains.
+ * against the 3-letter prefix word "pro"), which no typo explains. And the
+ * word must be ≥ FUZZY_MIN_TERM_LENGTH: `form` matched every title with
+ * "for" (0.5), since 3 ≥ 4 − 1 passed the one-shorter rule.
  */
 export const FUZZY_STRICT = 0.4
 
@@ -127,7 +129,9 @@ export function buildTextMatchSql(
       // index-served pre-filter; the EXISTS then requires the matched title
       // WORD to be at most one character shorter than the term — a typo drops
       // a letter, not a syllable. Without it `probe` matched "V4-Pro" (0.43).
-      const hit = PrismaSql.sql`(${term} <<% t."title" AND EXISTS (SELECT 1 FROM regexp_split_to_table(lower(t."title"), '[^[:alnum:]]+') w WHERE length(w) >= length(${term}) - 1 AND similarity(${term}, w) >= ${FUZZY_STRICT}))`
+      // The word must also be ≥ FUZZY_MIN_TERM_LENGTH: 3-letter words are as
+      // noisy on the title side as on the query side (`form` → "for", 0.5).
+      const hit = PrismaSql.sql`(${term} <<% t."title" AND EXISTS (SELECT 1 FROM regexp_split_to_table(lower(t."title"), '[^[:alnum:]]+') w WHERE length(w) >= GREATEST(length(${term}) - 1, ${FUZZY_MIN_TERM_LENGTH}) AND similarity(${term}, w) >= ${FUZZY_STRICT}))`
       alts.push(hit)
       parts.push(
         PrismaSql.sql`CASE WHEN ${hit} THEN strict_word_similarity(${term}, t."title") * 0.9 ELSE 0 END`
