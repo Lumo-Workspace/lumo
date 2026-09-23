@@ -123,3 +123,41 @@ export async function PATCH(
     return NextResponse.json({ error: message }, { status })
   }
 }
+
+/**
+ * DELETE /api/tasks/by-identifier/[identifier]
+ *
+ * Bearer-authed CLI endpoint for `lumo task delete` (LUM-821). Hard delete,
+ * same as the web's DELETE /api/tasks/[id]; the CLI only sends it after the
+ * user approved the confirmation envelope.
+ */
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ identifier: string }> }
+): Promise<Response> {
+  const identity = await verifyBearer(request)
+  if (!identity) return NextResponse.json(UNAUTHORIZED, { status: 401 })
+
+  const { identifier } = await context.params
+
+  try {
+    const deleted = await taskCliService.deleteFromCli({
+      workspaceId: identity.workspace.id,
+      identifier,
+    })
+    return NextResponse.json({ deleted })
+  } catch (err) {
+    const errStatus = (err as { status?: unknown })?.status
+    const status = typeof errStatus === 'number' ? errStatus : 500
+    const message =
+      status === 500
+        ? 'Internal Server Error'
+        : err instanceof Error
+          ? err.message
+          : 'Error'
+    if (status === 500) {
+      console.error('DELETE /api/tasks/by-identifier error:', err)
+    }
+    return NextResponse.json({ error: message }, { status })
+  }
+}

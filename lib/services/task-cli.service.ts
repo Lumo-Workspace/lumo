@@ -778,10 +778,29 @@ function teamPrefix(identifier: string): string {
   return identifier.slice(0, identifier.lastIndexOf('-'))
 }
 
+/**
+ * LUM-821: hard-delete a task by identifier (CLI `task delete`). The CLI
+ * gates this behind the exit-4 confirmation envelope; subtasks survive with
+ * their parent cleared (onDelete: SetNull), most related rows cascade.
+ */
+async function deleteFromCli(args: {
+  workspaceId: string
+  identifier: string
+}): Promise<{ identifier: string; title: string }> {
+  const resolved = await taskService.resolveIdentifier(
+    args.workspaceId,
+    args.identifier
+  )
+  if (!resolved) throw httpError(404, `Task ${args.identifier} not found`)
+  await taskService.deleteTask(resolved.id)
+  return { identifier: resolved.identifier, title: resolved.title }
+}
+
 export const taskCliService = {
   resolveProjectId,
   resolveAssigneeActorId,
   createFromCli,
   updateFromCli,
   showFromCli,
+  deleteFromCli,
 }

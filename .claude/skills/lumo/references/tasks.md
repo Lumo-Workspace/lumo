@@ -317,6 +317,22 @@ lumo task show LUM-42
 
 Use when the user wants the current state of a task without the agent-handoff payload.
 
+### `lumo task history <identifier> [-n <count>] [--json]` — field-change log (LUM-821)
+
+The task's changelog, oldest first: `YYYY-MM-DD HH:MM  actor  change` for status, priority, title, description, assignee, due date, parent, tags and sprint changes (milestone / project moves are not recorded). Default last 30; `-n` raises it. Comments are not included — use `task comments list`.
+
+```bash
+lumo task history LUM-42
+```
+
+### `lumo task delete <identifier>` — permanently delete a task (LUM-821)
+
+A **hard delete** — tasks have no archive. Without `--confirm` it exits 4 with an envelope listing what goes with the task (comments, criteria + verification runs, test cases, artifacts, activity, dependency edges, **boundary crossings**) and what stays unlinked (memories, sessions, PR records, subtasks). Relay it and wait for the user; never add `--confirm` yourself. Prefer `task update --status done` or re-scoping for work that merely stopped mattering.
+
+```bash
+lumo task delete LUM-42
+```
+
 ### `lumo task comment <identifier> <body>` — leave a comment
 
 Two-step under the hood (resolve LUM-N → POST comment). Body is plain text; quote it to embed spaces or newlines.

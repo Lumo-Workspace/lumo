@@ -747,20 +747,47 @@ model Initiative {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  team       Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  planRun    PlanRun?    @relation(fields: [planRunId], references: [id], onDelete: SetNull)
+  team       Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  planRun    PlanRun?           @relation(fields: [planRunId], references: [id], onDelete: SetNull)
   tasks      Task[]
   ideas      Idea[]
   // LUM-678: the two-layer container — an initiative holds Milestones (each with
   // their own tasks) and directly-attached Tasks.
   milestones Milestone[]
+  // LUM-821: append-only progress posts (Linear "initiative updates").
+  updates    InitiativeUpdate[]
 
   @@unique([teamId, number])
   @@index([teamId, status])
   @@index([workspaceId])
   @@index([planRunId])
   @@map("initiatives")
+}
+
+// LUM-821: health of an initiative as declared in a progress update
+// (Linear's onTrack / atRisk / offTrack).
+enum InitiativeHealth {
+  ON_TRACK
+  AT_RISK
+  OFF_TRACK
+}
+
+// LUM-821: an append-only progress post on an initiative — what changed, and
+// optionally how healthy it looks. `authorMemberId` is a soft member pointer
+// (no FK, cf. Initiative.ownerMemberId). Never edited; a correction is a new post.
+model InitiativeUpdate {
+  id             String            @id @default(cuid())
+  initiativeId   String
+  authorMemberId String
+  body           String            @db.Text
+  health         InitiativeHealth?
+  createdAt      DateTime          @default(now())
+
+  initiative Initiative @relation(fields: [initiativeId], references: [id], onDelete: Cascade)
+
+  @@index([initiativeId, createdAt])
+  @@map("initiative_updates")
 }
 
 // ─── Agent Profiles ─────────────────────────────────────────────────────────

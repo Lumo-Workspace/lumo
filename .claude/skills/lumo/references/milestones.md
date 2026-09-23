@@ -8,6 +8,15 @@ Prints `<slug>  <Display Name>` lines. The slug column matches the `--project <r
 lumo project list
 ```
 
+### `lumo project create <name> [-d <text>]` / `lumo project update <project> [flags]` (LUM-821)
+
+`create` makes a project (≤200 chars) in the workspace. `update` takes a project name or slug plus at least one of `--name`, `--description` (`""` clears) and `--owner` (`me`, an email or a member name; `""` clears).
+
+```bash
+lumo project create "Mobile app" --description "iOS + Android client"
+lumo project update mobile-app --owner alice@example.com
+```
+
 ### `lumo milestone list [--project <ref>] [--archived] [--all] [--search <text>]` — list milestones in a project
 
 Prints fixed-width rows: `<STATUS>  <HEALTH>  <target-date or ->  <name>`, sorted by target date asc (nulls last) then created asc.

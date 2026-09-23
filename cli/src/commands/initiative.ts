@@ -132,7 +132,8 @@ export async function initiativeCreate(
 
 /**
  * `lumo initiative list` — print the team's initiatives newest-first, each
- * line showing the `<TEAM>-INIT-<n>` id, status (ACTIVE|DONE|DROPPED) and goal.
+ * line showing the `<TEAM>-INIT-<n>` id, status (PROPOSED|PLANNED|ACTIVE|COMPLETED|CANCELLED)
+ * and goal.
  */
 export async function initiativeList(): Promise<number | void> {
   const creds = readCredentials()

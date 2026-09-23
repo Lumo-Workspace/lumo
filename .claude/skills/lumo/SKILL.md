@@ -32,7 +32,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `task deps add/list/confirm/dismiss/rm` (dependency edges)                              | [references/task-deps.md](references/task-deps.md)             |
 | `idea*` — capture pool, lifecycle, evidence, comments                                   | [references/ideas.md](references/ideas.md)                     |
 | `plan`, `plan status` — the idea→plan converter run                                     | [references/plan-runs.md](references/plan-runs.md)             |
-| `initiative create/list` (`LUM-INIT-<n>`)                                               | [references/initiatives.md](references/initiatives.md)         |
+| `initiative create/list/update/progress` (`LUM-INIT-<n>`)                               | [references/initiatives.md](references/initiatives.md)         |
 | `task artifact*`, `task figma*`                                                         | [references/artifacts-figma.md](references/artifacts-figma.md) |
 | `task criteria set/list/confirm`, drafting the acceptance contract                      | [references/criteria.md](references/criteria.md)               |
 | `task testcase add/list/show/update/rm/run`（结构化用例 + 执行记录）                    | [references/test-cases.md](references/test-cases.md)           |
@@ -40,7 +40,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `cost` — per-operation (per-tool) token cost read-out; `task lineage` Top-5             | [references/task-context.md](references/task-context.md)       |
 | `outcome show/rate` — post-hoc outcome well (falsifier oracle, rejection-only)          | [references/outcome.md](references/outcome.md)                 |
 | `priority [text]`, `priority list` — team priority declaration (append-only)            | [references/priority.md](references/priority.md)               |
-| `project list`, `milestone*`                                                            | [references/milestones.md](references/milestones.md)           |
+| `project list/create/update`, `milestone*`                                              | [references/milestones.md](references/milestones.md)           |
 | `doc create/update/list/move/bind/share/import` (CRUD)                                  | [references/docs.md](references/docs.md)                       |
 | `doc show --raw/--section`, `doc patch/append/diff/rebuild-source` (editing live docs)  | [references/doc-editing.md](references/doc-editing.md)         |
 | `sprint*`                                                                               | [references/sprints.md](references/sprints.md)                 |
@@ -79,6 +79,8 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task list [flags]` — list tasks assigned to you
 - `lumo task search [query] [flags]` — search the whole workspace (any assignee; `--assignee none`, `--tag`, `--status`, `--priority`, `--sprint`, `--due-before/--due-after`); query terms are ANDed substrings of title/description
 - `lumo task statuses` — status set + allowed transitions + priorities, as the server defines them
+- `lumo task history <id>` — field-change log (status/priority/assignee/due/parent/tags…), oldest first
+- `lumo task delete <id>` — permanent delete (no archive); exits 4 without `--confirm`, envelope lists what goes with it
 - `lumo next [--count N] [--claimable]` — recommend the next task to work on (read-only). `--claimable` restricts to the autonomy boundary: only tasks that are claimable ∩ unblocked (F3 topology) ∩ within milestone budget (F2); old server degrades gracefully to the standard ranking (LUM-646)
 - `lumo task show <id>` — print one task's detail
 - `lumo task comment <id> <body> [--reply-to <comment>]` — leave a comment or a reply (`#id` from `comments list`)
@@ -106,6 +108,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo initiative create "<goal>" [--assumption <text>]` — create directly, no plan run required
 - `lumo initiative list` — team initiatives newest-first; lineage browsable in web
+- `lumo initiative update <LUM-INIT-n> [--status --goal --target …]` · `initiative progress add/list` — edit an initiative; append-only progress posts with health
 
 ### Task dependencies — see [task-deps.md](references/task-deps.md)
 
@@ -124,12 +127,12 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Test cases (可反复执行的用例 + 执行记录) — see [test-cases.md](references/test-cases.md)
 
-- `lumo task testcase add/list/show/update/rm/run/disposition` — 任务下可反复执行的结构化用例 + append-only 执行记录。**与验收合同平行、互不替代**：合同管「任务算不算做完」，用例管「这条剧本跑下来什么结果、在哪个环境、跑的哪版代码」。`run --env` 必填无默认。`add/update --criterion <id|前缀>` 声明它覆盖哪条验收标准（可空；只进读出面与覆盖缺口提示，**绝不代判那条标准**，LUM-815）。**唯一拦 DONE 的用例信号**是最新一条 run 为带证据的 `--cause defect`（LUM-812，其余全 advisory），清闸走 `testcase disposition` 三步握手
+- `lumo task testcase add/list/show/update/rm/run/disposition` — 可反复执行的结构化用例 + append-only 执行记录，与验收合同平行、互不替代；`run --env` 必填；`--criterion` 只声明覆盖、绝不代判标准；**唯一拦 DONE 的用例信号**是最新 run 带证据的 `--cause defect`，清闸走 `testcase disposition` 三步握手
 
 ### Verification (machine acceptance loop) — see [verify.md](references/verify.md)
 
 - `lumo verify [task] [--note "<self-report>"] [--timeout <seconds>]` — run every MACHINE criterion's checkpointer locally and report a structured PASS/FAIL verdict per criterion. `--note` is an optional one-line self-report ("我改了 X,因为 Y 可验收"), frozen as the task's claim (source AGENT) when the round passes into IN_REVIEW. The round cap is the workspace's `verificationMaxRounds` (default 3) — read the actual budget off the `Round N/M` line the command prints, never assume a number. All-pass → task to IN_REVIEW (agent stops); a fail on the last round → escalate to human. **Run this before claiming a task is done.**
-- `lumo task status [task] [--full] [--json]` — read-only acceptance self-check (no LLM): the contract with each criterion's latest verdict, the current round, last failure reasons, `nextActions` (the unmet criteria, plus any undispositioned PR **security findings** as `SECURITY_FINDING` entries — `blocks DONE` vs `advisory`), a per-linked-PR **scan status line** (stage states incl. the L3 `hunt` layer, external-finding count, partial flag, external failure reason — LUM-735/739) plus the hunt's per-category coverage line (LUM-762), and any OPEN boundary crossings; `--full` adds the dashboard sections (verification rollup, history, cost, struggle trail, trend) (fails closed — `null`/`⚠` means "could not confirm", not safe). **Run it first when resuming a task or after a round was rejected.**
+- `lumo task status [task] [--full] [--json]` — read-only acceptance self-check (no LLM): contract + latest verdicts, round, `nextActions` (unmet criteria + undispositioned security findings, `blocks DONE` vs `advisory`), per-PR scan status, open boundary crossings; `--full` adds the dashboard. Fails closed (`null`/`⚠` = could not confirm, not safe). **Run it first when resuming a task or after a round was rejected.**
 - `lumo crossing explain <id> --note "<text>"` — append an agent self-explanation ("申辩") to a boundary crossing; append-only, **never clears the crossing or unblocks Done**. A review aid, not a self-clear.
 - `lumo crossing disposition <id> --false-positive | --confirmed [--note "<text>"] [--task <LUM-N>]` — record the **user's** ruling on a task crossing through a **three-step** read-then-rule confirmation handshake the server enforces (LUM-769); never supply a step flag (`--confirm-read` / `--confirm`) **on your own initiative** — relay each envelope, then supply it only once the user approves **that step** in chat, and say in the note that the ruling is theirs. Either ruling clears that crossing's block on DONE. Reverting to OPEN, repository suppression and steward crossings stay web-only. See [verify.md](references/verify.md)
 
@@ -158,7 +161,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Projects & milestones — see [milestones.md](references/milestones.md)
 
-- `lumo project list` — list projects (slugs feed `--project`)
+- `lumo project list` — list projects (slugs feed `--project`) · `project create/update` — create / rename / re-own
 - `lumo milestone list/create/show/update/delete` — milestone CRUD (`show` includes a Sprint-coverage section)
 - `lumo milestone archive/unarchive` — soft-archive / restore
 - `lumo milestone add/remove <id> <task...>` — batch bind/unbind tasks
@@ -166,7 +169,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo milestone summary [--retry]` — AI retro
 - `lumo milestone changelog <id> [--json]` — structured changelog from DONE tasks + merged PRs + frozen claimSnapshot (pure assembly, no LLM; runs on any status). Headline counts carry a baseline vs prior completed milestones (LUM-508); each claim shows provenance, no-PR/no-claim rendered explicitly (LUM-649)
 - `lumo milestone reorder/move` — manual ordering
-- `lumo milestone criteria set/list/verdict` — milestone-level **exit criteria** (LUM-643): the close contract, drafted & adjudicated (裁定) by the steward (LUM-640) or a human. Unresolved criteria (pending or NOT_MET) hold the LUM-714 derived completion fail-closed (no `completedAt`, no retro); human override is web-only, stamped as a persistent trail. `verdict --met` on `EXTERNAL_FACT` requires `--evidence` (422); `PENDING_OUTCOME` can never be MET
+- `lumo milestone criteria set/list/verdict` — milestone **exit criteria** (LUM-643), adjudicated by the steward or a human; unresolved ones hold completion fail-closed; `verdict --met` on `EXTERNAL_FACT` needs `--evidence`, `PENDING_OUTCOME` can never be MET
 
 ### Documents — CRUD/sharing → [docs.md](references/docs.md); **editing live docs** (raw/section/patch/append/diff/rebuild) → [doc-editing.md](references/doc-editing.md)
 
@@ -198,7 +201,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Sessions — see [sessions.md](references/sessions.md)
 
 - `lumo session attach <id>` — bind this session to a task (then run `task context`). **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
-- `lumo session attach --steward <milestone>` — bind this session to a **milestone** as a **STEWARD (governance) session** (LUM-640): plan & accept only. Governance passes (task create/update, criteria set incl. `--human`, deps confirm/dismiss, milestone add/remove, milestone triage (LUM-646 claimable), all reads); implementation is gated (`lumo verify` → 409 **without burning a round**; moving a task to in_progress assigned to yourself → 409); commits/PRs produced anyway are recorded as milestone-scoped boundary crossings (fail-closed; disposition stays web+human-only, no CLI clear path). Same lifetime lock: same milestone idempotent, any other attach (a task, or a different milestone) → 409; multiple stewards per milestone are fine. See [sessions.md](references/sessions.md)
+- `lumo session attach --steward <milestone>` — bind as a **STEWARD (governance) session** on a milestone (LUM-640): plan & accept only — `lumo verify` (409, no round burned) and self-dispatch to in_progress are refused; commits/PRs become milestone-scoped boundary crossings (web+human disposition only). Same lifetime lock. See [sessions.md](references/sessions.md)
 - `lumo session status` — show current binding (a task, or the milestone + STEWARD role)
 - End-of-session housekeeping is fully automatic (no command). On DONE the server runs three best-effort silent passes: Layer-1 memory curation, fragment-usage audit, and blocked-tag automation. See [sessions.md](references/sessions.md)
 - Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review — see the reference
@@ -227,7 +230,6 @@ Don't guess these:
 - No `lumo session start` — binding is `lumo session attach <LUM-N>`
 - No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new Claude Code session
 - No steward "role switch" or un-steward — `session attach --steward` is the same lifetime lock on a milestone; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)
-- No `lumo task delete` — tasks can't be deleted from the CLI (web UI only)
 - No `lumo pr show` / `lumo scan` — the by-number security read-out is `lumo pr scan <number>`; `lumo task pr show` is the task-scoped PR card
 - No `lumo task artifact edit` — it's `lumo task artifact update`
 - No `lumo auth status` — identity check is `lumo whoami`
