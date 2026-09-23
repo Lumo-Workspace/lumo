@@ -10,6 +10,8 @@ import { resolveMember, type MemberRow } from './resolve-member'
 export interface DirectoryMember extends MemberRow {
   actorId: string | null
   role: string
+  /** Clerk user id — what the stored credentials' `userId` holds. */
+  clerkId: string
 }
 
 export interface DirectoryAgent {
@@ -30,6 +32,7 @@ interface MembersResponse {
     email: string | null
     role: string
     actorId: string | null
+    clerkId: string
   }>
   agentActors?: Array<{ actorId: string; name: string; type: string }>
 }
@@ -52,6 +55,7 @@ export async function fetchDirectory(
       email: m.email,
       actorId: m.actorId,
       role: m.role,
+      clerkId: m.clerkId,
     })),
     agents: (r.data.agentActors ?? []).map(a => ({
       actorId: a.actorId,
@@ -75,6 +79,29 @@ export type AssigneeResolution =
   | { ok: true; actorIds: string[]; unassigned: boolean }
   | { ok: false; error: string }
 
+/** The caller as the stored credentials know them. */
+export interface Caller {
+  userId: string
+  email: string
+}
+
+/**
+ * Resolve one member ref, with `me` matched by the caller's Clerk user id
+ * (always in the credentials) before falling back to email — a member whose
+ * Clerk email changed, or is missing, still resolves as `me`.
+ */
+export function resolveDirectoryMember(
+  dir: Directory,
+  ref: string,
+  caller: Caller
+): ReturnType<typeof resolveMember> {
+  if (ref.trim().toLowerCase() === 'me') {
+    const byId = dir.members.find(m => m.clerkId === caller.userId)
+    if (byId) return { kind: 'ok', member: byId }
+  }
+  return resolveMember(dir.members, ref, caller.email)
+}
+
 /**
  * Resolve `--assignee` refs (`me`, email, member name, agent name, or
  * `none` for unassigned) to Actor ids. Pure — the directory is passed in.
@@ -82,7 +109,7 @@ export type AssigneeResolution =
 export function resolveAssigneeRefs(
   refs: string[],
   dir: Directory,
-  myEmail: string
+  caller: Caller
 ): AssigneeResolution {
   const actorIds: string[] = []
   let unassigned = false
@@ -92,7 +119,7 @@ export function resolveAssigneeRefs(
       unassigned = true
       continue
     }
-    const hit = resolveMember(dir.members, trimmed, myEmail)
+    const hit = resolveDirectoryMember(dir, trimmed, caller)
     if (hit.kind === 'ok') {
       const actorId = (hit.member as DirectoryMember).actorId
       if (!actorId) {

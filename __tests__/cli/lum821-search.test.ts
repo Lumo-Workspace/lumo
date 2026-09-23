@@ -30,6 +30,7 @@ const DIR: Directory = {
       email: 'me@x.com',
       actorId: 'act-me',
       role: 'OWNER',
+      clerkId: 'user_me',
     },
     {
       memberId: 'm2',
@@ -37,6 +38,7 @@ const DIR: Directory = {
       email: 'alice@x.com',
       actorId: 'act-alice',
       role: 'MEMBER',
+      clerkId: 'user_alice',
     },
   ],
   agents: [{ actorId: 'act-bot', name: 'Claude Code', type: 'CODING' }],
@@ -47,7 +49,7 @@ describe('resolveAssigneeRefs', () => {
     const r = resolveAssigneeRefs(
       ['me', 'ALICE@x.com', 'claude code', 'none'],
       DIR,
-      'me@x.com'
+      { userId: 'user_me', email: 'me@x.com' }
     )
     expect(r).toEqual({
       ok: true,
@@ -57,8 +59,28 @@ describe('resolveAssigneeRefs', () => {
   })
 
   it('fails on an unknown ref', () => {
-    const r = resolveAssigneeRefs(['bob'], DIR, 'me@x.com')
+    const r = resolveAssigneeRefs(['bob'], DIR, {
+      userId: 'user_me',
+      email: 'me@x.com',
+    })
     expect(r.ok).toBe(false)
+  })
+
+  it('"me" resolves by Clerk user id even when no member email matches (found by the LUM-821 e2e run)', () => {
+    const noEmail: Directory = {
+      members: DIR.members.map(m => ({ ...m, email: null })),
+      agents: [],
+    }
+    expect(
+      resolveAssigneeRefs(['me'], noEmail, {
+        userId: 'user_me',
+        email: 'me@x.com',
+      })
+    ).toEqual({
+      ok: true,
+      actorIds: ['act-me'],
+      unassigned: false,
+    })
   })
 })
 

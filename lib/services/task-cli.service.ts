@@ -722,14 +722,19 @@ async function showFromCli(args: {
   let assignee: ShowTaskFromCliResult['assignee'] = null
   if (detail.assignee) {
     if (detail.assignee.type === 'HUMAN' && detail.assignee.member) {
-      const profile = await authService.fetchUserProfile(
-        detail.assignee.member.clerkId
-      )
-      assignee = {
-        type: 'member',
-        label: profile.name || profile.email,
-        email: profile.email || null,
-      }
+      // A Clerk lookup failure (user deleted in Clerk, Clerk outage) must not
+      // turn into "task not found" — Clerk's 404 used to surface as the
+      // route's own 404. The label degrades instead (LUM-821 e2e finding).
+      const profile = await authService
+        .fetchUserProfile(detail.assignee.member.clerkId)
+        .catch(() => null)
+      assignee = profile
+        ? {
+            type: 'member',
+            label: profile.name || profile.email,
+            email: profile.email || null,
+          }
+        : { type: 'member', label: '(unknown member)', email: null }
     } else if (detail.assignee.type === 'AGENT' && detail.assignee.agent) {
       assignee = {
         type: 'agent',

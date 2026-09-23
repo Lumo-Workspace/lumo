@@ -1,8 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { sanitizeField } from '../lib/sanitize'
 import { apiCall, apiContext } from '../lib/test-case-api'
-import { fetchDirectory } from '../lib/directory'
-import { resolveMember } from '../lib/resolve-member'
+import { fetchDirectory, resolveDirectoryMember } from '../lib/directory'
 import { resolveProjectId } from '../lib/resolve'
 
 /** LUM-821: `lumo project create` / `lumo project update`. */
@@ -86,11 +85,11 @@ export async function projectUpdate(
       // The API takes the owner as an Actor id; resolve the ref locally.
       const dir = await fetchDirectory(ctx)
       if (!dir) return 1
-      const hit = resolveMember(
-        dir.members,
-        opts.owner,
-        readCredentials()?.email ?? ''
-      )
+      const creds = readCredentials()
+      const hit = resolveDirectoryMember(dir, opts.owner, {
+        userId: creds?.userId ?? '',
+        email: creds?.email ?? '',
+      })
       if (hit.kind !== 'ok') {
         console.error(
           hit.kind === 'ambiguous'

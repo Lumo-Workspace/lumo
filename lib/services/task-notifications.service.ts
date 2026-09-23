@@ -206,7 +206,12 @@ export function buildActivityEvents(
       toTitle: null,
     })
   }
-  if (input.tagIds !== undefined) {
+  // Bulk replace (tagIds) always records; incremental add/remove (the CLI's
+  // --add-tag / --remove-tag) records only a real change — before LUM-821 it
+  // left no trace in the history at all.
+  const incrementalTags =
+    (input.addTagIds?.length ?? 0) > 0 || (input.removeTagIds?.length ?? 0) > 0
+  if (input.tagIds !== undefined || incrementalTags) {
     const oldTagNames = ((taskCheck as any).tags ?? []).map(
       (t: { name: string }) => t.name
     )
@@ -217,6 +222,13 @@ export function buildActivityEvents(
     const newSet = new Set(newTagNames as string[])
     const added = (newTagNames as string[]).filter(n => !oldSet.has(n))
     const removed = (oldTagNames as string[]).filter(n => !newSet.has(n))
+    if (
+      input.tagIds === undefined &&
+      added.length === 0 &&
+      removed.length === 0
+    ) {
+      return activityEvents
+    }
     activityEvents.push({
       type: 'task:tags_changed',
       taskId,
