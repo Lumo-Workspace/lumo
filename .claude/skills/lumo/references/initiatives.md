@@ -29,7 +29,7 @@ lumo initiative list
 
 ## `lumo initiative update <initiative> [flags]` (LUM-821)
 
-`<initiative>` is the `LUM-INIT-<n>` id or just its number. Provide at least one flag; `""` clears the nullable ones.
+`<initiative>` is the `LUM-INIT-<n>` id or just its number. A ref with another team's prefix (e.g. `ENG-INIT-3` from a different workspace) is **not found** — it never falls back to "number 3 in my team". Provide at least one flag; `""` clears the nullable ones.
 
 | Flag                     | Notes                                                                        |
 | ------------------------ | ---------------------------------------------------------------------------- |
