@@ -209,9 +209,16 @@ async function resolveTeamInitiative(
     Object.assign(new Error(`Initiative ${ref} not found`), { status: 404 })
   const team = await getDefaultTeam(workspaceId)
   if (!team) throw notFound()
-  const num = /^(?:[A-Za-z][A-Za-z0-9]*-INIT-)?(\d+)$/i.exec(ref.trim())
+  const num = /^(?:([A-Za-z][A-Za-z0-9]*)-INIT-)?(\d+)$/i.exec(ref.trim())
+  // A prefixed ref must name the caller's team: `VIC-INIT-1` used to be read
+  // as "number 1 in my team" and silently wrote to the wrong initiative
+  // (found by the LUM-821 cross-workspace isolation run). Bare numbers stay
+  // team-relative.
+  if (num?.[1] && num[1].toUpperCase() !== team.identifier.toUpperCase()) {
+    throw notFound()
+  }
   const row = num
-    ? await initiativeRepository.findRefByTeamNumber(team.id, Number(num[1]))
+    ? await initiativeRepository.findRefByTeamNumber(team.id, Number(num[2]))
     : await initiativeRepository.findRefById(ref.trim())
   if (!row || row.teamId !== team.id) throw notFound()
   return { id: row.id, teamIdentifier: team.identifier }
