@@ -1454,6 +1454,101 @@
   max-width: 680px;
 }
 
+/* ============ COMPARE (HEAD TO HEAD) ============ */
+.compareLede {
+  margin: 18px 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+/* The table scrolls inside its own box on narrow screens so the page itself
+   never scrolls sideways; the capability column stays pinned while it does. */
+.compareScroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+.compareTable {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.compareTable th,
+.compareTable td {
+  padding: 16px 18px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line-3);
+}
+.compareTable tbody tr:last-child th,
+.compareTable tbody tr:last-child td {
+  border-bottom: none;
+}
+.compareTable thead th {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-mut);
+  background: var(--card-2);
+}
+.compareTable thead th.compareLumoHead {
+  color: var(--ink);
+}
+.compareCap {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 26%;
+  background: var(--card);
+  font-weight: 600;
+  color: var(--ink);
+}
+.compareTable thead .compareCap {
+  background: var(--card-2);
+}
+.compareLumo {
+  background: var(--card-3);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.compareVerdict {
+  display: block;
+  font-weight: 600;
+  color: var(--ink);
+}
+.compareYes {
+  color: var(--good);
+}
+.compareNo {
+  color: var(--text-faint);
+}
+.compareNote {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.compareSource {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-mono);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.compareSource:hover {
+  color: var(--accent);
+}
+.compareFootnote {
+  margin: 16px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-mut);
+}
+
 /* ============ FINAL CTA ============ */
 .ctaInner {
   max-width: 1200px;
@@ -1729,6 +1824,61 @@
   .metricGrid,
   .srcGrid {
     grid-template-columns: 1fr;
+  }
+  /* Five columns don't fit a phone: each capability becomes its own card,
+     with the four products stacked and labelled from data-label. */
+  .compareScroll {
+    overflow-x: visible;
+    border: none;
+    border-radius: 0;
+    background: none;
+  }
+  .compareTable {
+    min-width: 0;
+  }
+  .compareTable thead {
+    display: none;
+  }
+  .compareTable tbody,
+  .compareTable tr {
+    display: block;
+  }
+  .compareTable tr {
+    margin-bottom: 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .compareTable th,
+  .compareTable td {
+    display: block;
+    padding: 12px 16px;
+  }
+  .compareTable tbody tr:last-child th,
+  .compareTable tbody tr:last-child td {
+    border-bottom: 1px solid var(--line-3);
+  }
+  .compareTable tbody tr td:last-child {
+    border-bottom: none;
+  }
+  .compareCap {
+    position: static;
+    width: auto;
+    background: var(--card-2);
+  }
+  .compareTable td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-mut);
+  }
+  .compareTable td.compareLumo::before {
+    color: var(--ink);
   }
   .footerGrid {
     grid-template-columns: 1fr;

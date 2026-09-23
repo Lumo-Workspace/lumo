@@ -1,5 +1,6 @@
 import Link from 'next/link'
 
+import { Compare } from './compare'
 import { Faq } from './faq'
 import { HowItWorks } from './how-it-works'
 import { LumoTerminal } from './lumo-terminal'
@@ -52,6 +53,12 @@ function Navbar() {
             className={`${styles.navLink} ${styles.navLinkHideSm}`}
           >
             How it works
+          </a>
+          <a
+            href='#compare'
+            className={`${styles.navLink} ${styles.navLinkHideSm}`}
+          >
+            Compare
           </a>
           <a
             href='#faq'
@@ -969,6 +976,7 @@ export function LumoHome({ className }: LumoHomeProps) {
       <Features />
       <HowItWorks />
       <LumoTerminal />
+      <Compare />
       <Faq />
       <FinalCta />
       <References />
