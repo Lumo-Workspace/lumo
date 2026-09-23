@@ -14,6 +14,7 @@ const mockAggregate = jest.fn()
 const mockRunCreate = jest.fn()
 const mockRunFindMany = jest.fn()
 const mockPrFindMany = jest.fn()
+const mockTransaction = jest.fn()
 
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
@@ -29,6 +30,7 @@ jest.mock('@/lib/db/prisma', () => ({
       findMany: (...a: unknown[]) => mockRunFindMany(...a),
     },
     pullRequest: { findMany: (...a: unknown[]) => mockPrFindMany(...a) },
+    $transaction: (fn: (tx: unknown) => unknown) => mockTransaction(fn),
   },
 }))
 
@@ -198,5 +200,73 @@ describe('listTaskPullRequests', () => {
     expect(arg.select.headSha).toBe(true)
     expect(arg.select.mergeCommitSha).toBe(true)
     expect(arg.select.state).toBe(true)
+  })
+})
+
+describe('createDisposition (LUM-812)', () => {
+  const dispositionInput = {
+    runId: 'run-9',
+    taskId: 't-1',
+    disposition: 'KNOWN_DEFECT' as const,
+    note: null,
+    dispositionedById: 'm-1',
+    channel: 'CLI' as const,
+  }
+  const activity = { actorId: 'actor-1', payload: { runId: 'run-9' } }
+
+  /** 最小的事务替身：回调失败则整体失败，且什么都不「提交」到 committed。 */
+  function fakeTransaction(activityCreate: jest.Mock) {
+    const committed: string[] = []
+    mockTransaction.mockImplementation(async fn => {
+      const staged: string[] = []
+      const tx = {
+        testCaseRunDisposition: {
+          create: jest.fn(async ({ data }) => {
+            staged.push('disposition')
+            return { id: 'd-1', ...data }
+          }),
+        },
+        taskActivity: { create: activityCreate },
+      }
+      const out = await fn(tx)
+      committed.push(...staged)
+      return out
+    })
+    return committed
+  }
+
+  it('writes the ruling row and its activity event in one transaction', async () => {
+    const activityCreate = jest.fn(async () => ({ id: 'a-1' }))
+    const committed = fakeTransaction(activityCreate)
+
+    const row = await testCaseRepository.createDisposition(
+      dispositionInput,
+      activity
+    )
+
+    expect(row).toMatchObject({ id: 'd-1', runId: 'run-9' })
+    expect(activityCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        taskId: 't-1',
+        actorId: 'actor-1',
+        type: 'TEST_CASE_DEFECT_DISPOSITIONED',
+      }),
+    })
+    expect(committed).toEqual(['disposition'])
+  })
+
+  it('a failed activity write leaves no ruling behind — the gate stays shut', async () => {
+    const fkError = Object.assign(
+      new Error('Foreign key constraint violated'),
+      {
+        code: 'P2003',
+      }
+    )
+    const committed = fakeTransaction(jest.fn().mockRejectedValue(fkError))
+
+    await expect(
+      testCaseRepository.createDisposition(dispositionInput, activity)
+    ).rejects.toBe(fkError)
+    expect(committed).toEqual([])
   })
 })
