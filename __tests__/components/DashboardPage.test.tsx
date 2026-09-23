@@ -40,6 +40,16 @@ jest.mock('recharts', () => {
 
 const mockStats = jest.fn()
 
+// LUM-819: the spot-check card's data hook — faked like the other hooks here.
+jest.mock('@/app/workspace/[workspaceUrl]/hooks/useRunReviewPool', () => ({
+  useRunReviewPool: () => ({
+    pool: {
+      sample: [],
+      poolSize: 7,
+      rate: { status: 'insufficient', reviewed: 2, rejected: 1, minSample: 10 },
+    },
+  }),
+}))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useRealtimeStats', () => ({
   useWorkspaceRealtimeStats: () => mockStats(),
 }))
@@ -107,7 +117,12 @@ const stats: WorkspaceSummaryStats = {
 describe('DashboardPage (shared-surface invariant)', () => {
   it('still renders the charts, stats row and summary history', () => {
     mockStats.mockReturnValue({ stats, loading: false, error: null })
-    render(<DashboardPage onNavigateToProject={jest.fn()} />)
+    render(
+      <DashboardPage
+        onNavigateToProject={jest.fn()}
+        onOpenRunReviews={jest.fn()}
+      />
+    )
 
     const en = require('@/lib/i18n/en.json') as Record<string, string>
     // Resolve through a guard so a renamed key fails loudly instead of

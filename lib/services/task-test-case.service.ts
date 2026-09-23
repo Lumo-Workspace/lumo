@@ -8,6 +8,10 @@ import {
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
+import {
+  testCaseReviewService,
+  type RunReviewSummary,
+} from '@/lib/services/test-case-review.service'
 import type {
   CreateTestCaseBody,
   UpdateTestCaseBody,
@@ -44,7 +48,8 @@ export interface TestCaseAttribution {
  * 撒谎（LUM-801 的 TC1 就是这么 FAIL 的）。
  */
 export type TestCaseWithRuns = TestCaseRow & {
-  runs: TestCaseRunRow[]
+  /** LUM-819 返工：每条 run 带上它的最新抽查复核（null = 没人抽到过）。 */
+  runs: Array<TestCaseRunRow & { review: RunReviewSummary | null }>
 }
 
 function fail(message: string, status: number): never {
@@ -252,13 +257,20 @@ export const taskTestCaseService = {
     testCases: TestCaseWithRuns[]
     pullRequests: TaskPullRequestSnapshot[]
   }> {
-    const [cases, runs, pullRequests] = await Promise.all([
+    const [cases, runs, pullRequests, reviews] = await Promise.all([
       testCaseRepository.listForTask(taskId),
       testCaseRepository.runsPerCase(taskId),
       testCaseRepository.listTaskPullRequests(taskId),
+      testCaseReviewService.latestForTask(taskId),
     ])
     return {
-      testCases: cases.map(c => ({ ...c, runs: runs.get(c.id) ?? [] })),
+      testCases: cases.map(c => ({
+        ...c,
+        runs: (runs.get(c.id) ?? []).map(r => ({
+          ...r,
+          review: reviews.get(r.id) ?? null,
+        })),
+      })),
       pullRequests,
     }
   },

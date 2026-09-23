@@ -1,7 +1,7 @@
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 import type { RunReviewBody } from '@/lib/validation/test-case'
-import type { FalseReportRate } from '@/lib/test-cases/review'
+import type { CriterionLink, FalseReportRate } from '@/lib/test-cases/review'
 
 /** 抽查页上的一条 run（与 service 的 `ReviewPoolItem` 同形）。 */
 export interface ReviewPoolItem {
@@ -16,6 +16,13 @@ export interface ReviewPoolItem {
   note: string | null
   evidence: unknown
   recordedAt: string
+  /** LUM-819 返工：证据要对照的东西。 */
+  setup: string | null
+  steps: string[]
+  verification: string[]
+  expected: string
+  criterion: CriterionLink
+  pr: { number: number; url: string } | null
 }
 
 export interface ReviewPoolView {

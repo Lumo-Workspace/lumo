@@ -7,12 +7,13 @@ import { RunReviewView } from './RunReviewView'
  * LUM-819 (D): 抽查页容器——取数与写入归 `useRunReviewPool`，渲染归
  * `RunReviewView`（SRP split，同 IdeaPoolPage）。
  */
-export function RunReviewPage() {
+export function RunReviewPage({ workspaceUrl }: { workspaceUrl: string }) {
   const { pool, loading, error, reload, review, reviewing, reviewError } =
     useRunReviewPool()
 
   return (
     <RunReviewView
+      workspaceUrl={workspaceUrl}
       pool={pool}
       loading={loading}
       error={error}

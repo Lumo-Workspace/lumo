@@ -15,6 +15,8 @@ import { StatusDistributionChart } from '../summary/StatusDistributionChart'
 import { MemberWorkloadChart } from '../summary/MemberWorkloadChart'
 import { CompletionTrendChart } from '../summary/CompletionTrendChart'
 import { SummaryHistory } from '../summary/SummaryHistory'
+import { SpotCheckCard } from '../summary/SpotCheckCard'
+import { useRunReviewPool } from '../../hooks/useRunReviewPool'
 import {
   Empty,
   EmptyContent,
@@ -27,10 +29,16 @@ import { PageBreadcrumb } from '../PageBreadcrumb'
 
 interface DashboardPageProps {
   onNavigateToProject: (projectId: string) => void
+  /** LUM-819 返工：抽查页的入口在这里，不在侧边栏。 */
+  onOpenRunReviews: () => void
 }
 
-export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
+export function DashboardPage({
+  onNavigateToProject,
+  onOpenRunReviews,
+}: DashboardPageProps) {
   const intl = useIntl()
+  const { pool: reviewPool } = useRunReviewPool()
   const {
     stats,
     loading: statsLoading,
@@ -133,6 +141,14 @@ export function DashboardPage({ onNavigateToProject }: DashboardPageProps) {
             projects={projectBreakdown}
             onNavigate={onNavigateToProject}
           />
+
+          {reviewPool && (
+            <SpotCheckCard
+              rate={reviewPool.rate}
+              poolSize={reviewPool.poolSize}
+              onOpen={onOpenRunReviews}
+            />
+          )}
 
           {stats && (
             <>

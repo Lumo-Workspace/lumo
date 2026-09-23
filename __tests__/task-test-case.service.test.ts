@@ -34,7 +34,12 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: {
     findActorByMemberId: jest.fn().mockResolvedValue({ id: 'actor-1' }),
+    labelsByIds: jest.fn().mockResolvedValue(new Map()),
   },
+}))
+// LUM-819 返工：listForTask 把每条 run 的最新抽查复核带上。默认没人抽查过。
+jest.mock('@/lib/repositories/test-case-run-review.repository', () => ({
+  testCaseRunReviewRepository: { listForTask: jest.fn().mockResolvedValue([]) },
 }))
 jest.mock('@/lib/db/transaction', () => ({
   runInTransaction: (fn: (tx: unknown) => unknown) => fn({}),
@@ -419,6 +424,8 @@ describe('listForTask', () => {
     const { testCases } = await taskTestCaseService.listForTask('t-1')
 
     expect(testCases[0]!.runs.map(r => r.id)).toEqual(['r2', 'r1'])
+    // nobody spot-checked these runs → an explicit null, never undefined
+    expect(testCases[0]!.runs.map(r => r.review)).toEqual([null, null])
   })
 
   it('gives a case with no runs an empty array', async () => {

@@ -389,7 +389,16 @@ function isTestCaseVerdictAction(
 function isCoverageGapAction(a: NextActionItem): a is CoverageGapAction {
   return a.kind === 'COVERAGE_GAP'
 }
-function splitNextActions(actions: NextActionItem[]): {
+/** LUM-819: a newer server's advisory kind, unknown to this CLI version. */
+function isUnknownAdvisory(a: NextActionItem): a is TestCaseAction {
+  const raw = a as { kind?: unknown; advisory?: unknown }
+  return (
+    raw.advisory === true &&
+    typeof raw.kind === 'string' &&
+    raw.kind !== 'CRITERION'
+  )
+}
+export function splitNextActions(actions: NextActionItem[]): {
   criteria: CriterionAction[]
   security: SecurityAction[]
   testCase: TestCaseAction[]
@@ -406,6 +415,10 @@ function splitNextActions(actions: NextActionItem[]): {
     else if (isTestCaseAction(a)) testCase.push(a)
     else if (isTestCaseVerdictAction(a)) testCaseVerdict.push(a)
     else if (isCoverageGapAction(a)) coverageGap.push(a)
+    // LUM-819: an advisory of a kind this CLI does not know yet must never
+    // land in the criteria bucket (it would read as an unmet criterion and
+    // skew the `unmet` count). Render it as a generic test-case advisory.
+    else if (isUnknownAdvisory(a)) testCase.push(a)
     else criteria.push(a)
   }
   return { criteria, security, testCase, testCaseVerdict, coverageGap }
@@ -472,8 +485,13 @@ export function formatLinkedCase(c: {
 /** One advisory line + the command that clears it (LUM-807). */
 function pushTestCaseActions(lines: string[], actions: TestCaseAction[]): void {
   for (const a of actions) {
-    lines.push(`  • [TEST CASE] ${sanitizeField(a.statement)} (advisory)`)
-    lines.push(`    run: ${sanitizeField(a.command)}`)
+    // LUM-819: an unknown advisory kind may lack either field — never print
+    // "undefined"; fall back to its kind.
+    const statement =
+      typeof a.statement === 'string' ? a.statement : String(a.kind)
+    lines.push(`  • [TEST CASE] ${sanitizeField(statement)} (advisory)`)
+    if (typeof a.command === 'string')
+      lines.push(`    run: ${sanitizeField(a.command)}`)
   }
 }
 

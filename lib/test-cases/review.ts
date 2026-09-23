@@ -144,3 +144,68 @@ export function addReviewToRate(
   }
   return { status: 'measured', reviewed, rejected, rate: rejected / reviewed }
 }
+
+/**
+ * LUM-819 返工：复核卡片上「这条用例在为哪条标准作证」。三态，别压成两态：
+ * - `none`：没人声明它覆盖什么（合法常态，不是缺陷）；
+ * - `active`：标准还在合同里；
+ * - `changed`：标准已被软删（tombstone）——证据对照的是一条已不在合同里的标准，
+ *   复核人必须知道这一点。
+ */
+export type CriterionLink =
+  | { kind: 'none' }
+  | { kind: 'active'; statement: string }
+  | { kind: 'changed'; statement: string }
+
+export function describeCriterionLink(
+  criterion: { statement: string; deletedAt: Date | null } | null
+): CriterionLink {
+  if (!criterion) return { kind: 'none' }
+  return criterion.deletedAt
+    ? { kind: 'changed', statement: criterion.statement }
+    : { kind: 'active', statement: criterion.statement }
+}
+
+/** 一条最新复核的最小形状（回写到任务上用）。 */
+export interface LatestReview extends ReviewRow {
+  note: string | null
+  reviewedByMemberId: string
+}
+
+/**
+ * 哪些用例的**最新一次执行**被抽查打回了——这是任务负责人该知道的事。
+ *
+ * 只看最新执行：打回之后又重新跑过（不管结果如何），旧的打回说的是一份已被
+ * 取代的证据，再拿它提醒就是噪音。永远只进 advisory，不进 DONE 闸。
+ */
+export function sentBackOnLatestRuns<
+  C extends { id: string; number: number; title: string },
+>(
+  cases: C[],
+  latestRunIdByCase: Map<string, string>,
+  reviews: LatestReview[]
+): Array<{ testCase: C; runId: string; review: LatestReview }> {
+  const latest = latestReviewByRun(reviews)
+  const out: Array<{ testCase: C; runId: string; review: LatestReview }> = []
+  for (const c of [...cases].sort((a, b) => a.number - b.number)) {
+    const runId = latestRunIdByCase.get(c.id)
+    if (!runId) continue
+    const review = latest.get(runId)
+    if (review && !review.accepted) out.push({ testCase: c, runId, review })
+  }
+  return out
+}
+
+/**
+ * LUM-819 返工：抽查打回那行提醒的措辞。「打回」不是失败——它说的是证据撑不起
+ * 这个 PASS，下一步是补证据或重跑，不是去修一个可能没坏的实现。
+ */
+export function reviewSentBackStatement(r: {
+  number: number
+  title: string
+  reviewer: string
+  note: string | null
+}): string {
+  const why = r.note ? ` — "${r.note}"` : ''
+  return `TC${r.number} ${r.title}: a spot-check by ${r.reviewer} sent this PASS back — the evidence did not hold it up${why}. Attach better evidence or re-run the case.`
+}
