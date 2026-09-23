@@ -66,6 +66,29 @@ describe('initiativeService.update', () => {
     })
   })
 
+  it('a ref with another team’s prefix is 404 — never "number 1 in my team" (isolation run finding)', async () => {
+    for (const ref of ['VIC-INIT-3', 'XYZ-INIT-3']) {
+      await expect(
+        initiativeService.update({
+          workspaceId: 'ws',
+          ref,
+          input: { status: 'CANCELLED' },
+        })
+      ).rejects.toMatchObject({ status: 404 })
+    }
+    await expect(
+      initiativeService.postProgressUpdate({
+        workspaceId: 'ws',
+        ref: 'VIC-INIT-3',
+        authorMemberId: 'm1',
+        input: { body: 'x' },
+      })
+    ).rejects.toMatchObject({ status: 404 })
+    expect(repo.update).not.toHaveBeenCalled()
+    expect(repo.createProgressUpdate).not.toHaveBeenCalled()
+    expect(repo.findRefByTeamNumber).not.toHaveBeenCalled()
+  })
+
   it('another team’s initiative (by id) is the same 404 as a missing one', async () => {
     await expect(
       initiativeService.update({
