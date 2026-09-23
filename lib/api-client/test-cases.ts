@@ -27,9 +27,19 @@ export interface RunDisposition {
   channel: TestCaseDispositionChannel
 }
 
-/** 读端看到的一条 run —— Prisma 的行，外加它的裁定。 */
+/** LUM-819 返工：一条 run 的最新抽查复核（谁、何时、结论）。 */
+export interface RunReviewView {
+  accepted: boolean
+  note: string | null
+  reviewer: string
+  reviewedAt: string
+}
+
+/** 读端看到的一条 run —— Prisma 的行，外加它的裁定与最新抽查复核。 */
 export type TestCaseRunView = TestCaseRun & {
   disposition: RunDisposition | null
+  /** 可选：只有任务的用例列表带；单条详情等读端没有它。 */
+  review?: RunReviewView | null
 }
 
 /** 列表里的一条用例，带它全部的执行记录（新到旧）。 */

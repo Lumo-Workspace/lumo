@@ -8,8 +8,10 @@ import type { FalseReportRate } from '@/lib/test-cases/review'
 import { PageBreadcrumb } from '../PageBreadcrumb'
 import { AsyncContent } from '../AsyncContent'
 import { EvidenceStrip } from '../TaskDetailTimeline/TestCaseEvidence'
+import { testRunHref } from '../TaskDetailTimeline/taskTabs'
 
 interface RunReviewViewProps {
+  workspaceUrl: string
   pool: ReviewPoolView | null
   loading: boolean
   error: string | null
@@ -24,12 +26,16 @@ interface RunReviewViewProps {
 /**
  * LUM-819 (D): 抽查页（纯展示）。
  *
- * 两条设计约束，别改掉：
+ * 三条设计约束，别改掉：
  * - 每条 run 的**证据排在两个按钮之前**——先看证据再裁定，是这个页面的全部
  *   意义；能不看证据就点的布局等于把抽查退化成盖章。
+ * - **证据要和对照物放在一起**（LUM-819 返工）：预期结果最显眼，其次是它为
+ *   哪条验收标准作证、步骤与复验条目；再多的上下文一键跳进任务看。没有对照物，
+ *   复核只能判断证据「像不像样」，判断不了「证没证明」。
  * - 虚报率**永远带分子分母**；样本不足时明说不足，不给百分比。
  */
 export function RunReviewView({
+  workspaceUrl,
   pool,
   loading,
   error,
@@ -90,6 +96,11 @@ export function RunReviewView({
                 <ReviewItem
                   key={item.runId}
                   item={item}
+                  taskHref={testRunHref(
+                    workspaceUrl,
+                    item.taskIdentifier,
+                    item.runId
+                  )}
                   busy={reviewingRunId === item.runId}
                   onReview={onReview}
                 />
@@ -139,12 +150,69 @@ export function RateReadout({ rate }: { rate: FalseReportRate }) {
   )
 }
 
+/** 这条用例在为哪条验收标准作证（三态，别压成两态）。 */
+function CriterionLine({ item }: { item: ReviewPoolItem }) {
+  const intl = useIntl()
+  const c = item.criterion
+  const text =
+    c.kind === 'none'
+      ? intl.formatMessage({ id: 'runReviews.item.criterion.none' })
+      : intl.formatMessage(
+          { id: `runReviews.item.criterion.${c.kind}` },
+          { statement: c.statement }
+        )
+  return <p className='text-sm text-muted-foreground'>{text}</p>
+}
+
+/** 用例剧本：前置、步骤、复验条目。默认收起——预期结果已在卡片上。 */
+function ScriptDetails({ item }: { item: ReviewPoolItem }) {
+  const intl = useIntl()
+  const section = (labelId: string, lines: string[]) =>
+    lines.length === 0 ? null : (
+      <div className='flex flex-col gap-0.5'>
+        <p className='text-muted-foreground'>
+          {intl.formatMessage({ id: labelId })}
+        </p>
+        <ol className='list-decimal pl-5 text-foreground'>
+          {lines.map((l, i) => (
+            <li key={i}>{l}</li>
+          ))}
+        </ol>
+      </div>
+    )
+  return (
+    <details className='text-sm'>
+      <summary className='cursor-pointer text-muted-foreground'>
+        {intl.formatMessage(
+          { id: 'runReviews.item.script' },
+          { steps: item.steps.length, verification: item.verification.length }
+        )}
+      </summary>
+      <div className='flex flex-col gap-2 pt-2'>
+        {item.setup ? (
+          <div className='flex flex-col gap-0.5'>
+            <p className='text-muted-foreground'>
+              {intl.formatMessage({ id: 'runReviews.item.setup' })}
+            </p>
+            <p className='text-foreground'>{item.setup}</p>
+          </div>
+        ) : null}
+        {section('runReviews.item.steps', item.steps)}
+        {section('runReviews.item.verification', item.verification)}
+      </div>
+    </details>
+  )
+}
+
 function ReviewItem({
   item,
+  taskHref,
   busy,
   onReview,
 }: {
   item: ReviewPoolItem
+  /** 深链到该任务 Tests 标签、定位到这条 run（父组件算好，LoD）。 */
+  taskHref: string
   busy: boolean
   onReview: (runId: string, accepted: boolean, note: string | null) => void
 }) {
@@ -172,7 +240,34 @@ function ReviewItem({
         )}
         {item.commitSha &&
           ` · @${item.commitSha.slice(0, 7)}${item.commitDirty ? '+dirty' : ''}`}
+        {item.pr ? (
+          <>
+            {' · '}
+            <a
+              href={item.pr.url}
+              target='_blank'
+              rel='noreferrer'
+              className='underline-offset-2 hover:underline'
+            >
+              {intl.formatMessage(
+                { id: 'runReviews.item.pr' },
+                { number: item.pr.number }
+              )}
+            </a>
+          </>
+        ) : null}
       </p>
+
+      {/* 对照物：预期结果最显眼，其次是它为哪条标准作证。 */}
+      <div className='flex flex-col gap-0.5 rounded-md border border-border px-3 py-2'>
+        <p className='text-sm text-muted-foreground'>
+          {intl.formatMessage({ id: 'runReviews.item.expected' })}
+        </p>
+        <p className='text-body-strong text-foreground'>{item.expected}</p>
+      </div>
+      <CriterionLine item={item} />
+      <ScriptDetails item={item} />
+
       {item.note && <p className='text-sm text-foreground'>“{item.note}”</p>}
 
       {/* 证据在前，按钮在后——先看再裁。 */}
@@ -209,6 +304,12 @@ function ReviewItem({
         >
           {intl.formatMessage({ id: 'runReviews.action.reject' })}
         </Button>
+        <a
+          href={taskHref}
+          className='text-sm text-muted-foreground underline-offset-2 hover:underline'
+        >
+          {intl.formatMessage({ id: 'runReviews.item.openInTask' })}
+        </a>
       </div>
     </li>
   )

@@ -239,6 +239,7 @@ export function WorkspacePageRouter(props: Props) {
     case 'dashboard':
       return (
         <DashboardPage
+          onOpenRunReviews={() => navigateTo('run-reviews')}
           onNavigateToProject={projectId => {
             const project = projects.find(p => p.id === projectId)
             if (project) navigateTo('project-detail', project)
@@ -413,7 +414,7 @@ export function WorkspacePageRouter(props: Props) {
       return <IdeaPoolPage workspaceUrl={workspaceUrl} />
 
     case 'run-reviews':
-      return <RunReviewPage />
+      return <RunReviewPage workspaceUrl={workspaceUrl} />
 
     case 'initiatives':
       return <InitiativesLandingClient />

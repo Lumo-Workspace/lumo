@@ -53,6 +53,8 @@ import {
   type UnconfirmedPr,
 } from '@/lib/security-scan/agent-reminder'
 import { readTestCaseAdvisories } from '@/lib/services/done-verdict.service'
+import { testCaseReviewService } from '@/lib/services/test-case-review.service'
+import { reviewSentBackStatement } from '@/lib/test-cases/review'
 import { readCriterionCoverage } from '@/lib/services/criterion-coverage.service'
 import { deriveCoverageGaps, type LinkedCase } from '@/lib/test-cases/coverage'
 import type {
@@ -914,6 +916,7 @@ export const taskVerificationService = {
       testCaseState,
       testCaseVerdicts,
       coverage,
+      reviewSentBacks,
     ] = await Promise.all([
       taskRepository.findHeaderById(taskId),
       acceptanceCriterionRepository.listByTask(taskId),
@@ -973,6 +976,9 @@ export const taskVerificationService = {
       // LUM-815: 用例覆盖。fail-soft **向沉默的方向**——读不出来时 cases 为
       // null，一条缺口都不报（兜底成空数组会把每条标准都报成未覆盖）。
       readCriterionCoverage(taskId),
+      // LUM-819 返工：最新一次执行被抽查打回的用例。fail-soft，且**只进
+      // advisory**——DONE 闸不读复核数据。
+      testCaseReviewService.sentBackForTask(taskId),
     ])
     if (!header) {
       throw Object.assign(new Error('Task not found'), { status: 404 })
@@ -1450,6 +1456,21 @@ export const taskVerificationService = {
             number: v.number,
             title: v.title,
             ...(v.ceilingReason ? { ceilingReason: v.ceilingReason } : {}),
+            advisory: true,
+          })
+        ),
+        // LUM-819 返工：有人抽查了这条 PASS 的证据并打回。提醒负责人去看，
+        // 不改「能不能 DONE」。
+        //
+        // 刻意复用 `TEST_CASE`（statement + command）而不是新开一个 kind：
+        // ≤1.69.9 的 CLI 把不认识的 kind 归进「未满足的验收标准」桶，一条
+        // 提醒会被读成一条没达标的标准。`TEST_CASE` 在每个版本里都渲染成
+        // advisory。
+        ...reviewSentBacks.map(
+          (r): NextActionTestCase => ({
+            kind: 'TEST_CASE',
+            statement: reviewSentBackStatement(r),
+            command: `lumo task testcase show ${header.team.identifier}-${header.number}/TC${r.number}`,
             advisory: true,
           })
         ),

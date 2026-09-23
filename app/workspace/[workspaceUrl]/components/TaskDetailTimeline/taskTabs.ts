@@ -115,3 +115,21 @@ export function taskBasePath(pathname: string): string {
 export function boundaryCrossingsHref(pathname: string): string {
   return `${taskBasePath(pathname)}/${TAB_SLUGS.dossier}#${BOUNDARY_CROSSINGS_ANCHOR}`
 }
+
+/**
+ * LUM-819: DOM id of one test-case run inside the Tests tab. A spot-check card
+ * links here so the reviewer lands on that exact run with the task's full
+ * context around it; RunHistoryList scrolls the matching run into view.
+ */
+export function runAnchorId(runId: string): string {
+  return `run-${runId}`
+}
+
+/** Deep link into a task's Tests tab, landing on one run. */
+export function testRunHref(
+  workspaceUrl: string,
+  taskIdentifier: string,
+  runId: string
+): string {
+  return `/workspace/${workspaceUrl}/my-tasks/${taskIdentifier}/${TAB_SLUGS.tests}#${runAnchorId(runId)}`
+}

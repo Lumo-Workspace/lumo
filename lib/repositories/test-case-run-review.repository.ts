@@ -21,9 +21,21 @@ const candidateSelect = {
   commitSha: true,
   commitDirty: true,
   createdAt: true,
+  // LUM-819 返工：复核要对照的东西——没有预期结果和标准原文，看证据只能看
+  // 「像不像样」，判断不了「证没证明」。
   testCase: {
-    select: { number: true, title: true, requiredEnvironment: true },
+    select: {
+      number: true,
+      title: true,
+      requiredEnvironment: true,
+      setup: true,
+      steps: true,
+      verification: true,
+      expected: true,
+      criterion: { select: { statement: true, deletedAt: true } },
+    },
   },
+  pullRequest: { select: { number: true, url: true } },
   task: {
     select: {
       number: true,
@@ -67,6 +79,22 @@ export const testCaseRunReviewRepository = {
       data,
       select: {
         id: true,
+        testCaseRunId: true,
+        accepted: true,
+        note: true,
+        reviewedByMemberId: true,
+        createdAt: true,
+      },
+    })
+  },
+
+  /**
+   * 一个任务上的全部复核（回写到任务页与 task status 用）。读端按 run 取最新。
+   */
+  async listForTask(taskId: string) {
+    return prisma.testCaseRunReview.findMany({
+      where: { taskId },
+      select: {
         testCaseRunId: true,
         accepted: true,
         note: true,

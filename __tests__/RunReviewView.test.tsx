@@ -50,11 +50,18 @@ const ITEM = {
     { type: 'link', url: 'https://example.test/log', label: 'ci log' },
   ],
   recordedAt: '2026-09-23T08:00:00.000Z',
+  setup: null,
+  steps: ['open the login page', 'sign in'],
+  verification: ['the dashboard is shown'],
+  expected: 'The user lands on the dashboard.',
+  criterion: { kind: 'active' as const, statement: 'login works' },
+  pr: { number: 42, url: 'https://github.com/x/y/pull/42' },
 }
 
 function renderView(pool: ReviewPoolView, onReview = jest.fn()) {
   render(
     <RunReviewView
+      workspaceUrl='lumo'
       pool={pool}
       loading={false}
       error={null}
@@ -114,5 +121,34 @@ describe('RunReviewView', () => {
         '3 of 20 reviewed passes sent back — 15% false-report rate'
       )
     ).toBeInTheDocument()
+  })
+
+  it('puts the expected result, the vouched criterion and a task link on the card (LUM-819 rework)', () => {
+    renderView({
+      sample: [ITEM],
+      poolSize: 1,
+      rate: { status: 'insufficient', reviewed: 0, rejected: 0, minSample: 10 },
+    })
+    expect(
+      screen.getByText('The user lands on the dashboard.')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Vouches for acceptance criterion: login works')
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open in task' })).toHaveAttribute(
+      'href',
+      '/workspace/lumo/my-tasks/LUM-42/tests#run-run-1'
+    )
+    expect(screen.getByRole('link', { name: 'PR #42' })).toHaveAttribute(
+      'href',
+      'https://github.com/x/y/pull/42'
+    )
+    // the expected result sits before the ruling buttons
+    const expected = screen.getByText('The user lands on the dashboard.')
+    const accept = screen.getByRole('button', { name: 'Evidence holds' })
+    expect(
+      expected.compareDocumentPosition(accept) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
   })
 })

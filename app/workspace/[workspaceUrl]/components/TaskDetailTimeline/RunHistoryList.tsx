@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { TestCaseRun } from '@prisma/client'
 import type { TestCaseRunView } from '@/lib/api-client/test-cases'
@@ -13,6 +14,7 @@ import {
   type CeilingEnvironment,
 } from '@/lib/test-cases/provability'
 import { EvidenceStrip } from './TestCaseEvidence'
+import { runAnchorId } from './taskTabs'
 
 /**
  * LUM-801: 环境徽标。
@@ -178,6 +180,55 @@ function DispositionBadge({ run }: { run: TestCaseRunView }) {
   )
 }
 
+/**
+ * LUM-819 返工：这条 run 被人抽查过的结论。抽查在 workspace 的抽查页做，结果
+ * 回写到这里——任务负责人得知道自己的某个 PASS 被人看过、被认可还是被打回。
+ *
+ * 打回不是失败：它说的是「证据撑不起这个 PASS」，措辞上与 FAIL 分开。
+ */
+function ReviewBadge({ run }: { run: TestCaseRunView }) {
+  const intl = useIntl()
+  if (!run.review) return null
+  const values = {
+    reviewer: run.review.reviewer,
+    date: run.review.reviewedAt.slice(0, 10),
+  }
+  return (
+    <span className='flex basis-full flex-wrap items-baseline gap-1 text-muted-foreground'>
+      <span className='text-foreground'>
+        {intl.formatMessage(
+          {
+            id: run.review.accepted
+              ? 'testCases.review.accepted'
+              : 'testCases.review.rejected',
+          },
+          values
+        )}
+      </span>
+      {run.review.note ? <span>“{run.review.note}”</span> : null}
+    </span>
+  )
+}
+
+/**
+ * LUM-819 返工：从抽查卡片深链进来时（`…/tests#run-<id>`），把那条 run 滚进
+ * 视野并标出来。hash 在挂载后才读得到、且 Tests 标签是异步加载的，所以在
+ * effect 里读，不在 render 里读（render 纯度）。
+ */
+function useLinkedRunId(runs: TestCaseRunView[]): string | null {
+  const [linked, setLinked] = useState<string | null>(null)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hit = runs.find(r => window.location.hash === `#${runAnchorId(r.id)}`)
+    if (!hit) return
+    setLinked(hit.id)
+    document
+      .getElementById(runAnchorId(hit.id))
+      ?.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+  }, [runs])
+  return linked
+}
+
 /** 这条 run 是不是「已证明为坏、还没人裁定」。 */
 function isUndispositionedDefect(run: TestCaseRunView): boolean {
   return (
@@ -256,6 +307,7 @@ export function RunHistoryList({
   onDispose?: (runId: string, ruling: 'KNOWN_DEFECT' | 'NOT_A_DEFECT') => void
 }) {
   const intl = useIntl()
+  const linkedRunId = useLinkedRunId(runs)
   if (runs.length === 0) {
     return (
       <p className='text-[11px] text-muted-foreground'>
@@ -283,7 +335,13 @@ export function RunHistoryList({
         return (
           <li
             key={r.id}
-            className='flex flex-wrap items-center gap-2 text-[11px]'
+            id={runAnchorId(r.id)}
+            className={
+              'flex flex-wrap items-center gap-2 text-[11px]' +
+              (r.id === linkedRunId
+                ? ' rounded-sm outline outline-1 outline-offset-4 outline-border'
+                : '')
+            }
           >
             <VerdictBadge run={r} requiredEnvironment={requiredEnvironment} />
             <EnvironmentBadge environment={r.environment} />
@@ -306,6 +364,7 @@ export function RunHistoryList({
               <span className='text-muted-foreground'>{r.note}</span>
             ) : null}
             <EvidenceStrip evidence={r.evidence} />
+            <ReviewBadge run={r} />
           </li>
         )
       })}
