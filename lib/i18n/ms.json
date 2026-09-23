@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "Menjadi bukti bagi kriteria penerimaan: {statement}",
   "runReviews.item.criterion.changed": "Menjadi bukti bagi kriteria yang tiada lagi dalam kontrak: {statement}",
   "runReviews.item.criterion.none": "Tidak dipautkan kepada kriteria penerimaan",
+  "runReviews.item.contractFallback": "Tidak dipautkan kepada kriteria penerimaan — lihat kontrak tugasan ini ({count} kriteria)",
   "runReviews.item.script": "Skrip — {steps} langkah, {verification} semakan pengesahan",
   "runReviews.item.setup": "Prasyarat",
   "runReviews.item.steps": "Langkah",

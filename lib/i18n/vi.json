@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "Làm bằng chứng cho tiêu chí nghiệm thu: {statement}",
   "runReviews.item.criterion.changed": "Làm bằng chứng cho một tiêu chí không còn trong hợp đồng: {statement}",
   "runReviews.item.criterion.none": "Chưa gắn với tiêu chí nghiệm thu nào",
+  "runReviews.item.contractFallback": "Chưa gắn với tiêu chí nghiệm thu nào — xem hợp đồng của nhiệm vụ này ({count} tiêu chí)",
   "runReviews.item.script": "Kịch bản — {steps} bước, {verification} mục xác minh",
   "runReviews.item.setup": "Điều kiện ban đầu",
   "runReviews.item.steps": "Các bước",

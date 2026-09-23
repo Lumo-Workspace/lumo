@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "为这条验收标准作证：{statement}",
   "runReviews.item.criterion.changed": "作证的这条标准已不在合同里：{statement}",
   "runReviews.item.criterion.none": "没有声明覆盖哪条验收标准",
+  "runReviews.item.contractFallback": "没有声明覆盖哪条验收标准——展开看这个任务的整份合同（{count} 条）",
   "runReviews.item.script": "剧本——{steps} 个步骤，{verification} 条复验",
   "runReviews.item.setup": "前置条件",
   "runReviews.item.steps": "步骤",

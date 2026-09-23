@@ -19,6 +19,7 @@ jest.mock('@/lib/repositories/test-case-run-review.repository', () => ({
     listForTask: jest.fn(),
     listPassCandidates: jest.fn(),
     findCandidate: jest.fn(),
+    contractsForTasks: jest.fn(async () => new Map()),
   },
 }))
 jest.mock('@/lib/repositories/test-case.repository', () => ({
@@ -264,5 +265,32 @@ describe('LUM-819 rework: review in context', () => {
     )
     // the page itself is still routable (the dashboard card links to it)
     expect(src('utils/pathToPage.ts')).toMatch(/'\/run-reviews'/)
+  })
+
+  it('an unlinked case shows its task contract as the fallback', async () => {
+    reviewRepo.listPassCandidates!.mockResolvedValue([
+      candidate({ id: 'run-linked', taskId: 't-linked' }),
+      candidate({
+        id: 'run-unlinked',
+        taskId: 't-unlinked',
+        testCase: { ...candidate().testCase, criterion: null },
+      }),
+    ])
+    reviewRepo.listForWorkspace!.mockResolvedValue([])
+    reviewRepo.contractsForTasks!.mockResolvedValue(
+      new Map([['t-unlinked', ['users can sign in', 'sessions expire']]])
+    )
+    const view = await testCaseReviewService.getPool('w-1')
+    const byId = new Map(view.sample.map(i => [i.runId, i]))
+
+    // only tasks behind unlinked cards are looked up — one query
+    expect(reviewRepo.contractsForTasks).toHaveBeenCalledTimes(1)
+    expect(reviewRepo.contractsForTasks).toHaveBeenCalledWith(['t-unlinked'])
+    expect(byId.get('run-unlinked')!.taskContract).toEqual([
+      'users can sign in',
+      'sessions expire',
+    ])
+    // a linked card's comparison point is its one criterion, not the contract
+    expect(byId.get('run-linked')!.taskContract).toEqual([])
   })
 })

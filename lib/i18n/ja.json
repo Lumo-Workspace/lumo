@@ -2474,6 +2474,7 @@
   "runReviews.item.criterion.active": "この受け入れ基準を裏付けます：{statement}",
   "runReviews.item.criterion.changed": "すでに契約から外れた基準を裏付けています：{statement}",
   "runReviews.item.criterion.none": "受け入れ基準には紐付いていません",
+  "runReviews.item.contractFallback": "受け入れ基準には紐付いていません — このタスクの契約を表示（{count} 件）",
   "runReviews.item.script": "手順 — ステップ {steps} 件、検証 {verification} 件",
   "runReviews.item.setup": "前提条件",
   "runReviews.item.steps": "ステップ",
