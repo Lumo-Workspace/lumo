@@ -58,6 +58,13 @@ describe('buildTextMatchSql', () => {
     expect(FUZZY_STRICT).toBe(0.4)
   })
 
+  it('a fuzzy hit needs a title word at most one char shorter than the term (prod: `probe` matched "V4-Pro")', () => {
+    const q = buildTextMatchSql('ws1', ['probe'], 500)
+    expect(q.text).toContain('regexp_split_to_table(lower(t."title")')
+    expect(q.text).toContain('length(w) >= length($')
+    expect(q.text).toContain('similarity($')
+  })
+
   it('terms under 4 chars stay exact (no trigram branch) — `bug` must not match "Budget"', () => {
     const q = buildTextMatchSql('ws1', ['bug'], 500)
     expect(q.text).not.toContain('<<%')
