@@ -21,7 +21,11 @@ import {
   type RunFreshness,
   type TaskPullRequestSnapshot,
 } from '@/lib/test-cases/freshness'
-import { deriveRunCeiling, type RunCeiling } from '@/lib/test-cases/provability'
+import {
+  countEvidence,
+  deriveRunCeiling,
+  type RunCeiling,
+} from '@/lib/test-cases/provability'
 
 export { deriveRunFreshness, type RunFreshness, type TaskPullRequestSnapshot }
 export { deriveRunCeiling, type RunCeiling }
@@ -491,6 +495,7 @@ export const taskTestCaseService = {
           result: run.result,
           environment: run.environment,
           unprovenVerification,
+          evidenceCount: countEvidence(run.evidence),
         },
         { requiredEnvironment: testCase.requiredEnvironment }
       ),

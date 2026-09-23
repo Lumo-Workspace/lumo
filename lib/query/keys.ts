@@ -91,6 +91,11 @@ export const queryKeys = {
     tree: () => ['documents', 'tree'] as const,
   },
 
+  // LUM-819 (D): workspace 抽查池 + 虚报率。
+  runReviews: {
+    pool: () => ['runReviews', 'pool'] as const,
+  },
+
   ideas: {
     all: () => ['ideas'] as const,
     comments: (ideaId: string) => ['ideas', ideaId, 'comments'] as const,

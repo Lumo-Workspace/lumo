@@ -413,6 +413,8 @@ export interface NextActionTestCaseVerdict {
   /** 用例序号（LUM-42/TC3 里的 3）。 */
   number: number
   title: string
+  /** LUM-819: 仅 `UNPROVEN_PASS` 带——被哪条边界封顶。 */
+  ceilingReason?: 'environment' | 'unobserved' | 'no-evidence'
   advisory: true
 }
 
@@ -589,6 +591,27 @@ async function testCaseDeliveryNudge(
   }
 }
 
+/**
+ * LUM-819 (E): 合同里还有未确认的标准就拒绝开轮（409）。纯函数，导出给测试。
+ *
+ * 看的是**整份合同**（MACHINE 和 HUMAN 都算），不是只看这轮要跑的 MACHINE
+ * 项：人确认的是「什么算做完」这件事整体，缺一条就不是人点过头的那份。
+ */
+export function assertContractConfirmed(
+  criteria: Array<{ confirmedAt: Date | null }>
+): void {
+  const pending = criteria.filter(c => c.confirmedAt === null).length
+  if (pending === 0) return
+  throw Object.assign(
+    new Error(
+      `The acceptance contract has ${pending} unconfirmed criteria — a machine round only opens on a contract a human has confirmed. ` +
+        'Ask the user to confirm it with `lumo task criteria confirm <task>` (relay its confirmation envelope; never add --confirm yourself). ' +
+        'No round was used.'
+    ),
+    { status: 409, code: 'CONTRACT_UNCONFIRMED' }
+  )
+}
+
 export const taskVerificationService = {
   /**
    * Record one machine verification round — the server-side judge of the
@@ -629,6 +652,12 @@ export const taskVerificationService = {
         { status: 400 }
       )
     }
+
+    // LUM-819 (E): 合同确认闸。一份**没被人确认过**的合同不开机器验证轮——
+    // 否则 agent 自己出题、自己答、自己改卷，人唯一的结构性触点在空转。
+    // 在任何写入之前拒绝：不写 VerificationRun、不消耗轮次（同 steward 409）。
+    // 只拦开轮，**不拦 DONE**：`--status done` 的闸门形状不变。
+    assertContractConfirmed(criteria)
 
     const machineById = new Map(machine.map(c => [c.id, c]))
     const seen = new Set<string>()
@@ -1420,6 +1449,7 @@ export const taskVerificationService = {
             signal: v.signal,
             number: v.number,
             title: v.title,
+            ...(v.ceilingReason ? { ceilingReason: v.ceilingReason } : {}),
             advisory: true,
           })
         ),

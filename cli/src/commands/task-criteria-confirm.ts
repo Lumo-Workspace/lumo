@@ -104,7 +104,7 @@ export async function taskCriteriaConfirm(
           c =>
             `  [${c.verifierType}] ${sanitizeField(c.statement)}${c.confirmedAt ? ' (already confirmed)' : ''}`
         ),
-        'Confirming does NOT close the task and never blocks DONE — it records that a human agreed to what "done" means here',
+        'Confirming does NOT close the task and never blocks DONE — it records that a human agreed to what "done" means here, and it is what lets `lumo verify` open a round',
         'To change the contract instead, run `lumo task criteria set <task> --file <criteria.json> --human`',
       ],
     })

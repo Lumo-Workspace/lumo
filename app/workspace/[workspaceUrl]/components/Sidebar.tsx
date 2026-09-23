@@ -12,6 +12,7 @@ import {
   Search,
   CalendarClock,
   Lightbulb,
+  ClipboardCheck,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useClerk } from '@clerk/nextjs'
@@ -346,6 +347,26 @@ export function AppSidebar({
                   >
                     <Lightbulb />
                     <span>{intl.formatMessage({ id: 'sidebar.ideas' })}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={currentPage === 'run-reviews'}
+                  tooltip={intl.formatMessage({ id: 'sidebar.runReviews' })}
+                >
+                  <Link
+                    href={`/workspace/${workspaceUrl}/run-reviews`}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate('run-reviews')
+                    }}
+                  >
+                    <ClipboardCheck />
+                    <span>
+                      {intl.formatMessage({ id: 'sidebar.runReviews' })}
+                    </span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

@@ -121,7 +121,10 @@ export interface TaskStatusResponse {
       title: string
       latestRun: {
         result: 'PASS' | 'FAIL' | 'BLOCKED'
-        ceiling: { effective: 'PASS' | 'FAIL' | 'BLOCKED' | 'UNPROVEN' }
+        ceiling: {
+          effective: 'PASS' | 'FAIL' | 'BLOCKED' | 'UNPROVEN'
+          reason?: string
+        }
         environment: 'LOCAL' | 'PREVIEW' | 'PRODUCTION'
         commitSha: string | null
         commitDirty: boolean | null
@@ -247,6 +250,8 @@ export interface TaskStatusResponse {
         signal: 'PROVEN_DEFECT' | 'UNPROVEN_PASS' | 'CASE_OUTDATED'
         number: number
         title: string
+        /** LUM-819: 仅 UNPROVEN_PASS 带。老服务端不回这个字段。 */
+        ceilingReason?: 'environment' | 'unobserved' | 'no-evidence'
         advisory: true
       }
     | {
@@ -355,7 +360,7 @@ type CriterionAction = Extract<
 >
 type SecurityAction = Extract<NextActionItem, { kind: 'SECURITY_FINDING' }>
 type TestCaseAction = Extract<NextActionItem, { kind: 'TEST_CASE' }>
-type TestCaseVerdictAction = Extract<
+export type TestCaseVerdictAction = Extract<
   NextActionItem,
   { kind: 'TEST_CASE_VERDICT' }
 >
@@ -429,13 +434,16 @@ function pushCoverageGapActions(
   lines.push(`  cover one: ${sanitizeField(actions[0]!.command)}`)
 }
 
-/** 一条挂在标准下的用例 + 最近一次执行,压成一行。 */
-function formatLinkedCase(c: {
+/** 一条挂在标准下的用例 + 最近一次执行,压成一行。导出给测试用。 */
+export function formatLinkedCase(c: {
   number: number
   title: string
   latestRun: {
     result: 'PASS' | 'FAIL' | 'BLOCKED'
-    ceiling: { effective: 'PASS' | 'FAIL' | 'BLOCKED' | 'UNPROVEN' }
+    ceiling: {
+      effective: 'PASS' | 'FAIL' | 'BLOCKED' | 'UNPROVEN'
+      reason?: string
+    }
     environment: 'LOCAL' | 'PREVIEW' | 'PRODUCTION'
     commitSha: string | null
     commitDirty: boolean | null
@@ -451,7 +459,10 @@ function formatLinkedCase(c: {
   const verdict =
     run.ceiling.effective === run.result
       ? run.result
-      : `${run.result}→${run.ceiling.effective}`
+      : `${run.result}→${run.ceiling.effective}${
+          // LUM-819: 零证据封顶要当场说清，否则读起来像「挂了」。
+          run.ceiling.reason === 'no-evidence' ? ' (no evidence)' : ''
+        }`
   const at = run.commitSha
     ? ` @${run.commitSha.slice(0, 7)}${run.commitDirty ? '+dirty' : ''}`
     : ''
@@ -476,15 +487,33 @@ const VERDICT_LABEL: Record<TestCaseVerdictAction['signal'], string> = {
   CASE_OUTDATED: 'the case is out of date, not the code',
 }
 
+/**
+ * LUM-819: UNPROVEN 的原因，括在判决标签后面。措辞同样避开失败词汇——
+ * 「没有证据」说的是「别人没法复看」，不是「它坏了」。
+ */
+const CEILING_REASON_LABEL: Record<
+  NonNullable<TestCaseVerdictAction['ceilingReason']>,
+  string
+> = {
+  environment: 'not run where it can prove anything',
+  unobserved: 'some verification steps went unobserved',
+  'no-evidence': 'no evidence attached',
+}
+
+/** 一条判决层 advisory 渲染成一行。导出给测试用。 */
+export function formatTestCaseVerdictAction(a: TestCaseVerdictAction): string {
+  const why =
+    a.signal === 'UNPROVEN_PASS' && a.ceilingReason
+      ? ` (${CEILING_REASON_LABEL[a.ceilingReason]})`
+      : ''
+  return `  • [TEST CASE] TC${a.number} ${sanitizeField(a.title)} — ${VERDICT_LABEL[a.signal]}${why} (advisory)`
+}
+
 function pushTestCaseVerdictActions(
   lines: string[],
   actions: TestCaseVerdictAction[]
 ): void {
-  for (const a of actions) {
-    lines.push(
-      `  • [TEST CASE] TC${a.number} ${sanitizeField(a.title)} — ${VERDICT_LABEL[a.signal]} (advisory)`
-    )
-  }
+  for (const a of actions) lines.push(formatTestCaseVerdictAction(a))
 }
 
 /** Same line grammar as the session-start / PreToolUse reminders. */

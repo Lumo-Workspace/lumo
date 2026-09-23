@@ -183,4 +183,23 @@ describe('computeNextSteps', () => {
     expect(crowded).toHaveLength(NEXT_STEPS_MAX)
     expect(commands(crowded).some(c => c.includes('testcase add'))).toBe(false)
   })
+
+  it('suggests confirming an unconfirmed contract instead of verifying (LUM-819)', () => {
+    const base = {
+      hasCriteria: true,
+      sessionBound: true,
+      status: 'IN_PROGRESS' as const,
+    }
+    const unconfirmed = commands(
+      computeNextSteps(input({ ...base, contractUnconfirmed: true }))
+    )
+    expect(unconfirmed).toContain('lumo task criteria confirm LUM-686')
+    expect(unconfirmed.some(c => c.startsWith('lumo verify'))).toBe(false)
+
+    const confirmed = commands(
+      computeNextSteps(input({ ...base, contractUnconfirmed: false }))
+    )
+    expect(confirmed).toContain('lumo verify --note "<self-report>"')
+    expect(confirmed.some(c => c.includes('criteria confirm'))).toBe(false)
+  })
 })

@@ -13,6 +13,7 @@ import {
   type CoverageRun,
   type LinkedCase,
 } from '@/lib/test-cases/coverage'
+import { countEvidence } from '@/lib/test-cases/provability'
 
 export interface CriterionCoverageRead {
   /** criterionId → 挂在它下面的用例（按序号）。 */
@@ -54,6 +55,7 @@ export async function readCriterionCoverage(
           unprovenVerification: Array.isArray(r.unprovenVerification)
             ? (r.unprovenVerification as Array<{ index: number; text: string }>)
             : [],
+          evidenceCount: countEvidence(r.evidence),
           commitSha: r.commitSha,
           commitDirty: r.commitDirty,
           createdAt: r.createdAt,

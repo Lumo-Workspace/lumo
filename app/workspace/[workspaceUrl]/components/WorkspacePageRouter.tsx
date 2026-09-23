@@ -23,6 +23,7 @@ import { InboxPage } from './pages/InboxPage'
 import { DocumentsPage } from './pages/DocumentsPage'
 import { DocumentEditorPage } from './pages/DocumentEditorPage'
 import { IdeaPoolPage } from './pages/IdeaPoolPage'
+import { RunReviewPage } from './pages/RunReviewPage'
 import { DraftsPage } from './DraftsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SprintsLandingClient } from '../sprints/components/SprintsLandingClient'
@@ -410,6 +411,9 @@ export function WorkspacePageRouter(props: Props) {
 
     case 'ideas':
       return <IdeaPoolPage workspaceUrl={workspaceUrl} />
+
+    case 'run-reviews':
+      return <RunReviewPage />
 
     case 'initiatives':
       return <InitiativesLandingClient />

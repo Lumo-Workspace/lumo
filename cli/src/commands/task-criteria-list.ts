@@ -19,6 +19,8 @@ export interface CriterionRow {
     | 'AGENT_CONSTRUCTED_STATE'
     | 'PENDING_OUTCOME'
     | null
+  /** LUM-789 确认戳。`undefined` = 老服务端没回这个字段（未知，不是未确认）。 */
+  confirmedAt?: string | null
 }
 
 /**

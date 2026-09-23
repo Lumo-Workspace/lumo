@@ -34,6 +34,12 @@ export interface NextStepsInput {
   taskIdentifier: string
   status: TaskStatusForNextSteps
   hasCriteria: boolean
+  /**
+   * LUM-819: 合同里还有未确认的标准。`lumo verify` 在这种状态下会被 409
+   * 拒绝，所以此时的下一步是请人确认合同，而不是跑 verify。可选：老调用方
+   * 不传时按「已确认」处理，保持原有提示。
+   */
+  contractUnconfirmed?: boolean | undefined
   sessionBound: boolean
   /** Count of OPEN boundary crossings on the task. */
   openCrossings: number
@@ -80,6 +86,7 @@ export function computeNextSteps(input: NextStepsInput): NextStep[] {
     taskIdentifier: id,
     status,
     hasCriteria,
+    contractUnconfirmed,
     sessionBound,
     openCrossings,
     verifyRound,
@@ -139,8 +146,19 @@ export function computeNextSteps(input: NextStepsInput): NextStep[] {
     })
   }
 
-  // With a contract in hand, verification is the way out of IN_PROGRESS.
-  if (hasCriteria && (status === 'TODO' || status === 'IN_PROGRESS')) {
+  // LUM-819: an unconfirmed contract cannot open a verify round — the next
+  // step is the human's confirmation, so it replaces the verify suggestion.
+  if (
+    hasCriteria &&
+    contractUnconfirmed === true &&
+    (status === 'TODO' || status === 'IN_PROGRESS')
+  ) {
+    steps.push({
+      command: `lumo task criteria confirm ${id}`,
+      why: 'Ask the user to confirm the contract — verify only opens a round on a confirmed contract (relay the envelope; never add --confirm yourself)',
+    })
+  } else if (hasCriteria && (status === 'TODO' || status === 'IN_PROGRESS')) {
+    // With a confirmed contract in hand, verification is the way out of IN_PROGRESS.
     steps.push({
       command: 'lumo verify --note "<self-report>"',
       why: 'Run the machine acceptance loop before claiming the task is done',

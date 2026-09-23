@@ -145,12 +145,15 @@ lumo task testcase run LUM-42/TC3 --result fail --env local --pr 123 --failed-st
 `--env` 记的是「在哪跑」，这一层记的是「这次能验什么 / 验不了什么」，然后**按边界
 封顶结论**：自己声明验不了的事，不能报 PASS，最多报 `UNPROVEN`（没能确认）。
 
-两条边界：
+三条边界：
 
 - **用例侧**：`testcase add/update --requires-env <local|preview|production>`。声明一次，
   之后在别处记的 PASS 一律封顶。**精确相等，没有 `production ⊇ preview ⊇ local` 的层级**
   ——一条测本地工具链的用例，在生产跑并不能证明它。`--requires-env none` 清除。
 - **run 侧**：`--unproven <n>`（1-based，可重复）标出这次没能观察到的复验条目。
+- **证据侧（LUM-819）**：一条**零证据**的 PASS 封顶为 `UNPROVEN(no-evidence)`——不看谁跑的，
+  人跑了什么都没留照样证不了。读端推导，所以**历史上的零证据 PASS 也按同一口径显示**
+  （用户裁定，不按时间切线）。优先级：环境 > 未观察 > 无证据。
 
 封顶**只作用于 PASS**。FAIL / BLOCKED 原样保留——「证明了坏」不需要能力上限。
 `UNPROVEN` 只由读端推导，**不落库**：`TestCaseRunResult` 仍然只有
@@ -167,7 +170,14 @@ lumo task testcase run LUM-42/TC3 --result pass --env local
 lumo task testcase run LUM-42/TC3 --result pass --env production
 ```
 
-记完 run 时若一条证据都没有，CLI 会打一行 `No evidence attached — …`（`--result fail` 措辞更重）。提醒而已：不拦、不改结果，带了任意一条证据就不再出现。
+```bash
+lumo task testcase run LUM-42/TC3 --result pass --env production
+# Recorded LUM-42/TC3: PASS on PRODUCTION → UNPROVEN (no evidence attached — nobody else can re-read this PASS)
+```
+
+记完 run 时若一条证据都没有，CLI 还会打一行 `No evidence attached — …` 告诉你怎么附（`--result fail` 措辞更重）。零证据的 PASS 被封顶成 `UNPROVEN`，但仍然**不拦 DONE**——`task status` 的 advisory 行会写明 `(no evidence attached)`。
+
+**抽查复核（LUM-819，web-only）**：封顶后仍成立的 PASS（有证据、环境对、没有未观察项）进入 workspace 的抽查池（`/workspace/<slug>/run-reviews`）。人随机抽看证据 → 认可 / 打回，页面给出虚报率（打回数 / 已复核数，样本不足 10 条时只给计数）。复核**只认浏览器会话**，agent/CLI 的 bearer 身份一律 403；**不拦 DONE**。你能做的只是让自己的 PASS 经得起抽查：跑的当下就附证据。
 
 **commit 坐标只在 `--env local` 时自动探测**（`git rev-parse HEAD` + `git status --porcelain`）。不在 git 仓库里就留 null，不编造。
 

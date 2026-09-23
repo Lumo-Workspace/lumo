@@ -124,6 +124,26 @@ export function runCheckpointer(
 }
 
 /**
+ * LUM-819 (E): a machine round only opens on a contract a human confirmed.
+ * Returns the stop message, or null when the round may proceed. A criterion
+ * with `confirmedAt === undefined` came from an older server that does not
+ * report the stamp — unknown, so it never blocks here (the server decides).
+ */
+export function unconfirmedContractMessage(
+  taskId: string,
+  criteria: Array<{ confirmedAt?: string | null }>
+): string | null {
+  const pending = criteria.filter(c => c.confirmedAt === null).length
+  if (pending === 0) return null
+  return (
+    `${taskId}'s acceptance contract has ${pending} unconfirmed ${pending === 1 ? 'criterion' : 'criteria'} — ` +
+    `a machine round only opens on a contract a human has confirmed. No checkpointer was run and no round was used.\n` +
+    `Ask the user to confirm it: run \`lumo task criteria confirm ${taskId}\` and relay its confirmation envelope. ` +
+    `Never add --confirm yourself.\n`
+  )
+}
+
+/**
  * `lumo verify [task]` — the machine half of the acceptance loop.
  *
  * Runs every MACHINE criterion's checkpointer locally, reports one structured
@@ -237,6 +257,15 @@ export async function verify(
         `no hand-off is required. Move on with \`lumo task update ${taskId} --status in_review\`.\n`
     )
     return
+  }
+
+  // ── Contract-confirmation gate (LUM-819) ─────────────────────────────────
+  // The server refuses the round anyway (409, no round used); stopping here
+  // saves running every checkpointer only to have the result thrown away.
+  const gate = unconfirmedContractMessage(taskId, criteria)
+  if (gate) {
+    process.stdout.write(gate)
+    return 1
   }
 
   // ── Optional self-report (LUM-733) ───────────────────────────────────────

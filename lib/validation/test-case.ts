@@ -151,3 +151,16 @@ export const disposeDefectBodySchema = z
 
 export type DefectReceiptRequest = z.infer<typeof defectReceiptRequestSchema>
 export type DisposeDefectBody = z.infer<typeof disposeDefectBodySchema>
+
+/**
+ * LUM-819 (D): 一次抽查复核。`.strict()`：body 里多一个字段（比如有人想顺手
+ * 塞一个 reviewedBy）直接 400，复核人只从会话身份取。
+ */
+export const runReviewBodySchema = z
+  .object({
+    accepted: z.boolean(),
+    note: z.string().trim().max(4_000).nullish(),
+  })
+  .strict()
+
+export type RunReviewBody = z.infer<typeof runReviewBodySchema>
