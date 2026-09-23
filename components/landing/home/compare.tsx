@@ -324,10 +324,10 @@ export const COMPARE_GROUPS: CompareGroup[] = [
     question: 'It shipped the feature. Did it ship a hole with it?',
     rows: [
       {
-        capability: 'Secrets, code and dependency scan on the PR',
+        capability: 'Catches leaked secrets and vulnerable code in the PR',
         lumo: {
           verdict: 'yes',
-          note: 'Built in, on every PR; each finding carries a severity and a fingerprint.',
+          note: 'Built in, on every PR: leaked keys, vulnerable code and vulnerable dependencies, each with a severity.',
         },
         linear: {
           verdict: 'no',
