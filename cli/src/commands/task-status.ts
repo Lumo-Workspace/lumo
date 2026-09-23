@@ -112,6 +112,22 @@ export interface TaskStatusResponse {
     /** LUM-789: when a human confirmed this contract item (ISO), null =
      *  unconfirmed. Never blocks DONE — only feeds the `task status` nudge. */
     confirmedAt: string | null
+    /** LUM-815: 声明覆盖本标准的用例,各带最近一次执行。空数组 = 没有任何
+     *  用例覆盖它。Optional —— 旧服务端不发这个字段。
+     *
+     *  纯渲染：用例的结果**不**参与这条标准的裁定,也不进 unmet 计数。 */
+    linkedCases?: Array<{
+      number: number
+      title: string
+      latestRun: {
+        result: 'PASS' | 'FAIL' | 'BLOCKED'
+        ceiling: { effective: 'PASS' | 'FAIL' | 'BLOCKED' | 'UNPROVEN' }
+        environment: 'LOCAL' | 'PREVIEW' | 'PRODUCTION'
+        commitSha: string | null
+        commitDirty: boolean | null
+        recordedAt: string
+      } | null
+    }>
   }>
   /** Honest machine-verification rollup over the active MACHINE criteria
    *  (LUM-456): genuine checkpointer passes vs human overrides. Mirrored from
@@ -254,6 +270,14 @@ export interface TaskStatusResponse {
         command: string
         advisory: true
       }
+    /** LUM-815: 一条没有任何用例覆盖的标准。同样 advisory-only。 */
+    | {
+        kind: 'COVERAGE_GAP'
+        criterionId: string
+        statement: string
+        command: string
+        advisory: true
+      }
   >
   /** LUM-737: security-scan read-out. `null` = the read failed (could NOT
    *  confirm); optional so a new CLI tolerates an older server. */
@@ -316,14 +340,26 @@ function tail(s: string, max: number): string {
   return s.length > max ? `…${s.slice(-max)}` : s
 }
 
+/** LUM-815: 掐头的反面 —— 保留开头。用例标题/标准原文靠前面认人。 */
+function clip(s: string, max: number): string {
+  return s.length > max ? `${s.slice(0, max)}…` : s
+}
+
 type NextActionItem = TaskStatusResponse['nextActions'][number]
-type CriterionAction = Extract<NextActionItem, { criterionId: string }>
+/** LUM-815: 判据从 `{ criterionId }` 收紧到带 verifierType 的那一支 ——
+ *  COVERAGE_GAP 也带 criterionId,只按它 Extract 会把 advisory 悄悄并进
+ *  criteria 桶(tsc 抓到了,但这条注释是给下一个加 action kind 的人看的)。 */
+type CriterionAction = Extract<
+  NextActionItem,
+  { criterionId: string; verifierType: 'MACHINE' | 'HUMAN' }
+>
 type SecurityAction = Extract<NextActionItem, { kind: 'SECURITY_FINDING' }>
 type TestCaseAction = Extract<NextActionItem, { kind: 'TEST_CASE' }>
 type TestCaseVerdictAction = Extract<
   NextActionItem,
   { kind: 'TEST_CASE_VERDICT' }
 >
+type CoverageGapAction = Extract<NextActionItem, { kind: 'COVERAGE_GAP' }>
 
 /** A missing `kind` is an older server's criterion entry (LUM-737 additive rule). */
 function isSecurityAction(a: NextActionItem): a is SecurityAction {
@@ -342,23 +378,84 @@ function isTestCaseVerdictAction(
 ): a is TestCaseVerdictAction {
   return a.kind === 'TEST_CASE_VERDICT'
 }
+/** LUM-815. Same reason again: a coverage gap is a fact about evidence, not a
+ *  criterion the task has to satisfy — it must never land in the criteria
+ *  bucket that feeds the `unmet` arithmetic. */
+function isCoverageGapAction(a: NextActionItem): a is CoverageGapAction {
+  return a.kind === 'COVERAGE_GAP'
+}
 function splitNextActions(actions: NextActionItem[]): {
   criteria: CriterionAction[]
   security: SecurityAction[]
   testCase: TestCaseAction[]
   testCaseVerdict: TestCaseVerdictAction[]
+  coverageGap: CoverageGapAction[]
 } {
   const criteria: CriterionAction[] = []
   const security: SecurityAction[] = []
   const testCase: TestCaseAction[] = []
   const testCaseVerdict: TestCaseVerdictAction[] = []
+  const coverageGap: CoverageGapAction[] = []
   for (const a of actions) {
     if (isSecurityAction(a)) security.push(a)
     else if (isTestCaseAction(a)) testCase.push(a)
     else if (isTestCaseVerdictAction(a)) testCaseVerdict.push(a)
+    else if (isCoverageGapAction(a)) coverageGap.push(a)
     else criteria.push(a)
   }
-  return { criteria, security, testCase, testCaseVerdict }
+  return { criteria, security, testCase, testCaseVerdict, coverageGap }
+}
+
+/**
+ * LUM-815: 覆盖缺口。
+ *
+ * **措辞红线（这条是本单唯一的人工验收项）**：这几行说的是「这条标准还没人
+ * 验过」，不是「这条标准挂了」。所以——自成一段、不进 Next actions 的未满足
+ * 清单、不用 ✗ / fail / unmet 任何一个失败词、动词是「还没有」而不是「缺少」。
+ * 一个没有上下文的人扫过来不该以为任务出了问题。
+ */
+function pushCoverageGapActions(
+  lines: string[],
+  actions: CoverageGapAction[]
+): void {
+  if (actions.length === 0) return
+  lines.push('')
+  lines.push(
+    `Not yet covered by a test case (${actions.length} of the contract) — advisory, never blocks DONE:`
+  )
+  for (const a of actions) {
+    lines.push(`  ${a.criterionId}  ${sanitizeField(clip(a.statement, 90))}`)
+  }
+  lines.push(`  cover one: ${sanitizeField(actions[0]!.command)}`)
+}
+
+/** 一条挂在标准下的用例 + 最近一次执行,压成一行。 */
+function formatLinkedCase(c: {
+  number: number
+  title: string
+  latestRun: {
+    result: 'PASS' | 'FAIL' | 'BLOCKED'
+    ceiling: { effective: 'PASS' | 'FAIL' | 'BLOCKED' | 'UNPROVEN' }
+    environment: 'LOCAL' | 'PREVIEW' | 'PRODUCTION'
+    commitSha: string | null
+    commitDirty: boolean | null
+    recordedAt: string
+  } | null
+}): string {
+  const head = `TC${c.number} ${sanitizeField(clip(c.title, 50))}`
+  const run = c.latestRun
+  // 从没跑过 ≠ 失败。措辞同上：陈述事实,不报警。
+  if (!run) return `${head} — not run yet`
+  // 上报值与封顶后的结论不同时两个都打印：只打印封顶结果会藏掉「它报的是
+  // PASS」,只打印上报值则是在替它宣传一个证不了的绿。
+  const verdict =
+    run.ceiling.effective === run.result
+      ? run.result
+      : `${run.result}→${run.ceiling.effective}`
+  const at = run.commitSha
+    ? ` @${run.commitSha.slice(0, 7)}${run.commitDirty ? '+dirty' : ''}`
+    : ''
+  return `${head} — ${verdict} in ${run.environment}${at}`
 }
 
 /** One advisory line + the command that clears it (LUM-807). */
@@ -544,6 +641,7 @@ export function formatTaskStatus(
     security: securityActions,
     testCase: testCaseActions,
     testCaseVerdict: testCaseVerdictActions,
+    coverageGap: coverageGapActions,
   } = splitNextActions(data.nextActions)
 
   if (data.criteria.length === 0) {
@@ -567,6 +665,7 @@ export function formatTaskStatus(
       lines.push('')
       pushTestCaseVerdictActions(lines, testCaseVerdictActions)
     }
+    pushCoverageGapActions(lines, coverageGapActions)
     pushSecurityCoverage(lines, data)
     pushOpenCrossings(lines, extras)
     return lines.join('\n') + '\n'
@@ -664,6 +763,13 @@ export function formatTaskStatus(
     } else if (c.evidenceRequired) {
       lines.push('        ↳ evidence: pending — no reference recorded yet')
     }
+    // LUM-815: 挂在这条标准下的用例 + 各自最近一次执行。排在裁定之后,因为
+    // 它回答的是另一个问题 —— 裁定说「这条算不算满足」,这几行说「有没有
+    // 可复跑的证据撑着」。两者永远分开渲染,也永远不互相推导。
+    for (const lc of c.linkedCases ?? []) {
+      lines.push(`      ↳ case ${sanitizeField(formatLinkedCase(lc))}`)
+    }
+
     // LUM-511 Phase 5: send-back lifecycle (was this criterion's send-back
     // resolved, and by which PR).
     const sb = c.sendBackResolution
@@ -757,6 +863,9 @@ export function formatTaskStatus(
   // LUM-808: 判决层 advisory 在两条分支之外统一渲染 —— 它和「有没有未满足的
   // 验收项」无关，读的是用例最新一次跑出来的结论。
   pushTestCaseVerdictActions(lines, testCaseVerdictActions)
+  // LUM-815: 覆盖缺口同理,而且**刻意排在未满足清单之外、自成一段** ——
+  // 「还没人验过」与「这条挂了」必须一眼分得开。
+  pushCoverageGapActions(lines, coverageGapActions)
   pushSecurityCoverage(lines, data)
 
   pushOpenCrossings(lines, extras)

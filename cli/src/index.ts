@@ -1216,6 +1216,10 @@ taskTestCase
     '--requires-env <environment>',
     'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
   )
+  .option(
+    '--criterion <selector>',
+    'Which acceptance criterion this case covers: an id or a >=6-char id prefix from `lumo task criteria list`. Optional - an unlinked case is perfectly legal. A covered criterion stops showing up as a coverage gap; the case NEVER adjudicates it'
+  )
   .action(
     wrap((taskId: unknown, options: unknown) =>
       taskTestCaseAdd(taskId as string, options as Record<string, never>)
@@ -1259,6 +1263,10 @@ taskTestCase
   .option(
     '--requires-env <environment>',
     'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
+  )
+  .option(
+    '--criterion <selector>',
+    'Which acceptance criterion this case covers: an id or a >=6-char id prefix from `lumo task criteria list`. Pass "" to unlink (the case itself is untouched). Omit to leave the link as it is'
   )
   .action(
     wrap((handle: unknown, options: unknown) =>

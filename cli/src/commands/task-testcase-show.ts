@@ -33,6 +33,9 @@ interface ShowResponse {
     steps: string[]
     verification: string[]
     expected: string
+    /** LUM-815: 这条用例声明覆盖哪条验收标准。null = 未声明(合法常态)。
+     *  Optional —— 旧服务端不发这个字段。 */
+    criterionId?: string | null
   }
   runs: RunRow[]
   pullRequests: PrRow[]
@@ -92,6 +95,10 @@ export async function taskTestCaseShow(
 
   const { testCase: c, runs, pullRequests } = r.data
   console.log(`${split.task}/TC${c.number}  ${c.title}`)
+  // LUM-815: 反向可读 —— 从用例这头也能看出它是来验哪条标准的。
+  if (c.criterionId) {
+    console.log(`  covers criterion ${c.criterionId}`)
+  }
   if (c.setup) {
     console.log('\nSetup:')
     console.log(`  ${c.setup}`)

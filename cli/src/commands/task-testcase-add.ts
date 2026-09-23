@@ -1,5 +1,6 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { resolveRequiredEnvironment } from '../lib/test-case-verdict'
+import { resolveTaskCriterion } from '../lib/task-criterion-ref'
 
 export interface TestCaseAddOptions {
   title?: string
@@ -8,6 +9,8 @@ export interface TestCaseAddOptions {
   verify?: string[]
   expected?: string
   requiresEnv?: string
+  /** LUM-815: 覆盖哪条验收标准（id 或 >=6 字符前缀）。省略 = 不声明。 */
+  criterion?: string
 }
 
 interface AddResponse {
@@ -51,6 +54,15 @@ export async function taskTestCaseAdd(
   const ctx = apiContext()
   if (!ctx) return 1
 
+  // LUM-815: 覆盖声明是**可选**的 —— 没给就不去查合同,也不写这个字段。
+  let criterionId: string | null = null
+  const selector = options.criterion?.trim()
+  if (selector) {
+    const resolved = await resolveTaskCriterion(ctx, identifier, selector)
+    if (!resolved.ok) return 1
+    criterionId = resolved.id
+  }
+
   const r = await apiCall<AddResponse>(
     ctx,
     `/api/tasks/${encodeURIComponent(identifier)}/test-cases`,
@@ -63,6 +75,7 @@ export async function taskTestCaseAdd(
         verification,
         expected,
         requiredEnvironment: requiredEnvironment.value ?? null,
+        criterionId,
       },
     },
     'test case create'
@@ -73,4 +86,7 @@ export async function taskTestCaseAdd(
     `Created ${identifier}/TC${r.data.testCase.number} "${r.data.testCase.title}"  ` +
       `(${steps.length} steps, ${verification.length} verification)`
   )
+  if (criterionId) {
+    console.log(`  covers criterion ${criterionId}`)
+  }
 }

@@ -6,6 +6,10 @@ import {
   formatExitCriteriaRows,
   type ExitCriterionRow,
 } from './milestone-criteria-list'
+import {
+  resolveCriterionRef,
+  type CriterionSelectorResult,
+} from '../lib/criterion-selector'
 
 export interface MilestoneCriteriaVerdictOptions {
   project?: string
@@ -16,37 +20,20 @@ export interface MilestoneCriteriaVerdictOptions {
 }
 
 /**
- * Resolve a criterion selector (full id or a ≥6-char unique id prefix)
+ * Resolve a criterion selector (full id or a >=6-char unique id prefix)
  * against the milestone's active contract. Ambiguous / unknown selectors
  * list candidates and fail — mirrors `task deps` edge selection.
+ *
+ * LUM-815: the matching rules now live in `../lib/criterion-selector` (the
+ * task-side `testcase --criterion` resolver needs exactly the same ones).
+ * This wrapper keeps the milestone-flavoured error hint and the two-argument
+ * signature its callers and tests already use.
  */
 export function resolveCriterionSelector(
   selector: string,
   criteria: Array<{ id: string; statement: string }>
-): { ok: true; id: string } | { ok: false; error: string } {
-  const exact = criteria.find(c => c.id === selector)
-  if (exact) return { ok: true, id: exact.id }
-  if (selector.length < 6) {
-    return {
-      ok: false,
-      error: `criterion selector "${selector}" is too short — pass the id (or a prefix of at least 6 chars) from \`lumo milestone criteria list\``,
-    }
-  }
-  const hits = criteria.filter(c => c.id.startsWith(selector))
-  if (hits.length === 1) return { ok: true, id: hits[0]!.id }
-  if (hits.length === 0) {
-    return {
-      ok: false,
-      error: `no exit criterion matches "${selector}" — see \`lumo milestone criteria list\``,
-    }
-  }
-  const candidates = hits
-    .map(h => `  ${h.id}  ${h.statement.slice(0, 60)}`)
-    .join('\n')
-  return {
-    ok: false,
-    error: `ambiguous selector "${selector}" matches ${hits.length} criteria:\n${candidates}`,
-  }
+): CriterionSelectorResult {
+  return resolveCriterionRef(selector, criteria, 'lumo milestone criteria list')
 }
 
 /**

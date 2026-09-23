@@ -3545,6 +3545,9 @@ model AcceptanceCriterion {
 
   task             Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
   verificationRuns VerificationRun[]
+  /// LUM-815: 声明覆盖本标准的用例。**只让证据可见,不参与裁定** —— 用例跑绿
+  /// 从不写 VerificationRun、从不改本标准的 latestVerdict。
+  testCases        TestCase[]
 
   @@index([taskId])
   @@index([taskId, deletedAt])
@@ -3759,17 +3762,24 @@ model TestCase {
   /// **精确相等，没有 PRODUCTION ⊇ PREVIEW ⊇ LOCAL 的层级** —— 一条测本地
   /// 工具链的用例，在生产跑并不能证明它。
   requiredEnvironment TestEnvironment?
+  /// LUM-815: 这条用例意在覆盖哪条验收标准。**可空是设计**——探索性用例、
+  /// 跨多条标准的用例都合法,强制填只会逼人乱填。标准被**软删**(有 run 的
+  /// criterion)时引用保留、指向 tombstone,读端渲染为「该标准已变更」;标准被
+  /// **硬删**(run-free)时由 onDelete: SetNull 置空。两种情况用例本身都不删。
+  criterionId         String?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   /// 软删除墓碑：run→case 的审计链必须活着（同 AcceptanceCriterion.deletedAt）。
   /// 即使还没有 run 也软删,避免两条删除语义。
   deletedAt           DateTime?
 
-  task Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  runs TestCaseRun[]
+  task      Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  criterion AcceptanceCriterion? @relation(fields: [criterionId], references: [id], onDelete: SetNull)
+  runs      TestCaseRun[]
 
   @@unique([taskId, number])
   @@index([taskId, deletedAt])
+  @@index([criterionId])
   @@map("test_cases")
 }
 

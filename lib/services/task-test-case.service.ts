@@ -6,6 +6,7 @@ import {
   type TestCaseRunRow,
 } from '@/lib/repositories/test-case.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
+import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import type {
   CreateTestCaseBody,
@@ -177,6 +178,31 @@ async function resolveActorId(memberId: string): Promise<string | null> {
 }
 
 /**
+ * LUM-815: 覆盖声明必须指向**同一个任务**合同里的一条 active 标准。
+ *
+ * 未声明（null / 省略）直接放行——那是合法的常态，不是需要解释的例外。
+ * 跨任务引用则一律 422：它不只是「少见」，而是会让覆盖缺口算到别的任务头上，
+ * 把这个功能唯一的产出（哪条标准没人验过）直接变成噪音。
+ *
+ * 指向**已软删**的标准同样拒绝：listByTask 只返回 active 行。已经绑好的用例
+ * 在标准事后被软删时照常保留引用（那是历史，读端渲染成「该标准已变更」），
+ * 但**新**建立一条指向墓碑的引用没有任何意义。
+ */
+async function assertCriterionOnTask(
+  taskId: string,
+  criterionId: string | null | undefined
+): Promise<void> {
+  if (criterionId === null || criterionId === undefined) return
+  const criteria = await acceptanceCriterionRepository.listByTask(taskId)
+  if (!criteria.some(c => c.id === criterionId)) {
+    fail(
+      `Criterion ${criterionId} is not in this task's acceptance contract`,
+      422
+    )
+  }
+}
+
+/**
  * LUM-801: 任务级 test case 的业务规则层。
  *
  * 注意这里**没有** updateRun / deleteRun —— run 是 append-only 事件日志，
@@ -218,6 +244,7 @@ export const taskTestCaseService = {
     body: CreateTestCaseBody,
     attribution: TestCaseAttribution
   ): Promise<{ testCase: TestCaseRow }> {
+    await assertCriterionOnTask(taskId, body.criterionId)
     const actorId = await resolveActorId(attribution.actorMemberId)
     const testCase = await runInTransaction(async tx => {
       const created = await testCaseRepository.createWithNumber(
@@ -229,6 +256,7 @@ export const taskTestCaseService = {
           verification: body.verification,
           expected: body.expected,
           requiredEnvironment: body.requiredEnvironment ?? null,
+          criterionId: body.criterionId ?? null,
         },
         tx
       )
@@ -257,6 +285,7 @@ export const taskTestCaseService = {
   ): Promise<{ testCase: TestCaseRow }> {
     const existing = await testCaseRepository.findById(testCaseId)
     if (!existing) fail('Test case not found', 404)
+    await assertCriterionOnTask(existing.taskId, body.criterionId)
     const actorId = await resolveActorId(attribution.actorMemberId)
 
     const testCase = await runInTransaction(async tx => {
@@ -272,6 +301,11 @@ export const taskTestCaseService = {
           ...(body.expected !== undefined ? { expected: body.expected } : {}),
           ...(body.requiredEnvironment !== undefined
             ? { requiredEnvironment: body.requiredEnvironment ?? null }
+            : {}),
+          // LUM-815: null = 解绑，字符串 = 改绑，省略 = 不动。三态都要留住,
+          // 所以这里判的是 `!== undefined` 而不是真值。
+          ...(body.criterionId !== undefined
+            ? { criterionId: body.criterionId ?? null }
             : {}),
         },
         tx

@@ -55,6 +55,8 @@ const testCase = {
   verification: ['refresh: the page'],
   expected: 'The disclosure is visible.',
   requiredEnvironment: null,
+  // LUM-815: 读模型新增的连线列。null = 没声明覆盖哪条标准（合法常态）。
+  criterionId: null,
   createdAt: new Date('2026-01-01'),
   updatedAt: new Date('2026-01-01'),
   deletedAt: null,
