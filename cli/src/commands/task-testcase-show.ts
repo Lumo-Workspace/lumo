@@ -1,6 +1,7 @@
 import { apiContext, apiCall, printNumbered } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { formatEvidenceLines } from '../lib/test-case-evidence'
+import { sanitizeField } from '../lib/sanitize'
 
 interface RunRow {
   id: string
@@ -25,6 +26,11 @@ interface PrRow {
   mergeCommitSha: string | null
 }
 
+/** 保留开头的截断（同 task-status 的 clip）。 */
+function clip(s: string, max: number): string {
+  return s.length > max ? `${s.slice(0, max)}…` : s
+}
+
 interface ShowResponse {
   testCase: {
     number: number
@@ -37,6 +43,13 @@ interface ShowResponse {
      *  Optional —— 旧服务端不发这个字段。 */
     criterionId?: string | null
   }
+  /** LUM-815 follow-up: 那条标准的原文 + 它还在不在当前合同里。
+   *  Optional —— 旧服务端只发 criterionId。 */
+  criterion?: {
+    id: string
+    statement: string
+    removed: boolean
+  } | null
   runs: RunRow[]
   pullRequests: PrRow[]
 }
@@ -96,8 +109,18 @@ export async function taskTestCaseShow(
   const { testCase: c, runs, pullRequests } = r.data
   console.log(`${split.task}/TC${c.number}  ${c.title}`)
   // LUM-815: 反向可读 —— 从用例这头也能看出它是来验哪条标准的。
+  const linked = r.data.criterion
   if (c.criterionId) {
-    console.log(`  covers criterion ${c.criterionId}`)
+    const gist = linked ? `  ${sanitizeField(clip(linked.statement, 70))}` : ''
+    console.log(`  covers criterion ${c.criterionId}${gist}`)
+    // 标准被移出合同后是**软删**,引用照旧指向墓碑。只打一个裸 id 的话,读的人
+    // 会拿它去 `criteria list` 里找、然后找不到 —— 所以这里把「它已经不在合同
+    // 里」说出来,并讲清这条引用是被**有意**留着的历史,不是脏数据。
+    if (linked?.removed) {
+      console.log(
+        '    ⚠ that criterion is no longer in the active contract — it was changed or removed; the link is kept as history'
+      )
+    }
   }
   if (c.setup) {
     console.log('\nSetup:')

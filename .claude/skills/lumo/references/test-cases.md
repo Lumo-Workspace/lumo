@@ -60,7 +60,7 @@ TC1	Dashboard 页脚 FDIC 披露	3 steps / 2 verify	FAIL on LOCAL @a1b2c3d (2026
 
 ## `lumo task testcase show <task/case>` — 详情 + 执行历史
 
-四段分节打印（步骤带 **1-based** 编号），随后是 run 历史。声明了覆盖标准的用例在标题下多打一行 `covers criterion <id>`。FAIL 的行显示挂在第几步及**当时的原文快照**，并带上 PR / commit 与陈旧性提示。
+四段分节打印（步骤带 **1-based** 编号），随后是 run 历史。声明了覆盖标准的用例在标题下多打一行 `covers criterion <id>  <标准原文>`；若那条标准**已被移出合同**（有 run 的 criterion 走软删，墓碑留着，引用照旧指向它），再多打一行 `⚠ that criterion is no longer in the active contract`——否则读的人只会拿到一个在 `criteria list` 里查无此条的裸 id。硬删（run-free 的 criterion）由 DB 的 `ON DELETE SET NULL` 把引用置空，读出面与「从未声明」同形，因为库里本来就分不出来了。FAIL 的行显示挂在第几步及**当时的原文快照**，并带上 PR / commit 与陈旧性提示。
 
 ```bash
 lumo task testcase show LUM-42/TC3
