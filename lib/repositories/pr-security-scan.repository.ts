@@ -81,6 +81,13 @@ export interface PersistHuntResultInput {
   huntAudit: Record<string, unknown>
   tokenSpent: number | null
   partial: boolean
+  /**
+   * LUM-822 — which hunt attempt is writing (absent = the first, the one
+   * stage A started). A write from an attempt older than the row's
+   * `huntAttempts` is dropped: the stale-hunt sweep has already started a
+   * newer run, and only that run's result may land.
+   */
+  attempt?: number
 }
 
 export interface FinalizeScanInput {
@@ -108,6 +115,17 @@ export interface SupersedableScan {
   headSha: string
   managedRunId: string
   stages: ScanStages | null
+}
+
+/** LUM-822 — a scan whose hunt layer has sat PENDING past the dead window. */
+export interface StalePendingHunt {
+  id: string
+  pullRequestId: string
+  startedAt: Date
+  /** The HuntJob stage A started with; null on rows from before LUM-822. */
+  huntJob: unknown
+  huntRunId: string | null
+  huntAttempts: number
 }
 
 /** LUM-745 — a scan whose external layer has sat PENDING past the dead window. */
@@ -755,12 +773,14 @@ export const prSecurityScanRepository = {
     scanId: string,
     findings: NewFindingInput[],
     final: PersistHuntResultInput
-  ): Promise<void> {
-    await withSerializableRetry(async tx => {
+  ): Promise<boolean> {
+    return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: { stages: true, partial: true },
+        select: { stages: true, partial: true, huntAttempts: true },
       })
+      // LUM-822: a superseded attempt's late write changes nothing.
+      if ((current?.huntAttempts ?? 0) > (final.attempt ?? 1)) return false
       const stages: ScanStages = {
         ...((current?.stages as ScanStages | null) ?? {}),
         hunt: final.hunt,
@@ -777,6 +797,125 @@ export const prSecurityScanRepository = {
       })
       if (findings.length > 0)
         await tx.prSecurityFinding.createMany({ data: findings })
+      return true
+    })
+  },
+
+  /**
+   * LUM-822 — the hunt stage A just started: keep its job (the retry input),
+   * its run id and the start time the stale-hunt sweep measures from.
+   */
+  async recordHuntStart(
+    scanId: string,
+    input: { job: Record<string, unknown>; runId: string; attempt: number }
+  ): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: {
+        huntJob: input.job as Prisma.InputJsonValue,
+        huntRunId: input.runId,
+        huntAttempts: input.attempt,
+        huntStartedAt: new Date(),
+      },
+    })
+  },
+
+  /**
+   * LUM-822 — hunts still PENDING whose latest attempt began before `before`
+   * (rows without `huntStartedAt` — from before LUM-822 — fall back to the
+   * scan's own start), oldest first.
+   */
+  async findStalePendingHunts(
+    before: Date,
+    limit: number
+  ): Promise<StalePendingHunt[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: {
+        stages: { path: ['hunt'], equals: 'PENDING' },
+        OR: [
+          { huntStartedAt: { lt: before } },
+          { huntStartedAt: null, startedAt: { lt: before } },
+        ],
+      },
+      orderBy: { startedAt: 'asc' },
+      take: limit,
+      select: {
+        id: true,
+        pullRequestId: true,
+        startedAt: true,
+        huntJob: true,
+        huntRunId: true,
+        huntAttempts: true,
+      },
+    })
+    return rows as StalePendingHunt[]
+  },
+
+  /** LUM-822 — has the PR been scanned at a newer head since this row? */
+  async hasNewerScan(pullRequestId: string, startedAt: Date): Promise<boolean> {
+    const newer = await prisma.prSecurityScan.count({
+      where: { pullRequestId, startedAt: { gt: startedAt } },
+    })
+    return newer > 0
+  },
+
+  /**
+   * LUM-822 — claim the one retry: bump `huntAttempts` from `fromAttempt`,
+   * but only while the hunt is still PENDING at that attempt. A compare-and-
+   * set, so two overlapping sweep ticks cannot both start a run, and a hunt
+   * that landed after the stale read is left alone. From this write on, the
+   * older attempt's late result is dropped by `persistHuntResult`.
+   */
+  async claimHuntRetry(scanId: string, fromAttempt: number): Promise<boolean> {
+    const { count } = await prisma.prSecurityScan.updateMany({
+      where: {
+        id: scanId,
+        huntAttempts: fromAttempt,
+        stages: { path: ['hunt'], equals: 'PENDING' },
+      },
+      data: {
+        huntAttempts: fromAttempt + 1,
+        huntStartedAt: new Date(),
+        huntRunId: null,
+      },
+    })
+    return count === 1
+  },
+
+  async setHuntRunId(scanId: string, runId: string): Promise<void> {
+    await prisma.prSecurityScan.update({
+      where: { id: scanId },
+      data: { huntRunId: runId },
+    })
+  },
+
+  /**
+   * LUM-822 — stamp a stale hunt FAILED, only if it is still PENDING at the
+   * attempt the sweep read (a result that landed in between wins). The reason
+   * goes in `huntAudit`, like every hunt failure; `tokenSpent` is left alone
+   * (null ≠ 0 — the dead run's spend is simply unknown).
+   */
+  async failStaleHunt(
+    scanId: string,
+    atAttempt: number,
+    reason: string
+  ): Promise<boolean> {
+    return withSerializableRetry(async tx => {
+      const current = await tx.prSecurityScan.findUnique({
+        where: { id: scanId },
+        select: { stages: true, huntAttempts: true },
+      })
+      const stages = (current?.stages as ScanStages | null) ?? {}
+      if (stages.hunt !== 'PENDING' || current?.huntAttempts !== atAttempt)
+        return false
+      await tx.prSecurityScan.update({
+        where: { id: scanId },
+        data: {
+          stages: { ...stages, hunt: 'FAILED' },
+          huntAudit: { error: reason.slice(0, 500) },
+        },
+      })
+      return true
     })
   },
 

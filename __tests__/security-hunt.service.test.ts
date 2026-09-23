@@ -184,7 +184,7 @@ beforeEach(() => {
   readHuntFileMock.mockResolvedValue(null)
   stopMock.mockResolvedValue(undefined)
   repo.findDispositionedByPullRequest.mockResolvedValue([])
-  repo.persistHuntResult.mockResolvedValue(undefined)
+  repo.persistHuntResult.mockResolvedValue(true)
   repo.findFindingSummaryByScan.mockResolvedValue([])
 })
 
@@ -1437,6 +1437,39 @@ describe('LUM-739 hunt service', () => {
       tokenSpent: 12,
       partial: false,
     })
+  })
+
+  it('LUM-822: a retry run carries its attempt into both of its writes', async () => {
+    await securityHuntService.markFailed('s1', 'boom', 3, 2)
+    expect(repo.persistHuntResult.mock.calls[0]![2]).toMatchObject({
+      hunt: 'FAILED',
+      attempt: 2,
+    })
+    repo.findDispositionedByPullRequest.mockResolvedValue([])
+    await securityHuntService.persist({
+      job: { ...JOB, attempt: 2 },
+      findings: [],
+      audit: {
+        candidates: 0,
+        rejected: [],
+        falsifierRejects: 0,
+        falsifierRejected: [],
+        tasks: [],
+        subgraph: { files: 0, symbols: 0, edges: 0, partial: false },
+      },
+      tokenSpent: 0,
+      partial: false,
+      stage: 'SKIPPED',
+    })
+    expect(repo.persistHuntResult.mock.calls[1]![2]).toMatchObject({
+      hunt: 'SKIPPED',
+      attempt: 2,
+    })
+    // Stage A's run writes no attempt at all (read as 1).
+    await securityHuntService.markFailed('s1', 'boom', 3)
+    expect(repo.persistHuntResult.mock.calls[2]![2]).not.toHaveProperty(
+      'attempt'
+    )
   })
 
   /**

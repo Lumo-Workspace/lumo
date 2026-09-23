@@ -72,8 +72,9 @@ export async function persistHuntFindingsStep(
 export async function markHuntFailedStep(
   scanId: string,
   reason: string,
-  tokenSpent: number
+  tokenSpent: number,
+  attempt?: number
 ): Promise<void> {
   'use step'
-  return securityHuntService.markFailed(scanId, reason, tokenSpent)
+  return securityHuntService.markFailed(scanId, reason, tokenSpent, attempt)
 }

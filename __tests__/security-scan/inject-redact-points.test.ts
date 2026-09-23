@@ -129,6 +129,7 @@ jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
 }))
 jest.mock('@/lib/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
+  recordHuntStartBestEffort: jest.fn(),
 }))
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },

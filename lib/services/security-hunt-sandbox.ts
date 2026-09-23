@@ -55,6 +55,7 @@ import {
   HUNT_CHECKOUT_WAIT_MS,
   HUNT_SANDBOX_ATTACH_POLL_MS,
   HUNT_SANDBOX_ATTACH_WAIT_MS,
+  HUNT_SANDBOX_TAG,
   HUNT_SHELL_COMPRESS_MIN,
   HUNT_SHELL_OUTPUT_MAX,
   isHuntShellCompressEnabled,
@@ -63,12 +64,10 @@ import {
 } from './security-hunt.config'
 import { guardInjectedText } from '@/lib/security-scan/inject-guard'
 
-/**
- * Tag key marking a VM the hunt booted itself, so "who paid for this VM" is
- * answerable after the fact. It is applied IN ADDITION to `lumoScan`, never
- * instead of it — see the tags comment in `create`.
- */
-export const HUNT_SANDBOX_TAG = 'lumoHunt'
+// Defined in the import-light config so the stale-hunt sweep can stop these
+// VMs without loading this module's GitHub dependencies (LUM-822).
+export { HUNT_SANDBOX_TAG }
+
 /** Wall-clock ceiling for one command — no single grep should need longer. */
 const SHELL_TIMEOUT_MS = 20_000
 /** Setup commands (the credential scrub, the env probe) are ours, not the agent's. */

@@ -70,6 +70,7 @@ jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
 // behaviour has its own suite in pr-security-scan.service.hunt-trigger.test.ts.
 jest.mock('@/lib/services/security-hunt-start', () => ({
   startSecurityHunt: jest.fn(),
+  recordHuntStartBestEffort: jest.fn(),
 }))
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },
