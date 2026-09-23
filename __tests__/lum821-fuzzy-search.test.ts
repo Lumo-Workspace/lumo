@@ -27,6 +27,7 @@ import type { NextRequest } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { taskQueryService } from '@/lib/services/task-query.service'
 import {
+  adjacentTranspositions,
   buildTextMatchSql,
   FUZZY_STRICT,
   taskRepository,
@@ -93,6 +94,36 @@ describe('buildTextMatchSql', () => {
   })
 })
 
+describe('adjacent transpositions (LUM-821 swap fallback)', () => {
+  it('lists every one-adjacent-swap spelling, deduped, without the term itself', () => {
+    expect(adjacentTranspositions('oauht')).toEqual([
+      'aouht',
+      'ouaht',
+      'oahut',
+      'oauth',
+    ])
+    // swapping two identical letters yields the term itself → dropped
+    expect(adjacentTranspositions('seek')).toEqual(['esek', 'seke'])
+  })
+
+  it('the SQL only carries swap patterns on the fallback pass', () => {
+    expect(buildTextMatchSql('ws1', ['oauht'], 500).values).not.toContain(
+      '%oauth%'
+    )
+    const q = buildTextMatchSql('ws1', ['oauht'], 500, { transpositions: true })
+    expect(q.values).toEqual(expect.arrayContaining(['%oauth%', '%oahut%']))
+  })
+
+  it('short and identifier terms never get swap variants', () => {
+    for (const term of ['bug', 'LUM-821', '4242']) {
+      const q = buildTextMatchSql('ws1', [term], 500, { transpositions: true })
+      for (const v of adjacentTranspositions(term)) {
+        expect(q.values).not.toContain(`%${v}%`)
+      }
+    }
+  })
+})
+
 describe('taskRepository.findByWorkspaceWithFilters — fuzzy wiring', () => {
   it('fuzzy: ranks via the trigram query (threshold set tx-locally), filters by those ids, returns score order', async () => {
     mockTransaction.mockResolvedValue([
@@ -119,6 +150,42 @@ describe('taskRepository.findByWorkspaceWithFilters — fuzzy wiring', () => {
       "set_config('pg_trgm.strict_word_similarity_threshold'"
     )
     expect(setCall!.slice(1)).toEqual(['0.4'])
+  })
+
+  it('runs the swap fallback only when the normal pass matched nothing', async () => {
+    mockTransaction
+      .mockResolvedValueOnce([[], []]) // normal pass: no hits
+      .mockResolvedValueOnce([[], [{ id: 't-oauth', score: 0.85 }]])
+    mockFindMany.mockResolvedValue([{ id: 't-oauth' }])
+    const rows = await taskRepository.findByWorkspaceWithFilters('ws1', {
+      q: 'oauht',
+      fuzzy: true,
+    })
+    expect(mockTransaction).toHaveBeenCalledTimes(2)
+    expect(rows.map(r => r.id)).toEqual(['t-oauth'])
+    // the second batch's ranked query carries the swap pattern
+    const secondRanked = mockQueryRaw.mock.calls[3]![0]
+    expect(secondRanked.values).toContain('%oauth%')
+  })
+
+  it('no fallback when the normal pass has hits (`form` must never widen to "from")', async () => {
+    mockTransaction.mockResolvedValue([[], [{ id: 't-form', score: 1 }]])
+    mockFindMany.mockResolvedValue([{ id: 't-form' }])
+    await taskRepository.findByWorkspaceWithFilters('ws1', {
+      q: 'form',
+      fuzzy: true,
+    })
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
+  })
+
+  it('no fallback when no term is typo-eligible', async () => {
+    mockTransaction.mockResolvedValue([[], []])
+    mockFindMany.mockResolvedValue([])
+    await taskRepository.findByWorkspaceWithFilters('ws1', {
+      q: 'bug LUM-9',
+      fuzzy: true,
+    })
+    expect(mockTransaction).toHaveBeenCalledTimes(1)
   })
 
   it('exact (fuzzy off): no raw query, Prisma substring clauses as before', async () => {

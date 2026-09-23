@@ -47,6 +47,10 @@ export const FUZZY_MIN_TERM_LENGTH = 4
  * score identically (0.500 / 0.333) — so it was dropped. Known misses:
  * transpositions in short words (`oauht`, `reciept`), double deletions.
  *
+ * Transpositions come back through a separate, precise mechanism: when a
+ * query matches nothing, a fallback pass also accepts titles containing the
+ * term with one adjacent pair swapped (see adjacentTranspositions).
+ *
  * The matched title word must also be at least (term length − 1) long: a
  * later production run showed `probe` matching "DeepSeek V4-Pro" (strict 0.43
  * against the 3-letter prefix word "pro"), which no typo explains.
@@ -73,10 +77,34 @@ function likePattern(term: string): string {
  *   = strict similarity × 0.9 — so a typo never outranks an exact hit.
  * Parameterised throughout (Prisma.sql); exported for tests.
  */
+/**
+ * Every distinct spelling of `term` with one pair of adjacent letters swapped
+ * (`oauht` → `aouht`, `ouaht`, `oahut`, `oauth`), case-insensitively deduped
+ * and excluding the term itself. Pure; exported for tests.
+ */
+export function adjacentTranspositions(term: string): string[] {
+  const seen = new Set([term.toLowerCase()])
+  const out: string[] = []
+  for (let i = 0; i < term.length - 1; i++) {
+    const v = term.slice(0, i) + term[i + 1] + term[i] + term.slice(i + 2)
+    const key = v.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(v)
+  }
+  return out
+}
+
+/** Whether a term is eligible for typo matching (fuzzy / transpositions). */
+function isTypoEligible(term: string): boolean {
+  return term.length >= FUZZY_MIN_TERM_LENGTH && !TASK_NUMBER_TERM.test(term)
+}
+
 export function buildTextMatchSql(
   workspaceId: string,
   terms: string[],
-  limit: number
+  limit: number,
+  opts: { transpositions?: boolean } = {}
 ): PrismaSql.Sql {
   const conds: PrismaSql.Sql[] = []
   const scores: PrismaSql.Sql[] = []
@@ -85,7 +113,7 @@ export function buildTextMatchSql(
     const num = TASK_NUMBER_TERM.exec(term)
     // Identifier / number terms (`42`, `LUM-821`) match exactly: fuzzily,
     // `LUM-821` scores 0.5 against every title quoting another `LUM-71`.
-    const fuzzy = term.length >= FUZZY_MIN_TERM_LENGTH && !num
+    const fuzzy = isTypoEligible(term)
     const alts: PrismaSql.Sql[] = [
       PrismaSql.sql`t."title" ILIKE ${pat}`,
       PrismaSql.sql`t."description" ILIKE ${pat}`,
@@ -104,6 +132,21 @@ export function buildTextMatchSql(
       parts.push(
         PrismaSql.sql`CASE WHEN ${hit} THEN strict_word_similarity(${term}, t."title") * 0.9 ELSE 0 END`
       )
+    }
+    if (fuzzy && opts.transpositions) {
+      // Fallback pass only (see rankTextMatches): the title contains the term
+      // with one adjacent pair swapped — `oauht` finds "OAuth", a case trigram
+      // similarity cannot separate from shared-prefix noise. Scored below a
+      // trigram typo hit.
+      const variants = adjacentTranspositions(term)
+      if (variants.length) {
+        const swap = PrismaSql.sql`(${PrismaSql.join(
+          variants.map(v => PrismaSql.sql`t."title" ILIKE ${likePattern(v)}`),
+          ' OR '
+        )})`
+        alts.push(swap)
+        parts.push(PrismaSql.sql`CASE WHEN ${swap} THEN 0.85 ELSE 0 END`)
+      }
     }
     if (num) {
       const n = Number(num[1])
@@ -870,13 +913,23 @@ export const taskRepository = {
     workspaceId: string,
     terms: string[]
   ): Promise<Array<{ id: string; score: number }>> {
-    const [, rows] = await prisma.$transaction([
-      prisma.$queryRaw`SELECT set_config('pg_trgm.strict_word_similarity_threshold', ${String(FUZZY_STRICT)}, true)`,
-      prisma.$queryRaw<Array<{ id: string; score: number }>>(
-        buildTextMatchSql(workspaceId, terms, WORKSPACE_TASK_QUERY_LIMIT)
-      ),
-    ])
-    return rows
+    const run = async (transpositions: boolean) => {
+      const [, rows] = await prisma.$transaction([
+        prisma.$queryRaw`SELECT set_config('pg_trgm.strict_word_similarity_threshold', ${String(FUZZY_STRICT)}, true)`,
+        prisma.$queryRaw<Array<{ id: string; score: number }>>(
+          buildTextMatchSql(workspaceId, terms, WORKSPACE_TASK_QUERY_LIMIT, {
+            transpositions,
+          })
+        ),
+      ])
+      return rows
+    }
+    const rows = await run(false)
+    // Adjacent-swap matching is a fallback: only when nothing matched at all.
+    // Correct words whose swap is another word (`form`/`from`,
+    // `trial`/`trail`) would otherwise pull in unrelated titles.
+    if (rows.length > 0 || !terms.some(isTypoEligible)) return rows
+    return run(true)
   },
 
   /** Find tasks under a milestone, optionally filtered by assignee.
