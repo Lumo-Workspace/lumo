@@ -1,0 +1,157 @@
+/**
+ * @jest-environment node
+ *
+ * LUM-821 fuzzy `task search`: the ranked pg_trgm query (parameterised,
+ * AND across terms, short terms exact, number terms, LIKE escaping, the
+ * tuned thresholds), the repository wiring (fuzzy → ranked ids → Prisma
+ * filters → score order; exact path untouched), the route's `match` param,
+ * and the CLI default. The SQL itself was validated against a real Postgres
+ * with pg_trgm (see the PR); these pin its shape.
+ */
+jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
+jest.mock('@/lib/services/task-query.service', () => ({
+  taskQueryService: { findForWorkspace: jest.fn() },
+}))
+const mockFindMany = jest.fn()
+const mockQueryRaw = jest.fn()
+const mockTransaction = jest.fn()
+jest.mock('@/lib/db/prisma', () => ({
+  prisma: {
+    task: { findMany: (...a: unknown[]) => mockFindMany(...a) },
+    $queryRaw: (...a: unknown[]) => mockQueryRaw(...a),
+    $transaction: (...a: unknown[]) => mockTransaction(...a),
+  },
+}))
+
+import type { NextRequest } from 'next/server'
+import { requireIdentity } from '@/lib/auth'
+import { taskQueryService } from '@/lib/services/task-query.service'
+import {
+  buildTextMatchSql,
+  FUZZY_FLOOR,
+  FUZZY_STRICT,
+  FUZZY_WORD,
+  taskRepository,
+} from '@/lib/repositories/task.repository'
+import { GET } from '@/app/api/tasks/workspace/route'
+import { buildSearchQuery } from '@/cli/src/commands/task-search'
+
+beforeEach(() => jest.clearAllMocks())
+
+describe('buildTextMatchSql', () => {
+  it('ANDs one clause per term, scoped to the workspace, all values parameterised', () => {
+    const q = buildTextMatchSql('ws1', ['oauht', 'redirect'], 500)
+    expect(q.text).toContain('p."workspaceId" = $')
+    expect(q.text.match(/\) AND \(/g)?.length).toBe(1)
+    expect(q.text).toContain('ORDER BY score DESC')
+    // user input only ever reaches the query as bind values
+    expect(q.text).not.toContain('oauht')
+    expect(q.values).toEqual(
+      expect.arrayContaining(['ws1', 'oauht', '%oauht%', 'redirect', 500])
+    )
+  })
+
+  it('fuzzy branch uses the indexable <<% prefilter and the tuned thresholds', () => {
+    const q = buildTextMatchSql('ws1', ['oauht'], 500)
+    expect(q.text).toContain('<<% t."title"')
+    expect(q.text).toContain('strict_word_similarity(')
+    expect(q.values).toEqual(
+      expect.arrayContaining([FUZZY_STRICT, FUZZY_WORD, FUZZY_FLOOR])
+    )
+    expect([FUZZY_STRICT, FUZZY_WORD, FUZZY_FLOOR]).toEqual([0.4, 0.5, 0.3])
+  })
+
+  it('terms under 4 chars stay exact (no trigram branch) — `bug` must not match "Budget"', () => {
+    const q = buildTextMatchSql('ws1', ['bug'], 500)
+    expect(q.text).not.toContain('<<%')
+    expect(q.text).toContain('ILIKE')
+  })
+
+  it('number terms also match the task number', () => {
+    const q = buildTextMatchSql('ws1', ['LUM-42'], 500)
+    expect(q.text).toContain('t."number" = $')
+    expect(q.values).toContain(42)
+  })
+
+  it('escapes LIKE wildcards so `50%` / `a_b` match literally', () => {
+    expect(buildTextMatchSql('ws1', ['50%'], 500).values).toContain('%50\\%%')
+    expect(buildTextMatchSql('ws1', ['a_b'], 500).values).toContain('%a\\_b%')
+  })
+})
+
+describe('taskRepository.findByWorkspaceWithFilters — fuzzy wiring', () => {
+  it('fuzzy: ranks via the trigram query (threshold set tx-locally), filters by those ids, returns score order', async () => {
+    mockTransaction.mockResolvedValue([
+      [],
+      [
+        { id: 't-best', score: 1.9 },
+        { id: 't-typo', score: 0.4 },
+      ],
+    ])
+    // Prisma returns board order; the repository must re-sort by score.
+    mockFindMany.mockResolvedValue([{ id: 't-typo' }, { id: 't-best' }])
+    const rows = await taskRepository.findByWorkspaceWithFilters('ws1', {
+      q: 'oauht redirect',
+      fuzzy: true,
+      statuses: ['TODO'],
+    })
+    expect(rows.map(r => r.id)).toEqual(['t-best', 't-typo'])
+    const where = mockFindMany.mock.calls[0]![0].where
+    expect(where.id).toEqual({ in: ['t-best', 't-typo'] })
+    expect(where.status).toEqual({ in: ['TODO'] })
+    expect(where.AND).toBeUndefined()
+    const [setCall] = mockQueryRaw.mock.calls
+    expect(String(setCall![0].join('?'))).toContain(
+      "set_config('pg_trgm.strict_word_similarity_threshold'"
+    )
+    expect(setCall!.slice(1)).toEqual(['0.3'])
+  })
+
+  it('exact (fuzzy off): no raw query, Prisma substring clauses as before', async () => {
+    mockFindMany.mockResolvedValue([])
+    await taskRepository.findByWorkspaceWithFilters('ws1', { q: 'oauth' })
+    expect(mockTransaction).not.toHaveBeenCalled()
+    expect(mockFindMany.mock.calls[0]![0].where.AND).toHaveLength(1)
+  })
+})
+
+describe('GET /api/tasks/workspace — match param', () => {
+  const req = (qs: string) =>
+    new Request(
+      `http://localhost/api/tasks/workspace${qs}`
+    ) as unknown as NextRequest
+  beforeEach(() => {
+    ;(requireIdentity as jest.Mock).mockResolvedValue({ workspaceId: 'w1' })
+    ;(taskQueryService.findForWorkspace as jest.Mock).mockResolvedValue([])
+  })
+  it('match=fuzzy → fuzzy: true; default stays exact for the web board', async () => {
+    await GET(req('?q=oauht&match=fuzzy'))
+    await GET(req('?q=oauth'))
+    const calls = (taskQueryService.findForWorkspace as jest.Mock).mock.calls
+    expect(calls[0]![1]).toEqual({ q: 'oauht', fuzzy: true })
+    expect(calls[1]![1]).toEqual({ q: 'oauth' })
+  })
+  it('an unknown match mode is 400', async () => {
+    expect((await GET(req('?q=x&match=wild'))).status).toBe(400)
+  })
+})
+
+describe('CLI task search query', () => {
+  const base = {
+    statuses: [],
+    priorities: [],
+    assigneeActorIds: [],
+    unassigned: false,
+    tagIds: [],
+    projectIds: [],
+    milestoneIds: [],
+    sprintIds: [],
+  }
+  it('sends match=fuzzy by default and match=exact with --exact; no match param without a query', () => {
+    const p = (o: object) =>
+      new URL(`https://x${buildSearchQuery({ ...base, ...o })}`).searchParams
+    expect(p({ q: 'oauht' }).get('match')).toBe('fuzzy')
+    expect(p({ q: 'oauht', exact: true }).get('match')).toBe('exact')
+    expect(p({}).has('match')).toBe(false)
+  })
+})

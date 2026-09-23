@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { Prisma as PrismaSql } from '@prisma/client'
 import type {
   Prisma,
   TaskStatus,
@@ -20,9 +21,97 @@ export interface WorkspaceTaskFilters {
   sprintIds?: string[] | undefined
   /** Whitespace-separated terms, all required; each a case-insensitive substring of title/description, or a task number (`42`, `LUM-42`). */
   q?: string | undefined
+  /**
+   * LUM-821: with `q`, also accept typo-level title matches (pg_trgm word
+   * similarity) and return rows ranked by relevance instead of board order.
+   */
+  fuzzy?: boolean | undefined
   /** Inclusive due-date window bounds (dueBefore is an exclusive upper instant). */
   dueAfter?: Date | undefined
   dueBefore?: Date | undefined
+}
+
+/** Terms shorter than this stay exact — 3-letter trigram sets are too small
+ * to tell a typo from an unrelated word (`bug` scores 0.5 against "Budget"). */
+export const FUZZY_MIN_TERM_LENGTH = 4
+/**
+ * Fuzzy acceptance, tuned on real titles against pg_trgm (LUM-821). A term
+ * matches a title when its strict word similarity (whole-word extents) is
+ * ≥ FUZZY_STRICT, or its word similarity is ≥ FUZZY_WORD while strict is
+ * still ≥ FUZZY_FLOOR. Plain word_similarity alone was tried first and let
+ * `serch` match "service" (0.50) while missing "search" (0.44); strict scores
+ * those 0.27 / 0.44. Catches `serch` `oauht` `redirct` `filtr` `migraton`
+ * `dashbord`; rejects `sprint`→"Split printing", `cache`→"Crash",
+ * `token`→"Tooltip". Known misses: `sprnt`-style double deletions.
+ */
+export const FUZZY_STRICT = 0.4
+export const FUZZY_WORD = 0.5
+/** Pre-filter cut-off for the indexable `<<%` operator (≤ both branches). */
+export const FUZZY_FLOOR = 0.3
+
+const TASK_NUMBER_TERM = /^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$/
+
+/** Split a query into terms (whitespace, all required). */
+export function splitSearchTerms(q: string | undefined): string[] {
+  return (q ?? '').trim().split(/\s+/).filter(Boolean)
+}
+
+/** Escape LIKE wildcards so a term matches literally (`50%` is not a glob). */
+function likePattern(term: string): string {
+  return `%${term.replace(/[\\%_]/g, c => `\\${c}`)}%`
+}
+
+/**
+ * The ranked text-match query (LUM-821): ids of the workspace's tasks where
+ * EVERY term matches, with a relevance score. Per term:
+ *   task number = 2.0 · title substring = 1.0 · description substring = 0.5 ·
+ *   fuzzy title match (terms ≥ FUZZY_MIN_TERM_LENGTH, see FUZZY_STRICT)
+ *   = strict similarity × 0.9 — so a typo never outranks an exact hit.
+ * Parameterised throughout (Prisma.sql); exported for tests.
+ */
+export function buildTextMatchSql(
+  workspaceId: string,
+  terms: string[],
+  limit: number
+): PrismaSql.Sql {
+  const conds: PrismaSql.Sql[] = []
+  const scores: PrismaSql.Sql[] = []
+  for (const term of terms) {
+    const pat = likePattern(term)
+    const num = TASK_NUMBER_TERM.exec(term)
+    const fuzzy = term.length >= FUZZY_MIN_TERM_LENGTH
+    const alts: PrismaSql.Sql[] = [
+      PrismaSql.sql`t."title" ILIKE ${pat}`,
+      PrismaSql.sql`t."description" ILIKE ${pat}`,
+    ]
+    const parts: PrismaSql.Sql[] = [
+      PrismaSql.sql`CASE WHEN t."title" ILIKE ${pat} THEN 1.0 ELSE 0 END`,
+      PrismaSql.sql`CASE WHEN t."description" ILIKE ${pat} THEN 0.5 ELSE 0 END`,
+    ]
+    if (fuzzy) {
+      const hit = PrismaSql.sql`(${term} <<% t."title" AND (strict_word_similarity(${term}, t."title") >= ${FUZZY_STRICT} OR (word_similarity(${term}, t."title") >= ${FUZZY_WORD} AND strict_word_similarity(${term}, t."title") >= ${FUZZY_FLOOR})))`
+      alts.push(hit)
+      parts.push(
+        PrismaSql.sql`CASE WHEN ${hit} THEN strict_word_similarity(${term}, t."title") * 0.9 ELSE 0 END`
+      )
+    }
+    if (num) {
+      const n = Number(num[1])
+      alts.push(PrismaSql.sql`t."number" = ${n}`)
+      parts.push(PrismaSql.sql`CASE WHEN t."number" = ${n} THEN 2.0 ELSE 0 END`)
+    }
+    conds.push(PrismaSql.sql`(${PrismaSql.join(alts, ' OR ')})`)
+    scores.push(PrismaSql.sql`GREATEST(${PrismaSql.join(parts, ', ')})`)
+  }
+  return PrismaSql.sql`
+    SELECT t."id" AS id, (${PrismaSql.join(scores, ' + ')})::float AS score
+    FROM "tasks" t
+    JOIN "projects" p ON p."id" = t."projectId"
+    WHERE p."workspaceId" = ${workspaceId}
+      AND ${PrismaSql.join(conds, ' AND ')}
+    ORDER BY score DESC, t."updatedAt" DESC
+    LIMIT ${limit}
+  `
 }
 
 export interface TaskUpdateData {
@@ -718,9 +807,15 @@ export const taskRepository = {
     // Each whitespace-separated term must appear (AND), in title or
     // description, case-insensitive substring — `oauth redirect` matches
     // "Fix OAuth callback redirect". A number term (`42` / `LUM-42`) also
-    // matches the task number.
-    const terms = (filters.q ?? '').trim().split(/\s+/).filter(Boolean)
-    if (terms.length) {
+    // matches the task number. Fuzzy mode (LUM-821) swaps this for the ranked
+    // trigram query below.
+    const terms = splitSearchTerms(filters.q)
+    let rank: Map<string, number> | null = null
+    if (terms.length && filters.fuzzy) {
+      const matches = await this.rankTextMatches(workspaceId, terms)
+      rank = new Map(matches.map(m => [m.id, m.score]))
+      where.id = { in: matches.map(m => m.id) }
+    } else if (terms.length) {
       where.AND = terms.map(term => {
         const textMatch: Prisma.TaskWhereInput[] = [
           { title: { contains: term, mode: 'insensitive' } },
@@ -737,7 +832,7 @@ export const taskRepository = {
         ...(filters.dueBefore ? { lt: filters.dueBefore } : {}),
       }
     }
-    return prisma.task.findMany({
+    const rows = await prisma.task.findMany({
       where,
       // project name rides along so CLI search rows can show it; the shared
       // list include stays untouched for board consumers.
@@ -748,6 +843,30 @@ export const taskRepository = {
       orderBy: { order: 'asc' },
       take: WORKSPACE_TASK_QUERY_LIMIT,
     })
+    if (!rank) return rows
+    const byRank = rank
+    return [...rows].sort(
+      (a, b) => (byRank.get(b.id) ?? 0) - (byRank.get(a.id) ?? 0)
+    )
+  },
+
+  /**
+   * LUM-821: ranked text matches for fuzzy search (see buildTextMatchSql).
+   * The `<<%` operator reads its cut-off from a GUC, so it is set
+   * transaction-locally in the same batch — never leaking to other queries
+   * on a pooled connection.
+   */
+  async rankTextMatches(
+    workspaceId: string,
+    terms: string[]
+  ): Promise<Array<{ id: string; score: number }>> {
+    const [, rows] = await prisma.$transaction([
+      prisma.$queryRaw`SELECT set_config('pg_trgm.strict_word_similarity_threshold', ${String(FUZZY_FLOOR)}, true)`,
+      prisma.$queryRaw<Array<{ id: string; score: number }>>(
+        buildTextMatchSql(workspaceId, terms, WORKSPACE_TASK_QUERY_LIMIT)
+      ),
+    ])
+    return rows
   },
 
   /** Find tasks under a milestone, optionally filtered by assignee.

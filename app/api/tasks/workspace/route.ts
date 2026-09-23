@@ -31,14 +31,16 @@ export async function GET(request: NextRequest) {
       sprintIds: parseList(searchParams, 'sprintIds'),
       unassigned: searchParams.get('unassigned') === '1' ? true : undefined,
       q: searchParams.get('q') ?? undefined,
+      match: searchParams.get('match') ?? undefined,
       dueAfter: searchParams.get('dueAfter') ?? undefined,
       dueBefore: searchParams.get('dueBefore') ?? undefined,
     })
     if (!parsed.success) return zodError(parsed)
 
+    const { match, ...filters } = parsed.data
     const tasks = await taskQueryService.findForWorkspace(
       identity.workspaceId,
-      parsed.data
+      { ...filters, ...(match === 'fuzzy' ? { fuzzy: true } : {}) }
     )
 
     return NextResponse.json({

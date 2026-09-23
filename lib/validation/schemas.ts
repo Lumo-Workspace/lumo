@@ -684,6 +684,9 @@ export const workspaceTaskFiltersSchema = z.object({
   tagIds: z.array(z.string()).optional(),
   sprintIds: z.array(z.string()).optional(),
   q: z.string().trim().min(1).max(200).optional(),
+  // LUM-821: `fuzzy` adds typo-tolerant title matching + relevance order to
+  // `q`; `exact` (the default, what the web board sends) is substring-only.
+  match: z.enum(['exact', 'fuzzy']).optional(),
   // Instant window [dueAfter, dueBefore). Due dates are stored as the
   // author's local midnight, so the caller (who knows its timezone) turns
   // calendar days into instants — the server never guesses a zone.

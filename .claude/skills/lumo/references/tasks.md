@@ -222,7 +222,7 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 
 `task list` only shows **your** tasks; `task search` spans every member — the CLI counterpart of a Jira JQL search or Linear `list_issues`. Every filter runs server-side (`GET /api/tasks/workspace`), results capped at 500 (a `(result capped …)` line says so).
 
-`[query]` is split on whitespace and **every term must appear** (AND), each as a case-insensitive substring of the title or description — `oauth redirect` matches "Fix OAuth callback redirect". A number term (`42`, `LUM-42`) also matches the task number. It is substring matching, not typo-tolerant fuzzy search.
+`[query]` is split on whitespace and **every term must match** (AND): as a case-insensitive substring of the title or description, as the task number (`42`, `LUM-42`), or — for terms of 4+ characters — as a **typo** of a title word (Postgres `pg_trgm`, strict word similarity: `oauht`, `serch`, `redirct`, `dashbord` all find their task). Results are **ranked by relevance**: number > title substring > description substring > typo match. Terms under 4 characters never fuzzy-match (`bug` must not find "Budget"). `--exact` turns fuzziness off: substring only, board order.
 
 | Flag                              | Type                | Notes                                                                                            |
 | --------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------ |
@@ -235,10 +235,12 @@ Filtering is currently client-side — the server returns the full "my tasks" se
 | `--sprint <ref>` / `--team <ref>` | string              | Sprint number or UUID (`--team` disambiguates the number).                                       |
 | `--due-after` / `--due-before`    | `YYYY-MM-DD`        | Inclusive calendar days in your local timezone (same as the web due-date picker).                |
 | `-n, --limit <count>`             | integer             | Show only the first N rows.                                                                      |
+| `--exact`                         | boolean             | Substring matching only, in board order (default: typo-tolerant, ranked).                        |
 | `--json`                          | boolean             | Raw `{ tasks, truncated }`.                                                                      |
 
 ```bash
 lumo task search "oauth redirect"
+lumo task search "serch filtr" --exact
 lumo task search --assignee none --status todo --priority high --priority urgent
 lumo task search --assignee alice@example.com --tag bug --sprint 3
 lumo task search --due-before 2026-09-30 --status todo --status in_progress
