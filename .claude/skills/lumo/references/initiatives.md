@@ -17,7 +17,7 @@ lumo initiative create "Ship the initiatives browse surface" --assumption "teams
 
 ## `lumo initiative list`
 
-Print the team's initiatives newest-first, one line each: the `LUM-INIT-<n>` id, status (`ACTIVE` | `DONE` | `DROPPED`) and goal.
+Print the team's initiatives newest-first, one line each: the `LUM-INIT-<n>` id, status (`PROPOSED` | `PLANNED` | `ACTIVE` | `COMPLETED` | `CANCELLED`) and goal.
 
 Browsable in web at `/workspace/<slug>/initiatives` (sidebar → Initiatives), where each links to its lineage — the ideas it consumed and the tasks attached to it.
 
@@ -26,3 +26,31 @@ Browsable in web at `/workspace/<slug>/initiatives` (sidebar → Initiatives), w
 ```bash
 lumo initiative list
 ```
+
+## `lumo initiative update <initiative> [flags]` (LUM-821)
+
+`<initiative>` is the `LUM-INIT-<n>` id or just its number. Provide at least one flag; `""` clears the nullable ones.
+
+| Flag                     | Notes                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `-s, --status <value>`   | `proposed \| planned \| active \| completed \| cancelled` (case-insensitive) |
+| `--goal <text>`          | New goal statement (the initiative's name).                                  |
+| `-d, --description <>`   | Body text; `""` clears.                                                      |
+| `-p, --priority <level>` | `low \| medium \| high \| urgent`; `""` clears.                              |
+| `--start` / `--target`   | `YYYY-MM-DD`, your local day; `""` clears.                                   |
+
+```bash
+lumo initiative update LUM-INIT-3 --status completed
+lumo initiative update 3 --target 2026-12-31 --priority high
+```
+
+## `lumo initiative progress add <initiative> <body> [--health <value>]` / `progress list <initiative>`
+
+Append-only progress posts (Linear's initiative updates): what changed, plus an optional health `on_track | at_risk | off_track`. A post is never edited — post a new one to correct. `progress list` prints them newest-first as `date  HEALTH  author` over the indented body (at most 50).
+
+```bash
+lumo initiative progress add LUM-INIT-3 "Search + filters shipped; members next" --health on_track
+lumo initiative progress list LUM-INIT-3
+```
+
+**When to suggest**: a milestone or batch of tasks under an initiative landed ("post an update on the initiative"), or the user asks how an initiative is going — read `progress list` before summarising.

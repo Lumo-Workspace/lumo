@@ -1,27 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
+import { requireIdentity } from '@/lib/auth'
 import { taskRepository } from '@/lib/repositories'
 import { timelineService } from '@/lib/services'
 
 type Params = { params: Promise<{ id: string }> }
 
+/**
+ * GET /api/tasks/[id]/timeline — activity + comments, oldest first, paged.
+ * Browser session or CLI bearer (LUM-821: `lumo task history`). A task in
+ * another workspace reads as 404.
+ */
 export async function GET(request: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
     const { id } = await params
 
     const task = await taskRepository.findWithProjectWorkspaceId(id)
-    if (!task) {
+    if (!task || task.project.workspaceId !== identity.workspaceId) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
-
-    const memberResult = await requireWorkspaceMember(
-      task.project.workspaceId,
-      userId
-    )
-    if (memberResult instanceof NextResponse) return memberResult
 
     const url = new URL(request.url)
     const cursorParam = url.searchParams.get('cursor')

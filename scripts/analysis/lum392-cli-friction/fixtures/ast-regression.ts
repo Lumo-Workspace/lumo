@@ -68,9 +68,11 @@ export const HALLUCINATION_CASES: AstCase[] = [
   },
   {
     raw: 'lumo task delete LUM-178 --yes 2>&1',
-    expect: 'unknown-command',
-    offending: 'delete',
-    note: 'tasks cannot be deleted from the CLI',
+    // Re-adjudicated in LUM-821: `task delete` exists now, but it takes only
+    // `--confirm` (the user-approval flag) — no legacy `--yes` alias.
+    expect: 'unknown-flag',
+    offending: '--yes',
+    note: 'task delete approves with --confirm only (LUM-821); --yes is not an alias',
   },
   {
     raw: 'lumo task list --status invalid 2>&1',

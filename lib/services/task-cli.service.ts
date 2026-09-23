@@ -722,14 +722,19 @@ async function showFromCli(args: {
   let assignee: ShowTaskFromCliResult['assignee'] = null
   if (detail.assignee) {
     if (detail.assignee.type === 'HUMAN' && detail.assignee.member) {
-      const profile = await authService.fetchUserProfile(
-        detail.assignee.member.clerkId
-      )
-      assignee = {
-        type: 'member',
-        label: profile.name || profile.email,
-        email: profile.email || null,
-      }
+      // A Clerk lookup failure (user deleted in Clerk, Clerk outage) must not
+      // turn into "task not found" — Clerk's 404 used to surface as the
+      // route's own 404. The label degrades instead (LUM-821 e2e finding).
+      const profile = await authService
+        .fetchUserProfile(detail.assignee.member.clerkId)
+        .catch(() => null)
+      assignee = profile
+        ? {
+            type: 'member',
+            label: profile.name || profile.email,
+            email: profile.email || null,
+          }
+        : { type: 'member', label: '(unknown member)', email: null }
     } else if (detail.assignee.type === 'AGENT' && detail.assignee.agent) {
       assignee = {
         type: 'agent',
@@ -778,10 +783,29 @@ function teamPrefix(identifier: string): string {
   return identifier.slice(0, identifier.lastIndexOf('-'))
 }
 
+/**
+ * LUM-821: hard-delete a task by identifier (CLI `task delete`). The CLI
+ * gates this behind the exit-4 confirmation envelope; subtasks survive with
+ * their parent cleared (onDelete: SetNull), most related rows cascade.
+ */
+async function deleteFromCli(args: {
+  workspaceId: string
+  identifier: string
+}): Promise<{ identifier: string; title: string }> {
+  const resolved = await taskService.resolveIdentifier(
+    args.workspaceId,
+    args.identifier
+  )
+  if (!resolved) throw httpError(404, `Task ${args.identifier} not found`)
+  await taskService.deleteTask(resolved.id)
+  return { identifier: resolved.identifier, title: resolved.title }
+}
+
 export const taskCliService = {
   resolveProjectId,
   resolveAssigneeActorId,
   createFromCli,
   updateFromCli,
   showFromCli,
+  deleteFromCli,
 }

@@ -1,12 +1,17 @@
 import {
   initiativeRepository,
+  type InitiativeUpdateRow,
   type InitiativeListRow,
   type InitiativeDetailRow,
   type InitiativeCreatedRow,
   type InitiativeCompositionRow,
 } from '@/lib/repositories/initiative.repository'
 import { getDefaultTeam } from '@/lib/team'
-import type { CreateInitiativeInput } from '@/lib/validation/initiative'
+import type {
+  CreateInitiativeInput,
+  CreateInitiativeUpdateInput,
+  UpdateInitiativeInput,
+} from '@/lib/validation/initiative'
 import type { InitiativeStatus, TaskStatus } from '@prisma/client'
 import {
   milestoneState,
@@ -189,6 +194,37 @@ function toDetail(
   }
 }
 
+const MAX_PROGRESS_UPDATES = 50
+
+/**
+ * Resolve an initiative ref within the caller's team (LUM-821): `LUM-INIT-3`,
+ * a bare number `3`, or the cuid. A ref from another team is the same
+ * 404 as a missing one, so the boundary can't be probed.
+ */
+async function resolveTeamInitiative(
+  workspaceId: string,
+  ref: string
+): Promise<{ id: string; teamIdentifier: string }> {
+  const notFound = () =>
+    Object.assign(new Error(`Initiative ${ref} not found`), { status: 404 })
+  const team = await getDefaultTeam(workspaceId)
+  if (!team) throw notFound()
+  const num = /^(?:[A-Za-z][A-Za-z0-9]*-INIT-)?(\d+)$/i.exec(ref.trim())
+  const row = num
+    ? await initiativeRepository.findRefByTeamNumber(team.id, Number(num[1]))
+    : await initiativeRepository.findRefById(ref.trim())
+  if (!row || row.teamId !== team.id) throw notFound()
+  return { id: row.id, teamIdentifier: team.identifier }
+}
+
+export interface InitiativeProgressUpdate {
+  id: string
+  authorMemberId: string
+  body: string
+  health: InitiativeUpdateRow['health']
+  createdAt: Date
+}
+
 /**
  * Team-level initiative browse (LUM-673). Initiatives live above projects (no
  * projectId), so the team is resolved from the workspace's default team —
@@ -266,6 +302,56 @@ export const initiativeService = {
     if (!row || row.teamId !== team.id) throw notFound()
 
     return toDetail(row, team.identifier)
+  },
+
+  /**
+   * Patch an initiative's scalar fields (LUM-821, `lumo initiative update`):
+   * name (the goal), description, status, priority, start/target dates.
+   */
+  async update(args: {
+    workspaceId: string
+    ref: string
+    input: UpdateInitiativeInput
+  }): Promise<InitiativeListItem> {
+    const { id, teamIdentifier } = await resolveTeamInitiative(
+      args.workspaceId,
+      args.ref
+    )
+    const { input } = args
+    const data: Parameters<typeof initiativeRepository.update>[1] = {}
+    if (input.name !== undefined) data.name = input.name
+    if (input.description !== undefined) data.description = input.description
+    if (input.status !== undefined) data.status = input.status
+    if (input.priority !== undefined) data.priority = input.priority
+    if (input.startDate !== undefined) data.startDate = input.startDate
+    if (input.targetDate !== undefined) data.targetDate = input.targetDate
+    const row = await initiativeRepository.update(id, data)
+    return toListItem(row, teamIdentifier)
+  },
+
+  /** Append a progress post (LUM-821, `lumo initiative progress add`). */
+  async postProgressUpdate(args: {
+    workspaceId: string
+    ref: string
+    authorMemberId: string
+    input: CreateInitiativeUpdateInput
+  }): Promise<InitiativeProgressUpdate> {
+    const { id } = await resolveTeamInitiative(args.workspaceId, args.ref)
+    return initiativeRepository.createProgressUpdate({
+      initiativeId: id,
+      authorMemberId: args.authorMemberId,
+      body: args.input.body,
+      health: args.input.health ?? null,
+    })
+  },
+
+  /** Newest-first progress posts, capped (LUM-821, `initiative progress list`). */
+  async listProgressUpdates(args: {
+    workspaceId: string
+    ref: string
+  }): Promise<InitiativeProgressUpdate[]> {
+    const { id } = await resolveTeamInitiative(args.workspaceId, args.ref)
+    return initiativeRepository.listProgressUpdates(id, MAX_PROGRESS_UPDATES)
   },
 
   /**

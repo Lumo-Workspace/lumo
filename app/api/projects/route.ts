@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireIdentity } from '@/lib/auth'
-import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
+import { zodError } from '@/lib/api/helpers'
 import { createProjectSchema } from '@/lib/validation/schemas'
 import { projectService } from '@/lib/services'
 
@@ -32,24 +32,21 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/projects — Create a project (also creates default Document view).
+ * Browser session or CLI bearer (LUM-821: `lumo project create`).
  */
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
-
-    const ws = await requireUserWorkspace(userId)
-    if (ws instanceof NextResponse) return ws
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
 
     const body = await request.json()
     const parsed = createProjectSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
     const project = await projectService.createProject(
-      ws.workspaceId,
-      ws.workspace.slug,
-      ws.member.id,
+      identity.workspaceId,
+      identity.workspaceSlug,
+      identity.memberId,
       parsed.data
     )
 

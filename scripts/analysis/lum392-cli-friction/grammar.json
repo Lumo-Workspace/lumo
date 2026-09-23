@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.71.0",
+  "cliVersion": "1.72.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -1324,7 +1324,7 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Team-level Initiatives (LUM-INIT-<n>): create one directly (no plan run required) or list them. Converter-materialised initiatives show here too."
+      "description": "Team-level Initiatives (LUM-INIT-<n>): create, list, update, and post progress updates. Converter-materialised initiatives show here too."
     },
     "initiative create": {
       "arguments": [{ "name": "goal", "required": true, "variadic": false }],
@@ -1347,7 +1347,100 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "List the team initiatives newest-first — each line shows the LUM-INIT-<n> id, status (ACTIVE|DONE|DROPPED) and goal."
+      "description": "List the team initiatives newest-first — each line shows the LUM-INIT-<n> id, status (PROPOSED | PLANNED | ACTIVE | COMPLETED | CANCELLED) and goal."
+    },
+    "initiative progress": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Progress updates on an initiative: append-only posts with an optional health (on_track | at_risk | off_track)"
+    },
+    "initiative progress add": {
+      "arguments": [
+        { "name": "initiative", "required": true, "variadic": false },
+        { "name": "body", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--health": {
+          "long": "--health",
+          "short": null,
+          "value": "required",
+          "enum": ["on_track", "at_risk", "off_track"],
+          "enumCaseInsensitive": true,
+          "description": "Health: on_track | at_risk | off_track (case-insensitive)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Post a progress update on an initiative (append-only; post a new one to correct)."
+    },
+    "initiative progress list": {
+      "arguments": [
+        { "name": "initiative", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List an initiative’s progress updates newest-first (date, health, author, body)."
+    },
+    "initiative update": {
+      "arguments": [
+        { "name": "initiative", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--description": {
+          "long": "--description",
+          "short": "-d",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Description; empty string clears it"
+        },
+        "--goal": {
+          "long": "--goal",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New goal statement (the initiative name)"
+        },
+        "--priority": {
+          "long": "--priority",
+          "short": "-p",
+          "value": "required",
+          "enum": ["low", "medium", "high", "urgent"],
+          "enumCaseInsensitive": true,
+          "description": "Priority: low | medium | high | urgent (case-insensitive); empty string clears it"
+        },
+        "--start": {
+          "long": "--start",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Start date YYYY-MM-DD (your local day); empty string clears it"
+        },
+        "--status": {
+          "long": "--status",
+          "short": "-s",
+          "value": "required",
+          "enum": ["proposed", "planned", "active", "completed", "cancelled"],
+          "enumCaseInsensitive": true,
+          "description": "Status: proposed | planned | active | completed | cancelled (case-insensitive)"
+        },
+        "--target": {
+          "long": "--target",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Target date YYYY-MM-DD (your local day); empty string clears it"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Update an initiative (LUM-INIT-<n> or its number): status, goal, description, priority, start/target dates. Empty string clears description, priority and dates."
     },
     "member": {
       "arguments": [],
@@ -2190,6 +2283,22 @@
       "isInvokable": false,
       "description": "Inspect projects from the terminal"
     },
+    "project create": {
+      "arguments": [{ "name": "name", "required": true, "variadic": false }],
+      "flags": {
+        "--description": {
+          "long": "--description",
+          "short": "-d",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Project description"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Create a project in the workspace (≤200 chars)."
+    },
     "project list": {
       "arguments": [],
       "flags": {},
@@ -2350,6 +2459,38 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List a project's PROJECT-scope memories. <project> defaults to the bound task's project."
+    },
+    "project update": {
+      "arguments": [{ "name": "project", "required": true, "variadic": false }],
+      "flags": {
+        "--description": {
+          "long": "--description",
+          "short": "-d",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Description; empty string clears it"
+        },
+        "--name": {
+          "long": "--name",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "New project name"
+        },
+        "--owner": {
+          "long": "--owner",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Owner: me, an email or a member name; empty string clears it"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Update a project (name or slug): --name, --description (\"\" clears), --owner (me | email | name; \"\" clears)."
     },
     "session": {
       "arguments": [],
@@ -3193,6 +3334,24 @@
       "isInvokable": true,
       "description": "Submit the whole acceptance contract from a JSON file. Default = initial agent draft (locked once submitted); --human records a HUMAN_EDIT revision (desired final list; items with \"id\" keep/update, missing ones are deleted)."
     },
+    "task delete": {
+      "arguments": [
+        { "name": "identifier", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the deletion shown in the confirmation envelope. Without it the command exits 4 and deletes nothing."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Permanently delete a task (hard delete, no archive; subtasks are kept and detached). Without --confirm: exit 4 + a confirmation envelope listing what goes with it."
+    },
     "task deps": {
       "arguments": [],
       "flags": {},
@@ -3333,6 +3492,32 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Remove a Figma link from a task (idempotent)"
+    },
+    "task history": {
+      "arguments": [
+        { "name": "identifier", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the raw activity entries as JSON"
+        },
+        "--limit": {
+          "long": "--limit",
+          "short": "-n",
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Show the last N entries (default 30)"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Show the task field-change history (status, priority, title, assignee, due, parent, tags, sprint), oldest first."
     },
     "task lineage": {
       "arguments": [

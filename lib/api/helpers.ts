@@ -135,3 +135,21 @@ export function isPrismaUniqueError(error: unknown): boolean {
     (error as { code: string }).code === 'P2002'
   )
 }
+
+/**
+ * Map a service error (`Object.assign(new Error(msg), { status })`) to a JSON
+ * response: its status + message, or a logged, message-free 500.
+ */
+export function serviceErrorResponse(err: unknown, tag: string): NextResponse {
+  const errStatus = (err as { status?: unknown })?.status
+  const status = typeof errStatus === 'number' ? errStatus : 500
+  if (status === 500) {
+    console.error(`${tag} error:`, err)
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    )
+  }
+  const message = err instanceof Error ? err.message : 'Error'
+  return NextResponse.json({ error: message }, { status })
+}

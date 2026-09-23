@@ -195,7 +195,10 @@ export async function taskSearch(
   let assigneeActorIds: string[] = []
   let unassigned = false
   if (opts.assignee?.length) {
-    const r = resolveAssigneeRefs(opts.assignee, dir, creds?.email ?? '')
+    const r = resolveAssigneeRefs(opts.assignee, dir, {
+      userId: creds?.userId ?? '',
+      email: creds?.email ?? '',
+    })
     if (!r.ok) {
       console.error(`Error: ${r.error}`)
       return 1

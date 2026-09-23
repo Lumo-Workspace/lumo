@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, requireIdentity } from '@/lib/auth'
 import { updateProjectSchema } from '@/lib/validation/schemas'
 import { loadProjectAndMember, zodError } from '@/lib/api/helpers'
 import { projectService } from '@/lib/services'
@@ -40,18 +40,15 @@ export async function GET(_request: NextRequest, { params }: Params) {
 
 /**
  * PATCH /api/projects/[id] — Update a project.
- * Ideas can only be edited by their creator.
+ * Ideas can only be edited by their creator. Browser session or CLI bearer
+ * (LUM-821: `lumo project update`); the service 404s a project outside the
+ * caller's workspace.
  */
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const { userId } = authResult
+    const identity = await requireIdentity(request)
+    if (identity instanceof NextResponse) return identity
     const { id } = await params
-
-    const result = await loadProjectAndMember(id, userId)
-    if (result instanceof NextResponse) return result
-    const { member, workspaceSlug } = result
 
     const body = await request.json()
     const parsed = updateProjectSchema.safeParse(body)
@@ -59,8 +56,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     const updated = await projectService.updateProject(
       id,
-      workspaceSlug,
-      member.id,
+      identity.workspaceSlug,
+      identity.memberId,
       parsed.data
     )
 

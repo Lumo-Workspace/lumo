@@ -51,6 +51,15 @@ import { taskSearch } from './commands/task-search'
 import { taskStatuses } from './commands/task-statuses'
 import { memberList } from './commands/member-list'
 import { tagCreate, tagList } from './commands/tag'
+import {
+  initiativeProgressAdd,
+  initiativeProgressList,
+  initiativeUpdate,
+  type InitiativeUpdateOptions,
+} from './commands/initiative-manage'
+import { taskDelete } from './commands/task-delete'
+import { taskHistory } from './commands/task-history'
+import { projectCreate, projectUpdate } from './commands/project-manage'
 import { taskShow } from './commands/task-show'
 import { taskStatus } from './commands/task-status'
 import { taskComment } from './commands/task-comment'
@@ -567,7 +576,7 @@ ideaComments
 const initiativeCmd = program
   .command('initiative')
   .description(
-    'Team-level Initiatives (LUM-INIT-<n>): create one directly (no plan run required) or list them. Converter-materialised initiatives show here too.'
+    'Team-level Initiatives (LUM-INIT-<n>): create, list, update, and post progress updates. Converter-materialised initiatives show here too.'
   )
 
 initiativeCmd
@@ -591,9 +600,70 @@ initiativeCmd
 initiativeCmd
   .command('list')
   .description(
-    'List the team initiatives newest-first — each line shows the LUM-INIT-<n> id, status (ACTIVE|DONE|DROPPED) and goal.'
+    'List the team initiatives newest-first — each line shows the LUM-INIT-<n> id, status (PROPOSED | PLANNED | ACTIVE | COMPLETED | CANCELLED) and goal.'
   )
   .action(wrap(() => initiativeList()))
+
+initiativeCmd
+  .command('update <initiative>')
+  .description(
+    'Update an initiative (LUM-INIT-<n> or its number): status, goal, description, priority, start/target dates. Empty string clears description, priority and dates.'
+  )
+  .option(
+    '-s, --status <value>',
+    'Status: proposed | planned | active | completed | cancelled (case-insensitive)'
+  )
+  .option('--goal <text>', 'New goal statement (the initiative name)')
+  .option('-d, --description <text>', 'Description; empty string clears it')
+  .option(
+    '-p, --priority <level>',
+    'Priority: low | medium | high | urgent (case-insensitive); empty string clears it'
+  )
+  .option(
+    '--start <date>',
+    'Start date YYYY-MM-DD (your local day); empty string clears it'
+  )
+  .option(
+    '--target <date>',
+    'Target date YYYY-MM-DD (your local day); empty string clears it'
+  )
+  .action(
+    wrap((ref, options) =>
+      initiativeUpdate(ref as string, options as InitiativeUpdateOptions)
+    )
+  )
+
+const initiativeProgress = initiativeCmd
+  .command('progress')
+  .description(
+    'Progress updates on an initiative: append-only posts with an optional health (on_track | at_risk | off_track)'
+  )
+
+initiativeProgress
+  .command('add <initiative> <body>')
+  .description(
+    'Post a progress update on an initiative (append-only; post a new one to correct).'
+  )
+  .option(
+    '--health <value>',
+    'Health: on_track | at_risk | off_track (case-insensitive)'
+  )
+  .action(
+    wrap((ref, body, options) =>
+      initiativeProgressAdd(
+        ref as string,
+        body as string,
+        options as { health?: string }
+      )
+    )
+  )
+
+initiativeProgress
+  .command('list <initiative>')
+  .description(
+    'List an initiative’s progress updates newest-first (date, health, author, body).'
+  )
+  .action(wrap(ref => initiativeProgressList(ref as string)))
 
 const planCmd = program
   .command('plan')
@@ -787,6 +857,37 @@ task
   .action(
     wrap((query, options) =>
       taskSearch(query as string | undefined, options as Record<string, never>)
+    )
+  )
+
+task
+  .command('delete <identifier>')
+  .description(
+    'Permanently delete a task (hard delete, no archive; subtasks are kept and detached). Without --confirm: exit 4 + a confirmation envelope listing what goes with it.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the deletion shown in the confirmation envelope. Without it the command exits 4 and deletes nothing.'
+  )
+  .action(
+    wrap((identifier, options) =>
+      taskDelete(identifier as string, options as { confirm?: boolean })
+    )
+  )
+
+task
+  .command('history <identifier>')
+  .description(
+    'Show the task field-change history (status, priority, title, assignee, due, parent, tags, sprint), oldest first.'
+  )
+  .option('-n, --limit <count>', 'Show the last N entries (default 30)')
+  .option('--json', 'Emit the raw activity entries as JSON')
+  .action(
+    wrap((identifier, options) =>
+      taskHistory(
+        identifier as string,
+        options as { limit?: string; json?: boolean }
+      )
     )
   )
 
@@ -1524,6 +1625,33 @@ projectCmd
     'List projects in the current workspace. Slug column matches `task create --project <ref>`.'
   )
   .action(wrap(() => projectList()))
+
+projectCmd
+  .command('create <name>')
+  .description('Create a project in the workspace (≤200 chars).')
+  .option('-d, --description <text>', 'Project description')
+  .action(
+    wrap((name, options) =>
+      projectCreate(name as string, options as { description?: string })
+    )
+  )
+
+projectCmd
+  .command('update <project>')
+  .description(
+    'Update a project (name or slug): --name, --description ("" clears), --owner (me | email | name; "" clears).'
+  )
+  .option('--name <text>', 'New project name')
+  .option('-d, --description <text>', 'Description; empty string clears it')
+  .option(
+    '--owner <ref>',
+    'Owner: me, an email or a member name; empty string clears it'
+  )
+  .action(
+    wrap((ref, options) =>
+      projectUpdate(ref as string, options as Record<string, string>)
+    )
+  )
 
 const projectMemory = projectCmd
   .command('memory')

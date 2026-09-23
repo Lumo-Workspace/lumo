@@ -118,7 +118,79 @@ export type InitiativeCompositionRow = Prisma.InitiativeGetPayload<{
   select: typeof INITIATIVE_COMPOSITION_SELECT
 }>
 
+/** Progress-post projection (LUM-821). */
+const INITIATIVE_UPDATE_SELECT = {
+  id: true,
+  authorMemberId: true,
+  body: true,
+  health: true,
+  createdAt: true,
+} satisfies Prisma.InitiativeUpdateSelect
+
+export type InitiativeUpdateRow = Prisma.InitiativeUpdateGetPayload<{
+  select: typeof INITIATIVE_UPDATE_SELECT
+}>
+
 export const initiativeRepository = {
+  /** Id + team of the initiative with this team-scoped number, or null (LUM-821). */
+  async findRefByTeamNumber(
+    teamId: string,
+    number: number
+  ): Promise<{ id: string; teamId: string } | null> {
+    return prisma.initiative.findUnique({
+      where: { teamId_number: { teamId, number } },
+      select: { id: true, teamId: true },
+    })
+  },
+
+  /** Id + team by primary key, or null — the service checks the team. */
+  async findRefById(
+    id: string
+  ): Promise<{ id: string; teamId: string } | null> {
+    return prisma.initiative.findUnique({
+      where: { id },
+      select: { id: true, teamId: true },
+    })
+  },
+
+  /** Patch scalar fields; returns the list-card projection (LUM-821). */
+  async update(
+    id: string,
+    data: Prisma.InitiativeUpdateInput
+  ): Promise<InitiativeListRow> {
+    return prisma.initiative.update({
+      where: { id },
+      data,
+      select: INITIATIVE_LIST_SELECT,
+    })
+  },
+
+  /** Append a progress post (LUM-821). */
+  async createProgressUpdate(data: {
+    initiativeId: string
+    authorMemberId: string
+    body: string
+    health: 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' | null
+  }): Promise<InitiativeUpdateRow> {
+    return prisma.initiativeUpdate.create({
+      data,
+      select: INITIATIVE_UPDATE_SELECT,
+    })
+  },
+
+  /** An initiative's progress posts, newest first. */
+  async listProgressUpdates(
+    initiativeId: string,
+    take: number
+  ): Promise<InitiativeUpdateRow[]> {
+    return prisma.initiativeUpdate.findMany({
+      where: { initiativeId },
+      select: INITIATIVE_UPDATE_SELECT,
+      orderBy: { createdAt: 'desc' },
+      take,
+    })
+  },
+
   /**
    * The team's initiatives, newest first. Scoped by `teamId` so a caller never
    * sees another team's initiatives.
