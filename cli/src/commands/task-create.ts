@@ -3,6 +3,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveTagRefs } from '../lib/tag-resolver'
 import { resolveSprintId } from '../lib/resolve'
 import { sanitizeField } from '../lib/sanitize'
+import { localDayStart } from '../lib/local-day'
 import {
   formatNextSteps,
   nextStepsSilenced,
@@ -24,6 +25,10 @@ export interface CreateTaskOptions {
   sprint?: string
   reworkOf?: string
   newScope?: boolean
+  /** LUM-821: due day, YYYY-MM-DD in the local timezone. */
+  due?: string
+  /** LUM-821: parent task identifier (makes this a subtask). */
+  parent?: string
   /** Commander sets this to false for `--no-hints` (LUM-686). */
   hints?: boolean
 }
@@ -199,6 +204,18 @@ export async function taskCreate(
     return 1
   }
 
+  let dueDate: string | undefined
+  if (opts.due !== undefined) {
+    const iso = localDayStart(opts.due)
+    if (!iso) {
+      console.error(
+        `Error: --due expects a valid YYYY-MM-DD date, got "${opts.due}"`
+      )
+      return 1
+    }
+    dueDate = iso
+  }
+
   const creds = readCredentials()
   if (!creds) {
     console.error('Error: not logged in. Run `lumo auth login` first.')
@@ -249,6 +266,8 @@ export async function taskCreate(
   if (tagIds && tagIds.length > 0) body.tagIds = tagIds
   if (opts.reworkOf !== undefined) body.reworkOfRef = opts.reworkOf
   if (opts.newScope) body.newScope = true
+  if (dueDate !== undefined) body.dueDate = dueDate
+  if (opts.parent !== undefined) body.parentRef = opts.parent
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,

@@ -14,6 +14,8 @@ Use this when the user wants to file a new task from the terminal. Title is posi
 | `--project <ref>`        | string | Project name or slug. **Required when the workspace has more than one project.**    |
 | `--milestone <ref>`      | string | Milestone name (case-insensitive) within the resolved project. Omit for no binding. |
 | `--sprint <ref>`         | string | Sprint number or UUID to bind the task to on creation. Omit for no sprint binding.  |
+| `--due <date>`           | string | Due date `YYYY-MM-DD`, your local day (same convention as the web due-date picker). |
+| `--parent <id>`          | string | Parent task `LUM-N` in the same project — creates this as a subtask.                |
 | `--tag <name>`           | string | Attach a tag by name (repeatable). The name is resolved to an id server-side.       |
 | `--tag-id <cuid>`        | string | Attach a tag by cuid (repeatable). Combines with `--tag`.                           |
 
@@ -65,6 +67,8 @@ Pure flag-driven update. Provide at least one of:
 | `-a, --assignee <ref>`   | string              | `me`, an email, or a member name. `--assignee ""` clears the field.                                                                                                                                                                                                   |
 | `--milestone <ref>`      | string              | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds.                                                                                                                                                                                |
 | `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                         |
+| `--due <date>`           | string              | Due date `YYYY-MM-DD` (your local day). `--due ""` clears it.                                                                                                                                                                                                         |
+| `--parent <id>`          | string              | Parent task `LUM-N` (same project) — makes this a subtask. A self, cross-project or circular parent is refused (400). `--parent ""` detaches it.                                                                                                                      |
 | `--claimable`            | boolean             | LUM-646: mark the task agent-claimable (fail-closed default is false). Surfaces the task in `lumo next --claimable`. Mutually exclusive with `--not-claimable`.                                                                                                       |
 | `--not-claimable`        | boolean             | LUM-646: mark the task NOT agent-claimable. Mutually exclusive with `--claimable`.                                                                                                                                                                                    |
 | `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                         |
@@ -305,7 +309,7 @@ When to suggest: the user asks "what should I work on", "what's next", "recommen
 
 ### `lumo task show <identifier>` — print one task's detail
 
-Returns a key:value block for a single task — title, status, priority, project, assignee (with display name from Clerk), URL, and the full description below. Lighter than `task context` because it does not load prior session summaries or memory.
+Returns a key:value block for a single task — title, status, priority, project, assignee (with display name from Clerk), due date and parent when set, URL, a `Subtasks (N):` list when it has children, and the full description below. Lighter than `task context` because it does not load prior session summaries or memory.
 
 ```bash
 lumo task show LUM-42
@@ -322,6 +326,21 @@ lumo task comment LUM-42 "Reproduced the redirect bug on staging — Safari only
 ```
 
 The CLI does not support @-mention chip syntax. If the user wants to ping someone, they should comment from the web UI.
+
+**Replying (LUM-821).** `lumo task comments list` prints every comment with a short id (`#cmaaaaaa · <author> · <time>`). `--reply-to <comment>` takes that id — any unique prefix of 6+ characters. Threads are one level deep: replying to a reply is refused, naming the top-level comment to reply to instead.
+
+```bash
+lumo task comment LUM-42 "Fixed in the latest push" --reply-to cmaaaaaa
+```
+
+### `lumo task comments edit <identifier> <comment> <body>` / `lumo task comments rm <identifier> <comment>`
+
+Edit or delete **your own** comment (anyone else's → 403). `<comment>` is the short id from `task comments list`. `rm` is a soft delete that also hides the replies under a top-level comment; without `--confirm` it exits 4 with an envelope quoting the comment and deletes nothing — relay it and let the user approve.
+
+```bash
+lumo task comments edit LUM-42 cmaaaaaa "Reproduced on Safari 18 only"
+lumo task comments rm LUM-42 cmaaaaaa
+```
 
 ---
 

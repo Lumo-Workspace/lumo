@@ -28,6 +28,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `pr scan <number>` — one PR's security scans by number (layers, findings, hunt detail)  | [references/pr-scan.md](references/pr-scan.md)                 |
 | `task create/update/list/search/statuses/show/comment`, `next`                          | [references/tasks.md](references/tasks.md)                     |
 | `member list` — workspace directory (the refs `--assignee` accepts)                     | [references/members.md](references/members.md)                 |
+| `tag list/create` — workspace tags                                                      | [references/tags.md](references/tags.md)                       |
 | `task deps add/list/confirm/dismiss/rm` (dependency edges)                              | [references/task-deps.md](references/task-deps.md)             |
 | `idea*` — capture pool, lifecycle, evidence, comments                                   | [references/ideas.md](references/ideas.md)                     |
 | `plan`, `plan status` — the idea→plan converter run                                     | [references/plan-runs.md](references/plan-runs.md)             |
@@ -74,17 +75,19 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Tasks — see [tasks.md](references/tasks.md)
 
 - `lumo task create <title> [flags]` — create a task. **Mid-task** (your session is bound to an in-flight task) it requires `--rework-of <id>` (redirects you to fix the existing task — creates nothing) or `--new-scope` (genuinely new, out-of-scope work). On a send-back, fix in place / amend the contract instead of spinning off a new task — see [verify.md](references/verify.md) and [criteria.md](references/criteria.md).
-- `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags; `--claimable`/`--not-claimable` set the agent-claimable marker (LUM-646). `--status done` without `--confirm` exits 4 with a confirmation envelope (see [confirmation.md](references/confirmation.md))
+- `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags/due/parent; `--claimable`/`--not-claimable` set the agent-claimable marker (LUM-646). `--status done` without `--confirm` exits 4 with a confirmation envelope (see [confirmation.md](references/confirmation.md))
 - `lumo task list [flags]` — list tasks assigned to you
 - `lumo task search [query] [flags]` — search the whole workspace (any assignee; `--assignee none`, `--tag`, `--status`, `--priority`, `--sprint`, `--due-before/--due-after`); query terms are ANDed substrings of title/description
 - `lumo task statuses` — status set + allowed transitions + priorities, as the server defines them
 - `lumo next [--count N] [--claimable]` — recommend the next task to work on (read-only). `--claimable` restricts to the autonomy boundary: only tasks that are claimable ∩ unblocked (F3 topology) ∩ within milestone budget (F2); old server degrades gracefully to the standard ranking (LUM-646)
 - `lumo task show <id>` — print one task's detail
-- `lumo task comment <id> <body>` — leave a comment
+- `lumo task comment <id> <body> [--reply-to <comment>]` — leave a comment or a reply (`#id` from `comments list`)
+- `lumo task comments edit <id> <comment> <body>` / `comments rm <id> <comment>` — edit / delete your own comment (`rm` exits 4 without `--confirm`)
 
-### Members — see [members.md](references/members.md)
+### Members & tags — see [members.md](references/members.md), [tags.md](references/tags.md)
 
 - `lumo member list [--json]` — members (name, email, role) + agent actors
+- `lumo tag list` / `lumo tag create <name> [--color <hex>]` — workspace tags with usage counts
 
 ### Ideas (team-level capture pool) — see [ideas.md](references/ideas.md)
 

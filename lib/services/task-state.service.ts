@@ -289,6 +289,13 @@ export async function updateTask(
   const changedFields = Object.keys(data).filter(k => {
     const before = (task as Record<string, unknown>)[k]
     const after = (data as Record<string, unknown>)[k]
+    // dueDate arrives as an ISO string but is stored as a Date — compare by
+    // instant, or every re-save of the same day logs DUE_DATE_CHANGED.
+    if (before instanceof Date || after instanceof Date) {
+      const t = (v: unknown) =>
+        v == null ? null : new Date(v as string | Date).getTime()
+      return t(before) !== t(after)
+    }
     return before !== after
   })
 

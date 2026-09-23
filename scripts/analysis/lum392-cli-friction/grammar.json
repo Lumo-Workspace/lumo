@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.70.0",
+  "cliVersion": "1.71.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -2728,6 +2728,45 @@
       "isInvokable": true,
       "description": "Update a sprint. Provide at least one of --name, --start, --end. Identifier accepts a sprint number or UUID. Empty strings are rejected — these fields cannot be cleared."
     },
+    "tag": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Workspace tags (labels) from the terminal"
+    },
+    "tag create": {
+      "arguments": [{ "name": "name", "required": true, "variadic": false }],
+      "flags": {
+        "--color": {
+          "long": "--color",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Tag color as #rrggbb"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Create a tag (≤30 chars). A duplicate name is refused (409). To tag a task, use `task update --add-tag`."
+    },
+    "tag list": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the tags as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List workspace tags with their color and how many tasks / docs carry each."
+    },
     "task": {
       "arguments": [],
       "flags": {},
@@ -2896,7 +2935,16 @@
         { "name": "identifier", "required": true, "variadic": false },
         { "name": "body", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--reply-to": {
+          "long": "--reply-to",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Reply to a top-level comment: its #id from `task comments list` (unique prefix of 6+ chars)"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Add a comment to a task. Body is plain text — quote it to pass spaces or newlines."
@@ -2906,7 +2954,18 @@
       "flags": {},
       "hasSubcommands": true,
       "isInvokable": false,
-      "description": "Inspect the full task comment thread"
+      "description": "Read and manage the task comment thread"
+    },
+    "task comments edit": {
+      "arguments": [
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "comment", "required": true, "variadic": false },
+        { "name": "body", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Replace the text of one of your own comments. <comment> is its #id from `task comments list` (unique prefix of 6+ chars)."
     },
     "task comments list": {
       "arguments": [
@@ -2925,6 +2984,25 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "List the task comment thread (capped to the output budget; --full prints every comment)"
+    },
+    "task comments rm": {
+      "arguments": [
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "comment", "required": true, "variadic": false }
+      ],
+      "flags": {
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has approved the deletion shown in the confirmation envelope. Without it the command exits 4 and deletes nothing."
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Delete one of your own comments (soft delete; replies under it are hidden too). Without --confirm: exit 4 + a confirmation envelope quoting the comment."
     },
     "task context": {
       "arguments": [
@@ -2954,6 +3032,14 @@
           "enumCaseInsensitive": false,
           "description": "Task description"
         },
+        "--due": {
+          "long": "--due",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Due date, YYYY-MM-DD (your local day)"
+        },
         "--milestone": {
           "long": "--milestone",
           "short": null,
@@ -2969,6 +3055,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Declare this is genuinely new work, outside your current task’s scope"
+        },
+        "--parent": {
+          "long": "--parent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Parent task (LUM-N, same project) — creates this as a subtask"
         },
         "--priority": {
           "long": "--priority",
@@ -4023,6 +4117,14 @@
           "enumCaseInsensitive": false,
           "description": "New description (empty string to clear)"
         },
+        "--due": {
+          "long": "--due",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Due date, YYYY-MM-DD (your local day); empty string to clear"
+        },
         "--milestone": {
           "long": "--milestone",
           "short": null,
@@ -4038,6 +4140,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Mark the task NOT agent-claimable (mutually exclusive with --claimable)"
+        },
+        "--parent": {
+          "long": "--parent",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Parent task (LUM-N, same project); empty string to detach from its parent"
         },
         "--priority": {
           "long": "--priority",
