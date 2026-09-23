@@ -59,10 +59,16 @@ describe('buildTextMatchSql', () => {
     expect(FUZZY_STRICT).toBe(0.4)
   })
 
+  it('the matched title word is never under 4 letters (prod: `form` matched every "for")', () => {
+    const q = buildTextMatchSql('ws1', ['form'], 500)
+    expect(q.text).toMatch(/GREATEST\(length\(\$\d+\) - 1, \$\d+\)/)
+    expect(q.values).toContain(4)
+  })
+
   it('a fuzzy hit needs a title word at most one char shorter than the term (prod: `probe` matched "V4-Pro")', () => {
     const q = buildTextMatchSql('ws1', ['probe'], 500)
     expect(q.text).toContain('regexp_split_to_table(lower(t."title")')
-    expect(q.text).toContain('length(w) >= length($')
+    expect(q.text).toContain('length(w) >= GREATEST(length($')
     expect(q.text).toContain('similarity($')
   })
 
