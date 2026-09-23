@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 
 import styles from './home.module.css'
 
-type Verdict = 'yes' | 'partial' | 'addon' | 'no' | 'undocumented'
+type Verdict = 'yes' | 'partial' | 'addon' | 'no'
 
 interface CompetitorCell {
   verdict: Verdict
@@ -46,7 +46,6 @@ const VERDICT_LABEL: Record<Verdict, string> = {
   partial: 'Partly',
   addon: 'Add-on',
   no: 'No',
-  undocumented: 'Not in docs',
 }
 
 // The table only compares the two things Lumo is for: QA (did the agent's
@@ -59,8 +58,10 @@ const VERDICT_LABEL: Record<Verdict, string> = {
 // vendor ships something adjacent (Rovo Dev's AI review, Xray/Zephyr on the
 // Marketplace), the cell says "Partly" or "Add-on" and names it rather than
 // rounding it down to "No" — the table is only worth publishing if a Jira
-// user would agree with their own column. "Not in docs" means we looked and
-// found nothing, which is weaker than "No" and is labelled as such.
+// user would agree with their own column. "No" means the vendor's own docs
+// describe no such feature as of the check date (product call, LUM-827: a
+// feature a vendor doesn't document is one its buyers can't rely on); the
+// footnote says so, and the source link shows which page was checked.
 //
 // Lumo cells are held to what the code does: test tampering, deleted tests
 // and weakened criteria are BoundaryCrossingCategory values
@@ -92,7 +93,7 @@ export const COMPARE_GROUPS: CompareGroup[] = [
             'https://support.atlassian.com/rovo/docs/check-acceptance-criteria-in-a-code-review/',
         },
         asana: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'No executable acceptance criteria in its product docs.',
           source: 'https://asana.com/product/command',
         },
@@ -126,18 +127,18 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Editing a checked test, deleting a test or weakening a criterion is flagged on the task.',
         },
         linear: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'Nothing on checking agent work against its tests.',
           source:
             'https://linear.app/changelog/2026-03-24-introducing-linear-agent',
         },
         jira: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'Rovo Dev review doesn’t describe tamper detection.',
           source: 'https://www.atlassian.com/software/rovo-dev/code-review',
         },
         asana: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'Nothing on tests in Command.',
           source: 'https://asana.com/product/command',
         },
@@ -201,17 +202,17 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'After AI review, an agent works the diff for an exploit path you could actually hit.',
         },
         linear: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'No security review in Diffs.',
           source: 'https://linear.app/docs/diffs',
         },
         jira: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'Rovo Dev reviews and drafts fixes; no exploit hunting.',
           source: 'https://www.atlassian.com/software/rovo-dev/code-review',
         },
         asana: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'Not described for Command or AI Teammates.',
           source: 'https://asana.com/product/command',
         },
@@ -223,18 +224,18 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'A blocking finding keeps the task out of Done until someone marks it false positive or accepted risk.',
         },
         linear: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'No security findings to gate on.',
           source: 'https://linear.app/docs/diffs',
         },
         jira: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'Findings can be linked and prioritized; no Done gate described.',
           source:
             'https://support.atlassian.com/jira-software-cloud/docs/manage-security-vulnerabilities-in-jira/',
         },
         asana: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'No security findings to gate on.',
           source: 'https://asana.com/apps/github',
         },
@@ -257,7 +258,7 @@ export const COMPARE_GROUPS: CompareGroup[] = [
             'https://www.atlassian.com/software/jira/guides/agentic-engineering/guardrails-and-safety',
         },
         asana: {
-          verdict: 'undocumented',
+          verdict: 'no',
           note: 'AI actions are logged; no rule-break detection described.',
           source: 'https://asana.com/product/ai/ai-teammates',
         },
@@ -270,8 +271,7 @@ export const COMPARE_ROWS: CompareRow[] = COMPARE_GROUPS.flatMap(g => g.rows)
 
 function verdictClass(verdict: Verdict): string | undefined {
   if (verdict === 'yes') return `${styles.compareVerdict} ${styles.compareYes}`
-  if (verdict === 'no' || verdict === 'undocumented')
-    return `${styles.compareVerdict} ${styles.compareNo}`
+  if (verdict === 'no') return `${styles.compareVerdict} ${styles.compareNo}`
   return styles.compareVerdict
 }
 
@@ -375,10 +375,10 @@ export function Compare() {
         <p className={styles.compareFootnote}>
           Checked against each vendor&apos;s own docs, integration and
           marketplace pages on September 23, 2026 — every cell links to the page
-          it came from. &ldquo;Not in docs&rdquo; means we looked and found
-          nothing, not that the feature can&apos;t exist; &ldquo;Add-on&rdquo;
-          means a separate third-party app. These products ship fast; if a cell
-          is out of date, the source link is the tiebreaker.
+          it came from. &ldquo;No&rdquo; means the vendor&apos;s own docs
+          describe no such feature; &ldquo;Add-on&rdquo; means a separate
+          third-party app. These products ship fast; if a cell is out of date,
+          the source link is the tiebreaker.
         </p>
       </div>
     </section>
