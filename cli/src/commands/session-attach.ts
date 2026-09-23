@@ -4,6 +4,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { autoDownsyncOnAttach } from '../lib/memory-auto'
+import { attachWorktreeStep } from '../lib/worktree-attach'
 
 /** Successful bind. `status` is absent on older servers — treat absent as
  *  bound for backward compatibility. */
@@ -58,7 +59,7 @@ interface StewardBoundResponse {
  */
 export async function sessionAttach(
   identifier: string | undefined,
-  options?: { steward?: boolean; hints?: boolean }
+  options?: { steward?: boolean; hints?: boolean; worktree?: boolean }
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
@@ -241,6 +242,14 @@ export async function sessionAttach(
   } catch {
     // best-effort — the bind already succeeded; never surface a sync error here
   }
+
+  // LUM-825: local worktree step — report / hint / opt-in create. Purely
+  // best-effort: it prints, never throws, never changes the exit code.
+  attachWorktreeStep({
+    taskId: body.taskIdentifier,
+    taskTitle: body.taskTitle,
+    create: options?.worktree,
+  })
 
   // Last, after the contract/memory/sync sections — the block reads as the
   // closing "so do this now" line rather than interrupting them (LUM-686).

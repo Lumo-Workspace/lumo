@@ -781,9 +781,20 @@ session
     '--steward',
     'Bind as a STEWARD (governance) session to a milestone (id, name, or slug) instead of a task. Steward sessions plan and accept only: lumo verify is refused (409, no round burned), self-dispatch to in_progress is refused, and implementation commits/PRs are recorded as boundary crossings.'
   )
+  .option(
+    '--worktree',
+    "Create this task's worktree under .worktrees/ when none exists (LUM-825; only from the main checkout; failures never fail attach). Default: .lumo/worktree.json autoWorktree, else off."
+  )
+  .option(
+    '--no-worktree',
+    'Do not create a worktree even when .lumo/worktree.json sets autoWorktree'
+  )
   .action(
     wrap((identifier, options) =>
-      sessionAttach(identifier as string, options as { steward?: boolean })
+      sessionAttach(
+        identifier as string,
+        options as { steward?: boolean; worktree?: boolean }
+      )
     )
   )
 

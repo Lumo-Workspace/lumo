@@ -31,7 +31,7 @@ beforeEach(() => {
 })
 afterEach(() => sb.cleanup())
 
-describe('worktree add (real git)', () => {
+describe('worktree add real git', () => {
   it('bases the branch on the remote default branch when it is not main', async () => {
     // Move the remote ahead so "branched off the fetched origin/master" is
     // observable: the worktree must start at the new remote tip.
