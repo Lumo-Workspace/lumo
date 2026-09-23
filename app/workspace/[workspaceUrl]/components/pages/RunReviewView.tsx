@@ -183,7 +183,7 @@ function ReviewItem({
 
       <div className='flex flex-wrap items-center gap-2 pt-1'>
         <input
-          className='min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm'
+          className='min-w-0 basis-full rounded-md border border-border bg-background px-2 py-1 text-sm sm:basis-0 sm:flex-1'
           value={note}
           onChange={e => setNote(e.target.value)}
           placeholder={intl.formatMessage({
