@@ -15,6 +15,7 @@ export default async function RunReviewsPage({
 
   const workspace = await prisma.workspace.findFirst({
     where: { slug: workspaceUrl, members: { some: { clerkId: userId } } },
+    select: { id: true },
   })
 
   if (!workspace) redirect('/onboarding')

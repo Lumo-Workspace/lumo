@@ -165,7 +165,7 @@ function ReviewItem({
             env: intl.formatMessage({
               id: `testCases.env.${item.environment}`,
             }),
-            date: intl.formatDate(new Date(item.recordedAt), {
+            date: intl.formatDate(item.recordedAt, {
               dateStyle: 'medium',
             }),
           }
