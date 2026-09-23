@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.74.0",
+  "cliVersion": "1.74.1",
   "commands": {
     "auth": {
       "arguments": [],
@@ -4503,6 +4503,14 @@
           "enumCaseInsensitive": false,
           "description": "Branch off this ref instead of the remote default branch (skips fetch)"
         },
+        "--confirm": {
+          "long": "--confirm",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "The user has seen and approved the verifyCommand shown in the confirmation envelope (LUM-755). Only meaningful with --verify."
+        },
         "--no-fetch": {
           "long": "--no-fetch",
           "short": null,
@@ -4517,7 +4525,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Run verifyCommand from .lumo/worktree.json in the new worktree to confirm a clean baseline"
+          "description": "Run verifyCommand from .lumo/worktree.json in the new worktree to confirm a clean baseline. Without --confirm, exits 4 showing the exact command and creates nothing."
         }
       },
       "hasSubcommands": false,

@@ -34,13 +34,13 @@ malformed file only prints warnings, it never blocks a command. `linkPaths` /
 path, a `..` segment, or one that resolves outside the checkout through a
 symlink is skipped with a warning.
 
-| Key             | Default when absent                                                   | Notes                                                          |
-| --------------- | --------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `linkPaths`     | `["node_modules"]` if the main checkout has one, else `[]`            | Symlinked from the main checkout. `[]` turns the link off.     |
-| `copyPaths`     | the husky shim (`.husky/_`) if `core.hooksPath` points into `.husky/` | Copied (not linked). Plain `.git/hooks` are shared anyway.     |
-| `verifyCommand` | none — `add --verify` warns and skips                                 | Shell command run inside the new worktree.                     |
-| `notes`         | none                                                                  | Repo gotchas printed after `add`.                              |
-| `autoWorktree`  | `false`                                                               | `session attach` creates the task's worktree when none exists. |
+| Key             | Default when absent                                                   | Notes                                                                                         |
+| --------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `linkPaths`     | `["node_modules"]` if the main checkout has one, else `[]`            | Symlinked from the main checkout. `[]` turns the link off.                                    |
+| `copyPaths`     | the husky shim (`.husky/_`) if `core.hooksPath` points into `.husky/` | Copied (not linked). Plain `.git/hooks` are shared anyway.                                    |
+| `verifyCommand` | none — `add --verify` warns and skips                                 | Shell command run inside the new worktree — only after the user approves it (see `--verify`). |
+| `notes`         | none                                                                  | Repo gotchas printed after `add`.                                                             |
+| `autoWorktree`  | `false`                                                               | `session attach` creates the task's worktree when none exists.                                |
 
 This repo's own file links `node_modules`, copies `.husky/_`, verifies with
 `npx jest`, sets `autoWorktree: true`, and carries the prisma / jest / npm
@@ -60,14 +60,18 @@ lumo worktree add LUM-267 worktree-scaffold   # → .worktrees/LUM-267-worktree-
 lumo worktree add LUM-267                      # → .worktrees/LUM-267
 lumo worktree add LUM-267 --base develop       # branch off a local ref, skip fetch
 lumo worktree add LUM-267 --no-fetch           # branch off the existing origin/<default>
-lumo worktree add LUM-267 --verify             # run verifyCommand after setup
+lumo worktree add LUM-267 --verify             # exit 4: envelope shows verifyCommand, creates nothing
+lumo worktree add LUM-267 --verify --confirm   # after the user approved: create, then run it
 ```
 
-| Flag           | Notes                                                                       |
-| -------------- | --------------------------------------------------------------------------- |
-| `--base <ref>` | Branch off this ref instead of the remote default branch (skips the fetch). |
-| `--no-fetch`   | Skip the fetch; branch off the existing `origin/<default>`.                 |
-| `--verify`     | Run `verifyCommand` from `.lumo/worktree.json` in the new worktree.         |
+| Flag           | Notes                                                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--base <ref>` | Branch off this ref instead of the remote default branch (skips the fetch).                                                                                               |
+| `--no-fetch`   | Skip the fetch; branch off the existing `origin/<default>`.                                                                                                               |
+| `--verify`     | Run `verifyCommand` from `.lumo/worktree.json` in the new worktree. Gated: without `--confirm` it exits 4 with an envelope showing the exact command and creates nothing. |
+| `--confirm`    | The user approved that command. Only meaningful with `--verify`.                                                                                                          |
+
+`verifyCommand` comes from a committed file, so it is never run on `--verify` alone: relay the envelope (it prints the command verbatim) and run `confirmCommand` only after the user says they trust it — never add `--confirm` yourself. A command containing control characters (which could display differently from what runs) is refused with exit 1 even with `--confirm`. Without a `verifyCommand`, `--verify` just warns — no envelope.
 
 Default-branch detection: `origin/HEAD` → (online) `git remote set-head origin --auto` → a local `origin/main` / `origin/master`. If none answers it exits 1 asking for `--base`. Errors if the target dir already exists; reuses the branch if it already exists (adds the worktree without `-b`).
 
