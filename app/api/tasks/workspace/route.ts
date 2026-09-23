@@ -28,6 +28,11 @@ export async function GET(request: NextRequest) {
       priorities: parseList(searchParams, 'priorities'),
       assigneeActorIds: parseList(searchParams, 'assigneeActorIds'),
       tagIds: parseList(searchParams, 'tagIds'),
+      sprintIds: parseList(searchParams, 'sprintIds'),
+      unassigned: searchParams.get('unassigned') === '1' ? true : undefined,
+      q: searchParams.get('q') ?? undefined,
+      dueAfter: searchParams.get('dueAfter') ?? undefined,
+      dueBefore: searchParams.get('dueBefore') ?? undefined,
     })
     if (!parsed.success) return zodError(parsed)
 

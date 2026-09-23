@@ -672,7 +672,15 @@ export const workspaceTaskFiltersSchema = z.object({
     .optional(),
   priorities: z.array(z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])).optional(),
   assigneeActorIds: z.array(z.string()).optional(),
+  unassigned: z.boolean().optional(),
   tagIds: z.array(z.string()).optional(),
+  sprintIds: z.array(z.string()).optional(),
+  q: z.string().trim().min(1).max(200).optional(),
+  // Instant window [dueAfter, dueBefore). Due dates are stored as the
+  // author's local midnight, so the caller (who knows its timezone) turns
+  // calendar days into instants — the server never guesses a zone.
+  dueAfter: z.coerce.date().optional(),
+  dueBefore: z.coerce.date().optional(),
 })
 
 // ─── Task Dependencies ─────────────────────────────────────────────────────

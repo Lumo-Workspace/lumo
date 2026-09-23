@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
     const client = await clerkClient()
     const clerkUsers = await client.users.getUserList({
       userId: members.map(m => m.clerkId),
-      limit: 100,
+      // Clerk caps getUserList at 500; the old fixed 100 silently dropped
+      // members past the first page in larger workspaces.
+      limit: Math.min(500, Math.max(1, members.length)),
     })
 
     const userMap = new Map(clerkUsers.data.map(u => [u.id, u]))
@@ -38,15 +40,19 @@ export async function GET(request: NextRequest) {
 
     const enrichedMembers = members.map(m => {
       const u = userMap.get(m.clerkId)
+      const email =
+        u?.emailAddresses.find(e => e.id === u.primaryEmailAddressId)
+          ?.emailAddress ??
+        u?.emailAddresses[0]?.emailAddress ??
+        null
       return {
         id: m.id, // WorkspaceMember.id
         clerkId: m.clerkId,
         role: m.role,
         name: u
-          ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() ||
-            u.emailAddresses[0]?.emailAddress
+          ? `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || email
           : m.clerkId,
-        email: u?.emailAddresses[0]?.emailAddress ?? null,
+        email,
         imageUrl: u?.imageUrl ?? null,
         joinedAt: m.joinedAt.toISOString(),
         actorId: m.actor?.id ?? null,

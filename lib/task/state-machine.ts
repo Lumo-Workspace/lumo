@@ -18,6 +18,32 @@ const TRANSITIONS: Record<TaskStatusValue, TaskStatusValue[]> = {
   DONE: ['TODO', 'IN_PROGRESS', 'IN_REVIEW'],
 }
 
+// ── Catalog ─────────────────────────────────────────────────────────────────
+
+const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
+
+export interface TaskWorkflowCatalog {
+  statuses: Array<{ value: TaskStatusValue; transitionsTo: TaskStatusValue[] }>
+  priorities: readonly string[]
+  /** Statuses whose entry is gated by a human confirmation / DONE gate. */
+  gatedStatuses: TaskStatusValue[]
+}
+
+/**
+ * The status set + transition matrix as data, so clients (CLI `task statuses`,
+ * agents) read the server's truth instead of hardcoding it.
+ */
+export function taskWorkflowCatalog(): TaskWorkflowCatalog {
+  return {
+    statuses: (Object.keys(TRANSITIONS) as TaskStatusValue[]).map(value => ({
+      value,
+      transitionsTo: [...TRANSITIONS[value]],
+    })),
+    priorities: PRIORITIES,
+    gatedStatuses: ['DONE'],
+  }
+}
+
 // ── Validation ──────────────────────────────────────────────────────────────
 
 export function isValidTaskTransition(
