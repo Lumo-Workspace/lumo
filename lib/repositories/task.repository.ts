@@ -58,6 +58,15 @@ export const FUZZY_MIN_TERM_LENGTH = 4
  * "for" (0.5), since 3 ≥ 4 − 1 passed the one-shorter rule.
  */
 export const FUZZY_STRICT = 0.4
+/**
+ * Trigram cut-off used by the fallback tiers, i.e. only after the exact tier
+ * matched nothing (see rankTextMatches). Tuned on the 760 production task
+ * titles with 235 synthetic typos of the 60 most common words (LUM-821):
+ * 0.35 gives 87% recall / 71 noise rows vs 0.40's 80% / 155 (at 0.40 some
+ * dropped-letter typos miss the trigram tier and fall through to the noisier
+ * swap tier); 0.30 is 91% / 383, 0.25 94% / 1012.
+ */
+export const FUZZY_FALLBACK_SIMILARITY = 0.35
 
 const TASK_NUMBER_TERM = /^(?:[A-Za-z][A-Za-z0-9]*-)?(\d+)$/
 
@@ -106,8 +115,20 @@ export function buildTextMatchSql(
   workspaceId: string,
   terms: string[],
   limit: number,
-  opts: { transpositions?: boolean } = {}
+  opts: {
+    /**
+     * Which fallback tier to build (LUM-821): `exact` = substring + number
+     * only; `fuzzy` adds trigram typo matching; `swap` adds adjacent-letter
+     * swaps on top. rankTextMatches only reaches a tier when the previous
+     * one matched nothing. Defaults to `fuzzy` for direct callers/tests.
+     */
+    tier?: 'exact' | 'fuzzy' | 'swap'
+    /** Trigram cut-off for the fuzzy/swap tiers (default FUZZY_STRICT). */
+    similarity?: number
+  } = {}
 ): PrismaSql.Sql {
+  const tier = opts.tier ?? 'fuzzy'
+  const cutoff = opts.similarity ?? FUZZY_STRICT
   const conds: PrismaSql.Sql[] = []
   const scores: PrismaSql.Sql[] = []
   for (const term of terms) {
@@ -115,7 +136,7 @@ export function buildTextMatchSql(
     const num = TASK_NUMBER_TERM.exec(term)
     // Identifier / number terms (`42`, `LUM-821`) match exactly: fuzzily,
     // `LUM-821` scores 0.5 against every title quoting another `LUM-71`.
-    const fuzzy = isTypoEligible(term)
+    const fuzzy = tier !== 'exact' && isTypoEligible(term)
     const alts: PrismaSql.Sql[] = [
       PrismaSql.sql`t."title" ILIKE ${pat}`,
       PrismaSql.sql`t."description" ILIKE ${pat}`,
@@ -131,13 +152,13 @@ export function buildTextMatchSql(
       // a letter, not a syllable. Without it `probe` matched "V4-Pro" (0.43).
       // The word must also be ≥ FUZZY_MIN_TERM_LENGTH: 3-letter words are as
       // noisy on the title side as on the query side (`form` → "for", 0.5).
-      const hit = PrismaSql.sql`(${term} <<% t."title" AND EXISTS (SELECT 1 FROM regexp_split_to_table(lower(t."title"), '[^[:alnum:]]+') w WHERE length(w) >= GREATEST(length(${term}) - 1, ${FUZZY_MIN_TERM_LENGTH}) AND similarity(${term}, w) >= ${FUZZY_STRICT}))`
+      const hit = PrismaSql.sql`(${term} <<% t."title" AND EXISTS (SELECT 1 FROM regexp_split_to_table(lower(t."title"), '[^[:alnum:]]+') w WHERE length(w) >= GREATEST(length(${term}) - 1, ${FUZZY_MIN_TERM_LENGTH}) AND similarity(${term}, w) >= ${cutoff}))`
       alts.push(hit)
       parts.push(
         PrismaSql.sql`CASE WHEN ${hit} THEN strict_word_similarity(${term}, t."title") * 0.9 ELSE 0 END`
       )
     }
-    if (fuzzy && opts.transpositions) {
+    if (fuzzy && tier === 'swap') {
       // Fallback pass only (see rankTextMatches): the title contains the term
       // with one adjacent pair swapped — `oauht` finds "OAuth", a case trigram
       // similarity cannot separate from shared-prefix noise. Scored below a
@@ -917,23 +938,38 @@ export const taskRepository = {
     workspaceId: string,
     terms: string[]
   ): Promise<Array<{ id: string; score: number }>> {
-    const run = async (transpositions: boolean) => {
+    type Row = { id: string; score: number }
+    // Tiered fallback (LUM-821). A production sweep of the 200 most common
+    // title words showed every fuzzy false positive had the same shape: a
+    // CORRECT word that already had exact hits got widened into a similar
+    // real word (content→context ×26, active→action, lineage→linear…). No
+    // trigram threshold separates those. So typo tolerance only runs when the
+    // query matches nothing exactly — and the swap tier only when the trigram
+    // tier matches nothing too.
+    const exact = await prisma.$queryRaw<Row[]>(
+      buildTextMatchSql(workspaceId, terms, WORKSPACE_TASK_QUERY_LIMIT, {
+        tier: 'exact',
+      })
+    )
+    if (exact.length > 0 || !terms.some(isTypoEligible)) return exact
+    // The `<<%` operator reads its cut-off from a GUC, so it is set
+    // transaction-locally in the same batch — never leaking on a pooled
+    // connection.
+    const run = async (tier: 'fuzzy' | 'swap') => {
       const [, rows] = await prisma.$transaction([
-        prisma.$queryRaw`SELECT set_config('pg_trgm.strict_word_similarity_threshold', ${String(FUZZY_STRICT)}, true)`,
-        prisma.$queryRaw<Array<{ id: string; score: number }>>(
+        prisma.$queryRaw`SELECT set_config('pg_trgm.strict_word_similarity_threshold', ${String(FUZZY_FALLBACK_SIMILARITY)}, true)`,
+        prisma.$queryRaw<Row[]>(
           buildTextMatchSql(workspaceId, terms, WORKSPACE_TASK_QUERY_LIMIT, {
-            transpositions,
+            tier,
+            similarity: FUZZY_FALLBACK_SIMILARITY,
           })
         ),
       ])
       return rows
     }
-    const rows = await run(false)
-    // Adjacent-swap matching is a fallback: only when nothing matched at all.
-    // Correct words whose swap is another word (`form`/`from`,
-    // `trial`/`trail`) would otherwise pull in unrelated titles.
-    if (rows.length > 0 || !terms.some(isTypoEligible)) return rows
-    return run(true)
+    const fuzzy = await run('fuzzy')
+    if (fuzzy.length > 0) return fuzzy
+    return run('swap')
   },
 
   /** Find tasks under a milestone, optionally filtered by assignee.
