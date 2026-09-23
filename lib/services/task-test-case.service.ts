@@ -203,6 +203,41 @@ async function assertCriterionOnTask(
 }
 
 /**
+ * LUM-815 follow-up: 用例声明覆盖的那条标准，**连同它还在不在当前合同里**。
+ *
+ * 为什么需要 `removed`：一条有 verification run 的 criterion 被移出合同时是
+ * **软删**（墓碑留着，裁定链不能断），用例的引用于是照旧指向它。那不是脏
+ * 数据，是历史——但如果读出来只有一个裸 id，读的人会拿它去 `criteria list`
+ * 里找，然后找不到。所以这里把「它已经不在合同里了」一并读出来。
+ *
+ * 硬删（run-free 的 criterion）走的是另一条路：DB 的 `ON DELETE SET NULL`
+ * 会把引用置空，所以这里直接是 null——「没声明」与「声明的对象没了」在读出
+ * 面是同一种呈现，因为库里本来就分不出来了。
+ */
+export interface LinkedCriterion {
+  id: string
+  statement: string
+  /** true = 已不在当前合同里（软删墓碑）。 */
+  removed: boolean
+}
+
+async function resolveLinkedCriterion(
+  taskId: string,
+  criterionId: string | null
+): Promise<LinkedCriterion | null> {
+  if (!criterionId) return null
+  const all =
+    await acceptanceCriterionRepository.listByTaskIncludingDeleted(taskId)
+  const row = all.find(c => c.id === criterionId)
+  if (!row) return null
+  return {
+    id: row.id,
+    statement: row.statement,
+    removed: row.deletedAt !== null,
+  }
+}
+
+/**
  * LUM-801: 任务级 test case 的业务规则层。
  *
  * 注意这里**没有** updateRun / deleteRun —— run 是 append-only 事件日志，
@@ -228,15 +263,17 @@ export const taskTestCaseService = {
     testCase: TestCaseRow
     runs: TestCaseRunRow[]
     pullRequests: TaskPullRequestSnapshot[]
+    criterion: LinkedCriterion | null
   }> {
     const testCase = await testCaseRepository.findById(testCaseId)
     if (!testCase) fail('Test case not found', 404)
-    const [runs, pullRequests] = await Promise.all([
+    const [runs, pullRequests, criterion] = await Promise.all([
       testCaseRepository.listRuns(testCaseId),
       testCaseRepository.listTaskPullRequests(testCase.taskId),
+      resolveLinkedCriterion(testCase.taskId, testCase.criterionId),
     ])
     // 陈旧性在**读端**推导（deriveRunFreshness），不落列。
-    return { testCase, runs, pullRequests }
+    return { testCase, runs, pullRequests, criterion }
   },
 
   async create(

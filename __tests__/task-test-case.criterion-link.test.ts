@@ -34,6 +34,7 @@ jest.mock('@/lib/repositories/test-case.repository', () => ({
 jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
   acceptanceCriterionRepository: {
     listByTask: jest.fn(),
+    listByTaskIncludingDeleted: jest.fn(),
     update: jest.fn(),
     softDelete: jest.fn(),
     delete: jest.fn(),
@@ -141,6 +142,46 @@ describe('LUM-815 · 连线不牵连用例的生命周期', () => {
       expect.anything()
     )
     expect(repo.softDelete).not.toHaveBeenCalled()
+
+    // ── LUM-815 follow-up：软删那一半的后半句 ——「**读得出**该标准已变更」。
+    // 这条断言原本不在这里，于是这条 criterion 顶着一个 machine-verified 的
+    // 绿勾，而它句子里的这个子句从未实现、也从未被检查。补上之后，读出面必须
+    // 说出「它已经不在合同里了」，否则读的人只会拿到一个在 `criteria list` 里
+    // 查无此条的裸 id。
+    repo.listRuns.mockResolvedValue([])
+    criteriaRepo.listByTaskIncludingDeleted.mockResolvedValue([
+      {
+        id: CRITERION_ID,
+        taskId: 't-1',
+        statement: 'covered',
+        deletedAt: new Date('2026-09-23'),
+      },
+    ] as never)
+    const tombstoned = await taskTestCaseService.getDetail('tc-1')
+    expect(tombstoned.criterion).toEqual({
+      id: CRITERION_ID,
+      statement: 'covered',
+      removed: true,
+    })
+
+    // 还在合同里的标准不该被标成已变更。
+    criteriaRepo.listByTaskIncludingDeleted.mockResolvedValue([
+      {
+        id: CRITERION_ID,
+        taskId: 't-1',
+        statement: 'covered',
+        deletedAt: null,
+      },
+    ] as never)
+    expect((await taskTestCaseService.getDetail('tc-1')).criterion).toEqual({
+      id: CRITERION_ID,
+      statement: 'covered',
+      removed: false,
+    })
+
+    // 没声明覆盖时不查合同，也不编一个空壳对象出来。
+    repo.findById.mockResolvedValue({ ...testCase, criterionId: null })
+    expect((await taskTestCaseService.getDetail('tc-1')).criterion).toBeNull()
   })
 
   it('leaves the link unset when nobody declared one, and refuses a criterion from another task', async () => {
