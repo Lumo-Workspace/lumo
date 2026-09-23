@@ -295,15 +295,15 @@ export const COMPARE_GROUPS: CompareGroup[] = [
         },
       },
       {
-        capability: 'An agent can’t close its own task',
+        capability: 'Done needs a human to confirm',
         lumo: {
           verdict: 'yes',
-          note: 'A machine pass moves the task to review. A person closes it.',
+          note: 'A machine pass only reaches review; moving to Done stops for a person to confirm.',
         },
         linear: {
-          verdict: 'partial',
-          note: 'A delegated issue keeps a human owner; merging still auto-closes it.',
-          source: 'https://linear.app/docs/agents-in-linear',
+          verdict: 'no',
+          note: 'Merging the PR moves the issue to Done; no confirm step.',
+          source: 'https://linear.app/docs/github',
         },
         jira: {
           verdict: 'partial',
