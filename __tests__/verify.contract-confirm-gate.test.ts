@@ -185,7 +185,7 @@ describe('LUM-819 contract-confirmation gate', () => {
           evidencePointer: 'cmd:x#exit=0',
         },
       ],
-      { actorMemberId: 'm-1', actorClerkId: null, sourceSessionId: null },
+      { actorMemberId: 'm-1', actorClerkId: 'clerk-1', sourceSessionId: null },
       null
     )
     await expect(refused).rejects.toMatchObject({

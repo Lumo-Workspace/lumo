@@ -83,6 +83,7 @@ export type Page =
   | 'sprint-detail'
   | 'milestone-detail'
   | 'ideas'
+  | 'run-reviews'
   | 'initiatives'
   | 'initiative-detail'
 

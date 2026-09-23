@@ -1030,6 +1030,7 @@ model Task {
   testCases                  TestCase[]
   testCaseRuns               TestCaseRun[]
   testCaseRunDispositions    TestCaseRunDisposition[]
+  testCaseRunReviews         TestCaseRunReview[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -3844,6 +3845,7 @@ model TestCaseRun {
   createdAt DateTime @default(now())
 
   disposition TestCaseRunDisposition?
+  reviews     TestCaseRunReview[]
   testCase    TestCase                @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   task        Task                    @relation(fields: [taskId], references: [id], onDelete: Cascade)
   pullRequest PullRequest?            @relation(fields: [pullRequestId], references: [id], onDelete: SetNull)
@@ -3885,4 +3887,37 @@ model TestCaseRunDisposition {
 
   @@index([taskId])
   @@map("test_case_run_dispositions")
+}
+
+/// LUM-819 (D): 人对一条「报了 PASS、附了证据」的 run 的**抽查复核**。
+///
+/// 人的角色从「逐条批准」换成「抽样估虚报率」：看证据 → 认可 / 打回。
+/// **不是门闸**——从不拦 DONE；虚报率由读端推导，不落列。
+///
+/// **append-only，永不 update、永不 delete**（同 TestCaseRun）：改主意就再
+/// append 一条，读端按 createdAt 取每条 run 最新的那条。所以这里没有 runId
+/// 唯一约束——与 TestCaseRunDisposition（一条 run 至多一个可改判的裁定）不同。
+///
+/// 只认浏览器会话（Clerk）：复核是「某个人亲眼看过证据并裁定」，bearer 身份在
+/// 路由解析 body 之前就被 403（与 human-verdict 同一条信任边界）。
+model TestCaseRunReview {
+  id            String  @id @default(cuid())
+  testCaseRunId String
+  /// 反范式：任务级查询免 join（同 TestCaseRun.taskId）。
+  taskId        String
+  /// true = 看完证据认可这个 PASS；false = 打回（证据撑不起这个 PASS）。
+  accepted      Boolean
+  note          String?
+
+  /// WorkspaceMember id。无 FK（同 TestCaseRunDisposition.dispositionedById）——
+  /// 被清理的成员不应抹掉复核的出处。
+  reviewedByMemberId String
+  createdAt          DateTime @default(now())
+
+  run  TestCaseRun @relation(fields: [testCaseRunId], references: [id], onDelete: Cascade)
+  task Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([testCaseRunId, createdAt])
+  @@index([taskId])
+  @@map("test_case_run_reviews")
 }

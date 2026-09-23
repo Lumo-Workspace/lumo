@@ -17,6 +17,8 @@ jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
     update: jest.fn(),
     delete: jest.fn(),
     softDelete: jest.fn(),
+    // LUM-819: agent edits return the contract to unconfirmed.
+    unconfirmAllActive: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
