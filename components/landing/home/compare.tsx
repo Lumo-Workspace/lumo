@@ -48,9 +48,10 @@ const VERDICT_LABEL: Record<Verdict, string> = {
   no: 'No',
 }
 
-// The table only compares the two things Lumo is for: QA (did the agent's
-// work really pass?) and security (did it ship a hole?). Rows every tool has
-// — handing a task to an agent, sprints, docs — were cut on purpose.
+// QA (did the agent's work really pass?) and security (did it ship a hole?)
+// lead — they are what Lumo is for. Issue tracking comes last and is there to
+// answer "can it replace our tracker?", so Linear winning most of that group
+// is expected and left as is.
 //
 // Every competitor cell was read off that vendor's own docs, changelog,
 // integration or marketplace page on 2026-09-23 and cites the page it came
@@ -261,6 +262,151 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           verdict: 'no',
           note: 'AI actions are logged; no rule-break detection described.',
           source: 'https://asana.com/product/ai/ai-teammates',
+        },
+      },
+    ],
+  },
+  {
+    title: 'Issue tracking',
+    question: 'And the everyday tracking your team already relies on?',
+    rows: [
+      {
+        capability: 'Issues with priority, tags and sub-tasks',
+        lumo: {
+          verdict: 'yes',
+          note: 'Priority, tags, assignee, due date and sub-tasks.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'Priority, labels, assignee and sub-issues.',
+          source: 'https://linear.app/docs/parent-and-sub-issues',
+        },
+        jira: {
+          verdict: 'yes',
+          note: 'Priority, labels, assignee and subtasks built in.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/create-a-work-item-and-a-subtask/',
+        },
+        asana: {
+          verdict: 'partial',
+          note: 'Tags and subtasks; priority is a custom field on paid plans.',
+          source: 'https://asana.com/pricing',
+        },
+      },
+      {
+        capability: 'Sprints',
+        lumo: {
+          verdict: 'yes',
+          note: 'Sprints with progress, burnup and blockers.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'Native cycles; open work rolls over.',
+          source: 'https://linear.app/docs/use-cycles',
+        },
+        jira: {
+          verdict: 'partial',
+          note: 'Native, but only for Scrum spaces.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/what-is-a-sprint/',
+        },
+        asana: {
+          verdict: 'no',
+          note: 'A board-and-custom-field template, not a sprint object.',
+          source: 'https://asana.com/templates/sprint-planning',
+        },
+      },
+      {
+        capability: 'Milestones',
+        lumo: {
+          verdict: 'yes',
+          note: 'Milestones with exit criteria and a changelog of what shipped.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'Project milestones on the project timeline.',
+          source: 'https://linear.app/docs/project-milestones',
+        },
+        jira: {
+          verdict: 'partial',
+          note: 'Releases on the timeline; no milestone object.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/how-can-i-plan-with-releases-on-my-project-roadmap/',
+        },
+        asana: {
+          verdict: 'yes',
+          note: 'Milestones and timeline on paid plans.',
+          source: 'https://asana.com/pricing',
+        },
+      },
+      {
+        capability: 'Dependencies between tasks',
+        lumo: {
+          verdict: 'yes',
+          note: 'Blocked-by links, plus suggestions detected from mentions and shared files.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'Blocked-by and blocks relations.',
+          source: 'https://linear.app/docs/issue-relations',
+        },
+        jira: {
+          verdict: 'yes',
+          note: 'Blocks and is-blocked-by links.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/link-issues/',
+        },
+        asana: {
+          verdict: 'yes',
+          note: 'Blocked-by dependencies on paid plans.',
+          source:
+            'https://developers.asana.com/reference/adddependenciesfortask',
+        },
+      },
+      {
+        capability: 'Docs next to the work',
+        lumo: {
+          verdict: 'yes',
+          note: 'Docs live in the workspace and link to tasks.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'Documents inside projects and issues.',
+          source: 'https://linear.app/docs/documents',
+        },
+        jira: {
+          verdict: 'partial',
+          note: 'Pages run on Confluence, a separate product.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/enable-and-disable-pages/',
+        },
+        asana: {
+          verdict: 'partial',
+          note: 'One project brief per project.',
+          source: 'https://developers.asana.com/reference/project-briefs',
+        },
+      },
+      {
+        capability: 'GitHub and Slack',
+        lumo: {
+          verdict: 'yes',
+          note: 'PRs link by branch or task id; Slack threads attach to tasks.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'PRs link and move issue status; Slack app.',
+          source: 'https://linear.app/docs/github',
+        },
+        jira: {
+          verdict: 'yes',
+          note: 'GitHub app links PRs by key; Slack app.',
+          source:
+            'https://support.atlassian.com/jira-cloud-administration/docs/integrate-with-github/',
+        },
+        asana: {
+          verdict: 'partial',
+          note: 'GitHub app shows PR status on the task; Slack app.',
+          source: 'https://asana.com/apps/github',
         },
       },
     ],
