@@ -1464,8 +1464,8 @@
   line-height: 1.6;
   color: var(--text-2);
 }
-/* The table scrolls inside its own box on narrow screens so the page itself
-   never scrolls sideways; the capability column stays pinned while it does. */
+/* On a narrow screen the table scrolls inside its own box rather than making
+   the page itself scroll sideways. */
 .compareScroll {
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -1474,17 +1474,20 @@
 }
 .compareTable {
   width: 100%;
-  min-width: 760px;
   border-collapse: collapse;
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 14.5px;
+  line-height: 1.4;
 }
 .compareTable th,
 .compareTable td {
-  padding: 16px 18px;
-  text-align: left;
-  vertical-align: top;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--line-3);
+}
+.compareTable td,
+.compareTable thead th {
+  width: 14%;
+  text-align: center;
+  vertical-align: middle;
 }
 .compareTable tbody tr:last-child th,
 .compareTable tbody tr:last-child td {
@@ -1502,24 +1505,25 @@
 .compareTable thead th.compareLumoHead {
   color: var(--ink);
 }
-.compareCap {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  width: 26%;
-  background: var(--card);
+.compareTable .compareCap {
+  width: auto;
+  text-align: left;
   font-weight: 600;
   color: var(--ink);
 }
 .compareTable thead .compareCap {
-  background: var(--card-2);
+  font-weight: 500;
+  color: var(--text-mut);
 }
 .compareLumo {
   background: var(--card-3);
-  box-shadow: inset 2px 0 0 var(--accent);
+  box-shadow:
+    inset 2px 0 0 var(--accent),
+    inset -1px 0 0 var(--line-3);
 }
 .compareGroup {
   padding-top: 22px;
+  text-align: left;
   background: var(--paper-2);
 }
 .compareTable tbody tr:first-child .compareGroup {
@@ -1543,10 +1547,10 @@
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-.compareVerdict {
-  display: block;
-  font-weight: 600;
-  color: var(--ink);
+.compareMark {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
 }
 .compareYes {
   color: var(--good);
@@ -1554,21 +1558,11 @@
 .compareNo {
   color: var(--text-faint);
 }
-.compareNote {
-  display: block;
-  margin-top: 3px;
-  font-size: 13px;
-  color: var(--text-3);
-}
-.compareSource {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-mono);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.compareSource:hover {
-  color: var(--accent);
+.compareWord {
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-2);
 }
 .compareFootnote {
   margin: 16px 0 0;
@@ -1853,74 +1847,25 @@
   .srcGrid {
     grid-template-columns: 1fr;
   }
-  /* Five columns don't fit a phone: each capability becomes its own card,
-     with the four products stacked and labelled from data-label. */
-  .compareScroll {
-    overflow-x: visible;
-    border: none;
-    border-radius: 0;
-    background: none;
-  }
-  .compareTable {
-    min-width: 0;
-  }
-  .compareTable thead {
-    display: none;
-  }
-  .compareTable tbody,
-  .compareTable tr {
-    display: block;
-  }
-  .compareTable tr {
-    margin-bottom: 14px;
-    border: 1px solid var(--line);
-    border-radius: 14px;
-    background: var(--card);
-    overflow: hidden;
-  }
+  /* Only marks in the product columns, so the table stays a table on a
+     phone — just tighter. */
   .compareTable th,
   .compareTable td {
-    display: block;
-    padding: 12px 16px;
+    padding: 12px 8px;
   }
-  .compareTable tbody tr:last-child th,
-  .compareTable tbody tr:last-child td {
-    border-bottom: 1px solid var(--line-3);
+  .compareTable .compareCap {
+    padding-left: 14px;
+    font-size: 13.5px;
   }
-  .compareTable tbody tr td:last-child {
-    border-bottom: none;
+  .compareTable thead th {
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
   }
-  .compareCap {
-    position: static;
-    width: auto;
-    background: var(--card-2);
+  .compareGroupQuestion {
+    font-size: 16px;
   }
-  .compareTable td::before {
-    content: attr(data-label);
-    display: block;
-    margin-bottom: 4px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text-mut);
-  }
-  .compareTable td.compareLumo::before {
-    color: var(--ink);
-  }
-  .compareTable tr.compareGroupRow {
-    margin: 26px 0 10px;
-    border: none;
-    border-radius: 0;
-    background: none;
-  }
-  .compareTable tbody tr.compareGroupRow:first-child {
-    margin-top: 0;
-  }
-  .compareGroup {
-    padding: 0;
-    background: none;
-    border-bottom: none;
+  .compareWord {
+    font-size: 11.5px;
   }
   .footerGrid {
     grid-template-columns: 1fr;

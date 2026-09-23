@@ -48,10 +48,15 @@ const VERDICT_LABEL: Record<Verdict, string> = {
   no: 'No',
 }
 
-// QA (did the agent's work really pass?) and security (did it ship a hole?)
-// lead — they are what Lumo is for. Issue tracking comes last and is there to
-// answer "can it replace our tracker?", so Linear winning most of that group
-// is expected and left as is.
+// Issue tracking comes first to answer "can it replace our tracker?" (Linear
+// winning most of that group is expected and left as is); QA (did the
+// agent's work really pass?) and security (did it ship a hole?) follow —
+// they are what Lumo is for.
+//
+// The page renders only the verdict (a check, a cross, or the word). Notes
+// and sources stay here as the audit trail for each verdict: the
+// compare-claims test holds every competitor cell to an official-domain
+// source, and the PR's Sources table is generated from this data.
 //
 // Every competitor cell was read off that vendor's own docs, changelog,
 // integration or marketplace page on 2026-09-23 and cites the page it came
@@ -72,6 +77,151 @@ const VERDICT_LABEL: Record<Verdict, string> = {
 // until a person dispositions the finding; a machine pass moves a task to
 // review, not Done.
 export const COMPARE_GROUPS: CompareGroup[] = [
+  {
+    title: 'Issue tracking',
+    question: 'And the everyday tracking your team already relies on?',
+    rows: [
+      {
+        capability: 'Issues with priority, tags and sub-tasks',
+        lumo: {
+          verdict: 'yes',
+          note: 'Priority, tags, assignee, due date and sub-tasks.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'Priority, labels, assignee and sub-issues.',
+          source: 'https://linear.app/docs/parent-and-sub-issues',
+        },
+        jira: {
+          verdict: 'yes',
+          note: 'Priority, labels, assignee and subtasks built in.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/create-a-work-item-and-a-subtask/',
+        },
+        asana: {
+          verdict: 'partial',
+          note: 'Tags and subtasks; priority is a custom field on paid plans.',
+          source: 'https://asana.com/pricing',
+        },
+      },
+      {
+        capability: 'Sprints',
+        lumo: {
+          verdict: 'yes',
+          note: 'Sprints with progress, burnup and blockers.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'Native cycles; open work rolls over.',
+          source: 'https://linear.app/docs/use-cycles',
+        },
+        jira: {
+          verdict: 'partial',
+          note: 'Native, but only for Scrum spaces.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/what-is-a-sprint/',
+        },
+        asana: {
+          verdict: 'no',
+          note: 'A board-and-custom-field template, not a sprint object.',
+          source: 'https://asana.com/templates/sprint-planning',
+        },
+      },
+      {
+        capability: 'Milestones',
+        lumo: {
+          verdict: 'yes',
+          note: 'Milestones with exit criteria and a changelog of what shipped.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'Project milestones on the project timeline.',
+          source: 'https://linear.app/docs/project-milestones',
+        },
+        jira: {
+          verdict: 'partial',
+          note: 'Releases on the timeline; no milestone object.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/how-can-i-plan-with-releases-on-my-project-roadmap/',
+        },
+        asana: {
+          verdict: 'yes',
+          note: 'Milestones and timeline on paid plans.',
+          source: 'https://asana.com/pricing',
+        },
+      },
+      {
+        capability: 'Dependencies between tasks',
+        lumo: {
+          verdict: 'yes',
+          note: 'Blocked-by links, plus suggestions detected from mentions and shared files.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'Blocked-by and blocks relations.',
+          source: 'https://linear.app/docs/issue-relations',
+        },
+        jira: {
+          verdict: 'yes',
+          note: 'Blocks and is-blocked-by links.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/link-issues/',
+        },
+        asana: {
+          verdict: 'yes',
+          note: 'Blocked-by dependencies on paid plans.',
+          source:
+            'https://developers.asana.com/reference/adddependenciesfortask',
+        },
+      },
+      {
+        capability: 'Docs next to the work',
+        lumo: {
+          verdict: 'yes',
+          note: 'Docs live in the workspace and link to tasks.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'Documents inside projects and issues.',
+          source: 'https://linear.app/docs/documents',
+        },
+        jira: {
+          verdict: 'partial',
+          note: 'Pages run on Confluence, a separate product.',
+          source:
+            'https://support.atlassian.com/jira-software-cloud/docs/enable-and-disable-pages/',
+        },
+        asana: {
+          verdict: 'partial',
+          note: 'One project brief per project.',
+          source: 'https://developers.asana.com/reference/project-briefs',
+        },
+      },
+      {
+        capability: 'GitHub and Slack',
+        lumo: {
+          verdict: 'yes',
+          note: 'PRs link by branch or task id; Slack threads attach to tasks.',
+        },
+        linear: {
+          verdict: 'yes',
+          note: 'PRs link and move issue status; Slack app.',
+          source: 'https://linear.app/docs/github',
+        },
+        jira: {
+          verdict: 'yes',
+          note: 'GitHub app links PRs by key; Slack app.',
+          source:
+            'https://support.atlassian.com/jira-cloud-administration/docs/integrate-with-github/',
+        },
+        asana: {
+          verdict: 'partial',
+          note: 'GitHub app shows PR status on the task; Slack app.',
+          source: 'https://asana.com/apps/github',
+        },
+      },
+    ],
+  },
   {
     title: 'QA',
     question: 'The agent says it’s done. Did it actually pass?',
@@ -266,159 +416,33 @@ export const COMPARE_GROUPS: CompareGroup[] = [
       },
     ],
   },
-  {
-    title: 'Issue tracking',
-    question: 'And the everyday tracking your team already relies on?',
-    rows: [
-      {
-        capability: 'Issues with priority, tags and sub-tasks',
-        lumo: {
-          verdict: 'yes',
-          note: 'Priority, tags, assignee, due date and sub-tasks.',
-        },
-        linear: {
-          verdict: 'yes',
-          note: 'Priority, labels, assignee and sub-issues.',
-          source: 'https://linear.app/docs/parent-and-sub-issues',
-        },
-        jira: {
-          verdict: 'yes',
-          note: 'Priority, labels, assignee and subtasks built in.',
-          source:
-            'https://support.atlassian.com/jira-software-cloud/docs/create-a-work-item-and-a-subtask/',
-        },
-        asana: {
-          verdict: 'partial',
-          note: 'Tags and subtasks; priority is a custom field on paid plans.',
-          source: 'https://asana.com/pricing',
-        },
-      },
-      {
-        capability: 'Sprints',
-        lumo: {
-          verdict: 'yes',
-          note: 'Sprints with progress, burnup and blockers.',
-        },
-        linear: {
-          verdict: 'yes',
-          note: 'Native cycles; open work rolls over.',
-          source: 'https://linear.app/docs/use-cycles',
-        },
-        jira: {
-          verdict: 'partial',
-          note: 'Native, but only for Scrum spaces.',
-          source:
-            'https://support.atlassian.com/jira-software-cloud/docs/what-is-a-sprint/',
-        },
-        asana: {
-          verdict: 'no',
-          note: 'A board-and-custom-field template, not a sprint object.',
-          source: 'https://asana.com/templates/sprint-planning',
-        },
-      },
-      {
-        capability: 'Milestones',
-        lumo: {
-          verdict: 'yes',
-          note: 'Milestones with exit criteria and a changelog of what shipped.',
-        },
-        linear: {
-          verdict: 'yes',
-          note: 'Project milestones on the project timeline.',
-          source: 'https://linear.app/docs/project-milestones',
-        },
-        jira: {
-          verdict: 'partial',
-          note: 'Releases on the timeline; no milestone object.',
-          source:
-            'https://support.atlassian.com/jira-software-cloud/docs/how-can-i-plan-with-releases-on-my-project-roadmap/',
-        },
-        asana: {
-          verdict: 'yes',
-          note: 'Milestones and timeline on paid plans.',
-          source: 'https://asana.com/pricing',
-        },
-      },
-      {
-        capability: 'Dependencies between tasks',
-        lumo: {
-          verdict: 'yes',
-          note: 'Blocked-by links, plus suggestions detected from mentions and shared files.',
-        },
-        linear: {
-          verdict: 'yes',
-          note: 'Blocked-by and blocks relations.',
-          source: 'https://linear.app/docs/issue-relations',
-        },
-        jira: {
-          verdict: 'yes',
-          note: 'Blocks and is-blocked-by links.',
-          source:
-            'https://support.atlassian.com/jira-software-cloud/docs/link-issues/',
-        },
-        asana: {
-          verdict: 'yes',
-          note: 'Blocked-by dependencies on paid plans.',
-          source:
-            'https://developers.asana.com/reference/adddependenciesfortask',
-        },
-      },
-      {
-        capability: 'Docs next to the work',
-        lumo: {
-          verdict: 'yes',
-          note: 'Docs live in the workspace and link to tasks.',
-        },
-        linear: {
-          verdict: 'yes',
-          note: 'Documents inside projects and issues.',
-          source: 'https://linear.app/docs/documents',
-        },
-        jira: {
-          verdict: 'partial',
-          note: 'Pages run on Confluence, a separate product.',
-          source:
-            'https://support.atlassian.com/jira-software-cloud/docs/enable-and-disable-pages/',
-        },
-        asana: {
-          verdict: 'partial',
-          note: 'One project brief per project.',
-          source: 'https://developers.asana.com/reference/project-briefs',
-        },
-      },
-      {
-        capability: 'GitHub and Slack',
-        lumo: {
-          verdict: 'yes',
-          note: 'PRs link by branch or task id; Slack threads attach to tasks.',
-        },
-        linear: {
-          verdict: 'yes',
-          note: 'PRs link and move issue status; Slack app.',
-          source: 'https://linear.app/docs/github',
-        },
-        jira: {
-          verdict: 'yes',
-          note: 'GitHub app links PRs by key; Slack app.',
-          source:
-            'https://support.atlassian.com/jira-cloud-administration/docs/integrate-with-github/',
-        },
-        asana: {
-          verdict: 'partial',
-          note: 'GitHub app shows PR status on the task; Slack app.',
-          source: 'https://asana.com/apps/github',
-        },
-      },
-    ],
-  },
 ]
 
 export const COMPARE_ROWS: CompareRow[] = COMPARE_GROUPS.flatMap(g => g.rows)
 
-function verdictClass(verdict: Verdict): string | undefined {
-  if (verdict === 'yes') return `${styles.compareVerdict} ${styles.compareYes}`
-  if (verdict === 'no') return `${styles.compareVerdict} ${styles.compareNo}`
-  return styles.compareVerdict
+/** A check, a cross, or the word — the table shows the verdict and nothing else. */
+function Mark({ verdict }: { verdict: Verdict }) {
+  if (verdict === 'yes')
+    return (
+      <span
+        className={`${styles.compareMark} ${styles.compareYes}`}
+        role='img'
+        aria-label='Yes'
+      >
+        ✓
+      </span>
+    )
+  if (verdict === 'no')
+    return (
+      <span
+        className={`${styles.compareMark} ${styles.compareNo}`}
+        role='img'
+        aria-label='No'
+      >
+        ✗
+      </span>
+    )
+  return <span className={styles.compareWord}>{VERDICT_LABEL[verdict]}</span>
 }
 
 export function Compare() {
@@ -480,36 +504,14 @@ export function Compare() {
                       <th scope='row' className={styles.compareCap}>
                         {row.capability}
                       </th>
-                      <td className={styles.compareLumo} data-label='Lumo'>
-                        <span className={verdictClass(row.lumo.verdict)}>
-                          {VERDICT_LABEL[row.lumo.verdict]}
-                        </span>
-                        <span className={styles.compareNote}>
-                          {row.lumo.note}
-                        </span>
+                      <td className={styles.compareLumo}>
+                        <Mark verdict={row.lumo.verdict} />
                       </td>
-                      {COMPETITORS.map(key => {
-                        const cell = row[key]
-                        return (
-                          <td key={key} data-label={COMPETITOR_NAMES[key]}>
-                            <span className={verdictClass(cell.verdict)}>
-                              {VERDICT_LABEL[cell.verdict]}
-                            </span>
-                            <span className={styles.compareNote}>
-                              {cell.note}{' '}
-                              <a
-                                href={cell.source}
-                                className={styles.compareSource}
-                                target='_blank'
-                                rel='noopener noreferrer'
-                                aria-label={`${COMPETITOR_NAMES[key]} source for ${row.capability}`}
-                              >
-                                source
-                              </a>
-                            </span>
-                          </td>
-                        )
-                      })}
+                      {COMPETITORS.map(key => (
+                        <td key={key}>
+                          <Mark verdict={row[key].verdict} />
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </Fragment>
@@ -520,11 +522,9 @@ export function Compare() {
 
         <p className={styles.compareFootnote}>
           Checked against each vendor&apos;s own docs, integration and
-          marketplace pages on September 23, 2026 — every cell links to the page
-          it came from. &ldquo;No&rdquo; means the vendor&apos;s own docs
-          describe no such feature; &ldquo;Add-on&rdquo; means a separate
-          third-party app. These products ship fast; if a cell is out of date,
-          the source link is the tiebreaker.
+          marketplace pages on September 23, 2026. &ldquo;Partly&rdquo; means
+          the feature exists with limits; &ldquo;Add-on&rdquo; means a separate
+          third-party app.
         </p>
       </div>
     </section>
