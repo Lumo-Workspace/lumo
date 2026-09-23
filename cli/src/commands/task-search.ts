@@ -17,7 +17,8 @@ import {
  * `lumo task search [query]` — workspace-wide task query (LUM-821), the CLI
  * counterpart of Jira JQL search / Linear `list_issues`. Unlike `task list`
  * (my tasks only) it spans every member; every filter is applied server-side
- * by GET /api/tasks/workspace.
+ * by GET /api/tasks/workspace. With a query, results are typo-tolerant and
+ * ranked by relevance unless `--exact`.
  */
 
 const STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
@@ -36,6 +37,8 @@ export interface TaskSearchOptions {
   dueAfter?: string
   limit?: string
   json?: boolean
+  /** LUM-821: substring-only matching, board order (no typo tolerance). */
+  exact?: boolean
 }
 
 export interface SearchTaskRow {
@@ -84,9 +87,13 @@ export function buildSearchQuery(f: {
   sprintIds: string[]
   dueAfter?: string | undefined
   dueBefore?: string | undefined
+  exact?: boolean | undefined
 }): string {
   const p = new URLSearchParams()
-  if (f.q) p.set('q', f.q)
+  if (f.q) {
+    p.set('q', f.q)
+    p.set('match', f.exact ? 'exact' : 'fuzzy')
+  }
   const lists: Array<[string, string[]]> = [
     ['statuses', f.statuses],
     ['priorities', f.priorities],
@@ -274,6 +281,7 @@ export async function taskSearch(
     sprintIds,
     dueAfter: dueAfter ?? undefined,
     dueBefore: dueBefore ?? undefined,
+    exact: opts.exact,
   })
   const r = await apiCall<SearchResponse>(ctx, path, {}, 'task search')
   if (!r.ok || !r.data) return 1

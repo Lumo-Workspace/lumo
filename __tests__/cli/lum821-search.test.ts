@@ -120,6 +120,7 @@ describe('buildSearchQuery', () => {
     expect(u.pathname).toBe('/api/tasks/workspace')
     expect(Object.fromEntries(u.searchParams)).toEqual({
       q: 'oauth bug',
+      match: 'fuzzy',
       statuses: 'TODO',
       priorities: 'HIGH,URGENT',
       assigneeActorIds: 'a1',

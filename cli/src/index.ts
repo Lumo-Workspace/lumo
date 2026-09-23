@@ -825,7 +825,7 @@ task
 task
   .command('search [query]')
   .description(
-    'Search tasks across the whole workspace (any assignee). [query] matches title/description (or a task number like LUM-42); every filter is applied server-side.'
+    'Search tasks across the whole workspace (any assignee). [query] terms must all match title/description (or a task number like LUM-42); typo-tolerant and ranked by relevance unless --exact. Every filter is applied server-side.'
   )
   .option(
     '-a, --assignee <ref>',
@@ -853,6 +853,10 @@ task
   .option('--due-after <date>', 'Due on or after YYYY-MM-DD (your local day)')
   .option('--due-before <date>', 'Due on or before YYYY-MM-DD (your local day)')
   .option('-n, --limit <count>', 'Show only the first N tasks')
+  .option(
+    '--exact',
+    'Substring matching only, in board order (default: typo-tolerant, ranked by relevance)'
+  )
   .option('--json', 'Emit the raw result as JSON')
   .action(
     wrap((query, options) =>

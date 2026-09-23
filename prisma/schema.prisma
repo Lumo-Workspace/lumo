@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  extensions = [vector]
+  extensions = [vector, pg_trgm]
 }
 
 // ─── Enums ──────────────────────────────────────────────────────────────────
@@ -1065,6 +1065,9 @@ model Task {
   @@index([teamId])
   @@index([teamId, status])
   @@index([parentTaskId])
+  // LUM-821: trigram index for fuzzy `task search` (ILIKE substring and the
+  // `<<%` strict word-similarity operator are both served by it).
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "tasks_title_trgm_idx")
   @@index([assigneeActorId])
   @@index([sprintId])
   @@index([milestoneId])
