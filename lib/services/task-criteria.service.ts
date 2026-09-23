@@ -97,6 +97,35 @@ interface DiffApplyConfig {
   actorMemberId: string
 }
 
+/** 一条已存在的标准与一份期望形状在内容上是否完全一致。 */
+function sameShape(
+  current: AcceptanceCriterionRow,
+  desired: ReturnType<typeof desiredShape>
+): boolean {
+  return (
+    current.statement === desired.statement &&
+    current.verifierType === desired.verifierType &&
+    current.checkpointer === desired.checkpointer &&
+    current.evidenceRequired === desired.evidenceRequired &&
+    (current.judgeSteps ?? null) === desired.judgeSteps &&
+    (current.referentKind ?? null) === (desired.referentKind ?? null)
+  )
+}
+
+/**
+ * LUM-819: 开工前的整组替换，提交内容与现有合同逐条一致（顺序也一致）时视为
+ * no-op。否则一次原样重提会删掉重建所有行，悄悄抹掉人已经盖过的确认戳。
+ */
+function isSameContract(
+  existing: AcceptanceCriterionRow[],
+  items: CriteriaSetItem[]
+): boolean {
+  return (
+    existing.length === items.length &&
+    items.every((item, i) => sameShape(existing[i]!, desiredShape(item)))
+  )
+}
+
 /**
  * Apply a desired contract list against the existing rows, identity-preserving
  * (id-keyed): items with id keep/update, items without id are new, existing
@@ -139,14 +168,7 @@ async function applyContractDiff(
     if (i.id === undefined) return []
     const current = existingById.get(i.id)!
     const desired = desiredShape(i)
-    const unchanged =
-      current.statement === desired.statement &&
-      current.verifierType === desired.verifierType &&
-      current.checkpointer === desired.checkpointer &&
-      current.evidenceRequired === desired.evidenceRequired &&
-      (current.judgeSteps ?? null) === desired.judgeSteps &&
-      (current.referentKind ?? null) === (desired.referentKind ?? null)
-    return unchanged ? [] : [{ id: i.id, desired }]
+    return sameShape(current, desired) ? [] : [{ id: i.id, desired }]
   })
   const runsByCriterion =
     await verificationRunRepository.latestRunsByCriterion(taskId)
@@ -261,6 +283,18 @@ async function applyContractDiff(
         before: null,
         after: criterionSnapshot(created),
       })
+    }
+
+    // LUM-819 (E): agent 对合同的任何实际改动（改写 / 新增 / 删除）都让
+    // **整份**合同回到未确认。人确认的是「这份合同」；删一条标准恰恰是最直接
+    // 的放宽，只撤销被改那一行的戳会让删除悄无声息。下一次 `lumo verify` 因此
+    // 停在确认闸前，「agent 给自己放宽标准」自动浮到人面前。
+    // 人工修订（HUMAN_EDIT）不撤销：它本身就是人在改合同。
+    if (
+      cfg.source !== 'HUMAN_EDIT' &&
+      toDelete.length + toUpdate.length + toCreate.length > 0
+    ) {
+      await acceptanceCriterionRepository.unconfirmAllActive(taskId, tx)
     }
 
     // LUM-789: one CONTRACT_CONFIRMED for the whole revision, not per row —
@@ -515,9 +549,10 @@ export const taskCriteriaService = {
           actorId,
           actorMemberId: attribution.actorMemberId,
         })
-      } else {
+      } else if (!isSameContract(existing, items)) {
         // First TODO (never started): free full-group replace. A never-started
-        // task has no runs, so the hard delete is safe.
+        // task has no runs, so the hard delete is safe. Recreated rows carry
+        // no confirmation stamp (LUM-819: a changed contract is unconfirmed).
         await runInTransaction(async tx => {
           for (const c of existing) {
             await acceptanceCriterionRepository.delete(c.id, tx)

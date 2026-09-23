@@ -231,6 +231,23 @@ export const acceptanceCriterionRepository = {
   },
 
   /**
+   * LUM-819: 撤销整份合同的确认戳（只动未删除的行）。agent 改了一份已确认的
+   * 合同之后调用——人确认的是「这份合同」，改过的合同不再是人点过头的那份。
+   * 返回本次被撤销的行数。
+   */
+  async unconfirmAllActive(
+    taskId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<number> {
+    const client = tx ?? prisma
+    const { count } = await client.acceptanceCriterion.updateMany({
+      where: { taskId, deletedAt: null, confirmedAt: { not: null } },
+      data: { confirmedAt: null, confirmedByMemberId: null },
+    })
+    return count
+  },
+
+  /**
    * Soft-delete: stamps deletedAt on the row, keeping it (and its
    * VerificationRun rows) intact so the verdict→criterion audit chain
    * survives. Use for run-bearing criteria. Run-free criteria may use the

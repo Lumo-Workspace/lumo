@@ -88,6 +88,7 @@ export const nextStepsService = {
       taskIdentifier: args.taskIdentifier,
       status: args.status,
       hasCriteria: criteria.length > 0,
+      contractUnconfirmed: criteria.some(c => c.confirmedAt === null),
       sessionBound: args.sessionBound,
       openCrossings: hasOpenCrossing ? 1 : 0,
       verifyRound,
