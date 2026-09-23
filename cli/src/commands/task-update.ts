@@ -8,6 +8,14 @@ import { localDayStart } from '../lib/local-day'
 import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { emitConfirmation } from '../lib/confirmation'
 import {
+  describeWorktreeCleanup,
+  fetchCleanupInfo,
+  mergedHeadShasOf,
+  planTaskWorktreeCleanup,
+  removeWorktrees,
+  reportRemoval,
+} from '../lib/worktree-cleanup'
+import {
   buildBlockedError,
   collectDoneBlockers,
   emitBlocked,
@@ -197,6 +205,8 @@ export interface LinkedPr {
   title: string | null
   url: string | null
   state: string | null
+  /** LUM-825: absent on older servers. */
+  headSha?: string | null
 }
 
 /**
@@ -310,10 +320,81 @@ async function emitDoneConfirmation(args: {
       pullRequests?: LinkedPr[]
     }
   }
+  const prs = task.pullRequests ?? []
   return emitConfirmation({
     command: 'task update',
-    changes: describeDoneTransition(task, task.pullRequests ?? []),
+    changes: [
+      ...describeDoneTransition(task, prs),
+      ...doneWorktreeLines(task.identifier, mergedHeadShasOf(prs)),
+    ],
   })
+}
+
+/**
+ * LUM-825: the DONE envelope also says what happens to this task's local
+ * worktrees — each one removed, or kept with its reason. Best-effort: a git
+ * failure here drops the lines, never the envelope.
+ */
+function doneWorktreeLines(
+  identifier: string,
+  mergedHeadShas: string[]
+): string[] {
+  try {
+    const plan = planTaskWorktreeCleanup({
+      taskId: identifier,
+      cwd: process.cwd(),
+      mergedHeadShas,
+    })
+    if (!plan || plan.items.length === 0) return []
+    return describeWorktreeCleanup(plan.items, plan.mainRoot)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * LUM-825: after a confirmed DONE lands, remove the task's worktrees the
+ * envelope listed as removable — re-assessed now, so one that turned dirty
+ * in between is kept. Never --force, never deletes a branch, never changes
+ * the command's exit code.
+ */
+async function cleanupWorktreesAfterDone(args: {
+  base: string
+  token: string
+  identifier: string
+}): Promise<void> {
+  try {
+    const cwd = process.cwd()
+    let plan = planTaskWorktreeCleanup({
+      taskId: args.identifier,
+      cwd,
+      mergedHeadShas: [],
+    })
+    if (!plan || plan.items.length === 0) return
+    if (plan.items.some(i => i.reason === 'unlanded')) {
+      const info = await fetchCleanupInfo(
+        args.base,
+        args.token,
+        args.identifier
+      )
+      if (info && info.mergedHeadShas.length > 0) {
+        plan = planTaskWorktreeCleanup({
+          taskId: args.identifier,
+          cwd,
+          mergedHeadShas: info.mergedHeadShas,
+        })
+        if (!plan) return
+      }
+    }
+    reportRemoval(
+      plan.items,
+      removeWorktrees(plan.mainRoot, plan.items),
+      plan.mainRoot
+    )
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`Warning: worktree cleanup skipped (${msg})`)
+  }
 }
 
 /**
@@ -547,6 +628,13 @@ async function runTaskUpdate(
       }
       if (responseTagNames !== undefined) taskLine.tags = responseTagNames
       process.stdout.write(formatUpdatedTaskLine(taskLine) + '\n')
+      if (status === 'DONE') {
+        await cleanupWorktreesAfterDone({
+          base,
+          token: creds.token,
+          identifier: data.task.identifier,
+        })
+      }
       collected.steps = data.nextSteps ?? []
     } else {
       let serverMsg: string | null = null

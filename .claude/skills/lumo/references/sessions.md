@@ -84,6 +84,8 @@ Use this whenever the user mentions a task ID. It is the only way to bind a sess
 
 ```bash
 lumo session attach LUM-42
+lumo session attach LUM-42 --worktree      # also create the task's worktree if none exists
+lumo session attach LUM-42 --no-worktree   # never create one, even with autoWorktree
 ```
 
 What it does:
@@ -104,6 +106,16 @@ A successful `session attach` also runs a **best-effort team-memory downsync** f
 - **Output:** on a non-trivial sync the CLI prints one extra line, `memory sync → +N ~M -K`.
 - Manual `lumo memory sync` stays unthrottled.
 - `LUMO_DISABLE_MEMORY_AUTO=1` turns off the auto-downsync (and the hook auto-upsync — see [memory.md](memory.md)) entirely; `--no-anchor-check` on `lumo memory sync` is unchanged.
+
+#### Worktree step (LUM-825)
+
+After the bind (before the `Next:` block) attach checks the task's local git worktrees — best-effort, never changes the exit code:
+
+- **Worktree(s) exist** → every one is listed by path (never one picked silently), the one you're in is marked `← you are here`, else a `cd <path>` line.
+- **You're already in some other linked worktree** (e.g. a Claude Code worktree) → it says so and creates nothing.
+- **Main checkout, none yet** → with `--worktree`, or `autoWorktree: true` in `.lumo/worktree.json` (this repo sets it), it runs the same scaffold as `lumo worktree add` with a slug from the title's first words; otherwise it prints a `lumo worktree add <id>` hint. `--no-worktree` suppresses creation. A failed creation is a warning — the bind already succeeded.
+
+After an auto-create, **move into the worktree** (`cd <path>`) before editing — the session's shell still starts in the main checkout. Details: [worktree.md](worktree.md).
 
 #### Lifetime lock
 

@@ -4,7 +4,7 @@ import {
   gitOutput,
   runGit,
   parseWorktreePorcelain,
-  findWorktreeByTaskId,
+  findWorktreesByTaskId,
 } from '../lib/worktree'
 import { resolveWorktreeTaskId } from '../lib/worktree-ref'
 import {
@@ -75,11 +75,24 @@ export async function worktreeRm(
   const entries = parseWorktreePorcelain(
     gitOutput(['worktree', 'list', '--porcelain'], root)
   )
-  const target = findWorktreeByTaskId(entries, taskId)
-  if (!target) {
+  const matches = findWorktreesByTaskId(entries, taskId, root)
+  if (matches.length === 0) {
     console.error(`Error: no worktree found for ${taskId}`)
     return 1
   }
+  // LUM-825: never pick one silently — name them all and let the user choose.
+  if (matches.length > 1) {
+    console.error(
+      `Error: ${matches.length} worktrees match ${taskId}; remove the one you mean by path:`
+    )
+    for (const m of matches) {
+      console.error(
+        `  git worktree remove ${m.path}   (${m.branch ?? 'detached'})`
+      )
+    }
+    return 1
+  }
+  const target = matches[0]!
 
   const dirty = gitOutput(['status', '--porcelain'], target.path).length > 0
 

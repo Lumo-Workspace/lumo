@@ -159,6 +159,7 @@ import { setup } from './commands/setup'
 import { worktreeAdd } from './commands/worktree-add'
 import { worktreeRm } from './commands/worktree-rm'
 import { worktreeList } from './commands/worktree-list'
+import { worktreePrune } from './commands/worktree-prune'
 import {
   maybeRefreshInBackground,
   printUpdateNoticeIfAny,
@@ -2662,22 +2663,25 @@ task
 const worktree = program
   .command('worktree')
   .description(
-    'Scaffold, remove, and list parallel git worktrees under .worktrees/ (node_modules symlink + prisma/jest gotcha guidance). Local dev tooling; run from the main checkout.'
+    'Scaffold, remove, list and prune per-task git worktrees under .worktrees/. Repo-specific links/copies/notes come from .lumo/worktree.json. Local dev tooling; run add/rm from the main checkout.'
   )
 
 worktree
   .command('add <identifier> [slug]')
   .description(
-    'Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off origin/main, symlink node_modules to the main checkout, and print prisma/jest guidance. Run from the main checkout.'
+    'Create a worktree at .worktrees/<LUM-N>[-slug] on branch lumo/<LUM-N>[-slug] off the remote default branch (origin/HEAD), link node_modules when present, copy the husky shim when husky owns hooks, and apply .lumo/worktree.json (linkPaths, copyPaths, notes). Run from the main checkout.'
   )
   .option(
     '--base <ref>',
-    'Branch off this ref instead of origin/main (skips fetch)'
+    'Branch off this ref instead of the remote default branch (skips fetch)'
   )
-  .option('--no-fetch', 'Do not `git fetch origin main` before branching')
+  .option(
+    '--no-fetch',
+    'Do not fetch the remote default branch before branching'
+  )
   .option(
     '--verify',
-    'Run `npx jest` in the new worktree to confirm a clean baseline'
+    'Run verifyCommand from .lumo/worktree.json in the new worktree to confirm a clean baseline'
   )
   .action(
     wrap((identifier, slug, options) => {
@@ -2725,6 +2729,17 @@ worktree
     'List worktrees under .worktrees/: task id, branch, dirty state, and whether node_modules is symlinked.'
   )
   .action(wrap(() => worktreeList()))
+
+worktree
+  .command('prune')
+  .description(
+    'Remove the worktrees of tasks that are already DONE (closed on the web or another machine too). Keeps any worktree with uncommitted changes, commits that are neither pushed nor the head of a merged linked PR, or the current directory inside it. Without --confirm exits 4 with an envelope listing what goes and what stays. Never deletes branches.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .action(wrap(options => worktreePrune(options as { confirm?: boolean })))
 
 // Claude Code invokes `lumo hook <type>` per tool call, so these handlers
 // must never crash the caller. Two invariants keep us safe:

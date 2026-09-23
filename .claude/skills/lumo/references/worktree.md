@@ -1,12 +1,17 @@
 # Worktrees
 
-Local dev tooling that scaffolds parallel git worktrees. These are almost
-entirely local — they shell out to git and the local filesystem; the **only**
-server call is a single `GET /api/teams` to expand a **bare number** to your
-default team prefix (see "Accepted identifier forms" below), and even that is
-skipped when you pass an explicit `<TEAM>-N`. **Run `add` and `rm` from the main
-checkout**, not from inside a worktree (the node_modules symlink source and
-`.worktrees/` both live there); `list` is read-only and runnable from anywhere.
+Local dev tooling for one git worktree per task, wired into the task
+lifecycle: `session attach` reports (or, opted in, creates) the task's
+worktree, and the DONE transition cleans it up. Everything runs against local
+git; the only server calls are a `GET /api/teams` to expand a **bare number**
+to your default team prefix (see "Accepted identifier forms"), and — for DONE
+cleanup and `prune` — a task lookup for its status and merged PR heads.
+
+Works in any git repo (LUM-825): the base branch is the **remote's default
+branch** (`origin/HEAD` — `main`, `master`, `develop`, …), nothing Node- or
+husky-specific happens unless the repo has it, and repo-specific behaviour
+comes from an optional `.lumo/worktree.json` (below). **Run `add` and `rm`
+from the main checkout**; `list` and `prune` run from anywhere in the repo.
 
 ### Accepted identifier forms
 
@@ -20,38 +25,71 @@ just `LUM-` (the `<LUM-N>` in the examples below is just a placeholder):
   In a multi-team workspace with no default, this errors and asks for an
   explicit prefix; the same happens when you're offline / not logged in.
 
+## `.lumo/worktree.json` — repo-specific settings (optional)
+
+Committed at the repo root. No file = plain, repo-agnostic behaviour. A key
+that is present **replaces** the auto-detected default for that key; a
+malformed file only prints warnings, it never blocks a command.
+
+| Key             | Default when absent                                                   | Notes                                                          |
+| --------------- | --------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `linkPaths`     | `["node_modules"]` if the main checkout has one, else `[]`            | Symlinked from the main checkout. `[]` turns the link off.     |
+| `copyPaths`     | the husky shim (`.husky/_`) if `core.hooksPath` points into `.husky/` | Copied (not linked). Plain `.git/hooks` are shared anyway.     |
+| `verifyCommand` | none — `add --verify` warns and skips                                 | Shell command run inside the new worktree.                     |
+| `notes`         | none                                                                  | Repo gotchas printed after `add`.                              |
+| `autoWorktree`  | `false`                                                               | `session attach` creates the task's worktree when none exists. |
+
+This repo's own file links `node_modules`, copies `.husky/_`, verifies with
+`npx jest`, sets `autoWorktree: true`, and carries the prisma / jest / npm
+notes below.
+
 ## `lumo worktree add <LUM-N> [slug]`
 
-Creates `.worktrees/<LUM-N>[-slug]` on branch `lumo/<LUM-N>[-slug]`, branched off
-`origin/main` (after a fetch), and symlinks its `node_modules` to the main
-checkout so jest/tsc work immediately. In the same scaffold step it copies the
-main checkout's `.husky/_` hooks shim into the worktree so git hooks actually
-fire there (see below). With no slug, the dir and branch use the bare `LUM-N`
-form. Prints next-step guidance plus the two gotchas it can't fix for you
-(shared prisma client, jest cwd).
+Creates `.worktrees/<LUM-N>[-slug]` on branch `lumo/<LUM-N>[-slug]`, branched
+off the freshly fetched remote default branch. Also makes sure `.worktrees/`
+never shows as untracked: if `.gitignore` does not cover it, `/.worktrees/`
+goes into `.git/info/exclude` (local to the clone; the tracked `.gitignore` is
+never edited). Then applies the link/copy plan and prints the `cd` step plus
+any `notes`.
 
 ```bash
 lumo worktree add LUM-267 worktree-scaffold   # → .worktrees/LUM-267-worktree-scaffold
 lumo worktree add LUM-267                      # → .worktrees/LUM-267
-lumo worktree add LUM-267 --base main          # branch off local main, skip fetch
-lumo worktree add LUM-267 --no-fetch           # branch off existing origin/main
-lumo worktree add LUM-267 --verify             # run npx jest baseline after setup
+lumo worktree add LUM-267 --base develop       # branch off a local ref, skip fetch
+lumo worktree add LUM-267 --no-fetch           # branch off the existing origin/<default>
+lumo worktree add LUM-267 --verify             # run verifyCommand after setup
 ```
 
-| Flag           | Notes                                                           |
-| -------------- | --------------------------------------------------------------- |
-| `--base <ref>` | Branch off a ref other than origin/main (skips the fetch).      |
-| `--no-fetch`   | Skip `git fetch origin main` (branch off existing origin/main). |
-| `--verify`     | Run `npx jest` baseline in the new worktree after setup.        |
+| Flag           | Notes                                                                       |
+| -------------- | --------------------------------------------------------------------------- |
+| `--base <ref>` | Branch off this ref instead of the remote default branch (skips the fetch). |
+| `--no-fetch`   | Skip the fetch; branch off the existing `origin/<default>`.                 |
+| `--verify`     | Run `verifyCommand` from `.lumo/worktree.json` in the new worktree.         |
 
-Errors if the target dir already exists; reuses the branch if it already exists (adds the worktree without `-b`).
+Default-branch detection: `origin/HEAD` → (online) `git remote set-head origin --auto` → a local `origin/main` / `origin/master`. If none answers it exits 1 asking for `--base`. Errors if the target dir already exists; reuses the branch if it already exists (adds the worktree without `-b`).
 
-### Gotchas (two it warns about, two it can't fix)
+### Gotchas in this repo (printed from `notes`)
 
 - **`prisma generate` clobbers all worktrees.** The generated client lives in the shared (symlinked) `node_modules`, so a `generate` in one worktree overwrites the client every parallel worktree depends on. Verify with jest (SWC mocks Prisma); do `generate + tsc` atomically once at the end.
 - **Run jest from the worktree root** (`cd` in first). `cli/` has no jest config; running from the main checkout hits the `cli/package.json` haste collision and silently runs the wrong tests.
-- **Husky hooks are copied in for you.** Husky owns hooks via `core.hooksPath = .husky/_`, resolved relative to each worktree's root. That `_` shim is **untracked** (regenerated on the main checkout's `npm install`/`prepare`), so a fresh worktree would lack it and git would **silently skip every hook** — pre-commit (lint-staged) and commit-msg (drift-check). With no GitHub CI, husky is the only deterministic quality gate, so `add` copies `.husky/_` in (copy, not symlink). If the main checkout has no `.husky/_`, `add` warns you to `npm install` there rather than skipping silently.
-- **Never `npm install` / `npm ci` inside a worktree.** npm doesn't respect the `node_modules` symlink — it deletes it and reifies a full standalone tree (~1 min, shared prisma-client gone). Install only in the main checkout, then re-create the symlink if npm replaced it. (Older npm could plant a self-referential `node_modules/node_modules` that hard-panics Turbopack's `next build`; the `prebuild`/`predev`/`preanalyze` guard `scripts/fix-nodemodules-selflink.ts` removes it, but this rule avoids the mess.)
+- **Never `npm install` / `npm ci` inside a worktree.** npm doesn't respect the `node_modules` symlink — it deletes it and reifies a full standalone tree (~1 min, shared prisma-client gone). Install only in the main checkout, then re-create the symlink if npm replaced it.
+- **Why the husky shim is copied:** husky owns hooks via `core.hooksPath = .husky/_`, resolved per worktree root, and that dir is untracked — without the copy git **silently skips every hook** (pre-commit lint-staged, commit-msg drift-check). If the main checkout has no `.husky/_`, `add` warns; run `npm install` there.
+
+## Lifecycle integration
+
+- **`session attach`** — after the bind, lists the task's worktree(s) by path (all of them when several match — it never picks one silently), marks the one you are in, or hints `lumo worktree add <id>`. It **creates** one (slug = first words of the title) only with `--worktree` or `autoWorktree: true` (`--no-worktree` overrides), only from the main checkout (in any linked worktree it says so and creates nothing), and a creation failure is a warning — attach still succeeds. See [sessions.md](sessions.md).
+- **`task update <id> --status done`** — the DONE envelope gets one line per task worktree: `Will remove worktree <path> (branch … kept)` or `Keeps worktree <path>: <reason>`. After `--confirm` and a successful DONE, only the removable ones are removed (re-checked at that moment). See the safety rules below and [confirmation.md](confirmation.md).
+- **`lumo worktree prune`** — the catch-all for tasks closed on the web or on another machine.
+
+### Safety rules (DONE cleanup and `prune`)
+
+A worktree is removed only when nothing can be lost:
+
+1. the current directory is **not** inside it (else: kept, with a `git -C <main> worktree remove <path>` to run later);
+2. `git status --porcelain` is empty (uncommitted or untracked changes → kept);
+3. every commit is on some remote ref, **or** HEAD is exactly the head commit of a **merged linked PR** — so a squash-merged branch whose remote branch was deleted is removable, but a commit added after the merge keeps it. (Servers older than LUM-825 don't send PR head commits; then only "pushed" counts, which only ever keeps more.)
+
+Never `--force`, and **branches are never deleted** by the cleanup — use `worktree rm --delete-branch` for that.
 
 ## `lumo worktree rm <LUM-N>`
 
@@ -63,7 +101,10 @@ and whether the branch is kept or deleted; nothing is removed. A dirty tree's
 `confirmCommand` carries `--force --confirm`. `--yes` is a legacy alias of
 `--confirm`. Keeps the branch by default (it may hold unpushed work / an open
 PR); `--delete-branch` removes it with `git branch -d` (which itself refuses
-an unmerged branch).
+an unmerged branch — including a squash-merged one).
+
+When **several worktrees** match the task it exits 1 and lists each as a
+`git worktree remove <path>` line — it never picks one for you.
 
 ```bash
 lumo worktree rm LUM-267                              # exit 4 + envelope
@@ -72,11 +113,27 @@ lumo worktree rm LUM-267 --force --confirm            # dirty tree: discard unco
 lumo worktree rm LUM-267 --confirm --delete-branch    # also delete lumo/LUM-267…
 ```
 
+## `lumo worktree prune`
+
+Looks up the task of every task worktree (id from the dir name or branch) and
+considers only tasks that are **DONE**; applies the safety rules above.
+Without `--confirm` it exits 4 with an envelope: one `LUM-N (DONE): Will
+remove …` / `Keeps …: <reason>` line per worktree, plus counts of worktrees
+left alone because their task is not DONE or could not be looked up. When
+nothing is removable it just says so (exit 0, no envelope). Never deletes
+branches.
+
+```bash
+lumo worktree prune              # exit 4 + envelope
+lumo worktree prune --confirm    # after the user approved
+```
+
 ## `lumo worktree list`
 
 Lists worktrees under `.worktrees/` with task id, branch, dirty state, and
 whether `node_modules` is symlinked (a `MISSING` link is the first thing to
-check when jest/tsc misbehaves). Read-only; runnable from anywhere in the repo.
+check when jest/tsc misbehaves in a Node repo). Read-only; runnable from
+anywhere in the repo.
 
 ```bash
 lumo worktree list
@@ -86,5 +143,6 @@ lumo worktree list
 
 - The user wants to work on a task **in isolation** from the current workspace — a parallel branch they can build/test without disturbing uncommitted work in the main checkout.
 - Starting a second task while one is in flight, or running independent tasks concurrently (one worktree per task — never two tasks in one worktree).
-- Before executing an implementation plan that needs a clean, dedicated branch off `origin/main`.
+- Before executing an implementation plan that needs a clean, dedicated branch off the default branch.
+- `.worktrees/` has piled up with finished tasks → `lumo worktree prune` (relay the envelope; never add `--confirm` yourself).
 - A `MISSING` node_modules link in `lumo worktree list` is the first thing to check when jest/tsc misbehaves in a worktree.

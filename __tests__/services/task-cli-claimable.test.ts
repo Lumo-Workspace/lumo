@@ -6,6 +6,12 @@
  *   - both task-update Zod schemas accept a `claimable` boolean,
  *   - the CLI collapses --claimable / --not-claimable into the wire payload.
  */
+// LUM-825: DONE also cleans up the task's local git worktrees; these suites
+// test the API flow, so never let it touch the real checkout's worktrees.
+jest.mock('@/cli/src/lib/worktree-cleanup', () => ({
+  ...jest.requireActual('@/cli/src/lib/worktree-cleanup'),
+  planTaskWorktreeCleanup: jest.fn(() => null),
+}))
 import { readFileSync } from 'fs'
 import path from 'path'
 import { cliUpdateTaskSchema, updateTaskSchema } from '@/lib/validation/schemas'

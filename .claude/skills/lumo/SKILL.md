@@ -46,7 +46,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 | `sprint*`                                                                               | [references/sprints.md](references/sprints.md)                 |
 | `task/project memory`, `memory promote/rm`                                              | [references/memory.md](references/memory.md)                   |
 | `session attach/status`, git-suggest on start, Layer-2 review                           | [references/sessions.md](references/sessions.md)               |
-| `worktree add/rm/list` (local dev tooling)                                              | [references/worktree.md](references/worktree.md)               |
+| `worktree add/rm/list/prune` (local dev tooling)                                        | [references/worktree.md](references/worktree.md)               |
 | `--confirm` / exit code 4 — the confirmation envelope every gated mutation speaks       | [references/confirmation.md](references/confirmation.md)       |
 
 ## Command catalog
@@ -208,9 +208,10 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Worktrees (local dev tooling) — see [worktree.md](references/worktree.md)
 
-- `lumo worktree add <LUM-N> [slug]` — scaffold `.worktrees/<LUM-N>` + node_modules symlink off origin/main; run from the main checkout
-- `lumo worktree rm <LUM-N> --confirm` — remove a worktree (exit 4 + envelope without `--confirm`; dirty tree also needs `--force`; keeps the branch unless `--delete-branch`)
-- `lumo worktree list` — list `.worktrees/` worktrees (task id, branch, dirty, node_modules link)
+- `lumo worktree add <LUM-N> [slug]` — `.worktrees/<LUM-N>` off the remote default branch; repo extras from `.lumo/worktree.json`
+- `lumo worktree rm <LUM-N> --confirm` — remove one (exit 4 envelope; dirty also needs `--force`; branch kept unless `--delete-branch`)
+- `lumo worktree prune --confirm` — remove DONE tasks' worktrees holding nothing unlanded (exit 4 envelope)
+- `lumo worktree list` — task id, branch, dirty, node_modules link. `session attach` reports/creates the task worktree; DONE's envelope lists removals
 
 ## Next-step hints (the trailing `Next:` block)
 

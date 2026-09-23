@@ -4,6 +4,12 @@
  * LUM-821 P1: `--due` / `--parent` on task create/update, and `task show`
  * rendering due / parent / subtasks.
  */
+// LUM-825: DONE also cleans up the task's local git worktrees; these suites
+// test the API flow, so never let it touch the real checkout's worktrees.
+jest.mock('@/cli/src/lib/worktree-cleanup', () => ({
+  ...jest.requireActual('@/cli/src/lib/worktree-cleanup'),
+  planTaskWorktreeCleanup: jest.fn(() => null),
+}))
 jest.mock('@/cli/src/lib/config', () => ({
   readCredentials: jest.fn(() => ({
     token: 'tok',
