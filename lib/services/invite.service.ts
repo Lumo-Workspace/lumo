@@ -112,6 +112,44 @@ export const inviteService = {
     return { workspaceSlug: invite.workspace.slug, alreadyMember: false }
   },
 
+  /**
+   * Join every workspace that has a live invite for one of the user's
+   * verified emails — the path for an invitee who signs in directly instead
+   * of clicking the invite link. Returns the newest invite's workspace slug
+   * to land on, or null when there is nothing to join. Callers must pass
+   * only emails the identity provider has verified.
+   */
+  async joinPendingInvitesForEmails(
+    clerkId: string,
+    verifiedEmails: string[]
+  ): Promise<string | null> {
+    const emails = [...new Set(verifiedEmails.map(e => e.toLowerCase()))]
+    if (emails.length === 0) return null
+
+    const invites = await inviteRepository.findPendingByEmails(
+      emails,
+      new Date()
+    )
+
+    let landingSlug: string | null = null
+    for (const invite of invites) {
+      const existingMember = await memberRepository.findByWorkspaceAndClerkId(
+        invite.workspaceId,
+        clerkId
+      )
+      if (existingMember) {
+        await inviteRepository.updateStatus(invite.id, 'ACCEPTED', {
+          acceptedAt: new Date(),
+        })
+      } else {
+        await inviteRepository.acceptInTransaction(invite, clerkId)
+      }
+      landingSlug ??= invite.workspace.slug
+    }
+
+    return landingSlug
+  },
+
   /** Resend an invite: reset expiry and return invite data for email sending. */
   async resendInvite(token: string, callerWorkspaceId: string) {
     const invite = await inviteRepository.findByTokenForResend(token)

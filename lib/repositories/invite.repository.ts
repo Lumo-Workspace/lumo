@@ -42,6 +42,36 @@ export const inviteRepository = {
     })
   },
 
+  /**
+   * Unexpired PENDING invites addressed to any of the given (lowercase)
+   * emails, across all workspaces, newest first — with the default team
+   * `acceptInTransaction` needs.
+   */
+  async findPendingByEmails(emails: string[], now: Date) {
+    return prisma.workspaceInvite.findMany({
+      where: {
+        email: { in: emails },
+        status: 'PENDING',
+        expiresAt: { gt: now },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        workspaceId: true,
+        workspace: {
+          select: {
+            slug: true,
+            teams: {
+              where: { isDefault: true },
+              take: 1,
+              select: { id: true },
+            },
+          },
+        },
+      },
+    })
+  },
+
   /** Find an invite by token (public info for invite page). */
   async findByToken(token: string) {
     return prisma.workspaceInvite.findUnique({
