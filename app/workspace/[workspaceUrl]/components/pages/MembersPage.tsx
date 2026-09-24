@@ -8,7 +8,7 @@ import { useIntl } from 'react-intl'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { useMembers } from '../../hooks/useMembers'
 import { useInvites } from '../../hooks/useInvites'
-import { clearCache } from '../../cache'
+import { useLeaveWorkspace } from '../../hooks/useLeaveWorkspace'
 import { workspacesClient } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import {
@@ -91,7 +91,7 @@ export function MembersPage() {
 
   // Leave workspace
   const [leaveOpen, setLeaveOpen] = useState(false)
-  const [leaving, setLeaving] = useState(false)
+  const { leave, leaving } = useLeaveWorkspace()
 
   // Members come from the shared useMembers cache (fetched once on workspace
   // mount, staleTime 5min); mutations below invalidate it. Only invites need
@@ -136,18 +136,14 @@ export function MembersPage() {
 
   // ─── Leave workspace ────────────────────────────────────────────────────────
   const handleLeave = async () => {
-    setLeaving(true)
     try {
-      await workspacesClient.leaveWorkspace()
-      clearCache()
-      window.location.href = '/onboarding'
+      await leave()
     } catch (err) {
       toast.error(
         err instanceof Error
           ? err.message
           : intl.formatMessage({ id: 'members.leaveFailed' })
       )
-      setLeaving(false)
       setLeaveOpen(false)
     }
   }
