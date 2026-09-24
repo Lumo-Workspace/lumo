@@ -1682,6 +1682,7 @@
   "waitlist.button.submitting": "Mengirim…",
   "waitlist.footer": "Kami tidak akan pernah membagikan email Anda. Berhenti berlangganan kapan saja.",
   "waitlist.error.network": "Kesalahan jaringan. Silakan coba lagi.",
+  "onboarding.logoAlt": "Logo Lumo",
   "onboarding.workspace.title": "Buat ruang kerja Anda",
   "onboarding.workspace.nameLabel": "Nama ruang kerja",
   "onboarding.workspace.namePlaceholder": "Acme Tbk.",

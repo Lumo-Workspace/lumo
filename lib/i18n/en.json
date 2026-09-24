@@ -1386,6 +1386,7 @@
   "onboarding.workspace.error.create": "Failed to create workspace",
   "onboarding.workspace.nameLabel": "Workspace name",
   "onboarding.workspace.namePlaceholder": "Acme Inc.",
+  "onboarding.logoAlt": "Lumo logo",
   "onboarding.workspace.title": "Create your workspace",
   "onboarding.workspace.urlLabel": "Workspace URL",
   "onboarding.workspace.urlPlaceholder": "acme-inc",

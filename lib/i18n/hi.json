@@ -1682,6 +1682,7 @@
   "waitlist.button.submitting": "भेजा जा रहा है…",
   "waitlist.footer": "हम आपका ईमेल कभी साझा नहीं करेंगे। आप कभी भी सदस्यता छोड़ सकते हैं।",
   "waitlist.error.network": "नेटवर्क त्रुटि। कृपया पुनः प्रयास करें।",
+  "onboarding.logoAlt": "Lumo लोगो",
   "onboarding.workspace.title": "अपना वर्कस्पेस बनाएं",
   "onboarding.workspace.nameLabel": "वर्कस्पेस का नाम",
   "onboarding.workspace.namePlaceholder": "Acme प्रा. लि.",

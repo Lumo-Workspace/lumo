@@ -1682,6 +1682,7 @@
   "waitlist.button.submitting": "送信中…",
   "waitlist.footer": "メールアドレスを共有することは一切ありません。いつでも配信解除できます。",
   "waitlist.error.network": "ネットワークエラーが発生しました。もう一度お試しください。",
+  "onboarding.logoAlt": "Lumo のロゴ",
   "onboarding.workspace.title": "ワークスペースを作成",
   "onboarding.workspace.nameLabel": "ワークスペース名",
   "onboarding.workspace.namePlaceholder": "株式会社サンプル",

@@ -1682,6 +1682,7 @@
   "waitlist.button.submitting": "Envoi…",
   "waitlist.footer": "Nous ne partagerons jamais votre e-mail. Désinscription à tout moment.",
   "waitlist.error.network": "Erreur réseau. Veuillez réessayer.",
+  "onboarding.logoAlt": "Logo Lumo",
   "onboarding.workspace.title": "Créez votre espace de travail",
   "onboarding.workspace.nameLabel": "Nom de l'espace",
   "onboarding.workspace.namePlaceholder": "Acme SARL",

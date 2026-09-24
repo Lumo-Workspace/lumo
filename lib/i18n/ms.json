@@ -1682,6 +1682,7 @@
   "waitlist.button.submitting": "Menghantar…",
   "waitlist.footer": "Kami tidak akan kongsikan e-mel anda. Berhenti melanggan bila-bila masa.",
   "waitlist.error.network": "Ralat rangkaian. Sila cuba lagi.",
+  "onboarding.logoAlt": "Logo Lumo",
   "onboarding.workspace.title": "Cipta ruang kerja anda",
   "onboarding.workspace.nameLabel": "Nama ruang kerja",
   "onboarding.workspace.namePlaceholder": "Acme Sdn. Bhd.",

@@ -72,7 +72,7 @@ function WorkspaceStep({
         <div className='flex justify-center'>
           <Image
             src='/logo-dark.svg'
-            alt='Lumo Logo'
+            alt={intl.formatMessage({ id: 'onboarding.logoAlt' })}
             width={62}
             height={62}
             className='h-[62px] w-[62px]'
@@ -201,7 +201,7 @@ function InviteStep({
         <div className='flex justify-center'>
           <Image
             src='/logo-dark.svg'
-            alt='Lumo Logo'
+            alt={intl.formatMessage({ id: 'onboarding.logoAlt' })}
             width={62}
             height={62}
             className='h-[62px] w-[62px]'
