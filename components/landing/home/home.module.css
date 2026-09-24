@@ -769,7 +769,10 @@
 /* ============ FEATURES (BENTO) ============ */
 .bento {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  /* minmax(0, …): a bare 1fr track never shrinks below its widest cell's
+     min-content, so one nowrap meta line (.crossMeta) widened the whole
+     single-column bento past a 375px viewport. */
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 16px;
 }
 .cell {
@@ -792,7 +795,7 @@
 }
 .cellSplit {
   display: grid;
-  grid-template-columns: 1fr 1.05fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
   gap: 28px;
   align-items: center;
 }
@@ -1760,7 +1763,7 @@
     font-size: 46px;
   }
   .bento {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .span4,
   .span2,
@@ -1769,7 +1772,7 @@
     grid-column: auto;
   }
   .cellSplit {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 22px;
   }
   .howGrid {
@@ -1846,6 +1849,11 @@
   .metricGrid,
   .srcGrid {
     grid-template-columns: 1fr;
+  }
+  /* Wrap rather than ellipsize on a phone — the meta line is the finding's
+     layer and rule id, and truncating it hides the part that matters. */
+  .crossMeta {
+    white-space: normal;
   }
   /* Only marks in the product columns, so the table stays a table on a
      phone — just tighter. */
