@@ -77,7 +77,10 @@ async function getTaskDetail(taskId: string) {
   let pullRequests = task.pullRequests
 
   if (openPrs.length > 0) {
-    const updates = await syncPullRequestStatus(openPrs)
+    const updates = await syncPullRequestStatus(
+      task.project.workspaceId,
+      openPrs
+    )
     if (updates.size > 0) {
       pullRequests = task.pullRequests.map(pr => {
         const update = updates.get(pr.id)
