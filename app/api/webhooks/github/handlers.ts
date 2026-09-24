@@ -170,12 +170,9 @@ export async function handlePullRequest(
   ]
   if (!relevantActions.includes(action)) return
 
-  const state =
-    action === 'closed' && pr.merged
-      ? 'merged'
-      : action === 'closed'
-        ? 'closed'
-        : 'open'
+  // LUM-828: derive state from the payload, never from the action — an
+  // 'edited' event on an already-merged PR must stay merged, not revert to open.
+  const state = pr.merged ? 'merged' : pr.state === 'closed' ? 'closed' : 'open'
 
   const task = await findTaskForBranch(pr.head.ref, workspaceId)
 
@@ -232,8 +229,9 @@ export async function handlePullRequest(
 
   // Close the task's lineage edges when this PR reaches a terminal state
   // (merged → MERGED, closed → REJECTED). Detached; the stamp is idempotent so
-  // redelivery or the getTaskDetail poller double-firing is harmless.
-  if (state !== 'open') {
+  // redelivery or the getTaskDetail poller double-firing is harmless. Gated on
+  // the 'closed' action so a post-merge edit does not re-fire them (LUM-828).
+  if (action === 'closed' && state !== 'open') {
     stampLineageInBackground(s => s.stampForPrState(task.id, state))
     // Auto-judge claim faithfulness the moment a delivery merges (LUM-612).
     // No-op for 'closed'; the hourly cron is the reconciliation backstop.
