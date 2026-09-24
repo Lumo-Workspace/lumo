@@ -1684,6 +1684,7 @@
   "waitlist.button.submitting": "提交中…",
   "waitlist.footer": "我们绝不会泄露你的邮箱。可随时退订。",
   "waitlist.error.network": "网络错误，请稍后重试。",
+  "onboarding.logoAlt": "Lumo 标志",
   "onboarding.workspace.title": "创建你的工作区",
   "onboarding.workspace.nameLabel": "工作区名称",
   "onboarding.workspace.namePlaceholder": "示例公司",

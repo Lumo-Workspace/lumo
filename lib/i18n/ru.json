@@ -1682,6 +1682,7 @@
   "waitlist.button.submitting": "Отправка…",
   "waitlist.footer": "Мы никогда не передадим вашу почту третьим лицам. Отписаться можно в любой момент.",
   "waitlist.error.network": "Ошибка сети. Попробуйте снова.",
+  "onboarding.logoAlt": "Логотип Lumo",
   "onboarding.workspace.title": "Создайте рабочее пространство",
   "onboarding.workspace.nameLabel": "Название пространства",
   "onboarding.workspace.namePlaceholder": "ООО «Пример»",

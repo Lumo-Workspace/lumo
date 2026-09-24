@@ -1682,6 +1682,7 @@
   "waitlist.button.submitting": "Đang gửi…",
   "waitlist.footer": "Chúng tôi sẽ không bao giờ chia sẻ email của bạn. Có thể hủy đăng ký bất cứ lúc nào.",
   "waitlist.error.network": "Lỗi kết nối. Vui lòng thử lại.",
+  "onboarding.logoAlt": "Logo Lumo",
   "onboarding.workspace.title": "Tạo không gian làm việc của bạn",
   "onboarding.workspace.nameLabel": "Tên không gian",
   "onboarding.workspace.namePlaceholder": "Công ty Acme",

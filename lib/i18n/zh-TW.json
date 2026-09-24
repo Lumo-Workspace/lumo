@@ -1682,6 +1682,7 @@
   "waitlist.button.submitting": "提交中…",
   "waitlist.footer": "我們絕不會洩露你的信箱，可隨時取消訂閱。",
   "waitlist.error.network": "網路錯誤，請稍後再試。",
+  "onboarding.logoAlt": "Lumo 標誌",
   "onboarding.workspace.title": "建立你的工作區",
   "onboarding.workspace.nameLabel": "工作區名稱",
   "onboarding.workspace.namePlaceholder": "範例公司",

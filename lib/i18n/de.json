@@ -1682,6 +1682,7 @@
   "waitlist.button.submitting": "Wird gesendet…",
   "waitlist.footer": "Wir geben Ihre E-Mail nie weiter. Jederzeit abbestellbar.",
   "waitlist.error.network": "Netzwerkfehler. Bitte erneut versuchen.",
+  "onboarding.logoAlt": "Lumo-Logo",
   "onboarding.workspace.title": "Workspace erstellen",
   "onboarding.workspace.nameLabel": "Workspace-Name",
   "onboarding.workspace.namePlaceholder": "Acme GmbH",

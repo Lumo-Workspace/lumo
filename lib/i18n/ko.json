@@ -1682,6 +1682,7 @@
   "waitlist.button.submitting": "전송 중…",
   "waitlist.footer": "이메일은 절대 공유하지 않습니다. 언제든지 구독을 취소할 수 있습니다.",
   "waitlist.error.network": "네트워크 오류가 발생했습니다. 다시 시도해 주세요.",
+  "onboarding.logoAlt": "Lumo 로고",
   "onboarding.workspace.title": "워크스페이스 만들기",
   "onboarding.workspace.nameLabel": "워크스페이스 이름",
   "onboarding.workspace.namePlaceholder": "예시 주식회사",
