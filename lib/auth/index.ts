@@ -16,7 +16,7 @@
 
 export { auth, currentUser } from '@clerk/nextjs/server'
 
-import { auth } from '@clerk/nextjs/server'
+import { auth, currentUser } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 
@@ -70,5 +70,18 @@ export async function getUserWorkspace(clerkId: string) {
   }
 }
 
+/**
+ * Emails of the signed-in user that Clerk has verified, lowercased.
+ * Only these may be used to grant access (e.g. matching workspace invites).
+ */
+export async function getVerifiedEmails(): Promise<string[]> {
+  const user = await currentUser()
+  if (!user) return []
+  return user.emailAddresses
+    .filter(e => e.verification?.status === 'verified')
+    .map(e => e.emailAddress.toLowerCase())
+}
+
 export { verifyBearer } from './bearer'
+
 export { requireIdentity, type Identity } from './identity'

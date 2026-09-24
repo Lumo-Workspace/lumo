@@ -11,6 +11,7 @@ const mockFindByTokenWithWorkspace = jest.fn()
 const mockFindByTokenForResend = jest.fn()
 const mockUpdateStatus = jest.fn()
 const mockAcceptInTransaction = jest.fn()
+const mockFindPendingByEmails = jest.fn()
 
 jest.mock('@/lib/repositories/invite.repository', () => ({
   inviteRepository: {
@@ -25,6 +26,7 @@ jest.mock('@/lib/repositories/invite.repository', () => ({
     findByTokenForResend: (...args: any[]) => mockFindByTokenForResend(...args),
     updateStatus: (...args: any[]) => mockUpdateStatus(...args),
     acceptInTransaction: (...args: any[]) => mockAcceptInTransaction(...args),
+    findPendingByEmails: (...args: any[]) => mockFindPendingByEmails(...args),
   },
 }))
 
@@ -255,6 +257,85 @@ describe('inviteService', () => {
       await expect(
         inviteService.resendInvite('tok-1', 'ws-1')
       ).rejects.toMatchObject({ status: 400 })
+    })
+  })
+
+  describe('joinPendingInvitesForEmails', () => {
+    const invite = (id: string, workspaceId: string, slug: string) => ({
+      id,
+      workspaceId,
+      workspace: { slug, teams: [{ id: `team-${workspaceId}` }] },
+    })
+
+    it('joins the workspace of a pending invite and returns its slug', async () => {
+      const inv = invite('inv-1', 'ws-1', 'acme')
+      mockFindPendingByEmails.mockResolvedValue([inv])
+      mockFindByWorkspaceAndClerkId.mockResolvedValue(null)
+
+      const slug = await inviteService.joinPendingInvitesForEmails('clerk-1', [
+        'Bob@Acme.com',
+      ])
+
+      expect(slug).toBe('acme')
+      expect(mockFindPendingByEmails).toHaveBeenCalledWith(
+        ['bob@acme.com'],
+        expect.any(Date)
+      )
+      expect(mockAcceptInTransaction).toHaveBeenCalledWith(inv, 'clerk-1')
+    })
+
+    it('accepts every matching invite and lands on the newest one', async () => {
+      mockFindPendingByEmails.mockResolvedValue([
+        invite('inv-new', 'ws-new', 'newest'),
+        invite('inv-old', 'ws-old', 'older'),
+      ])
+      mockFindByWorkspaceAndClerkId.mockResolvedValue(null)
+
+      const slug = await inviteService.joinPendingInvitesForEmails('clerk-1', [
+        'a@x.com',
+        'b@y.com',
+      ])
+
+      expect(slug).toBe('newest')
+      expect(mockAcceptInTransaction).toHaveBeenCalledTimes(2)
+    })
+
+    it('marks the invite accepted without a second membership when already a member', async () => {
+      mockFindPendingByEmails.mockResolvedValue([
+        invite('inv-1', 'ws-1', 'acme'),
+      ])
+      mockFindByWorkspaceAndClerkId.mockResolvedValue({ id: 'member-1' })
+
+      const slug = await inviteService.joinPendingInvitesForEmails('clerk-1', [
+        'bob@acme.com',
+      ])
+
+      expect(slug).toBe('acme')
+      expect(mockAcceptInTransaction).not.toHaveBeenCalled()
+      expect(mockUpdateStatus).toHaveBeenCalledWith('inv-1', 'ACCEPTED', {
+        acceptedAt: expect.any(Date),
+      })
+    })
+
+    it('returns null when no pending invite matches', async () => {
+      mockFindPendingByEmails.mockResolvedValue([])
+
+      const slug = await inviteService.joinPendingInvitesForEmails('clerk-1', [
+        'nobody@x.com',
+      ])
+
+      expect(slug).toBeNull()
+      expect(mockAcceptInTransaction).not.toHaveBeenCalled()
+    })
+
+    it('does not query at all without a verified email', async () => {
+      const slug = await inviteService.joinPendingInvitesForEmails(
+        'clerk-1',
+        []
+      )
+
+      expect(slug).toBeNull()
+      expect(mockFindPendingByEmails).not.toHaveBeenCalled()
     })
   })
 })

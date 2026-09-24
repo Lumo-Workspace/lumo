@@ -1,6 +1,6 @@
 {
   "app/invite/[token]/AcceptInviteClient.tsx": 1,
-  "app/onboarding/page.tsx": 2,
+  "app/onboarding/OnboardingClient.tsx": 2,
   "app/sessions/[id]/page.tsx": 1,
   "app/sessions/[id]/SummaryCard.tsx": 14,
   "app/sessions/[id]/Timeline.tsx": 14,
