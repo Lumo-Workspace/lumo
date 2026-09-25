@@ -3,8 +3,10 @@ import {
   formatQueueExits,
   SCAN_STAGE_KEYS,
   SCAN_UNFINISHED_NOTE,
+  formatHuntOverCap,
   formatHuntProgress,
-  scanCoverageState,
+  formatJudgeOverCap,
+  isOwnedUnfinished,
   scanStageLabel,
   scanStageStateLabel,
 } from '../../../shared/src/security-scan'
@@ -29,6 +31,12 @@ export interface ScanLayerLineInput {
    * paths). Absent on an older server and on an un-batched hunt.
    */
   huntProgress?: { coveredFiles: number; totalFiles: number } | null | undefined
+  /** LUM-832 — the causes; absent on an older server (reads as unattributed). */
+  partialCauses?: string[] | undefined
+  /** LUM-832 — the hunt did not run: over its file cap. Absent on an older server. */
+  huntOverCap?: { sourceFiles: number; capFiles: number } | null | undefined
+  /** LUM-832 — the AI review did not run: over its size cap. Absent on an older server. */
+  judgeOverCap?: { diffChars: number; capChars: number } | null | undefined
   /** Raw external-tool hits that are not dependencies (decorates Code scan). */
   externalFindings: number
   /** LUM-738 — DEPENDENCY rows (decorates Dependencies). Absent on an older server. */
@@ -89,7 +97,12 @@ export function formatScanLayerTail(s: ScanLayerLineInput): string {
   if (segments.length > 0) line += ` · ${segments.join(' · ')}`
   // LUM-832: one owned note when something did not finish, whatever the
   // cause — never the bare `partial`, which read as a verdict on the PR.
-  if (scanCoverageState(s) === 'UNFINISHED')
+  if (
+    isOwnedUnfinished({
+      ...s,
+      hasSizeNotice: Boolean(s.huntOverCap || s.judgeOverCap),
+    })
+  )
     line += ` · ${SCAN_UNFINISHED_NOTE}`
   // LUM-775: what left the queue because the PR merged / closed, and why —
   // so a merged PR's line explains where its findings went instead of
@@ -102,6 +115,21 @@ export function formatScanLayerTail(s: ScanLayerLineInput): string {
     line += ` — ${sanitizeField(tail(s.externalFailureReason, EXTERNAL_ERROR_TAIL))}`
   }
   return line
+}
+
+/**
+ * LUM-832 — the size-cap notices, one line each under the scan line, in the
+ * same words as the PR summary: a layer over its cap did not run, and how to
+ * get it (CodeRabbit's shape). Empty when no layer was skipped for size.
+ */
+export function formatSizeCapLines(s: {
+  huntOverCap?: { sourceFiles: number; capFiles: number } | null | undefined
+  judgeOverCap?: { diffChars: number; capChars: number } | null | undefined
+}): string[] {
+  const lines: string[] = []
+  if (s.judgeOverCap) lines.push(formatJudgeOverCap(s.judgeOverCap))
+  if (s.huntOverCap) lines.push(formatHuntOverCap(s.huntOverCap))
+  return lines
 }
 
 /**

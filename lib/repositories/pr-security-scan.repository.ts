@@ -118,6 +118,12 @@ export interface FinalizeScanInput {
    * without naming a cause.
    */
   partialCauses: PartialCause[]
+  /**
+   * LUM-832 — stage A's own note on the hunt, written only when stage A
+   * decided the hunt (e.g. `{ overCap }` when the file cap forbade it). Absent
+   * = leave the column alone: the hunt workflow owns it otherwise.
+   */
+  huntAudit?: Record<string, unknown>
   error?: string | null
 }
 
@@ -211,6 +217,10 @@ export interface ScanWithFindings {
   huntAudit: unknown
   /** LUM-822 job Json, raw. LUM-832 reads its batch plan (`huntBatchProgress`). */
   huntJob?: unknown
+  /** LUM-832 — why the scan is not whole (text[]; absent on an old mock). */
+  partialCauses?: string[]
+  /** LUM-814 budget Json, raw. LUM-832 reads the AI review's size cap off it. */
+  judgeBudget?: unknown
   findings: FindingRow[]
 }
 
@@ -248,6 +258,9 @@ export interface ScanReadoutRow {
   huntAudit: unknown
   /** LUM-814's budget Json, raw. The read-out parses it with `parseJudgeBudget`. */
   judgeBudget: unknown
+  /** LUM-832 — the causes, and the hunt job (its file-cap count). */
+  partialCauses: string[]
+  huntJob: unknown
   findings: ReadoutFindingRow[]
 }
 
@@ -289,6 +302,11 @@ export interface ScanForReview {
   stages: ScanStages | null
   /** LUM-832: the running hunt job, for the batched hunt's covered share. */
   huntJob: unknown
+  /** LUM-832: the causes, to tell a size-cap-only scan from an unfinished one. */
+  partialCauses?: string[]
+  /** LUM-832: where the size-cap facts live (hunt overCap, judge budget). */
+  huntAudit: unknown
+  judgeBudget: unknown
   partial: boolean
   error: string | null
   /** LUM-740: the summary comment this scan (or an earlier one) already owns. */
@@ -677,6 +695,9 @@ export const prSecurityScanRepository = {
           stages,
           partial,
           partialCauses,
+          ...(final.huntAudit
+            ? { huntAudit: final.huntAudit as Prisma.InputJsonValue }
+            : {}),
           error: final.error ?? keptError ?? null,
           finishedAt: new Date(),
         },
@@ -881,8 +902,26 @@ export const prSecurityScanRepository = {
           ...(findings.length > 0 ? { status: 'FINDINGS' } : {}),
         },
       })
-      if (findings.length > 0)
-        await tx.prSecurityFinding.createMany({ data: findings })
+      // LUM-832: a retry of a batch can resubmit what an earlier run of this
+      // scan already landed — nothing on the table makes a fingerprint unique, so
+      // drop the ones already on the scan. The first run has nothing to meet.
+      let rows = findings
+      if ((final.attempt ?? 1) > 1 && findings.length > 0) {
+        const landed = await tx.prSecurityFinding.findMany({
+          where: {
+            scanId,
+            fingerprint: { in: findings.map(f => f.fingerprint) },
+          },
+          select: { fingerprint: true },
+        })
+        const seen = new Set(landed.map(f => f.fingerprint))
+        rows = findings.filter(f => {
+          if (seen.has(f.fingerprint)) return false
+          seen.add(f.fingerprint)
+          return true
+        })
+      }
+      if (rows.length > 0) await tx.prSecurityFinding.createMany({ data: rows })
       return true
     })
   },
@@ -1109,6 +1148,9 @@ export const prSecurityScanRepository = {
         status: true,
         stages: true,
         huntJob: true,
+        partialCauses: true,
+        huntAudit: true,
+        judgeBudget: true,
         partial: true,
         error: true,
         summaryCommentId: true,
@@ -1226,6 +1268,8 @@ export const prSecurityScanRepository = {
         tokenSpent: true,
         huntAudit: true,
         judgeBudget: true,
+        partialCauses: true,
+        huntJob: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {

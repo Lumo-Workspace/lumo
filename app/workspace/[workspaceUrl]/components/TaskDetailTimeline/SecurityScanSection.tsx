@@ -371,9 +371,37 @@ function ScanDetails({
           reason — "cut off at the scan budget", "large changes may be
           under-reviewed" — that was usually wrong and always ours; the stage
           row above already says which layer did not finish. */}
-      {scan.coverage === 'UNFINISHED' && (
+      {scan.ownedUnfinished && (
         <p data-testid='scan-unfinished' className='text-caption text-warning'>
           {intl.formatMessage({ id: 'securityScan.partial' })}
+        </p>
+      )}
+      {/* LUM-832: a layer over its size cap did not run — told the way
+          CodeRabbit tells its own limit: the change is too large, and how to
+          get the layer (narrow the scope or split the PR). */}
+      {scan.huntOverCap && (
+        <p data-testid='scan-over-cap' className='text-caption text-warning'>
+          {intl.formatMessage(
+            { id: 'securityScan.huntOverCap' },
+            {
+              files: scan.huntOverCap.sourceFiles,
+              cap: scan.huntOverCap.capFiles,
+            }
+          )}
+        </p>
+      )}
+      {scan.judgeOverCap && (
+        <p
+          data-testid='scan-judge-over-cap'
+          className='text-caption text-warning'
+        >
+          {intl.formatMessage(
+            { id: 'securityScan.judgeOverCap' },
+            {
+              size: scan.judgeOverCap.diffChars,
+              cap: scan.judgeOverCap.capChars,
+            }
+          )}
         </p>
       )}
       {externalReason && (

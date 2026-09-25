@@ -339,7 +339,12 @@ describe('LUM-739 hunt workflow', () => {
       outcome: 'PARTIAL',
     })
     expect(hunt).toHaveBeenCalledTimes(1)
-    expect(persist.mock.calls[0]![0].partialCauses).toEqual(['HUNT_INCOMPLETE'])
+    // LUM-832: t1's stop carries no wrap-up facts (read as ours to redo);
+    // t2's turn never came — our budget, recorded as such, not a fault.
+    expect(persist.mock.calls[0]![0].partialCauses).toEqual([
+      'HUNT_INCOMPLETE',
+      'HUNT_BUDGET_SHORT',
+    ])
   })
 
   it('stops launching batches once the time budget is spent', async () => {
@@ -1103,15 +1108,8 @@ it('LUM-831 timeout and sandbox failure and an unanswered wrap-up still make the
       }),
     ],
     ['gateway error', batch({ stopped: 'error', error: 'gateway 500' })],
-    // The search stopped for looping and nobody was asked: no budget, no time,
-    // or the caller had the hand-over turned off.
-    [
-      'wrap-up never ran',
-      batch({
-        stopped: 'no-progress',
-        wrapUp: { ran: false, skipped: 'no-budget' },
-      }),
-    ],
+    // (LUM-832: a wrap-up that never ran for want of OUR budget is still
+    // PARTIAL, but recorded as HUNT_BUDGET_SHORT — see the test below.)
     // Asked and lost. Distinct from every `skipped` reason: this one asked.
     [
       'wrap-up threw',
@@ -1153,4 +1151,21 @@ it('LUM-831 timeout and sandbox failure and an unanswered wrap-up still make the
     expect([name, persisted.partialCauses]).toEqual([name, ['HUNT_INCOMPLETE']])
     expect([name, persisted.stage]).toEqual([name, 'PARTIAL'])
   }
+})
+
+it('LUM-832 a wrap-up that never ran for want of our budget is PARTIAL as HUNT_BUDGET_SHORT, and is not retried', async () => {
+  const { outcome, persisted } = await runHunt(
+    batch({ stopped: 'done' }),
+    batch({
+      stopped: 'no-progress',
+      wrapUp: { ran: false, skipped: 'no-budget' },
+    }),
+    batch({
+      stopped: 'no-progress',
+      wrapUp: { ran: false, skipped: 'no-budget' },
+    })
+  )
+  expect(outcome.outcome).toBe('PARTIAL')
+  expect(persisted.partialCauses).toEqual(['HUNT_BUDGET_SHORT'])
+  expect(persisted.stage).toBe('PARTIAL')
 })

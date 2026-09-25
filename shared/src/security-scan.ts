@@ -207,10 +207,27 @@ export const PARTIAL_CAUSES = [
   'HUNT_INCOMPLETE',
   /** More accepted hunt candidates than `HUNT_MAX_FALSIFIED`; the rest were not falsified. */
   'HUNT_FALSIFIER_OVERFLOW',
-  /** The hunt was sized for fewer source files than the diff touched (`HUNT_OVERSIZED_SOURCE_FILES`). */
+  /**
+   * The diff touched more source files than the hunt runs on
+   * (`HUNT_MAX_HUNTED_FILES`, like CodeRabbit's file limit), so the hunt did
+   * not run. The customer is told so, and how to get it (`formatHuntOverCap`).
+   * (Rows before that change: the hunt covered a corner of the diff.)
+   */
   'HUNT_OVERSIZED',
+  /**
+   * A planned hunt task was cut short by the budget WE set — its turn never
+   * came, or its wrap-up had no tokens / time left. Not retried with the same
+   * budget (it would hit the same wall): the layer ends unfinished at once.
+   */
+  'HUNT_BUDGET_SHORT',
   /** The AI review's tier held less than the whole diff; some files were not reviewed. */
   'JUDGE_TRUNCATED',
+  /**
+   * The diff was larger than the AI review runs on (its top tier), so the AI
+   * review did not run — like CodeRabbit skipping an over-limit review. The
+   * customer is told so, and how to get it (`formatJudgeOverCap`).
+   */
+  'JUDGE_OVER_CAP',
   /** The graph rules could not read the subgraph they check. */
   'GRAPH_READ_FAILED',
   /** A managed / pushed scanner report was cut at the finding cap. */
@@ -230,9 +247,11 @@ export type PartialCauseClass = 'OUR_FAULT' | 'COVERAGE_OWED' | 'UNATTRIBUTED'
 
 export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   HUNT_INCOMPLETE: 'OUR_FAULT',
+  HUNT_BUDGET_SHORT: 'COVERAGE_OWED',
   HUNT_FALSIFIER_OVERFLOW: 'COVERAGE_OWED',
   HUNT_OVERSIZED: 'COVERAGE_OWED',
   JUDGE_TRUNCATED: 'COVERAGE_OWED',
+  JUDGE_OVER_CAP: 'COVERAGE_OWED',
   GRAPH_READ_FAILED: 'OUR_FAULT',
   EXTERNAL_TRUNCATED: 'COVERAGE_OWED',
 }
@@ -325,4 +344,89 @@ export interface HuntProgressInput {
 
 export function formatHuntProgress(p: HuntProgressInput): string {
   return `${p.coveredFiles}/${p.totalFiles} source files`
+}
+
+/**
+ * LUM-832 — a layer over its size cap does not run at all (no tokens spent),
+ * and the customer is told the change is too large, with the way to get the
+ * layer: narrow the review scope or split the PR. Deliberately CodeRabbit's
+ * shape — a limit on the size of the CHANGE, stated plainly — and the only
+ * customer lines that ask something of the customer: our own faults and
+ * shortfalls stay owned (`SCAN_UNFINISHED_NOTE`). The web panel says the same
+ * through `securityScan.huntOverCap` / `securityScan.judgeOverCap`.
+ */
+export interface HuntOverCapInput {
+  /** Source files the diff touched. */
+  sourceFiles: number
+  /** The most the hunt runs on. */
+  capFiles: number
+}
+
+export function formatHuntOverCap(c: HuntOverCapInput): string {
+  return `This PR touches ${c.sourceFiles} source files; exploit-path checks run on up to ${c.capFiles}, so they did not run. To get them, narrow the review scope or split the PR.`
+}
+
+export interface JudgeOverCapInput {
+  /** Characters in the diff. */
+  diffChars: number
+  /** The most the AI review runs on. */
+  capChars: number
+}
+
+function thousands(n: number): string {
+  return n.toLocaleString('en-US')
+}
+
+export function formatJudgeOverCap(c: JudgeOverCapInput): string {
+  return `This PR's diff is ${thousands(c.diffChars)} characters; AI review runs on up to ${thousands(c.capChars)}, so it did not run. To get it, narrow the review scope or split the PR.`
+}
+
+/** The causes that mean "the change was over a size cap", not a fault of ours. */
+const SIZE_CAP_CAUSES: ReadonlySet<string> = new Set([
+  'HUNT_OVERSIZED',
+  'JUDGE_OVER_CAP',
+])
+
+/**
+ * LUM-832 — is a size cap the ONLY reason this scan is unfinished? Then the
+ * customer gets the over-cap notice(s) alone; the generic owned line
+ * (`SCAN_UNFINISHED_NOTE`) is for faults and shortfalls of ours, and saying
+ * both would call a limit on the change's size our failure. False on a legacy
+ * row (no causes on record) and whenever any layer is FAILED / PARTIAL / off
+ * / superseded or any other cause is on record.
+ */
+export function isUnfinishedOnlyBySize(s: {
+  status?: string | null
+  stages: Partial<Record<string, string | undefined>>
+  partialCauses: ReadonlyArray<string>
+}): boolean {
+  if (s.status === 'FAILED') return false
+  if (s.partialCauses.length === 0) return false
+  if (!s.partialCauses.every(c => SIZE_CAP_CAUSES.has(c))) return false
+  return !Object.values(s.stages).some(
+    state => state !== undefined && UNFINISHED_STAGE_STATES.has(state)
+  )
+}
+
+/**
+ * LUM-832 — should the customer get the owned "not finished on our side"
+ * line? Yes when the scan is unfinished for a reason of ours; no when a size
+ * cap is the only gap and its notice is on screen (a limit on the change's
+ * size is told as such, never dressed up as our failure). The one rule the
+ * web panel, the PR summary and the CLI all apply.
+ */
+export function isOwnedUnfinished(
+  s: ScanCoverageInput & {
+    partialCauses?: ReadonlyArray<string> | null | undefined
+    /** A size-cap notice (hunt or AI review) is shown for this scan. */
+    hasSizeNotice: boolean
+  }
+): boolean {
+  if (scanCoverageState(s) !== 'UNFINISHED') return false
+  if (!s.hasSizeNotice) return true
+  return !isUnfinishedOnlyBySize({
+    ...(s.status !== undefined ? { status: s.status } : {}),
+    stages: s.stages,
+    partialCauses: s.partialCauses ?? [],
+  })
 }

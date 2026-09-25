@@ -299,6 +299,13 @@ export const HUNT_TASK_CAP_TIERS: ReadonlyArray<{
  */
 export const HUNT_OVERSIZED_SOURCE_FILES = 40
 /**
+ * LUM-832 — the most source files a hunt runs on (≤ 4 batches of
+ * HUNT_OVERSIZED_SOURCE_FILES). Past it the hunt does NOT run at all — like
+ * CodeRabbit's file limit (150 on Pro), which skips the review — so no tokens
+ * are spent, and the customer is told to narrow the scope or split the PR.
+ */
+export const HUNT_MAX_HUNTED_FILES = 150
+/**
  * Per-task token ceiling. Two constraints define this number, and
  * `__tests__/security-scan/hunt/budget-arithmetic.test.ts` pins both:
  *
@@ -680,6 +687,42 @@ export const HUNT_ANSWERABLE_STOPS: readonly HuntCategoryStop[] = [
  * to ask, so its empty answer is evidence about the provider and not about the
  * diff (see `HuntTaskAudit.wrapUpWarnings`).
  */
+/**
+ * LUM-832 — WHY a task that did not terminate fell short, because the two
+ * reasons want different remedies:
+ *
+ *   - `infra` — something of ours broke (a timeout, a batch that threw, a
+ *     wrap-up that errored, a provider that ignored the forced call). It is
+ *     random, so the same run again is likely to succeed: retry it once.
+ *   - `budget` — the budget WE set ran out (the task's turn never came, or its
+ *     wrap-up had no tokens / time left). The same run again hits the same
+ *     wall: it is not retried, and the layer ends unfinished (HUNT_BUDGET_SHORT).
+ *
+ * An answerable stop with no wrap-up facts at all (a result replayed from
+ * before LUM-831) says nothing about why — it is counted as `infra`, the
+ * remedy that has always applied to it. null = the task terminated.
+ */
+export function huntShortfall(row: {
+  stopped: HuntCategoryStop
+  wrapUp?: HuntWrapUpFacts | undefined
+  wrapUpWarnings?: readonly string[] | undefined
+}): 'infra' | 'budget' | null {
+  if (huntTaskTerminated(row)) return null
+  if (row.stopped === 'skipped') return 'budget'
+  if (!HUNT_ANSWERABLE_STOPS.includes(row.stopped)) return 'infra'
+  const wrapUp = row.wrapUp
+  if (!wrapUp || wrapUp.error !== undefined) return 'infra'
+  if ((row.wrapUpWarnings?.length ?? 0) > 0) return 'infra'
+  if (
+    wrapUp.ran !== true &&
+    (wrapUp.skipped === 'no-budget' ||
+      wrapUp.skipped === 'no-time' ||
+      wrapUp.skipped === 'disabled')
+  )
+    return 'budget'
+  return 'infra'
+}
+
 export function huntTaskTerminated(row: {
   stopped: HuntCategoryStop
   wrapUp?: HuntWrapUpFacts | undefined

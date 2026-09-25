@@ -109,8 +109,21 @@ it, so a near miss is visible on a `budget` or `steps` row too. A diff with more
 source files than one run is sized for (`HUNT_OVERSIZED_SOURCE_FILES`, a cost
 decision) is hunted in **batches** across runs (LUM-832): riskiest files
 first, one run per batch, each batch's findings landing while the layer stays
-`scanning`, until every touched source file has been in a batch. The per-run
-`diff` line then describes that run's batch. `this run was sized for fewer
+`scanning`, for diffs of up to **150 source files** (`HUNT_MAX_HUNTED_FILES`,
+CodeRabbit's Pro file limit). The per-run `diff` line then describes that
+run's batch.
+
+**Size caps (LUM-832, CodeRabbit's shape).** A layer whose input is over its
+cap does not run at all — no tokens are spent — and the scan says so under
+the layer line: past 150 touched source files the hunt is `skipped` (cause
+`HUNT_OVERSIZED`) with `This PR touches N source files; exploit-path checks
+run on up to 150, so they did not run. To get them, narrow the review scope or
+split the PR.`; past the AI review's 180,000-character cap the AI review is
+`skipped` (cause `JUDGE_OVER_CAP`) with `This PR's diff is N characters; AI
+review runs on up to 180,000, so it did not run. To get it, narrow the review
+scope or split the PR.` These are the only lines that ask something of the
+customer; when a size cap is the only gap they replace the owned "not finished
+on our side" note. `this run was sized for fewer
 files than the diff — the rest is still on us` (formerly `oversized`) is kept
 for rows hunted before batching, whose layer reads PARTIAL.
 
@@ -121,6 +134,15 @@ on its own (LUM-831). The coverage payload says both facts — `stopped` is stil
 how the search ended, `terminated` is whether an answer came back. A timeout, a
 sandbox failure, a wrap-up that never ran or that errored, and a skipped task
 all stay partial: PARTIAL means "could not confirm this is clean".
+
+LUM-832 records WHY such a task fell short. Our infrastructure (timeout,
+sandbox, gateway, a wrap-up that errored or that the provider degraded) →
+`HUNT_INCOMPLETE`, and the batch is retried once (each batch has its own
+retry). Our budget (the task's turn never came — `skipped` — or its wrap-up
+was skipped for `no-budget` / `no-time`) → `HUNT_BUDGET_SHORT`: not retried
+(the same budget would hit the same wall), the layer ends PARTIAL at once and
+what the finished tasks found is kept. Both read as unfinished on our side,
+and neither asks the customer for anything.
 
 `placed by …` (LUM-798) breaks the same candidates down on **two axes**, and
 the distinction matters:

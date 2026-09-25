@@ -4,6 +4,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { printRedactionNotice } from '../lib/redaction-notice'
 import {
   formatHuntCoverageLine,
+  formatSizeCapLines,
   formatScanLayerTail,
   formatJudgeBudgetLine,
   type JudgeBudgetLine,
@@ -106,6 +107,12 @@ export interface PrScanEntry {
   truncated: boolean
   stages: Partial<Record<string, string>>
   partial: boolean
+  /** LUM-832 — absent on an older server. */
+  partialCauses?: string[]
+  /** LUM-832 — the file cap left files out; absent on an older server. */
+  huntOverCap?: { sourceFiles: number; capFiles: number } | null
+  /** LUM-832 — the AI review did not run: over its size cap; absent on an older server. */
+  judgeOverCap?: { diffChars: number; capChars: number } | null
   externalFailureReason: string | null
   startedAt: string
   finishedAt: string | null
@@ -245,6 +252,9 @@ function formatScan(s: PrScanEntry, full: boolean): string[] {
     status: s.status,
     stages: s.stages,
     partial: s.partial,
+    partialCauses: s.partialCauses,
+    huntOverCap: s.huntOverCap,
+    judgeOverCap: s.judgeOverCap,
     externalFindings: s.counts.externalFindings,
     dependencyFindings: s.counts.dependencyFindings,
     persistingFindings: s.counts.persisting,
@@ -253,6 +263,8 @@ function formatScan(s: PrScanEntry, full: boolean): string[] {
   })
   // The tail starts with ` · `; on its own line the leading separator goes.
   if (tail) lines.push(`  ${tail.replace(/^ · /, '')}`)
+  // LUM-832: the file cap, stated like CodeRabbit states its own.
+  for (const l of formatSizeCapLines(s)) lines.push(`  ${l}`)
   // LUM-814: the judge's budget arithmetic, one line under the layer it
   // belongs to and before the hunt's own detail — stage order, same as the
   // segments above. Printed whenever the layer exists, including when it was

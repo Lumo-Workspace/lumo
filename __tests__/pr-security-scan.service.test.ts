@@ -1348,19 +1348,28 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     })
   })
 
-  test('a diff over SECURITY_DIFF_MAX_CHARS marks the judge truncated and the scan partial', async () => {
+  // LUM-832 — like CodeRabbit's limit, a diff over the AI review's top tier
+  // is not reviewed at all (it used to be reviewed on a trimmed prefix): no
+  // model call, and the scan records the cause the customer notice reads.
+  test('a diff over the AI review cap is not reviewed at all and the scan says why', async () => {
     const bigDiff = overTopTierDiff()
     fetchPrDiff.mockResolvedValue(bigDiff)
     await prSecurityScanService.run({
       pullRequestId: 'pr1',
       trigger: 'PR_EVENT',
     })
+    expect(judgeSecurity).not.toHaveBeenCalled()
     expect(repo.persistResult).toHaveBeenCalledWith(
       's1',
       expect.anything(),
       expect.objectContaining({
-        truncated: true,
-        partialCauses: ['JUDGE_TRUNCATED'],
+        truncated: false,
+        partialCauses: ['JUDGE_OVER_CAP'],
+        judgeBudget: expect.objectContaining({
+          diffChars: bigDiff.length,
+          tierChars: JUDGE_DIFF_TOP_TIER_CHARS,
+          reviewedChars: 0,
+        }),
       })
     )
   })
@@ -1368,7 +1377,8 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
   // LUM-758 — 上面那条只钉了 `truncated`/`partial` 两个标志位。截断之后
   // `stages.judge` 一直还是 'RAN'，在 PR 行里渲染成 “AI review: checked”：
   // 一个整文件没看过的层在宣称自己通过了。P9 说安全信号不得声称未建立的结论。
-  test('a judge that ran over a trimmed diff records PARTIAL, not RAN', async () => {
+  // LUM-832 — and P9 still holds: the layer is never read as a pass.
+  test('an over-cap diff never reads as a reviewed AI review layer', async () => {
     const bigDiff = overTopTierDiff()
     fetchPrDiff.mockResolvedValue(bigDiff)
     await prSecurityScanService.run({
@@ -1379,14 +1389,17 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
       's1',
       expect.anything(),
       expect.objectContaining({
-        stages: expect.objectContaining({ judge: 'PARTIAL' }),
+        stages: expect.objectContaining({ judge: 'SKIPPED' }),
+        judgeStatus: 'SKIPPED',
       })
     )
   })
 
   // LUM-758 — 预算按字节位置切时，一个文件有没有被 AI review 看过，取决于
-  // 它的文件名排第几。`zz/sink.ts` 排最后，永远落在刀口之后。
-  test('the judge is handed the file carrying the signal even when it sorts last', async () => {
+  // 它的文件名排第几。LUM-832: over the cap the review no longer runs on a
+  // trimmed selection at all, so no file — signal-carrying or not — is sent;
+  // the whole-file packing below only ever sees diffs within the cap.
+  test('over the cap no file is sent to the model, not even the one carrying the signal', async () => {
     const section = (path: string, body: string[]): string =>
       [
         `diff --git a/${path} b/${path}`,
@@ -1418,10 +1431,10 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
       trigger: 'PR_EVENT',
     })
 
-    const calls = judgeSecurity.mock.calls as unknown[][]
-    const seen = (calls[calls.length - 1]![0] as { diff: string }).diff
-    expect(seen).toContain('exec(userInput)')
-    expect(seen).toContain('files omitted to fit the review budget')
+    expect(judgeSecurity).not.toHaveBeenCalled()
+    expect(repo.persistResult.mock.calls[0]![2].partialCauses).toContain(
+      'JUDGE_OVER_CAP'
+    )
   })
 
   // LUM-758 — 预算按改动源文件数分档。定值 60k 编码的是成本而不是容量，

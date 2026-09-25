@@ -64,7 +64,7 @@ import {
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_MAX_FALSIFIED,
   HUNT_MAX_ATTEMPTS,
-  huntTaskTerminated,
+  huntShortfall,
   type HuntJob,
   type HuntTask,
   type HuntCategoryStop,
@@ -252,13 +252,22 @@ async function markHuntFailedBestEffort(
  * The eligibility test is here, in the deterministic body, so a run with no
  * attempt left never pays for the step.
  */
+/**
+ * LUM-832 — which try of its batch a job is. `attempt` is the row's fence and
+ * keeps counting across batches, so it is NOT the retry budget: reading it
+ * here meant batch 2+ of a batched hunt was never retried at all.
+ */
+function triesOf(job: HuntJob): number {
+  return job.tries ?? job.attempt ?? 1
+}
+
 async function requeueBestEffort(
   job: HuntJob,
   reason: string,
   tokenSpent: number,
   audit: HuntAudit
 ): Promise<number | null> {
-  if ((job.attempt ?? 1) >= HUNT_MAX_ATTEMPTS) return null
+  if (triesOf(job) >= HUNT_MAX_ATTEMPTS) return null
   try {
     const out = await requeueHuntStep({
       job,
@@ -700,8 +709,16 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       // still makes the layer PARTIAL. See `huntTaskTerminated`.
       for (const task of planned) {
         const outcome = outcomes[task.id]
-        if (outcome === undefined || !huntTaskTerminated(outcome))
-          addCause(partialCauses, 'HUNT_INCOMPLETE')
+        //
+        // LUM-832 — and sorted by WHY. Our infrastructure → HUNT_INCOMPLETE,
+        // retried once below. Our budget → HUNT_BUDGET_SHORT: a retry with
+        // the same budget would hit the same wall, so the layer simply ends
+        // unfinished (parity with CodeRabbit, not more).
+        const shortfall =
+          outcome === undefined ? 'infra' : huntShortfall(outcome)
+        if (shortfall === 'infra') addCause(partialCauses, 'HUNT_INCOMPLETE')
+        else if (shortfall === 'budget')
+          addCause(partialCauses, 'HUNT_BUDGET_SHORT')
       }
     } catch (error) {
       // A step that exhausted its retries. Whatever ran before it still ran.

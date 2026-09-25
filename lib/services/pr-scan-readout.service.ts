@@ -16,6 +16,11 @@
  * never leaves the server (the repository never loads it); disposition is a
  * human-only column this read-out reports and never touches.
  */
+import { scanSizeCaps } from '@/lib/security-scan/size-caps'
+import type {
+  HuntOverCapInput,
+  JudgeOverCapInput,
+} from '@/shared/src/security-scan'
 import {
   prSecurityScanRepository,
   type FindingDisposition,
@@ -147,6 +152,12 @@ export interface ScanReadoutView {
   truncated: boolean
   stages: ScanStages
   partial: boolean
+  /** LUM-832 — why it is not whole (drives owned vs over-cap wording). */
+  partialCauses: string[]
+  /** LUM-832 — the hunt did not run: over its file cap. null otherwise. */
+  huntOverCap: HuntOverCapInput | null
+  /** LUM-832 — the AI review did not run: over its size cap. null otherwise. */
+  judgeOverCap: JudgeOverCapInput | null
   /** P8 — the scrubbed external-scanner reason, or null (raw crash text is never published). */
   externalFailureReason: string | null
   startedAt: string
@@ -559,6 +570,13 @@ export const prScanReadoutService = {
         truncated: scan.truncated,
         stages,
         partial: scan.partial,
+        partialCauses: scan.partialCauses ?? [],
+        ...scanSizeCaps({
+          stages,
+          partialCauses: scan.partialCauses ?? [],
+          huntAudit: scan.huntAudit,
+          judgeBudget: scan.judgeBudget,
+        }),
         externalFailureReason:
           stages.external === 'FAILED'
             ? (cleanText(

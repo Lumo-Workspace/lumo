@@ -27,6 +27,10 @@ const messages: Record<string, string> = {
   'securityScan.stage.external': 'External scanner',
   'securityScan.stage.hunt': 'Exploit paths',
   'securityScan.huntProgress': '{covered}/{total} source files',
+  'securityScan.huntOverCap':
+    'This PR touches {files} source files; exploit-path checks run on up to {cap}, so they did not run. To get them, narrow the review scope or split the PR.',
+  'securityScan.judgeOverCap':
+    "This PR's diff is {size} characters; AI review runs on up to {cap}, so it did not run. To get it, narrow the review scope or split the PR.",
   'securityScan.stage.judge': 'LLM review',
   'securityScan.stageState.FAILED': 'failed',
   'securityScan.stageState.NOT_CONFIGURED': 'not configured',
@@ -127,7 +131,16 @@ const scan = (over: object) => {
     ...scanFields(),
     ...over,
   } as ReturnType<typeof scanFields>
-  return { ...base, coverage: scanCoverageState(base), ...over }
+  const coverage = scanCoverageState(base)
+  // No file cap in these fixtures: unfinished is always ours.
+  return {
+    ...base,
+    coverage,
+    ownedUnfinished: coverage === 'UNFINISHED',
+    huntOverCap: null,
+    judgeOverCap: null,
+    ...over,
+  }
 }
 const scanFields = () => ({
   id: 's1',
@@ -916,5 +929,38 @@ test('a batched hunt shows its covered share next to its state', () => {
     'Exploit paths: scanning (40/120 source files)'
   )
   // Queued batches are "in progress" — never the owned-unfinished line.
+  expect(screen.queryByTestId('scan-unfinished')).toBeNull()
+})
+
+// LUM-832: a layer over its size cap did not run (like CodeRabbit's limit);
+// the panel says the change is too large and how to get the layer — and does
+// not call that limit a failure of ours.
+test('a scan with layers over their size caps shows both notices instead of the owned unfinished line', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            partial: true,
+            stages: { secrets: 'RAN', judge: 'SKIPPED', hunt: 'SKIPPED' },
+            huntOverCap: { sourceFiles: 200, capFiles: 150 },
+            judgeOverCap: { diffChars: 261400, capChars: 180000 },
+            ownedUnfinished: false,
+          }),
+        },
+      ],
+      blocking: { count: 1 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('scan-over-cap')).toHaveTextContent(
+    'This PR touches 200 source files; exploit-path checks run on up to 150, so they did not run.'
+  )
+  expect(screen.getByTestId('scan-judge-over-cap')).toHaveTextContent(
+    "This PR's diff is 261400 characters; AI review runs on up to 180000, so it did not run."
+  )
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
 })

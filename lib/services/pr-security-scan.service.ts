@@ -62,7 +62,11 @@ import {
 import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
-import { isHuntEnabled, type HuntJob } from './security-hunt.config'
+import {
+  HUNT_MAX_HUNTED_FILES,
+  isHuntEnabled,
+  type HuntJob,
+} from './security-hunt.config'
 import {
   recordHuntStartBestEffort,
   startSecurityHunt,
@@ -77,8 +81,13 @@ import {
   planHuntBatches,
   type HuntBatchProgress,
 } from '@/lib/security-scan/hunt/batches'
+import { JUDGE_DIFF_BUDGET_TIERS } from '@/lib/security-scan/truncate'
+import { scanSizeCaps, type ScanSizeCaps } from '@/lib/security-scan/size-caps'
 import {
+  isOwnedUnfinished,
   scanCoverageState,
+  type HuntOverCapInput,
+  type JudgeOverCapInput,
   type PartialCause,
   type ScanCoverageState,
 } from '@/shared/src/security-scan'
@@ -174,6 +183,22 @@ export interface SecurityScanView {
    * covered so far of the total. null for an un-batched hunt.
    */
   huntProgress: HuntBatchProgress | null
+  /**
+   * LUM-832 — the hunt did not run: the diff touched more source files than
+   * it runs on (CodeRabbit-style notice). null otherwise.
+   */
+  huntOverCap: HuntOverCapInput | null
+  /**
+   * LUM-832 — the AI review did not run: the diff was over its size cap
+   * (CodeRabbit-style notice). null otherwise.
+   */
+  judgeOverCap: JudgeOverCapInput | null
+  /**
+   * LUM-832 — unfinished for a reason of OURS (a fault, a budget shortfall),
+   * which gets the owned line. False when a size cap is the only gap: that
+   * is a limit on the change, told by its notice alone.
+   */
+  ownedUnfinished: boolean
   /** stages.external is PENDING and the scan started more than 30 min ago — the scanner has not reported. */
   externalLate: boolean
   error: string | null
@@ -297,6 +322,16 @@ function isViewComplete(s: ScanWithFindings): boolean {
   return coverageOf(s) === 'CHECKED'
 }
 
+/** LUM-832 — the size-cap notices this scan carries. */
+function sizeCapsOf(s: ScanWithFindings): ScanSizeCaps {
+  return scanSizeCaps({
+    stages: stagesOf(s),
+    partialCauses: s.partialCauses ?? [],
+    huntAudit: s.huntAudit,
+    judgeBudget: s.judgeBudget,
+  })
+}
+
 /** LUM-832 — the shared customer state, over the row's derived stages. */
 function coverageOf(s: ScanWithFindings): ScanCoverageState {
   return scanCoverageState({
@@ -316,6 +351,7 @@ function toScanView(
   queueExit: QueueExitOfRow = () => null
 ): SecurityScanView {
   const stages = stagesOf(s)
+  const sizeCaps = sizeCapsOf(s)
   return {
     id: s.id,
     status: s.status,
@@ -328,6 +364,15 @@ function toScanView(
     complete: isViewComplete(s),
     coverage: coverageOf(s),
     huntProgress: huntBatchProgress(s.huntJob, stages.hunt),
+    ...sizeCaps,
+    ownedUnfinished: isOwnedUnfinished({
+      status: s.status,
+      stages,
+      partial: s.partial,
+      partialCauses: s.partialCauses ?? [],
+      hasSizeNotice:
+        sizeCaps.huntOverCap !== null || sizeCaps.judgeOverCap !== null,
+    }),
     externalLate:
       stages.external === 'PENDING' &&
       Date.now() - s.startedAt.getTime() > EXTERNAL_PENDING_LATE_MS,
@@ -579,8 +624,11 @@ export const prSecurityScanService = {
               hasOpenL4Crossing: hasOpenCrossing,
             })
           : null
+      // LUM-832: over the file cap the hunt will not run, so its VM is not
+      // kept alive for it either.
+      const huntOverCap = touchedSourcePaths.length > HUNT_MAX_HUNTED_FILES
       const huntWantedForVm =
-        isHuntEnabled() && (triggerFirstPass?.hunt ?? false)
+        isHuntEnabled() && !huntOverCap && (triggerFirstPass?.hunt ?? false)
 
       // ── A2: external oracle — SARIF pushed by the repo's own CI, or the
       // Lumo-managed scan (LUM-735) ────────────────────────────────────────
@@ -694,7 +742,27 @@ export const prSecurityScanService = {
       // "not recorded" is the honest reading of that, not a budget of zero.
       let judgeBudget: JudgeBudget | null = null
       const judgeRows: NewFindingInput[] = []
-      if (files.length > 0) {
+      // LUM-832 — like CodeRabbit's limit, a diff over the AI review's top
+      // tier is not reviewed at all: no model call, no tokens. The customer is
+      // told the change is too large and how to get the review (narrow the
+      // scope or split the PR); the numbers are on `judgeBudget`.
+      const judgeCapChars =
+        JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!.chars
+      const judgeOverCap = files.length > 0 && diff.length > judgeCapChars
+      if (judgeOverCap) {
+        judgeBudget = {
+          diffChars: diff.length,
+          tierChars: judgeCapChars,
+          reviewedChars: 0,
+          coveredFiles: 0,
+          droppedFiles: files.length,
+        }
+        partialCauses.push('JUDGE_OVER_CAP')
+        logger.info(
+          `[pr-security-scan] judge over cap pr=${pr.id} sha=${headSha} diffChars=${diff.length} cap=${judgeCapChars}: not run`
+        )
+      }
+      if (files.length > 0 && !judgeOverCap) {
         // LUM-758: the budget is spent on WHOLE files, the ones the static
         // pass already flagged first — never on a character offset, which
         // made a file's coverage depend on where its name sorted.
@@ -813,10 +881,17 @@ export const prSecurityScanService = {
           secretHigh || judgeRows.some(r => r.severity === 'HIGH'),
         hasOpenL4Crossing: hasOpenCrossing,
       })
-      const huntWanted = isHuntEnabled() && files.length > 0 && huntTrigger.hunt
+      const huntWanted =
+        isHuntEnabled() && files.length > 0 && huntTrigger.hunt && !huntOverCap
       // Off (LUMO_SECURITY_HUNT=off) = no hunt layer at all, not a SKIPPED one:
       // the key is stamped only when the layer exists for this deployment.
       if (isHuntEnabled()) stages.hunt = huntWanted ? 'PENDING' : 'SKIPPED'
+      // LUM-832 — a hunt the trigger wanted but the file cap forbids does not
+      // run (like CodeRabbit's file limit): recorded, with the numbers the
+      // customer's notice needs. A diff with no hunt signal is SKIPPED plain.
+      const huntSkippedForCap =
+        isHuntEnabled() && files.length > 0 && huntTrigger.hunt && huntOverCap
+      if (huntSkippedForCap) partialCauses.push('HUNT_OVERSIZED')
 
       const prior =
         await prSecurityScanRepository.findDispositionedByPullRequest(pr.id)
@@ -843,6 +918,16 @@ export const prSecurityScanService = {
         judgeBudget,
         stages,
         partialCauses,
+        ...(huntSkippedForCap
+          ? {
+              huntAudit: {
+                overCap: {
+                  sourceFiles: touchedSourcePaths.length,
+                  capFiles: HUNT_MAX_HUNTED_FILES,
+                },
+              },
+            }
+          : {}),
         ...(externalError ? { error: externalError } : {}),
       })
       // LUM-739: the row is settled — now hand the sha to the hunt. A start
@@ -876,9 +961,10 @@ export const prSecurityScanService = {
           // hunt goes straight to creating its own instead of polling 30 s.
           managedScanStarted: managedRunStarted,
         }
-        // LUM-832: an oversized diff is hunted in risk-ordered batches across
-        // runs. The plan rides on the job from the first run, so the covered
-        // share is readable (0 of N) the moment the hunt starts.
+        // LUM-832: an oversized diff (within HUNT_MAX_HUNTED_FILES) is hunted
+        // in risk-ordered batches across runs. The plan rides on the job from
+        // the first run, so the covered share is readable (0 of N) the moment
+        // the hunt starts.
         const huntBatches = planHuntBatches(
           touchedSourcePaths,
           huntTrigger.sites

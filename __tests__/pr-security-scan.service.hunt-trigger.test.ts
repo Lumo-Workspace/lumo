@@ -82,6 +82,9 @@ import { waitUntil } from '@vercel/functions'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
 
+import { HUNT_MAX_HUNTED_FILES } from '@/lib/services/security-hunt.config'
+import { scanSizeCaps } from '@/lib/security-scan/size-caps'
+import { formatJudgeOverCap } from '@/shared/src/security-scan'
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
 >
@@ -387,5 +390,103 @@ describe('LUM-739 hunt trigger', () => {
     const final = repo.finalize.mock.calls[0]![1]
     expect(final.stages.hunt).toBeUndefined()
     expect(startHunt).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * LUM-832 — like CodeRabbit's limit, a layer whose input is over its size cap
+ * does not run at all (no tokens spent), and the scan records what the
+ * customer's notice needs: the change is too large, and how to get the layer.
+ */
+describe('a layer over its size cap does not run and the scan says why', () => {
+  const manyFiles = (n: number) =>
+    [
+      ROUTE_DIFF,
+      ...Array.from({ length: n - 1 }, (_, i) =>
+        diff(`lib/m${String(i).padStart(3, '0')}.ts`, 'export const v = 1')
+      ),
+    ].join('\n')
+
+  it('a diff touching more source files than the hunt runs on gets no hunt — no workflow, no VM kept for it', async () => {
+    process.env.LUMO_MANAGED_SCAN = 'on'
+    startManaged.mockResolvedValue('run_m1')
+    fetchPrDiff.mockResolvedValue(manyFiles(HUNT_MAX_HUNTED_FILES + 1))
+
+    await run()
+
+    expect(startHunt).not.toHaveBeenCalled()
+    expect(startManaged).toHaveBeenCalledWith(
+      expect.objectContaining({ huntWanted: false })
+    )
+    const final = repo.persistResult.mock.calls[0]![2]
+    expect(final.stages.hunt).toBe('SKIPPED')
+    expect(final.partialCauses).toContain('HUNT_OVERSIZED')
+    expect(final.huntAudit).toEqual({
+      overCap: { sourceFiles: HUNT_MAX_HUNTED_FILES + 1, capFiles: 150 },
+    })
+    // …and every surface reads the notice off that row.
+    expect(
+      scanSizeCaps({
+        stages: final.stages,
+        partialCauses: final.partialCauses,
+        huntAudit: final.huntAudit,
+        judgeBudget: final.judgeBudget,
+      }).huntOverCap
+    ).toEqual({ sourceFiles: 151, capFiles: 150 })
+  })
+
+  it('at exactly the cap the hunt still runs, in batches', async () => {
+    fetchPrDiff.mockResolvedValue(manyFiles(HUNT_MAX_HUNTED_FILES))
+    await run()
+    expect(startHunt).toHaveBeenCalledTimes(1)
+    expect(startHunt.mock.calls[0]![0].batches.flat()).toHaveLength(150)
+  })
+
+  it('a diff over the AI review’s cap gets no AI review — the model is never called', async () => {
+    // Many ordinary lines, the way a real oversized diff looks.
+    const huge = [
+      '--- a/src/big.ts',
+      '+++ b/src/big.ts',
+      '@@ -1,0 +1,5000 @@',
+      ...Array.from(
+        { length: 5000 },
+        (_, i) => `+export const v${i} = ${i} // padding`
+      ),
+    ].join('\n')
+    expect(huge.length).toBeGreaterThan(180_000)
+    fetchPrDiff.mockResolvedValue(huge)
+
+    await run()
+
+    expect(judgeSecurity).not.toHaveBeenCalled()
+    const final = repo.persistResult.mock.calls[0]![2]
+    expect(final.stages.judge).toBe('SKIPPED')
+    expect(final.partialCauses).toContain('JUDGE_OVER_CAP')
+    expect(final.judgeBudget).toMatchObject({
+      diffChars: huge.length,
+      tierChars: 180_000,
+      reviewedChars: 0,
+    })
+    const caps = scanSizeCaps({
+      stages: final.stages,
+      partialCauses: final.partialCauses,
+      judgeBudget: final.judgeBudget,
+    })
+    expect(caps.judgeOverCap).toEqual({
+      diffChars: huge.length,
+      capChars: 180_000,
+    })
+    expect(formatJudgeOverCap(caps.judgeOverCap!)).toMatch(
+      /so it did not run\. To get it, narrow the review scope or split the PR\.$/
+    )
+  })
+
+  it('a diff within the AI review’s cap is reviewed as before', async () => {
+    fetchPrDiff.mockResolvedValue(ROUTE_DIFF)
+    await run()
+    expect(judgeSecurity).toHaveBeenCalledTimes(1)
+    expect(repo.persistResult.mock.calls[0]![2].partialCauses).not.toContain(
+      'JUDGE_OVER_CAP'
+    )
   })
 })
