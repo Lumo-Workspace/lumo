@@ -848,10 +848,19 @@ export const prSecurityScanRepository = {
           partial: true,
           partialCauses: true,
           huntAttempts: true,
+          tokenSpent: true,
         },
       })
       // LUM-822: a superseded attempt's late write changes nothing.
       if ((current?.huntAttempts ?? 0) > (final.attempt ?? 1)) return false
+      // LUM-832: a retry adds its spend to what the faulted attempt left on
+      // the row (see `claimHuntRetry`); the first attempt owns the column.
+      const tokenSpent =
+        (final.attempt ?? 1) > 1 &&
+        typeof current?.tokenSpent === 'number' &&
+        final.tokenSpent !== null
+          ? current.tokenSpent + final.tokenSpent
+          : final.tokenSpent
       const stages: ScanStages = {
         ...((current?.stages as ScanStages | null) ?? {}),
         hunt: final.hunt,
@@ -862,7 +871,7 @@ export const prSecurityScanRepository = {
           stages,
           ...mergePartial(current, final.partialCauses),
           huntAudit: final.huntAudit as Prisma.InputJsonValue,
-          tokenSpent: final.tokenSpent,
+          tokenSpent,
           ...(findings.length > 0 ? { status: 'FINDINGS' } : {}),
         },
       })
@@ -965,7 +974,11 @@ export const prSecurityScanRepository = {
    * that landed after the stale read is left alone. From this write on, the
    * older attempt's late result is dropped by `persistHuntResult`.
    */
-  async claimHuntRetry(scanId: string, fromAttempt: number): Promise<boolean> {
+  async claimHuntRetry(
+    scanId: string,
+    fromAttempt: number,
+    faulted?: { huntAudit: Record<string, unknown>; tokenSpent: number }
+  ): Promise<boolean> {
     const { count } = await prisma.prSecurityScan.updateMany({
       where: {
         id: scanId,
@@ -976,9 +989,31 @@ export const prSecurityScanRepository = {
         huntAttempts: fromAttempt + 1,
         huntStartedAt: new Date(),
         huntRunId: null,
+        // LUM-832: an attempt that ended on our fault hands its audit and
+        // its spend to the row as it re-queues, so the retry's result can
+        // add to the spend rather than erase it (null ≠ 0 either way).
+        ...(faulted
+          ? {
+              huntAudit: faulted.huntAudit as Prisma.InputJsonValue,
+              tokenSpent: faulted.tokenSpent,
+            }
+          : {}),
       },
     })
     return count === 1
+  },
+
+  /**
+   * LUM-832 — has this scan's PR been scanned at a newer head since? The
+   * in-run re-queue asks it by scan id (the run has no `startedAt`).
+   */
+  async hasNewerScanThan(scanId: string): Promise<boolean> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      select: { pullRequestId: true, startedAt: true },
+    })
+    if (!row) return false
+    return this.hasNewerScan(row.pullRequestId, row.startedAt)
   },
 
   async setHuntRunId(scanId: string, runId: string): Promise<void> {

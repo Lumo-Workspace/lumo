@@ -63,6 +63,7 @@ import {
   HUNT_TASK_TOKEN_MIN,
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_MAX_FALSIFIED,
+  HUNT_MAX_ATTEMPTS,
   huntTaskTerminated,
   type HuntJob,
   type HuntTask,
@@ -88,6 +89,7 @@ import {
   falsifierStep,
   persistHuntFindingsStep,
   markHuntFailedStep,
+  requeueHuntStep,
 } from './security-hunt.steps'
 import { syncPrReviewBestEffort } from './security-scan-helpers'
 import type { PartialCause } from '@/shared/src/security-scan'
@@ -231,6 +233,38 @@ async function markHuntFailedBestEffort(
     else await markHuntFailedStep(scanId, reason, tokenSpent, attempt)
   } catch {
     // Retries exhausted inside the step; the service already logged it.
+  }
+}
+
+/**
+ * LUM-832 — an attempt that ended on OUR fault is not a conclusion: while an
+ * attempt is left, hand the layer to the next one (it stays PENDING, the
+ * customer reads "scanning") instead of persisting PARTIAL / FAILED. Returns
+ * the new attempt, or null → persist as before (exhausted, superseded, the
+ * claim lost to the stale sweep, or the step itself failed).
+ *
+ * The eligibility test is here, in the deterministic body, so a run with no
+ * attempt left never pays for the step.
+ */
+async function requeueBestEffort(
+  job: HuntJob,
+  reason: string,
+  tokenSpent: number,
+  audit: HuntAudit
+): Promise<number | null> {
+  if ((job.attempt ?? 1) >= HUNT_MAX_ATTEMPTS) return null
+  try {
+    const out = await requeueHuntStep({
+      job,
+      reason,
+      tokenSpent,
+      audit: audit as unknown as Record<string, unknown>,
+    })
+    return out.requeued ? out.attempt : null
+  } catch {
+    // Retries exhausted inside the step. If it had claimed, this attempt's
+    // write is dropped and the stale sweep fails the layer — still ours.
+    return null
   }
 }
 
@@ -587,6 +621,21 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     }
 
     /**
+     * LUM-832 — a task that never terminated (or a hunting step that threw)
+     * is our fault. Decided HERE, before the mechanical gate and the
+     * falsifier, so an attempt that is about to be redone does not pay for
+     * judging candidates the retry will submit again.
+     */
+    if (partialCauses.includes('HUNT_INCOMPLETE')) {
+      const reason =
+        failure ??
+        'a planned hunt task did not terminate (sandbox, gateway or clock)'
+      const next = await requeueBestEffort(job, reason, tokenSpent, audit)
+      if (next !== null)
+        return { outcome: 'REQUEUED', scanId, attempt: next, reason }
+    }
+
+    /**
      * Nothing to salvage: no batch ever submitted a candidate. "The hunt did
      * not run" is the honest outcome, and P9's FAILED stamp is how the layer
      * says so.
@@ -682,6 +731,10 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     // cannot answer must not become an INCONCLUSIVE finding by default (P2),
     // and a persist that failed has written nothing.
     const reason = reasonOf(error)
+    // LUM-832: a verification / persistence failure is ours too.
+    const next = await requeueBestEffort(job, reason, tokenSpent, audit)
+    if (next !== null)
+      return { outcome: 'REQUEUED', scanId, attempt: next, reason }
     await markHuntFailedBestEffort(scanId, reason, tokenSpent, job.attempt)
     await syncPrReviewBestEffort(scanId)
     return { outcome: 'FAILED', scanId, reason }

@@ -1259,6 +1259,13 @@ export interface PersistHuntInput {
   stage: 'RAN' | 'PARTIAL' | 'SKIPPED'
 }
 
+/**
+ * LUM-822 / LUM-832 — stage A's start plus one retry. Here (not in the ops
+ * service) so the deterministic workflow body can decide whether an attempt
+ * that ended on our fault may re-queue, without loading the sandbox module.
+ */
+export const HUNT_MAX_ATTEMPTS = 2
+
 export type HuntResult =
   | {
       /** LUM-758: SKIPPED = 规划步说这个 PR 不值得 hunt（空子图或空任务列表）。 */
@@ -1268,6 +1275,8 @@ export type HuntResult =
       tokenSpent: number
     }
   | { outcome: 'FAILED'; scanId: string; reason: string }
+  /** LUM-832: ended on our fault; the next attempt was started in its place. */
+  | { outcome: 'REQUEUED'; scanId: string; attempt: number; reason: string }
 
 /** Kill switch: the hunt is on unless LUMO_SECURITY_HUNT is exactly "off". */
 export function isHuntEnabled(
