@@ -82,7 +82,9 @@ export interface PersistHuntResultInput {
   // LUM-758: SKIPPED joins the set — the planner may decide a PR is not worth
   // hunting (empty subgraph, or no category planned), which is a complete
   // layer, not a failed one.
-  hunt: 'RAN' | 'PARTIAL' | 'FAILED' | 'SKIPPED'
+  // LUM-832: PENDING = a batch of an oversized diff landed and the next one
+  // is queued — its findings are written, the layer stays in progress.
+  hunt: 'RAN' | 'PARTIAL' | 'FAILED' | 'SKIPPED' | 'PENDING'
   huntAudit: Record<string, unknown>
   tokenSpent: number | null
   /** LUM-832 — why the hunt is not whole; empty = it is. */
@@ -207,6 +209,8 @@ export interface ScanWithFindings {
   suggestionTokens: number | null
   /** LUM-739's audit Json, raw. LUM-762 reads it via `parseHuntCoverage`. */
   huntAudit: unknown
+  /** LUM-822 job Json, raw. LUM-832 reads its batch plan (`huntBatchProgress`). */
+  huntJob?: unknown
   findings: FindingRow[]
 }
 
@@ -283,6 +287,8 @@ export interface ScanForReview {
   /** LUM-832: a FAILED stage A must not summarise as checked. */
   status: ScanStatus
   stages: ScanStages | null
+  /** LUM-832: the running hunt job, for the batched hunt's covered share. */
+  huntJob: unknown
   partial: boolean
   error: string | null
   /** LUM-740: the summary comment this scan (or an earlier one) already owns. */
@@ -977,8 +983,18 @@ export const prSecurityScanRepository = {
   async claimHuntRetry(
     scanId: string,
     fromAttempt: number,
-    faulted?: { huntAudit: Record<string, unknown>; tokenSpent: number }
+    opts: {
+      /** LUM-832: the faulted attempt's audit and spend, handed to the row. */
+      faulted?: { huntAudit: Record<string, unknown>; tokenSpent: number }
+      /**
+       * LUM-832: the job the claimed attempt runs with — a retry's `tries`,
+       * a continuation's next batch — so the stale sweep, which retries from
+       * `huntJob`, redoes the right batch and counts the right tries.
+       */
+      huntJob?: Record<string, unknown>
+    } = {}
   ): Promise<boolean> {
+    const { faulted, huntJob } = opts
     const { count } = await prisma.prSecurityScan.updateMany({
       where: {
         id: scanId,
@@ -998,6 +1014,7 @@ export const prSecurityScanRepository = {
               tokenSpent: faulted.tokenSpent,
             }
           : {}),
+        ...(huntJob ? { huntJob: huntJob as Prisma.InputJsonValue } : {}),
       },
     })
     return count === 1
@@ -1091,6 +1108,7 @@ export const prSecurityScanRepository = {
         headSha: true,
         status: true,
         stages: true,
+        huntJob: true,
         partial: true,
         error: true,
         summaryCommentId: true,

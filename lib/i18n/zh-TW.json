@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "封存未完成的里程碑？",
   "milestone.archiveConfirm.body": "「{name}」還有 {remaining} 個任務未完成。封存後它不再出現在預設清單裡，未完成的任務不會被關閉。",
   "milestone.archiveConfirm.confirm": "仍要封存",
+  "securityScan.huntProgress": "已涵蓋 {covered}/{total} 個原始檔",
   "securityScan.section.title": "安全掃描",
   "securityScan.section.empty": "尚無安全掃描——每次向已連結的 PR 推送程式碼都會自動掃描。",
   "securityScan.section.loadError": "無法載入安全掃描。",

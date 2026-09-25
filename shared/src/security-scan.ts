@@ -311,3 +311,18 @@ export function scanCoverageState(s: ScanCoverageInput): ScanCoverageState {
  */
 export const SCAN_UNFINISHED_NOTE =
   "part of this scan hasn't finished on our side — not counted as checked"
+
+/**
+ * LUM-832 — a hunt run in batches over an oversized diff says how much of
+ * the diff it has covered, next to its state: `Exploit paths: scanning
+ * (40/120 source files)`. The web panel renders the same fact through
+ * `securityScan.huntProgress` in i18n.
+ */
+export interface HuntProgressInput {
+  coveredFiles: number
+  totalFiles: number
+}
+
+export function formatHuntProgress(p: HuntProgressInput): string {
+  return `${p.coveredFiles}/${p.totalFiles} source files`
+}

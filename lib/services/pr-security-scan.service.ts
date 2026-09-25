@@ -73,6 +73,11 @@ import { securityBaselineService } from './security-baseline.service'
 import { securityPrReviewService } from './security-pr-review.service'
 import { waitUntil } from '@vercel/functions'
 import {
+  huntBatchProgress,
+  planHuntBatches,
+  type HuntBatchProgress,
+} from '@/lib/security-scan/hunt/batches'
+import {
   scanCoverageState,
   type PartialCause,
   type ScanCoverageState,
@@ -164,6 +169,11 @@ export interface SecurityScanView {
    * The cause is never on the view — it is internal (`partialCauses`).
    */
   coverage: ScanCoverageState
+  /**
+   * LUM-832 — for a hunt run in batches (an oversized diff): source files
+   * covered so far of the total. null for an un-batched hunt.
+   */
+  huntProgress: HuntBatchProgress | null
   /** stages.external is PENDING and the scan started more than 30 min ago — the scanner has not reported. */
   externalLate: boolean
   error: string | null
@@ -317,6 +327,7 @@ function toScanView(
     partial: s.partial,
     complete: isViewComplete(s),
     coverage: coverageOf(s),
+    huntProgress: huntBatchProgress(s.huntJob, stages.hunt),
     externalLate:
       stages.external === 'PENDING' &&
       Date.now() - s.startedAt.getTime() > EXTERNAL_PENDING_LATE_MS,
@@ -864,6 +875,17 @@ export const prSecurityScanService = {
           // LUM-758 §5.1: false means no managed scan VM is coming, so the
           // hunt goes straight to creating its own instead of polling 30 s.
           managedScanStarted: managedRunStarted,
+        }
+        // LUM-832: an oversized diff is hunted in risk-ordered batches across
+        // runs. The plan rides on the job from the first run, so the covered
+        // share is readable (0 of N) the moment the hunt starts.
+        const huntBatches = planHuntBatches(
+          touchedSourcePaths,
+          huntTrigger.sites
+        )
+        if (huntBatches) {
+          huntJob.batches = huntBatches
+          huntJob.batchIndex = 0
         }
         const runId = await startSecurityHunt(huntJob)
         if (runId) {

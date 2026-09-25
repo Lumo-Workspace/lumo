@@ -238,6 +238,7 @@ describe('LUM-735 scans array', () => {
         persistingFindings: 0,
         queueExits: {},
         hunt: null,
+        huntProgress: null,
       },
       {
         prNumber: 13,
@@ -251,6 +252,7 @@ describe('LUM-735 scans array', () => {
         persistingFindings: 0,
         queueExits: {},
         hunt: null,
+        huntProgress: null,
       },
     ])
   })
@@ -282,6 +284,7 @@ describe('LUM-735 scans array', () => {
         persistingFindings: 0,
         queueExits: {},
         hunt: null,
+        huntProgress: null,
       },
     ])
   })

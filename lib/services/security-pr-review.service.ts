@@ -47,11 +47,14 @@ import {
   SCAN_STAGE_KEYS,
   SCAN_STAGE_LABELS,
   SCAN_UNFINISHED_NOTE,
+  formatHuntProgress,
   scanCoverageState,
+  type HuntProgressInput,
   scanStageLabel,
   scanStageStateLabel,
 } from '@/shared/src/security-scan'
 import { resolvePublicUrl } from '@/lib/utils/public-url'
+import { huntBatchProgress } from '@/lib/security-scan/hunt/batches'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
@@ -164,6 +167,8 @@ export interface SummaryInput {
    * summary never names it).
    */
   partial: boolean
+  /** LUM-832 — a batched hunt's covered source files; absent when un-batched. */
+  huntProgress?: HuntProgressInput | null
   /** Open (non-dependency) findings per external tool, from the `ext:<tool>:` prefix. */
   externalCounts: Record<string, number>
   /** Undispositioned and not persisting. */
@@ -246,7 +251,8 @@ function dependencyLine(input: SummaryInput): string | null {
 
 function stageLine(
   stages: ScanStages,
-  externalCounts: Record<string, number>
+  externalCounts: Record<string, number>,
+  huntProgress: HuntProgressInput | null | undefined
 ): string | null {
   const counts = Object.entries(externalCounts).sort(
     (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
@@ -258,7 +264,9 @@ function stageLine(
     const suffix =
       key === 'external' && counts.length > 0
         ? ` (${counts.map(([tool, n]) => `${tool} ${n}`).join(', ')})`
-        : ''
+        : key === 'hunt' && huntProgress
+          ? ` (${formatHuntProgress(huntProgress)})`
+          : ''
     parts.push(`${scanStageLabel(key)}: ${scanStageStateLabel(state)}${suffix}`)
   }
   return parts.length > 0 ? `- ${parts.join(' · ')}` : null
@@ -278,7 +286,11 @@ export function buildSummary(input: SummaryInput): string {
   const blocks: string[] = [
     `### 🛡️ Lumo security scan — ${input.headSha.slice(0, 7)}`,
   ]
-  const stages = stageLine(input.stages, input.externalCounts)
+  const stages = stageLine(
+    input.stages,
+    input.externalCounts,
+    input.huntProgress
+  )
   if (stages) blocks.push(stages)
   const deps = dependencyLine(input)
   if (deps) blocks.push(deps)
@@ -515,6 +527,10 @@ export const securityPrReviewService = {
         stages: scan.stages ?? {},
         status: scan.status,
         partial: scan.partial,
+        huntProgress: huntBatchProgress(
+          scan.huntJob,
+          (scan.stages as ScanStages | null)?.hunt
+        ),
         externalCounts,
         open: open.length,
         blocking,

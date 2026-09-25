@@ -315,6 +315,8 @@ export interface TaskStatusResponse {
        *  merged / closed, by reason (`RESOLVED_ON_MAIN` / `MERGED_UNREVIEWED`
        *  / `PR_CLOSED`). Absent on an older server, `{}` on an open PR. */
       queueExits?: Partial<Record<string, number>>
+      /** LUM-832 — a batched hunt's covered source files; absent on an older server. */
+      huntProgress?: { coveredFiles: number; totalFiles: number } | null
       /** LUM-762 — per-task L3 hunt coverage read off `huntAudit`.
        *  Absent on an older server, null when the scan stored no usable
        *  audit (a pre-LUM-739 row, or a hunt that failed before its first
@@ -579,6 +581,7 @@ function formatScanSummaryLine(s: ScanSummary): string {
     formatScanLayerTail({
       status: s.status,
       stages: s.stages,
+      huntProgress: s.huntProgress,
       partial: s.partial,
       externalFindings: s.externalFindings,
       dependencyFindings: s.dependencyFindings,
