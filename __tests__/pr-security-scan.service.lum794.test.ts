@@ -227,7 +227,7 @@ describe('LUM-794 agent-loop finding', () => {
     // not consulted (the row bypasses the hunt pipeline entirely).
     expect(row.falsifierVerdict).toBeUndefined()
     expect(falsify).not.toHaveBeenCalled()
-    expect(meta).toMatchObject({ status: 'FINDINGS', partial: false })
+    expect(meta).toMatchObject({ status: 'FINDINGS', partialCauses: [] })
   })
 
   it('is advisory: MEDIUM does not block DONE under the default policy, where the same row at HIGH would', async () => {

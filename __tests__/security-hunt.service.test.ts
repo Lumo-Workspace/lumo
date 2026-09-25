@@ -1356,7 +1356,7 @@ describe('LUM-739 hunt service', () => {
         findings: [{ ...candidate, falsifierReason: 'r' }],
         audit,
         tokenSpent: 777,
-        partial: true,
+        partialCauses: ['HUNT_INCOMPLETE'],
         stage: 'PARTIAL',
       })
     ).resolves.toEqual({ written: 1 })
@@ -1369,7 +1369,7 @@ describe('LUM-739 hunt service', () => {
     expect(final).toMatchObject({
       hunt: 'PARTIAL',
       tokenSpent: 777,
-      partial: true,
+      partialCauses: ['HUNT_INCOMPLETE'],
     })
     expect((final.huntAudit.rejected as unknown[]).length).toBe(50)
   })
@@ -1416,7 +1416,7 @@ describe('LUM-739 hunt service', () => {
         subgraph: { files: 1, symbols: 1, edges: 1, partial: false },
       },
       tokenSpent: 1700,
-      partial: true,
+      partialCauses: ['HUNT_INCOMPLETE'],
       stage: 'PARTIAL',
     })
     const line = (logger.info as jest.Mock).mock.calls
@@ -1435,7 +1435,7 @@ describe('LUM-739 hunt service', () => {
       hunt: 'FAILED',
       huntAudit: { error: 'x'.repeat(500) },
       tokenSpent: 12,
-      partial: false,
+      partialCauses: [],
     })
   })
 
@@ -1458,7 +1458,7 @@ describe('LUM-739 hunt service', () => {
         subgraph: { files: 0, symbols: 0, edges: 0, partial: false },
       },
       tokenSpent: 0,
-      partial: false,
+      partialCauses: [],
       stage: 'SKIPPED',
     })
     expect(repo.persistHuntResult.mock.calls[1]![2]).toMatchObject({

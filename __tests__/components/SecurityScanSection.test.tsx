@@ -9,7 +9,6 @@ jest.mock('next/navigation', () => ({
 const messages: Record<string, string> = {
   'securityScan.section.title': 'Security scan',
   'securityScan.banner.blocking': 'blocking {count}',
-  'securityScan.judgeUnavailable': 'LLM review did not complete',
   'securityScan.severity.HIGH': 'High',
   'securityScan.severity.LOW': 'Low',
   'securityScan.provenance.DETERMINISTIC': 'Pattern match',
@@ -42,7 +41,7 @@ const messages: Record<string, string> = {
   'securityScan.finding.dependency': 'Vulnerable dependency',
   'securityScan.stage.supplyChain': 'Dependencies',
   'securityScan.partial':
-    'Some results were cut off at the scan budget — the scan is not complete.',
+    "Part of this scan hasn't finished on our side yet. We aren't counting it as checked, and we won't call it clean.",
   'securityScan.external.failedReason': 'External scanner failed:',
   'record.security.summary': '{prs} PRs · {findings} findings{severityNote}',
   'record.security.allLow': 'all LOW',
@@ -97,6 +96,7 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
 }))
 
 import { SecurityScanSection } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SecurityScanSection'
+import { scanCoverageState } from '@/shared/src/security-scan'
 
 const finding = (over: object) => ({
   id: 'f1',
@@ -118,7 +118,16 @@ const finding = (over: object) => ({
   persisting: false,
   ...over,
 })
-const scan = (over: object) => ({
+// LUM-832: `coverage` is derived exactly as the server derives it, so a
+// fixture that sets `partial` / a FAILED layer reads UNFINISHED on its own.
+const scan = (over: object) => {
+  const base = {
+    ...scanFields(),
+    ...over,
+  } as ReturnType<typeof scanFields>
+  return { ...base, coverage: scanCoverageState(base), ...over }
+}
+const scanFields = () => ({
   id: 's1',
   status: 'FINDINGS',
   headSha: 'abcdef1234567',
@@ -133,7 +142,6 @@ const scan = (over: object) => ({
   startedAt: '2026-09-03T00:00:00Z',
   finishedAt: null,
   findings: [finding({})],
-  ...over,
 })
 const pr = {
   id: 'pr1',
@@ -180,10 +188,19 @@ test('says so when the scans could not be loaded, instead of rendering nothing',
   expect(screen.queryByTestId('security-scan-panel')).toBeNull()
 })
 
-test('shows the blocking banner, judge-unavailable notice and finding rows', () => {
+test('shows the blocking banner, the owned unfinished notice for a judge outage, and finding rows', () => {
   useSecurityScans.mockReturnValue({
     data: {
-      prs: [{ pr, latest: scan({ judgeStatus: 'UNAVAILABLE' }) }],
+      prs: [
+        {
+          pr,
+          // An outage is stamped on the layer too (stage A: judge FAILED).
+          latest: scan({
+            judgeStatus: 'UNAVAILABLE',
+            stages: { secrets: 'RAN', external: 'RAN', judge: 'FAILED' },
+          }),
+        },
+      ],
       blocking: { count: 1 },
     },
     isLoading: false,
@@ -192,7 +209,8 @@ test('shows the blocking banner, judge-unavailable notice and finding rows', () 
   expect(screen.getByTestId('security-blocking-banner')).toHaveTextContent(
     'blocking 1'
   )
-  expect(screen.getByTestId('judge-unavailable')).toBeInTheDocument()
+  // LUM-832: one owned line, not a judge-specific verdict.
+  expect(screen.getByTestId('scan-unfinished')).toBeInTheDocument()
   expect(screen.getByTestId('security-finding-f1')).toHaveAttribute(
     'data-blocking',
     'true'
@@ -427,7 +445,7 @@ test('a complete scan renders no stages line; partial renders the budget notice'
     isError: false,
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
-  expect(screen.getByTestId('scan-partial')).toBeInTheDocument()
+  expect(screen.getByTestId('scan-unfinished')).toBeInTheDocument()
   expect(screen.getByTestId('scan-stages')).toHaveTextContent(
     'External scanner: partial'
   )
@@ -667,7 +685,7 @@ test('an incomplete scan expands its row by default (review F1)', () => {
     'aria-expanded',
     'true'
   )
-  expect(screen.getByTestId('scan-partial')).toBeInTheDocument()
+  expect(screen.getByTestId('scan-unfinished')).toBeInTheDocument()
 })
 
 // Review F2 (a11y): the toggle's only content is a chevron icon.
@@ -723,7 +741,7 @@ test('a clean PR row is collapsed by default', () => {
     'aria-expanded',
     'false'
   )
-  expect(screen.queryByTestId('judge-unavailable')).toBeNull()
+  expect(screen.queryByTestId('scan-unfinished')).toBeNull()
 })
 
 test('an external-failed row with an error is expanded by default', () => {

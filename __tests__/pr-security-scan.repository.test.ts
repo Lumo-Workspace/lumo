@@ -122,7 +122,7 @@ test('restart clears old findings and resets the scan; finalize stamps finishedA
     judgeStatus: 'RAN',
     truncated: false,
     stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
-    partial: false,
+    partialCauses: [],
   })
   expect(mockScan.update).toHaveBeenLastCalledWith(
     expect.objectContaining({
@@ -212,7 +212,7 @@ test('persistResult writes findings and the finalize update in one transaction',
     judgeStatus: 'RAN',
     truncated: false,
     stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
-    partial: true,
+    partialCauses: ['JUDGE_TRUNCATED'],
   })
   expect(mockTransaction).toHaveBeenCalledTimes(1)
   expect(mockFinding.createMany).toHaveBeenCalledWith({ data: [finding] })
@@ -237,7 +237,7 @@ test('persistResult with no findings still finalizes, in a one-op transaction', 
     judgeStatus: 'UNAVAILABLE',
     truncated: false,
     stages: { secrets: 'RAN', judge: 'FAILED' },
-    partial: false,
+    partialCauses: [],
   })
   expect(mockFinding.createMany).not.toHaveBeenCalled()
   expect(mockTransaction).toHaveBeenCalledTimes(1)
@@ -252,7 +252,7 @@ test('persistResult never clears a partial already set by the other writer', asy
     judgeStatus: 'RAN',
     truncated: false,
     stages: { secrets: 'RAN', judge: 'RAN' },
-    partial: false,
+    partialCauses: [],
   })
   expect(mockScan.update).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -343,7 +343,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       's1',
       ['semgrep'],
       rows,
-      { partial: false }
+      { partialCauses: [] }
     )
     expect(out).toEqual({ written: 2, flippedToFindings: false })
     expect(mockFinding.deleteMany).toHaveBeenCalledWith({
@@ -358,7 +358,11 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     expect(mockScan.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 's1' },
-        data: { stages: { secrets: 'RAN', external: 'RAN' }, partial: false },
+        data: {
+          stages: { secrets: 'RAN', external: 'RAN' },
+          partial: false,
+          partialCauses: [],
+        },
       })
     )
   })
@@ -380,7 +384,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       's1',
       ['semgrep'],
       [extRow()],
-      { partial: false }
+      { partialCauses: [] }
     )
     const updateAt = mockScan.update.mock.invocationCallOrder[0]!
     const deleteAt = mockFinding.deleteMany.mock.invocationCallOrder[0]!
@@ -400,7 +404,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       's1',
       ['semgrep-oss', 'gitleaks', 'semgrep-oss'],
       [extRow({ ruleId: 'ext:gitleaks:c', fingerprint: 'f3' })],
-      { partial: false }
+      { partialCauses: [] }
     )
     expect(out.written).toBe(1)
     expect(mockFinding.deleteMany).toHaveBeenCalledWith({
@@ -426,7 +430,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       's1',
       ['semgrep'],
       [extRow()],
-      { partial: false }
+      { partialCauses: [] }
     )
     expect(out).toEqual({ written: 1, flippedToFindings: true })
     expect(mockScan.update).toHaveBeenLastCalledWith({
@@ -445,7 +449,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       's1',
       ['semgrep'],
       [],
-      { partial: false }
+      { partialCauses: [] }
     )
     expect(out).toEqual({ written: 0, flippedToFindings: false })
     expect(mockFinding.createMany).not.toHaveBeenCalled()
@@ -459,7 +463,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       partial: true,
     })
     await prSecurityScanRepository.ingestExternalFindings('s1', [], [], {
-      partial: false,
+      partialCauses: [],
     })
     expect(mockScan.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -479,7 +483,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       's1',
       ['semgrep'],
       [],
-      { partial: true }
+      { partialCauses: ['JUDGE_TRUNCATED'] }
     )
     expect(mockScan.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -497,7 +501,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     await prSecurityScanRepository.mergeStages(
       's1',
       { external: 'RAN' },
-      { partial: true, status: 'FINDINGS' }
+      { partialCauses: ['JUDGE_TRUNCATED'], status: 'FINDINGS' }
     )
     expect(mockScan.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -505,6 +509,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
         data: {
           stages: { secrets: 'RAN', external: 'RAN' },
           partial: true,
+          partialCauses: ['JUDGE_TRUNCATED'],
           status: 'FINDINGS',
         },
       })
@@ -549,7 +554,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       status: 'CLEAN',
       judgeStatus: 'RAN',
       truncated: false,
-      partial: false,
+      partialCauses: [],
       stages: { secrets: 'RAN', external: 'PENDING', judge: 'RAN' },
     })
     expect(mockScan.update).toHaveBeenCalledWith(
@@ -575,7 +580,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       judgeStatus: null,
       truncated: false,
       stages: { secrets: 'RAN', external: 'NOT_CONFIGURED' },
-      partial: false,
+      partialCauses: [],
       error: 'boom',
     })
     expect(mockTransaction).toHaveBeenCalledTimes(1)
@@ -600,7 +605,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     await prSecurityScanRepository.mergeStages(
       's1',
       { external: 'RAN' },
-      { partial: false }
+      { partialCauses: [] }
     )
     expect(mockScan.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -618,7 +623,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
     await prSecurityScanRepository.mergeStages(
       's1',
       { external: 'RAN' },
-      { partial: true }
+      { partialCauses: ['JUDGE_TRUNCATED'] }
     )
     expect(mockScan.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -639,7 +644,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       judgeStatus: 'RAN',
       truncated: false,
       stages: { secrets: 'RAN', external: 'PENDING', judge: 'RAN' },
-      partial: false,
+      partialCauses: [],
     })
     expect(mockFinding.count).toHaveBeenCalledWith({
       where: { scanId: 's1', provenance: 'EXTERNAL_TOOL' },
@@ -658,7 +663,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       judgeStatus: 'RAN',
       truncated: false,
       stages: { secrets: 'RAN', external: 'NOT_CONFIGURED', judge: 'RAN' },
-      partial: false,
+      partialCauses: [],
     })
     expect(mockScan.update).toHaveBeenCalledTimes(1)
     expect(mockScan.update).toHaveBeenCalledWith(
@@ -692,7 +697,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
         judgeStatus: 'RAN',
         truncated: false,
         stages: { secrets: 'RAN' },
-        partial: false,
+        partialCauses: [],
       }
     )
     expect(mockScan.update.mock.invocationCallOrder[0]!).toBeLessThan(
@@ -712,7 +717,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       partial: false,
     })
     await prSecurityScanRepository.ingestExternalFindings('s1', [], [], {
-      partial: false,
+      partialCauses: [],
     })
     expect(mockTransaction).toHaveBeenLastCalledWith(
       expect.any(Function),
@@ -725,7 +730,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       judgeStatus: 'RAN',
       truncated: false,
       stages: { secrets: 'RAN' },
-      partial: false,
+      partialCauses: [],
     })
     expect(mockTransaction).toHaveBeenLastCalledWith(
       expect.any(Function),
@@ -746,7 +751,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
       's1',
       ['semgrep'],
       [extRow()],
-      { partial: false }
+      { partialCauses: [] }
     )
     expect(out).toEqual({ written: 1, flippedToFindings: false })
     expect(mockTransaction).toHaveBeenCalledTimes(2)
@@ -763,7 +768,7 @@ describe('LUM-735 SARIF push — shared scan row', () => {
         judgeStatus: 'RAN',
         truncated: false,
         stages: { secrets: 'RAN' },
-        partial: false,
+        partialCauses: [],
       })
     ).rejects.toThrow('conflict')
     expect(mockTransaction).toHaveBeenCalledTimes(3)
@@ -867,7 +872,7 @@ describe('LUM-738 supplyChain surface — repository', () => {
       's1',
       ['osv-scanner'],
       rows,
-      { partial: false, stage: 'supplyChain' }
+      { partialCauses: [], stage: 'supplyChain' }
     )
     expect(mockScan.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -878,6 +883,7 @@ describe('LUM-738 supplyChain surface — repository', () => {
             supplyChain: 'RAN',
           },
           partial: false,
+          partialCauses: [],
         },
       })
     )
@@ -906,12 +912,16 @@ describe('LUM-738 supplyChain surface — repository', () => {
       ['semgrep'],
       [],
       {
-        partial: false,
+        partialCauses: [],
       }
     )
     expect(mockScan.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { stages: { secrets: 'RAN', external: 'RAN' }, partial: false },
+        data: {
+          stages: { secrets: 'RAN', external: 'RAN' },
+          partial: false,
+          partialCauses: [],
+        },
       })
     )
   })
@@ -927,7 +937,7 @@ describe('LUM-738 supplyChain surface — repository', () => {
         status: 'CLEAN',
         judgeStatus: 'RAN',
         truncated: false,
-        partial: false,
+        partialCauses: [],
         stages: {
           secrets: 'RAN',
           external: 'PENDING',
@@ -953,7 +963,7 @@ describe('LUM-738 supplyChain surface — repository', () => {
         judgeStatus: null,
         truncated: false,
         stages: { secrets: 'RAN', supplyChain: 'PENDING' },
-        partial: false,
+        partialCauses: [],
         error: 'boom',
       })
       expect(mockScan.update).toHaveBeenCalledWith(
@@ -975,7 +985,7 @@ describe('LUM-738 supplyChain surface — repository', () => {
       status: 'CLEAN',
       judgeStatus: 'RAN',
       truncated: false,
-      partial: false,
+      partialCauses: [],
       stages: { secrets: 'RAN', supplyChain: 'NOT_CONFIGURED' },
     })
     expect(mockScan.update).toHaveBeenCalledWith(
@@ -1120,7 +1130,7 @@ describe('LUM-745 managed-run ops queries', () => {
       status: 'CLEAN',
       judgeStatus: 'RAN',
       truncated: false,
-      partial: false,
+      partialCauses: [],
       stages: {
         secrets: 'RAN',
         external: 'PENDING',
@@ -1150,7 +1160,7 @@ describe('LUM-745 managed-run ops queries', () => {
       judgeStatus: null,
       truncated: false,
       stages: { secrets: 'RAN', external: 'PENDING' },
-      partial: false,
+      partialCauses: [],
       error: 'boom',
     })
     expect(mockScan.update).toHaveBeenCalledWith(
@@ -1172,7 +1182,7 @@ describe('LUM-745 managed-run ops queries', () => {
       status: 'CLEAN',
       judgeStatus: 'RAN',
       truncated: false,
-      partial: false,
+      partialCauses: [],
       stages: { secrets: 'RAN', external: 'PENDING', judge: 'RAN' },
     })
     expect(mockScan.update).toHaveBeenCalledWith(
@@ -1195,7 +1205,7 @@ describe('LUM-745 managed-run ops queries', () => {
       status: 'CLEAN',
       judgeStatus: 'RAN',
       truncated: false,
-      partial: false,
+      partialCauses: [],
       stages: { secrets: 'RAN', external: 'PENDING' },
     })
     expect(mockScan.update.mock.calls[0][0].data.error).toBeNull()
@@ -1210,7 +1220,7 @@ describe('LUM-745 managed-run ops queries', () => {
       judgeStatus: null,
       truncated: false,
       stages: { secrets: 'RAN', external: 'PENDING' },
-      partial: false,
+      partialCauses: [],
       error: 'boom',
     })
     expect(mockScan.update.mock.calls[0][0].data.error).toBe('boom')

@@ -347,7 +347,12 @@ export const securitySarifIngestService = {
         input.scanId,
         input.tools,
         rows,
-        { partial: input.truncated, stage }
+        {
+          // LUM-832: the finding cap is ours (coverage owed), never the
+          // scanner's or the repository's.
+          partialCauses: input.truncated ? ['EXTERNAL_TRUNCATED'] : [],
+          stage,
+        }
       )
     // A managed scan is Lumo's own sandbox run, not this repo pushing its own
     // SARIF — `lastSarifIngestAt` means "this repo has pushed a report", and

@@ -90,6 +90,12 @@ import {
   markHuntFailedStep,
 } from './security-hunt.steps'
 import { syncPrReviewBestEffort } from './security-scan-helpers'
+import type { PartialCause } from '@/shared/src/security-scan'
+
+/** LUM-832 — record a cause once; pure, like `reasonOf`. */
+function addCause(causes: PartialCause[], cause: PartialCause): void {
+  if (!causes.includes(cause)) causes.push(cause)
+}
 
 function reasonOf(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 500)
@@ -253,8 +259,12 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
    * ceiling used to be the agent's field of view AND the flag that made the
    * layer PARTIAL; the graph is a verification tool built after the fact now,
    * so only the hunt's own outcome can set this.
+   *
+   * LUM-832 — and every setter names WHY: a task that never terminated is our
+   * fault (VM, gateway, clock), a falsifier overflow or an oversized diff is
+   * coverage we still owe. `partial` is just "any cause at all".
    */
-  let partial = false
+  const partialCauses: PartialCause[] = []
   try {
     /**
      * LUM-758 Task 9 — the HUNTING phase, and the only phase whose failure is
@@ -322,7 +332,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           findings: [],
           audit,
           tokenSpent: 0,
-          partial: false,
+          partialCauses: [],
           stage: 'SKIPPED',
         })
         await syncPrReviewBestEffort(scanId)
@@ -356,7 +366,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           findings: [],
           audit,
           tokenSpent,
-          partial: false,
+          partialCauses: [],
           stage: 'SKIPPED',
         })
         await syncPrReviewBestEffort(scanId)
@@ -384,6 +394,10 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         taskCap,
         oversized: isOversized(sourceFiles),
       }
+      // LUM-832 — the cap was sized for fewer files than this diff touched,
+      // so the hunt looked at part of it. That is coverage we owe, and it
+      // must not read as a whole hunt (it used to end RAN).
+      if (audit.diff.oversized) addCause(partialCauses, 'HUNT_OVERSIZED')
       const allowanceOf = (task: HuntTask): number =>
         allocation.get(task.id)?.tokenBudget ?? HUNT_TASK_TOKEN_MIN
       const windowOf = (task: HuntTask): number =>
@@ -563,13 +577,13 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       for (const task of planned) {
         const outcome = outcomes[task.id]
         if (outcome === undefined || !huntTaskTerminated(outcome))
-          partial = true
+          addCause(partialCauses, 'HUNT_INCOMPLETE')
       }
     } catch (error) {
       // A step that exhausted its retries. Whatever ran before it still ran.
       failure = reasonOf(error)
       audit.error = failure
-      partial = true
+      addCause(partialCauses, 'HUNT_INCOMPLETE')
     }
 
     /**
@@ -612,7 +626,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     }
 
     // Candidates in hand — the rest of the pipeline runs exactly as it does on
-    // the happy path, and `partial` (already true) is what tells the reader
+    // the happy path, and HUNT_INCOMPLETE (already recorded) tells the reader
     // that the layer did not finish. `audit.error` carries the reason, so a
     // PARTIAL is never mistaken for a clean run.
     const verified = await mechanicalVerifyStep({
@@ -629,7 +643,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
 
     const findings: HuntFindingInput[] = []
     const toFalsify = verified.accepted.slice(0, HUNT_MAX_FALSIFIED)
-    if (verified.accepted.length > toFalsify.length) partial = true
+    if (verified.accepted.length > toFalsify.length)
+      addCause(partialCauses, 'HUNT_FALSIFIER_OVERFLOW')
     for (const candidate of toFalsify) {
       const verdict = await falsifierStep({ job, candidate })
       tokenSpent += verdict.tokens
@@ -645,12 +660,13 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       }
     }
 
+    const partial = partialCauses.length > 0
     await persistHuntFindingsStep({
       job,
       findings,
       audit,
       tokenSpent,
-      partial,
+      partialCauses,
       stage: partial ? 'PARTIAL' : 'RAN',
     })
     await syncPrReviewBestEffort(scanId)

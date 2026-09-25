@@ -2,6 +2,8 @@ import { sanitizeField } from './sanitize'
 import {
   formatQueueExits,
   SCAN_STAGE_KEYS,
+  SCAN_UNFINISHED_NOTE,
+  scanCoverageState,
   scanStageLabel,
   scanStageStateLabel,
 } from '../../../shared/src/security-scan'
@@ -17,6 +19,8 @@ import {
 
 /** What one scan's layer line needs — a structural subset of both payloads. */
 export interface ScanLayerLineInput {
+  /** LUM-832 — the scan row's status; a FAILED scan is never "checked". */
+  status?: string
   stages: Partial<Record<string, string>>
   partial: boolean
   /** Raw external-tool hits that are not dependencies (decorates Code scan). */
@@ -44,7 +48,7 @@ function tail(s: string, max: number): string {
 /**
  * ` · Secrets: checked · Code scan: checked (2 external findings) ·
  * Dependencies: checked (1 dependency finding, 1 already on main) ·
- * AI review: checked · Exploit paths: checked · partial · 3 left the queue
+ * AI review: checked · Exploit paths: checked · 3 left the queue
  * (2 resolved on main, 1 merged unreviewed) — <scrubbed reason>`, or `''`
  * when the scan carries no stage at all. The caller prefixes its own head
  * (`  PR #945 · scan CLEAN` / `Scan abc1234 · FINDINGS`).
@@ -75,7 +79,10 @@ export function formatScanLayerTail(s: ScanLayerLineInput): string {
   }
   let line = ''
   if (segments.length > 0) line += ` · ${segments.join(' · ')}`
-  if (s.partial) line += ' · partial'
+  // LUM-832: one owned note when something did not finish, whatever the
+  // cause — never the bare `partial`, which read as a verdict on the PR.
+  if (scanCoverageState(s) === 'UNFINISHED')
+    line += ` · ${SCAN_UNFINISHED_NOTE}`
   // LUM-775: what left the queue because the PR merged / closed, and why —
   // so a merged PR's line explains where its findings went instead of
   // silently listing fewer open rows than the scan found.

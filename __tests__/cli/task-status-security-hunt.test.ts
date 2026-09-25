@@ -47,7 +47,7 @@ describe('LUM-739 hunt stage', () => {
       ])
     )
     expect(out).toContain(
-      'PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · AI review: checked · Exploit paths: \u26a0 incomplete · partial'
+      "PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · AI review: checked · Exploit paths: \u26a0 partly checked · part of this scan hasn't finished on our side — not counted as checked"
     )
   })
 

@@ -304,7 +304,7 @@ describe('formatPrScan', () => {
       'Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished 2026-09-15T07:04:00.000Z · trigger PR_EVENT · 61,000 tokens'
     )
     expect(lines[5]).toBe(
-      '  Secrets: checked · Code scan: ✗ failed (1 external finding) · Dependencies: checked (1 dependency finding, 1 already on main) · AI review: checked · Exploit paths: checked · 1 left the queue (1 merged unreviewed) — gitleaks exit 2'
+      "  Secrets: checked · Code scan: ⚠ didn't finish (1 external finding) · Dependencies: checked (1 dependency finding, 1 already on main) · AI review: checked · Exploit paths: checked · part of this scan hasn't finished on our side — not counted as checked · 1 left the queue (1 merged unreviewed) — gitleaks exit 2"
     )
     // LUM-814: the judge's own arithmetic sits under the layer line, ahead of
     // the hunt's detail — stage order, matching the segments above.
@@ -334,7 +334,7 @@ describe('formatPrScan', () => {
     })
     const lines = out.split('\n')
     const at = lines.indexOf(
-      '  Hunt: planned by model — two sinks lit · diff 14 source files · 9 sites · task cap 4 · oversized (a corner of the diff was covered) · candidates 2 · mechanically rejected 1 · placed by subgraph 1 · sink rule 0 · sandbox 0 · unplaced 1 · survived 1 · rejected 1 · falsifier rejects 1'
+      '  Hunt: planned by model — two sinks lit · diff 14 source files · 9 sites · task cap 4 · this run was sized for fewer files than the diff — the rest is still on us · candidates 2 · mechanically rejected 1 · placed by subgraph 1 · sink rule 0 · sandbox 0 · unplaced 1 · survived 1 · rejected 1 · falsifier rejects 1'
     )
     expect(at).toBeGreaterThan(0)
     expect(lines.slice(at + 1, at + 9)).toEqual([
@@ -412,7 +412,9 @@ describe('formatPrScan', () => {
     expect(out).toContain(
       'Scan 0123456 · FAILED · started 2026-09-15T07:00:00.000Z · finished 2026-09-15T07:04:00.000Z · trigger PR_EVENT · 61,000 tokens'
     )
-    expect(out).toContain('  Secrets: checked · AI review: ✗ failed · partial')
+    expect(out).toContain(
+      "  Secrets: checked · AI review: ⚠ didn't finish · part of this scan hasn't finished on our side — not counted as checked"
+    )
   })
 
   it('strips control characters from server-supplied text before printing', () => {

@@ -80,7 +80,7 @@ describe('LUM-739 repository', () => {
       hunt: 'RAN',
       huntAudit: { candidates: 1 },
       tokenSpent: 1234,
-      partial: false,
+      partialCauses: [],
     })
     expect(mockTransaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: 'Serializable',
@@ -91,6 +91,7 @@ describe('LUM-739 repository', () => {
       data: {
         stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN', hunt: 'RAN' },
         partial: true,
+        partialCauses: [],
         huntAudit: { candidates: 1 },
         tokenSpent: 1234,
         status: 'FINDINGS',
@@ -109,13 +110,14 @@ describe('LUM-739 repository', () => {
       hunt: 'FAILED',
       huntAudit: { error: 'boom' },
       tokenSpent: 20,
-      partial: false,
+      partialCauses: [],
     })
     expect(mockScan.update).toHaveBeenCalledWith({
       where: { id: 's1' },
       data: {
         stages: { secrets: 'RAN', hunt: 'FAILED' },
         partial: false,
+        partialCauses: [],
         huntAudit: { error: 'boom' },
         tokenSpent: 20,
       },
@@ -129,7 +131,7 @@ describe('LUM-739 repository', () => {
       hunt: 'PARTIAL',
       huntAudit: {},
       tokenSpent: null,
-      partial: true,
+      partialCauses: ['HUNT_INCOMPLETE'],
     })
     expect(mockScan.update.mock.calls[0]?.[0].data).toMatchObject({
       stages: { hunt: 'PARTIAL' },
@@ -150,7 +152,7 @@ describe('LUM-822 hunt attempts', () => {
     const applied = await prSecurityScanRepository.persistHuntResult(
       's1',
       [row],
-      { hunt: 'RAN', huntAudit: {}, tokenSpent: 10, partial: false }
+      { hunt: 'RAN', huntAudit: {}, tokenSpent: 10, partialCauses: [] }
     )
     expect(applied).toBe(false)
     expect(mockScan.update).not.toHaveBeenCalled()
@@ -168,7 +170,7 @@ describe('LUM-822 hunt attempts', () => {
         hunt: 'SKIPPED',
         huntAudit: {},
         tokenSpent: 0,
-        partial: false,
+        partialCauses: [],
         attempt: 2,
       })
     ).resolves.toBe(true)
@@ -183,7 +185,7 @@ describe('LUM-822 hunt attempts', () => {
         hunt: 'RAN',
         huntAudit: {},
         tokenSpent: 0,
-        partial: false,
+        partialCauses: [],
       })
     ).resolves.toBe(true)
     expect(mockScan.update).toHaveBeenCalledTimes(2)
@@ -305,5 +307,41 @@ describe('LUM-822 stale-hunt queries', () => {
       where: { id: 's1' },
       data: { huntRunId: 'run_2' },
     })
+  })
+})
+
+describe('LUM-832 findForReliability', () => {
+  test('reads only the columns the read-out needs, in the window, with a legacy row read as no causes', async () => {
+    const since = new Date('2026-09-18T00:00:00Z')
+    const until = new Date('2026-09-25T00:00:00Z')
+    mockScan.findMany.mockResolvedValueOnce([
+      {
+        status: 'CLEAN',
+        stages: { hunt: 'RAN' },
+        partial: false,
+        partialCauses: ['JUDGE_TRUNCATED'],
+        huntAudit: null,
+      },
+      {
+        status: 'CLEAN',
+        stages: null,
+        partial: true,
+        partialCauses: null,
+        huntAudit: null,
+      },
+    ])
+    const rows = await prSecurityScanRepository.findForReliability(since, until)
+    expect(mockScan.findMany).toHaveBeenCalledWith({
+      where: { startedAt: { gte: since, lt: until } },
+      select: {
+        status: true,
+        stages: true,
+        partial: true,
+        partialCauses: true,
+        huntAudit: true,
+      },
+    })
+    expect(rows[0]!.partialCauses).toEqual(['JUDGE_TRUNCATED'])
+    expect(rows[1]).toMatchObject({ stages: null, partialCauses: [] })
   })
 })

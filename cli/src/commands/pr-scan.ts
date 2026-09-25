@@ -204,7 +204,7 @@ function formatHuntHeader(h: PrScanHunt): string {
   }
   if (h.diff) {
     parts.push(
-      `diff ${plural(h.diff.sourceFiles, 'source file', 'source files')} · ${plural(h.diff.sites, 'site', 'sites')} · task cap ${h.diff.taskCap}${h.diff.oversized ? ' · oversized (a corner of the diff was covered)' : ''}`
+      `diff ${plural(h.diff.sourceFiles, 'source file', 'source files')} · ${plural(h.diff.sites, 'site', 'sites')} · task cap ${h.diff.taskCap}${h.diff.oversized ? ' · this run was sized for fewer files than the diff — the rest is still on us' : ''}`
     )
   }
   if (h.candidates !== null) parts.push(`candidates ${h.candidates}`)
@@ -239,9 +239,10 @@ function formatScan(s: PrScanEntry, full: boolean): string[] {
     ? ` · finished ${s.finishedAt}`
     : ' · not finished'
   lines.push(
-    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${s.status} · started ${s.startedAt}${finished} · trigger ${sanitizeField(s.trigger)} · ${formatTokens(s.tokenSpent)}${s.truncated ? ' · diff truncated for AI review' : ''}`
+    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${s.status} · started ${s.startedAt}${finished} · trigger ${sanitizeField(s.trigger)} · ${formatTokens(s.tokenSpent)}${s.truncated ? ' · AI review has not covered every file yet' : ''}`
   )
   const tail = formatScanLayerTail({
+    status: s.status,
     stages: s.stages,
     partial: s.partial,
     externalFindings: s.counts.externalFindings,

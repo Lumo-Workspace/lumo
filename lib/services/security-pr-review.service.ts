@@ -39,17 +39,15 @@ import {
   parseSecurityPolicy,
   type SecurityPolicy,
 } from '@/lib/security-scan/policy'
-import {
-  INCOMPLETE_STAGE_STATES,
-  type ScanStageKey,
-  type ScanStages,
-} from '@/lib/security-scan/types'
+import type { ScanStageKey, ScanStages } from '@/lib/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import { isDowngradedPath } from '@/lib/security-scan/secret-patterns'
 import { isSuggestEnabled } from '@/lib/services/security-suggest.config'
 import {
   SCAN_STAGE_KEYS,
   SCAN_STAGE_LABELS,
+  SCAN_UNFINISHED_NOTE,
+  scanCoverageState,
   scanStageLabel,
   scanStageStateLabel,
 } from '@/shared/src/security-scan'
@@ -154,8 +152,17 @@ export function buildInlineComment(
 
 export interface SummaryInput {
   headSha: string
+  /**
+   * LUM-832 — the scan row's status: a FAILED stage A must not read as
+   * checked just because the layers it reached all ran. Optional so older
+   * callers keep compiling; absent reads as "decide from the layers".
+   */
+  status?: string
   stages: ScanStages
-  /** A layer hit its cap: the findings are honest but not the whole story. */
+  /**
+   * Some layer is not whole (LUM-832: for a cause that is ours — the
+   * summary never names it).
+   */
   partial: boolean
   /** Open (non-dependency) findings per external tool, from the `ext:<tool>:` prefix. */
   externalCounts: Record<string, number>
@@ -178,23 +185,6 @@ export interface SummaryInput {
   suggested?: number
   error: string | null
   taskUrl: string | null
-}
-
-/**
- * "Nothing open" only means "clean" when every layer actually finished. A
- * PENDING external stage or a truncated diff would otherwise read as an
- * all-clear on the PR (spec P9), which is the one thing the summary must
- * never say by accident.
- */
-function hasIncompleteStage(stages: ScanStages): boolean {
-  for (const state of Object.values(stages)) {
-    if (state && INCOMPLETE_STAGE_STATES.has(state)) return true
-  }
-  return false
-}
-
-function isIncomplete(stages: ScanStages, partial: boolean): boolean {
-  return partial || hasIncompleteStage(stages)
 }
 
 /** LUM-740 — the LOW line: the rows the PR does not get an inline comment for. */
@@ -274,7 +264,17 @@ function stageLine(
   return parts.length > 0 ? `- ${parts.join(' · ')}` : null
 }
 
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
 export function buildSummary(input: SummaryInput): string {
+  // LUM-832 — the same three states as the web panel and the CLI.
+  const coverage = scanCoverageState({
+    ...(input.status !== undefined ? { status: input.status } : {}),
+    stages: input.stages,
+    partial: input.partial,
+  })
   const blocks: string[] = [
     `### 🛡️ Lumo security scan — ${input.headSha.slice(0, 7)}`,
   ]
@@ -287,17 +287,18 @@ export function buildSummary(input: SummaryInput): string {
     const blocking =
       input.blocking > 0 ? ` (${input.blocking} blocking DONE)` : ''
     blocks.push(`**${input.open} open ${noun}**${blocking}`)
-  } else if (hasIncompleteStage(input.stages)) {
-    blocks.push('No open findings yet — the scan is still incomplete.')
-  } else if (isIncomplete(input.stages, input.partial)) {
-    // LUM-740 (the PR 950 reading): every layer ran, but one hit its cap —
-    // say that, not "still incomplete", which reads as "still running".
-    blocks.push(
-      'No open findings yet — a layer hit its budget cap, so the scan is not whole.'
-    )
+  } else if (coverage === 'IN_PROGRESS') {
+    blocks.push('No open findings yet — the scan is still running.')
+  } else if (coverage === 'UNFINISHED') {
+    // LUM-832: whatever the cause, it is ours — never "a layer hit its
+    // budget cap", which blamed the PR's size for a budget we chose.
+    blocks.push(`No open findings so far — ${SCAN_UNFINISHED_NOTE}.`)
   } else {
     blocks.push('No open findings on lines this PR added.')
   }
+  // With findings open, the owned note still has to be said once.
+  if (input.open > 0 && coverage === 'UNFINISHED')
+    blocks.push(`- ${capitalize(SCAN_UNFINISHED_NOTE)}.`)
   const low = lowLine(input)
   if (low) blocks.push(low)
   const suggested = suggestedLine(input)
@@ -512,6 +513,7 @@ export const securityPrReviewService = {
       const summary = buildSummary({
         headSha: scan.headSha,
         stages: scan.stages ?? {},
+        status: scan.status,
         partial: scan.partial,
         externalCounts,
         open: open.length,

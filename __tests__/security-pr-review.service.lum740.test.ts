@@ -283,7 +283,7 @@ describe('LUM-740 PR review', () => {
         taskUrl: null,
       })
       expect(body).toContain(
-        'No open findings yet — a layer hit its budget cap, so the scan is not whole.'
+        "No open findings so far — part of this scan hasn't finished on our side — not counted as checked."
       )
     })
 
@@ -301,7 +301,7 @@ describe('LUM-740 PR review', () => {
         taskUrl: null,
       })
       expect(body).toContain(
-        'No open findings yet — the scan is still incomplete.'
+        'No open findings yet — the scan is still running.'
       )
     })
   })

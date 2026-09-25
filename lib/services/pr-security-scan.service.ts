@@ -72,6 +72,11 @@ import { securityBaselineService } from './security-baseline.service'
 // No LLM/gateway import inside — safe to import statically from stage A.
 import { securityPrReviewService } from './security-pr-review.service'
 import { waitUntil } from '@vercel/functions'
+import {
+  scanCoverageState,
+  type PartialCause,
+  type ScanCoverageState,
+} from '@/shared/src/security-scan'
 
 export const DETECTOR_VERSION = 'secrets@1;sarif@1;judge@1;hunt@1;graph@1'
 
@@ -153,6 +158,12 @@ export interface SecurityScanView {
    * checked separately.
    */
   complete: boolean
+  /**
+   * LUM-832 — the one state the customer is told: in progress, checked, or
+   * unfinished on our side. `complete` is exactly `coverage === 'CHECKED'`.
+   * The cause is never on the view — it is internal (`partialCauses`).
+   */
+  coverage: ScanCoverageState
   /** stages.external is PENDING and the scan started more than 30 min ago — the scanner has not reported. */
   externalLate: boolean
   error: string | null
@@ -273,7 +284,16 @@ function toFindingView(
 
 /** The view's `complete` rule, shared with the read model's `fixed` gate. */
 function isViewComplete(s: ScanWithFindings): boolean {
-  return s.status !== 'FAILED' && !s.partial && isCompleteScan(stagesOf(s))
+  return coverageOf(s) === 'CHECKED'
+}
+
+/** LUM-832 — the shared customer state, over the row's derived stages. */
+function coverageOf(s: ScanWithFindings): ScanCoverageState {
+  return scanCoverageState({
+    status: s.status,
+    stages: stagesOf(s),
+    partial: s.partial,
+  })
 }
 
 /** LUM-775: the row's queue exit on its PR, or null while it is still queued. */
@@ -296,6 +316,7 @@ function toScanView(
     stages,
     partial: s.partial,
     complete: isViewComplete(s),
+    coverage: coverageOf(s),
     externalLate:
       stages.external === 'PENDING' &&
       Date.now() - s.startedAt.getTime() > EXTERNAL_PENDING_LATE_MS,
@@ -449,7 +470,9 @@ export const prSecurityScanService = {
     // Collected across layers so the FAILED path can still say which layers
     // ran before the crash (spec P9: a failed layer is a fact, not a blank).
     const stages: ScanStages = {}
-    let partial = false
+    // LUM-832: each set point below names its cause; the row derives
+    // `partial` from them (see `mergePartial` in the repository).
+    const partialCauses: PartialCause[] = []
 
     try {
       const diff = await fetchPrDiff({
@@ -506,7 +529,8 @@ export const prSecurityScanService = {
         headSha,
         touchedSourcePaths,
       })
-      if (graph.partial) partial = true
+      // Our fault: the read failed, not the customer's diff.
+      if (graph.partial) partialCauses.push('GRAPH_READ_FAILED')
       if (graph.capped) {
         logger.info(
           `[pr-security-scan] graph rules capped pr=${pr.id} files=${graph.files}`
@@ -684,7 +708,9 @@ export const prSecurityScanService = {
           droppedFiles: capped.dropped.length,
         }
         if (truncated) {
-          partial = true
+          // Coverage owed: the tier is a budget we chose (LUM-811), and the
+          // dropped files are ours to review, not the PR's to shrink.
+          partialCauses.push('JUDGE_TRUNCATED')
           logger.info(
             `[pr-security-scan] judge budget pr=${pr.id} sha=${headSha} tier=${tier.chars} diffChars=${diff.length} sourceFiles=${touchedSourcePaths.length} reviewed=${capped.covered.length} dropped=${capped.dropped.length}: ${capped.dropped.slice(0, 20).join(' ')}`
           )
@@ -751,7 +777,7 @@ export const prSecurityScanService = {
       // LUM-758: a judge that ran over a budget-trimmed diff is PARTIAL, not
       // RAN. It used to render as "AI review: checked" while whole files had
       // never been looked at — a layer claiming a pass it did not establish,
-      // which is the one thing spec P9 forbids. `partial` was already true at
+      // which is the one thing spec P9 forbids. JUDGE_TRUNCATED was already on
       // the scan level; this puts the fact on the line that is wrong.
       stages.judge =
         judgeStatus === 'RAN'
@@ -805,7 +831,7 @@ export const prSecurityScanService = {
         truncated,
         judgeBudget,
         stages,
-        partial,
+        partialCauses,
         ...(externalError ? { error: externalError } : {}),
       })
       // LUM-739: the row is settled — now hand the sha to the hunt. A start
@@ -882,7 +908,7 @@ export const prSecurityScanService = {
         judgeStatus: null,
         truncated: false,
         stages,
-        partial,
+        partialCauses,
         error: message.slice(0, 500),
       })
       // A FAILED stage A still has something to say on the PR (P9).
