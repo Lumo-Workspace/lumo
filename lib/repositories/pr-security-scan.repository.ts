@@ -82,7 +82,9 @@ export interface PersistHuntResultInput {
   // LUM-758: SKIPPED joins the set — the planner may decide a PR is not worth
   // hunting (empty subgraph, or no category planned), which is a complete
   // layer, not a failed one.
-  hunt: 'RAN' | 'PARTIAL' | 'FAILED' | 'SKIPPED'
+  // LUM-832: PENDING = a batch of an oversized diff landed and the next one
+  // is queued — its findings are written, the layer stays in progress.
+  hunt: 'RAN' | 'PARTIAL' | 'FAILED' | 'SKIPPED' | 'PENDING'
   huntAudit: Record<string, unknown>
   tokenSpent: number | null
   /** LUM-832 — why the hunt is not whole; empty = it is. */
@@ -207,6 +209,8 @@ export interface ScanWithFindings {
   suggestionTokens: number | null
   /** LUM-739's audit Json, raw. LUM-762 reads it via `parseHuntCoverage`. */
   huntAudit: unknown
+  /** LUM-822 job Json, raw. LUM-832 reads its batch plan (`huntBatchProgress`). */
+  huntJob?: unknown
   findings: FindingRow[]
 }
 
@@ -283,6 +287,8 @@ export interface ScanForReview {
   /** LUM-832: a FAILED stage A must not summarise as checked. */
   status: ScanStatus
   stages: ScanStages | null
+  /** LUM-832: the running hunt job, for the batched hunt's covered share. */
+  huntJob: unknown
   partial: boolean
   error: string | null
   /** LUM-740: the summary comment this scan (or an earlier one) already owns. */
@@ -848,10 +854,19 @@ export const prSecurityScanRepository = {
           partial: true,
           partialCauses: true,
           huntAttempts: true,
+          tokenSpent: true,
         },
       })
       // LUM-822: a superseded attempt's late write changes nothing.
       if ((current?.huntAttempts ?? 0) > (final.attempt ?? 1)) return false
+      // LUM-832: a retry adds its spend to what the faulted attempt left on
+      // the row (see `claimHuntRetry`); the first attempt owns the column.
+      const tokenSpent =
+        (final.attempt ?? 1) > 1 &&
+        typeof current?.tokenSpent === 'number' &&
+        final.tokenSpent !== null
+          ? current.tokenSpent + final.tokenSpent
+          : final.tokenSpent
       const stages: ScanStages = {
         ...((current?.stages as ScanStages | null) ?? {}),
         hunt: final.hunt,
@@ -862,7 +877,7 @@ export const prSecurityScanRepository = {
           stages,
           ...mergePartial(current, final.partialCauses),
           huntAudit: final.huntAudit as Prisma.InputJsonValue,
-          tokenSpent: final.tokenSpent,
+          tokenSpent,
           ...(findings.length > 0 ? { status: 'FINDINGS' } : {}),
         },
       })
@@ -965,7 +980,21 @@ export const prSecurityScanRepository = {
    * that landed after the stale read is left alone. From this write on, the
    * older attempt's late result is dropped by `persistHuntResult`.
    */
-  async claimHuntRetry(scanId: string, fromAttempt: number): Promise<boolean> {
+  async claimHuntRetry(
+    scanId: string,
+    fromAttempt: number,
+    opts: {
+      /** LUM-832: the faulted attempt's audit and spend, handed to the row. */
+      faulted?: { huntAudit: Record<string, unknown>; tokenSpent: number }
+      /**
+       * LUM-832: the job the claimed attempt runs with — a retry's `tries`,
+       * a continuation's next batch — so the stale sweep, which retries from
+       * `huntJob`, redoes the right batch and counts the right tries.
+       */
+      huntJob?: Record<string, unknown>
+    } = {}
+  ): Promise<boolean> {
+    const { faulted, huntJob } = opts
     const { count } = await prisma.prSecurityScan.updateMany({
       where: {
         id: scanId,
@@ -976,9 +1005,32 @@ export const prSecurityScanRepository = {
         huntAttempts: fromAttempt + 1,
         huntStartedAt: new Date(),
         huntRunId: null,
+        // LUM-832: an attempt that ended on our fault hands its audit and
+        // its spend to the row as it re-queues, so the retry's result can
+        // add to the spend rather than erase it (null ≠ 0 either way).
+        ...(faulted
+          ? {
+              huntAudit: faulted.huntAudit as Prisma.InputJsonValue,
+              tokenSpent: faulted.tokenSpent,
+            }
+          : {}),
+        ...(huntJob ? { huntJob: huntJob as Prisma.InputJsonValue } : {}),
       },
     })
     return count === 1
+  },
+
+  /**
+   * LUM-832 — has this scan's PR been scanned at a newer head since? The
+   * in-run re-queue asks it by scan id (the run has no `startedAt`).
+   */
+  async hasNewerScanThan(scanId: string): Promise<boolean> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      select: { pullRequestId: true, startedAt: true },
+    })
+    if (!row) return false
+    return this.hasNewerScan(row.pullRequestId, row.startedAt)
   },
 
   async setHuntRunId(scanId: string, runId: string): Promise<void> {
@@ -1056,6 +1108,7 @@ export const prSecurityScanRepository = {
         headSha: true,
         status: true,
         stages: true,
+        huntJob: true,
         partial: true,
         error: true,
         summaryCommentId: true,

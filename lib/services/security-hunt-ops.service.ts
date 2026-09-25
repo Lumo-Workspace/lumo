@@ -26,7 +26,11 @@ import {
   type StalePendingHunt,
 } from '@/lib/repositories/pr-security-scan.repository'
 import { stopRepoSandboxesByTag } from '@/lib/integrations/vercel-sandbox'
-import { HUNT_SANDBOX_TAG, type HuntJob } from './security-hunt.config'
+import {
+  HUNT_MAX_ATTEMPTS,
+  HUNT_SANDBOX_TAG,
+  type HuntJob,
+} from './security-hunt.config'
 import { cancelHuntRun, startSecurityHunt } from './security-hunt-start'
 import { SANDBOX_TIMEOUT_WITH_HUNT_MS } from './security-managed-scan.config'
 import { securityPrReviewService } from './security-pr-review.service'
@@ -38,8 +42,8 @@ import { securityPrReviewService } from './security-pr-review.service'
  * hard stop, a PENDING hunt cannot still be making progress.
  */
 export const HUNT_PENDING_DEAD_MS = SANDBOX_TIMEOUT_WITH_HUNT_MS + 5 * 60 * 1000
-/** Stage A's start plus the one retry. */
-export const HUNT_MAX_ATTEMPTS = 2
+/** Stage A's start plus the one retry (LUM-832: shared with the in-run re-queue). */
+export { HUNT_MAX_ATTEMPTS }
 /** Rows one tick handles; a retry costs a run, a failure a GitHub sync. */
 export const HUNT_SWEEP_BATCH_LIMIT = 25
 
@@ -60,6 +64,11 @@ export interface HuntSweepCounts {
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/** LUM-832 — which try of its batch a job is; pre-LUM-832 jobs meant `attempt`. */
+function triesOf(job: HuntJob): number {
+  return job.tries ?? job.attempt ?? 1
 }
 
 /** The stored job, if it is one this row can be retried with. */
@@ -115,20 +124,25 @@ async function retry(
   counts: HuntSweepCounts
 ): Promise<void> {
   const next = row.huntAttempts + 1
+  const nextJob: HuntJob = {
+    ...job,
+    attempt: next,
+    // LUM-832: only a batched job carries its own try count; a legacy job's
+    // tries ARE the row's attempts, and it stays exactly as it was.
+    ...(job.tries !== undefined ? { tries: job.tries + 1 } : {}),
+    // The managed scan's VM is long gone; waiting 30 s to attach to it would
+    // only eat the retry's own window.
+    managedScanStarted: false,
+  }
   const claimed = await prSecurityScanRepository.claimHuntRetry(
     row.id,
-    row.huntAttempts
+    row.huntAttempts,
+    job.tries !== undefined ? { huntJob: { ...nextJob } } : {}
   )
   // Another tick claimed it, or the hunt landed after the read.
   if (!claimed) return
   await killAttempt(row, counts)
-  const runId = await startSecurityHunt({
-    ...job,
-    attempt: next,
-    // The managed scan's VM is long gone; waiting 30 s to attach to it would
-    // only eat the retry's own window.
-    managedScanStarted: false,
-  })
+  const runId = await startSecurityHunt(nextJob)
   if (!runId) {
     await fail(
       { ...row, huntRunId: null },
@@ -156,9 +170,12 @@ async function sweepOne(
   row: StalePendingHunt,
   counts: HuntSweepCounts
 ): Promise<void> {
-  if (row.huntAttempts >= HUNT_MAX_ATTEMPTS)
-    return fail(row, row.huntAttempts, HUNT_STALE_REASONS.afterRetry, counts)
   const job = storedJob(row)
+  // LUM-832: a batched job counts tries per batch; everything else counts
+  // the row's attempts, as before.
+  const tries = job?.tries !== undefined ? job.tries : row.huntAttempts
+  if (tries >= HUNT_MAX_ATTEMPTS)
+    return fail(row, row.huntAttempts, HUNT_STALE_REASONS.afterRetry, counts)
   if (!job) return fail(row, row.huntAttempts, HUNT_STALE_REASONS.noJob, counts)
   if (
     await prSecurityScanRepository.hasNewerScan(
@@ -170,7 +187,146 @@ async function sweepOne(
   return retry(row, job, counts)
 }
 
+/** LUM-832 — why an in-run re-queue did not happen (the run then persists as before). */
+export type HuntRequeueOutcome =
+  | { requeued: true; attempt: number }
+  | {
+      requeued: false
+      reason: 'exhausted' | 'superseded' | 'claim-lost' | 'start-failed'
+    }
+
+export interface HuntRequeueInput {
+  job: HuntJob
+  /** What went wrong on our side — kept in the handed-over audit. */
+  reason: string
+  tokenSpent: number
+  audit: Record<string, unknown>
+}
+
 export const securityHuntOpsService = {
+  /**
+   * LUM-832 — a batch of an oversized diff landed (its findings are on the
+   * row, the layer still PENDING): start the next batch. `next` is computed by
+   * the deterministic workflow body — the same plan, the next index, a fresh
+   * try budget, the fence one up.
+   *
+   * Same claim CAS as a retry, so a stale sweep and this can never both start
+   * a run. A start that fails leaves the layer PENDING at the claimed attempt
+   * with `huntJob` = `next`, which is exactly what the stale sweep retries from
+   * — so the batch is still owed, never dropped.
+   */
+  async continueBatchedHunt(input: {
+    job: HuntJob
+    next: HuntJob
+  }): Promise<boolean> {
+    const { job, next } = input
+    const claimed = await prSecurityScanRepository.claimHuntRetry(
+      job.scanId,
+      job.attempt ?? 1,
+      { huntJob: { ...next } }
+    )
+    if (!claimed) return false
+    const label = `batch=${(next.batchIndex ?? 0) + 1}/${next.batches?.length ?? 1}`
+    const runId = await startSecurityHunt(next)
+    if (!runId) {
+      logger.warn(
+        `[security-hunt-ops] next batch did not start scan=${job.scanId} ${label}; left for the stale sweep`
+      )
+      return false
+    }
+    try {
+      await prSecurityScanRepository.setHuntRunId(job.scanId, runId)
+    } catch (error) {
+      logger.warn(
+        `[security-hunt-ops] run id write failed scan=${job.scanId}: ${describe(error)}`
+      )
+    }
+    logger.info(
+      `[security-hunt-ops] continued batched hunt scan=${job.scanId} ${label} run=${runId}`
+    )
+    return true
+  },
+
+  /**
+   * LUM-832 — an attempt that ended on OUR fault (a VM, the gateway, a
+   * clock, a step that exhausted its retries) is not a conclusion. While an
+   * attempt is left, the run hands its place to the next attempt instead of
+   * persisting a PARTIAL / FAILED hunt: the layer stays PENDING, so the
+   * customer reads "scanning" until the retry lands.
+   *
+   * Same claim as the stale-hunt sweep (`claimHuntRetry`: CAS on
+   * `huntAttempts` while PENDING), so the sweep and this path can never both
+   * start a run, and the older attempt's late write is dropped. Not killed:
+   * the caller IS the old run, and it ends right after this returns. Its
+   * audit and spend move onto the row with the claim; the retry's result adds
+   * to the spend.
+   *
+   * `requeued: false` means "persist as before" — retries exhausted, the PR
+   * moved on, or another writer claimed first. A start that fails AFTER the
+   * claim stamps the hunt FAILED here (the old attempt can no longer write).
+   */
+  async requeueFaultedHunt(
+    input: HuntRequeueInput
+  ): Promise<HuntRequeueOutcome> {
+    const { job } = input
+    const attempt = job.attempt ?? 1
+    // The budget is per batch (LUM-832): `attempt` keeps counting across
+    // an oversized diff's batches, `tries` restarts at 1 for each.
+    const tries = triesOf(job)
+    if (tries >= HUNT_MAX_ATTEMPTS)
+      return { requeued: false, reason: 'exhausted' }
+    if (await prSecurityScanRepository.hasNewerScanThan(job.scanId))
+      return { requeued: false, reason: 'superseded' }
+    const next = attempt + 1
+    const nextJob: HuntJob = {
+      ...job,
+      attempt: next,
+      tries: tries + 1,
+      // Whatever VM the managed scan had is not worth waiting 30 s for.
+      managedScanStarted: false,
+    }
+    const claimed = await prSecurityScanRepository.claimHuntRetry(
+      job.scanId,
+      attempt,
+      {
+        faulted: {
+          huntAudit: {
+            ...input.audit,
+            requeued: {
+              fromAttempt: attempt,
+              reason: input.reason.slice(0, 500),
+            },
+          },
+          tokenSpent: input.tokenSpent,
+        },
+        huntJob: { ...nextJob },
+      }
+    )
+    if (!claimed) return { requeued: false, reason: 'claim-lost' }
+    const runId = await startSecurityHunt(nextJob)
+    if (!runId) {
+      await prSecurityScanRepository.failStaleHunt(
+        job.scanId,
+        next,
+        HUNT_STALE_REASONS.retryNotStarted
+      )
+      await securityPrReviewService.sync(job.scanId)
+      return { requeued: false, reason: 'start-failed' }
+    }
+    try {
+      await prSecurityScanRepository.setHuntRunId(job.scanId, runId)
+    } catch (error) {
+      // Only the stale sweep's cancel is lost; the run itself is fine.
+      logger.warn(
+        `[security-hunt-ops] run id write failed scan=${job.scanId}: ${describe(error)}`
+      )
+    }
+    logger.info(
+      `[security-hunt-ops] re-queued faulted hunt scan=${job.scanId} attempt=${next} run=${runId}: ${input.reason.slice(0, 200)}`
+    )
+    return { requeued: true, attempt: next }
+  },
+
   /**
    * The every-15-minute cron's hunt half. Never throws past one row: a row
    * that fails is logged and the next one still runs.

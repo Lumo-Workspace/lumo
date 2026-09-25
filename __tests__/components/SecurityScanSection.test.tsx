@@ -25,6 +25,8 @@ const messages: Record<string, string> = {
   'securityScan.provenance.EXTERNAL_TOOL': 'External tool',
   'securityScan.stage.secrets': 'Secret patterns',
   'securityScan.stage.external': 'External scanner',
+  'securityScan.stage.hunt': 'Exploit paths',
+  'securityScan.huntProgress': '{covered}/{total} source files',
   'securityScan.stage.judge': 'LLM review',
   'securityScan.stageState.FAILED': 'failed',
   'securityScan.stageState.NOT_CONFIGURED': 'not configured',
@@ -888,4 +890,31 @@ test('LUM-738 supplyChain surface — a persisting dependency finding is muted a
   expect(screen.getByTestId('security-summary-line')).toHaveTextContent(
     '1 finding'
   )
+})
+
+// LUM-832: a hunt run in batches over an oversized diff shows how much of the
+// diff it has covered, on the stage row, while the rest is queued.
+test('a batched hunt shows its covered share next to its state', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            stages: { secrets: 'RAN', judge: 'RAN', hunt: 'PENDING' },
+            huntProgress: { coveredFiles: 40, totalFiles: 120 },
+          }),
+        },
+      ],
+      blocking: { count: 1 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('scan-stages')).toHaveTextContent(
+    'Exploit paths: scanning (40/120 source files)'
+  )
+  // Queued batches are "in progress" — never the owned-unfinished line.
+  expect(screen.queryByTestId('scan-unfinished')).toBeNull()
 })

@@ -2258,6 +2258,7 @@
   "milestone.archiveConfirm.title": "归档未完成的里程碑？",
   "milestone.archiveConfirm.body": "「{name}」还有 {remaining} 个任务未完成。归档后它不再出现在默认列表里，未完成的任务不会被关闭。",
   "milestone.archiveConfirm.confirm": "仍要归档",
+  "securityScan.huntProgress": "已覆盖 {covered}/{total} 个源文件",
   "securityScan.section.title": "安全扫描",
   "securityScan.section.empty": "还没有安全扫描——每次向关联的 PR 推送代码都会自动扫描。",
   "securityScan.section.loadError": "无法加载安全扫描。",

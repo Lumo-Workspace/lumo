@@ -82,6 +82,23 @@ export interface HuntJob {
    * write the run makes carries it, so a superseded attempt cannot land.
    */
   attempt?: number
+  /**
+   * LUM-832 — which try of THIS batch this run is (1 = first, up to
+   * HUNT_MAX_ATTEMPTS). `attempt` is the row's monotone fence across the
+   * whole scan and keeps counting through batches; the retry budget is per
+   * batch. Absent = `attempt ?? 1`, which is what every pre-LUM-832 job meant.
+   */
+  tries?: number
+  /**
+   * LUM-832 — the batch plan of an oversized diff (`planHuntBatches`), riskiest
+   * first, and which batch this run hunts. Absent on stage A's job: the first
+   * run computes the plan (pure, so a retry recomputes the same one) and every
+   * continuation carries it.
+   */
+  batches?: string[][]
+  batchIndex?: number
+  /** LUM-832 — the layer's state over the batches already run (`mergeBatchStage`). */
+  carriedStage?: 'RAN' | 'PARTIAL' | 'SKIPPED'
 }
 
 /**
@@ -732,6 +749,12 @@ export interface HuntTaskAudit {
 
 /** Persisted as `PrSecurityScan.huntAudit` (spec §7). */
 export interface HuntAudit {
+  /**
+   * LUM-832 — which batch of an oversized diff this run hunted (0-based
+   * `index` of `of`) and how many source files it held. Absent on an
+   * un-batched hunt.
+   */
+  batch?: { index: number; of: number; files: number }
   candidates: number
   rejected: RejectedCandidate[]
   /**
@@ -1255,9 +1278,19 @@ export interface PersistHuntInput {
   tokenSpent: number
   /** LUM-832 — 这一层为什么没跑完整；空数组 = 完整。 */
   partialCauses: PartialCause[]
-  /** LUM-758 — 写进 `stages.hunt` 的层状态。 */
-  stage: 'RAN' | 'PARTIAL' | 'SKIPPED'
+  /**
+   * LUM-758 — 写进 `stages.hunt` 的层状态。LUM-832: PENDING = 还有下一批要跑，
+   * 这一批的发现先落库，层保持进行中。
+   */
+  stage: 'RAN' | 'PARTIAL' | 'SKIPPED' | 'PENDING'
 }
+
+/**
+ * LUM-822 / LUM-832 — stage A's start plus one retry. Here (not in the ops
+ * service) so the deterministic workflow body can decide whether an attempt
+ * that ended on our fault may re-queue, without loading the sandbox module.
+ */
+export const HUNT_MAX_ATTEMPTS = 2
 
 export type HuntResult =
   | {
@@ -1268,6 +1301,17 @@ export type HuntResult =
       tokenSpent: number
     }
   | { outcome: 'FAILED'; scanId: string; reason: string }
+  /** LUM-832: ended on our fault; the next attempt was started in its place. */
+  | { outcome: 'REQUEUED'; scanId: string; attempt: number; reason: string }
+  /** LUM-832: this batch landed; the next batch of the diff was started. */
+  | {
+      outcome: 'CONTINUED'
+      scanId: string
+      batchIndex: number
+      batches: number
+      findings: number
+      tokenSpent: number
+    }
 
 /** Kill switch: the hunt is on unless LUMO_SECURITY_HUNT is exactly "off". */
 export function isHuntEnabled(

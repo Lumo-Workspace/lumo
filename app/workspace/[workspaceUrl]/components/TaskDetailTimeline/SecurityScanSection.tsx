@@ -219,7 +219,14 @@ const STAGE_ORDER = SCAN_STAGE_KEYS
  * sees at a glance which layers ran. The line takes the warning tone only
  * while some layer is not RAN / SKIPPED.
  */
-function StagesSummary({ stages }: { stages: ScanStages }) {
+function StagesSummary({
+  stages,
+  huntProgress,
+}: {
+  stages: ScanStages
+  /** LUM-832 — a batched hunt's covered source files, or null. */
+  huntProgress: SecurityScanView['huntProgress']
+}) {
   const intl = useIntl()
   const rows = STAGE_ORDER.flatMap(key => {
     const state = stages[key]
@@ -234,10 +241,18 @@ function StagesSummary({ stages }: { stages: ScanStages }) {
       className={`text-caption ${incomplete ? 'text-warning' : 'text-muted-foreground'}`}
     >
       {rows
-        .map(
-          r =>
-            `${intl.formatMessage({ id: `securityScan.stage.${r.key}` })}: ${intl.formatMessage({ id: `securityScan.stageState.${r.state}` })}`
-        )
+        .map(r => {
+          const line = `${intl.formatMessage({ id: `securityScan.stage.${r.key}` })}: ${intl.formatMessage({ id: `securityScan.stageState.${r.state}` })}`
+          return r.key === 'hunt' && huntProgress
+            ? `${line} (${intl.formatMessage(
+                { id: 'securityScan.huntProgress' },
+                {
+                  covered: huntProgress.coveredFiles,
+                  total: huntProgress.totalFiles,
+                }
+              )})`
+            : line
+        })
         .join(' · ')}
     </p>
   )
@@ -314,7 +329,10 @@ function ScanDetails({
       : null
   return (
     <div className='mt-1.5 space-y-1.5'>
-      <StagesSummary stages={scan.stages} />
+      <StagesSummary
+        stages={scan.stages}
+        huntProgress={scan.huntProgress ?? null}
+      />
       {scan.fixed > 0 && (
         <p
           data-testid='scan-fixed'
