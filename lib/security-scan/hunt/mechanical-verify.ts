@@ -36,8 +36,10 @@ import {
 } from './candidate'
 import {
   candidateSymbolRefs,
+  fileSightingKey,
   matchEntryRule,
   matchSinkRule,
+  sameSymbolRef,
   sightingKey,
   symbolNameOf,
 } from './repo-symbols'
@@ -50,10 +52,18 @@ export interface RejectedCandidate {
    * LUM-798 — the candidate in its own words, so a rejection can be re-read
    * after the fact instead of only counted. Absent when the submission did
    * not even parse (there is nothing to quote).
+   *
+   * LUM-798 follow-up — BOTH locations, each tagged with whose it is. The
+   * first version carried one `file`/`line` pair, always the sink's, so a row
+   * reading `symbol-not-found-in-repo:POST` printed the SINK's location next
+   * to a failure of the ENTRY. Eight production rows were unreadable that
+   * way, and the misreading is silent — the fields look right.
    */
   entry?: string
-  file?: string
-  line?: number
+  sinkFile?: string
+  sinkLine?: number
+  entryFile?: string
+  entryLine?: number
 }
 
 /** LUM-798 — which of the three tiers placed the sink symbol. */
@@ -77,17 +87,43 @@ export interface VerifiedCandidate extends HuntCandidate {
    * not hold it and no `ENTRY_RULES` pattern matches its file and name.
    */
   entryKindUnconfirmed?: boolean
+  /**
+   * LUM-798 follow-up — the entry was placed by its name occurring somewhere
+   * in the file it claimed, not on the line it claimed. The symbol is real;
+   * the line is the agent's and unverified.
+   */
+  entryLineUnconfirmed?: boolean
 }
 
 /**
- * LUM-798 — where every candidate went, so the next round can read this
- * change's effect without re-deriving it. The four counters partition the
- * submissions: `subgraph + sinkRule + sandbox + rejected === candidates`.
+ * LUM-798 follow-up — where every candidate went, on TWO axes, because one
+ * axis answered the wrong question.
+ *
+ * The first shape of this tally only counted a placement when the candidate
+ * went on to survive every later check. Twenty-eight production scans later
+ * it read `subgraph 0 · sinkRule 0 · sandbox 0 · rejected 40` — while 21 of
+ * those 40 had in fact been placed and then died at the chain check. So the
+ * counter built to answer "did the new placement logic work" could not
+ * distinguish "never placed" from "placed, then rejected downstream": the
+ * exact zero-versus-never confusion this task exists to remove, reproduced
+ * in its own read-out.
+ *
+ * Two partitions of the same submissions, each exact:
+ *   placement — `placed.* + unplaced === candidates`
+ *   outcome   — `accepted + rejected === candidates`
+ * and `accepted <= placed.subgraph + placed.sinkRule + placed.sandbox`.
+ *
+ * The nesting is deliberate: a pre-follow-up row is flat, so no reader can
+ * mistake one shape's numbers for the other's.
  */
 export interface ResolutionTally {
-  subgraph: number
-  sinkRule: number
-  sandbox: number
+  /** How the SINK was placed, counted AT placement — survival is the other axis. */
+  placed: { subgraph: number; sinkRule: number; sandbox: number }
+  /** Placement never happened: it failed, or the submission never parsed. */
+  unplaced: number
+  /** Of the placed, how many survived every later check. */
+  accepted: number
+  /** Rejected at any stage, placement included. */
   rejected: number
 }
 
@@ -99,12 +135,19 @@ export interface ResolutionTally {
 export interface RepoEvidence {
   /** `sightingKey` of every claim whose line really carries the identifier. */
   sightings: string[]
+  /**
+   * LUM-798 follow-up — `fileSightingKey` of every claim whose name occurs
+   * SOMEWHERE in the file it named. The entry's fallback only; see
+   * `fileSightingKey` for why the sink does not get one.
+   */
+  fileSightings: string[]
   /** Paths the read tried to open and could not: those files do not exist. */
   missingFiles: string[]
 }
 
 export const NO_REPO_EVIDENCE: RepoEvidence = {
   sightings: [],
+  fileSightings: [],
   missingFiles: [],
 }
 
@@ -145,9 +188,16 @@ function chainConnects(c: HuntCandidate): boolean {
   const first = c.call_chain[0]
   const last = c.call_chain[c.call_chain.length - 1]
   if (!first || !last) return false
-  if (first.from !== c.entry.symbol || last.to !== c.sink.symbol) return false
+  if (
+    !sameSymbolRef(first.from, c.entry.symbol) ||
+    !sameSymbolRef(last.to, c.sink.symbol)
+  ) {
+    return false
+  }
   for (let i = 1; i < c.call_chain.length; i++) {
-    if (c.call_chain[i]!.from !== c.call_chain[i - 1]!.to) return false
+    if (!sameSymbolRef(c.call_chain[i]!.from, c.call_chain[i - 1]!.to)) {
+      return false
+    }
   }
   return true
 }
@@ -161,14 +211,15 @@ export function mechanicalVerify(
   const files = new Map(g.files.map(f => [f.path, f.lineCount]))
   const edges = new Set(g.edges.map(e => `${e.from}->${e.to}`))
   const sighted = new Set(evidence.sightings)
+  const sightedInFile = new Set(evidence.fileSightings ?? [])
   const absent = new Set(evidence.missingFiles)
   const seen = new Set<string>()
   const accepted: VerifiedCandidate[] = []
   const rejected: RejectedCandidate[] = []
   const resolution: ResolutionTally = {
-    subgraph: 0,
-    sinkRule: 0,
-    sandbox: 0,
+    placed: { subgraph: 0, sinkRule: 0, sandbox: 0 },
+    unplaced: 0,
+    accepted: 0,
     rejected: 0,
   }
 
@@ -180,6 +231,9 @@ export function mechanicalVerify(
         unknown
       >
       const issue = parsed.error.issues[0]
+      // Never parsed, so placement never ran: `unplaced`, not a placement
+      // that failed. Both partitions stay exact either way.
+      resolution.unplaced += 1
       resolution.rejected += 1
       rejected.push({
         reason: `schema:${issue?.path.join('.') || '?'}:${issue?.message ?? 'invalid'}`,
@@ -196,8 +250,10 @@ export function mechanicalVerify(
         category: c.category,
         sink: c.sink.symbol,
         entry: c.entry.symbol,
-        file: c.sink.file,
-        line: c.sink.line,
+        sinkFile: c.sink.file,
+        sinkLine: c.sink.line,
+        entryFile: c.entry.file,
+        entryLine: c.entry.line,
       })
     }
 
@@ -236,14 +292,24 @@ export function mechanicalVerify(
           ? 'sandbox'
           : null
     if (!resolvedBy) {
+      resolution.unplaced += 1
       reject(notPlaced(c.sink.symbol, c.sink.file, files))
       continue
     }
+    // Counted HERE, at placement — not at acceptance. Whether this candidate
+    // survives the entry, edge and chain checks below is the other axis, and
+    // conflating the two is what made the first tally unreadable.
+    resolution.placed[resolvedBy === 'sink-rule' ? 'sinkRule' : resolvedBy] += 1
 
-    // The entry gets two of the three tiers: no rule table names an entry by
-    // callee, so it is the graph or the line it was claimed on.
+    // The entry: the graph, the line it was claimed on, or — LUM-798
+    // follow-up — anywhere in the file it was claimed in. The last tier is
+    // the entry's alone: its line is context, the sink's line is the claim.
     const entrySymbol = symbols.get(c.entry.symbol)
-    if (!entrySymbol && !sighted.has(sightingKey(c.entry))) {
+    const entrySightedAtLine = sighted.has(sightingKey(c.entry))
+    const entrySightedInFile =
+      !entrySightedAtLine &&
+      sightedInFile.has(fileSightingKey(c.entry.file, c.entry.symbol))
+    if (!entrySymbol && !entrySightedAtLine && !entrySightedInFile) {
       reject(notPlaced(c.entry.symbol, c.entry.file, files))
       continue
     }
@@ -258,6 +324,10 @@ export function mechanicalVerify(
     const entryKindUnconfirmed =
       entrySymbol === undefined &&
       matchEntryRule(c.entry.file, symbolNameOf(c.entry.symbol)) === null
+    // Placed, but only by "the name is somewhere in that file" — weaker than
+    // the line the candidate actually claimed, and the falsifier is told so
+    // rather than the difference being lost.
+    const entryLineUnconfirmed = entrySymbol === undefined && entrySightedInFile
 
     // An edge is only wrong if the graph holds BOTH of its endpoints and not
     // the edge between them. An edge into a symbol the graph never saw is
@@ -272,7 +342,8 @@ export function mechanicalVerify(
       continue
     }
     // Self-consistency needs no graph at all: the chain must start at the
-    // entry the candidate named, end at its sink, and join up.
+    // entry the candidate named, end at its sink, and join up — comparing
+    // symbols across naming LEVELS (LUM-798 follow-up), never across paths.
     if (!chainConnects(c)) {
       reject('chain-disconnected')
       continue
@@ -287,7 +358,7 @@ export function mechanicalVerify(
       continue
     }
     seen.add(fingerprint)
-    resolution[resolvedBy === 'sink-rule' ? 'sinkRule' : resolvedBy] += 1
+    resolution.accepted += 1
     accepted.push({
       ...c,
       // UNKNOWN when the graph cannot place the sink — the falsifier's input,
@@ -300,6 +371,7 @@ export function mechanicalVerify(
         ? { chainUnverified: true }
         : {}),
       ...(entryKindUnconfirmed ? { entryKindUnconfirmed: true } : {}),
+      ...(entryLineUnconfirmed ? { entryLineUnconfirmed: true } : {}),
     })
   }
   return { accepted, rejected, resolution }

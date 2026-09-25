@@ -71,13 +71,28 @@ export interface PrScanHunt {
   candidates: number | null
   falsifierRejects: number | null
   mechanicallyRejected: number | null
-  /** LUM-798 — how the mechanical gate placed each candidate; null on older scans. */
-  resolution: {
-    subgraph: number
-    sinkRule: number
-    sandbox: number
-    rejected: number
-  } | null
+  /**
+   * LUM-798 — how the mechanical gate placed each candidate; null on older
+   * scans. `legacy` rows counted a placement only when the candidate also
+   * survived every later check, so their tier numbers are not comparable
+   * with a `placement` row's and the read-out says which it is looking at.
+   */
+  resolution:
+    | {
+        kind: 'placement'
+        placed: { subgraph: number; sinkRule: number; sandbox: number }
+        unplaced: number
+        accepted: number
+        rejected: number
+      }
+    | {
+        kind: 'legacy'
+        subgraph: number
+        sinkRule: number
+        sandbox: number
+        rejected: number
+      }
+    | null
   error: string | null
   tasks: ShellDetailTask[]
 }
@@ -198,10 +213,16 @@ function formatHuntHeader(h: PrScanHunt): string {
   // LUM-798 — the same drop, broken out by what placed the candidate. Reading
   // "rejected 23 of 23" off a scan is what told us the gate had never judged
   // anything; the breakdown is what says whether that has changed.
-  if (h.resolution) {
+  if (h.resolution?.kind === 'placement') {
     const r = h.resolution
     parts.push(
-      `resolved by subgraph ${r.subgraph} · sink rule ${r.sinkRule} · sandbox ${r.sandbox} · rejected ${r.rejected}`
+      `placed by subgraph ${r.placed.subgraph} · sink rule ${r.placed.sinkRule} · sandbox ${r.placed.sandbox} · unplaced ${r.unplaced}`,
+      `survived ${r.accepted} · rejected ${r.rejected}`
+    )
+  } else if (h.resolution) {
+    const r = h.resolution
+    parts.push(
+      `resolved by subgraph ${r.subgraph} · sink rule ${r.sinkRule} · sandbox ${r.sandbox} · rejected ${r.rejected} (legacy tally — placements counted only on acceptance)`
     )
   }
   if (h.falsifierRejects !== null)

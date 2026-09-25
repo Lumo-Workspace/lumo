@@ -319,13 +319,43 @@ describe('prScanReadoutService.getForPullRequest', () => {
     expect(byId.get('f1')).toMatchObject({ open: true, queueExit: null })
   })
 
+  it('LUM-798 follow-up tags the first flat tally as legacy rather than upgrading it', async () => {
+    listScans.mockResolvedValue([
+      scan({
+        huntAudit: {
+          candidates: 2,
+          rejected: [{ reason: 'chain-disconnected' }],
+          resolution: { subgraph: 1, sinkRule: 0, sandbox: 0, rejected: 1 },
+          falsifierRejects: 0,
+          tasks: [],
+        },
+      }),
+    ])
+    const view = await prScanReadoutService.getForPullRequest('ws-1', {
+      number: 1013,
+      all: false,
+    })
+    expect(view.scans[0]!.hunt!.resolution).toEqual({
+      kind: 'legacy',
+      subgraph: 1,
+      sinkRule: 0,
+      sandbox: 0,
+      rejected: 1,
+    })
+  })
+
   it('reads the hunt audit: coverage, diff sizing, plan facts and the per-task rows with free text redacted and shape-checked', async () => {
     listScans.mockResolvedValue([
       scan({
         huntAudit: {
           candidates: 2,
           rejected: [{ reason: 'edge-not-in-subgraph: x' }],
-          resolution: { subgraph: 1, sinkRule: 0, sandbox: 0, rejected: 1 },
+          resolution: {
+            placed: { subgraph: 1, sinkRule: 0, sandbox: 0 },
+            unplaced: 1,
+            accepted: 1,
+            rejected: 1,
+          },
           falsifierRejects: 1,
           plannedBy: 'model',
           plannedReason: 'two sinks lit',
@@ -415,11 +445,14 @@ describe('prScanReadoutService.getForPullRequest', () => {
       mechanicallyRejected: 1,
       error: null,
     })
-    // LUM-798 — the gate's rejection RATE, readable straight off the scan.
+    // LUM-798 — the gate's rejection RATE, readable straight off the scan;
+    // LUM-798 follow-up — on two axes, tagged so the older flat shape can
+    // never be read as if it measured the same thing.
     expect(hunt.resolution).toEqual({
-      subgraph: 1,
-      sinkRule: 0,
-      sandbox: 0,
+      kind: 'placement',
+      placed: { subgraph: 1, sinkRule: 0, sandbox: 0 },
+      unplaced: 1,
+      accepted: 1,
       rejected: 1,
     })
     expect(hunt.tasks).toHaveLength(2)
