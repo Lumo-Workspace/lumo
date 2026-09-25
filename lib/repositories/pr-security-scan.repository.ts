@@ -1068,12 +1068,19 @@ export const prSecurityScanRepository = {
   async failStaleHunt(
     scanId: string,
     atAttempt: number,
-    reason: string
+    reason: string,
+    // LUM-832: e.g. HUNT_CEILING when the sweep gives up at the retry ceiling.
+    causes: PartialCause[] = []
   ): Promise<boolean> {
     return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: { stages: true, huntAttempts: true },
+        select: {
+          stages: true,
+          huntAttempts: true,
+          partial: true,
+          partialCauses: true,
+        },
       })
       const stages = (current?.stages as ScanStages | null) ?? {}
       if (stages.hunt !== 'PENDING' || current?.huntAttempts !== atAttempt)
@@ -1083,6 +1090,7 @@ export const prSecurityScanRepository = {
         data: {
           stages: { ...stages, hunt: 'FAILED' },
           huntAudit: { error: reason.slice(0, 500) },
+          ...(causes.length > 0 ? mergePartial(current, causes) : {}),
         },
       })
       return true

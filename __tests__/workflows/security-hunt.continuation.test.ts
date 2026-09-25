@@ -67,7 +67,6 @@ import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.re
 import { startSecurityHunt } from '@/lib/services/security-hunt-start'
 import { securityHuntOpsService } from '@/lib/services/security-hunt-ops.service'
 import {
-  HUNT_MAX_ATTEMPTS,
   HUNT_OVERSIZED_SOURCE_FILES,
   type HuntJob,
   type HuntResult,
@@ -369,10 +368,9 @@ describe('oversized hunt covers every source file across continuation batches', 
         tries: 2,
         managedScanStarted: false,
       })
-      // Tries are per batch: the row is at attempt 2, yet this batch still had
-      // its retry. The same row with a legacy job (no `tries`) would be failed.
+      // Tries are per batch: this batch was on its first try, so the sweep
+      // retries it rather than failing it, whatever the row's attempt count.
       expect(repo.failStaleHunt).not.toHaveBeenCalled()
-      expect(HUNT_MAX_ATTEMPTS).toBe(2)
     })
   })
 })

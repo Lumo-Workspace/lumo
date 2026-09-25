@@ -213,6 +213,7 @@ describe('budget-short hunt continues its unfinished tasks instead of retrying',
     // The continuation: t2 only, same job, the fence up, a fresh try budget.
     const next = cont.mock.calls[0]![0].next as HuntJob
     expect(next.resumeTasks).toEqual([T2])
+    expect(next.resumeRound).toBe(1)
     expect(next.attempt).toBe(2)
     expect(next.tries).toBe(1)
     expect(next.carriedStage).toBe('RAN')
@@ -248,7 +249,7 @@ describe('budget-short hunt continues its unfinished tasks instead of retrying',
     expect(cont).not.toHaveBeenCalled()
   })
 
-  it('a task still short after its one continuation is not continued again: the layer is PARTIAL with HUNT_BUDGET_SHORT', async () => {
+  it('a continuation that made no progress ends it: the layer is PARTIAL with HUNT_BUDGET_SHORT, and no ceiling is involved', async () => {
     hunt.mockResolvedValue(noBudgetWrapUp)
     const out = await securityHuntWorkflow({
       ...JOB,
@@ -264,6 +265,29 @@ describe('budget-short hunt continues its unfinished tasks instead of retrying',
       stage: 'PARTIAL',
       partialCauses: ['HUNT_BUDGET_SHORT'],
     })
+  })
+
+  it('a continuation that made progress is continued again, however many rounds it takes below the safety ceiling', async () => {
+    // Round 3: T1 finished this time, T2 is still short — progress, so T2 goes on.
+    hunt
+      .mockResolvedValueOnce(done([candidate('fp-3')]))
+      .mockResolvedValueOnce(noBudgetWrapUp)
+    const out = await securityHuntWorkflow({
+      ...JOB,
+      attempt: 4,
+      tries: 1,
+      resumeTasks: [T1, T2],
+      resumeRound: 3,
+      carriedStage: 'RAN',
+    })
+    expect(out).toMatchObject({ outcome: 'CONTINUED' })
+    expect(persist.mock.calls[0]![0]).toMatchObject({
+      stage: 'PENDING',
+      partialCauses: [],
+    })
+    const next = cont.mock.calls[0]![0].next as HuntJob
+    expect(next.resumeTasks).toEqual([T2])
+    expect(next.resumeRound).toBe(4)
   })
 
   it('a run with an infrastructure fault is retried as a whole, budget-short tasks included', async () => {

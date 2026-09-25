@@ -32,9 +32,11 @@ import {
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
 import {
   securityHuntOpsService,
+  HUNT_MAX_ATTEMPTS,
   HUNT_PENDING_DEAD_MS,
   HUNT_STALE_REASONS,
 } from '@/lib/services/security-hunt-ops.service'
+import { logger } from '@/lib/logger'
 import { SANDBOX_TIMEOUT_WITH_HUNT_MS } from '@/lib/services/security-managed-scan.config'
 import type { HuntJob } from '@/lib/services/security-hunt.config'
 
@@ -149,17 +151,23 @@ describe('LUM-822 sweepStaleHunts', () => {
     expect(counts.retried).toBe(0)
   })
 
-  it('stale hunt after its retry is marked FAILED and the summary re-synced', async () => {
+  it('stale hunt at the retry ceiling is marked FAILED with HUNT_CEILING, alerted, and the summary re-synced', async () => {
+    // LUM-832: the ceiling is a safety net (HUNT_MAX_ATTEMPTS tries), no
+    // longer "one retry" — below it the sweep keeps retrying.
     repo.findStalePendingHunts.mockResolvedValue([
-      stale({ huntAttempts: 2, huntRunId: 'run_2' }),
+      stale({ huntAttempts: HUNT_MAX_ATTEMPTS, huntRunId: 'run_2' }),
     ])
     const counts = await securityHuntOpsService.sweepStaleHunts({ now: NOW })
     expect(startHunt).not.toHaveBeenCalled()
     expect(repo.claimHuntRetry).not.toHaveBeenCalled()
     expect(repo.failStaleHunt).toHaveBeenCalledWith(
       's1',
-      2,
-      HUNT_STALE_REASONS.afterRetry
+      HUNT_MAX_ATTEMPTS,
+      HUNT_STALE_REASONS.afterRetry,
+      ['HUNT_CEILING']
+    )
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('[security-hunt-alert] retry ceiling scan=s1')
     )
     expect(cancel).toHaveBeenCalledWith('run_2', 's1')
     expect(sync).toHaveBeenCalledWith('s1')
@@ -181,12 +189,14 @@ describe('LUM-822 sweepStaleHunts', () => {
     expect(repo.failStaleHunt).toHaveBeenCalledWith(
       's1',
       0,
-      HUNT_STALE_REASONS.noJob
+      HUNT_STALE_REASONS.noJob,
+      []
     )
     expect(repo.failStaleHunt).toHaveBeenCalledWith(
       's2',
       1,
-      HUNT_STALE_REASONS.noJob
+      HUNT_STALE_REASONS.noJob,
+      []
     )
     expect(sync).toHaveBeenCalledTimes(2)
   })
@@ -199,7 +209,8 @@ describe('LUM-822 sweepStaleHunts', () => {
     expect(repo.failStaleHunt).toHaveBeenCalledWith(
       's1',
       1,
-      HUNT_STALE_REASONS.superseded
+      HUNT_STALE_REASONS.superseded,
+      []
     )
   })
 
@@ -210,7 +221,8 @@ describe('LUM-822 sweepStaleHunts', () => {
     expect(repo.failStaleHunt).toHaveBeenCalledWith(
       's1',
       2,
-      HUNT_STALE_REASONS.retryNotStarted
+      HUNT_STALE_REASONS.retryNotStarted,
+      []
     )
     expect(sync).toHaveBeenCalledWith('s1')
     expect(counts.retried).toBe(0)
@@ -219,7 +231,9 @@ describe('LUM-822 sweepStaleHunts', () => {
 
   it('a hunt that landed before the stamp is left alone (no kill, no sync)', async () => {
     repo.failStaleHunt.mockResolvedValue(false)
-    repo.findStalePendingHunts.mockResolvedValue([stale({ huntAttempts: 2 })])
+    repo.findStalePendingHunts.mockResolvedValue([
+      stale({ huntAttempts: HUNT_MAX_ATTEMPTS }),
+    ])
     const counts = await securityHuntOpsService.sweepStaleHunts({ now: NOW })
     expect(cancel).not.toHaveBeenCalled()
     expect(sync).not.toHaveBeenCalled()
@@ -231,8 +245,8 @@ describe('LUM-822 sweepStaleHunts', () => {
       .mockRejectedValueOnce(new Error('db down'))
       .mockResolvedValueOnce(true)
     repo.findStalePendingHunts.mockResolvedValue([
-      stale({ huntAttempts: 2 }),
-      stale({ id: 's2', huntAttempts: 2 }),
+      stale({ huntAttempts: HUNT_MAX_ATTEMPTS }),
+      stale({ id: 's2', huntAttempts: HUNT_MAX_ATTEMPTS }),
     ])
     const counts = await securityHuntOpsService.sweepStaleHunts({ now: NOW })
     expect(repo.failStaleHunt).toHaveBeenCalledTimes(2)

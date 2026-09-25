@@ -64,6 +64,8 @@ import {
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_MAX_FALSIFIED,
   HUNT_MAX_ATTEMPTS,
+  HUNT_MAX_CONTINUATIONS,
+  huntRetryDelayMs,
   huntShortfall,
   type HuntJob,
   type HuntTask,
@@ -93,6 +95,7 @@ import {
   continueHuntStep,
 } from './security-hunt.steps'
 import { syncPrReviewBestEffort } from './security-scan-helpers'
+import { sleep } from 'workflow'
 import {
   mergeBatchStage,
   planHuntBatches,
@@ -252,13 +255,22 @@ async function markHuntFailedBestEffort(
  * The eligibility test is here, in the deterministic body, so a run with no
  * attempt left never pays for the step.
  */
+/**
+ * LUM-832 — which try of its batch a job is. `attempt` is the row's fence and
+ * keeps counting across batches and continuations, so it is NOT the retry
+ * budget (reading it here once meant batch 2+ was never retried at all).
+ */
+function triesOf(job: HuntJob): number {
+  return job.tries ?? job.attempt ?? 1
+}
+
 async function requeueBestEffort(
   job: HuntJob,
   reason: string,
   tokenSpent: number,
   audit: HuntAudit
 ): Promise<number | null> {
-  if ((job.attempt ?? 1) >= HUNT_MAX_ATTEMPTS) return null
+  if (triesOf(job) >= HUNT_MAX_ATTEMPTS) return null
   try {
     const out = await requeueHuntStep({
       job,
@@ -298,6 +310,14 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
   'use workflow'
 
   const { scanId } = job
+  // LUM-832 — a retry of a batch our infrastructure failed waits out its
+  // backoff first: a transient fault clears in seconds, an outage needs
+  // minutes. The layer is PENDING meanwhile, so the customer reads
+  // "scanning", and the stale sweep's dead window includes the longest wait.
+  const retryDelay = huntRetryDelayMs(job.tries ?? 1)
+  if (retryDelay > 0) await sleep(retryDelay)
+  /** LUM-832: this try is the last the safety ceiling allows. */
+  const atRetryCeiling = triesOf(job) >= HUNT_MAX_ATTEMPTS
   /**
    * LUM-832 — an oversized diff is hunted in batches, one run each, riskiest
    * first, until every touched source file has been in one. Stage A puts the
@@ -343,14 +363,23 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
   const partialCauses: PartialCause[] = []
   /**
    * LUM-832 — the planned tasks the budget WE set cut short. Not a fault, so
-   * not retried (the same budget hits the same wall): the first time, they
-   * are continued in a run of their own with a fresh budget; a continuation
-   * that is short again records HUNT_BUDGET_SHORT and stops there.
+   * not retried (the same budget hits the same wall): they are continued in a
+   * run of their own with a fresh budget, and again after that for as long as
+   * each continuation makes PROGRESS — terminates a task, or submits a
+   * candidate. Only a continuation that did neither ends them
+   * (HUNT_BUDGET_SHORT); HUNT_MAX_CONTINUATIONS is a safety ceiling against a
+   * loop of ours, never the routine stop.
    */
   const budgetShort: HuntTask[] = []
+  /** Planned tasks that terminated in THIS run. */
+  let terminatedTasks = 0
+  const round = job.resumeRound ?? 0
+  const progressed = (): boolean =>
+    job.resumeTasks === undefined || terminatedTasks > 0 || raw.length > 0
+  const atContinuationCeiling = round >= HUNT_MAX_CONTINUATIONS
   /** Whether this run hands `budgetShort` to a continuation (decided once). */
   const continueShort = (): boolean =>
-    budgetShort.length > 0 && job.resumeTasks === undefined
+    budgetShort.length > 0 && progressed() && !atContinuationCeiling
 
   /**
    * LUM-832 — land this run's result. A batch with another one after it
@@ -364,7 +393,12 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
   ): Promise<HuntResult> {
     // LUM-832 — the budget-short tasks: continued once, or owned.
     const ownsShort = budgetShort.length > 0 && !continueShort()
-    if (ownsShort) addCause(partialCauses, 'HUNT_BUDGET_SHORT')
+    if (ownsShort) {
+      addCause(partialCauses, 'HUNT_BUDGET_SHORT')
+      // Still progressing at the ceiling is a loop of ours, not a budget.
+      if (progressed() && atContinuationCeiling)
+        addCause(partialCauses, 'HUNT_CEILING')
+    }
     const layer = mergeBatchStage(
       job.carriedStage,
       ownsShort && stage === 'RAN' ? 'PARTIAL' : stage
@@ -385,6 +419,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         ...withoutResume(job),
         ...(batches !== null ? { batches, batchIndex } : {}),
         resumeTasks: [...budgetShort],
+        resumeRound: round + 1,
         attempt: (job.attempt ?? 1) + 1,
         tries: 1,
         carriedStage: mergeBatchStage(
@@ -781,6 +816,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           outcome === undefined ? 'infra' : huntShortfall(outcome)
         if (shortfall === 'infra') addCause(partialCauses, 'HUNT_INCOMPLETE')
         else if (shortfall === 'budget') budgetShort.push(task)
+        else terminatedTasks += 1
       }
     } catch (error) {
       // A step that exhausted its retries. Whatever ran before it still ran.
@@ -802,6 +838,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       const next = await requeueBestEffort(batchJob, reason, tokenSpent, audit)
       if (next !== null)
         return { outcome: 'REQUEUED', scanId, attempt: next, reason }
+      // Out of tries: an outage or a bug of ours, never routine.
+      if (atRetryCeiling) addCause(partialCauses, 'HUNT_CEILING')
     }
 
     /**
@@ -813,7 +851,9 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       // LUM-832: one batch of several is a PART of the layer. It lands
       // PARTIAL (HUNT_INCOMPLETE is already recorded) and the next batch
       // still runs; only an un-batched hunt is FAILED as a whole.
-      if (batches !== null) return await settle('PARTIAL', [])
+      // At the retry ceiling the layer lands PARTIAL too, so its causes
+      // (HUNT_CEILING among them) are on the row and the alert is raised.
+      if (batches !== null || atRetryCeiling) return await settle('PARTIAL', [])
       await markHuntFailedBestEffort(scanId, failure, tokenSpent, job.attempt)
       await syncPrReviewBestEffort(scanId)
       return { outcome: 'FAILED', scanId, reason: failure }
@@ -893,10 +933,12 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     const next = await requeueBestEffort(batchJob, reason, tokenSpent, audit)
     if (next !== null)
       return { outcome: 'REQUEUED', scanId, attempt: next, reason }
-    if (batches !== null) {
-      // LUM-832: this batch is lost to us; the rest of the diff is not.
+    if (batches !== null || atRetryCeiling) {
+      // LUM-832: this batch is lost to us; the rest of the diff is not. At
+      // the retry ceiling the causes still have to land, to raise the alert.
       audit.error = reason
       addCause(partialCauses, 'HUNT_INCOMPLETE')
+      if (atRetryCeiling) addCause(partialCauses, 'HUNT_CEILING')
       try {
         return await settle('PARTIAL', [])
       } catch {

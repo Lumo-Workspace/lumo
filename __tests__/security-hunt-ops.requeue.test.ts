@@ -204,7 +204,7 @@ describe('our-fault hunt is re-queued and reads as in progress', () => {
     expect(requeue).not.toHaveBeenCalled()
   })
 
-  it('the last attempt does not re-queue: it persists PARTIAL with our cause, which reads unfinished', async () => {
+  it('the last attempt does not re-queue: it persists PARTIAL with our cause and the ceiling, which reads unfinished', async () => {
     hunt.mockResolvedValue({
       candidates: [],
       tokens: 100,
@@ -217,7 +217,8 @@ describe('our-fault hunt is re-queued and reads as in progress', () => {
     expect(requeue).not.toHaveBeenCalled()
     expect(persist.mock.calls[0]![0]).toMatchObject({
       stage: 'PARTIAL',
-      partialCauses: ['HUNT_INCOMPLETE'],
+      // LUM-832: out of tries is a safety ceiling, recorded (and alerted).
+      partialCauses: ['HUNT_INCOMPLETE', 'HUNT_CEILING'],
     })
   })
 

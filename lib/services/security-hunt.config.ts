@@ -106,6 +106,11 @@ export interface HuntJob {
    * is final (`HUNT_BUDGET_SHORT`), never continued a second time.
    */
   resumeTasks?: HuntTask[]
+  /**
+   * LUM-832 — which budget continuation of this batch this run is (1 = the
+   * first). Absent = not a continuation. Bounded by HUNT_MAX_CONTINUATIONS.
+   */
+  resumeRound?: number
 }
 
 /**
@@ -1330,11 +1335,42 @@ export interface PersistHuntInput {
 }
 
 /**
- * LUM-822 / LUM-832 — stage A's start plus one retry. Here (not in the ops
- * service) so the deterministic workflow body can decide whether an attempt
- * that ended on our fault may re-queue, without loading the sandbox module.
+ * LUM-832 — how many tries one batch of a hunt gets when OUR infrastructure
+ * fails it (counted in `HuntJob.tries`, per batch). A SAFETY CEILING, not a
+ * routine cap: a sandbox or gateway outage is not a fault in the customer's
+ * code, so a scan keeps retrying through it (with backoff, see
+ * `huntRetryDelayMs`) instead of concluding after one retry. Reaching it is a
+ * bug or a sustained outage on our side: it records HUNT_CEILING and logs a
+ * tagged error. Here (not in the ops service) so the deterministic workflow
+ * body can decide without loading the sandbox module.
  */
-export const HUNT_MAX_ATTEMPTS = 2
+export const HUNT_MAX_ATTEMPTS = 5
+
+/**
+ * LUM-832 — the wait before try `tries` of a batch starts: nothing for the
+ * first, then 30 s, 2 min, 5 min, 10 min. A transient fault clears in
+ * seconds; an outage needs minutes, and hammering it helps nobody.
+ */
+const HUNT_RETRY_DELAYS_MS = [0, 0, 30_000, 120_000, 300_000, 600_000]
+export const HUNT_RETRY_MAX_DELAY_MS =
+  HUNT_RETRY_DELAYS_MS[HUNT_RETRY_DELAYS_MS.length - 1]!
+
+export function huntRetryDelayMs(tries: number): number {
+  if (!Number.isFinite(tries) || tries <= 1) return 0
+  return HUNT_RETRY_DELAYS_MS[Math.min(tries, HUNT_RETRY_DELAYS_MS.length - 1)]!
+}
+
+/**
+ * LUM-832 — how many budget continuations one batch may chain. Continuing is
+ * decided by PROGRESS (a continuation that neither terminated a task nor
+ * submitted a candidate ends it); this only stops a task that keeps
+ * "progressing" forever — a loop of ours. Reaching it records HUNT_CEILING
+ * and logs a tagged error, like the retry ceiling.
+ */
+export const HUNT_MAX_CONTINUATIONS = 10
+
+/** LUM-832 — the tag every ceiling alert is logged under (search it in the log drain). */
+export const HUNT_CEILING_ALERT_TAG = '[security-hunt-alert]'
 
 export type HuntResult =
   | {

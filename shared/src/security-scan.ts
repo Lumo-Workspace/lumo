@@ -214,6 +214,12 @@ export const PARTIAL_CAUSES = [
    * is still short after its one continuation with a fresh budget.
    */
   'HUNT_BUDGET_SHORT',
+  /**
+   * The hunt hit a SAFETY ceiling — its infrastructure retries or its budget
+   * continuations ran out. Never routine: a loop or an outage of ours, logged
+   * as an alert and investigated.
+   */
+  'HUNT_CEILING',
   /** More accepted hunt candidates than `HUNT_MAX_FALSIFIED`; the rest were not falsified. */
   'HUNT_FALSIFIER_OVERFLOW',
   /** The hunt was sized for fewer source files than the diff touched (`HUNT_OVERSIZED_SOURCE_FILES`). */
@@ -240,6 +246,7 @@ export type PartialCauseClass = 'OUR_FAULT' | 'COVERAGE_OWED' | 'UNATTRIBUTED'
 export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   HUNT_INCOMPLETE: 'OUR_FAULT',
   HUNT_BUDGET_SHORT: 'COVERAGE_OWED',
+  HUNT_CEILING: 'OUR_FAULT',
   HUNT_FALSIFIER_OVERFLOW: 'COVERAGE_OWED',
   HUNT_OVERSIZED: 'COVERAGE_OWED',
   JUDGE_TRUNCATED: 'COVERAGE_OWED',

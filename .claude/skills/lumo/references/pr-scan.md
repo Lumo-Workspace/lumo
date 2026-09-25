@@ -124,11 +124,17 @@ all stay partial: PARTIAL means "could not confirm this is clean".
 
 LUM-832 sorts a task that did not terminate by **why**. Our infrastructure
 (timeout, sandbox, gateway, a wrap-up that errored or that the provider
-degraded) → the run is retried once. Our budget (the task's turn never came —
-`skipped` — or its wrap-up was skipped for `no-budget` / `no-time`) → the task
-is **continued** once in a run of its own with a fresh budget (`planned by
-resumed`), what already landed is kept; a task still short after that leaves
-the layer PARTIAL with cause `HUNT_BUDGET_SHORT` (coverage owed, not a fault).
+degraded) → the run is retried, with backoff (0 s, 30 s, 2 min, 5 min,
+10 min), each batch with its own tries. Our budget (the task's turn never came
+— `skipped` — or its wrap-up was skipped for `no-budget` / `no-time`) → the
+task is **continued** in a run of its own with a fresh budget (`planned by
+resumed`), what already landed is kept, and again for as long as each
+continuation makes progress (terminates a task or submits a candidate). Only a
+continuation with no progress leaves the layer PARTIAL with cause
+`HUNT_BUDGET_SHORT` (coverage owed, not a fault). Both paths have a **safety
+ceiling** (`HUNT_MAX_ATTEMPTS` tries, `HUNT_MAX_CONTINUATIONS` rounds) that is
+never the routine stop: reaching one records `HUNT_CEILING` (our fault) and
+logs a `[security-hunt-alert]` error.
 
 `placed by …` (LUM-798) breaks the same candidates down on **two axes**, and
 the distinction matters:
