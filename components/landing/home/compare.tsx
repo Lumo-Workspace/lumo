@@ -53,6 +53,9 @@ const VERDICT_LABEL: Record<Verdict, string> = {
 // (LUM-827 follow-up; it replaced a Linear/Jira/Asana line-up that only
 // covered tracking). Each specialist is expected to win or tie its own group
 // and lose the others; the point is that Lumo covers all three on one task.
+// Each of the QA and review groups opens with the specialist's home-turf rows
+// (Lumo honestly takes ✗ there), so their columns read like their product,
+// not like a quiz written for Lumo; Lumo's own rows follow.
 // Issue tracking comes first to answer "can it replace our tracker?"; QA (did
 // the agent's work really pass?) and security (did it ship a hole?) follow.
 //
@@ -224,6 +227,73 @@ export const COMPARE_GROUPS: CompareGroup[] = [
     question: 'The agent says it’s done. Did it actually pass?',
     rows: [
       {
+        capability: 'Writes and maintains E2E tests for you',
+        lumo: {
+          verdict: 'no',
+          note: 'Records the tests your agent or team writes; it doesn’t author them.',
+        },
+        linear: {
+          verdict: 'no',
+          note: 'Linear Agent writes code from an issue; test authoring isn’t described.',
+          source: 'https://linear.app/now/coding-sessions-for-linear-agent',
+        },
+        qawolf: {
+          verdict: 'yes',
+          note: 'Its QA engineers write the suite, with unlimited maintenance.',
+          source: 'https://www.qawolf.com/service',
+        },
+        coderabbit: {
+          verdict: 'partial',
+          note: 'Generates unit tests only, not end-to-end tests. Beta.',
+          source:
+            'https://docs.coderabbit.ai/finishing-touches/unit-test-generation',
+        },
+      },
+      {
+        capability: 'Runs the whole suite on its own infrastructure',
+        lumo: {
+          verdict: 'partial',
+          note: 'The CLI runs each criterion’s check on your machine and reads CI results; no hosted runner.',
+        },
+        linear: {
+          verdict: 'no',
+          note: 'Coding sessions run in the cloud; running your test suite isn’t described.',
+          source: 'https://linear.app/now/coding-sessions-for-linear-agent',
+        },
+        qawolf: {
+          verdict: 'yes',
+          note: 'Fully parallel runs on pre-warmed browsers and devices.',
+          source: 'https://www.qawolf.com/',
+        },
+        coderabbit: {
+          verdict: 'partial',
+          note: 'Runs your existing tests only to verify its Simplify Code changes.',
+          source: 'https://www.coderabbit.ai/blog/introducing-simplify-code',
+        },
+      },
+      {
+        capability: 'Failures triaged by QA engineers for you',
+        lumo: {
+          verdict: 'no',
+          note: 'A person on your team must rule on each failure; nobody triages it for you.',
+        },
+        linear: {
+          verdict: 'no',
+          note: 'Agents are app users you assign; no human QA service.',
+          source: 'https://linear.app/docs/agents-in-linear',
+        },
+        qawolf: {
+          verdict: 'yes',
+          note: 'Humans reproduce failures and flag only verified bugs.',
+          source: 'https://www.qawolf.com/service',
+        },
+        coderabbit: {
+          verdict: 'no',
+          note: 'Triage is done by AI; no human QA staff described.',
+          source: 'https://www.coderabbit.ai/',
+        },
+      },
+      {
         capability: 'Acceptance criteria that actually run',
         lumo: {
           verdict: 'yes',
@@ -317,9 +387,31 @@ export const COMPARE_GROUPS: CompareGroup[] = [
     ],
   },
   {
-    title: 'Security',
-    question: 'It shipped the feature. Did it ship a hole with it?',
+    title: 'Code review & security',
+    question: 'It shipped the feature. Did it ship a bug or a hole with it?',
     rows: [
+      {
+        capability: 'Reviews the whole diff for bugs, not only security',
+        lumo: {
+          verdict: 'no',
+          note: 'Its AI review looks for security issues only.',
+        },
+        linear: {
+          verdict: 'partial',
+          note: 'Diffs’ guided reviews explain the PR but don’t flag bugs. Beta, paid plans.',
+          source: 'https://linear.app/changelog/2026-05-27-linear-diffs',
+        },
+        qawolf: {
+          verdict: 'no',
+          note: 'Runs regression tests after a PR opens; doesn’t review the code.',
+          source: 'https://www.qawolf.com/how-it-works',
+        },
+        coderabbit: {
+          verdict: 'yes',
+          note: 'AI PR review catches logic bugs, not just security issues.',
+          source: 'https://www.coderabbit.ai/',
+        },
+      },
       {
         capability: 'Catches leaked secrets and vulnerable code in the PR',
         lumo: {
