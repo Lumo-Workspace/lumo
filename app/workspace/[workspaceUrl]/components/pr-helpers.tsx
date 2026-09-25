@@ -1,5 +1,6 @@
 'use client'
 
+import { isOverSizeLimitOnly } from './TaskDetailTimeline/security-summary'
 import {
   CheckCircle2,
   XCircle,
@@ -134,6 +135,13 @@ export function SecurityScanBadge({
     icon = <Loader2 size={12} className='animate-spin' />
     label = intl.formatMessage({ id: 'securityScan.status.pendingExternal' })
     state = 'scanning'
+  } else if (scan.findings.length === 0 && isOverSizeLimitOnly(scan)) {
+    // LUM-832: a layer was skipped because the change was over its size cap
+    // (like CodeRabbit's limit) — stated as such, not "not fully checked yet".
+    icon = <ShieldQuestion size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.overSizeLimit' })
+    tone = 'text-warning'
+    state = 'over-size-limit'
   } else if (scan.findings.length === 0 && !scan.complete) {
     // LUM-735 / spec P9: a layer failed, is not configured, or was cut off.
     // Nothing was found, but nothing can be claimed either — never green.

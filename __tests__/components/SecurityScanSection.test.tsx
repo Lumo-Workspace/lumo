@@ -55,6 +55,7 @@ const messages: Record<string, string> = {
   'record.security.prs': '{count} PRs',
   'record.security.noneOnComplete': 'no findings on completed scans',
   'record.security.incomplete': '{count} scan(s) incomplete',
+  'record.security.overSizeLimit': '{count} scan(s) over the size limit',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -963,4 +964,35 @@ test('a scan with layers over their size caps shows both notices instead of the 
     "This PR's diff is 261400 characters; AI review runs on up to 180000, so it did not run."
   )
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
+})
+
+// LUM-832: the summary line counts a scan skipped for size apart from the
+// ones not fully checked yet — "2 scans not fully checked yet" read as if the
+// checks were still coming.
+test('the summary line says scans over the size limit, not not-fully-checked', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            partial: true,
+            findings: [],
+            stages: { secrets: 'RAN', judge: 'SKIPPED', hunt: 'SKIPPED' },
+            huntOverCap: { sourceFiles: 151, capFiles: 150 },
+            ownedUnfinished: false,
+          }),
+        },
+      ],
+      blocking: { count: 0 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  const line = screen.getByTestId('security-summary-line')
+  expect(line).toHaveTextContent('1 scan(s) over the size limit')
+  expect(line).not.toHaveTextContent('incomplete')
+  // Zero findings on a capped scan is still qualified, never "no findings".
+  expect(line).toHaveTextContent('no findings on completed scans')
 })
