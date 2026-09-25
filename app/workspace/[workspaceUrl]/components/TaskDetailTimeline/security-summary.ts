@@ -23,8 +23,36 @@ export interface SecurityScanSummary {
    * unconfigured / partial layer, or a truncated budget). LUM-496 review F1 —
    * without this the summary line read "7 PRs · no findings" while half the
    * scans never finished.
+   *
+   * LUM-832: excludes the scans counted in `overSizeLimit` — those did not
+   * leave anything "for later"; a layer was skipped because the change was
+   * too large, and saying "not fully checked yet" implied otherwise.
    */
   incomplete: number
+  /**
+   * LUM-832 — PRs whose latest scan skipped a layer ONLY because the change
+   * was over its size cap (like CodeRabbit's limit): told as such, never as
+   * "not fully checked yet" (nothing is coming later).
+   */
+  overSizeLimit: number
+}
+
+/**
+ * LUM-832 — the scan is unfinished only because a layer was over its size
+ * cap: not ours to finish (`ownedUnfinished` is false) and a size notice is
+ * on it. The one rule the summary line and the PR badge share.
+ */
+export function isOverSizeLimitOnly(
+  scan: Pick<
+    SecurityScanView,
+    'coverage' | 'ownedUnfinished' | 'huntOverCap' | 'judgeOverCap'
+  >
+): boolean {
+  return (
+    scan.coverage === 'UNFINISHED' &&
+    !scan.ownedUnfinished &&
+    (scan.huntOverCap != null || scan.judgeOverCap != null)
+  )
 }
 
 /** Undispositioned, not already on main, and still in the queue (LUM-775). */
@@ -50,8 +78,13 @@ export function summarizeSecurityScans(
     externalFailed: prs.filter(
       ({ latest }) => latest?.stages.external === 'FAILED'
     ).length,
-    incomplete: prs.filter(({ latest }) => latest == null || !latest.complete)
-      .length,
+    incomplete: prs.filter(
+      ({ latest }) =>
+        latest == null || (!latest.complete && !isOverSizeLimitOnly(latest))
+    ).length,
+    overSizeLimit: prs.filter(
+      ({ latest }) => latest != null && isOverSizeLimitOnly(latest)
+    ).length,
   }
 }
 

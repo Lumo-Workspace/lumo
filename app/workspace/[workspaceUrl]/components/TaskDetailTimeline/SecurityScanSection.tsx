@@ -68,7 +68,9 @@ function SecurityScanPanel({
   // "no findings" — it is "no findings *on the scans that finished*". The
   // composite `record.security.summary` bakes its own =0 branch, so that case
   // is composed from the PR-count clause plus the qualified one instead.
-  const qualifyZero = summary.findings === 0 && summary.incomplete > 0
+  const qualifyZero =
+    summary.findings === 0 &&
+    (summary.incomplete > 0 || summary.overSizeLimit > 0)
   const summaryText = qualifyZero
     ? [
         intl.formatMessage(
@@ -88,6 +90,15 @@ function SecurityScanPanel({
           { count: summary.incomplete }
         )
       : ''
+  // LUM-832: a layer skipped for size is not "not fully checked yet" —
+  // nothing is coming later; the change was over the limit.
+  const overSizeLimitText =
+    summary.overSizeLimit > 0
+      ? intl.formatMessage(
+          { id: 'record.security.overSizeLimit' },
+          { count: summary.overSizeLimit }
+        )
+      : ''
   const failedText =
     summary.externalFailed > 0
       ? intl.formatMessage(
@@ -95,7 +106,12 @@ function SecurityScanPanel({
           { count: summary.externalFailed }
         )
       : ''
-  const summaryLine = [summaryText, incompleteText, failedText]
+  const summaryLine = [
+    summaryText,
+    incompleteText,
+    overSizeLimitText,
+    failedText,
+  ]
     .filter(Boolean)
     .join(' · ')
 

@@ -6,6 +6,7 @@
 import {
   summarizeSecurityScans,
   shouldExpandRow,
+  isOverSizeLimitOnly,
 } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/security-summary'
 import type { SecurityScanView } from '@/lib/services/pr-security-scan.service'
 
@@ -121,6 +122,7 @@ describe('summarizeSecurityScans', () => {
       allLow: false,
       externalFailed: 0,
       incomplete: 0,
+      overSizeLimit: 0,
     })
   })
 
@@ -266,5 +268,59 @@ describe('LUM-775 queue exit', () => {
         },
       ]).findings
     ).toBe(1)
+  })
+})
+
+// LUM-832 — a scan that skipped a layer only because the change was over its
+// size cap is not "not fully checked yet": nothing is coming later. It is
+// counted on its own ("N scans over the size limit"), never as incomplete.
+describe('LUM-832 over the size limit', () => {
+  const overCap = {
+    coverage: 'UNFINISHED' as const,
+    ownedUnfinished: false,
+    complete: false,
+    huntOverCap: { sourceFiles: 151, capFiles: 150 },
+    judgeOverCap: null,
+  }
+
+  it('isOverSizeLimitOnly: a size notice and no gap of ours', () => {
+    expect(isOverSizeLimitOnly(scan(overCap))).toBe(true)
+    expect(
+      isOverSizeLimitOnly(
+        scan({
+          ...overCap,
+          huntOverCap: null,
+          judgeOverCap: { diffChars: 234_923, capChars: 180_000 },
+        })
+      )
+    ).toBe(true)
+    // A fault of ours on top of the cap is still unfinished, owned.
+    expect(
+      isOverSizeLimitOnly(scan({ ...overCap, ownedUnfinished: true }))
+    ).toBe(false)
+    // Unfinished for a reason of ours, with no size notice.
+    expect(
+      isOverSizeLimitOnly(
+        scan({ ...overCap, huntOverCap: null, ownedUnfinished: true })
+      )
+    ).toBe(false)
+    // A checked scan is not over anything.
+    expect(isOverSizeLimitOnly(scan({ coverage: 'CHECKED' }))).toBe(false)
+  })
+
+  it('counts size-capped scans apart from the ones not fully checked yet', () => {
+    const summary = summarizeSecurityScans([
+      { latest: scan(overCap) },
+      { latest: scan({ ...overCap, ownedUnfinished: true }) },
+      { latest: scan({ complete: true, coverage: 'CHECKED' }) },
+      { latest: null },
+    ])
+    expect(summary.overSizeLimit).toBe(1)
+    // The owned-unfinished scan and the never-scanned PR — not the capped one.
+    expect(summary.incomplete).toBe(2)
+  })
+
+  it('a size-capped scan still opens its row, so the notice is in view', () => {
+    expect(shouldExpandRow(scan({ ...overCap, findings: [] }))).toBe(true)
   })
 })

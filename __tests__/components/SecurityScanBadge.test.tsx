@@ -17,6 +17,7 @@ const messages: Record<string, string> = {
   'securityScan.status.FINDINGS': '{count} findings',
   'securityScan.status.incomplete': 'Scan incomplete',
   'securityScan.status.pendingExternal': 'Waiting for scanner',
+  'securityScan.status.overSizeLimit': 'Over the size limit',
 }
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -163,4 +164,47 @@ it('reports "scanning" — not "incomplete" — while the scanner has not report
   )
   expect(badge()).toHaveAttribute('data-state', 'scanning')
   expect(badge()).toHaveTextContent('Waiting for scanner')
+})
+
+// LUM-832: a scan that skipped a layer only because the change was over its
+// size cap reads "Over the size limit", not "Scan incomplete" — nothing is
+// coming later, and it is never green either.
+it('reports "over the size limit" for a clean scan skipped for size, not incomplete', () => {
+  render(
+    <SecurityScanBadge
+      scan={
+        {
+          ...scan('CLEAN'),
+          complete: false,
+          coverage: 'UNFINISHED',
+          ownedUnfinished: false,
+          huntOverCap: { sourceFiles: 151, capFiles: 150 },
+          judgeOverCap: null,
+        } as SecurityScanView
+      }
+    />,
+    { wrapper }
+  )
+  expect(badge()).toHaveAttribute('data-state', 'over-size-limit')
+  expect(badge()).toHaveTextContent('Over the size limit')
+  expect(badge().className).toContain('text-warning')
+})
+
+it('a size-capped scan with a fault of ours on top still reads incomplete', () => {
+  render(
+    <SecurityScanBadge
+      scan={
+        {
+          ...scan('CLEAN'),
+          complete: false,
+          coverage: 'UNFINISHED',
+          ownedUnfinished: true,
+          huntOverCap: { sourceFiles: 151, capFiles: 150 },
+          judgeOverCap: null,
+        } as SecurityScanView
+      }
+    />,
+    { wrapper }
+  )
+  expect(badge()).toHaveAttribute('data-state', 'incomplete')
 })
