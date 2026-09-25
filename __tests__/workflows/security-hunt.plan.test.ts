@@ -7,6 +7,8 @@ jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   falsifierStep: jest.fn(),
   persistHuntFindingsStep: jest.fn(),
   markHuntFailedStep: jest.fn(),
+  // LUM-832: undefined → the re-queue is skipped and the run persists as before.
+  requeueHuntStep: jest.fn(),
 }))
 // `security-scan-helpers` pulls in the SARIF ingest steps, which reach
 // octokit (ESM) at import time — the same mock the legacy workflow suite needs.
@@ -403,8 +405,9 @@ it('counts the plan step tokens toward tokenSpent', async () => {
 
   const result = await securityHuntWorkflow(JOB)
 
-  // Narrowing: the FAILED variant of HuntResult carries no `tokenSpent`.
-  if (result.outcome === 'FAILED') throw new Error(result.reason)
+  // Narrowing: the FAILED / REQUEUED variants carry no `tokenSpent`.
+  if (result.outcome === 'FAILED' || result.outcome === 'REQUEUED')
+    throw new Error(result.reason)
   // 900 (plan) + 1000 (one task batch)
   expect(result.tokenSpent).toBe(1_900)
 })

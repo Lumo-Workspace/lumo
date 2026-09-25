@@ -19,6 +19,10 @@ import type {
   PlanHuntInput,
   PlanHuntOutput,
 } from '@/lib/services/security-hunt.config'
+import type {
+  HuntRequeueInput,
+  HuntRequeueOutcome,
+} from '@/lib/services/security-hunt-ops.service'
 
 /**
  * LUM-758 Task 10 — runs AFTER the hunt, not before it: the mechanical gate's
@@ -77,4 +81,18 @@ export async function markHuntFailedStep(
 ): Promise<void> {
   'use step'
   return securityHuntService.markFailed(scanId, reason, tokenSpent, attempt)
+}
+
+/**
+ * LUM-832 — hand an attempt that ended on our fault to the next attempt.
+ * Dynamic import: the ops service starts THIS workflow, and a static import
+ * would close the loop workflow → steps → ops → start → workflow.
+ */
+export async function requeueHuntStep(
+  input: HuntRequeueInput
+): Promise<HuntRequeueOutcome> {
+  'use step'
+  const { securityHuntOpsService } =
+    await import('@/lib/services/security-hunt-ops.service')
+  return securityHuntOpsService.requeueFaultedHunt(input)
 }

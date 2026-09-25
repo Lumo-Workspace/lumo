@@ -345,3 +345,88 @@ describe('LUM-832 findForReliability', () => {
     expect(rows[1]).toMatchObject({ stages: null, partialCauses: [] })
   })
 })
+
+describe('LUM-832 in-run re-queue', () => {
+  test('claimHuntRetry hands the faulted attempt audit and spend to the row, still only while PENDING at that attempt', async () => {
+    mockScan.updateMany.mockResolvedValueOnce({ count: 1 })
+    await expect(
+      prSecurityScanRepository.claimHuntRetry('s1', 1, {
+        huntAudit: { requeued: { fromAttempt: 1 } },
+        tokenSpent: 250,
+      })
+    ).resolves.toBe(true)
+    expect(mockScan.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 's1',
+        huntAttempts: 1,
+        stages: { path: ['hunt'], equals: 'PENDING' },
+      },
+      data: expect.objectContaining({
+        huntAttempts: 2,
+        huntRunId: null,
+        huntAudit: { requeued: { fromAttempt: 1 } },
+        tokenSpent: 250,
+      }),
+    })
+  })
+
+  test('a retry adds its spend to the faulted attempt’s; the first attempt owns the column', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { hunt: 'PENDING' },
+      partial: false,
+      partialCauses: [],
+      huntAttempts: 2,
+      tokenSpent: 250,
+    })
+    await prSecurityScanRepository.persistHuntResult('s1', [], {
+      hunt: 'RAN',
+      huntAudit: {},
+      tokenSpent: 300,
+      partialCauses: [],
+      attempt: 2,
+    })
+    expect(mockScan.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ tokenSpent: 550 }),
+      })
+    )
+    mockScan.findUnique.mockResolvedValueOnce({
+      stages: { hunt: 'PENDING' },
+      partial: false,
+      huntAttempts: 1,
+      tokenSpent: 999,
+    })
+    await prSecurityScanRepository.persistHuntResult('s1', [], {
+      hunt: 'RAN',
+      huntAudit: {},
+      tokenSpent: 300,
+      partialCauses: [],
+    })
+    expect(mockScan.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ tokenSpent: 300 }),
+      })
+    )
+  })
+
+  test('hasNewerScanThan reads the scan’s own PR and start', async () => {
+    mockScan.findUnique.mockResolvedValueOnce({
+      pullRequestId: 'pr1',
+      startedAt: new Date('2026-09-25T00:00:00Z'),
+    })
+    mockScan.count.mockResolvedValueOnce(1)
+    await expect(prSecurityScanRepository.hasNewerScanThan('s1')).resolves.toBe(
+      true
+    )
+    expect(mockScan.count).toHaveBeenCalledWith({
+      where: {
+        pullRequestId: 'pr1',
+        startedAt: { gt: new Date('2026-09-25T00:00:00Z') },
+      },
+    })
+    mockScan.findUnique.mockResolvedValueOnce(null)
+    await expect(
+      prSecurityScanRepository.hasNewerScanThan('gone')
+    ).resolves.toBe(false)
+  })
+})
