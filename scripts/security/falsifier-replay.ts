@@ -14,7 +14,7 @@ import { execFileSync } from 'child_process'
 import path from 'path'
 import { config } from 'dotenv'
 
-function loadEnv(): void {
+export function loadEnv(): void {
   if (process.env.AI_GATEWAY_API_KEY) return
   const here = path.resolve('.env.local')
   if (existsSync(here)) {
@@ -34,9 +34,9 @@ function loadEnv(): void {
   }
 }
 
-type Verdict = 'REJECT' | 'INCONCLUSIVE'
+export type Verdict = 'REJECT' | 'INCONCLUSIVE'
 
-interface Variant {
+export interface Variant {
   label: string
   file: string
   lines: string[]
@@ -96,7 +96,7 @@ function numbered(lines: string[]): string {
   return lines.map((l, i) => `${i + 1}: ${l}`).join('\n')
 }
 
-async function verdicts(v: Variant, runs: number): Promise<Verdict[]> {
+export async function verdicts(v: Variant, runs: number): Promise<Verdict[]> {
   const { falsifyCandidate } =
     await import('@/lib/llm/security-falsifier-client')
   const entryLine =
@@ -143,7 +143,7 @@ export function variantPasses(
     : rejects * 3 >= got.length * 2
 }
 
-async function main(): Promise<number> {
+export async function main(): Promise<number> {
   loadEnv()
   if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
     process.stderr.write(
@@ -170,7 +170,7 @@ async function main(): Promise<number> {
   return failed === 0 ? 0 : 1
 }
 
-async function run(): Promise<void> {
+export async function run(): Promise<void> {
   try {
     process.exit(await main())
   } catch (error) {
