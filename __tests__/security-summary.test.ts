@@ -47,6 +47,7 @@ function scan(over: Partial<SecurityScanView> = {}): SecurityScanView {
     coverage: 'CHECKED',
     huntProgress: null,
     huntOverCap: null,
+    judgeOverCap: null,
     ownedUnfinished: false,
     externalLate: false,
     error: null,

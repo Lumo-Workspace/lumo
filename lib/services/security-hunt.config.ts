@@ -99,12 +99,6 @@ export interface HuntJob {
   batchIndex?: number
   /** LUM-832 — the layer's state over the batches already run (`mergeBatchStage`). */
   carriedStage?: 'RAN' | 'PARTIAL' | 'SKIPPED'
-  /**
-   * LUM-832 — touched source files past HUNT_MAX_HUNTED_FILES that are NOT
-   * hunted (the least risky). Stage A sets it with the batch plan; the last
-   * batch records HUNT_OVERSIZED when it is > 0.
-   */
-  skippedSourceFiles?: number
 }
 
 /**
@@ -305,10 +299,10 @@ export const HUNT_TASK_CAP_TIERS: ReadonlyArray<{
  */
 export const HUNT_OVERSIZED_SOURCE_FILES = 40
 /**
- * LUM-832 — the most source files one scan's hunt covers, across its batches
- * (≤ 4 runs of HUNT_OVERSIZED_SOURCE_FILES). Past it, the riskiest files are
- * hunted and the rest are not, and the customer is told so — the same shape
- * as CodeRabbit's file limit (150 on Pro). A cost decision, set at parity.
+ * LUM-832 — the most source files a hunt runs on (≤ 4 batches of
+ * HUNT_OVERSIZED_SOURCE_FILES). Past it the hunt does NOT run at all — like
+ * CodeRabbit's file limit (150 on Pro), which skips the review — so no tokens
+ * are spent, and the customer is told to narrow the scope or split the PR.
  */
 export const HUNT_MAX_HUNTED_FILES = 150
 /**

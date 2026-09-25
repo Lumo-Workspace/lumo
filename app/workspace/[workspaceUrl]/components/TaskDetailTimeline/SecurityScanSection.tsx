@@ -376,17 +376,30 @@ function ScanDetails({
           {intl.formatMessage({ id: 'securityScan.partial' })}
         </p>
       )}
-      {/* LUM-832: the file cap, stated like CodeRabbit states its own — how
-          many were checked, how many were not, and how to get the rest. */}
+      {/* LUM-832: a layer over its size cap did not run — told the way
+          CodeRabbit tells its own limit: the change is too large, and how to
+          get the layer (narrow the scope or split the PR). */}
       {scan.huntOverCap && (
         <p data-testid='scan-over-cap' className='text-caption text-warning'>
           {intl.formatMessage(
             { id: 'securityScan.huntOverCap' },
             {
-              total:
-                scan.huntOverCap.checkedFiles + scan.huntOverCap.skippedFiles,
-              checked: scan.huntOverCap.checkedFiles,
-              skipped: scan.huntOverCap.skippedFiles,
+              files: scan.huntOverCap.sourceFiles,
+              cap: scan.huntOverCap.capFiles,
+            }
+          )}
+        </p>
+      )}
+      {scan.judgeOverCap && (
+        <p
+          data-testid='scan-judge-over-cap'
+          className='text-caption text-warning'
+        >
+          {intl.formatMessage(
+            { id: 'securityScan.judgeOverCap' },
+            {
+              size: scan.judgeOverCap.diffChars,
+              cap: scan.judgeOverCap.capChars,
             }
           )}
         </p>

@@ -28,7 +28,9 @@ const messages: Record<string, string> = {
   'securityScan.stage.hunt': 'Exploit paths',
   'securityScan.huntProgress': '{covered}/{total} source files',
   'securityScan.huntOverCap':
-    'This PR touches {total} source files; the riskiest {checked} were checked and the other {skipped} were not. To cover them, narrow the review scope or split the PR.',
+    'This PR touches {files} source files; exploit-path checks run on up to {cap}, so they did not run. To get them, narrow the review scope or split the PR.',
+  'securityScan.judgeOverCap':
+    "This PR's diff is {size} characters; AI review runs on up to {cap}, so it did not run. To get it, narrow the review scope or split the PR.",
   'securityScan.stage.judge': 'LLM review',
   'securityScan.stageState.FAILED': 'failed',
   'securityScan.stageState.NOT_CONFIGURED': 'not configured',
@@ -136,6 +138,7 @@ const scan = (over: object) => {
     coverage,
     ownedUnfinished: coverage === 'UNFINISHED',
     huntOverCap: null,
+    judgeOverCap: null,
     ...over,
   }
 }
@@ -929,9 +932,10 @@ test('a batched hunt shows its covered share next to its state', () => {
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
 })
 
-// LUM-832: past the hunt's file cap (like CodeRabbit's), the panel says what
-// was checked and what was not — and does not call the scope limit a failure.
-test('a scan past the file cap shows the over-cap notice instead of the owned unfinished line', () => {
+// LUM-832: a layer over its size cap did not run (like CodeRabbit's limit);
+// the panel says the change is too large and how to get the layer — and does
+// not call that limit a failure of ours.
+test('a scan with layers over their size caps shows both notices instead of the owned unfinished line', () => {
   useSecurityScans.mockReturnValue({
     data: {
       prs: [
@@ -939,8 +943,9 @@ test('a scan past the file cap shows the over-cap notice instead of the owned un
           pr,
           latest: scan({
             partial: true,
-            stages: { secrets: 'RAN', judge: 'RAN', hunt: 'PARTIAL' },
-            huntOverCap: { checkedFiles: 150, skippedFiles: 50 },
+            stages: { secrets: 'RAN', judge: 'SKIPPED', hunt: 'SKIPPED' },
+            huntOverCap: { sourceFiles: 200, capFiles: 150 },
+            judgeOverCap: { diffChars: 261400, capChars: 180000 },
             ownedUnfinished: false,
           }),
         },
@@ -952,7 +957,10 @@ test('a scan past the file cap shows the over-cap notice instead of the owned un
   })
   render(<SecurityScanSection taskId='t1' />, { wrapper })
   expect(screen.getByTestId('scan-over-cap')).toHaveTextContent(
-    'This PR touches 200 source files; the riskiest 150 were checked and the other 50 were not.'
+    'This PR touches 200 source files; exploit-path checks run on up to 150, so they did not run.'
+  )
+  expect(screen.getByTestId('scan-judge-over-cap')).toHaveTextContent(
+    "This PR's diff is 261400 characters; AI review runs on up to 180000, so it did not run."
   )
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
 })

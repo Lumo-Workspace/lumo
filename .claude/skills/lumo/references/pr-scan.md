@@ -109,14 +109,21 @@ it, so a near miss is visible on a `budget` or `steps` row too. A diff with more
 source files than one run is sized for (`HUNT_OVERSIZED_SOURCE_FILES`, a cost
 decision) is hunted in **batches** across runs (LUM-832): riskiest files
 first, one run per batch, each batch's findings landing while the layer stays
-`scanning`, up to **150 source files** (`HUNT_MAX_HUNTED_FILES`, CodeRabbit's
-Pro file limit). Past the cap the least risky files are not hunted, the layer
-ends `⚠ partly checked` (cause `HUNT_OVERSIZED`), and the scan prints the
-over-cap notice under the layer line — `This PR touches N source files;
-exploit-path checks cover up to 150, so the riskiest 150 were checked and the
-other M were not. To cover them, narrow the review scope or split the PR.` —
-the one line that asks something of the customer, in CodeRabbit's shape. The
-per-run `diff` line then describes that run's batch. `this run was sized for fewer
+`scanning`, for diffs of up to **150 source files** (`HUNT_MAX_HUNTED_FILES`,
+CodeRabbit's Pro file limit). The per-run `diff` line then describes that
+run's batch.
+
+**Size caps (LUM-832, CodeRabbit's shape).** A layer whose input is over its
+cap does not run at all — no tokens are spent — and the scan says so under
+the layer line: past 150 touched source files the hunt is `skipped` (cause
+`HUNT_OVERSIZED`) with `This PR touches N source files; exploit-path checks
+run on up to 150, so they did not run. To get them, narrow the review scope or
+split the PR.`; past the AI review's 180,000-character cap the AI review is
+`skipped` (cause `JUDGE_OVER_CAP`) with `This PR's diff is N characters; AI
+review runs on up to 180,000, so it did not run. To get it, narrow the review
+scope or split the PR.` These are the only lines that ask something of the
+customer; when a size cap is the only gap they replace the owned "not finished
+on our side" note. `this run was sized for fewer
 files than the diff — the rest is still on us` (formerly `oversized`) is kept
 for rows hunted before batching, whose layer reads PARTIAL.
 

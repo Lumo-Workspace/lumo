@@ -69,22 +69,15 @@ import { securityHuntOpsService } from '@/lib/services/security-hunt-ops.service
 import {
   HUNT_MAX_ATTEMPTS,
   HUNT_OVERSIZED_SOURCE_FILES,
-  HUNT_MAX_HUNTED_FILES,
   type HuntJob,
   type HuntResult,
 } from '@/lib/services/security-hunt.config'
 import {
   huntBatchProgress,
-  huntOverCap,
-  huntSkippedByCap,
   mergeBatchStage,
   planHuntBatches,
 } from '@/lib/security-scan/hunt/batches'
-import {
-  formatHuntOverCapLine,
-  formatScanLayerTail,
-} from '@/cli/src/lib/scan-format'
-import { formatHuntOverCap } from '@/shared/src/security-scan'
+import { formatScanLayerTail } from '@/cli/src/lib/scan-format'
 
 const plan = planHuntStep as jest.Mock
 const hunt = huntTaskStep as jest.Mock
@@ -194,93 +187,7 @@ async function runToTheEnd(first: HuntJob): Promise<{
   return { results, jobs }
 }
 
-describe('the hunt covers the riskiest files up to the cap and says what it did not check', () => {
-  it('like CodeRabbit, a diff past the cap has its riskiest 150 hunted and the rest left out, counted', async () => {
-    const many = Array.from(
-      { length: 200 },
-      (_, i) => `lib/g${String(i).padStart(3, '0')}.ts`
-    )
-    const sites = [{ rule: 'sink:exec', path: 'lib/g199.ts', line: 1 }]
-    const batches = planHuntBatches(many, sites)!
-    expect(HUNT_MAX_HUNTED_FILES).toBe(150)
-    expect(batches.map(b => b.length)).toEqual([40, 40, 40, 30])
-    // The riskiest is in, whatever its name; 50 of the least risky are out.
-    expect(batches[0]![0]).toBe('lib/g199.ts')
-    expect(batches.flat()).toHaveLength(150)
-    expect(huntSkippedByCap(many)).toBe(50)
-    expect(huntSkippedByCap(FILES)).toBe(0)
-
-    const { results } = await runToTheEnd({
-      ...JOB,
-      touchedSourcePaths: many,
-      signalSites: sites,
-      batches,
-      batchIndex: 0,
-      skippedSourceFiles: 50,
-    })
-    expect(results.map(r => r.outcome)).toEqual([
-      'CONTINUED',
-      'CONTINUED',
-      'CONTINUED',
-      'PARTIAL',
-    ])
-    const hunted = plan.mock.calls.flatMap(
-      ([input]) => (input as { job: HuntJob }).job.touchedSourcePaths
-    )
-    expect(hunted).toHaveLength(150)
-    // Only the last batch records what the cap left out.
-    const last = persist.mock.calls[3]![0]
-    expect(last.stage).toBe('PARTIAL')
-    expect(last.partialCauses).toEqual(['HUNT_OVERSIZED'])
-    expect(persist.mock.calls[0]![0].partialCauses).toEqual([])
-  })
-
-  it('the scan says how many were checked and how many were not, with the way to cover the rest', () => {
-    const job = {
-      batches: planHuntBatches(
-        Array.from({ length: 200 }, (_, i) => `lib/g${i}.ts`),
-        []
-      ),
-      skippedSourceFiles: 50,
-    }
-    // Not while the batches are still running — only once it settled.
-    expect(huntOverCap(job, 'PENDING')).toBeNull()
-    const overCap = huntOverCap(job, 'PARTIAL')!
-    expect(overCap).toEqual({ checkedFiles: 150, skippedFiles: 50 })
-    expect(huntOverCap({ batches: job.batches }, 'RAN')).toBeNull()
-    const text = formatHuntOverCap(overCap)
-    expect(text).toContain('This PR touches 200 source files')
-    expect(text).toContain(
-      'the riskiest 150 were checked and the other 50 were not'
-    )
-    expect(text).toContain('narrow the review scope or split the PR')
-    // The CLI scan line: the notice, and not the owned "our side" note.
-    const stages = { secrets: 'RAN', judge: 'RAN', hunt: 'PARTIAL' }
-    const line = formatScanLayerTail({
-      status: 'CLEAN',
-      stages,
-      partial: true,
-      partialCauses: ['HUNT_OVERSIZED'],
-      huntOverCap: overCap,
-      externalFindings: 0,
-      externalFailureReason: null,
-    })
-    expect(line).not.toContain('on our side')
-    expect(formatHuntOverCapLine({ huntOverCap: overCap })).toBe(text)
-    // A fault of ours on top of the cap is still owned.
-    expect(
-      formatScanLayerTail({
-        status: 'CLEAN',
-        stages,
-        partial: true,
-        partialCauses: ['HUNT_OVERSIZED', 'HUNT_INCOMPLETE'],
-        huntOverCap: overCap,
-        externalFindings: 0,
-        externalFailureReason: null,
-      })
-    ).toContain('on our side')
-  })
-
+describe('oversized hunt covers every source file across continuation batches', () => {
   it('plans riskiest first, in batches of the per-run size, and only for a diff past it', () => {
     expect(
       planHuntBatches(FILES.slice(0, HUNT_OVERSIZED_SOURCE_FILES), [])

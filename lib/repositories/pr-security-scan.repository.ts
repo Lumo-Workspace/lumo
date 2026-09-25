@@ -118,6 +118,12 @@ export interface FinalizeScanInput {
    * without naming a cause.
    */
   partialCauses: PartialCause[]
+  /**
+   * LUM-832 — stage A's own note on the hunt, written only when stage A
+   * decided the hunt (e.g. `{ overCap }` when the file cap forbade it). Absent
+   * = leave the column alone: the hunt workflow owns it otherwise.
+   */
+  huntAudit?: Record<string, unknown>
   error?: string | null
 }
 
@@ -213,6 +219,8 @@ export interface ScanWithFindings {
   huntJob?: unknown
   /** LUM-832 — why the scan is not whole (text[]; absent on an old mock). */
   partialCauses?: string[]
+  /** LUM-814 budget Json, raw. LUM-832 reads the AI review's size cap off it. */
+  judgeBudget?: unknown
   findings: FindingRow[]
 }
 
@@ -294,8 +302,11 @@ export interface ScanForReview {
   stages: ScanStages | null
   /** LUM-832: the running hunt job, for the batched hunt's covered share. */
   huntJob: unknown
-  /** LUM-832: the causes, to tell a file-cap-only scan from an unfinished one. */
+  /** LUM-832: the causes, to tell a size-cap-only scan from an unfinished one. */
   partialCauses?: string[]
+  /** LUM-832: where the size-cap facts live (hunt overCap, judge budget). */
+  huntAudit: unknown
+  judgeBudget: unknown
   partial: boolean
   error: string | null
   /** LUM-740: the summary comment this scan (or an earlier one) already owns. */
@@ -684,6 +695,9 @@ export const prSecurityScanRepository = {
           stages,
           partial,
           partialCauses,
+          ...(final.huntAudit
+            ? { huntAudit: final.huntAudit as Prisma.InputJsonValue }
+            : {}),
           error: final.error ?? keptError ?? null,
           finishedAt: new Date(),
         },
@@ -1135,6 +1149,8 @@ export const prSecurityScanRepository = {
         stages: true,
         huntJob: true,
         partialCauses: true,
+        huntAudit: true,
+        judgeBudget: true,
         partial: true,
         error: true,
         summaryCommentId: true,

@@ -395,21 +395,16 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         tokenSpent,
       }
     }
-    // LUM-832 — the last batch: what the file cap left out is on record
-    // (HUNT_OVERSIZED), and the customer is told how many, like CodeRabbit.
-    const overCap = (job.skippedSourceFiles ?? 0) > 0
-    if (overCap) addCause(partialCauses, 'HUNT_OVERSIZED')
-    const final = overCap && layer !== 'PARTIAL' ? 'PARTIAL' : layer
     await persistHuntFindingsStep({
       job,
       findings,
       audit: batchAudit,
       tokenSpent,
       partialCauses,
-      stage: final,
+      stage: layer,
     })
     await syncPrReviewBestEffort(scanId)
-    return { outcome: final, scanId, findings: findings.length, tokenSpent }
+    return { outcome: layer, scanId, findings: findings.length, tokenSpent }
   }
   try {
     /**

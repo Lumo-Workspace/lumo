@@ -49,18 +49,18 @@ import {
   SCAN_UNFINISHED_NOTE,
   formatHuntOverCap,
   formatHuntProgress,
-  isUnfinishedOnlyByCap,
+  formatJudgeOverCap,
+  isOwnedUnfinished,
   scanCoverageState,
   type HuntOverCapInput,
+  type JudgeOverCapInput,
   type HuntProgressInput,
   scanStageLabel,
   scanStageStateLabel,
 } from '@/shared/src/security-scan'
 import { resolvePublicUrl } from '@/lib/utils/public-url'
-import {
-  huntBatchProgress,
-  huntOverCap,
-} from '@/lib/security-scan/hunt/batches'
+import { huntBatchProgress } from '@/lib/security-scan/hunt/batches'
+import { scanSizeCaps } from '@/lib/security-scan/size-caps'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
@@ -175,8 +175,10 @@ export interface SummaryInput {
   partial: boolean
   /** LUM-832 — a batched hunt's covered source files; absent when un-batched. */
   huntProgress?: HuntProgressInput | null
-  /** LUM-832 — the file cap left files out: checked vs not (CodeRabbit-style). */
+  /** LUM-832 — the hunt did not run: the diff was over its file cap. */
   huntOverCap?: HuntOverCapInput | null
+  /** LUM-832 — the AI review did not run: the diff was over its size cap. */
+  judgeOverCap?: JudgeOverCapInput | null
   /** LUM-832 — the causes on the row; absent/empty reads as unattributed. */
   partialCauses?: string[]
   /** Open (non-dependency) findings per external tool, from the `ext:<tool>:` prefix. */
@@ -293,16 +295,13 @@ export function buildSummary(input: SummaryInput): string {
     stages: input.stages,
     partial: input.partial,
   })
-  const owned =
-    coverage === 'UNFINISHED' &&
-    !(
-      input.huntOverCap &&
-      isUnfinishedOnlyByCap({
-        ...(input.status !== undefined ? { status: input.status } : {}),
-        stages: input.stages,
-        partialCauses: input.partialCauses ?? [],
-      })
-    )
+  const owned = isOwnedUnfinished({
+    ...(input.status !== undefined ? { status: input.status } : {}),
+    stages: input.stages,
+    partial: input.partial,
+    partialCauses: input.partialCauses ?? [],
+    hasSizeNotice: Boolean(input.huntOverCap || input.judgeOverCap),
+  })
   const blocks: string[] = [
     `### 🛡️ Lumo security scan — ${input.headSha.slice(0, 7)}`,
   ]
@@ -326,16 +325,19 @@ export function buildSummary(input: SummaryInput): string {
     // budget cap", which blamed the PR's size for a budget we chose.
     blocks.push(`No open findings so far — ${SCAN_UNFINISHED_NOTE}.`)
   } else if (coverage === 'UNFINISHED') {
-    // The file cap is the only gap: say what WAS checked; the notice below
-    // says what was not.
-    blocks.push('No open findings in the files that were checked.')
+    // A size cap is the only gap: say what WAS checked; the notice below
+    // says which layer did not run, and why.
+    blocks.push('No open findings in the checks that ran.')
   } else {
     blocks.push('No open findings on lines this PR added.')
   }
   // With findings open, the owned note still has to be said once.
   if (input.open > 0 && owned)
     blocks.push(`- ${capitalize(SCAN_UNFINISHED_NOTE)}.`)
-  // LUM-832: the file cap, stated the way CodeRabbit states its own.
+  // LUM-832: a layer over its size cap did not run — stated the way
+  // CodeRabbit states its own limit.
+  if (input.judgeOverCap)
+    blocks.push(`- ${formatJudgeOverCap(input.judgeOverCap)}`)
   if (input.huntOverCap)
     blocks.push(`- ${formatHuntOverCap(input.huntOverCap)}`)
   const low = lowLine(input)
@@ -558,10 +560,12 @@ export const securityPrReviewService = {
           scan.huntJob,
           (scan.stages as ScanStages | null)?.hunt
         ),
-        huntOverCap: huntOverCap(
-          scan.huntJob,
-          (scan.stages as ScanStages | null)?.hunt
-        ),
+        ...scanSizeCaps({
+          stages: scan.stages as ScanStages | null,
+          partialCauses: scan.partialCauses ?? [],
+          huntAudit: scan.huntAudit,
+          judgeBudget: scan.judgeBudget,
+        }),
         partialCauses: scan.partialCauses ?? [],
         externalCounts,
         open: open.length,

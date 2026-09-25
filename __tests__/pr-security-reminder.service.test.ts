@@ -241,6 +241,7 @@ describe('LUM-735 scans array', () => {
         huntProgress: null,
         partialCauses: [],
         huntOverCap: null,
+        judgeOverCap: null,
       },
       {
         prNumber: 13,
@@ -257,6 +258,7 @@ describe('LUM-735 scans array', () => {
         huntProgress: null,
         partialCauses: [],
         huntOverCap: null,
+        judgeOverCap: null,
       },
     ])
   })
@@ -291,6 +293,7 @@ describe('LUM-735 scans array', () => {
         huntProgress: null,
         partialCauses: [],
         huntOverCap: null,
+        judgeOverCap: null,
       },
     ])
   })

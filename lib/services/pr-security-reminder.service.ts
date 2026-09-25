@@ -43,10 +43,13 @@ import {
 import type { ScanStages } from '@/lib/security-scan/types'
 import {
   huntBatchProgress,
-  huntOverCap,
   type HuntBatchProgress,
-  type HuntOverCap,
 } from '@/lib/security-scan/hunt/batches'
+import { scanSizeCaps } from '@/lib/security-scan/size-caps'
+import type {
+  HuntOverCapInput,
+  JudgeOverCapInput,
+} from '@/shared/src/security-scan'
 
 export interface OpenSecurityFinding extends ReminderFinding {
   kind: FindingKind
@@ -87,8 +90,10 @@ export interface TaskSecurityScanSummary {
   huntProgress: HuntBatchProgress | null
   /** LUM-832 — why it is not whole (drives owned vs over-cap wording). */
   partialCauses: string[]
-  /** LUM-832 — the file cap left files out: checked vs not; null otherwise. */
-  huntOverCap: HuntOverCap | null
+  /** LUM-832 — the hunt did not run: over its file cap. null otherwise. */
+  huntOverCap: HuntOverCapInput | null
+  /** LUM-832 — the AI review did not run: over its size cap. null otherwise. */
+  judgeOverCap: JudgeOverCapInput | null
   /**
    * LUM-775 — undispositioned, non-persisting rows on this scan that have
    * left the queue because the PR merged or closed, by reason. Derived at
@@ -193,7 +198,12 @@ export const prSecurityReminderService = {
           hunt: parseHuntCoverage(scan.huntAudit),
           huntProgress: huntBatchProgress(scan.huntJob, stagesOf(scan).hunt),
           partialCauses: scan.partialCauses ?? [],
-          huntOverCap: huntOverCap(scan.huntJob, stagesOf(scan).hunt),
+          ...scanSizeCaps({
+            stages: stagesOf(scan),
+            partialCauses: scan.partialCauses ?? [],
+            huntAudit: scan.huntAudit,
+            judgeBudget: scan.judgeBudget,
+          }),
           queueExits,
         })
       }

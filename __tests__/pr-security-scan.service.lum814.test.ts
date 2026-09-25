@@ -202,8 +202,8 @@ describe('LUM-814 judge budget persistence', () => {
     expect(parseJudgeBudget(meta.judgeBudget)).not.toBeNull()
   })
 
-  it('LUM-814 persists judge budget on a truncated diff, counting the files dropped and the characters actually reviewed', async () => {
-    // Three sections, each over half the top tier: only one can fit.
+  it('LUM-814 persists judge budget on a diff over the cap, which LUM-832 no longer reviews: every file counted as not reviewed', async () => {
+    // Three sections, each over half the top tier: the diff is over the cap.
     const diff = diffOf([
       section('lib/a.ts', 100_000),
       section('lib/b.ts', 100_000),
@@ -213,17 +213,18 @@ describe('LUM-814 judge budget persistence', () => {
 
     const meta = await runScan()
 
-    expect(meta.truncated).toBe(true)
+    // LUM-832: over the cap the AI review does not run (like CodeRabbit's
+    // limit), so nothing is "truncated" — nothing was reviewed at all — and
+    // the budget still records the arithmetic the customer notice reads.
+    expect(meta.truncated).toBe(false)
+    expect(meta.partialCauses).toEqual(['JUDGE_OVER_CAP'])
     const budget = parseJudgeBudget(meta.judgeBudget)
     expect(budget).not.toBeNull()
     expect(budget!.diffChars).toBe(diff.length)
     expect(budget!.tierChars).toBe(judgeDiffTier(diff).chars)
-    expect(budget!.coveredFiles + budget!.droppedFiles).toBe(3)
-    expect(budget!.droppedFiles).toBeGreaterThan(0)
-    // Reviewed characters are of the DIFF, so they never exceed the budget —
-    // the omission marker the judge also reads is prose, not diff.
-    expect(budget!.reviewedChars).toBeLessThanOrEqual(budget!.tierChars)
-    expect(budget!.reviewedChars).toBeLessThan(budget!.diffChars)
+    expect(budget!.coveredFiles).toBe(0)
+    expect(budget!.droppedFiles).toBe(3)
+    expect(budget!.reviewedChars).toBe(0)
   })
 
   it('LUM-814 persists judge budget as null when there was no diff for the judge to budget for', async () => {
