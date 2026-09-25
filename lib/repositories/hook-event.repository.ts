@@ -59,6 +59,49 @@ export const hookEventRepository = {
     return out
   },
 
+  /**
+   * LUM-836: the most recent Bash commands a session ran, oldest first,
+   * excluding `excludeEventId` (the event under judgment) — the provenance
+   * facts for the INFRA_TERMINATION severity re-check ("did this session launch
+   * the process it is now stopping?"). POST_TOOL_USE only (one row per executed
+   * command). `background` is Claude Code's `run_in_background` flag. A
+   * browser-pane `preview_start` (a dev server launched through the pane, not
+   * Bash) is surfaced as a synthetic `preview_start <name>` command.
+   */
+  async findRecentSessionCommands(
+    sessionId: string,
+    excludeEventId: string | null,
+    limit: number
+  ): Promise<Array<{ command: string; background: boolean }>> {
+    const rows = await prisma.hookEvent.findMany({
+      where: {
+        sessionId,
+        type: 'POST_TOOL_USE',
+        OR: [{ toolName: 'Bash' }, { toolName: { endsWith: 'preview_start' } }],
+        ...(excludeEventId ? { NOT: { id: excludeEventId } } : {}),
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit,
+      select: { toolName: true, payload: true },
+    })
+    const out: Array<{ command: string; background: boolean }> = []
+    for (const row of rows.reverse()) {
+      const input = (row.payload as { tool_input?: Record<string, unknown> })
+        ?.tool_input
+      if (!input) continue
+      if (row.toolName === 'Bash') {
+        if (typeof input.command !== 'string') continue
+        out.push({
+          command: input.command,
+          background: input.run_in_background === true,
+        })
+      } else if (typeof input.name === 'string') {
+        out.push({ command: `preview_start ${input.name}`, background: true })
+      }
+    }
+    return out
+  },
+
   /** Record a Claude Code hook event for audit and activity tracking. */
   async createHookEvent(data: CreateHookEventData) {
     return prisma.hookEvent.create({

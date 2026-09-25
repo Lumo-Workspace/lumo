@@ -45,6 +45,16 @@ import {
   EVASION_MARKER,
   isEvasionDecoded,
 } from '@/lib/boundary-crossing/evasion'
+import {
+  buildInfraKillJudgeInput,
+  confirmSelfStartedDevKill,
+  downgradeNote,
+  MAX_SESSION_FACTS,
+  type InfraKillJudge,
+  type InfraKillJudgeInput,
+  type InfraKillVerdict,
+  type RawSessionCommand,
+} from '@/lib/boundary-crossing/infra-kill-judge'
 import { crossingSuppressionRuleRepository } from '@/lib/repositories/crossing-suppression-rule.repository'
 import {
   findSuppressionRule,
@@ -82,6 +92,9 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 export interface BoundaryDetectionInput {
   taskId: string
   hookEventId?: string | null
+  /** LUM-836: the session that ran the command — scopes the provenance facts
+   *  for the INFRA_TERMINATION severity re-check. Absent → no re-check. */
+  sessionId?: string | null
   toolName: string | null
   filePath: string | null
   payload: unknown
@@ -1601,6 +1614,114 @@ export async function confirmActionCandidates(
   return out
 }
 
+// --- LUM-836: INFRA_TERMINATION severity re-check (self-started dev process) --
+//
+// A deterministic INFRA_TERMINATION hit is always recorded. When its kill is
+// eligible (plain kill / pkill, never a service manager / container / sudo) and
+// the session ran earlier commands, an LLM judge is asked whether it stops a
+// local dev process one of those commands launched. Only a confirmed verdict
+// citing a real earlier command lowers the crossing HIGH → LOW; it stays OPEN
+// and undispositioned (the DONE gate is untouched). Everything else stays HIGH.
+
+const infraKillCache = new Map<string, Promise<InfraKillVerdict>>()
+const INFRA_KILL_CACHE_MAX = 500
+
+function infraKillCacheKey(input: InfraKillJudgeInput): string {
+  const facts = input.sessionCommands
+    .map(f => `${f.index}\t${f.background ? 1 : 0}\t${f.command}`)
+    .join('\u0000')
+  return createHash('sha256')
+    .update(`${input.killCommand}\u0001${facts}`)
+    .digest('hex')
+}
+
+function cachedInfraKillJudge(
+  input: InfraKillJudgeInput
+): Promise<InfraKillVerdict> {
+  const key = infraKillCacheKey(input)
+  const hit = infraKillCache.get(key)
+  if (hit) return hit
+  // Lazy import: pay the SDK load only when the model is actually consulted.
+  const p = import('@/lib/llm/infra-kill-judge-client').then(mod =>
+    mod.judgeInfraKill(input)
+  )
+  infraKillCache.set(key, p)
+  p.catch(() => infraKillCache.delete(key))
+  if (infraKillCache.size > INFRA_KILL_CACHE_MAX) {
+    const oldest = infraKillCache.keys().next().value
+    if (oldest !== undefined) infraKillCache.delete(oldest)
+  }
+  return p
+}
+
+/**
+ * Lower an INFRA_TERMINATION crossing to LOW when the judge confirms it stops a
+ * local dev process an earlier command of the same session launched. Pure over
+ * its inputs (the session's earlier commands are passed in); every other
+ * crossing passes through untouched. Never throws — any failure keeps HIGH.
+ */
+export async function downgradeSelfStartedDevKills(
+  input: Pick<BoundaryDetectionInput, 'payload'>,
+  crossings: DetectedCrossing[],
+  earlier: RawSessionCommand[],
+  judge: InfraKillJudge = cachedInfraKillJudge
+): Promise<DetectedCrossing[]> {
+  const cmd = readCommand(input.payload)
+  if (!cmd) return crossings
+  const out: DetectedCrossing[] = []
+  for (const c of crossings) {
+    if (
+      c.category !== 'INFRA_TERMINATION' ||
+      c.severity !== 'HIGH' ||
+      isEvasionDecoded(c.detail)
+    ) {
+      out.push(c)
+      continue
+    }
+    let launch = null
+    try {
+      const judgeInput = buildInfraKillJudgeInput(
+        cmd,
+        earlier,
+        matchInfraTermination
+      )
+      if (judgeInput)
+        launch = await confirmSelfStartedDevKill(judgeInput, { judge })
+    } catch {
+      launch = null
+    }
+    out.push(
+      launch
+        ? {
+            ...c,
+            severity: 'LOW',
+            detail: clip(`${downgradeNote(launch)}${c.detail}`),
+          }
+        : c
+    )
+  }
+  return out
+}
+
+/** Load the session's earlier commands, best-effort (empty on any failure). */
+async function loadEarlierSessionCommands(
+  input: BoundaryDetectionInput,
+  crossings: DetectedCrossing[]
+): Promise<RawSessionCommand[]> {
+  if (!input.sessionId) return []
+  // Only pay the query when there is something to re-check.
+  if (!crossings.some(c => c.category === 'INFRA_TERMINATION')) return []
+  try {
+    return await hookEventRepository.findRecentSessionCommands(
+      input.sessionId,
+      input.hookEventId ?? null,
+      MAX_SESSION_FACTS
+    )
+  } catch {
+    return []
+  }
+}
+
 /** Best-effort one-line summary of an Edit/Write payload for the silent-fix judge. */
 function summarizeEdit(payload: unknown): string {
   if (payload && typeof payload === 'object') {
@@ -1845,7 +1966,13 @@ export const boundaryDetectorService = {
       // LUM-466: confirm action-category candidates — drop a forbidden token that
       // matched only as prose (commit message / PR body / echo), keep real
       // executed actions and anything the best-effort LLM can't clear.
-      const confirmed = await confirmActionCandidates(input, crossings)
+      const actionConfirmed = await confirmActionCandidates(input, crossings)
+      // LUM-836: a kill of a dev process this session launched → HIGH to LOW.
+      const confirmed = await downgradeSelfStartedDevKills(
+        input,
+        actionConfirmed,
+        await loadEarlierSessionCommands(input, actionConfirmed)
+      )
       const tampering = await detectTestTamperingForTask(input)
       if (tampering) confirmed.push(tampering)
 

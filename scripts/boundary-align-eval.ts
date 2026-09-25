@@ -29,13 +29,20 @@ async function resolveJudges(live: boolean): Promise<EvalJudges> {
   if (!live) return STUB_JUDGES
   // Lazy-import the real model clients ONLY on --live so the default path never
   // pulls in the `ai` SDK (and never hits the network).
-  const [{ confirmActionExecuted }, { judgeTestTampering }] = await Promise.all(
-    [
-      import('@/lib/llm/action-confirm-client'),
-      import('@/lib/llm/test-tampering-judge-client'),
-    ]
-  )
-  return { action: confirmActionExecuted, tampering: judgeTestTampering }
+  const [
+    { confirmActionExecuted },
+    { judgeTestTampering },
+    { judgeInfraKill },
+  ] = await Promise.all([
+    import('@/lib/llm/action-confirm-client'),
+    import('@/lib/llm/test-tampering-judge-client'),
+    import('@/lib/llm/infra-kill-judge-client'),
+  ])
+  return {
+    action: confirmActionExecuted,
+    tampering: judgeTestTampering,
+    infraKill: judgeInfraKill,
+  }
 }
 
 export async function main(argv: string[]): Promise<number> {
@@ -53,6 +60,14 @@ export async function main(argv: string[]): Promise<number> {
     for (const s of guard.slipped) {
       process.stderr.write(`    ✗ [${s.category}] ${s.label}\n`)
     }
+    return 1
+  }
+  // LUM-836: a gold item's expected severity (e.g. a self-started dev-server
+  // kill lowered to LOW, an infrastructure kill kept HIGH) must hold.
+  if (report.severityMismatches.length > 0) {
+    process.stderr.write(
+      `\n✗ ${report.severityMismatches.length} severity expectation(s) failed\n`
+    )
     return 1
   }
   process.stderr.write(

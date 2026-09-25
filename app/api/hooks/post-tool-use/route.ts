@@ -34,6 +34,7 @@ export async function POST(request: Request) {
         boundaryDetectorService.detectAndRecord({
           taskId: ctx.taskId,
           hookEventId: ctx.eventId,
+          sessionId: ctx.sessionId,
           toolName: ctx.toolName,
           filePath: ctx.filePath,
           payload: ctx.payload,
