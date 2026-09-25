@@ -33,6 +33,8 @@ describe('LUM-762 hunt coverage', () => {
       {
         category: 'idor',
         stopped: 'done',
+        // LUM-831 — an agent that submitted by itself terminated by itself.
+        terminated: true,
         elapsedMs: 41_000,
         tokens: 1200,
         candidates: 2,
@@ -41,6 +43,8 @@ describe('LUM-762 hunt coverage', () => {
       {
         category: 'injection',
         stopped: 'timeout',
+        // Cut off: a timeout never reaches the wrap-up at all.
+        terminated: false,
         elapsedMs: 60_000,
         tokens: 1200,
         candidates: 2,
@@ -49,6 +53,7 @@ describe('LUM-762 hunt coverage', () => {
       {
         category: 'ssrf',
         stopped: 'skipped',
+        terminated: false,
         elapsedMs: 0,
         tokens: 0,
         candidates: 2,
@@ -68,6 +73,7 @@ describe('LUM-762 hunt coverage', () => {
       {
         category: 'idor',
         stopped: 'done',
+        terminated: true,
         elapsedMs: 72_000,
         tokens: 900,
         candidates: 2,
@@ -244,6 +250,7 @@ describe('LUM-762 hunt coverage', () => {
       {
         category: 'logic',
         stopped: 'done',
+        terminated: true,
         elapsedMs: 0,
         tokens: 0,
         candidates: 0,
@@ -302,5 +309,118 @@ describe('LUM-762 hunt coverage', () => {
     ])
     expect(coverage!.done).toBe(1)
     expect(formatHuntCoverage(coverage!)).toContain('no-progress')
+  })
+
+  // LUM-831 — a reader of this line has to be able to tell "the agent never
+  // answered" from "the agent was asked and answered nothing". Before this the
+  // line said only `1/3 done`, and a task that stopped on the no-progress
+  // guard and then submitted an empty list was indistinguishable from one the
+  // sandbox never booted for.
+  it('LUM-831 coverage reports the stop reason and whether the task terminated as separate facts', () => {
+    const coverage = parseHuntCoverage({
+      planned: [{ id: 't1' }, { id: 't2' }, { id: 't3' }, { id: 't4' }],
+      tasks: [
+        row({ taskId: 't1', stopped: 'done', elapsedMs: 41_000 }),
+        // Asked, and answered — the PR #1087 shape.
+        row({
+          taskId: 't2',
+          category: 'injection',
+          stopped: 'no-progress',
+          elapsedMs: 24_000,
+          wrapUp: { ran: true, submitted: 0, tokens: 5815 },
+        }),
+        // Stopped for looping and never asked: no answer is on record.
+        row({
+          taskId: 't3',
+          category: 'ssrf',
+          stopped: 'no-progress',
+          elapsedMs: 20_000,
+          wrapUp: { ran: false, skipped: 'no-budget' },
+        }),
+        // A wrap-up the provider degraded submits nothing for a reason that
+        // says nothing about the diff, so it is not an answer either.
+        row({
+          taskId: 't4',
+          category: 'race',
+          stopped: 'budget',
+          elapsedMs: 30_000,
+          wrapUp: { ran: true, submitted: 0 },
+          wrapUpWarnings: ['{"type":"unsupported-setting"}'],
+        }),
+      ],
+    })!
+
+    // The stop reason is untouched — it still says how each SEARCH ended.
+    expect(coverage.categories.map(c => c.stopped)).toEqual([
+      'done',
+      'no-progress',
+      'no-progress',
+      'budget',
+    ])
+    // …and termination is the second, independent fact.
+    expect(coverage.categories.map(c => c.terminated)).toEqual([
+      true,
+      true,
+      false,
+      false,
+    ])
+    expect(coverage.done).toBe(1)
+    expect(coverage.terminated).toBe(2)
+    const line = formatHuntCoverage(coverage)
+    expect(line).toContain('1/4 done · 2/4 terminated')
+    expect(line).toContain('t2 injection 24.0s no-progress (terminated)')
+    expect(line).toContain('t3 ssrf 20.0s no-progress ·')
+    expect(line).not.toContain('t3 ssrf 20.0s no-progress (terminated)')
+  })
+
+  it('LUM-831 a wrap-up that threw, and a timeout carrying one, are not terminations', () => {
+    // `ran: false` with an `error` is the asked-and-lost row the client writes
+    // in its catch. A timeout is decided outside the client and can hold no
+    // wrap-up at all — should a stale row carry one, it is still a timeout.
+    const coverage = parseHuntCoverage({
+      planned: [{ id: 't1' }, { id: 't2' }, { id: 't3' }],
+      tasks: [
+        row({
+          taskId: 't1',
+          stopped: 'no-progress',
+          wrapUp: { ran: false, error: 'AbortError: signal timed out' },
+        }),
+        row({
+          taskId: 't2',
+          stopped: 'timeout',
+          wrapUp: { ran: true, submitted: 0 },
+        }),
+        // Garbage in the Json column is no evidence of a wrap-up.
+        row({ taskId: 't3', stopped: 'budget', wrapUp: 'ran' }),
+      ],
+    })!
+    expect(coverage.categories.every(c => !c.terminated)).toBe(true)
+    expect(coverage.terminated).toBe(0)
+    // Nothing to add to the head when no task outran `done`.
+    expect(formatHuntCoverage(coverage)).not.toContain('terminated')
+  })
+
+  it('LUM-831 only the LAST attempt decides whether a retried task terminated', () => {
+    // A retry REPLACES the outcome, the same way it replaces `stopped`: the
+    // first attempt's silence says nothing about how the task ended.
+    const coverage = parseHuntCoverage({
+      planned: [{ id: 't1' }],
+      tasks: [
+        row({ taskId: 't1', stopped: 'error' }),
+        row({
+          taskId: 't1',
+          stopped: 'no-progress',
+          wrapUp: { ran: true, submitted: 1 },
+        }),
+      ],
+    })!
+    expect(coverage.categories).toHaveLength(1)
+    expect(coverage.categories[0]!.attempts).toBe(2)
+    expect(coverage.categories[0]!.terminated).toBe(true)
+    expect(coverage.done).toBe(0)
+    expect(coverage.terminated).toBe(1)
+    expect(formatHuntCoverage(coverage)).toContain(
+      'no-progress (terminated, 2 attempts)'
+    )
   })
 })

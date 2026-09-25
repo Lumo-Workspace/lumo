@@ -1007,3 +1007,133 @@ it('LUM-781 carries trace, stop and wrapUp onto both the first-pass and retry au
     wrapUp: { ran: false, skipped: 'submitted' },
   })
 })
+
+// LUM-831 — the layer's `partial` verdict.
+//
+// PARTIAL is fail-closed: it means "could not confirm this is clean". The
+// verdict used to be `stopped === 'done'` for every planned task, so LUM-799's
+// no-progress guard — a guard that works, and that on PR #1087 cut a looping
+// task at 24 steps / 97k of 575k tokens — turned every scan it fired on into
+// PARTIAL. That scan's forced wrap-up had RUN and the agent had answered
+// "nothing": it looked, and said so. These tests pin the distinction, in both
+// directions.
+const runHunt = async (...batches: unknown[]) => {
+  hunt.mockReset()
+  persist.mockClear()
+  for (const b of batches) hunt.mockImplementationOnce(async () => b)
+  hunt.mockImplementation(async () => batch())
+  const outcome = await securityHuntWorkflow(JOB)
+  return { outcome, persisted: persist.mock.calls[0]![0] }
+}
+
+it('LUM-831 a no-progress task whose wrap-up ran and answered leaves the layer RAN', async () => {
+  // The PR #1087 shape exactly: the search stopped itself for looping, the
+  // wrap-up was made, and the agent submitted an empty list.
+  const wrapUp = {
+    ran: true,
+    submitted: 0,
+    tokens: 5815,
+    finishReason: 'tool-calls',
+  }
+  const { outcome, persisted } = await runHunt(
+    batch({ stopped: 'done' }),
+    batch({ stopped: 'no-progress', wrappedUp: true, wrapUp })
+  )
+
+  expect(outcome).toMatchObject({ outcome: 'RAN' })
+  expect(persisted.partial).toBe(false)
+  expect(persisted.stage).toBe('RAN')
+  // The stop itself stays honest — `done` is still reserved for an agent that
+  // decided by itself, and the forced-wrap-up rate must stay readable.
+  expect(
+    persisted.audit.tasks.map((r: { stopped: string }) => r.stopped)
+  ).toEqual(['done', 'no-progress'])
+})
+
+it('LUM-831 a budget or steps stop with an answered wrap-up no longer makes the layer PARTIAL', async () => {
+  // Same reading for the two counters: they also hand over to the wrap-up, and
+  // an answer from either is an answer.
+  const { outcome, persisted } = await runHunt(
+    batch({
+      stopped: 'budget',
+      wrappedUp: true,
+      wrapUp: { ran: true, submitted: 0 },
+    }),
+    batch({
+      stopped: 'steps',
+      wrappedUp: true,
+      wrapUp: { ran: true, submitted: 2 },
+    })
+  )
+
+  expect(outcome).toMatchObject({ outcome: 'RAN' })
+  expect(persisted.partial).toBe(false)
+})
+
+it('LUM-831 timeout and sandbox failure and an unanswered wrap-up still make the layer PARTIAL', async () => {
+  // Every way of NOT having an answer on record. One assertion each, because
+  // a single one of them leaking through is a scan that reads clean without
+  // having looked.
+  const unanswered: Array<[string, unknown]> = [
+    // The batch threw or was aborted — the client never returned a stop, so
+    // there is no wrap-up anywhere on the row.
+    ['timeout', batch({ stopped: 'timeout', error: 'Delay was aborted' })],
+    [
+      'sandbox failure',
+      batch({
+        stopped: 'timeout',
+        error: 'sandbox acquisition consumed the task window',
+      }),
+    ],
+    ['gateway error', batch({ stopped: 'error', error: 'gateway 500' })],
+    // The search stopped for looping and nobody was asked: no budget, no time,
+    // or the caller had the hand-over turned off.
+    [
+      'wrap-up never ran',
+      batch({
+        stopped: 'no-progress',
+        wrapUp: { ran: false, skipped: 'no-budget' },
+      }),
+    ],
+    // Asked and lost. Distinct from every `skipped` reason: this one asked.
+    [
+      'wrap-up threw',
+      batch({
+        stopped: 'no-progress',
+        wrapUp: { ran: false, error: 'AbortError: signal timed out' },
+      }),
+    ],
+    [
+      'wrap-up returned an error',
+      batch({
+        stopped: 'budget',
+        wrapUp: { ran: true, error: 'gateway 500' },
+      }),
+    ],
+    // The provider did not honour the forced tool choice: the model answered
+    // in prose and submitted nothing, so we never managed to ask.
+    [
+      'wrap-up was degraded by the provider',
+      batch({
+        stopped: 'no-progress',
+        wrapUp: { ran: true, submitted: 0 },
+        wrapUpWarnings: ['{"type":"unsupported-setting"}'],
+      }),
+    ],
+    // No wrap-up facts at all — a row from before the hand-over existed.
+    ['no wrap-up on the row', batch({ stopped: 'steps' })],
+  ]
+
+  for (const [name, cutOff] of unanswered) {
+    // The retry pass re-runs a timeout/error task once; give it the same
+    // outcome so the case is judged on a task that really never answered.
+    const { outcome, persisted } = await runHunt(
+      batch({ stopped: 'done' }),
+      cutOff,
+      cutOff
+    )
+    expect([name, outcome.outcome]).toEqual([name, 'PARTIAL'])
+    expect([name, persisted.partial]).toEqual([name, true])
+    expect([name, persisted.stage]).toEqual([name, 'PARTIAL'])
+  }
+})

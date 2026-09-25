@@ -866,10 +866,15 @@ export async function huntTask(
   return {
     candidates: submitted,
     tokens,
-    // `done` is reserved for an agent that decided by itself. A wrapped-up
-    // batch still reports the counter that ended its search, so P9 still calls
-    // the layer PARTIAL — the acceptance metric must not be moved by making
-    // the agent answer under duress.
+    // `done` is reserved for an agent that decided by itself: a wrapped-up
+    // batch still reports the counter that ended its SEARCH, because the rate
+    // of forced wrap-ups is the honest measure of whether the agent converges
+    // and must not be moved by making it answer under duress.
+    //
+    // LUM-831 — that is a statement about the search, not about coverage. The
+    // layer's `partial` verdict no longer reads this field alone: a stop here
+    // plus a wrap-up that RAN is a task that answered, and `huntTaskTerminated`
+    // is where the two are put together.
     stopped: didSubmit
       ? 'done'
       : stoppedOnNoProgress

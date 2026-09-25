@@ -109,6 +109,14 @@ it, so a near miss is visible on a `budget` or `steps` row too. `oversized` on t
 diff line means the PR exceeded the hunt's source-file ceiling and the tasks
 covered a corner of it.
 
+A `no-progress`, `budget` or `steps` stop whose forced wrap-up RAN is a task
+that **terminated**: it was asked for its findings and answered, even when the
+answer was an empty list, so it no longer makes the layer `⚠ incomplete · partial`
+on its own (LUM-831). The coverage payload says both facts — `stopped` is still
+how the search ended, `terminated` is whether an answer came back. A timeout, a
+sandbox failure, a wrap-up that never ran or that errored, and a skipped task
+all stay partial: PARTIAL means "could not confirm this is clean".
+
 `placed by …` (LUM-798) breaks the same candidates down on **two axes**, and
 the distinction matters:
 
@@ -148,7 +156,7 @@ written before the gate counted anything at all.
                            disposition, dispositionSource, dispositionNote, dispositionedAt,
                            blocking, open, persisting, queueExit, falsifierVerdict,
                            suggestedDisposition, suggestionOutcome, secretDowngrade, cwe, reachability, externalRef } ],
-             hunt: { coverage: { total, done, categories[] } | null, plannedBy, plannedReason,
+             hunt: { coverage: { total, done, terminated, categories[] } | null, plannedBy, plannedReason,
                      diff: { sourceFiles, sites, taskCap, oversized } | null,
                      candidates, falsifierRejects, mechanicallyRejected, error,
                      resolution: { kind: 'placement', placed: { subgraph, sinkRule, sandbox }, unplaced, accepted, rejected }
