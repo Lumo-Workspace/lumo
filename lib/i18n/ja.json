@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "未完了のマイルストーンをアーカイブしますか？",
   "milestone.archiveConfirm.body": "「{name}」には未完了のタスクが {remaining} 件あります。アーカイブすると既定の一覧に表示されなくなりますが、未完了のタスクは閉じられません。",
   "milestone.archiveConfirm.confirm": "それでもアーカイブ",
+  "securityScan.huntOverCap": "この PR は {total} 件のソースファイルを変更しています。エクスプロイト経路チェックの対象は最大 {checked} 件のため、リスクの高い {checked} 件を確認し、残り {skipped} 件は確認していません。確認するには、レビュー範囲を絞るか PR を分割してください。",
   "securityScan.huntProgress": "ソースファイル {covered}/{total} 件を確認済み",
   "securityScan.section.title": "セキュリティスキャン",
   "securityScan.section.empty": "まだスキャンはありません。リンクされたPRへのプッシュごとに自動でスキャンされます。",

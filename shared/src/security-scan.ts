@@ -203,27 +203,23 @@ export function formatQueueExits(
  * not know (a newer server) is read as unattributed, never dropped.
  */
 export const PARTIAL_CAUSES = [
-  /**
-   * A planned hunt task never terminated because something of ours broke:
-   * sandbox, gateway, timeout, a step failure, a wrap-up that errored.
-   */
+  /** A planned hunt task never terminated: sandbox, gateway, timeout, step failure. */
   'HUNT_INCOMPLETE',
-  /**
-   * A planned hunt task was cut short by the budget WE set (the scan's
-   * token / time budget ran out before its turn, or before its wrap-up) and
-   * is still short after its one continuation with a fresh budget.
-   */
-  'HUNT_BUDGET_SHORT',
-  /**
-   * The hunt hit a SAFETY ceiling — its infrastructure retries or its budget
-   * continuations ran out. Never routine: a loop or an outage of ours, logged
-   * as an alert and investigated.
-   */
-  'HUNT_CEILING',
   /** More accepted hunt candidates than `HUNT_MAX_FALSIFIED`; the rest were not falsified. */
   'HUNT_FALSIFIER_OVERFLOW',
-  /** The hunt was sized for fewer source files than the diff touched (`HUNT_OVERSIZED_SOURCE_FILES`). */
+  /**
+   * The diff touched more source files than the hunt covers
+   * (`HUNT_MAX_HUNTED_FILES`, like CodeRabbit's file limit): the riskiest were
+   * hunted, the rest were not. The customer is told how many, by the over-cap
+   * notice (`formatHuntOverCap`).
+   */
   'HUNT_OVERSIZED',
+  /**
+   * A planned hunt task was cut short by the budget WE set — its turn never
+   * came, or its wrap-up had no tokens / time left. Not retried with the same
+   * budget (it would hit the same wall): the layer ends unfinished at once.
+   */
+  'HUNT_BUDGET_SHORT',
   /** The AI review's tier held less than the whole diff; some files were not reviewed. */
   'JUDGE_TRUNCATED',
   /** The graph rules could not read the subgraph they check. */
@@ -246,7 +242,6 @@ export type PartialCauseClass = 'OUR_FAULT' | 'COVERAGE_OWED' | 'UNATTRIBUTED'
 export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
   HUNT_INCOMPLETE: 'OUR_FAULT',
   HUNT_BUDGET_SHORT: 'COVERAGE_OWED',
-  HUNT_CEILING: 'OUR_FAULT',
   HUNT_FALSIFIER_OVERFLOW: 'COVERAGE_OWED',
   HUNT_OVERSIZED: 'COVERAGE_OWED',
   JUDGE_TRUNCATED: 'COVERAGE_OWED',
@@ -342,4 +337,45 @@ export interface HuntProgressInput {
 
 export function formatHuntProgress(p: HuntProgressInput): string {
   return `${p.coveredFiles}/${p.totalFiles} source files`
+}
+
+/**
+ * LUM-832 — the diff touched more source files than the hunt covers, so the
+ * riskiest were checked and the rest were not. Deliberately CodeRabbit's
+ * shape (a file limit, stated plainly, with the way to get the rest covered):
+ * parity, not more. The ONE customer-facing line that may ask something of
+ * the customer — every other degradation stays owned (`SCAN_UNFINISHED_NOTE`).
+ * The web panel says the same through `securityScan.huntOverCap` in i18n.
+ */
+export interface HuntOverCapInput {
+  checkedFiles: number
+  skippedFiles: number
+}
+
+export function formatHuntOverCap(c: HuntOverCapInput): string {
+  const total = c.checkedFiles + c.skippedFiles
+  return `This PR touches ${total} source files; exploit-path checks cover up to ${c.checkedFiles}, so the riskiest ${c.checkedFiles} were checked and the other ${c.skippedFiles} were not. To cover them, narrow the review scope or split the PR.`
+}
+
+/**
+ * LUM-832 — is the file cap the ONLY reason this scan is unfinished? Then the
+ * customer gets the over-cap notice alone; the generic owned line
+ * (`SCAN_UNFINISHED_NOTE`) is for faults and shortfalls of ours, and saying
+ * both would call a stated scope limit a failure. False on a legacy row (no
+ * causes on record) and whenever any other layer or cause is unfinished.
+ */
+export function isUnfinishedOnlyByCap(s: {
+  status?: string | null
+  stages: Partial<Record<string, string | undefined>>
+  partialCauses: ReadonlyArray<string>
+}): boolean {
+  if (s.status === 'FAILED') return false
+  if (s.partialCauses.length === 0) return false
+  if (!s.partialCauses.every(c => c === 'HUNT_OVERSIZED')) return false
+  for (const [key, state] of Object.entries(s.stages)) {
+    if (key === 'hunt') {
+      if (state !== 'PARTIAL') return false
+    } else if (state && UNFINISHED_STAGE_STATES.has(state)) return false
+  }
+  return true
 }

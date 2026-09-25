@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "अपूर्ण माइलस्टोन संग्रहित करें?",
   "milestone.archiveConfirm.body": "“{name}” में अभी {remaining, plural, one {# कार्य अपूर्ण है} other {# कार्य अपूर्ण हैं}}। संग्रहित करने पर यह डिफ़ॉल्ट सूची में नहीं दिखेगा, लेकिन अपूर्ण कार्य बंद नहीं होंगे।",
   "milestone.archiveConfirm.confirm": "फिर भी संग्रहित करें",
+  "securityScan.huntOverCap": "यह PR {total} सोर्स फ़ाइलें बदलता है; एक्सप्लॉइट-पाथ जाँच अधिकतम {checked} फ़ाइलें कवर करती है, इसलिए सबसे जोखिम वाली {checked} जाँची गईं और बाकी {skipped} नहीं। उन्हें कवर करने के लिए समीक्षा का दायरा छोटा करें या PR को विभाजित करें।",
   "securityScan.huntProgress": "{covered}/{total} सोर्स फ़ाइलें",
   "securityScan.section.title": "सुरक्षा स्कैन",
   "securityScan.section.empty": "अभी कोई सुरक्षा स्कैन नहीं — लिंक किए गए पुल रिक्वेस्ट पर हर पुश के साथ स्कैन चलता है।",

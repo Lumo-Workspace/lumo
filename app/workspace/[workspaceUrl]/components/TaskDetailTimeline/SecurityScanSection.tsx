@@ -371,9 +371,24 @@ function ScanDetails({
           reason — "cut off at the scan budget", "large changes may be
           under-reviewed" — that was usually wrong and always ours; the stage
           row above already says which layer did not finish. */}
-      {scan.coverage === 'UNFINISHED' && (
+      {scan.ownedUnfinished && (
         <p data-testid='scan-unfinished' className='text-caption text-warning'>
           {intl.formatMessage({ id: 'securityScan.partial' })}
+        </p>
+      )}
+      {/* LUM-832: the file cap, stated like CodeRabbit states its own — how
+          many were checked, how many were not, and how to get the rest. */}
+      {scan.huntOverCap && (
+        <p data-testid='scan-over-cap' className='text-caption text-warning'>
+          {intl.formatMessage(
+            { id: 'securityScan.huntOverCap' },
+            {
+              total:
+                scan.huntOverCap.checkedFiles + scan.huntOverCap.skippedFiles,
+              checked: scan.huntOverCap.checkedFiles,
+              skipped: scan.huntOverCap.skippedFiles,
+            }
+          )}
         </p>
       )}
       {externalReason && (

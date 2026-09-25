@@ -211,6 +211,8 @@ export interface ScanWithFindings {
   huntAudit: unknown
   /** LUM-822 job Json, raw. LUM-832 reads its batch plan (`huntBatchProgress`). */
   huntJob?: unknown
+  /** LUM-832 — why the scan is not whole (text[]; absent on an old mock). */
+  partialCauses?: string[]
   findings: FindingRow[]
 }
 
@@ -248,6 +250,9 @@ export interface ScanReadoutRow {
   huntAudit: unknown
   /** LUM-814's budget Json, raw. The read-out parses it with `parseJudgeBudget`. */
   judgeBudget: unknown
+  /** LUM-832 — the causes, and the hunt job (its file-cap count). */
+  partialCauses: string[]
+  huntJob: unknown
   findings: ReadoutFindingRow[]
 }
 
@@ -289,6 +294,8 @@ export interface ScanForReview {
   stages: ScanStages | null
   /** LUM-832: the running hunt job, for the batched hunt's covered share. */
   huntJob: unknown
+  /** LUM-832: the causes, to tell a file-cap-only scan from an unfinished one. */
+  partialCauses?: string[]
   partial: boolean
   error: string | null
   /** LUM-740: the summary comment this scan (or an earlier one) already owns. */
@@ -881,9 +888,8 @@ export const prSecurityScanRepository = {
           ...(findings.length > 0 ? { status: 'FINDINGS' } : {}),
         },
       })
-      // LUM-832: a continuation (the next batch, or the tasks a budget cut
-      // short) or a retry can resubmit what an earlier run of this scan
-      // already landed — nothing on the table makes a fingerprint unique, so
+      // LUM-832: a retry of a batch can resubmit what an earlier run of this
+      // scan already landed — nothing on the table makes a fingerprint unique, so
       // drop the ones already on the scan. The first run has nothing to meet.
       let rows = findings
       if ((final.attempt ?? 1) > 1 && findings.length > 0) {
@@ -1068,19 +1074,12 @@ export const prSecurityScanRepository = {
   async failStaleHunt(
     scanId: string,
     atAttempt: number,
-    reason: string,
-    // LUM-832: e.g. HUNT_CEILING when the sweep gives up at the retry ceiling.
-    causes: PartialCause[] = []
+    reason: string
   ): Promise<boolean> {
     return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: {
-          stages: true,
-          huntAttempts: true,
-          partial: true,
-          partialCauses: true,
-        },
+        select: { stages: true, huntAttempts: true },
       })
       const stages = (current?.stages as ScanStages | null) ?? {}
       if (stages.hunt !== 'PENDING' || current?.huntAttempts !== atAttempt)
@@ -1090,7 +1089,6 @@ export const prSecurityScanRepository = {
         data: {
           stages: { ...stages, hunt: 'FAILED' },
           huntAudit: { error: reason.slice(0, 500) },
-          ...(causes.length > 0 ? mergePartial(current, causes) : {}),
         },
       })
       return true
@@ -1136,6 +1134,7 @@ export const prSecurityScanRepository = {
         status: true,
         stages: true,
         huntJob: true,
+        partialCauses: true,
         partial: true,
         error: true,
         summaryCommentId: true,
@@ -1253,6 +1252,8 @@ export const prSecurityScanRepository = {
         tokenSpent: true,
         huntAudit: true,
         judgeBudget: true,
+        partialCauses: true,
+        huntJob: true,
         findings: {
           orderBy: { createdAt: 'asc' },
           select: {

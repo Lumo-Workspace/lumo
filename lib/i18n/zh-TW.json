@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "封存未完成的里程碑？",
   "milestone.archiveConfirm.body": "「{name}」還有 {remaining} 個任務未完成。封存後它不再出現在預設清單裡，未完成的任務不會被關閉。",
   "milestone.archiveConfirm.confirm": "仍要封存",
+  "securityScan.huntOverCap": "此 PR 變更了 {total} 個原始檔；利用路徑檢查最多涵蓋 {checked} 個，因此已檢查風險最高的 {checked} 個，其餘 {skipped} 個未檢查。如需涵蓋它們，請縮小審查範圍或拆分 PR。",
   "securityScan.huntProgress": "已涵蓋 {covered}/{total} 個原始檔",
   "securityScan.section.title": "安全掃描",
   "securityScan.section.empty": "尚無安全掃描——每次向已連結的 PR 推送程式碼都會自動掃描。",

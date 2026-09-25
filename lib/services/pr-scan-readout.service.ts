@@ -16,6 +16,7 @@
  * never leaves the server (the repository never loads it); disposition is a
  * human-only column this read-out reports and never touches.
  */
+import { huntOverCap, type HuntOverCap } from '@/lib/security-scan/hunt/batches'
 import {
   prSecurityScanRepository,
   type FindingDisposition,
@@ -147,6 +148,10 @@ export interface ScanReadoutView {
   truncated: boolean
   stages: ScanStages
   partial: boolean
+  /** LUM-832 — why it is not whole (drives owned vs over-cap wording). */
+  partialCauses: string[]
+  /** LUM-832 — the file cap left files out: checked vs not; null otherwise. */
+  huntOverCap: HuntOverCap | null
   /** P8 — the scrubbed external-scanner reason, or null (raw crash text is never published). */
   externalFailureReason: string | null
   startedAt: string
@@ -559,6 +564,8 @@ export const prScanReadoutService = {
         truncated: scan.truncated,
         stages,
         partial: scan.partial,
+        partialCauses: scan.partialCauses ?? [],
+        huntOverCap: huntOverCap(scan.huntJob, stages.hunt),
         externalFailureReason:
           stages.external === 'FAILED'
             ? (cleanText(

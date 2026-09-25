@@ -42,11 +42,6 @@ export interface ScanReliability {
   ourFaultRate: number | null
   /** Occurrences of each cause, by name. */
   causes: Record<string, number>
-  /**
-   * LUM-832 — scans that hit a hunt SAFETY ceiling (HUNT_CEILING). Each one
-   * is an outage or a loop of ours to investigate; the target is zero.
-   */
-  ceilingHits: number
   hunt: {
     /** Scans whose hunt layer ran (RAN or PARTIAL). */
     hunted: number
@@ -122,7 +117,6 @@ export function summarizeScanReliability(
     unattributed,
     ourFaultRate: settled > 0 ? ourFault / settled : null,
     causes,
-    ceilingHits: causes.HUNT_CEILING ?? 0,
     hunt: {
       hunted,
       wholeDiff,
@@ -142,7 +136,7 @@ export function formatScanReliability(r: ScanReliability): string {
     .map(([c, n]) => `${c} ${n} (${partialCauseClass(c)})`)
   return [
     `scans ${r.scans} · checked ${r.byCoverage.CHECKED} · unfinished ${r.byCoverage.UNFINISHED} · in progress ${r.byCoverage.IN_PROGRESS}`,
-    `our fault ${r.ourFault} (${pct(r.ourFaultRate)} of settled) · coverage owed only ${r.coverageOwedOnly} · unattributed ${r.unattributed} · safety ceiling hits ${r.ceilingHits}`,
+    `our fault ${r.ourFault} (${pct(r.ourFaultRate)} of settled) · coverage owed only ${r.coverageOwedOnly} · unattributed ${r.unattributed}`,
     `hunt coverage ${r.hunt.wholeDiff}/${r.hunt.hunted} whole-diff (${pct(r.hunt.coverageRatio)})`,
     `causes: ${causes.length > 0 ? causes.join(' · ') : 'none'}`,
   ].join('\n')

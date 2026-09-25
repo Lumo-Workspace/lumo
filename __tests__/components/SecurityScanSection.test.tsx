@@ -27,6 +27,8 @@ const messages: Record<string, string> = {
   'securityScan.stage.external': 'External scanner',
   'securityScan.stage.hunt': 'Exploit paths',
   'securityScan.huntProgress': '{covered}/{total} source files',
+  'securityScan.huntOverCap':
+    'This PR touches {total} source files; the riskiest {checked} were checked and the other {skipped} were not. To cover them, narrow the review scope or split the PR.',
   'securityScan.stage.judge': 'LLM review',
   'securityScan.stageState.FAILED': 'failed',
   'securityScan.stageState.NOT_CONFIGURED': 'not configured',
@@ -127,7 +129,15 @@ const scan = (over: object) => {
     ...scanFields(),
     ...over,
   } as ReturnType<typeof scanFields>
-  return { ...base, coverage: scanCoverageState(base), ...over }
+  const coverage = scanCoverageState(base)
+  // No file cap in these fixtures: unfinished is always ours.
+  return {
+    ...base,
+    coverage,
+    ownedUnfinished: coverage === 'UNFINISHED',
+    huntOverCap: null,
+    ...over,
+  }
 }
 const scanFields = () => ({
   id: 's1',
@@ -916,5 +926,33 @@ test('a batched hunt shows its covered share next to its state', () => {
     'Exploit paths: scanning (40/120 source files)'
   )
   // Queued batches are "in progress" — never the owned-unfinished line.
+  expect(screen.queryByTestId('scan-unfinished')).toBeNull()
+})
+
+// LUM-832: past the hunt's file cap (like CodeRabbit's), the panel says what
+// was checked and what was not — and does not call the scope limit a failure.
+test('a scan past the file cap shows the over-cap notice instead of the owned unfinished line', () => {
+  useSecurityScans.mockReturnValue({
+    data: {
+      prs: [
+        {
+          pr,
+          latest: scan({
+            partial: true,
+            stages: { secrets: 'RAN', judge: 'RAN', hunt: 'PARTIAL' },
+            huntOverCap: { checkedFiles: 150, skippedFiles: 50 },
+            ownedUnfinished: false,
+          }),
+        },
+      ],
+      blocking: { count: 1 },
+    },
+    isLoading: false,
+    isError: false,
+  })
+  render(<SecurityScanSection taskId='t1' />, { wrapper })
+  expect(screen.getByTestId('scan-over-cap')).toHaveTextContent(
+    'This PR touches 200 source files; the riskiest 150 were checked and the other 50 were not.'
+  )
   expect(screen.queryByTestId('scan-unfinished')).toBeNull()
 })

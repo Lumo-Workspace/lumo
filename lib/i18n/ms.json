@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "Arkibkan pencapaian yang belum selesai?",
   "milestone.archiveConfirm.body": "“{name}” masih ada {remaining} tugasan yang belum selesai. Selepas diarkibkan, ia tidak lagi muncul dalam senarai lalai, tetapi tugasan yang belum selesai kekal terbuka.",
   "milestone.archiveConfirm.confirm": "Arkibkan juga",
+  "securityScan.huntOverCap": "PR ini mengubah {total} fail sumber; semakan laluan eksploitasi meliputi paling banyak {checked}, jadi {checked} yang paling berisiko telah disemak dan {skipped} yang lain tidak. Untuk meliputinya, kecilkan skop semakan atau pecahkan PR.",
   "securityScan.huntProgress": "{covered}/{total} fail sumber",
   "securityScan.section.title": "Imbasan keselamatan",
   "securityScan.section.empty": "Belum ada imbasan keselamatan — imbasan dijalankan pada setiap push ke pull request yang dipautkan.",

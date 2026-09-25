@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "Unfertigen Meilenstein archivieren?",
   "milestone.archiveConfirm.body": "„{name}“ hat noch {remaining, plural, one {# offene Aufgabe} other {# offene Aufgaben}}. Nach dem Archivieren erscheint der Meilenstein nicht mehr in der Standardliste — die offenen Aufgaben bleiben offen.",
   "milestone.archiveConfirm.confirm": "Trotzdem archivieren",
+  "securityScan.huntOverCap": "Dieser PR ändert {total} Quelldateien; die Exploit-Pfad-Prüfung umfasst höchstens {checked}, daher wurden die riskantesten {checked} geprüft und die übrigen {skipped} nicht. Um sie abzudecken, grenzen Sie den Prüfumfang ein oder teilen Sie den PR auf.",
   "securityScan.huntProgress": "{covered}/{total} Quelldateien",
   "securityScan.section.title": "Sicherheitsscan",
   "securityScan.section.empty": "Noch keine Sicherheitsscans – bei jedem Push auf einen verknüpften Pull Request wird gescannt.",

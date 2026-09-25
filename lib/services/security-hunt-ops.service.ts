@@ -21,16 +21,13 @@
  * through `security-hunt-start`, the sandbox through the integration module.
  */
 import { logger } from '@/lib/logger'
-import type { PartialCause } from '@/shared/src/security-scan'
 import {
   prSecurityScanRepository,
   type StalePendingHunt,
 } from '@/lib/repositories/pr-security-scan.repository'
 import { stopRepoSandboxesByTag } from '@/lib/integrations/vercel-sandbox'
 import {
-  HUNT_CEILING_ALERT_TAG,
   HUNT_MAX_ATTEMPTS,
-  HUNT_RETRY_MAX_DELAY_MS,
   HUNT_SANDBOX_TAG,
   type HuntJob,
 } from './security-hunt.config'
@@ -44,11 +41,7 @@ import { securityPrReviewService } from './security-pr-review.service'
  * under that (cap × batch window + one retry). Five minutes past the VM's
  * hard stop, a PENDING hunt cannot still be making progress.
  */
-// LUM-832: a retry may wait out its backoff before it starts, while the
-// layer is already PENDING at the claimed attempt — that wait is added, so a
-// sleeping retry is never mistaken for a dead one.
-export const HUNT_PENDING_DEAD_MS =
-  SANDBOX_TIMEOUT_WITH_HUNT_MS + HUNT_RETRY_MAX_DELAY_MS + 5 * 60 * 1000
+export const HUNT_PENDING_DEAD_MS = SANDBOX_TIMEOUT_WITH_HUNT_MS + 5 * 60 * 1000
 /** Stage A's start plus the one retry (LUM-832: shared with the in-run re-queue). */
 export { HUNT_MAX_ATTEMPTS }
 /** Rows one tick handles; a retry costs a run, a failure a GitHub sync. */
@@ -56,7 +49,7 @@ export const HUNT_SWEEP_BATCH_LIMIT = 25
 
 const DEAD_MINUTES = Math.round(HUNT_PENDING_DEAD_MS / 60_000)
 export const HUNT_STALE_REASONS = {
-  afterRetry: `hunt did not report within ${DEAD_MINUTES} min, again after ${HUNT_MAX_ATTEMPTS} tries`,
+  afterRetry: `hunt did not report within ${DEAD_MINUTES} min, again after one retry`,
   noJob: `hunt did not report within ${DEAD_MINUTES} min (no stored job to retry)`,
   superseded: `hunt did not report within ${DEAD_MINUTES} min; not retried — the PR has a newer head`,
   retryNotStarted: `hunt did not report within ${DEAD_MINUTES} min, and the retry could not be started`,
@@ -111,14 +104,12 @@ async function fail(
   row: StalePendingHunt,
   atAttempt: number,
   reason: string,
-  counts: HuntSweepCounts,
-  causes: PartialCause[] = []
+  counts: HuntSweepCounts
 ): Promise<void> {
   const stamped = await prSecurityScanRepository.failStaleHunt(
     row.id,
     atAttempt,
-    reason,
-    causes
+    reason
   )
   // A result landed between the read and the stamp: it wins, nothing to do.
   if (!stamped) return
@@ -183,16 +174,8 @@ async function sweepOne(
   // LUM-832: a batched job counts tries per batch; everything else counts
   // the row's attempts, as before.
   const tries = job?.tries !== undefined ? job.tries : row.huntAttempts
-  if (tries >= HUNT_MAX_ATTEMPTS) {
-    // LUM-832: the retry ceiling is a safety net, never a routine outcome —
-    // reaching it is an outage or a bug of ours, so it is an alert.
-    logger.error(
-      `${HUNT_CEILING_ALERT_TAG} retry ceiling scan=${row.id} tries=${tries}: hunt never reported`
-    )
-    return fail(row, row.huntAttempts, HUNT_STALE_REASONS.afterRetry, counts, [
-      'HUNT_CEILING',
-    ])
-  }
+  if (tries >= HUNT_MAX_ATTEMPTS)
+    return fail(row, row.huntAttempts, HUNT_STALE_REASONS.afterRetry, counts)
   if (!job) return fail(row, row.huntAttempts, HUNT_STALE_REASONS.noJob, counts)
   if (
     await prSecurityScanRepository.hasNewerScan(

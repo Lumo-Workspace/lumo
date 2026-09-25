@@ -74,10 +74,14 @@ import { securityPrReviewService } from './security-pr-review.service'
 import { waitUntil } from '@vercel/functions'
 import {
   huntBatchProgress,
+  huntOverCap,
+  huntSkippedByCap,
   planHuntBatches,
   type HuntBatchProgress,
+  type HuntOverCap,
 } from '@/lib/security-scan/hunt/batches'
 import {
+  isUnfinishedOnlyByCap,
   scanCoverageState,
   type PartialCause,
   type ScanCoverageState,
@@ -174,6 +178,18 @@ export interface SecurityScanView {
    * covered so far of the total. null for an un-batched hunt.
    */
   huntProgress: HuntBatchProgress | null
+  /**
+   * LUM-832 — the diff touched more source files than the hunt covers: how
+   * many were checked and how many were not (CodeRabbit-style notice). null
+   * when nothing was left out or the hunt is still running.
+   */
+  huntOverCap: HuntOverCap | null
+  /**
+   * LUM-832 — unfinished for a reason of OURS (a fault, a budget shortfall),
+   * which gets the owned line. False when the file cap is the only gap: that
+   * is a stated scope limit, told by the over-cap notice alone.
+   */
+  ownedUnfinished: boolean
   /** stages.external is PENDING and the scan started more than 30 min ago — the scanner has not reported. */
   externalLate: boolean
   error: string | null
@@ -297,6 +313,18 @@ function isViewComplete(s: ScanWithFindings): boolean {
   return coverageOf(s) === 'CHECKED'
 }
 
+/** LUM-832 — unfinished for a reason of ours, not only the file cap. */
+function isOwnedUnfinished(s: ScanWithFindings): boolean {
+  if (coverageOf(s) !== 'UNFINISHED') return false
+  const stages = stagesOf(s)
+  if (huntOverCap(s.huntJob, stages.hunt) === null) return true
+  return !isUnfinishedOnlyByCap({
+    status: s.status,
+    stages,
+    partialCauses: s.partialCauses ?? [],
+  })
+}
+
 /** LUM-832 — the shared customer state, over the row's derived stages. */
 function coverageOf(s: ScanWithFindings): ScanCoverageState {
   return scanCoverageState({
@@ -328,6 +356,8 @@ function toScanView(
     complete: isViewComplete(s),
     coverage: coverageOf(s),
     huntProgress: huntBatchProgress(s.huntJob, stages.hunt),
+    huntOverCap: huntOverCap(s.huntJob, stages.hunt),
+    ownedUnfinished: isOwnedUnfinished(s),
     externalLate:
       stages.external === 'PENDING' &&
       Date.now() - s.startedAt.getTime() > EXTERNAL_PENDING_LATE_MS,
@@ -877,8 +907,10 @@ export const prSecurityScanService = {
           managedScanStarted: managedRunStarted,
         }
         // LUM-832: an oversized diff is hunted in risk-ordered batches across
-        // runs. The plan rides on the job from the first run, so the covered
-        // share is readable (0 of N) the moment the hunt starts.
+        // runs, up to HUNT_MAX_HUNTED_FILES (like CodeRabbit's file limit).
+        // The plan rides on the job from the first run, so the covered share
+        // is readable (0 of N) the moment the hunt starts; what the cap leaves
+        // out is counted so the customer can be told.
         const huntBatches = planHuntBatches(
           touchedSourcePaths,
           huntTrigger.sites
@@ -886,6 +918,8 @@ export const prSecurityScanService = {
         if (huntBatches) {
           huntJob.batches = huntBatches
           huntJob.batchIndex = 0
+          const skipped = huntSkippedByCap(touchedSourcePaths)
+          if (skipped > 0) huntJob.skippedSourceFiles = skipped
         }
         const runId = await startSecurityHunt(huntJob)
         if (runId) {

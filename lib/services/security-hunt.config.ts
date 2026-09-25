@@ -100,17 +100,11 @@ export interface HuntJob {
   /** LUM-832 — the layer's state over the batches already run (`mergeBatchStage`). */
   carriedStage?: 'RAN' | 'PARTIAL' | 'SKIPPED'
   /**
-   * LUM-832 — a continuation of the SAME batch: the tasks the previous run's
-   * budget cut short, hunted again with a fresh budget and no re-planning.
-   * Present = this run IS that one continuation, so a task short again here
-   * is final (`HUNT_BUDGET_SHORT`), never continued a second time.
+   * LUM-832 — touched source files past HUNT_MAX_HUNTED_FILES that are NOT
+   * hunted (the least risky). Stage A sets it with the batch plan; the last
+   * batch records HUNT_OVERSIZED when it is > 0.
    */
-  resumeTasks?: HuntTask[]
-  /**
-   * LUM-832 — which budget continuation of this batch this run is (1 = the
-   * first). Absent = not a continuation. Bounded by HUNT_MAX_CONTINUATIONS.
-   */
-  resumeRound?: number
+  skippedSourceFiles?: number
 }
 
 /**
@@ -310,6 +304,13 @@ export const HUNT_TASK_CAP_TIERS: ReadonlyArray<{
  * 标出来，比再加预算诚实。
  */
 export const HUNT_OVERSIZED_SOURCE_FILES = 40
+/**
+ * LUM-832 — the most source files one scan's hunt covers, across its batches
+ * (≤ 4 runs of HUNT_OVERSIZED_SOURCE_FILES). Past it, the riskiest files are
+ * hunted and the rest are not, and the customer is told so — the same shape
+ * as CodeRabbit's file limit (150 on Pro). A cost decision, set at parity.
+ */
+export const HUNT_MAX_HUNTED_FILES = 150
 /**
  * Per-task token ceiling. Two constraints define this number, and
  * `__tests__/security-scan/hunt/budget-arithmetic.test.ts` pins both:
@@ -694,15 +695,14 @@ export const HUNT_ANSWERABLE_STOPS: readonly HuntCategoryStop[] = [
  */
 /**
  * LUM-832 — WHY a task that did not terminate fell short, because the two
- * reasons want opposite remedies:
+ * reasons want different remedies:
  *
  *   - `infra` — something of ours broke (a timeout, a batch that threw, a
  *     wrap-up that errored, a provider that ignored the forced call). It is
- *     random, so the same run again is likely to succeed: retry it.
+ *     random, so the same run again is likely to succeed: retry it once.
  *   - `budget` — the budget WE set ran out (the task's turn never came, or its
  *     wrap-up had no tokens / time left). The same run again hits the same
- *     wall: retrying buys cost, not certainty. Continue the task instead, with
- *     a fresh budget of its own.
+ *     wall: it is not retried, and the layer ends unfinished (HUNT_BUDGET_SHORT).
  *
  * An answerable stop with no wrap-up facts at all (a result replayed from
  * before LUM-831) says nothing about why — it is counted as `infra`, the
@@ -878,7 +878,7 @@ export interface HuntAudit {
    * says "no planning was attempted" without colliding with "written before
    * this field existed".
    */
-  plannedBy?: 'model' | 'fallback' | 'not-attempted' | 'resumed'
+  plannedBy?: 'model' | 'fallback' | 'not-attempted'
   /**
    * LUM-764 — 规划步是否读到并带上了任务上下文（验收标准 / traps / open
    * crossings / 返工记录）。`false` 的扫描是「这个 PR 没关联任务」，与
@@ -1335,42 +1335,11 @@ export interface PersistHuntInput {
 }
 
 /**
- * LUM-832 — how many tries one batch of a hunt gets when OUR infrastructure
- * fails it (counted in `HuntJob.tries`, per batch). A SAFETY CEILING, not a
- * routine cap: a sandbox or gateway outage is not a fault in the customer's
- * code, so a scan keeps retrying through it (with backoff, see
- * `huntRetryDelayMs`) instead of concluding after one retry. Reaching it is a
- * bug or a sustained outage on our side: it records HUNT_CEILING and logs a
- * tagged error. Here (not in the ops service) so the deterministic workflow
- * body can decide without loading the sandbox module.
+ * LUM-822 / LUM-832 — stage A's start plus one retry. Here (not in the ops
+ * service) so the deterministic workflow body can decide whether an attempt
+ * that ended on our fault may re-queue, without loading the sandbox module.
  */
-export const HUNT_MAX_ATTEMPTS = 5
-
-/**
- * LUM-832 — the wait before try `tries` of a batch starts: nothing for the
- * first, then 30 s, 2 min, 5 min, 10 min. A transient fault clears in
- * seconds; an outage needs minutes, and hammering it helps nobody.
- */
-const HUNT_RETRY_DELAYS_MS = [0, 0, 30_000, 120_000, 300_000, 600_000]
-export const HUNT_RETRY_MAX_DELAY_MS =
-  HUNT_RETRY_DELAYS_MS[HUNT_RETRY_DELAYS_MS.length - 1]!
-
-export function huntRetryDelayMs(tries: number): number {
-  if (!Number.isFinite(tries) || tries <= 1) return 0
-  return HUNT_RETRY_DELAYS_MS[Math.min(tries, HUNT_RETRY_DELAYS_MS.length - 1)]!
-}
-
-/**
- * LUM-832 — how many budget continuations one batch may chain. Continuing is
- * decided by PROGRESS (a continuation that neither terminated a task nor
- * submitted a candidate ends it); this only stops a task that keeps
- * "progressing" forever — a loop of ours. Reaching it records HUNT_CEILING
- * and logs a tagged error, like the retry ceiling.
- */
-export const HUNT_MAX_CONTINUATIONS = 10
-
-/** LUM-832 — the tag every ceiling alert is logged under (search it in the log drain). */
-export const HUNT_CEILING_ALERT_TAG = '[security-hunt-alert]'
+export const HUNT_MAX_ATTEMPTS = 2
 
 export type HuntResult =
   | {

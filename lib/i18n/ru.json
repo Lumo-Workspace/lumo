@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "Архивировать незавершённую веху?",
   "milestone.archiveConfirm.body": "В «{name}» ещё {remaining, plural, one {# незакрытая задача} few {# незакрытые задачи} many {# незакрытых задач} other {# незакрытых задачи}}. После архивации веха исчезнет из списка по умолчанию, но незакрытые задачи останутся открытыми.",
   "milestone.archiveConfirm.confirm": "Всё равно архивировать",
+  "securityScan.huntOverCap": "Этот PR затрагивает {total} исходных файлов; проверка путей эксплуатации охватывает не более {checked}, поэтому проверены {checked} самых рискованных, а остальные {skipped} — нет. Чтобы охватить их, сузьте область проверки или разделите PR.",
   "securityScan.huntProgress": "{covered}/{total} исходных файлов",
   "securityScan.section.title": "Проверка безопасности",
   "securityScan.section.empty": "Проверок пока нет — проверка запускается при каждом push в привязанный pull request.",

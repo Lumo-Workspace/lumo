@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "¿Archivar un hito sin terminar?",
   "milestone.archiveConfirm.body": "“{name}” todavía tiene {remaining, plural, one {# tarea sin terminar} other {# tareas sin terminar}}. Al archivarlo, deja de aparecer en la lista predeterminada; las tareas sin terminar siguen abiertas.",
   "milestone.archiveConfirm.confirm": "Archivar de todos modos",
+  "securityScan.huntOverCap": "Este PR modifica {total} archivos fuente; las comprobaciones de rutas de explotación cubren hasta {checked}, así que se revisaron los {checked} de mayor riesgo y los otros {skipped} no. Para cubrirlos, reduce el alcance de la revisión o divide el PR.",
   "securityScan.huntProgress": "{covered}/{total} archivos fuente",
   "securityScan.section.title": "Análisis de seguridad",
   "securityScan.section.empty": "Aún no hay análisis de seguridad: se ejecuta uno con cada push a un pull request vinculado.",

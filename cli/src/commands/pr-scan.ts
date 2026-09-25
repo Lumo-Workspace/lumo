@@ -4,6 +4,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { printRedactionNotice } from '../lib/redaction-notice'
 import {
   formatHuntCoverageLine,
+  formatHuntOverCapLine,
   formatScanLayerTail,
   formatJudgeBudgetLine,
   type JudgeBudgetLine,
@@ -106,6 +107,10 @@ export interface PrScanEntry {
   truncated: boolean
   stages: Partial<Record<string, string>>
   partial: boolean
+  /** LUM-832 — absent on an older server. */
+  partialCauses?: string[]
+  /** LUM-832 — the file cap left files out; absent on an older server. */
+  huntOverCap?: { checkedFiles: number; skippedFiles: number } | null
   externalFailureReason: string | null
   startedAt: string
   finishedAt: string | null
@@ -245,6 +250,8 @@ function formatScan(s: PrScanEntry, full: boolean): string[] {
     status: s.status,
     stages: s.stages,
     partial: s.partial,
+    partialCauses: s.partialCauses,
+    huntOverCap: s.huntOverCap,
     externalFindings: s.counts.externalFindings,
     dependencyFindings: s.counts.dependencyFindings,
     persistingFindings: s.counts.persisting,
@@ -253,6 +260,9 @@ function formatScan(s: PrScanEntry, full: boolean): string[] {
   })
   // The tail starts with ` · `; on its own line the leading separator goes.
   if (tail) lines.push(`  ${tail.replace(/^ · /, '')}`)
+  // LUM-832: the file cap, stated like CodeRabbit states its own.
+  const overCap = formatHuntOverCapLine(s)
+  if (overCap) lines.push(`  ${overCap}`)
   // LUM-814: the judge's budget arithmetic, one line under the layer it
   // belongs to and before the hunt's own detail — stage order, same as the
   // segments above. Printed whenever the layer exists, including when it was

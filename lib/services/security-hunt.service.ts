@@ -83,7 +83,6 @@ import {
   HUNT_SNIPPET_RADIUS,
   HUNT_AUDIT_MAX_REJECTED,
   PLAN_HUNT_MAX_ATTEMPTS,
-  HUNT_CEILING_ALERT_TAG,
   PLAN_HUNT_TIMEOUT_MS,
   type HuntJob,
   type HuntTask,
@@ -975,14 +974,6 @@ export const securityHuntService = {
           : {}),
       }
     )
-    // LUM-832: a safety ceiling reached is never routine — an outage or a
-    // loop of ours. The workflow body cannot log (it is deterministic), so
-    // the alert is raised here, where the cause lands.
-    if (input.partialCauses.includes('HUNT_CEILING')) {
-      logger.error(
-        `${HUNT_CEILING_ALERT_TAG} ceiling reached scan=${input.job.scanId} pr=${input.job.repo}#${input.job.prNumber} tries=${input.job.tries ?? input.job.attempt ?? 1} round=${input.job.resumeRound ?? 0} causes=${input.partialCauses.join(',')}`
-      )
-    }
     // LUM-762: the completion rate of this layer is the thing being watched,
     // so every run states its per-category outcome once, where a deploy log
     // keeps it. `lumo task status` reads the same audit off the row.

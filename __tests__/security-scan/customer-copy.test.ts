@@ -23,6 +23,7 @@ import { buildSummary } from '@/lib/services/security-pr-review.service'
 import {
   SCAN_STAGE_STATE_LABELS,
   SCAN_UNFINISHED_NOTE,
+  formatHuntOverCap,
 } from '@/shared/src/security-scan'
 import { formatScanLayerTail } from '@/cli/src/lib/scan-format'
 import type { ScanStages } from '@/lib/security-scan/types'
@@ -33,6 +34,7 @@ const I18N = path.join(ROOT, 'lib/i18n')
 /** Asks the reader to act. */
 const ASKS_CUSTOMER =
   /\b(push|split|break (it )?up|smaller|re-?run|retry|try again|check your|reduce|shrink|please)\b/i
+const ASKS_CUSTOMER_G = new RegExp(ASKS_CUSTOMER.source, 'gi')
 /** Blames the input for our own budget. */
 const BLAMES_INPUT =
   /\b(budget|capped|cap|cut off|truncat\w*|oversized|large changes?|too (big|large))\b/i
@@ -162,6 +164,50 @@ describe('customer scan copy asks nothing of the customer', () => {
     })
     expect(line).not.toMatch(ASKS_CUSTOMER)
     expect(line).not.toMatch(BLAMES_INPUT)
+  })
+
+  it('only the over-cap notice asks anything, like CodeRabbit, and only when the cap is what left files out', () => {
+    // User ruling (LUM-832): parity with CodeRabbit — a file limit, stated
+    // with the way to get the rest covered. Nothing else may ask.
+    const en = locale('en')
+    expect(en['securityScan.huntOverCap']).toMatch(ASKS_CUSTOMER)
+    const overCap = { checkedFiles: 150, skippedFiles: 50 }
+    expect(formatHuntOverCap(overCap)).toMatch(
+      /narrow the review scope or split the PR/
+    )
+    const capOnly = buildSummary({
+      ...SUMMARY_BASE,
+      status: 'CLEAN',
+      stages: { secrets: 'RAN', judge: 'RAN', hunt: 'PARTIAL' },
+      partial: true,
+      partialCauses: ['HUNT_OVERSIZED'],
+      huntOverCap: overCap,
+    })
+    expect(capOnly).toContain(formatHuntOverCap(overCap))
+    expect(capOnly.match(ASKS_CUSTOMER_G) ?? []).toHaveLength(
+      formatHuntOverCap(overCap).match(ASKS_CUSTOMER_G)!.length
+    )
+    // A stated scope limit is not dressed up as our failure…
+    expect(capOnly).not.toContain(SCAN_UNFINISHED_NOTE)
+    // …but a fault of ours on top of it is still owned.
+    const capAndFault = buildSummary({
+      ...SUMMARY_BASE,
+      status: 'CLEAN',
+      stages: { secrets: 'RAN', judge: 'RAN', hunt: 'PARTIAL' },
+      partial: true,
+      partialCauses: ['HUNT_OVERSIZED', 'HUNT_INCOMPLETE'],
+      huntOverCap: overCap,
+    })
+    expect(capAndFault).toContain(SCAN_UNFINISHED_NOTE)
+    // Our own shortfalls never ask, cap or not.
+    const shortfall = buildSummary({
+      ...SUMMARY_BASE,
+      status: 'CLEAN',
+      stages: { secrets: 'RAN', judge: 'RAN', hunt: 'PARTIAL' },
+      partial: true,
+      partialCauses: ['HUNT_BUDGET_SHORT'],
+    })
+    expect(shortfall).not.toMatch(ASKS_CUSTOMER)
   })
 
   it('lumo pr scan no longer prints the input-blaming phrases', () => {

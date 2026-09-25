@@ -1684,6 +1684,7 @@
   "securityScan.finding.queueExit.PR_CLOSED": "PR closed without merging",
   "securityScan.finding.queueExit.RESOLVED_ON_MAIN": "no longer on the default branch",
   "securityScan.fixed": "{count, plural, one {# finding fixed since the previous scan} other {# findings fixed since the previous scan}}",
+  "securityScan.huntOverCap": "This PR touches {total} source files; exploit-path checks cover up to {checked}, so the riskiest {checked} were checked and the other {skipped} were not. To cover them, narrow the review scope or split the PR.",
   "securityScan.huntProgress": "{covered}/{total} source files",
   "securityScan.kind.DEPENDENCY": "Dependency",
   "securityScan.kind.SECRET": "Secret",

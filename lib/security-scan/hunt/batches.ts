@@ -17,6 +17,7 @@
  * Pure: no I/O, safe inside the deterministic workflow body.
  */
 import {
+  HUNT_MAX_HUNTED_FILES,
   HUNT_OVERSIZED_SOURCE_FILES,
   type HuntJob,
 } from '@/lib/services/security-hunt.config'
@@ -31,14 +32,17 @@ function siteWeight(rule: string): number {
 }
 
 /**
- * The files ordered riskiest first and cut into batches of `size`, or null
- * when one run covers the whole diff (the ordinary, un-batched hunt). Ties
- * break on the path, so the plan never depends on input order.
+ * The files ordered riskiest first, capped at `cap` (LUM-832: like
+ * CodeRabbit's file limit — the least risky past it are not hunted) and cut
+ * into batches of `size`; or null when one run covers the whole diff (the
+ * ordinary, un-batched hunt). Ties break on the path, so the plan never
+ * depends on input order.
  */
 export function planHuntBatches(
   paths: ReadonlyArray<string>,
   sites: ReadonlyArray<HuntSignalSite>,
-  size: number = HUNT_OVERSIZED_SOURCE_FILES
+  size: number = HUNT_OVERSIZED_SOURCE_FILES,
+  cap: number = HUNT_MAX_HUNTED_FILES
 ): string[][] | null {
   const files = [...new Set(paths)]
   if (files.length <= size) return null
@@ -50,11 +54,49 @@ export function planHuntBatches(
     (a, b) =>
       (score.get(b) ?? 0) - (score.get(a) ?? 0) || (a < b ? -1 : a > b ? 1 : 0)
   )
+  const hunted = files.slice(0, cap)
   const batches: string[][] = []
-  for (let i = 0; i < files.length; i += size) {
-    batches.push(files.slice(i, i + size))
+  for (let i = 0; i < hunted.length; i += size) {
+    batches.push(hunted.slice(i, i + size))
   }
   return batches
+}
+
+/** LUM-832 — how many touched source files the cap leaves un-hunted. */
+export function huntSkippedByCap(
+  paths: ReadonlyArray<string>,
+  cap: number = HUNT_MAX_HUNTED_FILES
+): number {
+  return Math.max(0, new Set(paths).size - cap)
+}
+
+export interface HuntOverCap {
+  checkedFiles: number
+  skippedFiles: number
+}
+
+/**
+ * LUM-832 — for a diff past the cap, how many files the hunt checked and how
+ * many it did not, read off the stored `huntJob`. null when nothing was left
+ * out, and while the layer is still running (the notice speaks of what was
+ * checked, so it waits for the last batch).
+ */
+export function huntOverCap(
+  huntJob: unknown,
+  huntStage: string | undefined
+): HuntOverCap | null {
+  if (!huntJob || typeof huntJob !== 'object') return null
+  if (huntStage === 'PENDING' || huntStage === undefined) return null
+  const { batches, skippedSourceFiles } = huntJob as {
+    batches?: unknown
+    skippedSourceFiles?: unknown
+  }
+  if (typeof skippedSourceFiles !== 'number' || skippedSourceFiles <= 0)
+    return null
+  const checkedFiles = Array.isArray(batches)
+    ? batches.reduce((n: number, b) => n + (Array.isArray(b) ? b.length : 0), 0)
+    : 0
+  return { checkedFiles, skippedFiles: skippedSourceFiles }
 }
 
 /**

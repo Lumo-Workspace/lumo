@@ -109,8 +109,14 @@ it, so a near miss is visible on a `budget` or `steps` row too. A diff with more
 source files than one run is sized for (`HUNT_OVERSIZED_SOURCE_FILES`, a cost
 decision) is hunted in **batches** across runs (LUM-832): riskiest files
 first, one run per batch, each batch's findings landing while the layer stays
-`scanning`, until every touched source file has been in a batch. The per-run
-`diff` line then describes that run's batch. `this run was sized for fewer
+`scanning`, up to **150 source files** (`HUNT_MAX_HUNTED_FILES`, CodeRabbit's
+Pro file limit). Past the cap the least risky files are not hunted, the layer
+ends `⚠ partly checked` (cause `HUNT_OVERSIZED`), and the scan prints the
+over-cap notice under the layer line — `This PR touches N source files;
+exploit-path checks cover up to 150, so the riskiest 150 were checked and the
+other M were not. To cover them, narrow the review scope or split the PR.` —
+the one line that asks something of the customer, in CodeRabbit's shape. The
+per-run `diff` line then describes that run's batch. `this run was sized for fewer
 files than the diff — the rest is still on us` (formerly `oversized`) is kept
 for rows hunted before batching, whose layer reads PARTIAL.
 
@@ -122,19 +128,14 @@ how the search ended, `terminated` is whether an answer came back. A timeout, a
 sandbox failure, a wrap-up that never ran or that errored, and a skipped task
 all stay partial: PARTIAL means "could not confirm this is clean".
 
-LUM-832 sorts a task that did not terminate by **why**. Our infrastructure
-(timeout, sandbox, gateway, a wrap-up that errored or that the provider
-degraded) → the run is retried, with backoff (0 s, 30 s, 2 min, 5 min,
-10 min), each batch with its own tries. Our budget (the task's turn never came
-— `skipped` — or its wrap-up was skipped for `no-budget` / `no-time`) → the
-task is **continued** in a run of its own with a fresh budget (`planned by
-resumed`), what already landed is kept, and again for as long as each
-continuation makes progress (terminates a task or submits a candidate). Only a
-continuation with no progress leaves the layer PARTIAL with cause
-`HUNT_BUDGET_SHORT` (coverage owed, not a fault). Both paths have a **safety
-ceiling** (`HUNT_MAX_ATTEMPTS` tries, `HUNT_MAX_CONTINUATIONS` rounds) that is
-never the routine stop: reaching one records `HUNT_CEILING` (our fault) and
-logs a `[security-hunt-alert]` error.
+LUM-832 records WHY such a task fell short. Our infrastructure (timeout,
+sandbox, gateway, a wrap-up that errored or that the provider degraded) →
+`HUNT_INCOMPLETE`, and the batch is retried once (each batch has its own
+retry). Our budget (the task's turn never came — `skipped` — or its wrap-up
+was skipped for `no-budget` / `no-time`) → `HUNT_BUDGET_SHORT`: not retried
+(the same budget would hit the same wall), the layer ends PARTIAL at once and
+what the finished tasks found is kept. Both read as unfinished on our side,
+and neither asks the customer for anything.
 
 `placed by …` (LUM-798) breaks the same candidates down on **two axes**, and
 the distinction matters:

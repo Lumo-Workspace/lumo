@@ -6,7 +6,11 @@ import {
   externalFailureReason,
   secretDowngradeNote,
 } from '../../../shared/src/security-scan'
-import { formatHuntCoverageLine, formatScanLayerTail } from '../lib/scan-format'
+import {
+  formatHuntCoverageLine,
+  formatHuntOverCapLine,
+  formatScanLayerTail,
+} from '../lib/scan-format'
 import {
   fetchOpenCrossings,
   dispositionUrl,
@@ -317,6 +321,10 @@ export interface TaskStatusResponse {
       queueExits?: Partial<Record<string, number>>
       /** LUM-832 — a batched hunt's covered source files; absent on an older server. */
       huntProgress?: { coveredFiles: number; totalFiles: number } | null
+      /** LUM-832 — absent on an older server. */
+      partialCauses?: string[]
+      /** LUM-832 — the file cap left files out; absent on an older server. */
+      huntOverCap?: { checkedFiles: number; skippedFiles: number } | null
       /** LUM-762 — per-task L3 hunt coverage read off `huntAudit`.
        *  Absent on an older server, null when the scan stored no usable
        *  audit (a pre-LUM-739 row, or a hunt that failed before its first
@@ -582,6 +590,8 @@ function formatScanSummaryLine(s: ScanSummary): string {
       status: s.status,
       stages: s.stages,
       huntProgress: s.huntProgress,
+      partialCauses: s.partialCauses,
+      huntOverCap: s.huntOverCap,
       partial: s.partial,
       externalFindings: s.externalFindings,
       dependencyFindings: s.dependencyFindings,
@@ -604,6 +614,9 @@ function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
   // LUM-735: absent `scans` = older server; tolerate silently, no block.
   for (const s of data.securityFindings.scans ?? []) {
     lines.push(formatScanSummaryLine(s))
+    // LUM-832: the file cap, stated like CodeRabbit states its own.
+    const overCap = formatHuntOverCapLine(s)
+    if (overCap) lines.push(`    ${overCap}`)
     // LUM-762: absent/null = older server or no usable audit — stay silent.
     if (s.hunt && s.hunt.categories.length > 0) {
       lines.push(`    ${formatHuntCoverageLine(s.hunt)}`)

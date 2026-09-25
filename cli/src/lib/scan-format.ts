@@ -3,7 +3,9 @@ import {
   formatQueueExits,
   SCAN_STAGE_KEYS,
   SCAN_UNFINISHED_NOTE,
+  formatHuntOverCap,
   formatHuntProgress,
+  isUnfinishedOnlyByCap,
   scanCoverageState,
   scanStageLabel,
   scanStageStateLabel,
@@ -29,6 +31,13 @@ export interface ScanLayerLineInput {
    * paths). Absent on an older server and on an un-batched hunt.
    */
   huntProgress?: { coveredFiles: number; totalFiles: number } | null | undefined
+  /** LUM-832 — the causes; absent on an older server (reads as unattributed). */
+  partialCauses?: string[] | undefined
+  /** LUM-832 — the file cap left files out; absent on an older server. */
+  huntOverCap?:
+    | { checkedFiles: number; skippedFiles: number }
+    | null
+    | undefined
   /** Raw external-tool hits that are not dependencies (decorates Code scan). */
   externalFindings: number
   /** LUM-738 — DEPENDENCY rows (decorates Dependencies). Absent on an older server. */
@@ -89,8 +98,7 @@ export function formatScanLayerTail(s: ScanLayerLineInput): string {
   if (segments.length > 0) line += ` · ${segments.join(' · ')}`
   // LUM-832: one owned note when something did not finish, whatever the
   // cause — never the bare `partial`, which read as a verdict on the PR.
-  if (scanCoverageState(s) === 'UNFINISHED')
-    line += ` · ${SCAN_UNFINISHED_NOTE}`
+  if (isOwnedUnfinished(s)) line += ` · ${SCAN_UNFINISHED_NOTE}`
   // LUM-775: what left the queue because the PR merged / closed, and why —
   // so a merged PR's line explains where its findings went instead of
   // silently listing fewer open rows than the scan found.
@@ -102,6 +110,35 @@ export function formatScanLayerTail(s: ScanLayerLineInput): string {
     line += ` — ${sanitizeField(tail(s.externalFailureReason, EXTERNAL_ERROR_TAIL))}`
   }
   return line
+}
+
+/**
+ * LUM-832 — unfinished for a reason of OURS: gets the owned note. When the
+ * file cap is the only gap the scan gets the over-cap line instead
+ * (`formatHuntOverCapLine`), never both.
+ */
+function isOwnedUnfinished(s: ScanLayerLineInput): boolean {
+  if (scanCoverageState(s) !== 'UNFINISHED') return false
+  if (!s.huntOverCap) return true
+  return !isUnfinishedOnlyByCap({
+    ...(s.status !== undefined ? { status: s.status } : {}),
+    stages: s.stages,
+    partialCauses: s.partialCauses ?? [],
+  })
+}
+
+/**
+ * LUM-832 — the file-cap notice, on its own line under the scan line, in the
+ * same words as the PR summary (CodeRabbit's shape: what was checked, what
+ * was not, how to get the rest). null when nothing was left out.
+ */
+export function formatHuntOverCapLine(s: {
+  huntOverCap?:
+    | { checkedFiles: number; skippedFiles: number }
+    | null
+    | undefined
+}): string | null {
+  return s.huntOverCap ? formatHuntOverCap(s.huntOverCap) : null
 }
 
 /**

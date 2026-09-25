@@ -1,13 +1,13 @@
 /**
  * @jest-environment node
  *
- * LUM-832 — a hunt task can fall short for two reasons that want opposite
- * remedies. Our infrastructure broke (random → run it again). Or the budget
- * WE set ran out (structural → the same run hits the same wall, so a retry
- * buys cost, not certainty). The second is coverage we owe: the short tasks
- * are continued ONCE in a run of their own with a fresh budget, what already
- * landed is kept (and not landed twice), and a task still short after that
- * reads as unfinished on our side.
+ * LUM-832 — a hunt task can fall short for two reasons that want different
+ * remedies. Our infrastructure broke (random → retry the run once). Or the
+ * budget WE set ran out (structural → the same run would hit the same wall).
+ * The second is coverage owed, not a fault: it is not retried with the same
+ * budget, the layer ends unfinished at once (HUNT_BUDGET_SHORT), and what the
+ * finished tasks found is kept. Parity with CodeRabbit, not more (user
+ * ruling): no further continuation.
  */
 jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   buildVerifySubgraphStep: jest.fn(),
@@ -31,13 +31,6 @@ jest.mock('@/lib/workflows/security-suggest.steps', () => ({
 jest.mock('@/lib/workflows/security-pr-review.steps', () => ({
   syncPrReviewStep: jest.fn().mockResolvedValue(undefined),
 }))
-jest.mock('@/lib/db/prisma', () => ({
-  prisma: {
-    $transaction: jest.fn(),
-    prSecurityScan: { findUnique: jest.fn(), update: jest.fn() },
-    prSecurityFinding: { createMany: jest.fn(), findMany: jest.fn() },
-  },
-}))
 
 import { securityHuntWorkflow } from '@/lib/workflows/security-hunt'
 import {
@@ -55,8 +48,6 @@ import {
   type HuntJob,
   type HuntTask,
 } from '@/lib/services/security-hunt.config'
-import { prisma } from '@/lib/db/prisma'
-import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { summarizeScanReliability } from '@/lib/security-scan/reliability'
 import {
   partialCauseClass,
@@ -96,7 +87,7 @@ const T2: HuntTask = {
   category: 'idor',
   startingPoints: ['lib/b.ts'],
 }
-const candidate = (fp: string) => ({
+const candidate = {
   category: 'injection',
   cwe: 'CWE-89',
   severity: 'HIGH',
@@ -106,15 +97,8 @@ const candidate = (fp: string) => ({
   precondition: 'p',
   claim: 'c',
   reachability: 'EXTERNAL',
-  fingerprint: fp,
-})
-const done = (candidates: unknown[] = []) => ({
-  candidates,
-  tokens: 100,
-  elapsedMs: 1000,
-  stopped: 'done',
-})
-/** A task whose search hit its budget and had none left to be asked. */
+  fingerprint: 'fp-1',
+}
 const noBudgetWrapUp = {
   candidates: [],
   tokens: 100,
@@ -140,10 +124,9 @@ beforeEach(() => {
     rejected: [],
   }))
   falsify.mockResolvedValue({ verdict: 'INCONCLUSIVE', reason: 'r', tokens: 5 })
-  cont.mockResolvedValue(true)
 })
 
-describe('budget-short hunt continues its unfinished tasks instead of retrying', () => {
+describe('budget-short hunt ends as coverage owed without a same-budget retry', () => {
   it('sorts a task that fell short by why: our budget, or our infrastructure', () => {
     const cases: Array<
       [string, Parameters<typeof huntShortfall>[0], string | null]
@@ -194,152 +177,72 @@ describe('budget-short hunt continues its unfinished tasks instead of retrying',
     expect(partialCauseClass('HUNT_BUDGET_SHORT')).toBe('COVERAGE_OWED')
   })
 
-  it('a task whose turn the budget never reached is continued, not retried: what landed is kept, the rest runs with a fresh budget', async () => {
+  it('a task whose turn the budget never reached ends the layer PARTIAL at once: no retry, no continuation, findings kept', async () => {
     hunt.mockResolvedValueOnce({
-      ...done([candidate('fp-1')]),
+      candidates: [candidate],
+      tokens: 100,
       elapsedMs: 10_000_000,
+      stopped: 'done',
     })
-    const out = await securityHuntWorkflow(JOB)
-    expect(out).toMatchObject({ outcome: 'CONTINUED' })
-    // Not a fault: the retry path is never asked.
+    await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
+      outcome: 'PARTIAL',
+    })
     expect(requeue).not.toHaveBeenCalled()
-    // t1's finding lands now, with the layer still in progress and no cause.
-    expect(persist).toHaveBeenCalledTimes(1)
-    expect(persist.mock.calls[0]![0]).toMatchObject({
-      stage: 'PENDING',
-      partialCauses: [],
-    })
-    expect(persist.mock.calls[0]![0].findings).toHaveLength(1)
-    // The continuation: t2 only, same job, the fence up, a fresh try budget.
-    const next = cont.mock.calls[0]![0].next as HuntJob
-    expect(next.resumeTasks).toEqual([T2])
-    expect(next.resumeRound).toBe(1)
-    expect(next.attempt).toBe(2)
-    expect(next.tries).toBe(1)
-    expect(next.carriedStage).toBe('RAN')
-    expect(next.managedScanStarted).toBe(false)
-    // …which the customer reads as still scanning.
+    expect(cont).not.toHaveBeenCalled()
+    expect(hunt).toHaveBeenCalledTimes(1)
+    const persisted = persist.mock.calls[0]![0]
+    expect(persisted.stage).toBe('PARTIAL')
+    expect(persisted.partialCauses).toEqual(['HUNT_BUDGET_SHORT'])
+    // What T1 found is not thrown away with T2's shortfall.
+    expect(persisted.findings).toHaveLength(1)
+    // …and the customer reads it as unfinished, never as checked.
     expect(
       scanCoverageState({
         status: 'FINDINGS',
-        stages: { secrets: 'RAN', hunt: 'PENDING' },
-        partial: false,
+        stages: { secrets: 'RAN', hunt: 'PARTIAL' },
+        partial: true,
       })
-    ).toBe('IN_PROGRESS')
+    ).toBe('UNFINISHED')
   })
 
-  it('the continuation hunts only the short tasks, without re-planning, and ends the layer RAN', async () => {
-    hunt.mockResolvedValue(done())
-    const out = await securityHuntWorkflow({
-      ...JOB,
-      attempt: 2,
-      tries: 1,
-      resumeTasks: [T2],
-      carriedStage: 'RAN',
+  it('a task whose wrap-up had no budget left is not retried either', async () => {
+    hunt.mockResolvedValueOnce({ ...noBudgetWrapUp }).mockResolvedValueOnce({
+      candidates: [],
+      tokens: 100,
+      elapsedMs: 1000,
+      stopped: 'done',
     })
-    expect(out).toMatchObject({ outcome: 'RAN' })
-    expect(plan).not.toHaveBeenCalled()
-    expect(hunt).toHaveBeenCalledTimes(1)
-    expect(hunt.mock.calls[0]![0].task).toEqual(T2)
-    expect(persist.mock.calls[0]![0]).toMatchObject({
-      stage: 'RAN',
-      partialCauses: [],
+    await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
+      outcome: 'PARTIAL',
     })
-    expect(persist.mock.calls[0]![0].audit.plannedBy).toBe('resumed')
-    expect(cont).not.toHaveBeenCalled()
-  })
-
-  it('a continuation that made no progress ends it: the layer is PARTIAL with HUNT_BUDGET_SHORT, and no ceiling is involved', async () => {
-    hunt.mockResolvedValue(noBudgetWrapUp)
-    const out = await securityHuntWorkflow({
-      ...JOB,
-      attempt: 2,
-      tries: 1,
-      resumeTasks: [T2],
-      carriedStage: 'RAN',
-    })
-    expect(out).toMatchObject({ outcome: 'PARTIAL' })
-    expect(cont).not.toHaveBeenCalled()
     expect(requeue).not.toHaveBeenCalled()
-    expect(persist.mock.calls[0]![0]).toMatchObject({
-      stage: 'PARTIAL',
-      partialCauses: ['HUNT_BUDGET_SHORT'],
-    })
+    // Pass 2 only re-runs transient stops; a budget stop is not one.
+    expect(hunt).toHaveBeenCalledTimes(2)
+    expect(persist.mock.calls[0]![0].partialCauses).toEqual([
+      'HUNT_BUDGET_SHORT',
+    ])
   })
 
-  it('a continuation that made progress is continued again, however many rounds it takes below the safety ceiling', async () => {
-    // Round 3: T1 finished this time, T2 is still short — progress, so T2 goes on.
+  it('a run that also had an infrastructure fault is retried as a whole — the fault is ours to redo', async () => {
     hunt
-      .mockResolvedValueOnce(done([candidate('fp-3')]))
+      .mockResolvedValueOnce({
+        candidates: [],
+        tokens: 10,
+        elapsedMs: 10,
+        stopped: 'timeout',
+      })
       .mockResolvedValueOnce(noBudgetWrapUp)
-    const out = await securityHuntWorkflow({
-      ...JOB,
-      attempt: 4,
-      tries: 1,
-      resumeTasks: [T1, T2],
-      resumeRound: 3,
-      carriedStage: 'RAN',
-    })
-    expect(out).toMatchObject({ outcome: 'CONTINUED' })
-    expect(persist.mock.calls[0]![0]).toMatchObject({
-      stage: 'PENDING',
-      partialCauses: [],
-    })
-    const next = cont.mock.calls[0]![0].next as HuntJob
-    expect(next.resumeTasks).toEqual([T2])
-    expect(next.resumeRound).toBe(4)
-  })
-
-  it('a run with an infrastructure fault is retried as a whole, budget-short tasks included', async () => {
-    hunt
-      .mockResolvedValueOnce({ ...done(), stopped: 'timeout' })
-      .mockResolvedValueOnce(noBudgetWrapUp)
-      .mockResolvedValueOnce({ ...done(), stopped: 'timeout' })
+      .mockResolvedValueOnce({
+        candidates: [],
+        tokens: 10,
+        elapsedMs: 10,
+        stopped: 'timeout',
+      })
     requeue.mockResolvedValue({ requeued: true, attempt: 2 })
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
       outcome: 'REQUEUED',
     })
-    expect(cont).not.toHaveBeenCalled()
     expect(persist).not.toHaveBeenCalled()
-  })
-
-  it('the continuation’s findings never land twice: fingerprints already on the scan are dropped', async () => {
-    const scan = prisma.prSecurityScan as unknown as {
-      findUnique: jest.Mock
-      update: jest.Mock
-    }
-    const finding = prisma.prSecurityFinding as unknown as {
-      createMany: jest.Mock
-      findMany: jest.Mock
-    }
-    ;(prisma.$transaction as jest.Mock).mockImplementation(
-      async (fn: (tx: unknown) => unknown) =>
-        fn({ prSecurityScan: scan, prSecurityFinding: finding })
-    )
-    scan.findUnique.mockResolvedValue({
-      stages: { hunt: 'PENDING' },
-      partial: false,
-      partialCauses: [],
-      huntAttempts: 2,
-      tokenSpent: 300,
-    })
-    finding.findMany.mockResolvedValue([{ fingerprint: 'fp-1' }])
-    const row = (fingerprint: string) =>
-      ({ scanId: 's1', fingerprint }) as Parameters<
-        typeof prSecurityScanRepository.persistHuntResult
-      >[1][number]
-    await prSecurityScanRepository.persistHuntResult(
-      's1',
-      [row('fp-1'), row('fp-2'), row('fp-2')],
-      {
-        hunt: 'RAN',
-        huntAudit: {},
-        tokenSpent: 50,
-        partialCauses: [],
-        attempt: 2,
-      }
-    )
-    expect(finding.createMany).toHaveBeenCalledWith({ data: [row('fp-2')] })
   })
 
   it('the reliability read-out counts a budget shortfall as coverage owed, never as our fault', () => {
