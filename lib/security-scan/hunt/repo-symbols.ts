@@ -150,6 +150,22 @@ export function sightingKey(ref: SymbolRef): string {
 }
 
 /**
+ * LUM-798 follow-up — the weaker key: this name occurs SOMEWHERE in this
+ * file, line unknown.
+ *
+ * Deliberately available to the ENTRY only. The two halves of a candidate are
+ * not symmetrical: the sink's location is what the finding is ABOUT (the
+ * falsifier is handed a snippet cut around `sink.line`), so a sink keeps the
+ * line-window requirement. An entry only has to BE a real entry point — its
+ * line is context, not the claim — and in production eight candidates whose
+ * sink had already been placed died because the agent had the entry's line,
+ * not its existence, wrong.
+ */
+export function fileSightingKey(file: string, symbol: string): string {
+  return `${file}#${symbolNameOf(symbol)}`
+}
+
+/**
  * The `file:line`s one raw submission claims. `candidates` are unvalidated
  * model output at this point (zod runs inside the gate), so every field is
  * read defensively.
@@ -177,6 +193,53 @@ export function candidateSymbolRefs(raw: unknown): SymbolRef[] {
  * candidate costs no extra I/O at all — the sandbox is already open and the
  * bytes are already in hand.
  */
+/**
+ * LUM-798 follow-up — do the names these refs claim occur anywhere in this
+ * file? Same walk as `sightingsInSource`, no line window. Only the entry side
+ * of the gate consults the result (see `fileSightingKey`).
+ */
+export function fileSightingsInSource(
+  refs: readonly SymbolRef[],
+  path: string,
+  source: string
+): string[] {
+  const mine = refs.filter(r => r.file === path)
+  if (mine.length === 0) return []
+  const out: string[] = []
+  for (const ref of mine) {
+    const matchers = nameTokens(symbolNameOf(ref.symbol)).map(identifierMatcher)
+    if (matchers.length === 0) continue
+    if (matchers.some(m => m.test(source))) {
+      out.push(fileSightingKey(ref.file, ref.symbol))
+    }
+  }
+  return out
+}
+
+/**
+ * LUM-798 follow-up — are these two ids the same symbol written at different
+ * naming levels? This is what `chainConnects` compares with now.
+ *
+ * The first cut of this task loosened SYMBOL PLACEMENT to accept a bare
+ * callee (`fetch`) while leaving the chain check on exact string equality
+ * against `sink.symbol`. A candidate that named its sink bare and wrote the
+ * chain in `<file>#<name>@<line>` form was then structurally disconnected by
+ * construction — 13 of the 40 post-deploy rejections. The wall moved; it did
+ * not come down.
+ *
+ * Two different PATHS remain two different symbols: this equates naming
+ * levels, never distinct locations.
+ */
+export function sameSymbolRef(a: string, b: string): boolean {
+  if (a === b) return true
+  if (symbolNameOf(a) !== symbolNameOf(b)) return false
+  const pathOf = (id: string) =>
+    id.includes('#') ? id.slice(0, id.indexOf('#')) : null
+  const pa = pathOf(a)
+  const pb = pathOf(b)
+  return pa === null || pb === null || pa === pb
+}
+
 export function sightingsInSource(
   refs: readonly SymbolRef[],
   path: string,

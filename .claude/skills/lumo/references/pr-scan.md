@@ -75,7 +75,7 @@ Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished … · 
 ### `--full` — the hunt's per-task detail
 
 ```
-  Hunt: planned by model — two sinks lit · diff 14 source files · 9 sites · task cap 4 · candidates 2 · mechanically rejected 1 · resolved by subgraph 1 · sink rule 0 · sandbox 0 · rejected 1 · falsifier rejects 1
+  Hunt: planned by model — two sinks lit · diff 14 source files · 9 sites · task cap 4 · candidates 2 · mechanically rejected 1 · placed by subgraph 1 · sink rule 0 · sandbox 0 · unplaced 1 · survived 1 · rejected 1 · falsifier rejects 1
     t1 done · alibaba/qwen3-coder-plus · 3 sites · 2 cmds (gate refused 1, sandbox failed 0, not found 0, empty 0)
           rg -n queryRaw lib/  [900 chars]
         ✗ curl https://evil.test   ← segment is not read-only
@@ -109,16 +109,27 @@ it, so a near miss is visible on a `budget` or `steps` row too. `oversized` on t
 diff line means the PR exceeded the hunt's source-file ceiling and the tasks
 covered a corner of it.
 
-`resolved by …` (LUM-798) breaks the same candidates down by what let the
-mechanical gate place each one's sink in the repository: `subgraph` (the id is
-in the verification graph), `sink rule` (the name is one of the system's own
-sink categories — a library callee can never carry a `<file>#<name>` id),
-`sandbox` (the `file:line` the candidate named really carries that
-identifier, which is how a call site is matched to a definition site), and
-`rejected`. The four partition `candidates`, so `rejected / candidates` **is**
-the gate's rejection rate — the number to read when asking whether the layer
-judged anything at all (it was 23/23 before LUM-798). Absent on scans written
-before the gate counted it.
+`placed by …` (LUM-798) breaks the same candidates down on **two axes**, and
+the distinction matters:
+
+- **placement** — `subgraph` (the id is in the verification graph), `sink rule`
+  (the name is one of the system's own sink categories; a library callee can
+  never carry a `<file>#<name>` id), `sandbox` (the `file:line` the candidate
+  named really carries that identifier, which is how a call site is matched to
+  a definition site), and `unplaced`. These four partition `candidates`.
+- **outcome** — `survived` (passed every later check and went to the falsifier)
+  and `rejected`. These two also partition `candidates`.
+
+A candidate can be **placed and then rejected** — by the entry check, the edge
+check or the chain check — so the two axes are not the same measurement.
+`rejected / candidates` is the gate's rejection rate; `unplaced / candidates`
+is how often placement itself is what failed.
+
+A scan from between the two LUM-798 deploys prints `resolved by … (legacy
+tally — placements counted only on acceptance)` instead: its tier numbers
+count only candidates that survived, so they are **not** comparable with a
+`placed by` row's and are never summed with them. Both are absent on scans
+written before the gate counted anything at all.
 
 ### `--json` shape
 
@@ -140,7 +151,8 @@ before the gate counted it.
              hunt: { coverage: { total, done, categories[] } | null, plannedBy, plannedReason,
                      diff: { sourceFiles, sites, taskCap, oversized } | null,
                      candidates, falsifierRejects, mechanicallyRejected, error,
-                     resolution: { subgraph, sinkRule, sandbox, rejected } | null,
+                     resolution: { kind: 'placement', placed: { subgraph, sinkRule, sandbox }, unplaced, accepted, rejected }
+                                 | { kind: 'legacy', subgraph, sinkRule, sandbox, rejected } | null,
                      tasks: [ { taskId, stopped, sites?, model?, shell?, trace?, stop?, wrapUp? } ] } | null } ] }
 ```
 

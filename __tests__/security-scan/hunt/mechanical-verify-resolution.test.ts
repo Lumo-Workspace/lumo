@@ -162,6 +162,7 @@ describe('LUM-798 the mechanical gate places symbols in the repo', () => {
 
     const { accepted, rejected } = mechanicalVerify(g, [c], {
       sightings,
+      fileSightings: [],
       missingFiles: [],
     })
     expect(rejected).toEqual([])
@@ -174,6 +175,7 @@ describe('LUM-798 the mechanical gate places symbols in the repo', () => {
     expect(sightingsFor(wrongLine, REPO_FILE, REPO_SOURCE)).toEqual([])
     const second = mechanicalVerify(g, [wrongLine], {
       sightings: [],
+      fileSightings: [],
       missingFiles: [],
     })
     expect(second.accepted).toEqual([])
@@ -260,7 +262,7 @@ describe('LUM-798 the mechanical gate places symbols in the repo', () => {
         base(),
         base(),
       ],
-      { sightings: [], missingFiles: ['lib/imaginary.ts'] }
+      { sightings: [], fileSightings: [], missingFiles: ['lib/imaginary.ts'] }
     )
 
     expect(accepted).toHaveLength(1)
@@ -280,8 +282,10 @@ describe('LUM-798 the mechanical gate places symbols in the repo', () => {
     expect(rejected[0]).toMatchObject({
       category: 'injection',
       entry: `${ROUTE}#PATCH`,
-      file: SERVICE,
-      line: 5,
+      sinkFile: SERVICE,
+      sinkLine: 5,
+      entryFile: ROUTE,
+      entryLine: 3,
     })
   })
 
@@ -296,23 +300,25 @@ describe('LUM-798 the mechanical gate places symbols in the repo', () => {
     ]
     const { accepted, rejected, resolution } = mechanicalVerify(g, raw, {
       sightings: sightingsFor(callSite, REPO_FILE, REPO_SOURCE),
+      fileSightings: [],
       missingFiles: [],
     })
 
     expect(resolution).toEqual({
-      subgraph: 1,
-      sinkRule: 1,
-      sandbox: 1,
+      placed: { subgraph: 1, sinkRule: 1, sandbox: 1 },
+      unplaced: 2,
+      accepted: 3,
       rejected: 2,
     })
-    // The four counters partition the submissions, which is what makes
-    // `rejected / candidates` the gate's rejection rate.
-    const total =
-      resolution.subgraph +
-      resolution.sinkRule +
-      resolution.sandbox +
-      resolution.rejected
-    expect(total).toBe(raw.length)
+    // Two partitions of the same submissions — placement and outcome. The
+    // first version had only one, and it answered neither question (see
+    // mechanical-verify-followup.test.ts).
+    const placedTotal =
+      resolution.placed.subgraph +
+      resolution.placed.sinkRule +
+      resolution.placed.sandbox
+    expect(placedTotal + resolution.unplaced).toBe(raw.length)
+    expect(resolution.accepted + resolution.rejected).toBe(raw.length)
     expect(accepted).toHaveLength(3)
     expect(rejected).toHaveLength(2)
 
@@ -350,7 +356,7 @@ describe('LUM-798 the mechanical gate places symbols in the repo', () => {
         candidates: raw.length,
         falsifierRejects: 0,
         mechanicallyRejected: rejected.length,
-        resolution,
+        resolution: { kind: 'placement' as const, ...resolution },
         error: null,
         tasks: [],
       },
@@ -374,7 +380,8 @@ describe('LUM-798 the mechanical gate places symbols in the repo', () => {
       { full: true }
     )
     expect(printed).toContain(
-      'resolved by subgraph 1 · sink rule 1 · sandbox 1 · rejected 2'
+      'placed by subgraph 1 · sink rule 1 · sandbox 1 · unplaced 2'
     )
+    expect(printed).toContain('survived 3 · rejected 2')
   })
 })

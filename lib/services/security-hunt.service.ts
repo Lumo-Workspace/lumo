@@ -32,6 +32,7 @@ import {
 import { isGraphSourcePath } from '@/lib/security-scan/graph/imports'
 import {
   candidateSymbolRefs,
+  fileSightingsInSource,
   sightingsInSource,
   type SymbolRef,
 } from '@/lib/security-scan/hunt/repo-symbols'
@@ -351,6 +352,7 @@ async function collectVerifyGraph(
   const refs: SymbolRef[] = candidates.flatMap(candidateSymbolRefs)
   const inputs: SourceFileInput[] = []
   const sightings: string[] = []
+  const fileSightings: string[] = []
   const missingFiles: string[] = []
   for (const path of paths) {
     const source = await readHuntFile(handle, path)
@@ -360,10 +362,12 @@ async function collectVerifyGraph(
     }
     inputs.push({ path, source, touched: true })
     sightings.push(...sightingsInSource(refs, path, source))
+    // LUM-798 follow-up — the weaker, entry-only answer, from the same bytes.
+    fileSightings.push(...fileSightingsInSource(refs, path, source))
   }
   return {
     subgraph: buildSubgraph(inputs),
-    evidence: { sightings, missingFiles },
+    evidence: { sightings, fileSightings, missingFiles },
   }
 }
 
@@ -392,7 +396,7 @@ export const securityHuntService = {
     if (paths.length === 0) {
       return {
         subgraph: { symbols: [], edges: [], files: [] },
-        evidence: { sightings: [], missingFiles: [] },
+        evidence: { sightings: [], fileSightings: [], missingFiles: [] },
       }
     }
     // A step's input must be serialisable, so a live `HuntSandbox` (it

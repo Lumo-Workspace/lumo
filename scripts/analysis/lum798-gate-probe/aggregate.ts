@@ -24,8 +24,20 @@ export interface GateReadout {
   scansWithGateResult: number
   /** Scans whose audit carries the LUM-798 tally — i.e. ran the new gate. */
   scansWithResolution: number
+  /**
+   * Of those, the ones carrying the FIRST tally shape, whose tier counts only
+   * include candidates that survived to acceptance. Reported apart from
+   * `placed` on purpose: adding the two would understate placement and
+   * restate the very error the follow-up fixed.
+   */
+  scansWithLegacyTally: number
   candidates: number
-  resolution: { subgraph: number; sinkRule: number; sandbox: number }
+  /** Sinks placed, counted AT placement — two-axis rows only. */
+  placed: { subgraph: number; sinkRule: number; sandbox: number }
+  /** Placement failed, or the submission never parsed — same rows. */
+  unplaced: number
+  /** Placed AND survived every later check — same rows. */
+  accepted: number
   rejected: number
   /** null when no candidate was submitted at all — never a fabricated 0%. */
   rejectionRate: number | null
@@ -43,8 +55,11 @@ export function readGateResults(rows: HuntAuditRow[]): GateReadout {
     scansWithHunt: 0,
     scansWithGateResult: 0,
     scansWithResolution: 0,
+    scansWithLegacyTally: 0,
     candidates: 0,
-    resolution: { subgraph: 0, sinkRule: 0, sandbox: 0 },
+    placed: { subgraph: 0, sinkRule: 0, sandbox: 0 },
+    unplaced: 0,
+    accepted: 0,
     rejected: 0,
     rejectionRate: null,
     falsifierVerdicts: 0,
@@ -64,9 +79,20 @@ export function readGateResults(rows: HuntAuditRow[]): GateReadout {
     if (res && typeof res === 'object') {
       out.scansWithResolution += 1
       const r = res as Record<string, unknown>
-      out.resolution.subgraph += int(r.subgraph)
-      out.resolution.sinkRule += int(r.sinkRule)
-      out.resolution.sandbox += int(r.sandbox)
+      const pl = r.placed
+      if (pl && typeof pl === 'object') {
+        const t = pl as Record<string, unknown>
+        out.placed.subgraph += int(t.subgraph)
+        out.placed.sinkRule += int(t.sinkRule)
+        out.placed.sandbox += int(t.sandbox)
+        out.unplaced += int(r.unplaced)
+        out.accepted += int(r.accepted)
+      } else {
+        // The flat first shape. Its tier counts mean something else, so they
+        // are NOT folded into `placed`; only the row is counted, so a reader
+        // can see how much of the sample predates the fix.
+        out.scansWithLegacyTally += 1
+      }
     }
     const rejected = Array.isArray(a.rejected) ? a.rejected : []
     const candidates = int(a.candidates)
@@ -91,20 +117,25 @@ export function readGateResults(rows: HuntAuditRow[]): GateReadout {
 }
 
 export function formatGateReadout(r: GateReadout): string[] {
-  const placed =
-    r.resolution.subgraph + r.resolution.sinkRule + r.resolution.sandbox
+  const placedTotal = r.placed.subgraph + r.placed.sinkRule + r.placed.sandbox
+  const onTwoAxes = placedTotal + r.unplaced
   return [
     `scans with a hunt layer:      ${r.scansWithHunt}`,
     `  …that produced candidates:  ${r.scansWithGateResult}`,
     `  …that ran the LUM-798 gate: ${r.scansWithResolution}`,
+    `  …of those, legacy tally:    ${r.scansWithLegacyTally} (tiers not comparable — excluded from the axes below)`,
     `candidates:                   ${r.candidates}`,
-    `  placed by subgraph:         ${r.resolution.subgraph}`,
-    `  placed by sink rule:        ${r.resolution.sinkRule}`,
-    `  placed by sandbox sighting: ${r.resolution.sandbox}`,
-    `  rejected:                   ${r.rejected}`,
     `rejection rate:               ${r.rejectionRate === null ? 'n/a (no candidate submitted)' : `${(r.rejectionRate * 100).toFixed(1)}%`}`,
-    `accepted into the falsifier:  ${placed}`,
     `falsifier verdicts on record: ${r.falsifierVerdicts}`,
+    '',
+    `placement axis (${onTwoAxes} candidates on the two-axis tally):`,
+    `  placed by subgraph:         ${r.placed.subgraph}`,
+    `  placed by sink rule:        ${r.placed.sinkRule}`,
+    `  placed by sandbox sighting: ${r.placed.sandbox}`,
+    `  never placed:               ${r.unplaced}`,
+    'outcome axis:',
+    `  survived every check:       ${r.accepted}`,
+    `  placed, then rejected:      ${placedTotal - r.accepted}`,
     '',
     'rejections by FULL reason (the symbol is the point):',
     ...r.reasons.map(x => `  ${String(x.count).padStart(3)}  ${x.reason}`),

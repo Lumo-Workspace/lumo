@@ -85,7 +85,7 @@ function reasonOf(error: unknown): string {
 
 const EMPTY_VERIFY_GRAPH: VerifySubgraphOutput = {
   subgraph: { symbols: [], edges: [], files: [] },
-  evidence: { sightings: [], missingFiles: [] },
+  evidence: { sightings: [], fileSightings: [], missingFiles: [] },
 }
 
 /**
@@ -100,7 +100,10 @@ function normalizeVerifyGraph(
 ): VerifySubgraphOutput {
   return 'subgraph' in built
     ? built
-    : { subgraph: built, evidence: { sightings: [], missingFiles: [] } }
+    : {
+        subgraph: built,
+        evidence: { sightings: [], fileSightings: [], missingFiles: [] },
+      }
 }
 
 /**

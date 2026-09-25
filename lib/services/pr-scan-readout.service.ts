@@ -123,15 +123,15 @@ export interface HuntReadoutView {
   mechanicallyRejected: number | null
   /**
    * LUM-798 — how the mechanical gate placed each candidate's sink. Absent on
-   * scans written before the gate counted it; the four numbers partition
-   * `candidates`, so `rejected / candidates` is the gate's rejection rate.
+   * scans written before the gate counted it.
+   *
+   * Two shapes, told apart by `kind` rather than by guessing: `legacy` rows
+   * counted a placement only when the candidate ALSO survived every later
+   * check, so their tier numbers understate placement and cannot be added to
+   * a `placement` row's. Keeping them distinct is the point — silently
+   * summing the two would restate the very error the follow-up fixed.
    */
-  resolution: {
-    subgraph: number
-    sinkRule: number
-    sandbox: number
-    rejected: number
-  } | null
+  resolution: ResolutionReadout | null
   /** The layer's own failure reason (P9: lives in the audit, not the shared `error` column). */
   error: string | null
   /** The raw per-task rows (commands, trace, stop, wrap-up, sites, model), free text redacted. */
@@ -364,6 +364,66 @@ function readHuntTasks(
   return out
 }
 
+/**
+ * LUM-798 — the two tally shapes a `huntAudit` row can carry. `placement` is
+ * the follow-up's two-axis tally; `legacy` is the first version, whose tier
+ * counts only include candidates that survived to acceptance.
+ */
+export type ResolutionReadout =
+  | {
+      kind: 'placement'
+      placed: { subgraph: number; sinkRule: number; sandbox: number }
+      unplaced: number
+      accepted: number
+      rejected: number
+    }
+  | {
+      kind: 'legacy'
+      subgraph: number
+      sinkRule: number
+      sandbox: number
+      rejected: number
+    }
+
+function readResolution(raw: unknown): ResolutionReadout | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const rejected = num(r.rejected)
+  if (rejected === null) return null
+  // The nested `placed` is what distinguishes the shapes; a flat row can only
+  // be the legacy one, and is reported as such rather than upgraded.
+  const placedRaw = r.placed
+  if (placedRaw && typeof placedRaw === 'object') {
+    const pl = placedRaw as Record<string, unknown>
+    const subgraph = num(pl.subgraph)
+    const sinkRule = num(pl.sinkRule)
+    const sandbox = num(pl.sandbox)
+    const unplaced = num(r.unplaced)
+    const accepted = num(r.accepted)
+    if (
+      subgraph === null ||
+      sinkRule === null ||
+      sandbox === null ||
+      unplaced === null ||
+      accepted === null
+    ) {
+      return null
+    }
+    return {
+      kind: 'placement',
+      placed: { subgraph, sinkRule, sandbox },
+      unplaced,
+      accepted,
+      rejected,
+    }
+  }
+  const subgraph = num(r.subgraph)
+  const sinkRule = num(r.sinkRule)
+  const sandbox = num(r.sandbox)
+  if (subgraph === null || sinkRule === null || sandbox === null) return null
+  return { kind: 'legacy', subgraph, sinkRule, sandbox, rejected }
+}
+
 function readHunt(
   scan: ScanReadoutRow,
   tally: { redacted: number }
@@ -391,23 +451,7 @@ function readHunt(
         })()
       : null
   const rejected = Array.isArray(audit?.rejected) ? audit.rejected.length : null
-  const resolutionRaw = audit?.resolution
-  const resolution =
-    resolutionRaw && typeof resolutionRaw === 'object'
-      ? (() => {
-          const r = resolutionRaw as Record<string, unknown>
-          const subgraph = num(r.subgraph)
-          const sinkRule = num(r.sinkRule)
-          const sandbox = num(r.sandbox)
-          const rejectedCount = num(r.rejected)
-          return subgraph === null ||
-            sinkRule === null ||
-            sandbox === null ||
-            rejectedCount === null
-            ? null
-            : { subgraph, sinkRule, sandbox, rejected: rejectedCount }
-        })()
-      : null
+  const resolution = readResolution(audit?.resolution)
   return {
     coverage: parseHuntCoverage(raw),
     plannedBy: str(audit?.plannedBy),

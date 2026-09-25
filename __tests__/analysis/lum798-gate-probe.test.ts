@@ -21,7 +21,12 @@ describe('LUM-798 gate read-out', () => {
         audit: {
           candidates: 3,
           rejected: [{ reason: 'symbol-not-found-in-repo:lib/s.ts#gitGate@2' }],
-          resolution: { subgraph: 1, sinkRule: 1, sandbox: 0, rejected: 1 },
+          resolution: {
+            placed: { subgraph: 1, sinkRule: 1, sandbox: 0 },
+            unplaced: 1,
+            accepted: 2,
+            rejected: 1,
+          },
           falsifierRejects: 1,
         },
       }),
@@ -31,7 +36,11 @@ describe('LUM-798 gate read-out', () => {
       scansWithHunt: 2,
       scansWithGateResult: 1,
       scansWithResolution: 1,
+      scansWithLegacyTally: 0,
       candidates: 3,
+      placed: { subgraph: 1, sinkRule: 1, sandbox: 0 },
+      unplaced: 1,
+      accepted: 2,
       rejected: 1,
       falsifierVerdicts: 1,
     })
@@ -61,7 +70,12 @@ describe('LUM-798 gate read-out', () => {
         audit: {
           candidates: 0,
           rejected: [],
-          resolution: { subgraph: 0, sinkRule: 0, sandbox: 0, rejected: 0 },
+          resolution: {
+            placed: { subgraph: 0, sinkRule: 0, sandbox: 0 },
+            unplaced: 0,
+            accepted: 0,
+            rejected: 0,
+          },
           falsifierRejects: 0,
         },
       }),
@@ -69,6 +83,28 @@ describe('LUM-798 gate read-out', () => {
     expect(r.scansWithResolution).toBe(1)
     expect(r.scansWithGateResult).toBe(0)
     expect(r.rejectionRate).toBeNull()
+  })
+
+  it('keeps the first flat tally apart instead of folding it into placement', () => {
+    // Its tiers counted only candidates that ALSO survived, so adding them to
+    // `placed` would understate placement — the error the follow-up fixed.
+    const r = readGateResults([
+      row({
+        audit: {
+          candidates: 2,
+          rejected: [{ reason: 'chain-disconnected' }],
+          resolution: { subgraph: 1, sinkRule: 0, sandbox: 0, rejected: 1 },
+          falsifierRejects: 0,
+        },
+      }),
+    ])
+    expect(r.scansWithResolution).toBe(1)
+    expect(r.scansWithLegacyTally).toBe(1)
+    expect(r.placed).toEqual({ subgraph: 0, sinkRule: 0, sandbox: 0 })
+    expect(r.unplaced).toBe(0)
+    expect(formatGateReadout(r)).toContain(
+      '  …of those, legacy tally:    1 (tiers not comparable — excluded from the axes below)'
+    )
   })
 
   it('counts a pre-LUM-798 scan as a gate result without a resolution tally', () => {

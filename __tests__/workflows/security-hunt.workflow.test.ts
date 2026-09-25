@@ -85,8 +85,12 @@ const SUBGRAPH = {
   files: [{ path: 'a.ts', lineCount: 3, touched: true }],
 }
 /** LUM-798 — what the same read of the checkout could confirm. */
-const EVIDENCE = { sightings: ['a.ts:2:s1'], missingFiles: ['a.ts.gone'] }
-const NO_EVIDENCE = { sightings: [], missingFiles: [] }
+const EVIDENCE = {
+  sightings: ['a.ts:2:s1'],
+  fileSightings: ['a.ts#s1'],
+  missingFiles: ['a.ts.gone'],
+}
+const NO_EVIDENCE = { sightings: [], fileSightings: [], missingFiles: [] }
 const candidate = (n: number) => ({
   category: 'idor',
   cwe: 'CWE-639',
@@ -182,7 +186,12 @@ beforeEach(() => {
     return {
       accepted: [],
       rejected: [],
-      resolution: { subgraph: 0, sinkRule: 0, sandbox: 0, rejected: 0 },
+      resolution: {
+        placed: { subgraph: 0, sinkRule: 0, sandbox: 0 },
+        unplaced: 0,
+        accepted: 0,
+        rejected: 0,
+      },
     }
   })
   falsify.mockImplementation(async () => {
@@ -648,7 +657,12 @@ describe('LUM-739 hunt workflow', () => {
     // A run that suspended before this deploy replays the OLD step result out
     // of the workflow memo: a bare `Subgraph`, no evidence envelope.
     verifyGraph.mockImplementation(async () => SUBGRAPH)
-    const resolution = { subgraph: 1, sinkRule: 2, sandbox: 3, rejected: 4 }
+    const resolution = {
+      placed: { subgraph: 1, sinkRule: 2, sandbox: 3 },
+      unplaced: 4,
+      accepted: 6,
+      rejected: 4,
+    }
     verify.mockImplementation(async () => ({
       accepted: [],
       rejected: [],

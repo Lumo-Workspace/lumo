@@ -147,7 +147,13 @@ const HUNT: NonNullable<PrScanEntry['hunt']> = {
   candidates: 2,
   falsifierRejects: 1,
   mechanicallyRejected: 1,
-  resolution: { subgraph: 1, sinkRule: 0, sandbox: 0, rejected: 1 },
+  resolution: {
+    kind: 'placement' as const,
+    placed: { subgraph: 1, sinkRule: 0, sandbox: 0 },
+    unplaced: 1,
+    accepted: 1,
+    rejected: 1,
+  },
   error: null,
   tasks: [
     {
@@ -328,7 +334,7 @@ describe('formatPrScan', () => {
     })
     const lines = out.split('\n')
     const at = lines.indexOf(
-      '  Hunt: planned by model — two sinks lit · diff 14 source files · 9 sites · task cap 4 · oversized (a corner of the diff was covered) · candidates 2 · mechanically rejected 1 · resolved by subgraph 1 · sink rule 0 · sandbox 0 · rejected 1 · falsifier rejects 1'
+      '  Hunt: planned by model — two sinks lit · diff 14 source files · 9 sites · task cap 4 · oversized (a corner of the diff was covered) · candidates 2 · mechanically rejected 1 · placed by subgraph 1 · sink rule 0 · sandbox 0 · unplaced 1 · survived 1 · rejected 1 · falsifier rejects 1'
     )
     expect(at).toBeGreaterThan(0)
     expect(lines.slice(at + 1, at + 9)).toEqual([
@@ -349,7 +355,36 @@ describe('formatPrScan', () => {
       { full: true }
     )
     expect(out).toContain('mechanically rejected 1 · falsifier rejects 1')
-    expect(out).not.toContain('resolved by')
+    expect(out).not.toContain('placed by')
+  })
+
+  it('LUM-798 follow-up prints the first tally shape as legacy, never mixed in', () => {
+    // A row from between the two deploys counts a placement only when the
+    // candidate also survived, so its tiers are not the same measurement.
+    // Saying so beats silently presenting them as if they were.
+    const out = formatPrScan(
+      payload({
+        scans: [
+          scan({
+            hunt: {
+              ...HUNT,
+              resolution: {
+                kind: 'legacy' as const,
+                subgraph: 1,
+                sinkRule: 0,
+                sandbox: 0,
+                rejected: 1,
+              },
+            },
+          }),
+        ],
+      }),
+      { full: true }
+    )
+    expect(out).toContain(
+      'resolved by subgraph 1 · sink rule 0 · sandbox 0 · rejected 1 (legacy tally — placements counted only on acceptance)'
+    )
+    expect(out).not.toContain('placed by')
   })
 
   it('says when a scan has no findings, when tokens were not metered, and lists every head under --all', () => {
