@@ -78,7 +78,26 @@ const ENTRY_TEXT_RULES: ReadonlyArray<{ id: string; re: RegExp }> = [
   { id: 'next-server-action', re: /^\s*['"]use server['"]/ },
 ]
 
-const CALLEE_RE = /([A-Za-z_$][\w$]*(?:\.\$?[A-Za-z_$][\w$]*)*)\s*\(/g
+/**
+ * LUM-833 — a callee match may only START at the head of an identifier chain:
+ * not right after an identifier character, and not right after
+ * `identifier.`. Without that, one long identifier-like run (a minified bundle
+ * or generated file committed in a PR — 200,000 characters on one line) was
+ * retried at every position inside it, each retry reading to the end of the
+ * run and backtracking all the way back: O(n²), ~21 s per pass, and stage A
+ * evaluates the trigger twice.
+ *
+ * The anchor finds exactly the same calls. A start inside an identifier (or
+ * right after `identifier.`) has the same end as the start at the head of its
+ * chain, so it can only succeed where the head start already matched — and
+ * that match consumed it. A receiver the regex has no grammar for keeps its
+ * start: in `/re/.exec(`, `f().exec(` or `a[0].exec(` the character before
+ * the `.` is not an identifier character (see `calleeAt`). The one input that
+ * reads differently is an identifier glued straight onto a digit (`9abc(`,
+ * `1.exec(`), which is not a call in valid JS.
+ */
+const CALLEE_RE =
+  /(?<![\w$])(?<![\w$]\.)([A-Za-z_$][\w$]*(?:\.\$?[A-Za-z_$][\w$]*)*)\s*\(/g
 
 /**
  * LUM-809 — the callee as it really was written, not as `CALLEE_RE` could
@@ -100,6 +119,19 @@ const CALLEE_RE = /([A-Za-z_$][\w$]*(?:\.\$?[A-Za-z_$][\w$]*)*)\s*\(/g
  */
 function calleeAt(text: string, index: number, captured: string): string {
   return index > 0 && text[index - 1] === '.' ? `.${captured}` : captured
+}
+
+/**
+ * Every call on one added line, as `CALLEE_RE` + `calleeAt` read it — the one
+ * walk both the trigger and `addedControlCallIds` make. Linear in the line's
+ * length (LUM-833).
+ */
+export function calleesOf(text: string): string[] {
+  const callees: string[] = []
+  for (const m of text.matchAll(CALLEE_RE)) {
+    callees.push(calleeAt(text, m.index, m[1] ?? ''))
+  }
+  return callees
 }
 
 /**
@@ -126,11 +158,8 @@ export function addedControlCallIds(files: AddedFile[]): string[] {
   const ids = new Set<string>()
   for (const file of files) {
     for (const { text } of file.lines) {
-      for (const m of text.matchAll(CALLEE_RE)) {
-        const control = matchCallRule(
-          CONTROL_RULES,
-          calleeAt(text, m.index, m[1] ?? '')
-        )
+      for (const callee of calleesOf(text)) {
+        const control = matchCallRule(CONTROL_RULES, callee)
         if (control) ids.add(control.id)
       }
     }
@@ -167,8 +196,7 @@ export function evaluateHuntTrigger(
           record(`entry:${rule.id}`, file.path, lineNo)
         }
       }
-      for (const m of text.matchAll(CALLEE_RE)) {
-        const callee = calleeAt(text, m.index, m[1] ?? '')
+      for (const callee of calleesOf(text)) {
         const sink = matchCallRule(SINK_RULES, callee)
         if (sink) {
           reasons.add(`diff:sink:${sink.id}`)
