@@ -351,8 +351,11 @@ describe('LUM-832 in-run re-queue', () => {
     mockScan.updateMany.mockResolvedValueOnce({ count: 1 })
     await expect(
       prSecurityScanRepository.claimHuntRetry('s1', 1, {
-        huntAudit: { requeued: { fromAttempt: 1 } },
-        tokenSpent: 250,
+        faulted: {
+          huntAudit: { requeued: { fromAttempt: 1 } },
+          tokenSpent: 250,
+        },
+        huntJob: { scanId: 's1', attempt: 2, tries: 2 },
       })
     ).resolves.toBe(true)
     expect(mockScan.updateMany).toHaveBeenCalledWith({
@@ -366,6 +369,7 @@ describe('LUM-832 in-run re-queue', () => {
         huntRunId: null,
         huntAudit: { requeued: { fromAttempt: 1 } },
         tokenSpent: 250,
+        huntJob: { scanId: 's1', attempt: 2, tries: 2 },
       }),
     })
   })

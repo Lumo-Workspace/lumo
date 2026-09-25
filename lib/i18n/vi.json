@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "Lưu trữ mốc chưa hoàn thành?",
   "milestone.archiveConfirm.body": "“{name}” vẫn còn {remaining} công việc chưa hoàn thành. Sau khi lưu trữ, mốc sẽ không còn xuất hiện trong danh sách mặc định nhưng các công việc chưa hoàn thành vẫn mở.",
   "milestone.archiveConfirm.confirm": "Vẫn lưu trữ",
+  "securityScan.huntProgress": "{covered}/{total} tệp nguồn",
   "securityScan.section.title": "Quét bảo mật",
   "securityScan.section.empty": "Chưa có lượt quét bảo mật nào — mỗi lần push lên pull request đã liên kết sẽ tự động quét.",
   "securityScan.section.loadError": "Không thể tải các lượt quét bảo mật.",

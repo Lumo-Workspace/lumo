@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "未完了のマイルストーンをアーカイブしますか？",
   "milestone.archiveConfirm.body": "「{name}」には未完了のタスクが {remaining} 件あります。アーカイブすると既定の一覧に表示されなくなりますが、未完了のタスクは閉じられません。",
   "milestone.archiveConfirm.confirm": "それでもアーカイブ",
+  "securityScan.huntProgress": "ソースファイル {covered}/{total} 件を確認済み",
   "securityScan.section.title": "セキュリティスキャン",
   "securityScan.section.empty": "まだスキャンはありません。リンクされたPRへのプッシュごとに自動でスキャンされます。",
   "securityScan.section.loadError": "セキュリティスキャンを読み込めませんでした。",

@@ -2256,6 +2256,7 @@
   "milestone.archiveConfirm.title": "Archiver un jalon inachevé ?",
   "milestone.archiveConfirm.body": "« {name} » compte encore {remaining, plural, one {# tâche inachevée} other {# tâches inachevées}}. Une fois archivé, le jalon disparaît de la liste par défaut — les tâches inachevées restent ouvertes.",
   "milestone.archiveConfirm.confirm": "Archiver quand même",
+  "securityScan.huntProgress": "{covered}/{total} fichiers source",
   "securityScan.section.title": "Analyse de sécurité",
   "securityScan.section.empty": "Aucune analyse de sécurité pour l'instant : une analyse s'exécute à chaque push sur une pull request liée.",
   "securityScan.section.loadError": "Impossible de charger les analyses de sécurité.",

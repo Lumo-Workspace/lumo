@@ -299,6 +299,28 @@ describe('LUM-739 hunt trigger', () => {
     )
   })
 
+  it('LUM-832 an oversized diff starts the hunt with its risk-ordered batch plan on the job', async () => {
+    const many = Array.from({ length: 45 }, (_, i) =>
+      diff(`lib/m${String(i).padStart(2, '0')}.ts`, 'export const v = 1')
+    )
+    fetchPrDiff.mockResolvedValue([ROUTE_DIFF, ...many].join('\n'))
+
+    await run()
+
+    const job = startHunt.mock.calls[0]![0]
+    expect(job.batchIndex).toBe(0)
+    expect(job.batches.map((b: string[]) => b.length)).toEqual([40, 6])
+    // The route handler lit the trigger, so it is hunted first.
+    expect(job.batches[0][0]).toBe('app/api/x/route.ts')
+    expect(job.batches.flat()).toHaveLength(46)
+  })
+
+  it('LUM-832 a diff one run can cover carries no batch plan', async () => {
+    fetchPrDiff.mockResolvedValue(ROUTE_DIFF)
+    await run()
+    expect(startHunt.mock.calls[0]![0].batches).toBeUndefined()
+  })
+
   it('a non-L4 crossing does not trigger the hunt', async () => {
     fetchPrDiff.mockResolvedValue(PLAIN_DIFF)
     crossings.findUndispositionedByTask.mockResolvedValueOnce([

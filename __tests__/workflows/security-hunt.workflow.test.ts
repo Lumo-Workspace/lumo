@@ -9,6 +9,7 @@ jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   markHuntFailedStep: jest.fn(),
   // LUM-832: undefined → the re-queue is skipped and the run persists as before.
   requeueHuntStep: jest.fn(),
+  continueHuntStep: jest.fn(),
 }))
 jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   persistSarifFindingsStep: jest.fn(),
@@ -722,14 +723,14 @@ describe('LUM-739 hunt workflow', () => {
     ])
   })
 
-  it('LUM-832 an oversized diff hunted whole-task still reads PARTIAL with HUNT_OVERSIZED, never RAN', async () => {
+  it('LUM-832 an oversized diff is no longer hunted in a corner: the first batch lands PENDING and never HUNT_OVERSIZED', async () => {
     const touched = Array.from({ length: 41 }, (_, i) => `lib/f${i}.ts`)
     await expect(
       securityHuntWorkflow({ ...JOB, touchedSourcePaths: touched })
-    ).resolves.toMatchObject({ outcome: 'PARTIAL' })
+    ).resolves.toMatchObject({ outcome: 'CONTINUED', batches: 2 })
     const persisted = persist.mock.calls[0]![0]
-    expect(persisted.stage).toBe('PARTIAL')
-    expect(persisted.partialCauses).toEqual(['HUNT_OVERSIZED'])
+    expect(persisted.stage).toBe('PENDING')
+    expect(persisted.partialCauses).not.toContain('HUNT_OVERSIZED')
   })
 
   /**

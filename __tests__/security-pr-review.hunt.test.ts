@@ -50,3 +50,22 @@ describe('LUM-739 hunt stage', () => {
     expect(body).toContain('No open findings on lines this PR added.')
   })
 })
+
+describe('LUM-832 batched hunt', () => {
+  it('the summary shows the covered share while batches are queued and says the scan is still running', () => {
+    const body = buildSummary({
+      headSha: 'abcdef1234567890',
+      status: 'CLEAN',
+      stages: { secrets: 'RAN', judge: 'RAN', hunt: 'PENDING' },
+      partial: false,
+      huntProgress: { coveredFiles: 40, totalFiles: 120 },
+      externalCounts: {},
+      open: 0,
+      blocking: 0,
+      error: null,
+      taskUrl: null,
+    })
+    expect(body).toContain('Exploit paths: scanning (40/120 source files)')
+    expect(body).toContain('No open findings yet — the scan is still running.')
+  })
+})

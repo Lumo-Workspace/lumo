@@ -41,6 +41,10 @@ import {
   type HuntCoverage,
 } from '@/lib/security-scan/hunt/coverage'
 import type { ScanStages } from '@/lib/security-scan/types'
+import {
+  huntBatchProgress,
+  type HuntBatchProgress,
+} from '@/lib/security-scan/hunt/batches'
 
 export interface OpenSecurityFinding extends ReminderFinding {
   kind: FindingKind
@@ -74,6 +78,11 @@ export interface TaskSecurityScanSummary {
    * no coverage line rather than guessing.
    */
   hunt: HuntCoverage | null
+  /**
+   * LUM-832 — a batched hunt's covered source files of the total; null for an
+   * un-batched hunt. Additive: an older CLI ignores it.
+   */
+  huntProgress: HuntBatchProgress | null
   /**
    * LUM-775 — undispositioned, non-persisting rows on this scan that have
    * left the queue because the PR merged or closed, by reason. Derived at
@@ -176,6 +185,7 @@ export const prSecurityReminderService = {
             .length,
           persistingFindings: scan.findings.filter(f => f.persisting).length,
           hunt: parseHuntCoverage(scan.huntAudit),
+          huntProgress: huntBatchProgress(scan.huntJob, stagesOf(scan).hunt),
           queueExits,
         })
       }

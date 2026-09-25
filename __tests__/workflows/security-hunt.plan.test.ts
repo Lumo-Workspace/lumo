@@ -9,6 +9,7 @@ jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   markHuntFailedStep: jest.fn(),
   // LUM-832: undefined → the re-queue is skipped and the run persists as before.
   requeueHuntStep: jest.fn(),
+  continueHuntStep: jest.fn(),
 }))
 // `security-scan-helpers` pulls in the SARIF ingest steps, which reach
 // octokit (ESM) at import time — the same mock the legacy workflow suite needs.

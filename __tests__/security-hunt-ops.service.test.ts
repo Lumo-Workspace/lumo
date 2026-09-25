@@ -118,7 +118,7 @@ describe('LUM-822 sweepStaleHunts', () => {
 
     const counts = await securityHuntOpsService.sweepStaleHunts({ now: NOW })
 
-    expect(repo.claimHuntRetry).toHaveBeenCalledWith('s1', 1)
+    expect(repo.claimHuntRetry).toHaveBeenCalledWith('s1', 1, {})
     expect(cancel).toHaveBeenCalledWith('run_1', 's1')
     expect(stopByTag).toHaveBeenCalledWith({ lumoHunt: 's1' })
     expect(startHunt).toHaveBeenCalledTimes(1)

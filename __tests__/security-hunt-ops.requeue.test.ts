@@ -17,6 +17,7 @@ jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   persistHuntFindingsStep: jest.fn(),
   markHuntFailedStep: jest.fn(),
   requeueHuntStep: jest.fn(),
+  continueHuntStep: jest.fn(),
 }))
 jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   persistSarifFindingsStep: jest.fn(),
@@ -249,18 +250,24 @@ describe('our-fault hunt is re-queued and reads as in progress', () => {
       await expect(
         securityHuntOpsService.requeueFaultedHunt(input)
       ).resolves.toEqual({ requeued: true, attempt: 2 })
-      expect(repo.claimHuntRetry).toHaveBeenCalledWith('s1', 1, {
-        huntAudit: {
-          candidates: 1,
-          requeued: { fromAttempt: 1, reason: 'sandbox create failed' },
-        },
-        tokenSpent: 250,
-      })
-      expect(startHunt).toHaveBeenCalledWith({
+      const nextJob = {
         ...JOB,
         attempt: 2,
+        tries: 2,
         managedScanStarted: false,
+      }
+      expect(repo.claimHuntRetry).toHaveBeenCalledWith('s1', 1, {
+        faulted: {
+          huntAudit: {
+            candidates: 1,
+            requeued: { fromAttempt: 1, reason: 'sandbox create failed' },
+          },
+          tokenSpent: 250,
+        },
+        // The sweep retries from `huntJob`: it must name the try it is on.
+        huntJob: nextJob,
       })
+      expect(startHunt).toHaveBeenCalledWith(nextJob)
       expect(repo.setHuntRunId).toHaveBeenCalledWith('s1', 'run_2')
       // The caller IS the old run: it is neither cancelled nor its VMs stopped.
       expect(cancel).not.toHaveBeenCalled()

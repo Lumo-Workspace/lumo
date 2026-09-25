@@ -18,6 +18,7 @@ import type {
   PersistHuntInput,
   PlanHuntInput,
   PlanHuntOutput,
+  HuntJob,
 } from '@/lib/services/security-hunt.config'
 import type {
   HuntRequeueInput,
@@ -95,4 +96,15 @@ export async function requeueHuntStep(
   const { securityHuntOpsService } =
     await import('@/lib/services/security-hunt-ops.service')
   return securityHuntOpsService.requeueFaultedHunt(input)
+}
+
+/** LUM-832 — start the next batch of an oversized diff (see `continueBatchedHunt`). */
+export async function continueHuntStep(input: {
+  job: HuntJob
+  next: HuntJob
+}): Promise<boolean> {
+  'use step'
+  const { securityHuntOpsService } =
+    await import('@/lib/services/security-hunt-ops.service')
+  return securityHuntOpsService.continueBatchedHunt(input)
 }

@@ -3,6 +3,7 @@ import {
   formatQueueExits,
   SCAN_STAGE_KEYS,
   SCAN_UNFINISHED_NOTE,
+  formatHuntProgress,
   scanCoverageState,
   scanStageLabel,
   scanStageStateLabel,
@@ -23,6 +24,11 @@ export interface ScanLayerLineInput {
   status?: string
   stages: Partial<Record<string, string>>
   partial: boolean
+  /**
+   * LUM-832 — a batched hunt's covered source files (decorates Exploit
+   * paths). Absent on an older server and on an un-batched hunt.
+   */
+  huntProgress?: { coveredFiles: number; totalFiles: number } | null | undefined
   /** Raw external-tool hits that are not dependencies (decorates Code scan). */
   externalFindings: number
   /** LUM-738 — DEPENDENCY rows (decorates Dependencies). Absent on an older server. */
@@ -73,6 +79,8 @@ export function formatScanLayerTail(s: ScanLayerLineInput): string {
       const persisting = s.persistingFindings ?? 0
       const tail = persisting > 0 ? `, ${persisting} already on main` : ''
       segments.push(`${head} (${n} dependency ${noun}${tail})`)
+    } else if (key === 'hunt' && s.huntProgress) {
+      segments.push(`${head} (${formatHuntProgress(s.huntProgress)})`)
     } else {
       segments.push(head)
     }

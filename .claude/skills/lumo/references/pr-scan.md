@@ -105,11 +105,14 @@ wrap-up was made to collect what it held. `repeated N` on the header counts
 those re-runs for every task (a converging search repeats a slice once or
 twice; the loop this was written for repeated 46 of 73), and `N repeat steps`
 on the stop line is the streak the search ended on — printed whatever ended
-it, so a near miss is visible on a `budget` or `steps` row too. `this run was sized
-for fewer files than the diff — the rest is still on us` on the diff line
-(LUM-832; formerly `oversized`) means the diff touched more source files than
-the hunt's sizing (`HUNT_OVERSIZED_SOURCE_FILES`, a cost decision) covers; the
-layer is PARTIAL with cause `HUNT_OVERSIZED` rather than `checked`.
+it, so a near miss is visible on a `budget` or `steps` row too. A diff with more
+source files than one run is sized for (`HUNT_OVERSIZED_SOURCE_FILES`, a cost
+decision) is hunted in **batches** across runs (LUM-832): riskiest files
+first, one run per batch, each batch's findings landing while the layer stays
+`scanning`, until every touched source file has been in a batch. The per-run
+`diff` line then describes that run's batch. `this run was sized for fewer
+files than the diff — the rest is still on us` (formerly `oversized`) is kept
+for rows hunted before batching, whose layer reads PARTIAL.
 
 A `no-progress`, `budget` or `steps` stop whose forced wrap-up RAN is a task
 that **terminated**: it was asked for its findings and answered, even when the
