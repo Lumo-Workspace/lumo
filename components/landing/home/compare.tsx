@@ -15,8 +15,8 @@ interface CompareRow {
   capability: string
   lumo: { verdict: Verdict; note: string }
   linear: CompetitorCell
-  jira: CompetitorCell
-  asana: CompetitorCell
+  coderabbit: CompetitorCell
+  qawolf: CompetitorCell
 }
 
 interface CompareGroup {
@@ -25,20 +25,20 @@ interface CompareGroup {
   rows: CompareRow[]
 }
 
-export const COMPETITORS = ['linear', 'jira', 'asana'] as const
+export const COMPETITORS = ['linear', 'qawolf', 'coderabbit'] as const
 
 export const COMPETITOR_NAMES: Record<(typeof COMPETITORS)[number], string> = {
   linear: 'Linear',
-  jira: 'Jira',
-  asana: 'Asana',
+  coderabbit: 'CodeRabbit',
+  qawolf: 'QA Wolf',
 }
 
 /** The only domains a competitor cell may cite — the vendor's own pages. */
 export const OFFICIAL_DOMAINS: Record<(typeof COMPETITORS)[number], string[]> =
   {
     linear: ['linear.app'],
-    jira: ['atlassian.com'],
-    asana: ['asana.com'],
+    coderabbit: ['coderabbit.ai'],
+    qawolf: ['qawolf.com'],
   }
 
 const VERDICT_LABEL: Record<Verdict, string> = {
@@ -48,10 +48,16 @@ const VERDICT_LABEL: Record<Verdict, string> = {
   no: 'No',
 }
 
-// Issue tracking comes first to answer "can it replace our tracker?" (Linear
-// winning most of that group is expected and left as is); QA (did the
-// agent's work really pass?) and security (did it ship a hole?) follow —
-// they are what Lumo is for.
+// One column per lane Lumo covers: Linear for tracking, QA Wolf for QA,
+// CodeRabbit for PR review and security — the best-known name in each
+// (LUM-827 follow-up; it replaced a Linear/Jira/Asana line-up that only
+// covered tracking). Each specialist is expected to win or tie its own group
+// and lose the others; the point is that Lumo covers all three on one task.
+// Each of the QA and review groups opens with the specialist's home-turf rows
+// (Lumo honestly takes ✗ there), so their columns read like their product,
+// not like a quiz written for Lumo; Lumo's own rows follow.
+// Issue tracking comes first to answer "can it replace our tracker?"; QA (did
+// the agent's work really pass?) and security (did it ship a hole?) follow.
 //
 // The page renders only the verdict (a check, a cross, or the word). Notes
 // and sources stay here as the audit trail for each verdict: the
@@ -59,12 +65,12 @@ const VERDICT_LABEL: Record<Verdict, string> = {
 // source, and the PR's Sources table is generated from this data.
 //
 // Every competitor cell was read off that vendor's own docs, changelog,
-// integration or marketplace page on 2026-09-23 and cites the page it came
+// integration or marketplace page on 2026-09-24 and cites the page it came
 // from; the page makes the same promise out loud below the table. Where a
-// vendor ships something adjacent (Rovo Dev's AI review, Xray/Zephyr on the
-// Marketplace), the cell says "Partly" or "Add-on" and names it rather than
-// rounding it down to "No" — the table is only worth publishing if a Jira
-// user would agree with their own column. "No" means the vendor's own docs
+// vendor ships something adjacent (CodeRabbit's issue assessment and Deep
+// Scan, QA Wolf's blocking-bug gate), the cell says "Partly" or "Add-on" and
+// names it rather than rounding it down to "No" — the table is only worth
+// publishing if a CodeRabbit or QA Wolf user would agree with their own column. "No" means the vendor's own docs
 // describe no such feature as of the check date (product call, LUM-827: a
 // feature a vendor doesn't document is one its buyers can't rely on); the
 // footnote says so, and the source link shows which page was checked.
@@ -92,16 +98,15 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Priority, labels, assignee and sub-issues.',
           source: 'https://linear.app/docs/parent-and-sub-issues',
         },
-        jira: {
-          verdict: 'yes',
-          note: 'Priority, labels, assignee and subtasks built in.',
-          source:
-            'https://support.atlassian.com/jira-software-cloud/docs/create-a-work-item-and-a-subtask/',
+        coderabbit: {
+          verdict: 'no',
+          note: 'No tracker of its own; it reads issues from Jira, Linear and GitHub.',
+          source: 'https://docs.coderabbit.ai/issues/planner/index',
         },
-        asana: {
+        qawolf: {
           verdict: 'partial',
-          note: 'Tags and subtasks; priority is a custom field on paid plans.',
-          source: 'https://asana.com/pricing',
+          note: 'Bug reports carry a priority; no general issues, tags or sub-tasks.',
+          source: 'https://docs.qawolf.com/v0-ci-greenlight.md',
         },
       },
       {
@@ -115,16 +120,15 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Native cycles; open work rolls over.',
           source: 'https://linear.app/docs/use-cycles',
         },
-        jira: {
-          verdict: 'partial',
-          note: 'Native, but only for Scrum spaces.',
-          source:
-            'https://support.atlassian.com/jira-software-cloud/docs/what-is-a-sprint/',
-        },
-        asana: {
+        coderabbit: {
           verdict: 'no',
-          note: 'A board-and-custom-field template, not a sprint object.',
-          source: 'https://asana.com/templates/sprint-planning',
+          note: 'No sprints; its issue features sit on top of an outside tracker.',
+          source: 'https://docs.coderabbit.ai/issues/planner/index',
+        },
+        qawolf: {
+          verdict: 'no',
+          note: 'No sprints; the docs cover test flows, runs and triggers.',
+          source: 'https://docs.qawolf.com/integrations.md',
         },
       },
       {
@@ -138,16 +142,15 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Project milestones on the project timeline.',
           source: 'https://linear.app/docs/project-milestones',
         },
-        jira: {
-          verdict: 'partial',
-          note: 'Releases on the timeline; no milestone object.',
-          source:
-            'https://support.atlassian.com/jira-software-cloud/docs/how-can-i-plan-with-releases-on-my-project-roadmap/',
+        coderabbit: {
+          verdict: 'no',
+          note: 'No milestones; planning depends on an outside tracker.',
+          source: 'https://docs.coderabbit.ai/issues/planner/index',
         },
-        asana: {
-          verdict: 'yes',
-          note: 'Milestones and timeline on paid plans.',
-          source: 'https://asana.com/pricing',
+        qawolf: {
+          verdict: 'no',
+          note: 'No milestones; the nearest thing is the coverage outline.',
+          source: 'https://docs.qawolf.com/Glossary.md',
         },
       },
       {
@@ -161,17 +164,15 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Blocked-by and blocks relations.',
           source: 'https://linear.app/docs/issue-relations',
         },
-        jira: {
-          verdict: 'yes',
-          note: 'Blocks and is-blocked-by links.',
-          source:
-            'https://support.atlassian.com/jira-software-cloud/docs/link-issues/',
+        coderabbit: {
+          verdict: 'no',
+          note: 'Maps code dependencies, not links between work items.',
+          source: 'https://docs.coderabbit.ai/issues/planner/index',
         },
-        asana: {
-          verdict: 'yes',
-          note: 'Blocked-by dependencies on paid plans.',
-          source:
-            'https://developers.asana.com/reference/adddependenciesfortask',
+        qawolf: {
+          verdict: 'no',
+          note: 'Run rules order test flows; no links between work items.',
+          source: 'https://docs.qawolf.com/Glossary.md',
         },
       },
       {
@@ -185,16 +186,15 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Documents inside projects and issues.',
           source: 'https://linear.app/docs/documents',
         },
-        jira: {
-          verdict: 'partial',
-          note: 'Pages run on Confluence, a separate product.',
-          source:
-            'https://support.atlassian.com/jira-software-cloud/docs/enable-and-disable-pages/',
+        coderabbit: {
+          verdict: 'no',
+          note: 'A knowledge base it reads for context; no docs you write.',
+          source: 'https://docs.coderabbit.ai/knowledge-base/index',
         },
-        asana: {
-          verdict: 'partial',
-          note: 'One project brief per project.',
-          source: 'https://developers.asana.com/reference/project-briefs',
+        qawolf: {
+          verdict: 'no',
+          note: 'Test specs live in flow headers; no docs feature.',
+          source: 'https://docs.qawolf.com/test-automation.md',
         },
       },
       {
@@ -208,16 +208,16 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'PRs link and move issue status; Slack app.',
           source: 'https://linear.app/docs/github',
         },
-        jira: {
-          verdict: 'yes',
-          note: 'GitHub app links PRs by key; Slack app.',
-          source:
-            'https://support.atlassian.com/jira-cloud-administration/docs/integrate-with-github/',
-        },
-        asana: {
+        coderabbit: {
           verdict: 'partial',
-          note: 'GitHub app shows PR status on the task; Slack app.',
-          source: 'https://asana.com/apps/github',
+          note: 'Native GitHub app; the Slack agent is early access and billed separately.',
+          source: 'https://docs.coderabbit.ai/slack-agent/index',
+        },
+        qawolf: {
+          verdict: 'partial',
+          note: 'A results check on GitHub PRs and a shared Slack channel; no work items to link.',
+          source:
+            'https://docs.qawolf.com/legacy-triggers/PR-testing-for-GitHub-Integrations.md',
         },
       },
     ],
@@ -226,6 +226,73 @@ export const COMPARE_GROUPS: CompareGroup[] = [
     title: 'QA',
     question: 'The agent says it’s done. Did it actually pass?',
     rows: [
+      {
+        capability: 'Writes and maintains E2E tests for you',
+        lumo: {
+          verdict: 'no',
+          note: 'Records the tests your agent or team writes; it doesn’t author them.',
+        },
+        linear: {
+          verdict: 'no',
+          note: 'Linear Agent writes code from an issue; test authoring isn’t described.',
+          source: 'https://linear.app/now/coding-sessions-for-linear-agent',
+        },
+        qawolf: {
+          verdict: 'yes',
+          note: 'Its QA engineers write the suite, with unlimited maintenance.',
+          source: 'https://www.qawolf.com/service',
+        },
+        coderabbit: {
+          verdict: 'partial',
+          note: 'Generates unit tests only, not end-to-end tests. Beta.',
+          source:
+            'https://docs.coderabbit.ai/finishing-touches/unit-test-generation',
+        },
+      },
+      {
+        capability: 'Runs the whole suite on its own infrastructure',
+        lumo: {
+          verdict: 'partial',
+          note: 'The CLI runs each criterion’s check on your machine and reads CI results; no hosted runner.',
+        },
+        linear: {
+          verdict: 'no',
+          note: 'Coding sessions run in the cloud; running your test suite isn’t described.',
+          source: 'https://linear.app/now/coding-sessions-for-linear-agent',
+        },
+        qawolf: {
+          verdict: 'yes',
+          note: 'Fully parallel runs on pre-warmed browsers and devices.',
+          source: 'https://www.qawolf.com/',
+        },
+        coderabbit: {
+          verdict: 'partial',
+          note: 'Runs your existing tests only to verify its Simplify Code changes.',
+          source: 'https://www.coderabbit.ai/blog/introducing-simplify-code',
+        },
+      },
+      {
+        capability: 'Failures triaged by QA engineers for you',
+        lumo: {
+          verdict: 'no',
+          note: 'A person on your team must rule on each failure; nobody triages it for you.',
+        },
+        linear: {
+          verdict: 'no',
+          note: 'Agents are app users you assign; no human QA service.',
+          source: 'https://linear.app/docs/agents-in-linear',
+        },
+        qawolf: {
+          verdict: 'yes',
+          note: 'Humans reproduce failures and flag only verified bugs.',
+          source: 'https://www.qawolf.com/service',
+        },
+        coderabbit: {
+          verdict: 'no',
+          note: 'Triage is done by AI; no human QA staff described.',
+          source: 'https://www.coderabbit.ai/',
+        },
+      },
       {
         capability: 'Acceptance criteria that actually run',
         lumo: {
@@ -237,16 +304,15 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Coding sessions can test and screenshot, but nothing is scored per criterion.',
           source: 'https://linear.app/docs/coding-sessions',
         },
-        jira: {
+        coderabbit: {
           verdict: 'partial',
-          note: 'Rovo Dev has an AI read the PR against the criteria. Advisory, and no tests run.',
-          source:
-            'https://support.atlassian.com/rovo/docs/check-acceptance-criteria-in-a-code-review/',
+          note: 'An AI reads the PR against the linked issue. Advisory, and no check runs per criterion.',
+          source: 'https://docs.coderabbit.ai/integrations/issue-integrations',
         },
-        asana: {
-          verdict: 'no',
-          note: 'No executable acceptance criteria in its product docs.',
-          source: 'https://asana.com/product/command',
+        qawolf: {
+          verdict: 'partial',
+          note: 'An approved test plan becomes runnable flows, but not tied to a task’s criteria.',
+          source: 'https://docs.qawolf.com/onboarding-to-full-service.md',
         },
       },
       {
@@ -260,15 +326,16 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Not native; third-party tools like Testmo link runs to issues.',
           source: 'https://linear.app/integrations/testmo',
         },
-        jira: {
-          verdict: 'addon',
-          note: 'Not native; Marketplace apps like Xray and Zephyr.',
-          source: 'https://marketplace.atlassian.com/apps/1213259',
+        coderabbit: {
+          verdict: 'no',
+          note: 'Generates unit test code; no test cases or run log.',
+          source:
+            'https://docs.coderabbit.ai/finishing-touches/unit-test-generation',
         },
-        asana: {
-          verdict: 'addon',
-          note: 'Not native; third-party apps like Qase.',
-          source: 'https://asana.com/apps/qase',
+        qawolf: {
+          verdict: 'yes',
+          note: 'Flows with steps and assertions; every run keeps video, logs and traces.',
+          source: 'https://www.qawolf.com/run-infra',
         },
       },
       {
@@ -283,15 +350,16 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           source:
             'https://linear.app/changelog/2026-03-24-introducing-linear-agent',
         },
-        jira: {
+        coderabbit: {
           verdict: 'no',
-          note: 'Rovo Dev review doesn’t describe tamper detection.',
-          source: 'https://www.atlassian.com/software/rovo-dev/code-review',
+          note: 'Nothing built in; you could only write a custom pre-merge check.',
+          source: 'https://docs.coderabbit.ai/pr-reviews/pre-merge-checks',
         },
-        asana: {
-          verdict: 'no',
-          note: 'Nothing on tests in Command.',
-          source: 'https://asana.com/product/command',
+        qawolf: {
+          verdict: 'partial',
+          note: 'Its engineers review its own AI’s test edits; your agent’s edits go unchecked.',
+          source:
+            'https://www.qawolf.com/blog/the-qa-wolf-advantage-vertical-integration-for-superior-qa',
         },
       },
       {
@@ -305,24 +373,45 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Merging the PR moves the issue to Done; no confirm step.',
           source: 'https://linear.app/docs/github',
         },
-        jira: {
-          verdict: 'partial',
-          note: 'Possible if you add an approval step to the workflow yourself.',
-          source:
-            'https://www.atlassian.com/software/jira/guides/agentic-engineering/guardrails-and-safety',
+        coderabbit: {
+          verdict: 'no',
+          note: 'No notion of Done; failed checks can be overridden, passes need no sign-off.',
+          source: 'https://docs.coderabbit.ai/pr-reviews/pre-merge-checks',
         },
-        asana: {
-          verdict: 'partial',
-          note: 'AI Teammates have human review checkpoints.',
-          source: 'https://asana.com/product/ai/ai-teammates',
+        qawolf: {
+          verdict: 'no',
+          note: 'Humans check failures, but a clean run passes the gate with no sign-off.',
+          source: 'https://docs.qawolf.com/v0-ci-greenlight.md',
         },
       },
     ],
   },
   {
-    title: 'Security',
-    question: 'It shipped the feature. Did it ship a hole with it?',
+    title: 'Code review & security',
+    question: 'It shipped the feature. Did it ship a bug or a hole with it?',
     rows: [
+      {
+        capability: 'Reviews the whole diff for bugs, not only security',
+        lumo: {
+          verdict: 'no',
+          note: 'Its AI review looks for security issues only.',
+        },
+        linear: {
+          verdict: 'partial',
+          note: 'Diffs’ guided reviews explain the PR but don’t flag bugs. Beta, paid plans.',
+          source: 'https://linear.app/changelog/2026-05-27-linear-diffs',
+        },
+        qawolf: {
+          verdict: 'no',
+          note: 'Runs regression tests after a PR opens; doesn’t review the code.',
+          source: 'https://www.qawolf.com/how-it-works',
+        },
+        coderabbit: {
+          verdict: 'yes',
+          note: 'AI PR review catches logic bugs, not just security issues.',
+          source: 'https://www.coderabbit.ai/',
+        },
+      },
       {
         capability: 'Catches leaked secrets and vulnerable code in the PR',
         lumo: {
@@ -334,16 +423,15 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Shows the PR’s overall check status; no scanning.',
           source: 'https://linear.app/docs/diffs',
         },
-        jira: {
-          verdict: 'partial',
-          note: 'Shows findings from Snyk or GitHub; Rovo Dev AI review flags some issues.',
-          source:
-            'https://support.atlassian.com/jira-cloud-administration/docs/what-is-the-security-feature/',
+        coderabbit: {
+          verdict: 'yes',
+          note: 'Secret scanners, Semgrep/OpenGrep and OSV-Scanner run on every review.',
+          source: 'https://docs.coderabbit.ai/tools/list',
         },
-        asana: {
+        qawolf: {
           verdict: 'no',
-          note: 'The GitHub app shows review, build and PR status only.',
-          source: 'https://asana.com/apps/github',
+          note: 'PR testing runs functional end-to-end tests only.',
+          source: 'https://www.qawolf.com/solutions/pull-request-testing',
         },
       },
       {
@@ -357,15 +445,15 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'No security review in Diffs.',
           source: 'https://linear.app/docs/diffs',
         },
-        jira: {
-          verdict: 'no',
-          note: 'Rovo Dev reviews and drafts fixes; no exploit hunting.',
-          source: 'https://www.atlassian.com/software/rovo-dev/code-review',
+        coderabbit: {
+          verdict: 'partial',
+          note: 'Deep Scan rates reachability, but exploits stay theoretical. Whole repo, beta.',
+          source: 'https://docs.coderabbit.ai/security/index',
         },
-        asana: {
+        qawolf: {
           verdict: 'no',
-          note: 'Not described for Command or AI Teammates.',
-          source: 'https://asana.com/product/command',
+          note: 'Its agents map the app and write functional tests; no exploit hunting.',
+          source: 'https://www.qawolf.com/automation-ai',
         },
       },
       {
@@ -379,16 +467,16 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'No security findings to gate on.',
           source: 'https://linear.app/docs/diffs',
         },
-        jira: {
-          verdict: 'no',
-          note: 'Findings can be linked and prioritized; no Done gate described.',
+        coderabbit: {
+          verdict: 'partial',
+          note: 'Request changes blocks merge, but an approve command or a later fix clears it.',
           source:
-            'https://support.atlassian.com/jira-software-cloud/docs/manage-security-vulnerabilities-in-jira/',
+            'https://docs.coderabbit.ai/pr-reviews/request-changes-workflow',
         },
-        asana: {
-          verdict: 'no',
-          note: 'No security findings to gate on.',
-          source: 'https://asana.com/apps/github',
+        qawolf: {
+          verdict: 'partial',
+          note: 'Blocking bugs hold the CI gate until fixed or deprioritized; bugs only, not security.',
+          source: 'https://docs.qawolf.com/v0-ci-greenlight.md',
         },
       },
       {
@@ -402,16 +490,15 @@ export const COMPARE_GROUPS: CompareGroup[] = [
           note: 'Agent guidance is instructions only; nothing checks it was followed.',
           source: 'https://linear.app/docs/agents-in-linear',
         },
-        jira: {
+        coderabbit: {
           verdict: 'no',
-          note: 'Permissions and an audit trail; no detection of rule breaks.',
-          source:
-            'https://www.atlassian.com/software/jira/guides/agentic-engineering/guardrails-and-safety',
+          note: 'Its Claude Code integration triggers reviews; it doesn’t watch the agent.',
+          source: 'https://docs.coderabbit.ai/cli/claude-code-integration',
         },
-        asana: {
+        qawolf: {
           verdict: 'no',
-          note: 'AI actions are logged; no rule-break detection described.',
-          source: 'https://asana.com/product/ai/ai-teammates',
+          note: 'Its MCP lets agents trigger runs; nothing watches what they do.',
+          source: 'https://docs.qawolf.com/integrations.md',
         },
       },
     ],
@@ -450,15 +537,17 @@ export function Compare() {
     <section id='compare' className={styles.sectionPlain}>
       <div className={styles.sectionInner}>
         <div className={styles.sectionHeadLeft}>
-          <div className={styles.eyebrow}>Lumo vs. Linear, Jira and Asana</div>
+          <div className={styles.eyebrow}>
+            Lumo vs. Linear, QA Wolf and CodeRabbit
+          </div>
           <h2 className={`${styles.h2} ${styles.compareTitle}`}>
-            They track the work. Lumo checks it.
+            Three tools, one lane each. Lumo runs all three.
           </h2>
           <p className={styles.compareLede}>
-            All four can hand a task to a coding agent. Then Linear, Jira and
-            Asana stop: at an overall CI badge, an AI review comment, or a
-            test-management add-on. Lumo runs the checks itself, and the task
-            doesn&apos;t close until they pass and a person signs off.
+            Linear tracks the task, QA Wolf tests the build, CodeRabbit reviews
+            the PR, and none of them sees what the others found. Lumo tracks,
+            tests and scans the same task, and it doesn&apos;t close until the
+            checks pass and a person signs off.
           </p>
         </div>
 
@@ -522,7 +611,7 @@ export function Compare() {
 
         <p className={styles.compareFootnote}>
           Checked against each vendor&apos;s own docs, integration and
-          marketplace pages on September 23, 2026. &ldquo;Partly&rdquo; means
+          marketplace pages on September 24, 2026. &ldquo;Partly&rdquo; means
           the feature exists with limits; &ldquo;Add-on&rdquo; means a separate
           third-party app.
         </p>

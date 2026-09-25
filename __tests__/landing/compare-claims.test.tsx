@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 /**
- * LUM-827 — the homepage head-to-head table against Linear, Jira and Asana.
+ * LUM-827 — the homepage head-to-head table against Linear, CodeRabbit and QA Wolf (one per lane).
  *
  * A comparison table is the one place on the page that makes claims about
  * someone else's product, so every competitor cell must point at the vendor's

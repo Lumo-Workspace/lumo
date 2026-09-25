@@ -1856,10 +1856,11 @@
     white-space: normal;
   }
   /* Only marks in the product columns, so the table stays a table on a
-     phone — just tighter. */
+     phone — just tighter. 6px side padding keeps the widest product
+     header (CodeRabbit) inside a 375px viewport. */
   .compareTable th,
   .compareTable td {
-    padding: 12px 8px;
+    padding: 12px 6px;
   }
   .compareTable .compareCap {
     padding-left: 14px;
