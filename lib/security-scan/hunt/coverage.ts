@@ -22,8 +22,10 @@
  */
 import {
   HUNT_CATEGORIES,
+  huntTaskTerminated,
   type HuntCategory,
   type HuntCategoryStop,
+  type HuntWrapUpFacts,
 } from '@/lib/services/security-hunt.config'
 
 const STOPS: readonly HuntCategoryStop[] = [
@@ -52,6 +54,17 @@ export interface HuntCategoryCoverage {
   category: HuntCategory
   /** The last attempt's stop reason. */
   stopped: HuntCategoryStop
+  /**
+   * LUM-831 — did the task END, as a fact SEPARATE from how it stopped?
+   * `stopped` says how the search ran out; this says whether an answer came
+   * back anyway, because the forced wrap-up asked for one and got it. The two
+   * have to be readable apart: `2/3 done` on a scan whose third task stopped
+   * on the no-progress guard and then answered "nothing" reads as missing
+   * coverage, and it is not. Always true on a `done` row; on `no-progress`,
+   * `budget` and `steps` it is the wrap-up's own outcome; never true on a
+   * timeout, an error or a skipped task. See `huntTaskTerminated`.
+   */
+  terminated: boolean
   /**
    * Summed over every attempt — what this task cost the scan, in wall clock
    * and in gateway tokens. A retried task really did spend both twice, and
@@ -92,6 +105,14 @@ export interface HuntCoverage {
    * below are grouped by `taskId` and not by category.
    */
   done: number
+  /**
+   * LUM-831 — how many TERMINATED, over the same unit as `total`.
+   * `terminated === total` is the layer having looked everywhere it planned
+   * to, which is what the workflow's own `partial` verdict is judged on;
+   * `done` stays the narrower "the agent submitted by itself" count, and the
+   * gap between the two is the forced-wrap-up rate a reader wants to see.
+   */
+  terminated: number
   /** Recorded tasks, in the order the workflow attempted them. */
   categories: HuntCategoryCoverage[]
 }
@@ -114,6 +135,28 @@ function count(value: unknown): number {
 /** Free text straight off a Json column — only trusted when it is a string. */
 function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+/**
+ * LUM-831 — the wrap-up facts, off a raw Json column, reduced to what the
+ * termination question needs: did the call come back, and did it throw.
+ * Anything that is not an object with a boolean `ran` is no evidence of a
+ * wrap-up at all, which is the fail-closed reading.
+ */
+function wrapUpOf(value: unknown): HuntWrapUpFacts | undefined {
+  if (value === null || typeof value !== 'object' || Array.isArray(value))
+    return undefined
+  const cells = value as Record<string, unknown>
+  if (typeof cells.ran !== 'boolean') return undefined
+  const error = text(cells.error)
+  return { ran: cells.ran, ...(error === undefined ? {} : { error }) }
+}
+
+/** The provider's warnings on a degraded wrap-up — only their presence matters here. */
+function warningsOf(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const warnings = value.filter((w): w is string => typeof w === 'string')
+  return warnings.length > 0 ? warnings : undefined
 }
 
 /**
@@ -151,6 +194,14 @@ export function parseHuntCoverage(raw: unknown): HuntCoverage | null {
       ...(objective === undefined ? {} : { objective }),
       category,
       stopped,
+      // Last attempt wins, exactly as `stopped` does: a retry REPLACES the
+      // task's outcome, so the first attempt's wrap-up says nothing about how
+      // the task ended.
+      terminated: huntTaskTerminated({
+        stopped,
+        wrapUp: wrapUpOf(cells.wrapUp),
+        wrapUpWarnings: warningsOf(cells.wrapUpWarnings),
+      }),
       elapsedMs: (prior?.elapsedMs ?? 0) + count(cells.elapsedMs),
       tokens: (prior?.tokens ?? 0) + count(cells.tokens),
       // Last attempt wins — see the field's comment: a retry replaces the
@@ -186,6 +237,7 @@ export function parseHuntCoverage(raw: unknown): HuntCoverage | null {
   return {
     total,
     done: categories.filter(c => c.stopped === 'done').length,
+    terminated: categories.filter(c => c.terminated).length,
     categories,
     ...(oversized ? { oversized } : {}),
   }
@@ -197,10 +249,22 @@ export function parseHuntCoverage(raw: unknown): HuntCoverage | null {
  * Kept beside the parser so the log line and the API payload describe a task
  * the same way. (`lumo task status` renders its own copy — the CLI is a
  * separate package and never imports from `lib/`.)
+ *
+ * LUM-831 — a task that stopped on a counter and then answered is marked
+ * `(terminated)` on its own row, and the head gains a `terminated` count
+ * whenever it outruns `done`. Both facts, never one: `2/3 done` alone reads
+ * as a third of the plan missing, when the third task may have been asked and
+ * have answered.
  */
 export function formatHuntCoverage(coverage: HuntCoverage): string {
   const parts = coverage.categories.map(c => {
-    const attempts = c.attempts > 1 ? ` (${c.attempts} attempts)` : ''
+    // `done` already says the task terminated; saying it twice on that row
+    // would bury the rows where the word carries information.
+    const notes = [
+      ...(c.terminated && c.stopped !== 'done' ? ['terminated'] : []),
+      ...(c.attempts > 1 ? [`${c.attempts} attempts`] : []),
+    ]
+    const attempts = notes.length > 0 ? ` (${notes.join(', ')})` : ''
     const spent =
       c.stopped === 'skipped' ? '' : `${(c.elapsedMs / 1000).toFixed(1)}s `
     // LUM-758: two rows can share a category, so the task id is what tells
@@ -213,8 +277,13 @@ export function formatHuntCoverage(coverage: HuntCoverage): string {
         `oversized (${coverage.oversized.sourceFiles} source files, partial coverage)`,
       ]
     : []
+  const terminated =
+    coverage.terminated > coverage.done
+      ? [`${coverage.terminated}/${coverage.total} terminated`]
+      : []
   return [
     `${coverage.done}/${coverage.total} done`,
+    ...terminated,
     ...parts,
     ...oversized,
   ].join(' · ')

@@ -336,10 +336,14 @@ describe('LUM-762 hunt coverage on the scans array', () => {
     expect(state.scans[0]!.hunt).toEqual({
       total: 6,
       done: 1,
+      // LUM-831 — the payload carries termination beside the stop reason, so
+      // the CLI can say whether a task was asked for an answer and gave one.
+      terminated: 1,
       categories: [
         {
           category: 'idor',
           stopped: 'done',
+          terminated: true,
           elapsedMs: 41_000,
           tokens: 900,
           candidates: 0,
@@ -348,6 +352,7 @@ describe('LUM-762 hunt coverage on the scans array', () => {
         {
           category: 'injection',
           stopped: 'timeout',
+          terminated: false,
           elapsedMs: 60_000,
           tokens: 0,
           candidates: 0,

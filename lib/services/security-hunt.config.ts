@@ -623,6 +623,58 @@ export type HuntBatchStop =
 export type HuntCategoryStop = HuntBatchStop | 'skipped'
 
 /**
+ * LUM-831 — the stops a forced wrap-up can still turn into an ANSWER.
+ *
+ * All three mean the same thing about the SEARCH: it ended without the agent
+ * deciding to submit. They are also the only three the hunt client itself
+ * returns, and every one of them is followed by the wrap-up call that asks the
+ * agent for what it found. `'timeout'`, `'error'` and `'skipped'` are decided
+ * OUTSIDE the client — a step whose sandbox never came up, a batch that threw,
+ * a task whose turn never came — and never carry a wrap-up at all.
+ */
+export const HUNT_ANSWERABLE_STOPS: readonly HuntCategoryStop[] = [
+  'no-progress',
+  'budget',
+  'steps',
+]
+
+/**
+ * LUM-831 — did this task TERMINATE, or was it cut off? The layer's `partial`
+ * verdict is judged on this, not on `stopped === 'done'`.
+ *
+ * `stopped` says how the SEARCH ended and deliberately keeps saying it: `done`
+ * is reserved for an agent that submitted on its own, and the rate of forced
+ * wrap-ups is the honest measure of whether the agent converges. But PARTIAL
+ * is a fail-closed signal meaning "could not confirm this is clean", and a
+ * task that was ASKED for its findings and answered — even with an empty list
+ * — is not that. It looked, and it said so. Treating the two the same made a
+ * correctly-firing no-progress guard (LUM-799) produce routine PARTIALs, which
+ * is exactly the state LUM-762 worked to make rare.
+ *
+ * Terminated, therefore, is one of:
+ *   - `stopped === 'done'` — the agent decided by itself; or
+ *   - an answerable stop whose wrap-up RAN and came back clean.
+ *
+ * Everything else is "don't know" and stays partial: a timeout, a sandbox
+ * failure, a skipped task, a wrap-up that never ran (`skipped`), one that
+ * threw (`error`), and one the provider degraded — `wrapUpWarnings` is only
+ * ever set when the forced tool choice was not honoured, i.e. we never managed
+ * to ask, so its empty answer is evidence about the provider and not about the
+ * diff (see `HuntTaskAudit.wrapUpWarnings`).
+ */
+export function huntTaskTerminated(row: {
+  stopped: HuntCategoryStop
+  wrapUp?: HuntWrapUpFacts | undefined
+  wrapUpWarnings?: readonly string[] | undefined
+}): boolean {
+  if (row.stopped === 'done') return true
+  if (!HUNT_ANSWERABLE_STOPS.includes(row.stopped)) return false
+  if (row.wrapUp?.ran !== true) return false
+  if (row.wrapUp.error !== undefined) return false
+  return (row.wrapUpWarnings?.length ?? 0) === 0
+}
+
+/**
  * One attempt at one task. A task the retry pass re-ran has TWO rows in
  * `HuntAudit.tasks`, in attempt order — the last one is its outcome.
  * `taskId` is the row's identity (`parseHuntCoverage` groups on it, and two

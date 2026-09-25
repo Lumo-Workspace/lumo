@@ -31,8 +31,18 @@
  * window, and a task that never ran is recorded as `skipped`.
  *
  * Deterministic body: no I/O, no logging, no Date — elapsed time is measured
- * inside each batch step and returned. A task that never reaches `done` or a
- * falsifier overflow makes the layer PARTIAL, never RAN.
+ * inside each batch step and returned. A task that never TERMINATED, or a
+ * falsifier overflow, makes the layer PARTIAL, never RAN.
+ *
+ * LUM-831 — "terminated" is not "`stopped === 'done'`". LUM-799's no-progress
+ * guard is a guard that works, and every time it fired it turned the whole
+ * scan PARTIAL — a fail-closed signal that means "could not confirm this is
+ * clean" — even though the forced wrap-up had run and the agent had answered
+ * "nothing". A search cut off holding something and a search that was asked
+ * and said "none" are different facts, and the layer's whole value is that
+ * they not be mixed. `huntTaskTerminated` draws that line for `budget`,
+ * `steps` and `no-progress` alike; timeout, sandbox failure and a wrap-up
+ * that never ran or lost stay PARTIAL.
  *
  * LUM-758 Task 10 — the subgraph is no longer built up front and no longer
  * decides anything about `partial`. It is built AFTER the hunt, from the files
@@ -53,9 +63,11 @@ import {
   HUNT_TASK_TOKEN_MIN,
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_MAX_FALSIFIED,
+  huntTaskTerminated,
   type HuntJob,
   type HuntTask,
   type HuntCategoryStop,
+  type HuntWrapUpFacts,
   type HuntAudit,
   type HuntBatchOutput,
   type HuntFindingInput,
@@ -383,8 +395,19 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
        * Keyed by `task.id`, NOT by category: two tasks may share a category
        * (same closed output type, different objectives), and a category key
        * would make the second silently overwrite the first.
+       *
+       * LUM-831 — the stop alone no longer decides `partial`, so the LATEST
+       * attempt's wrap-up facts are kept beside it: `huntTaskTerminated` reads
+       * both. The retry pass still looks only at `stopped`.
        */
-      const stops: Record<string, HuntCategoryStop> = {}
+      const outcomes: Record<
+        string,
+        {
+          stopped: HuntCategoryStop
+          wrapUp?: HuntWrapUpFacts
+          wrapUpWarnings?: string[]
+        }
+      > = {}
 
       // Pass 1 — one bounded batch per PLANNED TASK. The ceiling (not the
       // whole remaining budget) is what a batch may spend, so one wedged task
@@ -408,7 +431,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
             stopped: 'skipped',
             sites: sitesOf(task),
           })
-          stops[task.id] = 'skipped'
+          outcomes[task.id] = { stopped: 'skipped' }
           continue
         }
         const batch = await huntTaskStep({
@@ -452,7 +475,13 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           ...(batch.stop ? { stop: batch.stop } : {}),
           ...(batch.wrapUp ? { wrapUp: batch.wrapUp } : {}),
         })
-        stops[task.id] = batch.stopped
+        outcomes[task.id] = {
+          stopped: batch.stopped,
+          ...(batch.wrapUp ? { wrapUp: batch.wrapUp } : {}),
+          ...(batch.wrapUpWarnings
+            ? { wrapUpWarnings: batch.wrapUpWarnings }
+            : {}),
+        }
       }
 
       // Pass 2 — one retry per TASK the gateway dropped (LUM-762). Upstream
@@ -464,7 +493,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       // 1's: a `'use workflow'` body awaits its steps directly, not through a
       // helper.
       for (const task of planned) {
-        const stop = stops[task.id]
+        const stop = outcomes[task.id]?.stopped
         if (stop !== 'timeout' && stop !== 'error') continue
         if (
           tokenSpent >= tokenBudgetTotal ||
@@ -511,15 +540,30 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           ...(retry.stop ? { stop: retry.stop } : {}),
           ...(retry.wrapUp ? { wrapUp: retry.wrapUp } : {}),
         })
-        stops[task.id] = retry.stopped
+        outcomes[task.id] = {
+          stopped: retry.stopped,
+          ...(retry.wrapUp ? { wrapUp: retry.wrapUp } : {}),
+          ...(retry.wrapUpWarnings
+            ? { wrapUpWarnings: retry.wrapUpWarnings }
+            : {}),
+        }
       }
 
       // P9 — the single most important line of LUM-758: only the PLANNED
       // TASKS take part in the verdict. Iterating HUNT_CATEGORIES would leave
       // the categories nobody planned permanently not-`done`, making every
       // scan instantly PARTIAL and voiding all of the work above.
+      //
+      // LUM-831 — and the test is TERMINATED, not `stopped === 'done'`. A task
+      // whose search stopped on a counter (or on the no-progress guard) and was
+      // then ASKED for its findings, and answered, has looked: PARTIAL means
+      // "could not confirm this is clean" and must not be spent on it. A task
+      // with no answer on record — never asked, asked and lost, never run —
+      // still makes the layer PARTIAL. See `huntTaskTerminated`.
       for (const task of planned) {
-        if (stops[task.id] !== 'done') partial = true
+        const outcome = outcomes[task.id]
+        if (outcome === undefined || !huntTaskTerminated(outcome))
+          partial = true
       }
     } catch (error) {
       // A step that exhausted its retries. Whatever ran before it still ran.
