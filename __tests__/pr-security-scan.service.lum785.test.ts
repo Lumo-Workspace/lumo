@@ -238,7 +238,7 @@ describe('LUM-785 stage A graph rule', () => {
     expect(readRepoFile).toHaveBeenCalledWith(
       expect.objectContaining({ path: SERVICE, ref: 'sha-1' })
     )
-    expect(meta).toMatchObject({ status: 'FINDINGS', partial: false })
+    expect(meta).toMatchObject({ status: 'FINDINGS', partialCauses: [] })
     expect(meta.stages).toMatchObject({ secrets: 'RAN', judge: 'RAN' })
   })
 
@@ -262,7 +262,7 @@ describe('LUM-785 stage A graph rule', () => {
     expect(out).toMatchObject({ status: 'CLEAN', findings: 0 })
     const [, rows, meta] = repo.persistResult.mock.calls[0]!
     expect(rows).toEqual([])
-    expect(meta.partial).toBe(true)
+    expect(meta.partialCauses).toEqual(['GRAPH_READ_FAILED'])
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('graph rules partial')
     )
@@ -283,6 +283,6 @@ describe('LUM-785 stage A graph rule', () => {
       trigger: 'PR_EVENT',
     })
     expect(readRepoFile).not.toHaveBeenCalled()
-    expect(repo.persistResult.mock.calls[0]![2].partial).toBe(false)
+    expect(repo.persistResult.mock.calls[0]![2].partialCauses).toEqual([])
   })
 })

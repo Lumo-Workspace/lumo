@@ -42,7 +42,7 @@ feat: size the hunt by diff [LUM-787]
 https://github.com/Lumo-Workspace/lumo/pull/1013
 
 Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished … · trigger PR_EVENT · 61,000 tokens
-  Secrets: checked · Code scan: ✗ failed (1 external finding) · Dependencies: checked · AI review: checked · Exploit paths: checked — gitleaks exit 2
+  Secrets: checked · Code scan: ⚠ didn't finish (1 external finding) · Dependencies: checked · AI review: checked · Exploit paths: checked · part of this scan hasn't finished on our side — not counted as checked — gitleaks exit 2
     AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%
     Exploit paths 2/3 done · t1 idor 41.2s done · t2 injection 72.0s done (2 attempts) · t3 race skipped
   Findings: 6 (2 open · 1 blocks DONE · 3 dispositioned · 1 already on main)
@@ -54,7 +54,7 @@ Scan abcdef0 · FINDINGS · started 2026-09-15T07:00:00.000Z · finished … · 
 
 - **Header** — repo, PR state, and `task LUM-N` or `no linked task`.
 - **Scan line** — short head sha, scan status (`PENDING` / `RUNNING` / `CLEAN` / `FINDINGS` / `FAILED`), timestamps, trigger, and the hunt's token spend (`tokens not metered` when the row carries null — null is never printed as 0).
-- **Layer line** — the same five-layer grammar and display labels as `lumo task status` and the GitHub PR summary (`Secrets` · `Code scan` · `Dependencies` · `AI review` · `Exploit paths`; states `checked` / `✗ failed` / `skipped` / `off` / `scanning` / `⚠ incomplete` / `⚠ superseded`). `checked` means the layer completed, not that it found nothing. A trailing `· partial` means a layer hit its cap; `· N left the queue (…)` explains where a merged/closed PR's undispositioned rows went (LUM-775); an external-scanner reason prints only in its scrubbed form.
+- **Layer line** — the same five-layer grammar and display labels as `lumo task status` and the GitHub PR summary (`Secrets` · `Code scan` · `Dependencies` · `AI review` · `Exploit paths`; states `checked` / `⚠ didn't finish` / `skipped` / `off` / `scanning` / `⚠ partly checked` / `⚠ superseded`). `checked` means the layer completed, not that it found nothing. A trailing `· part of this scan hasn't finished on our side — not counted as checked` (LUM-832) appears whenever the scan did not finish and nothing is left queued — whatever the cause, it is worded as ours and never names a reason or asks for anything (the cause itself is internal: `PrSecurityScan.partialCauses`, read by `scripts/security/scan-reliability.ts`); `· N left the queue (…)` explains where a merged/closed PR's undispositioned rows went (LUM-775); an external-scanner reason prints only in its scrubbed form.
 - **Budget line** (LUM-814) — the AI-review layer's own arithmetic, printed whenever the layer exists, truncated or not:
   - reviewed whole: `AI review budget: diff 117,408 chars · tier 120,000 · 2,592 left, 2.2%`
   - truncated: `AI review budget: diff 261,400 chars · tier 180,000 · over by 81,400 · 12 of 41 files dropped, 31.5% of the diff unreviewed`
@@ -105,13 +105,15 @@ wrap-up was made to collect what it held. `repeated N` on the header counts
 those re-runs for every task (a converging search repeats a slice once or
 twice; the loop this was written for repeated 46 of 73), and `N repeat steps`
 on the stop line is the streak the search ended on — printed whatever ended
-it, so a near miss is visible on a `budget` or `steps` row too. `oversized` on the
-diff line means the PR exceeded the hunt's source-file ceiling and the tasks
-covered a corner of it.
+it, so a near miss is visible on a `budget` or `steps` row too. `this run was sized
+for fewer files than the diff — the rest is still on us` on the diff line
+(LUM-832; formerly `oversized`) means the diff touched more source files than
+the hunt's sizing (`HUNT_OVERSIZED_SOURCE_FILES`, a cost decision) covers; the
+layer is PARTIAL with cause `HUNT_OVERSIZED` rather than `checked`.
 
 A `no-progress`, `budget` or `steps` stop whose forced wrap-up RAN is a task
 that **terminated**: it was asked for its findings and answered, even when the
-answer was an empty list, so it no longer makes the layer `⚠ incomplete · partial`
+answer was an empty list, so it no longer makes the layer `⚠ partly checked`
 on its own (LUM-831). The coverage payload says both facts — `stopped` is still
 how the search ended, `terminated` is whether an answer came back. A timeout, a
 sandbox failure, a wrap-up that never ran or that errored, and a skipped task
@@ -176,6 +178,6 @@ by construction — the server never loads the column for this read.
 ## When to suggest
 
 - The user asks what the security scan found on a PR ("what did the scan say on #1013", "why is PR 1013 blocked", "show me the scan") — especially a PR **without** a linked task, which `lumo task status` cannot see.
-- `lumo task status` shows a `PR #N · scan …` line and the user wants the findings behind it, the dispositioned history, or why the hunt layer read `⚠ incomplete` / `N/M done` — `lumo pr scan N` then `--full` for the per-task trace.
+- `lumo task status` shows a `PR #N · scan …` line and the user wants the findings behind it, the dispositioned history, or why the hunt layer read `⚠ partly checked` / `N/M done` — `lumo pr scan N` then `--full` for the per-task trace.
 - Auditing the L3 hunt on a real scan (which commands the gate refused, how many steps a task got, which model ran) without a prod-database script.
 - **Not** for changing a finding's standing: disposition is human-only in the web delivery panel. **Not** `lumo task pr show` — that is the task-scoped PR card (title, state, CI, branches) and carries no scan detail.

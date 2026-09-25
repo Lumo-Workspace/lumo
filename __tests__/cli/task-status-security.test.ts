@@ -151,7 +151,7 @@ describe('lumo task status — security findings (LUM-737)', () => {
       })
     )
     expect(unconfirmed).toContain(
-      '⚠ PR #14: security scan FAILED — could not confirm it is clean.'
+      "⚠ PR #14: security scan didn't finish on our side — could not confirm it is clean."
     )
     expect(unconfirmed).toContain(
       '⚠ PR #15: no security scan has run — could not confirm it is clean.'
@@ -318,7 +318,7 @@ describe('LUM-738 supplyChain surface — task status per-PR line', () => {
     )
 
     expect(out).toContain(
-      '  PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · Dependencies: checked · AI review: checked · Exploit paths: \u26a0 incomplete'
+      '  PR #12 · scan FINDINGS · Secrets: checked · Code scan: checked · Dependencies: checked · AI review: checked · Exploit paths: \u26a0 partly checked'
     )
     for (const key of [
       'secrets RAN',

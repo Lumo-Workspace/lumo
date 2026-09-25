@@ -349,22 +349,13 @@ function ScanDetails({
           </a>
         </p>
       )}
-      {scan.partial && (
-        <p data-testid='scan-partial' className='text-caption text-warning'>
+      {/* LUM-832: one owned line, whatever the cause. It used to name a
+          reason — "cut off at the scan budget", "large changes may be
+          under-reviewed" — that was usually wrong and always ours; the stage
+          row above already says which layer did not finish. */}
+      {scan.coverage === 'UNFINISHED' && (
+        <p data-testid='scan-unfinished' className='text-caption text-warning'>
           {intl.formatMessage({ id: 'securityScan.partial' })}
-        </p>
-      )}
-      {scan.judgeStatus === 'UNAVAILABLE' && (
-        <p
-          data-testid='judge-unavailable'
-          className='text-caption text-warning'
-        >
-          {intl.formatMessage({ id: 'securityScan.judgeUnavailable' })}
-        </p>
-      )}
-      {scan.truncated && (
-        <p className='text-caption text-muted-foreground'>
-          {intl.formatMessage({ id: 'securityScan.truncated' })}
         </p>
       )}
       {externalReason && (

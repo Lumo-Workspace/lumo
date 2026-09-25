@@ -968,7 +968,7 @@ export const securityHuntService = {
         hunt: input.stage,
         huntAudit: capAudit(input.audit),
         tokenSpent: input.tokenSpent,
-        partial: input.partial,
+        partialCauses: input.partialCauses,
         ...(input.job.attempt !== undefined
           ? { attempt: input.job.attempt }
           : {}),
@@ -1000,7 +1000,7 @@ export const securityHuntService = {
       hunt: 'FAILED',
       huntAudit: { error: reason.slice(0, 500) },
       tokenSpent,
-      partial: false,
+      partialCauses: [],
       ...(attempt !== undefined ? { attempt } : {}),
     })
   },

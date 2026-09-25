@@ -18,6 +18,7 @@ import type {
 import type { HuntSignalSite } from '@/lib/security-scan/hunt/trigger'
 import type { PlanFailureFacts } from '@/lib/security-scan/hunt/plan-retry'
 import type { PlanRepairKind } from '@/lib/security-scan/hunt/plan-repair'
+import type { PartialCause } from '@/shared/src/security-scan'
 
 export interface HuntJob {
   scanId: string
@@ -1252,7 +1253,8 @@ export interface PersistHuntInput {
   findings: HuntFindingInput[]
   audit: HuntAudit
   tokenSpent: number
-  partial: boolean
+  /** LUM-832 — 这一层为什么没跑完整；空数组 = 完整。 */
+  partialCauses: PartialCause[]
   /** LUM-758 — 写进 `stages.hunt` 的层状态。 */
   stage: 'RAN' | 'PARTIAL' | 'SKIPPED'
 }

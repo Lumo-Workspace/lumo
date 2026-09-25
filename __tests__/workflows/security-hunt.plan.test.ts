@@ -324,7 +324,7 @@ it('partial is judged only over planned tasks', async () => {
   // ssrf / prompt_injection / race / logic were never planned; none of them
   // may drag the verdict down — that bug is what made every scan PARTIAL.
   expect(result.outcome).toBe('RAN')
-  expect(persist.mock.calls[0][0].partial).toBe(false)
+  expect(persist.mock.calls[0][0].partialCauses).toEqual([])
 })
 
 it('two tasks in the same category keep separate outcomes: the first stopping short still makes the layer PARTIAL', async () => {
@@ -347,7 +347,7 @@ it('two tasks in the same category keep separate outcomes: the first stopping sh
 
   expect(hunt).toHaveBeenCalledTimes(2)
   expect(result.outcome).toBe('PARTIAL')
-  expect(persist.mock.calls[0][0].partial).toBe(true)
+  expect(persist.mock.calls[0][0].partialCauses).toEqual(['HUNT_INCOMPLETE'])
 })
 
 it('the retry pass re-runs the task that failed, not its category sibling', async () => {

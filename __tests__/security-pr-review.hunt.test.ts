@@ -25,10 +25,12 @@ describe('LUM-739 hunt stage', () => {
       taskUrl: null,
     })
     expect(body).toContain(
-      '- Secrets: checked · Code scan: checked · AI review: checked · Exploit paths: \u2717 failed'
+      "- Secrets: checked · Code scan: checked · AI review: checked · Exploit paths: ⚠ didn't finish"
     )
+    // LUM-832: a FAILED layer is not "still running" — it is ours, and
+    // unfinished.
     expect(body).toContain(
-      'No open findings yet — the scan is still incomplete.'
+      "No open findings so far — part of this scan hasn't finished on our side — not counted as checked."
     )
     expect(body).toContain(SUMMARY_MARKER)
   })

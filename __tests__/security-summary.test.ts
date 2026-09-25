@@ -44,6 +44,7 @@ function scan(over: Partial<SecurityScanView> = {}): SecurityScanView {
     stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
     partial: false,
     complete: true,
+    coverage: 'CHECKED',
     externalLate: false,
     error: null,
     startedAt: '2026-09-03T00:00:00Z',

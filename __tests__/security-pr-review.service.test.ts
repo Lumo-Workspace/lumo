@@ -236,9 +236,11 @@ describe('pure builders', () => {
       [
         '### 🛡️ Lumo security scan — abcdef1',
         '',
-        '- Secrets: checked · Code scan: \u2717 failed (semgrep 3, gitleaks 1) · AI review: checked',
+        "- Secrets: checked · Code scan: ⚠ didn't finish (semgrep 3, gitleaks 1) · AI review: checked",
         '',
         '**4 open findings** (1 blocking DONE)',
+        '',
+        "- Part of this scan hasn't finished on our side — not counted as checked.",
         '',
         '⚠ Code scan failed: semgrep exit 2',
         '',
@@ -268,7 +270,7 @@ describe('pure builders', () => {
     })
 
     expect(summary).toContain(
-      '- Secrets: checked · Code scan: checked (semgrep 3, gitleaks 1) · Dependencies: checked · AI review: checked · Exploit paths: \u26a0 incomplete'
+      '- Secrets: checked · Code scan: checked (semgrep 3, gitleaks 1) · Dependencies: checked · AI review: checked · Exploit paths: \u26a0 partly checked'
     )
     for (const key of [
       'secrets:',
@@ -318,7 +320,7 @@ describe('pure builders', () => {
         error: null,
         taskUrl: null,
       })
-    ).toContain('No open findings yet — the scan is still incomplete.')
+    ).toContain('No open findings yet — the scan is still running.')
   })
 
   it('a partial scan says "yet" too, even with every layer RAN', () => {
@@ -335,7 +337,7 @@ describe('pure builders', () => {
     // LUM-740: every layer RAN, so the honest reason is the cap, not "still
     // incomplete" (which reads as "still running").
     expect(body).toContain(
-      'No open findings yet — a layer hit its budget cap, so the scan is not whole.'
+      "No open findings so far — part of this scan hasn't finished on our side — not counted as checked."
     )
     expect(body).not.toContain('No open findings on lines this PR added.')
   })
@@ -569,7 +571,7 @@ describe('securityPrReviewService.sync', () => {
     expect(body).not.toContain('Code scan failed')
     expect(body).not.toContain('TypeError: boom')
     // The stage line still says FAILED — the fact is published, the text is not.
-    expect(body).toContain('Code scan: ✗ failed')
+    expect(body).toContain("Code scan: ⚠ didn't finish")
   })
 
   it('a comment whose author was deleted (user: null) is skipped, not thrown on', async () => {
@@ -795,7 +797,7 @@ describe('LUM-738 supplyChain surface — PR summary', () => {
       dependencies: { open: 0, persisting: 0 },
     })
     expect(pending).not.toContain('- Dependencies')
-    expect(pending).toContain('still incomplete')
+    expect(pending).toContain('still running')
     // No supply-chain layer at all (LUM-735 shape): nothing added.
     expect(
       buildSummary({ ...base, stages: { secrets: 'RAN', external: 'RAN' } })

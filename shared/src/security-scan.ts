@@ -84,11 +84,13 @@ export const SCAN_STAGE_LABELS: Record<ScanStageKeyName, string> = {
  */
 export const SCAN_STAGE_STATE_LABELS: Record<ScanStageStateName, string> = {
   RAN: 'checked',
-  FAILED: '✗ failed',
+  // LUM-832: a layer that did not finish is ours to finish, not a verdict on
+  // the code — "failed" read as the latter.
+  FAILED: "⚠ didn't finish",
   SKIPPED: 'skipped',
   NOT_CONFIGURED: 'off',
   PENDING: 'scanning',
-  PARTIAL: '⚠ incomplete',
+  PARTIAL: '⚠ partly checked',
   SUPERSEDED: '⚠ superseded',
 }
 
@@ -189,3 +191,123 @@ export function formatQueueExits(
   if (total === 0) return null
   return `${total} left the queue (${parts.join(', ')})`
 }
+
+/**
+ * LUM-832 — WHY a scan is not whole. `PrSecurityScan.partial` used to be one
+ * boolean with five unrelated writers OR-ed into it, and every one of them
+ * reached the customer as the same yellow line naming the same (usually
+ * wrong) reason. Each set point now names itself; the row keeps the union.
+ *
+ * Stored as text on `PrSecurityScan.partialCauses`, so this list is the
+ * contract: values are never renamed, only added. A value this build does
+ * not know (a newer server) is read as unattributed, never dropped.
+ */
+export const PARTIAL_CAUSES = [
+  /** A planned hunt task never terminated: sandbox, gateway, timeout, step failure. */
+  'HUNT_INCOMPLETE',
+  /** More accepted hunt candidates than `HUNT_MAX_FALSIFIED`; the rest were not falsified. */
+  'HUNT_FALSIFIER_OVERFLOW',
+  /** The hunt was sized for fewer source files than the diff touched (`HUNT_OVERSIZED_SOURCE_FILES`). */
+  'HUNT_OVERSIZED',
+  /** The AI review's tier held less than the whole diff; some files were not reviewed. */
+  'JUDGE_TRUNCATED',
+  /** The graph rules could not read the subgraph they check. */
+  'GRAPH_READ_FAILED',
+  /** A managed / pushed scanner report was cut at the finding cap. */
+  'EXTERNAL_TRUNCATED',
+] as const
+
+export type PartialCause = (typeof PARTIAL_CAUSES)[number]
+
+/**
+ * The two classes the task asks every cause to fall into. Neither is the
+ * customer's: `OUR_FAULT` is infrastructure that did not do its job,
+ * `COVERAGE_OWED` is a budget WE set (a cost decision, not a capability
+ * limit) that left work we still owe. `UNATTRIBUTED` is a row written before
+ * the causes existed, or a cause this build does not know.
+ */
+export type PartialCauseClass = 'OUR_FAULT' | 'COVERAGE_OWED' | 'UNATTRIBUTED'
+
+export const PARTIAL_CAUSE_CLASS: Record<PartialCause, PartialCauseClass> = {
+  HUNT_INCOMPLETE: 'OUR_FAULT',
+  HUNT_FALSIFIER_OVERFLOW: 'COVERAGE_OWED',
+  HUNT_OVERSIZED: 'COVERAGE_OWED',
+  JUDGE_TRUNCATED: 'COVERAGE_OWED',
+  GRAPH_READ_FAILED: 'OUR_FAULT',
+  EXTERNAL_TRUNCATED: 'COVERAGE_OWED',
+}
+
+export function isPartialCause(value: unknown): value is PartialCause {
+  return (
+    typeof value === 'string' &&
+    (PARTIAL_CAUSES as readonly string[]).includes(value)
+  )
+}
+
+export function partialCauseClass(cause: string): PartialCauseClass {
+  return isPartialCause(cause) ? PARTIAL_CAUSE_CLASS[cause] : 'UNATTRIBUTED'
+}
+
+/**
+ * The union two writers of one row agree on: order-stable (declared order,
+ * unknown values after, as themselves), deduplicated, and monotone — nothing
+ * the current row carries is ever dropped by an incoming write.
+ */
+export function mergePartialCauses(
+  current: ReadonlyArray<string> | null | undefined,
+  incoming: ReadonlyArray<string>
+): string[] {
+  const all = new Set([...(current ?? []), ...incoming])
+  return [
+    ...PARTIAL_CAUSES.filter(c => all.has(c)),
+    ...[...all].filter(c => !isPartialCause(c)),
+  ]
+}
+
+/**
+ * LUM-832 — what a customer is told about a scan, on every surface. Two
+ * states while things go right, one owned state when they did not:
+ *
+ * - `IN_PROGRESS` — some layer is still running (or queued for a retry /
+ *   another batch). Nothing is concluded.
+ * - `CHECKED` — every layer finished; the findings are the whole answer.
+ * - `UNFINISHED` — some part did not finish and nothing is left queued. We
+ *   say it is ours, and never call it checked or clean (spec P9: a security
+ *   signal never claims safety it did not establish).
+ *
+ * The cause is deliberately NOT part of it: it is an internal fact
+ * (`partialCauses`, read by the reliability read-out), and no state asks the
+ * customer to do anything.
+ */
+export type ScanCoverageState = 'IN_PROGRESS' | 'CHECKED' | 'UNFINISHED'
+
+export interface ScanCoverageInput {
+  status?: string | null
+  stages: Partial<Record<string, string | undefined>>
+  partial: boolean
+}
+
+const UNFINISHED_STAGE_STATES: ReadonlySet<string> = new Set([
+  'FAILED',
+  'NOT_CONFIGURED',
+  'PARTIAL',
+  'SUPERSEDED',
+])
+
+export function scanCoverageState(s: ScanCoverageInput): ScanCoverageState {
+  if (s.status === 'PENDING' || s.status === 'RUNNING') return 'IN_PROGRESS'
+  const states = Object.values(s.stages)
+  if (states.includes('PENDING')) return 'IN_PROGRESS'
+  if (s.status === 'FAILED') return 'UNFINISHED'
+  if (s.partial) return 'UNFINISHED'
+  if (states.some(state => state && UNFINISHED_STAGE_STATES.has(state)))
+    return 'UNFINISHED'
+  return 'CHECKED'
+}
+
+/**
+ * The owned sentence for `UNFINISHED` on the plain-text surfaces (PR comment,
+ * CLI). The web panel says the same through `securityScan.partial` in i18n.
+ */
+export const SCAN_UNFINISHED_NOTE =
+  "part of this scan hasn't finished on our side — not counted as checked"

@@ -577,6 +577,7 @@ function formatScanSummaryLine(s: ScanSummary): string {
   return (
     `  PR #${s.prNumber} · scan ${s.status}` +
     formatScanLayerTail({
+      status: s.status,
       stages: s.stages,
       partial: s.partial,
       externalFindings: s.externalFindings,
@@ -610,7 +611,7 @@ function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
       u.reason === 'NONE'
         ? 'no security scan has run'
         : u.reason === 'FAILED'
-          ? 'security scan FAILED'
+          ? "security scan didn't finish on our side"
           : `security scan still ${u.reason}`
     lines.push(`⚠ PR #${u.number}: ${why} — could not confirm it is clean.`)
   }

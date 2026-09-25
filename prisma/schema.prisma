@@ -1591,7 +1591,15 @@ model PrSecurityScan {
   // this column existed — the service derives a legacy view from judgeStatus.
   stages           Json?
   // LUM-735: some layer hit its budget/cap; the scan is honest but not whole.
+  // LUM-832: kept as the monotone OR of `partialCauses` (older readers and
+  // pre-LUM-832 rows); a row with `partial` and no cause is unattributed.
   partial          Boolean                @default(false)
+  // LUM-832: WHY the scan is not whole — one entry per set point, from the
+  // closed list `PARTIAL_CAUSES` in shared/src/security-scan.ts (text, not a
+  // PG enum, so a new cause needs no enum migration). Each cause is classed
+  // as our fault or coverage still owed; neither is ever the customer's.
+  // Union across writers, like `partial`.
+  partialCauses    String[]               @default([])
   // e.g. "secrets@1;judge@1" — lets a later detector bump decide to rescan.
   detectorVersion  String
   error            String?

@@ -299,7 +299,7 @@ describe('LUM-739 hunt workflow', () => {
     expect(persisted.findings).toEqual([
       { ...candidate(2), falsifierReason: 'no check' },
     ])
-    expect(persisted.partial).toBe(false)
+    expect(persisted.partialCauses).toEqual([])
     expect(persisted.audit).toMatchObject({
       candidates: 3,
       rejected: [{ reason: 'duplicate' }],
@@ -336,7 +336,7 @@ describe('LUM-739 hunt workflow', () => {
       outcome: 'PARTIAL',
     })
     expect(hunt).toHaveBeenCalledTimes(1)
-    expect(persist.mock.calls[0]![0].partial).toBe(true)
+    expect(persist.mock.calls[0]![0].partialCauses).toEqual(['HUNT_INCOMPLETE'])
   })
 
   it('stops launching batches once the time budget is spent', async () => {
@@ -383,7 +383,7 @@ describe('LUM-739 hunt workflow', () => {
       timeBudgetMs: allocatedFor('t1').timeBudgetMs,
     })
     const persisted = persist.mock.calls[0]![0]
-    expect(persisted.partial).toBe(false)
+    expect(persisted.partialCauses).toEqual([])
     const attempts = persisted.audit.tasks.filter(
       (c: { taskId: string }) => c.taskId === 't1'
     )
@@ -643,7 +643,7 @@ describe('LUM-739 hunt workflow', () => {
       outcome: 'RAN',
     })
     const persisted = persist.mock.calls[0]![0]
-    expect(persisted.partial).toBe(false)
+    expect(persisted.partialCauses).toEqual([])
     expect(persisted.audit.subgraph).toEqual({
       files: 1,
       symbols: 1,
@@ -714,6 +714,20 @@ describe('LUM-739 hunt workflow', () => {
       findings: HUNT_MAX_FALSIFIED,
     })
     expect(falsify).toHaveBeenCalledTimes(HUNT_MAX_FALSIFIED)
+    // LUM-832: the overflow is coverage we owe, not a fault — and says so.
+    expect(persist.mock.calls[0]![0].partialCauses).toEqual([
+      'HUNT_FALSIFIER_OVERFLOW',
+    ])
+  })
+
+  it('LUM-832 an oversized diff hunted whole-task still reads PARTIAL with HUNT_OVERSIZED, never RAN', async () => {
+    const touched = Array.from({ length: 41 }, (_, i) => `lib/f${i}.ts`)
+    await expect(
+      securityHuntWorkflow({ ...JOB, touchedSourcePaths: touched })
+    ).resolves.toMatchObject({ outcome: 'PARTIAL' })
+    const persisted = persist.mock.calls[0]![0]
+    expect(persisted.stage).toBe('PARTIAL')
+    expect(persisted.partialCauses).toEqual(['HUNT_OVERSIZED'])
   })
 
   /**
@@ -758,7 +772,7 @@ describe('LUM-739 hunt workflow', () => {
     expect(persist).toHaveBeenCalledTimes(1)
     const persisted = persist.mock.calls[0]![0]
     expect(persisted.stage).toBe('PARTIAL')
-    expect(persisted.partial).toBe(true)
+    expect(persisted.partialCauses).toEqual(['HUNT_INCOMPLETE'])
     expect(persisted.findings).toHaveLength(2)
     // Both batches candidates went through the mechanical gate…
     expect(verify).toHaveBeenCalledWith(
@@ -1041,7 +1055,7 @@ it('LUM-831 a no-progress task whose wrap-up ran and answered leaves the layer R
   )
 
   expect(outcome).toMatchObject({ outcome: 'RAN' })
-  expect(persisted.partial).toBe(false)
+  expect(persisted.partialCauses).toEqual([])
   expect(persisted.stage).toBe('RAN')
   // The stop itself stays honest — `done` is still reserved for an agent that
   // decided by itself, and the forced-wrap-up rate must stay readable.
@@ -1067,7 +1081,7 @@ it('LUM-831 a budget or steps stop with an answered wrap-up no longer makes the 
   )
 
   expect(outcome).toMatchObject({ outcome: 'RAN' })
-  expect(persisted.partial).toBe(false)
+  expect(persisted.partialCauses).toEqual([])
 })
 
 it('LUM-831 timeout and sandbox failure and an unanswered wrap-up still make the layer PARTIAL', async () => {
@@ -1133,7 +1147,7 @@ it('LUM-831 timeout and sandbox failure and an unanswered wrap-up still make the
       cutOff
     )
     expect([name, outcome.outcome]).toEqual([name, 'PARTIAL'])
-    expect([name, persisted.partial]).toEqual([name, true])
+    expect([name, persisted.partialCauses]).toEqual([name, ['HUNT_INCOMPLETE']])
     expect([name, persisted.stage]).toEqual([name, 'PARTIAL'])
   }
 })

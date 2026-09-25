@@ -10,6 +10,11 @@ import type {
 } from '@/lib/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import type { JudgeBudget } from '@/lib/security-scan/judge-budget'
+import {
+  mergePartialCauses,
+  type PartialCause,
+} from '@/shared/src/security-scan'
+import type { ReliabilityScanRow } from '@/lib/security-scan/reliability'
 
 export type ScanStatus = 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
 export type ScanTrigger = 'PR_EVENT' | 'PR_LINK' | 'SARIF_PUSH'
@@ -80,7 +85,8 @@ export interface PersistHuntResultInput {
   hunt: 'RAN' | 'PARTIAL' | 'FAILED' | 'SKIPPED'
   huntAudit: Record<string, unknown>
   tokenSpent: number | null
-  partial: boolean
+  /** LUM-832 — why the hunt is not whole; empty = it is. */
+  partialCauses: PartialCause[]
   /**
    * LUM-822 — which hunt attempt is writing (absent = the first, the one
    * stage A started). A write from an attempt older than the row's
@@ -104,8 +110,12 @@ export interface FinalizeScanInput {
   judgeBudget?: JudgeBudget | null
   /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
   stages: ScanStages
-  /** LUM-735 — a layer hit its cap; results are honest but not whole. */
-  partial: boolean
+  /**
+   * LUM-832 — why a layer is not whole (was LUM-735's bare `partial`). The
+   * row's `partial` is derived from it: no writer can mark a scan incomplete
+   * without naming a cause.
+   */
+  partialCauses: PartialCause[]
   error?: string | null
 }
 
@@ -270,6 +280,8 @@ export type ReviewFindingRow = Pick<
 export interface ScanForReview {
   id: string
   headSha: string
+  /** LUM-832: a FAILED stage A must not summarise as checked. */
+  status: ScanStatus
   stages: ScanStages | null
   partial: boolean
   error: string | null
@@ -355,14 +367,41 @@ async function withSerializableRetry<T>(
  * SERIALIZABLE with a P2034 retry (see `withSerializableRetry`). Shared by
  * `persistResult` (the success path) and `finalize` (the FAILED path).
  */
+interface PartialColumns {
+  partial?: boolean | null
+  partialCauses?: string[] | null
+}
+
+/**
+ * LUM-832 — the causes are a union across writers, and `partial` stays their
+ * monotone OR (a pre-LUM-832 `true` with no cause is kept, and reads as
+ * unattributed). Same SERIALIZABLE guarantee as the stages merge.
+ */
+function mergePartial(
+  current: PartialColumns | null,
+  incoming: ReadonlyArray<PartialCause>
+): { partial: boolean; partialCauses: string[] } {
+  const partialCauses = mergePartialCauses(current?.partialCauses, incoming)
+  return {
+    partial: (current?.partial ?? false) || partialCauses.length > 0,
+    partialCauses,
+  }
+}
+
 function mergeIngestOwnedStages(
-  current: {
-    stages: unknown
-    partial?: boolean | null
-    error?: string | null
-  } | null,
-  incoming: { stages: ScanStages; partial: boolean }
-): { stages: ScanStages; partial: boolean; error?: string } {
+  current:
+    | ({
+        stages: unknown
+        error?: string | null
+      } & PartialColumns)
+    | null,
+  incoming: { stages: ScanStages; partialCauses: PartialCause[] }
+): {
+  stages: ScanStages
+  partial: boolean
+  partialCauses: string[]
+  error?: string
+} {
   const cur = (current?.stages as ScanStages | null) ?? {}
   const stages: ScanStages = { ...incoming.stages }
   const external = cur.external
@@ -399,7 +438,7 @@ function mergeIngestOwnedStages(
       : undefined
   return {
     stages,
-    partial: (current?.partial ?? false) || incoming.partial,
+    ...mergePartial(current, incoming.partialCauses),
     ...(error !== undefined ? { error } : {}),
   }
 }
@@ -523,6 +562,7 @@ export const prSecurityScanRepository = {
               ? { external }
               : Prisma.DbNull,
           partial: false,
+          partialCauses: [],
           error: null,
           startedAt: new Date(),
           finishedAt: null,
@@ -541,11 +581,17 @@ export const prSecurityScanRepository = {
     await withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id },
-        select: { stages: true, partial: true, error: true },
+        select: {
+          stages: true,
+          partial: true,
+          partialCauses: true,
+          error: true,
+        },
       })
       const {
         stages,
         partial,
+        partialCauses,
         error: keptError,
       } = mergeIngestOwnedStages(current, input)
       await tx.prSecurityScan.update({
@@ -562,6 +608,7 @@ export const prSecurityScanRepository = {
             : {}),
           stages,
           partial,
+          partialCauses,
           error: input.error ?? keptError ?? null,
           finishedAt: new Date(),
         },
@@ -596,11 +643,17 @@ export const prSecurityScanRepository = {
     await withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: { stages: true, partial: true, error: true },
+        select: {
+          stages: true,
+          partial: true,
+          partialCauses: true,
+          error: true,
+        },
       })
       const {
         stages,
         partial,
+        partialCauses,
         error: keptError,
       } = mergeIngestOwnedStages(current, final)
       await tx.prSecurityScan.update({
@@ -617,6 +670,7 @@ export const prSecurityScanRepository = {
             : {}),
           stages,
           partial,
+          partialCauses,
           error: final.error ?? keptError ?? null,
           finishedAt: new Date(),
         },
@@ -674,7 +728,10 @@ export const prSecurityScanRepository = {
     scanId: string,
     tools: string[],
     rows: NewFindingInput[],
-    opts: { partial: boolean; stage?: 'external' | 'supplyChain' }
+    opts: {
+      partialCauses: PartialCause[]
+      stage?: 'external' | 'supplyChain'
+    }
   ): Promise<{ written: number; flippedToFindings: boolean }> {
     const uniqueTools = Array.from(new Set(tools))
     // LUM-738: osv-scanner's rows land under `supplyChain`; everything else
@@ -683,7 +740,12 @@ export const prSecurityScanRepository = {
     return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: { status: true, stages: true, partial: true },
+        select: {
+          status: true,
+          stages: true,
+          partial: true,
+          partialCauses: true,
+        },
       })
       // The lock. `partial` is monotone across writers — a `false` here can
       // never clear a `true` the other writer already set (guaranteed by the
@@ -696,7 +758,7 @@ export const prSecurityScanRepository = {
             ...((current?.stages as ScanStages | null) ?? {}),
             [stage]: 'RAN',
           },
-          partial: (current?.partial ?? false) || opts.partial,
+          ...mergePartial(current, opts.partialCauses),
         },
       })
       if (uniqueTools.length > 0) {
@@ -730,12 +792,16 @@ export const prSecurityScanRepository = {
   async mergeStages(
     scanId: string,
     patch: ScanStages,
-    extra: { partial?: boolean; status?: 'FINDINGS'; error?: string } = {}
+    extra: {
+      partialCauses?: PartialCause[]
+      status?: 'FINDINGS'
+      error?: string
+    } = {}
   ): Promise<void> {
     await withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: { stages: true, partial: true },
+        select: { stages: true, partial: true, partialCauses: true },
       })
       const stages = {
         ...((current?.stages as ScanStages | null) ?? {}),
@@ -748,8 +814,8 @@ export const prSecurityScanRepository = {
           // LUM-735: `partial` is monotone across writers — a `false` from
           // this call can never clear a `true` set by the other writer
           // (SERIALIZABLE + P2034 retry; the read above precedes the lock).
-          ...(extra.partial !== undefined
-            ? { partial: (current?.partial ?? false) || extra.partial }
+          ...(extra.partialCauses !== undefined
+            ? mergePartial(current, extra.partialCauses)
             : {}),
           ...(extra.status ? { status: extra.status } : {}),
           // LUM-735 Task 1: the caller (markExternalFailed) already scrubbed,
@@ -777,7 +843,12 @@ export const prSecurityScanRepository = {
     return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
-        select: { stages: true, partial: true, huntAttempts: true },
+        select: {
+          stages: true,
+          partial: true,
+          partialCauses: true,
+          huntAttempts: true,
+        },
       })
       // LUM-822: a superseded attempt's late write changes nothing.
       if ((current?.huntAttempts ?? 0) > (final.attempt ?? 1)) return false
@@ -789,7 +860,7 @@ export const prSecurityScanRepository = {
         where: { id: scanId },
         data: {
           stages,
-          partial: (current?.partial ?? false) || final.partial,
+          ...mergePartial(current, final.partialCauses),
           huntAudit: final.huntAudit as Prisma.InputJsonValue,
           tokenSpent: final.tokenSpent,
           ...(findings.length > 0 ? { status: 'FINDINGS' } : {}),
@@ -849,6 +920,34 @@ export const prSecurityScanRepository = {
       },
     })
     return rows as StalePendingHunt[]
+  },
+
+  /**
+   * LUM-832 — the rows the internal reliability read-out aggregates: every
+   * scan started in [since, until), across workspaces (an ops number, never
+   * shown to a customer). Only the columns `summarizeScanReliability` reads.
+   */
+  async findForReliability(
+    since: Date,
+    until: Date
+  ): Promise<ReliabilityScanRow[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: { startedAt: { gte: since, lt: until } },
+      select: {
+        status: true,
+        stages: true,
+        partial: true,
+        partialCauses: true,
+        huntAudit: true,
+      },
+    })
+    return rows.map(r => ({
+      status: r.status,
+      stages: (r.stages as ScanStages | null) ?? null,
+      partial: r.partial,
+      partialCauses: r.partialCauses ?? [],
+      huntAudit: r.huntAudit,
+    }))
   },
 
   /** LUM-822 — has the PR been scanned at a newer head since this row? */
@@ -955,6 +1054,7 @@ export const prSecurityScanRepository = {
       select: {
         id: true,
         headSha: true,
+        status: true,
         stages: true,
         partial: true,
         error: true,

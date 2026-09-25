@@ -461,7 +461,7 @@ describe('persistFindings', () => {
       's1',
       ['semgrep-oss'],
       expect.any(Array),
-      { partial: true, stage: 'external' }
+      { partialCauses: ['EXTERNAL_TRUNCATED'], stage: 'external' }
     )
     const rows = repo.ingestExternalFindings.mock.calls[0]![2]
     expect(rows).toHaveLength(1)
@@ -686,7 +686,7 @@ describe('LUM-738 baseline — persistFindings', () => {
         }),
         expect.objectContaining({ fingerprint: 'fp-2', persisting: false }),
       ],
-      { partial: false, stage: 'supplyChain' }
+      { partialCauses: [], stage: 'supplyChain' }
     )
     expect(logInfo).toHaveBeenCalledWith(
       expect.stringContaining('stage=supplyChain persisting=1')
@@ -718,7 +718,7 @@ describe('LUM-738 baseline — persistFindings', () => {
       's1',
       expect.any(Array),
       [expect.objectContaining({ persisting: true })],
-      { partial: false, stage: 'external' }
+      { partialCauses: [], stage: 'external' }
     )
   })
 

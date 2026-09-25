@@ -763,7 +763,7 @@ describe('LUM-735 SARIF push — stage A side', () => {
       's1',
       [],
       expect.objectContaining({
-        partial: false,
+        partialCauses: [],
         stages: {
           secrets: 'RAN',
           external: 'NOT_CONFIGURED',
@@ -1162,7 +1162,7 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
           secrets: 'RAN',
           external: 'NOT_CONFIGURED',
         }),
-        partial: false,
+        partialCauses: [],
       })
     )
   })
@@ -1310,6 +1310,7 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     expect(out.prs[0]!.latest).toMatchObject({
       stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
       partial: true,
+      coverage: 'UNFINISHED',
       complete: false,
     })
   })
@@ -1342,6 +1343,7 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     expect(out.prs[0]!.latest).toMatchObject({
       stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
       partial: false,
+      coverage: 'CHECKED',
       complete: true,
     })
   })
@@ -1356,7 +1358,10 @@ describe('LUM-735 stages — judge outage, finalize-with-stages, view helpers', 
     expect(repo.persistResult).toHaveBeenCalledWith(
       's1',
       expect.anything(),
-      expect.objectContaining({ truncated: true, partial: true })
+      expect.objectContaining({
+        truncated: true,
+        partialCauses: ['JUDGE_TRUNCATED'],
+      })
     )
   })
 

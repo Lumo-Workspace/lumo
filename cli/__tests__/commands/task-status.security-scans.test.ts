@@ -140,12 +140,12 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #7 · scan FAILED · Secrets: checked · AI review: ✗ failed'
+      "  PR #7 · scan FAILED · Secrets: checked · AI review: ⚠ didn't finish"
     )
     expect(out).not.toContain('· external')
   })
 
-  it('appends " · partial" when the scan is partial', () => {
+  it('appends the owned unfinished note (not " · partial") when the scan is partial', () => {
     const out = formatTaskStatus(
       baseResponse({
         securityFindings: {
@@ -167,7 +167,7 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #3 · scan FINDINGS · Secrets: checked · partial'
+      "  PR #3 · scan FINDINGS · Secrets: checked · part of this scan hasn't finished on our side — not counted as checked"
     )
   })
 
@@ -194,7 +194,7 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #4 · scan FAILED · Secrets: checked · Code scan: ✗ failed — '
+      "  PR #4 · scan FAILED · Secrets: checked · Code scan: ⚠ didn't finish · part of this scan hasn't finished on our side — not counted as checked — "
     )
     // Tail-truncated to 200 chars, prefixed with the ellipsis marker used by
     // the file's existing `tail()` helper.
@@ -224,7 +224,7 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #6 · scan FAILED · Secrets: checked · Code scan: ✗ failed — gitleaks exit 2'
+      "  PR #6 · scan FAILED · Secrets: checked · Code scan: ⚠ didn't finish · part of this scan hasn't finished on our side — not counted as checked — gitleaks exit 2"
     )
     expect(out).not.toContain('— external: gitleaks')
   })
@@ -251,9 +251,9 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #7 · scan FAILED · Secrets: checked · Code scan: ✗ failed'
+      "  PR #7 · scan FAILED · Secrets: checked · Code scan: ⚠ didn't finish"
     )
-    expect(out).not.toContain('Code scan: ✗ failed —')
+    expect(out).not.toContain('not counted as checked — ')
     expect(out).not.toContain('ENOTFOUND')
   })
 
@@ -279,9 +279,9 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     expect(out).toContain(
-      '  PR #5 · scan FAILED · Secrets: checked · Code scan: ✗ failed'
+      "  PR #5 · scan FAILED · Secrets: checked · Code scan: ⚠ didn't finish"
     )
-    expect(out).not.toContain('Code scan: ✗ failed —')
+    expect(out).not.toContain('not counted as checked — ')
   })
 
   it('renders a line per PR, in the order scans is given', () => {
@@ -360,7 +360,9 @@ describe('lumo task status — per-PR scan lines (LUM-735)', () => {
       })
     )
     const scanIdx = out.indexOf('PR #1 · scan CLEAN')
-    const unconfirmedIdx = out.indexOf('PR #99: security scan FAILED')
+    const unconfirmedIdx = out.indexOf(
+      "PR #99: security scan didn't finish on our side"
+    )
     expect(scanIdx).toBeGreaterThan(-1)
     expect(unconfirmedIdx).toBeGreaterThan(scanIdx)
   })
