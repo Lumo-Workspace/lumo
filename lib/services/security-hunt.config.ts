@@ -99,6 +99,13 @@ export interface HuntJob {
   batchIndex?: number
   /** LUM-832 — the layer's state over the batches already run (`mergeBatchStage`). */
   carriedStage?: 'RAN' | 'PARTIAL' | 'SKIPPED'
+  /**
+   * LUM-832 — a continuation of the SAME batch: the tasks the previous run's
+   * budget cut short, hunted again with a fresh budget and no re-planning.
+   * Present = this run IS that one continuation, so a task short again here
+   * is final (`HUNT_BUDGET_SHORT`), never continued a second time.
+   */
+  resumeTasks?: HuntTask[]
 }
 
 /**
@@ -680,6 +687,43 @@ export const HUNT_ANSWERABLE_STOPS: readonly HuntCategoryStop[] = [
  * to ask, so its empty answer is evidence about the provider and not about the
  * diff (see `HuntTaskAudit.wrapUpWarnings`).
  */
+/**
+ * LUM-832 — WHY a task that did not terminate fell short, because the two
+ * reasons want opposite remedies:
+ *
+ *   - `infra` — something of ours broke (a timeout, a batch that threw, a
+ *     wrap-up that errored, a provider that ignored the forced call). It is
+ *     random, so the same run again is likely to succeed: retry it.
+ *   - `budget` — the budget WE set ran out (the task's turn never came, or its
+ *     wrap-up had no tokens / time left). The same run again hits the same
+ *     wall: retrying buys cost, not certainty. Continue the task instead, with
+ *     a fresh budget of its own.
+ *
+ * An answerable stop with no wrap-up facts at all (a result replayed from
+ * before LUM-831) says nothing about why — it is counted as `infra`, the
+ * remedy that has always applied to it. null = the task terminated.
+ */
+export function huntShortfall(row: {
+  stopped: HuntCategoryStop
+  wrapUp?: HuntWrapUpFacts | undefined
+  wrapUpWarnings?: readonly string[] | undefined
+}): 'infra' | 'budget' | null {
+  if (huntTaskTerminated(row)) return null
+  if (row.stopped === 'skipped') return 'budget'
+  if (!HUNT_ANSWERABLE_STOPS.includes(row.stopped)) return 'infra'
+  const wrapUp = row.wrapUp
+  if (!wrapUp || wrapUp.error !== undefined) return 'infra'
+  if ((row.wrapUpWarnings?.length ?? 0) > 0) return 'infra'
+  if (
+    wrapUp.ran !== true &&
+    (wrapUp.skipped === 'no-budget' ||
+      wrapUp.skipped === 'no-time' ||
+      wrapUp.skipped === 'disabled')
+  )
+    return 'budget'
+  return 'infra'
+}
+
 export function huntTaskTerminated(row: {
   stopped: HuntCategoryStop
   wrapUp?: HuntWrapUpFacts | undefined
@@ -829,7 +873,7 @@ export interface HuntAudit {
    * says "no planning was attempted" without colliding with "written before
    * this field existed".
    */
-  plannedBy?: 'model' | 'fallback' | 'not-attempted'
+  plannedBy?: 'model' | 'fallback' | 'not-attempted' | 'resumed'
   /**
    * LUM-764 — 规划步是否读到并带上了任务上下文（验收标准 / traps / open
    * crossings / 返工记录）。`false` 的扫描是「这个 PR 没关联任务」，与

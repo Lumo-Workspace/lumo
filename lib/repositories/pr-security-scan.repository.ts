@@ -881,8 +881,27 @@ export const prSecurityScanRepository = {
           ...(findings.length > 0 ? { status: 'FINDINGS' } : {}),
         },
       })
-      if (findings.length > 0)
-        await tx.prSecurityFinding.createMany({ data: findings })
+      // LUM-832: a continuation (the next batch, or the tasks a budget cut
+      // short) or a retry can resubmit what an earlier run of this scan
+      // already landed — nothing on the table makes a fingerprint unique, so
+      // drop the ones already on the scan. The first run has nothing to meet.
+      let rows = findings
+      if ((final.attempt ?? 1) > 1 && findings.length > 0) {
+        const landed = await tx.prSecurityFinding.findMany({
+          where: {
+            scanId,
+            fingerprint: { in: findings.map(f => f.fingerprint) },
+          },
+          select: { fingerprint: true },
+        })
+        const seen = new Set(landed.map(f => f.fingerprint))
+        rows = findings.filter(f => {
+          if (seen.has(f.fingerprint)) return false
+          seen.add(f.fingerprint)
+          return true
+        })
+      }
+      if (rows.length > 0) await tx.prSecurityFinding.createMany({ data: rows })
       return true
     })
   },

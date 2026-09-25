@@ -122,6 +122,14 @@ how the search ended, `terminated` is whether an answer came back. A timeout, a
 sandbox failure, a wrap-up that never ran or that errored, and a skipped task
 all stay partial: PARTIAL means "could not confirm this is clean".
 
+LUM-832 sorts a task that did not terminate by **why**. Our infrastructure
+(timeout, sandbox, gateway, a wrap-up that errored or that the provider
+degraded) → the run is retried once. Our budget (the task's turn never came —
+`skipped` — or its wrap-up was skipped for `no-budget` / `no-time`) → the task
+is **continued** once in a run of its own with a fresh budget (`planned by
+resumed`), what already landed is kept; a task still short after that leaves
+the layer PARTIAL with cause `HUNT_BUDGET_SHORT` (coverage owed, not a fault).
+
 `placed by …` (LUM-798) breaks the same candidates down on **two axes**, and
 the distinction matters:
 

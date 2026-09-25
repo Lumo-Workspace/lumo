@@ -124,6 +124,7 @@ describe('every partial set point records an attributed cause', () => {
     ['lib/services/pr-security-scan.service.ts', 'GRAPH_READ_FAILED'],
     ['lib/services/pr-security-scan.service.ts', 'JUDGE_TRUNCATED'],
     ['lib/workflows/security-hunt.ts', 'HUNT_INCOMPLETE'],
+    ['lib/workflows/security-hunt.ts', 'HUNT_BUDGET_SHORT'],
     ['lib/workflows/security-hunt.ts', 'HUNT_FALSIFIER_OVERFLOW'],
     ['lib/workflows/security-hunt.ts', 'HUNT_OVERSIZED'],
     ['lib/services/security-sarif-ingest.service.ts', 'EXTERNAL_TRUNCATED'],

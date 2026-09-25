@@ -33,6 +33,7 @@ import {
   falsifierStep,
   persistHuntFindingsStep,
   markHuntFailedStep,
+  continueHuntStep,
 } from '@/lib/workflows/security-hunt.steps'
 import { syncPrReviewStep } from '@/lib/workflows/security-pr-review.steps'
 import {
@@ -331,25 +332,36 @@ describe('LUM-739 hunt workflow', () => {
     expect(markFailed).not.toHaveBeenCalled()
   })
 
-  it('stops launching batches once the token budget is spent and stamps PARTIAL', async () => {
+  it('stops launching batches once the token budget is spent and continues the unrun task', async () => {
     hunt.mockImplementationOnce(async () =>
       batch({ tokens: HUNT_TOKEN_BUDGET, stopped: 'budget' })
     )
+    // LUM-832: t2 never got its turn — our budget, so it is continued with a
+    // fresh one rather than written off. t1's stop carries no wrap-up facts,
+    // which is still read as ours to redo (HUNT_INCOMPLETE).
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
-      outcome: 'PARTIAL',
+      outcome: 'CONTINUED',
     })
     expect(hunt).toHaveBeenCalledTimes(1)
-    expect(persist.mock.calls[0]![0].partialCauses).toEqual(['HUNT_INCOMPLETE'])
+    expect(persist.mock.calls[0]![0]).toMatchObject({
+      stage: 'PENDING',
+      partialCauses: ['HUNT_INCOMPLETE'],
+    })
+    expect(
+      (continueHuntStep as jest.Mock).mock.calls[0]![0].next.resumeTasks
+    ).toEqual([PLANNED[1]])
   })
 
   it('stops launching batches once the time budget is spent', async () => {
     hunt.mockImplementationOnce(async () =>
       batch({ elapsedMs: HUNT_TIME_BUDGET_MS })
     )
+    // LUM-832: the task whose turn never came is continued, not retried.
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
-      outcome: 'PARTIAL',
+      outcome: 'CONTINUED',
     })
     expect(hunt).toHaveBeenCalledTimes(1)
+    expect(persist.mock.calls[0]![0].partialCauses).toEqual([])
   })
 
   it('a batch that errored or timed out makes the layer PARTIAL but the run continues', async () => {
@@ -447,7 +459,7 @@ describe('LUM-739 hunt workflow', () => {
       batch({ elapsedMs: HUNT_TIME_BUDGET_MS })
     )
     await expect(securityHuntWorkflow(JOB)).resolves.toMatchObject({
-      outcome: 'PARTIAL',
+      outcome: 'CONTINUED',
     })
     expect(hunt).toHaveBeenCalledTimes(1)
     const rows = persist.mock.calls[0]![0].audit.tasks
@@ -1103,15 +1115,9 @@ it('LUM-831 timeout and sandbox failure and an unanswered wrap-up still make the
       }),
     ],
     ['gateway error', batch({ stopped: 'error', error: 'gateway 500' })],
-    // The search stopped for looping and nobody was asked: no budget, no time,
-    // or the caller had the hand-over turned off.
-    [
-      'wrap-up never ran',
-      batch({
-        stopped: 'no-progress',
-        wrapUp: { ran: false, skipped: 'no-budget' },
-      }),
-    ],
+    // (LUM-832: a wrap-up that never ran for want of OUR budget is not in
+    // this list — it is continued with a fresh budget; see
+    // security-hunt.budget-continuation.test.ts.)
     // Asked and lost. Distinct from every `skipped` reason: this one asked.
     [
       'wrap-up threw',

@@ -64,7 +64,7 @@ import {
   HUNT_MIN_BATCH_TIME_MS,
   HUNT_MAX_FALSIFIED,
   HUNT_MAX_ATTEMPTS,
-  huntTaskTerminated,
+  huntShortfall,
   type HuntJob,
   type HuntTask,
   type HuntCategoryStop,
@@ -274,6 +274,13 @@ async function requeueBestEffort(
   }
 }
 
+/** LUM-832 — the job minus a finished continuation's `resumeTasks`. */
+function withoutResume(job: HuntJob): HuntJob {
+  const copy: HuntJob = { ...job }
+  delete copy.resumeTasks
+  return copy
+}
+
 /**
  * LUM-832 — start the next batch. Best-effort: a continuation that did not
  * start leaves the layer PENDING with `huntJob` naming the batch still owed,
@@ -334,6 +341,16 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
    * coverage we still owe. `partial` is just "any cause at all".
    */
   const partialCauses: PartialCause[] = []
+  /**
+   * LUM-832 — the planned tasks the budget WE set cut short. Not a fault, so
+   * not retried (the same budget hits the same wall): the first time, they
+   * are continued in a run of their own with a fresh budget; a continuation
+   * that is short again records HUNT_BUDGET_SHORT and stops there.
+   */
+  const budgetShort: HuntTask[] = []
+  /** Whether this run hands `budgetShort` to a continuation (decided once). */
+  const continueShort = (): boolean =>
+    budgetShort.length > 0 && job.resumeTasks === undefined
 
   /**
    * LUM-832 — land this run's result. A batch with another one after it
@@ -345,7 +362,47 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     stage: 'RAN' | 'PARTIAL' | 'SKIPPED',
     findings: HuntFindingInput[]
   ): Promise<HuntResult> {
-    const layer = mergeBatchStage(job.carriedStage, stage)
+    // LUM-832 — the budget-short tasks: continued once, or owned.
+    const ownsShort = budgetShort.length > 0 && !continueShort()
+    if (ownsShort) addCause(partialCauses, 'HUNT_BUDGET_SHORT')
+    const layer = mergeBatchStage(
+      job.carriedStage,
+      ownsShort && stage === 'RAN' ? 'PARTIAL' : stage
+    )
+    if (continueShort()) {
+      // Same batch, the short tasks only, a fresh budget and try count.
+      // This run's own state is carried; the short tasks are not counted
+      // against it — the continuation owns them.
+      await persistHuntFindingsStep({
+        job,
+        findings,
+        audit,
+        tokenSpent,
+        partialCauses,
+        stage: 'PENDING',
+      })
+      await continueBestEffort(job, {
+        ...withoutResume(job),
+        ...(batches !== null ? { batches, batchIndex } : {}),
+        resumeTasks: [...budgetShort],
+        attempt: (job.attempt ?? 1) + 1,
+        tries: 1,
+        carriedStage: mergeBatchStage(
+          job.carriedStage,
+          partialCauses.length > 0 ? 'PARTIAL' : 'RAN'
+        ),
+        managedScanStarted: false,
+      })
+      await syncPrReviewBestEffort(scanId)
+      return {
+        outcome: 'CONTINUED',
+        scanId,
+        batchIndex,
+        batches: batches?.length ?? 1,
+        findings: findings.length,
+        tokenSpent,
+      }
+    }
     const batchAudit =
       batches !== null
         ? {
@@ -367,8 +424,10 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         stage: 'PENDING',
       })
       const nextIndex = batchIndex + 1
+      // A finished continuation's `resumeTasks` must not follow it into the
+      // next batch: that batch is planned afresh.
       await continueBestEffort(job, {
-        ...job,
+        ...withoutResume(job),
         batches,
         batchIndex: nextIndex,
         attempt: (job.attempt ?? 1) + 1,
@@ -471,32 +530,46 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         return { outcome: 'SKIPPED', scanId, findings: 0, tokenSpent: 0 }
       }
 
-      const plan = await planHuntStep({ job: hunted })
-      // The plan is an LLM call like any other — its tokens are part of what
-      // this scan cost, and the acceptance metric reads `tokenSpent`.
-      tokenSpent += plan.tokens
-      audit.planned = plan.tasks
-      audit.plannedReason = plan.reason
-      audit.plannedBy = plan.by
-      // Only present on a failure, and the only record of HOW it failed.
-      if (plan.planFailure) audit.planFailure = plan.planFailure
-      // LUM-776 — a plan the model wrote in the wrong envelope, repaired.
-      if (plan.planRepair) audit.planRepair = plan.planRepair
-      // LUM-764 — both default because an in-flight run queued by the previous
-      // deployment replays a step result that predates these two fields; the
-      // same deploy boundary `job.reasons ?? []` above is written for. `false`
-      // / `[]` is the honest reading of a plan made before the floor existed.
-      audit.taskContext = plan.taskContext ?? false
-      audit.floorForced = plan.floorForced ?? []
+      // LUM-832 — a budget continuation hunts the tasks the previous run's
+      // budget cut short, exactly as they were planned: re-planning would
+      // spend tokens to (at best) rediscover them.
+      let plannedTasks: HuntTask[]
+      if (job.resumeTasks) {
+        plannedTasks = job.resumeTasks
+        audit.planned = job.resumeTasks
+        audit.plannedReason =
+          'continued: the tasks the previous run’s budget cut short'
+        audit.plannedBy = 'resumed'
+      } else {
+        const plan = await planHuntStep({ job: hunted })
+        // The plan is an LLM call like any other — its tokens are part of
+        // what this scan cost, and the acceptance metric reads `tokenSpent`.
+        tokenSpent += plan.tokens
+        plannedTasks = plan.tasks
+        audit.planned = plan.tasks
+        audit.plannedReason = plan.reason
+        audit.plannedBy = plan.by
+        // Only present on a failure, and the only record of HOW it failed.
+        if (plan.planFailure) audit.planFailure = plan.planFailure
+        // LUM-776 — a plan the model wrote in the wrong envelope, repaired.
+        if (plan.planRepair) audit.planRepair = plan.planRepair
+        // LUM-764 — both default because an in-flight run queued by the
+        // previous deployment replays a step result that predates these two
+        // fields; the same deploy boundary `job.reasons ?? []` above is
+        // written for. `false` / `[]` is the honest reading of a plan made
+        // before the floor existed.
+        audit.taskContext = plan.taskContext ?? false
+        audit.floorForced = plan.floorForced ?? []
+      }
 
       // Short circuit B: an empty task list is a first-class answer. LUM-762's
       // prod data (RAN 1 / PARTIAL 14 / SKIPPED 7, 0 findings) says most PRs
       // belong here.
       // LUM-832: for one batch of an oversized diff, "nothing here" is that
       // batch's answer — the next one still runs.
-      if (plan.tasks.length === 0) return await settle('SKIPPED', [])
+      if (plannedTasks.length === 0) return await settle('SKIPPED', [])
 
-      const planned: HuntTask[] = plan.tasks
+      const planned: HuntTask[] = plannedTasks
       // LUM-787 follow-up — the hunt is sized to the diff: the task cap
       // came from the touched source files (the planner was told it), the
       // scan's token/time budgets follow the cap, and each task's pass-1
@@ -698,10 +771,16 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       // "could not confirm this is clean" and must not be spent on it. A task
       // with no answer on record — never asked, asked and lost, never run —
       // still makes the layer PARTIAL. See `huntTaskTerminated`.
+      //
+      // LUM-832 — and a task that did not terminate is sorted by WHY: our
+      // infrastructure (HUNT_INCOMPLETE → the run is retried) or our budget
+      // (→ the task is continued with a fresh budget; see `budgetShort`).
       for (const task of planned) {
         const outcome = outcomes[task.id]
-        if (outcome === undefined || !huntTaskTerminated(outcome))
-          addCause(partialCauses, 'HUNT_INCOMPLETE')
+        const shortfall =
+          outcome === undefined ? 'infra' : huntShortfall(outcome)
+        if (shortfall === 'infra') addCause(partialCauses, 'HUNT_INCOMPLETE')
+        else if (shortfall === 'budget') budgetShort.push(task)
       }
     } catch (error) {
       // A step that exhausted its retries. Whatever ran before it still ran.
