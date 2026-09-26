@@ -69,7 +69,9 @@ const PER_PR: PerPrGateAudit = {
         ],
         selfReported: [
           {
-            command: 'npx jest __tests__/x.test.ts',
+            command:
+              "cat > __tests__/x.test.ts <<'EOF'\nit('x', () => {})\nEOF\nnpx jest __tests__/x.test.ts",
+            invocation: 'npx jest __tests__/x.test.ts',
             status: 'failed',
             exitCode: 1,
             at: '2026-06-28T09:00:00.000Z',
@@ -84,6 +86,7 @@ const PER_PR: PerPrGateAudit = {
     selfReported: [
       {
         command: 'npm test',
+        invocation: 'npm test',
         status: 'passed',
         exitCode: 0,
         at: '2026-06-28T08:00:00.000Z',
@@ -119,9 +122,12 @@ describe('DeliveryGatesByPrPanel', () => {
     // The agent's own run is in a separately labelled self-reported list.
     const self = within(pr754).getByTestId('self-reported-checks')
     expect(within(self).getByText('Agent self-reported')).toBeInTheDocument()
-    expect(
-      within(self).getByText('npx jest __tests__/x.test.ts')
-    ).toBeInTheDocument()
+    // The row shows the check it ran; the full command line is on hover.
+    const run = within(self).getByText('npx jest __tests__/x.test.ts')
+    expect(run).toHaveAttribute(
+      'title',
+      expect.stringContaining("cat > __tests__/x.test.ts <<'EOF'")
+    )
     expect(within(self).getByText('exit 1')).toBeInTheDocument()
     expect(within(ci).queryByText(/npx jest/)).not.toBeInTheDocument()
 

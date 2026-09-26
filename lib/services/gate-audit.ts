@@ -15,7 +15,7 @@
  * it is never rendered as all-green.
  */
 
-import { isCheckCommand } from '../../shared/src/gate-map'
+import { checkInvocations } from '../../shared/src/gate-map'
 
 /**
  * Where an independent GateSignal row came from: a GitHub check-run or commit
@@ -41,7 +41,14 @@ export interface CiCheck {
 
 /** One check command the agent ran — the latest run of that exact command. */
 export interface SelfReportedCheck {
+  /** The full command line as the agent ran it. */
   command: string
+  /**
+   * The check invocation(s) inside it (`npx jest …; npx tsc --noEmit`) — what
+   * the panel shows, so a line that first writes a file still reads as the
+   * check it ran.
+   */
+  invocation: string
   status: 'passed' | 'failed'
   exitCode: number
   /** ISO timestamp of the run. */
@@ -125,6 +132,7 @@ export interface GateSignalRow {
 
 interface SelfReportedRun {
   command: string
+  invocation: string
   status: 'passed' | 'failed'
   exitCode: number
   at: string
@@ -156,9 +164,10 @@ function failureExitCode(payload: unknown): number {
 
 /**
  * Lift the agent's check runs out of HookEvent rows. Only Bash post-tool-use
- * rows whose command is a check run (isCheckCommand) count; pass/fail comes from
- * the event TYPE (the failure variant is the exit≠0 carrier), the exit code is
- * for display only. A chained command is one run, kept exactly as written.
+ * rows whose command invokes a check where a command runs (checkInvocations —
+ * not a check word in a heredoc body, quoted text or a file path) count;
+ * pass/fail comes from the event TYPE (the failure variant is the exit≠0
+ * carrier), the exit code is for display only. A chained command is one run.
  */
 export function normalizeHookEvents(
   rows: readonly GateHookEventRow[]
@@ -170,10 +179,13 @@ export function normalizeHookEvents(
     if (!isSuccess && !isFailure) continue
 
     const command = commandOf(row.payload)
-    if (!command || !isCheckCommand(command)) continue
+    if (!command) continue
+    const invocations = checkInvocations(command)
+    if (invocations.length === 0) continue
 
     out.push({
       command,
+      invocation: invocations.join('; '),
       status: isSuccess ? 'passed' : 'failed',
       exitCode: isSuccess ? 0 : failureExitCode(row.payload),
       at: row.createdAt.toISOString(),
@@ -252,8 +264,9 @@ function projectSelfReported(
   }
   return [...byCommand.values()]
     .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
-    .map(({ command, status, exitCode, at }) => ({
+    .map(({ command, invocation, status, exitCode, at }) => ({
       command,
+      invocation,
       status,
       exitCode,
       at,
