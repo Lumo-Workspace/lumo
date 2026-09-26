@@ -1,6 +1,7 @@
 import { ciSignalService } from '@/lib/services/ci-signal.service'
 import { fetchCommitCiSignals } from '@/lib/integrations/github/checks'
 import { gateSignalRepository } from '@/lib/repositories/gate-signal.repository'
+import { logger } from '@/lib/logger'
 
 jest.mock('@/lib/integrations/github/checks', () => ({
   fetchCommitCiSignals: jest.fn(),
@@ -111,5 +112,43 @@ describe('ciSignalService.reconcileCommit (LUM-616)', () => {
       taskId: 't1',
     })
     expect(createMany).not.toHaveBeenCalled()
+  })
+})
+
+describe('ciSignalService.reconcileCommit — CI that never ran (LUM-838)', () => {
+  it('a check that did not run is logged and never recorded as a gate verdict', async () => {
+    fetchSignals.mockResolvedValue([
+      {
+        name: 'test',
+        outcome: 'not_run',
+        detailsUrl: 'https://ci/job/1',
+        source: 'github_check',
+        notRunReason: 'The job was not started because of a spending limit',
+      },
+      {
+        name: 'typecheck',
+        outcome: 'not_run',
+        detailsUrl: 'https://ci/job/2',
+        source: 'github_check',
+        notRunReason: 'The job was not started because of a spending limit',
+      },
+    ])
+
+    await ciSignalService.reconcileCommit({
+      workspaceId: 'ws',
+      repo: 'a/b',
+      headSha: 'sha1',
+      taskId: 't1',
+      prNumber: 1099,
+    })
+
+    expect(createMany).not.toHaveBeenCalled()
+    const lines = (logger.info as jest.Mock).mock.calls.map(c => String(c[0]))
+    expect(lines).toHaveLength(2)
+    expect(lines[0]).toContain(
+      'CI did not run: The job was not started because of a spending limit'
+    )
+    expect(lines[0]).toContain('test')
+    expect(lines[0]).toContain('a/b@sha1')
   })
 })
