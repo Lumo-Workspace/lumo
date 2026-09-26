@@ -26,6 +26,10 @@ import {
   PR_SUMMARY_INTENT_MAX_CHARS,
   cleanPrSummary,
 } from '@/lib/security-scan/pr-summary'
+import {
+  SCAN_STAGE_DESCRIPTIONS,
+  SCAN_STAGE_KEYS,
+} from '@/shared/src/security-scan'
 
 // Assembled so the fixture itself never reads as a committed credential.
 const FAKE_KEY = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('')
@@ -72,12 +76,10 @@ describe('LUM-849 PR summary layout', () => {
     // The layer lines are still there, only folded, and below the verdict.
     const details = body.indexOf('<details>')
     expect(details).toBeGreaterThan(body.indexOf('**2 open findings**'))
-    expect(body).toContain('<summary>Scan layers</summary>')
+    expect(body).toContain('<summary>What was checked</summary>')
     const folded = body.slice(details, body.indexOf('</details>'))
-    expect(folded).toContain(
-      '- Secrets: checked · Code scan: checked (semgrep 1) · Dependencies: checked · AI review: checked'
-    )
-    expect(folded).toContain('- Dependencies: no known vulnerabilities')
+    for (const label of ['Secrets', 'Code scan', 'Dependencies', 'AI review'])
+      expect(folded).toContain(`- **${label}** (`)
 
     // A bounded verdict, never a grade.
     expect(body).not.toMatch(/confidence|score|\/5\b|safe to merge/i)
@@ -129,8 +131,42 @@ describe('LUM-849 PR summary layout', () => {
     // no intent block, and nothing stands in for it.
     for (const prSummary of [undefined, null, {}, { intent: '  ' }]) {
       const plain = blocksOf(buildSummary(input({ prSummary })))
-      expect(plain[2]).toBe('<details>\n<summary>Scan layers</summary>')
+      expect(plain[2]).toBe('<details>\n<summary>What was checked</summary>')
     }
+  })
+
+  it('LUM-849 each scan layer line says what it checks', () => {
+    const body = buildSummary(
+      input({
+        stages: {
+          secrets: 'RAN',
+          external: 'RAN',
+          supplyChain: 'RAN',
+          judge: 'RAN',
+          hunt: 'PENDING',
+        },
+        externalCounts: { semgrep: 2, zizmor: 1 },
+        dependencies: { open: 1, persisting: 2 },
+        huntProgress: { coveredFiles: 3, totalFiles: 9 },
+      })
+    )
+    const folded = body.slice(
+      body.indexOf('<details>'),
+      body.indexOf('</details>')
+    )
+    // Pinned copy: name, state (plus what it counted), then what it looks for.
+    expect(folded.split('\n').filter(l => l.startsWith('- '))).toEqual([
+      '- **Secrets** (checked): API keys, tokens and passwords written into the added lines',
+      '- **Code scan** (checked · semgrep 2, zizmor 1): rule-based scanners for insecure code patterns, leaked credentials, CI workflows and infrastructure config',
+      '- **Dependencies** (checked · 1 vulnerable dependency (2 already on main)): the packages this PR adds or updates, against public vulnerability databases',
+      '- **AI review** (checked): an AI reviewer reads the added code for injection, XSS, SSRF, path traversal, auth bypass and weak crypto',
+      '- **Exploit paths** (scanning · 3/9 source files): traces whether outside input can reach a dangerous call across files, then tries to disprove each path it finds',
+    ])
+    // Every layer has a description, and the dependency result is not
+    // repeated on a second Dependencies line.
+    for (const key of SCAN_STAGE_KEYS)
+      expect(SCAN_STAGE_DESCRIPTIONS[key].length).toBeGreaterThan(20)
+    expect(body.match(/Dependencies/g)).toHaveLength(1)
   })
 
   it('LUM-849 judge summary text is neutralised before it reaches the PR', () => {

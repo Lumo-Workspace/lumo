@@ -45,6 +45,7 @@ import { isDowngradedPath } from '@/lib/security-scan/secret-patterns'
 import { isSuggestEnabled } from '@/lib/services/security-suggest.config'
 import {
   SCAN_STAGE_KEYS,
+  SCAN_STAGE_DESCRIPTIONS,
   SCAN_STAGE_LABELS,
   SCAN_UNFINISHED_NOTE,
   formatHuntOverCap,
@@ -253,43 +254,54 @@ function scrubbedFailureReason(
   return reason.length > 0 ? { label, reason } : null
 }
 
-/** LUM-738 — the dependency line: what osv-scanner found, split new / already on main. */
-function dependencyLine(input: SummaryInput): string | null {
+/**
+ * LUM-738 — what osv-scanner found, split new / already on main. LUM-849:
+ * a phrase for the Dependencies layer line, no longer a line of its own.
+ */
+function dependencyResult(input: SummaryInput): string | null {
   const state = input.stages.supplyChain
   if (!state) return null
-  if (state === 'SKIPPED') return '- Dependencies: no package sources found'
+  if (state === 'SKIPPED') return 'no package sources found'
   const d = input.dependencies
   if (!d) return null
   if (d.open === 0 && d.persisting === 0) {
-    return state === 'RAN' ? '- Dependencies: no known vulnerabilities' : null
+    return state === 'RAN' ? 'no known vulnerabilities' : null
   }
   const noun =
     d.open === 1 ? 'vulnerable dependency' : 'vulnerable dependencies'
   const tail = d.persisting > 0 ? ` (${d.persisting} already on main)` : ''
-  return `- Dependencies: ${d.open} ${noun}${tail}`
+  return `${d.open} ${noun}${tail}`
 }
 
-function stageLine(
-  stages: ScanStages,
-  externalCounts: Record<string, number>,
-  huntProgress: HuntProgressInput | null | undefined
-): string | null {
-  const counts = Object.entries(externalCounts).sort(
+/**
+ * LUM-849 — one line per layer: its name, its state (plus what it counted),
+ * then what it looks for. The name and state alone ("Exploit paths:
+ * checked") told a reader nothing about what had been checked.
+ */
+function layerLines(input: SummaryInput): string[] {
+  const counts = Object.entries(input.externalCounts).sort(
     (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
   )
-  const parts: string[] = []
+  const lines: string[] = []
   for (const key of STAGE_ORDER) {
-    const state = stages[key]
+    const state = input.stages[key]
     if (!state) continue
-    const suffix =
+    const extra =
       key === 'external' && counts.length > 0
-        ? ` (${counts.map(([tool, n]) => `${tool} ${n}`).join(', ')})`
-        : key === 'hunt' && huntProgress
-          ? ` (${formatHuntProgress(huntProgress)})`
-          : ''
-    parts.push(`${scanStageLabel(key)}: ${scanStageStateLabel(state)}${suffix}`)
+        ? counts.map(([tool, n]) => `${tool} ${n}`).join(', ')
+        : key === 'hunt' && input.huntProgress
+          ? formatHuntProgress(input.huntProgress)
+          : key === 'supplyChain'
+            ? dependencyResult(input)
+            : null
+    const status = [scanStageStateLabel(state), extra]
+      .filter(Boolean)
+      .join(' · ')
+    lines.push(
+      `- **${scanStageLabel(key)}** (${status}): ${SCAN_STAGE_DESCRIPTIONS[key]}`
+    )
   }
-  return parts.length > 0 ? `- ${parts.join(' · ')}` : null
+  return lines
 }
 
 function capitalize(s: string): string {
@@ -405,14 +417,11 @@ export function buildSummary(input: SummaryInput): string {
   if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
 
   // The per-layer lines stay, folded: detail for whoever wants it, not the
-  // first thing a reader has to decode.
-  const layers = [
-    stageLine(input.stages, input.externalCounts, input.huntProgress),
-    dependencyLine(input),
-  ].filter((l): l is string => l !== null)
+  // first thing a reader has to decode — and each says what it looks for.
+  const layers = layerLines(input)
   if (layers.length > 0) {
     blocks.push(
-      `<details>\n<summary>Scan layers</summary>\n\n${layers.join('\n')}\n\n</details>`
+      `<details>\n<summary>What was checked</summary>\n\n${layers.join('\n')}\n\n</details>`
     )
   }
 

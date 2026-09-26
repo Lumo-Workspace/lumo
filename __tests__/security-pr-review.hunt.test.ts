@@ -7,6 +7,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {},
 }))
 
+import { SCAN_STAGE_DESCRIPTIONS as D } from '@/shared/src/security-scan'
 import {
   buildSummary,
   SUMMARY_MARKER,
@@ -25,7 +26,7 @@ describe('LUM-739 hunt stage', () => {
       taskUrl: null,
     })
     expect(body).toContain(
-      "- Secrets: checked · Code scan: checked · AI review: checked · Exploit paths: ⚠ didn't finish"
+      `- **AI review** (checked): ${D.judge}\n- **Exploit paths** (⚠ didn't finish): ${D.hunt}`
     )
     // LUM-832: a FAILED layer is not "still running" — it is ours, and
     // unfinished.
@@ -46,7 +47,7 @@ describe('LUM-739 hunt stage', () => {
       error: null,
       taskUrl: null,
     })
-    expect(body).toContain('· Exploit paths: checked')
+    expect(body).toContain(`- **Exploit paths** (checked): ${D.hunt}`)
     expect(body).toContain('No open findings on lines this PR added.')
   })
 })
@@ -65,7 +66,9 @@ describe('LUM-832 batched hunt', () => {
       error: null,
       taskUrl: null,
     })
-    expect(body).toContain('Exploit paths: scanning (40/120 source files)')
+    expect(body).toContain(
+      '- **Exploit paths** (scanning · 40/120 source files): '
+    )
     expect(body).toContain('No open findings yet — the scan is still running.')
   })
 })
