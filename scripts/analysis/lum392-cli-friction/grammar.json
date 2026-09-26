@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.77.0",
+  "cliVersion": "1.78.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -4484,10 +4484,27 @@
     },
     "whoami": {
       "arguments": [],
-      "flags": {},
+      "flags": {
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Also print workspace name, key name and API URL"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the identity as JSON (never includes the token)"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the currently logged-in identity"
+      "description": "Show the logged-in identity from local credentials (one line; no network call)"
     },
     "worktree": {
       "arguments": [],

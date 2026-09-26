@@ -47,8 +47,7 @@ lumo auth login
 
 #### When to suggest
 
-- `lumo whoami` reports "Not logged in"
-- A bearer call returns 401 (`API key invalid or revoked`) and the user wants to re-auth
+- A command reports `not logged in`, or an auth failure (`API key invalid or revoked` / the `Hint: … HTTP 401 … lumo auth login` line)
 - The user switches workspaces / accounts
 
 The CLI stores credentials in `~/.lumo/credentials.json`. There's no `--token` flag — the paste-from-browser flow is the only auth path, and that's intentional.
@@ -65,15 +64,19 @@ Use when the user says "log out", "sign out", or wants to clear credentials befo
 
 ### `lumo whoami` — show current identity
 
-Prints the logged-in email, workspace name + slug, API key name + prefix, and API URL.
+Reads the local credentials file (no network call — it does **not** prove the key still works) and prints one line: email, workspace slug, API key prefix. `--full` adds the workspace name, key name and API URL; `--json` emits `{ email, workspace: { slug, name }, apiKey: { name, prefix }, apiUrl }` (never the token).
 
 ```bash
 lumo whoami
+# cli@uselumo.ai · workspace lumo · key lum_68d4...
+lumo whoami --full
 # Logged in as cli@uselumo.ai
 #   Workspace: Lumo (lumo)
 #   Key: Claude Code (lum_68d4...)
 #   API: https://www.uselumo.ai
 ```
+
+Not a pre-flight check: don't run it (or `lumo --version`) before other commands. The SessionStart status line already carries the CLI version and identity, and a command that hits an auth failure ends with a line pointing at `lumo auth login` (added by the CLI even when the command itself only saw `HTTP 401`).
 
 #### When to suggest
 

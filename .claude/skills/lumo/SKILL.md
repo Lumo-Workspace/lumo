@@ -5,15 +5,10 @@ description: 'Use when the user mentions a Lumo task id (LUM-N, or any team pref
 
 ## Prerequisites
 
-Before running any `lumo` command, verify the CLI is available and authenticated:
+Don't pre-probe (`which lumo` / `lumo whoami` / `lumo --version`): the SessionStart line (`[Lumo] session_id=… | lumo <version> · <email> (<workspace>)`) already proves the CLI is installed and logged in. Troubleshoot only on failure:
 
-```bash
-which lumo && lumo whoami
-```
-
-- If `lumo` is not found: tell the user to install it (`npm install -g @lumoai/cli`; for monorepo dev, `cd cli && npm install && npm link` also works)
-- If `lumo whoami` fails with an auth error: tell the user to run `lumo auth login`
-- Do NOT proceed with any lumo commands until both checks pass
+- `command not found: lumo` → user installs it (`npm install -g @lumoai/cli`; monorepo dev: `cd cli && npm link`)
+- an error naming `lumo auth login` (not logged in / key invalid / HTTP 401) → user runs `lumo auth login`
 
 ## How this skill is organized
 
@@ -55,7 +50,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 - `lumo setup [--user|--project] [--force] [--agent <token>]` — install skill files + hooks
 - `lumo auth login` / `lumo auth logout` — paste an API key / clear credentials
-- `lumo whoami` — show current identity (email, workspace, key)
+- `lumo whoami [--full|--json]` — one-line identity from local credentials (not a pre-flight check)
 - `lumo update` — upgrade the CLI to the latest npm release
 
 ### Task context & retrieval — see [task-context.md](references/task-context.md)

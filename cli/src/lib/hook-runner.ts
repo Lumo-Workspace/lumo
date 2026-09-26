@@ -2,6 +2,7 @@ import { readCredentials } from './config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
 import { logHookError } from './hook-log'
 import { sanitizeField } from './sanitize'
+import { readCliVersion } from './cli-version'
 import { normalizeAgent } from './agent'
 import { extractTaskFromGit, type GitTaskMatch } from './git-task'
 import { sumTranscriptUsage } from './transcript-usage'
@@ -295,6 +296,37 @@ export function formatSuggestLine(
   return `[Lumo] session_id=${sessionId} | Detected ${match.identifier} (from ${basis}). Run \`lumo session attach ${match.identifier}\` to bind.`
 }
 
+export interface CliIdentity {
+  version: string | null
+  email?: string | null
+  workspaceSlug?: string | null
+}
+
+const STATUS_LINE_PREFIX = '[Lumo] session_id='
+
+/**
+ * LUM-843: fold the installed CLI version and the logged-in identity into the
+ * session-start status line (`[Lumo] session_id=… | lumo 1.70.0 · me@x (ws) |
+ * …`). The line only prints after the server accepted this key, so it already
+ * proves the CLI is installed and authenticated — carrying version + identity
+ * here removes the reason agents ran `lumo --version` / `lumo whoami` first.
+ * Only the first status line is touched; the context JSON line is not.
+ */
+export function withCliIdentity(lines: string[], id: CliIdentity): string[] {
+  const first = lines[0]
+  if (first === undefined || !first.startsWith(STATUS_LINE_PREFIX)) return lines
+  const who = id.email
+    ? ` · ${sanitizeField(id.email)}${id.workspaceSlug ? ` (${sanitizeField(id.workspaceSlug)})` : ''}`
+    : ''
+  const tag = `${id.version ? `lumo ${sanitizeField(id.version)}` : 'lumo'}${who}`
+  const cut = first.indexOf(' | ')
+  const decorated =
+    cut === -1
+      ? `${first} | ${tag}`
+      : `${first.slice(0, cut)} | ${tag}${first.slice(cut)}`
+  return [decorated, ...lines.slice(1)]
+}
+
 /**
  * Build the stdout lines for a session-start response. When the server reports
  * the session is already bound, reuse the bound formatting (status line +
@@ -485,9 +517,16 @@ export async function runHookWithBody(
           const responseBody = await res.json()
           const lines =
             path === 'session-start'
-              ? resolveSessionStartStdout(responseBody, {
-                  extractTask: () => extractTaskFromGit(),
-                })
+              ? withCliIdentity(
+                  resolveSessionStartStdout(responseBody, {
+                    extractTask: () => extractTaskFromGit(),
+                  }),
+                  {
+                    version: readCliVersion(),
+                    email: creds.email,
+                    workspaceSlug: creds.workspaceSlug,
+                  }
+                )
               : formatHookStdoutLines(path, responseBody)
           for (const line of lines) {
             process.stdout.write(line + '\n')
