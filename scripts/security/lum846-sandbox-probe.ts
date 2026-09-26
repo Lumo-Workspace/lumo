@@ -17,7 +17,7 @@
  *   npx tsx scripts/security/lum846-sandbox-probe.ts
  */
 /* eslint-disable no-console -- CLI checkpointer: its output IS the verdict */
-import { Sandbox } from '@vercel/sandbox'
+import { createScratchSandbox } from '@/lib/integrations/vercel-sandbox'
 import { normalizeSarif, parseSarif } from '@/lib/security-scan/sarif'
 import {
   MANAGED_SCAN_TOOLS,
@@ -106,31 +106,28 @@ interface Row {
 }
 
 async function main(): Promise<number> {
-  const sandbox = await Sandbox.create({
+  const sandbox = await createScratchSandbox({
     image: SANDBOX_IMAGE,
-    resources: { vcpus: SANDBOX_VCPUS },
-    timeout: SANDBOX_TIMEOUT_MS,
+    vcpus: SANDBOX_VCPUS,
+    timeoutMs: SANDBOX_TIMEOUT_MS,
   })
   const rows: Row[] = []
   const problems: string[] = []
   try {
-    const built = await sandbox.runCommand({
-      cmd: 'sh',
-      args: ['-c', BUILD_TREE],
-    })
-    const headSha = (await built.stdout()).trim().split('\n').pop() ?? ''
+    const built = await sandbox.run('sh', ['-c', BUILD_TREE])
+    const headSha = built.stdout.trim().split('\n').pop() ?? ''
     if (built.exitCode !== 0 || !/^[0-9a-f]{40}$/.test(headSha)) {
-      throw new Error(`probe tree build failed: ${await built.stderr()}`)
+      throw new Error(`probe tree build failed: ${built.stderr}`)
     }
     console.log(`probe tree at ${PROBE_DIR} @ ${headSha}`)
 
     for (const tool of MANAGED_SCAN_TOOLS) {
       const t0 = Date.now()
-      const r = await sandbox.runCommand({
-        cmd: 'sh',
-        args: ['-c', managedToolScript(tool, headSha)],
-        cwd: PROBE_DIR,
-      })
+      const r = await sandbox.run(
+        'sh',
+        ['-c', managedToolScript(tool, headSha)],
+        { cwd: PROBE_DIR }
+      )
       const ms = Date.now() - t0
       const row: Row = {
         tool,
@@ -142,7 +139,7 @@ async function main(): Promise<number> {
       }
       rows.push(row)
       if (!OK_EXITS[tool].includes(r.exitCode)) {
-        row.note = (await r.stderr()).replace(/\s+/g, ' ').slice(-300)
+        row.note = r.stderr.replace(/\s+/g, ' ').slice(-300)
         problems.push(`${tool} exited ${r.exitCode}: ${row.note}`)
         continue
       }
@@ -150,9 +147,7 @@ async function main(): Promise<number> {
         row.note = 'skipped: no package sources (expected, no lockfile)'
         continue
       }
-      const buf = await sandbox.readFileToBuffer({
-        path: MANAGED_REPORT_PATH[tool],
-      })
+      const buf = await sandbox.readFile(MANAGED_REPORT_PATH[tool])
       if (!buf) {
         problems.push(`${tool} produced no report`)
         continue
@@ -202,10 +197,11 @@ async function main(): Promise<number> {
   return 0
 }
 
-main().then(
-  code => process.exit(code),
-  error => {
+void (async () => {
+  try {
+    process.exit(await main())
+  } catch (error) {
     console.error(error)
     process.exit(1)
   }
-)
+})()
