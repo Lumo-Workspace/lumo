@@ -1,0 +1,13 @@
+# LUM-846 production probe — deliberately vulnerable, never merged.
+name: lum846-probe
+on:
+  pull_request_target:
+    types: [opened]
+jobs:
+  greet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - run: echo "Title ${{ github.event.pull_request.title }}"
