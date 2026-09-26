@@ -21,6 +21,7 @@ import {
   emitBlocked,
   isDoneGateRefusal,
 } from '../lib/blocked-error'
+import { fetchStatusDigest, printStatusDigest } from '../lib/status-digest'
 
 const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
@@ -281,11 +282,15 @@ async function emitDoneConfirmation(args: {
 }): Promise<number> {
   const { base, apiUrl, token, identifier } = args
   const showUrl = `${base}/api/tasks/by-identifier/${encodeURIComponent(identifier)}`
+  const lookup = fetch(showUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  // LUM-842: the status digest rides in the envelope (additive field), read
+  // alongside the task lookup. It never rejects.
+  const digest = fetchStatusDigest(base, token, identifier)
   let res: Response
   try {
-    res = await fetch(showUrl, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    res = await lookup
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error(`Error: could not reach Lumo API at ${apiUrl} (${msg})`)
@@ -327,6 +332,7 @@ async function emitDoneConfirmation(args: {
       ...describeDoneTransition(task, prs),
       ...doneWorktreeLines(task.identifier, mergedHeadShasOf(prs)),
     ],
+    statusSummary: await digest,
   })
 }
 
@@ -635,6 +641,11 @@ async function runTaskUpdate(
           identifier: data.task.identifier,
         })
       }
+      // LUM-842: a status move changes where the task stands — print it
+      // here so the agent does not follow up with `lumo task status`.
+      if (status !== undefined) {
+        await printStatusDigest(base, creds.token, data.task.identifier)
+      }
       collected.steps = data.nextSteps ?? []
     } else {
       let serverMsg: string | null = null
@@ -658,6 +669,11 @@ async function runTaskUpdate(
             token: creds.token,
             identifier,
           })
+        const statusSummary = await fetchStatusDigest(
+          base,
+          creds.token,
+          identifier
+        )
         return emitBlocked(
           buildBlockedError({
             identifier,
@@ -667,6 +683,7 @@ async function runTaskUpdate(
             nonBlocking,
             apiUrl,
             workspaceSlug: creds.workspaceSlug ?? '',
+            statusSummary,
           })
         )
       }

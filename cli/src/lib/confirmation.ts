@@ -35,6 +35,11 @@ export interface ConfirmationEnvelope {
    *  `--receipt <token>`; surfaced here for machine readers. Absent on
    *  commands without a receipt. */
   receipt?: { token: string; expiresAt: string }
+  /** LUM-842: where the task stands right now (the `task status` digest), so
+   *  the agent does not re-read it before relaying the envelope. Additive and
+   *  informational — never part of what the user approves. Absent on
+   *  commands that are not about a task's acceptance state. */
+  statusSummary?: string[]
 }
 
 export interface ConfirmationInput {
@@ -52,6 +57,8 @@ export interface ConfirmationInput {
    *  multi-step handshake (LUM-769) issues an earlier envelope that asks for
    *  `--confirm-read` first; the flag means "the user approved THIS step". */
   confirmFlag?: '--confirm' | '--confirm-read'
+  /** LUM-842: see ConfirmationEnvelope.statusSummary. */
+  statusSummary?: string[]
 }
 
 /** The flags a command may carry to signal user approval. */
@@ -128,6 +135,7 @@ export function buildEnvelope(input: ConfirmationInput): ConfirmationEnvelope {
       input.confirmFlag ?? '--confirm'
     ),
     ...(input.receipt ? { receipt: input.receipt } : {}),
+    ...(input.statusSummary ? { statusSummary: input.statusSummary } : {}),
   }
 }
 
@@ -143,6 +151,8 @@ export function renderConfirmation(
     ...(envelope.receipt
       ? [`Read receipt issued (valid until ${envelope.receipt.expiresAt}).`]
       : []),
+    // LUM-842: before the re-run lines, so the command stays the last line.
+    ...(envelope.statusSummary ? ['', ...envelope.statusSummary, ''] : []),
     `Re-run with ${envelope.confirmCommand.endsWith('--confirm-read') ? '--confirm-read' : '--confirm'} once the user has approved:`,
     `  ${envelope.confirmCommand}`,
   ]

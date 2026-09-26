@@ -3,6 +3,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { buildCmdEvidencePointer } from '../../../shared/src/acceptance-evidence'
+import { printStatusDigest } from '../lib/status-digest'
 import type { CriterionRow } from './task-criteria-list'
 
 export interface VerifyOptions {
@@ -329,6 +330,15 @@ export async function verify(
   }
 
   const outcome = (await res.json()) as RoundOutcome
+  const exitCode = reportRound(outcome)
+  // LUM-842: the round just changed the task's acceptance state — print where
+  // it stands now so the agent does not follow up with `lumo task status`.
+  await printStatusDigest(base, creds.token, taskId)
+  return exitCode
+}
+
+/** Print what the recorded round means; returns the command's exit code. */
+function reportRound(outcome: RoundOutcome): number | void {
   process.stdout.write(
     `\nRound ${outcome.round}/${outcome.maxRounds} recorded.\n`
   )
