@@ -57,9 +57,6 @@ jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn(),
   shouldScanOnPrEvent: jest.fn().mockReturnValue(false),
 }))
-jest.mock('@/lib/services/lumo-ci-dispatch', () => ({
-  dispatchLumoCi: jest.fn(),
-}))
 
 const upsertPullRequest = githubService.upsertPullRequest as jest.Mock
 const findTaskByIdentifier = githubService.findTaskByIdentifier as jest.Mock

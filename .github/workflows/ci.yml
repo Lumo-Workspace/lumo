@@ -1,0 +1,58 @@
+# LUM-837 — Lumo's own typecheck / test gate signals, produced by GitHub
+# Actions exactly the way a customer's CI produces theirs (Lumo no longer runs
+# anyone's tests in a sandbox). Job names "typecheck" / "test" are classified
+# by shared/src/gate-map.ts, so the task gates read this runner's verdict.
+#
+# Runs on every push to a PR, so the signal always matches the PR head. This
+# file was removed in LUM-735 after 7 *stuck* runs burned the month's free
+# minutes; the guards against that are the per-job timeout and the per-PR
+# concurrency below (a newer push cancels the older run). The spend itself is
+# capped in the GitHub billing settings, not here.
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+# One run per PR; a newer push cancels the older run.
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      # `@lumo/shared` resolves to shared/dist; a fresh checkout has none.
+      - run: npm run build:shared
+      # tsc over this repo peaks at ~3.3 GB RSS; the default Node heap aborts.
+      - run: npx tsc --noEmit
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build:shared
+      - run: npm test -- --ci

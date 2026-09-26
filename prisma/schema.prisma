@@ -2526,7 +2526,9 @@ model GateSignal {
 }
 
 // LUM-746: one Lumo-managed CI run (typecheck + test in a Vercel Sandbox) per
-// (pull request, head sha). The unique key is the "same sha runs once" rule;
+// (pull request, head sha). Retired in LUM-837 — Lumo no longer runs customers'
+// tests or builds, so nothing writes this table any more; it is kept (with its
+// migration) as history for past runs and their lumo_sandbox gate signals. The unique key is the "same sha runs once" rule;
 // the row tracks the workflow run for supersede/cancel and counts toward the
 // per-workspace hourly cap. Verdicts themselves land in GateSignal
 // (source 'lumo_sandbox'); this row only says whether the harness finished.
