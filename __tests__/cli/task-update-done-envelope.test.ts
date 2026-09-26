@@ -116,7 +116,23 @@ beforeEach(() => {
   jest.spyOn(console, 'error').mockImplementation((...a) => {
     stderr.push(a.join(' '))
   })
-  fetchMock = jest.fn()
+  // LUM-842: reads nobody queued a response for — the status digest's
+  // GET /status and /boundary-crossings — get a minimal valid body.
+  fetchMock = jest.fn(async (url: string) =>
+    url.endsWith('/status')
+      ? jsonResponse(200, {
+          task: { identifier: 'LUM-1', title: 'My Task', status: 'IN_REVIEW' },
+          currentRound: 1,
+          maxRounds: 3,
+          escalated: false,
+          criteria: [],
+          nextActions: [],
+          securityFindings: { open: 0, blocking: 0, unconfirmedPrs: [] },
+        })
+      : url.endsWith('/boundary-crossings')
+        ? jsonResponse(200, { crossings: [] })
+        : undefined
+  )
   global.fetch = fetchMock as unknown as typeof fetch
   // The agent path: nothing is a TTY. LUM-731 used to exit 1 here.
   setTTY(process.stdin, false)
@@ -324,8 +340,15 @@ describe('task update done envelope', () => {
     fetchMock.mockResolvedValueOnce(patchOk())
     let code = await taskUpdate('LUM-1', { status: 'in_progress' })
     expect(code).toBeUndefined()
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    // No by-identifier lookup: the PATCH goes first; the only other reads are
+    // the LUM-842 status digest's GET /status and /boundary-crossings.
     expect((fetchMock.mock.calls[0][1] as RequestInit).method).toBe('PATCH')
+    expect(
+      fetchMock.mock.calls
+        .slice(1)
+        .map(c => String(c[0]).replace(/^.*\/LUM-1/, ''))
+        .sort()
+    ).toEqual(['/boundary-crossings', '/status'])
 
     jest.clearAllMocks()
     fetchMock.mockResolvedValueOnce(patchOk())

@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { printStatusDigest } from '../lib/status-digest'
 import { resolveBoundTask } from '../lib/bound-task'
 
 export interface CrossingExplainOptions {
@@ -108,5 +109,8 @@ export async function crossingExplain(
       '`lumo crossing disposition <id> --false-positive | --confirmed` (exit-4 envelope) ' +
       'or in the web panel.\n'
   )
+  // LUM-842: an explanation never clears the crossing — the digest shows
+  // that it still blocks, without a follow-up `lumo task status`.
+  await printStatusDigest(base, creds.token, taskId)
   return
 }

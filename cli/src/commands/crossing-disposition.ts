@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { printStatusDigest } from '../lib/status-digest'
 import { emitConfirmation } from '../lib/confirmation'
 import { resolveBoundTask } from '../lib/bound-task'
 import { dispositionUrl } from '../lib/open-crossings'
@@ -353,6 +354,8 @@ export async function crossingDisposition(
         : `  This clears its block on moving ${taskId} to DONE. `) +
       `The ruling is audited on the task timeline as a CLI-channel disposition with the shown / read-acknowledged / confirmed times; it can be corrected in the web panel: ${url}\n`
   )
+  // LUM-842: the ruling moved what blocks DONE — show where the task stands.
+  await printStatusDigest(base, creds.token, taskId)
   return
 }
 

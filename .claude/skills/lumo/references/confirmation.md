@@ -26,12 +26,13 @@ When stdout is not a TTY (the agent path) the envelope is JSON:
 }
 ```
 
-| Field            | Meaning                                                                                                                                             |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `status`         | Always `confirmation_required`.                                                                                                                     |
-| `command`        | The command path, e.g. `task update`, `worktree rm`.                                                                                                |
-| `changes`        | Human-readable lines describing exactly what would happen, computed from the current state (titles, counts, linked PRs, dirty files…). Never empty. |
-| `confirmCommand` | Your original argv (flags and quoting preserved) plus `--confirm` — and, when a second gate applies, that gate's flag too (`--force --confirm`).    |
+| Field            | Meaning                                                                                                                                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`         | Always `confirmation_required`.                                                                                                                                                                                 |
+| `command`        | The command path, e.g. `task update`, `worktree rm`.                                                                                                                                                            |
+| `changes`        | Human-readable lines describing exactly what would happen, computed from the current state (titles, counts, linked PRs, dirty files…). Never empty.                                                             |
+| `confirmCommand` | Your original argv (flags and quoting preserved) plus `--confirm` — and, when a second gate applies, that gate's flag too (`--force --confirm`).                                                                |
+| `statusSummary`  | Optional (LUM-842, `task update --status done` only): the task's current status digest — same read as `lumo task status`. Informational, not part of what the user approves; no follow-up `task status` needed. |
 
 On a TTY the same fields are rendered as text: a header line, one `-` bullet per change, then `Re-run with --confirm once the user has approved:` and the command on its own line.
 
@@ -75,7 +76,7 @@ Nothing goes to stderr; the envelope is the command's result, not an error. **Ex
 
 Not every refusal is something the user can approve on the spot. The server's DONE gates — an **unresolved send-back**, an **undispositioned boundary crossing**, a **blocking security finding** — are verdicts on the agent's own work, and the interested party may not adjudicate itself: nothing on `task update` clears them — no `--confirm`, no `--force`, nothing you can pass. Since LUM-769 a **boundary crossing** does have a terminal path, but it is a separate command and it is the user's: `lumo crossing disposition <id> --false-positive | --confirmed` walks the exit-4 protocol above (you relay the crossing, the user rules, you re-run the `confirmCommand`). Send-backs and security findings still have no CLI path at all.
 
-What the CLI does instead: when `task update <id> --status done --confirm` is refused by one of these gates, it re-reads the task's acceptance status and open crossings, prints a structured error on **stdout** and exits **5**:
+What the CLI does instead: when `task update <id> --status done --confirm` is refused by one of these gates, it re-reads the task's acceptance status and open crossings, prints a structured error on **stdout** and exits **5** (it also carries the `statusSummary` digest described above, so no follow-up `task status` is needed):
 
 ```json
 {

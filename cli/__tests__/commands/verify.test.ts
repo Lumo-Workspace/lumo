@@ -30,17 +30,29 @@ const CRITERION = {
   identifier: 'c-abc123',
 }
 
-/** Build a stubbed global.fetch that serves two sequential responses. */
+/** LUM-842: the post-round status digest reads GET /status. */
+const STATUS_RESPONSE = {
+  version: 1,
+  task: { id: 't1', identifier: 'LUM-491', title: 'T', status: 'IN_REVIEW' },
+  currentRound: 1,
+  maxRounds: 3,
+  escalated: false,
+  criteria: [],
+  nextActions: [],
+  securityFindings: { open: 0, blocking: 0, unconfirmedPrs: [] },
+}
+
+/** Build a stubbed global.fetch that routes by URL. */
 function stubFetch(criteriaResponse: object, verifyResponse: object) {
-  let call = 0
-  global.fetch = jest.fn().mockImplementation(async () => {
-    call++
-    if (call === 1) {
-      // GET /criteria
-      return { ok: true, status: 200, json: async () => criteriaResponse }
-    }
-    // POST /verify
-    return { ok: true, status: 200, json: async () => verifyResponse }
+  global.fetch = jest.fn().mockImplementation(async (url: string) => {
+    const body = url.endsWith('/criteria')
+      ? criteriaResponse
+      : url.endsWith('/status')
+        ? STATUS_RESPONSE
+        : url.endsWith('/boundary-crossings')
+          ? { crossings: [] }
+          : verifyResponse // POST /verify
+    return { ok: true, status: 200, json: async () => body }
   }) as unknown as typeof fetch
 }
 

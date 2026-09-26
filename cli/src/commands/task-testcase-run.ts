@@ -2,6 +2,7 @@ import { readFileSync, statSync } from 'node:fs'
 import { basename, extname } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { apiContext, apiCall } from '../lib/test-case-api'
+import { printStatusDigest } from '../lib/status-digest'
 import {
   splitCaseHandle,
   resolveRunLocator,
@@ -247,4 +248,7 @@ export async function taskTestCaseRun(
   // call site cannot drift away from it.
   const hint = evidenceHint({ evidenceCount: evidence.length, result })
   if (hint) console.log(hint)
+  // LUM-842: a run can add or clear a DONE-blocking defect — show the task's
+  // state now instead of leaving it to a follow-up `lumo task status`.
+  await printStatusDigest(ctx.base, ctx.token, split.task)
 }
