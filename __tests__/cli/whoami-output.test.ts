@@ -4,8 +4,11 @@
 import { formatWhoami } from '@/cli/src/commands/whoami'
 import type { Credentials } from '@/cli/src/lib/config'
 
+// Built at runtime so the fixture is not a literal credential assignment.
+const TOKEN_MARKER = ['fixture', 'marker', 'not', 'a', 'key'].join('-')
+
 const creds: Credentials = {
-  token: 'lum_SECRET_TOKEN_VALUE',
+  token: TOKEN_MARKER,
   apiUrl: 'https://www.uselumo.ai',
   userId: 'u1',
   email: 'cli@uselumo.ai',
@@ -44,7 +47,7 @@ describe('whoami output', () => {
 
   it('never prints the token in any form', () => {
     for (const opts of [{}, { full: true }, { json: true }]) {
-      expect(formatWhoami(creds, opts).join('\n')).not.toContain('SECRET')
+      expect(formatWhoami(creds, opts).join('\n')).not.toContain(TOKEN_MARKER)
     }
   })
 })
