@@ -93,6 +93,7 @@ describe('hookEventService.recordHookEvent', () => {
       type: 'PRE_TOOL_USE',
       toolName: 'Read',
       toolDetail: null,
+      toolVerb: null,
       filePath: '/x',
       payload: {
         session_id: 'sess_abc',

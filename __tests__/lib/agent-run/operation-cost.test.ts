@@ -194,4 +194,52 @@ describe('attributeOperationCost', () => {
     expect(out(THINKING_BUCKET)).toBe(0)
     expect(totalOf(rows)).toBe(20)
   })
+
+  it('breaks Bash rows down by command', () => {
+    const at = (s: number) =>
+      new Date(`2026-06-01T00:00:${String(s).padStart(2, '0')}Z`)
+    const events: OperationCostEvent[] = [
+      ev({
+        type: 'POST_TOOL_USE',
+        toolName: 'Bash',
+        toolDetail: 'read',
+        toolVerb: 'grep',
+        createdAt: at(1),
+      }),
+      ev({
+        type: 'POST_TOOL_USE',
+        toolName: 'Bash',
+        toolDetail: 'read',
+        toolVerb: 'cat',
+        createdAt: at(2),
+      }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 8, 0),
+        createdAt: at(3),
+      }),
+      // toolVerb on a tool that is not a split Bash row is ignored.
+      ev({
+        type: 'POST_TOOL_USE',
+        toolName: 'Read',
+        toolVerb: 'grep',
+        createdAt: at(4),
+      }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 2, 0),
+        createdAt: at(5),
+      }),
+      ev({ type: 'STOP', usageByModel: u(0, 10, 0), createdAt: at(6) }),
+    ]
+    const { rows } = attributeOperationCost(events)
+    const out = (tool: string, verb: string | null) =>
+      rows
+        .filter(r => r.tool === tool && r.verb === verb)
+        .reduce((t, r) => t + r.output, 0)
+    expect(out('Bash · read/search', 'grep')).toBe(4)
+    expect(out('Bash · read/search', 'cat')).toBe(4)
+    expect(out('Read', null)).toBe(2)
+    expect(totalOf(rows)).toBe(10)
+  })
 })

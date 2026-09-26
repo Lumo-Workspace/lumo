@@ -744,6 +744,15 @@ export interface LineageResponse {
       cacheCreation: number
       cacheRead: number
       total: number
+      /** LUM-840: per-command rows under a `Bash · <purpose>` row, most expensive first. */
+      commands?: {
+        command: string
+        output: number
+        input: number
+        cacheCreation: number
+        cacheRead: number
+        total: number
+      }[]
     }[]
   }
   groups: LineageGroup[]

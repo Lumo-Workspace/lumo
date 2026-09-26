@@ -45,6 +45,37 @@ export function foldRows(
   return out.sort((a, b) => b.total - a.total)
 }
 
+/** Label for Bash tokens recorded before `toolVerb` existed (not yet backfilled). */
+export const UNLABELLED_COMMAND = '(unlabelled)'
+
+/**
+ * LUM-840: attach a per-command breakdown to each tool row whose invocations
+ * carry a command (the `Bash · <purpose>` rows). Sums to its parent row.
+ */
+export function withCommandBreakdown(
+  rows: OperationCostRow[],
+  byTool: OperationCostRowDto[]
+): OperationCostRowDto[] {
+  const byParent = new Map<string, OperationCostRow[]>()
+  for (const r of rows) {
+    const list = byParent.get(r.tool) ?? []
+    list.push(r)
+    byParent.set(r.tool, list)
+  }
+  return byTool.map(row => {
+    const children = byParent.get(row.key) ?? []
+    if (!children.some(r => r.verb !== null)) return row
+    return {
+      ...row,
+      breakdown: foldRows(
+        children,
+        r => r.verb ?? UNLABELLED_COMMAND,
+        () => undefined
+      ),
+    }
+  })
+}
+
 export type OperationCostScope =
   | { kind: 'task'; identifier: string }
   | { kind: 'session'; sessionId: string }
@@ -94,6 +125,7 @@ export const operationCostService = {
         type: e.type,
         toolName: e.toolName,
         toolDetail: e.toolDetail,
+        toolVerb: e.toolVerb,
         usageByModel: e.usageByModel as Record<string, ModelUsage> | null,
         createdAt: e.createdAt,
       }))
@@ -133,10 +165,13 @@ export const operationCostService = {
             ? coverage.perStepTurns / coverage.toolTurns
             : null,
       },
-      byTool: foldRows(
+      byTool: withCommandBreakdown(
         rows,
-        r => r.tool,
-        () => undefined
+        foldRows(
+          rows,
+          r => r.tool,
+          () => undefined
+        )
       ),
       byModel: foldRows(
         rows,

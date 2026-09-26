@@ -1,5 +1,6 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
+import { sanitizeField } from '../lib/sanitize'
 
 /**
  * Local copies of the server's OperationCostResponse shape. The CLI is a
@@ -13,6 +14,8 @@ export interface OperationCostRowDto {
   cacheRead: number
   cacheCreation: number
   total: number
+  /** LUM-840: per-command rows under a `Bash · <purpose>` row (sums to it). */
+  breakdown?: OperationCostRowDto[]
 }
 export interface OperationCostResponse {
   version: 1
@@ -44,6 +47,11 @@ function groupThousands(value: number): string {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
+/** Wide enough for `Bash · typecheck/lint/build`. */
+const LABEL_WIDTH = 28
+/** Commands listed under a `Bash · <purpose>` row. */
+const MAX_COMMANDS = 5
+
 /** Render one ranking row: label + the four token categories + total, aligned. */
 function rankRow(
   label: string,
@@ -53,7 +61,7 @@ function rankRow(
   cacheRead: string,
   total: string
 ): string {
-  return `  ${label.slice(0, 20).padEnd(20)}  ${output.padStart(10)}  ${input.padStart(10)}  ${cacheCreate.padStart(12)}  ${cacheRead.padStart(12)}  ${total.padStart(12)}`
+  return `  ${label.slice(0, LABEL_WIDTH).padEnd(LABEL_WIDTH)}  ${output.padStart(10)}  ${input.padStart(10)}  ${cacheCreate.padStart(12)}  ${cacheRead.padStart(12)}  ${total.padStart(12)}`
 }
 
 function rankTable(title: string, rows: OperationCostRowDto[]): string {
@@ -69,10 +77,10 @@ function rankTable(title: string, rows: OperationCostRowDto[]): string {
       'total'
     ),
   ]
-  for (const r of rows.slice(0, 20)) {
+  const push = (label: string, r: OperationCostRowDto) =>
     lines.push(
       rankRow(
-        r.label,
+        label,
         groupThousands(r.output),
         groupThousands(r.input),
         groupThousands(r.cacheCreation),
@@ -80,6 +88,11 @@ function rankTable(title: string, rows: OperationCostRowDto[]): string {
         groupThousands(r.total)
       )
     )
+  for (const r of rows.slice(0, 20)) {
+    push(sanitizeField(r.label), r)
+    for (const c of (r.breakdown ?? []).slice(0, MAX_COMMANDS)) {
+      push(`  ↳ ${sanitizeField(c.label)}`, c)
+    }
   }
   return lines.join('\n')
 }

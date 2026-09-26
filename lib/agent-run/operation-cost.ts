@@ -16,6 +16,8 @@ export interface OperationCostEvent {
   toolName: string | null
   /** LUM-840: Bash purpose slug from `HookEvent.toolDetail`; null/absent → plain tool name. */
   toolDetail?: string | null
+  /** LUM-840: the command behind `toolDetail` (`HookEvent.toolVerb`), for the per-command drill-down. */
+  toolVerb?: string | null
   /** Per-step delta on POST_TOOL_BATCH; per-turn delta on STOP/STOP_FAILURE; null on history. */
   usageByModel: Record<string, ModelUsage> | null
   createdAt: Date
@@ -23,6 +25,8 @@ export interface OperationCostEvent {
 
 export interface OperationCostRow {
   tool: string
+  /** LUM-840: the command within a `Bash · <purpose>` row; null for other tools and unlabelled history. */
+  verb: string | null
   model: string
   sessionId: string | null
   workspaceMemberId: string | null
@@ -64,17 +68,26 @@ const STOP_TYPES = new Set(['STOP', 'STOP_FAILURE'])
 
 type Acc = Map<string, OperationCostRow>
 
+/** One tool invocation a step's tokens are split across. */
+interface Invocation {
+  tool: string
+  verb: string | null
+}
+
+const THINKING_INVOCATION: Invocation = { tool: THINKING_BUCKET, verb: null }
+
 function addToAcc(
   acc: Acc,
-  tool: string,
+  { tool, verb }: Invocation,
   model: string,
   sessionId: string | null,
   memberId: string | null,
   u: ModelUsage
 ): void {
-  const key = `${tool} ${model} ${sessionId ?? ''}`
+  const key = `${tool} ${verb ?? ''} ${model} ${sessionId ?? ''}`
   const cur = acc.get(key) ?? {
     tool,
+    verb,
     model,
     sessionId,
     workspaceMemberId: memberId,
@@ -93,16 +106,16 @@ function addToAcc(
 /** Attribute one per-model delta to a list of tool invocations (even split). */
 function attributeDelta(
   delta: Record<string, ModelUsage>,
-  invocations: string[],
+  invocations: Invocation[],
   sessionId: string | null,
   memberId: string | null,
   acc: Acc
 ): void {
-  const targets = invocations.length ? invocations : [THINKING_BUCKET]
+  const targets = invocations.length ? invocations : [THINKING_INVOCATION]
   const n = targets.length
   for (const [model, u] of Object.entries(delta)) {
-    for (const tool of targets) {
-      addToAcc(acc, tool, model, sessionId, memberId, {
+    for (const invocation of targets) {
+      addToAcc(acc, invocation, model, sessionId, memberId, {
         input: u.input / n,
         output: u.output / n,
         cacheRead: u.cacheRead / n,
@@ -176,7 +189,7 @@ export function attributeOperationCost(
     const ordered = [...list].sort(
       (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
     )
-    let pendingTools: string[] = []
+    let pendingTools: Invocation[] = []
     let turnBatchSum: Record<string, ModelUsage> = {}
     let turnHadTool = false
     let turnHadBatch = false
@@ -186,7 +199,12 @@ export function attributeOperationCost(
     for (const e of ordered) {
       if (TOOL_TYPES.has(e.type)) {
         if (e.toolName) {
-          pendingTools.push(operationLabel(e.toolName, e.toolDetail))
+          const tool = operationLabel(e.toolName, e.toolDetail)
+          pendingTools.push({
+            tool,
+            // Only a split Bash row drills down by command.
+            verb: tool !== e.toolName ? (e.toolVerb ?? null) : null,
+          })
           turnHadTool = true
         }
         continue

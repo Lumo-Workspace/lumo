@@ -222,3 +222,43 @@ describe('formatSignalHealth negative-class display', () => {
     expect(out).toContain('2 failed')
   })
 })
+
+it('prints the top commands under a Bash row', () => {
+  const md = formatLineageMarkdown({
+    task: { identifier: 'LUM-5', title: 'Ops', status: 'DONE' },
+    totals: {
+      ...BASE_TOTALS,
+      topOperations: [
+        {
+          tool: 'Bash · read/search',
+          total: 9000,
+          commands: [
+            { command: 'grep', total: 5000 },
+            { command: 'sed', total: 2500 },
+            { command: 'cat', total: 1000 },
+            { command: 'ls', total: 500 },
+          ],
+        },
+        { tool: 'Edit', total: 678 },
+      ],
+    },
+    groups: [
+      {
+        kind: 'session',
+        sessionId: 's5',
+        label: 'Session s5',
+        includedAt: '',
+        cost: null,
+        fragments: [],
+      },
+    ],
+  })
+  const lines = md.split('\n')
+  const parent = lines.findIndex(l => l.includes('Bash · read/search'))
+  expect(lines[parent + 1]).toBe('    ↳ grep — 5,000 tokens')
+  expect(lines[parent + 2]).toBe('    ↳ sed — 2,500 tokens')
+  expect(lines[parent + 3]).toBe('    ↳ cat — 1,000 tokens')
+  // Top 3 only; the full list lives in `lumo cost`.
+  expect(md).not.toContain('↳ ls')
+  expect(lines[parent + 4]).toBe('  Edit — 678 tokens')
+})

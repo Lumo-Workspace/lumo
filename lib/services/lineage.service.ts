@@ -102,6 +102,15 @@ export interface LineageDto {
       cacheCreation: number
       cacheRead: number
       total: number
+      /** LUM-840: per-command rows under a `Bash · <purpose>` row, most expensive first. */
+      commands?: {
+        command: string
+        output: number
+        input: number
+        cacheCreation: number
+        cacheRead: number
+        total: number
+      }[]
     }[]
   }
   groups: LineageGroup[]
@@ -462,6 +471,19 @@ export const lineageService = {
         cacheCreation: r.cacheCreation,
         cacheRead: r.cacheRead,
         total: r.total,
+        // LUM-840: per-command drill-down under a `Bash · <purpose>` row.
+        ...(r.breakdown
+          ? {
+              commands: r.breakdown.map(c => ({
+                command: c.label,
+                output: c.output,
+                input: c.input,
+                cacheCreation: c.cacheCreation,
+                cacheRead: c.cacheRead,
+                total: c.total,
+              })),
+            }
+          : {}),
       })) ?? []
 
     return {

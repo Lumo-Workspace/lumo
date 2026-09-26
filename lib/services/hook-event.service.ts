@@ -4,7 +4,7 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import type { ModelUsage } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
-import { toolDetailFromPayload } from '@/lib/agent-run/bash-category'
+import { classifyBashPayload } from '@/lib/agent-run/bash-category'
 
 interface RecordHookEventInput {
   identity: VerifyApiKeyResult
@@ -154,6 +154,7 @@ export const hookEventService = {
     }
 
     const toolName = extractStringField(payload, 'tool_name')
+    const bash = classifyBashPayload(payload)
     const filePath = extractFilePath(payload)
     const created = await hookEventRepository.createHookEvent({
       workspaceId: identity.workspace.id,
@@ -162,7 +163,8 @@ export const hookEventService = {
       taskId,
       type,
       toolName,
-      toolDetail: toolDetailFromPayload(payload),
+      toolDetail: bash?.category ?? null,
+      toolVerb: bash?.verb ?? null,
       filePath,
       payload,
       usageByModel:

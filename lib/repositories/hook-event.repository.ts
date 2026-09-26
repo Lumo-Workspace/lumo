@@ -11,6 +11,8 @@ interface CreateHookEventData {
   toolName: string | null
   /** LUM-840: purpose bucket under `toolName` (Bash category slug); null otherwise. */
   toolDetail?: string | null
+  /** LUM-840: the command that decided `toolDetail` (e.g. `jest`, `git show`); null otherwise. */
+  toolVerb?: string | null
   payload: Prisma.InputJsonValue
   sessionId?: string | null
   taskId?: string | null
@@ -72,6 +74,7 @@ export const hookEventRepository = {
         type: data.type,
         toolName: data.toolName,
         toolDetail: data.toolDetail ?? null,
+        toolVerb: data.toolVerb ?? null,
         filePath: data.filePath ?? null,
         payload: data.payload,
         usageByModel:
@@ -453,6 +456,7 @@ export const hookEventRepository = {
         type: true,
         toolName: true,
         toolDetail: true,
+        toolVerb: true,
         usageByModel: true,
         createdAt: true,
       },

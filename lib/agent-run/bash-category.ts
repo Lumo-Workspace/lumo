@@ -351,6 +351,75 @@ function classifySegment(segment: string): BashCategory | null {
   return 'other'
 }
 
+/** Tools whose first non-flag argument is the meaningful part of the label:
+ *  `git show`, `gh pr`, `lumo task`, `go test`, `docker compose`. */
+const LABEL_WITH_SUBCOMMAND = new Set([
+  'git',
+  'gh',
+  'lumo',
+  'go',
+  'cargo',
+  'mvn',
+  'mvnw',
+  'gradle',
+  'gradlew',
+  'dotnet',
+  'swift',
+  'docker',
+  'kubectl',
+  'helm',
+  'terraform',
+  'prisma',
+  'vercel',
+  'make',
+])
+const PKG_MANAGER = /^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(npm|pnpm|yarn|bun)\b/
+const MAX_VERB_LENGTH = 40
+
+/** Keep a label to a safe, short charset — it is shown in the UI and fed back
+ *  to agents through `lumo cost` / `lumo task lineage`. */
+function safeLabel(label: string): string | null {
+  const cleaned = label
+    .replace(/[^\w.:/@+ -]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_VERB_LENGTH)
+    .trim()
+  return cleaned || null
+}
+
+/**
+ * The command a segment runs, as a short label: the verb, plus the subcommand
+ * for tools where the verb alone says little (`git show`, `lumo task`,
+ * `npm test`). Wrappers resolve to what they run (`uv run pytest` → `pytest`).
+ */
+function segmentLabel(segment: string): string | null {
+  const parsed = segmentVerb(segment)
+  if (!parsed) return null
+  const { seg, verb, rest } = parsed
+  const timeout = seg.match(TIMEOUT_PREFIX)
+  if (timeout) return segmentLabel(seg.slice(timeout[0].length))
+  const runner = seg.match(RUNNER)
+  if (runner) return segmentLabel(seg.slice(runner[0].length))
+  if (/\bjest-t\.ts\b/.test(seg)) return 'jest'
+  const pm = seg.match(PKG_MANAGER)?.[1]
+  const script = seg.match(PKG_SCRIPT)?.[1]
+  if (pm && script !== undefined && !/\.[cm]?[jt]sx?$/.test(script)) {
+    return safeLabel(`${pm} ${script}`)
+  }
+  if (LABEL_WITH_SUBCOMMAND.has(verb)) {
+    let j = 0
+    while (j < rest.length && rest[j]!.startsWith('-')) {
+      // `git -C <dir>` / `-c k=v` take a value.
+      if (rest[j] === '-C' || rest[j] === '-c') j++
+      j++
+    }
+    const sub = rest[j] ?? ''
+    if (/^[a-z][\w:-]*$/.test(sub)) return safeLabel(`${verb} ${sub}`)
+  }
+  return safeLabel(verb)
+}
+
 function collect(
   cmd: string,
   out: { category: BashCategory; segment: string }[],
@@ -389,30 +458,55 @@ export function unrecognisedVerbs(command: string): string[] {
  * of plumbing (`echo`, `cd`, `sleep` …) or that is empty is `other`.
  */
 export function classifyBashCommand(command: string): BashCategory {
-  const found: { category: BashCategory; segment: string }[] = []
-  collect(command, found, 0)
-  if (found.length === 0) return 'other'
-  let best = found[0]!.category
-  for (const { category: c } of found) {
-    if (
-      BASH_CATEGORY_PRIORITY.indexOf(c) < BASH_CATEGORY_PRIORITY.indexOf(best)
-    )
-      best = c
-  }
-  return best
+  return classifyBashCommandDetailed(command).category
+}
+
+/** A command's category plus the command that decided it (see {@link segmentLabel}). */
+export interface BashClassification {
+  category: BashCategory
+  /** Label of the winning segment, e.g. `jest`, `git show`; null when no segment ran anything. */
+  verb: string | null
 }
 
 /**
- * `toolDetail` for a hook payload: the Bash category when the payload is a
- * Bash call with a readable command, else null. Shared by the record path and
- * the historical backfill so both classify identically.
+ * {@link classifyBashCommand} plus the decisive command: the first segment
+ * holding the winning category. Pure + deterministic.
  */
-export function toolDetailFromPayload(payload: unknown): BashCategory | null {
+export function classifyBashCommandDetailed(
+  command: string
+): BashClassification {
+  const found: { category: BashCategory; segment: string }[] = []
+  collect(command, found, 0)
+  if (found.length === 0) return { category: 'other', verb: null }
+  let best = found[0]!
+  for (const f of found) {
+    if (
+      BASH_CATEGORY_PRIORITY.indexOf(f.category) <
+      BASH_CATEGORY_PRIORITY.indexOf(best.category)
+    )
+      best = f
+  }
+  return { category: best.category, verb: segmentLabel(best.segment) }
+}
+
+/**
+ * Classification of a hook payload: set when the payload is a Bash call with a
+ * readable command, else null. Shared by the record path and the historical
+ * backfill so both classify identically.
+ */
+export function classifyBashPayload(
+  payload: unknown
+): BashClassification | null {
   if (!payload || typeof payload !== 'object') return null
   const p = payload as { tool_name?: unknown; tool_input?: unknown }
   if (p.tool_name !== 'Bash') return null
   const input = p.tool_input as { command?: unknown } | null | undefined
   const command = input?.command
   if (typeof command !== 'string') return null
-  return classifyBashCommand(command)
+  return classifyBashCommandDetailed(command)
+}
+
+/** `toolDetail` for a hook payload — the category of {@link classifyBashPayload}. */
+export function toolDetailFromPayload(payload: unknown): BashCategory | null {
+  return classifyBashPayload(payload)?.category ?? null
 }

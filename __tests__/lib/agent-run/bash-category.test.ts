@@ -2,6 +2,8 @@ import {
   BASH_CATEGORIES,
   BASH_CATEGORY_LABEL,
   classifyBashCommand,
+  classifyBashCommandDetailed,
+  classifyBashPayload,
   isBashCategory,
   toolDetailFromPayload,
   unrecognisedVerbs,
@@ -189,5 +191,51 @@ describe('category table', () => {
     }
     expect(isBashCategory('nope')).toBe(false)
     expect(isBashCategory(null)).toBe(false)
+  })
+})
+
+describe('classifyBashCommandDetailed', () => {
+  it('labels the decisive command', () => {
+    const cases: [string, string, string | null][] = [
+      ['grep -rn foo lib | head', 'read', 'grep'],
+      ['cd /repo && npx jest a.test.ts | tail -5', 'test', 'jest'],
+      ["npx tsx scripts/jest-t.ts 'x' a.test.ts", 'test', 'jest'],
+      ['npm run test:unit', 'test', 'npm test:unit'],
+      ['pnpm lint', 'check', 'pnpm lint'],
+      ['git -C .worktrees/x show HEAD', 'read', 'git show'],
+      ['git push -u origin HEAD', 'git-write', 'git push'],
+      ['gh pr view 12', 'gh', 'gh pr'],
+      ['lumo task status LUM-1 | grep -i done', 'lumo', 'lumo task'],
+      ['uv run pytest -x', 'test', 'pytest'],
+      ['timeout 60 go test ./...', 'test', 'go test'],
+      ['docker compose up -d', 'net', 'docker compose'],
+      ['"$D/review-package" --x', 'other', 'review-package'],
+      ['sleep 5; echo done', 'other', null],
+    ]
+    for (const [cmd, category, verb] of cases) {
+      expect([cmd, classifyBashCommandDetailed(cmd)]).toEqual([
+        cmd,
+        { category, verb },
+      ])
+    }
+  })
+
+  it('keeps the label short and free of shell metacharacters', () => {
+    const { verb } = classifyBashCommandDetailed(
+      `${'x'.repeat(80)}$(evil) --flag`
+    )
+    expect(verb).not.toBeNull()
+    expect(verb!.length).toBeLessThanOrEqual(40)
+    expect(verb).toMatch(/^[\w.:/@+ -]+$/)
+  })
+
+  it('classifies a Bash payload into category and verb', () => {
+    expect(
+      classifyBashPayload({
+        tool_name: 'Bash',
+        tool_input: { command: 'cat a.ts' },
+      })
+    ).toEqual({ category: 'read', verb: 'cat' })
+    expect(classifyBashPayload({ tool_name: 'Read' })).toBeNull()
   })
 })

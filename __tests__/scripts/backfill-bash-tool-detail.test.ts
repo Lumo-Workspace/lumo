@@ -1,20 +1,28 @@
 import {
   backfillBashToolDetail,
+  parseArgs,
   type BackfillDeps,
+  type ReclassifyScope,
 } from '@/scripts/backfill-bash-tool-detail'
 
 interface FakeRow {
   id: string
   toolName: string
   toolDetail: string | null
+  toolVerb: string | null
   payload: unknown
 }
 
-function bash(id: string, command: unknown): FakeRow {
+function bash(
+  id: string,
+  command: unknown,
+  stored: { toolDetail?: string | null; toolVerb?: string | null } = {}
+): FakeRow {
   return {
     id,
     toolName: 'Bash',
-    toolDetail: null,
+    toolDetail: stored.toolDetail ?? null,
+    toolVerb: stored.toolVerb ?? null,
     payload: { tool_name: 'Bash', tool_input: { command } },
   }
 }
@@ -22,28 +30,34 @@ function bash(id: string, command: unknown): FakeRow {
 /** In-memory stand-in for the prisma-backed deps, honouring the same filters. */
 function fakeDeps(
   rows: FakeRow[],
-  source: string | null = null
+  scope: ReclassifyScope = null
 ): BackfillDeps & { fetches: number } {
+  const inSource = (r: FakeRow) =>
+    r.toolName === 'Bash' && (scope === 'all' || r.toolDetail === scope)
   const deps = {
     fetches: 0,
     async fetchBatch(afterId: string | null, take: number) {
       deps.fetches += 1
       return rows
-        .filter(
-          r =>
-            r.toolName === 'Bash' &&
-            r.toolDetail === source &&
-            (afterId === null || r.id > afterId)
-        )
+        .filter(r => inSource(r) && (afterId === null || r.id > afterId))
         .sort((a, b) => a.id.localeCompare(b.id))
         .slice(0, take)
-        .map(r => ({ id: r.id, payload: r.payload }))
+        .map(r => ({
+          id: r.id,
+          payload: r.payload,
+          toolDetail: r.toolDetail,
+          toolVerb: r.toolVerb,
+        }))
     },
-    async update(category: string, ids: string[]) {
+    async update(
+      value: { category: string; verb: string | null },
+      ids: string[]
+    ) {
       let n = 0
       for (const r of rows) {
-        if (ids.includes(r.id) && r.toolDetail === source) {
-          r.toolDetail = category
+        if (ids.includes(r.id) && r.toolName === 'Bash') {
+          r.toolDetail = value.category
+          r.toolVerb = value.verb
           n += 1
         }
       }
@@ -64,11 +78,15 @@ function fixture(): FakeRow[] {
       id: 'a6',
       toolName: 'Read',
       toolDetail: null,
+      toolVerb: null,
       payload: { tool_name: 'Read' },
     },
-    { ...bash('a7', 'npx jest'), toolDetail: 'test' }, // already classified
+    bash('a7', 'npx jest', { toolDetail: 'test', toolVerb: 'jest' }),
   ]
 }
+
+const snapshot = (rows: FakeRow[]) =>
+  Object.fromEntries(rows.map(r => [r.id, [r.toolDetail, r.toolVerb]]))
 
 describe('backfillBashToolDetail', () => {
   it('classifies unclassified Bash rows across batches', async () => {
@@ -80,15 +98,14 @@ describe('backfillBashToolDetail', () => {
     })
     expect(result).toMatchObject({ scanned: 5, unreadable: 1, updated: 4 })
     expect(deps.fetches).toBeGreaterThan(1)
-    const detail = Object.fromEntries(rows.map(r => [r.id, r.toolDetail]))
-    expect(detail).toEqual({
-      a1: 'read',
-      a2: 'test',
-      a3: 'lumo',
-      a4: null,
-      a5: 'git-write',
-      a6: null,
-      a7: 'test',
+    expect(snapshot(rows)).toEqual({
+      a1: ['read', 'cat'],
+      a2: ['test', 'jest'],
+      a3: ['lumo', 'lumo task'],
+      a4: [null, null],
+      a5: ['git-write', 'git push'],
+      a6: [null, null],
+      a7: ['test', 'jest'],
     })
   })
 
@@ -101,6 +118,7 @@ describe('backfillBashToolDetail', () => {
       batchSize: 500,
     })
     expect(update).not.toHaveBeenCalled()
+    expect(result.changed).toBe(4)
     expect(result.byCategory).toEqual({
       read: 1,
       test: 1,
@@ -128,38 +146,73 @@ describe('backfillBashToolDetail', () => {
 
   it('reclassifies rows stored as other', async () => {
     const rows = [
-      { ...bash('b1', 'pytest tests/'), toolDetail: 'other' },
-      { ...bash('b2', 'foo-new-tool --x'), toolDetail: 'other' },
-      { ...bash('b3', 'npx jest'), toolDetail: 'test' },
+      bash('b1', 'pytest tests/', { toolDetail: 'other' }),
+      bash('b2', 'foo-new-tool --x', {
+        toolDetail: 'other',
+        toolVerb: 'foo-new-tool',
+      }),
+      bash('b3', 'npx jest', { toolDetail: 'test', toolVerb: 'jest' }),
       bash('b4', 'go test ./...'), // unclassified: not this mode's source
     ]
     const dry = await backfillBashToolDetail(fakeDeps(rows, 'other'), {
       dryRun: true,
       batchSize: 1,
-      reclassifyOther: true,
     })
     expect(dry).toMatchObject({ scanned: 2, changed: 1, updated: 0 })
-    expect(rows.map(r => r.toolDetail)).toEqual([
-      'other',
-      'other',
-      'test',
-      null,
-    ])
 
     const run = await backfillBashToolDetail(fakeDeps(rows, 'other'), {
       dryRun: false,
       batchSize: 1,
-      reclassifyOther: true,
     })
     expect(run.updated).toBe(1)
-    expect(rows.map(r => r.toolDetail)).toEqual(['test', 'other', 'test', null])
+    expect(snapshot(rows)).toEqual({
+      b1: ['test', 'pytest'],
+      b2: ['other', 'foo-new-tool'],
+      b3: ['test', 'jest'],
+      b4: [null, null],
+    })
 
     const again = await backfillBashToolDetail(fakeDeps(rows, 'other'), {
       dryRun: false,
       batchSize: 1,
-      reclassifyOther: true,
     })
     expect(again.updated).toBe(0)
+  })
+
+  it('reclassifies any category and fills toolVerb', async () => {
+    const rows = [
+      // Classified before toolVerb existed: category right, command missing.
+      bash('d1', 'grep -rn x lib', { toolDetail: 'read' }),
+      // A rule change moved it: stored read, now test.
+      bash('d2', 'ps aux && pytest', { toolDetail: 'read', toolVerb: 'ps' }),
+      // Already current: never written.
+      bash('d3', 'cat a.ts', { toolDetail: 'read', toolVerb: 'cat' }),
+      bash('d4', 'npx tsc', { toolDetail: 'check' }),
+    ]
+    const scoped = await backfillBashToolDetail(fakeDeps(rows, 'read'), {
+      dryRun: false,
+      batchSize: 2,
+    })
+    expect(scoped).toMatchObject({ scanned: 3, changed: 2, updated: 2 })
+    expect(snapshot(rows)).toMatchObject({
+      d1: ['read', 'grep'],
+      d2: ['test', 'pytest'],
+      d3: ['read', 'cat'],
+      d4: ['check', null], // outside the 'read' scope
+    })
+
+    const all = await backfillBashToolDetail(fakeDeps(rows, 'all'), {
+      dryRun: false,
+      batchSize: 2,
+    })
+    expect(all).toMatchObject({ scanned: 4, changed: 1, updated: 1 })
+    expect(rows.find(r => r.id === 'd4')!.toolVerb).toBe('tsc')
+
+    const again = await backfillBashToolDetail(fakeDeps(rows, 'all'), {
+      dryRun: false,
+      batchSize: 2,
+    })
+    expect(again.changed).toBe(0)
   })
 
   it('reports the top unrecognised verbs among other rows', async () => {
@@ -178,5 +231,18 @@ describe('backfillBashToolDetail', () => {
       { verb: 'frobnicate', count: 3 },
       { verb: 'zorp', count: 1 },
     ])
+  })
+})
+
+describe('parseArgs', () => {
+  it('reads the reclassify scope, keeping --reclassify-other as an alias', () => {
+    expect(parseArgs([]).reclassify).toBeNull()
+    expect(parseArgs(['--reclassify-other']).reclassify).toBe('other')
+    expect(parseArgs(['--reclassify=all']).reclassify).toBe('all')
+    expect(parseArgs(['--reclassify=read', '--commit'])).toMatchObject({
+      reclassify: 'read',
+      dryRun: false,
+    })
+    expect(() => parseArgs(['--reclassify=bogus'])).toThrow(/--reclassify/)
   })
 })
