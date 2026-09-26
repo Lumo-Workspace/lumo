@@ -20,6 +20,28 @@ export const GITLEAKS_URL = `https://github.com/gitleaks/gitleaks/releases/downl
 /** LUM-738 — L2 supply chain: osv-scanner release binary, pinned. */
 export const OSV_SCANNER_VERSION = '2.5.1'
 export const OSV_SCANNER_URL = `https://github.com/google/osv-scanner/releases/download/v${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64`
+/**
+ * LUM-846 — GitHub Actions audit (zizmor) and IaC misconfiguration
+ * (`trivy config`), both pinned release binaries. Unlike the three tools
+ * above, the download is checked against a pinned sha256 before it runs:
+ * both tarballs were verified with `gh attestation verify` (and trivy's
+ * against its published checksums) when these pins were taken, and the
+ * check keeps a swapped release asset from ever executing in the VM.
+ */
+export const ZIZMOR_VERSION = '1.30.1'
+export const ZIZMOR_URL = `https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-x86_64-unknown-linux-gnu.tar.gz`
+export const ZIZMOR_SHA256 =
+  'e65324f4430c2717591937edcec90ccbefaf14c174f8ec9415e03ca875b46e1a'
+export const TRIVY_VERSION = '0.74.0'
+export const TRIVY_URL = `https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz`
+export const TRIVY_SHA256 =
+  '2ae6fe3ee734b7fdf11335663e18c75ea12dccc76062f09f164a3b0f8be4371a'
+/**
+ * trivy's LOW checks (image tag digests, HEALTHCHECK, resource limits…) are
+ * most of its output on an ordinary Dockerfile or manifest; as inline PR
+ * comments they bury the few that matter.
+ */
+export const TRIVY_SEVERITIES = 'MEDIUM,HIGH,CRITICAL'
 export const SEMGREP_CONFIGS = [
   'p/owasp-top-ten',
   'p/typescript',
@@ -60,6 +82,8 @@ export const MANAGED_SCAN_TOOLS = [
   'gitleaks',
   'semgrep',
   'osv-scanner',
+  'zizmor',
+  'trivy',
 ] as const
 export type ManagedScanTool = (typeof MANAGED_SCAN_TOOLS)[number]
 /** The one tool whose rows are DEPENDENCY findings and whose stage is `supplyChain` (LUM-738). */
@@ -98,8 +122,9 @@ export interface ManagedScanJob {
 
 /**
  * LUM-738 — one tool's outcome in the managed run. `skipped` is a tool that
- * had nothing to scan (osv-scanner: no package sources at all) — a fact, not
- * a failure, so the layer reads SKIPPED rather than FAILED.
+ * had nothing to scan (osv-scanner: no package sources at all; LUM-846
+ * zizmor: no workflows or actions) — a fact, not a failure, so the layer
+ * reads SKIPPED rather than FAILED.
  */
 export type ManagedToolOutcome =
   | NormalizeOutcome

@@ -111,6 +111,9 @@ describe('LUM-740 suggested disposition wiring', () => {
       gitleaks: ok('gitleaks', 1),
       semgrep: ok('semgrep', 2),
       'osv-scanner': skipped(),
+      // LUM-846: no workflows, no IaC — neither persists nor fails.
+      zizmor: skipped(),
+      trivy: skipped(),
     })
     await expect(
       securityManagedScanWorkflow(MANAGED_JOB)
@@ -134,6 +137,9 @@ describe('LUM-740 suggested disposition wiring', () => {
       gitleaks: ok('gitleaks', 1),
       semgrep: ok('semgrep', 0),
       'osv-scanner': skipped(),
+      // LUM-846: no workflows, no IaC — neither persists nor fails.
+      zizmor: skipped(),
+      trivy: skipped(),
     })
     judge
       .mockRejectedValueOnce(new Error('gateway 502'))
@@ -148,6 +154,9 @@ describe('LUM-740 suggested disposition wiring', () => {
       gitleaks: ok('gitleaks', 1),
       semgrep: ok('semgrep', 0),
       'osv-scanner': skipped(),
+      // LUM-846: no workflows, no IaC — neither persists nor fails.
+      zizmor: skipped(),
+      trivy: skipped(),
     })
     prepare.mockResolvedValue({ enabled: false, candidates: [] })
     await securityManagedScanWorkflow(MANAGED_JOB)
@@ -161,6 +170,9 @@ describe('LUM-740 suggested disposition wiring', () => {
       gitleaks: ok('gitleaks', 0),
       semgrep: ok('semgrep', 0),
       'osv-scanner': skipped(),
+      // LUM-846: no workflows, no IaC — neither persists nor fails.
+      zizmor: skipped(),
+      trivy: skipped(),
     })
     await securityManagedScanWorkflow(MANAGED_JOB)
     expect(prepare).not.toHaveBeenCalled()
@@ -172,6 +184,9 @@ describe('LUM-740 suggested disposition wiring', () => {
       gitleaks: ok('gitleaks', 1),
       semgrep: ok('semgrep', 0),
       'osv-scanner': skipped(),
+      // LUM-846: no workflows, no IaC — neither persists nor fails.
+      zizmor: skipped(),
+      trivy: skipped(),
     })
     prepare.mockRejectedValue(new Error('gateway down'))
     await expect(

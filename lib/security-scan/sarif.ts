@@ -247,6 +247,29 @@ export function ecosystemOfLockfile(path: string): string {
   return 'unknown'
 }
 
+// ── LUM-846: trivy config ────────────────────────────────────────────────────
+
+const MESSAGE_KEYED_TOOL_RE = /^trivy$/i
+
+/**
+ * trivy's SARIF carries neither a snippet nor `partialFingerprints`, so the
+ * default `ruleId:path:snippet` key collapses every hit of one rule in one
+ * file into a single fingerprint: the second privileged container in a
+ * manifest is deduped away, and on a PR any new hit of a rule already present
+ * on main reads `persisting`. Its message names the resource ("Container
+ * 'web' of Pod 'web' …") and holds no line number, so it keys the finding
+ * without moving when lines shift.
+ */
+export function isMessageKeyedTool(toolName: string): boolean {
+  return MESSAGE_KEYED_TOOL_RE.test(toolName.trim())
+}
+
+/** trivy's message is an Artifact/Type/Vulnerability/Severity/Message/Link block; keep the `Message:` line. */
+export function trivyMessage(text: string | null): string | null {
+  const m = text?.match(/^Message:\s*(.+)$/m)
+  return m?.[1]?.trim() || text
+}
+
 /** osv-scanner writes no `helpUri`; every OSV id has a page at osv.dev. */
 function osvAdvisoryUrl(osvId: string): string | null {
   return /^[A-Za-z0-9][A-Za-z0-9.\-]{1,120}$/.test(osvId)
@@ -336,6 +359,7 @@ export function normalizeSarif(
     // "New vs already there" is decided later against the repository
     // baseline (`persisting`), not against the PR diff.
     const supplyChain = isSupplyChainTool(runTool)
+    const messageKeyed = isMessageKeyedTool(runTool)
     for (const r of run.results) {
       if (!r.path) {
         dropped.noLocation += 1
@@ -361,7 +385,11 @@ export function normalizeSarif(
             dependency.osvId
           )
         : (trustedFingerprint(r.primaryLocationLineHash) ??
-          sarifFingerprint(ruleId, r.path, r.snippet ?? ''))
+          sarifFingerprint(
+            ruleId,
+            r.path,
+            r.snippet ?? (messageKeyed ? (r.messageText ?? '') : '')
+          ))
       // Keyed on rule+fingerprint, not fingerprint alone: a tool-supplied
       // hash covers only the location (e.g. the line), so two different
       // rules firing on the same line must not collide into one dedupe.
@@ -394,7 +422,9 @@ export function normalizeSarif(
         detail: redactKnownSecrets(
           (supplyChain
             ? r.messageText?.replace(/'/g, '').trim()
-            : r.messageText?.trim()) || `Reported by ${runTool}.`
+            : messageKeyed
+              ? trivyMessage(r.messageText)?.trim()
+              : r.messageText?.trim()) || `Reported by ${runTool}.`
         ).slice(0, MAX_DETAIL_CHARS),
         evidence: '',
         fingerprint,

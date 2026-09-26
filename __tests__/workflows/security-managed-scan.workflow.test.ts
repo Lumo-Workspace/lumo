@@ -54,6 +54,19 @@ const skipped = () => ({
   reason: 'osv-scanner found no package sources',
 })
 
+/**
+ * LUM-846: zizmor and trivy ride every managed run. These fixtures predate
+ * them, so both default to "nothing to scan" — neither persists nor fails —
+ * and each test's own keys still decide the outcome.
+ */
+const LUM846_TOOLS_ABSENT = {
+  zizmor: {
+    kind: 'skipped',
+    reason: 'zizmor found no GitHub Actions workflows or actions',
+  },
+  trivy: { kind: 'skipped', reason: 'trivy had nothing to scan' },
+}
+
 beforeEach(() => {
   jest.resetAllMocks()
   markFailed.mockResolvedValue(undefined)
@@ -69,6 +82,7 @@ beforeEach(() => {
 
 it('persists every tool that succeeded (gitleaks first) with auth=managed and returns INGESTED', async () => {
   scan.mockResolvedValue({
+    ...LUM846_TOOLS_ABSENT,
     gitleaks: ok('gitleaks', 1),
     semgrep: ok('semgrep', 2),
     'osv-scanner': skipped(),
@@ -101,6 +115,7 @@ it('persists every tool that succeeded (gitleaks first) with auth=managed and re
 
 it('partial is the OR of the tools’ truncation', async () => {
   scan.mockResolvedValue({
+    ...LUM846_TOOLS_ABSENT,
     gitleaks: ok('gitleaks', 0),
     semgrep: { ...ok('semgrep', 1), truncated: true },
     'osv-scanner': skipped(),
@@ -113,6 +128,7 @@ it('partial is the OR of the tools’ truncation', async () => {
 
 it('one tool failed: persists the other first, then stamps FAILED with that tool’s reason', async () => {
   scan.mockResolvedValue({
+    ...LUM846_TOOLS_ABSENT,
     gitleaks: { kind: 'failed', reason: 'gitleaks exit 2' },
     semgrep: ok('semgrep', 1),
     'osv-scanner': skipped(),
@@ -142,6 +158,7 @@ it('one tool failed: persists the other first, then stamps FAILED with that tool
 
 it('both tools failed: no persist, FAILED with both reasons', async () => {
   scan.mockResolvedValue({
+    ...LUM846_TOOLS_ABSENT,
     gitleaks: { kind: 'failed', reason: 'gitleaks exit 2' },
     semgrep: { kind: 'failed', reason: 'semgrep produced no report' },
     'osv-scanner': skipped(),
@@ -175,6 +192,7 @@ it('the scan step exhausting its retries (throws) stamps FAILED with the error m
 
 it('a persist step exhausting its retries stamps FAILED (never a fake RAN)', async () => {
   scan.mockResolvedValue({
+    ...LUM846_TOOLS_ABSENT,
     gitleaks: ok('gitleaks', 1),
     semgrep: ok('semgrep', 1),
     'osv-scanner': skipped(),
@@ -204,6 +222,7 @@ it('markFailed exhausting its retries still returns FAILED', async () => {
 
 it('INGESTED: posts the findings back to the PR', async () => {
   scan.mockResolvedValue({
+    ...LUM846_TOOLS_ABSENT,
     gitleaks: ok('gitleaks', 1),
     semgrep: ok('semgrep', 0),
     'osv-scanner': skipped(),
@@ -227,6 +246,7 @@ it('FAILED: still posts, after the failure is stamped', async () => {
 
 it('a write-back whose retries are exhausted never changes the outcome', async () => {
   scan.mockResolvedValue({
+    ...LUM846_TOOLS_ABSENT,
     gitleaks: ok('gitleaks', 1),
     semgrep: ok('semgrep', 1),
     'osv-scanner': skipped(),
@@ -243,6 +263,7 @@ it('a write-back whose retries are exhausted never changes the outcome', async (
 describe('LUM-738 osv-scanner in the managed workflow', () => {
   it('persists osv-scanner rows under the supplyChain stage, after the external tools, and counts them', async () => {
     scan.mockResolvedValue({
+      ...LUM846_TOOLS_ABSENT,
       gitleaks: ok('gitleaks', 1),
       semgrep: ok('semgrep', 1),
       'osv-scanner': ok('osv-scanner', 2),
@@ -275,6 +296,7 @@ describe('LUM-738 osv-scanner in the managed workflow', () => {
 
   it('a skipped osv-scanner (no package sources) stamps supplyChain SKIPPED, persists nothing for it, and the run is still INGESTED', async () => {
     scan.mockResolvedValue({
+      ...LUM846_TOOLS_ABSENT,
       gitleaks: ok('gitleaks', 0),
       semgrep: ok('semgrep', 0),
       'osv-scanner': skipped(),
@@ -290,6 +312,7 @@ describe('LUM-738 osv-scanner in the managed workflow', () => {
 
   it('an osv-scanner failure stamps supplyChain FAILED only — the external tools are persisted and external stays RAN', async () => {
     scan.mockResolvedValue({
+      ...LUM846_TOOLS_ABSENT,
       gitleaks: ok('gitleaks', 1),
       semgrep: ok('semgrep', 0),
       'osv-scanner': { kind: 'failed', reason: 'osv-scanner exit 129' },
@@ -308,6 +331,7 @@ describe('LUM-738 osv-scanner in the managed workflow', () => {
 
   it('external and supply-chain failures are stamped together with both reasons', async () => {
     scan.mockResolvedValue({
+      ...LUM846_TOOLS_ABSENT,
       gitleaks: { kind: 'failed', reason: 'gitleaks exit 2' },
       semgrep: ok('semgrep', 0),
       'osv-scanner': {
@@ -325,6 +349,7 @@ describe('LUM-738 osv-scanner in the managed workflow', () => {
 
   it('the SKIPPED stamp exhausting its retries fails the run for both layers (never a silent gap)', async () => {
     scan.mockResolvedValue({
+      ...LUM846_TOOLS_ABSENT,
       gitleaks: ok('gitleaks', 0),
       semgrep: ok('semgrep', 0),
       'osv-scanner': skipped(),
@@ -347,6 +372,8 @@ it('LUM-745: a run superseded before its sandbox step returns DISCARDED without 
     gitleaks: superseded,
     semgrep: superseded,
     'osv-scanner': superseded,
+    zizmor: superseded,
+    trivy: superseded,
   })
   await expect(securityManagedScanWorkflow(JOB)).resolves.toEqual({
     outcome: 'DISCARDED',
@@ -360,6 +387,7 @@ it('LUM-745: a run superseded before its sandbox step returns DISCARDED without 
 
 it('LUM-745: only a full superseded outcome short-circuits — a lone skipped osv-scanner still runs the loop', async () => {
   scan.mockResolvedValue({
+    ...LUM846_TOOLS_ABSENT,
     gitleaks: ok('gitleaks', 0),
     semgrep: ok('semgrep', 0),
     'osv-scanner': { kind: 'skipped', reason: 'superseded' },
@@ -367,4 +395,58 @@ it('LUM-745: only a full superseded outcome short-circuits — a lone skipped os
   const result = await securityManagedScanWorkflow(JOB)
   expect(result.outcome).toBe('INGESTED')
   expect(persist).toHaveBeenCalledTimes(2)
+})
+
+describe('LUM-846 zizmor and trivy in the managed workflow', () => {
+  it('LUM-846 zizmor skipped for a repo without workflows neither fails the run nor stamps a stage', async () => {
+    scan.mockResolvedValue({
+      gitleaks: ok('gitleaks', 0),
+      semgrep: ok('semgrep', 0),
+      'osv-scanner': ok('osv-scanner', 0),
+      zizmor: {
+        kind: 'skipped',
+        reason: 'zizmor found no GitHub Actions workflows or actions',
+      },
+      trivy: ok('trivy', 2),
+    })
+    await expect(securityManagedScanWorkflow(JOB)).resolves.toEqual({
+      outcome: 'INGESTED',
+      scanId: 's1',
+      findings: 2,
+      partial: false,
+    })
+    expect(markFailed).not.toHaveBeenCalled()
+    expect(markStages).not.toHaveBeenCalled()
+    expect(persist).toHaveBeenCalledWith(
+      expect.objectContaining({ tool: 'trivy', stage: 'external' })
+    )
+    expect(persist).not.toHaveBeenCalledWith(
+      expect.objectContaining({ tool: 'zizmor' })
+    )
+  })
+
+  it('LUM-846 a trivy failure lands the other tools first and stamps only the external layer FAILED', async () => {
+    scan.mockResolvedValue({
+      gitleaks: ok('gitleaks', 1),
+      semgrep: ok('semgrep', 0),
+      'osv-scanner': ok('osv-scanner', 0),
+      zizmor: ok('zizmor', 1),
+      trivy: { kind: 'failed', reason: 'trivy exit 1: checksum did NOT match' },
+    })
+    await expect(securityManagedScanWorkflow(JOB)).resolves.toMatchObject({
+      outcome: 'FAILED',
+      reason: 'trivy exit 1: checksum did NOT match',
+    })
+    expect(persist.mock.calls.map(c => c[0].tool)).toEqual([
+      'gitleaks',
+      'semgrep',
+      'osv-scanner',
+      'zizmor',
+    ])
+    expect(markFailed).toHaveBeenCalledWith(
+      's1',
+      'trivy exit 1: checksum did NOT match',
+      { external: 'FAILED' }
+    )
+  })
 })

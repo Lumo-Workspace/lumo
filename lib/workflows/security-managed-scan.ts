@@ -9,7 +9,9 @@
  * LUM-738: osv-scanner rides the same run. Its rows land under
  * `stages.supplyChain` (RAN), a tree with no package sources is SKIPPED
  * (a fact, not a failure), and its failure stamps `supplyChain: FAILED`
- * without touching `external` — the layers fail independently. A crash
+ * without touching `external` — the layers fail independently. LUM-846:
+ * zizmor and trivy are `external` tools; zizmor skipping (no workflows)
+ * neither fails nor stamps the layer. A crash
  * of the sandbox step itself (retries exhausted) fails both.
  * Deterministic body: no I/O, no logging.
  */
@@ -63,11 +65,11 @@ export async function securityManagedScanWorkflow(
         continue
       }
       if (result.kind === 'skipped') {
+        // LUM-846: an external tool with nothing to scan (zizmor on a repo
+        // without workflows) is not a failure either; the layer's state
+        // comes from the tools that did run.
         if (stage === 'supplyChain') {
           await markSarifStagesStep(scanId, { supplyChain: 'SKIPPED' })
-        } else {
-          failures.push(result.reason)
-          failedStages[stage] = 'FAILED'
         }
         continue
       }

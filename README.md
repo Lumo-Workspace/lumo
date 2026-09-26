@@ -287,9 +287,16 @@ scheduled for removal then.
 
 ## 🛡️ Security scan
 
-Lumo runs semgrep, gitleaks and osv-scanner itself for every pull request of
-a repository the GitHub App is installed on — no workflow file, no secret, no
-GitHub Actions minutes, and no GitHub Advanced Security are required. semgrep
+Lumo runs semgrep, gitleaks, osv-scanner, zizmor and trivy itself for every
+pull request of a repository the GitHub App is installed on — no workflow
+file, no secret, no GitHub Actions minutes, and no GitHub Advanced Security
+are required. zizmor audits GitHub Actions workflows (template injection,
+`pull_request_target` misuse, persisted credentials, unpinned actions) and
+runs offline: it never calls the GitHub API, so no token is handed to it and
+no action reference leaves the sandbox. `trivy config` checks Dockerfiles,
+Kubernetes manifests, Helm charts, Terraform and CloudFormation for
+misconfigurations of MEDIUM severity and above; it downloads trivy's public
+check bundle, and nothing from the repository leaves the sandbox. semgrep
 loads the registry packs plus Lumo's own rules for LLM-specific defects
 (`security/semgrep-rules/`: request input reaching a prompt unparsed, a system
 prompt built from runtime values), and the diff subgraph is checked for a model
