@@ -83,6 +83,9 @@ export interface BlockedError {
   unconfirmed: string[]
   remediation: string[]
   dispositionUrl: string
+  /** LUM-842: the `task status` digest — where the task stands right now.
+   *  Additive; absent when the caller did not read it. */
+  statusSummary?: string[]
 }
 
 /** All three server DONE gates share this message prefix. */
@@ -252,6 +255,7 @@ export function buildBlockedError(args: {
   nonBlocking?: NonBlockingCrossing[]
   apiUrl: string
   workspaceSlug: string
+  statusSummary?: string[]
 }): BlockedError {
   const url = dispositionUrl(args.apiUrl, args.workspaceSlug, args.identifier)
   return {
@@ -268,6 +272,7 @@ export function buildBlockedError(args: {
       dispositionUrl: url,
     }),
     dispositionUrl: url,
+    ...(args.statusSummary ? { statusSummary: args.statusSummary } : {}),
   }
 }
 
@@ -308,6 +313,7 @@ export function renderBlocked(err: BlockedError, isTTY: boolean): string {
     'What can move it:',
     ...err.remediation.map(r => `  - ${r}`),
     `  Web disposition panel: ${err.dispositionUrl}`,
+    ...(err.statusSummary ? ['', ...err.statusSummary] : []),
   ]
   return lines.join('\n') + '\n'
 }

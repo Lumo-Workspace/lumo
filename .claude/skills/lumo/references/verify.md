@@ -107,6 +107,28 @@ lumo task status --full     # + verification rollup, history, cost, struggle tra
 lumo task status --json     # versioned machine-readable payload
 ```
 
+### State-changing commands already print it (LUM-842) — no follow-up `task status`
+
+`lumo verify`, `lumo task update --status …`, `lumo crossing disposition` (the
+ruling step), `lumo crossing explain`, `lumo task testcase run` and `lumo task
+testcase disposition` (the ruling step) end their output with a short digest
+read from the **same** `GET …/status` + open-crossings reads as this command:
+
+```
+Status now (same read as `lumo task status LUM-42`; no need to run it again):
+  LUM-42 IN_PROGRESS · round 1/3 · criteria 3/5 met
+  Unmet: c-abc… Tests pass · c-def… Route rejects bad input
+  Blocks DONE: 1 boundary crossing (cmtw…) — the user rules
+```
+
+The `task update --status done` exit-4 envelope and exit-5 `DONE_BLOCKED` error
+carry the same lines as an additive `statusSummary` field (JSON stays
+parseable). So there is **no follow-up `lumo task status`** after those commands —
+read the digest. It fails closed like `task status`: `⚠ Could not read / Could
+not confirm …` means unknown, never clear, and `Blocks DONE: nothing on record`
+appears only when every read behind it succeeded. For the per-criterion detail,
+failure tails or the dashboard, run `lumo task status [--full]` deliberately.
+
 ### When to run it
 
 **Status-first recovery:** run it FIRST — before re-reading code or planning —

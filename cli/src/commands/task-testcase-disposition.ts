@@ -1,4 +1,5 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
+import { printStatusDigest } from '../lib/status-digest'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { emitConfirmation } from '../lib/confirmation'
 import {
@@ -202,4 +203,6 @@ export async function taskTestCaseDisposition(
   process.stdout.write(
     `Dispositioned ${subject.caseHandle} run ${latest.id}: ${ruling.target}. That run no longer blocks DONE.\n`
   )
+  // LUM-842: show what (if anything) still blocks DONE after this ruling.
+  await printStatusDigest(ctx.base, ctx.token, split.task)
 }
