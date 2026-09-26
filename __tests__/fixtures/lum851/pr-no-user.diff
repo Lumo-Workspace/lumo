@@ -1,0 +1,10 @@
+diff --git a/Dockerfile b/Dockerfile
+index 9f7e7e2..cc83879 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -3,5 +3,4 @@ FROM node:22.9.0
+ WORKDIR /app
+ COPY . .
+ RUN npm ci
+-USER node
+ CMD ["node", "index.js"]

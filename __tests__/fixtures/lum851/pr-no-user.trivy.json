@@ -1,0 +1,52 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.74.0"
+  },
+  "ReportID": "01a0dd15-9b51-74a3-9e14-df45b0638197",
+  "CreatedAt": "2026-09-26T09:39:35.889306151Z",
+  "ArtifactID": "sha256:81adf6661f7264a724ad30d914a449746464d80bbdb0bc0648ce50922268452f",
+  "ArtifactName": ".",
+  "ArtifactType": "repository",
+  "Metadata": {
+    "Branch": "master",
+    "Commit": "1d3a8125243c5f542d021ada11764d41affd59a5",
+    "CommitMsg": "head",
+    "Author": "probe \u003cprobe@lum851\u003e",
+    "Committer": "probe \u003cprobe@lum851\u003e"
+  },
+  "Results": [
+    {
+      "Target": "Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "MisconfSummary": {
+        "Successes": 23,
+        "Failures": 1
+      },
+      "Misconfigurations": [
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0002",
+          "Title": "Image user should not be 'root'",
+          "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Query": "data.builtin.dockerfile.DS002.deny",
+          "Resolution": "Add 'USER \u003cnon root user name\u003e' line to the Dockerfile",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+          "References": [
+            "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+            "https://avd.aquasec.com/misconfig/ds-0002"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        }
+      ]
+    }
+  ]
+}

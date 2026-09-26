@@ -16,6 +16,7 @@ import type {
   SecuritySeverity,
 } from './types'
 import { redactKnownSecrets } from './scan-secrets'
+import { addedLinesWithNumbers, splitDiffByFile } from './diff-lines'
 import { dependencyFingerprint, sarifFingerprint } from './redact'
 
 /** Hard cap per push; beyond it the ingest is honest (`partial`), never CLEAN. */
@@ -285,6 +286,66 @@ export function trivyMessage(text: string | null): string | null {
   return m?.[1]?.trim() || text
 }
 
+// ── LUM-851: trivy checks that have no line ─────────────────────────────────
+
+/** The key `trivyFileLevelKeys` and `normalizeSarif` agree on: rule + the whole SARIF message. */
+export function sarifResultKey(
+  ruleId: string,
+  messageText: string | null
+): string {
+  return `${ruleId}\u0000${messageText ?? ''}`
+}
+
+/**
+ * The results of a `trivy config` report that have no line of their own.
+ *
+ * A check about something MISSING (DS-0002 "Specify at least 1 USER
+ * command") has no line to point at: trivy's JSON leaves its
+ * `CauseMetadata.StartLine`/`EndLine` empty, and its SARIF writer
+ * (pkg/report/sarif.go `toSarifLocations`, v0.74.0) then fills in 1:1–1:1 —
+ * exactly the region a real line-1 hit (DS-0001 `FROM node:latest`) gets. So
+ * the SARIF cannot tell the two apart and the JSON is the only witness.
+ *
+ * The SARIF message is `fmt.Sprintf`'d from JSON fields
+ * (`Artifact/Type/Vulnerability/Severity/Message/Link`), so rebuilding it
+ * here matches a SARIF result without trusting positions or URI escaping. A
+ * key some entry of which DOES carry a line is not file-level — two such
+ * results share one message fingerprint anyway, and a real line wins. A
+ * message this rebuild gets wrong (a future trivy format) simply matches
+ * nothing: the SARIF line stands, which is the pre-LUM-851 behaviour.
+ */
+export function trivyFileLevelKeys(doc: unknown): Set<string> {
+  const lineless = new Set<string>()
+  const lined = new Set<string>()
+  for (const raw of arr(rec(doc)?.['Results'])) {
+    const res = rec(raw)
+    const target = str(res?.['Target'])
+    if (!target) continue
+    const artifact = target.replace(/\\/g, '/')
+    const type = str(res?.['Type']) ?? ''
+    for (const m of arr(res?.['Misconfigurations'])) {
+      const mis = rec(m)
+      const id = str(mis?.['ID'])
+      if (!id) continue
+      const primaryUrl = str(mis?.['PrimaryURL']) ?? ''
+      const message = [
+        `Artifact: ${artifact}`,
+        `Type: ${type}`,
+        `Vulnerability ${id}`,
+        `Severity: ${str(mis?.['Severity']) ?? ''}`,
+        `Message: ${str(mis?.['Message']) ?? ''}`,
+        `Link: [${id}](${primaryUrl})`,
+      ].join('\n')
+      const cause = rec(mis?.['CauseMetadata'])
+      const hasLine =
+        int(cause?.['StartLine']) !== null || int(cause?.['EndLine']) !== null
+      ;(hasLine ? lined : lineless).add(sarifResultKey(id, message))
+    }
+  }
+  for (const key of lined) lineless.delete(key)
+  return lineless
+}
+
 /** osv-scanner writes no `helpUri`; every OSV id has a page at osv.dev. */
 function osvAdvisoryUrl(osvId: string): string | null {
   return /^[A-Za-z0-9][A-Za-z0-9.\-]{1,120}$/.test(osvId)
@@ -317,6 +378,23 @@ export function changedLinesOf(files: AddedFile[]): Map<string, Set<number>> {
   return out
 }
 
+/**
+ * LUM-851 — `changedLinesOf` for a whole PR diff, keeping every file the PR
+ * modified even when it only DELETED lines (`addedLinesWithNumbers` drops
+ * those: nothing to scan). A located result can never match an empty set, so
+ * this only changes what happens to a file-level result (line=null) in such
+ * a file — the PR that deletes a Dockerfile's USER line is exactly the one
+ * that introduces DS-0002, and it must not be filtered away. Deleted files
+ * (`+++ /dev/null`) stay out: there is nothing left at head to report on.
+ */
+export function changedLinesOfDiff(diff: string): Map<string, Set<number>> {
+  const out = changedLinesOf(addedLinesWithNumbers(diff))
+  for (const { path } of splitDiffByFile(diff)) {
+    if (path && !out.has(path)) out.set(path, new Set())
+  }
+  return out
+}
+
 export interface NormalizeOptions {
   toolHint: string
   /**
@@ -327,6 +405,11 @@ export interface NormalizeOptions {
   changedLines: Map<string, Set<number>> | null
   /** Per-document finding cap; defaults to `MAX_SARIF_FINDINGS`. */
   maxFindings?: number
+  /**
+   * LUM-851 — `sarifResultKey`s of results whose SARIF line is a placeholder
+   * (see `trivyFileLevelKeys`): they get line=null and are kept per file.
+   */
+  fileLevelResults?: ReadonlySet<string>
 }
 
 export interface NormalizeResult {
@@ -380,9 +463,16 @@ export function normalizeSarif(
         dropped.noLocation += 1
         continue
       }
+      // LUM-851: a placeholder line would be read as "line 1" — dropped when
+      // the PR removed the USER line elsewhere, pinned to a comment when not.
+      const startLine = opts.fileLevelResults?.has(
+        sarifResultKey(r.ruleId, r.messageText)
+      )
+        ? null
+        : r.startLine
       if (opts.changedLines !== null && !supplyChain) {
         const lines = opts.changedLines.get(r.path)
-        if (!lines || (r.startLine !== null && !lines.has(r.startLine))) {
+        if (!lines || (startLine !== null && !lines.has(startLine))) {
           dropped.notInDiff += 1
           continue
         }
@@ -429,7 +519,7 @@ export function normalizeSarif(
         filePath: redactKnownSecrets(r.path),
         // Dependencies carry no region; a stray line from a tool must not
         // turn into an inline PR comment on a lockfile.
-        line: supplyChain ? null : r.startLine,
+        line: supplyChain ? null : startLine,
         title: redactKnownSecrets(rule?.title || r.ruleId),
         // osv-scanner quotes the package and advisory ids; the quoted-value
         // masker (built for secrets) would blank exactly the words a reader

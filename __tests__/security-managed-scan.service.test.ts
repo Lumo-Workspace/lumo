@@ -174,6 +174,8 @@ const ALL_REPORTS = {
   '/tmp/osv.sarif': JSON.stringify(osvSarif),
   '/tmp/zizmor.sarif': emptySarif('zizmor'),
   '/tmp/trivy.sarif': emptySarif('Trivy'),
+  // LUM-851: trivy's JSON rides next to its SARIF.
+  '/tmp/trivy.json': JSON.stringify({ Results: [] }),
 }
 
 type Fake = { run: jest.Mock; readFile: jest.Mock; stop: jest.Mock }

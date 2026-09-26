@@ -1,0 +1,674 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "fullName": "Trivy Vulnerability Scanner",
+          "informationUri": "https://github.com/aquasecurity/trivy",
+          "name": "Trivy",
+          "rules": [
+            {
+              "id": "DS-0001",
+              "name": "Misconfiguration",
+              "shortDescription": {
+                "text": "':latest' tag used"
+              },
+              "fullDescription": {
+                "text": "When using a 'FROM' statement you should use a specific tag to avoid uncontrolled behavior when the image is updated."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://avd.aquasec.com/misconfig/ds-0001",
+              "help": {
+                "text": "Misconfiguration DS-0001\nType: Dockerfile Security Check\nSeverity: MEDIUM\nCheck: ':latest' tag used\nMessage: Specify a tag in the 'FROM' statement for image 'node'\nLink: [DS-0001](https://avd.aquasec.com/misconfig/ds-0001)\nWhen using a 'FROM' statement you should use a specific tag to avoid uncontrolled behavior when the image is updated.",
+                "markdown": "**Misconfiguration DS-0001**\n| Type | Severity | Check | Message | Link |\n| --- | --- | --- | --- | --- |\n|Dockerfile Security Check|MEDIUM|':latest' tag used|Specify a tag in the 'FROM' statement for image 'node'|[DS-0001](https://avd.aquasec.com/misconfig/ds-0001)|\n\nWhen using a 'FROM' statement you should use a specific tag to avoid uncontrolled behavior when the image is updated."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "5.5",
+                "tags": [
+                  "misconfiguration",
+                  "security",
+                  "MEDIUM"
+                ]
+              }
+            },
+            {
+              "id": "DS-0002",
+              "name": "Misconfiguration",
+              "shortDescription": {
+                "text": "Image user should not be 'root'"
+              },
+              "fullDescription": {
+                "text": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://avd.aquasec.com/misconfig/ds-0002",
+              "help": {
+                "text": "Misconfiguration DS-0002\nType: Dockerfile Security Check\nSeverity: HIGH\nCheck: Image user should not be 'root'\nMessage: Specify at least 1 USER command in Dockerfile with non-root user as argument\nLink: [DS-0002](https://avd.aquasec.com/misconfig/ds-0002)\nRunning containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+                "markdown": "**Misconfiguration DS-0002**\n| Type | Severity | Check | Message | Link |\n| --- | --- | --- | --- | --- |\n|Dockerfile Security Check|HIGH|Image user should not be 'root'|Specify at least 1 USER command in Dockerfile with non-root user as argument|[DS-0002](https://avd.aquasec.com/misconfig/ds-0002)|\n\nRunning containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "8.0",
+                "tags": [
+                  "misconfiguration",
+                  "security",
+                  "HIGH"
+                ]
+              }
+            },
+            {
+              "id": "KSV-0001",
+              "name": "Misconfiguration",
+              "shortDescription": {
+                "text": "Can elevate its own privileges"
+              },
+              "fullDescription": {
+                "text": "A program inside the container can elevate its own privileges and run as root, which might give the program control over the container and node."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://avd.aquasec.com/misconfig/ksv-0001",
+              "help": {
+                "text": "Misconfiguration KSV-0001\nType: Kubernetes Security Check\nSeverity: MEDIUM\nCheck: Can elevate its own privileges\nMessage: Container 'web' of Pod 'web' should set 'securityContext.allowPrivilegeEscalation' to false\nLink: [KSV-0001](https://avd.aquasec.com/misconfig/ksv-0001)\nA program inside the container can elevate its own privileges and run as root, which might give the program control over the container and node.",
+                "markdown": "**Misconfiguration KSV-0001**\n| Type | Severity | Check | Message | Link |\n| --- | --- | --- | --- | --- |\n|Kubernetes Security Check|MEDIUM|Can elevate its own privileges|Container 'web' of Pod 'web' should set 'securityContext.allowPrivilegeEscalation' to false|[KSV-0001](https://avd.aquasec.com/misconfig/ksv-0001)|\n\nA program inside the container can elevate its own privileges and run as root, which might give the program control over the container and node."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "5.5",
+                "tags": [
+                  "misconfiguration",
+                  "security",
+                  "MEDIUM"
+                ]
+              }
+            },
+            {
+              "id": "KSV-0012",
+              "name": "Misconfiguration",
+              "shortDescription": {
+                "text": "Runs as root user"
+              },
+              "fullDescription": {
+                "text": "Force the running image to run as a non-root user to ensure least privileges."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://avd.aquasec.com/misconfig/ksv-0012",
+              "help": {
+                "text": "Misconfiguration KSV-0012\nType: Kubernetes Security Check\nSeverity: MEDIUM\nCheck: Runs as root user\nMessage: Container 'web' of Pod 'web' should set 'securityContext.runAsNonRoot' to true\nLink: [KSV-0012](https://avd.aquasec.com/misconfig/ksv-0012)\nForce the running image to run as a non-root user to ensure least privileges.",
+                "markdown": "**Misconfiguration KSV-0012**\n| Type | Severity | Check | Message | Link |\n| --- | --- | --- | --- | --- |\n|Kubernetes Security Check|MEDIUM|Runs as root user|Container 'web' of Pod 'web' should set 'securityContext.runAsNonRoot' to true|[KSV-0012](https://avd.aquasec.com/misconfig/ksv-0012)|\n\nForce the running image to run as a non-root user to ensure least privileges."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "5.5",
+                "tags": [
+                  "misconfiguration",
+                  "security",
+                  "MEDIUM"
+                ]
+              }
+            },
+            {
+              "id": "KSV-0013",
+              "name": "Misconfiguration",
+              "shortDescription": {
+                "text": "Image tag \":latest\" used"
+              },
+              "fullDescription": {
+                "text": "It is best to avoid using the ':latest' image tag when deploying containers in production. Doing so makes it hard to track which version of the image is running, and hard to roll back the version."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://avd.aquasec.com/misconfig/ksv-0013",
+              "help": {
+                "text": "Misconfiguration KSV-0013\nType: Kubernetes Security Check\nSeverity: MEDIUM\nCheck: Image tag \":latest\" used\nMessage: Container 'web' of Pod 'web' should specify an image tag\nLink: [KSV-0013](https://avd.aquasec.com/misconfig/ksv-0013)\nIt is best to avoid using the ':latest' image tag when deploying containers in production. Doing so makes it hard to track which version of the image is running, and hard to roll back the version.",
+                "markdown": "**Misconfiguration KSV-0013**\n| Type | Severity | Check | Message | Link |\n| --- | --- | --- | --- | --- |\n|Kubernetes Security Check|MEDIUM|Image tag \":latest\" used|Container 'web' of Pod 'web' should specify an image tag|[KSV-0013](https://avd.aquasec.com/misconfig/ksv-0013)|\n\nIt is best to avoid using the ':latest' image tag when deploying containers in production. Doing so makes it hard to track which version of the image is running, and hard to roll back the version."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "5.5",
+                "tags": [
+                  "misconfiguration",
+                  "security",
+                  "MEDIUM"
+                ]
+              }
+            },
+            {
+              "id": "KSV-0014",
+              "name": "Misconfiguration",
+              "shortDescription": {
+                "text": "Root file system is not read-only"
+              },
+              "fullDescription": {
+                "text": "An immutable root file system prevents applications from writing to their local disk. This can limit intrusions, as attackers will not be able to tamper with the file system or write foreign executables to disk."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://avd.aquasec.com/misconfig/ksv-0014",
+              "help": {
+                "text": "Misconfiguration KSV-0014\nType: Kubernetes Security Check\nSeverity: HIGH\nCheck: Root file system is not read-only\nMessage: Container 'web' of Pod 'web' should set 'securityContext.readOnlyRootFilesystem' to true\nLink: [KSV-0014](https://avd.aquasec.com/misconfig/ksv-0014)\nAn immutable root file system prevents applications from writing to their local disk. This can limit intrusions, as attackers will not be able to tamper with the file system or write foreign executables to disk.",
+                "markdown": "**Misconfiguration KSV-0014**\n| Type | Severity | Check | Message | Link |\n| --- | --- | --- | --- | --- |\n|Kubernetes Security Check|HIGH|Root file system is not read-only|Container 'web' of Pod 'web' should set 'securityContext.readOnlyRootFilesystem' to true|[KSV-0014](https://avd.aquasec.com/misconfig/ksv-0014)|\n\nAn immutable root file system prevents applications from writing to their local disk. This can limit intrusions, as attackers will not be able to tamper with the file system or write foreign executables to disk."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "8.0",
+                "tags": [
+                  "misconfiguration",
+                  "security",
+                  "HIGH"
+                ]
+              }
+            },
+            {
+              "id": "KSV-0017",
+              "name": "Misconfiguration",
+              "shortDescription": {
+                "text": "Privileged"
+              },
+              "fullDescription": {
+                "text": "Privileged containers share namespaces with the host system and do not offer any security. They should be used exclusively for system containers that require high privileges."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://avd.aquasec.com/misconfig/ksv-0017",
+              "help": {
+                "text": "Misconfiguration KSV-0017\nType: Kubernetes Security Check\nSeverity: HIGH\nCheck: Privileged\nMessage: Container 'web' of Pod 'web' should set 'securityContext.privileged' to false\nLink: [KSV-0017](https://avd.aquasec.com/misconfig/ksv-0017)\nPrivileged containers share namespaces with the host system and do not offer any security. They should be used exclusively for system containers that require high privileges.",
+                "markdown": "**Misconfiguration KSV-0017**\n| Type | Severity | Check | Message | Link |\n| --- | --- | --- | --- | --- |\n|Kubernetes Security Check|HIGH|Privileged|Container 'web' of Pod 'web' should set 'securityContext.privileged' to false|[KSV-0017](https://avd.aquasec.com/misconfig/ksv-0017)|\n\nPrivileged containers share namespaces with the host system and do not offer any security. They should be used exclusively for system containers that require high privileges."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "8.0",
+                "tags": [
+                  "misconfiguration",
+                  "security",
+                  "HIGH"
+                ]
+              }
+            },
+            {
+              "id": "KSV-0104",
+              "name": "Misconfiguration",
+              "shortDescription": {
+                "text": "Seccomp policies disabled"
+              },
+              "fullDescription": {
+                "text": "A program inside the container can bypass Seccomp protection policies."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://avd.aquasec.com/misconfig/ksv-0104",
+              "help": {
+                "text": "Misconfiguration KSV-0104\nType: Kubernetes Security Check\nSeverity: MEDIUM\nCheck: Seccomp policies disabled\nMessage: container \"web\" of pod \"web\" in \"default\" namespace should specify a seccomp profile\nLink: [KSV-0104](https://avd.aquasec.com/misconfig/ksv-0104)\nA program inside the container can bypass Seccomp protection policies.",
+                "markdown": "**Misconfiguration KSV-0104**\n| Type | Severity | Check | Message | Link |\n| --- | --- | --- | --- | --- |\n|Kubernetes Security Check|MEDIUM|Seccomp policies disabled|container \"web\" of pod \"web\" in \"default\" namespace should specify a seccomp profile|[KSV-0104](https://avd.aquasec.com/misconfig/ksv-0104)|\n\nA program inside the container can bypass Seccomp protection policies."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "5.5",
+                "tags": [
+                  "misconfiguration",
+                  "security",
+                  "MEDIUM"
+                ]
+              }
+            },
+            {
+              "id": "KSV-0118",
+              "name": "Misconfiguration",
+              "shortDescription": {
+                "text": "Default security context configured"
+              },
+              "fullDescription": {
+                "text": "Security context controls the allocation of security parameters for the pod/container/volume, ensuring the appropriate level of protection. Relying on default security context may expose vulnerabilities to potential attacks that rely on privileged access."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://avd.aquasec.com/misconfig/ksv-0118",
+              "help": {
+                "text": "Misconfiguration KSV-0118\nType: Kubernetes Security Check\nSeverity: HIGH\nCheck: Default security context configured\nMessage: pod web in default namespace is using the default security context, which allows root privileges\nLink: [KSV-0118](https://avd.aquasec.com/misconfig/ksv-0118)\nSecurity context controls the allocation of security parameters for the pod/container/volume, ensuring the appropriate level of protection. Relying on default security context may expose vulnerabilities to potential attacks that rely on privileged access.",
+                "markdown": "**Misconfiguration KSV-0118**\n| Type | Severity | Check | Message | Link |\n| --- | --- | --- | --- | --- |\n|Kubernetes Security Check|HIGH|Default security context configured|pod web in default namespace is using the default security context, which allows root privileges|[KSV-0118](https://avd.aquasec.com/misconfig/ksv-0118)|\n\nSecurity context controls the allocation of security parameters for the pod/container/volume, ensuring the appropriate level of protection. Relying on default security context may expose vulnerabilities to potential attacks that rely on privileged access."
+              },
+              "properties": {
+                "precision": "very-high",
+                "security-severity": "8.0",
+                "tags": [
+                  "misconfiguration",
+                  "security",
+                  "HIGH"
+                ]
+              }
+            }
+          ],
+          "version": "0.74.0"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "DS-0001",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "Artifact: Dockerfile\nType: dockerfile\nVulnerability DS-0001\nSeverity: MEDIUM\nMessage: Specify a tag in the 'FROM' statement for image 'node'\nLink: [DS-0001](https://avd.aquasec.com/misconfig/ds-0001)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Dockerfile",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "Dockerfile"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "DS-0002",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Artifact: Dockerfile\nType: dockerfile\nVulnerability DS-0002\nSeverity: HIGH\nMessage: Specify at least 1 USER command in Dockerfile with non-root user as argument\nLink: [DS-0002](https://avd.aquasec.com/misconfig/ds-0002)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "Dockerfile",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 1,
+                  "startColumn": 1,
+                  "endLine": 1,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "Dockerfile"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0001",
+          "ruleIndex": 2,
+          "level": "warning",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0001\nSeverity: MEDIUM\nMessage: Container 'sidecar' of Pod 'web' should set 'securityContext.allowPrivilegeEscalation' to false\nLink: [KSV-0001](https://avd.aquasec.com/misconfig/ksv-0001)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 1,
+                  "endLine": 14,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0001",
+          "ruleIndex": 2,
+          "level": "warning",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0001\nSeverity: MEDIUM\nMessage: Container 'web' of Pod 'web' should set 'securityContext.allowPrivilegeEscalation' to false\nLink: [KSV-0001](https://avd.aquasec.com/misconfig/ksv-0001)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 1,
+                  "endLine": 10,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0012",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0012\nSeverity: MEDIUM\nMessage: Container 'sidecar' of Pod 'web' should set 'securityContext.runAsNonRoot' to true\nLink: [KSV-0012](https://avd.aquasec.com/misconfig/ksv-0012)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 1,
+                  "endLine": 14,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0012",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0012\nSeverity: MEDIUM\nMessage: Container 'web' of Pod 'web' should set 'securityContext.runAsNonRoot' to true\nLink: [KSV-0012](https://avd.aquasec.com/misconfig/ksv-0012)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 1,
+                  "endLine": 10,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0013",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0013\nSeverity: MEDIUM\nMessage: Container 'sidecar' of Pod 'web' should specify an image tag\nLink: [KSV-0013](https://avd.aquasec.com/misconfig/ksv-0013)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 1,
+                  "endLine": 14,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0013",
+          "ruleIndex": 4,
+          "level": "warning",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0013\nSeverity: MEDIUM\nMessage: Container 'web' of Pod 'web' should specify an image tag\nLink: [KSV-0013](https://avd.aquasec.com/misconfig/ksv-0013)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 1,
+                  "endLine": 10,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0014",
+          "ruleIndex": 5,
+          "level": "error",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0014\nSeverity: HIGH\nMessage: Container 'sidecar' of Pod 'web' should set 'securityContext.readOnlyRootFilesystem' to true\nLink: [KSV-0014](https://avd.aquasec.com/misconfig/ksv-0014)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 1,
+                  "endLine": 14,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0014",
+          "ruleIndex": 5,
+          "level": "error",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0014\nSeverity: HIGH\nMessage: Container 'web' of Pod 'web' should set 'securityContext.readOnlyRootFilesystem' to true\nLink: [KSV-0014](https://avd.aquasec.com/misconfig/ksv-0014)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 1,
+                  "endLine": 10,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0017",
+          "ruleIndex": 6,
+          "level": "error",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0017\nSeverity: HIGH\nMessage: Container 'sidecar' of Pod 'web' should set 'securityContext.privileged' to false\nLink: [KSV-0017](https://avd.aquasec.com/misconfig/ksv-0017)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 1,
+                  "endLine": 14,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0017",
+          "ruleIndex": 6,
+          "level": "error",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0017\nSeverity: HIGH\nMessage: Container 'web' of Pod 'web' should set 'securityContext.privileged' to false\nLink: [KSV-0017](https://avd.aquasec.com/misconfig/ksv-0017)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 1,
+                  "endLine": 10,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0104",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0104\nSeverity: MEDIUM\nMessage: container \"sidecar\" of pod \"web\" in \"default\" namespace should specify a seccomp profile\nLink: [KSV-0104](https://avd.aquasec.com/misconfig/ksv-0104)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 11,
+                  "startColumn": 1,
+                  "endLine": 14,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0104",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0104\nSeverity: MEDIUM\nMessage: container \"web\" of pod \"web\" in \"default\" namespace should specify a seccomp profile\nLink: [KSV-0104](https://avd.aquasec.com/misconfig/ksv-0104)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 7,
+                  "startColumn": 1,
+                  "endLine": 10,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "KSV-0118",
+          "ruleIndex": 8,
+          "level": "error",
+          "message": {
+            "text": "Artifact: deploy/pod.yaml\nType: kubernetes\nVulnerability KSV-0118\nSeverity: HIGH\nMessage: pod web in default namespace is using the default security context, which allows root privileges\nLink: [KSV-0118](https://avd.aquasec.com/misconfig/ksv-0118)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "deploy/pod.yaml",
+                  "uriBaseId": "ROOTPATH"
+                },
+                "region": {
+                  "startLine": 5,
+                  "startColumn": 1,
+                  "endLine": 14,
+                  "endColumn": 1
+                }
+              },
+              "message": {
+                "text": "deploy/pod.yaml"
+              }
+            }
+          ]
+        }
+      ],
+      "columnKind": "utf16CodeUnits",
+      "originalUriBaseIds": {
+        "ROOTPATH": {
+          "uri": "file:///tmp/trivy.json/"
+        }
+      }
+    }
+  ]
+}
