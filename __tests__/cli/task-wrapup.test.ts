@@ -269,17 +269,53 @@ describe('lumo task wrapup (LUM-841)', () => {
     expect(out).toContain('irreversible category')
     expect(out).toContain('agent explanations (1, self-report · unverified):')
     expect(out).toContain('- the helper it covered was removed')
-    expect(out).toContain(
-      'lumo crossing disposition cx-1 --false-positive --task LUM-9001  |  lumo crossing disposition cx-1 --confirmed --task LUM-9001'
-    )
-    // the advisory row says so, and still gets its ruling commands
+    // the advisory row says so, and is covered by the batch commands
     expect(out).toContain(
       'cx-2  [LOW] PROJECT_RULE_VIOLATION (advisory — does not block DONE)'
     )
-    expect(out).toContain(
-      'lumo crossing disposition cx-2 --false-positive --task LUM-9001'
-    )
     expect(out).toContain('Web panel: https://api.lumo.test/workspace/lumo')
+  })
+
+  test('wrapup offers one batch disposition command per ruling for several crossings (LUM-845)', () => {
+    const out = formatWrapup(
+      input({
+        crossings: {
+          status: 'ok',
+          gateEnabled: true,
+          crossings: [
+            crossing(),
+            crossing({ id: 'cx-2', explanations: [] }),
+            crossing({ id: 'cx-3', advisory: true, blocking: false }),
+          ],
+        },
+      })
+    )
+    expect(out).toContain(
+      'lumo crossing disposition cx-1 cx-2 cx-3 --false-positive --task LUM-9001'
+    )
+    expect(out).toContain(
+      'lumo crossing disposition cx-1 cx-2 cx-3 --confirmed --task LUM-9001'
+    )
+    // no per-crossing ruling commands alongside the batch ones
+    expect(out).not.toContain('lumo crossing disposition cx-1 --')
+    expect(out).not.toContain('lumo crossing disposition cx-2 --')
+    expect(out.match(/lumo crossing disposition /g)).toHaveLength(2)
+    expect(out).toContain('leave out any id they want to keep OPEN')
+  })
+
+  test('wrapup keeps the per-crossing command when there is a single crossing', () => {
+    const out = formatWrapup(
+      input({
+        crossings: {
+          status: 'ok',
+          gateEnabled: true,
+          crossings: [crossing()],
+        },
+      })
+    )
+    expect(out).toContain(
+      'lumo crossing disposition cx-1 --false-positive --task LUM-9001  |  lumo crossing disposition cx-1 --confirmed --task LUM-9001'
+    )
   })
 
   describe('network', () => {

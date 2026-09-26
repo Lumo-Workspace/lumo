@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.78.0",
+  "cliVersion": "1.79.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -92,7 +92,7 @@
       "description": "Inspect, annotate and (with user approval) disposition boundary crossings"
     },
     "crossing disposition": {
-      "arguments": [{ "name": "id", "required": true, "variadic": false }],
+      "arguments": [{ "name": "ids", "required": true, "variadic": true }],
       "flags": {
         "--confirm": {
           "long": "--confirm",
@@ -140,7 +140,7 @@
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Read receipt from the previous step's envelope (its confirmCommand carries it); required with --confirm-read (stage 1 receipt) and --confirm (stage 2 receipt), verified server-side"
+          "description": "Read receipt(s) from the previous step's envelope (its confirmCommand carries them — a bare token for one crossing, <id>=<token>,… for a batch); required with --confirm-read (stage 1) and --confirm (stage 2), verified server-side per crossing"
         },
         "--task": {
           "long": "--task",
@@ -153,23 +153,31 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Rule on a boundary crossing from the terminal (LUM-769) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
+      "description": "Rule on one or more boundary crossings from the terminal (LUM-769; several ids = one batch per ruling, LUM-845 — each step prints ONE envelope listing every crossing in full and carrying one receipt per crossing as --receipt <id>=<token>,…; drop an id between steps to leave that crossing OPEN; every write is reported per crossing) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
     },
     "crossing explain": {
-      "arguments": [{ "name": "id", "required": true, "variadic": false }],
+      "arguments": [{ "name": "id", "required": false, "variadic": false }],
       "flags": {
+        "--file": {
+          "long": "--file",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Batch: a JSON array of {\"id\": \"<crossing>\", \"note\": \"<text>\"} — one note per crossing, in one call; \"-\" reads stdin. Replaces <id> --note"
+        },
         "--note": {
           "long": "--note",
           "short": null,
           "value": "required",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "The explanation to record (the rationale for the action / why it may be a false positive)"
+          "description": "The explanation to record (the rationale for the action / why it may be a false positive); required with <id>"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Append an agent self-explanation (\"申辩\") to a boundary crossing (LUM-542). Append-only and for the human reviewer — it never clears the crossing or unblocks Done (a human dispositions that). Targets a crossing on the session-bound task."
+      "description": "Append an agent self-explanation (\"申辩\") to a boundary crossing (LUM-542). Append-only and for the human reviewer — it never clears the crossing or unblocks Done (a human dispositions that). Several crossings in one call: --file with a JSON array of {\"id\",\"note\"} (LUM-845); each is reported. Targets crossings on the session-bound task."
     },
     "doc": {
       "arguments": [],

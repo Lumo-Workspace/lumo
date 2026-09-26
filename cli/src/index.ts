@@ -371,13 +371,17 @@ const crossing = program
   )
 
 crossing
-  .command('explain <id>')
+  .command('explain [id]')
   .description(
-    'Append an agent self-explanation ("申辩") to a boundary crossing (LUM-542). Append-only and for the human reviewer — it never clears the crossing or unblocks Done (a human dispositions that). Targets a crossing on the session-bound task.'
+    'Append an agent self-explanation ("申辩") to a boundary crossing (LUM-542). Append-only and for the human reviewer — it never clears the crossing or unblocks Done (a human dispositions that). Several crossings in one call: --file with a JSON array of {"id","note"} (LUM-845); each is reported. Targets crossings on the session-bound task.'
   )
-  .requiredOption(
+  .option(
     '--note <text>',
-    'The explanation to record (the rationale for the action / why it may be a false positive)'
+    'The explanation to record (the rationale for the action / why it may be a false positive); required with <id>'
+  )
+  .option(
+    '--file <path>',
+    'Batch: a JSON array of {"id": "<crossing>", "note": "<text>"} — one note per crossing, in one call; "-" reads stdin. Replaces <id> --note'
   )
   .action(
     wrap((id: unknown, options: unknown) =>
@@ -386,9 +390,9 @@ crossing
   )
 
 crossing
-  .command('disposition <id>')
+  .command('disposition <ids...>')
   .description(
-    "Rule on a boundary crossing from the terminal (LUM-769) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
+    "Rule on one or more boundary crossings from the terminal (LUM-769; several ids = one batch per ruling, LUM-845 — each step prints ONE envelope listing every crossing in full and carrying one receipt per crossing as --receipt <id>=<token>,…; drop an id between steps to leave that crossing OPEN; every write is reported per crossing) through a three-step confirmation handshake the server enforces: (1) no step flag — prints the crossing (severity, detail, agent explanations) as an envelope with a stage-1 read receipt, exit 4, writes nothing; (2) --confirm-read --receipt <r1> after the user confirms they READ it — returns the stage-2 receipt and a second envelope for the ruling, exit 4; (3) --confirm --receipt <r2> after the user approves the ruling — writes. Confirming before the read is acknowledged is refused and told to confirm the read first. Relay each envelope; never supply a step flag yourself. Either ruling clears the crossing's block on DONE and is audited as a CLI-channel disposition. Reverting to OPEN and repository suppression rules stay web-only. Targets a crossing on the session-bound task unless --task is given."
   )
   .option(
     '--false-positive',
@@ -405,7 +409,7 @@ crossing
   )
   .option(
     '--receipt <token>',
-    "Read receipt from the previous step's envelope (its confirmCommand carries it); required with --confirm-read (stage 1 receipt) and --confirm (stage 2 receipt), verified server-side"
+    "Read receipt(s) from the previous step's envelope (its confirmCommand carries them — a bare token for one crossing, <id>=<token>,… for a batch); required with --confirm-read (stage 1) and --confirm (stage 2), verified server-side per crossing"
   )
   .option(
     '--confirm-read',
@@ -416,8 +420,11 @@ crossing
     'Step 3: the user approved the ruling (never add this on your own initiative). Refused unless the read was confirmed first'
   )
   .action(
-    wrap((id: unknown, options: unknown) =>
-      crossingDisposition(id as string, options as CrossingDispositionOptions)
+    wrap((ids: unknown, options: unknown) =>
+      crossingDisposition(
+        ids as string[],
+        options as CrossingDispositionOptions
+      )
     )
   )
 

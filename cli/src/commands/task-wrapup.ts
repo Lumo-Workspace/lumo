@@ -320,11 +320,18 @@ function pushSecurity(lines: string[], input: WrapupInput): void {
   if (security.length > 0) lines.push(`  ${SECURITY_HINT}`)
 }
 
-function crossingCommand(id: string, task: string, ruling: string): string {
-  return `lumo crossing disposition ${shellQuote(id)} ${ruling} --task ${shellQuote(task)}`
+function crossingCommand(ids: string[], task: string, ruling: string): string {
+  return `lumo crossing disposition ${ids.map(shellQuote).join(' ')} ${ruling} --task ${shellQuote(task)}`
 }
 
-function pushCrossing(lines: string[], c: OpenCrossing, task: string): void {
+/** `batch`: several crossings share one ruling command per ruling (LUM-845),
+ *  printed after the list — the row carries no command of its own. */
+function pushCrossing(
+  lines: string[],
+  c: OpenCrossing,
+  task: string,
+  batch: boolean
+): void {
   const gate = c.blocking
     ? 'blocks DONE'
     : c.advisory
@@ -354,9 +361,11 @@ function pushCrossing(lines: string[], c: OpenCrossing, task: string): void {
       lines.push(`        - ${clip(oneLine(e), 300)}`)
     }
   }
-  lines.push(
-    `      the user rules → ${crossingCommand(c.id, task, '--false-positive')}  |  ${crossingCommand(c.id, task, '--confirmed')}`
-  )
+  if (!batch) {
+    lines.push(
+      `      the user rules → ${crossingCommand([c.id], task, '--false-positive')}  |  ${crossingCommand([c.id], task, '--confirmed')}`
+    )
+  }
 }
 
 function pushCrossings(lines: string[], input: WrapupInput): void {
@@ -376,10 +385,21 @@ function pushCrossings(lines: string[], input: WrapupInput): void {
   lines.push(
     `  ${result.crossings.length} undispositioned: ${blocking} blocking DONE, ${result.crossings.length - blocking} advisory / non-blocking.`
   )
+  const batch = result.crossings.length > 1
   lines.push(
-    '  Relay each one to the user as shown below. Once they pick a ruling, run that command: it walks the server-enforced read → ruling handshake, one exit-4 envelope per step — relay each and add a step flag only after the user approves that step.'
+    batch
+      ? '  Relay them to the user as shown below. Once they rule, run one batch command per ruling (split the ids when the rulings differ; leave out any id they want to keep OPEN): it walks the server-enforced read → ruling handshake with one exit-4 envelope per step for the whole batch — relay each and add a step flag only after the user approves that step.'
+      : '  Relay each one to the user as shown below. Once they pick a ruling, run that command: it walks the server-enforced read → ruling handshake, one exit-4 envelope per step — relay each and add a step flag only after the user approves that step.'
   )
-  for (const c of result.crossings) pushCrossing(lines, c, input.identifier)
+  for (const c of result.crossings)
+    pushCrossing(lines, c, input.identifier, batch)
+  if (batch) {
+    const ids = result.crossings.map(c => c.id)
+    lines.push(
+      `  the user rules all ${ids.length} false-positive → ${crossingCommand(ids, input.identifier, '--false-positive')}`,
+      `  the user rules all ${ids.length} confirmed      → ${crossingCommand(ids, input.identifier, '--confirmed')}`
+    )
+  }
   lines.push(`  Web panel: ${input.dispositionUrl}`)
 }
 
