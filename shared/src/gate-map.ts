@@ -1,168 +1,51 @@
 /**
- * Static gate map (LUM-614) — the single source of truth that classifies the
- * engineer-facing mechanical gates into a stable key set, splits them by how
- * their signal is produced, and (for execution gates) carries the command
- * patterns that recognize an executed check in the hook-event stream.
+ * Check-command recognition for the delivery checks panel (LUM-614, reshaped in
+ * LUM-839). Decides which of the agent's own shell commands count as a check it
+ * ran (a type check, build or test run), so the panel can list them under
+ * "Agent self-reported" next to the independent CI checks.
  *
- * Shared by the read-model that derives a delivery's gate audit (server) and
- * the delivery-card panel that renders it (app). It deliberately carries NO
- * status — status is derived per delivery from HookEvent rows, never stored.
- *
- * The class → provenance split seeds the fidelity independence axis: a detection
- * gate is something Lumo derives itself from the tool-intent stream it already
- * ingests (independent of the agent). An execution gate's signal can come from
- * EITHER source: the agent's own tool runs (self-reported — it chose to run the
- * check and could skip it) OR, as of LUM-616, an independent CI run read back
- * from GitHub (check-runs / commit-statuses), which the agent cannot skip or
- * fake. So execution-gate provenance is no longer a pure function of class — it
- * is carried per produced signal (see NormalizedGateEvent.provenance in the
- * gate-audit read-model); `provenanceForClass` is only the not-run/not-configured
- * default. Detection-gate provenance is still class-fixed.
+ * LUM-839 dropped the fixed typecheck/build/test gate taxonomy: CI checks are
+ * shown by their own names (no name → key mapping), and the agent's commands
+ * are shown raw. This module only answers "is this command a check run?" — it
+ * never labels one, and it carries no status (status comes from the HookEvent
+ * row that recorded the run).
  */
 
-export type GateKey =
-  // Execution-class — pass/fail comes from a build/test/typecheck run (agent's
-  // own tool run, or an independent CI run read back from GitHub — LUM-616).
-  // No detection-class gate keys today (diff-scope/git-hygiene removed — see
-  // RAW_DEFINITIONS); detection now lives in boundary crossings. The 'detection'
-  // GateClass scaffolding is kept so a detection gate can be re-added cleanly.
-  'typecheck' | 'build' | 'test'
-
-export type GateClass = 'detection' | 'execution'
-
-export type GateProvenance = 'independent_harness' | 'agent_self_reported'
-
-export interface GateDefinition {
-  key: GateKey
-  class: GateClass
-  provenance: GateProvenance
-  /**
-   * Regexes that classify an executed shell command as this gate. Execution
-   * gates only — detection gates carry an empty list (their signal never comes
-   * from a recognized command, it's a server-side derivation).
-   */
-  commandPatterns: RegExp[]
-}
-
-/** Provenance is a pure function of class — the only place the mapping lives. */
-export function provenanceForClass(cls: GateClass): GateProvenance {
-  return cls === 'detection' ? 'independent_harness' : 'agent_self_reported'
-}
-
-type RawDefinition = Pick<GateDefinition, 'key' | 'class' | 'commandPatterns'>
-
-const RAW_DEFINITIONS: readonly RawDefinition[] = [
-  // 'parse' (node --check) was dropped (LUM-616 follow-up): it's a strict subset
-  // of typecheck/build (which both parse before they can run), so a separate
-  // parse gate carried no independent information and was never sourced — it sat
-  // perpetually not_run. Removed rather than fabricated-green.
-  {
-    key: 'typecheck',
-    class: 'execution',
-    // No build-exclusion lookahead: classification is one-command → N gates
-    // (LUM-629), so `tsc && npm run build` reports typecheck AND build instead
-    // of needing build to win a single-choice tie.
-    commandPatterns: [/\btsc\b/, /typecheck/],
-  },
-  {
-    key: 'build',
-    class: 'execution',
-    commandPatterns: [/\bnext\s+build\b/, /\bnpm\s+run\s+build\b/],
-  },
-  {
-    key: 'test',
-    class: 'execution',
-    commandPatterns: [/\bjest\b/, /\bvitest\b/, /\bnpm\s+(run\s+)?test\b/],
-  },
-  // Detection-class gates were all removed (LUM-616 follow-up): detection belongs
-  // in boundary crossings, not audit-only gates.
-  //  - 'git-hygiene' (committed secrets) ≡ the HARDCODED_SECRET crossing, which
-  //    is detected server-side, surfaced, AND blocks DONE — strictly stronger.
-  //  - 'diff-scope' (out-of-declared-scope edits) has no source of truth yet
-  //    (Lumo has no "declared scope"); the right home is a future
-  //    OUT_OF_SCOPE_EDIT crossing, not a perpetually not_configured gate.
-  // The 'detection' GateClass stays as scaffolding for a clean future re-add.
+/**
+ * Invocation tokens that mark a shell command as a check run. Matched against
+ * the unquoted invocation only (see unquotedInvocation).
+ */
+const CHECK_COMMAND_PATTERNS: readonly RegExp[] = [
+  // type check
+  /\btsc\b/,
+  /typecheck/,
+  // build
+  /\bnext\s+build\b/,
+  /\bnpm\s+run\s+build\b/,
+  // tests
+  /\bjest\b/,
+  /\bvitest\b/,
+  /\bnpm\s+(run\s+)?test\b/,
 ]
-
-const DEFINITIONS: Record<GateKey, GateDefinition> = RAW_DEFINITIONS.reduce(
-  (acc, raw) => {
-    acc[raw.key] = { ...raw, provenance: provenanceForClass(raw.class) }
-    return acc
-  },
-  {} as Record<GateKey, GateDefinition>
-)
-
-export const ALL_GATE_KEYS: readonly GateKey[] = RAW_DEFINITIONS.map(d => d.key)
-
-export const GATE_DEFINITIONS: readonly GateDefinition[] = ALL_GATE_KEYS.map(
-  k => DEFINITIONS[k]
-)
-
-/** Look up a gate's definition by key. */
-export function gateDefinition(key: GateKey): GateDefinition {
-  return DEFINITIONS[key]
-}
 
 /**
  * Strip double- and single-quoted substrings from a command line, leaving only
- * the unquoted invocation tokens. This is what stops a gate keyword that merely
- * appears inside an *argument* — e.g. a `lumo task create "…parse/typecheck/
- * build/test…"` description, or `echo "…run the test…"` — from being mistaken
- * for an invocation of that gate (the LUM-614 prod false-positive, where a
- * task-create description was classified as a passed typecheck and overwrote
- * the real `tsc` signal). A real gate run names its tool unquoted, so it
- * survives the strip.
+ * the unquoted invocation tokens. This is what stops a check keyword that merely
+ * appears inside an *argument* — e.g. a `lumo task create "…typecheck/build/
+ * test…"` description, or `echo "…run the test…"` — from being mistaken for a
+ * check run (the LUM-614 prod false-positive). A real check run names its tool
+ * unquoted, so it survives the strip.
  */
 function unquotedInvocation(command: string): string {
   return command.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, ' ')
 }
 
 /**
- * Classify an executed shell command as execution gates — EVERY gate whose
- * invocation tokens the command hits, in declaration order; empty when none.
- * One command → N gates (LUM-629): agents routinely chain checks in a single
- * shell line (`npx jest …; npx tsc --noEmit`), and single-choice classification
- * silently dropped all but one gate's signal (the LUM-620 #770 test=not_run
- * under-report). Matching still runs against the unquoted invocation only, so
- * a gate keyword buried in quoted argument text never produces a false signal
- * (LUM-614). Detection gates are never returned here — they're not derived
- * from commands.
+ * True when an executed shell command runs a check (type check, build or test).
+ * A chained line (`npx jest …; npx tsc --noEmit`) is one check command — it is
+ * shown once, as the agent ran it.
  */
-export function classifyCommand(command: string): GateKey[] {
+export function isCheckCommand(command: string): boolean {
   const invocation = unquotedInvocation(command)
-  return GATE_DEFINITIONS.filter(def =>
-    def.commandPatterns.some(p => p.test(invocation))
-  ).map(def => def.key)
-}
-
-/**
- * Patterns that classify a CI check-run / commit-status NAME (not a shell
- * command) as an execution gate. LUM-616: the independent harness reads CI
- * signals straight from GitHub (check-runs + commit-statuses) across ANY
- * provider, and the only semantics GitHub exposes is each check's name plus its
- * pass/fail — so mapping a named check to a gate is unavoidably name-based.
- * Platform-agnostic on purpose (GitHub Actions, Vercel, CircleCI, Travis, …).
- * First match wins; order = most specific (typecheck/test) before the build
- * catch-all so a "build and test" job lands on the narrower gate.
- */
-const CHECK_NAME_PATTERNS: readonly (readonly [GateKey, readonly RegExp[]])[] =
-  [
-    ['typecheck', [/\btypecheck\b/i, /\btsc\b/i, /type[\s-]?check/i]],
-    ['test', [/\btests?\b/i, /\bjest\b/i, /\bvitest\b/i, /\bspec\b/i]],
-    ['build', [/\bbuild\b/i, /\bvercel\b/i, /\bdeploy/i]],
-  ]
-
-/**
- * Classify a CI check / commit-status name as an execution gate, or null when
- * it matches none — an unrecognized check is dropped, never coerced into a
- * fabricated gate. A name carrying "comment" (e.g. "Vercel Preview Comments")
- * is a bot annotation, not a CI check, and is rejected before pattern matching.
- */
-export function classifyGateName(name: string): GateKey | null {
-  const n = name.trim()
-  if (!n || /comment/i.test(n)) return null
-  for (const [key, patterns] of CHECK_NAME_PATTERNS) {
-    if (patterns.some(p => p.test(n))) return key
-  }
-  return null
+  return CHECK_COMMAND_PATTERNS.some(p => p.test(invocation))
 }

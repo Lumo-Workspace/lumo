@@ -18,8 +18,21 @@ const createMany = gateSignalRepository.createMany as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
-describe('ciSignalService.reconcileCommit (LUM-616)', () => {
-  it('reconcileCommit writes signal rows for recognized checks linked to the task', async () => {
+function row(overrides: Record<string, unknown>) {
+  return {
+    workspaceId: 'ws',
+    taskId: 't1',
+    gateKey: null,
+    provenance: 'independent_harness',
+    source: 'github_check',
+    headSha: 'sha1',
+    prNumber: null,
+    ...overrides,
+  }
+}
+
+describe('ciSignalService.reconcileCommit (LUM-616 / LUM-839)', () => {
+  it('records every completed CI check under its own name', async () => {
     fetchSignals.mockResolvedValue([
       {
         name: 'Vercel',
@@ -27,14 +40,22 @@ describe('ciSignalService.reconcileCommit (LUM-616)', () => {
         detailsUrl: 'u',
         source: 'github_check',
       },
-      // unrecognized name → dropped (never a fabricated gate)
+      // A name no fixed taxonomy would recognize is kept, not dropped.
       {
-        name: 'lint',
+        name: 'lint-and-format',
         outcome: 'failure',
         detailsUrl: null,
-        source: 'github_check',
+        source: 'github_status',
       },
-      // not-yet-a-verdict → skipped
+      // LUM-838: never started → recorded as not_run, never as a failure.
+      {
+        name: 'e2e',
+        outcome: 'not_run',
+        detailsUrl: 'https://ci/job/3',
+        source: 'github_check',
+        notRunReason: 'The job was not started because of a spending limit',
+      },
+      // Pending / neutral / skipped → not a result yet, nothing recorded.
       {
         name: 'test',
         outcome: 'skip',
@@ -57,18 +78,18 @@ describe('ciSignalService.reconcileCommit (LUM-616)', () => {
     })
     expect(createMany).toHaveBeenCalledTimes(1)
     expect(createMany).toHaveBeenCalledWith([
-      {
-        workspaceId: 'ws',
-        taskId: 't1',
-        gateKey: 'build',
-        outcome: 'success',
-        provenance: 'independent_harness',
-        source: 'github_check',
-        checkName: 'Vercel',
-        detailsUrl: 'u',
-        headSha: 'sha1',
-        prNumber: null,
-      },
+      row({ outcome: 'success', checkName: 'Vercel', detailsUrl: 'u' }),
+      row({
+        outcome: 'failure',
+        checkName: 'lint-and-format',
+        detailsUrl: null,
+        source: 'github_status',
+      }),
+      row({
+        outcome: 'not_run',
+        checkName: 'e2e',
+        detailsUrl: 'https://ci/job/3',
+      }),
     ])
   })
 
@@ -96,11 +117,11 @@ describe('ciSignalService.reconcileCommit (LUM-616)', () => {
     expect(createMany).not.toHaveBeenCalled()
   })
 
-  it('writes nothing when no check is recognized', async () => {
+  it('writes nothing while every check is still pending', async () => {
     fetchSignals.mockResolvedValue([
       {
         name: 'lint',
-        outcome: 'failure',
+        outcome: 'skip',
         detailsUrl: null,
         source: 'github_check',
       },
@@ -116,7 +137,7 @@ describe('ciSignalService.reconcileCommit (LUM-616)', () => {
 })
 
 describe('ciSignalService.reconcileCommit — CI that never ran (LUM-838)', () => {
-  it('a check that did not run is logged and never recorded as a gate verdict', async () => {
+  it('a check that did not run is logged with its reason and stored as not_run', async () => {
     fetchSignals.mockResolvedValue([
       {
         name: 'test',
@@ -142,7 +163,8 @@ describe('ciSignalService.reconcileCommit — CI that never ran (LUM-838)', () =
       prNumber: 1099,
     })
 
-    expect(createMany).not.toHaveBeenCalled()
+    const stored = createMany.mock.calls[0][0] as { outcome: string }[]
+    expect(stored.map(r => r.outcome)).toEqual(['not_run', 'not_run'])
     const lines = (logger.info as jest.Mock).mock.calls.map(c => String(c[0]))
     expect(lines).toHaveLength(2)
     expect(lines[0]).toContain(

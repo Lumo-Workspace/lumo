@@ -2510,11 +2510,14 @@ model GateSignal {
   id          String   @id @default(cuid())
   workspaceId String
   taskId      String
-  gateKey     String // execution GateKey: parse | typecheck | build | test
-  outcome     String // 'success' | 'failure'
+  // Legacy LUM-616 gate classification (typecheck | build | test). LUM-839
+  // stopped classifying CI checks: new rows leave it null and are read by
+  // checkName. Kept (nullable) so historical rows stay intact.
+  gateKey     String?
+  outcome     String // 'success' | 'failure' | 'not_run' (LUM-838: never ran — not a failure)
   provenance  String // 'independent_harness'
   source      String // 'github_check' | 'github_status'
-  checkName   String // raw CI check-run name / status context (audit trail)
+  checkName   String // raw CI check-run name / status context — what the panel shows (LUM-839)
   detailsUrl  String? // link to the producing CI run
   headSha     String?
   // LUM-617: the PR this signal belongs to, resolved at the webhook (from

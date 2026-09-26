@@ -1,9 +1,11 @@
 /**
  * CI signal reconciliation (LUM-616). On a commit's CI completion, reads every
- * signal GitHub exposes for that commit, maps each recognized check to an
- * execution gate, and records it as an independent GateSignal for the linked
- * task. This is the independent half of the mechanical-gate audit: the verdict
- * is produced on the CI runner, not scraped from the agent's own tool runs.
+ * signal GitHub exposes for that commit and records each completed check as an
+ * independent GateSignal for the linked task, under the check's own name
+ * (LUM-839: zero-config — no translation into typecheck/build/test keys, so a
+ * check like "Vercel" or "lint-and-format" is kept, not dropped). This is the
+ * independent half of the delivery checks panel: the verdict is produced on the
+ * CI runner, not scraped from the agent's own tool runs.
  *
  * Fail-soft by contract — it runs detached from webhook ingestion (waitUntil),
  * so any error is logged and swallowed; it must never break the webhook. It is a
@@ -15,7 +17,6 @@ import {
   gateSignalRepository,
   type NewGateSignal,
 } from '@/lib/repositories/gate-signal.repository'
-import { classifyGateName } from '../../shared/src/gate-map'
 
 // `./checks` statically imports the GitHub auth client (@octokit/auth-app, ESM),
 // which is hostile to load in jest and would crash any test that merely imports a
@@ -48,21 +49,19 @@ export const ciSignalService = {
 
       const rows: NewGateSignal[] = []
       for (const signal of signals) {
+        // Pending / neutral / skipped — not a result yet, nothing to record.
         if (signal.outcome === 'skip') continue
-        // LUM-838: a check that never executed is not a verdict — record
-        // nothing, but leave a trace of why CI has no result for this commit.
+        // LUM-838: a check that never executed is recorded as not_run — shown
+        // as "did not run", never as a failure — with a trace of why.
         if (signal.outcome === 'not_run') {
           logger.info(
             `[ci-signal] ${input.repo}@${input.headSha} check "${signal.name}" — CI did not run: ${signal.notRunReason ?? 'unknown reason'}`
           )
-          continue
         }
-        const gateKey = classifyGateName(signal.name)
-        if (!gateKey) continue
         rows.push({
           workspaceId: input.workspaceId,
           taskId: input.taskId,
-          gateKey,
+          gateKey: null,
           outcome: signal.outcome,
           provenance: 'independent_harness',
           source: signal.source,
