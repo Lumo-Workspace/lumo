@@ -158,9 +158,12 @@ export async function taskLineage(
   }
 }
 
-/** Deterministic thousands separator (no locale dependency, test-stable). */
+/** Deterministic thousands separator (no locale dependency, test-stable).
+ *  Rounds first: attributed token figures can be fractional (LUM-840). */
 function groupThousands(n: number): string {
-  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  return Math.round(n)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
 /** Integer percentage, 0 when the denominator is 0 (never NaN). */
@@ -251,11 +254,11 @@ export function formatLineageMarkdown(data: LineageResponse): string {
     lines.push('Top operations by token cost:')
     for (const op of data.totals.topOperations) {
       lines.push(
-        `  ${sanitizeField(op.tool)} — ${op.total.toLocaleString('en-US')} tokens`
+        `  ${sanitizeField(op.tool)} — ${groupThousands(op.total)} tokens`
       )
       for (const c of (op.commands ?? []).slice(0, 3)) {
         lines.push(
-          `    ↳ ${sanitizeField(c.command)} — ${c.total.toLocaleString('en-US')} tokens`
+          `    ↳ ${sanitizeField(c.command)} — ${groupThousands(c.total)} tokens`
         )
       }
     }

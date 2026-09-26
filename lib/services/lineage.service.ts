@@ -118,6 +118,27 @@ export interface LineageDto {
 
 const ORPHAN = '__orphan__'
 
+/**
+ * Whole-token figures for display. Attribution splits a parallel-tool step
+ * evenly across its tools, so per-operation totals can be fractional
+ * (`16,339,526.5`); a token count never is.
+ */
+export function roundedCost(r: {
+  output: number
+  input: number
+  cacheCreation: number
+  cacheRead: number
+  total: number
+}) {
+  return {
+    output: Math.round(r.output),
+    input: Math.round(r.input),
+    cacheCreation: Math.round(r.cacheCreation),
+    cacheRead: Math.round(r.cacheRead),
+    total: Math.round(r.total),
+  }
+}
+
 function emptyOutcomes(): Record<LineageOutcome, number> {
   return { MERGED: 0, REJECTED: 0, REWORKED: 0, UNKNOWN: 0 }
 }
@@ -466,21 +487,13 @@ export const lineageService = {
     const topOperations =
       opCost?.byTool.slice(0, 5).map(r => ({
         tool: r.label,
-        output: r.output,
-        input: r.input,
-        cacheCreation: r.cacheCreation,
-        cacheRead: r.cacheRead,
-        total: r.total,
+        ...roundedCost(r),
         // LUM-840: per-command drill-down under a `Bash · <purpose>` row.
         ...(r.breakdown
           ? {
               commands: r.breakdown.map(c => ({
                 command: c.label,
-                output: c.output,
-                input: c.input,
-                cacheCreation: c.cacheCreation,
-                cacheRead: c.cacheRead,
-                total: c.total,
+                ...roundedCost(c),
               })),
             }
           : {}),

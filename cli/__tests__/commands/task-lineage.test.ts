@@ -233,7 +233,7 @@ it('prints the top commands under a Bash row', () => {
           tool: 'Bash · read/search',
           total: 9000,
           commands: [
-            { command: 'grep', total: 5000 },
+            { command: 'grep', total: 4999.5 },
             { command: 'sed', total: 2500 },
             { command: 'cat', total: 1000 },
             { command: 'ls', total: 500 },

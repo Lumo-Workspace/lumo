@@ -37,7 +37,7 @@ jest.mock('@/lib/services/operation-cost.service', () => ({
   operationCostService: { getOperationCost: jest.fn().mockResolvedValue(null) },
 }))
 
-import { lineageService } from '@/lib/services/lineage.service'
+import { lineageService, roundedCost } from '@/lib/services/lineage.service'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
 import { memoryProvenanceRepository } from '@/lib/repositories/memory-provenance.repository'
 import { lineageSourceRepository } from '@/lib/repositories/lineage-source.repository'
@@ -747,5 +747,25 @@ describe('getLineageForIdentifier disclosure funnel — tokens saved (LUM-522)',
 
     const summaryLine = formatLineageMarkdown(dto!)
     expect(summaryLine).not.toContain('tokens saved')
+  })
+})
+
+describe('roundedCost', () => {
+  it('rounds attributed token figures to whole tokens for display', () => {
+    expect(
+      roundedCost({
+        output: 10.5,
+        input: 0.4,
+        cacheCreation: 2,
+        cacheRead: 16339526.5,
+        total: 16339539.4,
+      })
+    ).toEqual({
+      output: 11,
+      input: 0,
+      cacheCreation: 2,
+      cacheRead: 16339527,
+      total: 16339539,
+    })
   })
 })
