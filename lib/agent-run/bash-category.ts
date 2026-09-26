@@ -76,6 +76,12 @@ const NOISE_VERBS = new Set([
   ':',
   'pwd',
   'for',
+  'do',
+  'then',
+  'else',
+  'elif',
+  'continue',
+  'break',
   'done',
   'fi',
   'esac',
@@ -143,6 +149,9 @@ const READ_VERBS = new Set([
   'sha256sum',
   'base64',
   'printenv',
+  'env',
+  'readlink',
+  'cmp',
   'df',
   'uname',
   'whoami',
@@ -238,6 +247,22 @@ const CHECK_VERBS = new Set([
   'biome',
   'cmake',
 ])
+/** Non-JS package managers (JS ones are handled by script name above). */
+const PACKAGE_MANAGERS = new Set([
+  'pip',
+  'pip3',
+  'pipx',
+  'uv',
+  'poetry',
+  'pipenv',
+  'bundle',
+  'gem',
+  'brew',
+  'apt',
+  'apt-get',
+  'composer',
+])
+
 const NET_VERBS = new Set([
   'vercel',
   'curl',
@@ -278,7 +303,7 @@ const TIMEOUT_PREFIX = /^(?:g?timeout)\s+(?:-\S+\s+)*\S+\s+/
 /** Wrappers that run another command: `uv run pytest`, `poetry run mypy`,
  *  `bundle exec rspec`, `python -m pytest`. Classified by what they run. */
 const RUNNER =
-  /^(?:uv|poetry|pipenv|pdm|hatch|rye)\s+run\s+|^bundle\s+exec\s+|^python[\d.]*\s+-m\s+/
+  /^dotenv\s+(?:\S+\s+)*?--\s+|^(?:uv|poetry|pipenv|pdm|hatch|rye)\s+run\s+|^bundle\s+exec\s+|^python[\d.]*\s+-m\s+/
 /** `npm test`, `npm run test:unit`, `pnpm lint` … → the script name. Matched on
  *  the raw segment: `verbOf` skips `pnpm` / `yarn` as launcher prefixes. */
 const PKG_SCRIPT =
@@ -287,13 +312,18 @@ const PKG_SCRIPT =
 /** Subshell / group openers and the control keywords that introduce a
  *  command. Stripped up front so `do c=$(grep …)` reaches `verbOf`'s
  *  `VAR=$(cmd` handling instead of reading the assignment as a prefix. */
+const NPX_FLAGS = /^npx\s+(?:--?[\w-]+(?:=\S+)?\s+)+/
 const SEGMENT_OPENER = /^(?:[({]\s*|(?:do|then|else|elif|if|while|until)\s+)+/
 
 /** A segment's verb, or null when it is empty or a `#` comment line. */
 function segmentVerb(
   segment: string
 ): { seg: string; verb: string; rest: string[] } | null {
-  const seg = segment.trim().replace(SEGMENT_OPENER, '')
+  const seg = segment
+    .trim()
+    .replace(SEGMENT_OPENER, '')
+    // `npx --no-install tsc` / `npx -y tsx …`: the flags are not the command.
+    .replace(NPX_FLAGS, 'npx ')
   if (!seg || seg.startsWith('#')) return null
   const parsed = verbOf(seg)
   // `(cd x && npx jest)` / `"$D/tool" …` leave a closer or quote glued on.
@@ -321,8 +351,13 @@ function classifySegment(segment: string): BashCategory | null {
   if (TEST_VERBS.has(verb) || /\bjest-t\.ts\b/.test(seg)) return 'test'
   const script = seg.match(PKG_SCRIPT)?.[1]
   if (script !== undefined && !/\.[cm]?[jt]sx?$/.test(script)) {
-    if (/^(?:install|i|ci|link|view|publish|pack|ls|outdated)$/.test(script))
-      return 'other'
+    // Installing dependencies is build setup; querying the registry is network.
+    if (
+      /^(?:install|i|ci|add|remove|uninstall|link|update|rebuild)$/.test(script)
+    )
+      return 'check'
+    if (/^(?:view|info|publish|pack|outdated|ls|audit|whoami)$/.test(script))
+      return 'net'
     if (/^test\b/.test(script)) return 'test'
     if (
       /^(?:lint|build|typecheck|type-check|tsc|i18n:check|format)/.test(script)
@@ -331,7 +366,7 @@ function classifySegment(segment: string): BashCategory | null {
     if (/^(?:prisma|db|migrate)/.test(script)) return 'db'
     return 'script'
   }
-  if (CHECK_VERBS.has(verb)) return 'check'
+  if (CHECK_VERBS.has(verb) || PACKAGE_MANAGERS.has(verb)) return 'check'
   if (verb === 'prisma' || verb === 'psql') return 'db'
   if (verb === 'git') {
     let j = 0
@@ -420,12 +455,26 @@ function segmentLabel(segment: string): string | null {
   return safeLabel(verb)
 }
 
+/**
+ * Join `\`-continued lines and drop whole-line `#` comments before splitting:
+ * a continuation left a segment starting with `\`, and a comment holding a
+ * `|` (`# returns string|null`) was split into a fake command (`null`).
+ */
+function normaliseCommand(cmd: string): string {
+  return cmd
+    .replace(/\\\r?\n/g, ' ')
+    .split('\n')
+    .filter(line => !line.trimStart().startsWith('#'))
+    .join('\n')
+}
+
 function collect(
   cmd: string,
   out: { category: BashCategory; segment: string }[],
   depth: number
 ): void {
-  for (const raw of splitSegmentsQuoteAware(cmd)) {
+  const text = depth === 0 ? normaliseCommand(cmd) : cmd
+  for (const raw of splitSegmentsQuoteAware(text)) {
     const seg = raw.trim()
     if (!seg) continue
     const inner = depth < 3 ? unwrapShellWrapper(seg) : null

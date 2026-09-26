@@ -36,7 +36,12 @@ describe('classifyBashCommand', () => {
     ['node -e "console.log(1)"', 'script'],
     ['npx tsx scripts/backfill.ts', 'script'],
     ['rm -rf tmp && mkdir tmp', 'file'],
-    ['npm install', 'other'],
+    ['npm install', 'check'],
+    ['pip install -r requirements.txt', 'check'],
+    ['npm view @lumoai/cli version', 'net'],
+    ['npx --no-install tsc --noEmit', 'check'],
+    ['dotenv -e .env.local -- npx jest', 'test'],
+    ['readlink -f node_modules', 'read'],
   ])('%s → %s', (cmd, expected) => {
     expect(classifyBashCommand(cmd)).toBe(expected)
   })
@@ -152,6 +157,42 @@ describe('classifyBashCommand', () => {
         `for f in lib/*.json; do c=$(grep -c 'x' "$f"); echo "$f: $c"; done`
       )
     ).toBe('read')
+  })
+
+  it('does not split continuations, comments or bare keywords into commands', () => {
+    // `\`-continued chain: the git write wins, `\` is never a command.
+    const chain = [
+      'git stash push -m x && \\',
+      'git checkout main && \\',
+      'git pull origin main',
+    ].join('\n')
+    expect(classifyBashCommandDetailed(chain)).toEqual({
+      category: 'git-write',
+      verb: 'git stash',
+    })
+    // A `|` inside a comment line must not start a fake command.
+    const commented = [
+      '# attrGet(name): string|null as a method',
+      '# T | undefined',
+      'grep -n attrGet lib/a.ts',
+    ].join('\n')
+    expect(classifyBashCommand(commented)).toBe('read')
+    expect(unrecognisedVerbs(commented)).toEqual([])
+    // Keywords alone on their line of a multi-line loop / if.
+    const loop = [
+      'for f in a b',
+      'do',
+      '  cat "$f"',
+      '  if [ -s "$f" ]',
+      '  then',
+      '    continue',
+      '  else',
+      '    break',
+      '  fi',
+      'done',
+    ].join('\n')
+    expect(classifyBashCommand(loop)).toBe('read')
+    expect(unrecognisedVerbs(loop)).toEqual([])
   })
 
   it('treats pure plumbing or an empty command as other', () => {
