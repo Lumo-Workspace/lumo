@@ -54,7 +54,12 @@ export interface LineageResponse {
       tokensSaved?: number | null
     }
     /** LUM-523: Top-5 most expensive operations (tools) by token cost. */
-    topOperations: { tool: string; total: number }[]
+    topOperations: {
+      tool: string
+      total: number
+      /** LUM-840: per-command rows under a `Bash · <purpose>` row. */
+      commands?: { command: string; total: number }[]
+    }[]
   }
   groups: LineageGroup[]
 }
@@ -245,7 +250,14 @@ export function formatLineageMarkdown(data: LineageResponse): string {
     lines.push('')
     lines.push('Top operations by token cost:')
     for (const op of data.totals.topOperations) {
-      lines.push(`  ${op.tool} — ${op.total.toLocaleString('en-US')} tokens`)
+      lines.push(
+        `  ${sanitizeField(op.tool)} — ${op.total.toLocaleString('en-US')} tokens`
+      )
+      for (const c of (op.commands ?? []).slice(0, 3)) {
+        lines.push(
+          `    ↳ ${sanitizeField(c.command)} — ${c.total.toLocaleString('en-US')} tokens`
+        )
+      }
     }
     lines.push('  (full breakdown: lumo cost --task <id>)')
   }

@@ -1,9 +1,14 @@
 'use client'
 
+import { Fragment, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { useIntl } from 'react-intl'
 import type { LineageResponse } from '../../types'
 
 type Operation = LineageResponse['totals']['topOperations'][number]
+
+/** Most commands shown under an expanded row; the full list is in `lumo cost`. */
+const MAX_COMMANDS = 8
 
 export function TopOperations({
   operations,
@@ -13,7 +18,37 @@ export function TopOperations({
   taskIdentifier: string
 }) {
   const intl = useIntl()
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
   if (operations.length === 0) return null
+
+  const toggle = (tool: string) =>
+    setExpanded(prev => {
+      const next = new Set(prev)
+      if (next.has(tool)) next.delete(tool)
+      else next.add(tool)
+      return next
+    })
+  const cells = (
+    row: Pick<
+      Operation,
+      'output' | 'input' | 'cacheCreation' | 'cacheRead' | 'total'
+    >
+  ) => (
+    <>
+      <td className='py-1 text-right tabular-nums text-muted-foreground'>
+        {intl.formatNumber(row.output)}
+      </td>
+      <td className='py-1 text-right tabular-nums text-muted-foreground'>
+        {intl.formatNumber(row.input)}
+      </td>
+      <td className='py-1 text-right tabular-nums text-muted-foreground'>
+        {intl.formatNumber(row.cacheCreation)}
+      </td>
+      <td className='py-1 text-right tabular-nums text-muted-foreground'>
+        {intl.formatNumber(row.cacheRead)}
+      </td>
+    </>
+  )
 
   return (
     <div className='border-b border-border px-3 py-3'>
@@ -65,26 +100,51 @@ export function TopOperations({
           </tr>
         </thead>
         <tbody>
-          {operations.map(op => (
-            <tr key={op.tool} className='border-t border-border/60'>
-              <td className='py-1 font-mono text-foreground'>{op.tool}</td>
-              <td className='py-1 text-right tabular-nums text-muted-foreground'>
-                {intl.formatNumber(op.output)}
-              </td>
-              <td className='py-1 text-right tabular-nums text-muted-foreground'>
-                {intl.formatNumber(op.input)}
-              </td>
-              <td className='py-1 text-right tabular-nums text-muted-foreground'>
-                {intl.formatNumber(op.cacheCreation)}
-              </td>
-              <td className='py-1 text-right tabular-nums text-muted-foreground'>
-                {intl.formatNumber(op.cacheRead)}
-              </td>
-              <td className='py-1 text-right font-medium tabular-nums text-foreground'>
-                {intl.formatNumber(op.total)}
-              </td>
-            </tr>
-          ))}
+          {operations.map(op => {
+            const commands = op.commands ?? []
+            const isOpen = expanded.has(op.tool)
+            return (
+              <Fragment key={op.tool}>
+                <tr className='border-t border-border/60'>
+                  <td className='py-1 font-mono text-foreground'>
+                    {commands.length > 0 ? (
+                      <button
+                        type='button'
+                        aria-expanded={isOpen}
+                        onClick={() => toggle(op.tool)}
+                        className='inline-flex items-center gap-1 text-left hover:underline'
+                      >
+                        <ChevronRight
+                          className={`size-3 shrink-0 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                          aria-hidden
+                        />
+                        {op.tool}
+                      </button>
+                    ) : (
+                      op.tool
+                    )}
+                  </td>
+                  {cells(op)}
+                  <td className='py-1 text-right font-medium tabular-nums text-foreground'>
+                    {intl.formatNumber(op.total)}
+                  </td>
+                </tr>
+                {isOpen
+                  ? commands.slice(0, MAX_COMMANDS).map(c => (
+                      <tr key={`${op.tool}:${c.command}`}>
+                        <td className='py-0.5 pl-4 font-mono text-muted-foreground'>
+                          ↳ {c.command}
+                        </td>
+                        {cells(c)}
+                        <td className='py-0.5 text-right tabular-nums text-muted-foreground'>
+                          {intl.formatNumber(c.total)}
+                        </td>
+                      </tr>
+                    ))
+                  : null}
+              </Fragment>
+            )
+          })}
         </tbody>
       </table>
       <p className='mt-2 text-[10px] leading-relaxed text-muted-foreground'>

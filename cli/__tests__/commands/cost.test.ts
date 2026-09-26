@@ -68,4 +68,35 @@ describe('formatOperationCost', () => {
     const out = formatOperationCost(data, 'tool')
     expect(out.toLowerCase()).toContain('heuristic')
   })
+
+  it('prints the top commands under a Bash row', () => {
+    const out = formatOperationCost(
+      {
+        ...data,
+        byTool: [
+          {
+            key: 'Bash · typecheck/lint/build',
+            label: 'Bash · typecheck/lint/build',
+            input: 0,
+            output: 0,
+            cacheRead: 90,
+            cacheCreation: 0,
+            total: 90,
+            breakdown: [
+              { key: 'tsc', label: 'tsc', input: 0, output: 0, cacheRead: 60, cacheCreation: 0, total: 60 }, // prettier-ignore
+              { key: 'npm lint', label: 'npm lint', input: 0, output: 0, cacheRead: 30, cacheCreation: 0, total: 30 }, // prettier-ignore
+            ],
+          },
+        ],
+      },
+      'tool'
+    )
+    const lines = out.split('\n')
+    const parent = lines.findIndex(l =>
+      l.includes('Bash · typecheck/lint/build')
+    )
+    expect(parent).toBeGreaterThan(-1)
+    expect(lines[parent + 1]).toMatch(/↳ tsc\s+.*60/)
+    expect(lines[parent + 2]).toMatch(/↳ npm lint\s+.*30/)
+  })
 })

@@ -2465,6 +2465,11 @@ model HookEvent {
   /// lib/agent-run/bash-category.ts), set at record time and backfilled for
   /// history. Null for every other tool and for unreadable commands.
   toolDetail        String?
+  /// LUM-840: the command that decided `toolDetail` for Bash — the winning
+  /// segment's verb (+ subcommand for git/gh/lumo/npm-style tools), e.g.
+  /// `jest`, `git show`. Safe charset, <= 40 chars. Drives the per-command
+  /// cost drill-down. Null for every other tool.
+  toolVerb          String?
   // File this event touched, lifted out of the raw payload at record time
   // (tool_input.file_path / tool_response.filePath / top-level path|file_path).
   // Null for events that carry no file path (Bash, Stop, prompts). Indexed for

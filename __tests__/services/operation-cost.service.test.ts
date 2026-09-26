@@ -1,8 +1,13 @@
-import { foldRows } from '@/lib/services/operation-cost.service'
+import {
+  foldRows,
+  UNLABELLED_COMMAND,
+  withCommandBreakdown,
+} from '@/lib/services/operation-cost.service'
 import type { OperationCostRow } from '@/lib/agent-run/operation-cost'
 
 const row = (p: Partial<OperationCostRow>): OperationCostRow => ({
   tool: 'Bash',
+  verb: null,
   model: 'claude-opus-4-8',
   sessionId: 's1',
   workspaceMemberId: 'm1',
@@ -40,5 +45,35 @@ describe('foldRows', () => {
       k => labels.get(k)
     )
     expect(folded[0]!.label).toBe('Alice')
+  })
+})
+
+describe('withCommandBreakdown', () => {
+  it('returns a per-command breakdown under Bash rows', () => {
+    const rows = [
+      row({ tool: 'Bash · read/search', verb: 'grep', output: 6 }),
+      row({ tool: 'Bash · read/search', verb: 'cat', output: 3 }),
+      row({ tool: 'Bash · read/search', verb: 'grep', output: 2 }),
+      row({ tool: 'Bash · read/search', verb: null, output: 1 }),
+      row({ tool: 'Read', output: 5 }),
+    ]
+    const byTool = withCommandBreakdown(
+      rows,
+      foldRows(
+        rows,
+        r => r.tool,
+        () => undefined
+      )
+    )
+    const bash = byTool.find(r => r.key === 'Bash · read/search')!
+    expect(bash.total).toBe(12)
+    expect(bash.breakdown!.map(b => [b.label, b.total])).toEqual([
+      ['grep', 8],
+      ['cat', 3],
+      [UNLABELLED_COMMAND, 1],
+    ])
+    expect(bash.breakdown!.reduce((t, b) => t + b.total, 0)).toBe(bash.total)
+    // Tools without commands carry no breakdown.
+    expect(byTool.find(r => r.key === 'Read')!.breakdown).toBeUndefined()
   })
 })

@@ -55,6 +55,21 @@ describe('hookEventService.recordHookEvent toolDetail', () => {
     )
   })
 
+  it('stores the decisive command on toolVerb', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'POST_TOOL_USE',
+      payload: {
+        session_id: 's1',
+        tool_name: 'Bash',
+        tool_input: { command: 'cd /repo && git show HEAD | head -20' },
+      },
+    })
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ toolDetail: 'read', toolVerb: 'git show' })
+    )
+  })
+
   it('leaves toolDetail null for non-Bash tools and non-tool events', async () => {
     await hookEventService.recordHookEvent({
       identity,
@@ -72,6 +87,7 @@ describe('hookEventService.recordHookEvent toolDetail', () => {
     })
     for (const [arg] of repo.createHookEvent.mock.calls) {
       expect(arg.toolDetail).toBeNull()
+      expect(arg.toolVerb).toBeNull()
     }
   })
 })

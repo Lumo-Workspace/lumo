@@ -6,6 +6,8 @@ export interface OperationCostRowDto {
   cacheRead: number
   cacheCreation: number
   total: number
+  /** LUM-840: per-command rows under a `Bash · <purpose>` tool row (sums to it). */
+  breakdown?: OperationCostRowDto[]
 }
 
 export interface OperationCostResponse {
