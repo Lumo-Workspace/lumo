@@ -20,7 +20,10 @@ function bash(id: string, command: unknown): FakeRow {
 }
 
 /** In-memory stand-in for the prisma-backed deps, honouring the same filters. */
-function fakeDeps(rows: FakeRow[]): BackfillDeps & { fetches: number } {
+function fakeDeps(
+  rows: FakeRow[],
+  source: string | null = null
+): BackfillDeps & { fetches: number } {
   const deps = {
     fetches: 0,
     async fetchBatch(afterId: string | null, take: number) {
@@ -29,7 +32,7 @@ function fakeDeps(rows: FakeRow[]): BackfillDeps & { fetches: number } {
         .filter(
           r =>
             r.toolName === 'Bash' &&
-            r.toolDetail === null &&
+            r.toolDetail === source &&
             (afterId === null || r.id > afterId)
         )
         .sort((a, b) => a.id.localeCompare(b.id))
@@ -39,7 +42,7 @@ function fakeDeps(rows: FakeRow[]): BackfillDeps & { fetches: number } {
     async update(category: string, ids: string[]) {
       let n = 0
       for (const r of rows) {
-        if (ids.includes(r.id) && r.toolDetail === null) {
+        if (ids.includes(r.id) && r.toolDetail === source) {
           r.toolDetail = category
           n += 1
         }
@@ -121,5 +124,58 @@ describe('backfillBashToolDetail', () => {
     })
     expect(again.updated).toBe(0)
     expect(again.scanned).toBe(1) // only the unreadable row remains null
+  })
+
+  it('reclassifies rows stored as other', async () => {
+    const rows = [
+      { ...bash('b1', 'pytest tests/'), toolDetail: 'other' },
+      { ...bash('b2', 'foo-new-tool --x'), toolDetail: 'other' },
+      { ...bash('b3', 'npx jest'), toolDetail: 'test' },
+      bash('b4', 'go test ./...'), // unclassified: not this mode's source
+    ]
+    const dry = await backfillBashToolDetail(fakeDeps(rows, 'other'), {
+      dryRun: true,
+      batchSize: 1,
+      reclassifyOther: true,
+    })
+    expect(dry).toMatchObject({ scanned: 2, changed: 1, updated: 0 })
+    expect(rows.map(r => r.toolDetail)).toEqual([
+      'other',
+      'other',
+      'test',
+      null,
+    ])
+
+    const run = await backfillBashToolDetail(fakeDeps(rows, 'other'), {
+      dryRun: false,
+      batchSize: 1,
+      reclassifyOther: true,
+    })
+    expect(run.updated).toBe(1)
+    expect(rows.map(r => r.toolDetail)).toEqual(['test', 'other', 'test', null])
+
+    const again = await backfillBashToolDetail(fakeDeps(rows, 'other'), {
+      dryRun: false,
+      batchSize: 1,
+      reclassifyOther: true,
+    })
+    expect(again.updated).toBe(0)
+  })
+
+  it('reports the top unrecognised verbs among other rows', async () => {
+    const rows = [
+      bash('c1', 'frobnicate --all'),
+      bash('c2', 'cd x && frobnicate && grep y z'),
+      bash('c3', 'zorp build'),
+      bash('c4', 'cat a.ts'),
+    ]
+    const result = await backfillBashToolDetail(fakeDeps(rows), {
+      dryRun: true,
+      batchSize: 500,
+    })
+    expect(result.topOtherVerbs).toEqual([
+      { verb: 'frobnicate', count: 2 },
+      { verb: 'zorp', count: 1 },
+    ])
   })
 })
