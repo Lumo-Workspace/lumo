@@ -6,6 +6,7 @@ import { Command } from 'commander'
 import { authLogin } from './commands/auth-login'
 import { authLogout } from './commands/auth-logout'
 import { whoami } from './commands/whoami'
+import { installAuthFailureTracker } from './lib/auth-failure'
 import { hookCommand } from './commands/hook'
 import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
@@ -198,6 +199,17 @@ if (isUpdateCheckWorker) {
   maybeRefreshInBackground(pkg.name)
 }
 
+// LUM-843: a 401 that a command reported only as `HTTP 401` still ends with
+// the `lumo auth login` remediation, so agents need no whoami pre-probe.
+const authTracker =
+  !isIntrospect && !isUpdateCheckWorker ? installAuthFailureTracker() : null
+
+function exitWith(code: number): never {
+  const hint = authTracker?.hintFor(code)
+  if (hint) console.error(hint)
+  process.exit(code)
+}
+
 // One-shot cleanup of pre-LUM-46 local state. The session→task binding
 // is now server-authoritative; the legacy global pointer and the
 // per-session sentinel directory are both obsolete. Failures are
@@ -235,11 +247,11 @@ function wrap(fn: CommandFn) {
   return async (...args: unknown[]) => {
     try {
       const code = await fn(...args)
-      if (typeof code === 'number' && code !== 0) process.exit(code)
+      if (typeof code === 'number' && code !== 0) exitWith(code)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error(`Error: ${sanitizeField(msg)}`)
-      process.exit(1)
+      exitWith(1)
     }
   }
 }
@@ -280,8 +292,14 @@ auth
 
 program
   .command('whoami')
-  .description('Show the currently logged-in identity')
-  .action(wrap(whoami))
+  .description(
+    'Show the logged-in identity from local credentials (one line; no network call)'
+  )
+  .option('--full', 'Also print workspace name, key name and API URL')
+  .option('--json', 'Emit the identity as JSON (never includes the token)')
+  .action(
+    wrap(options => whoami(options as { full?: boolean; json?: boolean }))
+  )
 
 program
   .command('update')
