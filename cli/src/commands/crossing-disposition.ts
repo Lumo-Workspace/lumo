@@ -5,6 +5,17 @@ import { printStatusDigest } from '../lib/status-digest'
 import { emitConfirmation } from '../lib/confirmation'
 import { resolveBoundTask } from '../lib/bound-task'
 import { dispositionUrl } from '../lib/open-crossings'
+import {
+  isReceiptMap,
+  parseReceiptMap,
+  readCrossings,
+  requestReceipt,
+  type CrossingDispositionTarget,
+  type CrossingForDisposition,
+} from '../lib/crossing-handshake'
+import { crossingDispositionBatch } from './crossing-disposition-batch'
+
+export type { CrossingDispositionTarget, CrossingForDisposition }
 
 export interface CrossingDispositionOptions {
   falsePositive?: boolean
@@ -19,21 +30,6 @@ export interface CrossingDispositionOptions {
   confirm?: boolean
   /** LUM-769 read receipt from the previous step's envelope. */
   receipt?: string
-}
-
-export type CrossingDispositionTarget = 'FALSE_POSITIVE' | 'CONFIRMED'
-
-/** The slice of the LUM-435 crossing view the envelope shows. */
-export interface CrossingForDisposition {
-  id: string
-  category: string
-  severity: string
-  detail: string
-  occurrenceCount?: number
-  reversible?: boolean
-  advisory?: boolean
-  disposition: string | null
-  explanations?: Array<{ note: string; createdAt?: string }>
 }
 
 /**
@@ -144,16 +140,19 @@ export function describeRulingConfirmation(
  * a stage-2 receipt with --confirm-read) and by the server otherwise. The
  * agent relays each envelope and never supplies a step flag on its own.
  * Server-side the ruling is stamped `channel: 'CLI'` so the audit trail keeps
- * it apart from a web-panel click. What stays web-only: reverting to OPEN and
+ * it apart from a web-panel click. Several ids take the batch path
+ * (`crossing-disposition-batch.ts`, LUM-845): the same three steps, one
+ * envelope per step for the whole batch. What stays web-only: reverting to OPEN and
  * the repository suppression rule — neither exists on this path.
  */
 export async function crossingDisposition(
-  crossingId: string | undefined,
+  crossingIds: string | string[] | undefined,
   options: CrossingDispositionOptions = {}
 ): Promise<number | void> {
-  if (!crossingId || crossingId.trim() === '') {
+  const ids = normalizeIds(crossingIds)
+  if (ids.length === 0) {
     console.error(
-      'Error: a crossing id is required: lumo crossing disposition <id> --false-positive | --confirmed'
+      'Error: a crossing id is required: lumo crossing disposition <id...> --false-positive | --confirmed'
     )
     return 1
   }
@@ -171,7 +170,34 @@ export async function crossingDisposition(
     return 1
   }
   const note = options.note?.trim() || undefined
-  const receipt = options.receipt?.trim() || undefined
+  const rawReceipt = options.receipt?.trim() || undefined
+
+  // LUM-845: several ids → the batch handshake, one envelope per step for
+  // the whole batch. It runs its own local receipt checks (one per id).
+  if (ids.length > 1) {
+    return crossingDispositionBatch(ids, target, {
+      note,
+      receipt: rawReceipt,
+      confirmRead: Boolean(options.confirmRead),
+      confirm: Boolean(options.confirm),
+      task: options.task,
+    })
+  }
+  const crossingId = ids[0] as string
+
+  // A batch the user narrowed to one id still carries its receipts in the
+  // `<id>=<token>` form — take this crossing's token out of it.
+  let receipt = rawReceipt
+  if (rawReceipt && isReceiptMap(rawReceipt)) {
+    const token = parseReceiptMap(rawReceipt)?.get(crossingId)
+    if (!token) {
+      console.error(
+        `Error: --receipt carries no receipt for crossing ${sanitizeField(crossingId)} — re-run the command without any step flag to start the handshake again.`
+      )
+      return 1
+    }
+    receipt = token
+  }
 
   // Local ordering checks — cheap, and they name the missing step before any
   // request goes out. The server re-checks all of them.
@@ -232,14 +258,14 @@ export async function crossingDisposition(
   // Read the crossing first, on every path: the envelopes need it, and a
   // confirmed write against a crossing that can't be read must not go out
   // (fail closed — a read hiccup never turns into a blind ruling).
-  const read = await readCrossing(base, headers, taskId, crossingId)
+  const read = await readCrossings(base, headers, taskId)
   if (read.status === 'error') {
     console.error(
       `Error: could not confirm the crossing (${read.reason}) — nothing was written.`
     )
     return 1
   }
-  const crossing = read.crossing
+  const crossing = read.crossings.find(c => c.id === crossingId)
   if (!crossing) {
     console.error(
       `Error: crossing ${sanitizeField(crossingId)} not found on ${taskId}. Ids are listed by \`lumo task status ${taskId}\`.`
@@ -368,113 +394,12 @@ function pickTarget(
   return null
 }
 
-type ReceiptResult =
-  | {
-      status: 'ok'
-      receipt: string
-      expiresAt: string
-      readAt: string
-      readAcknowledgedAt: string | null
-    }
-  | { status: 'error'; reason: string }
-
-/** The handshake's server call (LUM-769): stage 1 without `acknowledge`,
- *  stage 2 with the stage-1 receipt in it. Fails closed — without a receipt
- *  no envelope is issued, because its confirmCommand could never be accepted. */
-async function requestReceipt(
-  base: string,
-  headers: Record<string, string>,
-  taskId: string,
-  crossingId: string,
-  body: { disposition: CrossingDispositionTarget; acknowledge?: string }
-): Promise<ReceiptResult> {
-  let res: Response
-  try {
-    res = await fetch(
-      `${base}/api/tasks/${encodeURIComponent(taskId)}/boundary-crossings/${encodeURIComponent(crossingId)}/disposition/receipt`,
-      {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      }
-    )
-  } catch (err) {
-    return {
-      status: 'error',
-      reason: err instanceof Error ? err.message : 'network error',
-    }
+/** Positional ids, trimmed, empties and repeats dropped, order kept. */
+function normalizeIds(input: string | string[] | undefined): string[] {
+  const raw = Array.isArray(input) ? input : input ? [input] : []
+  const out: string[] = []
+  for (const id of raw.map(r => r.trim())) {
+    if (id && !out.includes(id)) out.push(id)
   }
-  if (!res.ok) {
-    const errBody = (await res.json().catch(() => null)) as {
-      error?: unknown
-    } | null
-    const detail =
-      errBody && typeof errBody.error === 'string'
-        ? ` — ${sanitizeField(errBody.error)}`
-        : ''
-    return { status: 'error', reason: `HTTP ${res.status}${detail}` }
-  }
-  let data: {
-    receipt?: unknown
-    expiresAt?: unknown
-    readAt?: unknown
-    readAcknowledgedAt?: unknown
-  }
-  try {
-    data = (await res.json()) as typeof data
-  } catch {
-    return { status: 'error', reason: 'invalid response body' }
-  }
-  if (typeof data.receipt !== 'string' || data.receipt.length === 0) {
-    return { status: 'error', reason: 'no receipt in response' }
-  }
-  const str = (v: unknown): string => (typeof v === 'string' ? v : '')
-  return {
-    status: 'ok',
-    receipt: data.receipt,
-    expiresAt: str(data.expiresAt),
-    readAt: str(data.readAt),
-    readAcknowledgedAt:
-      typeof data.readAcknowledgedAt === 'string'
-        ? data.readAcknowledgedAt
-        : null,
-  }
-}
-
-type ReadResult =
-  | { status: 'ok'; crossing: CrossingForDisposition | null }
-  | { status: 'error'; reason: string }
-
-/** One task-scoped read of the LUM-435 view; the crossing picked by id. Fails
- *  closed: transport / non-ok / unparseable → error, never "not found". */
-async function readCrossing(
-  base: string,
-  headers: Record<string, string>,
-  taskId: string,
-  crossingId: string
-): Promise<ReadResult> {
-  let res: Response
-  try {
-    res = await fetch(
-      `${base}/api/tasks/${encodeURIComponent(taskId)}/boundary-crossings`,
-      { headers }
-    )
-  } catch (err) {
-    return {
-      status: 'error',
-      reason: err instanceof Error ? err.message : 'network error',
-    }
-  }
-  if (res.status === 401) {
-    return { status: 'error', reason: 'API key invalid or revoked' }
-  }
-  if (!res.ok) return { status: 'error', reason: `HTTP ${res.status}` }
-  let data: { crossings?: CrossingForDisposition[] }
-  try {
-    data = (await res.json()) as { crossings?: CrossingForDisposition[] }
-  } catch {
-    return { status: 'error', reason: 'invalid response body' }
-  }
-  const rows = Array.isArray(data.crossings) ? data.crossings : []
-  return { status: 'ok', crossing: rows.find(c => c.id === crossingId) ?? null }
+  return out
 }

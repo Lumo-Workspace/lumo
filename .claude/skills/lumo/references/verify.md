@@ -191,6 +191,7 @@ This is the **inverse** of dispositioning, but it is the agent/CLI path
 - the note is shown to the human reviewer at disposition time, kept for later review, and explicitly labeled _agent self-report · unverified_;
 - `<id>` must be a crossing on the **session-bound task** (resolved from `$CLAUDE_CODE_SESSION_ID`; cross-task targets and unbound/mismatched sessions are rejected);
 - earlier explanations are immutable — a correction is a new note;
+- **several crossings → one call** (LUM-845): `lumo crossing explain --file notes.json` with a JSON array `[{"id": "<crossing>", "note": "<text>"}, …]` (`--file -` reads stdin, e.g. a heredoc). Each note is posted and reported on its own `✓`/`✗` line, the status digest prints once, and any failure exits 1 — the others are still recorded. `--file` replaces `<id> --note` (passing both is refused);
 - **the note runs past the same detectors the crossing came from.** Quoting the flagged material back into your note — the path, the command, the matched text — re-trips them and records a **second** crossing, earned by the act of explaining the first. Describe what was flagged instead of reproducing it: "the migration file the scan pointed at" beats pasting its path, and naming a step by its role beats writing the command out. One sentence of paraphrase saves the user a ruling they should never have had to make.
 
 ### Recording the user's ruling — `lumo crossing disposition` (LUM-769)
@@ -211,6 +212,21 @@ It is a gated mutation on the [confirmation protocol](confirmation.md), as a **t
 - the crossing is read first on both paths: a read that errors **fails closed** (exit 1, nothing written), an id not on the task is exit 1, and an already-matching ruling is a no-op (exit 0);
 - `<id>` resolves against the **session-bound task**; `--task <LUM-N>` overrides the binding (e.g. from a terminal with no session, or after DONE unbinds you);
 - **still web-only:** reverting a ruling to OPEN, repository suppression rules (LUM-751), and steward milestone crossings (`STEWARD_IMPLEMENTATION_ARTIFACT` has no task).
+
+#### Several crossings, one ruling — the batch form (LUM-845)
+
+Pass several ids to settle them in **three calls instead of 3N**:
+
+```bash
+lumo crossing disposition <id1> <id2> <id3> --false-positive --note "the user ruled all three false positives"
+```
+
+- **Same handshake, one envelope per step for the whole batch.** Step 1 prints ONE read envelope with a `── [i/N] crossing <id> ──` block per crossing — each block is exactly what the single-crossing envelope shows (severity, category, detail, recurrence, every explanation, ⚠ lines); nothing is trimmed. Step 2 prints ONE ruling envelope. The user approves each step once for the batch; you still never add a step flag yourself.
+- **One receipt per crossing.** The server issues, verifies and voids receipts per crossing, exactly as for one; the `confirmCommand` carries them all as `--receipt <id>=<token>,<id>=<token>…`. The earliest expiry is the batch's `valid until`.
+- **Mixed rulings = one batch per ruling** — e.g. `… cx-1 cx-2 --false-positive` and `… cx-3 --confirmed`.
+- **The user disputes one → drop its id** from the `confirmCommand` before re-running it: its receipt is ignored, the crossing stays OPEN, and step 3 lists it under `Dropped from the batch`. Adding an id after step 1 is refused (it has no receipt) — start over without a step flag.
+- **No failure is swallowed.** Steps 1–2: any crossing that cannot be read or receipted aborts the step — no envelope, a `✗ <id> — <reason>` line per failure, nothing written. Step 3: every crossing is attempted and reported `✓`/`✗` on its own line, exit 1 if any failed (re-run the handshake for those ids). The status digest prints once, after the batch. A crossing already carrying the ruling is listed as `Skipped — already …`.
+- A single id behaves exactly as above (a bare `--receipt <token>`); if a batch is narrowed to one id, its `<id>=<token>` receipt is still accepted.
 
 After the last blocker is cleared, re-run the original `lumo task update <id> --status done --confirm` — its envelope was already approved.
 
@@ -254,7 +270,7 @@ What it prints — five numbered sections:
 1. **Contract & verification** — round `N/M`, unmet criteria (✗ FAIL / ○ no verdict) with the failure reason, stale passes, an unconfirmed contract (relay `lumo task criteria confirm`), and the one next step (`lumo verify`, wait on escalation, or settled).
 2. **Test cases** — verdict signals (a `PROVEN_DEFECT` line carries the `lumo task testcase disposition <task>/TC<n> --known-defect | --not-a-defect` command for the **user's** ruling), the no-test-case advisory, and coverage gaps as one count line.
 3. **Security scans** — undispositioned findings (blocks DONE / advisory) and one line per linked PR's latest scan, same grammar as `task status`.
-4. **Boundary crossings** — every undispositioned crossing with what the user needs to rule on it: severity, category, blocks-DONE vs advisory, detail, recurrence, irreversible flag, the agent's explanations (labelled unverified self-report), a `crossing explain` hint when a blocking row has none, and the step-1 `lumo crossing disposition <id> --false-positive | --confirmed --task <id>` command per ruling.
+4. **Boundary crossings** — every undispositioned crossing with what the user needs to rule on it: severity, category, blocks-DONE vs advisory, detail, recurrence, irreversible flag, the agent's explanations (labelled unverified self-report), a `crossing explain` hint when a blocking row has none, and the step-1 `lumo crossing disposition <id> --false-positive | --confirmed --task <id>` command per ruling — with several crossings, one **batch** command per ruling covering all of them (`lumo crossing disposition <id1> <id2> … --false-positive --task <id>`, LUM-845) instead of one per crossing.
 5. **DONE** — a readiness verdict plus what moving to DONE would change (the same lines as the DONE envelope: status, each linked PR with its merge state, each local worktree removed or kept with its reason).
 
 Readiness levels:
