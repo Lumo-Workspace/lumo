@@ -1,4 +1,8 @@
 import type { ModelUsage } from '@/lib/services/model-cost'
+import {
+  BASH_CATEGORY_LABEL,
+  isBashCategory,
+} from '@/lib/agent-run/bash-category'
 
 /** Bucket label for token spent on model steps that ran no tool (the final
  * wrap-up generation + pure-thinking turns). */
@@ -10,6 +14,8 @@ export interface OperationCostEvent {
   /** HookEventType as a string (avoids importing the Prisma enum into a pure module). */
   type: string
   toolName: string | null
+  /** LUM-840: Bash purpose slug from `HookEvent.toolDetail`; null/absent → plain tool name. */
+  toolDetail?: string | null
   /** Per-step delta on POST_TOOL_BATCH; per-turn delta on STOP/STOP_FAILURE; null on history. */
   usageByModel: Record<string, ModelUsage> | null
   createdAt: Date
@@ -36,6 +42,21 @@ export interface OperationCostCoverage {
 export interface OperationAttribution {
   rows: OperationCostRow[]
   coverage: OperationCostCoverage
+}
+
+/**
+ * The row label an invocation is billed to: `Bash · <purpose>` when the event
+ * carries a known Bash category (LUM-840), else the bare tool name — so rows
+ * recorded before the column existed (and not yet backfilled) stay `Bash`.
+ */
+export function operationLabel(
+  toolName: string,
+  toolDetail: string | null | undefined
+): string {
+  if (toolName === 'Bash' && isBashCategory(toolDetail)) {
+    return `Bash · ${BASH_CATEGORY_LABEL[toolDetail]}`
+  }
+  return toolName
 }
 
 const TOOL_TYPES = new Set(['POST_TOOL_USE', 'POST_TOOL_USE_FAILURE'])
@@ -165,7 +186,7 @@ export function attributeOperationCost(
     for (const e of ordered) {
       if (TOOL_TYPES.has(e.type)) {
         if (e.toolName) {
-          pendingTools.push(e.toolName)
+          pendingTools.push(operationLabel(e.toolName, e.toolDetail))
           turnHadTool = true
         }
         continue

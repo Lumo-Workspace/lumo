@@ -93,6 +93,7 @@ export const operationCostService = {
         workspaceMemberId: e.workspaceMemberId,
         type: e.type,
         toolName: e.toolName,
+        toolDetail: e.toolDetail,
         usageByModel: e.usageByModel as Record<string, ModelUsage> | null,
         createdAt: e.createdAt,
       }))

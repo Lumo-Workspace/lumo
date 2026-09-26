@@ -4,6 +4,7 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import type { ModelUsage } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
+import { toolDetailFromPayload } from '@/lib/agent-run/bash-category'
 
 interface RecordHookEventInput {
   identity: VerifyApiKeyResult
@@ -161,6 +162,7 @@ export const hookEventService = {
       taskId,
       type,
       toolName,
+      toolDetail: toolDetailFromPayload(payload),
       filePath,
       payload,
       usageByModel:

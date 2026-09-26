@@ -135,4 +135,63 @@ describe('attributeOperationCost', () => {
       rows.filter(r => r.tool === tool).reduce((t, r) => t + r.output, 0)
     expect(out('Bash')).toBe(3)
   })
+
+  it('splits Bash rows by toolDetail category', () => {
+    const at = (s: number) =>
+      new Date(`2026-06-01T00:00:${String(s).padStart(2, '0')}Z`)
+    const events: OperationCostEvent[] = [
+      ev({
+        type: 'POST_TOOL_USE',
+        toolName: 'Bash',
+        toolDetail: 'read',
+        createdAt: at(1),
+      }),
+      ev({
+        type: 'POST_TOOL_USE',
+        toolName: 'Bash',
+        toolDetail: 'test',
+        createdAt: at(2),
+      }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 10, 0),
+        createdAt: at(3),
+      }),
+      // Pre-LUM-840 row (no toolDetail) and an unknown slug stay plain `Bash`.
+      ev({ type: 'POST_TOOL_USE', toolName: 'Bash', createdAt: at(4) }),
+      ev({
+        type: 'POST_TOOL_USE',
+        toolName: 'Bash',
+        toolDetail: 'bogus',
+        createdAt: at(5),
+      }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 6, 0),
+        createdAt: at(6),
+      }),
+      // toolDetail on a non-Bash tool is ignored.
+      ev({
+        type: 'POST_TOOL_USE',
+        toolName: 'Read',
+        toolDetail: 'read',
+        createdAt: at(7),
+      }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 4, 0),
+        createdAt: at(8),
+      }),
+      ev({ type: 'STOP', usageByModel: u(0, 20, 0), createdAt: at(9) }),
+    ]
+    const { rows } = attributeOperationCost(events)
+    const out = (tool: string) =>
+      rows.filter(r => r.tool === tool).reduce((t, r) => t + r.output, 0)
+    expect(out('Bash · read/search')).toBe(5)
+    expect(out('Bash · test')).toBe(5)
+    expect(out('Bash')).toBe(6)
+    expect(out('Read')).toBe(4)
+    expect(out(THINKING_BUCKET)).toBe(0)
+    expect(totalOf(rows)).toBe(20)
+  })
 })

@@ -9,6 +9,8 @@ interface CreateHookEventData {
   workspaceMemberId: string
   type: HookEventType
   toolName: string | null
+  /** LUM-840: purpose bucket under `toolName` (Bash category slug); null otherwise. */
+  toolDetail?: string | null
   payload: Prisma.InputJsonValue
   sessionId?: string | null
   taskId?: string | null
@@ -69,6 +71,7 @@ export const hookEventRepository = {
         taskId: data.taskId ?? null,
         type: data.type,
         toolName: data.toolName,
+        toolDetail: data.toolDetail ?? null,
         filePath: data.filePath ?? null,
         payload: data.payload,
         usageByModel:
@@ -449,6 +452,7 @@ export const hookEventRepository = {
         workspaceMemberId: true,
         type: true,
         toolName: true,
+        toolDetail: true,
         usageByModel: true,
         createdAt: true,
       },
