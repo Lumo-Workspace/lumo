@@ -84,7 +84,7 @@ describe('parseSarif', () => {
     expect(runs[0]!.toolName).toBe('Semgrep OSS')
     expect(runs[0]!.rules.get('js.sqli')).toEqual({
       id: 'js.sqli',
-      shortDescription: 'SQL built from user input',
+      title: 'SQL built from user input',
       helpUri: 'https://sg.run/abc',
       securitySeverity: 8.5,
       tags: ['security', 'CWE-89'],
@@ -141,7 +141,7 @@ describe('parseSarif', () => {
 describe('sarifSeverity / sarifKind / toolSlug', () => {
   const rule = (sev: number | null) => ({
     id: 'r',
-    shortDescription: null,
+    title: null,
     helpUri: null,
     securitySeverity: sev,
     tags: [],
