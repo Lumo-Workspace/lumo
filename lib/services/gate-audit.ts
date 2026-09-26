@@ -28,9 +28,10 @@ export type GateStatus = 'passed' | 'failed' | 'not_run' | 'not_configured'
 
 /**
  * Where an independent GateSignal row came from: a GitHub check-run or
- * commit status read back by the LUM-616 webhook path, or (LUM-746) the
- * Lumo-managed CI run — typecheck + test executed in a Vercel Sandbox Lumo
- * owns, which the agent cannot reach. All three are `independent_harness`.
+ * commit status read back by the LUM-616 webhook path — the customer's own
+ * CI. `lumo_sandbox` rows come from the LUM-746 managed CI, retired in
+ * LUM-837 (Lumo no longer runs customers' tests or builds); no new ones are
+ * written, but past rows still render. All three are `independent_harness`.
  */
 export type GateSignalSource = 'github_check' | 'github_status' | 'lumo_sandbox'
 
@@ -326,8 +327,8 @@ export interface GateSignalRow {
 
 /**
  * Lift independent execution-gate signals out of GateSignal rows (the CI signal
- * Lumo derived from GitHub check-runs / commit-statuses — LUM-616 — or ran
- * itself in a sandbox — LUM-746, source `lumo_sandbox`). Rows whose
+ * Lumo derived from GitHub check-runs / commit-statuses — LUM-616 — plus
+ * historical `lumo_sandbox` rows from the managed CI retired in LUM-837). Rows whose
  * gateKey is not a known execution gate are dropped (never coerced). Pass/fail
  * comes from the recorded outcome; the check name fills the grounding pointer's
  * command slot and the CI link rides along as detailsUrl.

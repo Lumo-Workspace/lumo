@@ -399,21 +399,12 @@ Management): set an amount, a notification email, and enable pausing so a
 runaway never outlives the budget. That setting is made once in the
 dashboard, not in code.
 
-**Managed CI.** The same sandbox machinery runs the repository's own checks.
-When a pull request linked to a Lumo task is opened or gets a new commit,
-Lumo clones that exact commit into a 4 vCPU sandbox, installs dependencies,
-and runs `tsc --noEmit` and `jest --ci` (sharded across several commands, two
-by default). Each check that finishes is recorded as an independent gate
-signal on the task, so the delivery-gates panel shows a typecheck and test
-verdict produced on Lumo's machine rather than the agent's self-report — the
-signal an agent cannot skip or fake. A check that never finished — the clone
-was not the head commit, the command was killed, the VM was lost — records
-nothing at all: the panel falls back to the self-reported run rather than
-showing an invented failure. Runs are deduplicated per commit, a newer commit
-supersedes the still-pending run of the older one (cancelled, VM stopped), and
-each workspace may start at most `LUMO_MANAGED_CI_HOURLY_CAP` runs per rolling
-hour (default 10). `LUMO_MANAGED_CI=off` disables it; `LUMO_CI_JEST_SHARDS`
-and `LUMO_CI_JEST_IGNORE` tune the jest run.
+**Tests and builds come from your own CI.** Lumo runs static analysis only
+(the scan above) and never executes a repository's tests or build. The
+typecheck / test / build verdicts on a task's delivery gates are read back from
+the checks your CI reports on the pull request (GitHub check runs and commit
+statuses); a check is recognised by its name (`typecheck` / `tsc`, `test` /
+`jest` / `vitest`, `build` / `deploy`, …).
 
 ## 🚀 Deployment
 

@@ -52,7 +52,6 @@ export interface RunOptions {
   timeoutMs?: number
 }
 
-/* eslint-disable no-unused-vars -- parameter names in a type declaration */
 export interface RepoSandbox {
   /** LUM-746: the VM's name — `getRepoSandbox({ name })` reconnects to it from another step. */
   name: string
@@ -69,7 +68,6 @@ export interface RepoSandbox {
   readFile(path: string): Promise<Buffer | null>
   stop(): Promise<void>
 }
-/* eslint-enable no-unused-vars */
 
 export async function createRepoSandbox(
   opts: RepoSandboxOptions
@@ -141,7 +139,7 @@ function wrap(sandbox: SdkSandbox): RepoSandbox {
  * session cwd itself (verified in a probe sandbox on 2026-09-10: cwd was
  * `/vercel`, the clone `/vercel/lumo`). Every script a caller runs there
  * still proves the directory is the right checkout with a sha guard before
- * doing anything. Pure; shared by the managed scan and the managed CI.
+ * doing anything. Pure; used by the managed scan.
  */
 export function repoCheckoutDir(
   sandboxCwd: string,

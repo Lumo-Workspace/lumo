@@ -2,7 +2,6 @@ import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
-import { dispatchLumoCi } from '@/lib/services/lumo-ci-dispatch'
 import {
   fetchPullRequest,
   parsePrUrl,
@@ -155,9 +154,6 @@ export async function linkPullRequest(
   // `void`) so the runtime keeps the function alive until the dispatch
   // settles — a dropped promise here reads as "clean" at the DONE gate.
   waitUntil(dispatchPrSecurityScan(linked.id, 'PR_LINK'))
-  // LUM-746: and one managed CI run of its current head (the request path
-  // fetches the sha and declines non-open PRs).
-  waitUntil(dispatchLumoCi(linked.id, 'PR_LINK'))
   return linked
 }
 

@@ -223,7 +223,7 @@ function logSafe(s: string): string {
   return s.replace(/[\r\n]+/g, ' ').slice(0, 120)
 }
 
-// `repoCheckoutDir` moved to the sandbox integration (LUM-746, shared with
+// `repoCheckoutDir` moved to the sandbox integration (LUM-746, once shared with
 // the managed CI); re-exported so existing importers and this file's test
 // keep working.
 export { repoCheckoutDir }

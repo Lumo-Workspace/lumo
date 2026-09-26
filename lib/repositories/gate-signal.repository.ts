@@ -8,7 +8,7 @@ export interface NewGateSignal {
   gateKey: string
   outcome: string
   provenance: string
-  /** github_check / github_status (LUM-616) or lumo_sandbox (LUM-746). */
+  /** github_check / github_status (LUM-616); lumo_sandbox is historical (LUM-746, retired LUM-837). */
   source: GateSignalSource
   checkName: string
   detailsUrl: string | null
