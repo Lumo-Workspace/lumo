@@ -199,7 +199,13 @@ const SCRIPT_VERBS = new Set([
   'bash',
   'sh',
   'zsh',
+  'perl',
+  'ruby',
+  'php',
 ])
+
+/** A script run by path: `./start-server.sh`, `scripts/run_mut.py`. */
+const SCRIPT_FILE = /\.(?:sh|bash|zsh|py|rb|pl|js|mjs|cjs|ts)$/
 
 const TEST_VERBS = new Set([
   'jest',
@@ -278,14 +284,26 @@ const RUNNER =
 const PKG_SCRIPT =
   /^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:npm|pnpm|yarn|bun)\s+(?:run(?:-script)?\s+)?([\w:.-]+)/
 
-function classifySegment(segment: string): BashCategory | null {
-  // Subshell / group openers carry no verb of their own.
-  const seg = segment.trim().replace(/^[({]\s*/, '')
-  if (!seg) return null
+/** Subshell / group openers and the control keywords that introduce a
+ *  command. Stripped up front so `do c=$(grep …)` reaches `verbOf`'s
+ *  `VAR=$(cmd` handling instead of reading the assignment as a prefix. */
+const SEGMENT_OPENER = /^(?:[({]\s*|(?:do|then|else|elif|if|while|until)\s+)+/
+
+/** A segment's verb, or null when it is empty or a `#` comment line. */
+function segmentVerb(
+  segment: string
+): { seg: string; verb: string; rest: string[] } | null {
+  const seg = segment.trim().replace(SEGMENT_OPENER, '')
+  if (!seg || seg.startsWith('#')) return null
   const parsed = verbOf(seg)
-  // `(cd x && npx jest)` leaves the group closer glued to the last verb.
-  const verb = parsed.verb.replace(/[)}]+$/, '')
-  const rest = parsed.rest
+  // `(cd x && npx jest)` / `"$D/tool" …` leave a closer or quote glued on.
+  return { seg, verb: parsed.verb.replace(/["')}]+$/, ''), rest: parsed.rest }
+}
+
+function classifySegment(segment: string): BashCategory | null {
+  const parsed = segmentVerb(segment)
+  if (!parsed) return null
+  const { seg, verb, rest } = parsed
   if (NOISE_VERBS.has(verb)) return null
   // A segment that only assigns variables (`S=/tmp/x;`) runs nothing.
   if (ASSIGNMENTS_ONLY.test(seg)) return null
@@ -327,7 +345,7 @@ function classifySegment(segment: string): BashCategory | null {
   if (verb === 'gh') return 'gh'
   if (verb === 'lumo') return 'lumo'
   if (NET_VERBS.has(verb)) return 'net'
-  if (SCRIPT_VERBS.has(verb)) return 'script'
+  if (SCRIPT_VERBS.has(verb) || SCRIPT_FILE.test(verb)) return 'script'
   if (FILE_VERBS.has(verb)) return 'file'
   if (READ_VERBS.has(verb)) return 'read'
   return 'other'
@@ -361,11 +379,7 @@ export function unrecognisedVerbs(command: string): string[] {
   collect(command, found, 0)
   const verbs = found
     .filter(f => f.category === 'other')
-    .map(f =>
-      verbOf(f.segment.replace(/^[({]\s*/, ''))
-        .verb.replace(/[)}]+$/, '')
-        .slice(0, 40)
-    )
+    .map(f => segmentVerb(f.segment)?.verb.slice(0, 40) ?? '')
     .filter(Boolean)
   return [...new Set(verbs)]
 }

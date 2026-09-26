@@ -4,6 +4,7 @@ import {
   classifyBashCommand,
   isBashCategory,
   toolDetailFromPayload,
+  unrecognisedVerbs,
 } from '@/lib/agent-run/bash-category'
 
 describe('classifyBashCommand', () => {
@@ -112,6 +113,9 @@ describe('classifyBashCommand', () => {
       ['timeout 60 pytest', 'test'],
       ['ps aux | grep jest', 'read'],
       ['pgrep -fl next-server', 'read'],
+      ['./start-server.sh --port 3000', 'script'],
+      ['bash scripts/run_mut.sh', 'script'],
+      ["perl -pi -e 's/a/b/' f.txt", 'script'],
     ]
     for (const [cmd, expected] of cases) {
       expect([cmd, classifyBashCommand(cmd)]).toEqual([cmd, expected])
@@ -123,9 +127,29 @@ describe('classifyBashCommand', () => {
       'other'
     )
     expect(classifyBashCommand('some-cli status | head -5')).toBe('other')
+    expect(unrecognisedVerbs('"$D/review-package" --x && ls')).toEqual([
+      'review-package',
+    ])
     // Plumbing and bare variable assignments are still not commands.
     expect(classifyBashCommand('S=/tmp/x; echo hi; cat $S/a')).toBe('read')
     expect(classifyBashCommand('cd /repo && sleep 2 && ls')).toBe('read')
+    // Comment lines are not commands (prod: 1,607 rows had `#` as their
+    // "unrecognised verb" before this was handled).
+    expect(
+      classifyBashCommand(
+        [
+          '# Check what the plan says',
+          '# and the locales',
+          'grep -A3 x a.json',
+        ].join('\n')
+      )
+    ).toBe('read')
+    // `do VAR=$(cmd …)` resolves to the substituted command, not its flag.
+    expect(
+      classifyBashCommand(
+        `for f in lib/*.json; do c=$(grep -c 'x' "$f"); echo "$f: $c"; done`
+      )
+    ).toBe('read')
   })
 
   it('treats pure plumbing or an empty command as other', () => {
