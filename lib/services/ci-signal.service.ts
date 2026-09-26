@@ -49,6 +49,14 @@ export const ciSignalService = {
       const rows: NewGateSignal[] = []
       for (const signal of signals) {
         if (signal.outcome === 'skip') continue
+        // LUM-838: a check that never executed is not a verdict — record
+        // nothing, but leave a trace of why CI has no result for this commit.
+        if (signal.outcome === 'not_run') {
+          logger.info(
+            `[ci-signal] ${input.repo}@${input.headSha} check "${signal.name}" — CI did not run: ${signal.notRunReason ?? 'unknown reason'}`
+          )
+          continue
+        }
         const gateKey = classifyGateName(signal.name)
         if (!gateKey) continue
         rows.push({

@@ -20,8 +20,13 @@ const GH_HEADERS = {
   'User-Agent': 'lumo-agent/1.0',
 }
 
-/** Coarse, provider-agnostic outcome. `skip` = not a pass/fail signal yet. */
-export type CiOutcome = 'success' | 'failure' | 'skip'
+/**
+ * Coarse, provider-agnostic outcome. `skip` = not a pass/fail signal yet.
+ * `not_run` (LUM-838) = the check completed without ever executing (billing
+ * block, no runner, startup failure, cancelled) — a lost run is never a
+ * verdict, so it must not be read as a failure.
+ */
+export type CiOutcome = 'success' | 'failure' | 'skip' | 'not_run'
 
 export interface CiSignal {
   /** The check-run name (Checks API) or the status context (Status API). */
@@ -29,6 +34,8 @@ export interface CiSignal {
   outcome: CiOutcome
   detailsUrl: string | null
   source: 'github_check' | 'github_status'
+  /** Why the check never executed; present only when `outcome` is `not_run`. */
+  notRunReason?: string
 }
 
 function splitFullName(fullName: string): [string, string] {
@@ -43,6 +50,14 @@ function splitFullName(fullName: string): [string, string] {
   return [owner, repo]
 }
 
+/** check-run conclusions that mean the check never executed to a result. */
+const NOT_RUN_CONCLUSIONS = new Set([
+  'startup_failure',
+  'cancelled',
+  'stale',
+  'action_required',
+])
+
 /** check-run conclusion → outcome. Unfinished/neutral conclusions are `skip`. */
 function checkRunOutcome(conclusion: string | null): CiOutcome {
   if (conclusion === 'success') return 'success'
@@ -53,7 +68,8 @@ function checkRunOutcome(conclusion: string | null): CiOutcome {
   ) {
     return 'skip'
   }
-  return 'failure' // failure | timed_out | cancelled | action_required | stale
+  if (NOT_RUN_CONCLUSIONS.has(conclusion)) return 'not_run'
+  return 'failure' // failure | timed_out
 }
 
 /** commit-status state → outcome. `pending` is not yet a verdict → `skip`. */
@@ -90,6 +106,90 @@ function str(value: unknown): string | null {
 }
 
 /**
+ * LUM-838: an Actions job the platform refused to start (billing/spending-limit
+ * block, no runner) still completes with conclusion `failure`, but it has no
+ * runner and zero steps. Returns true only when the job record positively shows
+ * that; a lookup error returns false so the check keeps its failure mapping.
+ */
+async function actionsJobNeverStarted(
+  repoBase: string,
+  jobId: number,
+  token: string
+): Promise<boolean> {
+  try {
+    const job = asRecord(
+      await ghJson(`${repoBase}/actions/jobs/${jobId}`, token)
+    )
+    if (!job) return false
+    return asArray(job['steps']).length === 0 && !str(job['runner_name'])
+  } catch (err) {
+    logger.warn(
+      `[github/checks] actions job ${jobId} lookup failed, keeping failure: ${err}`
+    )
+    return false
+  }
+}
+
+const NEVER_STARTED_FALLBACK =
+  'the job never started (no runner was assigned and no steps ran)'
+
+/** GitHub's own explanation — the first failure-level check-run annotation. */
+async function notStartedReason(
+  repoBase: string,
+  checkRunId: number,
+  token: string
+): Promise<string> {
+  try {
+    const annotations = asArray(
+      await ghJson(`${repoBase}/check-runs/${checkRunId}/annotations`, token)
+    )
+    for (const a of annotations) {
+      const rec = asRecord(a)
+      const message = str(rec?.['message'])
+      if (rec?.['annotation_level'] === 'failure' && message) return message
+    }
+  } catch (err) {
+    logger.warn(
+      `[github/checks] annotations lookup failed for check run ${checkRunId}: ${err}`
+    )
+  }
+  return NEVER_STARTED_FALLBACK
+}
+
+async function checkRunSignal(
+  r: Record<string, unknown> | null,
+  repoBase: string,
+  token: string
+): Promise<CiSignal | null> {
+  const name = str(r?.['name'])
+  if (!name) return null
+  const conclusion = str(r?.['conclusion'])
+  const signal: CiSignal = {
+    name,
+    outcome: checkRunOutcome(conclusion),
+    detailsUrl: str(r?.['details_url']) ?? str(r?.['html_url']),
+    source: 'github_check',
+  }
+  if (signal.outcome === 'not_run') {
+    signal.notRunReason = `check run concluded ${conclusion}`
+    return signal
+  }
+  // For GitHub Actions the check-run id is the job id.
+  const id = r?.['id']
+  const isActions = asRecord(r?.['app'])?.['slug'] === 'github-actions'
+  if (
+    signal.outcome === 'failure' &&
+    isActions &&
+    typeof id === 'number' &&
+    (await actionsJobNeverStarted(repoBase, id, token))
+  ) {
+    signal.outcome = 'not_run'
+    signal.notRunReason = await notStartedReason(repoBase, id, token)
+  }
+  return signal
+}
+
+/**
  * Read every CI signal GitHub exposes for a commit (check-runs + commit
  * statuses), merged. Each surface is fetched independently; if one errors it is
  * logged and skipped, and the other source's signals are still returned.
@@ -101,7 +201,8 @@ export async function fetchCommitCiSignals(opts: {
 }): Promise<CiSignal[]> {
   const token = await getGithubInstallationToken(opts.workspaceId)
   const [owner, repo] = splitFullName(opts.fullName)
-  const base = `https://api.github.com/repos/${owner}/${repo}/commits/${opts.sha}`
+  const repoBase = `https://api.github.com/repos/${owner}/${repo}`
+  const base = `${repoBase}/commits/${opts.sha}`
 
   const [checksRes, statusRes] = await Promise.allSettled([
     ghJson(`${base}/check-runs`, token),
@@ -111,17 +212,11 @@ export async function fetchCommitCiSignals(opts: {
   const signals: CiSignal[] = []
 
   if (checksRes.status === 'fulfilled') {
-    for (const run of asArray(asRecord(checksRes.value)?.['check_runs'])) {
-      const r = asRecord(run)
-      const name = str(r?.['name'])
-      if (!name) continue
-      signals.push({
-        name,
-        outcome: checkRunOutcome(str(r?.['conclusion'])),
-        detailsUrl: str(r?.['details_url']) ?? str(r?.['html_url']),
-        source: 'github_check',
-      })
-    }
+    const runs = asArray(asRecord(checksRes.value)?.['check_runs'])
+    const checkSignals = await Promise.all(
+      runs.map(run => checkRunSignal(asRecord(run), repoBase, token))
+    )
+    for (const signal of checkSignals) if (signal) signals.push(signal)
   } else {
     logger.error(
       `[github/checks] check-runs fetch failed for ${opts.fullName}@${opts.sha}: ${checksRes.reason}`
