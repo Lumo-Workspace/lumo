@@ -2460,6 +2460,11 @@ model HookEvent {
   taskId            String? // associated Lumo task
   type              HookEventType
   toolName          String? // extracted from payload.tool_name when present
+  /// LUM-840: finer bucket under `toolName` for operation-cost attribution —
+  /// for Bash, the command's purpose slug (read / test / lumo / … see
+  /// lib/agent-run/bash-category.ts), set at record time and backfilled for
+  /// history. Null for every other tool and for unreadable commands.
+  toolDetail        String?
   // File this event touched, lifted out of the raw payload at record time
   // (tool_input.file_path / tool_response.filePath / top-level path|file_path).
   // Null for events that carry no file path (Bash, Stop, prompts). Indexed for

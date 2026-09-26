@@ -300,8 +300,9 @@ const GH_READ_ONLY = new Set([
 const ASSIGN_SUBST = /^[A-Za-z_][A-Za-z0-9_]*=\$?\(+/
 
 /** The verb token of a segment: skip env assignments / sudo / npx etc., strip a
- *  path prefix and wrapping quotes. Returns the remaining tokens too. */
-function verbOf(segment: string): { verb: string; rest: string[] } {
+ *  path prefix and wrapping quotes. Returns the remaining tokens too. Also used
+ *  by the operation-cost Bash classifier (LUM-840). */
+export function verbOf(segment: string): { verb: string; rest: string[] } {
   const toks = segment.trim().split(/\s+/).filter(Boolean)
   // `VAR=$(cmd …`: look INSIDE the substitution. Bounded — each unwrap drops the
   // matched prefix, so the token strictly shrinks.

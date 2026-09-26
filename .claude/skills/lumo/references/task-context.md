@@ -122,6 +122,8 @@ The user wants to audit "what context did the AI actually use, and what did it c
 
 Per-operation (per-tool) token cost read-out. Where `task lineage` answers "what context fed this task and what did the run cost," `lumo cost` answers "which _operations_ (tools) burned the tokens." It attributes each model step's token delta to the tool(s) that ran in it — **per-step** where the `POST_TOOL_BATCH` hook captured the tool list, **per-turn fallback** otherwise (a parallel-tool step splits its tokens evenly across the tools, hence the "heuristic" note). Each ranking row breaks cost into `output` (generation), `input`, `cache_create`, `cache_read` (~95%, structural — turns × context), plus `total`. `output` and `cache_read` attribute cleanly per step; `input` and `cache_create` are bursty (prompt + cache checkpoints), so their per-tool figures are coarser.
 
+Bash is split by purpose (LUM-840): each shell call is billed to `Bash · <purpose>` — `read/search`, `test`, `typecheck/lint/build`, `db/prisma`, `git write`, `gh`, `lumo CLI`, `network/deploy`, `script`, `file ops`, `other` — decided by the most significant segment of the command (`cd x && npx jest` → `test`), not its first word. The same labels appear in the `task lineage` Top-5. A plain `Bash` row means calls recorded before the split that have not been backfilled.
+
 ```bash
 lumo cost --task LUM-42
 lumo cost --session <session-id> --by model
