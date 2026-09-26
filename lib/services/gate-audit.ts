@@ -185,6 +185,21 @@ export function normalizeHookEvents(
 
 // ─── Projection ──────────────────────────────────────────────────────────────
 
+/**
+ * A CI details link is shown only when it is http(s). A commit status's
+ * target_url is set by whoever posts that status, and the panel puts it in an
+ * `href` — a `javascript:` or `data:` URL there is a stored XSS.
+ */
+function safeDetailsUrl(url: string | null): string | null {
+  if (!url) return null
+  try {
+    const { protocol } = new URL(url)
+    return protocol === 'http:' || protocol === 'https:' ? url : null
+  } catch {
+    return null
+  }
+}
+
 function ciStatus(outcome: string): CiCheckStatus {
   if (outcome === 'success') return 'passed'
   if (outcome === 'not_run') return 'did_not_run'
@@ -219,7 +234,7 @@ export function projectCiChecks(
       name: row.checkName,
       status: ciStatus(row.outcome),
       source: row.source,
-      detailsUrl: row.detailsUrl,
+      detailsUrl: safeDetailsUrl(row.detailsUrl),
       at: row.createdAt.toISOString(),
     }))
     .sort((a, b) => a.name.localeCompare(b.name))

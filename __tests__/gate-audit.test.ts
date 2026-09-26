@@ -47,4 +47,23 @@ describe('projectCiChecks', () => {
     expect(projectCiChecks([])).toEqual({ headSha: null, ci: [] })
     expect(projectCiChecks([], 'h1')).toEqual({ headSha: 'h1', ci: [] })
   })
+
+  it('drops a CI details link that is not http or https', () => {
+    const rows = [
+      'https://ci.example/run/1',
+      'javascript:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      'not a url',
+    ].map((detailsUrl, i) => ({
+      ...row(`check${i}`, 'success', '2026-06-28T10:00:00.000Z', 'h1'),
+      detailsUrl,
+    }))
+    const { ci } = projectCiChecks(rows, 'h1')
+    expect(ci.map(c => c.detailsUrl)).toEqual([
+      'https://ci.example/run/1',
+      null,
+      null,
+      null,
+    ])
+  })
 })
