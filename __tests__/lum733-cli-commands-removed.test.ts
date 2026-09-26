@@ -24,7 +24,8 @@ describe('LUM-733 CLI surface reduction', () => {
     expect(index).not.toMatch(/\.command\('fidelity/)
     expect(index).not.toMatch(/\.command\('record <task>'\)/)
     expect(index).not.toMatch(/commands\/(verdict|fidelity)'/)
-    expect(index).toMatch(/\.command\('explain <id>'\)/)
+    // LUM-845: the id became optional so `--file` can carry batch notes.
+    expect(index).toMatch(/\.command\('explain \[id\]'\)/)
     expect(index).toMatch(/\.command\('show <task>'\)/)
     expect(index).toMatch(/\.command\('rate'\)/)
     for (const f of [
