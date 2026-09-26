@@ -168,13 +168,14 @@ describe('backfillBashToolDetail', () => {
       bash('c2', 'cd x && frobnicate && grep y z'),
       bash('c3', 'zorp build'),
       bash('c4', 'cat a.ts'),
+      bash('c5', '# just a note\nfrobnicate'), // comment is not a verb
     ]
     const result = await backfillBashToolDetail(fakeDeps(rows), {
       dryRun: true,
       batchSize: 500,
     })
     expect(result.topOtherVerbs).toEqual([
-      { verb: 'frobnicate', count: 2 },
+      { verb: 'frobnicate', count: 3 },
       { verb: 'zorp', count: 1 },
     ])
   })
