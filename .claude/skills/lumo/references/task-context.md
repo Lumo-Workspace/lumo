@@ -6,7 +6,10 @@ Load context when the user mentions a task identifier or asks for task backgroun
 
 ```bash
 lumo task context LUM-42
+lumo task context LUM-42 --full   # full memory bodies + the judged-used track-record table
 ```
+
+Everything read at session start is re-read on every later step, so the default output is the minimum needed to start work; details are one command away (LUM-844).
 
 ### Reading the output
 
@@ -14,11 +17,11 @@ The command prints a markdown document to stdout with these sections, in order:
 
 1. **Task header** — identifier, title, status, description.
 2. **`## Acceptance criteria (contract)`** — shown right after the header. Each line `[MACHINE|HUMAN] statement`, with a `↳ check:` line for MACHINE checkpointers; HUMAN_EDIT / REVIEW_ADDED provenance tagged inline. A still-open task with none shows a draft reminder instead — draft 3–7 criteria **before writing code** — followed by a `### Reference class (outside view)` block giving the failure modes of similar delivered tasks, to draft against rather than to copy (see [criteria.md](criteria.md)).
-3. **Memory section** — cross-session learnings; trusted background context that persists, so you avoid re-learning decisions/constraints.
+3. **Memory section** — cross-session learnings, **one headline line per memory** by default: `- Trap [project · agent-authored] <headline> · <id>` (Traps first). Pull a full card (outcome / Workaround / Why / Steps) with `lumo memory show <id>` when a headline touches what you're about to do; `--full` prints every body inline. Same memories, same order, as the full rendering — nothing is dropped.
 4. **Inline source cards** — Slack / web / Figma / artifacts / documents / comments / Pull Requests (see "Context Retrieval" below).
 5. **`## PR review todos`** — mirrored PR review comments as a checkbox todo list. Each line-level comment shows `` `file:line` `` + reviewer's ask + GitHub comment link; each `changes_requested` review summary shows "🛑 Changes requested (whole PR)". Present only when the task's PR(s) have review comments. Each unchecked box is a TODO: resolve it, then reply on the PR (a Lumo comment mirrors back to GitHub).
-6. **`## Previous sessions`** — newest-first; each has a headline summary of what was done plus unresolved items (carry-over TODOs).
-7. **`## Flywheel signal · historical merge contribution`** — appended at the very end. Per context fragment with enough history, a one-line signal (e.g. `appeared in 5 resolved tasks · 4 merged (80%)`) computed from lineage edges. Denominator = distinct tasks where the fragment appeared with a resolved (non-UNKNOWN) outcome; only fragments with ≥3 such tasks show (cold-start gate), so the block is often absent early on. **Historical correlation, not causation** — don't read it as a prediction.
+6. **`## Previous sessions`** — newest-first; each has a headline summary of what was done plus unresolved items (carry-over TODOs). The calling session itself (`CLAUDE_CODE_SESSION_ID`) is left out — it is always "just now · (no summary)".
+7. **`## Memory usefulness · judged-used track record`** — by default a single pointer line (`_Memory usefulness …: lumo task context <id> --full_`); `--full` prints the table: per fragment with enough audited history, `judged-used in X of N tasks` (a lower bound; RFC LUM-535). Absent below the cold-start floor. Historical correlation, not a prediction.
 
 **Auto-injected at session start** (when the session is bound to a task, so they surface without re-running `task context`):
 

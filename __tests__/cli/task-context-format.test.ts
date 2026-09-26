@@ -318,7 +318,8 @@ describe('formatTaskContextMarkdown — lineageSection', () => {
         lineageSection:
           '## Memory usefulness · judged-used track record\n\n- [MEMORY] "x" — judged-used in 3 of 4 tasks · proven',
       } as any,
-      LINEAGE_NOW
+      LINEAGE_NOW,
+      { full: true }
     )
     expect(out).toContain('## Previous Sessions (0)')
     expect(out.indexOf('judged-used track record')).toBeGreaterThan(
@@ -351,11 +352,32 @@ describe('formatTaskContextMarkdown — lineageSection', () => {
         lineageSection:
           '## Memory usefulness · judged-used track record\n\n- [PR] #1 — judged-used in 3 of 4 tasks',
       } as any,
-      LINEAGE_NOW
+      LINEAGE_NOW,
+      { full: true }
     )
     expect(out.indexOf('judged-used track record')).toBeGreaterThan(
       out.indexOf('Previous Sessions (1)')
     )
+  })
+
+  // LUM-844: by default the audit table collapses to one pointer line.
+  it('collapses lineageSection to a --full pointer by default', () => {
+    const out = formatTaskContextMarkdown(
+      {
+        task: {
+          identifier: 'LUM-1',
+          title: 'T',
+          status: 'TODO',
+          description: null,
+        },
+        sessions: [],
+        lineageSection:
+          '## Memory usefulness · judged-used track record\n\n- [MEMORY] "x" — judged-used in 3 of 4 tasks · proven',
+      } as any,
+      LINEAGE_NOW
+    )
+    expect(out).not.toContain('judged-used in 3 of 4 tasks')
+    expect(out).toContain('lumo task context LUM-1 --full')
   })
 
   it('omits the lineage block when lineageSection is absent/empty', () => {
@@ -370,7 +392,8 @@ describe('formatTaskContextMarkdown — lineageSection', () => {
         sessions: [],
         lineageSection: '',
       } as any,
-      LINEAGE_NOW
+      LINEAGE_NOW,
+      { full: true }
     )
     expect(out).not.toContain('judged-used track record')
   })

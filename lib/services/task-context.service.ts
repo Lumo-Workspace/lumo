@@ -71,6 +71,7 @@ import {
 import {
   applyTokenBudget,
   renderMemorySection,
+  renderMemoryIndexBlock,
   renderLayer2ReviewSection,
   wrapUntrustedMemory,
   wrapUntrustedLinked,
@@ -171,6 +172,12 @@ export interface TaskContext {
    * memory-shape knowledge in the CLI bundle.
    */
   memorySection: string
+  /**
+   * LUM-844: the same memories as `memorySection`, one headline line each
+   * (+ id for `lumo memory show`), already wrapped. What the CLI prints by
+   * default; `memorySection` stays for `--full` and for older CLIs.
+   */
+  memoryIndexSection: string
   /**
    * Pre-rendered "## Acceptance criteria (contract)" markdown (LUM-342); empty when the task
    * has no acceptance criteria. Deliberately NOT in `fragments`: v1 records no
@@ -1374,6 +1381,10 @@ export const taskContextService = {
     const memorySection = wrapUntrustedMemory(
       renderMemorySection(budgetedMemories)
     )
+    const memoryIndexSection = renderMemoryIndexBlock(
+      budgetedMemories,
+      resolved.identifier
+    )
 
     const milestone = full.milestoneId
       ? await milestoneRepository.findById(full.milestoneId)
@@ -1461,6 +1472,7 @@ export const taskContextService = {
           : null,
       },
       memorySection,
+      memoryIndexSection,
       criteriaSection,
       testCaseSection,
       // LUM-347 follow-up: every member/externally-authored free-text section

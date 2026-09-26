@@ -55,7 +55,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Task context & retrieval — see [task-context.md](references/task-context.md)
 
-- `lumo task context <id>` — load task background (memory, source cards, PR review todos, prior sessions)
+- `lumo task context <id> [--full]` — load task background (memory headlines → `lumo memory show <id>`, source cards, PR review todos, prior sessions); `--full` = memory bodies
 - `lumo task slack show <id> <contextId>` — full stored Slack thread
 - `lumo task web show <id> <linkId>` — fetched web link body
 - `lumo task figma context <id> <linkId>` — Figma link metadata (v1)
@@ -196,7 +196,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Sessions — see [sessions.md](references/sessions.md)
 
-- `lumo session attach <id>` — bind this session to a task (then run `task context`). **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
+- `lumo session attach <id>` — bind this session to a task; prints blockers/security/contract only — run `task context` next. **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
 - `lumo session attach --steward <milestone>` — bind as a **STEWARD (governance) session** on a milestone (LUM-640): plan & accept only — `lumo verify` (409, no round burned) and self-dispatch to in_progress are refused; commits/PRs become milestone-scoped boundary crossings (web+human disposition only). Same lifetime lock. See [sessions.md](references/sessions.md)
 - `lumo session status` — show current binding (a task, or the milestone + STEWARD role)
 - End-of-session housekeeping is fully automatic (no command). On DONE the server runs three best-effort silent passes: Layer-1 memory curation, fragment-usage audit, and blocked-tag automation. See [sessions.md](references/sessions.md)

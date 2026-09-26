@@ -171,13 +171,15 @@ export async function sessionAttach(
 
   const body = (await res.json()) as BoundResponse
 
+  // LUM-844: one header line — the re-tag count rides along only when non-zero.
+  const retagged =
+    body.retaggedEventCount > 0
+      ? ` · re-tagged ${body.retaggedEventCount} earlier event${
+          body.retaggedEventCount === 1 ? '' : 's'
+        }`
+      : ''
   console.log(
-    `Attached session ${sessionId} to ${body.taskIdentifier} "${sanitizeField(body.taskTitle)}"`
-  )
-  console.log(
-    `Re-tagged ${body.retaggedEventCount} previously-untagged event${
-      body.retaggedEventCount === 1 ? '' : 's'
-    } in this session.`
+    `Attached session ${sessionId} to ${body.taskIdentifier} "${sanitizeField(body.taskTitle)}"${retagged}`
   )
   // Warnings come before contract/memory: matches the hook injection order —
   // short, actionable information first.
@@ -196,16 +198,14 @@ export async function sessionAttach(
     console.log('')
     console.log(sanitizeField(body.criteriaSection))
   }
-  // LUM-807: test-case nudge right after the contract — the contract says what
-  // "done" means, this says what script proves it again tomorrow.
-  if (body.testCaseSection) {
-    console.log('')
-    console.log(sanitizeField(body.testCaseSection))
-  }
-  if (body.memorySection !== '') {
-    console.log('')
-    console.log(sanitizeField(body.memorySection))
-  }
+  // LUM-844: memory and the test-case nudge are NOT printed here — `task
+  // context`, the next step of the workflow, prints both, and output read at
+  // session start is re-read on every later step. One pointer instead; the
+  // correctness signals above (blockers, security findings, contract) stay.
+  console.log('')
+  console.log(
+    `Background (team memory, test cases, sources, prior sessions): lumo task context ${body.taskIdentifier}`
+  )
 
   // LUM-551: attach-triggered best-effort downsync. Resolve the bound task's
   // project and refresh team memory (throttle-gated inside autoDownsyncOnAttach).

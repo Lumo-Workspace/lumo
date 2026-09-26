@@ -62,6 +62,7 @@ jest.mock('@/lib/memory/render', () => ({
   renderMemorySection: jest.fn(() => ''),
   applyTokenBudget: jest.fn((x: unknown[]) => x),
   wrapUntrustedMemory: jest.fn((s: string) => s),
+  renderMemoryIndexBlock: jest.fn(() => ''),
   // Real linked wrappers (not fakes): the LUM-352 dedupe assertions count the
   // actual preamble text across sections, so the assembly test must see the
   // genuine boundary output, not a stand-in.

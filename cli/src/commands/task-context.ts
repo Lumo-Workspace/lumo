@@ -23,6 +23,9 @@ interface TaskContextResponse {
     } | null
   }
   memorySection?: string
+  /** LUM-844: one-line-per-memory index, printed by default; absent on older
+   *  servers (the full memorySection prints instead). */
+  memoryIndexSection?: string
   criteriaSection?: string
   /** LUM-807: "## Test cases" nudge; absent on older servers. */
   testCaseSection?: string
@@ -49,9 +52,17 @@ interface TaskContextResponse {
   }>
 }
 
+/** LUM-844: `full` restores the full memory bodies and the judged-used
+ *  footer; `currentSessionId` hides the calling session from the prior-session
+ *  list (it is always "just now · (no summary)" — noise, not history). */
+export interface TaskContextFormatOptions {
+  full?: boolean | undefined
+  currentSessionId?: string | undefined
+}
+
 export async function taskContext(
   identifier: string | undefined,
-  options?: { hints?: boolean }
+  options?: { hints?: boolean; full?: boolean }
 ): Promise<number | void> {
   if (!identifier) {
     console.error(
@@ -97,7 +108,12 @@ export async function taskContext(
 
   const data = (await res.json()) as TaskContextResponse
   const now = new Date()
-  process.stdout.write(formatTaskContextMarkdown(data, now))
+  process.stdout.write(
+    formatTaskContextMarkdown(data, now, {
+      full: options?.full,
+      currentSessionId: process.env.CLAUDE_CODE_SESSION_ID,
+    })
+  )
   // Emitted outside the rendered markdown so the output budget can never drop
   // it — the closing "so do this now" line is the cheapest section here.
   emitNextSteps(data.nextSteps ?? [], options ?? {})
@@ -110,7 +126,8 @@ export async function taskContext(
  */
 export function formatTaskContextMarkdown(
   data: TaskContextResponse,
-  now: Date
+  now: Date,
+  opts: TaskContextFormatOptions = {}
 ): string {
   const lines: string[] = []
   lines.push(`# Task: ${data.task.identifier}`)
@@ -148,8 +165,14 @@ export function formatTaskContextMarkdown(
 
   // Frontload memory before sessions: it's cold context the agent should see
   // first. Server returns "" when empty, in which case we skip the section.
-  if (data.memorySection && data.memorySection.trim().length > 0) {
-    lines.push(sanitizeField(data.memorySection.trimEnd()))
+  // LUM-844: by default the headline index (bodies one `memory show` away);
+  // `--full`, or an older server without the index, prints the full cards.
+  const memory =
+    !opts.full && data.memoryIndexSection !== undefined
+      ? data.memoryIndexSection
+      : data.memorySection
+  if (memory && memory.trim().length > 0) {
+    lines.push(sanitizeField(memory.trimEnd()))
     lines.push('')
   }
 
@@ -196,16 +219,19 @@ export function formatTaskContextMarkdown(
     lines.push('')
   }
 
-  if (data.sessions.length === 0) {
+  const sessions = opts.currentSessionId
+    ? data.sessions.filter(s => s.id !== opts.currentSessionId)
+    : data.sessions
+  if (sessions.length === 0) {
     lines.push('## Previous Sessions (0)')
     lines.push('')
     lines.push('_No prior coding sessions for this task._')
     lines.push('')
   } else {
-    lines.push(`## Previous Sessions (${data.sessions.length})`)
+    lines.push(`## Previous Sessions (${sessions.length})`)
     lines.push('')
 
-    for (const s of data.sessions) {
+    for (const s of sessions) {
       const shortId = s.id.slice(0, 8)
       const ago = relativeTime(new Date(s.lastActivityAt), now)
       const dur = formatDuration(s.durationMs)
@@ -221,8 +247,14 @@ export function formatTaskContextMarkdown(
 
   // Flywheel signal goes last so it reads as a closing "historical payoff"
   // footer (LUM-278). Server returns "" below the cold-start floor.
+  // LUM-844: a per-fragment audit table, not start-of-work information — by
+  // default one pointer line, the table itself under `--full`.
   if (data.lineageSection && data.lineageSection.trim().length > 0) {
-    lines.push(sanitizeField(data.lineageSection.trimEnd()))
+    lines.push(
+      opts.full
+        ? sanitizeField(data.lineageSection.trimEnd())
+        : `_Memory usefulness (judged-used track record): lumo task context ${data.task.identifier} --full_`
+    )
     lines.push('')
   }
 

@@ -56,6 +56,7 @@ jest.mock('@/lib/memory/render', () => ({
   renderMemorySection: jest.fn(() => ''),
   applyTokenBudget: jest.fn((x: unknown[]) => x),
   wrapUntrustedMemory: jest.fn((s: string) => s),
+  renderMemoryIndexBlock: jest.fn(() => ''),
   // Faithful to the real contract: "" stays "", non-empty gets the boundary —
   // lets these assembly tests assert the LUM-347 routing without re-testing
   // the wrapper's own text (covered in __tests__/lib/memory/render.test.ts).

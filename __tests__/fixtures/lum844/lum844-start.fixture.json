@@ -1,0 +1,110 @@
+{
+  "sessionId": "bc511b6c-ae27-46bd-ba57-21465530ee11",
+  "now": "2026-09-26T08:00:00.000Z",
+  "task": {
+    "identifier": "LUM-844",
+    "title": "CLI: 瘦身 session attach / task context 输出,降低会话全程的上下文重读成本",
+    "status": "TODO",
+    "description": null,
+    "descriptionMarkdown": "## 背景(token 用量分析,2026-09-25)\n\nlumo 输出进入上下文后会被之后每个 step 重读(cache\\_read),这部分成本在 `lumo cost` 里记在后续工具名下,不算 lumo。按「输出字符/3.5 × 剩余 step 数」估算,30 天本地 transcript 里:\n\n-   `session attach`:125 次,平均 4.5K 字符,估算后续重读 ≈ 24.7M\n-   `task context`:48 次,平均 6.7K 字符,估算后续重读 ≈ 22.2M 两者都在会话最开始(相对位置 ~0.1),剩余 step 最多,单位字符的代价最高。\n\n## 目标\n\n-   审计两者的输出:找出 attach 与 context 之间重复的段落(criteria 提醒、worktree 信息、Next 提示等)、低价值样板文字、可以折叠成一行 + 按需展开命令的大段(memory 全文、source cards、历史 session)\n-   默认输出只保留开工必需的信息,细节改成渐进披露(给出 `lumo memory show <id>` / `--full` 之类的展开入口)\n-   目标量级:单次输出减少 ≥50%,且不丢失开工必需信息\n\n## 约束\n\n-   不能删掉会影响正确性的信号(未处置 crossing、send-back、criteria 草拟提醒、Reference class 等);有疑问的保留\n-   同步 SKILL.md / references、grammar.json、CLI 版本 bump(同一 PR)\n\n## 关联\n\n与 LUM-841 / 842 / 843 同属 lumo CLI token 优化。\n\n## 验收思路\n\n对固定 fixture 任务比较改动前后的输出字符数;transcript 复算 attach/context 单次平均字符数下降。"
+  },
+  "criteriaSection": "## Acceptance criteria (contract)\n\nThis task has no acceptance criteria yet. Before writing the first line of code: read the task context, draft 3–7 outcome-level acceptance criteria, then submit and lock them with `lumo task criteria set <task> --file <criteria.json>`. Use the HUMAN type for criteria that cannot carry an executable check; repo-wide baselines (tests pass / tsc / i18n parity) do not take slots.\n\n### Reference class (outside view)\n\nBased on: 50 delivered tasks in project \"Lumo\"\n\n· Most common send-back reasons: criterion unmet 2/50\n· Contract still being written after work started: 1/50 deliveries\n· Most common boundary crossing: project rule violation 10/50 · deleted a test file 4/50 · infrastructure termination 3/50\n\nTasks here most often come back because a criterion simply was not met — which of yours is the one most likely to bounce?",
+  "testCaseSection": "## Test cases\n\nNo test cases on this task yet. Once a re-runnable script exists — steps plus the expected result — record it with `lumo task testcase add LUM-844 --title \"<title>\" --step \"<step>\" --expected \"<result>\"`. Parallel to the acceptance contract, not a substitute: test cases never gate DONE.",
+  "lineageSection": "## Memory usefulness · judged-used track record\n\n> Methodology: each line is the fragment’s cross-task judged-used track record — of the N tasks it appeared in, X were judged to have actually used it. A lower bound (never-audited appearances are excluded from the proven/retire calls), not a merge rate. Replaces the retired merge-rate signal (RFC LUM-535).\n\n- [MEMORY] cmpi9ss1 — judged-used in 26 of 331 tasks · proven\n- [MEMORY] cmpi9t25 — judged-used in 13 of 331 tasks · proven\n- [MEMORY] cmpqxb59 — judged-used in 6 of 331 tasks · proven\n- [MEMORY] cmprcce9 — judged-used in 8 of 326 tasks · proven\n- [MEMORY] cmq686dh — judged-used in 3 of 321 tasks · proven\n- [MEMORY] cmq7dyf6 — judged-used in 8 of 317 tasks · proven\n- [MEMORY] cmq7esos — judged-used in 5 of 317 tasks · proven",
+  "memories": [
+    {
+      "category": "TRAP",
+      "content": {
+        "trigger": "Session model uses many-to-one to a single task. User switches tasks within one session.",
+        "outcome": "All session work records under the final task only. Work on earlier tasks vanishes from records.",
+        "workaround": "Split session on task switch, or add task array to session instead of single FK."
+      },
+      "id": "cmpi9ss12000904i5b2fp2o73",
+      "scope": "PROJECT",
+      "source": "agent"
+    },
+    {
+      "category": "TRAP",
+      "content": {
+        "trigger": "Production secrets in .env.production or similar tracked by git",
+        "outcome": "Attackers read the credentials directly from history; they access prod database. You must rotate all exposed secrets and rebase to purge the file.",
+        "workaround": "Add .env.production to .gitignore before commit. Use a separate secrets store (vault, CI secrets manager, AWS Secrets Manager) for prod values. Never commit a template with real values."
+      },
+      "id": "cmpi9t257000i04i5xhjqcqrf",
+      "scope": "PROJECT",
+      "source": "agent"
+    },
+    {
+      "category": "TRAP",
+      "content": {
+        "trigger": "Entry point eager-imports a module listed as devDependency or absent from package.json.",
+        "outcome": "MODULE_NOT_FOUND on every command. Package unusable at runtime, not caught at install.",
+        "workaround": "Move all eager-imported modules to dependencies (not devDependencies). Test with fresh install before publish."
+      },
+      "id": "cmpqxb59e006q04l7mh9pm2h3",
+      "scope": "PROJECT",
+      "source": "agent"
+    },
+    {
+      "category": "TRAP",
+      "content": {
+        "trigger": "Designing a task dependency feature.",
+        "outcome": "You build a manual declaration system that users must maintain → stale edges, high UX burden, low adoption."
+      },
+      "id": "cmq7dyf6500c604lbmm4xin2b",
+      "scope": "PROJECT",
+      "source": "agent"
+    },
+    {
+      "category": "DECISION",
+      "content": {
+        "what": "Extracted sanitizeField from CLI to shared/src/sanitize.ts; applied it to server-side render paths (memory/render.ts, slack.ts) where LLM-generated free-text enters <untrusted-*> blocks.",
+        "why": "CLI already sanitized but server-side only wrapped text in untrusted tags without stripping control characters, leaving an injection vector.",
+        "implications": "All untrusted free-text at render boundaries now goes through the same function. Future render paths must use this shared sanitizeField."
+      },
+      "id": "cmq7esosi002504kyzmllnzmh",
+      "scope": "PROJECT",
+      "source": "agent"
+    },
+    {
+      "category": "CONVENTION",
+      "content": {
+        "rule": "Add large generated fixture files (e.g., vectors.fixture.json at 7.4MB) to .prettierignore to keep lint fast.",
+        "scope": "Generated data files under scripts/eval/memory/ and similar large autogenerated JSON."
+      },
+      "id": "cmq686dhv006q04l5ukewizce",
+      "scope": "PROJECT",
+      "source": "agent"
+    },
+    {
+      "category": "PROCEDURAL",
+      "content": {
+        "workflow": "Add new HookEventType to timeline UI",
+        "trigger": "Prisma adds a HookEventType enum value that needs to appear in agent-run timeline.",
+        "steps": [
+          "Add event type to AgentRunHookEventType union in types.ts.",
+          "Add case in categorizeHookEvent() to assign it to TOOL_USE, GENERATION, METADATA, or other category.",
+          "Add label to PILL_LABEL object in categorize.ts for user display.",
+          "Add case in summarizeEvent() to generate timeline short description.",
+          "Write test: iterate all HookEventType values, confirm each returns defined category and label."
+        ]
+      },
+      "id": "cmprcce99003304jrkp5brom5",
+      "scope": "PROJECT",
+      "source": "agent"
+    }
+  ],
+  "sessions": [
+    {
+      "id": "bc511b6c-ae27-46bd-ba57-21465530ee11",
+      "startedAt": "2026-09-26T07:59:59.000Z",
+      "lastActivityAt": "2026-09-26T08:00:00.000Z",
+      "durationMs": 1000,
+      "eventCount": 1,
+      "summaryType": null,
+      "headline": "(no summary)",
+      "unresolved": []
+    }
+  ],
+  "attachTrailer": "memory sync → +333 ~0 -0 · 8 stale-anchor candidate(s)\n\nWorktree for LUM-844:\n  /Users/chaoli/Desktop/lumo/lumo/.worktrees/LUM-844-cli-session-attach-task  (lumo/LUM-844-cli-session-attach-task)  ← you are here\n"
+}

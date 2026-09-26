@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.78.0",
+  "cliVersion": "1.79.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -3165,10 +3165,19 @@
       "arguments": [
         { "name": "identifier", "required": true, "variadic": false }
       ],
-      "flags": {},
+      "flags": {
+        "--full": {
+          "long": "--full",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print full memory bodies and the judged-used track-record footer instead of the one-line index"
+        }
+      },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Print a task + prior session summaries as markdown, for pasting into a coding agent on startup."
+      "description": "Print a task + prior session summaries as markdown, for pasting into a coding agent on startup. Memory prints one headline per item (full card: lumo memory show <id>)."
     },
     "task create": {
       "arguments": [{ "name": "title", "required": true, "variadic": false }],

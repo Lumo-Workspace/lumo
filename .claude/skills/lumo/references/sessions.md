@@ -93,9 +93,10 @@ What it does:
 - Reads `CLAUDE_CODE_SESSION_ID` from the environment (Claude Code sets it automatically); errors out if unset — must run from inside a Claude Code session.
 - Calls `POST /api/sessions/<session_id>/bind-task`, which sets the Session row's `taskId` and re-tags previously-untagged HookEvent rows in this session.
 - The binding lives entirely on the server (`Session.taskId`); subsequent hooks read it back via the session row. The CLI keeps no local sentinel.
-- Prints the task's **acceptance contract** (`## Acceptance criteria (contract)`) right after the bind confirmation — or, when a still-open task has none, the draft reminder to draft 3–7 criteria before the first line of code, followed by the `### Reference class (outside view)` block when history supports one (see [criteria.md](criteria.md)). The same section is auto-injected at session start when already bound (highest priority in the injection budget, ahead of memory). Right below it, a task with **no recorded test case** gets a short `## Test cases` nudge (LUM-807) — ungated by PR, silent once any case exists or the task is DONE; see [test-cases.md](test-cases.md).
+- Prints one bind line (`Attached session … to LUM-42 "title"`, plus `· re-tagged N earlier events` when N > 0), then only the start-of-work signals: the **dependency blocker** warning, **undispositioned security findings**, and the task's **acceptance contract** (`## Acceptance criteria (contract)`) — or, when a still-open task has none, the draft reminder to draft 3–7 criteria before the first line of code, followed by the `### Reference class (outside view)` block when history supports one (see [criteria.md](criteria.md)). The same section is auto-injected at session start when already bound (highest priority in the injection budget, ahead of memory).
+- Does **not** print team memory or the `## Test cases` nudge (LUM-807) — `lumo task context` prints both, and attach output is re-read on every later step (LUM-844). Instead one line: `Background (team memory, test cases, sources, prior sessions): lumo task context LUM-42`.
 
-After attaching, always run `lumo task context <identifier>` to load the task background.
+After attaching, always run `lumo task context <identifier>` to load the task background — memory and the test-case nudge live there.
 
 #### Auto-downsync on attach
 
@@ -188,7 +189,7 @@ The old end-of-session command was **removed**. The three passes it ran interact
 - confidently-unused → `used=false`
 - genuinely-uncertain edges stay `null` (honest "not voted", not "unused")
 
-Already-voted sessions are skipped; a cron backstop drains any backlog. **Why:** upgrades the flywheel signal from "co-loaded" (constant) to "actually used" (discriminative). `task context` then reports each fragment's **judged-used track record** — of the N tasks it appeared in, X were judged to have actually used it. That is a **lower bound** (never-audited appearances are excluded from the proven/retire calls), and it **replaced the retired merge-rate signal** (RFC LUM-535).
+Already-voted sessions are skipped; a cron backstop drains any backlog. **Why:** upgrades the flywheel signal from "co-loaded" (constant) to "actually used" (discriminative). `task context --full` then reports each fragment's **judged-used track record** — of the N tasks it appeared in, X were judged to have actually used it. That is a **lower bound** (never-audited appearances are excluded from the proven/retire calls), and it **replaced the retired merge-rate signal** (RFC LUM-535).
 
 > Don't confuse this with the used-vs-base **merge rate** still reported by `lumo task lineage --signal` ([task-context.md](task-context.md)) — that is a different, live metric for workspace signal-health, not the retired fragment-usefulness one.
 
