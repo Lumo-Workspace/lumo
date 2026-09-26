@@ -58,6 +58,7 @@ describe('gate-audit — CI and self-report are not merged (LUM-839)', () => {
     expect(audit.selfReported).toEqual([
       {
         command: 'npx jest',
+        invocation: 'npx jest',
         status: 'passed',
         exitCode: 0,
         at: '2026-09-10T11:00:00.000Z',

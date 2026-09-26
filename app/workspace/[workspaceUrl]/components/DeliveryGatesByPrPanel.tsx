@@ -12,7 +12,7 @@ import type {
 
 type Intl = ReturnType<typeof useIntl>
 
-/** Max command chars shown inline — the full command is in the hover title. */
+/** Max invocation chars shown inline — the full command line is in the hover title. */
 const COMMAND_MAX = 72
 
 /** Tailwind text color per status — failed is the only loud one (decision-relevant). */
@@ -154,7 +154,7 @@ function SelfReportedRow({
         title={check.command}
         className='min-w-0 truncate font-mono text-caption'
       >
-        {truncate(check.command)}
+        {truncate(check.invocation)}
       </span>
       <span className={`text-caption ${STATUS_TONE[check.status]}`}>
         {statusLabel(check.status, intl)}

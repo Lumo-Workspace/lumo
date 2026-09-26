@@ -146,12 +146,14 @@ describe('buildPerPrGateAudit', () => {
     expect(pr753.selfReported).toEqual([
       {
         command: 'npx jest __tests__/x.test.ts',
+        invocation: 'npx jest __tests__/x.test.ts',
         status: 'failed',
         exitCode: 1,
         at: '2026-06-28T09:05:00.000Z',
       },
       {
         command: 'npx tsc --noEmit',
+        invocation: 'npx tsc --noEmit',
         status: 'passed',
         exitCode: 0,
         at: '2026-06-28T09:00:00.000Z',
@@ -182,6 +184,7 @@ describe('buildPerPrGateAudit', () => {
     expect(result.prs[0]!.audit.selfReported).toEqual([
       {
         command: 'npm test',
+        invocation: 'npm test',
         status: 'passed',
         exitCode: 0,
         at: '2026-06-28T09:10:00.000Z',
