@@ -25,8 +25,10 @@ export const BASH_CATEGORIES = [
   'net',
   'script',
   'file',
-  'read',
+  // Above `read`: an unrecognised command must surface as `other` (the signal
+  // that a rule is missing) rather than hide behind a grep/cat beside it.
   'other',
+  'read',
 ] as const
 
 export type BashCategory = (typeof BASH_CATEGORIES)[number]
@@ -129,6 +131,22 @@ const READ_VERBS = new Set([
   'dirname',
   'column',
   'nl',
+  'ps',
+  'pgrep',
+  'lsof',
+  'od',
+  'hexdump',
+  'xxd',
+  'md5',
+  'md5sum',
+  'shasum',
+  'sha256sum',
+  'base64',
+  'printenv',
+  'df',
+  'uname',
+  'whoami',
+  'hostname',
 ])
 
 const GIT_READ = new Set([
@@ -183,8 +201,78 @@ const SCRIPT_VERBS = new Set([
   'zsh',
 ])
 
-const TEST_VERBS = new Set(['jest', 'vitest', 'playwright', 'mocha'])
-const CHECK_VERBS = new Set(['tsc', 'eslint', 'prettier', 'next', 'turbo'])
+const TEST_VERBS = new Set([
+  'jest',
+  'vitest',
+  'playwright',
+  'mocha',
+  'pytest',
+  'rspec',
+  'tox',
+  'nox',
+  'phpunit',
+])
+const CHECK_VERBS = new Set([
+  'tsc',
+  'eslint',
+  'prettier',
+  'next',
+  'turbo',
+  'make',
+  'ruff',
+  'mypy',
+  'black',
+  'isort',
+  'flake8',
+  'pylint',
+  'pyright',
+  'golangci-lint',
+  'gofmt',
+  'rubocop',
+  'biome',
+  'cmake',
+])
+const NET_VERBS = new Set([
+  'vercel',
+  'curl',
+  'wget',
+  'docker',
+  'docker-compose',
+  'podman',
+  'kubectl',
+  'helm',
+  'terraform',
+  'aws',
+  'gcloud',
+  'az',
+  'fly',
+  'flyctl',
+  'netlify',
+  'wrangler',
+])
+
+/** Build tools whose SUBCOMMAND says test vs build: `go test`, `cargo build`,
+ *  `mvn package`, `./gradlew test`, `dotnet test`. Anything else they do
+ *  (`go run`, `cargo add` …) is build-ish tooling → `check`. */
+const SUBCOMMAND_TOOLS = new Set([
+  'go',
+  'cargo',
+  'mvn',
+  'mvnw',
+  'gradle',
+  'gradlew',
+  'dotnet',
+  'swift',
+])
+const TEST_SUBCOMMAND = /^(?:test|nextest|verify)$/
+const ASSIGNMENTS_ONLY =
+  /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)\s*)+$/
+const TIMEOUT_PREFIX = /^(?:g?timeout)\s+(?:-\S+\s+)*\S+\s+/
+
+/** Wrappers that run another command: `uv run pytest`, `poetry run mypy`,
+ *  `bundle exec rspec`, `python -m pytest`. Classified by what they run. */
+const RUNNER =
+  /^(?:uv|poetry|pipenv|pdm|hatch|rye)\s+run\s+|^bundle\s+exec\s+|^python[\d.]*\s+-m\s+/
 /** `npm test`, `npm run test:unit`, `pnpm lint` … → the script name. Matched on
  *  the raw segment: `verbOf` skips `pnpm` / `yarn` as launcher prefixes. */
 const PKG_SCRIPT =
@@ -199,6 +287,17 @@ function classifySegment(segment: string): BashCategory | null {
   const verb = parsed.verb.replace(/[)}]+$/, '')
   const rest = parsed.rest
   if (NOISE_VERBS.has(verb)) return null
+  // A segment that only assigns variables (`S=/tmp/x;`) runs nothing.
+  if (ASSIGNMENTS_ONLY.test(seg)) return null
+  const timeout = seg.match(TIMEOUT_PREFIX)
+  if (timeout) return classifySegment(seg.slice(timeout[0].length))
+  const runner = seg.match(RUNNER)
+  if (runner) return classifySegment(seg.slice(runner[0].length))
+  if (SUBCOMMAND_TOOLS.has(verb)) {
+    const sub = rest.find(t => !t.startsWith('-')) ?? ''
+    return TEST_SUBCOMMAND.test(sub) ? 'test' : 'check'
+  }
+  if (verb === 'make' && /^test/.test(rest[0] ?? '')) return 'test'
 
   // Checked on the whole segment: `npx tsx scripts/jest-t.ts …` runs jest.
   if (TEST_VERBS.has(verb) || /\bjest-t\.ts\b/.test(seg)) return 'test'
@@ -227,14 +326,18 @@ function classifySegment(segment: string): BashCategory | null {
   }
   if (verb === 'gh') return 'gh'
   if (verb === 'lumo') return 'lumo'
-  if (verb === 'vercel' || verb === 'curl' || verb === 'wget') return 'net'
+  if (NET_VERBS.has(verb)) return 'net'
   if (SCRIPT_VERBS.has(verb)) return 'script'
   if (FILE_VERBS.has(verb)) return 'file'
   if (READ_VERBS.has(verb)) return 'read'
   return 'other'
 }
 
-function collect(cmd: string, out: BashCategory[], depth: number): void {
+function collect(
+  cmd: string,
+  out: { category: BashCategory; segment: string }[],
+  depth: number
+): void {
   for (const raw of splitSegmentsQuoteAware(cmd)) {
     const seg = raw.trim()
     if (!seg) continue
@@ -243,9 +346,28 @@ function collect(cmd: string, out: BashCategory[], depth: number): void {
       collect(inner, out, depth + 1)
       continue
     }
-    const c = classifySegment(seg)
-    if (c) out.push(c)
+    const category = classifySegment(seg)
+    if (category) out.push({ category, segment: seg })
   }
+}
+
+/**
+ * The verbs of a command's segments that no rule recognised (classified
+ * `other`) — what to add a rule for when `Bash · other` grows. Deduped, in
+ * order of appearance.
+ */
+export function unrecognisedVerbs(command: string): string[] {
+  const found: { category: BashCategory; segment: string }[] = []
+  collect(command, found, 0)
+  const verbs = found
+    .filter(f => f.category === 'other')
+    .map(f =>
+      verbOf(f.segment.replace(/^[({]\s*/, ''))
+        .verb.replace(/[)}]+$/, '')
+        .slice(0, 40)
+    )
+    .filter(Boolean)
+  return [...new Set(verbs)]
 }
 
 /**
@@ -253,11 +375,11 @@ function collect(cmd: string, out: BashCategory[], depth: number): void {
  * of plumbing (`echo`, `cd`, `sleep` …) or that is empty is `other`.
  */
 export function classifyBashCommand(command: string): BashCategory {
-  const found: BashCategory[] = []
+  const found: { category: BashCategory; segment: string }[] = []
   collect(command, found, 0)
   if (found.length === 0) return 'other'
-  let best = found[0]!
-  for (const c of found) {
+  let best = found[0]!.category
+  for (const { category: c } of found) {
     if (
       BASH_CATEGORY_PRIORITY.indexOf(c) < BASH_CATEGORY_PRIORITY.indexOf(best)
     )

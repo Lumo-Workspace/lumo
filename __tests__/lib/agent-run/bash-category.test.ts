@@ -84,6 +84,50 @@ describe('classifyBashCommand', () => {
     expect(classifyBashCommand(script)).toBe('script')
   })
 
+  it('classifies common non-Node toolchains', () => {
+    const cases: [string, string][] = [
+      ['pytest tests/', 'test'],
+      ['python -m pytest -x', 'test'],
+      ['uv run pytest', 'test'],
+      ['cd api && pytest -x', 'test'],
+      ['go test ./...', 'test'],
+      ['cargo test --workspace', 'test'],
+      ['bundle exec rspec spec/a_spec.rb', 'test'],
+      ['mvn test', 'test'],
+      ['./gradlew test', 'test'],
+      ['make test', 'test'],
+      ['make build', 'check'],
+      ['mvn package', 'check'],
+      ['./gradlew build', 'check'],
+      ['cargo build --release', 'check'],
+      ['go vet ./...', 'check'],
+      ['ruff check .', 'check'],
+      ['poetry run mypy src', 'check'],
+      ['black --check .', 'check'],
+      ['golangci-lint run', 'check'],
+      ['docker compose up -d', 'net'],
+      ['kubectl get pods', 'net'],
+      ['terraform plan', 'net'],
+      ['helm upgrade app ./chart', 'net'],
+      ['timeout 60 pytest', 'test'],
+      ['ps aux | grep jest', 'read'],
+      ['pgrep -fl next-server', 'read'],
+    ]
+    for (const [cmd, expected] of cases) {
+      expect([cmd, classifyBashCommand(cmd)]).toEqual([cmd, expected])
+    }
+  })
+
+  it('an unknown command outranks read', () => {
+    expect(classifyBashCommand('foo-new-tool --x && grep bar a.txt')).toBe(
+      'other'
+    )
+    expect(classifyBashCommand('some-cli status | head -5')).toBe('other')
+    // Plumbing and bare variable assignments are still not commands.
+    expect(classifyBashCommand('S=/tmp/x; echo hi; cat $S/a')).toBe('read')
+    expect(classifyBashCommand('cd /repo && sleep 2 && ls')).toBe('read')
+  })
+
   it('treats pure plumbing or an empty command as other', () => {
     expect(classifyBashCommand('')).toBe('other')
     expect(classifyBashCommand('sleep 20; echo waited')).toBe('other')
