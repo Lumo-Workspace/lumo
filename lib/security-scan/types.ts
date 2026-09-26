@@ -84,7 +84,8 @@ export const INCOMPLETE_STAGE_STATES: ReadonlySet<ScanStageState> = new Set([
 /** A SARIF rule reduced to what normalisation needs (tool.driver.rules[]). */
 export interface SarifRule {
   id: string
-  shortDescription: string | null
+  /** First line of shortDescription → fullDescription → help.text. */
+  title: string | null
   helpUri: string | null
   /** `properties.security-severity` parsed as a number (CVSS-like 0–10). */
   securitySeverity: number | null

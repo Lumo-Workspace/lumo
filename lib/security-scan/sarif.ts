@@ -54,6 +54,17 @@ function unsupported(reason: string): Error {
   })
 }
 
+/** First non-blank line of a rule's `{ text }` message (help text is often multi-line). */
+function firstLine(v: unknown): string | null {
+  const text = str(rec(v)?.['text'])
+  return (
+    text
+      ?.split('\n')
+      .find(l => l.trim() !== '')
+      ?.trim() ?? null
+  )
+}
+
 function parseRule(raw: unknown): SarifRule | null {
   const r = rec(raw)
   const id = str(r?.['id'])
@@ -68,7 +79,11 @@ function parseRule(raw: unknown): SarifRule | null {
         : NaN
   return {
     id,
-    shortDescription: str(rec(r?.['shortDescription'])?.['text']),
+    // zizmor writes no shortDescription, only `help.text` (LUM-850).
+    title:
+      firstLine(r?.['shortDescription']) ??
+      firstLine(r?.['fullDescription']) ??
+      firstLine(r?.['help']),
     helpUri: str(r?.['helpUri']),
     securitySeverity: Number.isFinite(sev) ? sev : null,
     tags: arr(props?.['tags']).filter(
@@ -505,7 +520,7 @@ export function normalizeSarif(
         // Dependencies carry no region; a stray line from a tool must not
         // turn into an inline PR comment on a lockfile.
         line: supplyChain ? null : startLine,
-        title: redactKnownSecrets(rule?.shortDescription?.trim() || r.ruleId),
+        title: redactKnownSecrets(rule?.title || r.ruleId),
         // osv-scanner quotes the package and advisory ids; the quoted-value
         // masker (built for secrets) would blank exactly the words a reader
         // needs, so the quotes are dropped first. The pattern pass still runs.
