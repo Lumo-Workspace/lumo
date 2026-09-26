@@ -28,15 +28,16 @@ import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
-  addedLinesWithNumbers,
-  changedLinesOf,
+  changedLinesOfDiff,
   MAX_SCANNED_LINE_CHARS,
   normalizeSarif,
   parseSarif,
   redactKnownSecrets,
+  trivyFileLevelKeys,
 } from '@/lib/security-scan'
 import {
   MANAGED_REPORT_PATH,
+  MANAGED_SIDECAR_PATH,
   SHA_GUARD_EXIT,
   managedToolScript,
 } from './security-managed-scan.scripts'
@@ -194,6 +195,12 @@ export { repoCheckoutDir }
 
 type ToolReport = Buffer | { failed: string } | { skipped: string }
 
+/** What one sandbox run hands back: each tool's SARIF, plus LUM-851 sidecars. */
+interface CollectedReports {
+  reports: Partial<Record<ManagedScanTool, ToolReport>>
+  sidecars: Partial<Record<ManagedScanTool, Buffer>>
+}
+
 async function runTool(
   sandbox: RepoSandbox,
   tool: ManagedScanTool,
@@ -286,7 +293,7 @@ async function collectReports(opts: {
    * nobody stops it on purpose (see `ManagedScanJob.huntWanted`).
    */
   keepAlive?: boolean
-}): Promise<Partial<Record<ManagedScanTool, ToolReport>>> {
+}): Promise<CollectedReports> {
   const { token } = opts
   let sandbox: RepoSandbox
   try {
@@ -307,6 +314,7 @@ async function collectReports(opts: {
   }
   try {
     const reports: Partial<Record<ManagedScanTool, ToolReport>> = {}
+    const sidecars: Partial<Record<ManagedScanTool, Buffer>> = {}
     const cwd = repoCheckoutDir(sandbox.cwd, opts.repository)
     for (const tool of MANAGED_SCAN_TOOLS) {
       try {
@@ -321,8 +329,13 @@ async function collectReports(opts: {
       } catch (error) {
         throw new Error(scrubToken(message(error), token))
       }
+      const sidecarPath = MANAGED_SIDECAR_PATH[tool]
+      if (sidecarPath && Buffer.isBuffer(reports[tool])) {
+        const sidecar = await readSidecar(sandbox, sidecarPath, tool, opts)
+        if (sidecar) sidecars[tool] = sidecar
+      }
     }
-    return reports
+    return { reports, sidecars }
   } finally {
     // LUM-758: a VM the hunt is going to reuse outlives this function on
     // purpose. Stopping it here would kill the hunt's checkout; stopping it
@@ -347,9 +360,50 @@ async function collectReports(opts: {
   }
 }
 
+/**
+ * LUM-851 — a sidecar only sharpens lines, so losing one must cost exactly
+ * that: no sidecar (unreadable, oversized) is a warning, the SARIF stands.
+ */
+async function readSidecar(
+  sandbox: RepoSandbox,
+  path: string,
+  tool: ManagedScanTool,
+  opts: { label: string; token: string }
+): Promise<Buffer | null> {
+  try {
+    const buf = await sandbox.readFile(path)
+    if (buf && buf.byteLength <= MANAGED_REPORT_MAX_BYTES) return buf
+    logger.warn(
+      `[security-managed-scan] ${logSafe(tool)} sidecar ${buf ? `${buf.byteLength}B over cap` : 'missing'} ${opts.label}, keeping SARIF lines`
+    )
+  } catch (error) {
+    logger.warn(
+      `[security-managed-scan] ${logSafe(tool)} sidecar unreadable ${opts.label}: ${scrubToken(message(error), opts.token).slice(0, 200)}`
+    )
+  }
+  return null
+}
+
+/** LUM-851 — the file-level result keys a tool's sidecar names; empty when it names none or is unusable. */
+function fileLevelResultsOf(
+  tool: ManagedScanTool,
+  sidecar: Buffer | undefined,
+  label: string
+): Set<string> {
+  if (!sidecar || tool !== 'trivy') return new Set()
+  try {
+    return trivyFileLevelKeys(JSON.parse(sidecar.toString('utf8')))
+  } catch {
+    logger.warn(
+      `[security-managed-scan] ${logSafe(tool)} sidecar is not JSON ${label}, keeping SARIF lines`
+    )
+    return new Set()
+  }
+}
+
 /** Parse + normalize every report in-process; per-tool failures are values. */
 function normalizeReports(
-  reports: Partial<Record<ManagedScanTool, ToolReport>>,
+  { reports, sidecars }: CollectedReports,
   opts: {
     changedLines: Map<string, Set<number>> | null
     maxFindings?: number
@@ -377,6 +431,11 @@ function normalizeReports(
         {
           toolHint: tool,
           changedLines: opts.changedLines,
+          fileLevelResults: fileLevelResultsOf(
+            tool,
+            sidecars[tool],
+            opts.label
+          ),
           ...(opts.maxFindings !== undefined
             ? { maxFindings: opts.maxFindings }
             : {}),
@@ -463,7 +522,7 @@ export const securityManagedScanService = {
       throw new Error(scrubToken(message(error), token))
     }
     return normalizeReports(reports, {
-      changedLines: changedLinesOf(addedLinesWithNumbers(diff)),
+      changedLines: changedLinesOfDiff(diff),
       token,
       label,
     })

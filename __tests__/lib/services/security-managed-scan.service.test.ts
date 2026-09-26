@@ -147,8 +147,12 @@ describe('LUM-846 zizmor and trivy in the managed sandbox', () => {
       `echo "${TRIVY_SHA256}  /tmp/trivy.tgz" | sha256sum -c --quiet -`
     )
     expect(trivy.indexOf('sha256sum')).toBeLessThan(trivy.indexOf('tar -xzf'))
+    // LUM-851: JSON first (it keeps "no line"), SARIF converted from it.
     expect(trivy).toContain(
-      '/tmp/trivy config --severity MEDIUM,HIGH,CRITICAL --exit-code 0 --format sarif --output /tmp/trivy.sarif .'
+      '/tmp/trivy config --severity MEDIUM,HIGH,CRITICAL --exit-code 0 --format json --output /tmp/trivy.json .'
+    )
+    expect(trivy).toContain(
+      'cd /tmp && /tmp/trivy convert --format sarif --output /tmp/trivy.sarif /tmp/trivy.json'
     )
     for (const call of sb.run.mock.calls) {
       expect(call[2]).toEqual({ cwd: '/vercel/r' })
@@ -260,5 +264,72 @@ describe('LUM-846 zizmor and trivy in the managed sandbox', () => {
     expect(out.tools).toContain('trivy')
     // 15 trivy hits (two containers each keep their own fingerprint).
     expect(out.fingerprints).toHaveLength(15)
+  })
+})
+
+describe('LUM-851 trivy checks with no line of their own', () => {
+  const lum851 = (name: string) =>
+    readFileSync(join(__dirname, '../../fixtures/lum851', name), 'utf8')
+  const NO_USER = {
+    ...REPORTS,
+    '/tmp/trivy.sarif': lum851('pr-no-user.trivy.sarif'),
+    '/tmp/trivy.json': lum851('pr-no-user.trivy.json'),
+  }
+
+  it('LUM-851 deleting the USER line reports DS-0002 without a line', async () => {
+    ;(fetchPrDiff as jest.Mock).mockResolvedValue(lum851('pr-no-user.diff'))
+    const sb = fakeSandbox(NO_USER)
+    create.mockResolvedValue(sb)
+    const out = await securityManagedScanService.scanRepository(JOB)
+    if (out.trivy.kind !== 'ok') throw new Error(JSON.stringify(out.trivy))
+    expect(out.trivy.findings.map(f => [f.ruleId, f.filePath, f.line])).toEqual(
+      [['ext:trivy:DS-0002', 'Dockerfile', null]]
+    )
+    expect(out.trivy.dropped.notInDiff).toBe(0)
+    expect(sb.readFile).toHaveBeenCalledWith('/tmp/trivy.json')
+  })
+
+  it('LUM-851 invariant a missing trivy JSON keeps the SARIF lines and does not fail the layer', async () => {
+    ;(fetchPrDiff as jest.Mock).mockResolvedValue(lum851('pr-no-user.diff'))
+    create.mockResolvedValue(
+      fakeSandbox({ ...NO_USER, '/tmp/trivy.json': null })
+    )
+    const out = await securityManagedScanService.scanRepository(JOB)
+    // Pre-LUM-851 behaviour: the placeholder line 1 is not an added line.
+    expect(out.trivy).toMatchObject({ kind: 'ok', findings: [] })
+  })
+
+  it('LUM-851 invariant an unparseable trivy JSON keeps the SARIF lines and does not fail the layer', async () => {
+    create.mockResolvedValue(
+      fakeSandbox({ ...REPORTS, '/tmp/trivy.json': '{not json' })
+    )
+    const out = await securityManagedScanService.scanRepository(JOB)
+    if (out.trivy.kind !== 'ok') throw new Error(JSON.stringify(out.trivy))
+    expect(
+      out.trivy.findings.find(f => f.ruleId === 'ext:trivy:DS-0002')?.line
+    ).toBe(1)
+  })
+
+  it('LUM-851 invariant the baseline fingerprint set is the same with and without the trivy JSON', async () => {
+    const baseline = async (files: Record<string, string | null>) => {
+      create.mockResolvedValue(fakeSandbox(files))
+      const out = await securityManagedScanService.scanBaseline({
+        workspaceId: 'w1',
+        repo: 'o/r',
+        sha: 'b'.repeat(40),
+      })
+      return [...out.fingerprints].sort()
+    }
+    const lum851Tree = {
+      ...REPORTS,
+      '/tmp/trivy.sarif': lum851('trivy.sarif'),
+      '/tmp/trivy.json': lum851('trivy.json'),
+    }
+    const withJson = await baseline(lum851Tree)
+    expect(withJson).toEqual(
+      await baseline({ ...lum851Tree, '/tmp/trivy.json': null })
+    )
+    // …and the LUM-846 direct-SARIF report of the same tree.
+    expect(withJson).toEqual(await baseline(REPORTS))
   })
 })

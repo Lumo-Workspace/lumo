@@ -28,10 +28,9 @@ import {
 } from '@/lib/repositories/pr-security-scan.repository'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import {
-  addedLinesWithNumbers,
   parseSarif,
   normalizeSarif,
-  changedLinesOf,
+  changedLinesOfDiff,
   EXTERNAL_ERROR_PREFIX,
   type NormalizeResult,
   type RawSarifFinding,
@@ -276,7 +275,7 @@ export const securitySarifIngestService = {
     })
     const n = normalizeSarif(runs, {
       toolHint: input.tool,
-      changedLines: changedLinesOf(addedLinesWithNumbers(diff)),
+      changedLines: changedLinesOfDiff(diff),
     })
     return {
       kind: 'ok',

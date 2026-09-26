@@ -510,6 +510,29 @@ describe('securityPrReviewService.sync', () => {
     expect(createIssue.mock.calls[0][0].body).toContain('**2 open findings**')
   })
 
+  it('LUM-851 file-level trivy DS-0002 is counted in the summary but gets no inline comment', async () => {
+    findById.mockResolvedValue(
+      scanRow({
+        findings: [
+          finding({
+            id: 'a',
+            kind: 'VULNERABILITY',
+            provenance: 'EXTERNAL_TOOL',
+            ruleId: 'ext:trivy:DS-0002',
+            filePath: 'Dockerfile',
+            line: null,
+            title: "Image user should not be 'root'",
+            fingerprint: 'fpTrivy',
+          }),
+        ],
+      })
+    )
+    const res = await securityPrReviewService.sync('s1')
+    expect(res).toEqual({ posted: true, inline: 0, skipped: 0 })
+    expect(createReview).not.toHaveBeenCalled()
+    expect(createIssue.mock.calls[0][0].body).toContain('**1 open finding**')
+  })
+
   it('posts summary only (no review) when the scan has no findings', async () => {
     findById.mockResolvedValue(scanRow({ findings: [] }))
     const res = await securityPrReviewService.sync('s1')

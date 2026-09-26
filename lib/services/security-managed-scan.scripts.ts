@@ -40,6 +40,15 @@ export const MANAGED_REPORT_PATH: Record<ManagedScanTool, string> = {
   trivy: '/tmp/trivy.sarif',
 }
 
+/**
+ * LUM-851 — a second report a tool leaves next to its SARIF. trivy's JSON is
+ * the only place a check with no line of its own (DS-0002) says so; its
+ * SARIF writes 1:1 for those, same as a real line-1 hit.
+ */
+export const MANAGED_SIDECAR_PATH: Partial<Record<ManagedScanTool, string>> = {
+  trivy: '/tmp/trivy.json',
+}
+
 /** LUM-846: download a pinned tarball and refuse to unpack it unless its sha256 matches. */
 function verifiedDownload(url: string, sha256: string, file: string): string {
   return `curl -sSL -o ${file} "${url}"; echo "${sha256}  ${file}" | sha256sum -c --quiet -`
@@ -84,11 +93,17 @@ const SCRIPT_BODY: Record<ManagedScanTool, string> = {
   // CloudFormation misconfigurations). `--exit-code 0` is explicit because a
   // trivy.yaml in the customer's checkout is loaded by default and could set
   // it; any non-zero exit is therefore a real failure.
+  // LUM-851: the scan writes JSON (the only format that keeps "this check has
+  // no line"), and `trivy convert` renders the SARIF from that same JSON with
+  // the same writer the scan used — so the SARIF, and every fingerprint keyed
+  // on its message, is what a direct `--format sarif` produced. convert runs
+  // from /tmp so it cannot load a trivy.yaml from the customer's checkout.
   trivy: [
     'set -e',
     verifiedDownload(TRIVY_URL, TRIVY_SHA256, '/tmp/trivy.tgz'),
     'tar -xzf /tmp/trivy.tgz -C /tmp trivy',
-    `/tmp/trivy config --severity ${TRIVY_SEVERITIES} --exit-code 0 --format sarif --output ${MANAGED_REPORT_PATH.trivy} .`,
+    `/tmp/trivy config --severity ${TRIVY_SEVERITIES} --exit-code 0 --format json --output ${MANAGED_SIDECAR_PATH.trivy} .`,
+    `cd /tmp && /tmp/trivy convert --format sarif --output ${MANAGED_REPORT_PATH.trivy} ${MANAGED_SIDECAR_PATH.trivy}`,
   ].join('\n'),
 }
 
