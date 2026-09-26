@@ -28,6 +28,7 @@ import {
   type SuggestionOutcome,
 } from '@/lib/repositories/pr-security-scan.repository'
 import { suggestionOutcomeFor } from '@/lib/security-scan/suggestion'
+import { cleanPrSummary, type PrSummary } from '@/lib/security-scan/pr-summary'
 import { fetchPrDiff, fetchPrHeadSha } from '@/lib/integrations/github/contents'
 import {
   addedLinesWithNumbers,
@@ -741,6 +742,9 @@ export const prSecurityScanService = {
       // the pass actually runs — a scan with no files never had a budget, and
       // "not recorded" is the honest reading of that, not a budget of zero.
       let judgeBudget: JudgeBudget | null = null
+      // LUM-849: the judge's own description of the PR, for the summary
+      // comment. Only a judge that answered writes one.
+      let prSummary: PrSummary | null = null
       const judgeRows: NewFindingInput[] = []
       // LUM-832 — like CodeRabbit's limit, a diff over the AI review's top
       // tier is not reviewed at all: no model call, no tokens. The customer is
@@ -803,11 +807,14 @@ export const prSecurityScanService = {
           // it. Secrets are stage A's job (deterministic, above); the judge
           // still sees the `AKIA…(len 20)` shape if it wants to reason about
           // a hardcoded credential, it just never sees the value.
-          const { findings } = await judgeSecurity({
+          const { findings, prSummary: rawSummary } = await judgeSecurity({
             diff: redactForInjection(capped.text).text,
             timeoutMs: tier.timeoutMs,
           })
           judgeStatus = 'RAN'
+          // Model text headed for a public PR: redacted and neutralised here,
+          // and again on read (`parsePrSummary`).
+          prSummary = cleanPrSummary(rawSummary)
           for (const j of findings) {
             const isCredential = j.kind === 'hardcoded_credential'
             const ruleId = isCredential
@@ -916,6 +923,7 @@ export const prSecurityScanService = {
         judgeStatus,
         truncated,
         judgeBudget,
+        prSummary,
         stages,
         partialCauses,
         ...(huntSkippedForCap

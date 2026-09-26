@@ -10,6 +10,7 @@ import type {
 } from '@/lib/security-scan/types'
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import type { JudgeBudget } from '@/lib/security-scan/judge-budget'
+import type { PrSummary } from '@/lib/security-scan/pr-summary'
 import {
   mergePartialCauses,
   type PartialCause,
@@ -110,6 +111,11 @@ export interface FinalizeScanInput {
    * erase a number an earlier writer established.
    */
   judgeBudget?: JudgeBudget | null
+  /**
+   * LUM-849 — the judge's cleaned PR description. Absent/null leaves the
+   * column alone, like `judgeBudget` (`restart` is what clears it).
+   */
+  prSummary?: PrSummary | null
   /** LUM-735 — per-layer outcomes; whatever was collected when the scan ended. */
   stages: ScanStages
   /**
@@ -307,6 +313,8 @@ export interface ScanForReview {
   /** LUM-832: where the size-cap facts live (hunt overCap, judge budget). */
   huntAudit: unknown
   judgeBudget: unknown
+  /** LUM-849: raw Json — read with `parsePrSummary`. */
+  prSummary: unknown
   partial: boolean
   error: string | null
   /** LUM-740: the summary comment this scan (or an earlier one) already owns. */
@@ -579,6 +587,8 @@ export const prSecurityScanRepository = {
           status: 'RUNNING',
           judgeStatus: null,
           truncated: false,
+          // LUM-849: the re-run's judge writes its own description.
+          prSummary: Prisma.DbNull,
           // LUM-745: a superseded layer carries no result and no rows —
           // preserving it would leave the re-run permanently "superseded".
           stages:
@@ -690,6 +700,11 @@ export const prSecurityScanRepository = {
             ? {
                 judgeBudget:
                   final.judgeBudget as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
+          ...(final.prSummary
+            ? {
+                prSummary: final.prSummary as unknown as Prisma.InputJsonValue,
               }
             : {}),
           stages,
@@ -1151,6 +1166,7 @@ export const prSecurityScanRepository = {
         partialCauses: true,
         huntAudit: true,
         judgeBudget: true,
+        prSummary: true,
         partial: true,
         error: true,
         summaryCommentId: true,

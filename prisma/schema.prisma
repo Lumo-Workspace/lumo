@@ -1586,6 +1586,11 @@ model PrSecurityScan {
   // budget step). null is NOT zero: `truncated` alone cannot tell a PR that
   // spent 2% of its tier from one that spent 98%.
   judgeBudget      Json?
+  // LUM-849: the judge's description of the PR — { intent, changes[] }, from
+  // the same call that looks for vulnerabilities; already redacted and
+  // neutralised (lib/security-scan/pr-summary.ts). null = the judge did not
+  // run on this head (skipped, over its size cap, unavailable) or an older row.
+  prSummary        Json?
   // LUM-735: per-layer outcome { secrets|external|supplyChain|judge|hunt:
   // RAN|FAILED|SKIPPED|NOT_CONFIGURED|PARTIAL }. null on rows written before
   // this column existed — the service derives a legacy view from judgeStatus.
