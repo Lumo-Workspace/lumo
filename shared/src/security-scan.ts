@@ -75,6 +75,26 @@ export const SCAN_STAGE_LABELS: Record<ScanStageKeyName, string> = {
 }
 
 /**
+ * LUM-849 — what each layer looks for, in words a reader who has never heard
+ * of the layer can follow. The PR summary's "What was checked" block prints
+ * it next to the label: a name and a state ("Exploit paths: checked") told a
+ * customer nothing about what had been checked.
+ *
+ * Describes the check, never a tool or model (same rule as the labels):
+ * `external` also carries SARIF a customer uploads from their own scanners.
+ */
+export const SCAN_STAGE_DESCRIPTIONS: Record<ScanStageKeyName, string> = {
+  secrets: 'API keys, tokens and passwords written into the added lines',
+  external:
+    'rule-based scanners for insecure code patterns, leaked credentials, CI workflows and infrastructure config',
+  supplyChain:
+    'the packages this PR adds or updates, against public vulnerability databases',
+  judge:
+    'an AI reviewer reads the added code for injection, XSS, SSRF, path traversal, auth bypass and weak crypto',
+  hunt: 'traces whether outside input can reach a dangerous call across files, then tries to disprove each path it finds',
+}
+
+/**
  * What each state is called. `RAN` deliberately reads as "checked", not as a
  * tick or "clean": it means the layer completed, and a layer that completed
  * may well have found something — the findings are counted on their own

@@ -42,6 +42,7 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
+import { SCAN_STAGE_DESCRIPTIONS as D } from '@/shared/src/security-scan'
 import {
   securityPrReviewService,
   buildInlineComment,
@@ -243,9 +244,11 @@ describe('pure builders', () => {
         '⚠ Code scan failed: semgrep exit 2',
         '',
         '<details>',
-        '<summary>Scan layers</summary>',
+        '<summary>What was checked</summary>',
         '',
-        "- Secrets: checked · Code scan: ⚠ didn't finish (semgrep 3, gitleaks 1) · AI review: checked",
+        '- **Secrets** (checked): API keys, tokens and passwords written into the added lines',
+        "- **Code scan** (⚠ didn't finish · semgrep 3, gitleaks 1): rule-based scanners for insecure code patterns, leaked credentials, CI workflows and infrastructure config",
+        '- **AI review** (checked): an AI reviewer reads the added code for injection, XSS, SSRF, path traversal, auth bypass and weak crypto',
         '',
         '</details>',
         '',
@@ -274,9 +277,15 @@ describe('pure builders', () => {
       taskUrl: null,
     })
 
-    expect(summary).toContain(
-      '- Secrets: checked · Code scan: checked (semgrep 3, gitleaks 1) · Dependencies: checked · AI review: checked · Exploit paths: \u26a0 partly checked'
-    )
+    for (const line of [
+      `- **Secrets** (checked): ${D.secrets}`,
+      `- **Code scan** (checked · semgrep 3, gitleaks 1): ${D.external}`,
+      `- **Dependencies** (checked): ${D.supplyChain}`,
+      `- **AI review** (checked): ${D.judge}`,
+      `- **Exploit paths** (\u26a0 partly checked): ${D.hunt}`,
+    ]) {
+      expect(summary).toContain(line)
+    }
     for (const key of [
       'secrets:',
       'external:',
@@ -307,9 +316,9 @@ describe('pure builders', () => {
         '**No open findings on lines this PR added.**',
         '',
         '<details>',
-        '<summary>Scan layers</summary>',
+        '<summary>What was checked</summary>',
         '',
-        '- Secrets: checked',
+        `- **Secrets** (checked): ${D.secrets}`,
         '',
         '</details>',
         '',
@@ -399,9 +408,11 @@ describe('securityPrReviewService.sync', () => {
         '**Files needing attention:** `src/cfg.ts`',
         '',
         '<details>',
-        '<summary>Scan layers</summary>',
+        '<summary>What was checked</summary>',
         '',
-        '- Secrets: checked · Code scan: checked · AI review: checked',
+        `- **Secrets** (checked): ${D.secrets}`,
+        `- **Code scan** (checked): ${D.external}`,
+        `- **AI review** (checked): ${D.judge}`,
         '',
         '</details>',
         '',
@@ -581,7 +592,7 @@ describe('securityPrReviewService.sync', () => {
     const comments = createReview.mock.calls[0][0].comments
     expect(comments.map((c: { line: number }) => c.line)).toEqual([3, 2, 4, 1])
     expect(createIssue.mock.calls[0][0].body).toContain(
-      '- Secrets: checked · Code scan: checked (gitleaks 1, semgrep 1) · AI review: checked'
+      `- **Code scan** (checked · gitleaks 1, semgrep 1): ${D.external}`
     )
   })
 
@@ -613,7 +624,7 @@ describe('securityPrReviewService.sync', () => {
     expect(body).not.toContain('Code scan failed')
     expect(body).not.toContain('TypeError: boom')
     // The stage line still says FAILED — the fact is published, the text is not.
-    expect(body).toContain("Code scan: ⚠ didn't finish")
+    expect(body).toContain("- **Code scan** (⚠ didn't finish):")
   })
 
   it('a comment whose author was deleted (user: null) is skipped, not thrown on', async () => {
@@ -792,7 +803,7 @@ describe('LUM-738 supplyChain surface — PR summary', () => {
     taskUrl: null,
   }
 
-  it('adds the dependency line with new vs already-on-main counts and shows supplyChain in the stage line', () => {
+  it('puts new vs already-on-main counts on the Dependencies layer line', () => {
     const body = buildSummary({
       ...base,
       stages: {
@@ -805,11 +816,10 @@ describe('LUM-738 supplyChain surface — PR summary', () => {
       dependencies: { open: 2, persisting: 3 },
     })
     expect(body).toContain(
-      '- Secrets: checked · Code scan: checked · Dependencies: checked · AI review: checked'
+      `- **Dependencies** (checked · 2 vulnerable dependencies (3 already on main)): ${D.supplyChain}`
     )
-    expect(body).toContain(
-      '- Dependencies: 2 vulnerable dependencies (3 already on main)'
-    )
+    // LUM-849: one Dependencies line, not a layer line plus a result line.
+    expect(body.match(/Dependencies/g)).toHaveLength(1)
     expect(body).toContain('**2 open findings**')
   })
 
@@ -821,24 +831,26 @@ describe('LUM-738 supplyChain surface — PR summary', () => {
         open: 1,
         dependencies: { open: 1, persisting: 0 },
       })
-    ).toContain('- Dependencies: 1 vulnerable dependency\n')
+    ).toContain('- **Dependencies** (checked · 1 vulnerable dependency): ')
     expect(
       buildSummary({
         ...base,
         stages: { supplyChain: 'RAN' },
         dependencies: { open: 0, persisting: 0 },
       })
-    ).toContain('- Dependencies: no known vulnerabilities')
+    ).toContain('- **Dependencies** (checked · no known vulnerabilities): ')
     expect(
       buildSummary({ ...base, stages: { supplyChain: 'SKIPPED' } })
-    ).toContain('- Dependencies: no package sources found')
-    // Pending with nothing yet: no dependency line, and the scan is not clean.
+    ).toContain('(skipped · no package sources found): ')
+    // Pending with nothing yet: the layer line states no result, and the
+    // scan is not clean.
     const pending = buildSummary({
       ...base,
       stages: { secrets: 'RAN', external: 'PENDING', supplyChain: 'PENDING' },
       dependencies: { open: 0, persisting: 0 },
     })
-    expect(pending).not.toContain('- Dependencies')
+    expect(pending).toContain(`- **Dependencies** (scanning): ${D.supplyChain}`)
+    expect(pending).not.toContain('no known vulnerabilities')
     expect(pending).toContain('still running')
     // No supply-chain layer at all (LUM-735 shape): nothing added.
     expect(
@@ -930,10 +942,10 @@ describe('LUM-738 supplyChain surface — sync excludes persisting rows', () => 
     expect(comments.map((c: { line: number }) => c.line)).toEqual([2])
     const body = createIssue.mock.calls[0][0].body as string
     expect(body).toContain(
-      '- Secrets: checked · Code scan: checked (semgrep 1) · Dependencies: checked · AI review: checked'
+      `- **Code scan** (checked · semgrep 1): ${D.external}`
     )
     expect(body).toContain(
-      '- Dependencies: 1 vulnerable dependency (1 already on main)'
+      `- **Dependencies** (checked · 1 vulnerable dependency (1 already on main)): ${D.supplyChain}`
     )
     expect(body).toContain('**2 open findings**')
   })
