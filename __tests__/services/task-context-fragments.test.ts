@@ -72,6 +72,7 @@ jest.mock('@/lib/memory/render', () => ({
   ),
   applyTokenBudget: jest.fn((xs: unknown[]) => xs),
   wrapUntrustedMemory: jest.fn((s: string) => s),
+  renderMemoryIndexBlock: jest.fn(() => ''),
   renderLayer2ReviewSection: jest.fn(() => ''),
   wrapUntrustedLinked: jest.fn((s: string) => s),
   wrapUntrustedLinkedGroup: jest.fn((xs: string[]) => xs),

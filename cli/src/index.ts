@@ -832,9 +832,17 @@ const task = program
 task
   .command('context <identifier>')
   .description(
-    'Print a task + prior session summaries as markdown, for pasting into a coding agent on startup.'
+    'Print a task + prior session summaries as markdown, for pasting into a coding agent on startup. Memory prints one headline per item (full card: lumo memory show <id>).'
   )
-  .action(wrap(identifier => taskContext(identifier as string)))
+  .option(
+    '--full',
+    'Print full memory bodies and the judged-used track-record footer instead of the one-line index'
+  )
+  .action(
+    wrap((identifier, options) =>
+      taskContext(identifier as string, options as { full?: boolean })
+    )
+  )
 
 task
   .command('list')
