@@ -14,3 +14,6 @@ scripts/analysis/lum392-cli-friction/REPORT-lum413.md
 # and churns diffs. Keep these byte-stable so the compact-table convention holds
 # (LUM-412).
 docs/live-docs/
+
+# LUM-846: real zizmor / trivy SARIF output, kept byte-for-byte.
+__tests__/fixtures/lum846/

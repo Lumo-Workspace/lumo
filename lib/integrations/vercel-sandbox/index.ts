@@ -92,6 +92,24 @@ export async function createRepoSandbox(
 }
 
 /**
+ * LUM-846 — a VM with no git source, for probes that build their own tree
+ * inside it (`scripts/security/lum846-sandbox-probe.ts`). Same image and
+ * sizing knobs as `createRepoSandbox`, no credentials involved.
+ */
+export async function createScratchSandbox(opts: {
+  timeoutMs: number
+  vcpus: number
+  image?: string
+}): Promise<RepoSandbox> {
+  const sandbox = await Sandbox.create({
+    image: opts.image ?? 'vercel/sandbox/universal',
+    resources: { vcpus: opts.vcpus },
+    timeout: opts.timeoutMs,
+  })
+  return wrap(sandbox)
+}
+
+/**
  * LUM-746 — reconnect to a VM another step created (by the name
  * `createRepoSandbox` exposed). Throws when the VM is gone (timed out or
  * stopped); callers treat that as a harness failure, never a gate verdict.

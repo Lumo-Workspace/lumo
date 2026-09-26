@@ -8,6 +8,7 @@ import { Sandbox } from '@vercel/sandbox'
 import { logger } from '@/lib/logger'
 import {
   createRepoSandbox,
+  createScratchSandbox,
   denySandboxEgress,
   findRepoSandboxByTag,
   stopRepoSandboxesByTag,
@@ -49,6 +50,31 @@ describe('createRepoSandbox (LUM-745 tags)', () => {
       vcpus: 2,
     })
     expect(create.mock.calls[1][0]).not.toHaveProperty('tags')
+  })
+})
+
+describe('createScratchSandbox (LUM-846)', () => {
+  it('boots a VM with no git source and no credentials, and runs commands in it', async () => {
+    const runCommand = jest.fn().mockResolvedValue({
+      exitCode: 0,
+      stdout: async () => 'ok',
+      stderr: async () => '',
+    })
+    create.mockResolvedValue({ name: 'vm1', cwd: '/vercel', runCommand })
+    const sb = await createScratchSandbox({ timeoutMs: 1000, vcpus: 2 })
+    expect(create.mock.calls[0][0]).toEqual({
+      image: 'vercel/sandbox/universal',
+      resources: { vcpus: 2 },
+      timeout: 1000,
+    })
+    await expect(
+      sb.run('sh', ['-c', 'true'], { cwd: '/vercel/x' })
+    ).resolves.toEqual({ exitCode: 0, stdout: 'ok', stderr: '' })
+    expect(runCommand).toHaveBeenCalledWith({
+      cmd: 'sh',
+      args: ['-c', 'true'],
+      cwd: '/vercel/x',
+    })
   })
 })
 

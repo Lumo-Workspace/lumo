@@ -36,24 +36,20 @@ import {
   redactKnownSecrets,
 } from '@/lib/security-scan'
 import {
-  LLM_SEMGREP_RULES_YAML,
-  SEMGREP_CUSTOM_RULES_EOF,
-  SEMGREP_CUSTOM_RULES_PATH,
-} from '@/lib/security-scan/semgrep-rules'
+  MANAGED_REPORT_PATH,
+  SHA_GUARD_EXIT,
+  managedToolScript,
+} from './security-managed-scan.scripts'
 import {
   BASELINE_MAX_FINGERPRINTS,
-  GITLEAKS_URL,
   MANAGED_FAILURE_REASON_CHARS,
   MANAGED_REPORT_MAX_BYTES,
   MANAGED_SCAN_TOOLS,
-  OSV_SCANNER_URL,
   SANDBOX_IMAGE,
   SANDBOX_SCAN_TAG,
   SANDBOX_TIMEOUT_MS,
   SANDBOX_TIMEOUT_WITH_HUNT_MS,
   SANDBOX_VCPUS,
-  SEMGREP_CONFIGS,
-  SEMGREP_VERSION,
   supersededOutcome,
   type BaselineScanJob,
   type BaselineScanOutcome,
@@ -74,37 +70,6 @@ export function scrubToken(message: string, token: string): string {
   return token ? message.split(token).join('***') : message
 }
 
-const REPORT_PATH: Record<ManagedScanTool, string> = {
-  gitleaks: '/tmp/gitleaks.sarif',
-  semgrep: '/tmp/semgrep.sarif',
-  'osv-scanner': '/tmp/osv.sarif',
-}
-
-const SCRIPT_BODY: Record<ManagedScanTool, string> = {
-  gitleaks: `set -e; curl -sSL "${GITLEAKS_URL}" | tar -xz -C /tmp gitleaks; /tmp/gitleaks dir . --report-format sarif --report-path ${REPORT_PATH.gitleaks} --exit-code 0 --no-banner`,
-  // LUM-785: Lumo's own rules ride along as a dotfile written into the
-  // checkout root (see `SEMGREP_CUSTOM_RULES_PATH` for why not /tmp), loaded
-  // FIRST so a registry pack cannot override them, and removed again once
-  // semgrep has run. The quoted heredoc keeps the YAML byte-for-byte (no
-  // expansion of `$V` / `${…}` metavariables). semgrep's exit code is kept
-  // across the cleanup: exit 1 = findings, which `isSuccessExit` accepts.
-  semgrep: [
-    'set -e',
-    `python3 -m pip install --quiet semgrep==${SEMGREP_VERSION}`,
-    `cat > ${SEMGREP_CUSTOM_RULES_PATH} <<'${SEMGREP_CUSTOM_RULES_EOF}'`,
-    LLM_SEMGREP_RULES_YAML.replace(/\n$/, ''),
-    SEMGREP_CUSTOM_RULES_EOF,
-    'code=0',
-    `semgrep scan --config ${SEMGREP_CUSTOM_RULES_PATH} ${SEMGREP_CONFIGS.map(c => `--config ${c}`).join(' ')} --sarif --output ${REPORT_PATH.semgrep} --metrics=off || code=$?`,
-    `rm -f ${SEMGREP_CUSTOM_RULES_PATH}`,
-    'exit $code',
-  ].join('\n'),
-  // Release binary (no package manager); `scan source -r .` walks every
-  // lockfile / manifest osv-scanner knows; SARIF goes to a file so stdout
-  // (which may echo advisory text) is never parsed.
-  'osv-scanner': `set -e; curl -sSL -o /tmp/osv-scanner "${OSV_SCANNER_URL}"; chmod +x /tmp/osv-scanner; /tmp/osv-scanner scan source -r . --format sarif --output-file ${REPORT_PATH['osv-scanner']}`,
-}
-
 /** `headSha` is validated by the caller before this is ever invoked. */
 const HEAD_SHA_RE = /^[0-9a-f]{7,40}$/
 
@@ -118,17 +83,17 @@ const MANAGED_FAILURE_DETAIL_CHARS = Math.floor(
   MANAGED_FAILURE_REASON_CHARS / MANAGED_SCAN_TOOLS.length
 )
 
-/**
- * The P9 checkout guard's exit. It sits INSIDE osv-scanner's result band, so
- * the band has to exclude it by name: a guard whose whole job is "this is the
- * wrong tree, do not report anything" must not become conditional on whether a
- * report happens to exist. Unreachable in a fresh one-shot VM today — but the
- * guard exists against the unforeseen, and LUM-758's `keepAlive` already lets a
- * second workflow attach to the same VM's /tmp.
- */
-const SHA_GUARD_EXIT = 90
-
 const OSV_NO_PACKAGE_SOURCES_EXIT = 128
+
+/** zizmor: "no inputs collected" — the tree has no workflows or actions to audit. */
+const ZIZMOR_NO_INPUTS_EXIT = 3
+
+/**
+ * zizmor documents 11–14 as "findings, by highest severity"; SARIF output is
+ * documented to suppress them, but a report that exists alongside one is still
+ * a report.
+ */
+const ZIZMOR_FINDINGS_EXITS: readonly number[] = [11, 12, 13, 14]
 
 /**
  * osv-scanner v2 documents its exit codes as BANDS, not as a list
@@ -153,28 +118,27 @@ const OSV_NO_PACKAGE_SOURCES_EXIT = 128
 const OSV_RESULT_BAND: readonly [number, number] = [1, 126]
 
 /**
- * Guards against a mis-rooted or wrong-revision sandbox scanning the wrong
- * tree and silently passing (P9): the guard exits 90 — that tool's normal
- * non-success exit — when the checkout at cwd is not exactly `headSha`.
- * `headSha` is interpolated into a shell script, so it must be validated
- * (see `HEAD_SHA_RE`) before this is ever called.
- */
-function scriptFor(tool: ManagedScanTool, headSha: string): string {
-  const guard = `test "$(git rev-parse HEAD 2>/dev/null | cut -c1-${headSha.length})" = "${headSha}" || exit ${SHA_GUARD_EXIT}; `
-  return guard + SCRIPT_BODY[tool]
-}
-
-/**
- * semgrep and osv-scanner exit 1 when they have findings; gitleaks is pinned
- * to --exit-code 0.
+ * semgrep and osv-scanner exit 1 when they have findings; gitleaks and trivy
+ * are pinned to --exit-code 0; zizmor has its own findings band (LUM-846).
  */
 function isSuccessExit(tool: ManagedScanTool, code: number): boolean {
-  return tool === 'gitleaks' ? code === 0 : code === 0 || code === 1
+  if (code === 0) return true
+  if (tool === 'gitleaks' || tool === 'trivy') return false
+  if (tool === 'zizmor') return ZIZMOR_FINDINGS_EXITS.includes(code)
+  return code === 1
 }
 
 /** A non-success exit that is a fact about the tree, not a failure of the tool. */
 function isSkipExit(tool: ManagedScanTool, code: number): boolean {
-  return tool === 'osv-scanner' && code === OSV_NO_PACKAGE_SOURCES_EXIT
+  return (
+    (tool === 'osv-scanner' && code === OSV_NO_PACKAGE_SOURCES_EXIT) ||
+    (tool === 'zizmor' && code === ZIZMOR_NO_INPUTS_EXIT)
+  )
+}
+
+const SKIP_REASON: Partial<Record<ManagedScanTool, string>> = {
+  'osv-scanner': 'found no package sources',
+  zizmor: 'found no GitHub Actions workflows or actions',
 }
 
 /**
@@ -238,14 +202,19 @@ async function runTool(
   headSha: string,
   cwd: string
 ): Promise<ToolReport> {
-  const result = await sandbox.run('sh', ['-c', scriptFor(tool, headSha)], {
-    cwd,
-  })
+  const result = await sandbox.run(
+    'sh',
+    ['-c', managedToolScript(tool, headSha)],
+    {
+      cwd,
+    }
+  )
   if (isSkipExit(tool, result.exitCode)) {
+    const why = SKIP_REASON[tool] ?? 'had nothing to scan'
     logger.info(
-      `[security-managed-scan] ${logSafe(tool)} skipped (exit ${result.exitCode}: no package sources) ${label}`
+      `[security-managed-scan] ${logSafe(tool)} skipped (exit ${result.exitCode}: ${why}) ${label}`
     )
-    return { skipped: `${tool} found no package sources` }
+    return { skipped: `${tool} ${why}` }
   }
   const unusualResultCode =
     !isSuccessExit(tool, result.exitCode) &&
@@ -265,7 +234,7 @@ async function runTool(
       failed: `${tool} exit ${result.exitCode}${failureDetail(result.stderr, token)}`,
     }
   }
-  const report = await sandbox.readFile(REPORT_PATH[tool])
+  const report = await sandbox.readFile(MANAGED_REPORT_PATH[tool])
   if (!report) {
     if (unusualResultCode) {
       logger.warn(

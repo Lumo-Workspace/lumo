@@ -41,6 +41,7 @@ import {
   SUPERSEDED_REASON,
   managedScanHourlyCap,
   MANAGED_SCAN_HOURLY_CAP_DEFAULT,
+  MANAGED_SCAN_TOOLS,
 } from '@/lib/services/security-managed-scan.service'
 import { dependencyFingerprint } from '@/lib/security-scan/redact'
 
@@ -161,10 +162,18 @@ const semgrepOutsideDiffSarif = {
     },
   ],
 }
+/** LUM-846: clean zizmor / trivy reports so the pre-846 fixtures keep their meaning. */
+const emptySarif = (name: string) =>
+  JSON.stringify({
+    version: '2.1.0',
+    runs: [{ tool: { driver: { name, rules: [] } }, results: [] }],
+  })
 const ALL_REPORTS = {
   '/tmp/gitleaks.sarif': JSON.stringify(gitleaksSarif),
   '/tmp/semgrep.sarif': JSON.stringify(semgrepSarif),
   '/tmp/osv.sarif': JSON.stringify(osvSarif),
+  '/tmp/zizmor.sarif': emptySarif('zizmor'),
+  '/tmp/trivy.sarif': emptySarif('Trivy'),
 }
 
 type Fake = { run: jest.Mock; readFile: jest.Mock; stop: jest.Mock }
@@ -179,8 +188,16 @@ function fakeSandbox(
       ? 'osv-scanner'
       : script.includes('gitleaks')
         ? 'gitleaks'
-        : 'semgrep'
-    return { exitCode: exits[tool] ?? 0, stdout: '', stderr: stderrs[tool] ?? '' }
+        : script.includes('/tmp/zizmor')
+          ? 'zizmor'
+          : script.includes('/tmp/trivy')
+            ? 'trivy'
+            : 'semgrep'
+    return {
+      exitCode: exits[tool] ?? 0,
+      stdout: '',
+      stderr: stderrs[tool] ?? '',
+    }
   })
   const readFile = jest.fn(async (path: string) => {
     const v = files[path]
@@ -573,7 +590,7 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     create.mockResolvedValue(sb)
     const out = await securityManagedScanService.scanRepository(JOB)
     const scripts = sb.run.mock.calls.map(c => (c[1] as string[]).join(' '))
-    expect(scripts).toHaveLength(3)
+    expect(scripts).toHaveLength(5)
     expect(scripts[2]).toContain(OSV_SCANNER_URL)
     expect(scripts[2]).toContain(
       'scan source -r . --format sarif --output-file /tmp/osv.sarif'
@@ -688,14 +705,16 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     const sb = fakeSandbox(
       { ...ALL_REPORTS, '/tmp/osv.sarif': null },
       { 'osv-scanner': 2 },
-      { 'osv-scanner': `clone failed for https://x-access-token:${TOKEN}@github.com/o/r` }
+      {
+        'osv-scanner': `clone failed for https://x-access-token:${TOKEN}@github.com/o/r`,
+      }
     )
     create.mockResolvedValue(sb)
 
     const reason = (
-      (await securityManagedScanService.scanRepository(JOB))[
-        'osv-scanner'
-      ] as { reason: string }
+      (await securityManagedScanService.scanRepository(JOB))['osv-scanner'] as {
+        reason: string
+      }
     ).reason
     expect(reason).not.toContain(TOKEN)
   })
@@ -721,9 +740,9 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     create.mockResolvedValue(sb)
 
     const reason = (
-      (await securityManagedScanService.scanRepository(JOB))[
-        'osv-scanner'
-      ] as { reason: string }
+      (await securityManagedScanService.scanRepository(JOB))['osv-scanner'] as {
+        reason: string
+      }
     ).reason
     expect(reason.length).toBeLessThan(300)
     // Kept from the TAIL: that is where a tool puts the thing that went wrong.
@@ -748,9 +767,14 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     // and semgrep talk ABOUT matched content, so their stderr can quote the
     // very secret the layer exists to find. scrubToken only knows the
     // installation token.
-    const sb = fakeSandbox(ALL_REPORTS, { gitleaks: 3 }, {
-      gitleaks: 'WRN leak found file=src/db.ts secret=AKIAABCDEFGHIJKLMNOP rule=aws-access-token',
-    })
+    const sb = fakeSandbox(
+      ALL_REPORTS,
+      { gitleaks: 3 },
+      {
+        gitleaks:
+          'WRN leak found file=src/db.ts secret=AKIAABCDEFGHIJKLMNOP rule=aws-access-token',
+      }
+    )
     create.mockResolvedValue(sb)
 
     const reason = (
@@ -767,7 +791,11 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     // publishing path for the other two untested — which is how a secret gets
     // out through semgrep instead.
     create.mockResolvedValue(
-      fakeSandbox(ALL_REPORTS, { semgrep: 2 }, { semgrep: 'rule file parse error at line 9' })
+      fakeSandbox(
+        ALL_REPORTS,
+        { semgrep: 2 },
+        { semgrep: 'rule file parse error at line 9' }
+      )
     )
     const out = await securityManagedScanService.scanRepository(JOB)
     expect((out.semgrep as { reason: string }).reason).toContain(
@@ -832,9 +860,9 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     create.mockResolvedValue(sb)
 
     const reason = (
-      (await securityManagedScanService.scanRepository(JOB))[
-        'osv-scanner'
-      ] as { reason: string }
+      (await securityManagedScanService.scanRepository(JOB))['osv-scanner'] as {
+        reason: string
+      }
     ).reason
     expect(reason).toContain('the real cause is here')
   })
@@ -874,7 +902,13 @@ describe('LUM-738 baseline scan (default branch, whole tree)', () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ repository: 'o/r', revision: BASELINE.sha })
     )
-    expect(out.tools.sort()).toEqual(['gitleaks', 'osv-scanner', 'semgrep'])
+    expect(out.tools.sort()).toEqual([
+      'gitleaks',
+      'osv-scanner',
+      'semgrep',
+      'trivy',
+      'zizmor',
+    ])
     expect(out.failed).toEqual([])
     expect(out.skipped).toEqual([])
     expect(out.partial).toBe(false)
@@ -901,7 +935,7 @@ describe('LUM-738 baseline scan (default branch, whole tree)', () => {
       )
     )
     const out = await securityManagedScanService.scanBaseline(BASELINE)
-    expect(out.tools).toEqual(['gitleaks'])
+    expect(out.tools).toEqual(['gitleaks', 'zizmor', 'trivy'])
     expect(out.skipped).toEqual(['osv-scanner'])
     expect(out.failed).toEqual(['semgrep exit 2'])
     expect(out.fingerprints).toHaveLength(1)
@@ -947,7 +981,7 @@ describe('LUM-738 baseline scan (default branch, whole tree)', () => {
       ...BASELINE,
       sha: 'main',
     })
-    expect(out.failed).toHaveLength(3)
+    expect(out.failed).toHaveLength(MANAGED_SCAN_TOOLS.length)
     expect(create).not.toHaveBeenCalled()
   })
 
