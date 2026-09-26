@@ -5,7 +5,9 @@ import type { GateSignalSource } from '@/lib/services/gate-audit'
 export interface NewGateSignal {
   workspaceId: string
   taskId: string
-  gateKey: string
+  /** Legacy LUM-616 gate key; null since LUM-839 (checks are read by checkName). */
+  gateKey: string | null
+  /** success | failure | not_run (LUM-838: the check never started). */
   outcome: string
   provenance: string
   /** github_check / github_status (LUM-616); lumo_sandbox is historical (LUM-746, retired LUM-837). */
@@ -18,26 +20,26 @@ export interface NewGateSignal {
 }
 
 export const gateSignalRepository = {
-  /** Append independent CI gate signals (append-only; re-runs add rows). */
+  /** Append independent CI check signals (append-only; re-runs add rows). */
   async createMany(rows: readonly NewGateSignal[]): Promise<number> {
     if (rows.length === 0) return 0
     const result = await prisma.gateSignal.createMany({ data: [...rows] })
     return result.count
   },
 
-  /** All gate signals for a task, oldest-first (the read-model picks latest). */
+  /** All CI check signals for a task, oldest-first (the read-model picks latest per name). */
   async findByTaskId(taskId: string) {
     return prisma.gateSignal.findMany({
       where: { taskId },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: {
-        gateKey: true,
         outcome: true,
         checkName: true,
         detailsUrl: true,
         source: true,
         createdAt: true,
         prNumber: true,
+        headSha: true,
       },
     })
   },

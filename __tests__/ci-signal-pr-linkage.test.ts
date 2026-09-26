@@ -39,7 +39,7 @@ describe('ciSignalService.reconcileCommit PR linkage (LUM-617)', () => {
     expect(createMany).toHaveBeenCalledTimes(1)
     const rows = createMany.mock.calls[0][0] as Array<Record<string, unknown>>
     expect(rows).toHaveLength(1)
-    expect(rows[0]).toMatchObject({ gateKey: 'build', prNumber: 753 })
+    expect(rows[0]).toMatchObject({ checkName: 'Vercel', prNumber: 753 })
   })
 
   it('records a null PR reference when the commit resolves to no PR', async () => {

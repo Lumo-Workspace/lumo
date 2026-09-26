@@ -3,33 +3,24 @@ import { gateSignalRepository } from '@/lib/repositories/gate-signal.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import {
-  buildDeliveryGateAudit,
   buildPerPrGateAudit,
-  type DeliveryGateAudit,
   type PerPrGateAudit,
 } from '@/lib/services/gate-audit'
 
 /**
- * I/O orchestration for the delivery gate audit (LUM-614 / LUM-616 / LUM-617).
- * Fetches the task's two execution-gate signal sources — agent-self-reported
- * HookEvent rows and independent CI GateSignal rows — and hands them to the pure
+ * I/O orchestration for the delivery checks panel (LUM-614 / LUM-617 / LUM-839).
+ * Fetches the task's two check sources — agent-self-reported HookEvent rows and
+ * independent CI GateSignal rows — plus its PRs, and hands them to the pure
  * read-model. No business logic of its own beyond wiring, and no direct Prisma
  * access.
  */
 export const gateAuditService = {
-  async getForTask(taskId: string): Promise<DeliveryGateAudit> {
-    const [rows, gateSignals] = await Promise.all([
-      hookEventRepository.findByTaskId(taskId),
-      gateSignalRepository.findByTaskId(taskId),
-    ])
-    return buildDeliveryGateAudit(rows, gateSignals)
-  },
-
   /**
-   * The same audit grouped by PR (LUM-617). Resolves each signal's PR — CI by its
+   * The checks grouped by PR (LUM-617). Resolves each signal's PR — CI by its
    * stored `prNumber`, self-reported by the session's worktree branch, and for a
-   * multi-PR task by delivery window (LUM-623) — so the panel can show one row
-   * per PR with an explicit bucket for anything still unlinked.
+   * multi-PR task by delivery window (LUM-623) — so the panel can show one block
+   * per PR (CI checks on its head commit + agent self-reported) with an explicit
+   * bucket for anything still unlinked.
    */
   async getPerPrForTask(taskId: string): Promise<PerPrGateAudit> {
     const [rows, gateSignals, prRows] = await Promise.all([
@@ -45,6 +36,7 @@ export const gateAuditService = {
       title: pr.title,
       state: pr.state,
       headBranch: pr.headBranch,
+      headSha: pr.headSha,
       mergedAt: pr.mergedAt ? pr.mergedAt.toISOString() : null,
     }))
 
