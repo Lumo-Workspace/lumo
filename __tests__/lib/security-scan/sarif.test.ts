@@ -199,6 +199,65 @@ describe('LUM-850 rule titles', () => {
     ).toBe("':latest' tag used")
   })
 
+  it('LUM-850 title fallback keeps shortDescription on gitleaks and osv-scanner', () => {
+    // Both tools also ship fullDescription / help; shortDescription must win.
+    const run = (
+      name: string,
+      rule: Record<string, unknown>,
+      message: string,
+      uri: string
+    ) =>
+      normalizeSarif(
+        parseSarif({
+          version: '2.1.0',
+          runs: [
+            {
+              tool: { driver: { name, rules: [rule] } },
+              results: [
+                {
+                  ruleId: rule['id'],
+                  message: { text: message },
+                  locations: [
+                    {
+                      physicalLocation: {
+                        artifactLocation: { uri },
+                        region: { startLine: 1, snippet: { text: 'x' } },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        { toolHint: name, changedLines: null }
+      ).findings
+    const gitleaks = run(
+      'gitleaks',
+      {
+        id: 'generic-api-key',
+        shortDescription: { text: 'Detected a Generic API Key' },
+        fullDescription: { text: 'Full gitleaks description' },
+        help: { text: 'gitleaks help' },
+      },
+      'generic-api-key has detected secret for file src/a.ts',
+      'src/a.ts'
+    )
+    expect(gitleaks.map(f => f.title)).toEqual(['Detected a Generic API Key'])
+    const osv = run(
+      'osv-scanner',
+      {
+        id: 'GHSA-35jh-r3h4-6jhm',
+        shortDescription: { text: 'GHSA-35jh-r3h4-6jhm: lodash' },
+        fullDescription: { text: 'Command Injection in lodash' },
+        help: { text: '**Your dependency is vulnerable**' },
+      },
+      "Package 'lodash@4.17.15' is vulnerable to 'GHSA-35jh-r3h4-6jhm'.",
+      'package-lock.json'
+    )
+    expect(osv.map(f => f.title)).toEqual(['GHSA-35jh-r3h4-6jhm: lodash'])
+  })
+
   it('LUM-850 title fallback order is shortDescription, fullDescription, help text, rule id', () => {
     const doc = (rules: unknown[]) =>
       parseSarif({
