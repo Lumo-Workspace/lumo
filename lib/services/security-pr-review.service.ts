@@ -61,6 +61,8 @@ import {
 import { resolvePublicUrl } from '@/lib/utils/public-url'
 import { huntBatchProgress } from '@/lib/security-scan/hunt/batches'
 import { scanSizeCaps } from '@/lib/security-scan/size-caps'
+import { parsePrSummary } from '@/lib/security-scan/pr-summary'
+import { sanitizeField } from '@/shared/src/sanitize'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
@@ -202,6 +204,12 @@ export interface SummaryInput {
   suggested?: number
   error: string | null
   taskUrl: string | null
+  /** LUM-849 — the scan's raw `prSummary` Json; parsed (and neutralised) here. */
+  prSummary?: unknown
+  /** LUM-849 — paths of the findings the reader should look at first. */
+  attentionFiles?: string[]
+  /** LUM-849 — the reviewed head commit on GitHub, for the footer. */
+  commitUrl?: string | null
 }
 
 /** LUM-740 — the LOW line: the rows the PR does not get an inline comment for. */
@@ -288,6 +296,74 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
+/** LUM-849 — how many paths the attention line names before "and N more". */
+export const ATTENTION_MAX_FILES = 5
+
+/**
+ * A finding path as inline code. Paths can be model-authored (the judge's
+ * `filePath`), so anything that could close the code span or open markup is
+ * dropped first.
+ */
+function codePath(path: string): string {
+  return `\`${sanitizeField(path)
+    .replace(/[`<>\r\n]/g, '')
+    .slice(0, 200)}\``
+}
+
+/** LUM-849 — "Files needing attention": where the reader should look first. */
+function attentionLine(files: string[] | undefined): string | null {
+  const distinct = [...new Set(files ?? [])].filter(f => f.trim().length > 0)
+  if (distinct.length === 0) return null
+  const shown = distinct.slice(0, ATTENTION_MAX_FILES).map(codePath)
+  const rest = distinct.length - shown.length
+  const tail = rest > 0 ? ` and ${rest} more` : ''
+  return `**Files needing attention:** ${shown.join(', ')}${tail}`
+}
+
+/** LUM-849 — the judge's "what this PR does": a sentence plus its bullets. */
+function intentBlocks(raw: unknown): string[] {
+  const summary = parsePrSummary(raw)
+  if (!summary) return []
+  const blocks = [summary.intent]
+  if (summary.changes.length > 0)
+    blocks.push(summary.changes.map(c => `- ${c}`).join('\n'))
+  return blocks
+}
+
+/**
+ * LUM-849 — the bounded verdict, first. It never grades the PR or calls it
+ * safe to merge: it says what the checks that ran found, the way the outcome
+ * well only ever rejects.
+ */
+function verdictLine(
+  input: SummaryInput,
+  coverage: ReturnType<typeof scanCoverageState>,
+  owned: boolean
+): string {
+  if (input.open > 0) {
+    const noun = input.open === 1 ? 'finding' : 'findings'
+    const blocking =
+      input.blocking > 0 ? ` (${input.blocking} blocking DONE)` : ''
+    return `**${input.open} open ${noun}**${blocking}`
+  }
+  if (coverage === 'IN_PROGRESS')
+    return '**No open findings yet — the scan is still running.**'
+  // LUM-832: a fault or shortfall of ours — owned, never "a layer hit its
+  // budget cap", which blamed the PR's size for a budget we chose.
+  if (owned) return `**No open findings so far — ${SCAN_UNFINISHED_NOTE}.**`
+  // A size cap is the only gap: say what WAS checked; the notice below says
+  // which layer did not run, and why.
+  if (coverage === 'UNFINISHED')
+    return '**No open findings in the checks that ran.**'
+  return '**No open findings on lines this PR added.**'
+}
+
+/**
+ * LUM-849 — laid out for the reader deciding whether to merge (after
+ * Greptile's summary): verdict → what the PR does → where to look → notices,
+ * with the per-layer detail folded away and the reviewed commit in the
+ * footer. No confidence score.
+ */
 export function buildSummary(input: SummaryInput): string {
   // LUM-832 — the same three states as the web panel and the CLI.
   const coverage = scanCoverageState({
@@ -303,50 +379,49 @@ export function buildSummary(input: SummaryInput): string {
     hasSizeNotice: Boolean(input.huntOverCap || input.judgeOverCap),
   })
   const blocks: string[] = [
-    `### 🛡️ Lumo security scan — ${input.headSha.slice(0, 7)}`,
+    '### 🛡️ Lumo security scan',
+    verdictLine(input, coverage, owned),
+    ...intentBlocks(input.prSummary),
   ]
-  const stages = stageLine(
-    input.stages,
-    input.externalCounts,
-    input.huntProgress
-  )
-  if (stages) blocks.push(stages)
-  const deps = dependencyLine(input)
-  if (deps) blocks.push(deps)
-  if (input.open > 0) {
-    const noun = input.open === 1 ? 'finding' : 'findings'
-    const blocking =
-      input.blocking > 0 ? ` (${input.blocking} blocking DONE)` : ''
-    blocks.push(`**${input.open} open ${noun}**${blocking}`)
-  } else if (coverage === 'IN_PROGRESS') {
-    blocks.push('No open findings yet — the scan is still running.')
-  } else if (owned) {
-    // LUM-832: a fault or shortfall of ours — owned, never "a layer hit its
-    // budget cap", which blamed the PR's size for a budget we chose.
-    blocks.push(`No open findings so far — ${SCAN_UNFINISHED_NOTE}.`)
-  } else if (coverage === 'UNFINISHED') {
-    // A size cap is the only gap: say what WAS checked; the notice below
-    // says which layer did not run, and why.
-    blocks.push('No open findings in the checks that ran.')
-  } else {
-    blocks.push('No open findings on lines this PR added.')
-  }
+  const attention = attentionLine(input.attentionFiles)
+  if (attention) blocks.push(attention)
+
+  const notices: string[] = []
   // With findings open, the owned note still has to be said once.
   if (input.open > 0 && owned)
-    blocks.push(`- ${capitalize(SCAN_UNFINISHED_NOTE)}.`)
+    notices.push(`- ${capitalize(SCAN_UNFINISHED_NOTE)}.`)
   // LUM-832: a layer over its size cap did not run — stated the way
   // CodeRabbit states its own limit.
   if (input.judgeOverCap)
-    blocks.push(`- ${formatJudgeOverCap(input.judgeOverCap)}`)
+    notices.push(`- ${formatJudgeOverCap(input.judgeOverCap)}`)
   if (input.huntOverCap)
-    blocks.push(`- ${formatHuntOverCap(input.huntOverCap)}`)
+    notices.push(`- ${formatHuntOverCap(input.huntOverCap)}`)
   const low = lowLine(input)
-  if (low) blocks.push(low)
+  if (low) notices.push(low)
   const suggested = suggestedLine(input)
-  if (suggested) blocks.push(suggested)
+  if (suggested) notices.push(suggested)
+  if (notices.length > 0) blocks.push(notices.join('\n'))
   const failure = scrubbedFailureReason(input)
   if (failure) blocks.push(`⚠ ${failure.label}: ${failure.reason}`)
-  if (input.taskUrl) blocks.push(`[Open in Lumo](${input.taskUrl})`)
+
+  // The per-layer lines stay, folded: detail for whoever wants it, not the
+  // first thing a reader has to decode.
+  const layers = [
+    stageLine(input.stages, input.externalCounts, input.huntProgress),
+    dependencyLine(input),
+  ].filter((l): l is string => l !== null)
+  if (layers.length > 0) {
+    blocks.push(
+      `<details>\n<summary>Scan layers</summary>\n\n${layers.join('\n')}\n\n</details>`
+    )
+  }
+
+  const sha = input.headSha.slice(0, 7)
+  const footer = [
+    `Reviewed commit: ${input.commitUrl ? `[${sha}](${input.commitUrl})` : sha}`,
+  ]
+  if (input.taskUrl) footer.push(`[Open in Lumo](${input.taskUrl})`)
+  blocks.push(footer.join(' · '))
   blocks.push(SUMMARY_MARKER)
   return blocks.join('\n\n')
 }
@@ -362,6 +437,13 @@ function taskUrlOf(pr: ScanForReview['pullRequest']): string | null {
   if (!pr.task) return null
   const identifier = `${pr.task.team.identifier}-${pr.task.number}`
   return `${resolvePublicUrl()}/workspace/${pr.workspace.slug}/my-tasks/${identifier}`
+}
+
+/** LUM-849 — the reviewed head on GitHub; null for a repo name we cannot trust. */
+export function commitUrlOf(repo: string, sha: string): string | null {
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !/^[0-9a-f]{7,40}$/i.test(sha))
+    return null
+  return `https://github.com/${repo}/commit/${sha}`
 }
 
 function describe(error: unknown): string {
@@ -575,6 +657,13 @@ export const securityPrReviewService = {
         suggested,
         error: scan.error,
         taskUrl: taskUrlOf(pr),
+        prSummary: scan.prSummary,
+        // LUM-849: the rows a reader acts on — LOW and suggested false
+        // positives stay off the diff, so they stay off this line too.
+        attentionFiles: open
+          .filter(f => f.severity !== 'LOW' && f.suggestedDisposition == null)
+          .map(f => f.filePath),
+        commitUrl: commitUrlOf(pr.repo, scan.headSha),
       })
       const idToStore = await upsertSummary({
         repo,
