@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.75.4",
+  "cliVersion": "1.76.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -4443,6 +4443,13 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show the fetched web link body as plain text"
+    },
+    "task wrapup": {
+      "arguments": [{ "name": "task", "required": false, "variadic": false }],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Whole wrap-up in one read (LUM-841): contract & verification, test-case signals, security scans, open boundary crossings (each ready to relay, with the per-ruling disposition command), and DONE readiness with the DONE envelope preview (linked PR merge state + local worktree cleanup). Read-only: runs no verify round, requests no receipt, changes no status. Defaults to the session-bound task."
     },
     "update": {
       "arguments": [],

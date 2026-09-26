@@ -92,6 +92,7 @@ import { taskTestCaseUpdate } from './commands/task-testcase-update'
 import { taskTestCaseRm } from './commands/task-testcase-rm'
 import { taskTestCaseRun } from './commands/task-testcase-run'
 import { taskTestCaseDisposition } from './commands/task-testcase-disposition'
+import { taskWrapup } from './commands/task-wrapup'
 import { taskSlackShow } from './commands/task-slack-show'
 import { taskWebShow } from './commands/task-web-show'
 import { taskFigmaContext } from './commands/task-figma-context'
@@ -921,6 +922,13 @@ task
     'Show a single task: title, status, priority, assignee, project, URL, description.'
   )
   .action(wrap(identifier => taskShow(identifier as string)))
+
+task
+  .command('wrapup [task]')
+  .description(
+    'Whole wrap-up in one read (LUM-841): contract & verification, test-case signals, security scans, open boundary crossings (each ready to relay, with the per-ruling disposition command), and DONE readiness with the DONE envelope preview (linked PR merge state + local worktree cleanup). Read-only: runs no verify round, requests no receipt, changes no status. Defaults to the session-bound task.'
+  )
+  .action(wrap(taskArg => taskWrapup(taskArg as string | undefined)))
 
 task
   .command('status [task]')

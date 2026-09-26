@@ -495,7 +495,10 @@ export function formatLinkedCase(c: {
 }
 
 /** One advisory line + the command that clears it (LUM-807). */
-function pushTestCaseActions(lines: string[], actions: TestCaseAction[]): void {
+export function pushTestCaseActions(
+  lines: string[],
+  actions: TestCaseAction[]
+): void {
   for (const a of actions) {
     // LUM-819: an unknown advisory kind may lack either field — never print
     // "undefined"; fall back to its kind.
@@ -539,7 +542,7 @@ export function formatTestCaseVerdictAction(a: TestCaseVerdictAction): string {
   return `  • [TEST CASE] TC${a.number} ${sanitizeField(a.title)} — ${VERDICT_LABEL[a.signal]}${why} (advisory)`
 }
 
-function pushTestCaseVerdictActions(
+export function pushTestCaseVerdictActions(
   lines: string[],
   actions: TestCaseVerdictAction[]
 ): void {
@@ -558,13 +561,13 @@ function formatSecurityAction(a: SecurityAction): string {
   return `[${a.severity}] ${a.provenance} ${sanitizeField(a.ruleId)} — ${sanitizeField(where)} — ${title} (PR #${a.prNumber} · ${tag}${note})`
 }
 
-const SECURITY_HINT =
+export const SECURITY_HINT =
   'Fix the findings and push (a fixed finding disappears on the next scan), or ask a human to disposition them in the web delivery panel — disposition is human-only, you cannot disposition them yourself, and a blocking finding refuses DONE with 409.'
 
 /** Render the `[SECURITY]` next-action lines (LUM-737 review): shared by the
  *  criteria-present Next actions block and the zero-criteria early return so
  *  undispositioned findings render identically either way. */
-function pushSecurityActions(
+export function pushSecurityActions(
   lines: string[],
   securityActions: SecurityAction[]
 ): void {
@@ -606,7 +609,10 @@ function formatScanSummaryLine(s: ScanSummary): string {
   )
 }
 
-function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
+export function pushSecurityCoverage(
+  lines: string[],
+  data: TaskStatusResponse
+): void {
   if (data.securityFindings === undefined) return // older server
   if (data.securityFindings === null) {
     lines.push(
@@ -643,7 +649,9 @@ function pushSecurityCoverage(lines: string[], data: TaskStatusResponse): void {
  * claiming "awaiting human adjudication" — which is false the moment even one
  * HUMAN criterion settled as a tacit pass rather than an actual verdict.
  */
-function contractSettledLine(criteria: TaskStatusResponse['criteria']): string {
+export function contractSettledLine(
+  criteria: TaskStatusResponse['criteria']
+): string {
   const humanCriteria = criteria.filter(c => c.verifierType === 'HUMAN')
   if (humanCriteria.length === 0) {
     return 'All criteria met by their latest verdicts.'

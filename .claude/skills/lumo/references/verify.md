@@ -210,6 +210,50 @@ escalates, and never changes task state — loop rules (the workspace round cap,
 IN_REVIEW on all-pass, human-only DONE) live entirely in `lumo verify` and the
 server.
 
+## lumo task wrapup — the whole wrap-up in one read (LUM-841)
+
+`lumo task wrapup [task]` does every wrap-up read in one call and prints it in
+the order the wrap-up walks. Defaults to the session-bound task.
+
+```bash
+lumo task wrapup            # session-bound task
+lumo task wrapup LUM-42     # explicit task
+```
+
+**When to suggest:** the task is near the end — `lumo verify` passed or is
+about to run, a PR is open or merged, the user asks "can we close this?" / "what
+is left?". Use it **instead of** chaining `task status` + `pr scan` + a
+crossing read per crossing + `task update --status done` (just to see the
+envelope) + `worktree list`: each of those is a full model step late in a long
+session. Run it again after clearing an item, not the individual commands.
+
+What it prints — five numbered sections:
+
+1. **Contract & verification** — round `N/M`, unmet criteria (✗ FAIL / ○ no verdict) with the failure reason, stale passes, an unconfirmed contract (relay `lumo task criteria confirm`), and the one next step (`lumo verify`, wait on escalation, or settled).
+2. **Test cases** — verdict signals (a `PROVEN_DEFECT` line carries the `lumo task testcase disposition <task>/TC<n> --known-defect | --not-a-defect` command for the **user's** ruling), the no-test-case advisory, and coverage gaps as one count line.
+3. **Security scans** — undispositioned findings (blocks DONE / advisory) and one line per linked PR's latest scan, same grammar as `task status`.
+4. **Boundary crossings** — every undispositioned crossing with what the user needs to rule on it: severity, category, blocks-DONE vs advisory, detail, recurrence, irreversible flag, the agent's explanations (labelled unverified self-report), a `crossing explain` hint when a blocking row has none, and the step-1 `lumo crossing disposition <id> --false-positive | --confirmed --task <id>` command per ruling.
+5. **DONE** — a readiness verdict plus what moving to DONE would change (the same lines as the DONE envelope: status, each linked PR with its merge state, each local worktree removed or kept with its reason).
+
+Readiness levels:
+
+| Level            | Meaning                                                                                                                                                   |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `READY`          | nothing blocks and nothing is left agent-side — show the user the DONE lines; only after they approve run `lumo task update <id> --status done --confirm` |
+| `NOT YET`        | never verified, unmet criteria, escalated, no contract, or a linked PR not merged                                                                         |
+| `BLOCKED`        | a human-only gate would refuse DONE: send-back, blocking crossing, blocking security finding, proven test-case defect                                     |
+| `CANNOT CONFIRM` | a read failed (status / crossings / task+PRs / security) — never read this as clear                                                                       |
+| `DONE`           | already closed                                                                                                                                            |
+
+**Red lines — unchanged by this command.** It is read-only: GETs plus local
+`git` inspection; it runs no verify round, requests no disposition receipt, and
+changes no status. The commands it prints are for relaying: a crossing or test
+case ruling still walks its read → ruling handshake one exit-4 envelope at a
+time, and the DONE `--confirm` command appears **only** at `READY`, as the
+user's approval. When the current directory is inside the task's worktree the
+report says to run the DONE command from the main checkout, so the worktree
+can be removed.
+
 ## Verdict channels
 
 `lumo verify` is the MACHINE channel. The only other channel is the **human**
