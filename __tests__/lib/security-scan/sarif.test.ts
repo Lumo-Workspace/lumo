@@ -161,3 +161,179 @@ describe('LUM-846 trivy config SARIF', () => {
     ])
   })
 })
+
+describe('LUM-850 rule titles', () => {
+  const zizmorRaw = () =>
+    JSON.parse(
+      readFileSync(
+        join(__dirname, '../../fixtures/lum846/zizmor.sarif'),
+        'utf8'
+      )
+    )
+  const all = allAdded({ '.github/workflows/ci.yml': 12 })
+
+  it('LUM-850 zizmor titles are the rule help text, not the bare rule id', () => {
+    const out = normalizeSarif(fixture('zizmor.sarif'), {
+      toolHint: 'zizmor',
+      changedLines: all,
+    })
+    const titles = new Map(out.findings.map(f => [f.ruleId, f.title]))
+    expect(titles.get('ext:zizmor:zizmor/template-injection')).toBe(
+      'code injection via template expansion'
+    )
+    expect(titles.get('ext:zizmor:zizmor/artipacked')).toBe(
+      'credential persistence through GitHub Actions artifacts'
+    )
+    for (const f of out.findings) {
+      expect(f.title).not.toMatch(/^zizmor\//)
+    }
+  })
+
+  it('LUM-850 title fallback keeps shortDescription on trivy', () => {
+    const out = normalizeSarif(fixture('trivy.sarif'), {
+      toolHint: 'trivy',
+      changedLines: null,
+    })
+    expect(
+      out.findings.find(f => f.ruleId === 'ext:trivy:DS-0001')?.title
+    ).toBe("':latest' tag used")
+  })
+
+  it('LUM-850 title fallback keeps shortDescription on gitleaks and osv-scanner', () => {
+    // Both tools also ship fullDescription / help; shortDescription must win.
+    const run = (
+      name: string,
+      rule: Record<string, unknown>,
+      message: string,
+      uri: string
+    ) =>
+      normalizeSarif(
+        parseSarif({
+          version: '2.1.0',
+          runs: [
+            {
+              tool: { driver: { name, rules: [rule] } },
+              results: [
+                {
+                  ruleId: rule['id'],
+                  message: { text: message },
+                  locations: [
+                    {
+                      physicalLocation: {
+                        artifactLocation: { uri },
+                        region: { startLine: 1, snippet: { text: 'x' } },
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+        { toolHint: name, changedLines: null }
+      ).findings
+    const gitleaks = run(
+      'gitleaks',
+      {
+        id: 'generic-api-key',
+        shortDescription: { text: 'Detected a Generic API Key' },
+        fullDescription: { text: 'Full gitleaks description' },
+        help: { text: 'gitleaks help' },
+      },
+      'generic-api-key has detected secret for file src/a.ts',
+      'src/a.ts'
+    )
+    expect(gitleaks.map(f => f.title)).toEqual(['Detected a Generic API Key'])
+    const osv = run(
+      'osv-scanner',
+      {
+        id: 'GHSA-35jh-r3h4-6jhm',
+        shortDescription: { text: 'GHSA-35jh-r3h4-6jhm: lodash' },
+        fullDescription: { text: 'Command Injection in lodash' },
+        help: { text: '**Your dependency is vulnerable**' },
+      },
+      "Package 'lodash@4.17.15' is vulnerable to 'GHSA-35jh-r3h4-6jhm'.",
+      'package-lock.json'
+    )
+    expect(osv.map(f => f.title)).toEqual(['GHSA-35jh-r3h4-6jhm: lodash'])
+  })
+
+  it('LUM-850 title fallback order is shortDescription, fullDescription, help text, rule id', () => {
+    const doc = (rules: unknown[]) =>
+      parseSarif({
+        version: '2.1.0',
+        runs: [
+          {
+            tool: { driver: { name: 'semgrep', rules } },
+            results: rules.map(r => ({
+              ruleId: (r as { id: string }).id,
+              message: { text: 'm' },
+              locations: [
+                {
+                  physicalLocation: {
+                    artifactLocation: { uri: 'a.ts' },
+                    region: { startLine: 1, snippet: { text: 'x' } },
+                  },
+                },
+              ],
+            })),
+          },
+        ],
+      })
+    const out = normalizeSarif(
+      doc([
+        {
+          id: 'short',
+          shortDescription: { text: 'Short' },
+          fullDescription: { text: 'Full' },
+          help: { text: 'Help' },
+        },
+        {
+          id: 'full',
+          fullDescription: { text: 'Full sentence.\nSecond line' },
+          help: { text: 'Help' },
+        },
+        {
+          id: 'help',
+          shortDescription: { text: '  ' },
+          help: { text: 'Help text\n\nmore' },
+        },
+        { id: 'bare', name: 'bare-name' },
+      ]),
+      { toolHint: 'semgrep', changedLines: null }
+    )
+    expect(out.findings.map(f => [f.ruleId.split(':').pop(), f.title])).toEqual(
+      [
+        ['short', 'Short'],
+        ['full', 'Full sentence.'],
+        ['help', 'Help text'],
+        ['bare', 'bare'],
+      ]
+    )
+  })
+
+  it('LUM-850 fingerprints ignore the title', () => {
+    const stripped = zizmorRaw()
+    for (const r of stripped.runs[0].tool.driver.rules) {
+      delete r.help
+      delete r.shortDescription
+      delete r.fullDescription
+    }
+    const fp = (runs: ReturnType<typeof parseSarif>) =>
+      normalizeSarif(runs, { toolHint: 'zizmor', changedLines: all })
+        .findings.map(f => `${f.ruleId}|${f.fingerprint}`)
+        .sort()
+    const withTitles = normalizeSarif(fixture('zizmor.sarif'), {
+      toolHint: 'zizmor',
+      changedLines: all,
+    })
+    const bare = normalizeSarif(parseSarif(stripped), {
+      toolHint: 'zizmor',
+      changedLines: all,
+    })
+    expect(bare.findings.map(f => f.title)).not.toEqual(
+      withTitles.findings.map(f => f.title)
+    )
+    expect(fp(parseSarif(stripped))).toEqual(fp(fixture('zizmor.sarif')))
+  })
+})
