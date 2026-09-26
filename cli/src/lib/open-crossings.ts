@@ -39,6 +39,13 @@ export interface OpenCrossing {
    *  longer holds) — the evidence line; null when never re-judged or against
    *  an older server that does not send the trail. */
   rejudge: string | null
+  /** LUM-841: what a user needs to rule on the row without a second read —
+   *  recurrence, whether the action reached outside the repo, and the agent's
+   *  own explanations (an unverified self-report). Absent on an older server:
+   *  `occurrenceCount` 1, `reversible` null (unknown), `explanations` []. */
+  occurrenceCount?: number
+  reversible?: boolean | null
+  explanations?: string[]
 }
 
 /**
@@ -89,6 +96,9 @@ interface RawCrossing {
   attribution?: Partial<CrossingAttribution> | null
   advisory?: boolean
   rejudge?: { evidence?: unknown } | null
+  occurrenceCount?: unknown
+  reversible?: unknown
+  explanations?: Array<{ note?: unknown }> | null
 }
 
 /** Narrow the raw view's attribution to the terminal's read-only shape, every
@@ -177,6 +187,14 @@ export async function fetchOpenCrossings(
           c.rejudge.evidence.length > 0
             ? c.rejudge.evidence
             : null,
+        occurrenceCount:
+          typeof c.occurrenceCount === 'number' && c.occurrenceCount > 1
+            ? c.occurrenceCount
+            : 1,
+        reversible: typeof c.reversible === 'boolean' ? c.reversible : null,
+        explanations: (Array.isArray(c.explanations) ? c.explanations : [])
+          .map(e => (typeof e?.note === 'string' ? e.note : ''))
+          .filter(n => n.length > 0),
       }
     })
     // Blocking rows first, then by severity — what the human must act on leads.
