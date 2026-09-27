@@ -2513,5 +2513,7 @@
   "testCases.disposition.NOT_A_DEFECT": "Bukan kecacatan",
   "testCases.disposition.blocking": "Menyekat DONE — seseorang perlu memutuskan:",
   "testCases.disposition.action.KNOWN_DEFECT": "Terima dan hantar",
-  "testCases.disposition.action.NOT_A_DEFECT": "Bukan kecacatan"
+  "testCases.disposition.action.NOT_A_DEFECT": "Bukan kecacatan",
+  "boundary.editChange.notRetained": "Lumo tidak menyimpan kandungan fail bukan ujian. Lihat perubahan dalam PR.",
+  "sessionTimeline.contentNotRetained": "Kandungan tidak disimpan ({lines, plural, other {# baris}}, {bytes, number} bait). Lumo hanya menyimpan laluan dan saiz, bukan kod anda."
 }

@@ -2513,5 +2513,7 @@
   "testCases.disposition.NOT_A_DEFECT": "Kein Defekt",
   "testCases.disposition.blocking": "Blockiert DONE — ein Mensch muss entscheiden:",
   "testCases.disposition.action.KNOWN_DEFECT": "Akzeptieren und ausliefern",
-  "testCases.disposition.action.NOT_A_DEFECT": "Kein Defekt"
+  "testCases.disposition.action.NOT_A_DEFECT": "Kein Defekt",
+  "boundary.editChange.notRetained": "Lumo speichert den Inhalt von Nicht-Testdateien nicht. Sieh dir die Änderung im PR an.",
+  "sessionTimeline.contentNotRetained": "Inhalt nicht gespeichert ({lines, plural, one {# Zeile} other {# Zeilen}}, {bytes, number} Bytes). Lumo speichert Pfade und Größen, nicht deinen Code."
 }

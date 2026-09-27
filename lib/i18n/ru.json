@@ -2513,5 +2513,7 @@
   "testCases.disposition.NOT_A_DEFECT": "Не дефект",
   "testCases.disposition.blocking": "Блокирует DONE — решение принимает человек:",
   "testCases.disposition.action.KNOWN_DEFECT": "Принять и выпустить",
-  "testCases.disposition.action.NOT_A_DEFECT": "Не дефект"
+  "testCases.disposition.action.NOT_A_DEFECT": "Не дефект",
+  "boundary.editChange.notRetained": "Lumo не хранит содержимое нетестовых файлов. Посмотрите изменение в PR.",
+  "sessionTimeline.contentNotRetained": "Содержимое не сохранено ({lines, plural, one {# строка} few {# строки} many {# строк} other {# строки}}, {bytes, number} байт). Lumo хранит пути и размеры, но не ваш код."
 }

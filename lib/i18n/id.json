@@ -2513,5 +2513,7 @@
   "testCases.disposition.NOT_A_DEFECT": "Bukan cacat",
   "testCases.disposition.blocking": "Memblokir DONE — seseorang harus memutuskan:",
   "testCases.disposition.action.KNOWN_DEFECT": "Terima dan rilis",
-  "testCases.disposition.action.NOT_A_DEFECT": "Bukan cacat"
+  "testCases.disposition.action.NOT_A_DEFECT": "Bukan cacat",
+  "boundary.editChange.notRetained": "Lumo tidak menyimpan isi file non-tes. Lihat perubahannya di PR.",
+  "sessionTimeline.contentNotRetained": "Isi tidak disimpan ({lines, plural, other {# baris}}, {bytes, number} byte). Lumo hanya menyimpan path dan ukuran, bukan kode Anda."
 }

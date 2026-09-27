@@ -2513,5 +2513,7 @@
   "testCases.disposition.NOT_A_DEFECT": "Pas un défaut",
   "testCases.disposition.blocking": "Bloque DONE — un humain doit trancher :",
   "testCases.disposition.action.KNOWN_DEFECT": "Accepter et livrer",
-  "testCases.disposition.action.NOT_A_DEFECT": "Pas un défaut"
+  "testCases.disposition.action.NOT_A_DEFECT": "Pas un défaut",
+  "boundary.editChange.notRetained": "Lumo ne conserve pas le contenu des fichiers hors tests. Consultez la modification dans la PR.",
+  "sessionTimeline.contentNotRetained": "Contenu non conservé ({lines, plural, one {# ligne} other {# lignes}}, {bytes, number} octets). Lumo conserve les chemins et les tailles, pas votre code."
 }

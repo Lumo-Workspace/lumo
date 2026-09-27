@@ -2513,5 +2513,7 @@
   "testCases.disposition.NOT_A_DEFECT": "दोष नहीं है",
   "testCases.disposition.blocking": "DONE रोका गया — किसी व्यक्ति को निर्णय लेना होगा:",
   "testCases.disposition.action.KNOWN_DEFECT": "स्वीकार करें और भेजें",
-  "testCases.disposition.action.NOT_A_DEFECT": "दोष नहीं है"
+  "testCases.disposition.action.NOT_A_DEFECT": "दोष नहीं है",
+  "boundary.editChange.notRetained": "Lumo गैर-टेस्ट फ़ाइलों की सामग्री नहीं रखता। बदलाव PR में देखें।",
+  "sessionTimeline.contentNotRetained": "सामग्री नहीं रखी गई ({lines, plural, one {# पंक्ति} other {# पंक्तियाँ}}, {bytes, number} बाइट)। Lumo केवल पथ और आकार रखता है, आपका कोड नहीं।"
 }

@@ -89,8 +89,10 @@ describe('hook handler — storage redaction (LUM-859)', () => {
     const stored = storedPayload()
     expect(stored).not.toContain(AWS_KEY)
     expect(stored).not.toContain(GH_PAT)
-    expect(stored).toContain('AKIA…(len 20)')
     const storedObj = mockRecord.mock.calls[0][0].payload
+    // LUM-855 then strips file content and tool output altogether, so the
+    // placeholder is not stored either (the prompt test below still covers it).
+    expect(storedObj.tool_input.content).toBeUndefined()
     expect(storedObj._lumo_redaction).toEqual({ count: 2 })
     expect(storedObj.tool_input.file_path).toBe('config.ts')
     expect(storedObj.session_id).toBe('sess_1')

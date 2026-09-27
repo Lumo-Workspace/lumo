@@ -7,6 +7,7 @@ import {
   redactHookPayload,
   validateHookPayload,
 } from '@/lib/validation/hook-payload'
+import { stripCodeFromHookPayload } from '@/lib/hook-payload/redact'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
@@ -37,7 +38,8 @@ export interface AfterRecordContext {
   filePath: string | null
   /** Tool this event uses, extracted from the payload (null if none). */
   toolName: string | null
-  /** The hook payload exactly as persisted (validated + credential-redacted),
+  /** The hook payload exactly as persisted (validated, credential-redacted and
+   *  stripped of customer code — LUM-855),
    *  for side effects that need fields beyond the common ones above (e.g.
    *  WORKTREE_CREATE → worktree_path/branch). Anything a side effect writes
    *  back to the DB must come from here, never from `rawPayload`. */
@@ -89,7 +91,12 @@ export async function handleHookRequest(
     // LUM-859: credentials are redacted out of the copy that is stored (and
     // out of every column derived from it). The unredacted `validated` stays
     // in memory for the boundary detector only — see AfterRecordContext.
-    const { payload } = redactHookPayload(validated)
+    // LUM-855: file content and tool output are then stripped from that stored
+    // copy too — paths, commands and sizes stay. `validated` keeps both.
+    const payload = stripCodeFromHookPayload(
+      type,
+      redactHookPayload(validated).payload
+    )
 
     const agent = parseAgentHeader(request)
     const recorded = await hookEventService.recordHookEvent({

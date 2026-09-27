@@ -8,6 +8,12 @@
  */
 
 import { isPrunedPayload } from '@/lib/hook-event/retention'
+import {
+  readRedactedPatch,
+  readRedactedStats,
+  type RedactedPatchStats,
+  type RedactedStats,
+} from '@/lib/hook-payload/redact'
 
 /** Row text for an event whose payload the retention sweep cleared (LUM-859). */
 export const PRUNED_SUMMARY = 'Content cleared per retention policy'
@@ -26,13 +32,22 @@ export interface RawEvent {
   createdAt: Date
 }
 
-export type DetailVariant = 'text' | 'error' | 'diff' | 'code' | 'json'
+export type DetailVariant =
+  | 'text'
+  | 'error'
+  | 'diff'
+  | 'code'
+  | 'json'
+  | 'redacted'
 
 export interface DetailBlock {
   label: string
   variant: DetailVariant
   text: string
   truncated?: { shownLines: number; totalLines: number }
+  /** Set on a `redacted` block (LUM-855): the size of content Lumo did not
+   *  keep. `text` is empty — the view renders the not-retained notice. */
+  redacted?: { lines: number; bytes: number }
 }
 
 export type ItemStatus = 'ok' | 'error' | 'pending'
@@ -182,7 +197,8 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
     toolName,
     input,
     response,
-    post !== null
+    post !== null,
+    redactionLookup(anchor.payload, post?.payload ?? null)
   )
 
   return {
@@ -200,6 +216,42 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
 
 // ─── Per-tool formatters ────────────────────────────────────────────────────
 
+/** Stats for content redacted out of a Pre/Post pair (LUM-855). The Post row
+ *  carries both tool_input and tool_response redactions; the Pre row only
+ *  tool_input — so Post is checked first. */
+interface RedactionLookup {
+  stats(path: string): RedactedStats | null
+  patch(path: string): RedactedPatchStats | null
+}
+
+const NO_REDACTION: RedactionLookup = { stats: () => null, patch: () => null }
+
+function redactionLookup(anchor: unknown, post: unknown): RedactionLookup {
+  return {
+    stats: path =>
+      readRedactedStats(post, path) ?? readRedactedStats(anchor, path),
+    patch: path =>
+      readRedactedPatch(post, path) ?? readRedactedPatch(anchor, path),
+  }
+}
+
+function redactedBlock(
+  label: string,
+  stats: RedactedStats | null
+): DetailBlock | null {
+  if (!stats) return null
+  return {
+    label,
+    variant: 'redacted',
+    text: '',
+    redacted: { lines: stats.lines, bytes: stats.bytes },
+  }
+}
+
+function pushBlock(details: DetailBlock[], block: DetailBlock | null) {
+  if (block) details.push(block)
+}
+
 interface FormatResult {
   summary: string
   badge: string | null
@@ -211,39 +263,41 @@ function formatTool(
   toolName: string | null,
   input: Record<string, unknown> | null,
   response: Record<string, unknown> | null,
-  hasPost: boolean
+  hasPost: boolean,
+  redaction: RedactionLookup = NO_REDACTION
 ): FormatResult {
   const status: ItemStatus = !hasPost
     ? 'pending'
-    : detectError(toolName, response)
+    : detectError(toolName, response, redaction)
       ? 'error'
       : 'ok'
 
   switch (toolName) {
     case 'Bash':
-      return formatBash(input, response, status)
+      return formatBash(input, response, status, redaction)
     case 'Read':
-      return formatRead(input, response, status)
+      return formatRead(input, response, status, redaction)
     case 'Edit':
     case 'MultiEdit':
-      return formatEdit(input, response, status)
+      return formatEdit(input, response, status, redaction)
     case 'Write':
-      return formatWrite(input, response, status)
+      return formatWrite(input, response, status, redaction)
     case 'Grep':
-      return formatGrep(input, response, status)
+      return formatGrep(input, response, status, redaction)
     case 'Glob':
       return formatGlob(input, response, status)
     case 'TodoWrite':
       return formatTodoWrite(input, response, status)
     default:
-      return formatFallback(input, response, status)
+      return formatFallback(input, response, status, redaction)
   }
 }
 
 function formatBash(
   input: Record<string, unknown> | null,
   response: Record<string, unknown> | null,
-  status: ItemStatus
+  status: ItemStatus,
+  redaction: RedactionLookup
 ): FormatResult {
   const command = getString(input, 'command') ?? ''
   const stdout = getString(response, 'stdout') ?? ''
@@ -254,11 +308,18 @@ function formatBash(
   details.push({ label: 'command', variant: 'code', text: command })
   if (stdout.trim()) details.push(clipBlock('stdout', 'code', stdout, 40))
   if (stderr.trim()) details.push(clipBlock('stderr', 'error', stderr, 40))
+  pushBlock(
+    details,
+    redactedBlock('stdout', redaction.stats('tool_response.stdout'))
+  )
+  const redactedStderr = redaction.stats('tool_response.stderr')
+  pushBlock(details, redactedBlock('stderr', redactedStderr))
   if (interrupted)
     details.push({ label: 'status', variant: 'error', text: 'interrupted' })
 
   const summary = clip(command.replace(/\s+/g, ' '), 100)
-  const badge = interrupted ? 'interrupted' : stderr.trim() ? 'stderr' : null
+  const hasStderr = stderr.trim() !== '' || (redactedStderr?.bytes ?? 0) > 0
+  const badge = interrupted ? 'interrupted' : hasStderr ? 'stderr' : null
 
   return { summary, badge, status, details }
 }
@@ -266,14 +327,19 @@ function formatBash(
 function formatRead(
   input: Record<string, unknown> | null,
   response: Record<string, unknown> | null,
-  status: ItemStatus
+  status: ItemStatus,
+  redaction: RedactionLookup
 ): FormatResult {
   const path = getString(input, 'file_path') ?? '(no path)'
   const file = getRecord(response, 'file')
   const content = getString(file, 'content') ?? ''
-  const totalLines = content ? content.split('\n').length : 0
+  const redacted = redaction.stats('tool_response.file.content')
+  const totalLines = content
+    ? content.split('\n').length
+    : (redacted?.lines ?? 0)
   const details: DetailBlock[] = []
   if (content) details.push(clipBlock('content', 'code', content, 30))
+  pushBlock(details, redactedBlock('content', redacted))
 
   const badge = totalLines > 0 ? `${totalLines} lines` : null
   return { summary: path, badge, status, details }
@@ -282,7 +348,8 @@ function formatRead(
 function formatEdit(
   input: Record<string, unknown> | null,
   response: Record<string, unknown> | null,
-  status: ItemStatus
+  status: ItemStatus,
+  redaction: RedactionLookup
 ): FormatResult {
   const path =
     getString(input, 'file_path') ??
@@ -299,9 +366,20 @@ function formatEdit(
   } else if (oldStr || newStr) {
     if (oldStr) details.push(clipBlock('old', 'code', oldStr, 20))
     if (newStr) details.push(clipBlock('new', 'code', newStr, 20))
+  } else {
+    pushBlock(
+      details,
+      redactedBlock(
+        'diff',
+        redaction.stats('tool_input.new_string') ??
+          redaction.stats('tool_input.old_string')
+      )
+    )
   }
 
-  const changes = countPatchChanges(getAny(response, 'structuredPatch'))
+  const changes =
+    countPatchChanges(getAny(response, 'structuredPatch')) ??
+    redaction.patch('tool_response.structuredPatch')
   const badge =
     changes && (changes.added || changes.removed)
       ? `+${changes.added} -${changes.removed}`
@@ -313,7 +391,8 @@ function formatEdit(
 function formatWrite(
   input: Record<string, unknown> | null,
   response: Record<string, unknown> | null,
-  status: ItemStatus
+  status: ItemStatus,
+  redaction: RedactionLookup
 ): FormatResult {
   const path =
     getString(input, 'file_path') ??
@@ -321,10 +400,14 @@ function formatWrite(
     '(no path)'
   const content =
     getString(input, 'content') ?? getString(response, 'content') ?? ''
-  const totalLines = content ? content.split('\n').length : 0
+  const redacted = redaction.stats('tool_input.content')
+  const totalLines = content
+    ? content.split('\n').length
+    : (redacted?.lines ?? 0)
 
   const details: DetailBlock[] = []
   if (content) details.push(clipBlock('content', 'code', content, 30))
+  else pushBlock(details, redactedBlock('content', redacted))
 
   const kind = getString(response, 'type') ?? 'write'
   const badge = totalLines > 0 ? `${kind} · ${totalLines} lines` : kind
@@ -334,7 +417,8 @@ function formatWrite(
 function formatGrep(
   input: Record<string, unknown> | null,
   response: Record<string, unknown> | null,
-  status: ItemStatus
+  status: ItemStatus,
+  redaction: RedactionLookup
 ): FormatResult {
   const pattern = getString(input, 'pattern') ?? ''
   const path = getString(input, 'path')
@@ -355,6 +439,13 @@ function formatGrep(
   // content mode: rg default → show matched lines (content is a string)
   else if (content && content.trim()) {
     details.push(clipBlock('matches', 'code', content, 40))
+  }
+  // content mode, matched lines not retained (LUM-855)
+  else if (redaction.stats('tool_response.content')) {
+    pushBlock(
+      details,
+      redactedBlock('matches', redaction.stats('tool_response.content'))
+    )
   }
   // count mode or empty result: nothing interesting to expand
   else if (response && mode !== 'count' && numFiles !== 0 && numLines !== 0) {
@@ -439,7 +530,8 @@ function formatTodoWrite(
 function formatFallback(
   input: Record<string, unknown> | null,
   response: Record<string, unknown> | null,
-  status: ItemStatus
+  status: ItemStatus,
+  redaction: RedactionLookup
 ): FormatResult {
   const summary = input
     ? clip(stringifyJson(input).slice(1, -1), 100)
@@ -457,6 +549,10 @@ function formatFallback(
       variant: 'json',
       text: stringifyJson(response),
     })
+  pushBlock(
+    details,
+    redactedBlock('response', redaction.stats('tool_response'))
+  )
   return { summary, badge: null, status, details }
 }
 
@@ -464,12 +560,14 @@ function formatFallback(
 
 function detectError(
   toolName: string | null,
-  response: Record<string, unknown> | null
+  response: Record<string, unknown> | null,
+  redaction: RedactionLookup
 ): boolean {
   if (!response) return false
   if (toolName === 'Bash') {
     const stderr = getString(response, 'stderr') ?? ''
     if (stderr.trim().length > 0) return true
+    if ((redaction.stats('tool_response.stderr')?.bytes ?? 0) > 0) return true
     if (getBoolean(response, 'interrupted')) return true
     return false
   }

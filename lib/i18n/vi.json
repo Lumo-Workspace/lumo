@@ -2513,5 +2513,7 @@
   "testCases.disposition.NOT_A_DEFECT": "Không phải lỗi",
   "testCases.disposition.blocking": "Đang chặn DONE — cần người quyết định:",
   "testCases.disposition.action.KNOWN_DEFECT": "Chấp nhận và phát hành",
-  "testCases.disposition.action.NOT_A_DEFECT": "Không phải lỗi"
+  "testCases.disposition.action.NOT_A_DEFECT": "Không phải lỗi",
+  "boundary.editChange.notRetained": "Lumo không lưu nội dung của các tệp không phải tệp kiểm thử. Xem thay đổi trong PR.",
+  "sessionTimeline.contentNotRetained": "Không lưu nội dung ({lines, plural, other {# dòng}}, {bytes, number} byte). Lumo chỉ lưu đường dẫn và kích thước, không lưu mã của bạn."
 }

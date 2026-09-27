@@ -12,6 +12,12 @@
 
 import { activeDurationMs } from '@/lib/agent-run/active-time'
 import type { HookEventType } from '@prisma/client'
+import {
+  readRedactedPatch,
+  readRedactedStats,
+  type RedactedPatchStats,
+  type RedactedStats,
+} from '@/lib/hook-payload/redact'
 export type { HookEventType }
 
 export interface RawEvent {
@@ -220,7 +226,11 @@ function compactToolCall(
     input,
     response,
     postArrived,
-    bashOutputHead
+    bashOutputHead,
+    path =>
+      readRedactedStats(post?.payload, path) ??
+      readRedactedStats(anchor.payload, path),
+    path => readRedactedPatch(post?.payload, path)
   )
   return `[${t}] ${body}`
 }
@@ -230,7 +240,10 @@ function compactForTool(
   input: Record<string, unknown> | null,
   response: Record<string, unknown> | null,
   postArrived: boolean,
-  bashOutputHead: number
+  bashOutputHead: number,
+  // Content redacted out of the stored events (LUM-855) — sizes only.
+  redactedStats: (path: string) => RedactedStats | null = () => null,
+  redactedPatch: (path: string) => RedactedPatchStats | null = () => null
 ): string {
   if (!postArrived) {
     return `${tool} ${compactInput(tool, input)} (no result — session ended mid-call)`
@@ -241,7 +254,13 @@ function compactForTool(
       const stdout = getString(response, 'stdout') ?? ''
       const stderr = getString(response, 'stderr') ?? ''
       const interrupted = getBoolean(response, 'interrupted') === true
-      const status = interrupted ? 'INTERRUPTED' : stderr.trim() ? 'ERR' : 'OK'
+      const redactedStderr =
+        (redactedStats('tool_response.stderr')?.bytes ?? 0) > 0
+      const status = interrupted
+        ? 'INTERRUPTED'
+        : stderr.trim() || redactedStderr
+          ? 'ERR'
+          : 'OK'
       const tail = interrupted
         ? ''
         : stderr.trim()
@@ -255,7 +274,9 @@ function compactForTool(
       const path = getString(input, 'file_path') ?? '(no path)'
       const file = getRecord(response, 'file')
       const content = getString(file, 'content') ?? ''
-      const lines = content ? content.split('\n').length : 0
+      const lines = content
+        ? content.split('\n').length
+        : (redactedStats('tool_response.file.content')?.lines ?? 0)
       return lines > 0 ? `Read ${path} (${lines} lines)` : `Read ${path}`
     }
     case 'Edit':
@@ -264,7 +285,9 @@ function compactForTool(
         getString(input, 'file_path') ??
         getString(response, 'filePath') ??
         '(no path)'
-      const changes = countPatchChanges(getAny(response, 'structuredPatch'))
+      const changes =
+        countPatchChanges(getAny(response, 'structuredPatch')) ??
+        redactedPatch('tool_response.structuredPatch')
       return changes
         ? `${tool} ${path} +${changes.added} -${changes.removed}`
         : `${tool} ${path}`
@@ -275,7 +298,9 @@ function compactForTool(
         getString(response, 'filePath') ??
         '(no path)'
       const content = getString(input, 'content') ?? ''
-      const lines = content ? content.split('\n').length : 0
+      const lines = content
+        ? content.split('\n').length
+        : (redactedStats('tool_input.content')?.lines ?? 0)
       const kind = getString(response, 'type') ?? 'write'
       return `Write ${path} (${kind}, ${lines} lines)`
     }

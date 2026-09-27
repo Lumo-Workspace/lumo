@@ -17,6 +17,7 @@ import { taskDependencyService } from '@/lib/services/task-dependency.service'
 import { toModelCosts } from '@/lib/services/model-cost'
 import type { ModelUsage } from '@/lib/services/model-cost'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import { hasRedactedContent } from '@/lib/hook-payload/redact'
 import type {
   BoundaryCrossingDisposition,
   BoundaryCrossingSeverity,
@@ -528,7 +529,12 @@ export function buildEditChangeView(
 
   const rawNew = firstString(input.new_string, input.new_str, input.content)
   const rawOld = firstString(input.old_string, input.old_str)
-  if (rawNew == null && rawOld == null) return fallback('NO_CONTENT')
+  if (rawNew == null && rawOld == null) {
+    // LUM-855: non-test file content is redacted before the event is stored.
+    return fallback(
+      hasRedactedContent(hookEvent.payload) ? 'NOT_RETAINED' : 'NO_CONTENT'
+    )
+  }
 
   // Write = `content` present with no edit-style old/new; otherwise it's an Edit.
   const isWrite =

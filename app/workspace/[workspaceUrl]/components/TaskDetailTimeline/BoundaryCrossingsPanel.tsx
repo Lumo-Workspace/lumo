@@ -1547,10 +1547,17 @@ function EditChangeBlock({
         <p className='flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground'>
           <FileWarning className='size-3.5 shrink-0' aria-hidden />
           <span>
-            {intl.formatMessage({
-              id: 'boundary.editChange.unavailable',
-              defaultMessage: "The edit content isn't available to show here.",
-            })}
+            {change.unavailable === 'NOT_RETAINED'
+              ? intl.formatMessage({
+                  id: 'boundary.editChange.notRetained',
+                  defaultMessage:
+                    "Lumo doesn't keep the content of non-test files. See the change in the PR.",
+                })
+              : intl.formatMessage({
+                  id: 'boundary.editChange.unavailable',
+                  defaultMessage:
+                    "The edit content isn't available to show here.",
+                })}
           </span>
           <PrFallback href={change.prFileUrl ?? change.prUrl} intl={intl} />
         </p>
