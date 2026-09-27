@@ -14,6 +14,7 @@ export {
   getGithubAppJwt,
   createInstallationToken,
   getRepoCloneToken,
+  createRepoScopedToken,
   revokeInstallationToken,
 } from './auth'
 

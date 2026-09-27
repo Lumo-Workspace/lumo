@@ -19,6 +19,7 @@ import { createAppAuth } from '@octokit/auth-app'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 import {
   getGithubInstallationToken,
+  createRepoScopedToken,
   getRepoCloneToken,
   revokeInstallationToken,
 } from '@/lib/integrations/github/auth'
@@ -37,8 +38,8 @@ beforeEach(() => {
   process.env = {
     ...ORIGINAL_ENV,
     GITHUB_APP_ID: '111',
-    GITHUB_APP_PRIVATE_KEY:
-      '-----BEGIN RSA PRIVATE KEY-----\\nabc\\n-----END RSA PRIVATE KEY-----\\n',
+    // Raw base64 form — appCredentials wraps it; no PEM block in the fixture.
+    GITHUB_APP_PRIVATE_KEY: 'abc',
     // Set on purpose: the fallback must not come back just because the env
     // var still exists in some deployment.
     GITHUB_APP_INSTALLATION_ID: '999',
@@ -64,6 +65,21 @@ describe('LUM-852 clone token scope', () => {
     )
     // Exactly one repository, exactly one permission — anything wider is
     // the whole installation again.
+    expect(authFn).toHaveBeenCalledWith({
+      type: 'installation',
+      repositoryNames: ['widgets'],
+      permissions: { contents: 'read' },
+    })
+  })
+
+  it('createRepoScopedToken makes the same scoped request for an installation id in hand', async () => {
+    await expect(createRepoScopedToken(7, 'acme/widgets')).resolves.toBe(
+      'ghs_scoped'
+    )
+    expect(findByWorkspace).not.toHaveBeenCalled()
+    expect(createAppAuthMock).toHaveBeenCalledWith(
+      expect.objectContaining({ installationId: 7 })
+    )
     expect(authFn).toHaveBeenCalledWith({
       type: 'installation',
       repositoryNames: ['widgets'],

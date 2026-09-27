@@ -103,14 +103,24 @@ export async function getRepoCloneToken(
   workspaceId: string,
   repository: string
 ): Promise<string> {
+  const installationId = await resolveInstallationId(workspaceId)
+  return createRepoScopedToken(installationId, repository)
+}
+
+/**
+ * The scoped mint itself, for an installation id already in hand (the
+ * LUM-852 sandbox probe has no workspace row to resolve). Same request as
+ * `getRepoCloneToken` — one repository, `contents: read`.
+ */
+export async function createRepoScopedToken(
+  installationId: number,
+  repository: string
+): Promise<string> {
   const name = repository.slice(repository.indexOf('/') + 1)
   if (!name || name === repository) {
     throw new Error(`Not an owner/repo name: "${repository}"`)
   }
-  const auth = createAppAuth({
-    ...appCredentials(),
-    installationId: await resolveInstallationId(workspaceId),
-  })
+  const auth = createAppAuth({ ...appCredentials(), installationId })
   const { token } = await auth({
     type: 'installation',
     repositoryNames: [name],

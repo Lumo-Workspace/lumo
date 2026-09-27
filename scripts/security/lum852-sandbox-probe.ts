@@ -14,16 +14,15 @@
  *   - egress: an allowlisted host reachable and a non-listed one not, under
  *     the allowlist; nothing reachable after deny-all.
  *
- * The token is minted like `getRepoCloneToken` does, but from the
- * installation id in the local env (there is no workspace row to resolve
- * here): same `repositoryNames` + `permissions` request, same App.
+ * The token is minted by `createRepoScopedToken` — the same call
+ * `getRepoCloneToken` makes — from the installation id in the local env
+ * (there is no workspace row to resolve here).
  *
  * Manual (boots one VM; needs GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY /
  * GITHUB_APP_INSTALLATION_ID and a local `vercel` login / VERCEL_OIDC_TOKEN):
  *   npx tsx --env-file=<.env.local> scripts/security/lum852-sandbox-probe.ts <owner/repo> <sha>
  */
 /* eslint-disable no-console -- CLI probe: its output IS the evidence */
-import { createAppAuth } from '@octokit/auth-app'
 import {
   createRepoSandbox,
   denySandboxEgress,
@@ -31,7 +30,10 @@ import {
   restrictSandboxEgress,
   type RepoSandbox,
 } from '@/lib/integrations/vercel-sandbox'
-import { revokeInstallationToken } from '@/lib/integrations/github/auth'
+import {
+  createRepoScopedToken,
+  revokeInstallationToken,
+} from '@/lib/integrations/github'
 import { scrubSandboxCredentials } from '@/lib/services/sandbox-credential-scrub'
 import {
   MANAGED_SCAN_TOOLS,
@@ -53,21 +55,10 @@ if (!repository || !sha || !/^[0-9a-f]{40}$/.test(sha)) {
 }
 
 async function mintScopedToken(): Promise<string> {
-  const privateKey = (process.env.GITHUB_APP_PRIVATE_KEY ?? '').replace(
-    /\\n/g,
-    '\n'
+  return createRepoScopedToken(
+    Number(process.env.GITHUB_APP_INSTALLATION_ID),
+    repository!
   )
-  const auth = createAppAuth({
-    appId: Number(process.env.GITHUB_APP_ID),
-    privateKey,
-    installationId: Number(process.env.GITHUB_APP_INSTALLATION_ID),
-  })
-  const { token } = await auth({
-    type: 'installation',
-    repositoryNames: [repository!.slice(repository!.indexOf('/') + 1)],
-    permissions: { contents: 'read' },
-  })
-  return token
 }
 
 async function tokenScope(token: string): Promise<string> {
