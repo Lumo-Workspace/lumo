@@ -114,6 +114,49 @@ export async function listUserInstallationIds(
   return ids
 }
 
+/** 100 per page × 50 pages — past this the listing is refused, not truncated. */
+const USER_REPO_PAGE_CAP = 50
+
+/**
+ * LUM-880 — full names of the repositories in `installationId` that the
+ * token's user can read (`GET /user/installations/{id}/repositories`). GitHub
+ * lists an installation for a user who can read any one of its repositories,
+ * so the caller compares this set against the installation's own list.
+ *
+ * Fails closed: a non-2xx or a listing longer than the page cap throws — a
+ * partial list would read as "the user cannot see these", which is the safe
+ * direction, but an error must never be mistaken for an answer.
+ */
+export async function listUserInstallationRepositories(
+  userToken: string,
+  installationId: number
+): Promise<string[]> {
+  const names: string[] = []
+  for (let page = 1; page <= USER_REPO_PAGE_CAP; page++) {
+    const res = await fetch(
+      `${GH_API}/user/installations/${installationId}/repositories?per_page=100&page=${page}`,
+      { headers: { ...GH_HEADERS, Authorization: `Bearer ${userToken}` } }
+    )
+    if (!res.ok) {
+      const body = await res.text()
+      throw new Error(
+        `GitHub listUserInstallationRepositories failed ${res.status}: ${body.slice(0, 200)}`
+      )
+    }
+    const data = (await res.json()) as {
+      repositories?: { full_name?: string }[]
+    }
+    const pageNames = (data.repositories ?? []).flatMap(r =>
+      typeof r.full_name === 'string' ? [r.full_name] : []
+    )
+    names.push(...pageNames)
+    if (pageNames.length < 100) return names
+  }
+  throw new Error(
+    `GitHub listUserInstallationRepositories: more than ${USER_REPO_PAGE_CAP * 100} repositories in installation ${installationId}`
+  )
+}
+
 /**
  * Revoke the user token once the check is done — Lumo keeps no user credential
  * from this flow. Best-effort: never throws, never logs the token.

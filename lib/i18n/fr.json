@@ -489,6 +489,7 @@
   "github.installRequested": "Installation demandée. Un propriétaire de l'organisation doit l'approuver.",
   "github.installFailed": "Impossible de terminer l'installation de l'app GitHub. Veuillez réessayer.",
   "github.installNotAuthorized": "GitHub n’a pas pu confirmer que votre compte GitHub a accès à cette installation ; rien n’a donc été enregistré. Installez l’App depuis un compte qui y a accès, puis réessayez.",
+  "github.installRepoAccessIncomplete": "Votre compte GitHub ne peut pas lire tous les dépôts de cette installation, donc rien n’a été enregistré. Demandez à un propriétaire de l’organisation ou à une personne ayant accès à tous ses dépôts de terminer la connexion.",
   "github.installVerifyNotConfigured": "Impossible de vérifier l’installation de l’App GitHub sur ce serveur (GITHUB_APP_CLIENT_ID ou GITHUB_APP_CLIENT_SECRET manquant). Demandez à la personne responsable du déploiement de les définir.",
   "github.installNotConfigured": "L'app GitHub n'est pas configurée sur ce serveur (GITHUB_APP_SLUG manquant). Demandez à la personne responsable du déploiement de la définir.",
   "sentry.title": "Sentry",

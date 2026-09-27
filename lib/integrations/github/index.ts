@@ -35,6 +35,7 @@ export {
   buildAppUserAuthorizeUrl,
   exchangeAppUserCode,
   listUserInstallationIds,
+  listUserInstallationRepositories,
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from './app-user-auth'

@@ -489,6 +489,7 @@
   "github.installRequested": "Permintaan pemasangan terkirim. Pemilik organisasi harus menyetujuinya.",
   "github.installFailed": "Tidak dapat menyelesaikan pemasangan aplikasi GitHub. Silakan coba lagi.",
   "github.installNotAuthorized": "GitHub tidak dapat memastikan bahwa akun GitHub Anda dapat mengakses instalasi ini, jadi tidak ada yang dicatat. Instal App dari akun yang memiliki akses, lalu coba lagi.",
+  "github.installRepoAccessIncomplete": "Akun GitHub Anda tidak dapat membaca semua repositori dalam instalasi ini, jadi tidak ada yang dicatat. Minta pemilik organisasi atau seseorang yang memiliki akses ke semua repositorinya untuk menyelesaikan koneksi.",
   "github.installVerifyNotConfigured": "Instalasi GitHub App tidak dapat diverifikasi di server ini (GITHUB_APP_CLIENT_ID atau GITHUB_APP_CLIENT_SECRET tidak ada). Minta pengelola deployment untuk mengaturnya.",
   "github.installNotConfigured": "Aplikasi GitHub belum dikonfigurasi di server ini (GITHUB_APP_SLUG tidak ada). Minta penanggung jawab deployment untuk mengaturnya.",
   "sentry.title": "Sentry",

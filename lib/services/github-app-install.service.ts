@@ -13,6 +13,7 @@ import {
   buildAppUserAuthorizeUrl,
   exchangeAppUserCode,
   listUserInstallationIds,
+  listUserInstallationRepositories,
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from '@/lib/integrations/github'
@@ -70,12 +71,16 @@ async function scrubWorkspaceCode(
  * installations can this user access". Anything short of a clear yes throws —
  * missing client credentials, a bad code, a GitHub error — so the caller
  * writes nothing.
+ *
+ * LUM-880 — "can access" only means the user can read *one* of the
+ * installation's repositories, so this also returns the repositories the user
+ * can read; `install()` refuses unless they cover the whole installation.
  */
-async function assertUserCanAccessInstallation(
+async function listRepositoriesUserCanRead(
   userCode: string,
   redirectUri: string,
   installationId: number
-): Promise<void> {
+): Promise<string[]> {
   let userToken: string
   try {
     userToken = await exchangeAppUserCode(userCode, redirectUri)
@@ -95,6 +100,7 @@ async function assertUserCanAccessInstallation(
         { status: 403, code: 'not_authorized' }
       )
     }
+    return await listUserInstallationRepositories(userToken, installationId)
   } finally {
     await revokeAppUserToken(userToken)
   }
@@ -162,6 +168,12 @@ export const githubAppInstallService = {
    * Bind an installation to a workspace (installation callback). Nothing is
    * read with the App's identity — let alone written — until GitHub confirms
    * the caller can access the installation (LUM-875).
+   *
+   * The whole installation lands in the workspace — its PRs, managed scans and
+   * picker — so the caller must be able to read every repository in it
+   * (LUM-880). An org admin always can; a member who reads only some of the
+   * org's repositories cannot bind it, or their workspace would show them
+   * repositories GitHub hides from them.
    */
   async install({
     workspaceId,
@@ -170,10 +182,28 @@ export const githubAppInstallService = {
     userCode,
     redirectUri,
   }: InstallInput) {
-    await assertUserCanAccessInstallation(userCode, redirectUri, installationId)
+    const readable = await listRepositoriesUserCanRead(
+      userCode,
+      redirectUri,
+      installationId
+    )
 
     const account = await fetchAppInstallation(installationId)
     const repositories = await fetchInstallationRepositories(installationId)
+
+    // GitHub repository names are case-insensitive.
+    const readableSet = new Set(readable.map(name => name.toLowerCase()))
+    const hidden = repositories.filter(
+      name => !readableSet.has(name.toLowerCase())
+    )
+    if (hidden.length > 0) {
+      throw Object.assign(
+        new Error(
+          `The signed-in GitHub user cannot read ${hidden.length} of ${repositories.length} repositories in installation ${installationId}`
+        ),
+        { status: 403, code: 'repo_access_incomplete' }
+      )
+    }
 
     const row = await githubAppInstallationRepository.upsert({
       workspaceId,

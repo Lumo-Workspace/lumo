@@ -32,6 +32,7 @@ jest.mock('@/lib/integrations/github', () => ({
   buildAppUserAuthorizeUrl: jest.fn(),
   exchangeAppUserCode: jest.fn(),
   listUserInstallationIds: jest.fn(),
+  listUserInstallationRepositories: jest.fn(),
   revokeAppUserToken: jest.fn(),
   GithubAppUserAuthNotConfiguredError: class extends Error {},
 }))
@@ -47,6 +48,7 @@ import {
   buildAppUserAuthorizeUrl,
   exchangeAppUserCode,
   listUserInstallationIds,
+  listUserInstallationRepositories,
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from '@/lib/integrations/github'
@@ -74,6 +76,9 @@ describe('githubAppInstallService', () => {
     ;(syncRepoPRs as jest.Mock).mockResolvedValue(undefined)
     ;(exchangeAppUserCode as jest.Mock).mockResolvedValue('user-token')
     ;(listUserInstallationIds as jest.Mock).mockResolvedValue([42])
+    ;(listUserInstallationRepositories as jest.Mock).mockResolvedValue([
+      'acme-inc/web',
+    ])
     ;(revokeAppUserToken as jest.Mock).mockResolvedValue(undefined)
   })
 
@@ -200,6 +205,84 @@ describe('githubAppInstallService', () => {
       expect(fetchAppInstallation).not.toHaveBeenCalled()
       expect(repo.upsert).not.toHaveBeenCalled()
       expect(syncRepoPRs).not.toHaveBeenCalled()
+    })
+
+    // LUM-880: GitHub lists an installation for a user who can read any one
+    // of its repositories; binding it would show them the rest.
+    it('refuses a caller who cannot read every repository of the installation and writes nothing', async () => {
+      ;(fetchInstallationRepositories as jest.Mock).mockResolvedValue([
+        'acme-inc/web',
+        'acme-inc/payroll',
+      ])
+      ;(listUserInstallationRepositories as jest.Mock).mockResolvedValue([
+        'acme-inc/web',
+      ])
+
+      await expect(
+        githubAppInstallService.install({
+          workspaceId: 'w1',
+          memberId: 'm1',
+          installationId: 42,
+          userCode: 'code',
+          redirectUri: REDIRECT,
+        })
+      ).rejects.toMatchObject({ status: 403, code: 'repo_access_incomplete' })
+
+      expect(listUserInstallationRepositories).toHaveBeenCalledWith(
+        'user-token',
+        42
+      )
+      expect(repo.upsert).not.toHaveBeenCalled()
+      expect(createInstallationToken).not.toHaveBeenCalled()
+      expect(syncRepoPRs).not.toHaveBeenCalled()
+      expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
+    })
+
+    it('binds when the caller can read every repository of the installation', async () => {
+      ;(fetchInstallationRepositories as jest.Mock).mockResolvedValue([
+        'acme-inc/web',
+        'acme-inc/payroll',
+      ])
+      // Admin view: every repository, in another order and casing.
+      ;(listUserInstallationRepositories as jest.Mock).mockResolvedValue([
+        'Acme-Inc/Payroll',
+        'acme-inc/web',
+        'acme-inc/other',
+      ])
+
+      await githubAppInstallService.install({
+        workspaceId: 'w1',
+        memberId: 'm1',
+        installationId: 42,
+        userCode: 'code',
+        redirectUri: REDIRECT,
+      })
+
+      expect(repo.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          repositories: ['acme-inc/web', 'acme-inc/payroll'],
+        })
+      )
+      expect(syncRepoPRs).toHaveBeenCalledTimes(2)
+    })
+
+    it('writes nothing when the caller repository list cannot be read', async () => {
+      ;(listUserInstallationRepositories as jest.Mock).mockRejectedValue(
+        new Error('GitHub listUserInstallationRepositories failed 502')
+      )
+
+      await expect(
+        githubAppInstallService.install({
+          workspaceId: 'w1',
+          memberId: 'm1',
+          installationId: 42,
+          userCode: 'code',
+          redirectUri: REDIRECT,
+        })
+      ).rejects.toThrow('502')
+      expect(fetchAppInstallation).not.toHaveBeenCalled()
+      expect(repo.upsert).not.toHaveBeenCalled()
+      expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
     })
 
     it('writes nothing when GitHub rejects the installation read', async () => {

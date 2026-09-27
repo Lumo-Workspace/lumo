@@ -29,7 +29,11 @@ function parseState(raw: string | null): VerifyState | null {
   }
 }
 
-const ERROR_CODES = new Set(['verify_not_configured', 'not_authorized'])
+const ERROR_CODES = new Set([
+  'verify_not_configured',
+  'not_authorized',
+  'repo_access_incomplete',
+])
 
 /**
  * GET /api/github/app/callback?code={code}&state={state}
@@ -39,6 +43,8 @@ const ERROR_CODES = new Set(['verify_not_configured', 'not_authorized'])
  * that user. The installation from the signed state is recorded only when
  * GitHub lists it among the installations this user can access — the
  * `installation_id` on the setup URL is attacker-controlled on its own.
+ * It must also be able to read every repository in it (LUM-880), or the
+ * callback redirects with `repo_access_incomplete`.
  *
  * Membership of the state's workspace is re-checked here: the state names the
  * workspace, the signed-in caller must belong to it.
