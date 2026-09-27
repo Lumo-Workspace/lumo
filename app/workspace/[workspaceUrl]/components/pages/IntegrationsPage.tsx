@@ -79,8 +79,18 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
       toast.error(
         intl.formatMessage({ id: 'github.installRepoAccessIncomplete' })
       )
+    } else if (appError === 'too_many_repositories') {
+      toast.error(
+        intl.formatMessage({ id: 'github.installTooManyRepositories' })
+      )
+    } else if (appError === 'not_owner') {
+      toast.error(intl.formatMessage({ id: 'github.reverifyNotOwner' }))
+    } else if (appError === 'reverify_failed') {
+      toast.error(intl.formatMessage({ id: 'github.reverifyFailed' }))
     } else if (appError) {
       toast.error(intl.formatMessage({ id: 'github.installFailed' }))
+    } else if (appResult === 'reverified') {
+      toast.success(intl.formatMessage({ id: 'github.reverifySuccess' }))
     } else if (appResult === 'installed') {
       toast.success(intl.formatMessage({ id: 'github.installSuccess' }))
     } else if (appResult === 'requested') {

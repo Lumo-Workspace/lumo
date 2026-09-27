@@ -32,23 +32,6 @@ export const githubAppInstallationRepository = {
   },
 
   /**
-   * Reverse lookup for App-level webhook events: `installation` and
-   * `installation_repositories` payloads carry no repository, so the only
-   * handle back to a workspace is the installation id itself.
-   */
-  async findByInstallationId(installationId: number) {
-    return prisma.gitHubAppInstallation.findFirst({
-      where: { installationId },
-      select: {
-        id: true,
-        workspaceId: true,
-        installationId: true,
-        repositories: true,
-      },
-    })
-  },
-
-  /**
    * LUM-872 — every workspace bound to an installation. `installationId` is
    * deliberately not unique: GitHub allows one installation per account, so a
    * second Lumo workspace on the same org re-uses it. Anything that must reach

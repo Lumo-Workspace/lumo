@@ -24,6 +24,7 @@ export {
   fetchInstallationRepositories,
   listInstallationRepositories,
   deleteAppInstallation,
+  InstallationRepositoryLimitError,
 } from './app-installations'
 export type {
   AppInstallationAccount,

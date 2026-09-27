@@ -37,10 +37,26 @@ interface InstallationEventPayload {
   repositories_removed?: { full_name?: string }[]
 }
 
+interface ReverifyInput {
+  workspaceId: string
+  memberRole: string
+  userCode: string
+  redirectUri: string
+}
+
 function fullNames(repos: { full_name?: string }[] | undefined): string[] {
   return (repos ?? [])
     .map(r => r.full_name)
     .filter((n): n is string => Boolean(n))
+}
+
+/** GitHub repository names are case-insensitive. */
+function lowerSet(names: string[]): Set<string> {
+  return new Set(names.map(name => name.toLowerCase()))
+}
+
+function without(names: string[], exclude: Set<string>): string[] {
+  return names.filter(name => !exclude.has(name.toLowerCase()))
 }
 
 /**
@@ -144,6 +160,31 @@ async function backfillPullRequests(
   }
 }
 
+/**
+ * Re-verification narrows what the whole team sees, so it follows the
+ * uninstall rule: workspace owners only (LUM-881).
+ */
+async function requireReverifiableInstallation(
+  workspaceId: string,
+  memberRole: string
+) {
+  if (memberRole !== 'OWNER') {
+    throw Object.assign(
+      new Error('Only workspace owners can re-verify the GitHub App'),
+      { status: 403, code: 'not_owner' }
+    )
+  }
+  const row =
+    await githubAppInstallationRepository.findStatusByWorkspace(workspaceId)
+  if (!row) {
+    throw Object.assign(new Error('GitHub App not installed'), {
+      status: 404,
+      code: 'not_installed',
+    })
+  }
+  return row
+}
+
 export const githubAppInstallService = {
   /**
    * Where the setup callback sends the user so GitHub can tell us who they are
@@ -220,36 +261,130 @@ export const githubAppInstallService = {
   },
 
   /**
-   * Workspace behind an installation id — how a delivery on the App webhook
-   * (which carries no repository row of ours) finds its workspace.
+   * Gate for starting a re-verification: owner-only, and only with an
+   * installation to re-check. Returns the installation id the state carries.
    */
-  async resolveWorkspaceByInstallation(installationId: number) {
-    const row =
-      await githubAppInstallationRepository.findByInstallationId(installationId)
+  async startReverify(workspaceId: string, memberRole: string) {
+    const row = await requireReverifiableInstallation(workspaceId, memberRole)
+    return row.installationId
+  },
+
+  /**
+   * Re-check the installation against what a workspace owner can read on
+   * GitHub now (LUM-881). The row's `repositories` is the workspace's
+   * *confirmed* list — only repositories someone with read access vouched for
+   * reach the workspace. This recomputes it as the installation's current
+   * repositories that the verifier can read: repositories added after binding
+   * are enabled (and backfilled), ones the verifier has lost are removed and
+   * their scan code scrubbed. The user token is revoked right after the check,
+   * so nothing about the verifier is kept.
+   */
+  async reverify({
+    workspaceId,
+    memberRole,
+    userCode,
+    redirectUri,
+  }: ReverifyInput) {
+    const row = await requireReverifiableInstallation(workspaceId, memberRole)
+
+    const readable = lowerSet(
+      await listRepositoriesUserCanRead(
+        userCode,
+        redirectUri,
+        row.installationId
+      )
+    )
+    const live = await fetchInstallationRepositories(row.installationId)
+
+    const confirmed = live.filter(name => readable.has(name.toLowerCase()))
+    const confirmedSet = lowerSet(confirmed)
+    const previousSet = lowerSet(row.repositories)
+    const added = without(confirmed, previousSet)
+    const removed = without(row.repositories, confirmedSet)
+
+    await githubAppInstallationRepository.updateRepositories(
+      workspaceId,
+      confirmed
+    )
+    if (removed.length > 0) {
+      await scrubWorkspaceCode(
+        workspaceId,
+        'repository no longer readable by the verifier',
+        removed
+      )
+    }
+    await backfillPullRequests(workspaceId, row.installationId, added)
+
+    return { confirmed: confirmed.length, added, removed }
+  },
+
+  /**
+   * Workspace that an App-delivered repository event belongs to. An
+   * installation id alone is not enough: the event must be for a repository
+   * the workspace has confirmed (LUM-881), or a repository added to the
+   * installation later would flow into the workspace unchecked. `null` drops
+   * the delivery.
+   */
+  async resolveWorkspaceForRepository(
+    installationId: number,
+    repositoryFullName: string | null
+  ) {
+    if (!repositoryFullName) return null
+    const target = repositoryFullName.toLowerCase()
+    const rows =
+      await githubAppInstallationRepository.findAllByInstallationId(
+        installationId
+      )
+    const row = rows.find(r =>
+      r.repositories.some(name => name.toLowerCase() === target)
+    )
     return row?.workspaceId ?? null
   },
 
   /**
-   * Live repository list for pickers. `null` when the App is not installed —
-   * the route turns that into the 404 `useGithubRepos` treats as "not connected".
+   * Confirmed repositories for pickers, filtered through the live list so a
+   * repository the App has since lost does not show. `null` when the App is
+   * not installed — the route turns that into the 404 `useGithubRepos` treats
+   * as "not connected".
    */
   async listRepositories(workspaceId: string) {
     const row =
-      await githubAppInstallationRepository.findByWorkspace(workspaceId)
+      await githubAppInstallationRepository.findStatusByWorkspace(workspaceId)
     if (!row) return null
-    return listInstallationRepositories(row.installationId)
+    const confirmed = lowerSet(row.repositories)
+    const live = await listInstallationRepositories(row.installationId)
+    return live.filter(r => confirmed.has(r.fullName.toLowerCase()))
   },
 
-  /** Installation status for the settings card. */
+  /**
+   * Installation status for the settings card. `pendingRepositories` are the
+   * ones the installation reaches but the workspace has not confirmed —
+   * `null` when the live list cannot be read (GitHub error, over the listing
+   * cap), so the card never claims there is nothing pending when it does not
+   * know.
+   */
   async getStatus(workspaceId: string) {
     const row =
       await githubAppInstallationRepository.findStatusByWorkspace(workspaceId)
     if (!row) return { installed: false } as const
+
+    let pendingRepositories: string[] | null
+    try {
+      const live = await fetchInstallationRepositories(row.installationId)
+      pendingRepositories = without(live, lowerSet(row.repositories))
+    } catch (error) {
+      logger.error(
+        `[github/app] cannot list installation ${row.installationId} for pending repositories: ${String(error)}`
+      )
+      pendingRepositories = null
+    }
+
     return {
       installed: true,
       accountLogin: row.accountLogin,
       accountType: row.accountType,
       repositories: row.repositories,
+      pendingRepositories,
     } as const
   },
 
@@ -351,14 +486,21 @@ export const githubAppInstallService = {
           )
           return
         }
+        // The payload's list can only narrow the confirmed one: a repository
+        // it adds has not been vouched for by anyone who can read it (LUM-881).
+        const reachable = payload.repositories
+          ? lowerSet(fullNames(payload.repositories))
+          : null
         for (const row of rows) {
           await githubAppInstallationRepository.upsert({
             workspaceId: row.workspaceId,
             installationId,
             accountLogin: payload.installation?.account?.login ?? null,
             accountType: payload.installation?.account?.type ?? null,
-            repositories: payload.repositories
-              ? fullNames(payload.repositories)
+            repositories: reachable
+              ? row.repositories.filter(name =>
+                  reachable.has(name.toLowerCase())
+                )
               : row.repositories,
           })
         }
@@ -370,10 +512,14 @@ export const githubAppInstallService = {
   },
 
   /**
-   * `installation_repositories` event — repository scope added or removed,
-   * applied to every workspace bound to the installation. A repository the
-   * App can no longer reach has its scan code scrubbed like an uninstall
-   * (LUM-872): Lumo keeps no customer code it has lost access to.
+   * `installation_repositories` event, applied to every workspace bound to the
+   * installation. A repository the App can no longer reach leaves the
+   * confirmed list and has its scan code scrubbed like an uninstall (LUM-872):
+   * Lumo keeps no customer code it has lost access to.
+   *
+   * An added repository is *not* confirmed (LUM-881): the webhook carries no
+   * user, so nobody has shown they can read it. It stays pending — no event
+   * routing, no backfill, not in pickers — until an owner re-verifies.
    */
   async applyInstallationRepositoriesEvent(payload: InstallationEventPayload) {
     const installationId = payload.installation?.id
@@ -384,33 +530,26 @@ export const githubAppInstallService = {
         installationId
       )
     const removedNames = fullNames(payload.repositories_removed)
-    const removed = new Set(removedNames)
+    const removed = lowerSet(removedNames)
+    const addedCount = fullNames(payload.repositories_added).length
 
     for (const row of rows) {
-      const next = [
-        ...new Set([
-          ...row.repositories,
-          ...fullNames(payload.repositories_added),
-        ]),
-      ].filter(name => !removed.has(name))
-
-      await githubAppInstallationRepository.updateRepositories(
-        row.workspaceId,
-        next
-      )
-
       if (removedNames.length > 0) {
+        await githubAppInstallationRepository.updateRepositories(
+          row.workspaceId,
+          without(row.repositories, removed)
+        )
         await scrubWorkspaceCode(
           row.workspaceId,
           'repository removed from the installation',
           removedNames
         )
       }
-
-      const added = fullNames(payload.repositories_added).filter(
-        name => !row.repositories.includes(name)
-      )
-      await backfillPullRequests(row.workspaceId, installationId, added)
+      if (addedCount > 0) {
+        logger.info(
+          `[github/app] installation ${installationId}: ${addedCount} repository(ies) added; pending re-verification for workspace ${row.workspaceId}`
+        )
+      }
     }
   },
 }

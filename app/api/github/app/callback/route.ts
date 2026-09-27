@@ -9,6 +9,8 @@ interface VerifyState {
   workspaceUrl: string
   memberId: string
   installationId: number
+  /** LUM-881 — set by /api/github/app/reverify; absent for a fresh install. */
+  mode?: 'reverify'
 }
 
 function parseState(raw: string | null): VerifyState | null {
@@ -33,6 +35,8 @@ const ERROR_CODES = new Set([
   'verify_not_configured',
   'not_authorized',
   'repo_access_incomplete',
+  'too_many_repositories',
+  'not_owner',
 ])
 
 /**
@@ -45,6 +49,10 @@ const ERROR_CODES = new Set([
  * `installation_id` on the setup URL is attacker-controlled on its own.
  * It must also be able to read every repository in it (LUM-880), or the
  * callback redirects with `repo_access_incomplete`.
+ *
+ * With `mode: 'reverify'` in the state (LUM-881) the same authorization
+ * instead re-checks an existing installation: the workspace keeps exactly the
+ * repositories this owner can read.
  *
  * Membership of the state's workspace is re-checked here: the state names the
  * workspace, the signed-in caller must belong to it.
@@ -90,23 +98,41 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/github/app/callback`
+  const reverify = state.mode === 'reverify'
+
   try {
-    await githubAppInstallService.install({
-      workspaceId: ws.workspaceId,
-      memberId: ws.member.id,
-      installationId: state.installationId,
-      userCode: code,
-      redirectUri: `${process.env.NEXT_PUBLIC_APP_URL}/api/github/app/callback`,
-    })
+    if (reverify) {
+      await githubAppInstallService.reverify({
+        workspaceId: ws.workspaceId,
+        memberRole: ws.member.role,
+        userCode: code,
+        redirectUri,
+      })
+    } else {
+      await githubAppInstallService.install({
+        workspaceId: ws.workspaceId,
+        memberId: ws.member.id,
+        installationId: state.installationId,
+        userCode: code,
+        redirectUri,
+      })
+    }
   } catch (error) {
     logger.error(
       `[github/app/callback] refused installation ${state.installationId} for workspace ${ws.workspaceId}: ${String(error)}`
     )
     const reason = (error as { code?: string }).code
     const errorCode =
-      reason && ERROR_CODES.has(reason) ? reason : 'install_failed'
+      reason && ERROR_CODES.has(reason)
+        ? reason
+        : reverify
+          ? 'reverify_failed'
+          : 'install_failed'
     return NextResponse.redirect(`${settingsUrl}?github_app_error=${errorCode}`)
   }
 
-  return NextResponse.redirect(`${settingsUrl}?github_app=installed`)
+  return NextResponse.redirect(
+    `${settingsUrl}?github_app=${reverify ? 'reverified' : 'installed'}`
+  )
 }

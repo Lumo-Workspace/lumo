@@ -13,6 +13,11 @@ export interface GitHubAppStatus {
   accountLogin?: string | null
   accountType?: string | null
   repositories?: string[]
+  /**
+   * In the installation but not yet confirmed for this workspace (LUM-881);
+   * `null` when GitHub could not be asked.
+   */
+  pendingRepositories?: string[] | null
 }
 
 interface UseGitHubAppInstallationReturn {
@@ -22,6 +27,7 @@ interface UseGitHubAppInstallationReturn {
   setUninstallOpen: (open: boolean) => void
   uninstalling: boolean
   handleInstall: () => void
+  handleReverify: () => void
   handleUninstall: () => Promise<void>
 }
 
@@ -70,6 +76,12 @@ export function useGitHubAppInstallation(
     window.location.href = API.github.appInstall(workspaceUrl)
   }
 
+  // Same full-page round-trip as install: GitHub returns to the App callback,
+  // which needs this session's cookies (LUM-881).
+  const handleReverify = () => {
+    window.location.href = API.github.appReverify(workspaceUrl)
+  }
+
   const handleUninstall = async () => {
     await uninstallMutation.mutateAsync()
   }
@@ -81,6 +93,7 @@ export function useGitHubAppInstallation(
     setUninstallOpen,
     uninstalling: uninstallMutation.isPending,
     handleInstall,
+    handleReverify,
     handleUninstall,
   }
 }

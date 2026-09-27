@@ -9,7 +9,6 @@ jest.mock('@/lib/repositories', () => ({
     upsert: jest.fn(),
     findByWorkspace: jest.fn(),
     findStatusByWorkspace: jest.fn(),
-    findByInstallationId: jest.fn(),
     findAllByInstallationId: jest.fn().mockResolvedValue([]),
     updateRepositories: jest.fn(),
     delete: jest.fn(),
@@ -23,9 +22,16 @@ jest.mock('@/lib/repositories', () => ({
       .mockResolvedValue({ scans: 0, findings: 0 }),
   },
 }))
+// LUM-881: the real listing (app-installations.ts) can be swapped in per test;
+// it only needs an installation token.
+jest.mock('@/lib/integrations/github/auth', () => ({
+  createInstallationToken: jest.fn().mockResolvedValue('inst-token'),
+  getGithubAppJwt: jest.fn(),
+}))
 jest.mock('@/lib/integrations/github', () => ({
   fetchAppInstallation: jest.fn(),
   fetchInstallationRepositories: jest.fn(),
+  listInstallationRepositories: jest.fn(),
   deleteAppInstallation: jest.fn(),
   createInstallationToken: jest.fn(),
   syncRepoPRs: jest.fn(),
@@ -38,10 +44,14 @@ jest.mock('@/lib/integrations/github', () => ({
 }))
 
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
-import { githubAppInstallationRepository } from '@/lib/repositories'
+import {
+  githubAppInstallationRepository,
+  prSecurityScanRepository,
+} from '@/lib/repositories'
 import {
   fetchAppInstallation,
   fetchInstallationRepositories,
+  listInstallationRepositories,
   deleteAppInstallation,
   createInstallationToken,
   syncRepoPRs,
@@ -285,6 +295,51 @@ describe('githubAppInstallService', () => {
       expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
     })
 
+    // LUM-881: the App-side listing used to stop at 5 pages and return what it
+    // had, so repositories past 500 skipped the comparison above entirely.
+    it('refuses to bind an installation whose repository list exceeds the listing cap', async () => {
+      const actual = jest.requireActual(
+        '@/lib/integrations/github/app-installations'
+      )
+      ;(fetchInstallationRepositories as jest.Mock).mockImplementation(
+        actual.fetchInstallationRepositories
+      )
+      // Every page is full: 100 repositories per page, forever.
+      let pages = 0
+      const fetchMock = jest.fn(async (url: string) => {
+        pages += 1
+        const page = Number(new URL(url).searchParams.get('page'))
+        return {
+          ok: true,
+          json: async () => ({
+            repositories: Array.from({ length: 100 }, (_, i) => ({
+              full_name: `acme-inc/repo-${page}-${i}`,
+            })),
+          }),
+        }
+      })
+      const realFetch = global.fetch
+      global.fetch = fetchMock as unknown as typeof fetch
+      try {
+        await expect(
+          githubAppInstallService.install({
+            workspaceId: 'w1',
+            memberId: 'm1',
+            installationId: 42,
+            userCode: 'code',
+            redirectUri: REDIRECT,
+          })
+        ).rejects.toMatchObject({ code: 'too_many_repositories' })
+      } finally {
+        global.fetch = realFetch
+      }
+
+      // Same cap as the user-side listing: 50 pages × 100, then refuse.
+      expect(pages).toBe(50)
+      expect(repo.upsert).not.toHaveBeenCalled()
+      expect(syncRepoPRs).not.toHaveBeenCalled()
+    })
+
     it('writes nothing when GitHub rejects the installation read', async () => {
       ;(fetchAppInstallation as jest.Mock).mockRejectedValue(new Error('404'))
 
@@ -325,12 +380,12 @@ describe('githubAppInstallService', () => {
   })
 
   describe('applyInstallationEvent', () => {
-    it('updates the known workspace row on created', async () => {
+    it('updates the known workspace row on created, only narrowing the confirmed list', async () => {
       repo.findAllByInstallationId.mockResolvedValue([
         {
           workspaceId: 'w1',
           installationId: 555,
-          repositories: ['acme-inc/old'],
+          repositories: ['acme-inc/web', 'acme-inc/old'],
         },
       ])
 
@@ -340,9 +395,13 @@ describe('githubAppInstallService', () => {
           id: 555,
           account: { login: 'acme-inc', type: 'Organization' },
         },
-        repositories: [{ full_name: 'acme-inc/web' }],
+        repositories: [
+          { full_name: 'Acme-Inc/Web' },
+          { full_name: 'acme-inc/new' },
+        ],
       })
 
+      // `old` is no longer reachable; `new` was never confirmed (LUM-881).
       expect(repo.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           workspaceId: 'w1',
@@ -402,7 +461,7 @@ describe('githubAppInstallService', () => {
   })
 
   describe('applyInstallationRepositoriesEvent', () => {
-    it('adds and removes repositories without dropping the rest', async () => {
+    it('removes repositories without dropping the rest and scrubs their code', async () => {
       repo.findAllByInstallationId.mockResolvedValue([
         {
           workspaceId: 'w1',
@@ -412,24 +471,68 @@ describe('githubAppInstallService', () => {
       ])
 
       await githubAppInstallService.applyInstallationRepositoriesEvent({
-        action: 'added',
+        action: 'removed',
         installation: { id: 555 },
-        repositories_added: [{ full_name: 'acme-inc/api' }],
-        repositories_removed: [{ full_name: 'acme-inc/legacy' }],
+        repositories_removed: [{ full_name: 'Acme-Inc/Legacy' }],
       })
 
       expect(repo.updateRepositories).toHaveBeenCalledWith('w1', [
         'acme-inc/web',
-        'acme-inc/api',
       ])
-      // Only the newly reachable repository is backfilled.
-      expect(syncRepoPRs).toHaveBeenCalledTimes(1)
-      expect(syncRepoPRs).toHaveBeenCalledWith(
-        'inst-token',
-        'acme-inc/api',
-        'w1',
-        null
+      expect(
+        prSecurityScanRepository.scrubCodeForWorkspace
+      ).toHaveBeenCalledWith('w1', ['Acme-Inc/Legacy'])
+    })
+
+    // LUM-881: the webhook carries no user, so nobody has shown they can read
+    // an added repository. It must not reach the workspace until re-verified.
+    it('keeps repositories added after binding pending', async () => {
+      repo.findAllByInstallationId.mockResolvedValue([
+        {
+          workspaceId: 'w1',
+          installationId: 555,
+          repositories: ['acme-inc/web'],
+        },
+      ])
+
+      await githubAppInstallService.applyInstallationRepositoriesEvent({
+        action: 'added',
+        installation: { id: 555 },
+        repositories_added: [{ full_name: 'acme-inc/payroll' }],
+      })
+      await githubAppInstallService.applyInstallationEvent({
+        action: 'new_permissions_accepted',
+        installation: { id: 555 },
+        repositories: [
+          { full_name: 'acme-inc/web' },
+          { full_name: 'acme-inc/payroll' },
+        ],
+      })
+
+      // Never confirmed, never backfilled.
+      expect(repo.updateRepositories).not.toHaveBeenCalled()
+      expect(repo.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ repositories: ['acme-inc/web'] })
       )
+      expect(createInstallationToken).not.toHaveBeenCalled()
+      expect(syncRepoPRs).not.toHaveBeenCalled()
+
+      // The settings card shows it as pending.
+      repo.findStatusByWorkspace.mockResolvedValue({
+        installationId: 555,
+        accountLogin: 'acme-inc',
+        accountType: 'Organization',
+        repositories: ['acme-inc/web'],
+        createdAt: new Date(),
+      })
+      ;(fetchInstallationRepositories as jest.Mock).mockResolvedValue([
+        'acme-inc/web',
+        'acme-inc/payroll',
+      ])
+      expect(await githubAppInstallService.getStatus('w1')).toMatchObject({
+        repositories: ['acme-inc/web'],
+        pendingRepositories: ['acme-inc/payroll'],
+      })
     })
 
     it('does nothing for an unknown installation', async () => {
@@ -526,7 +629,176 @@ describe('githubAppInstallService', () => {
         accountLogin: 'acme-inc',
         accountType: 'Organization',
         repositories: ['acme-inc/web'],
+        pendingRepositories: [],
       })
+    })
+
+    it('reports pending repositories as unknown when GitHub cannot be asked', async () => {
+      repo.findStatusByWorkspace.mockResolvedValue({
+        installationId: 555,
+        accountLogin: 'acme-inc',
+        accountType: 'Organization',
+        repositories: ['acme-inc/web'],
+        createdAt: new Date(),
+      })
+      ;(fetchInstallationRepositories as jest.Mock).mockRejectedValue(
+        new Error('502')
+      )
+
+      expect(await githubAppInstallService.getStatus('w1')).toMatchObject({
+        installed: true,
+        pendingRepositories: null,
+      })
+    })
+  })
+
+  describe('listRepositories', () => {
+    it('lists only confirmed repositories for the picker', async () => {
+      repo.findStatusByWorkspace.mockResolvedValue({
+        installationId: 555,
+        repositories: ['Acme-Inc/Web', 'acme-inc/gone'],
+      })
+      ;(listInstallationRepositories as jest.Mock).mockResolvedValue([
+        { fullName: 'acme-inc/web', name: 'web', private: true },
+        { fullName: 'acme-inc/payroll', name: 'payroll', private: true },
+      ])
+
+      expect(await githubAppInstallService.listRepositories('w1')).toEqual([
+        { fullName: 'acme-inc/web', name: 'web', private: true },
+      ])
+    })
+
+    it('returns null when the App is not installed', async () => {
+      repo.findStatusByWorkspace.mockResolvedValue(null)
+      expect(await githubAppInstallService.listRepositories('w1')).toBeNull()
+    })
+  })
+
+  describe('reverify', () => {
+    const input = {
+      workspaceId: 'w1',
+      memberRole: 'OWNER',
+      userCode: 'code',
+      redirectUri: REDIRECT,
+    }
+
+    beforeEach(() => {
+      repo.findStatusByWorkspace.mockResolvedValue({
+        installationId: 42,
+        accountLogin: 'acme-inc',
+        accountType: 'Organization',
+        repositories: ['acme-inc/web', 'acme-inc/legacy'],
+        createdAt: new Date(),
+      })
+      ;(fetchInstallationRepositories as jest.Mock).mockResolvedValue([
+        'acme-inc/web',
+        'acme-inc/legacy',
+        'acme-inc/api',
+        'acme-inc/payroll',
+      ])
+      // The owner can read web and api — no longer legacy, never payroll.
+      ;(listUserInstallationRepositories as jest.Mock).mockResolvedValue([
+        'Acme-Inc/Web',
+        'acme-inc/api',
+      ])
+    })
+
+    it('reverify narrows and widens the confirmed list to what the verifier can read', async () => {
+      const result = await githubAppInstallService.reverify(input)
+
+      expect(repo.updateRepositories).toHaveBeenCalledWith('w1', [
+        'acme-inc/web',
+        'acme-inc/api',
+      ])
+      expect(result).toEqual({
+        confirmed: 2,
+        added: ['acme-inc/api'],
+        removed: ['acme-inc/legacy'],
+      })
+      // Lost access: the workspace keeps none of that repository's code.
+      expect(
+        prSecurityScanRepository.scrubCodeForWorkspace
+      ).toHaveBeenCalledWith('w1', ['acme-inc/legacy'])
+      // Newly confirmed: backfilled, and nothing else is.
+      expect(syncRepoPRs).toHaveBeenCalledTimes(1)
+      expect(syncRepoPRs).toHaveBeenCalledWith(
+        'inst-token',
+        'acme-inc/api',
+        'w1',
+        null
+      )
+      // No user credential outlives the check.
+      expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
+    })
+
+    it('refuses a non-owner before asking GitHub anything', async () => {
+      await expect(
+        githubAppInstallService.reverify({ ...input, memberRole: 'MEMBER' })
+      ).rejects.toMatchObject({ status: 403, code: 'not_owner' })
+      expect(exchangeAppUserCode).not.toHaveBeenCalled()
+      expect(repo.updateRepositories).not.toHaveBeenCalled()
+    })
+
+    it('refuses when the workspace has no installation', async () => {
+      repo.findStatusByWorkspace.mockResolvedValue(null)
+      await expect(
+        githubAppInstallService.reverify(input)
+      ).rejects.toMatchObject({ status: 404, code: 'not_installed' })
+      expect(exchangeAppUserCode).not.toHaveBeenCalled()
+    })
+
+    it('changes nothing when the verifier cannot access the installation at all', async () => {
+      ;(listUserInstallationIds as jest.Mock).mockResolvedValue([7])
+
+      await expect(
+        githubAppInstallService.reverify(input)
+      ).rejects.toMatchObject({ status: 403, code: 'not_authorized' })
+      expect(repo.updateRepositories).not.toHaveBeenCalled()
+      expect(
+        prSecurityScanRepository.scrubCodeForWorkspace
+      ).not.toHaveBeenCalled()
+      expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
+    })
+
+    it('changes nothing when the installation list cannot be read', async () => {
+      ;(fetchInstallationRepositories as jest.Mock).mockRejectedValue(
+        new Error('502')
+      )
+
+      await expect(githubAppInstallService.reverify(input)).rejects.toThrow(
+        '502'
+      )
+      expect(repo.updateRepositories).not.toHaveBeenCalled()
+      expect(
+        prSecurityScanRepository.scrubCodeForWorkspace
+      ).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('startReverify', () => {
+    it('returns the installation id for an owner', async () => {
+      repo.findStatusByWorkspace.mockResolvedValue({
+        installationId: 42,
+        repositories: [],
+      })
+      expect(await githubAppInstallService.startReverify('w1', 'OWNER')).toBe(
+        42
+      )
+    })
+
+    it('refuses a non-owner', async () => {
+      await expect(
+        githubAppInstallService.startReverify('w1', 'MEMBER')
+      ).rejects.toMatchObject({ status: 403, code: 'not_owner' })
+    })
+  })
+
+  describe('resolveWorkspaceForRepository', () => {
+    it('returns null for an event with no repository', async () => {
+      expect(
+        await githubAppInstallService.resolveWorkspaceForRepository(555, null)
+      ).toBeNull()
+      expect(repo.findAllByInstallationId).not.toHaveBeenCalled()
     })
   })
 })

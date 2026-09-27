@@ -19,7 +19,7 @@ jest.mock('@/lib/crypto', () => ({
   },
 }))
 jest.mock('@/lib/services/github-app-install.service', () => ({
-  githubAppInstallService: { install: jest.fn() },
+  githubAppInstallService: { install: jest.fn(), reverify: jest.fn() },
 }))
 
 import { GET } from '@/app/api/github/app/callback/route'
@@ -29,6 +29,7 @@ import { githubAppInstallService } from '@/lib/services/github-app-install.servi
 const mockRequireAuth = requireAuth as jest.Mock
 const mockGetUserWorkspace = getUserWorkspace as jest.Mock
 const install = githubAppInstallService.install as jest.Mock
+const reverify = githubAppInstallService.reverify as jest.Mock
 
 const APP_URL = 'https://app.test'
 const SETTINGS = `${APP_URL}/workspace/acme/settings/integrations`
@@ -40,6 +41,12 @@ function state(
 ) {
   return encodeURIComponent(
     `enc(${JSON.stringify({ workspaceId, workspaceUrl, memberId: 'm1', installationId })})`
+  )
+}
+
+function reverifyState(workspaceId = 'w1') {
+  return encodeURIComponent(
+    `enc(${JSON.stringify({ workspaceId, workspaceUrl: 'acme', memberId: 'm1', installationId: 42, mode: 'reverify' })})`
   )
 }
 
@@ -55,10 +62,11 @@ describe('GET /api/github/app/callback', () => {
     mockRequireAuth.mockResolvedValue({ userId: 'clerk_1' })
     mockGetUserWorkspace.mockResolvedValue({
       workspaceId: 'w1',
-      member: { id: 'm1' },
+      member: { id: 'm1', role: 'OWNER' },
       workspace: { slug: 'acme' },
     })
     install.mockResolvedValue({ installationId: 42 })
+    reverify.mockResolvedValue({ confirmed: 1, added: [], removed: [] })
   })
 
   it('records an installation the caller can access on GitHub', async () => {
@@ -175,5 +183,47 @@ describe('GET /api/github/app/callback', () => {
 
     expect(res.status).toBe(401)
     expect(install).not.toHaveBeenCalled()
+  })
+
+  // LUM-881: the same authorization re-checks an existing installation.
+  it('re-verifies instead of installing when the state says so', async () => {
+    const res = await GET(req(`code=abc&state=${reverifyState()}`))
+
+    expect(reverify).toHaveBeenCalledWith({
+      workspaceId: 'w1',
+      memberRole: 'OWNER',
+      userCode: 'abc',
+      redirectUri: `${APP_URL}/api/github/app/callback`,
+    })
+    expect(install).not.toHaveBeenCalled()
+    expect(res.headers.get('location')).toBe(
+      `${SETTINGS}?github_app=reverified`
+    )
+  })
+
+  it('reports a failed re-verification by its code', async () => {
+    reverify.mockRejectedValueOnce(
+      Object.assign(new Error('owner only'), { status: 403, code: 'not_owner' })
+    )
+    const refused = await GET(req(`code=abc&state=${reverifyState()}`))
+    expect(refused.headers.get('location')).toBe(
+      `${SETTINGS}?github_app_error=not_owner`
+    )
+
+    reverify.mockRejectedValueOnce(new Error('502'))
+    const failed = await GET(req(`code=abc&state=${reverifyState()}`))
+    expect(failed.headers.get('location')).toBe(
+      `${SETTINGS}?github_app_error=reverify_failed`
+    )
+  })
+
+  it('names an over-cap installation instead of a generic failure', async () => {
+    install.mockRejectedValueOnce(
+      Object.assign(new Error('too many'), { code: 'too_many_repositories' })
+    )
+    const res = await GET(req(`code=abc&state=${state('w1')}`))
+    expect(res.headers.get('location')).toBe(
+      `${SETTINGS}?github_app_error=too_many_repositories`
+    )
   })
 })
