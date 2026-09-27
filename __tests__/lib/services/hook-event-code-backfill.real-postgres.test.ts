@@ -20,6 +20,7 @@ jest.mock('@/lib/db/prisma', () => ({
 
 import { hookEventCodeBackfillService } from '@/lib/services/hook-event-code-backfill.service'
 import { stripCodeFromHookPayload } from '@/lib/hook-payload/redact'
+import { WRITE_CHUNK } from '@/lib/repositories/hook-event-code-backfill.repository'
 
 jest.setTimeout(180_000)
 
@@ -112,5 +113,24 @@ describe('hook event code backfill on a real Postgres', () => {
 
     const again = await hookEventCodeBackfillService.run({ dryRun: false })
     expect(again).toMatchObject({ toRewrite: 0, written: 0 })
+  })
+
+  it('backfill writes a page larger than one write transaction in full', async () => {
+    const n = WRITE_CHUNK * 2 + 3
+    for (let i = 0; i < n; i++) {
+      await seedEvent(
+        `f${String(i).padStart(3, '0')}`,
+        write(`/repo/lib/f${i}.ts`)
+      )
+    }
+    const applied = await hookEventCodeBackfillService.run({
+      dryRun: false,
+      batchSize: 200,
+    })
+    expect(applied).toMatchObject({ toRewrite: n, written: n })
+    const [left] = await harness.query<{ n: number }>(
+      `select count(*)::int as n from hook_events where id like 'f%' and payload::text like '%items.reduce%'`
+    )
+    expect(left?.n).toBe(0)
   })
 })
