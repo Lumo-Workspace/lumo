@@ -29,6 +29,11 @@ jest.mock('@/lib/integrations/github', () => ({
   deleteAppInstallation: jest.fn(),
   createInstallationToken: jest.fn(),
   syncRepoPRs: jest.fn(),
+  buildAppUserAuthorizeUrl: jest.fn(),
+  exchangeAppUserCode: jest.fn(),
+  listUserInstallationIds: jest.fn(),
+  revokeAppUserToken: jest.fn(),
+  GithubAppUserAuthNotConfiguredError: class extends Error {},
 }))
 
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
@@ -39,12 +44,18 @@ import {
   deleteAppInstallation,
   createInstallationToken,
   syncRepoPRs,
+  buildAppUserAuthorizeUrl,
+  exchangeAppUserCode,
+  listUserInstallationIds,
+  revokeAppUserToken,
+  GithubAppUserAuthNotConfiguredError,
 } from '@/lib/integrations/github'
 
 type MockedRepo = {
   [K in keyof typeof githubAppInstallationRepository]: jest.Mock
 }
 const repo = githubAppInstallationRepository as unknown as MockedRepo
+const REDIRECT = 'https://app.test/api/github/app/callback'
 
 describe('githubAppInstallService', () => {
   beforeEach(() => {
@@ -61,6 +72,9 @@ describe('githubAppInstallService', () => {
     repo.upsert.mockResolvedValue({ workspaceId: 'w1', installationId: 42 })
     ;(createInstallationToken as jest.Mock).mockResolvedValue('inst-token')
     ;(syncRepoPRs as jest.Mock).mockResolvedValue(undefined)
+    ;(exchangeAppUserCode as jest.Mock).mockResolvedValue('user-token')
+    ;(listUserInstallationIds as jest.Mock).mockResolvedValue([42])
+    ;(revokeAppUserToken as jest.Mock).mockResolvedValue(undefined)
   })
 
   describe('install', () => {
@@ -69,6 +83,8 @@ describe('githubAppInstallService', () => {
         workspaceId: 'w1',
         memberId: 'm1',
         installationId: 42,
+        userCode: 'code',
+        redirectUri: REDIRECT,
       })
 
       expect(repo.upsert).toHaveBeenCalledWith({
@@ -86,6 +102,8 @@ describe('githubAppInstallService', () => {
         workspaceId: 'w1',
         memberId: 'm1',
         installationId: 42,
+        userCode: 'code',
+        redirectUri: REDIRECT,
       })
 
       expect(syncRepoPRs).toHaveBeenCalledWith(
@@ -104,9 +122,84 @@ describe('githubAppInstallService', () => {
           workspaceId: 'w1',
           memberId: 'm1',
           installationId: 42,
+          userCode: 'code',
+          redirectUri: REDIRECT,
         })
       ).resolves.toBeDefined()
       expect(repo.upsert).toHaveBeenCalled()
+    })
+
+    it('checks the caller access with their App user token before reading anything as the App', async () => {
+      await githubAppInstallService.install({
+        workspaceId: 'w1',
+        memberId: 'm1',
+        installationId: 42,
+        userCode: 'code',
+        redirectUri: REDIRECT,
+      })
+
+      expect(exchangeAppUserCode).toHaveBeenCalledWith('code', REDIRECT)
+      expect(listUserInstallationIds).toHaveBeenCalledWith('user-token')
+      expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
+    })
+
+    // LUM-875: installation_id on the setup URL is attacker-controlled.
+    it('refuses an installation the caller cannot access on GitHub and writes nothing', async () => {
+      ;(listUserInstallationIds as jest.Mock).mockResolvedValue([7, 8])
+
+      await expect(
+        githubAppInstallService.install({
+          workspaceId: 'w1',
+          memberId: 'm1',
+          installationId: 42,
+          userCode: 'code',
+          redirectUri: REDIRECT,
+        })
+      ).rejects.toMatchObject({ status: 403, code: 'not_authorized' })
+
+      expect(fetchAppInstallation).not.toHaveBeenCalled()
+      expect(fetchInstallationRepositories).not.toHaveBeenCalled()
+      expect(repo.upsert).not.toHaveBeenCalled()
+      expect(createInstallationToken).not.toHaveBeenCalled()
+      expect(syncRepoPRs).not.toHaveBeenCalled()
+      // The user token is still revoked on the refusal path.
+      expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
+    })
+
+    it('fails closed when the caller access cannot be verified', async () => {
+      const attempt = () =>
+        githubAppInstallService.install({
+          workspaceId: 'w1',
+          memberId: 'm1',
+          installationId: 42,
+          userCode: 'code',
+          redirectUri: REDIRECT,
+        })
+
+      // App client credentials missing on this deployment.
+      ;(exchangeAppUserCode as jest.Mock).mockRejectedValueOnce(
+        new (GithubAppUserAuthNotConfiguredError as unknown as new () => Error)()
+      )
+      await expect(attempt()).rejects.toMatchObject({
+        status: 503,
+        code: 'verify_not_configured',
+      })
+
+      // Bad / expired / replayed code.
+      ;(exchangeAppUserCode as jest.Mock).mockRejectedValueOnce(
+        new Error('bad_verification_code')
+      )
+      await expect(attempt()).rejects.toThrow('bad_verification_code')
+
+      // GitHub error while listing — never treated as an empty allow-list.
+      ;(listUserInstallationIds as jest.Mock).mockRejectedValueOnce(
+        new Error('GitHub listUserInstallations failed 502')
+      )
+      await expect(attempt()).rejects.toThrow('502')
+
+      expect(fetchAppInstallation).not.toHaveBeenCalled()
+      expect(repo.upsert).not.toHaveBeenCalled()
+      expect(syncRepoPRs).not.toHaveBeenCalled()
     })
 
     it('writes nothing when GitHub rejects the installation read', async () => {
@@ -117,9 +210,34 @@ describe('githubAppInstallService', () => {
           workspaceId: 'w1',
           memberId: 'm1',
           installationId: 42,
+          userCode: 'code',
+          redirectUri: REDIRECT,
         })
       ).rejects.toThrow('404')
       expect(repo.upsert).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('userAuthorizeUrl', () => {
+    it('returns the App authorize URL for the state', () => {
+      ;(buildAppUserAuthorizeUrl as jest.Mock).mockReturnValue(
+        'https://github.com/login/oauth/authorize?x'
+      )
+      expect(githubAppInstallService.userAuthorizeUrl('st', REDIRECT)).toBe(
+        'https://github.com/login/oauth/authorize?x'
+      )
+      expect(buildAppUserAuthorizeUrl).toHaveBeenCalledWith('st', REDIRECT)
+    })
+
+    it('reports missing App client credentials as verify_not_configured', () => {
+      ;(buildAppUserAuthorizeUrl as jest.Mock).mockImplementation(() => {
+        throw new (GithubAppUserAuthNotConfiguredError as unknown as new () => Error)()
+      })
+      expect(() =>
+        githubAppInstallService.userAuthorizeUrl('st', REDIRECT)
+      ).toThrow(
+        expect.objectContaining({ status: 503, code: 'verify_not_configured' })
+      )
     })
   })
 
@@ -268,6 +386,25 @@ describe('githubAppInstallService', () => {
 
       expect(deleteAppInstallation).toHaveBeenCalledWith(555)
       expect(repo.delete).toHaveBeenCalledWith('w1')
+    })
+
+    // LUM-875: an installation shared by several workspaces (LUM-872) must not
+    // be removed on GitHub from under the others.
+    it('keeps the GitHub installation when another workspace still shares it', async () => {
+      repo.findByWorkspace.mockResolvedValue({
+        workspaceId: 'w1',
+        installationId: 555,
+      })
+      repo.findAllByInstallationId.mockResolvedValue([
+        { workspaceId: 'w1', installationId: 555, repositories: [] },
+        { workspaceId: 'w2', installationId: 555, repositories: [] },
+      ])
+
+      await githubAppInstallService.uninstall('w1', 'OWNER')
+
+      expect(deleteAppInstallation).not.toHaveBeenCalled()
+      expect(repo.delete).toHaveBeenCalledWith('w1')
+      expect(repo.delete).not.toHaveBeenCalledWith('w2')
     })
 
     it('still drops the local row when GitHub refuses the delete', async () => {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
-import { decrypt } from '@/lib/crypto'
+import { decrypt, encrypt } from '@/lib/crypto'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
 import { logger } from '@/lib/logger'
 
@@ -25,14 +25,16 @@ function parseState(raw: string | null): InstallState | null {
  * GET /api/github/app/setup?installation_id={id}&setup_action={action}&state={state}
  *
  * Where GitHub sends the user back after installing (or updating) the Lumo
- * GitHub App. This is the only write path for GitHubAppInstallation from the
- * browser: it binds an installation to the workspace carried in the signed
- * `state` we minted in /api/github/app/install.
+ * GitHub App, carrying the signed `state` we minted in /api/github/app/install.
  *
  * The state alone is not trusted for authorization — a user could replay
  * someone else's link — so the signed-in caller must be a member of the
- * workspace the state names. Nothing is written when that fails, and every
- * failure is reported explicitly rather than redirected away silently.
+ * workspace the state names. Nor is `installation_id`: GitHub documents it as
+ * attacker-controlled, and the App can read any installation it has (LUM-875).
+ * So this route writes nothing. It hands the user to GitHub to authorize the
+ * App, and /api/github/app/callback records the installation only once GitHub
+ * confirms this user can access it. Every failure is reported explicitly
+ * rather than redirected away silently.
  */
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth()
@@ -78,20 +80,30 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${settingsUrl}?github_app=requested`)
   }
 
-  try {
-    await githubAppInstallService.install({
+  const verifyState = encrypt(
+    JSON.stringify({
       workspaceId: ws.workspaceId,
+      workspaceUrl: state.workspaceUrl,
       memberId: ws.member.id,
       installationId,
     })
+  )
+
+  try {
+    return NextResponse.redirect(
+      githubAppInstallService.userAuthorizeUrl(
+        verifyState,
+        `${process.env.NEXT_PUBLIC_APP_URL}/api/github/app/callback`
+      )
+    )
   } catch (error) {
     logger.error(
-      `[github/app/setup] failed to record installation ${installationId} for workspace ${ws.workspaceId}: ${String(error)}`
+      `[github/app/setup] cannot verify installation ${installationId} for workspace ${ws.workspaceId}: ${String(error)}`
     )
-    return NextResponse.redirect(
-      `${settingsUrl}?github_app_error=install_failed`
-    )
+    const code =
+      (error as { code?: string }).code === 'verify_not_configured'
+        ? 'verify_not_configured'
+        : 'install_failed'
+    return NextResponse.redirect(`${settingsUrl}?github_app_error=${code}`)
   }
-
-  return NextResponse.redirect(`${settingsUrl}?github_app=installed`)
 }

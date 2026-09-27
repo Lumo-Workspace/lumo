@@ -257,13 +257,22 @@ minimum permission set:
 `GITHUB_APP_WEBHOOK_SECRET` is the secret configured on the **App's own**
 webhook (a different delivery from the per-repo hooks OAuth creates — both
 arrive at `/api/webhooks/github` and are verified against different secrets).
+`GITHUB_APP_CLIENT_ID` / `GITHUB_APP_CLIENT_SECRET` are the **App's** client
+credentials (not the OAuth App's `GITHUB_CLIENT_ID`), and the App's
+**Callback URL** must include `https://<your-domain>/api/github/app/callback`;
+leave "Request user authorization during installation" off. Without them no
+installation can be recorded (LUM-875).
 
 1. The settings card sends the owner to `/api/github/app/install`, which
    redirects to the App's install page with an encrypted `state` naming the
    workspace.
 2. GitHub returns to `/api/github/app/setup`, which re-checks that the
    signed-in caller is a member of that workspace (the state carries context,
-   never authority), reads the installation, and stores it.
+   never authority). The `installation_id` GitHub appends is attacker-
+   controllable, so setup stores nothing: it sends the caller to authorize the
+   App, and `/api/github/app/callback` exchanges the code for a user token,
+   checks `GET /user/installations` lists that installation, revokes the
+   token, and only then reads and stores the installation (LUM-875).
 3. The App webhook keeps the record current: `installation` (created /
    deleted / suspend / unsuspend / new_permissions_accepted) and
    `installation_repositories` (added / removed). A suspended or deleted

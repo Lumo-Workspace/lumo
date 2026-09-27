@@ -488,6 +488,8 @@
   "github.installSuccess": "GitHub App をインストールしました",
   "github.installRequested": "インストールを申請しました。組織のオーナーの承認が必要です。",
   "github.installFailed": "GitHub App のインストールを完了できませんでした。もう一度お試しください。",
+  "github.installNotAuthorized": "GitHub であなたの GitHub アカウントがこのインストールにアクセスできることを確認できなかったため、何も記録していません。アクセス権のあるアカウントで App をインストールしてから、もう一度お試しください。",
+  "github.installVerifyNotConfigured": "このサーバーでは GitHub App のインストールを検証できません（GITHUB_APP_CLIENT_ID または GITHUB_APP_CLIENT_SECRET が未設定です）。デプロイ担当者に設定を依頼してください。",
   "github.installNotConfigured": "このサーバーでは GitHub App が設定されていません（GITHUB_APP_SLUG がありません）。デプロイの担当者に設定を依頼してください。",
   "sentry.title": "Sentry",
   "sentry.description": "Sentry のアラートから自動でタスクを作成します。",

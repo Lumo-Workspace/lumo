@@ -18,6 +18,8 @@ jest.mock('@/lib/repositories', () => ({
   githubAppInstallationRepository: {
     findByWorkspace: jest.fn(),
     findStatusByWorkspace: jest.fn(),
+    // LUM-875: uninstall checks whether another workspace shares the id.
+    findAllByInstallationId: jest.fn().mockResolvedValue([]),
     delete: jest.fn(),
   },
   prSecurityScanRepository: {

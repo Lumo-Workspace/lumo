@@ -488,6 +488,8 @@
   "github.installSuccess": "GitHub App을 설치했습니다",
   "github.installRequested": "설치를 요청했습니다. 조직 소유자의 승인이 필요합니다.",
   "github.installFailed": "GitHub App 설치를 완료하지 못했습니다. 다시 시도해 주세요.",
+  "github.installNotAuthorized": "GitHub에서 회원님의 GitHub 계정이 이 설치에 접근할 수 있는지 확인하지 못해 아무것도 기록하지 않았습니다. 접근 권한이 있는 계정으로 앱을 설치한 뒤 다시 시도하세요.",
+  "github.installVerifyNotConfigured": "이 서버에서는 GitHub App 설치를 검증할 수 없습니다(GITHUB_APP_CLIENT_ID 또는 GITHUB_APP_CLIENT_SECRET 누락). 배포 담당자에게 설정을 요청하세요.",
   "github.installNotConfigured": "이 서버에 GitHub App이 구성되어 있지 않습니다(GITHUB_APP_SLUG 누락). 배포 담당자에게 설정을 요청하세요.",
   "sentry.title": "Sentry",
   "sentry.description": "Sentry 알림으로 자동으로 작업을 만듭니다.",

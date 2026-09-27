@@ -10,12 +10,21 @@ import {
   deleteAppInstallation,
   createInstallationToken,
   syncRepoPRs,
+  buildAppUserAuthorizeUrl,
+  exchangeAppUserCode,
+  listUserInstallationIds,
+  revokeAppUserToken,
+  GithubAppUserAuthNotConfiguredError,
 } from '@/lib/integrations/github'
 
 interface InstallInput {
   workspaceId: string
   memberId: string
   installationId: number
+  /** GitHub App user-authorization code from the install callback (LUM-875). */
+  userCode: string
+  /** The redirect_uri the code was issued for — GitHub re-checks it. */
+  redirectUri: string
 }
 
 /** `installation` / `installation_repositories` webhook payload, narrowed. */
@@ -52,6 +61,43 @@ async function scrubWorkspaceCode(
     `[github/app] workspace ${workspaceId} ${reason}${scope}: scrubbed code from ${counts.scans} scan(s), ${counts.findings} finding(s)`
   )
   return counts
+}
+
+/**
+ * LUM-875 — the install callback's `installation_id` is untrusted input: the
+ * App can read every installation it has, so the only thing that ties an
+ * installation to the person installing is GitHub's answer to "which of our
+ * installations can this user access". Anything short of a clear yes throws —
+ * missing client credentials, a bad code, a GitHub error — so the caller
+ * writes nothing.
+ */
+async function assertUserCanAccessInstallation(
+  userCode: string,
+  redirectUri: string,
+  installationId: number
+): Promise<void> {
+  let userToken: string
+  try {
+    userToken = await exchangeAppUserCode(userCode, redirectUri)
+  } catch (error) {
+    if (error instanceof GithubAppUserAuthNotConfiguredError) {
+      throw Object.assign(error, { status: 503, code: 'verify_not_configured' })
+    }
+    throw error
+  }
+  try {
+    const ids = await listUserInstallationIds(userToken)
+    if (!ids.includes(installationId)) {
+      throw Object.assign(
+        new Error(
+          `The signed-in GitHub user cannot access installation ${installationId}`
+        ),
+        { status: 403, code: 'not_authorized' }
+      )
+    }
+  } finally {
+    await revokeAppUserToken(userToken)
+  }
 }
 
 /**
@@ -93,8 +139,39 @@ async function backfillPullRequests(
 }
 
 export const githubAppInstallService = {
-  /** Bind an installation to a workspace (installation callback). */
-  async install({ workspaceId, memberId, installationId }: InstallInput) {
+  /**
+   * Where the setup callback sends the user so GitHub can tell us who they are
+   * (LUM-875). Throws a 503 `not_configured` when the App client credentials
+   * are missing — an install that cannot be verified must not proceed.
+   */
+  userAuthorizeUrl(state: string, redirectUri: string) {
+    try {
+      return buildAppUserAuthorizeUrl(state, redirectUri)
+    } catch (error) {
+      if (error instanceof GithubAppUserAuthNotConfiguredError) {
+        throw Object.assign(error, {
+          status: 503,
+          code: 'verify_not_configured',
+        })
+      }
+      throw error
+    }
+  },
+
+  /**
+   * Bind an installation to a workspace (installation callback). Nothing is
+   * read with the App's identity — let alone written — until GitHub confirms
+   * the caller can access the installation (LUM-875).
+   */
+  async install({
+    workspaceId,
+    memberId,
+    installationId,
+    userCode,
+    redirectUri,
+  }: InstallInput) {
+    await assertUserCanAccessInstallation(userCode, redirectUri, installationId)
+
     const account = await fetchAppInstallation(installationId)
     const repositories = await fetchInstallationRepositories(installationId)
 
@@ -153,7 +230,9 @@ export const githubAppInstallService = {
    * not the OAuth disconnect (which only drops the caller's own token).
    *
    * The GitHub-side delete is best-effort — our row goes either way, so the
-   * card can never get stuck.
+   * card can never get stuck. It is skipped while another workspace is still
+   * bound to the same installation (LUM-872 sharing): removing the App on
+   * GitHub would silently switch scanning off for that workspace too (LUM-875).
    */
   async uninstall(workspaceId: string, memberRole: string) {
     if (memberRole !== 'OWNER') {
@@ -167,12 +246,22 @@ export const githubAppInstallService = {
       await githubAppInstallationRepository.findByWorkspace(workspaceId)
     if (!row) return { removed: false } as const
 
-    try {
-      await deleteAppInstallation(row.installationId)
-    } catch (error) {
-      logger.error(
-        `[github/app] failed to delete installation ${row.installationId} on GitHub: ${String(error)}`
+    const bound = await githubAppInstallationRepository.findAllByInstallationId(
+      row.installationId
+    )
+    const shared = bound.some(b => b.workspaceId !== workspaceId)
+    if (shared) {
+      logger.info(
+        `[github/app] installation ${row.installationId} is shared with another workspace; unbinding ${workspaceId} only`
       )
+    } else {
+      try {
+        await deleteAppInstallation(row.installationId)
+      } catch (error) {
+        logger.error(
+          `[github/app] failed to delete installation ${row.installationId} on GitHub: ${String(error)}`
+        )
+      }
     }
     await githubAppInstallationRepository.delete(workspaceId)
     await scrubWorkspaceCode(workspaceId, 'uninstalled from Lumo')
