@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { GitHubPendingRepos } from './GitHubPendingRepos'
+import { GitHubAccessNotices } from './GitHubAccessNotices'
 import { useGitHubAppInstallation } from '../hooks/useGitHubAppInstallation'
 
 interface GitHubIntegrationCardProps {
@@ -105,6 +106,10 @@ export function GitHubIntegrationCard({
         ) : installed ? (
           <>
             <p className='text-sm text-muted-foreground'>{installedLabel}</p>
+            <GitHubAccessNotices
+              accessRecheckEnabled={status?.accessRecheckEnabled}
+              accessRemovedCount={status?.accessRemovedCount}
+            />
             <div>
               <div className='flex items-center justify-between mb-2'>
                 <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider'>

@@ -2588,5 +2588,7 @@
   "security.subprocessors.access.sentry": "Các sự kiện lỗi mà dự án Sentry của bạn gửi đến Lumo",
   "security.report.heading": "Báo cáo lỗ hổng",
   "security.report.body": "Nếu bạn tin rằng mình đã phát hiện một lỗ hổng bảo mật trong Lumo, hãy gửi email đến {email} kèm các bước để tái hiện. Vui lòng cho chúng tôi thời gian hợp lý để khắc phục trước khi công bố công khai.",
-  "security.report.securityTxt": "Thông tin liên hệ này cũng được công bố ở dạng máy có thể đọc tại {path}."
+  "security.report.securityTxt": "Thông tin liên hệ này cũng được công bố ở dạng máy có thể đọc tại {path}.",
+  "github.accessRemoved": "Đã tự động gỡ {count} kho mã: người xác minh quyền truy cập GitHub gần nhất không còn đọc được chúng. Mã quét liên quan đã bị xóa.",
+  "github.accessRecheckOff": "Tính năng tự động kiểm tra quyền truy cập đang tắt cho bản cài đặt này. Chủ sở hữu không gian làm việc cần xác minh lại một lần để bật."
 }

@@ -2588,5 +2588,7 @@
   "security.subprocessors.access.sentry": "Peristiwa ralat yang dihantar oleh projek Sentry anda kepada Lumo",
   "security.report.heading": "Melaporkan kerentanan",
   "security.report.body": "Jika anda percaya anda telah menemui kerentanan keselamatan dalam Lumo, hantar e-mel ke {email} beserta langkah untuk menghasilkannya semula. Sila beri kami masa yang munasabah untuk membaikinya sebelum mendedahkannya kepada umum.",
-  "security.report.securityTxt": "Maklumat hubungan yang sama diterbitkan dalam bentuk boleh dibaca mesin di {path}."
+  "security.report.securityTxt": "Maklumat hubungan yang sama diterbitkan dalam bentuk boleh dibaca mesin di {path}.",
+  "github.accessRemoved": "{count} repositori telah dialih keluar secara automatik: orang yang terakhir mengesahkan akses GitHub tidak lagi dapat membacanya. Kod imbasan berkaitan telah dipadam.",
+  "github.accessRecheckOff": "Semakan akses automatik dimatikan untuk pemasangan ini. Pemilik ruang kerja perlu mengesahkan semula sekali untuk menghidupkannya."
 }

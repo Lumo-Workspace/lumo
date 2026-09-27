@@ -11,10 +11,17 @@ import {
 } from './handlers'
 import { githubService } from '@/lib/services/github.service'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
+import { githubAccessRecheckService } from '@/lib/services/github-access-recheck.service'
 import { logger } from '@/lib/logger'
 
 /** Events delivered by the App-level webhook rather than the OAuth repo hook. */
-const APP_EVENTS = new Set(['installation', 'installation_repositories'])
+const APP_EVENTS = new Set([
+  'installation',
+  'installation_repositories',
+  // LUM-882 — privatized / transferred trigger a verifier access recheck.
+  // The OAuth repo hooks never subscribe to it, so it only arrives here.
+  'repository',
+])
 
 /**
  * POST /api/webhooks/github
@@ -144,6 +151,8 @@ async function handleAppEvent(
   try {
     if (event === 'installation') {
       await githubAppInstallService.applyInstallationEvent(payload)
+    } else if (event === 'repository') {
+      await githubAccessRecheckService.applyRepositoryEvent(payload)
     } else {
       await githubAppInstallService.applyInstallationRepositoriesEvent(payload)
     }

@@ -2588,5 +2588,7 @@
   "security.subprocessors.access.sentry": "Eventos de error que tu proyecto de Sentry envía a Lumo",
   "security.report.heading": "Reportar una vulnerabilidad",
   "security.report.body": "Si crees que encontraste una vulnerabilidad de seguridad en Lumo, escribe a {email} con los pasos para reproducirla. Por favor, danos un tiempo razonable para corregirla antes de divulgarla públicamente.",
-  "security.report.securityTxt": "El mismo contacto está publicado en formato legible por máquina en {path}."
+  "security.report.securityTxt": "El mismo contacto está publicado en formato legible por máquina en {path}.",
+  "github.accessRemoved": "Se {count, plural, one {eliminó # repositorio} other {eliminaron # repositorios}} automáticamente: la persona que verificó por última vez el acceso a GitHub ya no {count, plural, one {lo} other {los}} puede leer. Se borró su código de análisis.",
+  "github.accessRecheckOff": "Las comprobaciones automáticas de acceso están desactivadas para esta instalación. Un propietario del espacio de trabajo debe volver a verificar una vez para activarlas."
 }

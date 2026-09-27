@@ -287,6 +287,16 @@ installation can be recorded (LUM-875).
    that event is dropped so nothing is handled twice, and the App takes over
    on its own once the hook is removed (disconnecting the OAuth link deletes
    the hooks it created).
+5. Access recheck (LUM-882). Binding and owner re-verification record the
+   verifier's GitHub login (an identifier; the user token is still revoked).
+   A daily cron (`/api/cron/recheck-github-access`) asks GitHub, with the
+   installation token, whether that login can still read each confirmed
+   repository (`collaborators/{login}/permission`, Metadata read — no extra
+   App permission); repositories it cannot read are removed and their scan
+   code scrubbed. **Subscribe the App to the `repository` event** too:
+   `privatized` / `transferred` trigger the same check for that repository
+   straight away. Installations bound before LUM-882 have no login on record
+   and are not rechecked until an owner re-verifies once.
 
 **No fallback.** A workspace with no installation record gets no GitHub
 token at all — every GitHub call for it fails with "install the Lumo GitHub

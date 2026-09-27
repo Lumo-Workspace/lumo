@@ -1812,16 +1812,29 @@ model GitHubWebhook {
 }
 
 model GitHubAppInstallation {
-  id             String           @id @default(cuid())
-  workspaceId    String           @unique
-  installationId Int
-  accountLogin   String?
-  accountType    String?
-  repositories   String[]
-  installedBy    String?
-  installer      WorkspaceMember? @relation("GitHubAppInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id                 String           @id @default(cuid())
+  workspaceId        String           @unique
+  installationId     Int
+  accountLogin       String?
+  accountType        String?
+  repositories       String[]
+  installedBy        String?
+  installer          WorkspaceMember? @relation("GitHubAppInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
+  /// LUM-882 — GitHub login of whoever last bound or re-verified this
+  /// installation. An identifier, not a credential: the daily access recheck
+  /// asks GitHub (with the installation token) whether this login can still
+  /// read each confirmed repository. Null on rows bound before LUM-882 —
+  /// those are not rechecked until an owner re-verifies once.
+  verifierLogin      String?
+  /// LUM-882 — repositories the last automatic recheck removed because the
+  /// verifier lost read access, and when. Cleared by the next re-verification.
+  accessRemovedCount Int              @default(0)
+  accessRemovedAt    DateTime?
+  /// LUM-882 — resume point for a recheck the rate-limit budget cut short:
+  /// the next run starts after this repository (case-insensitive order).
+  accessCheckCursor  String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 

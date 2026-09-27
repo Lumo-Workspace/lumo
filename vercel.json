@@ -32,6 +32,10 @@
     {
       "path": "/api/cron/rejudge-crossings",
       "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/recheck-github-access",
+      "schedule": "15 4 * * *"
     }
   ]
 }
