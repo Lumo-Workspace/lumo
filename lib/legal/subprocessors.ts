@@ -23,9 +23,11 @@ export const SECURITY_PAGE_UPDATED = '2026-09-26'
 
 /**
  * `us`: United States. `globalEdge`: served from the edge, nothing retained.
- * `unconfirmed`: the AI Gateway does not report the host's region.
+ * `globalRouting`: AI requests use the gateway's default `global` region, so
+ * the processing location is not fixed and not committed to (LUM-854 manifest,
+ * "数据地域").
  */
-export type DataLocation = 'us' | 'globalEdge' | 'unconfirmed'
+export type DataLocation = 'us' | 'globalEdge' | 'globalRouting'
 
 export interface InfrastructureSubprocessor {
   id: string
@@ -132,33 +134,45 @@ export const INFRASTRUCTURE_SUBPROCESSORS: readonly InfrastructureSubprocessor[]
  * by the gateway and must never appear here.
  */
 export const AI_HOST_SUBPROCESSORS: readonly AiHostSubprocessor[] = [
-  { gatewaySlug: 'openai', entity: 'OpenAI, L.L.C.', location: 'us' },
+  {
+    gatewaySlug: 'openai',
+    entity: 'OpenAI, L.L.C.',
+    location: 'globalRouting',
+  },
   {
     gatewaySlug: 'azure',
     entity: 'Microsoft Corporation (Azure)',
-    location: 'unconfirmed',
+    location: 'globalRouting',
   },
-  { gatewaySlug: 'alibaba', entity: 'Alibaba Cloud', location: 'unconfirmed' },
-  { gatewaySlug: 'baseten', entity: 'Baseten, Inc.', location: 'unconfirmed' },
+  {
+    gatewaySlug: 'alibaba',
+    entity: 'Alibaba Cloud',
+    location: 'globalRouting',
+  },
+  {
+    gatewaySlug: 'baseten',
+    entity: 'Baseten, Inc.',
+    location: 'globalRouting',
+  },
   {
     gatewaySlug: 'deepinfra',
     entity: 'DeepInfra, Inc.',
-    location: 'unconfirmed',
+    location: 'globalRouting',
   },
   {
     gatewaySlug: 'digitalocean',
     entity: 'DigitalOcean, LLC',
-    location: 'unconfirmed',
+    location: 'globalRouting',
   },
   {
     gatewaySlug: 'togetherai',
     entity: 'Together Computer, Inc. (Together AI)',
-    location: 'unconfirmed',
+    location: 'globalRouting',
   },
-  { gatewaySlug: 'nebius', entity: 'Nebius B.V.', location: 'unconfirmed' },
-  { gatewaySlug: 'parasail', entity: 'Parasail', location: 'unconfirmed' },
-  { gatewaySlug: 'runware', entity: 'Runware', location: 'unconfirmed' },
-  { gatewaySlug: 'wafer', entity: 'Wafer', location: 'unconfirmed' },
+  { gatewaySlug: 'nebius', entity: 'Nebius B.V.', location: 'globalRouting' },
+  { gatewaySlug: 'parasail', entity: 'Parasail', location: 'globalRouting' },
+  { gatewaySlug: 'runware', entity: 'Runware', location: 'globalRouting' },
+  { gatewaySlug: 'wafer', entity: 'Wafer', location: 'globalRouting' },
 ]
 
 /** Services that only receive data once a workspace member connects them. */

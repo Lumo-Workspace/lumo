@@ -12,6 +12,7 @@ import {
   SECURITY_CONTACT_EMAIL,
 } from '@/lib/legal/subprocessors'
 import {
+  AI_HOST_LOCATION,
   EXCLUDED_MODEL_AUTHORS,
   tableCells,
   zdrCandidateHosts,
@@ -109,6 +110,18 @@ describe('subprocessor registry (LUM-856)', () => {
     ).toEqual(
       sorted(CUSTOMER_INTEGRATIONS.map(i => `${i.service} / ${i.provider}`))
     )
+  })
+
+  it('AI hosts show the legal doc global routing location on the page', () => {
+    // LUM-868: the doc promises no AI processing location, so the page may
+    // not show a fixed one (e.g. United States) for any AI host either.
+    const docLocations = new Set(
+      tableAfter(LEGAL_DOC, '| Subprocessor | Models').map(r => r[4])
+    )
+    expect([...docLocations]).toEqual([AI_HOST_LOCATION])
+    expect(
+      AI_HOST_SUBPROCESSORS.filter(h => h.location !== 'globalRouting')
+    ).toEqual([])
   })
 
   it('flags a model id missing from the ZDR manifest', () => {

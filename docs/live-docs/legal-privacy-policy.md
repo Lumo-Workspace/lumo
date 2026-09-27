@@ -44,7 +44,7 @@ When an AI feature runs, the relevant text (which may include code) is sent to a
 
 - OpenAI's zero-data-retention terms allow limited retention for abuse monitoring ("safety retention").
 - Open-weight models (such as the DeepSeek and GLM families) are run by third-party hosting providers listed on our subprocessor page, not by the model authors.
-- The gateway does not tell us the region in which a hosting provider processes a request, so we cannot currently commit to a location for AI processing.
+- AI requests are routed globally, so they may be processed outside the region where you are located. Zero data retention applies wherever a request is processed, but we cannot currently commit to a location for AI processing.
 
 ## How long we keep data
 

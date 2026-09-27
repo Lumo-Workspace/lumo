@@ -49,7 +49,7 @@ Lumo implements and maintains the technical and organisational measures describe
 
 7.4 **Flow-down and liability.** Lumo imposes on each Subprocessor, by written contract, data protection obligations that offer at least the same protection as this DPA, and remains liable to Customer for each Subprocessor's performance of those obligations.
 
-7.5 **AI model providers.** Requests to AI models are sent through the Vercel AI Gateway with zero data retention enforced on every request, so they are only served by providers that have agreed not to retain the data or use it for training. The provider that serves a given request is selected by the gateway from the listed providers based on availability.
+7.5 **AI model providers.** Requests to AI models are sent through the Vercel AI Gateway with zero data retention enforced on every request, so they are only served by providers that have agreed not to retain the data or use it for training. The provider that serves a given request is selected by the gateway from the listed providers based on availability. Requests are routed globally, so they may be processed outside Customer's region; zero data retention applies wherever they are processed, and Lumo does not commit to a processing location for them.
 
 ## 8. Assistance to Customer
 

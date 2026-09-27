@@ -2559,7 +2559,7 @@
   "security.subprocessors.col.access": "Perkara yang dibaca atau ditulis oleh Lumo",
   "security.subprocessors.location.us": "Amerika Syarikat",
   "security.subprocessors.location.globalEdge": "Rangkaian edge global, tiada apa yang dikekalkan",
-  "security.subprocessors.location.unconfirmed": "Tidak dilaporkan oleh gateway",
+  "security.subprocessors.location.globalRouting": "Dihalakan secara global; tiada komitmen lokasi",
   "security.subprocessors.purpose.vercelHosting": "Menjalankan aplikasi web, API dan tugas berjadual Lumo",
   "security.subprocessors.purpose.vercelBlob": "Menyimpan fail yang dimuat naik seperti imej, logo dan bukti ujian",
   "security.subprocessors.purpose.vercelSandbox": "Mesin terasing yang menjalankan imbasan keselamatan pada repositori anda",

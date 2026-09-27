@@ -2559,7 +2559,7 @@
   "security.subprocessors.col.access": "Lumo 读取或写入的内容",
   "security.subprocessors.location.us": "美国",
   "security.subprocessors.location.globalEdge": "全球边缘网络，不保留任何数据",
-  "security.subprocessors.location.unconfirmed": "网关未报告",
+  "security.subprocessors.location.globalRouting": "全球路由，不承诺处理地域",
   "security.subprocessors.purpose.vercelHosting": "运行 Lumo Web 应用、API 和定时任务",
   "security.subprocessors.purpose.vercelBlob": "存储上传的文件，例如图片、徽标和测试证据",
   "security.subprocessors.purpose.vercelSandbox": "在你的代码仓库上运行安全扫描的隔离机器",

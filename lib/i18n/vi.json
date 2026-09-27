@@ -2559,7 +2559,7 @@
   "security.subprocessors.col.access": "Lumo đọc hoặc ghi gì",
   "security.subprocessors.location.us": "Hoa Kỳ",
   "security.subprocessors.location.globalEdge": "Mạng biên toàn cầu, không lưu giữ gì",
-  "security.subprocessors.location.unconfirmed": "Gateway không báo cáo",
+  "security.subprocessors.location.globalRouting": "Định tuyến toàn cầu; không cam kết vị trí",
   "security.subprocessors.purpose.vercelHosting": "Chạy ứng dụng web, API và các tác vụ định kỳ của Lumo",
   "security.subprocessors.purpose.vercelBlob": "Lưu các tệp đã tải lên như hình ảnh, logo và bằng chứng kiểm thử",
   "security.subprocessors.purpose.vercelSandbox": "Các máy biệt lập chạy quét bảo mật trên kho mã của bạn",

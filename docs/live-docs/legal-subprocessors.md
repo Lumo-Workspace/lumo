@@ -28,22 +28,22 @@ Which provider serves a given request is chosen by the gateway from the ZDR-elig
 
 | Subprocessor | Models served for Lumo | Purpose | Retention terms | Data location |
 | --- | --- | --- | --- | --- |
-| OpenAI, L.L.C. | GPT reasoning model | Security judgement, verification and review checks | Zero data retention with safety retention (limited retention for abuse monitoring); no training | United States |
-| Microsoft Corporation (Azure) | GPT reasoning model; open-weight models | Fallback host for the above | Zero data retention; no training | Not confirmed by the gateway |
-| Alibaba Cloud | Qwen coder and embedding models; open-weight models | Security hunt, summaries, memory, embeddings | Zero data retention under a custom agreement with Vercel; no training | Not confirmed by the gateway |
-| Baseten, Inc. | Open-weight models | Summaries, content and policy compilation | Zero data retention; no training | Not confirmed by the gateway |
-| DeepInfra, Inc. | Open-weight and embedding models | Summaries, memory, embeddings | Zero data retention; no training | Not confirmed by the gateway |
-| DigitalOcean, LLC | Open-weight models | Fallback host | Zero data retention; no training | Not confirmed by the gateway |
-| Together Computer, Inc. (Together AI) | Open-weight models | Fallback host | Zero data retention; no training | Not confirmed by the gateway |
-| Nebius B.V. | Open-weight models | Fallback host | Zero data retention; no training | Not confirmed by the gateway |
-| Parasail | Open-weight models | Fallback host | Zero data retention; no training | Not confirmed by the gateway |
-| Runware | Open-weight models | Fallback host | Zero data retention; no training | Not confirmed by the gateway |
-| Wafer | Open-weight models | Fallback host | Zero data retention; no training | Not confirmed by the gateway |
+| OpenAI, L.L.C. | GPT reasoning model | Security judgement, verification and review checks | Zero data retention with safety retention (limited retention for abuse monitoring); no training | Routed globally; no location commitment |
+| Microsoft Corporation (Azure) | GPT reasoning model; open-weight models | Fallback host for the above | Zero data retention; no training | Routed globally; no location commitment |
+| Alibaba Cloud | Qwen coder and embedding models; open-weight models | Security hunt, summaries, memory, embeddings | Zero data retention under a custom agreement with Vercel; no training | Routed globally; no location commitment |
+| Baseten, Inc. | Open-weight models | Summaries, content and policy compilation | Zero data retention; no training | Routed globally; no location commitment |
+| DeepInfra, Inc. | Open-weight and embedding models | Summaries, memory, embeddings | Zero data retention; no training | Routed globally; no location commitment |
+| DigitalOcean, LLC | Open-weight models | Fallback host | Zero data retention; no training | Routed globally; no location commitment |
+| Together Computer, Inc. (Together AI) | Open-weight models | Fallback host | Zero data retention; no training | Routed globally; no location commitment |
+| Nebius B.V. | Open-weight models | Fallback host | Zero data retention; no training | Routed globally; no location commitment |
+| Parasail | Open-weight models | Fallback host | Zero data retention; no training | Routed globally; no location commitment |
+| Runware | Open-weight models | Fallback host | Zero data retention; no training | Routed globally; no location commitment |
+| Wafer | Open-weight models | Fallback host | Zero data retention; no training | Routed globally; no location commitment |
 
 Notes on AI processing:
 
 - Open-weight models (the DeepSeek and GLM model families) are run by the hosting providers above. The model authors' own APIs (DeepSeek and Zhipu AI) do not receive Lumo customer data: they do not offer zero data retention through the gateway and are excluded from routing.
-- The gateway does not report the region in which a hosting provider serves a request. Customers who need a data-location commitment for AI processing should contact us before relying on this list.
+- AI requests are routed globally: for each request the gateway picks a region based on availability and latency, so processing may take place outside your region. Zero data retention applies wherever a request is processed. We do not currently commit to a processing location for AI features; customers who need a data-location commitment for AI processing should contact us before relying on this list.
 - Lumo does not use customer data to train models, and does not permit its subprocessors to do so.
 
 ## Customer-enabled integrations

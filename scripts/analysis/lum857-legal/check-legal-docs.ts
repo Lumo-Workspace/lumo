@@ -7,9 +7,13 @@
  *
  * Modes:
  *   subprocessors  every runtime third party + every LLM host in the LUM-854
- *                  ZDR candidate sets (docs/privacy/llm-data-flow.md) is listed
+ *                  ZDR candidate sets (docs/privacy/llm-data-flow.md) is listed,
+ *                  each AI host with the global-routing location (LUM-868)
  *   privacy        the privacy policy has each required section
  *   dpa            the DPA template has each GDPR Art.28(3) element
+ *
+ * The three content modes also reject region wording the LUM-854 region probe
+ * disproved (STALE_REGION_CLAIMS).
  *   published      each doc is registered in docs/live-docs/README.md and its
  *                  stored copy keeps the source's table structure
  *
@@ -68,6 +72,28 @@ export const RUNTIME_SERVICES = [
 
 /** Model authors excluded from routing under ZDR — never a processor row. */
 export const EXCLUDED_MODEL_AUTHORS = ['DeepSeek', 'Zhipu']
+
+/** [label, pattern] pairs a doc must each match. */
+export type Requirement = [string, RegExp]
+
+/**
+ * The only "Data location" an AI hosting row may carry. Lumo routes model
+ * requests with the gateway's default `global` region (LUM-854 manifest,
+ * "数据地域"), so the processing location is not fixed and never promised.
+ */
+export const AI_HOST_LOCATION = 'Routed globally; no location commitment'
+
+/**
+ * Wording the LUM-854 region probe disproved: the gateway can report and pin a
+ * region, Lumo just does not pin one. None of the legal docs may say otherwise.
+ */
+export const STALE_REGION_CLAIMS: Requirement[] = [
+  [
+    'gateway "does not report/tell us" the region',
+    /does not (report|tell us)/i,
+  ],
+  ['"not confirmed by the gateway" location', /not confirmed by the gateway/i],
+]
 
 /** Split a markdown table row into trimmed cells. */
 export function tableCells(line: string): string[] {
@@ -145,11 +171,24 @@ export function checkSubprocessors(doc: string, manifest: string): string[] {
   }
   for (const header of ['Purpose', 'Data location'])
     if (!doc.includes(header)) gaps.push(`column missing: ${header}`)
-  return gaps
+  return [...gaps, ...checkAiHostLocations(doc)]
 }
 
-/** [label, pattern] pairs a doc must each match (case-insensitive). */
-export type Requirement = [string, RegExp]
+/** Every AI hosting row states the global-routing, no-commitment location. */
+export function checkAiHostLocations(doc: string): string[] {
+  const rows = tableRows(doc, 'Models')
+  if (rows.length === 0) return ['no AI hosting table found']
+  return rows
+    .filter(row => row[4] !== AI_HOST_LOCATION)
+    .map(row => `AI host location is not "${AI_HOST_LOCATION}": ${row[0]}`)
+}
+
+/** Wording the region probe disproved, found anywhere in the doc. */
+export function checkStaleRegionClaims(doc: string): string[] {
+  return STALE_REGION_CLAIMS.filter(([, re]) => re.test(doc)).map(
+    ([label]) => `stale region claim: ${label}`
+  )
+}
 
 export const PRIVACY_REQUIREMENTS: Requirement[] = [
   ['account data category', /Account data/],
@@ -167,6 +206,7 @@ export const PRIVACY_REQUIREMENTS: Requirement[] = [
   ['SCC basis for transfers', /Standard Contractual Clauses/],
   ['no-training statement', /do not use .* to train/],
   ['OpenAI safety retention caveat', /safety retention/],
+  ['AI global routing', /routed globally/],
   ['AI region caveat', /cannot currently commit to a location/],
   ['subprocessor page reference', /subprocessor page/],
 ]
@@ -197,6 +237,8 @@ export const DPA_REQUIREMENTS: Requirement[] = [
   ['SCC modules', /Module Two/],
   ['UK addendum', /UK Addendum/],
   ['no-training commitment', /train artificial intelligence models/],
+  ['AI global routing', /routed globally/],
+  ['AI no location commitment', /does not commit to a processing location/],
 ]
 
 export function checkRequirements(doc: string, reqs: Requirement[]): string[] {
@@ -248,12 +290,27 @@ function checkPublished(): string[] {
 
 function run(mode: string): string[] {
   switch (mode) {
-    case 'subprocessors':
-      return checkSubprocessors(read(LEGAL_DOCS.subprocessors), read(MANIFEST))
-    case 'privacy':
-      return checkRequirements(read(LEGAL_DOCS.privacy), PRIVACY_REQUIREMENTS)
-    case 'dpa':
-      return checkRequirements(read(LEGAL_DOCS.dpa), DPA_REQUIREMENTS)
+    case 'subprocessors': {
+      const doc = read(LEGAL_DOCS.subprocessors)
+      return [
+        ...checkSubprocessors(doc, read(MANIFEST)),
+        ...checkStaleRegionClaims(doc),
+      ]
+    }
+    case 'privacy': {
+      const doc = read(LEGAL_DOCS.privacy)
+      return [
+        ...checkRequirements(doc, PRIVACY_REQUIREMENTS),
+        ...checkStaleRegionClaims(doc),
+      ]
+    }
+    case 'dpa': {
+      const doc = read(LEGAL_DOCS.dpa)
+      return [
+        ...checkRequirements(doc, DPA_REQUIREMENTS),
+        ...checkStaleRegionClaims(doc),
+      ]
+    }
     case 'published':
       return checkPublished()
     default:
