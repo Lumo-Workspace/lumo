@@ -1,6 +1,6 @@
 import { GENERATION_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 import { z } from 'zod'
 
 import { taskRepository, projectRepository } from '@/lib/repositories'

@@ -4,7 +4,7 @@
  * LUM-553 — the fail-closed coverage gate. Pure: no LLM, no DB.
  */
 jest.mock('ai', () => ({ generateObject: jest.fn() }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: jest.fn(() => 'model') }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: jest.fn(() => 'model') }))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: {
     findActiveProjectMemories: jest.fn(),

@@ -60,7 +60,7 @@ export async function canonicalizeToEnglish(
   if (!text || !containsCjk(text)) return content
   try {
     const { generateObject } = await import('ai')
-    const { gateway } = await import('@ai-sdk/gateway')
+    const { gateway } = await import('@/lib/ai/gateway')
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
       schema: schemaByCategory[category],

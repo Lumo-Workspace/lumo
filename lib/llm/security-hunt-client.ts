@@ -38,7 +38,7 @@ import {
   hasToolCall,
   type LanguageModel,
 } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 import { z } from 'zod'
 import { HUNT_MODEL } from '@/lib/ai/models'
 import type { HuntSignalSite } from '@/lib/security-scan/hunt/trigger'

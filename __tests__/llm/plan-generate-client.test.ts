@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 jest.mock('ai', () => ({ generateObject: jest.fn() }))
-jest.mock('@ai-sdk/gateway', () => ({
+jest.mock('@/lib/ai/gateway', () => ({
   gateway: jest.fn().mockReturnValue('mocked-model'),
 }))
 

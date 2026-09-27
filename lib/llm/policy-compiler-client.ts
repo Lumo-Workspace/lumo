@@ -9,7 +9,7 @@
  */
 import { z } from 'zod'
 import { generateObject } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 import { POLICY_COMPILER_MODEL } from '@/lib/ai/models'
 
 // ── Schema ────────────────────────────────────────────────────────────────────

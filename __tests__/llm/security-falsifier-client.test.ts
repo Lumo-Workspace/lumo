@@ -1,6 +1,6 @@
 /** @jest-environment node */
 jest.mock('ai', () => ({ generateObject: jest.fn() }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { generateObject } from 'ai'
 import { REASONING_MODEL } from '@/lib/ai/models'

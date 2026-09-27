@@ -11,7 +11,7 @@ const generateTextMock = jest.fn()
 jest.mock('ai', () => ({
   generateText: (...a: unknown[]) => generateTextMock(...a),
 }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 jest.mock('@vercel/functions', () => ({
   waitUntil: (p: Promise<unknown>) => void p,
 }))

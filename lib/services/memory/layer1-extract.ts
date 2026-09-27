@@ -2,7 +2,7 @@ import { FAST_MODEL } from '@/lib/ai/models'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
 import { generateObject } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 import { buildLayer1ExtractPrompt } from './layer1-prompt'
 import { buildLayer1ReconcilePrompt } from './layer1-reconcile-prompt'
 import {

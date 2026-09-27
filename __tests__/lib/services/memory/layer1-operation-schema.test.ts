@@ -5,7 +5,7 @@
  * variant added in LUM-324. We mock the AI SDK gateway to prevent
  * TransformStream errors — only the Zod schema is exercised here.
  */
-jest.mock('@ai-sdk/gateway', () => ({ gateway: jest.fn() }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: jest.fn() }))
 jest.mock('ai', () => ({ generateObject: jest.fn() }))
 
 import { layer1OperationSchema } from '@/lib/services/memory/layer1-extract'

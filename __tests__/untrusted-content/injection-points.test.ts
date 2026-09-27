@@ -17,7 +17,7 @@
  * plan prompt, the hunt task header, the compressor prompt).
  */
 jest.mock('ai', () => ({ generateText: jest.fn(), generateObject: jest.fn() }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 const mockFindMilestone = jest.fn()
 jest.mock('@/lib/repositories/milestone.repository', () => ({

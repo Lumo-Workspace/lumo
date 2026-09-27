@@ -40,7 +40,7 @@ jest.mock('@/lib/llm/security-hunt-compress-client', () => ({
   compressShellOutput: jest.fn(),
 }))
 jest.mock('ai', () => ({ generateText: jest.fn() }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 /**
  * Only the two ends of the sandbox layer are stubbed — acquisition and
  * teardown. `runHuntShell` itself stays REAL, so the token this file follows

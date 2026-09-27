@@ -20,7 +20,7 @@
  * diff input of the PR security scan.
  */
 jest.mock('ai', () => ({ generateText: jest.fn(), generateObject: jest.fn() }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 // ── steward section deps ────────────────────────────────────────────────────
 const mockFindMilestone = jest.fn()

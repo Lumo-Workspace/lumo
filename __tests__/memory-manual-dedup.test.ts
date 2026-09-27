@@ -6,7 +6,7 @@ const mockGenerateObject = jest.fn()
 jest.mock('ai', () => ({
   generateObject: (...a: any[]) => mockGenerateObject(...a),
 }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { resolveManualDedup } from '@/lib/services/memory/manual-dedup'
 

@@ -7,7 +7,7 @@
 // pass 1 on both, and the retry pass can double that again, spending the
 // whole scan budget on what is really one task.
 jest.mock('ai', () => ({ generateObject: jest.fn() }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { generateObject } from 'ai'
 import {

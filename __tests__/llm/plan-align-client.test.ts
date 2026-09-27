@@ -14,7 +14,7 @@ const mockGateway = jest.fn((id: string) => `gateway:${id}`)
 jest.mock('ai', () => ({
   generateObject: (...args: unknown[]) => mockGenerateObject(...args),
 }))
-jest.mock('@ai-sdk/gateway', () => ({
+jest.mock('@/lib/ai/gateway', () => ({
   gateway: (id: string) => mockGateway(id),
 }))
 // Stage2 alignment is a judgment call → 桶1 VERIFIER tier (REASONING_MODEL).

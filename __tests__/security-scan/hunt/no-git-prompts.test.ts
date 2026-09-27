@@ -6,7 +6,7 @@ jest.mock('ai', () => ({
   stepCountIs: jest.fn(),
   hasToolCall: jest.fn(),
 }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import {
   HUNT_SYSTEM_PROMPT,

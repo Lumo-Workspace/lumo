@@ -13,7 +13,7 @@
  * dynamic-import plan-align-client inside a beforeEach.
  */
 jest.mock('ai', () => ({ generateObject: jest.fn() }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: jest.fn((id: string) => id) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: jest.fn((id: string) => id) }))
 jest.mock('@/lib/ai/models', () => ({ REASONING_MODEL: 'openai/gpt-5.5' }))
 
 import type { buildAlignPrompt as BuildAlignPrompt } from '@/lib/llm/plan-align-client'

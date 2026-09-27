@@ -1,7 +1,7 @@
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { generateObject } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 import { buildLayer2ExtractPrompt } from './layer2-prompt'
 import { buildLayer2ReconcilePrompt } from './layer2-reconcile-prompt'
 import {
