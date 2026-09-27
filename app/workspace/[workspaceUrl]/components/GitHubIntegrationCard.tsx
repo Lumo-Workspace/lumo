@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { GitHubPendingRepos } from './GitHubPendingRepos'
 import { useGitHubAppInstallation } from '../hooks/useGitHubAppInstallation'
 
 interface GitHubIntegrationCardProps {
@@ -45,6 +46,7 @@ export function GitHubIntegrationCard({
     setUninstallOpen,
     uninstalling,
     handleInstall,
+    handleReverify,
     handleUninstall,
   } = useGitHubAppInstallation(workspaceUrl)
 
@@ -108,15 +110,27 @@ export function GitHubIntegrationCard({
                 <p className='text-xs font-medium text-muted-foreground uppercase tracking-wider'>
                   {intl.formatMessage({ id: 'github.appRepos' })}
                 </p>
-                <a
-                  href='https://github.com/settings/installations'
-                  target='_blank'
-                  rel='noreferrer'
-                  className='inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors'
-                >
-                  {intl.formatMessage({ id: 'github.manageOnGithub' })}
-                  <ExternalLink size={11} />
-                </a>
+                <div className='flex items-center gap-3'>
+                  {isOwner && (
+                    <button
+                      type='button'
+                      onClick={handleReverify}
+                      title={intl.formatMessage({ id: 'github.reverifyHint' })}
+                      className='text-xs text-muted-foreground hover:text-foreground transition-colors'
+                    >
+                      {intl.formatMessage({ id: 'github.reverify' })}
+                    </button>
+                  )}
+                  <a
+                    href='https://github.com/settings/installations'
+                    target='_blank'
+                    rel='noreferrer'
+                    className='inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors'
+                  >
+                    {intl.formatMessage({ id: 'github.manageOnGithub' })}
+                    <ExternalLink size={11} />
+                  </a>
+                </div>
               </div>
               {status?.repositories && status.repositories.length > 0 ? (
                 <ul className='space-y-1.5'>
@@ -137,6 +151,9 @@ export function GitHubIntegrationCard({
                 </p>
               )}
             </div>
+            <GitHubPendingRepos
+              pendingRepositories={status?.pendingRepositories}
+            />
           </>
         ) : null}
       </IntegrationCard>

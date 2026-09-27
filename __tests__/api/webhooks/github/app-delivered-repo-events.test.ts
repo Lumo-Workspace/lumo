@@ -6,6 +6,10 @@
  * GitHubWebhook row, so it is verified against GITHUB_APP_WEBHOOK_SECRET and
  * attributed through installation.id — while the repo-hook path keeps
  * precedence and its existing behaviour untouched.
+ *
+ * LUM-881: the installation alone no longer places a delivery — the event's
+ * repository must be one the workspace confirmed. The real service runs here;
+ * only the installation rows are stubbed.
  */
 jest.mock('@/lib/services/github.service', () => ({
   githubService: { findWebhooksByRepo: jest.fn() },
@@ -13,12 +17,9 @@ jest.mock('@/lib/services/github.service', () => ({
 jest.mock('@/lib/integrations/github', () => ({
   verifyGitHubSignature: jest.fn(),
 }))
-jest.mock('@/lib/services/github-app-install.service', () => ({
-  githubAppInstallService: {
-    applyInstallationEvent: jest.fn(),
-    applyInstallationRepositoriesEvent: jest.fn(),
-    resolveWorkspaceByInstallation: jest.fn(),
-  },
+jest.mock('@/lib/repositories', () => ({
+  githubAppInstallationRepository: { findAllByInstallationId: jest.fn() },
+  prSecurityScanRepository: {},
 }))
 jest.mock('@/app/api/webhooks/github/handlers', () => ({
   handlePullRequest: jest.fn(),
@@ -34,13 +35,13 @@ import { POST } from '@/app/api/webhooks/github/route'
 import { NextRequest } from 'next/server'
 import { githubService } from '@/lib/services/github.service'
 import { verifyGitHubSignature } from '@/lib/integrations/github'
-import { githubAppInstallService } from '@/lib/services/github-app-install.service'
+import { githubAppInstallationRepository } from '@/lib/repositories'
 import { handlePullRequest } from '@/app/api/webhooks/github/handlers'
 
 const verify = verifyGitHubSignature as jest.Mock
 const findWebhooks = githubService.findWebhooksByRepo as jest.Mock
-const resolveWorkspace =
-  githubAppInstallService.resolveWorkspaceByInstallation as jest.Mock
+const findRows =
+  githubAppInstallationRepository.findAllByInstallationId as jest.Mock
 const prHandler = handlePullRequest as jest.Mock
 
 const prPayload = {
@@ -66,7 +67,13 @@ describe('GitHub webhook — repository events delivered by the App', () => {
     jest.clearAllMocks()
     process.env.GITHUB_APP_WEBHOOK_SECRET = 'app-secret'
     findWebhooks.mockResolvedValue([])
-    resolveWorkspace.mockResolvedValue('w1')
+    findRows.mockResolvedValue([
+      {
+        workspaceId: 'w1',
+        installationId: 555,
+        repositories: ['acme-inc/web'],
+      },
+    ])
   })
 
   it('accepts a pull_request the App delivered and attributes it by installation id', async () => {
@@ -76,7 +83,7 @@ describe('GitHub webhook — repository events delivered by the App', () => {
     const res = await POST(makeRequest('pull_request', prPayload))
 
     expect(res.status).toBe(200)
-    expect(resolveWorkspace).toHaveBeenCalledWith(555)
+    expect(findRows).toHaveBeenCalledWith(555)
     // integrationId is null: an App delivery has no OAuth integration behind it
     // (PullRequest.integrationId is nullable for exactly this case).
     expect(prHandler).toHaveBeenCalledWith(
@@ -105,7 +112,7 @@ describe('GitHub webhook — repository events delivered by the App', () => {
 
     expect(res.status).toBe(200)
     expect(prHandler).toHaveBeenCalledWith(expect.anything(), 'w-oauth', 'int1')
-    expect(resolveWorkspace).not.toHaveBeenCalled()
+    expect(findRows).not.toHaveBeenCalled()
   })
 
   it('drops the App copy when the same repo still has a live repo hook for that workspace', async () => {
@@ -132,11 +139,59 @@ describe('GitHub webhook — repository events delivered by the App', () => {
 
   it('accepts but ignores an App delivery from an installation it cannot place', async () => {
     verify.mockImplementation((_body, _sig, secret) => secret === 'app-secret')
-    resolveWorkspace.mockResolvedValue(null)
+    findRows.mockResolvedValue([])
 
     const res = await POST(makeRequest('pull_request', prPayload))
 
     // Authentic delivery, just not ours to route — a 401 would make GitHub retry.
+    expect(res.status).toBe(200)
+    expect(prHandler).not.toHaveBeenCalled()
+  })
+
+  // LUM-881: a repository added to the installation after binding has not
+  // been vouched for by anyone who can read it.
+  it('drops an App delivery for a repository the workspace has not confirmed', async () => {
+    verify.mockImplementation((_body, _sig, secret) => secret === 'app-secret')
+
+    const res = await POST(
+      makeRequest('pull_request', {
+        ...prPayload,
+        repository: { full_name: 'acme-inc/payroll' },
+      })
+    )
+
+    expect(res.status).toBe(200)
+    expect(findRows).toHaveBeenCalledWith(555)
+    expect(prHandler).not.toHaveBeenCalled()
+  })
+
+  it('routes a shared installation delivery to the workspace that confirmed the repository', async () => {
+    verify.mockImplementation((_body, _sig, secret) => secret === 'app-secret')
+    findRows.mockResolvedValue([
+      {
+        workspaceId: 'w1',
+        installationId: 555,
+        repositories: ['acme-inc/api'],
+      },
+      {
+        workspaceId: 'w2',
+        installationId: 555,
+        repositories: ['Acme-Inc/Web'],
+      },
+    ])
+
+    await POST(makeRequest('pull_request', prPayload))
+
+    expect(prHandler).toHaveBeenCalledWith(expect.anything(), 'w2', null)
+  })
+
+  it('drops an App delivery that names no repository', async () => {
+    verify.mockImplementation((_body, _sig, secret) => secret === 'app-secret')
+    // JSON.stringify drops the undefined key.
+    const noRepo = { ...prPayload, repository: undefined }
+
+    const res = await POST(makeRequest('pull_request', noRepo))
+
     expect(res.status).toBe(200)
     expect(prHandler).not.toHaveBeenCalled()
   })
@@ -167,6 +222,6 @@ describe('GitHub webhook — repository events delivered by the App', () => {
     const res = await POST(makeRequest('ping', { zen: 'Anything added...' }))
 
     expect(res.status).toBe(200)
-    expect(resolveWorkspace).not.toHaveBeenCalled()
+    expect(findRows).not.toHaveBeenCalled()
   })
 })

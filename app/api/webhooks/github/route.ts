@@ -75,8 +75,8 @@ export async function POST(request: NextRequest) {
     if (viaApp === 'UNAUTHENTICATED') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    // Authentic but unplaceable (unknown or uninstalled installation): accept
-    // and drop it — a 401 here would put GitHub into an endless retry.
+    // Authentic but unplaceable (unknown installation, or a repository the
+    // workspace has not confirmed): accept and drop it — a 401 here would put GitHub into an endless retry.
     if (!viaApp) return NextResponse.json({ ok: true })
 
     // Both hooks are live on this repo, so GitHub sends the same event twice —
@@ -157,12 +157,14 @@ async function handleAppEvent(
 
 /**
  * Authenticate a repository event that arrived on the App webhook and map it to
- * a workspace through `installation.id` — the only handle such a delivery
- * carries, since it has no GitHubWebhook row behind it.
+ * a workspace through `installation.id` plus the event's repository — such a
+ * delivery has no GitHubWebhook row behind it, and the installation alone is
+ * not enough: only repositories the workspace has confirmed are routed
+ * (LUM-881), so one added to the installation later stays out until verified.
  *
  * Returns the workspace id, `null` when the delivery is authentic but belongs
- * to an installation we cannot place, and 'UNAUTHENTICATED' when it is not an
- * App delivery at all.
+ * to no workspace (unknown installation, or an unconfirmed repository), and
+ * 'UNAUTHENTICATED' when it is not an App delivery at all.
  */
 async function resolveAppDelivery(
   body: string,
@@ -178,5 +180,12 @@ async function resolveAppDelivery(
     ?.id
   if (!installationId) return null
 
-  return githubAppInstallService.resolveWorkspaceByInstallation(installationId)
+  const repositoryFullName =
+    (payload.repository as { full_name?: string } | undefined)?.full_name ??
+    null
+
+  return githubAppInstallService.resolveWorkspaceForRepository(
+    installationId,
+    repositoryFullName
+  )
 }

@@ -43,19 +43,38 @@ export interface InstallationRepository {
   private: boolean
 }
 
+/** 100 per page × 50 pages — the same cap as the user-side listing (LUM-881). */
+const INSTALLATION_REPO_PAGE_CAP = 50
+
+/**
+ * Thrown when an installation reaches more repositories than the listing cap.
+ * A truncated list would let the repositories past the cap skip every check
+ * that compares against it, so the listing is refused instead (LUM-881).
+ */
+export class InstallationRepositoryLimitError extends Error {
+  readonly code = 'too_many_repositories'
+  constructor(installationId: number) {
+    super(
+      `GitHub listInstallationRepositories: more than ${INSTALLATION_REPO_PAGE_CAP * 100} repositories in installation ${installationId}`
+    )
+    this.name = 'InstallationRepositoryLimitError'
+  }
+}
+
 /**
  * The repositories an installation can reach. Uses the installation token —
  * this is the App acting as the installation. The set is decided on GitHub's
  * side (the App's repository selection), never in Lumo.
+ *
+ * Fails closed: past the page cap it throws `InstallationRepositoryLimitError`
+ * rather than returning the first pages as if they were the whole list.
  */
 export async function listInstallationRepositories(
   installationId: number
 ): Promise<InstallationRepository[]> {
   const token = await createInstallationToken(installationId)
   const repos: InstallationRepository[] = []
-  // GitHub caps page size at 100; a handful of pages is plenty and bounds the
-  // work a single callback can do.
-  for (let page = 1; page <= 5; page++) {
+  for (let page = 1; page <= INSTALLATION_REPO_PAGE_CAP; page++) {
     const res = await fetch(
       `${GH_API}/installation/repositories?per_page=100&page=${page}`,
       { headers: { ...GH_HEADERS, Authorization: `Bearer ${token}` } }
@@ -81,9 +100,9 @@ export async function listInstallationRepositories(
         : []
     )
     repos.push(...pageRepos)
-    if (pageRepos.length < 100) break
+    if (pageRepos.length < 100) return repos
   }
-  return repos
+  throw new InstallationRepositoryLimitError(installationId)
 }
 
 /** Just the `owner/name` strings — what the installation row stores. */

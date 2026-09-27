@@ -122,6 +122,8 @@ export const API = {
       `/api/github/app/install?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
     appInstallation: (workspaceUrl: string) =>
       `/api/github/app/installation?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
+    appReverify: (workspaceUrl: string) =>
+      `/api/github/app/reverify?workspaceUrl=${encodeURIComponent(workspaceUrl)}`,
   },
   agent: {
     run: (taskId: string) => `/api/agent/run/${taskId}`,

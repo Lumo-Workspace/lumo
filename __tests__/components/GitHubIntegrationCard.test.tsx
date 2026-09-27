@@ -23,6 +23,11 @@ const messages: Record<string, string> = {
   'github.appRepos': 'Repositories the App can reach',
   'github.appNoRepos': 'No repositories selected',
   'github.manageOnGithub': 'Manage on GitHub',
+  'github.reverify': 'Re-verify access',
+  'github.reverifyHint': 'Keeps what you can read',
+  'github.appPendingRepos': 'Waiting for verification',
+  'github.appPendingReposDesc': 'Ignored until re-verified',
+  'github.appPendingUnknown': 'Could not check pending',
   'common.cancel': 'Cancel',
   'common.moreOptions': 'More options',
 }
@@ -45,12 +50,14 @@ const mockAppHook = {
     installed: boolean
     accountLogin?: string | null
     repositories?: string[]
+    pendingRepositories?: string[] | null
   },
   loading: false,
   uninstallOpen: false,
   setUninstallOpen: jest.fn(),
   uninstalling: false,
   handleInstall: jest.fn(),
+  handleReverify: jest.fn(),
   handleUninstall: jest.fn(),
 }
 
@@ -170,5 +177,54 @@ describe('GitHubIntegrationCard (team: App installation, Slack-shaped)', () => {
       />
     )
     expect(onConnectedChange).toHaveBeenLastCalledWith(true)
+  })
+
+  // LUM-881: repositories added after binding are listed apart, and owners
+  // can re-verify.
+  it('lists pending repositories apart and lets an owner re-verify', () => {
+    mockAppHook.status = {
+      installed: true,
+      accountLogin: 'acme-inc',
+      repositories: ['acme-inc/web'],
+      pendingRepositories: ['acme-inc/payroll'],
+    }
+    render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
+    expandBody()
+
+    expect(screen.getByText('Waiting for verification')).toBeInTheDocument()
+    expect(screen.getByText('acme-inc/payroll')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Re-verify access' }))
+    expect(mockAppHook.handleReverify).toHaveBeenCalled()
+  })
+
+  it('hides re-verify from non-owners and says when pending is unknown', () => {
+    mockAppHook.status = {
+      installed: true,
+      accountLogin: 'acme-inc',
+      repositories: ['acme-inc/web'],
+      pendingRepositories: null,
+    }
+    render(<GitHubIntegrationCard workspaceUrl='acme' isOwner={false} />)
+    expandBody()
+
+    expect(
+      screen.queryByRole('button', { name: 'Re-verify access' })
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('Could not check pending')).toBeInTheDocument()
+  })
+
+  it('shows no pending section when nothing is pending', () => {
+    mockAppHook.status = {
+      installed: true,
+      accountLogin: 'acme-inc',
+      repositories: ['acme-inc/web'],
+      pendingRepositories: [],
+    }
+    render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
+    expandBody()
+
+    expect(
+      screen.queryByText('Waiting for verification')
+    ).not.toBeInTheDocument()
   })
 })
