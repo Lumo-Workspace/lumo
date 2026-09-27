@@ -121,7 +121,7 @@ export async function resolveManualDedup(
 
   try {
     const { generateObject } = await import('ai')
-    const { gateway } = await import('@ai-sdk/gateway')
+    const { gateway } = await import('@/lib/ai/gateway')
     const { object } = await generateObject({
       model: gateway(MODEL_ID),
       schema: LOOSE_RECONCILE_OUTPUT,

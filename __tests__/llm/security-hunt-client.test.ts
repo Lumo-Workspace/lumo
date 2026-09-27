@@ -5,7 +5,7 @@ jest.mock('ai', () => ({
   stepCountIs: jest.fn((n: number) => ({ stepCountIs: n })),
   hasToolCall: jest.fn((name: string) => ({ hasToolCall: name })),
 }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { generateText } from 'ai'
 import { HUNT_MODEL } from '@/lib/ai/models'

@@ -10,7 +10,7 @@
  * `await import()` 到达（jest TransformStream 陷阱）。
  */
 import { generateObject, type LanguageModel } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 import { z } from 'zod'
 import { FAST_MODEL } from '@/lib/ai/models'
 import {

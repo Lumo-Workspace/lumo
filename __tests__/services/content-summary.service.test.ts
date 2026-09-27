@@ -26,7 +26,7 @@ describe('contentSummaryService', () => {
       ),
       'utf8'
     )
-    expect(src).not.toMatch(/^import .*@ai-sdk\/gateway/m)
+    expect(src).not.toMatch(/^import .*(@ai-sdk\/gateway|@\/lib\/ai\/gateway)/m)
     expect(src).toMatch(/await import\(/)
   })
 })

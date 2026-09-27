@@ -1,7 +1,7 @@
 import { GENERATION_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { generateObject } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 import type { RetroStruggleAggregate } from '@/lib/services/retro-struggle'
 
 // ── Types ─────────────────────────────────────────────────────────────────────

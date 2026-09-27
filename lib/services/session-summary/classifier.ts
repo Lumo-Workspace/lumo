@@ -1,6 +1,6 @@
 import { FAST_MODEL } from '@/lib/ai/models'
 import { generateObject, NoObjectGeneratedError } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 import { z } from 'zod'
 import type { SessionMetadata } from './compact-events'
 import { SESSION_TYPES, type ClassifierOutput } from './types'

@@ -2,7 +2,7 @@ import { GENERATION_MODEL } from '@/lib/ai/models'
 import { logger } from '@/lib/logger'
 import { z } from 'zod'
 import { generateObject } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

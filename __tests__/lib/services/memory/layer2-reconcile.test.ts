@@ -2,7 +2,7 @@ const generateObjectMock = jest.fn()
 jest.mock('ai', () => ({
   generateObject: (...a: unknown[]) => generateObjectMock(...a),
 }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 import { reconcileLayer2Candidates } from '@/lib/services/memory/layer2-extract'
 

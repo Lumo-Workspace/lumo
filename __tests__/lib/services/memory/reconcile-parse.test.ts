@@ -12,7 +12,7 @@
  * batch parsing that drops only the bad elements. The AI SDK gateway is mocked
  * to dodge the TransformStream jest trap (schema is all we exercise here).
  */
-jest.mock('@ai-sdk/gateway', () => ({ gateway: jest.fn() }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: jest.fn() }))
 jest.mock('ai', () => ({ generateObject: jest.fn() }))
 
 import {

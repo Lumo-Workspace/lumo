@@ -1,6 +1,6 @@
 const embedManyMock = jest.fn()
 jest.mock('ai', () => ({ embedMany: (...a: unknown[]) => embedManyMock(...a) }))
-jest.mock('@ai-sdk/gateway', () => ({
+jest.mock('@/lib/ai/gateway', () => ({
   gateway: { textEmbeddingModel: (id: string) => ({ id }) },
 }))
 

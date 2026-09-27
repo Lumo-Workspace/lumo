@@ -13,7 +13,7 @@ const mockGateway = jest.fn((id: string) => `gateway:${id}`)
 jest.mock('ai', () => ({
   generateObject: (...args: unknown[]) => mockGenerateObject(...args),
 }))
-jest.mock('@ai-sdk/gateway', () => ({
+jest.mock('@/lib/ai/gateway', () => ({
   gateway: (id: string) => mockGateway(id),
 }))
 // Models module is a pure string constants file — no gateway import.

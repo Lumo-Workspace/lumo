@@ -14,7 +14,7 @@
  *      be called.
  */
 jest.mock('ai', () => ({ generateText: jest.fn(), generateObject: jest.fn() }))
-jest.mock('@ai-sdk/gateway', () => ({ gateway: (id: string) => ({ id }) }))
+jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 
 const mockCrossingWrite = jest.fn()
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
