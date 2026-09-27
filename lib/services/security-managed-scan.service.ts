@@ -294,7 +294,7 @@ async function runTool(
  *   6. run the scanners — the first point anything reads repository config;
  *   7. keepAlive: set deny-all and write `MANAGED_SCAN_DONE_PATH` for the hunt.
  *
- * 3 and 5 are fail-closed: no scanner runs on a VM that could still hand out
+ * 2, 3 and 5 are fail-closed: no scanner runs on a VM that could still hand out
  * the token or reach an arbitrary host. The raw reports (which may contain
  * secrets) come back to the caller in this same process; nothing here is
  * persisted. Throws (scrubbed) on sandbox or setup failure — transient by
@@ -316,6 +316,7 @@ async function collectReports(opts: {
 }): Promise<CollectedReports> {
   const { token } = opts
   let sandbox: RepoSandbox
+  let revoked = false
   try {
     sandbox = await createRepoSandbox({
       repository: opts.repository,
@@ -333,7 +334,19 @@ async function collectReports(opts: {
     throw new Error(scrubToken(message(error), token))
   } finally {
     // Success or not, the clone is over and the token has no further use.
-    await revokeInstallationToken(token)
+    revoked = await revokeInstallationToken(token)
+  }
+  // LUM-869 — a token we could not revoke is live for up to an hour, and the
+  // scanners are about to read repository-controlled config on this VM. The
+  // scrub below proves the token is not readable NOW; it cannot cover the
+  // hour. Fail closed: no scanner runs, the VM is stopped, and the step's
+  // retry mints (and revokes) a fresh token.
+  if (!revoked) {
+    logger.error(
+      `[security-managed-scan] clone token revoke failed ${opts.label}; refusing to scan`
+    )
+    await stopSandbox(sandbox, opts)
+    throw new Error('refusing to scan: could not revoke the clone token')
   }
   // LUM-758's keepAlive hands a FINISHED VM to the hunt; a run that throws
   // anywhere below hands over nothing, so its VM is stopped like any other
@@ -383,25 +396,29 @@ async function collectReports(opts: {
         if (sidecar) sidecars[tool] = sidecar
       }
     }
-    if (opts.keepAlive) {
-      await sealForHunt(sandbox, opts)
-      handOver = true
-    }
+    // LUM-869 — a failed hand-off costs the hunt its shared VM (it boots its
+    // own), never the reports: they are already in hand.
+    if (opts.keepAlive) handOver = await sealForHunt(sandbox, opts)
     return { reports, sidecars }
   } finally {
     // A VM the hunt is going to reuse outlives this function on purpose:
     // stopping it would kill the hunt's checkout. Its release is the VM's own
     // timeout — LUM-745's sweep and supersede only reach a VM whose scan row
     // carries a `managedRunId` (see `stopHuntSandbox`).
-    if (!handOver) {
-      try {
-        await sandbox.stop()
-      } catch (error) {
-        logger.warn(
-          `[security-managed-scan] sandbox stop failed ${opts.label}: ${scrubToken(message(error), token).slice(0, 200)}`
-        )
-      }
-    }
+    if (!handOver) await stopSandbox(sandbox, opts)
+  }
+}
+
+async function stopSandbox(
+  sandbox: RepoSandbox,
+  opts: { label: string; token: string }
+): Promise<void> {
+  try {
+    await sandbox.stop()
+  } catch (error) {
+    logger.warn(
+      `[security-managed-scan] sandbox stop failed ${opts.label}: ${scrubToken(message(error), opts.token).slice(0, 200)}`
+    )
   }
 }
 
@@ -430,13 +447,14 @@ async function installTool(
 
 /**
  * LUM-852 — the hand-off to the hunt: deny-all first, the marker second, so a
- * marker can only ever mean "the network is already cut". Throws when either
- * fails; the caller then stops the VM and the hunt boots its own.
+ * marker can only ever mean "the network is already cut". false when either
+ * fails (LUM-869: it used to throw and take the finished reports with it);
+ * the caller then stops the VM and the hunt boots its own.
  */
 async function sealForHunt(
   sandbox: RepoSandbox,
   opts: { label: string; token: string }
-): Promise<void> {
+): Promise<boolean> {
   try {
     await denySandboxEgress(sandbox.name)
     const marked = await sandbox.run('touch', [MANAGED_SCAN_DONE_PATH], {
@@ -445,10 +463,12 @@ async function sealForHunt(
     if (marked.exitCode !== 0) {
       throw new Error(`touch exit ${marked.exitCode}`)
     }
+    return true
   } catch (error) {
-    throw new Error(
-      `could not hand the sandbox to the hunt: ${scrubToken(message(error), opts.token)}`
+    logger.warn(
+      `[security-managed-scan] could not hand the sandbox to the hunt ${opts.label}: ${scrubToken(message(error), opts.token).slice(0, 200)}; stopping it`
     )
+    return false
   }
 }
 

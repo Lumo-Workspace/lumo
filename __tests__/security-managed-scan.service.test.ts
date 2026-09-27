@@ -29,7 +29,10 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 
 import { logger } from '@/lib/logger'
 import { createRepoSandbox } from '@/lib/integrations/vercel-sandbox'
-import { getRepoCloneToken } from '@/lib/integrations/github/auth'
+import {
+  getRepoCloneToken,
+  revokeInstallationToken,
+} from '@/lib/integrations/github/auth'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
@@ -235,6 +238,8 @@ const stagesById = prSecurityScanRepository.findStagesById as jest.Mock
 
 beforeEach(() => {
   jest.resetAllMocks()
+  // LUM-869: a failed revoke is fail-closed; these suites test what follows a good one.
+  ;(revokeInstallationToken as jest.Mock).mockResolvedValue(true)
   token.mockResolvedValue(TOKEN)
   diff.mockResolvedValue(DIFF)
   stagesById.mockResolvedValue({ external: 'PENDING', supplyChain: 'PENDING' })

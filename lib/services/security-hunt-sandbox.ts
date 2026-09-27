@@ -63,6 +63,7 @@ import {
   HUNT_SANDBOX_ATTACH_POLL_MS,
   HUNT_SANDBOX_ATTACH_WAIT_MS,
   HUNT_MANAGED_SCAN_DONE_WAIT_MS,
+  HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS,
   HUNT_SANDBOX_TAG,
   HUNT_SHELL_COMPRESS_MIN,
   HUNT_SHELL_OUTPUT_MAX,
@@ -206,6 +207,46 @@ async function sealAttached(
   }
 }
 
+/**
+ * LUM-869 — wait (up to HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS) for the managed
+ * scan to hand its VM over, without attaching to it. Runs in a step of its
+ * own before the first batch, so the batch's attach finds the marker at once
+ * instead of spending its own window waiting. true = the marker is there;
+ * false = no VM, a VM that went away, or still scanning — the batch then
+ * takes its usual path. Never throws: this is an optimisation, never a
+ * precondition.
+ */
+export async function awaitManagedScanHandOff(input: {
+  scanId: string
+  /** Test seams. */
+  waitMs?: number
+  pollMs?: number
+}): Promise<boolean> {
+  const tag = { [SANDBOX_SCAN_TAG]: input.scanId }
+  const attachOptions = { excludeTagKeys: [HUNT_SANDBOX_TAG] }
+  const pollMs = input.pollMs ?? HUNT_SANDBOX_ATTACH_POLL_MS
+  const deadline =
+    Date.now() + (input.waitMs ?? HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS)
+  try {
+    let vm = await findRepoSandboxByTag(tag, attachOptions)
+    while (!vm && Date.now() < deadline) {
+      await sleep(pollMs)
+      vm = await findRepoSandboxByTag(tag, attachOptions)
+    }
+    if (!vm) return false
+    return await waitForManagedScanDone(
+      vm,
+      Math.max(0, deadline - Date.now()),
+      pollMs
+    )
+  } catch (error) {
+    logger.warn(
+      `[security-hunt] managed scan hand-off wait failed scan=${input.scanId}: ${short(error)}`
+    )
+    return false
+  }
+}
+
 /** true once the managed scan's completion marker exists; a VM that went away is false. */
 async function waitForManagedScanDone(
   sandbox: RepoSandbox,
@@ -228,15 +269,17 @@ async function waitForManagedScanDone(
 }
 
 /**
- * Boot, cut egress, scrub, revoke — in that order, and every step but the
- * revoke is fatal. The token is minted here and nowhere else in the hunt: it
- * is scoped to this one repository with `contents: read`, and it is dead
- * before the agent's first command whatever happens next.
+ * Boot, cut egress, scrub, revoke — in that order, and every step is fatal
+ * (LUM-869: the revoke too). The token is minted here and nowhere else in the
+ * hunt: it is scoped to this one repository with `contents: read`, and it is
+ * dead before the agent's first command — or the agent gets no VM.
  */
 async function createSealed(input: AttachInput): Promise<HuntSandbox> {
   const token = await getRepoCloneToken(input.workspaceId, input.repo)
+  let handle: HuntSandbox
+  let revoked = false
   try {
-    const handle = await create(input, token)
+    handle = await create(input, token)
     try {
       await scrubCloneCredentials(handle, input.repo, {
         ...(input.checkoutWaitMs === undefined
@@ -250,10 +293,17 @@ async function createSealed(input: AttachInput): Promise<HuntSandbox> {
       await stopHuntSandbox(handle)
       throw error
     }
-    return handle
   } finally {
-    await revokeInstallationToken(token)
+    revoked = await revokeInstallationToken(token)
   }
+  if (!revoked) {
+    logger.error(
+      `[security-hunt] clone token revoke failed scan=${input.scanId}; refusing to run the agent`
+    )
+    await stopHuntSandbox(handle)
+    throw new Error('could not revoke the sandbox clone token')
+  }
+  return handle
 }
 
 async function create(input: AttachInput, token: string): Promise<HuntSandbox> {

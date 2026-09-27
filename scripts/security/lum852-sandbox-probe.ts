@@ -110,7 +110,10 @@ async function main(): Promise<void> {
       image: SANDBOX_IMAGE,
     })
   } finally {
-    console.log(`revoke → ${await revokeInstallationToken(token)}`)
+    const revoked = await revokeInstallationToken(token)
+    console.log(`revoke → ${revoked}`)
+    // LUM-869: the services now refuse to scan on this; the probe says so too.
+    if (!revoked) problems.push('clone token revoke failed')
   }
   const afterRevoke = await tokenScope(token)
   console.log(`token after revoke: ${afterRevoke}`)
@@ -166,7 +169,8 @@ async function main(): Promise<void> {
         `${tool.padEnd(12)} ${String(r.exitCode).padEnd(5)} ${String(report?.byteLength ?? 0).padEnd(13)} ${((Date.now() - s0) / 1000).toFixed(1)}`
       )
       const skip = tool === 'osv-scanner' && r.exitCode === 128
-      if (!report && !skip) {
+      // LUM-869: a 0-byte file is not a report (zizmor wrote one and passed).
+      if ((!report || report.byteLength === 0) && !skip) {
         problems.push(
           `${tool} produced no report (exit ${r.exitCode}): ${r.stderr.slice(-300)}`
         )

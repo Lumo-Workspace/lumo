@@ -244,14 +244,15 @@ describe('LUM-852 keepAlive hand-off to the hunt', () => {
       events.map(e => e.startsWith('scan:')).lastIndexOf(true)
     )
 
-    // Hand-off itself failing (deny-all refused): no marker, VM stopped.
+    // Hand-off itself failing (deny-all refused): no marker, VM stopped —
+    // and since LUM-869 the scan still returns its reports.
     events = []
     deny.mockRejectedValueOnce(new Error('policy update unavailable'))
     const refused = fakeSandbox()
     create.mockResolvedValueOnce(refused)
     await expect(
       securityManagedScanService.scanRepository({ ...JOB, huntWanted: true })
-    ).rejects.toThrow(/hand the sandbox to the hunt/)
+    ).resolves.toBeDefined()
     expect(refused.stop).toHaveBeenCalledTimes(1)
     expect(events.some(e => e.startsWith('marker:'))).toBe(false)
   })

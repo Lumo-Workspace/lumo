@@ -92,7 +92,7 @@ export async function scrubSandboxCredentials(
   if (!token) return
 
   const configPath = `${cwd}/.git/config`
-  if ((await waitForCheckoutConfig(handle, opts)).includes(token)) {
+  if (carriesToken(await waitForCheckoutConfig(handle, opts), token)) {
     await run(
       sandbox,
       'git',
@@ -109,7 +109,7 @@ export async function scrubSandboxCredentials(
     )
     const after = await readSandboxFile(sandbox, configPath, token)
     // A config that vanished mid-scrub is not a config we cleared.
-    if (!after || after.toString('utf8').includes(token)) {
+    if (!after || carriesToken(after.toString('utf8'), token)) {
       logger.error(
         `[sandbox-scrub] installation token still reachable in ${configPath} after scrub`
       )
@@ -136,7 +136,7 @@ export async function scrubSandboxCredentials(
     throw new Error('could not verify the sandbox command environment')
   }
   const env = `${probe.stdout ?? ''}${probe.stderr ?? ''}`
-  if (env.includes(token)) {
+  if (carriesToken(env, token)) {
     logger.error(
       '[sandbox-scrub] installation token is visible in the sandbox command environment; refusing to run anything against the checkout'
     )
@@ -198,7 +198,7 @@ async function assertHomeStoresAreClean(
   for (const name of HOME_CREDENTIAL_FILES) {
     const path = `${home}/${name}`
     const bytes = await readSandboxFile(sandbox, path, token)
-    if (bytes?.toString('utf8').includes(token)) {
+    if (bytes && carriesToken(bytes.toString('utf8'), token)) {
       logger.error(
         `[sandbox-scrub] installation token is readable at ${path}; refusing to run anything against the checkout`
       )
@@ -216,6 +216,37 @@ function homeDir(env: string, sessionCwd: string): string {
   const home = /^HOME=(.*)$/m.exec(env)?.[1]?.trim()
   const dir = home?.startsWith('/') ? home : sessionCwd
   return dir.replace(/\/+$/, '')
+}
+
+/**
+ * LUM-869 — does `text` carry `token`, verbatim OR base64-encoded? git's
+ * `http.extraheader` holds `AUTHORIZATION: basic <base64("x-access-token:" +
+ * token)>`, where the raw token never appears. Base64 of a substring depends
+ * on its byte offset mod 3, so the token is encoded at all three alignments
+ * and only the characters that depend on the token alone are kept: the
+ * leading group that mixes in prefix bytes and the trailing group that mixes
+ * in whatever follows are dropped.
+ */
+export function carriesToken(text: string, token: string): boolean {
+  if (!token) return false
+  if (text.includes(token)) return true
+  return base64Needles(token).some(needle => text.includes(needle))
+}
+
+function base64Needles(token: string): string[] {
+  const needles: string[] = []
+  for (const shift of [0, 1, 2]) {
+    const encoded = Buffer.from('\0'.repeat(shift) + token, 'utf8')
+      .toString('base64')
+      .replace(/=+$/, '')
+    // Chars 4.. are token-only once the shift bytes sit in the first group.
+    const start = shift === 0 ? 0 : 4
+    const end = encoded.length - 4
+    if (end - start >= MIN_SCRUBBABLE_TOKEN) {
+      needles.push(encoded.slice(start, end))
+    }
+  }
+  return needles
 }
 
 /** null = the file is not there. A read that FAILS is fail-closed, not absent. */

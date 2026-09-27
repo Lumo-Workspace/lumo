@@ -91,6 +91,7 @@ import {
   markHuntFailedStep,
   requeueHuntStep,
   continueHuntStep,
+  awaitManagedScanStep,
 } from './security-hunt.steps'
 import { syncPrReviewBestEffort } from './security-scan-helpers'
 import {
@@ -288,6 +289,15 @@ async function requeueBestEffort(
  * start leaves the layer PENDING with `huntJob` naming the batch still owed,
  * which the stale sweep retries — never a dropped batch, never a verdict.
  */
+/** An optimisation, never a precondition: a failed wait leaves each batch its own attach. */
+async function awaitManagedScanBestEffort(scanId: string): Promise<void> {
+  try {
+    await awaitManagedScanStep({ scanId })
+  } catch {
+    // Retries exhausted inside the step; the batches attach or boot as before.
+  }
+}
+
 async function continueBestEffort(job: HuntJob, next: HuntJob): Promise<void> {
   try {
     await continueHuntStep({ job, next })
@@ -555,6 +565,12 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
           wrapUpWarnings?: string[]
         }
       > = {}
+
+      // LUM-869 — the managed scan is usually still scanning when planning
+      // ends. Waiting for its hand-off HERE, in a step of its own, keeps the
+      // wait off the first batch's window (a batch that waited in its own
+      // attach lost up to 90 s of search, then booted a second VM anyway).
+      if (job.managedScanStarted) await awaitManagedScanBestEffort(scanId)
 
       // Pass 1 — one bounded batch per PLANNED TASK. The ceiling (not the
       // whole remaining budget) is what a batch may spend, so one wedged task

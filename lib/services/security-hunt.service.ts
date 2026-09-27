@@ -68,6 +68,7 @@ import {
 } from '@/lib/repositories/pr-security-scan.repository'
 import {
   attachOrCreateHuntSandbox,
+  awaitManagedScanHandOff,
   probeHuntTools,
   readHuntFile,
   runHuntShell,
@@ -416,6 +417,15 @@ export const securityHuntService = {
       // Stops the VM only if this call created it — see `stopHuntSandbox`.
       await stopHuntSandbox(handle)
     }
+  },
+
+  /**
+   * LUM-869 — wait for the managed scan's VM hand-off before the first batch,
+   * outside every batch's window. Never throws; false = the batch takes its
+   * usual attach-or-create path.
+   */
+  async awaitManagedScan(input: { scanId: string }): Promise<boolean> {
+    return awaitManagedScanHandOff({ scanId: input.scanId })
   },
 
   /**
