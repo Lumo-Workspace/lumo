@@ -1,11 +1,11 @@
 # 客户代码去向:LLM 链路 × 模型 × 供应商 × 留存政策
 
-> LUM-854 · 实测于 2026-09-26(`npx tsx scripts/analysis/lum854-zdr/probe.ts`)。
+> LUM-854 · ZDR 实测于 2026-09-26(`npx tsx scripts/analysis/lum854-zdr/probe.ts`),数据地域实测于 2026-09-27。
 > 本文是对外隐私说明的**事实依据**,不是对外文案本身;对外发布前需法务审阅。
 
 ## 一句话结论
 
-Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,并在**请求线路层强制** `zeroDataRetention: true`:Gateway 只会把请求路由到与 Vercel 签有零数据保留(ZDR)协议的供应商;若某模型没有这样的供应商,请求直接失败(`no_providers_available`),**不会降级**到会留存数据的供应商。ZDR 包含「不用于训练」。
+Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,并在**请求线路层强制** `zeroDataRetention: true`:Gateway 只会把请求路由到与 Vercel 签有零数据保留(ZDR)协议的供应商;若某模型没有这样的供应商,请求直接失败(`no_providers_available`),**不会降级**到会留存数据的供应商。ZDR 包含「不用于训练」。处理地域目前不固定(见「数据地域」一节)。
 
 ## 怎么保证的(以及怎么防漂移)
 
@@ -64,11 +64,41 @@ Lumo 发给大模型的所有请求(chat 与 embedding)都经 Vercel AI Gateway,
 | sprint / milestone 摘要、报告、plan 聚类/对齐/生成                          | `lib/llm/{sprint,milestone}-summary-client.ts`、`lib/summaries/report.ts`、`lib/llm/plan-*`                                                                | GENERATION / REASONING      | 任务、PR 标题、idea 等项目文本       |
 | 任务描述 / 拆解 / 优先级 / 查重 / 快速派发                                  | `lib/services/{description,duplicate-check,quick-dispatch}.service.ts`、`app/api/tasks/[id]/decompose/route.ts`、`app/api/tasks/suggest-priority/route.ts` | GENERATION                  | 任务文本                             |
 
+## 数据地域(Regional Inference)
+
+> 实测于 2026-09-27,每个模型同时带 `zeroDataRetention: true` 和 `inferenceRegion` 各发一次请求,读响应里 `providerAttempts[].inferenceEndpoint`。来源:Vercel [Regional Inference 文档](https://vercel.com/docs/ai-gateway/security-and-compliance/regional-inference)。
+
+**现状:处理地域不固定。** Lumo 没有设置 `providerOptions.gateway.inferenceRegion`,默认值是 `global`:Gateway 按可用性和延迟选区域,每次请求可能不同,**可能落在客户所在司法辖区之外**;响应中的 `inferenceEndpoint` 为 `null`。**留存不受地域影响**:无论在哪处理,ZDR 都生效,请求完成后不留存、不训练。
+
+**能否固定到某个区域**(Gateway 目前只提供 `us` / `eu`;设了区域就不会回退,做不到直接 400):
+
+| 模型                                  | 现在(global,ZDR)       | ZDR + 固定 US                        | EU  |
+| ------------------------------------- | ---------------------- | ------------------------------------ | --- |
+| `openai/gpt-5.5`                      | openai,不固定          | ✅ openai,响应确认 `geoRegion: us`   | ✗   |
+| `deepseek/deepseek-v4-pro` / `-flash` | alibaba,不固定         | ✅ baseten,响应确认 `geoRegion: us`  | ✗   |
+| `zai/glm-5.2`                         | runware/baseten,不固定 | ✅ baseten,响应确认 `geoRegion: us`  | ✗   |
+| `alibaba/qwen3-coder-plus`(HUNT)      | alibaba,不固定         | ❌ 唯一供应商 alibaba 不支持区域固定 | ✗   |
+| `alibaba/qwen3-embedding-0.6b`        | deepinfra,不固定       | ❌ 无供应商支持区域固定              | ✗   |
+
+HUNT 与 embedding 要固定地域只能换模型:
+
+- Fireworks(ZDR 供应商)在 Gateway 上不托管任何 Qwen3-Coder 变体;
+- `alibaba/qwen3-coder`(480B 开源)/ `-next` / `-30b-a3b` 在「ZDR + US」下同样无可用供应商;
+- 换 embedding 还需改 `EMBEDDING_DIM` 与 pgvector 列(schema 迁移)。
+
+**其他地域相关事实**:
+
+- `inferenceRegion` 只固定**供应商**的推理与落盘位置;请求先在任意 Vercel 区域被 Gateway 接收处理(Vercel 称「单区域终止 TLS 的 gateway 主机」即将推出)。Gateway 本身不留存。
+- 供应商对被标记为滥用/安全审查的请求,按其自身政策处理和留存,可能在所选区域之外;Vercel 不对此作保证(见注意事项第 1 条 OpenAI「safety retention」)。
+- 固定区域按区域价计费,通常高于 global。
+
+**当前裁定(2026-09-27,用户)**:维持 global + ZDR,不固定地域;有客户明确提出数据驻留要求时,再按上表处理(前 4 类可固定 US,HUNT 与 embedding 需换模型)。
+
 ## 注意事项(对外说明时必须如实写)
 
 1. **OpenAI 的 ZDR 带「安全留存」例外**:Vercel 标注为 "ZDR with safety retention"——滥用监测场景下可能有有限留存。对外不应写成「任何供应商都绝对零留存」。
 2. **开源权重模型的托管方不是模型作者**:DeepSeek / GLM 请求由 Alibaba Cloud、Baseten 等托管方处理,DeepSeek 与智谱官方 API 被排除。对外应写「由签有 ZDR 协议的托管方运行」,而非「由 DeepSeek/智谱处理」。
-3. **数据地域未核实**:Gateway 的路由元数据不包含托管区域;Alibaba Cloud 等托管方的服务区域(是否中国大陆境内)本次**无法从 Gateway 侧确认**。若客户要求地域承诺,需向 Vercel 确认,或用 `providerOptions.gateway.only` 把候选集限定到已确认地域的供应商。
+3. **处理地域不作承诺**:当前请求按 `global` 路由,处理地域不固定,可能在客户所在辖区之外(见「数据地域」一节)。对外应写「不留存、不训练;处理地域不作承诺」,不得写「数据仅在某国/某地区处理」。HUNT 与 embedding 链路目前无法固定地域。
 4. **托管方会随请求变化**:ZDR 候选集内的具体落点由 Gateway 按可用性选择;保证的是「只在 ZDR 候选集内」,不是「固定某一家」。
 5. **provider 级 prompt caching**:Vercel 说明缓存发生在供应商侧,是否符合 ZDR 取决于供应商。
 6. **BYOK**:ZDR 生效时 Gateway 默认跳过 BYOK key(除非在控制台标记该 key 为 ZDR)。Lumo 目前使用 Gateway 系统凭证。
