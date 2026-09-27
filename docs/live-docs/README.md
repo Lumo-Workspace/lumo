@@ -35,6 +35,11 @@ round-trip 非幂等):表格会被拍平成一行一格的纯段落。如果把 
 | 源文件 | docId | 线上文档 |
 | --- | --- | --- |
 | [lum392-cli-friction-report.md](lum392-cli-friction-report.md) | `cmq7rxdz0000404jsqu064q0w` | [lumo CLI agent 摩擦点实测报告(LUM-392)](https://www.uselumo.ai/workspace/lumo/documents/lumo-cli-agent-lum-392-31) |
+| [legal-privacy-policy.md](legal-privacy-policy.md) | `cmujbjzdw002v04l2rehnlj3f` | [Lumo Privacy Policy (draft)(LUM-857)](https://www.uselumo.ai/workspace/lumo/documents/lumo-privacy-policy-draft-45) |
+| [legal-dpa-template.md](legal-dpa-template.md) | `cmujbk05e002y04l29qi27c66` | [Lumo DPA Template (draft)(LUM-857)](https://www.uselumo.ai/workspace/lumo/documents/lumo-dpa-template-draft-46) |
+| [legal-subprocessors.md](legal-subprocessors.md) | `cmujbk0n6003104l2ihf2lrmy` | [Lumo Subprocessors (draft)(LUM-857)](https://www.uselumo.ai/workspace/lumo/documents/lumo-subprocessors-draft-47) |
+
+三份 `legal-*` 法务文档的覆盖面由 `npx tsx scripts/analysis/lum857-legal/check-legal-docs.ts <subprocessors|privacy|dpa|published>` 机检;子处理方清单与 [`docs/privacy/llm-data-flow.md`](../privacy/llm-data-flow.md)(LUM-854)的 ZDR 候选集对账,换模型后两边一起更新。
 
 新收编一篇活文档时:把它的权威 md 源放进本目录、在上表加一行、首次上传后跑一次校验脚本。
 
