@@ -3,7 +3,10 @@ import { TaskArtifactAgent } from '@prisma/client'
 import type { HookEventType, Prisma } from '@prisma/client'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { hookEventService } from '@/lib/services/hook-event.service'
-import { validateHookPayload } from '@/lib/validation/hook-payload'
+import {
+  redactHookPayload,
+  validateHookPayload,
+} from '@/lib/validation/hook-payload'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
@@ -34,9 +37,15 @@ export interface AfterRecordContext {
   filePath: string | null
   /** Tool this event uses, extracted from the payload (null if none). */
   toolName: string | null
-  /** The raw (already-parsed) hook payload, for side effects that need fields
-   *  beyond the common ones above (e.g. WORKTREE_CREATE → worktree_path/branch). */
+  /** The hook payload exactly as persisted (validated + credential-redacted),
+   *  for side effects that need fields beyond the common ones above (e.g.
+   *  WORKTREE_CREATE → worktree_path/branch). Anything a side effect writes
+   *  back to the DB must come from here, never from `rawPayload`. */
   payload: unknown
+  /** The validated payload BEFORE credential redaction (LUM-859). In memory
+   *  only — reserved for the boundary detector, whose secret checks
+   *  (HARDCODED_SECRET …) need the original text. Never persist it. */
+  rawPayload: unknown
 }
 
 export interface HandleHookOptions {
@@ -76,7 +85,11 @@ export async function handleHookRequest(
     // are best-effort, so a malformed payload degrades to a marked event
     // instead of breaking the event stream. Everything downstream (service
     // extraction, afterRecord side effects) sees only the sanitized payload.
-    const { payload } = validateHookPayload(type, rawPayload)
+    const { payload: validated } = validateHookPayload(type, rawPayload)
+    // LUM-859: credentials are redacted out of the copy that is stored (and
+    // out of every column derived from it). The unredacted `validated` stays
+    // in memory for the boundary detector only — see AfterRecordContext.
+    const { payload } = redactHookPayload(validated)
 
     const agent = parseAgentHeader(request)
     const recorded = await hookEventService.recordHookEvent({
@@ -98,6 +111,7 @@ export async function handleHookRequest(
             filePath: recorded.filePath,
             toolName: recorded.toolName,
             payload,
+            rawPayload: validated,
           },
           identity
         )

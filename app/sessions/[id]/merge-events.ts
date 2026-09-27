@@ -7,6 +7,11 @@
  * Pure: no React, no Prisma, no I/O — trivially unit-testable.
  */
 
+import { isPrunedPayload } from '@/lib/hook-event/retention'
+
+/** Row text for an event whose payload the retention sweep cleared (LUM-859). */
+export const PRUNED_SUMMARY = 'Content cleared per retention policy'
+
 export type HookEventType =
   | 'PRE_TOOL_USE'
   | 'POST_TOOL_USE'
@@ -53,6 +58,14 @@ export function mergeEvents(events: RawEvent[]): TimelineItem[] {
   const preByToolUseId = new Map<string, RawEvent>()
 
   for (const ev of events) {
+    // LUM-859: a pruned payload has no tool_use_id / prompt / message to read.
+    // One row per cleared call — the Post carries it, so a cleared Pre is
+    // skipped rather than left dangling as "pending".
+    if (isPrunedPayload(ev.payload)) {
+      if (ev.type !== 'PRE_TOOL_USE') items.push(prunedItem(ev))
+      continue
+    }
+
     if (ev.type === 'USER_PROMPT_SUBMIT') {
       items.push(userPromptItem(ev))
       continue
@@ -89,6 +102,25 @@ export function mergeEvents(events: RawEvent[]): TimelineItem[] {
 }
 
 // ─── Item builders ──────────────────────────────────────────────────────────
+
+function prunedItem(ev: RawEvent): TimelineItem {
+  return {
+    key: ev.id,
+    kind:
+      ev.type === 'STOP'
+        ? 'stop'
+        : ev.type === 'USER_PROMPT_SUBMIT'
+          ? 'user-prompt'
+          : 'tool',
+    toolName: ev.toolName,
+    summary: PRUNED_SUMMARY,
+    badge: null,
+    status: 'ok',
+    startAt: ev.createdAt,
+    endAt: ev.createdAt,
+    details: [],
+  }
+}
 
 function userPromptItem(ev: RawEvent): TimelineItem {
   const rawPrompt = getString(ev.payload, 'prompt') ?? ''

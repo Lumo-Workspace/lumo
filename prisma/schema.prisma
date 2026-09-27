@@ -384,6 +384,11 @@ model Workspace {
   // API schema and ignored by the reader: an LLM finding can never block.
   securityPolicy Json?
 
+  // LUM-859: raw hook-event retention, in days. null = keep forever (default);
+  // OWNER picks 30 / 90 / 180 / 365. The daily sweep replaces an expired
+  // event's payload with a pruned marker — rows and derived columns stay.
+  hookEventRetentionDays Int?
+
   @@map("workspaces")
 }
 
@@ -2511,6 +2516,9 @@ model HookEvent {
   /// { input, output, cacheRead, cacheCreation }. Written only on STOP /
   /// STOP_FAILURE rows; null everywhere else and on historical rows.
   usageByModel      Json?
+  /// LUM-859: when the retention sweep replaced `payload` with the pruned
+  /// marker. Null = payload still holds the (redacted) original.
+  payloadPrunedAt   DateTime?
   createdAt         DateTime      @default(now())
 
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

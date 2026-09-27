@@ -14,7 +14,9 @@ export async function POST(request: Request) {
       // LUM-426: async forbidden-action boundary detection. Observe-only and
       // server-side, AFTER ingestion — runs detached via waitUntil so it never
       // blocks the response (exit-0 invariant, LUM-348). detectAndRecord owns
-      // its errors and never throws.
+      // its errors and never throws. It gets the UNREDACTED payload (LUM-859):
+      // secret detection needs the original text; only the stored copy is
+      // redacted.
       if (!ctx.taskId) {
         // LUM-640: a task-less event may belong to a milestone-bound STEWARD
         // session — the detector backstop checks for implementation artifacts
@@ -25,7 +27,7 @@ export async function POST(request: Request) {
             sessionId: ctx.sessionId,
             hookEventId: ctx.eventId,
             toolName: ctx.toolName,
-            payload: ctx.payload,
+            payload: ctx.rawPayload,
           })
         )
         return
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
           hookEventId: ctx.eventId,
           toolName: ctx.toolName,
           filePath: ctx.filePath,
-          payload: ctx.payload,
+          payload: ctx.rawPayload,
         })
       )
     },

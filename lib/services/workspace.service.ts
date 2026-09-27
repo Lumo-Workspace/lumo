@@ -2,6 +2,7 @@ import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
 import { workspaceDeletionService } from '@/lib/services/workspace-deletion.service'
 import type { SecurityPolicy } from '@/lib/security-scan/policy'
+import type { HookEventRetentionDays } from '@/lib/hook-event/retention'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -15,6 +16,8 @@ export interface UpdateWorkspaceInput {
   acceptanceMode?: boolean | undefined
   /** LUM-740: already validated by `securityPolicySchema`; null = reset. */
   securityPolicy?: SecurityPolicy | null | undefined
+  /** LUM-859: one of HOOK_EVENT_RETENTION_DAYS; null = keep forever. */
+  hookEventRetentionDays?: HookEventRetentionDays | null | undefined
 }
 
 // ── Workspace Service ───────────────────────────────────────────────────────
@@ -77,6 +80,8 @@ export const workspaceService = {
       data.acceptanceMode = input.acceptanceMode
     if (input.securityPolicy !== undefined)
       data.securityPolicy = input.securityPolicy
+    if (input.hookEventRetentionDays !== undefined)
+      data.hookEventRetentionDays = input.hookEventRetentionDays
 
     return workspaceRepository.update(workspaceId, data)
   },

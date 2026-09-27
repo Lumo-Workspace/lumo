@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { HookEventType } from '@prisma/client'
+import { redactForStorage } from '@/lib/security-scan/scan-secrets'
 
 /**
  * Max length for any single string inside a hook payload.
@@ -28,10 +29,11 @@ const MAX_TRAVERSAL_DEPTH = 128
  * assert types when present, never require presence (a payload missing
  * session_id is recorded unlinked, matching existing service tolerance).
  *
- * `_lumo_validation` (this module's marker) and `_lumo_context_metrics`
- * (session-start injection telemetry, LUM-402) are server-side keys and are
- * reserved: a client-supplied value is always dropped so a stored marker can
- * only originate from the server.
+ * `_lumo_validation` (this module's marker), `_lumo_context_metrics`
+ * (session-start injection telemetry, LUM-402), `_lumo_redaction` (storage
+ * redaction marker) and `_lumo_pruned` (retention-sweep marker, LUM-859) are
+ * server-side keys and are reserved: a client-supplied value is always dropped
+ * so a stored marker can only originate from the server.
  */
 const commonFields = {
   session_id: z.string().optional(),
@@ -42,6 +44,8 @@ const commonFields = {
   _lumo_usage: z.looseObject({}).optional(),
   _lumo_validation: z.never().optional(),
   _lumo_context_metrics: z.never().optional(),
+  _lumo_redaction: z.never().optional(),
+  _lumo_pruned: z.never().optional(),
 }
 
 const toolFields = {
@@ -246,4 +250,59 @@ export function validateHookPayload(
     ...(dropped.length > 0 ? { dropped } : {}),
   }
   return { payload: capped, truncated, dropped, modified: true }
+}
+
+export interface HookPayloadRedactionResult {
+  /** Payload safe to persist: the original reference when nothing matched,
+   *  otherwise a copy carrying a `_lumo_redaction: { count }` marker. */
+  payload: Record<string, unknown>
+  /** Distinct credential values redacted, summed over every string. */
+  redactedCount: number
+}
+
+function redactDeep(value: unknown, counter: { n: number }): unknown {
+  if (typeof value === 'string') {
+    const { text, redactedCount } = redactForStorage(value)
+    counter.n += redactedCount
+    return text
+  }
+  if (value === null || typeof value !== 'object') return value
+  if (Array.isArray(value)) {
+    let changed = false
+    const next = value.map(item => {
+      const child = redactDeep(item, counter)
+      if (child !== item) changed = true
+      return child
+    })
+    return changed ? next : value
+  }
+  let changed = false
+  const next: Record<string, unknown> = {}
+  for (const [key, item] of Object.entries(value)) {
+    const child = redactDeep(item, counter)
+    if (child !== item) changed = true
+    next[key] = child
+  }
+  return changed ? next : value
+}
+
+/**
+ * LUM-859 — redact credentials out of a (validated) hook payload before it is
+ * persisted. Every string at every depth runs through the secret registry
+ * (`redactForStorage`: nothing dropped, secret-free text returned as-is).
+ *
+ * Applies ONLY to the copy that is stored. The in-memory payload stays raw for
+ * the boundary detector — HARDCODED_SECRET and friends need the original text
+ * — which is why the hook handler keeps both.
+ */
+export function redactHookPayload(
+  payload: Record<string, unknown>
+): HookPayloadRedactionResult {
+  const counter = { n: 0 }
+  const redacted = redactDeep(payload, counter) as Record<string, unknown>
+  if (redacted === payload) return { payload, redactedCount: 0 }
+  // `redacted` is our own copy (every object on a changed path is rebuilt,
+  // including the root), so stamping the marker never mutates the caller's.
+  redacted['_lumo_redaction'] = { count: counter.n }
+  return { payload: redacted, redactedCount: counter.n }
 }

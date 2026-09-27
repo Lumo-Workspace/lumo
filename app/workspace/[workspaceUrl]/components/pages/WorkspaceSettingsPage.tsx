@@ -9,6 +9,7 @@ import { API, CACHE_KEY } from '../../constants'
 import { readCache, writeCache, clearCache } from '../../cache'
 import { apiFetch, workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
+import { HookEventRetentionCard } from '../settings/HookEventRetentionCard'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -31,6 +32,7 @@ interface Workspace {
   summaryEnabled?: boolean
   summaryFrequency?: SummaryFrequency
   summaryLocale?: string
+  hookEventRetentionDays?: number | null
 }
 
 type WorkspaceCache = {
@@ -455,6 +457,15 @@ export function WorkspaceSettingsPage() {
               </Button>
             </div>
           </div>
+        )}
+
+        {/* Raw agent-event retention (LUM-859) — rendered once the real
+            workspace row is loaded, not the cache-hydrated stub. */}
+        {isOwner && workspace?.id && (
+          <HookEventRetentionCard
+            key={workspace.id}
+            initialDays={workspace.hookEventRetentionDays ?? null}
+          />
         )}
 
         {/* Danger zone */}

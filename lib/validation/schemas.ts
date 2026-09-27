@@ -74,6 +74,11 @@ export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
   // LUM-740: the DONE-block policy table; `null` resets to the default.
   // LLM_JUDGE is not an accepted provenance — see lib/security-scan/policy.ts.
   securityPolicy: securityPolicySchema.nullable().optional(),
+  // LUM-859: raw hook-event retention tier in days; `null` = keep forever.
+  hookEventRetentionDays: z
+    .union([z.literal(30), z.literal(90), z.literal(180), z.literal(365)])
+    .nullable()
+    .optional(),
 })
 
 // ─── Project ────────────────────────────────────────────────────────────────
