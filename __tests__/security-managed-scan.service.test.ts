@@ -6,9 +6,17 @@ jest.mock('@/lib/integrations/vercel-sandbox', () => ({
   // LUM-746: `repoCheckoutDir` (pure) now lives in the integration module.
   ...jest.requireActual('@/lib/integrations/vercel-sandbox'),
   createRepoSandbox: jest.fn(),
+  // LUM-852: egress policy calls go to the platform; not under test here.
+  restrictSandboxEgress: jest.fn(),
+  denySandboxEgress: jest.fn(),
+}))
+// LUM-852: the credential proof has its own tests (sandbox-agent, lum852).
+jest.mock('@/lib/services/sandbox-credential-scrub', () => ({
+  scrubSandboxCredentials: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoCloneToken: jest.fn(),
+  revokeInstallationToken: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
@@ -21,7 +29,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 
 import { logger } from '@/lib/logger'
 import { createRepoSandbox } from '@/lib/integrations/vercel-sandbox'
-import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import { getRepoCloneToken } from '@/lib/integrations/github/auth'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
@@ -179,12 +187,19 @@ const ALL_REPORTS = {
 }
 
 type Fake = { run: jest.Mock; readFile: jest.Mock; stop: jest.Mock }
+type RunOpts = { cwd?: string }
+/** LUM-852: only the scanner calls — installs run from /tmp. */
+const scanCalls = (run: jest.Mock) =>
+  run.mock.calls.filter(c => (c[2] as RunOpts | undefined)?.cwd !== '/tmp')
 function fakeSandbox(
   files: Record<string, string | null>,
   exits: Record<string, number> = {},
   stderrs: Record<string, string> = {}
 ): Fake {
-  const run = jest.fn(async (_cmd: string, args: string[]) => {
+  const run = jest.fn(async (_cmd: string, args: string[], opts?: RunOpts) => {
+    // LUM-852: phase-1 installs (and the hunt marker) run from /tmp and are
+    // not what `exits` / `stderrs` describe.
+    if (opts?.cwd === '/tmp') return { exitCode: 0, stdout: '', stderr: '' }
     const script = args.join(' ')
     const tool = script.includes('osv-scanner')
       ? 'osv-scanner'
@@ -214,7 +229,7 @@ function fakeSandbox(
 }
 
 const create = createRepoSandbox as jest.Mock
-const token = getGithubInstallationToken as jest.Mock
+const token = getRepoCloneToken as jest.Mock
 const diff = fetchPrDiff as jest.Mock
 const stagesById = prSecurityScanRepository.findStagesById as jest.Mock
 
@@ -242,7 +257,7 @@ describe('scanRepository', () => {
       })
     )
     await securityManagedScanService.scanRepository(JOB)
-    expect(token).toHaveBeenCalledWith('w1')
+    expect(token).toHaveBeenCalledWith('w1', 'o/r')
     expect(create).toHaveBeenCalledWith({
       repository: 'o/r',
       revision: JOB.headSha,
@@ -289,7 +304,10 @@ describe('scanRepository', () => {
       expect(sb.stop).toHaveBeenCalledTimes(1)
     })
 
-    it('keeps the VM alive even when a tool blows up mid-run', async () => {
+    it('stops the VM when a tool blows up mid-run, even with a hunt coming', async () => {
+      // LUM-852: a crashed run hands nothing to the hunt (no completion
+      // marker), so there is nothing to keep the VM alive for — it used to
+      // run out its 35 minutes here.
       const sb = fakeSandbox(reports)
       sb.run.mockRejectedValue(new Error('sandbox exploded'))
       create.mockResolvedValue(sb)
@@ -300,7 +318,7 @@ describe('scanRepository', () => {
           huntWanted: true,
         })
       ).rejects.toThrow('sandbox exploded')
-      expect(sb.stop).not.toHaveBeenCalled()
+      expect(sb.stop).toHaveBeenCalledTimes(1)
     })
 
     it('never keeps a baseline scan VM alive — it has no hunt', async () => {
@@ -324,22 +342,26 @@ describe('scanRepository', () => {
     })
     create.mockResolvedValue(sb)
     const out = await securityManagedScanService.scanRepository(JOB)
-    const scripts = sb.run.mock.calls.map(c => (c[1] as string[]).join(' '))
+    const scripts = scanCalls(sb.run).map(c => (c[1] as string[]).join(' '))
+    // LUM-852: the downloads are phase 1 (cwd /tmp), before the scrub.
+    const installs = sb.run.mock.calls
+      .filter(c => (c[2] as RunOpts | undefined)?.cwd === '/tmp')
+      .map(c => (c[1] as string[]).join(' '))
     const guard = `test "$(git rev-parse HEAD 2>/dev/null | cut -c1-${JOB.headSha.length})" = "${JOB.headSha}" || exit 90; `
     expect(scripts[0]).toContain(guard)
-    expect(scripts[0]).toContain(GITLEAKS_URL)
+    expect(installs[0]).toContain(GITLEAKS_URL)
     expect(scripts[0]).toContain(
       'dir . --report-format sarif --report-path /tmp/gitleaks.sarif --exit-code 0'
     )
     // The SDK clones into `<session cwd>/<repo name>`, so every scanner must
     // run there — running in the session cwd is exactly what exited 90 in
     // production on the first dogfood PR.
-    for (const call of sb.run.mock.calls) {
+    for (const call of scanCalls(sb.run)) {
       expect(call[2]).toEqual({ cwd: '/vercel/r' })
     }
     expect(scripts[1]).toContain(guard)
-    expect(scripts[1]).toContain('pip install --quiet semgrep==')
-    expect(scripts[1]).toContain(`semgrep==${SEMGREP_VERSION}`)
+    expect(installs[1]).toContain('pip install --quiet semgrep==')
+    expect(installs[1]).toContain(`semgrep==${SEMGREP_VERSION}`)
     expect(scripts[1]).toContain(
       '--config p/owasp-top-ten --config p/typescript --config p/nodejs --config p/python --sarif --output /tmp/semgrep.sarif --metrics=off'
     )
@@ -591,13 +613,13 @@ describe('LUM-738 osv-scanner in the managed sandbox', () => {
     const sb = fakeSandbox(ALL_REPORTS)
     create.mockResolvedValue(sb)
     const out = await securityManagedScanService.scanRepository(JOB)
-    const scripts = sb.run.mock.calls.map(c => (c[1] as string[]).join(' '))
+    const scripts = scanCalls(sb.run).map(c => (c[1] as string[]).join(' '))
     expect(scripts).toHaveLength(5)
-    expect(scripts[2]).toContain(OSV_SCANNER_URL)
+    expect(JSON.stringify(sb.run.mock.calls)).toContain(OSV_SCANNER_URL)
     expect(scripts[2]).toContain(
       'scan source -r . --format sarif --output-file /tmp/osv.sarif'
     )
-    expect(sb.run.mock.calls[2]![2]).toEqual({ cwd: '/vercel/r' })
+    expect(scanCalls(sb.run)[2]![2]).toEqual({ cwd: '/vercel/r' })
     expect(sb.readFile).toHaveBeenCalledWith('/tmp/osv.sarif')
     // package-lock.json is not in DIFF — a diff-aware row would be dropped.
     expect(out['osv-scanner']).toMatchObject({

@@ -10,35 +10,27 @@ import { githubAppInstallationRepository } from '@/lib/repositories/github-app-i
  * from GitHubAppInstallation, written by the installation callback
  * (/api/github/app/setup) and the App-level `installation` webhook.
  *
- * LEGACY: a workspace with no row (or a call with no workspaceId) falls back to
- * the global GITHUB_APP_INSTALLATION_ID env var — Lumo's own installation, from
- * before the install flow existed. It is wrong for every other workspace (the
- * clone silently targets repositories Lumo owns), so the fallback logs a
- * warning and is scheduled for removal once Lumo itself installs through the
- * normal flow. See README "GitHub App permissions".
+ * LUM-852: there is no fallback. A workspace with no row (or a call with no
+ * workspaceId) used to borrow the global GITHUB_APP_INSTALLATION_ID — Lumo's
+ * own installation — which pointed another tenant's clone at repositories
+ * Lumo owns. Not having installed the App is an answer, not a warning.
  */
 async function resolveInstallationId(workspaceId?: string): Promise<number> {
-  if (workspaceId) {
-    const row =
-      await githubAppInstallationRepository.findByWorkspace(workspaceId)
-    if (row) return row.installationId
+  if (!workspaceId) {
+    throw new Error(
+      'No workspace given; a GitHub installation token is always per workspace'
+    )
+  }
+  const row = await githubAppInstallationRepository.findByWorkspace(workspaceId)
+  if (!row) {
     logger.warn(
-      `[github/auth] no GitHubAppInstallation for workspace ${workspaceId}; falling back to legacy GITHUB_APP_INSTALLATION_ID — this workspace has not installed the Lumo GitHub App`
+      `[github/auth] no GitHubAppInstallation for workspace ${workspaceId}; the Lumo GitHub App is not installed there`
     )
-  }
-  const envId = process.env.GITHUB_APP_INSTALLATION_ID
-  if (!envId) {
     throw new Error(
-      'No GitHubAppInstallation for workspace and GITHUB_APP_INSTALLATION_ID not set'
+      `No GitHubAppInstallation for workspace ${workspaceId} — install the Lumo GitHub App`
     )
   }
-  const parsed = Number(envId)
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(
-      `GITHUB_APP_INSTALLATION_ID is not a valid installation id: "${envId}"`
-    )
-  }
-  return parsed
+  return row.installationId
 }
 
 /**
@@ -94,4 +86,75 @@ export async function getGithubInstallationToken(
   workspaceId?: string
 ): Promise<string> {
   return createInstallationToken(await resolveInstallationId(workspaceId))
+}
+
+/**
+ * LUM-852 — the token a sandbox clones with. Scoped to ONE repository with
+ * `contents: read` and nothing else, so a token that leaks out of the VM (the
+ * CodeRabbit 2025 class: a scanner reads repository config and prints its
+ * environment) opens exactly the checkout the attacker already has. Callers
+ * revoke it with `revokeInstallationToken` as soon as the clone is done.
+ *
+ * A fresh `createAppAuth` per call on purpose: its token cache is
+ * per-instance, and a cached copy of a token we have since revoked must never
+ * be handed out again.
+ */
+export async function getRepoCloneToken(
+  workspaceId: string,
+  repository: string
+): Promise<string> {
+  const installationId = await resolveInstallationId(workspaceId)
+  return createRepoScopedToken(installationId, repository)
+}
+
+/**
+ * The scoped mint itself, for an installation id already in hand (the
+ * LUM-852 sandbox probe has no workspace row to resolve). Same request as
+ * `getRepoCloneToken` — one repository, `contents: read`.
+ */
+export async function createRepoScopedToken(
+  installationId: number,
+  repository: string
+): Promise<string> {
+  const name = repository.slice(repository.indexOf('/') + 1)
+  if (!name || name === repository) {
+    throw new Error(`Not an owner/repo name: "${repository}"`)
+  }
+  const auth = createAppAuth({ ...appCredentials(), installationId })
+  const { token } = await auth({
+    type: 'installation',
+    repositoryNames: [name],
+    permissions: { contents: 'read' },
+  })
+  return token
+}
+
+/**
+ * LUM-852 — `DELETE /installation/token`, authenticated as the token itself.
+ * Never throws and never logs the token: revocation is cleanup on paths that
+ * are already succeeding or already failing for their own reason. 401 means
+ * the token is already dead, which is the outcome we wanted.
+ */
+export async function revokeInstallationToken(token: string): Promise<boolean> {
+  if (!token) return false
+  try {
+    const res = await fetch('https://api.github.com/installation/token', {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    })
+    if (res.status === 204 || res.status === 401) return true
+    logger.warn(`[github/auth] token revoke returned HTTP ${res.status}`)
+    return false
+  } catch (error) {
+    logger.warn(
+      `[github/auth] token revoke failed: ${
+        error instanceof Error ? error.name : 'unknown error'
+      }`
+    )
+    return false
+  }
 }

@@ -13,6 +13,9 @@ export {
   getGithubInstallationToken,
   getGithubAppJwt,
   createInstallationToken,
+  getRepoCloneToken,
+  createRepoScopedToken,
+  revokeInstallationToken,
 } from './auth'
 
 // App installations (the /app endpoints — install flow, not repository data)

@@ -33,8 +33,16 @@ import {
   repoCheckoutDir,
   type RepoSandbox,
 } from '@/lib/integrations/vercel-sandbox'
-import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import {
+  getRepoCloneToken,
+  revokeInstallationToken,
+} from '@/lib/integrations/github/auth'
 import { redactKnownSecrets } from '@/lib/security-scan'
+import {
+  readSandboxFile,
+  scrubSandboxCredentials,
+  type ScrubOptions,
+} from './sandbox-credential-scrub'
 import { sanitizeField } from '@/lib/utils/sanitize'
 import {
   checkHuntCommand,
@@ -44,6 +52,7 @@ import {
   HUNT_SHELL_FLAG,
 } from '@/lib/security-scan/hunt/shell-allowlist'
 import {
+  MANAGED_SCAN_DONE_PATH,
   SANDBOX_IMAGE,
   SANDBOX_SCAN_TAG,
   SANDBOX_TIMEOUT_WITH_HUNT_MS,
@@ -51,10 +60,9 @@ import {
 } from './security-managed-scan.config'
 import { judgeCompression } from '@/lib/security-scan/hunt/compress-usable'
 import {
-  HUNT_CHECKOUT_POLL_MS,
-  HUNT_CHECKOUT_WAIT_MS,
   HUNT_SANDBOX_ATTACH_POLL_MS,
   HUNT_SANDBOX_ATTACH_WAIT_MS,
+  HUNT_MANAGED_SCAN_DONE_WAIT_MS,
   HUNT_SANDBOX_TAG,
   HUNT_SHELL_COMPRESS_MIN,
   HUNT_SHELL_OUTPUT_MAX,
@@ -67,11 +75,10 @@ import { guardInjectedText } from '@/lib/security-scan/inject-guard'
 // Defined in the import-light config so the stale-hunt sweep can stop these
 // VMs without loading this module's GitHub dependencies (LUM-822).
 export { HUNT_SANDBOX_TAG }
+export type { ScrubOptions }
 
 /** Wall-clock ceiling for one command — no single grep should need longer. */
 const SHELL_TIMEOUT_MS = 20_000
-/** Setup commands (the credential scrub, the env probe) are ours, not the agent's. */
-const SETUP_TIMEOUT_MS = 15_000
 const TRUNCATION_NOTE = '\n…(truncated)'
 
 export interface AttachInput {
@@ -86,21 +93,26 @@ export interface AttachInput {
   pollMs?: number
   /** Test seam; defaults to HUNT_CHECKOUT_WAIT_MS. */
   checkoutWaitMs?: number
+  /** Test seam; defaults to HUNT_MANAGED_SCAN_DONE_WAIT_MS. */
+  managedScanDoneWaitMs?: number
 }
 
 export interface HuntSandbox {
   sandbox: RepoSandbox
   /** The checkout directory, NOT the session cwd (the clone is one level in). */
   cwd: string
+  /**
+   * The (already revoked) token this VM was cloned with, kept only so output
+   * can be scrubbed of it. Empty for an attached VM: the managed scan cloned
+   * that one with its own token and proved it gone before handing it over.
+   */
   token: string
   origin: 'attached' | 'created'
   /**
-   * Did this VM's network egress actually get cut? False for an attached VM
-   * (its policy belongs to the managed scan, which may still be downloading
-   * scanners) and for a created one whose policy update the platform refused.
-   * Carried on the handle so the caller — and `huntAudit` — can record that a
-   * run executed with egress open, instead of that fact living only in a warn
-   * log nobody joins back to the scan.
+   * Did this VM's network egress actually get cut? Since LUM-852 always true
+   * on a handle this module returns — an attached or created VM whose policy
+   * could not be set is never handed out. The field stays so `huntAudit`
+   * keeps recording it.
    */
   egressDenied: boolean
 }
@@ -112,12 +124,18 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
  * one. Sharing is an optimisation and never a precondition: the managed scan
  * legitimately does not run in four situations (§2), so the create path is a
  * first-class path, not a fallback for bugs.
+ *
+ * LUM-852 — the agent never runs on a VM with a route out. An attached VM is
+ * only used once the managed scan has written `MANAGED_SCAN_DONE_PATH` (it
+ * does so after its own scrub, after its scanners, and after it has cut the
+ * VM's egress itself) AND this layer's own `denySandboxEgress` has gone
+ * through. Until then the managed scan may still need its allowlist, so the
+ * hunt waits — up to HUNT_MANAGED_SCAN_DONE_WAIT_MS — and then boots its own
+ * VM instead of cutting the network out from under a running scanner.
  */
 export async function attachOrCreateHuntSandbox(
   input: AttachInput
 ): Promise<HuntSandbox> {
-  // The signature takes only a workspaceId (`lib/integrations/github/auth.ts`).
-  const token = await getGithubInstallationToken(input.workspaceId)
   const tag = { [SANDBOX_SCAN_TAG]: input.scanId }
   /**
    * `create` tags its VM with `SANDBOX_SCAN_TAG` as well (see the tags comment
@@ -126,8 +144,8 @@ export async function attachOrCreateHuntSandbox(
    *   - a sibling batch stops its own VM in its `finally`, and the next batch
    *     lists by the same tag milliseconds later. If the platform's `list`
    *     lags the stop, "attaching" lands on a corpse and the first read
-   *     (`waitForCheckoutConfig`) throws — failing a batch that had a perfectly
-   *     good create path available;
+   *     throws — failing a batch that had a perfectly good create path
+   *     available;
    *   - `huntAudit.sandbox` is supposed to answer "did the 30 s poll find the
    *     MANAGED SCAN's VM"; a hit on a sibling hunt VM answers a different
    *     question with the same word.
@@ -146,32 +164,96 @@ export async function attachOrCreateHuntSandbox(
     }
   }
 
-  const handle: HuntSandbox = attached
-    ? {
-        sandbox: attached,
-        cwd: repoCheckoutDir(attached.cwd, input.repo),
-        token,
-        origin: 'attached',
-        // Never touched for an attached VM — see `denySandboxEgress`. The
-        // handle says so rather than leaving the caller to infer it.
-        egressDenied: false,
-      }
-    : await create(input, token)
-
-  try {
-    await scrubCloneCredentials(handle, input.repo, {
-      ...(input.checkoutWaitMs === undefined
-        ? {}
-        : { waitMs: input.checkoutWaitMs }),
-      ...(input.pollMs === undefined ? {} : { pollMs: input.pollMs }),
-    })
-  } catch (error) {
-    // A VM we booted and then refused to use must not be left to run out its
-    // 20 minutes. (An attached one is not ours to stop — see stopHuntSandbox.)
-    await stopHuntSandbox(handle)
-    throw error
+  if (attached) {
+    const handle = await sealAttached(attached, input, pollMs)
+    if (handle) return handle
   }
-  return handle
+  return createSealed(input)
+}
+
+/**
+ * An attached VM, made safe to hand to the agent — or null, and the caller
+ * boots its own. The managed scan scrubbed the checkout against the token IT
+ * cloned with (and revoked that token) before it wrote the marker, so there
+ * is no token of ours to look for here: `token` is empty on this handle.
+ */
+async function sealAttached(
+  attached: RepoSandbox,
+  input: AttachInput,
+  pollMs: number
+): Promise<HuntSandbox | null> {
+  const waitMs = input.managedScanDoneWaitMs ?? HUNT_MANAGED_SCAN_DONE_WAIT_MS
+  if (!(await waitForManagedScanDone(attached, waitMs, pollMs))) {
+    logger.info(
+      `[security-hunt] managed scan VM not finished after ${waitMs}ms scan=${input.scanId}; booting our own`
+    )
+    return null
+  }
+  try {
+    await denySandboxEgress(attached.name)
+  } catch (error) {
+    logger.warn(
+      `[security-hunt] could not confirm deny-all on the managed scan VM scan=${input.scanId}: ${short(error)}; booting our own`
+    )
+    return null
+  }
+  return {
+    sandbox: attached,
+    cwd: repoCheckoutDir(attached.cwd, input.repo),
+    token: '',
+    origin: 'attached',
+    egressDenied: true,
+  }
+}
+
+/** true once the managed scan's completion marker exists; a VM that went away is false. */
+async function waitForManagedScanDone(
+  sandbox: RepoSandbox,
+  waitMs: number,
+  pollMs: number
+): Promise<boolean> {
+  const deadline = Date.now() + waitMs
+  for (;;) {
+    try {
+      if (await sandbox.readFile(MANAGED_SCAN_DONE_PATH)) return true
+    } catch (error) {
+      logger.warn(
+        `[security-hunt] managed scan VM unreadable while waiting: ${short(error)}`
+      )
+      return false
+    }
+    if (Date.now() >= deadline) return false
+    await sleep(pollMs)
+  }
+}
+
+/**
+ * Boot, cut egress, scrub, revoke — in that order, and every step but the
+ * revoke is fatal. The token is minted here and nowhere else in the hunt: it
+ * is scoped to this one repository with `contents: read`, and it is dead
+ * before the agent's first command whatever happens next.
+ */
+async function createSealed(input: AttachInput): Promise<HuntSandbox> {
+  const token = await getRepoCloneToken(input.workspaceId, input.repo)
+  try {
+    const handle = await create(input, token)
+    try {
+      await scrubCloneCredentials(handle, input.repo, {
+        ...(input.checkoutWaitMs === undefined
+          ? {}
+          : { waitMs: input.checkoutWaitMs }),
+        ...(input.pollMs === undefined ? {} : { pollMs: input.pollMs }),
+      })
+    } catch (error) {
+      // A VM we booted and then refused to use must not be left to run out
+      // its 20 minutes.
+      await stopHuntSandbox(handle)
+      throw error
+    }
+    return handle
+  } finally {
+    await revokeInstallationToken(token)
+  }
 }
 
 async function create(input: AttachInput, token: string): Promise<HuntSandbox> {
@@ -196,242 +278,40 @@ async function create(input: AttachInput, token: string): Promise<HuntSandbox> {
     },
   })
   // The clone is done; the agent reads a local checkout and needs no route
-  // out. Best-effort: the command gate is what actually enforces this, so a
-  // platform that will not take the policy must not fail the layer — but the
-  // outcome is carried on the handle, not just warned about.
-  let egressDenied = false
+  // out. LUM-852: no longer best-effort — a VM whose policy the platform
+  // refused is stopped, and the step's retry gets the acquisition failure.
   try {
     await denySandboxEgress(sandbox.name)
-    egressDenied = true
   } catch (error) {
-    logger.warn(
-      `[security-hunt] egress lockdown failed scan=${input.scanId}: ${short(error)}`
+    logger.error(
+      `[security-hunt] egress lockdown failed scan=${input.scanId}: ${short(error)}; refusing to run the agent`
     )
+    try {
+      await sandbox.stop()
+    } catch (stopError) {
+      logger.warn(`[security-hunt] sandbox stop failed: ${short(stopError)}`)
+    }
+    throw new Error('could not cut the sandbox network egress')
   }
   return {
     sandbox,
     cwd: repoCheckoutDir(sandbox.cwd, input.repo),
     token,
     origin: 'created',
-    egressDenied,
+    egressDenied: true,
   }
 }
 
 /**
- * Credential stores git consults out of `$HOME`, checked in this order.
- * `.git-credentials` is where `credential.helper store` writes; `.netrc` is
- * git's other on-disk store; a GLOBAL `.gitconfig` can carry an
- * `http.extraHeader` or a `url.<https://x-access-token:…@…>.insteadOf`, and
- * neither is visible to a `--local --unset-all` or to the `.git/config`
- * read-back.
- */
-const HOME_CREDENTIAL_FILES = ['.git-credentials', '.netrc', '.gitconfig']
-
-/** Options of `scrubCloneCredentials`; both are test seams. */
-export interface ScrubOptions {
-  /** How long to wait for the checkout; defaults to HUNT_CHECKOUT_WAIT_MS. */
-  waitMs?: number
-  /** How often to look; defaults to HUNT_CHECKOUT_POLL_MS. */
-  pollMs?: number
-}
-
-/**
- * LUM-758 (R6) — the token must not be readable from inside the VM.
- *
- * `cat .git/config` is, and will remain, an allowed command: the allowlisted
- * tools exist precisely so the agent can read the repo, and the gate only
- * constrains the command NAME — `cat` takes any path in the VM. So the gate
- * cannot be what keeps the installation token out of the model's transcript —
- * the token has to not be there. The clone happens server-side inside
- * `Sandbox.create`, so what it leaves behind is not knowable from our side:
- * this proves it at runtime instead of trusting a comment, and **fails
- * closed** whenever it cannot.
- *
- * Five plausible locations, and what happens to each:
- *   1. `<checkout>/.git/config` — waited for, read back, rewritten, re-read.
- *   2. the command environment — probed (nothing to strip; refuse).
- *   3. `$HOME/.git-credentials`, 4. `$HOME/.netrc`, 5. `$HOME/.gitconfig` —
- *      read back in the same fail-closed loop, see HOME_CREDENTIAL_FILES.
- * Nobody claims the platform writes 3–5. The point of this function is that
- * it does not have to be claimed either way.
- *
- * `/proc/<pid>/environ` of OTHER processes is deliberately OUT of scope, and
- * that is a decision rather than an oversight. Neither this module nor the
- * managed scan ever passes `env` to `sandbox.run`, so no session process is
- * handed the token, and the one operation that does hold it — the clone —
- * runs server-side in `Sandbox.create`, before any process exists in the
- * session. Beyond that, a `/proc` sweep here would be a point-in-time sample:
- * it says nothing about processes started after it, which is every process
- * the agent goes on to run, so it could not be a control even if it found
- * nothing. The environment those commands actually inherit is exactly what
- * check 2 reads, and that one is verifiable.
- *
- * Applies to an attached VM too — the managed scan cloned it with the same
- * token. Rewriting the remote is local config only; no tool in either
- * workflow fetches.
+ * The hunt's name for the shared credential proof (LUM-852 moved the body to
+ * `./sandbox-credential-scrub`, so the managed scan runs the same one).
  */
 export async function scrubCloneCredentials(
   handle: HuntSandbox,
   repo: string,
   opts: ScrubOptions = {}
 ): Promise<void> {
-  const { sandbox, cwd, token } = handle
-  if (!token) return
-
-  const configPath = `${cwd}/.git/config`
-  if ((await waitForCheckoutConfig(handle, opts)).includes(token)) {
-    await run(
-      sandbox,
-      'git',
-      ['remote', 'set-url', 'origin', `https://github.com/${repo}.git`],
-      cwd
-    )
-    // The local half of a `credential.helper store` / extraHeader setup. The
-    // global half lives in `$HOME/.gitconfig` and is checked below.
-    await run(
-      sandbox,
-      'git',
-      ['config', '--local', '--unset-all', 'http.extraheader'],
-      cwd
-    )
-    const after = await readSandboxFile(sandbox, configPath, token)
-    // A config that vanished mid-scrub is not a config we cleared.
-    if (!after || after.toString('utf8').includes(token)) {
-      logger.error(
-        `[security-hunt] installation token still reachable in ${configPath} after scrub`
-      )
-      throw new Error(
-        'installation token still reachable in the checkout after scrubbing'
-      )
-    }
-  }
-
-  // The other half of the question: does the command environment carry it?
-  // We never pass `env` to `Sandbox.create`, so it should not — but "should
-  // not" is not a control, and unlike the git config there is nothing we
-  // could strip. Fail closed and let the layer read FAILED (P9). An
-  // inconclusive probe (`env` itself would not run) counts as a failure: an
-  // unverified boundary is not a boundary.
-  const probe = await sandbox.run('env', [], {
-    cwd,
-    timeoutMs: SETUP_TIMEOUT_MS,
-  })
-  if (probe.exitCode !== 0) {
-    logger.error(
-      `[security-hunt] could not read the sandbox environment (exit ${probe.exitCode}); refusing to run the agent`
-    )
-    throw new Error('could not verify the sandbox command environment')
-  }
-  const env = `${probe.stdout ?? ''}${probe.stderr ?? ''}`
-  if (env.includes(token)) {
-    logger.error(
-      '[security-hunt] installation token is visible in the sandbox command environment; refusing to run the agent'
-    )
-    throw new Error(
-      'installation token is visible in the sandbox command environment'
-    )
-  }
-
-  await assertHomeStoresAreClean(sandbox, homeDir(env, sandbox.cwd), token)
-}
-
-/**
- * Read `<checkout>/.git/config`, WAITING for it to appear.
- *
- * `findRepoSandboxByTag` accepts a `pending` VM on purpose and the attach
- * poll exists to grab the managed scan's VM as early as possible, so this
- * layer can legitimately be holding a VM whose clone has not landed yet. A
- * missing `.git/config` therefore does not mean "clean", it means "not yet" —
- * and a token-bearing config appears seconds later. In a function whose whole
- * contract is fail-closed, "no checkout" and "no token" must not be the same
- * answer: this waits for the file (the same reason `repoCheckoutDir`'s
- * callers prove the directory with a sha guard) and REFUSES if it never
- * shows up.
- */
-async function waitForCheckoutConfig(
-  handle: HuntSandbox,
-  opts: ScrubOptions
-): Promise<string> {
-  const { sandbox, cwd, token } = handle
-  const path = `${cwd}/.git/config`
-  const pollMs = opts.pollMs ?? HUNT_CHECKOUT_POLL_MS
-  const deadline = Date.now() + (opts.waitMs ?? HUNT_CHECKOUT_WAIT_MS)
-  for (;;) {
-    const bytes = await readSandboxFile(sandbox, path, token)
-    if (bytes) return bytes.toString('utf8')
-    if (Date.now() >= deadline) break
-    await sleep(pollMs)
-  }
-  logger.error(
-    `[security-hunt] no checkout at ${path} after waiting; refusing to run the agent`
-  )
-  throw new Error(
-    'the sandbox checkout never appeared, so the installation token could not be ruled out'
-  )
-}
-
-/**
- * Locations 3–5. Absence is the expected answer and is fine; presence WITH
- * the token is fatal, because unlike the checkout's remote URL there is
- * nothing here we could rewrite that the platform would not just be entitled
- * to have written on purpose. Only the path is ever logged — the point of
- * this loop is to find the token, not to copy it anywhere.
- */
-async function assertHomeStoresAreClean(
-  sandbox: RepoSandbox,
-  home: string,
-  token: string
-): Promise<void> {
-  for (const name of HOME_CREDENTIAL_FILES) {
-    const path = `${home}/${name}`
-    const bytes = await readSandboxFile(sandbox, path, token)
-    if (bytes?.toString('utf8').includes(token)) {
-      logger.error(
-        `[security-hunt] installation token is readable at ${path}; refusing to run the agent`
-      )
-      throw new Error(`installation token is readable at ${path}`)
-    }
-  }
-}
-
-/**
- * `$HOME` as the VM itself reports it. Falls back to the session cwd, which
- * with the `universal` image IS the home directory (see `RepoSandbox.cwd`);
- * `handle.cwd` would be wrong here — that one is the checkout, one level in.
- */
-function homeDir(env: string, sessionCwd: string): string {
-  const home = /^HOME=(.*)$/m.exec(env)?.[1]?.trim()
-  const dir = home?.startsWith('/') ? home : sessionCwd
-  return dir.replace(/\/+$/, '')
-}
-
-/** null = the file is not there. A read that FAILS is fail-closed, not absent. */
-async function readSandboxFile(
-  sandbox: RepoSandbox,
-  path: string,
-  token: string
-): Promise<Buffer | null> {
-  try {
-    return (await sandbox.readFile(path)) ?? null
-  } catch (error) {
-    logger.error(
-      `[security-hunt] ${path} unreadable: ${scrub(short(error), token)}`
-    )
-    throw new Error(`could not read ${path} in the sandbox`)
-  }
-}
-
-async function run(
-  sandbox: RepoSandbox,
-  cmd: string,
-  args: string[],
-  cwd: string
-): Promise<string> {
-  const result = await sandbox.run(cmd, args, {
-    cwd,
-    timeoutMs: SETUP_TIMEOUT_MS,
-  })
-  return `${result.stdout ?? ''}${result.stderr ?? ''}`
+  await scrubSandboxCredentials(handle, repo, opts)
 }
 
 /**

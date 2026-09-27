@@ -11,9 +11,17 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/lib/integrations/vercel-sandbox', () => ({
   ...jest.requireActual('@/lib/integrations/vercel-sandbox'),
   createRepoSandbox: jest.fn(),
+  // LUM-852: egress policy calls go to the platform; not under test here.
+  restrictSandboxEgress: jest.fn(),
+  denySandboxEgress: jest.fn(),
+}))
+// LUM-852: the credential proof has its own tests (sandbox-agent, lum852).
+jest.mock('@/lib/services/sandbox-credential-scrub', () => ({
+  scrubSandboxCredentials: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoCloneToken: jest.fn(),
+  revokeInstallationToken: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
@@ -26,7 +34,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createRepoSandbox } from '@/lib/integrations/vercel-sandbox'
-import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import { getRepoCloneToken } from '@/lib/integrations/github/auth'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
@@ -61,7 +69,7 @@ function fakeSandbox() {
 
 beforeEach(() => {
   jest.resetAllMocks()
-  ;(getGithubInstallationToken as jest.Mock).mockResolvedValue('tok')
+  ;(getRepoCloneToken as jest.Mock).mockResolvedValue('tok')
   ;(fetchPrDiff as jest.Mock).mockResolvedValue(
     [
       '--- a/src/a.ts',
@@ -103,8 +111,13 @@ describe('LUM-785 semgrep custom rules', () => {
     // The rules file is a checkout-root dotfile — not /tmp — so the rule ids
     // stay `lumo.llm.*` (semgrep prefixes local config ids with their dir).
     expect(SEMGREP_CUSTOM_RULES_PATH).toMatch(/^\.[^/]+\.ya?ml$/)
-    // Every tool still runs from the clone directory.
-    for (const call of sb.run.mock.calls) {
+    // Every tool still runs from the clone directory (LUM-852: installs,
+    // phase 1, run from /tmp and never read the checkout).
+    for (const call of sb.run.mock.calls.filter(
+      c =>
+        (c as unknown as [string, string[], { cwd?: string }])[2]?.cwd !==
+        '/tmp'
+    )) {
       expect((call as unknown as [string, string[], unknown])[2]).toEqual({
         cwd: '/vercel/r',
       })

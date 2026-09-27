@@ -160,6 +160,28 @@ export interface BaselineScanOutcome {
  * outside the step that created it.
  */
 export const SANDBOX_SCAN_TAG = 'lumoScan'
+
+/**
+ * LUM-852 — the hosts a scanner still needs AFTER it is installed, i.e. while
+ * it is reading repository-controlled config. Everything else is cut for that
+ * phase: semgrep fetches its registry packs, osv-scanner matches packages
+ * against osv.dev (and resolves some ecosystems through deps.dev). gitleaks
+ * and zizmor need nothing; trivy's check bundle is fetched during install and
+ * the scan runs with `--skip-check-update`.
+ */
+export const SCAN_EGRESS_ALLOWLIST: readonly string[] = [
+  'semgrep.dev',
+  'api.osv.dev',
+  'api.deps.dev',
+]
+
+/**
+ * LUM-852 — written by the managed scan, as its very last act on a VM the
+ * hunt is going to reuse: after the credential scrub, after every scanner,
+ * after it has set the VM to deny-all. The hunt does not hand an attached VM
+ * to its agent before this file exists (see `attachOrCreateHuntSandbox`).
+ */
+export const MANAGED_SCAN_DONE_PATH = '/tmp/.lumo-managed-scan-done'
 /**
  * A PENDING external layer older than this is dead: the every-15-minute
  * sweep marks it FAILED. Far above the 12-min sandbox cap × 3 platform

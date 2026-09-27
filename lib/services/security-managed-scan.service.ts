@@ -21,10 +21,16 @@
 import { logger } from '@/lib/logger'
 import {
   createRepoSandbox,
+  denySandboxEgress,
   repoCheckoutDir,
+  restrictSandboxEgress,
   type RepoSandbox,
 } from '@/lib/integrations/vercel-sandbox'
-import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import {
+  getRepoCloneToken,
+  revokeInstallationToken,
+} from '@/lib/integrations/github/auth'
+import { scrubSandboxCredentials } from './sandbox-credential-scrub'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
@@ -39,14 +45,17 @@ import {
   MANAGED_REPORT_PATH,
   MANAGED_SIDECAR_PATH,
   SHA_GUARD_EXIT,
+  managedInstallScript,
   managedToolScript,
 } from './security-managed-scan.scripts'
 import {
   BASELINE_MAX_FINGERPRINTS,
   MANAGED_FAILURE_REASON_CHARS,
   MANAGED_REPORT_MAX_BYTES,
+  MANAGED_SCAN_DONE_PATH,
   MANAGED_SCAN_TOOLS,
   SANDBOX_IMAGE,
+  SCAN_EGRESS_ALLOWLIST,
   SANDBOX_SCAN_TAG,
   SANDBOX_TIMEOUT_MS,
   SANDBOX_TIMEOUT_WITH_HUNT_MS,
@@ -275,10 +284,21 @@ async function runTool(
 }
 
 /**
- * The sandbox run: clone `sha`, run every tool, read the reports, stop. The
- * raw reports (which may contain secrets) come back to the caller in this
- * same process; nothing here is persisted. Throws (scrubbed) on sandbox
- * creation or command failure — transient by contract.
+ * The sandbox run. LUM-852 fixed its order, and the order is the point:
+ *
+ *   1. clone with a token scoped to this repository, `contents: read`;
+ *   2. revoke that token — the clone was its only use;
+ *   3. prove the token is not readable in the VM (`scrubSandboxCredentials`);
+ *   4. install every scanner (network open, nothing reads the checkout);
+ *   5. narrow egress to `SCAN_EGRESS_ALLOWLIST`;
+ *   6. run the scanners — the first point anything reads repository config;
+ *   7. keepAlive: set deny-all and write `MANAGED_SCAN_DONE_PATH` for the hunt.
+ *
+ * 3 and 5 are fail-closed: no scanner runs on a VM that could still hand out
+ * the token or reach an arbitrary host. The raw reports (which may contain
+ * secrets) come back to the caller in this same process; nothing here is
+ * persisted. Throws (scrubbed) on sandbox or setup failure — transient by
+ * contract.
  */
 async function collectReports(opts: {
   repository: string
@@ -311,12 +331,40 @@ async function collectReports(opts: {
   } catch (error) {
     // Transient by default (retry); the SDK may echo the clone URL.
     throw new Error(scrubToken(message(error), token))
+  } finally {
+    // Success or not, the clone is over and the token has no further use.
+    await revokeInstallationToken(token)
   }
+  // LUM-758's keepAlive hands a FINISHED VM to the hunt; a run that throws
+  // anywhere below hands over nothing, so its VM is stopped like any other
+  // (LUM-852 — it used to be left to run out its 35 minutes).
+  let handOver = false
   try {
+    const cwd = repoCheckoutDir(sandbox.cwd, opts.repository)
+    try {
+      await scrubSandboxCredentials({ sandbox, cwd, token }, opts.repository)
+    } catch (error) {
+      throw new Error(`refusing to scan: ${scrubToken(message(error), token)}`)
+    }
     const reports: Partial<Record<ManagedScanTool, ToolReport>> = {}
     const sidecars: Partial<Record<ManagedScanTool, Buffer>> = {}
-    const cwd = repoCheckoutDir(sandbox.cwd, opts.repository)
     for (const tool of MANAGED_SCAN_TOOLS) {
+      try {
+        const failed = await installTool(sandbox, tool, opts.label, token)
+        if (failed) reports[tool] = failed
+      } catch (error) {
+        throw new Error(scrubToken(message(error), token))
+      }
+    }
+    try {
+      await restrictSandboxEgress(sandbox.name, SCAN_EGRESS_ALLOWLIST)
+    } catch (error) {
+      throw new Error(
+        `refusing to scan: could not narrow sandbox egress: ${scrubToken(message(error), token)}`
+      )
+    }
+    for (const tool of MANAGED_SCAN_TOOLS) {
+      if (reports[tool]) continue
       try {
         reports[tool] = await runTool(
           sandbox,
@@ -335,20 +383,17 @@ async function collectReports(opts: {
         if (sidecar) sidecars[tool] = sidecar
       }
     }
+    if (opts.keepAlive) {
+      await sealForHunt(sandbox, opts)
+      handOver = true
+    }
     return { reports, sidecars }
   } finally {
-    // LUM-758: a VM the hunt is going to reuse outlives this function on
-    // purpose. Stopping it here would kill the hunt's checkout; stopping it
-    // from the hunt would kill semgrep, since the two workflows have no
-    // ordering guarantee. Its release is the VM's own 20-minute timeout —
-    // LUM-745's sweep and supersede only reach a VM whose scan row carries a
-    // `managedRunId` (see `stopHuntSandbox`).
-    // `keepAlive` also changes the CRASH path, which is not the shared-VM
-    // rule and is easy to miss: a throw above now leaves the VM running where
-    // this block previously always stopped it, so with the step's retries
-    // several VMs can be alive under one `lumoScan` tag at once, each until
-    // its own timeout. Bounded, and cheaper than racing the hunt's checkout.
-    if (!opts.keepAlive) {
+    // A VM the hunt is going to reuse outlives this function on purpose:
+    // stopping it would kill the hunt's checkout. Its release is the VM's own
+    // timeout — LUM-745's sweep and supersede only reach a VM whose scan row
+    // carries a `managedRunId` (see `stopHuntSandbox`).
+    if (!handOver) {
       try {
         await sandbox.stop()
       } catch (error) {
@@ -357,6 +402,53 @@ async function collectReports(opts: {
         )
       }
     }
+  }
+}
+
+/**
+ * LUM-852 phase 1 for one tool. A tool that cannot be installed is that
+ * tool's failure (returned), like a scanner's own bad exit — the others
+ * still run.
+ */
+async function installTool(
+  sandbox: RepoSandbox,
+  tool: ManagedScanTool,
+  label: string,
+  token: string
+): Promise<ToolReport | null> {
+  const result = await sandbox.run('sh', ['-c', managedInstallScript(tool)], {
+    cwd: '/tmp',
+  })
+  if (result.exitCode === 0) return null
+  logger.warn(
+    `[security-managed-scan] ${logSafe(tool)} install exit ${result.exitCode} ${label}`
+  )
+  return {
+    failed: `${tool} install exit ${result.exitCode}${failureDetail(result.stderr, token)}`,
+  }
+}
+
+/**
+ * LUM-852 — the hand-off to the hunt: deny-all first, the marker second, so a
+ * marker can only ever mean "the network is already cut". Throws when either
+ * fails; the caller then stops the VM and the hunt boots its own.
+ */
+async function sealForHunt(
+  sandbox: RepoSandbox,
+  opts: { label: string; token: string }
+): Promise<void> {
+  try {
+    await denySandboxEgress(sandbox.name)
+    const marked = await sandbox.run('touch', [MANAGED_SCAN_DONE_PATH], {
+      cwd: '/tmp',
+    })
+    if (marked.exitCode !== 0) {
+      throw new Error(`touch exit ${marked.exitCode}`)
+    }
+  } catch (error) {
+    throw new Error(
+      `could not hand the sandbox to the hunt: ${scrubToken(message(error), opts.token)}`
+    )
   }
 }
 
@@ -491,7 +583,7 @@ export const securityManagedScanService = {
       logger.info(`[security-managed-scan] superseded before run ${label}`)
       return supersededOutcome()
     }
-    const token = await getGithubInstallationToken(job.pr.workspaceId)
+    const token = await getRepoCloneToken(job.pr.workspaceId, job.pr.repo)
     const reports = await collectReports({
       repository: job.pr.repo,
       sha: job.headSha,
@@ -503,7 +595,8 @@ export const securityManagedScanService = {
     // LUM-745 (review): the entry guard covers a step that has not started;
     // a supersede that lands while the sandbox is running must not let this
     // run flip the row back to RAN or post a stale summary — re-read before
-    // anything leaves this function. The sandbox is already stopped here.
+    // anything leaves this function. The sandbox is already stopped (or, for
+    // the hunt, sealed) and the clone token already revoked here.
     const after = await prSecurityScanRepository.findStagesById(job.scanId)
     if (!after || after.external === 'SUPERSEDED') {
       logger.info(`[security-managed-scan] superseded during run ${label}`)
@@ -545,7 +638,7 @@ export const securityManagedScanService = {
         skipped: [],
       }
     }
-    const token = await getGithubInstallationToken(job.workspaceId)
+    const token = await getRepoCloneToken(job.workspaceId, job.repo)
     const reports = await collectReports({
       repository: job.repo,
       sha: job.sha,
