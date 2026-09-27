@@ -2,7 +2,8 @@
  * LUM-854 — check that docs/privacy/llm-data-flow.md names every runtime LLM
  * call site (any file under lib/ or app/ calling `gateway(` /
  * `gateway.textEmbeddingModel(`), directly or via a `{a,b}` / `*` path on its
- * row, and that the required caveats are present. Exits 1 on any gap.
+ * row, and that the required caveats (incl. the data-region section) are
+ * present. Exits 1 on any missing call site or caveat.
  *
  *   node scripts/analysis/lum854-zdr/manifest-coverage.mjs
  */
@@ -23,5 +24,9 @@ for (const f of files) {
   console.log(`${hit ? 'covered' : 'MISSING'}  ${f}`)
 }
 console.log(`--- ${files.length} call-site files, ${missing} missing`)
-for (const k of ['safety retention', '数据地域未核实', '托管方']) console.log(`caveat "${k}": ${doc.includes(k) ? 'present' : 'ABSENT'}`)
-process.exit(missing ? 1 : 0)
+let absent = 0
+for (const k of ['safety retention', '处理地域不作承诺', '## 数据地域', '托管方']) {
+  if (!doc.includes(k)) absent++
+  console.log(`caveat "${k}": ${doc.includes(k) ? 'present' : 'ABSENT'}`)
+}
+process.exit(missing || absent ? 1 : 0)
