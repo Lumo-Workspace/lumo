@@ -2559,7 +2559,7 @@
   "security.subprocessors.col.access": "Lumo が読み取る／書き込む内容",
   "security.subprocessors.location.us": "米国",
   "security.subprocessors.location.globalEdge": "グローバルエッジネットワーク（データは保持されません）",
-  "security.subprocessors.location.unconfirmed": "ゲートウェイからの報告なし",
+  "security.subprocessors.location.globalRouting": "グローバルにルーティング。処理地域は確約しません",
   "security.subprocessors.purpose.vercelHosting": "Lumo の Web アプリ、API、定期ジョブを実行",
   "security.subprocessors.purpose.vercelBlob": "画像、ロゴ、テストの証拠などのアップロードされたファイルを保存",
   "security.subprocessors.purpose.vercelSandbox": "お客様のリポジトリでセキュリティスキャンを実行する隔離されたマシン",

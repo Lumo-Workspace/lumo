@@ -2559,7 +2559,7 @@
   "security.subprocessors.col.access": "Qué lee o escribe Lumo",
   "security.subprocessors.location.us": "Estados Unidos",
   "security.subprocessors.location.globalEdge": "Red edge global, no se conserva nada",
-  "security.subprocessors.location.unconfirmed": "No informada por el gateway",
+  "security.subprocessors.location.globalRouting": "Enrutamiento global; sin compromiso de ubicación",
   "security.subprocessors.purpose.vercelHosting": "Ejecuta la app web, la API y los trabajos programados de Lumo",
   "security.subprocessors.purpose.vercelBlob": "Almacena archivos subidos, como imágenes, logotipos y evidencia de pruebas",
   "security.subprocessors.purpose.vercelSandbox": "Máquinas aisladas que ejecutan análisis de seguridad en tu repositorio",

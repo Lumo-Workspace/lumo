@@ -2559,7 +2559,7 @@
   "security.subprocessors.col.access": "Lumo क्या पढ़ता या लिखता है",
   "security.subprocessors.location.us": "संयुक्त राज्य अमेरिका",
   "security.subprocessors.location.globalEdge": "वैश्विक एज नेटवर्क, कुछ भी नहीं रखा जाता",
-  "security.subprocessors.location.unconfirmed": "गेटवे द्वारा रिपोर्ट नहीं किया गया",
+  "security.subprocessors.location.globalRouting": "वैश्विक रूटिंग; स्थान की कोई प्रतिबद्धता नहीं",
   "security.subprocessors.purpose.vercelHosting": "Lumo वेब ऐप, API और शेड्यूल किए गए जॉब चलाता है",
   "security.subprocessors.purpose.vercelBlob": "अपलोड की गई फ़ाइलें जैसे चित्र, लोगो और परीक्षण साक्ष्य संग्रहीत करता है",
   "security.subprocessors.purpose.vercelSandbox": "पृथक मशीनें जो आपकी रिपॉज़िटरी पर सुरक्षा स्कैन चलाती हैं",

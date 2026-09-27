@@ -2,7 +2,10 @@
  * @jest-environment node
  */
 import {
+  AI_HOST_LOCATION,
+  checkAiHostLocations,
   checkRequirements,
+  checkStaleRegionClaims,
   checkSubprocessors,
   registeredDocId,
   tableCells,
@@ -33,11 +36,11 @@ function subprocessorDoc(rows: string[]): string {
 }
 
 const ALL_HOSTS = [
-  '| OpenAI, L.L.C. | m | p | r | US |',
-  '| Microsoft Corporation (Azure) | m | p | r | US |',
-  '| Alibaba Cloud | m | p | r | US |',
-  '| Baseten, Inc. | m | p | r | US |',
-]
+  'OpenAI, L.L.C.',
+  'Microsoft Corporation (Azure)',
+  'Alibaba Cloud',
+  'Baseten, Inc.',
+].map(host => `| ${host} | m | p | r | ${AI_HOST_LOCATION} |`)
 
 describe('LUM-857 legal doc checks', () => {
   it('reads gateway host slugs from the manifest ZDR candidate column', () => {
@@ -77,6 +80,33 @@ describe('LUM-857 legal doc checks', () => {
     const manifest = MANIFEST.replace('openai → azure', 'openai → newhost')
     expect(checkSubprocessors(subprocessorDoc(ALL_HOSTS), manifest)).toContain(
       'manifest host "newhost" has no name mapping — add it here'
+    )
+  })
+
+  it('flags an AI host row that promises a data location', () => {
+    const doc = subprocessorDoc([
+      ...ALL_HOSTS.slice(1),
+      '| OpenAI, L.L.C. | m | p | r | United States |',
+    ])
+    expect(checkAiHostLocations(doc)).toEqual([
+      `AI host location is not "${AI_HOST_LOCATION}": OpenAI, L.L.C.`,
+    ])
+    expect(checkSubprocessors(doc, MANIFEST)).toContain(
+      `AI host location is not "${AI_HOST_LOCATION}": OpenAI, L.L.C.`
+    )
+  })
+
+  it('flags region wording the gateway region probe disproved', () => {
+    expect(
+      checkStaleRegionClaims(
+        'The gateway does not report the region. | Not confirmed by the gateway |'
+      )
+    ).toEqual([
+      'stale region claim: gateway "does not report/tell us" the region',
+      'stale region claim: "not confirmed by the gateway" location',
+    ])
+    expect(checkStaleRegionClaims('AI requests are routed globally.')).toEqual(
+      []
     )
   })
 

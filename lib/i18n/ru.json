@@ -2559,7 +2559,7 @@
   "security.subprocessors.col.access": "Что Lumo читает или записывает",
   "security.subprocessors.location.us": "США",
   "security.subprocessors.location.globalEdge": "Глобальная edge-сеть, ничего не сохраняется",
-  "security.subprocessors.location.unconfirmed": "Шлюз не сообщает",
+  "security.subprocessors.location.globalRouting": "Глобальная маршрутизация; без обязательств по местоположению",
   "security.subprocessors.purpose.vercelHosting": "Запускает веб-приложение Lumo, API и задания по расписанию",
   "security.subprocessors.purpose.vercelBlob": "Хранит загруженные файлы, например изображения, логотипы и доказательства тестирования",
   "security.subprocessors.purpose.vercelSandbox": "Изолированные машины, выполняющие проверки безопасности вашего репозитория",
