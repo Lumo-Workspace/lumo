@@ -197,34 +197,68 @@ function redactResponse(
 }
 
 /**
+ * Strip one tool call — the top-level payload of a Pre/PostToolUse event, or one
+ * entry of a PostToolBatch `tool_calls[]` — under `prefix` (dot path).
+ */
+function stripToolCall(
+  call: Record<string, unknown>,
+  prefix: string,
+  out: Record<string, RedactedEntry>,
+  failure: boolean
+): Record<string, unknown> {
+  const filePath = filePathOf(call)
+  const keepCode = filePath !== null && isTestFilePath(filePath)
+  const next: Record<string, unknown> = { ...call }
+
+  if ('tool_input' in call && !keepCode) {
+    next.tool_input = redactInput(
+      call.tool_input,
+      join(prefix, 'tool_input'),
+      out
+    )
+  }
+  if ('tool_response' in call) {
+    const response = redactResponse(
+      call.tool_response,
+      join(prefix, 'tool_response'),
+      out,
+      { keepPatch: keepCode, failure }
+    )
+    if (response === undefined) delete next.tool_response
+    else next.tool_response = response
+  }
+  return next
+}
+
+/**
  * Return the copy of a (validated) hook payload that is safe to persist. Never
  * mutates its input. A client-supplied `_lumo_redacted` is always dropped so a
  * stored marker can only originate from the server.
+ *
+ * PostToolBatch nests every call of the batch under `tool_calls[]`, each with
+ * its own tool_input / tool_response — those are stripped by the same rules,
+ * per call (a found-in-production leak, LUM-855 TC5).
  */
 export function stripCodeFromHookPayload(
   type: HookEventType,
   payload: Record<string, unknown>
 ): Record<string, unknown> {
   const out: Record<string, RedactedEntry> = {}
-  const filePath = filePathOf(payload)
-  const keepCode = filePath !== null && isTestFilePath(filePath)
   const failure = FAILURE_TYPES.has(type)
 
-  const next: Record<string, unknown> = { ...payload }
+  const next = stripToolCall(payload, '', out, failure)
   delete next[REDACTED_FIELD]
 
-  if ('tool_input' in payload && !keepCode) {
-    next.tool_input = redactInput(payload.tool_input, 'tool_input', out)
-  }
-  if ('tool_response' in payload) {
-    const response = redactResponse(
-      payload.tool_response,
-      'tool_response',
-      out,
-      { keepPatch: keepCode, failure }
-    )
-    if (response === undefined) delete next.tool_response
-    else next.tool_response = response
+  if (Array.isArray(payload.tool_calls)) {
+    next.tool_calls = payload.tool_calls.map((call, i) => {
+      const path = `tool_calls.${i}`
+      if (isPlainObject(call)) return stripToolCall(call, path, out, failure)
+      if (typeof call === 'string') {
+        out[path] = statsOf(call)
+        return null
+      }
+      return call
+    })
   }
   if (failure && typeof payload.error === 'string') {
     next.error = payload.error.slice(0, FAILURE_ERROR_CAP)

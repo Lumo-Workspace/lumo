@@ -77,6 +77,51 @@ describe('stripCodeFromHookPayload', () => {
     })
     expect(notebook.tool_input).toEqual({ notebook_path: '/repo/a.ipynb' })
 
+    // PostToolBatch nests each call under tool_calls[] — the shape production
+    // stored raw before the TC5 fix (LUM-855). Every call is stripped by the
+    // same rules, test-file edits still kept per call.
+    const batch = stripCodeFromHookPayload('POST_TOOL_BATCH', {
+      session_id: 's1',
+      tool_calls: [
+        {
+          tool_name: 'Write',
+          tool_use_id: 'tu_1',
+          tool_input: { file_path: '/repo/lib/billing.ts', content: CODE },
+          tool_response: `File created successfully: ${CODE}`,
+        },
+        {
+          tool_name: 'Edit',
+          tool_use_id: 'tu_2',
+          tool_input: {
+            file_path: '/repo/__tests__/billing.test.ts',
+            old_string: 'toBe(3)',
+            new_string: 'toBe(4)',
+          },
+          tool_response: { filePath: '/repo/__tests__/billing.test.ts' },
+        },
+        'raw string call body with compute()',
+      ],
+    })
+    expect(JSON.stringify(batch)).not.toContain('compute()')
+    const calls = batch.tool_calls as Record<string, unknown>[]
+    expect(calls[0]).toEqual({
+      tool_name: 'Write',
+      tool_use_id: 'tu_1',
+      tool_input: { file_path: '/repo/lib/billing.ts' },
+    })
+    expect(readRedactedStats(batch, 'tool_calls.0.tool_input.content')).toEqual(
+      { bytes: Buffer.byteLength(CODE), lines: 3, sha256: sha(CODE) }
+    )
+    expect(
+      readRedactedStats(batch, 'tool_calls.0.tool_response')
+    ).not.toBeNull()
+    expect(calls[1]!.tool_input).toEqual({
+      file_path: '/repo/__tests__/billing.test.ts',
+      old_string: 'toBe(3)',
+      new_string: 'toBe(4)',
+    })
+    expect(calls[2]).toBeNull()
+
     // Test files keep old/new — tampering crossings are judged on that diff.
     const testEdit = {
       tool_name: 'Edit',
