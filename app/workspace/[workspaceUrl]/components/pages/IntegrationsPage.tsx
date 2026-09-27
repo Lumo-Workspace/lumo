@@ -75,6 +75,10 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
       )
     } else if (appError === 'not_authorized') {
       toast.error(intl.formatMessage({ id: 'github.installNotAuthorized' }))
+    } else if (appError === 'repo_access_incomplete') {
+      toast.error(
+        intl.formatMessage({ id: 'github.installRepoAccessIncomplete' })
+      )
     } else if (appError) {
       toast.error(intl.formatMessage({ id: 'github.installFailed' }))
     } else if (appResult === 'installed') {

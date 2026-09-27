@@ -90,6 +90,22 @@ describe('GET /api/github/app/callback', () => {
     )
   })
 
+  // LUM-880
+  it('redirects a caller without access to every repository with repo_access_incomplete', async () => {
+    install.mockRejectedValue(
+      Object.assign(new Error('cannot read 1 of 2 repositories'), {
+        status: 403,
+        code: 'repo_access_incomplete',
+      })
+    )
+
+    const res = await GET(req(`code=abc&state=${state('w1')}`))
+
+    expect(res.headers.get('location')).toBe(
+      `${SETTINGS}?github_app_error=repo_access_incomplete`
+    )
+  })
+
   it('redirects with verify_not_configured when the App client credentials are missing', async () => {
     install.mockRejectedValue(
       Object.assign(new Error('missing'), {

@@ -489,6 +489,7 @@
   "github.installRequested": "已送出安裝申請，需要組織擁有者核准。",
   "github.installFailed": "無法完成 GitHub App 安裝，請再試一次。",
   "github.installNotAuthorized": "GitHub 無法確認你的 GitHub 帳號能存取此安裝，因此未做任何記錄。請用有存取權限的帳號安裝 App 後重試。",
+  "github.installRepoAccessIncomplete": "你的 GitHub 帳號無法讀取此安裝下的所有儲存庫，因此未記錄任何內容。請由組織擁有者或能存取所有儲存庫的成員完成連線。",
   "github.installVerifyNotConfigured": "此伺服器無法驗證 GitHub App 安裝（缺少 GITHUB_APP_CLIENT_ID 或 GITHUB_APP_CLIENT_SECRET）。請聯絡負責部署的人設定。",
   "github.installNotConfigured": "此伺服器尚未設定 GitHub App（缺少 GITHUB_APP_SLUG）。請聯絡負責部署的人設定。",
   "sentry.title": "Sentry",

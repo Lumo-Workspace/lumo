@@ -8,6 +8,7 @@ import {
   buildAppUserAuthorizeUrl,
   exchangeAppUserCode,
   listUserInstallationIds,
+  listUserInstallationRepositories,
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from '@/lib/integrations/github/app-user-auth'
@@ -84,6 +85,41 @@ describe('GitHub App user authorization', () => {
 
     fetchMock.mockResolvedValueOnce(json({ message: 'Bad credentials' }, 401))
     await expect(listUserInstallationIds('ghu_x')).rejects.toThrow('401')
+  })
+
+  // LUM-880
+  it('lists the repositories the user can read in an installation and fails closed on an error or overflow', async () => {
+    const full = Array.from({ length: 100 }, (_, i) => ({
+      full_name: `acme/r${i}`,
+    }))
+    fetchMock
+      .mockResolvedValueOnce(json({ total_count: 101, repositories: full }))
+      .mockResolvedValueOnce(
+        json({ total_count: 101, repositories: [{ full_name: 'acme/last' }] })
+      )
+    const names = await listUserInstallationRepositories('ghu_x', 42)
+    expect(names).toHaveLength(101)
+    expect(names[100]).toBe('acme/last')
+    expect(fetchMock.mock.calls[0][0]).toContain(
+      '/user/installations/42/repositories?per_page=100&page=1'
+    )
+    expect(fetchMock.mock.calls[1][0]).toContain('page=2')
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe(
+      'Bearer ghu_x'
+    )
+
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValueOnce(json({ message: 'Not Found' }, 404))
+    await expect(listUserInstallationRepositories('ghu_x', 42)).rejects.toThrow(
+      '404'
+    )
+
+    // Every page full: never return a truncated list.
+    fetchMock.mockReset()
+    fetchMock.mockImplementation(async () => json({ repositories: full }))
+    await expect(listUserInstallationRepositories('ghu_x', 42)).rejects.toThrow(
+      'more than 5000'
+    )
   })
 
   it('revokes the user token without ever throwing', async () => {
