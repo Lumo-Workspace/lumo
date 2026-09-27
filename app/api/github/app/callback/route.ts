@@ -71,7 +71,9 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const settingsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${state.workspaceUrl}/settings/integrations`
+  // The redirect target comes from the membership lookup, never from the
+  // state: the settings path is ours to decide, not the query string's.
+  const settingsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${encodeURIComponent(ws.workspace.slug)}/settings/integrations`
 
   // No code means the user declined to authorize (`error=access_denied`):
   // without GitHub vouching for them there is nothing we may record.

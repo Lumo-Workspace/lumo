@@ -124,6 +124,14 @@ describe('GET /api/github/app/callback', () => {
     )
   })
 
+  it('builds the redirect from the member workspace slug, not from the state', async () => {
+    const res = await GET(
+      req(`code=abc&state=${state('w1', 42, 'evil.example.com%2F..')}`)
+    )
+
+    expect(res.headers.get('location')).toBe(`${SETTINGS}?github_app=installed`)
+  })
+
   it('refuses a caller who is not a member of the state workspace', async () => {
     const res = await GET(req(`code=abc&state=${state('other-ws')}`))
 

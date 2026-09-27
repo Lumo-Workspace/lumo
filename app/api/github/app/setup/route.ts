@@ -64,7 +64,9 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const settingsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${state.workspaceUrl}/settings/integrations`
+  // The redirect target comes from the membership lookup, never from the
+  // state: the settings path is ours to decide, not the query string's.
+  const settingsUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${encodeURIComponent(ws.workspace.slug)}/settings/integrations`
 
   const installationId = Number(searchParams.get('installation_id'))
   if (!Number.isInteger(installationId) || installationId <= 0) {
@@ -83,7 +85,7 @@ export async function GET(request: NextRequest) {
   const verifyState = encrypt(
     JSON.stringify({
       workspaceId: ws.workspaceId,
-      workspaceUrl: state.workspaceUrl,
+      workspaceUrl: ws.workspace.slug,
       memberId: ws.member.id,
       installationId,
     })
