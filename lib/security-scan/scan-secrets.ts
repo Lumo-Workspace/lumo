@@ -374,3 +374,69 @@ export function redactForInjection(
     truncatedLines,
   }
 }
+
+/**
+ * Window overlap for over-cap lines in `redactForStorage`: a secret up to this
+ * many characters that straddles one window's end lies whole inside the next.
+ * Registry secrets are single-line tokens far shorter than this (PEM blocks
+ * span many short lines).
+ */
+const STORAGE_WINDOW_OVERLAP = 1024
+
+/** Every registry match in `line`, scanning an over-cap line in overlapping windows. */
+function collectMatchesWindowed(line: string): LineMatch[] {
+  if (line.length <= MAX_SCANNED_LINE_CHARS) return collectMatches(line)
+  const step = MAX_SCANNED_LINE_CHARS - STORAGE_WINDOW_OVERLAP
+  const matches: LineMatch[] = []
+  for (let offset = 0; offset < line.length; offset += step) {
+    const window = line.slice(offset, offset + MAX_SCANNED_LINE_CHARS)
+    for (const m of collectMatches(window)) {
+      matches.push(
+        m.start != null && m.end != null
+          ? { ...m, start: m.start + offset, end: m.end + offset }
+          : m
+      )
+    }
+    if (offset + MAX_SCANNED_LINE_CHARS >= line.length) break
+  }
+  return matches
+}
+
+export interface StorageRedaction {
+  /** The text with every registry match redacted (`AKIA…(len 20)` form). */
+  text: string
+  /** Distinct captured values redacted, summed per line. */
+  redactedCount: number
+}
+
+/**
+ * LUM-859 — redaction for text that is about to be PERSISTED as raw agent
+ * telemetry (HookEvent.payload: Write/Edit content, Read results, Bash output,
+ * prompts). Same registry and redaction form as `redactForInjection`, with two
+ * differences that storage needs:
+ *
+ * - **Nothing is dropped.** An over-cap line (minified bundle, long Bash
+ *   output line) is scanned in overlapping `MAX_SCANNED_LINE_CHARS` windows
+ *   instead of being cut behind `…(truncated)` — the stored event is the
+ *   audit record, so non-secret content must survive whole. Every character
+ *   is still scanned, so the "never returns unscanned raw text" red line holds.
+ * - **No downgrade split.** Placeholder values are masked like live ones and
+ *   the count is not split — there is no notice to raise, only a marker.
+ *
+ * Secret-free text comes back as the same string (`===`).
+ */
+export function redactForStorage(text: string): StorageRedaction {
+  if (text === '') return { text, redactedCount: 0 }
+  let redactedCount = 0
+  let changed = false
+  const lines = text.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!
+    const matches = collectMatchesWindowed(line)
+    if (matches.length === 0) continue
+    redactedCount += new Set(matches.map(m => m.value)).size
+    lines[i] = redactAll(line, matches)
+    changed = true
+  }
+  return { text: changed ? lines.join('\n') : text, redactedCount }
+}

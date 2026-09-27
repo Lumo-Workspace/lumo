@@ -4,8 +4,10 @@ export {
   scanSecrets,
   redactKnownSecrets,
   redactForInjection,
+  redactForStorage,
   MAX_SCANNED_LINE_CHARS,
   type InjectionRedaction,
+  type StorageRedaction,
   type InjectionRedactionOptions,
 } from './scan-secrets'
 // LUM-784 — redact + guard at every injection boundary

@@ -21,6 +21,8 @@ export interface WorkspaceUpdateData {
   acceptanceMode?: boolean
   /** LUM-740: the raw policy JSON; `null` resets to the default. */
   securityPolicy?: unknown
+  /** LUM-859: raw hook-event retention in days; null = keep forever. */
+  hookEventRetentionDays?: number | null
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────

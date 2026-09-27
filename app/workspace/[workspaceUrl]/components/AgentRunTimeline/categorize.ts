@@ -1,5 +1,6 @@
 import type { IntlShape } from 'react-intl'
 import type { AgentRunHookEventItem, AgentRunHookEventType } from '../../types'
+import { isPrunedPayload } from '@/lib/hook-event/retention'
 
 /**
  * Visual category for a single agent hook event. Drives icon color and
@@ -231,6 +232,11 @@ export function summarizeEvent(
   const payload = (event.payload ?? {}) as Record<string, unknown>
   const fb = (id: string, defaultMessage: string) =>
     intl.formatMessage({ id, defaultMessage })
+
+  // LUM-859: the retention sweep left only a marker — say so instead of
+  // falling through to a per-type fallback that reads as missing data.
+  if (isPrunedPayload(event.payload))
+    return fb('agentRun.event.prunedByRetention', '内容已按保留策略清除')
 
   switch (event.type) {
     case 'STOP': {
