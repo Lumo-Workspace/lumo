@@ -2537,7 +2537,7 @@
   "security.code.training": "Neither Lumo nor these providers train models on your data.",
   "security.code.openai": "OpenAI's zero data retention allows limited retention for abuse monitoring (safety retention).",
   "security.code.openWeights": "Open-weight models (the DeepSeek and GLM families) are run by the hosting providers listed below. The model authors' own APIs never receive your data.",
-  "security.code.region": "The gateway does not report which region a hosting provider serves a request from, so we cannot yet commit to a location for AI processing.",
+  "security.code.region": "AI requests are routed globally, so processing may take place outside your region. Zero data retention applies wherever they are processed, and we do not currently commit to a processing location.",
   "security.code.hookEvents": "The Lumo hooks record what your agents do, but not your code: file contents that were written or read, and command output, are replaced by their size and a SHA-256 fingerprint before they are stored. File paths, commands, prompts, edits to test files and error messages from failed commands (up to 2,000 characters) are kept, because verification depends on them. Credentials found in what is kept are redacted.",
   "security.code.retention": "By default, agent activity is kept until the workspace is deleted. Owners can choose to clear its contents after 30, 90, 180 or 365 days; activity from tasks that are not done yet, or that is evidence for a boundary crossing, is kept.",
   "security.code.uninstall": "Uninstalling the Lumo GitHub App clears the code stored with that workspace's security scan findings.",
