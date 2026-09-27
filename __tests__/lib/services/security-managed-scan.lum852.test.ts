@@ -47,7 +47,7 @@ import {
   SCAN_EGRESS_ALLOWLIST,
 } from '@/lib/services/security-managed-scan.service'
 
-const TOKEN = 'fake-managed-scan-clone-token'
+const TOKEN = 'fake-scan-token'
 const JOB = {
   scanId: 's1',
   pr: { id: 'pr1', workspaceId: 'w1', repo: 'o/r', number: 7 },
