@@ -48,6 +48,26 @@ export const githubAppInstallationRepository = {
     })
   },
 
+  /**
+   * LUM-872 — every workspace bound to an installation. `installationId` is
+   * deliberately not unique: GitHub allows one installation per account, so a
+   * second Lumo workspace on the same org re-uses it. Anything that must reach
+   * all of them (uninstall scrub, repository scope) reads this, not the
+   * single-row lookup above.
+   */
+  async findAllByInstallationId(installationId: number) {
+    return prisma.gitHubAppInstallation.findMany({
+      where: { installationId },
+      select: {
+        id: true,
+        workspaceId: true,
+        installationId: true,
+        repositories: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+  },
+
   async upsert(data: UpsertGitHubAppInstallationData) {
     return prisma.gitHubAppInstallation.upsert({
       where: { workspaceId: data.workspaceId },
