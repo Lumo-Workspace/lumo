@@ -327,7 +327,8 @@ Which investigation tasks are worth running for this diff?
  * measured is the thing shipped; production passes nothing here.
  */
 export interface PlanProbeOverrides {
-  model?: LanguageModel
+  // A provider instance, never a bare id: pass `gateway(id)` (LUM-870).
+  model?: Exclude<LanguageModel, string>
   providerOptions?: Parameters<typeof generateObject>[0]['providerOptions']
 }
 

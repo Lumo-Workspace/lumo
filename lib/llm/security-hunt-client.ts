@@ -167,9 +167,10 @@ export interface HuntClientInput {
    * replay script (`scripts/analysis/lum787-hunt-replay`) A/B-tests the
    * hunt on another model THROUGH this function, so the thing measured is
    * the thing shipped. Production passes nothing here and runs
-   * HUNT_MODEL.
+   * HUNT_MODEL. A provider instance, never a bare id: pass `gateway(id)`
+   * (LUM-870).
    */
-  model?: LanguageModel
+  model?: Exclude<LanguageModel, string>
 }
 
 /**

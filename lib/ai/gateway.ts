@@ -8,9 +8,15 @@ import { createZdrFetch } from './zdr-fetch'
  * (AI_GATEWAY_API_KEY locally, Vercel OIDC in prod), but every inference
  * request is forced to zero data retention by `createZdrFetch`.
  *
- * Never import `gateway` from `@ai-sdk/gateway` directly in lib/ or app/ —
- * `__tests__/lib/ai/zdr-gateway.test.ts` fails the build if you do.
+ * Never import `gateway` from `@ai-sdk/gateway` directly — and every module
+ * that calls an AI SDK model function must import this one —
+ * `__tests__/lib/ai/zdr-gateway.test.ts` fails the build otherwise.
  */
 export const gateway = createGatewayProvider({
   fetch: createZdrFetch((input, init) => fetch(input, init)),
 })
+
+// LUM-870 — the AI SDK resolves a bare string `model` ('deepseek/…') through
+// `globalThis.AI_SDK_DEFAULT_PROVIDER`, falling back to the unwrapped global
+// gateway (no ZDR). Installing the wrapper here makes string ids ZDR too.
+globalThis.AI_SDK_DEFAULT_PROVIDER = gateway
