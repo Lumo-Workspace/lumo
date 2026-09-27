@@ -145,11 +145,6 @@ export const workspaceRepository = {
     })
   },
 
-  /** Delete workspace (cascades). */
-  async delete(id: string) {
-    await prisma.workspace.delete({ where: { id } })
-  },
-
   /** Check if slug is unique, optionally excluding a specific workspace. */
   async isSlugUnique(slug: string, excludeId?: string) {
     const existing = await prisma.workspace.findFirst({
