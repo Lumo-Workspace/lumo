@@ -1,0 +1,5 @@
+Contact: mailto:hello@uselumo.ai
+Expires: 2027-09-26T00:00:00.000Z
+Preferred-Languages: en, zh
+Canonical: https://www.uselumo.ai/.well-known/security.txt
+Policy: https://www.uselumo.ai/security

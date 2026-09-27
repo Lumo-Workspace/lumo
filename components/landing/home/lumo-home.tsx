@@ -927,6 +927,9 @@ const FOOTER_COLS = [
   { label: 'RESOURCES', links: ['Docs', 'API', 'Security'] },
 ]
 
+// Footer links that have a real page; the rest are still placeholders.
+const FOOTER_HREFS: Record<string, string> = { Security: '/security' }
+
 function Footer() {
   return (
     <footer className={styles.footer}>
@@ -944,7 +947,11 @@ function Footer() {
               <div className={styles.footerColLabel}>{col.label}</div>
               <div className={styles.footerLinks}>
                 {col.links.map(link => (
-                  <a key={link} href='#' className={styles.footerLink}>
+                  <a
+                    key={link}
+                    href={FOOTER_HREFS[link] ?? '#'}
+                    className={styles.footerLink}
+                  >
                     {link}
                   </a>
                 ))}

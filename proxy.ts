@@ -1,14 +1,17 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
-const isPublicRoute = createRouteMatcher([
+export const PUBLIC_ROUTES = [
   '/signin(.*)',
   '/signup(.*)',
   '/api/(.*)',
   '/invite(.*)',
   '/share(.*)',
   '/.well-known/(.*)', // OAuth metadata for MCP clients (RFC 8414, RFC 9728)
-])
+  '/security', // public trust page (LUM-856)
+]
+
+const isPublicRoute = createRouteMatcher(PUBLIC_ROUTES)
 
 // Dev-only design-system catalog (LUM-291). Public in development so it renders
 // without signing in; in production the page itself returns notFound(), so the
