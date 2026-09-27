@@ -54,53 +54,24 @@ describe('getGithubInstallationToken', () => {
     )
   })
 
-  it('falls back to env installationId when workspace has no DB row', async () => {
+  // LUM-852: the GITHUB_APP_INSTALLATION_ID fallback is gone — see
+  // auth.lum852.test.ts for the no-row / no-workspace refusals.
+  it('never reads GITHUB_APP_INSTALLATION_ID, even when it is set', async () => {
     findByWorkspaceMock.mockResolvedValue(null)
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
     mockAuthReturning('tok_env')
 
-    const token = await getGithubInstallationToken('ws_unknown')
-
-    expect(token).toBe('tok_env')
-    expect(createAppAuthMock).toHaveBeenCalledWith(
-      expect.objectContaining({ installationId: 999 })
+    await expect(getGithubInstallationToken('ws_unknown')).rejects.toThrow(
+      /ws_unknown/
     )
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('ws_unknown'))
-    warn.mockRestore()
-  })
-
-  it('uses env installationId when called without workspaceId', async () => {
-    mockAuthReturning('tok_env')
-
-    const token = await getGithubInstallationToken()
-
-    expect(token).toBe('tok_env')
-    expect(findByWorkspaceMock).not.toHaveBeenCalled()
-    expect(createAppAuthMock).toHaveBeenCalledWith(
-      expect.objectContaining({ installationId: 999 })
-    )
-  })
-
-  it('throws when no DB row and no env installation id', async () => {
-    findByWorkspaceMock.mockResolvedValue(null)
-    delete process.env.GITHUB_APP_INSTALLATION_ID
-
-    await expect(getGithubInstallationToken('ws_1')).rejects.toThrow(
-      /installation/i
-    )
-  })
-
-  it('throws when env installation id is not a valid number', async () => {
-    findByWorkspaceMock.mockResolvedValue(null)
-    process.env.GITHUB_APP_INSTALLATION_ID = 'not-a-number'
-
-    await expect(getGithubInstallationToken('ws_1')).rejects.toThrow(
-      /not a valid installation id/i
-    )
+    expect(createAppAuthMock).not.toHaveBeenCalled()
   })
 
   it('throws when app id / private key missing', async () => {
-    findByWorkspaceMock.mockResolvedValue(null)
+    findByWorkspaceMock.mockResolvedValue({
+      id: 'gai_1',
+      workspaceId: 'ws_1',
+      installationId: 42,
+    })
     delete process.env.GITHUB_APP_ID
     await expect(getGithubInstallationToken('ws_1')).rejects.toThrow(
       /GITHUB_APP_ID/

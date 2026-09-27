@@ -28,6 +28,7 @@ import {
 } from '@/lib/services/security-managed-scan.config'
 import {
   MANAGED_REPORT_PATH,
+  managedInstallScript,
   managedToolScript,
 } from '@/lib/services/security-managed-scan.scripts'
 
@@ -120,6 +121,16 @@ async function main(): Promise<number> {
       throw new Error(`probe tree build failed: ${built.stderr}`)
     }
     console.log(`probe tree at ${PROBE_DIR} @ ${headSha}`)
+
+    // LUM-852: production installs every tool first (phase 1, cwd /tmp).
+    for (const tool of MANAGED_SCAN_TOOLS) {
+      const inst = await sandbox.run('sh', ['-c', managedInstallScript(tool)], {
+        cwd: '/tmp',
+      })
+      if (inst.exitCode !== 0) {
+        throw new Error(`${tool} install exit ${inst.exitCode}: ${inst.stderr}`)
+      }
+    }
 
     for (const tool of MANAGED_SCAN_TOOLS) {
       const t0 = Date.now()

@@ -11,9 +11,17 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/lib/integrations/vercel-sandbox', () => ({
   ...jest.requireActual('@/lib/integrations/vercel-sandbox'),
   createRepoSandbox: jest.fn(),
+  // LUM-852: egress policy calls go to the platform; not under test here.
+  restrictSandboxEgress: jest.fn(),
+  denySandboxEgress: jest.fn(),
+}))
+// LUM-852: the credential proof has its own tests (sandbox-agent, lum852).
+jest.mock('@/lib/services/sandbox-credential-scrub', () => ({
+  scrubSandboxCredentials: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoCloneToken: jest.fn(),
+  revokeInstallationToken: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
@@ -26,7 +34,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { createRepoSandbox } from '@/lib/integrations/vercel-sandbox'
-import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import { getRepoCloneToken } from '@/lib/integrations/github/auth'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import {
@@ -85,7 +93,10 @@ function fakeSandbox(
 ) {
   return {
     cwd: '/vercel',
-    run: jest.fn(async (...[, args]: [string, string[], unknown?]) => {
+    run: jest.fn(async (...[, args, opts]: [string, string[], unknown?]) => {
+      // LUM-852: phase-1 installs run from /tmp; `exits` describes scanners.
+      if ((opts as { cwd?: string } | undefined)?.cwd === '/tmp')
+        return { exitCode: 0, stdout: '', stderr: '' }
       const tool = toolOf(args.join(' '))
       return {
         exitCode: exits[tool] ?? 0,
@@ -105,7 +116,7 @@ const create = createRepoSandbox as jest.Mock
 
 beforeEach(() => {
   jest.resetAllMocks()
-  ;(getGithubInstallationToken as jest.Mock).mockResolvedValue(TOKEN)
+  ;(getRepoCloneToken as jest.Mock).mockResolvedValue(TOKEN)
   ;(fetchPrDiff as jest.Mock).mockResolvedValue(DIFF)
   ;(prSecurityScanRepository.findStagesById as jest.Mock).mockResolvedValue({
     external: 'PENDING',
@@ -125,36 +136,53 @@ describe('LUM-846 zizmor and trivy in the managed sandbox', () => {
       'zizmor',
       'trivy',
     ])
-    const scripts = sb.run.mock.calls.map(c => (c[1] as string[]).join(' '))
+    // LUM-852: phase 1 (cwd /tmp) downloads and checks, phase 2 scans.
+    const isInstall = (c: unknown[]) =>
+      (c[2] as { cwd?: string } | undefined)?.cwd === '/tmp'
+    const scripts = sb.run.mock.calls
+      .filter(c => !isInstall(c))
+      .map(c => (c[1] as string[]).join(' '))
+    const installs = sb.run.mock.calls
+      .filter(isInstall)
+      .map(c => (c[1] as string[]).join(' '))
     expect(scripts).toHaveLength(5)
+    expect(installs).toHaveLength(5)
     const guard = `test "$(git rev-parse HEAD 2>/dev/null | cut -c1-40)" = "${JOB.headSha}" || exit 90; `
     const [zizmor, trivy] = [scripts[3]!, scripts[4]!]
+    const [zizmorInstall, trivyInstall] = [installs[3]!, installs[4]!]
 
     expect(zizmor.startsWith(`-c ${guard}`)).toBe(true)
-    expect(zizmor).toContain(`curl -sSL -o /tmp/zizmor.tgz "${ZIZMOR_URL}"`)
-    expect(zizmor).toContain(
+    expect(zizmorInstall).toContain(
+      `curl -sSL -o /tmp/zizmor.tgz "${ZIZMOR_URL}"`
+    )
+    expect(zizmorInstall).toContain(
       `echo "${ZIZMOR_SHA256}  /tmp/zizmor.tgz" | sha256sum -c --quiet -`
     )
-    expect(zizmor.indexOf('sha256sum')).toBeLessThan(zizmor.indexOf('tar -xzf'))
+    expect(zizmorInstall.indexOf('sha256sum')).toBeLessThan(
+      zizmorInstall.indexOf('tar -xzf')
+    )
+    expect(zizmorInstall).toContain('set -e')
     expect(zizmor).toContain(
       '/tmp/zizmor --offline --format sarif . > /tmp/zizmor.sarif'
     )
-    expect(zizmor).toContain('set -e')
 
     expect(trivy.startsWith(`-c ${guard}`)).toBe(true)
-    expect(trivy).toContain(`curl -sSL -o /tmp/trivy.tgz "${TRIVY_URL}"`)
-    expect(trivy).toContain(
+    expect(trivyInstall).toContain(`curl -sSL -o /tmp/trivy.tgz "${TRIVY_URL}"`)
+    expect(trivyInstall).toContain(
       `echo "${TRIVY_SHA256}  /tmp/trivy.tgz" | sha256sum -c --quiet -`
     )
-    expect(trivy.indexOf('sha256sum')).toBeLessThan(trivy.indexOf('tar -xzf'))
+    expect(trivyInstall.indexOf('sha256sum')).toBeLessThan(
+      trivyInstall.indexOf('tar -xzf')
+    )
     // LUM-851: JSON first (it keeps "no line"), SARIF converted from it.
+    // LUM-852: the check bundle was cached at install; no update at scan.
     expect(trivy).toContain(
-      '/tmp/trivy config --severity MEDIUM,HIGH,CRITICAL --exit-code 0 --format json --output /tmp/trivy.json .'
+      '/tmp/trivy config --skip-check-update --severity MEDIUM,HIGH,CRITICAL --exit-code 0 --format json --output /tmp/trivy.json .'
     )
     expect(trivy).toContain(
       'cd /tmp && /tmp/trivy convert --format sarif --output /tmp/trivy.sarif /tmp/trivy.json'
     )
-    for (const call of sb.run.mock.calls) {
+    for (const call of sb.run.mock.calls.filter(c => !isInstall(c))) {
       expect(call[2]).toEqual({ cwd: '/vercel/r' })
     }
     expect(ZIZMOR_URL).toMatch(
@@ -223,7 +251,8 @@ describe('LUM-846 zizmor and trivy in the managed sandbox', () => {
     if (out.zizmor.kind !== 'failed') throw new Error('unreachable')
     expect(out.zizmor.reason).toMatch(/^zizmor exit 1: .*did NOT match/)
     expect(out.zizmor.reason).not.toContain(TOKEN)
-    expect(sb.run).toHaveBeenCalledTimes(5)
+    // Five scanner runs after five installs (LUM-852 phase 1).
+    expect(sb.run).toHaveBeenCalledTimes(10)
     for (const t of ['gitleaks', 'semgrep', 'osv-scanner', 'trivy'] as const) {
       expect(out[t].kind).toBe('ok')
     }

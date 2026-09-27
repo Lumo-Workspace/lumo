@@ -279,11 +279,10 @@ arrive at `/api/webhooks/github` and are verified against different secrets).
    on its own once the hook is removed (disconnecting the OAuth link deletes
    the hooks it created).
 
-**Legacy fallback.** A workspace with no installation record falls back to the
-global `GITHUB_APP_INSTALLATION_ID` env var (Lumo's own installation, from
-before this flow existed) and logs a warning. It is wrong for every other
-workspace; it exists only until Lumo installs through the flow above, and is
-scheduled for removal then.
+**No fallback.** A workspace with no installation record gets no GitHub
+token at all — every GitHub call for it fails with "install the Lumo GitHub
+App". (Before LUM-852 it borrowed the global `GITHUB_APP_INSTALLATION_ID`,
+Lumo's own installation; that env var is no longer read.)
 
 ## 🛡️ Security scan
 
@@ -310,6 +309,15 @@ the task's security panel, a review on the pull request itself (one summary
 comment plus inline comments on the affected lines, deduplicated across
 re-scans), and `lumo task status`, which prints one line per PR with each
 scan layer's state and any scanner failure reason.
+
+**Sandbox isolation.** The clone token is minted for that one repository
+with `contents: read` only, and revoked (`DELETE /installation/token`) as
+soon as the clone is done. Before any scanner reads the checkout, Lumo
+proves the token is not readable anywhere in the VM (`.git/config`, the
+command environment, `~/.git-credentials`, `~/.netrc`, `~/.gitconfig`) and
+refuses to scan if it cannot. Scanners are downloaded first; after that the
+VM can reach only `semgrep.dev`, `api.osv.dev` and `api.deps.dev` while the
+scanners run, and nothing at all while the AI hunt reads the code.
 
 **Dependencies.** osv-scanner reads the repository's lockfiles and manifests
 inside that same sandbox and queries the public [osv.dev](https://osv.dev)

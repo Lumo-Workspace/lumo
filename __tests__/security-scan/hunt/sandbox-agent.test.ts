@@ -15,7 +15,8 @@ jest.mock('@/lib/integrations/vercel-sandbox', () => ({
   ),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('ghs_secret_token'),
+  getRepoCloneToken: jest.fn().mockResolvedValue('ghs_secret_token'),
+  revokeInstallationToken: jest.fn().mockResolvedValue(true),
 }))
 /**
  * LUM-758 Task 12 — the compressor is stubbed as a FAILURE here on purpose.
@@ -74,7 +75,12 @@ const fakeSandbox = () => ({
   cwd: '/vercel',
   run: jest.fn().mockResolvedValue({ exitCode: 0, stdout: '', stderr: '' }),
   readFile: jest.fn(async (path: string) =>
-    path.endsWith('/.git/config') ? Buffer.from(CLEAN_CONFIG) : null
+    path.endsWith('/.git/config')
+      ? Buffer.from(CLEAN_CONFIG)
+      : // LUM-852: the managed scan's completion marker — its VM is done.
+        path === '/tmp/.lumo-managed-scan-done'
+        ? Buffer.from('')
+        : null
   ),
   stop: jest.fn().mockResolvedValue(undefined),
 })
@@ -138,10 +144,12 @@ describe('attachOrCreateHuntSandbox', () => {
       { lumoScan: 's1' },
       { excludeTagKeys: [HUNT_SANDBOX_TAG] }
     )
-    // An attached VM's egress belongs to the managed scan, which may still be
-    // downloading its scanners — never touch it, and say so on the handle.
-    expect(denyEgress).not.toHaveBeenCalled()
-    expect(out.egressDenied).toBe(false)
+    // LUM-852: only after the managed scan's completion marker, and only
+    // once this layer's own deny-all went through.
+    expect(denyEgress).toHaveBeenCalledWith('vm1')
+    expect(out.egressDenied).toBe(true)
+    // The managed scan's token, not ours, cloned this VM: none is minted.
+    expect(out.token).toBe('')
   })
 
   it('creates its own VM when the managed scan never started', async () => {
@@ -196,44 +204,49 @@ describe('attachOrCreateHuntSandbox', () => {
     expect(vm.stop).toHaveBeenCalled()
   })
 
-  it('leaves an attached VM running when the credential scrub refuses it', async () => {
-    const vm = fakeSandbox()
-    vm.readFile.mockResolvedValue(
-      Buffer.from(
-        'url = https://x-access-token:ghs_secret_token@github.com/o/r'
-      )
+  it('leaves an unfinished managed scan VM alone and boots its own', async () => {
+    const managed = fakeSandbox()
+    managed.readFile.mockImplementation(async (path: string) =>
+      path.endsWith('/.git/config') ? Buffer.from(CLEAN_CONFIG) : null
     )
-    find.mockResolvedValue(vm)
-
-    await expect(
-      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: true })
-    ).rejects.toThrow(/still reachable/i)
-    // It belongs to the managed scan, which may still be running semgrep.
-    expect(vm.stop).not.toHaveBeenCalled()
-  })
-
-  it('cuts the egress of a VM it created itself, best-effort', async () => {
-    find.mockResolvedValue(null)
-    create.mockResolvedValue(fakeSandbox())
-    denyEgress.mockRejectedValue(new Error('policy update unavailable'))
+    const own = { ...fakeSandbox(), name: 'vm2' }
+    find.mockResolvedValue(managed)
+    create.mockResolvedValue(own)
 
     const out = await attachOrCreateHuntSandbox({
       ...JOB,
-      managedScanStarted: false,
+      managedScanStarted: true,
+      pollMs: 1,
+      managedScanDoneWaitMs: 5,
     })
 
-    expect(denyEgress).toHaveBeenCalledWith('vm1')
-    // A platform that cannot tighten the policy must not fail the layer: the
-    // command gate is the enforcing boundary, this is defence in depth. But
-    // the run DID execute with egress open, and the handle carries that so
-    // the audit can say so.
     expect(out.origin).toBe('created')
-    expect(out.egressDenied).toBe(false)
-    expect(logger.warn).toHaveBeenCalled()
+    expect(out.sandbox).toBe(own)
+    // Its scanners may still need their allowlist: never cut, never stopped.
+    expect(denyEgress).not.toHaveBeenCalledWith('vm1')
+    expect(managed.stop).not.toHaveBeenCalled()
+  })
+
+  it('refuses a VM it created whose egress the platform will not cut', async () => {
+    const vm = fakeSandbox()
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
+    denyEgress.mockRejectedValueOnce(new Error('policy update unavailable'))
+
+    // LUM-852: no longer best-effort — the agent never runs with a route
+    // out, and a VM we booted for nothing is stopped.
+    await expect(
+      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: false })
+    ).rejects.toThrow(/egress/i)
+    expect(denyEgress).toHaveBeenCalledWith('vm1')
+    expect(vm.stop).toHaveBeenCalled()
   })
 })
 
 describe('clone credential scrub (spec R6)', () => {
+  // LUM-852: the hunt scrubs the VM it CREATED — against the token it cloned
+  // with. An attached VM was scrubbed by the managed scan against its own
+  // token before the completion marker was written (see lum852 tests).
   it('rewrites a remote URL that carries the installation token', async () => {
     const vm = fakeSandbox()
     vm.readFile
@@ -245,9 +258,10 @@ describe('clone credential scrub (spec R6)', () => {
       .mockResolvedValueOnce(
         Buffer.from('[remote "origin"]\n\turl = https://github.com/o/r.git\n')
       )
-    find.mockResolvedValue(vm)
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
 
-    await attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: true })
+    await attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: false })
 
     const commands = vm.run.mock.calls.map(c => [c[0], ...(c[1] as string[])])
     expect(commands).toContainEqual([
@@ -266,10 +280,11 @@ describe('clone credential scrub (spec R6)', () => {
         'url = https://x-access-token:ghs_secret_token@github.com/o/r'
       )
     )
-    find.mockResolvedValue(vm)
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
 
     await expect(
-      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: true })
+      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: false })
     ).rejects.toThrow(/still reachable/i)
   })
 
@@ -280,11 +295,12 @@ describe('clone credential scrub (spec R6)', () => {
       stdout: 'HOME=/vercel\nGIT_PASSWORD=ghs_secret_token\n',
       stderr: '',
     })
-    find.mockResolvedValue(vm)
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
 
     const promise = attachOrCreateHuntSandbox({
       ...JOB,
-      managedScanStarted: true,
+      managedScanStarted: false,
     })
     await expect(promise).rejects.toThrow(/environment/i)
     // The diagnosis must not itself carry the secret.
@@ -295,10 +311,11 @@ describe('clone credential scrub (spec R6)', () => {
   it('fails closed when the environment probe itself cannot run', async () => {
     const vm = fakeSandbox()
     vm.run.mockResolvedValue({ exitCode: 127, stdout: '', stderr: 'not found' })
-    find.mockResolvedValue(vm)
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
 
     await expect(
-      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: true })
+      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: false })
     ).rejects.toThrow(/could not verify/i)
   })
 
@@ -309,12 +326,13 @@ describe('clone credential scrub (spec R6)', () => {
     // appears.
     const vm = fakeSandbox()
     vm.readFile.mockResolvedValue(null)
-    find.mockResolvedValue(vm)
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
 
     await expect(
       attachOrCreateHuntSandbox({
         ...JOB,
-        managedScanStarted: true,
+        managedScanStarted: false,
         pollMs: 1,
         checkoutWaitMs: 1,
       })
@@ -326,16 +344,17 @@ describe('clone credential scrub (spec R6)', () => {
     vm.readFile
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(Buffer.from(CLEAN_CONFIG))
-    find.mockResolvedValue(vm)
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
 
     const out = await attachOrCreateHuntSandbox({
       ...JOB,
-      managedScanStarted: true,
+      managedScanStarted: false,
       pollMs: 1,
       checkoutWaitMs: 200,
     })
 
-    expect(out.origin).toBe('attached')
+    expect(out.origin).toBe('created')
     expect(vm.readFile).toHaveBeenCalledWith('/vercel/r/.git/config')
   })
 
@@ -356,10 +375,11 @@ describe('clone credential scrub (spec R6)', () => {
         )
       return null
     })
-    find.mockResolvedValue(vm)
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
 
     await expect(
-      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: true })
+      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: false })
     ).rejects.toThrow(/\.git-credentials/)
     // Looking for the secret must not copy it into the diagnosis.
     const logged = (logger.error as jest.Mock).mock.calls.flat().join(' ')
@@ -379,18 +399,20 @@ describe('clone credential scrub (spec R6)', () => {
         )
       return null
     })
-    find.mockResolvedValue(vm)
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
 
     await expect(
-      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: true })
+      attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: false })
     ).rejects.toThrow(/\.gitconfig/)
   })
 
   it('reads every credential store back, not just the checkout', async () => {
     const vm = fakeSandbox()
-    find.mockResolvedValue(vm)
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
 
-    await attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: true })
+    await attachOrCreateHuntSandbox({ ...JOB, managedScanStarted: false })
 
     const read = vm.readFile.mock.calls.map(c => c[0])
     expect(read).toEqual(

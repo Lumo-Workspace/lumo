@@ -28,7 +28,8 @@ jest.mock('@/lib/integrations/vercel-sandbox', () => ({
   ),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('ghs_secret_token'),
+  getRepoCloneToken: jest.fn().mockResolvedValue('ghs_secret_token'),
+  revokeInstallationToken: jest.fn().mockResolvedValue(true),
 }))
 
 /**
@@ -61,9 +62,13 @@ import {
   HUNT_SHELL_FLAG,
   HUNT_SHELL_PROBES,
 } from '@/lib/security-scan/hunt/shell-allowlist'
-import { findRepoSandboxByTag } from '@/lib/integrations/vercel-sandbox'
+import {
+  createRepoSandbox,
+  findRepoSandboxByTag,
+} from '@/lib/integrations/vercel-sandbox'
 
 const find = findRepoSandboxByTag as jest.Mock
+const create = createRepoSandbox as jest.Mock
 
 const CLEAN_CONFIG = '[remote "origin"]\n\turl = https://github.com/o/r.git\n'
 
@@ -72,7 +77,12 @@ const fakeSandbox = () => ({
   cwd: '/vercel',
   run: jest.fn().mockResolvedValue({ exitCode: 0, stdout: 'out', stderr: '' }),
   readFile: jest.fn(async (path: string) =>
-    path.endsWith('/.git/config') ? Buffer.from(CLEAN_CONFIG) : null
+    path.endsWith('/.git/config')
+      ? Buffer.from(CLEAN_CONFIG)
+      : // LUM-852: the managed scan's completion marker — its VM is done.
+        path === '/tmp/.lumo-managed-scan-done'
+        ? Buffer.from('')
+        : null
   ),
   stop: jest.fn().mockResolvedValue(undefined),
 })
@@ -196,15 +206,18 @@ describe('LUM-758 the hunt exec boundary is a single choke point', () => {
   })
 
   it('the only other commands the layer runs are its own fixed argv, never `sh`', async () => {
+    // LUM-852: the create path is the one that runs setup commands (the
+    // scrub); an attached VM was scrubbed by the managed scan.
     const vm = fakeSandbox()
-    find.mockResolvedValue(vm)
+    find.mockResolvedValue(null)
+    create.mockResolvedValue(vm)
 
     await attachOrCreateHuntSandbox({
       scanId: 's1',
       workspaceId: 'w1',
       repo: 'o/r',
       headSha: 'a'.repeat(40),
-      managedScanStarted: true,
+      managedScanStarted: false,
     })
 
     // The credential guard's own probes (`git …`, `env`) are constants written

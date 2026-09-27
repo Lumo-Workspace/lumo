@@ -214,24 +214,39 @@ export async function findRepoSandboxByTag(
 
 /**
  * LUM-758 — cut a sandbox's network egress ("deny-all" in the SDK's
- * `NetworkPolicy` vocabulary). The hunt calls this on a VM **it created
- * itself**, right after the clone: the agent only reads a local checkout, so
- * it needs no route out, and without one the whole "the model was talked into
+ * `NetworkPolicy` vocabulary). The agent only reads a local checkout, so it
+ * needs no route out, and without one the whole "the model was talked into
  * running curl" class loses its payload.
  *
- * NOT applied at create time and NOT applied to an attached VM:
- *  - the git clone is performed by the platform as part of `Sandbox.create`,
- *    so a create-time "deny-all" would be denying the very fetch we need;
- *  - an attached VM belongs to the managed scan, which downloads gitleaks,
- *    semgrep and osv-scanner while it runs. Tightening its policy from here
- *    would break a run we have no ordering guarantee against.
+ * NOT applied at create time: the git clone is performed by the platform as
+ * part of `Sandbox.create`, so a create-time "deny-all" would be denying the
+ * very fetch we need.
  *
- * Throws on failure; callers treat it as best-effort defence in depth (the
- * command gate is the enforcing boundary).
+ * LUM-852: a VM the managed scan booted is cut too, but only once its
+ * scanners are done — the managed scan does it itself before it hands the VM
+ * over, and the hunt re-applies it after seeing the scan's completion marker
+ * (see `MANAGED_SCAN_DONE_PATH`). Tightening it earlier would kill a run that
+ * still needs `SCAN_EGRESS_ALLOWLIST`.
+ *
+ * Throws on failure; callers decide whether that is fatal.
  */
 export async function denySandboxEgress(name: string): Promise<void> {
   const sandbox = await Sandbox.get({ name })
   await sandbox.update({ networkPolicy: 'deny-all' })
+}
+
+/**
+ * LUM-852 — narrow a sandbox's egress to a fixed domain allowlist: the phase
+ * between "every scanner is installed" and "every scanner is done", when the
+ * tools read repository-controlled config and still need a couple of API
+ * hosts. Throws on failure; the managed scan refuses to run its tools then.
+ */
+export async function restrictSandboxEgress(
+  name: string,
+  allow: readonly string[]
+): Promise<void> {
+  const sandbox = await Sandbox.get({ name })
+  await sandbox.update({ networkPolicy: { allow: [...allow] } })
 }
 
 /**

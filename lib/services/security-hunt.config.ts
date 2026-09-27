@@ -138,6 +138,13 @@ export const HUNT_SEARCH_TOOLS: readonly string[] = ['rg', 'grep']
 /** LUM-758 §5.1 — how long to wait for the managed scan's VM, and how often to look. */
 export const HUNT_SANDBOX_ATTACH_WAIT_MS = 30_000
 export const HUNT_SANDBOX_ATTACH_POLL_MS = 3_000
+/**
+ * LUM-852 — how long an attaching hunt waits for the managed scan to finish
+ * (its completion marker) before booting its own VM instead. The agent never
+ * runs on a VM whose egress is still open for the scanners, and cutting it
+ * early would fail those scanners — so past this, a second VM is the price.
+ */
+export const HUNT_MANAGED_SCAN_DONE_WAIT_MS = 90_000
 
 /**
  * LUM-758 §5.1 — how long the credential guard waits for the platform's clone

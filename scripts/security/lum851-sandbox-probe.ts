@@ -39,6 +39,7 @@ import {
 import {
   MANAGED_REPORT_PATH,
   MANAGED_SIDECAR_PATH,
+  managedInstallScript,
   managedToolScript,
 } from '@/lib/services/security-managed-scan.scripts'
 
@@ -139,6 +140,17 @@ async function main(): Promise<number> {
       const buf = await sandbox.readFile(path)
       if (!buf) throw new Error(`no ${path}`)
       return buf
+    }
+    // LUM-852: production installs trivy first (phase 1, cwd /tmp).
+    const inst = await sandbox.run(
+      'sh',
+      ['-c', managedInstallScript('trivy')],
+      {
+        cwd: '/tmp',
+      }
+    )
+    if (inst.exitCode !== 0) {
+      throw new Error(`trivy install exit ${inst.exitCode}: ${inst.stderr}`)
     }
     const runTrivy = async (cwd: string, headSha: string) => {
       const r = await sandbox.run(
