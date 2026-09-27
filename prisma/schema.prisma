@@ -387,6 +387,24 @@ model Workspace {
   @@map("workspaces")
 }
 
+/// LUM-861: proof that a workspace was deleted (DPA deletion evidence). FK-less
+/// on purpose — it must outlive the workspace it describes. Carries no
+/// workspace content: ids, the requester, row counts and the blob outcome only.
+model WorkspaceDeletionReceipt {
+  id                 String   @id @default(cuid())
+  workspaceId        String
+  requestedByClerkId String
+  /// { [modelName]: rowsDeleted } — only models with at least one row.
+  rowCounts          Json
+  /// { status: PENDING | DONE | FAILED, deleted, error? } — blobs are removed
+  /// after the DB commit, so this is written as PENDING and settled after.
+  blobCleanup        Json
+  deletedAt          DateTime @default(now())
+
+  @@index([workspaceId])
+  @@map("workspace_deletion_receipts")
+}
+
 // ─── Team ───────────────────────────────────────────────────────────────────
 
 model Team {
@@ -2050,7 +2068,7 @@ model Document {
   projectId   String?
   project     Project?        @relation(fields: [projectId], references: [id])
   workspaceId String
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id])
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdById String
   createdBy   WorkspaceMember @relation("DocumentCreator", fields: [createdById], references: [id])
 
@@ -2141,7 +2159,7 @@ model DocumentRevision {
   authorId       String
   author         WorkspaceMember @relation(fields: [authorId], references: [id])
   workspaceId    String
-  workspace      Workspace       @relation(fields: [workspaceId], references: [id])
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   wordCount      Int?
   createdAt      DateTime        @default(now()) // window-open time
   updatedAt      DateTime        @updatedAt // refreshed on in-window merge

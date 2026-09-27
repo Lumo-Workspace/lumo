@@ -69,7 +69,8 @@ export async function PATCH(request: NextRequest) {
 
 /**
  * DELETE /api/workspaces/me — Permanently delete the workspace.
- * Caller must be an OWNER. All data is cascade-deleted.
+ * Caller must be an OWNER. All rows and blobs the workspace owns are removed
+ * and a deletion receipt is kept (LUM-861).
  */
 export async function DELETE() {
   try {
@@ -80,7 +81,11 @@ export async function DELETE() {
     const ws = await requireUserWorkspace(userId)
     if (ws instanceof NextResponse) return ws
 
-    await workspaceService.deleteWorkspace(ws.workspaceId, ws.member.role)
+    await workspaceService.deleteWorkspace(
+      ws.workspaceId,
+      ws.member.role,
+      userId
+    )
 
     return NextResponse.json({ ok: true })
   } catch (error) {
