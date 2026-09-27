@@ -38,11 +38,18 @@ function fullNames(repos: { full_name?: string }[] | undefined): string[] {
  * that workspace: security-scan evidence, call chains, hunt audit/job and PR
  * summaries. Scan and finding rows stay so DONE gating and history survive.
  */
-async function scrubWorkspaceCode(workspaceId: string, reason: string) {
-  const counts =
-    await prSecurityScanRepository.scrubCodeForWorkspace(workspaceId)
+async function scrubWorkspaceCode(
+  workspaceId: string,
+  reason: string,
+  repos?: string[]
+) {
+  const counts = await prSecurityScanRepository.scrubCodeForWorkspace(
+    workspaceId,
+    repos
+  )
+  const scope = repos ? ` (${repos.length} repo(s))` : ''
   logger.info(
-    `[github/app] workspace ${workspaceId} ${reason}: scrubbed code from ${counts.scans} scan(s), ${counts.findings} finding(s)`
+    `[github/app] workspace ${workspaceId} ${reason}${scope}: scrubbed code from ${counts.scans} scan(s), ${counts.findings} finding(s)`
   )
   return counts
 }
@@ -190,13 +197,14 @@ export const githubAppInstallService = {
     switch (payload.action) {
       case 'deleted':
       case 'suspend': {
-        // Resolve the workspace before the row goes — the payload carries none.
-        const owner =
+        // Resolve the workspaces before the rows go — the payload carries
+        // none, and one installation can back several workspaces (LUM-872).
+        const owners =
           payload.action === 'deleted'
-            ? await githubAppInstallationRepository.findByInstallationId(
+            ? await githubAppInstallationRepository.findAllByInstallationId(
                 installationId
               )
-            : null
+            : []
         const { count } =
           await githubAppInstallationRepository.deleteByInstallationId(
             installationId
@@ -206,7 +214,7 @@ export const githubAppInstallService = {
         )
         // Suspend is reversible (unsuspend restores the App), so only a real
         // uninstall scrubs the workspace's code.
-        if (owner) {
+        for (const owner of owners) {
           await scrubWorkspaceCode(owner.workspaceId, 'uninstalled on GitHub')
         }
         return
@@ -214,25 +222,27 @@ export const githubAppInstallService = {
       case 'created':
       case 'unsuspend':
       case 'new_permissions_accepted': {
-        const row =
-          await githubAppInstallationRepository.findByInstallationId(
+        const rows =
+          await githubAppInstallationRepository.findAllByInstallationId(
             installationId
           )
-        if (!row) {
+        if (rows.length === 0) {
           logger.info(
             `[github/app] installation ${installationId} ${payload.action} for an unknown workspace; waiting for the setup callback`
           )
           return
         }
-        await githubAppInstallationRepository.upsert({
-          workspaceId: row.workspaceId,
-          installationId,
-          accountLogin: payload.installation?.account?.login ?? null,
-          accountType: payload.installation?.account?.type ?? null,
-          repositories: payload.repositories
-            ? fullNames(payload.repositories)
-            : row.repositories,
-        })
+        for (const row of rows) {
+          await githubAppInstallationRepository.upsert({
+            workspaceId: row.workspaceId,
+            installationId,
+            accountLogin: payload.installation?.account?.login ?? null,
+            accountType: payload.installation?.account?.type ?? null,
+            repositories: payload.repositories
+              ? fullNames(payload.repositories)
+              : row.repositories,
+          })
+        }
         return
       }
       default:
@@ -240,31 +250,48 @@ export const githubAppInstallService = {
     }
   },
 
-  /** `installation_repositories` event — repository scope added or removed. */
+  /**
+   * `installation_repositories` event — repository scope added or removed,
+   * applied to every workspace bound to the installation. A repository the
+   * App can no longer reach has its scan code scrubbed like an uninstall
+   * (LUM-872): Lumo keeps no customer code it has lost access to.
+   */
   async applyInstallationRepositoriesEvent(payload: InstallationEventPayload) {
     const installationId = payload.installation?.id
     if (!installationId) return
 
-    const row =
-      await githubAppInstallationRepository.findByInstallationId(installationId)
-    if (!row) return
+    const rows =
+      await githubAppInstallationRepository.findAllByInstallationId(
+        installationId
+      )
+    const removedNames = fullNames(payload.repositories_removed)
+    const removed = new Set(removedNames)
 
-    const removed = new Set(fullNames(payload.repositories_removed))
-    const next = [
-      ...new Set([
-        ...row.repositories,
-        ...fullNames(payload.repositories_added),
-      ]),
-    ].filter(name => !removed.has(name))
+    for (const row of rows) {
+      const next = [
+        ...new Set([
+          ...row.repositories,
+          ...fullNames(payload.repositories_added),
+        ]),
+      ].filter(name => !removed.has(name))
 
-    await githubAppInstallationRepository.updateRepositories(
-      row.workspaceId,
-      next
-    )
+      await githubAppInstallationRepository.updateRepositories(
+        row.workspaceId,
+        next
+      )
 
-    const added = fullNames(payload.repositories_added).filter(
-      name => !row.repositories.includes(name)
-    )
-    await backfillPullRequests(row.workspaceId, installationId, added)
+      if (removedNames.length > 0) {
+        await scrubWorkspaceCode(
+          row.workspaceId,
+          'repository removed from the installation',
+          removedNames
+        )
+      }
+
+      const added = fullNames(payload.repositories_added).filter(
+        name => !row.repositories.includes(name)
+      )
+      await backfillPullRequests(row.workspaceId, installationId, added)
+    }
   },
 }

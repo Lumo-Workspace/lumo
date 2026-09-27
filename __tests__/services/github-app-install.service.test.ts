@@ -10,6 +10,7 @@ jest.mock('@/lib/repositories', () => ({
     findByWorkspace: jest.fn(),
     findStatusByWorkspace: jest.fn(),
     findByInstallationId: jest.fn(),
+    findAllByInstallationId: jest.fn().mockResolvedValue([]),
     updateRepositories: jest.fn(),
     delete: jest.fn(),
     deleteByInstallationId: jest.fn().mockResolvedValue({ count: 1 }),
@@ -49,6 +50,7 @@ describe('githubAppInstallService', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     repo.deleteByInstallationId.mockResolvedValue({ count: 1 })
+    repo.findAllByInstallationId.mockResolvedValue([])
     ;(fetchAppInstallation as jest.Mock).mockResolvedValue({
       accountLogin: 'acme-inc',
       accountType: 'Organization',
@@ -123,11 +125,13 @@ describe('githubAppInstallService', () => {
 
   describe('applyInstallationEvent', () => {
     it('updates the known workspace row on created', async () => {
-      repo.findByInstallationId.mockResolvedValue({
-        workspaceId: 'w1',
-        installationId: 555,
-        repositories: ['acme-inc/old'],
-      })
+      repo.findAllByInstallationId.mockResolvedValue([
+        {
+          workspaceId: 'w1',
+          installationId: 555,
+          repositories: ['acme-inc/old'],
+        },
+      ])
 
       await githubAppInstallService.applyInstallationEvent({
         action: 'created',
@@ -148,8 +152,25 @@ describe('githubAppInstallService', () => {
       )
     })
 
+    it('updates every workspace bound to a shared installation', async () => {
+      repo.findAllByInstallationId.mockResolvedValue([
+        { workspaceId: 'w1', installationId: 555, repositories: [] },
+        { workspaceId: 'w2', installationId: 555, repositories: [] },
+      ])
+
+      await githubAppInstallService.applyInstallationEvent({
+        action: 'unsuspend',
+        installation: { id: 555 },
+      })
+
+      expect(repo.upsert.mock.calls.map(c => c[0].workspaceId)).toEqual([
+        'w1',
+        'w2',
+      ])
+    })
+
     it('ignores an installation it has never seen instead of guessing a workspace', async () => {
-      repo.findByInstallationId.mockResolvedValue(null)
+      repo.findAllByInstallationId.mockResolvedValue([])
 
       await githubAppInstallService.applyInstallationEvent({
         action: 'created',
@@ -181,11 +202,13 @@ describe('githubAppInstallService', () => {
 
   describe('applyInstallationRepositoriesEvent', () => {
     it('adds and removes repositories without dropping the rest', async () => {
-      repo.findByInstallationId.mockResolvedValue({
-        workspaceId: 'w1',
-        installationId: 555,
-        repositories: ['acme-inc/web', 'acme-inc/legacy'],
-      })
+      repo.findAllByInstallationId.mockResolvedValue([
+        {
+          workspaceId: 'w1',
+          installationId: 555,
+          repositories: ['acme-inc/web', 'acme-inc/legacy'],
+        },
+      ])
 
       await githubAppInstallService.applyInstallationRepositoriesEvent({
         action: 'added',
@@ -209,7 +232,7 @@ describe('githubAppInstallService', () => {
     })
 
     it('does nothing for an unknown installation', async () => {
-      repo.findByInstallationId.mockResolvedValue(null)
+      repo.findAllByInstallationId.mockResolvedValue([])
 
       await githubAppInstallService.applyInstallationRepositoriesEvent({
         action: 'added',

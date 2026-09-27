@@ -507,25 +507,50 @@ export const prSecurityScanRepository = {
   /**
    * LUM-855 — clear the customer-code fields of every scan a workspace owns
    * (finding evidence + call chain; the scan's hunt audit, hunt job and PR
-   * summary) in one transaction. Rows stay: scan history, finding titles and
-   * dispositions still drive DONE gating.
+   * summary) in one transaction. Rows stay: scan history and dispositions
+   * still drive DONE gating.
+   *
+   * LUM-872 — `repos` narrows it to the PRs of those repositories (a repo
+   * removed from the installation). The finding's LLM-written text can quote
+   * code too: `detail` and `suggestedReason` are cleared, and `title` falls
+   * back to the finding's `ruleId` so every list still has something to show.
    */
-  async scrubCodeForWorkspace(workspaceId: string) {
-    const [findings, scans] = await prisma.$transaction([
-      prisma.prSecurityFinding.updateMany({
-        where: { scan: { workspaceId } },
-        data: { evidence: '', callChain: Prisma.DbNull },
-      }),
-      prisma.prSecurityScan.updateMany({
-        where: { workspaceId },
+  async scrubCodeForWorkspace(workspaceId: string, repos?: string[]) {
+    const scanWhere: Prisma.PrSecurityScanWhereInput = {
+      workspaceId,
+      ...(repos ? { pullRequest: { repo: { in: repos } } } : {}),
+    }
+    return prisma.$transaction(async tx => {
+      const rules = await tx.prSecurityFinding.findMany({
+        where: { scan: scanWhere },
+        distinct: ['ruleId'],
+        select: { ruleId: true },
+      })
+      for (const { ruleId } of rules) {
+        await tx.prSecurityFinding.updateMany({
+          where: { scan: scanWhere, ruleId },
+          data: { title: ruleId },
+        })
+      }
+      const findings = await tx.prSecurityFinding.updateMany({
+        where: { scan: scanWhere },
+        data: {
+          evidence: '',
+          callChain: Prisma.DbNull,
+          detail: '',
+          suggestedReason: null,
+        },
+      })
+      const scans = await tx.prSecurityScan.updateMany({
+        where: scanWhere,
         data: {
           huntAudit: Prisma.DbNull,
           huntJob: Prisma.DbNull,
           prSummary: Prisma.DbNull,
         },
-      }),
-    ])
-    return { findings: findings.count, scans: scans.count }
+      })
+      return { findings: findings.count, scans: scans.count }
+    })
   },
 
   /** `startedAt` rides along so the service can age out a wedged RUNNING scan. */
