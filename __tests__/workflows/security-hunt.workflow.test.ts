@@ -10,6 +10,7 @@ jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   // LUM-832: undefined → the re-queue is skipped and the run persists as before.
   requeueHuntStep: jest.fn(),
   continueHuntStep: jest.fn(),
+  awaitManagedScanStep: jest.fn(),
 }))
 jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   persistSarifFindingsStep: jest.fn(),

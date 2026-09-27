@@ -45,6 +45,17 @@ export async function planHuntStep(
   return securityHuntService.planHunt(input)
 }
 
+/**
+ * LUM-869 — wait for the managed scan to hand its VM over, in a step of its
+ * own so the wait is not spent out of the first batch's window.
+ */
+export async function awaitManagedScanStep(input: {
+  scanId: string
+}): Promise<boolean> {
+  'use step'
+  return securityHuntService.awaitManagedScan(input)
+}
+
 /** LUM-758 — one bounded batch per PLANNED TASK (was: per category). */
 export async function huntTaskStep(
   input: HuntBatchInput

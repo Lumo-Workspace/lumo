@@ -17,6 +17,7 @@ jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   markHuntFailedStep: jest.fn(),
   requeueHuntStep: jest.fn(),
   continueHuntStep: jest.fn(),
+  awaitManagedScanStep: jest.fn(),
 }))
 jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   persistSarifFindingsStep: jest.fn(),

@@ -147,6 +147,17 @@ export const HUNT_SANDBOX_ATTACH_POLL_MS = 3_000
 export const HUNT_MANAGED_SCAN_DONE_WAIT_MS = 90_000
 
 /**
+ * LUM-869 — how long the hunt waits for the managed scan's hand-off BEFORE
+ * its first batch, in a step of its own (`awaitManagedScanStep`) so the wait
+ * is not spent out of a batch's window. The LUM-852 probe measured a whole
+ * managed scan at 126 s (semgrep ~89 s); the in-batch 90 s above lost that
+ * race and booted a second VM. 240 s clears the measured scan with room and
+ * stays under the step's `maxDuration = 300` (same ceiling as
+ * HUNT_BATCH_WINDOW_CEILING_MS).
+ */
+export const HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS = 240_000
+
+/**
  * LUM-758 §5.1 — how long the credential guard waits for the platform's clone
  * to land, and how often it looks. `findRepoSandboxByTag` accepts a `pending`
  * VM on purpose, so the hunt can be holding a VM whose checkout does not
