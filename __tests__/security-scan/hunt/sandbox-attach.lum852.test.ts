@@ -39,7 +39,7 @@ const deny = denySandboxEgress as jest.Mock
 const mint = getRepoCloneToken as jest.Mock
 const revoke = revokeInstallationToken as jest.Mock
 
-const TOKEN = 'ghs_HUNTCLONETOKEN0123456789ab'
+const TOKEN = 'fake-hunt-clone-token'
 const CLEAN_CONFIG = '[remote "origin"]\n\turl = https://github.com/o/r.git\n'
 const JOB = {
   scanId: 's1',
