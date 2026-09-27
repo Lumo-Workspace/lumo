@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useIntl } from 'react-intl'
 import type { DetailBlock, TimelineItem } from './merge-events'
 
 interface TimelineProps {
@@ -95,7 +96,45 @@ function TimelineRow({ item }: { item: TimelineItem }) {
   )
 }
 
+function RedactedBlockView({
+  label,
+  lines,
+  bytes,
+}: {
+  label: string
+  lines: number
+  bytes: number
+}) {
+  const intl = useIntl()
+  return (
+    <div className='text-xs'>
+      <div className='mb-1 text-[10px] uppercase tracking-wide text-muted-foreground'>
+        {label}
+      </div>
+      <p className='rounded-sm border border-dashed p-2 text-muted-foreground'>
+        {intl.formatMessage(
+          {
+            id: 'sessionTimeline.contentNotRetained',
+            defaultMessage:
+              'Content not retained ({lines, plural, one {# line} other {# lines}}, {bytes, number} bytes). Lumo keeps paths and sizes, not your code.',
+          },
+          { lines, bytes }
+        )}
+      </p>
+    </div>
+  )
+}
+
 function DetailBlockView({ block }: { block: DetailBlock }) {
+  if (block.redacted) {
+    return (
+      <RedactedBlockView
+        label={block.label}
+        lines={block.redacted.lines}
+        bytes={block.redacted.bytes}
+      />
+    )
+  }
   const variantClass =
     block.variant === 'error'
       ? 'border-red-300 bg-red-50 text-red-900'

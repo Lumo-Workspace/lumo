@@ -1,5 +1,8 @@
 import { logger } from '@/lib/logger'
-import { githubAppInstallationRepository } from '@/lib/repositories'
+import {
+  githubAppInstallationRepository,
+  prSecurityScanRepository,
+} from '@/lib/repositories'
 import {
   fetchAppInstallation,
   fetchInstallationRepositories,
@@ -28,6 +31,20 @@ function fullNames(repos: { full_name?: string }[] | undefined): string[] {
   return (repos ?? [])
     .map(r => r.full_name)
     .filter((n): n is string => Boolean(n))
+}
+
+/**
+ * LUM-855 — uninstalling the App disposes of the customer code Lumo holds for
+ * that workspace: security-scan evidence, call chains, hunt audit/job and PR
+ * summaries. Scan and finding rows stay so DONE gating and history survive.
+ */
+async function scrubWorkspaceCode(workspaceId: string, reason: string) {
+  const counts =
+    await prSecurityScanRepository.scrubCodeForWorkspace(workspaceId)
+  logger.info(
+    `[github/app] workspace ${workspaceId} ${reason}: scrubbed code from ${counts.scans} scan(s), ${counts.findings} finding(s)`
+  )
+  return counts
 }
 
 /**
@@ -151,6 +168,7 @@ export const githubAppInstallService = {
       )
     }
     await githubAppInstallationRepository.delete(workspaceId)
+    await scrubWorkspaceCode(workspaceId, 'uninstalled from Lumo')
     return { removed: true } as const
   },
 
@@ -172,6 +190,13 @@ export const githubAppInstallService = {
     switch (payload.action) {
       case 'deleted':
       case 'suspend': {
+        // Resolve the workspace before the row goes — the payload carries none.
+        const owner =
+          payload.action === 'deleted'
+            ? await githubAppInstallationRepository.findByInstallationId(
+                installationId
+              )
+            : null
         const { count } =
           await githubAppInstallationRepository.deleteByInstallationId(
             installationId
@@ -179,6 +204,11 @@ export const githubAppInstallService = {
         logger.info(
           `[github/app] installation ${installationId} ${payload.action}: removed ${count} row(s)`
         )
+        // Suspend is reversible (unsuspend restores the App), so only a real
+        // uninstall scrubs the workspace's code.
+        if (owner) {
+          await scrubWorkspaceCode(owner.workspaceId, 'uninstalled on GitHub')
+        }
         return
       }
       case 'created':

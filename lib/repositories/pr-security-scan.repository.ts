@@ -504,6 +504,30 @@ export interface UnnotifiedFindingScan {
 }
 
 export const prSecurityScanRepository = {
+  /**
+   * LUM-855 — clear the customer-code fields of every scan a workspace owns
+   * (finding evidence + call chain; the scan's hunt audit, hunt job and PR
+   * summary) in one transaction. Rows stay: scan history, finding titles and
+   * dispositions still drive DONE gating.
+   */
+  async scrubCodeForWorkspace(workspaceId: string) {
+    const [findings, scans] = await prisma.$transaction([
+      prisma.prSecurityFinding.updateMany({
+        where: { scan: { workspaceId } },
+        data: { evidence: '', callChain: Prisma.DbNull },
+      }),
+      prisma.prSecurityScan.updateMany({
+        where: { workspaceId },
+        data: {
+          huntAudit: Prisma.DbNull,
+          huntJob: Prisma.DbNull,
+          prSummary: Prisma.DbNull,
+        },
+      }),
+    ])
+    return { findings: findings.count, scans: scans.count }
+  },
+
   /** `startedAt` rides along so the service can age out a wedged RUNNING scan. */
   async findByPrAndSha(
     pullRequestId: string,

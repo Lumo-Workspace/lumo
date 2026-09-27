@@ -2513,5 +2513,7 @@
   "testCases.disposition.NOT_A_DEFECT": "不是缺陷",
   "testCases.disposition.blocking": "正在攔截 DONE —— 需要人來裁定：",
   "testCases.disposition.action.KNOWN_DEFECT": "認了，照發",
-  "testCases.disposition.action.NOT_A_DEFECT": "不是缺陷"
+  "testCases.disposition.action.NOT_A_DEFECT": "不是缺陷",
+  "boundary.editChange.notRetained": "Lumo 不保留非測試檔案的內容，請在 PR 中查看這次變更。",
+  "sessionTimeline.contentNotRetained": "內容未保留（{lines, plural, other {# 行}}，{bytes, number} 位元組）。Lumo 只保留路徑和大小，不保留你的程式碼。"
 }

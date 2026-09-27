@@ -5,6 +5,7 @@ import type {
 import { createHash } from 'crypto'
 // LUM-779: single-sourced with the CLI's local-git probe — see the module doc.
 import { TEST_FILE_TARGET } from '../../shared/src/test-file-path'
+import { hasRedactedContent } from '@/lib/hook-payload/redact'
 import {
   scanSecrets,
   type RawSecretFinding,
@@ -1231,7 +1232,13 @@ async function gatherChangeSetContext(
       const fp = readEventFilePath(e.payload)
       if (!fp || !isProductionCodePath(fp)) continue
       const { oldString, newString } = readEditStrings(e.payload)
-      productionSnippets.push(`# ${fp}\n${buildEditDiff(oldString, newString)}`)
+      // Production-code content is not retained on stored events (LUM-855):
+      // the judge still learns the file was co-changed, just not how.
+      const body =
+        oldString == null && newString == null && hasRedactedContent(e.payload)
+          ? '(content not retained)'
+          : buildEditDiff(oldString, newString)
+      productionSnippets.push(`# ${fp}\n${body}`)
     }
     const coChanged = productionSnippets.length > 0
     const joined = productionSnippets.join('\n\n')

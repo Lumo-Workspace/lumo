@@ -20,6 +20,11 @@ jest.mock('@/lib/repositories', () => ({
     findStatusByWorkspace: jest.fn(),
     delete: jest.fn(),
   },
+  prSecurityScanRepository: {
+    scrubCodeForWorkspace: jest
+      .fn()
+      .mockResolvedValue({ scans: 0, findings: 0 }),
+  },
 }))
 jest.mock('@/lib/integrations/github', () => ({
   fetchAppInstallation: jest.fn(),

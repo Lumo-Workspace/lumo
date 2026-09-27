@@ -2513,5 +2513,7 @@
   "testCases.disposition.NOT_A_DEFECT": "Not a defect",
   "testCases.disposition.blocking": "Blocking DONE — a human must rule:",
   "testCases.disposition.action.KNOWN_DEFECT": "Accept and ship",
-  "testCases.disposition.action.NOT_A_DEFECT": "Not a defect"
+  "testCases.disposition.action.NOT_A_DEFECT": "Not a defect",
+  "boundary.editChange.notRetained": "Lumo doesn't keep the content of non-test files. See the change in the PR.",
+  "sessionTimeline.contentNotRetained": "Content not retained ({lines, plural, one {# line} other {# lines}}, {bytes, number} bytes). Lumo keeps paths and sizes, not your code."
 }

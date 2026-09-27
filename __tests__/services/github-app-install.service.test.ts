@@ -14,6 +14,13 @@ jest.mock('@/lib/repositories', () => ({
     delete: jest.fn(),
     deleteByInstallationId: jest.fn().mockResolvedValue({ count: 1 }),
   },
+  // LUM-855: uninstall scrubs the workspace's scan code (real-DB coverage in
+  // __tests__/lib/services/github-app-uninstall-scrub.test.ts).
+  prSecurityScanRepository: {
+    scrubCodeForWorkspace: jest
+      .fn()
+      .mockResolvedValue({ scans: 0, findings: 0 }),
+  },
 }))
 jest.mock('@/lib/integrations/github', () => ({
   fetchAppInstallation: jest.fn(),

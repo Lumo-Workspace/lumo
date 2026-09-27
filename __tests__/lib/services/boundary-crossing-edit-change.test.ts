@@ -18,6 +18,7 @@ import {
   buildEditChangeView,
   EDIT_SNIPPET_CAP,
 } from '@/lib/services/boundary-crossing.service'
+import { stripCodeFromHookPayload } from '@/lib/hook-payload/redact'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
@@ -148,6 +149,40 @@ describe('buildEditChangeView — inline edit diff on a crossing (LUM-452)', () 
     )
     expect(emptyInput!.unavailable).not.toBeNull()
     expect(emptyInput!.prUrl).toBe(pr)
+  })
+
+  it('names redacted non-test content as not retained (LUM-855)', () => {
+    const pr = 'https://github.com/acme/repo/pull/42'
+    const stored = stripCodeFromHookPayload('POST_TOOL_USE', {
+      tool_name: 'Edit',
+      tool_input: {
+        file_path: 'scripts/check.sh',
+        old_string: 'exit 1',
+        new_string: 'exit 0',
+      },
+    })
+    const view = buildEditChangeView(
+      'TEST_TAMPERING',
+      { toolName: 'Edit', payload: stored },
+      pr
+    )
+    expect(view!.unavailable).toBe('NOT_RETAINED')
+    expect(view!.prUrl).toBe(pr)
+
+    // A test-file edit keeps its diff through redaction.
+    const kept = buildEditChangeView(
+      'TEST_TAMPERING',
+      {
+        toolName: 'Edit',
+        payload: stripCodeFromHookPayload(
+          'POST_TOOL_USE',
+          editEvent('a', 'b').payload
+        ),
+      },
+      pr
+    )
+    expect(kept!.unavailable).toBeNull()
+    expect(kept!.newText).toBe('b')
   })
 })
 
