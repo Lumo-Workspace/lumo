@@ -488,6 +488,8 @@
   "github.installSuccess": "Đã cài GitHub App",
   "github.installRequested": "Đã gửi yêu cầu cài đặt. Chủ sở hữu tổ chức cần phê duyệt.",
   "github.installFailed": "Không thể hoàn tất việc cài GitHub App. Vui lòng thử lại.",
+  "github.installNotAuthorized": "GitHub không thể xác nhận tài khoản GitHub của bạn có quyền truy cập bản cài đặt này nên chưa ghi nhận gì. Hãy cài App từ tài khoản có quyền truy cập rồi thử lại.",
+  "github.installVerifyNotConfigured": "Không thể xác minh bản cài đặt GitHub App trên máy chủ này (thiếu GITHUB_APP_CLIENT_ID hoặc GITHUB_APP_CLIENT_SECRET). Hãy nhờ người phụ trách triển khai thiết lập chúng.",
   "github.installNotConfigured": "GitHub App chưa được cấu hình trên máy chủ này (thiếu GITHUB_APP_SLUG). Hãy nhờ người phụ trách triển khai thiết lập.",
   "sentry.title": "Sentry",
   "sentry.description": "Tự động tạo task từ cảnh báo của Sentry.",

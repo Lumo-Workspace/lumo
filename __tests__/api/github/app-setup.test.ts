@@ -6,6 +6,11 @@
  * only when the signed-in caller is a member of that workspace: without that
  * check anyone could redirect their own installation onto someone else's
  * workspace and have Lumo clone their repositories.
+ *
+ * LUM-875: the installation_id is untrusted too, so setup records nothing — it
+ * hands the caller to GitHub to authorize the App, and
+ * /api/github/app/callback (app-callback.test.ts) records the installation only
+ * once GitHub confirms the caller can access it.
  */
 jest.mock('@/lib/auth', () => ({
   requireAuth: jest.fn(),
@@ -20,7 +25,7 @@ jest.mock('@/lib/crypto', () => ({
   },
 }))
 jest.mock('@/lib/services/github-app-install.service', () => ({
-  githubAppInstallService: { install: jest.fn() },
+  githubAppInstallService: { install: jest.fn(), userAuthorizeUrl: jest.fn() },
 }))
 
 import { GET } from '@/app/api/github/app/setup/route'
@@ -30,6 +35,7 @@ import { githubAppInstallService } from '@/lib/services/github-app-install.servi
 const mockRequireAuth = requireAuth as jest.Mock
 const mockGetUserWorkspace = getUserWorkspace as jest.Mock
 const install = githubAppInstallService.install as jest.Mock
+const userAuthorizeUrl = githubAppInstallService.userAuthorizeUrl as jest.Mock
 
 const APP_URL = 'https://app.test'
 
@@ -55,21 +61,50 @@ describe('GET /api/github/app/setup', () => {
       workspace: { slug: 'acme' },
     })
     install.mockResolvedValue({ installationId: 42 })
+    userAuthorizeUrl.mockImplementation(
+      (st: string, redirectUri: string) =>
+        `https://github.com/login/oauth/authorize?state=${st}&redirect_uri=${redirectUri}`
+    )
   })
 
-  it('records the installation for the workspace in the signed state', async () => {
+  it('records nothing and sends the caller to GitHub to prove access to the installation', async () => {
     const res = await GET(
       req(`installation_id=42&setup_action=install&state=${state('w1')}`)
     )
 
-    expect(install).toHaveBeenCalledWith({
+    expect(install).not.toHaveBeenCalled()
+    expect(res.status).toBe(307)
+    expect(res.headers.get('location')).toMatch(
+      /^https:\/\/github\.com\/login\/oauth\/authorize/
+    )
+    const [verifyState, redirectUri] = userAuthorizeUrl.mock.calls[0] as [
+      string,
+      string,
+    ]
+    expect(redirectUri).toBe(`${APP_URL}/api/github/app/callback`)
+    // The installation id rides in the encrypted state, next to the workspace.
+    expect(JSON.parse(/^enc\((.*)\)$/.exec(verifyState)![1]!)).toEqual({
       workspaceId: 'w1',
+      workspaceUrl: 'acme',
       memberId: 'm1',
       installationId: 42,
     })
-    expect(res.status).toBe(307)
+  })
+
+  it('surfaces missing App client credentials instead of installing unverified', async () => {
+    userAuthorizeUrl.mockImplementation(() => {
+      throw Object.assign(new Error('missing'), {
+        code: 'verify_not_configured',
+      })
+    })
+
+    const res = await GET(
+      req(`installation_id=42&setup_action=install&state=${state('w1')}`)
+    )
+
+    expect(install).not.toHaveBeenCalled()
     expect(res.headers.get('location')).toBe(
-      `${APP_URL}/workspace/acme/settings/integrations?github_app=installed`
+      `${APP_URL}/workspace/acme/settings/integrations?github_app_error=verify_not_configured`
     )
   })
 
@@ -111,18 +146,6 @@ describe('GET /api/github/app/setup', () => {
     expect(install).not.toHaveBeenCalled()
     expect(res.headers.get('location')).toBe(
       `${APP_URL}/workspace/acme/settings/integrations?github_app=requested`
-    )
-  })
-
-  it('surfaces a failed installation read as an explicit error, never a silent success redirect', async () => {
-    install.mockRejectedValue(new Error('GitHub 404'))
-
-    const res = await GET(
-      req(`installation_id=42&setup_action=install&state=${state('w1')}`)
-    )
-
-    expect(res.headers.get('location')).toBe(
-      `${APP_URL}/workspace/acme/settings/integrations?github_app_error=install_failed`
     )
   })
 

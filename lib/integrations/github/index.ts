@@ -30,6 +30,15 @@ export type {
   InstallationRepository,
 } from './app-installations'
 
+// App user authorization (LUM-875 — install callback ownership check)
+export {
+  buildAppUserAuthorizeUrl,
+  exchangeAppUserCode,
+  listUserInstallationIds,
+  revokeAppUserToken,
+  GithubAppUserAuthNotConfiguredError,
+} from './app-user-auth'
+
 // Branch utilities
 export {
   parseBranchIdentifier,

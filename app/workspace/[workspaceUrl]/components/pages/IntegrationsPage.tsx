@@ -69,6 +69,12 @@ export function IntegrationsPage({ isOwner }: { isOwner: boolean }) {
       toast.error(intl.formatMessage({ id: 'github.connectFailed' }))
     } else if (appError === 'not_configured') {
       toast.error(intl.formatMessage({ id: 'github.installNotConfigured' }))
+    } else if (appError === 'verify_not_configured') {
+      toast.error(
+        intl.formatMessage({ id: 'github.installVerifyNotConfigured' })
+      )
+    } else if (appError === 'not_authorized') {
+      toast.error(intl.formatMessage({ id: 'github.installNotAuthorized' }))
     } else if (appError) {
       toast.error(intl.formatMessage({ id: 'github.installFailed' }))
     } else if (appResult === 'installed') {

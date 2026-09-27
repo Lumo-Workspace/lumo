@@ -488,6 +488,8 @@
   "github.installSuccess": "已安装 GitHub App",
   "github.installRequested": "已提交安装申请，需要组织所有者批准。",
   "github.installFailed": "未能完成 GitHub App 安装，请重试。",
+  "github.installNotAuthorized": "GitHub 无法确认你的 GitHub 账号能访问该安装，因此未做任何记录。请用有访问权限的账号安装 App 后重试。",
+  "github.installVerifyNotConfigured": "此服务器无法验证 GitHub App 安装（缺少 GITHUB_APP_CLIENT_ID 或 GITHUB_APP_CLIENT_SECRET）。请联系负责部署的人设置。",
   "github.installNotConfigured": "此服务器尚未配置 GitHub App（缺少 GITHUB_APP_SLUG）。请联系负责部署的人设置。",
   "sentry.title": "Sentry",
   "sentry.description": "自动从 Sentry 告警创建任务。",
