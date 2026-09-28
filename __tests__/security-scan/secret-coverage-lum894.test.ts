@@ -430,6 +430,11 @@ describe('LUM-894 missed credential shapes', () => {
     'sort --key 2 data.txt',
     "  'x-api-key': process.env.PARTNER_KEY,",
     '  apiKey: apiKeyFromEnv(),',
+    // Shapes the production stock count surfaced as false positives.
+    'echo "READY $(date -u +%FT%H:%M:%SZ)"',
+    "now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+    "KEY=$(grep '^AI_GATEWAY_API_KEY=' /Users/me/app/.env.local | cut -d= -f2)",
+    'grep -q "^CLERK_SECRET=" .env.local && echo "set"',
   ]
 
   test('LUM-894 missed credential shapes are redacted without touching benign code', () => {

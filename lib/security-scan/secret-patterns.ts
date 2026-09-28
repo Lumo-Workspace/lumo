@@ -295,9 +295,11 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     id: 'env-assignment-quoted',
     title: 'Credential in a quoted environment assignment',
     regex:
-      /(?:(?<=\\[nrt])|(?<![A-Za-z0-9_$.]))(?!(?:NEXT_PUBLIC|VITE|PUBLIC|EXPO_PUBLIC)_)(?:[A-Z][A-Z0-9_]*)?(?:API_?KEY|SECRET(?:_ACCESS)?(?:_KEY)?(?:_BASE)?|ACCESS_KEY|PRIVATE_KEY|AUTH_KEY|TOKEN|PASSWORD|PASSWD|_PASS|PWD|CREDENTIALS?)=\\?(["'])(?![$<{[])((?=[^"'\n\\]*[ \t])[^"'\n\\]{8,200})\\?\1/g,
+      /(?:(?<=\\[nrt])|(?<![A-Za-z0-9_$.]))(?!(?:NEXT_PUBLIC|VITE|PUBLIC|EXPO_PUBLIC)_)(?:[A-Z][A-Z0-9_]*)?(?:API_?KEY|SECRET(?:_ACCESS)?(?:_KEY)?(?:_BASE)?|ACCESS_KEY|PRIVATE_KEY|AUTH_KEY|TOKEN|PASSWORD|PASSWD|_PASS|PWD|CREDENTIALS?)=\\?(["'])(?![$<{[ \t])((?=[^"'\n\\]*[ \t])[^"'\n\\]{7,199}[^"'\n\\ \t])\\?\1/g,
     severity: 'MEDIUM',
     group: 2,
+    // A value never starts or ends with a space: in `grep '^API_KEY=' .env`
+    // the quote after `=` closes the pattern, it does not open a value.
     accept: v => !REFERENCE.test(v),
   },
   {
@@ -377,10 +379,11 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     id: 'cli-user-password',
     title: 'Password in a user:password flag',
     regex:
-      /(?<![A-Za-z0-9-])(?:-u|--user)(?:=|[ \t]+)['"]?(?![-$<{[])[^\s:'"]+:(?![$<{[])([^\s'"@]{3,})/g,
+      /(?<![A-Za-z0-9-])(?:-u|--user)(?:=|[ \t]+)['"]?(?![-+%$<{[])[^\s:'"%]+:(?![$<{[%])([^\s'"@]{3,})/g,
     severity: 'MEDIUM',
     group: 1,
-    accept: v => !/^\d+$/.test(v),
+    // `-u 1000:1000` is a uid:gid; `date -u +%H:%M` is a format (LUM-894 stock).
+    accept: v => !/^\d+$/.test(v) && !v.includes('%'),
   },
   {
     id: 'cli-short-password-flag',
