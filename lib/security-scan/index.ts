@@ -32,7 +32,9 @@ export {
 } from './redact'
 export {
   SECRET_PATTERNS,
+  isCrossingAdvisoryRule,
   isDowngradedPath,
+  isNonSecretShapeValue,
   isPlaceholderValue,
 } from './secret-patterns'
 export {
