@@ -7,8 +7,12 @@ export interface UpsertGitHubAppInstallationData {
   accountType?: string | null
   repositories?: string[]
   installedBy?: string | null
-  /** LUM-882 — only written when given; webhook upserts leave it alone. */
-  verifierLogin?: string
+  /**
+   * LUM-882 — only written when given; webhook upserts leave it alone.
+   * LUM-888 — together with the account's immutable id; writing a verifier
+   * starts a new verification version.
+   */
+  verifier?: { login: string; githubId: number }
 }
 
 export const githubAppInstallationRepository = {
@@ -38,6 +42,7 @@ export const githubAppInstallationRepository = {
         verifierLogin: true,
         accessRemovedCount: true,
         accessRemovedAt: true,
+        accessRemovedReason: true,
       },
     })
   },
@@ -58,6 +63,8 @@ export const githubAppInstallationRepository = {
         installationId: true,
         repositories: true,
         verifierLogin: true,
+        verifierGithubId: true,
+        verifiedAt: true,
       },
       orderBy: { createdAt: 'asc' },
     })
@@ -73,17 +80,22 @@ export const githubAppInstallationRepository = {
         accountType: data.accountType ?? null,
         repositories: data.repositories ?? [],
         installedBy: data.installedBy ?? null,
-        verifierLogin: data.verifierLogin ?? null,
+        verifierLogin: data.verifier?.login ?? null,
+        verifierGithubId: data.verifier?.githubId ?? null,
+        verifiedAt: data.verifier ? new Date() : null,
       },
       update: {
         installationId: data.installationId,
         accountLogin: data.accountLogin ?? null,
         accountType: data.accountType ?? null,
         repositories: data.repositories ?? [],
-        ...(data.verifierLogin !== undefined && {
-          verifierLogin: data.verifierLogin,
+        ...(data.verifier && {
+          verifierLogin: data.verifier.login,
+          verifierGithubId: data.verifier.githubId,
+          verifiedAt: new Date(),
           accessRemovedCount: 0,
           accessRemovedAt: null,
+          accessRemovedReason: null,
           accessCheckCursor: null,
         }),
       },
@@ -93,44 +105,59 @@ export const githubAppInstallationRepository = {
   /**
    * LUM-882 — an owner re-verified: the confirmed list is what this verifier
    * reads now, so the recheck follows them and any earlier removal notice or
-   * half-finished recheck is stale.
+   * half-finished recheck is stale. LUM-888 — a new `verifiedAt` is what
+   * makes it stale: a recheck in flight is discarded even when the same login
+   * re-verified.
    */
   async recordVerification(
     workspaceId: string,
     repositories: string[],
-    verifierLogin: string
+    verifier: { login: string; githubId: number }
   ) {
     return prisma.gitHubAppInstallation.update({
       where: { workspaceId },
       data: {
         repositories,
-        verifierLogin,
+        verifierLogin: verifier.login,
+        verifierGithubId: verifier.githubId,
+        verifiedAt: new Date(),
         accessRemovedCount: 0,
         accessRemovedAt: null,
+        accessRemovedReason: null,
         accessCheckCursor: null,
       },
       select: { id: true },
     })
   },
 
-  /** LUM-882 — installations the access recheck can run on. */
+  /**
+   * LUM-882 — installations the access recheck can run on. LUM-888 — the
+   * longest-waiting first (never-checked before all), so a sweep the time
+   * budget cuts short picks up where the last one left off.
+   */
   async findAllWithVerifier() {
     return prisma.gitHubAppInstallation.findMany({
-      where: { verifierLogin: { not: null } },
+      where: { verifierLogin: { not: null }, verifiedAt: { not: null } },
       select: {
         workspaceId: true,
         installationId: true,
         repositories: true,
         verifierLogin: true,
+        verifierGithubId: true,
+        verifiedAt: true,
         accessCheckCursor: true,
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: [
+        { accessCheckedAt: { sort: 'asc', nulls: 'first' } },
+        { createdAt: 'asc' },
+      ],
     })
   },
 
   /**
-   * LUM-882 — the fields the access recheck narrows, plus `updatedAt` as the
-   * version for `updateRecheckIfUnchanged`.
+   * LUM-882 — the fields the access recheck narrows, plus the versions
+   * `updateRecheckIfUnchanged` checks: `verifiedAt` (which verification the
+   * result belongs to) and `updatedAt` (any other write since the read).
    */
   async findRecheckState(workspaceId: string) {
     return prisma.gitHubAppInstallation.findUnique({
@@ -138,6 +165,7 @@ export const githubAppInstallationRepository = {
       select: {
         repositories: true,
         verifierLogin: true,
+        verifiedAt: true,
         accessRemovedCount: true,
         updatedAt: true,
       },
@@ -146,23 +174,27 @@ export const githubAppInstallationRepository = {
 
   /**
    * LUM-882 — write a recheck result only if the row is still the version it
-   * was computed from (same verifier, same `updatedAt`). Returns whether it
-   * was written; the caller decides what a lost race means.
+   * was computed from (same verification, same `updatedAt`). Returns whether
+   * it was written; the caller decides what a lost race means.
    */
   async updateRecheckIfUnchanged(
     workspaceId: string,
-    expected: { verifierLogin: string; updatedAt: Date },
+    expected: { verifiedAt: Date; updatedAt: Date },
     data: {
       repositories: string[]
       accessCheckCursor?: string | null
+      accessCheckedAt?: Date
       accessRemovedCount?: number
       accessRemovedAt?: Date
+      accessRemovedReason?: string
+      verifierLogin?: string
+      verifierGithubId?: number
     }
   ) {
     const { count } = await prisma.gitHubAppInstallation.updateMany({
       where: {
         workspaceId,
-        verifierLogin: expected.verifierLogin,
+        verifiedAt: expected.verifiedAt,
         updatedAt: expected.updatedAt,
       },
       data,

@@ -16,7 +16,7 @@ jest.mock('@/lib/repositories', () => ({
 jest.mock('@/lib/integrations/github', () => ({
   createInstallationToken: jest.fn(),
   checkRepositoryReadAccess: jest.fn(),
-  checkUserExists: jest.fn(),
+  lookupGitHubUser: jest.fn(),
   INSTALLATION_TOKEN_PERMISSIONS: jest.requireActual(
     '@/lib/integrations/github/token-permissions'
   ).INSTALLATION_TOKEN_PERMISSIONS,
@@ -33,7 +33,7 @@ import { githubAppInstallationRepository } from '@/lib/repositories'
 import {
   createInstallationToken,
   checkRepositoryReadAccess,
-  checkUserExists,
+  lookupGitHubUser,
 } from '@/lib/integrations/github'
 import { scrubWorkspaceCode } from '@/lib/services/github-app-install.service'
 
@@ -53,45 +53,51 @@ function answers(map: Record<string, Access>, remaining = 4000) {
   }))
 }
 
+const VERSION = new Date('2026-09-27T00:00:00Z')
+
 function row(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     workspaceId: 'w1',
     installationId: 42,
     repositories: ['acme/api', 'acme/web', 'acme/payroll'],
     verifierLogin: 'octo',
+    verifierGithubId: null,
+    verifiedAt: VERSION,
     accessCheckCursor: null,
     ...overrides,
   }
 }
 
 /**
- * What the service wrote, in the shape (workspace, verifier, removed names,
- * cursor) — `cursor` is `undefined` when the write left it alone.
+ * What the service wrote, in the shape (workspace, removed names, cursor) —
+ * `cursor` is `undefined` when the write left it alone.
  */
 const applied = jest.fn()
-const VERSION = new Date('2026-09-27T00:00:00Z')
 
-/** A row whose current confirmed list is `current`; writes always land. */
+/**
+ * A row whose current confirmed list is `current`; writes always land.
+ * `verifiedAt` per workspace stands for a re-verification since the read.
+ */
 function applyLikeTheRow(
   current: string[],
-  verifiers: Record<string, string> = {}
+  verifiedAt: Record<string, Date> = {}
 ) {
   repo.findRecheckState.mockImplementation(async (ws: string) => ({
     repositories: current,
-    verifierLogin: verifiers[ws] ?? 'octo',
+    verifierLogin: 'octo',
+    verifiedAt: verifiedAt[ws] ?? VERSION,
     accessRemovedCount: 0,
     updatedAt: VERSION,
   }))
   repo.updateRecheckIfUnchanged.mockImplementation(
     async (
       ws: string,
-      expected: { verifierLogin: string },
+      _expected: unknown,
       data: { repositories: string[]; accessCheckCursor?: string | null }
     ) => {
       const kept = new Set(data.repositories)
       applied(
         ws,
-        expected.verifierLogin,
         current.filter(n => !kept.has(n)),
         'accessCheckCursor' in data ? data.accessCheckCursor : undefined
       )
@@ -103,7 +109,13 @@ function applyLikeTheRow(
 beforeEach(() => {
   jest.clearAllMocks()
   ;(createInstallationToken as jest.Mock).mockResolvedValue('inst-token')
-  ;(checkUserExists as jest.Mock).mockResolvedValue(true)
+  // Legacy rows are looked up by login, rows with an id by id.
+  ;(lookupGitHubUser as jest.Mock).mockImplementation(
+    async (_token: string, who: { id?: number; login?: string }) =>
+      who.id !== undefined
+        ? { id: who.id, login: 'octo' }
+        : { id: 7, login: who.login }
+  )
   repo.findAllByInstallationId.mockResolvedValue([])
   applyLikeTheRow(row().repositories as string[])
   answers({})
@@ -123,7 +135,7 @@ describe('recheck narrows to what the verifier can still read', () => {
     })
     expect(access).toHaveBeenCalledWith('inst-token', 'acme/web', 'octo')
     expect(access).toHaveBeenCalledTimes(3)
-    expect(applied).toHaveBeenCalledWith('w1', 'octo', ['acme/payroll'], null)
+    expect(applied).toHaveBeenCalledWith('w1', ['acme/payroll'], null)
     expect(scrubWorkspaceCode).toHaveBeenCalledWith('w1', expect.any(String), [
       'acme/payroll',
     ])
@@ -137,7 +149,7 @@ describe('recheck narrows to what the verifier can still read', () => {
 
     await githubAccessRecheckService.sweep()
 
-    expect(applied).toHaveBeenCalledWith('w1', 'octo', [], null)
+    expect(applied).toHaveBeenCalledWith('w1', [], null)
     expect(scrubWorkspaceCode).not.toHaveBeenCalled()
   })
 
@@ -158,7 +170,7 @@ describe('recheck narrows to what the verifier can still read', () => {
 
     const summary = await githubAccessRecheckService.sweep()
 
-    expect(applied).toHaveBeenCalledWith('w1', 'octo', ['acme/r03'], 'acme/r07')
+    expect(applied).toHaveBeenCalledWith('w1', ['acme/r03'], 'acme/r07')
     expect(summary).toMatchObject({ checked: 8, removed: 1, paused: 1 })
   })
 
@@ -172,7 +184,7 @@ describe('recheck narrows to what the verifier can still read', () => {
     answers({}, 900)
 
     await githubAccessRecheckService.sweep()
-    expect(applied).toHaveBeenLastCalledWith('w1', 'octo', [], 'acme/r07')
+    expect(applied).toHaveBeenLastCalledWith('w1', [], 'acme/r07')
 
     access.mockClear()
     answers({ 'acme/r11': 'unreadable' })
@@ -187,7 +199,7 @@ describe('recheck narrows to what the verifier can still read', () => {
       'acme/r10',
       'acme/r11',
     ])
-    expect(applied).toHaveBeenLastCalledWith('w1', 'octo', ['acme/r11'], null)
+    expect(applied).toHaveBeenLastCalledWith('w1', ['acme/r11'], null)
   })
 
   it('stops at the time budget and keeps the rest for the next run', async () => {
@@ -210,7 +222,7 @@ describe('recheck narrows to what the verifier can still read', () => {
     } finally {
       Date.now = realNow
     }
-    expect(applied).toHaveBeenCalledWith('w1', 'octo', [], 'acme/r07')
+    expect(applied).toHaveBeenCalledWith('w1', [], 'acme/r07')
   })
 
   it('lets the other workspaces of a rate-limited installation wait for the next run', async () => {
@@ -229,7 +241,9 @@ describe('recheck narrows to what the verifier can still read', () => {
 
   it('discards the result when an owner re-verified during the run', async () => {
     repo.findAllWithVerifier.mockResolvedValue([row()])
-    applyLikeTheRow(row().repositories as string[], { w1: 'new-owner' })
+    applyLikeTheRow(row().repositories as string[], {
+      w1: new Date('2026-09-27T02:00:00Z'),
+    })
     answers({ 'acme/payroll': 'unreadable' })
 
     await githubAccessRecheckService.sweep()
@@ -252,7 +266,6 @@ describe('verifier gone empties the list and legacy rows are skipped', () => {
 
     expect(applied).toHaveBeenCalledWith(
       'w1',
-      'octo',
       ['acme/api', 'acme/web', 'acme/payroll'],
       null
     )
@@ -266,14 +279,13 @@ describe('verifier gone empties the list and legacy rows are skipped', () => {
   it('empties the list in one step when the verifier account no longer exists', async () => {
     repo.findAllWithVerifier.mockResolvedValue([row()])
     applyLikeTheRow(row().repositories as string[])
-    ;(checkUserExists as jest.Mock).mockResolvedValue(false)
+    ;(lookupGitHubUser as jest.Mock).mockResolvedValue('gone')
 
     await githubAccessRecheckService.sweep()
 
     expect(access).not.toHaveBeenCalled()
     expect(applied).toHaveBeenCalledWith(
       'w1',
-      'octo',
       ['acme/api', 'acme/web', 'acme/payroll'],
       null
     )
@@ -282,7 +294,7 @@ describe('verifier gone empties the list and legacy rows are skipped', () => {
 
   it('changes nothing when GitHub cannot say whether the verifier exists', async () => {
     repo.findAllWithVerifier.mockResolvedValue([row()])
-    ;(checkUserExists as jest.Mock).mockResolvedValue(null)
+    ;(lookupGitHubUser as jest.Mock).mockResolvedValue(null)
 
     await githubAccessRecheckService.sweep()
 
@@ -321,7 +333,7 @@ describe('targeted repository recheck', () => {
       row({ workspaceId: 'w2', verifierLogin: 'other' }),
       row({ workspaceId: 'w3', repositories: ['acme/api'] }),
     ])
-    applyLikeTheRow(['Acme/Web'], { w2: 'other' })
+    applyLikeTheRow(['Acme/Web'])
     answers({ 'acme/web': 'unreadable' })
 
     const result = await githubAccessRecheckService.recheckRepository(
@@ -333,7 +345,7 @@ describe('targeted repository recheck', () => {
     expect(access).toHaveBeenCalledWith('inst-token', 'Acme/Web', 'other')
     expect(access).toHaveBeenCalledTimes(2)
     // A targeted recheck never moves a running sweep's cursor.
-    expect(applied).toHaveBeenCalledWith('w1', 'octo', ['Acme/Web'], undefined)
+    expect(applied).toHaveBeenCalledWith('w1', ['Acme/Web'], undefined)
     expect(result).toEqual({ removed: 2 })
   })
 })
@@ -344,6 +356,7 @@ describe('recheck writes against the current row', () => {
     repo.findRecheckState.mockResolvedValue({
       repositories: ['acme/api', 'acme/web', 'acme/payroll'],
       verifierLogin: 'octo',
+      verifiedAt: VERSION,
       accessRemovedCount: 0,
       updatedAt: VERSION,
     })
@@ -354,7 +367,9 @@ describe('recheck writes against the current row', () => {
 
     expect(repo.findRecheckState).toHaveBeenCalledTimes(2)
     expect(repo.updateRecheckIfUnchanged).toHaveBeenCalledTimes(2)
-    expect(scrubWorkspaceCode).not.toHaveBeenCalled()
+    // LUM-888 — the code went before the (lost) write, and only once: the
+    // retry does not scrub the same repository again.
+    expect(scrubWorkspaceCode).toHaveBeenCalledTimes(1)
   })
 
   it('writes against the re-read version and adds to the removal count', async () => {
@@ -363,6 +378,7 @@ describe('recheck writes against the current row', () => {
     repo.findRecheckState.mockResolvedValue({
       repositories: ['acme/web', 'acme/payroll'],
       verifierLogin: 'octo',
+      verifiedAt: VERSION,
       accessRemovedCount: 2,
       updatedAt: reread,
     })
@@ -373,13 +389,150 @@ describe('recheck writes against the current row', () => {
 
     const [ws, expected, data] = repo.updateRecheckIfUnchanged.mock.calls[0]
     expect(ws).toBe('w1')
-    expect(expected).toEqual({ verifierLogin: 'octo', updatedAt: reread })
+    expect(expected).toEqual({ verifiedAt: VERSION, updatedAt: reread })
     expect(data.repositories).toEqual(['acme/web'])
     expect(data.accessRemovedCount).toBe(3)
     expect(data.accessRemovedAt).toBeInstanceOf(Date)
+    expect(data.accessRemovedReason).toBe('access_lost')
+    expect(data.accessCheckedAt).toBeInstanceOf(Date)
     expect(scrubWorkspaceCode).toHaveBeenCalledWith('w1', expect.any(String), [
       'acme/payroll',
     ])
+  })
+})
+
+describe('LUM-888 scrub before narrowing, isolated failures', () => {
+  it('LUM-888 scrub failure keeps the repository and the sweep moves on', async () => {
+    repo.findAllWithVerifier.mockResolvedValue([
+      row(),
+      row({ workspaceId: 'w2', installationId: 43 }),
+    ])
+    applyLikeTheRow(row().repositories as string[])
+    answers({ 'acme/payroll': 'unreadable' })
+    ;(scrubWorkspaceCode as jest.Mock).mockRejectedValueOnce(
+      new Error('db down')
+    )
+
+    const summary = await githubAccessRecheckService.sweep()
+
+    // w1: the scrub threw before anything was written, so payroll is still
+    // on its confirmed list and the next run asks, and scrubs, again.
+    const writtenFor = repo.updateRecheckIfUnchanged.mock.calls.map(c => c[0])
+    expect(writtenFor).not.toContain('w1')
+    // w2, on the next installation, was still rechecked and narrowed.
+    expect(createInstallationToken).toHaveBeenCalledWith(43, expect.anything())
+    expect(applied).toHaveBeenCalledWith('w2', ['acme/payroll'], null)
+    expect(scrubWorkspaceCode).toHaveBeenLastCalledWith(
+      'w2',
+      expect.any(String),
+      ['acme/payroll']
+    )
+    expect(summary).toMatchObject({ workspaces: 1, failed: 1, removed: 1 })
+  })
+
+  it('a GitHub call that throws for one installation does not stop the next', async () => {
+    repo.findAllWithVerifier.mockResolvedValue([
+      row(),
+      row({ workspaceId: 'w2', installationId: 43 }),
+    ])
+    applyLikeTheRow(row().repositories as string[])
+    ;(lookupGitHubUser as jest.Mock)
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValue({ id: 7, login: 'octo' })
+
+    const summary = await githubAccessRecheckService.sweep()
+
+    expect(applied).toHaveBeenCalledWith('w2', [], null)
+    expect(summary).toMatchObject({ workspaces: 1, failed: 1 })
+  })
+})
+
+describe('LUM-888 verifier followed by GitHub user id', () => {
+  it('LUM-888 renamed verifier is followed by id', async () => {
+    // Renamed: asked by id, answered under the new login.
+    repo.findAllWithVerifier.mockResolvedValue([row({ verifierGithubId: 7 })])
+    applyLikeTheRow(row().repositories as string[])
+    ;(lookupGitHubUser as jest.Mock).mockResolvedValue({
+      id: 7,
+      login: 'octo-renamed',
+    })
+
+    const renamed = await githubAccessRecheckService.sweep()
+
+    expect(lookupGitHubUser).toHaveBeenCalledWith('inst-token', { id: 7 })
+    expect(lookupGitHubUser).not.toHaveBeenCalledWith('inst-token', {
+      login: 'octo',
+    })
+    const logins = new Set(access.mock.calls.map(c => c[2]))
+    expect([...logins]).toEqual(['octo-renamed'])
+    const data = repo.updateRecheckIfUnchanged.mock.calls[0][2]
+    expect(data).toMatchObject({
+      repositories: ['acme/api', 'acme/web', 'acme/payroll'],
+      verifierLogin: 'octo-renamed',
+      verifierGithubId: 7,
+    })
+    expect(data.accessRemovedCount).toBeUndefined()
+    expect(renamed.removed).toBe(0)
+    expect(scrubWorkspaceCode).not.toHaveBeenCalled()
+
+    // Deleted: every repository goes, and the notice names the reason.
+    jest.clearAllMocks()
+    ;(createInstallationToken as jest.Mock).mockResolvedValue('inst-token')
+    ;(lookupGitHubUser as jest.Mock).mockResolvedValue('gone')
+    applyLikeTheRow(row().repositories as string[])
+
+    await githubAccessRecheckService.sweep()
+
+    expect(access).not.toHaveBeenCalled()
+    const gone = repo.updateRecheckIfUnchanged.mock.calls[0][2]
+    expect(gone).toMatchObject({
+      repositories: [],
+      accessRemovedCount: 3,
+      accessRemovedReason: 'account_gone',
+    })
+    expect(scrubWorkspaceCode).toHaveBeenCalledWith('w1', expect.any(String), [
+      'acme/api',
+      'acme/web',
+      'acme/payroll',
+    ])
+
+    // The settings-card wording for this reason: GitHubAccessNotices.test.tsx.
+  })
+
+  it('records the id the first time a legacy row is looked up by login', async () => {
+    repo.findAllWithVerifier.mockResolvedValue([row()])
+    applyLikeTheRow(row().repositories as string[])
+
+    await githubAccessRecheckService.sweep()
+
+    expect(lookupGitHubUser).toHaveBeenCalledWith('inst-token', {
+      login: 'octo',
+    })
+    expect(repo.updateRecheckIfUnchanged.mock.calls[0][2]).toMatchObject({
+      verifierLogin: 'octo',
+      verifierGithubId: 7,
+    })
+  })
+
+  it('a targeted recheck asks about the renamed login, not the stored one', async () => {
+    repo.findAllByInstallationId.mockResolvedValue([
+      row({ verifierGithubId: 7 }),
+    ])
+    applyLikeTheRow(['acme/web'])
+    ;(lookupGitHubUser as jest.Mock).mockResolvedValue({
+      id: 7,
+      login: 'octo-renamed',
+    })
+    answers({ 'acme/web': 'unreadable' })
+
+    await githubAccessRecheckService.recheckRepository(42, 'acme/web')
+
+    expect(access).toHaveBeenCalledWith(
+      'inst-token',
+      'acme/web',
+      'octo-renamed'
+    )
+    expect(applied).toHaveBeenCalledWith('w1', ['acme/web'], undefined)
   })
 })
 

@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 
 /**
@@ -21,6 +22,10 @@ import { NextRequest, NextResponse } from 'next/server'
  * new route gets it by calling this rather than by remembering.
  *
  * Returns a 401 response to return, or `null` when the caller may proceed.
+ *
+ * LUM-888 — the header is compared in constant time. Both sides are hashed
+ * first so `timingSafeEqual` gets equal lengths and the secret's length does
+ * not leak through an early length mismatch.
  */
 export function requireCronAuth(req: NextRequest): NextResponse | null {
   const secret = process.env.CRON_SECRET
@@ -29,8 +34,14 @@ export function requireCronAuth(req: NextRequest): NextResponse | null {
   if (!secret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  if (req.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!sameSecret(req.headers.get('authorization') ?? '', `Bearer ${secret}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   return null
+}
+
+/** Constant-time string equality (LUM-888). */
+export function sameSecret(given: string, expected: string): boolean {
+  const digest = (value: string) => createHash('sha256').update(value).digest()
+  return timingSafeEqual(digest(given), digest(expected))
 }

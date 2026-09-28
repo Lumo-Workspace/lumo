@@ -2590,6 +2590,7 @@
   "security.report.body": "If you believe you have found a security vulnerability in Lumo, email {email} with steps to reproduce it. Please give us reasonable time to fix it before disclosing it publicly.",
   "security.report.securityTxt": "The same contact is published in machine-readable form at {path}.",
   "github.accessRemoved": "{count, plural, one {# repository was} other {# repositories were}} removed automatically: the person who last verified GitHub access can no longer read {count, plural, one {it} other {them}}. Their scan code was deleted.",
+  "github.accessRemovedAccountGone": "{count, plural, one {# repository was} other {# repositories were}} removed automatically: the GitHub account that last verified access no longer exists (it was deleted, or renamed before Lumo recorded its account ID). Their scan code was deleted. A workspace owner can re-verify GitHub access to restore the repositories they can read.",
   "github.accessRecheckOff": "Automatic access checks are off for this installation. A workspace owner needs to re-verify once to turn them on.",
   "workspaceSettings.securityScan.title": "PR security scanning",
   "workspaceSettings.securityScan.description": "What Lumo runs on pull requests linked to this workspace's tasks. Turning a layer off stops it for new scans; results already on a PR are kept.",

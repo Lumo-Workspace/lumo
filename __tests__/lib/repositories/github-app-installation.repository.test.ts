@@ -79,6 +79,8 @@ describe('githubAppInstallationRepository', () => {
         repositories: ['acme/web'],
         installedBy: 'mem_1',
         verifierLogin: null,
+        verifierGithubId: null,
+        verifiedAt: null,
       },
       update: {
         installationId: 42,
@@ -104,12 +106,17 @@ describe('githubAppInstallationRepository', () => {
         workspaceId: 'ws_1',
         installationId: 42,
         repositories: ['acme/web'],
-        verifierLogin: 'octo',
+        verifier: { login: 'octo', githubId: 7 },
       })
       const arg = prismaMock.gitHubAppInstallation.upsert.mock.calls[0][0]
       expect(arg.create.verifierLogin).toBe('octo')
+      expect(arg.create.verifierGithubId).toBe(7)
+      expect(arg.create.verifiedAt).toBeInstanceOf(Date)
+      expect(arg.update.verifiedAt).toBeInstanceOf(Date)
       expect(arg.update).toMatchObject({
         verifierLogin: 'octo',
+        verifierGithubId: 7,
+        accessRemovedReason: null,
         accessRemovedCount: 0,
         accessRemovedAt: null,
         accessCheckCursor: null,
@@ -120,14 +127,17 @@ describe('githubAppInstallationRepository', () => {
       await githubAppInstallationRepository.recordVerification(
         'ws_1',
         ['acme/web'],
-        'octo'
+        { login: 'octo', githubId: 7 }
       )
       expect(prismaMock.gitHubAppInstallation.update).toHaveBeenCalledWith({
         where: { workspaceId: 'ws_1' },
         data: {
           repositories: ['acme/web'],
           verifierLogin: 'octo',
+          verifierGithubId: 7,
+          verifiedAt: expect.any(Date),
           accessRemovedCount: 0,
+          accessRemovedReason: null,
           accessRemovedAt: null,
           accessCheckCursor: null,
         },
@@ -135,12 +145,17 @@ describe('githubAppInstallationRepository', () => {
       })
     })
 
-    it('findAllWithVerifier only returns rows with a verifier login', async () => {
+    it('findAllWithVerifier only returns verified rows, longest-waiting first', async () => {
       prismaMock.gitHubAppInstallation.findMany.mockResolvedValue([])
       await githubAppInstallationRepository.findAllWithVerifier()
-      expect(
-        prismaMock.gitHubAppInstallation.findMany.mock.calls[0][0].where
-      ).toEqual({ verifierLogin: { not: null } })
+      const arg = prismaMock.gitHubAppInstallation.findMany.mock.calls[0][0]
+      expect(arg.where).toEqual({
+        verifierLogin: { not: null },
+        verifiedAt: { not: null },
+      })
+      expect(arg.orderBy[0]).toEqual({
+        accessCheckedAt: { sort: 'asc', nulls: 'first' },
+      })
     })
 
     it('findRecheckState selects the narrowed fields and the version', async () => {
@@ -151,6 +166,7 @@ describe('githubAppInstallationRepository', () => {
         select: {
           repositories: true,
           verifierLogin: true,
+          verifiedAt: true,
           accessRemovedCount: true,
           updatedAt: true,
         },
@@ -165,14 +181,14 @@ describe('githubAppInstallationRepository', () => {
       const written =
         await githubAppInstallationRepository.updateRecheckIfUnchanged(
           'ws_1',
-          { verifierLogin: 'octo', updatedAt: version },
+          { verifiedAt: version, updatedAt: version },
           { repositories: ['acme/api'], accessCheckCursor: null }
         )
       expect(written).toBe(true)
       expect(prismaMock.gitHubAppInstallation.updateMany).toHaveBeenCalledWith({
         where: {
           workspaceId: 'ws_1',
-          verifierLogin: 'octo',
+          verifiedAt: version,
           updatedAt: version,
         },
         data: { repositories: ['acme/api'], accessCheckCursor: null },
@@ -186,7 +202,7 @@ describe('githubAppInstallationRepository', () => {
       expect(
         await githubAppInstallationRepository.updateRecheckIfUnchanged(
           'ws_1',
-          { verifierLogin: 'octo', updatedAt: new Date() },
+          { verifiedAt: new Date(), updatedAt: new Date() },
           { repositories: [] }
         )
       ).toBe(false)

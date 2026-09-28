@@ -170,6 +170,8 @@ describe('LUM-890 createInstallationToken', () => {
     installationId: 42,
     repositories: ['acme/web'],
     verifierLogin: 'octo',
+    verifierGithubId: null,
+    verifiedAt: new Date('2026-09-27T00:00:00Z'),
     accessCheckCursor: null,
   }
   const cases: Array<[string, () => Promise<unknown>]> = [
