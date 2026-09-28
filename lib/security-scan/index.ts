@@ -5,6 +5,7 @@ export {
   redactKnownSecrets,
   redactForInjection,
   redactForStorage,
+  redactPrivateKeyBlocks,
   MAX_SCANNED_LINE_CHARS,
   type InjectionRedaction,
   type StorageRedaction,
