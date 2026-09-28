@@ -2,6 +2,7 @@ import type { HookEventType, Prisma } from '@prisma/client'
 import { hookEventCodeBackfillRepository } from '@/lib/repositories/hook-event-code-backfill.repository'
 import { redactHookPayload } from '@/lib/validation/hook-payload'
 import {
+  FAILURE_ERROR_CAP,
   REDACTED_FIELD,
   statsOf,
   stripCodeFromHookPayload,
@@ -72,30 +73,50 @@ export function rewriteStoredPayload(
   }
 }
 
-/** Drop `originalFile` (the whole pre-edit file) from one tool_response,
- *  recording its stats under `path`. */
-function dropOriginalFile(
+/** Shell output keys on a Bash tool_response. */
+const SHELL_OUTPUT_KEYS = ['stdout', 'stderr'] as const
+
+/**
+ * Strip one tool_response of a crossing-referenced event: `originalFile` (the
+ * whole pre-edit file) and Bash `stdout` / `stderr` go, their stats recorded
+ * under `prefix.<key>`. On a failure event the shell output is the error that
+ * failure aggregation groups on, so it is capped instead (same rule as ingest).
+ */
+function stripCrossingResponse(
   response: unknown,
-  path: string,
-  marker: Record<string, unknown>
+  prefix: string,
+  marker: Record<string, unknown>,
+  failure: boolean
 ): unknown {
   if (!response || typeof response !== 'object' || Array.isArray(response))
     return response
-  const r = response as Record<string, unknown>
-  if (typeof r.originalFile !== 'string') return response
-  marker[path] = statsOf(r.originalFile)
-  const rest = { ...r }
-  delete rest.originalFile
-  return rest
+  const next = { ...(response as Record<string, unknown>) }
+  if (typeof next.originalFile === 'string') {
+    marker[`${prefix}.originalFile`] = statsOf(next.originalFile)
+    delete next.originalFile
+  }
+  for (const key of SHELL_OUTPUT_KEYS) {
+    const value = next[key]
+    if (typeof value !== 'string') continue
+    if (failure) {
+      next[key] = value.slice(0, FAILURE_ERROR_CAP)
+    } else {
+      marker[`${prefix}.${key}`] = statsOf(value)
+      delete next[key]
+    }
+  }
+  return next
 }
 
 /**
  * The payload a crossing-referenced event should hold, or null when it already
  * matches. These rows keep their tool_input — the crossing panel renders a
- * TEST_TAMPERING edit from it — but get credential redaction (LUM-859) and lose
- * `tool_response.originalFile`, the whole pre-edit file nothing reads.
+ * TEST_TAMPERING edit from it — but get credential redaction (LUM-859) and
+ * lose `tool_response.originalFile` and Bash stdout/stderr, which no crossing
+ * surface reads (see stripCrossingResponse).
  */
 export function rewriteCrossingPayload(
+  type: HookEventType,
   stored: Prisma.JsonValue
 ): StoredPayloadRewrite | null {
   if (!stored || typeof stored !== 'object' || Array.isArray(stored))
@@ -111,11 +132,13 @@ export function rewriteCrossingPayload(
       ? { ...(existing as Record<string, unknown>) }
       : {}
 
+  const failure = type === 'POST_TOOL_USE_FAILURE'
   if ('tool_response' in next) {
-    next.tool_response = dropOriginalFile(
+    next.tool_response = stripCrossingResponse(
       next.tool_response,
-      'tool_response.originalFile',
-      marker
+      'tool_response',
+      marker,
+      failure
     )
   }
   if (Array.isArray(next.tool_calls)) {
@@ -125,10 +148,11 @@ export function rewriteCrossingPayload(
       if (!('tool_response' in c)) return call
       return {
         ...c,
-        tool_response: dropOriginalFile(
+        tool_response: stripCrossingResponse(
           c.tool_response,
-          `tool_calls.${i}.tool_response.originalFile`,
-          marker
+          `tool_calls.${i}.tool_response`,
+          marker,
+          failure
         ),
       }
     })
@@ -171,8 +195,8 @@ export interface CodeBackfillStats {
 
 export const hookEventCodeBackfillService = {
   /**
-   * The crossing-referenced events `run` skips: credential redaction and
-   * `originalFile` removal only (see rewriteCrossingPayload).
+   * The crossing-referenced events `run` skips: credential redaction,
+   * `originalFile` and Bash output removal only (see rewriteCrossingPayload).
    */
   async runCrossingRows(options: {
     dryRun: boolean
@@ -197,7 +221,7 @@ export const hookEventCodeBackfillService = {
       stats.scanned += rows.length
       const updates: { id: string; payload: Prisma.InputJsonValue }[] = []
       for (const row of rows) {
-        const rewrite = rewriteCrossingPayload(row.payload)
+        const rewrite = rewriteCrossingPayload(row.type, row.payload)
         if (!rewrite) continue
         stats.toRewrite++
         stats.bytesBefore += rewrite.bytesBefore

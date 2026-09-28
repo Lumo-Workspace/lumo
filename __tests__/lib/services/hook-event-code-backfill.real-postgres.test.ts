@@ -171,4 +171,24 @@ describe('hook event code backfill on a real Postgres', () => {
     })
     expect(again).toMatchObject({ toRewrite: 0, written: 0 })
   })
+
+  it('crossing-rows pass drops Bash output from a crossing event', async () => {
+    await seedEvent('h1_bash', {
+      tool_name: 'Bash',
+      tool_input: { command: 'git push --no-verify' },
+      tool_response: { stdout: CODE, stderr: '', interrupted: false },
+    })
+    await harness.insert('boundary_crossings', {
+      id: 'bc3',
+      hookEventId: 'h1_bash',
+    })
+    const applied = await hookEventCodeBackfillService.runCrossingRows({
+      dryRun: false,
+    })
+    expect(applied).toMatchObject({ toRewrite: 1, written: 1 })
+    const h1 = JSON.parse(await payloadOf('h1_bash'))
+    expect(h1.tool_input.command).toBe('git push --no-verify')
+    expect(h1.tool_response).toEqual({ interrupted: false })
+    expect(h1._lumo_redacted['tool_response.stdout'].lines).toBe(2)
+  })
 })
