@@ -78,7 +78,7 @@ afterAll(async () => {
 beforeEach(async () => {
   jest.clearAllMocks()
   await db().deleteMany({})
-  await harness.query(`delete from workspaces`)
+  await harness.prisma!.workspace.deleteMany({})
 })
 
 describe('access recheck on a real Postgres', () => {
