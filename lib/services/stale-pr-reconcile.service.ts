@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
 
 /**
  * Opportunistic reconcile of stale-looking PR state (LUM-699).
@@ -105,7 +106,7 @@ export async function reconcileStaleProjectPrs(
 
   if (candidates.length === 0) return 0
 
-  let getRepoToken: (workspaceId: string, repo: string) => Promise<string>
+  let getRepoToken: typeof import('@/lib/integrations/github/auth').getRepoToken
   try {
     // Imported lazily on purpose. The GitHub App auth module pulls in
     // @octokit/auth-app, which ships ESM that jest does not transform — a
@@ -125,7 +126,11 @@ export async function reconcileStaleProjectPrs(
     const key = repo.toLowerCase()
     let token = tokens.get(key)
     if (!token) {
-      token = getRepoToken(workspaceId, repo).catch(() => null)
+      token = getRepoToken(
+        workspaceId,
+        repo,
+        REPO_TOKEN_PERMISSIONS.pullRequestRead
+      ).catch(() => null)
       tokens.set(key, token)
     }
     return token

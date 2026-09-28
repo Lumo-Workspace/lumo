@@ -3,6 +3,7 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
 import { requireConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
+import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
 import {
   fetchPullRequest,
   parsePrUrl,
@@ -27,7 +28,7 @@ async function repoTokenFor(
   // service into every module graph that touches tasks (same reason
   // github.service imports the integration lazily).
   const { getRepoToken } = await import('@/lib/integrations/github/auth')
-  return getRepoToken(workspaceId, repo)
+  return getRepoToken(workspaceId, repo, REPO_TOKEN_PERMISSIONS.pullRequestRead)
 }
 
 export { parsePrUrl }

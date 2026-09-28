@@ -22,6 +22,7 @@
  */
 import { logger } from '@/lib/logger'
 import { getRepoToken } from '@/lib/integrations/github/auth'
+import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
 import {
   prCommentClient,
   GithubApiError,
@@ -568,7 +569,11 @@ export const securityPrReviewService = {
     let inline = 0
     let skipped = 0
     try {
-      const token = await getRepoToken(pr.workspaceId, pr.repo)
+      const token = await getRepoToken(
+        pr.workspaceId,
+        pr.repo,
+        REPO_TOKEN_PERMISSIONS.pullRequestWrite
+      )
 
       // LUM-738: a persisting row (already on the default branch) is not
       // this PR's — it is neither open, nor blocking, nor commented inline.

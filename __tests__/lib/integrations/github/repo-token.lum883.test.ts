@@ -88,7 +88,9 @@ describe('LUM-883 confirmed-list check', () => {
 
 describe('LUM-883 getRepoToken', () => {
   it('refuses to mint a token for an unconfirmed repository', async () => {
-    await expect(getRepoToken('ws_1', 'acme/payroll')).rejects.toMatchObject({
+    await expect(
+      getRepoToken('ws_1', 'acme/payroll', { pull_requests: 'read' })
+    ).rejects.toMatchObject({
       status: 403,
       code: 'repo_not_confirmed',
     })
@@ -101,13 +103,16 @@ describe('LUM-883 getRepoToken', () => {
   })
 
   it('mints a token scoped to the one confirmed repository', async () => {
-    await expect(getRepoToken('ws_1', 'acme/web')).resolves.toBe('ghs_repo')
+    await expect(
+      getRepoToken('ws_1', 'acme/web', { pull_requests: 'read' })
+    ).resolves.toBe('ghs_repo')
     expect(createAppAuthMock).toHaveBeenCalledWith(
       expect.objectContaining({ installationId: 42 })
     )
     expect(authFn).toHaveBeenCalledWith({
       type: 'installation',
       repositoryNames: ['web'],
+      permissions: { pull_requests: 'read' },
     })
   })
 
