@@ -703,7 +703,7 @@ export const boundaryCrossingRepository = {
   async findUnnotifiedOpenByTask(taskId: string) {
     return prisma.boundaryCrossing.findMany({
       where: { taskId, disposition: null, agentNotifiedAt: null },
-      select: { id: true, category: true, severity: true },
+      select: { id: true, category: true, severity: true, advisory: true },
       orderBy: { detectedAt: 'asc' },
     })
   },
