@@ -30,7 +30,7 @@ import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing
 
 // Mock github/auth first to prevent @octokit/auth-app ESM parse error.
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('test-token'),
+  getRepoToken: jest.fn().mockResolvedValue('test-token'),
 }))
 jest.mock('@/lib/integrations/github/contents')
 // LUM-780: the compile triggers a POLICY_WEAKENING re-judge on the project —

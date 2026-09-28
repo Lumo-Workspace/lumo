@@ -15,7 +15,13 @@ export const githubAppInstallationRepository = {
   async findByWorkspace(workspaceId: string) {
     return prisma.gitHubAppInstallation.findUnique({
       where: { workspaceId },
-      select: { id: true, workspaceId: true, installationId: true },
+      // `repositories` is the confirmed list every token mint checks (LUM-883).
+      select: {
+        id: true,
+        workspaceId: true,
+        installationId: true,
+        repositories: true,
+      },
     })
   },
 

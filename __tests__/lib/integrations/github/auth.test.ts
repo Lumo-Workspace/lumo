@@ -10,7 +10,7 @@ jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
 
 import { createAppAuth } from '@octokit/auth-app'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
-import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import { getRepoToken } from '@/lib/integrations/github/auth'
 
 const createAppAuthMock = createAppAuth as unknown as jest.Mock
 const findByWorkspaceMock =
@@ -37,16 +37,17 @@ afterEach(() => {
   process.env = ORIGINAL_ENV
 })
 
-describe('getGithubInstallationToken', () => {
+describe('getRepoToken', () => {
   it('uses the per-workspace installationId when DB has a row', async () => {
     findByWorkspaceMock.mockResolvedValue({
       id: 'gai_1',
       workspaceId: 'ws_1',
       installationId: 42,
+      repositories: ['acme/web'],
     })
     mockAuthReturning('tok_db')
 
-    const token = await getGithubInstallationToken('ws_1')
+    const token = await getRepoToken('ws_1', 'acme/web')
 
     expect(token).toBe('tok_db')
     expect(createAppAuthMock).toHaveBeenCalledWith(
@@ -60,8 +61,8 @@ describe('getGithubInstallationToken', () => {
     findByWorkspaceMock.mockResolvedValue(null)
     mockAuthReturning('tok_env')
 
-    await expect(getGithubInstallationToken('ws_unknown')).rejects.toThrow(
-      /ws_unknown/
+    await expect(getRepoToken('ws_unknown', 'acme/web')).rejects.toThrow(
+      /not installed/
     )
     expect(createAppAuthMock).not.toHaveBeenCalled()
   })
@@ -71,9 +72,10 @@ describe('getGithubInstallationToken', () => {
       id: 'gai_1',
       workspaceId: 'ws_1',
       installationId: 42,
+      repositories: ['acme/web'],
     })
     delete process.env.GITHUB_APP_ID
-    await expect(getGithubInstallationToken('ws_1')).rejects.toThrow(
+    await expect(getRepoToken('ws_1', 'acme/web')).rejects.toThrow(
       /GITHUB_APP_ID/
     )
   })

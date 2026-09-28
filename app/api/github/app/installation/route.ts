@@ -22,8 +22,12 @@ export async function GET(request: NextRequest) {
     )
     if (ws instanceof NextResponse) return ws
 
+    const memberResult = await requireWorkspaceMember(ws.workspaceId, userId)
+    if (memberResult instanceof NextResponse) return memberResult
+
+    // Pending repository names are owner-only (LUM-883).
     return NextResponse.json(
-      await githubAppInstallService.getStatus(ws.workspaceId)
+      await githubAppInstallService.getStatus(ws.workspaceId, memberResult.role)
     )
   } catch (error) {
     logger.error(`GET /api/github/app/installation error: ${String(error)}`)

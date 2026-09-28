@@ -2,6 +2,14 @@
  * @jest-environment node
  */
 
+// LUM-883: the real confirmed-list check runs against this installation row.
+jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
+  githubAppInstallationRepository: {
+    findByWorkspace: jest
+      .fn()
+      .mockResolvedValue({ installationId: 1, repositories: ['org/repo'] }),
+  },
+}))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findWithProject: jest.fn() },
 }))
@@ -36,7 +44,7 @@ jest.mock('@/lib/repositories/tag.repository', () => ({
 }))
 
 jest.mock('@/lib/integrations/github', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoToken: jest.fn(),
 }))
 
 jest.mock('@/lib/task/state-machine', () => ({
@@ -79,6 +87,7 @@ describe('taskService.linkPullRequest', () => {
     mockFindById.mockResolvedValue({
       id: 'pr-1',
       workspaceId: 'ws-1',
+      repo: 'org/repo',
       taskId: null,
       task: null,
     })
@@ -94,6 +103,7 @@ describe('taskService.linkPullRequest', () => {
     mockFindByRepoAndNumber.mockResolvedValue({
       id: 'pr-1',
       workspaceId: 'ws-1',
+      repo: 'org/repo',
       taskId: null,
       task: null,
     })

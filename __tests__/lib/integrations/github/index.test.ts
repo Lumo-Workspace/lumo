@@ -18,8 +18,8 @@ jest.mock('@/lib/db/prisma', () => ({
 import * as githubModule from '@/lib/integrations/github'
 
 describe('lib/integrations/github barrel exports', () => {
-  it('exports getGithubInstallationToken as a function', () => {
-    expect(typeof githubModule.getGithubInstallationToken).toBe('function')
+  it('exports getRepoToken as a function', () => {
+    expect(typeof githubModule.getRepoToken).toBe('function')
   })
 
   it('exports parseBranchIdentifier as a function', () => {
@@ -52,7 +52,7 @@ describe('lib/integrations/github barrel exports', () => {
 
   it('exports all expected public functions', () => {
     const expectedExports = [
-      'getGithubInstallationToken',
+      'getRepoToken',
       'parseBranchIdentifier',
       'splitIdentifier',
       'generateBranchName',

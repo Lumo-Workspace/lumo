@@ -22,7 +22,7 @@ import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing
 
 // Prevent @octokit/auth-app ESM parse error (same guard as policy-compiler tests).
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('test-token'),
+  getRepoToken: jest.fn().mockResolvedValue('test-token'),
 }))
 
 jest.mock('@/lib/services/policy/policy-compiler.service')

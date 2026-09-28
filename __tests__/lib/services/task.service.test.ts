@@ -21,7 +21,7 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 }))
 
 jest.mock('@/lib/integrations/github', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoToken: jest.fn(),
 }))
 
 jest.mock('@/lib/task/state-machine', () => ({

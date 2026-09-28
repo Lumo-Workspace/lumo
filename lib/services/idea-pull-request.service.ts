@@ -6,6 +6,7 @@ import {
   parsePrUrl,
   toPrState,
 } from '@/lib/integrations/github/fetch-pull-request'
+import { requireConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
 import { resolveIdeaRef } from './idea-evidence-resolve'
 
 const err = (message: string, status: number) =>
@@ -24,22 +25,18 @@ const err = (message: string, status: number) =>
 
 /**
  * Reading a PR by URL is done as the workspace's App installation — the
- * machine identity every other GitHub read uses — never with a member's token.
+ * machine identity every other GitHub read uses — never with a member's token,
+ * and only for a repository the workspace has confirmed (LUM-883).
  */
-async function installationTokenOr400(workspaceId: string): Promise<string> {
+async function repoTokenFor(
+  workspaceId: string,
+  repo: string
+): Promise<string> {
   // Lazy: auth.ts loads @octokit/auth-app, which must not ride along with this
   // service into every module graph that touches tasks (same reason
   // github.service imports the integration lazily).
-  const { getGithubInstallationToken } =
-    await import('@/lib/integrations/github/auth')
-  try {
-    return await getGithubInstallationToken(workspaceId)
-  } catch {
-    throw Object.assign(
-      new Error('GitHub App is not installed for this workspace'),
-      { status: 400 }
-    )
-  }
+  const { getRepoToken } = await import('@/lib/integrations/github/auth')
+  return getRepoToken(workspaceId, repo)
 }
 
 export const ideaPullRequestService = {
@@ -122,12 +119,17 @@ async function resolveByPrId(
     // Same wording as the task side; a cross-workspace PR is a 403 there.
     throw err('Pull request belongs to a different workspace', 403)
   }
+  // LUM-883 — a row kept from before its repository left the confirmed list
+  // is not citable evidence either.
+  await requireConfirmedRepository(workspaceId, pr.repo)
   return pr.id
 }
 
 async function resolveByUrl(url: string, workspaceId: string): Promise<string> {
   const parsed = parsePrUrl(url)
   if (!parsed) throw err('Invalid GitHub PR URL', 400)
+  // Before the row lookup and any GitHub read (LUM-883).
+  await requireConfirmedRepository(workspaceId, parsed.repo)
 
   const existing = await pullRequestRepository.findByRepoAndNumber(
     parsed.repo,
@@ -140,7 +142,7 @@ async function resolveByUrl(url: string, workspaceId: string): Promise<string> {
     return existing.id
   }
 
-  const token = await installationTokenOr400(workspaceId)
+  const token = await repoTokenFor(workspaceId, parsed.repo)
 
   const ghPr = await fetchPullRequest({
     token,

@@ -372,21 +372,29 @@ export const githubAppInstallService = {
    * `null` when the live list cannot be read (GitHub error, over the listing
    * cap), so the card never claims there is nothing pending when it does not
    * know.
+   *
+   * LUM-883: owners only. The names of repositories nobody has confirmed are
+   * exactly what the workspace has not agreed to share; other members get the
+   * status without the key (and without the GitHub listing call).
    */
-  async getStatus(workspaceId: string) {
+  async getStatus(workspaceId: string, memberRole: string) {
     const row =
       await githubAppInstallationRepository.findStatusByWorkspace(workspaceId)
     if (!row) return { installed: false } as const
 
-    let pendingRepositories: string[] | null
-    try {
-      const live = await fetchInstallationRepositories(row.installationId)
-      pendingRepositories = without(live, lowerSet(row.repositories))
-    } catch (error) {
-      logger.error(
-        `[github/app] cannot list installation ${row.installationId} for pending repositories: ${String(error)}`
-      )
-      pendingRepositories = null
+    let pending: { pendingRepositories: string[] | null } | undefined
+    if (memberRole === 'OWNER') {
+      try {
+        const live = await fetchInstallationRepositories(row.installationId)
+        pending = {
+          pendingRepositories: without(live, lowerSet(row.repositories)),
+        }
+      } catch (error) {
+        logger.error(
+          `[github/app] cannot list installation ${row.installationId} for pending repositories: ${String(error)}`
+        )
+        pending = { pendingRepositories: null }
+      }
     }
 
     return {
@@ -394,7 +402,7 @@ export const githubAppInstallService = {
       accountLogin: row.accountLogin,
       accountType: row.accountType,
       repositories: row.repositories,
-      pendingRepositories,
+      ...pending,
       // LUM-882 — no verifier on record (bound before LUM-882): the daily
       // recheck skips this installation until an owner re-verifies once.
       accessRecheckEnabled: row.verifierLogin !== null,

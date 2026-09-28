@@ -14,7 +14,7 @@ jest.mock('@/lib/services/security-sarif-blob', () => ({
 // which reaches `github/auth` → `@octokit/auth-app` (ESM, unparseable by
 // jest). Nothing in this suite talks to GitHub, so stub the token source.
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('tok'),
+  getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),

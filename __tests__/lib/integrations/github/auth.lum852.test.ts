@@ -18,7 +18,7 @@ jest.mock('@/lib/logger', () => ({
 import { createAppAuth } from '@octokit/auth-app'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 import {
-  getGithubInstallationToken,
+  getRepoToken,
   createRepoScopedToken,
   getRepoCloneToken,
   revokeInstallationToken,
@@ -54,7 +54,10 @@ afterEach(() => {
 
 describe('LUM-852 clone token scope', () => {
   it('sandbox clone token is scoped to the one repository with contents read', async () => {
-    findByWorkspace.mockResolvedValue({ installationId: 42 })
+    findByWorkspace.mockResolvedValue({
+      installationId: 42,
+      repositories: ['acme/widgets'],
+    })
 
     const token = await getRepoCloneToken('ws_1', 'acme/widgets')
 
@@ -88,7 +91,10 @@ describe('LUM-852 clone token scope', () => {
   })
 
   it('refuses a repository that is not owner/repo', async () => {
-    findByWorkspace.mockResolvedValue({ installationId: 42 })
+    findByWorkspace.mockResolvedValue({
+      installationId: 42,
+      repositories: ['widgets'],
+    })
     await expect(getRepoCloneToken('ws_1', 'widgets')).rejects.toThrow(
       /owner\/repo/
     )
@@ -100,8 +106,8 @@ describe('LUM-852 no cross-tenant fallback', () => {
   it('throws instead of falling back when the workspace has no installation', async () => {
     findByWorkspace.mockResolvedValue(null)
 
-    await expect(getGithubInstallationToken('ws_other')).rejects.toThrow(
-      /ws_other/
+    await expect(getRepoToken('ws_other', 'o/r')).rejects.toThrow(
+      /not installed/
     )
     await expect(getRepoCloneToken('ws_other', 'o/r')).rejects.toThrow(
       /install the Lumo GitHub App/
@@ -109,7 +115,7 @@ describe('LUM-852 no cross-tenant fallback', () => {
     // Lumo's own installation (999) is never used to mint anything.
     expect(createAppAuthMock).not.toHaveBeenCalled()
     // No workspace at all is the same refusal, not "use the env id".
-    await expect(getGithubInstallationToken()).rejects.toThrow(/workspace/i)
+    await expect(getRepoToken('', 'o/r')).rejects.toThrow(/workspace/i)
     expect(findByWorkspace).toHaveBeenCalledTimes(2)
     expect(createAppAuthMock).not.toHaveBeenCalled()
   })

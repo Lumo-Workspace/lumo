@@ -585,7 +585,9 @@ describe('githubAppInstallService', () => {
         'acme-inc/web',
         'acme-inc/payroll',
       ])
-      expect(await githubAppInstallService.getStatus('w1')).toMatchObject({
+      expect(
+        await githubAppInstallService.getStatus('w1', 'OWNER')
+      ).toMatchObject({
         repositories: ['acme-inc/web'],
         pendingRepositories: ['acme-inc/payroll'],
       })
@@ -666,7 +668,7 @@ describe('githubAppInstallService', () => {
     it('reports not installed when the workspace has no row', async () => {
       repo.findStatusByWorkspace.mockResolvedValue(null)
 
-      expect(await githubAppInstallService.getStatus('w1')).toEqual({
+      expect(await githubAppInstallService.getStatus('w1', 'OWNER')).toEqual({
         installed: false,
       })
     })
@@ -683,7 +685,7 @@ describe('githubAppInstallService', () => {
         accessRemovedAt: new Date('2026-09-27T04:15:00Z'),
       })
 
-      expect(await githubAppInstallService.getStatus('w1')).toEqual({
+      expect(await githubAppInstallService.getStatus('w1', 'OWNER')).toEqual({
         installed: true,
         accountLogin: 'acme-inc',
         accountType: 'Organization',
@@ -704,11 +706,45 @@ describe('githubAppInstallService', () => {
         accessRemovedAt: null,
       })
 
-      expect(await githubAppInstallService.getStatus('w1')).toMatchObject({
+      expect(
+        await githubAppInstallService.getStatus('w1', 'OWNER')
+      ).toMatchObject({
         accessRecheckEnabled: false,
         accessRemovedCount: 0,
         accessRemovedAt: null,
       })
+    })
+
+    it('pending repositories are hidden from non-owners', async () => {
+      repo.findStatusByWorkspace.mockResolvedValue({
+        installationId: 555,
+        accountLogin: 'acme-inc',
+        accountType: 'Organization',
+        repositories: ['acme-inc/web'],
+        createdAt: new Date(),
+        verifierLogin: 'octo-admin',
+        accessRemovedCount: 0,
+        accessRemovedAt: null,
+      })
+      ;(fetchInstallationRepositories as jest.Mock).mockResolvedValue([
+        'acme-inc/web',
+        'acme-inc/payroll',
+      ])
+
+      for (const role of ['MEMBER']) {
+        const status = await githubAppInstallService.getStatus('w1', role)
+        expect(status).toMatchObject({
+          installed: true,
+          repositories: ['acme-inc/web'],
+        })
+        expect(status).not.toHaveProperty('pendingRepositories')
+        expect(JSON.stringify(status)).not.toContain('payroll')
+      }
+      expect(fetchInstallationRepositories).not.toHaveBeenCalled()
+
+      expect(
+        await githubAppInstallService.getStatus('w1', 'OWNER')
+      ).toMatchObject({ pendingRepositories: ['acme-inc/payroll'] })
     })
 
     it('reports pending repositories as unknown when GitHub cannot be asked', async () => {
@@ -723,7 +759,9 @@ describe('githubAppInstallService', () => {
         new Error('502')
       )
 
-      expect(await githubAppInstallService.getStatus('w1')).toMatchObject({
+      expect(
+        await githubAppInstallService.getStatus('w1', 'OWNER')
+      ).toMatchObject({
         installed: true,
         pendingRepositories: null,
       })

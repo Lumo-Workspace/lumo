@@ -35,7 +35,7 @@ jest.mock('@/lib/services/task-pr-sync.service', () => ({
   syncPullRequestStatus: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoToken: jest.fn(),
 }))
 jest.mock('@/lib/task/state-machine', () => ({
   isValidTaskTransition: jest.fn(),

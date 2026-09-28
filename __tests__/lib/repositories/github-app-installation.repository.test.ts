@@ -41,7 +41,12 @@ describe('githubAppInstallationRepository', () => {
 
     expect(prismaMock.gitHubAppInstallation.findUnique).toHaveBeenCalledWith({
       where: { workspaceId: 'ws_1' },
-      select: { id: true, workspaceId: true, installationId: true },
+      select: {
+        id: true,
+        workspaceId: true,
+        installationId: true,
+        repositories: true,
+      },
     })
     expect(row?.installationId).toBe(42)
   })

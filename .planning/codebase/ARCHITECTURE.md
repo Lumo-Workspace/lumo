@@ -83,7 +83,7 @@
 5. Service:
    - Validates state transition with `isValidTaskTransition()`
    - Calls `taskRepository.updateTask(id, data)` → executes Prisma query
-   - Syncs PR status from GitHub via `getGithubInstallationToken()`
+   - Syncs PR status from GitHub via `getRepoToken(workspaceId, repo)` (confirmed repositories only, LUM-883)
    - Calls `dispatchTaskUpdateNotifications()` → queues email/Slack messages
    - Dispatches `pushTaskEvent()` to Pusher for real-time UI updates
    - Returns updated task + changed fields
@@ -251,7 +251,7 @@
 **Main App ↔ GitHub:**
 
 - Oauth app installed on user's repos
-- Token fetched via `getGithubInstallationToken()` (cached, from `lib/integrations/github/auth.ts`)
+- Token fetched via `getRepoToken(workspaceId, repo)` (confirmed repositories only, LUM-883) (cached, from `lib/integrations/github/auth.ts`)
 - Webhooks received at `POST /api/webhooks/github` (receives PR/push events)
 - Client: Octokit SDK via `@octokit/auth-app` for bot auth
 
