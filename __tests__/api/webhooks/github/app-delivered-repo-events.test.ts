@@ -18,7 +18,10 @@ jest.mock('@/lib/integrations/github', () => ({
   verifyGitHubSignature: jest.fn(),
 }))
 jest.mock('@/lib/repositories', () => ({
-  githubAppInstallationRepository: { findAllByInstallationId: jest.fn() },
+  githubAppInstallationRepository: {
+    findAllByInstallationId: jest.fn(),
+    findByWorkspace: jest.fn(),
+  },
   prSecurityScanRepository: {},
 }))
 jest.mock('@/app/api/webhooks/github/handlers', () => ({
@@ -107,6 +110,15 @@ describe('GitHub webhook — repository events delivered by the App', () => {
       (_body, _sig, secret) =>
         secret === 'repo-secret' || secret === 'app-secret'
     )
+
+    // LUM-884: the repo hook is only handled for a confirmed repository.
+    ;(
+      githubAppInstallationRepository.findByWorkspace as jest.Mock
+    ).mockResolvedValue({
+      workspaceId: 'w-oauth',
+      installationId: 777,
+      repositories: ['acme-inc/web'],
+    })
 
     const res = await POST(makeRequest('pull_request', prPayload))
 

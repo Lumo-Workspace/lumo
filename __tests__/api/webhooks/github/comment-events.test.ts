@@ -7,6 +7,12 @@ jest.mock('@/lib/integrations/github', () => ({
   verifyGitHubSignature: jest.fn().mockReturnValue(true),
 }))
 jest.mock('@/lib/repositories/pull-request.repository')
+// LUM-884: the OAuth repo hook is only handled for a confirmed repository.
+jest.mock('@/lib/services/github-app-install.service', () => ({
+  githubAppInstallService: {
+    isRepositoryConfirmed: jest.fn().mockResolvedValue(true),
+  },
+}))
 jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
   prCommentMirrorService: {
     runInbound: jest.fn().mockResolvedValue(undefined),

@@ -32,7 +32,8 @@ const APP_EVENTS = new Set([
  * - **Repo hooks** created by the OAuth connection (pull_request, push,
  *   check_suite, status, comments, reviews). The workspace comes from
  *   `repository.full_name` and the signature is checked against that
- *   integration's own `webhookSecret`.
+ *   integration's own `webhookSecret`. Only repositories in the workspace's
+ *   confirmed App list are handled (LUM-884).
  * - **The App-level webhook** (`installation`, `installation_repositories`).
  *   These payloads carry no repository at all, so neither the lookup nor the
  *   secret above applies: they are verified against GITHUB_APP_WEBHOOK_SECRET
@@ -72,7 +73,17 @@ export async function POST(request: NextRequest) {
   let workspaceId: string
   let integrationId: string | null = null
 
-  if (matched) {
+  if (matched && repoFullName) {
+    // LUM-884: the old OAuth hook is bounded by the same confirmed list as the
+    // App webhook — an unconfirmed repository (or a workspace without the App,
+    // which has no list) gets no PR metadata or comments written. Authentic,
+    // so 200 rather than 401: GitHub would otherwise retry forever.
+    const confirmed = await githubAppInstallService.isRepositoryConfirmed(
+      matched.integration.workspaceId,
+      repoFullName
+    )
+    if (!confirmed) return NextResponse.json({ ok: true })
+
     workspaceId = matched.integration.workspaceId
     integrationId = matched.integration.id
   } else {
