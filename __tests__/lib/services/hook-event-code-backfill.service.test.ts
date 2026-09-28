@@ -10,7 +10,10 @@ import {
   rewriteCrossingPayload,
   rewriteStoredPayload,
 } from '@/lib/services/hook-event-code-backfill.service'
-import { stripCodeFromHookPayload } from '@/lib/hook-payload/redact'
+import {
+  FAILURE_ERROR_CAP,
+  stripCodeFromHookPayload,
+} from '@/lib/hook-payload/redact'
 import { redactHookPayload } from '@/lib/validation/hook-payload'
 import { buildPrunedPayload } from '@/lib/hook-event/retention'
 
@@ -130,7 +133,7 @@ describe('rewriteCrossingPayload', () => {
   })
 
   it('crossing rows lose credentials and originalFile but keep the edit', () => {
-    const out = rewriteCrossingPayload(crossingEdit())!
+    const out = rewriteCrossingPayload('POST_TOOL_USE', crossingEdit())!
     const text = JSON.stringify(out.payload)
     expect(text).not.toContain(FAKE_KEY)
     expect(text).not.toContain('compute()')
@@ -148,7 +151,7 @@ describe('rewriteCrossingPayload', () => {
     // the raw text would be a hash of the secret.
     expect(marker['tool_response.originalFile']).toMatchObject({ lines: 3 })
 
-    const batch = rewriteCrossingPayload({
+    const batch = rewriteCrossingPayload('POST_TOOL_USE', {
       tool_calls: [
         { ...crossingEdit(), tool_response: { originalFile: CODE } },
       ],
@@ -161,14 +164,46 @@ describe('rewriteCrossingPayload', () => {
     ).toBeDefined()
 
     // Idempotent, whatever key order jsonb returns.
-    expect(rewriteCrossingPayload(reorder(out.payload) as never)).toBeNull()
-    expect(rewriteCrossingPayload(reorder(batch.payload) as never)).toBeNull()
+    expect(
+      rewriteCrossingPayload('POST_TOOL_USE', reorder(out.payload) as never)
+    ).toBeNull()
+    expect(
+      rewriteCrossingPayload('POST_TOOL_USE', reorder(batch.payload) as never)
+    ).toBeNull()
     // Nothing to do on a row without credentials or originalFile.
     expect(
-      rewriteCrossingPayload({
+      rewriteCrossingPayload('POST_TOOL_USE', {
         tool_name: 'Bash',
         tool_input: { command: 'git rm -r __tests__' },
       })
     ).toBeNull()
+  })
+
+  it('crossing rows lose Bash output, capped instead on failure events', () => {
+    const bash = {
+      tool_name: 'Bash',
+      tool_input: { command: 'git push --no-verify' },
+      tool_response: { stdout: CODE, stderr: 'warn', interrupted: false },
+    }
+    const out = rewriteCrossingPayload('POST_TOOL_USE', bash)!
+    expect(out.payload.tool_input).toEqual(bash.tool_input)
+    expect(out.payload.tool_response).toEqual({ interrupted: false })
+    const marker = out.payload._lumo_redacted as Record<string, unknown>
+    expect(marker['tool_response.stdout']).toMatchObject({ lines: 3 })
+    expect(marker['tool_response.stderr']).toMatchObject({ bytes: 4 })
+    expect(JSON.stringify(out.payload)).not.toContain('compute()')
+    expect(
+      rewriteCrossingPayload('POST_TOOL_USE', reorder(out.payload) as never)
+    ).toBeNull()
+
+    const longErr = 'E'.repeat(FAILURE_ERROR_CAP + 50)
+    const failed = rewriteCrossingPayload('POST_TOOL_USE_FAILURE', {
+      tool_name: 'Bash',
+      tool_input: { command: 'npm test' },
+      tool_response: { stderr: longErr },
+    })!
+    expect(failed.payload.tool_response).toEqual({
+      stderr: longErr.slice(0, FAILURE_ERROR_CAP),
+    })
   })
 })
