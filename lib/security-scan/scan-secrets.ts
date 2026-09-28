@@ -9,6 +9,7 @@ import type {
   SecuritySeverity,
 } from './types'
 import {
+  PRIVATE_KEY_BLOCK_SOURCE,
   SECRET_PATTERNS,
   isDowngradedPath,
   isPlaceholderValue,
@@ -176,6 +177,31 @@ function redactAll(text: string, matches: readonly LineMatch[]): string {
   return out
 }
 
+export interface BlockRedaction {
+  text: string
+  /** Private key blocks redacted. */
+  count: number
+}
+
+/**
+ * LUM-887 — whole-text pass that redacts every PEM private key block
+ * (`PRIVATE_KEY_BLOCK_SOURCE`: BEGIN … END, or a truncated block's body lines)
+ * as ONE span. The per-line registry scan only ever sees a multi-line block's
+ * BEGIN line, so every redaction entry point that splits text into lines runs
+ * this first. Uncapped: the pattern is anchored on the literal BEGIN marker and
+ * bounded in length, so a long text costs one linear sweep. Text without a
+ * block comes back as the same string (`===`).
+ */
+export function redactPrivateKeyBlocks(text: string): BlockRedaction {
+  if (!text.includes('PRIVATE KEY')) return { text, count: 0 }
+  let count = 0
+  const out = text.replace(new RegExp(PRIVATE_KEY_BLOCK_SOURCE, 'g'), block => {
+    count++
+    return redactSecret(block)
+  })
+  return count === 0 ? { text, count } : { text: out, count }
+}
+
 export function scanSecrets(files: AddedFile[]): RawSecretFinding[] {
   const out: RawSecretFinding[] = []
   for (const file of files) {
@@ -257,7 +283,8 @@ export function scanSecrets(files: AddedFile[]): RawSecretFinding[] {
  * constant — it is scanned and redacted up to the cap and the remainder is
  * dropped, with a `…(truncated)` marker appended.
  */
-export function redactKnownSecrets(line: string): string {
+export function redactKnownSecrets(input: string): string {
+  const line = redactPrivateKeyBlocks(input).text
   if (line.length > MAX_SCANNED_LINE_CHARS) {
     const head = line.slice(0, MAX_SCANNED_LINE_CHARS)
     const matches = collectMatches(head)
@@ -345,11 +372,12 @@ export function redactForInjection(
 ): InjectionRedaction {
   if (text === '') return { text, ...NO_REDACTION }
   const pathDowngraded = opts.path != null && isDowngradedPath(opts.path)
-  let redactedCount = 0
-  let downgradedCount = 0
+  const blocks = redactPrivateKeyBlocks(text)
+  let redactedCount = pathDowngraded ? 0 : blocks.count
+  let downgradedCount = pathDowngraded ? blocks.count : 0
   let truncatedLines = 0
-  let changed = false
-  const lines = text.split('\n')
+  let changed = blocks.count > 0
+  const lines = blocks.text.split('\n')
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!
     const overCap = line.length > MAX_SCANNED_LINE_CHARS
@@ -379,7 +407,8 @@ export function redactForInjection(
  * Window overlap for over-cap lines in `redactForStorage`: a secret up to this
  * many characters that straddles one window's end lies whole inside the next.
  * Registry secrets are single-line tokens far shorter than this (PEM blocks
- * span many short lines).
+ * span many short lines and are redacted whole by `redactPrivateKeyBlocks`
+ * before the windows run).
  */
 const STORAGE_WINDOW_OVERLAP = 1024
 
@@ -427,9 +456,10 @@ export interface StorageRedaction {
  */
 export function redactForStorage(text: string): StorageRedaction {
   if (text === '') return { text, redactedCount: 0 }
-  let redactedCount = 0
-  let changed = false
-  const lines = text.split('\n')
+  const blocks = redactPrivateKeyBlocks(text)
+  let redactedCount = blocks.count
+  let changed = blocks.count > 0
+  const lines = blocks.text.split('\n')
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!
     const matches = collectMatchesWindowed(line)

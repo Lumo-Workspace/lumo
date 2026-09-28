@@ -565,6 +565,47 @@ const REGISTRY_CORPUS: Record<string, { line: string; value: string }> = {
     line: 'const apiKey = "Zx9Qw3Lp7Vb2Nm5Rt8Ky1Hg6Fd4Sa0Je"',
     value: 'Zx9Qw3Lp7Vb2Nm5Rt8Ky1Hg6Fd4Sa0Je',
   },
+  // LUM-887 rules — values assembled by concatenation (no credential-shaped literal).
+  'stripe-clerk-test-key': {
+    line: 'CLERK = "' + 'sk_' + 'test_Qm7Tz4Lw9Kp2Xc8Vb5Nr3"',
+    value: 'sk_' + 'test_Qm7Tz4Lw9Kp2Xc8Vb5Nr3',
+  },
+  'lumo-api-key': {
+    line: 'lumo auth login ' + 'lum_' + '0123456789abcdef'.repeat(4),
+    value: 'lum_' + '0123456789abcdef'.repeat(4),
+  },
+  'npm-token': {
+    line: 'registry token ' + 'npm_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4Pe7',
+    value: 'npm_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4Pe7',
+  },
+  'gitlab-pat': {
+    line: 'remote uses ' + 'glpat-' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3',
+    value: 'glpat-' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3',
+  },
+  'huggingface-token': {
+    line: 'hub login ' + 'hf_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4P',
+    value: 'hf_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4P',
+  },
+  'vercel-blob-token': {
+    line: 'blob ' + 'vercel_blob_rw_' + 'Qm7Tz4Lw9Kp2Xc8V_b5Nr3Hy6Gf1Dj0Sa4Pe7',
+    value: 'vercel_blob_rw_' + 'Qm7Tz4Lw9Kp2Xc8V_b5Nr3Hy6Gf1Dj0Sa4Pe7',
+  },
+  'env-assignment': {
+    line: 'DB_PASSWORD=' + 'Qm7Tz4Lw' + '9Kp2',
+    value: 'Qm7Tz4Lw' + '9Kp2',
+  },
+  'http-authorization': {
+    line: 'Authorization: Basic ' + 'UW03VHo0THc5S3Ay',
+    value: 'UW03VHo0THc5S3Ay',
+  },
+  'bearer-token': {
+    line: 'sent Bearer ' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6',
+    value: 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6',
+  },
+  'cli-credential-flag': {
+    line: 'mysqladmin --password ' + 'Qm7Tz4Lw' + '9Kp2 status',
+    value: 'Qm7Tz4Lw' + '9Kp2',
+  },
 }
 
 const write = (filePath: string, content: string) => ({

@@ -39,6 +39,7 @@ import {
   normalizeSarif,
   parseSarif,
   redactKnownSecrets,
+  redactPrivateKeyBlocks,
   trivyFileLevelKeys,
 } from '@/lib/security-scan'
 import {
@@ -179,8 +180,10 @@ function isResultBandExit(tool: ManagedScanTool, code: number): boolean {
  * window first, redact inside it, then cut to the budget.
  */
 function failureDetail(stderr: string, token: string): string {
-  const flat = scrubToken(stderr, token)
-    .replace(/[\r\n]+/g, ' ')
+  // A PEM block is redacted whole BEFORE the tail cut: cut first, and a window
+  // starting mid-block would keep body text with no BEGIN marker left to match.
+  const flat = redactPrivateKeyBlocks(scrubToken(stderr, token))
+    .text.replace(/[\r\n]+/g, ' ')
     .trim()
   const tail = redactKnownSecrets(flat.slice(-MAX_SCANNED_LINE_CHARS)).slice(
     -MANAGED_FAILURE_DETAIL_CHARS

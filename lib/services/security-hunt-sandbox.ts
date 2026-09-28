@@ -37,7 +37,7 @@ import {
   getRepoCloneToken,
   revokeInstallationToken,
 } from '@/lib/integrations/github/auth'
-import { redactKnownSecrets } from '@/lib/security-scan'
+import { redactKnownSecrets, redactPrivateKeyBlocks } from '@/lib/security-scan'
 import {
   readSandboxFile,
   scrubSandboxCredentials,
@@ -792,8 +792,9 @@ function fence(body: string, notices: readonly string[] = []): string {
  * throw away three eighths of the answer.
  */
 export function sanitizeHuntOutput(raw: string, token: string): string {
-  const redacted = scrub(raw, token)
-    .split('\n')
+  // A PEM block spans lines, so it is redacted over the whole output first.
+  const redacted = redactPrivateKeyBlocks(scrub(raw, token))
+    .text.split('\n')
     .map(redactKnownSecrets)
     .join('\n')
   return redacted.length <= HUNT_SHELL_OUTPUT_MAX

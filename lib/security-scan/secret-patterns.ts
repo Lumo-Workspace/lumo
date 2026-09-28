@@ -21,6 +21,31 @@ export interface SecretPattern {
   entropyMin?: number
 }
 
+/**
+ * LUM-887 — a PEM private key as a whole block, not just its BEGIN line: the
+ * header alone left the base64 body and the END line in every redacted text.
+ *
+ * - Complete: BEGIN … END of the same label, across real newlines, JSON-escaped
+ *   `\n` or spaces (a key flattened into an env var), bounded so a missing END
+ *   cannot swallow an unbounded stretch of text.
+ * - Truncated (no END — a payload cut at a cap, `head key.pem`): the BEGIN line
+ *   plus every following line that is a whole base64 line or a PEM/armor
+ *   header, stopping at the first line that is neither.
+ *
+ * Per-line scanners see only the BEGIN line of a multi-line block; the
+ * whole-text pass `redactPrivateKeyBlocks` (scan-secrets.ts) handles the rest.
+ */
+const PEM_LABEL = '((?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?)'
+const PEM_NEWLINE = String.raw`(?:\r?\n|\\r\\n|\\n)`
+const PEM_LINE_END = String.raw`(?=[ \t]*(?:\r?\n|\\[rn]|$))`
+const PEM_BODY_LINE = String.raw`(?:[A-Za-z0-9+/=]{16,}|(?:Proc-Type|DEK-Info|Comment|Version|Hash|Charset):[^\n\\]*)${PEM_LINE_END}`
+const PEM_MAX_BLOCK_CHARS = 16384
+
+export const PRIVATE_KEY_BLOCK_SOURCE =
+  `-----BEGIN ${PEM_LABEL}-----` +
+  `(?:[\\s\\S]{0,${PEM_MAX_BLOCK_CHARS}}?-----END \\1-----` +
+  `|(?:[ \\t]+[A-Za-z0-9+/=]+)*(?:${PEM_NEWLINE}[ \\t]*(?:${PEM_BODY_LINE}|(?=${PEM_NEWLINE})))*)`
+
 export const SECRET_PATTERNS: readonly SecretPattern[] = [
   {
     id: 'aws-access-key-id',
@@ -68,6 +93,42 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     severity: 'HIGH',
   },
   {
+    id: 'stripe-clerk-test-key',
+    title: 'Stripe/Clerk test secret key',
+    regex: /\b(?:sk|rk)_test_[A-Za-z0-9]{20,}\b/g,
+    severity: 'MEDIUM',
+  },
+  {
+    id: 'lumo-api-key',
+    title: 'Lumo API key',
+    regex: /\blum_[0-9a-f]{64}\b/g,
+    severity: 'HIGH',
+  },
+  {
+    id: 'npm-token',
+    title: 'npm access token',
+    regex: /\bnpm_[A-Za-z0-9]{36}\b/g,
+    severity: 'HIGH',
+  },
+  {
+    id: 'gitlab-pat',
+    title: 'GitLab personal access token',
+    regex: /\bglpat-[A-Za-z0-9_-]{20,}/g,
+    severity: 'HIGH',
+  },
+  {
+    id: 'huggingface-token',
+    title: 'Hugging Face token',
+    regex: /\bhf_[A-Za-z0-9]{30,}\b/g,
+    severity: 'HIGH',
+  },
+  {
+    id: 'vercel-blob-token',
+    title: 'Vercel Blob read-write token',
+    regex: /\bvercel_blob_rw_[A-Za-z0-9_]{20,}/g,
+    severity: 'HIGH',
+  },
+  {
     id: 'anthropic-key',
     title: 'Anthropic API key',
     regex: /\bsk-ant-[A-Za-z0-9_-]{32,}\b/g,
@@ -100,8 +161,7 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
   {
     id: 'private-key-block',
     title: 'Private key block',
-    regex:
-      /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----/g,
+    regex: new RegExp(PRIVATE_KEY_BLOCK_SOURCE, 'g'),
     severity: 'HIGH',
   },
   {
@@ -130,6 +190,44 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     severity: 'MEDIUM',
     group: 1,
     entropyMin: 3.5,
+  },
+  // LUM-887 — unquoted shapes the quoted `generic-assignment` misses. Each is
+  // anchored on syntax prettier-formatted code never produces (`NAME=value`
+  // with no spaces, an `Authorization:` header scheme, a `--flag value` pair)
+  // and skips values that are references, not literals (`$VAR`, `${{ … }}`,
+  // `<your-key>`), so ordinary code and shell text is left alone. A value never
+  // ends in markdown/prose punctuation (`**`, `.`, `,`, `)`) that wraps it.
+  {
+    id: 'env-assignment',
+    title: 'Credential in an environment assignment',
+    regex:
+      /(?<![A-Za-z0-9_$.])(?!(?:NEXT_PUBLIC|VITE|PUBLIC|EXPO_PUBLIC)_)(?:[A-Z][A-Z0-9_]*)?(?:API_?KEY|SECRET(?:_ACCESS)?(?:_KEY)?|ACCESS_KEY|PRIVATE_KEY|AUTH_KEY|TOKEN|PASSWORD|PASSWD|_PASS|PWD|CREDENTIALS?)=['"]?(?![$<{[])(?!\d+(?![^\s'"`;&|<>]))([^\s'"`;&|<>]{7,}[^\s'"`;&|<>*.,)])/g,
+    severity: 'MEDIUM',
+    group: 1,
+  },
+  {
+    id: 'http-authorization',
+    title: 'HTTP Authorization header credential',
+    regex:
+      /\b(?:proxy-)?authorization['"]?\s*:\s*['"]?(?:bearer|basic|token|bot|digest)\s+(?![$<{[])([A-Za-z0-9._~+/=-]{12,})/gi,
+    severity: 'MEDIUM',
+    group: 1,
+  },
+  {
+    id: 'bearer-token',
+    title: 'Bearer token',
+    regex: /\bBearer\s+(?![$<{[])([A-Za-z0-9._~+/-]{20,}=*)/g,
+    severity: 'MEDIUM',
+    group: 1,
+    entropyMin: 3,
+  },
+  {
+    id: 'cli-credential-flag',
+    title: 'Credential passed as a command-line flag',
+    regex:
+      /(?<![A-Za-z0-9-])--(?:password|passwd|pass|token|api-key|apikey|client-secret|access-token|auth-token)(?:=|[ \t]+)['"]?(?![-$<{[])([^\s'"`;&|<>]{5,}[^\s'"`;&|<>*.,)])/gi,
+    severity: 'MEDIUM',
+    group: 1,
   },
 ]
 
