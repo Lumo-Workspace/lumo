@@ -3,6 +3,7 @@ import { hookEventCodeBackfillRepository } from '@/lib/repositories/hook-event-c
 import { redactHookPayload } from '@/lib/validation/hook-payload'
 import {
   REDACTED_FIELD,
+  statsOf,
   stripCodeFromHookPayload,
 } from '@/lib/hook-payload/redact'
 import { isPrunedPayload } from '@/lib/hook-event/retention'
@@ -71,6 +72,80 @@ export function rewriteStoredPayload(
   }
 }
 
+/** Drop `originalFile` (the whole pre-edit file) from one tool_response,
+ *  recording its stats under `path`. */
+function dropOriginalFile(
+  response: unknown,
+  path: string,
+  marker: Record<string, unknown>
+): unknown {
+  if (!response || typeof response !== 'object' || Array.isArray(response))
+    return response
+  const r = response as Record<string, unknown>
+  if (typeof r.originalFile !== 'string') return response
+  marker[path] = statsOf(r.originalFile)
+  const rest = { ...r }
+  delete rest.originalFile
+  return rest
+}
+
+/**
+ * The payload a crossing-referenced event should hold, or null when it already
+ * matches. These rows keep their tool_input — the crossing panel renders a
+ * TEST_TAMPERING edit from it — but get credential redaction (LUM-859) and lose
+ * `tool_response.originalFile`, the whole pre-edit file nothing reads.
+ */
+export function rewriteCrossingPayload(
+  stored: Prisma.JsonValue
+): StoredPayloadRewrite | null {
+  if (!stored || typeof stored !== 'object' || Array.isArray(stored))
+    return null
+  if (isPrunedPayload(stored)) return null
+  const payload = stored as Record<string, unknown>
+
+  const redacted = redactHookPayload(payload)
+  const next: Record<string, unknown> = { ...redacted.payload }
+  const existing = payload[REDACTED_FIELD]
+  const marker: Record<string, unknown> =
+    existing && typeof existing === 'object' && !Array.isArray(existing)
+      ? { ...(existing as Record<string, unknown>) }
+      : {}
+
+  if ('tool_response' in next) {
+    next.tool_response = dropOriginalFile(
+      next.tool_response,
+      'tool_response.originalFile',
+      marker
+    )
+  }
+  if (Array.isArray(next.tool_calls)) {
+    next.tool_calls = next.tool_calls.map((call, i) => {
+      if (!call || typeof call !== 'object' || Array.isArray(call)) return call
+      const c = call as Record<string, unknown>
+      if (!('tool_response' in c)) return call
+      return {
+        ...c,
+        tool_response: dropOriginalFile(
+          c.tool_response,
+          `tool_calls.${i}.tool_response.originalFile`,
+          marker
+        ),
+      }
+    })
+  }
+  if (Object.keys(marker).length > 0) next[REDACTED_FIELD] = marker
+
+  const before = canonicalJson(payload)
+  const after = canonicalJson(next)
+  if (before === after) return null
+  return {
+    payload: next,
+    secrets: redacted.redactedCount,
+    bytesBefore: before.length,
+    bytesAfter: after.length,
+  }
+}
+
 export interface CodeBackfillOptions {
   dryRun: boolean
   batchSize?: number
@@ -95,6 +170,56 @@ export interface CodeBackfillStats {
 }
 
 export const hookEventCodeBackfillService = {
+  /**
+   * The crossing-referenced events `run` skips: credential redaction and
+   * `originalFile` removal only (see rewriteCrossingPayload).
+   */
+  async runCrossingRows(options: {
+    dryRun: boolean
+  }): Promise<CodeBackfillStats> {
+    const stats: CodeBackfillStats = {
+      scanned: 0,
+      toRewrite: 0,
+      written: 0,
+      skippedCrossing: 0,
+      rowsWithSecrets: 0,
+      secrets: 0,
+      bytesBefore: 0,
+      bytesAfter: 0,
+      lastId: null,
+    }
+    const ids =
+      await hookEventCodeBackfillRepository.listCrossingReferencedEventIds()
+    for (let i = 0; i < ids.length; i += 200) {
+      const rows = await hookEventCodeBackfillRepository.findUnprunedByIds(
+        ids.slice(i, i + 200)
+      )
+      stats.scanned += rows.length
+      const updates: { id: string; payload: Prisma.InputJsonValue }[] = []
+      for (const row of rows) {
+        const rewrite = rewriteCrossingPayload(row.payload)
+        if (!rewrite) continue
+        stats.toRewrite++
+        stats.bytesBefore += rewrite.bytesBefore
+        stats.bytesAfter += rewrite.bytesAfter
+        if (rewrite.secrets > 0) {
+          stats.rowsWithSecrets++
+          stats.secrets += rewrite.secrets
+        }
+        updates.push({
+          id: row.id,
+          payload: rewrite.payload as Prisma.InputJsonValue,
+        })
+      }
+      if (rows.length > 0) stats.lastId = rows[rows.length - 1]!.id
+      if (!options.dryRun) {
+        stats.written +=
+          await hookEventCodeBackfillRepository.rewritePayloads(updates)
+      }
+    }
+    return stats
+  },
+
   async run(options: CodeBackfillOptions): Promise<CodeBackfillStats> {
     const take = options.batchSize ?? 200
     const stats: CodeBackfillStats = {

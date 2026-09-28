@@ -7,6 +7,7 @@
  */
 import {
   canonicalJson,
+  rewriteCrossingPayload,
   rewriteStoredPayload,
 } from '@/lib/services/hook-event-code-backfill.service'
 import { stripCodeFromHookPayload } from '@/lib/hook-payload/redact'
@@ -110,5 +111,64 @@ describe('rewriteStoredPayload', () => {
     expect(canonicalJson({ b: 1, a: { d: [1, { f: 1, e: 2 }], c: 2 } })).toBe(
       canonicalJson({ a: { c: 2, d: [1, { e: 2, f: 1 }] }, b: 1 })
     )
+  })
+})
+
+describe('rewriteCrossingPayload', () => {
+  const crossingEdit = () => ({
+    tool_name: 'Edit',
+    tool_input: {
+      file_path: '/repo/lib/a.ts',
+      old_string: `key = "${FAKE_KEY}"`,
+      new_string: 'key = process.env.KEY',
+    },
+    tool_response: {
+      filePath: '/repo/lib/a.ts',
+      originalFile: CODE,
+      structuredPatch: [{ lines: ['-a', '+b'] }],
+    },
+  })
+
+  it('crossing rows lose credentials and originalFile but keep the edit', () => {
+    const out = rewriteCrossingPayload(crossingEdit())!
+    const text = JSON.stringify(out.payload)
+    expect(text).not.toContain(FAKE_KEY)
+    expect(text).not.toContain('compute()')
+    expect(out.secrets).toBe(2) // old_string + the key inside originalFile
+    const input = out.payload.tool_input as Record<string, string>
+    expect(input.file_path).toBe('/repo/lib/a.ts')
+    expect(input.new_string).toBe('key = process.env.KEY')
+    expect(input.old_string).toMatch(/^key = "AKIA/)
+    expect(out.payload.tool_response).toEqual({
+      filePath: '/repo/lib/a.ts',
+      structuredPatch: [{ lines: ['-a', '+b'] }],
+    })
+    const marker = out.payload._lumo_redacted as Record<string, unknown>
+    // Stats describe the file AFTER credential redaction — a fingerprint of
+    // the raw text would be a hash of the secret.
+    expect(marker['tool_response.originalFile']).toMatchObject({ lines: 3 })
+
+    const batch = rewriteCrossingPayload({
+      tool_calls: [
+        { ...crossingEdit(), tool_response: { originalFile: CODE } },
+      ],
+    })!
+    expect(JSON.stringify(batch.payload)).not.toContain('compute()')
+    expect(
+      (batch.payload._lumo_redacted as Record<string, unknown>)[
+        'tool_calls.0.tool_response.originalFile'
+      ]
+    ).toBeDefined()
+
+    // Idempotent, whatever key order jsonb returns.
+    expect(rewriteCrossingPayload(reorder(out.payload) as never)).toBeNull()
+    expect(rewriteCrossingPayload(reorder(batch.payload) as never)).toBeNull()
+    // Nothing to do on a row without credentials or originalFile.
+    expect(
+      rewriteCrossingPayload({
+        tool_name: 'Bash',
+        tool_input: { command: 'git rm -r __tests__' },
+      })
+    ).toBeNull()
   })
 })

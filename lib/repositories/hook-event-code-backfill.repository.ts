@@ -46,6 +46,33 @@ export const hookEventCodeBackfillRepository = {
     })
   },
 
+  /** Every hook event id a boundary crossing points at, in id order. */
+  async listCrossingReferencedEventIds(): Promise<string[]> {
+    const rows = await prisma.boundaryCrossing.findMany({
+      where: { hookEventId: { not: null } },
+      select: { hookEventId: true },
+      distinct: ['hookEventId'],
+      orderBy: { hookEventId: 'asc' },
+    })
+    return rows.flatMap(r => (r.hookEventId ? [r.hookEventId] : []))
+  },
+
+  /** Unpruned events among `ids` (any type), in id order. */
+  async findUnprunedByIds(ids: string[]): Promise<BackfillRow[]> {
+    if (ids.length === 0) return []
+    return prisma.hookEvent.findMany({
+      where: { id: { in: ids }, payloadPrunedAt: null },
+      select: {
+        id: true,
+        type: true,
+        workspaceId: true,
+        payload: true,
+        createdAt: true,
+      },
+      orderBy: { id: 'asc' },
+    })
+  },
+
   /** The subset of `eventIds` a boundary crossing points at. */
   async findCrossingReferencedIds(eventIds: string[]): Promise<Set<string>> {
     if (eventIds.length === 0) return new Set()

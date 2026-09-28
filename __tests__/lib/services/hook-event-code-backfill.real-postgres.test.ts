@@ -133,4 +133,42 @@ describe('hook event code backfill on a real Postgres', () => {
     )
     expect(left?.n).toBe(0)
   })
+
+  it('crossing-rows pass rewrites only crossing-referenced events', async () => {
+    await seedEvent('g1_crossing', {
+      tool_name: 'Edit',
+      tool_input: {
+        file_path: '/repo/lib/g.ts',
+        old_string: 'a',
+        new_string: 'items.reduce',
+      },
+      tool_response: { filePath: '/repo/lib/g.ts', originalFile: CODE },
+    })
+    await harness.insert('boundary_crossings', {
+      id: 'bc2',
+      hookEventId: 'g1_crossing',
+    })
+
+    const dry = await hookEventCodeBackfillService.runCrossingRows({
+      dryRun: true,
+    })
+    // e3_crossing has no originalFile/credentials; g1 has an originalFile.
+    expect(dry).toMatchObject({ scanned: 2, toRewrite: 1, written: 0 })
+
+    const applied = await hookEventCodeBackfillService.runCrossingRows({
+      dryRun: false,
+    })
+    expect(applied).toMatchObject({ toRewrite: 1, written: 1 })
+    const g1 = JSON.parse(await payloadOf('g1_crossing'))
+    expect(g1.tool_input.new_string).toBe('items.reduce')
+    expect(g1.tool_response).toEqual({ filePath: '/repo/lib/g.ts' })
+    expect(g1._lumo_redacted['tool_response.originalFile'].lines).toBe(2)
+    // The main-pass row it never touches still has its content.
+    expect(await payloadOf('e3_crossing')).toContain('items.reduce')
+
+    const again = await hookEventCodeBackfillService.runCrossingRows({
+      dryRun: false,
+    })
+    expect(again).toMatchObject({ toRewrite: 0, written: 0 })
+  })
 })
