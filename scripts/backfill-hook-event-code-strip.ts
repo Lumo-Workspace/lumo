@@ -7,6 +7,8 @@
  * Usage:
  *   npx tsx scripts/backfill-hook-event-code-strip.ts --dry-run [--limit N]
  *   npx tsx scripts/backfill-hook-event-code-strip.ts --apply --confirm-host <db host> [--after <id>] [--limit N]
+ *   add --crossing-rows to treat only the crossing-referenced events the main
+ *   pass skips: credential redaction + originalFile removal, tool_input kept.
  *
  * `--apply` refuses unless `--confirm-host` equals the host of DATABASE_URL, so
  * a run can never land on a database the operator did not name. Progress lines
@@ -57,18 +59,22 @@ async function main() {
       (limit !== undefined ? ` · limit ${limit}` : '')
   )
   let batches = 0
-  const stats = await hookEventCodeBackfillService.run({
-    dryRun,
-    afterId,
-    limit,
-    onBatch: s => {
-      if (++batches % 50 === 0) {
-        console.log(
-          `[${mode}] scanned=${s.scanned} toRewrite=${s.toRewrite} written=${s.written} lastId=${s.lastId}`
-        )
-      }
-    },
-  })
+  // --crossing-rows: only the events a boundary crossing references (skipped
+  // by the main pass) — credential redaction + originalFile removal.
+  const stats = process.argv.includes('--crossing-rows')
+    ? await hookEventCodeBackfillService.runCrossingRows({ dryRun })
+    : await hookEventCodeBackfillService.run({
+        dryRun,
+        afterId,
+        limit,
+        onBatch: s => {
+          if (++batches % 50 === 0) {
+            console.log(
+              `[${mode}] scanned=${s.scanned} toRewrite=${s.toRewrite} written=${s.written} lastId=${s.lastId}`
+            )
+          }
+        },
+      })
   console.log(
     `[${mode}] done · scanned=${stats.scanned} toRewrite=${stats.toRewrite} written=${stats.written}` +
       ` skippedCrossing=${stats.skippedCrossing}`

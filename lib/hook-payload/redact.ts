@@ -71,7 +71,8 @@ const FAILURE_TYPES: ReadonlySet<HookEventType> = new Set<HookEventType>([
   'POST_TOOL_USE_FAILURE',
 ])
 
-function statsOf(text: string): RedactedStats {
+/** Size + fingerprint recorded in place of content that is not retained. */
+export function statsOf(text: string): RedactedStats {
   return {
     bytes: Buffer.byteLength(text, 'utf8'),
     lines: text.length === 0 ? 0 : text.split('\n').length,
