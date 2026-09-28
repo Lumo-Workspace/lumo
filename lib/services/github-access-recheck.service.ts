@@ -45,31 +45,76 @@ interface RowOutcome {
 const byName = (a: string, b: string) =>
   a.toLowerCase().localeCompare(b.toLowerCase())
 
+/**
+ * Split the current confirmed list by a recheck's unreadable names. GitHub
+ * repository names are case-insensitive; `gone` keeps the stored spelling so
+ * the scrub matches the scan rows.
+ */
+export function narrowConfirmed(
+  current: string[],
+  unreadable: string[]
+): { kept: string[]; gone: string[] } {
+  const drop = new Set(unreadable.map(name => name.toLowerCase()))
+  return {
+    kept: current.filter(name => !drop.has(name.toLowerCase())),
+    gone: current.filter(name => drop.has(name.toLowerCase())),
+  }
+}
+
+/** A concurrent webhook narrowing or re-verification: re-read and retry once. */
+const WRITE_ATTEMPTS = 2
+
+/**
+ * Apply a recheck against the row as it is *now*, not as it was when the
+ * checks started: removal is by name, so a concurrent webhook narrowing is
+ * not undone; a changed verifier (an owner re-verified mid-run) discards the
+ * result, since their list wins. `cursor === undefined` leaves a running
+ * sweep's resume point alone.
+ */
 async function applyRemovals(
   row: { workspaceId: string; verifierLogin: string },
-  removed: string[],
+  unreadable: string[],
   cursor?: string | null
 ): Promise<string[]> {
-  const result = await githubAppInstallationRepository.applyAccessRecheck(
-    row.workspaceId,
-    row.verifierLogin,
-    removed,
-    cursor
+  for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
+    const state = await githubAppInstallationRepository.findRecheckState(
+      row.workspaceId
+    )
+    if (!state || state.verifierLogin !== row.verifierLogin) {
+      logger.info(
+        `[github/access-recheck] workspace ${row.workspaceId}: verifier changed during the recheck; result discarded`
+      )
+      return []
+    }
+    const { kept, gone } = narrowConfirmed(state.repositories, unreadable)
+    const written =
+      await githubAppInstallationRepository.updateRecheckIfUnchanged(
+        row.workspaceId,
+        { verifierLogin: row.verifierLogin, updatedAt: state.updatedAt },
+        {
+          repositories: kept,
+          ...(cursor !== undefined && { accessCheckCursor: cursor }),
+          ...(gone.length > 0 && {
+            accessRemovedCount: state.accessRemovedCount + gone.length,
+            accessRemovedAt: new Date(),
+          }),
+        }
+      )
+    if (!written) continue
+    if (gone.length > 0) {
+      await scrubWorkspaceCode(
+        row.workspaceId,
+        'repository no longer readable by the verifier (automatic recheck)',
+        gone
+      )
+    }
+    return gone
+  }
+  // Still racing: nothing written; the next run asks GitHub again.
+  logger.info(
+    `[github/access-recheck] workspace ${row.workspaceId}: row kept changing during the recheck; result discarded`
   )
-  if (!result) {
-    logger.info(
-      `[github/access-recheck] workspace ${row.workspaceId}: verifier changed during the recheck; result discarded`
-    )
-    return []
-  }
-  if (result.removed.length > 0) {
-    await scrubWorkspaceCode(
-      row.workspaceId,
-      'repository no longer readable by the verifier (automatic recheck)',
-      result.removed
-    )
-  }
-  return result.removed
+  return []
 }
 
 /**

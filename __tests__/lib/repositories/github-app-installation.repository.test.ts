@@ -7,16 +7,10 @@ jest.mock('@/lib/db/prisma', () => {
     findMany: jest.fn(),
     upsert: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn(),
     delete: jest.fn(),
   }
-  return {
-    prisma: {
-      gitHubAppInstallation,
-      $transaction: jest.fn((fn: (tx: unknown) => unknown) =>
-        fn({ gitHubAppInstallation })
-      ),
-    },
-  }
+  return { prisma: { gitHubAppInstallation } }
 })
 
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
@@ -28,6 +22,7 @@ const prismaMock = prisma as unknown as {
     findMany: jest.Mock
     upsert: jest.Mock
     update: jest.Mock
+    updateMany: jest.Mock
     delete: jest.Mock
   }
 }
@@ -131,6 +126,7 @@ describe('githubAppInstallationRepository', () => {
           accessRemovedAt: null,
           accessCheckCursor: null,
         },
+        select: { id: true },
       })
     })
 
@@ -142,56 +138,53 @@ describe('githubAppInstallationRepository', () => {
       ).toEqual({ verifierLogin: { not: null } })
     })
 
-    it('applyAccessRecheck removes by name case-insensitively and counts the removals', async () => {
-      prismaMock.gitHubAppInstallation.findUnique.mockResolvedValue({
-        repositories: ['Acme/Web', 'acme/api'],
-        verifierLogin: 'octo',
-        accessRemovedCount: 1,
+    it('findRecheckState selects the narrowed fields and the version', async () => {
+      prismaMock.gitHubAppInstallation.findUnique.mockResolvedValue(null)
+      await githubAppInstallationRepository.findRecheckState('ws_1')
+      expect(prismaMock.gitHubAppInstallation.findUnique).toHaveBeenCalledWith({
+        where: { workspaceId: 'ws_1' },
+        select: {
+          repositories: true,
+          verifierLogin: true,
+          accessRemovedCount: true,
+          updatedAt: true,
+        },
       })
-      const result = await githubAppInstallationRepository.applyAccessRecheck(
-        'ws_1',
-        'octo',
-        ['acme/web'],
-        null
-      )
-      expect(result).toEqual({ removed: ['Acme/Web'] })
-      const data = prismaMock.gitHubAppInstallation.update.mock.calls[0][0].data
-      expect(data.repositories).toEqual(['acme/api'])
-      expect(data.accessCheckCursor).toBeNull()
-      expect(data.accessRemovedCount).toBe(2)
-      expect(data.accessRemovedAt).toBeInstanceOf(Date)
     })
 
-    it('applyAccessRecheck discards the result when the verifier changed meanwhile', async () => {
-      prismaMock.gitHubAppInstallation.findUnique.mockResolvedValue({
-        repositories: ['acme/web'],
-        verifierLogin: 'new-owner',
-        accessRemovedCount: 0,
+    it('updateRecheckIfUnchanged writes only the version it was computed from', async () => {
+      const version = new Date('2026-09-27T00:00:00Z')
+      prismaMock.gitHubAppInstallation.updateMany.mockResolvedValue({
+        count: 1,
       })
-      const result = await githubAppInstallationRepository.applyAccessRecheck(
-        'ws_1',
-        'octo',
-        ['acme/web'],
-        null
-      )
-      expect(result).toBeNull()
-      expect(prismaMock.gitHubAppInstallation.update).not.toHaveBeenCalled()
+      const written =
+        await githubAppInstallationRepository.updateRecheckIfUnchanged(
+          'ws_1',
+          { verifierLogin: 'octo', updatedAt: version },
+          { repositories: ['acme/api'], accessCheckCursor: null }
+        )
+      expect(written).toBe(true)
+      expect(prismaMock.gitHubAppInstallation.updateMany).toHaveBeenCalledWith({
+        where: {
+          workspaceId: 'ws_1',
+          verifierLogin: 'octo',
+          updatedAt: version,
+        },
+        data: { repositories: ['acme/api'], accessCheckCursor: null },
+      })
     })
 
-    it('applyAccessRecheck leaves the cursor alone when none is given', async () => {
-      prismaMock.gitHubAppInstallation.findUnique.mockResolvedValue({
-        repositories: ['acme/web'],
-        verifierLogin: 'octo',
-        accessRemovedCount: 0,
+    it('updateRecheckIfUnchanged reports a lost race', async () => {
+      prismaMock.gitHubAppInstallation.updateMany.mockResolvedValue({
+        count: 0,
       })
-      await githubAppInstallationRepository.applyAccessRecheck(
-        'ws_1',
-        'octo',
-        []
-      )
-      const data = prismaMock.gitHubAppInstallation.update.mock.calls[0][0].data
-      expect(data).not.toHaveProperty('accessCheckCursor')
-      expect(data).not.toHaveProperty('accessRemovedAt')
+      expect(
+        await githubAppInstallationRepository.updateRecheckIfUnchanged(
+          'ws_1',
+          { verifierLogin: 'octo', updatedAt: new Date() },
+          { repositories: [] }
+        )
+      ).toBe(false)
     })
   })
 })
