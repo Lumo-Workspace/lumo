@@ -352,6 +352,19 @@ export const githubAppInstallService = {
   },
 
   /**
+   * LUM-884 — whether a legacy OAuth repo-hook delivery may be handled for
+   * this workspace. The same confirmed list bounds the OAuth hook as the App
+   * webhook: a workspace without the App has no list, so nothing it receives
+   * over the old hook is routed either.
+   */
+  async isRepositoryConfirmed(workspaceId: string, repositoryFullName: string) {
+    const row =
+      await githubAppInstallationRepository.findByWorkspace(workspaceId)
+    if (!row) return false
+    return lowerSet(row.repositories).has(repositoryFullName.toLowerCase())
+  },
+
+  /**
    * Confirmed repositories for pickers, filtered through the live list so a
    * repository the App has since lost does not show. `null` when the App is
    * not installed — the route turns that into the 404 `useGithubRepos` treats
