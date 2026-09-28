@@ -35,10 +35,51 @@ describe('GitHubAccessNotices', () => {
     // What that notice says: the account is gone (not lost permissions), and
     // how an owner gets the repositories back.
     const copy = catalogue['github.accessRemovedAccountGone'] ?? ''
-    expect(copy).toContain('no longer exists')
+    expect(copy).toContain('can no longer find the account')
     expect(copy).toContain('renamed')
     expect(copy).toContain('re-verify GitHub access to restore')
     expect(copy).not.toContain('can no longer read')
+  })
+
+  it('LUM-895 account-not-found notice does not claim the account was deleted', () => {
+    // GET /user/{id} answers 404 for a suspended account exactly as for a
+    // deleted one, so no locale may state the account is gone for good.
+    const locales = [
+      'de',
+      'en-AU',
+      'en-GB',
+      'en',
+      'es-419',
+      'es',
+      'fr',
+      'hi',
+      'id',
+      'ja',
+      'ko',
+      'ms',
+      'ru',
+      'vi',
+      'zh-CN',
+      'zh-TW',
+    ]
+    const copyOf = (locale: string) =>
+      (
+        jest.requireActual(`@/lib/i18n/${locale}.json`) as Record<
+          string,
+          string
+        >
+      )['github.accessRemovedAccountGone'] ?? ''
+    const english = copyOf('en')
+    expect(english).toContain('suspended')
+    expect(english).not.toContain('no longer exists')
+    expect(copyOf('zh-CN')).toContain('封禁')
+    expect(copyOf('zh-CN')).not.toContain('已不存在')
+    expect(copyOf('zh-TW')).not.toContain('已不存在')
+    for (const locale of locales) {
+      const copy = copyOf(locale)
+      expect(copy).not.toBe('')
+      if (!locale.startsWith('en')) expect(copy).not.toBe(english)
+    }
   })
 
   it('keeps the lost-permission wording for access_lost and legacy rows', () => {

@@ -525,6 +525,58 @@ describe('githubAppInstallService', () => {
       )
     })
 
+    it.each(['created', 'unsuspend', 'new_permissions_accepted'])(
+      'LUM-895 installation event narrowing scrubs the dropped repositories first on %s',
+      async action => {
+        repo.findAllByInstallationId.mockResolvedValue([
+          {
+            workspaceId: 'w1',
+            installationId: 555,
+            repositories: ['acme-inc/web', 'acme-inc/old'],
+          },
+        ])
+        const scrub =
+          prSecurityScanRepository.scrubCodeForWorkspace as jest.Mock
+        const event = {
+          action,
+          installation: { id: 555 },
+          repositories: [{ full_name: 'acme-inc/web' }],
+        }
+
+        scrub.mockRejectedValueOnce(new Error('db down'))
+        await expect(
+          githubAppInstallService.applyInstallationEvent(event)
+        ).rejects.toThrow('db down')
+        expect(repo.upsert).not.toHaveBeenCalled()
+
+        scrub.mockClear()
+        await githubAppInstallService.applyInstallationEvent(event)
+        expect(scrub).toHaveBeenCalledWith('w1', ['acme-inc/old'])
+        expect(scrub.mock.invocationCallOrder[0]).toBeLessThan(
+          repo.upsert.mock.invocationCallOrder[0]!
+        )
+        expect(repo.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({ repositories: ['acme-inc/web'] })
+        )
+      }
+    )
+
+    it('scrubs nothing when the event narrows nothing', async () => {
+      repo.findAllByInstallationId.mockResolvedValue([
+        { workspaceId: 'w1', installationId: 555, repositories: ['a/b'] },
+      ])
+      await githubAppInstallService.applyInstallationEvent({
+        action: 'unsuspend',
+        installation: { id: 555 },
+      })
+      expect(
+        prSecurityScanRepository.scrubCodeForWorkspace
+      ).not.toHaveBeenCalled()
+      expect(repo.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ repositories: ['a/b'] })
+      )
+    })
+
     it('updates every workspace bound to a shared installation', async () => {
       repo.findAllByInstallationId.mockResolvedValue([
         { workspaceId: 'w1', installationId: 555, repositories: [] },
@@ -592,9 +644,48 @@ describe('githubAppInstallService', () => {
       expect(repo.updateRepositories).toHaveBeenCalledWith('w1', [
         'acme-inc/web',
       ])
+      // Both spellings: the stored one (what scans carry) and the payload's.
       expect(
         prSecurityScanRepository.scrubCodeForWorkspace
-      ).toHaveBeenCalledWith('w1', ['Acme-Inc/Legacy'])
+      ).toHaveBeenCalledWith('w1', ['acme-inc/legacy', 'Acme-Inc/Legacy'])
+    })
+
+    it('LUM-895 installation_repositories removal scrubs before narrowing', async () => {
+      repo.findAllByInstallationId.mockResolvedValue([
+        {
+          workspaceId: 'w1',
+          installationId: 555,
+          repositories: ['acme-inc/web', 'acme-inc/legacy'],
+        },
+      ])
+      const scrub = prSecurityScanRepository.scrubCodeForWorkspace as jest.Mock
+      const event = {
+        action: 'removed',
+        installation: { id: 555 },
+        repositories_removed: [{ full_name: 'acme-inc/legacy' }],
+      }
+
+      // A scrub that throws leaves the list as it was: the daily recheck
+      // still sees the repository (and finds it unreadable) and retries.
+      scrub.mockRejectedValueOnce(new Error('db down'))
+      await expect(
+        githubAppInstallService.applyInstallationRepositoriesEvent(event)
+      ).rejects.toThrow('db down')
+      expect(repo.updateRepositories).not.toHaveBeenCalled()
+
+      // Succeeding: scrub, narrow, then scrub again for anything in between.
+      scrub.mockClear()
+      await githubAppInstallService.applyInstallationRepositoriesEvent(event)
+      expect(repo.updateRepositories).toHaveBeenCalledWith('w1', [
+        'acme-inc/web',
+      ])
+      expect(scrub).toHaveBeenCalledTimes(2)
+      expect(scrub.mock.invocationCallOrder[0]).toBeLessThan(
+        repo.updateRepositories.mock.invocationCallOrder[0]!
+      )
+      expect(scrub.mock.invocationCallOrder[1]).toBeGreaterThan(
+        repo.updateRepositories.mock.invocationCallOrder[0]!
+      )
     })
 
     // LUM-881: the webhook carries no user, so nobody has shown they can read

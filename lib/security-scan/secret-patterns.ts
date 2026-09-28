@@ -31,6 +31,14 @@ export interface SecretPattern {
    * so its disposition) stable when a rule starts capturing more of the text.
    */
   fingerprintValue?: (value: string) => string
+  /**
+   * LUM-893 — a broad credential SHAPE (not a vendor prefix): kept for
+   * redaction, but a hit is advisory in the session boundary detector and an
+   * obviously non-secret value (see `isNonSecretShapeValue`) is not reported.
+   */
+  shape?: boolean
+  /** LUM-893 — a hit is recorded but never blocks DONE as a crossing. */
+  crossingAdvisory?: boolean
 }
 
 /**
@@ -147,6 +155,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     title: 'Stripe/Clerk test secret key',
     regex: /\b(?:sk|rk)_test_[A-Za-z0-9]{20,}\b/g,
     severity: 'MEDIUM',
+    // A test-mode key is a developer credential, not a production secret.
+    crossingAdvisory: true,
   },
   {
     id: 'lumo-api-key',
@@ -251,6 +261,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
       /\b(?!(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis):)[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s:'"@/\\]+:(?![$<{[])([^\s@'"/\\]{4,})@/g,
     severity: 'MEDIUM',
     group: 1,
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'generic-assignment',
@@ -277,6 +289,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
       /(?:(?<=\\[nrt])|(?<![A-Za-z0-9_$.]))(?!(?:NEXT_PUBLIC|VITE|PUBLIC|EXPO_PUBLIC)_)(?:[A-Z][A-Z0-9_]*)?(?:API_?KEY|SECRET(?:_ACCESS)?(?:_KEY)?(?:_BASE)?|ACCESS_KEY|PRIVATE_KEY|AUTH_KEY|TOKEN|PASSWORD|PASSWD|_PASS|PWD|CREDENTIALS?)=\\?['"]?(?![$<{[])(?!\d+(?![^\s'"`;&|<>\\]))([^\s'"`;&|<>\\]{7,}[^\s'"`;&|<>*.,)\\])/g,
     severity: 'MEDIUM',
     group: 1,
+    shape: true,
+    crossingAdvisory: true,
   },
   // LUM-894 — the shapes below match ordinary code on syntax alone, so each
   // one only fires on a value that reads as a literal secret, not a reference
@@ -290,6 +304,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     severity: 'MEDIUM',
     group: 1,
     accept: v => isLiteralSecret(v),
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'env-assignment-quoted',
@@ -301,6 +317,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     // A value never starts or ends with a space: in `grep '^API_KEY=' .env`
     // the quote after `=` closes the pattern, it does not open a value.
     accept: v => !REFERENCE.test(v),
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'credential-key-value',
@@ -310,6 +328,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     severity: 'MEDIUM',
     group: 2,
     accept: v => !/\s/.test(v) && isLiteralSecret(v),
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'credential-yaml-value',
@@ -322,6 +342,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     // `.` — an object literal or a call in code; and read as a literal.
     accept: v =>
       isLiteralSecret(v) && !isReferenceExpression(v) && shannonEntropy(v) >= 3,
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'http-api-key-header',
@@ -332,6 +354,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     group: 1,
     // A member expression (`process.env.API_KEY`) is a reference.
     accept: v => !isReferenceExpression(v),
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'http-cookie',
@@ -341,6 +365,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     severity: 'MEDIUM',
     group: 1,
     accept: v => /=[^;\s]{6,}/.test(v) && !REFERENCE.test(v),
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'http-authorization',
@@ -349,6 +375,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
       /\b(?:proxy-)?authorization['"]?\s*:\s*['"]?(?:bearer|basic|token|bot|digest)\s+(?![$<{[])([A-Za-z0-9._~+/=-]{12,})/gi,
     severity: 'MEDIUM',
     group: 1,
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'bearer-token',
@@ -356,6 +384,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     regex: /\bBearer\s+(?![$<{[])([A-Za-z0-9._~+/-]{20,}=*)/g,
     severity: 'MEDIUM',
     group: 1,
+    shape: true,
+    crossingAdvisory: true,
     entropyMin: 3,
   },
   {
@@ -365,6 +395,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
       /(?<![A-Za-z0-9-])--(?:password|passwd|pass|token|api-key|apikey|client-secret|access-token|auth-token)(?:=|[ \t]+)['"]?(?![-$<{[])([^\s'"`;&|<>]{5,}[^\s'"`;&|<>*.,)])/gi,
     severity: 'MEDIUM',
     group: 1,
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'cli-secret-flag',
@@ -374,6 +406,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     severity: 'MEDIUM',
     group: 1,
     accept: v => !/^[a-z]+=/i.test(v) && !isPathLike(v),
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'cli-user-password',
@@ -384,6 +418,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
     group: 1,
     // `-u 1000:1000` is a uid:gid; `date -u +%H:%M` is a format (LUM-894 stock).
     accept: v => !/^\d+$/.test(v) && !v.includes('%'),
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'cli-short-password-flag',
@@ -393,6 +429,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
       /\b(?:docker[ \t]+login\b[^\n]*?[ \t]-p(?:=|[ \t]+)|mysql(?:dump|admin|import|sh)?\b[^\n]*?[ \t]-p(?![ \t]))['"]?(?![-$<{[])([^\s'"`;&|<>]{3,})/g,
     severity: 'MEDIUM',
     group: 1,
+    shape: true,
+    crossingAdvisory: true,
   },
   {
     id: 'kubectl-from-literal',
@@ -401,6 +439,8 @@ export const SECRET_PATTERNS: readonly SecretPattern[] = [
       /--from-literal(?:=|[ \t]+)['"]?[A-Za-z0-9_.-]+=(?![$<{[])([^\s'"`;&|<>]{2,}[^\s'"`;&|<>*.,)])/g,
     severity: 'MEDIUM',
     group: 1,
+    shape: true,
+    crossingAdvisory: true,
   },
 ]
 
@@ -499,5 +539,69 @@ export function isPlaceholderValue(value: string): boolean {
   // otherwise low-entropy (a real high-entropy token can legitimately
   // contain a run of zeros by chance).
   if (/0{10,}/.test(value) && shannonEntropy(value) < 2) return true
+  return false
+}
+
+/** LUM-893 — is this rule advisory when it trips the session boundary detector? */
+export function isCrossingAdvisoryRule(ruleId: string): boolean {
+  const id = ruleId.startsWith('secret:')
+    ? ruleId.slice('secret:'.length)
+    : ruleId
+  return SECRET_PATTERNS.some(p => p.id === id && p.crossingAdvisory === true)
+}
+
+// Literal words that are never a credential: unset values and the type/metavar
+// words of CLI help text (`--token string`, `--password VALUE`).
+const NON_SECRET_WORDS = new Set([
+  'undefined',
+  'null',
+  'none',
+  'nil',
+  'true',
+  'false',
+  'string',
+  'str',
+  'text',
+  'value',
+  'token',
+  'secret',
+  'password',
+  'passwd',
+  'key',
+  'apikey',
+  'api-key',
+  'credential',
+  'credentials',
+])
+
+// A reference to a value held elsewhere, not the value itself.
+const REFERENCE_VALUE =
+  /^(?:process\.env|import\.meta\.env|os\.environ|Deno\.env|Bun\.env|env|ENV|secrets|vars|config|settings)(?:\.|\[|\()/
+
+// A filesystem path (`PWD=/app/server`, `--password-file ./x` shapes).
+const PATH_VALUE = /^(?:\/|\.{1,2}\/|~\/)/
+
+// A dotted identifier (`this.token`, `opts.apiKey`) — member access, not a literal.
+const DOTTED_IDENTIFIER = /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)+$/
+
+// Letters only: an identifier (`Bearer authenticationHeaderValue`,
+// `--token apiToken`), never a minted token (those carry digits/symbols).
+const LETTERS_ONLY = /^[A-Za-z_]+$/
+
+/**
+ * LUM-893 — values a broad credential SHAPE matched that are obviously not a
+ * secret. Reporting only: redaction still covers every match. `ruleId` narrows
+ * the letters-only identifier rule to the header/flag shapes — an env
+ * assignment's letters-only value can still be a real (weak) password.
+ */
+export function isNonSecretShapeValue(ruleId: string, value: string): boolean {
+  if (NON_SECRET_WORDS.has(value.toLowerCase())) return true
+  if (REFERENCE_VALUE.test(value)) return true
+  if (PATH_VALUE.test(value)) return true
+  if (DOTTED_IDENTIFIER.test(value)) return true
+  const id = ruleId.startsWith('secret:')
+    ? ruleId.slice('secret:'.length)
+    : ruleId
+  if (id !== 'env-assignment' && LETTERS_ONLY.test(value)) return true
   return false
 }

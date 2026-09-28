@@ -83,6 +83,46 @@ export async function scrubWorkspaceCode(
 }
 
 /**
+ * LUM-895 — the second half of "scrub, then narrow": a scan that wrote code
+ * for one of `repos` between the first scrub and the narrowing write would
+ * otherwise be left behind for a repository no longer on the list. Best
+ * effort — the list has already narrowed, so a failure here is logged, not
+ * thrown back into a result that was written.
+ */
+export async function scrubAfterNarrowing(
+  workspaceId: string,
+  reason: string,
+  repos: string[]
+) {
+  if (repos.length === 0) return
+  try {
+    await scrubWorkspaceCode(workspaceId, `${reason} (after narrowing)`, repos)
+  } catch (error) {
+    logger.error(
+      `[github/app] workspace ${workspaceId}: scrub after narrowing failed: ${String(error)}`
+    )
+  }
+}
+
+/**
+ * Narrow a workspace's confirmed list the one safe way (LUM-888, LUM-895):
+ * scrub the dropped repositories first — a scrub that throws writes nothing,
+ * so the repositories stay confirmed and the daily recheck (which finds them
+ * unreadable) retries — then write, then scrub again for anything written in
+ * between.
+ */
+async function narrowWithScrub(
+  workspaceId: string,
+  gone: string[],
+  reason: string,
+  write: () => Promise<unknown>
+) {
+  if (gone.length > 0) await scrubWorkspaceCode(workspaceId, reason, gone)
+  await write()
+  await scrubAfterNarrowing(workspaceId, reason, gone)
+}
+
+/**
  * LUM-875 — the install callback's `installation_id` is untrusted input: the
  * App can read every installation it has, so the only thing that ties an
  * installation to the person installing is GitHub's answer to "which of our
@@ -318,18 +358,17 @@ export const githubAppInstallService = {
     // LUM-888 — scrub before the list narrows: a scrub that throws leaves
     // the repositories confirmed, so retrying the re-verification scrubs
     // them, instead of orphaning code no recheck will look at again.
-    if (removed.length > 0) {
-      await scrubWorkspaceCode(
-        workspaceId,
-        'repository no longer readable by the verifier',
-        removed
-      )
-    }
     // LUM-882 — the daily access recheck follows this verifier from now on.
-    await githubAppInstallationRepository.recordVerification(
+    await narrowWithScrub(
       workspaceId,
-      confirmed,
-      { login: verifier.login, githubId: verifier.githubId }
+      removed,
+      'repository no longer readable by the verifier',
+      () =>
+        githubAppInstallationRepository.recordVerification(
+          workspaceId,
+          confirmed,
+          { login: verifier.login, githubId: verifier.githubId }
+        )
     )
     await backfillPullRequests(workspaceId, added)
 
@@ -533,21 +572,29 @@ export const githubAppInstallService = {
         }
         // The payload's list can only narrow the confirmed one: a repository
         // it adds has not been vouched for by anyone who can read it (LUM-881).
+        // One it no longer has is dropped with its scan code (LUM-895).
         const reachable = payload.repositories
           ? lowerSet(fullNames(payload.repositories))
           : null
         for (const row of rows) {
-          await githubAppInstallationRepository.upsert({
-            workspaceId: row.workspaceId,
-            installationId,
-            accountLogin: payload.installation?.account?.login ?? null,
-            accountType: payload.installation?.account?.type ?? null,
-            repositories: reachable
-              ? row.repositories.filter(name =>
-                  reachable.has(name.toLowerCase())
-                )
-              : row.repositories,
-          })
+          const gone = reachable
+            ? row.repositories.filter(
+                name => !reachable.has(name.toLowerCase())
+              )
+            : []
+          await narrowWithScrub(
+            row.workspaceId,
+            gone,
+            'repository no longer in the installation',
+            () =>
+              githubAppInstallationRepository.upsert({
+                workspaceId: row.workspaceId,
+                installationId,
+                accountLogin: payload.installation?.account?.login ?? null,
+                accountType: payload.installation?.account?.type ?? null,
+                repositories: without(row.repositories, lowerSet(gone)),
+              })
+          )
         }
         return
       }
@@ -580,14 +627,21 @@ export const githubAppInstallService = {
 
     for (const row of rows) {
       if (removedNames.length > 0) {
-        await githubAppInstallationRepository.updateRepositories(
-          row.workspaceId,
-          without(row.repositories, removed)
+        // LUM-895 — scrub first, as every narrowing does: the stored
+        // spelling (what the scans carry) and the payload's.
+        const kept = without(row.repositories, removed)
+        const gone = row.repositories.filter(name =>
+          removed.has(name.toLowerCase())
         )
-        await scrubWorkspaceCode(
+        await narrowWithScrub(
           row.workspaceId,
+          [...new Set([...gone, ...removedNames])],
           'repository removed from the installation',
-          removedNames
+          () =>
+            githubAppInstallationRepository.updateRepositories(
+              row.workspaceId,
+              kept
+            )
         )
       }
       if (addedCount > 0) {
