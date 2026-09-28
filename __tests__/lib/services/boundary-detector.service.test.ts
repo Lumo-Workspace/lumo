@@ -637,10 +637,11 @@ describe('detectCrossings — HARDCODED_SECRET shares the PR scanner registry (L
         id: p.id,
         severity: p.severity,
       })
-      // A production-path hit is a real crossing: never advisory.
+      // A production-path hit is a real crossing: never advisory — except the
+      // rules the registry marks advisory for crossings (LUM-893).
       expect({ id: p.id, advisory: hits[0]!.advisory }).toEqual({
         id: p.id,
-        advisory: undefined,
+        advisory: p.crossingAdvisory ? true : undefined,
       })
       expect(hits[0]!.detail).toContain(p.title)
       expect(hits[0]!.detail).toContain('lib/config.ts')

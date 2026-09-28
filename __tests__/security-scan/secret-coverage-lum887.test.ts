@@ -302,3 +302,36 @@ describe('LUM-887 unquoted and unprefixed credential shapes', () => {
     expect(redactForStorage(multi).text).toBe(multi)
   })
 })
+
+describe('LUM-893 non-secret shape values', () => {
+  it('LUM-893 redaction still covers every rule', () => {
+    // Reporting skips these values (not a secret), redaction never does.
+    const rows: Array<[string, string]> = [
+      ['PGPASSWORD=postgres psql', 'postgres'],
+      ['ENV PWD=/app/server', '/app/server'],
+      ['echo "TOKEN=undefined" >> $GITHUB_ENV', 'undefined'],
+      ['--token string   API token', 'string'],
+      [
+        '// Sends Bearer authenticationHeaderValue',
+        'authenticationHeaderValue',
+      ],
+      ['API_KEY=process.env.OTHER', 'process.env.OTHER'],
+    ]
+    for (const [line, value] of rows) {
+      expect({
+        line,
+        leaked: redactKnownSecrets(line).includes(value),
+      }).toEqual({ line, leaked: false })
+    }
+    const reported = (text: string) =>
+      scanSecrets([{ path: 'lib/x.ts', lines: [{ lineNo: 1, text }] }])
+    for (const [line] of rows.slice(1)) {
+      expect({ line, n: reported(line).length }).toEqual({ line, n: 0 })
+    }
+    // A real-looking literal in the same shapes is still reported.
+    expect(reported('PGPASSWORD=' + 'Qm7Tz4Lw' + '9Kp2 psql')).toHaveLength(1)
+    expect(reported('sent Bearer ' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6')).toHaveLength(
+      1
+    )
+  })
+})

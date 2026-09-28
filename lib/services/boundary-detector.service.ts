@@ -7,6 +7,7 @@ import { createHash } from 'crypto'
 import { TEST_FILE_TARGET } from '../../shared/src/test-file-path'
 import { hasRedactedContent } from '@/lib/hook-payload/redact'
 import {
+  isCrossingAdvisoryRule,
   scanSecrets,
   type RawSecretFinding,
   type SecuritySeverity,
@@ -329,11 +330,22 @@ const SEVERITY_RANK: Record<SecuritySeverity, number> = {
 }
 
 /**
- * One write → at most one finding: the highest-severity hit across every
- * written line, first among ties (`scanSecrets` walks the registry in order,
- * so a tie resolves to the more specific pattern, exactly as in a PR scan).
- * `filePath` feeds the path-downgrade rule; a Write with no path is treated as
- * a production path (never downgraded on a guess).
+ * LUM-893: a hit that is recorded but never blocks DONE on its own — a
+ * downgraded hit (placeholder / test-fixture-doc path) or a rule the registry
+ * marks advisory for crossings (the broad LUM-887 shapes, test-mode keys).
+ */
+function isAdvisorySecretHit(f: RawSecretFinding): boolean {
+  return f.downgrade != null || isCrossingAdvisoryRule(f.ruleId)
+}
+
+/**
+ * One write → at most one finding. A blocking hit always beats an advisory one
+ * (LUM-893 — a broad-shape line must never mask a real key elsewhere in the
+ * same write); within that, the highest severity, first among ties
+ * (`scanSecrets` walks the registry in order, so a tie resolves to the more
+ * specific pattern, exactly as in a PR scan). `filePath` feeds the
+ * path-downgrade rule; a Write with no path is treated as a production path
+ * (never downgraded on a guess).
  */
 function scanWrittenContent(
   content: string,
@@ -341,23 +353,58 @@ function scanWrittenContent(
 ): RawSecretFinding | null {
   const lines = content.split('\n').map((text, i) => ({ lineNo: i + 1, text }))
   const findings = scanSecrets([{ path: filePath ?? '', lines }])
+  const rank = (f: RawSecretFinding) =>
+    (isAdvisorySecretHit(f) ? 0 : 10) + SEVERITY_RANK[f.severity]
   let best: RawSecretFinding | null = null
   for (const f of findings) {
-    if (!best || SEVERITY_RANK[f.severity] > SEVERITY_RANK[best.severity])
-      best = f
+    if (!best || rank(f) > rank(best)) best = f
   }
   return best
 }
 
-function secretDowngradeSuffix(f: RawSecretFinding): string {
+/**
+ * LUM-893: local env files that frameworks keep out of git by convention
+ * (`.env.local`, `.env.<mode>.local`, `.env.test`). A developer key written
+ * there is not hardcoded into the code — recorded, advisory. A plain `.env` /
+ * `.env.production` is NOT here: it is often committed, so it only turns
+ * advisory when the hook's gitignore probe says so.
+ */
+const LOCAL_ENV_FILE =
+  /(?:^|[\\/])\.env(?:\.[A-Za-z0-9_-]+)?\.local$|(?:^|[\\/])\.env\.test$/
+
+export function isLocalEnvFile(filePath: string | null): boolean {
+  return filePath != null && LOCAL_ENV_FILE.test(filePath)
+}
+
+/**
+ * LUM-893: the CLI post-tool-use hook folds `_lumo_written_path_ignored` into a
+ * Write/Edit payload — local git's answer to "is this file gitignored?". Only a
+ * boolean counts; a missing or malformed field reads as "unknown" so a broken
+ * or old client can never downgrade a crossing.
+ */
+export const WRITTEN_PATH_IGNORED_FIELD = '_lumo_written_path_ignored'
+
+export function readWrittenPathIgnored(payload: unknown): boolean | null {
+  if (!payload || typeof payload !== 'object') return null
+  const raw = (payload as Record<string, unknown>)[WRITTEN_PATH_IGNORED_FIELD]
+  return typeof raw === 'boolean' ? raw : null
+}
+
+function secretDowngradeSuffix(
+  f: RawSecretFinding,
+  file: { local: boolean; ignored: boolean }
+): string {
   switch (f.downgrade) {
     case 'PLACEHOLDER_VALUE':
       return ' (placeholder value — downgraded, advisory)'
     case 'DOWNGRADED_PATH':
       return ' (test/fixture/doc path — downgraded, advisory)'
-    default:
-      return ''
   }
+  if (file.ignored) return ' (gitignored file — advisory)'
+  if (file.local) return ' (local env file — advisory)'
+  if (isCrossingAdvisoryRule(f.ruleId))
+    return ' (broad credential shape — advisory)'
+  return ''
 }
 
 // --- LUM-442 extended high-severity taxonomy ----------------------------------
@@ -908,11 +955,21 @@ export function detectCrossings(
       // A downgraded hit (placeholder value / test-fixture-doc path) is still
       // recorded — but LOW and advisory, so it never blocks DONE: the same
       // "recorded, never blocking" stance the PR scanner takes for LOW.
-      const downgraded = hit.downgrade != null
+      // LUM-893: so is a broad-shape / test-key rule, and any hit in a file
+      // that never reaches git (a local env file, or one the hook's probe
+      // found gitignored).
+      const where = {
+        local: isLocalEnvFile(input.filePath),
+        ignored: readWrittenPathIgnored(input.payload) === true,
+      }
+      const downgraded =
+        isAdvisorySecretHit(hit) || where.local || where.ignored
       out.push({
         category: 'HARDCODED_SECRET',
         // Never echo the secret — store the pattern title + file only.
-        detail: clip(`${hit.title} in ${file}${secretDowngradeSuffix(hit)}`),
+        detail: clip(
+          `${hit.title} in ${file}${secretDowngradeSuffix(hit, where)}`
+        ),
         // The registry's severity for the pattern (HIGH/MEDIUM), or LOW when
         // downgraded — `severityFor('HARDCODED_SECRET')` stays the category's
         // taxonomy ceiling, not the per-hit value.

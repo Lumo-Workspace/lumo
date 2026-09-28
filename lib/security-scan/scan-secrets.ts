@@ -12,6 +12,7 @@ import {
   PRIVATE_KEY_BLOCK_SOURCE,
   SECRET_PATTERNS,
   isDowngradedPath,
+  isNonSecretShapeValue,
   isPlaceholderValue,
   type SecretPattern,
 } from './secret-patterns'
@@ -220,6 +221,10 @@ export function scanSecrets(files: AddedFile[]): RawSecretFinding[] {
         placeholder: boolean
       } | null = null
       for (const m of matches) {
+        // LUM-893: a broad shape that caught a reference / path / unset value
+        // is not reported. It stays in `matches`, so redaction still covers it.
+        if (m.pattern.shape && isNonSecretShapeValue(m.pattern.id, m.value))
+          continue
         const placeholder = isPlaceholderValue(m.value)
         const downgraded = pathDowngraded || placeholder
         const severity: SecuritySeverity = downgraded

@@ -13,6 +13,7 @@ import {
   collectDeletedTestFiles,
   looksLikeDeleteCommand,
 } from './git-deleted-test-files'
+import { probeWrittenPathIgnored, WRITE_TOOL_NAMES } from './git-ignored-path'
 
 /**
  * Hard timeout for the hook POST. On timeout the request is aborted,
@@ -436,6 +437,52 @@ export function augmentBodyWithDeletedTestFiles(
 }
 
 /**
+ * LUM-893: for a post-tool-use Write/Edit/MultiEdit event, ask local git
+ * whether the written `file_path` is gitignored and fold the answer into the
+ * body under `_lumo_written_path_ignored`. The server records a secret written
+ * to an ignored file (never committed) as advisory instead of DONE-blocking.
+ *
+ * Only a real answer (true/false) is attached; a probe that cannot answer or
+ * throws leaves the body untouched, and the server then judges as before
+ * (fail closed). Never blocks or fails the hook.
+ */
+export function augmentBodyWithWrittenPathIgnored(
+  path: HookPath,
+  body: string,
+  probe: typeof probeWrittenPathIgnored = probeWrittenPathIgnored
+): string {
+  if (path !== 'post-tool-use') return body
+  let parsed: Record<string, unknown>
+  try {
+    parsed = JSON.parse(body || '{}')
+  } catch {
+    return body
+  }
+  if (!parsed || typeof parsed !== 'object') return body
+  const toolName = parsed['tool_name']
+  if (typeof toolName !== 'string' || !WRITE_TOOL_NAMES.has(toolName))
+    return body
+  const input = parsed['tool_input']
+  const filePath =
+    input && typeof input === 'object'
+      ? (input as Record<string, unknown>)['file_path']
+      : undefined
+  if (typeof filePath !== 'string' || !filePath) return body
+  const cwd =
+    typeof parsed['cwd'] === 'string' && parsed['cwd']
+      ? (parsed['cwd'] as string)
+      : process.cwd()
+  let ignored: boolean | null
+  try {
+    ignored = probe(cwd, filePath)
+  } catch {
+    return body
+  }
+  if (ignored === null) return body
+  return JSON.stringify({ ...parsed, _lumo_written_path_ignored: ignored })
+}
+
+/**
  * POST the hook body to /api/hooks/<path> with a short timeout. All errors
  * — credential missing, network failure, timeout, non-2xx — are routed to
  * hook.log and then the caller exits 0.
@@ -495,8 +542,10 @@ export async function runHookWithBody(
     if (agentEnum) headers['X-Lumo-Agent'] = agentEnum
 
     const outgoingBody =
-      augmentBodyWithDeletedTestFiles(path, augmentBodyWithUsage(path, body)) ||
-      '{}'
+      augmentBodyWithWrittenPathIgnored(
+        path,
+        augmentBodyWithDeletedTestFiles(path, augmentBodyWithUsage(path, body))
+      ) || '{}'
 
     try {
       const res = await fetch(url, {
