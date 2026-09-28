@@ -79,6 +79,10 @@ export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
     .union([z.literal(30), z.literal(90), z.literal(180), z.literal(365)])
     .nullable()
     .optional(),
+  // LUM-866: per-workspace security-scan switches (the env stays the ceiling).
+  securityScanEnabled: z.boolean().optional(),
+  securityAiReviewEnabled: z.boolean().optional(),
+  securityHuntEnabled: z.boolean().optional(),
 })
 
 // ─── Project ────────────────────────────────────────────────────────────────

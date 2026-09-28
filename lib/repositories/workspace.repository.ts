@@ -23,6 +23,10 @@ export interface WorkspaceUpdateData {
   securityPolicy?: unknown
   /** LUM-859: raw hook-event retention in days; null = keep forever. */
   hookEventRetentionDays?: number | null
+  /** LUM-866: per-workspace security-scan switches. */
+  securityScanEnabled?: boolean
+  securityAiReviewEnabled?: boolean
+  securityHuntEnabled?: boolean
 }
 
 // ── Workspace Repository ────────────────────────────────────────────────────
@@ -121,6 +125,19 @@ export const workspaceRepository = {
       select: { securityPolicy: true },
     })
     return row?.securityPolicy ?? null
+  },
+
+  /** LUM-866: the three security-scan switches; null when the workspace is
+   *  missing — resolve with `resolveSecurityLayers`. */
+  async findSecuritySwitches(id: string) {
+    return prisma.workspace.findUnique({
+      where: { id },
+      select: {
+        securityScanEnabled: true,
+        securityAiReviewEnabled: true,
+        securityHuntEnabled: true,
+      },
+    })
   },
 
   /** Find workspace name and slug by ID. */

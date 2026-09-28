@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { updateWorkspaceSchema } from '@/lib/validation/schemas'
 import { workspaceService } from '@/lib/services'
+import { platformSecurityCeiling } from '@/lib/security-scan/workspace-switches'
 
 /**
  * GET /api/workspaces/me — Get the current user's workspace.
@@ -19,6 +20,9 @@ export async function GET() {
     return NextResponse.json({
       workspace: result.workspace,
       role: result.member.role,
+      // LUM-866: which scan layers the platform allows at all — the settings
+      // page shows a layer the env turned off as off and not toggleable.
+      securityPlatform: platformSecurityCeiling(),
     })
   } catch {
     return NextResponse.json(

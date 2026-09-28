@@ -2590,5 +2590,16 @@
   "security.report.body": "Lumo에서 보안 취약점을 발견했다고 생각되면 재현 단계와 함께 {email}(으)로 이메일을 보내 주세요. 공개하기 전에 수정할 수 있도록 합리적인 시간을 주시기 바랍니다.",
   "security.report.securityTxt": "동일한 연락처가 {path}에 기계가 읽을 수 있는 형식으로도 게시되어 있습니다.",
   "github.accessRemoved": "GitHub 권한 변경으로 저장소 {count}개가 자동으로 제거되었습니다. 마지막으로 확인한 사람이 더 이상 읽을 수 없기 때문입니다. 관련 스캔 코드는 삭제되었습니다.",
-  "github.accessRecheckOff": "이 설치는 자동 권한 확인이 꺼져 있습니다. 켜려면 워크스페이스 소유자가 한 번 다시 확인해야 합니다."
+  "github.accessRecheckOff": "이 설치는 자동 권한 확인이 꺼져 있습니다. 켜려면 워크스페이스 소유자가 한 번 다시 확인해야 합니다.",
+  "workspaceSettings.securityScan.title": "PR 보안 스캔",
+  "workspaceSettings.securityScan.description": "이 워크스페이스의 작업에 연결된 풀 리퀘스트에서 Lumo가 실행하는 항목입니다. 레이어를 끄면 이후 스캔에서 실행되지 않으며, PR에 이미 있는 결과는 유지됩니다.",
+  "workspaceSettings.securityScan.scan.label": "보안 스캔",
+  "workspaceSettings.securityScan.scan.description": "모든 풀 리퀘스트에서 유출된 시크릿과 취약한 코드를 스캔합니다. 끄면 풀 리퀘스트를 전혀 스캔하지 않으며 스캔 댓글도 게시하지 않습니다.",
+  "workspaceSettings.securityScan.aiReview.label": "AI 리뷰",
+  "workspaceSettings.securityScan.aiReview.description": "풀 리퀘스트의 diff를 AI 모델(데이터 보존 없음)에 보내 보안 리뷰와 변경 요약을 받습니다.",
+  "workspaceSettings.securityScan.hunt.label": "익스플로잇 경로 탐색",
+  "workspaceSettings.securityScan.hunt.description": "위험한 변경에 대해 AI 에이전트가 격리된 샌드박스에서 코드를 탐색하여 발견 항목이 실제로 악용 가능한지 확인합니다.",
+  "workspaceSettings.securityScan.platformOff": "현재 Lumo가 모든 워크스페이스에서 이 기능을 꺼 두었습니다.",
+  "workspaceSettings.securityScan.updated": "보안 스캔 설정을 저장했습니다",
+  "workspaceSettings.securityScan.updateFailed": "보안 스캔 설정을 저장하지 못했습니다"
 }

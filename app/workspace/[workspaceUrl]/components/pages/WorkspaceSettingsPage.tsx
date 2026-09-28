@@ -10,6 +10,8 @@ import { readCache, writeCache, clearCache } from '../../cache'
 import { apiFetch, workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
 import { HookEventRetentionCard } from '../settings/HookEventRetentionCard'
+import { SecurityScanSwitchesCard } from '../settings/SecurityScanSwitchesCard'
+import type { PlatformSecurityCeiling } from '@/lib/security-scan/workspace-switches'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -33,6 +35,9 @@ interface Workspace {
   summaryFrequency?: SummaryFrequency
   summaryLocale?: string
   hookEventRetentionDays?: number | null
+  securityScanEnabled?: boolean
+  securityAiReviewEnabled?: boolean
+  securityHuntEnabled?: boolean
 }
 
 type WorkspaceCache = {
@@ -79,6 +84,10 @@ export function WorkspaceSettingsPage() {
   const [summaryLocale, setSummaryLocale] = useState('en')
   const [savingSummary, setSavingSummary] = useState(false)
 
+  // LUM-866: which scan layers the platform env allows at all
+  const [securityPlatform, setSecurityPlatform] =
+    useState<PlatformSecurityCeiling | null>(null)
+
   // ─── Hydrate from cache immediately (stale-while-revalidate) ─────────────
   useEffect(() => {
     const cached = readCache<WorkspaceCache>(CACHE_KEY.workspace)
@@ -106,10 +115,12 @@ export function WorkspaceSettingsPage() {
       const data = await workspacesClient.getMe<{
         workspace: Workspace
         role: string
+        securityPlatform?: PlatformSecurityCeiling
       }>()
       const owner = data.role === 'OWNER'
 
       setWorkspace(data.workspace)
+      setSecurityPlatform(data.securityPlatform ?? null)
       setIsOwner(owner)
       setName(data.workspace.name)
       setSlug(data.workspace.slug)
@@ -465,6 +476,20 @@ export function WorkspaceSettingsPage() {
           <HookEventRetentionCard
             key={workspace.id}
             initialDays={workspace.hookEventRetentionDays ?? null}
+          />
+        )}
+
+        {/* PR security-scan switches (LUM-866) — same gating as above. */}
+        {isOwner && workspace?.id && securityPlatform && (
+          <SecurityScanSwitchesCard
+            key={workspace.id}
+            initial={{
+              securityScanEnabled: workspace.securityScanEnabled ?? true,
+              securityAiReviewEnabled:
+                workspace.securityAiReviewEnabled ?? true,
+              securityHuntEnabled: workspace.securityHuntEnabled ?? true,
+            }}
+            huntAvailable={securityPlatform.hunt}
           />
         )}
 

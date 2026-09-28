@@ -2590,5 +2590,16 @@
   "security.report.body": "Если вы считаете, что обнаружили уязвимость безопасности в Lumo, напишите на {email} и опишите шаги для её воспроизведения. Пожалуйста, дайте нам разумное время на её исправление, прежде чем раскрывать её публично.",
   "security.report.securityTxt": "Тот же контакт опубликован в машиночитаемом виде по адресу {path}.",
   "github.accessRemoved": "Автоматически удалено репозиториев: {count}. Человек, последним подтвердивший доступ к GitHub, больше не может их читать. Связанный код сканирования удалён.",
-  "github.accessRecheckOff": "Автоматическая проверка доступа для этой установки отключена. Чтобы включить её, владелец рабочего пространства должен один раз повторно подтвердить доступ."
+  "github.accessRecheckOff": "Автоматическая проверка доступа для этой установки отключена. Чтобы включить её, владелец рабочего пространства должен один раз повторно подтвердить доступ.",
+  "workspaceSettings.securityScan.title": "Проверка безопасности PR",
+  "workspaceSettings.securityScan.description": "Что Lumo запускает для pull request, связанных с задачами этого рабочего пространства. Отключённый уровень не выполняется в новых проверках; результаты, уже опубликованные в PR, сохраняются.",
+  "workspaceSettings.securityScan.scan.label": "Проверка безопасности",
+  "workspaceSettings.securityScan.scan.description": "Проверять каждый pull request на утечку секретов и уязвимый код. Если отключено, pull request вообще не проверяются и комментарий с результатами не публикуется.",
+  "workspaceSettings.securityScan.aiReview.label": "ИИ-ревью",
+  "workspaceSettings.securityScan.aiReview.description": "Отправлять diff pull request в ИИ-модель (без хранения данных) для проверки безопасности и краткого описания изменений.",
+  "workspaceSettings.securityScan.hunt.label": "Поиск путей эксплуатации",
+  "workspaceSettings.securityScan.hunt.description": "Для рискованных изменений ИИ-агент исследует код в изолированной песочнице, чтобы подтвердить, можно ли действительно эксплуатировать находку.",
+  "workspaceSettings.securityScan.platformOff": "Сейчас отключено Lumo для всех рабочих пространств.",
+  "workspaceSettings.securityScan.updated": "Настройки проверки безопасности сохранены",
+  "workspaceSettings.securityScan.updateFailed": "Не удалось сохранить настройки проверки безопасности"
 }

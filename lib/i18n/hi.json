@@ -2590,5 +2590,16 @@
   "security.report.body": "यदि आपको लगता है कि आपने Lumo में कोई सुरक्षा कमज़ोरी पाई है, तो उसे दोहराने के चरणों के साथ {email} पर ईमेल करें। कृपया इसे सार्वजनिक रूप से प्रकट करने से पहले हमें इसे ठीक करने के लिए उचित समय दें।",
   "security.report.securityTxt": "यही संपर्क मशीन-पठनीय रूप में {path} पर प्रकाशित है।",
   "github.accessRemoved": "{count} रिपॉज़िटरी अपने-आप हटा दी गईं: जिस व्यक्ति ने आख़िरी बार GitHub एक्सेस सत्यापित किया था, वह अब उन्हें नहीं पढ़ सकता। संबंधित स्कैन कोड हटा दिया गया है।",
-  "github.accessRecheckOff": "इस इंस्टॉलेशन के लिए स्वचालित एक्सेस जाँच बंद है। इसे चालू करने के लिए वर्कस्पेस ओनर को एक बार फिर से सत्यापित करना होगा।"
+  "github.accessRecheckOff": "इस इंस्टॉलेशन के लिए स्वचालित एक्सेस जाँच बंद है। इसे चालू करने के लिए वर्कस्पेस ओनर को एक बार फिर से सत्यापित करना होगा।",
+  "workspaceSettings.securityScan.title": "PR सुरक्षा स्कैन",
+  "workspaceSettings.securityScan.description": "इस वर्कस्पेस के कार्यों से जुड़े पुल रिक्वेस्ट पर Lumo क्या चलाता है। किसी लेयर को बंद करने पर वह नए स्कैन में नहीं चलती; PR पर पहले से मौजूद नतीजे बने रहते हैं।",
+  "workspaceSettings.securityScan.scan.label": "सुरक्षा स्कैन",
+  "workspaceSettings.securityScan.scan.description": "हर पुल रिक्वेस्ट में लीक हुए सीक्रेट और कमज़ोर कोड की जाँच करें। बंद होने पर पुल रिक्वेस्ट बिल्कुल स्कैन नहीं होते और कोई स्कैन टिप्पणी पोस्ट नहीं होती।",
+  "workspaceSettings.securityScan.aiReview.label": "AI समीक्षा",
+  "workspaceSettings.securityScan.aiReview.description": "पुल रिक्वेस्ट का diff सुरक्षा समीक्षा और बदलाव के सारांश के लिए AI मॉडल (शून्य डेटा प्रतिधारण) को भेजें।",
+  "workspaceSettings.securityScan.hunt.label": "एक्सप्लॉइट-पाथ खोज",
+  "workspaceSettings.securityScan.hunt.description": "जोखिम भरे बदलावों के लिए एक AI एजेंट अलग-थलग सैंडबॉक्स में कोड की जाँच करता है ताकि पुष्टि हो सके कि कोई निष्कर्ष वास्तव में एक्सप्लॉइट किया जा सकता है या नहीं।",
+  "workspaceSettings.securityScan.platformOff": "फ़िलहाल Lumo ने इसे सभी वर्कस्पेस के लिए बंद किया हुआ है।",
+  "workspaceSettings.securityScan.updated": "सुरक्षा स्कैन सेटिंग्स सहेजी गईं",
+  "workspaceSettings.securityScan.updateFailed": "सुरक्षा स्कैन सेटिंग्स सहेजी नहीं जा सकीं"
 }

@@ -2590,5 +2590,16 @@
   "security.report.body": "Lumo にセキュリティ上の脆弱性を発見したと思われる場合は、再現手順を添えて {email} までメールでご連絡ください。公開する前に、修正のための合理的な期間をいただけますようお願いいたします。",
   "security.report.securityTxt": "同じ連絡先は、機械可読な形式で {path} にも公開されています。",
   "github.accessRemoved": "GitHub の権限変更により、{count} 件のリポジトリを自動的に削除しました。最後に確認した人がこれらを読み取れなくなったためです。関連するスキャンコードは削除されました。",
-  "github.accessRecheckOff": "このインストールでは自動権限チェックがオフです。有効にするには、ワークスペースのオーナーが一度再確認してください。"
+  "github.accessRecheckOff": "このインストールでは自動権限チェックがオフです。有効にするには、ワークスペースのオーナーが一度再確認してください。",
+  "workspaceSettings.securityScan.title": "PR セキュリティスキャン",
+  "workspaceSettings.securityScan.description": "このワークスペースのタスクにリンクされたプルリクエストで Lumo が実行する内容です。レイヤーをオフにすると以降のスキャンでは実行されません。PR 上の既存の結果は保持されます。",
+  "workspaceSettings.securityScan.scan.label": "セキュリティスキャン",
+  "workspaceSettings.securityScan.scan.description": "すべてのプルリクエストで漏えいしたシークレットや脆弱なコードをスキャンします。オフにするとプルリクエストは一切スキャンされず、スキャンコメントも投稿されません。",
+  "workspaceSettings.securityScan.aiReview.label": "AI レビュー",
+  "workspaceSettings.securityScan.aiReview.description": "プルリクエストの差分を AI モデル（データ保持ゼロ）に送り、セキュリティレビューと変更の要約を行います。",
+  "workspaceSettings.securityScan.hunt.label": "悪用経路ハント",
+  "workspaceSettings.securityScan.hunt.description": "リスクの高い変更について、AI エージェントが隔離されたサンドボックス内でコードを調べ、検出結果が実際に悪用可能かを確認します。",
+  "workspaceSettings.securityScan.platformOff": "現在、Lumo によりすべてのワークスペースでオフになっています。",
+  "workspaceSettings.securityScan.updated": "セキュリティスキャンの設定を保存しました",
+  "workspaceSettings.securityScan.updateFailed": "セキュリティスキャンの設定を保存できませんでした"
 }

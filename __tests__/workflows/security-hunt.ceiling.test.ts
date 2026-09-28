@@ -7,6 +7,15 @@
  * enough to batch, batch 2 onwards was never retried at all. The budget is
  * the batch's own `tries`.
  */
+// LUM-866: every workspace here has the default switches (all on); the
+// platform env in each test still decides the ceiling.
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  // A plain function, not jest.fn: survives resetAllMocks.
+  loadSecurityLayers: async () =>
+    jest
+      .requireActual('@/lib/security-scan/workspace-switches')
+      .resolveSecurityLayers(null),
+}))
 jest.mock('@/lib/workflows/security-hunt.steps', () => ({
   buildVerifySubgraphStep: jest.fn(),
   planHuntStep: jest.fn(),

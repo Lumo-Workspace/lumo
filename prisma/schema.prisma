@@ -389,6 +389,14 @@ model Workspace {
   // event's payload with a pruned marker — rows and derived columns stay.
   hookEventRetentionDays Int?
 
+  // LUM-866: per-workspace switches for the PR security scan. All on by
+  // default; the platform env (LUMO_MANAGED_SCAN / LUMO_SECURITY_HUNT) stays
+  // the ceiling — a workspace can only turn a layer off, never on. Scan off =
+  // no scan row, no layer, no PR comment for this workspace's PRs.
+  securityScanEnabled     Boolean @default(true)
+  securityAiReviewEnabled Boolean @default(true)
+  securityHuntEnabled     Boolean @default(true)
+
   @@map("workspaces")
 }
 

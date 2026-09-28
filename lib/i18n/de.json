@@ -2590,5 +2590,16 @@
   "security.report.body": "Wenn Sie glauben, eine Sicherheitslücke in Lumo gefunden zu haben, senden Sie eine E-Mail an {email} mit den Schritten zur Reproduktion. Bitte geben Sie uns angemessen Zeit, sie zu beheben, bevor Sie sie öffentlich bekannt machen.",
   "security.report.securityTxt": "Derselbe Kontakt ist in maschinenlesbarer Form unter {path} veröffentlicht.",
   "github.accessRemoved": "{count, plural, one {# Repository wurde} other {# Repositorys wurden}} automatisch entfernt: Die Person, die den GitHub-Zugriff zuletzt bestätigt hat, kann {count, plural, one {es} other {sie}} nicht mehr lesen. Der zugehörige Scan-Code wurde gelöscht.",
-  "github.accessRecheckOff": "Automatische Zugriffsprüfungen sind für diese Installation deaktiviert. Ein Workspace-Owner muss den Zugriff einmal erneut bestätigen, um sie zu aktivieren."
+  "github.accessRecheckOff": "Automatische Zugriffsprüfungen sind für diese Installation deaktiviert. Ein Workspace-Owner muss den Zugriff einmal erneut bestätigen, um sie zu aktivieren.",
+  "workspaceSettings.securityScan.title": "PR-Sicherheitsscan",
+  "workspaceSettings.securityScan.description": "Was Lumo bei Pull Requests ausführt, die mit Aufgaben dieses Workspaces verknüpft sind. Eine deaktivierte Ebene läuft bei neuen Scans nicht mehr; bereits vorhandene Ergebnisse im PR bleiben erhalten.",
+  "workspaceSettings.securityScan.scan.label": "Sicherheitsscan",
+  "workspaceSettings.securityScan.scan.description": "Jeden Pull Request auf geleakte Secrets und verwundbaren Code prüfen. Wenn deaktiviert, werden Pull Requests gar nicht gescannt und es wird kein Scan-Kommentar gepostet.",
+  "workspaceSettings.securityScan.aiReview.label": "KI-Review",
+  "workspaceSettings.securityScan.aiReview.description": "Den Diff des Pull Requests zur Sicherheitsprüfung und für eine Zusammenfassung der Änderung an ein KI-Modell senden (ohne Datenspeicherung).",
+  "workspaceSettings.securityScan.hunt.label": "Exploit-Pfad-Suche",
+  "workspaceSettings.securityScan.hunt.description": "Bei riskanten Änderungen untersucht ein KI-Agent den Code in einer isolierten Sandbox, um zu bestätigen, ob ein Fund tatsächlich ausnutzbar ist.",
+  "workspaceSettings.securityScan.platformOff": "Derzeit von Lumo für alle Workspaces deaktiviert.",
+  "workspaceSettings.securityScan.updated": "Einstellungen für den Sicherheitsscan gespeichert",
+  "workspaceSettings.securityScan.updateFailed": "Einstellungen für den Sicherheitsscan konnten nicht gespeichert werden"
 }

@@ -2590,5 +2590,16 @@
   "security.report.body": "如果你認為在 Lumo 中發現了安全性漏洞，請寄送電子郵件至 {email}，並附上重現步驟。請在公開揭露之前給我們合理的時間進行修復。",
   "security.report.securityTxt": "相同的聯絡方式也以機器可讀的形式發佈於 {path}。",
   "github.accessRemoved": "因 GitHub 權限變更，已自動移除 {count} 個儲存庫：最近一次核實的人已無法讀取它們，相關掃描程式碼已刪除。",
-  "github.accessRecheckOff": "此安裝未啟用自動權限複核。需要工作區擁有者重新核實一次才能啟用。"
+  "github.accessRecheckOff": "此安裝未啟用自動權限複核。需要工作區擁有者重新核實一次才能啟用。",
+  "workspaceSettings.securityScan.title": "PR 安全掃描",
+  "workspaceSettings.securityScan.description": "Lumo 對本工作區任務關聯的拉取請求執行哪些檢查。關閉某一層後，新的掃描不再執行它；已在 PR 上的結果會保留。",
+  "workspaceSettings.securityScan.scan.label": "安全掃描",
+  "workspaceSettings.securityScan.scan.description": "掃描每個拉取請求中外洩的金鑰和有漏洞的程式碼。關閉後，拉取請求完全不會被掃描，也不會發布掃描留言。",
+  "workspaceSettings.securityScan.aiReview.label": "AI 審查",
+  "workspaceSettings.securityScan.aiReview.description": "將拉取請求的 diff 傳送給 AI 模型（零資料保留）進行安全審查，並產生變更摘要。",
+  "workspaceSettings.securityScan.hunt.label": "漏洞利用路徑探查",
+  "workspaceSettings.securityScan.hunt.description": "對有風險的變更，由 AI 代理在隔離沙箱中探查程式碼，確認某個發現是否真的可被利用。",
+  "workspaceSettings.securityScan.platformOff": "Lumo 目前已對所有工作區關閉此項。",
+  "workspaceSettings.securityScan.updated": "安全掃描設定已儲存",
+  "workspaceSettings.securityScan.updateFailed": "儲存安全掃描設定失敗"
 }

@@ -19,6 +19,15 @@
  * tier-2 Slack-snapshot and web-body routes (task + idea) and the LLM-judge
  * diff input of the PR security scan.
  */
+// LUM-866: every workspace here has the default switches (all on); the
+// platform env in each test still decides the ceiling.
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  // A plain function, not jest.fn: survives resetAllMocks.
+  loadSecurityLayers: async () =>
+    jest
+      .requireActual('@/lib/security-scan/workspace-switches')
+      .resolveSecurityLayers(null),
+}))
 jest.mock('ai', () => ({ generateText: jest.fn(), generateObject: jest.fn() }))
 jest.mock('@/lib/ai/gateway', () => ({ gateway: (id: string) => ({ id }) }))
 

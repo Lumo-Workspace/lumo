@@ -1,6 +1,15 @@
 /** @jest-environment node */
 import { gzipSync } from 'node:zlib'
 
+// LUM-866: every workspace here has the default switches (all on); the
+// platform env in each test still decides the ceiling.
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  // A plain function, not jest.fn: survives resetAllMocks.
+  loadSecurityLayers: async () =>
+    jest
+      .requireActual('@/lib/security-scan/workspace-switches')
+      .resolveSecurityLayers(null),
+}))
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))

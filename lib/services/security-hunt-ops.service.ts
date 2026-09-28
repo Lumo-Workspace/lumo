@@ -34,6 +34,7 @@ import {
 import { cancelHuntRun, startSecurityHunt } from './security-hunt-start'
 import { SANDBOX_TIMEOUT_WITH_HUNT_MS } from './security-managed-scan.config'
 import { securityPrReviewService } from './security-pr-review.service'
+import { loadSecurityLayers } from './security-workspace-switches.service'
 
 /**
  * A hunt runs inside a VM that the platform kills at
@@ -53,6 +54,8 @@ export const HUNT_STALE_REASONS = {
   noJob: `hunt did not report within ${DEAD_MINUTES} min (no stored job to retry)`,
   superseded: `hunt did not report within ${DEAD_MINUTES} min; not retried — the PR has a newer head`,
   retryNotStarted: `hunt did not report within ${DEAD_MINUTES} min, and the retry could not be started`,
+  // LUM-866: the workspace (or the platform) turned the hunt off mid-run.
+  disabled: 'hunt turned off for this workspace; not retried',
 } as const
 
 export interface HuntSweepCounts {
@@ -177,6 +180,8 @@ async function sweepOne(
   if (tries >= HUNT_MAX_ATTEMPTS)
     return fail(row, row.huntAttempts, HUNT_STALE_REASONS.afterRetry, counts)
   if (!job) return fail(row, row.huntAttempts, HUNT_STALE_REASONS.noJob, counts)
+  if (!(await loadSecurityLayers(job.workspaceId)).hunt)
+    return fail(row, row.huntAttempts, HUNT_STALE_REASONS.disabled, counts)
   if (
     await prSecurityScanRepository.hasNewerScan(
       row.pullRequestId,
@@ -192,7 +197,13 @@ export type HuntRequeueOutcome =
   | { requeued: true; attempt: number }
   | {
       requeued: false
-      reason: 'exhausted' | 'superseded' | 'claim-lost' | 'start-failed'
+      reason:
+        | 'exhausted'
+        | 'superseded'
+        | 'claim-lost'
+        | 'start-failed'
+        // LUM-866: the hunt was turned off for the workspace mid-run.
+        | 'disabled'
     }
 
 export interface HuntRequeueInput {
@@ -220,6 +231,14 @@ export const securityHuntOpsService = {
     next: HuntJob
   }): Promise<boolean> {
     const { job, next } = input
+    // LUM-866: turned off mid-run — no further batch. The layer stays PENDING
+    // until the stale sweep stamps it FAILED with the `disabled` reason.
+    if (!(await loadSecurityLayers(job.workspaceId)).hunt) {
+      logger.info(
+        `[security-hunt-ops] hunt off for workspace — next batch not started scan=${job.scanId}`
+      )
+      return false
+    }
     const claimed = await prSecurityScanRepository.claimHuntRetry(
       job.scanId,
       job.attempt ?? 1,
@@ -277,6 +296,8 @@ export const securityHuntOpsService = {
       return { requeued: false, reason: 'exhausted' }
     if (await prSecurityScanRepository.hasNewerScanThan(job.scanId))
       return { requeued: false, reason: 'superseded' }
+    if (!(await loadSecurityLayers(job.workspaceId)).hunt)
+      return { requeued: false, reason: 'disabled' }
     const next = attempt + 1
     const nextJob: HuntJob = {
       ...job,
