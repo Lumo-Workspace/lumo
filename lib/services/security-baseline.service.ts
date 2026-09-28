@@ -23,10 +23,10 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import type { SecurityBaseline } from '@/lib/security-scan/types'
 import {
   BASELINE_STALE_MS,
-  isManagedScanEnabled,
   type BaselineScanJob,
   type BaselineScanOutcome,
 } from './security-managed-scan.config'
+import { loadSecurityLayers } from './security-workspace-switches.service'
 import { startSecurityBaselineScan } from './security-baseline-scan-start'
 
 export type BaselineRequestOutcome =
@@ -77,13 +77,15 @@ export const securityBaselineService = {
   /**
    * Default-branch push: always a fresh baseline for the new head (a landed
    * or in-flight one is superseded — the branch moved). Skipped when the
-   * managed scan is off or the repo is not linked in this workspace.
+   * managed scan is off (platform env, or the workspace's scan switch —
+   * LUM-866) or the repo is not linked in this workspace.
    */
   async requestFromPush(
     job: BaselineScanJob,
     now: Date = new Date()
   ): Promise<BaselineRequestOutcome> {
-    if (!isManagedScanEnabled()) return 'disabled'
+    if (!(await loadSecurityLayers(job.workspaceId)).managedScan)
+      return 'disabled'
     const existing = await projectRepository.findSecurityBaseline(
       job.workspaceId,
       job.repo
@@ -105,7 +107,8 @@ export const securityBaselineService = {
     now: Date = new Date()
   ): Promise<BaselineRequestOutcome> {
     try {
-      if (!isManagedScanEnabled()) return 'disabled'
+      if (!(await loadSecurityLayers(opts.workspaceId)).managedScan)
+        return 'disabled'
       const existing = await projectRepository.findSecurityBaseline(
         opts.workspaceId,
         opts.repo

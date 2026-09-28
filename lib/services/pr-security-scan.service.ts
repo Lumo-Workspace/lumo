@@ -63,11 +63,8 @@ import {
 import { isManagedScanEnabled } from './security-managed-scan.config'
 import { startSecurityManagedScan } from './security-managed-scan-start'
 import { securityManagedScanOpsService } from './security-managed-scan-ops.service'
-import {
-  HUNT_MAX_HUNTED_FILES,
-  isHuntEnabled,
-  type HuntJob,
-} from './security-hunt.config'
+import { HUNT_MAX_HUNTED_FILES, type HuntJob } from './security-hunt.config'
+import { loadSecurityLayers } from './security-workspace-switches.service'
 import {
   recordHuntStartBestEffort,
   startSecurityHunt,
@@ -230,7 +227,7 @@ export interface TaskSecurityScans {
 }
 
 export type RunScanResult =
-  | { skipped: true; reason: 'pr_not_found' }
+  | { skipped: true; reason: 'pr_not_found' | 'workspace_scan_disabled' }
   | { deduped: true; scanId: string }
   | {
       deduped: false
@@ -477,6 +474,11 @@ export const prSecurityScanService = {
   }): Promise<RunScanResult> {
     const pr = await pullRequestRepository.findById(input.pullRequestId)
     if (!pr) return { skipped: true, reason: 'pr_not_found' }
+    // LUM-866: the workspace's own switches, under the platform ceiling. Scan
+    // off = nothing at all for this PR — no row, no layer, no PR comment.
+    const layers = await loadSecurityLayers(pr.workspaceId)
+    if (!layers.scan)
+      return { skipped: true, reason: 'workspace_scan_disabled' }
 
     const headSha = await fetchPrHeadSha({
       workspaceId: pr.workspaceId,
@@ -629,7 +631,7 @@ export const prSecurityScanService = {
       // kept alive for it either.
       const huntOverCap = touchedSourcePaths.length > HUNT_MAX_HUNTED_FILES
       const huntWantedForVm =
-        isHuntEnabled() && !huntOverCap && (triggerFirstPass?.hunt ?? false)
+        layers.hunt && !huntOverCap && (triggerFirstPass?.hunt ?? false)
 
       // ── A2: external oracle — SARIF pushed by the repo's own CI, or the
       // Lumo-managed scan (LUM-735) ────────────────────────────────────────
@@ -752,7 +754,10 @@ export const prSecurityScanService = {
       // scope or split the PR); the numbers are on `judgeBudget`.
       const judgeCapChars =
         JUDGE_DIFF_BUDGET_TIERS[JUDGE_DIFF_BUDGET_TIERS.length - 1]!.chars
-      const judgeOverCap = files.length > 0 && diff.length > judgeCapChars
+      // LUM-866: AI review off for the workspace = the judge is SKIPPED —
+      // no model call, and no over-cap notice for a review nobody asked for.
+      const judgeOverCap =
+        layers.aiReview && files.length > 0 && diff.length > judgeCapChars
       if (judgeOverCap) {
         judgeBudget = {
           diffChars: diff.length,
@@ -766,7 +771,7 @@ export const prSecurityScanService = {
           `[pr-security-scan] judge over cap pr=${pr.id} sha=${headSha} diffChars=${diff.length} cap=${judgeCapChars}: not run`
         )
       }
-      if (files.length > 0 && !judgeOverCap) {
+      if (layers.aiReview && files.length > 0 && !judgeOverCap) {
         // LUM-758: the budget is spent on WHOLE files, the ones the static
         // pass already flagged first — never on a character offset, which
         // made a file's coverage depend on where its name sorted.
@@ -889,15 +894,16 @@ export const prSecurityScanService = {
         hasOpenL4Crossing: hasOpenCrossing,
       })
       const huntWanted =
-        isHuntEnabled() && files.length > 0 && huntTrigger.hunt && !huntOverCap
-      // Off (LUMO_SECURITY_HUNT=off) = no hunt layer at all, not a SKIPPED one:
-      // the key is stamped only when the layer exists for this deployment.
-      if (isHuntEnabled()) stages.hunt = huntWanted ? 'PENDING' : 'SKIPPED'
+        layers.hunt && files.length > 0 && huntTrigger.hunt && !huntOverCap
+      // Off (LUMO_SECURITY_HUNT=off, or the workspace's hunt switch — LUM-866)
+      // = no hunt layer at all, not a SKIPPED one: the key is stamped only
+      // when the layer exists for this PR.
+      if (layers.hunt) stages.hunt = huntWanted ? 'PENDING' : 'SKIPPED'
       // LUM-832 — a hunt the trigger wanted but the file cap forbids does not
       // run (like CodeRabbit's file limit): recorded, with the numbers the
       // customer's notice needs. A diff with no hunt signal is SKIPPED plain.
       const huntSkippedForCap =
-        isHuntEnabled() && files.length > 0 && huntTrigger.hunt && huntOverCap
+        layers.hunt && files.length > 0 && huntTrigger.hunt && huntOverCap
       if (huntSkippedForCap) partialCauses.push('HUNT_OVERSIZED')
 
       const prior =

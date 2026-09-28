@@ -41,6 +41,7 @@ import {
   DETECTOR_VERSION,
 } from './pr-security-scan.service'
 import { dispatchPrSecurityScan } from './pr-security-scan-dispatch'
+import { loadSecurityLayers } from './security-workspace-switches.service'
 import {
   fetchPrivateBlob,
   deleteBlob,
@@ -81,7 +82,11 @@ export interface ResolvedPr {
 }
 
 export type ResolveOutcome =
-  | { kind: 'discarded'; reason: 'pr_not_found' | 'workspace_mismatch' }
+  | {
+      kind: 'discarded'
+      // LUM-866: `workspace_scan_disabled` — the workspace turned scanning off.
+      reason: 'pr_not_found' | 'workspace_mismatch' | 'workspace_scan_disabled'
+    }
   | { kind: 'ok'; scanId: string; pr: ResolvedPr }
 
 export interface FetchAndNormalizeInput {
@@ -130,7 +135,11 @@ export type IngestResult =
       outcome: 'DISCARDED'
       // LUM-745: `superseded` — the managed run's sandbox step found its row
       // already superseded and did nothing.
-      reason: 'pr_not_found' | 'workspace_mismatch' | 'superseded'
+      reason:
+        | 'pr_not_found'
+        | 'workspace_mismatch'
+        | 'workspace_scan_disabled'
+        | 'superseded'
     }
   | { outcome: 'FAILED'; scanId: string | null; reason: string }
 
@@ -206,6 +215,14 @@ export const securitySarifIngestService = {
         `[security-sarif-ingest] PR ${logSafe(job.repository)}#${job.prNumber} belongs to another workspace — discarding`
       )
       return { kind: 'discarded', reason: 'workspace_mismatch' }
+    }
+    // LUM-866: the workspace turned scanning off — the report is dropped
+    // (the workflow deletes the blob) and no scan row is created.
+    if (!(await loadSecurityLayers(pr.workspaceId)).scan) {
+      logger.info(
+        `[security-sarif-ingest] scanning off for the workspace of ${logSafe(job.repository)}#${job.prNumber} — discarding ${logSafe(job.tool)} report`
+      )
+      return { kind: 'discarded', reason: 'workspace_scan_disabled' }
     }
     const scan = await prSecurityScanRepository.createIfAbsent({
       pullRequestId: pr.id,

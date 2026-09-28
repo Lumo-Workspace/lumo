@@ -2590,5 +2590,16 @@
   "security.report.body": "If you believe you have found a security vulnerability in Lumo, email {email} with steps to reproduce it. Please give us reasonable time to fix it before disclosing it publicly.",
   "security.report.securityTxt": "The same contact is published in machine-readable form at {path}.",
   "github.accessRemoved": "{count, plural, one {# repository was} other {# repositories were}} removed automatically: the person who last verified GitHub access can no longer read {count, plural, one {it} other {them}}. Their scan code was deleted.",
-  "github.accessRecheckOff": "Automatic access checks are off for this installation. A workspace owner needs to re-verify once to turn them on."
+  "github.accessRecheckOff": "Automatic access checks are off for this installation. A workspace owner needs to re-verify once to turn them on.",
+  "workspaceSettings.securityScan.title": "PR security scanning",
+  "workspaceSettings.securityScan.description": "What Lumo runs on pull requests linked to this workspace's tasks. Turning a layer off stops it for new scans; results already on a PR are kept.",
+  "workspaceSettings.securityScan.scan.label": "Security scan",
+  "workspaceSettings.securityScan.scan.description": "Scan every pull request for leaked secrets and vulnerable code. When off, pull requests are not scanned at all and no scan comment is posted.",
+  "workspaceSettings.securityScan.aiReview.label": "AI review",
+  "workspaceSettings.securityScan.aiReview.description": "Send the pull request's diff to an AI model (zero data retention) for a security review and a summary of the change.",
+  "workspaceSettings.securityScan.hunt.label": "Exploit-path hunt",
+  "workspaceSettings.securityScan.hunt.description": "For risky changes, an AI agent explores the code in an isolated sandbox to confirm whether a finding can actually be exploited.",
+  "workspaceSettings.securityScan.platformOff": "Currently turned off for all workspaces by Lumo.",
+  "workspaceSettings.securityScan.updated": "Security scan settings saved",
+  "workspaceSettings.securityScan.updateFailed": "Failed to save security scan settings"
 }

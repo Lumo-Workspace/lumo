@@ -6,6 +6,15 @@
  * stores that description on the scan row, already redacted and neutralised,
  * and stores nothing when the judge did not answer.
  */
+// LUM-866: every workspace here has the default switches (all on); the
+// platform env in each test still decides the ceiling.
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  // A plain function, not jest.fn: survives resetAllMocks.
+  loadSecurityLayers: async () =>
+    jest
+      .requireActual('@/lib/security-scan/workspace-switches')
+      .resolveSecurityLayers(null),
+}))
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))

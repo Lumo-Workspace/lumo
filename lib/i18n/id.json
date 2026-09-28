@@ -2590,5 +2590,16 @@
   "security.report.body": "Jika Anda yakin telah menemukan kerentanan keamanan di Lumo, kirim email ke {email} beserta langkah-langkah untuk mereproduksinya. Mohon beri kami waktu yang wajar untuk memperbaikinya sebelum mengungkapkannya ke publik.",
   "security.report.securityTxt": "Kontak yang sama dipublikasikan dalam format yang dapat dibaca mesin di {path}.",
   "github.accessRemoved": "{count} repositori dihapus otomatis: orang yang terakhir memverifikasi akses GitHub tidak dapat membacanya lagi. Kode pemindaian terkait telah dihapus.",
-  "github.accessRecheckOff": "Pemeriksaan akses otomatis nonaktif untuk instalasi ini. Pemilik workspace perlu memverifikasi ulang sekali untuk mengaktifkannya."
+  "github.accessRecheckOff": "Pemeriksaan akses otomatis nonaktif untuk instalasi ini. Pemilik workspace perlu memverifikasi ulang sekali untuk mengaktifkannya.",
+  "workspaceSettings.securityScan.title": "Pemindaian keamanan PR",
+  "workspaceSettings.securityScan.description": "Apa yang dijalankan Lumo pada pull request yang ditautkan ke tugas di workspace ini. Lapisan yang dimatikan tidak lagi berjalan pada pemindaian baru; hasil yang sudah ada di PR tetap disimpan.",
+  "workspaceSettings.securityScan.scan.label": "Pemindaian keamanan",
+  "workspaceSettings.securityScan.scan.description": "Pindai setiap pull request untuk mencari rahasia yang bocor dan kode yang rentan. Jika dimatikan, pull request sama sekali tidak dipindai dan tidak ada komentar pemindaian yang diposting.",
+  "workspaceSettings.securityScan.aiReview.label": "Tinjauan AI",
+  "workspaceSettings.securityScan.aiReview.description": "Kirim diff pull request ke model AI (tanpa penyimpanan data) untuk tinjauan keamanan dan ringkasan perubahan.",
+  "workspaceSettings.securityScan.hunt.label": "Penelusuran jalur eksploitasi",
+  "workspaceSettings.securityScan.hunt.description": "Untuk perubahan berisiko, agen AI menelusuri kode di sandbox terisolasi untuk memastikan apakah sebuah temuan benar-benar dapat dieksploitasi.",
+  "workspaceSettings.securityScan.platformOff": "Saat ini dimatikan oleh Lumo untuk semua workspace.",
+  "workspaceSettings.securityScan.updated": "Pengaturan pemindaian keamanan disimpan",
+  "workspaceSettings.securityScan.updateFailed": "Gagal menyimpan pengaturan pemindaian keamanan"
 }

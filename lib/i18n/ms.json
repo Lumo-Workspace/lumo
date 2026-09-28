@@ -2590,5 +2590,16 @@
   "security.report.body": "Jika anda percaya anda telah menemui kerentanan keselamatan dalam Lumo, hantar e-mel ke {email} beserta langkah untuk menghasilkannya semula. Sila beri kami masa yang munasabah untuk membaikinya sebelum mendedahkannya kepada umum.",
   "security.report.securityTxt": "Maklumat hubungan yang sama diterbitkan dalam bentuk boleh dibaca mesin di {path}.",
   "github.accessRemoved": "{count} repositori telah dialih keluar secara automatik: orang yang terakhir mengesahkan akses GitHub tidak lagi dapat membacanya. Kod imbasan berkaitan telah dipadam.",
-  "github.accessRecheckOff": "Semakan akses automatik dimatikan untuk pemasangan ini. Pemilik ruang kerja perlu mengesahkan semula sekali untuk menghidupkannya."
+  "github.accessRecheckOff": "Semakan akses automatik dimatikan untuk pemasangan ini. Pemilik ruang kerja perlu mengesahkan semula sekali untuk menghidupkannya.",
+  "workspaceSettings.securityScan.title": "Imbasan keselamatan PR",
+  "workspaceSettings.securityScan.description": "Perkara yang dijalankan Lumo pada pull request yang dipautkan kepada tugas dalam ruang kerja ini. Lapisan yang dimatikan tidak lagi dijalankan pada imbasan baharu; keputusan yang sudah ada pada PR dikekalkan.",
+  "workspaceSettings.securityScan.scan.label": "Imbasan keselamatan",
+  "workspaceSettings.securityScan.scan.description": "Imbas setiap pull request untuk rahsia yang bocor dan kod yang terdedah. Jika dimatikan, pull request langsung tidak diimbas dan tiada ulasan imbasan disiarkan.",
+  "workspaceSettings.securityScan.aiReview.label": "Semakan AI",
+  "workspaceSettings.securityScan.aiReview.description": "Hantar diff pull request kepada model AI (tanpa penyimpanan data) untuk semakan keselamatan dan ringkasan perubahan.",
+  "workspaceSettings.securityScan.hunt.label": "Pemburuan laluan eksploitasi",
+  "workspaceSettings.securityScan.hunt.description": "Bagi perubahan berisiko, ejen AI meneroka kod dalam kotak pasir terasing untuk mengesahkan sama ada sesuatu penemuan benar-benar boleh dieksploitasi.",
+  "workspaceSettings.securityScan.platformOff": "Kini dimatikan oleh Lumo untuk semua ruang kerja.",
+  "workspaceSettings.securityScan.updated": "Tetapan imbasan keselamatan disimpan",
+  "workspaceSettings.securityScan.updateFailed": "Gagal menyimpan tetapan imbasan keselamatan"
 }

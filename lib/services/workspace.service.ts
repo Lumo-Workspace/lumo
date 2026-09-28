@@ -18,6 +18,10 @@ export interface UpdateWorkspaceInput {
   securityPolicy?: SecurityPolicy | null | undefined
   /** LUM-859: one of HOOK_EVENT_RETENTION_DAYS; null = keep forever. */
   hookEventRetentionDays?: HookEventRetentionDays | null | undefined
+  /** LUM-866: per-workspace security-scan switches. */
+  securityScanEnabled?: boolean | undefined
+  securityAiReviewEnabled?: boolean | undefined
+  securityHuntEnabled?: boolean | undefined
 }
 
 // ── Workspace Service ───────────────────────────────────────────────────────
@@ -82,6 +86,12 @@ export const workspaceService = {
       data.securityPolicy = input.securityPolicy
     if (input.hookEventRetentionDays !== undefined)
       data.hookEventRetentionDays = input.hookEventRetentionDays
+    if (input.securityScanEnabled !== undefined)
+      data.securityScanEnabled = input.securityScanEnabled
+    if (input.securityAiReviewEnabled !== undefined)
+      data.securityAiReviewEnabled = input.securityAiReviewEnabled
+    if (input.securityHuntEnabled !== undefined)
+      data.securityHuntEnabled = input.securityHuntEnabled
 
     return workspaceRepository.update(workspaceId, data)
   },
