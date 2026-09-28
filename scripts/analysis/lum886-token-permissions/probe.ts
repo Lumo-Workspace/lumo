@@ -15,6 +15,13 @@
  *    failure this task guards against).
  * 3. Negative control: the pull-request token must NOT read file contents,
  *    so the narrowing is proven to take effect.
+ * 4. LUM-890: mints each `INSTALLATION_TOKEN_PERMISSIONS` set installation-wide
+ *    (no repository narrowing), exactly as `createInstallationToken` does, and
+ *    calls the endpoints its callers use: the installation's repository list,
+ *    and the collaborator-permission / user lookups of the access recheck
+ *    (asked about the `gh` user's login). Negative control: that token must
+ *    NOT read pull requests or file contents. The PR backfill's list call is
+ *    checked under `pullRequestRead`, the per-repository set it now mints.
  * Every token is revoked when its checks finish.
  *
  * Exits 1 on any failure.
@@ -81,10 +88,12 @@ async function main() {
 
   const {
     REPO_TOKEN_PERMISSIONS,
+    INSTALLATION_TOKEN_PERMISSIONS,
     PRODUCTION_APP_PERMISSIONS,
     isWithinPermissions,
   } = await import('@/lib/integrations/github/token-permissions')
   const {
+    createInstallationToken,
     createRepoTokenForInstallation,
     getGithubAppJwt,
     revokeInstallationToken,
@@ -107,7 +116,10 @@ async function main() {
       ? 'committed list matches GET /apps/lumo-agent'
       : `live ${liveJson} ≠ committed ${committedJson}`
   )
-  for (const [set, perms] of Object.entries(REPO_TOKEN_PERMISSIONS)) {
+  for (const [set, perms] of Object.entries({
+    ...REPO_TOKEN_PERMISSIONS,
+    ...INSTALLATION_TOKEN_PERMISSIONS,
+  })) {
     const ok = isWithinPermissions(perms, (live ?? {}) as never)
     report(ok, `${set} ⊆ live production App`, JSON.stringify(perms))
   }
@@ -129,12 +141,18 @@ async function main() {
   )
 
   const minted: string[] = []
-  async function mint(permissions: RepoTokenPermissions): Promise<string> {
-    const token = await createRepoTokenForInstallation(
-      inst.id,
-      repository,
-      permissions
-    )
+  /**
+   * One repository (as `getRepoToken` mints), or the whole installation
+   * through the real `createInstallationToken` (LUM-890).
+   */
+  async function mint(
+    permissions: RepoTokenPermissions,
+    scope: 'repository' | 'installation' = 'repository'
+  ): Promise<string> {
+    const token =
+      scope === 'repository'
+        ? await createRepoTokenForInstallation(inst.id, repository, permissions)
+        : await createInstallationToken(inst.id, permissions)
     minted.push(token)
     return token
   }
@@ -217,6 +235,14 @@ async function main() {
       `${repoBase}/commits/${pr.head.sha}/pulls`,
       'ok'
     )
+    // The install / re-verify PR backfill (syncRepoPRs), LUM-890.
+    await expect(
+      'pullRequestRead',
+      prRead,
+      'GET pulls?state=all (PR backfill)',
+      `${repoBase}/pulls?state=all&per_page=100&sort=updated&direction=desc`,
+      'ok'
+    )
     await expect(
       'pullRequestRead',
       prRead,
@@ -290,6 +316,85 @@ async function main() {
     await expect(
       'pullRequestWrite',
       prWrite,
+      'negative: GET contents/{path}',
+      `${repoBase}/contents/package.json`,
+      'denied'
+    )
+
+    // 4 — LUM-890: installation-wide tokens.
+    const repoList = await mint(
+      INSTALLATION_TOKEN_PERMISSIONS.repositoryList,
+      'installation'
+    )
+    const listRes = await get(
+      `${GH}/installation/repositories?per_page=100&page=1`,
+      repoList
+    )
+    const listed = listRes.ok
+      ? ((
+          (await listRes.json()) as {
+            repositories?: Array<{ full_name?: string }>
+          }
+        ).repositories ?? [])
+      : []
+    report(
+      listRes.ok &&
+        listed.some(
+          r => r.full_name?.toLowerCase() === repository.toLowerCase()
+        ),
+      'repositoryList: GET /installation/repositories',
+      `HTTP ${listRes.status}, ${listed.length} repositories, ${repository} ${
+        listed.some(
+          r => r.full_name?.toLowerCase() === repository.toLowerCase()
+        )
+          ? 'listed'
+          : 'MISSING'
+      }`
+    )
+    await expect(
+      'repositoryList',
+      repoList,
+      'negative: GET pulls/{n}',
+      pull,
+      'denied'
+    )
+
+    const login = execSync('gh api user --jq .login', {
+      encoding: 'utf8',
+    }).trim()
+    const access = await mint(
+      INSTALLATION_TOKEN_PERMISSIONS.collaboratorAccess,
+      'installation'
+    )
+    const permRes = await get(
+      `${repoBase}/collaborators/${encodeURIComponent(login)}/permission`,
+      access
+    )
+    const permission = permRes.ok
+      ? ((await permRes.json()) as { permission?: string }).permission
+      : undefined
+    report(
+      permRes.ok && typeof permission === 'string',
+      'collaboratorAccess: GET collaborators/{login}/permission',
+      `HTTP ${permRes.status}, ${login} → ${permission ?? 'no answer'}`
+    )
+    await expect(
+      'collaboratorAccess',
+      access,
+      'GET users/{login}',
+      `${GH}/users/${encodeURIComponent(login)}`,
+      'ok'
+    )
+    await expect(
+      'collaboratorAccess',
+      access,
+      'negative: GET pulls/{n}',
+      pull,
+      'denied'
+    )
+    await expect(
+      'collaboratorAccess',
+      access,
       'negative: GET contents/{path}',
       `${repoBase}/contents/package.json`,
       'denied'

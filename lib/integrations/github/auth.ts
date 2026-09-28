@@ -81,21 +81,41 @@ export async function getGithubAppJwt(): Promise<string> {
   return token
 }
 
-/**
- * Installation token for an installation id already in hand, reaching every
- * repository the installation does. Only for the install flow and the access
- * recheck, which must list the whole installation before any repository is
- * confirmed; repository data goes through `getRepoToken`.
- */
-export async function createInstallationToken(
-  installationId: number
-): Promise<string> {
-  const auth = createAppAuth({ ...appCredentials(), installationId })
-  const { token } = await auth({ type: 'installation' })
-  return token
+export type RepoTokenPermissions = Record<string, 'read' | 'write'>
+
+/** GitHub reads "no permissions" as "all of the installation's permissions". */
+function requirePermissionSet(
+  permissions: RepoTokenPermissions | undefined,
+  what: string
+): void {
+  if (!permissions || Object.keys(permissions).length === 0) {
+    throw new Error(`${what} needs an explicit permission set`)
+  }
 }
 
-export type RepoTokenPermissions = Record<string, 'read' | 'write'>
+/**
+ * Installation token for an installation id already in hand, reaching every
+ * repository the installation does. Only for listing the installation's
+ * repositories and the access recheck, which must see the whole installation
+ * before (or regardless of) any repository being confirmed; repository data
+ * goes through `getRepoToken`.
+ *
+ * LUM-890: `permissions` is required — pick the set from
+ * `INSTALLATION_TOKEN_PERMISSIONS` (./token-permissions). An empty set is
+ * refused, as in `getRepoToken`.
+ */
+export async function createInstallationToken(
+  installationId: number,
+  permissions: RepoTokenPermissions
+): Promise<string> {
+  requirePermissionSet(
+    permissions,
+    `createInstallationToken (installation ${installationId})`
+  )
+  const auth = createAppAuth({ ...appCredentials(), installationId })
+  const { token } = await auth({ type: 'installation', permissions })
+  return token
+}
 
 /**
  * LUM-883 — the token for reading (or writing to) ONE confirmed repository.
@@ -113,11 +133,7 @@ export async function getRepoToken(
   repository: string,
   permissions: RepoTokenPermissions
 ): Promise<string> {
-  if (!permissions || Object.keys(permissions).length === 0) {
-    throw new Error(
-      `getRepoToken needs an explicit permission set (repository ${repository})`
-    )
-  }
+  requirePermissionSet(permissions, `getRepoToken (repository ${repository})`)
   const installationId = await resolveConfirmedInstallation(
     workspaceId,
     repository
@@ -188,11 +204,10 @@ export async function createRepoTokenForInstallation(
   repository: string,
   permissions: RepoTokenPermissions
 ): Promise<string> {
-  if (!permissions || Object.keys(permissions).length === 0) {
-    throw new Error(
-      `createRepoTokenForInstallation needs an explicit permission set (repository ${repository})`
-    )
-  }
+  requirePermissionSet(
+    permissions,
+    `createRepoTokenForInstallation (repository ${repository})`
+  )
   const name = repoName(repository)
   const auth = createAppAuth({ ...appCredentials(), installationId })
   const { token } = await auth({

@@ -39,6 +39,24 @@ export const REPO_TOKEN_PERMISSIONS = {
 } as const satisfies Record<string, RepoTokenPermissions>
 
 /**
+ * LUM-890 — the permissions each installation-wide token (no repository
+ * narrowing, `createInstallationToken`) is minted with. These are the calls
+ * that must see the whole installation: listing what it reaches, and asking
+ * GitHub whether a verifier still reads a repository. Both are served under
+ * `metadata: read`, the one permission every App has (probed live:
+ * `scripts/analysis/lum886-token-permissions/probe.ts`).
+ */
+export const INSTALLATION_TOKEN_PERMISSIONS = {
+  /** `GET /installation/repositories` — the repositories an installation reaches. */
+  repositoryList: { metadata: 'read' },
+  /**
+   * `GET /repos/{r}/collaborators/{login}/permission` (the LUM-882 access
+   * recheck) and `GET /users/{login}`, which is public.
+   */
+  collaboratorAccess: { metadata: 'read' },
+} as const satisfies Record<string, RepoTokenPermissions>
+
+/**
  * The production App's (`lumo-agent`, App ID 3207183) repository permissions,
  * as `gh api apps/lumo-agent --jq .permissions` returned them on 2026-09-28.
  * The only production installation (Lumo-Workspace) carries exactly these.

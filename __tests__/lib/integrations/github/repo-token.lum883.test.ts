@@ -197,7 +197,6 @@ describe('LUM-883 no installation-wide tokens in runtime code', () => {
   const WHOLE_INSTALLATION_ALLOWED = new Set([
     'lib/integrations/github/auth.ts',
     'lib/integrations/github/app-installations.ts',
-    'lib/services/github-app-install.service.ts',
     'lib/services/github-access-recheck.service.ts',
   ])
 
