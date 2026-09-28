@@ -3,7 +3,13 @@
 import { useIntl } from 'react-intl'
 import { X } from 'lucide-react'
 import { GithubIcon } from '@/components/icons/GithubIcon'
-import { PrStateBadge, CiIcon, SecurityScanBadge } from '../../pr-helpers'
+import {
+  PrStateBadge,
+  CiIcon,
+  ScanningOffBadge,
+  SecurityScanBadge,
+  showsScanningOff,
+} from '../../pr-helpers'
 import { useSecurityScans } from '../../../hooks/useSecurityScans'
 import { LinkPrPopover } from '../../LinkPrPopover'
 import { ContextSection } from '../ContextSection'
@@ -81,11 +87,13 @@ export function PullRequestsSection({
                   {/* Review I4: nothing at all while the read is in flight —
                       an unanswered fetch is not "Not scanned" — and an
                       explicit unavailable state once it has failed. */}
-                  {securityLoading ? null : (
+                  {securityLoading ? null : security?.scanningOff &&
+                    showsScanningOff(scanByPrId.get(pr.id)) ? (
+                    <ScanningOffBadge />
+                  ) : (
                     <SecurityScanBadge
                       scan={scanByPrId.get(pr.id)}
                       unavailable={securityError}
-                      scanningOff={security?.scanningOff ?? false}
                     />
                   )}
                 </div>

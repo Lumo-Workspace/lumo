@@ -64,6 +64,10 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
 
 import { SecurityScanSection } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SecurityScanSection'
 import { scanCoverageState } from '@/shared/src/security-scan'
+import {
+  ScanningOffBadge,
+  showsScanningOff,
+} from '@/app/workspace/[workspaceUrl]/components/pr-helpers'
 
 const finding = (over: object = {}) => ({
   id: 'f1',
@@ -241,5 +245,21 @@ describe('LUM-892 scanning turned off in the task panel', () => {
     expect(
       within(findingsRow).getByTestId('security-scan-badge')
     ).toHaveAttribute('data-state', 'findings')
+  })
+})
+
+describe('LUM-892 scanning turned off badge variant', () => {
+  it('LUM-892 scanning turned off: the variant renders in the shared badge frame', () => {
+    render(<ScanningOffBadge />)
+    const badge = screen.getByTestId('security-scan-badge')
+    expect(badge).toHaveAttribute('data-state', 'scanning-off')
+    expect(badge).toHaveTextContent('Scanning off')
+  })
+
+  it('LUM-892 scanning turned off: only a PR with nothing open is replaced', () => {
+    expect(showsScanningOff(null)).toBe(true)
+    expect(showsScanningOff(undefined)).toBe(true)
+    expect(showsScanningOff({ findings: [] })).toBe(true)
+    expect(showsScanningOff({ findings: [finding() as never] })).toBe(false)
   })
 })

@@ -8,7 +8,11 @@ import { ChevronRight, Check, Copy } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
-import { SecurityScanBadge } from '../pr-helpers'
+import {
+  ScanningOffBadge,
+  SecurityScanBadge,
+  showsScanningOff,
+} from '../pr-helpers'
 import type {
   SecurityFindingView,
   SecurityScanView,
@@ -224,10 +228,11 @@ function SecurityScanPanel({
                   >
                     #{pr.number} {pr.title}
                   </a>
-                  <SecurityScanBadge
-                    scan={latest}
-                    scanningOff={data.scanningOff}
-                  />
+                  {data.scanningOff && showsScanningOff(latest) ? (
+                    <ScanningOffBadge />
+                  ) : (
+                    <SecurityScanBadge scan={latest} />
+                  )}
                   {latest && (
                     <span className='ml-auto font-mono text-caption text-muted-foreground'>
                       {intl.formatMessage(

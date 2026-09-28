@@ -99,12 +99,9 @@ const SEVERITY_TONE: Record<'LOW' | 'MEDIUM' | 'HIGH', string> = {
 export function SecurityScanBadge({
   scan,
   unavailable = false,
-  scanningOff = false,
 }: {
   scan: SecurityScanView | null | undefined
   unavailable?: boolean
-  /** LUM-892 — the workspace turned scanning off: an old result can't vouch. */
-  scanningOff?: boolean
 }) {
   const intl = useIntl()
   const worst =
@@ -121,12 +118,6 @@ export function SecurityScanBadge({
     icon = <ShieldQuestion size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.unavailable' })
     state = 'unavailable'
-  } else if (scanningOff && (!scan || scan.findings.length === 0)) {
-    // LUM-892: scanning is off in settings — an earlier "Clean" was for an
-    // older commit and must not keep standing as this PR's answer.
-    icon = <ShieldQuestion size={12} />
-    label = intl.formatMessage({ id: 'securityScan.status.scanningOff' })
-    state = 'scanning-off'
   } else if (!scan) {
     icon = <ShieldQuestion size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.none' })
@@ -180,13 +171,53 @@ export function SecurityScanBadge({
   }
 
   return (
+    <SecurityBadgeShell state={state} tone={tone}>
+      {icon}
+      {label}
+    </SecurityBadgeShell>
+  )
+}
+
+/** The one badge frame both security badge variants render into. */
+function SecurityBadgeShell({
+  state,
+  tone,
+  children,
+}: {
+  state: string
+  tone: string
+  children: React.ReactNode
+}) {
+  return (
     <span
       data-testid='security-scan-badge'
       data-state={state}
       className={`inline-flex items-center gap-1 text-[10px] font-medium ${tone}`}
     >
-      {icon}
-      {label}
+      {children}
     </span>
   )
+}
+
+/**
+ * LUM-892 — shown instead of `SecurityScanBadge` when the workspace turned
+ * scanning off and the PR has nothing open: an earlier "Clean" was for an
+ * older commit and must not keep standing as the PR's answer. A PR with
+ * findings keeps `SecurityScanBadge` — those findings are still real.
+ */
+export function ScanningOffBadge() {
+  const intl = useIntl()
+  return (
+    <SecurityBadgeShell state='scanning-off' tone='text-muted-foreground'>
+      <ShieldQuestion size={12} />
+      {intl.formatMessage({ id: 'securityScan.status.scanningOff' })}
+    </SecurityBadgeShell>
+  )
+}
+
+/** LUM-892 — does a scanning-off workspace replace this PR's badge? */
+export function showsScanningOff(
+  scan: Pick<SecurityScanView, 'findings'> | null | undefined
+): boolean {
+  return !scan || scan.findings.length === 0
 }
