@@ -28,6 +28,8 @@ const messages: Record<string, string> = {
   'github.appPendingRepos': 'Waiting for verification',
   'github.appPendingReposDesc': 'Ignored until re-verified',
   'github.appPendingUnknown': 'Could not check pending',
+  'github.accessRemoved': '{count} removed because access changed',
+  'github.accessRecheckOff': 'Automatic access checks are off',
   'common.cancel': 'Cancel',
   'common.moreOptions': 'More options',
 }
@@ -51,6 +53,8 @@ const mockAppHook = {
     accountLogin?: string | null
     repositories?: string[]
     pendingRepositories?: string[] | null
+    accessRecheckEnabled?: boolean
+    accessRemovedCount?: number
   },
   loading: false,
   uninstallOpen: false,
@@ -66,6 +70,8 @@ jest.mock(
   () => ({ useGitHubAppInstallation: () => mockAppHook })
 )
 
+import { readdirSync, readFileSync } from 'fs'
+import { join } from 'path'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { GitHubIntegrationCard } from '@/app/workspace/[workspaceUrl]/components/GitHubIntegrationCard'
 
@@ -226,5 +232,95 @@ describe('GitHubIntegrationCard (team: App installation, Slack-shaped)', () => {
     expect(
       screen.queryByText('Waiting for verification')
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('access recheck notices', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('says how many repositories the automatic recheck removed', () => {
+    mockAppHook.status = {
+      installed: true,
+      accountLogin: 'acme-inc',
+      repositories: ['acme-inc/web'],
+      pendingRepositories: [],
+      accessRecheckEnabled: true,
+      accessRemovedCount: 3,
+    }
+    render(<GitHubIntegrationCard workspaceUrl='acme' isOwner={false} />)
+    expandBody()
+
+    expect(
+      screen.getByText('3 removed because access changed')
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Automatic access checks are off')
+    ).not.toBeInTheDocument()
+  })
+
+  it('asks for a re-verification when no verifier login is on record', () => {
+    mockAppHook.status = {
+      installed: true,
+      accountLogin: 'acme-inc',
+      repositories: ['acme-inc/web'],
+      pendingRepositories: [],
+      accessRecheckEnabled: false,
+      accessRemovedCount: 0,
+    }
+    render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
+    expandBody()
+
+    expect(
+      screen.getByText('Automatic access checks are off')
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/removed because access changed/)
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows neither notice while the recheck runs and has removed nothing', () => {
+    mockAppHook.status = {
+      installed: true,
+      accountLogin: 'acme-inc',
+      repositories: ['acme-inc/web'],
+      pendingRepositories: [],
+      accessRecheckEnabled: true,
+      accessRemovedCount: 0,
+    }
+    render(<GitHubIntegrationCard workspaceUrl='acme' isOwner />)
+    expandBody()
+
+    expect(
+      screen.queryByText(/removed because access changed/)
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Automatic access checks are off')
+    ).not.toBeInTheDocument()
+  })
+
+  it('has a real translation of both notices in every locale', () => {
+    const dir = join(process.cwd(), 'lib/i18n')
+    const load = (file: string) =>
+      JSON.parse(readFileSync(join(dir, file), 'utf8')) as Record<
+        string,
+        string
+      >
+    const en = load('en.json')
+    const locales = readdirSync(dir).filter(f => f.endsWith('.json'))
+    expect(locales.length).toBeGreaterThan(10)
+    for (const file of locales) {
+      const locale = file.replace(/\.json$/, '')
+      const bundle = load(file)
+      for (const key of ['github.accessRemoved', 'github.accessRecheckOff']) {
+        const text = bundle[key]
+        expect(text).toBeTruthy()
+        expect(text).not.toContain('[TODO')
+        if (!locale.startsWith('en')) expect(text).not.toBe(en[key])
+      }
+      // The count is interpolated, never baked into the sentence.
+      expect(bundle['github.accessRemoved']).toMatch(/\{count[,}]/)
+    }
   })
 })

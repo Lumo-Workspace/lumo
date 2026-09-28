@@ -11,6 +11,7 @@ jest.mock('@/lib/repositories', () => ({
     findStatusByWorkspace: jest.fn(),
     findAllByInstallationId: jest.fn().mockResolvedValue([]),
     updateRepositories: jest.fn(),
+    recordVerification: jest.fn(),
     delete: jest.fn(),
     deleteByInstallationId: jest.fn().mockResolvedValue({ count: 1 }),
   },
@@ -39,6 +40,7 @@ jest.mock('@/lib/integrations/github', () => ({
   exchangeAppUserCode: jest.fn(),
   listUserInstallationIds: jest.fn(),
   listUserInstallationRepositories: jest.fn(),
+  fetchAppUserLogin: jest.fn(),
   revokeAppUserToken: jest.fn(),
   GithubAppUserAuthNotConfiguredError: class extends Error {},
 }))
@@ -59,6 +61,7 @@ import {
   exchangeAppUserCode,
   listUserInstallationIds,
   listUserInstallationRepositories,
+  fetchAppUserLogin,
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from '@/lib/integrations/github'
@@ -89,7 +92,59 @@ describe('githubAppInstallService', () => {
     ;(listUserInstallationRepositories as jest.Mock).mockResolvedValue([
       'acme-inc/web',
     ])
+    ;(fetchAppUserLogin as jest.Mock).mockResolvedValue('octo-admin')
     ;(revokeAppUserToken as jest.Mock).mockResolvedValue(undefined)
+  })
+
+  describe('verifier login (LUM-882)', () => {
+    it('records the verifier login on bind and on re-verification', async () => {
+      await githubAppInstallService.install({
+        workspaceId: 'w1',
+        memberId: 'm1',
+        installationId: 42,
+        userCode: 'code',
+        redirectUri: REDIRECT,
+      })
+      expect(repo.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ verifierLogin: 'octo-admin' })
+      )
+
+      repo.findStatusByWorkspace.mockResolvedValue({
+        installationId: 42,
+        repositories: ['acme-inc/web'],
+        verifierLogin: 'someone-else',
+      })
+      ;(fetchAppUserLogin as jest.Mock).mockResolvedValue('octo-owner')
+      await githubAppInstallService.reverify({
+        workspaceId: 'w1',
+        memberRole: 'OWNER',
+        userCode: 'code',
+        redirectUri: REDIRECT,
+      })
+      expect(repo.recordVerification).toHaveBeenCalledWith(
+        'w1',
+        ['acme-inc/web'],
+        'octo-owner'
+      )
+      // The login is read while the token is live; the token still goes.
+      expect(fetchAppUserLogin).toHaveBeenCalledWith('user-token')
+      expect(revokeAppUserToken).toHaveBeenCalledTimes(2)
+    })
+
+    it('writes nothing when the verifier login cannot be read', async () => {
+      ;(fetchAppUserLogin as jest.Mock).mockRejectedValue(new Error('502'))
+      await expect(
+        githubAppInstallService.install({
+          workspaceId: 'w1',
+          memberId: 'm1',
+          installationId: 42,
+          userCode: 'code',
+          redirectUri: REDIRECT,
+        })
+      ).rejects.toThrow('502')
+      expect(repo.upsert).not.toHaveBeenCalled()
+      expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
+    })
   })
 
   describe('install', () => {
@@ -109,6 +164,7 @@ describe('githubAppInstallService', () => {
         accountType: 'Organization',
         repositories: ['acme-inc/web'],
         installedBy: 'm1',
+        verifierLogin: 'octo-admin',
       })
     })
 
@@ -622,6 +678,9 @@ describe('githubAppInstallService', () => {
         accountType: 'Organization',
         repositories: ['acme-inc/web'],
         createdAt: new Date(),
+        verifierLogin: 'octo-admin',
+        accessRemovedCount: 2,
+        accessRemovedAt: new Date('2026-09-27T04:15:00Z'),
       })
 
       expect(await githubAppInstallService.getStatus('w1')).toEqual({
@@ -630,6 +689,25 @@ describe('githubAppInstallService', () => {
         accountType: 'Organization',
         repositories: ['acme-inc/web'],
         pendingRepositories: [],
+        accessRecheckEnabled: true,
+        accessRemovedCount: 2,
+        accessRemovedAt: '2026-09-27T04:15:00.000Z',
+      })
+    })
+
+    it('reports the access recheck as off when no verifier login is on record', async () => {
+      repo.findStatusByWorkspace.mockResolvedValue({
+        installationId: 555,
+        repositories: ['acme-inc/web'],
+        verifierLogin: null,
+        accessRemovedCount: 0,
+        accessRemovedAt: null,
+      })
+
+      expect(await githubAppInstallService.getStatus('w1')).toMatchObject({
+        accessRecheckEnabled: false,
+        accessRemovedCount: 0,
+        accessRemovedAt: null,
       })
     })
 
@@ -706,10 +784,11 @@ describe('githubAppInstallService', () => {
     it('reverify narrows and widens the confirmed list to what the verifier can read', async () => {
       const result = await githubAppInstallService.reverify(input)
 
-      expect(repo.updateRepositories).toHaveBeenCalledWith('w1', [
-        'acme-inc/web',
-        'acme-inc/api',
-      ])
+      expect(repo.recordVerification).toHaveBeenCalledWith(
+        'w1',
+        ['acme-inc/web', 'acme-inc/api'],
+        'octo-admin'
+      )
       expect(result).toEqual({
         confirmed: 2,
         added: ['acme-inc/api'],
@@ -736,7 +815,7 @@ describe('githubAppInstallService', () => {
         githubAppInstallService.reverify({ ...input, memberRole: 'MEMBER' })
       ).rejects.toMatchObject({ status: 403, code: 'not_owner' })
       expect(exchangeAppUserCode).not.toHaveBeenCalled()
-      expect(repo.updateRepositories).not.toHaveBeenCalled()
+      expect(repo.recordVerification).not.toHaveBeenCalled()
     })
 
     it('refuses when the workspace has no installation', async () => {
@@ -753,7 +832,7 @@ describe('githubAppInstallService', () => {
       await expect(
         githubAppInstallService.reverify(input)
       ).rejects.toMatchObject({ status: 403, code: 'not_authorized' })
-      expect(repo.updateRepositories).not.toHaveBeenCalled()
+      expect(repo.recordVerification).not.toHaveBeenCalled()
       expect(
         prSecurityScanRepository.scrubCodeForWorkspace
       ).not.toHaveBeenCalled()
@@ -768,7 +847,7 @@ describe('githubAppInstallService', () => {
       await expect(githubAppInstallService.reverify(input)).rejects.toThrow(
         '502'
       )
-      expect(repo.updateRepositories).not.toHaveBeenCalled()
+      expect(repo.recordVerification).not.toHaveBeenCalled()
       expect(
         prSecurityScanRepository.scrubCodeForWorkspace
       ).not.toHaveBeenCalled()

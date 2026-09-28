@@ -18,6 +18,11 @@ export interface GitHubAppStatus {
    * `null` when GitHub could not be asked.
    */
   pendingRepositories?: string[] | null
+  /** LUM-882 — false when no verifier login is on record (pre-LUM-882 bind). */
+  accessRecheckEnabled?: boolean
+  /** LUM-882 — repositories the automatic recheck removed since the last re-verify. */
+  accessRemovedCount?: number
+  accessRemovedAt?: string | null
 }
 
 interface UseGitHubAppInstallationReturn {

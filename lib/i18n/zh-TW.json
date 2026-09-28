@@ -2588,5 +2588,7 @@
   "security.subprocessors.access.sentry": "你的 Sentry 專案傳送給 Lumo 的錯誤事件",
   "security.report.heading": "通報漏洞",
   "security.report.body": "如果你認為在 Lumo 中發現了安全性漏洞，請寄送電子郵件至 {email}，並附上重現步驟。請在公開揭露之前給我們合理的時間進行修復。",
-  "security.report.securityTxt": "相同的聯絡方式也以機器可讀的形式發佈於 {path}。"
+  "security.report.securityTxt": "相同的聯絡方式也以機器可讀的形式發佈於 {path}。",
+  "github.accessRemoved": "因 GitHub 權限變更，已自動移除 {count} 個儲存庫：最近一次核實的人已無法讀取它們，相關掃描程式碼已刪除。",
+  "github.accessRecheckOff": "此安裝未啟用自動權限複核。需要工作區擁有者重新核實一次才能啟用。"
 }

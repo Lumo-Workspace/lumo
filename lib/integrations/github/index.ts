@@ -31,12 +31,20 @@ export type {
   InstallationRepository,
 } from './app-installations'
 
+// Collaborator access (LUM-882 — the verifier access recheck)
+export {
+  checkUserExists,
+  checkRepositoryReadAccess,
+} from './collaborator-access'
+export type { RepositoryReadAccess } from './collaborator-access'
+
 // App user authorization (LUM-875 — install callback ownership check)
 export {
   buildAppUserAuthorizeUrl,
   exchangeAppUserCode,
   listUserInstallationIds,
   listUserInstallationRepositories,
+  fetchAppUserLogin,
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from './app-user-auth'

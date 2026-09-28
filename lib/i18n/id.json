@@ -2588,5 +2588,7 @@
   "security.subprocessors.access.sentry": "Peristiwa galat yang dikirim proyek Sentry Anda ke Lumo",
   "security.report.heading": "Melaporkan kerentanan",
   "security.report.body": "Jika Anda yakin telah menemukan kerentanan keamanan di Lumo, kirim email ke {email} beserta langkah-langkah untuk mereproduksinya. Mohon beri kami waktu yang wajar untuk memperbaikinya sebelum mengungkapkannya ke publik.",
-  "security.report.securityTxt": "Kontak yang sama dipublikasikan dalam format yang dapat dibaca mesin di {path}."
+  "security.report.securityTxt": "Kontak yang sama dipublikasikan dalam format yang dapat dibaca mesin di {path}.",
+  "github.accessRemoved": "{count} repositori dihapus otomatis: orang yang terakhir memverifikasi akses GitHub tidak dapat membacanya lagi. Kode pemindaian terkait telah dihapus.",
+  "github.accessRecheckOff": "Pemeriksaan akses otomatis nonaktif untuk instalasi ini. Pemilik workspace perlu memverifikasi ulang sekali untuk mengaktifkannya."
 }

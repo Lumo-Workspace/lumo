@@ -14,6 +14,7 @@ import {
   exchangeAppUserCode,
   listUserInstallationIds,
   listUserInstallationRepositories,
+  fetchAppUserLogin,
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from '@/lib/integrations/github'
@@ -64,7 +65,7 @@ function without(names: string[], exclude: Set<string>): string[] {
  * that workspace: security-scan evidence, call chains, hunt audit/job and PR
  * summaries. Scan and finding rows stay so DONE gating and history survive.
  */
-async function scrubWorkspaceCode(
+export async function scrubWorkspaceCode(
   workspaceId: string,
   reason: string,
   repos?: string[]
@@ -91,12 +92,15 @@ async function scrubWorkspaceCode(
  * LUM-880 — "can access" only means the user can read *one* of the
  * installation's repositories, so this also returns the repositories the user
  * can read; `install()` refuses unless they cover the whole installation.
+ *
+ * LUM-882 — also returns the user's GitHub login, so the daily access recheck
+ * can ask about this verifier later with the installation token alone.
  */
 async function listRepositoriesUserCanRead(
   userCode: string,
   redirectUri: string,
   installationId: number
-): Promise<string[]> {
+): Promise<{ login: string; repositories: string[] }> {
   let userToken: string
   try {
     userToken = await exchangeAppUserCode(userCode, redirectUri)
@@ -116,7 +120,11 @@ async function listRepositoriesUserCanRead(
         { status: 403, code: 'not_authorized' }
       )
     }
-    return await listUserInstallationRepositories(userToken, installationId)
+    const [login, repositories] = await Promise.all([
+      fetchAppUserLogin(userToken),
+      listUserInstallationRepositories(userToken, installationId),
+    ])
+    return { login, repositories }
   } finally {
     await revokeAppUserToken(userToken)
   }
@@ -223,7 +231,7 @@ export const githubAppInstallService = {
     userCode,
     redirectUri,
   }: InstallInput) {
-    const readable = await listRepositoriesUserCanRead(
+    const { login, repositories: readable } = await listRepositoriesUserCanRead(
       userCode,
       redirectUri,
       installationId
@@ -253,6 +261,7 @@ export const githubAppInstallService = {
       accountType: account.accountType,
       repositories,
       installedBy: memberId,
+      verifierLogin: login,
     })
 
     await backfillPullRequests(workspaceId, installationId, repositories)
@@ -276,8 +285,8 @@ export const githubAppInstallService = {
    * reach the workspace. This recomputes it as the installation's current
    * repositories that the verifier can read: repositories added after binding
    * are enabled (and backfilled), ones the verifier has lost are removed and
-   * their scan code scrubbed. The user token is revoked right after the check,
-   * so nothing about the verifier is kept.
+   * their scan code scrubbed. The user token is revoked right after the check;
+   * only the verifier's login (an identifier, LUM-882) is kept.
    */
   async reverify({
     workspaceId,
@@ -287,13 +296,12 @@ export const githubAppInstallService = {
   }: ReverifyInput) {
     const row = await requireReverifiableInstallation(workspaceId, memberRole)
 
-    const readable = lowerSet(
-      await listRepositoriesUserCanRead(
-        userCode,
-        redirectUri,
-        row.installationId
-      )
+    const verifier = await listRepositoriesUserCanRead(
+      userCode,
+      redirectUri,
+      row.installationId
     )
+    const readable = lowerSet(verifier.repositories)
     const live = await fetchInstallationRepositories(row.installationId)
 
     const confirmed = live.filter(name => readable.has(name.toLowerCase()))
@@ -302,9 +310,11 @@ export const githubAppInstallService = {
     const added = without(confirmed, previousSet)
     const removed = without(row.repositories, confirmedSet)
 
-    await githubAppInstallationRepository.updateRepositories(
+    // LUM-882 — the daily access recheck follows this verifier from now on.
+    await githubAppInstallationRepository.recordVerification(
       workspaceId,
-      confirmed
+      confirmed,
+      verifier.login
     )
     if (removed.length > 0) {
       await scrubWorkspaceCode(
@@ -385,6 +395,11 @@ export const githubAppInstallService = {
       accountType: row.accountType,
       repositories: row.repositories,
       pendingRepositories,
+      // LUM-882 — no verifier on record (bound before LUM-882): the daily
+      // recheck skips this installation until an owner re-verifies once.
+      accessRecheckEnabled: row.verifierLogin !== null,
+      accessRemovedCount: row.accessRemovedCount,
+      accessRemovedAt: row.accessRemovedAt?.toISOString() ?? null,
     } as const
   },
 

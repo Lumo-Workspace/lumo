@@ -158,6 +158,26 @@ export async function listUserInstallationRepositories(
 }
 
 /**
+ * LUM-882 — the verifier's GitHub login, read while the user token is live so
+ * the access recheck can later ask about this person with the installation
+ * token alone. The login is an identifier, not a credential.
+ */
+export async function fetchAppUserLogin(userToken: string): Promise<string> {
+  const res = await fetch(`${GH_API}/user`, {
+    headers: { ...GH_HEADERS, Authorization: `Bearer ${userToken}` },
+  })
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(
+      `GitHub fetchAppUserLogin failed ${res.status}: ${body.slice(0, 200)}`
+    )
+  }
+  const data = (await res.json()) as { login?: string }
+  if (!data.login) throw new Error('GitHub fetchAppUserLogin: no login')
+  return data.login
+}
+
+/**
  * Revoke the user token once the check is done — Lumo keeps no user credential
  * from this flow. Best-effort: never throws, never logs the token.
  */
