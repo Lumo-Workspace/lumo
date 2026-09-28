@@ -7,7 +7,7 @@ interface GitHubAccessNoticesProps {
   /** `false` = no verifier login on record; `undefined` = not known yet. */
   accessRecheckEnabled: boolean | undefined
   accessRemovedCount: number | undefined
-  /** LUM-888 — `account_gone` words the notice for a deleted account. */
+  /** LUM-888 — `account_gone` words the notice for an account GitHub cannot find. */
   accessRemovedReason?: string | null | undefined
 }
 

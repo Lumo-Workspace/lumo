@@ -2590,7 +2590,7 @@
   "security.report.body": "如果你認為在 Lumo 中發現了安全性漏洞，請寄送電子郵件至 {email}，並附上重現步驟。請在公開揭露之前給我們合理的時間進行修復。",
   "security.report.securityTxt": "相同的聯絡方式也以機器可讀的形式發佈於 {path}。",
   "github.accessRemoved": "因 GitHub 權限變更，已自動移除 {count} 個儲存庫：最近一次核實的人已無法讀取它們，相關掃描程式碼已刪除。",
-  "github.accessRemovedAccountGone": "已自動移除 {count} 個儲存庫：最近一次核實 GitHub 存取權限的帳號已不存在（已註銷，或在 Lumo 記錄其帳號 ID 之前改了名），相關掃描程式碼已刪除。工作區擁有者重新核實 GitHub 存取權限後，即可恢復其可讀取的儲存庫。",
+  "github.accessRemovedAccountGone": "已自動移除 {count} 個儲存庫：GitHub 上已找不到最近一次核實存取權限的帳號（可能已註銷或被停權，或在 Lumo 記錄其帳號 ID 之前改了名），相關掃描程式碼已刪除。工作區擁有者重新核實 GitHub 存取權限後，即可恢復其可讀取的儲存庫。",
   "github.accessRecheckOff": "此安裝未啟用自動權限複核。需要工作區擁有者重新核實一次才能啟用。",
   "workspaceSettings.securityScan.title": "PR 安全掃描",
   "workspaceSettings.securityScan.description": "Lumo 對本工作區任務關聯的拉取請求執行哪些檢查。關閉某一層後，新的掃描不再執行它；已在 PR 上的結果會保留。",

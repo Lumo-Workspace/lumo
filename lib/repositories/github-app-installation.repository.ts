@@ -202,6 +202,20 @@ export const githubAppInstallationRepository = {
     return count === 1
   },
 
+  /**
+   * LUM-895 — the sweep reached this row but wrote no result (a scrub that
+   * threw, a write that kept losing the race, GitHub not answering): stamp it
+   * anyway, so a row that fails every day rotates behind the others instead
+   * of going first forever. Only the rotation stamp; the list and resume
+   * point are left for the next attempt.
+   */
+  async markRecheckAttempted(workspaceId: string) {
+    await prisma.gitHubAppInstallation.updateMany({
+      where: { workspaceId },
+      data: { accessCheckedAt: new Date() },
+    })
+  },
+
   async updateRepositories(workspaceId: string, repositories: string[]) {
     return prisma.gitHubAppInstallation.update({
       where: { workspaceId },
