@@ -77,21 +77,35 @@ export async function checkRepositoryReadAccess(
 }
 
 /**
- * `false` only when GitHub says the login does not exist (a deleted or renamed
- * account); `null` when it could not be asked. One call instead of one 404 per
- * repository.
+ * LUM-888 — who the verifier is on GitHub *now*. By id (`GET /user/{id}`)
+ * when the id is on record: a renamed account comes back under its new login,
+ * and a login someone else registered later never matches. By login
+ * (`GET /users/{login}`) only for rows verified before the id was recorded —
+ * the answer carries the id so the caller can record it from then on.
+ *
+ * `'gone'` only when GitHub says the account does not exist (404); `null`
+ * when it could not be asked. One call instead of one 404 per repository.
  */
-export async function checkUserExists(
+export type GitHubUserLookup = { id: number; login: string } | 'gone' | null
+
+export async function lookupGitHubUser(
   installationToken: string,
-  login: string
-): Promise<boolean | null> {
+  who: { id: number } | { login: string }
+): Promise<GitHubUserLookup> {
+  const path =
+    'id' in who ? `/user/${who.id}` : `/users/${encodeURIComponent(who.login)}`
   try {
-    const res = await fetch(`${GH_API}/users/${encodeURIComponent(login)}`, {
+    const res = await fetch(`${GH_API}${path}`, {
       headers: { ...GH_HEADERS, Authorization: `Bearer ${installationToken}` },
     })
-    if (res.status === 200) return true
-    if (res.status === 404) return false
-    return null
+    if (res.status === 404) return 'gone'
+    if (res.status !== 200) return null
+    const data = (await res.json().catch(() => ({}))) as {
+      id?: number
+      login?: string
+    }
+    if (typeof data.id !== 'number' || !data.login) return null
+    return { id: data.id, login: data.login }
   } catch {
     return null
   }

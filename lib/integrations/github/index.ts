@@ -45,7 +45,7 @@ export type {
 
 // Collaborator access (LUM-882 — the verifier access recheck)
 export {
-  checkUserExists,
+  lookupGitHubUser,
   checkRepositoryReadAccess,
 } from './collaborator-access'
 export type { RepositoryReadAccess } from './collaborator-access'
@@ -56,7 +56,7 @@ export {
   exchangeAppUserCode,
   listUserInstallationIds,
   listUserInstallationRepositories,
-  fetchAppUserLogin,
+  fetchAppUser,
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from './app-user-auth'

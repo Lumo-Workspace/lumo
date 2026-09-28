@@ -23,6 +23,11 @@ export interface GitHubAppStatus {
   /** LUM-882 — repositories the automatic recheck removed since the last re-verify. */
   accessRemovedCount?: number
   accessRemovedAt?: string | null
+  /**
+   * LUM-888 — why: `access_lost` (the verifier can no longer read them) or
+   * `account_gone` (the verifying GitHub account no longer exists).
+   */
+  accessRemovedReason?: string | null
 }
 
 interface UseGitHubAppInstallationReturn {

@@ -40,7 +40,7 @@ jest.mock('@/lib/integrations/github', () => ({
   exchangeAppUserCode: jest.fn(),
   listUserInstallationIds: jest.fn(),
   listUserInstallationRepositories: jest.fn(),
-  fetchAppUserLogin: jest.fn(),
+  fetchAppUser: jest.fn(),
   revokeAppUserToken: jest.fn(),
   GithubAppUserAuthNotConfiguredError: class extends Error {},
 }))
@@ -61,7 +61,7 @@ import {
   exchangeAppUserCode,
   listUserInstallationIds,
   listUserInstallationRepositories,
-  fetchAppUserLogin,
+  fetchAppUser,
   revokeAppUserToken,
   GithubAppUserAuthNotConfiguredError,
 } from '@/lib/integrations/github'
@@ -92,7 +92,10 @@ describe('githubAppInstallService', () => {
     ;(listUserInstallationRepositories as jest.Mock).mockResolvedValue([
       'acme-inc/web',
     ])
-    ;(fetchAppUserLogin as jest.Mock).mockResolvedValue('octo-admin')
+    ;(fetchAppUser as jest.Mock).mockResolvedValue({
+      login: 'octo-admin',
+      id: 101,
+    })
     ;(revokeAppUserToken as jest.Mock).mockResolvedValue(undefined)
   })
 
@@ -106,7 +109,9 @@ describe('githubAppInstallService', () => {
         redirectUri: REDIRECT,
       })
       expect(repo.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({ verifierLogin: 'octo-admin' })
+        expect.objectContaining({
+          verifier: { login: 'octo-admin', githubId: 101 },
+        })
       )
 
       repo.findStatusByWorkspace.mockResolvedValue({
@@ -114,7 +119,10 @@ describe('githubAppInstallService', () => {
         repositories: ['acme-inc/web'],
         verifierLogin: 'someone-else',
       })
-      ;(fetchAppUserLogin as jest.Mock).mockResolvedValue('octo-owner')
+      ;(fetchAppUser as jest.Mock).mockResolvedValue({
+        login: 'octo-owner',
+        id: 202,
+      })
       await githubAppInstallService.reverify({
         workspaceId: 'w1',
         memberRole: 'OWNER',
@@ -124,15 +132,15 @@ describe('githubAppInstallService', () => {
       expect(repo.recordVerification).toHaveBeenCalledWith(
         'w1',
         ['acme-inc/web'],
-        'octo-owner'
+        { login: 'octo-owner', githubId: 202 }
       )
       // The login is read while the token is live; the token still goes.
-      expect(fetchAppUserLogin).toHaveBeenCalledWith('user-token')
+      expect(fetchAppUser).toHaveBeenCalledWith('user-token')
       expect(revokeAppUserToken).toHaveBeenCalledTimes(2)
     })
 
     it('writes nothing when the verifier login cannot be read', async () => {
-      ;(fetchAppUserLogin as jest.Mock).mockRejectedValue(new Error('502'))
+      ;(fetchAppUser as jest.Mock).mockRejectedValue(new Error('502'))
       await expect(
         githubAppInstallService.install({
           workspaceId: 'w1',
@@ -164,7 +172,7 @@ describe('githubAppInstallService', () => {
         accountType: 'Organization',
         repositories: ['acme-inc/web'],
         installedBy: 'm1',
-        verifierLogin: 'octo-admin',
+        verifier: { login: 'octo-admin', githubId: 101 },
       })
     })
 
@@ -683,6 +691,7 @@ describe('githubAppInstallService', () => {
         verifierLogin: 'octo-admin',
         accessRemovedCount: 2,
         accessRemovedAt: new Date('2026-09-27T04:15:00Z'),
+        accessRemovedReason: 'access_lost',
       })
 
       expect(await githubAppInstallService.getStatus('w1', 'OWNER')).toEqual({
@@ -694,6 +703,7 @@ describe('githubAppInstallService', () => {
         accessRecheckEnabled: true,
         accessRemovedCount: 2,
         accessRemovedAt: '2026-09-27T04:15:00.000Z',
+        accessRemovedReason: 'access_lost',
       })
     })
 
@@ -825,7 +835,7 @@ describe('githubAppInstallService', () => {
       expect(repo.recordVerification).toHaveBeenCalledWith(
         'w1',
         ['acme-inc/web', 'acme-inc/api'],
-        'octo-admin'
+        { login: 'octo-admin', githubId: 101 }
       )
       expect(result).toEqual({
         confirmed: 2,
@@ -846,6 +856,17 @@ describe('githubAppInstallService', () => {
       )
       // No user credential outlives the check.
       expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
+    })
+
+    it('LUM-888 reverify scrubs before narrowing, so a failed scrub changes nothing', async () => {
+      const scrub = prSecurityScanRepository.scrubCodeForWorkspace as jest.Mock
+      scrub.mockRejectedValueOnce(new Error('db down'))
+
+      await expect(githubAppInstallService.reverify(input)).rejects.toThrow(
+        'db down'
+      )
+      // The list still names the repository, so a retry scrubs it.
+      expect(repo.recordVerification).not.toHaveBeenCalled()
     })
 
     it('refuses a non-owner before asking GitHub anything', async () => {

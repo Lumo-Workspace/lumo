@@ -1,6 +1,12 @@
 /** @jest-environment node */
 import { NextRequest } from 'next/server'
-import { requireCronAuth } from '@/lib/api/cron-auth'
+import * as nodeCrypto from 'node:crypto'
+import { requireCronAuth, sameSecret } from '@/lib/api/cron-auth'
+
+jest.mock('node:crypto', () => {
+  const actual = jest.requireActual<typeof import('node:crypto')>('node:crypto')
+  return { ...actual, timingSafeEqual: jest.fn(actual.timingSafeEqual) }
+})
 
 const req = (auth?: string) =>
   new NextRequest('https://x.test/api/cron/whatever', {
@@ -56,19 +62,58 @@ describe('cron / internal route auth', () => {
   })
 })
 
+describe('LUM-888 constant-time comparison', () => {
+  const OLD = process.env.CRON_SECRET
+  afterEach(() => {
+    if (OLD === undefined) delete process.env.CRON_SECRET
+    else process.env.CRON_SECRET = OLD
+  })
+
+  it('LUM-888 cron secret is compared in constant time', () => {
+    process.env.CRON_SECRET = 's3cret'
+    const safeEqual = nodeCrypto.timingSafeEqual as unknown as jest.Mock
+    safeEqual.mockClear()
+
+    expect(requireCronAuth(req('Bearer s3cret'))).toBeNull()
+    // The decision went through timingSafeEqual, on equal-length digests.
+    expect(safeEqual).toHaveBeenCalledTimes(1)
+    const [a, b] = safeEqual.mock.calls[0] as [Buffer, Buffer]
+    expect(a.length).toBe(b.length)
+
+    // Wrong, missing and differently-sized headers are still refused — a
+    // length mismatch must not throw out of timingSafeEqual either.
+    for (const h of [
+      'Bearer s3creT',
+      'Bearer s3cret-and-more',
+      'Bearer s',
+      '',
+    ]) {
+      expect(requireCronAuth(req(h))?.status).toBe(401)
+    }
+    expect(requireCronAuth(req())?.status).toBe(401)
+    expect(sameSecret('abc', 'abc')).toBe(true)
+    expect(sameSecret('abc', 'abcd')).toBe(false)
+  })
+})
+
 describe('every cron and internal route is behind that gate', () => {
   it('no route compares against the env var inline any more', () => {
     // A route that re-inlines the comparison re-introduces the hole, and the
     // hole is invisible until an environment is missing the variable. Assert
     // over the routes on disk rather than over a list someone has to remember
     // to update.
-    const { readdirSync, readFileSync, statSync } = require('fs') as typeof import('fs')
+    const { readdirSync, readFileSync, statSync } =
+      require('fs') as typeof import('fs')
     const { join } = require('path') as typeof import('path')
 
     const walk = (dir: string): string[] =>
       readdirSync(dir).flatMap(e => {
         const p = join(dir, e)
-        return statSync(p).isDirectory() ? walk(p) : p.endsWith('route.ts') ? [p] : []
+        return statSync(p).isDirectory()
+          ? walk(p)
+          : p.endsWith('route.ts')
+            ? [p]
+            : []
       })
 
     const routes = [

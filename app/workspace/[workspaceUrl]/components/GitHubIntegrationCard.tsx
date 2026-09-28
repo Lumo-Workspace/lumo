@@ -109,6 +109,7 @@ export function GitHubIntegrationCard({
             <GitHubAccessNotices
               accessRecheckEnabled={status?.accessRecheckEnabled}
               accessRemovedCount={status?.accessRemovedCount}
+              accessRemovedReason={status?.accessRemovedReason}
             />
             <div>
               <div className='flex items-center justify-between mb-2'>

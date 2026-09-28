@@ -2590,6 +2590,7 @@
   "security.report.body": "如果你认为在 Lumo 中发现了安全漏洞，请发送邮件至 {email}，并附上复现步骤。请在公开披露之前给我们合理的时间进行修复。",
   "security.report.securityTxt": "同一联系方式也以机器可读的形式发布在 {path}。",
   "github.accessRemoved": "因 GitHub 权限变化，已自动移除 {count} 个仓库：最近一次核实的人已无法读取它们，相关扫描代码已删除。",
+  "github.accessRemovedAccountGone": "已自动移除 {count} 个仓库：最近一次核实 GitHub 访问权限的账号已不存在（已注销，或在 Lumo 记录其账号 ID 之前改了名），相关扫描代码已删除。工作区所有者重新核实 GitHub 访问权限后，即可恢复其可读取的仓库。",
   "github.accessRecheckOff": "此安装未开启自动权限复核。需要工作区所有者重新核实一次才能开启。",
   "workspaceSettings.securityScan.title": "PR 安全扫描",
   "workspaceSettings.securityScan.description": "Lumo 对本工作区任务关联的拉取请求运行哪些检查。关闭某一层后，新的扫描不再运行它；已在 PR 上的结果会保留。",

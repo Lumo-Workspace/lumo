@@ -7,7 +7,7 @@
  */
 import {
   checkRepositoryReadAccess,
-  checkUserExists,
+  lookupGitHubUser,
 } from '@/lib/integrations/github/collaborator-access'
 
 const fetchMock = jest.fn()
@@ -88,13 +88,33 @@ describe('checkRepositoryReadAccess', () => {
   })
 })
 
-describe('checkUserExists', () => {
-  it('is true for 200, false for 404 and null otherwise', async () => {
-    reply(200, { login: 'octo' })
+describe('lookupGitHubUser', () => {
+  it('returns id and login for 200, gone for 404 and null otherwise', async () => {
+    reply(200, { login: 'octo', id: 7 })
     reply(404, { message: 'Not Found' })
     reply(500, {})
-    expect(await checkUserExists('t', 'octo')).toBe(true)
-    expect(await checkUserExists('t', 'octo')).toBe(false)
-    expect(await checkUserExists('t', 'octo')).toBeNull()
+    reply(200, { login: 'octo' })
+    expect(await lookupGitHubUser('t', { login: 'octo' })).toEqual({
+      id: 7,
+      login: 'octo',
+    })
+    expect(await lookupGitHubUser('t', { login: 'octo' })).toBe('gone')
+    expect(await lookupGitHubUser('t', { login: 'octo' })).toBeNull()
+    // A 200 without an id cannot vouch for anyone.
+    expect(await lookupGitHubUser('t', { login: 'octo' })).toBeNull()
+  })
+
+  it('asks by immutable id when one is recorded, by login otherwise', async () => {
+    reply(200, { login: 'octo-renamed', id: 7 })
+    reply(200, { login: 'octo', id: 7 })
+    expect(await lookupGitHubUser('t', { id: 7 })).toEqual({
+      id: 7,
+      login: 'octo-renamed',
+    })
+    await lookupGitHubUser('t', { login: 'o/cto' })
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.github.com/user/7')
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      'https://api.github.com/users/o%2Fcto'
+    )
   })
 })

@@ -1820,29 +1820,45 @@ model GitHubWebhook {
 }
 
 model GitHubAppInstallation {
-  id                 String           @id @default(cuid())
-  workspaceId        String           @unique
-  installationId     Int
-  accountLogin       String?
-  accountType        String?
-  repositories       String[]
-  installedBy        String?
-  installer          WorkspaceMember? @relation("GitHubAppInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
+  id                  String           @id @default(cuid())
+  workspaceId         String           @unique
+  installationId      Int
+  accountLogin        String?
+  accountType         String?
+  repositories        String[]
+  installedBy         String?
+  installer           WorkspaceMember? @relation("GitHubAppInstaller", fields: [installedBy], references: [id], onDelete: SetNull)
   /// LUM-882 — GitHub login of whoever last bound or re-verified this
   /// installation. An identifier, not a credential: the daily access recheck
   /// asks GitHub (with the installation token) whether this login can still
   /// read each confirmed repository. Null on rows bound before LUM-882 —
   /// those are not rechecked until an owner re-verifies once.
-  verifierLogin      String?
+  verifierLogin       String?
   /// LUM-882 — repositories the last automatic recheck removed because the
   /// verifier lost read access, and when. Cleared by the next re-verification.
-  accessRemovedCount Int              @default(0)
-  accessRemovedAt    DateTime?
+  accessRemovedCount  Int              @default(0)
+  accessRemovedAt     DateTime?
   /// LUM-882 — resume point for a recheck the rate-limit budget cut short:
   /// the next run starts after this repository (case-insensitive order).
-  accessCheckCursor  String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  accessCheckCursor   String?
+  /// LUM-888 — the verifier's immutable GitHub user id. The recheck resolves
+  /// the current login from it, so a rename is followed and a login someone
+  /// else registers later is never asked about. Null on rows verified before
+  /// LUM-888 until the recheck (or a re-verification) records it.
+  verifierGithubId    Int?
+  /// LUM-888 — when this verifier's list was last confirmed (bind or
+  /// re-verification). The recheck's version: any re-verification, even by
+  /// the same login, discards a result computed against an older one.
+  verifiedAt          DateTime?
+  /// LUM-888 — when the automatic recheck last finished a pass on this row;
+  /// the daily sweep starts with the longest-waiting installation.
+  accessCheckedAt     DateTime?
+  /// LUM-888 — why the last automatic removal happened: `access_lost` (the
+  /// verifier can no longer read them) or `account_gone` (the verifying
+  /// GitHub account no longer exists). Cleared with the removal notice.
+  accessRemovedReason String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 

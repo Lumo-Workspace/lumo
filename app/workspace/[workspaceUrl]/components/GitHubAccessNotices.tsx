@@ -7,6 +7,8 @@ interface GitHubAccessNoticesProps {
   /** `false` = no verifier login on record; `undefined` = not known yet. */
   accessRecheckEnabled: boolean | undefined
   accessRemovedCount: number | undefined
+  /** LUM-888 — `account_gone` words the notice for a deleted account. */
+  accessRemovedReason?: string | null | undefined
 }
 
 /**
@@ -15,10 +17,13 @@ interface GitHubAccessNoticesProps {
  * code scrubbed) without anyone clicking anything, so the card says so; an
  * installation bound before the verifier's login was recorded is not rechecked
  * until an owner re-verifies once. Renders nothing when neither applies.
+ * LUM-888 — when the verifying GitHub account itself is gone, the notice
+ * says so and how to restore access, instead of blaming lost permissions.
  */
 export function GitHubAccessNotices({
   accessRecheckEnabled,
   accessRemovedCount,
+  accessRemovedReason,
 }: GitHubAccessNoticesProps) {
   const intl = useIntl()
   const removed = accessRemovedCount ?? 0
@@ -32,7 +37,12 @@ export function GitHubAccessNotices({
           <AlertTriangle size={14} className='mt-0.5 shrink-0 text-warning' />
           <p className='text-xs text-foreground'>
             {intl.formatMessage(
-              { id: 'github.accessRemoved' },
+              {
+                id:
+                  accessRemovedReason === 'account_gone'
+                    ? 'github.accessRemovedAccountGone'
+                    : 'github.accessRemoved',
+              },
               { count: removed }
             )}
           </p>
