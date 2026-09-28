@@ -6,9 +6,11 @@ import {
   formatHuntOverCap,
   formatHuntProgress,
   formatJudgeOverCap,
+  formatTurnedOffNote,
   isOwnedUnfinished,
   scanStageLabel,
   scanStageStateLabel,
+  turnedOffLayers,
 } from '../../../shared/src/security-scan'
 
 /**
@@ -130,6 +132,31 @@ export function formatSizeCapLines(s: {
   if (s.judgeOverCap) lines.push(formatJudgeOverCap(s.judgeOverCap))
   if (s.huntOverCap) lines.push(formatHuntOverCap(s.huntOverCap))
   return lines
+}
+
+/**
+ * LUM-892 — the layers the customer turned off in the workspace settings,
+ * one line in the PR summary's words. Empty when none was.
+ */
+export function formatTurnedOffLines(
+  stages: Partial<Record<string, string>>
+): string[] {
+  const keys = turnedOffLayers(stages)
+  return keys.length > 0 ? [formatTurnedOffNote(keys)] : []
+}
+
+/**
+ * LUM-892 — the scan's status word for a head line. A CLEAN scan with a layer
+ * turned off in settings did not check everything, so it is never printed as
+ * a bare CLEAN.
+ */
+export function formatScanStatus(
+  status: string,
+  stages: Partial<Record<string, string>>
+): string {
+  return status === 'CLEAN' && turnedOffLayers(stages).length > 0
+    ? 'no findings in the checks that ran'
+    : status
 }
 
 /**

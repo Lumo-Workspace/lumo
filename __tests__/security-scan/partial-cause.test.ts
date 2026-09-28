@@ -6,6 +6,15 @@
  * names a cause (our fault vs coverage owed), the row keeps the union, and a
  * scan that did not finish is never read as checked.
  */
+
+// LUM-866: every workspace here has the default switches (all on).
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  // A plain function, not jest.fn: survives resetAllMocks.
+  loadSecurityLayers: async () =>
+    jest
+      .requireActual('@/lib/security-scan/workspace-switches')
+      .resolveSecurityLayers(null),
+}))
 import { readFileSync } from 'fs'
 import path from 'path'
 

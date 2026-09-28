@@ -6,8 +6,19 @@
  * suggested row never gets an inline comment; a step failure changes
  * nothing about the run's outcome.
  */
+
+// LUM-866: every workspace here has the default switches (all on).
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  // A plain function, not jest.fn: survives resetAllMocks.
+  loadSecurityLayers: async () =>
+    jest
+      .requireActual('@/lib/security-scan/workspace-switches')
+      .resolveSecurityLayers(null),
+}))
 jest.mock('@/lib/workflows/security-managed-scan.steps', () => ({
   scanRepositoryInSandboxStep: jest.fn(),
+  // LUM-892: scanning stays on unless a test says otherwise.
+  stopIfScanningOffStep: jest.fn(async () => false),
 }))
 jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   resolveSarifScanStep: jest.fn(),

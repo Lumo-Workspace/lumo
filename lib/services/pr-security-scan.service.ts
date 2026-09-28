@@ -224,6 +224,11 @@ export interface TaskSecurityScans {
   blocking: { count: number }
   /** LUM-740: open findings the falsifier suggested as false positives, across the task's PRs. */
   suggested: { count: number }
+  /**
+   * LUM-892 — the workspace turned scanning off: new pushes are not scanned,
+   * and the scans shown are from before. Their findings still gate DONE.
+   */
+  scanningOff: boolean
 }
 
 export type RunScanResult =
@@ -475,10 +480,14 @@ export const prSecurityScanService = {
     const pr = await pullRequestRepository.findById(input.pullRequestId)
     if (!pr) return { skipped: true, reason: 'pr_not_found' }
     // LUM-866: the workspace's own switches, under the platform ceiling. Scan
-    // off = nothing at all for this PR — no row, no layer, no PR comment.
+    // off = nothing at all for this PR — no row, no layer, no new comment.
+    // LUM-892: but a summary an earlier scan left on the PR is rewritten to
+    // say scanning is off, so its old "no findings" does not stand.
     const layers = await loadSecurityLayers(pr.workspaceId)
-    if (!layers.scan)
+    if (!layers.scan) {
+      await securityPrReviewService.markScanningOff(pr)
       return { skipped: true, reason: 'workspace_scan_disabled' }
+    }
 
     const headSha = await fetchPrHeadSha({
       workspaceId: pr.workspaceId,
@@ -870,8 +879,13 @@ export const prSecurityScanService = {
       // never been looked at — a layer claiming a pass it did not establish,
       // which is the one thing spec P9 forbids. JUDGE_TRUNCATED was already on
       // the scan level; this puts the fact on the line that is wrong.
-      stages.judge =
-        judgeStatus === 'RAN'
+      //
+      // LUM-892: turned off in the workspace settings = DISABLED, not
+      // SKIPPED. SKIPPED is a completed layer ("nothing to review"), so an
+      // AI review the customer switched off used to let the scan read CLEAN.
+      stages.judge = layers.aiReviewTurnedOff
+        ? 'DISABLED'
+        : judgeStatus === 'RAN'
           ? truncated
             ? 'PARTIAL'
             : 'RAN'
@@ -899,6 +913,10 @@ export const prSecurityScanService = {
       // = no hunt layer at all, not a SKIPPED one: the key is stamped only
       // when the layer exists for this PR.
       if (layers.hunt) stages.hunt = huntWanted ? 'PENDING' : 'SKIPPED'
+      // LUM-892: the platform offers the hunt but the customer turned it
+      // off — the layer is shown as off in settings rather than vanishing,
+      // so a reader can tell "not checked" from "nothing to check".
+      else if (layers.huntTurnedOff) stages.hunt = 'DISABLED'
       // LUM-832 — a hunt the trigger wanted but the file cap forbids does not
       // run (like CodeRabbit's file limit): recorded, with the numbers the
       // customer's notice needs. A diff with no hunt signal is SKIPPED plain.
@@ -1045,6 +1063,8 @@ export const prSecurityScanService = {
       prs.map(p => p.id)
     )
     const latest = latestScanPerPr(scans)
+    const scanningOff =
+      prs.length > 0 && !(await loadSecurityLayers(prs[0]!.workspaceId)).scan
     // LUM-740: one policy read per task — every scan is in its workspace.
     // LUM-775: plus the default-branch baseline of each repo with a merged
     // PR, for the queue-exit rules.
@@ -1077,7 +1097,12 @@ export const prSecurityScanService = {
       }
       out.push({ pr, latest: view })
     }
-    return { prs: out, blocking: { count }, suggested: { count: suggested } }
+    return {
+      prs: out,
+      blocking: { count },
+      suggested: { count: suggested },
+      scanningOff,
+    }
   },
 
   async disposition(

@@ -5,6 +5,15 @@
  * SUGGEST a false positive (a REJECT), never disposition; INCONCLUSIVE writes
  * nothing; a failure on one finding never reaches the workflow.
  */
+
+// LUM-866: every workspace here has the default switches (all on).
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  // A plain function, not jest.fn: survives resetAllMocks.
+  loadSecurityLayers: async () =>
+    jest
+      .requireActual('@/lib/security-scan/workspace-switches')
+      .resolveSecurityLayers(null),
+}))
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findScanForSuggestion: jest.fn(),

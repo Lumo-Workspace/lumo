@@ -8,14 +8,18 @@ import { ChevronRight, Check, Copy } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
-import { SecurityScanBadge } from '../pr-helpers'
+import {
+  ScanningOffBadge,
+  SecurityScanBadge,
+  showsScanningOff,
+} from '../pr-helpers'
 import type {
   SecurityFindingView,
   SecurityScanView,
   TaskSecurityScans,
 } from '@/lib/services/pr-security-scan.service'
 import type { ScanStages } from '@/lib/security-scan/types'
-import { SCAN_STAGE_KEYS } from '@/shared/src/security-scan'
+import { SCAN_STAGE_KEYS, turnedOffLayers } from '@/shared/src/security-scan'
 // Pure module (no Node built-ins, no Prisma) — safe in a client component.
 import { EXTERNAL_ERROR_PREFIX } from '@/lib/security-scan/stages'
 import { summarizeSecurityScans, shouldExpandRow } from './security-summary'
@@ -70,7 +74,10 @@ function SecurityScanPanel({
   // is composed from the PR-count clause plus the qualified one instead.
   const qualifyZero =
     summary.findings === 0 &&
-    (summary.incomplete > 0 || summary.overSizeLimit > 0)
+    (summary.incomplete > 0 ||
+      summary.overSizeLimit > 0 ||
+      summary.turnedOff > 0 ||
+      data.scanningOff)
   const summaryText = qualifyZero
     ? [
         intl.formatMessage(
@@ -99,6 +106,14 @@ function SecurityScanPanel({
           { count: summary.overSizeLimit }
         )
       : ''
+  // LUM-892: turned off in settings — the customer's choice, its own clause.
+  const turnedOffText =
+    summary.turnedOff > 0
+      ? intl.formatMessage(
+          { id: 'record.security.turnedOff' },
+          { count: summary.turnedOff }
+        )
+      : ''
   const failedText =
     summary.externalFailed > 0
       ? intl.formatMessage(
@@ -110,6 +125,7 @@ function SecurityScanPanel({
     summaryText,
     incompleteText,
     overSizeLimitText,
+    turnedOffText,
     failedText,
   ]
     .filter(Boolean)
@@ -155,10 +171,26 @@ function SecurityScanPanel({
           )}
         </p>
       )}
-      {data.prs.every(p => p.latest === null) ? (
-        <p className='mt-2 text-caption text-muted-foreground'>
-          {intl.formatMessage({ id: 'securityScan.section.empty' })}
+      {/* LUM-892: scanning turned off in settings — said up front, so the
+          results below read as "from before", not as the PR's answer. */}
+      {data.scanningOff && (
+        <p
+          data-testid='security-scanning-off'
+          className='mt-2 rounded-sm border border-border bg-muted/40 px-2 py-1.5 text-caption text-muted-foreground'
+        >
+          {intl.formatMessage({
+            id: data.prs.every(p => p.latest === null)
+              ? 'securityScan.section.scanningOff'
+              : 'securityScan.banner.scanningOff',
+          })}
         </p>
+      )}
+      {data.prs.every(p => p.latest === null) ? (
+        data.scanningOff ? null : (
+          <p className='mt-2 text-caption text-muted-foreground'>
+            {intl.formatMessage({ id: 'securityScan.section.empty' })}
+          </p>
+        )
       ) : (
         <ul className='mt-2 space-y-2'>
           {data.prs.map(({ pr, latest }) => {
@@ -196,7 +228,11 @@ function SecurityScanPanel({
                   >
                     #{pr.number} {pr.title}
                   </a>
-                  <SecurityScanBadge scan={latest} />
+                  {data.scanningOff && showsScanningOff(latest) ? (
+                    <ScanningOffBadge />
+                  ) : (
+                    <SecurityScanBadge scan={latest} />
+                  )}
                   {latest && (
                     <span className='ml-auto font-mono text-caption text-muted-foreground'>
                       {intl.formatMessage(
@@ -249,7 +285,11 @@ function StagesSummary({
     return state ? [{ key, state }] : []
   })
   if (rows.length === 0) return null
-  const incomplete = rows.some(r => r.state !== 'RAN' && r.state !== 'SKIPPED')
+  // LUM-892: DISABLED (off in settings) is the customer's choice, not a
+  // warning — the notice under the row says it in words.
+  const incomplete = rows.some(
+    r => r.state !== 'RAN' && r.state !== 'SKIPPED' && r.state !== 'DISABLED'
+  )
   return (
     <p
       data-testid='scan-stages'
@@ -343,6 +383,7 @@ function ScanDetails({
     scan.error?.startsWith(EXTERNAL_ERROR_PREFIX)
       ? scan.error.slice(EXTERNAL_ERROR_PREFIX.length)
       : null
+  const turnedOff = turnedOffLayers(scan.stages)
   return (
     <div className='mt-1.5 space-y-1.5'>
       <StagesSummary
@@ -395,6 +436,24 @@ function ScanDetails({
       {/* LUM-832: a layer over its size cap did not run — told the way
           CodeRabbit tells its own limit: the change is too large, and how to
           get the layer (narrow the scope or split the PR). */}
+      {turnedOff.length > 0 && (
+        <p
+          data-testid='scan-turned-off'
+          className='text-caption text-muted-foreground'
+        >
+          {intl.formatMessage(
+            { id: 'securityScan.turnedOff' },
+            {
+              layers: turnedOff
+                .map(key =>
+                  intl.formatMessage({ id: `securityScan.stage.${key}` })
+                )
+                .join(', '),
+              count: turnedOff.length,
+            }
+          )}
+        </p>
+      )}
       {scan.huntOverCap && (
         <p data-testid='scan-over-cap' className='text-caption text-warning'>
           {intl.formatMessage(

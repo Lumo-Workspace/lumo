@@ -142,6 +142,12 @@ export function SecurityScanBadge({
     label = intl.formatMessage({ id: 'securityScan.status.overSizeLimit' })
     tone = 'text-warning'
     state = 'over-size-limit'
+  } else if (scan.findings.length === 0 && scan.coverage === 'TURNED_OFF') {
+    // LUM-892: a layer was turned off in settings — the customer's choice,
+    // so neither "Clean" nor the warning tone of an unfinished scan.
+    icon = <ShieldQuestion size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.turnedOff' })
+    state = 'turned-off'
   } else if (scan.findings.length === 0 && !scan.complete) {
     // LUM-735 / spec P9: a layer failed, is not configured, or was cut off.
     // Nothing was found, but nothing can be claimed either — never green.
@@ -165,13 +171,53 @@ export function SecurityScanBadge({
   }
 
   return (
+    <SecurityBadgeShell state={state} tone={tone}>
+      {icon}
+      {label}
+    </SecurityBadgeShell>
+  )
+}
+
+/** The one badge frame both security badge variants render into. */
+function SecurityBadgeShell({
+  state,
+  tone,
+  children,
+}: {
+  state: string
+  tone: string
+  children: React.ReactNode
+}) {
+  return (
     <span
       data-testid='security-scan-badge'
       data-state={state}
       className={`inline-flex items-center gap-1 text-[10px] font-medium ${tone}`}
     >
-      {icon}
-      {label}
+      {children}
     </span>
   )
+}
+
+/**
+ * LUM-892 — shown instead of `SecurityScanBadge` when the workspace turned
+ * scanning off and the PR has nothing open: an earlier "Clean" was for an
+ * older commit and must not keep standing as the PR's answer. A PR with
+ * findings keeps `SecurityScanBadge` — those findings are still real.
+ */
+export function ScanningOffBadge() {
+  const intl = useIntl()
+  return (
+    <SecurityBadgeShell state='scanning-off' tone='text-muted-foreground'>
+      <ShieldQuestion size={12} />
+      {intl.formatMessage({ id: 'securityScan.status.scanningOff' })}
+    </SecurityBadgeShell>
+  )
+}
+
+/** LUM-892 — does a scanning-off workspace replace this PR's badge? */
+export function showsScanningOff(
+  scan: Pick<SecurityScanView, 'findings'> | null | undefined
+): boolean {
+  return !scan || scan.findings.length === 0
 }

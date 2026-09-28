@@ -49,11 +49,14 @@ import {
   SCAN_STAGE_DESCRIPTIONS,
   SCAN_STAGE_LABELS,
   SCAN_UNFINISHED_NOTE,
+  SCANNING_OFF_NOTE,
   formatHuntOverCap,
   formatHuntProgress,
   formatJudgeOverCap,
+  formatTurnedOffNote,
   isOwnedUnfinished,
   scanCoverageState,
+  turnedOffLayers,
   type HuntOverCapInput,
   type JudgeOverCapInput,
   type HuntProgressInput,
@@ -366,7 +369,9 @@ function verdictLine(
   if (owned) return `**No open findings so far — ${SCAN_UNFINISHED_NOTE}.**`
   // A size cap is the only gap: say what WAS checked; the notice below says
   // which layer did not run, and why.
-  if (coverage === 'UNFINISHED')
+  // LUM-892: a layer turned off in settings is not "checked" either — the
+  // verdict only speaks for the layers that ran; the notice names the rest.
+  if (coverage === 'UNFINISHED' || coverage === 'TURNED_OFF')
     return '**No open findings in the checks that ran.**'
   return '**No open findings on lines this PR added.**'
 }
@@ -409,6 +414,9 @@ export function buildSummary(input: SummaryInput): string {
     notices.push(`- ${formatJudgeOverCap(input.judgeOverCap)}`)
   if (input.huntOverCap)
     notices.push(`- ${formatHuntOverCap(input.huntOverCap)}`)
+  // LUM-892: the customer's own choice, said as such — never "didn't finish".
+  const turnedOff = turnedOffLayers(input.stages)
+  if (turnedOff.length > 0) notices.push(`- ${formatTurnedOffNote(turnedOff)}`)
   const low = lowLine(input)
   if (low) notices.push(low)
   const suggested = suggestedLine(input)
@@ -434,6 +442,21 @@ export function buildSummary(input: SummaryInput): string {
   blocks.push(footer.join(' · '))
   blocks.push(SUMMARY_MARKER)
   return blocks.join('\n\n')
+}
+
+/**
+ * LUM-892 — what the PR's summary comment says once the workspace has turned
+ * scanning off. It replaces an earlier scan's body, so a "no findings" for an
+ * older commit does not stand as this PR's answer. Findings from earlier
+ * scans stay in Lumo (and still gate DONE); they are just not repeated here.
+ */
+export function buildScanningOffSummary(): string {
+  return [
+    '### 🛡️ Lumo security scan',
+    `**${SCANNING_OFF_NOTE}**`,
+    'Results an earlier scan showed here were for an older commit and are no longer kept up to date. Findings from those scans that still need a decision stay open in Lumo.',
+    SUMMARY_MARKER,
+  ].join('\n\n')
 }
 
 // ── sync ────────────────────────────────────────────────────────────────────
@@ -543,6 +566,43 @@ async function upsertSummary(input: {
 }
 
 export const securityPrReviewService = {
+  /**
+   * LUM-892 — the workspace turned scanning off: rewrite the summary comment
+   * an earlier scan left on this PR to say so. A PR Lumo never commented on
+   * gets nothing (turning scanning off must not start posting). Best effort
+   * and idempotent — never throws, and a deleted comment is left deleted.
+   */
+  async markScanningOff(pr: {
+    id: string
+    workspaceId: string
+    repo: string
+    number: number
+  }): Promise<{ updated: boolean }> {
+    const where = `pr=#${pr.number}`
+    try {
+      const commentId =
+        await prSecurityScanRepository.findSummaryCommentIdByPullRequest(pr.id)
+      if (!commentId) return { updated: false }
+      const token = await getRepoToken(
+        pr.workspaceId,
+        pr.repo,
+        REPO_TOKEN_PERMISSIONS.pullRequestWrite
+      )
+      await prCommentClient.updateIssueComment({
+        repo: parseRepo(pr.repo),
+        externalId: commentId,
+        body: buildScanningOffSummary(),
+        token,
+      })
+      return { updated: true }
+    } catch (error) {
+      logger.warn(
+        `[security-pr-review] scanning-off notice failed ${where}: ${describe(error)}`
+      )
+      return { updated: false }
+    }
+  },
+
   /**
    * Post (or refresh) the security review on the scan's PR. Best effort: any
    * GitHub or database failure is logged and reported in the result, never

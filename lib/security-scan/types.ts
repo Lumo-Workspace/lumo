@@ -72,6 +72,8 @@ export type ScanStages = Partial<Record<ScanStageKey, ScanStageState>>
  * Stage states that leave the scan incomplete.
  * PENDING = the repo has pushed SARIF before but not for this sha yet.
  * SUPERSEDED = the managed run was cancelled for a newer head (LUM-745).
+ * DISABLED = the customer turned the layer off in settings (LUM-892): it
+ * never looked, so the scan cannot read as a full pass either.
  */
 export const INCOMPLETE_STAGE_STATES: ReadonlySet<ScanStageState> = new Set([
   'FAILED',
@@ -79,6 +81,7 @@ export const INCOMPLETE_STAGE_STATES: ReadonlySet<ScanStageState> = new Set([
   'PENDING',
   'PARTIAL',
   'SUPERSEDED',
+  'DISABLED',
 ])
 
 /** A SARIF rule reduced to what normalisation needs (tool.driver.rules[]). */

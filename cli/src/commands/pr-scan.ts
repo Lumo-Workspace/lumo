@@ -6,6 +6,8 @@ import {
   formatHuntCoverageLine,
   formatSizeCapLines,
   formatScanLayerTail,
+  formatScanStatus,
+  formatTurnedOffLines,
   formatJudgeBudgetLine,
   type JudgeBudgetLine,
   type HuntCoverageInput,
@@ -246,7 +248,7 @@ function formatScan(s: PrScanEntry, full: boolean): string[] {
     ? ` · finished ${s.finishedAt}`
     : ' · not finished'
   lines.push(
-    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${s.status} · started ${s.startedAt}${finished} · trigger ${sanitizeField(s.trigger)} · ${formatTokens(s.tokenSpent)}${s.truncated ? ' · AI review has not covered every file yet' : ''}`
+    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${formatScanStatus(s.status, s.stages)} · started ${s.startedAt}${finished} · trigger ${sanitizeField(s.trigger)} · ${formatTokens(s.tokenSpent)}${s.truncated ? ' · AI review has not covered every file yet' : ''}`
   )
   const tail = formatScanLayerTail({
     status: s.status,
@@ -265,6 +267,8 @@ function formatScan(s: PrScanEntry, full: boolean): string[] {
   if (tail) lines.push(`  ${tail.replace(/^ · /, '')}`)
   // LUM-832: the file cap, stated like CodeRabbit states its own.
   for (const l of formatSizeCapLines(s)) lines.push(`  ${l}`)
+  // LUM-892: layers turned off in settings — the customer's choice, said so.
+  for (const l of formatTurnedOffLines(s.stages)) lines.push(`  ${l}`)
   // LUM-814: the judge's budget arithmetic, one line under the layer it
   // belongs to and before the hunt's own detail — stage order, same as the
   // segments above. Printed whenever the layer exists, including when it was

@@ -1,6 +1,8 @@
 /** @jest-environment node */
 jest.mock('@/lib/workflows/security-managed-scan.steps', () => ({
   scanRepositoryInSandboxStep: jest.fn(),
+  // LUM-892: scanning stays on unless a test says otherwise.
+  stopIfScanningOffStep: jest.fn(async () => false),
 }))
 jest.mock('@/lib/workflows/security-sarif-ingest.steps', () => ({
   persistSarifFindingsStep: jest.fn(),

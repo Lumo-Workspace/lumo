@@ -16,6 +16,8 @@ describe('LUM-866 env is the ceiling', () => {
       managedScan: true,
       aiReview: true,
       hunt: true,
+      aiReviewTurnedOff: false,
+      huntTurnedOff: false,
     })
     expect(resolveSecurityLayers(undefined, {})).toEqual(
       resolveSecurityLayers(ALL_ON, {})
@@ -55,7 +57,30 @@ describe('LUM-866 env is the ceiling', () => {
   it('the scan switch is the master: off turns every layer off', () => {
     expect(
       resolveSecurityLayers({ ...ALL_ON, securityScanEnabled: false }, {})
-    ).toEqual({ scan: false, managedScan: false, aiReview: false, hunt: false })
+    ).toEqual({
+      scan: false,
+      managedScan: false,
+      aiReview: false,
+      hunt: false,
+      aiReviewTurnedOff: false,
+      huntTurnedOff: false,
+    })
+  })
+
+  it('LUM-892 a layer the customer turned off is flagged as turned off', () => {
+    expect(
+      resolveSecurityLayers({ ...ALL_ON, securityAiReviewEnabled: false }, {})
+    ).toMatchObject({ aiReviewTurnedOff: true, huntTurnedOff: false })
+    expect(
+      resolveSecurityLayers({ ...ALL_ON, securityHuntEnabled: false }, {})
+    ).toMatchObject({ aiReviewTurnedOff: false, huntTurnedOff: true })
+    // The platform does not offer the hunt: nothing to show as turned off.
+    expect(
+      resolveSecurityLayers(
+        { ...ALL_ON, securityHuntEnabled: false },
+        { LUMO_SECURITY_HUNT: 'off' }
+      )
+    ).toMatchObject({ huntTurnedOff: false })
   })
 
   it('AI review and hunt switch independently under an enabled scan', () => {

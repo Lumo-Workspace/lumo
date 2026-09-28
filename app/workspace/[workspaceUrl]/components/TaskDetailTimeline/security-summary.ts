@@ -35,6 +35,12 @@ export interface SecurityScanSummary {
    * "not fully checked yet" (nothing is coming later).
    */
   overSizeLimit: number
+  /**
+   * LUM-892 — PRs whose latest scan had a layer turned off in the workspace
+   * settings (and nothing of ours unfinished): the customer's choice, told as
+   * such — never "not fully checked yet", never clean.
+   */
+  turnedOff: number
 }
 
 /**
@@ -80,11 +86,16 @@ export function summarizeSecurityScans(
     ).length,
     incomplete: prs.filter(
       ({ latest }) =>
-        latest == null || (!latest.complete && !isOverSizeLimitOnly(latest))
+        latest == null ||
+        (!latest.complete &&
+          !isOverSizeLimitOnly(latest) &&
+          latest.coverage !== 'TURNED_OFF')
     ).length,
     overSizeLimit: prs.filter(
       ({ latest }) => latest != null && isOverSizeLimitOnly(latest)
     ).length,
+    turnedOff: prs.filter(({ latest }) => latest?.coverage === 'TURNED_OFF')
+      .length,
   }
 }
 
@@ -99,6 +110,8 @@ export function summarizeSecurityScans(
 export function shouldExpandRow(latest: SecurityScanView | null): boolean {
   if (!latest) return false
   if (latest.findings.some(isOpenFinding)) return true
-  if (!latest.complete) return true
+  // LUM-892: a layer the customer turned off is no reason to open the row —
+  // the summary line and the badge already say it.
+  if (!latest.complete && latest.coverage !== 'TURNED_OFF') return true
   return latest.stages.external === 'FAILED' && latest.error != null
 }

@@ -39,10 +39,14 @@ export interface ReminderFinding {
   secretDowngrade?: SecretDowngradeReason | null
 }
 
-/** An open PR whose latest scan cannot vouch for it (LUM-732 honesty rule). */
+/**
+ * An open PR whose latest scan cannot vouch for it (LUM-732 honesty rule).
+ * LUM-892: `SCANNING_OFF` — the workspace turned scanning off, so no scan
+ * vouches for the PR's newer commits whatever an earlier scan said.
+ */
 export interface UnconfirmedPr {
   number: number
-  reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING'
+  reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING' | 'SCANNING_OFF'
 }
 
 /** Lines shown per reminder before the list degrades to a `+N more` pointer. */
@@ -122,11 +126,13 @@ function dispositionNote(identifier: string): string {
 
 export function renderUnconfirmedPrLine(u: UnconfirmedPr): string {
   const why =
-    u.reason === 'NONE'
-      ? 'no security scan has run'
-      : u.reason === 'FAILED'
-        ? 'security scan FAILED'
-        : `security scan still ${u.reason}`
+    u.reason === 'SCANNING_OFF'
+      ? "security scanning is turned off in this workspace's settings"
+      : u.reason === 'NONE'
+        ? 'no security scan has run'
+        : u.reason === 'FAILED'
+          ? 'security scan FAILED'
+          : `security scan still ${u.reason}`
   return `⚠ PR #${u.number}: ${why} — could not confirm it is clean.`
 }
 

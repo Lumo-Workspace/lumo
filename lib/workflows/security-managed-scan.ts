@@ -27,7 +27,10 @@ import {
   markSarifStagesStep,
   persistSarifFindingsStep,
 } from './security-sarif-ingest.steps'
-import { scanRepositoryInSandboxStep } from './security-managed-scan.steps'
+import {
+  scanRepositoryInSandboxStep,
+  stopIfScanningOffStep,
+} from './security-managed-scan.steps'
 import {
   markFailedBestEffort,
   suggestDispositionsBestEffort,
@@ -55,6 +58,12 @@ export async function securityManagedScanWorkflow(
       // already reads SUPERSEDED (stamped before the cancel); stamping
       // FAILED or syncing the PR here would overwrite a truer state.
       return { outcome: 'DISCARDED', reason: 'superseded' }
+    }
+    // LUM-892: the run was started while scanning was on; the workspace may
+    // have turned it off since. Asked here, where the report would land —
+    // nothing is persisted, judged or posted for a switched-off workspace.
+    if (await stopIfScanningOffStep(scanId, pr)) {
+      return { outcome: 'DISCARDED', reason: 'workspace_scan_disabled' }
     }
     for (const tool of MANAGED_SCAN_TOOLS) {
       const stage = tool === SUPPLY_CHAIN_TOOL ? 'supplyChain' : 'external'

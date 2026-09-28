@@ -75,6 +75,7 @@ export function summarizeScanReliability(
     IN_PROGRESS: 0,
     CHECKED: 0,
     UNFINISHED: 0,
+    TURNED_OFF: 0,
   }
   const causes: Record<string, number> = {}
   let ourFault = 0
@@ -108,7 +109,9 @@ export function summarizeScanReliability(
       if (!isOversizedAudit(row.huntAudit)) wholeDiff += 1
     }
   }
-  const settled = byCoverage.CHECKED + byCoverage.UNFINISHED
+  // LUM-892: a scan with a layer turned off in settings is settled too.
+  const settled =
+    byCoverage.CHECKED + byCoverage.UNFINISHED + byCoverage.TURNED_OFF
   return {
     scans: rows.length,
     byCoverage,
@@ -135,7 +138,7 @@ export function formatScanReliability(r: ScanReliability): string {
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([c, n]) => `${c} ${n} (${partialCauseClass(c)})`)
   return [
-    `scans ${r.scans} · checked ${r.byCoverage.CHECKED} · unfinished ${r.byCoverage.UNFINISHED} · in progress ${r.byCoverage.IN_PROGRESS}`,
+    `scans ${r.scans} · checked ${r.byCoverage.CHECKED} · unfinished ${r.byCoverage.UNFINISHED} · turned off ${r.byCoverage.TURNED_OFF} · in progress ${r.byCoverage.IN_PROGRESS}`,
     `our fault ${r.ourFault} (${pct(r.ourFaultRate)} of settled) · coverage owed only ${r.coverageOwedOnly} · unattributed ${r.unattributed}`,
     `hunt coverage ${r.hunt.wholeDiff}/${r.hunt.hunted} whole-diff (${pct(r.hunt.coverageRatio)})`,
     `causes: ${causes.length > 0 ? causes.join(' · ') : 'none'}`,
