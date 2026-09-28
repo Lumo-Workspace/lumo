@@ -30,12 +30,9 @@ const ALL_ON = {
   securityHuntEnabled: true,
 }
 
-function renderCard(
-  initial = ALL_ON,
-  platform = { managedScan: true, hunt: true }
-) {
+function renderCard(initial = ALL_ON, huntAvailable = true) {
   return render(
-    <SecurityScanSwitchesCard initial={initial} platform={platform} />
+    <SecurityScanSwitchesCard initial={initial} huntAvailable={huntAvailable} />
   )
 }
 
@@ -64,7 +61,7 @@ describe('LUM-866 SecurityScanSwitchesCard', () => {
   })
 
   it('a hunt the platform turned off is off, locked and explained', () => {
-    renderCard(ALL_ON, { managedScan: true, hunt: false })
+    renderCard(ALL_ON, false)
     expect(toggle('Exploit-path hunt')).toBeDisabled()
     expect(toggle('Exploit-path hunt')).toHaveAttribute('aria-checked', 'false')
     expect(

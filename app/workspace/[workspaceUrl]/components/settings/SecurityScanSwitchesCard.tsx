@@ -6,15 +6,12 @@ import { toast } from 'sonner'
 import { workspacesClient } from '@/lib/api-client'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import type {
-  PlatformSecurityCeiling,
-  WorkspaceSecuritySwitches,
-} from '@/lib/security-scan/workspace-switches'
+import type { WorkspaceSecuritySwitches } from '@/lib/security-scan/workspace-switches'
 
 interface SecurityScanSwitchesCardProps {
   initial: WorkspaceSecuritySwitches
-  /** Layers the platform env allows at all; an off one is shown off, locked. */
-  platform: PlatformSecurityCeiling
+  /** False when the platform env turned the hunt off: shown off, locked. */
+  huntAvailable: boolean
 }
 
 interface SwitchRowProps {
@@ -62,7 +59,7 @@ function SwitchRow({
  */
 export function SecurityScanSwitchesCard({
   initial,
-  platform,
+  huntAvailable,
 }: SecurityScanSwitchesCardProps) {
   const intl = useIntl()
   const [switches, setSwitches] = useState<WorkspaceSecuritySwitches>(initial)
@@ -117,9 +114,9 @@ export function SecurityScanSwitchesCard({
         id='security-hunt-enabled'
         label={t('hunt.label')}
         description={t('hunt.description')}
-        checked={scanOn && platform.hunt && switches.securityHuntEnabled}
-        disabled={saving || !scanOn || !platform.hunt}
-        note={platform.hunt ? undefined : platformNote}
+        checked={scanOn && huntAvailable && switches.securityHuntEnabled}
+        disabled={saving || !scanOn || !huntAvailable}
+        note={huntAvailable ? undefined : platformNote}
         onChange={set('securityHuntEnabled')}
       />
 

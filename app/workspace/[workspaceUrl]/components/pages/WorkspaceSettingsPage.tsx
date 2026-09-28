@@ -489,7 +489,7 @@ export function WorkspaceSettingsPage() {
                 workspace.securityAiReviewEnabled ?? true,
               securityHuntEnabled: workspace.securityHuntEnabled ?? true,
             }}
-            platform={securityPlatform}
+            huntAvailable={securityPlatform.hunt}
           />
         )}
 
