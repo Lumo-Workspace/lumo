@@ -19,6 +19,11 @@ export {
 } from './auth'
 export type { RepoTokenPermissions } from './auth'
 export {
+  REPO_TOKEN_PERMISSIONS,
+  PRODUCTION_APP_PERMISSIONS,
+  isWithinPermissions,
+} from './token-permissions'
+export {
   isConfirmedRepository,
   requireConfirmedRepository,
   repoNotConfirmedError,

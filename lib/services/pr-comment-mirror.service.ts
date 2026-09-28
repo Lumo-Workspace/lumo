@@ -1,6 +1,7 @@
 import { logger } from '@/lib/logger'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { getRepoToken } from '@/lib/integrations/github/auth'
+import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
 import { waitUntil } from '@vercel/functions'
 import type { OutboundActorKind, PrCommentSource } from '@prisma/client'
 import { commentRepository } from '@/lib/repositories/comment.repository'
@@ -127,7 +128,11 @@ async function runOutboundCreate(commentId: string) {
     }
     // Previous attempt inserted a placeholder but failed before GitHub responded.
     // Check whether the POST actually went through (list-and-match).
-    const appToken = await getRepoToken(pr.workspaceId, pr.repo)
+    const appToken = await getRepoToken(
+      pr.workspaceId,
+      pr.repo,
+      REPO_TOKEN_PERMISSIONS.pullRequestWrite
+    )
     const since = new Date(existingMirror.lastSyncedAt.getTime() - 5 * 60_000)
     // Branch on the original mirror's source so we hit the right GH endpoint —
     // listIssueCommentsSince does NOT include review-line comments and vice versa.
@@ -218,7 +223,11 @@ async function runOutboundCreate(commentId: string) {
   const isReviewLineReply = parentMirror?.externalSource === 'REVIEW_LINE'
 
   // One outbound identity: the workspace's App installation.
-  const createToken = await getRepoToken(pr.workspaceId, pr.repo)
+  const createToken = await getRepoToken(
+    pr.workspaceId,
+    pr.repo,
+    REPO_TOKEN_PERMISSIONS.pullRequestWrite
+  )
 
   const task = await taskRepository.findForComment(comment.taskId)
   const commentUrl = task
@@ -285,7 +294,11 @@ async function runOutboundUpdate(commentId: string) {
   const repo = parseRepo(pr.repo)
 
   if (isLegacyUserAuthored(mirror)) return
-  const token = await getRepoToken(pr.workspaceId, pr.repo)
+  const token = await getRepoToken(
+    pr.workspaceId,
+    pr.repo,
+    REPO_TOKEN_PERMISSIONS.pullRequestWrite
+  )
 
   const updateTask = await taskRepository.findForComment(comment.taskId)
   const updateCommentUrl = updateTask
@@ -342,7 +355,11 @@ async function runOutboundDelete(commentId: string) {
   const repo = parseRepo(pr.repo)
 
   if (isLegacyUserAuthored(mirror)) return
-  const token = await getRepoToken(pr.workspaceId, pr.repo)
+  const token = await getRepoToken(
+    pr.workspaceId,
+    pr.repo,
+    REPO_TOKEN_PERMISSIONS.pullRequestWrite
+  )
 
   try {
     if (mirror.externalSource === 'REVIEW_LINE') {

@@ -47,7 +47,9 @@ describe('getRepoToken', () => {
     })
     mockAuthReturning('tok_db')
 
-    const token = await getRepoToken('ws_1', 'acme/web')
+    const token = await getRepoToken('ws_1', 'acme/web', {
+      pull_requests: 'read',
+    })
 
     expect(token).toBe('tok_db')
     expect(createAppAuthMock).toHaveBeenCalledWith(
@@ -61,9 +63,9 @@ describe('getRepoToken', () => {
     findByWorkspaceMock.mockResolvedValue(null)
     mockAuthReturning('tok_env')
 
-    await expect(getRepoToken('ws_unknown', 'acme/web')).rejects.toThrow(
-      /not installed/
-    )
+    await expect(
+      getRepoToken('ws_unknown', 'acme/web', { pull_requests: 'read' })
+    ).rejects.toThrow(/not installed/)
     expect(createAppAuthMock).not.toHaveBeenCalled()
   })
 
@@ -75,8 +77,8 @@ describe('getRepoToken', () => {
       repositories: ['acme/web'],
     })
     delete process.env.GITHUB_APP_ID
-    await expect(getRepoToken('ws_1', 'acme/web')).rejects.toThrow(
-      /GITHUB_APP_ID/
-    )
+    await expect(
+      getRepoToken('ws_1', 'acme/web', { pull_requests: 'read' })
+    ).rejects.toThrow(/GITHUB_APP_ID/)
   })
 })

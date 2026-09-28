@@ -106,16 +106,18 @@ describe('LUM-852 no cross-tenant fallback', () => {
   it('throws instead of falling back when the workspace has no installation', async () => {
     findByWorkspace.mockResolvedValue(null)
 
-    await expect(getRepoToken('ws_other', 'o/r')).rejects.toThrow(
-      /not installed/
-    )
+    await expect(
+      getRepoToken('ws_other', 'o/r', { pull_requests: 'read' })
+    ).rejects.toThrow(/not installed/)
     await expect(getRepoCloneToken('ws_other', 'o/r')).rejects.toThrow(
       /install the Lumo GitHub App/
     )
     // Lumo's own installation (999) is never used to mint anything.
     expect(createAppAuthMock).not.toHaveBeenCalled()
     // No workspace at all is the same refusal, not "use the env id".
-    await expect(getRepoToken('', 'o/r')).rejects.toThrow(/workspace/i)
+    await expect(
+      getRepoToken('', 'o/r', { pull_requests: 'read' })
+    ).rejects.toThrow(/workspace/i)
     expect(findByWorkspace).toHaveBeenCalledTimes(2)
     expect(createAppAuthMock).not.toHaveBeenCalled()
   })

@@ -101,14 +101,23 @@ export type RepoTokenPermissions = Record<string, 'read' | 'write'>
  * LUM-883 — the token for reading (or writing to) ONE confirmed repository.
  * Throws 403 `repo_not_confirmed` before minting anything when `repository`
  * is not on the workspace's confirmed list, 400 `app_not_installed` with no
- * installation. `permissions` narrows the token further; omitted, it carries
- * the installation's permissions on that one repository.
+ * installation.
+ *
+ * LUM-886: `permissions` is required — pick the set from
+ * `REPO_TOKEN_PERMISSIONS` (./token-permissions). An empty set is refused
+ * rather than minted, because GitHub reads "no permissions" as "all of the
+ * installation's permissions".
  */
 export async function getRepoToken(
   workspaceId: string,
   repository: string,
-  permissions?: RepoTokenPermissions
+  permissions: RepoTokenPermissions
 ): Promise<string> {
+  if (!permissions || Object.keys(permissions).length === 0) {
+    throw new Error(
+      `getRepoToken needs an explicit permission set (repository ${repository})`
+    )
+  }
   const installationId = await resolveConfirmedInstallation(
     workspaceId,
     repository
@@ -117,7 +126,7 @@ export async function getRepoToken(
   const { token } = await auth({
     type: 'installation',
     repositoryNames: [repoName(repository)],
-    ...(permissions && { permissions }),
+    permissions,
   })
   return token
 }

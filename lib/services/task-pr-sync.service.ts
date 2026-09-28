@@ -1,4 +1,4 @@
-import { getRepoToken } from '@/lib/integrations/github'
+import { getRepoToken, REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { logger } from '@/lib/logger'
 
@@ -35,7 +35,14 @@ export async function syncPullRequestStatus(
     const key = repo.toLowerCase()
     if (!tokens.has(key)) {
       try {
-        tokens.set(key, await getRepoToken(workspaceId, repo))
+        tokens.set(
+          key,
+          await getRepoToken(
+            workspaceId,
+            repo,
+            REPO_TOKEN_PERMISSIONS.pullRequestRead
+          )
+        )
       } catch (error) {
         logger.warn(
           `[pr-sync] no GitHub token for ${repo} in workspace ${workspaceId}; its PR states may be stale`,

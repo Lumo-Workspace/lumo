@@ -395,7 +395,9 @@ describe('securityPrReviewService.sync', () => {
     findById.mockResolvedValue(scanRow({ findings: [finding()] }))
     const res = await securityPrReviewService.sync('s1')
     expect(res).toEqual({ posted: true, inline: 1, skipped: 0 })
-    expect(token).toHaveBeenCalledWith('w1', 'acme/app')
+    expect(token).toHaveBeenCalledWith('w1', 'acme/app', {
+      pull_requests: 'write',
+    })
     expect(createIssue).toHaveBeenCalledWith({
       repo: { owner: 'acme', name: 'app' },
       prNumber: 945,

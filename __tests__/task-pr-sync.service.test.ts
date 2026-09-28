@@ -11,6 +11,9 @@ import { logger } from '@/lib/logger'
 
 jest.mock('@/lib/integrations/github', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),
+  REPO_TOKEN_PERMISSIONS: jest.requireActual(
+    '@/lib/integrations/github/token-permissions'
+  ).REPO_TOKEN_PERMISSIONS,
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { updateState: jest.fn() },
@@ -47,7 +50,9 @@ describe('task-detail PR refresh (LUM-828)', () => {
   it('pr refresh uses the task workspace installation token', async () => {
     fetchMock.mockResolvedValue(ghMerged)
     const updates = await syncPullRequestStatus('ws-1', [pr('pr-1', 1071)])
-    expect(getRepoToken).toHaveBeenCalledWith('ws-1', 'a/b')
+    expect(getRepoToken).toHaveBeenCalledWith('ws-1', 'a/b', {
+      pull_requests: 'read',
+    })
     expect(updates.get('pr-1')?.state).toBe('merged')
   })
 

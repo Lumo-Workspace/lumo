@@ -13,6 +13,7 @@
 
 import { logger } from '@/lib/logger'
 import { getRepoToken } from './auth'
+import { REPO_TOKEN_PERMISSIONS } from './token-permissions'
 
 const GH_HEADERS = {
   Accept: 'application/vnd.github+json',
@@ -199,7 +200,11 @@ export async function fetchCommitCiSignals(opts: {
   fullName: string
   sha: string
 }): Promise<CiSignal[]> {
-  const token = await getRepoToken(opts.workspaceId, opts.fullName)
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.ciRead
+  )
   const [owner, repo] = splitFullName(opts.fullName)
   const repoBase = `https://api.github.com/repos/${owner}/${repo}`
   const base = `${repoBase}/commits/${opts.sha}`
@@ -259,7 +264,11 @@ export async function fetchPullNumbersForCommit(opts: {
   fullName: string
   sha: string
 }): Promise<number[]> {
-  const token = await getRepoToken(opts.workspaceId, opts.fullName)
+  const token = await getRepoToken(
+    opts.workspaceId,
+    opts.fullName,
+    REPO_TOKEN_PERMISSIONS.pullRequestRead
+  )
   const [owner, repo] = splitFullName(opts.fullName)
   const url = `https://api.github.com/repos/${owner}/${repo}/commits/${opts.sha}/pulls`
   const pulls = asArray(await ghJson(url, token))

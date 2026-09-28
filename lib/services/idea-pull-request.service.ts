@@ -7,6 +7,7 @@ import {
   toPrState,
 } from '@/lib/integrations/github/fetch-pull-request'
 import { requireConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
+import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
 import { resolveIdeaRef } from './idea-evidence-resolve'
 
 const err = (message: string, status: number) =>
@@ -36,7 +37,7 @@ async function repoTokenFor(
   // service into every module graph that touches tasks (same reason
   // github.service imports the integration lazily).
   const { getRepoToken } = await import('@/lib/integrations/github/auth')
-  return getRepoToken(workspaceId, repo)
+  return getRepoToken(workspaceId, repo, REPO_TOKEN_PERMISSIONS.pullRequestRead)
 }
 
 export const ideaPullRequestService = {
