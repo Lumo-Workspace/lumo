@@ -17,6 +17,9 @@ jest.mock('@/lib/integrations/github', () => ({
   createInstallationToken: jest.fn(),
   checkRepositoryReadAccess: jest.fn(),
   checkUserExists: jest.fn(),
+  INSTALLATION_TOKEN_PERMISSIONS: jest.requireActual(
+    '@/lib/integrations/github/token-permissions'
+  ).INSTALLATION_TOKEN_PERMISSIONS,
 }))
 jest.mock('@/lib/services/github-app-install.service', () => ({
   scrubWorkspaceCode: jest.fn().mockResolvedValue({ scans: 0, findings: 0 }),
@@ -115,7 +118,9 @@ describe('recheck narrows to what the verifier can still read', () => {
     const summary = await githubAccessRecheckService.sweep()
 
     // Asked with the installation token, about the verifier's login.
-    expect(createInstallationToken).toHaveBeenCalledWith(42)
+    expect(createInstallationToken).toHaveBeenCalledWith(42, {
+      metadata: 'read',
+    })
     expect(access).toHaveBeenCalledWith('inst-token', 'acme/web', 'octo')
     expect(access).toHaveBeenCalledTimes(3)
     expect(applied).toHaveBeenCalledWith('w1', 'octo', ['acme/payroll'], null)

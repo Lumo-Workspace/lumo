@@ -1,4 +1,5 @@
 import { getGithubAppJwt, createInstallationToken } from './auth'
+import { INSTALLATION_TOKEN_PERMISSIONS } from './token-permissions'
 
 const GH_API = 'https://api.github.com'
 const GH_HEADERS = {
@@ -72,7 +73,10 @@ export class InstallationRepositoryLimitError extends Error {
 export async function listInstallationRepositories(
   installationId: number
 ): Promise<InstallationRepository[]> {
-  const token = await createInstallationToken(installationId)
+  const token = await createInstallationToken(
+    installationId,
+    INSTALLATION_TOKEN_PERMISSIONS.repositoryList
+  )
   const repos: InstallationRepository[] = []
   for (let page = 1; page <= INSTALLATION_REPO_PAGE_CAP; page++) {
     const res = await fetch(
