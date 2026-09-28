@@ -11,6 +11,7 @@ jest.mock('@/lib/repositories', () => ({
     findAllByInstallationId: jest.fn(),
     findRecheckState: jest.fn(),
     updateRecheckIfUnchanged: jest.fn(),
+    markRecheckAttempted: jest.fn(),
   },
 }))
 jest.mock('@/lib/integrations/github', () => ({
@@ -23,6 +24,7 @@ jest.mock('@/lib/integrations/github', () => ({
 }))
 jest.mock('@/lib/services/github-app-install.service', () => ({
   scrubWorkspaceCode: jest.fn().mockResolvedValue({ scans: 0, findings: 0 }),
+  scrubAfterNarrowing: jest.fn(),
 }))
 
 import {
@@ -35,7 +37,10 @@ import {
   checkRepositoryReadAccess,
   lookupGitHubUser,
 } from '@/lib/integrations/github'
-import { scrubWorkspaceCode } from '@/lib/services/github-app-install.service'
+import {
+  scrubWorkspaceCode,
+  scrubAfterNarrowing,
+} from '@/lib/services/github-app-install.service'
 
 type MockedRepo = {
   [K in keyof typeof githubAppInstallationRepository]: jest.Mock
@@ -444,6 +449,96 @@ describe('LUM-888 scrub before narrowing, isolated failures', () => {
 
     expect(applied).toHaveBeenCalledWith('w2', [], null)
     expect(summary).toMatchObject({ workspaces: 1, failed: 1 })
+  })
+})
+
+describe('LUM-895 scrub after narrowing and rotation of failing rows', () => {
+  it('LUM-895 code written between the scrub and the narrowing is scrubbed', async () => {
+    repo.findAllWithVerifier.mockResolvedValue([row()])
+    applyLikeTheRow(row().repositories as string[])
+    answers({ 'acme/payroll': 'unreadable' })
+
+    await githubAccessRecheckService.sweep()
+
+    // Scrub, write, then scrub the same repositories again: a scan that
+    // wrote code in between leaves nothing behind for a dropped repository.
+    const write = repo.updateRecheckIfUnchanged.mock.invocationCallOrder[0]!
+    expect(
+      (scrubWorkspaceCode as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeLessThan(write)
+    expect(scrubAfterNarrowing).toHaveBeenCalledWith('w1', expect.any(String), [
+      'acme/payroll',
+    ])
+    expect(
+      (scrubAfterNarrowing as jest.Mock).mock.invocationCallOrder[0]
+    ).toBeGreaterThan(write)
+  })
+
+  it('does not scrub again when the write was discarded', async () => {
+    repo.findAllWithVerifier.mockResolvedValue([row()])
+    applyLikeTheRow(row().repositories as string[])
+    repo.updateRecheckIfUnchanged.mockResolvedValue(false)
+    answers({ 'acme/payroll': 'unreadable' })
+
+    await githubAccessRecheckService.sweep()
+
+    expect(scrubAfterNarrowing).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [
+      'the scrub throws',
+      () =>
+        (scrubWorkspaceCode as jest.Mock).mockRejectedValueOnce(
+          new Error('db down')
+        ),
+    ],
+    [
+      'the write keeps losing the race',
+      () => repo.updateRecheckIfUnchanged.mockResolvedValue(false),
+    ],
+    [
+      'GitHub cannot answer the verifier lookup',
+      () => (lookupGitHubUser as jest.Mock).mockResolvedValue(null),
+    ],
+  ])('stamps the attempt when %s', async (_why, arrange) => {
+    repo.findAllWithVerifier.mockResolvedValue([row()])
+    applyLikeTheRow(row().repositories as string[])
+    answers({ 'acme/payroll': 'unreadable' })
+    arrange()
+
+    await githubAccessRecheckService.sweep()
+
+    expect(repo.markRecheckAttempted).toHaveBeenCalledWith('w1')
+  })
+
+  it('does not stamp separately when the result was written', async () => {
+    repo.findAllWithVerifier.mockResolvedValue([row()])
+    applyLikeTheRow(row().repositories as string[])
+    answers({})
+
+    await githubAccessRecheckService.sweep()
+
+    expect(repo.markRecheckAttempted).not.toHaveBeenCalled()
+    expect(
+      repo.updateRecheckIfUnchanged.mock.calls[0]![2].accessCheckedAt
+    ).toBeInstanceOf(Date)
+  })
+
+  it('a stamp that fails does not stop the sweep', async () => {
+    repo.findAllWithVerifier.mockResolvedValue([
+      row(),
+      row({ workspaceId: 'w2', installationId: 43 }),
+    ])
+    applyLikeTheRow(row().repositories as string[])
+    ;(lookupGitHubUser as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue({ id: 7, login: 'octo' })
+    repo.markRecheckAttempted.mockRejectedValueOnce(new Error('db down'))
+
+    await githubAccessRecheckService.sweep()
+
+    expect(applied).toHaveBeenCalledWith('w2', [], null)
   })
 })
 

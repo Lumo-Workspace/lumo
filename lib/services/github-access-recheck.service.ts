@@ -6,7 +6,10 @@ import {
   lookupGitHubUser,
   INSTALLATION_TOKEN_PERMISSIONS,
 } from '@/lib/integrations/github'
-import { scrubWorkspaceCode } from '@/lib/services/github-app-install.service'
+import {
+  scrubWorkspaceCode,
+  scrubAfterNarrowing,
+} from '@/lib/services/github-app-install.service'
 
 /**
  * LUM-882 — keep a workspace's confirmed GitHub repositories in step with what
@@ -51,6 +54,8 @@ interface RowOutcome {
   removed: string[]
   /** Set when the run stopped before the end of the list. */
   stoppedBy: 'rate_limit' | 'time' | null
+  /** Whether the result (and its `accessCheckedAt` stamp) was written. */
+  recorded: boolean
 }
 
 const byName = (a: string, b: string) =>
@@ -96,13 +101,20 @@ interface ApplyOptions {
  * throws writes nothing: the repository stays confirmed, so the next run asks
  * again and retries the scrub, instead of leaving code behind for a
  * repository no recheck will ever look at again. Scrubbing is idempotent, so
- * a lost write race only re-scrubs.
+ * a lost write race only re-scrubs. LUM-895 — once written, the removed
+ * repositories are scrubbed once more, for code a scan wrote in between.
+ *
+ * `written` is false when nothing was written (re-verified, or still racing).
  */
 async function applyRemovals(
   row: { workspaceId: string; verifiedAt: Date },
   unreadable: string[] | 'all',
   options: ApplyOptions
-): Promise<string[]> {
+): Promise<{ gone: string[]; written: boolean }> {
+  const reasonText =
+    options.reason === 'account_gone'
+      ? 'verifying GitHub account not found (automatic recheck)'
+      : 'repository no longer readable by the verifier (automatic recheck)'
   const scrubbed = new Set<string>()
   for (let attempt = 0; attempt < WRITE_ATTEMPTS; attempt++) {
     const state = await githubAppInstallationRepository.findRecheckState(
@@ -112,7 +124,7 @@ async function applyRemovals(
       logger.info(
         `[github/access-recheck] workspace ${row.workspaceId}: re-verified during the recheck; result discarded`
       )
-      return []
+      return { gone: [], written: false }
     }
     const { kept, gone } = narrowConfirmed(
       state.repositories,
@@ -120,13 +132,7 @@ async function applyRemovals(
     )
     const toScrub = gone.filter(name => !scrubbed.has(name.toLowerCase()))
     if (toScrub.length > 0) {
-      await scrubWorkspaceCode(
-        row.workspaceId,
-        options.reason === 'account_gone'
-          ? 'verifying GitHub account no longer exists (automatic recheck)'
-          : 'repository no longer readable by the verifier (automatic recheck)',
-        toScrub
-      )
+      await scrubWorkspaceCode(row.workspaceId, reasonText, toScrub)
       toScrub.forEach(name => scrubbed.add(name.toLowerCase()))
     }
     const written =
@@ -150,13 +156,16 @@ async function applyRemovals(
           }),
         }
       )
-    if (written) return gone
+    if (written) {
+      await scrubAfterNarrowing(row.workspaceId, reasonText, gone)
+      return { gone, written: true }
+    }
   }
   // Still racing: nothing written; the next run asks GitHub again.
   logger.info(
     `[github/access-recheck] workspace ${row.workspaceId}: row kept changing during the recheck; result discarded`
   )
-  return []
+  return { gone: [], written: false }
 }
 
 /**
@@ -199,19 +208,20 @@ async function recheckRow(
 ): Promise<RowOutcome> {
   const verifier = await resolveVerifier(token, row)
   if (verifier === null) {
-    return { checked: 0, removed: [], stoppedBy: null }
+    return { checked: 0, removed: [], stoppedBy: null, recorded: false }
   }
   if (verifier === 'gone') {
-    // The verifying account no longer exists: nobody vouches for any of it.
-    const removed = await applyRemovals(row, 'all', {
+    // GitHub cannot find the verifying account — deleted, or suspended
+    // (LUM-895: both 404). Either way nobody vouches for any of it.
+    const { gone: removed, written } = await applyRemovals(row, 'all', {
       reason: 'account_gone',
       cursor: null,
       sweepPass: true,
     })
     logger.info(
-      `[github/access-recheck] workspace ${row.workspaceId}: verifying GitHub account no longer exists; removed ${removed.length} repository(ies)`
+      `[github/access-recheck] workspace ${row.workspaceId}: verifying GitHub account not found; removed ${removed.length} repository(ies)`
     )
-    return { checked: 0, removed, stoppedBy: null }
+    return { checked: 0, removed, stoppedBy: null, recorded: written }
   }
   const login = verifier.login
 
@@ -252,7 +262,7 @@ async function recheckRow(
     }
   }
 
-  const removed = await applyRemovals(row, unreadable, {
+  const { gone: removed, written } = await applyRemovals(row, unreadable, {
     reason: 'access_lost',
     cursor: stoppedBy ? lastDone : null,
     sweepPass: true,
@@ -263,7 +273,18 @@ async function recheckRow(
       `[github/access-recheck] workspace ${row.workspaceId}: checked ${checked}, removed ${removed.length}${stoppedBy ? `, paused (${stoppedBy})` : ''}`
     )
   }
-  return { checked, removed, stoppedBy }
+  return { checked, removed, stoppedBy, recorded: written }
+}
+
+/** LUM-895 — rotation stamp for a row that wrote no result; never throws. */
+async function markAttempted(workspaceId: string) {
+  try {
+    await githubAppInstallationRepository.markRecheckAttempted(workspaceId)
+  } catch (error) {
+    logger.error(
+      `[github/access-recheck] workspace ${workspaceId}: could not stamp the attempt: ${String(error)}`
+    )
+  }
 }
 
 export const githubAccessRecheckService = {
@@ -277,6 +298,9 @@ export const githubAccessRecheckService = {
    * out it is the most recently checked installations that wait, and every
    * installation takes its turn. One row or installation failing (a scrub
    * that throws, GitHub erroring) is logged and the sweep moves on.
+   *
+   * LUM-895 — every row the sweep reaches is stamped, result or not, so a
+   * row that fails every day cannot hold the front of the queue.
    */
   async sweep(now: () => number = Date.now) {
     const deadline = now() + SWEEP_TIME_BUDGET_MS
@@ -324,12 +348,14 @@ export const githubAccessRecheckService = {
           summary.skipped++
           continue
         }
+        let recorded = false
         try {
           const outcome = await recheckRow(
             { ...row, verifierLogin, verifiedAt },
             token,
             deadline
           )
+          recorded = outcome.recorded
           summary.workspaces++
           summary.checked += outcome.checked
           summary.removed += outcome.removed.length
@@ -338,9 +364,10 @@ export const githubAccessRecheckService = {
         } catch (error) {
           summary.failed++
           logger.error(
-            `[github/access-recheck] workspace ${row.workspaceId} (installation ${installationId}) failed; the next run retries: ${String(error)}`
+            `[github/access-recheck] workspace ${row.workspaceId} (installation ${installationId}) failed; retried on its next turn: ${String(error)}`
           )
         }
+        if (!recorded) await markAttempted(row.workspaceId)
       }
     }
     return summary
@@ -386,7 +413,7 @@ export const githubAccessRecheckService = {
         verifier.login
       )
       if (access !== 'unreadable') continue
-      const gone = await applyRemovals(
+      const { gone } = await applyRemovals(
         { workspaceId: row.workspaceId, verifiedAt },
         [repositoryFullName],
         { reason: 'access_lost', identity: verifier.identity }

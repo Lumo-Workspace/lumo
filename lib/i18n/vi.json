@@ -2590,7 +2590,7 @@
   "security.report.body": "Nếu bạn tin rằng mình đã phát hiện một lỗ hổng bảo mật trong Lumo, hãy gửi email đến {email} kèm các bước để tái hiện. Vui lòng cho chúng tôi thời gian hợp lý để khắc phục trước khi công bố công khai.",
   "security.report.securityTxt": "Thông tin liên hệ này cũng được công bố ở dạng máy có thể đọc tại {path}.",
   "github.accessRemoved": "Đã tự động gỡ {count} kho mã: người xác minh quyền truy cập GitHub gần nhất không còn đọc được chúng. Mã quét liên quan đã bị xóa.",
-  "github.accessRemovedAccountGone": "Đã tự động gỡ {count} kho mã: tài khoản GitHub xác minh quyền truy cập gần nhất không còn tồn tại (đã bị xóa, hoặc đã đổi tên trước khi Lumo ghi lại ID tài khoản). Mã quét liên quan đã bị xóa. Chủ sở hữu không gian làm việc có thể xác minh lại quyền truy cập GitHub để khôi phục các kho mã mà họ đọc được.",
+  "github.accessRemovedAccountGone": "Đã tự động gỡ {count} kho mã: GitHub không còn tìm thấy tài khoản xác minh quyền truy cập gần nhất (có thể đã bị xóa hoặc bị tạm ngưng, hoặc đã đổi tên trước khi Lumo ghi lại ID tài khoản). Mã quét liên quan đã bị xóa. Chủ sở hữu không gian làm việc có thể xác minh lại quyền truy cập GitHub để khôi phục các kho mã mà họ đọc được.",
   "github.accessRecheckOff": "Tính năng tự động kiểm tra quyền truy cập đang tắt cho bản cài đặt này. Chủ sở hữu không gian làm việc cần xác minh lại một lần để bật.",
   "workspaceSettings.securityScan.title": "Quét bảo mật PR",
   "workspaceSettings.securityScan.description": "Những gì Lumo chạy trên các pull request được liên kết với tác vụ của không gian làm việc này. Lớp bị tắt sẽ không chạy trong các lần quét mới; kết quả đã có trên PR vẫn được giữ lại.",
