@@ -10,6 +10,8 @@ import type {
 } from './types'
 import {
   PRIVATE_KEY_BLOCK_SOURCE,
+  PRIVATE_KEY_HEADLESS_SOURCE,
+  PUTTY_PRIVATE_SOURCE,
   SECRET_PATTERNS,
   isDowngradedPath,
   isNonSecretShapeValue,
@@ -48,6 +50,9 @@ export const MAX_SCANNED_LINE_CHARS = 5000
 
 const TRUNCATION_MARKER = '…(truncated)'
 
+/** What `redactSecret` leaves in place of a value. */
+const REDACTION_MARKER = '…(len'
+
 interface LineMatch {
   pattern: SecretPattern
   value: string
@@ -79,7 +84,10 @@ function collectMatches(text: string): LineMatch[] {
       const value = p.group != null ? m[p.group] : m[0]
       if (
         value &&
-        (p.entropyMin == null || shannonEntropy(value) >= p.entropyMin)
+        // An earlier pass's redaction token is not a secret (LUM-894).
+        !value.includes(REDACTION_MARKER) &&
+        (p.entropyMin == null || shannonEntropy(value) >= p.entropyMin) &&
+        (p.accept == null || p.accept(value))
       ) {
         const span = matchSpan(m, value)
         matches.push(
@@ -114,7 +122,7 @@ function matchSpan(
   return { start: m.index + firstIdx, end: m.index + firstIdx + value.length }
 }
 
-interface Span {
+export interface Span {
   start: number
   end: number
 }
@@ -178,6 +186,17 @@ function redactAll(text: string, matches: readonly LineMatch[]): string {
   return out
 }
 
+/**
+ * The credentials a line holds, for counting: one per distinct captured value,
+ * except a value that sits inside another captured value on the same line —
+ * two rules reading one credential (`token: ghp_…` as a GitHub token and as a
+ * YAML value, `PAT=github_pat_…`) is still one credential (LUM-894).
+ */
+function distinctValues(matches: readonly LineMatch[]): string[] {
+  const values = [...new Set(matches.map(m => m.value))]
+  return values.filter(v => !values.some(o => o !== v && o.includes(v)))
+}
+
 export interface BlockRedaction {
   text: string
   /** Private key blocks redacted. */
@@ -192,15 +211,67 @@ export interface BlockRedaction {
  * this first. Uncapped: the pattern is anchored on the literal BEGIN marker and
  * bounded in length, so a long text costs one linear sweep. Text without a
  * block comes back as the same string (`===`).
+ *
+ * LUM-894 — also the private section of a PuTTY key and key body lines with no
+ * BEGIN line (`PRIVATE_KEY_HEADLESS_SOURCE`), each as one span.
  */
 export function redactPrivateKeyBlocks(text: string): BlockRedaction {
-  if (!text.includes('PRIVATE KEY')) return { text, count: 0 }
-  let count = 0
-  const out = text.replace(new RegExp(PRIVATE_KEY_BLOCK_SOURCE, 'g'), block => {
-    count++
-    return redactSecret(block)
-  })
-  return count === 0 ? { text, count } : { text: out, count }
+  const spans = privateKeySpans(text)
+  if (spans.length === 0) return { text, count: 0 }
+  return { text: applySpans(text, spans), count: spans.length }
+}
+
+const BLOCK_RE = new RegExp(PRIVATE_KEY_BLOCK_SOURCE, 'gi')
+const PUTTY_RE = new RegExp(PUTTY_PRIVATE_SOURCE, 'g')
+const HEADLESS_RE = new RegExp(PRIVATE_KEY_HEADLESS_SOURCE, 'gi')
+/** The line right before a headless run opens a non-private armored block. */
+const NON_PRIVATE_ARMOR_BEFORE =
+  /-----BEGIN (?![A-Z0-9 ]*PRIVATE KEY)[A-Z0-9 ]+-----[ \t]*(?:\r?\n|\\r?\\n|"[ \t]*,[ \t]*")[ \t]*$/i
+/** The run is followed by a non-private END line (a certificate's tail). */
+const NON_PRIVATE_ARMOR_AFTER =
+  /^[ \t]*(?:\r?\n|\\r?\\n|"[ \t]*,[ \t]*")[^\n]{0,80}?-----END (?![A-Z0-9 ]*PRIVATE KEY)[A-Z0-9 ]+-----/i
+
+/**
+ * `[start, end)` of every private key span in `text`, merged and sorted:
+ * BEGIN-anchored blocks, PuTTY private sections, then headless body runs in
+ * what is left over.
+ */
+export function privateKeySpans(text: string): Span[] {
+  const spans: Span[] = []
+  const collect = (
+    re: RegExp,
+    keep?: (start: number, end: number) => boolean
+  ) => {
+    re.lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = re.exec(text)) !== null) {
+      const start = m.index
+      const end = start + m[0].length
+      if (m[0].length === 0) re.lastIndex += 1
+      else if (!keep || keep(start, end)) spans.push({ start, end })
+    }
+    re.lastIndex = 0
+  }
+  if (/PRIVATE KEY/i.test(text)) collect(BLOCK_RE)
+  if (text.includes('Private-Lines:')) collect(PUTTY_RE)
+  if (/[A-Za-z0-9+/]{64}/.test(text) || /-----END /i.test(text)) {
+    const covered = mergeSpans(spans)
+    collect(HEADLESS_RE, (start, end) => {
+      if (covered.some(c => start < c.end && end > c.start)) return false
+      const run = text.slice(start, end)
+      // A run of hex digests (checksums, hashes) is not a key body.
+      if (/^[0-9a-f\s\d:→\\tn-]*$/i.test(run.replace(/-----END[^]*$/, '')))
+        return false
+      if (
+        NON_PRIVATE_ARMOR_BEFORE.test(
+          text.slice(Math.max(0, start - 200), start)
+        )
+      )
+        return false
+      return !NON_PRIVATE_ARMOR_AFTER.test(text.slice(end, end + 200))
+    })
+  }
+  return mergeSpans(spans)
 }
 
 export function scanSecrets(files: AddedFile[]): RawSecretFinding[] {
@@ -263,7 +334,10 @@ export function scanSecrets(files: AddedFile[]): RawSecretFinding[] {
         // undetected co-located quoted credential (one no pattern above
         // matched) still never survives into persisted evidence.
         evidence: maskQuotedValues(redactAll(line.text, matches)),
-        fingerprint: secretFingerprint(ruleId, best.value),
+        fingerprint: secretFingerprint(
+          ruleId,
+          best.pattern.fingerprintValue?.(best.value) ?? best.value
+        ),
         detail: `${best.pattern.title} committed in ${file.path}:${line.lineNo}${reason}`,
         ...(downgrade ? { downgrade } : {}),
       })
@@ -389,7 +463,7 @@ export function redactForInjection(
     const head = overCap ? line.slice(0, MAX_SCANNED_LINE_CHARS) : line
     const matches = collectMatches(head)
     if (matches.length > 0) {
-      for (const value of new Set(matches.map(m => m.value))) {
+      for (const value of distinctValues(matches)) {
         if (pathDowngraded || isPlaceholderValue(value)) downgradedCount++
         else redactedCount++
       }
@@ -469,9 +543,54 @@ export function redactForStorage(text: string): StorageRedaction {
     const line = lines[i]!
     const matches = collectMatchesWindowed(line)
     if (matches.length === 0) continue
-    redactedCount += new Set(matches.map(m => m.value)).size
+    redactedCount += distinctValues(matches).length
     lines[i] = redactAll(line, matches)
     changed = true
   }
   return { text: changed ? lines.join('\n') : text, redactedCount }
+}
+
+export interface SplitBlockRedaction {
+  /** The parts, same length and order; a part a key spans is rewritten. */
+  parts: string[]
+  /** Private key spans redacted across the parts. */
+  count: number
+}
+
+/**
+ * LUM-894 — a private key stored as a list of lines (a Write/Edit
+ * `structuredPatch` hunk's `lines[]`, a JSON array of lines) never shows any
+ * one part more than its BEGIN line, so a per-string pass leaves the body. The
+ * parts are joined with `\n`, keys are found over the whole, and each span is
+ * mapped back: the first part it touches carries the redaction token, the
+ * rest of the span is cut out of every part it covers. A part the key does
+ * not touch comes back as the same string.
+ */
+export function redactPrivateKeysAcrossParts(
+  parts: readonly string[]
+): SplitBlockRedaction {
+  const joined = parts.join('\n')
+  const spans = parts.length < 2 ? [] : privateKeySpans(joined)
+  if (spans.length === 0) return { parts: [...parts], count: 0 }
+  const emitted = new Set<Span>()
+  const out: string[] = []
+  let start = 0
+  for (const part of parts) {
+    const end = start + part.length
+    let text = ''
+    let cursor = start
+    for (const span of spans) {
+      if (span.end <= start || span.start >= end) continue
+      text += joined.slice(cursor, Math.max(span.start, start))
+      if (!emitted.has(span)) {
+        text += redactSecret(joined.slice(span.start, span.end))
+        emitted.add(span)
+      }
+      cursor = Math.min(span.end, end)
+    }
+    text += joined.slice(cursor, end)
+    out.push(text === part ? part : text)
+    start = end + 1
+  }
+  return { parts: out, count: spans.length }
 }

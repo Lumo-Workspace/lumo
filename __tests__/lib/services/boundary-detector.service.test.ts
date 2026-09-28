@@ -606,6 +606,60 @@ const REGISTRY_CORPUS: Record<string, { line: string; value: string }> = {
     line: 'mysqladmin --password ' + 'Qm7Tz4Lw' + '9Kp2 status',
     value: 'Qm7Tz4Lw' + '9Kp2',
   },
+  'env-assignment-lowercase': {
+    line: 'db_password=' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  'env-assignment-quoted': {
+    line: 'export TOKEN="' + 'Qm7Tz4 Lw9Kp2' + ' Xc8Vb5"',
+    value: 'Qm7Tz4 Lw9Kp2' + ' Xc8Vb5',
+  },
+  'credential-key-value': {
+    line: '{"password": "' + 'Qm7Tz4Lw' + '9Kp2Xc8V"}',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  'credential-yaml-value': {
+    line: '  password: ' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  'http-api-key-header': {
+    line: 'X-API-Key: ' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  'http-cookie': {
+    line: 'Cookie: session=' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+    value: 'session=' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  'url-credentials': {
+    line:
+      'git clone https://deploy:' +
+      'Qm7Tz4Lw' +
+      '9Kp2Xc8V@git.example.com/x.git',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  'cli-secret-flag': {
+    line: 'tool deploy --secret ' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  'cli-user-password': {
+    line: 'curl -u admin:' + 'Qm7Tz4Lw' + '9Kp2Xc8V https://api.example.com',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  'cli-short-password-flag': {
+    line: 'docker login -u bot -p ' + 'Qm7Tz4Lw' + '9Kp2Xc8V ghcr.io',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  'kubectl-from-literal': {
+    line:
+      'kubectl create secret generic db --from-literal=dbpass=' +
+      'Qm7Tz4Lw' +
+      '9Kp2Xc8V',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  'putty-private-key': {
+    line: 'PuTTY-User-' + 'Key-File-3: ssh-rsa',
+    value: 'PuTTY-User-' + 'Key-File-3: ssh-rsa',
+  },
 }
 
 const write = (filePath: string, content: string) => ({

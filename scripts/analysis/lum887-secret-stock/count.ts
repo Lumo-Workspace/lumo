@@ -1,13 +1,14 @@
 /**
- * LUM-887 stock assessment — READ-ONLY. Counts stored rows that still hold a
- * credential shape the pre-LUM-887 registry missed (see classify.ts), per
- * table and per rule. Prints counts only, never a value. findMany only — no
- * writes; whether to re-redact is the user's call.
+ * LUM-887 / LUM-894 stock assessment — READ-ONLY. Counts stored rows that
+ * still hold a credential shape (see classify.ts) per table and per rule, over
+ * every column listed in tables.ts. Prints counts only, never a value.
+ * findMany only — no writes; whether to re-redact is the user's call.
  *
  *   DOTENV_CONFIG_PATH="$(pwd)/.env.production" npx tsx -r dotenv/config \
- *     scripts/analysis/lum887-secret-stock/count.ts [--limit N]
+ *     scripts/analysis/lum887-secret-stock/count.ts [--limit N] [--table <label>]
  */
-import { classifyRow } from './classify'
+import { PRE_LUM887_RULE_IDS, classifyRow } from './classify'
+import { STOCK_TABLES, type StockTable } from './tables'
 
 const BATCH = 200
 
@@ -30,11 +31,11 @@ const newTally = (): Tally => ({
   workspaces: new Set(),
 })
 
-function record(t: Tally, hits: Set<string>, workspaceId?: string | null) {
+function record(t: Tally, hits: Set<string>, workspaceId?: unknown) {
   t.rows++
   if (hits.size === 0) return
   t.affected++
-  if (workspaceId) t.workspaces.add(workspaceId)
+  if (typeof workspaceId === 'string') t.workspaces.add(workspaceId)
   for (const id of hits) t.byRule.set(id, (t.byRule.get(id) ?? 0) + 1)
 }
 
@@ -44,19 +45,59 @@ function print(name: string, t: Tally) {
       (t.workspaces.size ? ` · ${t.workspaces.size} workspace(s)` : '')
   )
   for (const [id, n] of [...t.byRule].sort((a, b) => b[1] - a[1]))
-    console.log(`  ${id}: ${n}`)
+    console.log(
+      `  ${id}: ${n}${PRE_LUM887_RULE_IDS.has(id) ? ' (pre-LUM-887 rule)' : ''}`
+    )
+}
+
+type Row = Record<string, unknown> & { id: string }
+type Delegate = { findMany(args: unknown): Promise<Row[]> }
+
+async function scanTable(
+  client: Record<string, unknown>,
+  table: StockTable,
+  limit: number,
+  onRow?: (row: Row, hits: Set<string>) => void
+): Promise<Tally> {
+  const delegate = client[table.delegate] as Delegate
+  const select: Record<string, true> = { id: true }
+  for (const f of table.fields) select[f] = true
+  if (table.workspaceField) select[table.workspaceField] = true
+  const tally = newTally()
+  let cursor: string | undefined
+  for (;;) {
+    const rows = await delegate.findMany({
+      ...(table.where ? { where: table.where } : {}),
+      select,
+      orderBy: { id: 'asc' },
+      take: BATCH,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    })
+    if (rows.length === 0) break
+    for (const r of rows) {
+      const hits = classifyRow(table.fields.map(f => r[f]))
+      record(tally, hits, table.workspaceField && r[table.workspaceField])
+      onRow?.(r, hits)
+    }
+    cursor = rows[rows.length - 1]!.id
+    if (tally.rows % 20000 < BATCH)
+      console.error(
+        `  … ${table.label} ${tally.rows} scanned (${tally.affected} hit)`
+      )
+    if (tally.rows >= limit) break
+  }
+  return tally
 }
 
 async function main() {
   const { prisma } = await import('@/lib/db/prisma')
+  const client = prisma as unknown as Record<string, unknown>
   const limit = flag('--limit') ? Number(flag('--limit')) : Infinity
+  const only = flag('--table')
   console.log(
-    `[read-only] LUM-887 secret stock · db ${new URL(process.env.DATABASE_URL ?? 'postgres://unset').host}`
+    `[read-only] LUM-894 secret stock · db ${new URL(process.env.DATABASE_URL ?? 'postgres://unset').host}`
   )
 
-  // HookEvent — payload + extracted text columns; pruned rows hold no content.
-  const hook = newTally()
-  const hookCrossing = newTally()
   const crossingIds = new Set(
     (
       await prisma.boundaryCrossing.findMany({
@@ -66,128 +107,24 @@ async function main() {
       })
     ).flatMap(r => (r.hookEventId ? [r.hookEventId] : []))
   )
-  let cursor: string | undefined
-  for (;;) {
-    const rows = await prisma.hookEvent.findMany({
-      where: { payloadPrunedAt: null },
-      select: {
-        id: true,
-        workspaceId: true,
-        payload: true,
-        toolDetail: true,
-        turnSummary: true,
-      },
-      orderBy: { id: 'asc' },
-      take: BATCH,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-    })
-    if (rows.length === 0) break
-    for (const r of rows) {
-      const hits = classifyRow([r.payload, r.toolDetail, r.turnSummary])
-      record(hook, hits, r.workspaceId)
-      if (crossingIds.has(r.id)) record(hookCrossing, hits, r.workspaceId)
-    }
-    cursor = rows[rows.length - 1]!.id
-    if (hook.rows % 20000 < BATCH)
-      console.error(`  … hookEvent ${hook.rows} scanned (${hook.affected} hit)`)
-    if (hook.rows >= limit) break
-  }
-  print('HookEvent (unpruned)', hook)
-  print('  of which crossing-referenced', hookCrossing)
 
-  const finding = newTally()
-  cursor = undefined
-  for (;;) {
-    const rows = await prisma.prSecurityFinding.findMany({
-      select: {
-        id: true,
-        title: true,
-        detail: true,
-        evidence: true,
-        dispositionNote: true,
-        suggestedReason: true,
-        callChain: true,
-      },
-      orderBy: { id: 'asc' },
-      take: BATCH,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-    })
-    if (rows.length === 0) break
-    for (const r of rows)
-      record(
-        finding,
-        classifyRow([
-          r.title,
-          r.detail,
-          r.evidence,
-          r.dispositionNote,
-          r.suggestedReason,
-          r.callChain,
-        ])
-      )
-    cursor = rows[rows.length - 1]!.id
+  for (const table of STOCK_TABLES) {
+    if (only && table.label !== only) continue
+    const crossing = newTally()
+    const tally = await scanTable(
+      client,
+      table,
+      limit,
+      table.delegate === 'hookEvent'
+        ? (row, hits) => {
+            if (crossingIds.has(row.id)) record(crossing, hits, row.workspaceId)
+          }
+        : undefined
+    )
+    print(table.label, tally)
+    if (table.delegate === 'hookEvent')
+      print('  of which crossing-referenced', crossing)
   }
-  print('PrSecurityFinding', finding)
-
-  const scan = newTally()
-  cursor = undefined
-  for (;;) {
-    const rows = await prisma.prSecurityScan.findMany({
-      select: {
-        id: true,
-        workspaceId: true,
-        error: true,
-        huntAudit: true,
-        stages: true,
-        prSummary: true,
-        huntJob: true,
-      },
-      orderBy: { id: 'asc' },
-      take: BATCH,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-    })
-    if (rows.length === 0) break
-    for (const r of rows)
-      record(
-        scan,
-        classifyRow([r.error, r.huntAudit, r.stages, r.prSummary, r.huntJob]),
-        r.workspaceId
-      )
-    cursor = rows[rows.length - 1]!.id
-  }
-  print('PrSecurityScan', scan)
-
-  const crossing = newTally()
-  cursor = undefined
-  for (;;) {
-    const rows = await prisma.boundaryCrossing.findMany({
-      select: {
-        id: true,
-        detail: true,
-        target: true,
-        dispositionNote: true,
-        systemExplanation: true,
-        policyRuleText: true,
-      },
-      orderBy: { id: 'asc' },
-      take: BATCH,
-      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-    })
-    if (rows.length === 0) break
-    for (const r of rows)
-      record(
-        crossing,
-        classifyRow([
-          r.detail,
-          r.target,
-          r.dispositionNote,
-          r.systemExplanation,
-          r.policyRuleText,
-        ])
-      )
-    cursor = rows[rows.length - 1]!.id
-  }
-  print('BoundaryCrossing', crossing)
 
   await prisma.$disconnect()
 }
