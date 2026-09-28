@@ -8,7 +8,8 @@ import {
   fetchInstallationRepositories,
   listInstallationRepositories,
   deleteAppInstallation,
-  createInstallationToken,
+  getRepoToken,
+  REPO_TOKEN_PERMISSIONS,
   syncRepoPRs,
   buildAppUserAuthorizeUrl,
   exchangeAppUserCode,
@@ -146,26 +147,29 @@ async function listRepositoriesUserCanRead(
  *
  * Best-effort and fire-and-forget: a failed backfill must never fail the
  * installation itself, and the webhook keeps everything current from here on.
+ *
+ * LUM-890: runs after the confirmed list is written, so each repository gets
+ * its own `pull_requests: read` token through `getRepoToken` — the same
+ * confirmed-list check and permission set as every other PR read — rather
+ * than one installation-wide token for all of them.
  */
 async function backfillPullRequests(
   workspaceId: string,
-  installationId: number,
   repositories: string[]
 ): Promise<void> {
-  if (repositories.length === 0) return
-  try {
-    const token = await createInstallationToken(installationId)
-    for (const fullName of repositories) {
-      await syncRepoPRs(token, fullName, workspaceId, null).catch(error =>
-        logger.error(
-          `[github/app] PR backfill failed for ${fullName}: ${String(error)}`
-        )
+  for (const fullName of repositories) {
+    try {
+      const token = await getRepoToken(
+        workspaceId,
+        fullName,
+        REPO_TOKEN_PERMISSIONS.pullRequestRead
+      )
+      await syncRepoPRs(token, fullName, workspaceId, null)
+    } catch (error) {
+      logger.error(
+        `[github/app] PR backfill failed for ${fullName}: ${String(error)}`
       )
     }
-  } catch (error) {
-    logger.error(
-      `[github/app] PR backfill skipped for installation ${installationId}: ${String(error)}`
-    )
   }
 }
 
@@ -265,7 +269,7 @@ export const githubAppInstallService = {
       verifier: { login, githubId },
     })
 
-    await backfillPullRequests(workspaceId, installationId, repositories)
+    await backfillPullRequests(workspaceId, repositories)
 
     return row
   },
@@ -327,7 +331,7 @@ export const githubAppInstallService = {
       confirmed,
       { login: verifier.login, githubId: verifier.githubId }
     )
-    await backfillPullRequests(workspaceId, row.installationId, added)
+    await backfillPullRequests(workspaceId, added)
 
     return { confirmed: confirmed.length, added, removed }
   },

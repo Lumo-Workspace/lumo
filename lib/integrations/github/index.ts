@@ -21,6 +21,7 @@ export {
 export type { RepoTokenPermissions } from './auth'
 export {
   REPO_TOKEN_PERMISSIONS,
+  INSTALLATION_TOKEN_PERMISSIONS,
   PRODUCTION_APP_PERMISSIONS,
   isWithinPermissions,
 } from './token-permissions'

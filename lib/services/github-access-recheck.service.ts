@@ -4,6 +4,7 @@ import {
   createInstallationToken,
   checkRepositoryReadAccess,
   lookupGitHubUser,
+  INSTALLATION_TOKEN_PERMISSIONS,
 } from '@/lib/integrations/github'
 import { scrubWorkspaceCode } from '@/lib/services/github-app-install.service'
 
@@ -305,7 +306,10 @@ export const githubAccessRecheckService = {
       }
       let token: string
       try {
-        token = await createInstallationToken(installationId)
+        token = await createInstallationToken(
+          installationId,
+          INSTALLATION_TOKEN_PERMISSIONS.collaboratorAccess
+        )
       } catch (error) {
         logger.error(
           `[github/access-recheck] no token for installation ${installationId}: ${String(error)}`
@@ -362,7 +366,10 @@ export const githubAccessRecheckService = {
     )
     if (affected.length === 0) return { removed: 0 }
 
-    const token = await createInstallationToken(installationId)
+    const token = await createInstallationToken(
+      installationId,
+      INSTALLATION_TOKEN_PERMISSIONS.collaboratorAccess
+    )
     let removed = 0
     for (const row of affected) {
       const verifiedAt = row.verifiedAt as Date

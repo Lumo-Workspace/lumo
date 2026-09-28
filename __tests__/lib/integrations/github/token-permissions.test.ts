@@ -22,14 +22,32 @@ jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
+// LUM-890: the access recheck runs for real; only its row store and the scrub
+// it may trigger are stubbed.
+jest.mock('@/lib/repositories', () => ({
+  ...jest.requireActual('@/lib/repositories'),
+  githubAppInstallationRepository: {
+    findAllWithVerifier: jest.fn(),
+    findAllByInstallationId: jest.fn(),
+    findRecheckState: jest.fn(),
+    updateRecheckIfUnchanged: jest.fn(),
+  },
+}))
+jest.mock('@/lib/services/github-app-install.service', () => ({
+  scrubWorkspaceCode: jest.fn(),
+}))
 
 import * as fs from 'fs'
 import * as path from 'path'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 import {
+  createInstallationToken,
   createRepoTokenForInstallation,
   getRepoToken,
 } from '@/lib/integrations/github/auth'
+import { listInstallationRepositories } from '@/lib/integrations/github/app-installations'
+import { githubAppInstallationRepository as recheckRows } from '@/lib/repositories'
+import { githubAccessRecheckService } from '@/lib/services/github-access-recheck.service'
 import {
   fetchDefaultBranchHead,
   fetchPrDiff,
@@ -43,6 +61,7 @@ import {
   fetchPullNumbersForCommit,
 } from '@/lib/integrations/github/checks'
 import {
+  INSTALLATION_TOKEN_PERMISSIONS,
   PRODUCTION_APP_PERMISSIONS,
   REPO_TOKEN_PERMISSIONS,
   isWithinPermissions,
@@ -86,6 +105,7 @@ beforeEach(() => {
   global.fetch = jest.fn(async (url: RequestInfo | URL) => ({
     ok: true,
     status: 200,
+    headers: new Headers(),
     json: async () => (String(url).includes('/files') ? [] : OK_BODY),
     text: async () => 'diff --git a/x b/x',
   })) as unknown as typeof fetch
@@ -130,6 +150,69 @@ describe('LUM-886 createRepoTokenForInstallation', () => {
       createRepoTokenForInstallation(42, 'acme/web', {})
     ).rejects.toThrow(/explicit permission set/)
     expect(authFn).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-890 createInstallationToken', () => {
+  it('createInstallationToken refuses to mint without an explicit permission set', async () => {
+    await expect(createInstallationToken(42, {})).rejects.toThrow(
+      /explicit permission set/
+    )
+    await expect(
+      // @ts-expect-error — the permission set is a required argument
+      createInstallationToken(42)
+    ).rejects.toThrow(/explicit permission set/)
+    expect(authFn).not.toHaveBeenCalled()
+  })
+
+  const recheckRow = {
+    workspaceId: 'ws_1',
+    installationId: 42,
+    repositories: ['acme/web'],
+    verifierLogin: 'octo',
+    verifierGithubId: null,
+    verifiedAt: new Date('2026-09-27T00:00:00Z'),
+    accessCheckCursor: null,
+  }
+  const cases: Array<[string, () => Promise<unknown>]> = [
+    ['listInstallationRepositories', () => listInstallationRepositories(42)],
+    [
+      'access-recheck sweep',
+      async () => {
+        ;(recheckRows.findAllWithVerifier as jest.Mock).mockResolvedValue([
+          recheckRow,
+        ])
+        return githubAccessRecheckService.sweep()
+      },
+    ],
+    [
+      'repository-event recheck',
+      async () => {
+        ;(recheckRows.findAllByInstallationId as jest.Mock).mockResolvedValue([
+          recheckRow,
+        ])
+        return githubAccessRecheckService.recheckRepository(42, 'acme/web')
+      },
+    ],
+  ]
+
+  it.each(cases)(
+    'installation-wide mints request only metadata read: %s',
+    async (_name, call) => {
+      await call()
+      expect(authFn).toHaveBeenCalledTimes(1)
+      // No repositoryNames: the whole installation, but metadata only.
+      expect(authFn).toHaveBeenCalledWith({
+        type: 'installation',
+        permissions: { metadata: 'read' },
+      })
+    }
+  )
+
+  it('installation-wide mints request only metadata read: every named set', () => {
+    for (const set of Object.values(INSTALLATION_TOKEN_PERMISSIONS)) {
+      expect(set).toEqual({ metadata: 'read' })
+    }
   })
 })
 
@@ -229,6 +312,7 @@ describe('LUM-886 production App boundary', () => {
   it('every requested permission set fits inside the production App', () => {
     const requested = [
       ...Object.values(REPO_TOKEN_PERMISSIONS),
+      ...Object.values(INSTALLATION_TOKEN_PERMISSIONS),
       // the sandbox clone token (createRepoScopedToken)
       { contents: 'read' as const },
     ]

@@ -22,6 +22,9 @@ jest.mock('@/lib/integrations/github', () => ({
   createInstallationToken: jest.fn(async (id: number) => `token-${id}`),
   checkRepositoryReadAccess: jest.fn(),
   lookupGitHubUser: jest.fn(async () => ({ id: 7, login: 'octo' })),
+  INSTALLATION_TOKEN_PERMISSIONS: jest.requireActual(
+    '@/lib/integrations/github/token-permissions'
+  ).INSTALLATION_TOKEN_PERMISSIONS,
 }))
 
 import { githubAccessRecheckService } from '@/lib/services/github-access-recheck.service'

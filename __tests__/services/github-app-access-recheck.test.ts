@@ -17,6 +17,9 @@ jest.mock('@/lib/integrations/github', () => ({
   createInstallationToken: jest.fn(),
   checkRepositoryReadAccess: jest.fn(),
   lookupGitHubUser: jest.fn(),
+  INSTALLATION_TOKEN_PERMISSIONS: jest.requireActual(
+    '@/lib/integrations/github/token-permissions'
+  ).INSTALLATION_TOKEN_PERMISSIONS,
 }))
 jest.mock('@/lib/services/github-app-install.service', () => ({
   scrubWorkspaceCode: jest.fn().mockResolvedValue({ scans: 0, findings: 0 }),
@@ -127,7 +130,9 @@ describe('recheck narrows to what the verifier can still read', () => {
     const summary = await githubAccessRecheckService.sweep()
 
     // Asked with the installation token, about the verifier's login.
-    expect(createInstallationToken).toHaveBeenCalledWith(42)
+    expect(createInstallationToken).toHaveBeenCalledWith(42, {
+      metadata: 'read',
+    })
     expect(access).toHaveBeenCalledWith('inst-token', 'acme/web', 'octo')
     expect(access).toHaveBeenCalledTimes(3)
     expect(applied).toHaveBeenCalledWith('w1', ['acme/payroll'], null)
@@ -415,7 +420,7 @@ describe('LUM-888 scrub before narrowing, isolated failures', () => {
     const writtenFor = repo.updateRecheckIfUnchanged.mock.calls.map(c => c[0])
     expect(writtenFor).not.toContain('w1')
     // w2, on the next installation, was still rechecked and narrowed.
-    expect(createInstallationToken).toHaveBeenCalledWith(43)
+    expect(createInstallationToken).toHaveBeenCalledWith(43, expect.anything())
     expect(applied).toHaveBeenCalledWith('w2', ['acme/payroll'], null)
     expect(scrubWorkspaceCode).toHaveBeenLastCalledWith(
       'w2',
