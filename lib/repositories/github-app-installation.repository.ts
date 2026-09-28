@@ -103,6 +103,7 @@ export const githubAppInstallationRepository = {
         accessRemovedAt: null,
         accessCheckCursor: null,
       },
+      select: { id: true },
     })
   },
 
@@ -122,46 +123,45 @@ export const githubAppInstallationRepository = {
   },
 
   /**
-   * LUM-882 — apply one recheck's result. Re-reads the row in the same
-   * transaction and does nothing if the verifier changed meanwhile (an owner
-   * re-verified mid-run: their list wins). Removal is by name against the
-   * current list, so a concurrent webhook narrowing is not undone.
+   * LUM-882 — the fields the access recheck narrows, plus `updatedAt` as the
+   * version for `updateRecheckIfUnchanged`.
    */
-  async applyAccessRecheck(
-    workspaceId: string,
-    expectedVerifier: string,
-    removed: string[],
-    /** `undefined` leaves a running sweep's resume point alone. */
-    cursor?: string | null
-  ) {
-    return prisma.$transaction(async tx => {
-      const row = await tx.gitHubAppInstallation.findUnique({
-        where: { workspaceId },
-        select: {
-          repositories: true,
-          verifierLogin: true,
-          accessRemovedCount: true,
-        },
-      })
-      if (!row || row.verifierLogin !== expectedVerifier) return null
-      const drop = new Set(removed.map(name => name.toLowerCase()))
-      const kept = row.repositories.filter(
-        name => !drop.has(name.toLowerCase())
-      )
-      const gone = row.repositories.filter(name => drop.has(name.toLowerCase()))
-      await tx.gitHubAppInstallation.update({
-        where: { workspaceId },
-        data: {
-          repositories: kept,
-          ...(cursor !== undefined && { accessCheckCursor: cursor }),
-          ...(gone.length > 0 && {
-            accessRemovedCount: row.accessRemovedCount + gone.length,
-            accessRemovedAt: new Date(),
-          }),
-        },
-      })
-      return { removed: gone }
+  async findRecheckState(workspaceId: string) {
+    return prisma.gitHubAppInstallation.findUnique({
+      where: { workspaceId },
+      select: {
+        repositories: true,
+        verifierLogin: true,
+        accessRemovedCount: true,
+        updatedAt: true,
+      },
     })
+  },
+
+  /**
+   * LUM-882 — write a recheck result only if the row is still the version it
+   * was computed from (same verifier, same `updatedAt`). Returns whether it
+   * was written; the caller decides what a lost race means.
+   */
+  async updateRecheckIfUnchanged(
+    workspaceId: string,
+    expected: { verifierLogin: string; updatedAt: Date },
+    data: {
+      repositories: string[]
+      accessCheckCursor?: string | null
+      accessRemovedCount?: number
+      accessRemovedAt?: Date
+    }
+  ) {
+    const { count } = await prisma.gitHubAppInstallation.updateMany({
+      where: {
+        workspaceId,
+        verifierLogin: expected.verifierLogin,
+        updatedAt: expected.updatedAt,
+      },
+      data,
+    })
+    return count === 1
   },
 
   async updateRepositories(workspaceId: string, repositories: string[]) {
