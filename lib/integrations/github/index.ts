@@ -15,6 +15,7 @@ export {
   createInstallationToken,
   getRepoCloneToken,
   createRepoScopedToken,
+  createRepoTokenForInstallation,
   revokeInstallationToken,
 } from './auth'
 export type { RepoTokenPermissions } from './auth'

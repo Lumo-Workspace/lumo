@@ -29,6 +29,7 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import { config } from 'dotenv'
+import type { RepoTokenPermissions } from '@/lib/integrations/github/auth'
 
 function loadEnv() {
   if (process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY) return
@@ -83,9 +84,11 @@ async function main() {
     PRODUCTION_APP_PERMISSIONS,
     isWithinPermissions,
   } = await import('@/lib/integrations/github/token-permissions')
-  const { createAppAuth } = await import('@octokit/auth-app')
-  const { getGithubAppJwt, revokeInstallationToken } =
-    await import('@/lib/integrations/github/auth')
+  const {
+    createRepoTokenForInstallation,
+    getGithubAppJwt,
+    revokeInstallationToken,
+  } = await import('@/lib/integrations/github/auth')
 
   // 1 — the committed production list vs the live App.
   // Unauthenticated, GET /apps/{slug} omits `permissions`; `gh` supplies a
@@ -126,20 +129,12 @@ async function main() {
   )
 
   const minted: string[] = []
-  async function mint(permissions: Record<string, string>): Promise<string> {
-    const auth = createAppAuth({
-      appId: Number(process.env.GITHUB_APP_ID),
-      privateKey: (process.env.GITHUB_APP_PRIVATE_KEY ?? '').replace(
-        /\\n/g,
-        '\n'
-      ),
-      installationId: inst.id,
-    })
-    const { token } = await auth({
-      type: 'installation',
-      repositoryNames: [name],
-      permissions: permissions as never,
-    })
+  async function mint(permissions: RepoTokenPermissions): Promise<string> {
+    const token = await createRepoTokenForInstallation(
+      inst.id,
+      repository,
+      permissions
+    )
     minted.push(token)
     return token
   }

@@ -10,8 +10,11 @@
  * installation row and `fetch` are stubbed, so the assertion is on the exact
  * permissions GitHub would be asked for.
  */
+// The SDK is only stubbed here, never imported: the handle lives in a
+// `mock`-prefixed variable jest lets the hoisted factory close over.
+const mockCreateAppAuth = jest.fn()
 jest.mock('@octokit/auth-app', () => ({
-  createAppAuth: jest.fn(),
+  createAppAuth: (...args: unknown[]) => mockCreateAppAuth(...args),
 }))
 jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
   githubAppInstallationRepository: { findByWorkspace: jest.fn() },
@@ -22,9 +25,11 @@ jest.mock('@/lib/logger', () => ({
 
 import * as fs from 'fs'
 import * as path from 'path'
-import { createAppAuth } from '@octokit/auth-app'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
-import { getRepoToken } from '@/lib/integrations/github/auth'
+import {
+  createRepoTokenForInstallation,
+  getRepoToken,
+} from '@/lib/integrations/github/auth'
 import {
   fetchDefaultBranchHead,
   fetchPrDiff,
@@ -43,7 +48,7 @@ import {
   isWithinPermissions,
 } from '@/lib/integrations/github/token-permissions'
 
-const createAppAuthMock = createAppAuth as unknown as jest.Mock
+const createAppAuthMock = mockCreateAppAuth
 const findByWorkspace =
   githubAppInstallationRepository.findByWorkspace as jest.Mock
 const authFn = jest.fn()
@@ -103,6 +108,27 @@ describe('LUM-886 getRepoToken', () => {
     ).rejects.toThrow(/explicit permission set/)
     // Refused before the installation is even looked up.
     expect(findByWorkspace).not.toHaveBeenCalled()
+    expect(authFn).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-886 createRepoTokenForInstallation', () => {
+  it('mints one repository with the given permission set and refuses an empty one', async () => {
+    await expect(
+      createRepoTokenForInstallation(42, 'acme/web', { checks: 'read' })
+    ).resolves.toBe('ghs_repo')
+    expect(createAppAuthMock).toHaveBeenCalledWith(
+      expect.objectContaining({ installationId: 42 })
+    )
+    expect(authFn).toHaveBeenCalledWith({
+      type: 'installation',
+      repositoryNames: ['web'],
+      permissions: { checks: 'read' },
+    })
+    authFn.mockClear()
+    await expect(
+      createRepoTokenForInstallation(42, 'acme/web', {})
+    ).rejects.toThrow(/explicit permission set/)
     expect(authFn).not.toHaveBeenCalled()
   })
 })

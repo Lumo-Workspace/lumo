@@ -172,12 +172,33 @@ export async function createRepoScopedToken(
   installationId: number,
   repository: string
 ): Promise<string> {
+  return createRepoTokenForInstallation(installationId, repository, {
+    contents: 'read',
+  })
+}
+
+/**
+ * LUM-886 — one repository, an explicit permission set, an installation id
+ * already in hand. No confirmed-list check: only for operator probes that
+ * have no workspace row (the LUM-886 permission probe). Product paths go
+ * through `getRepoToken`. An empty set is refused, as there.
+ */
+export async function createRepoTokenForInstallation(
+  installationId: number,
+  repository: string,
+  permissions: RepoTokenPermissions
+): Promise<string> {
+  if (!permissions || Object.keys(permissions).length === 0) {
+    throw new Error(
+      `createRepoTokenForInstallation needs an explicit permission set (repository ${repository})`
+    )
+  }
   const name = repoName(repository)
   const auth = createAppAuth({ ...appCredentials(), installationId })
   const { token } = await auth({
     type: 'installation',
     repositoryNames: [name],
-    permissions: { contents: 'read' },
+    permissions,
   })
   return token
 }
