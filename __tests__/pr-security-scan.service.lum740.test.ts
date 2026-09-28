@@ -5,6 +5,15 @@
  * human disposition on a suggested row records CONFIRMED / OVERRULED, and
  * the bulk call delegates to one repository write scoped to the task.
  */
+
+// LUM-866: every workspace here has the default switches (all on).
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  // A plain function, not jest.fn: survives resetAllMocks.
+  loadSecurityLayers: async () =>
+    jest
+      .requireActual('@/lib/security-scan/workspace-switches')
+      .resolveSecurityLayers(null),
+}))
 jest.mock('@/lib/logger', () => ({
   logger: {
     debug: jest.fn(),

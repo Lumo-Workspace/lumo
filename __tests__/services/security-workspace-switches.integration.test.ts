@@ -85,7 +85,7 @@ jest.mock('@/lib/integrations/vercel-sandbox', () => ({
   stopRepoSandboxesByTag: jest.fn(),
 }))
 jest.mock('@/lib/services/security-pr-review.service', () => ({
-  securityPrReviewService: { sync: jest.fn() },
+  securityPrReviewService: { sync: jest.fn(), markScanningOff: jest.fn() },
 }))
 jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn(),
@@ -211,6 +211,9 @@ beforeEach(() => {
   startBaseline.mockResolvedValue('run_b1')
   startHunt.mockResolvedValue('run_h1')
   ;(securityPrReviewService.sync as jest.Mock).mockResolvedValue({})
+  ;(securityPrReviewService.markScanningOff as jest.Mock).mockResolvedValue({
+    updated: false,
+  })
 })
 
 afterAll(() => {
@@ -280,7 +283,9 @@ describe('LUM-866 workspace scan switch off', () => {
 describe('LUM-866 workspace AI review switch off', () => {
   beforeEach(() => switches({ securityAiReviewEnabled: false }))
 
-  it('the judge is never called and reads SKIPPED; the secret scan still lands its finding', async () => {
+  // LUM-892: the layer reads DISABLED (off in settings), not SKIPPED — a
+  // SKIPPED judge counted as a completed layer and let the scan read CLEAN.
+  it('the judge is never called and reads DISABLED; the secret scan still lands its finding', async () => {
     fetchPrDiff.mockResolvedValue(SECRET_DIFF)
     await expect(runStageA()).resolves.toMatchObject({
       scanId: 's1',
@@ -289,7 +294,7 @@ describe('LUM-866 workspace AI review switch off', () => {
     expect(judgeSecurity).not.toHaveBeenCalled()
     const p = persisted()
     expect(p.judgeStatus).toBe('SKIPPED')
-    expect(p.stages).toMatchObject({ secrets: 'RAN', judge: 'SKIPPED' })
+    expect(p.stages).toMatchObject({ secrets: 'RAN', judge: 'DISABLED' })
     expect(p.prSummary).toBeNull()
     const rows = repo.persistResult.mock.calls[0]![1] as {
       provenance: string
@@ -318,10 +323,12 @@ describe('LUM-866 workspace AI review switch off', () => {
 describe('LUM-866 workspace hunt switch off', () => {
   beforeEach(() => switches({ securityHuntEnabled: false }))
 
-  it('stage A starts no hunt, stamps no hunt layer, and does not keep the managed VM alive for one', async () => {
+  // LUM-892: the layer is stamped DISABLED (off in settings) rather than
+  // vanishing, so the PR shows it was not checked.
+  it('stage A starts no hunt, stamps the hunt layer off in settings, and does not keep the managed VM alive for one', async () => {
     await runStageA()
     expect(startHunt).not.toHaveBeenCalled()
-    expect(persisted().stages).not.toHaveProperty('hunt')
+    expect(persisted().stages.hunt).toBe('DISABLED')
     expect(startManaged).toHaveBeenCalledTimes(1)
     expect(startManaged.mock.calls[0]![0]).toMatchObject({ huntWanted: false })
   })

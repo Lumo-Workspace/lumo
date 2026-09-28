@@ -12,6 +12,16 @@
  *   service; spy captures calls without replacing the whole module)
  */
 
+// LUM-866: every workspace here has the default switches (all on) unless a test
+// says otherwise (LUM-892 overrides it below).
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  // A plain function, not jest.fn: survives resetAllMocks.
+  loadSecurityLayers: async () =>
+    jest
+      .requireActual('@/lib/security-scan/workspace-switches')
+      .resolveSecurityLayers(null),
+}))
+
 import { codePipelineService } from '@/lib/services/policy/code-pipeline.service'
 import * as compiler from '@/lib/services/policy/policy-compiler.service'
 import * as gh from '@/lib/integrations/github/contents'

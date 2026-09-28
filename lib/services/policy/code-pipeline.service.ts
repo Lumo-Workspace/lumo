@@ -21,6 +21,7 @@ import {
 import { matchDiffRegex } from './predicate-eval'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { isReversible } from '@/lib/services/boundary-detector.service'
+import { loadSecurityLayers } from '@/lib/services/security-workspace-switches.service'
 
 export interface CodePipelineInput {
   taskId: string
@@ -91,7 +92,30 @@ export const codePipelineService = {
       r => r.tier === 'semantic' && r.assertion
     )
 
-    if (semanticRules.length > 0) {
+    // LUM-892: the semantic judge sends the whole PR diff to a model — the
+    // same act the workspace's AI review switch promises to stop. Off = no
+    // model call, and one advisory crossing that says the rules were not
+    // checked and why (never a silent pass; advisory never blocks DONE).
+    const aiReview =
+      semanticRules.length > 0
+        ? (await loadSecurityLayers(input.workspaceId)).aiReview
+        : true
+    if (semanticRules.length > 0 && !aiReview) {
+      await boundaryCrossingRepository.create({
+        taskId: input.taskId,
+        category: 'PROJECT_RULE_VIOLATION',
+        severity: 'LOW',
+        advisory: true,
+        target: 'coderule:ai-review-off',
+        reversible: isReversible(
+          'PROJECT_RULE_VIOLATION',
+          'coderule:ai-review-off'
+        ),
+        detail:
+          "Semantic code rules were not checked: AI review is turned off in this workspace's settings.",
+      })
+      advisory++
+    } else if (semanticRules.length > 0) {
       // Dynamic import keeps @ai-sdk/gateway out of the static import graph
       // (jest TransformStream trap — same pattern as layer2/curation services).
       const { judgeCodeRules } =

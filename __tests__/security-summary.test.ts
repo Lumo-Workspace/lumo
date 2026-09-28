@@ -123,6 +123,7 @@ describe('summarizeSecurityScans', () => {
       externalFailed: 0,
       incomplete: 0,
       overSizeLimit: 0,
+      turnedOff: 0,
     })
   })
 

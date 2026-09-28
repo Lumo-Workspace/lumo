@@ -85,6 +85,7 @@ export function PullRequestsSection({
                     <SecurityScanBadge
                       scan={scanByPrId.get(pr.id)}
                       unavailable={securityError}
+                      scanningOff={security?.scanningOff ?? false}
                     />
                   )}
                 </div>

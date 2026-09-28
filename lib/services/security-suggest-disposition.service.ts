@@ -29,6 +29,7 @@ import {
   isSuggestEnabled,
   SUGGEST_MAX_PER_SCAN,
 } from './security-suggest.config'
+import { loadSecurityLayers } from './security-workspace-switches.service'
 
 export { isSuggestEnabled, SUGGEST_MAX_PER_SCAN }
 
@@ -100,8 +101,15 @@ export const securitySuggestDispositionService = {
     if (!isSuggestEnabled()) return { enabled: false, candidates: [] }
     const scan = await prSecurityScanRepository.findScanForSuggestion(scanId)
     if (!scan) return { enabled: false, candidates: [] }
-    if (scan.findings.length === 0) return { enabled: true, candidates: [] }
     const pr = scan.pullRequest
+    // LUM-892: the falsifier sends diff hunks to a model — that is the AI
+    // review the workspace can turn off, whatever the platform switch says.
+    // Off = nothing to judge, but still `enabled`: `finish` stamps the scan
+    // so the PR write-back does not hold the external rows waiting for a
+    // pass that will never run.
+    const layers = await loadSecurityLayers(pr.workspaceId)
+    if (!layers.aiReview) return { enabled: true, candidates: [] }
+    if (scan.findings.length === 0) return { enabled: true, candidates: [] }
     let diff: string
     try {
       diff = await fetchPrDiff({

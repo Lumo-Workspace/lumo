@@ -46,6 +46,7 @@ import {
   type HuntBatchProgress,
 } from '@/lib/security-scan/hunt/batches'
 import { scanSizeCaps } from '@/lib/security-scan/size-caps'
+import { loadSecurityLayers } from './security-workspace-switches.service'
 import type {
   HuntOverCapInput,
   JudgeOverCapInput,
@@ -154,6 +155,10 @@ export const prSecurityReminderService = {
             loadQueueExitContexts(prs, scans[0]!.workspaceId),
           ])
         : [DEFAULT_SECURITY_POLICY, new Map()]
+    // LUM-892: with scanning off, no scan vouches for an open PR's newer
+    // commits — an earlier CLEAN must not keep standing as its answer. Old
+    // findings still count (and still block DONE); only the vouching stops.
+    const scanningOff = !(await loadSecurityLayers(prs[0]!.workspaceId)).scan
     const findings: OpenSecurityFinding[] = []
     const unconfirmedPrs: UnconfirmedPr[] = []
     const latestScans: TaskSecurityOpenState['latestScans'] = []
@@ -207,7 +212,7 @@ export const prSecurityReminderService = {
           queueExits,
         })
       }
-      const reason = unconfirmedReason(scan)
+      const reason = scanningOff ? 'SCANNING_OFF' : unconfirmedReason(scan)
       if (reason && pr.state === 'open') {
         unconfirmedPrs.push({ number: pr.number, reason })
       }

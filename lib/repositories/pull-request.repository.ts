@@ -222,6 +222,8 @@ export const pullRequestRepository = {
         // repo's default-branch baseline.
         repo: true,
         mergedAt: true,
+        // LUM-892: the workspace's scan switch is read per task.
+        workspaceId: true,
       },
     })
   },

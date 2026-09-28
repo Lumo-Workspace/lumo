@@ -9,6 +9,8 @@ import {
 import {
   formatHuntCoverageLine,
   formatSizeCapLines,
+  formatScanStatus,
+  formatTurnedOffLines,
   formatScanLayerTail,
 } from '../lib/scan-format'
 import {
@@ -295,7 +297,7 @@ export interface TaskStatusResponse {
     blocking: number
     unconfirmedPrs: Array<{
       number: number
-      reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING'
+      reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING' | 'SCANNING_OFF'
     }>
     /** LUM-735 — one entry per linked PR with a latest scan (open or closed
      *  PRs alike). Optional/absent on an older server — additive field. */
@@ -590,7 +592,7 @@ type ScanSummary = NonNullable<
  *  scanner reason may be printed, and only when the layer FAILED. */
 function formatScanSummaryLine(s: ScanSummary): string {
   return (
-    `  PR #${s.prNumber} · scan ${s.status}` +
+    `  PR #${s.prNumber} · scan ${formatScanStatus(s.status, s.stages)}` +
     formatScanLayerTail({
       status: s.status,
       stages: s.stages,
@@ -625,6 +627,8 @@ export function pushSecurityCoverage(
     lines.push(formatScanSummaryLine(s))
     // LUM-832: the file cap, stated like CodeRabbit states its own.
     for (const l of formatSizeCapLines(s)) lines.push(`    ${l}`)
+    // LUM-892: layers turned off in settings — the customer's choice.
+    for (const l of formatTurnedOffLines(s.stages)) lines.push(`    ${l}`)
     // LUM-762: absent/null = older server or no usable audit — stay silent.
     if (s.hunt && s.hunt.categories.length > 0) {
       lines.push(`    ${formatHuntCoverageLine(s.hunt)}`)
@@ -632,11 +636,13 @@ export function pushSecurityCoverage(
   }
   for (const u of data.securityFindings.unconfirmedPrs) {
     const why =
-      u.reason === 'NONE'
-        ? 'no security scan has run'
-        : u.reason === 'FAILED'
-          ? "security scan didn't finish on our side"
-          : `security scan still ${u.reason}`
+      u.reason === 'SCANNING_OFF'
+        ? "security scanning is turned off in this workspace's settings"
+        : u.reason === 'NONE'
+          ? 'no security scan has run'
+          : u.reason === 'FAILED'
+            ? "security scan didn't finish on our side"
+            : `security scan still ${u.reason}`
     lines.push(`⚠ PR #${u.number}: ${why} — could not confirm it is clean.`)
   }
 }

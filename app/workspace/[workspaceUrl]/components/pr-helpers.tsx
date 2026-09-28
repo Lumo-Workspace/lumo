@@ -99,9 +99,12 @@ const SEVERITY_TONE: Record<'LOW' | 'MEDIUM' | 'HIGH', string> = {
 export function SecurityScanBadge({
   scan,
   unavailable = false,
+  scanningOff = false,
 }: {
   scan: SecurityScanView | null | undefined
   unavailable?: boolean
+  /** LUM-892 — the workspace turned scanning off: an old result can't vouch. */
+  scanningOff?: boolean
 }) {
   const intl = useIntl()
   const worst =
@@ -118,6 +121,12 @@ export function SecurityScanBadge({
     icon = <ShieldQuestion size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.unavailable' })
     state = 'unavailable'
+  } else if (scanningOff && (!scan || scan.findings.length === 0)) {
+    // LUM-892: scanning is off in settings — an earlier "Clean" was for an
+    // older commit and must not keep standing as this PR's answer.
+    icon = <ShieldQuestion size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.scanningOff' })
+    state = 'scanning-off'
   } else if (!scan) {
     icon = <ShieldQuestion size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.none' })
@@ -142,6 +151,12 @@ export function SecurityScanBadge({
     label = intl.formatMessage({ id: 'securityScan.status.overSizeLimit' })
     tone = 'text-warning'
     state = 'over-size-limit'
+  } else if (scan.findings.length === 0 && scan.coverage === 'TURNED_OFF') {
+    // LUM-892: a layer was turned off in settings — the customer's choice,
+    // so neither "Clean" nor the warning tone of an unfinished scan.
+    icon = <ShieldQuestion size={12} />
+    label = intl.formatMessage({ id: 'securityScan.status.turnedOff' })
+    state = 'turned-off'
   } else if (scan.findings.length === 0 && !scan.complete) {
     // LUM-735 / spec P9: a layer failed, is not configured, or was cut off.
     // Nothing was found, but nothing can be claimed either — never green.

@@ -5,6 +5,15 @@
  * The one-shot PreToolUse reminder mirrors LUM-542: read only un-notified
  * FINDINGS scans, stamp `agentNotifiedAt`, never re-nag.
  */
+
+// LUM-866: every workspace here has the default switches (all on).
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  // A plain function, not jest.fn: survives resetAllMocks.
+  loadSecurityLayers: async () =>
+    jest
+      .requireActual('@/lib/security-scan/workspace-switches')
+      .resolveSecurityLayers(null),
+}))
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findLatestByPullRequestIds: jest.fn(),

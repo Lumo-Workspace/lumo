@@ -1,0 +1,305 @@
+/**
+ * @jest-environment node
+ *
+ * LUM-892 — a layer the customer turned off in the workspace settings is its
+ * own state (DISABLED, "off in workspace settings"): recorded by stage A,
+ * never read as checked or clean, and told as the customer's choice on the
+ * PR summary — never as "didn't finish on our side".
+ *
+ * Stage A is driven through the real service with the LUM-866 harness (only
+ * the rows and the I/O around it mocked); the summary and the coverage rule
+ * are the real shared ones.
+ */
+jest.mock('@/lib/logger', () => ({
+  logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
+}))
+jest.mock('@/lib/integrations/github/auth', () => ({
+  getRepoToken: jest.fn().mockResolvedValue('tok'),
+}))
+jest.mock('@/lib/integrations/github/contents', () => ({
+  fetchPrDiff: jest.fn(),
+  fetchPrHeadSha: jest.fn(),
+  fetchDefaultBranchHead: jest.fn(),
+  readRepoFile: jest.fn().mockResolvedValue(null),
+}))
+jest.mock('@/lib/llm/security-judge-client', () => ({
+  judgeSecurity: jest.fn(),
+}))
+jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
+  prSecurityScanRepository: {
+    findByPrAndSha: jest.fn(),
+    create: jest.fn(),
+    createIfAbsent: jest.fn(),
+    restart: jest.fn(),
+    finalize: jest.fn(),
+    persistResult: jest.fn(),
+    countExternalFindings: jest.fn(),
+    findDispositionedByPullRequest: jest.fn(),
+    mergeStages: jest.fn(),
+    setManagedRunId: jest.fn(),
+    hasNewerScan: jest.fn(),
+    hasNewerScanThan: jest.fn(),
+    claimHuntRetry: jest.fn(),
+    setHuntRunId: jest.fn(),
+    failStaleHunt: jest.fn(),
+    findStalePendingHunts: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/workspace.repository', () => ({
+  workspaceRepository: {
+    findSecurityPolicy: jest.fn(),
+    findSecuritySwitches: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/pull-request.repository', () => ({
+  pullRequestRepository: {
+    findById: jest.fn(),
+    findByRepoAndNumber: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/project.repository', () => ({
+  projectRepository: {
+    findLastSarifIngestAt: jest.fn(),
+    findSecurityBaseline: jest.fn(),
+    setSecurityBaseline: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
+  boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },
+}))
+jest.mock('@/lib/services/security-managed-scan-start', () => ({
+  startSecurityManagedScan: jest.fn(),
+}))
+jest.mock('@/lib/services/security-managed-scan-ops.service', () => ({
+  securityManagedScanOpsService: {
+    supersedeOlderRuns: jest.fn(),
+    enforceHourlyCap: jest.fn(),
+  },
+}))
+jest.mock('@/lib/services/security-baseline-scan-start', () => ({
+  startSecurityBaselineScan: jest.fn(),
+}))
+jest.mock('@/lib/services/security-hunt-start', () => ({
+  startSecurityHunt: jest.fn(),
+  recordHuntStartBestEffort: jest.fn(),
+  cancelHuntRun: jest.fn(),
+}))
+jest.mock('@/lib/integrations/vercel-sandbox', () => ({
+  stopRepoSandboxesByTag: jest.fn(),
+}))
+jest.mock('@/lib/services/security-pr-review.service', () => ({
+  securityPrReviewService: { sync: jest.fn(), markScanningOff: jest.fn() },
+}))
+jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
+  dispatchPrSecurityScan: jest.fn(),
+}))
+jest.mock('@/lib/services/security-sarif-blob', () => ({
+  fetchPrivateBlob: jest.fn(),
+  deleteBlob: jest.fn(),
+  listSarifBlobs: jest.fn(),
+}))
+jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+
+import { prSecurityScanService } from '@/lib/services/pr-security-scan.service'
+import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
+import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
+import { projectRepository } from '@/lib/repositories/project.repository'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import { startSecurityManagedScan } from '@/lib/services/security-managed-scan-start'
+import { securityManagedScanOpsService } from '@/lib/services/security-managed-scan-ops.service'
+import { startSecurityBaselineScan } from '@/lib/services/security-baseline-scan-start'
+import { startSecurityHunt } from '@/lib/services/security-hunt-start'
+import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+import * as gh from '@/lib/integrations/github/contents'
+import * as judge from '@/lib/llm/security-judge-client'
+
+import { isCompleteScan } from '@/lib/services/pr-security-scan.service'
+import {
+  SCAN_UNFINISHED_NOTE,
+  isOwnedUnfinished,
+  scanCoverageState,
+  turnedOffLayers,
+} from '@/shared/src/security-scan'
+
+const repo = prSecurityScanRepository as jest.Mocked<
+  typeof prSecurityScanRepository
+>
+const wsRepo = workspaceRepository as jest.Mocked<typeof workspaceRepository>
+const prRepo = pullRequestRepository as jest.Mocked<
+  typeof pullRequestRepository
+>
+const projRepo = projectRepository as jest.Mocked<typeof projectRepository>
+const fetchPrDiff = gh.fetchPrDiff as jest.Mock
+const fetchPrHeadSha = gh.fetchPrHeadSha as jest.Mock
+const judgeSecurity = judge.judgeSecurity as jest.Mock
+const startManaged = startSecurityManagedScan as jest.Mock
+const startBaseline = startSecurityBaselineScan as jest.Mock
+const startHunt = startSecurityHunt as jest.Mock
+
+const PR = {
+  id: 'pr1',
+  workspaceId: 'w1',
+  taskId: 't1',
+  repo: 'o/r',
+  number: 7,
+}
+const diff = (path: string, line: string) =>
+  ['--- a/' + path, '+++ b/' + path, '@@ -1,0 +1,1 @@', '+' + line].join('\n')
+// A route handler: the hunt trigger fires on it.
+const ROUTE_DIFF = diff(
+  'app/api/x/route.ts',
+  'export async function POST(req: Request) {'
+)
+
+const ALL_ON = {
+  securityScanEnabled: true,
+  securityAiReviewEnabled: true,
+  securityHuntEnabled: true,
+}
+const switches = (patch: Partial<typeof ALL_ON>) =>
+  wsRepo.findSecuritySwitches.mockResolvedValue({ ...ALL_ON, ...patch })
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  delete process.env.LUMO_SECURITY_HUNT
+  delete process.env.LUMO_MANAGED_SCAN
+  switches({})
+  wsRepo.findSecurityPolicy.mockResolvedValue(null)
+  prRepo.findById.mockResolvedValue(PR as never)
+  prRepo.findByRepoAndNumber.mockResolvedValue(PR as never)
+  fetchPrHeadSha.mockResolvedValue('sha-1')
+  fetchPrDiff.mockResolvedValue(ROUTE_DIFF)
+  repo.findByPrAndSha.mockResolvedValue(null)
+  repo.create.mockResolvedValue({ id: 's1' } as never)
+  repo.createIfAbsent.mockResolvedValue({ id: 's1', created: true } as never)
+  repo.findDispositionedByPullRequest.mockResolvedValue([])
+  repo.countExternalFindings.mockResolvedValue(0)
+  repo.persistResult.mockResolvedValue(undefined as never)
+  repo.hasNewerScan.mockResolvedValue(false)
+  repo.hasNewerScanThan.mockResolvedValue(false)
+  repo.claimHuntRetry.mockResolvedValue(true as never)
+  repo.failStaleHunt.mockResolvedValue(true as never)
+  ;(
+    boundaryCrossingRepository.findUndispositionedByTask as jest.Mock
+  ).mockResolvedValue([])
+  ;(
+    securityManagedScanOpsService.supersedeOlderRuns as jest.Mock
+  ).mockResolvedValue(undefined)
+  ;(
+    securityManagedScanOpsService.enforceHourlyCap as jest.Mock
+  ).mockResolvedValue({ capped: false })
+  projRepo.findLastSarifIngestAt.mockResolvedValue(null as never)
+  projRepo.findSecurityBaseline.mockResolvedValue(null as never)
+  judgeSecurity.mockResolvedValue({ findings: [] })
+  startManaged.mockResolvedValue('run_m1')
+  startBaseline.mockResolvedValue('run_b1')
+  startHunt.mockResolvedValue('run_h1')
+  ;(securityPrReviewService.sync as jest.Mock).mockResolvedValue({})
+  ;(securityPrReviewService.markScanningOff as jest.Mock).mockResolvedValue({
+    updated: false,
+  })
+})
+
+afterAll(() => {
+  delete process.env.LUMO_SECURITY_HUNT
+  delete process.env.LUMO_MANAGED_SCAN
+})
+
+const { buildSummary } = jest.requireActual(
+  '@/lib/services/security-pr-review.service'
+) as typeof import('@/lib/services/security-pr-review.service')
+
+const runStageA = () =>
+  prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+const persisted = () => repo.persistResult.mock.calls[0]![2]
+
+const SUMMARY_BASE = {
+  headSha: 'abcdef1234567',
+  status: 'CLEAN',
+  partial: false,
+  externalCounts: {},
+  open: 0,
+  blocking: 0,
+  error: null,
+  taskUrl: null,
+}
+
+describe('LUM-892 turned-off layer', () => {
+  it('LUM-892 turned-off layer: stage A records AI review and hunt turned off in settings as DISABLED', async () => {
+    switches({ securityAiReviewEnabled: false, securityHuntEnabled: false })
+    await expect(runStageA()).resolves.toMatchObject({ status: 'CLEAN' })
+    expect(judgeSecurity).not.toHaveBeenCalled()
+    expect(startHunt).not.toHaveBeenCalled()
+    const stages = persisted().stages
+    expect(stages).toMatchObject({ judge: 'DISABLED', hunt: 'DISABLED' })
+    // The stored status stays CLEAN (no findings) — every reader goes
+    // through the coverage rule, which never calls it checked.
+    // Once the managed run lands its layers, the scan reads TURNED_OFF.
+    const landed = { ...stages, external: 'RAN', supplyChain: 'RAN' }
+    expect(
+      scanCoverageState({ status: 'CLEAN', stages: landed, partial: false })
+    ).toBe('TURNED_OFF')
+  })
+
+  it('LUM-892 turned-off layer: a platform-off hunt is not offered, so it is not shown as turned off', async () => {
+    process.env.LUMO_SECURITY_HUNT = 'off'
+    switches({ securityHuntEnabled: false })
+    await runStageA()
+    expect(persisted().stages).not.toHaveProperty('hunt')
+  })
+
+  it('LUM-892 turned-off layer: control, with every switch on nothing reads DISABLED', async () => {
+    await runStageA()
+    expect(Object.values(persisted().stages)).not.toContain('DISABLED')
+  })
+
+  it('LUM-892 turned-off layer: the coverage rule never reads it as checked, and our own gap still outranks it', () => {
+    const off = { secrets: 'RAN', judge: 'DISABLED' }
+    expect(scanCoverageState({ stages: off, partial: false })).toBe(
+      'TURNED_OFF'
+    )
+    expect(
+      isOwnedUnfinished({ stages: off, partial: false, hasSizeNotice: false })
+    ).toBe(false)
+    expect(isCompleteScan(off as never)).toBe(false)
+    expect(
+      scanCoverageState({
+        stages: { ...off, external: 'FAILED' },
+        partial: false,
+      })
+    ).toBe('UNFINISHED')
+    expect(turnedOffLayers({ hunt: 'DISABLED', judge: 'DISABLED' })).toEqual([
+      'judge',
+      'hunt',
+    ])
+  })
+
+  it('LUM-892 turned-off layer: the PR summary says it was turned off in settings, not that it did not finish', () => {
+    const body = buildSummary({
+      ...SUMMARY_BASE,
+      stages: {
+        secrets: 'RAN',
+        external: 'RAN',
+        judge: 'DISABLED',
+        hunt: 'DISABLED',
+      },
+    })
+    expect(body).toContain('**No open findings in the checks that ran.**')
+    expect(body).toContain(
+      "Turned off in this workspace's settings: AI review, Exploit paths. Those checks did not look at this PR."
+    )
+    expect(body).toContain('**AI review** (off in workspace settings)')
+    expect(body).not.toContain('No open findings on lines this PR added')
+    expect(body).not.toContain(SCAN_UNFINISHED_NOTE)
+  })
+
+  it('LUM-892 turned-off layer: control, the same summary with every layer run is a plain pass', () => {
+    const body = buildSummary({
+      ...SUMMARY_BASE,
+      stages: { secrets: 'RAN', external: 'RAN', judge: 'RAN' },
+    })
+    expect(body).toContain('**No open findings on lines this PR added.**')
+    expect(body).not.toContain('Turned off in')
+  })
+})

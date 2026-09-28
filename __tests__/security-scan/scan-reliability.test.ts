@@ -70,7 +70,12 @@ describe('reliability read-out separates our-fault rate from coverage owed', () 
   it('counts our-fault scans apart from coverage-owed ones, over settled scans only', () => {
     const r = summarizeScanReliability(ROWS)
     expect(r.scans).toBe(7)
-    expect(r.byCoverage).toEqual({ IN_PROGRESS: 1, CHECKED: 1, UNFINISHED: 5 })
+    expect(r.byCoverage).toEqual({
+      IN_PROGRESS: 1,
+      CHECKED: 1,
+      UNFINISHED: 5,
+      TURNED_OFF: 0,
+    })
     expect(r.ourFault).toBe(3)
     expect(r.coverageOwedOnly).toBe(1)
     expect(r.unattributed).toBe(1)

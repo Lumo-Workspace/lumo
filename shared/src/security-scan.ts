@@ -53,6 +53,10 @@ export const SCAN_STAGE_STATES = [
   'PENDING',
   'PARTIAL',
   'SUPERSEDED',
+  // LUM-892: the customer turned this layer off in the workspace settings.
+  // Not a platform limit (NOT_CONFIGURED) and not our fault (FAILED): the
+  // layer did not look at the PR because the workspace asked it not to.
+  'DISABLED',
 ] as const
 
 export type ScanStageStateName = (typeof SCAN_STAGE_STATES)[number]
@@ -112,6 +116,7 @@ export const SCAN_STAGE_STATE_LABELS: Record<ScanStageStateName, string> = {
   PENDING: 'scanning',
   PARTIAL: '⚠ partly checked',
   SUPERSEDED: '⚠ superseded',
+  DISABLED: 'off in workspace settings',
 }
 
 /** The layer's display name; an unrecognised key renders as itself rather than vanishing. */
@@ -314,11 +319,20 @@ export function mergePartialCauses(
  *   say it is ours, and never call it checked or clean (spec P9: a security
  *   signal never claims safety it did not establish).
  *
+ * - `TURNED_OFF` (LUM-892) — every layer that was on finished, and at
+ *   least one layer was turned off in the workspace settings. The customer's
+ *   choice, so neither "checked" (the layer never looked) nor ours to finish.
+ *   An unfinished layer of ours outranks it: that is still owned.
+ *
  * The cause is deliberately NOT part of it: it is an internal fact
  * (`partialCauses`, read by the reliability read-out), and no state asks the
  * customer to do anything.
  */
-export type ScanCoverageState = 'IN_PROGRESS' | 'CHECKED' | 'UNFINISHED'
+export type ScanCoverageState =
+  | 'IN_PROGRESS'
+  | 'CHECKED'
+  | 'UNFINISHED'
+  | 'TURNED_OFF'
 
 export interface ScanCoverageInput {
   status?: string | null
@@ -341,8 +355,39 @@ export function scanCoverageState(s: ScanCoverageInput): ScanCoverageState {
   if (s.partial) return 'UNFINISHED'
   if (states.some(state => state && UNFINISHED_STAGE_STATES.has(state)))
     return 'UNFINISHED'
+  if (states.includes('DISABLED')) return 'TURNED_OFF'
   return 'CHECKED'
 }
+
+/**
+ * LUM-892 — the layers the customer turned off in the workspace settings, in
+ * pipeline order. Empty when none was.
+ */
+export function turnedOffLayers(
+  stages: Partial<Record<string, string | undefined>>
+): ScanStageKeyName[] {
+  return SCAN_STAGE_KEYS.filter(key => stages[key] === 'DISABLED')
+}
+
+/**
+ * LUM-892 — the plain-text notice for layers turned off in settings (PR
+ * summary, CLI). Says whose choice it was, and never "didn't finish": that
+ * sentence is for our own faults (`SCAN_UNFINISHED_NOTE`). The web panel
+ * says the same through `securityScan.turnedOff` in i18n.
+ */
+export function formatTurnedOffNote(keys: ReadonlyArray<string>): string {
+  const names = keys.map(scanStageLabel).join(', ')
+  const subject = keys.length === 1 ? 'That check' : 'Those checks'
+  return `Turned off in this workspace's settings: ${names}. ${subject} did not look at this PR.`
+}
+
+/**
+ * LUM-892 — the workspace's master scan switch is off. Said on the PR summary
+ * comment an earlier scan left behind (rewritten on the next push) and in the
+ * CLI, so a stale "no findings" is never left standing as the PR's answer.
+ */
+export const SCANNING_OFF_NOTE =
+  "Security scanning is turned off in this workspace's settings. New commits on this PR are not scanned."
 
 /**
  * The owned sentence for `UNFINISHED` on the plain-text surfaces (PR comment,

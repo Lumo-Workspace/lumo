@@ -42,6 +42,7 @@ import {
 } from './pr-security-scan.service'
 import { dispatchPrSecurityScan } from './pr-security-scan-dispatch'
 import { loadSecurityLayers } from './security-workspace-switches.service'
+import { securityPrReviewService } from './security-pr-review.service'
 import {
   fetchPrivateBlob,
   deleteBlob,
@@ -427,6 +428,24 @@ export const securitySarifIngestService = {
    */
   async markStages(scanId: string, patch: ScanStages): Promise<void> {
     await prSecurityScanRepository.mergeStages(scanId, patch)
+  },
+
+  /**
+   * LUM-892 — a managed run started before the workspace turned scanning off
+   * reports through here, not through `resolveScan`, so it asks again: with
+   * scanning off its report is dropped (no rows, no falsifier, no findings
+   * on the PR), its layers read as off in settings, and the PR summary says
+   * scanning is off. True when the caller must stop.
+   */
+  async stopIfScanningOff(scanId: string, pr: ResolvedPr): Promise<boolean> {
+    const layers = await loadSecurityLayers(pr.workspaceId)
+    if (layers.scan) return false
+    await prSecurityScanRepository.mergeStages(scanId, {
+      external: 'DISABLED',
+      supplyChain: 'DISABLED',
+    })
+    await securityPrReviewService.markScanningOff(pr)
+    return true
   },
 
   /** Never throws: a blob-store hiccup on delete must not change an outcome already decided. */

@@ -7,6 +7,7 @@
  * failures.
  */
 import { securityManagedScanService } from '@/lib/services/security-managed-scan.service'
+import { securitySarifIngestService } from '@/lib/services/security-sarif-ingest.service'
 import type {
   ManagedScanJob,
   ManagedScanOutcome,
@@ -17,4 +18,13 @@ export async function scanRepositoryInSandboxStep(
 ): Promise<ManagedScanOutcome> {
   'use step'
   return securityManagedScanService.scanRepository(job)
+}
+
+/** LUM-892 — re-read the workspace's scan switch before anything lands. */
+export async function stopIfScanningOffStep(
+  scanId: string,
+  pr: ManagedScanJob['pr']
+): Promise<boolean> {
+  'use step'
+  return securitySarifIngestService.stopIfScanningOff(scanId, pr)
 }

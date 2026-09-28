@@ -36,6 +36,18 @@ export interface EffectiveSecurityLayers {
   aiReview: boolean
   /** L3 exploit-path hunt. */
   hunt: boolean
+  /**
+   * LUM-892 — the customer turned the AI review off in settings (the scan
+   * itself is on). Such a layer is shown as turned off, never as checked:
+   * it is the customer's choice, not a platform limit and not our fault.
+   */
+  aiReviewTurnedOff: boolean
+  /**
+   * LUM-892 — the customer turned the hunt off in settings while the
+   * platform offers it. With the platform ceiling off the layer is not
+   * offered at all, so there is nothing to show as turned off.
+   */
+  huntTurnedOff: boolean
 }
 
 /** Which layers the platform itself allows — what the settings page may offer. */
@@ -68,5 +80,7 @@ export function resolveSecurityLayers(
     managedScan: scan && ceiling.managedScan,
     aiReview: scan && ws.securityAiReviewEnabled,
     hunt: scan && ws.securityHuntEnabled && ceiling.hunt,
+    aiReviewTurnedOff: scan && !ws.securityAiReviewEnabled,
+    huntTurnedOff: scan && !ws.securityHuntEnabled && ceiling.hunt,
   }
 }

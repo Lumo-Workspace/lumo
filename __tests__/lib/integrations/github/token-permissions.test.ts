@@ -290,7 +290,11 @@ describe('LUM-886 helpers mint with the narrowed permission set', () => {
       'pullRequestWrite',
       'pullRequestWrite',
     ],
-    'lib/services/security-pr-review.service.ts': ['pullRequestWrite'],
+    'lib/services/security-pr-review.service.ts': [
+      // LUM-892: the scanning-off notice, then the review sync.
+      'pullRequestWrite',
+      'pullRequestWrite',
+    ],
   }
 
   it('mints with the narrowed permission set: services (source table)', () => {
