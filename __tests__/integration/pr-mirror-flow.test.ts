@@ -30,7 +30,7 @@ jest.mock('@/lib/utils/buildTaskUrl', () => ({
     .mockReturnValue('https://app.lumo.dev/workspace/test-ws/tasks/TST-1'),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('app-token'),
+  getRepoToken: jest.fn().mockResolvedValue('app-token'),
 }))
 
 import { commentRepository } from '@/lib/repositories/comment.repository'

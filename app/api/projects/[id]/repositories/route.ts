@@ -7,6 +7,7 @@ import {
   zodError,
 } from '@/lib/api/helpers'
 import { projectRepository } from '@/lib/repositories'
+import { projectRepositoryService } from '@/lib/services/project-repository.service'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -61,25 +62,26 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (!parsed.success) return zodError(parsed)
 
     const { fullName, isDefault } = parsed.data
-    const name = fullName.split('/')[1] ?? fullName
-
-    // If this is being set as default, clear existing defaults first
-    if (isDefault) {
-      await projectRepository.clearDefaultRepositories(id)
-    }
-
-    // If no repos exist yet, make first one default automatically
-    const existingCount = await projectRepository.countRepositories(id)
-
-    const repository = await projectRepository.createRepository({
+    const repository = await projectRepositoryService.addRepository({
       projectId: id,
+      workspaceId: result.project.workspaceId,
       fullName,
-      name,
-      isDefault: isDefault ?? existingCount === 0,
+      isDefault,
     })
 
     return NextResponse.json({ repository }, { status: 201 })
   } catch (error: unknown) {
+    // LUM-883: not a confirmed repository (403) / App not installed (400)
+    const status = (error as { status?: unknown }).status
+    if (status === 403 || status === 400) {
+      return NextResponse.json(
+        {
+          error: (error as Error).message,
+          code: (error as { code?: string }).code,
+        },
+        { status }
+      )
+    }
     // Unique constraint: repo already linked to project
     if (isPrismaUniqueError(error)) {
       return NextResponse.json(

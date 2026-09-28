@@ -22,7 +22,7 @@ jest.mock('@/lib/integrations/github/pr-comment-client', () => {
   }
 })
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoToken: jest.fn(),
 }))
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
@@ -57,13 +57,13 @@ import {
   prCommentClient,
   GithubApiError,
 } from '@/lib/integrations/github/pr-comment-client'
-import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import { getRepoToken } from '@/lib/integrations/github/auth'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { logger } from '@/lib/logger'
 import type { ReviewFindingRow } from '@/lib/repositories/pr-security-scan.repository'
 
 const findById = prSecurityScanRepository.findByIdForReview as jest.Mock
-const token = getGithubInstallationToken as jest.Mock
+const token = getRepoToken as jest.Mock
 const listIssue = prCommentClient.listIssueComments as jest.Mock
 const listReview = prCommentClient.listReviewComments as jest.Mock
 const createIssue = prCommentClient.createIssueComment as jest.Mock
@@ -395,7 +395,7 @@ describe('securityPrReviewService.sync', () => {
     findById.mockResolvedValue(scanRow({ findings: [finding()] }))
     const res = await securityPrReviewService.sync('s1')
     expect(res).toEqual({ posted: true, inline: 1, skipped: 0 })
-    expect(token).toHaveBeenCalledWith('w1')
+    expect(token).toHaveBeenCalledWith('w1', 'acme/app')
     expect(createIssue).toHaveBeenCalledWith({
       repo: { owner: 'acme', name: 'app' },
       prNumber: 945,

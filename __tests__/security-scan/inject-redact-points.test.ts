@@ -71,7 +71,7 @@ jest.mock('@/lib/services/idea-evidence-resolve', () => ({
 
 // ── PR security scan deps (same harness as pr-security-scan.service.test) ──
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('tok'),
+  getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),

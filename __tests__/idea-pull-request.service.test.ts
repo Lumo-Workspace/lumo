@@ -1,4 +1,12 @@
 /** @jest-environment node */
+// LUM-883: the real confirmed-list check runs against this installation row.
+jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
+  githubAppInstallationRepository: {
+    findByWorkspace: jest
+      .fn()
+      .mockResolvedValue({ installationId: 1, repositories: ['acme/app'] }),
+  },
+}))
 jest.mock('@/lib/repositories/idea-pull-request.repository', () => ({
   ideaPullRequestRepository: {
     create: jest.fn(),
@@ -27,7 +35,7 @@ jest.mock('@/lib/integrations/github/fetch-pull-request', () => ({
   fetchPullRequest: jest.fn(),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoToken: jest.fn(),
 }))
 
 import { ideaPullRequestService } from '@/lib/services/idea-pull-request.service'
@@ -36,9 +44,10 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { resolveIdeaRef } from '@/lib/services/idea-evidence-resolve'
 import { fetchPullRequest } from '@/lib/integrations/github/fetch-pull-request'
-import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import { getRepoToken } from '@/lib/integrations/github/auth'
+import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 
-const mockToken = getGithubInstallationToken as jest.Mock
+const mockToken = getRepoToken as jest.Mock
 
 const mockResolve = resolveIdeaRef as jest.Mock
 const mockRepo = ideaPullRequestRepository as jest.Mocked<
@@ -75,6 +84,7 @@ describe('ideaPullRequestService.link', () => {
     mockPrRepo.findById.mockResolvedValue({
       id: 'pr1',
       workspaceId: WS,
+      repo: 'acme/app',
     } as never)
 
     await ideaPullRequestService.link({
@@ -97,6 +107,7 @@ describe('ideaPullRequestService.link', () => {
     mockPrRepo.findById.mockResolvedValue({
       id: 'pr1',
       workspaceId: WS,
+      repo: 'acme/app',
       taskId: 'task-owning-it',
     } as never)
 
@@ -196,9 +207,9 @@ describe('ideaPullRequestService.link', () => {
 
   it('reports a workspace without the GitHub App installed as 400', async () => {
     mockPrRepo.findByRepoAndNumber.mockResolvedValue(null)
-    mockToken.mockRejectedValue(
-      new Error('No GitHubAppInstallation for workspace')
-    )
+    ;(
+      githubAppInstallationRepository.findByWorkspace as jest.Mock
+    ).mockResolvedValueOnce(null)
 
     await expect(
       ideaPullRequestService.link({
@@ -226,6 +237,7 @@ describe('ideaPullRequestService.link', () => {
     mockPrRepo.findById.mockResolvedValue({
       id: 'pr1',
       workspaceId: WS,
+      repo: 'acme/app',
     } as never)
     mockRepo.findByIdeaAndPr.mockResolvedValue({ id: 'existing' } as never)
 

@@ -6,6 +6,14 @@
  * mocked; the link path through the real linkPullRequest.
  */
 const waitUntil = jest.fn((p: Promise<unknown>) => p)
+// LUM-883: linking checks the workspace's confirmed repository list.
+jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
+  githubAppInstallationRepository: {
+    findByWorkspace: jest
+      .fn()
+      .mockResolvedValue({ installationId: 1, repositories: ['acme/app'] }),
+  },
+}))
 jest.mock('@vercel/functions', () => ({
   waitUntil: (p: Promise<unknown>) => waitUntil(p),
 }))
@@ -153,6 +161,7 @@ test('dispatches from webhook synchronize and from linkPullRequest', async () =>
   ;(pullRequestRepository.findById as jest.Mock).mockResolvedValue({
     id: 'pr-row-2',
     workspaceId: 'ws',
+    repo: 'acme/app',
     taskId: null,
     task: null,
   })

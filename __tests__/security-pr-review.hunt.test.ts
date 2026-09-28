@@ -1,7 +1,7 @@
 /** @jest-environment node */
 // LUM-739: the PR summary comment's stage line includes the hunt layer.
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoToken: jest.fn(),
 }))
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {},

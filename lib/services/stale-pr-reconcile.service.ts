@@ -105,24 +105,36 @@ export async function reconcileStaleProjectPrs(
 
   if (candidates.length === 0) return 0
 
-  let token: string
+  let getRepoToken: (workspaceId: string, repo: string) => Promise<string>
   try {
     // Imported lazily on purpose. The GitHub App auth module pulls in
     // @octokit/auth-app, which ships ESM that jest does not transform — a
     // static import here would break every suite that transitively loads the
     // stats service. It is also only needed once something actually looks
     // stale, which is the uncommon path.
-    const { getGithubInstallationToken } =
-      await import('@/lib/integrations/github/auth')
-    token = await getGithubInstallationToken(workspaceId)
+    ;({ getRepoToken } = await import('@/lib/integrations/github/auth'))
   } catch {
-    // No GitHub App configured for this workspace — nothing to reconcile
-    // against. Leave the rows alone.
     return 0
+  }
+
+  // One token per repository, minted only for a repository the workspace
+  // still has confirmed (LUM-883). A refused mint (App not installed, or the
+  // repository left the list) leaves that repository's rows alone.
+  const tokens = new Map<string, Promise<string | null>>()
+  const tokenFor = (repo: string) => {
+    const key = repo.toLowerCase()
+    let token = tokens.get(key)
+    if (!token) {
+      token = getRepoToken(workspaceId, repo).catch(() => null)
+      tokens.set(key, token)
+    }
+    return token
   }
 
   const results = await Promise.allSettled(
     candidates.map(async pr => {
+      const token = await tokenFor(pr.repo)
+      if (!token) return false
       const actual = await fetchPrState(token, pr)
       // null = could not determine. Not the same as "still open" — writing
       // anything here would launder a failed lookup into a confirmed state.

@@ -5,7 +5,8 @@
  * what managed security scanning clones with — so removing it is owner-only,
  * like disconnecting Slack. Workspace membership alone (which is all
  * requireWorkspaceByUrl proves) would let any member switch scanning off for
- * the whole team. Reading the status stays open to members.
+ * the whole team. Reading the status stays open to members; the names of
+ * repositories nobody has confirmed are owner-only (LUM-883).
  */
 jest.mock('@/lib/auth', () => ({
   requireAuth: jest.fn(),
@@ -38,7 +39,10 @@ import { GET, DELETE } from '@/app/api/github/app/installation/route'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { githubAppInstallationRepository } from '@/lib/repositories'
-import { deleteAppInstallation } from '@/lib/integrations/github'
+import {
+  deleteAppInstallation,
+  fetchInstallationRepositories,
+} from '@/lib/integrations/github'
 
 const mockRequireAuth = requireAuth as jest.Mock
 const mockRequireMember = requireWorkspaceMember as jest.Mock
@@ -104,7 +108,7 @@ describe('/api/github/app/installation', () => {
   })
 
   describe('GET', () => {
-    it('reports installation status to any workspace member', async () => {
+    beforeEach(() => {
       repo.findStatusByWorkspace.mockResolvedValue({
         installationId: 555,
         accountLogin: 'acme-inc',
@@ -112,6 +116,14 @@ describe('/api/github/app/installation', () => {
         repositories: ['acme-inc/web'],
         createdAt: new Date(),
       })
+      ;(fetchInstallationRepositories as jest.Mock).mockResolvedValue([
+        'acme-inc/web',
+        'acme-inc/payroll',
+      ])
+    })
+
+    it('reports installation status to any workspace member', async () => {
+      mockRequireMember.mockResolvedValue({ id: 'm1', role: 'MEMBER' })
 
       const res = await GET(req())
 
@@ -119,8 +131,30 @@ describe('/api/github/app/installation', () => {
       await expect(res.json()).resolves.toEqual(
         expect.objectContaining({ installed: true, accountLogin: 'acme-inc' })
       )
-      // Reading status must not require the owner role.
-      expect(mockRequireMember).not.toHaveBeenCalled()
+    })
+
+    // LUM-883: repositories nobody confirmed are not every member's to read.
+    it('shows pending repository names to owners only', async () => {
+      mockRequireMember.mockResolvedValue({ id: 'm1', role: 'MEMBER' })
+      const memberBody = await (await GET(req())).json()
+      expect(memberBody).not.toHaveProperty('pendingRepositories')
+      expect(JSON.stringify(memberBody)).not.toContain('payroll')
+
+      mockRequireMember.mockResolvedValue({ id: 'm1', role: 'OWNER' })
+      const ownerBody = await (await GET(req())).json()
+      expect(ownerBody.pendingRepositories).toEqual(['acme-inc/payroll'])
+    })
+
+    it('propagates the membership check failure', async () => {
+      const { NextResponse } = jest.requireActual('next/server')
+      mockRequireMember.mockResolvedValue(
+        NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      )
+
+      const res = await GET(req())
+
+      expect(res.status).toBe(403)
+      expect(repo.findStatusByWorkspace).not.toHaveBeenCalled()
     })
   })
 })

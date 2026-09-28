@@ -152,7 +152,7 @@
 
 - Files: `lib/integrations/github/index.ts`, `app/api/webhooks/github/handlers.ts`
 - Why fragile: GitHub OAuth tokens may expire. If an installation is uninstalled or token is revoked, webhook handlers will fail silently. No validation that token is still valid before using it.
-- Safe modification: Always wrap `getGithubInstallationToken()` and API calls in try-catch. Check for 401/403 responses from GitHub API. Log token refresh failures for debugging.
+- Safe modification: Always wrap `getRepoToken()` and API calls in try-catch. Check for 401/403 responses from GitHub API. Log token refresh failures for debugging.
 - Test coverage: Need integration tests for token revocation scenario.
 
 **Slack Command Execution Fire-and-Forget:**

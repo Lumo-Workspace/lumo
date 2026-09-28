@@ -7,7 +7,7 @@
  * and stores nothing when the judge did not answer.
  */
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('tok'),
+  getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),

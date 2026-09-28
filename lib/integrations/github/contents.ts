@@ -2,12 +2,13 @@
  * GitHub read helpers for fetching committed files and PR diffs.
  *
  * Uses raw fetch (same pattern as lib/integrations/github/sync.ts) — no new
- * npm deps. All network calls require a GitHub installation token obtained via
- * getGithubInstallationToken(workspaceId).
+ * npm deps. Every call mints a token for the one repository it reads via
+ * getRepoToken(workspaceId, fullName) — refused (403 repo_not_confirmed) for a
+ * repository outside the workspace's confirmed list (LUM-883).
  */
 
 import { logger } from '@/lib/logger'
-import { getGithubInstallationToken } from './auth'
+import { getRepoToken } from './auth'
 
 const GH_HEADERS = {
   Accept: 'application/vnd.github+json',
@@ -40,7 +41,9 @@ export async function readRepoFile(opts: {
   path: string
   ref?: string
 }): Promise<string | null> {
-  const token = await getGithubInstallationToken(opts.workspaceId)
+  const token = await getRepoToken(opts.workspaceId, opts.fullName, {
+    contents: 'read',
+  })
   const [owner, repo] = splitFullName(opts.fullName)
 
   const url = new URL(
@@ -83,7 +86,7 @@ export async function fetchPrDiff(opts: {
   fullName: string
   prNumber: number
 }): Promise<string> {
-  const token = await getGithubInstallationToken(opts.workspaceId)
+  const token = await getRepoToken(opts.workspaceId, opts.fullName)
   const [owner, repo] = splitFullName(opts.fullName)
 
   const res = await fetch(
@@ -136,7 +139,7 @@ export async function fetchPrFiles(opts: {
   fullName: string
   prNumber: number
 }): Promise<PrFileEntry[]> {
-  const token = await getGithubInstallationToken(opts.workspaceId)
+  const token = await getRepoToken(opts.workspaceId, opts.fullName)
   const [owner, repo] = splitFullName(opts.fullName)
   const out: PrFileEntry[] = []
   for (let page = 1; page <= PR_FILES_MAX_PAGES; page++) {
@@ -184,7 +187,7 @@ export async function fetchPrStats(opts: {
   fullName: string
   prNumber: number
 }): Promise<{ additions: number; deletions: number; changedFiles: number }> {
-  const token = await getGithubInstallationToken(opts.workspaceId)
+  const token = await getRepoToken(opts.workspaceId, opts.fullName)
   const [owner, repo] = splitFullName(opts.fullName)
 
   const res = await fetch(
@@ -234,7 +237,7 @@ export async function fetchPrHeadSha(opts: {
   fullName: string
   prNumber: number
 }): Promise<string> {
-  const token = await getGithubInstallationToken(opts.workspaceId)
+  const token = await getRepoToken(opts.workspaceId, opts.fullName)
   const [owner, repo] = splitFullName(opts.fullName)
 
   const res = await fetch(
@@ -268,7 +271,9 @@ export async function fetchDefaultBranchHead(opts: {
   workspaceId: string
   fullName: string
 }): Promise<{ branch: string; sha: string }> {
-  const token = await getGithubInstallationToken(opts.workspaceId)
+  const token = await getRepoToken(opts.workspaceId, opts.fullName, {
+    contents: 'read',
+  })
   const [owner, repo] = splitFullName(opts.fullName)
   const headers = { ...GH_HEADERS, Authorization: `Bearer ${token}` }
 

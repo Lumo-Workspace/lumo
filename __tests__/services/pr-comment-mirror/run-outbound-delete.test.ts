@@ -10,7 +10,7 @@ jest.mock('@/lib/repositories/pr-comment-mirror.repository')
 jest.mock('@/lib/repositories/pull-request.repository')
 jest.mock('@/lib/integrations/github/pr-comment-client')
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('app-token'),
+  getRepoToken: jest.fn().mockResolvedValue('app-token'),
 }))
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: { findByActorId: jest.fn() },

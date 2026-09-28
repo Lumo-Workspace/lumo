@@ -1,6 +1,6 @@
 // Mock auth module to avoid @octokit/auth-app ESM issue in Jest
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('test-token'),
+  getRepoToken: jest.fn().mockResolvedValue('test-token'),
 }))
 
 import { addedLinesFromDiff } from '@/lib/integrations/github/contents'

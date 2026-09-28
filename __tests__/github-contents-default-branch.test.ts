@@ -1,6 +1,6 @@
 /** @jest-environment node */
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('ghs_tok'),
+  getRepoToken: jest.fn().mockResolvedValue('ghs_tok'),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },

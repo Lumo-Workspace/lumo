@@ -10,13 +10,19 @@ export type { SplitIdentifier } from './types'
 
 // Auth
 export {
-  getGithubInstallationToken,
+  getRepoToken,
   getGithubAppJwt,
   createInstallationToken,
   getRepoCloneToken,
   createRepoScopedToken,
   revokeInstallationToken,
 } from './auth'
+export type { RepoTokenPermissions } from './auth'
+export {
+  isConfirmedRepository,
+  requireConfirmedRepository,
+  repoNotConfirmedError,
+} from './confirmed-repositories'
 
 // App installations (the /app endpoints — install flow, not repository data)
 export {

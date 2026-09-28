@@ -9,7 +9,7 @@
  * DONE under the default policy.
  */
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('tok'),
+  getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),

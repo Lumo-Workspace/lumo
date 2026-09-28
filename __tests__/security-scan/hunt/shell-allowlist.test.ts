@@ -6,7 +6,7 @@
  * 没有任何一条断言会碰到它。
  */
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoToken: jest.fn(),
 }))
 
 import {

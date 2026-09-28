@@ -5,7 +5,7 @@
 
 // Mock heavy transitive deps before any imports
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('app-token'),
+  getRepoToken: jest.fn().mockResolvedValue('app-token'),
 }))
 jest.mock('@/lib/crypto', () => ({ decrypt: jest.fn() }))
 jest.mock('@/lib/repositories/member.repository')

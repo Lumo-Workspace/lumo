@@ -5,7 +5,7 @@
  * secret scanner and diff parser are REAL so the fingerprint math is exercised.
  */
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('tok'),
+  getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),

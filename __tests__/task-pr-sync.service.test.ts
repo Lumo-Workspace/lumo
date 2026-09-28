@@ -1,16 +1,16 @@
 /** @jest-environment node */
 /**
  * LUM-828 — the task-detail PR refresh (syncPullRequestStatus) asks for the
- * task's own workspace installation token and logs every failure instead of
+ * task's own workspace installation token (LUM-883: one per repository) and logs every failure instead of
  * swallowing it; one failing PR never stops the rest from syncing.
  */
 import { syncPullRequestStatus } from '@/lib/services/task-pr-sync.service'
-import { getGithubInstallationToken } from '@/lib/integrations/github'
+import { getRepoToken } from '@/lib/integrations/github'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { logger } from '@/lib/logger'
 
 jest.mock('@/lib/integrations/github', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('tok'),
+  getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { updateState: jest.fn() },
@@ -47,7 +47,7 @@ describe('task-detail PR refresh (LUM-828)', () => {
   it('pr refresh uses the task workspace installation token', async () => {
     fetchMock.mockResolvedValue(ghMerged)
     const updates = await syncPullRequestStatus('ws-1', [pr('pr-1', 1071)])
-    expect(getGithubInstallationToken).toHaveBeenCalledWith('ws-1')
+    expect(getRepoToken).toHaveBeenCalledWith('ws-1', 'a/b')
     expect(updates.get('pr-1')?.state).toBe('merged')
   })
 
@@ -75,7 +75,7 @@ describe('task-detail PR refresh (LUM-828)', () => {
     expect(pullRequestRepository.updateState).toHaveBeenCalledTimes(1)
 
     // A token failure is logged too, never swallowed.
-    ;(getGithubInstallationToken as jest.Mock).mockRejectedValueOnce(
+    ;(getRepoToken as jest.Mock).mockRejectedValueOnce(
       new Error('no installation')
     )
     const none = await syncPullRequestStatus('ws-1', [pr('pr-1', 1)])

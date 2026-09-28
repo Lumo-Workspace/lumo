@@ -1,4 +1,4 @@
-import { getGithubInstallationToken } from '@/lib/integrations/github'
+import { getRepoToken } from '@/lib/integrations/github'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { logger } from '@/lib/logger'
 
@@ -23,23 +23,29 @@ export async function syncPullRequestStatus(
   openPrs: OpenPr[]
 ): Promise<Map<string, PrStatusUpdate>> {
   const updates = new Map<string, PrStatusUpdate>()
-
-  let token: string
-  try {
-    // The task's own workspace installation; the legacy env installation may
-    // lack access to this workspace's repos (LUM-828).
-    token = await getGithubInstallationToken(workspaceId)
-  } catch (error) {
-    logger.warn(
-      `[pr-sync] no GitHub installation token for workspace ${workspaceId}; PR states may be stale`,
-      { error: String(error) }
-    )
-    return updates
-  }
+  // One token per repository (LUM-883), minted only for a repository the
+  // workspace still has confirmed: a PR row whose repository left the list
+  // keeps its stored state instead of being refreshed from GitHub. `null` =
+  // refused or failed, already logged once for that repository.
+  const tokens = new Map<string, string | null>()
 
   for (const pr of openPrs) {
     const repo = pr.url.match(/github\.com\/([^/]+\/[^/]+)\/pull/)?.[1]
     if (!repo) continue
+    const key = repo.toLowerCase()
+    if (!tokens.has(key)) {
+      try {
+        tokens.set(key, await getRepoToken(workspaceId, repo))
+      } catch (error) {
+        logger.warn(
+          `[pr-sync] no GitHub token for ${repo} in workspace ${workspaceId}; its PR states may be stale`,
+          { error: String(error) }
+        )
+        tokens.set(key, null)
+      }
+    }
+    const token = tokens.get(key)
+    if (!token) continue
     try {
       const update = await syncOne(token, repo, pr)
       if (update) updates.set(pr.id, update)

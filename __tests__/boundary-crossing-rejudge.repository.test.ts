@@ -23,7 +23,7 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn().mockResolvedValue('tok'),
+  getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
 
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'

@@ -12,7 +12,7 @@
  */
 
 import { logger } from '@/lib/logger'
-import { getGithubInstallationToken } from './auth'
+import { getRepoToken } from './auth'
 
 const GH_HEADERS = {
   Accept: 'application/vnd.github+json',
@@ -199,7 +199,7 @@ export async function fetchCommitCiSignals(opts: {
   fullName: string
   sha: string
 }): Promise<CiSignal[]> {
-  const token = await getGithubInstallationToken(opts.workspaceId)
+  const token = await getRepoToken(opts.workspaceId, opts.fullName)
   const [owner, repo] = splitFullName(opts.fullName)
   const repoBase = `https://api.github.com/repos/${owner}/${repo}`
   const base = `${repoBase}/commits/${opts.sha}`
@@ -259,7 +259,7 @@ export async function fetchPullNumbersForCommit(opts: {
   fullName: string
   sha: string
 }): Promise<number[]> {
-  const token = await getGithubInstallationToken(opts.workspaceId)
+  const token = await getRepoToken(opts.workspaceId, opts.fullName)
   const [owner, repo] = splitFullName(opts.fullName)
   const url = `https://api.github.com/repos/${owner}/${repo}/commits/${opts.sha}/pulls`
   const pulls = asArray(await ghJson(url, token))

@@ -1,9 +1,9 @@
 import { logger } from '@/lib/logger'
 import { createAppAuth } from '@octokit/auth-app'
-import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
+import { requireConfirmedRepository } from './confirmed-repositories'
 
 /**
- * Returns a short-lived GitHub installation token for the Lumo Agent app.
+ * Installation tokens for the Lumo Agent app.
  *
  * App credentials (GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY) stay in env — one
  * Lumo App, many installations. The installationId is resolved per-workspace
@@ -14,23 +14,31 @@ import { githubAppInstallationRepository } from '@/lib/repositories/github-app-i
  * workspaceId) used to borrow the global GITHUB_APP_INSTALLATION_ID — Lumo's
  * own installation — which pointed another tenant's clone at repositories
  * Lumo owns. Not having installed the App is an answer, not a warning.
+ *
+ * LUM-883: there is no workspace-wide token either. Every mint names ONE
+ * repository and is refused unless that repository is on the workspace's
+ * confirmed list, so a PR URL, a project repository setting or a stale
+ * PullRequest row can no longer pull in a repository the installation reaches
+ * but the workspace never confirmed.
  */
-async function resolveInstallationId(workspaceId?: string): Promise<number> {
-  if (!workspaceId) {
-    throw new Error(
-      'No workspace given; a GitHub installation token is always per workspace'
+async function resolveConfirmedInstallation(
+  workspaceId: string,
+  repository: string
+): Promise<number> {
+  try {
+    const { installationId } = await requireConfirmedRepository(
+      workspaceId,
+      repository
     )
-  }
-  const row = await githubAppInstallationRepository.findByWorkspace(workspaceId)
-  if (!row) {
+    return installationId
+  } catch (error) {
     logger.warn(
-      `[github/auth] no GitHubAppInstallation for workspace ${workspaceId}; the Lumo GitHub App is not installed there`
+      `[github/auth] refused a token for ${repository} in workspace ${workspaceId}: ${
+        error instanceof Error ? error.message : String(error)
+      }`
     )
-    throw new Error(
-      `No GitHubAppInstallation for workspace ${workspaceId} — install the Lumo GitHub App`
-    )
+    throw error
   }
-  return row.installationId
 }
 
 /**
@@ -73,7 +81,12 @@ export async function getGithubAppJwt(): Promise<string> {
   return token
 }
 
-/** Installation token for an installation id already in hand. */
+/**
+ * Installation token for an installation id already in hand, reaching every
+ * repository the installation does. Only for the install flow and the access
+ * recheck, which must list the whole installation before any repository is
+ * confirmed; repository data goes through `getRepoToken`.
+ */
 export async function createInstallationToken(
   installationId: number
 ): Promise<string> {
@@ -82,10 +95,31 @@ export async function createInstallationToken(
   return token
 }
 
-export async function getGithubInstallationToken(
-  workspaceId?: string
+export type RepoTokenPermissions = Record<string, 'read' | 'write'>
+
+/**
+ * LUM-883 — the token for reading (or writing to) ONE confirmed repository.
+ * Throws 403 `repo_not_confirmed` before minting anything when `repository`
+ * is not on the workspace's confirmed list, 400 `app_not_installed` with no
+ * installation. `permissions` narrows the token further; omitted, it carries
+ * the installation's permissions on that one repository.
+ */
+export async function getRepoToken(
+  workspaceId: string,
+  repository: string,
+  permissions?: RepoTokenPermissions
 ): Promise<string> {
-  return createInstallationToken(await resolveInstallationId(workspaceId))
+  const installationId = await resolveConfirmedInstallation(
+    workspaceId,
+    repository
+  )
+  const auth = createAppAuth({ ...appCredentials(), installationId })
+  const { token } = await auth({
+    type: 'installation',
+    repositoryNames: [repoName(repository)],
+    ...(permissions && { permissions }),
+  })
+  return token
 }
 
 /**
@@ -94,6 +128,7 @@ export async function getGithubInstallationToken(
  * CodeRabbit 2025 class: a scanner reads repository config and prints its
  * environment) opens exactly the checkout the attacker already has. Callers
  * revoke it with `revokeInstallationToken` as soon as the clone is done.
+ * LUM-883: only for a confirmed repository, like every other mint.
  *
  * A fresh `createAppAuth` per call on purpose: its token cache is
  * per-instance, and a cached copy of a token we have since revoked must never
@@ -103,8 +138,20 @@ export async function getRepoCloneToken(
   workspaceId: string,
   repository: string
 ): Promise<string> {
-  const installationId = await resolveInstallationId(workspaceId)
+  const installationId = await resolveConfirmedInstallation(
+    workspaceId,
+    repository
+  )
   return createRepoScopedToken(installationId, repository)
+}
+
+/** GitHub mints by repository name within the installation's account. */
+function repoName(repository: string): string {
+  const name = repository.slice(repository.indexOf('/') + 1)
+  if (!name || name === repository) {
+    throw new Error(`Not an owner/repo name: "${repository}"`)
+  }
+  return name
 }
 
 /**
@@ -116,10 +163,7 @@ export async function createRepoScopedToken(
   installationId: number,
   repository: string
 ): Promise<string> {
-  const name = repository.slice(repository.indexOf('/') + 1)
-  if (!name || name === repository) {
-    throw new Error(`Not an owner/repo name: "${repository}"`)
-  }
+  const name = repoName(repository)
   const auth = createAppAuth({ ...appCredentials(), installationId })
   const { token } = await auth({
     type: 'installation',

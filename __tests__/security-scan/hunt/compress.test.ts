@@ -32,7 +32,7 @@ jest.mock('@/lib/integrations/vercel-sandbox', () => ({
   ),
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoToken: jest.fn(),
 }))
 // The compressor as `runHuntShell` sees it. The REAL one is exercised below
 // through `requireActual`, against these same `ai` mocks.

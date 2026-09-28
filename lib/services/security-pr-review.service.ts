@@ -21,7 +21,7 @@
  * stage A can import it statically (it is not behind the gateway boundary).
  */
 import { logger } from '@/lib/logger'
-import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import { getRepoToken } from '@/lib/integrations/github/auth'
 import {
   prCommentClient,
   GithubApiError,
@@ -568,7 +568,7 @@ export const securityPrReviewService = {
     let inline = 0
     let skipped = 0
     try {
-      const token = await getGithubInstallationToken(pr.workspaceId)
+      const token = await getRepoToken(pr.workspaceId, pr.repo)
 
       // LUM-738: a persisting row (already on the default branch) is not
       // this PR's — it is neither open, nor blocking, nor commented inline.

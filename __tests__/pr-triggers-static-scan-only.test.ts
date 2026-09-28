@@ -10,6 +10,14 @@
  * LUM-746 managed-CI dispatch, retired here.
  */
 const waitUntil = jest.fn((p: Promise<unknown>) => p)
+// LUM-883: linking checks the workspace's confirmed repository list.
+jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
+  githubAppInstallationRepository: {
+    findByWorkspace: jest
+      .fn()
+      .mockResolvedValue({ installationId: 1, repositories: ['acme/app'] }),
+  },
+}))
 jest.mock('@vercel/functions', () => ({
   waitUntil: (p: Promise<unknown>) => waitUntil(p),
 }))
@@ -143,6 +151,7 @@ test('pr webhook and manual pr link dispatch only the static security scan', asy
   ;(pullRequestRepository.findById as jest.Mock).mockResolvedValue({
     id: 'pr-row-2',
     workspaceId: 'ws',
+    repo: 'acme/app',
     taskId: null,
     task: null,
   })

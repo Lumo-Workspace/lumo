@@ -12,7 +12,7 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
   },
 }))
 jest.mock('@/lib/integrations/github/auth', () => ({
-  getGithubInstallationToken: jest.fn(),
+  getRepoToken: jest.fn(),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: { info: jest.fn(), warn: jest.fn() },
@@ -20,11 +20,11 @@ jest.mock('@/lib/logger', () => ({
 
 import { reconcileStaleProjectPrs } from '@/lib/services/stale-pr-reconcile.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
-import { getGithubInstallationToken } from '@/lib/integrations/github/auth'
+import { getRepoToken } from '@/lib/integrations/github/auth'
 
 const findMany = pullRequestRepository.findStaleOpenByProject as jest.Mock
 const update = pullRequestRepository.updateState as jest.Mock
-const getToken = getGithubInstallationToken as jest.Mock
+const getToken = getRepoToken as jest.Mock
 
 const candidate = { id: 'pr1', repo: 'o/r', number: 16 }
 
