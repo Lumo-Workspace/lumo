@@ -53,10 +53,8 @@ async function seedRow(
   installationId: number,
   extra: Record<string, unknown> = {}
 ) {
-  await harness.insert('workspaces', {
-    id: workspaceId,
-    name: workspaceId,
-    slug: workspaceId,
+  await harness.prisma!.workspace.create({
+    data: { id: workspaceId, name: workspaceId, slug: workspaceId },
   })
   await db().create({
     data: {
@@ -76,34 +74,54 @@ let prNumber = 0
 
 /** One PR in `repo` with a scan and a finding holding code. */
 async function seedScan(p: string, workspaceId: string, repo: string) {
-  await harness.insert('pull_requests', {
-    id: `${p}pr`,
-    workspaceId,
-    repo,
-    number: ++prNumber,
+  const number = ++prNumber
+  await harness.prisma!.pullRequest.create({
+    data: {
+      id: `${p}pr`,
+      workspaceId,
+      repo,
+      number,
+      title: `PR ${number}`,
+      url: `https://github.com/${repo}/pull/${number}`,
+      state: 'open',
+      authorLogin: 'octo',
+      headBranch: 'feature',
+      baseBranch: 'main',
+    },
   })
-  await harness.insert('pr_security_scans', {
-    id: `${p}scan`,
-    pullRequestId: `${p}pr`,
-    workspaceId,
-    headSha: 'abc',
-    prSummary: JSON.stringify({ description: CODE }),
+  await harness.prisma!.prSecurityScan.create({
+    data: {
+      id: `${p}scan`,
+      pullRequestId: `${p}pr`,
+      workspaceId,
+      headSha: 'abc',
+      trigger: 'PR_EVENT',
+      detectorVersion: 'test',
+      prSummary: { description: CODE },
+    },
   })
-  await harness.insert('pr_security_findings', {
-    id: `${p}finding`,
-    scanId: `${p}scan`,
-    ruleId: 'vuln:sql-injection',
-    title: 'SQL injection',
-    detail: 'Query built from request input',
-    evidence: CODE,
+  await harness.prisma!.prSecurityFinding.create({
+    data: {
+      id: `${p}finding`,
+      scanId: `${p}scan`,
+      kind: 'VULNERABILITY',
+      ruleId: 'vuln:sql-injection',
+      severity: 'HIGH',
+      provenance: 'LLM_JUDGE',
+      filePath: 'src/db.ts',
+      title: 'SQL injection',
+      detail: 'Query built from request input',
+      evidence: CODE,
+      fingerprint: `${p}fp`,
+    },
   })
 }
 
 async function evidenceOf(p: string) {
-  const [finding] = await harness.query<{ evidence: string }>(
-    `select evidence from pr_security_findings where id = $1`,
-    [`${p}finding`]
-  )
+  const finding = await harness.prisma!.prSecurityFinding.findUnique({
+    where: { id: `${p}finding` },
+    select: { evidence: true },
+  })
   return finding?.evidence
 }
 
@@ -125,9 +143,9 @@ afterAll(async () => {
 beforeEach(async () => {
   jest.restoreAllMocks()
   jest.clearAllMocks()
-  await harness.query('delete from pr_security_findings')
-  await harness.query('delete from pr_security_scans')
-  await harness.query('delete from pull_requests')
+  await harness.prisma!.prSecurityFinding.deleteMany({})
+  await harness.prisma!.prSecurityScan.deleteMany({})
+  await harness.prisma!.pullRequest.deleteMany({})
   await db().deleteMany({})
   await harness.prisma!.workspace.deleteMany({})
 })
