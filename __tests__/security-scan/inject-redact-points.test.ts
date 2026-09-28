@@ -326,6 +326,72 @@ const CORPUS: { id: string; line: string; value: string }[] = [
     line: 'mysqladmin --password ' + 'Qm7Tz4Lw' + '9Kp2 status',
     value: 'Qm7Tz4Lw' + '9Kp2',
   },
+  {
+    id: 'env-assignment-lowercase',
+    line: 'db_password=' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  {
+    id: 'env-assignment-quoted',
+    line: 'export TOKEN="' + 'Qm7Tz4 Lw9Kp2' + ' Xc8Vb5"',
+    value: 'Qm7Tz4 Lw9Kp2' + ' Xc8Vb5',
+  },
+  {
+    id: 'credential-key-value',
+    line: '{"password": "' + 'Qm7Tz4Lw' + '9Kp2Xc8V"}',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  {
+    id: 'credential-yaml-value',
+    line: '  password: ' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  {
+    id: 'http-api-key-header',
+    line: 'X-API-Key: ' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  {
+    id: 'http-cookie',
+    line: 'Cookie: session=' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+    value: 'session=' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  {
+    id: 'url-credentials',
+    line:
+      'git clone https://deploy:' +
+      'Qm7Tz4Lw' +
+      '9Kp2Xc8V@git.example.com/x.git',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  {
+    id: 'cli-secret-flag',
+    line: 'tool deploy --secret ' + 'Qm7Tz4Lw' + '9Kp2Xc8V',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  {
+    id: 'cli-user-password',
+    line: 'curl -u admin:' + 'Qm7Tz4Lw' + '9Kp2Xc8V https://api.example.com',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  {
+    id: 'cli-short-password-flag',
+    line: 'docker login -u bot -p ' + 'Qm7Tz4Lw' + '9Kp2Xc8V ghcr.io',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  {
+    id: 'kubectl-from-literal',
+    line:
+      'kubectl create secret generic db --from-literal=dbpass=' +
+      'Qm7Tz4Lw' +
+      '9Kp2Xc8V',
+    value: 'Qm7Tz4Lw' + '9Kp2Xc8V',
+  },
+  {
+    id: 'putty-private-key',
+    line: 'PuTTY-User-' + 'Key-File-3: ssh-rsa',
+    value: 'PuTTY-User-' + 'Key-File-3: ssh-rsa',
+  },
 ]
 const ALL_LINES = CORPUS.map(c => c.line).join('\n')
 const NOTICE =

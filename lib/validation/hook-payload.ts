@@ -1,6 +1,9 @@
 import { z } from 'zod'
 import type { HookEventType } from '@prisma/client'
-import { redactForStorage } from '@/lib/security-scan/scan-secrets'
+import {
+  redactForStorage,
+  redactPrivateKeysAcrossParts,
+} from '@/lib/security-scan/scan-secrets'
 
 /**
  * Max length for any single string inside a hook payload.
@@ -268,8 +271,9 @@ function redactDeep(value: unknown, counter: { n: number }): unknown {
   }
   if (value === null || typeof value !== 'object') return value
   if (Array.isArray(value)) {
-    let changed = false
-    const next = value.map(item => {
+    const joined = joinKeyLines(value, counter)
+    let changed = joined !== value
+    const next = joined.map(item => {
       const child = redactDeep(item, counter)
       if (child !== item) changed = true
       return child
@@ -284,6 +288,30 @@ function redactDeep(value: unknown, counter: { n: number }): unknown {
     next[key] = child
   }
   return changed ? next : value
+}
+
+/**
+ * LUM-894 — a key split one line per element (a kept test-file
+ * `structuredPatch` hunk, a JSON array of lines) is redacted over the joined
+ * string elements; the array comes back as-is when no key spans them.
+ */
+function joinKeyLines(value: unknown[], counter: { n: number }): unknown[] {
+  const at: number[] = []
+  const parts: string[] = []
+  value.forEach((item, i) => {
+    if (typeof item === 'string') {
+      at.push(i)
+      parts.push(item)
+    }
+  })
+  const { parts: redacted, count } = redactPrivateKeysAcrossParts(parts)
+  if (count === 0) return value
+  counter.n += count
+  const next = [...value]
+  at.forEach((index, k) => {
+    next[index] = redacted[k]
+  })
+  return next
 }
 
 /**
