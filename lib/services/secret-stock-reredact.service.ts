@@ -91,6 +91,20 @@ export function planStockRowRewrite(
   return columns.length > 0 ? { id: row.id, columns, secrets } : null
 }
 
+/**
+ * A redacted line cut to `max` characters for the `--show` report, never
+ * inside a `…(len N)` token: a cut token no longer reads as a redaction.
+ */
+export function clipRedactedLine(line: string, max = 200): string {
+  let end = Math.min(line.length, max)
+  const open = line.lastIndexOf('…(', end)
+  if (open >= 0 && open < end) {
+    const close = line.indexOf(')', open)
+    if (close >= end) end = close + 1
+  }
+  return line.slice(0, end)
+}
+
 /** `--apply` must name the host it writes to; returns the connected host. */
 export function assertApplyHost(
   databaseUrl: string | undefined,

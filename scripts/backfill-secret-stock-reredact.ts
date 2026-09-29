@@ -32,8 +32,6 @@ function flag(name: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : undefined
 }
 
-const SHOW_LINE_CHARS = 200
-
 async function main() {
   const dryRun = process.argv.includes('--dry-run')
   const apply = process.argv.includes('--apply')
@@ -51,7 +49,7 @@ async function main() {
   const show = process.argv.includes('--show')
 
   // Dynamic import AFTER dotenv so the Prisma client sees DATABASE_URL.
-  const { secretStockReredactService, assertApplyHost } =
+  const { secretStockReredactService, assertApplyHost, clipRedactedLine } =
     await import('@/lib/services/secret-stock-reredact.service')
   const { redactForStorage, redactForInjection } =
     await import('@/lib/security-scan/scan-secrets')
@@ -99,7 +97,7 @@ async function main() {
               placeholder += r.downgradedCount
               for (const line of s.split('\n')) {
                 const red = redactForStorage(line).text
-                if (red !== line) lines.push(red.slice(0, SHOW_LINE_CHARS))
+                if (red !== line) lines.push(clipRedactedLine(red))
               }
             }
             console.log(

@@ -7,6 +7,7 @@
  */
 import {
   assertApplyHost,
+  clipRedactedLine,
   planStockRowRewrite,
   reredactStoredValue,
 } from '@/lib/services/secret-stock-reredact.service'
@@ -134,5 +135,14 @@ describe('assertApplyHost', () => {
     )
     expect(() => assertApplyHost(url, 'other.host')).toThrow(/confirm-host/)
     expect(() => assertApplyHost(url, undefined)).toThrow(/confirm-host/)
+  })
+})
+
+describe('clipRedactedLine', () => {
+  it('never cuts inside a redaction token', () => {
+    const line = 'x'.repeat(10) + ' -p…(len 7) tail'
+    expect(clipRedactedLine(line, 14)).toBe('x'.repeat(10) + ' -p…(len 7)')
+    expect(clipRedactedLine('short', 200)).toBe('short')
+    expect(clipRedactedLine('abcdef', 3)).toBe('abc')
   })
 })
