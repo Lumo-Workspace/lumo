@@ -22,6 +22,8 @@ const mockPrisma = {
   },
   boundaryCrossingExplanation: { create: jest.fn() },
   taskActivity: { create: jest.fn() },
+  boundaryCrossing: { create: jest.fn(), updateMany: jest.fn() },
+  testCaseRun: { create: jest.fn() },
 }
 jest.mock('@/lib/db/prisma', () => ({
   get prisma() {
@@ -42,6 +44,7 @@ import { taskArtifactRepository } from '@/lib/repositories/task-artifact.reposit
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 
 // Built by concatenation so no credential-shaped literal sits in the repo.
 const AWS_KEY = ['AKIA', 'ZXCVBNMLKJHGFDSA'].join('')
@@ -104,10 +107,16 @@ describe('redactStoredFields', () => {
   })
 
   it('lists every stock-scanned column of the tables it covers', () => {
+    // These two cover only their note column (see STORAGE_REDACTED_FIELDS).
+    const columnScoped = new Set(['boundaryCrossing', 'testCaseRun'])
     for (const [delegate, fields] of Object.entries(STORAGE_REDACTED_FIELDS)) {
       const stock = STOCK_TABLES.filter(t => t.delegate === delegate)
       expect([delegate, stock.length > 0]).toEqual([delegate, true])
-      for (const f of stock.flatMap(t => t.fields))
+      const scanned = stock.flatMap(t => t.fields)
+      for (const f of fields)
+        expect([delegate, f, scanned.includes(f)]).toEqual([delegate, f, true])
+      if (columnScoped.has(delegate)) continue
+      for (const f of scanned)
         expect([
           delegate,
           f,
@@ -200,5 +209,66 @@ describe('LUM-898 write paths store credentials redacted', () => {
     expect(text).not.toContain(ENV_LINE)
     expect(classifyRow(data).size).toBe(0)
     expect(text).toContain('see AKIA')
+  })
+})
+
+describe('LUM-898 follow-up: crossing and test-run notes', () => {
+  it('LUM-898 crossing disposition notes and test run notes store credentials redacted', async () => {
+    await boundaryCrossingRepository.create({
+      taskId: 't',
+      category: 'HARDCODED_SECRET',
+      severity: 'HIGH',
+      dispositionNote: DIRTY,
+    } as never)
+    await boundaryCrossingRepository.disposition(
+      'bc',
+      'FALSE_POSITIVE',
+      DIRTY,
+      'actor',
+      new Date()
+    )
+    await boundaryCrossingRepository.suppressManyByIds(
+      ['bc'],
+      'rule',
+      DIRTY,
+      new Date()
+    )
+    await testCaseRepository.createRun({
+      testCaseId: 'tc',
+      taskId: 't',
+      result: 'PASS',
+      environment: 'LOCAL',
+      note: DIRTY,
+    } as never)
+
+    const notes = [
+      ...mockPrisma.boundaryCrossing.create.mock.calls,
+      ...mockPrisma.boundaryCrossing.updateMany.mock.calls,
+      ...mockPrisma.testCaseRun.create.mock.calls,
+    ].map(c => {
+      const d = (c[0] as { data: Record<string, unknown> }).data
+      return d.dispositionNote ?? d.note
+    })
+    expect(notes).toHaveLength(4)
+    for (const n of notes) {
+      expect(typeof n).toBe('string')
+      expect(classifyRow([n]).size).toBe(0)
+      expect(n).toContain('see AKIA')
+    }
+
+    // Reopening a crossing still clears the note.
+    mockPrisma.boundaryCrossing.updateMany.mockClear()
+    await boundaryCrossingRepository.disposition(
+      'bc',
+      null,
+      DIRTY,
+      null,
+      new Date()
+    )
+    const reopened = mockPrisma.boundaryCrossing.updateMany.mock
+      .calls[0]![0] as {
+      data: Record<string, unknown>
+    }
+    expect(reopened.data.dispositionNote).toBeNull()
   })
 })
