@@ -21,6 +21,7 @@ const stripeLive = 'sk_' + 'live_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6'
 const githubToken = 'ghp' + '_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4Pe7Ab'
 const awsKeyId = 'AKIA' + 'QM7TZ4LW9KP2XC8V'
 const gitlabPat = 'glpat-' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3'
+const dbPassword = 'DB_PASSWORD' + '=Qm7Tz4Lw9Kp2'
 const hfToken = 'hf_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4P'
 
 const write = (
@@ -43,7 +44,11 @@ const secrets = (filePath: string, content: string, extra = {}) =>
     c => c.category === 'HARDCODED_SECRET'
   )
 
-const TASK_TABLE: Array<[string, string]> = [
+// LUM-899: a local env file is advisory because the hook's git probe says it
+// is ignored — the file name alone no longer downgrades a vendor-prefixed key.
+const IGNORED = { [WRITTEN_PATH_IGNORED_FIELD]: true }
+
+const TASK_TABLE: Array<[string, string, Record<string, unknown>?]> = [
   [
     'docker-compose.yml',
     '    environment:\n      - POSTGRES_PASSWORD=postgres',
@@ -63,16 +68,24 @@ const TASK_TABLE: Array<[string, string]> = [
     '// Sends Bearer authenticationHeaderValue on every call',
   ],
   ['lib/config.ts', 'API_KEY=process.env.OTHER'],
-  ['.env.local', `CLERK_SECRET_KEY=${clerkTest}\nOPENAI_API_KEY=${openaiKey}`],
-  ['.env.test', `CLERK_SECRET_KEY=${clerkTest}\nOPENAI_API_KEY=${openaiKey}`],
-  ['.env.development.local', `OPENAI_API_KEY=${openaiKey}`],
-  ['apps/web/.env.local', `OPENAI_API_KEY=${openaiKey}`],
+  [
+    '.env.local',
+    `CLERK_SECRET_KEY=${clerkTest}\nOPENAI_API_KEY=${openaiKey}`,
+    IGNORED,
+  ],
+  [
+    '.env.test',
+    `CLERK_SECRET_KEY=${clerkTest}\nOPENAI_API_KEY=${openaiKey}`,
+    IGNORED,
+  ],
+  ['.env.development.local', `OPENAI_API_KEY=${openaiKey}`, IGNORED],
+  ['apps/web/.env.local', `OPENAI_API_KEY=${openaiKey}`, IGNORED],
 ]
 
 describe('LUM-893 boundary detector false positives', () => {
   it('LUM-893 task table rows never block DONE', () => {
-    for (const [path, content] of TASK_TABLE) {
-      expect({ path, blocking: blocking(path, content) }).toEqual({
+    for (const [path, content, extra] of TASK_TABLE) {
+      expect({ path, blocking: blocking(path, content, extra) }).toEqual({
         path,
         blocking: [],
       })
@@ -89,8 +102,9 @@ describe('LUM-893 boundary detector false positives', () => {
     const testKey = secrets('lib/billing.ts', `const k = "${clerkTest}"`)
     expect(testKey).toHaveLength(1)
     expect(testKey[0]!.advisory).toBe(true)
-    // A local env file hit is recorded, advisory, and says why.
-    const local = secrets('.env.local', `OPENAI_API_KEY=${openaiKey}`)
+    // A broad-shape hit in a local env file is recorded, advisory, and says
+    // why (LUM-899: only a shape rule is downgraded by the file name).
+    const local = secrets('.env.local', dbPassword)
     expect(local).toHaveLength(1)
     expect(local[0]!.advisory).toBe(true)
     expect(local[0]!.detail).toContain('local env file')
@@ -163,14 +177,15 @@ describe('LUM-893 boundary detector false positives', () => {
         n: blocking(path, `const k = "${stripeLive}"`, ignored).length,
       }).toEqual({ path, n: 1 })
     }
-    // A real local env file inside a worktree stays advisory by its name.
+    // An untrusted claim counts as no answer, and without an answer a vendor
+    // key is never downgraded by the env filename (LUM-899) — it blocks.
     expect(
       blocking(
         '/Users/dev/repo/.worktrees/LUM-1-x/.env.local',
         `OPENAI_API_KEY=${openaiKey}`,
         ignored
       )
-    ).toHaveLength(0)
+    ).toHaveLength(1)
     // Outside .worktrees/ the probe's true is still trusted (advisory).
     const outside = secrets('/Users/dev/repo/.env', `K=${openaiKey}`, ignored)
     expect(outside).toHaveLength(1)

@@ -34,6 +34,7 @@ export {
   SECRET_PATTERNS,
   isCrossingAdvisoryRule,
   isDowngradedPath,
+  isShapeRule,
   isNonSecretShapeValue,
   isPlaceholderValue,
 } from './secret-patterns'

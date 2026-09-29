@@ -22,14 +22,18 @@ import type { GoldItem } from './align-eval'
 import type { PolicyRule } from '@/lib/services/policy/types'
 
 const bash = (command: string): unknown => ({ tool_input: { command } })
+// A real PostToolUse payload carries the session's `cwd` — the checkout root
+// the detector judges test/fixture/doc paths against (LUM-899).
+const CWD = '/repo'
 const write = (file_path: string, content: string): unknown => ({
+  cwd: CWD,
   tool_input: { file_path, content },
 })
 const edit = (
   file_path: string,
   old_string: string,
   new_string: string
-): unknown => ({ tool_input: { file_path, old_string, new_string } })
+): unknown => ({ cwd: CWD, tool_input: { file_path, old_string, new_string } })
 
 // Assemble secret-looking literals from parts so this fixture never trips a
 // secret scanner (or this very detector when it scans the repo). LUM-466 口径.

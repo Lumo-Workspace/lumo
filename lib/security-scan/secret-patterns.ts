@@ -550,6 +550,17 @@ export function isCrossingAdvisoryRule(ruleId: string): boolean {
   return SECRET_PATTERNS.some(p => p.id === id && p.crossingAdvisory === true)
 }
 
+/**
+ * LUM-899 — is this a broad credential SHAPE (no vendor prefix)? Only these may
+ * be downgraded by a file-name guess; a prefixed key keeps its own verdict.
+ */
+export function isShapeRule(ruleId: string): boolean {
+  const id = ruleId.startsWith('secret:')
+    ? ruleId.slice('secret:'.length)
+    : ruleId
+  return SECRET_PATTERNS.some(p => p.id === id && p.shape === true)
+}
+
 // Literal words that are never a credential: unset values and the type/metavar
 // words of CLI help text (`--token string`, `--password VALUE`).
 const NON_SECRET_WORDS = new Set([
