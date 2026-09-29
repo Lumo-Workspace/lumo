@@ -6,7 +6,7 @@
  * gitignored file as advisory. Only a real answer reaches the wire.
  */
 import { spawnSync } from 'child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -87,5 +87,72 @@ describe('LUM-893 gitignore probe', () => {
       rmSync(dir, { recursive: true, force: true })
       rmSync(outside, { recursive: true, force: true })
     }
+  })
+
+  describe('LUM-903 worktree under an ignored directory', () => {
+    let main: string
+    let wt: string
+    let outside: string
+    beforeAll(() => {
+      main = mkdtempSync(join(tmpdir(), 'lum903-'))
+      outside = mkdtempSync(join(tmpdir(), 'lum903-out-'))
+      wt = join(main, '.worktrees', 'LUM-1-x')
+      const git = (cwd: string, ...args: string[]) =>
+        spawnSync('git', args, { cwd, stdio: 'ignore' }).status
+      expect(git(main, 'init', '-q')).toBe(0)
+      writeFileSync(join(main, '.gitignore'), '.worktrees/\n.env*.local\n')
+      mkdirSync(join(main, 'lib'))
+      writeFileSync(join(main, 'lib', 'billing.ts'), 'x')
+      expect(git(main, 'add', '.')).toBe(0)
+      expect(
+        git(
+          main,
+          '-c',
+          'user.email=t@t',
+          '-c',
+          'user.name=t',
+          'commit',
+          '-q',
+          '--no-gpg-sign',
+          '-m',
+          'init'
+        )
+      ).toBe(0)
+      expect(git(main, 'worktree', 'add', '-q', wt)).toBe(0)
+      writeFileSync(join(wt, '.env.local'), 'x')
+    })
+    afterAll(() => {
+      rmSync(main, { recursive: true, force: true })
+      rmSync(outside, { recursive: true, force: true })
+    })
+
+    it('LUM-903 probe answers from the checkout the file lives in', () => {
+      // Session parked in the main checkout, which ignores .worktrees/.
+      expect(probeWrittenPathIgnored(main, join(wt, 'lib', 'billing.ts'))).toBe(
+        false
+      )
+      expect(probeWrittenPathIgnored(main, join(wt, '.env.local'))).toBe(true)
+      expect(
+        probeWrittenPathIgnored(main, join(outside, '.env.local'))
+      ).toBeNull()
+    })
+
+    it('LUM-903 relative and missing-dir paths resolve against the session cwd', () => {
+      expect(
+        probeWrittenPathIgnored(main, '.worktrees/LUM-1-x/lib/billing.ts')
+      ).toBe(false)
+      expect(probeWrittenPathIgnored(wt, 'lib/billing.ts')).toBe(false)
+      expect(
+        probeWrittenPathIgnored(main, '.worktrees/LUM-1-x/.env.local')
+      ).toBe(true)
+      // Parent dirs that do not exist: answered by the worktree they sit in.
+      expect(
+        probeWrittenPathIgnored(main, join(wt, 'gone', 'deeper', 'k.ts'))
+      ).toBe(false)
+      expect(
+        probeWrittenPathIgnored(main, join(wt, 'gone', '.env.local'))
+      ).toBe(true)
+      expect(probeWrittenPathIgnored(outside, join('nope', 'k.ts'))).toBeNull()
+    })
   })
 })

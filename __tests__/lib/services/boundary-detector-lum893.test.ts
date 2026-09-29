@@ -148,4 +148,36 @@ describe('LUM-893 boundary detector false positives', () => {
       ).toHaveLength(1)
     }
   })
+
+  it('LUM-903 worktree ignored claim from old CLI is not trusted', () => {
+    const ignored = { [WRITTEN_PATH_IGNORED_FIELD]: true }
+    // The 1.80.0 probe answered from the main checkout: every tracked file in
+    // a worktree came back "ignored". Those claims must not downgrade.
+    for (const path of [
+      '/Users/dev/repo/.worktrees/LUM-1-x/lib/billing.ts',
+      '.worktrees/LUM-1-x/.env',
+      'C:\\repo\\.worktrees\\LUM-1-x\\lib\\aws.ts',
+    ]) {
+      expect({
+        path,
+        n: blocking(path, `const k = "${stripeLive}"`, ignored).length,
+      }).toEqual({ path, n: 1 })
+    }
+    // A real local env file inside a worktree stays advisory by its name.
+    expect(
+      blocking(
+        '/Users/dev/repo/.worktrees/LUM-1-x/.env.local',
+        `OPENAI_API_KEY=${openaiKey}`,
+        ignored
+      )
+    ).toHaveLength(0)
+    // Outside .worktrees/ the probe's true is still trusted (advisory).
+    const outside = secrets('/Users/dev/repo/.env', `K=${openaiKey}`, ignored)
+    expect(outside).toHaveLength(1)
+    expect(outside[0]!.advisory).toBe(true)
+    // A lookalike segment is not a worktrees dir.
+    expect(
+      blocking('/Users/dev/repo/my.worktrees/.env', `K=${openaiKey}`, ignored)
+    ).toHaveLength(0)
+  })
 })
