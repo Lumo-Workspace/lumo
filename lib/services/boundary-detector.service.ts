@@ -8,6 +8,7 @@ import { TEST_FILE_TARGET } from '../../shared/src/test-file-path'
 import { hasRedactedContent } from '@/lib/hook-payload/redact'
 import {
   isCrossingAdvisoryRule,
+  redactForStorage,
   scanSecrets,
   type RawSecretFinding,
   type SecuritySeverity,
@@ -123,8 +124,14 @@ export interface DetectedCrossing {
 
 const DETAIL_MAX = 200
 
+/**
+ * The stored form of a crossing's `detail` / `target`. LUM-900: both are built
+ * from the raw command, so credentials in it are redacted (storage form,
+ * `ghp_…(len 40)`) BEFORE the cap — clipping first could cut a secret into a
+ * fragment no registry rule recognises any more.
+ */
 function clip(s: string): string {
-  const t = s.trim().replace(/\s+/g, ' ')
+  const t = redactForStorage(s).text.trim().replace(/\s+/g, ' ')
   return t.length > DETAIL_MAX ? `${t.slice(0, DETAIL_MAX)}…` : t
 }
 

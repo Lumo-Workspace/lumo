@@ -15,6 +15,19 @@ import {
   STORAGE_REDACTED_FIELDS,
 } from '@/lib/security-scan/storage-redaction'
 
+/**
+ * LUM-900: `target` is stored redacted, so every coalescing lookup keys on the
+ * same redacted form — a recurrence of a credential-bearing command still
+ * merges into its open row. Redaction is idempotent, so an already-redacted
+ * target (the detector's `clip`) comes back unchanged.
+ */
+function storedTarget(target: string): string {
+  return redactStoredFields(
+    { target },
+    STORAGE_REDACTED_FIELDS.boundaryCrossing
+  ).target
+}
+
 export interface CreateBoundaryCrossingInput {
   /** Null since LUM-640 for milestone-scoped steward crossings (no task exists);
    *  every task-scoped detector still passes a string. */
@@ -157,6 +170,16 @@ export const boundaryCrossingRepository = {
     tx?: Prisma.TransactionClient
   ) {
     const client = tx ?? prisma
+    // LUM-900: `detail` / `target` quote the raw command (a credential in it
+    // would be stored verbatim); `dispositionNote` is free text (LUM-898).
+    const stored = redactStoredFields(
+      {
+        detail: input.detail,
+        target: input.target ?? null,
+        dispositionNote: input.dispositionNote ?? null,
+      },
+      STORAGE_REDACTED_FIELDS.boundaryCrossing
+    )
     return client.boundaryCrossing.create({
       data: {
         taskId: input.taskId,
@@ -164,8 +187,8 @@ export const boundaryCrossingRepository = {
         hookEventId: input.hookEventId ?? null,
         sessionId: input.sessionId ?? null,
         category: input.category,
-        detail: input.detail,
-        target: input.target ?? null,
+        detail: stored.detail,
+        target: stored.target,
         reversible: input.reversible ?? false,
         severity: input.severity,
         // LUM-590: advisory crossings surface in the panel but never block DONE.
@@ -176,10 +199,7 @@ export const boundaryCrossingRepository = {
         // timestamp/note but NO dispositionedById — the null actor is the
         // audit-trail marker that this was a detector decision, not a human one.
         disposition: input.disposition ?? null,
-        dispositionNote: redactStoredFields(
-          { dispositionNote: input.dispositionNote ?? null },
-          STORAGE_REDACTED_FIELDS.boundaryCrossing
-        ).dispositionNote,
+        dispositionNote: stored.dispositionNote,
         dispositionedAt: input.dispositionedAt ?? null,
         suppressionRuleId: input.suppressionRuleId ?? null,
       },
@@ -205,7 +225,7 @@ export const boundaryCrossingRepository = {
       where: {
         taskId,
         category,
-        target,
+        target: storedTarget(target),
         disposition: 'AUTO_SUPPRESSED',
         suppressionRuleId: ruleId,
       },
@@ -242,7 +262,7 @@ export const boundaryCrossingRepository = {
       where: {
         taskId,
         category,
-        target,
+        target: storedTarget(target),
         disposition: null,
         ...(advisory !== undefined ? { advisory } : {}),
       },
@@ -264,7 +284,12 @@ export const boundaryCrossingRepository = {
   ): Promise<number> {
     if (target == null) return 0
     const { count } = await prisma.boundaryCrossing.updateMany({
-      where: { milestoneId, category, target, disposition: null },
+      where: {
+        milestoneId,
+        category,
+        target: storedTarget(target),
+        disposition: null,
+      },
       data: { occurrenceCount: { increment: 1 }, lastSeenAt: now },
     })
     return count
@@ -394,7 +419,10 @@ export const boundaryCrossingRepository = {
       data: {
         advisory: true,
         severity: input.severity,
-        detail: input.detail,
+        detail: redactStoredFields(
+          { detail: input.detail },
+          STORAGE_REDACTED_FIELDS.boundaryCrossing
+        ).detail,
         lastSeenAt: input.now,
       },
     })

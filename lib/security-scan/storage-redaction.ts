@@ -4,7 +4,8 @@ import { redactJsonForStorage } from '@/lib/validation/hook-payload'
 /**
  * LUM-898 — the free-text / JSON columns of tables that used to be written
  * with no credential redaction at all (for BoundaryCrossing and TestCaseRun,
- * only their human/agent-written note columns). Their repositories pass every write's
+ * only their human/agent-written note columns, plus the crossing's
+ * command-quoting `detail` / `target`). Their repositories pass every write's
  * `data` through `redactStoredFields` with the table's list, so a credential
  * pasted into a comment, a memory card, an artifact, a crossing explanation,
  * a task field or an activity payload is stored in the `AKIA…(len 20)` form
@@ -18,8 +19,9 @@ export const STORAGE_REDACTED_FIELDS = {
   boundaryCrossingExplanation: ['note'],
   taskActivity: ['payload'],
   // Column-scoped: the other stock-scanned columns of these two tables are
-  // written by detectors / the run recorder, not free text (LUM-898 follow-up).
-  boundaryCrossing: ['dispositionNote'],
+  // written by detectors / the run recorder, not free text (LUM-898 follow-up)
+  // — except `detail` / `target`, which quote the raw command (LUM-900).
+  boundaryCrossing: ['detail', 'target', 'dispositionNote'],
   testCaseRun: ['note'],
   task: [
     'title',
