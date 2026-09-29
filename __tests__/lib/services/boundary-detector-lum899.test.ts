@@ -26,8 +26,8 @@ const awsKeyId = 'AKIA' + 'QM7TZ4LW9KP2XC8V'
 const githubToken = 'ghp' + '_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4Pe7Ab'
 const pemBlock = [
   '-----BEGIN ' + 'RSA PRIVATE KEY-----',
-  'MIIEowIBAAKCAQEAu1SU1LfVLPHCozMxH2Mo4lgOEePzNm0tRgeLezV6ffAt0gun',
-  'VTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u+qKhbwKfBstIs+bMY2Zkp18gnTxK',
+  'Ab3'.repeat(21) + 'x',
+  'Qm7'.repeat(21) + 'y',
   '-----END ' + 'RSA PRIVATE KEY-----',
 ].join('\n')
 
