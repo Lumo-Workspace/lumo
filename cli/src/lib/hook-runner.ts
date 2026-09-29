@@ -13,7 +13,12 @@ import {
   collectDeletedTestFiles,
   looksLikeDeleteCommand,
 } from './git-deleted-test-files'
-import { probeWrittenPathIgnored, WRITE_TOOL_NAMES } from './git-ignored-path'
+import {
+  probeCheckoutRelativePath,
+  probeWrittenPathIgnored,
+  WRITE_TOOL_NAMES,
+  writtenFilePath,
+} from './git-ignored-path'
 
 /**
  * Hard timeout for the hook POST. On timeout the request is aborted,
@@ -442,14 +447,20 @@ export function augmentBodyWithDeletedTestFiles(
  * body under `_lumo_written_path_ignored`. The server records a secret written
  * to an ignored file (never committed) as advisory instead of DONE-blocking.
  *
- * Only a real answer (true/false) is attached; a probe that cannot answer or
- * throws leaves the body untouched, and the server then judges as before
- * (fail closed). Never blocks or fails the hook.
+ * LUM-904: NotebookEdit (`notebook_path`) too, and git's checkout-relative
+ * path of the file rides along under `_lumo_checkout_relative_path` — the
+ * server judges the test/fixture/doc path downgrade on it instead of the
+ * session cwd, which may sit above the checkout.
+ *
+ * Only a real answer is attached; a probe that cannot answer or throws leaves
+ * its field off, and the server then judges as before (fail closed). Never
+ * blocks or fails the hook.
  */
 export function augmentBodyWithWrittenPathIgnored(
   path: HookPath,
   body: string,
-  probe: typeof probeWrittenPathIgnored = probeWrittenPathIgnored
+  probe: typeof probeWrittenPathIgnored = probeWrittenPathIgnored,
+  rootProbe: typeof probeCheckoutRelativePath = probeCheckoutRelativePath
 ): string {
   if (path !== 'post-tool-use') return body
   let parsed: Record<string, unknown>
@@ -462,24 +473,27 @@ export function augmentBodyWithWrittenPathIgnored(
   const toolName = parsed['tool_name']
   if (typeof toolName !== 'string' || !WRITE_TOOL_NAMES.has(toolName))
     return body
-  const input = parsed['tool_input']
-  const filePath =
-    input && typeof input === 'object'
-      ? (input as Record<string, unknown>)['file_path']
-      : undefined
-  if (typeof filePath !== 'string' || !filePath) return body
+  const filePath = writtenFilePath(parsed['tool_input'])
+  if (filePath === null) return body
   const cwd =
     typeof parsed['cwd'] === 'string' && parsed['cwd']
       ? (parsed['cwd'] as string)
       : process.cwd()
-  let ignored: boolean | null
-  try {
-    ignored = probe(cwd, filePath)
-  } catch {
-    return body
+  const answer = <T>(run: () => T | null): T | null => {
+    try {
+      return run()
+    } catch {
+      return null
+    }
   }
-  if (ignored === null) return body
-  return JSON.stringify({ ...parsed, _lumo_written_path_ignored: ignored })
+  const ignored = answer(() => probe(cwd, filePath))
+  const relPath = answer(() => rootProbe(cwd, filePath))
+  if (ignored === null && relPath === null) return body
+  return JSON.stringify({
+    ...parsed,
+    ...(ignored === null ? {} : { _lumo_written_path_ignored: ignored }),
+    ...(relPath === null ? {} : { _lumo_checkout_relative_path: relPath }),
+  })
 }
 
 /**

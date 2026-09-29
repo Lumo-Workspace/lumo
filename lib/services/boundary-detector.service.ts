@@ -138,9 +138,13 @@ function clip(s: string): string {
 
 /** Was this stored `detail` produced by `clip` truncating the command? A
  *  clipped detail is not the whole command, so nothing may be re-judged from
- *  it alone (LUM-772 backfill). */
+ *  it alone (LUM-772 backfill). LUM-904: judged on the trailing `…` alone —
+ *  the LUM-898 re-redaction shortens a clipped detail that quoted a credential
+ *  (201 → 174), so its length says nothing any more. A whole command that
+ *  happens to end in `…` reads as clipped too and stays open for a human, the
+ *  safe side. */
 export function isClippedDetail(detail: string): boolean {
-  return detail.length === DETAIL_MAX + 1 && detail.endsWith('…')
+  return detail.endsWith('…')
 }
 
 /** Pull the Bash command text out of a PostToolUse payload (unindexed JSON). */
@@ -174,7 +178,8 @@ export function readDeletedTestFiles(payload: unknown): string[] | null {
 
 /**
  * Pull written file content (Write `content` / Edit `new_string` / MultiEdit
- * `edits[].new_string`) for secret scanning.
+ * `edits[].new_string` / NotebookEdit `new_source`, LUM-904) for secret
+ * scanning.
  */
 function readWrittenContent(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') return null
@@ -188,9 +193,13 @@ function readWrittenContent(payload: unknown): string | null {
           : undefined
       )
     : []
-  const parts = [o.content, o.new_string, o.new_str, ...edits].filter(
-    (v): v is string => typeof v === 'string'
-  )
+  const parts = [
+    o.content,
+    o.new_string,
+    o.new_str,
+    o.new_source,
+    ...edits,
+  ].filter((v): v is string => typeof v === 'string')
   return parts.length > 0 ? parts.join('\n') : null
 }
 
@@ -383,24 +392,84 @@ function scanWrittenContent(
 const ABSOLUTE_PATH = /^(?:[A-Za-z]:)?[\\/]/
 
 /**
+ * LUM-904: `/` separators with `.` / `..` segments collapsed, so
+ * `/repo/../docs/x.ts` is judged as the `/docs/x.ts` it really is. A relative
+ * path whose `..` climbs above its start keeps the leading `..` segments.
+ */
+function normalizeSegments(p: string): string {
+  const s = p.replace(/\\/g, '/')
+  const drive = /^[A-Za-z]:/.exec(s)?.[0] ?? ''
+  const rest = s.slice(drive.length)
+  const absolute = rest.startsWith('/')
+  const out: string[] = []
+  for (const seg of rest.split('/')) {
+    if (seg === '' || seg === '.') continue
+    if (seg === '..' && out.length > 0 && out[out.length - 1] !== '..') {
+      out.pop()
+    } else if (seg === '..' && absolute) {
+      continue
+    } else {
+      out.push(seg)
+    }
+  }
+  return drive + (absolute ? '/' : '') + out.join('/')
+}
+
+/**
+ * LUM-904: the CLI post-tool-use hook folds `_lumo_checkout_relative_path`
+ * into a write payload — local git's answer to "where is this file inside its
+ * own checkout?" (`git rev-parse --show-prefix` run beside the file). It is
+ * the only reliable root: a session started in a parent directory
+ * (`cwd=/Users/me`, file `/Users/me/docs/app/lib/x.ts`) would otherwise make
+ * the checkout's own location read as a doc/test path.
+ */
+export const CHECKOUT_RELATIVE_PATH_FIELD = '_lumo_checkout_relative_path'
+
+/**
+ * The reported checkout-relative path, only when it can be the written file:
+ * relative, no `..`, and the (normalized) written path ends with it on a
+ * segment boundary. Anything else reads as "no answer" — a malformed or
+ * mismatched field can never steer the path downgrade.
+ */
+function readCheckoutRelativePath(
+  payload: unknown,
+  file: string
+): string | null {
+  if (!payload || typeof payload !== 'object') return null
+  const raw = (payload as Record<string, unknown>)[CHECKOUT_RELATIVE_PATH_FIELD]
+  if (typeof raw !== 'string' || raw === '' || ABSOLUTE_PATH.test(raw))
+    return null
+  const rel = normalizeSegments(raw)
+  if (rel === '' || rel.split('/').includes('..')) return null
+  return `/${file}`.endsWith(`/${rel}`) ? rel : null
+}
+
+/**
  * LUM-899: the path the test/fixture/doc downgrade is judged on — relative to
- * the checkout (the hook's `cwd`), so a checkout living under `~/docs/` or
- * `/ci/tests/` is not mistaken for a doc/test path. An absolute path outside
- * the known checkout gets no path downgrade (`''`) rather than a guess.
+ * the checkout, so a checkout living under `~/docs/` or `/ci/tests/` is not
+ * mistaken for a doc/test path. LUM-904: the CLI-reported checkout-relative
+ * path wins; without it, the hook's `cwd` is the root (an older client — a
+ * session started above the checkout still reads the checkout's location as
+ * part of the path). Both sides are `..`-normalized first. A path outside the
+ * known checkout gets no path downgrade (`''`) rather than a guess.
  */
 function checkoutRelativePath(
   filePath: string | null,
   payload: unknown
 ): string | null {
-  if (filePath == null || !ABSOLUTE_PATH.test(filePath)) return filePath
+  if (filePath == null) return null
+  const file = normalizeSegments(filePath)
+  const reported = readCheckoutRelativePath(payload, file)
+  if (reported != null) return reported
+  if (!ABSOLUTE_PATH.test(filePath)) {
+    return file.split('/').includes('..') ? '' : file
+  }
   const cwd =
     payload && typeof payload === 'object'
       ? (payload as Record<string, unknown>).cwd
       : undefined
-  const norm = (p: string) => p.replace(/\\/g, '/')
   if (typeof cwd === 'string' && ABSOLUTE_PATH.test(cwd)) {
-    const root = norm(cwd).replace(/\/+$/, '') + '/'
-    const file = norm(filePath)
+    const root = normalizeSegments(cwd).replace(/\/+$/, '') + '/'
     if (file.startsWith(root)) return file.slice(root.length)
   }
   return ''

@@ -83,6 +83,7 @@ function extractNestedStringField(
  * in unqueryable JSON. Checks, in priority order, the locations Claude Code uses
  * across event shapes:
  *   1. `tool_input.file_path` — Read/Edit/MultiEdit/Write tool events
+ *      (`tool_input.notebook_path` for NotebookEdit, LUM-904)
  *   2. `tool_response.filePath` — Write/Edit PostToolUse responses
  *   3. top-level `path` / `file_path` — FILE_CHANGED, CONFIG_CHANGE,
  *      INSTRUCTIONS_LOADED
@@ -93,6 +94,7 @@ function extractNestedStringField(
 export function extractFilePath(payload: unknown): string | null {
   return (
     extractNestedStringField(payload, 'tool_input', 'file_path') ??
+    extractNestedStringField(payload, 'tool_input', 'notebook_path') ??
     extractNestedStringField(payload, 'tool_response', 'filePath') ??
     extractStringField(payload, 'path') ??
     extractStringField(payload, 'file_path')

@@ -11,7 +11,10 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { augmentBodyWithWrittenPathIgnored } from '@/cli/src/lib/hook-runner'
-import { probeWrittenPathIgnored } from '@/cli/src/lib/git-ignored-path'
+import {
+  probeCheckoutRelativePath,
+  probeWrittenPathIgnored,
+} from '@/cli/src/lib/git-ignored-path'
 
 const body = (toolName: string, input: Record<string, unknown>) =>
   JSON.stringify({
@@ -154,5 +157,85 @@ describe('LUM-893 gitignore probe', () => {
       ).toBe(true)
       expect(probeWrittenPathIgnored(outside, join('nope', 'k.ts'))).toBeNull()
     })
+  })
+})
+
+describe('LUM-904 checkout root', () => {
+  let home: string
+  let app: string
+  beforeAll(() => {
+    // A checkout under ~/docs/, the session started in ~ (the parent).
+    home = mkdtempSync(join(tmpdir(), 'lum904-'))
+    app = join(home, 'docs', 'app')
+    mkdirSync(join(app, 'lib'), { recursive: true })
+    expect(
+      spawnSync('git', ['init', '-q'], { cwd: app, stdio: 'ignore' }).status
+    ).toBe(0)
+    writeFileSync(join(app, 'lib', 'stripe.ts'), 'x')
+  })
+  afterAll(() => rmSync(home, { recursive: true, force: true }))
+
+  it('LUM-904 checkout root probe answers relative to the file checkout', () => {
+    expect(probeCheckoutRelativePath(home, join(app, 'lib', 'stripe.ts'))).toBe(
+      'lib/stripe.ts'
+    )
+    expect(probeCheckoutRelativePath(app, 'lib/stripe.ts')).toBe(
+      'lib/stripe.ts'
+    )
+    // `..` collapses before git is asked; missing dirs answer from the checkout.
+    expect(
+      probeCheckoutRelativePath(home, join(app, 'x', '..', 'lib', 'stripe.ts'))
+    ).toBe('lib/stripe.ts')
+    expect(probeCheckoutRelativePath(home, join(app, 'gone', 'k.ts'))).toBe(
+      'gone/k.ts'
+    )
+    // Outside any repository: no answer.
+    expect(probeCheckoutRelativePath(home, join(home, 'k.ts'))).toBeNull()
+  })
+
+  it('LUM-904 checkout root rides every write tool including NotebookEdit', () => {
+    const cases: Array<[string, Record<string, unknown>]> = [
+      ['Write', { file_path: join(app, 'lib', 'stripe.ts'), content: 'x' }],
+      ['Edit', { file_path: join(app, 'lib', 'stripe.ts'), new_string: 'x' }],
+      ['MultiEdit', { file_path: join(app, 'lib', 'stripe.ts'), edits: [] }],
+      [
+        'NotebookEdit',
+        { notebook_path: join(app, 'lib', 'nb.ipynb'), new_source: 'x' },
+      ],
+    ]
+    for (const [tool, input] of cases) {
+      const out = JSON.parse(
+        augmentBodyWithWrittenPathIgnored(
+          'post-tool-use',
+          JSON.stringify({ cwd: home, tool_name: tool, tool_input: input })
+        )
+      )
+      const expected =
+        tool === 'NotebookEdit' ? 'lib/nb.ipynb' : 'lib/stripe.ts'
+      expect([tool, out['_lumo_checkout_relative_path']]).toEqual([
+        tool,
+        expected,
+      ])
+      expect([tool, out['_lumo_written_path_ignored']]).toEqual([tool, false])
+    }
+
+    // A probe that cannot answer or throws leaves only its own field off.
+    const writeBody = JSON.stringify({
+      cwd: home,
+      tool_name: 'Write',
+      tool_input: { file_path: join(app, 'lib', 'stripe.ts'), content: 'x' },
+    })
+    const onlyIgnored = JSON.parse(
+      augmentBodyWithWrittenPathIgnored(
+        'post-tool-use',
+        writeBody,
+        () => true,
+        () => {
+          throw new Error('boom')
+        }
+      )
+    )
+    expect(onlyIgnored['_lumo_written_path_ignored']).toBe(true)
+    expect('_lumo_checkout_relative_path' in onlyIgnored).toBe(false)
   })
 })
