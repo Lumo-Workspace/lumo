@@ -8,6 +8,7 @@ import { TEST_FILE_TARGET } from '../../shared/src/test-file-path'
 import { hasRedactedContent } from '@/lib/hook-payload/redact'
 import {
   isCrossingAdvisoryRule,
+  isShapeRule,
   redactForStorage,
   scanSecrets,
   type RawSecretFinding,
@@ -171,13 +172,23 @@ export function readDeletedTestFiles(payload: unknown): string[] | null {
   return raw as string[]
 }
 
-/** Pull written file content (Write `content` / Edit `new_string`) for secret scanning. */
+/**
+ * Pull written file content (Write `content` / Edit `new_string` / MultiEdit
+ * `edits[].new_string`) for secret scanning.
+ */
 function readWrittenContent(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') return null
   const input = (payload as Record<string, unknown>).tool_input
   if (!input || typeof input !== 'object') return null
   const o = input as Record<string, unknown>
-  const parts = [o.content, o.new_string, o.new_str].filter(
+  const edits = Array.isArray(o.edits)
+    ? o.edits.map(e =>
+        e && typeof e === 'object'
+          ? (e as Record<string, unknown>).new_string
+          : undefined
+      )
+    : []
+  const parts = [o.content, o.new_string, o.new_str, ...edits].filter(
     (v): v is string => typeof v === 'string'
   )
   return parts.length > 0 ? parts.join('\n') : null
@@ -369,12 +380,38 @@ function scanWrittenContent(
   return best
 }
 
+const ABSOLUTE_PATH = /^(?:[A-Za-z]:)?[\\/]/
+
+/**
+ * LUM-899: the path the test/fixture/doc downgrade is judged on — relative to
+ * the checkout (the hook's `cwd`), so a checkout living under `~/docs/` or
+ * `/ci/tests/` is not mistaken for a doc/test path. An absolute path outside
+ * the known checkout gets no path downgrade (`''`) rather than a guess.
+ */
+function checkoutRelativePath(
+  filePath: string | null,
+  payload: unknown
+): string | null {
+  if (filePath == null || !ABSOLUTE_PATH.test(filePath)) return filePath
+  const cwd =
+    payload && typeof payload === 'object'
+      ? (payload as Record<string, unknown>).cwd
+      : undefined
+  const norm = (p: string) => p.replace(/\\/g, '/')
+  if (typeof cwd === 'string' && ABSOLUTE_PATH.test(cwd)) {
+    const root = norm(cwd).replace(/\/+$/, '') + '/'
+    const file = norm(filePath)
+    if (file.startsWith(root)) return file.slice(root.length)
+  }
+  return ''
+}
+
 /**
  * LUM-893: local env files that frameworks keep out of git by convention
- * (`.env.local`, `.env.<mode>.local`, `.env.test`). A developer key written
- * there is not hardcoded into the code — recorded, advisory. A plain `.env` /
- * `.env.production` is NOT here: it is often committed, so it only turns
- * advisory when the hook's gitignore probe says so.
+ * (`.env.local`, `.env.<mode>.local`, `.env.test`). LUM-899: only a guess —
+ * `.env.test` is often committed and a `.env.local` can be tracked — so it is
+ * used only when the hook's git probe gave no answer, and only downgrades a
+ * broad-shape rule, never a vendor-prefixed key.
  */
 const LOCAL_ENV_FILE =
   /(?:^|[\\/])\.env(?:\.[A-Za-z0-9_-]+)?\.local$|(?:^|[\\/])\.env\.test$/
@@ -429,8 +466,8 @@ function secretDowngradeSuffix(
   }
   if (file.ignored) return ' (gitignored file — advisory)'
   if (file.local) return ' (local env file — advisory)'
-  if (isCrossingAdvisoryRule(f.ruleId))
-    return ' (broad credential shape — advisory)'
+  if (isShapeRule(f.ruleId)) return ' (broad credential shape — advisory)'
+  if (isCrossingAdvisoryRule(f.ruleId)) return ' (test-mode key — advisory)'
   return ''
 }
 
@@ -976,19 +1013,28 @@ export function detectCrossings(
 
   const content = readWrittenContent(input.payload)
   if (content) {
-    const hit = scanWrittenContent(content, input.filePath)
+    const hit = scanWrittenContent(
+      content,
+      checkoutRelativePath(input.filePath, input.payload)
+    )
     if (hit) {
       const file = input.filePath ?? UNKNOWN_WRITTEN_FILE
       // A downgraded hit (placeholder value / test-fixture-doc path) is still
       // recorded — but LOW and advisory, so it never blocks DONE: the same
       // "recorded, never blocking" stance the PR scanner takes for LOW.
       // LUM-893: so is a broad-shape / test-key rule, and any hit in a file
-      // that never reaches git (a local env file, or one the hook's probe
-      // found gitignored).
+      // the hook's probe found gitignored (never reaches git). LUM-899: the
+      // probe's answer wins — `false` (tracked / not ignored) is judged as any
+      // file; the local-env filename guess applies only without an answer and
+      // only to a broad-shape rule. LUM-903: an untrusted `true` under
+      // `.worktrees/` counts as no answer.
+      const probe = trustedWrittenPathIgnored(input.payload, input.filePath)
       const where = {
-        local: isLocalEnvFile(input.filePath),
-        ignored:
-          trustedWrittenPathIgnored(input.payload, input.filePath) === true,
+        local:
+          probe === null &&
+          isShapeRule(hit.ruleId) &&
+          isLocalEnvFile(input.filePath),
+        ignored: probe === true,
       }
       const downgraded =
         isAdvisorySecretHit(hit) || where.local || where.ignored
