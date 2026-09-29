@@ -10,6 +10,10 @@ import type {
   BoundaryCrossingSeverity,
   Prisma,
 } from '@prisma/client'
+import {
+  redactStoredFields,
+  STORAGE_REDACTED_FIELDS,
+} from '@/lib/security-scan/storage-redaction'
 
 export interface CreateBoundaryCrossingInput {
   /** Null since LUM-640 for milestone-scoped steward crossings (no task exists);
@@ -674,7 +678,10 @@ export const boundaryCrossingRepository = {
     return prisma.boundaryCrossingExplanation.create({
       data: {
         crossingId: input.crossingId,
-        note: input.note,
+        note: redactStoredFields(
+          { note: input.note },
+          STORAGE_REDACTED_FIELDS.boundaryCrossingExplanation
+        ).note,
         authorSessionId: input.authorSessionId ?? null,
         authorAgent: input.authorAgent ?? null,
       },

@@ -7,6 +7,10 @@ import type {
   MemoryScope,
   TaskArtifactAgent,
 } from '@prisma/client'
+import {
+  redactStoredFields,
+  STORAGE_REDACTED_FIELDS,
+} from '@/lib/security-scan/storage-redaction'
 
 const MEMORY_ROW_SELECT = {
   id: true,
@@ -416,7 +420,11 @@ export const memoryRepository = {
   ) {
     const client = tx ?? prisma
     const data: Prisma.MemoryUpdateInput = {}
-    if (patch.content !== undefined) data.content = patch.content
+    if (patch.content !== undefined)
+      data.content = redactStoredFields(
+        { content: patch.content },
+        STORAGE_REDACTED_FIELDS.memory
+      ).content
     if (patch.contentSignals !== undefined) {
       Object.assign(data, contentSignalsData(patch.contentSignals))
     }
@@ -470,7 +478,10 @@ export const memoryRepository = {
         milestoneId: input.milestoneId ?? null,
         scope: input.scope,
         category: input.category,
-        content: input.content,
+        content: redactStoredFields(
+          { content: input.content },
+          STORAGE_REDACTED_FIELDS.memory
+        ).content,
         sourceSessionId: input.sourceSessionId,
         createdByMemberId: input.createdByMemberId,
         sourceTaskId: input.sourceTaskId ?? null,
@@ -491,7 +502,10 @@ export const memoryRepository = {
     const client = tx ?? prisma
     return client.memory.update({
       where: { id },
-      data: { content, ...contentSignalsData(contentSignals) },
+      data: {
+        ...redactStoredFields({ content }, STORAGE_REDACTED_FIELDS.memory),
+        ...contentSignalsData(contentSignals),
+      },
       select: { id: true },
     })
   },
@@ -545,7 +559,10 @@ export const memoryRepository = {
         scope: old.scope,
         category: old.category,
         agent: old.agent,
-        content,
+        content: redactStoredFields(
+          { content: content },
+          STORAGE_REDACTED_FIELDS.memory
+        ).content,
         sourceSessionId: old.sourceSessionId,
         createdByMemberId: old.createdByMemberId,
         // Birth record travels with the lineage chain (LUM-397): the
@@ -616,7 +633,10 @@ export const memoryRepository = {
           projectId: params.projectId,
           scope: 'PROJECT',
           category: params.category,
-          content: params.coarseContent,
+          content: redactStoredFields(
+            { content: params.coarseContent },
+            STORAGE_REDACTED_FIELDS.memory
+          ).content,
           agent: 'CLAUDE_CODE',
           createdByMemberId: null,
           sourceSessionId: params.sourceSessionId ?? null,

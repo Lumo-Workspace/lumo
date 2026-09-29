@@ -1,5 +1,9 @@
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma, TaskActivityType } from '@prisma/client'
+import {
+  redactStoredFields,
+  STORAGE_REDACTED_FIELDS,
+} from '@/lib/security-scan/storage-redaction'
 
 interface CreateActivityData {
   taskId: string
@@ -38,12 +42,15 @@ export const activityRepository = {
   async create(data: CreateActivityData, tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
     return client.taskActivity.create({
-      data: {
-        taskId: data.taskId,
-        actorId: data.actorId,
-        type: data.type,
-        payload: data.payload as unknown as Prisma.InputJsonValue,
-      },
+      data: redactStoredFields(
+        {
+          taskId: data.taskId,
+          actorId: data.actorId,
+          type: data.type,
+          payload: data.payload as unknown as Prisma.InputJsonValue,
+        },
+        STORAGE_REDACTED_FIELDS.taskActivity
+      ),
     })
   },
 

@@ -6,6 +6,10 @@ import type {
   TaskPriority,
   AgentStatus,
 } from '@prisma/client'
+import {
+  redactStoredFields,
+  STORAGE_REDACTED_FIELDS,
+} from '@/lib/security-scan/storage-redaction'
 
 export const WORKSPACE_TASK_QUERY_LIMIT = 500
 
@@ -549,7 +553,10 @@ export const taskRepository = {
     return prisma.task.update({
       where: { id: taskId },
       data: {
-        claimSnapshot: snapshot.text,
+        ...redactStoredFields(
+          { claimSnapshot: snapshot.text },
+          STORAGE_REDACTED_FIELDS.task
+        ),
         claimSnapshotSource: snapshot.source,
         claimSnapshotSessionId: snapshot.sessionId,
         claimSnapshotAt: snapshot.at,
@@ -642,7 +649,10 @@ export const taskRepository = {
   async update(id: string, data: TaskUpdateData) {
     return prisma.task.update({
       where: { id },
-      data: data as Parameters<typeof prisma.task.update>[0]['data'],
+      data: redactStoredFields(
+        data,
+        STORAGE_REDACTED_FIELDS.task
+      ) as Parameters<typeof prisma.task.update>[0]['data'],
       include: {
         project: { select: { id: true, name: true } },
         team: { select: { identifier: true } },
@@ -708,7 +718,10 @@ export const taskRepository = {
   async updateSpec(id: string, spec: string) {
     return prisma.task.update({
       where: { id },
-      data: { spec, agentError: null },
+      data: {
+        ...redactStoredFields({ spec }, STORAGE_REDACTED_FIELDS.task),
+        agentError: null,
+      },
     })
   },
 
@@ -1101,8 +1114,10 @@ export const taskRepository = {
           projectId: data.projectId,
           teamId: data.teamId,
           number: taskSeq,
-          title: data.title,
-          description: data.description,
+          ...redactStoredFields(
+            { title: data.title, description: data.description },
+            STORAGE_REDACTED_FIELDS.task
+          ),
           status: data.status,
           priority: data.priority,
           assigneeActorId: data.assigneeActorId,
@@ -1178,7 +1193,10 @@ export const taskRepository = {
             projectId,
             teamId,
             number: taskSeq - taskInputs.length + 1 + i,
-            title: input.title,
+            ...redactStoredFields(
+              { title: input.title },
+              STORAGE_REDACTED_FIELDS.task
+            ),
             status: input.status,
             priority: input.priority,
             assigneeActorId: input.assigneeActorId ?? null,
@@ -1365,7 +1383,13 @@ export const taskRepository = {
   async updateCommentsSummary(taskId: string, summary: string) {
     return prisma.task.update({
       where: { id: taskId },
-      data: { commentsSummary: summary, commentsSummaryAt: new Date() },
+      data: {
+        ...redactStoredFields(
+          { commentsSummary: summary },
+          STORAGE_REDACTED_FIELDS.task
+        ),
+        commentsSummaryAt: new Date(),
+      },
     })
   },
 

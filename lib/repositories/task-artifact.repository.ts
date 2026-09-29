@@ -2,6 +2,10 @@ import { prisma } from '@/lib/db/prisma'
 import type { TaskArtifactAgent } from '@prisma/client'
 import type { ContentSignals } from '@/shared/src/untrusted-content'
 import { contentSignalsData } from './content-signals-column'
+import {
+  redactStoredFields,
+  STORAGE_REDACTED_FIELDS,
+} from '@/lib/security-scan/storage-redaction'
 
 export interface CreateTaskArtifactInput {
   taskId: string
@@ -30,7 +34,10 @@ export const taskArtifactRepository = {
   async create(input: CreateTaskArtifactInput) {
     const { contentSignals, ...rest } = input
     return prisma.taskArtifact.create({
-      data: { ...rest, ...contentSignalsData(contentSignals) },
+      data: {
+        ...redactStoredFields(rest, STORAGE_REDACTED_FIELDS.taskArtifact),
+        ...contentSignalsData(contentSignals),
+      },
     })
   },
 
@@ -52,7 +59,10 @@ export const taskArtifactRepository = {
   async updateSummary(id: string, summary: string) {
     return prisma.taskArtifact.update({
       where: { id },
-      data: { summary },
+      data: redactStoredFields(
+        { summary },
+        STORAGE_REDACTED_FIELDS.taskArtifact
+      ),
     })
   },
 
@@ -73,7 +83,12 @@ export const taskArtifactRepository = {
       where: { id, taskId },
       data: {
         ...(data.kind !== undefined ? { kind: data.kind } : {}),
-        ...(data.title !== undefined ? { title: data.title } : {}),
+        ...(data.title !== undefined
+          ? redactStoredFields(
+              { title: data.title },
+              STORAGE_REDACTED_FIELDS.taskArtifact
+            )
+          : {}),
         ...(data.source !== undefined ? { source: data.source } : {}),
         ...(data.agent !== undefined ? { agent: data.agent } : {}),
         ...contentSignalsData(data.contentSignals),

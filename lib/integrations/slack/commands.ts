@@ -2,6 +2,10 @@ import { prisma } from '@/lib/db/prisma'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
 import { slugify } from '@/lib/utils/slugify'
 import { CommandResult } from './types'
+import {
+  redactStoredFields,
+  STORAGE_REDACTED_FIELDS,
+} from '@/lib/security-scan/storage-redaction'
 
 // Resolve Slack user email → WorkspaceMember in workspaceId
 async function resolveSlackUser(
@@ -268,7 +272,10 @@ export async function handleCommand(
 
       const task = await prisma.task.create({
         data: {
-          title: title!,
+          ...redactStoredFields(
+            { title: title! },
+            STORAGE_REDACTED_FIELDS.task
+          ),
           teamId: team.id,
           projectId: project?.id ?? '',
           number: team._count.tasks + 1,

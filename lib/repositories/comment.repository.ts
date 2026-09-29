@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/db/prisma'
 import type { ContentSignals } from '@/shared/src/untrusted-content'
 import { contentSignalsData } from './content-signals-column'
+import {
+  redactStoredFields,
+  STORAGE_REDACTED_FIELDS,
+} from '@/lib/security-scan/storage-redaction'
 
 interface CreateCommentData {
   taskId: string
@@ -57,7 +61,7 @@ export const commentRepository = {
       data: {
         ideaId: data.ideaId,
         authorActorId: data.authorActorId,
-        body: data.body,
+        body: redactStoredFields(data, STORAGE_REDACTED_FIELDS.comment).body,
         parentId: null,
         quotedCommentId: null,
         ...contentSignalsData(data.contentSignals),
@@ -86,7 +90,10 @@ export const commentRepository = {
   async create(data: CreateCommentData) {
     const { contentSignals, ...rest } = data
     return prisma.comment.create({
-      data: { ...rest, ...contentSignalsData(contentSignals) },
+      data: {
+        ...redactStoredFields(rest, STORAGE_REDACTED_FIELDS.comment),
+        ...contentSignalsData(contentSignals),
+      },
     })
   },
 
@@ -105,7 +112,13 @@ export const commentRepository = {
   ) {
     return prisma.comment.update({
       where: { id },
-      data: { body: data.body, ...contentSignalsData(data.contentSignals) },
+      data: {
+        ...redactStoredFields(
+          { body: data.body },
+          STORAGE_REDACTED_FIELDS.comment
+        ),
+        ...contentSignalsData(data.contentSignals),
+      },
     })
   },
 
