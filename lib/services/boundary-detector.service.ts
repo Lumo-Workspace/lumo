@@ -5,6 +5,12 @@ import type {
 import { createHash } from 'crypto'
 // LUM-779: single-sourced with the CLI's local-git probe — see the module doc.
 import { TEST_FILE_TARGET } from '../../shared/src/test-file-path'
+import {
+  CHECKOUT_RELATIVE_PATH_FIELD,
+  WRITTEN_PATH_IGNORED_FIELD,
+  WRITTEN_PATH_PROBE_FIELD,
+  WRITTEN_PATH_PROBE_FILE_DIR,
+} from '../../shared/src/written-path-probe'
 import { hasRedactedContent } from '@/lib/hook-payload/redact'
 import {
   isCrossingAdvisoryRule,
@@ -416,14 +422,14 @@ function normalizeSegments(p: string): string {
 }
 
 /**
- * LUM-904: the CLI post-tool-use hook folds `_lumo_checkout_relative_path`
+ * LUM-904: the CLI post-tool-use hook folds `CHECKOUT_RELATIVE_PATH_FIELD`
  * into a write payload — local git's answer to "where is this file inside its
  * own checkout?" (`git rev-parse --show-prefix` run beside the file). It is
  * the only reliable root: a session started in a parent directory
  * (`cwd=/Users/me`, file `/Users/me/docs/app/lib/x.ts`) would otherwise make
  * the checkout's own location read as a doc/test path.
  */
-export const CHECKOUT_RELATIVE_PATH_FIELD = '_lumo_checkout_relative_path'
+export { CHECKOUT_RELATIVE_PATH_FIELD }
 
 /**
  * The reported checkout-relative path, only when it can be the written file:
@@ -495,7 +501,7 @@ export function isLocalEnvFile(filePath: string | null): boolean {
  * boolean counts; a missing or malformed field reads as "unknown" so a broken
  * or old client can never downgrade a crossing.
  */
-export const WRITTEN_PATH_IGNORED_FIELD = '_lumo_written_path_ignored'
+export { WRITTEN_PATH_IGNORED_FIELD, WRITTEN_PATH_PROBE_FIELD }
 
 export function readWrittenPathIgnored(payload: unknown): boolean | null {
   if (!payload || typeof payload !== 'object') return null
@@ -504,12 +510,24 @@ export function readWrittenPathIgnored(payload: unknown): boolean | null {
 }
 
 /**
+ * LUM-908: the CLI (1.80.2+) folds a marker next to the answer saying the
+ * probe ran in the checkout the written file lives in (LUM-903's fix). Only
+ * the exact value counts; anything else reads as an unmarked (old) answer.
+ */
+function hasFileDirProbeMarker(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') return false
+  const raw = (payload as Record<string, unknown>)[WRITTEN_PATH_PROBE_FIELD]
+  return raw === WRITTEN_PATH_PROBE_FILE_DIR
+}
+
+/**
  * LUM-903: CLI 1.80.0 probed from the session cwd, so a session in the main
  * checkout writing into `.worktrees/<task>/` got "ignored" for every tracked
  * file (the main `.gitignore` hides `.worktrees/`). Installed clients keep
  * sending that wrong `true` until they upgrade, so a `true` for a path under a
  * `.worktrees/` directory is not trusted — the hit is judged as if no probe
- * answered (a real local env file there is still advisory via its name).
+ * answered. LUM-908: unless the payload carries the file-dir probe marker,
+ * which only a fixed client sends.
  */
 const WORKTREES_SEGMENT = /(?:^|[\\/])\.worktrees[\\/]/
 
@@ -518,7 +536,12 @@ export function trustedWrittenPathIgnored(
   filePath: string | null
 ): boolean | null {
   const ignored = readWrittenPathIgnored(payload)
-  if (ignored === true && filePath != null && WORKTREES_SEGMENT.test(filePath))
+  if (
+    ignored === true &&
+    filePath != null &&
+    WORKTREES_SEGMENT.test(filePath) &&
+    !hasFileDirProbeMarker(payload)
+  )
     return null
   return ignored
 }
@@ -1096,7 +1119,7 @@ export function detectCrossings(
       // probe's answer wins — `false` (tracked / not ignored) is judged as any
       // file; the local-env filename guess applies only without an answer and
       // only to a broad-shape rule. LUM-903: an untrusted `true` under
-      // `.worktrees/` counts as no answer.
+      // `.worktrees/` counts as no answer (LUM-908: trusted with the marker).
       const probe = trustedWrittenPathIgnored(input.payload, input.filePath)
       const where = {
         local:

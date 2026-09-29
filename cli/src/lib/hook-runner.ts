@@ -14,9 +14,13 @@ import {
   looksLikeDeleteCommand,
 } from './git-deleted-test-files'
 import {
+  CHECKOUT_RELATIVE_PATH_FIELD,
   probeCheckoutRelativePath,
   probeWrittenPathIgnored,
   WRITE_TOOL_NAMES,
+  WRITTEN_PATH_IGNORED_FIELD,
+  WRITTEN_PATH_PROBE_FIELD,
+  WRITTEN_PATH_PROBE_FILE_DIR,
   writtenFilePath,
 } from './git-ignored-path'
 
@@ -444,8 +448,9 @@ export function augmentBodyWithDeletedTestFiles(
 /**
  * LUM-893: for a post-tool-use Write/Edit/MultiEdit event, ask local git
  * whether the written `file_path` is gitignored and fold the answer into the
- * body under `_lumo_written_path_ignored`. The server records a secret written
- * to an ignored file (never committed) as advisory instead of DONE-blocking.
+ * body under `_lumo_written_path_ignored`, with the `_lumo_written_path_probe`
+ * marker naming the fixed (file-dir) probe (LUM-908). The server records a
+ * secret written to an ignored file (never committed) as advisory instead of DONE-blocking.
  *
  * LUM-904: NotebookEdit (`notebook_path`) too, and git's checkout-relative
  * path of the file rides along under `_lumo_checkout_relative_path` — the
@@ -489,10 +494,17 @@ export function augmentBodyWithWrittenPathIgnored(
   const ignored = answer(() => probe(cwd, filePath))
   const relPath = answer(() => rootProbe(cwd, filePath))
   if (ignored === null && relPath === null) return body
+  // LUM-908: the marker tells the server this answer came from the file's own
+  // checkout, so it can trust an "ignored" under `.worktrees/` again.
   return JSON.stringify({
     ...parsed,
-    ...(ignored === null ? {} : { _lumo_written_path_ignored: ignored }),
-    ...(relPath === null ? {} : { _lumo_checkout_relative_path: relPath }),
+    ...(ignored === null
+      ? {}
+      : {
+          [WRITTEN_PATH_IGNORED_FIELD]: ignored,
+          [WRITTEN_PATH_PROBE_FIELD]: WRITTEN_PATH_PROBE_FILE_DIR,
+        }),
+    ...(relPath === null ? {} : { [CHECKOUT_RELATIVE_PATH_FIELD]: relPath }),
   })
 }
 
