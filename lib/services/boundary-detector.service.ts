@@ -397,6 +397,26 @@ export function readWrittenPathIgnored(payload: unknown): boolean | null {
   return typeof raw === 'boolean' ? raw : null
 }
 
+/**
+ * LUM-903: CLI 1.80.0 probed from the session cwd, so a session in the main
+ * checkout writing into `.worktrees/<task>/` got "ignored" for every tracked
+ * file (the main `.gitignore` hides `.worktrees/`). Installed clients keep
+ * sending that wrong `true` until they upgrade, so a `true` for a path under a
+ * `.worktrees/` directory is not trusted — the hit is judged as if no probe
+ * answered (a real local env file there is still advisory via its name).
+ */
+const WORKTREES_SEGMENT = /(?:^|[\\/])\.worktrees[\\/]/
+
+export function trustedWrittenPathIgnored(
+  payload: unknown,
+  filePath: string | null
+): boolean | null {
+  const ignored = readWrittenPathIgnored(payload)
+  if (ignored === true && filePath != null && WORKTREES_SEGMENT.test(filePath))
+    return null
+  return ignored
+}
+
 function secretDowngradeSuffix(
   f: RawSecretFinding,
   file: { local: boolean; ignored: boolean }
@@ -967,7 +987,8 @@ export function detectCrossings(
       // found gitignored).
       const where = {
         local: isLocalEnvFile(input.filePath),
-        ignored: readWrittenPathIgnored(input.payload) === true,
+        ignored:
+          trustedWrittenPathIgnored(input.payload, input.filePath) === true,
       }
       const downgraded =
         isAdvisorySecretHit(hit) || where.local || where.ignored

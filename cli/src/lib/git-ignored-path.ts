@@ -1,4 +1,6 @@
 import { spawnSync } from 'child_process'
+import { existsSync, statSync } from 'fs'
+import { dirname, isAbsolute, relative, resolve } from 'path'
 
 /**
  * LUM-893 — the local half of the HARDCODED_SECRET "is this file ever going to
@@ -15,15 +17,43 @@ import { spawnSync } from 'child_process'
  * stays blocking). Anything else (not a repository, a path outside the work
  * tree, git missing, a timeout) is `null`: the caller omits the field and the
  * server keeps its fail-closed judgement.
+ *
+ * LUM-903: git runs in the checkout the FILE lives in, not the session cwd. A
+ * session parked in the main checkout writing into `.worktrees/<task>/` would
+ * otherwise ask the main checkout, whose `.gitignore` hides `.worktrees/` —
+ * and every tracked file in the worktree came back "ignored".
  */
 const GIT_TIMEOUT_MS = 2000
 
+/** Nearest existing directory at or above `dir` (a deleted parent still answers). */
+function nearestExistingDir(dir: string): string | null {
+  let cur = dir
+  for (;;) {
+    try {
+      if (existsSync(cur) && statSync(cur).isDirectory()) return cur
+    } catch {
+      // fall through to the parent
+    }
+    const parent = dirname(cur)
+    if (parent === cur) return null
+    cur = parent
+  }
+}
+
 export function probeWrittenPathIgnored(
-  cwd: string,
+  sessionCwd: string,
   filePath: string
 ): boolean | null {
   try {
-    const r = spawnSync('git', ['check-ignore', '-q', '--', filePath], {
+    const absPath = isAbsolute(filePath)
+      ? filePath
+      : resolve(sessionCwd, filePath)
+    const cwd = nearestExistingDir(dirname(absPath))
+    if (cwd === null) return null
+    // Relative to the probe cwd so a symlinked prefix (macOS /var → /private/var)
+    // can never read as "outside the work tree".
+    const target = relative(cwd, absPath)
+    const r = spawnSync('git', ['check-ignore', '-q', '--', target], {
       cwd,
       timeout: GIT_TIMEOUT_MS,
       stdio: 'ignore',
