@@ -1598,7 +1598,7 @@ export const boundaryCrossingService = {
       ...blocking.map(line),
       advisoryHead,
       ...advisory.map(line),
-      `For the blocking one${plural(blocking.length)} only: ${guidance[0].toLowerCase()}${guidance.slice(1)}`,
+      `For the blocking one${plural(blocking.length)} only: ${guidance.charAt(0).toLowerCase()}${guidance.slice(1)}`,
     ].join('\n')
   },
 
