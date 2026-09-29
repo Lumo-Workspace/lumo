@@ -1550,6 +1550,12 @@ export const boundaryCrossingService = {
     return result
   },
 
+  /**
+   * One-time agent reminder for freshly-detected crossings (LUM-542). Advisory
+   * crossings never block DONE (LUM-590), so they are labelled as such and get
+   * no explain/disposition guidance — otherwise the agent reads them as
+   * blockers and pushes our noise onto the customer (LUM-897).
+   */
   async buildAgentReminder(taskId: string): Promise<string | null> {
     const open =
       await boundaryCrossingRepository.findUnnotifiedOpenByTask(taskId)
@@ -1558,16 +1564,41 @@ export const boundaryCrossingService = {
       open.map(c => c.id),
       new Date()
     )
-    const items = open.map(c => `  • [${c.severity}] ${c.category} (${c.id})`)
-    return [
-      `⚠ Lumo recorded ${open.length} new boundary crossing${
-        open.length === 1 ? '' : 's'
-      } from your recent actions:`,
-      ...items,
+    const line = (c: (typeof open)[number]) =>
+      `  • [${c.severity}] ${c.category} (${c.id})`
+    const blocking = open.filter(c => !c.advisory)
+    const advisory = open.filter(c => c.advisory)
+    const plural = (n: number) => (n === 1 ? '' : 's')
+    const advisoryHead =
+      'Advisory — does NOT block DONE, no action needed (shown on the task for the record):'
+
+    if (blocking.length === 0) {
+      return [
+        `ℹ Lumo recorded ${advisory.length} new advisory boundary crossing${plural(
+          advisory.length
+        )} from your recent actions. ${advisoryHead}`,
+        ...advisory.map(line),
+      ].join('\n')
+    }
+
+    const guidance =
       'If you think one is a false positive — or want to leave a rationale for ' +
-        'the human reviewer — run: lumo crossing explain <id> --note "…". ' +
-        'That note is append-only and for review only: it does NOT clear the ' +
-        'crossing or unblock Done (a human dispositions that).',
+      'the human reviewer — run: lumo crossing explain <id> --note "…". ' +
+      'That note is append-only and for review only: it does NOT clear the ' +
+      'crossing or unblock Done (a human dispositions that).'
+    const head = `⚠ Lumo recorded ${open.length} new boundary crossing${plural(
+      open.length
+    )} from your recent actions:`
+    if (advisory.length === 0) {
+      return [head, ...blocking.map(line), guidance].join('\n')
+    }
+    return [
+      head,
+      'Blocking — blocks DONE until a human dispositions it:',
+      ...blocking.map(line),
+      advisoryHead,
+      ...advisory.map(line),
+      `For the blocking one${plural(blocking.length)} only: ${guidance.charAt(0).toLowerCase()}${guidance.slice(1)}`,
     ].join('\n')
   },
 
