@@ -21,6 +21,7 @@ const stripeLive = 'sk_' + 'live_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6'
 const githubToken = 'ghp' + '_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4Pe7Ab'
 const awsKeyId = 'AKIA' + 'QM7TZ4LW9KP2XC8V'
 const gitlabPat = 'glpat-' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3'
+const dbPassword = 'DB_PASSWORD' + '=Qm7Tz4Lw9Kp2'
 const hfToken = 'hf_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4P'
 
 const write = (
@@ -103,7 +104,7 @@ describe('LUM-893 boundary detector false positives', () => {
     expect(testKey[0]!.advisory).toBe(true)
     // A broad-shape hit in a local env file is recorded, advisory, and says
     // why (LUM-899: only a shape rule is downgraded by the file name).
-    const local = secrets('.env.local', 'DB_PASSWORD=Qm7Tz4Lw9Kp2')
+    const local = secrets('.env.local', dbPassword)
     expect(local).toHaveLength(1)
     expect(local[0]!.advisory).toBe(true)
     expect(local[0]!.detail).toContain('local env file')

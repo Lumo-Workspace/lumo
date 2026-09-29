@@ -20,6 +20,8 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 
 const stripeLive = 'sk_' + 'live_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6'
 const stripeTest = 'sk_' + 'test_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6'
+const dbPassword = 'DB_PASSWORD' + '=Qm7Tz4Lw9Kp2'
+const pgPassword = 'PGPASSWORD' + '=Qm7Tz4Lw9Kp2'
 const awsKeyId = 'AKIA' + 'QM7TZ4LW9KP2XC8V'
 const githubToken = 'ghp' + '_' + 'Qm7Tz4Lw9Kp2Xc8Vb5Nr3Hy6Gf1Dj0Sa4Pe7Ab'
 const pemBlock = [
@@ -69,7 +71,7 @@ describe('LUM-899 env-file secrets', () => {
     }
     // A tracked env file is judged like any file: a broad shape stays advisory
     // on its own rule, but is not waved through by the filename.
-    const shape = secrets('.env.local', 'DB_PASSWORD=Qm7Tz4Lw9Kp2', tracked)
+    const shape = secrets('.env.local', dbPassword, tracked)
     expect(shape).toHaveLength(1)
     expect(shape[0]!.advisory).toBe(true)
     expect(shape[0]!.detail).not.toContain('local env file')
@@ -104,7 +106,7 @@ describe('LUM-899 env-file secrets', () => {
       }
     }
     // A broad shape in a local env file is still advisory and says why.
-    const shape = secrets('.env.local', 'DB_PASSWORD=Qm7Tz4Lw9Kp2')
+    const shape = secrets('.env.local', dbPassword)
     expect(shape).toHaveLength(1)
     expect(shape[0]!.advisory).toBe(true)
     expect(shape[0]!.detail).toContain('local env file')
@@ -122,7 +124,7 @@ describe('LUM-899 env-file secrets', () => {
     expect(testKey[0]!.advisory).toBe(true)
     expect(testKey[0]!.detail).toContain('test-mode key')
     expect(testKey[0]!.detail).not.toContain('broad credential shape')
-    const shape = secrets('scripts/dev.sh', 'PGPASSWORD=Qm7Tz4Lw9Kp2 psql')
+    const shape = secrets('scripts/dev.sh', `${pgPassword} psql`)
     expect(shape).toHaveLength(1)
     expect(shape[0]!.detail).toContain('broad credential shape')
   })
