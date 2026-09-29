@@ -6,6 +6,7 @@
 import {
   detectCrossings,
   WRITTEN_PATH_IGNORED_FIELD,
+  WRITTEN_PATH_PROBE_FIELD,
 } from '@/lib/services/boundary-detector.service'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
@@ -194,5 +195,62 @@ describe('LUM-893 boundary detector false positives', () => {
     expect(
       blocking('/Users/dev/repo/my.worktrees/.env', `K=${openaiKey}`, ignored)
     ).toHaveLength(0)
+  })
+
+  describe('LUM-908 file-dir probe marker', () => {
+    const wtEnv = '/Users/dev/repo/.worktrees/LUM-1-x/.env.local'
+    const vendor = `OPENAI_API_KEY=${openaiKey}\nSTRIPE_SECRET_KEY=${stripeLive}`
+
+    it('LUM-908 marked worktree ignored answer is trusted', () => {
+      const marked = {
+        [WRITTEN_PATH_IGNORED_FIELD]: true,
+        [WRITTEN_PATH_PROBE_FIELD]: 'file-dir',
+      }
+      for (const path of [
+        wtEnv,
+        '.worktrees/LUM-1-x/apps/web/.env.local',
+        'C:\\repo\\.worktrees\\LUM-1-x\\.env.local',
+      ]) {
+        const hits = secrets(path, vendor, marked)
+        expect({ path, n: hits.length }).toEqual({ path, n: 1 })
+        expect(hits[0]!.advisory).toBe(true)
+        expect(hits[0]!.detail).toContain('gitignored file')
+      }
+      // The marker vouches for the probe, not the file: a fixed probe that
+      // says "tracked" still blocks.
+      expect(
+        blocking(wtEnv, vendor, {
+          [WRITTEN_PATH_IGNORED_FIELD]: false,
+          [WRITTEN_PATH_PROBE_FIELD]: 'file-dir',
+        })
+      ).toHaveLength(1)
+      // A marker with no answer is no answer (LUM-899: vendor key blocks).
+      expect(
+        blocking(wtEnv, vendor, { [WRITTEN_PATH_PROBE_FIELD]: 'file-dir' })
+      ).toHaveLength(1)
+    })
+
+    it('LUM-908 unmarked or malformed marker stays distrusted', () => {
+      for (const marker of [
+        undefined,
+        'session-cwd',
+        'FILE-DIR',
+        ' file-dir',
+        true,
+        1,
+        null,
+        ['file-dir'],
+        { v: 'file-dir' },
+      ]) {
+        const extra: Record<string, unknown> = {
+          [WRITTEN_PATH_IGNORED_FIELD]: true,
+        }
+        if (marker !== undefined) extra[WRITTEN_PATH_PROBE_FIELD] = marker
+        expect({
+          marker,
+          n: blocking(wtEnv, vendor, extra).length,
+        }).toEqual({ marker, n: 1 })
+      }
+    })
   })
 })

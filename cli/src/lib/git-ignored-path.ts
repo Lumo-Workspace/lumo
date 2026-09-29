@@ -2,6 +2,13 @@ import { spawnSync } from 'child_process'
 import { existsSync, statSync } from 'fs'
 import { dirname, isAbsolute, relative, resolve } from 'path'
 
+// Wire contract shared with the server's boundary detector (LUM-908).
+export {
+  WRITTEN_PATH_IGNORED_FIELD,
+  WRITTEN_PATH_PROBE_FIELD,
+  WRITTEN_PATH_PROBE_FILE_DIR,
+} from '../../../shared/src/written-path-probe'
+
 /**
  * LUM-893 — the local half of the HARDCODED_SECRET "is this file ever going to
  * be committed?" question.
