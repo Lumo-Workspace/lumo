@@ -17,6 +17,7 @@
  * database through the repository; the LLM client only via dynamic import.
  */
 import { logger } from '@/lib/logger'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import {
   prSecurityScanRepository,
@@ -171,6 +172,8 @@ export const securitySuggestDispositionService = {
         `[security-suggest] suggestedAt write failed scan=${scanId}: ${describe(error)}`
       )
     }
+    // LUM-896: the reasons just written can quote the diff.
+    await scrubScanIfRepositoryUnconfirmed(scanId)
   },
 
   /** The whole pass in-process: prepare → judge each → finish. Never throws. */

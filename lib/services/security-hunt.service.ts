@@ -18,6 +18,7 @@
  * through `readHuntFile` (see the exec-boundary test).
  */
 import { logger } from '@/lib/logger'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import { HUNT_MODEL } from '@/lib/ai/models'
 import { readRepoFile } from '@/lib/integrations/github/contents'
 import {
@@ -984,6 +985,8 @@ export const securityHuntService = {
           : {}),
       }
     )
+    // LUM-896: the repository may have left the confirmed list mid-hunt.
+    await scrubScanIfRepositoryUnconfirmed(input.job.scanId)
     // LUM-762: the completion rate of this layer is the thing being watched,
     // so every run states its per-category outcome once, where a deploy log
     // keeps it. `lumo task status` reads the same audit off the row.
@@ -1013,5 +1016,6 @@ export const securityHuntService = {
       partialCauses: [],
       ...(attempt !== undefined ? { attempt } : {}),
     })
+    await scrubScanIfRepositoryUnconfirmed(scanId)
   },
 }

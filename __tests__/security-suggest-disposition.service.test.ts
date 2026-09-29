@@ -14,6 +14,9 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     updateDisposition: jest.fn(),
   },
 }))
+jest.mock('@/lib/services/scan-code-retention.service', () => ({
+  scrubScanIfRepositoryUnconfirmed: jest.fn(),
+}))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
 }))
@@ -36,6 +39,7 @@ import {
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
 import { falsifyExternalFinding } from '@/lib/llm/security-disposition-falsifier-client'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 
 const findScan = prSecurityScanRepository.findScanForSuggestion as jest.Mock
 const suggest = prSecurityScanRepository.setSuggestedDisposition as jest.Mock
@@ -287,5 +291,19 @@ describe('LUM-740 suggested disposition', () => {
       securitySuggestDispositionService.suggestForScan('s1')
     ).resolves.toEqual({ judged: 0, suggested: 0, tokens: 0 })
     expect(falsify).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-896 suggested reasons', () => {
+  it('LUM-896 write path rechecks the confirmed list once the suggestions are written', async () => {
+    const recheck = scrubScanIfRepositoryUnconfirmed as jest.Mock
+    recheck.mockClear()
+    await securitySuggestDispositionService.finish('s1', 7)
+    expect(recheck).toHaveBeenCalledWith('s1')
+    expect(recheck.mock.invocationCallOrder[0]!).toBeGreaterThan(
+      markSuggested.mock.invocationCallOrder[
+        markSuggested.mock.invocationCallOrder.length - 1
+      ]!
+    )
   })
 })

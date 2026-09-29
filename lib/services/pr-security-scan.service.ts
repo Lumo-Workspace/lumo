@@ -10,6 +10,7 @@
  * free-text field the LLM judge authors goes through redactKnownSecrets.
  */
 import { logger } from '@/lib/logger'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import {
   prSecurityScanRepository,
@@ -944,6 +945,9 @@ export const prSecurityScanService = {
           : {}),
         ...(externalError ? { error: externalError } : {}),
       })
+      // LUM-896: the token was checked against the confirmed list when it
+      // was minted; the list may have narrowed since.
+      await scrubScanIfRepositoryUnconfirmed(scanId)
       // LUM-739: the row is settled — now hand the sha to the hunt. A start
       // that cannot even queue the run is a FAILED layer (P9), stamped on the
       // row so the panel never waits for a run that does not exist.

@@ -53,6 +53,9 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     findDispositionedByPullRequest: jest.fn(),
   },
 }))
+jest.mock('@/lib/services/scan-code-retention.service', () => ({
+  scrubScanIfRepositoryUnconfirmed: jest.fn(),
+}))
 jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
@@ -441,6 +444,25 @@ describe('fetchAndNormalize', () => {
 })
 
 describe('persistFindings', () => {
+  it('LUM-896 write path rechecks the confirmed list after the SARIF rows land', async () => {
+    const { scrubScanIfRepositoryUnconfirmed: recheck } = jest.requireMock(
+      '@/lib/services/scan-code-retention.service'
+    ) as { scrubScanIfRepositoryUnconfirmed: jest.Mock }
+    recheck.mockClear()
+    repo.findDispositionedByPullRequest.mockResolvedValue([])
+    repo.ingestExternalFindings.mockResolvedValue({
+      written: 1,
+      flippedToFindings: false,
+    })
+    await securitySarifIngestService.persistFindings(PERSIST_INPUT)
+    expect(recheck).toHaveBeenCalledWith('s1')
+    expect(recheck.mock.invocationCallOrder[0]!).toBeGreaterThan(
+      repo.ingestExternalFindings.mock.invocationCallOrder[
+        repo.ingestExternalFindings.mock.invocationCallOrder.length - 1
+      ]!
+    )
+  })
+
   it('replaces this push’s tools, stamps lastSarifIngestAt and returns written/partial', async () => {
     // Port of the old ingestExternalFindings assertions: tools list,
     // EXTERNAL_TOOL provenance, inheritDispositions applied, partial =

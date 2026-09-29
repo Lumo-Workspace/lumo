@@ -19,6 +19,7 @@
 import { gunzipSync } from 'node:zlib'
 import { waitUntil } from '@vercel/functions'
 import { logger } from '@/lib/logger'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import { MANAGED_FAILURE_REASON_CHARS } from '@/lib/services/security-managed-scan.config'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
@@ -370,6 +371,8 @@ export const securitySarifIngestService = {
           stage,
         }
       )
+    // LUM-896: the repository may have left the confirmed list mid-scan.
+    await scrubScanIfRepositoryUnconfirmed(input.scanId)
     // A managed scan is Lumo's own sandbox run, not this repo pushing its own
     // SARIF — `lastSarifIngestAt` means "this repo has pushed a report", and
     // it drives the flag-off fallback (whether managed scanning may stop

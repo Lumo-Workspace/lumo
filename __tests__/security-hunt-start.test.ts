@@ -9,6 +9,10 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: { recordHuntStart: jest.fn() },
 }))
 
+jest.mock('@/lib/services/scan-code-retention.service', () => ({
+  scrubScanIfRepositoryUnconfirmed: jest.fn(),
+}))
+
 import { getRun, start } from 'workflow/api'
 import { logger } from '@/lib/logger'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
@@ -18,6 +22,7 @@ import {
   startSecurityHunt,
 } from '@/lib/services/security-hunt-start'
 import { securityHuntWorkflow } from '@/lib/workflows/security-hunt'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 
 const startMock = start as unknown as jest.Mock
 const JOB = {
@@ -66,6 +71,16 @@ describe('LUM-822 hunt run bookkeeping', () => {
       runId: 'run_1',
       attempt: 1,
     })
+  })
+
+  it('LUM-896 write path rechecks the confirmed list after recording the hunt job', async () => {
+    record.mockResolvedValue(undefined)
+    await recordHuntStartBestEffort('s1', JOB, 'run_1')
+    const recheck = scrubScanIfRepositoryUnconfirmed as jest.Mock
+    expect(recheck).toHaveBeenCalledWith('s1')
+    expect(recheck.mock.invocationCallOrder[0]!).toBeGreaterThan(
+      record.mock.invocationCallOrder[0]!
+    )
   })
 
   it('never throws when the record write fails', async () => {

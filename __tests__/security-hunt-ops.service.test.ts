@@ -15,10 +15,14 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findStalePendingHunts: jest.fn(),
     hasNewerScan: jest.fn(),
+    hasNewerScanThan: jest.fn(),
     claimHuntRetry: jest.fn(),
     setHuntRunId: jest.fn(),
     failStaleHunt: jest.fn(),
   },
+}))
+jest.mock('@/lib/services/scan-code-retention.service', () => ({
+  scrubScanIfRepositoryUnconfirmed: jest.fn(),
 }))
 jest.mock('@/lib/integrations/vercel-sandbox', () => ({
   stopRepoSandboxesByTag: jest.fn(),
@@ -39,6 +43,7 @@ import {
   startSecurityHunt,
 } from '@/lib/services/security-hunt-start'
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import {
   securityHuntOpsService,
   HUNT_PENDING_DEAD_MS,
@@ -247,5 +252,47 @@ describe('LUM-822 sweepStaleHunts', () => {
     expect(repo.failStaleHunt).toHaveBeenCalledTimes(2)
     expect(sync).toHaveBeenCalledWith('s2')
     expect(counts.failed).toBe(1)
+  })
+})
+
+describe('LUM-896 hunt job rewrites', () => {
+  const recheck = scrubScanIfRepositoryUnconfirmed as jest.Mock
+
+  it('LUM-896 write path rechecks the confirmed list after a stale retry claim', async () => {
+    repo.findStalePendingHunts.mockResolvedValue([stale()])
+    await securityHuntOpsService.sweepStaleHunts({ now: NOW })
+    expect(repo.claimHuntRetry).toHaveBeenCalled()
+    expect(recheck).toHaveBeenCalledWith('s1')
+    expect(recheck.mock.invocationCallOrder[0]!).toBeGreaterThan(
+      repo.claimHuntRetry.mock.invocationCallOrder[0]!
+    )
+  })
+
+  it('LUM-896 write path rechecks the confirmed list after a batch continuation claim', async () => {
+    await securityHuntOpsService.continueBatchedHunt({
+      job: { ...JOB, attempt: 1 },
+      next: { ...JOB, attempt: 2, batchIndex: 1 },
+    })
+    expect(recheck).toHaveBeenCalledWith('s1')
+  })
+
+  it('LUM-896 write path rechecks the confirmed list after a faulted requeue claim', async () => {
+    repo.hasNewerScanThan.mockResolvedValue(false)
+    await securityHuntOpsService.requeueFaultedHunt({
+      job: { ...JOB, attempt: 1 },
+      reason: 'vm did not boot',
+      tokenSpent: 10,
+      audit: {},
+    })
+    expect(recheck).toHaveBeenCalledWith('s1')
+  })
+
+  it('LUM-896 a lost claim wrote nothing, so there is nothing to recheck', async () => {
+    repo.claimHuntRetry.mockResolvedValue(false)
+    await securityHuntOpsService.continueBatchedHunt({
+      job: { ...JOB, attempt: 1 },
+      next: { ...JOB, attempt: 2, batchIndex: 1 },
+    })
+    expect(recheck).not.toHaveBeenCalled()
   })
 })

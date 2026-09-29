@@ -10,6 +10,9 @@ jest.mock('@/lib/integrations/github/contents', () => ({
   readRepoFile: jest.fn(),
 }))
 jest.mock('@/lib/llm/security-hunt-client', () => ({ huntTask: jest.fn() }))
+jest.mock('@/lib/services/scan-code-retention.service', () => ({
+  scrubScanIfRepositoryUnconfirmed: jest.fn(),
+}))
 // LUM-758 Task 9: the batch now runs against a sandbox. The layer itself
 // (attach-or-create, the credential guard, the command gate) is covered in
 // `__tests__/security-scan/hunt/sandbox-agent.test.ts`; here it is a seam, so
@@ -42,6 +45,7 @@ import {
   isVerifiableRepoPath,
 } from '@/lib/services/security-hunt.service'
 import { logger } from '@/lib/logger'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import { fetchPrDiff, readRepoFile } from '@/lib/integrations/github/contents'
 import { huntTask } from '@/lib/llm/security-hunt-client'
 import { falsifyCandidate } from '@/lib/llm/security-falsifier-client'
@@ -1426,6 +1430,48 @@ describe('LUM-739 hunt service', () => {
       // LUM-758: each row is named by its TASK id — two rows may share a
       // category, and only the id tells them apart.
       '[security-hunt] coverage scan=s1 2/6 done · t1 idor 41.2s done · t2 injection 72.0s done (2 attempts)'
+    )
+  })
+
+  it('LUM-896 write path rechecks the confirmed list after the hunt result and after a failure', async () => {
+    const recheck = scrubScanIfRepositoryUnconfirmed as jest.Mock
+    recheck.mockClear()
+    repo.findDispositionedByPullRequest.mockResolvedValue([])
+    await securityHuntService.persist({
+      job: JOB,
+      findings: [],
+      audit: {
+        candidates: 0,
+        rejected: [],
+        falsifierRejects: 0,
+        falsifierRejected: [],
+        tasks: [],
+        subgraph: { files: 0, symbols: 0, edges: 0, partial: false },
+      },
+      tokenSpent: 0,
+      partialCauses: [],
+      stage: 'RAN',
+    })
+    expect(recheck).toHaveBeenLastCalledWith('s1')
+    expect(
+      recheck.mock.invocationCallOrder[
+        recheck.mock.invocationCallOrder.length - 1
+      ]!
+    ).toBeGreaterThan(
+      repo.persistHuntResult.mock.invocationCallOrder[
+        repo.persistHuntResult.mock.invocationCallOrder.length - 1
+      ]!
+    )
+    await securityHuntService.markFailed('s1', 'boom', 3)
+    expect(recheck).toHaveBeenCalledTimes(2)
+    expect(
+      recheck.mock.invocationCallOrder[
+        recheck.mock.invocationCallOrder.length - 1
+      ]!
+    ).toBeGreaterThan(
+      repo.persistHuntResult.mock.invocationCallOrder[
+        repo.persistHuntResult.mock.invocationCallOrder.length - 1
+      ]!
     )
   })
 
