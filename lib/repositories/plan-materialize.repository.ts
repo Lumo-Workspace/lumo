@@ -1,5 +1,9 @@
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma, SizeHint } from '@prisma/client'
+import {
+  redactStoredFields,
+  STORAGE_REDACTED_FIELDS,
+} from '@/lib/security-scan/storage-redaction'
 
 /**
  * Materialisation repository (LUM-671, Spec2-9). Owns the single Prisma
@@ -124,8 +128,10 @@ export const planMaterializeRepository = {
                     projectId: plan.projectId,
                     teamId: plan.teamId,
                     number: baseNumber + i,
-                    title: t.title,
-                    description: t.description,
+                    ...redactStoredFields(
+                      { title: t.title, description: t.description },
+                      STORAGE_REDACTED_FIELDS.task
+                    ),
                     status: 'TODO',
                     priority: 'MEDIUM',
                     order: i,
