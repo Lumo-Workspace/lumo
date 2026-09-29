@@ -13,7 +13,13 @@ import {
   collectDeletedTestFiles,
   looksLikeDeleteCommand,
 } from './git-deleted-test-files'
-import { probeWrittenPathIgnored, WRITE_TOOL_NAMES } from './git-ignored-path'
+import {
+  probeWrittenPathIgnored,
+  WRITE_TOOL_NAMES,
+  WRITTEN_PATH_IGNORED_FIELD,
+  WRITTEN_PATH_PROBE_FIELD,
+  WRITTEN_PATH_PROBE_FILE_DIR,
+} from './git-ignored-path'
 
 /**
  * Hard timeout for the hook POST. On timeout the request is aborted,
@@ -439,7 +445,8 @@ export function augmentBodyWithDeletedTestFiles(
 /**
  * LUM-893: for a post-tool-use Write/Edit/MultiEdit event, ask local git
  * whether the written `file_path` is gitignored and fold the answer into the
- * body under `_lumo_written_path_ignored`. The server records a secret written
+ * body under `_lumo_written_path_ignored`, with the `_lumo_written_path_probe`
+ * marker naming the fixed (file-dir) probe (LUM-908). The server records a secret written
  * to an ignored file (never committed) as advisory instead of DONE-blocking.
  *
  * Only a real answer (true/false) is attached; a probe that cannot answer or
@@ -479,7 +486,13 @@ export function augmentBodyWithWrittenPathIgnored(
     return body
   }
   if (ignored === null) return body
-  return JSON.stringify({ ...parsed, _lumo_written_path_ignored: ignored })
+  // LUM-908: the marker tells the server this answer came from the file's own
+  // checkout, so it can trust an "ignored" under `.worktrees/` again.
+  return JSON.stringify({
+    ...parsed,
+    [WRITTEN_PATH_IGNORED_FIELD]: ignored,
+    [WRITTEN_PATH_PROBE_FIELD]: WRITTEN_PATH_PROBE_FILE_DIR,
+  })
 }
 
 /**

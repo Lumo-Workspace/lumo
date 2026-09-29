@@ -11,7 +11,11 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 import { augmentBodyWithWrittenPathIgnored } from '@/cli/src/lib/hook-runner'
-import { probeWrittenPathIgnored } from '@/cli/src/lib/git-ignored-path'
+import {
+  probeWrittenPathIgnored,
+  WRITTEN_PATH_IGNORED_FIELD,
+  WRITTEN_PATH_PROBE_FIELD,
+} from '@/cli/src/lib/git-ignored-path'
 
 const body = (toolName: string, input: Record<string, unknown>) =>
   JSON.stringify({
@@ -87,6 +91,49 @@ describe('LUM-893 gitignore probe', () => {
       rmSync(dir, { recursive: true, force: true })
       rmSync(outside, { recursive: true, force: true })
     }
+  })
+
+  it('LUM-908 hook folds the file-dir probe marker with the answer', () => {
+    for (const answer of [true, false]) {
+      const out = JSON.parse(
+        augmentBodyWithWrittenPathIgnored(
+          'post-tool-use',
+          body('Write', {
+            file_path: '/repo/.worktrees/LUM-1-x/.env.local',
+            content: 'x',
+          }),
+          () => answer
+        )
+      )
+      expect(out[WRITTEN_PATH_IGNORED_FIELD]).toBe(answer)
+      expect(out[WRITTEN_PATH_PROBE_FIELD]).toBe('file-dir')
+    }
+    // No answer: neither the answer nor the marker reaches the wire.
+    for (const probe of [
+      () => null,
+      () => {
+        throw new Error('boom')
+      },
+    ]) {
+      const out = JSON.parse(
+        augmentBodyWithWrittenPathIgnored(
+          'post-tool-use',
+          body('Edit', { file_path: 'a.ts', content: 'x' }),
+          probe
+        )
+      )
+      expect(out).not.toHaveProperty(WRITTEN_PATH_IGNORED_FIELD)
+      expect(out).not.toHaveProperty(WRITTEN_PATH_PROBE_FIELD)
+    }
+    // Non-write events never carry the marker either.
+    const bash = JSON.parse(
+      augmentBodyWithWrittenPathIgnored(
+        'post-tool-use',
+        body('Bash', { command: 'ls' }),
+        () => true
+      )
+    )
+    expect(bash).not.toHaveProperty(WRITTEN_PATH_PROBE_FIELD)
   })
 
   describe('LUM-903 worktree under an ignored directory', () => {
