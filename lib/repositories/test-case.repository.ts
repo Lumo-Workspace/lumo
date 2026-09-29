@@ -7,6 +7,10 @@ import type {
   TestCaseRunResult,
   TestEnvironment,
 } from '@prisma/client'
+import {
+  redactStoredFields,
+  STORAGE_REDACTED_FIELDS,
+} from '@/lib/security-scan/storage-redaction'
 
 export interface CreateTestCaseInput {
   taskId: string
@@ -230,7 +234,10 @@ export const testCaseRepository = {
     tx?: Prisma.TransactionClient
   ): Promise<TestCaseRunRow> {
     const client = tx ?? prisma
-    return client.testCaseRun.create({ data: input, select: runSelect })
+    return client.testCaseRun.create({
+      data: redactStoredFields(input, STORAGE_REDACTED_FIELDS.testCaseRun),
+      select: runSelect,
+    })
   },
 
   listRuns(testCaseId: string, limit = 50): Promise<TestCaseRunRow[]> {

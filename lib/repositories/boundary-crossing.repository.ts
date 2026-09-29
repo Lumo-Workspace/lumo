@@ -176,7 +176,10 @@ export const boundaryCrossingRepository = {
         // timestamp/note but NO dispositionedById — the null actor is the
         // audit-trail marker that this was a detector decision, not a human one.
         disposition: input.disposition ?? null,
-        dispositionNote: input.dispositionNote ?? null,
+        dispositionNote: redactStoredFields(
+          { dispositionNote: input.dispositionNote ?? null },
+          STORAGE_REDACTED_FIELDS.boundaryCrossing
+        ).dispositionNote,
         dispositionedAt: input.dispositionedAt ?? null,
         suppressionRuleId: input.suppressionRuleId ?? null,
       },
@@ -465,7 +468,13 @@ export const boundaryCrossingRepository = {
       where: { id },
       data: {
         disposition,
-        dispositionNote: disposition === null ? null : note,
+        dispositionNote:
+          disposition === null
+            ? null
+            : redactStoredFields(
+                { dispositionNote: note },
+                STORAGE_REDACTED_FIELDS.boundaryCrossing
+              ).dispositionNote,
         dispositionedAt: disposition === null ? null : now,
         dispositionedById: disposition === null ? null : actorId,
         // LUM-771: a human ruling (or reopen) supersedes a rule's stamp — the
@@ -589,7 +598,10 @@ export const boundaryCrossingRepository = {
       where: { id: { in: ids } },
       data: {
         disposition: 'AUTO_SUPPRESSED',
-        dispositionNote: note,
+        dispositionNote: redactStoredFields(
+          { dispositionNote: note },
+          STORAGE_REDACTED_FIELDS.boundaryCrossing
+        ).dispositionNote,
         dispositionedAt: now,
         dispositionedById: null,
         suppressionRuleId: ruleId,
