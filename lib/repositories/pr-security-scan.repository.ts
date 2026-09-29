@@ -503,54 +503,116 @@ export interface UnnotifiedFindingScan {
   headSha: string
 }
 
+/**
+ * LUM-855 — clear the customer-code fields of the scans `scanWhere` selects
+ * (finding evidence + call chain; the scan's hunt audit, hunt job and PR
+ * summary) in one transaction. Rows stay: scan history and dispositions
+ * still drive DONE gating.
+ *
+ * LUM-872 — the finding's LLM-written text can quote code too: `detail` and
+ * `suggestedReason` are cleared, and `title` falls back to the finding's
+ * `ruleId` so every list still has something to show.
+ */
+async function scrubCode(scanWhere: Prisma.PrSecurityScanWhereInput) {
+  return prisma.$transaction(async tx => {
+    const rules = await tx.prSecurityFinding.findMany({
+      where: { scan: scanWhere },
+      distinct: ['ruleId'],
+      select: { ruleId: true },
+    })
+    for (const { ruleId } of rules) {
+      await tx.prSecurityFinding.updateMany({
+        where: { scan: scanWhere, ruleId },
+        data: { title: ruleId },
+      })
+    }
+    const findings = await tx.prSecurityFinding.updateMany({
+      where: { scan: scanWhere },
+      data: {
+        evidence: '',
+        callChain: Prisma.DbNull,
+        detail: '',
+        suggestedReason: null,
+      },
+    })
+    const scans = await tx.prSecurityScan.updateMany({
+      where: scanWhere,
+      data: {
+        huntAudit: Prisma.DbNull,
+        huntJob: Prisma.DbNull,
+        prSummary: Prisma.DbNull,
+      },
+    })
+    return { findings: findings.count, scans: scans.count }
+  })
+}
+
+/**
+ * LUM-896 — GitHub repository names are case-insensitive, and a list's
+ * spelling need not match the one a PR row was stored under (a repository
+ * renamed in case, another source). Returns every stored spelling of
+ * `repos` among the workspace's PRs. Prisma's insensitive `equals` is an
+ * ILIKE on Postgres, where `_` is a wildcard — so it only narrows the
+ * candidates, and the exact case-folded comparison decides.
+ */
+async function storedRepoSpellings(
+  workspaceId: string,
+  repos: string[]
+): Promise<string[]> {
+  if (repos.length === 0) return []
+  const wanted = new Set(repos.map(repo => repo.toLowerCase()))
+  const candidates = await prisma.pullRequest.groupBy({
+    by: ['repo'],
+    where: {
+      workspaceId,
+      OR: repos.map(repo => ({
+        repo: { equals: repo, mode: 'insensitive' as const },
+      })),
+    },
+  })
+  return candidates
+    .map(row => row.repo)
+    .filter(repo => wanted.has(repo.toLowerCase()))
+}
+
 export const prSecurityScanRepository = {
   /**
-   * LUM-855 — clear the customer-code fields of every scan a workspace owns
-   * (finding evidence + call chain; the scan's hunt audit, hunt job and PR
-   * summary) in one transaction. Rows stay: scan history and dispositions
-   * still drive DONE gating.
-   *
-   * LUM-872 — `repos` narrows it to the PRs of those repositories (a repo
-   * removed from the installation). The finding's LLM-written text can quote
-   * code too: `detail` and `suggestedReason` are cleared, and `title` falls
-   * back to the finding's `ruleId` so every list still has something to show.
+   * LUM-855 — scrub every scan a workspace owns (see `scrubCode`). LUM-872 —
+   * `repos` narrows it to the PRs of those repositories (a repo removed from
+   * the installation).
    */
   async scrubCodeForWorkspace(workspaceId: string, repos?: string[]) {
-    const scanWhere: Prisma.PrSecurityScanWhereInput = {
+    return scrubCode({
       workspaceId,
-      ...(repos ? { pullRequest: { repo: { in: repos } } } : {}),
-    }
-    return prisma.$transaction(async tx => {
-      const rules = await tx.prSecurityFinding.findMany({
-        where: { scan: scanWhere },
-        distinct: ['ruleId'],
-        select: { ruleId: true },
-      })
-      for (const { ruleId } of rules) {
-        await tx.prSecurityFinding.updateMany({
-          where: { scan: scanWhere, ruleId },
-          data: { title: ruleId },
-        })
-      }
-      const findings = await tx.prSecurityFinding.updateMany({
-        where: { scan: scanWhere },
-        data: {
-          evidence: '',
-          callChain: Prisma.DbNull,
-          detail: '',
-          suggestedReason: null,
-        },
-      })
-      const scans = await tx.prSecurityScan.updateMany({
-        where: scanWhere,
-        data: {
-          huntAudit: Prisma.DbNull,
-          huntJob: Prisma.DbNull,
-          prSummary: Prisma.DbNull,
-        },
-      })
-      return { findings: findings.count, scans: scans.count }
+      ...(repos
+        ? {
+            pullRequest: {
+              repo: { in: await storedRepoSpellings(workspaceId, repos) },
+            },
+          }
+        : {}),
     })
+  },
+
+  /**
+   * LUM-896 — the same scrub for ONE scan: a scan that wrote its result after
+   * its repository left the workspace's confirmed list.
+   */
+  async scrubCodeForScan(scanId: string) {
+    return scrubCode({ id: scanId })
+  },
+
+  /** LUM-896 — the workspace and repository a scan belongs to. */
+  async findScanRepository(
+    scanId: string
+  ): Promise<{ workspaceId: string; repo: string } | null> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      select: { workspaceId: true, pullRequest: { select: { repo: true } } },
+    })
+    return row
+      ? { workspaceId: row.workspaceId, repo: row.pullRequest.repo }
+      : null
   },
 
   /** `startedAt` rides along so the service can age out a wedged RUNNING scan. */

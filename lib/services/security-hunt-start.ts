@@ -1,5 +1,6 @@
 import { getRun, start } from 'workflow/api'
 import { logger } from '@/lib/logger'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { securityHuntWorkflow } from '@/lib/workflows/security-hunt'
 import type { HuntJob } from './security-hunt.config'
@@ -37,6 +38,8 @@ export async function recordHuntStartBestEffort(
       runId,
       attempt: job.attempt ?? 1,
     })
+    // LUM-896: the job carries the diff's signal sites.
+    await scrubScanIfRepositoryUnconfirmed(scanId)
   } catch (error) {
     logger.warn(
       `[security-hunt] start record failed scan=${scanId}: ${

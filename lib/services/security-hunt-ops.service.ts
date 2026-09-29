@@ -21,6 +21,7 @@
  * through `security-hunt-start`, the sandbox through the integration module.
  */
 import { logger } from '@/lib/logger'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import {
   prSecurityScanRepository,
   type StalePendingHunt,
@@ -144,6 +145,8 @@ async function retry(
   )
   // Another tick claimed it, or the hunt landed after the read.
   if (!claimed) return
+  // LUM-896: the claim rewrote the job; the list may have narrowed since.
+  await scrubScanIfRepositoryUnconfirmed(row.id)
   await killAttempt(row, counts)
   const runId = await startSecurityHunt(nextJob)
   if (!runId) {
@@ -245,6 +248,7 @@ export const securityHuntOpsService = {
       { huntJob: { ...next } }
     )
     if (!claimed) return false
+    await scrubScanIfRepositoryUnconfirmed(job.scanId)
     const label = `batch=${(next.batchIndex ?? 0) + 1}/${next.batches?.length ?? 1}`
     const runId = await startSecurityHunt(next)
     if (!runId) {
@@ -324,6 +328,7 @@ export const securityHuntOpsService = {
       }
     )
     if (!claimed) return { requeued: false, reason: 'claim-lost' }
+    await scrubScanIfRepositoryUnconfirmed(job.scanId)
     const runId = await startSecurityHunt(nextJob)
     if (!runId) {
       await prSecurityScanRepository.failStaleHunt(

@@ -93,6 +93,9 @@ jest.mock('@/lib/services/security-pr-review.service', () => ({
   securityPrReviewService: { sync: jest.fn() },
 }))
 jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
+jest.mock('@/lib/services/scan-code-retention.service', () => ({
+  scrubScanIfRepositoryUnconfirmed: jest.fn(),
+}))
 
 import {
   prSecurityScanService,
@@ -109,6 +112,7 @@ import { securityBaselineService } from '@/lib/services/security-baseline.servic
 import { securityPrReviewService } from '@/lib/services/security-pr-review.service'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { waitUntil } from '@vercel/functions'
+import { scrubScanIfRepositoryUnconfirmed } from '@/lib/services/scan-code-retention.service'
 import * as gh from '@/lib/integrations/github/contents'
 import * as judge from '@/lib/llm/security-judge-client'
 import { secretFingerprint } from '@/lib/security-scan/redact'
@@ -204,6 +208,16 @@ beforeEach(() => {
 // The stale-RUNNING test freezes Date.now with a spy; restore it so a later
 // test never runs against a pinned clock.
 afterEach(() => jest.restoreAllMocks())
+
+test('LUM-896 write path rechecks the confirmed list after stage A persists its result', async () => {
+  fetchPrDiff.mockResolvedValue(SECRET_DIFF)
+  await prSecurityScanService.run({ pullRequestId: 'pr1', trigger: 'PR_EVENT' })
+  const recheck = scrubScanIfRepositoryUnconfirmed as jest.Mock
+  expect(recheck).toHaveBeenCalledWith('s1')
+  expect(recheck.mock.invocationCallOrder[0]!).toBeGreaterThan(
+    repo.persistResult.mock.invocationCallOrder[0]!
+  )
+})
 
 test('dedupes on (pullRequestId, headSha) and inherits dispositions by fingerprint', async () => {
   // First run on sha-1: a fresh scan with one HIGH secret finding.
