@@ -1,9 +1,10 @@
 import { spawnSync } from 'child_process'
 import { existsSync, statSync } from 'fs'
-import { dirname, isAbsolute, relative, resolve } from 'path'
+import { dirname, isAbsolute, relative, resolve, sep } from 'path'
 
 // Wire contract shared with the server's boundary detector (LUM-908).
 export {
+  CHECKOUT_RELATIVE_PATH_FIELD,
   WRITTEN_PATH_IGNORED_FIELD,
   WRITTEN_PATH_PROBE_FIELD,
   WRITTEN_PATH_PROBE_FILE_DIR,
@@ -74,9 +75,56 @@ export function probeWrittenPathIgnored(
   }
 }
 
-/** Tool events whose `tool_input.file_path` is written to disk. */
+/**
+ * LUM-904 — the written file's path inside its OWN checkout, from
+ * `git rev-parse --show-prefix` run beside the file (same probe cwd as above).
+ * The server judges the test/fixture/doc path downgrade on it: a session
+ * started in a parent directory (`~` for `~/docs/app`) makes the checkout's
+ * location look like part of the path. `resolve` has already collapsed `..`.
+ * `null` when git cannot answer (not a repository, git missing, a timeout) —
+ * the server then falls back to the session cwd.
+ */
+export function probeCheckoutRelativePath(
+  sessionCwd: string,
+  filePath: string
+): string | null {
+  try {
+    const absPath = isAbsolute(filePath)
+      ? filePath
+      : resolve(sessionCwd, filePath)
+    const cwd = nearestExistingDir(dirname(absPath))
+    if (cwd === null) return null
+    const r = spawnSync('git', ['rev-parse', '--show-prefix'], {
+      cwd,
+      timeout: GIT_TIMEOUT_MS,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    if (r.error || r.status !== 0 || typeof r.stdout !== 'string') return null
+    const prefix = r.stdout.trim()
+    const rest = relative(cwd, absPath).split(sep).join('/')
+    if (rest === '' || rest.startsWith('..')) return null
+    return prefix + rest
+  } catch {
+    return null
+  }
+}
+
+/** Tool events that write a file to disk (LUM-904: NotebookEdit too). */
 export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set([
   'Write',
   'Edit',
   'MultiEdit',
+  'NotebookEdit',
 ])
+
+/** The written path: `file_path`, or NotebookEdit's `notebook_path`. */
+export function writtenFilePath(input: unknown): string | null {
+  if (!input || typeof input !== 'object') return null
+  const o = input as Record<string, unknown>
+  for (const key of ['file_path', 'notebook_path']) {
+    const v = o[key]
+    if (typeof v === 'string' && v) return v
+  }
+  return null
+}

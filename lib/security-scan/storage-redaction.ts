@@ -20,8 +20,14 @@ export const STORAGE_REDACTED_FIELDS = {
   taskActivity: ['payload'],
   // Column-scoped: the other stock-scanned columns of these two tables are
   // written by detectors / the run recorder, not free text (LUM-898 follow-up)
-  // — except `detail` / `target`, which quote the raw command (LUM-900).
-  boundaryCrossing: ['detail', 'target', 'dispositionNote'],
+  // — except `detail` / `target`, which quote the raw command (LUM-900), and
+  // the LLM-written `systemExplanation` (LUM-904).
+  boundaryCrossing: [
+    'detail',
+    'target',
+    'dispositionNote',
+    'systemExplanation',
+  ],
   testCaseRun: ['note'],
   task: [
     'title',

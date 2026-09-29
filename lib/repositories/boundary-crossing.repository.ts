@@ -788,12 +788,17 @@ export const boundaryCrossingRepository = {
    * Persist the LLM-generated system explanation on the crossing (LUM-590).
    * Called exactly once per crossing — subsequent reads hit the cache in the
    * service and never reach this updater again. Write-once by convention (the
-   * service's cache-hit path short-circuits before calling this).
+   * service's cache-hit path short-circuits before calling this). LUM-904:
+   * stored redacted like every other text column of the crossing — an LLM
+   * paraphrase can still quote a credential from its inputs.
    */
   async setSystemExplanation(id: string, text: string) {
     return prisma.boundaryCrossing.update({
       where: { id },
-      data: { systemExplanation: text },
+      data: redactStoredFields(
+        { systemExplanation: text },
+        STORAGE_REDACTED_FIELDS.boundaryCrossing
+      ),
       select: { id: true, systemExplanation: true },
     })
   },

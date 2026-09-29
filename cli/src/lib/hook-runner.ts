@@ -14,11 +14,14 @@ import {
   looksLikeDeleteCommand,
 } from './git-deleted-test-files'
 import {
+  CHECKOUT_RELATIVE_PATH_FIELD,
+  probeCheckoutRelativePath,
   probeWrittenPathIgnored,
   WRITE_TOOL_NAMES,
   WRITTEN_PATH_IGNORED_FIELD,
   WRITTEN_PATH_PROBE_FIELD,
   WRITTEN_PATH_PROBE_FILE_DIR,
+  writtenFilePath,
 } from './git-ignored-path'
 
 /**
@@ -446,17 +449,23 @@ export function augmentBodyWithDeletedTestFiles(
  * LUM-893: for a post-tool-use Write/Edit/MultiEdit event, ask local git
  * whether the written `file_path` is gitignored and fold the answer into the
  * body under `_lumo_written_path_ignored`, with the `_lumo_written_path_probe`
- * marker naming the fixed (file-dir) probe (LUM-908). The server records a secret written
- * to an ignored file (never committed) as advisory instead of DONE-blocking.
+ * marker naming the fixed (file-dir) probe (LUM-908). The server records a
+ * secret written to an ignored file (never committed) as advisory instead of DONE-blocking.
  *
- * Only a real answer (true/false) is attached; a probe that cannot answer or
- * throws leaves the body untouched, and the server then judges as before
- * (fail closed). Never blocks or fails the hook.
+ * LUM-904: NotebookEdit (`notebook_path`) too, and git's checkout-relative
+ * path of the file rides along under `_lumo_checkout_relative_path` — the
+ * server judges the test/fixture/doc path downgrade on it instead of the
+ * session cwd, which may sit above the checkout.
+ *
+ * Only a real answer is attached; a probe that cannot answer or throws leaves
+ * its field off, and the server then judges as before (fail closed). Never
+ * blocks or fails the hook.
  */
 export function augmentBodyWithWrittenPathIgnored(
   path: HookPath,
   body: string,
-  probe: typeof probeWrittenPathIgnored = probeWrittenPathIgnored
+  probe: typeof probeWrittenPathIgnored = probeWrittenPathIgnored,
+  rootProbe: typeof probeCheckoutRelativePath = probeCheckoutRelativePath
 ): string {
   if (path !== 'post-tool-use') return body
   let parsed: Record<string, unknown>
@@ -469,29 +478,33 @@ export function augmentBodyWithWrittenPathIgnored(
   const toolName = parsed['tool_name']
   if (typeof toolName !== 'string' || !WRITE_TOOL_NAMES.has(toolName))
     return body
-  const input = parsed['tool_input']
-  const filePath =
-    input && typeof input === 'object'
-      ? (input as Record<string, unknown>)['file_path']
-      : undefined
-  if (typeof filePath !== 'string' || !filePath) return body
+  const filePath = writtenFilePath(parsed['tool_input'])
+  if (filePath === null) return body
   const cwd =
     typeof parsed['cwd'] === 'string' && parsed['cwd']
       ? (parsed['cwd'] as string)
       : process.cwd()
-  let ignored: boolean | null
-  try {
-    ignored = probe(cwd, filePath)
-  } catch {
-    return body
+  const answer = <T>(run: () => T | null): T | null => {
+    try {
+      return run()
+    } catch {
+      return null
+    }
   }
-  if (ignored === null) return body
+  const ignored = answer(() => probe(cwd, filePath))
+  const relPath = answer(() => rootProbe(cwd, filePath))
+  if (ignored === null && relPath === null) return body
   // LUM-908: the marker tells the server this answer came from the file's own
   // checkout, so it can trust an "ignored" under `.worktrees/` again.
   return JSON.stringify({
     ...parsed,
-    [WRITTEN_PATH_IGNORED_FIELD]: ignored,
-    [WRITTEN_PATH_PROBE_FIELD]: WRITTEN_PATH_PROBE_FILE_DIR,
+    ...(ignored === null
+      ? {}
+      : {
+          [WRITTEN_PATH_IGNORED_FIELD]: ignored,
+          [WRITTEN_PATH_PROBE_FIELD]: WRITTEN_PATH_PROBE_FILE_DIR,
+        }),
+    ...(relPath === null ? {} : { [CHECKOUT_RELATIVE_PATH_FIELD]: relPath }),
   })
 }
 

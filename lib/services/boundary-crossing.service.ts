@@ -1541,13 +1541,15 @@ export const boundaryCrossingService = {
       )
     }
 
-    // Persist for future cache hits.
-    await boundaryCrossingRepository.setSystemExplanation(
+    // Persist for future cache hits. LUM-904: the repository stores it
+    // redacted — hand back that stored form so the first read matches every
+    // cached one.
+    const stored = await boundaryCrossingRepository.setSystemExplanation(
       crossingId,
       result.explanation
     )
 
-    return result
+    return { ...result, explanation: stored.systemExplanation ?? '' }
   },
 
   /**

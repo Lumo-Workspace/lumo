@@ -84,6 +84,10 @@ beforeEach(() => {
     taskId: 'task-1',
     hookEventId: null,
   })
+  // The repository echoes what it stored (LUM-904: the service returns it).
+  mockSetSystemExplanation.mockImplementation(
+    async (id: string, text: string) => ({ id, systemExplanation: text })
+  )
 })
 
 describe('boundaryCrossingService.explainCrossing (LUM-590)', () => {
