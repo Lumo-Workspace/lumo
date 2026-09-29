@@ -315,6 +315,20 @@ function joinKeyLines(value: unknown[], counter: { n: number }): unknown[] {
 }
 
 /**
+ * LUM-898 — the same deep pass `redactHookPayload` runs, for any stored JSON
+ * value (no marker stamped). Returns the original reference when nothing
+ * matched, otherwise a copy rebuilt along every changed path.
+ */
+export function redactJsonForStorage(value: unknown): {
+  value: unknown
+  redactedCount: number
+} {
+  const counter = { n: 0 }
+  const next = redactDeep(value, counter)
+  return { value: next, redactedCount: counter.n }
+}
+
+/**
  * LUM-859 — redact credentials out of a (validated) hook payload before it is
  * persisted. Every string at every depth runs through the secret registry
  * (`redactForStorage`: nothing dropped, secret-free text returned as-is).
