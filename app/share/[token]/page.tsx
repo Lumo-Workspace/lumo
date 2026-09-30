@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import { withShareToken } from '@/lib/files/private-file-path'
-import { sanitizeRichHtml } from '@/lib/html/sanitize-rich-html'
+import { richHtmlToReact } from '@/lib/html/rich-html-to-react'
 
 interface PageProps {
   params: Promise<{ token: string }>
@@ -31,15 +31,13 @@ export default async function PublicDocumentPage({ params }: PageProps) {
           {document.title || 'Untitled'}
         </h1>
         {document.content ? (
-          <div
-            className='prose prose-sm dark:prose-invert max-w-none'
-            // LUM-916: stored HTML is untrusted and this page is anonymous —
-            // sanitize against the rich-text allowlist, then hand embedded
-            // (private) images this page's share token to present.
-            dangerouslySetInnerHTML={{
-              __html: withShareToken(sanitizeRichHtml(document.content), token),
-            }}
-          />
+          // LUM-916: sanitized, then built as React elements (no innerHTML);
+          // embedded (private) images get this page's share token.
+          <div className='prose prose-sm dark:prose-invert max-w-none'>
+            {richHtmlToReact(document.content, {
+              transformUrl: url => withShareToken(url, token),
+            })}
+          </div>
         ) : (
           <p className='text-muted-foreground'>No content</p>
         )}

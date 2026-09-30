@@ -82,15 +82,19 @@ export function referencedImagePathnames(text: string): Set<string> {
 }
 
 /**
- * Append `?share=<token>` to every file-route image URL in a publicly shared
- * document's HTML, so an anonymous viewer's browser presents the share token
- * the route checks. Other URLs are left alone.
+ * Append `share=<token>` to a file-route IMAGE url, so an anonymous viewer of
+ * a publicly shared document presents the share token the route checks.
+ * Any other URL (links, evidence, external images) comes back unchanged.
  */
-export function withShareToken(html: string, token: string): string {
+export function withShareToken(url: string, token: string): string {
+  if (
+    !/\/api\/files\/workspaces\/[A-Za-z0-9_-]+\/images\/[A-Za-z0-9_-]+(\?|#|$)/.test(
+      url
+    )
+  ) {
+    return url
+  }
   const q = `share=${encodeURIComponent(token)}`
-  return html.replace(
-    /(\/api\/files\/workspaces\/[A-Za-z0-9_-]+\/images\/[A-Za-z0-9_-]+)(\?[^"'\s)]*)?/g,
-    (_m, path: string, query: string | undefined) =>
-      query ? `${path}${query}&${q}` : `${path}?${q}`
-  )
+  const [path, query] = url.split('?', 2) as [string, string | undefined]
+  return query ? `${path}?${query}&${q}` : `${path}?${q}`
 }
