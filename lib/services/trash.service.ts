@@ -121,10 +121,18 @@ export const trashService = {
     memberId: string
   ) {
     const root = await requireRoot(kind, id, workspaceId, memberId)
+    // A root whose parent is gone (trashed separately, or purged) comes back
+    // top-level rather than under a parent nobody can see.
+    const parentLive = !root.parentId
+      ? true
+      : kind === 'task'
+        ? await trashRepository.isTaskLive(root.parentId)
+        : await trashRepository.isDocumentLive(root.parentId)
+    const opts = { detachFromParent: !parentLive }
     if (kind === 'task') {
-      await trashRepository.restoreTask(root.id, root.parentId)
+      await trashRepository.restoreTask(root.id, opts)
     } else {
-      await trashRepository.restoreDocument(root.id, root.parentId)
+      await trashRepository.restoreDocument(root.id, opts)
     }
   },
 
