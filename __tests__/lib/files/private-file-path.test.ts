@@ -60,16 +60,18 @@ describe('private file paths (LUM-916)', () => {
   })
 
   it('appends the share token to file-route image URLs only', () => {
-    const html =
-      `<img src="https://x.test/api/files/${IMG}">` +
-      `<img src="/api/files/${IMG}?w=1">` +
-      '<img src="https://elsewhere.test/pic.png">' +
-      '<a href="/api/files/test-evidence/t/c/f">'
-    expect(withShareToken(html, 'a b')).toBe(
-      `<img src="https://x.test/api/files/${IMG}?share=a%20b">` +
-        `<img src="/api/files/${IMG}?w=1&share=a%20b">` +
-        '<img src="https://elsewhere.test/pic.png">' +
-        '<a href="/api/files/test-evidence/t/c/f">'
+    expect(withShareToken(`https://x.test/api/files/${IMG}`, 'a b')).toBe(
+      `https://x.test/api/files/${IMG}?share=a%20b`
     )
+    expect(withShareToken(`/api/files/${IMG}?w=1`, 't')).toBe(
+      `/api/files/${IMG}?w=1&share=t`
+    )
+    for (const other of [
+      'https://elsewhere.test/pic.png',
+      '/api/files/test-evidence/t/c/f',
+      `/api/files/${IMG}/extra`,
+    ]) {
+      expect(withShareToken(other, 't')).toBe(other)
+    }
   })
 })
