@@ -23,6 +23,11 @@ import { config } from 'dotenv'
 // .env.production unless LUMO_ENV_FILE points elsewhere.
 config({ path: process.env.LUMO_ENV_FILE ?? '.env.production' })
 
+// Plain stdout/stderr, not console.* (repo rule: no console.log outside
+// scripts/analysis) — this is an operator CLI whose output IS the product.
+const out = (line: string) => process.stdout.write(`${line}\n`)
+const err = (line: string) => process.stderr.write(`${line}\n`)
+
 function flag(name: string): string | undefined {
   const i = process.argv.indexOf(name)
   return i >= 0 ? process.argv[i + 1] : undefined
@@ -33,13 +38,13 @@ async function main() {
   const deleteOrphans = process.argv.includes('--delete-orphans')
   const host = new URL(process.env.DATABASE_URL ?? 'postgres://unset').host
   if (apply && flag('--confirm-host') !== host) {
-    console.error(
+    err(
       `Refusing --apply: --confirm-host must equal the connected DB host (${host}).`
     )
     process.exit(2)
   }
   if (deleteOrphans && !apply) {
-    console.error('--delete-orphans only makes sense with --apply.')
+    err('--delete-orphans only makes sense with --apply.')
     process.exit(2)
   }
 
@@ -54,7 +59,7 @@ async function main() {
 
   const origin = flag('--origin') ?? resolvePublicUrl()
   const mode = apply ? 'apply' : 'read-only'
-  console.log(`[${mode}] public blob migration · db ${host} · origin ${origin}`)
+  out(`[${mode}] public blob migration · db ${host} · origin ${origin}`)
 
   const report = await migratePublicBlobs(
     {
@@ -66,11 +71,11 @@ async function main() {
     },
     { apply, deleteOrphans, origin }
   )
-  console.log(JSON.stringify(report, null, 2))
+  out(JSON.stringify(report, null, 2))
   await prisma.$disconnect()
 }
 
 main().catch(error => {
-  console.error(error)
+  err(error instanceof Error ? (error.stack ?? error.message) : String(error))
   process.exit(1)
 })
