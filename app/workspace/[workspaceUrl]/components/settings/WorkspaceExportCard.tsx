@@ -64,11 +64,9 @@ export function WorkspaceExportCard() {
         })
       )
       await load()
-    } catch (err) {
+    } catch {
       toast.error(
-        err instanceof Error
-          ? err.message
-          : intl.formatMessage({ id: 'workspaceSettings.export.startFailed' })
+        intl.formatMessage({ id: 'workspaceSettings.export.startFailed' })
       )
     } finally {
       setStarting(false)
