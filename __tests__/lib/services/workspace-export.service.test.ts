@@ -76,16 +76,23 @@ function record(over: Record<string, unknown> = {}) {
   }
 }
 
-/** Values planted in upstream rows that must never reach the archive. */
-const PLANTED = {
-  accessToken: 'xoxb-PLANTED-ACCESS-TOKEN',
-  refreshToken: 'PLANTED-REFRESH-TOKEN',
-  webhookSecret: 'PLANTED-WEBHOOK-SECRET',
-  clientSecret: 'PLANTED-CLIENT-SECRET',
-  keyHash: 'PLANTED-KEY-HASH',
-  token: 'PLANTED-INVITE-TOKEN',
-  publicToken: 'PLANTED-PUBLIC-TOKEN',
-}
+/**
+ * Credential-named fields planted in upstream rows; none may reach the
+ * archive. Values are generated sentinels, not credential-shaped literals.
+ */
+const PLANTED_KEYS = [
+  'accessToken',
+  'refreshToken',
+  'webhookSecret',
+  'clientSecret',
+  'keyHash',
+  'token',
+  'publicToken',
+] as const
+const PLANTED: Record<(typeof PLANTED_KEYS)[number], string> =
+  Object.fromEntries(
+    PLANTED_KEYS.map(k => [k, `sentinel-${k.length}-${k.toUpperCase()}`])
+  ) as Record<(typeof PLANTED_KEYS)[number], string>
 
 function rowsFor(kind: ExportKind): Record<string, unknown>[] {
   switch (kind) {
