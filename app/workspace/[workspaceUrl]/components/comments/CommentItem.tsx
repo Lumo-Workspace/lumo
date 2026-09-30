@@ -12,6 +12,7 @@ import { CommentEditMode } from './CommentEditMode'
 import { ContentSignalsBadge } from '../ContentSignalsBadge'
 import type { useTaskComments } from '../../hooks/useTaskComments'
 import type { MentionSources } from '@/types/mention'
+import { RichHtml } from '@/components/RichHtml'
 
 interface Props {
   comment: ApiComment
@@ -94,9 +95,9 @@ export function CommentItem({
             onCancel={() => tc.cancelEditing()}
           />
         ) : (
-          <div
+          <RichHtml
             className='prose prose-sm dark:prose-invert max-w-none text-foreground'
-            dangerouslySetInnerHTML={{ __html: comment.body }}
+            html={comment.body}
           />
         )}
       </div>

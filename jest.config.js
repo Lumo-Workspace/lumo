@@ -56,7 +56,9 @@ const customJestConfig = {
 module.exports = async () => {
   const config = await createJestConfig(customJestConfig)()
   config.transformIgnorePatterns = [
-    '/node_modules/(?!(marked|lowlight|highlight\\.js|devlop)/)',
+    // htmlparser2 12 + its nested dom* / entities deps are ESM-only
+    // (sanitize-html, LUM-916).
+    '/node_modules/(?!(marked|lowlight|highlight\\.js|devlop|htmlparser2|domhandler|domutils|dom-serializer|domelementtype|entities)/)',
     '^.+\\.module\\.(css|sass|scss)$',
   ]
   return config

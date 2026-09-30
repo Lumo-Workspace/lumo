@@ -78,6 +78,6 @@
   "app/workspace/[workspaceUrl]/sprints/components/SprintSidebar.tsx": 8,
   "app/workspace/[workspaceUrl]/sprints/components/TaskSprintField.tsx": 2,
   "components/LogoUploader.tsx": 1,
-  "lib/editor/extensions.ts": 1,
+  "lib/editor/link-class.ts": 1,
   "lib/services/document-structure-guard.ts": 1
 }

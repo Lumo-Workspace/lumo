@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 import { withShareToken } from '@/lib/files/private-file-path'
+import { sanitizeRichHtml } from '@/lib/html/sanitize-rich-html'
 
 interface PageProps {
   params: Promise<{ token: string }>
@@ -32,10 +33,11 @@ export default async function PublicDocumentPage({ params }: PageProps) {
         {document.content ? (
           <div
             className='prose prose-sm dark:prose-invert max-w-none'
-            // LUM-916: embedded images are private — hand the anonymous
-            // viewer's browser this page's share token to present.
+            // LUM-916: stored HTML is untrusted and this page is anonymous —
+            // sanitize against the rich-text allowlist, then hand embedded
+            // (private) images this page's share token to present.
             dangerouslySetInnerHTML={{
-              __html: withShareToken(document.content, token),
+              __html: withShareToken(sanitizeRichHtml(document.content), token),
             }}
           />
         ) : (

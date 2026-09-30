@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import type { WorkspaceMemberInfo } from '@/app/workspace/[workspaceUrl]/types'
 import { useMentionSources } from '@/app/workspace/[workspaceUrl]/hooks/useMentionSources'
 import type { MentionSources } from '@/types/mention'
+import { RichHtml } from '@/components/RichHtml'
 
 export interface DocumentCommentThreadProps {
   thread: ApiDocumentComment
@@ -110,10 +111,7 @@ function Row({
               />
             </div>
           ) : (
-            <div
-              className='prose-sm mt-0.5 text-sm'
-              dangerouslySetInnerHTML={{ __html: c.body }}
-            />
+            <RichHtml className='prose-sm mt-0.5 text-sm' html={c.body} />
           )}
           {confirmingDelete && !editing && !isDeleted && (
             <div className='mt-1 flex items-center gap-3 text-xs'>
