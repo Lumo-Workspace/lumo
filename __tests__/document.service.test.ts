@@ -9,7 +9,7 @@ const mockFindWithPermission = jest.fn()
 const mockFindById = jest.fn()
 const mockGetMaxSortOrder = jest.fn()
 const mockCreate = jest.fn()
-const mockDeleteWithDescendants = jest.fn()
+const mockTrashDocument = jest.fn()
 const mockUpsertEditor = jest.fn()
 const mockFindMention = jest.fn()
 const mockAddExplicitMention = jest.fn()
@@ -26,8 +26,6 @@ jest.mock('@/lib/repositories/document.repository', () => ({
     findById: (...args: any[]) => mockFindById(...args),
     getMaxSortOrder: (...args: any[]) => mockGetMaxSortOrder(...args),
     create: (...args: any[]) => mockCreate(...args),
-    deleteWithDescendants: (...args: any[]) =>
-      mockDeleteWithDescendants(...args),
     upsertEditor: (...args: any[]) => mockUpsertEditor(...args),
     findNodeWithChildren: jest.fn().mockResolvedValue(null),
     findMention: (...args: any[]) => mockFindMention(...args),
@@ -36,6 +34,12 @@ jest.mock('@/lib/repositories/document.repository', () => ({
       mockRemoveExplicitMention(...args),
     updateWithChildrenAndMentions: (...args: any[]) =>
       mockUpdateWithChildrenAndMentions(...args),
+  },
+}))
+
+jest.mock('@/lib/services/trash.service', () => ({
+  trashService: {
+    trashDocument: (...args: any[]) => mockTrashDocument(...args),
   },
 }))
 
@@ -335,7 +339,7 @@ describe('documentService', () => {
       mockFindById.mockResolvedValue(null)
 
       await expect(
-        documentService.deleteDocument('doc-missing', 'm-1', 'ws-1')
+        documentService.deleteDocument('doc-missing', 'm-1', 'ws-1', 'c-1')
       ).rejects.toMatchObject({
         message: 'Document not found',
         status: 404,
@@ -349,20 +353,20 @@ describe('documentService', () => {
       })
 
       await expect(
-        documentService.deleteDocument('doc-1', 'm-1', 'ws-1')
+        documentService.deleteDocument('doc-1', 'm-1', 'ws-1', 'c-1')
       ).rejects.toMatchObject({
         message: 'Only the owner can delete a document',
         status: 403,
       })
     })
 
-    it('calls deleteWithDescendants for owner', async () => {
+    it('moves the document to the trash for its owner (LUM-918)', async () => {
       mockFindById.mockResolvedValue({ id: 'doc-1', createdById: 'm-1' })
-      mockDeleteWithDescendants.mockResolvedValue(undefined)
+      mockTrashDocument.mockResolvedValue(0)
 
-      await documentService.deleteDocument('doc-1', 'm-1', 'ws-1')
+      await documentService.deleteDocument('doc-1', 'm-1', 'ws-1', 'c-1')
 
-      expect(mockDeleteWithDescendants).toHaveBeenCalledWith('doc-1', 'ws-1')
+      expect(mockTrashDocument).toHaveBeenCalledWith('doc-1', 'c-1')
     })
   })
 

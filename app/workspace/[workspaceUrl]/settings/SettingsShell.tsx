@@ -17,6 +17,7 @@ import {
   CalendarClock,
   Terminal,
   ClipboardCheck,
+  Trash2,
 } from 'lucide-react'
 
 interface SettingsShellProps {
@@ -65,6 +66,12 @@ export function SettingsShell({
       href: `/workspace/${workspaceUrl}/settings/acceptance`,
       icon: ClipboardCheck,
     },
+    {
+      // LUM-918: every member has a trash (tasks + their own documents).
+      label: intl.formatMessage({ id: 'settings.trash' }),
+      href: `/workspace/${workspaceUrl}/settings/trash`,
+      icon: Trash2,
+    },
   ]
 
   const memberItems = [
@@ -82,6 +89,12 @@ export function SettingsShell({
       label: intl.formatMessage({ id: 'settings.tags' }),
       href: `/workspace/${workspaceUrl}/settings/tags`,
       icon: Tag,
+    },
+    {
+      // LUM-918: every member has a trash (tasks + their own documents).
+      label: intl.formatMessage({ id: 'settings.trash' }),
+      href: `/workspace/${workspaceUrl}/settings/trash`,
+      icon: Trash2,
     },
   ]
 

@@ -87,6 +87,7 @@ describe('DELETE /api/tasks/by-identifier/[identifier]', () => {
     expect(taskCliService.deleteFromCli).toHaveBeenCalledWith({
       workspaceId: 'ws1',
       identifier: 'LUM-9',
+      clerkId: 'c1',
     })
   })
   it('401 without a valid key; nothing deleted', async () => {

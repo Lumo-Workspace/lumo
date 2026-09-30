@@ -41,7 +41,9 @@ const INITIATIVE_LIST_SELECT = {
   name: true,
   status: true,
   createdAt: true,
-  _count: { select: { tasks: true, ideas: true } },
+  _count: {
+    select: { tasks: { where: { deletedAt: null } }, ideas: true },
+  },
 } satisfies Prisma.InitiativeSelect
 
 export type InitiativeListRow = Prisma.InitiativeGetPayload<{
@@ -66,6 +68,7 @@ const INITIATIVE_DETAIL_SELECT = {
     orderBy: { number: 'asc' },
   },
   tasks: {
+    where: { deletedAt: null }, // LUM-918
     select: { id: true, number: true, title: true, status: true },
     orderBy: { number: 'asc' },
   },
@@ -96,6 +99,7 @@ const INITIATIVE_COMPOSITION_SELECT = {
       completedAt: true,
       archivedAt: true,
       tasks: {
+        where: { deletedAt: null }, // LUM-918
         select: { id: true, number: true, title: true, status: true },
         orderBy: { number: 'asc' },
       },
@@ -103,6 +107,7 @@ const INITIATIVE_COMPOSITION_SELECT = {
     orderBy: { sortOrder: 'asc' },
   },
   tasks: {
+    where: { deletedAt: null }, // LUM-918
     select: {
       id: true,
       number: true,

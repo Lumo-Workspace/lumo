@@ -82,13 +82,15 @@ const DOCUMENT_LIST_INCLUDE = {
     orderBy: { lastEditedAt: 'desc' as const },
     take: 5,
   },
-  _count: { select: { children: true } },
+  _count: { select: { children: { where: { deletedAt: null } } } },
 } as const
 
 const DOCUMENT_DETAIL_INCLUDE = {
   project: { select: { id: true, name: true } },
   createdBy: { select: { id: true, clerkId: true } },
+  // LUM-918: relation reads bypass the soft-delete extension — filter here.
   children: {
+    where: { deletedAt: null },
     orderBy: { sortOrder: 'asc' as const },
     select: {
       id: true,
@@ -98,7 +100,7 @@ const DOCUMENT_DETAIL_INCLUDE = {
       parentId: true,
       sortOrder: true,
       updatedAt: true,
-      _count: { select: { children: true } },
+      _count: { select: { children: { where: { deletedAt: null } } } },
     },
   },
   shares: {
@@ -107,6 +109,7 @@ const DOCUMENT_DETAIL_INCLUDE = {
     },
   },
   mentions: {
+    where: { task: { deletedAt: null } },
     include: {
       task: {
         select: {
@@ -117,7 +120,7 @@ const DOCUMENT_DETAIL_INCLUDE = {
       },
     },
   },
-  _count: { select: { children: true } },
+  _count: { select: { children: { where: { deletedAt: null } } } },
 } as const
 
 // ── Repository ──────────────────────────────────────────────────────────────
@@ -274,7 +277,7 @@ export const documentRepository = {
         include: {
           project: { select: { id: true, name: true } },
           createdBy: { select: { id: true, clerkId: true } },
-          _count: { select: { children: true } },
+          _count: { select: { children: { where: { deletedAt: null } } } },
         },
       })
     })
@@ -487,39 +490,6 @@ export const documentRepository = {
     })
   },
 
-  /** Delete document and all descendants recursively in a transaction. */
-  async deleteWithDescendants(id: string, _workspaceId: string) {
-    await prisma.$transaction(async tx => {
-      // Recursively collect all descendant IDs
-      const toDelete: string[] = [id]
-      let currentIds = [id]
-      while (currentIds.length > 0) {
-        const children = await tx.document.findMany({
-          where: { parentId: { in: currentIds } },
-          select: { id: true },
-        })
-        const childIds = children.map(c => c.id)
-        toDelete.push(...childIds)
-        currentIds = childIds
-      }
-
-      // Delete mentions, shares, editors, then documents (deepest first)
-      await tx.documentMention.deleteMany({
-        where: { documentId: { in: toDelete } },
-      })
-      await tx.documentShare.deleteMany({
-        where: { documentId: { in: toDelete } },
-      })
-      await tx.documentEditor.deleteMany({
-        where: { documentId: { in: toDelete } },
-      })
-      for (let i = toDelete.length - 1; i >= 0; i--) {
-        const deleteId = toDelete[i]!
-        await tx.document.delete({ where: { id: deleteId } })
-      }
-    })
-  },
-
   /** Find a single document node with its children (used by ancestor chain walker). */
   async findNodeWithChildren(id: string) {
     return prisma.document.findUnique({
@@ -531,13 +501,14 @@ export const documentRepository = {
         emoji: true,
         parentId: true,
         children: {
+          where: { deletedAt: null },
           orderBy: { sortOrder: 'asc' },
           select: {
             id: true,
             slug: true,
             title: true,
             emoji: true,
-            _count: { select: { children: true } },
+            _count: { select: { children: { where: { deletedAt: null } } } },
           },
         },
       },
@@ -564,7 +535,7 @@ export const documentRepository = {
         emoji: true,
         parentId: true,
         sortOrder: true,
-        _count: { select: { children: true } },
+        _count: { select: { children: { where: { deletedAt: null } } } },
       },
     })
   },
