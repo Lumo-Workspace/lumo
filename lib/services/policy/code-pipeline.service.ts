@@ -22,6 +22,7 @@ import { matchDiffRegex } from './predicate-eval'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { isReversible } from '@/lib/services/boundary-detector.service'
 import { loadSecurityLayers } from '@/lib/services/security-workspace-switches.service'
+import type { EffectiveSecurityLayers } from '@/lib/security-scan/workspace-switches'
 
 export interface CodePipelineInput {
   taskId: string
@@ -38,6 +39,29 @@ export interface CodePipelineResult {
   deterministic: number
   /** Number of semantic / judge advisory crossings created (advisory: true). */
   advisory: number
+}
+
+/**
+ * LUM-901 — why the semantic code rules could not be checked, by the switch
+ * that is off: the master scan switch (every layer off) before the AI review
+ * switch. null when the judge may run.
+ */
+export function semanticRulesOffReason(
+  layers: Pick<EffectiveSecurityLayers, 'scan' | 'aiReview'>
+): { target: string; detail: string } | null {
+  if (!layers.scan)
+    return {
+      target: 'coderule:scanning-off',
+      detail:
+        "Semantic code rules were not checked: security scanning is turned off in this workspace's settings.",
+    }
+  if (!layers.aiReview)
+    return {
+      target: 'coderule:ai-review-off',
+      detail:
+        "Semantic code rules were not checked: AI review is turned off in this workspace's settings.",
+    }
+  return null
 }
 
 export const codePipelineService = {
@@ -96,25 +120,34 @@ export const codePipelineService = {
     // same act the workspace's AI review switch promises to stop. Off = no
     // model call, and one advisory crossing that says the rules were not
     // checked and why (never a silent pass; advisory never blocks DONE).
-    const aiReview =
+    // LUM-901: the reason names the switch that is actually off — the master
+    // scan switch or the AI review switch — and a re-run on the same task
+    // bumps the open crossing instead of adding another row.
+    const layers =
       semanticRules.length > 0
-        ? (await loadSecurityLayers(input.workspaceId)).aiReview
-        : true
-    if (semanticRules.length > 0 && !aiReview) {
-      await boundaryCrossingRepository.create({
-        taskId: input.taskId,
-        category: 'PROJECT_RULE_VIOLATION',
-        severity: 'LOW',
-        advisory: true,
-        target: 'coderule:ai-review-off',
-        reversible: isReversible(
-          'PROJECT_RULE_VIOLATION',
-          'coderule:ai-review-off'
-        ),
-        detail:
-          "Semantic code rules were not checked: AI review is turned off in this workspace's settings.",
-      })
-      advisory++
+        ? await loadSecurityLayers(input.workspaceId)
+        : null
+    const offReason = layers ? semanticRulesOffReason(layers) : null
+    if (semanticRules.length > 0 && offReason) {
+      const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
+        input.taskId,
+        'PROJECT_RULE_VIOLATION',
+        offReason.target,
+        new Date(),
+        true
+      )
+      if (coalesced === 0) {
+        await boundaryCrossingRepository.create({
+          taskId: input.taskId,
+          category: 'PROJECT_RULE_VIOLATION',
+          severity: 'LOW',
+          advisory: true,
+          target: offReason.target,
+          reversible: isReversible('PROJECT_RULE_VIOLATION', offReason.target),
+          detail: offReason.detail,
+        })
+        advisory++
+      }
     } else if (semanticRules.length > 0) {
       // Dynamic import keeps @ai-sdk/gateway out of the static import graph
       // (jest TransformStream trap — same pattern as layer2/curation services).

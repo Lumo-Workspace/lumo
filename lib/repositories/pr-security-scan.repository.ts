@@ -1216,6 +1216,28 @@ export const prSecurityScanRepository = {
     atAttempt: number,
     reason: string
   ): Promise<boolean> {
+    return this.settlePendingHunt(scanId, atAttempt, reason, 'FAILED')
+  },
+
+  /**
+   * LUM-901 — the same CAS as `failStaleHunt`, but the customer turned the
+   * hunt (or the whole scan) off while it was running: the layer reads as
+   * turned off in settings, never as unfinished on our side.
+   */
+  async disableStaleHunt(
+    scanId: string,
+    atAttempt: number,
+    reason: string
+  ): Promise<boolean> {
+    return this.settlePendingHunt(scanId, atAttempt, reason, 'DISABLED')
+  },
+
+  async settlePendingHunt(
+    scanId: string,
+    atAttempt: number,
+    reason: string,
+    hunt: 'FAILED' | 'DISABLED'
+  ): Promise<boolean> {
     return withSerializableRetry(async tx => {
       const current = await tx.prSecurityScan.findUnique({
         where: { id: scanId },
@@ -1227,7 +1249,7 @@ export const prSecurityScanRepository = {
       await tx.prSecurityScan.update({
         where: { id: scanId },
         data: {
-          stages: { ...stages, hunt: 'FAILED' },
+          stages: { ...stages, hunt },
           huntAudit: { error: reason.slice(0, 500) },
         },
       })

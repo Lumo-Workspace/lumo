@@ -14,6 +14,7 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: {
     findSecurityPolicy: jest.fn().mockResolvedValue(null),
+    findSecuritySwitches: jest.fn().mockResolvedValue(null),
   },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({

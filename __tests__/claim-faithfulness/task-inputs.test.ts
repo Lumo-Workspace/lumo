@@ -4,7 +4,7 @@ import { mapTaskRowToInputs } from '@/lib/claim-faithfulness/task-inputs'
 describe('mapTaskRowToInputs', () => {
   it('flattens claim, watermark, and criterion statements', () => {
     const out = mapTaskRowToInputs({
-      team: { identifier: 'LUM' },
+      team: { identifier: 'LUM', workspaceId: 'ws1' },
       number: 540,
       claimSnapshot: 'did not include code changes',
       claimSnapshotAt: new Date('2026-01-01'),
@@ -25,7 +25,7 @@ describe('mapTaskRowToInputs', () => {
 
   it('tolerates a null claim and empty criteria', () => {
     const out = mapTaskRowToInputs({
-      team: { identifier: 'LUM' },
+      team: { identifier: 'LUM', workspaceId: 'ws1' },
       number: 1,
       claimSnapshot: null,
       claimSnapshotAt: null,

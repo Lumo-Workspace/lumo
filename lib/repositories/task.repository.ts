@@ -488,6 +488,7 @@ export const taskRepository = {
       select: {
         id: true,
         claimSnapshotAt: true,
+        team: { select: { workspaceId: true } },
         pullRequests: {
           where: { state: 'merged' },
           select: { number: true },
@@ -498,6 +499,7 @@ export const taskRepository = {
     return rows.map(r => ({
       id: r.id,
       claimSnapshotAt: r.claimSnapshotAt,
+      workspaceId: r.team.workspaceId,
       mergedPrNumbers: r.pullRequests.map(p => p.number),
     }))
   },

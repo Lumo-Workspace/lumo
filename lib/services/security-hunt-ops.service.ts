@@ -36,6 +36,7 @@ import { cancelHuntRun, startSecurityHunt } from './security-hunt-start'
 import { SANDBOX_TIMEOUT_WITH_HUNT_MS } from './security-managed-scan.config'
 import { securityPrReviewService } from './security-pr-review.service'
 import { loadSecurityLayers } from './security-workspace-switches.service'
+import type { EffectiveSecurityLayers } from '@/lib/security-scan/workspace-switches'
 
 /**
  * A hunt runs inside a VM that the platform kills at
@@ -57,7 +58,18 @@ export const HUNT_STALE_REASONS = {
   retryNotStarted: `hunt did not report within ${DEAD_MINUTES} min, and the retry could not be started`,
   // LUM-866: the workspace (or the platform) turned the hunt off mid-run.
   disabled: 'hunt turned off for this workspace; not retried',
+  // LUM-901: the platform kill switch, not the customer — still ours.
+  platformOff: 'hunt turned off on our platform; not retried',
 } as const
+
+/**
+ * LUM-901 — a hunt the customer turned off (the hunt switch or the whole
+ * scan) lands DISABLED: their choice, shown as off in settings. Only the
+ * platform kill switch is ours, and stays FAILED.
+ */
+export function huntOffByCustomer(layers: EffectiveSecurityLayers): boolean {
+  return !layers.scan || layers.huntTurnedOff
+}
 
 export interface HuntSweepCounts {
   retried: number
@@ -122,6 +134,36 @@ async function fail(
   await securityPrReviewService.sync(row.id)
 }
 
+/** LUM-901 — settle a PENDING hunt whose switch is off, as the switch says. */
+async function stampTurnedOff(
+  scanId: string,
+  atAttempt: number,
+  layers: EffectiveSecurityLayers
+): Promise<boolean> {
+  return huntOffByCustomer(layers)
+    ? prSecurityScanRepository.disableStaleHunt(
+        scanId,
+        atAttempt,
+        HUNT_STALE_REASONS.disabled
+      )
+    : prSecurityScanRepository.failStaleHunt(
+        scanId,
+        atAttempt,
+        HUNT_STALE_REASONS.platformOff
+      )
+}
+
+async function turnOff(
+  row: StalePendingHunt,
+  layers: EffectiveSecurityLayers,
+  counts: HuntSweepCounts
+): Promise<void> {
+  if (!(await stampTurnedOff(row.id, row.huntAttempts, layers))) return
+  counts.failed += 1
+  await killAttempt(row, counts)
+  await securityPrReviewService.sync(row.id)
+}
+
 async function retry(
   row: StalePendingHunt,
   job: HuntJob,
@@ -180,11 +222,13 @@ async function sweepOne(
   // LUM-832: a batched job counts tries per batch; everything else counts
   // the row's attempts, as before.
   const tries = job?.tries !== undefined ? job.tries : row.huntAttempts
+  // LUM-901: a switch turned off wins over every other reason — the layer is
+  // the customer's choice then, not a run we lost.
+  const layers = job ? await loadSecurityLayers(job.workspaceId) : null
+  if (layers && !layers.hunt) return turnOff(row, layers, counts)
   if (tries >= HUNT_MAX_ATTEMPTS)
     return fail(row, row.huntAttempts, HUNT_STALE_REASONS.afterRetry, counts)
   if (!job) return fail(row, row.huntAttempts, HUNT_STALE_REASONS.noJob, counts)
-  if (!(await loadSecurityLayers(job.workspaceId)).hunt)
-    return fail(row, row.huntAttempts, HUNT_STALE_REASONS.disabled, counts)
   if (
     await prSecurityScanRepository.hasNewerScan(
       row.pullRequestId,
@@ -219,6 +263,25 @@ export interface HuntRequeueInput {
 
 export const securityHuntOpsService = {
   /**
+   * LUM-901 — the hunt run's own switch read, taken before its first model
+   * call and again before it lands anything. Stage A read the switch when it
+   * dispatched the run; the customer may have turned it off since. Off →
+   * the layer is settled (DISABLED when it was the customer) and the PR
+   * comment re-synced; the caller stops without planning, hunting,
+   * falsifying or persisting.
+   */
+  async stopIfHuntTurnedOff(job: HuntJob): Promise<boolean> {
+    const layers = await loadSecurityLayers(job.workspaceId)
+    if (layers.hunt) return false
+    logger.info(
+      `[security-hunt-ops] hunt off for workspace — run stopped scan=${job.scanId}`
+    )
+    if (await stampTurnedOff(job.scanId, job.attempt ?? 1, layers))
+      await securityPrReviewService.sync(job.scanId)
+    return true
+  },
+
+  /**
    * LUM-832 — a batch of an oversized diff landed (its findings are on the
    * row, the layer still PENDING): start the next batch. `next` is computed by
    * the deterministic workflow body — the same plan, the next index, a fresh
@@ -234,12 +297,15 @@ export const securityHuntOpsService = {
     next: HuntJob
   }): Promise<boolean> {
     const { job, next } = input
-    // LUM-866: turned off mid-run — no further batch. The layer stays PENDING
-    // until the stale sweep stamps it FAILED with the `disabled` reason.
-    if (!(await loadSecurityLayers(job.workspaceId)).hunt) {
+    // LUM-866: turned off mid-run — no further batch. LUM-901: the layer is
+    // settled here and now, not left PENDING for the stale sweep.
+    const layers = await loadSecurityLayers(job.workspaceId)
+    if (!layers.hunt) {
       logger.info(
         `[security-hunt-ops] hunt off for workspace — next batch not started scan=${job.scanId}`
       )
+      if (await stampTurnedOff(job.scanId, job.attempt ?? 1, layers))
+        await securityPrReviewService.sync(job.scanId)
       return false
     }
     const claimed = await prSecurityScanRepository.claimHuntRetry(

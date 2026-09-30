@@ -33,6 +33,7 @@ function baseDeps(
       claimSnapshotAt: new Date('2026-06-01'),
       claimSnapshotSessionId: 'sess-delivery',
       criteria: ['c1'],
+      workspaceId: 'ws1',
     })),
     listMergedPRs: jest.fn(async () => [
       {
@@ -51,6 +52,7 @@ function baseDeps(
     findWatermark: jest.fn(async () => null),
     listCandidates: jest.fn(async () => []),
     listWatermarks: jest.fn(async () => new Map()),
+    isAiReviewOn: jest.fn(async () => true),
     judgeModel: 'test-model',
     timeoutMs: 1000,
     ...over,
@@ -149,6 +151,7 @@ describe('claimFaithfulnessService.judgeTask', () => {
         claim: 'did the follow-up work in #762',
         claimSnapshotAt: new Date('2026-06-10'),
         claimSnapshotSessionId: 'sess-followup',
+        workspaceId: 'ws1',
         criteria: ['c1'],
       })),
       listMergedSessionIds: jest.fn(async () => ['sess-merged']),
@@ -185,6 +188,7 @@ describe('claimFaithfulnessService.judgeTask', () => {
         claim: 'did the follow-up work in #762',
         claimSnapshotAt: new Date('2026-06-10'),
         claimSnapshotSessionId: 'sess-followup',
+        workspaceId: 'ws1',
         criteria: ['c1'],
       })),
       listMergedSessionIds: jest.fn(async () => [
@@ -218,6 +222,7 @@ describe('claimFaithfulnessService.judgeTask', () => {
         claim: 'did X',
         claimSnapshotAt: new Date('2026-06-01'),
         claimSnapshotSessionId: null,
+        workspaceId: 'ws1',
         criteria: ['c1'],
       })),
       listMergedSessionIds: jest.fn(async () => ['sess-other']),
@@ -234,22 +239,26 @@ describe('claimFaithfulnessService.sweepUnjudged', () => {
     const candidates = [
       {
         id: 't1',
+        workspaceId: 'ws1',
         claimSnapshotAt: new Date('2026-06-01'),
         mergedPrNumbers: [],
       },
       {
         id: 't2',
+        workspaceId: 'ws1',
         claimSnapshotAt: new Date('2026-06-01'),
         mergedPrNumbers: [],
       },
       // fresh by both axes → skipped (claim newer + delivery not grown).
       {
         id: 't3',
+        workspaceId: 'ws1',
         claimSnapshotAt: new Date('2026-06-01'),
         mergedPrNumbers: [700],
       },
       {
         id: 't4',
+        workspaceId: 'ws1',
         claimSnapshotAt: new Date('2026-06-01'),
         mergedPrNumbers: [],
       },
@@ -273,6 +282,7 @@ describe('claimFaithfulnessService.sweepUnjudged', () => {
     const candidates = [
       {
         id: 't3',
+        workspaceId: 'ws1',
         claimSnapshotAt: new Date('2026-06-01'),
         mergedPrNumbers: [761, 762],
       },
@@ -296,7 +306,12 @@ describe('claimFaithfulnessService.sweepUnjudged', () => {
     // skip must be gated on watermarks.has(), not on freshness alone.
     const deps = baseDeps({
       listCandidates: jest.fn(async () => [
-        { id: 'noClaim', claimSnapshotAt: null, mergedPrNumbers: [] },
+        {
+          id: 'noClaim',
+          claimSnapshotAt: null,
+          workspaceId: 'ws1',
+          mergedPrNumbers: [],
+        },
       ]),
       listWatermarks: jest.fn(async () => new Map()),
     })
@@ -311,11 +326,13 @@ describe('claimFaithfulnessService.sweepUnjudged', () => {
       listCandidates: jest.fn(async () => [
         {
           id: 't1',
+          workspaceId: 'ws1',
           claimSnapshotAt: new Date('2026-06-01'),
           mergedPrNumbers: [],
         },
         {
           id: 't2',
+          workspaceId: 'ws1',
           claimSnapshotAt: new Date('2026-06-01'),
           mergedPrNumbers: [],
         },
@@ -328,6 +345,7 @@ describe('claimFaithfulnessService.sweepUnjudged', () => {
           claim: 'x',
           claimSnapshotAt: new Date('2026-06-01'),
           claimSnapshotSessionId: null,
+          workspaceId: 'ws1',
           criteria: [],
         }),
     })
