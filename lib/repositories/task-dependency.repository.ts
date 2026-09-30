@@ -15,6 +15,15 @@ const EDGE_INCLUDE = {
   blockingTask: { select: EDGE_TASK_SELECT },
 } as const
 
+/**
+ * LUM-918: an edge with either end in the trash is hidden from every read —
+ * relation filters bypass the soft-delete extension, so it is spelled here.
+ */
+const BOTH_ENDS_LIVE = {
+  blockedTask: { deletedAt: null },
+  blockingTask: { deletedAt: null },
+} as const
+
 export interface UpdateTaskDependencyInput {
   status?: 'SUGGESTED' | 'CONFIRMED' | 'DISMISSED' | undefined
   blockedTaskId?: string | undefined
@@ -34,7 +43,10 @@ export const taskDependencyRepository = {
   /** 任务两个方向的全部边(渲染 deps list)。 */
   async findEdgesForTask(taskId: string) {
     return prisma.taskDependency.findMany({
-      where: { OR: [{ blockedTaskId: taskId }, { blockingTaskId: taskId }] },
+      where: {
+        OR: [{ blockedTaskId: taskId }, { blockingTaskId: taskId }],
+        ...BOTH_ENDS_LIVE,
+      },
       include: EDGE_INCLUDE,
       orderBy: { createdAt: 'asc' },
     })
@@ -58,7 +70,12 @@ export const taskDependencyRepository = {
   /** DFS 防环用:workspace 内全部已确认 BLOCKS 边(只取两端 id)。 */
   async findConfirmedBlocksEdges(workspaceId: string) {
     return prisma.taskDependency.findMany({
-      where: { workspaceId, status: 'CONFIRMED', kind: 'BLOCKS' },
+      where: {
+        workspaceId,
+        status: 'CONFIRMED',
+        kind: 'BLOCKS',
+        ...BOTH_ENDS_LIVE,
+      },
       select: { blockedTaskId: true, blockingTaskId: true },
     })
   },
@@ -134,7 +151,7 @@ export const taskDependencyRepository = {
         blockedTaskId: taskId,
         status: 'CONFIRMED',
         kind: 'BLOCKS',
-        blockingTask: { status: { not: 'DONE' } },
+        blockingTask: { status: { not: 'DONE' }, deletedAt: null },
       },
       select: {
         blockingTask: {
@@ -186,6 +203,7 @@ export const taskDependencyRepository = {
           { blockedTaskId: { in: taskIds } },
           { blockingTaskId: { in: taskIds } },
         ],
+        ...BOTH_ENDS_LIVE,
       },
       select: {
         blockedTaskId: true,

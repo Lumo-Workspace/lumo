@@ -198,6 +198,7 @@ export const miscRepository = {
         taskId,
         document: {
           workspaceId,
+          deletedAt: null, // LUM-918: skip trashed documents
           OR: [
             { createdById: memberId },
             { visibility: 'WORKSPACE' },
@@ -243,6 +244,7 @@ export const miscRepository = {
         taskId,
         document: {
           workspaceId,
+          deletedAt: null, // LUM-918: skip trashed documents
           OR: [
             { createdById: memberId },
             { visibility: 'WORKSPACE' },

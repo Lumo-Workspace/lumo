@@ -3,9 +3,9 @@ import { apiCall, apiContext } from '../lib/test-case-api'
 import { emitConfirmation, isConfirmed } from '../lib/confirmation'
 
 /**
- * `lumo task delete <LUM-N> [--confirm]` (LUM-821). A hard delete — there is
- * no archive for tasks — so it always walks the exit-4 confirmation envelope
- * first, naming what goes with the task.
+ * `lumo task delete <LUM-N> [--confirm]` (LUM-821). Since LUM-918 it moves
+ * the task and its subtasks to the trash (restorable for 30 days from
+ * settings → Trash) — still behind the exit-4 confirmation envelope.
  */
 
 interface ShowTask {
@@ -16,24 +16,26 @@ interface ShowTask {
   pullRequests?: Array<{ number: number }>
 }
 
+/** Where a trashed task can be restored or erased (LUM-918). */
+export const TRASH_HINT = 'restorable for 30 days from Settings → Trash'
+
 /** The changes[] block for the confirmation envelope. */
 export function describeTaskDelete(task: ShowTask): string[] {
   const lines = [
-    `Will PERMANENTLY delete ${task.identifier} "${sanitizeField(task.title)}" (${task.status}) — there is no undo and no archive`,
-    'Deleted with it: comments, acceptance criteria + verification runs, test cases + runs, artifacts, activity history, dependency edges',
-    'Also deleted: its boundary crossings and gate signals — the audit trail that would otherwise block DONE',
-    'Kept but unlinked: memories, sessions, linked PR records',
+    `Will move ${task.identifier} "${sanitizeField(task.title)}" (${task.status}) to the trash — ${TRASH_HINT}, then permanently deleted`,
+    'While in the trash it is hidden from lists, search, `lumo next` and task context; its comments, criteria, test cases and history are kept and come back on restore',
+    'To erase it at once instead (e.g. a GDPR erasure request), delete it permanently from Settings → Trash afterwards',
   ]
   const subs = task.subtasks ?? []
   if (subs.length > 0) {
     lines.push(
-      `${subs.length} ${subs.length === 1 ? 'subtask stays' : 'subtasks stay'} but ${subs.length === 1 ? 'loses its' : 'lose their'} parent: ${subs.map(s => s.identifier).join(', ')}`
+      `${subs.length} ${subs.length === 1 ? 'subtask goes' : 'subtasks go'} to the trash with it: ${subs.map(s => s.identifier).join(', ')}`
     )
   }
   const prs = task.pullRequests ?? []
   if (prs.length > 0) {
     lines.push(
-      `Linked PR(s) ${prs.map(p => `#${p.number}`).join(', ')} lose their task link (nothing changes on GitHub)`
+      `Linked PR(s) ${prs.map(p => `#${p.number}`).join(', ')} stay on GitHub; the link comes back on restore`
     )
   }
   return lines
@@ -64,6 +66,6 @@ export async function taskDelete(
   )
   if (!r.ok || !r.data) return 1
   process.stdout.write(
-    `Deleted ${r.data.deleted.identifier} "${sanitizeField(r.data.deleted.title)}"\n`
+    `Moved ${r.data.deleted.identifier} "${sanitizeField(r.data.deleted.title)}" to the trash (${TRASH_HINT})\n`
   )
 }

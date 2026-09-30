@@ -140,6 +140,14 @@ export const API = {
     list: '/api/tags',
     byId: (id: string) => `/api/tags/${id}`,
   },
+  // LUM-918: tasks / documents in the trash.
+  trash: {
+    list: '/api/trash',
+    item: (kind: string, id: string) =>
+      `/api/trash/${kind}/${encodeURIComponent(id)}`,
+    restore: (kind: string, id: string) =>
+      `/api/trash/${kind}/${encodeURIComponent(id)}/restore`,
+  },
   documents: {
     list: '/api/documents',
     byId: (id: string) => `/api/documents/${id}`,

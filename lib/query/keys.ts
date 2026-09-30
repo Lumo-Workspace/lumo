@@ -14,6 +14,8 @@ export const queryKeys = {
   workspace: () => ['workspace'] as const,
   // LUM-918: the workspace's pending deletion (banner + danger zone).
   workspacePendingDeletion: () => ['workspace', 'pending-deletion'] as const,
+  // LUM-918: the caller's trash (deleted tasks / own documents).
+  trash: () => ['trash'] as const,
   teams: () => ['teams'] as const,
   members: () => ['members'] as const,
   invites: () => ['invites'] as const,

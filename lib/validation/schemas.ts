@@ -68,6 +68,9 @@ export const createWorkspaceSchema = z.object({
   summaryLocale: z.string().max(10).optional(),
 })
 
+/** LUM-918: the two kinds of item the trash holds (a route segment). */
+export const trashKindSchema = z.enum(['task', 'document'])
+
 /** LUM-918: running a pending workspace deletion now needs the name re-typed. */
 export const deleteWorkspaceNowSchema = z.object({
   confirmName: z.string().min(1).max(200),

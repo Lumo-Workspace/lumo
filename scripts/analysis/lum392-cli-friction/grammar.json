@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.80.4",
+  "cliVersion": "1.80.5",
   "commands": {
     "auth": {
       "arguments": [],

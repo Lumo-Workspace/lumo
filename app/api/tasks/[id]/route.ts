@@ -93,8 +93,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 }
 
 /**
- * DELETE /api/tasks/[id] — Delete a task.
- * Children get parentTaskId set to null (onDelete: SetNull).
+ * DELETE /api/tasks/[id] — Move a task and its subtasks to the trash
+ * (LUM-918); restorable for 30 days from settings → Trash.
  */
 export async function DELETE(_request: NextRequest, { params }: Params) {
   try {
@@ -114,7 +114,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     )
     if (memberResult instanceof NextResponse) return memberResult
 
-    await taskService.deleteTask(id)
+    await taskService.deleteTask(id, userId)
 
     return NextResponse.json({ success: true })
   } catch (error) {

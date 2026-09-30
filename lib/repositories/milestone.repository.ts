@@ -443,6 +443,7 @@ export const milestoneRepository = {
           },
         },
         tasks: {
+          where: { deletedAt: null }, // LUM-918: relation reads skip the trash
           select: {
             id: true,
             number: true,
@@ -471,7 +472,11 @@ export const milestoneRepository = {
       .map(t => t.id)
     const [edges, statusActivities, verificationFails] = await Promise.all([
       prisma.taskDependency.findMany({
-        where: { blockedTaskId: { in: taskIds }, kind: 'BLOCKS' },
+        where: {
+          blockedTaskId: { in: taskIds },
+          kind: 'BLOCKS',
+          blockingTask: { deletedAt: null },
+        },
         select: {
           blockedTaskId: true,
           status: true,
@@ -519,6 +524,7 @@ export const milestoneRepository = {
       where: { id: milestoneId },
       select: {
         tasks: {
+          where: { deletedAt: null }, // LUM-918: relation reads skip the trash
           select: {
             id: true,
             number: true,
@@ -537,7 +543,10 @@ export const milestoneRepository = {
       status: t.status,
     }))
     const edges = await prisma.taskDependency.findMany({
-      where: { blockedTaskId: { in: tasks.map(t => t.id) } },
+      where: {
+        blockedTaskId: { in: tasks.map(t => t.id) },
+        blockingTask: { deletedAt: null },
+      },
       select: {
         blockedTaskId: true,
         blockingTaskId: true,

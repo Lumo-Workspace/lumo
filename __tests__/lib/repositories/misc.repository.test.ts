@@ -244,6 +244,7 @@ describe('miscRepository.findDocumentMentionsByTask', () => {
         taskId: 't1',
         document: {
           workspaceId: 'ws-1',
+          deletedAt: null,
           OR: [
             { createdById: 'm1' },
             { visibility: 'WORKSPACE' },

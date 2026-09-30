@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { withSoftDelete } from './soft-delete'
 
 declare global {
   var prisma: PrismaClient | undefined
@@ -19,13 +20,16 @@ function createPrismaClient() {
     connectionString: sanitizeDbUrl(process.env.DATABASE_URL ?? ''),
     ssl: { rejectUnauthorized: true },
   })
-  return new PrismaClient({
-    adapter,
-    log:
-      process.env.NODE_ENV === 'development'
-        ? ['query', 'error', 'warn']
-        : ['error'],
-  })
+  // LUM-918: tasks / documents in the trash are invisible to default reads.
+  return withSoftDelete(
+    new PrismaClient({
+      adapter,
+      log:
+        process.env.NODE_ENV === 'development'
+          ? ['query', 'error', 'warn']
+          : ['error'],
+    })
+  )
 }
 
 export const prisma = global.prisma ?? createPrismaClient()

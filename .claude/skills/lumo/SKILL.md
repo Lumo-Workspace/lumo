@@ -75,7 +75,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo task search [query] [flags]` — search the whole workspace (any assignee; `--assignee none`, `--tag`, `--status`, `--priority`, `--sprint`, `--due-before/--due-after`); query terms are ANDed and ranked; typo tolerance (`pg_trgm`, then letter swaps) only kicks in when nothing matches exactly, off with `--exact`
 - `lumo task statuses` — status set + allowed transitions + priorities, as the server defines them
 - `lumo task history <id>` — field-change log (status/priority/assignee/due/parent/tags…), oldest first
-- `lumo task delete <id>` — permanent delete (no archive); exits 4 without `--confirm`, envelope lists what goes with it
+- `lumo task delete <id>` — moves the task + its subtasks to the trash (restorable 30 days from web Settings → Trash, then purged); exits 4 without `--confirm`
 - `lumo next [--count N] [--claimable]` — recommend the next task to work on (read-only). `--claimable` restricts to the autonomy boundary: only tasks that are claimable ∩ unblocked (F3 topology) ∩ within milestone budget (F2); old server degrades gracefully to the standard ranking (LUM-646)
 - `lumo task show <id>` — print one task's detail
 - `lumo task comment <id> <body> [--reply-to <comment>]` — leave a comment or a reply (`#id` from `comments list`)

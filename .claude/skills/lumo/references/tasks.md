@@ -329,9 +329,9 @@ The task's changelog, oldest first: `YYYY-MM-DD HH:MM  actor  change` for status
 lumo task history LUM-42
 ```
 
-### `lumo task delete <identifier>` — permanently delete a task (LUM-821)
+### `lumo task delete <identifier>` — move a task to the trash (LUM-821, LUM-918)
 
-A **hard delete** — tasks have no archive. Without `--confirm` it exits 4 with an envelope listing what goes with the task (comments, criteria + verification runs, test cases, artifacts, activity, dependency edges, **boundary crossings**) and what stays unlinked (memories, sessions, PR records, subtasks). Relay it and wait for the user; never add `--confirm` yourself. Prefer `task update --status done` or re-scoping for work that merely stopped mattering.
+Moves the task **and its subtasks** to the trash. They are restorable for **30 days** from the web app's **Settings → Trash**, then the daily purge deletes them permanently. While trashed they are hidden from lists, search, `lumo next` and task context; comments, criteria, test cases and history are kept and come back on restore. Without `--confirm` it exits 4 with an envelope saying exactly this — relay it and wait for the user; never add `--confirm` yourself. To erase a task at once (e.g. a GDPR erasure request), the user deletes it permanently from Settings → Trash — there is no CLI flag for that. Prefer `task update --status done` or re-scoping for work that merely stopped mattering.
 
 ```bash
 lumo task delete LUM-42

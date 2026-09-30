@@ -40,6 +40,10 @@
     {
       "path": "/api/cron/execute-workspace-deletions",
       "schedule": "20 * * * *"
+    },
+    {
+      "path": "/api/cron/purge-trash",
+      "schedule": "10 4 * * *"
     }
   ]
 }
