@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "Китайский",
   "workspaceSettings.dangerZone": "Опасная зона",
   "workspaceSettings.deleteTitle": "Удалить рабочее пространство",
-  "workspaceSettings.deleteDesc": "Безвозвратно удалить это рабочее пространство и все его данные. Это действие нельзя отменить.",
+  "workspaceSettings.deleteDesc": "Запланировать удаление этого рабочего пространства. У владельцев есть 48 часов, чтобы отменить его; после этого все данные будут удалены безвозвратно.",
   "workspaceSettings.deleteConfirmTitle": "Удалить рабочее пространство?",
-  "workspaceSettings.deleteConfirmDesc": "Это приведёт к безвозвратному удалению {name} и всех его проектов, задач и участников. Это действие нельзя отменить.",
+  "workspaceSettings.deleteConfirmDesc": "{name} и все его проекты, задачи и участники будут безвозвратно удалены через 48 часов. Все владельцы получат письмо, и любой из них может отменить удаление до этого момента.",
   "workspaceSettings.deleteTypePrompt": "Введите {name} для подтверждения",
   "workspaceSettings.nameUpdated": "Название рабочего пространства обновлено",
   "workspaceSettings.nameUpdateFailed": "Не удалось обновить название",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "Для рискованных изменений ИИ-агент исследует код в изолированной песочнице, чтобы подтвердить, можно ли действительно эксплуатировать находку.",
   "workspaceSettings.securityScan.platformOff": "Сейчас отключено Lumo для всех рабочих пространств.",
   "workspaceSettings.securityScan.updated": "Настройки проверки безопасности сохранены",
-  "workspaceSettings.securityScan.updateFailed": "Не удалось сохранить настройки проверки безопасности"
+  "workspaceSettings.securityScan.updateFailed": "Не удалось сохранить настройки проверки безопасности",
+  "workspaceDeletion.bannerPending": "Это рабочее пространство будет удалено {date}. Тогда все его данные будут удалены безвозвратно.",
+  "workspaceDeletion.cancel": "Отменить удаление",
+  "workspaceDeletion.cancelled": "Удаление рабочего пространства отменено",
+  "workspaceDeletion.cancelFailed": "Не удалось отменить удаление",
+  "workspaceDeletion.scheduled": "Удаление запланировано. Все владельцы получили письмо и могут отменить его в течение 48 часов.",
+  "workspaceDeletion.pendingTitle": "Удаление запланировано",
+  "workspaceDeletion.pendingDesc": "Это рабочее пространство будет безвозвратно удалено {date}. Отмените, чтобы сохранить его, или удалите сейчас.",
+  "workspaceDeletion.deleteNow": "Удалить сейчас",
+  "workspaceDeletion.deleteNowTitle": "Удалить рабочее пространство сейчас?",
+  "workspaceDeletion.deleteNowDesc": "Оставшиеся 48 часов будут пропущены, и {name} со всеми данными будет немедленно удалено безвозвратно. Это действие нельзя отменить."
 }

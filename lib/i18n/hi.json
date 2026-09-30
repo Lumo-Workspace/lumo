@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "चीनी",
   "workspaceSettings.dangerZone": "खतरनाक क्षेत्र",
   "workspaceSettings.deleteTitle": "कार्यक्षेत्र हटाएं",
-  "workspaceSettings.deleteDesc": "इस कार्यक्षेत्र और उसके सभी डेटा को स्थायी रूप से हटाएं। इसे पूर्ववत नहीं किया जा सकता।",
+  "workspaceSettings.deleteDesc": "इस कार्यक्षेत्र को हटाने का समय निर्धारित करें। मालिकों के पास रद्द करने के लिए 48 घंटे हैं; उसके बाद इसका सारा डेटा स्थायी रूप से हटा दिया जाएगा।",
   "workspaceSettings.deleteConfirmTitle": "कार्यक्षेत्र हटाएं?",
-  "workspaceSettings.deleteConfirmDesc": "यह {name} और उसके सभी प्रोजेक्ट, कार्य और सदस्यों को स्थायी रूप से हटा देगा। यह क्रिया पूर्ववत नहीं की जा सकती।",
+  "workspaceSettings.deleteConfirmDesc": "{name} और इसके सभी प्रोजेक्ट, कार्य और सदस्य 48 घंटे में स्थायी रूप से हटा दिए जाएंगे। हर मालिक को ईमेल भेजा जाता है और तब तक उनमें से कोई भी रद्द कर सकता है।",
   "workspaceSettings.deleteTypePrompt": "पुष्टि करने के लिए {name} टाइप करें",
   "workspaceSettings.nameUpdated": "कार्यक्षेत्र का नाम अपडेट किया गया",
   "workspaceSettings.nameUpdateFailed": "नाम अपडेट करने में विफल",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "जोखिम भरे बदलावों के लिए एक AI एजेंट अलग-थलग सैंडबॉक्स में कोड की जाँच करता है ताकि पुष्टि हो सके कि कोई निष्कर्ष वास्तव में एक्सप्लॉइट किया जा सकता है या नहीं।",
   "workspaceSettings.securityScan.platformOff": "फ़िलहाल Lumo ने इसे सभी वर्कस्पेस के लिए बंद किया हुआ है।",
   "workspaceSettings.securityScan.updated": "सुरक्षा स्कैन सेटिंग्स सहेजी गईं",
-  "workspaceSettings.securityScan.updateFailed": "सुरक्षा स्कैन सेटिंग्स सहेजी नहीं जा सकीं"
+  "workspaceSettings.securityScan.updateFailed": "सुरक्षा स्कैन सेटिंग्स सहेजी नहीं जा सकीं",
+  "workspaceDeletion.bannerPending": "यह कार्यक्षेत्र {date} को हटाया जाना निर्धारित है। तब इसका सारा डेटा स्थायी रूप से हटा दिया जाएगा।",
+  "workspaceDeletion.cancel": "हटाना रद्द करें",
+  "workspaceDeletion.cancelled": "कार्यक्षेत्र हटाना रद्द किया गया",
+  "workspaceDeletion.cancelFailed": "हटाना रद्द नहीं किया जा सका",
+  "workspaceDeletion.scheduled": "हटाना निर्धारित किया गया। हर मालिक को ईमेल भेजा गया है और वे 48 घंटे के भीतर रद्द कर सकते हैं।",
+  "workspaceDeletion.pendingTitle": "हटाना निर्धारित",
+  "workspaceDeletion.pendingDesc": "यह कार्यक्षेत्र {date} को स्थायी रूप से हटा दिया जाएगा। इसे रखने के लिए रद्द करें, या अभी हटाएं।",
+  "workspaceDeletion.deleteNow": "अभी हटाएं",
+  "workspaceDeletion.deleteNowTitle": "कार्यक्षेत्र अभी हटाएं?",
+  "workspaceDeletion.deleteNowDesc": "यह 48 घंटे की शेष अवधि को छोड़ देता है और {name} तथा इसका सारा डेटा तुरंत स्थायी रूप से हटा देता है। इसे पूर्ववत नहीं किया जा सकता।"
 }

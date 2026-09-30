@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "Bahasa Cina",
   "workspaceSettings.dangerZone": "Zon bahaya",
   "workspaceSettings.deleteTitle": "Padam ruang kerja",
-  "workspaceSettings.deleteDesc": "Padam ruang kerja ini dan semua datanya secara kekal. Tindakan ini tidak boleh dibatalkan.",
+  "workspaceSettings.deleteDesc": "Jadualkan pemadaman ruang kerja ini. Pemilik mempunyai 48 jam untuk membatalkannya; selepas itu semua datanya dipadam secara kekal.",
   "workspaceSettings.deleteConfirmTitle": "Padam ruang kerja?",
-  "workspaceSettings.deleteConfirmDesc": "Ini akan memadam {name} dan semua projek, tugasan, serta ahlinya secara kekal. Tindakan ini tidak boleh dibatalkan.",
+  "workspaceSettings.deleteConfirmDesc": "{name} serta semua projek, tugasan dan ahlinya akan dipadam secara kekal dalam 48 jam. Setiap pemilik menerima e-mel dan sesiapa antara mereka boleh membatalkan sebelum itu.",
   "workspaceSettings.deleteTypePrompt": "Taip {name} untuk mengesahkan",
   "workspaceSettings.nameUpdated": "Nama ruang kerja dikemas kini",
   "workspaceSettings.nameUpdateFailed": "Gagal mengemas kini nama",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "Bagi perubahan berisiko, ejen AI meneroka kod dalam kotak pasir terasing untuk mengesahkan sama ada sesuatu penemuan benar-benar boleh dieksploitasi.",
   "workspaceSettings.securityScan.platformOff": "Kini dimatikan oleh Lumo untuk semua ruang kerja.",
   "workspaceSettings.securityScan.updated": "Tetapan imbasan keselamatan disimpan",
-  "workspaceSettings.securityScan.updateFailed": "Gagal menyimpan tetapan imbasan keselamatan"
+  "workspaceSettings.securityScan.updateFailed": "Gagal menyimpan tetapan imbasan keselamatan",
+  "workspaceDeletion.bannerPending": "Ruang kerja ini dijadualkan untuk dipadam pada {date}. Pada masa itu semua datanya akan dipadam secara kekal.",
+  "workspaceDeletion.cancel": "Batalkan pemadaman",
+  "workspaceDeletion.cancelled": "Pemadaman ruang kerja dibatalkan",
+  "workspaceDeletion.cancelFailed": "Gagal membatalkan pemadaman",
+  "workspaceDeletion.scheduled": "Pemadaman dijadualkan. Setiap pemilik telah menerima e-mel dan boleh membatalkan dalam tempoh 48 jam.",
+  "workspaceDeletion.pendingTitle": "Pemadaman dijadualkan",
+  "workspaceDeletion.pendingDesc": "Ruang kerja ini akan dipadam secara kekal pada {date}. Batalkan untuk menyimpannya, atau padam sekarang.",
+  "workspaceDeletion.deleteNow": "Padam sekarang",
+  "workspaceDeletion.deleteNowTitle": "Padam ruang kerja sekarang?",
+  "workspaceDeletion.deleteNowDesc": "Ini melangkau baki tempoh 48 jam dan memadam {name} serta semua datanya secara kekal dengan serta-merta. Tindakan ini tidak boleh dibuat asal."
 }

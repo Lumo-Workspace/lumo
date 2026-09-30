@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "중국어",
   "workspaceSettings.dangerZone": "위험 구역",
   "workspaceSettings.deleteTitle": "워크스페이스 삭제",
-  "workspaceSettings.deleteDesc": "이 워크스페이스와 모든 데이터를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
+  "workspaceSettings.deleteDesc": "이 워크스페이스의 삭제를 예약합니다. 소유자는 48시간 안에 취소할 수 있으며, 그 후 모든 데이터가 영구 삭제됩니다.",
   "workspaceSettings.deleteConfirmTitle": "워크스페이스를 삭제하시겠습니까?",
-  "workspaceSettings.deleteConfirmDesc": "{name} 및 모든 프로젝트, 작업, 멤버가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+  "workspaceSettings.deleteConfirmDesc": "{name} 및 모든 프로젝트, 작업, 멤버가 48시간 후 영구 삭제됩니다. 모든 소유자에게 이메일이 발송되며 그 전까지 누구나 취소할 수 있습니다.",
   "workspaceSettings.deleteTypePrompt": "확인하려면 {name}을(를) 입력하세요",
   "workspaceSettings.nameUpdated": "워크스페이스 이름이 업데이트되었습니다",
   "workspaceSettings.nameUpdateFailed": "이름 업데이트에 실패했습니다",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "위험한 변경에 대해 AI 에이전트가 격리된 샌드박스에서 코드를 탐색하여 발견 항목이 실제로 악용 가능한지 확인합니다.",
   "workspaceSettings.securityScan.platformOff": "현재 Lumo가 모든 워크스페이스에서 이 기능을 꺼 두었습니다.",
   "workspaceSettings.securityScan.updated": "보안 스캔 설정을 저장했습니다",
-  "workspaceSettings.securityScan.updateFailed": "보안 스캔 설정을 저장하지 못했습니다"
+  "workspaceSettings.securityScan.updateFailed": "보안 스캔 설정을 저장하지 못했습니다",
+  "workspaceDeletion.bannerPending": "이 워크스페이스는 {date}에 삭제될 예정입니다. 그때 모든 데이터가 영구 삭제됩니다.",
+  "workspaceDeletion.cancel": "삭제 취소",
+  "workspaceDeletion.cancelled": "워크스페이스 삭제가 취소되었습니다",
+  "workspaceDeletion.cancelFailed": "삭제 취소에 실패했습니다",
+  "workspaceDeletion.scheduled": "삭제가 예약되었습니다. 모든 소유자에게 이메일이 발송되었으며 48시간 안에 취소할 수 있습니다.",
+  "workspaceDeletion.pendingTitle": "삭제 예약됨",
+  "workspaceDeletion.pendingDesc": "이 워크스페이스는 {date}에 영구 삭제됩니다. 유지하려면 취소하거나 지금 바로 삭제하세요.",
+  "workspaceDeletion.deleteNow": "지금 삭제",
+  "workspaceDeletion.deleteNowTitle": "지금 워크스페이스를 삭제할까요?",
+  "workspaceDeletion.deleteNowDesc": "남은 48시간 유예 기간을 건너뛰고 {name} 및 모든 데이터를 즉시 영구 삭제합니다. 이 작업은 되돌릴 수 없습니다."
 }

@@ -398,6 +398,14 @@ model Workspace {
   securityHuntEnabled     Boolean           @default(true)
   workspaceExports        WorkspaceExport[]
 
+  // LUM-918: pending deletion. An OWNER's delete schedules it 48h out
+  // (deletionExecuteAt); any OWNER can cancel (all three reset to null) or
+  // run it at once. The hourly cron runs the LUM-861 purge once it is due.
+  deletionRequestedAt        DateTime?
+  deletionExecuteAt          DateTime?
+  deletionRequestedByClerkId String?
+
+  @@index([deletionExecuteAt])
   @@map("workspaces")
 }
 

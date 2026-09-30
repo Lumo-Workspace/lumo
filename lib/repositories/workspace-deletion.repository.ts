@@ -32,6 +32,18 @@ export interface PurgeResult {
   rowCounts: Record<string, number>
 }
 
+/** LUM-918: a workspace's pending-deletion state (all null = not pending). */
+export interface PendingDeletion {
+  requestedAt: Date
+  executeAt: Date
+  requestedByClerkId: string
+}
+
+export interface DueDeletion {
+  workspaceId: string
+  requestedByClerkId: string
+}
+
 type Tx = Prisma.TransactionClient
 type CountDelegate = {
   count: (args: { where: { workspaceId: string } }) => Promise<number>
@@ -129,10 +141,21 @@ export const workspaceDeletionRepository = {
    */
   async purge(
     workspaceId: string,
-    requestedByClerkId: string
-  ): Promise<PurgeResult> {
+    requestedByClerkId: string,
+    opts: { dueBy?: Date } = {}
+  ): Promise<PurgeResult | null> {
     return prisma.$transaction(
       async tx => {
+        // LUM-918: the cron purges only a deletion that is still due — a
+        // cancel that lands between the cron's scan and this transaction
+        // wins, and nothing is deleted.
+        if (opts.dueBy) {
+          const due = await tx.workspace.findFirst({
+            where: { id: workspaceId, deletionExecuteAt: { lte: opts.dueBy } },
+            select: { id: true },
+          })
+          if (!due) return null
+        }
         const keyed = await countWorkspaceRows(tx, workspaceId)
         const fkLess = await purgeFkLessRows(tx, workspaceId)
         await tx.workspace.delete({ where: { id: workspaceId } })
@@ -151,6 +174,81 @@ export const workspaceDeletionRepository = {
       },
       { timeout: 60_000, maxWait: 10_000 }
     )
+  },
+
+  /** LUM-918: the pending deletion, or null when none is scheduled. */
+  async findPending(workspaceId: string): Promise<PendingDeletion | null> {
+    const ws = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: {
+        deletionRequestedAt: true,
+        deletionExecuteAt: true,
+        deletionRequestedByClerkId: true,
+      },
+    })
+    if (
+      !ws?.deletionRequestedAt ||
+      !ws.deletionExecuteAt ||
+      !ws.deletionRequestedByClerkId
+    ) {
+      return null
+    }
+    return {
+      requestedAt: ws.deletionRequestedAt,
+      executeAt: ws.deletionExecuteAt,
+      requestedByClerkId: ws.deletionRequestedByClerkId,
+    }
+  },
+
+  /**
+   * Schedule the deletion unless one is already pending. Returns false when
+   * another request got there first (conditional update, no read-then-write).
+   */
+  async schedule(workspaceId: string, pending: PendingDeletion) {
+    const { count } = await prisma.workspace.updateMany({
+      where: { id: workspaceId, deletionExecuteAt: null },
+      data: {
+        deletionRequestedAt: pending.requestedAt,
+        deletionExecuteAt: pending.executeAt,
+        deletionRequestedByClerkId: pending.requestedByClerkId,
+      },
+    })
+    return count === 1
+  },
+
+  /** Clear a pending deletion. Returns false when none was pending. */
+  async cancel(workspaceId: string) {
+    const { count } = await prisma.workspace.updateMany({
+      where: { id: workspaceId, deletionExecuteAt: { not: null } },
+      data: {
+        deletionRequestedAt: null,
+        deletionExecuteAt: null,
+        deletionRequestedByClerkId: null,
+      },
+    })
+    return count === 1
+  },
+
+  /** Workspaces whose pending deletion is due at `now`. */
+  async findDue(now: Date): Promise<DueDeletion[]> {
+    const rows = await prisma.workspace.findMany({
+      where: { deletionExecuteAt: { lte: now } },
+      select: { id: true, deletionRequestedByClerkId: true },
+      orderBy: { deletionExecuteAt: 'asc' },
+    })
+    return rows.map(r => ({
+      workspaceId: r.id,
+      requestedByClerkId: r.deletionRequestedByClerkId ?? '',
+    }))
+  },
+
+  /** Clerk ids of the workspace's OWNERs (the deletion notice recipients). */
+  async findOwnerClerkIds(workspaceId: string): Promise<string[]> {
+    const rows = await prisma.workspaceMember.findMany({
+      where: { workspaceId, role: 'OWNER' },
+      select: { clerkId: true },
+    })
+    return rows.map(r => r.clerkId)
   },
 
   async settleBlobCleanup(receiptId: string, outcome: BlobCleanup) {
