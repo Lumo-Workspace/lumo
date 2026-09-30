@@ -1,0 +1,115 @@
+import { randomUUID } from 'node:crypto'
+import { privateFileRepository } from '@/lib/repositories/private-file.repository'
+import {
+  evidencePathname,
+  fileRouteUrl,
+  imagePathname,
+  pathnameOf,
+  referencedImagePathnames,
+  type PrivateFile,
+} from '@/lib/files/private-file-path'
+import { logger } from '@/lib/logger'
+
+/**
+ * LUM-916 — private uploads (test evidence, editor images).
+ *
+ * Writes go to private blobs; reads go through `GET /api/files/...`, which
+ * asks `canRead` whether the viewer's workspace owns the file. The blob SDK
+ * is loaded on use: @vercel/blob pulls in undici, which breaks jsdom tests
+ * that merely import a service.
+ */
+
+async function blob() {
+  return import('@/lib/services/private-file-blob')
+}
+
+async function store(
+  pathname: string,
+  file: File,
+  origin: string
+): Promise<string> {
+  const { putPrivateFile } = await blob()
+  await putPrivateFile(pathname, file, file.type)
+  return fileRouteUrl(origin, pathname)
+}
+
+export const privateFileService = {
+  /** Store one evidence file; returns the file-route URL to persist. */
+  async storeEvidence(
+    taskId: string,
+    caseId: string,
+    file: File,
+    origin: string
+  ): Promise<string> {
+    return store(evidencePathname(taskId, caseId, randomUUID()), file, origin)
+  },
+
+  /** Store one editor image under the workspace's prefix (never a
+   *  client-chosen folder); returns the file-route URL to embed. */
+  async storeImage(
+    workspaceId: string,
+    file: File,
+    origin: string
+  ): Promise<string> {
+    return store(imagePathname(workspaceId, randomUUID()), file, origin)
+  },
+
+  /**
+   * May this request read `file`? Either path is enough:
+   *
+   * - `viewerWorkspaceId` (a signed-in member or API key): their workspace
+   *   owns the file.
+   * - `shareToken` (anyone, signed in or not): an image referenced by the
+   *   body of a publicly shared document in the owning workspace.
+   *
+   * A "no" never says whether the file exists — the route answers 404.
+   */
+  async canRead(
+    file: PrivateFile,
+    access: { viewerWorkspaceId: string | null; shareToken: string | null }
+  ): Promise<boolean> {
+    const owner =
+      file.kind === 'image'
+        ? file.workspaceId
+        : await privateFileRepository.findTaskWorkspaceId(file.taskId)
+    if (!owner) return false
+    if (access.viewerWorkspaceId === owner) return true
+    if (file.kind !== 'image' || !access.shareToken) return false
+
+    const doc = await privateFileRepository.findSharedDocument(
+      access.shareToken
+    )
+    if (!doc || doc.workspaceId !== owner) return false
+    const refs = referencedImagePathnames(
+      `${doc.content ?? ''}\n${doc.sourceMarkdown ?? ''}`
+    )
+    return refs.has(pathnameOf(file))
+  },
+
+  /** Open a file the caller has already authorised. */
+  async open(file: PrivateFile) {
+    const { openPrivateFile } = await blob()
+    return openPrivateFile(pathnameOf(file))
+  },
+
+  /**
+   * Delete the evidence blobs of tasks that were just deleted. Best-effort:
+   * the rows are already gone, so a failure is logged and swallowed — it must
+   * never turn a successful delete into an error.
+   */
+  async deleteTaskEvidence(taskIds: readonly string[]): Promise<void> {
+    if (taskIds.length === 0) return
+    try {
+      const { deleteBlobsByPrefixInBothStores } =
+        await import('@/lib/services/workspace-deletion-blob')
+      // Both stores: pre-LUM-916 evidence is still in the public one.
+      for (const id of taskIds)
+        await deleteBlobsByPrefixInBothStores(`test-evidence/${id}/`)
+    } catch (error) {
+      logger.warn('[private-file] task evidence cleanup failed', {
+        taskIds,
+        error: (error as Error).message,
+      })
+    }
+  },
+}

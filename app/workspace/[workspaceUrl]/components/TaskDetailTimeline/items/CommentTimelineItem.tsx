@@ -4,6 +4,7 @@ import type { TimelineCommentEntry, WorkspaceMemberInfo } from '../../../types'
 import { CommentAvatar } from '../../CommentAvatar'
 import { resolveCommentAuthor } from '../../comment-utils'
 import { useFormatDate } from '../../../hooks/useFormatDate'
+import { RichHtml } from '@/components/RichHtml'
 
 interface CommentTimelineItemProps {
   entry: TimelineCommentEntry
@@ -35,9 +36,9 @@ export function CommentTimelineItem({
             {fmtTimestamp(entry.createdAt)}
           </span>
         </div>
-        <div
+        <RichHtml
           className='prose prose-sm dark:prose-invert max-w-none text-foreground'
-          dangerouslySetInnerHTML={{ __html: entry.body }}
+          html={entry.body}
         />
       </div>
     </div>

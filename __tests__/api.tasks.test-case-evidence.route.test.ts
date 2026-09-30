@@ -12,6 +12,9 @@
  */
 import { NextRequest } from 'next/server'
 
+// LUM-916: private blobs live in the private store; its token must be set.
+process.env.BLOB_PRIVATE_READ_WRITE_TOKEN = 'priv-token'
+
 const requireIdentity = jest.fn()
 jest.mock('@/lib/auth', () => ({
   requireIdentity: (...a: unknown[]) => requireIdentity(...a),
@@ -26,7 +29,13 @@ jest.mock('@/lib/api/resolve-test-case-param', () => ({
 }))
 
 const put = jest.fn()
-jest.mock('@vercel/blob', () => ({ put: (...a: unknown[]) => put(...a) }))
+jest.mock('@vercel/blob', () => ({
+  put: (...a: unknown[]) => put(...a),
+  get: jest.fn(),
+}))
+jest.mock('@/lib/repositories/private-file.repository', () => ({
+  privateFileRepository: {},
+}))
 
 import { POST } from '@/app/api/tasks/[id]/test-cases/[caseRef]/evidence/route'
 
@@ -75,13 +84,27 @@ describe('POST evidence', () => {
     })
   })
 
-  it('stores under the test-evidence/{taskId}/{caseId}/ prefix', async () => {
-    await POST(multipart([png()]), params)
-    expect(put).toHaveBeenCalledWith(
-      expect.stringMatching(/^test-evidence\/t-1\/tc-1\//),
-      expect.anything(),
-      expect.objectContaining({ access: 'public' })
-    )
+  it('stores evidence as a private blob behind the Lumo file route', async () => {
+    const res = await POST(multipart([png()]), params)
+    const body = (await res.json()) as { files: Array<{ url: string }> }
+
+    // LUM-916: private, under the task/case prefix the deletion sweeps use,
+    // with no extension (the Clerk middleware skips *.png paths).
+    expect(put).toHaveBeenCalledTimes(1)
+    const [pathname, , opts] = put.mock.calls[0] as [
+      string,
+      unknown,
+      { access: string; token: string },
+    ]
+    expect(opts.access).toBe('private')
+    expect(opts.token).toBe('priv-token')
+    expect(pathname).toMatch(/^test-evidence\/t-1\/tc-1\/[0-9a-f-]{36}$/)
+
+    // The URL handed back (and saved in the run) is the authenticated route,
+    // never a blob-store URL.
+    const url = body.files[0]?.url ?? ''
+    expect(url).toBe(`http://x/api/files/${pathname}`)
+    expect(url).not.toMatch(/blob\.vercel-storage\.com|blob\.example/)
   })
 
   it('accepts a text log', async () => {

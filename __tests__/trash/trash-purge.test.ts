@@ -26,10 +26,16 @@ jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 }))
 
+const sweep = jest.fn(async (_prefix: string) => 1)
+jest.mock('@/lib/services/workspace-deletion-blob', () => ({
+  deleteBlobsByPrefixInBothStores: (prefix: string) => sweep(prefix),
+}))
+
 import {
   trashService,
   TRASH_RETENTION_DAYS,
 } from '@/lib/services/trash.service'
+import { privateFileRepository } from '@/lib/repositories/private-file.repository'
 
 jest.setTimeout(180_000)
 
@@ -94,6 +100,19 @@ async function doc(id: string, parentId?: string) {
   })
   await harness.prisma!.documentShare.create({
     data: { documentId: id, memberId: MEMBER, role: 'EDITOR' },
+  })
+}
+
+async function testCase(taskId: string) {
+  await harness.prisma!.testCase.create({
+    data: {
+      taskId,
+      number: 1,
+      title: 'tc',
+      steps: ['s'],
+      verification: [],
+      expected: 'e',
+    },
   })
 }
 
@@ -168,5 +187,35 @@ describe('trash purge (30-day retention)', () => {
       trashService.deletePermanently('task', 'live', WS, MEMBER)
     ).rejects.toMatchObject({ status: 404 })
     expect(await taskExists('live')).toBe(true)
+  })
+})
+
+describe('evidence blobs (LUM-916) follow the hard delete, not the trash', () => {
+  it('moving a task to the trash keeps its evidence; the purge sweeps every task of the group that had test cases', async () => {
+    await task('ev_parent')
+    await task('ev_child', 'ev_parent')
+    await testCase('ev_child')
+    sweep.mockClear()
+
+    await trashService.trashTask('ev_parent', 'clerk_purge', NOW)
+    expect(sweep).not.toHaveBeenCalled()
+
+    await trashService.deletePermanently('task', 'ev_parent', WS, MEMBER)
+    expect(await taskExists('ev_child')).toBe(false)
+    expect(sweep.mock.calls.map(c => c[0])).toEqual(['test-evidence/ev_child/'])
+  })
+
+  it('deleting a project still finds the evidence of its trashed tasks', async () => {
+    await task('pj_live')
+    await testCase('pj_live')
+    await task('pj_trashed')
+    await testCase('pj_trashed')
+    await trashService.trashTask('pj_trashed', 'clerk_purge', NOW)
+
+    const ids =
+      await privateFileRepository.findTaskIdsWithTestCasesInProject(
+        'proj_purge'
+      )
+    expect(ids.sort()).toEqual(['pj_live', 'pj_trashed'])
   })
 })

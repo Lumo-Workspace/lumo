@@ -7,6 +7,7 @@ import { useSprintSummary } from '../../hooks/useSprints'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { sprintsClient } from '@/lib/api-client'
+import { RichHtml } from '@/components/RichHtml'
 
 interface SprintStats {
   totalTasks?: number
@@ -158,10 +159,10 @@ export function RetroPanel({ sprintId }: { sprintId: string }) {
       </section>
 
       <section>
-        <div
+        {/* marked.parse returns synchronously when no async tokens */}
+        <RichHtml
           className='prose prose-sm max-w-none text-sm'
-          // marked.parse returns synchronously when no async tokens
-          dangerouslySetInnerHTML={{ __html: reportHtml }}
+          html={reportHtml}
         />
       </section>
     </aside>

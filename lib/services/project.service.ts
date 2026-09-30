@@ -1,6 +1,8 @@
 import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import { privateFileRepository } from '@/lib/repositories/private-file.repository'
+import { privateFileService } from '@/lib/services/private-file.service'
 import { getDefaultTeam } from '@/lib/team'
 import { pushWorkspaceEvent } from '@/lib/integrations/pusher/server'
 import { getActorClerkId } from '@/lib/actor'
@@ -287,7 +289,11 @@ export const projectService = {
       throw Object.assign(new Error('Forbidden'), { status: 403 })
     }
 
+    // Tasks cascade with the project; their evidence blobs do not (LUM-916).
+    const evidenceTaskIds =
+      await privateFileRepository.findTaskIdsWithTestCasesInProject(projectId)
     await projectRepository.delete(projectId)
+    await privateFileService.deleteTaskEvidence(evidenceTaskIds)
 
     // Idea drafts are private to the creator — only the creator's own tab
     // needs to react, and that tab already did so optimistically.

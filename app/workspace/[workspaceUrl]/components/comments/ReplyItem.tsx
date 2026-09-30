@@ -13,6 +13,7 @@ import { ContentSignalsBadge } from '../ContentSignalsBadge'
 import { CommentQuote, previewCommentText } from './CommentQuote'
 import type { useTaskComments } from '../../hooks/useTaskComments'
 import type { MentionSources } from '@/types/mention'
+import { RichHtml } from '@/components/RichHtml'
 
 interface Props {
   reply: ApiComment
@@ -115,9 +116,9 @@ export function ReplyItem({
                 variant='in-reply'
               />
             )}
-            <div
+            <RichHtml
               className='prose prose-sm dark:prose-invert max-w-none text-foreground'
-              dangerouslySetInnerHTML={{ __html: reply.body }}
+              html={reply.body}
             />
           </>
         )}

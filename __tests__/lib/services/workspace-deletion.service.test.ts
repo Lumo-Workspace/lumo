@@ -14,7 +14,7 @@ jest.mock('@/lib/repositories/workspace-deletion.repository', () => ({
   },
 }))
 jest.mock('@/lib/services/workspace-deletion-blob', () => ({
-  deleteBlobsByPrefix: jest.fn(),
+  deleteBlobsByPrefixInBothStores: jest.fn(),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
@@ -25,12 +25,12 @@ import {
   workspaceBlobPrefixes,
 } from '@/lib/services/workspace-deletion.service'
 import { workspaceDeletionRepository } from '@/lib/repositories/workspace-deletion.repository'
-import { deleteBlobsByPrefix } from '@/lib/services/workspace-deletion-blob'
+import { deleteBlobsByPrefixInBothStores } from '@/lib/services/workspace-deletion-blob'
 
 const repo = workspaceDeletionRepository as jest.Mocked<
   typeof workspaceDeletionRepository
 >
-const mockDeleteBlobs = deleteBlobsByPrefix as jest.Mock
+const mockDeleteBlobs = deleteBlobsByPrefixInBothStores as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()

@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { diffDocumentHtml } from '@/lib/editor/revision-diff'
+import { RichHtml } from '@/components/RichHtml'
 
 interface RevisionDiffViewProps {
   oldHtml: string | null
@@ -24,10 +25,10 @@ export function RevisionDiffView({ oldHtml, newHtml }: RevisionDiffViewProps) {
   )
 
   return (
-    <div
+    <RichHtml
       data-testid='diff-inline'
       className={`prose prose-sm max-w-none break-words text-sm leading-relaxed ${DIFF_MARK_CLASSES}`}
-      dangerouslySetInnerHTML={{ __html: html }}
+      html={html}
     />
   )
 }

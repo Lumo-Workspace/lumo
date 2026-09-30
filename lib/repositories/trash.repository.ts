@@ -251,6 +251,15 @@ export const trashRepository = {
     })
   },
 
+  /** Tasks of a trashed group that have test cases (evidence blobs). */
+  async findTaskGroupIdsWithTestCases(rootId: string): Promise<string[]> {
+    const rows = await prisma.task.findMany({
+      where: { ...groupWhere(rootId), testCases: { some: {} } },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
   /** Hard-delete a trashed task group; related rows cascade as before. */
   async purgeTaskGroup(rootId: string): Promise<number> {
     const { count } = await prisma.task.deleteMany({

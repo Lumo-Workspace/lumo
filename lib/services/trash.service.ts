@@ -1,4 +1,5 @@
 import { trashRepository } from '@/lib/repositories/trash.repository'
+import { privateFileService } from '@/lib/services/private-file.service'
 import { logger } from '@/lib/logger'
 
 /** LUM-918: how long a deleted task / document stays restorable. */
@@ -65,9 +66,14 @@ async function collectDescendants(
 }
 
 async function purge(kind: TrashKind, id: string): Promise<number> {
-  return kind === 'task'
-    ? trashRepository.purgeTaskGroup(id)
-    : trashRepository.purgeDocumentGroup(id)
+  if (kind === 'document') return trashRepository.purgeDocumentGroup(id)
+  // Read before the delete: the test cases cascade away with the tasks.
+  const withEvidence = await trashRepository.findTaskGroupIdsWithTestCases(id)
+  const purged = await trashRepository.purgeTaskGroup(id)
+  // LUM-916: evidence blobs go with the rows. Moving to the trash keeps
+  // them so a restore is whole; only the hard delete sweeps them.
+  await privateFileService.deleteTaskEvidence(withEvidence)
+  return purged
 }
 
 // ── Trash Service (LUM-918) ─────────────────────────────────────────────────
