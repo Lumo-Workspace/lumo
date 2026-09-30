@@ -56,7 +56,7 @@ describe('workspaceDeletionService.deleteWorkspace', () => {
   it('receipt: purges with the requester and returns the receipt and counts', async () => {
     mockDeleteBlobs.mockResolvedValue(0)
     const out = await workspaceDeletionService.deleteWorkspace('ws_1', 'user_1')
-    expect(repo.purge).toHaveBeenCalledWith('ws_1', 'user_1')
+    expect(repo.purge).toHaveBeenCalledWith('ws_1', 'user_1', {})
     expect(out).toMatchObject({
       receiptId: 'rcpt_1',
       rowCounts: { Workspace: 1, Document: 2 },
@@ -109,7 +109,7 @@ describe('workspaceDeletionService.deleteWorkspace', () => {
       error: 'blob store down',
     }
     expect(repo.settleBlobCleanup).toHaveBeenCalledWith('rcpt_1', failed)
-    expect(out.blobCleanup).toEqual(failed)
+    expect(out?.blobCleanup).toEqual(failed)
   })
 
   it('blob: a receipt that cannot be settled still reports the deletion', async () => {

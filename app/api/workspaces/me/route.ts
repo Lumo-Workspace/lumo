@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { updateWorkspaceSchema } from '@/lib/validation/schemas'
-import { workspaceService } from '@/lib/services'
+import { workspaceService, workspaceDeletionService } from '@/lib/services'
 import { platformSecurityCeiling } from '@/lib/security-scan/workspace-switches'
 
 /**
@@ -23,6 +23,11 @@ export async function GET() {
       // LUM-866: which scan layers the platform allows at all — the settings
       // page shows a layer the env turned off as off and not toggleable.
       securityPlatform: platformSecurityCeiling(),
+      // LUM-918: the pending deletion (null when none) — drives the banner
+      // every member sees and the owner's cancel / delete-now controls.
+      pendingDeletion: await workspaceDeletionService.getPending(
+        result.workspaceId
+      ),
     })
   } catch {
     return NextResponse.json(
@@ -72,9 +77,10 @@ export async function PATCH(request: NextRequest) {
 }
 
 /**
- * DELETE /api/workspaces/me — Permanently delete the workspace.
- * Caller must be an OWNER. All rows and blobs the workspace owns are removed
- * and a deletion receipt is kept (LUM-861).
+ * DELETE /api/workspaces/me — Schedule the workspace for deletion (LUM-918).
+ * Caller must be an OWNER. Nothing is removed yet: every OWNER is emailed and
+ * any of them can cancel for 48 hours; the cron then runs the full LUM-861
+ * purge (rows, blobs, deletion receipt).
  */
 export async function DELETE() {
   try {
@@ -85,13 +91,13 @@ export async function DELETE() {
     const ws = await requireUserWorkspace(userId)
     if (ws instanceof NextResponse) return ws
 
-    await workspaceService.deleteWorkspace(
-      ws.workspaceId,
+    const pendingDeletion = await workspaceDeletionService.scheduleDeletion(
+      ws.workspace,
       ws.member.role,
       userId
     )
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ pendingDeletion }, { status: 202 })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       return NextResponse.json(

@@ -1,10 +1,64 @@
 import {
   workspaceDeletionRepository,
   type BlobCleanup,
+  type PendingDeletion,
 } from '@/lib/repositories/workspace-deletion.repository'
 import { logger } from '@/lib/logger'
+import type { DeletionNotice } from '@/lib/services/workspace-deletion-notice'
 
 const ERROR_MAX_CHARS = 500
+
+/** LUM-918: how long a requested workspace deletion stays cancellable. */
+export const WORKSPACE_DELETION_GRACE_MS = 48 * 60 * 60 * 1000
+
+/** The workspace fields the deletion flow needs from the caller. */
+export interface DeletionWorkspace {
+  id: string
+  name: string
+  slug: string
+}
+
+function httpError(message: string, status: number): Error {
+  return Object.assign(new Error(message), { status })
+}
+
+function requireOwner(role: string) {
+  if (role !== 'OWNER') {
+    throw httpError('Only admins can delete a workspace', 403)
+  }
+}
+
+async function notifyOwners(
+  kind: DeletionNotice['kind'],
+  workspace: DeletionWorkspace,
+  actorClerkId: string,
+  pending: PendingDeletion
+) {
+  try {
+    // Loaded on use, like the blob wrapper: keeps the email SDK out of every
+    // test that merely imports this service.
+    const { sendDeletionNotice } =
+      await import('@/lib/services/workspace-deletion-notice')
+    await sendDeletionNotice({
+      kind,
+      workspaceId: workspace.id,
+      workspaceName: workspace.name,
+      workspaceSlug: workspace.slug,
+      actorClerkId,
+      ownerClerkIds: await workspaceDeletionRepository.findOwnerClerkIds(
+        workspace.id
+      ),
+      requestedAt: pending.requestedAt,
+      executeAt: pending.executeAt,
+    })
+  } catch (error) {
+    logger.error('[workspace-deletion] owner notice failed', {
+      workspaceId: workspace.id,
+      kind,
+      error: (error as Error).message,
+    })
+  }
+}
 
 /** Blob prefixes a workspace owns: its folder (logo, editor images, exports)
  *  and each task's evidence — swept in both stores (LUM-916). */
@@ -46,13 +100,21 @@ export const workspaceDeletionService = {
    * The DB delete + receipt commit together; blob cleanup runs after the
    * commit and never rolls it back — its outcome is settled on the receipt.
    */
-  async deleteWorkspace(workspaceId: string, requestedByClerkId: string) {
+  async deleteWorkspace(
+    workspaceId: string,
+    requestedByClerkId: string,
+    opts: { dueBy?: Date } = {}
+  ) {
     const taskIds =
       await workspaceDeletionRepository.findTaskIdsWithTestCases(workspaceId)
-    const { receiptId, rowCounts } = await workspaceDeletionRepository.purge(
+    const purged = await workspaceDeletionRepository.purge(
       workspaceId,
-      requestedByClerkId
+      requestedByClerkId,
+      opts
     )
+    // LUM-918: cancelled after the cron picked it up — nothing was deleted.
+    if (!purged) return null
+    const { receiptId, rowCounts } = purged
 
     const blobCleanup = await cleanupBlobs(
       workspaceBlobPrefixes(workspaceId, taskIds)
@@ -78,5 +140,103 @@ export const workspaceDeletionService = {
     }
 
     return { receiptId, rowCounts, blobCleanup }
+  },
+
+  /** LUM-918: the pending deletion of this workspace, if any. */
+  async getPending(workspaceId: string) {
+    return workspaceDeletionRepository.findPending(workspaceId)
+  },
+
+  /**
+   * LUM-918: an OWNER's delete no longer purges at once — it schedules the
+   * purge 48h out and emails every OWNER. 409 when one is already pending.
+   */
+  async scheduleDeletion(
+    workspace: DeletionWorkspace,
+    role: string,
+    clerkId: string,
+    now: Date = new Date()
+  ): Promise<PendingDeletion> {
+    requireOwner(role)
+    const pending: PendingDeletion = {
+      requestedAt: now,
+      executeAt: new Date(now.getTime() + WORKSPACE_DELETION_GRACE_MS),
+      requestedByClerkId: clerkId,
+    }
+    const scheduled = await workspaceDeletionRepository.schedule(
+      workspace.id,
+      pending
+    )
+    if (!scheduled) {
+      throw httpError('Workspace deletion is already scheduled', 409)
+    }
+    await notifyOwners('scheduled', workspace, clerkId, pending)
+    return pending
+  },
+
+  /** LUM-918: any OWNER cancels a pending deletion. 409 when none pending. */
+  async cancelDeletion(
+    workspace: DeletionWorkspace,
+    role: string,
+    clerkId: string
+  ) {
+    requireOwner(role)
+    const pending = await workspaceDeletionRepository.findPending(workspace.id)
+    const cancelled = await workspaceDeletionRepository.cancel(workspace.id)
+    if (!pending || !cancelled) {
+      throw httpError('No workspace deletion is scheduled', 409)
+    }
+    await notifyOwners('cancelled', workspace, clerkId, pending)
+  },
+
+  /**
+   * LUM-918: the immediate-deletion path (e.g. a GDPR erasure request). Only
+   * a deletion that is already pending can be run early, and the caller must
+   * re-type the workspace name — two separate confirmations.
+   */
+  async deleteNow(
+    workspace: DeletionWorkspace,
+    role: string,
+    clerkId: string,
+    confirmName: string
+  ) {
+    requireOwner(role)
+    if (confirmName !== workspace.name) {
+      throw httpError('Workspace name does not match', 400)
+    }
+    const pending = await workspaceDeletionRepository.findPending(workspace.id)
+    if (!pending) {
+      throw httpError('No workspace deletion is scheduled', 409)
+    }
+    return this.deleteWorkspace(workspace.id, clerkId)
+  },
+
+  /**
+   * LUM-918 cron: purge every workspace whose 48h window has passed. One
+   * failure never stops the others; each purge re-checks it is still due.
+   */
+  async runDueDeletions(now: Date = new Date()) {
+    const due = await workspaceDeletionRepository.findDue(now)
+    let deleted = 0
+    let skipped = 0
+    let failed = 0
+    for (const { workspaceId, requestedByClerkId } of due) {
+      try {
+        const out = await this.deleteWorkspace(
+          workspaceId,
+          requestedByClerkId,
+          { dueBy: now }
+        )
+        if (out) deleted++
+        else skipped++
+      } catch (error) {
+        failed++
+        logger.error('[workspace-deletion] scheduled purge failed', {
+          workspaceId,
+          error: (error as Error).message,
+        })
+      }
+    }
+    return { due: due.length, deleted, skipped, failed }
   },
 }

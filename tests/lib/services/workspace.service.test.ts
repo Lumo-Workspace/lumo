@@ -10,20 +10,14 @@ jest.mock('@/lib/repositories/workspace.repository', () => ({
   },
 }))
 
-jest.mock('@/lib/services/workspace-deletion.service', () => ({
-  workspaceDeletionService: { deleteWorkspace: jest.fn() },
-}))
-
 jest.mock('@/lib/workspace/slug', () => ({
   generateWorkspaceSlug: jest.fn().mockReturnValue('auto-slug'),
 }))
 
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
-import { workspaceDeletionService } from '@/lib/services/workspace-deletion.service'
 
 const mockCreate = workspaceRepository.create as jest.Mock
 const mockUpdate = workspaceRepository.update as jest.Mock
-const mockDelete = workspaceDeletionService.deleteWorkspace as jest.Mock
 const mockIsSlugUnique = workspaceRepository.isSlugUnique as jest.Mock
 
 beforeEach(() => {
@@ -143,27 +137,5 @@ describe('workspaceService.updateWorkspace', () => {
       })
       expect(mockUpdate).not.toHaveBeenCalled()
     })
-  })
-})
-
-// ── deleteWorkspace ────────────────────────────────────────────────────────
-
-describe('workspaceService.deleteWorkspace', () => {
-  it('throws 403 when caller is not OWNER', async () => {
-    await expect(
-      workspaceService.deleteWorkspace('ws-1', 'MEMBER', 'user_1')
-    ).rejects.toMatchObject({
-      message: 'Only admins can delete a workspace',
-      status: 403,
-    })
-    expect(mockDelete).not.toHaveBeenCalled()
-  })
-
-  it('deletes workspace when caller is OWNER', async () => {
-    mockDelete.mockResolvedValue(undefined)
-
-    await workspaceService.deleteWorkspace('ws-1', 'OWNER', 'user_1')
-
-    expect(mockDelete).toHaveBeenCalledWith('ws-1', 'user_1')
   })
 })

@@ -21,12 +21,10 @@ jest.mock('@/lib/api/helpers', () => ({
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: { update: jest.fn(), isSlugUnique: jest.fn() },
 }))
-jest.mock('@/lib/services/workspace-deletion.service', () => ({
-  workspaceDeletionService: { deleteWorkspace: jest.fn() },
-}))
 jest.mock('@/lib/services', () => ({
   workspaceService: jest.requireActual('@/lib/services/workspace.service')
     .workspaceService,
+  workspaceDeletionService: { getPending: jest.fn().mockResolvedValue(null) },
 }))
 
 import { GET, PATCH } from '@/app/api/workspaces/me/route'
