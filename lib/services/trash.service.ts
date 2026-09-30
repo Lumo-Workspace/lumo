@@ -49,6 +49,21 @@ async function requireRoot(
   return { kind, id: root.id, parentId: root.parentId }
 }
 
+/** Live descendants of `rootId`, breadth first. */
+async function collectDescendants(
+  findChildren: (ids: string[]) => Promise<string[]>,
+  rootId: string
+): Promise<string[]> {
+  const out: string[] = []
+  let frontier = [rootId]
+  while (frontier.length > 0) {
+    const children = await findChildren(frontier)
+    out.push(...children)
+    frontier = children
+  }
+  return out
+}
+
 async function purge(kind: TrashKind, id: string): Promise<number> {
   return kind === 'task'
     ? trashRepository.purgeTaskGroup(id)
@@ -60,10 +75,15 @@ async function purge(kind: TrashKind, id: string): Promise<number> {
 export const trashService = {
   /** Delete = move to trash, with every live subtask. */
   async trashTask(taskId: string, clerkId: string, now: Date = new Date()) {
-    return trashRepository.trashTask(taskId, {
+    const descendants = await collectDescendants(
+      trashRepository.findChildTaskIds,
+      taskId
+    )
+    await trashRepository.markTaskGroupTrashed(taskId, descendants, {
       deletedAt: now,
       deletedByClerkId: clerkId,
     })
+    return descendants.length
   },
 
   /** Delete = move to trash, with every live sub-page. */
@@ -72,10 +92,15 @@ export const trashService = {
     clerkId: string,
     now: Date = new Date()
   ) {
-    return trashRepository.trashDocument(documentId, {
+    const descendants = await collectDescendants(
+      trashRepository.findChildDocumentIds,
+      documentId
+    )
+    await trashRepository.markDocumentGroupTrashed(documentId, descendants, {
       deletedAt: now,
       deletedByClerkId: clerkId,
     })
+    return descendants.length
   },
 
   /**

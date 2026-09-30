@@ -28,21 +28,6 @@ export interface TrashedDocumentRow {
   descendantCount: number
 }
 
-/** Live descendants of `rootId` along `parentField`, breadth first. */
-async function collectDescendants(
-  findChildren: (ids: string[]) => Promise<{ id: string }[]>,
-  rootId: string
-): Promise<string[]> {
-  const out: string[] = []
-  let frontier = [rootId]
-  while (frontier.length > 0) {
-    const children = (await findChildren(frontier)).map(c => c.id)
-    out.push(...children)
-    frontier = children
-  }
-  return out
-}
-
 /** Group ids ordered so that every child comes before its parent. */
 function childrenFirst(
   rows: { id: string; parentId: string | null }[],
@@ -72,53 +57,61 @@ const groupWhere = (rootId: string) => ({
 // ── Trash Repository (LUM-918) ──────────────────────────────────────────────
 
 export const trashRepository = {
-  /** Move a live task and all its live subtasks (recursively) to the trash. */
-  async trashTask(taskId: string, stamp: TrashStamp): Promise<number> {
-    return prisma.$transaction(async tx => {
-      const descendants = await collectDescendants(
-        ids =>
-          tx.task.findMany({
-            where: { parentTaskId: { in: ids } },
-            select: { id: true },
-          }),
-        taskId
-      )
+  /** Ids of the live tasks whose parent is one of `parentIds`. */
+  async findChildTaskIds(parentIds: string[]): Promise<string[]> {
+    const rows = await prisma.task.findMany({
+      where: { parentTaskId: { in: parentIds } },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
+  /** Ids of the live documents whose parent is one of `parentIds`. */
+  async findChildDocumentIds(parentIds: string[]): Promise<string[]> {
+    const rows = await prisma.document.findMany({
+      where: { parentId: { in: parentIds } },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
+  /** Stamp a task group trashed: the root, and members pointing at it. */
+  async markTaskGroupTrashed(
+    rootId: string,
+    memberIds: string[],
+    stamp: TrashStamp
+  ): Promise<void> {
+    await prisma.$transaction(async tx => {
       await tx.task.update({
-        where: { id: taskId },
+        where: { id: rootId },
         data: { ...stamp, trashRootId: null },
       })
-      if (descendants.length > 0) {
+      if (memberIds.length > 0) {
         await tx.task.updateMany({
-          where: { id: { in: descendants } },
-          data: { ...stamp, trashRootId: taskId },
+          where: { id: { in: memberIds } },
+          data: { ...stamp, trashRootId: rootId },
         })
       }
-      return descendants.length
     })
   },
 
-  /** Move a live document and all its live sub-pages to the trash. */
-  async trashDocument(documentId: string, stamp: TrashStamp): Promise<number> {
-    return prisma.$transaction(async tx => {
-      const descendants = await collectDescendants(
-        ids =>
-          tx.document.findMany({
-            where: { parentId: { in: ids } },
-            select: { id: true },
-          }),
-        documentId
-      )
+  /** Stamp a document group trashed: the root, and members pointing at it. */
+  async markDocumentGroupTrashed(
+    rootId: string,
+    memberIds: string[],
+    stamp: TrashStamp
+  ): Promise<void> {
+    await prisma.$transaction(async tx => {
       await tx.document.update({
-        where: { id: documentId },
+        where: { id: rootId },
         data: { ...stamp, trashRootId: null },
       })
-      if (descendants.length > 0) {
+      if (memberIds.length > 0) {
         await tx.document.updateMany({
-          where: { id: { in: descendants } },
-          data: { ...stamp, trashRootId: documentId },
+          where: { id: { in: memberIds } },
+          data: { ...stamp, trashRootId: rootId },
         })
       }
-      return descendants.length
     })
   },
 
