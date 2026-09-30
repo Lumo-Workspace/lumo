@@ -55,6 +55,10 @@ export { documentRevisionService } from './documentRevision.service'
 export { documentTemplateService } from './document-template.service'
 export { workspaceService } from './workspace.service'
 export type { UpdateWorkspaceInput } from './workspace.service'
+export {
+  workspaceExportService,
+  type WorkspaceExportView,
+} from './workspace-export.service'
 export { githubService } from './github.service'
 export { githubAppInstallService } from './github-app-install.service'
 export { slackService } from './slack.service'

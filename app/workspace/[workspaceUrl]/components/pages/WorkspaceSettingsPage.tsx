@@ -11,6 +11,7 @@ import { apiFetch, workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
 import { HookEventRetentionCard } from '../settings/HookEventRetentionCard'
 import { SecurityScanSwitchesCard } from '../settings/SecurityScanSwitchesCard'
+import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import type { PlatformSecurityCeiling } from '@/lib/security-scan/workspace-switches'
 import { Button } from '@/components/ui/button'
 import {
@@ -492,6 +493,9 @@ export function WorkspaceSettingsPage() {
             huntAvailable={securityPlatform.hunt}
           />
         )}
+
+        {/* GDPR data export (LUM-858). */}
+        {isOwner && workspace?.id && <WorkspaceExportCard key={workspace.id} />}
 
         {/* Danger zone */}
         {isOwner && (

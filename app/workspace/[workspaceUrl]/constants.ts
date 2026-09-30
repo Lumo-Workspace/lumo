@@ -101,6 +101,9 @@ export const API = {
     members: '/api/workspaces/members',
     memberById: (id: string) => `/api/workspaces/members/${id}`,
     leaveWorkspace: '/api/workspaces/members/me',
+    exports: '/api/workspaces/me/exports',
+    exportDownload: (id: string) =>
+      `/api/workspaces/me/exports/${encodeURIComponent(id)}/download`,
   },
   invites: {
     list: '/api/invites',
