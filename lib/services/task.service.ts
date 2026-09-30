@@ -1,5 +1,7 @@
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
+import { privateFileRepository } from '@/lib/repositories/private-file.repository'
+import { privateFileService } from '@/lib/services/private-file.service'
 import { syncPullRequestStatus } from '@/lib/services/task-pr-sync.service'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { createFromAutomation, createTask } from './task-creation.service'
@@ -142,7 +144,12 @@ async function deleteTask(taskId: string) {
     throw Object.assign(new Error('Task not found'), { status: 404 })
   }
 
+  // Read before the delete: the test cases cascade away with the task.
+  const hasEvidence = await privateFileRepository.taskHasTestCases(taskId)
   await taskRepository.delete(taskId)
+  // LUM-916: evidence blobs used to outlive the task until the workspace was
+  // deleted. Best-effort, after the commit — never fails the delete.
+  if (hasEvidence) await privateFileService.deleteTaskEvidence([taskId])
 
   return { workspaceId: task.project.workspaceId }
 }

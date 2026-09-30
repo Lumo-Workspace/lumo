@@ -29,6 +29,13 @@ jest.mock('@clerk/nextjs/server', () => ({
   }),
 }))
 
+// LUM-916: project deletion sweeps its tasks' evidence blobs.
+jest.mock('@/lib/repositories/private-file.repository', () => ({
+  privateFileRepository: {
+    findTaskIdsWithTestCasesInProject: jest.fn().mockResolvedValue([]),
+  },
+}))
+
 jest.mock('@/lib/team', () => ({
   getDefaultTeam: jest.fn(),
 }))

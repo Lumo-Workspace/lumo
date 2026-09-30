@@ -18,6 +18,9 @@
  * the `PullRequest` row. Only the two verifiers are mocked, so the real
  * bearer split (lib/auth/sarif-ingest-auth) runs inside these routes.
  */
+// LUM-916: private blobs live in the private store; its token must be set.
+process.env.BLOB_PRIVATE_READ_WRITE_TOKEN = 'priv-token'
+
 jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn(p => p) }))
 jest.mock('@vercel/blob/client', () => ({
   handleUpload: jest.fn(
@@ -193,6 +196,11 @@ describe('POST /api/integrations/security/sarif/upload', () => {
     // handleUpload must be called with it, not just `body`.
     expect(mockedHandleUpload).toHaveBeenCalledWith(
       expect.objectContaining({ request: expect.anything() })
+    )
+    // LUM-916: the report goes to the PRIVATE store — the default token
+    // belongs to the public store, which rejects private uploads.
+    expect(mockedHandleUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ token: 'priv-token' })
     )
   })
 

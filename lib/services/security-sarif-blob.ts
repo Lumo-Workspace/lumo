@@ -3,6 +3,7 @@
  * tiny so the ingest service is testable without the SDK.
  */
 import { del, get, list } from '@vercel/blob'
+import { privateBlobToken } from '@/lib/blob/private-store'
 
 export const SARIF_BLOB_PREFIX = 'security-sarif/'
 
@@ -16,7 +17,11 @@ export async function fetchPrivateBlob(
   url: string,
   maxBytes: number
 ): Promise<Buffer | null> {
-  const res = await get(url, { access: 'private', useCache: false })
+  const res = await get(url, {
+    access: 'private',
+    token: privateBlobToken(),
+    useCache: false,
+  })
   if (!res || res.statusCode !== 200 || !res.stream) return null
   if (res.blob.size > maxBytes) {
     throw Object.assign(new Error(`gzip size ${res.blob.size} exceeds cap`), {
@@ -28,7 +33,7 @@ export async function fetchPrivateBlob(
 }
 
 export async function deleteBlob(url: string): Promise<void> {
-  await del(url)
+  await del(url, { token: privateBlobToken() })
 }
 
 /**
@@ -44,6 +49,7 @@ export async function listSarifBlobs(): Promise<
     const page = await list({
       prefix: SARIF_BLOB_PREFIX,
       limit: 1000,
+      token: privateBlobToken(),
       ...(cursor ? { cursor } : {}),
     })
     for (const b of page.blobs)

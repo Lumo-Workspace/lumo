@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
+import { withShareToken } from '@/lib/files/private-file-path'
 
 interface PageProps {
   params: Promise<{ token: string }>
@@ -31,7 +32,11 @@ export default async function PublicDocumentPage({ params }: PageProps) {
         {document.content ? (
           <div
             className='prose prose-sm dark:prose-invert max-w-none'
-            dangerouslySetInnerHTML={{ __html: document.content }}
+            // LUM-916: embedded images are private — hand the anonymous
+            // viewer's browser this page's share token to present.
+            dangerouslySetInnerHTML={{
+              __html: withShareToken(document.content, token),
+            }}
           />
         ) : (
           <p className='text-muted-foreground'>No content</p>
