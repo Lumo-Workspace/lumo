@@ -393,9 +393,10 @@ model Workspace {
   // default; the platform env (LUMO_MANAGED_SCAN / LUMO_SECURITY_HUNT) stays
   // the ceiling — a workspace can only turn a layer off, never on. Scan off =
   // no scan row, no layer, no PR comment for this workspace's PRs.
-  securityScanEnabled     Boolean @default(true)
-  securityAiReviewEnabled Boolean @default(true)
-  securityHuntEnabled     Boolean @default(true)
+  securityScanEnabled     Boolean           @default(true)
+  securityAiReviewEnabled Boolean           @default(true)
+  securityHuntEnabled     Boolean           @default(true)
+  workspaceExports        WorkspaceExport[]
 
   @@map("workspaces")
 }
@@ -416,6 +417,44 @@ model WorkspaceDeletionReceipt {
 
   @@index([workspaceId])
   @@map("workspace_deletion_receipts")
+}
+
+/// LUM-858: one GDPR data-export request (access / portability). The row is
+/// the audit trail of the export — who asked, when, what it held, who
+/// downloaded it — and outlives its archive: the private blob is deleted when
+/// the download window closes and the row turns EXPIRED.
+model WorkspaceExport {
+  id                      String                @id @default(cuid())
+  workspaceId             String
+  requestedByClerkId      String
+  status                  WorkspaceExportStatus @default(PENDING)
+  /// Private blob URL of the zip. Server-side only — never sent to a client.
+  blobUrl                 String?
+  sizeBytes               Int?
+  /// { [file]: rowsExported } — written when the archive is READY.
+  rowCounts               Json?
+  error                   String?
+  workflowRunId           String?
+  completedAt             DateTime?
+  expiresAt               DateTime?
+  downloadCount           Int                   @default(0)
+  lastDownloadedAt        DateTime?
+  lastDownloadedByClerkId String?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@map("workspace_exports")
+}
+
+enum WorkspaceExportStatus {
+  PENDING
+  RUNNING
+  READY
+  FAILED
+  EXPIRED
 }
 
 // ─── Team ───────────────────────────────────────────────────────────────────

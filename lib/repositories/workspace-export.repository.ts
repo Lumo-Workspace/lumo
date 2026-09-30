@@ -1,0 +1,454 @@
+import type { Prisma, WorkspaceExportStatus } from '@prisma/client'
+import { prisma } from '@/lib/db/prisma'
+
+/**
+ * LUM-858: GDPR workspace export — the export audit rows, and paged reads of
+ * the workspace data that goes into the archive.
+ *
+ * Every read is an explicit `select` allowlist: credential-bearing columns
+ * (integration tokens, webhook secrets, invite tokens, `Document.publicToken`,
+ * Google-sync pointers, embeddings) are never fetched, so they cannot leak
+ * into an archive. `lib/workspace/export-coverage.ts` records which models are
+ * exported at all.
+ */
+
+export const EXPORT_KINDS = [
+  'teams',
+  'members',
+  'actors',
+  'projects',
+  'milestones',
+  'sprints',
+  'tasks',
+  'comments',
+  'acceptance-criteria',
+  'task-artifacts',
+  'task-dependencies',
+  'ideas',
+  'initiatives',
+  'priorities',
+  'documents',
+  'document-templates',
+  'tags',
+  'memories',
+] as const
+
+export type ExportKind = (typeof EXPORT_KINDS)[number]
+export type ExportRow = Record<string, unknown> & { id: string }
+
+const ts = { createdAt: true, updatedAt: true } as const
+
+function paging(afterId: string | null, take: number) {
+  return {
+    orderBy: { id: 'asc' as const },
+    take,
+    ...(afterId ? { cursor: { id: afterId }, skip: 1 } : {}),
+  }
+}
+
+async function pageRows(
+  kind: ExportKind,
+  workspaceId: string,
+  afterId: string | null,
+  take: number
+): Promise<ExportRow[]> {
+  const page = paging(afterId, take)
+  const inWorkspaceProject = { project: { workspaceId } }
+  const inWorkspaceTeam = { team: { workspaceId } }
+  switch (kind) {
+    case 'teams':
+      return prisma.team.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          name: true,
+          identifier: true,
+          isDefault: true,
+          timezone: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'members':
+      return prisma.workspaceMember.findMany({
+        where: { workspaceId },
+        select: { id: true, clerkId: true, role: true, joinedAt: true },
+        ...page,
+      })
+    case 'actors':
+      return prisma.actor.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          type: true,
+          memberId: true,
+          agentId: true,
+          externalIdentity: true,
+        },
+        ...page,
+      })
+    case 'projects':
+      return prisma.project.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          teamId: true,
+          name: true,
+          description: true,
+          isIdea: true,
+          ownerId: true,
+          createdByMemberId: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'milestones':
+      return prisma.milestone.findMany({
+        where: inWorkspaceProject,
+        select: {
+          id: true,
+          projectId: true,
+          initiativeId: true,
+          name: true,
+          slug: true,
+          description: true,
+          startDate: true,
+          targetDate: true,
+          completedAt: true,
+          archivedAt: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'sprints':
+      return prisma.sprint.findMany({
+        where: inWorkspaceTeam,
+        select: {
+          id: true,
+          teamId: true,
+          number: true,
+          name: true,
+          status: true,
+          startDate: true,
+          endDate: true,
+          startedAt: true,
+          closedAt: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'tasks': {
+      const rows = await prisma.task.findMany({
+        where: inWorkspaceProject,
+        select: {
+          id: true,
+          projectId: true,
+          teamId: true,
+          number: true,
+          parentTaskId: true,
+          title: true,
+          description: true,
+          spec: true,
+          status: true,
+          priority: true,
+          assigneeActorId: true,
+          sprintId: true,
+          milestoneId: true,
+          initiativeId: true,
+          ideaId: true,
+          dueDate: true,
+          workStartedAt: true,
+          claimSnapshot: true,
+          ...ts,
+          taskTags: { select: { tagId: true } },
+        },
+        ...page,
+      })
+      return rows.map(({ taskTags, ...t }) => ({
+        ...t,
+        tagIds: taskTags.map(tt => tt.tagId),
+      }))
+    }
+    case 'comments':
+      return prisma.comment.findMany({
+        where: {
+          deletedAt: null,
+          OR: [{ task: inWorkspaceProject }, { idea: { workspaceId } }],
+        },
+        select: {
+          id: true,
+          taskId: true,
+          ideaId: true,
+          parentId: true,
+          authorActorId: true,
+          type: true,
+          body: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'acceptance-criteria':
+      return prisma.acceptanceCriterion.findMany({
+        where: { deletedAt: null, task: inWorkspaceProject },
+        select: {
+          id: true,
+          taskId: true,
+          statement: true,
+          verifierType: true,
+          checkpointer: true,
+          evidenceRequired: true,
+          judgeSteps: true,
+          source: true,
+          confirmedAt: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'task-artifacts':
+      return prisma.taskArtifact.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          taskId: true,
+          kind: true,
+          title: true,
+          content: true,
+          source: true,
+          createdById: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'task-dependencies':
+      return prisma.taskDependency.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          blockedTaskId: true,
+          blockingTaskId: true,
+          kind: true,
+          source: true,
+          status: true,
+          reason: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'ideas':
+      return prisma.idea.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          teamId: true,
+          number: true,
+          statement: true,
+          sourceContext: true,
+          status: true,
+          proposedByMemberId: true,
+          initiativeId: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'initiatives':
+      return prisma.initiative.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          teamId: true,
+          number: true,
+          name: true,
+          description: true,
+          priority: true,
+          status: true,
+          ownerMemberId: true,
+          startDate: true,
+          targetDate: true,
+          assumptionNote: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'priorities':
+      return prisma.priority.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          teamId: true,
+          statement: true,
+          effectiveFrom: true,
+          declaredByMemberId: true,
+          createdAt: true,
+        },
+        ...page,
+      })
+    case 'documents':
+      return prisma.document.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          number: true,
+          slug: true,
+          title: true,
+          emoji: true,
+          parentId: true,
+          projectId: true,
+          visibility: true,
+          createdById: true,
+          sourceMarkdown: true,
+          content: true,
+          ...ts,
+        },
+        ...page,
+      })
+    case 'document-templates':
+      return prisma.documentTemplate.findMany({
+        where: { workspaceId },
+        select: { id: true, key: true, emoji: true, content: true, ...ts },
+        ...page,
+      })
+    case 'tags':
+      return prisma.tag.findMany({
+        where: { workspaceId },
+        select: { id: true, name: true, color: true, createdAt: true },
+        ...page,
+      })
+    case 'memories':
+      return prisma.memory.findMany({
+        where: { workspaceId },
+        select: {
+          id: true,
+          projectId: true,
+          taskId: true,
+          milestoneId: true,
+          scope: true,
+          category: true,
+          status: true,
+          content: true,
+          createdByMemberId: true,
+          supersededAt: true,
+          ...ts,
+        },
+        ...page,
+      })
+  }
+}
+
+const recordSelect = {
+  id: true,
+  workspaceId: true,
+  requestedByClerkId: true,
+  status: true,
+  blobUrl: true,
+  sizeBytes: true,
+  rowCounts: true,
+  error: true,
+  completedAt: true,
+  expiresAt: true,
+  downloadCount: true,
+  lastDownloadedAt: true,
+  createdAt: true,
+} satisfies Prisma.WorkspaceExportSelect
+
+export type WorkspaceExportRecord = Prisma.WorkspaceExportGetPayload<{
+  select: typeof recordSelect
+}>
+
+const ACTIVE: WorkspaceExportStatus[] = ['PENDING', 'RUNNING']
+
+export const workspaceExportRepository = {
+  pageRows,
+
+  findWorkspaceMeta(workspaceId: string) {
+    return prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { id: true, name: true, slug: true, createdAt: true },
+    })
+  },
+
+  create(workspaceId: string, requestedByClerkId: string) {
+    return prisma.workspaceExport.create({
+      data: { workspaceId, requestedByClerkId },
+      select: recordSelect,
+    })
+  },
+
+  findActive(workspaceId: string) {
+    return prisma.workspaceExport.findFirst({
+      where: { workspaceId, status: { in: ACTIVE } },
+      orderBy: { createdAt: 'desc' },
+      select: recordSelect,
+    })
+  },
+
+  findById(id: string) {
+    return prisma.workspaceExport.findUnique({
+      where: { id },
+      select: recordSelect,
+    })
+  },
+
+  listRecent(workspaceId: string, take: number) {
+    return prisma.workspaceExport.findMany({
+      where: { workspaceId },
+      orderBy: { createdAt: 'desc' },
+      take,
+      select: recordSelect,
+    })
+  },
+
+  async setWorkflowRun(id: string, workflowRunId: string) {
+    await prisma.workspaceExport.update({
+      where: { id },
+      data: { workflowRunId },
+    })
+  },
+
+  async markRunning(id: string) {
+    await prisma.workspaceExport.update({
+      where: { id },
+      data: { status: 'RUNNING', error: null },
+    })
+  },
+
+  async markReady(
+    id: string,
+    data: {
+      blobUrl: string
+      sizeBytes: number
+      rowCounts: Record<string, number>
+      completedAt: Date
+      expiresAt: Date
+    }
+  ) {
+    await prisma.workspaceExport.update({
+      where: { id },
+      data: { status: 'READY', error: null, ...data },
+    })
+  },
+
+  async markFailed(id: string, error: string) {
+    await prisma.workspaceExport.update({
+      where: { id },
+      data: { status: 'FAILED', error, blobUrl: null },
+    })
+  },
+
+  async markExpired(id: string) {
+    await prisma.workspaceExport.update({
+      where: { id },
+      data: { status: 'EXPIRED', blobUrl: null },
+    })
+  },
+
+  async recordDownload(id: string, clerkId: string, at: Date) {
+    await prisma.workspaceExport.update({
+      where: { id },
+      data: {
+        downloadCount: { increment: 1 },
+        lastDownloadedAt: at,
+        lastDownloadedByClerkId: clerkId,
+      },
+    })
+  },
+}

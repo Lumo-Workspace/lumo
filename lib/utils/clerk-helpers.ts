@@ -75,3 +75,39 @@ export async function enrichClerkUsers(
   }
   return map
 }
+
+export interface ClerkProfile {
+  name: string | null
+  email: string | null
+}
+
+const CLERK_USER_LIST_LIMIT = 500
+
+/**
+ * LUM-858: name + primary email for many Clerk users, in pages of 500 (the
+ * `getUserList` cap). Users Clerk no longer knows are simply absent.
+ */
+export async function lookupClerkProfiles(
+  clerkIds: readonly string[]
+): Promise<Map<string, ClerkProfile>> {
+  const out = new Map<string, ClerkProfile>()
+  if (clerkIds.length === 0) return out
+  const client = await clerkClient()
+  for (let i = 0; i < clerkIds.length; i += CLERK_USER_LIST_LIMIT) {
+    const ids = clerkIds.slice(i, i + CLERK_USER_LIST_LIMIT)
+    const { data } = await client.users.getUserList({
+      userId: [...ids],
+      limit: ids.length,
+    })
+    for (const u of data) {
+      const email =
+        u.emailAddresses.find(e => e.id === u.primaryEmailAddressId)
+          ?.emailAddress ??
+        u.emailAddresses[0]?.emailAddress ??
+        null
+      const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim()
+      out.set(u.id, { name: name || null, email })
+    }
+  }
+  return out
+}
