@@ -7,6 +7,7 @@
  */
 import { get, put } from '@vercel/blob'
 import { deleteBlobsByPrefix } from './workspace-deletion-blob'
+import { privateBlobToken } from '@/lib/blob/private-store'
 
 const MULTIPART_THRESHOLD = 50 * 1024 * 1024
 
@@ -24,6 +25,7 @@ export async function putExportArchive(
     Buffer.from(bytes),
     {
       access: 'private',
+      token: privateBlobToken(),
       contentType: 'application/zip',
       addRandomSuffix: true,
       // Large workspaces: upload in parts instead of one request body.
@@ -37,7 +39,11 @@ export async function putExportArchive(
 export async function openExportArchive(
   url: string
 ): Promise<{ stream: ReadableStream<Uint8Array>; size: number } | null> {
-  const res = await get(url, { access: 'private', useCache: false })
+  const res = await get(url, {
+    access: 'private',
+    token: privateBlobToken(),
+    useCache: false,
+  })
   if (!res || res.statusCode !== 200 || !res.stream) return null
   return { stream: res.stream, size: res.blob.size }
 }
@@ -47,5 +53,8 @@ export async function deleteExportArchive(
   workspaceId: string,
   exportId: string
 ): Promise<number> {
-  return deleteBlobsByPrefix(`${exportBlobPrefix(workspaceId, exportId)}/`)
+  return deleteBlobsByPrefix(
+    `${exportBlobPrefix(workspaceId, exportId)}/`,
+    privateBlobToken()
+  )
 }

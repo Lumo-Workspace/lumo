@@ -6,9 +6,10 @@ interface UploadImageResult {
 
 export const imagesClient = {
   /**
-   * Upload an image file to Vercel Blob via `POST /api/upload/image`.
-   * Optionally scopes the upload under a folder (e.g. a documentId).
-   * Returns the public CDN URL.
+   * Upload an image file via `POST /api/upload/image`. Returns Lumo's
+   * authenticated file-route URL (LUM-916 — the blob itself is private).
+   * `folder` is ignored by the server since LUM-916 (it picks the
+   * workspace prefix); kept so older callers keep compiling.
    */
   async upload(file: File, folder?: string): Promise<UploadImageResult> {
     const formData = new FormData()

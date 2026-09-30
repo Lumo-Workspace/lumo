@@ -22,7 +22,7 @@ jest.mock('@/lib/services/workspace-deletion-notice', () => ({
   sendDeletionNotice: jest.fn().mockResolvedValue({ sent: 1, failed: 0 }),
 }))
 jest.mock('@/lib/services/workspace-deletion-blob', () => ({
-  deleteBlobsByPrefix: jest.fn().mockResolvedValue(0),
+  deleteBlobsByPrefixInBothStores: jest.fn().mockResolvedValue(0),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },

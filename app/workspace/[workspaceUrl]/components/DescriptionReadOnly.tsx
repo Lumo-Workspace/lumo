@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils'
+import { RichHtml } from '@/components/RichHtml'
 
 interface DescriptionReadOnlyProps {
-  /** Editor-serialized HTML to display read-only. Stored content is sanitized
-   *  on write (see description.service), so it is rendered verbatim here — the
-   *  same convention used by CommentItem / ReplyItem for read-only bodies. */
+  /** Editor-serialized HTML to display read-only. Stored HTML is NOT
+   *  sanitized on write, so it goes through RichHtml (LUM-916). */
   html: string | null
   /** Shown when there is no content yet, so the fallback is never a blank box. */
   placeholder?: string | undefined
@@ -41,12 +41,12 @@ export function DescriptionReadOnly({
   }
 
   return (
-    <div
+    <RichHtml
       className={cn(
         'prose prose-sm dark:prose-invert max-w-none min-h-[80px] text-foreground',
         className
       )}
-      dangerouslySetInnerHTML={{ __html: html }}
+      html={html}
     />
   )
 }

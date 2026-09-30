@@ -60,7 +60,8 @@ async function notifyOwners(
   }
 }
 
-/** Blob prefixes a workspace owns: its logo folder and each task's evidence. */
+/** Blob prefixes a workspace owns: its folder (logo, editor images, exports)
+ *  and each task's evidence — swept in both stores (LUM-916). */
 export function workspaceBlobPrefixes(
   workspaceId: string,
   taskIdsWithTestCases: readonly string[]
@@ -76,9 +77,10 @@ async function cleanupBlobs(prefixes: readonly string[]): Promise<BlobCleanup> {
   try {
     // Loaded on use: @vercel/blob pulls in undici, which breaks every jsdom
     // test that merely imports workspace.service.
-    const { deleteBlobsByPrefix } =
+    const { deleteBlobsByPrefixInBothStores } =
       await import('@/lib/services/workspace-deletion-blob')
-    for (const prefix of prefixes) deleted += await deleteBlobsByPrefix(prefix)
+    for (const prefix of prefixes)
+      deleted += await deleteBlobsByPrefixInBothStores(prefix)
     return { status: 'DONE', deleted }
   } catch (error) {
     const message = (error as Error).message ?? String(error)

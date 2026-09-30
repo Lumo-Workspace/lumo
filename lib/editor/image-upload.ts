@@ -38,7 +38,7 @@ export function validateImageFile(file: File): ImageValidationResult {
 }
 
 /**
- * POST the file to Vercel Blob; returns the public CDN URL, or null on
+ * Upload the file; returns its (login-gated) file-route URL, or null on
  * failure. Unlike a bare `catch {}`, failures are logged with enough context
  * (HTTP status + error code for server-side rejections, the raw error for
  * network/unexpected failures) to tell a 413 / auth / network problem apart.

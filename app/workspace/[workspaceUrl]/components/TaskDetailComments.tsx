@@ -19,6 +19,7 @@ import { DescriptionEditor } from './DescriptionEditorLazy'
 import { CommentAvatar } from './CommentAvatar'
 import { resolveCommentAuthor } from './comment-utils'
 import { useMentionSources } from '../hooks/useMentionSources'
+import { RichHtml } from '@/components/RichHtml'
 
 interface TaskDetailCommentsProps {
   workspaceUrl: string
@@ -181,9 +182,9 @@ export function TaskDetailComments({
                         </div>
                       </div>
                     ) : (
-                      <div
+                      <RichHtml
                         className='prose prose-sm dark:prose-invert max-w-none text-foreground'
-                        dangerouslySetInnerHTML={{ __html: comment.body }}
+                        html={comment.body}
                       />
                     )}
                   </div>
@@ -413,11 +414,9 @@ export function TaskDetailComments({
                                       </button>
                                     )
                                   })()}
-                                <div
+                                <RichHtml
                                   className='prose prose-sm dark:prose-invert max-w-none text-foreground'
-                                  dangerouslySetInnerHTML={{
-                                    __html: reply.body,
-                                  }}
+                                  html={reply.body}
                                 />
                               </>
                             )}

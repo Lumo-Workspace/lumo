@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { logger } from '@/lib/logger'
+import { privateBlobToken } from '@/lib/blob/private-store'
 import {
   authenticateSarifIngest,
   assertPayloadMatchesPrincipal,
@@ -42,6 +43,9 @@ export async function POST(request: NextRequest) {
     const result = await handleUpload({
       body,
       request,
+      // LUM-916: the report is a private blob — it must land in (and the
+      // completion webhook be verified against) the private store.
+      token: privateBlobToken(),
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const principal = await authenticateSarifIngest(request)
         if (!principal) {

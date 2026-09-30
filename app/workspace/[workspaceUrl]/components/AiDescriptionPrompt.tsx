@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { apiFetch } from '@/lib/api-client'
+import { RichHtml } from '@/components/RichHtml'
 
 type PromptState = 'idle' | 'loading' | 'preview'
 
@@ -107,9 +108,9 @@ export function AiDescriptionPrompt({
         <div className='mb-2 text-xs font-semibold text-indigo-500'>
           ✦ {intl.formatMessage({ id: 'aiDesc.preview' })}
         </div>
-        <div
+        <RichHtml
           className='prose prose-sm max-w-none text-foreground dark:prose-invert'
-          dangerouslySetInnerHTML={{ __html: preview }}
+          html={preview}
         />
         <div className='mt-3 flex gap-2'>
           <button

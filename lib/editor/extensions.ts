@@ -26,6 +26,7 @@ import { Callout } from './nodes/callout'
 import { Mermaid } from './nodes/mermaid'
 import { ToggleExtensions } from './nodes/toggle'
 import { TaskView } from './nodes/task-view'
+import { EDITOR_LINK_CLASS } from './link-class'
 
 export function getBaseExtensions(opts?: {
   mentionSuggestion?: Partial<SuggestionOptions>
@@ -49,7 +50,7 @@ export function getBaseExtensions(opts?: {
     Link.configure({
       openOnClick: false,
       autolink: true,
-      HTMLAttributes: { class: 'text-blue-500 underline cursor-pointer' },
+      HTMLAttributes: { class: EDITOR_LINK_CLASS },
     }),
     TaskList,
     TaskItem.configure({ nested: true }),

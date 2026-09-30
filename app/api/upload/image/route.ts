@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { put } from '@vercel/blob'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
+import { privateFileService } from '@/lib/services/private-file.service'
+import { logger } from '@/lib/logger'
 
 const ALLOWED_TYPES = [
   'image/png',
@@ -12,23 +13,18 @@ const ALLOWED_TYPES = [
 ]
 const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 
-function extFromMime(mime: string): string {
-  if (mime === 'image/png') return 'png'
-  if (mime === 'image/webp') return 'webp'
-  if (mime === 'image/gif') return 'gif'
-  if (mime === 'image/svg+xml') return 'svg'
-  return 'jpg'
-}
-
 /**
  * POST /api/upload/image
  * Accepts multipart/form-data with:
  *   - file   Image file (PNG / JPEG / WebP / GIF / SVG), max 10 MB
- *   - folder Optional path segment (e.g., taskId) — stored under
- *            documents/{folder}/{timestamp}-{random}.ext
- *            Falls back to "misc" when omitted.
+ *   - folder Ignored (LUM-916). Older clients still send it; the prefix is
+ *            chosen by the server so a workspace's images can be found —
+ *            and swept on workspace deletion — by prefix.
  *
- * Returns { url: string } on success.
+ * Stored as a PRIVATE blob at workspaces/{workspaceId}/images/{uuid}.
+ * Returns { url } — Lumo's file route, readable only by members of the
+ * workspace (or, for an image inside a publicly shared document, by anyone
+ * holding that document's share token).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -43,7 +39,6 @@ export async function POST(request: NextRequest) {
     // ── Parse & validate ──────────────────────────────────────────────────────
     const formData = await request.formData()
     const file = formData.get('file')
-    const folder = (formData.get('folder') as string | null) ?? 'misc'
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -62,19 +57,17 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Upload ─────────────────────────────────────────────────────────────────
-    const ext = extFromMime(file.type)
-    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-    // e.g. documents/task_abc123/1748000000000-xk7r2f.png
-    const pathname = `documents/${folder}/${unique}.${ext}`
+    const url = await privateFileService.storeImage(
+      ws.workspaceId,
+      file,
+      new URL(request.url).origin
+    )
 
-    const blob = await put(pathname, file, {
-      access: 'public',
-      contentType: file.type,
-    })
-
-    return NextResponse.json({ url: blob.url })
+    return NextResponse.json({ url })
   } catch (error) {
-    console.error('POST /api/upload/image error:', error)
+    logger.error('POST /api/upload/image error', {
+      error: (error as Error).message,
+    })
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }
 }
