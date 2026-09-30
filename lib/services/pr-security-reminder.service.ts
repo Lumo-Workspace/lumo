@@ -102,6 +102,12 @@ export interface TaskSecurityScanSummary {
    * ignores it.
    */
   queueExits: Partial<Record<QueueExitReason, number>>
+  /**
+   * LUM-901 — the workspace has scanning turned off, so this scan (for an
+   * earlier commit) no longer vouches for the PR. Additive: an older CLI
+   * ignores it.
+   */
+  scanningOff: boolean
 }
 
 export interface TaskSecurityOpenState {
@@ -210,6 +216,7 @@ export const prSecurityReminderService = {
             judgeBudget: scan.judgeBudget,
           }),
           queueExits,
+          scanningOff,
         })
       }
       const reason = scanningOff ? 'SCANNING_OFF' : unconfirmedReason(scan)

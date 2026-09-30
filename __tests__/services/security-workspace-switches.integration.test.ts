@@ -39,6 +39,7 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     claimHuntRetry: jest.fn(),
     setHuntRunId: jest.fn(),
     failStaleHunt: jest.fn(),
+    disableStaleHunt: jest.fn(),
     findStalePendingHunts: jest.fn(),
   },
 }))
@@ -334,6 +335,7 @@ describe('LUM-866 workspace hunt switch off', () => {
   })
 
   it('a batched hunt does not continue to its next batch', async () => {
+    repo.disableStaleHunt.mockResolvedValue(true as never)
     await expect(
       securityHuntOpsService.continueBatchedHunt({
         job: { ...HUNT_JOB, attempt: 1 },
@@ -342,6 +344,12 @@ describe('LUM-866 workspace hunt switch off', () => {
     ).resolves.toBe(false)
     expect(repo.claimHuntRetry).not.toHaveBeenCalled()
     expect(startHunt).not.toHaveBeenCalled()
+    // LUM-901: settled as turned off right away, not left for the sweep.
+    expect(repo.disableStaleHunt).toHaveBeenCalledWith(
+      's1',
+      1,
+      HUNT_STALE_REASONS.disabled
+    )
   })
 
   it('a faulted hunt is not re-queued', async () => {
@@ -357,7 +365,8 @@ describe('LUM-866 workspace hunt switch off', () => {
     expect(startHunt).not.toHaveBeenCalled()
   })
 
-  it('the stale sweep stamps a pending hunt FAILED with the disabled reason instead of retrying it', async () => {
+  it('the stale sweep stamps a pending hunt DISABLED with the disabled reason instead of retrying it', async () => {
+    repo.disableStaleHunt.mockResolvedValue(true as never)
     repo.findStalePendingHunts.mockResolvedValue([
       {
         id: 's1',
@@ -372,11 +381,13 @@ describe('LUM-866 workspace hunt switch off', () => {
       now: new Date('2026-09-28T02:00:00Z'),
     })
     expect(counts).toMatchObject({ retried: 0, failed: 1 })
-    expect(repo.failStaleHunt).toHaveBeenCalledWith(
+    // LUM-901: the customer's switch, so DISABLED — never FAILED (ours).
+    expect(repo.disableStaleHunt).toHaveBeenCalledWith(
       's1',
       1,
       HUNT_STALE_REASONS.disabled
     )
+    expect(repo.failStaleHunt).not.toHaveBeenCalled()
     expect(startHunt).not.toHaveBeenCalled()
   })
 

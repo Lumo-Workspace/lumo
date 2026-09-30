@@ -8,6 +8,7 @@ import {
   formatScanLayerTail,
   formatScanStatus,
   formatTurnedOffLines,
+  formatScanningOffLines,
   formatJudgeBudgetLine,
   type JudgeBudgetLine,
   type HuntCoverageInput,
@@ -149,6 +150,8 @@ export interface PrScanPayload {
   all: boolean
   /** LUM-784 — absent on an older server. */
   redactedSecrets?: number
+  /** LUM-901 — the workspace has scanning off; absent on an older server. */
+  scanningOff?: boolean
 }
 
 /** How many hunt tasks `--full` lists per scan — a plan holds at most 5. */
@@ -242,13 +245,17 @@ function formatHuntHeader(h: PrScanHunt): string {
     : `Hunt: ${parts.join(' · ')}`
 }
 
-function formatScan(s: PrScanEntry, full: boolean): string[] {
+function formatScan(
+  s: PrScanEntry,
+  full: boolean,
+  scanningOff: boolean
+): string[] {
   const lines: string[] = []
   const finished = s.finishedAt
     ? ` · finished ${s.finishedAt}`
     : ' · not finished'
   lines.push(
-    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${formatScanStatus(s.status, s.stages)} · started ${s.startedAt}${finished} · trigger ${sanitizeField(s.trigger)} · ${formatTokens(s.tokenSpent)}${s.truncated ? ' · AI review has not covered every file yet' : ''}`
+    `Scan ${sanitizeField(s.headSha.slice(0, 7))} · ${formatScanStatus(s.status, s.stages, scanningOff)} · started ${s.startedAt}${finished} · trigger ${sanitizeField(s.trigger)} · ${formatTokens(s.tokenSpent)}${s.truncated ? ' · AI review has not covered every file yet' : ''}`
   )
   const tail = formatScanLayerTail({
     status: s.status,
@@ -320,6 +327,8 @@ export function formatPrScan(
   )
   lines.push(sanitizeField(pr.title))
   lines.push(sanitizeField(pr.url))
+  // LUM-901: said before any scan, so an older result is read as older.
+  for (const l of formatScanningOffLines(data.scanningOff)) lines.push(`⚠ ${l}`)
   if (data.scans.length === 0) {
     lines.push('')
     lines.push(
@@ -335,7 +344,7 @@ export function formatPrScan(
   }
   for (const s of data.scans) {
     lines.push('')
-    lines.push(...formatScan(s, opts.full === true))
+    lines.push(...formatScan(s, opts.full === true, data.scanningOff === true))
   }
   return lines.join('\n') + '\n'
 }

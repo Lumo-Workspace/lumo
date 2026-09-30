@@ -68,6 +68,7 @@ import { huntBatchProgress } from '@/lib/security-scan/hunt/batches'
 import { scanSizeCaps } from '@/lib/security-scan/size-caps'
 import { parsePrSummary } from '@/lib/security-scan/pr-summary'
 import { sanitizeField } from '@/shared/src/sanitize'
+import { loadSecurityLayers } from '@/lib/services/security-workspace-switches.service'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
 export const REVIEW_MAX_INLINE = 50
@@ -624,6 +625,26 @@ export const securityPrReviewService = {
     const pr = scan.pullRequest
     const repo = parseRepo(pr.repo)
     const where = `scan=${scanId} pr=#${pr.number}`
+
+    // LUM-901: a late writer (this scan's hunt or managed run landing after a
+    // newer push, or after the workspace turned scanning off) must not put an
+    // old summary back over the newer scan's or the scanning-off notice. A
+    // check that cannot be made leaves the comment alone.
+    try {
+      if (!(await loadSecurityLayers(pr.workspaceId)).scan) {
+        logger.info(`[security-pr-review] scanning off — not synced ${where}`)
+        return NOTHING
+      }
+      if (await prSecurityScanRepository.hasNewerScanThan(scan.id)) {
+        logger.info(`[security-pr-review] superseded — not synced ${where}`)
+        return NOTHING
+      }
+    } catch (error) {
+      logger.warn(
+        `[security-pr-review] currency check failed ${where}: ${describe(error)}`
+      )
+      return NOTHING
+    }
 
     let posted = false
     let inline = 0

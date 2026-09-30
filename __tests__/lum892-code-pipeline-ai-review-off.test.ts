@@ -73,6 +73,10 @@ beforeEach(() => {
   create = jest
     .spyOn(boundaryCrossingRepository, 'create')
     .mockResolvedValue(undefined as never)
+  // LUM-901: no open not-checked crossing yet — a fresh row is inserted.
+  jest
+    .spyOn(boundaryCrossingRepository, 'coalesceRecurrence')
+    .mockResolvedValue(0)
   ensureCompiled.mockResolvedValue({
     sourceHash: 'h',
     rules: [DETERMINISTIC, SEMANTIC],

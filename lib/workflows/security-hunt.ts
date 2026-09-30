@@ -92,6 +92,7 @@ import {
   requeueHuntStep,
   continueHuntStep,
   awaitManagedScanStep,
+  stopIfHuntTurnedOffStep,
 } from './security-hunt.steps'
 import { syncPrReviewBestEffort } from './security-scan-helpers'
 import {
@@ -285,6 +286,19 @@ async function requeueBestEffort(
 }
 
 /**
+ * LUM-901 — true when the customer turned the hunt off since stage A
+ * dispatched it; the step has already settled the layer. A read that fails
+ * keeps the run going: stage A's switch read stands until one succeeds.
+ */
+async function turnedOffBestEffort(job: HuntJob): Promise<boolean> {
+  try {
+    return await stopIfHuntTurnedOffStep({ job })
+  } catch {
+    return false
+  }
+}
+
+/**
  * LUM-832 — start the next batch. Best-effort: a continuation that did not
  * start leaves the layer PENDING with `huntJob` naming the batch still owed,
  * which the stale sweep retries — never a dropped batch, never a verdict.
@@ -364,6 +378,8 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     stage: 'RAN' | 'PARTIAL' | 'SKIPPED',
     findings: HuntFindingInput[]
   ): Promise<HuntResult> {
+    // LUM-901: turned off while this run hunted — nothing it found lands.
+    if (await turnedOffBestEffort(job)) return { outcome: 'DISABLED', scanId }
     const layer = mergeBatchStage(job.carriedStage, stage)
     const batchAudit =
       batches !== null
@@ -416,6 +432,9 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
     await syncPrReviewBestEffort(scanId)
     return { outcome: layer, scanId, findings: findings.length, tokenSpent }
   }
+  // LUM-901: before the first model call — a hunt dispatched while the
+  // switch was on sends no code anywhere once the customer has turned it off.
+  if (await turnedOffBestEffort(job)) return { outcome: 'DISABLED', scanId }
   try {
     /**
      * LUM-758 Task 9 — the HUNTING phase, and the only phase whose failure is
@@ -768,6 +787,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
       // PARTIAL (HUNT_INCOMPLETE is already recorded) and the next batch
       // still runs; only an un-batched hunt is FAILED as a whole.
       if (batches !== null) return await settle('PARTIAL', [])
+      if (await turnedOffBestEffort(job)) return { outcome: 'DISABLED', scanId }
       await markHuntFailedBestEffort(scanId, failure, tokenSpent, job.attempt)
       await syncPrReviewBestEffort(scanId)
       return { outcome: 'FAILED', scanId, reason: failure }
@@ -857,6 +877,7 @@ export async function securityHuntWorkflow(job: HuntJob): Promise<HuntResult> {
         // The write itself is what failed — fall through to FAILED.
       }
     }
+    if (await turnedOffBestEffort(job)) return { outcome: 'DISABLED', scanId }
     await markHuntFailedBestEffort(scanId, reason, tokenSpent, job.attempt)
     await syncPrReviewBestEffort(scanId)
     return { outcome: 'FAILED', scanId, reason }

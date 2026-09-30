@@ -27,11 +27,17 @@ jest.mock('@/lib/integrations/github/auth', () => ({
 jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
   prSecurityScanRepository: {
     findByIdForReview: jest.fn(),
+    // LUM-901: this scan is the PR's newest — the sync goes ahead.
+    hasNewerScanThan: jest.fn().mockResolvedValue(false),
     // LUM-740: no stored summary id → the legacy marker path these
     // expectations describe.
     findSummaryCommentIdByPullRequest: jest.fn().mockResolvedValue(null),
     setSummaryCommentId: jest.fn().mockResolvedValue(undefined),
   },
+}))
+// LUM-901: scanning on for the workspace — the sync goes ahead.
+jest.mock('@/lib/services/security-workspace-switches.service', () => ({
+  loadSecurityLayers: jest.fn().mockResolvedValue({ scan: true }),
 }))
 jest.mock('@/lib/logger', () => ({
   logger: {

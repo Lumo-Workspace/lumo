@@ -60,6 +60,7 @@ import type {
 } from '@/lib/security-scan/types'
 import { redactPromptLine } from '@/lib/security-scan/inject-guard'
 import { sanitizeField } from '@/lib/utils/sanitize'
+import { loadSecurityLayers } from '@/lib/services/security-workspace-switches.service'
 import type { ShellDetailTask } from '@/shared/src/hunt-audit'
 
 export interface PullRequestScanReadoutInput {
@@ -203,6 +204,11 @@ export interface PullRequestScanReadout {
   all: boolean
   /** LUM-784 — registry secrets redacted from free text before it left the server. */
   redactedSecrets: number
+  /**
+   * LUM-901 — the workspace has scanning turned off: the scans here are for
+   * earlier commits and no longer vouch for the PR. Additive.
+   */
+  scanningOff: boolean
 }
 
 const DETAIL_MAX = 600
@@ -511,10 +517,11 @@ export const prScanReadoutService = {
       )
     }
     const pr = prs[0]!
-    const [rows, policy, exitContexts] = await Promise.all([
+    const [rows, policy, exitContexts, layers] = await Promise.all([
       prSecurityScanRepository.listByPullRequest(pr.id, input.all ? null : 1),
       loadSecurityPolicy(workspaceId),
       loadQueueExitContexts([pr], workspaceId),
+      loadSecurityLayers(workspaceId),
     ])
     const tally = { redacted: 0 }
     const scans: ScanReadoutView[] = rows.map(scan => {
@@ -621,6 +628,7 @@ export const prScanReadoutService = {
       scans,
       all: input.all,
       redactedSecrets: tally.redacted,
+      scanningOff: !layers.scan,
     }
   },
 }

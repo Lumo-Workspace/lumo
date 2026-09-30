@@ -11,6 +11,7 @@ import {
   formatSizeCapLines,
   formatScanStatus,
   formatTurnedOffLines,
+  formatScanningOffLines,
   formatScanLayerTail,
 } from '../lib/scan-format'
 import {
@@ -329,6 +330,8 @@ export interface TaskStatusResponse {
       huntOverCap?: { sourceFiles: number; capFiles: number } | null
       /** LUM-832 — the AI review did not run: over its size cap; absent on an older server. */
       judgeOverCap?: { diffChars: number; capChars: number } | null
+      /** LUM-901 — the workspace has scanning off; absent on an older server. */
+      scanningOff?: boolean
       /** LUM-762 — per-task L3 hunt coverage read off `huntAudit`.
        *  Absent on an older server, null when the scan stored no usable
        *  audit (a pre-LUM-739 row, or a hunt that failed before its first
@@ -592,7 +595,7 @@ type ScanSummary = NonNullable<
  *  scanner reason may be printed, and only when the layer FAILED. */
 function formatScanSummaryLine(s: ScanSummary): string {
   return (
-    `  PR #${s.prNumber} · scan ${formatScanStatus(s.status, s.stages)}` +
+    `  PR #${s.prNumber} · scan ${formatScanStatus(s.status, s.stages, s.scanningOff === true)}` +
     formatScanLayerTail({
       status: s.status,
       stages: s.stages,
@@ -629,6 +632,9 @@ export function pushSecurityCoverage(
     for (const l of formatSizeCapLines(s)) lines.push(`    ${l}`)
     // LUM-892: layers turned off in settings — the customer's choice.
     for (const l of formatTurnedOffLines(s.stages)) lines.push(`    ${l}`)
+    // LUM-901: scanning itself is off — this scan is for an earlier commit.
+    for (const l of formatScanningOffLines(s.scanningOff))
+      lines.push(`    ${l}`)
     // LUM-762: absent/null = older server or no usable audit — stay silent.
     if (s.hunt && s.hunt.categories.length > 0) {
       lines.push(`    ${formatHuntCoverageLine(s.hunt)}`)

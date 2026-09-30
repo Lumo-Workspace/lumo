@@ -407,9 +407,8 @@ it('counts the plan step tokens toward tokenSpent', async () => {
 
   const result = await securityHuntWorkflow(JOB)
 
-  // Narrowing: the FAILED / REQUEUED variants carry no `tokenSpent`.
-  if (result.outcome === 'FAILED' || result.outcome === 'REQUEUED')
-    throw new Error(result.reason)
+  // Narrowing: the FAILED / REQUEUED / DISABLED variants carry no `tokenSpent`.
+  if (!('tokenSpent' in result)) throw new Error(result.outcome)
   // 900 (plan) + 1000 (one task batch)
   expect(result.tokenSpent).toBe(1_900)
 })

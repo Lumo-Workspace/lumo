@@ -10,10 +10,12 @@ export interface TaskClaimInputs {
   // legacy / synthesized snapshots that carry no session pointer.
   claimSnapshotSessionId: string | null
   criteria: string[]
+  // LUM-901: the owning workspace, so the judge can honour its AI-review switch.
+  workspaceId: string
 }
 
 interface TaskRow {
-  team: { identifier: string }
+  team: { identifier: string; workspaceId: string }
   number: number
   claimSnapshot: string | null
   claimSnapshotAt: Date | null
@@ -28,11 +30,12 @@ export function mapTaskRowToInputs(row: TaskRow): TaskClaimInputs {
     claimSnapshotAt: row.claimSnapshotAt,
     claimSnapshotSessionId: row.claimSnapshotSessionId,
     criteria: row.acceptanceCriteria.map(c => c.statement),
+    workspaceId: row.team.workspaceId,
   }
 }
 
 export const TASK_INPUT_SELECT = {
-  team: { select: { identifier: true } },
+  team: { select: { identifier: true, workspaceId: true } },
   number: true,
   claimSnapshot: true,
   claimSnapshotAt: true,

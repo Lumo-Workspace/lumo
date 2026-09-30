@@ -119,3 +119,13 @@ export async function continueHuntStep(input: {
     await import('@/lib/services/security-hunt-ops.service')
   return securityHuntOpsService.continueBatchedHunt(input)
 }
+
+/** LUM-901 — the run's own switch read (see `stopIfHuntTurnedOff`). */
+export async function stopIfHuntTurnedOffStep(input: {
+  job: HuntJob
+}): Promise<boolean> {
+  'use step'
+  const { securityHuntOpsService } =
+    await import('@/lib/services/security-hunt-ops.service')
+  return securityHuntOpsService.stopIfHuntTurnedOff(input.job)
+}

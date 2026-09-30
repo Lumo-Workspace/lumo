@@ -3,6 +3,7 @@ import {
   formatQueueExits,
   SCAN_STAGE_KEYS,
   SCAN_UNFINISHED_NOTE,
+  SCANNING_OFF_NOTE,
   formatHuntOverCap,
   formatHuntProgress,
   formatJudgeOverCap,
@@ -152,11 +153,26 @@ export function formatTurnedOffLines(
  */
 export function formatScanStatus(
   status: string,
-  stages: Partial<Record<string, string>>
+  stages: Partial<Record<string, string>>,
+  scanningOff = false
 ): string {
+  // LUM-901: with scanning off, a CLEAN is about an earlier commit — never
+  // the PR's answer now.
+  if (status === 'CLEAN' && scanningOff)
+    return 'no findings on the commit it scanned (scanning is off now)'
   return status === 'CLEAN' && turnedOffLayers(stages).length > 0
     ? 'no findings in the checks that ran'
     : status
+}
+
+/**
+ * LUM-901 — the workspace has scanning turned off: one line, in the PR
+ * summary's words. Empty when it is on (or an older server did not say).
+ */
+export function formatScanningOffLines(
+  scanningOff: boolean | undefined
+): string[] {
+  return scanningOff ? [SCANNING_OFF_NOTE] : []
 }
 
 /**

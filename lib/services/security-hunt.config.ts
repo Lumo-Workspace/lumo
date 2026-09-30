@@ -1362,6 +1362,8 @@ export type HuntResult =
       tokenSpent: number
     }
   | { outcome: 'FAILED'; scanId: string; reason: string }
+  /** LUM-901: the customer turned the hunt off after it was dispatched. */
+  | { outcome: 'DISABLED'; scanId: string }
   /** LUM-832: ended on our fault; the next attempt was started in its place. */
   | { outcome: 'REQUEUED'; scanId: string; attempt: number; reason: string }
   /** LUM-832: this batch landed; the next batch of the diff was started. */
