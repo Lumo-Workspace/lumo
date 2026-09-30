@@ -54,6 +54,10 @@ export type {
 export { documentRevisionService } from './documentRevision.service'
 export { documentTemplateService } from './document-template.service'
 export { workspaceService } from './workspace.service'
+export {
+  workspaceDeletionService,
+  WORKSPACE_DELETION_GRACE_MS,
+} from './workspace-deletion.service'
 export type { UpdateWorkspaceInput } from './workspace.service'
 export {
   workspaceExportService,

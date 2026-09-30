@@ -39,6 +39,7 @@ import { useWorkspaceModalState } from './hooks/useWorkspaceModalState'
 
 // Components
 import { AppSidebar } from './components/Sidebar'
+import { WorkspaceDeletionBanner } from './components/WorkspaceDeletionBanner'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { WorkspaceModals } from './components/WorkspaceModals'
 import { WorkspacePageRouter } from './components/WorkspacePageRouter'
@@ -344,6 +345,7 @@ export default function DashboardApp() {
         />
 
         <SidebarInset className='overflow-hidden flex flex-col'>
+          <WorkspaceDeletionBanner />
           <div className='flex-1 overflow-hidden flex flex-col relative'>
             <PageTransition pageKey={currentPage}>
               <WorkspacePageRouter

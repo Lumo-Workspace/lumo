@@ -248,10 +248,10 @@ describe('workspace purge on a real Postgres (all migrations replayed)', () => {
   it('deletes a workspace holding documents and leaves no row of it in any table', async () => {
     expect(await rowsWithPrefix('w1_')).not.toEqual([])
 
-    const { receiptId, rowCounts } = await workspaceDeletionRepository.purge(
+    const { receiptId, rowCounts } = (await workspaceDeletionRepository.purge(
       'w1_ws',
       'user_1'
-    )
+    ))!
 
     expect(await rowsWithPrefix('w1_')).toEqual([])
     expect(rowCounts).toMatchObject({

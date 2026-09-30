@@ -2437,9 +2437,9 @@
   "workspaceSettings.acceptanceModeUpdateFailed": "Failed to update acceptance mode",
   "workspaceSettings.acceptanceModeUpdated": "Acceptance mode updated",
   "workspaceSettings.dangerZone": "Danger zone",
-  "workspaceSettings.deleteConfirmDesc": "This will permanently delete {name} and all its projects, tasks, and members. This action cannot be undone.",
+  "workspaceSettings.deleteConfirmDesc": "{name} and all its projects, tasks and members will be permanently deleted in 48 hours. Every owner is emailed and any of them can cancel until then.",
   "workspaceSettings.deleteConfirmTitle": "Delete workspace?",
-  "workspaceSettings.deleteDesc": "Permanently delete this workspace and all its data. This cannot be undone.",
+  "workspaceSettings.deleteDesc": "Schedule this workspace for deletion. Owners have 48 hours to cancel; after that all its data is permanently deleted.",
   "workspaceSettings.deleteFailed": "Failed to delete workspace",
   "workspaceSettings.deleteTitle": "Delete workspace",
   "workspaceSettings.deleteTypePrompt": "Type {name} to confirm",
@@ -2629,5 +2629,15 @@
   "security.report.securityTxt": "The same contact is published in machine-readable form at {path}.",
   "github.accessRemoved": "{count, plural, one {# repository was} other {# repositories were}} removed automatically: the person who last verified GitHub access can no longer read {count, plural, one {it} other {them}}. Their scan code was deleted.",
   "github.accessRemovedAccountGone": "{count, plural, one {# repository was} other {# repositories were}} removed automatically: GitHub can no longer find the account that last verified access (it may have been deleted or suspended, or renamed before Lumo recorded its account ID). Their scan code was deleted. A workspace owner can re-verify GitHub access to restore the repositories they can read.",
-  "github.accessRecheckOff": "Automatic access checks are off for this installation. A workspace owner needs to re-verify once to turn them on."
+  "github.accessRecheckOff": "Automatic access checks are off for this installation. A workspace owner needs to re-verify once to turn them on.",
+  "workspaceDeletion.bannerPending": "This workspace is scheduled for deletion on {date}. All of its data will be permanently deleted then.",
+  "workspaceDeletion.cancel": "Cancel deletion",
+  "workspaceDeletion.cancelled": "Workspace deletion cancelled",
+  "workspaceDeletion.cancelFailed": "Failed to cancel the deletion",
+  "workspaceDeletion.scheduled": "Deletion scheduled. Every owner has been emailed and can cancel within 48 hours.",
+  "workspaceDeletion.pendingTitle": "Deletion scheduled",
+  "workspaceDeletion.pendingDesc": "This workspace will be permanently deleted on {date}. Cancel to keep it, or delete it now.",
+  "workspaceDeletion.deleteNow": "Delete now",
+  "workspaceDeletion.deleteNowTitle": "Delete workspace now?",
+  "workspaceDeletion.deleteNowDesc": "This skips the rest of the 48-hour window and permanently deletes {name} and all its data right away. This cannot be undone."
 }

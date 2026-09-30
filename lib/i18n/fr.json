@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "Chinois",
   "workspaceSettings.dangerZone": "Zone dangereuse",
   "workspaceSettings.deleteTitle": "Supprimer l'espace de travail",
-  "workspaceSettings.deleteDesc": "Supprimez définitivement cet espace de travail et toutes ses données. Cette action est irréversible.",
+  "workspaceSettings.deleteDesc": "Programmer la suppression de cet espace de travail. Les propriétaires disposent de 48 heures pour l'annuler ; ensuite, toutes ses données sont définitivement supprimées.",
   "workspaceSettings.deleteConfirmTitle": "Supprimer l'espace de travail ?",
-  "workspaceSettings.deleteConfirmDesc": "Cela supprimera définitivement {name} ainsi que tous ses projets, tâches et membres. Cette action est irréversible.",
+  "workspaceSettings.deleteConfirmDesc": "{name} et tous ses projets, tâches et membres seront définitivement supprimés dans 48 heures. Chaque propriétaire reçoit un e-mail et n'importe lequel peut annuler d'ici là.",
   "workspaceSettings.deleteTypePrompt": "Tapez {name} pour confirmer",
   "workspaceSettings.nameUpdated": "Nom de l'espace de travail mis à jour",
   "workspaceSettings.nameUpdateFailed": "Échec de la mise à jour du nom",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "Pour les modifications à risque, un agent IA explore le code dans un bac à sable isolé afin de confirmer si un résultat est réellement exploitable.",
   "workspaceSettings.securityScan.platformOff": "Actuellement désactivé par Lumo pour tous les espaces de travail.",
   "workspaceSettings.securityScan.updated": "Paramètres d'analyse de sécurité enregistrés",
-  "workspaceSettings.securityScan.updateFailed": "Échec de l'enregistrement des paramètres d'analyse de sécurité"
+  "workspaceSettings.securityScan.updateFailed": "Échec de l'enregistrement des paramètres d'analyse de sécurité",
+  "workspaceDeletion.bannerPending": "Cet espace de travail sera supprimé le {date}. Toutes ses données seront alors définitivement supprimées.",
+  "workspaceDeletion.cancel": "Annuler la suppression",
+  "workspaceDeletion.cancelled": "Suppression de l'espace de travail annulée",
+  "workspaceDeletion.cancelFailed": "Échec de l'annulation de la suppression",
+  "workspaceDeletion.scheduled": "Suppression programmée. Chaque propriétaire a reçu un e-mail et peut annuler dans les 48 heures.",
+  "workspaceDeletion.pendingTitle": "Suppression programmée",
+  "workspaceDeletion.pendingDesc": "Cet espace de travail sera définitivement supprimé le {date}. Annulez pour le conserver, ou supprimez-le maintenant.",
+  "workspaceDeletion.deleteNow": "Supprimer maintenant",
+  "workspaceDeletion.deleteNowTitle": "Supprimer l'espace de travail maintenant ?",
+  "workspaceDeletion.deleteNowDesc": "Cela ignore le reste du délai de 48 heures et supprime immédiatement et définitivement {name} et toutes ses données. Cette action est irréversible."
 }

@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "中文",
   "workspaceSettings.dangerZone": "危险操作",
   "workspaceSettings.deleteTitle": "删除工作区",
-  "workspaceSettings.deleteDesc": "永久删除此工作区及其所有数据，此操作不可撤销。",
+  "workspaceSettings.deleteDesc": "安排删除此工作区。所有者有 48 小时可以取消，之后其全部数据将被永久删除。",
   "workspaceSettings.deleteConfirmTitle": "删除工作区？",
-  "workspaceSettings.deleteConfirmDesc": "这将永久删除 {name} 及其所有项目、任务和成员，此操作不可撤销。",
+  "workspaceSettings.deleteConfirmDesc": "{name} 及其所有项目、任务和成员将在 48 小时后被永久删除。所有所有者都会收到邮件，在此之前任一所有者都可以取消。",
   "workspaceSettings.deleteTypePrompt": "输入 {name} 以确认",
   "workspaceSettings.nameUpdated": "工作区名称已更新",
   "workspaceSettings.nameUpdateFailed": "更新名称失败",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "对有风险的改动，由 AI 代理在隔离沙箱中探查代码，确认某个发现是否真的可被利用。",
   "workspaceSettings.securityScan.platformOff": "Lumo 目前已对所有工作区关闭此项。",
   "workspaceSettings.securityScan.updated": "安全扫描设置已保存",
-  "workspaceSettings.securityScan.updateFailed": "保存安全扫描设置失败"
+  "workspaceSettings.securityScan.updateFailed": "保存安全扫描设置失败",
+  "workspaceDeletion.bannerPending": "此工作区已计划于 {date} 删除，届时其全部数据将被永久删除。",
+  "workspaceDeletion.cancel": "取消删除",
+  "workspaceDeletion.cancelled": "已取消删除工作区",
+  "workspaceDeletion.cancelFailed": "取消删除失败",
+  "workspaceDeletion.scheduled": "已安排删除。所有所有者都已收到邮件，可在 48 小时内取消。",
+  "workspaceDeletion.pendingTitle": "已安排删除",
+  "workspaceDeletion.pendingDesc": "此工作区将于 {date} 被永久删除。取消即可保留，或立即删除。",
+  "workspaceDeletion.deleteNow": "立即删除",
+  "workspaceDeletion.deleteNowTitle": "立即删除工作区？",
+  "workspaceDeletion.deleteNowDesc": "这将跳过剩余的 48 小时窗口，立即永久删除 {name} 及其全部数据，此操作不可撤销。"
 }

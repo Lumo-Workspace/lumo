@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "Chinese",
   "workspaceSettings.dangerZone": "Danger zone",
   "workspaceSettings.deleteTitle": "Delete workspace",
-  "workspaceSettings.deleteDesc": "Permanently delete this workspace and all its data. This cannot be undone.",
+  "workspaceSettings.deleteDesc": "Schedule this workspace for deletion. Owners have 48 hours to cancel; after that all its data is permanently deleted.",
   "workspaceSettings.deleteConfirmTitle": "Delete workspace?",
-  "workspaceSettings.deleteConfirmDesc": "This will permanently delete {name} and all its projects, tasks, and members. This action cannot be undone.",
+  "workspaceSettings.deleteConfirmDesc": "{name} and all its projects, tasks and members will be permanently deleted in 48 hours. Every owner is emailed and any of them can cancel until then.",
   "workspaceSettings.deleteTypePrompt": "Type {name} to confirm",
   "workspaceSettings.nameUpdated": "Workspace name updated",
   "workspaceSettings.nameUpdateFailed": "Failed to update name",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "For risky changes, an AI agent explores the code in an isolated sandbox to confirm whether a finding can actually be exploited.",
   "workspaceSettings.securityScan.platformOff": "Currently turned off for all workspaces by Lumo.",
   "workspaceSettings.securityScan.updated": "Security scan settings saved",
-  "workspaceSettings.securityScan.updateFailed": "Failed to save security scan settings"
+  "workspaceSettings.securityScan.updateFailed": "Failed to save security scan settings",
+  "workspaceDeletion.bannerPending": "This workspace is scheduled for deletion on {date}. All of its data will be permanently deleted then.",
+  "workspaceDeletion.cancel": "Cancel deletion",
+  "workspaceDeletion.cancelled": "Workspace deletion cancelled",
+  "workspaceDeletion.cancelFailed": "Failed to cancel the deletion",
+  "workspaceDeletion.scheduled": "Deletion scheduled. Every owner has been emailed and can cancel within 48 hours.",
+  "workspaceDeletion.pendingTitle": "Deletion scheduled",
+  "workspaceDeletion.pendingDesc": "This workspace will be permanently deleted on {date}. Cancel to keep it, or delete it now.",
+  "workspaceDeletion.deleteNow": "Delete now",
+  "workspaceDeletion.deleteNowTitle": "Delete workspace now?",
+  "workspaceDeletion.deleteNowDesc": "This skips the rest of the 48-hour window and permanently deletes {name} and all its data right away. This cannot be undone."
 }

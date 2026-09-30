@@ -5,25 +5,16 @@ import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import { useIntl } from 'react-intl'
 import { toast } from 'sonner'
-import { API, CACHE_KEY } from '../../constants'
+import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache, clearCache } from '../../cache'
-import { apiFetch, workspacesClient } from '@/lib/api-client'
+import { workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
 import { HookEventRetentionCard } from '../settings/HookEventRetentionCard'
 import { SecurityScanSwitchesCard } from '../settings/SecurityScanSwitchesCard'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
+import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
 import type { PlatformSecurityCeiling } from '@/lib/security-scan/workspace-switches'
 import { Button } from '@/components/ui/button'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
 
 type SummaryFrequency = 'DAILY' | 'EVERY_TWO_DAYS' | 'WEEKLY'
 
@@ -72,11 +63,6 @@ export function WorkspaceSettingsPage() {
   // Slug field
   const [slug, setSlug] = useState('')
   const [savingSlug, setSavingSlug] = useState(false)
-
-  // Delete dialog
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState('')
-  const [deleting, setDeleting] = useState(false)
 
   // Summary settings
   const [summaryEnabled, setSummaryEnabled] = useState(true)
@@ -243,23 +229,10 @@ export function WorkspaceSettingsPage() {
     }
   }
 
-  // ─── Delete workspace ─────────────────────────────────────────────────────
-  const handleDelete = async () => {
-    if (!assertOwner()) return
-    setDeleting(true)
-    try {
-      await apiFetch(API.workspaces.me, { method: 'DELETE' })
-      clearCache()
-      window.location.href = '/onboarding'
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : intl.formatMessage({ id: 'workspaceSettings.deleteFailed' })
-      )
-      setDeleting(false)
-      setDeleteOpen(false)
-    }
+  // ─── Workspace gone (delete-now path, LUM-918) ───────────────────────────
+  const handleDeleted = () => {
+    clearCache()
+    window.location.href = '/onboarding'
   }
 
   if (loading) {
@@ -497,95 +470,14 @@ export function WorkspaceSettingsPage() {
         {/* GDPR data export (LUM-858). */}
         {isOwner && workspace?.id && <WorkspaceExportCard key={workspace.id} />}
 
-        {/* Danger zone */}
-        {isOwner && (
-          <div className='rounded-lg border border-red-200 dark:border-red-900/50 overflow-hidden'>
-            <div className='px-5 py-3 bg-red-50 dark:bg-red-950/20 border-b border-red-200 dark:border-red-900/50'>
-              <p className='text-sm font-semibold text-red-700 dark:text-red-400'>
-                {intl.formatMessage({ id: 'workspaceSettings.dangerZone' })}
-              </p>
-            </div>
-            <div className='flex items-center justify-between px-5 py-4'>
-              <div>
-                <p className='text-sm font-medium text-foreground'>
-                  {intl.formatMessage({ id: 'workspaceSettings.deleteTitle' })}
-                </p>
-                <p className='text-xs text-muted-foreground mt-0.5'>
-                  {intl.formatMessage({ id: 'workspaceSettings.deleteDesc' })}
-                </p>
-              </div>
-              <Button
-                variant='destructive'
-                size='sm'
-                onClick={() => setDeleteOpen(true)}
-                className='shrink-0 ml-4'
-              >
-                {intl.formatMessage({
-                  id: 'workspaceSettings.deleteWorkspace',
-                })}
-              </Button>
-            </div>
-          </div>
+        {/* Danger zone — 48h undo window (LUM-918) */}
+        {isOwner && workspace && (
+          <WorkspaceDeletionCard
+            workspaceName={workspace.name}
+            onDeleted={handleDeleted}
+          />
         )}
       </div>
-
-      {/* ─── Delete confirm ─────────────────────────────────────────────────── */}
-      <AlertDialog
-        open={deleteOpen}
-        onOpenChange={open => {
-          if (!open) {
-            setDeleteOpen(false)
-            setDeleteConfirm('')
-          }
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {intl.formatMessage({
-                id: 'workspaceSettings.deleteConfirmTitle',
-              })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {intl.formatMessage(
-                { id: 'workspaceSettings.deleteConfirmDesc' },
-                { name: workspace?.name ?? '' }
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className='px-1 pb-2'>
-            <p className='text-xs text-muted-foreground mb-1.5'>
-              {intl.formatMessage(
-                { id: 'workspaceSettings.deleteTypePrompt' },
-                { name: workspace?.name ?? '' }
-              )}
-            </p>
-            <input
-              type='text'
-              value={deleteConfirm}
-              onChange={e => setDeleteConfirm(e.target.value)}
-              placeholder={workspace?.name}
-              className='w-full h-9 rounded-md border border-border bg-transparent px-3 text-sm outline-none focus:ring-2 focus:ring-red-400 dark:focus:ring-red-700'
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>
-              {intl.formatMessage({ id: 'common.cancel' })}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
-              onClick={handleDelete}
-              disabled={deleting || deleteConfirm !== workspace?.name}
-            >
-              {deleting
-                ? intl.formatMessage({ id: 'common.deleting' })
-                : intl.formatMessage({
-                    id: 'workspaceSettings.deleteWorkspace',
-                  })}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

@@ -1,6 +1,5 @@
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
-import { workspaceDeletionService } from '@/lib/services/workspace-deletion.service'
 import type { SecurityPolicy } from '@/lib/security-scan/policy'
 import type { HookEventRetentionDays } from '@/lib/hook-event/retention'
 
@@ -94,26 +93,5 @@ export const workspaceService = {
       data.securityHuntEnabled = input.securityHuntEnabled
 
     return workspaceRepository.update(workspaceId, data)
-  },
-
-  /**
-   * Delete workspace. Only OWNER role is allowed. LUM-861: removes every row
-   * and blob the workspace owns and leaves a deletion receipt.
-   */
-  async deleteWorkspace(
-    workspaceId: string,
-    role: string,
-    requestedByClerkId: string
-  ) {
-    if (role !== 'OWNER') {
-      throw Object.assign(new Error('Only admins can delete a workspace'), {
-        status: 403,
-      })
-    }
-
-    await workspaceDeletionService.deleteWorkspace(
-      workspaceId,
-      requestedByClerkId
-    )
   },
 }

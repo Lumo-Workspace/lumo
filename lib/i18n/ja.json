@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "中国語",
   "workspaceSettings.dangerZone": "危険ゾーン",
   "workspaceSettings.deleteTitle": "ワークスペースを削除",
-  "workspaceSettings.deleteDesc": "このワークスペースとすべてのデータを完全に削除します。この操作は元に戻せません。",
+  "workspaceSettings.deleteDesc": "このワークスペースの削除を予約します。オーナーは 48 時間以内であれば取り消せます。その後、すべてのデータが完全に削除されます。",
   "workspaceSettings.deleteConfirmTitle": "ワークスペースを削除しますか？",
-  "workspaceSettings.deleteConfirmDesc": "{name}とすべてのプロジェクト、タスク、メンバーが完全に削除されます。この操作は元に戻せません。",
+  "workspaceSettings.deleteConfirmDesc": "{name} とそのすべてのプロジェクト、タスク、メンバーは 48 時間後に完全に削除されます。すべてのオーナーにメールが送られ、それまでは誰でも取り消せます。",
   "workspaceSettings.deleteTypePrompt": "確認のために {name} と入力してください",
   "workspaceSettings.nameUpdated": "ワークスペース名を更新しました",
   "workspaceSettings.nameUpdateFailed": "名前の更新に失敗しました",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "リスクの高い変更について、AI エージェントが隔離されたサンドボックス内でコードを調べ、検出結果が実際に悪用可能かを確認します。",
   "workspaceSettings.securityScan.platformOff": "現在、Lumo によりすべてのワークスペースでオフになっています。",
   "workspaceSettings.securityScan.updated": "セキュリティスキャンの設定を保存しました",
-  "workspaceSettings.securityScan.updateFailed": "セキュリティスキャンの設定を保存できませんでした"
+  "workspaceSettings.securityScan.updateFailed": "セキュリティスキャンの設定を保存できませんでした",
+  "workspaceDeletion.bannerPending": "このワークスペースは {date} に削除される予定です。その時点ですべてのデータが完全に削除されます。",
+  "workspaceDeletion.cancel": "削除を取り消す",
+  "workspaceDeletion.cancelled": "ワークスペースの削除を取り消しました",
+  "workspaceDeletion.cancelFailed": "削除の取り消しに失敗しました",
+  "workspaceDeletion.scheduled": "削除を予約しました。すべてのオーナーにメールが送られ、48 時間以内であれば取り消せます。",
+  "workspaceDeletion.pendingTitle": "削除予約済み",
+  "workspaceDeletion.pendingDesc": "このワークスペースは {date} に完全に削除されます。残す場合は取り消し、今すぐ削除することもできます。",
+  "workspaceDeletion.deleteNow": "今すぐ削除",
+  "workspaceDeletion.deleteNowTitle": "今すぐワークスペースを削除しますか？",
+  "workspaceDeletion.deleteNowDesc": "残りの 48 時間の猶予をスキップし、{name} とそのすべてのデータを直ちに完全に削除します。この操作は元に戻せません。"
 }

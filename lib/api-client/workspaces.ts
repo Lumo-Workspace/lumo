@@ -2,6 +2,13 @@ import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 import type { WorkspaceExportView } from '@/lib/services/workspace-export.service'
 
+/** LUM-918: a scheduled workspace deletion as the API returns it. */
+export interface PendingDeletionView {
+  requestedAt: string
+  executeAt: string
+  requestedByClerkId: string
+}
+
 export const workspacesClient = {
   create<T>(data: unknown) {
     return apiFetch<T>('/api/workspaces', { method: 'POST', body: data })
@@ -57,5 +64,28 @@ export const workspacesClient = {
   /** LUM-858: same-origin URL the browser follows to download the zip. */
   exportDownloadUrl(id: string) {
     return API.workspaces.exportDownload(id)
+  },
+
+  /** LUM-918: schedule deletion 48h out (OWNER only). */
+  scheduleDeletion() {
+    return apiFetch<{ pendingDeletion: PendingDeletionView }>(
+      API.workspaces.me,
+      { method: 'DELETE' }
+    )
+  },
+
+  /** LUM-918: cancel the pending deletion (any OWNER). */
+  cancelDeletion() {
+    return apiFetch<{ pendingDeletion: null }>(API.workspaces.deletion, {
+      method: 'DELETE',
+    })
+  },
+
+  /** LUM-918: run the pending deletion now; the name must be re-typed. */
+  deleteNow(confirmName: string) {
+    return apiFetch<{ receiptId: string | null }>(API.workspaces.deletion, {
+      method: 'POST',
+      body: { confirmName },
+    })
   },
 }

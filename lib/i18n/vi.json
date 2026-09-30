@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "Tiếng Trung",
   "workspaceSettings.dangerZone": "Vùng nguy hiểm",
   "workspaceSettings.deleteTitle": "Xóa không gian làm việc",
-  "workspaceSettings.deleteDesc": "Xóa vĩnh viễn không gian làm việc này và tất cả dữ liệu của nó. Không thể hoàn tác.",
+  "workspaceSettings.deleteDesc": "Lên lịch xóa không gian làm việc này. Chủ sở hữu có 48 giờ để hủy; sau đó toàn bộ dữ liệu sẽ bị xóa vĩnh viễn.",
   "workspaceSettings.deleteConfirmTitle": "Xóa không gian làm việc?",
-  "workspaceSettings.deleteConfirmDesc": "Thao tác này sẽ xóa vĩnh viễn {name} cùng tất cả dự án, nhiệm vụ và thành viên. Không thể hoàn tác thao tác này.",
+  "workspaceSettings.deleteConfirmDesc": "{name} cùng tất cả dự án, công việc và thành viên sẽ bị xóa vĩnh viễn sau 48 giờ. Mọi chủ sở hữu đều nhận được email và bất kỳ ai trong số họ đều có thể hủy trước thời điểm đó.",
   "workspaceSettings.deleteTypePrompt": "Nhập {name} để xác nhận",
   "workspaceSettings.nameUpdated": "Đã cập nhật tên không gian làm việc",
   "workspaceSettings.nameUpdateFailed": "Cập nhật tên thất bại",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "Với các thay đổi rủi ro, một tác tử AI khám phá mã trong sandbox biệt lập để xác nhận liệu một phát hiện có thực sự khai thác được hay không.",
   "workspaceSettings.securityScan.platformOff": "Hiện Lumo đang tắt tính năng này cho mọi không gian làm việc.",
   "workspaceSettings.securityScan.updated": "Đã lưu cài đặt quét bảo mật",
-  "workspaceSettings.securityScan.updateFailed": "Không lưu được cài đặt quét bảo mật"
+  "workspaceSettings.securityScan.updateFailed": "Không lưu được cài đặt quét bảo mật",
+  "workspaceDeletion.bannerPending": "Không gian làm việc này được lên lịch xóa vào {date}. Khi đó toàn bộ dữ liệu sẽ bị xóa vĩnh viễn.",
+  "workspaceDeletion.cancel": "Hủy xóa",
+  "workspaceDeletion.cancelled": "Đã hủy xóa không gian làm việc",
+  "workspaceDeletion.cancelFailed": "Không thể hủy xóa",
+  "workspaceDeletion.scheduled": "Đã lên lịch xóa. Mọi chủ sở hữu đã nhận được email và có thể hủy trong vòng 48 giờ.",
+  "workspaceDeletion.pendingTitle": "Đã lên lịch xóa",
+  "workspaceDeletion.pendingDesc": "Không gian làm việc này sẽ bị xóa vĩnh viễn vào {date}. Hủy để giữ lại, hoặc xóa ngay.",
+  "workspaceDeletion.deleteNow": "Xóa ngay",
+  "workspaceDeletion.deleteNowTitle": "Xóa không gian làm việc ngay?",
+  "workspaceDeletion.deleteNowDesc": "Thao tác này bỏ qua phần còn lại của khoảng 48 giờ và xóa vĩnh viễn {name} cùng toàn bộ dữ liệu ngay lập tức. Không thể hoàn tác."
 }

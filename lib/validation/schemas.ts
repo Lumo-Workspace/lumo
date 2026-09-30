@@ -68,6 +68,11 @@ export const createWorkspaceSchema = z.object({
   summaryLocale: z.string().max(10).optional(),
 })
 
+/** LUM-918: running a pending workspace deletion now needs the name re-typed. */
+export const deleteWorkspaceNowSchema = z.object({
+  confirmName: z.string().min(1).max(200),
+})
+
 export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
   verificationMaxRounds: z.number().int().min(1).max(10).optional(),
   acceptanceMode: z.boolean().optional(),

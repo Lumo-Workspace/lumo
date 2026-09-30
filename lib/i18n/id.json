@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "Cina",
   "workspaceSettings.dangerZone": "Zona berbahaya",
   "workspaceSettings.deleteTitle": "Hapus ruang kerja",
-  "workspaceSettings.deleteDesc": "Hapus ruang kerja ini dan semua datanya secara permanen. Tindakan ini tidak dapat dibatalkan.",
+  "workspaceSettings.deleteDesc": "Jadwalkan penghapusan ruang kerja ini. Pemilik punya waktu 48 jam untuk membatalkannya; setelah itu semua datanya dihapus permanen.",
   "workspaceSettings.deleteConfirmTitle": "Hapus ruang kerja?",
-  "workspaceSettings.deleteConfirmDesc": "Ini akan menghapus secara permanen {name} beserta semua proyek, tugas, dan anggotanya. Tindakan ini tidak dapat dibatalkan.",
+  "workspaceSettings.deleteConfirmDesc": "{name} beserta semua proyek, tugas, dan anggotanya akan dihapus permanen dalam 48 jam. Setiap pemilik menerima email dan siapa pun dari mereka dapat membatalkan sebelum itu.",
   "workspaceSettings.deleteTypePrompt": "Ketik {name} untuk konfirmasi",
   "workspaceSettings.nameUpdated": "Nama ruang kerja diperbarui",
   "workspaceSettings.nameUpdateFailed": "Gagal memperbarui nama",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "Untuk perubahan berisiko, agen AI menelusuri kode di sandbox terisolasi untuk memastikan apakah sebuah temuan benar-benar dapat dieksploitasi.",
   "workspaceSettings.securityScan.platformOff": "Saat ini dimatikan oleh Lumo untuk semua workspace.",
   "workspaceSettings.securityScan.updated": "Pengaturan pemindaian keamanan disimpan",
-  "workspaceSettings.securityScan.updateFailed": "Gagal menyimpan pengaturan pemindaian keamanan"
+  "workspaceSettings.securityScan.updateFailed": "Gagal menyimpan pengaturan pemindaian keamanan",
+  "workspaceDeletion.bannerPending": "Ruang kerja ini dijadwalkan untuk dihapus pada {date}. Saat itu semua datanya akan dihapus permanen.",
+  "workspaceDeletion.cancel": "Batalkan penghapusan",
+  "workspaceDeletion.cancelled": "Penghapusan ruang kerja dibatalkan",
+  "workspaceDeletion.cancelFailed": "Gagal membatalkan penghapusan",
+  "workspaceDeletion.scheduled": "Penghapusan dijadwalkan. Setiap pemilik telah menerima email dan dapat membatalkan dalam 48 jam.",
+  "workspaceDeletion.pendingTitle": "Penghapusan dijadwalkan",
+  "workspaceDeletion.pendingDesc": "Ruang kerja ini akan dihapus permanen pada {date}. Batalkan untuk mempertahankannya, atau hapus sekarang.",
+  "workspaceDeletion.deleteNow": "Hapus sekarang",
+  "workspaceDeletion.deleteNowTitle": "Hapus ruang kerja sekarang?",
+  "workspaceDeletion.deleteNowDesc": "Ini melewati sisa jendela 48 jam dan langsung menghapus permanen {name} beserta semua datanya. Tindakan ini tidak dapat dibatalkan."
 }

@@ -607,9 +607,9 @@
   "workspaceSettings.langZh": "Chinesisch",
   "workspaceSettings.dangerZone": "Gefahrenbereich",
   "workspaceSettings.deleteTitle": "Arbeitsbereich löschen",
-  "workspaceSettings.deleteDesc": "Diesen Arbeitsbereich und alle seine Daten dauerhaft löschen. Dies kann nicht rückgängig gemacht werden.",
+  "workspaceSettings.deleteDesc": "Löschung dieses Arbeitsbereichs planen. Inhaber haben 48 Stunden Zeit, sie abzubrechen; danach werden alle Daten endgültig gelöscht.",
   "workspaceSettings.deleteConfirmTitle": "Arbeitsbereich löschen?",
-  "workspaceSettings.deleteConfirmDesc": "Dadurch werden {name} und alle zugehörigen Projekte, Aufgaben und Mitglieder dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+  "workspaceSettings.deleteConfirmDesc": "{name} und alle zugehörigen Projekte, Aufgaben und Mitglieder werden in 48 Stunden endgültig gelöscht. Alle Inhaber werden per E-Mail benachrichtigt und jeder von ihnen kann bis dahin abbrechen.",
   "workspaceSettings.deleteTypePrompt": "Geben Sie {name} zur Bestätigung ein",
   "workspaceSettings.nameUpdated": "Name des Arbeitsbereichs aktualisiert",
   "workspaceSettings.nameUpdateFailed": "Name konnte nicht aktualisiert werden",
@@ -2629,5 +2629,15 @@
   "workspaceSettings.securityScan.hunt.description": "Bei riskanten Änderungen untersucht ein KI-Agent den Code in einer isolierten Sandbox, um zu bestätigen, ob ein Fund tatsächlich ausnutzbar ist.",
   "workspaceSettings.securityScan.platformOff": "Derzeit von Lumo für alle Workspaces deaktiviert.",
   "workspaceSettings.securityScan.updated": "Einstellungen für den Sicherheitsscan gespeichert",
-  "workspaceSettings.securityScan.updateFailed": "Einstellungen für den Sicherheitsscan konnten nicht gespeichert werden"
+  "workspaceSettings.securityScan.updateFailed": "Einstellungen für den Sicherheitsscan konnten nicht gespeichert werden",
+  "workspaceDeletion.bannerPending": "Dieser Arbeitsbereich wird am {date} gelöscht. Dann werden alle seine Daten endgültig gelöscht.",
+  "workspaceDeletion.cancel": "Löschung abbrechen",
+  "workspaceDeletion.cancelled": "Löschung des Arbeitsbereichs abgebrochen",
+  "workspaceDeletion.cancelFailed": "Löschung konnte nicht abgebrochen werden",
+  "workspaceDeletion.scheduled": "Löschung geplant. Alle Inhaber wurden per E-Mail benachrichtigt und können innerhalb von 48 Stunden abbrechen.",
+  "workspaceDeletion.pendingTitle": "Löschung geplant",
+  "workspaceDeletion.pendingDesc": "Dieser Arbeitsbereich wird am {date} endgültig gelöscht. Brich ab, um ihn zu behalten, oder lösche ihn sofort.",
+  "workspaceDeletion.deleteNow": "Jetzt löschen",
+  "workspaceDeletion.deleteNowTitle": "Arbeitsbereich jetzt löschen?",
+  "workspaceDeletion.deleteNowDesc": "Damit wird der Rest der 48-Stunden-Frist übersprungen und {name} mit allen Daten sofort endgültig gelöscht. Dies kann nicht rückgängig gemacht werden."
 }
