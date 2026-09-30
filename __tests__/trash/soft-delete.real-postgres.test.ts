@@ -321,3 +321,68 @@ describe('document trash on a real Postgres', () => {
     await trashService.restore('document', 'd_other', WS, MEMBER)
   })
 })
+
+describe('trash is scoped to its workspace', () => {
+  const WS2 = 'ws_trash_other'
+  const MEMBER2 = 'm_trash_other'
+
+  beforeAll(async () => {
+    const db = harness.prisma!
+    await db.workspace.create({
+      data: { id: WS2, name: 'Other WS', slug: WS2 },
+    })
+    await db.workspaceMember.create({
+      data: {
+        id: MEMBER2,
+        workspaceId: WS2,
+        clerkId: 'clerk_other',
+        role: 'OWNER',
+      },
+    })
+  })
+
+  const stillTrashed = async (kind: 'task' | 'document', id: string) => {
+    const db = harness.prisma!
+    const row =
+      kind === 'task'
+        ? await db.task.findUnique({ where: { id } })
+        : await db.document.findUnique({ where: { id } })
+    return row !== null && row.deletedAt !== null
+  }
+
+  it('another workspace cannot list, restore or permanently delete a trashed task', async () => {
+    await trashService.trashTask('t_other', 'clerk_trash')
+
+    expect(
+      (await trashService.list(WS2, MEMBER2)).some(i => i.id === 't_other')
+    ).toBe(false)
+    await expect(
+      trashService.restore('task', 't_other', WS2, MEMBER2)
+    ).rejects.toMatchObject({ status: 404 })
+    await expect(
+      trashService.deletePermanently('task', 't_other', WS2, MEMBER2)
+    ).rejects.toMatchObject({ status: 404 })
+    expect(await stillTrashed('task', 't_other')).toBe(true)
+
+    await trashService.restore('task', 't_other', WS, MEMBER)
+  })
+
+  it('another workspace cannot restore or permanently delete a trashed document, even with the owner member id', async () => {
+    await trashService.trashDocument('d_other', 'clerk_trash')
+
+    // Same memberId as the owner, only the workspace differs — so the
+    // workspace predicate alone must refuse it.
+    expect(
+      (await trashService.list(WS2, MEMBER)).some(i => i.id === 'd_other')
+    ).toBe(false)
+    await expect(
+      trashService.restore('document', 'd_other', WS2, MEMBER)
+    ).rejects.toMatchObject({ status: 404 })
+    await expect(
+      trashService.deletePermanently('document', 'd_other', WS2, MEMBER)
+    ).rejects.toMatchObject({ status: 404 })
+    expect(await stillTrashed('document', 'd_other')).toBe(true)
+
+    await trashService.restore('document', 'd_other', WS, MEMBER)
+  })
+})
