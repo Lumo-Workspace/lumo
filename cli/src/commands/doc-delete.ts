@@ -83,7 +83,7 @@ export async function docDelete(
     return 1
   }
   const escaped = sanitizeField(title).replace(/"/g, '\\"')
-  console.log(
-    `Moved ${id}${title ? ` "${escaped}"` : ''} to the trash (${DOC_TRASH_HINT})`
+  process.stdout.write(
+    `Moved ${id}${title ? ` "${escaped}"` : ''} to the trash (${DOC_TRASH_HINT})\n`
   )
 }

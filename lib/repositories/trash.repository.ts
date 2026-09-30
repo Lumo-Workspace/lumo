@@ -216,20 +216,24 @@ export const trashRepository = {
     })
   },
 
-  /**
-   * Bring a trashed task group back. A root whose parent is gone (trashed or
-   * purged) comes back top-level rather than under a hidden parent.
-   */
-  async restoreTask(rootId: string, parentTaskId: string | null) {
+  /** Whether a task is live (exists and is not in the trash). */
+  async isTaskLive(taskId: string): Promise<boolean> {
+    return (await prisma.task.count({ where: { id: taskId } })) === 1
+  },
+
+  /** Whether a document is live (exists and is not in the trash). */
+  async isDocumentLive(documentId: string): Promise<boolean> {
+    return (await prisma.document.count({ where: { id: documentId } })) === 1
+  },
+
+  /** Clear the trash stamp of a task group; optionally detach the root. */
+  async restoreTask(rootId: string, opts: { detachFromParent: boolean }) {
     await prisma.$transaction(async tx => {
-      const parentLive = parentTaskId
-        ? (await tx.task.count({ where: { id: parentTaskId } })) === 1
-        : true
       await tx.task.updateMany({
         where: groupWhere(rootId),
         data: { deletedAt: null, trashRootId: null, deletedByClerkId: null },
       })
-      if (!parentLive) {
+      if (opts.detachFromParent) {
         await tx.task.update({
           where: { id: rootId },
           data: { parentTaskId: null },
@@ -238,17 +242,14 @@ export const trashRepository = {
     })
   },
 
-  /** Bring a trashed document group back (same rule for a missing parent). */
-  async restoreDocument(rootId: string, parentId: string | null) {
+  /** Clear the trash stamp of a document group; optionally detach the root. */
+  async restoreDocument(rootId: string, opts: { detachFromParent: boolean }) {
     await prisma.$transaction(async tx => {
-      const parentLive = parentId
-        ? (await tx.document.count({ where: { id: parentId } })) === 1
-        : true
       await tx.document.updateMany({
         where: groupWhere(rootId),
         data: { deletedAt: null, trashRootId: null, deletedByClerkId: null },
       })
-      if (!parentLive) {
+      if (opts.detachFromParent) {
         await tx.document.update({
           where: { id: rootId },
           data: { parentId: null },
