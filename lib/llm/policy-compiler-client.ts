@@ -9,6 +9,7 @@
  */
 import { z } from 'zod'
 import { generateObject } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { POLICY_COMPILER_MODEL } from '@/lib/ai/models'
 

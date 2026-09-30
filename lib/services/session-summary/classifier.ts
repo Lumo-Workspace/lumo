@@ -1,5 +1,6 @@
 import { FAST_MODEL } from '@/lib/ai/models'
 import { generateObject, NoObjectGeneratedError } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { z } from 'zod'
 import type { SessionMetadata } from './compact-events'

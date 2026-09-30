@@ -7,11 +7,21 @@
  *   1. the fetch wrapper forces `providerOptions.gateway.zeroDataRetention`
  *   2. the real `lib/ai/gateway` provider (chat + embedding) puts it on the wire,
  *      including when a call site passes a bare string model id (LUM-870)
- *   3. no runtime module can reach the gateway (or a provider SDK) around it
+ *   3. no runtime module can reach the gateway (or a provider SDK) around it,
+ *      judged on the import graph (test-utils/zdr-import-audit.ts, LUM-877)
  */
 import fs from 'fs'
 import path from 'path'
+import ts from 'typescript'
 import { createZdrFetch, withZeroDataRetention } from '@/lib/ai/zdr-fetch'
+import {
+  auditRuntimeModule,
+  collectImports,
+  importsUnwrappedGateway,
+  isAiCallSite,
+  isZdrWrapper,
+  ZDR_WRAPPER,
+} from '@/test-utils/zdr-import-audit'
 
 type Body = {
   providerOptions?: Record<string, Record<string, unknown>>
@@ -166,12 +176,124 @@ describe('lib/ai/gateway on the wire', () => {
   })
 })
 
+describe('zdr import audit', () => {
+  const run = (src: string, file = path.join('lib', 'x', 'mod.ts')) =>
+    auditRuntimeModule(file, src)
+
+  // LUM-877 — each form below slipped past the old regex guard.
+  it('zdr audit flags every bypass form', () => {
+    const load = "import '@/lib/ai/gateway'\n"
+    const bypasses = [
+      // `ai` re-exports the unwrapped gateway, under any spelling.
+      "import { gateway } from 'ai'",
+      "import { generateText, createGateway as cg } from 'ai'",
+      "export { gateway } from 'ai'",
+      "export * from 'ai'",
+      "import * as ai from 'ai'",
+      "import ai from 'ai'",
+      "const ai = require('ai')",
+      "import ai = require('ai')",
+      "async function f() { const { gateway } = await import('ai') }",
+      "async function f() { return (await import('ai')).gateway }",
+      "import('ai').then(m => m.gateway)",
+      // Provider SDKs other than the wrapper's own `@ai-sdk/gateway`.
+      "import { gateway } from '@ai-sdk/gateway'",
+      "const g = await import('@ai-sdk/gateway')",
+      "import { createOpenAICompatible } from '@ai-sdk/openai-compatible'",
+      "import { groq } from '@ai-sdk/groq'",
+      "import OpenAI from 'openai'",
+      "import Anthropic from '@anthropic-ai/sdk'",
+    ]
+    for (const src of bypasses) {
+      expect({ src, violations: run(load + src) }).toEqual({
+        src,
+        violations: expect.arrayContaining([expect.any(String)]),
+      })
+    }
+    // A comment naming a forbidden import is not an import.
+    expect(run(load + "// import { gateway } from 'ai'\n")).toEqual([])
+    // Only the wrapper itself may build on `@ai-sdk/gateway`.
+    expect(
+      run(
+        "import { createGatewayProvider } from '@ai-sdk/gateway'",
+        ZDR_WRAPPER
+      )
+    ).toEqual([])
+  })
+
+  it('zdr audit requires a side-effect gateway load at every ai call site', () => {
+    const call = "import { generateText } from 'ai'\n"
+    // The only accepted static form: a bare side-effect import, alias or relative.
+    expect(run("import '@/lib/ai/gateway'\n" + call)).toEqual([])
+    expect(
+      run("import '../ai/gateway'\n" + call, path.join('lib', 'llm', 'x.ts'))
+    ).toEqual([])
+    expect(
+      run("import './gateway'\n" + call, path.join('lib', 'ai', 'x.ts'))
+    ).toEqual([])
+    // A relative path that is not the wrapper does not count.
+    expect(
+      run("import './gateway'\n" + call, path.join('lib', 'llm', 'x.ts'))
+    ).not.toEqual([])
+
+    // Forms the compiler can erase, so the wrapper never runs.
+    for (const load of [
+      "import { gateway } from '@/lib/ai/gateway'",
+      "import type { gateway } from '@/lib/ai/gateway'",
+      "import { type gateway } from '@/lib/ai/gateway'",
+      '',
+    ]) {
+      expect(run(load + '\n' + call)).not.toEqual([])
+    }
+    // ...which is what TypeScript really does: an unused named import vanishes,
+    // a bare one is always emitted.
+    const emit = (src: string) =>
+      ts.transpileModule(src, {
+        compilerOptions: { module: ts.ModuleKind.CommonJS },
+      }).outputText
+    expect(
+      emit("import { gateway } from '@/lib/ai/gateway'\n" + call)
+    ).not.toContain('@/lib/ai/gateway')
+    expect(emit("import '@/lib/ai/gateway'\n" + call)).toContain(
+      'require("@/lib/ai/gateway")'
+    )
+
+    // Dynamic use of `ai` needs the wrapper loaded too (dynamically is fine).
+    const dyn =
+      "async function f() { const { generateObject } = await import('ai') }\n"
+    expect(run(dyn)).not.toEqual([])
+    expect(
+      run(
+        dyn +
+          "async function g() { const { gateway } = await import('@/lib/ai/gateway') }"
+      )
+    ).toEqual([])
+
+    // Every non-allowlisted `ai` value is a call site — incl. experimental_*.
+    for (const fn of [
+      'experimental_transcribe',
+      'experimental_generateSpeech',
+      'experimental_generateVideo',
+      'experimental_generateImage',
+      'streamText',
+      'ToolLoopAgent',
+    ]) {
+      expect(run(`import { ${fn} } from 'ai'`)).not.toEqual([])
+    }
+    // Types and request-free helpers are not call sites.
+    expect(run("import type { LanguageModel } from 'ai'")).toEqual([])
+    expect(
+      run("import { type LanguageModel, jsonSchema, APICallError } from 'ai'")
+    ).toEqual([])
+  })
+})
+
 describe('no bypass', () => {
-  const WRAPPER = path.join('lib', 'ai', 'gateway.ts')
-  // Scan the whole repo by default so a new runtime directory is covered the
-  // day it appears (LUM-870). Only tests, test fixtures (incl. the semgrep
-  // rule fixtures under security/), docs and offline eval/probe scripts
-  // (developer-run, never in a request path) are skipped.
+  // Scan the whole repo by default so a new runtime directory — or a root
+  // file such as proxy.ts / instrumentation.ts — is covered the day it
+  // appears (LUM-870/877). Only tests, test fixtures (incl. the semgrep rule
+  // fixtures under security/), docs and scripts (checked separately below)
+  // are skipped.
   const SKIP_ROOTS = new Set([
     '__tests__',
     '__stubs__',
@@ -185,14 +307,9 @@ describe('no bypass', () => {
     'coverage',
   ])
   const SKIP_DIRS = new Set(['node_modules', '__tests__', 'test-support'])
-  // A direct gateway import skips the ZDR fetch; a provider SDK skips the gateway.
-  const FORBIDDEN =
-    /(?:from\s+|import\(\s*|require\(\s*)['"](@ai-sdk\/gateway|@ai-sdk\/(?:openai|anthropic|deepseek|alibaba|google|mistral|xai)|@anthropic-ai\/sdk|openai)['"]/
-  // AI SDK entry points that take a `model` — a string id there resolves via
-  // `globalThis.AI_SDK_DEFAULT_PROVIDER`, which only `lib/ai/gateway` sets.
-  const MODEL_CALL =
-    /import\s*\{[^}]*\b(?:generateText|generateObject|streamText|streamObject|embed|embedMany|rerank|generateImage|experimental_generateImage|ToolLoopAgent|Experimental_Agent)\b[^}]*\}\s*from\s*['"]ai['"]/
-  const LOADS_GATEWAY = /from\s+['"](?:@\/lib\/ai\/gateway|\.\/gateway)['"]/
+  const SOURCE = /\.(ts|tsx|js|mjs|cjs)$/
+  const read = (f: string) =>
+    fs.readFileSync(path.join(process.cwd(), f), 'utf8')
 
   function walk(dir: string, out: string[] = []): string[] {
     if (!fs.existsSync(dir)) return out
@@ -200,23 +317,30 @@ describe('no bypass', () => {
       if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue
       const full = path.join(dir, entry.name)
       if (entry.isDirectory()) walk(full, out)
-      else if (/\.(ts|tsx|js|mjs|cjs)$/.test(entry.name)) out.push(full)
+      else if (SOURCE.test(entry.name)) out.push(full)
     }
     return out
   }
 
-  function runtimeRoots(): string[] {
-    return fs
+  const rootEntries = () =>
+    fs
       .readdirSync(process.cwd(), { withFileTypes: true })
-      .filter(e => e.isDirectory())
+      .filter(e => !e.name.startsWith('.') && e.name !== 'node_modules')
+
+  function runtimeRoots(): string[] {
+    return rootEntries()
+      .filter(e => e.isDirectory() && !SKIP_ROOTS.has(e.name))
       .map(e => e.name)
-      .filter(n => !n.startsWith('.') && n !== 'node_modules')
-      .filter(n => !SKIP_ROOTS.has(n))
   }
 
   function runtimeFiles(): string[] {
-    return runtimeRoots()
-      .flatMap(r => walk(path.join(process.cwd(), r)))
+    const rootFiles = rootEntries()
+      .filter(e => e.isFile() && SOURCE.test(e.name))
+      .map(e => path.join(process.cwd(), e.name))
+    return [
+      ...rootFiles,
+      ...runtimeRoots().flatMap(r => walk(path.join(process.cwd(), r))),
+    ]
       .map(f => path.relative(process.cwd(), f))
       .filter(f => !/\.test\.(ts|tsx|js)$/.test(f))
   }
@@ -234,29 +358,62 @@ describe('no bypass', () => {
     ]) {
       expect(roots).toContain(r)
     }
+    const files = runtimeFiles()
+    expect(files).toContain('proxy.ts')
 
-    const offenders = runtimeFiles()
-      .filter(f => f !== WRAPPER)
-      .filter(f => FORBIDDEN.test(fs.readFileSync(f, 'utf8')))
+    const offenders = files.flatMap(f =>
+      auditRuntimeModule(f, read(f)).map(v => `${f}: ${v}`)
+    )
     expect(offenders).toEqual([])
 
-    const wrapper = fs.readFileSync(path.join(process.cwd(), WRAPPER), 'utf8')
-    expect(wrapper).toMatch(
+    expect(read(ZDR_WRAPPER)).toMatch(
       /createGatewayProvider\(\{\s*fetch:\s*createZdrFetch\(/
     )
   })
 
   it('every runtime ai call site loads the zdr gateway', () => {
-    const callSites = runtimeFiles().filter(f =>
-      MODEL_CALL.test(fs.readFileSync(f, 'utf8'))
-    )
     // Guards the scan itself: the known call sites must be found.
+    const callSites = runtimeFiles().filter(f => isAiCallSite(f, read(f)))
     expect(callSites).toContain(path.join('lib', 'ai', 'embedding.ts'))
-    expect(callSites.length).toBeGreaterThan(10)
-
-    const missing = callSites.filter(
-      f => !LOADS_GATEWAY.test(fs.readFileSync(f, 'utf8'))
+    expect(callSites).toContain(
+      path.join('lib', 'services', 'memory', 'manual-dedup.ts')
     )
-    expect(missing).toEqual([])
+    expect(callSites.length).toBeGreaterThan(10)
+  })
+
+  // Scripts are developer-run, but some send real data (LUM-787's replay
+  // sends real PR diffs). New scripts must use lib/ai/gateway; these existing
+  // ones only ever send synthetic fixtures or our own UI copy.
+  const RAW_GATEWAY_SCRIPTS = [
+    'scripts/analysis/lum776-plan-probe/probe.ts',
+    'scripts/eval/memory/fixture-gen.ts',
+    'scripts/eval/memory/injection-runner.ts',
+    'scripts/eval/memory/retrieve-fixture-gen.ts',
+    'scripts/eval/memory/retrieve-judge.ts',
+    'scripts/translate-i18n-slack-context.ts',
+  ].map(f => path.join(...f.split('/')))
+
+  it('scripts reach the gateway only through the zdr wrapper', () => {
+    const scripts = walk(path.join(process.cwd(), 'scripts')).map(f =>
+      path.relative(process.cwd(), f)
+    )
+    const replay = path.join(
+      'scripts',
+      'analysis',
+      'lum787-hunt-replay',
+      'replay.ts'
+    )
+    expect(scripts).toContain(replay)
+
+    const raw = scripts.filter(f => importsUnwrappedGateway(f, read(f)))
+    expect(raw.filter(f => !RAW_GATEWAY_SCRIPTS.includes(f))).toEqual([])
+    // The allowlist only shrinks: a script that stopped needing it leaves it.
+    expect(RAW_GATEWAY_SCRIPTS.filter(f => !raw.includes(f))).toEqual([])
+
+    expect(
+      collectImports(replay, read(replay)).some(
+        r => r.kind === 'import' && isZdrWrapper(r.specifier, replay)
+      )
+    ).toBe(true)
   })
 })

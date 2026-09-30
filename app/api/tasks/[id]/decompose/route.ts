@@ -1,6 +1,7 @@
 import { GENERATION_MODEL } from '@/lib/ai/models'
 import { NextResponse } from 'next/server'
 import { generateObject } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { z } from 'zod'
 import { requireAuth } from '@/lib/auth'

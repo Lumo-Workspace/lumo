@@ -1,4 +1,5 @@
 import { embedMany } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 
 /** Vercel AI Gateway embedding model. Needs AI_GATEWAY_API_KEY locally; prod

@@ -38,6 +38,7 @@ import {
   hasToolCall,
   type LanguageModel,
 } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { z } from 'zod'
 import { HUNT_MODEL } from '@/lib/ai/models'
@@ -168,7 +169,9 @@ export interface HuntClientInput {
    * hunt on another model THROUGH this function, so the thing measured is
    * the thing shipped. Production passes nothing here and runs
    * HUNT_MODEL. A provider instance, never a bare id: pass `gateway(id)`
-   * (LUM-870).
+   * (LUM-870), where `gateway` is the ZDR wrapper from `@/lib/ai/gateway` —
+   * never `@ai-sdk/gateway`'s or `ai`'s re-exported one, which skip ZDR
+   * (LUM-877).
    */
   model?: Exclude<LanguageModel, string>
 }

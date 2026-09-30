@@ -8,8 +8,11 @@ import { createZdrFetch } from './zdr-fetch'
  * (AI_GATEWAY_API_KEY locally, Vercel OIDC in prod), but every inference
  * request is forced to zero data retention by `createZdrFetch`.
  *
- * Never import `gateway` from `@ai-sdk/gateway` directly — and every module
- * that calls an AI SDK model function must import this one —
+ * Never import `gateway` from `@ai-sdk/gateway` or `ai` (which re-exports the
+ * unwrapped one) — and every module that imports an AI SDK model function
+ * from `ai` must also carry the bare side-effect import
+ * `import '@/lib/ai/gateway'`: a named import the module leaves unused is
+ * dropped by the compiler, and then string model ids skip ZDR (LUM-877).
  * `__tests__/lib/ai/zdr-gateway.test.ts` fails the build otherwise.
  */
 export const gateway = createGatewayProvider({

@@ -1,6 +1,7 @@
 import { FAST_MODEL } from '@/lib/ai/models'
 import { logger } from '@/lib/logger'
 import { generateText } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'

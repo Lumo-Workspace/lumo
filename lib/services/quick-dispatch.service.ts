@@ -1,5 +1,6 @@
 import { GENERATION_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { clerkClient } from '@clerk/nextjs/server'
 import { taskService } from '@/lib/services/task.service'
