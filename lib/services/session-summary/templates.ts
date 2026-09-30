@@ -1,5 +1,6 @@
 import { CONTENT_MODEL } from '@/lib/ai/models'
 import { generateObject, jsonSchema } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import {
   DEBUG_TOOL,

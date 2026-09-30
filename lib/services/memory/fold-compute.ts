@@ -1,5 +1,6 @@
 import { MEMORY_JUDGE_MODEL } from '@/lib/ai/models'
 import { generateObject } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import type { MemoryCategory } from '@prisma/client'
 import { memoryRepository } from '@/lib/repositories/memory.repository'

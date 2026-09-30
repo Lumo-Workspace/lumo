@@ -28,7 +28,9 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { gateway } from '@ai-sdk/gateway'
+// The ZDR wrapper, never `@ai-sdk/gateway`: `--model`/`--repo` send real PR
+// diffs to whatever model is named (LUM-877).
+import { gateway } from '../../../lib/ai/gateway'
 import { HUNT_MODEL } from '../../../lib/ai/models'
 import {
   createRepoSandbox,

@@ -27,6 +27,7 @@
  * service's `await import()` (jest TransformStream trap).
  */
 import { generateText } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import { FAST_MODEL } from '@/lib/ai/models'
 import { NO_RELEVANT_LINES } from '@/lib/security-scan/hunt/compress-usable'

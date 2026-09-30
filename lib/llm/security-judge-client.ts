@@ -12,6 +12,7 @@
 import { REASONING_MODEL } from '@/lib/ai/models'
 import { z } from 'zod'
 import { generateObject } from 'ai'
+import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 
 export const VULN_KINDS = [
