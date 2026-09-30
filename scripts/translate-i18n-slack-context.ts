@@ -12,7 +12,7 @@ import 'dotenv/config'
 import fs from 'node:fs'
 import path from 'node:path'
 import { generateObject } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '../lib/ai/gateway'
 import { z } from 'zod'
 import { TRANSLATION_MODEL } from '../lib/ai/models'
 

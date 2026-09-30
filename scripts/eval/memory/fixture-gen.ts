@@ -8,7 +8,7 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { embedMany } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 import { memoryContentToText } from '@/lib/memory/content-text'
 import { evalSet } from './eval-set'
 

@@ -14,7 +14,7 @@
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { embedMany } from 'ai'
-import { gateway } from '@ai-sdk/gateway'
+import { gateway } from '@/lib/ai/gateway'
 import { retrieveQuerySet, retrieveQueryText } from './retrieve-set'
 
 export const RETRIEVE_FIXTURE_MODEL = 'alibaba/qwen3-embedding-0.6b'

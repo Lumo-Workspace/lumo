@@ -109,7 +109,7 @@ export async function runInjection(
   cases: InjectionCase[] = injectionSet
 ): Promise<InjectionResult[]> {
   const { generateText } = await import('ai')
-  const { gateway } = await import('@ai-sdk/gateway')
+  const { gateway } = await import('@/lib/ai/gateway')
   const results: InjectionResult[] = []
   for (const c of cases) {
     const { text } = await generateText({

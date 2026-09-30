@@ -64,7 +64,7 @@ export async function runJudgeOnce(
     )
   }
   const { generateObject } = await import('ai')
-  const { gateway } = await import('@ai-sdk/gateway')
+  const { gateway } = await import('@/lib/ai/gateway')
   const { z } = await import('zod')
   const votes: JudgeVote[] = []
   for (const { query, fragmentIds } of pairs) {

@@ -382,9 +382,10 @@ describe('no bypass', () => {
   })
 
   // Scripts are developer-run, but some send real data (LUM-787's replay
-  // sends real PR diffs). New scripts must use lib/ai/gateway; these existing
-  // ones only ever send synthetic fixtures or our own UI copy.
-  const RAW_GATEWAY_SCRIPTS = [
+  // sends real PR diffs), so every script uses lib/ai/gateway too — no
+  // allowlist (the six LUM-877 left behind were migrated).
+  const GATEWAY_SCRIPTS = [
+    'scripts/analysis/lum787-hunt-replay/replay.ts',
     'scripts/analysis/lum776-plan-probe/probe.ts',
     'scripts/eval/memory/fixture-gen.ts',
     'scripts/eval/memory/injection-runner.ts',
@@ -397,23 +398,19 @@ describe('no bypass', () => {
     const scripts = walk(path.join(process.cwd(), 'scripts')).map(f =>
       path.relative(process.cwd(), f)
     )
-    const replay = path.join(
-      'scripts',
-      'analysis',
-      'lum787-hunt-replay',
-      'replay.ts'
-    )
-    expect(scripts).toContain(replay)
-
     const raw = scripts.filter(f => importsUnwrappedGateway(f, read(f)))
-    expect(raw.filter(f => !RAW_GATEWAY_SCRIPTS.includes(f))).toEqual([])
-    // The allowlist only shrinks: a script that stopped needing it leaves it.
-    expect(RAW_GATEWAY_SCRIPTS.filter(f => !raw.includes(f))).toEqual([])
+    expect(raw).toEqual([])
 
-    expect(
-      collectImports(replay, read(replay)).some(
-        r => r.kind === 'import' && isZdrWrapper(r.specifier, replay)
-      )
-    ).toBe(true)
+    // Guards the scan itself: the known gateway scripts are found, and each
+    // loads the wrapper (statically or via import()).
+    for (const f of GATEWAY_SCRIPTS) {
+      expect(scripts).toContain(f)
+      expect({
+        f,
+        loadsWrapper: collectImports(f, read(f)).some(
+          r => !r.typeOnly && isZdrWrapper(r.specifier, f)
+        ),
+      }).toEqual({ f, loadsWrapper: true })
+    }
   })
 })
