@@ -2,10 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
 import { slugify } from '@/lib/utils/slugify'
 import { CommandResult } from './types'
-import {
-  redactStoredFields,
-  STORAGE_REDACTED_FIELDS,
-} from '@/lib/security-scan/storage-redaction'
+import { taskRepository } from '@/lib/repositories/task.repository'
 
 // Resolve Slack user email → WorkspaceMember in workspaceId
 async function resolveSlackUser(
@@ -256,7 +253,6 @@ export async function handleCommand(
         select: {
           id: true,
           identifier: true,
-          _count: { select: { tasks: true } },
           workspace: { select: { slug: true } },
         },
       })
@@ -270,28 +266,31 @@ export async function handleCommand(
         select: { id: true, name: true },
       })
 
-      const task = await prisma.task.create({
-        data: {
-          ...redactStoredFields(
-            { title: title! },
-            STORAGE_REDACTED_FIELDS.task
-          ),
-          teamId: team.id,
-          projectId: project?.id ?? '',
-          number: team._count.tasks + 1,
-          status: 'TODO',
-          priority: 'MEDIUM',
-          order: 0,
-        },
-        select: { id: true, number: true },
+      if (!project)
+        return {
+          type: 'text',
+          text: `Team \`${team.identifier}\` has no project to create the task in.`,
+        }
+
+      // Number comes from the team's atomic taskSeq — count+1 collides with
+      // (or re-issues) numbers once any task has been hard-deleted (LUM-920).
+      // createWithSequence also applies the task storage redaction.
+      const task = await taskRepository.createWithSequence({
+        projectId: project.id,
+        teamId: team.id,
+        title: title!,
+        description: null,
+        status: 'TODO',
+        priority: 'MEDIUM',
+        assigneeActorId: null,
+        agentStatus: null,
+        parentTaskId: null,
+        order: 0,
+        dueDate: null,
       })
 
       const taskIdentifier = `${team.identifier}-${task.number}`
-      const url = taskUrl(
-        team.workspace.slug,
-        project?.name ?? '',
-        taskIdentifier
-      )
+      const url = taskUrl(team.workspace.slug, project.name, taskIdentifier)
       return {
         type: 'blocks',
         blocks: [
