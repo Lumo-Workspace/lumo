@@ -19,9 +19,10 @@ jest.mock('@/lib/integrations/slack', () => ({
 }))
 jest.mock('@/lib/services/github.service', () => ({
   githubService: {
-    upsertPullRequest: jest.fn(),
+    upsertPullRequest: jest.fn().mockResolvedValue({ id: 'pr', taskId: null }),
     upsertTaskBranch: jest.fn(),
     findTaskByIdentifier: jest.fn().mockResolvedValue(null),
+    resolvePullRequestTask: jest.fn(async (task: unknown) => task),
     findWorkspaceSlug: jest.fn(),
   },
 }))

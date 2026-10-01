@@ -1878,6 +1878,7 @@
   "sentry.mappingAddFailed": "Не удалось добавить сопоставление",
   "sentry.mappingRemoveFailed": "Не удалось удалить сопоставление",
   "linkPr.title": "Связать pull request",
+  "linkPr.sharedRepoWarning": "Репозиторий этого пул-реквеста используется и в другом рабочем пространстве. Комментарии к этой задаче будут опубликованы в пул-реквесте на GitHub.",
   "linkPr.searchPlaceholder": "Найти PR или вставить URL GitHub...",
   "linkPr.linkFromUrl": "Связать PR по URL",
   "linkPr.linkedTo": "Связан с {identifier}",

@@ -12,7 +12,7 @@ import {
   sendDMNotification,
 } from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
-import type { Task, Project } from '@prisma/client'
+import type { WebhookTask } from '@/lib/repositories/github.repository'
 import { githubService } from '@/lib/services/github.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
@@ -81,13 +81,7 @@ async function findTaskForBranch(
   headBranch: string,
   workspaceId: string,
   repo: string
-): Promise<
-  | (Task & {
-      project: Pick<Project, 'name' | 'ownerId' | 'workspaceId'>
-      team: { identifier: string }
-    })
-  | null
-> {
+): Promise<WebhookTask | null> {
   const identifier = parseBranchIdentifier(headBranch)
   if (!identifier) return null
   const parts = splitIdentifier(identifier)
@@ -216,18 +210,23 @@ export async function handlePullRequest(
     closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
   })
 
+  // LUM-929: an ambiguous branch only stops a NEW link; the row's existing
+  // link keeps its task (see githubService.resolvePullRequestTask).
+  const linkedTask = await githubService.resolvePullRequestTask(
+    task,
+    prRow.taskId
+  )
+
+  if (!linkedTask) return
+
   // Ensure the branch appears in the task's branch list whenever a PR
   // event references it — covers branches created outside Lumo and
   // branches that were deleted before any push event was tracked
-  if (task) {
-    await githubService.upsertTaskBranch({
-      taskId: task.id,
-      repo: repository.full_name,
-      branchName: pr.head.ref,
-    })
-  }
-
-  if (!task) return
+  await githubService.upsertTaskBranch({
+    taskId: linkedTask.id,
+    repo: repository.full_name,
+    branchName: pr.head.ref,
+  })
 
   // LUM-732: every push to a task-linked open PR gets a security scan of its
   // current head. The worker dedups on (pr, headSha), so redelivery is harmless.
@@ -242,29 +241,32 @@ export async function handlePullRequest(
   // redelivery or the getTaskDetail poller double-firing is harmless. Gated on
   // the 'closed' action so a post-merge edit does not re-fire them (LUM-828).
   if (action === 'closed' && state !== 'open') {
-    stampLineageInBackground(s => s.stampForPrState(task.id, state))
+    stampLineageInBackground(s => s.stampForPrState(linkedTask.id, state))
     // Auto-judge claim faithfulness the moment a delivery merges (LUM-612).
     // No-op for 'closed'; the hourly cron is the reconciliation backstop.
-    enqueueFaithfulnessJudgeOnMerge(state, task.id)
+    enqueueFaithfulnessJudgeOnMerge(state, linkedTask.id)
     // LUM-780: the review window closed — re-judge the task's blocking
     // TEST_FILE_DELETED crossings against every linked PR's file list.
-    enqueueCrossingRejudgeOnPrClose(state, task.id)
+    enqueueCrossingRejudgeOnPrClose(state, linkedTask.id)
   }
 
   const workspaceSlug = await githubService.findWorkspaceSlug(workspaceId)
-  const taskIdentifier = buildTaskIdentifier(task.team.identifier, task.number)
+  const taskIdentifier = buildTaskIdentifier(
+    linkedTask.team.identifier,
+    linkedTask.number
+  )
   const taskUrl = buildTaskUrl(
     workspaceSlug,
-    task.project.name,
-    task.team.identifier,
-    task.number
+    linkedTask.project.name,
+    linkedTask.team.identifier,
+    linkedTask.number
   )
 
   if (action === 'opened' || action === 'reopened') {
-    if (task.status === 'TODO' || task.status === 'IN_PROGRESS') {
+    if (linkedTask.status === 'TODO' || linkedTask.status === 'IN_PROGRESS') {
       const prOpenedPayload = {
-        taskId: task.id,
-        taskTitle: task.title,
+        taskId: linkedTask.id,
+        taskTitle: linkedTask.title,
         taskIdentifier,
         taskUrl,
         prNumber: pr.number,
@@ -276,11 +278,11 @@ export async function handlePullRequest(
           workspaceId,
           'pr_opened',
           prOpenedPayload,
-          task.projectId
+          linkedTask.projectId
         )
       )
-      const ownerActorId = task.project.ownerId
-        ? await getHumanActorId(task.project.ownerId)
+      const ownerActorId = linkedTask.project.ownerId
+        ? await getHumanActorId(linkedTask.project.ownerId)
         : null
       const ownerClerkId = ownerActorId
         ? await getActorClerkId(ownerActorId)
@@ -298,8 +300,8 @@ export async function handlePullRequest(
     }
   } else if (action === 'closed' && pr.merged) {
     const mergePayload = {
-      taskId: task.id,
-      taskTitle: task.title,
+      taskId: linkedTask.id,
+      taskTitle: linkedTask.title,
       taskIdentifier,
       taskUrl,
       prNumber: pr.number,
@@ -311,11 +313,11 @@ export async function handlePullRequest(
         workspaceId,
         'pr_merged',
         mergePayload,
-        task.projectId
+        linkedTask.projectId
       )
     )
-    if (task.assigneeActorId) {
-      const assigneeClerkId = await getActorClerkId(task.assigneeActorId)
+    if (linkedTask.assigneeActorId) {
+      const assigneeClerkId = await getActorClerkId(linkedTask.assigneeActorId)
       if (assigneeClerkId) {
         waitUntil(
           sendDMNotification(

@@ -97,13 +97,18 @@ export const pullRequestRepository = {
    * more than one task-linked row means the PR cannot belong to all of them.
    */
   async countTaskLinkedWorkspaces(repo: string, number: number) {
-    return prisma.pullRequest.count({
+    // LUM-929: count workspaces, not rows — the unique key is case-sensitive,
+    // so one workspace can hold case-variant rows for the same PR.
+    const rows = await prisma.pullRequest.findMany({
       where: {
         repo: { equals: repo, mode: 'insensitive' },
         number,
         taskId: { not: null },
       },
+      select: { workspaceId: true },
+      distinct: ['workspaceId'],
     })
+    return rows.length
   },
 
   /**

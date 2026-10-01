@@ -46,8 +46,8 @@ describe('lib/integrations/github barrel exports', () => {
     expect(typeof githubModule.verifyGitHubSignature).toBe('function')
   })
 
-  it('exports syncRepoPRs as a function', () => {
-    expect(typeof githubModule.syncRepoPRs).toBe('function')
+  it('exports listRecentPullRequests as a function', () => {
+    expect(typeof githubModule.listRecentPullRequests).toBe('function')
   })
 
   it('exports all expected public functions', () => {
@@ -59,7 +59,7 @@ describe('lib/integrations/github barrel exports', () => {
       'createRepoWebhook',
       'deleteRepoWebhook',
       'verifyGitHubSignature',
-      'syncRepoPRs',
+      'listRecentPullRequests',
     ]
     const actualExports = Object.keys(githubModule)
     for (const name of expectedExports) {

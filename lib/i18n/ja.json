@@ -1878,6 +1878,7 @@
   "sentry.mappingAddFailed": "マッピングの追加に失敗しました",
   "sentry.mappingRemoveFailed": "マッピングの削除に失敗しました",
   "linkPr.title": "プルリクエストをリンク",
+  "linkPr.sharedRepoWarning": "このプルリクエストのリポジトリは別のワークスペースでも使われています。このタスクのコメントは GitHub 上のプルリクエストに投稿されます。",
   "linkPr.searchPlaceholder": "PR を検索または GitHub URL を貼り付け...",
   "linkPr.linkFromUrl": "URL から PR をリンク",
   "linkPr.linkedTo": "{identifier} にリンク済み",

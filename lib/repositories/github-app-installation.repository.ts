@@ -37,6 +37,18 @@ export const githubAppInstallationRepository = {
     })
   },
 
+  /**
+   * LUM-929 — every other workspace's confirmed list. One row per workspace
+   * with the App installed (uninstall deletes the row), so this is what
+   * "another team also confirmed this repository" is decided from.
+   */
+  async findConfirmedListsExcept(workspaceId: string) {
+    return prisma.gitHubAppInstallation.findMany({
+      where: { workspaceId: { not: workspaceId } },
+      select: { workspaceId: true, repositories: true },
+    })
+  },
+
   /** The fields the settings card renders — account + repository scope. */
   async findStatusByWorkspace(workspaceId: string) {
     return prisma.gitHubAppInstallation.findUnique({

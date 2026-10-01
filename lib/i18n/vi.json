@@ -1878,6 +1878,7 @@
   "sentry.mappingAddFailed": "Không thể thêm ánh xạ",
   "sentry.mappingRemoveFailed": "Không thể xóa ánh xạ",
   "linkPr.title": "Liên kết pull request",
+  "linkPr.sharedRepoWarning": "Kho mã của pull request này cũng được một không gian làm việc khác sử dụng. Bình luận trong công việc này sẽ được đăng lên pull request trên GitHub.",
   "linkPr.searchPlaceholder": "Tìm PR hoặc dán URL GitHub...",
   "linkPr.linkFromUrl": "Liên kết PR từ URL",
   "linkPr.linkedTo": "Đã liên kết với {identifier}",

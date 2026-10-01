@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger'
+import { githubService } from '@/lib/services/github.service'
 import { TOKEN_FAILING_ALERT_MS } from '@/lib/services/github-access-recheck.config'
 import {
   githubAppInstallationRepository,
@@ -11,7 +12,7 @@ import {
   deleteAppInstallation,
   getRepoToken,
   REPO_TOKEN_PERMISSIONS,
-  syncRepoPRs,
+  listRecentPullRequests,
   buildAppUserAuthorizeUrl,
   exchangeAppUserCode,
   listUserInstallationIds,
@@ -274,7 +275,11 @@ async function backfillPullRequests(
         fullName,
         REPO_TOKEN_PERMISSIONS.pullRequestRead
       )
-      await syncRepoPRs(token, fullName, workspaceId, null)
+      const prs = await listRecentPullRequests(token, fullName)
+      // LUM-929: linked through the same ambiguity-checked lookup as the
+      // webhook, so a repository another workspace shares is not linked to
+      // whichever same-numbered task this workspace happens to hold.
+      await githubService.backfillPullRequests(workspaceId, fullName, prs)
     } catch (error) {
       logger.error(
         `[github/app] PR backfill failed for ${fullName}: ${String(error)}`

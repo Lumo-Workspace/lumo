@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import type { Prisma } from '@prisma/client'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -50,6 +51,26 @@ export interface UpsertTaskBranchData {
   lastCommitAuthor?: string
   lastPushedAt?: Date
 }
+
+/**
+ * LUM-929 — the task fields the GitHub webhook handlers read (linking,
+ * scans, lineage, notifications). Shared by both task lookups below so a
+ * branch match and an existing PR link resolve to the same shape.
+ */
+const WEBHOOK_TASK_SELECT = {
+  id: true,
+  number: true,
+  title: true,
+  status: true,
+  projectId: true,
+  assigneeActorId: true,
+  project: { select: { name: true, ownerId: true, workspaceId: true } },
+  team: { select: { identifier: true } },
+} as const
+
+export type WebhookTask = Prisma.TaskGetPayload<{
+  select: typeof WEBHOOK_TASK_SELECT
+}>
 
 // ── GitHub Repository ───────────────────────────────────────────────────────
 
@@ -270,10 +291,15 @@ export const githubRepository = {
         number: taskNumber,
         team: { identifier: teamIdentifier, workspaceId },
       },
-      include: {
-        project: { select: { name: true, ownerId: true, workspaceId: true } },
-        team: { select: { identifier: true } },
-      },
+      select: WEBHOOK_TASK_SELECT,
+    })
+  },
+
+  /** LUM-929 — a task by id, in the same shape as findTaskByIdentifier. */
+  async findTaskById(taskId: string) {
+    return prisma.task.findFirst({
+      where: { id: taskId },
+      select: WEBHOOK_TASK_SELECT,
     })
   },
 
@@ -291,7 +317,9 @@ export const githubRepository = {
       where: {
         identifier: teamIdentifier,
         workspaceId: { not: excludeWorkspaceId },
-        tasks: { some: { number: taskNumber } },
+        // LUM-929: a nested filter escapes the soft-delete extension, so a
+        // trashed task must be excluded here or it reads as a second owner.
+        tasks: { some: { number: taskNumber, deletedAt: null } },
       },
       select: { workspaceId: true },
     })

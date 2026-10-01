@@ -1,6 +1,7 @@
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { githubRepository } from '@/lib/repositories/github.repository'
+import { githubService } from '@/lib/services/github.service'
 import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
 import { requireConfirmedRepository } from '@/lib/integrations/github/confirmed-repositories'
 import { REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github/token-permissions'
@@ -40,6 +41,9 @@ export { parsePrUrl }
  * 2. `url` — caller pasted a GitHub URL. If we already track the PR we reuse
  *    that row; otherwise we fetch it from GitHub via the workspace's stored
  *    integration token and upsert a new row.
+ *
+ * The result carries `sharedWithOtherWorkspaces` (LUM-929): another
+ * workspace has confirmed the same repository.
  *
  * If the resolved PR is already linked to a different task, throws 409 with
  * `conflictTask` populated so the UI can prompt the user. Pass `force: true`
@@ -156,7 +160,13 @@ export async function linkPullRequest(
   // `void`) so the runtime keeps the function alive until the dispatch
   // settles — a dropped promise here reads as "clean" at the DONE gate.
   waitUntil(dispatchPrSecurityScan(linked.id, 'PR_LINK'))
-  return linked
+  // LUM-929 (user ruling 2026-10-01): a manual link is a claim of ownership.
+  // It is allowed on a repository another workspace also confirmed, and the
+  // task's comments mirror to the PR as usual — so the caller is told the PR
+  // is shared, and the UI warns that those comments will appear on GitHub.
+  const sharedWithOtherWorkspaces =
+    await githubService.isRepoConfirmedElsewhere(linked.repo, workspaceId)
+  return { ...linked, sharedWithOtherWorkspaces }
 }
 
 /**

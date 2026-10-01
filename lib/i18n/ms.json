@@ -1878,6 +1878,7 @@
   "sentry.mappingAddFailed": "Gagal menambah pemetaan",
   "sentry.mappingRemoveFailed": "Gagal membuang pemetaan",
   "linkPr.title": "Pautkan pull request",
+  "linkPr.sharedRepoWarning": "Repositori pull request ini juga digunakan oleh ruang kerja lain. Komen pada tugasan ini akan disiarkan ke pull request di GitHub.",
   "linkPr.searchPlaceholder": "Cari PR atau tampal URL GitHub...",
   "linkPr.linkFromUrl": "Pautkan PR dari URL",
   "linkPr.linkedTo": "Dipaut ke {identifier}",

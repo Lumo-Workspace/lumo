@@ -32,6 +32,11 @@ jest.mock('@/lib/repositories/github.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/services/github.service', () => ({
+  githubService: {
+    isRepoConfirmedElsewhere: jest.fn().mockResolvedValue(false),
+  },
+}))
 jest.mock('@/lib/crypto', () => ({
   decrypt: jest.fn().mockReturnValue('fake-token'),
 }))
@@ -96,7 +101,11 @@ describe('taskService.linkPullRequest', () => {
     const result = await taskService.linkPullRequest('task-1', { prId: 'pr-1' })
 
     expect(mockUpdateTaskId).toHaveBeenCalledWith('pr-1', 'task-1')
-    expect(result).toEqual({ id: 'pr-1', taskId: 'task-1' })
+    expect(result).toEqual({
+      id: 'pr-1',
+      taskId: 'task-1',
+      sharedWithOtherWorkspaces: false,
+    })
   })
 
   it('links PR by URL when PR exists locally', async () => {
@@ -114,7 +123,11 @@ describe('taskService.linkPullRequest', () => {
     })
 
     expect(mockUpdateTaskId).toHaveBeenCalledWith('pr-1', 'task-1')
-    expect(result).toEqual({ id: 'pr-1', taskId: 'task-1' })
+    expect(result).toEqual({
+      id: 'pr-1',
+      taskId: 'task-1',
+      sharedWithOtherWorkspaces: false,
+    })
   })
 
   it('returns conflict when PR is linked to another task and force is false', async () => {
@@ -158,7 +171,11 @@ describe('taskService.linkPullRequest', () => {
     })
 
     expect(mockUpdateTaskId).toHaveBeenCalledWith('pr-1', 'task-1')
-    expect(result).toEqual({ id: 'pr-1', taskId: 'task-1' })
+    expect(result).toEqual({
+      id: 'pr-1',
+      taskId: 'task-1',
+      sharedWithOtherWorkspaces: false,
+    })
   })
 
   it('throws 400 for invalid GitHub PR URL', async () => {
