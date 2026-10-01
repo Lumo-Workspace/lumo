@@ -369,7 +369,7 @@ export const tasksClient = {
   async linkPr(
     taskId: string,
     data: { prId?: string; url?: string; force?: boolean }
-  ) {
+  ): Promise<{ pullRequest: unknown; sharedWithOtherWorkspaces?: boolean }> {
     const url = API.pullRequests.link(taskId)
     const res = await fetch(url, {
       method: 'POST',

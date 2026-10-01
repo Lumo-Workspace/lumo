@@ -2,6 +2,11 @@ import { githubRepository } from '@/lib/repositories/github.repository'
 import type { UpsertIntegrationData } from '@/lib/repositories/github.repository'
 import { githubAppInstallationRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
+import {
+  parseBranchIdentifier,
+  splitIdentifier,
+} from '@/lib/integrations/github/branch'
+import type { RecentPullRequest } from '@/lib/integrations/github/sync'
 
 // ── GitHub Service ──────────────────────────────────────────────────────────
 
@@ -156,6 +161,94 @@ export const githubService = {
       }
     }
     return task
+  },
+
+  /**
+   * LUM-929 — the task a PR row is already linked to. A link made while the
+   * repository was unshared (or made by hand) stays the PR's owner after
+   * another workspace confirms the repository: ambiguity only stops a NEW
+   * link from the branch name, never an existing one.
+   */
+  async findTaskById(taskId: string) {
+    return githubRepository.findTaskById(taskId)
+  },
+
+  /**
+   * LUM-929 — whether any other workspace has confirmed this repository, i.e.
+   * the same PR may be tracked (and discussed) by another team as well.
+   */
+  async isRepoConfirmedElsewhere(
+    repo: string,
+    workspaceId: string
+  ): Promise<boolean> {
+    const target = repo.toLowerCase()
+    const others =
+      await githubAppInstallationRepository.findConfirmedListsExcept(
+        workspaceId
+      )
+    return others.some(o =>
+      o.repositories.some(name => name.toLowerCase() === target)
+    )
+  },
+
+  /**
+   * Install / re-verify backfill (LUM-929): upsert this workspace's row for
+   * each listed PR and link it to a task by branch name through the same
+   * ambiguity-checked lookup the webhook uses. An unmatched or ambiguous
+   * branch leaves any existing link alone.
+   */
+  async backfillPullRequests(
+    workspaceId: string,
+    repo: string,
+    prs: RecentPullRequest[]
+  ): Promise<void> {
+    for (const pr of prs) {
+      const identifier = parseBranchIdentifier(pr.head.ref)
+      const parts = identifier ? splitIdentifier(identifier) : null
+      const task = parts
+        ? await githubService.findTaskByIdentifier(
+            parts.teamIdentifier,
+            parts.number,
+            workspaceId,
+            repo
+          )
+        : null
+
+      // merged_at being set is the reliable indicator of a merged PR
+      const state = pr.merged_at
+        ? 'merged'
+        : pr.state === 'closed'
+          ? 'closed'
+          : 'open'
+
+      await githubRepository.upsertPullRequest({
+        workspaceId,
+        taskId: task?.id ?? null,
+        // Backfill runs off the App installation, not an OAuth integration.
+        integrationId: null,
+        repo,
+        number: pr.number,
+        title: pr.title,
+        url: pr.html_url,
+        state,
+        authorLogin: pr.user.login,
+        headBranch: pr.head.ref,
+        headSha: pr.head.sha,
+        baseBranch: pr.base.ref,
+        isDraft: pr.draft,
+        mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
+        closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
+      })
+
+      if (task) {
+        await githubRepository.upsertTaskBranch({
+          taskId: task.id,
+          repo,
+          branchName: pr.head.ref,
+        })
+      }
+    }
+    logger.debug(`[github/sync] synced ${prs.length} PRs for ${repo}`)
   },
 
   /** Find workspace slug. */

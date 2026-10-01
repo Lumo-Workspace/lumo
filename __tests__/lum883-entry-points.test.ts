@@ -32,6 +32,11 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/repositories/github.repository', () => ({
   githubRepository: { upsertPullRequest: jest.fn() },
 }))
+jest.mock('@/lib/services/github.service', () => ({
+  githubService: {
+    isRepoConfirmedElsewhere: jest.fn().mockResolvedValue(false),
+  },
+}))
 jest.mock('@/lib/services/pr-security-scan-dispatch', () => ({
   dispatchPrSecurityScan: jest.fn().mockResolvedValue(undefined),
 }))
@@ -217,6 +222,7 @@ describe('LUM-883 entry points still accept a confirmed repository', () => {
     })
     ;(pullRequestRepository.updateTaskId as jest.Mock).mockResolvedValue({
       id: 'pr_1',
+      repo: 'Acme/Web',
     })
 
     await linkPullRequest('task_1', {

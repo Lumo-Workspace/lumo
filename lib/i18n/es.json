@@ -1878,6 +1878,7 @@
   "sentry.mappingAddFailed": "No se pudo añadir la asignación",
   "sentry.mappingRemoveFailed": "No se pudo eliminar la asignación",
   "linkPr.title": "Vincular pull request",
+  "linkPr.sharedRepoWarning": "Otro espacio de trabajo también usa el repositorio de esta pull request. Los comentarios de esta tarea se publicarán en la pull request de GitHub.",
   "linkPr.searchPlaceholder": "Buscar PRs o pegar URL de GitHub...",
   "linkPr.linkFromUrl": "Vincular PR desde URL",
   "linkPr.linkedTo": "Vinculado a {identifier}",

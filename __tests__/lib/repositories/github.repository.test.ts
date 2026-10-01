@@ -348,7 +348,7 @@ describe('githubRepository.findOtherWorkspaceIdsWithTask', () => {
       where: {
         identifier: 'LUM',
         workspaceId: { not: 'ws-1' },
-        tasks: { some: { number: 123 } },
+        tasks: { some: { number: 123, deletedAt: null } },
       },
       select: { workspaceId: true },
     })

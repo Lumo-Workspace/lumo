@@ -28,6 +28,8 @@ jest.mock('@/lib/services/github.service', () => ({
     upsertPullRequest: jest.fn(),
     upsertTaskBranch: jest.fn(),
     findTaskByIdentifier: jest.fn(),
+    findTaskById: jest.fn().mockResolvedValue(null),
+    isRepoConfirmedElsewhere: jest.fn().mockResolvedValue(false),
     findWorkspaceSlug: jest.fn().mockResolvedValue('lumo'),
   },
 }))

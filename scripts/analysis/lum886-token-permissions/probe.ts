@@ -235,7 +235,7 @@ async function main() {
       `${repoBase}/commits/${pr.head.sha}/pulls`,
       'ok'
     )
-    // The install / re-verify PR backfill (syncRepoPRs), LUM-890.
+    // The install / re-verify PR backfill (listRecentPullRequests), LUM-890.
     await expect(
       'pullRequestRead',
       prRead,

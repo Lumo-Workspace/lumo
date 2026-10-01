@@ -1878,6 +1878,7 @@
   "sentry.mappingAddFailed": "Failed to add mapping",
   "sentry.mappingRemoveFailed": "Failed to remove mapping",
   "linkPr.title": "Link pull request",
+  "linkPr.sharedRepoWarning": "Another workspace also uses this pull request's repository. Comments on this task will be posted to the pull request on GitHub.",
   "linkPr.searchPlaceholder": "Search PRs or paste GitHub URL...",
   "linkPr.linkFromUrl": "Link PR from URL",
   "linkPr.linkedTo": "Linked to {identifier}",

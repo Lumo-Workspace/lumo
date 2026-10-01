@@ -1878,6 +1878,7 @@
   "sentry.mappingAddFailed": "Zuordnung konnte nicht hinzugefügt werden",
   "sentry.mappingRemoveFailed": "Zuordnung konnte nicht entfernt werden",
   "linkPr.title": "Pull Request verknüpfen",
+  "linkPr.sharedRepoWarning": "Ein anderer Workspace verwendet das Repository dieses Pull Requests ebenfalls. Kommentare zu dieser Aufgabe werden im Pull Request auf GitHub veröffentlicht.",
   "linkPr.searchPlaceholder": "PRs suchen oder GitHub-URL einfügen...",
   "linkPr.linkFromUrl": "PR von URL verknüpfen",
   "linkPr.linkedTo": "Verknüpft mit {identifier}",

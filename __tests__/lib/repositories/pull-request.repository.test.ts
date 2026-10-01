@@ -55,20 +55,21 @@ describe('pullRequestRepository.updateState', () => {
 })
 
 describe('pullRequestRepository.countTaskLinkedWorkspaces', () => {
-  it('counts task-linked rows for the repo and number across workspaces', async () => {
-    const mockCount = prisma.pullRequest.count as jest.Mock
-    mockCount.mockResolvedValue(2)
+  it('counts distinct task-linked workspaces for the repo and number', async () => {
+    mockFindMany.mockResolvedValue([{ workspaceId: 'a' }, { workspaceId: 'b' }])
     const n = await pullRequestRepository.countTaskLinkedWorkspaces(
       'Acme-Inc/Web',
       7
     )
     expect(n).toBe(2)
-    expect(mockCount).toHaveBeenCalledWith({
+    expect(mockFindMany).toHaveBeenCalledWith({
       where: {
         repo: { equals: 'Acme-Inc/Web', mode: 'insensitive' },
         number: 7,
         taskId: { not: null },
       },
+      select: { workspaceId: true },
+      distinct: ['workspaceId'],
     })
   })
 })

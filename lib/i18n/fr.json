@@ -1878,6 +1878,7 @@
   "sentry.mappingAddFailed": "Échec de l'ajout du mapping",
   "sentry.mappingRemoveFailed": "Échec de la suppression du mapping",
   "linkPr.title": "Lier une pull request",
+  "linkPr.sharedRepoWarning": "Un autre espace de travail utilise aussi le dépôt de cette pull request. Les commentaires de cette tâche seront publiés sur la pull request dans GitHub.",
   "linkPr.searchPlaceholder": "Rechercher des PR ou coller une URL GitHub...",
   "linkPr.linkFromUrl": "Lier une PR depuis une URL",
   "linkPr.linkedTo": "Liée à {identifier}",

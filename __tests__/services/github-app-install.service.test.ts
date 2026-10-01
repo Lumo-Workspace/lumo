@@ -37,7 +37,7 @@ jest.mock('@/lib/integrations/github', () => ({
   REPO_TOKEN_PERMISSIONS: jest.requireActual(
     '@/lib/integrations/github/token-permissions'
   ).REPO_TOKEN_PERMISSIONS,
-  syncRepoPRs: jest.fn(),
+  listRecentPullRequests: jest.fn(),
   buildAppUserAuthorizeUrl: jest.fn(),
   exchangeAppUserCode: jest.fn(),
   listUserInstallationIds: jest.fn(),
@@ -47,7 +47,12 @@ jest.mock('@/lib/integrations/github', () => ({
   GithubAppUserAuthNotConfiguredError: class extends Error {},
 }))
 
+jest.mock('@/lib/services/github.service', () => ({
+  githubService: { backfillPullRequests: jest.fn() },
+}))
+
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
+import { githubService } from '@/lib/services/github.service'
 import {
   githubAppInstallationRepository,
   prSecurityScanRepository,
@@ -58,7 +63,7 @@ import {
   listInstallationRepositories,
   deleteAppInstallation,
   getRepoToken,
-  syncRepoPRs,
+  listRecentPullRequests,
   buildAppUserAuthorizeUrl,
   exchangeAppUserCode,
   listUserInstallationIds,
@@ -90,7 +95,7 @@ describe('githubAppInstallService', () => {
     ;(getRepoToken as jest.Mock).mockImplementation(
       async (_ws: string, repository: string) => `repo-token:${repository}`
     )
-    ;(syncRepoPRs as jest.Mock).mockResolvedValue(undefined)
+    ;(listRecentPullRequests as jest.Mock).mockResolvedValue([])
     ;(exchangeAppUserCode as jest.Mock).mockResolvedValue('user-token')
     ;(listUserInstallationIds as jest.Mock).mockResolvedValue([42])
     ;(listUserInstallationRepositories as jest.Mock).mockResolvedValue([
@@ -189,11 +194,15 @@ describe('githubAppInstallService', () => {
         redirectUri: REDIRECT,
       })
 
-      expect(syncRepoPRs).toHaveBeenCalledWith(
+      expect(listRecentPullRequests).toHaveBeenCalledWith(
         'repo-token:acme-inc/web',
-        'acme-inc/web',
+        'acme-inc/web'
+      )
+      // LUM-929: linking goes through the ambiguity-checked github service.
+      expect(githubService.backfillPullRequests).toHaveBeenCalledWith(
         'w1',
-        null
+        'acme-inc/web',
+        []
       )
     })
 
@@ -228,12 +237,10 @@ describe('githubAppInstallService', () => {
         ['w1', 'acme-inc/web', { pull_requests: 'read' }],
         ['w1', 'acme-inc/payroll', { pull_requests: 'read' }],
       ])
-      expect(syncRepoPRs).toHaveBeenCalledTimes(1)
-      expect(syncRepoPRs).toHaveBeenCalledWith(
+      expect(listRecentPullRequests).toHaveBeenCalledTimes(1)
+      expect(listRecentPullRequests).toHaveBeenCalledWith(
         'repo-token:acme-inc/payroll',
-        'acme-inc/payroll',
-        'w1',
-        null
+        'acme-inc/payroll'
       )
       // The mint happens after the confirmed list is written.
       expect(repo.upsert.mock.invocationCallOrder[0]).toBeLessThan(
@@ -242,7 +249,9 @@ describe('githubAppInstallService', () => {
     })
 
     it('still records the installation when the backfill fails', async () => {
-      ;(syncRepoPRs as jest.Mock).mockRejectedValue(new Error('rate limited'))
+      ;(listRecentPullRequests as jest.Mock).mockRejectedValue(
+        new Error('rate limited')
+      )
 
       await expect(
         githubAppInstallService.install({
@@ -288,7 +297,7 @@ describe('githubAppInstallService', () => {
       expect(fetchInstallationRepositories).not.toHaveBeenCalled()
       expect(repo.upsert).not.toHaveBeenCalled()
       expect(getRepoToken).not.toHaveBeenCalled()
-      expect(syncRepoPRs).not.toHaveBeenCalled()
+      expect(listRecentPullRequests).not.toHaveBeenCalled()
       // The user token is still revoked on the refusal path.
       expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
     })
@@ -326,7 +335,7 @@ describe('githubAppInstallService', () => {
 
       expect(fetchAppInstallation).not.toHaveBeenCalled()
       expect(repo.upsert).not.toHaveBeenCalled()
-      expect(syncRepoPRs).not.toHaveBeenCalled()
+      expect(listRecentPullRequests).not.toHaveBeenCalled()
     })
 
     // LUM-880: GitHub lists an installation for a user who can read any one
@@ -356,7 +365,7 @@ describe('githubAppInstallService', () => {
       )
       expect(repo.upsert).not.toHaveBeenCalled()
       expect(getRepoToken).not.toHaveBeenCalled()
-      expect(syncRepoPRs).not.toHaveBeenCalled()
+      expect(listRecentPullRequests).not.toHaveBeenCalled()
       expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
     })
 
@@ -385,7 +394,7 @@ describe('githubAppInstallService', () => {
           repositories: ['acme-inc/web', 'acme-inc/payroll'],
         })
       )
-      expect(syncRepoPRs).toHaveBeenCalledTimes(2)
+      expect(listRecentPullRequests).toHaveBeenCalledTimes(2)
     })
 
     it('writes nothing when the caller repository list cannot be read', async () => {
@@ -449,7 +458,7 @@ describe('githubAppInstallService', () => {
       // Same cap as the user-side listing: 50 pages × 100, then refuse.
       expect(pages).toBe(50)
       expect(repo.upsert).not.toHaveBeenCalled()
-      expect(syncRepoPRs).not.toHaveBeenCalled()
+      expect(listRecentPullRequests).not.toHaveBeenCalled()
     })
 
     it('writes nothing when GitHub rejects the installation read', async () => {
@@ -721,7 +730,7 @@ describe('githubAppInstallService', () => {
         expect.objectContaining({ repositories: ['acme-inc/web'] })
       )
       expect(getRepoToken).not.toHaveBeenCalled()
-      expect(syncRepoPRs).not.toHaveBeenCalled()
+      expect(listRecentPullRequests).not.toHaveBeenCalled()
 
       // The settings card shows it as pending.
       repo.findStatusByWorkspace.mockResolvedValue({
@@ -989,12 +998,10 @@ describe('githubAppInstallService', () => {
         prSecurityScanRepository.scrubCodeForWorkspace
       ).toHaveBeenCalledWith('w1', ['acme-inc/legacy'])
       // Newly confirmed: backfilled, and nothing else is.
-      expect(syncRepoPRs).toHaveBeenCalledTimes(1)
-      expect(syncRepoPRs).toHaveBeenCalledWith(
+      expect(listRecentPullRequests).toHaveBeenCalledTimes(1)
+      expect(listRecentPullRequests).toHaveBeenCalledWith(
         'repo-token:acme-inc/api',
-        'acme-inc/api',
-        'w1',
-        null
+        'acme-inc/api'
       )
       // No user credential outlives the check.
       expect(revokeAppUserToken).toHaveBeenCalledWith('user-token')
@@ -1126,7 +1133,7 @@ describe('LUM-902 — scrub before anything is dropped', () => {
       'acme-inc/web',
     ])
     ;(getRepoToken as jest.Mock).mockResolvedValue('repo-token')
-    ;(syncRepoPRs as jest.Mock).mockResolvedValue(undefined)
+    ;(listRecentPullRequests as jest.Mock).mockResolvedValue([])
     ;(exchangeAppUserCode as jest.Mock).mockResolvedValue('user-token')
     ;(listUserInstallationIds as jest.Mock).mockResolvedValue([77])
     ;(listUserInstallationRepositories as jest.Mock).mockResolvedValue([

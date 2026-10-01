@@ -277,6 +277,17 @@ export const githubRepository = {
     })
   },
 
+  /** LUM-929 — a task by id, in the same shape as findTaskByIdentifier. */
+  async findTaskById(taskId: string) {
+    return prisma.task.findFirst({
+      where: { id: taskId },
+      include: {
+        project: { select: { name: true, ownerId: true, workspaceId: true } },
+        team: { select: { identifier: true } },
+      },
+    })
+  },
+
   /**
    * LUM-925 — the other workspaces holding a task with this team identifier and
    * number. Team identifiers are only unique inside a workspace, so workspaces
@@ -291,7 +302,9 @@ export const githubRepository = {
       where: {
         identifier: teamIdentifier,
         workspaceId: { not: excludeWorkspaceId },
-        tasks: { some: { number: taskNumber } },
+        // LUM-929: a nested filter escapes the soft-delete extension, so a
+        // trashed task must be excluded here or it reads as a second owner.
+        tasks: { some: { number: taskNumber, deletedAt: null } },
       },
       select: { workspaceId: true },
     })

@@ -39,7 +39,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     const input: { prId?: string; url?: string; force?: boolean } = { force }
     if (prId !== undefined) input.prId = prId
     if (url !== undefined) input.url = url
-    const result = await taskService.linkPullRequest(id, input)
+    const { sharedWithOtherWorkspaces, ...result } =
+      await taskService.linkPullRequest(id, input)
 
     // Fire-and-forget activity recording
     const triggerActorId = await getHumanActorId(memberResult.id)
@@ -57,7 +58,10 @@ export async function POST(request: NextRequest, { params }: Params) {
       ])
     )
 
-    return NextResponse.json({ pullRequest: result })
+    return NextResponse.json({
+      pullRequest: result,
+      sharedWithOtherWorkspaces,
+    })
   } catch (error) {
     if (error instanceof Error && 'status' in error) {
       const status = (error as Error & { status: number }).status

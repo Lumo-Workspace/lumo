@@ -1878,6 +1878,7 @@
   "sentry.mappingAddFailed": "मैपिंग जोड़ने में विफल",
   "sentry.mappingRemoveFailed": "मैपिंग हटाने में विफल",
   "linkPr.title": "पुल रिक्वेस्ट लिंक करें",
+  "linkPr.sharedRepoWarning": "इस पुल रिक्वेस्ट की रिपॉज़िटरी किसी दूसरे वर्कस्पेस में भी इस्तेमाल हो रही है। इस टास्क की टिप्पणियाँ GitHub पर पुल रिक्वेस्ट में पोस्ट की जाएँगी।",
   "linkPr.searchPlaceholder": "PR खोजें या GitHub URL पेस्ट करें...",
   "linkPr.linkFromUrl": "URL से PR लिंक करें",
   "linkPr.linkedTo": "{identifier} से लिंक है",
