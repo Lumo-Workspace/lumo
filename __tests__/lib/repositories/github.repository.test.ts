@@ -318,11 +318,30 @@ describe('githubRepository.findTaskByIdentifier', () => {
         number: 123,
         team: { identifier: 'ENG', workspaceId: 'ws-1' },
       },
-      include: {
+      select: expect.objectContaining({
+        id: true,
+        status: true,
         project: { select: { name: true, ownerId: true, workspaceId: true } },
         team: { select: { identifier: true } },
-      },
+      }),
     })
+    // LUM-929: select, not include — no task column beyond what handlers read.
+    expect(mock.mock.calls[0][0]).not.toHaveProperty('include')
+  })
+})
+
+describe('githubRepository.findTaskById', () => {
+  it('selects the same webhook fields as the identifier lookup', async () => {
+    const mock = prisma.task.findFirst as jest.Mock
+    mock.mockResolvedValue({ id: 'task-1' })
+    await githubRepository.findTaskByIdentifier('ENG', 1, 'ws-1')
+    await githubRepository.findTaskById('task-1')
+    const [byIdentifier, byId] = mock.mock.calls.slice(-2).map(c => c[0])
+    expect(byId).toEqual({
+      where: { id: 'task-1' },
+      select: byIdentifier.select,
+    })
+    expect(Object.keys(byId.select)).not.toContain('description')
   })
 })
 

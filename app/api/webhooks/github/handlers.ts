@@ -12,7 +12,7 @@ import {
   sendDMNotification,
 } from '@/lib/integrations/slack'
 import { buildTaskUrl, buildTaskIdentifier } from '@/lib/utils/buildTaskUrl'
-import type { Task, Project } from '@prisma/client'
+import type { WebhookTask } from '@/lib/repositories/github.repository'
 import { githubService } from '@/lib/services/github.service'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
@@ -81,13 +81,7 @@ async function findTaskForBranch(
   headBranch: string,
   workspaceId: string,
   repo: string
-): Promise<
-  | (Task & {
-      project: Pick<Project, 'name' | 'ownerId' | 'workspaceId'>
-      team: { identifier: string }
-    })
-  | null
-> {
+): Promise<WebhookTask | null> {
   const identifier = parseBranchIdentifier(headBranch)
   if (!identifier) return null
   const parts = splitIdentifier(identifier)

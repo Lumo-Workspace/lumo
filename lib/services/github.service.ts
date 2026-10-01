@@ -1,5 +1,8 @@
 import { githubRepository } from '@/lib/repositories/github.repository'
-import type { UpsertIntegrationData } from '@/lib/repositories/github.repository'
+import type {
+  UpsertIntegrationData,
+  WebhookTask,
+} from '@/lib/repositories/github.repository'
 import { githubAppInstallationRepository } from '@/lib/repositories'
 import { logger } from '@/lib/logger'
 import {
@@ -171,10 +174,10 @@ export const githubService = {
    * PR's owner after another workspace confirms the repository: ambiguity
    * only stops a NEW link, never an existing one.
    */
-  async resolvePullRequestTask<T>(
-    branchTask: T | null,
+  async resolvePullRequestTask(
+    branchTask: WebhookTask | null,
     linkedTaskId: string | null
-  ) {
+  ): Promise<WebhookTask | null> {
     if (branchTask) return branchTask
     return linkedTaskId ? githubRepository.findTaskById(linkedTaskId) : null
   },
