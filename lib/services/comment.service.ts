@@ -2,6 +2,7 @@
 import { parseMentionedUserClerkIds } from '@/lib/editor/parse-mentions'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { scanContent } from '@/lib/services/content-signals'
+import { sanitizeCommentHtml } from '@/lib/html/sanitize-comment-html'
 import { memberRepository } from '@/lib/repositories'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
@@ -92,8 +93,12 @@ export const commentService = {
       }
     }
     // LUM-783: the body is member/agent-authored untrusted text.
+    // LUM-921: so it is also untrusted HTML — store only the allowlisted subset.
+    // Signals scan the raw input: they record what the author attempted
+    // (e.g. a wrapper-escape tag), which sanitizing would erase.
     return commentRepository.create({
       ...input,
+      body: sanitizeCommentHtml(input.body),
       contentSignals: scanContent(input.body),
     })
   },
@@ -216,8 +221,13 @@ export const commentService = {
       projectName,
       waitUntil,
       mirrorOrigin,
-      ...createInput
+      ...rawInput
     } = input
+    // Side effects below (mentions, dependency edges) read the stored body.
+    const createInput = {
+      ...rawInput,
+      body: sanitizeCommentHtml(rawInput.body),
+    }
 
     const comment = await commentService.createComment(createInput)
 
@@ -293,7 +303,7 @@ export const commentService = {
     mirrorOrigin?: 'inbound' | 'user'
   }) {
     const updated = await commentRepository.update(input.commentId, {
-      body: input.body,
+      body: sanitizeCommentHtml(input.body),
       contentSignals: scanContent(input.body),
     })
     await prCommentMirrorService.scheduleOutbound(input.commentId, 'UPDATE', {

@@ -1,5 +1,7 @@
 'use client'
 
+import { commentPreviewText } from '@/lib/html/comment-preview-text'
+
 interface Props {
   authorName: string
   /** Plain-text body — already stripped of HTML and truncated for preview. */
@@ -33,15 +35,7 @@ export function CommentQuote({ authorName, text, onClick, variant }: Props) {
   )
 }
 
-/**
- * Extract the first ~120 chars of plain text from an HTML comment body.
- * Falls back to a regex strip when running outside the DOM (SSR).
- */
+/** First ~120 chars of plain text from an HTML comment body. */
 export function previewCommentText(html: string): string {
-  if (typeof document !== 'undefined') {
-    const d = document.createElement('div')
-    d.innerHTML = html
-    return (d.textContent ?? d.innerText ?? '').trim().slice(0, 120) || '…'
-  }
-  return html.replace(/<[^>]+>/g, '').slice(0, 120)
+  return commentPreviewText(html)
 }

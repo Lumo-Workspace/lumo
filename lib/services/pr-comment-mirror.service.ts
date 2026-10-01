@@ -13,8 +13,10 @@ import {
   githubMarkdownToLumoHtml,
   buildHeader,
   computeBodyHash,
+  escapeHtml,
   REVIEW_HEADER,
 } from '@/lib/integrations/github/markdown-bridge'
+import { sanitizeCommentHtml } from '@/lib/html/sanitize-comment-html'
 import {
   prCommentClient,
   GithubApiError,
@@ -499,7 +501,25 @@ function payloadSource(payload: InboundPayload): PrCommentSource {
   return 'REVIEW_LINE'
 }
 
+function isHttpsUrl(url: string | undefined): url is string {
+  if (!url) return false
+  try {
+    return new URL(url).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/** Inbound body, escaped at the source and sanitized like every comment write. */
 function buildInboundBody(
+  payload: InboundPayload,
+  node: InboundCommentNode,
+  source: PrCommentSource
+): string {
+  return sanitizeCommentHtml(buildInboundHtml(payload, node, source))
+}
+
+function buildInboundHtml(
   payload: InboundPayload,
   node: InboundCommentNode,
   source: PrCommentSource
@@ -508,7 +528,13 @@ function buildInboundBody(
   const innerHtml = githubMarkdownToLumoHtml(md, () => null) // mention resolver wired later
 
   if (source === 'REVIEW_LINE' && node.path && node.line) {
-    const headerInner = `📍 在 <a href="${node.html_url}">${node.path}:${node.line}</a> 评论`
+    // LUM-921: path and URL come from the webhook payload — escape both and
+    // link only a real https URL.
+    const label = escapeHtml(`${node.path}:${node.line}`)
+    const target = isHttpsUrl(node.html_url)
+      ? `<a href="${escapeHtml(node.html_url)}">${label}</a>`
+      : label
+    const headerInner = `📍 在 ${target} 评论`
     return buildHeader(headerInner) + innerHtml
   }
 
