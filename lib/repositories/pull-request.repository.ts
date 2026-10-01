@@ -92,6 +92,21 @@ export const pullRequestRepository = {
   },
 
   /**
+   * LUM-925 — how many workspaces have this PR linked to one of their tasks.
+   * Each workspace holds its own row for a shared repository's PR (LUM-924);
+   * more than one task-linked row means the PR cannot belong to all of them.
+   */
+  async countTaskLinkedWorkspaces(repo: string, number: number) {
+    return prisma.pullRequest.count({
+      where: {
+        repo: { equals: repo, mode: 'insensitive' },
+        number,
+        taskId: { not: null },
+      },
+    })
+  },
+
+  /**
    * This workspace's row for a PR, with task info. LUM-924: a PR is unique per
    * workspace, not globally — workspaces sharing a GitHub App installation can
    * each hold their own row for the same repository and number.

@@ -30,6 +30,7 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
     findById: jest.fn(),
     findByRepoAndNumber: jest.fn(),
     findByTaskId: jest.fn(),
+    countTaskLinkedWorkspaces: jest.fn().mockResolvedValue(1),
     findStaleOpenByProject: jest.fn(),
     updateTaskId: jest.fn(),
     updateState: jest.fn(),

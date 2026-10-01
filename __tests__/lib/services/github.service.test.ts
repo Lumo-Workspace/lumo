@@ -18,12 +18,20 @@ jest.mock('@/lib/repositories/github.repository', () => ({
     updatePullRequestCiStatus: jest.fn(),
     upsertTaskBranch: jest.fn(),
     findTaskByIdentifier: jest.fn(),
+    findOtherWorkspaceIdsWithTask: jest.fn(),
     findWorkspaceSlug: jest.fn(),
   },
+}))
+jest.mock('@/lib/repositories', () => ({
+  githubAppInstallationRepository: { findByWorkspace: jest.fn() },
+}))
+jest.mock('@/lib/logger', () => ({
+  logger: { warn: jest.fn(), info: jest.fn(), error: jest.fn() },
 }))
 
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { githubService } from '@/lib/services/github.service'
+import { githubAppInstallationRepository } from '@/lib/repositories'
 
 const mockRepo = githubRepository as jest.Mocked<typeof githubRepository>
 
@@ -144,5 +152,58 @@ describe('passthrough operations', () => {
       [1, 2],
       'success'
     )
+  })
+})
+
+// ── findTaskByIdentifier (LUM-925 shared repositories) ─────────────────
+
+describe('findTaskByIdentifier with a repository', () => {
+  const findInstall =
+    githubAppInstallationRepository.findByWorkspace as jest.Mock
+
+  beforeEach(() => {
+    mockRepo.findTaskByIdentifier.mockResolvedValue({ id: 'task-a' } as never)
+  })
+
+  it('returns no task when another workspace that confirmed the repo owns the same identifier', async () => {
+    mockRepo.findOtherWorkspaceIdsWithTask.mockResolvedValue(['ws-x', 'ws-b'])
+    findInstall.mockImplementation(async (ws: string) =>
+      ws === 'ws-b'
+        ? { repositories: ['Acme/Web'] }
+        : { repositories: ['acme/api'] }
+    )
+
+    const task = await githubService.findTaskByIdentifier(
+      'LUM',
+      123,
+      'ws-a',
+      'acme/web'
+    )
+
+    expect(task).toBeNull()
+    expect(mockRepo.findOtherWorkspaceIdsWithTask).toHaveBeenCalledWith(
+      'LUM',
+      123,
+      'ws-a'
+    )
+  })
+
+  it('returns the task when no other confirming workspace owns the identifier', async () => {
+    mockRepo.findOtherWorkspaceIdsWithTask.mockResolvedValue(['ws-x'])
+    findInstall.mockResolvedValue(null)
+
+    const task = await githubService.findTaskByIdentifier(
+      'LUM',
+      123,
+      'ws-a',
+      'acme/web'
+    )
+
+    expect(task).toEqual({ id: 'task-a' })
+  })
+
+  it('skips the cross-workspace check when no repository is given', async () => {
+    await githubService.findTaskByIdentifier('LUM', 123, 'ws-a')
+    expect(mockRepo.findOtherWorkspaceIdsWithTask).not.toHaveBeenCalled()
   })
 })
