@@ -2,6 +2,7 @@ import { logger } from '@/lib/logger'
 import { githubAppInstallationRepository } from '@/lib/repositories'
 import {
   createInstallationToken,
+  findAppInstallationStatus,
   checkRepositoryReadAccess,
   lookupGitHubUser,
   INSTALLATION_TOKEN_PERMISSIONS,
@@ -9,6 +10,7 @@ import {
 import {
   scrubWorkspaceCode,
   scrubAfterNarrowing,
+  removeInstallation,
 } from '@/lib/services/github-app-install.service'
 
 /**
@@ -276,6 +278,28 @@ async function recheckRow(
   return { checked, removed, stoppedBy, recorded: written }
 }
 
+/**
+ * LUM-902 — an installation the sweep could not get a token for (or whose
+ * rows it cannot recheck at all) may be gone on GitHub with the `deleted`
+ * webhook lost. Ask GitHub: on its answer — 404, or suspended — unbind and
+ * scrub every workspace it backs, like the webhook would have. GitHub not
+ * answering keeps everything for the next run. Returns whether it removed.
+ */
+async function removeIfGoneOnGitHub(
+  installationId: number,
+  summary: { uninstalled: number; failed: number }
+): Promise<boolean> {
+  const status = await findAppInstallationStatus(installationId)
+  if (status !== 'gone' && status !== 'suspended') return false
+  const { removed, failed } = await removeInstallation(
+    installationId,
+    `${status === 'gone' ? 'uninstalled' : 'suspended'} on GitHub (automatic recheck)`
+  )
+  summary.uninstalled += removed
+  summary.failed += failed
+  return true
+}
+
 /** LUM-895 — rotation stamp for a row that wrote no result; never throws. */
 async function markAttempted(workspaceId: string) {
   try {
@@ -301,6 +325,9 @@ export const githubAccessRecheckService = {
    *
    * LUM-895 — every row the sweep reaches is stamped, result or not, so a
    * row that fails every day cannot hold the front of the queue.
+   *
+   * LUM-902 — an installation it cannot get a token for is asked about on
+   * GitHub: gone or suspended there means unbound and scrubbed here.
    */
   async sweep(now: () => number = Date.now) {
     const deadline = now() + SWEEP_TIME_BUDGET_MS
@@ -321,6 +348,7 @@ export const githubAccessRecheckService = {
       paused: 0,
       skipped: 0,
       failed: 0,
+      uninstalled: 0,
     }
 
     for (const [installationId, group] of byInstallation) {
@@ -335,10 +363,12 @@ export const githubAccessRecheckService = {
           INSTALLATION_TOKEN_PERMISSIONS.collaboratorAccess
         )
       } catch (error) {
+        if (await removeIfGoneOnGitHub(installationId, summary)) continue
         logger.error(
-          `[github/access-recheck] no token for installation ${installationId}: ${String(error)}`
+          `[github/access-recheck] no token for installation ${installationId}; kept for the next run: ${String(error)}`
         )
         summary.skipped += group.length
+        for (const row of group) await markAttempted(row.workspaceId)
         continue
       }
       let limited = false
@@ -369,6 +399,15 @@ export const githubAccessRecheckService = {
         }
         if (!recorded) await markAttempted(row.workspaceId)
       }
+    }
+
+    // LUM-902 — rows bound before LUM-882 have no verifier to ask about, but
+    // their installation can still disappear with its webhook lost.
+    const unverified =
+      await githubAppInstallationRepository.findInstallationIdsWithoutVerifier()
+    for (const installationId of unverified) {
+      if (byInstallation.has(installationId) || now() > deadline) continue
+      await removeIfGoneOnGitHub(installationId, summary)
     }
     return summary
   },

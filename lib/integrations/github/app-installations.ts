@@ -38,6 +38,30 @@ export async function fetchAppInstallation(
   }
 }
 
+/**
+ * LUM-902 — what GitHub says about one of our installations, asked with the
+ * App JWT. `gone` (404) and `suspended` are GitHub's own answers; any other
+ * failure (5xx, network, a JWT that cannot be signed) is `unknown`, so a
+ * caller acting on an answer never deletes anything because GitHub failed to
+ * give one.
+ */
+export async function findAppInstallationStatus(
+  installationId: number
+): Promise<'active' | 'suspended' | 'gone' | 'unknown'> {
+  try {
+    const jwt = await getGithubAppJwt()
+    const res = await fetch(`${GH_API}/app/installations/${installationId}`, {
+      headers: { ...GH_HEADERS, Authorization: `Bearer ${jwt}` },
+    })
+    if (res.status === 404) return 'gone'
+    if (!res.ok) return 'unknown'
+    const data = (await res.json()) as { suspended_at?: string | null }
+    return data.suspended_at ? 'suspended' : 'active'
+  } catch {
+    return 'unknown'
+  }
+}
+
 export interface InstallationRepository {
   fullName: string
   name: string

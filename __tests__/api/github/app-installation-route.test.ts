@@ -21,7 +21,7 @@ jest.mock('@/lib/repositories', () => ({
     findStatusByWorkspace: jest.fn(),
     // LUM-875: uninstall checks whether another workspace shares the id.
     findAllByInstallationId: jest.fn().mockResolvedValue([]),
-    delete: jest.fn(),
+    deleteForWorkspace: jest.fn(),
   },
   prSecurityScanRepository: {
     scrubCodeForWorkspace: jest
@@ -80,7 +80,7 @@ describe('/api/github/app/installation', () => {
       const res = await DELETE(req())
 
       expect(res.status).toBe(403)
-      expect(repo.delete).not.toHaveBeenCalled()
+      expect(repo.deleteForWorkspace).not.toHaveBeenCalled()
       expect(deleteAppInstallation).not.toHaveBeenCalled()
     })
 
@@ -91,7 +91,7 @@ describe('/api/github/app/installation', () => {
 
       expect(res.status).toBe(200)
       expect(deleteAppInstallation).toHaveBeenCalledWith(555)
-      expect(repo.delete).toHaveBeenCalledWith('w1')
+      expect(repo.deleteForWorkspace).toHaveBeenCalledWith('w1')
     })
 
     it('propagates the membership check failure', async () => {
@@ -103,7 +103,7 @@ describe('/api/github/app/installation', () => {
       const res = await DELETE(req())
 
       expect(res.status).toBe(403)
-      expect(repo.delete).not.toHaveBeenCalled()
+      expect(repo.deleteForWorkspace).not.toHaveBeenCalled()
     })
   })
 

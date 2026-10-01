@@ -12,10 +12,12 @@ jest.mock('@/lib/repositories', () => ({
     findRecheckState: jest.fn(),
     updateRecheckIfUnchanged: jest.fn(),
     markRecheckAttempted: jest.fn(),
+    findInstallationIdsWithoutVerifier: jest.fn(),
   },
 }))
 jest.mock('@/lib/integrations/github', () => ({
   createInstallationToken: jest.fn(),
+  findAppInstallationStatus: jest.fn(),
   checkRepositoryReadAccess: jest.fn(),
   lookupGitHubUser: jest.fn(),
   INSTALLATION_TOKEN_PERMISSIONS: jest.requireActual(
@@ -25,6 +27,7 @@ jest.mock('@/lib/integrations/github', () => ({
 jest.mock('@/lib/services/github-app-install.service', () => ({
   scrubWorkspaceCode: jest.fn().mockResolvedValue({ scans: 0, findings: 0 }),
   scrubAfterNarrowing: jest.fn(),
+  removeInstallation: jest.fn(),
 }))
 
 import {
@@ -34,12 +37,14 @@ import {
 import { githubAppInstallationRepository } from '@/lib/repositories'
 import {
   createInstallationToken,
+  findAppInstallationStatus,
   checkRepositoryReadAccess,
   lookupGitHubUser,
 } from '@/lib/integrations/github'
 import {
   scrubWorkspaceCode,
   scrubAfterNarrowing,
+  removeInstallation,
 } from '@/lib/services/github-app-install.service'
 
 type MockedRepo = {
@@ -122,6 +127,11 @@ beforeEach(() => {
         : { id: 7, login: who.login }
   )
   repo.findAllByInstallationId.mockResolvedValue([])
+  repo.findInstallationIdsWithoutVerifier.mockResolvedValue([])
+  ;(removeInstallation as jest.Mock).mockResolvedValue({
+    removed: 1,
+    failed: 0,
+  })
   applyLikeTheRow(row().repositories as string[])
   answers({})
 })
@@ -636,5 +646,65 @@ describe('narrowConfirmed', () => {
     expect(
       narrowConfirmed(['Acme/Web', 'acme/api'], ['acme/web', 'acme/gone'])
     ).toEqual({ kept: ['acme/api'], gone: ['Acme/Web'] })
+  })
+})
+
+describe('LUM-902 — an installation GitHub no longer has', () => {
+  const status = findAppInstallationStatus as jest.Mock
+  const remove = removeInstallation as jest.Mock
+
+  it('installation gone on GitHub is removed and scrubbed by the recheck', async () => {
+    repo.findAllWithVerifier.mockResolvedValue([
+      row({ workspaceId: 'w1', installationId: 42 }),
+      row({ workspaceId: 'w2', installationId: 43 }),
+    ])
+    // Pre-LUM-882 rows (no verifier) on installations 44 and 45.
+    repo.findInstallationIdsWithoutVerifier.mockResolvedValue([44, 45])
+    ;(createInstallationToken as jest.Mock).mockImplementation(
+      async (id: number) => {
+        if (id === 43) return 'inst-token'
+        throw new Error('Not Found')
+      }
+    )
+    status.mockImplementation(
+      async (id: number) =>
+        ({ 42: 'gone', 44: 'suspended', 45: 'active' })[id] ?? 'unknown'
+    )
+
+    const summary = await githubAccessRecheckService.sweep()
+
+    expect(remove.mock.calls.map(c => c[0])).toEqual([42, 44])
+    expect(remove).toHaveBeenCalledWith(
+      42,
+      'uninstalled on GitHub (automatic recheck)'
+    )
+    expect(summary.uninstalled).toBe(2)
+    // The healthy installation is rechecked as usual.
+    expect(summary.workspaces).toBe(1)
+  })
+
+  it('token failure with GitHub not answering keeps the rows and stamps them', async () => {
+    repo.findAllWithVerifier.mockResolvedValue([row()])
+    ;(createInstallationToken as jest.Mock).mockRejectedValue(
+      new Error('502 Bad Gateway')
+    )
+    status.mockResolvedValue('unknown')
+
+    const summary = await githubAccessRecheckService.sweep()
+
+    expect(remove).not.toHaveBeenCalled()
+    expect(summary.skipped).toBe(1)
+    expect(repo.markRecheckAttempted).toHaveBeenCalledWith('w1')
+  })
+
+  it('a removal that fails for one workspace is counted as failed', async () => {
+    repo.findAllWithVerifier.mockResolvedValue([row()])
+    ;(createInstallationToken as jest.Mock).mockRejectedValue(new Error('x'))
+    status.mockResolvedValue('gone')
+    remove.mockResolvedValue({ removed: 1, failed: 1 })
+
+    const summary = await githubAccessRecheckService.sweep()
+
+    expect(summary).toMatchObject({ uninstalled: 1, failed: 1 })
   })
 })

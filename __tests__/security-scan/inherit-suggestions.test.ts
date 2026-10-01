@@ -86,3 +86,16 @@ describe('LUM-740 inherit suggestions', () => {
     expect(row).toEqual(fresh('fp'))
   })
 })
+
+describe('LUM-902 inherit from a scrubbed prior', () => {
+  it('a scrubbed prior reason does not blank the new finding reason', () => {
+    const [row] = inheritDispositions(
+      [{ ...fresh('fp'), suggestedReason: 'fresh reason' }],
+      [prior({ suggestedDisposition: 'FALSE_POSITIVE', suggestedReason: null })]
+    )
+    expect(row).toMatchObject({
+      suggestedDisposition: 'FALSE_POSITIVE',
+      suggestedReason: 'fresh reason',
+    })
+  })
+})

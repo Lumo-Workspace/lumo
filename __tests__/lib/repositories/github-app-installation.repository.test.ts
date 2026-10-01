@@ -8,7 +8,7 @@ jest.mock('@/lib/db/prisma', () => {
     upsert: jest.fn(),
     update: jest.fn(),
     updateMany: jest.fn(),
-    delete: jest.fn(),
+    deleteMany: jest.fn(),
   }
   return { prisma: { gitHubAppInstallation } }
 })
@@ -23,7 +23,7 @@ const prismaMock = prisma as unknown as {
     upsert: jest.Mock
     update: jest.Mock
     updateMany: jest.Mock
-    delete: jest.Mock
+    deleteMany: jest.Mock
   }
 }
 
@@ -91,11 +91,34 @@ describe('githubAppInstallationRepository', () => {
     })
   })
 
-  it('delete removes by workspaceId', async () => {
-    prismaMock.gitHubAppInstallation.delete.mockResolvedValue({ id: 'gai_1' })
-    await githubAppInstallationRepository.delete('ws_1')
-    expect(prismaMock.gitHubAppInstallation.delete).toHaveBeenCalledWith({
+  it('deleteForWorkspace removes by workspaceId, idempotently', async () => {
+    prismaMock.gitHubAppInstallation.deleteMany.mockResolvedValue({ count: 1 })
+    await githubAppInstallationRepository.deleteForWorkspace('ws_1')
+    expect(prismaMock.gitHubAppInstallation.deleteMany).toHaveBeenCalledWith({
       where: { workspaceId: 'ws_1' },
+    })
+  })
+
+  it('findInstallationIdsWithoutVerifier lists installations of unverified rows', async () => {
+    prismaMock.gitHubAppInstallation.findMany.mockResolvedValue([
+      { installationId: 7 },
+      { installationId: 9 },
+    ])
+    await expect(
+      githubAppInstallationRepository.findInstallationIdsWithoutVerifier()
+    ).resolves.toEqual([7, 9])
+    expect(prismaMock.gitHubAppInstallation.findMany).toHaveBeenCalledWith({
+      where: { OR: [{ verifierLogin: null }, { verifiedAt: null }] },
+      distinct: ['installationId'],
+      select: { installationId: true },
+    })
+  })
+
+  it('deleteForWorkspace with an installation id leaves a re-bound row alone', async () => {
+    prismaMock.gitHubAppInstallation.deleteMany.mockResolvedValue({ count: 0 })
+    await githubAppInstallationRepository.deleteForWorkspace('ws_1', 42)
+    expect(prismaMock.gitHubAppInstallation.deleteMany).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws_1', installationId: 42 },
     })
   })
 

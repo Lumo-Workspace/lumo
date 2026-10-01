@@ -34,6 +34,7 @@ export {
 // App installations (the /app endpoints — install flow, not repository data)
 export {
   fetchAppInstallation,
+  findAppInstallationStatus,
   fetchInstallationRepositories,
   listInstallationRepositories,
   deleteAppInstallation,

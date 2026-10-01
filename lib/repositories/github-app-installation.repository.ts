@@ -29,6 +29,14 @@ export const githubAppInstallationRepository = {
     })
   },
 
+  /** LUM-902 — the confirmed lists of these workspaces (absent: no App). */
+  async findConfirmedLists(workspaceIds: string[]) {
+    return prisma.gitHubAppInstallation.findMany({
+      where: { workspaceId: { in: workspaceIds } },
+      select: { workspaceId: true, repositories: true },
+    })
+  },
+
   /** The fields the settings card renders — account + repository scope. */
   async findStatusByWorkspace(workspaceId: string) {
     return prisma.gitHubAppInstallation.findUnique({
@@ -223,14 +231,31 @@ export const githubAppInstallationRepository = {
     })
   },
 
-  async delete(workspaceId: string) {
-    return prisma.gitHubAppInstallation.delete({ where: { workspaceId } })
+  /**
+   * LUM-902 — idempotent per-workspace delete. With `installationId`, only
+   * while the row is still bound to that installation: a workspace that
+   * re-installed another one in the meantime keeps its new binding.
+   */
+  async deleteForWorkspace(workspaceId: string, installationId?: number) {
+    return prisma.gitHubAppInstallation.deleteMany({
+      where: {
+        workspaceId,
+        ...(installationId !== undefined && { installationId }),
+      },
+    })
   },
 
-  /** Idempotent delete used by the `installation` webhook (deleted/suspend). */
-  async deleteByInstallationId(installationId: number) {
-    return prisma.gitHubAppInstallation.deleteMany({
-      where: { installationId },
+  /**
+   * LUM-902 — installations whose rows have no verifier (bound before
+   * LUM-882). The access recheck cannot ask about them, but it still asks
+   * GitHub whether the installation exists.
+   */
+  async findInstallationIdsWithoutVerifier() {
+    const rows = await prisma.gitHubAppInstallation.findMany({
+      where: { OR: [{ verifierLogin: null }, { verifiedAt: null }] },
+      distinct: ['installationId'],
+      select: { installationId: true },
     })
+    return rows.map(row => row.installationId)
   },
 }

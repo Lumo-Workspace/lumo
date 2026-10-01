@@ -38,6 +38,10 @@
       "schedule": "15 4 * * *"
     },
     {
+      "path": "/api/cron/sweep-unconfirmed-scan-code",
+      "schedule": "45 4 * * *"
+    },
+    {
       "path": "/api/cron/execute-workspace-deletions",
       "schedule": "20 * * * *"
     },

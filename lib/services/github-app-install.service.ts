@@ -92,9 +92,10 @@ export async function scrubWorkspaceCode(
 export async function scrubAfterNarrowing(
   workspaceId: string,
   reason: string,
-  repos: string[]
+  /** `undefined` — the whole workspace (LUM-902: an unbind). */
+  repos?: string[]
 ) {
-  if (repos.length === 0) return
+  if (repos?.length === 0) return
   try {
     await scrubWorkspaceCode(workspaceId, `${reason} (after narrowing)`, repos)
   } catch (error) {
@@ -111,15 +112,81 @@ export async function scrubAfterNarrowing(
  * unreadable) retries — then write, then scrub again for anything written in
  * between.
  */
-async function narrowWithScrub(
+async function narrowWithScrub<T>(
   workspaceId: string,
   gone: string[],
   reason: string,
-  write: () => Promise<unknown>
-) {
+  write: () => Promise<T>
+): Promise<T> {
   if (gone.length > 0) await scrubWorkspaceCode(workspaceId, reason, gone)
-  await write()
+  const result = await write()
   await scrubAfterNarrowing(workspaceId, reason, gone)
+  return result
+}
+
+/**
+ * LUM-902 — a webhook delivery that failed for some of its workspaces still
+ * fails as a whole (so GitHub records it, and it can be redelivered), but
+ * only after every workspace had its turn.
+ */
+function throwIfAnyFailed(installationId: number, failed: number) {
+  if (failed > 0) {
+    throw new Error(
+      `installation ${installationId}: ${failed} workspace(s) failed; see the log above`
+    )
+  }
+}
+
+/**
+ * LUM-902 — unbind one workspace the same safe way: scrub its code first — a
+ * scrub that throws deletes nothing, so the row is still there for a retry
+ * (or the daily recheck) to find — then delete the row, then scrub again for
+ * anything a scan wrote in between.
+ */
+async function unbindWithScrub(
+  workspaceId: string,
+  reason: string,
+  installationId?: number
+) {
+  await scrubWorkspaceCode(workspaceId, reason)
+  await githubAppInstallationRepository.deleteForWorkspace(
+    workspaceId,
+    installationId
+  )
+  await scrubAfterNarrowing(workspaceId, reason)
+}
+
+/**
+ * LUM-902 — an installation is gone (or suspended) on GitHub: unbind every
+ * workspace it backs (LUM-872) and dispose of their code. One workspace whose
+ * scrub throws keeps its row and does not stop the others; the caller gets
+ * the counts, and the daily recheck retries what is left.
+ */
+export async function removeInstallation(
+  installationId: number,
+  reason: string
+): Promise<{ removed: number; failed: number }> {
+  const owners =
+    await githubAppInstallationRepository.findAllByInstallationId(
+      installationId
+    )
+  let removed = 0
+  let failed = 0
+  for (const owner of owners) {
+    try {
+      await unbindWithScrub(owner.workspaceId, reason, installationId)
+      removed++
+    } catch (error) {
+      failed++
+      logger.error(
+        `[github/app] installation ${installationId}: could not unbind workspace ${owner.workspaceId}; row kept for a retry: ${String(error)}`
+      )
+    }
+  }
+  logger.info(
+    `[github/app] installation ${installationId} ${reason}: unbound ${removed} workspace(s), ${failed} failed`
+  )
+  return { removed, failed }
 }
 
 /**
@@ -238,6 +305,28 @@ async function requireReverifiableInstallation(
   return row
 }
 
+/**
+ * `installation_repositories` removal for one workspace (LUM-895): scrub
+ * first, as every narrowing does — the stored spelling (what the scans carry)
+ * and the payload's.
+ */
+async function narrowRemovedRepositories(
+  row: { workspaceId: string; repositories: string[] },
+  removed: Set<string>,
+  removedNames: string[]
+) {
+  if (removedNames.length === 0) return
+  const kept = without(row.repositories, removed)
+  const gone = row.repositories.filter(name => removed.has(name.toLowerCase()))
+  await narrowWithScrub(
+    row.workspaceId,
+    [...new Set([...gone, ...removedNames])],
+    'repository removed from the installation',
+    () =>
+      githubAppInstallationRepository.updateRepositories(row.workspaceId, kept)
+  )
+}
+
 export const githubAppInstallService = {
   /**
    * Where the setup callback sends the user so GitHub can tell us who they are
@@ -299,15 +388,29 @@ export const githubAppInstallService = {
       )
     }
 
-    const row = await githubAppInstallationRepository.upsert({
+    // LUM-902 — re-running the callback on a bound workspace (the same
+    // installation after a missed webhook, or another one) replaces the
+    // list: what drops out of it is scrubbed first, like every narrowing.
+    const previous =
+      await githubAppInstallationRepository.findByWorkspace(workspaceId)
+    const gone = previous
+      ? without(previous.repositories, lowerSet(repositories))
+      : []
+    const row = await narrowWithScrub(
       workspaceId,
-      installationId,
-      accountLogin: account.accountLogin,
-      accountType: account.accountType,
-      repositories,
-      installedBy: memberId,
-      verifier: { login, githubId },
-    })
+      gone,
+      'repository not in the re-installed installation',
+      () =>
+        githubAppInstallationRepository.upsert({
+          workspaceId,
+          installationId,
+          accountLogin: account.accountLogin,
+          accountType: account.accountType,
+          repositories,
+          installedBy: memberId,
+          verifier: { login, githubId },
+        })
+    )
 
     await backfillPullRequests(workspaceId, repositories)
 
@@ -482,6 +585,10 @@ export const githubAppInstallService = {
    * card can never get stuck. It is skipped while another workspace is still
    * bound to the same installation (LUM-872 sharing): removing the App on
    * GitHub would silently switch scanning off for that workspace too (LUM-875).
+   *
+   * LUM-902 — the code is scrubbed before anything is removed: a scrub that
+   * throws fails the request with the row (and the App) still in place, so
+   * the owner can retry instead of leaving code no workspace points at.
    */
   async uninstall(workspaceId: string, memberRole: string) {
     if (memberRole !== 'OWNER') {
@@ -494,6 +601,8 @@ export const githubAppInstallService = {
     const row =
       await githubAppInstallationRepository.findByWorkspace(workspaceId)
     if (!row) return { removed: false } as const
+
+    await scrubWorkspaceCode(workspaceId, 'uninstalled from Lumo')
 
     const bound = await githubAppInstallationRepository.findAllByInstallationId(
       row.installationId
@@ -512,8 +621,8 @@ export const githubAppInstallService = {
         )
       }
     }
-    await githubAppInstallationRepository.delete(workspaceId)
-    await scrubWorkspaceCode(workspaceId, 'uninstalled from Lumo')
+    await githubAppInstallationRepository.deleteForWorkspace(workspaceId)
+    await scrubAfterNarrowing(workspaceId, 'uninstalled from Lumo')
     return { removed: true } as const
   },
 
@@ -527,6 +636,10 @@ export const githubAppInstallService = {
    * cannot clone, and a card that still claims the App is installed is exactly
    * the lie this flow exists to remove. Re-installing (or unsuspending and
    * re-running the callback) writes it back.
+   *
+   * LUM-902 — and scrubs like it too: the row is what keeps code "confirmed",
+   * so code left behind by a suspend would be held for a repository no list
+   * names. Scan and finding rows (and dispositions) survive, as on uninstall.
    */
   async applyInstallationEvent(payload: InstallationEventPayload) {
     const installationId = payload.installation?.id
@@ -535,26 +648,13 @@ export const githubAppInstallService = {
     switch (payload.action) {
       case 'deleted':
       case 'suspend': {
-        // Resolve the workspaces before the rows go — the payload carries
-        // none, and one installation can back several workspaces (LUM-872).
-        const owners =
+        const { failed } = await removeInstallation(
+          installationId,
           payload.action === 'deleted'
-            ? await githubAppInstallationRepository.findAllByInstallationId(
-                installationId
-              )
-            : []
-        const { count } =
-          await githubAppInstallationRepository.deleteByInstallationId(
-            installationId
-          )
-        logger.info(
-          `[github/app] installation ${installationId} ${payload.action}: removed ${count} row(s)`
+            ? 'uninstalled on GitHub'
+            : 'suspended on GitHub'
         )
-        // Suspend is reversible (unsuspend restores the App), so only a real
-        // uninstall scrubs the workspace's code.
-        for (const owner of owners) {
-          await scrubWorkspaceCode(owner.workspaceId, 'uninstalled on GitHub')
-        }
+        throwIfAnyFailed(installationId, failed)
         return
       }
       case 'created':
@@ -576,26 +676,36 @@ export const githubAppInstallService = {
         const reachable = payload.repositories
           ? lowerSet(fullNames(payload.repositories))
           : null
+        let failed = 0
         for (const row of rows) {
           const gone = reachable
             ? row.repositories.filter(
                 name => !reachable.has(name.toLowerCase())
               )
             : []
-          await narrowWithScrub(
-            row.workspaceId,
-            gone,
-            'repository no longer in the installation',
-            () =>
-              githubAppInstallationRepository.upsert({
-                workspaceId: row.workspaceId,
-                installationId,
-                accountLogin: payload.installation?.account?.login ?? null,
-                accountType: payload.installation?.account?.type ?? null,
-                repositories: without(row.repositories, lowerSet(gone)),
-              })
-          )
+          // LUM-902 — one workspace failing does not stop the others.
+          try {
+            await narrowWithScrub(
+              row.workspaceId,
+              gone,
+              'repository no longer in the installation',
+              () =>
+                githubAppInstallationRepository.upsert({
+                  workspaceId: row.workspaceId,
+                  installationId,
+                  accountLogin: payload.installation?.account?.login ?? null,
+                  accountType: payload.installation?.account?.type ?? null,
+                  repositories: without(row.repositories, lowerSet(gone)),
+                })
+            )
+          } catch (error) {
+            failed++
+            logger.error(
+              `[github/app] installation ${installationId} ${payload.action}: workspace ${row.workspaceId} failed; list kept: ${String(error)}`
+            )
+          }
         }
+        throwIfAnyFailed(installationId, failed)
         return
       }
       default:
@@ -625,23 +735,17 @@ export const githubAppInstallService = {
     const removed = lowerSet(removedNames)
     const addedCount = fullNames(payload.repositories_added).length
 
+    // LUM-902 — one workspace whose scrub throws keeps its list (the daily
+    // access recheck, which reads the repository as unreadable, retries the
+    // scrub) and does not stop the others.
+    let failed = 0
     for (const row of rows) {
-      if (removedNames.length > 0) {
-        // LUM-895 — scrub first, as every narrowing does: the stored
-        // spelling (what the scans carry) and the payload's.
-        const kept = without(row.repositories, removed)
-        const gone = row.repositories.filter(name =>
-          removed.has(name.toLowerCase())
-        )
-        await narrowWithScrub(
-          row.workspaceId,
-          [...new Set([...gone, ...removedNames])],
-          'repository removed from the installation',
-          () =>
-            githubAppInstallationRepository.updateRepositories(
-              row.workspaceId,
-              kept
-            )
+      try {
+        await narrowRemovedRepositories(row, removed, removedNames)
+      } catch (error) {
+        failed++
+        logger.error(
+          `[github/app] installation ${installationId}: narrowing workspace ${row.workspaceId} failed; list kept: ${String(error)}`
         )
       }
       if (addedCount > 0) {
@@ -650,5 +754,6 @@ export const githubAppInstallService = {
         )
       }
     }
+    throwIfAnyFailed(installationId, failed)
   },
 }

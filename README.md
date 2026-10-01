@@ -277,7 +277,8 @@ installation can be recorded (LUM-875).
    deleted / suspend / unsuspend / new_permissions_accepted) and
    `installation_repositories` (added / removed). A suspended or deleted
    installation drops the record — a workspace that cannot be cloned must not
-   be shown as installed. Newly reachable repositories get their existing pull
+   be shown as installed — and scrubs that workspace's scan code first
+   (LUM-902). Newly reachable repositories get their existing pull
    requests backfilled.
 4. Repository events (`pull_request`, `push`, `check_suite`, `status`,
    `issue_comment`, `pull_request_review`, `pull_request_review_comment`)
@@ -296,7 +297,15 @@ installation can be recorded (LUM-875).
    code scrubbed. **Subscribe the App to the `repository` event** too:
    `privatized` / `transferred` trigger the same check for that repository
    straight away. Installations bound before LUM-882 have no login on record
-   and are not rechecked until an owner re-verifies once.
+   and are not rechecked until an owner re-verifies once. When the sweep
+   cannot get an installation token and GitHub answers that the installation
+   is gone (404) or suspended — the `deleted` webhook was lost — every
+   workspace bound to it is unbound and scrubbed (LUM-902; this check covers
+   the pre-LUM-882 installations too).
+6. Backstop (LUM-902). A daily cron (`/api/cron/sweep-unconfirmed-scan-code`)
+   scrubs the scan code of any repository not on its workspace's confirmed
+   list — or of every repository, for a workspace without the App — whatever
+   best-effort path left it behind.
 
 **No fallback.** A workspace with no installation record gets no GitHub
 token at all — every GitHub call for it fails with "install the Lumo GitHub
