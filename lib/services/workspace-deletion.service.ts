@@ -3,6 +3,7 @@ import {
   type BlobCleanup,
   type PendingDeletion,
 } from '@/lib/repositories/workspace-deletion.repository'
+import { workspaceExportRepository } from '@/lib/repositories/workspace-export.repository'
 import { logger } from '@/lib/logger'
 import type { DeletionNotice } from '@/lib/services/workspace-deletion-notice'
 
@@ -92,6 +93,22 @@ async function cleanupBlobs(prefixes: readonly string[]): Promise<BlobCleanup> {
   }
 }
 
+/**
+ * LUM-923: the agent-facing line for a pending deletion — injected at session
+ * start and in `lumo task context`, so a CLI / agent working in the 48h window
+ * knows the workspace is about to go. Empty when nothing is pending.
+ */
+export function renderPendingDeletionSection(
+  pending: PendingDeletion | null
+): string {
+  if (!pending) return ''
+  return [
+    '## Workspace scheduled for deletion',
+    '',
+    `This workspace will be permanently deleted at ${pending.executeAt.toISOString()} (UTC) — every task, document, session and memory with it. An owner can still cancel from Settings until then; tell the user before starting long-running work here.`,
+  ].join('\n')
+}
+
 // ── Workspace Deletion Service (LUM-861) ────────────────────────────────────
 
 export const workspaceDeletionService = {
@@ -105,6 +122,13 @@ export const workspaceDeletionService = {
     requestedByClerkId: string,
     opts: { dueBy?: Date } = {}
   ) {
+    // LUM-923: an export still generating would upload its archive after
+    // the blob sweep below and leave a full copy of the workspace behind.
+    // Failing it first makes that run delete its own upload instead.
+    await workspaceExportRepository.invalidateActive(
+      workspaceId,
+      'workspace is being deleted'
+    )
     const taskIds =
       await workspaceDeletionRepository.findTaskIdsWithTestCases(workspaceId)
     const purged = await workspaceDeletionRepository.purge(
@@ -145,6 +169,24 @@ export const workspaceDeletionService = {
   /** LUM-918: the pending deletion of this workspace, if any. */
   async getPending(workspaceId: string) {
     return workspaceDeletionRepository.findPending(workspaceId)
+  },
+
+  /**
+   * LUM-923: the pending-deletion section for agent context, or ''. Never
+   * throws — a failed lookup must not break context injection.
+   */
+  async buildPendingNoticeSection(workspaceId: string): Promise<string> {
+    try {
+      return renderPendingDeletionSection(
+        await workspaceDeletionRepository.findPending(workspaceId)
+      )
+    } catch (error) {
+      logger.warn('[workspace-deletion] pending notice lookup failed', {
+        workspaceId,
+        error: (error as Error).message,
+      })
+      return ''
+    }
   },
 
   /**

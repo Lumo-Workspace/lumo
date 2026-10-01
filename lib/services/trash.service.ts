@@ -5,6 +5,8 @@ import { logger } from '@/lib/logger'
 /** LUM-918: how long a deleted task / document stays restorable. */
 export const TRASH_RETENTION_DAYS = 30
 const DAY_MS = 24 * 60 * 60 * 1000
+/** LUM-923: expired trash roots loaded per page by the purge cron. */
+export const PURGE_PAGE_SIZE = 100
 
 export type TrashKind = 'task' | 'document'
 
@@ -65,11 +67,17 @@ async function collectDescendants(
   return out
 }
 
-async function purge(kind: TrashKind, id: string): Promise<number> {
-  if (kind === 'document') return trashRepository.purgeDocumentGroup(id)
+async function purge(
+  kind: TrashKind,
+  id: string,
+  opts: { expiredBefore?: Date } = {}
+): Promise<number> {
+  if (kind === 'document') return trashRepository.purgeDocumentGroup(id, opts)
   // Read before the delete: the test cases cascade away with the tasks.
   const withEvidence = await trashRepository.findTaskGroupIdsWithTestCases(id)
-  const purged = await trashRepository.purgeTaskGroup(id)
+  const purged = await trashRepository.purgeTaskGroup(id, opts)
+  // Re-checked inside the delete: nothing went, so no evidence goes either.
+  if (purged === 0) return 0
   // LUM-916: evidence blobs go with the rows. Moving to the trash keeps
   // them so a restore is whole; only the hard delete sweeps them.
   await privateFileService.deleteTaskEvidence(withEvidence)
@@ -178,29 +186,42 @@ export const trashService = {
     return purge(kind, root.id)
   },
 
-  /** Cron: hard-delete everything that has been in the trash 30 days. */
+  /**
+   * Cron: hard-delete everything that has been in the trash 30 days. Roots
+   * are walked a page at a time, and each purge re-checks its root is still
+   * expired (LUM-923) — a restore or re-trash after the scan wins.
+   */
   async purgeExpired(now: Date = new Date()) {
     const cutoff = new Date(now.getTime() - TRASH_RETENTION_DAYS * DAY_MS)
-    const { taskIds, documentIds } =
-      await trashRepository.findExpiredRoots(cutoff)
+    let roots = 0
     let purged = 0
     let failed = 0
-    const roots = [
-      ...taskIds.map(id => ['task', id] as const),
-      ...documentIds.map(id => ['document', id] as const),
-    ]
-    for (const [kind, id] of roots) {
-      try {
-        purged += await purge(kind, id)
-      } catch (error) {
-        failed++
-        logger.error('[trash] purge failed', {
+    for (const kind of ['task', 'document'] as const) {
+      let afterId: string | null = null
+      for (;;) {
+        const page: string[] = await trashRepository.findExpiredRootPage(
           kind,
-          id,
-          error: (error as Error).message,
-        })
+          cutoff,
+          PURGE_PAGE_SIZE,
+          afterId
+        )
+        for (const id of page) {
+          roots++
+          try {
+            purged += await purge(kind, id, { expiredBefore: cutoff })
+          } catch (error) {
+            failed++
+            logger.error('[trash] purge failed', {
+              kind,
+              id,
+              error: (error as Error).message,
+            })
+          }
+        }
+        if (page.length < PURGE_PAGE_SIZE) break
+        afterId = page[page.length - 1]!
       }
     }
-    return { roots: roots.length, purged, failed }
+    return { roots, purged, failed }
   },
 }

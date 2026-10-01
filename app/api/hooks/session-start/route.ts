@@ -7,6 +7,7 @@ import {
 import { lineageService } from '@/lib/services/lineage.service'
 import { aggregateSessionStartFragments } from '@/lib/services/session-start-edges.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
+import { workspaceDeletionService } from '@/lib/services/workspace-deletion.service'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import {
   buildSessionStartContextMetrics,
@@ -20,7 +21,11 @@ export async function POST(request: Request) {
     afterRecord: async ctx => {
       if (!ctx.sessionId) return
       const sessionId = ctx.sessionId
-      const binding = await sessionRepository.findTaskBinding(sessionId)
+      const [binding, workspaceNoticeSection] = await Promise.all([
+        sessionRepository.findTaskBinding(sessionId),
+        // LUM-923: bound or not, the agent learns of a pending deletion.
+        workspaceDeletionService.buildPendingNoticeSection(ctx.workspaceId),
+      ])
       let criteriaSection = ''
       // LUM-807: "## Test cases" nudge, injected beside the contract.
       let testCaseSection = ''
@@ -194,6 +199,7 @@ export async function POST(request: Request) {
       return {
         sessionId,
         taskBinding: binding,
+        workspaceNoticeSection,
         criteriaSection,
         testCaseSection,
         progressSection,

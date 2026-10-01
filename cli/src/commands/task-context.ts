@@ -26,6 +26,8 @@ interface TaskContextResponse {
   /** LUM-844: one-line-per-memory index, printed by default; absent on older
    *  servers (the full memorySection prints instead). */
   memoryIndexSection?: string
+  /** LUM-923: pending workspace deletion notice; absent on older servers. */
+  workspaceNoticeSection?: string
   criteriaSection?: string
   /** LUM-807: "## Test cases" nudge; absent on older servers. */
   testCaseSection?: string
@@ -150,6 +152,15 @@ export function formatTaskContextMarkdown(
     lines.push(`**Description**: ${sanitizeField(body)}`)
   }
   lines.push('')
+
+  // LUM-923: a pending workspace deletion comes before the work itself.
+  if (
+    data.workspaceNoticeSection &&
+    data.workspaceNoticeSection.trim().length > 0
+  ) {
+    lines.push(sanitizeField(data.workspaceNoticeSection.trimEnd()))
+    lines.push('')
+  }
 
   // The acceptance contract leads (LUM-342): it's what the work is judged
   // against, so it reads as part of the task statement itself.

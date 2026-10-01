@@ -553,12 +553,17 @@ export const sessionRepository = {
           select: {
             number: true,
             title: true,
+            deletedAt: true,
             team: { select: { identifier: true } },
           },
         },
       },
     })
-    if (!session?.task || !session.taskId) return { bound: false }
+    // LUM-923: a relation read skips the trash filter — a session bound to a
+    // trashed task reads as unbound, so its title never reaches the agent.
+    if (!session?.task || !session.taskId || session.task.deletedAt) {
+      return { bound: false }
+    }
     return {
       bound: true,
       taskId: session.taskId,

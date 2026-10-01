@@ -49,6 +49,32 @@ function childrenFirst(
   return [...rows.map(r => r.id).filter(id => !seen.has(id)), ...order]
 }
 
+/**
+ * LUM-923: a big document tree is deleted row by row; Prisma's 5s default
+ * would time it out on every daily run and it would never leave the trash.
+ */
+const PURGE_TX_OPTIONS = { timeout: 120_000, maxWait: 10_000 } as const
+
+type RootCounter = {
+  count: (args: { where: Record<string, unknown> }) => Promise<number>
+}
+
+/** Still a trash root — and, for the cron, still past its retention. */
+async function isPurgeableRoot(
+  delegate: RootCounter,
+  rootId: string,
+  expiredBefore: Date | undefined
+): Promise<boolean> {
+  const n = await delegate.count({
+    where: {
+      id: rootId,
+      trashRootId: null,
+      deletedAt: expiredBefore ? { lte: expiredBefore } : { not: null },
+    },
+  })
+  return n === 1
+}
+
 const groupWhere = (rootId: string) => ({
   deletedAt: { not: null },
   OR: [{ id: rootId }, { trashRootId: rootId }],
@@ -260,20 +286,38 @@ export const trashRepository = {
     return rows.map(r => r.id)
   },
 
-  /** Hard-delete a trashed task group; related rows cascade as before. */
-  async purgeTaskGroup(rootId: string): Promise<number> {
-    const { count } = await prisma.task.deleteMany({
-      where: groupWhere(rootId),
-    })
-    return count
+  /**
+   * Hard-delete a trashed task group; related rows cascade as before. With
+   * `expiredBefore` (the cron) the root is re-checked in the same transaction:
+   * one restored, or trashed again, since the scan is left alone (LUM-923).
+   */
+  async purgeTaskGroup(
+    rootId: string,
+    opts: { expiredBefore?: Date } = {}
+  ): Promise<number> {
+    return prisma.$transaction(async (tx: Tx) => {
+      if (!(await isPurgeableRoot(tx.task, rootId, opts.expiredBefore))) {
+        return 0
+      }
+      const { count } = await tx.task.deleteMany({
+        where: groupWhere(rootId),
+      })
+      return count
+    }, PURGE_TX_OPTIONS)
   },
 
   /**
    * Hard-delete a trashed document group: mentions, shares and editors
    * first, then the documents children-first (the tree FK does not cascade).
    */
-  async purgeDocumentGroup(rootId: string): Promise<number> {
+  async purgeDocumentGroup(
+    rootId: string,
+    opts: { expiredBefore?: Date } = {}
+  ): Promise<number> {
     return prisma.$transaction(async (tx: Tx) => {
+      if (!(await isPurgeableRoot(tx.document, rootId, opts.expiredBefore))) {
+        return 0
+      }
       const rows = await tx.document.findMany({
         where: groupWhere(rootId),
         select: { id: true, parentId: true },
@@ -289,19 +333,34 @@ export const trashRepository = {
         await tx.document.delete({ where: { id } })
       }
       return ids.length
-    })
+    }, PURGE_TX_OPTIONS)
   },
 
-  /** Trash roots (both kinds) deleted at or before `before`. */
-  async findExpiredRoots(before: Date) {
-    const where = { deletedAt: { lte: before }, trashRootId: null }
-    const [tasks, documents] = await Promise.all([
-      prisma.task.findMany({ where, select: { id: true } }),
-      prisma.document.findMany({ where, select: { id: true } }),
-    ])
-    return {
-      taskIds: tasks.map(t => t.id),
-      documentIds: documents.map(d => d.id),
+  /**
+   * One page of trash roots of `kind` deleted at or before `before`, in id
+   * order after `afterId` — the cron walks them page by page (LUM-923)
+   * instead of loading every expired root at once.
+   */
+  async findExpiredRootPage(
+    kind: 'task' | 'document',
+    before: Date,
+    take: number,
+    afterId: string | null
+  ): Promise<string[]> {
+    const args = {
+      where: {
+        deletedAt: { lte: before },
+        trashRootId: null,
+        ...(afterId ? { id: { gt: afterId } } : {}),
+      },
+      select: { id: true },
+      orderBy: { id: 'asc' as const },
+      take,
     }
+    const rows =
+      kind === 'task'
+        ? await prisma.task.findMany(args)
+        : await prisma.document.findMany(args)
+    return rows.map(r => r.id)
   },
 }

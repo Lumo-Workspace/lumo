@@ -13,6 +13,13 @@ jest.mock('@/lib/repositories/workspace-deletion.repository', () => ({
     settleBlobCleanup: jest.fn(),
   },
 }))
+// LUM-923: in-flight exports are invalidated before the purge (proven on a
+// real Postgres in workspace-deletion/scheduled-deletion.test.ts).
+jest.mock('@/lib/repositories/workspace-export.repository', () => ({
+  workspaceExportRepository: {
+    invalidateActive: jest.fn().mockResolvedValue([]),
+  },
+}))
 jest.mock('@/lib/services/workspace-deletion-blob', () => ({
   deleteBlobsByPrefixInBothStores: jest.fn(),
 }))

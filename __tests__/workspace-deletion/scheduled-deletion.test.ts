@@ -5,17 +5,25 @@
  * the real service and repository against a REAL Postgres (every migration
  * replayed into PGlite). Only the edges leave the process and are mocked:
  * the owner email (Resend + Clerk) and the blob store.
+ *
+ * The service reads through the same soft-delete extension the production
+ * client carries (LUM-923): a bare client would see trashed rows by default
+ * and hide exactly the filter bug that left trashed tasks' evidence behind.
  */
 import { createPgliteHarness } from '../../scripts/test-support/pglite-harness'
+import { withSoftDelete } from '@/lib/db/soft-delete'
 
 // jest.setup.js mocks PrismaClient globally; this suite needs the real one.
 const { PrismaClient } =
   jest.requireActual<typeof import('@prisma/client')>('@prisma/client')
 const harness = createPgliteHarness(PrismaClient)
+const holder: { client: import('@prisma/client').PrismaClient | null } = {
+  client: null,
+}
 
 jest.mock('@/lib/db/prisma', () => ({
   get prisma() {
-    return harness.prisma
+    return holder.client
   },
 }))
 jest.mock('@/lib/services/workspace-deletion-notice', () => ({
@@ -28,11 +36,14 @@ jest.mock('@/lib/logger', () => ({
   logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 }))
 
+import { workspaceDeletionRepository } from '@/lib/repositories/workspace-deletion.repository'
+import { workspaceExportRepository } from '@/lib/repositories/workspace-export.repository'
 import {
   workspaceDeletionService,
   WORKSPACE_DELETION_GRACE_MS,
 } from '@/lib/services/workspace-deletion.service'
 import { sendDeletionNotice } from '@/lib/services/workspace-deletion-notice'
+import { deleteBlobsByPrefixInBothStores } from '@/lib/services/workspace-deletion-blob'
 
 jest.setTimeout(180_000)
 
@@ -80,6 +91,7 @@ async function receipts(id: string) {
 
 beforeAll(async () => {
   await harness.start()
+  holder.client = withSoftDelete(harness.prisma!)
 })
 
 afterAll(async () => {
@@ -282,5 +294,244 @@ describe('workspace deletion 48-hour undo window', () => {
 
     expect(await workspaceDeletionService.getPending('member1')).not.toBeNull()
     expect(await exists('member1')).toBe(true)
+  })
+})
+
+/** A project with one live and one trashed task (each with a test case) and
+ *  one live and one trashed document. */
+async function seedTrash(id: string) {
+  const db = harness.prisma!
+  const trashedAt = new Date('2026-09-30T00:00:00.000Z')
+  await db.team.create({
+    data: { id: `${id}_team`, workspaceId: id, name: 'Eng', identifier: 'EN' },
+  })
+  await db.project.create({
+    data: {
+      id: `${id}_proj`,
+      workspaceId: id,
+      teamId: `${id}_team`,
+      createdByMemberId: `${id}_o1`,
+      name: 'P',
+    },
+  })
+  const task = (suffix: string, number: number, deletedAt: Date | null) =>
+    db.task.create({
+      data: {
+        id: `${id}_${suffix}`,
+        number,
+        title: suffix,
+        projectId: `${id}_proj`,
+        teamId: `${id}_team`,
+        deletedAt,
+        testCases: {
+          create: { number: 1, title: 'tc', steps: ['s'], expected: 'e' },
+        },
+      },
+    })
+  await task('live', 1, null)
+  await task('trashed', 2, trashedAt)
+  const doc = (suffix: string, number: number, deletedAt: Date | null) =>
+    db.document.create({
+      data: {
+        id: `${id}_${suffix}`,
+        number,
+        slug: `${id}-${suffix}`,
+        title: suffix,
+        content: '<p>x</p>',
+        workspaceId: id,
+        createdById: `${id}_o1`,
+        visibility: 'WORKSPACE',
+        deletedAt,
+      },
+    })
+  await doc('doc_live', 1, null)
+  await doc('doc_trashed', 2, trashedAt)
+}
+
+describe('LUM-923 purge covers the trash', () => {
+  const mockBlobs = deleteBlobsByPrefixInBothStores as jest.Mock
+
+  beforeEach(() => mockBlobs.mockClear())
+
+  it('LUM-923 purge: deleteNow sweeps the evidence of trashed tasks and counts trashed documents', async () => {
+    const ws = await seedWorkspace('trash1')
+    await seedTrash('trash1')
+    await workspaceDeletionService.scheduleDeletion(
+      ws,
+      'OWNER',
+      'trash1_owner1',
+      T0
+    )
+
+    const out = await workspaceDeletionService.deleteNow(
+      ws,
+      'OWNER',
+      'trash1_owner1',
+      ws.name
+    )
+
+    const swept = mockBlobs.mock.calls.map(c => c[0])
+    expect(swept).toEqual(
+      expect.arrayContaining([
+        'workspaces/trash1/',
+        'test-evidence/trash1_live/',
+        'test-evidence/trash1_trashed/',
+      ])
+    )
+    expect(out?.rowCounts.Document).toBe(2)
+    const receipt = await harness.prisma!.workspaceDeletionReceipt.findFirst({
+      where: { workspaceId: 'trash1' },
+    })
+    expect((receipt?.rowCounts as Record<string, number>).Document).toBe(2)
+    expect(
+      await harness.prisma!.task.count({
+        where: { projectId: 'trash1_proj' },
+      })
+    ).toBe(0)
+  })
+
+  it('LUM-923 purge: the due cron sweeps the evidence of trashed tasks too', async () => {
+    const ws = await seedWorkspace('trash2')
+    await seedTrash('trash2')
+    await workspaceDeletionService.scheduleDeletion(
+      ws,
+      'OWNER',
+      'trash2_owner1',
+      T0
+    )
+
+    await workspaceDeletionService.runDueDeletions(
+      new Date(T0.getTime() + 49 * HOUR)
+    )
+
+    const swept = mockBlobs.mock.calls.map(c => c[0])
+    expect(swept).toContain('test-evidence/trash2_trashed/')
+    expect(await exists('trash2')).toBe(false)
+  })
+})
+
+describe('LUM-923 export race: deletion invalidates in-flight exports first', () => {
+  async function seedExports(id: string) {
+    const db = harness.prisma!
+    for (const status of ['PENDING', 'RUNNING', 'READY'] as const) {
+      await db.workspaceExport.create({
+        data: {
+          id: `${id}_${status}`,
+          workspaceId: id,
+          requestedByClerkId: `${id}_owner1`,
+          status,
+        },
+      })
+    }
+  }
+
+  /** Export statuses as the purge transaction is about to start. */
+  function captureStatusesAtPurge(id: string) {
+    const seen: Record<string, string>[] = []
+    const purge = workspaceDeletionRepository.purge.bind(
+      workspaceDeletionRepository
+    )
+    const spy = jest
+      .spyOn(workspaceDeletionRepository, 'purge')
+      .mockImplementation(async (...args) => {
+        const rows = await harness.prisma!.workspaceExport.findMany({
+          where: { workspaceId: id },
+          select: { id: true, status: true },
+        })
+        seen.push(Object.fromEntries(rows.map(r => [r.id, r.status])))
+        return purge(...args)
+      })
+    return { seen, spy }
+  }
+
+  it('LUM-923 export race: deleteNow fails PENDING and RUNNING exports before purging', async () => {
+    const ws = await seedWorkspace('exrace1')
+    await seedExports('exrace1')
+    await workspaceDeletionService.scheduleDeletion(
+      ws,
+      'OWNER',
+      'exrace1_owner1',
+      T0
+    )
+    const { seen, spy } = captureStatusesAtPurge('exrace1')
+
+    await workspaceDeletionService.deleteNow(
+      ws,
+      'OWNER',
+      'exrace1_owner1',
+      ws.name
+    )
+    spy.mockRestore()
+
+    expect(seen[0]).toEqual({
+      exrace1_PENDING: 'FAILED',
+      exrace1_RUNNING: 'FAILED',
+      exrace1_READY: 'READY',
+    })
+    expect(await exists('exrace1')).toBe(false)
+  })
+
+  it('LUM-923 export race: the due purge fails in-flight exports before purging', async () => {
+    const ws = await seedWorkspace('exrace2')
+    await seedExports('exrace2')
+    await workspaceDeletionService.scheduleDeletion(
+      ws,
+      'OWNER',
+      'exrace2_owner1',
+      T0
+    )
+    const { seen, spy } = captureStatusesAtPurge('exrace2')
+
+    await workspaceDeletionService.runDueDeletions(
+      new Date(T0.getTime() + 49 * HOUR)
+    )
+    spy.mockRestore()
+
+    expect(seen.find(s => 'exrace2_RUNNING' in s)).toMatchObject({
+      exrace2_PENDING: 'FAILED',
+      exrace2_RUNNING: 'FAILED',
+    })
+  })
+
+  it('LUM-923 export race: an invalidated export can neither restart nor turn READY', async () => {
+    await seedWorkspace('exrace3')
+    await seedExports('exrace3')
+    expect(
+      (
+        await workspaceExportRepository.invalidateActive(
+          'exrace3',
+          'workspace is being deleted'
+        )
+      ).sort()
+    ).toEqual(['exrace3_PENDING', 'exrace3_RUNNING'])
+
+    expect(await workspaceExportRepository.markRunning('exrace3_PENDING')).toBe(
+      false
+    )
+    const ready = await workspaceExportRepository.markReady('exrace3_RUNNING', {
+      blobUrl: 'https://blob.test/x.zip',
+      sizeBytes: 1,
+      rowCounts: {},
+      completedAt: T0,
+      expiresAt: T0,
+    })
+    expect(ready).toBe(false)
+    expect(
+      await workspaceExportRepository.markReady('no_such_export', {
+        blobUrl: 'https://blob.test/x.zip',
+        sizeBytes: 1,
+        rowCounts: {},
+        completedAt: T0,
+        expiresAt: T0,
+      })
+    ).toBe(false)
+    const rows = await harness.prisma!.workspaceExport.findMany({
+      where: { workspaceId: 'exrace3' },
+      select: { id: true, status: true, blobUrl: true },
+    })
+    expect(rows.find(r => r.id === 'exrace3_RUNNING')).toMatchObject({
+      status: 'FAILED',
+      blobUrl: null,
+    })
   })
 })

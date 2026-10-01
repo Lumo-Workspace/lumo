@@ -32,9 +32,11 @@ jest.mock('@/lib/services/workspace-deletion-blob', () => ({
 }))
 
 import {
+  PURGE_PAGE_SIZE,
   trashService,
   TRASH_RETENTION_DAYS,
 } from '@/lib/services/trash.service'
+import { trashRepository } from '@/lib/repositories/trash.repository'
 import { privateFileRepository } from '@/lib/repositories/private-file.repository'
 
 jest.setTimeout(180_000)
@@ -217,5 +219,96 @@ describe('evidence blobs (LUM-916) follow the hard delete, not the trash', () =>
         'proj_purge'
       )
     expect(ids.sort()).toEqual(['pj_live', 'pj_trashed'])
+  })
+})
+
+describe('LUM-923 trash purge: robust daily cron', () => {
+  it('LUM-923 trash purge: both group purges run in a transaction with an explicit long timeout', async () => {
+    await task('tx_task')
+    await doc('tx_doc')
+    await doc('tx_doc_child', 'tx_doc')
+    await trashService.trashTask('tx_task', 'clerk_purge', NOW)
+    await trashService.trashDocument('tx_doc', 'clerk_purge', NOW)
+    const client = holder.client!
+    const spy = jest.spyOn(client, '$transaction')
+
+    await trashService.deletePermanently('task', 'tx_task', WS, MEMBER)
+    await trashService.deletePermanently('document', 'tx_doc', WS, MEMBER)
+
+    const timeouts = spy.mock.calls.map(
+      c => (c[1] as { timeout?: number } | undefined)?.timeout ?? 0
+    )
+    spy.mockRestore()
+    expect(timeouts).toHaveLength(2)
+    expect(timeouts.every(t => t >= 60_000)).toBe(true)
+    expect(await docExists('tx_doc_child')).toBe(false)
+  })
+
+  it('LUM-923 trash purge: expired roots are walked in pages, never loaded all at once', async () => {
+    const db = harness.prisma!
+    const ids = Array.from(
+      { length: PURGE_PAGE_SIZE + 1 },
+      (_, i) => `page_doc_${String(i).padStart(3, '0')}`
+    )
+    await db.document.createMany({
+      data: ids.map(id => ({
+        id,
+        number: ++nextNumber,
+        slug: id,
+        title: id,
+        workspaceId: WS,
+        createdById: MEMBER,
+        deletedAt: daysAgo(40),
+      })),
+    })
+    const pages = jest.spyOn(trashRepository, 'findExpiredRootPage')
+
+    const out = await trashService.purgeExpired(NOW)
+
+    const docCalls = pages.mock.calls.filter(c => c[0] === 'document')
+    pages.mockRestore()
+    expect(out.failed).toBe(0)
+    expect(docCalls.length).toBeGreaterThanOrEqual(2)
+    expect(docCalls.every(c => c[2] === PURGE_PAGE_SIZE)).toBe(true)
+    expect(docCalls[1]![3]).toBe(ids[PURGE_PAGE_SIZE - 1])
+    expect(await db.document.count({ where: { id: { in: ids } } })).toBe(0)
+  })
+
+  it('LUM-923 trash purge: a root restored or re-trashed after the scan is left alone', async () => {
+    await task('race_restored')
+    await testCase('race_restored')
+    await task('race_retrashed')
+    await doc('race_doc')
+    await trashService.trashTask('race_restored', 'clerk_purge', daysAgo(40))
+    await trashService.trashTask('race_retrashed', 'clerk_purge', daysAgo(40))
+    await trashService.trashDocument('race_doc', 'clerk_purge', daysAgo(40))
+
+    const original = trashRepository.findExpiredRootPage.bind(trashRepository)
+    const pages = jest
+      .spyOn(trashRepository, 'findExpiredRootPage')
+      .mockImplementation(async (...args) => {
+        const page = await original(...args)
+        // Between the cron's scan and each purge: the user restores one
+        // task and the document, and another task is restored then trashed
+        // again (a fresh 30 days).
+        if (args[0] === 'task' && page.includes('race_restored')) {
+          await trashService.restore('task', 'race_restored', WS, MEMBER)
+          await trashService.restore('task', 'race_retrashed', WS, MEMBER)
+          await trashService.trashTask('race_retrashed', 'clerk_purge', NOW)
+        }
+        if (args[0] === 'document' && page.includes('race_doc')) {
+          await trashService.restore('document', 'race_doc', WS, MEMBER)
+        }
+        return page
+      })
+    sweep.mockClear()
+
+    await trashService.purgeExpired(NOW)
+    pages.mockRestore()
+
+    expect(await taskExists('race_restored')).toBe(true)
+    expect(await taskExists('race_retrashed')).toBe(true)
+    expect(await docExists('race_doc')).toBe(true)
+    expect(sweep).not.toHaveBeenCalledWith('test-evidence/race_restored/')
   })
 })

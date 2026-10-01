@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.80.5",
+  "cliVersion": "1.80.6",
   "commands": {
     "auth": {
       "arguments": [],
@@ -330,7 +330,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Delete a document and everything nested under it. Without --confirm: exit 4 + a confirmation envelope with the title."
+      "description": "Move a document and everything nested under it to the trash (restorable for 30 days by its owner from web Settings → Trash, then permanently deleted). Without --confirm: exit 4 + a confirmation envelope with the title."
     },
     "doc diff": {
       "arguments": [{ "name": "doc", "required": true, "variadic": false }],
@@ -3383,7 +3383,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Permanently delete a task (hard delete, no archive; subtasks are kept and detached). Without --confirm: exit 4 + a confirmation envelope listing what goes with it."
+      "description": "Move a task and all its subtasks to the trash (restorable for 30 days from web Settings → Trash, then permanently deleted). Without --confirm: exit 4 + a confirmation envelope listing what goes with it."
     },
     "task deps": {
       "arguments": [],

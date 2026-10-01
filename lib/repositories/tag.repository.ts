@@ -7,7 +7,13 @@ export const tagRepository = {
       where: { workspaceId },
       orderBy: { name: 'asc' },
       include: {
-        _count: { select: { taskTags: true, documentTags: true } },
+        // LUM-923: usage counts leave out tasks / documents in the trash.
+        _count: {
+          select: {
+            taskTags: { where: { task: { deletedAt: null } } },
+            documentTags: { where: { document: { deletedAt: null } } },
+          },
+        },
       },
     })
   },

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { getContext, resolveAssigneeActor } from '../context.js'
 import { resolveTaskId } from '../resolvers.js'
+import { trashTaskGroup } from '../trash.js'
 
 const statusEnum = z
   .enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
@@ -308,7 +309,8 @@ export function registerTaskTools(server: McpServer) {
   server.registerTool(
     'delete_task',
     {
-      description: 'Delete a task. Subtasks will have their parent cleared.',
+      description:
+        'Move a task and its subtasks to the trash (restorable for 30 days from Settings → Trash).',
       inputSchema: {
         taskId: z
           .string()
@@ -316,7 +318,7 @@ export function registerTaskTools(server: McpServer) {
       },
     },
     async ({ taskId }) => {
-      const { workspaceId } = getContext()
+      const { workspaceId, memberId } = getContext()
       const id = await resolveTaskId(taskId, workspaceId)
 
       const existing = await prisma.task.findFirst({
@@ -324,13 +326,25 @@ export function registerTaskTools(server: McpServer) {
       })
       if (!existing) throw new Error(`Task ${taskId} not found`)
 
-      await prisma.task.delete({ where: { id } })
+      const member = await prisma.workspaceMember.findUnique({
+        where: { id: memberId },
+        select: { clerkId: true },
+      })
+      const trashedSubtasks = await trashTaskGroup(
+        prisma,
+        id,
+        member?.clerkId ?? null
+      )
 
       return {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify({ success: true, deletedId: id }, null, 2),
+            text: JSON.stringify(
+              { success: true, trashedId: id, trashedSubtasks },
+              null,
+              2
+            ),
           },
         ],
       }

@@ -166,7 +166,7 @@ describe('requestExport', () => {
     expect(res.export).toMatchObject({ id: 'exp1', status: 'PENDING' })
     expect(res.export).not.toHaveProperty('blobUrl')
     expect(repo.create).toHaveBeenCalledWith('w1', 'user_owner')
-    expect(startWorkspaceExport).toHaveBeenCalledWith('exp1')
+    expect(startWorkspaceExport).toHaveBeenCalledWith('exp1', 'w1')
     expect(repo.setWorkflowRun).toHaveBeenCalledWith('exp1', 'run_1')
   })
 
@@ -327,6 +327,8 @@ describe('archive', () => {
 
   it('LUM-858 archive: generateArchive uploads privately and marks the export ready for 7 days', async () => {
     m(repo.findById).mockResolvedValue(record())
+    m(repo.markRunning).mockResolvedValue(true)
+    m(repo.markReady).mockResolvedValue(true)
     m(blob.putExportArchive).mockResolvedValue(
       'https://blob.test/private/exp1.zip'
     )
@@ -345,6 +347,87 @@ describe('archive', () => {
       7 * 24 * 60 * 60 * 1000
     )
     expect(ready.rowCounts).toHaveProperty('tasks', 1)
+  })
+})
+
+describe('LUM-923 export race with workspace deletion', () => {
+  beforeEach(() => {
+    m(repo.markRunning).mockResolvedValue(true)
+    m(blob.putExportArchive).mockResolvedValue(
+      'https://blob.test/private/exp1.zip'
+    )
+  })
+
+  it('LUM-923 export race: an export invalidated between the read and the build start is never revived', async () => {
+    m(repo.findById).mockResolvedValue(record({ status: 'PENDING' }))
+    m(repo.markRunning).mockResolvedValue(false)
+
+    await workspaceExportService.generateArchive('exp1', NOW, 'w1')
+
+    expect(blob.putExportArchive).not.toHaveBeenCalled()
+    expect(repo.markReady).not.toHaveBeenCalled()
+  })
+
+  it('LUM-923 export race: an archive uploaded after the export was invalidated is deleted', async () => {
+    m(repo.findById).mockResolvedValue(record({ status: 'RUNNING' }))
+    const order: string[] = []
+    m(blob.deleteExportArchive).mockImplementation(async () => {
+      order.push('delete')
+    })
+    m(blob.putExportArchive).mockImplementation(async () => {
+      order.push('put')
+      return 'https://blob.test/private/exp1.zip'
+    })
+    // The workspace deletion failed the row (or deleted it) mid-build.
+    m(repo.markReady).mockResolvedValue(false)
+
+    await expect(
+      workspaceExportService.generateArchive('exp1', NOW, 'w1')
+    ).rejects.toThrow(/invalidated/)
+
+    expect(order).toEqual(['delete', 'put', 'delete'])
+    expect(blob.deleteExportArchive).toHaveBeenLastCalledWith('w1', 'exp1')
+  })
+
+  it('LUM-923 export race: a markReady that throws because the row is gone still deletes the upload', async () => {
+    m(repo.findById).mockResolvedValue(record({ status: 'RUNNING' }))
+    m(repo.markReady).mockRejectedValue(new Error('P2025 record not found'))
+
+    await expect(
+      workspaceExportService.generateArchive('exp1', NOW, 'w1')
+    ).rejects.toThrow(/P2025/)
+
+    const calls = m(blob.deleteExportArchive).mock.calls
+    expect(calls).toHaveLength(2)
+    expect(calls[1]).toEqual(['w1', 'exp1'])
+  })
+
+  it('LUM-923 export race: generate, fail and expire delete by workspaceId and exportId once the row is gone', async () => {
+    m(repo.findById).mockResolvedValue(null)
+
+    await expect(
+      workspaceExportService.generateArchive('exp1', NOW, 'w1')
+    ).rejects.toThrow(/not found/)
+    await workspaceExportService.failExport('exp1', 'boom', 'w1')
+    await workspaceExportService.expireExport('exp1', 'w1')
+
+    expect(m(blob.deleteExportArchive).mock.calls).toEqual([
+      ['w1', 'exp1'],
+      ['w1', 'exp1'],
+      ['w1', 'exp1'],
+    ])
+    expect(blob.putExportArchive).not.toHaveBeenCalled()
+    expect(repo.markFailed).not.toHaveBeenCalled()
+    expect(repo.markExpired).not.toHaveBeenCalled()
+  })
+
+  it('LUM-923 export race: an already-invalidated export is not rebuilt', async () => {
+    m(repo.findById).mockResolvedValue(record({ status: 'FAILED' }))
+
+    await workspaceExportService.generateArchive('exp1', NOW, 'w1')
+
+    expect(repo.markRunning).not.toHaveBeenCalled()
+    expect(blob.putExportArchive).not.toHaveBeenCalled()
   })
 })
 
