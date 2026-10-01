@@ -55,7 +55,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 
 ### Task context & retrieval — see [task-context.md](references/task-context.md)
 
-- `lumo task context <id> [--full]` — load task background (memory headlines → `lumo memory show <id>`, source cards, PR review todos, prior sessions); `--full` = memory bodies
+- `lumo task context <id> [--full]` — load task background (memory headlines → `lumo memory show <id>`, source cards, PR review todos, prior sessions; a pending workspace deletion shows first); `--full` = memory bodies
 - `lumo task slack show <id> <contextId>` — full stored Slack thread
 - `lumo task web show <id> <linkId>` — fetched web link body
 - `lumo task figma context <id> <linkId>` — Figma link metadata (v1)
