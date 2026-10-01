@@ -2656,5 +2656,6 @@
   "settings.trash.purgeTitle": "¿Eliminar de forma permanente?",
   "settings.trash.purgeDesc": "«{name}» y todo lo que se movió a la papelera con él se eliminará de inmediato. Esta acción no se puede deshacer.",
   "settings.trash.purged": "Eliminado de forma permanente",
-  "settings.trash.purgeFailed": "No se pudo eliminar"
+  "settings.trash.purgeFailed": "No se pudo eliminar",
+  "github.tokenFailing": "Lumo no ha podido comprobar el acceso a los repositorios de esta instalación de GitHub desde el {since}, aunque GitHub sigue mostrándola como activa. Hasta que se resuelva, un repositorio cuyo acceso se revoque en GitHub seguirá en este espacio de trabajo. Normalmente se debe a que hay permisos nuevos de la App pendientes de aprobación: el propietario de la cuenta de GitHub puede aceptarlos en la configuración de la instalación en GitHub."
 }

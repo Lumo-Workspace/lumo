@@ -12,11 +12,15 @@ jest.mock('@/lib/repositories', () => ({
     findRecheckState: jest.fn(),
     updateRecheckIfUnchanged: jest.fn(),
     markRecheckAttempted: jest.fn(),
-    findInstallationIdsWithoutVerifier: jest.fn(),
+    findAllForInstallationNarrowing: jest.fn(),
+    updateRepositoriesIfUnchanged: jest.fn(),
+    markTokenFailing: jest.fn(),
+    clearTokenFailing: jest.fn(),
   },
 }))
 jest.mock('@/lib/integrations/github', () => ({
   createInstallationToken: jest.fn(),
+  fetchInstallationRepositories: jest.fn(),
   findAppInstallationStatus: jest.fn(),
   checkRepositoryReadAccess: jest.fn(),
   lookupGitHubUser: jest.fn(),
@@ -37,6 +41,7 @@ import {
 import { githubAppInstallationRepository } from '@/lib/repositories'
 import {
   createInstallationToken,
+  fetchInstallationRepositories,
   findAppInstallationStatus,
   checkRepositoryReadAccess,
   lookupGitHubUser,
@@ -127,7 +132,7 @@ beforeEach(() => {
         : { id: 7, login: who.login }
   )
   repo.findAllByInstallationId.mockResolvedValue([])
-  repo.findInstallationIdsWithoutVerifier.mockResolvedValue([])
+  repo.findAllForInstallationNarrowing.mockResolvedValue([])
   ;(removeInstallation as jest.Mock).mockResolvedValue({
     removed: 1,
     failed: 0,
@@ -654,16 +659,31 @@ describe('LUM-902 — an installation GitHub no longer has', () => {
   const remove = removeInstallation as jest.Mock
 
   it('installation gone on GitHub is removed and scrubbed by the recheck', async () => {
-    repo.findAllWithVerifier.mockResolvedValue([
-      row({ workspaceId: 'w1', installationId: 42 }),
-      row({ workspaceId: 'w2', installationId: 43 }),
-    ])
+    // LUM-927 — two removals among ten installations stay under the breaker.
+    repo.findAllWithVerifier.mockResolvedValue(
+      [42, 43, 46, 47, 48, 49, 50, 51].map(id =>
+        row({ workspaceId: `w${id}`, installationId: id })
+      )
+    )
     // Pre-LUM-882 rows (no verifier) on installations 44 and 45.
-    repo.findInstallationIdsWithoutVerifier.mockResolvedValue([44, 45])
+    repo.findAllForInstallationNarrowing.mockResolvedValue(
+      [44, 45].map(id => ({
+        workspaceId: `w${id}`,
+        installationId: id,
+        repositories: [],
+        updatedAt: VERSION,
+      }))
+    )
     ;(createInstallationToken as jest.Mock).mockImplementation(
       async (id: number) => {
-        if (id === 43) return 'inst-token'
-        throw new Error('Not Found')
+        if (id === 42) throw new Error('Not Found')
+        return 'inst-token'
+      }
+    )
+    ;(fetchInstallationRepositories as jest.Mock).mockImplementation(
+      async (id: number) => {
+        if (id === 44) throw new Error('Not Found')
+        return []
       }
     )
     status.mockImplementation(
@@ -679,8 +699,9 @@ describe('LUM-902 — an installation GitHub no longer has', () => {
       'uninstalled on GitHub (automatic recheck)'
     )
     expect(summary.uninstalled).toBe(2)
-    // The healthy installation is rechecked as usual.
-    expect(summary.workspaces).toBe(1)
+    expect(summary.held).toEqual([])
+    // The healthy installations are rechecked as usual.
+    expect(summary.workspaces).toBe(7)
   })
 
   it('token failure with GitHub not answering keeps the rows and stamps them', async () => {
@@ -698,8 +719,17 @@ describe('LUM-902 — an installation GitHub no longer has', () => {
   })
 
   it('a removal that fails for one workspace is counted as failed', async () => {
-    repo.findAllWithVerifier.mockResolvedValue([row()])
-    ;(createInstallationToken as jest.Mock).mockRejectedValue(new Error('x'))
+    // LUM-927 — alongside a healthy installation, so the breaker holds.
+    repo.findAllWithVerifier.mockResolvedValue([
+      row(),
+      row({ workspaceId: 'w2', installationId: 43 }),
+    ])
+    ;(createInstallationToken as jest.Mock).mockImplementation(
+      async (id: number) => {
+        if (id === 42) throw new Error('x')
+        return 'inst-token'
+      }
+    )
     status.mockResolvedValue('gone')
     remove.mockResolvedValue({ removed: 1, failed: 1 })
 

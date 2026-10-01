@@ -28,6 +28,11 @@ export interface GitHubAppStatus {
    * `account_gone` (the verifying GitHub account no longer exists).
    */
   accessRemovedReason?: string | null
+  /**
+   * LUM-927 — since when no token could be minted while GitHub reports the
+   * installation active; set only past the alert threshold.
+   */
+  tokenFailingSince?: string | null
 }
 
 interface UseGitHubAppInstallationReturn {

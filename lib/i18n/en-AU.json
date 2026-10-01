@@ -2656,5 +2656,6 @@
   "settings.trash.purgeTitle": "Delete permanently?",
   "settings.trash.purgeDesc": "\"{name}\" and everything that went to the trash with it will be deleted right away. This cannot be undone.",
   "settings.trash.purged": "Permanently deleted",
-  "settings.trash.purgeFailed": "Failed to delete"
+  "settings.trash.purgeFailed": "Failed to delete",
+  "github.tokenFailing": "Lumo hasn't been able to check repository access for this GitHub installation since {since}, although GitHub still lists it as active. Until this is fixed, a repository whose access is revoked on GitHub stays in this workspace. This usually means new App permissions are awaiting approval: the GitHub account owner can accept them in the installation's settings on GitHub."
 }

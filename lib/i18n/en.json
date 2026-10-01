@@ -2630,6 +2630,7 @@
   "github.accessRemoved": "{count, plural, one {# repository was} other {# repositories were}} removed automatically: the person who last verified GitHub access can no longer read {count, plural, one {it} other {them}}. Their scan code was deleted.",
   "github.accessRemovedAccountGone": "{count, plural, one {# repository was} other {# repositories were}} removed automatically: GitHub can no longer find the account that last verified access (it may have been deleted or suspended, or renamed before Lumo recorded its account ID). Their scan code was deleted. A workspace owner can re-verify GitHub access to restore the repositories they can read.",
   "github.accessRecheckOff": "Automatic access checks are off for this installation. A workspace owner needs to re-verify once to turn them on.",
+  "github.tokenFailing": "Lumo hasn't been able to check repository access for this GitHub installation since {since}, although GitHub still lists it as active. Until this is fixed, a repository whose access is revoked on GitHub stays in this workspace. This usually means new App permissions are waiting for approval: the GitHub account owner can accept them in the installation's settings on GitHub.",
   "workspaceDeletion.bannerPending": "This workspace is scheduled for deletion on {date}. All of its data will be permanently deleted then.",
   "workspaceDeletion.cancel": "Cancel deletion",
   "workspaceDeletion.cancelled": "Workspace deletion cancelled",

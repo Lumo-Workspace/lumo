@@ -51,6 +51,7 @@ export const githubAppInstallationRepository = {
         accessRemovedCount: true,
         accessRemovedAt: true,
         accessRemovedReason: true,
+        tokenFailingSince: true,
       },
     })
   },
@@ -246,16 +247,64 @@ export const githubAppInstallationRepository = {
   },
 
   /**
-   * LUM-902 — installations whose rows have no verifier (bound before
-   * LUM-882). The access recheck cannot ask about them, but it still asks
-   * GitHub whether the installation exists.
+   * LUM-927 — every row, for narrowing to what its installation contains
+   * now. Includes rows with no verifier (bound before LUM-882), which the
+   * access recheck cannot ask about. `updatedAt` is the version
+   * `updateRepositoriesIfUnchanged` checks.
    */
-  async findInstallationIdsWithoutVerifier() {
-    const rows = await prisma.gitHubAppInstallation.findMany({
-      where: { OR: [{ verifierLogin: null }, { verifiedAt: null }] },
-      distinct: ['installationId'],
-      select: { installationId: true },
+  async findAllForInstallationNarrowing() {
+    return prisma.gitHubAppInstallation.findMany({
+      select: {
+        workspaceId: true,
+        installationId: true,
+        repositories: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
     })
-    return rows.map(row => row.installationId)
+  },
+
+  /**
+   * LUM-927 — narrow a row's confirmed list only if nothing else wrote it
+   * since it was read (a webhook, a re-verification). Returns whether it was
+   * written; a lost race is retried by the next run.
+   */
+  async updateRepositoriesIfUnchanged(
+    workspaceId: string,
+    expectedUpdatedAt: Date,
+    repositories: string[]
+  ) {
+    const { count } = await prisma.gitHubAppInstallation.updateMany({
+      where: { workspaceId, updatedAt: expectedUpdatedAt },
+      data: { repositories },
+    })
+    return count === 1
+  },
+
+  /**
+   * LUM-927 — the recheck could not mint a token for an installation GitHub
+   * still reports active. Stamps the start of the failure run on rows that
+   * have none, and returns the earliest start on record (rows of one
+   * installation share its token, so they share the failure).
+   */
+  async markTokenFailing(installationId: number, at: Date) {
+    await prisma.gitHubAppInstallation.updateMany({
+      where: { installationId, tokenFailingSince: null },
+      data: { tokenFailingSince: at },
+    })
+    const first = await prisma.gitHubAppInstallation.findFirst({
+      where: { installationId, tokenFailingSince: { not: null } },
+      orderBy: { tokenFailingSince: 'asc' },
+      select: { tokenFailingSince: true },
+    })
+    return first?.tokenFailingSince ?? at
+  },
+
+  /** LUM-927 — a token was minted: the failure run, if any, is over. */
+  async clearTokenFailing(installationId: number) {
+    await prisma.gitHubAppInstallation.updateMany({
+      where: { installationId, tokenFailingSince: { not: null } },
+      data: { tokenFailingSince: null },
+    })
   },
 }

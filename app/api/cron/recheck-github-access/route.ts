@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { githubAccessRecheckService } from '@/lib/services/github-access-recheck.service'
 import { requireCronAuth } from '@/lib/api/cron-auth'
+import { parseInstallationIds } from '@/lib/validation/github-installation-ids'
 
 export const runtime = 'nodejs'
 /** The sweep stops itself at 240s and resumes from a cursor next run. */
@@ -14,10 +15,20 @@ export const maxDuration = 300
  * The `repository` webhook covers privatized / transferred repositories
  * between runs.
  *
+ * LUM-927 — when the removal breaker trips, the response lists the held
+ * installation ids; an operator who has checked them re-runs with
+ * `?confirmRemovals=<id>,<id>` to unbind and scrub exactly those.
+ *
  * Cron only: gated by the shared CRON_SECRET.
  */
 export async function GET(req: NextRequest) {
   const unauthorized = requireCronAuth(req)
   if (unauthorized) return unauthorized
-  return NextResponse.json(await githubAccessRecheckService.sweep())
+  return NextResponse.json(
+    await githubAccessRecheckService.sweep(undefined, {
+      confirmRemovals: parseInstallationIds(
+        req.nextUrl.searchParams.get('confirmRemovals')
+      ),
+    })
+  )
 }

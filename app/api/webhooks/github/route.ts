@@ -74,7 +74,8 @@ export async function POST(request: NextRequest) {
     // LUM-884: the old OAuth hook is bounded by the same confirmed list as the
     // App webhook — an unconfirmed repository (or a workspace without the App,
     // which has no list) gets no PR metadata or comments written. Authentic,
-    // so 200 rather than 401: GitHub would otherwise retry forever.
+    // so 200 rather than 401: it is not an error, and a 401 would only mark
+    // the delivery failed in GitHub's log.
     const confirmed = await githubAppInstallService.isRepositoryConfirmed(
       matched.integration.workspaceId,
       repoFullName
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
 
   // Authentic but unplaceable workspaces (unknown installation, or a
   // repository nobody confirmed) come back as an empty list: accept and drop
-  // — a 401 here would put GitHub into an endless retry.
+  // — it was delivered correctly, there is just nothing here for it.
   //
   // A workspace whose own OAuth repo hook is live on this repo gets the same
   // event twice — once per delivery. The repo hook owns it; handling the App
@@ -118,8 +119,11 @@ export async function POST(request: NextRequest) {
 
 /**
  * Hand one repository event to its handler for one workspace. Errors are
- * logged, never thrown: GitHub retries a failed delivery indefinitely, and one
- * workspace's failure must not stop the next workspace from getting the event.
+ * logged, never thrown: one workspace's failure must not stop the next
+ * workspace from getting the event. GitHub does not redeliver a failed
+ * delivery on its own (only by hand, from the App's delivery log), so a
+ * non-2xx would buy nothing here; a lost event is caught up by the next one
+ * for the same PR.
  */
 async function dispatchRepoEvent(
   event: string | null,
@@ -186,8 +190,21 @@ async function handleAppEvent(
       await githubAppInstallService.applyInstallationRepositoriesEvent(payload)
     }
   } catch (err) {
+    // 200 anyway. GitHub does not redeliver failed deliveries on its own, so
+    // answering 500 would only mark this one failed in the App's delivery
+    // log. What a failure leaves behind is the daily access recheck's job
+    // (/api/cron/recheck-github-access, so up to a day late), which covers
+    // each of these events:
+    // - installation deleted / suspend, a workspace's unbind failed: its row
+    //   is kept; the recheck cannot mint a token for the installation, asks
+    //   GitHub, and unbinds and scrubs it (behind the LUM-927 breaker);
+    // - installation created / unsuspend / new_permissions_accepted and
+    //   installation_repositories, a narrowing failed: a repository that left
+    //   the installation stays confirmed until the recheck narrows every row
+    //   to the installation's live repositories (LUM-927);
+    // - repository privatized / transferred, the targeted recheck failed: the
+    //   daily pass asks about every confirmed repository again.
     logger.error(`[webhook/github] error handling ${event}: ${String(err)}`)
-    // 200 anyway — GitHub retries indefinitely otherwise.
   }
 
   return NextResponse.json({ ok: true })

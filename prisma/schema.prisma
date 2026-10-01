@@ -1915,6 +1915,11 @@ model GitHubAppInstallation {
   /// verifier can no longer read them) or `account_gone` (the verifying
   /// GitHub account no longer exists). Cleared with the removal notice.
   accessRemovedReason String?
+  /// LUM-927 — first daily recheck in the current run of failures to mint a
+  /// token while GitHub still reports the installation active (e.g. new
+  /// permissions not yet accepted). Cleared by the next successful mint;
+  /// past three days it raises an ops alert and a notice on the settings card.
+  tokenFailingSince   DateTime?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
