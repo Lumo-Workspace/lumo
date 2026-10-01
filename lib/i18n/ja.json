@@ -2657,5 +2657,6 @@
   "settings.trash.purgeTitle": "完全に削除しますか？",
   "settings.trash.purgeDesc": "「{name}」と一緒にゴミ箱に入ったすべての項目が直ちに削除されます。この操作は元に戻せません。",
   "settings.trash.purged": "完全に削除しました",
-  "settings.trash.purgeFailed": "削除に失敗しました"
+  "settings.trash.purgeFailed": "削除に失敗しました",
+  "github.tokenFailing": "{since} 以降、GitHub 上ではこのインストールが有効と表示されているにもかかわらず、Lumo はリポジトリへのアクセス権を確認できていません。この問題が解決するまで、GitHub でアクセス権が取り消されたリポジトリもこのワークスペースに残ります。通常は新しい App の権限が承認待ちになっていることが原因です。GitHub アカウントのオーナーが、GitHub のインストール設定で承認できます。"
 }

@@ -2657,5 +2657,6 @@
   "settings.trash.purgeTitle": "Xóa vĩnh viễn?",
   "settings.trash.purgeDesc": "\"{name}\" và mọi thứ được chuyển vào thùng rác cùng nó sẽ bị xóa ngay lập tức. Không thể hoàn tác.",
   "settings.trash.purged": "Đã xóa vĩnh viễn",
-  "settings.trash.purgeFailed": "Không thể xóa"
+  "settings.trash.purgeFailed": "Không thể xóa",
+  "github.tokenFailing": "Từ {since}, Lumo không thể kiểm tra quyền truy cập kho mã của bản cài đặt GitHub này, dù GitHub vẫn hiển thị bản cài đặt đang hoạt động. Cho đến khi vấn đề được khắc phục, kho mã bị thu hồi quyền truy cập trên GitHub vẫn sẽ ở lại không gian làm việc này. Nguyên nhân thường là các quyền mới của App đang chờ phê duyệt: chủ sở hữu tài khoản GitHub có thể chấp nhận chúng trong phần cài đặt của bản cài đặt trên GitHub."
 }

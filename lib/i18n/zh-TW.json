@@ -2657,5 +2657,6 @@
   "settings.trash.purgeTitle": "永久刪除？",
   "settings.trash.purgeDesc": "「{name}」及隨它一起進入回收站的所有內容將被立即刪除，此操作無法復原。",
   "settings.trash.purged": "已永久刪除",
-  "settings.trash.purgeFailed": "刪除失敗"
+  "settings.trash.purgeFailed": "刪除失敗",
+  "github.tokenFailing": "自 {since} 起，Lumo 一直無法核查此 GitHub 安裝的儲存庫存取權限，但 GitHub 仍顯示該安裝處於啟用狀態。在此問題解決前，即使某個儲存庫在 GitHub 上的存取權限已被撤銷，它也會繼續保留在此工作區中。這通常是因為有新的 App 權限等待核准：GitHub 帳戶擁有者可以在 GitHub 上該安裝的設定中接受這些權限。"
 }

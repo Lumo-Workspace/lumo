@@ -2657,5 +2657,6 @@
   "settings.trash.purgeTitle": "永久删除？",
   "settings.trash.purgeDesc": "“{name}”及随它一起进入回收站的所有内容将被立即删除，此操作不可撤销。",
   "settings.trash.purged": "已永久删除",
-  "settings.trash.purgeFailed": "删除失败"
+  "settings.trash.purgeFailed": "删除失败",
+  "github.tokenFailing": "自 {since} 起，Lumo 一直无法核查此 GitHub 安装的仓库访问权限，但 GitHub 仍显示该安装处于启用状态。在此问题解决前，即使某个仓库在 GitHub 上的访问权限已被撤销，它也会继续保留在此工作区中。这通常是因为有新的 App 权限等待批准：GitHub 账户所有者可以在 GitHub 上该安装的设置中接受这些权限。"
 }

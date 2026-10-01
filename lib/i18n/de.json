@@ -2657,5 +2657,6 @@
   "settings.trash.purgeTitle": "Endgültig löschen?",
   "settings.trash.purgeDesc": "„{name}“ und alles, was mit ihm in den Papierkorb gewandert ist, wird sofort gelöscht. Dies kann nicht rückgängig gemacht werden.",
   "settings.trash.purged": "Endgültig gelöscht",
-  "settings.trash.purgeFailed": "Löschen fehlgeschlagen"
+  "settings.trash.purgeFailed": "Löschen fehlgeschlagen",
+  "github.tokenFailing": "Lumo kann den Repository-Zugriff für diese GitHub-Installation seit {since} nicht mehr prüfen, obwohl GitHub sie weiterhin als aktiv führt. Bis das behoben ist, bleibt ein Repository, dessen Zugriff auf GitHub entzogen wurde, in diesem Workspace. Meist warten neue App-Berechtigungen auf Freigabe: Der Inhaber des GitHub-Kontos kann sie in den Einstellungen der Installation auf GitHub akzeptieren."
 }

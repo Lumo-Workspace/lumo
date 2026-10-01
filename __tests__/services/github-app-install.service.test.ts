@@ -855,6 +855,7 @@ describe('githubAppInstallService', () => {
         accessRemovedCount: 2,
         accessRemovedAt: '2026-09-27T04:15:00.000Z',
         accessRemovedReason: 'access_lost',
+        tokenFailingSince: null,
       })
     })
 

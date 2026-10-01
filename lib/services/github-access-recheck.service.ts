@@ -2,6 +2,7 @@ import { logger } from '@/lib/logger'
 import { githubAppInstallationRepository } from '@/lib/repositories'
 import {
   createInstallationToken,
+  fetchInstallationRepositories,
   findAppInstallationStatus,
   checkRepositoryReadAccess,
   lookupGitHubUser,
@@ -12,6 +13,7 @@ import {
   scrubAfterNarrowing,
   removeInstallation,
 } from '@/lib/services/github-app-install.service'
+import { TOKEN_FAILING_ALERT_MS } from '@/lib/services/github-access-recheck.config'
 
 /**
  * LUM-882 — keep a workspace's confirmed GitHub repositories in step with what
@@ -36,6 +38,22 @@ const RATE_RESERVE = 1000
 const BATCH_SIZE = 8
 /** Stop well inside the cron's maxDuration; the cursor resumes the rest. */
 const SWEEP_TIME_BUDGET_MS = 240_000
+
+/**
+ * LUM-927 — the removal breaker. Credentials of another App (or another
+ * environment's) make every installation 404, which would read as "every
+ * customer uninstalled" and unbind and scrub them all. So removals found by
+ * a sweep are held when at least `BREAKER_MIN_GONE` of them make up more
+ * than `BREAKER_GONE_RATIO` of the installations asked, or when no
+ * installation yielded a token at all — the shape of a misconfiguration, not
+ * of customers leaving. An operator confirms a held removal by id
+ * (`sweep(…, { confirmRemovals })`).
+ */
+export const BREAKER_GONE_RATIO = 0.2
+export const BREAKER_MIN_GONE = 2
+
+/** Log prefix our alerting matches: needs a person, not just a retry. */
+const OPS_ALERT = '[ops-alert]'
 
 /** Why the last automatic removal happened; the settings card words it. */
 export type AccessRemovedReason = 'access_lost' | 'account_gone'
@@ -278,26 +296,151 @@ async function recheckRow(
   return { checked, removed, stoppedBy, recorded: written }
 }
 
+/** LUM-927 — what a sweep learned about its installations, before acting. */
+interface SweepState {
+  now: () => number
+  /** Installations a token (or the live list) was obtained for. */
+  healthy: Set<number>
+  /** Installations GitHub answered 404 / suspended for — removed at the end. */
+  gone: Map<number, 'gone' | 'suspended'>
+  /** Installations asked about this run, whatever the answer. */
+  asked: Set<number>
+  tokenFailing: number
+}
+
 /**
- * LUM-902 — an installation the sweep could not get a token for (or whose
- * rows it cannot recheck at all) may be gone on GitHub with the `deleted`
- * webhook lost. Ask GitHub: on its answer — 404, or suspended — unbind and
- * scrub every workspace it backs, like the webhook would have. GitHub not
- * answering keeps everything for the next run. Returns whether it removed.
+ * LUM-902 — an installation the sweep could not get a token for may be gone
+ * on GitHub with the `deleted` webhook lost: ask GitHub. LUM-927 — its
+ * answer is only recorded here; `removeGone` acts on it once the whole sweep
+ * has been seen, behind the breaker. An installation GitHub still reports
+ * active (a token that keeps failing — new permissions not accepted, a 422)
+ * starts or continues a failure run; past `TOKEN_FAILING_ALERT_MS` it raises
+ * an ops alert, and the settings card shows it. Returns whether GitHub
+ * answered gone or suspended.
  */
-async function removeIfGoneOnGitHub(
+async function onTokenFailure(
   installationId: number,
-  summary: { uninstalled: number; failed: number }
+  error: unknown,
+  state: SweepState
 ): Promise<boolean> {
+  state.asked.add(installationId)
   const status = await findAppInstallationStatus(installationId)
-  if (status !== 'gone' && status !== 'suspended') return false
-  const { removed, failed } = await removeInstallation(
-    installationId,
-    `${status === 'gone' ? 'uninstalled' : 'suspended'} on GitHub (automatic recheck)`
+  if (status === 'gone' || status === 'suspended') {
+    state.gone.set(installationId, status)
+    return true
+  }
+  logger.error(
+    `[github/access-recheck] no token for installation ${installationId} (GitHub: ${status}); kept for the next run: ${String(error)}`
   )
-  summary.uninstalled += removed
-  summary.failed += failed
-  return true
+  if (status !== 'active') return false
+  state.tokenFailing++
+  try {
+    const since = await githubAppInstallationRepository.markTokenFailing(
+      installationId,
+      new Date(state.now())
+    )
+    if (state.now() - since.getTime() >= TOKEN_FAILING_ALERT_MS) {
+      logger.error(
+        `${OPS_ALERT} [github/access-recheck] installation ${installationId} is active on GitHub but no token could be minted since ${since.toISOString()}; its workspaces are not rechecked. Usually new App permissions await acceptance by the account owner.`
+      )
+    }
+  } catch (stampError) {
+    logger.error(
+      `[github/access-recheck] installation ${installationId}: could not record the token failure: ${String(stampError)}`
+    )
+  }
+  return false
+}
+
+/** LUM-927 — a token (or the live list) was obtained: any failure run ended. */
+async function onTokenSuccess(installationId: number, state: SweepState) {
+  state.asked.add(installationId)
+  state.healthy.add(installationId)
+  try {
+    await githubAppInstallationRepository.clearTokenFailing(installationId)
+  } catch (error) {
+    logger.error(
+      `[github/access-recheck] installation ${installationId}: could not clear the token failure: ${String(error)}`
+    )
+  }
+}
+
+/** LUM-927 — whether this sweep's removals look like a misconfiguration. */
+export function breakerTripped(
+  gone: number,
+  asked: number,
+  healthy: number
+): boolean {
+  if (gone === 0) return false
+  if (healthy === 0) return true
+  return gone >= BREAKER_MIN_GONE && gone > asked * BREAKER_GONE_RATIO
+}
+
+/**
+ * LUM-902 — unbind and scrub every workspace of an installation GitHub no
+ * longer has, like the webhook would have. LUM-927 — only when the breaker
+ * holds; a tripped breaker removes nothing but the ids an operator confirmed,
+ * and raises an ops alert listing the rest.
+ */
+async function removeGone(
+  state: SweepState,
+  confirmed: ReadonlySet<number>,
+  summary: { uninstalled: number; failed: number; held: number[] }
+) {
+  const tripped = breakerTripped(
+    state.gone.size,
+    state.asked.size,
+    state.healthy.size
+  )
+  if (tripped) {
+    summary.held = [...state.gone.keys()].filter(id => !confirmed.has(id))
+    if (summary.held.length > 0) {
+      logger.error(
+        `${OPS_ALERT} [github/access-recheck] removal breaker tripped: GitHub reports ${state.gone.size} of ${state.asked.size} installation(s) gone or suspended, ${state.healthy.size} healthy. Nothing unbound or scrubbed. Check the App credentials; if these really left, confirm the removal of: ${summary.held.join(', ')}`
+      )
+    }
+  }
+  for (const [installationId, status] of state.gone) {
+    if (tripped && !confirmed.has(installationId)) continue
+    const { removed, failed } = await removeInstallation(
+      installationId,
+      `${status === 'gone' ? 'uninstalled' : 'suspended'} on GitHub (automatic recheck)`
+    )
+    summary.uninstalled += removed
+    summary.failed += failed
+  }
+}
+
+/**
+ * LUM-927 — a repository that has left the installation must leave the
+ * list, and when the `installation_repositories` (or `installation`) webhook
+ * failed to do it, nothing else reliably would: rows bound before LUM-882
+ * have no verifier to recheck, and for the others the access recheck only
+ * drops it when GitHub answers 404 about it. Narrowed like every narrowing: scrub, write (only against the row as read),
+ * scrub again. Returns how many repositories left the list.
+ */
+async function narrowToInstallation(
+  row: { workspaceId: string; repositories: string[]; updatedAt: Date },
+  live: string[]
+): Promise<number> {
+  const { kept, gone } = narrowConfirmed(
+    row.repositories,
+    row.repositories.filter(
+      name => !live.some(l => l.toLowerCase() === name.toLowerCase())
+    )
+  )
+  if (gone.length === 0) return 0
+  const reason = 'repository no longer in the installation (automatic recheck)'
+  await scrubWorkspaceCode(row.workspaceId, reason, gone)
+  const written =
+    await githubAppInstallationRepository.updateRepositoriesIfUnchanged(
+      row.workspaceId,
+      row.updatedAt,
+      kept
+    )
+  if (!written) return 0
+  await scrubAfterNarrowing(row.workspaceId, reason, gone)
+  return gone.length
 }
 
 /** LUM-895 — rotation stamp for a row that wrote no result; never throws. */
@@ -328,8 +471,18 @@ export const githubAccessRecheckService = {
    *
    * LUM-902 — an installation it cannot get a token for is asked about on
    * GitHub: gone or suspended there means unbound and scrubbed here.
+   *
+   * LUM-927 — those removals wait for the end of the sweep and the breaker
+   * (`removeGone`); `confirmRemovals` lists installation ids an operator has
+   * confirmed after a trip. A token that keeps failing on an installation
+   * GitHub reports active is tracked and alerted on. Every row is narrowed to
+   * what its installation now contains — the retry for a failed narrowing
+   * webhook, and the only narrowing rows without a verifier get.
    */
-  async sweep(now: () => number = Date.now) {
+  async sweep(
+    now: () => number = Date.now,
+    options: { confirmRemovals?: number[] } = {}
+  ) {
     const deadline = now() + SWEEP_TIME_BUDGET_MS
     const rows = await githubAppInstallationRepository.findAllWithVerifier()
 
@@ -349,6 +502,19 @@ export const githubAccessRecheckService = {
       skipped: 0,
       failed: 0,
       uninstalled: 0,
+      /** LUM-927 — repositories dropped as no longer in the installation. */
+      narrowed: 0,
+      /** LUM-927 — active installations no token could be minted for. */
+      tokenFailing: 0,
+      /** LUM-927 — removals the breaker held, awaiting confirmation. */
+      held: [] as number[],
+    }
+    const state: SweepState = {
+      now,
+      healthy: new Set(),
+      gone: new Map(),
+      asked: new Set(),
+      tokenFailing: 0,
     }
 
     for (const [installationId, group] of byInstallation) {
@@ -363,14 +529,12 @@ export const githubAccessRecheckService = {
           INSTALLATION_TOKEN_PERMISSIONS.collaboratorAccess
         )
       } catch (error) {
-        if (await removeIfGoneOnGitHub(installationId, summary)) continue
-        logger.error(
-          `[github/access-recheck] no token for installation ${installationId}; kept for the next run: ${String(error)}`
-        )
+        await onTokenFailure(installationId, error, state)
         summary.skipped += group.length
         for (const row of group) await markAttempted(row.workspaceId)
         continue
       }
+      await onTokenSuccess(installationId, state)
       let limited = false
       for (const row of group) {
         const { verifierLogin, verifiedAt } = row
@@ -403,12 +567,56 @@ export const githubAccessRecheckService = {
 
     // LUM-902 — rows bound before LUM-882 have no verifier to ask about, but
     // their installation can still disappear with its webhook lost.
-    const unverified =
-      await githubAppInstallationRepository.findInstallationIdsWithoutVerifier()
-    for (const installationId of unverified) {
-      if (byInstallation.has(installationId) || now() > deadline) continue
-      await removeIfGoneOnGitHub(installationId, summary)
+    // LUM-927 — and every row, verifier or not, can keep a repository that
+    // left the installation when the narrowing webhook failed (the verifier
+    // recheck only drops it if GitHub happens to answer 404 for it). Read
+    // after the pass above, so the versions include what it wrote.
+    const all =
+      await githubAppInstallationRepository.findAllForInstallationNarrowing()
+    const allBy = new Map<number, typeof all>()
+    for (const row of all) {
+      const list = allBy.get(row.installationId) ?? []
+      list.push(row)
+      allBy.set(row.installationId, list)
     }
+    for (const [installationId, group] of allBy) {
+      if (now() > deadline) break
+      // Failed (or gone) above: there is no second answer to ask for.
+      if (state.asked.has(installationId) && !state.healthy.has(installationId))
+        continue
+      let live: string[]
+      try {
+        live = await fetchInstallationRepositories(installationId)
+      } catch (error) {
+        if ((error as { code?: string }).code === 'too_many_repositories') {
+          // Reached, but the list is capped: nothing to narrow against.
+          await onTokenSuccess(installationId, state)
+          continue
+        }
+        if (state.healthy.has(installationId)) {
+          logger.error(
+            `[github/access-recheck] installation ${installationId}: live repository list unavailable; narrowing retried next run: ${String(error)}`
+          )
+          continue
+        }
+        await onTokenFailure(installationId, error, state)
+        continue
+      }
+      await onTokenSuccess(installationId, state)
+      for (const row of group) {
+        try {
+          summary.narrowed += await narrowToInstallation(row, live)
+        } catch (error) {
+          summary.failed++
+          logger.error(
+            `[github/access-recheck] workspace ${row.workspaceId} (installation ${installationId}): narrowing to the installation failed; retried next run: ${String(error)}`
+          )
+        }
+      }
+    }
+
+    summary.tokenFailing = state.tokenFailing
+    await removeGone(state, new Set(options.confirmRemovals ?? []), summary)
     return summary
   },
 

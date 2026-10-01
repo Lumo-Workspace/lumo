@@ -25,6 +25,13 @@ import {
  * Target paths are derived from the source URL, so a re-run after a crash
  * overwrites the same private copies instead of leaking new ones, and a run
  * after a complete one finds nothing to do.
+ *
+ * LUM-922 — production runs go in batches: `limit` migrates only the first N
+ * referenced public blobs (all their copies, rewrites and originals), so
+ * repeated limited runs converge on the full migration. `keepOriginals`
+ * leaves every public blob in place — the rollback path — and those
+ * originals show up as orphans on the next run, to be removed later with
+ * `deleteOrphans` once the private copies have proven out.
  */
 
 export interface MigrationDeps {
@@ -42,6 +49,16 @@ export interface MigrationOptions {
   deleteOrphans: boolean
   /** Origin the rewritten URLs point at, e.g. https://www.uselumo.ai */
   origin: string
+  /** Migrate at most this many referenced public blobs this run. */
+  limit?: number
+  /** Delete no public blob at all (rewrite references only). */
+  keepOriginals?: boolean
+}
+
+/** One migrated public blob and the file-route URLs that replaced it. */
+export interface ManifestEntry {
+  from: string
+  to: string[]
 }
 
 export interface MigrationReport {
@@ -57,12 +74,19 @@ export interface MigrationReport {
   /** Public blobs kept because a reference has no owning workspace (a
    *  global template) or the evidence's task is gone. */
   kept: number
+  /** Distinct workspaces whose rows get a private copy (all batches). */
+  workspaces: number
+  /** Referenced public blobs this run would migrate / leaves for later. */
+  batch: { selected: number; remaining: number }
   applied: {
     copied: number
     rowsRewritten: number
     originalsDeleted: number
     orphansDeleted: number
   }
+  /** Apply only: every migrated public URL → its replacement URLs, the
+   *  input for reversing the rewrite while the originals are kept. */
+  manifest: ManifestEntry[]
 }
 
 const PUBLIC_URL_RE =
@@ -115,9 +139,12 @@ export async function migratePublicBlobs(
   }
 
   // ── Where each reference goes ──────────────────────────────────────────
-  // key: `${url}\u0000${rowWorkspaceId}` for images, `${url}` for evidence
-  const targetFor = new Map<string, string>()
-  const copies = new Map<string, string>() // private pathname → public url
+  // Per public URL, its private copies keyed for the rewrite:
+  // `${url}\u0000${rowWorkspaceId}` for images, `${url}` for evidence.
+  const plans = new Map<
+    string,
+    Array<{ key: string; target: string; workspaceId: string }>
+  >()
   const keptUrls = new Set<string>()
   const orphans = { evidence: 0, images: 0 }
   const orphanUrls: string[] = []
@@ -140,8 +167,7 @@ export async function migratePublicBlobs(
       ? stem
       : stableId(blob.url)
     const target = evidencePathname(m[1] as string, m[2] as string, fileId)
-    targetFor.set(blob.url, target)
-    copies.set(target, blob.url)
+    plans.set(blob.url, [{ key: blob.url, target, workspaceId: owner }])
   }
 
   for (const blob of imageBlobs) {
@@ -151,17 +177,36 @@ export async function migratePublicBlobs(
       orphanUrls.push(blob.url)
       continue
     }
+    const plan: Array<{ key: string; target: string; workspaceId: string }> = []
     for (const { row } of refs) {
       if (!row.workspaceId) {
         keptUrls.add(blob.url)
         continue
       }
-      const target = imagePathname(
-        row.workspaceId,
-        stableId(`${blob.url}\u0000${row.workspaceId}`)
-      )
-      targetFor.set(`${blob.url}\u0000${row.workspaceId}`, target)
-      copies.set(target, blob.url)
+      const key = `${blob.url}\u0000${row.workspaceId}`
+      plan.push({
+        key,
+        target: imagePathname(row.workspaceId, stableId(key)),
+        workspaceId: row.workspaceId,
+      })
+    }
+    if (plan.length > 0) plans.set(blob.url, plan)
+  }
+
+  // ── Which blobs this run takes (LUM-922 batches) ───────────────────────
+  // A blob is the unit: its copies, rewrites and original move together, so
+  // a batch never leaves one half-migrated. Only blobs with something to
+  // migrate count, so kept-only blobs cannot starve later batches.
+  const migratable = [...plans.keys()]
+  const selected = new Set(
+    opts.limit === undefined ? migratable : migratable.slice(0, opts.limit)
+  )
+  const targetFor = new Map<string, string>()
+  const copies = new Map<string, string>() // private pathname → public url
+  for (const url of selected) {
+    for (const { key, target } of plans.get(url) ?? []) {
+      targetFor.set(key, target)
+      copies.set(target, url)
     }
   }
 
@@ -172,12 +217,22 @@ export async function migratePublicBlobs(
     orphans,
     dangling,
     kept: keptUrls.size,
+    workspaces: new Set(
+      [...plans.values()].flatMap(plan =>
+        plan.map(({ workspaceId }) => workspaceId)
+      )
+    ).size,
+    batch: {
+      selected: selected.size,
+      remaining: migratable.length - selected.size,
+    },
     applied: {
       copied: 0,
       rowsRewritten: 0,
       originalsDeleted: 0,
       orphansDeleted: 0,
     },
+    manifest: [],
   }
   if (!opts.apply) return report
 
@@ -188,27 +243,39 @@ export async function migratePublicBlobs(
   }
 
   // 2. Rewrite references.
+  const replacements = new Map<string, Set<string>>()
   for (const { source, row } of rows) {
     const next = row.text.replace(PUBLIC_URL_RE, url => {
       const target =
         targetFor.get(url) ?? targetFor.get(`${url}\u0000${row.workspaceId}`)
-      return target ? fileRouteUrl(opts.origin, target) : url
+      if (!target) return url
+      const to = fileRouteUrl(opts.origin, target)
+      const seen = replacements.get(url) ?? new Set<string>()
+      seen.add(to)
+      replacements.set(url, seen)
+      return to
     })
     if (next !== row.text) {
       await source.write(row, next)
       report.applied.rowsRewritten++
     }
   }
+  report.manifest = [...replacements].map(([from, to]) => ({
+    from,
+    to: [...to],
+  }))
 
   // 3. Originals no reference needs any more.
-  const done = [...refsByUrl.keys()].filter(u => !keptUrls.has(u))
-  if (done.length > 0) {
+  const done = [...refsByUrl.keys()].filter(
+    u => selected.has(u) && !keptUrls.has(u)
+  )
+  if (done.length > 0 && !opts.keepOriginals) {
     await deps.deletePublic(done)
     report.applied.originalsDeleted = done.length
   }
 
   // 4. Orphans, only on request.
-  if (opts.deleteOrphans && orphanUrls.length > 0) {
+  if (opts.deleteOrphans && !opts.keepOriginals && orphanUrls.length > 0) {
     await deps.deletePublic(orphanUrls)
     report.applied.orphansDeleted = orphanUrls.length
   }

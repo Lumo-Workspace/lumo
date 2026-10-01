@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger'
 import { githubService } from '@/lib/services/github.service'
+import { TOKEN_FAILING_ALERT_MS } from '@/lib/services/github-access-recheck.config'
 import {
   githubAppInstallationRepository,
   prSecurityScanRepository,
@@ -126,9 +127,11 @@ async function narrowWithScrub<T>(
 }
 
 /**
- * LUM-902 — a webhook delivery that failed for some of its workspaces still
- * fails as a whole (so GitHub records it, and it can be redelivered), but
- * only after every workspace had its turn.
+ * LUM-902 — a webhook event that failed for some of its workspaces still
+ * fails as a whole, but only after every workspace had its turn. The route
+ * logs it and answers 200 — GitHub does not redeliver failed deliveries on
+ * its own — and the daily access recheck retries what was left (see the
+ * catch in `app/api/webhooks/github/route.ts`).
  */
 function throwIfAnyFailed(installationId: number, failed: number) {
   if (failed > 0) {
@@ -579,6 +582,13 @@ export const githubAppInstallService = {
       accessRemovedCount: row.accessRemovedCount,
       accessRemovedAt: row.accessRemovedAt?.toISOString() ?? null,
       accessRemovedReason: row.accessRemovedReason,
+      // LUM-927 — set only once the failure run has passed the alert
+      // threshold: a token that fails for a day is GitHub having a bad day.
+      tokenFailingSince:
+        row.tokenFailingSince &&
+        Date.now() - row.tokenFailingSince.getTime() >= TOKEN_FAILING_ALERT_MS
+          ? row.tokenFailingSince.toISOString()
+          : null,
     } as const
   },
 
@@ -742,9 +752,9 @@ export const githubAppInstallService = {
     const removed = lowerSet(removedNames)
     const addedCount = fullNames(payload.repositories_added).length
 
-    // LUM-902 — one workspace whose scrub throws keeps its list (the daily
-    // access recheck, which reads the repository as unreadable, retries the
-    // scrub) and does not stop the others.
+    // LUM-902 — one workspace whose scrub throws keeps its list and does
+    // not stop the others. LUM-927 — the daily access recheck narrows every
+    // row to the installation's live repositories, which retries it.
     let failed = 0
     for (const row of rows) {
       try {

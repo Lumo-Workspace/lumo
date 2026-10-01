@@ -2657,5 +2657,6 @@
   "settings.trash.purgeTitle": "Padam secara kekal?",
   "settings.trash.purgeDesc": "\"{name}\" dan semua yang masuk ke tong sampah bersamanya akan dipadam serta-merta. Tindakan ini tidak boleh dibuat asal.",
   "settings.trash.purged": "Dipadam secara kekal",
-  "settings.trash.purgeFailed": "Gagal memadam"
+  "settings.trash.purgeFailed": "Gagal memadam",
+  "github.tokenFailing": "Sejak {since}, Lumo tidak dapat menyemak akses repositori untuk pemasangan GitHub ini, walaupun GitHub masih menyenaraikannya sebagai aktif. Sehingga masalah ini dibetulkan, repositori yang aksesnya ditarik balik di GitHub kekal dalam ruang kerja ini. Biasanya ini bermakna kebenaran App baharu sedang menunggu kelulusan: pemilik akaun GitHub boleh menerimanya dalam tetapan pemasangan di GitHub."
 }

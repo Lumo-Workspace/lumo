@@ -504,33 +504,66 @@ export interface UnnotifiedFindingScan {
 }
 
 const SCRUB_TX = { timeout: 15_000 } as const
+/**
+ * LUM-927 — scans scrubbed per transaction. A whole large workspace in one
+ * transaction could outlast any timeout (P2028) and fail every day; batches
+ * commit one by one, so a failure keeps what was done and a rerun — scrubbing
+ * is idempotent — finishes the rest.
+ */
+export const SCRUB_BATCH_SIZE = 200
 
 /**
  * LUM-855 — clear the customer-code fields of the scans `scanWhere` selects
  * (finding evidence + call chain; the scan's hunt audit, hunt job and PR
- * summary) in one transaction. Rows stay: scan history and dispositions
- * still drive DONE gating.
+ * summary). Rows stay: scan history and dispositions still drive DONE
+ * gating.
  *
  * LUM-872 — the finding's LLM-written text can quote code too: `detail` and
  * `suggestedReason` are cleared, and `title` falls back to the finding's
  * `ruleId` so every list still has something to show.
+ *
+ * LUM-927 — in batches of `SCRUB_BATCH_SIZE` scans, by id, each in its own
+ * transaction. A batch that throws fails the call (callers keep the list,
+ * so it is retried) with the batches before it already committed.
  */
 async function scrubCode(scanWhere: Prisma.PrSecurityScanWhereInput) {
-  // LUM-902 — the default 5s is too short for a large workspace (P2028).
+  const counts = { findings: 0, scans: 0 }
+  let after: string | null = null
+  for (;;) {
+    const batch: { id: string }[] = await prisma.prSecurityScan.findMany({
+      where: after ? { AND: [scanWhere, { id: { gt: after } }] } : scanWhere,
+      orderBy: { id: 'asc' },
+      take: SCRUB_BATCH_SIZE,
+      select: { id: true },
+    })
+    if (batch.length === 0) break
+    const part = await scrubScans(batch.map(scan => scan.id))
+    counts.findings += part.findings
+    counts.scans += part.scans
+    after = batch[batch.length - 1]!.id
+    if (batch.length < SCRUB_BATCH_SIZE) break
+  }
+  return counts
+}
+
+/** One batch of `scrubCode`, in one transaction. */
+async function scrubScans(scanIds: string[]) {
+  // LUM-902 — the default 5s is too short for a scan-heavy batch (P2028).
   return prisma.$transaction(async tx => {
+    const inBatch = { scanId: { in: scanIds } }
     const rules = await tx.prSecurityFinding.findMany({
-      where: { scan: scanWhere },
+      where: inBatch,
       distinct: ['ruleId'],
       select: { ruleId: true },
     })
     for (const { ruleId } of rules) {
       await tx.prSecurityFinding.updateMany({
-        where: { scan: scanWhere, ruleId },
+        where: { ...inBatch, ruleId },
         data: { title: ruleId },
       })
     }
     const findings = await tx.prSecurityFinding.updateMany({
-      where: { scan: scanWhere },
+      where: inBatch,
       data: {
         evidence: '',
         callChain: Prisma.DbNull,
@@ -539,7 +572,7 @@ async function scrubCode(scanWhere: Prisma.PrSecurityScanWhereInput) {
       },
     })
     const scans = await tx.prSecurityScan.updateMany({
-      where: scanWhere,
+      where: { id: { in: scanIds } },
       data: {
         huntAudit: Prisma.DbNull,
         huntJob: Prisma.DbNull,
