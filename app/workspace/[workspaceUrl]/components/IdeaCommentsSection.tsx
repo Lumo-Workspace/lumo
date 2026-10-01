@@ -11,6 +11,9 @@ import { useIdeaComments } from '../hooks/useIdeaComments'
  * comment thread (oldest first) plus a composer. Comment bodies are stored and
  * shown as plain text (idea comments carry no @mention/HTML markup), so they're
  * rendered with `whitespace-pre-wrap` rather than dangerouslySetInnerHTML.
+ * They are NOT sanitized on write (LUM-926), so switching to HTML rendering
+ * must add write-time sanitization — `idea-comments-text-only.test.tsx` fails
+ * until it does.
  *
  * Presentation + local composer state only (SRP); all data/mutations come from
  * `useIdeaComments`.
