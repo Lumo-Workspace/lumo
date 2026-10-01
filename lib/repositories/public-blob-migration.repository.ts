@@ -34,6 +34,14 @@ export interface ReferenceSource {
 }
 
 const contains = { contains: PUBLIC_BLOB_MARKER }
+/**
+ * Naming `deletedAt` (an empty filter: any value) opts a Task / Document
+ * read out of the soft-delete filter (LUM-918). Trashed rows still hold
+ * references and can be restored, so the migration must see them: skipped,
+ * their blobs would count as orphans (deleted with `--delete-orphans`,
+ * breaking the images on restore) or stay public forever.
+ */
+const anyDeletedAt = { deletedAt: {} }
 const keep = (row: ReferenceRow) =>
   row.updatedAt ? { updatedAt: row.updatedAt } : {}
 
@@ -113,7 +121,7 @@ export const referenceSources: ReferenceSource[] = [
     async () =>
       (
         await prisma.task.findMany({
-          where: { description: contains },
+          where: { description: contains, ...anyDeletedAt },
           select: {
             id: true,
             description: true,
@@ -164,7 +172,7 @@ export const referenceSources: ReferenceSource[] = [
     async () =>
       (
         await prisma.document.findMany({
-          where: { content: contains },
+          where: { content: contains, ...anyDeletedAt },
           select: {
             id: true,
             content: true,
@@ -184,7 +192,7 @@ export const referenceSources: ReferenceSource[] = [
     async () =>
       (
         await prisma.document.findMany({
-          where: { sourceMarkdown: contains },
+          where: { sourceMarkdown: contains, ...anyDeletedAt },
           select: {
             id: true,
             sourceMarkdown: true,
@@ -414,8 +422,8 @@ export const publicBlobMigrationRepository = {
   referenceSources,
 
   async findTaskWorkspaceId(taskId: string): Promise<string | null> {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
+    const task = await prisma.task.findFirst({
+      where: { id: taskId, ...anyDeletedAt },
       select: { project: { select: { workspaceId: true } } },
     })
     return task?.project.workspaceId ?? null

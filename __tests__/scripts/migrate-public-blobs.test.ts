@@ -142,6 +142,8 @@ describe('public blob migration', () => {
       orphans: { evidence: 0, images: 1 },
       dangling: 1,
       kept: 1,
+      workspaces: 2,
+      batch: { selected: 2, remaining: 0 },
       applied: {
         copied: 0,
         rowsRewritten: 0,
@@ -278,5 +280,88 @@ describe('public blob migration', () => {
       origin: ORIGIN,
     })
     expect(new Set(w.privateBlobs.keys())).toEqual(firstCopies)
+  })
+  // LUM-922 — production runs in batches, with the originals kept as the
+  // rollback path until the private copies have proven out.
+  it('limited runs migrate in batches and converge', async () => {
+    const w = world()
+    const opts = { apply: true, deleteOrphans: false, origin: ORIGIN }
+
+    const first = await migratePublicBlobs(w.deps, { ...opts, limit: 1 })
+    // Two blobs have something to migrate (evidence, shared image); the
+    // template-only image is kept and never takes a batch slot.
+    expect(first.batch).toEqual({ selected: 1, remaining: 1 })
+    expect(first.applied).toEqual({
+      copied: 1,
+      rowsRewritten: 1,
+      originalsDeleted: 1,
+      orphansDeleted: 0,
+    })
+    expect(w.rows.run.text).not.toContain(EVIDENCE_URL)
+    // The blob outside the batch is untouched: still public, still linked.
+    expect(w.publicBlobs.has(SHARED_IMG)).toBe(true)
+    expect(w.rows.taskDescription.text).toContain(SHARED_IMG)
+    expect(w.rows.otherWorkspaceDoc.text).toContain(SHARED_IMG)
+    expect(w.rows.taskDescription.writes).toBe(0)
+
+    const second = await migratePublicBlobs(w.deps, { ...opts, limit: 1 })
+    expect(second.batch).toEqual({ selected: 1, remaining: 0 })
+    expect(second.applied).toMatchObject({ copied: 2, rowsRewritten: 2 })
+    for (const row of Object.values(w.rows)) {
+      expect(row.text).not.toContain(SHARED_IMG)
+    }
+
+    const third = await migratePublicBlobs(w.deps, { ...opts, limit: 1 })
+    expect(third.batch).toEqual({ selected: 0, remaining: 0 })
+    expect(third.copies).toBe(0)
+    expect(third.applied).toEqual({
+      copied: 0,
+      rowsRewritten: 0,
+      originalsDeleted: 0,
+      orphansDeleted: 0,
+    })
+  })
+
+  it('keep originals deletes no public blob', async () => {
+    const w = world()
+    const before = [...w.publicBlobs.keys()].sort()
+    const report = await migratePublicBlobs(w.deps, {
+      apply: true,
+      deleteOrphans: true,
+      keepOriginals: true,
+      origin: ORIGIN,
+    })
+    expect(report.applied).toEqual({
+      copied: 3,
+      rowsRewritten: 3,
+      originalsDeleted: 0,
+      orphansDeleted: 0,
+    })
+    expect(w.deps.deletePublic).not.toHaveBeenCalled()
+    expect([...w.publicBlobs.keys()].sort()).toEqual(before)
+    for (const row of Object.values(w.rows)) {
+      expect(row.text).not.toContain(SHARED_IMG)
+      expect(row.text).not.toContain(EVIDENCE_URL)
+    }
+
+    // The manifest maps each migrated public URL to every URL that replaced
+    // it — the input for reversing the rewrite.
+    const byFrom = new Map(report.manifest.map(e => [e.from, e.to]))
+    expect([...byFrom.keys()].sort()).toEqual([EVIDENCE_URL, SHARED_IMG].sort())
+    expect(byFrom.get(SHARED_IMG)).toHaveLength(2)
+    for (const to of byFrom.get(SHARED_IMG) ?? []) {
+      expect(
+        w.rows.taskDescription.text + w.rows.otherWorkspaceDoc.text
+      ).toContain(to)
+    }
+
+    // The kept originals now read as orphans: nothing left to copy.
+    const next = await migratePublicBlobs(w.deps, {
+      apply: false,
+      deleteOrphans: false,
+      origin: ORIGIN,
+    })
+    expect(next.copies).toBe(0)
+    expect(next.orphans).toEqual({ evidence: 1, images: 2 })
   })
 })
