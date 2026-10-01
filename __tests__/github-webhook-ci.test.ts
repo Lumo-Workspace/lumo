@@ -80,7 +80,7 @@ describe('webhook CI handlers (LUM-616)', () => {
       },
       'ws'
     )
-    expect(findTaskByIdentifier).toHaveBeenCalledWith('LUM', 2, 'ws')
+    expect(findTaskByIdentifier).toHaveBeenCalledWith('LUM', 2, 'ws', 'a/b')
     // Head branch is present, so the SHA→PR fallback is not consulted.
     expect(fetchPullNumbers).not.toHaveBeenCalled()
     expect(reconcileCommit).toHaveBeenCalledWith({

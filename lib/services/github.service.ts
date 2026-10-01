@@ -1,5 +1,7 @@
 import { githubRepository } from '@/lib/repositories/github.repository'
 import type { UpsertIntegrationData } from '@/lib/repositories/github.repository'
+import { githubAppInstallationRepository } from '@/lib/repositories'
+import { logger } from '@/lib/logger'
 
 // ── GitHub Service ──────────────────────────────────────────────────────────
 
@@ -111,17 +113,49 @@ export const githubService = {
 
   // ── Task lookup ───────────────────────────────────────────────────────
 
-  /** Find a task by parsed branch identifier. */
+  /**
+   * Find a task by parsed branch identifier.
+   *
+   * LUM-925: with `repo`, the lookup is for a branch in that repository, which
+   * several workspaces may have confirmed (LUM-924 hands each of them the
+   * event). Team identifiers are only unique inside a workspace, so when any
+   * other workspace that confirmed the repository also has this identifier,
+   * the branch cannot be placed and no workspace's task is returned — linking
+   * the wrong one would mirror its comments onto someone else's PR.
+   */
   async findTaskByIdentifier(
     teamIdentifier: string,
     taskNumber: number,
-    workspaceId: string
+    workspaceId: string,
+    repo?: string
   ) {
-    return githubRepository.findTaskByIdentifier(
+    const task = await githubRepository.findTaskByIdentifier(
       teamIdentifier,
       taskNumber,
       workspaceId
     )
+    if (!task || !repo) return task
+
+    const others = await githubRepository.findOtherWorkspaceIdsWithTask(
+      teamIdentifier,
+      taskNumber,
+      workspaceId
+    )
+    // The confirmed list is what LUM-924 routes deliveries by. Read it straight
+    // from the repository: the install service pulls in the octokit client,
+    // which the webhook handlers keep off their static graph (LUM-616).
+    const target = repo.toLowerCase()
+    for (const other of others) {
+      const install =
+        await githubAppInstallationRepository.findByWorkspace(other)
+      if (install?.repositories.some(name => name.toLowerCase() === target)) {
+        logger.warn(
+          `[github] ${teamIdentifier}-${taskNumber} in ${repo} matches tasks in more than one workspace — not linking it automatically`
+        )
+        return null
+      }
+    }
+    return task
   },
 
   /** Find workspace slug. */

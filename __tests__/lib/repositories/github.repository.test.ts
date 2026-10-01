@@ -29,6 +29,9 @@ jest.mock('@/lib/db/prisma', () => ({
     workspace: {
       findUnique: jest.fn(),
     },
+    team: {
+      findMany: jest.fn(),
+    },
   },
 }))
 
@@ -319,6 +322,35 @@ describe('githubRepository.findTaskByIdentifier', () => {
         project: { select: { name: true, ownerId: true, workspaceId: true } },
         team: { select: { identifier: true } },
       },
+    })
+  })
+})
+
+// ── findOtherWorkspaceIdsWithTask ───────────────────────────────────────
+
+describe('githubRepository.findOtherWorkspaceIdsWithTask', () => {
+  it('returns the other workspaces whose team owns that task number', async () => {
+    const mock = prisma.team.findMany as jest.Mock
+    mock.mockResolvedValue([
+      { workspaceId: 'ws-2' },
+      { workspaceId: 'ws-3' },
+      { workspaceId: 'ws-2' },
+    ])
+
+    const ids = await githubRepository.findOtherWorkspaceIdsWithTask(
+      'LUM',
+      123,
+      'ws-1'
+    )
+
+    expect(ids).toEqual(['ws-2', 'ws-3'])
+    expect(mock).toHaveBeenCalledWith({
+      where: {
+        identifier: 'LUM',
+        workspaceId: { not: 'ws-1' },
+        tasks: { some: { number: 123 } },
+      },
+      select: { workspaceId: true },
     })
   })
 })

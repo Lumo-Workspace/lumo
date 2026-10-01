@@ -277,6 +277,27 @@ export const githubRepository = {
     })
   },
 
+  /**
+   * LUM-925 — the other workspaces holding a task with this team identifier and
+   * number. Team identifiers are only unique inside a workspace, so workspaces
+   * sharing a repository can each own a `LUM-123`.
+   */
+  async findOtherWorkspaceIdsWithTask(
+    teamIdentifier: string,
+    taskNumber: number,
+    excludeWorkspaceId: string
+  ): Promise<string[]> {
+    const teams = await prisma.team.findMany({
+      where: {
+        identifier: teamIdentifier,
+        workspaceId: { not: excludeWorkspaceId },
+        tasks: { some: { number: taskNumber } },
+      },
+      select: { workspaceId: true },
+    })
+    return [...new Set(teams.map(t => t.workspaceId))]
+  },
+
   /** Find workspace slug by id. */
   async findWorkspaceSlug(workspaceId: string) {
     return prisma.workspace.findUnique({

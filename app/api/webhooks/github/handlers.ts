@@ -79,7 +79,8 @@ type StatusPayload = {
 
 async function findTaskForBranch(
   headBranch: string,
-  workspaceId: string
+  workspaceId: string,
+  repo: string
 ): Promise<
   | (Task & {
       project: Pick<Project, 'name' | 'ownerId' | 'workspaceId'>
@@ -95,7 +96,8 @@ async function findTaskForBranch(
   return githubService.findTaskByIdentifier(
     parts.teamIdentifier,
     parts.number,
-    workspaceId
+    workspaceId,
+    repo
   )
 }
 
@@ -119,7 +121,11 @@ async function resolveTaskIdForCommit(args: {
     if (pr?.taskId) return pr.taskId
   }
   if (args.headBranch) {
-    const task = await findTaskForBranch(args.headBranch, args.workspaceId)
+    const task = await findTaskForBranch(
+      args.headBranch,
+      args.workspaceId,
+      args.repo
+    )
     if (task) return task.id
   }
   return null
@@ -176,7 +182,11 @@ export async function handlePullRequest(
   // 'edited' event on an already-merged PR must stay merged, not revert to open.
   const state = pr.merged ? 'merged' : pr.state === 'closed' ? 'closed' : 'open'
 
-  const task = await findTaskForBranch(pr.head.ref, workspaceId)
+  const task = await findTaskForBranch(
+    pr.head.ref,
+    workspaceId,
+    repository.full_name
+  )
 
   const prRow = await githubService.upsertPullRequest({
     workspaceId,
@@ -406,7 +416,11 @@ export async function handlePush(
     )
   }
 
-  const task = await findTaskForBranch(branchName, workspaceId)
+  const task = await findTaskForBranch(
+    branchName,
+    workspaceId,
+    repository.full_name
+  )
   if (!task) return
 
   // Use only the first line of the commit message

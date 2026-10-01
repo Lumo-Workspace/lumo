@@ -9,6 +9,7 @@ jest.mock('@/lib/db/prisma', () => ({
       findFirst: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
+      count: jest.fn(),
     },
   },
 }))
@@ -49,6 +50,25 @@ describe('pullRequestRepository.updateState', () => {
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: 'pr-1' },
       data: { state: 'merged', mergedAt, closedAt: null, isDraft: false },
+    })
+  })
+})
+
+describe('pullRequestRepository.countTaskLinkedWorkspaces', () => {
+  it('counts task-linked rows for the repo and number across workspaces', async () => {
+    const mockCount = prisma.pullRequest.count as jest.Mock
+    mockCount.mockResolvedValue(2)
+    const n = await pullRequestRepository.countTaskLinkedWorkspaces(
+      'Acme-Inc/Web',
+      7
+    )
+    expect(n).toBe(2)
+    expect(mockCount).toHaveBeenCalledWith({
+      where: {
+        repo: { equals: 'Acme-Inc/Web', mode: 'insensitive' },
+        number: 7,
+        taskId: { not: null },
+      },
     })
   })
 })

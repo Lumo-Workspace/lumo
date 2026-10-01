@@ -109,6 +109,31 @@ async function buildOutboundBody(
   return { body: prefixed, bodyHash: computeBodyHash(prefixed) }
 }
 
+/**
+ * LUM-925: a PR linked to tasks in more than one workspace was linked by branch
+ * name alone, and at most one of those tasks is really its own. Posting or
+ * editing would publish one workspace's internal discussion on a PR that
+ * belongs to another, so outbound create/update stop here. Delete still runs:
+ * removing a comment that already leaked only reduces exposure.
+ */
+async function isLinkedInSeveralWorkspaces(pr: {
+  id: string
+  repo: string
+  number: number
+}): Promise<boolean> {
+  const linked = await pullRequestRepository.countTaskLinkedWorkspaces(
+    pr.repo,
+    pr.number
+  )
+  if (linked > 1) {
+    logger.warn(
+      `[pr-comment-mirror] skipping outbound sync for PR ${pr.id} (${pr.repo}#${pr.number}) — it is linked to tasks in ${linked} workspaces`
+    )
+    return true
+  }
+  return false
+}
+
 async function runOutboundCreate(commentId: string) {
   const comment = await commentRepository.findById(commentId)
   if (!comment) return
@@ -117,6 +142,7 @@ async function runOutboundCreate(commentId: string) {
 
   const pr = await pullRequestRepository.findByTaskId(comment.taskId)
   if (!pr) return
+  if (await isLinkedInSeveralWorkspaces(pr)) return
 
   const repo = parseRepo(pr.repo)
 
@@ -293,6 +319,7 @@ async function runOutboundUpdate(commentId: string) {
 
   const pr = await pullRequestRepository.findByTaskId(comment.taskId)
   if (!pr) return
+  if (await isLinkedInSeveralWorkspaces(pr)) return
   const repo = parseRepo(pr.repo)
 
   if (isLegacyUserAuthored(mirror)) return
