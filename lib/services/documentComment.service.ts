@@ -11,6 +11,7 @@ import type { DocumentCommentStatus } from '@prisma/client'
 import { notifyMentionDelta } from '@/lib/services/mention-notify.service'
 import { getActorClerkId } from '@/lib/actor'
 import { buildDocumentUrl } from '@/lib/utils/buildDocumentUrl'
+import { sanitizeCommentHtml } from '@/lib/html/sanitize-comment-html'
 
 type WaitUntil = (p: Promise<unknown>) => void
 
@@ -180,11 +181,13 @@ export const documentCommentService = {
       await documentRepository.update(docId, { content: input.content })
     }
 
+    // LUM-921: member/agent-authored HTML — store only the allowlisted subset.
+    const body = sanitizeCommentHtml(input.body)
     const comment = await documentCommentRepository.create({
       id: input.id,
       documentId: docId,
       authorActorId,
-      body: input.body,
+      body,
       parentId: input.parentId ?? null,
       quotedText: isReply ? null : (input.quotedText ?? null),
       anchorStart: isReply ? null : (input.from ?? null),
@@ -204,7 +207,7 @@ export const documentCommentService = {
       .notifyDocMentions({
         documentId: docId,
         documentCommentId: comment.id,
-        body: input.body,
+        body,
         authorActorId: authorActorId ?? '',
         workspaceId,
         docTitle: doc.title ?? '',
@@ -246,7 +249,7 @@ export const documentCommentService = {
     }
 
     const updated = await documentCommentRepository.update(args.commentId, {
-      body: args.body,
+      body: sanitizeCommentHtml(args.body),
     })
     args.waitUntil(
       pushDocumentEvent(existing.documentId, {

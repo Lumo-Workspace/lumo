@@ -20,6 +20,7 @@ import { CommentAvatar } from './CommentAvatar'
 import { resolveCommentAuthor } from './comment-utils'
 import { useMentionSources } from '../hooks/useMentionSources'
 import { RichHtml } from '@/components/RichHtml'
+import { previewCommentText } from './comments/CommentQuote'
 
 interface TaskDetailCommentsProps {
   workspaceUrl: string
@@ -381,20 +382,9 @@ export function TaskDetailComments({
                                       m => m.actorId === quoted.authorActorId
                                     )
                                     const qName = qAuthor?.name ?? 'Unknown'
-                                    const qText = (() => {
-                                      if (typeof document !== 'undefined') {
-                                        const d = document.createElement('div')
-                                        d.innerHTML = quoted.body
-                                        return (
-                                          (d.textContent ?? d.innerText ?? '')
-                                            .trim()
-                                            .slice(0, 120) || '…'
-                                        )
-                                      }
-                                      return quoted.body
-                                        .replace(/<[^>]+>/g, '')
-                                        .slice(0, 120)
-                                    })()
+                                    const qText = previewCommentText(
+                                      quoted.body
+                                    )
                                     return (
                                       <button
                                         type='button'
@@ -532,19 +522,7 @@ export function TaskDetailComments({
                             {tc.replyingToComment.authorName}
                           </p>
                           <p className='text-[11px] text-muted-foreground line-clamp-2 leading-relaxed'>
-                            {typeof document !== 'undefined'
-                              ? (() => {
-                                  const d = document.createElement('div')
-                                  d.innerHTML = tc.replyingToComment.body
-                                  return (
-                                    (d.textContent ?? d.innerText ?? '')
-                                      .trim()
-                                      .slice(0, 120) || '…'
-                                  )
-                                })()
-                              : tc.replyingToComment.body
-                                  .replace(/<[^>]+>/g, '')
-                                  .slice(0, 120)}
+                            {previewCommentText(tc.replyingToComment.body)}
                           </p>
                         </button>
                       )}

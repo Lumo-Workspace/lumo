@@ -2,7 +2,7 @@ import { createHash } from 'crypto'
 
 export const HEADER_MARKER_OPEN = '<!-- pr-mirror-header -->'
 
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -77,6 +77,10 @@ export function githubMarkdownToLumoHtml(
 ): string {
   // Strip any header marker that may have leaked back (defense in depth)
   let work = markdown.replace(HEADER_RE, '')
+  // LUM-921: the body is untrusted GitHub text — escape it BEFORE inserting
+  // our own markup, so raw HTML (<img onerror>, <svg onload>) lands as text.
+  // Logins are [a-zA-Z0-9-] and `@` survives escaping, so mentions still match.
+  work = escapeHtml(work)
   // Replace @login with chip or plain text
   work = work.replace(GH_MENTION_RE, (_m, lead: string, login: string) => {
     const hit = resolver(login)

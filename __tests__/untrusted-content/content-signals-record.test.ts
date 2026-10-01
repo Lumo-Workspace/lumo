@@ -422,8 +422,10 @@ describe('task comment', () => {
       body: `<p>${INJECTED}</p>`,
       waitUntil: () => {},
     })
+    // LUM-921: the stored body is sanitized (the stray wrapper tag is
+    // dropped); the signals still come from the raw input.
     expect(commentRepository.update).toHaveBeenCalledWith('c1', {
-      body: `<p>${INJECTED}</p>`,
+      body: expect.not.stringContaining('</untrusted'),
       contentSignals: HIT,
     })
   })
