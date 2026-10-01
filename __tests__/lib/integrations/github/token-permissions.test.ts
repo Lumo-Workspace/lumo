@@ -31,6 +31,7 @@ jest.mock('@/lib/repositories', () => ({
     findAllByInstallationId: jest.fn(),
     findRecheckState: jest.fn(),
     updateRecheckIfUnchanged: jest.fn(),
+    findInstallationIdsWithoutVerifier: jest.fn().mockResolvedValue([]),
   },
 }))
 jest.mock('@/lib/services/github-app-install.service', () => ({

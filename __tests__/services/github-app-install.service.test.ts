@@ -12,8 +12,7 @@ jest.mock('@/lib/repositories', () => ({
     findAllByInstallationId: jest.fn().mockResolvedValue([]),
     updateRepositories: jest.fn(),
     recordVerification: jest.fn(),
-    delete: jest.fn(),
-    deleteByInstallationId: jest.fn().mockResolvedValue({ count: 1 }),
+    deleteForWorkspace: jest.fn().mockResolvedValue({ count: 1 }),
   },
   // LUM-855: uninstall scrubs the workspace's scan code (real-DB coverage in
   // __tests__/lib/services/github-app-uninstall-scrub.test.ts).
@@ -78,7 +77,7 @@ const REDIRECT = 'https://app.test/api/github/app/callback'
 describe('githubAppInstallService', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    repo.deleteByInstallationId.mockResolvedValue({ count: 1 })
+    repo.deleteForWorkspace.mockResolvedValue({ count: 1 })
     repo.findAllByInstallationId.mockResolvedValue([])
     ;(fetchAppInstallation as jest.Mock).mockResolvedValue({
       accountLogin: 'acme-inc',
@@ -546,7 +545,7 @@ describe('githubAppInstallService', () => {
         scrub.mockRejectedValueOnce(new Error('db down'))
         await expect(
           githubAppInstallService.applyInstallationEvent(event)
-        ).rejects.toThrow('db down')
+        ).rejects.toThrow('1 workspace(s) failed')
         expect(repo.upsert).not.toHaveBeenCalled()
 
         scrub.mockClear()
@@ -606,12 +605,15 @@ describe('githubAppInstallService', () => {
     })
 
     it.each(['deleted', 'suspend'])('removes the row on %s', async action => {
+      repo.findAllByInstallationId.mockResolvedValue([
+        { workspaceId: 'w1', installationId: 555, repositories: [] },
+      ])
       await githubAppInstallService.applyInstallationEvent({
         action,
         installation: { id: 555 },
       })
 
-      expect(repo.deleteByInstallationId).toHaveBeenCalledWith(555)
+      expect(repo.deleteForWorkspace).toHaveBeenCalledWith('w1', 555)
       expect(repo.upsert).not.toHaveBeenCalled()
     })
 
@@ -620,7 +622,7 @@ describe('githubAppInstallService', () => {
         action: 'created',
       })
 
-      expect(repo.deleteByInstallationId).not.toHaveBeenCalled()
+      expect(repo.deleteForWorkspace).not.toHaveBeenCalled()
       expect(repo.upsert).not.toHaveBeenCalled()
     })
   })
@@ -670,7 +672,7 @@ describe('githubAppInstallService', () => {
       scrub.mockRejectedValueOnce(new Error('db down'))
       await expect(
         githubAppInstallService.applyInstallationRepositoriesEvent(event)
-      ).rejects.toThrow('db down')
+      ).rejects.toThrow('1 workspace(s) failed')
       expect(repo.updateRepositories).not.toHaveBeenCalled()
 
       // Succeeding: scrub, narrow, then scrub again for anything in between.
@@ -765,7 +767,7 @@ describe('githubAppInstallService', () => {
         githubAppInstallService.uninstall('w1', 'MEMBER')
       ).rejects.toMatchObject({ status: 403 })
       expect(deleteAppInstallation).not.toHaveBeenCalled()
-      expect(repo.delete).not.toHaveBeenCalled()
+      expect(repo.deleteForWorkspace).not.toHaveBeenCalled()
     })
 
     it('deletes the installation on GitHub and locally', async () => {
@@ -777,7 +779,7 @@ describe('githubAppInstallService', () => {
       await githubAppInstallService.uninstall('w1', 'OWNER')
 
       expect(deleteAppInstallation).toHaveBeenCalledWith(555)
-      expect(repo.delete).toHaveBeenCalledWith('w1')
+      expect(repo.deleteForWorkspace).toHaveBeenCalledWith('w1')
     })
 
     // LUM-875: an installation shared by several workspaces (LUM-872) must not
@@ -795,8 +797,8 @@ describe('githubAppInstallService', () => {
       await githubAppInstallService.uninstall('w1', 'OWNER')
 
       expect(deleteAppInstallation).not.toHaveBeenCalled()
-      expect(repo.delete).toHaveBeenCalledWith('w1')
-      expect(repo.delete).not.toHaveBeenCalledWith('w2')
+      expect(repo.deleteForWorkspace).toHaveBeenCalledWith('w1')
+      expect(repo.deleteForWorkspace).not.toHaveBeenCalledWith('w2')
     })
 
     it('still drops the local row when GitHub refuses the delete', async () => {
@@ -808,7 +810,7 @@ describe('githubAppInstallService', () => {
 
       await githubAppInstallService.uninstall('w1', 'OWNER')
 
-      expect(repo.delete).toHaveBeenCalledWith('w1')
+      expect(repo.deleteForWorkspace).toHaveBeenCalledWith('w1')
     })
   })
 
@@ -1078,5 +1080,169 @@ describe('githubAppInstallService', () => {
       ).toBeNull()
       expect(repo.findAllByInstallationId).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('LUM-902 — scrub before anything is dropped', () => {
+  const scrub = prSecurityScanRepository.scrubCodeForWorkspace as jest.Mock
+  const order: string[] = []
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    order.length = 0
+    scrub.mockImplementation(async (ws: string, repos?: string[]) => {
+      order.push(`scrub:${ws}:${repos ? repos.join(',') : 'all'}`)
+      return { scans: 1, findings: 1 }
+    })
+    repo.upsert.mockImplementation(async (data: { workspaceId: string }) => {
+      order.push(`upsert:${data.workspaceId}`)
+      return { workspaceId: data.workspaceId, installationId: 77 }
+    })
+    repo.deleteForWorkspace.mockImplementation(async (ws: string) => {
+      order.push(`delete:${ws}`)
+      return { count: 1 }
+    })
+    repo.findAllByInstallationId.mockResolvedValue([])
+    ;(fetchAppInstallation as jest.Mock).mockResolvedValue({
+      accountLogin: 'acme-inc',
+      accountType: 'Organization',
+    })
+    ;(fetchInstallationRepositories as jest.Mock).mockResolvedValue([
+      'acme-inc/web',
+    ])
+    ;(getRepoToken as jest.Mock).mockResolvedValue('repo-token')
+    ;(syncRepoPRs as jest.Mock).mockResolvedValue(undefined)
+    ;(exchangeAppUserCode as jest.Mock).mockResolvedValue('user-token')
+    ;(listUserInstallationIds as jest.Mock).mockResolvedValue([77])
+    ;(listUserInstallationRepositories as jest.Mock).mockResolvedValue([
+      'acme-inc/web',
+    ])
+    ;(fetchAppUser as jest.Mock).mockResolvedValue({ login: 'octo', id: 1 })
+    ;(revokeAppUserToken as jest.Mock).mockResolvedValue(undefined)
+  })
+
+  const install = () =>
+    githubAppInstallService.install({
+      workspaceId: 'w1',
+      memberId: 'm1',
+      installationId: 77,
+      userCode: 'code',
+      redirectUri: REDIRECT,
+    })
+
+  it('reinstall scrubs repositories dropped from the confirmed list before writing', async () => {
+    // Bound to another installation; `Acme-Inc/Web` survives (case-insensitive).
+    repo.findByWorkspace.mockResolvedValue({
+      id: 'i1',
+      workspaceId: 'w1',
+      installationId: 55,
+      repositories: ['Acme-Inc/Web', 'other-org/api'],
+    })
+
+    await install()
+
+    expect(order).toEqual([
+      'scrub:w1:other-org/api',
+      'upsert:w1',
+      'scrub:w1:other-org/api',
+    ])
+
+    // A scrub that throws writes nothing: the old list stays in place.
+    jest.clearAllMocks()
+    order.length = 0
+    scrub.mockRejectedValueOnce(new Error('P2028'))
+    await expect(install()).rejects.toThrow('P2028')
+    expect(repo.upsert).not.toHaveBeenCalled()
+  })
+
+  it('first install on an unbound workspace scrubs nothing', async () => {
+    repo.findByWorkspace.mockResolvedValue(null)
+    await install()
+    expect(order).toEqual(['upsert:w1'])
+  })
+
+  it('removal scrubs before deleting and survives a failing workspace', async () => {
+    repo.findAllByInstallationId.mockResolvedValue([
+      { workspaceId: 'w1', installationId: 77, repositories: [] },
+      { workspaceId: 'w2', installationId: 77, repositories: [] },
+      { workspaceId: 'w3', installationId: 77, repositories: [] },
+    ])
+    scrub.mockImplementation(async (ws: string) => {
+      if (ws === 'w2') throw new Error('P2028')
+      order.push(`scrub:${ws}`)
+      return { scans: 1, findings: 1 }
+    })
+
+    // deleted webhook: w2's scrub throws, its row stays, w3 still runs, and
+    // the delivery still fails as a whole.
+    await expect(
+      githubAppInstallService.applyInstallationEvent({
+        action: 'deleted',
+        installation: { id: 77 },
+      })
+    ).rejects.toThrow('1 workspace(s) failed')
+    expect(order).toEqual([
+      'scrub:w1',
+      'delete:w1',
+      'scrub:w1',
+      'scrub:w3',
+      'delete:w3',
+      'scrub:w3',
+    ])
+    expect(repo.deleteForWorkspace).toHaveBeenCalledWith('w1', 77)
+    expect(repo.deleteForWorkspace).not.toHaveBeenCalledWith('w2', 77)
+
+    // suspend now cleans up the same way.
+    order.length = 0
+    scrub.mockImplementation(async (ws: string) => {
+      order.push(`scrub:${ws}`)
+      return { scans: 1, findings: 1 }
+    })
+    repo.findAllByInstallationId.mockResolvedValue([
+      { workspaceId: 'w2', installationId: 77, repositories: [] },
+    ])
+    await githubAppInstallService.applyInstallationEvent({
+      action: 'suspend',
+      installation: { id: 77 },
+    })
+    expect(order).toEqual(['scrub:w2', 'delete:w2', 'scrub:w2'])
+
+    // uninstall: a failing scrub keeps the row and the App on GitHub.
+    jest.clearAllMocks()
+    repo.findByWorkspace.mockResolvedValue({
+      id: 'i1',
+      workspaceId: 'w1',
+      installationId: 77,
+      repositories: [],
+    })
+    repo.findAllByInstallationId.mockResolvedValue([
+      { workspaceId: 'w1', installationId: 77, repositories: [] },
+    ])
+    scrub.mockRejectedValueOnce(new Error('P2028'))
+    await expect(
+      githubAppInstallService.uninstall('w1', 'OWNER')
+    ).rejects.toThrow('P2028')
+    expect(repo.deleteForWorkspace).not.toHaveBeenCalled()
+    expect(deleteAppInstallation).not.toHaveBeenCalled()
+
+    // installation_repositories: one workspace failing does not stop the next.
+    scrub.mockReset()
+    scrub.mockImplementation(async (ws: string) => {
+      if (ws === 'w1') throw new Error('P2028')
+      return { scans: 1, findings: 1 }
+    })
+    repo.findAllByInstallationId.mockResolvedValue([
+      { workspaceId: 'w1', installationId: 77, repositories: ['acme-inc/a'] },
+      { workspaceId: 'w2', installationId: 77, repositories: ['acme-inc/a'] },
+    ])
+    await expect(
+      githubAppInstallService.applyInstallationRepositoriesEvent({
+        action: 'removed',
+        installation: { id: 77 },
+        repositories_removed: [{ full_name: 'acme-inc/a' }],
+      })
+    ).rejects.toThrow('1 workspace(s) failed')
+    expect(repo.updateRepositories).toHaveBeenCalledTimes(1)
+    expect(repo.updateRepositories).toHaveBeenCalledWith('w2', [])
   })
 })

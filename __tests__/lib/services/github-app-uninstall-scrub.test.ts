@@ -134,14 +134,14 @@ afterAll(async () => {
 
 describe('GitHub App uninstall scrub', () => {
   it('uninstall scrubs code-bearing scan data for that workspace only', async () => {
-    // A suspend is reversible — it clears nothing.
+    // LUM-902 — a suspend drops the row, so it scrubs like an uninstall.
     await githubAppInstallService.applyInstallationEvent({
       action: 'suspend',
       installation: { id: 303 },
     })
     const suspended = await codeState('w3_')
-    expect(suspended.finding.evidence).toBe(CODE)
-    expect(suspended.scan.huntAudit).not.toBeNull()
+    expect(suspended.finding.evidence).toBe('')
+    expect(suspended.scan.huntAudit).toBeNull()
 
     // Uninstalled on GitHub → the `deleted` webhook scrubs w1.
     await githubAppInstallService.applyInstallationEvent({
@@ -176,13 +176,13 @@ describe('GitHub App uninstall scrub', () => {
     expect(w2.finding.evidence).toBe('')
     expect(w2.scan.huntAudit).toBeNull()
 
-    // No stored text anywhere still holds the code, except the suspended w3.
+    // No stored text anywhere still holds the code (w3 was suspended).
     const leftovers = await harness.query<{ id: string }>(
       `select id from pr_security_findings where id like 'w%' and (evidence like '%db.exec%' or "callChain"::text like '%db.exec%')
        union all
        select id from pr_security_scans where id like 'w%' and ("huntAudit"::text like '%db.exec%' or "prSummary"::text like '%db.exec%')`
     )
-    expect(leftovers.map(r => r.id).sort()).toEqual(['w3_finding', 'w3_scan'])
+    expect(leftovers).toEqual([])
   })
 
   it('installation deleted scrubs every workspace sharing the installation', async () => {

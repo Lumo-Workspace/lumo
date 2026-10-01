@@ -503,6 +503,8 @@ export interface UnnotifiedFindingScan {
   headSha: string
 }
 
+const SCRUB_TX = { timeout: 15_000 } as const
+
 /**
  * LUM-855 — clear the customer-code fields of the scans `scanWhere` selects
  * (finding evidence + call chain; the scan's hunt audit, hunt job and PR
@@ -514,6 +516,7 @@ export interface UnnotifiedFindingScan {
  * `ruleId` so every list still has something to show.
  */
 async function scrubCode(scanWhere: Prisma.PrSecurityScanWhereInput) {
+  // LUM-902 — the default 5s is too short for a large workspace (P2028).
   return prisma.$transaction(async tx => {
     const rules = await tx.prSecurityFinding.findMany({
       where: { scan: scanWhere },
@@ -544,7 +547,7 @@ async function scrubCode(scanWhere: Prisma.PrSecurityScanWhereInput) {
       },
     })
     return { findings: findings.count, scans: scans.count }
-  })
+  }, SCRUB_TX)
 }
 
 /**
@@ -600,6 +603,44 @@ export const prSecurityScanRepository = {
    */
   async scrubCodeForScan(scanId: string) {
     return scrubCode({ id: scanId })
+  },
+
+  /**
+   * LUM-902 — every (workspace, repository) whose scans still hold code that
+   * `scrubCode` would clear. The backstop sweep compares these with the
+   * confirmed lists; scrubbed scans drop out, so the set shrinks to the
+   * repositories workspaces actually have confirmed.
+   */
+  async findRepositoriesHoldingCode(): Promise<
+    { workspaceId: string; repo: string }[]
+  > {
+    const rows = await prisma.pullRequest.groupBy({
+      by: ['workspaceId', 'repo'],
+      where: {
+        securityScans: {
+          some: {
+            OR: [
+              { huntAudit: { not: Prisma.DbNull } },
+              { huntJob: { not: Prisma.DbNull } },
+              { prSummary: { not: Prisma.DbNull } },
+              {
+                findings: {
+                  some: {
+                    OR: [
+                      { evidence: { not: '' } },
+                      { detail: { not: '' } },
+                      { callChain: { not: Prisma.DbNull } },
+                      { suggestedReason: { not: null } },
+                    ],
+                  },
+                },
+              },
+            ],
+          },
+        },
+      },
+    })
+    return rows.map(row => ({ workspaceId: row.workspaceId, repo: row.repo }))
   },
 
   /** LUM-896 — the workspace and repository a scan belongs to. */

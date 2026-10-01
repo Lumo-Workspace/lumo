@@ -46,3 +46,63 @@ export async function scrubScanIfRepositoryUnconfirmed(
     return false
   }
 }
+
+/**
+ * LUM-902 — the backstop behind every narrowing and behind the LUM-896
+ * recheck above, both of which are best effort: a scan written in the
+ * millisecond window before the recheck, a stage A that crashed in its HTTP
+ * worker, a second scrub that failed and was only logged. Each leaves code
+ * for a repository no confirmed list names — which no daily access recheck
+ * looks at again.
+ *
+ * So once a day: every repository still holding scan code is compared with
+ * its workspace's confirmed list (case-insensitively), and the code of those
+ * not on it — or of every repository, when the workspace has no App — is
+ * scrubbed. Scan and finding rows stay, as with every scrub. One workspace
+ * failing is logged and the sweep moves on; the next run retries it.
+ */
+export async function sweepUnconfirmedScanCode(): Promise<{
+  workspaces: number
+  repositories: number
+  failed: number
+}> {
+  const held = await prSecurityScanRepository.findRepositoriesHoldingCode()
+  const byWorkspace = new Map<string, string[]>()
+  for (const { workspaceId, repo } of held) {
+    byWorkspace.set(workspaceId, [
+      ...(byWorkspace.get(workspaceId) ?? []),
+      repo,
+    ])
+  }
+  const lists = new Map(
+    (
+      await githubAppInstallationRepository.findConfirmedLists([
+        ...byWorkspace.keys(),
+      ])
+    ).map(row => [row.workspaceId, row.repositories])
+  )
+
+  const summary = { workspaces: 0, repositories: 0, failed: 0 }
+  for (const [workspaceId, repos] of byWorkspace) {
+    const confirmed = lists.get(workspaceId) ?? []
+    const stray = repos.filter(repo => !isConfirmedRepository(confirmed, repo))
+    if (stray.length === 0) continue
+    try {
+      const counts = await prSecurityScanRepository.scrubCodeForWorkspace(
+        workspaceId,
+        stray
+      )
+      summary.workspaces++
+      summary.repositories += stray.length
+      logger.info(
+        `[security-scan] backstop: workspace ${workspaceId}: ${stray.length} repository(ies) not confirmed; scrubbed code from ${counts.scans} scan(s), ${counts.findings} finding(s)`
+      )
+    } catch (error) {
+      summary.failed++
+      logger.error(
+        `[security-scan] backstop: workspace ${workspaceId} scrub failed; retried next run: ${String(error)}`
+      )
+    }
+  }
+  return summary
+}

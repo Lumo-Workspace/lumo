@@ -38,7 +38,9 @@ export function inheritDispositions(
       ...(hasSuggestion
         ? {
             suggestedDisposition: p.suggestedDisposition,
-            suggestedReason: p.suggestedReason,
+            // LUM-902 — a scrubbed prior has no reason left (it can quote
+            // code); never let that null blank the new finding's own.
+            suggestedReason: p.suggestedReason ?? f.suggestedReason ?? null,
             suggestionOutcome: p.suggestionOutcome,
           }
         : {}),
