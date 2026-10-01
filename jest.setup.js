@@ -57,6 +57,10 @@ process.env.REFRESH_TOKEN_KEY = 'test-refresh-token-key-32-chars'
 jest.mock('@prisma/client', () => ({
   ...jest.requireActual('@prisma/client'),
   PrismaClient: jest.fn().mockImplementation(() => ({
+    // LUM-918: lib/db/prisma wraps the client in a query extension.
+    $extends: jest.fn(function () {
+      return this
+    }),
     user: {
       create: jest.fn(),
       findUnique: jest.fn(),

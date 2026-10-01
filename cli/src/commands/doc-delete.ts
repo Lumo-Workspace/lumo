@@ -10,12 +10,16 @@ import {
 
 export type DeleteDocOptions = ConfirmFlags
 
+/** Where a trashed document can be restored or erased (LUM-918). */
+export const DOC_TRASH_HINT = 'restorable for 30 days from Settings → Trash'
+
 /** The changes[] block for the confirmation envelope. */
 export function describeDocDelete(id: string, title: string): string[] {
   const escaped = sanitizeField(title).replace(/"/g, '\\"')
   return [
-    `Will delete document ${id} "${escaped}"`,
-    'Every document nested under it is deleted with it; task bindings and shares are dropped',
+    `Will move document ${id} "${escaped}" to the trash — ${DOC_TRASH_HINT}, then permanently deleted`,
+    'Every document nested under it goes to the trash with it and comes back on restore; while trashed they are hidden from lists, the doc tree and task context',
+    'To erase it at once instead (e.g. a GDPR erasure request), delete it permanently from Settings → Trash afterwards',
   ]
 }
 
@@ -79,5 +83,7 @@ export async function docDelete(
     return 1
   }
   const escaped = sanitizeField(title).replace(/"/g, '\\"')
-  console.log(`Deleted ${id}${title ? ` "${escaped}"` : ''}`)
+  process.stdout.write(
+    `Moved ${id}${title ? ` "${escaped}"` : ''} to the trash (${DOC_TRASH_HINT})\n`
+  )
 }

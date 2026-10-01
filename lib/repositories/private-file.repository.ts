@@ -33,7 +33,9 @@ export const privateFileRepository = {
     projectId: string
   ): Promise<string[]> {
     const rows = await prisma.task.findMany({
-      where: { projectId, testCases: { some: {} } },
+      // Naming `deletedAt` (an empty filter: any value) opts out of the
+      // soft-delete filter (LUM-918) — trashed tasks go with the project too.
+      where: { projectId, testCases: { some: {} }, deletedAt: {} },
       select: { id: true },
     })
     return rows.map(r => r.id)

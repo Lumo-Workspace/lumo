@@ -190,6 +190,7 @@ export function buildTextMatchSql(
     FROM "tasks" t
     JOIN "projects" p ON p."id" = t."projectId"
     WHERE p."workspaceId" = ${workspaceId}
+      AND t."deletedAt" IS NULL
       AND ${PrismaSql.join(conds, ' AND ')}
     ORDER BY score DESC, t."updatedAt" DESC
     LIMIT ${limit}
@@ -273,7 +274,9 @@ const TASK_DETAIL_INCLUDE = {
       team: { select: { identifier: true } },
     },
   },
+  // LUM-918: relation reads bypass the soft-delete extension — filter here.
   children: {
+    where: { deletedAt: null },
     select: { id: true, title: true, number: true, status: true },
     orderBy: { number: 'asc' as const },
   },
@@ -335,9 +338,10 @@ const TASK_LIST_INCLUDE = {
       team: { select: { identifier: true } },
     },
   },
-  _count: { select: { children: true } },
+  // LUM-918: relation reads bypass the soft-delete extension — filter here.
+  _count: { select: { children: { where: { deletedAt: null } } } },
   children: {
-    where: { status: 'DONE' as const },
+    where: { status: 'DONE' as const, deletedAt: null },
     select: { id: true },
   },
 } as const
@@ -460,9 +464,10 @@ const TASK_ASSIGNED_INCLUDE = {
       team: { select: { identifier: true } },
     },
   },
-  _count: { select: { children: true } },
+  // LUM-918: relation reads bypass the soft-delete extension — filter here.
+  _count: { select: { children: { where: { deletedAt: null } } } },
   children: {
-    where: { status: 'DONE' as const },
+    where: { status: 'DONE' as const, deletedAt: null },
     select: { id: true },
   },
 } as const

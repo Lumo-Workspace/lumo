@@ -53,7 +53,7 @@ Lumo implements and maintains the technical and organisational measures describe
 
 ## 8. Assistance to Customer
 
-8.1 **Data subject requests.** Taking into account the nature of the processing, Lumo will assist Customer by appropriate technical and organisational measures in responding to requests from data subjects to exercise their rights. If Lumo receives such a request directly, it will refer the data subject to Customer and will not respond itself unless Customer authorises it. Workspace deletion is available to Customer through the Service; data export is provided by Lumo on request until a self-service export is available.
+8.1 **Data subject requests.** Taking into account the nature of the processing, Lumo will assist Customer by appropriate technical and organisational measures in responding to requests from data subjects to exercise their rights. If Lumo receives such a request directly, it will refer the data subject to Customer and will not respond itself unless Customer authorises it. Workspace deletion, and immediate permanent deletion of individual tasks and documents from the trash, are available to Customer through the Service; data export is provided by Lumo on request until a self-service export is available.
 
 8.2 **Other assistance.** Lumo will provide reasonable assistance with Customer's security obligations, data protection impact assessments and prior consultations with supervisory authorities under Articles 32 to 36 GDPR, taking into account the nature of the processing and the information available to Lumo.
 
@@ -65,7 +65,9 @@ Lumo will notify Customer without undue delay, and in any case within [48] hours
 
 10.1 On termination of the Service, or earlier on Customer's written request, Lumo will, at Customer's choice, return Customer Personal Data to Customer in a commonly used machine-readable format or delete it, unless Union or Member State law requires Lumo to keep it.
 
-10.2 Customer may delete a workspace at any time from workspace settings; this permanently deletes the workspace's database records and stored files. Lumo keeps a deletion receipt recording what was deleted and when, which contains no Customer Personal Data beyond identifiers.
+10.2 Customer may delete a workspace at any time from workspace settings. The deletion is scheduled 48 hours ahead, every workspace owner is notified by email, and any owner can cancel it during that window; when the window ends, the workspace's database records and stored files are permanently deleted. An owner can instead run a scheduled deletion immediately. Lumo keeps a deletion receipt recording what was deleted and when, which contains no Customer Personal Data beyond identifiers.
+
+10.2a Tasks and documents that users delete are held in the workspace's trash for 30 days, during which they can be restored, and are then permanently deleted automatically. Users can permanently delete a trashed item before the 30 days end.
 
 10.3 Deleted data may remain in encrypted backups for up to [backup retention period] until it is overwritten; it is not restored into the Service except to recover from a disaster.
 
@@ -134,7 +136,7 @@ Special categories of data: none intended. Customer should not submit special ca
 | Isolation of code analysis | Customer repositories are analysed in isolated, short-lived virtual machines that are discarded after each scan |
 | AI data handling | Every AI model request enforces zero data retention and excludes providers that would train on or retain the data |
 | Data minimisation | Detected secrets are redacted from agent hook events before storage; Customer can set a retention period for agent hook event content |
-| Deletion | Workspace deletion removes database records and stored files and produces a deletion receipt |
+| Deletion | Workspace deletion runs after a 48-hour cancellation window (or immediately at an owner's request), removes database records and stored files and produces a deletion receipt; deleted tasks and documents are kept in a 30-day trash and then permanently deleted |
 | Availability and resilience | Managed database with automated backups and point-in-time recovery; application hosted on a managed serverless platform |
 | Secure development | Every change goes through a pull request with automated tests and automated security scanning |
 | Incident response | Security Incidents are handled and notified under section 9; vulnerabilities can be reported to [security@uselumo.ai] |

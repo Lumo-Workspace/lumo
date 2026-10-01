@@ -1066,6 +1066,15 @@ model Task {
   // nothing is gated on it server-side; default `lumo next` ignores it.
   claimable Boolean @default(false)
 
+  // LUM-918: trash. A deleted row stays here with `deletedAt` set for 30
+  // days (restorable), then the purge cron hard-deletes it. Reads skip it by
+  // default (lib/db/soft-delete.ts). The row the user deleted is the trash
+  // root (`trashRootId` null); its descendants point `trashRootId` at it and
+  // are restored / purged with it.
+  deletedAt        DateTime?
+  trashRootId      String?
+  deletedByClerkId String?
+
   // LUM-573: frozen task-level claim snapshot. Synthesized at DONE/idle by the
   // run-summary worker (and the backfill) from the AUTHORITATIVE session — the
   // one carrying a MERGED lineage edge (DB fact of delivery), else the latest
@@ -1151,6 +1160,8 @@ model Task {
   @@index([milestoneId])
   @@index([initiativeId])
   @@index([ideaId])
+  @@index([deletedAt])
+  @@index([trashRootId])
   @@map("tasks")
 }
 
@@ -2170,6 +2181,15 @@ model Document {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // LUM-918: trash. A deleted row stays here with `deletedAt` set for 30
+  // days (restorable), then the purge cron hard-deletes it. Reads skip it by
+  // default (lib/db/soft-delete.ts). The row the user deleted is the trash
+  // root (`trashRootId` null); its descendants point `trashRootId` at it and
+  // are restored / purged with it.
+  deletedAt        DateTime?
+  trashRootId      String?
+  deletedByClerkId String?
+
   @@unique([workspaceId, number])
   @@unique([workspaceId, slug])
   @@index([workspaceId])
@@ -2177,6 +2197,8 @@ model Document {
   @@index([projectId])
   @@index([createdById])
   @@index([workspaceId, googleDocId])
+  @@index([deletedAt])
+  @@index([trashRootId])
 }
 
 model DocumentTemplate {

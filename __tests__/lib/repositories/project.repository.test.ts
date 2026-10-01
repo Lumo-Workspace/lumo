@@ -83,7 +83,7 @@ describe('findByWorkspace', () => {
           ],
         },
         include: expect.objectContaining({
-          _count: { select: { tasks: true } },
+          _count: { select: { tasks: { where: { deletedAt: null } } } },
           owner: {
             select: {
               id: true,
@@ -119,7 +119,11 @@ describe('findById', () => {
     expect(result).toEqual(mockProject)
     expect(mockFindUnique).toHaveBeenCalledWith({
       where: { id: 'p1' },
-      include: { _count: { select: { tasks: true, views: true } } },
+      include: {
+        _count: {
+          select: { tasks: { where: { deletedAt: null } }, views: true },
+        },
+      },
     })
   })
 

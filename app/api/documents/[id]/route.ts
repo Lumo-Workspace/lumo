@@ -131,7 +131,8 @@ export async function DELETE(
     await documentService.deleteDocument(
       id,
       identity.memberId,
-      identity.workspaceId
+      identity.workspaceId,
+      identity.clerkId
     )
     return NextResponse.json({ success: true })
   } catch (error) {

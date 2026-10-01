@@ -1,7 +1,6 @@
 import { taskRepository } from '@/lib/repositories/task.repository'
+import { trashService } from '@/lib/services/trash.service'
 import { tagRepository } from '@/lib/repositories/tag.repository'
-import { privateFileRepository } from '@/lib/repositories/private-file.repository'
-import { privateFileService } from '@/lib/services/private-file.service'
 import { syncPullRequestStatus } from '@/lib/services/task-pr-sync.service'
 import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service'
 import { createFromAutomation, createTask } from './task-creation.service'
@@ -134,22 +133,18 @@ async function getTaskDetail(taskId: string) {
 }
 
 /**
- * Hard-delete a task. Returns its workspaceId so the calling route can run
- * an auth check after the delete (we throw 404 before deleting if the row
- * doesn't exist, so a caller never sees a partial-success).
+ * Delete a task: it moves to the trash with its subtasks, restorable for 30
+ * days (LUM-918). Returns its workspaceId so the calling route can run an
+ * auth check after the delete (we throw 404 first if the row doesn't exist,
+ * so a caller never sees a partial-success).
  */
-async function deleteTask(taskId: string) {
+async function deleteTask(taskId: string, deletedByClerkId: string) {
   const task = await taskRepository.findWithProject(taskId)
   if (!task) {
     throw Object.assign(new Error('Task not found'), { status: 404 })
   }
 
-  // Read before the delete: the test cases cascade away with the task.
-  const hasEvidence = await privateFileRepository.taskHasTestCases(taskId)
-  await taskRepository.delete(taskId)
-  // LUM-916: evidence blobs used to outlive the task until the workspace was
-  // deleted. Best-effort, after the commit — never fails the delete.
-  if (hasEvidence) await privateFileService.deleteTaskEvidence([taskId])
+  await trashService.trashTask(taskId, deletedByClerkId)
 
   return { workspaceId: task.project.workspaceId }
 }

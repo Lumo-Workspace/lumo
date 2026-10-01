@@ -24,7 +24,7 @@ export const projectRepository = {
     return prisma.project.findMany({
       where: projectVisibilityWhere(workspaceId, memberId),
       include: {
-        _count: { select: { tasks: true } },
+        _count: { select: { tasks: { where: { deletedAt: null } } } },
         owner: {
           select: {
             id: true,
@@ -76,7 +76,11 @@ export const projectRepository = {
   async findById(id: string) {
     return prisma.project.findUnique({
       where: { id },
-      include: { _count: { select: { tasks: true, views: true } } },
+      include: {
+        _count: {
+          select: { tasks: { where: { deletedAt: null } }, views: true },
+        },
+      },
     })
   },
 

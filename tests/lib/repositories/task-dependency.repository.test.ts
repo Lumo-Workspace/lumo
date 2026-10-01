@@ -70,7 +70,7 @@ describe('taskDependencyRepository.findLiveBlockersForTask', () => {
           blockedTaskId: 't1',
           status: 'CONFIRMED',
           kind: 'BLOCKS',
-          blockingTask: { status: { not: 'DONE' } },
+          blockingTask: { status: { not: 'DONE' }, deletedAt: null },
         },
       })
     )

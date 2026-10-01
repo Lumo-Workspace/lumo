@@ -1,6 +1,6 @@
 # Lumo Privacy Policy
 
-Last updated: 2026-09-26 · Draft for legal review (LUM-857)
+Last updated: 2026-09-30 · Draft for legal review (LUM-857)
 
 This policy explains what personal data [Lumo legal entity], [registered address] ("Lumo", "we", "us") collects when you use the Lumo website, web application, command-line tool (CLI) and integrations (together, the "Service"), why we collect it, how long we keep it, who we share it with, and the rights you have.
 
@@ -52,13 +52,14 @@ When an AI feature runs, the relevant text (which may include code) is sent to a
 | --- | --- |
 | Account data | While your account is active. We delete it on request, unless we must keep some of it to meet a legal obligation. |
 | Workspace content | For as long as the workspace exists. Older document revisions are thinned automatically (one per day for the last week, then one per week). |
+| Deleted tasks and documents | Deleted tasks and documents (with their subtasks and sub-pages) go to the workspace's trash for 30 days, where they can be restored; after 30 days they are permanently deleted automatically. A member can also delete a trashed item permanently at any time. |
 | Agent hook events | For as long as the workspace exists, by default. A workspace owner can set a retention period of 30, 90, 180 or 365 days, after which the content of older events is removed and only metadata is kept. Two kinds of event are kept in full: events of tasks that are not yet done, until the task is done, and events cited as evidence in a boundary-crossing review record, for as long as that record exists. |
 | Customer code | Repositories cloned for a scan exist only in a short-lived sandbox that is discarded after the scan. Scan results and the code excerpts attached to findings are kept for as long as the workspace exists. |
 | Integration tokens | Until the integration is disconnected or the workspace is deleted. |
 | Technical data and logs | [Log retention period] |
 | Backups | Deleted data can persist in encrypted database backups for up to [backup retention period] before it is overwritten. |
 
-When a workspace owner deletes a workspace, we permanently delete its database records and stored files and keep a deletion receipt recording what was deleted and when (not the deleted content). If you uninstall the GitHub App but keep the workspace, data already collected from GitHub is kept with the workspace; contact us if you want it deleted.
+When a workspace owner deletes a workspace, the deletion is scheduled 48 hours ahead and every workspace owner is emailed; any owner can cancel it during that window. When the 48 hours pass, we permanently delete the workspace's database records and stored files and keep a deletion receipt recording what was deleted and when (not the deleted content). An owner who needs the data erased immediately, for example to meet an erasure request, can run the scheduled deletion at once from workspace settings. If you uninstall the GitHub App but keep the workspace, data already collected from GitHub is kept with the workspace; contact us if you want it deleted.
 
 ## Who we share data with
 
@@ -86,7 +87,7 @@ Depending on where you live, you have the right to:
 - **Access** the personal data we hold about you and get a copy of it.
 - **Export** your data in a portable, machine-readable format.
 - **Correct** inaccurate data. You can edit your profile yourself.
-- **Delete** your data. Workspace owners can delete a workspace, and everything in it, from workspace settings.
+- **Delete** your data. Workspace owners can delete a workspace, and everything in it, from workspace settings (after a 48-hour cancellation window, or at once if they choose). Deleted tasks and documents can be permanently deleted right away from the trash instead of waiting 30 days.
 - **Restrict or object** to processing based on our legitimate interests.
 - **Withdraw consent** where we rely on it.
 - **Complain** to your data protection authority.

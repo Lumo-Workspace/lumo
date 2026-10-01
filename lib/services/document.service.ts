@@ -3,6 +3,7 @@ import {
   documentRepository,
   type DocumentFilters,
 } from '@/lib/repositories/document.repository'
+import { trashService } from '@/lib/services/trash.service'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import {
@@ -1011,8 +1012,16 @@ export const documentService = {
     }
   },
 
-  /** Delete document (owner only) with recursive descendant cleanup. */
-  async deleteDocument(id: string, memberId: string, workspaceId: string) {
+  /**
+   * Delete a document (owner only): it moves to the trash with its
+   * sub-pages, restorable for 30 days (LUM-918).
+   */
+  async deleteDocument(
+    id: string,
+    memberId: string,
+    workspaceId: string,
+    deletedByClerkId: string
+  ) {
     const doc = await documentRepository.findById(id, workspaceId)
     if (!doc) {
       throw Object.assign(new Error('Document not found'), { status: 404 })
@@ -1023,7 +1032,7 @@ export const documentService = {
       })
     }
 
-    await documentRepository.deleteWithDescendants(doc.id, workspaceId)
+    await trashService.trashDocument(doc.id, deletedByClerkId)
   },
 
   /** Determine user's role for a document. */

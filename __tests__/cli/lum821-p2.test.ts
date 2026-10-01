@@ -93,12 +93,10 @@ describe('task delete', () => {
     expect(method('DELETE')).toHaveLength(0)
     const env = JSON.parse(out)
     expect(env.changes[0]).toContain(
-      'PERMANENTLY delete LUM-9 "Old spike" (TODO)'
+      'Will move LUM-9 "Old spike" (TODO) to the trash'
     )
-    expect(env.changes.join('\n')).toContain('boundary crossings')
-    expect(env.changes.join('\n')).toContain('Kept but unlinked: memories')
     expect(env.changes.join('\n')).toContain(
-      '1 subtask stays but loses its parent: LUM-10'
+      '1 subtask goes to the trash with it: LUM-10'
     )
     expect(env.confirmCommand).toMatch(/ --confirm$/)
   })
@@ -106,7 +104,7 @@ describe('task delete', () => {
   it('--confirm sends the DELETE', async () => {
     expect(await taskDelete('LUM-9', { confirm: true })).toBeUndefined()
     expect(method('DELETE')).toHaveLength(1)
-    expect(out).toContain('Deleted LUM-9 "Old spike"')
+    expect(out).toContain('Moved LUM-9 "Old spike" to the trash')
   })
 
   it('describeTaskDelete omits subtask / PR lines when there are none', () => {

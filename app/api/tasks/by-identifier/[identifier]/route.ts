@@ -127,9 +127,9 @@ export async function PATCH(
 /**
  * DELETE /api/tasks/by-identifier/[identifier]
  *
- * Bearer-authed CLI endpoint for `lumo task delete` (LUM-821). Hard delete,
- * same as the web's DELETE /api/tasks/[id]; the CLI only sends it after the
- * user approved the confirmation envelope.
+ * Bearer-authed CLI endpoint for `lumo task delete` (LUM-821). Moves the
+ * task to the trash (LUM-918), same as the web's DELETE /api/tasks/[id]; the
+ * CLI only sends it after the user approved the confirmation envelope.
  */
 export async function DELETE(
   request: Request,
@@ -144,6 +144,7 @@ export async function DELETE(
     const deleted = await taskCliService.deleteFromCli({
       workspaceId: identity.workspace.id,
       identifier,
+      clerkId: identity.user.id,
     })
     return NextResponse.json({ deleted })
   } catch (err) {
