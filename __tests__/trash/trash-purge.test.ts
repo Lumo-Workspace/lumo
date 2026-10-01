@@ -265,12 +265,18 @@ describe('LUM-923 trash purge: robust daily cron', () => {
 
     const out = await trashService.purgeExpired(NOW)
 
-    const docCalls = pages.mock.calls.filter(c => c[0] === 'document')
+    const docPages = pages.mock.calls
+      .map((call, i) => ({ call, result: pages.mock.results[i]!.value }))
+      .filter(p => p.call[0] === 'document')
+    const firstPage = (await docPages[0]!.result) as string[]
     pages.mockRestore()
     expect(out.failed).toBe(0)
-    expect(docCalls.length).toBeGreaterThanOrEqual(2)
-    expect(docCalls.every(c => c[2] === PURGE_PAGE_SIZE)).toBe(true)
-    expect(docCalls[1]![3]).toBe(ids[PURGE_PAGE_SIZE - 1])
+    expect(docPages.length).toBeGreaterThanOrEqual(2)
+    expect(docPages.every(p => p.call[2] === PURGE_PAGE_SIZE)).toBe(true)
+    // Page one is full; page two resumes after its last id.
+    expect(firstPage).toHaveLength(PURGE_PAGE_SIZE)
+    expect(docPages[0]!.call[3]).toBeNull()
+    expect(docPages[1]!.call[3]).toBe(firstPage[PURGE_PAGE_SIZE - 1])
     expect(await db.document.count({ where: { id: { in: ids } } })).toBe(0)
   })
 
