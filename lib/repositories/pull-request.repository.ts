@@ -473,7 +473,8 @@ export const pullRequestRepository = {
     const rows = await prisma.pullRequest.findMany({
       where: {
         state: 'merged',
-        task: { milestoneId: { in: milestoneIds } },
+        // LUM-923: a relation filter skips the default trash filter.
+        task: { milestoneId: { in: milestoneIds }, deletedAt: null },
       },
       select: { task: { select: { milestoneId: true } } },
     })

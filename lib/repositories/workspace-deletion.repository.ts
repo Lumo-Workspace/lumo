@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import { SOFT_DELETE_MODELS } from '@/lib/db/soft-delete'
 
 /**
  * LUM-861: models that `workspace.delete()` does NOT remove through FK
@@ -46,8 +47,18 @@ export interface DueDeletion {
 
 type Tx = Prisma.TransactionClient
 type CountDelegate = {
-  count: (args: { where: { workspaceId: string } }) => Promise<number>
+  count: (args: { where: Record<string, unknown> }) => Promise<number>
 }
+
+/**
+ * LUM-923: the soft-delete extension hides trashed rows from every default
+ * read. Deletion must see them — they are deleted too — so these models opt
+ * out explicitly (`deletedAt: {}` names the column without filtering it).
+ */
+const SOFT_DELETE_MODEL_NAMES: ReadonlySet<string> = new Set(
+  SOFT_DELETE_MODELS.map(m => m.charAt(0).toUpperCase() + m.slice(1))
+)
+const INCLUDING_TRASHED = { deletedAt: {} } as const
 
 /** Models keyed directly by a `workspaceId` column (their rows are counted). */
 const WORKSPACE_KEYED_MODELS = Prisma.dmmf.datamodel.models
@@ -72,7 +83,10 @@ async function countWorkspaceRows(
       delegateName(model)
     ]
     if (!delegate) continue
-    const n = await delegate.count({ where: { workspaceId } })
+    const where = SOFT_DELETE_MODEL_NAMES.has(model)
+      ? { workspaceId, ...INCLUDING_TRASHED }
+      : { workspaceId }
+    const n = await delegate.count({ where })
     if (n > 0) counts[model] = n
   }
   return counts
@@ -125,10 +139,17 @@ async function purgeFkLessRows(
 }
 
 export const workspaceDeletionRepository = {
-  /** Ids of the workspace's tasks that own at least one test case. */
+  /**
+   * Ids of the workspace's tasks that own at least one test case — trashed
+   * ones included (LUM-923): their evidence blobs go with the workspace.
+   */
   async findTaskIdsWithTestCases(workspaceId: string): Promise<string[]> {
     const rows = await prisma.task.findMany({
-      where: { project: { workspaceId }, testCases: { some: {} } },
+      where: {
+        project: { workspaceId },
+        testCases: { some: {} },
+        ...INCLUDING_TRASHED,
+      },
       select: { id: true },
     })
     return rows.map(r => r.id)

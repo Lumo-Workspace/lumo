@@ -2060,6 +2060,19 @@ export function detectProjectActionCrossings(
   return out
 }
 
+/**
+ * LUM-923: true only when the task is positively found in the trash. An
+ * unknown task, or a failed lookup, reads false so detection still records
+ * (fail open: visibility over silence).
+ */
+async function isTaskInTrash(taskId: string): Promise<boolean> {
+  try {
+    return (await taskRepository.isTrashed(taskId)) === true
+  } catch {
+    return false
+  }
+}
+
 export const boundaryDetectorService = {
   /**
    * Detect forbidden actions on an ingested hook event and, for each match,
@@ -2071,6 +2084,8 @@ export const boundaryDetectorService = {
    */
   async detectAndRecord(input: BoundaryDetectionInput): Promise<void> {
     try {
+      // LUM-923: a task in the trash collects no new crossings.
+      if (await isTaskInTrash(input.taskId)) return
       const crossings = detectCrossings(input)
       // LUM-466: confirm action-category candidates — drop a forbidden token that
       // matched only as prose (commit message / PR body / echo), keep real

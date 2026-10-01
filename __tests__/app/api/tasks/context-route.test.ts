@@ -12,6 +12,12 @@ jest.mock('@/lib/services/task-context.service', () => ({
 jest.mock('@/lib/services/next-steps.service', () => ({
   nextStepsService: { forExistingTask: jest.fn().mockResolvedValue([]) },
 }))
+// LUM-923: the pending-deletion notice is covered in workspace-deletion/.
+jest.mock('@/lib/services/workspace-deletion.service', () => ({
+  workspaceDeletionService: {
+    buildPendingNoticeSection: jest.fn().mockResolvedValue(''),
+  },
+}))
 
 import { NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth/identity'
@@ -71,6 +77,10 @@ describe('GET /api/tasks/context/[identifier]', () => {
     expect(res.status).toBe(200)
     // LUM-686: the route now appends the next-step block alongside the
     // assembled context; the context payload itself passes through unchanged.
-    expect(await res.json()).toEqual({ ...context, nextSteps: [] })
+    expect(await res.json()).toEqual({
+      ...context,
+      nextSteps: [],
+      workspaceNoticeSection: '',
+    })
   })
 })

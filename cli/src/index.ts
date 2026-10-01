@@ -913,7 +913,7 @@ task
 task
   .command('delete <identifier>')
   .description(
-    'Permanently delete a task (hard delete, no archive; subtasks are kept and detached). Without --confirm: exit 4 + a confirmation envelope listing what goes with it.'
+    'Move a task and all its subtasks to the trash (restorable for 30 days from web Settings → Trash, then permanently deleted). Without --confirm: exit 4 + a confirmation envelope listing what goes with it.'
   )
   .option(
     '--confirm',
@@ -2547,7 +2547,7 @@ doc
 doc
   .command('delete <doc>')
   .description(
-    'Delete a document and everything nested under it. Without --confirm: exit 4 + a confirmation envelope with the title.'
+    'Move a document and everything nested under it to the trash (restorable for 30 days by its owner from web Settings → Trash, then permanently deleted). Without --confirm: exit 4 + a confirmation envelope with the title.'
   )
   .option(
     '--confirm',

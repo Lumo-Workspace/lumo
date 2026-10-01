@@ -15,7 +15,7 @@ Everything read at session start is re-read on every later step, so the default 
 
 The command prints a markdown document to stdout with these sections, in order:
 
-1. **Task header** — identifier, title, status, description.
+1. **Task header** — identifier, title, status, description. When the workspace is scheduled for deletion (LUM-923), a `## Workspace scheduled for deletion` block with the deletion time follows it — tell the user before starting long-running work; session start injects the same block first.
 2. **`## Acceptance criteria (contract)`** — shown right after the header. Each line `[MACHINE|HUMAN] statement`, with a `↳ check:` line for MACHINE checkpointers; HUMAN_EDIT / REVIEW_ADDED provenance tagged inline. A still-open task with none shows a draft reminder instead — draft 3–7 criteria **before writing code** — followed by a `### Reference class (outside view)` block giving the failure modes of similar delivered tasks, to draft against rather than to copy (see [criteria.md](criteria.md)).
 3. **Memory section** — cross-session learnings, **one headline line per memory** by default: `- Trap [project · agent-authored] <headline> · <id>` (Traps first). Pull a full card (outcome / Workaround / Why / Steps) with `lumo memory show <id>` when a headline touches what you're about to do; `--full` prints every body inline. Same memories, same order, as the full rendering — nothing is dropped.
 4. **Inline source cards** — Slack / web / Figma / artifacts / documents / comments / Pull Requests (see "Context Retrieval" below).

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth/identity'
 import { taskContextService } from '@/lib/services/task-context.service'
 import { nextStepsService } from '@/lib/services/next-steps.service'
+import { workspaceDeletionService } from '@/lib/services/workspace-deletion.service'
 import type { TaskStatusForNextSteps } from '@/lib/context/render/next-steps'
 
 export async function GET(
@@ -25,14 +26,18 @@ export async function GET(
   // false here — reading context says nothing about this session's binding, and
   // suggesting attach when it may already be bound is the one hint that would
   // send the agent into a 409.
-  const nextSteps = await nextStepsService.forExistingTask({
-    taskId: result.task.id,
-    taskIdentifier: result.task.identifier,
-    status: result.task.status as TaskStatusForNextSteps,
-    sessionBound: true,
-    criteriaNudgeAlreadyShown: true,
-    // LUM-807: ditto for the test-case nudge the payload already carries.
-    testCaseNudgeAlreadyShown: true,
-  })
-  return NextResponse.json({ ...result, nextSteps })
+  const [nextSteps, workspaceNoticeSection] = await Promise.all([
+    nextStepsService.forExistingTask({
+      taskId: result.task.id,
+      taskIdentifier: result.task.identifier,
+      status: result.task.status as TaskStatusForNextSteps,
+      sessionBound: true,
+      criteriaNudgeAlreadyShown: true,
+      // LUM-807: ditto for the test-case nudge the payload already carries.
+      testCaseNudgeAlreadyShown: true,
+    }),
+    // LUM-923: a pending workspace deletion, so the agent can warn the user.
+    workspaceDeletionService.buildPendingNoticeSection(identity.workspaceId),
+  ])
+  return NextResponse.json({ ...result, nextSteps, workspaceNoticeSection })
 }

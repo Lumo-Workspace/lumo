@@ -59,7 +59,7 @@ describe('workspaceExportWorkflow', () => {
 
     expect(EXPORT_TTL).toBe('7d')
     expect(order).toEqual(['generate', 'sleep 7d', 'expire'])
-    expect(expireWorkspaceExportStep).toHaveBeenCalledWith('exp1')
+    expect(expireWorkspaceExportStep).toHaveBeenCalledWith('exp1', undefined)
     expect(out).toEqual({ outcome: 'EXPIRED' })
     expect(failWorkspaceExportStep).not.toHaveBeenCalled()
   })
@@ -69,10 +69,28 @@ describe('workspaceExportWorkflow', () => {
 
     const out = await workspaceExportWorkflow('exp1')
 
-    expect(failWorkspaceExportStep).toHaveBeenCalledWith('exp1', 'db timeout')
+    expect(failWorkspaceExportStep).toHaveBeenCalledWith(
+      'exp1',
+      'db timeout',
+      undefined
+    )
     expect(sleep).not.toHaveBeenCalled()
     expect(expireWorkspaceExportStep).not.toHaveBeenCalled()
     expect(out).toEqual({ outcome: 'FAILED', reason: 'db timeout' })
+  })
+})
+
+describe('LUM-923 export race: workflow input', () => {
+  it('LUM-923 export race: every step receives the workspaceId the run was started with', async () => {
+    m(generateWorkspaceExportStep).mockRejectedValue(new Error('gone'))
+    await workspaceExportWorkflow('exp1', 'w1')
+    expect(generateWorkspaceExportStep).toHaveBeenCalledWith('exp1', 'w1')
+    expect(failWorkspaceExportStep).toHaveBeenCalledWith('exp1', 'gone', 'w1')
+
+    jest.clearAllMocks()
+    m(generateWorkspaceExportStep).mockResolvedValue(undefined)
+    await workspaceExportWorkflow('exp1', 'w1')
+    expect(expireWorkspaceExportStep).toHaveBeenCalledWith('exp1', 'w1')
   })
 })
 

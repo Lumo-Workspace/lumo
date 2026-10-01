@@ -190,6 +190,15 @@ async function blobStore() {
   return import('./workspace-export-blob')
 }
 
+/** Delete one export's archive by its key alone — the row may be gone. */
+async function removeArchive(workspaceId: string, exportId: string) {
+  const blob = await blobStore()
+  await blob.deleteExportArchive(workspaceId, exportId)
+  logger.info(
+    `[workspace-export] removed archive of vanished export=${exportId} workspace=${workspaceId}`
+  )
+}
+
 export const workspaceExportService = {
   /** OWNER only. Returns the running export instead of starting a second. */
   async requestExport(input: {
@@ -203,7 +212,7 @@ export const workspaceExportService = {
 
     const record = await repo.create(input.workspaceId, input.clerkId)
     const { startWorkspaceExport } = await import('./workspace-export-start')
-    const runId = await startWorkspaceExport(record.id)
+    const runId = await startWorkspaceExport(record.id, input.workspaceId)
     if (!runId) {
       await repo.markFailed(record.id, 'workflow run could not be started')
       throw httpError('Could not start the export, please retry', 503)
@@ -224,12 +233,26 @@ export const workspaceExportService = {
     return rows.map(toView)
   },
 
-  /** Workflow step: build + upload the archive, mark READY. Idempotent. */
-  async generateArchive(exportId: string, now = new Date()): Promise<void> {
+  /**
+   * Workflow step: build + upload the archive, mark READY. Idempotent.
+   *
+   * LUM-923: the workspace may be deleted while this runs. `workspaceId`
+   * comes from the workflow input so the archive can be removed even after
+   * the export row went with the workspace; an upload that can no longer be
+   * marked READY (row gone, or invalidated by the deletion) is deleted.
+   */
+  async generateArchive(
+    exportId: string,
+    now = new Date(),
+    workspaceId?: string
+  ): Promise<void> {
     const record = await repo.findById(exportId)
-    if (!record) throw new Error(`export ${exportId} not found`)
+    if (!record) {
+      if (workspaceId) await removeArchive(workspaceId, exportId)
+      throw new Error(`export ${exportId} not found`)
+    }
     if (record.status !== 'PENDING' && record.status !== 'RUNNING') return
-    await repo.markRunning(exportId)
+    if (!(await repo.markRunning(exportId))) return
 
     const { bytes, rowCounts } = await buildWorkspaceArchive(
       record.workspaceId,
@@ -244,31 +267,50 @@ export const workspaceExportService = {
       bytes
     )
     const completedAt = new Date()
-    await repo.markReady(exportId, {
-      blobUrl,
-      sizeBytes: bytes.length,
-      rowCounts,
-      completedAt,
-      expiresAt: new Date(completedAt.getTime() + EXPORT_TTL_DAYS * DAY_MS),
-    })
+    let ready = false
+    try {
+      ready = await repo.markReady(exportId, {
+        blobUrl,
+        sizeBytes: bytes.length,
+        rowCounts,
+        completedAt,
+        expiresAt: new Date(completedAt.getTime() + EXPORT_TTL_DAYS * DAY_MS),
+      })
+    } finally {
+      if (!ready) await blob.deleteExportArchive(record.workspaceId, exportId)
+    }
+    if (!ready) {
+      throw new Error(`export ${exportId} was invalidated while generating`)
+    }
     logger.info(
       `[workspace-export] ready export=${exportId} bytes=${bytes.length}`
     )
   },
 
   /** Workflow step: the download window closed — delete the archive. */
-  async expireExport(exportId: string): Promise<void> {
+  async expireExport(exportId: string, workspaceId?: string): Promise<void> {
     const record = await repo.findById(exportId)
-    if (!record) return
+    if (!record) {
+      // LUM-923: the row went with its workspace; the blob may not have.
+      if (workspaceId) await removeArchive(workspaceId, exportId)
+      return
+    }
     const blob = await blobStore()
     await blob.deleteExportArchive(record.workspaceId, exportId)
     await repo.markExpired(exportId)
   },
 
   /** Workflow step: generation failed for good — no archive may remain. */
-  async failExport(exportId: string, reason: string): Promise<void> {
+  async failExport(
+    exportId: string,
+    reason: string,
+    workspaceId?: string
+  ): Promise<void> {
     const record = await repo.findById(exportId)
-    if (!record) return
+    if (!record) {
+      if (workspaceId) await removeArchive(workspaceId, exportId)
+      return
+    }
     const blob = await blobStore()
     await blob.deleteExportArchive(record.workspaceId, exportId)
     await repo.markFailed(exportId, reason.slice(0, 500))

@@ -17,22 +17,28 @@ export type WorkspaceExportOutcome =
   | { outcome: 'EXPIRED' }
   | { outcome: 'FAILED'; reason: string }
 
+/**
+ * `workspaceId` is optional only for runs started before LUM-923; with it a
+ * step can delete the archive even after the export row went with a deleted
+ * workspace.
+ */
 export async function workspaceExportWorkflow(
-  exportId: string
+  exportId: string,
+  workspaceId?: string
 ): Promise<WorkspaceExportOutcome> {
   'use workflow'
 
   try {
-    await generateWorkspaceExportStep(exportId)
+    await generateWorkspaceExportStep(exportId, workspaceId)
   } catch (error) {
     const reason = (
       error instanceof Error ? error.message : String(error)
     ).slice(0, 500)
-    await failWorkspaceExportStep(exportId, reason)
+    await failWorkspaceExportStep(exportId, reason, workspaceId)
     return { outcome: 'FAILED', reason }
   }
 
   await sleep(EXPORT_TTL)
-  await expireWorkspaceExportStep(exportId)
+  await expireWorkspaceExportStep(exportId, workspaceId)
   return { outcome: 'EXPIRED' }
 }

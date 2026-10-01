@@ -38,6 +38,15 @@ export type ExportRow = Record<string, unknown> & { id: string }
 
 const ts = { createdAt: true, updatedAt: true } as const
 
+/**
+ * LUM-923: an export is the right of access to everything still stored, so
+ * trashed tasks and documents are exported too (with their `deletedAt`) —
+ * otherwise the comments / criteria of a trashed task, read through relation
+ * filters the soft-delete extension does not touch, point at no task row.
+ * `deletedAt: {}` names the column, opting out of the default trash filter.
+ */
+const INCLUDING_TRASHED = { deletedAt: {} } as const
+
 function paging(afterId: string | null, take: number) {
   return {
     orderBy: { id: 'asc' as const },
@@ -139,9 +148,10 @@ async function pageRows(
       })
     case 'tasks': {
       const rows = await prisma.task.findMany({
-        where: inWorkspaceProject,
+        where: { ...inWorkspaceProject, ...INCLUDING_TRASHED },
         select: {
           id: true,
+          deletedAt: true,
           projectId: true,
           teamId: true,
           number: true,
@@ -284,9 +294,10 @@ async function pageRows(
       })
     case 'documents':
       return prisma.document.findMany({
-        where: { workspaceId },
+        where: { workspaceId, ...INCLUDING_TRASHED },
         select: {
           id: true,
+          deletedAt: true,
           number: true,
           slug: true,
           title: true,
@@ -404,11 +415,16 @@ export const workspaceExportRepository = {
     })
   },
 
-  async markRunning(id: string) {
-    await prisma.workspaceExport.update({
-      where: { id },
+  /**
+   * PENDING / RUNNING → RUNNING. False when the export was invalidated (or
+   * deleted with its workspace) since it was read — LUM-923: never revive it.
+   */
+  async markRunning(id: string): Promise<boolean> {
+    const { count } = await prisma.workspaceExport.updateMany({
+      where: { id, status: { in: ACTIVE } },
       data: { status: 'RUNNING', error: null },
     })
+    return count === 1
   },
 
   async markReady(
@@ -420,11 +436,33 @@ export const workspaceExportRepository = {
       completedAt: Date
       expiresAt: Date
     }
-  ) {
-    await prisma.workspaceExport.update({
-      where: { id },
+  ): Promise<boolean> {
+    // LUM-923: only a still-RUNNING export becomes READY. One invalidated by
+    // a workspace deletion (or already gone with it) reports false so the
+    // caller removes the archive it just uploaded.
+    const { count } = await prisma.workspaceExport.updateMany({
+      where: { id, status: 'RUNNING' },
       data: { status: 'READY', error: null, ...data },
     })
+    return count === 1
+  },
+
+  /**
+   * LUM-923: fail every in-flight export of a workspace about to be deleted,
+   * so no run can turn one READY afterwards. Returns the invalidated ids.
+   */
+  async invalidateActive(workspaceId: string, error: string) {
+    const rows = await prisma.workspaceExport.findMany({
+      where: { workspaceId, status: { in: ACTIVE } },
+      select: { id: true },
+    })
+    if (rows.length === 0) return []
+    const ids = rows.map(r => r.id)
+    await prisma.workspaceExport.updateMany({
+      where: { id: { in: ids }, status: { in: ACTIVE } },
+      data: { status: 'FAILED', error },
+    })
+    return ids
   },
 
   async markFailed(id: string, error: string) {

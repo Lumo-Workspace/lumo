@@ -819,6 +819,14 @@ export const taskRepository = {
     })
   },
 
+  /** LUM-923: true only when the task exists and sits in the trash. */
+  async isTrashed(id: string): Promise<boolean> {
+    const n = await prisma.task.count({
+      where: { id, deletedAt: { not: null } },
+    })
+    return n > 0
+  },
+
   /** Find a task by ID with only project workspaceId (for auth checks). */
   async findWithProjectWorkspaceId(id: string) {
     return prisma.task.findUnique({

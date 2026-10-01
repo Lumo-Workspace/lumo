@@ -188,6 +188,9 @@ export function formatHookStdoutLines(
   // isn't injected twice. `body.previousSession` is still sent (it drives the
   // server's lineage/metrics) but is no longer rendered here.
   const envelope = sessionContextEnvelope([
+    // LUM-923: a pending workspace deletion outranks everything — the whole
+    // workspace, this task included, is about to be gone.
+    body.workspaceNoticeSection,
     // Blocker warning first: it can preempt the session's work entirely (wait
     // for the blocker instead of starting) — LUM-172.
     body.blockerWarningSection,
@@ -230,6 +233,8 @@ type SessionStartBody = {
     taskIdentifier?: string
     taskTitle?: string
   }
+  /** LUM-923: pending workspace deletion notice; absent on older servers. */
+  workspaceNoticeSection?: string
   criteriaSection?: string
   /** LUM-807: "## Test cases" nudge; absent on older servers. */
   testCaseSection?: string

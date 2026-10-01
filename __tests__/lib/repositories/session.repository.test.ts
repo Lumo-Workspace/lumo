@@ -495,11 +495,26 @@ describe('sessionRepository.findTaskBinding', () => {
           select: {
             number: true,
             title: true,
+            deletedAt: true,
             team: { select: { identifier: true } },
           },
         },
       },
     })
+  })
+
+  it('LUM-923 returns bound:false when the bound task is in the trash', async () => {
+    findUnique().mockResolvedValue({
+      taskId: 'task-abc',
+      task: {
+        number: 12,
+        title: 'Add OAuth',
+        deletedAt: new Date('2026-09-30T00:00:00Z'),
+        team: { identifier: 'LUM' },
+      },
+    })
+    const result = await sessionRepository.findTaskBinding('sess_1')
+    expect(result).toEqual({ bound: false })
   })
 
   it('returns bound:false when session has no task', async () => {

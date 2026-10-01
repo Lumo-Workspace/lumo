@@ -7,10 +7,13 @@ import { logger } from '@/lib/logger'
 import { workspaceExportWorkflow } from '@/lib/workflows/workspace-export'
 
 export async function startWorkspaceExport(
-  exportId: string
+  exportId: string,
+  workspaceId: string
 ): Promise<string | null> {
   try {
-    const run = await start(workspaceExportWorkflow, [exportId])
+    // workspaceId rides along (LUM-923) so every step can still find and
+    // delete the archive after the export row went with its workspace.
+    const run = await start(workspaceExportWorkflow, [exportId, workspaceId])
     return run.runId
   } catch (error) {
     logger.error(

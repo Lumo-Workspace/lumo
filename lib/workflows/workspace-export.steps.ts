@@ -6,23 +6,30 @@
 import { workspaceExportService } from '@/lib/services/workspace-export.service'
 
 export async function generateWorkspaceExportStep(
-  exportId: string
+  exportId: string,
+  workspaceId?: string
 ): Promise<void> {
   'use step'
-  await workspaceExportService.generateArchive(exportId)
+  await workspaceExportService.generateArchive(
+    exportId,
+    new Date(),
+    workspaceId
+  )
 }
 
 export async function expireWorkspaceExportStep(
-  exportId: string
+  exportId: string,
+  workspaceId?: string
 ): Promise<void> {
   'use step'
-  await workspaceExportService.expireExport(exportId)
+  await workspaceExportService.expireExport(exportId, workspaceId)
 }
 
 export async function failWorkspaceExportStep(
   exportId: string,
-  reason: string
+  reason: string,
+  workspaceId?: string
 ): Promise<void> {
   'use step'
-  await workspaceExportService.failExport(exportId, reason)
+  await workspaceExportService.failExport(exportId, reason, workspaceId)
 }
