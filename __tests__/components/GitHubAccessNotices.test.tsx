@@ -11,8 +11,16 @@ import en from '@/lib/i18n/en.json'
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }, values?: { count?: number }) =>
-      values?.count === undefined ? id : `${id}:${values.count}`,
+    formatMessage: (
+      { id }: { id: string },
+      values?: { count?: number; since?: string }
+    ) =>
+      values?.since !== undefined
+        ? `${id}:${values.since}`
+        : values?.count === undefined
+          ? id
+          : `${id}:${values.count}`,
+    formatDate: (value: string) => `date(${value})`,
   }),
 }))
 
@@ -101,5 +109,34 @@ describe('GitHubAccessNotices', () => {
       <GitHubAccessNotices accessRecheckEnabled accessRemovedCount={0} />
     )
     expect(container).toBeEmptyDOMElement()
+  })
+
+  it('LUM-927 shows the token failure notice', () => {
+    const { rerender } = render(
+      <GitHubAccessNotices
+        accessRecheckEnabled
+        accessRemovedCount={0}
+        tokenFailingSince='2026-09-27T00:00:00.000Z'
+      />
+    )
+    // The notice dates the failure run with the viewer's locale.
+    expect(
+      screen.getByText('github.tokenFailing:date(2026-09-27T00:00:00.000Z)')
+    ).toBeInTheDocument()
+    // It names the usual cause and who fixes it, and does not claim scans
+    // stopped: the scan token is a different permission set.
+    const copy = catalogue['github.tokenFailing'] ?? ''
+    expect(copy).toContain('{since}')
+    expect(copy).toContain('permissions')
+    expect(copy).not.toMatch(/scann/i)
+
+    rerender(
+      <GitHubAccessNotices
+        accessRecheckEnabled
+        accessRemovedCount={0}
+        tokenFailingSince={null}
+      />
+    )
+    expect(screen.queryByText(/github\.tokenFailing/)).not.toBeInTheDocument()
   })
 })

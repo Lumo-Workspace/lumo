@@ -58,10 +58,11 @@ const recheckRepository =
   githubAccessRecheckService.recheckRepository as jest.Mock
 const verify = verifyGitHubSignature as jest.Mock
 
-function cronRequest(auth?: string) {
-  return new NextRequest('http://localhost/api/cron/recheck-github-access', {
-    headers: auth ? { authorization: auth } : {},
-  })
+function cronRequest(auth?: string, query = '') {
+  return new NextRequest(
+    `http://localhost/api/cron/recheck-github-access${query}`,
+    { headers: auth ? { authorization: auth } : {} }
+  )
 }
 
 function webhook(event: string, body: object) {
@@ -102,6 +103,14 @@ describe('access recheck triggers', () => {
     expect(res.status).toBe(200)
     expect(sweep).toHaveBeenCalledTimes(1)
     expect(await res.json()).toEqual({ workspaces: 1, checked: 3, removed: 1 })
+  })
+
+  it('LUM-927 passes the installations an operator confirmed to the sweep', async () => {
+    await cronGET(cronRequest('Bearer cron-secret', '?confirmRemovals=12,34'))
+    expect(sweep).toHaveBeenCalledWith(undefined, { confirmRemovals: [12, 34] })
+
+    await cronGET(cronRequest('Bearer cron-secret'))
+    expect(sweep).toHaveBeenLastCalledWith(undefined, { confirmRemovals: [] })
   })
 
   it('refuses the cron without the secret and runs nothing', async () => {

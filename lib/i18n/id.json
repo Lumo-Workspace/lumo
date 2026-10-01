@@ -2656,5 +2656,6 @@
   "settings.trash.purgeTitle": "Hapus permanen?",
   "settings.trash.purgeDesc": "\"{name}\" dan semua yang masuk ke sampah bersamanya akan langsung dihapus. Tindakan ini tidak dapat dibatalkan.",
   "settings.trash.purged": "Dihapus permanen",
-  "settings.trash.purgeFailed": "Gagal menghapus"
+  "settings.trash.purgeFailed": "Gagal menghapus",
+  "github.tokenFailing": "Sejak {since}, Lumo tidak dapat memeriksa akses repositori untuk instalasi GitHub ini, meskipun GitHub masih menampilkannya sebagai aktif. Sampai masalah ini diperbaiki, repositori yang aksesnya dicabut di GitHub tetap berada di workspace ini. Biasanya ini karena izin App baru sedang menunggu persetujuan: pemilik akun GitHub dapat menyetujuinya di pengaturan instalasi di GitHub."
 }

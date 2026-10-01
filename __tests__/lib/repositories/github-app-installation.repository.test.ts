@@ -9,6 +9,7 @@ jest.mock('@/lib/db/prisma', () => {
     update: jest.fn(),
     updateMany: jest.fn(),
     deleteMany: jest.fn(),
+    findFirst: jest.fn(),
   }
   return { prisma: { gitHubAppInstallation } }
 })
@@ -24,6 +25,7 @@ const prismaMock = prisma as unknown as {
     update: jest.Mock
     updateMany: jest.Mock
     deleteMany: jest.Mock
+    findFirst: jest.Mock
   }
 }
 
@@ -99,18 +101,66 @@ describe('githubAppInstallationRepository', () => {
     })
   })
 
-  it('findInstallationIdsWithoutVerifier lists installations of unverified rows', async () => {
-    prismaMock.gitHubAppInstallation.findMany.mockResolvedValue([
-      { installationId: 7 },
-      { installationId: 9 },
-    ])
-    await expect(
-      githubAppInstallationRepository.findInstallationIdsWithoutVerifier()
-    ).resolves.toEqual([7, 9])
+  it('findAllForInstallationNarrowing reads every row with its version', async () => {
+    prismaMock.gitHubAppInstallation.findMany.mockResolvedValue([])
+    await githubAppInstallationRepository.findAllForInstallationNarrowing()
     expect(prismaMock.gitHubAppInstallation.findMany).toHaveBeenCalledWith({
-      where: { OR: [{ verifierLogin: null }, { verifiedAt: null }] },
-      distinct: ['installationId'],
-      select: { installationId: true },
+      select: {
+        workspaceId: true,
+        installationId: true,
+        repositories: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    })
+  })
+
+  describe('LUM-927 installation narrowing and token failures', () => {
+    const at = new Date('2026-10-01T00:00:00Z')
+
+    it('updateRepositoriesIfUnchanged writes only the version it read', async () => {
+      prismaMock.gitHubAppInstallation.updateMany.mockResolvedValue({
+        count: 0,
+      })
+      await expect(
+        githubAppInstallationRepository.updateRepositoriesIfUnchanged(
+          'ws_1',
+          at,
+          ['acme/api']
+        )
+      ).resolves.toBe(false)
+      expect(prismaMock.gitHubAppInstallation.updateMany).toHaveBeenCalledWith({
+        where: { workspaceId: 'ws_1', updatedAt: at },
+        data: { repositories: ['acme/api'] },
+      })
+    })
+
+    it('markTokenFailing keeps the first failure and returns the earliest', async () => {
+      const first = new Date('2026-09-27T00:00:00Z')
+      prismaMock.gitHubAppInstallation.updateMany.mockResolvedValue({
+        count: 0,
+      })
+      prismaMock.gitHubAppInstallation.findFirst.mockResolvedValue({
+        tokenFailingSince: first,
+      })
+      await expect(
+        githubAppInstallationRepository.markTokenFailing(42, at)
+      ).resolves.toEqual(first)
+      expect(prismaMock.gitHubAppInstallation.updateMany).toHaveBeenCalledWith({
+        where: { installationId: 42, tokenFailingSince: null },
+        data: { tokenFailingSince: at },
+      })
+    })
+
+    it('clearTokenFailing clears every row of the installation', async () => {
+      prismaMock.gitHubAppInstallation.updateMany.mockResolvedValue({
+        count: 2,
+      })
+      await githubAppInstallationRepository.clearTokenFailing(42)
+      expect(prismaMock.gitHubAppInstallation.updateMany).toHaveBeenCalledWith({
+        where: { installationId: 42, tokenFailingSince: { not: null } },
+        data: { tokenFailingSince: null },
+      })
     })
   })
 

@@ -2656,5 +2656,6 @@
   "settings.trash.purgeTitle": "영구 삭제할까요?",
   "settings.trash.purgeDesc": "\"{name}\" 및 함께 휴지통에 들어간 모든 항목이 즉시 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
   "settings.trash.purged": "영구 삭제되었습니다",
-  "settings.trash.purgeFailed": "삭제에 실패했습니다"
+  "settings.trash.purgeFailed": "삭제에 실패했습니다",
+  "github.tokenFailing": "{since}부터 GitHub에서는 이 설치가 여전히 활성 상태로 표시되지만 Lumo가 저장소 접근 권한을 확인하지 못하고 있습니다. 이 문제가 해결될 때까지 GitHub에서 접근 권한이 취소된 저장소도 이 워크스페이스에 계속 남아 있습니다. 대개 새 App 권한이 승인을 기다리고 있기 때문이며, GitHub 계정 소유자가 GitHub의 설치 설정에서 승인할 수 있습니다."
 }

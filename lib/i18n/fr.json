@@ -2656,5 +2656,6 @@
   "settings.trash.purgeTitle": "Supprimer définitivement ?",
   "settings.trash.purgeDesc": "« {name} » et tout ce qui a été placé dans la corbeille avec lui seront supprimés immédiatement. Cette action est irréversible.",
   "settings.trash.purged": "Supprimé définitivement",
-  "settings.trash.purgeFailed": "Échec de la suppression"
+  "settings.trash.purgeFailed": "Échec de la suppression",
+  "github.tokenFailing": "Lumo ne parvient plus à vérifier l'accès aux dépôts de cette installation GitHub depuis le {since}, alors que GitHub l'indique toujours comme active. Tant que ce n'est pas résolu, un dépôt dont l'accès est révoqué sur GitHub reste dans cet espace de travail. Le plus souvent, de nouvelles autorisations de l'App attendent d'être approuvées : le propriétaire du compte GitHub peut les accepter dans les paramètres de l'installation sur GitHub."
 }
