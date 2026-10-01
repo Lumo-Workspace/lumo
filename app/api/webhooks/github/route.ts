@@ -70,9 +70,6 @@ export async function POST(request: NextRequest) {
       verifyGitHubSignature(body, signature, w.integration.webhookSecret)
   )
 
-  let workspaceId: string
-  let integrationId: string | null = null
-
   if (matched && repoFullName) {
     // LUM-884: the old OAuth hook is bounded by the same confirmed list as the
     // App webhook — an unconfirmed repository (or a workspace without the App,
@@ -82,32 +79,54 @@ export async function POST(request: NextRequest) {
       matched.integration.workspaceId,
       repoFullName
     )
-    if (!confirmed) return NextResponse.json({ ok: true })
-
-    workspaceId = matched.integration.workspaceId
-    integrationId = matched.integration.id
-  } else {
-    // Delivery 2: the App's own webhook, which carries no per-repo secret and
-    // no GitHubWebhook row. Same events, different envelope.
-    const viaApp = await resolveAppDelivery(body, signature, payload)
-    if (viaApp === 'UNAUTHENTICATED') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (confirmed) {
+      await dispatchRepoEvent(
+        event,
+        payload,
+        matched.integration.workspaceId,
+        matched.integration.id
+      )
     }
-    // Authentic but unplaceable (unknown installation, or a repository the
-    // workspace has not confirmed): accept and drop it — a 401 here would put GitHub into an endless retry.
-    if (!viaApp) return NextResponse.json({ ok: true })
-
-    // Both hooks are live on this repo, so GitHub sends the same event twice —
-    // once per delivery. The repo hook owns it; handling the App copy as well
-    // would race the inbound comment dedup (which reads before it writes) and
-    // can double-post. Drop this copy and let the repo-hook request do the work.
-    if (webhooks.some(w => w.integration.workspaceId === viaApp)) {
-      return NextResponse.json({ ok: true })
-    }
-
-    workspaceId = viaApp
+    return NextResponse.json({ ok: true })
   }
 
+  // Delivery 2: the App's own webhook, which carries no per-repo secret and
+  // no GitHubWebhook row. Same events, different envelope.
+  const viaApp = await resolveAppDelivery(body, signature, payload)
+  if (viaApp === 'UNAUTHENTICATED') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Authentic but unplaceable workspaces (unknown installation, or a
+  // repository nobody confirmed) come back as an empty list: accept and drop
+  // — a 401 here would put GitHub into an endless retry.
+  //
+  // A workspace whose own OAuth repo hook is live on this repo gets the same
+  // event twice — once per delivery. The repo hook owns it; handling the App
+  // copy as well would race the inbound comment dedup (which reads before it
+  // writes) and can double-post. Skip it here and let the repo-hook request
+  // do the work. LUM-924: every other workspace that confirmed the repository
+  // is handled, one after another, each against its own PR rows.
+  const hooked = new Set(webhooks.map(w => w.integration.workspaceId))
+  for (const workspaceId of viaApp) {
+    if (hooked.has(workspaceId)) continue
+    await dispatchRepoEvent(event, payload, workspaceId, null)
+  }
+
+  return NextResponse.json({ ok: true })
+}
+
+/**
+ * Hand one repository event to its handler for one workspace. Errors are
+ * logged, never thrown: GitHub retries a failed delivery indefinitely, and one
+ * workspace's failure must not stop the next workspace from getting the event.
+ */
+async function dispatchRepoEvent(
+  event: string | null,
+  payload: Record<string, unknown>,
+  workspaceId: string,
+  integrationId: string | null
+) {
   try {
     switch (event) {
       case 'pull_request':
@@ -137,11 +156,10 @@ export async function POST(request: NextRequest) {
         break
     }
   } catch (err) {
-    console.error(`[webhook/github] error handling ${event}:`, err)
-    // Return 200 to prevent GitHub retrying indefinitely
+    logger.error(
+      `[webhook/github] error handling ${event} for workspace ${workspaceId}: ${String(err)}`
+    )
   }
-
-  return NextResponse.json({ ok: true })
 }
 
 /**
@@ -182,15 +200,16 @@ async function handleAppEvent(
  * not enough: only repositories the workspace has confirmed are routed
  * (LUM-881), so one added to the installation later stays out until verified.
  *
- * Returns the workspace id, `null` when the delivery is authentic but belongs
- * to no workspace (unknown installation, or an unconfirmed repository), and
- * 'UNAUTHENTICATED' when it is not an App delivery at all.
+ * Returns every workspace that confirmed the repository (LUM-924) — empty when
+ * the delivery is authentic but belongs to no workspace (unknown installation,
+ * or an unconfirmed repository) — and 'UNAUTHENTICATED' when it is not an App
+ * delivery at all.
  */
 async function resolveAppDelivery(
   body: string,
   signature: string | null,
   payload: Record<string, unknown>
-): Promise<string | null | 'UNAUTHENTICATED'> {
+): Promise<string[] | 'UNAUTHENTICATED'> {
   const secret = process.env.GITHUB_APP_WEBHOOK_SECRET
   if (!secret || !verifyGitHubSignature(body, signature, secret)) {
     return 'UNAUTHENTICATED'
@@ -198,13 +217,13 @@ async function resolveAppDelivery(
 
   const installationId = (payload.installation as { id?: number } | undefined)
     ?.id
-  if (!installationId) return null
+  if (!installationId) return []
 
   const repositoryFullName =
     (payload.repository as { full_name?: string } | undefined)?.full_name ??
     null
 
-  return githubAppInstallService.resolveWorkspaceForRepository(
+  return githubAppInstallService.resolveWorkspacesForRepository(
     installationId,
     repositoryFullName
   )

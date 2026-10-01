@@ -85,13 +85,19 @@ export const githubService = {
     return githubRepository.upsertPullRequest(...args)
   },
 
-  /** Update CI status for pull requests. */
+  /** Update CI status for one workspace's pull requests. */
   async updatePullRequestCiStatus(
+    workspaceId: string,
     repo: string,
     prNumbers: number[],
     ciStatus: string
   ) {
-    return githubRepository.updatePullRequestCiStatus(repo, prNumbers, ciStatus)
+    return githubRepository.updatePullRequestCiStatus(
+      workspaceId,
+      repo,
+      prNumbers,
+      ciStatus
+    )
   },
 
   // ── Task Branches ─────────────────────────────────────────────────────

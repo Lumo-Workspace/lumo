@@ -2009,7 +2009,9 @@ model PullRequest {
   lumoCiRuns       LumoCiRun[]
   testCaseRuns     TestCaseRun[]
 
-  @@unique([repo, number])
+  // LUM-924: one row per workspace — workspaces sharing a GitHub App
+  // installation can each confirm the same repository and track its PRs.
+  @@unique([workspaceId, repo, number])
   @@index([workspaceId])
   @@index([taskId])
   @@index([integrationId])

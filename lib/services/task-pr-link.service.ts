@@ -84,17 +84,14 @@ export async function linkPullRequest(
     await requireConfirmedRepository(workspaceId, parsed.repo)
 
     const existing = await pullRequestRepository.findByRepoAndNumber(
+      workspaceId,
       parsed.repo,
       parsed.number
     )
 
+    // LUM-924: the lookup is this workspace's own row, so another workspace
+    // tracking the same PR neither blocks nor leaks into this link.
     if (existing) {
-      if (existing.workspaceId !== workspaceId) {
-        throw Object.assign(
-          new Error('Pull request belongs to a different workspace'),
-          { status: 403 }
-        )
-      }
       pr = existing
     } else {
       const token = await repoTokenFor(workspaceId, parsed.repo)

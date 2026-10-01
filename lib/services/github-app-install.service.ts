@@ -479,26 +479,28 @@ export const githubAppInstallService = {
   },
 
   /**
-   * Workspace that an App-delivered repository event belongs to. An
+   * Workspaces that an App-delivered repository event belongs to. An
    * installation id alone is not enough: the event must be for a repository
    * the workspace has confirmed (LUM-881), or a repository added to the
-   * installation later would flow into the workspace unchecked. `null` drops
-   * the delivery.
+   * installation later would flow into the workspace unchecked.
+   *
+   * LUM-924: several workspaces can share one installation (LUM-872) and each
+   * confirm the same repository — every one of them gets the event, in
+   * installation order. An empty list drops the delivery.
    */
-  async resolveWorkspaceForRepository(
+  async resolveWorkspacesForRepository(
     installationId: number,
     repositoryFullName: string | null
-  ) {
-    if (!repositoryFullName) return null
+  ): Promise<string[]> {
+    if (!repositoryFullName) return []
     const target = repositoryFullName.toLowerCase()
     const rows =
       await githubAppInstallationRepository.findAllByInstallationId(
         installationId
       )
-    const row = rows.find(r =>
-      r.repositories.some(name => name.toLowerCase() === target)
-    )
-    return row?.workspaceId ?? null
+    return rows
+      .filter(r => r.repositories.some(name => name.toLowerCase() === target))
+      .map(r => r.workspaceId)
   },
 
   /**

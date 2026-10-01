@@ -32,7 +32,7 @@ jest.mock('@/lib/services/github-app-install.service', () => ({
   githubAppInstallService: {
     applyInstallationEvent: jest.fn(),
     applyInstallationRepositoriesEvent: jest.fn(),
-    resolveWorkspaceForRepository: jest.fn(),
+    resolveWorkspacesForRepository: jest.fn().mockResolvedValue([]),
   },
   scrubWorkspaceCode: jest.fn(),
 }))

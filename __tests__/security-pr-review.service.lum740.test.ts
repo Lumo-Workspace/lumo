@@ -31,6 +31,8 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     // LUM-901: this scan is the PR's newest — the sync goes ahead.
     hasNewerScanThan: jest.fn().mockResolvedValue(false),
     findSummaryCommentIdByPullRequest: jest.fn(),
+    // LUM-924: no other workspace holds the PR — the legacy marker path runs.
+    isPullRequestHeldElsewhere: jest.fn().mockResolvedValue(false),
     setSummaryCommentId: jest.fn(),
   },
 }))

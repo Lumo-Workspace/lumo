@@ -287,3 +287,46 @@ it('DISCARDED and ALREADY_PROCESSED touch no findings, so no write-back', async 
   await securitySarifIngestWorkflow(JOB)
   expect(syncReview).not.toHaveBeenCalled()
 })
+
+// LUM-924 — one OIDC report, several workspaces holding the PR.
+describe('fan-out to other workspaces', () => {
+  const PR_B = { id: 'pr-b', workspaceId: 'w-b', repo: 'o/r', number: 7 }
+
+  beforeEach(() => {
+    resolve.mockResolvedValue({
+      kind: 'ok',
+      scanId: 's1',
+      pr: PR,
+      others: [{ scanId: 's-b', pr: PR_B }],
+    })
+  })
+
+  it('fetches once, persists and syncs each workspace scan, then deletes the blob once', async () => {
+    fetchNorm.mockResolvedValue(OK)
+    persist.mockResolvedValue({ written: 2, partial: false })
+    await expect(securitySarifIngestWorkflow(JOB)).resolves.toEqual({
+      outcome: 'INGESTED',
+      scanId: 's1',
+      findings: 2,
+      partial: false,
+    })
+    expect(fetchNorm).toHaveBeenCalledTimes(1)
+    expect(persist).toHaveBeenCalledWith(
+      expect.objectContaining({ scanId: 's1', pr: PR })
+    )
+    expect(persist).toHaveBeenCalledWith(
+      expect.objectContaining({ scanId: 's-b', pr: PR_B })
+    )
+    expect(syncReview).toHaveBeenCalledWith('s1')
+    expect(syncReview).toHaveBeenCalledWith('s-b')
+    expect(delBlob).toHaveBeenCalledTimes(1)
+  })
+
+  it('marks every workspace scan failed when the report fails', async () => {
+    fetchNorm.mockResolvedValue({ kind: 'failed', reason: 'bad' })
+    await securitySarifIngestWorkflow(JOB)
+    expect(markFailed).toHaveBeenCalledWith('s1', 'bad')
+    expect(markFailed).toHaveBeenCalledWith('s-b', 'bad')
+    expect(syncReview).toHaveBeenCalledWith('s-b')
+  })
+})

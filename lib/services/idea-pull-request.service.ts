@@ -133,15 +133,12 @@ async function resolveByUrl(url: string, workspaceId: string): Promise<string> {
   await requireConfirmedRepository(workspaceId, parsed.repo)
 
   const existing = await pullRequestRepository.findByRepoAndNumber(
+    workspaceId,
     parsed.repo,
     parsed.number
   )
-  if (existing) {
-    if (existing.workspaceId !== workspaceId) {
-      throw err('Pull request belongs to a different workspace', 403)
-    }
-    return existing.id
-  }
+  // LUM-924: this workspace's own row — another workspace's copy is not ours.
+  if (existing) return existing.id
 
   const token = await repoTokenFor(workspaceId, parsed.repo)
 

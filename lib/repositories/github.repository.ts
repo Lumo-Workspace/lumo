@@ -165,10 +165,16 @@ export const githubRepository = {
 
   // ── Pull Requests ─────────────────────────────────────────────────────
 
-  /** Upsert a pull request by repo + number. */
+  /** Upsert this workspace's row for a pull request (LUM-924: per workspace). */
   async upsertPullRequest(data: UpsertPullRequestData) {
     return prisma.pullRequest.upsert({
-      where: { repo_number: { repo: data.repo, number: data.number } },
+      where: {
+        workspaceId_repo_number: {
+          workspaceId: data.workspaceId,
+          repo: data.repo,
+          number: data.number,
+        },
+      },
       create: {
         workspaceId: data.workspaceId,
         taskId: data.taskId,
@@ -216,14 +222,15 @@ export const githubRepository = {
     })
   },
 
-  /** Bulk-update CI status for pull requests. */
+  /** Bulk-update CI status for one workspace's pull requests. */
   async updatePullRequestCiStatus(
+    workspaceId: string,
     repo: string,
     prNumbers: number[],
     ciStatus: string
   ) {
     return prisma.pullRequest.updateMany({
-      where: { repo, number: { in: prNumbers } },
+      where: { workspaceId, repo, number: { in: prNumbers } },
       data: { ciStatus },
     })
   },

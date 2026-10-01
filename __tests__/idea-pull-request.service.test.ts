@@ -155,7 +155,11 @@ describe('ideaPullRequestService.link', () => {
       createdById: 'm1',
     })
 
-    expect(mockPrRepo.findByRepoAndNumber).toHaveBeenCalledWith('acme/app', 42)
+    expect(mockPrRepo.findByRepoAndNumber).toHaveBeenCalledWith(
+      'ws1',
+      'acme/app',
+      42
+    )
     expect(mockFetchPr).not.toHaveBeenCalled()
     expect(mockRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ pullRequestId: 'pr9' })

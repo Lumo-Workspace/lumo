@@ -206,7 +206,13 @@ describe('githubRepository.upsertPullRequest', () => {
 
     expect(mock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { repo_number: { repo: 'org/repo', number: 42 } },
+        where: {
+          workspaceId_repo_number: {
+            workspaceId: 'ws-1',
+            repo: 'org/repo',
+            number: 42,
+          },
+        },
         create: expect.objectContaining({ taskId: 'task-1', title: 'Fix bug' }),
         update: expect.objectContaining({ title: 'Fix bug', taskId: 'task-1' }),
       })
@@ -222,13 +228,14 @@ describe('githubRepository.updatePullRequestCiStatus', () => {
     mock.mockResolvedValue({ count: 2 })
 
     await githubRepository.updatePullRequestCiStatus(
+      'ws-1',
       'org/repo',
       [1, 2],
       'success'
     )
 
     expect(mock).toHaveBeenCalledWith({
-      where: { repo: 'org/repo', number: { in: [1, 2] } },
+      where: { workspaceId: 'ws-1', repo: 'org/repo', number: { in: [1, 2] } },
       data: { ciStatus: 'success' },
     })
   })
