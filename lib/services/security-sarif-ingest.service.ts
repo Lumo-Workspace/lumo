@@ -89,7 +89,21 @@ export type ResolveOutcome =
       // LUM-866: `workspace_scan_disabled` — the workspace turned scanning off.
       reason: 'pr_not_found' | 'workspace_mismatch' | 'workspace_scan_disabled'
     }
-  | { kind: 'ok'; scanId: string; pr: ResolvedPr }
+  | {
+      kind: 'ok'
+      scanId: string
+      pr: ResolvedPr
+      /**
+       * LUM-924 — the same report's scan rows in the other workspaces that
+       * hold the PR (OIDC push only). Absent when there is just one.
+       */
+      others?: ScanTarget[]
+    }
+
+export interface ScanTarget {
+  scanId: string
+  pr: ResolvedPr
+}
 
 export interface FetchAndNormalizeInput {
   url: string
@@ -189,6 +203,54 @@ function isDeterministic(error: unknown): boolean {
   return status === 413 || status === 422
 }
 
+/**
+ * One workspace's scan row for this report. LUM-866: a workspace that turned
+ * scanning off gets none (`null`) — its copy of the report is dropped.
+ */
+async function resolveScanFor(
+  pr: {
+    id: string
+    workspaceId: string
+    taskId: string | null
+    repo: string
+    number: number
+  },
+  job: SarifIngestJob
+): Promise<ScanTarget | null> {
+  if (!(await loadSecurityLayers(pr.workspaceId)).scan) {
+    logger.info(
+      `[security-sarif-ingest] scanning off for workspace ${pr.workspaceId} on ${logSafe(job.repository)}#${job.prNumber} — dropping its copy of the ${logSafe(job.tool)} report`
+    )
+    return null
+  }
+  const scan = await prSecurityScanRepository.createIfAbsent({
+    pullRequestId: pr.id,
+    taskId: pr.taskId ?? null,
+    workspaceId: pr.workspaceId,
+    headSha: job.headSha,
+    trigger: 'SARIF_PUSH',
+    detectorVersion: DETECTOR_VERSION,
+    status: 'PENDING',
+  })
+  // NOT awaited. `dispatchPrSecurityScan` POSTs to the internal stage-A
+  // worker route, which runs the whole scan (diff, secret scan, LLM judge —
+  // `maxDuration = 300`) before it responds, and the fetch has no timeout.
+  // Awaiting it would hold this step open for up to five minutes for work
+  // that is not part of the ingest. `waitUntil` keeps the Vercel function
+  // alive until the dispatch settles while the step returns immediately;
+  // the dispatcher swallows its own errors, so nothing here can reject.
+  if (scan.created) waitUntil(dispatchPrSecurityScan(pr.id, 'SARIF_PUSH'))
+  return {
+    scanId: scan.id,
+    pr: {
+      id: pr.id,
+      workspaceId: pr.workspaceId,
+      repo: pr.repo,
+      number: pr.number,
+    },
+  }
+}
+
 export const securitySarifIngestService = {
   /**
    * Step 1. Whoever arrives first creates the shared scan row (spec §9). A
@@ -202,57 +264,38 @@ export const securitySarifIngestService = {
    * instead of this step's one-shot best-effort call.
    */
   async resolveScan(job: SarifIngestJob): Promise<ResolveOutcome> {
-    const pr = await pullRequestRepository.findByRepoAndNumber(
+    const rows = await pullRequestRepository.findAllByRepoAndNumber(
       job.repository,
       job.prNumber
     )
-    if (!pr) {
+    if (rows.length === 0) {
       logger.warn(
         `[security-sarif-ingest] no PR ${logSafe(job.repository)}#${job.prNumber} — discarding ${logSafe(job.tool)} report`
       )
       return { kind: 'discarded', reason: 'pr_not_found' }
     }
-    if (job.workspaceId !== undefined && pr.workspaceId !== job.workspaceId) {
+    // An ApiKey push is bounded by the key's workspace. An OIDC push proves
+    // the repository, so every workspace holding the PR owns a copy (LUM-924).
+    const owners =
+      job.workspaceId === undefined
+        ? rows
+        : rows.filter(r => r.workspaceId === job.workspaceId)
+    if (owners.length === 0) {
       logger.warn(
         `[security-sarif-ingest] PR ${logSafe(job.repository)}#${job.prNumber} belongs to another workspace — discarding`
       )
       return { kind: 'discarded', reason: 'workspace_mismatch' }
     }
-    // LUM-866: the workspace turned scanning off — the report is dropped
-    // (the workflow deletes the blob) and no scan row is created.
-    if (!(await loadSecurityLayers(pr.workspaceId)).scan) {
-      logger.info(
-        `[security-sarif-ingest] scanning off for the workspace of ${logSafe(job.repository)}#${job.prNumber} — discarding ${logSafe(job.tool)} report`
-      )
-      return { kind: 'discarded', reason: 'workspace_scan_disabled' }
+    const targets: ScanTarget[] = []
+    for (const pr of owners) {
+      const target = await resolveScanFor(pr, job)
+      if (target) targets.push(target)
     }
-    const scan = await prSecurityScanRepository.createIfAbsent({
-      pullRequestId: pr.id,
-      taskId: pr.taskId ?? null,
-      workspaceId: pr.workspaceId,
-      headSha: job.headSha,
-      trigger: 'SARIF_PUSH',
-      detectorVersion: DETECTOR_VERSION,
-      status: 'PENDING',
-    })
-    // NOT awaited. `dispatchPrSecurityScan` POSTs to the internal stage-A
-    // worker route, which runs the whole scan (diff, secret scan, LLM judge —
-    // `maxDuration = 300`) before it responds, and the fetch has no timeout.
-    // Awaiting it would hold this step open for up to five minutes for work
-    // that is not part of the ingest. `waitUntil` keeps the Vercel function
-    // alive until the dispatch settles while the step returns immediately;
-    // the dispatcher swallows its own errors, so nothing here can reject.
-    if (scan.created) waitUntil(dispatchPrSecurityScan(pr.id, 'SARIF_PUSH'))
-    return {
-      kind: 'ok',
-      scanId: scan.id,
-      pr: {
-        id: pr.id,
-        workspaceId: pr.workspaceId,
-        repo: pr.repo,
-        number: pr.number,
-      },
-    }
+    const [first, ...others] = targets
+    if (!first) return { kind: 'discarded', reason: 'workspace_scan_disabled' }
+    // `others` is optional so a run that resolved before LUM-924 (no field on
+    // its recorded step result) replays unchanged.
+    return { kind: 'ok', ...first, ...(others.length > 0 ? { others } : {}) }
   },
 
   /**

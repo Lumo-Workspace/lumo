@@ -33,7 +33,7 @@ jest.mock('@/lib/integrations/github/contents', () => ({
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
-    findByRepoAndNumber: jest.fn(),
+    findAllByRepoAndNumber: jest.fn(),
     findById: jest.fn(),
     findManyForSecurityByTaskId: jest.fn(),
   },
@@ -95,7 +95,7 @@ const delBlob = blob.deleteBlob as jest.Mock
 const listBlobs = blob.listSarifBlobs as jest.Mock
 const keepAlive = waitUntil as jest.Mock
 const diff = fetchPrDiff as jest.Mock
-const findPr = pullRequestRepository.findByRepoAndNumber as jest.Mock
+const findPr = pullRequestRepository.findAllByRepoAndNumber as jest.Mock
 const repo = prSecurityScanRepository as jest.Mocked<
   typeof prSecurityScanRepository
 >
@@ -199,13 +199,15 @@ beforeEach(() => {
   // set by one test can never leak into a later one — every default below is
   // re-established fresh each test.
   jest.resetAllMocks()
-  findPr.mockResolvedValue({
-    id: 'pr1',
-    workspaceId: 'w1',
-    taskId: 't1',
-    repo: 'o/r',
-    number: 7,
-  })
+  findPr.mockResolvedValue([
+    {
+      id: 'pr1',
+      workspaceId: 'w1',
+      taskId: 't1',
+      repo: 'o/r',
+      number: 7,
+    },
+  ])
   diff.mockResolvedValue(DIFF)
   repo.createIfAbsent.mockResolvedValue({
     id: 's1',
@@ -225,7 +227,7 @@ beforeEach(() => {
 
 describe('resolveScan', () => {
   it('discards when the PR is unknown, leaving the blob to the workflow', async () => {
-    findPr.mockResolvedValue(null)
+    findPr.mockResolvedValue([])
     await expect(securitySarifIngestService.resolveScan(JOB)).resolves.toEqual({
       kind: 'discarded',
       reason: 'pr_not_found',
@@ -236,7 +238,7 @@ describe('resolveScan', () => {
   })
 
   it('discards when the key workspace does not own the PR, leaving the blob to the workflow', async () => {
-    findPr.mockResolvedValue({ ...PR, workspaceId: 'other' })
+    findPr.mockResolvedValue([{ ...PR, workspaceId: 'other' }])
     await expect(securitySarifIngestService.resolveScan(JOB)).resolves.toEqual({
       kind: 'discarded',
       reason: 'workspace_mismatch',
@@ -245,7 +247,7 @@ describe('resolveScan', () => {
   })
 
   it('skips the workspace check on the OIDC path (no workspaceId)', async () => {
-    findPr.mockResolvedValue({ ...PR, workspaceId: 'other' })
+    findPr.mockResolvedValue([{ ...PR, workspaceId: 'other' }])
     repo.createIfAbsent.mockResolvedValue({
       id: 's1',
       created: false,
@@ -264,7 +266,7 @@ describe('resolveScan', () => {
   })
 
   it('creates a PENDING SARIF_PUSH row and dispatches stage A when it created the row', async () => {
-    findPr.mockResolvedValue(PR)
+    findPr.mockResolvedValue([PR])
     repo.createIfAbsent.mockResolvedValue({
       id: 's1',
       created: true,
@@ -288,7 +290,7 @@ describe('resolveScan', () => {
     // maxDuration = 300s) and the dispatch fetch has no timeout, so awaiting
     // it here would hold the ingest step open for minutes. The step must
     // return at once; waitUntil keeps the function alive for the dispatch.
-    findPr.mockResolvedValue(PR)
+    findPr.mockResolvedValue([PR])
     repo.createIfAbsent.mockResolvedValue({
       id: 's1',
       created: true,
@@ -311,7 +313,7 @@ describe('resolveScan', () => {
   })
 
   it('does not dispatch stage A (nor call waitUntil) when the row already existed', async () => {
-    findPr.mockResolvedValue(PR)
+    findPr.mockResolvedValue([PR])
     repo.createIfAbsent.mockResolvedValue({
       id: 's1',
       created: false,
@@ -321,6 +323,59 @@ describe('resolveScan', () => {
     await securitySarifIngestService.resolveScan(JOB)
     expect(dispatchStageA).not.toHaveBeenCalled()
     expect(keepAlive).not.toHaveBeenCalled()
+  })
+
+  // LUM-924 — workspaces sharing a GitHub App installation each hold a row
+  // for the PR; an OIDC push proves the repository, so each gets a scan.
+  it('ingests an OIDC report into every workspace that holds the PR', async () => {
+    findPr.mockResolvedValue([
+      { ...PR, id: 'pr-a', workspaceId: 'w-a' },
+      { ...PR, id: 'pr-b', workspaceId: 'w-b', taskId: 't-b' },
+    ])
+    repo.createIfAbsent.mockImplementation(
+      async ({ pullRequestId }: { pullRequestId: string }) => ({
+        id: `scan-${pullRequestId}`,
+        created: true,
+        status: 'PENDING',
+        startedAt: new Date(),
+      })
+    )
+    const { workspaceId: _omit, ...oidcJob } = JOB
+    void _omit
+    await expect(
+      securitySarifIngestService.resolveScan(oidcJob)
+    ).resolves.toEqual({
+      kind: 'ok',
+      scanId: 'scan-pr-a',
+      pr: { ...RESOLVED_PR, id: 'pr-a', workspaceId: 'w-a' },
+      others: [
+        {
+          scanId: 'scan-pr-b',
+          pr: { ...RESOLVED_PR, id: 'pr-b', workspaceId: 'w-b' },
+        },
+      ],
+    })
+    expect(repo.createIfAbsent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pullRequestId: 'pr-b',
+        workspaceId: 'w-b',
+        taskId: 't-b',
+      })
+    )
+    expect(dispatchStageA).toHaveBeenCalledWith('pr-a', 'SARIF_PUSH')
+    expect(dispatchStageA).toHaveBeenCalledWith('pr-b', 'SARIF_PUSH')
+
+    // An ApiKey push stays inside the key's workspace even when another
+    // workspace holds the same PR.
+    repo.createIfAbsent.mockClear()
+    await expect(
+      securitySarifIngestService.resolveScan({ ...JOB, workspaceId: 'w-b' })
+    ).resolves.toEqual({
+      kind: 'ok',
+      scanId: 'scan-pr-b',
+      pr: { ...RESOLVED_PR, id: 'pr-b', workspaceId: 'w-b' },
+    })
+    expect(repo.createIfAbsent).toHaveBeenCalledTimes(1)
   })
 
   it('propagates a DB failure so the step retries', async () => {

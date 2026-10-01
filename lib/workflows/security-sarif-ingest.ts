@@ -63,6 +63,10 @@ export async function securitySarifIngestWorkflow(
     return { outcome: 'DISCARDED', reason: resolved.reason }
   }
   const { scanId, pr } = resolved
+  // LUM-924: an OIDC report for a PR several workspaces hold lands in each
+  // one's scan. The report is fetched and normalized once — same repository,
+  // same PR, same diff — and persisted per workspace.
+  const targets = [{ scanId, pr }, ...(resolved.others ?? [])]
 
   let failure: string
   try {
@@ -74,24 +78,33 @@ export async function securitySarifIngestWorkflow(
     })
     if (fetched.kind === 'not_found') return { outcome: 'ALREADY_PROCESSED' }
     if (fetched.kind === 'ok') {
-      const { written, partial } = await persistSarifFindingsStep({
-        scanId,
-        pr,
-        repository: job.repository,
-        prNumber: job.prNumber,
-        auth: job.workspaceId === undefined ? 'oidc' : 'key',
-        tool: fetched.tool,
-        tools: fetched.tools,
-        findings: fetched.findings,
-        truncated: fetched.truncated,
-        dropped: fetched.dropped,
-      })
+      const persisted = []
+      for (const target of targets) {
+        persisted.push(
+          await persistSarifFindingsStep({
+            scanId: target.scanId,
+            pr: target.pr,
+            repository: job.repository,
+            prNumber: job.prNumber,
+            auth: job.workspaceId === undefined ? 'oidc' : 'key',
+            tool: fetched.tool,
+            tools: fetched.tools,
+            findings: fetched.findings,
+            truncated: fetched.truncated,
+            dropped: fetched.dropped,
+          })
+        )
+      }
       await deleteBlobBestEffort(job.url)
-      // LUM-740: suggestions land before the write-back reads the rows.
-      if (written > 0) await suggestDispositionsBestEffort(scanId)
-      // The findings are on the row: put them on the PR (idempotent, and it
-      // never throws — see `securityPrReviewService.sync`).
-      await syncPrReviewBestEffort(scanId)
+      for (const [i, target] of targets.entries()) {
+        // LUM-740: suggestions land before the write-back reads the rows.
+        if (persisted[i]!.written > 0)
+          await suggestDispositionsBestEffort(target.scanId)
+        // The findings are on the row: put them on the PR (idempotent, and it
+        // never throws — see `securityPrReviewService.sync`).
+        await syncPrReviewBestEffort(target.scanId)
+      }
+      const { written, partial } = persisted[0]!
       return { outcome: 'INGESTED', scanId, findings: written, partial }
     }
     failure = fetched.reason
@@ -102,9 +115,11 @@ export async function securitySarifIngestWorkflow(
 
   // P9: the layer failed — say so, never a fake CLEAN. Blob kept for
   // SARIF_FAILED_BLOB_TTL so the report can be inspected or re-pushed.
-  await markFailedBestEffort(scanId, failure)
-  // The PR should say the external layer failed, not stay silent.
-  await syncPrReviewBestEffort(scanId)
+  for (const target of targets) {
+    await markFailedBestEffort(target.scanId, failure)
+    // The PR should say the external layer failed, not stay silent.
+    await syncPrReviewBestEffort(target.scanId)
+  }
   await sleep(SARIF_FAILED_BLOB_TTL)
   await deleteBlobBestEffort(job.url)
   return { outcome: 'FAILED', scanId, reason: failure }

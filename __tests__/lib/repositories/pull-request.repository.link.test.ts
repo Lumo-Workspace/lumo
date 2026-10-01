@@ -61,11 +61,18 @@ describe('pullRequestRepository.findByRepoAndNumber', () => {
       number: 42,
     })
     const result = await pullRequestRepository.findByRepoAndNumber(
+      'ws-1',
       'org/repo',
       42
     )
     expect(mockFindUnique).toHaveBeenCalledWith({
-      where: { repo_number: { repo: 'org/repo', number: 42 } },
+      where: {
+        workspaceId_repo_number: {
+          workspaceId: 'ws-1',
+          repo: 'org/repo',
+          number: 42,
+        },
+      },
       include: {
         task: {
           select: {
@@ -83,6 +90,7 @@ describe('pullRequestRepository.findByRepoAndNumber', () => {
   it('returns null when PR not found', async () => {
     mockFindUnique.mockResolvedValue(null)
     const result = await pullRequestRepository.findByRepoAndNumber(
+      'ws-1',
       'org/repo',
       999
     )

@@ -489,7 +489,8 @@ function describe(error: unknown): string {
  * LUM-740 — one summary per PR, keyed by a comment id that lives on the scan
  * row (§6 L5 item 6). Order of preference: the id on this scan; the id an
  * earlier scan of the same PR stored; the legacy marker search over the PR's
- * bot comments; a fresh create. A stored id whose comment is gone (404)
+ * bot comments (skipped when another workspace holds the PR, LUM-924); a
+ * fresh create. A stored id whose comment is gone (404)
  * falls through to a create. Returns the id the caller should persist on the
  * row (null when the row already had it).
  */
@@ -539,6 +540,17 @@ async function upsertSummary(input: {
       // The comment was deleted on GitHub: start a new one.
       return create()
     }
+  }
+
+  // LUM-924: when another workspace holds this PR too, its summary carries
+  // the same marker under the same App bot — a marker match cannot tell whose
+  // it is, so each workspace keeps to the comment id it recorded itself.
+  if (
+    await prSecurityScanRepository.isPullRequestHeldElsewhere(
+      input.pullRequestId
+    )
+  ) {
+    return create()
   }
 
   // Legacy path (rows written before the id column existed): find Lumo's

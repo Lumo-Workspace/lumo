@@ -52,7 +52,7 @@ jest.mock('@/lib/repositories/workspace.repository', () => ({
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
     findById: jest.fn(),
-    findByRepoAndNumber: jest.fn(),
+    findAllByRepoAndNumber: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
@@ -183,7 +183,7 @@ beforeEach(() => {
   switches({})
   wsRepo.findSecurityPolicy.mockResolvedValue(null)
   prRepo.findById.mockResolvedValue(PR as never)
-  prRepo.findByRepoAndNumber.mockResolvedValue(PR as never)
+  prRepo.findAllByRepoAndNumber.mockResolvedValue([PR] as never)
   fetchPrHeadSha.mockResolvedValue('sha-1')
   fetchPrDiff.mockResolvedValue(ROUTE_DIFF)
   repo.findByPrAndSha.mockResolvedValue(null)

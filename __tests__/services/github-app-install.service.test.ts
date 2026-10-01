@@ -1073,12 +1073,27 @@ describe('githubAppInstallService', () => {
     })
   })
 
-  describe('resolveWorkspaceForRepository', () => {
-    it('returns null for an event with no repository', async () => {
+  describe('resolveWorkspacesForRepository', () => {
+    it('returns no workspace for an event with no repository', async () => {
       expect(
-        await githubAppInstallService.resolveWorkspaceForRepository(555, null)
-      ).toBeNull()
+        await githubAppInstallService.resolveWorkspacesForRepository(555, null)
+      ).toEqual([])
       expect(repo.findAllByInstallationId).not.toHaveBeenCalled()
+    })
+
+    // LUM-924
+    it('returns every workspace that confirmed the repository, in installation order', async () => {
+      repo.findAllByInstallationId.mockResolvedValue([
+        { workspaceId: 'w-first', repositories: ['Acme/Web'] },
+        { workspaceId: 'w-other', repositories: ['acme/api'] },
+        { workspaceId: 'w-second', repositories: ['acme/web'] },
+      ])
+      expect(
+        await githubAppInstallService.resolveWorkspacesForRepository(
+          555,
+          'acme/WEB'
+        )
+      ).toEqual(['w-first', 'w-second'])
     })
   })
 })

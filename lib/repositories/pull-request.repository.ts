@@ -91,10 +91,14 @@ export const pullRequestRepository = {
     })
   },
 
-  /** Find a PR by repo + number compound key, with task info. */
-  async findByRepoAndNumber(repo: string, number: number) {
+  /**
+   * This workspace's row for a PR, with task info. LUM-924: a PR is unique per
+   * workspace, not globally — workspaces sharing a GitHub App installation can
+   * each hold their own row for the same repository and number.
+   */
+  async findByRepoAndNumber(workspaceId: string, repo: string, number: number) {
     return prisma.pullRequest.findUnique({
-      where: { repo_number: { repo, number } },
+      where: { workspaceId_repo_number: { workspaceId, repo, number } },
       include: {
         task: {
           select: {
@@ -104,6 +108,25 @@ export const pullRequestRepository = {
             team: { select: { identifier: true } },
           },
         },
+      },
+    })
+  },
+
+  /**
+   * LUM-924 — every workspace's row for one PR, oldest first. Only for callers
+   * whose proof of ownership is the repository itself (a GitHub Actions OIDC
+   * SARIF push), where each workspace holding the PR gets its own copy.
+   */
+  async findAllByRepoAndNumber(repo: string, number: number) {
+    return prisma.pullRequest.findMany({
+      where: { repo, number },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        workspaceId: true,
+        taskId: true,
+        repo: true,
+        number: true,
       },
     })
   },
@@ -173,9 +196,13 @@ export const pullRequestRepository = {
    * to resolve which PR a CI commit belongs to when the event carries the branch
    * (status events) rather than a PR list. Returns just the number.
    */
-  async findByHeadBranch(repo: string, headBranch: string) {
+  async findByHeadBranch(
+    workspaceId: string,
+    repo: string,
+    headBranch: string
+  ) {
     return prisma.pullRequest.findFirst({
-      where: { repo, headBranch },
+      where: { workspaceId, repo, headBranch },
       orderBy: { updatedAt: 'desc' },
       select: { number: true },
     })

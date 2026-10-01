@@ -131,9 +131,15 @@ describe('passthrough operations', () => {
   it('delegates updatePullRequestCiStatus to repository', async () => {
     mockRepo.updatePullRequestCiStatus.mockResolvedValue({ count: 1 } as never)
 
-    await githubService.updatePullRequestCiStatus('org/repo', [1, 2], 'success')
+    await githubService.updatePullRequestCiStatus(
+      'ws-1',
+      'org/repo',
+      [1, 2],
+      'success'
+    )
 
     expect(mockRepo.updatePullRequestCiStatus).toHaveBeenCalledWith(
+      'ws-1',
       'org/repo',
       [1, 2],
       'success'

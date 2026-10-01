@@ -1730,6 +1730,23 @@ export const prSecurityScanRepository = {
     return row?.summaryCommentId ?? null
   },
 
+  /**
+   * LUM-924 — whether another workspace also holds a row for this PR (same
+   * repository and number). Workspaces sharing a GitHub App installation post
+   * their summaries as the same bot, so a marker match can be the other's.
+   */
+  async isPullRequestHeldElsewhere(pullRequestId: string): Promise<boolean> {
+    const pr = await prisma.pullRequest.findUnique({
+      where: { id: pullRequestId },
+      select: { repo: true, number: true },
+    })
+    if (!pr) return false
+    const others = await prisma.pullRequest.count({
+      where: { repo: pr.repo, number: pr.number, id: { not: pullRequestId } },
+    })
+    return others > 0
+  },
+
   async setSummaryCommentId(
     scanId: string,
     summaryCommentId: string

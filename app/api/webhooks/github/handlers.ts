@@ -112,6 +112,7 @@ async function resolveTaskIdForCommit(args: {
 }): Promise<string | null> {
   for (const number of args.prNumbers) {
     const pr = await pullRequestRepository.findByRepoAndNumber(
+      args.workspaceId,
       args.repo,
       number
     )
@@ -131,6 +132,7 @@ async function resolveTaskIdForCommit(args: {
  * neither resolves — the audit then buckets the signal as unlinked.
  */
 async function resolvePrNumberForCommit(args: {
+  workspaceId: string
   repo: string
   prNumbers: number[]
   headBranch?: string | undefined
@@ -139,6 +141,7 @@ async function resolvePrNumberForCommit(args: {
   if (first != null) return first
   if (args.headBranch) {
     const pr = await pullRequestRepository.findByHeadBranch(
+      args.workspaceId,
       args.repo,
       args.headBranch
     )
@@ -442,6 +445,7 @@ export async function handleCheckSuite(
   const prNumbers = suite.pull_requests.map(pr => pr.number)
   if (prNumbers.length > 0) {
     await githubService.updatePullRequestCiStatus(
+      workspaceId,
       repository.full_name,
       prNumbers,
       ciStatus
@@ -459,6 +463,7 @@ export async function handleCheckSuite(
         headBranch: suite.head_branch,
       }),
       resolvePrNumberForCommit({
+        workspaceId,
         repo: repository.full_name,
         prNumbers,
         headBranch: suite.head_branch,
@@ -531,6 +536,7 @@ export async function handleStatus(
       headBranch,
     }),
     resolvePrNumberForCommit({
+      workspaceId,
       repo: repository.full_name,
       prNumbers,
       headBranch,
@@ -568,7 +574,11 @@ export async function handleIssueComment(
   const repo = (payload.repository as { full_name?: string } | undefined)
     ?.full_name
   if (!repo) return
-  const pr = await pullRequestRepository.findByRepoAndNumber(repo, issue.number)
+  const pr = await pullRequestRepository.findByRepoAndNumber(
+    workspaceId,
+    repo,
+    issue.number
+  )
   if (!pr?.taskId) return
   await prCommentMirrorService.runInbound({
     event: 'issue_comment',
@@ -590,7 +600,11 @@ export async function handlePullRequestReview(
   const repo = (payload.repository as { full_name?: string } | undefined)
     ?.full_name
   if (!repo) return
-  const pr = await pullRequestRepository.findByRepoAndNumber(repo, prRef.number)
+  const pr = await pullRequestRepository.findByRepoAndNumber(
+    workspaceId,
+    repo,
+    prRef.number
+  )
   if (!pr?.taskId) return
   await prCommentMirrorService.runInbound({
     event: 'pull_request_review',
@@ -612,7 +626,11 @@ export async function handlePullRequestReviewComment(
   const repo = (payload.repository as { full_name?: string } | undefined)
     ?.full_name
   if (!repo) return
-  const pr = await pullRequestRepository.findByRepoAndNumber(repo, prRef.number)
+  const pr = await pullRequestRepository.findByRepoAndNumber(
+    workspaceId,
+    repo,
+    prRef.number
+  )
   if (!pr?.taskId) return
   await prCommentMirrorService.runInbound({
     event: 'pull_request_review_comment',

@@ -77,7 +77,13 @@ export async function syncRepoPRs(
         : 'open'
 
     await prisma.pullRequest.upsert({
-      where: { repo_number: { repo: fullName, number: pr.number } },
+      where: {
+        workspaceId_repo_number: {
+          workspaceId,
+          repo: fullName,
+          number: pr.number,
+        },
+      },
       create: {
         workspaceId,
         taskId,

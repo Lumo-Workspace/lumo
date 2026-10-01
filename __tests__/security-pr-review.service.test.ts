@@ -32,6 +32,8 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
     // LUM-740: no stored summary id → the legacy marker path these
     // expectations describe.
     findSummaryCommentIdByPullRequest: jest.fn().mockResolvedValue(null),
+    // LUM-924: no other workspace holds the PR — the legacy marker path runs.
+    isPullRequestHeldElsewhere: jest.fn().mockResolvedValue(false),
     setSummaryCommentId: jest.fn().mockResolvedValue(undefined),
   },
 }))
@@ -472,6 +474,31 @@ describe('securityPrReviewService.sync', () => {
       'No open findings on lines this PR added.'
     )
     expect(createReview).not.toHaveBeenCalled()
+  })
+
+  // LUM-924: two workspaces sharing one App installation scan the same PR and
+  // post as the same bot — the marker cannot tell whose summary it is.
+  it('does not adopt a summary comment recorded by another workspace scan of the same PR', async () => {
+    findById.mockResolvedValue(scanRow())
+    ;(
+      prSecurityScanRepository.isPullRequestHeldElsewhere as jest.Mock
+    ).mockResolvedValueOnce(true)
+    listIssue.mockResolvedValue([
+      {
+        id: 11,
+        body: `the other workspace's summary\n${SUMMARY_MARKER}`,
+        user: { id: 2, type: 'Bot' },
+      },
+    ])
+    createIssue.mockResolvedValue({ id: 99 })
+    const res = await securityPrReviewService.sync('s1')
+    expect(res).toMatchObject({ posted: true })
+    expect(updateIssue).not.toHaveBeenCalled()
+    expect(createIssue).toHaveBeenCalledTimes(1)
+    expect(prSecurityScanRepository.setSummaryCommentId).toHaveBeenCalledWith(
+      's1',
+      '99'
+    )
   })
 
   it('skips fingerprints already present in the PR review comments', async () => {
