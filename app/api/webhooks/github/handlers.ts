@@ -216,13 +216,12 @@ export async function handlePullRequest(
     closedAt: pr.closed_at ? new Date(pr.closed_at) : null,
   })
 
-  // LUM-929: the branch lookup returns null when another workspace that
-  // confirmed this repository holds the same identifier, which only stops a
-  // NEW link. A row already linked (before the repository was shared, or by
-  // hand) keeps its task — scans, lineage and notifications carry on.
-  const linkedTask =
-    task ??
-    (prRow.taskId ? await githubService.findTaskById(prRow.taskId) : null)
+  // LUM-929: an ambiguous branch only stops a NEW link; the row's existing
+  // link keeps its task (see githubService.resolvePullRequestTask).
+  const linkedTask = await githubService.resolvePullRequestTask(
+    task,
+    prRow.taskId
+  )
 
   if (!linkedTask) return
 

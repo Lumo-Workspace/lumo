@@ -22,7 +22,7 @@ jest.mock('@/lib/services/github.service', () => ({
     upsertPullRequest: jest.fn().mockResolvedValue({ id: 'pr', taskId: null }),
     upsertTaskBranch: jest.fn(),
     findTaskByIdentifier: jest.fn().mockResolvedValue(null),
-    findTaskById: jest.fn().mockResolvedValue(null),
+    resolvePullRequestTask: jest.fn(async (task: unknown) => task),
     findWorkspaceSlug: jest.fn(),
   },
 }))

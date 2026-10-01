@@ -164,13 +164,19 @@ export const githubService = {
   },
 
   /**
-   * LUM-929 — the task a PR row is already linked to. A link made while the
-   * repository was unshared (or made by hand) stays the PR's owner after
-   * another workspace confirms the repository: ambiguity only stops a NEW
-   * link from the branch name, never an existing one.
+   * LUM-929 — which task a PR event belongs to. The branch match wins; when
+   * the branch lookup comes back empty (no identifier, or ambiguous across
+   * workspaces sharing the repository) the PR row's existing link stands. A
+   * link made while the repository was unshared, or made by hand, stays the
+   * PR's owner after another workspace confirms the repository: ambiguity
+   * only stops a NEW link, never an existing one.
    */
-  async findTaskById(taskId: string) {
-    return githubRepository.findTaskById(taskId)
+  async resolvePullRequestTask<T>(
+    branchTask: T | null,
+    linkedTaskId: string | null
+  ) {
+    if (branchTask) return branchTask
+    return linkedTaskId ? githubRepository.findTaskById(linkedTaskId) : null
   },
 
   /**
