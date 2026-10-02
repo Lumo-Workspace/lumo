@@ -114,7 +114,7 @@ describe('hookEventService.recordHookEvent attributionSignals (LUM-932 P2)', () 
     )
   })
 
-  it('stores null when the event carries no signal', async () => {
+  it('stores [] (computed, nothing found) when the event carries no signal', async () => {
     await hookEventService.recordHookEvent({
       identity,
       type: 'POST_TOOL_USE',
@@ -125,7 +125,7 @@ describe('hookEventService.recordHookEvent attributionSignals (LUM-932 P2)', () 
       },
     })
     expect(repo.createHookEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ attributionSignals: null })
+      expect.objectContaining({ attributionSignals: [] })
     )
   })
 })

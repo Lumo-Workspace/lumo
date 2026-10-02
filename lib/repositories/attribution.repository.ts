@@ -1,8 +1,9 @@
 import { prisma } from '@/lib/db/prisma'
+import { parseTaskIdentifier } from '@/lib/attribution/identifier'
+import { Prisma } from '@prisma/client'
 import type {
   AttributionConfidence,
   AttributionSource,
-  Prisma,
   SessionBindingSource,
 } from '@prisma/client'
 
@@ -24,11 +25,13 @@ export interface FamilySession {
 }
 
 export interface FamilyEvent {
+  id: string
   sessionId: string | null
   type: string
   createdAt: Date
   attributionSignals: Prisma.JsonValue | null
-  payload: Prisma.JsonValue
+  /** Null when not loaded: stored signals exist, or the payload was pruned. */
+  payload: Prisma.JsonValue | null
   payloadPrunedAt: Date | null
 }
 
@@ -61,8 +64,6 @@ const FAMILY_SESSION_SELECT = {
   startedAt: true,
 } as const
 
-const IDENTIFIER_RE = /^([A-Za-z]{1,10})-(\d+)$/
-
 export const attributionRepository = {
   /** Root session + its direct children + their events (createdAt asc). Null when the root is missing. */
   async loadFamily(rootSessionId: string): Promise<SessionFamily | null> {
@@ -72,34 +73,42 @@ export const attributionRepository = {
     })
     if (!root) return null
     const children = await prisma.session.findMany({
-      where: { parentSessionId: rootSessionId },
+      where: { parentSessionId: rootSessionId, workspaceId: root.workspaceId },
       select: FAMILY_SESSION_SELECT,
       orderBy: { startedAt: 'asc' },
     })
     const { workspaceId, ...rootSession } = root
-    const sessions: FamilySession[] = [
-      rootSession,
-      ...children.map(c => ({
-        id: c.id,
-        parentSessionId: c.parentSessionId,
-        agentId: c.agentId,
-        taskId: c.taskId,
-        bindingSource: c.bindingSource,
-        startedAt: c.startedAt,
-      })),
-    ]
-    const events = await prisma.hookEvent.findMany({
-      where: { sessionId: { in: sessions.map(s => s.id) } },
+    const sessions: FamilySession[] = [rootSession, ...children]
+    const scope = {
+      workspaceId,
+      sessionId: { in: sessions.map(s => s.id) },
+    }
+    const meta = await prisma.hookEvent.findMany({
+      where: scope,
       select: {
+        id: true,
         sessionId: true,
         type: true,
         createdAt: true,
         attributionSignals: true,
-        payload: true,
         payloadPrunedAt: true,
       },
       orderBy: { createdAt: 'asc' },
     })
+    // Payloads only for events never computed at record time (historical rows).
+    const payloadRows = await prisma.hookEvent.findMany({
+      where: {
+        ...scope,
+        attributionSignals: { equals: Prisma.DbNull },
+        payloadPrunedAt: null,
+      },
+      select: { id: true, payload: true },
+    })
+    const payloads = new Map(payloadRows.map(r => [r.id, r.payload]))
+    const events: FamilyEvent[] = meta.map(e => ({
+      ...e,
+      payload: payloads.get(e.id) ?? null,
+    }))
     return { workspaceId, sessions, events }
   },
 
@@ -110,10 +119,9 @@ export const attributionRepository = {
   ): Promise<Map<string, string>> {
     const byTeam = new Map<string, number[]>()
     for (const raw of identifiers) {
-      const m = IDENTIFIER_RE.exec(raw)
-      if (!m) continue
-      const team = m[1]!.toUpperCase()
-      const number = Number(m[2])
+      const parsed = parseTaskIdentifier(raw)
+      if (!parsed) continue
+      const { team, number } = parsed
       const list = byTeam.get(team) ?? []
       if (!list.includes(number)) list.push(number)
       byTeam.set(team, list)

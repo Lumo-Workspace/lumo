@@ -145,7 +145,7 @@ describe('attributionService.recomputeFamily', () => {
     )
 
     await expect(attributionService.recomputeFamily(ROOT)).resolves.toEqual({
-      segments: 3,
+      segments: 4,
     })
     expect(repo.resolveIdentifiers).not.toHaveBeenCalled()
     expect(repo.taskIdsForBranches).not.toHaveBeenCalled()
@@ -187,6 +187,12 @@ describe('attributionService.recomputeFamily', () => {
         confidence: 'EXPLICIT',
         fromAt: t(6),
       }),
+      expect.objectContaining({
+        sessionId: `${ROOT}:a3`,
+        taskId: 'task_root',
+        source: 'INHERITED',
+        confidence: 'EXPLICIT',
+      }),
     ])
   })
 
@@ -197,6 +203,72 @@ describe('attributionService.recomputeFamily', () => {
     await attributionService.recomputeFamily(ROOT)
     expect(writtenRows()).toEqual([
       expect.objectContaining({ fromAt: t(9), fromTurn: 0, toTurn: 0 }),
+    ])
+  })
+
+  it('stored [] means computed-empty: no payload extraction', async () => {
+    repo.loadFamily.mockResolvedValue(
+      family(
+        [session()],
+        [
+          ev({ type: 'USER_PROMPT_SUBMIT', createdAt: t(1) }),
+          ev({
+            type: 'PRE_TOOL_USE',
+            createdAt: t(2),
+            attributionSignals: [],
+            payload: {
+              tool_name: 'Bash',
+              tool_input: { command: 'lumo verify LUM-12' },
+            },
+          }),
+        ]
+      )
+    )
+    await attributionService.recomputeFamily(ROOT)
+    expect(repo.resolveIdentifiers).not.toHaveBeenCalled()
+    expect(writtenRows()).toEqual([])
+  })
+
+  it('canonicalises LUM-012 before resolving and lookup', async () => {
+    repo.loadFamily.mockResolvedValue(
+      family(
+        [session()],
+        [
+          ev({ type: 'USER_PROMPT_SUBMIT', createdAt: t(1) }),
+          ev({
+            type: 'PRE_TOOL_USE',
+            createdAt: t(2),
+            attributionSignals: [{ kind: 'LUMO_CMD', identifier: 'LUM-012' }],
+          }),
+        ]
+      )
+    )
+    await attributionService.recomputeFamily(ROOT)
+    expect(repo.resolveIdentifiers).toHaveBeenCalledWith('ws', ['LUM-12'])
+    expect(writtenRows()).toEqual([
+      expect.objectContaining({ taskId: 'task_12', source: 'INFERRED' }),
+    ])
+  })
+
+  it('bound root: an un-attached child inherits the root task', async () => {
+    repo.loadFamily.mockResolvedValue(
+      family(
+        [
+          session({ taskId: 'task_root' }),
+          session({ id: CHILD, parentSessionId: ROOT, agentId: 'a1' }),
+        ],
+        []
+      )
+    )
+    await attributionService.recomputeFamily(ROOT)
+    expect(writtenRows()).toEqual([
+      expect.objectContaining({ sessionId: ROOT, source: 'SESSION_ATTACH' }),
+      expect.objectContaining({
+        sessionId: CHILD,
+        taskId: 'task_root',
+        source: 'INHERITED',
+        confidence: 'EXPLICIT',
+      }),
     ])
   })
 

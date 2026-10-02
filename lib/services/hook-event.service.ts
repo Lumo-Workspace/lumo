@@ -175,7 +175,8 @@ export const hookEventService = {
         turnUsageByModel != null
           ? (turnUsageByModel as unknown as Prisma.InputJsonValue)
           : null,
-      attributionSignals: signals.length > 0 ? signals : null,
+      // [] = computed, nothing found (vs NULL = historical, never computed).
+      attributionSignals: signals,
     })
 
     // LUM-932: settle each subagent's usage onto its child session AFTER the

@@ -22,6 +22,7 @@ jest.mock('@/lib/db/prisma', () => {
   }
 })
 
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import {
   ATTRIBUTION_COMPUTE_VERSION,
@@ -64,7 +65,13 @@ describe('loadFamily', () => {
       bindingSource: null,
       startedAt: new Date(0),
     }
-    const child = { ...root, id: 'r:a1', parentSessionId: 'r', agentId: 'a1' }
+    const { workspaceId: _ws, ...sessionFields } = root
+    const child = {
+      ...sessionFields,
+      id: 'r:a1',
+      parentSessionId: 'r',
+      agentId: 'a1',
+    }
     p.session.findUnique.mockResolvedValue(root)
     p.session.findMany.mockResolvedValue([child])
     p.hookEvent.findMany.mockResolvedValue([])
@@ -93,19 +100,64 @@ describe('loadFamily', () => {
       events: [],
     })
     expect(p.session.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { parentSessionId: 'r' } })
+      expect.objectContaining({
+        where: { parentSessionId: 'r', workspaceId: 'ws' },
+      })
     )
     const evArgs = p.hookEvent.findMany.mock.calls[0]![0]
-    expect(evArgs.where).toEqual({ sessionId: { in: ['r', 'r:a1'] } })
+    expect(evArgs.where).toEqual({
+      workspaceId: 'ws',
+      sessionId: { in: ['r', 'r:a1'] },
+    })
     expect(evArgs.orderBy).toEqual({ createdAt: 'asc' })
     expect(evArgs.select).toEqual({
+      id: true,
       sessionId: true,
       type: true,
       createdAt: true,
       attributionSignals: true,
-      payload: true,
       payloadPrunedAt: true,
     })
+  })
+
+  it('fetches payloads only for never-computed, unpruned events and merges by id', async () => {
+    const root = {
+      id: 'r',
+      workspaceId: 'ws',
+      parentSessionId: null,
+      agentId: null,
+      taskId: null,
+      bindingSource: null,
+      startedAt: new Date(0),
+    }
+    p.session.findUnique.mockResolvedValue(root)
+    p.session.findMany.mockResolvedValue([])
+    const base = {
+      sessionId: 'r',
+      type: 'PRE_TOOL_USE',
+      createdAt: new Date(1),
+      payloadPrunedAt: null,
+    }
+    p.hookEvent.findMany
+      .mockResolvedValueOnce([
+        { ...base, id: 'e1', attributionSignals: [] },
+        { ...base, id: 'e2', attributionSignals: null },
+      ])
+      .mockResolvedValueOnce([{ id: 'e2', payload: { a: 1 } }])
+    const fam = await attributionRepository.loadFamily('r')
+    expect(p.hookEvent.findMany).toHaveBeenCalledTimes(2)
+    const payloadArgs = p.hookEvent.findMany.mock.calls[1]![0]
+    expect(payloadArgs.where).toEqual({
+      workspaceId: 'ws',
+      sessionId: { in: ['r'] },
+      attributionSignals: { equals: Prisma.DbNull },
+      payloadPrunedAt: null,
+    })
+    expect(payloadArgs.select).toEqual({ id: true, payload: true })
+    expect(fam!.events.map(e => [e.id, e.payload])).toEqual([
+      ['e1', null],
+      ['e2', { a: 1 }],
+    ])
   })
 })
 

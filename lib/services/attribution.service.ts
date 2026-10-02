@@ -17,6 +17,7 @@ import {
   type AttributionSignal,
   type SignalKind,
 } from '@/lib/attribution/signals'
+import { canonicalTaskIdentifier } from '@/lib/attribution/identifier'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
 
 /**
@@ -59,7 +60,7 @@ function rawSignalsOf(e: FamilyEvent): AttributionSignal[] {
       ? (e.attributionSignals as unknown[]).filter(isSignal)
       : []
   }
-  if (e.payloadPrunedAt == null)
+  if (e.payloadPrunedAt == null && e.payload != null)
     return extractAttributionSignals(e.type, e.payload)
   return []
 }
@@ -104,7 +105,8 @@ async function inferFamily(
   const branches = new Set<string>()
   for (const { signals } of raw) {
     for (const s of signals) {
-      if (s.identifier) identifiers.add(s.identifier)
+      const canon = s.identifier ? canonicalTaskIdentifier(s.identifier) : null
+      if (canon) identifiers.add(canon)
       else if (s.kind === 'BRANCH' && s.branch) branches.add(s.branch)
     }
   }
@@ -125,12 +127,13 @@ async function inferFamily(
     const resolved: ResolvedSignal[] = []
     for (const s of signals) {
       if (s.identifier) {
-        const taskId = byIdentifier.get(s.identifier)
-        if (!taskId) continue
+        const canon = canonicalTaskIdentifier(s.identifier)
+        const taskId = canon ? byIdentifier.get(canon) : undefined
+        if (!canon || !taskId) continue
         resolved.push({
           kind: s.kind,
           taskId,
-          identifier: s.identifier,
+          identifier: canon,
           ...(s.agentId ? { agentId: s.agentId } : {}),
         })
       } else if (s.kind === 'BRANCH' && s.branch) {
@@ -191,11 +194,16 @@ function explicitChildRows(
   lastRootTurn: number
 ): SegmentRow[] {
   const rows: SegmentRow[] = []
+  const root = family.sessions[0]!
   for (const child of family.sessions.slice(1)) {
-    if (!child.taskId) continue
+    // Un-attached subagents inherit an explicitly bound root (spec section 3).
+    const taskId = child.taskId ?? root.taskId
+    if (!taskId) continue
     const source =
-      child.bindingSource === 'ATTACH' ? 'SUBAGENT_ATTACH' : 'INHERITED'
-    rows.push(explicitRow(family, child, child.taskId, source, lastRootTurn))
+      child.taskId && child.bindingSource === 'ATTACH'
+        ? 'SUBAGENT_ATTACH'
+        : 'INHERITED'
+    rows.push(explicitRow(family, child, taskId, source, lastRootTurn))
   }
   return rows
 }
