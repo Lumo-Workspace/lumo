@@ -1,4 +1,4 @@
-import { sessionRepository } from '@/lib/repositories/session.repository'
+import { resolveEffectiveBindingSession } from '@/lib/services/effective-binding-session'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import {
@@ -52,10 +52,8 @@ export async function classifyBinding({
   // No session header → cannot prove anything. Old CLI / non-CC callers land here.
   if (!sessionId) return { kind: 'unconfirmed' }
 
-  const session = await sessionRepository.findForMemberWithBinding(
-    sessionId,
-    memberId
-  )
+  // LUM-932: a subagent with no task of its own is classified by its parent.
+  const session = await resolveEffectiveBindingSession(sessionId, memberId)
   // Member-scoped: a missing/unowned session reads back null. Cannot prove unbound.
   if (!session) return { kind: 'unconfirmed' }
   // LUM-640: a STEWARD session is milestone-bound — a distinct legal form, not
