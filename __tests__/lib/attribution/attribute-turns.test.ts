@@ -127,6 +127,39 @@ describe('attributeTurns segments a session by turns', () => {
     expect(segs[0]!.taskId).toBe('lum-13')
   })
 
+  it('on one branch, tasks switch only when the branch changes', () => {
+    const b12 = sig('BRANCH', 'lum-12')
+    const b13 = sig('BRANCH', 'lum-13')
+    const events = [
+      ev(1, 'USER_PROMPT_SUBMIT', [b12]),
+      ev(2, 'PRE_TOOL_USE', [b12]),
+      ev(3, 'STOP', [b12]),
+      // A one-off command / commit naming another task on the LUM-12 branch.
+      ev(4, 'USER_PROMPT_SUBMIT', [b12]),
+      ev(5, 'PRE_TOOL_USE', [b12, sig('LUMO_CMD', 'lum-13')]),
+      ev(6, 'PRE_TOOL_USE', [b12, sig('COMMIT', 'lum-13')]),
+      ev(7, 'PRE_TOOL_USE', [b12]),
+      ev(8, 'STOP', [b12]),
+    ]
+    expect(run(events).map(s => [s.taskId, s.fromTurn, s.toTurn])).toEqual([
+      ['lum-12', 0, 1],
+    ])
+
+    const switched = run([
+      ...events,
+      // The branch changed (new branch / worktree for LUM-13).
+      ev(9, 'USER_PROMPT_SUBMIT', [b13]),
+      ev(10, 'PRE_TOOL_USE', [b13]),
+      ev(11, 'STOP', [b13]),
+    ])
+    expect(
+      switched.map(s => [s.taskId, s.fromTurn, s.toTurn, s.fromAt])
+    ).toEqual([
+      ['lum-12', 0, 1, t(1)],
+      ['lum-13', 2, 2, t(9)],
+    ])
+  })
+
   it('a subagent follows the parent segment unless it has its own strong signal or a dispatch prompt', () => {
     const sessions = [
       { id: ROOT, parentSessionId: null, agentId: null },
