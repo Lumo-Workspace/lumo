@@ -26,6 +26,9 @@ jest.mock('@/lib/services/task-dependency.service', () => ({
 jest.mock('@/lib/services/pr-security-reminder.service', () => ({
   prSecurityReminderService: {},
 }))
+jest.mock('@/lib/logger', () => ({
+  logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
+}))
 jest.mock('@/lib/services/session-list.service', () => ({
   sessionListService: { getAttribution: jest.fn() },
 }))
@@ -104,5 +107,21 @@ describe('getSessionStatus attribution', () => {
     })
     expect(r).toEqual({ exists: false })
     expect(list.getAttribution).not.toHaveBeenCalled()
+  })
+
+  it('still resolves without attribution when the lookup fails', async () => {
+    repo.findForMemberWithBinding.mockResolvedValue({
+      ...base,
+      id: 'P',
+      parentSessionId: null,
+      agentType: null,
+    } as never)
+    list.getAttribution.mockRejectedValue(new Error('db down'))
+    const r = await sessionService.getSessionStatus({
+      identity,
+      sessionId: 'P',
+    })
+    expect(r).toMatchObject({ exists: true, sessionId: 'P', eventCount: 3 })
+    expect(r).not.toHaveProperty('attribution')
   })
 })

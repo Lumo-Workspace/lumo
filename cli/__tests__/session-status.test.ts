@@ -140,3 +140,68 @@ it('prints Subagent of for a child session', async () => {
   })
   expect(out.split('\n')[1]).toBe('  Subagent of: sess-1')
 })
+
+it('tolerates an empty attribution payload', async () => {
+  expect(await run({ ...root, attribution: {} })).toBe(
+    'Session sess-1\n  Bound to:  (no task)\n  Events:    7\n'
+  )
+})
+
+it('tolerates non-array segments and malformed evidence', async () => {
+  const out = await run({
+    ...root,
+    attribution: { segments: 'nope', subagents: { a: 1 }, approximate: false },
+  })
+  expect(out).toBe('Session sess-1\n  Bound to:  (no task)\n  Events:    7\n')
+  const out2 = await run({
+    ...root,
+    attribution: {
+      segments: [
+        {
+          taskIdentifier: 'LUM-1',
+          source: 'INFERRED',
+          confidence: 'HIGH',
+          fromTurn: 1,
+          toTurn: 1,
+          evidence: [
+            { kind: 5, identifier: null },
+            { kind: 'GIT_HINT', identifier: 'LUM-1' },
+          ],
+        },
+      ],
+    },
+  })
+  expect(out2).toContain('(git hint LUM-1)')
+})
+
+it('keeps steward output exactly as today even with attribution', async () => {
+  const out = await run({
+    ...root,
+    role: 'STEWARD',
+    milestoneName: 'M1',
+    attribution: {
+      segments: [],
+      subagents: [],
+      unattributed: true,
+      approximate: true,
+    },
+  })
+  expect(out).toBe(
+    'Session sess-1\n  Role:      STEWARD (governance — plan & accept only)\n  Bound to:  milestone "M1"\n  Events:    7\n'
+  )
+})
+
+it('omits the none-yet line for a bound session', async () => {
+  const out = await run({
+    ...root,
+    taskIdentifier: 'LUM-1',
+    taskTitle: 'T',
+    attribution: {
+      segments: [],
+      subagents: [],
+      unattributed: true,
+      approximate: false,
+    },
+  })
+  expect(out).not.toContain('none yet')
+})

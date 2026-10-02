@@ -57,11 +57,14 @@ function sourceWord(source: SourceName): string {
 }
 
 function evidenceText(
-  evidence: Attribution['segments'][number]['evidence']
+  evidence: Attribution['segments'][number]['evidence'] | undefined
 ): string {
   const seen = new Set<string>()
   const out: string[] = []
-  for (const e of evidence) {
+  for (const e of Array.isArray(evidence) ? evidence : []) {
+    if (typeof e?.kind !== 'string' || typeof e?.identifier !== 'string') {
+      continue
+    }
     const text = sanitizeField(
       `${e.kind.toLowerCase().replace(/_/g, ' ')} ${e.identifier}`
     )
@@ -88,8 +91,9 @@ function segmentLine(seg: Attribution['segments'][number]): string {
 
 function subagentLine(sub: Attribution['subagents'][number]): string {
   const agentId = sub.sessionId.slice(sub.sessionId.lastIndexOf(':') + 1)
-  const tasks = sub.tasks.length
-    ? sub.tasks
+  const subTasks = Array.isArray(sub.tasks) ? sub.tasks : []
+  const tasks = subTasks.length
+    ? subTasks
         .map(t => `${sanitizeField(t.taskIdentifier)} ${sourceWord(t.source)}`)
         .join(', ')
     : 'follows parent'
@@ -106,16 +110,18 @@ function subagentOfLine(data: StatusResponse): string {
 /** Lines appended after the binding lines. Empty for old servers. */
 function attributionBlock(data: StatusResponse, bound: boolean): string {
   const a = data.attribution
-  if (!a) return ''
+  if (!a || typeof a !== 'object') return ''
+  const segments = Array.isArray(a.segments) ? a.segments : []
+  const subagents = Array.isArray(a.subagents) ? a.subagents : []
   let out = ''
-  if (a.segments.length > 0) {
-    out += '  Attribution:\n' + a.segments.map(segmentLine).join('')
+  if (segments.length > 0) {
+    out += '  Attribution:\n' + segments.map(segmentLine).join('')
   } else if (a.unattributed && !bound) {
     out +=
       '  Attribution: none yet (no task signal) — it will be auto-detected from branch, commits and lumo commands, or run lumo session attach <LUM-N>.\n'
   }
-  if (a.subagents.length > 0) {
-    out += '  Subagents:\n' + a.subagents.map(subagentLine).join('')
+  if (subagents.length > 0) {
+    out += '  Subagents:\n' + subagents.map(subagentLine).join('')
   }
   if (a.approximate) {
     out +=

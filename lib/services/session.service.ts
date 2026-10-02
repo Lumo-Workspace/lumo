@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
@@ -82,10 +83,11 @@ export type SessionStatusResult =
       role: 'IMPLEMENTATION' | 'STEWARD'
       /** LUM-640: the bound milestone's name for STEWARD sessions, else null. */
       milestoneName: string | null
-      /** LUM-932 P4. Absent on older servers. */
+      /** LUM-932 P4. */
       parentSessionId: string | null
       agentType: string | null
-      attribution: SessionAttributionView
+      /** Omitted when attribution could not be computed. */
+      attribution?: SessionAttributionView
     }
 
 /**
@@ -483,9 +485,15 @@ export const sessionService = {
     if (!row) return { exists: false }
 
     // Ownership is established above; a subagent shows its family's view.
-    const attribution = await sessionListService.getAttribution(
-      row.parentSessionId ?? row.id
-    )
+    // Fail soft: the binding fields are still useful without attribution.
+    let attribution: SessionAttributionView | undefined
+    try {
+      attribution = await sessionListService.getAttribution(
+        row.parentSessionId ?? row.id
+      )
+    } catch (err) {
+      logger.error(`[sessionStatus] attribution failed session=${row.id}`, err)
+    }
 
     const task = row.task
     return {
@@ -500,7 +508,7 @@ export const sessionService = {
       milestoneName: row.milestone?.name ?? null,
       parentSessionId: row.parentSessionId,
       agentType: row.agentType,
-      attribution,
+      ...(attribution ? { attribution } : {}),
     }
   },
 }
