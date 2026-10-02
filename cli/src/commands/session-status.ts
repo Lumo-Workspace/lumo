@@ -76,28 +76,47 @@ function evidenceText(
   return out.join(', ')
 }
 
+/** A malformed (non-string) task identifier from the server prints as '?'. */
+function identifierText(value: unknown): string {
+  return typeof value === 'string' ? sanitizeField(value) : '?'
+}
+
+/** Stored turns are 0-based; print them 1-based, matching the web. */
+function turnText(value: unknown): string {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? String(value + 1)
+    : '?'
+}
+
 function segmentLine(seg: Attribution['segments'][number]): string {
   const turns =
     seg.fromTurn === seg.toTurn
-      ? `turn ${seg.fromTurn}`
-      : `turns ${seg.fromTurn}–${seg.toTurn}`
+      ? `turn ${turnText(seg.fromTurn)}`
+      : `turns ${turnText(seg.fromTurn)}–${turnText(seg.toTurn)}`
+  const confidence: unknown = seg.confidence
   const how =
-    seg.source === 'INFERRED'
-      ? `${sourceWord(seg.source)} · ${sanitizeField(seg.confidence.toLowerCase())}`
+    seg.source === 'INFERRED' && typeof confidence === 'string'
+      ? `${sourceWord(seg.source)} · ${sanitizeField(confidence.toLowerCase())}`
       : sourceWord(seg.source)
   const ev = evidenceText(seg.evidence)
-  return `    ${sanitizeField(seg.taskIdentifier)}  ${turns}  ${how}${ev ? ` (${ev})` : ''}\n`
+  return `    ${identifierText(seg.taskIdentifier)}  ${turns}  ${how}${ev ? ` (${ev})` : ''}\n`
 }
 
 function subagentLine(sub: Attribution['subagents'][number]): string {
-  const agentId = sub.sessionId.slice(sub.sessionId.lastIndexOf(':') + 1)
+  const sessionId: unknown = sub.sessionId
+  const agentId =
+    typeof sessionId === 'string'
+      ? sessionId.slice(sessionId.lastIndexOf(':') + 1)
+      : ''
   const subTasks = Array.isArray(sub.tasks) ? sub.tasks : []
   const tasks = subTasks.length
     ? subTasks
-        .map(t => `${sanitizeField(t.taskIdentifier)} ${sourceWord(t.source)}`)
+        .map(t => `${identifierText(t?.taskIdentifier)} ${sourceWord(t?.source)}`)
         .join(', ')
     : 'follows parent'
-  const type = sanitizeField(sub.agentType ?? 'subagent')
+  const type = sanitizeField(
+    typeof sub.agentType === 'string' ? sub.agentType : 'subagent'
+  )
   return `    ${type} (${sanitizeField(agentId.slice(-6))})  ${tasks}\n`
 }
 

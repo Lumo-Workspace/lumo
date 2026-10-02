@@ -204,7 +204,10 @@ Against a server that reports attribution (LUM-932) it also lists where the run'
   ⚠ Some work was auto-detected — time and cost may be inaccurate. Run `lumo session attach <LUM-N>` for exact numbers.
 ```
 
+- Turns are numbered from 1 (turn 1 = the session's first prompt), the same as the web run panel.
 - Source words: `attached`, `subagent attach`, `inherited`, `auto-detected` (the `high`/`medium` confidence only appears for auto-detected). Evidence is what triggered the inference (max 3 per segment).
+- A subagent with no task of its own prints `follows parent` — its work goes wherever the parent's does.
+- A bound session whose attribution has not been computed yet still lists its bound task as `attached`.
 - An unbound session with no signal yet prints `Attribution: none yet (no task signal)`; it is auto-detected later from branch, commits and `lumo` commands.
 - The `⚠` line means some of the work is inferred, so time and cost are approximate; `lumo session attach <LUM-N>` makes them exact. Older servers print only the binding lines.
 

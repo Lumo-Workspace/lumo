@@ -62,8 +62,9 @@ it('prints segments, evidence, subagents and the approximate warning', async () 
           taskIdentifier: 'LUM-12',
           source: 'INFERRED',
           confidence: 'HIGH',
-          fromTurn: 1,
-          toTurn: 4,
+          // Stored turns are 0-based; the CLI prints them 1-based like the web.
+          fromTurn: 0,
+          toTurn: 3,
           evidence: [
             { kind: 'GIT_HINT', identifier: 'LUM-12', at: 'x' },
             { kind: 'GIT_HINT', identifier: 'LUM-12', at: 'y' },
@@ -74,8 +75,8 @@ it('prints segments, evidence, subagents and the approximate warning', async () 
           taskIdentifier: 'LUM-13',
           source: 'INFERRED',
           confidence: 'MEDIUM',
-          fromTurn: 5,
-          toTurn: 5,
+          fromTurn: 4,
+          toTurn: 4,
           evidence: [{ kind: 'AGENT_PROMPT', identifier: 'LUM-13', at: 'x' }],
         },
       ],
@@ -204,4 +205,33 @@ it('omits the none-yet line for a bound session', async () => {
     },
   })
   expect(out).not.toContain('none yet')
+})
+
+it('treats non-string confidence, identifiers and session ids as missing', async () => {
+  const out = await run({
+    ...root,
+    attribution: {
+      segments: [
+        {
+          taskIdentifier: null,
+          source: 'INFERRED',
+          confidence: 7,
+          fromTurn: 0,
+          toTurn: 0,
+          evidence: [],
+        },
+      ],
+      subagents: [
+        {
+          sessionId: 42,
+          agentType: 'Explore',
+          tasks: [{ taskIdentifier: 3, source: 'SUBAGENT_ATTACH' }],
+        },
+      ],
+      unattributed: false,
+      approximate: true,
+    },
+  })
+  expect(out).toContain('    ?  turn 1  auto-detected\n')
+  expect(out).toContain('    Explore ()  ? subagent attach\n')
 })
