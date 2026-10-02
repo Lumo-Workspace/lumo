@@ -93,7 +93,7 @@ describe('SessionAttribution', () => {
     expect(screen.getByText(/Explore/)).toBeInTheDocument()
     expect(screen.getByText(/LUM-9/)).toBeInTheDocument()
     expect(screen.getByText(/Plan/)).toBeInTheDocument()
-    expect(screen.getByText(/no task/)).toBeInTheDocument()
+    expect(screen.getByText(/follows parent/)).toBeInTheDocument()
   })
 
   it('renders the unattributed note', () => {

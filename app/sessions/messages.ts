@@ -59,7 +59,7 @@ export const SESSION_MESSAGES = {
   },
   'attribution.subagentNoTask': {
     id: 'sessions.attribution.subagentNoTask',
-    defaultMessage: 'no task',
+    defaultMessage: 'follows parent',
   },
   'timeline.heading': {
     id: 'sessions.timeline.heading',
