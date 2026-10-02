@@ -4,6 +4,11 @@
  * Tests for `decideSprintAction` (pure) and `taskUpdate --sprint` integration
  * (mock fetch).
  */
+jest.mock('../../cli/src/lib/session-id', () => ({
+  resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
+  AmbiguousSessionError: class extends Error {},
+}))
+
 import { decideSprintAction } from '@/cli/src/commands/task-update'
 
 // ---------------------------------------------------------------------------

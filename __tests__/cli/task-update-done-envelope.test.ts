@@ -24,6 +24,11 @@ jest.mock('@/cli/src/lib/tag-resolver', () => ({
   resolveTagRefs: jest.fn(async () => ['tag-1']),
 }))
 
+jest.mock('../../cli/src/lib/session-id', () => ({
+  resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
+  AmbiguousSessionError: class extends Error {},
+}))
+
 import { resolveTagRefs } from '@/cli/src/lib/tag-resolver'
 import {
   taskUpdate,

@@ -9,6 +9,11 @@ jest.mock('../src/lib/config', () => ({
   readCredentials: jest.fn(),
 }))
 
+jest.mock('../src/lib/session-id', () => ({
+  resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
+  AmbiguousSessionError: class extends Error {},
+}))
+
 import { readCredentials } from '../src/lib/config'
 import { reportPull } from '../src/lib/report-pull'
 

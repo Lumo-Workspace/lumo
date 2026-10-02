@@ -7,6 +7,11 @@ jest.mock('@/cli/src/lib/config', () => ({
   })),
 }))
 
+jest.mock('../../cli/src/lib/session-id', () => ({
+  resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
+  AmbiguousSessionError: class extends Error {},
+}))
+
 import { taskCreate } from '@/cli/src/commands/task-create'
 
 function jsonResponse(status: number, body: unknown): Response {

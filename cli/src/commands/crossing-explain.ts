@@ -4,6 +4,7 @@ import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
 import { printStatusDigest } from '../lib/status-digest'
 import { resolveBoundTask } from '../lib/bound-task'
+import { resolveSessionId } from '../lib/session-id'
 
 export interface CrossingExplainOptions {
   note?: string
@@ -86,7 +87,7 @@ export async function crossingExplain(
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,
   }
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
   // The crossing is addressed by id, but the route is task-scoped — resolve the

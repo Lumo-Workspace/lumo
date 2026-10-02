@@ -172,6 +172,15 @@ function mapTotal(m: Record<string, ModelUsage>): number {
 }
 
 export const sessionRepository = {
+  /** LUM-932: ids of a session's subagent child sessions. */
+  async listChildIds(parentSessionId: string): Promise<string[]> {
+    const rows = await prisma.session.findMany({
+      where: { parentSessionId },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
   /**
    * LUM-932: upsert a subagent's child session for one hook event. The child
    * inherits the parent's explicit binding on creation (bindingSource

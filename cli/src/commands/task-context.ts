@@ -4,6 +4,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { formatDuration, relativeTime } from '../lib/format'
 import { capRenderedOutput } from '../../../shared/src/output-budget'
+import { resolveSessionId } from '../lib/session-id'
 
 interface TaskContextResponse {
   task: {
@@ -113,7 +114,7 @@ export async function taskContext(
   process.stdout.write(
     formatTaskContextMarkdown(data, now, {
       full: options?.full,
-      currentSessionId: process.env.CLAUDE_CODE_SESSION_ID,
+      currentSessionId: await resolveSessionId({ write: false }),
     })
   )
   // Emitted outside the rendered markdown so the output budget can never drop

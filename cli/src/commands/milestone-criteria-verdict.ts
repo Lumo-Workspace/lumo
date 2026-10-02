@@ -10,6 +10,7 @@ import {
   resolveCriterionRef,
   type CriterionSelectorResult,
 } from '../lib/criterion-selector'
+import { resolveSessionId } from '../lib/session-id'
 
 export interface MilestoneCriteriaVerdictOptions {
   project?: string
@@ -104,7 +105,7 @@ export async function milestoneCriteriaVerdict(
     'Content-Type': 'application/json',
   }
   // Adjudicating-session provenance (LUM-640) — stamped on the verdict.
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
   let res: Response

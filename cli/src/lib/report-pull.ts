@@ -1,5 +1,6 @@
 import { readCredentials } from './config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from './api'
+import { resolveSessionId } from './session-id'
 
 /**
  * Fire-and-forget telemetry for progressive disclosure (LUM-500).
@@ -24,7 +25,7 @@ export async function reportPull(ref: {
   fragmentId: string
 }): Promise<void> {
   try {
-    const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+    const sessionId = await resolveSessionId({ write: false })
     if (!sessionId) return
 
     const creds = readCredentials()

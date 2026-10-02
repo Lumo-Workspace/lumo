@@ -22,6 +22,7 @@ import {
   isDoneGateRefusal,
 } from '../lib/blocked-error'
 import { fetchStatusDigest, printStatusDigest } from '../lib/status-digest'
+import { resolveSessionId } from '../lib/session-id'
 
 const ALLOWED_STATUSES = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const
 type Status = (typeof ALLOWED_STATUSES)[number]
@@ -588,7 +589,7 @@ async function runTaskUpdate(
       Authorization: `Bearer ${creds.token}`,
       'Content-Type': 'application/json',
     }
-    const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+    const sessionId = await resolveSessionId({ write: true })
     if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
     let res: Response

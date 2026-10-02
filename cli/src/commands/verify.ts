@@ -5,6 +5,7 @@ import { sanitizeField } from '../lib/sanitize'
 import { buildCmdEvidencePointer } from '../../../shared/src/acceptance-evidence'
 import { printStatusDigest } from '../lib/status-digest'
 import type { CriterionRow } from './task-criteria-list'
+import { resolveSessionId } from '../lib/session-id'
 
 export interface VerifyOptions {
   /** Per-checkpointer timeout in seconds (default 600). */
@@ -166,7 +167,7 @@ export async function verify(
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,
   }
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
   const timeoutSeconds = options.timeout

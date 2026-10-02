@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
 import type { HookEventType } from '@prisma/client'
+import type { ToolEventRow } from '@/lib/session/resolve-caller'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +45,33 @@ interface FindRecentOtherSessionWritesParams {
 // ── HookEvent Repository ──────────────────────────────────────────────────────
 
 export const hookEventRepository = {
+  /**
+   * LUM-932: recent Bash Pre/Post tool events across a session family, for
+   * matching a CLI call to the session that issued it. Bounded by `since`
+   * (the caller passes a two-minute window) so the scan stays small.
+   */
+  async findRecentBashToolEventsInSessions(
+    sessionIds: string[],
+    since: Date
+  ): Promise<ToolEventRow[]> {
+    if (sessionIds.length === 0) return []
+    const rows = await prisma.hookEvent.findMany({
+      where: {
+        sessionId: { in: sessionIds },
+        toolName: 'Bash',
+        type: {
+          in: ['PRE_TOOL_USE', 'POST_TOOL_USE', 'POST_TOOL_USE_FAILURE'],
+        },
+        createdAt: { gte: since },
+      },
+      select: { sessionId: true, type: true, createdAt: true, payload: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    return rows.filter(
+      (r): r is typeof r & { sessionId: string } => r.sessionId !== null
+    ) as ToolEventRow[]
+  },
+
   /**
    * LUM-772: the Bash command each of these events carried
    * (`payload.tool_input.command`), keyed by event id. Events without a

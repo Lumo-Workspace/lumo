@@ -6,6 +6,7 @@ import {
   isConfirmed,
   type ConfirmFlags,
 } from '../lib/confirmation'
+import { resolveSessionId } from '../lib/session-id'
 
 type RmOptions = ConfirmFlags
 
@@ -67,7 +68,7 @@ export async function memoryRm(
   // LUM-793: the server attributes a used-TRAP deletion to the task this
   // session is attached to — without the header it can prove no binding and
   // records nothing.
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
   const notFound = `Error: memory ${memoryId} not found — pass the full memory id (cuid) from \`lumo task memory list\` / \`lumo project memory list\`; truncated id prefixes are not resolved`
 

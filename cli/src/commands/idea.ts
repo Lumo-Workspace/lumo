@@ -2,6 +2,7 @@ import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { resolveBoundTaskIdentifier } from '../lib/resolve-bound-task'
 import { sanitizeField } from '../lib/sanitize'
+import { resolveSessionId } from '../lib/session-id'
 
 export interface IdeaCaptureOptions {
   context?: string
@@ -102,7 +103,7 @@ export async function ideaCapture(
   const base = trimTrailingSlash(apiUrl)
   const url = `${base}/api/ideas`
 
-  const sourceSessionId = process.env.CLAUDE_CODE_SESSION_ID ?? null
+  const sourceSessionId = (await resolveSessionId({ write: true })) ?? null
   const sourceTaskId = await resolveBoundTaskIdentifier(apiUrl, creds.token)
 
   const body: Record<string, unknown> = { statement: statement.trim() }
