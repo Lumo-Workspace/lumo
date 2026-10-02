@@ -1,10 +1,4 @@
 import { resolveEffectiveBindingSession } from '@/lib/services/effective-binding-session'
-import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
-import { activityRepository } from '@/lib/repositories/activity.repository'
-import {
-  severityFor,
-  isReversible,
-} from '@/lib/services/boundary-detector.service'
 
 /**
  * Classification of a bearer/agent request against the session-binding lock
@@ -57,8 +51,7 @@ export async function classifyBinding({
   // Member-scoped: a missing/unowned session reads back null. Cannot prove unbound.
   if (!session) return { kind: 'unconfirmed' }
   // LUM-640: a STEWARD session is milestone-bound — a distinct legal form, not
-  // "unbound". Classified before the taskId check so it never records a
-  // SESSION_BINDING_MISSING crossing.
+  // "unbound". Classified before the taskId check so it is never treated as unbound.
   if (session.role === 'STEWARD' && session.milestone) {
     return {
       kind: 'steward',
@@ -77,61 +70,6 @@ export async function classifyBinding({
   }
 }
 
-const CATEGORY = 'SESSION_BINDING_MISSING' as const
-
-/**
- * Record (or coalesce) a MEDIUM SESSION_BINDING_MISSING crossing for task work
- * done from a provably-unbound session. Mirrors the detector's coalesce→create
- * +activity pattern (LUM-477/478) but request-driven rather than hook-driven —
- * the dedup key (`target`) is the task id itself, so all unbound work on one task
- * folds into a single open row. Best-effort: it owns its errors and never throws,
- * so it can't break the host verify/update request (the detector's observe-only
- * invariant).
- */
-export async function recordUnboundCrossing({
-  taskId,
-  action,
-}: {
-  taskId: string
-  action: string
-}): Promise<void> {
-  try {
-    const now = new Date()
-    const detail = `${action} recorded from a Claude Code session not attached to this task — run \`lumo session attach\` to bind`
-    const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
-      taskId,
-      CATEGORY,
-      taskId,
-      now
-    )
-    if (coalesced > 0) return
-
-    const severity = severityFor(CATEGORY)
-    const row = await boundaryCrossingRepository.create({
-      taskId,
-      category: CATEGORY,
-      detail,
-      target: taskId,
-      reversible: isReversible(CATEGORY),
-      severity,
-    })
-    await activityRepository.create({
-      taskId,
-      actorId: null,
-      type: 'BOUNDARY_CROSSING_DETECTED',
-      payload: {
-        boundaryCrossingId: row.id,
-        category: CATEGORY,
-        detail,
-        severity,
-      },
-    })
-  } catch (error) {
-    // Observe-only: a recording failure must never disrupt the host request.
-    console.error('recordUnboundCrossing error:', error)
-  }
-}
-
 export type BindingAdvisory = 'unbound' | 'unconfirmed' | null
 
 /** LUM-640: steward binding details surfaced to the caller on pass-through. */
@@ -143,7 +81,7 @@ export interface StewardBinding {
 /**
  * The single decision point both work-boundary call sites use (LUM-491).
  * - mismatch  → throws a 409 mirroring the LUM-459 bind lock (no crossing).
- * - unbound   → records the MEDIUM crossing, returns `{ advisory: 'unbound' }`.
+ * - unbound   → LUM-932: nothing recorded, `{ advisory: null }` (inferred).
  * - unconfirmed → returns `{ advisory: 'unconfirmed' }` (soft nudge, no crossing).
  * - ok        → `{ advisory: null }`.
  * - steward   → LUM-640, decided by `stewardPolicy`:
@@ -156,7 +94,7 @@ export interface StewardBinding {
  *       self-dispatch refusal) and stamp attribution.
  *
  * `action` is a short human label ('machine verification' | 'status change')
- * baked into the crossing detail and the steward refusal message.
+ * used in the steward refusal message.
  */
 export async function enforceSessionBinding({
   source,
@@ -212,10 +150,8 @@ export async function enforceSessionBinding({
       },
     }
   }
-  if (check.kind === 'unbound') {
-    await recordUnboundCrossing({ taskId: targetTaskId, action })
-    return { advisory: 'unbound', steward: null }
-  }
+  // LUM-932: unattached task work is attributed by inference, not flagged —
+  // no crossing, no advisory (SESSION_BINDING_MISSING stays only for old rows).
   if (check.kind === 'unconfirmed')
     return { advisory: 'unconfirmed', steward: null }
   return { advisory: null, steward: null }
