@@ -129,3 +129,24 @@ describe('hookEventService.recordHookEvent attributionSignals (LUM-932 P2)', () 
     )
   })
 })
+
+describe('hookEventService.recordHookEvent provided attributionSignals (LUM-932 P2)', () => {
+  it('stores caller-provided signals as given instead of re-extracting', async () => {
+    const provided = [
+      {
+        kind: 'AGENT_PROMPT',
+        identifier: 'LUM-13',
+        agentId: 'abeaba01ea909a7ee',
+      },
+    ] as const
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'POST_TOOL_USE',
+      payload: { session_id: 's1', tool_name: 'Agent' },
+      attributionSignals: [...provided],
+    })
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ attributionSignals: provided })
+    )
+  })
+})

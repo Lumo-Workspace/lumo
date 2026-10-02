@@ -7,6 +7,7 @@ import {
   redactHookPayload,
   validateHookPayload,
 } from '@/lib/validation/hook-payload'
+import { extractAttributionSignals } from '@/lib/attribution/signals'
 import { stripCodeFromHookPayload } from '@/lib/hook-payload/redact'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
@@ -93,16 +94,21 @@ export async function handleHookRequest(
     // in memory for the boundary detector only — see AfterRecordContext.
     // LUM-855: file content and tool output are then stripped from that stored
     // copy too — paths, commands and sizes stay. `validated` keeps both.
-    const payload = stripCodeFromHookPayload(
-      type,
-      redactHookPayload(validated).payload
-    )
+    const redacted = redactHookPayload(validated).payload
+    const payload = stripCodeFromHookPayload(type, redacted)
+    // LUM-932: attribution signals are extracted from the redacted-but-not-
+    // stripped payload. Code stripping replaces everything under
+    // `tool_response` (including `agentId`), which would drop the AGENT_PROMPT
+    // link between a dispatch prompt and its spawned subagent. Signals carry
+    // only identifiers, branch and agent id - never code.
+    const attributionSignals = extractAttributionSignals(type, redacted)
 
     const agent = parseAgentHeader(request)
     const recorded = await hookEventService.recordHookEvent({
       identity,
       type,
       payload: payload as Prisma.InputJsonValue,
+      attributionSignals,
       ...(agent !== undefined ? { agent } : {}),
     })
 
