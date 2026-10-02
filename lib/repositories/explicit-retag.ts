@@ -14,6 +14,11 @@ import { parseChildSessionId } from '@/lib/session/child-session-id'
  * check then conflicts and retries on fresh data — so a recompute never
  * backfills a session bound after it loaded the family. A missing root row
  * matches nothing (count 0) and is harmless.
+ *
+ * Lock order: a binding locks the ROOT row first, then child session rows,
+ * then events / crossings. The recompute commit writes segments / events /
+ * crossings first and compare-and-bumps the root LAST (short root lock); a
+ * deadlock between the two is reported to the commit as a version conflict.
  */
 export async function bumpFamilyAttributionVersion(
   tx: Prisma.TransactionClient,

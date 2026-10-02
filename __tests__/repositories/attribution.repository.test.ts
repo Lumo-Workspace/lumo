@@ -298,7 +298,7 @@ describe('commitFamilyAttribution', () => {
     p.__tx.boundaryCrossing.updateMany.mockResolvedValue({ count: 0 })
   })
 
-  it('bumps the version, then deletes and inserts segments, with explicit tx limits', async () => {
+  it('deletes and inserts segments, then compare-and-bumps the version LAST, with explicit tx limits', async () => {
     const order: string[] = []
     p.__tx.session.updateMany.mockImplementation(async () => {
       order.push('version')
@@ -317,7 +317,8 @@ describe('commitFamilyAttribution', () => {
         eventTaskChanges: [],
       })
     ).resolves.toEqual({ conflict: false, eventsUpdated: 0, crossingsMoved: 0 })
-    expect(order).toEqual(['version', 'delete', 'create'])
+    // The root row lock is taken by the final statement only (I5).
+    expect(order).toEqual(['delete', 'create', 'version'])
     expect(p.__tx.session.updateMany).toHaveBeenCalledWith({
       where: { id: 'r', attributionVersion: 2 },
       data: { attributionVersion: { increment: 1 } },
@@ -349,17 +350,50 @@ describe('commitFamilyAttribution', () => {
     expect(p.__tx.taskAttributionSegment.deleteMany).not.toHaveBeenCalled()
   })
 
-  it('a version mismatch writes nothing and reports the conflict', async () => {
+  it('a version mismatch on the final compare-and-bump rolls back and reports the conflict', async () => {
     p.__tx.session.updateMany.mockResolvedValue({ count: 0 })
+    p.__tx.hookEvent.findMany.mockResolvedValue([{ id: 'e1', taskId: null }])
+    let rolledBack = false
+    p.$transaction.mockImplementationOnce(
+      async (fn: (t: typeof p.__tx) => unknown) => {
+        try {
+          return await fn(p.__tx)
+        } catch (e) {
+          rolledBack = true
+          throw e
+        }
+      }
+    )
     await expect(
       attributionRepository.commitFamilyAttribution({
         ...base,
         segments: [row],
         eventTaskChanges: [{ eventId: 'e1', taskId: 't' }],
       })
-    ).resolves.toEqual({ conflict: true, eventsUpdated: 0, crossingsMoved: 0 })
-    expect(p.__tx.taskAttributionSegment.deleteMany).not.toHaveBeenCalled()
-    expect(p.__tx.hookEvent.updateMany).not.toHaveBeenCalled()
+    ).resolves.toEqual(
+      expect.objectContaining({
+        conflict: true,
+        eventsUpdated: 0,
+        crossingsMoved: 0,
+      })
+    )
+    expect(rolledBack).toBe(true)
+  })
+
+  it('a deadlock / write conflict (P2034) is reported as a version conflict', async () => {
+    p.$transaction.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('deadlock detected', {
+        code: 'P2034',
+        clientVersion: 'test',
+      })
+    )
+    await expect(
+      attributionRepository.commitFamilyAttribution({
+        ...base,
+        segments: [row],
+        eventTaskChanges: [],
+      })
+    ).resolves.toEqual(expect.objectContaining({ conflict: true }))
   })
 
   it('updates events per target and narrows crossing moves by the old task ids', async () => {

@@ -369,9 +369,9 @@ export const attributionRepository = {
   },
 
   /**
-   * One transaction: bump the root's attributionVersion only if it still
-   * equals `expectedVersion` (else `{ conflict: true }` and nothing written);
-   * replace the family's segments when given; set HookEvent.taskId for the
+   * One transaction, ending with a compare-and-bump of the root's
+   * attributionVersion (still `expectedVersion`, else `{ conflict: true }`
+   * and the whole transaction rolls back): replace the family's segments when given; set HookEvent.taskId for the
    * changed events; move the UNDISPOSITIONED crossings of those events to the
    * event's new task (null when the new attribution is null). Dispositioned
    * crossings are untouched. Every binding write bumps the root version in
@@ -386,11 +386,16 @@ export const attributionRepository = {
     const { rootSessionId, expectedVersion, familyIds, segments } = input
     try {
       return await prisma.$transaction(async tx => {
-        const { count } = await tx.session.updateMany({
-          where: { id: rootSessionId, attributionVersion: expectedVersion },
-          data: { attributionVersion: { increment: 1 } },
-        })
-        if (count === 0) throw new AttributionVersionConflict()
+        // The version compare-and-bump runs LAST (see below), so the root row
+        // lock — which every hook event of the family also takes — is held
+        // only for the final statement, not the whole rewrite.
+        const bumpVersionOrConflict = async () => {
+          const { count } = await tx.session.updateMany({
+            where: { id: rootSessionId, attributionVersion: expectedVersion },
+            data: { attributionVersion: { increment: 1 } },
+          })
+          if (count === 0) throw new AttributionVersionConflict()
+        }
 
         if (segments) {
           await tx.taskAttributionSegment.deleteMany({
@@ -404,8 +409,10 @@ export const attributionRepository = {
         const targetOf = new Map(
           input.eventTaskChanges.map(c => [c.eventId, c.taskId])
         )
-        if (targetOf.size === 0)
+        if (targetOf.size === 0) {
+          await bumpVersionOrConflict()
           return { conflict: false, eventsUpdated: 0, crossingsMoved: 0 }
+        }
 
         // Belt-and-braces with the binding paths' root-version bump: re-check
         // eligibility in-transaction with the SAME predicate the assignment
@@ -464,10 +471,23 @@ export const attributionRepository = {
           }
         }
         const crossingsMoved = await moveOpenCrossingsForEvents(tx, moves)
+        // LAST statement. Under READ COMMITTED the UPDATE re-evaluates its
+        // WHERE after waiting on a concurrent binding's root lock, so a
+        // binding that bumped the version since the load makes it match 0
+        // rows → sentinel → the whole transaction rolls back.
+        await bumpVersionOrConflict()
         return { conflict: false, eventsUpdated, crossingsMoved }
       }, RETAG_TX_OPTIONS)
     } catch (error) {
-      if (error instanceof AttributionVersionConflict)
+      // A binding takes the root row first and then retags events, while
+      // this commit writes events first and the root last: when both touch
+      // the same events Postgres may abort one of them as a deadlock (P2034
+      // write conflict). For the commit that is just a lost race — retry.
+      if (
+        error instanceof AttributionVersionConflict ||
+        (error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2034')
+      )
         return { conflict: true, eventsUpdated: 0, crossingsMoved: 0 }
       throw error
     }

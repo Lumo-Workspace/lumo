@@ -284,6 +284,9 @@ export const sessionRepository = {
     crossingsMoved: number
   }> {
     return prisma.$transaction(async tx => {
+      // Lock order (every binding write): family ROOT row first, then child
+      // session rows, then their events / crossings.
+      await bumpFamilyAttributionVersion(tx, parentSessionId)
       const children = await tx.session.findMany({
         where: { parentSessionId, taskId: null },
         select: { id: true },
@@ -295,7 +298,6 @@ export const sessionRepository = {
         where: { id: { in: ids } },
         data: { taskId, bindingSource: 'INHERITED' },
       })
-      await bumpFamilyAttributionVersion(tx, parentSessionId)
       const { eventsUpdated, crossingsMoved } = await retagEventsToExplicitTask(
         tx,
         ids,
@@ -757,21 +759,6 @@ export const sessionRepository = {
     return prisma.session.findUnique({
       where: { id },
       select: { workspaceId: true },
-    })
-  },
-
-  /**
-   * Re-tag a session's task association. Bypasses the write-once
-   * guardrail in `upsertForHookEvent` because the user has explicitly
-   * asked for the retag (via `lumo session attach`) — they accept that
-   * `lumo task context` will now route this session under the new
-   * task.
-   */
-  async updateTaskId(id: string, taskId: string) {
-    return prisma.session.update({
-      where: { id },
-      data: { taskId },
-      select: { id: true, taskId: true },
     })
   },
 

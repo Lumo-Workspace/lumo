@@ -244,6 +244,26 @@ describe('inheritTaskToUnboundChildren', () => {
   })
 })
 
+describe('inheritTaskToUnboundChildren lock order (I5)', () => {
+  it('bumps the family root BEFORE reading or touching any child (root -> child order)', async () => {
+    const order: string[] = []
+    tx.session.updateMany.mockImplementation(
+      async (a: { where: { id: unknown } }) => {
+        order.push(a.where.id === 'P' ? 'bump-root' : 'update-children')
+        return { count: 1 }
+      }
+    )
+    tx.session.findMany.mockImplementationOnce(async () => {
+      order.push('read-children')
+      return [{ id: 'P:a1' }]
+    })
+    tx.hookEvent.findMany.mockResolvedValueOnce([])
+    tx.hookEvent.updateMany.mockResolvedValueOnce({ count: 0 })
+    await sessionRepository.inheritTaskToUnboundChildren('P', 't1')
+    expect(order).toEqual(['bump-root', 'read-children', 'update-children'])
+  })
+})
+
 describe('settleChildUsage', () => {
   const usage = {
     inputTokens: 100,
