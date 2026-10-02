@@ -15,6 +15,7 @@ import {
 } from '@/lib/attribution/attribute-turns'
 import {
   extractAttributionSignals,
+  STRONG_KINDS,
   type AttributionSignal,
   type SignalKind,
 } from '@/lib/attribution/signals'
@@ -338,6 +339,72 @@ async function computeFamilyRows(
       ...explicitChildRows(input),
     ],
   }
+}
+
+/** Strong kinds in the order an event's own signals are tried provisionally. */
+const PROVISIONAL_ORDER: readonly SignalKind[] = [
+  'BRANCH',
+  'LUMO_CMD',
+  'COMMIT',
+  'PR_CREATE',
+]
+
+/**
+ * LUM-932 P3: the task an event of an UNATTACHED session belongs to right now:
+ * the open inferred segment of the session itself (a subagent first), else of
+ * its parent; else the first strong signal of this very event (branch,
+ * task-naming lumo command, [ID] commit, gh pr create) resolved in the
+ * workspace (branch without an id → linked PR); else null.
+ * At most one segment query plus two resolution queries (none without a
+ * strong signal).
+ */
+export async function provisionalTaskFor(input: {
+  workspaceId: string
+  sessionId: string
+  parentSessionId: string | null
+  signals: AttributionSignal[]
+}): Promise<string | null> {
+  const { workspaceId, sessionId, parentSessionId, signals } = input
+  const open = await attributionRepository.findOpenSegmentTask(
+    workspaceId,
+    parentSessionId ? [sessionId, parentSessionId] : [sessionId]
+  )
+  if (open) return open
+
+  const strong = signals
+    .filter(s => STRONG_KINDS.has(s.kind))
+    .sort(
+      (a, b) =>
+        PROVISIONAL_ORDER.indexOf(a.kind) - PROVISIONAL_ORDER.indexOf(b.kind)
+    )
+  if (strong.length === 0) return null
+
+  const identifiers = new Set<string>()
+  const branches = new Set<string>()
+  for (const s of strong) {
+    const canon = s.identifier ? canonicalTaskIdentifier(s.identifier) : null
+    if (canon) identifiers.add(canon)
+    else if (s.kind === 'BRANCH' && s.branch) branches.add(s.branch)
+  }
+  const [byIdentifier, byBranch] = await Promise.all([
+    identifiers.size > 0
+      ? attributionRepository.resolveIdentifiers(workspaceId, [...identifiers])
+      : Promise.resolve(new Map<string, string>()),
+    branches.size > 0
+      ? attributionRepository.taskIdsForBranches(workspaceId, [...branches])
+      : Promise.resolve(new Map<string, string>()),
+  ])
+
+  for (const s of strong) {
+    const canon = s.identifier ? canonicalTaskIdentifier(s.identifier) : null
+    const taskId = canon
+      ? byIdentifier.get(canon)
+      : s.kind === 'BRANCH' && s.branch
+        ? byBranch.get(s.branch)
+        : undefined
+    if (taskId) return taskId
+  }
+  return null
 }
 
 export const attributionInternals = { inferFamily }

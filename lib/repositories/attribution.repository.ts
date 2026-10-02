@@ -280,6 +280,34 @@ export const attributionRepository = {
     })
     return rows.map(r => r.id)
   },
+
+  /**
+   * LUM-932 P3: taskId of the open (`toAt: null`) INFERRED segment of the
+   * first session in `sessionIds` (priority order) that has one; within that
+   * session the open segment with the latest `fromAt`. One query.
+   */
+  async findOpenSegmentTask(
+    workspaceId: string,
+    sessionIds: string[]
+  ): Promise<string | null> {
+    if (sessionIds.length === 0) return null
+    const rows = await prisma.taskAttributionSegment.findMany({
+      where: {
+        workspaceId,
+        sessionId: { in: sessionIds },
+        toAt: null,
+        source: 'INFERRED',
+      },
+      select: { sessionId: true, taskId: true },
+      orderBy: { fromAt: 'desc' },
+    })
+    for (const id of sessionIds) {
+      const hit = rows.find(r => r.sessionId === id)
+      if (hit) return hit.taskId
+    }
+    return null
+  },
+
   /** Atomically replace every segment of the family's sessions. */
   async replaceFamilySegments(
     familySessionIds: string[],
