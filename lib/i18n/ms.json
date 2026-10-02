@@ -1067,6 +1067,7 @@
   "agentRun.attribution.subagents": "Subagent",
   "agentRun.attribution.subagentUnknownType": "subagent",
   "agentRun.attribution.noSignal": "Tiada isyarat direkodkan",
+  "agentRun.attribution.followsParent": "Mengikut atribusi sesi induk",
   "agentRun.attribution.approximate": "≈ anggaran",
   "agentRun.attribution.approximateNotice": "Ukuran mungkin tidak tepat: kerja ini tidak diikat dengan lumo session attach, jadi masa dan kos token dibahagikan melalui pengesanan automatik. Pautkan sesi atau subagent untuk angka yang tepat.",
   "agentRun.runNumber": "Run #{n}",

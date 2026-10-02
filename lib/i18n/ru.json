@@ -1067,6 +1067,7 @@
   "agentRun.attribution.subagents": "Subagent'ы",
   "agentRun.attribution.subagentUnknownType": "subagent",
   "agentRun.attribution.noSignal": "Сигналов не записано",
+  "agentRun.attribution.followsParent": "Следует атрибуции родительской сессии",
   "agentRun.attribution.approximate": "≈ приблизительно",
   "agentRun.attribution.approximateNotice": "Измерение может быть неточным: эта работа не была привязана через lumo session attach, поэтому её время и стоимость в токенах распределены автоматическим определением. Привяжите сессию или subagent, чтобы получить точные значения.",
   "agentRun.runNumber": "Run #{n}",

@@ -632,8 +632,8 @@ export interface AgentRunMemoryItem {
 export type AgentRunItem = AgentRunHookEventItem | AgentRunMemoryItem
 
 // ── Run attribution (LUM-932 P4) ─────────────────────────────────────────────
-// Client mirror of lib/attribution/run-attribution.ts (server-only module);
-// keep structurally identical.
+// Client mirror of the types in lib/attribution/run-attribution.ts (a pure,
+// client-safe module); keep structurally identical.
 export type AttributionSourceName =
   | 'SESSION_ATTACH'
   | 'SUBAGENT_ATTACH'
@@ -669,6 +669,9 @@ export interface RunSubagentView {
   source: AttributionSourceName
   confidence: AttributionConfidenceName
   evidence: EvidenceView[]
+  /** An INFERRED subagent with no signal of its own rode its parent's
+   *  attribution; `evidence` then holds the parent's covering signals. */
+  followsParent: boolean
 }
 /** EXPLICIT = the run's session is bound to this task; INFERRED = the
  *  session is unbound and auto-detected onto it; HOST = the session is

@@ -65,6 +65,7 @@ describe('run attribution read model', () => {
         source: 'SUBAGENT_ATTACH',
         confidence: 'EXPLICIT',
         evidence: [],
+        followsParent: false,
       },
     ])
     expect(a.approximate).toBe(false)
@@ -105,6 +106,46 @@ describe('run attribution read model', () => {
       rows: [row({ sessionId: 'root:a1', parentSessionId: 'root', source: 'INFERRED' })],
     })
     expect(a.approximate).toBe(true)
+  })
+
+  it('an inferred subagent without its own signal follows the root segment covering its time', () => {
+    const ev = (kind: string, m: number) => ({ kind, identifier: 'LUM-12', at: at(m).toISOString() })
+    const a = buildRunAttribution({
+      runSessionId: 'root',
+      mode: 'INFERRED',
+      rows: [
+        row({ fromAt: at(0), toAt: at(15), evidence: [ev('BRANCH', 0)] }),
+        row({ fromTurn: 3, toTurn: 4, fromAt: at(20), evidence: [ev('COMMIT', 20)] }),
+        row({ sessionId: 'root:a1', parentSessionId: 'root', fromAt: at(10) }),
+      ],
+    })
+    expect(a.subagents[0]!.followsParent).toBe(true)
+    expect(a.subagents[0]!.evidence).toEqual([ev('BRANCH', 0)])
+  })
+
+  it('falls back to all root evidence when no root segment covers the subagent', () => {
+    const ev = (kind: string, m: number) => ({ kind, identifier: 'LUM-12', at: at(m).toISOString() })
+    const a = buildRunAttribution({
+      runSessionId: 'root',
+      mode: 'INFERRED',
+      rows: [
+        row({ fromAt: at(20), toAt: at(25), evidence: [ev('BRANCH', 20)] }),
+        row({ fromTurn: 3, toTurn: 4, fromAt: at(30), evidence: [ev('COMMIT', 30)] }),
+        row({ sessionId: 'root:a1', parentSessionId: 'root', fromAt: at(10) }),
+      ],
+    })
+    expect(a.subagents[0]!.followsParent).toBe(true)
+    expect(a.subagents[0]!.evidence.map(e => e.kind)).toEqual(['BRANCH', 'COMMIT'])
+  })
+
+  it('keeps an inferred subagent signal-less when the root has no evidence either', () => {
+    const a = buildRunAttribution({
+      runSessionId: 'root',
+      mode: 'HOST',
+      rows: [row({ sessionId: 'root:a1', parentSessionId: 'root' })],
+    })
+    expect(a.subagents[0]!.followsParent).toBe(false)
+    expect(a.subagents[0]!.evidence).toEqual([])
   })
 
   it('drops malformed evidence entries', () => {

@@ -1,6 +1,7 @@
 /**
  * LUM-932 P4: per-run 'why is this work on this task' read model over
- * TaskAttributionSegment. Pure.
+ * TaskAttributionSegment. Pure and client-safe (no server imports) — the
+ * task dossier calls summarizeRunAttributions in the browser.
  */
 export type AttributionSourceName =
   | 'SESSION_ATTACH'
@@ -37,6 +38,9 @@ export interface RunSubagentView {
   source: AttributionSourceName
   confidence: AttributionConfidenceName
   evidence: EvidenceView[]
+  /** An INFERRED subagent with no signal of its own rode its parent's
+   *  attribution; `evidence` then holds the parent's covering signals. */
+  followsParent: boolean
 }
 /** EXPLICIT = the run's session is bound to this task; INFERRED = the
  *  session is unbound and auto-detected onto it; HOST = the session is
@@ -115,6 +119,7 @@ export function buildRunAttribution({
     .sort((a, b) => a.fromTurn - b.fromTurn || a.fromAt.getTime() - b.fromAt.getTime())
     .map(toSegmentView)
   const byChild = new Map<string, RunSubagentView>()
+  const childFromAt = new Map<string, number>()
   const childRows = rows
     .filter(r => r.parentSessionId === runSessionId)
     .sort((a, b) => a.fromAt.getTime() - b.fromAt.getTime())
@@ -128,7 +133,9 @@ export function buildRunAttribution({
         source: r.source,
         confidence: r.confidence,
         evidence,
+        followsParent: false,
       })
+      childFromAt.set(r.sessionId, r.fromAt.getTime())
       continue
     }
     if (CONFIDENCE_RANK[r.confidence] < CONFIDENCE_RANK[cur.confidence]) {
@@ -138,11 +145,33 @@ export function buildRunAttribution({
     cur.evidence.push(...evidence)
   }
   const subagents = [...byChild.values()]
+  for (const sub of subagents) {
+    if (sub.source !== 'INFERRED' || sub.evidence.length > 0) continue
+    const inherited = parentEvidenceAt(segments, childFromAt.get(sub.sessionId)!)
+    if (inherited.length === 0) continue
+    sub.evidence = inherited
+    sub.followsParent = true
+  }
   const approximate =
     mode === 'INFERRED' ||
     segments.some(s => s.source === 'INFERRED') ||
     subagents.some(s => s.source === 'INFERRED')
   return { mode, segments, subagents, approximate }
+}
+
+/** Evidence of the root segment(s) covering `at`; all root evidence when
+ *  none covers it. */
+function parentEvidenceAt(
+  segments: RunSegmentView[],
+  at: number
+): EvidenceView[] {
+  const covering = segments.filter(
+    s =>
+      Date.parse(s.fromAt) <= at && (s.toAt === null || Date.parse(s.toAt) >= at)
+  )
+  const fromCovering = covering.flatMap(s => s.evidence)
+  if (fromCovering.length > 0) return [...fromCovering]
+  return segments.flatMap(s => s.evidence)
 }
 
 export interface RunAttributionSummary {

@@ -1067,6 +1067,7 @@
   "agentRun.attribution.subagents": "Subagents",
   "agentRun.attribution.subagentUnknownType": "subagent",
   "agentRun.attribution.noSignal": "没有记录到信号",
+  "agentRun.attribution.followsParent": "沿用父会话的归属",
   "agentRun.attribution.approximate": "≈ 估算",
   "agentRun.attribution.approximateNotice": "测量可能不准确：这部分工作没有用 lumo session attach 绑定，时长和 token 成本是按自动识别拆分的。绑定 session 或 subagent 才能得到精确数字。",
   "agentRun.runNumber": "Run #{n}",

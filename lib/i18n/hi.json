@@ -1067,6 +1067,7 @@
   "agentRun.attribution.subagents": "सबएजेंट",
   "agentRun.attribution.subagentUnknownType": "सबएजेंट",
   "agentRun.attribution.noSignal": "कोई सिग्नल दर्ज नहीं हुआ",
+  "agentRun.attribution.followsParent": "पैरेंट सेशन के एट्रिब्यूशन का अनुसरण करता है",
   "agentRun.attribution.approximate": "≈ अनुमानित",
   "agentRun.attribution.approximateNotice": "माप गलत हो सकता है: यह काम lumo session attach से नहीं जोड़ा गया था, इसलिए इसका समय और टोकन खर्च स्वतः पहचान के आधार पर बांटा गया। सटीक संख्याओं के लिए सेशन या सबएजेंट को जोड़ें।",
   "agentRun.runNumber": "Run #{n}",

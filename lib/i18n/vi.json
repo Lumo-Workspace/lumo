@@ -1067,6 +1067,7 @@
   "agentRun.attribution.subagents": "Subagent",
   "agentRun.attribution.subagentUnknownType": "subagent",
   "agentRun.attribution.noSignal": "Không có tín hiệu nào được ghi lại",
+  "agentRun.attribution.followsParent": "Theo phân bổ của phiên cha",
   "agentRun.attribution.approximate": "≈ xấp xỉ",
   "agentRun.attribution.approximateNotice": "Số đo có thể không chính xác: phần việc này không được gắn bằng lumo session attach nên thời gian và chi phí token được chia theo cơ chế tự động nhận diện. Hãy gắn phiên hoặc subagent để có số liệu chính xác.",
   "agentRun.runNumber": "Run #{n}",

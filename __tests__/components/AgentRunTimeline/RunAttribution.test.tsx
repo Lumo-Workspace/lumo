@@ -68,6 +68,7 @@ const sub = (over: Partial<RunSubagentView> = {}): RunSubagentView => ({
   source: 'SUBAGENT_ATTACH',
   confidence: 'EXPLICIT',
   evidence: [],
+  followsParent: false,
   ...over,
 })
 
@@ -145,6 +146,28 @@ describe('RunAttribution', () => {
   it('says no signal for an inferred segment without evidence', () => {
     renderBoth(attr({ segments: [seg()] }))
     expect(screen.getByText('No recorded signal')).toBeInTheDocument()
+  })
+
+  it('names the parent signal for an inferred subagent that follows its parent', () => {
+    renderBoth(
+      attr({
+        mode: 'HOST',
+        subagents: [
+          sub({
+            source: 'INFERRED',
+            confidence: 'HIGH',
+            followsParent: true,
+            evidence: [
+              { kind: 'BRANCH', identifier: 'LUM-12', at: '2026-06-07T15:48:00Z' },
+            ],
+          }),
+        ],
+      })
+    )
+    const row = screen.getByTestId('attribution-subagent')
+    expect(row).toHaveTextContent("Follows the parent session's attribution")
+    expect(row).toHaveTextContent('Branch name · LUM-12')
+    expect(within(row).queryByText('No recorded signal')).toBeNull()
   })
 
   it('uses the weakest confidence across segments and subagents', () => {

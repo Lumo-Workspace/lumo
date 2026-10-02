@@ -251,6 +251,7 @@
   "agentRun.attribution.subagents": "Subagents",
   "agentRun.attribution.subagentUnknownType": "subagent",
   "agentRun.attribution.noSignal": "No recorded signal",
+  "agentRun.attribution.followsParent": "Follows the parent session's attribution",
   "agentRun.attribution.approximate": "≈ approximate",
   "agentRun.attribution.approximateNotice": "Measurement may be inaccurate: this work wasn't bound with lumo session attach, so its time and token cost were split by auto-detection. Attach the session or subagent for exact numbers.",
   "agentRun.byMember": "By person",

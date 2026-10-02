@@ -1067,6 +1067,7 @@
   "agentRun.attribution.subagents": "Subagents",
   "agentRun.attribution.subagentUnknownType": "subagent",
   "agentRun.attribution.noSignal": "Aucun signal enregistré",
+  "agentRun.attribution.followsParent": "Suit l'attribution de la session parente",
   "agentRun.attribution.approximate": "≈ approximatif",
   "agentRun.attribution.approximateNotice": "La mesure peut être inexacte : ce travail n'a pas été lié avec lumo session attach, son temps et son coût en tokens ont donc été répartis par détection automatique. Liez la session ou le subagent pour obtenir des chiffres exacts.",
   "agentRun.runNumber": "Run #{n}",

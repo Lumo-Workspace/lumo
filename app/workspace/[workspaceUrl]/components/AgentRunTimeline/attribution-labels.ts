@@ -132,3 +132,8 @@ export const NO_SIGNAL: MessageDescriptor = {
   id: 'agentRun.attribution.noSignal',
   defaultMessage: 'No recorded signal',
 }
+
+export const FOLLOWS_PARENT: MessageDescriptor = {
+  id: 'agentRun.attribution.followsParent',
+  defaultMessage: "Follows the parent session's attribution",
+}

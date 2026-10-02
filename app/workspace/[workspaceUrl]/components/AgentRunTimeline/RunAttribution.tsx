@@ -12,6 +12,7 @@ import {
   APPROXIMATE_LABEL,
   APPROXIMATE_NOTICE,
   CONFIDENCE_MESSAGES,
+  FOLLOWS_PARENT,
   MODE_MESSAGES,
   NO_SIGNAL,
   PANEL_TITLE,
@@ -128,6 +129,11 @@ function SubagentRow({ intl, sub }: { intl: IntlShape; sub: RunSubagentView }) {
         {intl.formatMessage(SOURCE_MESSAGES[sub.source])} ·{' '}
         {intl.formatMessage(CONFIDENCE_MESSAGES[sub.confidence])}
       </div>
+      {sub.followsParent && (
+        <div className='pl-3 text-caption text-muted-foreground'>
+          {intl.formatMessage(FOLLOWS_PARENT)}
+        </div>
+      )}
       {sub.evidence.length > 0 ? (
         <EvidenceLines intl={intl} evidence={sub.evidence} />
       ) : sub.source === 'INFERRED' ? (
