@@ -145,6 +145,8 @@ describe('splits subagent usage out of the parent without double counting', () =
     sess.upsertChildForHookEvent.mockResolvedValue({
       id: 'P:abeaba01ea909a7ee',
       taskId: null,
+
+      steward: false,
     })
     await hookEventService.recordHookEvent({
       identity,

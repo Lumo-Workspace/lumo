@@ -123,6 +123,10 @@ export const hookEventService = {
 
     let recordedSessionId: string | null = sessionId
     let taskId: string | null = null
+    // LUM-640: a STEWARD session (or a subagent of one) never gets a
+    // provisional task — its events must stay task-less so the steward
+    // detector backstop (post-tool-use, `!taskId`) runs on them.
+    let steward = false
     let turnUsageByModel: Record<string, ModelUsage> | null = null
     let childUsageToSettle: [string, InjectedUsage][] = []
     if (sessionId && agentId) {
@@ -142,6 +146,7 @@ export const hookEventService = {
       })
       recordedSessionId = child.id
       taskId = child.taskId
+      steward = child.steward
     } else if (sessionId) {
       const injected =
         isStop || type === 'POST_TOOL_BATCH'
@@ -161,6 +166,7 @@ export const hookEventService = {
         isStop,
       })
       taskId = session.taskId
+      steward = session.steward
       turnUsageByModel = session.turnUsageByModel
       if (isStop && split) {
         childUsageToSettle = Object.entries(split.bySubagent)
@@ -175,7 +181,7 @@ export const hookEventService = {
     // LUM-932 P3: an event of an unattached session is tagged with its
     // provisional (inferred) task at record time so detectors act on it right
     // away. Best-effort: a failed inference never blocks the event.
-    if (recordedSessionId && taskId === null) {
+    if (recordedSessionId && taskId === null && !steward) {
       try {
         taskId = await provisionalTaskFor({
           workspaceId: identity.workspace.id,

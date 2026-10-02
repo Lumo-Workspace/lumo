@@ -116,6 +116,8 @@ describe('resolves attribution by precedence across child and parent sessions', 
     sess.upsertChildForHookEvent.mockResolvedValue({
       id: CHILD,
       taskId: 'task_13',
+
+      steward: false,
     })
     const r = await hookEventService.recordHookEvent({
       identity,

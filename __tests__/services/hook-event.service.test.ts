@@ -251,4 +251,61 @@ describe('hookEventService.recordHookEvent provisional task (LUM-932 P3)', () =>
     expect(out.id).toBe('he_1')
     expect(out.taskId).toBeNull()
   })
+
+  describe('STEWARD sessions keep taskId null (LUM-640 backstop)', () => {
+    const commit = (extra: Record<string, unknown> = {}) => ({
+      session_id: 's1',
+      tool_name: 'Bash',
+      tool_input: { command: 'git commit -m "feat: x [LUM-12]"' },
+      ...extra,
+    })
+
+    beforeEach(() => {
+      attr.findOpenSegmentTask.mockResolvedValue('task_open')
+      attr.resolveIdentifiers.mockResolvedValue(
+        new Map([['LUM-12', 'task_12']])
+      )
+    })
+
+    it.each(['PRE_TOOL_USE', 'POST_TOOL_USE'] as const)(
+      'records a steward session %s commit with taskId null',
+      async type => {
+        sess.upsertForHookEvent.mockResolvedValue({
+          taskId: null,
+          turnUsageByModel: null,
+          steward: true,
+        } as never)
+        const out = await hookEventService.recordHookEvent({
+          identity,
+          type,
+          payload: commit(),
+        })
+        expect(attr.findOpenSegmentTask).not.toHaveBeenCalled()
+        expect(attr.resolveIdentifiers).not.toHaveBeenCalled()
+        expect(repo.createHookEvent).toHaveBeenCalledWith(
+          expect.objectContaining({ sessionId: 's1', taskId: null })
+        )
+        expect(out.taskId).toBeNull()
+      }
+    )
+
+    it('records a commit in a child of a steward parent with taskId null', async () => {
+      sess.upsertChildForHookEvent.mockResolvedValue({
+        id: 's1:abc123',
+        taskId: null,
+        steward: true,
+      } as never)
+      const out = await hookEventService.recordHookEvent({
+        identity,
+        type: 'POST_TOOL_USE',
+        payload: commit({ agent_id: 'abc123' }),
+      })
+      expect(attr.findOpenSegmentTask).not.toHaveBeenCalled()
+      expect(attr.resolveIdentifiers).not.toHaveBeenCalled()
+      expect(repo.createHookEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ sessionId: 's1:abc123', taskId: null })
+      )
+      expect(out.taskId).toBeNull()
+    })
+  })
 })

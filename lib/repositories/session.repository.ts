@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import type { Prisma, TaskArtifactAgent } from '@prisma/client'
+import type { Prisma, SessionRole, TaskArtifactAgent } from '@prisma/client'
 import { buildChildSessionId } from '@/lib/session/child-session-id'
 import type { InjectedUsage } from '@/lib/session/subagent-usage'
 
@@ -124,7 +124,12 @@ async function ensureParentRow(
     workspaceMemberId: string
     now: Date
   }
-): Promise<{ id: string; taskId: string | null }> {
+): Promise<{
+  id: string
+  taskId: string | null
+  role: SessionRole
+  milestoneId: string | null
+}> {
   // Single upsert (not find-then-create) so two concurrent subagent events for
   // a brand-new parent cannot race into a P2002 that aborts the transaction.
   return tx.session.upsert({
@@ -138,8 +143,19 @@ async function ensureParentRow(
       eventCount: 0,
     },
     update: {},
-    select: { id: true, taskId: true },
+    select: { id: true, taskId: true, role: true, milestoneId: true },
   })
+}
+
+/**
+ * LUM-640: a milestone-bound STEWARD session. Its events (and its subagents')
+ * must stay task-less so the post-tool-use steward detector backstop runs.
+ */
+function isStewardBinding(row: {
+  role: SessionRole
+  milestoneId: string | null
+}): boolean {
+  return row.role === 'STEWARD' && row.milestoneId !== null
 }
 
 function addUsageMaps(
@@ -224,10 +240,12 @@ export const sessionRepository = {
     cwd: string | null
     agent?: TaskArtifactAgent
     now: Date
-  }): Promise<{ id: string; taskId: string | null }> {
+  }): Promise<{ id: string; taskId: string | null; steward: boolean }> {
     const id = buildChildSessionId(data.parentSessionId, data.agentId)
     return prisma.$transaction(async tx => {
       const parent = await ensureParentRow(tx, data)
+      // A child carries no role of its own — the steward binding is the parent's.
+      const steward = isStewardBinding(parent)
       const child = await tx.session.upsert({
         where: { id },
         create: {
@@ -265,10 +283,10 @@ export const sessionRepository = {
             where: { sessionId: id, taskId: null },
             data: { taskId: parent.taskId },
           })
-          return { id, taskId: parent.taskId }
+          return { id, taskId: parent.taskId, steward }
         }
       }
-      return child
+      return { ...child, steward }
     })
   },
 
@@ -441,9 +459,13 @@ export const sessionRepository = {
             ...flat,
             loopCount: { increment: 1 },
           },
-          select: { id: true, taskId: true },
+          select: { id: true, taskId: true, role: true, milestoneId: true },
         })
-        return { taskId: row.taskId, turnUsageByModel }
+        return {
+          taskId: row.taskId,
+          steward: isStewardBinding(row),
+          turnUsageByModel,
+        }
       })
     }
 
@@ -493,9 +515,13 @@ export const sessionRepository = {
             ...(data.cwd !== null ? { cwd: data.cwd } : {}),
             ...midTurnFlat,
           },
-          select: { id: true, taskId: true },
+          select: { id: true, taskId: true, role: true, milestoneId: true },
         })
-        return { taskId: row.taskId, turnUsageByModel: batchStepDelta }
+        return {
+          taskId: row.taskId,
+          steward: isStewardBinding(row),
+          turnUsageByModel: batchStepDelta,
+        }
       })
     }
 
@@ -522,9 +548,13 @@ export const sessionRepository = {
         ...(data.isStop ? { loopCount: 1 } : {}),
       },
       update: setOnUpdate,
-      select: { id: true, taskId: true },
+      select: { id: true, taskId: true, role: true, milestoneId: true },
     })
-    return { taskId: row.taskId, turnUsageByModel: null }
+    return {
+      taskId: row.taskId,
+      steward: isStewardBinding(row),
+      turnUsageByModel: null,
+    }
   },
 
   /**

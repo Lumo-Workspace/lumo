@@ -86,7 +86,7 @@ describe('upsertChildForHookEvent', () => {
         }),
       })
     )
-    expect(r).toEqual({ id: 'P:a1', taskId: null })
+    expect(r).toEqual({ id: 'P:a1', taskId: null, steward: false })
   })
 
   it('stamps INHERITED when the parent is bound', async () => {
@@ -108,6 +108,34 @@ describe('upsertChildForHookEvent', () => {
         }),
       })
     )
+  })
+})
+
+describe('upsertChildForHookEvent — steward parent (LUM-640)', () => {
+  it('reports steward from the parent read it already does', async () => {
+    tx.session.upsert
+      .mockResolvedValueOnce({
+        id: 'P',
+        taskId: null,
+        role: 'STEWARD',
+        milestoneId: 'm1',
+      })
+      .mockResolvedValueOnce({ id: 'P:a1', taskId: null })
+    const r = await sessionRepository.upsertChildForHookEvent({
+      ...base,
+      parentSessionId: 'P',
+      agentId: 'a1',
+      agentType: null,
+      cwd: null,
+    })
+    expect(tx.session.upsert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        select: { id: true, taskId: true, role: true, milestoneId: true },
+      })
+    )
+    expect(r).toEqual({ id: 'P:a1', taskId: null, steward: true })
+    expect(tx.session.findUnique).not.toHaveBeenCalled()
   })
 })
 
@@ -133,7 +161,7 @@ describe('upsertChildForHookEvent — late parent binding', () => {
       where: { sessionId: 'P:a1', taskId: null },
       data: { taskId: 't1' },
     })
-    expect(r).toEqual({ id: 'P:a1', taskId: 't1' })
+    expect(r).toEqual({ id: 'P:a1', taskId: 't1', steward: false })
   })
 
   it('leaves a child with its own task, or an unbound parent, alone', async () => {
@@ -148,7 +176,7 @@ describe('upsertChildForHookEvent — late parent binding', () => {
         agentType: null,
         cwd: null,
       })
-    ).toEqual({ id: 'P:a1', taskId: 't2' })
+    ).toEqual({ id: 'P:a1', taskId: 't2', steward: false })
     tx.session.upsert
       .mockResolvedValueOnce({ id: 'P', taskId: null })
       .mockResolvedValueOnce({ id: 'P:a1', taskId: null })

@@ -177,7 +177,34 @@ describe('sessionRepository.upsertForHookEvent', () => {
       now,
     })
     const args = upsert.mock.calls[0][0]
-    expect(args.select).toEqual({ id: true, taskId: true })
+    expect(args.select).toEqual({
+      id: true,
+      taskId: true,
+      role: true,
+      milestoneId: true,
+    })
+  })
+
+  it('reports a milestone-bound STEWARD session (LUM-640) from the same upsert', async () => {
+    upsert.mockResolvedValueOnce({
+      id: 'sess_1',
+      taskId: null,
+      role: 'STEWARD',
+      milestoneId: 'm1',
+    })
+    const result = await sessionRepository.upsertForHookEvent({
+      id: 'sess_1',
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      cwd: '/repo',
+      now,
+    })
+    expect(result).toEqual({
+      taskId: null,
+      steward: true,
+      turnUsageByModel: null,
+    })
+    expect(upsert).toHaveBeenCalledTimes(1)
   })
 
   it('sets agent on create when supplied', async () => {
@@ -624,6 +651,7 @@ describe('sessionRepository.upsertForHookEvent — STOP with usage', () => {
     expect(args.update.usageByModel).toEqual(stopArgs.usage.byModel)
     expect(result).toEqual({
       taskId: 'task_42',
+      steward: false,
       turnUsageByModel: {
         opus: { input: 600, output: 300, cacheRead: 150, cacheCreation: 60 },
       },
