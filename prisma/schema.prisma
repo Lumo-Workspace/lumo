@@ -2774,7 +2774,7 @@ enum AttributionConfidence {
 
 /// LUM-932 P2: one contiguous stretch of a session's work attributed to a
 /// task. Written for explicit bindings and for inferred (per-turn) ones; the
-/// family's rows are replaced atomically on every recompute. SHADOW in P2 —
+/// family's rows are replaced atomically on every recompute. Observe-only in P2 —
 /// nothing gates on it yet.
 model TaskAttributionSegment {
   id             String                @id @default(cuid())
