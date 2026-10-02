@@ -3,6 +3,10 @@ const recomputeFamily = jest.fn()
 jest.mock('@/lib/services/attribution.service', () => ({
   attributionService: { recomputeFamily: (id: string) => recomputeFamily(id) },
 }))
+const replay = jest.fn()
+jest.mock('@/lib/services/boundary-detector-replay.service', () => ({
+  replayBoundaryDetection: (...a: unknown[]) => replay(...a),
+}))
 const loggerError = jest.fn()
 const loggerInfo = jest.fn()
 jest.mock('@/lib/logger', () => ({
@@ -23,6 +27,8 @@ describe('recomputeAttributionSafely', () => {
       written: true,
       eventsUpdated: 0,
       crossingsMoved: 0,
+      crossingsMovedToNull: 0,
+      backfilledPostToolEventIds: [],
     })
     await recomputeAttributionSafely('s-1')
     expect(recomputeFamily).toHaveBeenCalledWith('s-1')
@@ -36,12 +42,20 @@ describe('recomputeAttributionSafely', () => {
       written: false,
       eventsUpdated: 3,
       crossingsMoved: 1,
+      crossingsMovedToNull: 1,
+      backfilledPostToolEventIds: [],
     })
     await recomputeAttributionSafely('s-3')
     expect(loggerInfo).toHaveBeenCalledWith(
       'attribution recompute retagged events',
-      { sessionId: 's-3', eventsUpdated: 3, crossingsMoved: 1 }
+      {
+        sessionId: 's-3',
+        eventsUpdated: 3,
+        crossingsMoved: 1,
+        crossingsMovedToNull: 1,
+      }
     )
+    expect(replay).not.toHaveBeenCalled()
   })
 
   it('a missing family (null) logs nothing', async () => {
@@ -58,5 +72,33 @@ describe('recomputeAttributionSafely', () => {
       'attribution recompute failed',
       expect.objectContaining({ sessionId: 's-2' })
     )
+  })
+
+  it('replays the boundary detector for backfilled POST_TOOL_USE events (I1)', async () => {
+    recomputeFamily.mockResolvedValue({
+      segments: 1,
+      written: true,
+      eventsUpdated: 2,
+      crossingsMoved: 0,
+      crossingsMovedToNull: 0,
+      backfilledPostToolEventIds: ['e1', 'e2'],
+    })
+    replay.mockResolvedValue({ replayed: 2, truncated: false })
+    await recomputeAttributionSafely('s-5')
+    expect(replay).toHaveBeenCalledWith('s-5', ['e1', 'e2'])
+  })
+
+  it('a failing replay is logged and never throws', async () => {
+    recomputeFamily.mockResolvedValue({
+      segments: 1,
+      written: true,
+      eventsUpdated: 1,
+      crossingsMoved: 0,
+      crossingsMovedToNull: 0,
+      backfilledPostToolEventIds: ['e1'],
+    })
+    replay.mockRejectedValue(new Error('boom'))
+    await expect(recomputeAttributionSafely('s-6')).resolves.toBeUndefined()
+    expect(loggerError).toHaveBeenCalled()
   })
 })

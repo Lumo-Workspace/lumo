@@ -152,6 +152,27 @@ export const hookEventRepository = {
   },
 
   /**
+   * LUM-932 P3: stored rows the boundary detector replay needs (the event's
+   * current task, tool, file and STORED payload), oldest first.
+   */
+  async findForDetectorReplay(ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.hookEvent.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        taskId: true,
+        type: true,
+        toolName: true,
+        filePath: true,
+        payload: true,
+        payloadPrunedAt: true,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    })
+  },
+
+  /**
    * Fetch hook events by id, narrowed to the fields the LUM-469 attribution read
    * model needs: the owning member, the session it fired in (+ that session's
    * agent type and worktree branch), the raw payload (a best-effort model may be

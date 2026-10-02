@@ -19,8 +19,16 @@ jest.mock('@/lib/db/prisma', () => ({
     return harness.prisma
   },
 }))
+// The detector itself is covered elsewhere; here only WHAT it is replayed on.
+const detectAndRecord = jest.fn()
+jest.mock('@/lib/services/boundary-detector.service', () => ({
+  boundaryDetectorService: {
+    detectAndRecord: (...a: unknown[]) => detectAndRecord(...a),
+  },
+}))
 
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
 import { attributionRepository } from '@/lib/repositories/attribution.repository'
 import {
   inferredTopLevelSessionsForTasks,
@@ -235,5 +243,58 @@ describe('POST events find their PRE_TOOL_USE by tool_use_id (I1a)', () => {
     await expect(find('PRE', 'toolu_2')).resolves.toBeNull()
     await expect(find('PRE', 'toolu_3')).resolves.toBeNull()
     await expect(find('PRE', 'toolu_4')).resolves.toBeNull()
+  })
+})
+
+describe('backfilled POST_TOOL_USE events get boundary detection (I1b)', () => {
+  it('a recompute that moves a POST event from no task to a task replays the detector on its stored payload', async () => {
+    await seedSession('RP')
+    const at = (n: number) => ({ createdAt: t(20 + n).toISOString() })
+    await seedEvent('rp_prompt', 'RP', null, {
+      type: 'USER_PROMPT_SUBMIT',
+      attributionSignals: JSON.stringify([]),
+      ...at(0),
+    })
+    await seedEvent('rp_pre', 'RP', null, {
+      attributionSignals: JSON.stringify([
+        { kind: 'LUMO_CMD', identifier: 'LUM-12' },
+      ]),
+      ...at(1),
+    })
+    await seedEvent('rp_post', 'RP', null, {
+      type: 'POST_TOOL_USE',
+      payload: JSON.stringify({
+        tool_name: 'Bash',
+        tool_input: { command: 'lumo task context LUM-12' },
+      }),
+      attributionSignals: JSON.stringify([]),
+      ...at(2),
+    })
+    // Already on a task before the recompute: not replayed.
+    await seedEvent('rp_post_tagged', 'RP', 'task_12', {
+      type: 'POST_TOOL_USE',
+      attributionSignals: JSON.stringify([]),
+      ...at(3),
+    })
+    await seedEvent('rp_stop', 'RP', null, {
+      type: 'STOP',
+      attributionSignals: JSON.stringify([]),
+      ...at(4),
+    })
+
+    await recomputeAttributionSafely('RP')
+
+    expect(await taskOf('hook_events', 'rp_post')).toBe('task_12')
+    expect(detectAndRecord).toHaveBeenCalledTimes(1)
+    expect(detectAndRecord).toHaveBeenCalledWith({
+      taskId: 'task_12',
+      hookEventId: 'rp_post',
+      toolName: null,
+      filePath: null,
+      payload: {
+        tool_name: 'Bash',
+        tool_input: { command: 'lumo task context LUM-12' },
+      },
+    })
   })
 })

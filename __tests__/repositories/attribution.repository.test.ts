@@ -316,7 +316,11 @@ describe('commitFamilyAttribution', () => {
         segments: [row],
         eventTaskChanges: [],
       })
-    ).resolves.toEqual({ conflict: false, eventsUpdated: 0, crossingsMoved: 0 })
+    ).resolves.toMatchObject({
+      conflict: false,
+      eventsUpdated: 0,
+      crossingsMoved: 0,
+    })
     // The root row lock is taken by the final statement only (I5).
     expect(order).toEqual(['delete', 'create', 'version'])
     expect(p.__tx.session.updateMany).toHaveBeenCalledWith({
@@ -464,6 +468,12 @@ describe('commitFamilyAttribution', () => {
       conflict: false,
       eventsUpdated: 2,
       crossingsMoved: 2,
+      crossingsMovedToNull: 1,
+      changedEvents: [
+        { eventId: 'e1', fromTaskId: 't_old', toTaskId: 't_new' },
+        { eventId: 'e2', fromTaskId: null, toTaskId: 't_new' },
+        { eventId: 'e4', fromTaskId: 't_old', toTaskId: null },
+      ],
     })
   })
 })

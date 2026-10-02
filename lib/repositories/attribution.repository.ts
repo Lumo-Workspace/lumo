@@ -122,7 +122,19 @@ export interface FamilyCommit {
 export interface FamilyCommitResult {
   conflict: boolean
   eventsUpdated: number
+  /** Undispositioned crossings moved with their event (any target). */
   crossingsMoved: number
+  /** The subset of `crossingsMoved` that went to no task (M1). */
+  crossingsMovedToNull: number
+  /** Events whose taskId this commit changed, with the old and new task. */
+  changedEvents: EventTaskMove[]
+}
+
+const NO_COMMIT = {
+  eventsUpdated: 0,
+  crossingsMoved: 0,
+  crossingsMovedToNull: 0,
+  changedEvents: [] as EventTaskMove[],
 }
 
 /** Rolls the commit transaction back when the root's version moved on. */
@@ -437,7 +449,7 @@ export const attributionRepository = {
         )
         if (targetOf.size === 0) {
           await bumpVersionOrConflict()
-          return { conflict: false, eventsUpdated: 0, crossingsMoved: 0 }
+          return { conflict: false, ...NO_COMMIT }
         }
 
         // Belt-and-braces with the binding paths' root-version bump: re-check
@@ -496,13 +508,26 @@ export const attributionRepository = {
             eventsUpdated += n
           }
         }
-        const crossingsMoved = await moveOpenCrossingsForEvents(tx, moves)
+        const crossingsMoved = await moveOpenCrossingsForEvents(
+          tx,
+          moves.filter(m => m.toTaskId !== null)
+        )
+        const crossingsMovedToNull = await moveOpenCrossingsForEvents(
+          tx,
+          moves.filter(m => m.toTaskId === null)
+        )
         // LAST statement. Under READ COMMITTED the UPDATE re-evaluates its
         // WHERE after waiting on a concurrent binding's root lock, so a
         // binding that bumped the version since the load makes it match 0
         // rows → sentinel → the whole transaction rolls back.
         await bumpVersionOrConflict()
-        return { conflict: false, eventsUpdated, crossingsMoved }
+        return {
+          conflict: false,
+          eventsUpdated,
+          crossingsMoved: crossingsMoved + crossingsMovedToNull,
+          crossingsMovedToNull,
+          changedEvents: moves,
+        }
       }, RETAG_TX_OPTIONS)
     } catch (error) {
       // A binding takes the root row first and then retags events, while
@@ -514,7 +539,7 @@ export const attributionRepository = {
         (error instanceof Prisma.PrismaClientKnownRequestError &&
           error.code === 'P2034')
       )
-        return { conflict: true, eventsUpdated: 0, crossingsMoved: 0 }
+        return { conflict: true, ...NO_COMMIT }
       throw error
     }
   },

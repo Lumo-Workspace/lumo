@@ -312,6 +312,8 @@ async function computeFamilyRows(rootId: string): Promise<{
   rows: SegmentRow[]
   version: number
   eventTaskChanges: EventTaskChange[]
+  /** POST_TOOL_USE event ids of the family (detector replay candidates). */
+  postToolEventIds: ReadonlySet<string>
 } | null> {
   const shape = await attributionRepository.loadBoundFamilyShape(rootId)
   if (shape) {
@@ -331,6 +333,7 @@ async function computeFamilyRows(rootId: string): Promise<{
       version: shape.attributionVersion,
       // Explicit sessions' events are retagged at attach time, never here.
       eventTaskChanges: [],
+      postToolEventIds: new Set(),
     }
   }
 
@@ -364,6 +367,9 @@ async function computeFamilyRows(rootId: string): Promise<{
     rows,
     version: family.attributionVersion,
     eventTaskChanges: eventTaskAssignments(family, rows),
+    postToolEventIds: new Set(
+      family.events.filter(e => e.type === 'POST_TOOL_USE').map(e => e.id)
+    ),
   }
 }
 
@@ -569,8 +575,23 @@ export interface RecomputeResult {
   written: boolean
   eventsUpdated: number
   crossingsMoved: number
+  /** The subset of `crossingsMoved` that went to no task. */
+  crossingsMovedToNull: number
+  /**
+   * POST_TOOL_USE events this recompute moved from no task to a task: the
+   * boundary detector never ran on them with a task, so the trigger replays
+   * it (I1).
+   */
+  backfilledPostToolEventIds: string[]
   /** Set when every attempt lost the version race; nothing was written. */
   conflict?: true
+}
+
+const NOTHING_MOVED = {
+  eventsUpdated: 0,
+  crossingsMoved: 0,
+  crossingsMovedToNull: 0,
+  backfilledPostToolEventIds: [] as string[],
 }
 
 export const attributionService = {
@@ -581,13 +602,14 @@ export const attributionService = {
     for (let attempt = 0; attempt <= MAX_CONFLICT_RETRIES; attempt++) {
       const plan = await computeFamilyRows(rootId)
       if (!plan) return null
-      const { familyIds, rows, version, eventTaskChanges } = plan
+      const { familyIds, rows, version, eventTaskChanges, postToolEventIds } =
+        plan
       segments = rows.length
 
       const existing = await attributionRepository.listFamilySegments(familyIds)
       const unchanged = sameSegments(rows, existing)
       if (unchanged && eventTaskChanges.length === 0) {
-        return { segments, written: false, eventsUpdated: 0, crossingsMoved: 0 }
+        return { segments, written: false, ...NOTHING_MOVED }
       }
       const res = await attributionRepository.commitFamilyAttribution({
         rootSessionId: rootId,
@@ -602,6 +624,15 @@ export const attributionService = {
           written: !unchanged,
           eventsUpdated: res.eventsUpdated,
           crossingsMoved: res.crossingsMoved,
+          crossingsMovedToNull: res.crossingsMovedToNull,
+          backfilledPostToolEventIds: res.changedEvents
+            .filter(
+              m =>
+                m.fromTaskId === null &&
+                m.toTaskId !== null &&
+                postToolEventIds.has(m.eventId)
+            )
+            .map(m => m.eventId),
         }
       }
     }
@@ -612,8 +643,7 @@ export const attributionService = {
     return {
       segments,
       written: false,
-      eventsUpdated: 0,
-      crossingsMoved: 0,
+      ...NOTHING_MOVED,
       conflict: true,
     }
   },

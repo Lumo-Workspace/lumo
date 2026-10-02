@@ -140,6 +140,8 @@ beforeEach(() => {
     conflict: false,
     eventsUpdated: 0,
     crossingsMoved: 0,
+    crossingsMovedToNull: 0,
+    changedEvents: [],
   })
   repo.taskIdsForBranches.mockResolvedValue(new Map())
   repo.resolveIdentifiers.mockImplementation(
@@ -302,7 +304,7 @@ describe('attribution scenarios under the branch ruling', () => {
       events: [pasted, read(ROOT, 'main')],
     })
     const res = await attributionService.recomputeFamily(ROOT)
-    expect(res).toEqual({
+    expect(res).toMatchObject({
       segments: 0,
       written: false,
       eventsUpdated: 0,

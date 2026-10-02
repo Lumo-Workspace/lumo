@@ -18,7 +18,15 @@ export async function recomputeAttributionSafely(
         sessionId,
         eventsUpdated: res.eventsUpdated,
         crossingsMoved: res.crossingsMoved,
+        crossingsMovedToNull: res.crossingsMovedToNull,
       })
+    }
+    // I1: POST_TOOL_USE events backfilled from no task to a task never met
+    // the boundary detector with one — replay it on their stored payload.
+    if (res && res.backfilledPostToolEventIds.length > 0) {
+      const { replayBoundaryDetection } =
+        await import('@/lib/services/boundary-detector-replay.service')
+      await replayBoundaryDetection(sessionId, res.backfilledPostToolEventIds)
     }
   } catch (error) {
     logger.error('attribution recompute failed', { sessionId, error })

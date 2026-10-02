@@ -185,7 +185,11 @@ describe('attribution repository on a real Postgres', () => {
         row({}),
         row({ sessionId: CHILD, source: 'INHERITED', confidence: 'EXPLICIT' }),
       ])
-    ).resolves.toEqual({ conflict: false, eventsUpdated: 0, crossingsMoved: 0 })
+    ).resolves.toMatchObject({
+      conflict: false,
+      eventsUpdated: 0,
+      crossingsMoved: 0,
+    })
     const sortById = <T extends { sessionId: string }>(xs: T[]) =>
       [...xs].sort((a, b) => a.sessionId.localeCompare(b.sessionId))
     const stored = sortById(await attributionRepository.listFamilySegments(ids))
@@ -327,7 +331,11 @@ describe('commitFamilyAttribution on a real Postgres (LUM-932 P3)', () => {
         segments: [],
         eventTaskChanges: changes,
       })
-    ).resolves.toEqual({ conflict: true, eventsUpdated: 0, crossingsMoved: 0 })
+    ).resolves.toMatchObject({
+      conflict: true,
+      eventsUpdated: 0,
+      crossingsMoved: 0,
+    })
     expect([await eventTasks(), await crossingTasks()]).toEqual(before)
     expect(await version()).toBe(4)
   })
@@ -341,7 +349,17 @@ describe('commitFamilyAttribution on a real Postgres (LUM-932 P3)', () => {
         segments: null,
         eventTaskChanges: changes,
       })
-    ).resolves.toEqual({ conflict: false, eventsUpdated: 3, crossingsMoved: 1 })
+    ).resolves.toEqual({
+      conflict: false,
+      eventsUpdated: 3,
+      crossingsMoved: 1,
+      crossingsMovedToNull: 0,
+      changedEvents: expect.arrayContaining([
+        { eventId: 'f_e1', fromTaskId: 'task_12', toTaskId: 'task_13' },
+        { eventId: 'f_e2', fromTaskId: 'task_12', toTaskId: 'task_13' },
+        { eventId: 'f_child', fromTaskId: 'task_12', toTaskId: 'task_13' },
+      ]),
+    })
     expect(await version()).toBe(5)
     expect(await eventTasks()).toEqual([
       { id: 'f_child', taskId: 'task_13' },
@@ -372,7 +390,16 @@ describe('commitFamilyAttribution on a real Postgres (LUM-932 P3)', () => {
           { eventId: 'f_child', taskId: null },
         ],
       })
-    ).resolves.toEqual({ conflict: false, eventsUpdated: 1, crossingsMoved: 1 })
+    ).resolves.toEqual({
+      conflict: false,
+      eventsUpdated: 1,
+      crossingsMoved: 1,
+      // M1: the open crossing went to no task with its event.
+      crossingsMovedToNull: 1,
+      changedEvents: [
+        { eventId: 'f_e1', fromTaskId: 'task_13', toTaskId: null },
+      ],
+    })
     expect(await eventTasks()).toEqual([
       { id: 'f_child', taskId: 'task_13' },
       { id: 'f_e1', taskId: null },
@@ -453,7 +480,11 @@ describe('bindings serialize with the recompute via the root version (LUM-932 P3
         segments: [],
         eventTaskChanges: toNull('sa'),
       })
-    ).resolves.toEqual({ conflict: true, eventsUpdated: 0, crossingsMoved: 0 })
+    ).resolves.toMatchObject({
+      conflict: true,
+      eventsUpdated: 0,
+      crossingsMoved: 0,
+    })
     expect(await tasksOf('sa')).toEqual([
       { id: 'sa_child', taskId: 'task_12' },
       { id: 'sa_root', taskId: 'task_12' },
@@ -481,7 +512,11 @@ describe('bindings serialize with the recompute via the root version (LUM-932 P3
         segments: [],
         eventTaskChanges: toNull('sb'),
       })
-    ).resolves.toEqual({ conflict: true, eventsUpdated: 0, crossingsMoved: 0 })
+    ).resolves.toMatchObject({
+      conflict: true,
+      eventsUpdated: 0,
+      crossingsMoved: 0,
+    })
     // The steward bind itself cleared the provisional tags (LUM-640: a
     // steward family stays task-less); the stale commit wrote nothing.
     expect(await tasksOf('sb')).toEqual([
@@ -507,7 +542,11 @@ describe('bindings serialize with the recompute via the root version (LUM-932 P3
         segments: null,
         eventTaskChanges: toNull('sc'),
       })
-    ).resolves.toEqual({ conflict: false, eventsUpdated: 0, crossingsMoved: 0 })
+    ).resolves.toMatchObject({
+      conflict: false,
+      eventsUpdated: 0,
+      crossingsMoved: 0,
+    })
     expect(await tasksOf('sc')).toEqual([
       { id: 'sc_child', taskId: 'task_12' },
       { id: 'sc_root', taskId: 'task_12' },
