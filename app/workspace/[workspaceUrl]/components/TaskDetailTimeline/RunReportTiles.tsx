@@ -7,6 +7,9 @@ import { fmtTokens } from './HonestReportSections'
 
 export interface RunReportTilesProps {
   tiles: RunReportTilesData
+  /** LUM-932: part of the cost was split by auto-detection, so the Cost tile
+   *  carries an inaccuracy caption (only when a cost was actually measured). */
+  costApproximate?: boolean
 }
 
 function Tile({
@@ -15,6 +18,7 @@ function Tile({
   value,
   measured,
   subCaptions = [],
+  warning,
 }: {
   testId: string
   label: string
@@ -26,6 +30,8 @@ function Tile({
   /** Muted lines under the value; only the measured ones are passed in (the
    *  Cost tile carries two: the token unit and the active-time reading). */
   subCaptions?: string[]
+  /** Amber caution line rendered after the sub-captions. */
+  warning?: string
 }) {
   return (
     <div
@@ -52,6 +58,14 @@ function Tile({
           {caption}
         </div>
       ))}
+      {warning ? (
+        <div
+          data-testid='cost-approximate'
+          className='mt-0.5 text-caption text-amber-700 dark:text-amber-400'
+        >
+          {warning}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -65,7 +79,10 @@ function Tile({
  * carries the LUM-560 active-time reading as a sub-caption, so nothing the
  * retired `CostSection` showed was lost in the move to tiles.
  */
-export function RunReportTiles({ tiles }: RunReportTilesProps) {
+export function RunReportTiles({
+  tiles,
+  costApproximate = false,
+}: RunReportTilesProps) {
   const intl = useIntl()
 
   const notMeasured = intl.formatMessage({
@@ -144,6 +161,15 @@ export function RunReportTiles({ tiles }: RunReportTilesProps) {
         }
         measured={tiles.costTokens != null}
         subCaptions={costCaptions}
+        {...(costApproximate && tiles.costTokens != null
+          ? {
+              warning: intl.formatMessage({
+                id: 'record.report.costApproximate',
+                defaultMessage:
+                  'Includes auto-detected work — may be inaccurate',
+              }),
+            }
+          : {})}
       />
       <Tile
         testId='tile-rework'
