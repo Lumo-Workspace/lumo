@@ -50,6 +50,8 @@ const commonFields = {
   agent_type: z.string().max(128).optional(),
   // LUM-932: current git branch of `cwd`, injected by the CLI hook runner.
   _lumo_branch: z.string().max(255).optional(),
+  // LUM-932 P2: task id parsed from recent git activity, injected by the CLI hook runner.
+  _lumo_git_task: z.string().max(64).optional(),
   _lumo_validation: z.never().optional(),
   _lumo_context_metrics: z.never().optional(),
   _lumo_redaction: z.never().optional(),

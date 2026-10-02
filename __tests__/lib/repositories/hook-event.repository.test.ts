@@ -54,6 +54,7 @@ describe('hookEventRepository.createHookEvent', () => {
         filePath: '/tmp/x',
         payload: { tool_name: 'Read', tool_input: { file_path: '/tmp/x' } },
         usageByModel: Prisma.DbNull,
+        attributionSignals: Prisma.DbNull,
       },
       select: { id: true },
     })

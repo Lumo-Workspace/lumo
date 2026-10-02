@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
 import type { HookEventType } from '@prisma/client'
+import type { AttributionSignal } from '@/lib/attribution/signals'
 import type { ToolEventRow } from '@/lib/session/resolve-caller'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -25,6 +26,8 @@ interface CreateHookEventData {
   filePath?: string | null
   /** Per-turn delta on STOP rows; per-step delta on POST_TOOL_BATCH rows (LUM-523). Null elsewhere. */
   usageByModel?: Prisma.InputJsonValue | null
+  /** LUM-932 P2: task-identification signals extracted at record time; null when none. */
+  attributionSignals?: AttributionSignal[] | null
 }
 
 interface FindRecentOtherSessionWritesParams {
@@ -112,6 +115,10 @@ export const hookEventRepository = {
         usageByModel:
           data.usageByModel != null
             ? (data.usageByModel as Prisma.InputJsonValue)
+            : Prisma.DbNull,
+        attributionSignals:
+          data.attributionSignals != null
+            ? (data.attributionSignals as unknown as Prisma.InputJsonValue)
             : Prisma.DbNull,
       },
       select: { id: true },

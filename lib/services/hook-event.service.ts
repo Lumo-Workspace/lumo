@@ -10,6 +10,7 @@ import {
   splitSubagentUsage,
   type InjectedUsage,
 } from '@/lib/session/subagent-usage'
+import { extractAttributionSignals } from '@/lib/attribution/signals'
 import { logger } from '@/lib/logger'
 import { AGENT_ID_RE } from '@/lib/session/child-session-id'
 
@@ -158,6 +159,7 @@ export const hookEventService = {
     const toolName = extractStringField(payload, 'tool_name')
     const bash = classifyBashPayload(payload)
     const filePath = extractFilePath(payload)
+    const signals = extractAttributionSignals(type, payload)
     const created = await hookEventRepository.createHookEvent({
       workspaceId: identity.workspace.id,
       workspaceMemberId: memberId,
@@ -173,6 +175,7 @@ export const hookEventService = {
         turnUsageByModel != null
           ? (turnUsageByModel as unknown as Prisma.InputJsonValue)
           : null,
+      attributionSignals: signals.length > 0 ? signals : null,
     })
 
     // LUM-932: settle each subagent's usage onto its child session AFTER the
