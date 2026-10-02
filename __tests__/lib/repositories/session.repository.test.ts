@@ -408,7 +408,7 @@ describe('sessionRepository.upsertWithTaskId', () => {
     })
     expect(sessionUpdate()).toHaveBeenCalledWith({
       where: { id: 'sess_1' },
-      data: { taskId: 'task_42' },
+      data: { taskId: 'task_42', bindingSource: 'ATTACH' },
       select: { id: true, taskId: true },
     })
     expect(sessionCreate()).not.toHaveBeenCalled()
