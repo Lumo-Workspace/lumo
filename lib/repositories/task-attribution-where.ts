@@ -36,3 +36,42 @@ export function inferredUsageEventsForTasks(
     usageByModel: { not: Prisma.DbNull },
   }
 }
+
+/**
+ * LUM-932 P3: unattached TOP-LEVEL sessions the attribution engine inferred
+ * onto any of these tasks (an INFERRED segment). Segments live on top-level
+ * sessions only; `taskId: null` keeps an explicitly bound session from being
+ * counted twice (its own binding already lists it).
+ */
+export function inferredTopLevelSessionsForTasks(
+  taskIds: string[]
+): Prisma.SessionWhereInput {
+  return {
+    parentSessionId: null,
+    taskId: null,
+    attributionSegments: {
+      some: { taskId: { in: taskIds }, source: 'INFERRED' },
+    },
+  }
+}
+
+export function inferredTopLevelSessionsForTask(
+  taskId: string
+): Prisma.SessionWhereInput {
+  return inferredTopLevelSessionsForTasks([taskId])
+}
+
+/**
+ * LUM-932 P3: "the task was worked on by some session" — an explicit binding,
+ * or unattached top-level work inferred onto it. Spread into a Task where.
+ */
+export const taskHasSessions: Prisma.TaskWhereInput = {
+  OR: [
+    { sessions: { some: {} } },
+    {
+      attributionSegments: {
+        some: { source: 'INFERRED', session: { parentSessionId: null } },
+      },
+    },
+  ],
+}

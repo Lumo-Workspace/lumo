@@ -10,6 +10,7 @@ import {
   activeDurationMsBySessionTask,
   type AttributedTurnEvent,
 } from '@/lib/agent-run/active-time'
+import { parseChildSessionId } from '@/lib/session/child-session-id'
 
 /**
  * Sprint "Team performance" fold — per-member token / agent-time / runs rollup
@@ -172,7 +173,10 @@ export function computeSprintTeamPerformance(
 
   // ---- Per-member tokens + per-model lists -------------------------------
   const tokenByMember = new Map<string | null, number>()
-  const runsByMember = new Map<string | null, number>()
+  // Runs = DISTINCT top-level sessions per member (LUM-932): an unattached
+  // session inferred onto N tasks yields N (task, session) rows, and subagent
+  // children are rows of their own — neither is an extra run.
+  const runRootsByMember = new Map<string | null, Set<string>>()
   const modelListsByMember = new Map<string | null, (ModelCost[] | null)[]>()
   // (taskId, member) spend + per-model — the drill-down basis.
   const tokensByTaskMember = new Map<string, Map<string | null, number>>()
@@ -182,7 +186,9 @@ export function computeSprintTeamPerformance(
     const member = s.workspaceMemberId
     const tokens = flatTokens(s)
     tokenByMember.set(member, (tokenByMember.get(member) ?? 0) + tokens)
-    runsByMember.set(member, (runsByMember.get(member) ?? 0) + 1)
+    const roots = runRootsByMember.get(member) ?? new Set<string>()
+    roots.add(parseChildSessionId(s.id)?.parentSessionId ?? s.id)
+    runRootsByMember.set(member, roots)
 
     const models = toModelCosts(
       s.usageByModel as Record<string, ModelUsage> | null | undefined
@@ -323,7 +329,7 @@ export function computeSprintTeamPerformance(
       tasksDone: tasksDoneByMember.get(memberId) ?? 0,
       tokenCost,
       activeTimeSec: memberActiveSec,
-      runs: runsByMember.get(memberId) ?? 0,
+      runs: runRootsByMember.get(memberId)?.size ?? 0,
       models,
       modelUnattributedTokens: Math.max(0, tokenCost - modelTotal),
       perTask,

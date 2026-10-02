@@ -537,4 +537,45 @@ describe('LUM-932 subagent child sessions fold into the parent run', () => {
     expect(total(totals.byModel)).toBe(30)
     expect(totals.loopCount).toBeNull()
   })
+
+  it('costs an inferred unattached run by its task-attributed per-turn usage, not its cumulative columns', async () => {
+    children.mockResolvedValue([])
+    byIds.mockResolvedValue([])
+    sessions.mockResolvedValue([
+      {
+        id: 'sess_u',
+        inferred: true,
+        startedAt: t0,
+        lastActivityAt: t1,
+        eventCount: 4,
+        loopCount: 9,
+        runSummary: 'summary spanning other tasks',
+        // Cumulative across every task the session touched.
+        usageByModel: opus(999),
+        inputTokens: 999,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      },
+    ])
+    const stop = (id: string, sessionId: string, type: string, n: number) => ({
+      ...ev(id, sessionId, t1),
+      type,
+      toolName: null,
+      usageByModel: opus(n),
+    })
+    events.mockResolvedValue([
+      ev('e1', 'sess_u', t0),
+      stop('e2', 'sess_u', 'STOP', 12),
+      stop('e3', 'sess_u:a1', 'SUBAGENT_STOP', 5),
+    ])
+
+    const { runs, totals } = await agentRunTimelineService.getTimeline('task_3')
+
+    expect(runs.map(r => r.sessionId)).toEqual(['sess_u'])
+    expect(total(runs[0]!.cost?.byModel)).toBe(17)
+    expect(runs[0]!.cost?.loopCount).toBe(1)
+    expect(runs[0]!.runSummary).toBeNull()
+    expect(total(totals.byModel)).toBe(17)
+  })
 })

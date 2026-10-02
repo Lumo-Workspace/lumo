@@ -9,6 +9,7 @@ import { collectTopBlockers, stalledCutoff } from './top-blockers'
 import { selectHighStakesStalls, type TaskContextSample } from './high-stakes'
 import { inferredUsageForTasks } from '@/lib/repositories/inferred-usage.repository'
 import { usageMapTotal } from '@/lib/services/model-cost'
+import { inferredTopLevelSessionsForTasks } from '@/lib/repositories/task-attribution-where'
 
 const EMPTY_BLOCKERS: TopBlockers = {
   overdueTaskIds: [],
@@ -327,21 +328,47 @@ export async function loadTaskContextSamples(
 ): Promise<Map<string, TaskContextSample>> {
   if (taskIds.length === 0) return new Map()
 
-  const [groups, inferred] = await Promise.all([
-    prisma.session.groupBy({
-      by: ['taskId'],
-      where: { taskId: { in: taskIds } },
-      _count: { _all: true },
-      _sum: {
-        loopCount: true,
-        inputTokens: true,
-        outputTokens: true,
-        cacheReadTokens: true,
-        cacheCreationTokens: true,
-      },
-    }),
-    inferredUsageForTasks(taskIds),
-  ])
+  const [groups, topLevelGroups, inferredSessions, inferred] =
+    await Promise.all([
+      prisma.session.groupBy({
+        by: ['taskId'],
+        where: { taskId: { in: taskIds } },
+        _count: { _all: true },
+        _sum: {
+          loopCount: true,
+          inputTokens: true,
+          outputTokens: true,
+          cacheReadTokens: true,
+          cacheCreationTokens: true,
+        },
+      }),
+      // LUM-932 P3: sessionCount = distinct TOP-LEVEL sessions — explicit ones
+      // bound to the task + unattached ones inferred onto it (never children).
+      prisma.session.groupBy({
+        by: ['taskId'],
+        where: { taskId: { in: taskIds }, parentSessionId: null },
+        _count: { _all: true },
+      }),
+      prisma.session.findMany({
+        where: inferredTopLevelSessionsForTasks(taskIds),
+        select: {
+          attributionSegments: {
+            where: { taskId: { in: taskIds }, source: 'INFERRED' },
+            select: { taskId: true },
+          },
+        },
+      }),
+      inferredUsageForTasks(taskIds),
+    ])
+  const sessionCountByTask = new Map<string, number>()
+  for (const g of topLevelGroups) {
+    if (g.taskId) sessionCountByTask.set(g.taskId, g._count._all)
+  }
+  for (const s of inferredSessions) {
+    for (const taskId of new Set(s.attributionSegments.map(g => g.taskId))) {
+      sessionCountByTask.set(taskId, (sessionCountByTask.get(taskId) ?? 0) + 1)
+    }
+  }
   // LUM-932 P3 hybrid cost: unattached work's per-turn usage per task, added
   // on top of the explicit sessions' cumulative columns.
   const inferredByTask = new Map<string, number>()
@@ -373,18 +400,18 @@ export async function loadTaskContextSamples(
 
     samples.set(g.taskId, {
       taskId: g.taskId,
-      sessionCount: g._count._all,
+      sessionCount: sessionCountByTask.get(g.taskId) ?? 0,
       loopCount: sums.loopCount,
       totalTokens,
     })
   }
-  // Tasks worked on only through unattached sessions: cost is measured, but
-  // no explicit session exists to count sessions/turns from.
+  // Tasks worked on only through unattached sessions: cost is measured and
+  // the inferred sessions are counted; there is no explicit loop count.
   for (const [taskId, tokens] of inferredByTask) {
     if (samples.has(taskId)) continue
     samples.set(taskId, {
       taskId,
-      sessionCount: 0,
+      sessionCount: sessionCountByTask.get(taskId) ?? 0,
       loopCount: null,
       totalTokens: tokens,
     })

@@ -43,7 +43,7 @@ describe('sessionRepository.listSessionIdsForTask', () => {
 
     expect(result).toEqual(['sess_2', 'sess_1'])
     expect(findMany).toHaveBeenCalledWith({
-      where: { taskId: 'task_1' },
+      where: { taskId: 'task_1', parentSessionId: null },
       orderBy: { lastActivityAt: 'desc' },
       select: { id: true },
     })

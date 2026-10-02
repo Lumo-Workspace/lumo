@@ -439,7 +439,9 @@ describe('top-level listings exclude child sessions', () => {
   }
 
   it('listForTask', async () => {
-    ;(prisma.session.findMany as jest.Mock).mockResolvedValueOnce([])
+    ;(prisma.session.findMany as jest.Mock)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
     await sessionRepository.listForTask('t1')
     expect(prisma.session.findMany).toHaveBeenCalledWith(
       expect.objectContaining(topLevel)

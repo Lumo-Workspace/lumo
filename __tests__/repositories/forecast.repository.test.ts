@@ -7,6 +7,7 @@ jest.mock('@/lib/db/prisma', () => ({
       groupBy: jest.fn(),
       findMany: jest.fn().mockResolvedValue([]),
     },
+    session: { findMany: jest.fn().mockResolvedValue([]) },
   },
 }))
 
@@ -83,7 +84,18 @@ describe('loadForecastInputs', () => {
           projectId: 'p1',
           status: 'DONE',
           id: { not: 't1' },
-          sessions: { some: {} },
+          // LUM-932 P3: explicit sessions OR inferred unattached work.
+          OR: [
+            { sessions: { some: {} } },
+            {
+              attributionSegments: {
+                some: {
+                  source: 'INFERRED',
+                  session: { parentSessionId: null },
+                },
+              },
+            },
+          ],
         }),
       })
     )
@@ -174,5 +186,73 @@ describe('loadForecastInputs', () => {
 
     const res = await forecastRepository.loadForecastInputs('t1')
     expect(res!.candidates[0]!.interactionRounds).toBe(0)
+  })
+
+  it('a candidate worked only through unattached sessions has runs; children are not runs (LUM-932)', async () => {
+    findUnique.mockResolvedValue({
+      id: 't1',
+      title: 'Target',
+      projectId: 'p1',
+      taskTags: [],
+    })
+    const sessionFind = prisma.session.findMany as jest.Mock
+    sessionFind.mockResolvedValueOnce([
+      // One unattached session with two INFERRED segments on t3 → one run.
+      {
+        startedAt: new Date(5),
+        lastActivityAt: new Date(6),
+        attributionSegments: [{ taskId: 't3' }, { taskId: 't3' }],
+      },
+    ])
+    findMany.mockResolvedValue([
+      {
+        id: 't2',
+        title: 'Explicit',
+        number: 2,
+        team: { identifier: 'LUM' },
+        taskTags: [],
+        sessions: [
+          {
+            parentSessionId: null,
+            startedAt: new Date(0),
+            lastActivityAt: new Date(1),
+            inputTokens: 1,
+            outputTokens: 1,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 0,
+          },
+          {
+            parentSessionId: 'P',
+            startedAt: new Date(0),
+            lastActivityAt: new Date(1),
+            inputTokens: 5,
+            outputTokens: 0,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 0,
+          },
+        ],
+        pullRequests: [],
+      },
+      {
+        id: 't3',
+        title: 'Inferred only',
+        number: 3,
+        team: { identifier: 'LUM' },
+        taskTags: [],
+        sessions: [],
+        pullRequests: [],
+      },
+    ])
+    groupBy.mockResolvedValue([])
+
+    const res = await forecastRepository.loadForecastInputs('t1')
+    const [t2, t3] = res!.candidates
+    expect(t2!.runs).toEqual([
+      { startedAt: new Date(0), finishedAt: new Date(1) },
+    ])
+    expect(t2!.tokenCost).toBe(7) // the child's spend stays in the cost
+    expect(t3!.runs).toEqual([
+      { startedAt: new Date(5), finishedAt: new Date(6) },
+    ])
   })
 })

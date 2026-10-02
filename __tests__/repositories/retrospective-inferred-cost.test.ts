@@ -3,7 +3,11 @@ jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     task: { findUnique: jest.fn(), findMany: jest.fn() },
     hookEvent: { findMany: jest.fn(), groupBy: jest.fn() },
-    session: { findMany: jest.fn(), groupBy: jest.fn() },
+    session: {
+      findMany: jest.fn(),
+      groupBy: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+    },
   },
 }))
 
@@ -75,7 +79,11 @@ beforeEach(() => {
           )
         : []
   )
-  sessionFind.mockImplementation(async () => sessionRows)
+  // The inferred top-level session listings (LUM-932 counts) see none here.
+  sessionFind.mockImplementation(
+    async (args: { where?: Record<string, unknown> }) =>
+      args.where && 'attributionSegments' in args.where ? [] : sessionRows
+  )
 })
 
 const T0 = new Date('2026-09-01T00:00:00Z')
@@ -538,6 +546,46 @@ describe('forecast + stats loaders — hybrid cost', () => {
       loopCount: null,
       totalTokens: 7,
     })
+  })
+
+  it('loadTaskContextSamples counts top-level sessions only, plus inferred ones (LUM-932)', async () => {
+    sessionGroupBy.mockImplementation(
+      async (args: { where: Record<string, unknown> }) =>
+        args.where.parentSessionId === null
+          ? // P only — its 15 children are not sessions of their own.
+            [{ taskId: 't1', _count: { _all: 1 } }]
+          : [
+              {
+                taskId: 't1',
+                _count: { _all: 16 },
+                _sum: {
+                  loopCount: 2,
+                  inputTokens: 10,
+                  outputTokens: 0,
+                  cacheReadTokens: 0,
+                  cacheCreationTokens: 0,
+                },
+              },
+            ]
+    )
+    sessionFind.mockImplementation(
+      async (args: { where?: Record<string, unknown> }) =>
+        args.where && 'attributionSegments' in args.where
+          ? [
+              // U inferred onto t1 twice (two segments) → one session.
+              { attributionSegments: [{ taskId: 't1' }, { taskId: 't1' }] },
+              // W inferred onto t3 only.
+              { attributionSegments: [{ taskId: 't3' }] },
+            ]
+          : []
+    )
+    inferredEvents = [
+      ev('U', 'STOP', { opus: u(1) }, { task: 't1' }),
+      ev('W', 'STOP', { opus: u(7) }, { task: 't3' }),
+    ]
+    const samples = await loadTaskContextSamples(['t1', 't3'])
+    expect(samples.get('t1')?.sessionCount).toBe(2) // P + U
+    expect(samples.get('t3')?.sessionCount).toBe(1) // W
   })
 })
 

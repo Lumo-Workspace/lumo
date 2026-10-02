@@ -335,4 +335,51 @@ describe('computeSprintTeamPerformance', () => {
     expect(byTask.get('t1')).toBe(60)
     expect(byTask.get('t2')).toBe(120)
   })
+
+  it('counts runs as distinct top-level sessions per member (LUM-932)', () => {
+    const out = computeSprintTeamPerformance({
+      taskRows: [task('t1', 'TODO'), task('t2', 'TODO'), task('t3', 'TODO')],
+      sessionRows: [
+        // One unattached session U inferred onto three tasks → three rows.
+        ...['t1', 't2', 't3'].map(t =>
+          session({
+            id: 'U',
+            taskId: t,
+            workspaceMemberId: 'mA',
+            inputTokens: 1,
+            outputTokens: 1,
+          })
+        ),
+        // Two of its subagent children, each its own row.
+        session({
+          id: 'U:a1',
+          taskId: 't1',
+          workspaceMemberId: 'mA',
+          inputTokens: 2,
+          outputTokens: 0,
+        }),
+        session({
+          id: 'U:a2',
+          taskId: 't2',
+          workspaceMemberId: 'mA',
+          inputTokens: 3,
+          outputTokens: 0,
+        }),
+        // A second, explicit top-level session.
+        session({
+          id: 'S',
+          taskId: 't1',
+          workspaceMemberId: 'mA',
+          inputTokens: 4,
+          outputTokens: 0,
+        }),
+      ],
+      turnEvents: [],
+      memberLabels: new Map(),
+    })
+    const mA = out.rows.find(r => r.memberId === 'mA')!
+    expect(mA.runs).toBe(2) // U + S
+    // Tokens stay per row: 3×2 + 2 + 3 + 4.
+    expect(mA.tokenCost).toBe(15)
+  })
 })

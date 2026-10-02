@@ -5,7 +5,7 @@ jest.mock('@/lib/db/prisma', () => ({
     task: { findUnique: jest.fn(), count: jest.fn() },
     notification: { count: jest.fn() },
     hookEvent: { findMany: jest.fn() },
-    session: { findMany: jest.fn() },
+    session: { findMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
     verificationRun: { findMany: jest.fn() },
   },
 }))
@@ -195,8 +195,20 @@ it('createSnapshotIfAbsent freezes null friction when there are no runs (no-veri
 it('countReferenceLibrary counts DONE tasks with sessions', async () => {
   taskCount.mockResolvedValue(27)
   expect(await retrospectiveRepository.countReferenceLibrary('p1')).toBe(27)
+  // LUM-932 P3: explicit sessions OR unattached top-level work inferred onto it.
   expect(taskCount).toHaveBeenCalledWith({
-    where: { projectId: 'p1', status: 'DONE', sessions: { some: {} } },
+    where: {
+      projectId: 'p1',
+      status: 'DONE',
+      OR: [
+        { sessions: { some: {} } },
+        {
+          attributionSegments: {
+            some: { source: 'INFERRED', session: { parentSessionId: null } },
+          },
+        },
+      ],
+    },
   })
 })
 

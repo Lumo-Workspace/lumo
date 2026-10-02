@@ -5,6 +5,7 @@ import {
   toModelCosts,
   mergeModelCosts,
   withInFlightCost,
+  addUsageMaps,
   type ModelCost,
   type ModelUsage,
 } from '@/lib/services/model-cost'
@@ -210,6 +211,36 @@ export const agentRunTimelineService = {
         ? (parseChildSessionId(sessionId)?.parentSessionId ?? sessionId)
         : null
 
+    // LUM-932 P3: an unattached session inferred onto this task is a run of
+    // it, but its cumulative columns span every task it touched — its cost
+    // here is the per-turn usage of its events attributed to this task (the
+    // same rows the task's cost total sums). Attached children are excluded:
+    // they are costed from their own columns via childCostByParent.
+    const inferredIds = new Set(sessions.filter(s => s.inferred).map(s => s.id))
+    const attachedChildIds = new Set(childSessions.map(c => c.id))
+    const inferredUsage = new Map<
+      string,
+      { byModel: Record<string, ModelUsage> | null; loops: number }
+    >()
+    for (const ev of events) {
+      const key = runKey(ev.sessionId ?? null)
+      if (!key || !inferredIds.has(key)) continue
+      if (attachedChildIds.has(ev.sessionId!)) continue
+      if (
+        ev.type !== 'STOP' &&
+        ev.type !== 'STOP_FAILURE' &&
+        ev.type !== 'SUBAGENT_STOP'
+      )
+        continue
+      const usage = ev.usageByModel as Record<string, ModelUsage> | null
+      if (!usage || typeof usage !== 'object' || Array.isArray(usage)) continue
+      const cur = inferredUsage.get(key) ?? { byModel: null, loops: 0 }
+      cur.byModel = addUsageMaps(cur.byModel, usage)
+      // A turn is a main-transcript STOP; subagent rows add spend, not turns.
+      if (ev.type !== 'SUBAGENT_STOP') cur.loops++
+      inferredUsage.set(key, cur)
+    }
+
     // Bucket events + memories by run (top-level session id).
     const eventsBySession = new Map<string | null, AgentRunHookEvent[]>()
     // A run's own events (not its subagents') — active time is turn-based on
@@ -287,10 +318,17 @@ export const agentRunTimelineService = {
         e => e.type === 'PRE_TOOL_USE'
       ).length
       const isHost = hostOnly.has(s.id)
-      // Own cost (a host's own burn belongs to another task / unattributed)
-      // plus every child session of this run whose work belongs to the task.
+      const isInferred = inferredIds.has(s.id)
+      const inferredOwn = inferredUsage.get(s.id)
+      // Own cost (a host's own burn belongs to another task / unattributed;
+      // an inferred run's is its task-attributed per-turn usage) plus every
+      // child session of this run whose work belongs to the task.
       const childCosts = childCostByParent.get(s.id) ?? []
-      const ownCost = isHost ? null : sessionCost(s)
+      const ownCost = isHost
+        ? null
+        : isInferred
+          ? toModelCosts(inferredOwn?.byModel ?? null)
+          : sessionCost(s)
       const merged =
         childCosts.length > 0 ? mergeModelCosts([ownCost, ...childCosts]) : null
       const costByModel = merged ? (merged.length > 0 ? merged : null) : ownCost
@@ -308,9 +346,17 @@ export const agentRunTimelineService = {
         toolCallCount,
         eventCount: sessionEvents.length,
         memoryCount: sessionMemories.length,
-        runSummary: isHost ? null : s.runSummary,
+        // A host's / inferred run's summary covers work on other tasks too.
+        runSummary: isHost || isInferred ? null : s.runSummary,
         cost: costByModel
-          ? { byModel: costByModel, loopCount: isHost ? null : s.loopCount }
+          ? {
+              byModel: costByModel,
+              loopCount: isHost
+                ? null
+                : isInferred
+                  ? (inferredOwn?.loops ?? 0)
+                  : s.loopCount,
+            }
           : null,
         member: null, // resolved after Clerk enrichment below
         items,

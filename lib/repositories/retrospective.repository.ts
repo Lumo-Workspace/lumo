@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db/prisma'
 import {
   eventsForTask,
   eventsForTasks,
+  inferredTopLevelSessionsForTask,
+  taskHasSessions,
 } from '@/lib/repositories/task-attribution-where'
 import type { Interval } from '@/lib/forecast/types'
 import { sumActiveDurationSec } from '@/lib/agent-run/active-time'
@@ -207,6 +209,7 @@ export const retrospectiveRepository = {
         projectId: true,
         sessions: {
           select: {
+            parentSessionId: true,
             inputTokens: true,
             outputTokens: true,
             cacheReadTokens: true,
@@ -221,7 +224,7 @@ export const retrospectiveRepository = {
     // the task — wider type list lets active-time exclude mid-turn human-wait
     // intervals (PERMISSION_REQUEST / NOTIFICATION / ELICITATION) in addition
     // to the inter-turn idle that was already excluded.
-    const [turnEvents, inferred] = await Promise.all([
+    const [turnEvents, inferred, inferredSessionCount] = await Promise.all([
       prisma.hookEvent.findMany({
         where: {
           ...eventsForTask(taskId),
@@ -231,6 +234,7 @@ export const retrospectiveRepository = {
         select: { sessionId: true, type: true, createdAt: true },
       }),
       inferredUsageForTasks([taskId]),
+      prisma.session.count({ where: inferredTopLevelSessionsForTask(taskId) }),
     ])
 
     // LUM-932 P3 hybrid cost: explicit sessions' cumulative columns (as
@@ -260,7 +264,12 @@ export const retrospectiveRepository = {
     return {
       projectId: task.projectId,
       tokenCost,
-      iterations: task.sessions.length,
+      // LUM-932 P3: distinct TOP-LEVEL sessions — explicit ones bound to the
+      // task + unattached ones inferred onto it. Subagent children are part of
+      // their parent's run, never an iteration of their own.
+      iterations:
+        task.sessions.filter(s => !s.parentSessionId).length +
+        inferredSessionCount,
       interactionRounds,
       totalDurationSec,
     }
@@ -586,10 +595,11 @@ export const retrospectiveRepository = {
     )
   },
 
-  /** 参考库规模 = 项目内 DONE 且有 session 的任务数（= forecast 候选 universe）。 */
+  /** 参考库规模 = 项目内 DONE 且有 session 的任务数（= forecast 候选 universe）。
+   *  LUM-932 P3: a task worked only through unattached sessions counts too. */
   async countReferenceLibrary(projectId: string): Promise<number> {
     return prisma.task.count({
-      where: { projectId, status: 'DONE', sessions: { some: {} } },
+      where: { projectId, status: 'DONE', ...taskHasSessions },
     })
   },
 }

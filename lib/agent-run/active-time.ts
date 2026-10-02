@@ -156,6 +156,11 @@ export interface AttributedTurnEvent extends TaskTurnEvent {
  * bucketed by each EVENT's task rather than through a session→task map. An
  * event without a task (`undefined`) takes `fallbackTask(sessionKey)`.
  * Groups are returned in first-seen order.
+ *
+ * A turn whose events span two tasks is not divided between them: each task
+ * group times only the turn boundaries it holds. The attribution engine stamps
+ * whole turns, so this is rare, and callers apportion per-task seconds over the
+ * session's true total, so the totals stay exact either way.
  */
 export function activeDurationMsBySessionTask(
   events: AttributedTurnEvent[],

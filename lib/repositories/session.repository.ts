@@ -6,6 +6,7 @@ import {
   retagEventsToExplicitTask,
 } from '@/lib/repositories/explicit-retag'
 import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
+import { inferredTopLevelSessionsForTask } from '@/lib/repositories/task-attribution-where'
 import type { InjectedUsage } from '@/lib/session/subagent-usage'
 import { addUsageMaps, usageMapTotal } from '@/lib/services/model-cost'
 
@@ -893,18 +894,43 @@ export const sessionRepository = {
   },
 
   /**
-   * List all sessions tagged with the given task, newest first. Used by
-   * `lumo task context` to surface the coding agent's prior runs on a task.
-   * Structured summary + summaryType are returned as-is so the caller can
+   * List the TOP-LEVEL sessions that worked on the given task, newest first.
+   * Used by `lumo task context` to surface the coding agent's prior runs on a
+   * task. Structured summary + summaryType are returned as-is so the caller can
    * project type-appropriate fields (e.g. `summary.unresolved`).
+   *
+   * LUM-932 P3: explicit sessions bound to the task ∪ unattached sessions the
+   * attribution engine inferred onto it (an INFERRED segment for the task),
+   * merged by `lastActivityAt` desc under the same limit. Subagent child
+   * sessions never take a slot. `inferred: true` marks an unattached session:
+   * its cumulative token columns span every task it touched, so callers must
+   * not read them as this task's cost.
    */
   async listForTask(taskId: string, limit = 20) {
-    return prisma.session.findMany({
-      where: { taskId, parentSessionId: null },
-      orderBy: { lastActivityAt: 'desc' },
-      take: limit,
-      select: TIMELINE_SESSION_SELECT,
-    })
+    const [explicit, inferred] = await Promise.all([
+      prisma.session.findMany({
+        where: { taskId, parentSessionId: null },
+        orderBy: { lastActivityAt: 'desc' },
+        take: limit,
+        select: TIMELINE_SESSION_SELECT,
+      }),
+      prisma.session.findMany({
+        where: inferredTopLevelSessionsForTask(taskId),
+        orderBy: { lastActivityAt: 'desc' },
+        take: limit,
+        select: TIMELINE_SESSION_SELECT,
+      }),
+    ])
+    return [
+      ...explicit.map(s => ({ ...s, inferred: false })),
+      ...inferred.map(s => ({ ...s, inferred: true })),
+    ]
+      .sort(
+        (a, b) =>
+          b.lastActivityAt.getTime() - a.lastActivityAt.getTime() ||
+          (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+      )
+      .slice(0, limit)
   },
 
   /**
@@ -1123,7 +1149,8 @@ export const sessionRepository = {
    */
   async listSessionIdsForTask(taskId: string): Promise<string[]> {
     const rows = await prisma.session.findMany({
-      where: { taskId },
+      // LUM-932: subagent children are summarized as part of their parent run.
+      where: { taskId, parentSessionId: null },
       orderBy: { lastActivityAt: 'desc' },
       select: { id: true },
     })
@@ -1143,6 +1170,8 @@ export const sessionRepository = {
     const rows = await prisma.session.findMany({
       where: {
         runSummary: null,
+        // LUM-932: children never carry a run summary of their own.
+        parentSessionId: null,
         task: { status: { in: ['DONE', 'IN_REVIEW'] } },
         events: {
           some: {
@@ -1168,7 +1197,8 @@ export const sessionRepository = {
    */
   async loadLatestRunClaim(taskId: string) {
     return prisma.session.findFirst({
-      where: { taskId },
+      // LUM-932: a subagent child is never the task's latest run.
+      where: { taskId, parentSessionId: null },
       orderBy: { lastActivityAt: 'desc' },
       select: {
         // LUM-573: id so the snapshot synthesizer can record which session it
