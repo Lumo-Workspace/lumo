@@ -1,6 +1,12 @@
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { attributionRepository } from '@/lib/repositories/attribution.repository'
+import {
+  buildRunAttribution,
+  type RunAttribution,
+  type RunAttributionMode,
+} from '@/lib/attribution/run-attribution'
 import {
   toModelCosts,
   mergeModelCosts,
@@ -61,6 +67,9 @@ export interface AgentRunSession {
   /** Owning member (Clerk-resolved name + avatar) shown in the run header;
    *  null for orphan / unlinked runs with no member (LUM-308). */
   member: { workspaceMemberId: string; name: string; imageUrl: string } | null
+  /** Why this run's work is on the task (LUM-932 P4); null for the trailing
+   *  unlinked run. */
+  attribution: RunAttribution | null
   items: AgentRunItem[]
 }
 
@@ -178,11 +187,13 @@ export const agentRunTimelineService = {
    * as a single trailing "Unlinked" run so they're still visible.
    */
   async getTimeline(taskId: string): Promise<AgentRunTimelineResult> {
-    const [sessions, childSessions, events, memories] = await Promise.all([
+    const [sessions, childSessions, events, memories, segmentRows] =
+      await Promise.all([
       sessionRepository.listForTask(taskId, 50),
       sessionRepository.listChildrenForTask(taskId),
       hookEventRepository.findByTaskId(taskId),
       memoryRepository.findByTaskIdWithSession(taskId),
+      attributionRepository.listTaskSegments(taskId),
     ])
 
     // LUM-932 (spec §8): subagent child sessions fold into their parent's
@@ -319,6 +330,11 @@ export const agentRunTimelineService = {
       ).length
       const isHost = hostOnly.has(s.id)
       const isInferred = inferredIds.has(s.id)
+      const mode: RunAttributionMode = isHost
+        ? 'HOST'
+        : isInferred
+          ? 'INFERRED'
+          : 'EXPLICIT'
       const inferredOwn = inferredUsage.get(s.id)
       // Own cost (a host's own burn belongs to another task / unattributed;
       // an inferred run's is its task-attributed per-turn usage) plus every
@@ -359,6 +375,11 @@ export const agentRunTimelineService = {
             }
           : null,
         member: null, // resolved after Clerk enrichment below
+        attribution: buildRunAttribution({
+          runSessionId: s.id,
+          mode,
+          rows: segmentRows,
+        }),
         items,
       }
     })
@@ -389,6 +410,7 @@ export const agentRunTimelineService = {
         runSummary: null,
         cost: null,
         member: null,
+        attribution: null,
         items,
       })
     }
