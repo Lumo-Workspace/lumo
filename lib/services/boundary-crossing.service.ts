@@ -11,6 +11,8 @@ import {
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { resolveEffectiveBindingSession } from '@/lib/services/effective-binding-session'
+import { parseChildSessionId } from '@/lib/session/child-session-id'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { createTask } from '@/lib/services/task-creation.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
@@ -1389,10 +1391,17 @@ export const boundaryCrossingService = {
    * unblock its own DONE gate. The note is a reviewer aid + retrospective record.
    *
    * Scope guard: the crossing must belong to `taskId` (else 404), and when an
-   * originating session is supplied it must be bound to that same task (else
-   * 403) — an agent may only explain a crossing on the task its session owns,
-   * never reach across tasks. A missing session id (non-Claude-Code caller) is
-   * allowed through on the task/workspace scope alone and recorded as null.
+   * originating session is supplied the write is allowed only if (LUM-932):
+   *  (a) the session's effective explicit binding (a subagent child falls back
+   *      to its parent) is this task; or
+   *  (b) the session family is not explicitly bound, is not a STEWARD, and the
+   *      crossing was recorded by that same family (same root session) — an
+   *      unattached session explaining crossings from its own work, which P3
+   *      records on its inferred task.
+   * Otherwise 403: bound to a different task, STEWARD, or an unattached caller
+   * reaching into another session family. A missing session id (non-Claude-Code
+   * caller) is allowed through on the task/workspace scope alone and recorded
+   * as null.
    *
    * Append-only: every call inserts a fresh row; an earlier explanation is never
    * modified or removed, so a correction is additive and prior wording survives.
@@ -1404,6 +1413,7 @@ export const boundaryCrossingService = {
     attribution: {
       authorSessionId?: string | null
       authorAgent?: string | null
+      memberId?: string | null
     }
   ): Promise<ExplainOutcome> {
     const crossing = await boundaryCrossingRepository.findById(crossingId)
@@ -1419,11 +1429,22 @@ export const boundaryCrossingService = {
     // non-CC bearer caller) we fall back to the route's task/workspace scope.
     const sessionId = attribution.authorSessionId ?? null
     if (sessionId) {
-      const binding = await sessionRepository.findTaskBinding(sessionId)
-      if (!binding.bound || binding.taskId !== taskId) {
+      const effective = attribution.memberId
+        ? await resolveEffectiveBindingSession(sessionId, attribution.memberId)
+        : null
+      const familyRoot = (id: string) =>
+        parseChildSessionId(id)?.parentSessionId ?? id
+      const boundHere = effective?.task?.id === taskId
+      const unattachedOwnWork =
+        !!effective &&
+        !effective.task &&
+        effective.role !== 'STEWARD' &&
+        !!crossing.sessionId &&
+        familyRoot(crossing.sessionId) === familyRoot(sessionId)
+      if (!boundHere && !unattachedOwnWork) {
         throw Object.assign(
           new Error(
-            'A session can only explain a boundary-crossing on the task it is bound to'
+            'A session can only explain a boundary-crossing on the task it is bound to, or one from its own work while unattached'
           ),
           { status: 403 }
         )

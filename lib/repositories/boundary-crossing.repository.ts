@@ -123,6 +123,8 @@ const SELECT = {
   remediationTaskId: true,
   // LUM-751: which suppression rule auto-dispositioned it (null otherwise).
   suppressionRuleId: true,
+  // LUM-932: the recording session — `explain` scopes unattached callers by it.
+  sessionId: true,
 } as const
 
 /**
@@ -134,9 +136,7 @@ const VIEW_SELECT = {
   // The triggering hook event id — the read model joins it to surface the
   // inline edit-change for display-safe crossings (LUM-452).
   hookEventId: true,
-  // LUM-511: the originating session for a hook-less (CLI-sourced) crossing —
-  // the attribution read model falls back to it when hookEventId is null.
-  sessionId: true,
+  // LUM-511: the originating session for a hook-less crossing — now part of SELECT.
   // LUM-590: advisory crossings surface in the panel but never block DONE.
   advisory: true,
   // LUM-590: which compiled PolicyRule fired (text ref / id).

@@ -88,7 +88,11 @@ describe('POST /api/tasks/[id]/boundary-crossings/[crossingId]/explain', () => {
       't-1',
       'bc-1',
       'I changed the test because the contract moved',
-      { authorSessionId: 's-1', authorAgent: 'CLAUDE_CODE' }
+      {
+        authorSessionId: 's-1',
+        authorAgent: 'CLAUDE_CODE',
+        memberId: 'member-1',
+      }
     )
   })
 

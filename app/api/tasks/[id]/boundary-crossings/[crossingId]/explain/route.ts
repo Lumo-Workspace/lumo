@@ -56,7 +56,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       task.id,
       crossingId,
       parsed.data.note,
-      { authorSessionId, authorAgent }
+      { authorSessionId, authorAgent, memberId: identity.memberId }
     )
     return NextResponse.json(outcome, { status: 201 })
   } catch (error) {
