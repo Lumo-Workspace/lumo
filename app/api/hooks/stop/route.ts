@@ -1,8 +1,6 @@
 import { waitUntil } from '@vercel/functions'
 import { handleHookRequest } from '@/app/api/hooks/_handler'
-import { layer1Service } from '@/lib/services/memory/layer1.service'
-import { turnSummaryService } from '@/lib/services/turn-summary/turn-summary.service'
-import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
+import { stopTurnService } from '@/lib/services/stop-turn.service'
 import { autoBlockService } from '@/lib/services/auto-block.service'
 
 export async function POST(request: Request) {
@@ -13,31 +11,18 @@ export async function POST(request: Request) {
       // without an active auto-block (incl. human-applied tags). Detached.
       waitUntil(autoBlockService.onProgressRecorded(ctx.sessionId))
 
-      // Stop marks the end of a Claude Code turn. ONE detached side effect
-      // (LUM-773 — previously two, each re-reading the same turn):
-      //   - task-bound session → Layer 1 extraction, whose single model call
-      //     yields both the memory candidates AND the turn summary;
-      //   - no bound task → nothing to extract, so only the summary-only call.
-      // Both keep the function alive past the response via waitUntil and own
-      // their error handling (must never throw).
+      // Stop marks the end of a Claude Code turn: attribution recompute plus
+      // ONE model call (LUM-773) — Layer 1 extraction for a task turn, else the
+      // summary-only call. For an unattached session the recompute runs first
+      // so Layer 1 targets the turn's re-attributed task (LUM-932). Detached;
+      // the service owns its errors (must never throw).
       if (!ctx.sessionId) return
-      // LUM-932 P2: recompute the session family's attribution after the turn.
-      waitUntil(recomputeAttributionSafely(ctx.sessionId))
-      if (ctx.taskId) {
-        waitUntil(
-          layer1Service.triggerLayer1Extraction({
-            sessionId: ctx.sessionId,
-            taskId: ctx.taskId,
-            workspaceId: ctx.workspaceId,
-            stopEventId: ctx.eventId,
-          })
-        )
-        return
-      }
       waitUntil(
-        turnSummaryService.generateAndStore({
-          stopEventId: ctx.eventId,
+        stopTurnService.afterStop({
           sessionId: ctx.sessionId,
+          taskId: ctx.taskId,
+          workspaceId: ctx.workspaceId,
+          eventId: ctx.eventId,
         })
       )
     },

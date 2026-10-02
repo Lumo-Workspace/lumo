@@ -151,6 +151,15 @@ export const hookEventRepository = {
     })
   },
 
+  /** LUM-932 P3: an event's current task attribution (null if none / missing). */
+  async findTaskId(id: string): Promise<string | null> {
+    const row = await prisma.hookEvent.findUnique({
+      where: { id },
+      select: { taskId: true },
+    })
+    return row?.taskId ?? null
+  },
+
   /** LUM-932 P3: the session an event was recorded in (null if none / missing). */
   async findSessionId(id: string): Promise<string | null> {
     const row = await prisma.hookEvent.findUnique({
