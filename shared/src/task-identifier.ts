@@ -46,3 +46,16 @@ export function matchTaskIdentifier(text: string): string | null {
   }
   return null
 }
+
+/** Every task identifier in `text`, de-duplicated, upper-cased, in order (LUM-932). */
+export function matchAllTaskIdentifiers(text: string): string[] {
+  const re = new RegExp(TASK_IDENTIFIER_PATTERN, 'g')
+  const out: string[] = []
+  for (const m of text.matchAll(re)) {
+    const identifier = m[1]!.toUpperCase()
+    const prefix = identifier.slice(0, identifier.lastIndexOf('-'))
+    if (NON_TASK_PREFIXES.has(prefix) || out.includes(identifier)) continue
+    out.push(identifier)
+  }
+  return out
+}
