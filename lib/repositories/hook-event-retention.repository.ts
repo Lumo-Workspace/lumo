@@ -46,7 +46,8 @@ export const hookEventRetentionRepository = {
    * id order. An event's task is its own `taskId`, falling back to its
    * session's `taskId` when unset (same precedence as
    * `hookEventRepository.findByTaskId`); an event with neither is taskless and
-   * eligible.
+   * eligible. This is the NEGATED form of that rule ("task not open"), so it
+   * is written out here rather than built from `eventsForTask` (LUM-932).
    */
   async findExpiredEventIds(
     params: FindExpiredEventIdsParams
