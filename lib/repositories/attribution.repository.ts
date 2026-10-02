@@ -369,6 +369,32 @@ export const attributionRepository = {
   },
 
   /**
+   * LUM-932 P3: taskId of the most recent PRE_TOOL_USE event of `sessionId`
+   * with this `tool_use_id`, recorded since `since`; null when none (or it
+   * carries no task). One query served by `[sessionId, createdAt]`, the JSON
+   * match applied to that session's recent PRE events only.
+   */
+  async findPreToolUseTask(
+    workspaceId: string,
+    sessionId: string,
+    toolUseId: string,
+    since: Date
+  ): Promise<string | null> {
+    const row = await prisma.hookEvent.findFirst({
+      where: {
+        sessionId,
+        createdAt: { gte: since },
+        workspaceId,
+        type: 'PRE_TOOL_USE',
+        payload: { path: ['tool_use_id'], equals: toolUseId },
+      },
+      select: { taskId: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    return row?.taskId ?? null
+  },
+
+  /**
    * One transaction, ending with a compare-and-bump of the root's
    * attributionVersion (still `expectedVersion`, else `{ conflict: true }`
    * and the whole transaction rolls back): replace the family's segments when given; set HookEvent.taskId for the

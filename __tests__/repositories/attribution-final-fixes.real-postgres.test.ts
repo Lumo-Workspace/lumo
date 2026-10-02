@@ -21,6 +21,7 @@ jest.mock('@/lib/db/prisma', () => ({
 }))
 
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { attributionRepository } from '@/lib/repositories/attribution.repository'
 import {
   inferredTopLevelSessionsForTasks,
   taskHasSessions,
@@ -207,5 +208,32 @@ describe('a steward bind clears earlier provisional tags (I2)', () => {
     expect(await taskOf('boundary_crossings', 'c_sb_child')).toBeNull()
     expect(await taskOf('boundary_crossings', 'c_sb_ruled')).toBe('task_12')
     expect(await taskOf('boundary_crossings', 'c_sb_bound')).toBe('task_13')
+  })
+})
+
+describe('POST events find their PRE_TOOL_USE by tool_use_id (I1a)', () => {
+  it('findPreToolUseTask matches the payload tool_use_id within the session and window', async () => {
+    await seedSession('PRE')
+    await seedSession('PRE_OTHER')
+    const pre = (id: string, sessionId: string, toolUseId: string, at: Date) =>
+      seedEvent(id, sessionId, 'task_12', {
+        payload: JSON.stringify({ tool_name: 'Bash', tool_use_id: toolUseId }),
+        createdAt: at.toISOString(),
+      })
+    await pre('pre_hit', 'PRE', 'toolu_1', t(10))
+    await pre('pre_other_session', 'PRE_OTHER', 'toolu_2', t(10))
+    await pre('pre_old', 'PRE', 'toolu_3', t(0))
+    // A POST row carrying the same id is not a PRE.
+    await seedEvent('post_same', 'PRE', 'task_13', {
+      type: 'POST_TOOL_USE',
+      payload: JSON.stringify({ tool_use_id: 'toolu_4' }),
+      createdAt: t(11).toISOString(),
+    })
+    const find = (sessionId: string, toolUseId: string) =>
+      attributionRepository.findPreToolUseTask('ws', sessionId, toolUseId, t(5))
+    await expect(find('PRE', 'toolu_1')).resolves.toBe('task_12')
+    await expect(find('PRE', 'toolu_2')).resolves.toBeNull()
+    await expect(find('PRE', 'toolu_3')).resolves.toBeNull()
+    await expect(find('PRE', 'toolu_4')).resolves.toBeNull()
   })
 })

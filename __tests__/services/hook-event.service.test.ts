@@ -17,6 +17,7 @@ jest.mock('@/lib/repositories/attribution.repository', () => ({
   ATTRIBUTION_COMPUTE_VERSION: 1,
   attributionRepository: {
     findOpenSegmentTask: jest.fn(),
+    findPreToolUseTask: jest.fn(),
     resolveIdentifiers: jest.fn(),
     taskIdsForBranches: jest.fn(),
   },
@@ -35,7 +36,10 @@ const repo = hookEventRepository as jest.Mocked<typeof hookEventRepository>
 const sess = sessionRepository as jest.Mocked<typeof sessionRepository>
 const misc = miscRepository as jest.Mocked<typeof miscRepository>
 const attr = attributionRepository as unknown as Record<
-  'findOpenSegmentTask' | 'resolveIdentifiers' | 'taskIdsForBranches',
+  | 'findOpenSegmentTask'
+  | 'findPreToolUseTask'
+  | 'resolveIdentifiers'
+  | 'taskIdsForBranches',
   jest.Mock
 >
 
@@ -54,6 +58,7 @@ beforeEach(() => {
     turnUsageByModel: null,
   } as never)
   attr.findOpenSegmentTask.mockResolvedValue(null)
+  attr.findPreToolUseTask.mockResolvedValue(null)
   attr.resolveIdentifiers.mockResolvedValue(new Map())
   attr.taskIdsForBranches.mockResolvedValue(new Map())
 })
@@ -219,6 +224,22 @@ describe('hookEventService.recordHookEvent provisional task (LUM-932 P3)', () =>
     expect(repo.createHookEvent).toHaveBeenCalledWith(
       expect.objectContaining({ sessionId: 's1:abc123', taskId: 'task_parent' })
     )
+  })
+
+  it('a POST_TOOL_USE event inherits the task of its PRE_TOOL_USE (same tool_use_id) — I1', async () => {
+    attr.findPreToolUseTask.mockResolvedValue('task_pre')
+    const out = await hookEventService.recordHookEvent({
+      identity,
+      type: 'POST_TOOL_USE',
+      payload: { session_id: 's1', tool_name: 'Bash', tool_use_id: 'toolu_9' },
+    })
+    expect(attr.findPreToolUseTask).toHaveBeenCalledWith(
+      'ws_1',
+      's1',
+      'toolu_9',
+      expect.any(Date)
+    )
+    expect(out.taskId).toBe('task_pre')
   })
 
   it('does not infer for an explicitly bound session', async () => {

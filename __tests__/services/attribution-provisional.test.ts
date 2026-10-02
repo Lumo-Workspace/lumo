@@ -8,6 +8,7 @@ jest.mock('@/lib/repositories/attribution.repository', () => ({
   ATTRIBUTION_COMPUTE_VERSION: 1,
   attributionRepository: {
     findOpenSegmentTask: jest.fn(),
+    findPreToolUseTask: jest.fn(),
     resolveIdentifiers: jest.fn(),
     taskIdsForBranches: jest.fn(),
   },
@@ -18,7 +19,10 @@ import { provisionalTaskFor } from '@/lib/services/attribution.service'
 import type { AttributionSignal } from '@/lib/attribution/signals'
 
 const repo = attributionRepository as unknown as Record<
-  'findOpenSegmentTask' | 'resolveIdentifiers' | 'taskIdsForBranches',
+  | 'findOpenSegmentTask'
+  | 'findPreToolUseTask'
+  | 'resolveIdentifiers'
+  | 'taskIdsForBranches',
   jest.Mock
 >
 
@@ -28,16 +32,23 @@ const CHILD = `${ROOT}:a1`
 beforeEach(() => {
   jest.clearAllMocks()
   repo.findOpenSegmentTask.mockResolvedValue(null)
+  repo.findPreToolUseTask.mockResolvedValue(null)
   repo.resolveIdentifiers.mockResolvedValue(new Map())
   repo.taskIdsForBranches.mockResolvedValue(new Map())
 })
 
-const run = (signals: AttributionSignal[], parentSessionId: string | null) =>
+const run = (
+  signals: AttributionSignal[],
+  parentSessionId: string | null,
+  event: { type?: string; toolUseId?: string | null } = {}
+) =>
   provisionalTaskFor({
     workspaceId: 'ws_1',
     sessionId: parentSessionId ? CHILD : ROOT,
     parentSessionId,
     signals,
+    type: event.type ?? 'PRE_TOOL_USE',
+    toolUseId: event.toolUseId ?? null,
   })
 
 describe('provisionalTaskFor', () => {
@@ -75,9 +86,10 @@ describe('provisionalTaskFor', () => {
         null
       )
     ).resolves.toBe('task_cmd')
-    expect(repo.resolveIdentifiers).toHaveBeenCalledTimes(1)
-    expect(repo.resolveIdentifiers.mock.calls[0]![1].sort()).toEqual([
-      'LUM-1',
+    // The branch is resolved first on its own; the rest in one batch.
+    expect(repo.resolveIdentifiers).toHaveBeenCalledTimes(2)
+    expect(repo.resolveIdentifiers.mock.calls[0]![1]).toEqual(['LUM-1'])
+    expect(repo.resolveIdentifiers.mock.calls[1]![1].sort()).toEqual([
       'LUM-2',
       'LUM-3',
       'LUM-4',
@@ -103,12 +115,11 @@ describe('provisionalTaskFor', () => {
     ])
   })
 
-  it('never uses PROMPT / GIT_HINT / AGENT_PROMPT and skips resolution queries without strong signals', async () => {
+  it('never uses GIT_HINT / AGENT_PROMPT and skips resolution queries without signals it uses', async () => {
     repo.resolveIdentifiers.mockResolvedValue(new Map([['LUM-5', 'task_5']]))
     await expect(
       run(
         [
-          { kind: 'PROMPT', identifier: 'LUM-5' },
           { kind: 'GIT_HINT', identifier: 'LUM-5' },
           { kind: 'AGENT_PROMPT', identifier: 'LUM-5', agentId: 'a1' },
         ],
@@ -129,5 +140,74 @@ describe('provisionalTaskFor', () => {
         null
       )
     ).resolves.toBeNull()
+  })
+
+  it('the event own BRANCH beats the open segment (on a task branch work belongs to its task)', async () => {
+    repo.findOpenSegmentTask.mockResolvedValue('task_open')
+    repo.resolveIdentifiers.mockResolvedValue(new Map([['LUM-1', 'task_br']]))
+    await expect(
+      run(
+        [{ kind: 'BRANCH', identifier: 'LUM-1', branch: 'lumo/LUM-1-x' }],
+        null
+      )
+    ).resolves.toBe('task_br')
+    expect(repo.findOpenSegmentTask).not.toHaveBeenCalled()
+  })
+
+  it('an unresolved BRANCH falls through to the open segment', async () => {
+    repo.findOpenSegmentTask.mockResolvedValue('task_open')
+    await expect(
+      run([{ kind: 'BRANCH', branch: 'feature/unlinked' }], null)
+    ).resolves.toBe('task_open')
+  })
+
+  it('a POST event without a strong signal inherits its PRE event task by tool_use_id', async () => {
+    repo.findPreToolUseTask.mockResolvedValue('task_pre')
+    await expect(
+      run([], null, { type: 'POST_TOOL_USE', toolUseId: 'toolu_1' })
+    ).resolves.toBe('task_pre')
+    expect(repo.findPreToolUseTask).toHaveBeenCalledWith(
+      'ws_1',
+      ROOT,
+      'toolu_1',
+      expect.any(Date)
+    )
+    repo.findPreToolUseTask.mockClear()
+    await expect(
+      run([], null, { type: 'POST_TOOL_USE_FAILURE', toolUseId: 'toolu_2' })
+    ).resolves.toBe('task_pre')
+  })
+
+  it('the PRE lookup runs only for POST events with a tool_use_id, after strong signals', async () => {
+    repo.findPreToolUseTask.mockResolvedValue('task_pre')
+    await expect(
+      run([], null, { type: 'PRE_TOOL_USE', toolUseId: 'toolu_1' })
+    ).resolves.toBeNull()
+    await expect(run([], null, { type: 'POST_TOOL_USE' })).resolves.toBeNull()
+    expect(repo.findPreToolUseTask).not.toHaveBeenCalled()
+
+    repo.resolveIdentifiers.mockResolvedValue(new Map([['LUM-2', 'task_cmd']]))
+    await expect(
+      run([{ kind: 'LUMO_CMD', identifier: 'LUM-2' }], null, {
+        type: 'POST_TOOL_USE',
+        toolUseId: 'toolu_1',
+      })
+    ).resolves.toBe('task_cmd')
+    expect(repo.findPreToolUseTask).not.toHaveBeenCalled()
+  })
+
+  it('a PROMPT signal is used only when nothing else applies', async () => {
+    repo.resolveIdentifiers.mockResolvedValue(new Map([['LUM-5', 'task_5']]))
+    await expect(
+      run([{ kind: 'PROMPT', identifier: 'LUM-5' }], null, {
+        type: 'USER_PROMPT_SUBMIT',
+      })
+    ).resolves.toBe('task_5')
+    repo.findOpenSegmentTask.mockResolvedValue('task_open')
+    await expect(
+      run([{ kind: 'PROMPT', identifier: 'LUM-5' }], null, {
+        type: 'USER_PROMPT_SUBMIT',
+      })
+    ).resolves.toBe('task_open')
   })
 })

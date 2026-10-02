@@ -441,47 +441,35 @@ export function eventTaskAssignments(
   return out
 }
 
-/** Strong kinds in the order an event's own signals are tried provisionally. */
+/** Strong kinds after BRANCH, in the order an event's own signals are tried. */
 const PROVISIONAL_ORDER: readonly SignalKind[] = [
-  'BRANCH',
   'LUMO_CMD',
   'COMMIT',
   'PR_CREATE',
 ]
 
+/** Event types whose task follows their PRE_TOOL_USE (same tool_use_id). */
+const POST_TOOL_TYPES: ReadonlySet<string> = new Set([
+  'POST_TOOL_USE',
+  'POST_TOOL_USE_FAILURE',
+])
+
+/** How far back a POST event looks for its PRE_TOOL_USE. */
+const PRE_TOOL_LOOKBACK_MS = 24 * 60 * 60 * 1000
+
 /**
- * LUM-932 P3: the task an event of an UNATTACHED session belongs to right now:
- * the open inferred segment of the session itself (a subagent first), else of
- * its parent; else the first strong signal of this very event (branch,
- * task-naming lumo command, [ID] commit, gh pr create) resolved in the
- * workspace (branch without an id → linked PR); else null.
- * At most one segment query plus two resolution queries (none without a
- * strong signal).
+ * Resolve `signals` (in the given order) to the first live task of the
+ * workspace: an identifier through the team/number lookup, a branch without
+ * one through its linked PR. At most two queries, none for no signals.
  */
-export async function provisionalTaskFor(input: {
-  workspaceId: string
-  sessionId: string
-  parentSessionId: string | null
+async function firstResolvedTask(
+  workspaceId: string,
   signals: AttributionSignal[]
-}): Promise<string | null> {
-  const { workspaceId, sessionId, parentSessionId, signals } = input
-  const open = await attributionRepository.findOpenSegmentTask(
-    workspaceId,
-    parentSessionId ? [sessionId, parentSessionId] : [sessionId]
-  )
-  if (open) return open
-
-  const strong = signals
-    .filter(s => STRONG_KINDS.has(s.kind))
-    .sort(
-      (a, b) =>
-        PROVISIONAL_ORDER.indexOf(a.kind) - PROVISIONAL_ORDER.indexOf(b.kind)
-    )
-  if (strong.length === 0) return null
-
+): Promise<string | null> {
+  if (signals.length === 0) return null
   const identifiers = new Set<string>()
   const branches = new Set<string>()
-  for (const s of strong) {
+  for (const s of signals) {
     const canon = s.identifier ? canonicalTaskIdentifier(s.identifier) : null
     if (canon) identifiers.add(canon)
     else if (s.kind === 'BRANCH' && s.branch) branches.add(s.branch)
@@ -494,8 +482,7 @@ export async function provisionalTaskFor(input: {
       ? attributionRepository.taskIdsForBranches(workspaceId, [...branches])
       : Promise.resolve(new Map<string, string>()),
   ])
-
-  for (const s of strong) {
+  for (const s of signals) {
     const canon = s.identifier ? canonicalTaskIdentifier(s.identifier) : null
     const taskId = canon
       ? byIdentifier.get(canon)
@@ -505,6 +492,70 @@ export async function provisionalTaskFor(input: {
     if (taskId) return taskId
   }
   return null
+}
+
+/**
+ * LUM-932 P3: the task an event of an UNATTACHED session belongs to right now,
+ * first match wins:
+ *   1. the event's own BRANCH signal, resolved (on a task branch, work
+ *      belongs to the branch's task — branch ruling C);
+ *   2. the open INFERRED segment of the session itself (a subagent first),
+ *      else of its parent;
+ *   3. the event's other strong signals (task-naming lumo command, [ID]
+ *      commit, gh pr create), resolved;
+ *   4. for a POST_TOOL_USE(_FAILURE) event, the task its PRE_TOOL_USE (same
+ *      `tool_use_id`, same session) was tagged with — so the post-tool
+ *      boundary detector runs on the same task the pre-tool event had;
+ *   5. the event's PROMPT signal, resolved (only when nothing else applies);
+ *   6. null.
+ */
+export async function provisionalTaskFor(input: {
+  workspaceId: string
+  sessionId: string
+  parentSessionId: string | null
+  signals: AttributionSignal[]
+  /** HookEventType of the event being recorded. */
+  type: string
+  /** The payload's `tool_use_id` (POST events look up their PRE by it). */
+  toolUseId: string | null
+}): Promise<string | null> {
+  const { workspaceId, sessionId, parentSessionId, signals, type, toolUseId } =
+    input
+  const branch = await firstResolvedTask(
+    workspaceId,
+    signals.filter(s => s.kind === 'BRANCH')
+  )
+  if (branch) return branch
+
+  const open = await attributionRepository.findOpenSegmentTask(
+    workspaceId,
+    parentSessionId ? [sessionId, parentSessionId] : [sessionId]
+  )
+  if (open) return open
+
+  const strong = signals
+    .filter(s => STRONG_KINDS.has(s.kind) && s.kind !== 'BRANCH')
+    .sort(
+      (a, b) =>
+        PROVISIONAL_ORDER.indexOf(a.kind) - PROVISIONAL_ORDER.indexOf(b.kind)
+    )
+  const fromStrong = await firstResolvedTask(workspaceId, strong)
+  if (fromStrong) return fromStrong
+
+  if (POST_TOOL_TYPES.has(type) && toolUseId) {
+    const pre = await attributionRepository.findPreToolUseTask(
+      workspaceId,
+      sessionId,
+      toolUseId,
+      new Date(Date.now() - PRE_TOOL_LOOKBACK_MS)
+    )
+    if (pre) return pre
+  }
+
+  return firstResolvedTask(
+    workspaceId,
+    signals.filter(s => s.kind === 'PROMPT')
+  )
 }
 
 export const attributionInternals = { inferFamily }

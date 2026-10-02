@@ -188,6 +188,8 @@ export const hookEventService = {
           sessionId: recordedSessionId,
           parentSessionId: agentId ? sessionId : null,
           signals,
+          type,
+          toolUseId: extractStringField(payload, 'tool_use_id'),
         })
       } catch (error) {
         logger.error(
