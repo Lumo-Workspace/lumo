@@ -225,7 +225,10 @@ it('treats non-string confidence, identifiers and session ids as missing', async
         {
           sessionId: 42,
           agentType: 'Explore',
-          tasks: [{ taskIdentifier: 3, source: 'SUBAGENT_ATTACH' }],
+          tasks: [
+            { taskIdentifier: 3, source: 'SUBAGENT_ATTACH' },
+            { taskIdentifier: 'LUM-9' },
+          ],
         },
       ],
       unattributed: false,
@@ -233,5 +236,6 @@ it('treats non-string confidence, identifiers and session ids as missing', async
     },
   })
   expect(out).toContain('    ?  turn 1  auto-detected\n')
-  expect(out).toContain('    Explore ()  ? subagent attach\n')
+  expect(out).toContain('    Explore ()  ? subagent attach, LUM-9 ?\n')
+  expect(out).not.toContain('undefined')
 })

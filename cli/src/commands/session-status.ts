@@ -52,8 +52,9 @@ const SOURCE_WORD: Record<SourceName, string> = {
   INFERRED: 'auto-detected',
 }
 
-function sourceWord(source: SourceName): string {
-  return SOURCE_WORD[source] ?? sanitizeField(String(source).toLowerCase())
+function sourceWord(source: SourceName | undefined): string {
+  if (typeof source !== 'string') return '?'
+  return SOURCE_WORD[source] ?? sanitizeField(source.toLowerCase())
 }
 
 function evidenceText(
