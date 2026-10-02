@@ -11,6 +11,9 @@ export interface CrossingExplainOptions {
   /** LUM-845: a JSON array of `{ "id", "note" }` — one note per crossing,
    *  recorded in one call. `-` reads it from stdin. */
   file?: string
+  /** LUM-932: the task the crossings are on — wins over the session binding,
+   *  so an unattached session (no binding) can still explain. */
+  task?: string
 }
 
 interface ExplainItem {
@@ -92,7 +95,12 @@ export async function crossingExplain(
 
   // The crossing is addressed by id, but the route is task-scoped — resolve the
   // bound task from the session so the server can verify the crossing is on it.
-  const bound = await resolveBoundTask({ base, headers, sessionId })
+  const bound = await resolveBoundTask({
+    base,
+    headers,
+    sessionId,
+    explicit: options.task,
+  })
   if (!bound.ok) {
     console.error(bound.message)
     return 1

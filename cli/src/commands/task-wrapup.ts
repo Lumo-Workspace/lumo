@@ -351,7 +351,7 @@ function pushCrossing(
   const explanations = c.explanations ?? []
   if (explanations.length === 0 && c.blocking) {
     lines.push(
-      `      agent explanation: none — add one first: lumo crossing explain ${shellQuote(c.id)} --note "…" (append-only; clears nothing)`
+      `      agent explanation: none — add one first: lumo crossing explain ${shellQuote(c.id)} --task ${shellQuote(task)} --note "…" (append-only; clears nothing)`
     )
   } else if (explanations.length > 0) {
     lines.push(

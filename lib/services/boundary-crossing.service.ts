@@ -1613,9 +1613,15 @@ export const boundaryCrossingService = {
       ].join('\n')
     }
 
+    // LUM-932: an unattached session has no binding to resolve the task from,
+    // so the command carries it explicitly.
+    const task = open[0]?.task
+    const taskFlag = task?.team
+      ? ` --task ${task.team.identifier}-${task.number}`
+      : ''
     const guidance =
       'If you think one is a false positive — or want to leave a rationale for ' +
-      'the human reviewer — run: lumo crossing explain <id> --note "…". ' +
+      `the human reviewer — run: lumo crossing explain <id>${taskFlag} --note "…". ` +
       'That note is append-only and for review only: it does NOT clear the ' +
       'crossing or unblock Done (a human dispositions that).'
     const head = `⚠ Lumo recorded ${open.length} new boundary crossing${plural(

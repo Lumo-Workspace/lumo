@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.82.0",
+  "cliVersion": "1.83.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -173,6 +173,14 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "The explanation to record (the rationale for the action / why it may be a false positive); required with <id>"
+        },
+        "--task": {
+          "long": "--task",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Task the crossing belongs to (defaults to the session-bound task; unattached sessions must pass it)"
         }
       },
       "hasSubcommands": false,
