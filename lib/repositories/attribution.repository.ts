@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { parseTaskIdentifier } from '@/lib/attribution/identifier'
+import { isBackfillEligible } from '@/lib/attribution/backfill-eligibility'
 import { Prisma } from '@prisma/client'
 import type {
   AttributionConfidence,
@@ -373,9 +374,11 @@ export const attributionRepository = {
    * replace the family's segments when given; set HookEvent.taskId for the
    * changed events; move the UNDISPOSITIONED crossings of those events to the
    * event's new task (null when the new attribution is null). Dispositioned
-   * crossings are untouched. Only events of family sessions that are STILL
-   * not explicitly bound are changed — an attach landing between load and
-   * commit does not bump the version, and explicit binding always wins.
+   * crossings are untouched. Every binding write bumps the root version in
+   * its own transaction (`bumpFamilyAttributionVersion`), so an attach landing
+   * between load and commit makes this commit conflict; in addition, only
+   * events of family sessions STILL backfill-eligible (`isBackfillEligible`)
+   * are changed — explicit binding always wins.
    */
   async commitFamilyAttribution(
     input: FamilyCommit
@@ -404,18 +407,36 @@ export const attributionRepository = {
         if (targetOf.size === 0)
           return { conflict: false, eventsUpdated: 0, crossingsMoved: 0 }
 
-        const unbound = await tx.session.findMany({
-          where: { id: { in: familyIds }, taskId: null },
-          select: { id: true },
+        // Belt-and-braces with the binding paths' root-version bump: re-check
+        // eligibility in-transaction with the SAME predicate the assignment
+        // used (explicit binding wins; STEWARD sessions and their children
+        // are never backfilled).
+        const members = await tx.session.findMany({
+          where: { id: { in: familyIds } },
+          select: {
+            id: true,
+            parentSessionId: true,
+            taskId: true,
+            role: true,
+            milestoneId: true,
+          },
         })
-        const unboundIds = unbound.map(r => r.id)
+        const memberById = new Map(members.map(m => [m.id, m]))
+        const eligibleIds = members
+          .filter(m =>
+            isBackfillEligible(
+              m,
+              m.parentSessionId ? memberById.get(m.parentSessionId) : null
+            )
+          )
+          .map(m => m.id)
         const ids = [...targetOf.keys()]
         const moves: EventTaskMove[] = []
         for (let i = 0; i < ids.length; i += ID_CHUNK) {
           const current = await tx.hookEvent.findMany({
             where: {
               id: { in: ids.slice(i, i + ID_CHUNK) },
-              sessionId: { in: unboundIds },
+              sessionId: { in: eligibleIds },
             },
             select: { id: true, taskId: true },
           })

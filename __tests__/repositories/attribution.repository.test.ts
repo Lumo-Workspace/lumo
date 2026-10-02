@@ -283,7 +283,17 @@ describe('commitFamilyAttribution', () => {
 
   beforeEach(() => {
     p.__tx.session.updateMany.mockResolvedValue({ count: 1 })
-    p.__tx.session.findMany.mockResolvedValue([{ id: 'r' }, { id: 'r:a1' }])
+    const member = (id: string, parentSessionId: string | null) => ({
+      id,
+      parentSessionId,
+      taskId: null,
+      role: 'IMPLEMENTATION',
+      milestoneId: null,
+    })
+    p.__tx.session.findMany.mockResolvedValue([
+      member('r', null),
+      member('r:a1', 'r'),
+    ])
     p.__tx.hookEvent.updateMany.mockResolvedValue({ count: 0 })
     p.__tx.boundaryCrossing.updateMany.mockResolvedValue({ count: 0 })
   })
@@ -371,10 +381,17 @@ describe('commitFamilyAttribution', () => {
         { eventId: 'e4', taskId: null },
       ],
     })
-    // Only still-unbound family sessions' events are read.
+    // Eligibility is re-read in-transaction: only still-eligible family
+    // sessions' events are read.
     expect(p.__tx.session.findMany).toHaveBeenCalledWith({
-      where: { id: { in: ['r', 'r:a1'] }, taskId: null },
-      select: { id: true },
+      where: { id: { in: ['r', 'r:a1'] } },
+      select: {
+        id: true,
+        parentSessionId: true,
+        taskId: true,
+        role: true,
+        milestoneId: true,
+      },
     })
     expect(p.__tx.hookEvent.findMany).toHaveBeenCalledWith({
       where: {

@@ -1,7 +1,10 @@
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma, SessionRole, TaskArtifactAgent } from '@prisma/client'
 import { buildChildSessionId } from '@/lib/session/child-session-id'
-import { retagEventsToExplicitTask } from '@/lib/repositories/explicit-retag'
+import {
+  bumpFamilyAttributionVersion,
+  retagEventsToExplicitTask,
+} from '@/lib/repositories/explicit-retag'
 import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
 import type { InjectedUsage } from '@/lib/session/subagent-usage'
 
@@ -281,6 +284,7 @@ export const sessionRepository = {
           data: { taskId: parent.taskId, bindingSource: 'INHERITED' },
         })
         if (count > 0) {
+          await bumpFamilyAttributionVersion(tx, id)
           // Explicit (inherited) binding wins over provisional tags.
           await retagEventsToExplicitTask(tx, [id], parent.taskId)
           return { id, taskId: parent.taskId, steward }
@@ -317,6 +321,7 @@ export const sessionRepository = {
         where: { id: { in: ids } },
         data: { taskId, bindingSource: 'INHERITED' },
       })
+      await bumpFamilyAttributionVersion(tx, parentSessionId)
       const { eventsUpdated, crossingsMoved } = await retagEventsToExplicitTask(
         tx,
         ids,
@@ -613,6 +618,7 @@ export const sessionRepository = {
           },
           select: { id: true, taskId: true },
         })
+        await bumpFamilyAttributionVersion(tx, data.id)
         return { ownedByOther: false, session: updated } as const
       }
       const created = await tx.session.create({
@@ -634,6 +640,7 @@ export const sessionRepository = {
         },
         select: { id: true, taskId: true },
       })
+      await bumpFamilyAttributionVersion(tx, data.id)
       return { ownedByOther: false, session: created } as const
     })
   },
@@ -666,6 +673,7 @@ export const sessionRepository = {
           data: { milestoneId: data.milestoneId, role: 'STEWARD' },
           select: { id: true, milestoneId: true },
         })
+        await bumpFamilyAttributionVersion(tx, data.id)
         return { ownedByOther: false, session: updated } as const
       }
       const created = await tx.session.create({
@@ -681,6 +689,7 @@ export const sessionRepository = {
         },
         select: { id: true, milestoneId: true },
       })
+      await bumpFamilyAttributionVersion(tx, data.id)
       return { ownedByOther: false, session: created } as const
     })
   },

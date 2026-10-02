@@ -1,5 +1,27 @@
 import type { Prisma } from '@prisma/client'
 import { moveOpenCrossingsForEvents } from '@/lib/repositories/open-crossing-move'
+import { parseChildSessionId } from '@/lib/session/child-session-id'
+
+/**
+ * LUM-932 P3: serialize a binding write with the attribution recompute. Every
+ * binding (task attach of a root or child, steward attach, inherit to
+ * children, late inherit, explicit retag) bumps the family ROOT's
+ * `attributionVersion` inside the binding's own transaction. The row lock
+ * orders it against a concurrent `commitFamilyAttribution`, whose version
+ * check then conflicts and retries on fresh data — so a recompute never
+ * backfills a session bound after it loaded the family. A missing root row
+ * matches nothing (count 0) and is harmless.
+ */
+export async function bumpFamilyAttributionVersion(
+  tx: Prisma.TransactionClient,
+  sessionId: string
+): Promise<void> {
+  const rootId = parseChildSessionId(sessionId)?.parentSessionId ?? sessionId
+  await tx.session.updateMany({
+    where: { id: rootId },
+    data: { attributionVersion: { increment: 1 } },
+  })
+}
 
 /**
  * LUM-932 P3: explicit binding always wins. When sessions become explicitly

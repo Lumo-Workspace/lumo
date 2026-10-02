@@ -25,6 +25,7 @@ import {
   attributionRepository,
   type SegmentRow,
 } from '@/lib/repositories/attribution.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
 
 jest.setTimeout(180_000)
 
@@ -380,5 +381,134 @@ describe('commitFamilyAttribution on a real Postgres (LUM-932 P3)', () => {
     ])
     // The open crossing follows its event to "no task".
     expect(await crossingTasks()).toContainEqual({ id: 'x_open', taskId: null })
+  })
+})
+
+describe('bindings serialize with the recompute via the root version (LUM-932 P3)', () => {
+  const seedFamily = async (root: string, prefix: string) => {
+    for (const [id, extra] of [
+      [root, {}],
+      [`${root}:a1`, { parentSessionId: root, agentId: 'a1' }],
+    ] as const) {
+      await harness.insert('sessions', {
+        id,
+        workspaceId: 'ws',
+        workspaceMemberId: 'member',
+        startedAt: t(0).toISOString(),
+        lastActivityAt: t(9).toISOString(),
+        ...extra,
+      })
+    }
+    await seedEvent(`${prefix}_root`, root, t(1), { taskId: 'task_12' })
+    await seedEvent(`${prefix}_child`, `${root}:a1`, t(2), {
+      taskId: 'task_12',
+    })
+  }
+  const tasksOf = async (prefix: string) =>
+    harness.query<{ id: string; taskId: string | null }>(
+      `select id, "taskId" from hook_events where id like $1 order by id`,
+      [`${prefix}_%`]
+    )
+  const versionOf = async (id: string) =>
+    (
+      await harness.query<{ attributionVersion: number }>(
+        `select "attributionVersion" from sessions where id = $1`,
+        [id]
+      )
+    )[0]!.attributionVersion
+  const toNull = (prefix: string) => [
+    { eventId: `${prefix}_root`, taskId: null },
+    { eventId: `${prefix}_child`, taskId: null },
+  ]
+
+  beforeAll(async () => {
+    await harness.insert('milestones', {
+      id: 'ms_1',
+      projectId: 'project',
+      name: 'M1',
+      slug: 'm1',
+    })
+  })
+
+  it('a child attach after the load bumps the root, so the commit conflicts and writes nothing', async () => {
+    const ROOT_S = 'ser-root'
+    await seedFamily(ROOT_S, 'sa')
+    const fam = await attributionRepository.loadFamily(ROOT_S)
+    const v = fam!.attributionVersion
+    await sessionRepository.upsertWithTaskId({
+      id: `${ROOT_S}:a1`,
+      workspaceId: 'ws',
+      workspaceMemberId: 'member',
+      taskId: 'task_12',
+      parentSessionId: ROOT_S,
+      agentId: 'a1',
+      now: t(5),
+    })
+    expect(await versionOf(ROOT_S)).toBe(v + 1)
+    await expect(
+      attributionRepository.commitFamilyAttribution({
+        rootSessionId: ROOT_S,
+        expectedVersion: v,
+        familyIds: [ROOT_S, `${ROOT_S}:a1`],
+        segments: [],
+        eventTaskChanges: toNull('sa'),
+      })
+    ).resolves.toEqual({ conflict: true, eventsUpdated: 0, crossingsMoved: 0 })
+    expect(await tasksOf('sa')).toEqual([
+      { id: 'sa_child', taskId: 'task_12' },
+      { id: 'sa_root', taskId: 'task_12' },
+    ])
+  })
+
+  it('a steward attach after the load bumps the root, so the commit conflicts and writes nothing', async () => {
+    const ROOT_S = 'stw-root'
+    await seedFamily(ROOT_S, 'sb')
+    const fam = await attributionRepository.loadFamily(ROOT_S)
+    const v = fam!.attributionVersion
+    await sessionRepository.upsertWithMilestoneId({
+      id: ROOT_S,
+      workspaceId: 'ws',
+      workspaceMemberId: 'member',
+      milestoneId: 'ms_1',
+      now: t(5),
+    })
+    expect(await versionOf(ROOT_S)).toBe(v + 1)
+    await expect(
+      attributionRepository.commitFamilyAttribution({
+        rootSessionId: ROOT_S,
+        expectedVersion: v,
+        familyIds: [ROOT_S, `${ROOT_S}:a1`],
+        segments: [],
+        eventTaskChanges: toNull('sb'),
+      })
+    ).resolves.toEqual({ conflict: true, eventsUpdated: 0, crossingsMoved: 0 })
+    expect(await tasksOf('sb')).toEqual([
+      { id: 'sb_child', taskId: 'task_12' },
+      { id: 'sb_root', taskId: 'task_12' },
+    ])
+  })
+
+  it('the in-transaction re-check never backfills a STEWARD root or its child', async () => {
+    const ROOT_S = 'stw-recheck'
+    await seedFamily(ROOT_S, 'sc')
+    // Steward without a version bump: only the re-check stands in the way.
+    await harness.query(
+      `update sessions set role = 'STEWARD', "milestoneId" = 'ms_1' where id = $1`,
+      [ROOT_S]
+    )
+    const fam = await attributionRepository.loadFamily(ROOT_S)
+    await expect(
+      attributionRepository.commitFamilyAttribution({
+        rootSessionId: ROOT_S,
+        expectedVersion: fam!.attributionVersion,
+        familyIds: [ROOT_S, `${ROOT_S}:a1`],
+        segments: null,
+        eventTaskChanges: toNull('sc'),
+      })
+    ).resolves.toEqual({ conflict: false, eventsUpdated: 0, crossingsMoved: 0 })
+    expect(await tasksOf('sc')).toEqual([
+      { id: 'sc_child', taskId: 'task_12' },
+      { id: 'sc_root', taskId: 'task_12' },
+    ])
   })
 })

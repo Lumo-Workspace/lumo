@@ -26,6 +26,10 @@ export interface EventTaskMove {
  * whose old taskId was null cannot own a task-scoped crossing — those events
  * (and with them task-less steward crossings) are skipped.
  *
+ * The old-taskId narrowing relies on a crossing's taskId mirroring its
+ * event's taskId at creation (and both moving together afterwards); a
+ * crossing filed under a different task than its event is not moved.
+ *
  * Runs inside the caller's transaction; returns the crossings moved.
  */
 export async function moveOpenCrossingsForEvents(

@@ -26,6 +26,7 @@ import {
 } from '@/lib/attribution/inference-eval'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 import { canonicalTaskIdentifier } from '@/lib/attribution/identifier'
+import { isBackfillEligible } from '@/lib/attribution/backfill-eligibility'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
 import { logger } from '@/lib/logger'
 
@@ -358,11 +359,6 @@ export interface EventTaskChange {
   taskId: string | null
 }
 
-/** LUM-640: a milestone-bound STEWARD session keeps its events task-less. */
-function isSteward(s: FamilySession | undefined): boolean {
-  return s?.role === 'STEWARD' && s.milestoneId !== null
-}
-
 /** The INFERRED segment of `segments` covering `at` (`toAt` exclusive). */
 function taskAt(segments: SegmentRow[] | undefined, at: Date): string | null {
   const ms = at.getTime()
@@ -372,14 +368,31 @@ function taskAt(segments: SegmentRow[] | undefined, at: Date): string | null {
   return hit?.taskId ?? null
 }
 
+/** The segment of `segments` ending exactly at `at` (a clipped child's end). */
+function taskEndingAt(
+  segments: SegmentRow[] | undefined,
+  at: Date
+): string | null {
+  const ms = at.getTime()
+  return segments?.find(s => s.toAt?.getTime() === ms)?.taskId ?? null
+}
+
 /**
  * LUM-932 P3: event backfill from the family's computed rows. Only events of
- * sessions with no explicit `taskId` whose parent is not explicitly bound
- * either, and that are not STEWARD sessions (or children of one). An event's
- * target is its own session's INFERRED segment covering `createdAt`; a child
- * without a covering segment of its own (clipped child segments end at its
- * last event) falls back to its parent's; otherwise null. Only events whose
- * target differs from their current taskId are returned.
+ * sessions `isBackfillEligible` admits (unbound, parent unbound, neither a
+ * STEWARD) — the commit re-checks the same predicate in its transaction. An
+ * event's target is its own session's INFERRED segment covering `createdAt`;
+ * a child without a covering segment of its own (clipped child segments end
+ * at its last event) falls back to its parent's; a child event no segment
+ * covers at all (a child entirely before the root's first segment: its
+ * clipped head row ends AT its last event) takes its own segment ending
+ * there; otherwise null. Only events whose target differs from their current
+ * taskId are returned.
+ *
+ * Known residual race (follow-up): a boundary detector running detached
+ * after a recompute may still create a crossing on the event's
+ * pre-recompute task; that crossing is moved only by a later recompute that
+ * changes the event's task again.
  */
 export function eventTaskAssignments(
   family: SessionFamily,
@@ -389,9 +402,7 @@ export function eventTaskAssignments(
   const eligible = new Set<string>()
   for (const s of family.sessions) {
     const parent = s.parentSessionId ? byId.get(s.parentSessionId) : undefined
-    if (s.taskId || parent?.taskId) continue
-    if (isSteward(s) || isSteward(parent)) continue
-    eligible.add(s.id)
+    if (isBackfillEligible(s, parent)) eligible.add(s.id)
   }
   const inferred = new Map<string, SegmentRow[]>()
   for (const r of rows) {
@@ -404,9 +415,13 @@ export function eventTaskAssignments(
   for (const e of family.events) {
     if (!e.sessionId || !eligible.has(e.sessionId)) continue
     const parentId = byId.get(e.sessionId)?.parentSessionId ?? null
+    const own = inferred.get(e.sessionId)
     const target =
-      taskAt(inferred.get(e.sessionId), e.createdAt) ??
-      (parentId ? taskAt(inferred.get(parentId), e.createdAt) : null)
+      taskAt(own, e.createdAt) ??
+      (parentId
+        ? (taskAt(inferred.get(parentId), e.createdAt) ??
+          taskEndingAt(own, e.createdAt))
+        : null)
     if (target !== (e.taskId ?? null))
       out.push({ eventId: e.id, taskId: target })
   }

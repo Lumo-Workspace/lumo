@@ -8,6 +8,8 @@
  */
 jest.mock('@/lib/db/prisma', () => {
   const tx = {
+    // Root attributionVersion bump (LUM-932 P3 bind/recompute serialization).
+    session: { updateMany: jest.fn(async () => ({ count: 1 })) },
     hookEvent: { findMany: jest.fn(), updateMany: jest.fn() },
     boundaryCrossing: { updateMany: jest.fn() },
   }

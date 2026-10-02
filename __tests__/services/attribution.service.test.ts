@@ -804,6 +804,37 @@ describe('eventTaskAssignments (LUM-932 P3 event backfill)', () => {
     ])
   })
 
+  it('a child entirely before the root head keeps its last event on its clipped segment', () => {
+    const fam = family(
+      [session(), child()],
+      [
+        ev({
+          id: 'c1',
+          sessionId: CHILD,
+          type: 'PRE_TOOL_USE',
+          createdAt: t(1),
+        }),
+        ev({
+          id: 'c2',
+          sessionId: CHILD,
+          type: 'PRE_TOOL_USE',
+          createdAt: t(3),
+        }),
+      ]
+    )
+    // The engine clips the head to [first, last): the root's first segment
+    // starts after the child's last event, so no root row covers c2 either.
+    expect(
+      eventTaskAssignments(fam, [
+        seg(ROOT, 'task_a', t(5), null),
+        seg(CHILD, 'task_a', t(1), t(3)),
+      ])
+    ).toEqual([
+      { eventId: 'c1', taskId: 'task_a' },
+      { eventId: 'c2', taskId: 'task_a' },
+    ])
+  })
+
   it('never touches events of explicitly bound sessions or their children', () => {
     const rows = [seg(ROOT, 'task_a', t(1), null)]
     const boundChild = family(
