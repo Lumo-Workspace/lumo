@@ -1130,6 +1130,8 @@ export const taskContextService = {
     const sessions = await sessionRepository.listForTask(taskId, 5)
     for (const s of sessions) {
       if (s.id === currentSessionId) continue
+      // LUM-932 P3: an unattached session's summary may cover other tasks.
+      if (s.inferred) continue
       const headline = summaryHeadline(s.summary)
       if (headline === NO_SUMMARY) continue
       // Agent active time (Σ per-turn STOP − prompt), not the session span —

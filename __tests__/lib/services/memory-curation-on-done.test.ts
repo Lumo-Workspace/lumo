@@ -94,3 +94,49 @@ it('does nothing when the judge is uncertain about every memory', async () => {
   expect(invalidate).not.toHaveBeenCalled()
   expect(hardDelete).not.toHaveBeenCalled()
 })
+
+it('explicit sessions curate every memory the session recorded (no task scope)', async () => {
+  listForTask.mockResolvedValue([{ id: 'sess1', inferred: false }])
+  findMem.mockResolvedValue([])
+  await memoryCurationService.curateForTask('task1')
+  expect(findMem).toHaveBeenCalledWith('sess1')
+})
+
+it('an inferred (unattached) session curates only memories born on this task', async () => {
+  listForTask.mockResolvedValue([{ id: 'sessU', inferred: true }])
+  const rows = [
+    {
+      id: 'm_mine',
+      category: 'GOTCHA',
+      content: { fact: 'tests pass' },
+      sourceTaskId: 'task1',
+    },
+    {
+      id: 'm_other',
+      category: 'GOTCHA',
+      content: { fact: 'other' },
+      sourceTaskId: 'task2',
+    },
+  ]
+  findMem.mockImplementation(
+    async (_s: string, opts?: { sourceTaskId?: string }) =>
+      opts?.sourceTaskId
+        ? rows.filter(r => r.sourceTaskId === opts.sourceTaskId)
+        : rows
+  )
+  // Even a judge that flags the other task's memory cannot retire it.
+  judgeMemoryCuration.mockImplementation(
+    async ({ candidates }: { candidates: { id: string }[] }) =>
+      candidates.map(c => ({ id: c.id, reason: 'wrong' }))
+  )
+
+  await memoryCurationService.curateForTask('task1')
+
+  expect(findMem).toHaveBeenCalledWith('sessU', { sourceTaskId: 'task1' })
+  const judged = judgeMemoryCuration.mock.calls[0][0].candidates.map(
+    (c: { id: string }) => c.id
+  )
+  expect(judged).toEqual(['m_mine'])
+  expect(invalidate).toHaveBeenCalledWith('m_mine')
+  expect(invalidate).not.toHaveBeenCalledWith('m_other')
+})

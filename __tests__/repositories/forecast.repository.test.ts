@@ -91,7 +91,7 @@ describe('loadForecastInputs', () => {
               attributionSegments: {
                 some: {
                   source: 'INFERRED',
-                  session: { parentSessionId: null },
+                  session: { parentSessionId: null, taskId: null },
                 },
               },
             },

@@ -70,7 +70,12 @@ export const taskHasSessions: Prisma.TaskWhereInput = {
     { sessions: { some: {} } },
     {
       attributionSegments: {
-        some: { source: 'INFERRED', session: { parentSessionId: null } },
+        // A stale INFERRED segment on a since-bound session must not count
+        // (its explicit binding decides, via `sessions` above).
+        some: {
+          source: 'INFERRED',
+          session: { parentSessionId: null, taskId: null },
+        },
       },
     },
   ],

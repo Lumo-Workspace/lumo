@@ -133,6 +133,17 @@ describe('auditForTask', () => {
     expect(lineageEdgeRepository.applyUsageVote).not.toHaveBeenCalled()
   })
 
+  it('skips unattached sessions listed via inference (multi-task work is not judged against one task)', async () => {
+    ;(sessionRepository.listForTask as jest.Mock).mockResolvedValue([
+      { id: 's1', inferred: true },
+    ])
+    judgeMock.mockResolvedValue({ used: [ref], unused: [] })
+    await fragmentUsageAuditService.auditForTask('task1')
+    expect(lineageEdgeRepository.findVotedSessionIds).not.toHaveBeenCalled()
+    expect(judgeMock).not.toHaveBeenCalled()
+    expect(lineageEdgeRepository.applyUsageVote).not.toHaveBeenCalled()
+  })
+
   it('when the judge confirms nothing, writes no vote (edges stay NULL)', async () => {
     judgeMock.mockResolvedValue({ used: [], unused: [] })
     await fragmentUsageAuditService.auditForTask('task1')

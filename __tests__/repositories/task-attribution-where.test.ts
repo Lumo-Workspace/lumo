@@ -3,6 +3,7 @@ import {
   eventsForTask,
   eventsForTasks,
   inferredUsageEventsForTasks,
+  taskHasSessions,
 } from '@/lib/repositories/task-attribution-where'
 
 describe('task attribution where builders', () => {
@@ -27,6 +28,22 @@ describe('task attribution where builders', () => {
       type: { in: ['STOP', 'STOP_FAILURE', 'SUBAGENT_STOP'] },
       session: { taskId: null },
       usageByModel: { not: Prisma.DbNull },
+    })
+  })
+
+  it('taskHasSessions: an INFERRED segment counts only on a still-unattached top-level session', () => {
+    expect(taskHasSessions).toEqual({
+      OR: [
+        { sessions: { some: {} } },
+        {
+          attributionSegments: {
+            some: {
+              source: 'INFERRED',
+              session: { parentSessionId: null, taskId: null },
+            },
+          },
+        },
+      ],
     })
   })
 })

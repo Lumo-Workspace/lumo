@@ -131,6 +131,31 @@ describe('buildPreviousSessionRecoveryForTask', () => {
     })
   })
 
+  it('skips an unattached session inferred onto the task (its summary may cover other tasks)', async () => {
+    mockListForTask.mockResolvedValue([
+      {
+        ...row({
+          id: 'multi',
+          summary: { goal: 'other tasks', unresolved: [] },
+        }),
+        inferred: true,
+      },
+      {
+        ...row({
+          id: 'own',
+          summary: { goal: 'own headline', unresolved: [] },
+        }),
+        inferred: false,
+      },
+    ])
+    const out = await taskContextService.buildPreviousSessionRecoveryForTask(
+      't1',
+      'cur'
+    )
+    expect(out?.sessionId).toBe('own')
+    expect(out?.headline).toBe('own headline')
+  })
+
   it('walks back past a summary-less recent session to an older one with a summary', async () => {
     mockListForTask.mockResolvedValue([
       row({ id: 'recent', summary: null }),

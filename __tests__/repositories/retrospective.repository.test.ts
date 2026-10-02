@@ -204,7 +204,10 @@ it('countReferenceLibrary counts DONE tasks with sessions', async () => {
         { sessions: { some: {} } },
         {
           attributionSegments: {
-            some: { source: 'INFERRED', session: { parentSessionId: null } },
+            some: {
+              source: 'INFERRED',
+              session: { parentSessionId: null, taskId: null },
+            },
           },
         },
       ],

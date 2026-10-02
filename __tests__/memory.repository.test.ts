@@ -197,10 +197,20 @@ describe('memoryRepository.findBySourceSessionId', () => {
     expect(rows).toEqual([{ id: 'm1' }])
   })
 
+  it('scopes to one birth task when sourceTaskId is given', async () => {
+    mockFindMany.mockResolvedValue([])
+    await memoryRepository.findBySourceSessionId('s1', { sourceTaskId: 't1' })
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { sourceSessionId: 's1', status: 'ACTIVE', sourceTaskId: 't1' },
+      })
+    )
+  })
+
   it('adds a createdAt gt filter when since is given', async () => {
     mockFindMany.mockResolvedValue([])
     const since = new Date('2026-06-01T10:00:00.000Z')
-    await memoryRepository.findBySourceSessionId('s1', since)
+    await memoryRepository.findBySourceSessionId('s1', { since })
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
