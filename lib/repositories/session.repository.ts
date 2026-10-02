@@ -9,6 +9,10 @@ import {
 import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
 import { inferredTopLevelSessionsForTask } from '@/lib/repositories/task-attribution-where'
 import type { InjectedUsage } from '@/lib/session/subagent-usage'
+import type {
+  AttributionConfidenceName,
+  AttributionSourceName,
+} from '@/lib/attribution/run-attribution'
 import { addUsageMaps, usageMapTotal } from '@/lib/services/model-cost'
 
 export interface ModelUsage {
@@ -1014,7 +1018,7 @@ export const sessionRepository = {
 
   async listForClerkUser(clerkId: string, limit = 50) {
     return prisma.session.findMany({
-      where: { member: { clerkId } },
+      where: { member: { clerkId }, parentSessionId: null },
       orderBy: { lastActivityAt: 'desc' },
       take: limit,
       select: {
@@ -1023,7 +1027,133 @@ export const sessionRepository = {
         startedAt: true,
         lastActivityAt: true,
         eventCount: true,
+        taskId: true,
       },
+    })
+  },
+
+  /**
+   * Per top-level session: number of subagent children and the union of task
+   * ids touched by the root, its children and their attribution segments.
+   * Every requested root gets an entry.
+   */
+  async summarizeFamilies(
+    rootIds: string[]
+  ): Promise<Map<string, { subagentCount: number; taskIds: string[] }>> {
+    const out = new Map<
+      string,
+      { subagentCount: number; taskIds: Set<string> }
+    >()
+    for (const id of rootIds)
+      out.set(id, { subagentCount: 0, taskIds: new Set() })
+    if (rootIds.length === 0) return new Map()
+    const [children, roots] = await Promise.all([
+      prisma.session.findMany({
+        where: { parentSessionId: { in: rootIds } },
+        select: { id: true, parentSessionId: true, taskId: true },
+      }),
+      prisma.session.findMany({
+        where: { id: { in: rootIds } },
+        select: { id: true, taskId: true },
+      }),
+    ])
+    const rootOf = new Map<string, string>(rootIds.map(id => [id, id]))
+    for (const r of roots) {
+      if (r.taskId) out.get(r.id)?.taskIds.add(r.taskId)
+    }
+    for (const c of children) {
+      if (!c.parentSessionId) continue
+      rootOf.set(c.id, c.parentSessionId)
+      const entry = out.get(c.parentSessionId)
+      if (!entry) continue
+      entry.subagentCount += 1
+      if (c.taskId) entry.taskIds.add(c.taskId)
+    }
+    const segments = await prisma.taskAttributionSegment.findMany({
+      where: { sessionId: { in: [...rootOf.keys()] } },
+      select: { sessionId: true, taskId: true },
+    })
+    for (const seg of segments) {
+      const root = rootOf.get(seg.sessionId)
+      if (root) out.get(root)?.taskIds.add(seg.taskId)
+    }
+    return new Map(
+      [...out].map(([id, v]) => [
+        id,
+        { subagentCount: v.subagentCount, taskIds: [...v.taskIds] },
+      ])
+    )
+  },
+
+  async findDetailForClerkUser(id: string, clerkId: string) {
+    return prisma.session.findFirst({
+      where: { id, member: { clerkId } },
+      select: {
+        id: true,
+        cwd: true,
+        startedAt: true,
+        lastActivityAt: true,
+        eventCount: true,
+        summary: true,
+        summaryType: true,
+        summaryGeneratedAt: true,
+        summaryEventCount: true,
+        parentSessionId: true,
+        agentType: true,
+      },
+    })
+  },
+
+  /** Attribution segments of a top-level session and its direct children. */
+  async listFamilyAttribution(rootId: string): Promise<
+    {
+      sessionId: string
+      parentSessionId: string | null
+      agentType: string | null
+      taskIdentifier: string
+      source: AttributionSourceName
+      confidence: AttributionConfidenceName
+      fromTurn: number
+      toTurn: number
+      evidence: unknown
+    }[]
+  > {
+    const rows = await prisma.taskAttributionSegment.findMany({
+      where: {
+        OR: [{ sessionId: rootId }, { session: { parentSessionId: rootId } }],
+      },
+      orderBy: [{ fromAt: 'asc' }],
+      select: {
+        sessionId: true,
+        source: true,
+        confidence: true,
+        fromTurn: true,
+        toTurn: true,
+        evidence: true,
+        session: { select: { parentSessionId: true, agentType: true } },
+        task: {
+          select: { number: true, team: { select: { identifier: true } } },
+        },
+      },
+    })
+    return rows.map(r => ({
+      sessionId: r.sessionId,
+      parentSessionId: r.session.parentSessionId,
+      agentType: r.session.agentType,
+      taskIdentifier: `${r.task.team.identifier}-${r.task.number}`,
+      source: r.source,
+      confidence: r.confidence,
+      fromTurn: r.fromTurn,
+      toTurn: r.toTurn,
+      evidence: r.evidence,
+    }))
+  },
+
+  async listChildSessions(rootId: string) {
+    return prisma.session.findMany({
+      where: { parentSessionId: rootId },
+      orderBy: { startedAt: 'asc' },
+      select: { id: true, agentType: true },
     })
   },
 
