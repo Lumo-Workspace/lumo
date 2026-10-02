@@ -1,7 +1,10 @@
 import { writeFileSync, mkdtempSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { augmentBodyWithUsage } from '../../src/lib/hook-runner'
+import {
+  augmentBodyWithUsage,
+  augmentBodyWithGitTask,
+} from '../../src/lib/hook-runner'
 
 function writeTranscript(lines: object[]): string {
   const dir = mkdtempSync(join(tmpdir(), 'lumo-hook-runner-'))
@@ -285,5 +288,33 @@ describe('augmentBodyWithUsage bySubagent', () => {
     expect(Object.keys(out._lumo_usage.bySubagent)).toEqual(['good_id-1'])
     // inclusive totals still count both files
     expect(out._lumo_usage.inputTokens).toBe(19)
+  })
+})
+
+describe('augmentBodyWithGitTask', () => {
+  const body = JSON.stringify({ session_id: 's1', cwd: '/repo' })
+  const hit = () => ({ identifier: 'LUM-12', source: 'branch' as const })
+
+  it('adds _lumo_git_task on session-start', () => {
+    const out = JSON.parse(augmentBodyWithGitTask('session-start', body, hit))
+    expect(out._lumo_git_task).toBe('LUM-12')
+    expect(out.session_id).toBe('s1')
+  })
+
+  it('leaves other paths untouched', () => {
+    expect(augmentBodyWithGitTask('pre-tool-use', body, hit)).toBe(body)
+  })
+
+  it('returns the body unchanged when extract throws', () => {
+    const boom = () => {
+      throw new Error('git exploded')
+    }
+    expect(augmentBodyWithGitTask('session-start', body, boom)).toBe(body)
+  })
+
+  it('returns the body unchanged without cwd or on no match', () => {
+    const noCwd = JSON.stringify({ session_id: 's1' })
+    expect(augmentBodyWithGitTask('session-start', noCwd, hit)).toBe(noCwd)
+    expect(augmentBodyWithGitTask('session-start', body, () => null)).toBe(body)
   })
 })
