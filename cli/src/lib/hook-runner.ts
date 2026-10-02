@@ -419,16 +419,20 @@ export function augmentBodyWithUsage(path: HookPath, body: string): string {
 
 /** LUM-932: tag every hook body with the git branch of its `cwd` (identification signal S1, consumed in P2). */
 export function augmentBodyWithBranch(body: string): string {
-  let parsed: Record<string, unknown>
+  let parsed: unknown
   try {
     parsed = JSON.parse(body || '{}')
   } catch {
     return body
   }
-  const cwd = parsed['cwd']
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return body
+  }
+  const cwd = (parsed as Record<string, unknown>)['cwd']
   if (typeof cwd !== 'string' || !cwd) return body
   const branch = readGitBranch(cwd)
-  if (!branch) return body
+  // The server caps _lumo_branch at 255 chars; omit rather than truncate.
+  if (!branch || branch.length > 255) return body
   return JSON.stringify({ ...parsed, _lumo_branch: branch })
 }
 

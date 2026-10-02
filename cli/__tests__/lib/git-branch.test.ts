@@ -39,4 +39,20 @@ describe('readGitBranch', () => {
     expect(out._lumo_branch).toBe('main')
     expect(augmentBodyWithBranch('{}')).toBe('{}')
   })
+
+  it('omits _lumo_branch when the branch name exceeds 255 characters', () => {
+    const long = 'a'.repeat(256)
+    const root = repoWithHead(`ref: refs/heads/${long}\n`)
+    const body = JSON.stringify({ cwd: root })
+    expect(augmentBodyWithBranch(body)).toBe(body)
+    const ok = repoWithHead(`ref: refs/heads/${'b'.repeat(255)}\n`)
+    const out = JSON.parse(augmentBodyWithBranch(JSON.stringify({ cwd: ok })))
+    expect(out._lumo_branch).toHaveLength(255)
+  })
+
+  it('returns a non-object body unchanged instead of throwing', () => {
+    expect(augmentBodyWithBranch('null')).toBe('null')
+    expect(augmentBodyWithBranch('[1,2]')).toBe('[1,2]')
+    expect(augmentBodyWithBranch('"str"')).toBe('"str"')
+  })
 })
