@@ -10,6 +10,7 @@ import { readCache, writeCache, clearCache } from '../../cache'
 import { workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
 import { HookEventRetentionCard } from '../settings/HookEventRetentionCard'
+import { ScanEvidenceRetentionCard } from '../settings/ScanEvidenceRetentionCard'
 import { SecurityScanSwitchesCard } from '../settings/SecurityScanSwitchesCard'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
@@ -27,6 +28,7 @@ interface Workspace {
   summaryFrequency?: SummaryFrequency
   summaryLocale?: string
   hookEventRetentionDays?: number | null
+  scanEvidenceRetentionDays?: number
   securityScanEnabled?: boolean
   securityAiReviewEnabled?: boolean
   securityHuntEnabled?: boolean
@@ -450,6 +452,14 @@ export function WorkspaceSettingsPage() {
           <HookEventRetentionCard
             key={workspace.id}
             initialDays={workspace.hookEventRetentionDays ?? null}
+          />
+        )}
+
+        {/* Scan evidence retention (LUM-911) — same gating as above. */}
+        {isOwner && workspace?.id && (
+          <ScanEvidenceRetentionCard
+            key={workspace.id}
+            initialDays={workspace.scanEvidenceRetentionDays ?? null}
           />
         )}
 

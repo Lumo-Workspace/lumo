@@ -204,6 +204,12 @@ export interface SecurityScanView {
   startedAt: string
   finishedAt: string | null
   /**
+   * LUM-911 — the code this scan quoted (evidence, call chains, finding
+   * text) was cleared by a retention or access scrub; findings show their
+   * rule, file and line only.
+   */
+  codeScrubbed: boolean
+  /**
    * LUM-740: open findings of the PR's previous scan whose fingerprint this
    * scan no longer carries — what the latest push fixed. 0 for a first scan.
    */
@@ -383,6 +389,7 @@ function toScanView(
     error: s.error,
     startedAt: s.startedAt.toISOString(),
     finishedAt: s.finishedAt ? s.finishedAt.toISOString() : null,
+    codeScrubbed: s.codeScrubbedAt != null,
     fixed,
     findings: sortFindings(s.findings).map(f =>
       toFindingView(f, policy, queueExit(f))

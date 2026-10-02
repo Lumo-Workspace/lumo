@@ -68,6 +68,7 @@ import { huntBatchProgress } from '@/lib/security-scan/hunt/batches'
 import { scanSizeCaps } from '@/lib/security-scan/size-caps'
 import { parsePrSummary } from '@/lib/security-scan/pr-summary'
 import { sanitizeField } from '@/shared/src/sanitize'
+import { scrubScanIfZeroRetention } from '@/lib/services/scan-evidence-retention.service'
 import { loadSecurityLayers } from '@/lib/services/security-workspace-switches.service'
 
 /** How many inline comments one sync may post. The rest wait for the next one. */
@@ -623,6 +624,15 @@ export const securityPrReviewService = {
    * failed by a comment.
    */
   async sync(scanId: string): Promise<SyncResult> {
+    const result = await securityPrReviewService.syncReview(scanId)
+    // LUM-911: a zero-retention workspace keeps the scan's code only until
+    // its review is on the PR.
+    await scrubScanIfZeroRetention(scanId)
+    return result
+  },
+
+  /** `sync` without the zero-retention scrub that follows it. */
+  async syncReview(scanId: string): Promise<SyncResult> {
     let scan: ScanForReview | null
     try {
       scan = await prSecurityScanRepository.findByIdForReview(scanId)
