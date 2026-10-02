@@ -112,4 +112,19 @@ describe('extractAttributionSignals', () => {
       })
     ).toEqual([])
   })
+
+  it('session attach commands are not LUMO_CMD signals', () => {
+    expect(
+      extractAttributionSignals(
+        'PRE_TOOL_USE',
+        bash('lumo session attach LUM-12')
+      )
+    ).toEqual([])
+    expect(
+      extractAttributionSignals(
+        'PRE_TOOL_USE',
+        bash('lumo session attach LUM-12 && lumo verify LUM-12')
+      )
+    ).toEqual([{ kind: 'LUMO_CMD', identifier: 'LUM-12' }])
+  })
 })

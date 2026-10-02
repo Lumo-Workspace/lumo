@@ -73,6 +73,8 @@ function commandSignals(command: string): AttributionSignal[] {
     const { verb, rest } = verbOf(seg)
     const tail = rest.join(' ')
     if (verb === 'lumo') {
+      // `lumo session attach` creates the explicit binding; it is not evidence.
+      if (rest[0] === 'session') continue
       const id = matchTaskIdentifier(tail)
       if (id) out.push({ kind: 'LUMO_CMD', identifier: id })
     } else if (verb === 'git' && rest[0] === 'commit') {
