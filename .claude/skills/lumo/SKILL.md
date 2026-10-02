@@ -253,7 +253,7 @@ Don't guess these:
 
 ### Golden rules (most-violated)
 
-- **Attach + draft criteria before coding.** Skipping attach triggers `SESSION_BINDING_MISSING`; skipping criteria means verification has nothing to check.
+- **Attach + draft criteria before coding.** Unattached work is attributed by inference and counts toward gates and cost, but explicit attach is highest-priority; skipping criteria means verification has nothing to check.
 - **Evidence before "done".** Never claim done from reading code — run `lumo verify`. While a PR is open, the task is IN_REVIEW, not DONE.
 - **Never set DONE yourself after a verify loop** — that adjudication is human-only. An unresolved send-back blocks the DONE transition with 409.
 - **Status updates are one direct call** (`task update --status done`), not a step-by-step walk through `in_progress → in_review → done`.
