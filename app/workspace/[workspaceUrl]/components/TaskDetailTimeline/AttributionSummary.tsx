@@ -54,11 +54,25 @@ export function AttributionSummary({ summary }: AttributionSummaryProps) {
         </div>
       ) : null}
       <div className='text-muted-foreground'>
-        {intl.formatMessage({
-          id: 'record.attribution.seeRuns',
-          defaultMessage:
-            'See "Agent runs" under Run report for the signals behind each run.',
-        })}
+        {intl.formatMessage(
+          {
+            id: 'record.attribution.seeRuns',
+            defaultMessage:
+              'See "{runsSection}" under {reportSection} for the signals behind each run.',
+          },
+          {
+            // Same descriptors as the dossier's section titles, so the hint
+            // names them exactly as the reader sees them.
+            runsSection: intl.formatMessage({
+              id: 'dossier.section.runs',
+              defaultMessage: 'Agent runs',
+            }),
+            reportSection: intl.formatMessage({
+              id: 'acceptance.runReport.title',
+              defaultMessage: 'Run report',
+            }),
+          }
+        )}
       </div>
     </div>
   )

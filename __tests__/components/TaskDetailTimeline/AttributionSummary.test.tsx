@@ -6,7 +6,11 @@ jest.mock('react-intl', () => ({
       d: { id?: string; defaultMessage?: string },
       values?: Record<string, string | number>
     ) => {
-      let s = d.defaultMessage ?? d.id ?? ''
+      const overrides = (
+        globalThis as { __intlOverrides?: Record<string, string> }
+      ).__intlOverrides
+      let s =
+        (d.id && overrides?.[d.id]) ?? d.defaultMessage ?? d.id ?? ''
       if (values) {
         s = s.replace(
           /\{(\w+),\s*plural,\s*one\s*\{([^}]*)\}\s*other\s*\{([^}]*)\}\}/g,
@@ -100,5 +104,29 @@ describe('AttributionSummary with no runs', () => {
       />
     )
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe('AttributionSummary section hint', () => {
+  afterEach(() => {
+    delete (globalThis as { __intlOverrides?: Record<string, string> })
+      .__intlOverrides
+  })
+
+  it('names the localized runs and run-report section titles', () => {
+    ;(
+      globalThis as { __intlOverrides?: Record<string, string> }
+    ).__intlOverrides = {
+      'dossier.section.runs': 'Agent 运行',
+      'acceptance.runReport.title': '运行报告',
+    }
+    render(
+      <AttributionSummary
+        summary={{ explicit: 1, inferred: 0, approximate: false }}
+      />
+    )
+    expect(screen.getByTestId('attribution-summary')).toHaveTextContent(
+      'See "Agent 运行" under 运行报告 for the signals behind each run.'
+    )
   })
 })
