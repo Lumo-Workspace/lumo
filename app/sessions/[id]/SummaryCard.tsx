@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useIntl, type IntlShape, type MessageDescriptor } from 'react-intl'
 import { useRouter } from 'next/navigation'
 import { sessionsClient, ApiClientError } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
+import { SESSION_MESSAGES as M } from '../messages'
 
 // Kept local to the component to avoid importing server-only type files.
 // The service-layer type is the source of truth for the API contract.
@@ -85,6 +87,7 @@ export function SummaryCard({
   currentEventCount,
   isStale,
 }: SummaryCardProps) {
+  const intl = useIntl()
   const router = useRouter()
   const [summary, setSummary] = useState<unknown>(initialSummary)
   const [summaryType, setSummaryType] = useState<string | null>(
@@ -113,7 +116,7 @@ export function SummaryCard({
       setError(
         err instanceof ApiClientError || err instanceof Error
           ? err.message
-          : 'Failed to generate summary'
+          : intl.formatMessage(M['summary.generateFailed'])
       )
     } finally {
       setLoading(false)
@@ -122,10 +125,10 @@ export function SummaryCard({
 
   const hasSummary = summary !== null && summary !== undefined
   const buttonLabel = loading
-    ? 'Generating…'
+    ? intl.formatMessage(M['summary.generating'])
     : hasSummary
-      ? 'Regenerate'
-      : 'Generate summary'
+      ? intl.formatMessage(M['summary.regenerate'])
+      : intl.formatMessage(M['summary.generate'])
   const deltaEvents =
     eventCount !== null ? Math.max(0, currentEventCount - eventCount) : 0
 
@@ -133,14 +136,18 @@ export function SummaryCard({
     <section className='mb-8 rounded-md border bg-muted/20 p-4'>
       <header className='mb-3 flex items-center justify-between gap-4'>
         <h2 className='text-sm font-semibold uppercase tracking-wide text-muted-foreground'>
-          Summary
+          {intl.formatMessage(M['summary.title'])}
           {summaryType && <TypeBadge type={summaryType} />}
         </h2>
         <div className='flex items-center gap-3 text-xs text-muted-foreground'>
           {generatedAt && now != null && (
             <span>
-              generated {formatRelativeTime(new Date(generatedAt), now)}
-              {isStale && !loading && ` · stale (+${deltaEvents} events)`}
+              {intl.formatMessage(M['summary.generated'], {
+                when: formatRelativeTime(intl, new Date(generatedAt), now),
+              })}
+              {isStale &&
+                !loading &&
+                ` · ${intl.formatMessage(M['summary.stale'], { count: deltaEvents })}`}
             </span>
           )}
           <button
@@ -164,20 +171,31 @@ export function SummaryCard({
         <SummaryBody summary={summary} />
       ) : (
         <p className='text-sm text-muted-foreground'>
-          No summary yet. Click <strong>Generate summary</strong> to have Claude
-          describe what this session accomplished.
+          {intl.formatMessage(M['summary.empty'], {
+            strong: (chunks: React.ReactNode) => <strong>{chunks}</strong>,
+          })}
         </p>
       )}
     </section>
   )
 }
 
+const TYPE_MESSAGES: Record<string, MessageDescriptor> = {
+  exploration: M['summary.typeExploration'],
+  implementation: M['summary.typeImplementation'],
+  debug: M['summary.typeDebug'],
+  refactor: M['summary.typeRefactor'],
+  review: M['summary.typeReview'],
+  mixed: M['summary.typeMixed'],
+}
+
 function TypeBadge({ type }: { type: string }) {
+  const intl = useIntl()
   const icon = TYPE_ICONS[type] ?? '•'
   return (
     <span className='ml-2 inline-flex items-center gap-1 rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[10px] normal-case tracking-normal text-foreground'>
       <span aria-hidden>{icon}</span>
-      {type}
+      {TYPE_MESSAGES[type] ? intl.formatMessage(TYPE_MESSAGES[type]) : type}
     </span>
   )
 }
@@ -240,22 +258,25 @@ function coerceShape(summary: unknown): SummaryShape | null {
 // ─── Per-type views ─────────────────────────────────────────────────────────
 
 function ExplorationView({ s }: { s: ExplorationShape }) {
+  const intl = useIntl()
   return (
     <div className='space-y-4 text-sm leading-relaxed'>
-      <Section title='What was explored'>
+      <Section title={intl.formatMessage(M['summary.whatExplored'])}>
         <p>
           {s.whatExplored || (
-            <em className='text-muted-foreground'>not described</em>
+            <em className='text-muted-foreground'>
+              {intl.formatMessage(M['summary.notDescribed'])}
+            </em>
           )}
         </p>
       </Section>
       {s.keyFindings.length > 0 && (
-        <Section title='Key findings'>
+        <Section title={intl.formatMessage(M['summary.keyFindings'])}>
           <BulletList items={s.keyFindings} />
         </Section>
       )}
       {s.filesExamined.length > 0 && (
-        <Section title='Files examined'>
+        <Section title={intl.formatMessage(M['summary.filesExamined'])}>
           <ul className='space-y-1'>
             {s.filesExamined.map((f, i) => (
               <li key={i} className='flex flex-wrap gap-x-2'>
@@ -267,7 +288,7 @@ function ExplorationView({ s }: { s: ExplorationShape }) {
         </Section>
       )}
       {s.nextSteps.length > 0 && (
-        <Section title='Next steps'>
+        <Section title={intl.formatMessage(M['summary.nextSteps'])}>
           <BulletList items={s.nextSteps} />
         </Section>
       )}
@@ -276,23 +297,30 @@ function ExplorationView({ s }: { s: ExplorationShape }) {
 }
 
 function ImplementationView({ s }: { s: ImplementationShape }) {
+  const intl = useIntl()
   return (
     <div className='space-y-4 text-sm leading-relaxed'>
-      <Section title='Goal'>
-        <p>{s.goal || <em className='text-muted-foreground'>no goal</em>}</p>
+      <Section title={intl.formatMessage(M['summary.goal'])}>
+        <p>
+          {s.goal || (
+            <em className='text-muted-foreground'>
+              {intl.formatMessage(M['summary.noGoal'])}
+            </em>
+          )}
+        </p>
       </Section>
       {s.accomplished.length > 0 && (
-        <Section title='Accomplished'>
+        <Section title={intl.formatMessage(M['summary.accomplished'])}>
           <BulletList items={s.accomplished} />
         </Section>
       )}
       {s.keyChanges.length > 0 && (
-        <Section title='Key changes'>
+        <Section title={intl.formatMessage(M['summary.keyChanges'])}>
           <FileChangeList items={s.keyChanges} />
         </Section>
       )}
       {s.unresolved.length > 0 && (
-        <Section title='Unresolved'>
+        <Section title={intl.formatMessage(M['summary.unresolved'])}>
           <BulletList items={s.unresolved} />
         </Section>
       )}
@@ -301,30 +329,33 @@ function ImplementationView({ s }: { s: ImplementationShape }) {
 }
 
 function DebugView({ s }: { s: DebugShape }) {
+  const intl = useIntl()
   return (
     <div className='space-y-4 text-sm leading-relaxed'>
       <div className='flex items-start justify-between gap-4'>
-        <Section title='Problem'>
+        <Section title={intl.formatMessage(M['summary.problem'])}>
           <p>
             {s.problem || (
-              <em className='text-muted-foreground'>not described</em>
+              <em className='text-muted-foreground'>
+                {intl.formatMessage(M['summary.notDescribed'])}
+              </em>
             )}
           </p>
         </Section>
         <StatusChip status={s.status} />
       </div>
       {s.rootCause && (
-        <Section title='Root cause'>
+        <Section title={intl.formatMessage(M['summary.rootCause'])}>
           <p>{s.rootCause}</p>
         </Section>
       )}
       {s.fixApplied.length > 0 && (
-        <Section title='Fix applied'>
+        <Section title={intl.formatMessage(M['summary.fixApplied'])}>
           <FileChangeList items={s.fixApplied} />
         </Section>
       )}
       {s.verification.length > 0 && (
-        <Section title='Verification'>
+        <Section title={intl.formatMessage(M['summary.verification'])}>
           <BulletList items={s.verification} />
         </Section>
       )}
@@ -333,17 +364,20 @@ function DebugView({ s }: { s: DebugShape }) {
 }
 
 function RefactorView({ s }: { s: RefactorShape }) {
+  const intl = useIntl()
   return (
     <div className='space-y-4 text-sm leading-relaxed'>
-      <Section title='Refactor goal'>
+      <Section title={intl.formatMessage(M['summary.refactorGoal'])}>
         <p>
           {s.refactorGoal || (
-            <em className='text-muted-foreground'>not described</em>
+            <em className='text-muted-foreground'>
+              {intl.formatMessage(M['summary.notDescribed'])}
+            </em>
           )}
         </p>
       </Section>
       {s.changes.length > 0 && (
-        <Section title='Changes'>
+        <Section title={intl.formatMessage(M['summary.changes'])}>
           <ul className='space-y-1'>
             {s.changes.map((c, i) => (
               <li key={i} className='flex flex-wrap gap-x-2'>
@@ -354,19 +388,22 @@ function RefactorView({ s }: { s: RefactorShape }) {
           </ul>
         </Section>
       )}
-      <Section title='Scope'>
+      <Section title={intl.formatMessage(M['summary.scope'])}>
         <p className='font-mono text-xs text-muted-foreground'>
-          {s.scope.filesCount} files · +{s.scope.linesAdded} -
-          {s.scope.linesRemoved}
+          {intl.formatMessage(M['summary.scopeLine'], {
+            count: s.scope.filesCount,
+            added: s.scope.linesAdded,
+            removed: s.scope.linesRemoved,
+          })}
         </p>
       </Section>
       {s.behaviorPreservation && (
-        <Section title='Behavior preservation'>
+        <Section title={intl.formatMessage(M['summary.behaviorPreservation'])}>
           <p>{s.behaviorPreservation}</p>
         </Section>
       )}
       {s.followUps.length > 0 && (
-        <Section title='Follow-ups'>
+        <Section title={intl.formatMessage(M['summary.followUps'])}>
           <BulletList items={s.followUps} />
         </Section>
       )}
@@ -375,42 +412,45 @@ function RefactorView({ s }: { s: RefactorShape }) {
 }
 
 function ReviewView({ s }: { s: ReviewShape }) {
+  const intl = useIntl()
   return (
     <div className='space-y-4 text-sm leading-relaxed'>
-      <Section title='Review scope'>
+      <Section title={intl.formatMessage(M['summary.reviewScope'])}>
         <p>
           {s.reviewScope || (
-            <em className='text-muted-foreground'>not described</em>
+            <em className='text-muted-foreground'>
+              {intl.formatMessage(M['summary.notDescribed'])}
+            </em>
           )}
         </p>
       </Section>
       {s.findings.length > 0 && (
-        <Section title='Findings'>
+        <Section title={intl.formatMessage(M['summary.findings'])}>
           <BulletList items={s.findings} />
         </Section>
       )}
       {(s.severity.critical.length > 0 ||
         s.severity.improvements.length > 0 ||
         s.severity.notes.length > 0) && (
-        <Section title='By severity'>
+        <Section title={intl.formatMessage(M['summary.bySeverity'])}>
           <div className='space-y-2'>
             {s.severity.critical.length > 0 && (
               <SeverityGroup
-                label='Critical'
+                label={intl.formatMessage(M['summary.critical'])}
                 tone='critical'
                 items={s.severity.critical}
               />
             )}
             {s.severity.improvements.length > 0 && (
               <SeverityGroup
-                label='Improvements'
+                label={intl.formatMessage(M['summary.improvements'])}
                 tone='improvements'
                 items={s.severity.improvements}
               />
             )}
             {s.severity.notes.length > 0 && (
               <SeverityGroup
-                label='Notes'
+                label={intl.formatMessage(M['summary.notes'])}
                 tone='notes'
                 items={s.severity.notes}
               />
@@ -419,7 +459,7 @@ function ReviewView({ s }: { s: ReviewShape }) {
         </Section>
       )}
       {s.recommendations.length > 0 && (
-        <Section title='Recommendations'>
+        <Section title={intl.formatMessage(M['summary.recommendations'])}>
           <BulletList items={s.recommendations} />
         </Section>
       )}
@@ -428,18 +468,19 @@ function ReviewView({ s }: { s: ReviewShape }) {
 }
 
 function MixedView({ s }: { s: MixedShape }) {
+  const intl = useIntl()
   return (
     <div className='space-y-4 text-sm leading-relaxed'>
-      <Section title='Overview'>
+      <Section title={intl.formatMessage(M['summary.overview'])}>
         <p>{s.overview}</p>
       </Section>
       {s.mainActivities.length > 0 && (
-        <Section title='Main activities'>
+        <Section title={intl.formatMessage(M['summary.mainActivities'])}>
           <BulletList items={s.mainActivities} />
         </Section>
       )}
       {s.unresolved.length > 0 && (
-        <Section title='Unresolved'>
+        <Section title={intl.formatMessage(M['summary.unresolved'])}>
           <BulletList items={s.unresolved} />
         </Section>
       )}
@@ -498,7 +539,14 @@ function FileChangeList({
   )
 }
 
+const STATUS_MESSAGES: Record<DebugStatus, MessageDescriptor> = {
+  fixed: M['summary.statusFixed'],
+  partial: M['summary.statusPartial'],
+  unresolved: M['summary.statusUnresolved'],
+}
+
 function StatusChip({ status }: { status: DebugStatus }) {
+  const intl = useIntl()
   const className =
     status === 'fixed'
       ? 'bg-green-100 text-green-900 border-green-300'
@@ -509,7 +557,7 @@ function StatusChip({ status }: { status: DebugStatus }) {
     <span
       className={`shrink-0 rounded-sm border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${className}`}
     >
-      {status}
+      {intl.formatMessage(STATUS_MESSAGES[status])}
     </span>
   )
 }
@@ -539,14 +587,14 @@ function SeverityGroup({
   )
 }
 
-function formatRelativeTime(d: Date, now: number): string {
+function formatRelativeTime(intl: IntlShape, d: Date, now: number): string {
   const diffMs = now - d.getTime()
   const s = Math.round(diffMs / 1000)
-  if (s < 60) return 'just now'
+  if (s < 60) return intl.formatMessage(M['summary.relJustNow'])
   const m = Math.round(s / 60)
-  if (m < 60) return `${m} min ago`
+  if (m < 60) return intl.formatMessage(M['summary.relMinutes'], { n: m })
   const h = Math.round(m / 60)
-  if (h < 24) return `${h}h ago`
+  if (h < 24) return intl.formatMessage(M['summary.relHours'], { n: h })
   const days = Math.round(h / 24)
-  return `${days}d ago`
+  return intl.formatMessage(M['summary.relDays'], { n: days })
 }

@@ -3,16 +3,18 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import type { DetailBlock, TimelineItem } from './merge-events'
+import { SESSION_MESSAGES as M } from '../messages'
 
 interface TimelineProps {
   items: TimelineItem[]
 }
 
 export function Timeline({ items }: TimelineProps) {
+  const intl = useIntl()
   if (items.length === 0) {
     return (
       <p className='text-sm text-muted-foreground'>
-        No events yet for this session.
+        {intl.formatMessage(M['timeline.empty'])}
       </p>
     )
   }
@@ -27,6 +29,7 @@ export function Timeline({ items }: TimelineProps) {
 }
 
 function TimelineRow({ item }: { item: TimelineItem }) {
+  const intl = useIntl()
   const [open, setOpen] = useState(false)
   const canExpand = item.details.length > 0
   const time = formatTime(item.startAt)
@@ -45,10 +48,10 @@ function TimelineRow({ item }: { item: TimelineItem }) {
 
   const kindLabel =
     item.kind === 'stop'
-      ? 'Stop'
+      ? intl.formatMessage(M['timeline.kindStop'])
       : item.kind === 'user-prompt'
-        ? 'You'
-        : (item.toolName ?? 'tool')
+        ? intl.formatMessage(M['timeline.kindYou'])
+        : (item.toolName ?? intl.formatMessage(M['timeline.kindTool']))
 
   return (
     <li>
@@ -126,6 +129,7 @@ function RedactedBlockView({
 }
 
 function DetailBlockView({ block }: { block: DetailBlock }) {
+  const intl = useIntl()
   if (block.redacted) {
     return (
       <RedactedBlockView
@@ -148,8 +152,10 @@ function DetailBlockView({ block }: { block: DetailBlock }) {
         {block.label}
         {block.truncated && (
           <span className='ml-2 normal-case text-muted-foreground'>
-            (showing {block.truncated.shownLines} of{' '}
-            {block.truncated.totalLines} lines)
+            {intl.formatMessage(M['timeline.truncated'], {
+              shown: block.truncated.shownLines,
+              total: block.truncated.totalLines,
+            })}
           </span>
         )}
       </div>

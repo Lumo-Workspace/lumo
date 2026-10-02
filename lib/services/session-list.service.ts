@@ -57,6 +57,9 @@ export const sessionListService = {
     })
   },
 
+  /**
+   * Not ownership-scoped: callers must verify the session belongs to the caller (findDetailForClerkUser / findForMemberWithBinding) before calling.
+   */
   async getAttribution(sessionId: string): Promise<SessionAttributionView> {
     const [rows, children] = await Promise.all([
       sessionRepository.listFamilyAttribution(sessionId),
