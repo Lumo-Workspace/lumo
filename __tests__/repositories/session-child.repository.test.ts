@@ -152,7 +152,9 @@ describe('upsertChildForHookEvent — late parent binding', () => {
       .mockResolvedValueOnce({ id: 'P:a1', taskId: null }) // existing child
     tx.session.updateMany.mockResolvedValueOnce({ count: 1 })
     // One event was provisionally tagged with another task, with an open crossing.
-    tx.hookEvent.findMany.mockResolvedValueOnce([{ id: 'he_prov' }])
+    tx.hookEvent.findMany.mockResolvedValueOnce([
+      { id: 'he_prov', taskId: 't9' },
+    ])
     tx.boundaryCrossing.updateMany.mockResolvedValueOnce({ count: 1 })
     tx.hookEvent.updateMany.mockResolvedValueOnce({ count: 2 })
     const r = await sessionRepository.upsertChildForHookEvent({
@@ -176,9 +178,9 @@ describe('upsertChildForHookEvent — late parent binding', () => {
     })
     expect(tx.boundaryCrossing.updateMany).toHaveBeenCalledWith({
       where: {
-        hookEventId: { in: ['he_prov'] },
+        taskId: { in: ['t9'] },
         disposition: null,
-        taskId: { not: 't1' },
+        hookEventId: { in: ['he_prov'] },
       },
       data: { taskId: 't1' },
     })

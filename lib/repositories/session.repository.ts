@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import type { Prisma, SessionRole, TaskArtifactAgent } from '@prisma/client'
 import { buildChildSessionId } from '@/lib/session/child-session-id'
 import { retagEventsToExplicitTask } from '@/lib/repositories/explicit-retag'
+import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
 import type { InjectedUsage } from '@/lib/session/subagent-usage'
 
 export interface ModelUsage {
@@ -326,7 +327,7 @@ export const sessionRepository = {
         retaggedEventCount: eventsUpdated,
         crossingsMoved,
       }
-    })
+    }, RETAG_TX_OPTIONS)
   },
 
   /**

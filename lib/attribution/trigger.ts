@@ -11,7 +11,15 @@ export async function recomputeAttributionSafely(
   try {
     const { attributionService } =
       await import('@/lib/services/attribution.service')
-    await attributionService.recomputeFamily(sessionId)
+    const res = await attributionService.recomputeFamily(sessionId)
+    // P3: the recompute now rewrites event tags and moves open crossings.
+    if (res && (res.eventsUpdated > 0 || res.crossingsMoved > 0)) {
+      logger.info('attribution recompute retagged events', {
+        sessionId,
+        eventsUpdated: res.eventsUpdated,
+        crossingsMoved: res.crossingsMoved,
+      })
+    }
   } catch (error) {
     logger.error('attribution recompute failed', { sessionId, error })
   }

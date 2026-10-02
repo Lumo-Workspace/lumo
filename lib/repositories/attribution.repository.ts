@@ -5,7 +5,14 @@ import type {
   AttributionConfidence,
   AttributionSource,
   SessionBindingSource,
+  SessionRole,
 } from '@prisma/client'
+import {
+  ID_CHUNK,
+  moveOpenCrossingsForEvents,
+  RETAG_TX_OPTIONS,
+  type EventTaskMove,
+} from '@/lib/repositories/open-crossing-move'
 
 /**
  * LUM-932 P2: persistence for per-turn task attribution (observe-only mode).
@@ -22,11 +29,16 @@ export interface FamilySession {
   taskId: string | null
   bindingSource: SessionBindingSource | null
   startedAt: Date
+  /** LUM-640: a STEWARD session with a milestone keeps its events task-less. */
+  role: SessionRole
+  milestoneId: string | null
 }
 
 export interface FamilyEvent {
   id: string
   sessionId: string | null
+  /** The event's current task attribution. */
+  taskId: string | null
   type: string
   createdAt: Date
   attributionSignals: Prisma.JsonValue | null
@@ -37,6 +49,8 @@ export interface FamilyEvent {
 
 export interface SessionFamily {
   workspaceId: string
+  /** The root's `attributionVersion` at load time (optimistic lock). */
+  attributionVersion: number
   sessions: FamilySession[]
   events: FamilyEvent[]
 }
@@ -61,6 +75,7 @@ export interface SegmentRow {
  */
 export interface BoundFamilyShape {
   workspaceId: string
+  attributionVersion: number
   sessions: FamilySession[]
   rootPromptCount: number
   firstEventAt: Map<string, Date>
@@ -87,15 +102,46 @@ const FAMILY_SESSION_SELECT = {
   taskId: true,
   bindingSource: true,
   startedAt: true,
+  role: true,
+  milestoneId: true,
 } as const
+
+/**
+ * LUM-932 P3: one versioned write of a family's attribution. `segments: null`
+ * leaves the stored segments as they are.
+ */
+export interface FamilyCommit {
+  rootSessionId: string
+  expectedVersion: number
+  familyIds: string[]
+  segments: SegmentRow[] | null
+  eventTaskChanges: { eventId: string; taskId: string | null }[]
+}
+
+export interface FamilyCommitResult {
+  conflict: boolean
+  eventsUpdated: number
+  crossingsMoved: number
+}
+
+/** Rolls the commit transaction back when the root's version moved on. */
+class AttributionVersionConflict extends Error {}
 
 async function loadFamilySessions(
   rootSessionId: string,
   opts: { boundOnly: boolean }
-): Promise<{ workspaceId: string; sessions: FamilySession[] } | null> {
+): Promise<{
+  workspaceId: string
+  attributionVersion: number
+  sessions: FamilySession[]
+} | null> {
   const root = await prisma.session.findUnique({
     where: { id: rootSessionId },
-    select: { ...FAMILY_SESSION_SELECT, workspaceId: true },
+    select: {
+      ...FAMILY_SESSION_SELECT,
+      workspaceId: true,
+      attributionVersion: true,
+    },
   })
   if (!root || (opts.boundOnly && !root.taskId)) return null
   const children = await prisma.session.findMany({
@@ -103,8 +149,12 @@ async function loadFamilySessions(
     select: FAMILY_SESSION_SELECT,
     orderBy: { startedAt: 'asc' },
   })
-  const { workspaceId, ...rootSession } = root
-  return { workspaceId, sessions: [rootSession, ...children] }
+  const { workspaceId, attributionVersion, ...rootSession } = root
+  return {
+    workspaceId,
+    attributionVersion,
+    sessions: [rootSession, ...children],
+  }
 }
 
 export const attributionRepository = {
@@ -112,7 +162,7 @@ export const attributionRepository = {
   async loadFamily(rootSessionId: string): Promise<SessionFamily | null> {
     const head = await loadFamilySessions(rootSessionId, { boundOnly: false })
     if (!head) return null
-    const { workspaceId, sessions } = head
+    const { workspaceId, attributionVersion, sessions } = head
     const scope = {
       workspaceId,
       sessionId: { in: sessions.map(s => s.id) },
@@ -122,6 +172,7 @@ export const attributionRepository = {
       select: {
         id: true,
         sessionId: true,
+        taskId: true,
         type: true,
         createdAt: true,
         attributionSignals: true,
@@ -143,7 +194,7 @@ export const attributionRepository = {
       ...e,
       payload: payloads.get(e.id) ?? null,
     }))
-    return { workspaceId, sessions, events }
+    return { workspaceId, attributionVersion, sessions, events }
   },
 
   /**
@@ -156,7 +207,7 @@ export const attributionRepository = {
   ): Promise<BoundFamilyShape | null> {
     const head = await loadFamilySessions(rootSessionId, { boundOnly: true })
     if (!head) return null
-    const { workspaceId, sessions } = head
+    const { workspaceId, attributionVersion, sessions } = head
     const [rootPromptCount, firsts] = await Promise.all([
       prisma.hookEvent.count({
         where: {
@@ -176,7 +227,13 @@ export const attributionRepository = {
       if (row.sessionId && row._min.createdAt)
         firstEventAt.set(row.sessionId, row._min.createdAt)
     }
-    return { workspaceId, sessions, rootPromptCount, firstEventAt }
+    return {
+      workspaceId,
+      attributionVersion,
+      sessions,
+      rootPromptCount,
+      firstEventAt,
+    }
   },
 
   /** The family's stored segments, comparable fields only. */
@@ -310,18 +367,88 @@ export const attributionRepository = {
     return null
   },
 
-  /** Atomically replace every segment of the family's sessions. */
-  async replaceFamilySegments(
-    familySessionIds: string[],
-    rows: SegmentRow[]
-  ): Promise<void> {
-    await prisma.$transaction(async tx => {
-      await tx.taskAttributionSegment.deleteMany({
-        where: { sessionId: { in: familySessionIds } },
-      })
-      if (rows.length > 0) {
-        await tx.taskAttributionSegment.createMany({ data: rows })
-      }
-    })
+  /**
+   * One transaction: bump the root's attributionVersion only if it still
+   * equals `expectedVersion` (else `{ conflict: true }` and nothing written);
+   * replace the family's segments when given; set HookEvent.taskId for the
+   * changed events; move the UNDISPOSITIONED crossings of those events to the
+   * event's new task (null when the new attribution is null). Dispositioned
+   * crossings are untouched. Only events of family sessions that are STILL
+   * not explicitly bound are changed — an attach landing between load and
+   * commit does not bump the version, and explicit binding always wins.
+   */
+  async commitFamilyAttribution(
+    input: FamilyCommit
+  ): Promise<FamilyCommitResult> {
+    const { rootSessionId, expectedVersion, familyIds, segments } = input
+    try {
+      return await prisma.$transaction(async tx => {
+        const { count } = await tx.session.updateMany({
+          where: { id: rootSessionId, attributionVersion: expectedVersion },
+          data: { attributionVersion: { increment: 1 } },
+        })
+        if (count === 0) throw new AttributionVersionConflict()
+
+        if (segments) {
+          await tx.taskAttributionSegment.deleteMany({
+            where: { sessionId: { in: familyIds } },
+          })
+          if (segments.length > 0) {
+            await tx.taskAttributionSegment.createMany({ data: segments })
+          }
+        }
+
+        const targetOf = new Map(
+          input.eventTaskChanges.map(c => [c.eventId, c.taskId])
+        )
+        if (targetOf.size === 0)
+          return { conflict: false, eventsUpdated: 0, crossingsMoved: 0 }
+
+        const unbound = await tx.session.findMany({
+          where: { id: { in: familyIds }, taskId: null },
+          select: { id: true },
+        })
+        const unboundIds = unbound.map(r => r.id)
+        const ids = [...targetOf.keys()]
+        const moves: EventTaskMove[] = []
+        for (let i = 0; i < ids.length; i += ID_CHUNK) {
+          const current = await tx.hookEvent.findMany({
+            where: {
+              id: { in: ids.slice(i, i + ID_CHUNK) },
+              sessionId: { in: unboundIds },
+            },
+            select: { id: true, taskId: true },
+          })
+          for (const e of current) {
+            const toTaskId = targetOf.get(e.id) ?? null
+            if (e.taskId !== toTaskId)
+              moves.push({ eventId: e.id, fromTaskId: e.taskId, toTaskId })
+          }
+        }
+
+        const byTarget = new Map<string | null, string[]>()
+        for (const m of moves) {
+          const list = byTarget.get(m.toTaskId)
+          if (list) list.push(m.eventId)
+          else byTarget.set(m.toTaskId, [m.eventId])
+        }
+        let eventsUpdated = 0
+        for (const [taskId, eventIds] of byTarget) {
+          for (let i = 0; i < eventIds.length; i += ID_CHUNK) {
+            const { count: n } = await tx.hookEvent.updateMany({
+              where: { id: { in: eventIds.slice(i, i + ID_CHUNK) } },
+              data: { taskId },
+            })
+            eventsUpdated += n
+          }
+        }
+        const crossingsMoved = await moveOpenCrossingsForEvents(tx, moves)
+        return { conflict: false, eventsUpdated, crossingsMoved }
+      }, RETAG_TX_OPTIONS)
+    } catch (error) {
+      if (error instanceof AttributionVersionConflict)
+        return { conflict: true, eventsUpdated: 0, crossingsMoved: 0 }
+      throw error
+    }
   },
 }

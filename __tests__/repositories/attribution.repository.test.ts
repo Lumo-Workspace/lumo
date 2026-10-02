@@ -5,6 +5,9 @@
  */
 jest.mock('@/lib/db/prisma', () => {
   const tx = {
+    session: { updateMany: jest.fn(), findMany: jest.fn() },
+    hookEvent: { findMany: jest.fn(), updateMany: jest.fn() },
+    boundaryCrossing: { updateMany: jest.fn() },
     taskAttributionSegment: {
       deleteMany: jest.fn(),
       createMany: jest.fn(),
@@ -42,6 +45,9 @@ const p = prisma as unknown as {
   pullRequest: Record<'findMany', jest.Mock>
   $transaction: jest.Mock
   __tx: {
+    session: Record<'updateMany' | 'findMany', jest.Mock>
+    hookEvent: Record<'findMany' | 'updateMany', jest.Mock>
+    boundaryCrossing: Record<'updateMany', jest.Mock>
     taskAttributionSegment: Record<'deleteMany' | 'createMany', jest.Mock>
   }
 }
@@ -70,8 +76,11 @@ describe('loadFamily', () => {
       taskId: null,
       bindingSource: null,
       startedAt: new Date(0),
+      role: 'IMPLEMENTATION',
+      milestoneId: null,
+      attributionVersion: 3,
     }
-    const { workspaceId: _ws, ...sessionFields } = root
+    const { workspaceId: _ws, attributionVersion: _v, ...sessionFields } = root
     const child = {
       ...sessionFields,
       id: 'r:a1',
@@ -85,6 +94,7 @@ describe('loadFamily', () => {
     const fam = await attributionRepository.loadFamily('r')
     expect(fam).toEqual({
       workspaceId: 'ws',
+      attributionVersion: 3,
       sessions: [
         {
           id: 'r',
@@ -93,6 +103,8 @@ describe('loadFamily', () => {
           taskId: null,
           bindingSource: null,
           startedAt: new Date(0),
+          role: 'IMPLEMENTATION',
+          milestoneId: null,
         },
         {
           id: 'r:a1',
@@ -101,6 +113,8 @@ describe('loadFamily', () => {
           taskId: null,
           bindingSource: null,
           startedAt: new Date(0),
+          role: 'IMPLEMENTATION',
+          milestoneId: null,
         },
       ],
       events: [],
@@ -119,6 +133,7 @@ describe('loadFamily', () => {
     expect(evArgs.select).toEqual({
       id: true,
       sessionId: true,
+      taskId: true,
       type: true,
       createdAt: true,
       attributionSignals: true,
@@ -246,43 +261,159 @@ describe('taskIdsForBranches', () => {
   })
 })
 
-describe('replaceFamilySegments', () => {
-  it('deletes the family segments then inserts the new rows in one transaction', async () => {
+describe('commitFamilyAttribution', () => {
+  const row = {
+    workspaceId: 'ws',
+    sessionId: 'r',
+    taskId: 't',
+    fromTurn: 0,
+    toTurn: 1,
+    fromAt: new Date(0),
+    toAt: null,
+    source: 'INFERRED' as const,
+    confidence: 'HIGH' as const,
+    evidence: [],
+    computeVersion: 1,
+  }
+  const base = {
+    rootSessionId: 'r',
+    expectedVersion: 2,
+    familyIds: ['r', 'r:a1'],
+  }
+
+  beforeEach(() => {
+    p.__tx.session.updateMany.mockResolvedValue({ count: 1 })
+    p.__tx.session.findMany.mockResolvedValue([{ id: 'r' }, { id: 'r:a1' }])
+    p.__tx.hookEvent.updateMany.mockResolvedValue({ count: 0 })
+    p.__tx.boundaryCrossing.updateMany.mockResolvedValue({ count: 0 })
+  })
+
+  it('bumps the version, then deletes and inserts segments, with explicit tx limits', async () => {
     const order: string[] = []
+    p.__tx.session.updateMany.mockImplementation(async () => {
+      order.push('version')
+      return { count: 1 }
+    })
     p.__tx.taskAttributionSegment.deleteMany.mockImplementation(async () => {
       order.push('delete')
     })
     p.__tx.taskAttributionSegment.createMany.mockImplementation(async () => {
       order.push('create')
     })
-    const row = {
-      workspaceId: 'ws',
-      sessionId: 'r',
-      taskId: 't',
-      fromTurn: 0,
-      toTurn: 1,
-      fromAt: new Date(0),
-      toAt: null,
-      source: 'INFERRED' as const,
-      confidence: 'HIGH' as const,
-      evidence: [],
-      computeVersion: 1,
-    }
-    await attributionRepository.replaceFamilySegments(['r', 'r:a1'], [row])
-    expect(p.$transaction).toHaveBeenCalledTimes(1)
-    expect(order).toEqual(['delete', 'create'])
+    await expect(
+      attributionRepository.commitFamilyAttribution({
+        ...base,
+        segments: [row],
+        eventTaskChanges: [],
+      })
+    ).resolves.toEqual({ conflict: false, eventsUpdated: 0, crossingsMoved: 0 })
+    expect(order).toEqual(['version', 'delete', 'create'])
+    expect(p.__tx.session.updateMany).toHaveBeenCalledWith({
+      where: { id: 'r', attributionVersion: 2 },
+      data: { attributionVersion: { increment: 1 } },
+    })
     expect(p.__tx.taskAttributionSegment.deleteMany).toHaveBeenCalledWith({
       where: { sessionId: { in: ['r', 'r:a1'] } },
     })
-    expect(p.__tx.taskAttributionSegment.createMany).toHaveBeenCalledWith({
-      data: [row],
+    expect(p.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      timeout: 15_000,
+      maxWait: 5_000,
     })
   })
 
-  it('still clears stale segments when there are no rows', async () => {
-    await attributionRepository.replaceFamilySegments(['r'], [])
+  it('still clears stale segments when there are no rows; null leaves them', async () => {
+    await attributionRepository.commitFamilyAttribution({
+      ...base,
+      segments: [],
+      eventTaskChanges: [],
+    })
     expect(p.__tx.taskAttributionSegment.deleteMany).toHaveBeenCalled()
     expect(p.__tx.taskAttributionSegment.createMany).not.toHaveBeenCalled()
+    jest.clearAllMocks()
+    p.__tx.session.updateMany.mockResolvedValue({ count: 1 })
+    await attributionRepository.commitFamilyAttribution({
+      ...base,
+      segments: null,
+      eventTaskChanges: [],
+    })
+    expect(p.__tx.taskAttributionSegment.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('a version mismatch writes nothing and reports the conflict', async () => {
+    p.__tx.session.updateMany.mockResolvedValue({ count: 0 })
+    await expect(
+      attributionRepository.commitFamilyAttribution({
+        ...base,
+        segments: [row],
+        eventTaskChanges: [{ eventId: 'e1', taskId: 't' }],
+      })
+    ).resolves.toEqual({ conflict: true, eventsUpdated: 0, crossingsMoved: 0 })
+    expect(p.__tx.taskAttributionSegment.deleteMany).not.toHaveBeenCalled()
+    expect(p.__tx.hookEvent.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('updates events per target and narrows crossing moves by the old task ids', async () => {
+    p.__tx.hookEvent.findMany.mockResolvedValue([
+      { id: 'e1', taskId: 't_old' },
+      { id: 'e2', taskId: null },
+      { id: 'e3', taskId: 't_new' },
+      { id: 'e4', taskId: 't_old' },
+    ])
+    p.__tx.hookEvent.updateMany.mockResolvedValue({ count: 1 })
+    p.__tx.boundaryCrossing.updateMany.mockResolvedValue({ count: 1 })
+    const out = await attributionRepository.commitFamilyAttribution({
+      ...base,
+      segments: null,
+      eventTaskChanges: [
+        { eventId: 'e1', taskId: 't_new' },
+        { eventId: 'e2', taskId: 't_new' },
+        { eventId: 'e3', taskId: 't_new' },
+        { eventId: 'e4', taskId: null },
+      ],
+    })
+    // Only still-unbound family sessions' events are read.
+    expect(p.__tx.session.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['r', 'r:a1'] }, taskId: null },
+      select: { id: true },
+    })
+    expect(p.__tx.hookEvent.findMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['e1', 'e2', 'e3', 'e4'] },
+        sessionId: { in: ['r', 'r:a1'] },
+      },
+      select: { id: true, taskId: true },
+    })
+    // e3 already carries its target: not rewritten.
+    expect(p.__tx.hookEvent.updateMany.mock.calls.map(c => c[0])).toEqual([
+      { where: { id: { in: ['e1', 'e2'] } }, data: { taskId: 't_new' } },
+      { where: { id: { in: ['e4'] } }, data: { taskId: null } },
+    ])
+    // e2 had no task: it cannot own a task-scoped crossing.
+    expect(
+      p.__tx.boundaryCrossing.updateMany.mock.calls.map(c => c[0])
+    ).toEqual([
+      {
+        where: {
+          taskId: { in: ['t_old'] },
+          disposition: null,
+          hookEventId: { in: ['e1'] },
+        },
+        data: { taskId: 't_new' },
+      },
+      {
+        where: {
+          taskId: { in: ['t_old'] },
+          disposition: null,
+          hookEventId: { in: ['e4'] },
+        },
+        data: { taskId: null },
+      },
+    ])
+    expect(out).toEqual({
+      conflict: false,
+      eventsUpdated: 2,
+      crossingsMoved: 2,
+    })
   })
 })
 

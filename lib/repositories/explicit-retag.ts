@@ -1,7 +1,5 @@
 import type { Prisma } from '@prisma/client'
-
-/** Bind-parameter headroom for the crossing `hookEventId IN (...)` list. */
-const CROSSING_ID_CHUNK = 5000
+import { moveOpenCrossingsForEvents } from '@/lib/repositories/open-crossing-move'
 
 /**
  * LUM-932 P3: explicit binding always wins. When sessions become explicitly
@@ -12,7 +10,7 @@ const CROSSING_ID_CHUNK = 5000
  * move with them; dispositioned crossings stay where they were ruled, and
  * task-less (milestone-scoped steward) crossings are never touched.
  *
- * Runs inside the caller's transaction. `eventsUpdated` counts events whose
+ * Runs inside the caller's transaction (open it with `RETAG_TX_OPTIONS`). `eventsUpdated` counts events whose
  * taskId changed.
  */
 export async function retagEventsToExplicitTask(
@@ -25,21 +23,16 @@ export async function retagEventsToExplicitTask(
   // the only ones that can own a task-scoped crossing to move.
   const otherTagged = await tx.hookEvent.findMany({
     where: { sessionId: { in: sessionIds }, taskId: { not: taskId } },
-    select: { id: true },
+    select: { id: true, taskId: true },
   })
-  let crossingsMoved = 0
-  for (let i = 0; i < otherTagged.length; i += CROSSING_ID_CHUNK) {
-    const ids = otherTagged.slice(i, i + CROSSING_ID_CHUNK).map(e => e.id)
-    const { count } = await tx.boundaryCrossing.updateMany({
-      where: {
-        hookEventId: { in: ids },
-        disposition: null,
-        taskId: { not: taskId },
-      },
-      data: { taskId },
-    })
-    crossingsMoved += count
-  }
+  const crossingsMoved = await moveOpenCrossingsForEvents(
+    tx,
+    otherTagged.map(e => ({
+      eventId: e.id,
+      fromTaskId: e.taskId,
+      toTaskId: taskId,
+    }))
+  )
   const { count: eventsUpdated } = await tx.hookEvent.updateMany({
     where: {
       sessionId: { in: sessionIds },

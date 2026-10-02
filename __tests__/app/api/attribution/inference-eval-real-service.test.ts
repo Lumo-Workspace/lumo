@@ -15,7 +15,7 @@ jest.mock('@/lib/repositories/attribution.repository', () => ({
     loadFamily: jest.fn(),
     resolveIdentifiers: jest.fn(),
     taskIdsForBranches: jest.fn(),
-    replaceFamilySegments: jest.fn(),
+    commitFamilyAttribution: jest.fn(),
   },
 }))
 
@@ -30,7 +30,7 @@ const repo = attributionRepository as unknown as Record<
   | 'loadFamily'
   | 'resolveIdentifiers'
   | 'taskIdsForBranches'
-  | 'replaceFamilySegments',
+  | 'commitFamilyAttribution',
   jest.Mock
 >
 const bearer = verifyBearer as jest.Mock
@@ -135,7 +135,7 @@ describe('inference-eval route with the real service', () => {
     const week = 7 * 86_400_000
     expect(since.getTime()).toBeGreaterThanOrEqual(before - week)
     expect(since.getTime()).toBeLessThanOrEqual(after - week)
-    expect(repo.replaceFamilySegments).not.toHaveBeenCalled()
+    expect(repo.commitFamilyAttribution).not.toHaveBeenCalled()
   })
 
   it('401 without a bearer token', async () => {

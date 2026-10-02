@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
 import { eventsForTask } from '@/lib/repositories/task-attribution-where'
 import { retagEventsToExplicitTask } from '@/lib/repositories/explicit-retag'
+import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
 import type { HookEventType } from '@prisma/client'
 import type { AttributionSignal } from '@/lib/attribution/signals'
 import type { ToolEventRow } from '@/lib/session/resolve-caller'
@@ -304,8 +305,9 @@ export const hookEventRepository = {
     sessionId: string,
     taskId: string
   ): Promise<{ eventsUpdated: number; crossingsMoved: number }> {
-    return prisma.$transaction(tx =>
-      retagEventsToExplicitTask(tx, [sessionId], taskId)
+    return prisma.$transaction(
+      tx => retagEventsToExplicitTask(tx, [sessionId], taskId),
+      RETAG_TX_OPTIONS
     )
   },
 

@@ -151,7 +151,7 @@ describe('attribution repository on a real Postgres', () => {
     expect(byId.get('e_d_pruned')!.payloadPrunedAt).toEqual(t(8))
   })
 
-  it('replaceFamilySegments round-trips and replaces the whole family', async () => {
+  it('commitFamilyAttribution round-trips segments and replaces the whole family', async () => {
     const row = (over: Partial<SegmentRow>): SegmentRow => ({
       workspaceId: 'ws',
       sessionId: ROOT,
@@ -169,10 +169,22 @@ describe('attribution repository on a real Postgres', () => {
       ...over,
     })
     const ids = [ROOT, CHILD]
-    await attributionRepository.replaceFamilySegments(ids, [
-      row({}),
-      row({ sessionId: CHILD, source: 'INHERITED', confidence: 'EXPLICIT' }),
-    ])
+    const commit = async (segments: SegmentRow[]) => {
+      const fam = await attributionRepository.loadFamily(ROOT)
+      return attributionRepository.commitFamilyAttribution({
+        rootSessionId: ROOT,
+        expectedVersion: fam!.attributionVersion,
+        familyIds: ids,
+        segments,
+        eventTaskChanges: [],
+      })
+    }
+    await expect(
+      commit([
+        row({}),
+        row({ sessionId: CHILD, source: 'INHERITED', confidence: 'EXPLICIT' }),
+      ])
+    ).resolves.toEqual({ conflict: false, eventsUpdated: 0, crossingsMoved: 0 })
     const sortById = <T extends { sessionId: string }>(xs: T[]) =>
       [...xs].sort((a, b) => a.sessionId.localeCompare(b.sessionId))
     const stored = sortById(await attributionRepository.listFamilySegments(ids))
@@ -199,9 +211,7 @@ describe('attribution repository on a real Postgres', () => {
       }),
     ])
 
-    await attributionRepository.replaceFamilySegments(ids, [
-      row({ toTurn: 5, toAt: t(7) }),
-    ])
+    await commit([row({ toTurn: 5, toAt: t(7) })])
     expect(await attributionRepository.listFamilySegments(ids)).toEqual([
       expect.objectContaining({ sessionId: ROOT, toTurn: 5, toAt: t(7) }),
     ])
@@ -218,6 +228,8 @@ describe('attribution repository on a real Postgres', () => {
     const shape = await attributionRepository.loadBoundFamilyShape(ROOT)
     expect(shape).toEqual({
       workspaceId: 'ws',
+      // Bumped by the earlier commits in this file.
+      attributionVersion: expect.any(Number),
       sessions: [
         expect.objectContaining({ id: ROOT, taskId: 'task_12' }),
         expect.objectContaining({ id: CHILD }),
@@ -228,5 +240,145 @@ describe('attribution repository on a real Postgres', () => {
         [CHILD, t(3)],
       ]),
     })
+  })
+})
+
+describe('commitFamilyAttribution on a real Postgres (LUM-932 P3)', () => {
+  const FAM = 'fam-root'
+  const FAM_CHILD = `${FAM}:a1`
+  const FAM_IDS = [FAM, FAM_CHILD]
+  const EVENTS = ['f_e1', 'f_e2', 'f_e3', 'f_child']
+
+  beforeAll(async () => {
+    await harness.insert('tasks', {
+      id: 'task_13',
+      projectId: 'project',
+      teamId: 'team',
+      number: 13,
+      title: 'T13',
+    })
+    for (const [id, extra] of [
+      [FAM, {}],
+      [FAM_CHILD, { parentSessionId: FAM, agentId: 'a1' }],
+    ] as const) {
+      await harness.insert('sessions', {
+        id,
+        workspaceId: 'ws',
+        workspaceMemberId: 'member',
+        startedAt: t(0).toISOString(),
+        lastActivityAt: t(9).toISOString(),
+        attributionVersion: 4,
+        ...extra,
+      })
+    }
+    for (const [i, id] of EVENTS.entries()) {
+      await seedEvent(id, id === 'f_child' ? FAM_CHILD : FAM, t(i + 1), {
+        taskId: 'task_12',
+      })
+    }
+    const crossing = (id: string, extra: Record<string, unknown>) =>
+      harness.insert('boundary_crossings', {
+        id,
+        taskId: 'task_12',
+        category: 'NEW_NPM_DEPENDENCY',
+        detail: id,
+        ...extra,
+      })
+    await crossing('x_open', { hookEventId: 'f_e1' })
+    await crossing('x_ruled', {
+      hookEventId: 'f_e2',
+      disposition: 'CONFIRMED',
+      dispositionedAt: t(9).toISOString(),
+    })
+    // Same task, an event outside the change set: stays.
+    await crossing('x_other', { hookEventId: 'f_e3' })
+  })
+
+  const eventTasks = async () =>
+    harness.query<{ id: string; taskId: string | null }>(
+      `select id, "taskId" from hook_events where id = any($1) order by id`,
+      [EVENTS]
+    )
+  const crossingTasks = async () =>
+    harness.query<{ id: string; taskId: string | null }>(
+      `select id, "taskId" from boundary_crossings where id like 'x_%' order by id`
+    )
+  const version = async () =>
+    (
+      await harness.query<{ attributionVersion: number }>(
+        `select "attributionVersion" from sessions where id = $1`,
+        [FAM]
+      )
+    )[0]!.attributionVersion
+  const changes = [
+    { eventId: 'f_e1', taskId: 'task_13' },
+    { eventId: 'f_e2', taskId: 'task_13' },
+    { eventId: 'f_child', taskId: 'task_13' },
+  ]
+
+  it('a version mismatch reports a conflict and writes nothing', async () => {
+    const before = [await eventTasks(), await crossingTasks()]
+    await expect(
+      attributionRepository.commitFamilyAttribution({
+        rootSessionId: FAM,
+        expectedVersion: 3,
+        familyIds: FAM_IDS,
+        segments: [],
+        eventTaskChanges: changes,
+      })
+    ).resolves.toEqual({ conflict: true, eventsUpdated: 0, crossingsMoved: 0 })
+    expect([await eventTasks(), await crossingTasks()]).toEqual(before)
+    expect(await version()).toBe(4)
+  })
+
+  it('retags events, moves the undispositioned crossing and leaves the ruled one', async () => {
+    await expect(
+      attributionRepository.commitFamilyAttribution({
+        rootSessionId: FAM,
+        expectedVersion: 4,
+        familyIds: FAM_IDS,
+        segments: null,
+        eventTaskChanges: changes,
+      })
+    ).resolves.toEqual({ conflict: false, eventsUpdated: 3, crossingsMoved: 1 })
+    expect(await version()).toBe(5)
+    expect(await eventTasks()).toEqual([
+      { id: 'f_child', taskId: 'task_13' },
+      { id: 'f_e1', taskId: 'task_13' },
+      { id: 'f_e2', taskId: 'task_13' },
+      { id: 'f_e3', taskId: 'task_12' },
+    ])
+    expect(await crossingTasks()).toEqual([
+      { id: 'x_open', taskId: 'task_13' },
+      { id: 'x_other', taskId: 'task_12' },
+      { id: 'x_ruled', taskId: 'task_12' },
+    ])
+  })
+
+  it('a session bound since the load keeps its events (explicit wins)', async () => {
+    await harness.query(
+      `update sessions set "taskId" = 'task_12', "bindingSource" = 'ATTACH' where id = $1`,
+      [FAM_CHILD]
+    )
+    await expect(
+      attributionRepository.commitFamilyAttribution({
+        rootSessionId: FAM,
+        expectedVersion: 5,
+        familyIds: FAM_IDS,
+        segments: null,
+        eventTaskChanges: [
+          { eventId: 'f_e1', taskId: null },
+          { eventId: 'f_child', taskId: null },
+        ],
+      })
+    ).resolves.toEqual({ conflict: false, eventsUpdated: 1, crossingsMoved: 1 })
+    expect(await eventTasks()).toEqual([
+      { id: 'f_child', taskId: 'task_13' },
+      { id: 'f_e1', taskId: null },
+      { id: 'f_e2', taskId: 'task_13' },
+      { id: 'f_e3', taskId: 'task_12' },
+    ])
+    // The open crossing follows its event to "no task".
+    expect(await crossingTasks()).toContainEqual({ id: 'x_open', taskId: null })
   })
 })

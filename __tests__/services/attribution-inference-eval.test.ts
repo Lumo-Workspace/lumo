@@ -10,7 +10,7 @@ jest.mock('@/lib/repositories/attribution.repository', () => ({
     loadFamily: jest.fn(),
     resolveIdentifiers: jest.fn(),
     taskIdsForBranches: jest.fn(),
-    replaceFamilySegments: jest.fn(),
+    commitFamilyAttribution: jest.fn(),
     listExplicitRootSessionsForMember: jest.fn(),
   },
 }))
@@ -26,7 +26,7 @@ const repo = attributionRepository as unknown as Record<
   | 'loadFamily'
   | 'resolveIdentifiers'
   | 'taskIdsForBranches'
-  | 'replaceFamilySegments'
+  | 'commitFamilyAttribution'
   | 'listExplicitRootSessionsForMember',
   jest.Mock
 >
@@ -113,7 +113,7 @@ describe('attributionService.inferenceEval', () => {
       computeVersion: 1,
       days: 7,
     })
-    expect(repo.replaceFamilySegments).not.toHaveBeenCalled()
+    expect(repo.commitFamilyAttribution).not.toHaveBeenCalled()
     const [memberArg, sinceArg, limitArg] =
       repo.listExplicitRootSessionsForMember.mock.calls[0]!
     expect(memberArg).toBe('member_1')

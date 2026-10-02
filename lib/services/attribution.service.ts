@@ -27,11 +27,14 @@ import {
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 import { canonicalTaskIdentifier } from '@/lib/attribution/identifier'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
+import { logger } from '@/lib/logger'
 
 /**
  * LUM-932 P2: recompute a session family's TaskAttributionSegment rows
- * (spec section 3 precedence). Observe-only mode — segments are written, nothing
- * gates on them, and HookEvent.taskId / Session.taskId are never touched.
+ * (spec section 3 precedence). Session.taskId is never touched. Since P3 the
+ * recompute also backfills HookEvent.taskId of UNATTACHED, non-steward
+ * sessions from their inferred segments (moving open crossings along), in one
+ * versioned transaction per family.
  *
  *   1. Root explicitly bound → SESSION_ATTACH for the root, one explicit
  *      segment per bound child; the engine does not run and no event rows
@@ -300,9 +303,12 @@ const DAY_MS = 86_400_000
  * The family's segment rows: explicit rows from the light shape for a bound
  * root, otherwise the engine over the full family. Null when not found.
  */
-async function computeFamilyRows(
-  rootId: string
-): Promise<{ familyIds: string[]; rows: SegmentRow[] } | null> {
+async function computeFamilyRows(rootId: string): Promise<{
+  familyIds: string[]
+  rows: SegmentRow[]
+  version: number
+  eventTaskChanges: EventTaskChange[]
+} | null> {
   const shape = await attributionRepository.loadBoundFamilyShape(rootId)
   if (shape) {
     const root = shape.sessions[0]!
@@ -318,6 +324,9 @@ async function computeFamilyRows(
         explicitRow(input, root, root.taskId!, 'SESSION_ATTACH'),
         ...explicitChildRows(input),
       ],
+      version: shape.attributionVersion,
+      // Explicit sessions' events are retagged at attach time, never here.
+      eventTaskChanges: [],
     }
   }
 
@@ -332,13 +341,76 @@ async function computeFamilyRows(
     firstEventAt: firstEventTimes(family),
     lastRootTurn,
   }
+  const rows = [
+    ...segments.map(s => inferredRow(family, s)),
+    ...explicitChildRows(input),
+  ]
   return {
     familyIds: family.sessions.map(s => s.id),
-    rows: [
-      ...segments.map(s => inferredRow(family, s)),
-      ...explicitChildRows(input),
-    ],
+    rows,
+    version: family.attributionVersion,
+    eventTaskChanges: eventTaskAssignments(family, rows),
   }
+}
+
+export interface EventTaskChange {
+  eventId: string
+  taskId: string | null
+}
+
+/** LUM-640: a milestone-bound STEWARD session keeps its events task-less. */
+function isSteward(s: FamilySession | undefined): boolean {
+  return s?.role === 'STEWARD' && s.milestoneId !== null
+}
+
+/** The INFERRED segment of `segments` covering `at` (`toAt` exclusive). */
+function taskAt(segments: SegmentRow[] | undefined, at: Date): string | null {
+  const ms = at.getTime()
+  const hit = segments?.find(
+    s => s.fromAt.getTime() <= ms && (s.toAt === null || ms < s.toAt.getTime())
+  )
+  return hit?.taskId ?? null
+}
+
+/**
+ * LUM-932 P3: event backfill from the family's computed rows. Only events of
+ * sessions with no explicit `taskId` whose parent is not explicitly bound
+ * either, and that are not STEWARD sessions (or children of one). An event's
+ * target is its own session's INFERRED segment covering `createdAt`; a child
+ * without a covering segment of its own (clipped child segments end at its
+ * last event) falls back to its parent's; otherwise null. Only events whose
+ * target differs from their current taskId are returned.
+ */
+export function eventTaskAssignments(
+  family: SessionFamily,
+  rows: SegmentRow[]
+): EventTaskChange[] {
+  const byId = new Map(family.sessions.map(s => [s.id, s]))
+  const eligible = new Set<string>()
+  for (const s of family.sessions) {
+    const parent = s.parentSessionId ? byId.get(s.parentSessionId) : undefined
+    if (s.taskId || parent?.taskId) continue
+    if (isSteward(s) || isSteward(parent)) continue
+    eligible.add(s.id)
+  }
+  const inferred = new Map<string, SegmentRow[]>()
+  for (const r of rows) {
+    if (r.source !== 'INFERRED') continue
+    const list = inferred.get(r.sessionId)
+    if (list) list.push(r)
+    else inferred.set(r.sessionId, [r])
+  }
+  const out: EventTaskChange[] = []
+  for (const e of family.events) {
+    if (!e.sessionId || !eligible.has(e.sessionId)) continue
+    const parentId = byId.get(e.sessionId)?.parentSessionId ?? null
+    const target =
+      taskAt(inferred.get(e.sessionId), e.createdAt) ??
+      (parentId ? taskAt(inferred.get(parentId), e.createdAt) : null)
+    if (target !== (e.taskId ?? null))
+      out.push({ eventId: e.id, taskId: target })
+  }
+  return out
 }
 
 /** Strong kinds in the order an event's own signals are tried provisionally. */
@@ -409,22 +481,62 @@ export async function provisionalTaskFor(input: {
 
 export const attributionInternals = { inferFamily }
 
+/** Version conflicts tolerated per recompute before deferring to the next STOP. */
+const MAX_CONFLICT_RETRIES = 2
+
+export interface RecomputeResult {
+  segments: number
+  /** True when the segment rows were rewritten. */
+  written: boolean
+  eventsUpdated: number
+  crossingsMoved: number
+  /** Set when every attempt lost the version race; nothing was written. */
+  conflict?: true
+}
+
 export const attributionService = {
   /** Recompute every segment of the family containing `sessionId` (root or child id). Null when not found. */
-  async recomputeFamily(
-    sessionId: string
-  ): Promise<{ segments: number; written: boolean } | null> {
+  async recomputeFamily(sessionId: string): Promise<RecomputeResult | null> {
     const rootId = parseChildSessionId(sessionId)?.parentSessionId ?? sessionId
-    const rows = await computeFamilyRows(rootId)
-    if (!rows) return null
-    const { familyIds } = rows
+    let segments = 0
+    for (let attempt = 0; attempt <= MAX_CONFLICT_RETRIES; attempt++) {
+      const plan = await computeFamilyRows(rootId)
+      if (!plan) return null
+      const { familyIds, rows, version, eventTaskChanges } = plan
+      segments = rows.length
 
-    const existing = await attributionRepository.listFamilySegments(familyIds)
-    if (sameSegments(rows.rows, existing)) {
-      return { segments: rows.rows.length, written: false }
+      const existing = await attributionRepository.listFamilySegments(familyIds)
+      const unchanged = sameSegments(rows, existing)
+      if (unchanged && eventTaskChanges.length === 0) {
+        return { segments, written: false, eventsUpdated: 0, crossingsMoved: 0 }
+      }
+      const res = await attributionRepository.commitFamilyAttribution({
+        rootSessionId: rootId,
+        expectedVersion: version,
+        familyIds,
+        segments: unchanged ? null : rows,
+        eventTaskChanges,
+      })
+      if (!res.conflict) {
+        return {
+          segments,
+          written: !unchanged,
+          eventsUpdated: res.eventsUpdated,
+          crossingsMoved: res.crossingsMoved,
+        }
+      }
     }
-    await attributionRepository.replaceFamilySegments(familyIds, rows.rows)
-    return { segments: rows.rows.length, written: true }
+    logger.warn('attribution recompute gave up after version conflicts', {
+      rootSessionId: rootId,
+      attempts: MAX_CONFLICT_RETRIES + 1,
+    })
+    return {
+      segments,
+      written: false,
+      eventsUpdated: 0,
+      crossingsMoved: 0,
+      conflict: true,
+    }
   },
 
   /**

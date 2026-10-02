@@ -37,7 +37,11 @@ beforeEach(() => {
 
 describe('hookEventRepository.retagSessionEventsToExplicitTask', () => {
   it('retags every event whose task differs and moves their open crossings, in one transaction', async () => {
-    tx.hookEvent.findMany.mockResolvedValue([{ id: 'e1' }, { id: 'e2' }])
+    tx.hookEvent.findMany.mockResolvedValue([
+      { id: 'e1', taskId: 't12' },
+      { id: 'e2', taskId: 't14' },
+      { id: 'e3', taskId: 't12' },
+    ])
     tx.boundaryCrossing.updateMany.mockResolvedValue({ count: 1 })
     tx.hookEvent.updateMany.mockResolvedValue({ count: 5 })
 
@@ -47,15 +51,20 @@ describe('hookEventRepository.retagSessionEventsToExplicitTask', () => {
     )
 
     expect(p.$transaction).toHaveBeenCalledTimes(1)
+    expect(p.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      timeout: 15_000,
+      maxWait: 5_000,
+    })
     expect(tx.hookEvent.findMany).toHaveBeenCalledWith({
       where: { sessionId: { in: ['s1'] }, taskId: { not: 't13' } },
-      select: { id: true },
+      select: { id: true, taskId: true },
     })
+    // Narrowed by the events' distinct old task ids (the indexed column).
     expect(tx.boundaryCrossing.updateMany).toHaveBeenCalledWith({
       where: {
-        hookEventId: { in: ['e1', 'e2'] },
+        taskId: { in: ['t12', 't14'] },
         disposition: null,
-        taskId: { not: 't13' },
+        hookEventId: { in: ['e1', 'e2', 'e3'] },
       },
       data: { taskId: 't13' },
     })
