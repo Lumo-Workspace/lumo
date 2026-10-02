@@ -43,6 +43,20 @@ export const SWITCH_KINDS: ReadonlySet<SignalKind> = new Set<SignalKind>([
   'PROMPT',
 ])
 
+/** Hard cap on signals stored per event. */
+export const MAX_SIGNALS_PER_EVENT = 50
+/**
+ * A prompt naming more than this many distinct ids is a list / backlog paste,
+ * not evidence of the task being worked on: it yields no signals.
+ */
+export const MAX_PROMPT_IDENTIFIERS = 3
+
+/** Distinct ids of a prompt, or [] when it names too many to be evidence. */
+function promptIdentifiers(prompt: string): string[] {
+  const ids = matchAllTaskIdentifiers(prompt, MAX_PROMPT_IDENTIFIERS + 1)
+  return ids.length > MAX_PROMPT_IDENTIFIERS ? [] : ids
+}
+
 function field(payload: unknown, ...path: string[]): unknown {
   let cur: unknown = payload
   for (const k of path) {
@@ -114,7 +128,7 @@ export function extractAttributionSignals(
     if (type === 'USER_PROMPT_SUBMIT') {
       const prompt = str(field(payload, 'prompt'))
       if (prompt) {
-        for (const id of matchAllTaskIdentifiers(prompt)) {
+        for (const id of promptIdentifiers(prompt)) {
           out.push({ kind: 'PROMPT', identifier: id })
         }
       }
@@ -128,12 +142,12 @@ export function extractAttributionSignals(
       const agentId = str(field(payload, 'tool_response', 'agentId'))
       const prompt = str(field(payload, 'tool_input', 'prompt'))
       if (agentId && AGENT_ID_RE.test(agentId) && prompt) {
-        for (const id of matchAllTaskIdentifiers(prompt)) {
+        for (const id of promptIdentifiers(prompt)) {
           out.push({ kind: 'AGENT_PROMPT', identifier: id, agentId })
         }
       }
     }
-    return out
+    return out.slice(0, MAX_SIGNALS_PER_EVENT)
   } catch {
     return []
   }

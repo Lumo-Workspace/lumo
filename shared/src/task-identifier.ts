@@ -47,15 +47,21 @@ export function matchTaskIdentifier(text: string): string | null {
   return null
 }
 
-/** Every task identifier in `text`, de-duplicated, upper-cased, in order (LUM-932). */
-export function matchAllTaskIdentifiers(text: string): string[] {
+/**
+ * Every task identifier in `text`, de-duplicated, upper-cased, in order
+ * (LUM-932). Stops after `limit` distinct identifiers so a pasted backlog
+ * cannot make extraction unbounded.
+ */
+export function matchAllTaskIdentifiers(text: string, limit = 20): string[] {
   const re = new RegExp(TASK_IDENTIFIER_PATTERN, 'g')
-  const out: string[] = []
+  const seen = new Set<string>()
+  if (limit <= 0) return []
   for (const m of text.matchAll(re)) {
     const identifier = m[1]!.toUpperCase()
     const prefix = identifier.slice(0, identifier.lastIndexOf('-'))
-    if (NON_TASK_PREFIXES.has(prefix) || out.includes(identifier)) continue
-    out.push(identifier)
+    if (NON_TASK_PREFIXES.has(prefix) || seen.has(identifier)) continue
+    seen.add(identifier)
+    if (seen.size >= limit) break
   }
-  return out
+  return [...seen]
 }

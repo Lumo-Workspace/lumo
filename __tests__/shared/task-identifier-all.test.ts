@@ -8,3 +8,20 @@ describe('matchAllTaskIdentifiers', () => {
     expect(matchAllTaskIdentifiers('nothing here')).toEqual([])
   })
 })
+
+describe('matchAllTaskIdentifiers bounds', () => {
+  it('stops after 20 distinct identifiers by default, keeping order', () => {
+    const text = Array.from({ length: 30 }, (_, i) => `LUM-${i + 1}`).join(' ')
+    const out = matchAllTaskIdentifiers(text)
+    expect(out).toHaveLength(20)
+    expect(out[0]).toBe('LUM-1')
+    expect(out[19]).toBe('LUM-20')
+  })
+
+  it('honours an explicit limit and ignores duplicates when counting', () => {
+    expect(matchAllTaskIdentifiers('LUM-1 LUM-1 LUM-2 LUM-3', 2)).toEqual([
+      'LUM-1',
+      'LUM-2',
+    ])
+  })
+})
