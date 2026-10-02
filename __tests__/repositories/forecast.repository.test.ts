@@ -2,7 +2,11 @@
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     task: { findUnique: jest.fn(), findMany: jest.fn() },
-    hookEvent: { groupBy: jest.fn() },
+    // LUM-932 P3 inferred-usage query: no unattached work in these fixtures.
+    hookEvent: {
+      groupBy: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   },
 }))
 

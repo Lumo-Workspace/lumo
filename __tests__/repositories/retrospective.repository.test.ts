@@ -12,6 +12,7 @@ jest.mock('@/lib/db/prisma', () => ({
 
 import { prisma } from '@/lib/db/prisma'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
+import { inferredUsageEventsForTasks } from '@/lib/repositories/task-attribution-where'
 
 const snapFind = prisma.taskForecastSnapshot.findUnique as jest.Mock
 const snapCreate = prisma.taskForecastSnapshot.create as jest.Mock
@@ -440,8 +441,12 @@ describe('loadSessionTokenRowsForTasks', () => {
       },
     })
     // Lean by design: the delivery rollup needs no active time, so the
-    // hook-event stream is never fetched on this path.
-    expect(hookFind).not.toHaveBeenCalled()
+    // active-time hook-event stream is never fetched on this path — the only
+    // hook-event read is the LUM-932 P3 inferred-usage query (one, batched).
+    expect(hookFind).toHaveBeenCalledTimes(1)
+    expect(hookFind.mock.calls[0][0].where).toEqual(
+      inferredUsageEventsForTasks(['t1', 't2'])
+    )
   })
 
   it('short-circuits an empty task set without querying', async () => {

@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import type { ForecastInputs, ForecastCandidate } from '@/lib/forecast/types'
+import { inferredUsageForTasks } from '@/lib/repositories/inferred-usage.repository'
+import { usageMapTotal } from '@/lib/services/model-cost'
 
 export const forecastRepository = {
   /**
@@ -58,23 +60,40 @@ export const forecastRepository = {
     // attributed to the task (replaces the dead AGENT_CLARIFY notification
     // count). Bare-taskId grouping mirrors the prior aggregation; the per-task
     // actual (retrospective.repository) uses the exact session-fallback count.
-    const promptCounts = await prisma.hookEvent.groupBy({
-      by: ['taskId'],
-      where: {
-        taskId: { in: rows.map(r => r.id) },
-        type: 'USER_PROMPT_SUBMIT',
-      },
-      _count: { _all: true },
-    })
+    const candidateIds = rows.map(r => r.id)
+    const [promptCounts, inferred] = await Promise.all([
+      prisma.hookEvent.groupBy({
+        by: ['taskId'],
+        where: {
+          taskId: { in: candidateIds },
+          type: 'USER_PROMPT_SUBMIT',
+        },
+        _count: { _all: true },
+      }),
+      inferredUsageForTasks(candidateIds),
+    ])
     const interactionByTask = new Map<string, number>(
       promptCounts.map(c => [c.taskId as string, c._count._all])
     )
+    // LUM-932 P3 hybrid cost: unattached work's per-turn usage per candidate.
+    const inferredByTask = new Map<string, number>()
+    for (const r of inferred) {
+      inferredByTask.set(
+        r.taskId,
+        (inferredByTask.get(r.taskId) ?? 0) + usageMapTotal(r.usageByModel)
+      )
+    }
 
     const candidates: ForecastCandidate[] = rows.map(r => {
-      // A task has cost data only if at least one session carries usage.
-      const hasUsage = r.sessions.some(s => s.outputTokens !== null)
+      // A task has cost data only if at least one session carries usage or
+      // unattached work was attributed to it with per-turn usage.
+      const inferredTokens = inferredByTask.get(r.id)
+      const hasUsage =
+        r.sessions.some(s => s.outputTokens !== null) ||
+        inferredTokens !== undefined
       const tokenCost = hasUsage
-        ? r.sessions.reduce(
+        ? (inferredTokens ?? 0) +
+          r.sessions.reduce(
             (sum, s) =>
               sum +
               (s.inputTokens ?? 0) +

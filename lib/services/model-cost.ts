@@ -152,7 +152,8 @@ export function withInFlightCost(
     cacheRead: Math.max(0, cacheRead - attributed.cacheRead),
     cacheCreation: Math.max(0, cacheCreation - attributed.cacheCreation),
   }
-  const restTotal = rest.input + rest.output + rest.cacheRead + rest.cacheCreation
+  const restTotal =
+    rest.input + rest.output + rest.cacheRead + rest.cacheCreation
   if (restTotal > 0)
     rows.push({ model: IN_FLIGHT_MODEL, ...rest, total: restTotal })
   if (rows.length === 0) return byModel
@@ -197,4 +198,48 @@ export function mergeModelCosts(lists: (ModelCost[] | null)[]): ModelCost[] {
     }
   }
   return [...acc.values()].sort((a, b) => b.total - a.total)
+}
+
+/**
+ * Per-model sum of two usage maps (`a` may be null). Pure; never mutates its
+ * inputs. The one shared summing helper for `usageByModel` JSON maps.
+ */
+export function addUsageMaps(
+  a: Record<string, ModelUsage> | null,
+  b: Record<string, ModelUsage>
+): Record<string, ModelUsage> {
+  const out: Record<string, ModelUsage> = { ...(a ?? {}) }
+  for (const [model, u] of Object.entries(b)) {
+    const cur = out[model] ?? {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheCreation: 0,
+    }
+    out[model] = {
+      input: cur.input + num(u?.input),
+      output: cur.output + num(u?.output),
+      cacheRead: cur.cacheRead + num(u?.cacheRead),
+      cacheCreation: cur.cacheCreation + num(u?.cacheCreation),
+    }
+  }
+  return out
+}
+
+/** Per-kind totals across every model of a usage map (non-numbers → 0). */
+export function usageMapKindTotals(m: Record<string, ModelUsage>): ModelUsage {
+  const t = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }
+  for (const u of Object.values(m)) {
+    t.input += num(u?.input)
+    t.output += num(u?.output)
+    t.cacheRead += num(u?.cacheRead)
+    t.cacheCreation += num(u?.cacheCreation)
+  }
+  return t
+}
+
+/** Total tokens across every model and kind of a usage map. */
+export function usageMapTotal(m: Record<string, ModelUsage>): number {
+  const t = usageMapKindTotals(m)
+  return t.input + t.output + t.cacheRead + t.cacheCreation
 }

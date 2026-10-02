@@ -7,6 +7,7 @@ import {
 } from '@/lib/repositories/explicit-retag'
 import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
 import type { InjectedUsage } from '@/lib/session/subagent-usage'
+import { addUsageMaps, usageMapTotal } from '@/lib/services/model-cost'
 
 export interface ModelUsage {
   input: number
@@ -161,35 +162,6 @@ function isStewardBinding(row: {
   milestoneId: string | null
 }): boolean {
   return row.role === 'STEWARD' && row.milestoneId !== null
-}
-
-function addUsageMaps(
-  a: Record<string, ModelUsage> | null,
-  b: Record<string, ModelUsage>
-): Record<string, ModelUsage> {
-  const out: Record<string, ModelUsage> = { ...(a ?? {}) }
-  for (const [model, u] of Object.entries(b)) {
-    const cur = out[model] ?? {
-      input: 0,
-      output: 0,
-      cacheRead: 0,
-      cacheCreation: 0,
-    }
-    out[model] = {
-      input: cur.input + u.input,
-      output: cur.output + u.output,
-      cacheRead: cur.cacheRead + u.cacheRead,
-      cacheCreation: cur.cacheCreation + u.cacheCreation,
-    }
-  }
-  return out
-}
-
-function mapTotal(m: Record<string, ModelUsage>): number {
-  let t = 0
-  for (const u of Object.values(m))
-    t += u.input + u.output + u.cacheRead + u.cacheCreation
-  return t
 }
 
 /** Projection the task agent-run timeline reads per session (cost + header). */
@@ -389,7 +361,7 @@ export const sessionRepository = {
         (child.usageByModel as Record<string, ModelUsage> | null) ?? null,
         data.usage.byModel
       )
-      if (mapTotal(delta) === 0) return { settled: false }
+      if (usageMapTotal(delta) === 0) return { settled: false }
       const stopRow = await tx.hookEvent.findFirst({
         where: { sessionId: id, type: 'SUBAGENT_STOP' },
         orderBy: { createdAt: 'desc' },
