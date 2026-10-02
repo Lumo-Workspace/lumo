@@ -459,11 +459,11 @@ describe('sessionRepository.upsertWithTaskId', () => {
 })
 
 describe('sessionRepository.listForClerkUser', () => {
-  it('filters by member.clerkId, orders by lastActivityAt desc, selects display fields', async () => {
+  it('filters by member.clerkId and top-level sessions, orders by lastActivityAt desc, selects display fields', async () => {
     await sessionRepository.listForClerkUser('clerk_1')
 
     expect(findMany).toHaveBeenCalledWith({
-      where: { member: { clerkId: 'clerk_1' } },
+      where: { member: { clerkId: 'clerk_1' }, parentSessionId: null },
       orderBy: { lastActivityAt: 'desc' },
       take: 50,
       select: {
@@ -472,6 +472,7 @@ describe('sessionRepository.listForClerkUser', () => {
         startedAt: true,
         lastActivityAt: true,
         eventCount: true,
+        taskId: true,
       },
     })
   })
