@@ -257,7 +257,7 @@ export const sessionRepository = {
       // Conditional on taskId null so a concurrent own attach wins.
       if (child.taskId === null && parent.taskId) {
         const { count } = await tx.session.updateMany({
-          where: { id, taskId: null },
+          where: { id, taskId: null, role: 'IMPLEMENTATION' },
           data: { taskId: parent.taskId, bindingSource: 'INHERITED' },
         })
         if (count > 0) {

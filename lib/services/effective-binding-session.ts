@@ -22,7 +22,9 @@ export async function resolveEffectiveBindingSession(
     sessionId,
     memberId
   )
-  if (row?.task) return row
+  // A child with its own binding — a task, or a STEWARD milestone — is
+  // classified by itself, never overridden by its parent.
+  if (row?.task || (row?.role === 'STEWARD' && row.milestone)) return row
   const child = parseChildSessionId(sessionId)
   if (!child) return row
   const parent = await sessionRepository.findForMemberWithBinding(

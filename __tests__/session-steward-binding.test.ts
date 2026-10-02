@@ -195,6 +195,20 @@ describe('steward binding is a lifetime milestone lock', () => {
     )
   })
 
+  it('a subagent child session cannot become a STEWARD: 409, no write', async () => {
+    await expect(
+      sessionService.bindSessionToMilestone({
+        identity,
+        sessionId: 'sess_1:agent_9',
+        milestoneRef: 'agent-native milestones',
+      })
+    ).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining('subagent cannot become a STEWARD'),
+    })
+    expect(sessRepo.upsertWithMilestoneId).not.toHaveBeenCalled()
+  })
+
   it('steward-bound session: attaching ANY task is refused with 409', async () => {
     sessRepo.findForMemberWithBinding.mockResolvedValue(stewardRow as never)
     await expect(

@@ -339,6 +339,17 @@ export const sessionService = {
       throw Object.assign(new Error('Not a workspace member'), { status: 403 })
     }
 
+    // LUM-932: a subagent works under its main session's binding; it never
+    // becomes a steward itself.
+    if (parseChildSessionId(sessionId) !== null) {
+      throw Object.assign(
+        new Error(
+          'A subagent cannot become a STEWARD session — run `lumo session attach --steward` in the main session.'
+        ),
+        { status: 409 }
+      )
+    }
+
     const milestone = await resolveMilestoneInWorkspace(
       identity.workspace.id,
       milestoneRef

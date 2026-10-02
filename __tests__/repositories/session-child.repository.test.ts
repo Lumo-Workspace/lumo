@@ -126,7 +126,7 @@ describe('upsertChildForHookEvent — late parent binding', () => {
       cwd: null,
     })
     expect(tx.session.updateMany).toHaveBeenCalledWith({
-      where: { id: 'P:a1', taskId: null },
+      where: { id: 'P:a1', taskId: null, role: 'IMPLEMENTATION' },
       data: { taskId: 't1', bindingSource: 'INHERITED' },
     })
     expect(tx.hookEvent.updateMany).toHaveBeenCalledWith({

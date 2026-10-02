@@ -29,6 +29,29 @@ const boundTo = (
 beforeEach(() => jest.clearAllMocks())
 
 describe('classifyBinding', () => {
+  it('classifies a subagent that is STEWARD by its own binding as steward, not its unbound parent', async () => {
+    findBinding.mockImplementation(async (id: string) =>
+      id === 'p:a1'
+        ? {
+            id,
+            task: null,
+            role: 'STEWARD',
+            milestone: { id: 'ms1', name: 'M' },
+          }
+        : { id, task: null }
+    )
+    const r = await classifyBinding({
+      source: 'bearer',
+      sessionId: 'p:a1',
+      memberId: 'm1',
+      targetTaskId: 't1',
+    })
+    expect(r).toEqual({
+      kind: 'steward',
+      milestoneId: 'ms1',
+      milestoneName: 'M',
+    })
+  })
   it('skips the clerk (human web) path without any repo call — RED LINE', async () => {
     const r = await classifyBinding({
       source: 'clerk',

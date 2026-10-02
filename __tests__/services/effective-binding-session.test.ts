@@ -36,6 +36,19 @@ describe('resolveEffectiveBindingSession', () => {
     })
     expect(mockFind).toHaveBeenCalledTimes(1)
   })
+  it('keeps a child that is STEWARD by its own binding over an unbound parent', async () => {
+    const child = {
+      id: 'p:a1',
+      task: null,
+      role: 'STEWARD',
+      milestone: { id: 'ms1', name: 'M' },
+    }
+    mockFind.mockImplementation(async (id: string) =>
+      id === 'p:a1' ? child : { id, task: null }
+    )
+    expect(await resolveEffectiveBindingSession('p:a1', 'm')).toEqual(child)
+    expect(mockFind).toHaveBeenCalledTimes(1)
+  })
   it('keeps the child row when the parent is not readable for this member', async () => {
     mockFind.mockImplementation(async (id: string) =>
       id === 'p:a1' ? { id, task: null } : null
