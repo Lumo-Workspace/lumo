@@ -272,6 +272,10 @@ describe('findToolAttributionEvents', () => {
               'POST_TOOL_BATCH',
               'STOP',
               'STOP_FAILURE',
+              // LUM-932: a child session's settled usage lives on its
+              // SUBAGENT_STOP row; child events carry the task id, so the
+              // task scope folds subagent cost in.
+              'SUBAGENT_STOP',
             ],
           },
           OR: [{ taskId: 't1' }, { taskId: null, session: { taskId: 't1' } }],

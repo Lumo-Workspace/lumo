@@ -466,6 +466,9 @@ export const hookEventRepository = {
         'POST_TOOL_BATCH',
         'STOP',
         'STOP_FAILURE',
+        // LUM-932: subagent (child session) turns settle on SUBAGENT_STOP;
+        // the pure attribution ignores it on top-level sessions.
+        'SUBAGENT_STOP',
       ],
     }
     const where: Prisma.HookEventWhereInput =
