@@ -2,6 +2,7 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
+import { parseChildSessionId } from '@/lib/session/child-session-id'
 import { taskService } from '@/lib/services/task.service'
 import { taskContextService } from '@/lib/services/task-context.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
@@ -163,6 +164,43 @@ export const sessionService = {
       )
     }
 
+    // LUM-932: a subagent (child session) may bind on its own only while its
+    // parent has not bound the whole session; under a bound parent it may only
+    // re-state the parent's task. A STEWARD parent never implements.
+    const child = parseChildSessionId(sessionId)
+    if (child) {
+      const parent = await sessionRepository.findForMemberWithBinding(
+        child.parentSessionId,
+        memberId
+      )
+      if (parent?.role === 'STEWARD' && parent.milestone) {
+        throw Object.assign(
+          new Error(
+            `This subagent belongs to a STEWARD session for milestone "${parent.milestone.name}" — it cannot attach a task.`
+          ),
+          {
+            status: 409,
+            currentMilestoneId: parent.milestone.id,
+            currentMilestoneName: parent.milestone.name,
+            sessionRole: 'STEWARD',
+          }
+        )
+      }
+      if (parent?.task && parent.task.id !== task.id) {
+        const currentTaskIdentifier = `${parent.task.team.identifier}-${parent.task.number}`
+        throw Object.assign(
+          new Error(
+            `The parent session is bound to ${currentTaskIdentifier} for the whole session — this subagent's work already belongs to it`
+          ),
+          {
+            status: 409,
+            currentTaskIdentifier,
+            currentTaskTitle: parent.task.title,
+          }
+        )
+      }
+    }
+
     // Hard lock (LUM-459): a session's taskId is write-once. If it is already
     // bound to a *different* task, refuse permanently — no force, no prompt.
     // Member-scoped read: a session owned by another member reads back null
@@ -208,6 +246,9 @@ export const sessionService = {
       workspaceId: identity.workspace.id,
       workspaceMemberId: memberId,
       taskId: task.id,
+      ...(child
+        ? { parentSessionId: child.parentSessionId, agentId: child.agentId }
+        : {}),
       now: new Date(),
     })
     if (upserted.ownedByOther) {
@@ -221,6 +262,12 @@ export const sessionService = {
         sessionId,
         task.id
       )
+
+    // LUM-932: binding the parent binds the whole session — children with no
+    // explicit binding of their own inherit it.
+    const inherited = child
+      ? { retaggedEventCount: 0 }
+      : await sessionRepository.inheritTaskToUnboundChildren(sessionId, task.id)
 
     const [
       memorySection,
@@ -259,7 +306,7 @@ export const sessionService = {
       taskId: task.id,
       taskIdentifier: task.identifier,
       taskTitle: task.title,
-      retaggedEventCount: count,
+      retaggedEventCount: count + inherited.retaggedEventCount,
       memorySection,
       criteriaSection,
       testCaseSection,

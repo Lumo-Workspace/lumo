@@ -20,6 +20,7 @@ jest.mock('@/lib/repositories/test-case.repository', () => ({
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
     upsertWithTaskId: jest.fn(),
+    inheritTaskToUnboundChildren: jest.fn(),
     upsertWithMilestoneId: jest.fn(),
     findForMemberWithBinding: jest.fn(),
   },
@@ -136,6 +137,10 @@ const taskBoundRow = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  sessRepo.inheritTaskToUnboundChildren.mockResolvedValue({
+    childCount: 0,
+    retaggedEventCount: 0,
+  })
   misc.findMemberIdForHook.mockResolvedValue('wm_1')
   tasks.resolveIdentifier.mockResolvedValue({
     id: 'task_2',

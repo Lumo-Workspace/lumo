@@ -64,7 +64,9 @@ export function operationLabel(
 }
 
 const TOOL_TYPES = new Set(['POST_TOOL_USE', 'POST_TOOL_USE_FAILURE'])
-const STOP_TYPES = new Set(['STOP', 'STOP_FAILURE'])
+// SUBAGENT_STOP closes a child session's "turn" (LUM-932): subagents emit no
+// STOP, and their settled usage delta lives on their SUBAGENT_STOP row.
+const STOP_TYPES = new Set(['STOP', 'STOP_FAILURE', 'SUBAGENT_STOP'])
 
 type Acc = Map<string, OperationCostRow>
 
