@@ -1,4 +1,5 @@
 import { trimTrailingSlash } from './api'
+import { resolveSessionId } from './session-id'
 
 /**
  * The task identifier (LUM-N) the current Claude Code session is bound to, or
@@ -9,7 +10,7 @@ export async function resolveBoundTaskIdentifier(
   apiUrl: string,
   token: string
 ): Promise<string | null> {
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: false })
   if (!sessionId) return null
   const url = `${trimTrailingSlash(apiUrl)}/api/sessions/${encodeURIComponent(sessionId)}`
   let res: Response

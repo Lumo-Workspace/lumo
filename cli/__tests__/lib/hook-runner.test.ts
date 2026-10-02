@@ -1,4 +1,4 @@
-import { writeFileSync, mkdtempSync } from 'node:fs'
+import { writeFileSync, mkdtempSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { augmentBodyWithUsage } from '../../src/lib/hook-runner'
@@ -199,5 +199,91 @@ describe('augmentBodyWithUsage', () => {
       },
     })
     expect(result._lumo_usage.inputTokens).toBe(130)
+  })
+})
+
+describe('augmentBodyWithUsage bySubagent', () => {
+  it('keeps totals inclusive and adds one cumulative entry per subagent file', () => {
+    const main = writeTranscript([
+      {
+        type: 'assistant',
+        message: {
+          model: 'opus',
+          usage: { input_tokens: 200, output_tokens: 20 },
+        },
+      },
+    ])
+    const subDir = join(main.slice(0, -'.jsonl'.length), 'subagents')
+    mkdirSync(subDir, { recursive: true })
+    writeFileSync(
+      join(subDir, 'agent-abeaba01ea909a7ee.jsonl'),
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          model: 'sonnet',
+          usage: { input_tokens: 100, output_tokens: 10 },
+        },
+      })
+    )
+    const out = JSON.parse(
+      augmentBodyWithUsage('stop', JSON.stringify({ transcript_path: main }))
+    )
+    expect(out._lumo_usage.inputTokens).toBe(300)
+    expect(out._lumo_usage.bySubagent).toEqual({
+      abeaba01ea909a7ee: {
+        inputTokens: 100,
+        outputTokens: 10,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        byModel: {
+          sonnet: { input: 100, output: 10, cacheRead: 0, cacheCreation: 0 },
+        },
+      },
+    })
+  })
+
+  it('omits bySubagent when there are no subagent transcripts', () => {
+    const main = writeTranscript([
+      {
+        type: 'assistant',
+        message: {
+          model: 'opus',
+          usage: { input_tokens: 1, output_tokens: 1 },
+        },
+      },
+    ])
+    const out = JSON.parse(
+      augmentBodyWithUsage('stop', JSON.stringify({ transcript_path: main }))
+    )
+    expect(out._lumo_usage).not.toHaveProperty('bySubagent')
+  })
+
+  it('skips subagent files whose id would be rejected by the server', () => {
+    const main = writeTranscript([
+      {
+        type: 'assistant',
+        message: {
+          model: 'opus',
+          usage: { input_tokens: 5, output_tokens: 1 },
+        },
+      },
+    ])
+    const subDir = join(main.slice(0, -'.jsonl'.length), 'subagents')
+    mkdirSync(subDir, { recursive: true })
+    const line = JSON.stringify({
+      type: 'assistant',
+      message: {
+        model: 'sonnet',
+        usage: { input_tokens: 7, output_tokens: 1 },
+      },
+    })
+    writeFileSync(join(subDir, 'agent-good_id-1.jsonl'), line)
+    writeFileSync(join(subDir, 'agent-bad id!.jsonl'), line)
+    const out = JSON.parse(
+      augmentBodyWithUsage('stop', JSON.stringify({ transcript_path: main }))
+    )
+    expect(Object.keys(out._lumo_usage.bySubagent)).toEqual(['good_id-1'])
+    // inclusive totals still count both files
+    expect(out._lumo_usage.inputTokens).toBe(19)
   })
 })

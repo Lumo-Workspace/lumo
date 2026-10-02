@@ -4,6 +4,7 @@ import { readFileUtf8, unreadableFileMessage } from '../lib/doc-input'
 import { checkArtifactFilePath } from '../lib/path-guard'
 import { sanitizeField } from '../lib/sanitize'
 import { formatCriteriaRows, type CriterionRow } from './task-criteria-list'
+import { resolveSessionId } from '../lib/session-id'
 
 type SubmittedItem = {
   statement: string
@@ -169,7 +170,7 @@ export async function taskCriteriaSet(
   }
   // Session provenance for HUMAN_EDIT transcriptions — the server records the
   // revision (with this session id) as a task comment.
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
   // LUM-437: when a contract already exists, preserve criterion identity across

@@ -14,6 +14,7 @@ import {
   type CrossingForDisposition,
 } from '../lib/crossing-handshake'
 import { crossingDispositionBatch } from './crossing-disposition-batch'
+import { resolveSessionId } from '../lib/session-id'
 
 export type { CrossingDispositionTarget, CrossingForDisposition }
 
@@ -240,7 +241,7 @@ export async function crossingDisposition(
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,
   }
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
   const bound = await resolveBoundTask({

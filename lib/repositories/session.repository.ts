@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma, TaskArtifactAgent } from '@prisma/client'
+import { buildChildSessionId } from '@/lib/session/child-session-id'
+import type { InjectedUsage } from '@/lib/session/subagent-usage'
 
 export interface ModelUsage {
   input: number
@@ -100,6 +102,9 @@ interface UpsertWithTaskIdData {
   workspaceMemberId: string
   taskId: string
   now: Date
+  /** LUM-932: set when `id` is a child session (`<parent>:<agentId>`). */
+  parentSessionId?: string
+  agentId?: string
 }
 
 interface UpsertWithMilestoneIdData {
@@ -110,7 +115,275 @@ interface UpsertWithMilestoneIdData {
   now: Date
 }
 
+/** Ensure the parent row exists (FK target) without counting an event on it. */
+async function ensureParentRow(
+  tx: Prisma.TransactionClient,
+  data: {
+    parentSessionId: string
+    workspaceId: string
+    workspaceMemberId: string
+    now: Date
+  }
+): Promise<{ id: string; taskId: string | null }> {
+  // Single upsert (not find-then-create) so two concurrent subagent events for
+  // a brand-new parent cannot race into a P2002 that aborts the transaction.
+  return tx.session.upsert({
+    where: { id: data.parentSessionId },
+    create: {
+      id: data.parentSessionId,
+      workspaceId: data.workspaceId,
+      workspaceMemberId: data.workspaceMemberId,
+      startedAt: data.now,
+      lastActivityAt: data.now,
+      eventCount: 0,
+    },
+    update: {},
+    select: { id: true, taskId: true },
+  })
+}
+
+function addUsageMaps(
+  a: Record<string, ModelUsage> | null,
+  b: Record<string, ModelUsage>
+): Record<string, ModelUsage> {
+  const out: Record<string, ModelUsage> = { ...(a ?? {}) }
+  for (const [model, u] of Object.entries(b)) {
+    const cur = out[model] ?? {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheCreation: 0,
+    }
+    out[model] = {
+      input: cur.input + u.input,
+      output: cur.output + u.output,
+      cacheRead: cur.cacheRead + u.cacheRead,
+      cacheCreation: cur.cacheCreation + u.cacheCreation,
+    }
+  }
+  return out
+}
+
+function mapTotal(m: Record<string, ModelUsage>): number {
+  let t = 0
+  for (const u of Object.values(m))
+    t += u.input + u.output + u.cacheRead + u.cacheCreation
+  return t
+}
+
+/** Projection the task agent-run timeline reads per session (cost + header). */
+const TIMELINE_SESSION_SELECT = {
+  id: true,
+  agent: true,
+  workspaceMemberId: true,
+  // clerkId feeds the per-person token rollup (LUM-307); resolved to a
+  // display name + avatar in the service via enrichClerkUsers.
+  member: { select: { clerkId: true } },
+  startedAt: true,
+  lastActivityAt: true,
+  eventCount: true,
+  summary: true,
+  summaryType: true,
+  summaryGeneratedAt: true,
+  runSummary: true,
+  usageByModel: true,
+  // Flat cumulative columns: mid-turn events update these but not
+  // usageByModel, so the timeline derives the in-flight burn from the
+  // difference (LUM-345); liveUsageByModel attributes it per model.
+  liveUsageByModel: true,
+  inputTokens: true,
+  outputTokens: true,
+  cacheReadTokens: true,
+  cacheCreationTokens: true,
+  loopCount: true,
+} satisfies Prisma.SessionSelect
+
 export const sessionRepository = {
+  /** LUM-932: ids of a session's subagent child sessions. */
+  async listChildIds(parentSessionId: string): Promise<string[]> {
+    const rows = await prisma.session.findMany({
+      where: { parentSessionId },
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
+  /**
+   * LUM-932: upsert a subagent's child session for one hook event. The child
+   * inherits the parent's explicit binding on creation (bindingSource
+   * INHERITED); a later parent attach is handled by inheritTaskToUnboundChildren.
+   * Usage is never written here — a subagent event's `_lumo_usage` is computed
+   * from the PARENT transcript and is settled via settleChildUsage instead.
+   */
+  async upsertChildForHookEvent(data: {
+    parentSessionId: string
+    agentId: string
+    agentType: string | null
+    workspaceId: string
+    workspaceMemberId: string
+    cwd: string | null
+    agent?: TaskArtifactAgent
+    now: Date
+  }): Promise<{ id: string; taskId: string | null }> {
+    const id = buildChildSessionId(data.parentSessionId, data.agentId)
+    return prisma.$transaction(async tx => {
+      const parent = await ensureParentRow(tx, data)
+      const child = await tx.session.upsert({
+        where: { id },
+        create: {
+          id,
+          workspaceId: data.workspaceId,
+          workspaceMemberId: data.workspaceMemberId,
+          parentSessionId: data.parentSessionId,
+          agentId: data.agentId,
+          agentType: data.agentType,
+          cwd: data.cwd,
+          taskId: parent.taskId,
+          bindingSource: parent.taskId ? 'INHERITED' : null,
+          ...(data.agent !== undefined ? { agent: data.agent } : {}),
+          startedAt: data.now,
+          lastActivityAt: data.now,
+          eventCount: 1,
+        },
+        update: {
+          lastActivityAt: data.now,
+          eventCount: { increment: 1 },
+          ...(data.cwd !== null ? { cwd: data.cwd } : {}),
+        },
+        select: { id: true, taskId: true },
+      })
+      // An existing unbound child under a parent that has bound since (a
+      // parent attach racing this child's earlier creation) inherits now.
+      // Conditional on taskId null so a concurrent own attach wins.
+      if (child.taskId === null && parent.taskId) {
+        const { count } = await tx.session.updateMany({
+          where: { id, taskId: null, role: 'IMPLEMENTATION' },
+          data: { taskId: parent.taskId, bindingSource: 'INHERITED' },
+        })
+        if (count > 0) {
+          await tx.hookEvent.updateMany({
+            where: { sessionId: id, taskId: null },
+            data: { taskId: parent.taskId },
+          })
+          return { id, taskId: parent.taskId }
+        }
+      }
+      return child
+    })
+  },
+
+  /**
+   * LUM-932: a parent attach binds the whole session — every child session
+   * that has no explicit binding of its own inherits the task, and their
+   * untagged events are retagged. Already-bound children keep their task.
+   */
+  async inheritTaskToUnboundChildren(
+    parentSessionId: string,
+    taskId: string
+  ): Promise<{ childCount: number; retaggedEventCount: number }> {
+    return prisma.$transaction(async tx => {
+      const children = await tx.session.findMany({
+        where: { parentSessionId, taskId: null },
+        select: { id: true },
+      })
+      if (children.length === 0) return { childCount: 0, retaggedEventCount: 0 }
+      const ids = children.map(c => c.id)
+      await tx.session.updateMany({
+        where: { id: { in: ids } },
+        data: { taskId, bindingSource: 'INHERITED' },
+      })
+      const { count } = await tx.hookEvent.updateMany({
+        where: { sessionId: { in: ids }, taskId: null },
+        data: { taskId },
+      })
+      return { childCount: ids.length, retaggedEventCount: count }
+    })
+  },
+
+  /**
+   * LUM-932: settle one subagent's cumulative usage (from the parent STOP's
+   * `_lumo_usage.bySubagent`) onto its child session. The per-call delta is
+   * ADDED onto the child's latest SUBAGENT_STOP row so operation cost
+   * (lib/agent-run/operation-cost.ts) can attribute it to the subagent's
+   * tools; the cumulative columns are then overwritten. Same cumulative twice
+   * -> zero delta -> no write (idempotent across resume). No SUBAGENT_STOP yet
+   * (subagent still running) -> defer, so the delta is caught on a later STOP.
+   */
+  async settleChildUsage(data: {
+    parentSessionId: string
+    agentId: string
+    workspaceId: string
+    workspaceMemberId: string
+    usage: InjectedUsage
+    now: Date
+  }): Promise<{ settled: boolean }> {
+    const id = buildChildSessionId(data.parentSessionId, data.agentId)
+    return prisma.$transaction(async tx => {
+      const childSelect = {
+        id: true,
+        taskId: true,
+        usageByModel: true,
+      } as const
+      // Common case: the child row exists (its hook events created it), so
+      // skip the parent upsert. Only a brand-new child needs its FK target.
+      let child = await tx.session.findUnique({
+        where: { id },
+        select: childSelect,
+      })
+      if (!child) {
+        const parent = await ensureParentRow(tx, data)
+        child = await tx.session.upsert({
+          where: { id },
+          create: {
+            id,
+            workspaceId: data.workspaceId,
+            workspaceMemberId: data.workspaceMemberId,
+            parentSessionId: data.parentSessionId,
+            agentId: data.agentId,
+            taskId: parent.taskId,
+            bindingSource: parent.taskId ? 'INHERITED' : null,
+            startedAt: data.now,
+            lastActivityAt: data.now,
+            eventCount: 0,
+          },
+          update: {},
+          select: childSelect,
+        })
+      }
+      const delta = diffUsageByModel(
+        (child.usageByModel as Record<string, ModelUsage> | null) ?? null,
+        data.usage.byModel
+      )
+      if (mapTotal(delta) === 0) return { settled: false }
+      const stopRow = await tx.hookEvent.findFirst({
+        where: { sessionId: id, type: 'SUBAGENT_STOP' },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, usageByModel: true },
+      })
+      if (!stopRow) return { settled: false }
+      await tx.hookEvent.update({
+        where: { id: stopRow.id },
+        data: {
+          usageByModel: addUsageMaps(
+            (stopRow.usageByModel as Record<string, ModelUsage> | null) ?? null,
+            delta
+          ) as unknown as Prisma.InputJsonValue,
+        },
+      })
+      await tx.session.update({
+        where: { id },
+        data: {
+          inputTokens: data.usage.inputTokens,
+          outputTokens: data.usage.outputTokens,
+          cacheReadTokens: data.usage.cacheReadTokens,
+          cacheCreationTokens: data.usage.cacheCreationTokens,
+          usageByModel: data.usage.byModel as unknown as Prisma.InputJsonValue,
+        },
+      })
+      return { settled: true }
+    })
+  },
+
   /**
    * Idempotent per hook event: create the session on first touch, otherwise
    * bump lastActivityAt and eventCount. cwd is backfilled if the first event
@@ -268,6 +541,14 @@ export const sessionRepository = {
     | { ownedByOther: false; session: { id: string; taskId: string | null } }
   > {
     return prisma.$transaction(async tx => {
+      if (data.parentSessionId) {
+        await ensureParentRow(tx, {
+          parentSessionId: data.parentSessionId,
+          workspaceId: data.workspaceId,
+          workspaceMemberId: data.workspaceMemberId,
+          now: data.now,
+        })
+      }
       const existing = await tx.session.findUnique({
         where: { id: data.id },
         select: { workspaceMemberId: true },
@@ -278,7 +559,16 @@ export const sessionRepository = {
         }
         const updated = await tx.session.update({
           where: { id: data.id },
-          data: { taskId: data.taskId },
+          data: {
+            taskId: data.taskId,
+            bindingSource: 'ATTACH',
+            ...(data.parentSessionId
+              ? {
+                  parentSessionId: data.parentSessionId,
+                  agentId: data.agentId ?? null,
+                }
+              : {}),
+          },
           select: { id: true, taskId: true },
         })
         return { ownedByOther: false, session: updated } as const
@@ -289,6 +579,13 @@ export const sessionRepository = {
           workspaceId: data.workspaceId,
           workspaceMemberId: data.workspaceMemberId,
           taskId: data.taskId,
+          bindingSource: 'ATTACH',
+          ...(data.parentSessionId
+            ? {
+                parentSessionId: data.parentSessionId,
+                agentId: data.agentId ?? null,
+              }
+            : {}),
           startedAt: data.now,
           lastActivityAt: data.now,
           eventCount: 0,
@@ -580,34 +877,36 @@ export const sessionRepository = {
    */
   async listForTask(taskId: string, limit = 20) {
     return prisma.session.findMany({
-      where: { taskId },
+      where: { taskId, parentSessionId: null },
       orderBy: { lastActivityAt: 'desc' },
       take: limit,
-      select: {
-        id: true,
-        agent: true,
-        workspaceMemberId: true,
-        // clerkId feeds the per-person token rollup (LUM-307); resolved to a
-        // display name + avatar in the service via enrichClerkUsers.
-        member: { select: { clerkId: true } },
-        startedAt: true,
-        lastActivityAt: true,
-        eventCount: true,
-        summary: true,
-        summaryType: true,
-        summaryGeneratedAt: true,
-        runSummary: true,
-        usageByModel: true,
-        // Flat cumulative columns: mid-turn events update these but not
-        // usageByModel, so the timeline derives the in-flight burn from the
-        // difference (LUM-345); liveUsageByModel attributes it per model.
-        liveUsageByModel: true,
-        inputTokens: true,
-        outputTokens: true,
-        cacheReadTokens: true,
-        cacheCreationTokens: true,
-        loopCount: true,
-      },
+      select: TIMELINE_SESSION_SELECT,
+    })
+  },
+
+  /**
+   * LUM-932 (spec §8): subagent child sessions whose work belongs to this task
+   * (inherited from a bound parent, or attached on their own). Same projection
+   * as {@link listForTask} so the timeline folds their cost into the parent
+   * run the same way it computes a parent's.
+   */
+  async listChildrenForTask(taskId: string) {
+    return prisma.session.findMany({
+      where: { taskId, parentSessionId: { not: null } },
+      select: { ...TIMELINE_SESSION_SELECT, parentSessionId: true },
+    })
+  },
+
+  /**
+   * LUM-932: timeline rows for parent sessions that host a child's work on a
+   * task without being bound to it themselves (a subagent attached its own
+   * task under an unbound parent).
+   */
+  async listTimelineRowsByIds(ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.session.findMany({
+      where: { id: { in: ids } },
+      select: TIMELINE_SESSION_SELECT,
     })
   },
 
@@ -646,7 +945,7 @@ export const sessionRepository = {
 
   async listForMember(workspaceMemberId: string, limit = 50) {
     return prisma.session.findMany({
-      where: { workspaceMemberId },
+      where: { workspaceMemberId, parentSessionId: null },
       orderBy: { lastActivityAt: 'desc' },
       take: limit,
       select: {
@@ -787,7 +1086,7 @@ export const sessionRepository = {
    */
   async listForTaskMissingRunSummary(taskId: string): Promise<string[]> {
     const rows = await prisma.session.findMany({
-      where: { taskId, runSummary: null },
+      where: { taskId, runSummary: null, parentSessionId: null },
       orderBy: { lastActivityAt: 'desc' },
       select: { id: true },
     })

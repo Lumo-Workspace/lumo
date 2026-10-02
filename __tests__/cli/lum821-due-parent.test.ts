@@ -19,6 +19,11 @@ jest.mock('@/cli/src/lib/config', () => ({
   })),
 }))
 
+jest.mock('../../cli/src/lib/session-id', () => ({
+  resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
+  AmbiguousSessionError: class extends Error {},
+}))
+
 import { buildUpdatePayload, taskUpdate } from '@/cli/src/commands/task-update'
 import { taskCreate } from '@/cli/src/commands/task-create'
 import { formatTaskShow } from '@/cli/src/commands/task-show'

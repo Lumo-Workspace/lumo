@@ -8,6 +8,7 @@ import {
   formatExitCriteriaRows,
   type ExitCriterionRow,
 } from './milestone-criteria-list'
+import { resolveSessionId } from '../lib/session-id'
 
 const REFERENT_KINDS = [
   'EXTERNAL_FACT',
@@ -134,7 +135,7 @@ export async function milestoneCriteriaSet(
     'Content-Type': 'application/json',
   }
   // Steward/session provenance (LUM-640) — recorded on each drafted row.
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
   let res: Response

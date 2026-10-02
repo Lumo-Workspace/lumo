@@ -5,6 +5,13 @@ import type { ModelUsage } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 import { classifyBashPayload } from '@/lib/agent-run/bash-category'
+import {
+  parseInjectedUsage,
+  splitSubagentUsage,
+  type InjectedUsage,
+} from '@/lib/session/subagent-usage'
+import { logger } from '@/lib/logger'
+import { AGENT_ID_RE } from '@/lib/session/child-session-id'
 
 interface RecordHookEventInput {
   identity: VerifyApiKeyResult
@@ -17,44 +24,6 @@ interface RecordHookEventInput {
    * (CLAUDE_CODE) then applies.
    */
   agent?: TaskArtifactAgent
-}
-
-interface InjectedUsage {
-  inputTokens: number
-  outputTokens: number
-  cacheReadTokens: number
-  cacheCreationTokens: number
-  byModel: Record<string, ModelUsage>
-}
-
-function extractInjectedUsage(payload: unknown): InjectedUsage | null {
-  if (!payload || typeof payload !== 'object') return null
-  const u = (payload as Record<string, unknown>)['_lumo_usage']
-  if (!u || typeof u !== 'object') return null
-  const o = u as Record<string, unknown>
-  const num = (v: unknown) =>
-    typeof v === 'number' && Number.isFinite(v) ? v : 0
-  const byModel: Record<string, ModelUsage> = {}
-  const raw = o['byModel']
-  if (raw && typeof raw === 'object') {
-    for (const [model, mv] of Object.entries(raw as Record<string, unknown>)) {
-      if (!mv || typeof mv !== 'object') continue
-      const m = mv as Record<string, unknown>
-      byModel[model] = {
-        input: num(m['input']),
-        output: num(m['output']),
-        cacheRead: num(m['cacheRead']),
-        cacheCreation: num(m['cacheCreation']),
-      }
-    }
-  }
-  return {
-    inputTokens: num(o.inputTokens),
-    outputTokens: num(o.outputTokens),
-    cacheReadTokens: num(o.cacheReadTokens),
-    cacheCreationTokens: num(o.cacheCreationTokens),
-    byModel,
-  }
 }
 
 function extractStringField(payload: unknown, field: string): string | null {
@@ -133,14 +102,42 @@ export const hookEventService = {
     // liveUsageByModel and returns a per-STEP delta (LUM-523) stored on this
     // HookEvent row's usageByModel; the Session.usageByModel STOP anchor that
     // the per-turn-delta diff settles against stays untouched.
-    const usage =
-      isStop || type === 'POST_TOOL_BATCH'
-        ? extractInjectedUsage(payload)
-        : null
+    // An agent_id that cannot form a child session id is treated as absent —
+    // the event stays on the parent rather than failing the hook.
+    const rawAgentId = extractStringField(payload, 'agent_id')
+    const agentId =
+      rawAgentId !== null && AGENT_ID_RE.test(rawAgentId) ? rawAgentId : null
+    const agentType = extractStringField(payload, 'agent_type')
 
+    let recordedSessionId: string | null = sessionId
     let taskId: string | null = null
     let turnUsageByModel: Record<string, ModelUsage> | null = null
-    if (sessionId) {
+    let childUsageToSettle: [string, InjectedUsage][] = []
+    if (sessionId && agentId) {
+      // LUM-932: an event emitted inside a subagent lands on its child
+      // session. Its `_lumo_usage` (if any) was computed from the PARENT
+      // transcript, so it is ignored here — subagent usage is settled from
+      // the parent STOP's `bySubagent` below.
+      const child = await sessionRepository.upsertChildForHookEvent({
+        parentSessionId: sessionId,
+        agentId,
+        agentType,
+        workspaceId: identity.workspace.id,
+        workspaceMemberId: memberId,
+        cwd,
+        ...(agent !== undefined ? { agent } : {}),
+        now: new Date(),
+      })
+      recordedSessionId = child.id
+      taskId = child.taskId
+    } else if (sessionId) {
+      const injected =
+        isStop || type === 'POST_TOOL_BATCH'
+          ? parseInjectedUsage(payload)
+          : null
+      // LUM-932: the CLI's totals include subagent transcripts; the parent
+      // keeps only its own share so nothing is counted twice.
+      const split = injected ? splitSubagentUsage(injected) : null
       const session = await sessionRepository.upsertForHookEvent({
         id: sessionId,
         workspaceId: identity.workspace.id,
@@ -148,11 +145,14 @@ export const hookEventService = {
         cwd,
         ...(agent !== undefined ? { agent } : {}),
         now: new Date(),
-        usage,
+        usage: split ? split.main : null,
         isStop,
       })
       taskId = session.taskId
       turnUsageByModel = session.turnUsageByModel
+      if (isStop && split) {
+        childUsageToSettle = Object.entries(split.bySubagent)
+      }
     }
 
     const toolName = extractStringField(payload, 'tool_name')
@@ -161,7 +161,7 @@ export const hookEventService = {
     const created = await hookEventRepository.createHookEvent({
       workspaceId: identity.workspace.id,
       workspaceMemberId: memberId,
-      sessionId,
+      sessionId: recordedSessionId,
       taskId,
       type,
       toolName,
@@ -175,9 +175,38 @@ export const hookEventService = {
           : null,
     })
 
+    // LUM-932: settle each subagent's usage onto its child session AFTER the
+    // STOP event is recorded — best-effort, so one failed settlement never
+    // blocks the STOP row, the other settlements, or the hook response.
+    if (sessionId) {
+      for (const [subAgentId, subUsage] of childUsageToSettle) {
+        try {
+          await sessionRepository.settleChildUsage({
+            parentSessionId: sessionId,
+            agentId: subAgentId,
+            workspaceId: identity.workspace.id,
+            workspaceMemberId: memberId,
+            usage: subUsage,
+            now: new Date(),
+          })
+        } catch (error) {
+          logger.error(
+            'hookEventService.recordHookEvent settleChildUsage error:',
+            error
+          )
+        }
+      }
+    }
+
     // Surface the validated sessionId/taskId plus the extracted toolName/filePath
     // so per-event side effects (Stop → Layer 1 memory extraction, PreToolUse →
     // collision check) can act without re-deriving them from the raw payload.
-    return { id: created.id, sessionId, taskId, toolName, filePath }
+    return {
+      id: created.id,
+      sessionId: recordedSessionId,
+      taskId,
+      toolName,
+      filePath,
+    }
   },
 }

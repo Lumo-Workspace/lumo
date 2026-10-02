@@ -48,6 +48,11 @@ jest.mock('@/cli/src/lib/worktree', () => ({
   findWorktreesByTaskId: jest.fn((entries: unknown[]) => entries.slice(0, 1)),
 }))
 
+jest.mock('../../cli/src/lib/session-id', () => ({
+  resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
+  AmbiguousSessionError: class extends Error {},
+}))
+
 import { taskDepsRm } from '@/cli/src/commands/task-deps'
 import { taskArtifactRm } from '@/cli/src/commands/task-artifact-rm'
 import { memoryRm } from '@/cli/src/commands/memory-rm'

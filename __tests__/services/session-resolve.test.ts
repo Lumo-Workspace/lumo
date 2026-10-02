@@ -1,0 +1,268 @@
+/**
+ * @jest-environment node
+ *
+ * LUM-932 acceptance #3: inside a subagent, lumo commands resolve to the
+ * subagent's child session by matching its own pending PreToolUse event —
+ * no command rewrite, so permission behavior is untouched.
+ */
+jest.mock('@/lib/repositories/hook-event.repository', () => ({
+  hookEventRepository: { findRecentBashToolEventsInSessions: jest.fn() },
+}))
+jest.mock('@/lib/repositories/session.repository', () => ({
+  sessionRepository: {
+    findForMemberWithBinding: jest.fn(),
+    listChildIds: jest.fn(),
+  },
+}))
+jest.mock('@/lib/repositories/misc.repository', () => ({
+  miscRepository: { findMemberIdForHook: jest.fn(async () => 'wm_1') },
+}))
+
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { sessionRepository } from '@/lib/repositories/session.repository'
+import {
+  hasPendingChildBash,
+  matchPendingLumoCommand,
+} from '@/lib/session/resolve-caller'
+import { sessionResolveService } from '@/lib/services/session-resolve.service'
+
+const hooks = hookEventRepository as jest.Mocked<typeof hookEventRepository>
+const sess = sessionRepository as jest.Mocked<typeof sessionRepository>
+const identity = {
+  user: { id: 'clerk_1', email: 'a@b.c', name: 'A' },
+  workspace: { id: 'ws_1', slug: 'ws', name: 'WS' },
+  apiKey: { id: 'key_1', name: 'laptop', prefix: 'lum_abc' },
+}
+const P = 'd59fb7f9-1244-45c5-a9ae-35797dbcfc3b'
+const A = `${P}:abeaba01ea909a7ee`
+const B = `${P}:a548c414f786c5ff7`
+const now = new Date('2026-10-02T10:00:00Z')
+const pre = (sessionId: string, id: string, command: string, ago = 1) => ({
+  sessionId,
+  type: 'PRE_TOOL_USE' as const,
+  createdAt: new Date(now.getTime() - ago * 1000),
+  payload: { tool_use_id: id, tool_input: { command } },
+})
+const post = (sessionId: string, id: string) => ({
+  sessionId,
+  type: 'POST_TOOL_USE' as const,
+  createdAt: now,
+  payload: { tool_use_id: id },
+})
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  sess.findForMemberWithBinding.mockResolvedValue({ id: P } as never)
+  sess.listChildIds.mockResolvedValue([A, B])
+})
+
+describe('subagent lumo commands resolve to the child session without changing permissions', () => {
+  it('matches the single pending lumo command by argv tokens in order', () => {
+    const r = matchPendingLumoCommand(
+      [
+        pre(A, 't1', 'cd /repo && lumo verify LUM-12 --note "all green"'),
+        pre(B, 't2', 'lumo task status LUM-13'),
+      ],
+      ['verify', 'LUM-12', '--note', 'all green']
+    )
+    expect(r).toEqual({ kind: 'one', sessionId: A })
+  })
+
+  it('ignores commands that already finished and non-lumo commands', () => {
+    const r = matchPendingLumoCommand(
+      [
+        pre(A, 't1', 'lumo verify LUM-12'),
+        post(A, 't1'),
+        pre(B, 't2', 'echo verify LUM-12'),
+      ],
+      ['verify', 'LUM-12']
+    )
+    expect(r).toEqual({ kind: 'none' })
+  })
+
+  it('matches whole tokens only, but a prefix of the pending command is fine', () => {
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'lumo verify LUM-12')],
+        ['verify', 'LUM-1']
+      )
+    ).toEqual({ kind: 'none' })
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'lumo task status LUM-13 --json')],
+        ['task', 'status']
+      )
+    ).toEqual({ kind: 'one', sessionId: A })
+  })
+
+  it('accepts a path-qualified lumo binary', () => {
+    for (const bin of ['/usr/local/bin/lumo', './node_modules/.bin/lumo']) {
+      expect(
+        matchPendingLumoCommand(
+          [pre(A, 't1', `cd /r && ${bin} verify LUM-12`)],
+          ['verify', 'LUM-12']
+        )
+      ).toEqual({ kind: 'one', sessionId: A })
+    }
+  })
+
+  it('counts path-qualified lumo only in command position', () => {
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'cd /Users/me/lumo && echo verify LUM-12')],
+        ['verify', 'LUM-12']
+      )
+    ).toEqual({ kind: 'none' })
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'cd /repo && ./node_modules/.bin/lumo verify LUM-12')],
+        ['verify', 'LUM-12']
+      )
+    ).toEqual({ kind: 'one', sessionId: A })
+  })
+
+  it('accepts lumo after a backtick', () => {
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'x=`lumo verify LUM-12`')],
+        ['verify', 'LUM-12']
+      )
+    ).toEqual({ kind: 'one', sessionId: A })
+  })
+
+  it('skips empty argv tokens', () => {
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'lumo task update LUM-12 --pr ""')],
+        ['task', 'update', 'LUM-12', '--pr', '']
+      )
+    ).toEqual({ kind: 'one', sessionId: A })
+  })
+
+  it('skips a PRE_TOOL_USE without a tool_use_id', () => {
+    const e = pre(A, 't1', 'lumo verify')
+    e.payload = { tool_input: { command: 'lumo verify' } } as typeof e.payload
+    expect(matchPendingLumoCommand([e], ['verify'])).toEqual({ kind: 'none' })
+  })
+
+  it('reports ambiguity when the same command is pending in two sessions', () => {
+    const r = matchPendingLumoCommand(
+      [pre(A, 't1', 'lumo task status'), pre(B, 't2', 'lumo task status')],
+      ['task', 'status']
+    )
+    expect(r).toEqual({ kind: 'ambiguous', sessionIds: [B, A] })
+  })
+
+  it('a parent and a child running the same command is ambiguous, never silently the child', () => {
+    const r = matchPendingLumoCommand(
+      [pre(P, 't0', 'lumo verify'), pre(A, 't1', 'lumo verify')],
+      ['verify']
+    )
+    expect(r.kind).toBe('ambiguous')
+  })
+
+  it('service: resolves to the child and only looks back two minutes', async () => {
+    hooks.findRecentBashToolEventsInSessions.mockResolvedValue([
+      pre(A, 't1', 'lumo verify LUM-12'),
+    ])
+    const r = await sessionResolveService.resolveCaller({
+      identity,
+      sessionId: P,
+      argv: ['verify', 'LUM-12'],
+      now,
+    })
+    expect(r).toEqual({ sessionId: A, resolution: 'child' })
+    expect(hooks.findRecentBashToolEventsInSessions).toHaveBeenCalledWith(
+      [P, A, B],
+      new Date(now.getTime() - 120_000)
+    )
+  })
+
+  it('service: fast path — no children means the parent, without reading events', async () => {
+    sess.listChildIds.mockResolvedValue([])
+    const r = await sessionResolveService.resolveCaller({
+      identity,
+      sessionId: P,
+      argv: ['verify'],
+      now,
+    })
+    expect(r).toEqual({ sessionId: P, resolution: 'parent' })
+    expect(hooks.findRecentBashToolEventsInSessions).not.toHaveBeenCalled()
+  })
+
+  it('service: a session the caller does not own resolves to itself unchanged', async () => {
+    sess.findForMemberWithBinding.mockResolvedValue(null as never)
+    const r = await sessionResolveService.resolveCaller({
+      identity,
+      sessionId: P,
+      argv: ['verify'],
+      now,
+    })
+    expect(r).toEqual({ sessionId: P, resolution: 'parent' })
+    expect(sess.listChildIds).not.toHaveBeenCalled()
+  })
+
+  it('service: ambiguity is surfaced, with the parent as the fallback id', async () => {
+    hooks.findRecentBashToolEventsInSessions.mockResolvedValue([
+      pre(A, 't1', 'lumo task status'),
+      pre(B, 't2', 'lumo task status'),
+    ])
+    const r = await sessionResolveService.resolveCaller({
+      identity,
+      sessionId: P,
+      argv: ['task', 'status'],
+      now,
+    })
+    expect(r).toEqual({ sessionId: P, resolution: 'ambiguous' })
+  })
+
+  it('detects a still-pending Bash command on a child session only', () => {
+    expect(hasPendingChildBash([pre(A, 't1', 'bash ./attach.sh')], P)).toBe(
+      true
+    )
+    expect(hasPendingChildBash([pre(A, 't1', 'x'), post(A, 't1')], P)).toBe(
+      false
+    )
+    expect(hasPendingChildBash([pre(P, 't0', 'bash ./attach.sh')], P)).toBe(
+      false
+    )
+  })
+
+  it('service: no match while a subagent is mid-command is reported as unmatched, with the parent id', async () => {
+    hooks.findRecentBashToolEventsInSessions.mockResolvedValue([
+      pre(A, 't1', 'LUMO=lumo; $LUMO session attach LUM-12'),
+    ])
+    const r = await sessionResolveService.resolveCaller({
+      identity,
+      sessionId: P,
+      argv: ['session', 'attach', 'LUM-12'],
+      now,
+    })
+    expect(r).toEqual({ sessionId: P, resolution: 'unmatched' })
+  })
+
+  it('service: no match with no subagent mid-command stays the parent', async () => {
+    hooks.findRecentBashToolEventsInSessions.mockResolvedValue([
+      pre(P, 't0', 'bash ./attach.sh'),
+      pre(A, 't1', 'ls'),
+      post(A, 't1'),
+    ])
+    const r = await sessionResolveService.resolveCaller({
+      identity,
+      sessionId: P,
+      argv: ['session', 'attach', 'LUM-12'],
+      now,
+    })
+    expect(r).toEqual({ sessionId: P, resolution: 'parent' })
+  })
+
+  it('the pre-tool-use hook output never carries updatedInput or permissionDecision', () => {
+    const src = readFileSync(
+      join(process.cwd(), 'cli/src/lib/hook-runner.ts'),
+      'utf8'
+    )
+    expect(src).not.toMatch(/updatedInput|permissionDecision/)
+  })
+})

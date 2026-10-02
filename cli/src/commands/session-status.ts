@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { resolveSessionId } from '../lib/session-id'
 
 interface StatusResponse {
   exists: boolean
@@ -17,7 +18,7 @@ interface StatusResponse {
 }
 
 export async function sessionStatus(): Promise<number | void> {
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: false })
   if (!sessionId) {
     console.error(
       'Error: $CLAUDE_CODE_SESSION_ID is not set.\n' +

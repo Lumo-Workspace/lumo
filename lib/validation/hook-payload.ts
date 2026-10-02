@@ -45,6 +45,11 @@ const commonFields = {
   hook_event_name: z.string().optional(),
   permission_mode: z.string().optional(),
   _lumo_usage: z.looseObject({}).optional(),
+  // LUM-932: present only when the hook fired inside a subagent.
+  agent_id: z.string().max(64).optional(),
+  agent_type: z.string().max(128).optional(),
+  // LUM-932: current git branch of `cwd`, injected by the CLI hook runner.
+  _lumo_branch: z.string().max(255).optional(),
   _lumo_validation: z.never().optional(),
   _lumo_context_metrics: z.never().optional(),
   _lumo_redaction: z.never().optional(),

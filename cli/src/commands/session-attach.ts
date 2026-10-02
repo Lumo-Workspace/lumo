@@ -5,6 +5,7 @@ import { emitNextSteps, type NextStep } from '../lib/next-steps'
 import { resolveBoundProjectId } from '../lib/resolve-project'
 import { autoDownsyncOnAttach } from '../lib/memory-auto'
 import { attachWorktreeStep } from '../lib/worktree-attach'
+import { resolveSessionId } from '../lib/session-id'
 
 /** Successful bind. `status` is absent on older servers — treat absent as
  *  bound for backward compatibility. */
@@ -70,7 +71,9 @@ export async function sessionAttach(
     return 1
   }
 
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  // LUM-932: strict — when the call can't be told apart from a running
+  // subagent's, refuse rather than bind the whole session on a guess.
+  const sessionId = await resolveSessionId({ write: true, strict: true })
   if (!sessionId) {
     console.error(
       'Error: $CLAUDE_CODE_SESSION_ID is not set.\n' +

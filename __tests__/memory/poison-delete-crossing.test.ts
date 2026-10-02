@@ -191,3 +191,22 @@ describe('deleting a judged used TRAP memory', () => {
     expect(mockMemoryDelete).toHaveBeenCalledWith('mem-trap')
   })
 })
+
+describe('LUM-932 subagent delete attributes through the parent binding', () => {
+  it('uses the STEWARD parent milestone when the child row is unbound', async () => {
+    mockJudgedUsage.mockResolvedValue(usage(2))
+    mockFindSession.mockImplementation(async (id: string) =>
+      id === 'sess-1:agentA'
+        ? { id, role: 'IMPLEMENTATION', milestone: null, task: null }
+        : { id, role: 'STEWARD', milestone: { id: 'ms-1' }, task: null }
+    )
+    await recordUsedTrapMemoryDeletion({
+      memory: TRAP_MEMORY,
+      ...AGENT,
+      sessionId: 'sess-1:agentA',
+    })
+    const input = mockCrossingCreate.mock.calls[0]![0]
+    expect(input.milestoneId).toBe('ms-1')
+    expect(input.sessionId).toBe('sess-1:agentA')
+  })
+})

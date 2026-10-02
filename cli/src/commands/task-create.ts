@@ -10,6 +10,7 @@ import {
   type EnvLike,
   type NextStep,
 } from '../lib/next-steps'
+import { resolveSessionId } from '../lib/session-id'
 
 const ALLOWED_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const
 type Priority = (typeof ALLOWED_PRIORITIES)[number]
@@ -273,7 +274,7 @@ export async function taskCreate(
     Authorization: `Bearer ${creds.token}`,
     'Content-Type': 'application/json',
   }
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
   let res: Response

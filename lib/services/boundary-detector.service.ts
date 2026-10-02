@@ -26,6 +26,7 @@ import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-cri
 import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { parseChildSessionId } from '@/lib/session/child-session-id'
 import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
 import { checkpointerFilePaths } from '@/lib/checkpointer/parse'
 import {
@@ -2277,9 +2278,12 @@ export const boundaryDetectorService = {
       // Commits/PRs are produced through Bash — other tools have no artifact
       // to classify here (file edits alone are not a commit).
       if (input.toolName !== 'Bash') return
-      const steward = await sessionRepository.findStewardBinding(
-        input.sessionId
-      )
+      // LUM-932: a subagent's child session (`<parent>:<agentId>`) carries no
+      // role of its own — the steward binding lives on the parent session.
+      const bindingSessionId =
+        parseChildSessionId(input.sessionId)?.parentSessionId ?? input.sessionId
+      const steward =
+        await sessionRepository.findStewardBinding(bindingSessionId)
       if (!steward) return
 
       const cmd = readCommand(input.payload)

@@ -20,6 +20,7 @@ jest.mock('@/lib/repositories/test-case.repository', () => ({
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
     upsertWithTaskId: jest.fn(),
+    inheritTaskToUnboundChildren: jest.fn(),
     upsertWithMilestoneId: jest.fn(),
     findForMemberWithBinding: jest.fn(),
   },
@@ -136,6 +137,10 @@ const taskBoundRow = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  sessRepo.inheritTaskToUnboundChildren.mockResolvedValue({
+    childCount: 0,
+    retaggedEventCount: 0,
+  })
   misc.findMemberIdForHook.mockResolvedValue('wm_1')
   tasks.resolveIdentifier.mockResolvedValue({
     id: 'task_2',
@@ -188,6 +193,20 @@ describe('steward binding is a lifetime milestone lock', () => {
         milestoneId: MILESTONE.id,
       })
     )
+  })
+
+  it('a subagent child session cannot become a STEWARD: 409, no write', async () => {
+    await expect(
+      sessionService.bindSessionToMilestone({
+        identity,
+        sessionId: 'sess_1:agent_9',
+        milestoneRef: 'agent-native milestones',
+      })
+    ).rejects.toMatchObject({
+      status: 409,
+      message: expect.stringContaining('subagent cannot become a STEWARD'),
+    })
+    expect(sessRepo.upsertWithMilestoneId).not.toHaveBeenCalled()
   })
 
   it('steward-bound session: attaching ANY task is refused with 409', async () => {

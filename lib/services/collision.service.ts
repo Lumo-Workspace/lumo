@@ -1,6 +1,7 @@
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { agentLabel } from '@/lib/agents/agent-label'
 import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
+import { parseChildSessionId } from '@/lib/session/child-session-id'
 
 /** How far back another session's write still counts as a live collision. */
 const WINDOW_MS = 30 * 60 * 1000
@@ -14,7 +15,7 @@ export interface CheckFileCollisionInput {
   filePath: string | null
   /** Tool the current event uses. Non-write → no check. */
   toolName: string | null
-  /** The current session, excluded from the lookup. Null → no check. */
+  /** The current session; its whole family is excluded. Null → no check. */
   sessionId: string | null
   /** Injected clock so the window + relative-time rendering stay testable. */
   now: Date
@@ -46,10 +47,14 @@ export const collisionService = {
     if (!toolName || !WRITE_TOOLS.includes(toolName)) return null
 
     const since = new Date(now.getTime() - WINDOW_MS)
+    // LUM-932: a parent and its subagents (child ids `<parent>:<agentId>`) are
+    // one session family — exclude the whole family, rooted at the top-level id.
+    const familyRoot =
+      parseChildSessionId(sessionId)?.parentSessionId ?? sessionId
     const rows = await hookEventRepository.findRecentOtherSessionWritesToFile({
       workspaceId,
       filePath,
-      excludeSessionId: sessionId,
+      excludeSessionFamilyRoot: familyRoot,
       since,
       toolNames: WRITE_TOOLS,
     })
@@ -88,7 +93,9 @@ function buildWarning(
     })
     .join(', ')
   const overflow =
-    others.length > MAX_NAMED_SESSIONS ? ` and ${others.length} sessions in total` : ''
+    others.length > MAX_NAMED_SESSIONS
+      ? ` and ${others.length} sessions in total`
+      : ''
   return `⚠️ Lumo parallel-edit warning: session ${named}${overflow} also modified \`${filePath}\` recently — your changes may conflict. Check whether you need to sync before proceeding, to avoid overwriting each other.`
 }
 

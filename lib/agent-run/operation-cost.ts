@@ -3,6 +3,7 @@ import {
   BASH_CATEGORY_LABEL,
   isBashCategory,
 } from '@/lib/agent-run/bash-category'
+import { parseChildSessionId } from '@/lib/session/child-session-id'
 
 /** Bucket label for token spent on model steps that ran no tool (the final
  * wrap-up generation + pure-thinking turns). */
@@ -65,6 +66,22 @@ export function operationLabel(
 
 const TOOL_TYPES = new Set(['POST_TOOL_USE', 'POST_TOOL_USE_FAILURE'])
 const STOP_TYPES = new Set(['STOP', 'STOP_FAILURE'])
+
+/**
+ * Does event type `type` close a turn in session `sessionId`? SUBAGENT_STOP
+ * closes a CHILD session's "turn" (LUM-932): subagents emit no STOP, and their
+ * settled usage delta lives on their SUBAGENT_STOP row. Historical
+ * SUBAGENT_STOP rows sit on PARENT (top-level) sessions, where treating them as
+ * a turn closer would flush pending tools mid-turn — so there it is ignored.
+ */
+function closesTurn(type: string, sessionId: string | null): boolean {
+  if (STOP_TYPES.has(type)) return true
+  return (
+    type === 'SUBAGENT_STOP' &&
+    sessionId !== null &&
+    parseChildSessionId(sessionId) !== null
+  )
+}
 
 type Acc = Map<string, OperationCostRow>
 
@@ -218,7 +235,7 @@ export function attributeOperationCost(
         pendingTools = []
         continue
       }
-      if (STOP_TYPES.has(e.type)) {
+      if (closesTurn(e.type, sessionId)) {
         const perTurn = e.usageByModel ?? {}
         const residual = subtractClamp(perTurn, turnBatchSum)
         attributeDelta(residual, pendingTools, sessionId, memberId, acc)

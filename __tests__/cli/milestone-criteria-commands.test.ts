@@ -28,6 +28,11 @@ jest.mock('@/cli/src/lib/path-guard', () => ({
   checkArtifactFilePath: (p: string) => ({ ok: true, resolved: p }),
 }))
 
+jest.mock('../../cli/src/lib/session-id', () => ({
+  resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
+  AmbiguousSessionError: class extends Error {},
+}))
+
 import { milestoneCriteriaSet } from '@/cli/src/commands/milestone-criteria-set'
 import { milestoneCriteriaList } from '@/cli/src/commands/milestone-criteria-list'
 import {

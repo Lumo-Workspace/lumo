@@ -13,6 +13,10 @@ jest.mock('@/lib/services/task-context.service', () => ({
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
     upsertWithTaskId: jest.fn(),
+    inheritTaskToUnboundChildren: jest.fn(async () => ({
+      childCount: 0,
+      retaggedEventCount: 0,
+    })),
     findForMemberWithBinding: jest.fn(),
   },
 }))
@@ -51,6 +55,12 @@ const identity = {
 describe('sessionService.bindSessionToTask — memory injection', () => {
   beforeEach(() => {
     jest.resetAllMocks()
+    ;(
+      sessionRepository.inheritTaskToUnboundChildren as jest.Mock
+    ).mockResolvedValue({
+      childCount: 0,
+      retaggedEventCount: 0,
+    })
     ;(miscRepository.findMemberIdForHook as jest.Mock).mockResolvedValue('wm-1')
     ;(taskService.resolveIdentifier as jest.Mock).mockResolvedValue({
       id: 'task-1',
@@ -111,6 +121,12 @@ describe('sessionService.bindSessionToTask — memory injection', () => {
 describe('bind-task route', () => {
   beforeEach(() => {
     jest.resetAllMocks()
+    ;(
+      sessionRepository.inheritTaskToUnboundChildren as jest.Mock
+    ).mockResolvedValue({
+      childCount: 0,
+      retaggedEventCount: 0,
+    })
     ;(miscRepository.findMemberIdForHook as jest.Mock).mockResolvedValue('wm-1')
     ;(taskService.resolveIdentifier as jest.Mock).mockResolvedValue({
       id: 'task-1',

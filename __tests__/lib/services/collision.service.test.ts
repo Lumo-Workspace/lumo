@@ -90,7 +90,7 @@ describe('collisionService.checkFileCollision — querying', () => {
     expect(repo.findRecentOtherSessionWritesToFile).toHaveBeenCalledWith({
       workspaceId: 'ws_1',
       filePath: '/repo/a.ts',
-      excludeSessionId: 'sess_self',
+      excludeSessionFamilyRoot: 'sess_self',
       since: new Date(NOW.getTime() - 30 * 60_000),
       toolNames: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit'],
     })
@@ -206,5 +206,61 @@ describe('collisionService.checkFileCollision — querying', () => {
       now: NOW,
     })
     expect(result!.warning).toContain('just now')
+  })
+})
+
+describe('collisionService.checkFileCollision — session families (LUM-932)', () => {
+  // In-memory stand-in for the repository's family-exclusion WHERE clause
+  // (`NOT sessionId = root AND NOT sessionId LIKE 'root:%'`, nulls excluded).
+  function serveFrom(rows: ReturnType<typeof row>[]) {
+    repo.findRecentOtherSessionWritesToFile.mockImplementation(
+      async ({ excludeSessionFamilyRoot: root }) =>
+        rows.filter(
+          r =>
+            r.sessionId !== null &&
+            r.sessionId !== root &&
+            !r.sessionId.startsWith(`${root}:`)
+        )
+    )
+  }
+  const check = (sessionId: string) =>
+    collisionService.checkFileCollision({
+      workspaceId: 'ws_1',
+      filePath: '/repo/a.ts',
+      toolName: 'Edit',
+      sessionId,
+      now: NOW,
+    })
+
+  it('excludes the family rooted at the parent when called from a child session', async () => {
+    await check('sess_parent:agent1')
+    expect(repo.findRecentOtherSessionWritesToFile).toHaveBeenCalledWith(
+      expect.objectContaining({ excludeSessionFamilyRoot: 'sess_parent' })
+    )
+  })
+
+  it('does not warn when a parent edits a file its own subagent just edited', async () => {
+    serveFrom([row({ sessionId: 'sess_parent:agent1', minutesAgo: 1 })])
+    expect(await check('sess_parent')).toBeNull()
+  })
+
+  it('does not warn between a subagent, its parent and a sibling subagent', async () => {
+    serveFrom([
+      row({ sessionId: 'sess_parent', minutesAgo: 2 }),
+      row({ sessionId: 'sess_parent:agent2', minutesAgo: 1 }),
+    ])
+    expect(await check('sess_parent:agent1')).toBeNull()
+  })
+
+  it('still warns between two different top-level sessions', async () => {
+    serveFrom([row({ sessionId: 'sess_other', agent: 'CODEX', minutesAgo: 1 })])
+    const result = await check('sess_parent')
+    expect(result).not.toBeNull()
+    expect(result!.warning).toContain('/repo/a.ts')
+  })
+
+  it("still warns when another session's subagent edited the file", async () => {
+    serveFrom([row({ sessionId: 'sess_other:agent9', minutesAgo: 1 })])
+    expect(await check('sess_parent:agent1')).not.toBeNull()
   })
 })

@@ -4,6 +4,11 @@ jest.mock('@/cli/src/lib/resolve-bound-task', () => ({
   resolveBoundTaskIdentifier: jest.fn(),
 }))
 
+jest.mock('../../cli/src/lib/session-id', () => ({
+  resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
+  AmbiguousSessionError: class extends Error {},
+}))
+
 import {
   ideaCapture,
   ideaUpdate,

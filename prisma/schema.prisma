@@ -2742,6 +2742,13 @@ enum SessionRole {
   STEWARD
 }
 
+/// LUM-932: how an explicit task binding got onto a Session row. Null = no
+/// explicit binding (the session's work is attributed by inference, P2).
+enum SessionBindingSource {
+  ATTACH
+  INHERITED
+}
+
 model Session {
   id                    String            @id // Claude Code session UUID — not cuid
   workspaceId           String
@@ -2770,6 +2777,15 @@ model Session {
   // session's branch instead of just its agent. Null for sessions not running
   // in a hook-tracked worktree.
   worktreeId            String?
+  // LUM-932: a subagent's child session. Its id is `<parentSessionId>:<agentId>`
+  // (deterministic, so a resumed subagent lands on the same row). Null on
+  // top-level sessions.
+  parentSessionId       String?
+  agentId               String?
+  agentType             String?
+  // LUM-932: provenance of `taskId` — ATTACH (`lumo session attach` on this
+  // row) or INHERITED (copied from the parent's explicit binding).
+  bindingSource         SessionBindingSource?
   startedAt             DateTime          @default(now())
   lastActivityAt        DateTime
   eventCount            Int               @default(0)
@@ -2821,6 +2837,8 @@ model Session {
   task                 Task?                 @relation(fields: [taskId], references: [id], onDelete: SetNull)
   milestone            Milestone?            @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   worktree             Worktree?             @relation(fields: [worktreeId], references: [id], onDelete: SetNull)
+  parent               Session?              @relation("SessionChildren", fields: [parentSessionId], references: [id], onDelete: Cascade)
+  children             Session[]             @relation("SessionChildren")
   events               HookEvent[]
   memories             Memory[]
   lineageEdges         LineageEdge[]
@@ -2832,6 +2850,7 @@ model Session {
   @@index([taskId, lastActivityAt])
   @@index([milestoneId])
   @@index([worktreeId])
+  @@index([parentSessionId])
   @@map("sessions")
 }
 

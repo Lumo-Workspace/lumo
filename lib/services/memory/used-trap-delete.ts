@@ -31,7 +31,7 @@
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
-import { sessionRepository } from '@/lib/repositories/session.repository'
+import { resolveEffectiveBindingSession } from '@/lib/services/effective-binding-session'
 import {
   severityFor,
   isReversible,
@@ -88,7 +88,8 @@ export async function recordUsedTrapMemoryDeletion(
       )
       return null
     }
-    const session = await sessionRepository.findForMemberWithBinding(
+    // LUM-932: a subagent with no task of its own attributes via its parent.
+    const session = await resolveEffectiveBindingSession(
       input.sessionId,
       input.memberId
     )

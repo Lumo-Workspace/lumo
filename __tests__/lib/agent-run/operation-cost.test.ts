@@ -243,3 +243,68 @@ describe('attributeOperationCost', () => {
     expect(totalOf(rows)).toBe(10)
   })
 })
+
+describe('attributeOperationCost — SUBAGENT_STOP (LUM-932)', () => {
+  const at = (s: number) =>
+    new Date(`2026-06-01T00:00:${String(s).padStart(2, '0')}Z`)
+  const out = (rows: { tool: string; output: number }[], tool: string) =>
+    rows.filter(r => r.tool === tool).reduce((t, r) => t + r.output, 0)
+
+  it('ignores a SUBAGENT_STOP on a top-level session mid-turn', () => {
+    const base: OperationCostEvent[] = [
+      ev({ type: 'POST_TOOL_USE', toolName: 'Bash', createdAt: at(1) }),
+      ev({
+        type: 'POST_TOOL_BATCH',
+        usageByModel: u(0, 10, 0),
+        createdAt: at(2),
+      }),
+      ev({ type: 'POST_TOOL_USE', toolName: 'Read', createdAt: at(4) }),
+      ev({ type: 'STOP', usageByModel: u(0, 16, 0), createdAt: at(5) }),
+    ]
+    const withHistorical = [
+      ...base,
+      // Historical row: a subagent finished on the PARENT session, mid-turn.
+      ev({
+        type: 'SUBAGENT_STOP',
+        usageByModel: u(0, 3, 0),
+        createdAt: at(3),
+      }),
+    ]
+    const a = attributeOperationCost(base)
+    const b = attributeOperationCost(withHistorical)
+    expect(b).toEqual(a)
+    expect(out(b.rows, 'Bash')).toBe(10)
+    expect(out(b.rows, 'Read')).toBe(6)
+    expect(totalOf(b.rows)).toBe(16)
+  })
+
+  it("attributes a child session's SUBAGENT_STOP usage to its preceding tools", () => {
+    const child = 'sess-parent:agent1'
+    const events: OperationCostEvent[] = [
+      ev({
+        sessionId: child,
+        type: 'POST_TOOL_USE',
+        toolName: 'Grep',
+        createdAt: at(1),
+      }),
+      ev({
+        sessionId: child,
+        type: 'POST_TOOL_USE',
+        toolName: 'Read',
+        createdAt: at(2),
+      }),
+      ev({
+        sessionId: child,
+        type: 'SUBAGENT_STOP',
+        usageByModel: u(0, 8, 0),
+        createdAt: at(3),
+      }),
+    ]
+    const { rows, coverage } = attributeOperationCost(events)
+    expect(out(rows, 'Grep')).toBeCloseTo(4)
+    expect(out(rows, 'Read')).toBeCloseTo(4)
+    expect(totalOf(rows)).toBeCloseTo(8)
+    expect(rows.every(r => r.sessionId === child)).toBe(true)
+    expect(coverage.toolTurns).toBe(1)
+  })
+})

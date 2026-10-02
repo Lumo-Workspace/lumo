@@ -6,6 +6,11 @@ jest.mock('@/cli/src/lib/config', () => ({
     workspaceSlug: 'ws',
   }),
 }))
+jest.mock('../../cli/src/lib/session-id', () => ({
+  resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
+  AmbiguousSessionError: class extends Error {},
+}))
+
 import { memoryPromote } from '@/cli/src/commands/memory-promote'
 import { memoryRm } from '@/cli/src/commands/memory-rm'
 

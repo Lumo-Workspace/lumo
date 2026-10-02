@@ -28,7 +28,7 @@ describe('sessionRepository.listForTaskMissingRunSummary', () => {
 
     expect(result).toEqual(['sess_2', 'sess_1'])
     expect(findMany).toHaveBeenCalledWith({
-      where: { taskId: 'task_1', runSummary: null },
+      where: { taskId: 'task_1', runSummary: null, parentSessionId: null },
       orderBy: { lastActivityAt: 'desc' },
       select: { id: true },
     })

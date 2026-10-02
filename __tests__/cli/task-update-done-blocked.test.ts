@@ -26,6 +26,11 @@ jest.mock('@/cli/src/lib/tag-resolver', () => ({
   resolveTagRefs: jest.fn(async () => []),
 }))
 
+jest.mock('../../cli/src/lib/session-id', () => ({
+  resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
+  AmbiguousSessionError: class extends Error {},
+}))
+
 import { taskUpdate } from '@/cli/src/commands/task-update'
 import {
   EXIT_BLOCKED,

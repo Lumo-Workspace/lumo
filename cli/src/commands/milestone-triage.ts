@@ -7,6 +7,7 @@ import {
   formatBatchSummary,
   type BatchOutcome,
 } from '../lib/milestone-batch'
+import { resolveSessionId } from '../lib/session-id'
 
 export interface MilestoneTriageOptions {
   project?: string
@@ -117,7 +118,7 @@ export async function milestoneTriage(
 
   const { present, absent } = partitionMembership(refs, milestoneTasks)
 
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: true })
   const outcomes: BatchOutcome[] = []
   for (const ref of present) {
     try {

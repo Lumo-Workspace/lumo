@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
 import type { HookEventType } from '@prisma/client'
+import type { ToolEventRow } from '@/lib/session/resolve-caller'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,8 +30,12 @@ interface CreateHookEventData {
 interface FindRecentOtherSessionWritesParams {
   workspaceId: string
   filePath: string
-  /** The current session, excluded so a session never collides with itself. */
-  excludeSessionId: string
+  /**
+   * Root (top-level) session id of the caller's session family. The root and
+   * every child `<root>:<agentId>` (LUM-932 subagent sessions) are excluded,
+   * so a session never collides with itself, its own subagents, or siblings.
+   */
+  excludeSessionFamilyRoot: string
   /** Lower bound on createdAt — the caller's collision time window. */
   since: Date
   /** Tool names that count as a write (caller owns this policy). */
@@ -40,6 +45,33 @@ interface FindRecentOtherSessionWritesParams {
 // ── HookEvent Repository ──────────────────────────────────────────────────────
 
 export const hookEventRepository = {
+  /**
+   * LUM-932: recent Bash Pre/Post tool events across a session family, for
+   * matching a CLI call to the session that issued it. Bounded by `since`
+   * (the caller passes a two-minute window) so the scan stays small.
+   */
+  async findRecentBashToolEventsInSessions(
+    sessionIds: string[],
+    since: Date
+  ): Promise<ToolEventRow[]> {
+    if (sessionIds.length === 0) return []
+    const rows = await prisma.hookEvent.findMany({
+      where: {
+        sessionId: { in: sessionIds },
+        toolName: 'Bash',
+        type: {
+          in: ['PRE_TOOL_USE', 'POST_TOOL_USE', 'POST_TOOL_USE_FAILURE'],
+        },
+        createdAt: { gte: since },
+      },
+      select: { sessionId: true, type: true, createdAt: true, payload: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    return rows.filter(
+      (r): r is typeof r & { sessionId: string } => r.sessionId !== null
+    ) as ToolEventRow[]
+  },
+
   /**
    * LUM-772: the Bash command each of these events carried
    * (`payload.tool_input.command`), keyed by event id. Events without a
@@ -227,7 +259,12 @@ export const hookEventRepository = {
       where: {
         workspaceId: params.workspaceId,
         filePath: params.filePath,
-        sessionId: { not: params.excludeSessionId },
+        // Null sessionIds stay excluded (as with the former `not` filter).
+        sessionId: { not: null },
+        NOT: [
+          { sessionId: params.excludeSessionFamilyRoot },
+          { sessionId: { startsWith: `${params.excludeSessionFamilyRoot}:` } },
+        ],
         createdAt: { gte: params.since },
         toolName: { in: params.toolNames },
       },
@@ -429,6 +466,9 @@ export const hookEventRepository = {
         'POST_TOOL_BATCH',
         'STOP',
         'STOP_FAILURE',
+        // LUM-932: subagent (child session) turns settle on SUBAGENT_STOP;
+        // the pure attribution ignores it on top-level sessions.
+        'SUBAGENT_STOP',
       ],
     }
     const where: Prisma.HookEventWhereInput =

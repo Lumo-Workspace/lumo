@@ -2,7 +2,11 @@
  * @jest-environment node
  */
 jest.mock('@/lib/repositories/session.repository', () => ({
-  sessionRepository: { listForTask: jest.fn() },
+  sessionRepository: {
+    listForTask: jest.fn(),
+    listChildrenForTask: jest.fn(async () => []),
+    listTimelineRowsByIds: jest.fn(async () => []),
+  },
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: { findByTaskId: jest.fn() },
@@ -439,4 +443,98 @@ it('run durationMs is turn-active time (prompt→STOP), excluding inter-turn idl
 
   // span would be ~5h; active time is 30s + 20s = 50s.
   expect(runs[0]!.durationMs).toBe(50_000)
+})
+
+describe('LUM-932 subagent child sessions fold into the parent run', () => {
+  const children = sessionRepository.listChildrenForTask as jest.Mock
+  const byIds = sessionRepository.listTimelineRowsByIds as jest.Mock
+  const opus = (n: number) => ({
+    opus: { input: n, output: 0, cacheRead: 0, cacheCreation: 0 },
+  })
+  const ev = (id: string, sessionId: string, at: Date) => ({
+    id,
+    sessionId,
+    type: 'PRE_TOOL_USE',
+    toolName: 'Read',
+    payload: {},
+    turnSummary: null,
+    usageByModel: null,
+    createdAt: at,
+  })
+  const total = (byModel: { total: number }[] | undefined) =>
+    (byModel ?? []).reduce((n, c) => n + c.total, 0)
+
+  it('folds child events and child cost under the bound parent run', async () => {
+    sessions.mockResolvedValue([
+      {
+        id: 'sess_p',
+        startedAt: t0,
+        lastActivityAt: t1,
+        eventCount: 1,
+        loopCount: 1,
+        usageByModel: opus(100),
+      },
+    ])
+    children.mockResolvedValue([
+      {
+        id: 'sess_p:a1',
+        parentSessionId: 'sess_p',
+        startedAt: t0,
+        lastActivityAt: t1,
+        eventCount: 1,
+        loopCount: null,
+        usageByModel: opus(40),
+      },
+    ])
+    events.mockResolvedValue([
+      ev('e1', 'sess_p', t0),
+      ev('e2', 'sess_p:a1', t1),
+    ])
+
+    const { runs, totals } = await agentRunTimelineService.getTimeline('task_1')
+
+    expect(runs.map(r => r.sessionId)).toEqual(['sess_p'])
+    expect(runs[0]!.toolCallCount).toBe(2)
+    expect(total(runs[0]!.cost?.byModel)).toBe(140)
+    expect(total(totals.byModel)).toBe(140)
+    expect(children).toHaveBeenCalledWith('task_1')
+  })
+
+  it('keys a child that attached its own task under its parent run, counting only the child cost', async () => {
+    sessions.mockResolvedValue([])
+    children.mockResolvedValue([
+      {
+        id: 'sess_q:a2',
+        parentSessionId: 'sess_q',
+        startedAt: t1,
+        lastActivityAt: t1,
+        eventCount: 1,
+        loopCount: null,
+        usageByModel: opus(30),
+      },
+    ])
+    byIds.mockResolvedValue([
+      {
+        id: 'sess_q',
+        startedAt: t0,
+        lastActivityAt: t1,
+        eventCount: 5,
+        loopCount: 3,
+        runSummary: 'parent summary about other work',
+        usageByModel: opus(999),
+      },
+    ])
+    events.mockResolvedValue([ev('e3', 'sess_q:a2', t1)])
+
+    const { runs, totals } = await agentRunTimelineService.getTimeline('task_2')
+
+    expect(byIds).toHaveBeenCalledWith(['sess_q'])
+    expect(runs.map(r => r.sessionId)).toEqual(['sess_q'])
+    expect(runs[0]!.toolCallCount).toBe(1)
+    // Only the child's cost belongs to this task — the parent's own burn
+    // belongs elsewhere.
+    expect(total(runs[0]!.cost?.byModel)).toBe(30)
+    expect(total(totals.byModel)).toBe(30)
+    expect(totals.loopCount).toBeNull()
+  })
 })

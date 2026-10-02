@@ -18,6 +18,7 @@ import {
   describeCrossingDisposition,
   describeRulingConfirmation,
 } from './crossing-disposition'
+import { resolveSessionId } from '../lib/session-id'
 
 export interface BatchDispositionOptions {
   note?: string | undefined
@@ -104,7 +105,7 @@ export async function crossingDispositionBatch(
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,
   }
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: true })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
 
   const bound = await resolveBoundTask({

@@ -1,6 +1,7 @@
 import { readCredentials } from '../lib/config'
 import { resolveAuthedApiUrl, trimTrailingSlash } from '../lib/api'
 import { sanitizeField } from '../lib/sanitize'
+import { resolveSessionId } from '../lib/session-id'
 
 interface SignalRow {
   id: string
@@ -11,16 +12,16 @@ interface SignalRow {
   evidence: { note?: string } | null
 }
 
-function authBase():
-  | { base: string; headers: Record<string, string> }
-  | { error: string } {
+async function authBase(): Promise<
+  { base: string; headers: Record<string, string> } | { error: string }
+> {
   const creds = readCredentials()
   if (!creds) return { error: 'not logged in. Run `lumo auth login` first.' }
   const base = trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,
   }
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  const sessionId = await resolveSessionId({ write: false })
   if (sessionId) headers['X-Lumo-Session-Id'] = sessionId
   return { base, headers }
 }
@@ -36,7 +37,7 @@ export async function outcomeShow(
     console.error('Error: a task is required: lumo outcome show <task>')
     return 1
   }
-  const auth = authBase()
+  const auth = await authBase()
   if ('error' in auth) {
     console.error(`Error: ${auth.error}`)
     return 1
@@ -179,7 +180,7 @@ function formatRate(report: OutcomeRejectionReportDto): string {
 export async function outcomeRate(
   options: OutcomeRateOptions = {}
 ): Promise<number | void> {
-  const auth = authBase()
+  const auth = await authBase()
   if ('error' in auth) {
     console.error(`Error: ${auth.error}`)
     return 1

@@ -29,6 +29,29 @@ const boundTo = (
 beforeEach(() => jest.clearAllMocks())
 
 describe('classifyBinding', () => {
+  it('classifies a subagent that is STEWARD by its own binding as steward, not its unbound parent', async () => {
+    findBinding.mockImplementation(async (id: string) =>
+      id === 'p:a1'
+        ? {
+            id,
+            task: null,
+            role: 'STEWARD',
+            milestone: { id: 'ms1', name: 'M' },
+          }
+        : { id, task: null }
+    )
+    const r = await classifyBinding({
+      source: 'bearer',
+      sessionId: 'p:a1',
+      memberId: 'm1',
+      targetTaskId: 't1',
+    })
+    expect(r).toEqual({
+      kind: 'steward',
+      milestoneId: 'ms1',
+      milestoneName: 'M',
+    })
+  })
   it('skips the clerk (human web) path without any repo call — RED LINE', async () => {
     const r = await classifyBinding({
       source: 'clerk',
@@ -217,5 +240,130 @@ describe('enforceSessionBinding', () => {
     })
     expect(r).toEqual({ advisory: null, steward: null })
     expect(createCrossing).not.toHaveBeenCalled()
+  })
+})
+
+describe('LUM-932 subagent (child session id) binding falls back to the parent', () => {
+  const PARENT = 'parent-sess'
+  const CHILD = 'parent-sess:agent1'
+  const rows = (map: Record<string, unknown>) =>
+    findBinding.mockImplementation(async (id: string) => map[id] ?? null)
+
+  it('classifies an unbound child of a STEWARD parent as steward', async () => {
+    rows({
+      [CHILD]: {
+        id: CHILD,
+        role: 'IMPLEMENTATION',
+        milestone: null,
+        task: null,
+      },
+      [PARENT]: {
+        id: PARENT,
+        role: 'STEWARD',
+        milestone: { id: 'ms1', name: 'M1' },
+        task: null,
+      },
+    })
+    const r = await classifyBinding({
+      source: 'bearer',
+      sessionId: CHILD,
+      memberId: 'm1',
+      targetTaskId: 't1',
+    })
+    expect(r).toEqual({
+      kind: 'steward',
+      milestoneId: 'ms1',
+      milestoneName: 'M1',
+    })
+    expect(findBinding).toHaveBeenCalledWith(PARENT, 'm1')
+  })
+
+  it('refuses an implementation action from a STEWARD parent subagent with 409 and no crossing', async () => {
+    rows({
+      [CHILD]: {
+        id: CHILD,
+        role: 'IMPLEMENTATION',
+        milestone: null,
+        task: null,
+      },
+      [PARENT]: {
+        id: PARENT,
+        role: 'STEWARD',
+        milestone: { id: 'ms1', name: 'M1' },
+        task: null,
+      },
+    })
+    await expect(
+      enforceSessionBinding({
+        source: 'bearer',
+        sessionId: CHILD,
+        memberId: 'm1',
+        targetTaskId: 't1',
+        action: 'machine verification',
+        stewardPolicy: 'forbid-implementation',
+      })
+    ).rejects.toMatchObject({ status: 409, sessionRole: 'STEWARD' })
+    expect(createCrossing).not.toHaveBeenCalled()
+  })
+
+  it('treats an unbound child of a bound parent as the parent binding (ok / mismatch)', async () => {
+    rows({
+      [CHILD]: {
+        id: CHILD,
+        role: 'IMPLEMENTATION',
+        milestone: null,
+        task: null,
+      },
+      [PARENT]: {
+        ...boundTo('t1', 'LUM', 5, 'Parent task'),
+        role: 'IMPLEMENTATION',
+        milestone: null,
+      },
+    })
+    expect(
+      await classifyBinding({
+        source: 'bearer',
+        sessionId: CHILD,
+        memberId: 'm1',
+        targetTaskId: 't1',
+      })
+    ).toEqual({ kind: 'ok' })
+    expect(
+      await classifyBinding({
+        source: 'bearer',
+        sessionId: CHILD,
+        memberId: 'm1',
+        targetTaskId: 't2',
+      })
+    ).toEqual({
+      kind: 'mismatch',
+      boundIdentifier: 'LUM-5',
+      boundTitle: 'Parent task',
+    })
+  })
+
+  it('classifies by the child when the child carries its own task', async () => {
+    rows({
+      [CHILD]: {
+        ...boundTo('t2', 'LUM', 9, 'Child task'),
+        role: 'IMPLEMENTATION',
+        milestone: null,
+      },
+      [PARENT]: {
+        id: PARENT,
+        role: 'IMPLEMENTATION',
+        milestone: null,
+        task: null,
+      },
+    })
+    expect(
+      await classifyBinding({
+        source: 'bearer',
+        sessionId: CHILD,
+        memberId: 'm1',
+        targetTaskId: 't2',
+      })
+    ).toEqual({ kind: 'ok' })
+    expect(findBinding).not.toHaveBeenCalledWith(PARENT, 'm1')
   })
 })

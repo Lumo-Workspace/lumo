@@ -6,6 +6,7 @@ import { readCliVersion } from './cli-version'
 import { normalizeAgent } from './agent'
 import { extractTaskFromGit, type GitTaskMatch } from './git-task'
 import { sumTranscriptUsage } from './transcript-usage'
+import { readGitBranch } from './git-branch'
 import { resolveBoundProjectId } from './resolve-project'
 import { resolveBoundTaskIdentifier } from './resolve-bound-task'
 import { autoUpsyncOnDrain } from './memory-auto'
@@ -395,10 +396,44 @@ export function augmentBodyWithUsage(path: HookPath, body: string): string {
   if (typeof transcriptPath !== 'string' || !transcriptPath) return body
   const usage = sumTranscriptUsage(transcriptPath)
   if (!usage) return body
+  const subEntries = Object.entries(usage.bySubagent)
   return JSON.stringify({
     ...parsed,
-    _lumo_usage: { ...usage.total, byModel: usage.byModel },
+    _lumo_usage: {
+      ...usage.total,
+      byModel: usage.byModel,
+      // LUM-932: lets the server split subagent usage out of the parent.
+      ...(subEntries.length > 0
+        ? {
+            bySubagent: Object.fromEntries(
+              subEntries.map(([id, u]) => [
+                id,
+                { ...u.total, byModel: u.byModel },
+              ])
+            ),
+          }
+        : {}),
+    },
   })
+}
+
+/** LUM-932: tag every hook body with the git branch of its `cwd` (identification signal S1, consumed in P2). */
+export function augmentBodyWithBranch(body: string): string {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(body || '{}')
+  } catch {
+    return body
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return body
+  }
+  const cwd = (parsed as Record<string, unknown>)['cwd']
+  if (typeof cwd !== 'string' || !cwd) return body
+  const branch = readGitBranch(cwd)
+  // The server caps _lumo_branch at 255 chars; omit rather than truncate.
+  if (!branch || branch.length > 255) return body
+  return JSON.stringify({ ...parsed, _lumo_branch: branch })
 }
 
 /**
@@ -573,9 +608,14 @@ export async function runHookWithBody(
     if (agentEnum) headers['X-Lumo-Agent'] = agentEnum
 
     const outgoingBody =
-      augmentBodyWithWrittenPathIgnored(
-        path,
-        augmentBodyWithDeletedTestFiles(path, augmentBodyWithUsage(path, body))
+      augmentBodyWithBranch(
+        augmentBodyWithWrittenPathIgnored(
+          path,
+          augmentBodyWithDeletedTestFiles(
+            path,
+            augmentBodyWithUsage(path, body)
+          )
+        )
       ) || '{}'
 
     try {
