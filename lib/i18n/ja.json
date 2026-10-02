@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "デバッグ",
   "sessions.summary.typeRefactor": "リファクタリング",
   "sessions.summary.typeReview": "レビュー",
-  "sessions.summary.typeMixed": "混合"
+  "sessions.summary.typeMixed": "混合",
+  "sessions.timeline.pruned": "保持ポリシーに従って内容が削除されました",
+  "sessions.timeline.block.prompt": "プロンプト",
+  "sessions.timeline.block.rawWithContext": "原文（挿入されたコンテキスト付き）",
+  "sessions.timeline.block.lastMessage": "最後のメッセージ",
+  "sessions.timeline.block.command": "コマンド",
+  "sessions.timeline.block.stdout": "標準出力",
+  "sessions.timeline.block.stderr": "標準エラー",
+  "sessions.timeline.block.status": "ステータス",
+  "sessions.timeline.block.content": "内容",
+  "sessions.timeline.block.diff": "差分",
+  "sessions.timeline.block.old": "旧",
+  "sessions.timeline.block.new": "新",
+  "sessions.timeline.block.matches": "一致",
+  "sessions.timeline.block.response": "レスポンス",
+  "sessions.timeline.block.files": "ファイル",
+  "sessions.timeline.block.todos": "ToDo",
+  "sessions.timeline.block.input": "入力"
 }

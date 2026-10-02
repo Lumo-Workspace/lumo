@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "debug",
   "sessions.summary.typeRefactor": "refaktor",
   "sessions.summary.typeReview": "tinjauan",
-  "sessions.summary.typeMixed": "campuran"
+  "sessions.summary.typeMixed": "campuran",
+  "sessions.timeline.pruned": "Konten dihapus sesuai kebijakan retensi",
+  "sessions.timeline.block.prompt": "prompt",
+  "sessions.timeline.block.rawWithContext": "mentah (dengan konteks yang disisipkan)",
+  "sessions.timeline.block.lastMessage": "pesan terakhir",
+  "sessions.timeline.block.command": "perintah",
+  "sessions.timeline.block.stdout": "keluaran standar",
+  "sessions.timeline.block.stderr": "galat standar",
+  "sessions.timeline.block.status": "status",
+  "sessions.timeline.block.content": "konten",
+  "sessions.timeline.block.diff": "perbedaan",
+  "sessions.timeline.block.old": "lama",
+  "sessions.timeline.block.new": "baru",
+  "sessions.timeline.block.matches": "kecocokan",
+  "sessions.timeline.block.response": "respons",
+  "sessions.timeline.block.files": "file",
+  "sessions.timeline.block.todos": "daftar tugas",
+  "sessions.timeline.block.input": "masukan"
 }

@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "отладка",
   "sessions.summary.typeRefactor": "рефакторинг",
   "sessions.summary.typeReview": "ревью",
-  "sessions.summary.typeMixed": "смешанный"
+  "sessions.summary.typeMixed": "смешанный",
+  "sessions.timeline.pruned": "Содержимое удалено согласно политике хранения",
+  "sessions.timeline.block.prompt": "промпт",
+  "sessions.timeline.block.rawWithContext": "исходный текст (с внедрённым контекстом)",
+  "sessions.timeline.block.lastMessage": "последнее сообщение",
+  "sessions.timeline.block.command": "команда",
+  "sessions.timeline.block.stdout": "стандартный вывод",
+  "sessions.timeline.block.stderr": "стандартный поток ошибок",
+  "sessions.timeline.block.status": "статус",
+  "sessions.timeline.block.content": "содержимое",
+  "sessions.timeline.block.diff": "различия",
+  "sessions.timeline.block.old": "старое",
+  "sessions.timeline.block.new": "новое",
+  "sessions.timeline.block.matches": "совпадения",
+  "sessions.timeline.block.response": "ответ",
+  "sessions.timeline.block.files": "файлы",
+  "sessions.timeline.block.todos": "список дел",
+  "sessions.timeline.block.input": "ввод"
 }

@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "Debugging",
   "sessions.summary.typeRefactor": "Refactoring",
   "sessions.summary.typeReview": "Review",
-  "sessions.summary.typeMixed": "gemischt"
+  "sessions.summary.typeMixed": "gemischt",
+  "sessions.timeline.pruned": "Inhalt gemäß Aufbewahrungsrichtlinie gelöscht",
+  "sessions.timeline.block.prompt": "Prompt",
+  "sessions.timeline.block.rawWithContext": "Rohtext (mit eingefügtem Kontext)",
+  "sessions.timeline.block.lastMessage": "letzte Nachricht",
+  "sessions.timeline.block.command": "Befehl",
+  "sessions.timeline.block.stdout": "Standardausgabe",
+  "sessions.timeline.block.stderr": "Standardfehler",
+  "sessions.timeline.block.status": "Status",
+  "sessions.timeline.block.content": "Inhalt",
+  "sessions.timeline.block.diff": "Diff",
+  "sessions.timeline.block.old": "alt",
+  "sessions.timeline.block.new": "neu",
+  "sessions.timeline.block.matches": "Treffer",
+  "sessions.timeline.block.response": "Antwort",
+  "sessions.timeline.block.files": "Dateien",
+  "sessions.timeline.block.todos": "To-dos",
+  "sessions.timeline.block.input": "Eingabe"
 }

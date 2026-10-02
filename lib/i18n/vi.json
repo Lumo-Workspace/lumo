@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "gỡ lỗi",
   "sessions.summary.typeRefactor": "tái cấu trúc",
   "sessions.summary.typeReview": "đánh giá",
-  "sessions.summary.typeMixed": "hỗn hợp"
+  "sessions.summary.typeMixed": "hỗn hợp",
+  "sessions.timeline.pruned": "Nội dung đã bị xóa theo chính sách lưu giữ",
+  "sessions.timeline.block.prompt": "prompt",
+  "sessions.timeline.block.rawWithContext": "bản gốc (kèm ngữ cảnh được chèn)",
+  "sessions.timeline.block.lastMessage": "tin nhắn cuối",
+  "sessions.timeline.block.command": "lệnh",
+  "sessions.timeline.block.stdout": "đầu ra chuẩn",
+  "sessions.timeline.block.stderr": "lỗi chuẩn",
+  "sessions.timeline.block.status": "trạng thái",
+  "sessions.timeline.block.content": "nội dung",
+  "sessions.timeline.block.diff": "khác biệt",
+  "sessions.timeline.block.old": "cũ",
+  "sessions.timeline.block.new": "mới",
+  "sessions.timeline.block.matches": "kết quả khớp",
+  "sessions.timeline.block.response": "phản hồi",
+  "sessions.timeline.block.files": "tệp",
+  "sessions.timeline.block.todos": "việc cần làm",
+  "sessions.timeline.block.input": "đầu vào"
 }

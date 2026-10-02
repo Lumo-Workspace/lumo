@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "debug",
   "sessions.summary.typeRefactor": "refactor",
   "sessions.summary.typeReview": "review",
-  "sessions.summary.typeMixed": "mixed"
+  "sessions.summary.typeMixed": "mixed",
+  "sessions.timeline.pruned": "Content cleared per retention policy",
+  "sessions.timeline.block.prompt": "prompt",
+  "sessions.timeline.block.rawWithContext": "raw (with injected context)",
+  "sessions.timeline.block.lastMessage": "last message",
+  "sessions.timeline.block.command": "command",
+  "sessions.timeline.block.stdout": "stdout",
+  "sessions.timeline.block.stderr": "stderr",
+  "sessions.timeline.block.status": "status",
+  "sessions.timeline.block.content": "content",
+  "sessions.timeline.block.diff": "diff",
+  "sessions.timeline.block.old": "old",
+  "sessions.timeline.block.new": "new",
+  "sessions.timeline.block.matches": "matches",
+  "sessions.timeline.block.response": "response",
+  "sessions.timeline.block.files": "files",
+  "sessions.timeline.block.todos": "todos",
+  "sessions.timeline.block.input": "input"
 }

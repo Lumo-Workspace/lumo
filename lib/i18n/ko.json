@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "디버그",
   "sessions.summary.typeRefactor": "리팩터링",
   "sessions.summary.typeReview": "리뷰",
-  "sessions.summary.typeMixed": "혼합"
+  "sessions.summary.typeMixed": "혼합",
+  "sessions.timeline.pruned": "보존 정책에 따라 내용이 삭제되었습니다",
+  "sessions.timeline.block.prompt": "프롬프트",
+  "sessions.timeline.block.rawWithContext": "원문 (주입된 컨텍스트 포함)",
+  "sessions.timeline.block.lastMessage": "마지막 메시지",
+  "sessions.timeline.block.command": "명령",
+  "sessions.timeline.block.stdout": "표준 출력",
+  "sessions.timeline.block.stderr": "표준 오류",
+  "sessions.timeline.block.status": "상태",
+  "sessions.timeline.block.content": "내용",
+  "sessions.timeline.block.diff": "차이",
+  "sessions.timeline.block.old": "이전",
+  "sessions.timeline.block.new": "새 내용",
+  "sessions.timeline.block.matches": "일치 항목",
+  "sessions.timeline.block.response": "응답",
+  "sessions.timeline.block.files": "파일",
+  "sessions.timeline.block.todos": "할 일",
+  "sessions.timeline.block.input": "입력"
 }

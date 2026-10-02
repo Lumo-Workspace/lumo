@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "调试",
   "sessions.summary.typeRefactor": "重构",
   "sessions.summary.typeReview": "评审",
-  "sessions.summary.typeMixed": "混合"
+  "sessions.summary.typeMixed": "混合",
+  "sessions.timeline.pruned": "内容已按保留策略清除",
+  "sessions.timeline.block.prompt": "提示词",
+  "sessions.timeline.block.rawWithContext": "原文（含注入的上下文）",
+  "sessions.timeline.block.lastMessage": "最后一条消息",
+  "sessions.timeline.block.command": "命令",
+  "sessions.timeline.block.stdout": "标准输出",
+  "sessions.timeline.block.stderr": "标准错误",
+  "sessions.timeline.block.status": "状态",
+  "sessions.timeline.block.content": "内容",
+  "sessions.timeline.block.diff": "差异",
+  "sessions.timeline.block.old": "旧",
+  "sessions.timeline.block.new": "新",
+  "sessions.timeline.block.matches": "匹配项",
+  "sessions.timeline.block.response": "响应",
+  "sessions.timeline.block.files": "文件",
+  "sessions.timeline.block.todos": "待办事项",
+  "sessions.timeline.block.input": "输入"
 }

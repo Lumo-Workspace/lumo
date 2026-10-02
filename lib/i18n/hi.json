@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "डिबग",
   "sessions.summary.typeRefactor": "रिफैक्टर",
   "sessions.summary.typeReview": "समीक्षा",
-  "sessions.summary.typeMixed": "मिश्रित"
+  "sessions.summary.typeMixed": "मिश्रित",
+  "sessions.timeline.pruned": "प्रतिधारण नीति के अनुसार सामग्री हटा दी गई",
+  "sessions.timeline.block.prompt": "प्रॉम्प्ट",
+  "sessions.timeline.block.rawWithContext": "मूल (इंजेक्ट किए गए संदर्भ सहित)",
+  "sessions.timeline.block.lastMessage": "अंतिम संदेश",
+  "sessions.timeline.block.command": "कमांड",
+  "sessions.timeline.block.stdout": "स्टैंडर्ड आउटपुट",
+  "sessions.timeline.block.stderr": "स्टैंडर्ड एरर",
+  "sessions.timeline.block.status": "स्थिति",
+  "sessions.timeline.block.content": "सामग्री",
+  "sessions.timeline.block.diff": "अंतर",
+  "sessions.timeline.block.old": "पुराना",
+  "sessions.timeline.block.new": "नया",
+  "sessions.timeline.block.matches": "मिलान",
+  "sessions.timeline.block.response": "प्रतिक्रिया",
+  "sessions.timeline.block.files": "फ़ाइलें",
+  "sessions.timeline.block.todos": "करने योग्य कार्य",
+  "sessions.timeline.block.input": "इनपुट"
 }

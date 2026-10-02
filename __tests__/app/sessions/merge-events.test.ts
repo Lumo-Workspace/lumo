@@ -70,7 +70,7 @@ describe('mergeEvents', () => {
     expect(result[0]!.badge).toBe('3 lines')
     expect(result[0]!.endAt?.toISOString()).toBe('2026-04-23T09:00:01.000Z')
 
-    const content = result[0]!.details.find(d => d.label === 'content')
+    const content = result[0]!.details.find(d => d.labelKey === 'content')
     expect(content?.text).toContain('line1')
   })
 
@@ -99,7 +99,7 @@ describe('mergeEvents', () => {
 
     expect(result[0]!.status).toBe('error')
     expect(result[0]!.badge).toBe('stderr')
-    const stderrBlock = result[0]!.details.find(d => d.label === 'stderr')
+    const stderrBlock = result[0]!.details.find(d => d.labelKey === 'stderr')
     expect(stderrBlock?.variant).toBe('error')
     expect(stderrBlock?.text).toContain('ENOENT')
   })
@@ -150,7 +150,7 @@ describe('mergeEvents', () => {
     ])
 
     expect(result[0]!.badge).toBe('+3 -2')
-    const diffBlock = result[0]!.details.find(d => d.label === 'diff')
+    const diffBlock = result[0]!.details.find(d => d.labelKey === 'diff')
     expect(diffBlock?.variant).toBe('diff')
     expect(diffBlock?.text).toContain('@@ -10,3 +10,4 @@')
     expect(diffBlock?.text).toContain('+new line 1')
@@ -172,7 +172,7 @@ describe('mergeEvents', () => {
       ),
     ])
 
-    const contentBlock = result[0]!.details.find(d => d.label === 'content')
+    const contentBlock = result[0]!.details.find(d => d.labelKey === 'content')
     expect(contentBlock?.truncated).toEqual({ shownLines: 30, totalLines: 80 })
     expect(contentBlock?.text.split('\n')).toHaveLength(30)
   })
@@ -228,7 +228,7 @@ describe('mergeEvents', () => {
 
     expect(result[0]!.summary).toBe('TODO  in src')
     expect(result[0]!.badge).toBe('2 files')
-    const matches = result[0]!.details.find(d => d.label === 'matches')
+    const matches = result[0]!.details.find(d => d.labelKey === 'matches')
     expect(matches?.text).toBe('src/a.ts\nsrc/b.ts')
   })
 
@@ -259,7 +259,7 @@ describe('mergeEvents', () => {
     ])
 
     expect(result[0]!.badge).toBe('3 lines')
-    const matches = result[0]!.details.find(d => d.label === 'matches')
+    const matches = result[0]!.details.find(d => d.labelKey === 'matches')
     expect(matches?.variant).toBe('code')
     expect(matches?.text).toContain('ANTHROPIC_KEY')
   })
@@ -308,7 +308,7 @@ describe('mergeEvents', () => {
     expect(result).toHaveLength(1)
     expect(result[0]!.toolName).toBe('SomeNewTool')
     expect(result[0]!.status).toBe('ok')
-    const inputBlock = result[0]!.details.find(d => d.label === 'input')
+    const inputBlock = result[0]!.details.find(d => d.labelKey === 'input')
     expect(inputBlock?.variant).toBe('json')
     expect(inputBlock?.text).toContain('"foo"')
   })
@@ -329,11 +329,9 @@ describe('mergeEvents', () => {
     expect(result).toHaveLength(1)
     expect(result[0]!.kind).toBe('user-prompt')
     expect(result[0]!.summary).toBe('add oauth login')
-    const promptBlock = result[0]!.details.find(d => d.label === 'prompt')
+    const promptBlock = result[0]!.details.find(d => d.labelKey === 'prompt')
     expect(promptBlock?.text).toBe('add oauth login')
-    const raw = result[0]!.details.find(
-      d => d.label === 'raw (with injected context)'
-    )
+    const raw = result[0]!.details.find(d => d.labelKey === 'rawWithContext')
     expect(raw?.text).toContain('<system-reminder>')
   })
 
@@ -362,7 +360,7 @@ describe('mergeEvents', () => {
       },
     ])
     expect(result[0]!.details).toHaveLength(1)
-    expect(result[0]!.details[0]!.label).toBe('prompt')
+    expect(result[0]!.details[0]!.labelKey).toBe('prompt')
   })
 
   it('strips command-name / command-message / command-args tags', () => {

@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "nyahpepijat",
   "sessions.summary.typeRefactor": "refaktor",
   "sessions.summary.typeReview": "semakan",
-  "sessions.summary.typeMixed": "campuran"
+  "sessions.summary.typeMixed": "campuran",
+  "sessions.timeline.pruned": "Kandungan dipadam mengikut dasar pengekalan",
+  "sessions.timeline.block.prompt": "prompt",
+  "sessions.timeline.block.rawWithContext": "mentah (dengan konteks yang disisipkan)",
+  "sessions.timeline.block.lastMessage": "mesej terakhir",
+  "sessions.timeline.block.command": "arahan",
+  "sessions.timeline.block.stdout": "output standard",
+  "sessions.timeline.block.stderr": "ralat standard",
+  "sessions.timeline.block.status": "status",
+  "sessions.timeline.block.content": "kandungan",
+  "sessions.timeline.block.diff": "perbezaan",
+  "sessions.timeline.block.old": "lama",
+  "sessions.timeline.block.new": "baharu",
+  "sessions.timeline.block.matches": "padanan",
+  "sessions.timeline.block.response": "respons",
+  "sessions.timeline.block.files": "fail",
+  "sessions.timeline.block.todos": "senarai tugas",
+  "sessions.timeline.block.input": "input"
 }

@@ -2771,5 +2771,22 @@
   "sessions.summary.typeDebug": "除錯",
   "sessions.summary.typeRefactor": "重構",
   "sessions.summary.typeReview": "審查",
-  "sessions.summary.typeMixed": "混合"
+  "sessions.summary.typeMixed": "混合",
+  "sessions.timeline.pruned": "內容已依保留政策清除",
+  "sessions.timeline.block.prompt": "提示詞",
+  "sessions.timeline.block.rawWithContext": "原文（含注入的上下文）",
+  "sessions.timeline.block.lastMessage": "最後一則訊息",
+  "sessions.timeline.block.command": "指令",
+  "sessions.timeline.block.stdout": "標準輸出",
+  "sessions.timeline.block.stderr": "標準錯誤",
+  "sessions.timeline.block.status": "狀態",
+  "sessions.timeline.block.content": "內容",
+  "sessions.timeline.block.diff": "差異",
+  "sessions.timeline.block.old": "舊",
+  "sessions.timeline.block.new": "新",
+  "sessions.timeline.block.matches": "符合項目",
+  "sessions.timeline.block.response": "回應",
+  "sessions.timeline.block.files": "檔案",
+  "sessions.timeline.block.todos": "待辦事項",
+  "sessions.timeline.block.input": "輸入"
 }

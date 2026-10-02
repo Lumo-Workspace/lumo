@@ -15,8 +15,24 @@ import {
   type RedactedStats,
 } from '@/lib/hook-payload/redact'
 
-/** Row text for an event whose payload the retention sweep cleared (LUM-859). */
-export const PRUNED_SUMMARY = 'Content cleared per retention policy'
+/** Locale-free kinds for detail-block labels; the view maps them to intl keys. */
+export type BlockLabelKey =
+  | 'prompt'
+  | 'rawWithContext'
+  | 'lastMessage'
+  | 'command'
+  | 'stdout'
+  | 'stderr'
+  | 'status'
+  | 'content'
+  | 'diff'
+  | 'old'
+  | 'new'
+  | 'matches'
+  | 'response'
+  | 'files'
+  | 'todos'
+  | 'input'
 
 export type HookEventType =
   | 'PRE_TOOL_USE'
@@ -41,7 +57,7 @@ export type DetailVariant =
   | 'redacted'
 
 export interface DetailBlock {
-  label: string
+  labelKey: BlockLabelKey
   variant: DetailVariant
   text: string
   truncated?: { shownLines: number; totalLines: number }
@@ -56,8 +72,11 @@ export interface TimelineItem {
   key: string
   kind: 'tool' | 'stop' | 'orphan' | 'user-prompt'
   toolName: string | null
-  /** One-line description shown when collapsed. */
+  /** One-line description shown when collapsed. Empty when `pruned`. */
   summary: string
+  /** The retention sweep cleared this event's payload (LUM-859); the view
+   *  renders the localized notice instead of `summary`. */
+  pruned: boolean
   /** Short trailing badge, e.g. "+12 -3" or "✓ 23 passed". Optional. */
   badge: string | null
   status: ItemStatus
@@ -128,7 +147,8 @@ function prunedItem(ev: RawEvent): TimelineItem {
           ? 'user-prompt'
           : 'tool',
     toolName: ev.toolName,
-    summary: PRUNED_SUMMARY,
+    summary: '',
+    pruned: true,
     badge: null,
     status: 'ok',
     startAt: ev.createdAt,
@@ -145,11 +165,11 @@ function userPromptItem(ev: RawEvent): TimelineItem {
   const summary = cleaned ? clip(cleaned, 100) : '(empty prompt)'
   const details: DetailBlock[] = []
   if (cleaned) {
-    details.push({ label: 'prompt', variant: 'text', text: cleaned })
+    details.push({ labelKey: 'prompt', variant: 'text', text: cleaned })
   }
   if (rawPrompt && stripped !== rawPrompt) {
     details.push({
-      label: 'raw (with injected context)',
+      labelKey: 'rawWithContext',
       variant: 'text',
       text: rawPrompt,
     })
@@ -160,6 +180,7 @@ function userPromptItem(ev: RawEvent): TimelineItem {
     kind: 'user-prompt',
     toolName: null,
     summary,
+    pruned: false,
     badge: null,
     status: 'ok',
     startAt: ev.createdAt,
@@ -172,13 +193,14 @@ function stopItem(ev: RawEvent): TimelineItem {
   const last = getString(ev.payload, 'last_assistant_message')
   const summary = last ? clip(last, 100) : 'model stopped'
   const details: DetailBlock[] = last
-    ? [{ label: 'last message', variant: 'text', text: last }]
+    ? [{ labelKey: 'lastMessage', variant: 'text', text: last }]
     : []
   return {
     key: ev.id,
     kind: 'stop',
     toolName: null,
     summary,
+    pruned: false,
     badge: null,
     status: 'ok',
     startAt: ev.createdAt,
@@ -206,6 +228,7 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
     kind: pre && !post ? 'orphan' : 'tool',
     toolName,
     summary,
+    pruned: false,
     badge,
     status,
     startAt: anchor.createdAt,
@@ -236,12 +259,12 @@ function redactionLookup(anchor: unknown, post: unknown): RedactionLookup {
 }
 
 function redactedBlock(
-  label: string,
+  labelKey: BlockLabelKey,
   stats: RedactedStats | null
 ): DetailBlock | null {
   if (!stats) return null
   return {
-    label,
+    labelKey,
     variant: 'redacted',
     text: '',
     redacted: { lines: stats.lines, bytes: stats.bytes },
@@ -305,7 +328,7 @@ function formatBash(
   const interrupted = getBoolean(response, 'interrupted') ?? false
 
   const details: DetailBlock[] = []
-  details.push({ label: 'command', variant: 'code', text: command })
+  details.push({ labelKey: 'command', variant: 'code', text: command })
   if (stdout.trim()) details.push(clipBlock('stdout', 'code', stdout, 40))
   if (stderr.trim()) details.push(clipBlock('stderr', 'error', stderr, 40))
   pushBlock(
@@ -315,7 +338,7 @@ function formatBash(
   const redactedStderr = redaction.stats('tool_response.stderr')
   pushBlock(details, redactedBlock('stderr', redactedStderr))
   if (interrupted)
-    details.push({ label: 'status', variant: 'error', text: 'interrupted' })
+    details.push({ labelKey: 'status', variant: 'error', text: 'interrupted' })
 
   const summary = clip(command.replace(/\s+/g, ' '), 100)
   const hasStderr = stderr.trim() !== '' || (redactedStderr?.bytes ?? 0) > 0
@@ -450,7 +473,7 @@ function formatGrep(
   // count mode or empty result: nothing interesting to expand
   else if (response && mode !== 'count' && numFiles !== 0 && numLines !== 0) {
     details.push({
-      label: 'response',
+      labelKey: 'response',
       variant: 'json',
       text: stringifyJson(response),
     })
@@ -490,7 +513,7 @@ function formatGlob(
     details.push(clipBlock('files', 'code', files.join('\n'), 40))
   } else if (response) {
     details.push({
-      label: 'response',
+      labelKey: 'response',
       variant: 'json',
       text: stringifyJson(response),
     })
@@ -539,13 +562,13 @@ function formatFallback(
   const details: DetailBlock[] = []
   if (input)
     details.push({
-      label: 'input',
+      labelKey: 'input',
       variant: 'json',
       text: stringifyJson(input),
     })
   if (response)
     details.push({
-      label: 'response',
+      labelKey: 'response',
       variant: 'json',
       text: stringifyJson(response),
     })
@@ -614,17 +637,17 @@ function countPatchChanges(
 }
 
 function clipBlock(
-  label: string,
+  labelKey: BlockLabelKey,
   variant: DetailVariant,
   text: string,
   maxLines: number
 ): DetailBlock {
   const lines = text.split('\n')
   if (lines.length <= maxLines) {
-    return { label, variant, text }
+    return { labelKey, variant, text }
   }
   return {
-    label,
+    labelKey,
     variant,
     text: lines.slice(0, maxLines).join('\n'),
     truncated: { shownLines: maxLines, totalLines: lines.length },

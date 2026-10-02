@@ -1,13 +1,32 @@
 'use client'
 
 import { useState } from 'react'
-import { useIntl } from 'react-intl'
-import type { DetailBlock, TimelineItem } from './merge-events'
+import { useIntl, type MessageDescriptor } from 'react-intl'
+import type { BlockLabelKey, DetailBlock, TimelineItem } from './merge-events'
 import { SESSION_MESSAGES as M } from '../messages'
 
 interface TimelineProps {
   items: TimelineItem[]
 }
+
+const BLOCK_LABELS = {
+  prompt: M['timeline.block.prompt'],
+  rawWithContext: M['timeline.block.rawWithContext'],
+  lastMessage: M['timeline.block.lastMessage'],
+  command: M['timeline.block.command'],
+  stdout: M['timeline.block.stdout'],
+  stderr: M['timeline.block.stderr'],
+  status: M['timeline.block.status'],
+  content: M['timeline.block.content'],
+  diff: M['timeline.block.diff'],
+  old: M['timeline.block.old'],
+  new: M['timeline.block.new'],
+  matches: M['timeline.block.matches'],
+  response: M['timeline.block.response'],
+  files: M['timeline.block.files'],
+  todos: M['timeline.block.todos'],
+  input: M['timeline.block.input'],
+} satisfies Record<BlockLabelKey, MessageDescriptor>
 
 export function Timeline({ items }: TimelineProps) {
   const intl = useIntl()
@@ -69,7 +88,9 @@ function TimelineRow({ item }: { item: TimelineItem }) {
           {kindLabel}
         </span>
         <span className='min-w-0 flex-1 truncate text-foreground'>
-          {item.summary}
+          {item.pruned
+            ? intl.formatMessage(M['timeline.pruned'])
+            : item.summary}
         </span>
         {item.badge && (
           <span
@@ -133,7 +154,7 @@ function DetailBlockView({ block }: { block: DetailBlock }) {
   if (block.redacted) {
     return (
       <RedactedBlockView
-        label={block.label}
+        label={intl.formatMessage(BLOCK_LABELS[block.labelKey])}
         lines={block.redacted.lines}
         bytes={block.redacted.bytes}
       />
@@ -149,7 +170,7 @@ function DetailBlockView({ block }: { block: DetailBlock }) {
   return (
     <div className='text-xs'>
       <div className='mb-1 text-[10px] uppercase tracking-wide text-muted-foreground'>
-        {block.label}
+        {intl.formatMessage(BLOCK_LABELS[block.labelKey])}
         {block.truncated && (
           <span className='ml-2 normal-case text-muted-foreground'>
             {intl.formatMessage(M['timeline.truncated'], {

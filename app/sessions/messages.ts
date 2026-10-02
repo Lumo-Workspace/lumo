@@ -275,4 +275,72 @@ export const SESSION_MESSAGES = {
     id: 'sessions.summary.typeMixed',
     defaultMessage: 'mixed',
   },
+  'timeline.pruned': {
+    id: 'sessions.timeline.pruned',
+    defaultMessage: 'Content cleared per retention policy',
+  },
+  'timeline.block.prompt': {
+    id: 'sessions.timeline.block.prompt',
+    defaultMessage: 'prompt',
+  },
+  'timeline.block.rawWithContext': {
+    id: 'sessions.timeline.block.rawWithContext',
+    defaultMessage: 'raw (with injected context)',
+  },
+  'timeline.block.lastMessage': {
+    id: 'sessions.timeline.block.lastMessage',
+    defaultMessage: 'last message',
+  },
+  'timeline.block.command': {
+    id: 'sessions.timeline.block.command',
+    defaultMessage: 'command',
+  },
+  'timeline.block.stdout': {
+    id: 'sessions.timeline.block.stdout',
+    defaultMessage: 'stdout',
+  },
+  'timeline.block.stderr': {
+    id: 'sessions.timeline.block.stderr',
+    defaultMessage: 'stderr',
+  },
+  'timeline.block.status': {
+    id: 'sessions.timeline.block.status',
+    defaultMessage: 'status',
+  },
+  'timeline.block.content': {
+    id: 'sessions.timeline.block.content',
+    defaultMessage: 'content',
+  },
+  'timeline.block.diff': {
+    id: 'sessions.timeline.block.diff',
+    defaultMessage: 'diff',
+  },
+  'timeline.block.old': {
+    id: 'sessions.timeline.block.old',
+    defaultMessage: 'old',
+  },
+  'timeline.block.new': {
+    id: 'sessions.timeline.block.new',
+    defaultMessage: 'new',
+  },
+  'timeline.block.matches': {
+    id: 'sessions.timeline.block.matches',
+    defaultMessage: 'matches',
+  },
+  'timeline.block.response': {
+    id: 'sessions.timeline.block.response',
+    defaultMessage: 'response',
+  },
+  'timeline.block.files': {
+    id: 'sessions.timeline.block.files',
+    defaultMessage: 'files',
+  },
+  'timeline.block.todos': {
+    id: 'sessions.timeline.block.todos',
+    defaultMessage: 'todos',
+  },
+  'timeline.block.input': {
+    id: 'sessions.timeline.block.input',
+    defaultMessage: 'input',
+  },
 } as const satisfies Record<string, MessageDescriptor>

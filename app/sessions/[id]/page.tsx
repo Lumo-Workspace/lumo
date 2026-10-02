@@ -31,7 +31,9 @@ export default async function SessionDetailPage({
 
   const rawEvents = await sessionRepository.listEventsForSession(id)
 
-  // A subagent's detail page shows its family's attribution.
+  // A subagent's detail page shows its family's attribution. A child session
+  // always shares its parent's member, so the ownership check above covers
+  // the whole parent family.
   const attribution = await sessionListService.getAttribution(
     session.parentSessionId ?? session.id
   )
