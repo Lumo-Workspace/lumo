@@ -9,6 +9,9 @@
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: { findForDetectorReplay: jest.fn() },
 }))
+jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
+  boundaryCrossingRepository: { hookEventIdsWithCrossing: jest.fn() },
+}))
 jest.mock('@/lib/services/boundary-detector.service', () => ({
   boundaryDetectorService: { detectAndRecord: jest.fn() },
 }))
@@ -28,6 +31,8 @@ import {
   replayBoundaryDetection,
 } from '@/lib/services/boundary-detector-replay.service'
 
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+const owned = boundaryCrossingRepository.hookEventIdsWithCrossing as jest.Mock
 const find = hookEventRepository.findForDetectorReplay as jest.Mock
 const detect = boundaryDetectorService.detectAndRecord as jest.Mock
 
@@ -45,6 +50,7 @@ const row = (id: string, over: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   jest.clearAllMocks()
   detect.mockResolvedValue(undefined)
+  owned.mockResolvedValue(new Set())
 })
 
 describe('replayBoundaryDetection', () => {
@@ -115,5 +121,20 @@ describe('replayBoundaryDetection', () => {
       truncated: false,
     })
     expect(find).not.toHaveBeenCalled()
+  })
+
+  it('skips events that already own a crossing (A -> null -> B, crossing moved to B)', async () => {
+    find.mockResolvedValue([row('e1'), row('e2')])
+    owned.mockResolvedValue(new Set(['e1']))
+    await expect(replayBoundaryDetection('s1', ['e1', 'e2'])).resolves.toEqual({
+      replayed: 1,
+      truncated: false,
+    })
+    expect(owned).toHaveBeenCalledTimes(1)
+    expect(owned).toHaveBeenCalledWith(['e1', 'e2'])
+    expect(detect).toHaveBeenCalledTimes(1)
+    expect(detect).toHaveBeenCalledWith(
+      expect.objectContaining({ hookEventId: 'e2' })
+    )
   })
 })

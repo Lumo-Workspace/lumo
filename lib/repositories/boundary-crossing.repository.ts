@@ -322,6 +322,22 @@ export const boundaryCrossingRepository = {
   },
 
   /**
+   * Hook event ids (within the candidate set) that already own ≥1 crossing —
+   * one batched query; the detector replay skips them.
+   */
+  async hookEventIdsWithCrossing(eventIds: string[]): Promise<Set<string>> {
+    if (eventIds.length === 0) return new Set()
+    const rows = await prisma.boundaryCrossing.findMany({
+      where: { hookEventId: { in: eventIds } },
+      select: { hookEventId: true },
+      distinct: ['hookEventId'],
+    })
+    return new Set(
+      rows.map(r => r.hookEventId).filter((id): id is string => id !== null)
+    )
+  },
+
+  /**
    * Open (undispositioned) crossings on a task — what the DONE gate blocks on.
    * A crossing is open while `disposition` is null; either disposition clears it.
    */

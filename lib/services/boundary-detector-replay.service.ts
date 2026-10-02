@@ -1,4 +1,5 @@
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { boundaryDetectorService } from '@/lib/services/boundary-detector.service'
 import { logger } from '@/lib/logger'
 
@@ -17,7 +18,7 @@ export const MAX_REPLAYED_EVENTS = 200
  * need the unredacted payload or the written content — hardcoded-secret
  * scanning, content-based test tampering — cannot be replayed and simply find
  * nothing. The event's CURRENT task is used; events no longer on a task, not
- * POST_TOOL_USE, or with a pruned payload are skipped. Bounded to
+ * POST_TOOL_USE, or with a pruned payload, or that already own a crossing are skipped. Bounded to
  * MAX_REPLAYED_EVENTS, sequential, and fail-soft: never throws.
  */
 export async function replayBoundaryDetection(
@@ -36,10 +37,13 @@ export async function replayBoundaryDetection(
   let rows: Awaited<
     ReturnType<typeof hookEventRepository.findForDetectorReplay>
   >
+  let owned: Set<string>
   try {
-    rows = await hookEventRepository.findForDetectorReplay(
-      eventIds.slice(0, MAX_REPLAYED_EVENTS)
-    )
+    const ids = eventIds.slice(0, MAX_REPLAYED_EVENTS)
+    rows = await hookEventRepository.findForDetectorReplay(ids)
+    // An event that already owns a crossing (e.g. flipped A -> null -> B with
+    // its crossing moved along) was detected before — never detect it twice.
+    owned = await boundaryCrossingRepository.hookEventIdsWithCrossing(ids)
   } catch (error) {
     logger.error('boundary detector replay load failed', { sessionId, error })
     return { replayed: 0, truncated }
@@ -47,6 +51,7 @@ export async function replayBoundaryDetection(
   let replayed = 0
   for (const e of rows) {
     if (
+      owned.has(e.id) ||
       !e.taskId ||
       e.type !== 'POST_TOOL_USE' ||
       e.payloadPrunedAt !== null ||

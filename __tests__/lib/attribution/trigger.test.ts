@@ -16,7 +16,11 @@ jest.mock('@/lib/logger', () => ({
   },
 }))
 
-import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
+import {
+  recomputeAttributionOnly,
+  recomputeAttributionSafely,
+  replayBackfilledEvents,
+} from '@/lib/attribution/trigger'
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -100,5 +104,24 @@ describe('recomputeAttributionSafely', () => {
     replay.mockRejectedValue(new Error('boom'))
     await expect(recomputeAttributionSafely('s-6')).resolves.toBeUndefined()
     expect(loggerError).toHaveBeenCalled()
+  })
+
+  it('split steps: recompute returns the result without replaying; replay takes it', async () => {
+    const result = {
+      segments: 1,
+      written: true,
+      eventsUpdated: 1,
+      crossingsMoved: 0,
+      crossingsMovedToNull: 0,
+      backfilledPostToolEventIds: ['e9'],
+    }
+    recomputeFamily.mockResolvedValue(result)
+    replay.mockResolvedValue({ replayed: 1, truncated: false })
+    await expect(recomputeAttributionOnly('s-7')).resolves.toEqual(result)
+    expect(replay).not.toHaveBeenCalled()
+    await replayBackfilledEvents('s-7', result)
+    expect(replay).toHaveBeenCalledWith('s-7', ['e9'])
+    await replayBackfilledEvents('s-7', null)
+    expect(replay).toHaveBeenCalledTimes(1)
   })
 })

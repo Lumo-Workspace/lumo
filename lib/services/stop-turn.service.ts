@@ -1,4 +1,8 @@
-import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
+import {
+  recomputeAttributionOnly,
+  recomputeAttributionSafely,
+  replayBackfilledEvents,
+} from '@/lib/attribution/trigger'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { layer1Service } from '@/lib/services/memory/layer1.service'
@@ -95,8 +99,10 @@ export const stopTurnService = {
         ])
         return
       }
-      await recomputeAttributionSafely(ctx.sessionId)
+      // Layer 1 must not wait for the (sequential, bounded) detector replay.
+      const res = await recomputeAttributionOnly(ctx.sessionId)
       await extractOrSummarize(ctx, await currentStopTask(ctx))
+      await replayBackfilledEvents(ctx.sessionId, res)
     } catch (error) {
       logger.error('stopTurnService.afterStop failed', {
         sessionId: ctx.sessionId,

@@ -7,8 +7,12 @@
  * Layer 1 run side by side on the bound task).
  */
 const recompute = jest.fn()
+const recomputeOnly = jest.fn()
+const replayBackfilled = jest.fn()
 jest.mock('@/lib/attribution/trigger', () => ({
   recomputeAttributionSafely: (...a: unknown[]) => recompute(...a),
+  recomputeAttributionOnly: (...a: unknown[]) => recomputeOnly(...a),
+  replayBackfilledEvents: (...a: unknown[]) => replayBackfilled(...a),
 }))
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: { findTaskAndAttribution: jest.fn() },
@@ -53,8 +57,12 @@ describe('stopTurnService.afterStop', () => {
   it('unattached: awaits the recompute, then runs Layer 1 on the STOP event current task', async () => {
     const order: string[] = []
     findSession.mockResolvedValue({ taskId: null })
-    recompute.mockImplementation(async () => {
+    recomputeOnly.mockImplementation(async () => {
       order.push('recompute')
+      return { backfilledPostToolEventIds: ['e1'] }
+    })
+    replayBackfilled.mockImplementation(async () => {
+      order.push('replay')
     })
     findTaskId.mockImplementation(async () => {
       order.push('reread')
@@ -64,7 +72,11 @@ describe('stopTurnService.afterStop', () => {
       order.push('layer1')
     })
     await stopTurnService.afterStop(ctx())
-    expect(order).toEqual(['recompute', 'reread', 'layer1'])
+    expect(order).toEqual(['recompute', 'reread', 'layer1', 'replay'])
+    expect(replayBackfilled).toHaveBeenCalledWith('s1', {
+      backfilledPostToolEventIds: ['e1'],
+    })
+    expect(recompute).not.toHaveBeenCalled()
     expect(findTaskId).toHaveBeenCalledWith('evt_stop')
     expect(layer1).toHaveBeenCalledWith({
       sessionId: 's1',

@@ -1,13 +1,15 @@
 import { logger } from '@/lib/logger'
+import type { RecomputeResult } from '@/lib/services/attribution.service'
 
 /**
  * LUM-932 P2: recompute a session family's attribution segments, best-effort.
  * Dynamic import keeps the attribution stack out of every hook route's static
- * import graph (and out of unrelated jest suites). Never throws.
+ * import graph (and out of unrelated jest suites). Never throws; null when the
+ * recompute failed or there was no family.
  */
-export async function recomputeAttributionSafely(
+export async function recomputeAttributionOnly(
   sessionId: string
-): Promise<void> {
+): Promise<RecomputeResult | null> {
   try {
     const { attributionService } =
       await import('@/lib/services/attribution.service')
@@ -21,14 +23,35 @@ export async function recomputeAttributionSafely(
         crossingsMovedToNull: res.crossingsMovedToNull,
       })
     }
-    // I1: POST_TOOL_USE events backfilled from no task to a task never met
-    // the boundary detector with one — replay it on their stored payload.
-    if (res && res.backfilledPostToolEventIds.length > 0) {
-      const { replayBoundaryDetection } =
-        await import('@/lib/services/boundary-detector-replay.service')
-      await replayBoundaryDetection(sessionId, res.backfilledPostToolEventIds)
-    }
+    return res ?? null
+  } catch (error) {
+    logger.error('attribution recompute failed', { sessionId, error })
+    return null
+  }
+}
+
+/**
+ * I1: POST_TOOL_USE events backfilled from no task to a task never met the
+ * boundary detector with one — replay it on their stored payload. Never throws.
+ */
+export async function replayBackfilledEvents(
+  sessionId: string,
+  res: RecomputeResult | null
+): Promise<void> {
+  try {
+    if (!res || res.backfilledPostToolEventIds.length === 0) return
+    const { replayBoundaryDetection } =
+      await import('@/lib/services/boundary-detector-replay.service')
+    await replayBoundaryDetection(sessionId, res.backfilledPostToolEventIds)
   } catch (error) {
     logger.error('attribution recompute failed', { sessionId, error })
   }
+}
+
+/** Recompute then replay — for callers with nothing to run in between. */
+export async function recomputeAttributionSafely(
+  sessionId: string
+): Promise<void> {
+  const res = await recomputeAttributionOnly(sessionId)
+  await replayBackfilledEvents(sessionId, res)
 }

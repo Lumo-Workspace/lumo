@@ -8,6 +8,8 @@ jest.mock('@vercel/functions', () => ({
 }))
 jest.mock('@/lib/attribution/trigger', () => ({
   recomputeAttributionSafely: jest.fn().mockResolvedValue(undefined),
+  recomputeAttributionOnly: jest.fn().mockResolvedValue(null),
+  replayBackfilledEvents: jest.fn().mockResolvedValue(undefined),
 }))
 jest.mock('@/lib/services/memory/layer1.service', () => ({
   layer1Service: { triggerLayer1Extraction: jest.fn() },
@@ -27,7 +29,10 @@ jest.mock('@/lib/services/auto-block.service', () => ({
   autoBlockService: { onProgressRecorded: jest.fn() },
 }))
 
-import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
+import {
+  recomputeAttributionOnly,
+  recomputeAttributionSafely,
+} from '@/lib/attribution/trigger'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { layer1Service } from '@/lib/services/memory/layer1.service'
 import { POST as stopPost } from '@/app/api/hooks/stop/route'
@@ -49,7 +54,8 @@ describe('hook routes trigger attribution recompute (LUM-932)', () => {
     expect(handleHookRequest.mock.calls[0][1]).toBe('STOP')
     await afterRecordOf()({ sessionId: 's-1', taskId: null, eventId: 'e1' })
     await new Promise(r => setTimeout(r, 0))
-    expect(recomputeAttributionSafely).toHaveBeenCalledWith('s-1')
+    // unattached STOP: recompute-only, replay runs after Layer 1
+    expect(recomputeAttributionOnly).toHaveBeenCalledWith('s-1')
   })
 
   it('STOP skips recompute without a session id', async () => {
