@@ -228,7 +228,7 @@ export const sessionRepository = {
     const id = buildChildSessionId(data.parentSessionId, data.agentId)
     return prisma.$transaction(async tx => {
       const parent = await ensureParentRow(tx, data)
-      return tx.session.upsert({
+      const child = await tx.session.upsert({
         where: { id },
         create: {
           id,
@@ -252,6 +252,23 @@ export const sessionRepository = {
         },
         select: { id: true, taskId: true },
       })
+      // An existing unbound child under a parent that has bound since (a
+      // parent attach racing this child's earlier creation) inherits now.
+      // Conditional on taskId null so a concurrent own attach wins.
+      if (child.taskId === null && parent.taskId) {
+        const { count } = await tx.session.updateMany({
+          where: { id, taskId: null },
+          data: { taskId: parent.taskId, bindingSource: 'INHERITED' },
+        })
+        if (count > 0) {
+          await tx.hookEvent.updateMany({
+            where: { sessionId: id, taskId: null },
+            data: { taskId: parent.taskId },
+          })
+          return { id, taskId: parent.taskId }
+        }
+      }
+      return child
     })
   },
 
@@ -302,24 +319,37 @@ export const sessionRepository = {
   }): Promise<{ settled: boolean }> {
     const id = buildChildSessionId(data.parentSessionId, data.agentId)
     return prisma.$transaction(async tx => {
-      const parent = await ensureParentRow(tx, data)
-      const child = await tx.session.upsert({
+      const childSelect = {
+        id: true,
+        taskId: true,
+        usageByModel: true,
+      } as const
+      // Common case: the child row exists (its hook events created it), so
+      // skip the parent upsert. Only a brand-new child needs its FK target.
+      let child = await tx.session.findUnique({
         where: { id },
-        create: {
-          id,
-          workspaceId: data.workspaceId,
-          workspaceMemberId: data.workspaceMemberId,
-          parentSessionId: data.parentSessionId,
-          agentId: data.agentId,
-          taskId: parent.taskId,
-          bindingSource: parent.taskId ? 'INHERITED' : null,
-          startedAt: data.now,
-          lastActivityAt: data.now,
-          eventCount: 0,
-        },
-        update: {},
-        select: { id: true, taskId: true, usageByModel: true },
+        select: childSelect,
       })
+      if (!child) {
+        const parent = await ensureParentRow(tx, data)
+        child = await tx.session.upsert({
+          where: { id },
+          create: {
+            id,
+            workspaceId: data.workspaceId,
+            workspaceMemberId: data.workspaceMemberId,
+            parentSessionId: data.parentSessionId,
+            agentId: data.agentId,
+            taskId: parent.taskId,
+            bindingSource: parent.taskId ? 'INHERITED' : null,
+            startedAt: data.now,
+            lastActivityAt: data.now,
+            eventCount: 0,
+          },
+          update: {},
+          select: childSelect,
+        })
+      }
       const delta = diffUsageByModel(
         (child.usageByModel as Record<string, ModelUsage> | null) ?? null,
         data.usage.byModel

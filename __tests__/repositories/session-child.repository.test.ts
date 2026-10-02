@@ -111,6 +111,58 @@ describe('upsertChildForHookEvent', () => {
   })
 })
 
+describe('upsertChildForHookEvent — late parent binding', () => {
+  it('an existing unbound child inherits a parent bound since (closes the attach race)', async () => {
+    tx.session.upsert
+      .mockResolvedValueOnce({ id: 'P', taskId: 't1' }) // parent, bound
+      .mockResolvedValueOnce({ id: 'P:a1', taskId: null }) // existing child
+    tx.session.updateMany.mockResolvedValueOnce({ count: 1 })
+    tx.hookEvent.updateMany.mockResolvedValueOnce({ count: 2 })
+    const r = await sessionRepository.upsertChildForHookEvent({
+      ...base,
+      parentSessionId: 'P',
+      agentId: 'a1',
+      agentType: null,
+      cwd: null,
+    })
+    expect(tx.session.updateMany).toHaveBeenCalledWith({
+      where: { id: 'P:a1', taskId: null },
+      data: { taskId: 't1', bindingSource: 'INHERITED' },
+    })
+    expect(tx.hookEvent.updateMany).toHaveBeenCalledWith({
+      where: { sessionId: 'P:a1', taskId: null },
+      data: { taskId: 't1' },
+    })
+    expect(r).toEqual({ id: 'P:a1', taskId: 't1' })
+  })
+
+  it('leaves a child with its own task, or an unbound parent, alone', async () => {
+    tx.session.upsert
+      .mockResolvedValueOnce({ id: 'P', taskId: 't1' })
+      .mockResolvedValueOnce({ id: 'P:a1', taskId: 't2' })
+    expect(
+      await sessionRepository.upsertChildForHookEvent({
+        ...base,
+        parentSessionId: 'P',
+        agentId: 'a1',
+        agentType: null,
+        cwd: null,
+      })
+    ).toEqual({ id: 'P:a1', taskId: 't2' })
+    tx.session.upsert
+      .mockResolvedValueOnce({ id: 'P', taskId: null })
+      .mockResolvedValueOnce({ id: 'P:a1', taskId: null })
+    await sessionRepository.upsertChildForHookEvent({
+      ...base,
+      parentSessionId: 'P',
+      agentId: 'a1',
+      agentType: null,
+      cwd: null,
+    })
+    expect(tx.session.updateMany).not.toHaveBeenCalled()
+  })
+})
+
 describe('inheritTaskToUnboundChildren', () => {
   it('binds only unbound children and retags their untagged events', async () => {
     tx.session.findMany.mockResolvedValueOnce([{ id: 'P:a1' }, { id: 'P:a2' }])
@@ -233,6 +285,22 @@ describe('settleChildUsage', () => {
     })
     expect(tx.hookEvent.update).not.toHaveBeenCalled()
     expect(tx.session.update).not.toHaveBeenCalled()
+    expect(r).toEqual({ settled: false })
+  })
+
+  it('skips the parent upsert when the child row already exists', async () => {
+    tx.session.findUnique.mockResolvedValueOnce({
+      id: 'P:a1',
+      taskId: null,
+      usageByModel: usage.byModel,
+    })
+    const r = await sessionRepository.settleChildUsage({
+      ...base,
+      parentSessionId: 'P',
+      agentId: 'a1',
+      usage,
+    })
+    expect(tx.session.upsert).not.toHaveBeenCalled()
     expect(r).toEqual({ settled: false })
   })
 
