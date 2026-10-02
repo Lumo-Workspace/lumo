@@ -17,12 +17,19 @@ export type CallerMatch =
   | { kind: 'one'; sessionId: string }
   | { kind: 'ambiguous'; sessionIds: string[] }
 
-// A `lumo` word at command start or after whitespace / ; & | ( , optionally
-// path-qualified (/usr/local/bin/lumo). Residual risk: `lumo` inside quoted
-// prose (git commit -m "fix lumo verify") still counts when the argv tokens
-// follow it as whole words; the cost is an "ambiguous" answer, never a wrong
-// pick when only one session is pending.
-const RUNS_LUMO = /(?:^|[\s;&|(])(?:[^\s;&|()]*\/)?lumo(?=\s|$)/g
+// Matches a `lumo` invocation in two forms:
+//  - bare `lumo`: at string start or after whitespace / ; & | ( or a backtick;
+//  - path-qualified (/usr/local/bin/lumo, ./node_modules/.bin/lumo): only in
+//    COMMAND position, i.e. at string start or right after ; && || | ( $( or a
+//    backtick (optional whitespace), so `cd /Users/me/lumo && echo verify`
+//    does not count as running lumo.
+// Residual risk: `lumo` inside quoted prose (git commit -m "fix lumo verify")
+// still counts when the argv tokens follow it as whole words, and a
+// path-qualified lumo after `VAR=x ` env assignments is not recognised; the
+// cost is an "ambiguous"/"none" answer, never a wrong pick when only one
+// session is pending.
+const RUNS_LUMO =
+  /(?:(?:^|[\s;&|(`])lumo|(?:^|[;&|(`])\s*[^\s;&|()`]*\/lumo)(?=\s|$)/g
 
 function field(payload: unknown, ...path: string[]): unknown {
   let cur: unknown = payload
@@ -34,7 +41,7 @@ function field(payload: unknown, ...path: string[]): unknown {
 }
 
 const BEFORE_OK = /[\s"']/
-const AFTER_OK = /[\s"';&|)]/
+const AFTER_OK = /[\s"';&|)`]/
 
 /** Index of `token` as a whole shell word at or after `from`, else -1. */
 function indexOfWholeToken(
@@ -60,6 +67,7 @@ function containsInOrder(command: string, argv: string[]): boolean {
     let pos = m.index! + m[0].length
     let ok = true
     for (const token of argv) {
+      if (!token) continue
       const at = indexOfWholeToken(command, token, pos)
       if (at < 0) {
         ok = false

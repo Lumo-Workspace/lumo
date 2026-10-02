@@ -105,6 +105,39 @@ describe('subagent lumo commands resolve to the child session without changing p
     }
   })
 
+  it('counts path-qualified lumo only in command position', () => {
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'cd /Users/me/lumo && echo verify LUM-12')],
+        ['verify', 'LUM-12']
+      )
+    ).toEqual({ kind: 'none' })
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'cd /repo && ./node_modules/.bin/lumo verify LUM-12')],
+        ['verify', 'LUM-12']
+      )
+    ).toEqual({ kind: 'one', sessionId: A })
+  })
+
+  it('accepts lumo after a backtick', () => {
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'x=`lumo verify LUM-12`')],
+        ['verify', 'LUM-12']
+      )
+    ).toEqual({ kind: 'one', sessionId: A })
+  })
+
+  it('skips empty argv tokens', () => {
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'lumo task update LUM-12 --pr ""')],
+        ['task', 'update', 'LUM-12', '--pr', '']
+      )
+    ).toEqual({ kind: 'one', sessionId: A })
+  })
+
   it('skips a PRE_TOOL_USE without a tool_use_id', () => {
     const e = pre(A, 't1', 'lumo verify')
     e.payload = { tool_input: { command: 'lumo verify' } } as typeof e.payload
