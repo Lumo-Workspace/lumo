@@ -257,8 +257,10 @@ export const sessionService = {
       })
     }
 
-    const { count } =
-      await hookEventRepository.bulkSetTaskIdForNullEventsInSession(
+    // Explicit binding wins over provisional tags (LUM-932 P3): every event
+    // of this session moves to the attached task, open crossings with them.
+    const { eventsUpdated: count } =
+      await hookEventRepository.retagSessionEventsToExplicitTask(
         sessionId,
         task.id
       )

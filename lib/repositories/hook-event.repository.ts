@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
 import { eventsForTask } from '@/lib/repositories/task-attribution-where'
+import { retagEventsToExplicitTask } from '@/lib/repositories/explicit-retag'
 import type { HookEventType } from '@prisma/client'
 import type { AttributionSignal } from '@/lib/attribution/signals'
 import type { ToolEventRow } from '@/lib/session/resolve-caller'
@@ -292,18 +293,20 @@ export const hookEventRepository = {
   },
 
   /**
-   * Bulk-tag every null-taskId event in a session with the given
-   * taskId. Used by `lumo session attach` to retroactively pull the
-   * already-emitted events of the running session under the newly
-   * attached task. Events that already carry a taskId are left alone
-   * — they're authoritative.
+   * Pull every already-emitted event of a session under the task it was just
+   * explicitly attached to (`lumo session attach`). Explicit binding wins
+   * (LUM-932 P3): events carrying a provisional (inferred) task are retagged
+   * too, and the undispositioned crossings on them move to the attached task.
+   * Safe because attach only binds an unbound session or re-binds the same
+   * task (LUM-459). `eventsUpdated` = events whose taskId changed.
    */
-  async bulkSetTaskIdForNullEventsInSession(sessionId: string, taskId: string) {
-    const result = await prisma.hookEvent.updateMany({
-      where: { sessionId, taskId: null },
-      data: { taskId },
-    })
-    return { count: result.count }
+  async retagSessionEventsToExplicitTask(
+    sessionId: string,
+    taskId: string
+  ): Promise<{ eventsUpdated: number; crossingsMoved: number }> {
+    return prisma.$transaction(tx =>
+      retagEventsToExplicitTask(tx, [sessionId], taskId)
+    )
   },
 
   /**

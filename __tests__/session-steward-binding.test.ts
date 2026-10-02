@@ -27,7 +27,7 @@ jest.mock('@/lib/repositories/session.repository', () => ({
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: {
-    bulkSetTaskIdForNullEventsInSession: jest.fn(),
+    retagSessionEventsToExplicitTask: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
@@ -140,6 +140,7 @@ beforeEach(() => {
   sessRepo.inheritTaskToUnboundChildren.mockResolvedValue({
     childCount: 0,
     retaggedEventCount: 0,
+    crossingsMoved: 0,
   })
   misc.findMemberIdForHook.mockResolvedValue('wm_1')
   tasks.resolveIdentifier.mockResolvedValue({
@@ -161,9 +162,10 @@ beforeEach(() => {
     ownedByOther: false,
     session: { id: 'sess_1', taskId: 'task_2' },
   })
-  hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({
-    count: 0,
-  } as never)
+  hookRepo.retagSessionEventsToExplicitTask.mockResolvedValue({
+    eventsUpdated: 0,
+    crossingsMoved: 0,
+  })
   ctx.buildMemorySectionForTask.mockResolvedValue('')
   ctx.buildCriteriaSectionForTask.mockResolvedValue('')
   ctx.buildTestCaseSectionForTask.mockResolvedValue('')

@@ -8,7 +8,7 @@
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: {
     createHookEvent: jest.fn(),
-    bulkSetTaskIdForNullEventsInSession: jest.fn(),
+    retagSessionEventsToExplicitTask: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/session.repository', () => ({
@@ -95,7 +95,10 @@ beforeEach(() => {
   jest.clearAllMocks()
   misc.findMemberIdForHook.mockResolvedValue('wm_1')
   repo.createHookEvent.mockResolvedValue({ id: 'he_1' } as never)
-  repo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({ count: 0 })
+  repo.retagSessionEventsToExplicitTask.mockResolvedValue({
+    eventsUpdated: 0,
+    crossingsMoved: 0,
+  })
   sess.upsertForHookEvent.mockResolvedValue({
     taskId: null,
     turnUsageByModel: null,
@@ -107,6 +110,7 @@ beforeEach(() => {
   sess.inheritTaskToUnboundChildren.mockResolvedValue({
     childCount: 0,
     retaggedEventCount: 0,
+    crossingsMoved: 0,
   })
   sess.findForMemberWithBinding.mockResolvedValue(null as never)
 })
@@ -234,10 +238,14 @@ describe('resolves attribution by precedence across child and parent sessions', 
       title: 'T12',
       status: 'TODO',
     } as never)
-    repo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({ count: 3 })
+    repo.retagSessionEventsToExplicitTask.mockResolvedValue({
+      eventsUpdated: 3,
+      crossingsMoved: 1,
+    })
     sess.inheritTaskToUnboundChildren.mockResolvedValue({
       childCount: 2,
       retaggedEventCount: 5,
+      crossingsMoved: 0,
     })
     const r = await sessionService.bindSessionToTask({
       identity,

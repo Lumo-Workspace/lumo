@@ -395,3 +395,26 @@ describe('listFamilySegments', () => {
     })
   })
 })
+
+describe('findOpenSegmentTask', () => {
+  it('ignores segments whose task is in the trash and prefers the first session in order', async () => {
+    p.taskAttributionSegment.findMany.mockResolvedValue([
+      { sessionId: 'r', taskId: 't_parent' },
+      { sessionId: 'r:a1', taskId: 't_child' },
+    ])
+    await expect(
+      attributionRepository.findOpenSegmentTask('ws', ['r:a1', 'r'])
+    ).resolves.toBe('t_child')
+    expect(p.taskAttributionSegment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          workspaceId: 'ws',
+          sessionId: { in: ['r:a1', 'r'] },
+          toAt: null,
+          source: 'INFERRED',
+          task: { deletedAt: null },
+        },
+      })
+    )
+  })
+})

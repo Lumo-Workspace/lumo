@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma, SessionRole, TaskArtifactAgent } from '@prisma/client'
 import { buildChildSessionId } from '@/lib/session/child-session-id'
+import { retagEventsToExplicitTask } from '@/lib/repositories/explicit-retag'
 import type { InjectedUsage } from '@/lib/session/subagent-usage'
 
 export interface ModelUsage {
@@ -279,10 +280,8 @@ export const sessionRepository = {
           data: { taskId: parent.taskId, bindingSource: 'INHERITED' },
         })
         if (count > 0) {
-          await tx.hookEvent.updateMany({
-            where: { sessionId: id, taskId: null },
-            data: { taskId: parent.taskId },
-          })
+          // Explicit (inherited) binding wins over provisional tags.
+          await retagEventsToExplicitTask(tx, [id], parent.taskId)
           return { id, taskId: parent.taskId, steward }
         }
       }
@@ -292,29 +291,41 @@ export const sessionRepository = {
 
   /**
    * LUM-932: a parent attach binds the whole session — every child session
-   * that has no explicit binding of its own inherits the task, and their
-   * untagged events are retagged. Already-bound children keep their task.
+   * that has no explicit binding of its own inherits the task, and ALL their
+   * events are retagged to it (explicit binding wins over provisional tags;
+   * open crossings on provisionally tagged events follow). Already-bound
+   * children keep their task.
    */
   async inheritTaskToUnboundChildren(
     parentSessionId: string,
     taskId: string
-  ): Promise<{ childCount: number; retaggedEventCount: number }> {
+  ): Promise<{
+    childCount: number
+    retaggedEventCount: number
+    crossingsMoved: number
+  }> {
     return prisma.$transaction(async tx => {
       const children = await tx.session.findMany({
         where: { parentSessionId, taskId: null },
         select: { id: true },
       })
-      if (children.length === 0) return { childCount: 0, retaggedEventCount: 0 }
+      if (children.length === 0)
+        return { childCount: 0, retaggedEventCount: 0, crossingsMoved: 0 }
       const ids = children.map(c => c.id)
       await tx.session.updateMany({
         where: { id: { in: ids } },
         data: { taskId, bindingSource: 'INHERITED' },
       })
-      const { count } = await tx.hookEvent.updateMany({
-        where: { sessionId: { in: ids }, taskId: null },
-        data: { taskId },
-      })
-      return { childCount: ids.length, retaggedEventCount: count }
+      const { eventsUpdated, crossingsMoved } = await retagEventsToExplicitTask(
+        tx,
+        ids,
+        taskId
+      )
+      return {
+        childCount: ids.length,
+        retaggedEventCount: eventsUpdated,
+        crossingsMoved,
+      }
     })
   },
 

@@ -22,7 +22,7 @@ jest.mock('@/lib/repositories/session.repository', () => ({
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: {
-    bulkSetTaskIdForNullEventsInSession: jest.fn(),
+    retagSessionEventsToExplicitTask: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
@@ -75,8 +75,8 @@ describe('sessionService.bindSessionToTask — memory injection', () => {
       sessionRepository.findForMemberWithBinding as jest.Mock
     ).mockResolvedValue(null)
     ;(
-      hookEventRepository.bulkSetTaskIdForNullEventsInSession as jest.Mock
-    ).mockResolvedValue({ count: 0 })
+      hookEventRepository.retagSessionEventsToExplicitTask as jest.Mock
+    ).mockResolvedValue({ eventsUpdated: 0, crossingsMoved: 0 })
     ;(
       taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock
     ).mockResolvedValue(null)
@@ -139,8 +139,8 @@ describe('bind-task route', () => {
       session: { id: 's-1', taskId: 'task-1' },
     })
     ;(
-      hookEventRepository.bulkSetTaskIdForNullEventsInSession as jest.Mock
-    ).mockResolvedValue({ count: 0 })
+      hookEventRepository.retagSessionEventsToExplicitTask as jest.Mock
+    ).mockResolvedValue({ eventsUpdated: 0, crossingsMoved: 0 })
   })
 
   const params = { params: Promise.resolve({ sessionId: 's-1' }) }

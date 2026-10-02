@@ -10,7 +10,7 @@ jest.mock('@/lib/repositories/session.repository', () => ({
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: {
-    bulkSetTaskIdForNullEventsInSession: jest.fn(),
+    retagSessionEventsToExplicitTask: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/misc.repository', () => ({
@@ -68,6 +68,7 @@ beforeEach(() => {
   sessRepo.inheritTaskToUnboundChildren.mockResolvedValue({
     childCount: 0,
     retaggedEventCount: 0,
+    crossingsMoved: 0,
   })
   misc.findMemberIdForHook.mockResolvedValue('wm_1')
   task.resolveIdentifier.mockResolvedValue({
@@ -82,7 +83,10 @@ beforeEach(() => {
   } as never)
   // Default: session has no current binding → no override conflict.
   sessRepo.findForMemberWithBinding.mockResolvedValue(null as never)
-  hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({ count: 3 })
+  hookRepo.retagSessionEventsToExplicitTask.mockResolvedValue({
+    eventsUpdated: 3,
+    crossingsMoved: 0,
+  })
   ;(
     taskContextService.buildMemorySectionForTask as jest.Mock
   ).mockResolvedValue('')
@@ -101,7 +105,7 @@ beforeEach(() => {
 })
 
 describe('sessionService.bindSessionToTask', () => {
-  it('upserts session to task and re-tags null events', async () => {
+  it('upserts session to task and retags all its events (provisional tags included) to it', async () => {
     const result = await sessionService.bindSessionToTask({
       identity,
       sessionId: 'sess_1',
@@ -118,7 +122,7 @@ describe('sessionService.bindSessionToTask', () => {
         taskId: 'task_1',
       })
     )
-    expect(hookRepo.bulkSetTaskIdForNullEventsInSession).toHaveBeenCalledWith(
+    expect(hookRepo.retagSessionEventsToExplicitTask).toHaveBeenCalledWith(
       'sess_1',
       'task_1'
     )
@@ -182,8 +186,9 @@ describe('sessionService.bindSessionToTask', () => {
   })
 
   it('succeeds when no events were retagged (attach-before-any-hook)', async () => {
-    hookRepo.bulkSetTaskIdForNullEventsInSession.mockResolvedValue({
-      count: 0,
+    hookRepo.retagSessionEventsToExplicitTask.mockResolvedValue({
+      eventsUpdated: 0,
+      crossingsMoved: 0,
     })
     const result = await sessionService.bindSessionToTask({
       identity,
@@ -306,7 +311,7 @@ describe('sessionService.bindSessionToTask', () => {
       currentTaskTitle: 'Other task',
     })
     expect(sessRepo.upsertWithTaskId).not.toHaveBeenCalled()
-    expect(hookRepo.bulkSetTaskIdForNullEventsInSession).not.toHaveBeenCalled()
+    expect(hookRepo.retagSessionEventsToExplicitTask).not.toHaveBeenCalled()
   })
 
   it('re-attaching the same task is idempotent and re-emits context', async () => {
@@ -323,6 +328,6 @@ describe('sessionService.bindSessionToTask', () => {
 
     expect(result.status).toBe('bound')
     expect(sessRepo.upsertWithTaskId).toHaveBeenCalled()
-    expect(hookRepo.bulkSetTaskIdForNullEventsInSession).toHaveBeenCalled()
+    expect(hookRepo.retagSessionEventsToExplicitTask).toHaveBeenCalled()
   })
 })

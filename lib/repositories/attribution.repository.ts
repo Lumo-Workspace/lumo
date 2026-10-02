@@ -297,6 +297,8 @@ export const attributionRepository = {
         sessionId: { in: sessionIds },
         toAt: null,
         source: 'INFERRED',
+        // A trashed task is no attribution target.
+        task: { deletedAt: null },
       },
       select: { sessionId: true, taskId: true },
       orderBy: { fromAt: 'desc' },
