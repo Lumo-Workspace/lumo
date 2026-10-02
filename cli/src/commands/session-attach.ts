@@ -71,7 +71,9 @@ export async function sessionAttach(
     return 1
   }
 
-  const sessionId = await resolveSessionId({ write: true })
+  // LUM-932: strict — when the call can't be told apart from a running
+  // subagent's, refuse rather than bind the whole session on a guess.
+  const sessionId = await resolveSessionId({ write: true, strict: true })
   if (!sessionId) {
     console.error(
       'Error: $CLAUDE_CODE_SESSION_ID is not set.\n' +

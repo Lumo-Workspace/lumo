@@ -10,6 +10,7 @@ jest.mock('../../src/lib/config', () => ({
 import {
   __resetSessionIdCacheForTests,
   AmbiguousSessionError,
+  UnresolvedCallerError,
   resolveSessionId,
 } from '../../src/lib/session-id'
 
@@ -73,6 +74,26 @@ describe('resolveSessionId', () => {
     } finally {
       spy.mockRestore()
     }
+  })
+
+  it('strict (session attach) refuses on unmatched and ambiguous; other writes fall back to the parent on unmatched', async () => {
+    process.env.CLAUDE_CODE_SESSION_ID = P
+    mockResolve({ sessionId: P, resolution: 'unmatched' })
+    await expect(
+      resolveSessionId({ write: true, strict: true })
+    ).rejects.toBeInstanceOf(UnresolvedCallerError)
+    await expect(
+      resolveSessionId({ write: true, strict: true })
+    ).rejects.toThrow(/lumo session attach <TASK>` directly/)
+    // Same memoised response, non-strict call: the parent id.
+    expect(await resolveSessionId({ write: true })).toBe(P)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+
+    __resetSessionIdCacheForTests()
+    mockResolve({ sessionId: P, resolution: 'ambiguous' })
+    await expect(
+      resolveSessionId({ write: true, strict: true })
+    ).rejects.toBeInstanceOf(UnresolvedCallerError)
   })
 
   it('resolves once per process: two calls make one fetch', async () => {

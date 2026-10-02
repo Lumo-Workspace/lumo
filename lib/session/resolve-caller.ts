@@ -105,3 +105,26 @@ export function matchPendingLumoCommand(
   if (list.length === 1) return { kind: 'one', sessionId: list[0]! }
   return { kind: 'ambiguous', sessionIds: list }
 }
+
+/**
+ * LUM-932: is some subagent (any session other than `parentId`) in the middle
+ * of a Bash command right now? Used when no pending command matches the CLI's
+ * argv: if a subagent is mid-command, the call may be its own (run through a
+ * script, variable or npx the matcher cannot see), so "the parent" is a guess.
+ */
+export function hasPendingChildBash(
+  events: ToolEventRow[],
+  parentId: string
+): boolean {
+  const finished = new Set<string>()
+  for (const e of events) {
+    if (e.type === 'PRE_TOOL_USE') continue
+    const id = field(e.payload, 'tool_use_id')
+    if (typeof id === 'string') finished.add(id)
+  }
+  return events.some(e => {
+    if (e.type !== 'PRE_TOOL_USE' || e.sessionId === parentId) return false
+    const id = field(e.payload, 'tool_use_id')
+    return typeof id === 'string' && !finished.has(id)
+  })
+}

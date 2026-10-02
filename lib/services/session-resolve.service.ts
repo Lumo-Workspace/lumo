@@ -1,7 +1,10 @@
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
-import { matchPendingLumoCommand } from '@/lib/session/resolve-caller'
+import {
+  hasPendingChildBash,
+  matchPendingLumoCommand,
+} from '@/lib/session/resolve-caller'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 /** How far back a pending PreToolUse may be to count as "the current call". */
@@ -9,7 +12,11 @@ const LOOKBACK_MS = 120_000
 
 export type CallerResolution = {
   sessionId: string
-  resolution: 'parent' | 'child' | 'ambiguous'
+  /**
+   * `unmatched`: no pending command matched, but a subagent is mid-command —
+   * the call may be that subagent's; `sessionId` is the parent as a fallback.
+   */
+  resolution: 'parent' | 'child' | 'ambiguous' | 'unmatched'
 }
 
 export const sessionResolveService = {
@@ -55,6 +62,8 @@ export const sessionResolveService = {
     }
     if (match.kind === 'ambiguous')
       return { sessionId: parentId, resolution: 'ambiguous' }
+    if (hasPendingChildBash(events, parentId))
+      return { sessionId: parentId, resolution: 'unmatched' }
     return fallback
   },
 }

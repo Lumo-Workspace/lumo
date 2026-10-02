@@ -22,7 +22,10 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
-import { matchPendingLumoCommand } from '@/lib/session/resolve-caller'
+import {
+  hasPendingChildBash,
+  matchPendingLumoCommand,
+} from '@/lib/session/resolve-caller'
 import { sessionResolveService } from '@/lib/services/session-resolve.service'
 
 const hooks = hookEventRepository as jest.Mocked<typeof hookEventRepository>
@@ -213,6 +216,46 @@ describe('subagent lumo commands resolve to the child session without changing p
       now,
     })
     expect(r).toEqual({ sessionId: P, resolution: 'ambiguous' })
+  })
+
+  it('detects a still-pending Bash command on a child session only', () => {
+    expect(hasPendingChildBash([pre(A, 't1', 'bash ./attach.sh')], P)).toBe(
+      true
+    )
+    expect(hasPendingChildBash([pre(A, 't1', 'x'), post(A, 't1')], P)).toBe(
+      false
+    )
+    expect(hasPendingChildBash([pre(P, 't0', 'bash ./attach.sh')], P)).toBe(
+      false
+    )
+  })
+
+  it('service: no match while a subagent is mid-command is reported as unmatched, with the parent id', async () => {
+    hooks.findRecentBashToolEventsInSessions.mockResolvedValue([
+      pre(A, 't1', 'LUMO=lumo; $LUMO session attach LUM-12'),
+    ])
+    const r = await sessionResolveService.resolveCaller({
+      identity,
+      sessionId: P,
+      argv: ['session', 'attach', 'LUM-12'],
+      now,
+    })
+    expect(r).toEqual({ sessionId: P, resolution: 'unmatched' })
+  })
+
+  it('service: no match with no subagent mid-command stays the parent', async () => {
+    hooks.findRecentBashToolEventsInSessions.mockResolvedValue([
+      pre(P, 't0', 'bash ./attach.sh'),
+      pre(A, 't1', 'ls'),
+      post(A, 't1'),
+    ])
+    const r = await sessionResolveService.resolveCaller({
+      identity,
+      sessionId: P,
+      argv: ['session', 'attach', 'LUM-12'],
+      now,
+    })
+    expect(r).toEqual({ sessionId: P, resolution: 'parent' })
   })
 
   it('the pre-tool-use hook output never carries updatedInput or permissionDecision', () => {
