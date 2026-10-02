@@ -108,6 +108,7 @@ import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.reposito
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { applyTokenBudget } from '@/lib/memory/render'
 import { miscRepository } from '@/lib/repositories/misc.repository'
@@ -355,5 +356,89 @@ describe('taskContextService.getContextForIdentifier — fragment manifest', () 
     )
 
     expect(idsOfType(ctx?.fragments ?? [], 'MEMORY')).toEqual(['mem_p1'])
+  })
+})
+
+describe('inferred (unattached) sessions in task context (LUM-932 P3 I6)', () => {
+  const turnEvents =
+    hookEventRepository.findTurnBoundaryEventsForSessions as jest.Mock
+  const at = (m: number) => new Date(Date.UTC(2026, 9, 2, 0, m, 0))
+
+  it('no summary headline/unresolved, per-task active time, and no SESSION lineage fragment', async () => {
+    listSessions.mockResolvedValue([
+      {
+        id: 'ses_explicit',
+        startedAt: at(0),
+        lastActivityAt: at(30),
+        eventCount: 4,
+        summaryType: 'implementation',
+        summary: { goal: 'explicit work', unresolved: ['x'] },
+        inferred: false,
+      },
+      {
+        id: 'ses_inferred',
+        startedAt: at(0),
+        lastActivityAt: at(30),
+        eventCount: 8,
+        summaryType: 'implementation',
+        summary: { goal: 'OTHER task stuff', unresolved: ['other todo'] },
+        inferred: true,
+      },
+    ])
+    turnEvents.mockResolvedValue([
+      // Turn on this task: 2 minutes.
+      {
+        sessionId: 'ses_inferred',
+        taskId: 'tsk_1',
+        type: 'USER_PROMPT_SUBMIT',
+        createdAt: at(0),
+      },
+      {
+        sessionId: 'ses_inferred',
+        taskId: 'tsk_1',
+        type: 'STOP',
+        createdAt: at(2),
+      },
+      // Turn on another task: 3 minutes — not this task's time.
+      {
+        sessionId: 'ses_inferred',
+        taskId: 'tsk_other',
+        type: 'USER_PROMPT_SUBMIT',
+        createdAt: at(10),
+      },
+      {
+        sessionId: 'ses_inferred',
+        taskId: 'tsk_other',
+        type: 'STOP',
+        createdAt: at(13),
+      },
+      {
+        sessionId: 'ses_explicit',
+        taskId: 'tsk_1',
+        type: 'USER_PROMPT_SUBMIT',
+        createdAt: at(20),
+      },
+      {
+        sessionId: 'ses_explicit',
+        taskId: 'tsk_1',
+        type: 'STOP',
+        createdAt: at(21),
+      },
+    ])
+    const ctx = await taskContextService.getContextForIdentifier(
+      'ws',
+      'mem',
+      'LUM-1'
+    )
+    const byId = new Map(ctx!.sessions.map(s => [s.id, s]))
+    const inferred = byId.get('ses_inferred')!
+    expect(inferred.headline).not.toContain('OTHER task stuff')
+    expect(inferred.unresolved).toEqual([])
+    expect(inferred.durationMs).toBe(2 * 60_000)
+    expect(byId.get('ses_explicit')!.headline).toContain('explicit work')
+    expect(byId.get('ses_explicit')!.durationMs).toBe(60_000)
+    expect(
+      ctx!.fragments.filter(f => f.type === 'SESSION').map(f => f.id)
+    ).toEqual(['ses_explicit'])
   })
 })

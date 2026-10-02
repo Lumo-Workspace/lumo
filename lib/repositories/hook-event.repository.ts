@@ -291,7 +291,8 @@ export const hookEventRepository = {
         },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { sessionId: true, type: true, createdAt: true },
+      // taskId: per-task time of an unattached session (LUM-932).
+      select: { sessionId: true, type: true, createdAt: true, taskId: true },
     })
   },
 

@@ -5,6 +5,7 @@ import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import {
   activeDurationMs,
   activeDurationMsBySession,
+  activeDurationMsBySessionTask,
 } from '@/lib/agent-run/active-time'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
@@ -224,6 +225,9 @@ export interface TaskContext {
 }
 
 const NO_SUMMARY = '(no summary)'
+/** Headline of an unattached session attributed to the task by inference. */
+const INFERRED_SESSION_HEADLINE =
+  '(unattached session; attributed to this task by inference)'
 
 /**
  * LUM-431: is the acceptance-criteria *draft nudge* enabled for the workspace
@@ -1280,11 +1284,23 @@ export const taskContextService = {
     const sessions = await sessionRepository.listForTask(resolved.id)
     // Per-session agent active time (Σ per-turn STOP − prompt), not the session
     // wall-clock span — excludes idle when a session resumes (LUM-487).
-    const sessionDurationMs = activeDurationMsBySession(
+    const turnEvents =
       await hookEventRepository.findTurnBoundaryEventsForSessions(
         sessions.map(s => s.id)
       )
-    )
+    const sessionDurationMs = activeDurationMsBySession(turnEvents)
+    // LUM-932 P3: an unattached (inferred) session may span several tasks —
+    // only its turns attributed to THIS task count toward its duration.
+    const inferredIds = new Set(sessions.filter(s => s.inferred).map(s => s.id))
+    const onThisTask = new Map<string, number>()
+    for (const g of activeDurationMsBySessionTask(
+      turnEvents.filter(e => e.sessionId && inferredIds.has(e.sessionId)),
+      () => null
+    )) {
+      if (g.taskId === resolved.id) onThisTask.set(g.sessionId, g.ms)
+    }
+    for (const id of inferredIds)
+      sessionDurationMs.set(id, onThisTask.get(id) ?? 0)
 
     const slackContexts = await taskSlackContextRepository.listByTask(
       resolved.id
@@ -1405,7 +1421,10 @@ export const taskContextService = {
       ...comments.map(c => ({ type: 'COMMENT' as const, id: c.id })),
       ...prs.map(p => ({ type: 'PULL_REQUEST' as const, id: p.id })),
       ...reviewTodoIds.map(id => ({ type: 'PR_REVIEW_TODO' as const, id })),
-      ...sessions.map(s => ({ type: 'SESSION' as const, id: s.id })),
+      // LUM-932 P3: an inferred session is not this task's source record.
+      ...sessions
+        .filter(s => !s.inferred)
+        .map(s => ({ type: 'SESSION' as const, id: s.id })),
     ]
 
     // Trailing judged-used track-record signal (LUM-539). Reads accumulated
@@ -1506,8 +1525,14 @@ export const taskContextService = {
         durationMs: sessionDurationMs.get(s.id) ?? 0,
         eventCount: s.eventCount,
         summaryType: s.summaryType,
-        headline: summaryHeadline(s.summary),
-        unresolved: summaryUnresolved(s.summary, s.summaryType),
+        // LUM-932 P3: an unattached session's summary may describe other
+        // tasks' work — never surface it as this task's history.
+        headline: s.inferred
+          ? INFERRED_SESSION_HEADLINE
+          : summaryHeadline(s.summary),
+        unresolved: s.inferred
+          ? []
+          : summaryUnresolved(s.summary, s.summaryType),
       })),
       lineageSection,
       fragments,
