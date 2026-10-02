@@ -200,12 +200,16 @@ export const agentRunTimelineService = {
     // run. A child that attached its own task under an unbound parent still
     // shows as the parent's run here — read the parent row as a "host" whose
     // own cost belongs elsewhere and is not counted on this task.
+    // A child inferred onto this task under a parent that is neither bound
+    // nor inferred here has no Session.taskId, so only its segment rows name
+    // the parent — host that parent too, or the child's work lands unlinked.
     const boundIds = new Set(sessions.map(s => s.id))
     const hostIds = [
       ...new Set(
-        childSessions
-          .map(c => c.parentSessionId)
-          .filter((id): id is string => !!id && !boundIds.has(id))
+        [
+          ...childSessions.map(c => c.parentSessionId),
+          ...segmentRows.map(r => r.parentSessionId),
+        ].filter((id): id is string => !!id && !boundIds.has(id))
       ),
     ]
     const hostSessions = await sessionRepository.listTimelineRowsByIds(hostIds)
@@ -233,9 +237,13 @@ export const agentRunTimelineService = {
       string,
       { byModel: Record<string, ModelUsage> | null; loops: number }
     >()
+    // A host's own events are not this task's work; an unattached child's
+    // events under it are (costed per turn, like an inferred run's).
     for (const ev of events) {
       const key = runKey(ev.sessionId ?? null)
-      if (!key || !inferredIds.has(key)) continue
+      if (!key) continue
+      const isHostChild = hostOnly.has(key) && ev.sessionId !== key
+      if (!inferredIds.has(key) && !isHostChild) continue
       if (attachedChildIds.has(ev.sessionId!)) continue
       if (
         ev.type !== 'STOP' &&
@@ -336,12 +344,13 @@ export const agentRunTimelineService = {
           ? 'INFERRED'
           : 'EXPLICIT'
       const inferredOwn = inferredUsage.get(s.id)
-      // Own cost (a host's own burn belongs to another task / unattributed;
+      // Own cost (a host's own burn belongs to another task / unattributed —
+      // only its unattached children's task-attributed per-turn usage counts;
       // an inferred run's is its task-attributed per-turn usage) plus every
       // child session of this run whose work belongs to the task.
       const childCosts = childCostByParent.get(s.id) ?? []
       const ownCost = isHost
-        ? null
+        ? toModelCosts(inferredOwn?.byModel ?? null)
         : isInferred
           ? toModelCosts(inferredOwn?.byModel ?? null)
           : sessionCost(s)
