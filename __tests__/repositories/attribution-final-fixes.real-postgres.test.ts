@@ -166,14 +166,14 @@ describe('STEWARD sessions are never counted as inferred work (I2)', () => {
     await seedSession('STW20', { role: 'STEWARD' })
     await seedSegment('seg_stw20', 'STW20', 'task_20')
 
-    const counted = await harness.prisma.session.findMany({
+    const counted = await harness.prisma!.session.findMany({
       where: inferredTopLevelSessionsForTasks(['task_20', 'task_21']),
       select: { id: true },
       orderBy: { id: 'asc' },
     })
     expect(counted.map(s => s.id)).toEqual(['STW20', 'U20'])
 
-    const worked = await harness.prisma.task.findMany({
+    const worked = await harness.prisma!.task.findMany({
       where: { id: { in: ['task_20', 'task_21'] }, ...taskHasSessions },
       select: { id: true },
     })
