@@ -417,6 +417,38 @@ export function augmentBodyWithUsage(path: HookPath, body: string): string {
   })
 }
 
+/**
+ * LUM-932: at session start, send the task id inferred from local git (branch
+ * name, then recent commits) as `_lumo_git_task` so the server can record a
+ * GIT_HINT attribution signal. Only session-start; never throws.
+ */
+export function augmentBodyWithGitTask(
+  path: HookPath,
+  body: string,
+  extract: (cwd?: string) => GitTaskMatch | null = extractTaskFromGit
+): string {
+  if (path !== 'session-start') return body
+  try {
+    const parsed: unknown = JSON.parse(body || '{}')
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return body
+    }
+    const cwd = (parsed as Record<string, unknown>)['cwd']
+    if (typeof cwd !== 'string' || !cwd) return body
+    const match = extract(cwd)
+    if (!match || !match.identifier || match.identifier.length > 64) {
+      return body
+    }
+    return JSON.stringify({ ...parsed, _lumo_git_task: match.identifier })
+  } catch {
+    return body
+  }
+}
+
 /** LUM-932: tag every hook body with the git branch of its `cwd` (identification signal S1, consumed in P2). */
 export function augmentBodyWithBranch(body: string): string {
   let parsed: unknown
@@ -608,12 +640,15 @@ export async function runHookWithBody(
     if (agentEnum) headers['X-Lumo-Agent'] = agentEnum
 
     const outgoingBody =
-      augmentBodyWithBranch(
-        augmentBodyWithWrittenPathIgnored(
-          path,
-          augmentBodyWithDeletedTestFiles(
+      augmentBodyWithGitTask(
+        path,
+        augmentBodyWithBranch(
+          augmentBodyWithWrittenPathIgnored(
             path,
-            augmentBodyWithUsage(path, body)
+            augmentBodyWithDeletedTestFiles(
+              path,
+              augmentBodyWithUsage(path, body)
+            )
           )
         )
       ) || '{}'

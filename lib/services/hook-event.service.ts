@@ -10,6 +10,10 @@ import {
   splitSubagentUsage,
   type InjectedUsage,
 } from '@/lib/session/subagent-usage'
+import {
+  extractAttributionSignals,
+  type AttributionSignal,
+} from '@/lib/attribution/signals'
 import { logger } from '@/lib/logger'
 import { AGENT_ID_RE } from '@/lib/session/child-session-id'
 
@@ -24,6 +28,12 @@ interface RecordHookEventInput {
    * (CLAUDE_CODE) then applies.
    */
   agent?: TaskArtifactAgent
+  /**
+   * Signals extracted by the caller from the credential-redacted payload
+   * BEFORE code stripping (which erases `tool_response.agentId`). When absent
+   * they are extracted from `payload`.
+   */
+  attributionSignals?: AttributionSignal[]
 }
 
 function extractStringField(payload: unknown, field: string): string | null {
@@ -76,6 +86,7 @@ export const hookEventService = {
     type,
     payload,
     agent,
+    attributionSignals,
   }: RecordHookEventInput) {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
@@ -158,6 +169,8 @@ export const hookEventService = {
     const toolName = extractStringField(payload, 'tool_name')
     const bash = classifyBashPayload(payload)
     const filePath = extractFilePath(payload)
+    const signals =
+      attributionSignals ?? extractAttributionSignals(type, payload)
     const created = await hookEventRepository.createHookEvent({
       workspaceId: identity.workspace.id,
       workspaceMemberId: memberId,
@@ -173,6 +186,8 @@ export const hookEventService = {
         turnUsageByModel != null
           ? (turnUsageByModel as unknown as Prisma.InputJsonValue)
           : null,
+      // [] = computed, nothing found (vs NULL = historical, never computed).
+      attributionSignals: signals,
     })
 
     // LUM-932: settle each subagent's usage onto its child session AFTER the

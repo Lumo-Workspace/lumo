@@ -2,6 +2,7 @@ import { waitUntil } from '@vercel/functions'
 import { handleHookRequest } from '@/app/api/hooks/_handler'
 import { layer1Service } from '@/lib/services/memory/layer1.service'
 import { turnSummaryService } from '@/lib/services/turn-summary/turn-summary.service'
+import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
 import { autoBlockService } from '@/lib/services/auto-block.service'
 
 export async function POST(request: Request) {
@@ -20,6 +21,8 @@ export async function POST(request: Request) {
       // Both keep the function alive past the response via waitUntil and own
       // their error handling (must never throw).
       if (!ctx.sessionId) return
+      // LUM-932 P2: recompute the session family's attribution after the turn.
+      waitUntil(recomputeAttributionSafely(ctx.sessionId))
       if (ctx.taskId) {
         waitUntil(
           layer1Service.triggerLayer1Extraction({

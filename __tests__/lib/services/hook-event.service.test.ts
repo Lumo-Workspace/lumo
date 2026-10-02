@@ -102,6 +102,8 @@ describe('hookEventService.recordHookEvent', () => {
         tool_input: { file_path: '/x' },
       },
       usageByModel: null,
+      // LUM-932 P2: computed on every event; [] = nothing found.
+      attributionSignals: [],
     })
   })
 

@@ -413,6 +413,8 @@ model Workspace {
   deletionExecuteAt          DateTime?
   deletionRequestedByClerkId String?
 
+  attributionSegments TaskAttributionSegment[]
+
   @@index([deletionExecuteAt])
   @@map("workspaces")
 }
@@ -1153,6 +1155,8 @@ model Task {
   testCaseRuns               TestCaseRun[]
   testCaseRunDispositions    TestCaseRunDisposition[]
   testCaseRunReviews         TestCaseRunReview[]
+
+  attributionSegments TaskAttributionSegment[]
 
   @@unique([teamId, number])
   @@index([projectId])
@@ -2643,6 +2647,11 @@ model HookEvent {
   /// { input, output, cacheRead, cacheCreation }. Written only on STOP /
   /// STOP_FAILURE rows; null everywhere else and on historical rows.
   usageByModel      Json?
+  /// LUM-932 P2: task-identification signals lifted out of the payload at
+  /// record time (see lib/attribution/signals.ts). A derived column, so it
+  /// survives payload pruning. `[]` = computed, nothing found; NULL = never
+  /// computed (rows recorded before P2).
+  attributionSignals Json?
   /// LUM-859: when the retention sweep replaced `payload` with the pruned
   /// marker. Null = payload still holds the (redacted) original.
   payloadPrunedAt   DateTime?
@@ -2749,6 +2758,52 @@ enum SessionBindingSource {
   INHERITED
 }
 
+/// LUM-932 P2: where a TaskAttributionSegment's task came from.
+enum AttributionSource {
+  SESSION_ATTACH
+  SUBAGENT_ATTACH
+  INHERITED
+  INFERRED
+}
+
+enum AttributionConfidence {
+  EXPLICIT
+  HIGH
+  MEDIUM
+}
+
+/// LUM-932 P2: one contiguous stretch of a session's work attributed to a
+/// task. Written for explicit bindings and for inferred (per-turn) ones; the
+/// family's rows are replaced atomically on every recompute. Observe-only in P2 —
+/// nothing gates on it yet.
+model TaskAttributionSegment {
+  id             String                @id @default(cuid())
+  workspaceId    String
+  sessionId      String
+  taskId         String
+  /// Turn index range within the TOP-LEVEL session (0-based, inclusive).
+  fromTurn       Int
+  toTurn         Int
+  fromAt         DateTime
+  /// Null = still open (the segment runs to the session's latest event).
+  toAt           DateTime?
+  source         AttributionSource
+  confidence     AttributionConfidence
+  /// Up to 10 signals that decided this segment: [{ kind, identifier, at }].
+  evidence       Json
+  computeVersion Int
+  createdAt      DateTime              @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  session   Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([taskId])
+  @@index([workspaceId])
+  @@map("task_attribution_segments")
+}
+
 model Session {
   id                    String            @id // Claude Code session UUID — not cuid
   workspaceId           String
@@ -2844,6 +2899,7 @@ model Session {
   lineageEdges         LineageEdge[]
   milestoneMemoryEdges MilestoneMemoryEdge[]
   droppedFragments     DroppedFragment[]
+  attributionSegments TaskAttributionSegment[]
 
   @@index([workspaceId, lastActivityAt])
   @@index([workspaceMemberId, lastActivityAt])

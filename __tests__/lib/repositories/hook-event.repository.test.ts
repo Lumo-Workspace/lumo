@@ -54,9 +54,23 @@ describe('hookEventRepository.createHookEvent', () => {
         filePath: '/tmp/x',
         payload: { tool_name: 'Read', tool_input: { file_path: '/tmp/x' } },
         usageByModel: Prisma.DbNull,
+        attributionSignals: Prisma.DbNull,
       },
       select: { id: true },
     })
+  })
+
+  it('writes an empty signals array as JSON, not SQL NULL', async () => {
+    mockCreate.mockResolvedValue({ id: 'he_4' })
+    await hookEventRepository.createHookEvent({
+      workspaceId: 'ws_1',
+      workspaceMemberId: 'wm_1',
+      type: 'STOP',
+      toolName: null,
+      payload: {},
+      attributionSignals: [],
+    })
+    expect(mockCreate.mock.calls[0]![0].data.attributionSignals).toEqual([])
   })
 
   it('defaults filePath to null when omitted', async () => {

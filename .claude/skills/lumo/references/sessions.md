@@ -145,6 +145,10 @@ Every subagent gets its own child session (`<parent session id>:<agent id>`); `l
 
 When to suggest: you are about to dispatch subagents to work on **different** tasks from one session — do not attach the main session; instruct each subagent to attach its own task first. If all subagents work on the **same** task, attach the main session once instead — the subagents inherit it.
 
+#### Automatic attribution (LUM-932, observe-only)
+
+When a session is not attached, Lumo infers which task each turn belongs to from what the session does: the git branch (`lumo/LUM-12-…`, or a branch with a linked PR), `lumo` commands that name a task (`lumo verify LUM-12`), commit messages with `[LUM-12]`, `gh pr create` titles, task ids in your prompts, and — for subagents — task ids in the prompt that dispatched them. On a task branch, work is attributed to that branch's task; to switch tasks, switch branch or worktree (or attach). Attaching still takes precedence. In this release the inferred attribution is recorded for evaluation only; gates and statistics still use explicit attachment.
+
 ### `lumo session attach --steward <milestone>` — bind as a STEWARD (governance) session (LUM-640)
 
 The **second legal session form**: instead of a task, the session binds a **milestone** and becomes a governance role — it plans and accepts, it never implements.

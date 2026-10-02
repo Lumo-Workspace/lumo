@@ -63,6 +63,7 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   GateSignal: TELEMETRY,
   LumoCiRun: TELEMETRY,
   Session: TELEMETRY,
+  TaskAttributionSegment: TELEMETRY,
   Worktree: TELEMETRY,
   MemoryStaleAnchorReport: TELEMETRY,
   LineageEdge: TELEMETRY,

@@ -4,6 +4,7 @@ import { sessionService } from '@/lib/services/session.service'
 import { nextStepsService } from '@/lib/services/next-steps.service'
 import { sessionStartEdgesService } from '@/lib/services/session-start-edges.service'
 import { waitUntil } from '@vercel/functions'
+import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
@@ -58,6 +59,8 @@ export async function POST(
           console.error('attach lineage edge recording error:', error)
         )
     )
+    // LUM-932 P2: attaching re-scopes the family's attribution. Fail-soft.
+    waitUntil(recomputeAttributionSafely(sessionId))
     // LUM-686: the response already carries `criteriaSection` (the contract or
     // the draft nudge), so `criteriaNudgeAlreadyShown` is true — the rule table
     // must not restate that advice as a step.

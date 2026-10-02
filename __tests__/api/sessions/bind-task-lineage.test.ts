@@ -16,7 +16,12 @@ jest.mock('@vercel/functions', () => ({
   waitUntil: (p: Promise<unknown>) => p,
 }))
 
+jest.mock('@/lib/attribution/trigger', () => ({
+  recomputeAttributionSafely: jest.fn().mockResolvedValue(undefined),
+}))
+
 import * as bindRoute from '@/app/api/sessions/[sessionId]/bind-task/route'
+import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
 import { verifyBearer } from '@/lib/auth/bearer'
 import { sessionService } from '@/lib/services/session.service'
 import { sessionStartEdgesService } from '@/lib/services/session-start-edges.service'
@@ -95,5 +100,15 @@ describe('bind-task route — lineage edge collection (LUM-528)', () => {
 
     expect(res.status).toBe(401)
     expect(sessionStartEdgesService.collectAndRecord).not.toHaveBeenCalled()
+  })
+})
+
+describe('bind-task route — attribution recompute (LUM-932)', () => {
+  it('triggers recomputeAttributionSafely after a successful bind', async () => {
+    ;(sessionStartEdgesService.collectAndRecord as jest.Mock).mockResolvedValue(
+      undefined
+    )
+    await bindRoute.POST(req({ taskIdentifier: 'LUM-42' }), params)
+    expect(recomputeAttributionSafely).toHaveBeenCalledWith('s-1')
   })
 })

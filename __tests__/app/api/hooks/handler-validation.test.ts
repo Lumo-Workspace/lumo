@@ -16,6 +16,8 @@ import { authService } from '@/lib/services/auth.service'
 import { hookEventService } from '@/lib/services/hook-event.service'
 import { handleHookRequest } from '@/app/api/hooks/_handler'
 import { HOOK_FREE_TEXT_CAP } from '@/lib/validation/hook-payload'
+import { stripCodeFromHookPayload } from '@/lib/hook-payload/redact'
+import { extractAttributionSignals } from '@/lib/attribution/signals'
 
 const mockVerify = authService.verifyApiKey as jest.Mock
 const mockRecord = hookEventService.recordHookEvent as jest.Mock
@@ -129,5 +131,34 @@ describe('handleHookRequest payload validation', () => {
     })
     const res = await handleHookRequest(req, 'STOP')
     expect(res.status).toBe(400)
+  })
+})
+
+describe('handleHookRequest attribution signals (LUM-932 P2)', () => {
+  const agentPayload = {
+    session_id: 'sess_1',
+    tool_name: 'Agent',
+    tool_input: { prompt: 'Work on LUM-13' },
+    tool_response: { agentId: 'abeaba01ea909a7ee', status: 'completed' },
+  }
+
+  it('extracts AGENT_PROMPT before code stripping erases tool_response.agentId', async () => {
+    await handleHookRequest(post(agentPayload), 'POST_TOOL_USE')
+    const recorded = mockRecord.mock.calls[0][0]
+    expect(recorded.attributionSignals).toEqual(
+      expect.arrayContaining([
+        {
+          kind: 'AGENT_PROMPT',
+          identifier: 'LUM-13',
+          agentId: 'abeaba01ea909a7ee',
+        },
+      ])
+    )
+  })
+
+  it('documents the cause: extracting from the stripped payload loses AGENT_PROMPT', () => {
+    const stripped = stripCodeFromHookPayload('POST_TOOL_USE', agentPayload)
+    const signals = extractAttributionSignals('POST_TOOL_USE', stripped)
+    expect(signals.some(s => s.kind === 'AGENT_PROMPT')).toBe(false)
   })
 })

@@ -91,3 +91,62 @@ describe('hookEventService.recordHookEvent toolDetail', () => {
     }
   })
 })
+
+describe('hookEventService.recordHookEvent attributionSignals (LUM-932 P2)', () => {
+  it('stores the extracted signals on the event row', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: {
+        session_id: 's1',
+        tool_name: 'Bash',
+        tool_input: { command: 'lumo verify LUM-12' },
+        _lumo_branch: 'lumo/LUM-12-x',
+      },
+    })
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attributionSignals: [
+          { kind: 'BRANCH', identifier: 'LUM-12', branch: 'lumo/LUM-12-x' },
+          { kind: 'LUMO_CMD', identifier: 'LUM-12' },
+        ],
+      })
+    )
+  })
+
+  it('stores [] (computed, nothing found) when the event carries no signal', async () => {
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'POST_TOOL_USE',
+      payload: {
+        session_id: 's1',
+        tool_name: 'Read',
+        tool_input: { file_path: '/r/a.ts' },
+      },
+    })
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ attributionSignals: [] })
+    )
+  })
+})
+
+describe('hookEventService.recordHookEvent provided attributionSignals (LUM-932 P2)', () => {
+  it('stores caller-provided signals as given instead of re-extracting', async () => {
+    const provided = [
+      {
+        kind: 'AGENT_PROMPT',
+        identifier: 'LUM-13',
+        agentId: 'abeaba01ea909a7ee',
+      },
+    ] as const
+    await hookEventService.recordHookEvent({
+      identity,
+      type: 'POST_TOOL_USE',
+      payload: { session_id: 's1', tool_name: 'Agent' },
+      attributionSignals: [...provided],
+    })
+    expect(repo.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ attributionSignals: provided })
+    )
+  })
+})
