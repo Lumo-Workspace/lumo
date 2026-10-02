@@ -139,8 +139,10 @@ Every subagent gets its own child session (`<parent session id>:<agent id>`); `l
 - **Parent attached** (`lumo session attach LUM-12` in the main session): the whole session belongs to LUM-12 — every subagent inherits it, including ones spawned before the attach. A subagent may re-state `LUM-12` (no-op) but attaching a different task is refused with 409.
 - **Parent not attached**: each subagent may run `lumo session attach <LUM-N>` itself as its first step; its work then belongs to that task. When dispatching subagents for different tasks, put the task id in the subagent prompt and tell it to attach first.
 - A subagent that attached on its own keeps its task even if the parent attaches later.
+- A subagent of a **STEWARD** session cannot attach a task (409), same as the steward session itself.
+- How a command finds its subagent: Lumo matches the call to the subagent's own still-running Bash command — nothing is rewritten and permissions are unchanged. If two sessions of the same family run the **identical** `lumo` command at the same moment, a write command is refused as ambiguous (just re-run it once the other finishes); a read command falls back to the main session.
 
-When to suggest: you are about to dispatch subagents to work on **different** tasks from one session — do not attach the main session; instruct each subagent to attach its own task first.
+When to suggest: you are about to dispatch subagents to work on **different** tasks from one session — do not attach the main session; instruct each subagent to attach its own task first. If all subagents work on the **same** task, attach the main session once instead — the subagents inherit it.
 
 ### `lumo session attach --steward <milestone>` — bind as a STEWARD (governance) session (LUM-640)
 
