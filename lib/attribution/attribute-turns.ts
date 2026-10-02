@@ -204,6 +204,67 @@ function segmentRoot(
   })
 }
 
+function withinWindow(at: string, fromAt: Date, toAt: Date | null): boolean {
+  const ms = new Date(at).getTime()
+  return ms >= fromAt.getTime() && (toAt === null || ms <= toAt.getTime())
+}
+
+/**
+ * Clip the root's segments to a child's [first, last] event window. A child
+ * that lies entirely before the root's first event attaches to the first
+ * root segment. Evidence is restricted to entries inside the clipped window;
+ * the parent segment's confidence is kept.
+ */
+function clipToRoot(
+  childId: string,
+  first: Date,
+  last: Date,
+  rootSegments: InferredSegment[],
+  turnStarts: Date[]
+): InferredSegment[] {
+  const out: InferredSegment[] = []
+  const cf = first.getTime()
+  const cl = last.getTime()
+  const head = rootSegments[0]
+  if (head && cl < head.fromAt.getTime()) {
+    const toAt = head.toAt ? new Date(Math.min(head.toAt.getTime(), cl)) : null
+    out.push({
+      sessionId: childId,
+      taskId: head.taskId,
+      fromTurn: 0,
+      toTurn: Math.min(turnAt(turnStarts, last), head.toTurn),
+      fromAt: first,
+      toAt,
+      confidence: head.confidence,
+      evidence: head.evidence
+        .filter(e => withinWindow(e.at, first, toAt))
+        .map(e => ({ ...e })),
+    })
+    return out
+  }
+  for (const seg of rootSegments) {
+    const from = seg.fromAt.getTime()
+    const to = seg.toAt?.getTime() ?? Infinity
+    if (cl < from || cf >= to) continue
+    const fromAt = new Date(Math.max(from, cf))
+    const toAt = seg.toAt ? new Date(Math.min(to, cl)) : null
+    const endAt = new Date(Math.min(cl, to))
+    out.push({
+      sessionId: childId,
+      taskId: seg.taskId,
+      fromTurn: Math.max(turnAt(turnStarts, fromAt), seg.fromTurn),
+      toTurn: Math.min(turnAt(turnStarts, endAt), seg.toTurn),
+      fromAt,
+      toAt,
+      confidence: seg.confidence,
+      evidence: seg.evidence
+        .filter(e => withinWindow(e.at, fromAt, toAt))
+        .map(e => ({ ...e })),
+    })
+  }
+  return out
+}
+
 function segmentChild(
   child: EngineSession,
   childEvents: EngineEvent[],
@@ -216,6 +277,13 @@ function segmentChild(
   const last = childEvents[childEvents.length - 1]
   if (!first || !last) return []
 
+  const followed = clipToRoot(
+    child.id,
+    first.at,
+    last.at,
+    rootSegments,
+    turnStarts
+  )
   const own = timed(childEvents, seqOf).filter(s =>
     STRONG_KINDS.has(s.signal.kind)
   )
@@ -229,7 +297,11 @@ function segmentChild(
         )
   const pool = own.length > 0 ? own : dispatch
   const taskId = pickTask(pool)
-  if (taskId) {
+  // A dispatch prompt naming a task the parent is already on is not a
+  // separate attribution: the child follows the parent (spec 6.4).
+  const dispatchMatchesParent =
+    own.length === 0 && followed.some(s => s.taskId === taskId)
+  if (taskId && !dispatchMatchesParent) {
     const hits = pool.filter(s => s.signal.taskId === taskId)
     return [
       {
@@ -244,30 +316,7 @@ function segmentChild(
       },
     ]
   }
-
-  // Follow the parent: clip each root segment to [first, last] of the child.
-  const out: InferredSegment[] = []
-  const cf = first.at.getTime()
-  const cl = last.at.getTime()
-  for (const seg of rootSegments) {
-    const from = seg.fromAt.getTime()
-    const to = seg.toAt?.getTime() ?? Infinity
-    if (cl < from || cf >= to) continue
-    const fromAt = new Date(Math.max(from, cf))
-    const toAt = seg.toAt ? new Date(Math.min(to, cl)) : null
-    const endAt = new Date(Math.min(cl, to))
-    out.push({
-      sessionId: child.id,
-      taskId: seg.taskId,
-      fromTurn: Math.max(turnAt(turnStarts, fromAt), seg.fromTurn),
-      toTurn: Math.min(turnAt(turnStarts, endAt), seg.toTurn),
-      fromAt,
-      toAt,
-      confidence: seg.confidence,
-      evidence: seg.evidence.map(e => ({ ...e })),
-    })
-  }
-  return out
+  return followed
 }
 
 export function attributeTurns(input: {
@@ -278,7 +327,14 @@ export function attributeTurns(input: {
   const { rootSessionId, sessions } = input
   const sorted = sortByTime(input.events)
   const seqOf = new Map<EngineEvent, number>(sorted.map((e, i) => [e, i]))
-  const rootEvents = sorted.filter(e => e.sessionId === rootSessionId)
+  const bySession = new Map<string, EngineEvent[]>()
+  for (const e of sorted) {
+    const list = bySession.get(e.sessionId)
+    if (list) list.push(e)
+    else bySession.set(e.sessionId, [e])
+  }
+
+  const rootEvents = bySession.get(rootSessionId) ?? []
   const turnStarts = turnStartsOf(rootEvents)
   const rootSegments = segmentRoot(rootSessionId, rootEvents, turnStarts, seqOf)
 
@@ -286,7 +342,7 @@ export function attributeTurns(input: {
   for (const child of sessions) {
     if (child.parentSessionId !== rootSessionId || child.id === rootSessionId)
       continue
-    const childEvents = sorted.filter(e => e.sessionId === child.id)
+    const childEvents = bySession.get(child.id) ?? []
     out.push(
       ...segmentChild(
         child,

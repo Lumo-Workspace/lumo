@@ -155,4 +155,96 @@ describe('attributeTurns segments a session by turns', () => {
     expect(by('root:a2')).toEqual([['lum-20', 'HIGH']])
     expect(by('root:a3')).toEqual([['lum-30', 'MEDIUM']])
   })
+
+  it('a dispatch prompt naming the parent task follows the parent instead of a separate MEDIUM segment', () => {
+    const sessions = [
+      { id: ROOT, parentSessionId: null, agentId: null },
+      { id: 'root:a3', parentSessionId: ROOT, agentId: 'a3' },
+    ]
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [sig('BRANCH', 'lum-12')]),
+        ev(6, 'POST_TOOL_USE', [
+          sig('AGENT_PROMPT', 'lum-12', { agentId: 'a3' }),
+        ]),
+        ev(7, 'PRE_TOOL_USE', [], 'root:a3'),
+      ],
+      sessions
+    )
+    expect(
+      segs
+        .filter(s => s.sessionId === 'root:a3')
+        .map(s => [s.taskId, s.confidence])
+    ).toEqual([['lum-12', 'HIGH']])
+  })
+
+  it('a dispatch prompt under a root with no segments yields an own MEDIUM child segment', () => {
+    const sessions = [
+      { id: ROOT, parentSessionId: null, agentId: null },
+      { id: 'root:a3', parentSessionId: ROOT, agentId: 'a3' },
+    ]
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(6, 'POST_TOOL_USE', [
+          sig('AGENT_PROMPT', 'lum-30', { agentId: 'a3' }),
+        ]),
+        ev(7, 'PRE_TOOL_USE', [], 'root:a3'),
+      ],
+      sessions
+    )
+    expect(segs.map(s => [s.sessionId, s.taskId, s.confidence])).toEqual([
+      ['root:a3', 'lum-30', 'MEDIUM'],
+    ])
+  })
+
+  it('a follow-mode child keeps only parent evidence inside its own window', () => {
+    const sessions = [
+      { id: ROOT, parentSessionId: null, agentId: null },
+      { id: 'root:a1', parentSessionId: ROOT, agentId: 'a1' },
+    ]
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [sig('BRANCH', 'lum-12')]),
+        ev(4, 'PRE_TOOL_USE', [], 'root:a1'),
+        ev(4, 'POST_TOOL_USE', [sig('LUMO_CMD', 'lum-12')]),
+        ev(5, 'SUBAGENT_STOP', [], 'root:a1'),
+      ],
+      sessions
+    )
+    const child = segs.filter(s => s.sessionId === 'root:a1')
+    expect(child).toHaveLength(1)
+    expect(child[0]!.confidence).toBe('HIGH')
+    expect(child[0]!.evidence.map(e => [e.kind, e.at])).toEqual([
+      ['LUMO_CMD', t(4).toISOString()],
+    ])
+  })
+
+  it('a child that runs entirely before the root first event attaches to the first root segment', () => {
+    const sessions = [
+      { id: ROOT, parentSessionId: null, agentId: null },
+      { id: 'root:a1', parentSessionId: ROOT, agentId: 'a1' },
+    ]
+    const segs = run(
+      [
+        ev(1, 'PRE_TOOL_USE', [], 'root:a1'),
+        ev(2, 'SUBAGENT_STOP', [], 'root:a1'),
+        ev(5, 'USER_PROMPT_SUBMIT'),
+        ev(6, 'PRE_TOOL_USE', [sig('BRANCH', 'lum-12')]),
+      ],
+      sessions
+    )
+    expect(segs.filter(s => s.sessionId === 'root:a1')).toEqual([
+      expect.objectContaining({
+        taskId: 'lum-12',
+        fromTurn: 0,
+        toTurn: 0,
+        fromAt: t(1),
+        toAt: null,
+        confidence: 'HIGH',
+      }),
+    ])
+  })
 })
