@@ -301,4 +301,38 @@ describe('computeSprintTeamPerformance', () => {
     expect(t2.models).toEqual([])
     expect(t2.tokenCost).toBe(7)
   })
+
+  it("splits an unattached session's active time across tasks by the event's task", () => {
+    const tagged = (t: string, iso: string, sec: number) =>
+      turn('U', iso, sec).map(e => ({ ...e, taskId: t }))
+    const out = computeSprintTeamPerformance({
+      taskRows: [task('t1', 'TODO'), task('t2', 'TODO')],
+      sessionRows: [
+        session({
+          id: 'U',
+          taskId: 't1',
+          workspaceMemberId: 'mA',
+          inputTokens: 5,
+          outputTokens: 1,
+        }),
+        session({
+          id: 'U',
+          taskId: 't2',
+          workspaceMemberId: 'mA',
+          inputTokens: 7,
+          outputTokens: 1,
+        }),
+      ],
+      turnEvents: [
+        ...tagged('t1', '2026-07-01T10:00:00Z', 60),
+        ...tagged('t2', '2026-07-01T11:00:00Z', 120),
+      ],
+      memberLabels: new Map(),
+    })
+    const mA = out.rows.find(r => r.memberId === 'mA')!
+    expect(mA.activeTimeSec).toBe(180)
+    const byTask = new Map(mA.perTask.map(r => [r.taskId, r.activeTimeSec]))
+    expect(byTask.get('t1')).toBe(60)
+    expect(byTask.get('t2')).toBe(120)
+  })
 })

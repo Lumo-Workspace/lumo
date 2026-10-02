@@ -7,7 +7,8 @@ import {
 } from '@/lib/services/model-cost'
 import {
   activeDurationMsBySession,
-  type TaskTurnEvent,
+  activeDurationMsBySessionTask,
+  type AttributedTurnEvent,
 } from '@/lib/agent-run/active-time'
 
 /**
@@ -62,7 +63,8 @@ export interface SprintPerfTaskRow {
 export interface SprintTeamPerformanceInput {
   taskRows: SprintPerfTaskRow[]
   sessionRows: SprintPerfSessionRow[]
-  turnEvents: TaskTurnEvent[]
+  /** Active-time stream; `taskId` (LUM-932) is the event's attributed task. */
+  turnEvents: AttributedTurnEvent[]
   /** memberId → display label, resolved by the service. */
   memberLabels: Map<string, string>
 }
@@ -212,23 +214,29 @@ export function computeSprintTeamPerformance(
   const taskBySession = new Map<string, string | null>()
   for (const s of sessionRows) {
     memberBySession.set(s.id, s.workspaceMemberId)
-    taskBySession.set(s.id, s.taskId)
+    if (!taskBySession.has(s.id)) taskBySession.set(s.id, s.taskId)
   }
   const msBySession = activeDurationMsBySession(turnEvents)
   const msByMember = new Map<string | null, number>()
-  // (member → (taskId → ms)) for the per-task active-time apportionment.
-  const msByMemberTask = new Map<string | null, Map<string, number>>()
   let totalMs = 0
   for (const [sessionId, ms] of msBySession) {
     totalMs += ms
     const member = memberBySession.get(sessionId) ?? null
     msByMember.set(member, (msByMember.get(member) ?? 0) + ms)
-    const taskId = taskBySession.get(sessionId) ?? null
-    if (taskId !== null) {
-      const perTask = msByMemberTask.get(member) ?? new Map<string, number>()
-      perTask.set(taskId, (perTask.get(taskId) ?? 0) + ms)
-      msByMemberTask.set(member, perTask)
-    }
+  }
+  // (member → (taskId → ms)) for the per-task active-time apportionment,
+  // bucketed by each EVENT's task (LUM-932: one unattached session can span
+  // several tasks); the session's task is only the fallback.
+  const msByMemberTask = new Map<string | null, Map<string, number>>()
+  for (const g of activeDurationMsBySessionTask(
+    turnEvents,
+    sessionId => taskBySession.get(sessionId) ?? null
+  )) {
+    if (g.taskId === null) continue
+    const member = memberBySession.get(g.sessionId) ?? null
+    const perTask = msByMemberTask.get(member) ?? new Map<string, number>()
+    perTask.set(g.taskId, (perTask.get(g.taskId) ?? 0) + g.ms)
+    msByMemberTask.set(member, perTask)
   }
   const totalActiveTimeSec = Math.round(totalMs / 1000)
 

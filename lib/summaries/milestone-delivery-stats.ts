@@ -1,6 +1,7 @@
 import {
   activeDurationMsBySession,
-  type TaskTurnEvent,
+  activeDurationMsBySessionTask,
+  type AttributedTurnEvent,
 } from '@/lib/agent-run/active-time'
 import {
   mergeModelCosts,
@@ -179,7 +180,9 @@ export interface DeliveryStatsInput {
   prRows: DeliveryPrRow[]
   complexityRows: DeliveryComplexityRow[]
   sessionRows: DeliverySessionRow[]
-  turnEvents: TaskTurnEvent[]
+  /** Active-time stream. `taskId` (LUM-932) is the event's attributed task;
+   * per-task time buckets by it, falling back to the session's task. */
+  turnEvents: AttributedTurnEvent[]
   /** memberId → display label (best-effort; a missing id falls back to the
    * raw id so no row ever renders an empty cell). */
   memberLabels: Map<string, string>
@@ -470,15 +473,23 @@ export function computeMilestoneDeliveryStats(
     modelListsByTask.set(s.taskId, lists)
   }
 
+  // LUM-932: bucket by each EVENT's task — one unattached session can carry
+  // turns inferred onto several tasks (it then appears once per task in
+  // sessionRows, so a session→task map would be last-wins). The session map
+  // is only the fallback for events that carry no task.
   const taskBySession = new Map<string, string | null>()
-  for (const s of sessionRows) taskBySession.set(s.id, s.taskId)
+  for (const s of sessionRows) {
+    if (!taskBySession.has(s.id)) taskBySession.set(s.id, s.taskId)
+  }
   const msByTask = new Map<string | null, number>()
-  for (const [sessionId, ms] of msBySession) {
-    // A session we can't map to a member task — including the '__none__'
+  for (const g of activeDurationMsBySessionTask(
+    turnEvents,
+    sessionId => taskBySession.get(sessionId) ?? null
+  )) {
+    // A group we can't map to a member task — including the '__none__'
     // bucket of session-less events — lands in the explicit remainder.
-    const taskId = taskBySession.get(sessionId) ?? null
-    const key = taskId !== null && taskIdSet.has(taskId) ? taskId : null
-    msByTask.set(key, (msByTask.get(key) ?? 0) + ms)
+    const key = g.taskId !== null && taskIdSet.has(g.taskId) ? g.taskId : null
+    msByTask.set(key, (msByTask.get(key) ?? 0) + g.ms)
   }
   // Apportion over the same total the chip renders (the remainder key
   // included), so Σ(rows) + unattributed == activeTimeSec exactly.

@@ -13,7 +13,6 @@ import { forecastRepository } from '@/lib/repositories/forecast.repository'
 import {
   foldInferredBySession,
   inferredUsageForTasks,
-  sessionStartTimes,
 } from '@/lib/repositories/inferred-usage.repository'
 import {
   addUsageMaps,
@@ -36,7 +35,11 @@ type InferredEvent = {
   workspaceMemberId: string
   type: 'STOP' | 'STOP_FAILURE' | 'SUBAGENT_STOP'
   usageByModel: Record<string, unknown>
-  session: { parentSessionId: string | null }
+  session: {
+    parentSessionId: string | null
+    startedAt: Date
+    parent: { startedAt: Date } | null
+  }
 }
 
 const u = (input: number, output = 0, cacheRead = 0, cacheCreation = 0) => ({
@@ -54,6 +57,7 @@ function isInferredQuery(args: { where?: Record<string, unknown> }): boolean {
 
 let inferredEvents: InferredEvent[] = []
 let sessionRows: Array<Record<string, unknown>> = []
+/** Session start times the inferred rows' `session` relation reports. */
 let rootStarts: Array<{ id: string; startedAt: Date }> = []
 
 beforeEach(() => {
@@ -71,13 +75,7 @@ beforeEach(() => {
           )
         : []
   )
-  sessionFind.mockImplementation(
-    async (args: { where: Record<string, unknown> }) => {
-      const id = args.where.id as { in: string[] } | undefined
-      if (id) return rootStarts.filter(r => id.in.includes(r.id))
-      return sessionRows
-    }
-  )
+  sessionFind.mockImplementation(async () => sessionRows)
 })
 
 const T0 = new Date('2026-09-01T00:00:00Z')
@@ -125,6 +123,10 @@ const explicitChild = {
   usageByModel: { haiku: u(100) },
 }
 
+const startOf = (id: string): Date =>
+  rootStarts.find(r => r.id === id)?.startedAt ?? new Date(0)
+
+/** Built lazily so `rootStarts` set later in a test is honored. */
 const ev = (
   sessionId: string,
   type: InferredEvent['type'],
@@ -136,7 +138,13 @@ const ev = (
   workspaceMemberId: opts.member ?? 'm3',
   type,
   usageByModel: usage,
-  session: { parentSessionId: opts.parent ?? null },
+  get session() {
+    return {
+      parentSessionId: opts.parent ?? null,
+      startedAt: startOf(sessionId),
+      parent: opts.parent ? { startedAt: startOf(opts.parent) } : null,
+    }
+  },
 })
 
 describe('inferredUsageForTasks', () => {
@@ -154,6 +162,14 @@ describe('inferredUsageForTasks', () => {
       ['U', 'U'],
       ['U:sub', 'U'],
     ])
+    // The trajectory's root start time rides on the same query.
+    expect(hookFind.mock.calls[0][0].select.session).toEqual({
+      select: {
+        parentSessionId: true,
+        startedAt: true,
+        parent: { select: { startedAt: true } },
+      },
+    })
     expect(await inferredUsageForTasks([])).toEqual([])
     expect(hookFind).toHaveBeenCalledTimes(1)
   })
@@ -164,6 +180,7 @@ describe('inferredUsageForTasks', () => {
         taskId: 't1',
         sessionId: 'U',
         rootSessionId: 'U',
+        rootStartedAt: T1,
         workspaceMemberId: 'm3',
         type: 'STOP',
         usageByModel: { opus: u(1, 2, 3, 4) },
@@ -172,6 +189,7 @@ describe('inferredUsageForTasks', () => {
         taskId: 't1',
         sessionId: 'U',
         rootSessionId: 'U',
+        rootStartedAt: T1,
         workspaceMemberId: 'm3',
         type: 'STOP',
         usageByModel: { opus: u(1), sonnet: u(0, 5) },
@@ -365,6 +383,48 @@ describe('retrospective loaders — hybrid cost (LUM-932 P3)', () => {
     expect(points.map(p => p.sessionId)).toEqual(['A', 'V', 'U', 'B'])
   })
 
+  it('loadPerSessionCost costs one extra query: no separate session start lookup', async () => {
+    sessionRows = [explicitA]
+    rootStarts = [
+      { id: 'U', startedAt: T1 },
+      { id: 'P', startedAt: T2 },
+    ]
+    inferredEvents = [
+      ev('U', 'STOP', { opus: u(3) }),
+      ev('P:sub', 'SUBAGENT_STOP', { opus: u(4) }, { parent: 'P' }),
+    ]
+    const points = await retrospectiveRepository.loadPerSessionCost('t1')
+    expect(sessionFind).toHaveBeenCalledTimes(1)
+    expect(hookFind).toHaveBeenCalledTimes(1)
+    expect(points).toEqual([
+      { sessionId: 'A', tokenCost: 36, loopCount: 2, startedAt: T0 },
+      { sessionId: 'U', tokenCost: 3, loopCount: 1, startedAt: T1 },
+      // an inferred child folds to its root, dated by the root's start
+      { sessionId: 'P', tokenCost: 4, loopCount: 0, startedAt: T2 },
+    ])
+  })
+
+  it('folds an explicit child into its parent only when the parent is in this task', async () => {
+    // Child of a session bound elsewhere (not in t1's explicit set).
+    const orphanChild = {
+      ...explicitChild,
+      id: 'Z:sub',
+      parentSessionId: 'Z',
+      startedAt: T1,
+    }
+    sessionRows = [explicitA, explicitChild, orphanChild]
+    taskFind.mockResolvedValue({ projectId: 'p1', sessions: sessionRows })
+    const points = await retrospectiveRepository.loadPerSessionCost('t1')
+    expect(points).toEqual([
+      { sessionId: 'A', tokenCost: 136, loopCount: 2, startedAt: T0 },
+      { sessionId: 'Z:sub', tokenCost: 100, loopCount: 0, startedAt: T1 },
+    ])
+    const actuals = await retrospectiveRepository.loadActuals('t1')
+    expect(points.reduce((sum, p) => sum + p.tokenCost, 0)).toBe(
+      actuals?.tokenCost
+    )
+  })
+
   it('issues one inferred query per loader call, batched over task ids', async () => {
     await retrospectiveRepository.loadActualsForTasks(['t1', 't2', 't3'])
     const inferredCalls = hookFind.mock.calls.filter(c => isInferredQuery(c[0]))
@@ -490,12 +550,5 @@ describe('shared usage-map helpers', () => {
     expect(addUsageMaps(null, { opus: u(5) })).toEqual({ opus: u(5) })
     expect(usageMapKindTotals(sum)).toEqual(u(2, 2, 3, 13))
     expect(usageMapTotal(sum)).toBe(20)
-  })
-
-  it('sessionStartTimes fetches only when ids are given', async () => {
-    rootStarts = [{ id: 'U', startedAt: T1 }]
-    expect(await sessionStartTimes([])).toEqual(new Map())
-    expect(sessionFind).not.toHaveBeenCalled()
-    expect(await sessionStartTimes(['U'])).toEqual(new Map([['U', T1]]))
   })
 })

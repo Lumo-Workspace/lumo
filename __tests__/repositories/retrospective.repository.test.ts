@@ -356,11 +356,23 @@ describe('loadMemberActualRowsForTasks', () => {
         cacheCreationTokens: 0,
       },
     ]
+    const createdAt = new Date('2026-06-02T09:00:00Z')
     const events = [
+      // NULL event task → falls back to the session's explicit task.
       {
         sessionId: 's-1',
+        taskId: null,
         type: 'USER_PROMPT_SUBMIT',
-        createdAt: new Date('2026-06-02T09:00:00Z'),
+        createdAt,
+        session: { taskId: 't1' },
+      },
+      // The event's own task wins (LUM-932 per-event attribution).
+      {
+        sessionId: 's-1',
+        taskId: 't2',
+        type: 'STOP',
+        createdAt,
+        session: { taskId: 't1' },
       },
     ]
     sessionFind.mockResolvedValue(sessions)
@@ -370,7 +382,18 @@ describe('loadMemberActualRowsForTasks', () => {
       't1',
       't2',
     ])
-    expect(out).toEqual({ sessions, turnEvents: events })
+    expect(out).toEqual({
+      sessions,
+      turnEvents: [
+        {
+          sessionId: 's-1',
+          taskId: 't1',
+          type: 'USER_PROMPT_SUBMIT',
+          createdAt,
+        },
+        { sessionId: 's-1', taskId: 't2', type: 'STOP', createdAt },
+      ],
+    })
     // Same task-linked session set as loadActualsForTasks, now with the
     // per-member attribution keys (id + workspaceMemberId) and the LUM-636
     // per-model map selected.
@@ -397,7 +420,13 @@ describe('loadMemberActualRowsForTasks', () => {
           ],
         }),
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        select: { sessionId: true, type: true, createdAt: true },
+        select: {
+          sessionId: true,
+          taskId: true,
+          type: true,
+          createdAt: true,
+          session: { select: { taskId: true } },
+        },
       })
     )
   })

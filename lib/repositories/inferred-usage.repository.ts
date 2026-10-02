@@ -18,6 +18,8 @@ export interface InferredUsageRow {
   sessionId: string
   /** The top-level session of the family (`parentSessionId ?? sessionId`). */
   rootSessionId: string
+  /** Start of the family root — the cost trajectory's point date. */
+  rootStartedAt: Date | null
   workspaceMemberId: string
   type: HookEventType
   usageByModel: Record<string, ModelUsage>
@@ -59,7 +61,13 @@ export async function inferredUsageForTasks(
       workspaceMemberId: true,
       type: true,
       usageByModel: true,
-      session: { select: { parentSessionId: true } },
+      session: {
+        select: {
+          parentSessionId: true,
+          startedAt: true,
+          parent: { select: { startedAt: true } },
+        },
+      },
     },
   })
   const rows: InferredUsageRow[] = []
@@ -69,24 +77,15 @@ export async function inferredUsageForTasks(
       taskId: e.taskId,
       sessionId: e.sessionId,
       rootSessionId: e.session?.parentSessionId ?? e.sessionId,
+      rootStartedAt: e.session?.parentSessionId
+        ? (e.session.parent?.startedAt ?? null)
+        : (e.session?.startedAt ?? null),
       workspaceMemberId: e.workspaceMemberId,
       type: e.type,
       usageByModel: e.usageByModel,
     })
   }
   return rows
-}
-
-/** Start times of the given sessions (inferred trajectory roots). */
-export async function sessionStartTimes(
-  sessionIds: string[]
-): Promise<Map<string, Date>> {
-  if (sessionIds.length === 0) return new Map()
-  const rows = await prisma.session.findMany({
-    where: { id: { in: sessionIds } },
-    select: { id: true, startedAt: true },
-  })
-  return new Map(rows.map(r => [r.id, r.startedAt]))
 }
 
 /** Fold inferred rows per (task, session) into flat token-column rows. */

@@ -143,6 +143,45 @@ export function activeDurationMsBySession(
   return out
 }
 
+/** A turn-stream event that may carry the task it is attributed to. */
+export interface AttributedTurnEvent extends TaskTurnEvent {
+  /** The event's attributed task (`HookEvent.taskId`, falling back to its
+   * session's explicit task). `undefined` = not supplied by the caller. */
+  taskId?: string | null
+}
+
+/**
+ * Active milliseconds per (session, task) group — LUM-932: one unattached
+ * session's turns can be attributed to different tasks, so per-task time is
+ * bucketed by each EVENT's task rather than through a session→task map. An
+ * event without a task (`undefined`) takes `fallbackTask(sessionKey)`.
+ * Groups are returned in first-seen order.
+ */
+export function activeDurationMsBySessionTask(
+  events: AttributedTurnEvent[],
+  fallbackTask: (sessionId: string) => string | null
+): Array<{ sessionId: string; taskId: string | null; ms: number }> {
+  const groups = new Map<
+    string,
+    { sessionId: string; taskId: string | null; list: SessionTurnEvent[] }
+  >()
+  for (const ev of events) {
+    const sessionId = ev.sessionId ?? NO_SESSION
+    const taskId = ev.taskId !== undefined ? ev.taskId : fallbackTask(sessionId)
+    const key = `${sessionId}\u0000${taskId ?? ''}`
+    const group = groups.get(key)
+    if (group) group.list.push(ev)
+    else groups.set(key, { sessionId, taskId, list: [ev] })
+  }
+  return [...groups.values()].map(({ sessionId, taskId, list }) => ({
+    sessionId,
+    taskId,
+    ms: activeDurationMs(
+      [...list].sort((a, b) => ms(a.createdAt) - ms(b.createdAt))
+    ),
+  }))
+}
+
 /**
  * Whole seconds of active time for a flat, possibly-unordered event stream
  * spanning multiple sessions.

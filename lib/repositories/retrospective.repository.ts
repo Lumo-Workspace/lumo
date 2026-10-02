@@ -16,7 +16,6 @@ import {
 import {
   foldInferredBySession,
   inferredUsageForTasks,
-  sessionStartTimes,
 } from '@/lib/repositories/inferred-usage.repository'
 import {
   computeFriction,
@@ -390,8 +389,12 @@ export const retrospectiveRepository = {
        * model split reads it through the same measured gate as the sums. */
       usageByModel: unknown
     }>
+    /** `taskId` = the event's attributed task (its own taskId, else its
+     * session's explicit task — the `eventsForTasks` rule), so per-task
+     * active time buckets by event, not by session (LUM-932). */
     turnEvents: Array<{
       sessionId: string | null
+      taskId: string | null
       type: HookEventType
       createdAt: Date
     }>
@@ -399,7 +402,7 @@ export const retrospectiveRepository = {
     if (taskIds.length === 0) {
       return { sessions: [], turnEvents: [] }
     }
-    const [explicitSessions, turnEvents, inferred] = await Promise.all([
+    const [explicitSessions, rawTurnEvents, inferred] = await Promise.all([
       prisma.session.findMany({
         where: { taskId: { in: taskIds } },
         select: {
@@ -419,10 +422,22 @@ export const retrospectiveRepository = {
           type: { in: ACTIVE_TIME_EVENT_TYPES },
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        select: { sessionId: true, type: true, createdAt: true },
+        select: {
+          sessionId: true,
+          taskId: true,
+          type: true,
+          createdAt: true,
+          session: { select: { taskId: true } },
+        },
       }),
       inferredUsageForTasks(taskIds),
     ])
+    const turnEvents = rawTurnEvents.map(e => ({
+      sessionId: e.sessionId,
+      taskId: e.taskId ?? e.session?.taskId ?? null,
+      type: e.type,
+      createdAt: e.createdAt,
+    }))
     // LUM-932 P3: unattached work joins as per-(task, session) rows keyed by
     // the unattached session id + the member on its usage rows.
     const sessions = [
@@ -516,42 +531,54 @@ export const retrospectiveRepository = {
       inferredUsageForTasks([taskId]),
     ])
 
-    // LUM-932 P3: one point per TOP-LEVEL session. Explicit child sessions
-    // fold into their parent's point (own cumulative + children's); unattached
-    // work's per-turn rows fold into their family root's point. Both parts are
-    // exactly what loadActuals sums, so Σ points == loadActuals.tokenCost.
+    // LUM-932 P3: one point per TOP-LEVEL session. An explicit child folds
+    // into its parent's point only when that parent is itself in this task's
+    // explicit set (otherwise it is its own point here); unattached work's
+    // per-turn rows fold into their family root's point, dated by the root's
+    // start carried on the same usage query. Both parts are exactly what
+    // loadActuals sums, so Σ points == loadActuals.tokenCost.
+    const explicitIds = new Set(sessions.map(s => s.id))
     const points = new Map<string, PerSessionCost>()
-    const startedAt = new Map<string, Date>()
-    for (const s of sessions) {
-      if (s.parentSessionId === null) startedAt.set(s.id, s.startedAt)
-    }
-    const add = (rootId: string, tokens: number, loops: number) => {
+    const add = (
+      rootId: string,
+      startedAt: Date | null,
+      tokens: number,
+      loops: number
+    ) => {
       const cur = points.get(rootId) ?? {
         sessionId: rootId,
         tokenCost: 0,
         loopCount: 0,
         startedAt: new Date(0),
       }
+      if (startedAt !== null) cur.startedAt = startedAt
       cur.tokenCost += tokens
       cur.loopCount += loops
       points.set(rootId, cur)
     }
     for (const s of sessions) {
-      add(s.parentSessionId ?? s.id, flatTokens(s), s.loopCount ?? 0)
+      const folds =
+        s.parentSessionId != null && explicitIds.has(s.parentSessionId)
+      add(
+        folds ? s.parentSessionId! : s.id,
+        folds ? null : s.startedAt,
+        flatTokens(s),
+        s.loopCount ?? 0
+      )
     }
     for (const r of inferred) {
       // A turn is a main-transcript STOP; subagent rows add spend, not turns.
       const loops = r.type === 'SUBAGENT_STOP' ? 0 : 1
-      add(r.rootSessionId, usageMapTotal(r.usageByModel), loops)
+      add(
+        r.rootSessionId,
+        // An explicit point keeps its own start; inferred roots carry theirs.
+        explicitIds.has(r.rootSessionId) ? null : r.rootStartedAt,
+        usageMapTotal(r.usageByModel),
+        loops
+      )
     }
 
-    const missing = [...points.keys()].filter(id => !startedAt.has(id))
-    const fetched = await sessionStartTimes(missing)
-    const out = [...points.values()].map(p => ({
-      ...p,
-      startedAt:
-        startedAt.get(p.sessionId) ?? fetched.get(p.sessionId) ?? p.startedAt,
-    }))
+    const out = [...points.values()]
     return out.sort(
       (a, b) =>
         a.startedAt.getTime() - b.startedAt.getTime() ||
