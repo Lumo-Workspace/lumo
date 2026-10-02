@@ -55,9 +55,9 @@ beforeEach(() => {
 
 describe('upsertChildForHookEvent', () => {
   it('creates a missing parent and inherits the parent binding', async () => {
-    tx.session.findUnique.mockResolvedValueOnce(null) // parent missing
-    tx.session.create.mockResolvedValueOnce({ id: 'P', taskId: null })
-    tx.session.upsert.mockResolvedValueOnce({ id: 'P:a1', taskId: null })
+    tx.session.upsert
+      .mockResolvedValueOnce({ id: 'P', taskId: null }) // parent
+      .mockResolvedValueOnce({ id: 'P:a1', taskId: null }) // child
     const r = await sessionRepository.upsertChildForHookEvent({
       ...base,
       parentSessionId: 'P',
@@ -65,11 +65,15 @@ describe('upsertChildForHookEvent', () => {
       agentType: 'Explore',
       cwd: '/r',
     })
-    expect(tx.session.create).toHaveBeenCalledWith(
+    expect(tx.session.upsert).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
-        data: expect.objectContaining({ id: 'P', eventCount: 0 }),
+        where: { id: 'P' },
+        create: expect.objectContaining({ id: 'P', eventCount: 0 }),
+        update: {},
       })
     )
+    expect(tx.session.create).not.toHaveBeenCalled()
     expect(tx.session.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'P:a1' },
@@ -86,8 +90,9 @@ describe('upsertChildForHookEvent', () => {
   })
 
   it('stamps INHERITED when the parent is bound', async () => {
-    tx.session.findUnique.mockResolvedValueOnce({ id: 'P', taskId: 't1' })
-    tx.session.upsert.mockResolvedValueOnce({ id: 'P:a1', taskId: 't1' })
+    tx.session.upsert
+      .mockResolvedValueOnce({ id: 'P', taskId: 't1' })
+      .mockResolvedValueOnce({ id: 'P:a1', taskId: 't1' })
     await sessionRepository.upsertChildForHookEvent({
       ...base,
       parentSessionId: 'P',
@@ -139,12 +144,9 @@ describe('settleChildUsage', () => {
   }
 
   it('adds the delta onto the latest SUBAGENT_STOP row and overwrites the cumulative', async () => {
-    tx.session.findUnique.mockResolvedValueOnce({ id: 'P', taskId: null }) // parent
-    tx.session.upsert.mockResolvedValueOnce({
-      id: 'P:a1',
-      taskId: null,
-      usageByModel: null,
-    })
+    tx.session.upsert
+      .mockResolvedValueOnce({ id: 'P', taskId: null }) // parent
+      .mockResolvedValueOnce({ id: 'P:a1', taskId: null, usageByModel: null })
     tx.hookEvent.findFirst.mockResolvedValueOnce({
       id: 'he9',
       usageByModel: null,
@@ -171,13 +173,58 @@ describe('settleChildUsage', () => {
     expect(r).toEqual({ settled: true })
   })
 
-  it('is idempotent: the same cumulative twice adds nothing the second time', async () => {
-    tx.session.findUnique.mockResolvedValueOnce({ id: 'P', taskId: null })
-    tx.session.upsert.mockResolvedValueOnce({
-      id: 'P:a1',
-      taskId: null,
-      usageByModel: usage.byModel,
+  it('ADDS the delta onto a SUBAGENT_STOP row that already has usage', async () => {
+    tx.session.upsert
+      .mockResolvedValueOnce({ id: 'P', taskId: null })
+      .mockResolvedValueOnce({
+        id: 'P:a1',
+        taskId: null,
+        usageByModel: {
+          sonnet: { input: 100, output: 10, cacheRead: 0, cacheCreation: 0 },
+        },
+      })
+    tx.hookEvent.findFirst.mockResolvedValueOnce({
+      id: 'he9',
+      usageByModel: {
+        sonnet: { input: 50, output: 5, cacheRead: 0, cacheCreation: 0 },
+      },
     })
+    const cumulative = {
+      sonnet: { input: 160, output: 16, cacheRead: 0, cacheCreation: 0 },
+      haiku: { input: 7, output: 1, cacheRead: 0, cacheCreation: 0 },
+    }
+    const r = await sessionRepository.settleChildUsage({
+      ...base,
+      parentSessionId: 'P',
+      agentId: 'a1',
+      usage: {
+        inputTokens: 167,
+        outputTokens: 17,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        byModel: cumulative,
+      },
+    })
+    expect(tx.hookEvent.update).toHaveBeenCalledWith({
+      where: { id: 'he9' },
+      data: {
+        usageByModel: {
+          sonnet: { input: 110, output: 11, cacheRead: 0, cacheCreation: 0 },
+          haiku: { input: 7, output: 1, cacheRead: 0, cacheCreation: 0 },
+        },
+      },
+    })
+    expect(r).toEqual({ settled: true })
+  })
+
+  it('is idempotent: the same cumulative twice adds nothing the second time', async () => {
+    tx.session.upsert
+      .mockResolvedValueOnce({ id: 'P', taskId: null })
+      .mockResolvedValueOnce({
+        id: 'P:a1',
+        taskId: null,
+        usageByModel: usage.byModel,
+      })
     const r = await sessionRepository.settleChildUsage({
       ...base,
       parentSessionId: 'P',
@@ -190,12 +237,9 @@ describe('settleChildUsage', () => {
   })
 
   it('defers when the child has no SUBAGENT_STOP yet', async () => {
-    tx.session.findUnique.mockResolvedValueOnce({ id: 'P', taskId: null })
-    tx.session.upsert.mockResolvedValueOnce({
-      id: 'P:a1',
-      taskId: null,
-      usageByModel: null,
-    })
+    tx.session.upsert
+      .mockResolvedValueOnce({ id: 'P', taskId: null })
+      .mockResolvedValueOnce({ id: 'P:a1', taskId: null, usageByModel: null })
     tx.hookEvent.findFirst.mockResolvedValueOnce(null)
     const r = await sessionRepository.settleChildUsage({
       ...base,
@@ -205,5 +249,88 @@ describe('settleChildUsage', () => {
     })
     expect(tx.session.update).not.toHaveBeenCalled()
     expect(r).toEqual({ settled: false })
+  })
+})
+
+describe('upsertWithTaskId (child linkage)', () => {
+  const args = {
+    id: 'P:a1',
+    workspaceId: 'ws',
+    workspaceMemberId: 'wm',
+    taskId: 't1',
+    now,
+    parentSessionId: 'P',
+    agentId: 'a1',
+  }
+
+  it('on a NEW row ensures the parent and creates the child linked', async () => {
+    tx.session.upsert.mockResolvedValueOnce({ id: 'P', taskId: null })
+    tx.session.findUnique.mockResolvedValueOnce(null)
+    tx.session.create.mockResolvedValueOnce({ id: 'P:a1', taskId: 't1' })
+    await sessionRepository.upsertWithTaskId(args)
+    expect(tx.session.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'P' },
+        create: expect.objectContaining({ id: 'P', eventCount: 0 }),
+      })
+    )
+    expect(tx.session.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          id: 'P:a1',
+          parentSessionId: 'P',
+          agentId: 'a1',
+          bindingSource: 'ATTACH',
+        }),
+      })
+    )
+  })
+
+  it('on an EXISTING row updates the binding and the child linkage', async () => {
+    tx.session.upsert.mockResolvedValueOnce({ id: 'P', taskId: null })
+    tx.session.findUnique.mockResolvedValueOnce({ workspaceMemberId: 'wm' })
+    tx.session.update.mockResolvedValueOnce({ id: 'P:a1', taskId: 't1' })
+    await sessionRepository.upsertWithTaskId(args)
+    expect(tx.session.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'P:a1' },
+        data: {
+          taskId: 't1',
+          bindingSource: 'ATTACH',
+          parentSessionId: 'P',
+          agentId: 'a1',
+        },
+      })
+    )
+  })
+})
+
+describe('top-level listings exclude child sessions', () => {
+  const topLevel = {
+    where: expect.objectContaining({ parentSessionId: null }),
+  }
+
+  it('listForTask', async () => {
+    ;(prisma.session.findMany as jest.Mock).mockResolvedValueOnce([])
+    await sessionRepository.listForTask('t1')
+    expect(prisma.session.findMany).toHaveBeenCalledWith(
+      expect.objectContaining(topLevel)
+    )
+  })
+
+  it('listForMember', async () => {
+    ;(prisma.session.findMany as jest.Mock).mockResolvedValueOnce([])
+    await sessionRepository.listForMember('wm')
+    expect(prisma.session.findMany).toHaveBeenCalledWith(
+      expect.objectContaining(topLevel)
+    )
+  })
+
+  it('listForTaskMissingRunSummary', async () => {
+    ;(prisma.session.findMany as jest.Mock).mockResolvedValueOnce([])
+    await sessionRepository.listForTaskMissingRunSummary('t1')
+    expect(prisma.session.findMany).toHaveBeenCalledWith(
+      expect.objectContaining(topLevel)
+    )
   })
 })

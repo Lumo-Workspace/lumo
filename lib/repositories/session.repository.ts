@@ -125,13 +125,11 @@ async function ensureParentRow(
     now: Date
   }
 ): Promise<{ id: string; taskId: string | null }> {
-  const parent = await tx.session.findUnique({
+  // Single upsert (not find-then-create) so two concurrent subagent events for
+  // a brand-new parent cannot race into a P2002 that aborts the transaction.
+  return tx.session.upsert({
     where: { id: data.parentSessionId },
-    select: { id: true, taskId: true },
-  })
-  if (parent) return parent
-  return tx.session.create({
-    data: {
+    create: {
       id: data.parentSessionId,
       workspaceId: data.workspaceId,
       workspaceMemberId: data.workspaceMemberId,
@@ -139,6 +137,7 @@ async function ensureParentRow(
       lastActivityAt: data.now,
       eventCount: 0,
     },
+    update: {},
     select: { id: true, taskId: true },
   })
 }
@@ -494,7 +493,16 @@ export const sessionRepository = {
         }
         const updated = await tx.session.update({
           where: { id: data.id },
-          data: { taskId: data.taskId, bindingSource: 'ATTACH' },
+          data: {
+            taskId: data.taskId,
+            bindingSource: 'ATTACH',
+            ...(data.parentSessionId
+              ? {
+                  parentSessionId: data.parentSessionId,
+                  agentId: data.agentId ?? null,
+                }
+              : {}),
+          },
           select: { id: true, taskId: true },
         })
         return { ownedByOther: false, session: updated } as const
