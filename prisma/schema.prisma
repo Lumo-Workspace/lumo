@@ -2649,8 +2649,8 @@ model HookEvent {
   usageByModel      Json?
   /// LUM-932 P2: task-identification signals lifted out of the payload at
   /// record time (see lib/attribution/signals.ts). A derived column, so it
-  /// survives payload pruning. Null on rows recorded before P2 and on events
-  /// that carry no signal.
+  /// survives payload pruning. `[]` = computed, nothing found; NULL = never
+  /// computed (rows recorded before P2).
   attributionSignals Json?
   /// LUM-859: when the retention sweep replaced `payload` with the pruned
   /// marker. Null = payload still holds the (redacted) original.

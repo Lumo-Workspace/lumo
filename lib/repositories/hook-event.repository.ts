@@ -26,7 +26,7 @@ interface CreateHookEventData {
   filePath?: string | null
   /** Per-turn delta on STOP rows; per-step delta on POST_TOOL_BATCH rows (LUM-523). Null elsewhere. */
   usageByModel?: Prisma.InputJsonValue | null
-  /** LUM-932 P2: task-identification signals extracted at record time; null when none. */
+  /** LUM-932 P2: task-identification signals extracted at record time; `[]` when none found (SQL NULL is reserved for rows never computed). */
   attributionSignals?: AttributionSignal[] | null
 }
 
