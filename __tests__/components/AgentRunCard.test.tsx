@@ -46,7 +46,7 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/AgentBadge', () => ({
   AgentBadge: () => null,
 }))
 
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { AgentRunCard } from '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard'
 import type {
   AgentRunItem,
@@ -66,6 +66,7 @@ const baseRun = (over: Partial<AgentRunSession> = {}): AgentRunSession =>
     memoryCount: 0,
     cost: null,
     member: { workspaceMemberId: 'm1', name: 'Chao Li', imageUrl: '' },
+    attribution: null,
     items: [],
     ...over,
   }) as AgentRunSession
@@ -193,5 +194,42 @@ describe('AgentRunCard — collapsible token details (LUM-501)', () => {
     expect(screen.getByText('claude-opus-4-8')).toBeInTheDocument()
     // four detail rows are now hidden until per-model toggle
     expect(screen.queryByText('output')).not.toBeInTheDocument()
+  })
+})
+
+describe('AgentRunCard — attribution (LUM-932)', () => {
+  it('shows the badge collapsed and the why-panel after expanding', () => {
+    render(
+      <AgentRunCard
+        run={baseRun({
+          attribution: {
+            mode: 'INFERRED',
+            approximate: true,
+            subagents: [],
+            segments: [
+              {
+                source: 'INFERRED',
+                confidence: 'HIGH',
+                fromTurn: 0,
+                toTurn: 2,
+                fromAt: '2026-06-07T15:48:00Z',
+                toAt: null,
+                evidence: [
+                  {
+                    kind: 'BRANCH',
+                    identifier: 'LUM-12',
+                    at: '2026-06-07T15:49:00Z',
+                  },
+                ],
+              },
+            ],
+          },
+        })}
+      />
+    )
+    expect(screen.getByTestId('run-attribution-badge')).toBeInTheDocument()
+    expect(screen.queryByTestId('run-attribution-panel')).toBeNull()
+    fireEvent.click(screen.getByRole('button'))
+    expect(screen.getByTestId('run-attribution-panel')).toBeInTheDocument()
   })
 })
