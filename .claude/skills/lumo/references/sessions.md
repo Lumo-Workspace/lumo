@@ -192,6 +192,22 @@ lumo session status
 
 Prints what the current Claude Code session is bound to — a task, a milestone (`Role: STEWARD (governance — plan & accept only)`), or "(no task)" if none. Requires `$CLAUDE_CODE_SESSION_ID` (must run inside Claude Code).
 
+Against a server that reports attribution (LUM-932) it also lists where the run's work is going. A subagent's own session prints `Subagent of: <parent session>` and shows its family's view.
+
+```
+  Attribution:
+    LUM-12  turns 1–4  auto-detected · high (git hint LUM-12, lumo cmd LUM-12)
+    LUM-13  turn 5  auto-detected · medium (agent prompt LUM-13)
+  Subagents:
+    Explore (abc123)  LUM-14 subagent attach
+    general-purpose (def456)  follows parent
+  ⚠ Some work was auto-detected — time and cost may be inaccurate. Run `lumo session attach <LUM-N>` for exact numbers.
+```
+
+- Source words: `attached`, `subagent attach`, `inherited`, `auto-detected` (the `high`/`medium` confidence only appears for auto-detected). Evidence is what triggered the inference (max 3 per segment).
+- An unbound session with no signal yet prints `Attribution: none yet (no task signal)`; it is auto-detected later from branch, commits and `lumo` commands.
+- The `⚠` line means some of the work is inferred, so time and cost are approximate; `lumo session attach <LUM-N>` makes them exact. Older servers print only the binding lines.
+
 #### When to suggest
 
 The user asks "which task am I on", "what's this session bound to", or you need to decide whether to suggest `session attach` for a mentioned task ID.

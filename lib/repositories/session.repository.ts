@@ -796,6 +796,8 @@ export const sessionRepository = {
         startedAt: true,
         lastActivityAt: true,
         eventCount: true,
+        parentSessionId: true,
+        agentType: true,
         // LUM-640: the steward form of the binding — role + milestone ride
         // along so the guard/attach paths can classify without a second read.
         role: true,
