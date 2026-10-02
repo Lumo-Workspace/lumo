@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
+import { eventsForTask } from '@/lib/repositories/task-attribution-where'
 import type { HookEventType } from '@prisma/client'
 import type { AttributionSignal } from '@/lib/attribution/signals'
 import type { ToolEventRow } from '@/lib/session/resolve-caller'
@@ -367,9 +368,7 @@ export const hookEventRepository = {
    */
   async findByTaskId(taskId: string) {
     return prisma.hookEvent.findMany({
-      where: {
-        OR: [{ taskId }, { taskId: null, session: { taskId } }],
-      },
+      where: eventsForTask(taskId),
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
@@ -398,8 +397,8 @@ export const hookEventRepository = {
   async findTurnUsageByTask(taskId: string) {
     return prisma.hookEvent.findMany({
       where: {
+        ...eventsForTask(taskId),
         type: { in: ['STOP', 'STOP_FAILURE'] },
-        OR: [{ taskId }, { taskId: null, session: { taskId } }],
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       // createdAt: LUM-559 dates the edgeless cost-only group a session gets
@@ -481,11 +480,8 @@ export const hookEventRepository = {
     const where: Prisma.HookEventWhereInput =
       'taskId' in scope
         ? {
+            ...eventsForTask(scope.taskId),
             type,
-            OR: [
-              { taskId: scope.taskId },
-              { taskId: null, session: { taskId: scope.taskId } },
-            ],
           }
         : 'sessionId' in scope
           ? { type, sessionId: scope.sessionId, workspaceId: scope.workspaceId }

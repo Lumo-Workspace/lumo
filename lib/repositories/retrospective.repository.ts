@@ -1,5 +1,9 @@
 import { Prisma, type HookEventType } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import {
+  eventsForTask,
+  eventsForTasks,
+} from '@/lib/repositories/task-attribution-where'
 import type { Interval } from '@/lib/forecast/types'
 import { sumActiveDurationSec } from '@/lib/agent-run/active-time'
 import {
@@ -211,7 +215,7 @@ export const retrospectiveRepository = {
     // to the inter-turn idle that was already excluded.
     const turnEvents = await prisma.hookEvent.findMany({
       where: {
-        OR: [{ taskId }, { taskId: null, session: { taskId } }],
+        ...eventsForTask(taskId),
         type: { in: ACTIVE_TIME_EVENT_TYPES },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -308,10 +312,7 @@ export const retrospectiveRepository = {
 
     const turnEvents = await prisma.hookEvent.findMany({
       where: {
-        OR: [
-          { taskId: { in: taskIds } },
-          { taskId: null, session: { taskId: { in: taskIds } } },
-        ],
+        ...eventsForTasks(taskIds),
         type: { in: ACTIVE_TIME_EVENT_TYPES },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -382,10 +383,7 @@ export const retrospectiveRepository = {
       }),
       prisma.hookEvent.findMany({
         where: {
-          OR: [
-            { taskId: { in: taskIds } },
-            { taskId: null, session: { taskId: { in: taskIds } } },
-          ],
+          ...eventsForTasks(taskIds),
           type: { in: ACTIVE_TIME_EVENT_TYPES },
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
