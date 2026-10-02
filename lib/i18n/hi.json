@@ -2788,5 +2788,18 @@
   "sessions.timeline.block.response": "प्रतिक्रिया",
   "sessions.timeline.block.files": "फ़ाइलें",
   "sessions.timeline.block.todos": "करने योग्य कार्य",
-  "sessions.timeline.block.input": "इनपुट"
+  "sessions.timeline.block.input": "इनपुट",
+  "sessions.timeline.summary.emptyPrompt": "(खाली प्रॉम्प्ट)",
+  "sessions.timeline.summary.modelStopped": "मॉडल रुक गया",
+  "sessions.timeline.summary.noInput": "(कोई इनपुट नहीं)",
+  "sessions.timeline.summary.noPath": "(कोई पथ नहीं)",
+  "sessions.timeline.summary.todos": "{count, plural, one {# कार्य} other {# कार्य}}",
+  "sessions.timeline.summary.grepIn": "{path} में {pattern}",
+  "sessions.timeline.badge.interrupted": "बाधित",
+  "sessions.timeline.badge.stderr": "stderr",
+  "sessions.timeline.badge.noMatch": "कोई मिलान नहीं",
+  "sessions.timeline.badge.lines": "{count, plural, one {# पंक्ति} other {# पंक्तियाँ}}",
+  "sessions.timeline.badge.linesWithType": "{type} · {count, plural, one {# पंक्ति} other {# पंक्तियाँ}}",
+  "sessions.timeline.badge.files": "{count, plural, one {# फ़ाइल} other {# फ़ाइलें}}",
+  "sessions.timeline.badge.matches": "{count, plural, one {# मिलान} other {# मिलान}}"
 }

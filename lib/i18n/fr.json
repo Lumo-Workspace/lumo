@@ -2788,5 +2788,18 @@
   "sessions.timeline.block.response": "réponse",
   "sessions.timeline.block.files": "fichiers",
   "sessions.timeline.block.todos": "tâches à faire",
-  "sessions.timeline.block.input": "entrée"
+  "sessions.timeline.block.input": "entrée",
+  "sessions.timeline.summary.emptyPrompt": "(prompt vide)",
+  "sessions.timeline.summary.modelStopped": "le modèle s’est arrêté",
+  "sessions.timeline.summary.noInput": "(aucune entrée)",
+  "sessions.timeline.summary.noPath": "(aucun chemin)",
+  "sessions.timeline.summary.todos": "{count, plural, one {# tâche} other {# tâches}}",
+  "sessions.timeline.summary.grepIn": "{pattern} dans {path}",
+  "sessions.timeline.badge.interrupted": "interrompu",
+  "sessions.timeline.badge.stderr": "stderr",
+  "sessions.timeline.badge.noMatch": "aucune correspondance",
+  "sessions.timeline.badge.lines": "{count, plural, one {# ligne} other {# lignes}}",
+  "sessions.timeline.badge.linesWithType": "{type} · {count, plural, one {# ligne} other {# lignes}}",
+  "sessions.timeline.badge.files": "{count, plural, one {# fichier} other {# fichiers}}",
+  "sessions.timeline.badge.matches": "{count, plural, one {# correspondance} other {# correspondances}}"
 }

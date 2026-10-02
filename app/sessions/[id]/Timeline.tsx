@@ -1,8 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useIntl, type MessageDescriptor } from 'react-intl'
-import type { BlockLabelKey, DetailBlock, TimelineItem } from './merge-events'
+import { useIntl, type IntlShape, type MessageDescriptor } from 'react-intl'
+import type {
+  BadgeMsg,
+  BlockLabelKey,
+  DetailBlock,
+  SummaryMsg,
+  TimelineItem,
+} from './merge-events'
 import { SESSION_MESSAGES as M } from '../messages'
 
 interface TimelineProps {
@@ -27,6 +33,58 @@ const BLOCK_LABELS = {
   todos: M['timeline.block.todos'],
   input: M['timeline.block.input'],
 } satisfies Record<BlockLabelKey, MessageDescriptor>
+
+function summaryText(intl: IntlShape, msg: SummaryMsg): string {
+  switch (msg.kind) {
+    case 'emptyPrompt':
+      return intl.formatMessage(M['timeline.summary.emptyPrompt'])
+    case 'modelStopped':
+      return intl.formatMessage(M['timeline.summary.modelStopped'])
+    case 'noInput':
+      return intl.formatMessage(M['timeline.summary.noInput'])
+    case 'noPath':
+      return intl.formatMessage(M['timeline.summary.noPath'])
+    case 'todos':
+      return intl.formatMessage(M['timeline.summary.todos'], {
+        count: msg.count,
+      })
+    case 'grepIn':
+      return intl.formatMessage(M['timeline.summary.grepIn'], {
+        pattern: msg.pattern,
+        path: msg.path,
+      })
+  }
+}
+
+function badgeText(intl: IntlShape, badge: BadgeMsg): string {
+  switch (badge.kind) {
+    case 'raw':
+      return badge.text
+    case 'interrupted':
+      return intl.formatMessage(M['timeline.badge.interrupted'])
+    case 'stderr':
+      return intl.formatMessage(M['timeline.badge.stderr'])
+    case 'noMatch':
+      return intl.formatMessage(M['timeline.badge.noMatch'])
+    case 'lines':
+      return intl.formatMessage(M['timeline.badge.lines'], {
+        count: badge.count,
+      })
+    case 'linesWithType':
+      return intl.formatMessage(M['timeline.badge.linesWithType'], {
+        type: badge.type,
+        count: badge.count,
+      })
+    case 'files':
+      return intl.formatMessage(M['timeline.badge.files'], {
+        count: badge.count,
+      })
+    case 'matches':
+      return intl.formatMessage(M['timeline.badge.matches'], {
+        count: badge.count,
+      })
+  }
+}
 
 export function Timeline({ items }: TimelineProps) {
   const intl = useIntl()
@@ -90,7 +148,9 @@ function TimelineRow({ item }: { item: TimelineItem }) {
         <span className='min-w-0 flex-1 truncate text-foreground'>
           {item.pruned
             ? intl.formatMessage(M['timeline.pruned'])
-            : item.summary}
+            : item.summaryMsg
+              ? summaryText(intl, item.summaryMsg)
+              : item.summary}
         </span>
         {item.badge && (
           <span
@@ -100,7 +160,7 @@ function TimelineRow({ item }: { item: TimelineItem }) {
                 : 'bg-muted text-muted-foreground'
             }`}
           >
-            {item.badge}
+            {badgeText(intl, item.badge)}
           </span>
         )}
         {duration && (
@@ -183,7 +243,11 @@ function DetailBlockView({ block }: { block: DetailBlock }) {
       <pre
         className={`overflow-x-auto whitespace-pre-wrap break-words rounded-sm border p-2 font-mono text-xs leading-relaxed ${variantClass}`}
       >
-        {block.variant === 'diff' ? renderDiff(block.text) : block.text}
+        {block.textKey
+          ? intl.formatMessage(M['timeline.badge.interrupted'])
+          : block.variant === 'diff'
+            ? renderDiff(block.text)
+            : block.text}
       </pre>
     </div>
   )

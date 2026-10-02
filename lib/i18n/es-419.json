@@ -2788,5 +2788,18 @@
   "sessions.timeline.block.response": "respuesta",
   "sessions.timeline.block.files": "archivos",
   "sessions.timeline.block.todos": "tareas pendientes",
-  "sessions.timeline.block.input": "entrada"
+  "sessions.timeline.block.input": "entrada",
+  "sessions.timeline.summary.emptyPrompt": "(prompt vacío)",
+  "sessions.timeline.summary.modelStopped": "el modelo se detuvo",
+  "sessions.timeline.summary.noInput": "(sin entrada)",
+  "sessions.timeline.summary.noPath": "(sin ruta)",
+  "sessions.timeline.summary.todos": "{count, plural, one {# tarea pendiente} other {# tareas pendientes}}",
+  "sessions.timeline.summary.grepIn": "{pattern} en {path}",
+  "sessions.timeline.badge.interrupted": "interrumpido",
+  "sessions.timeline.badge.stderr": "stderr",
+  "sessions.timeline.badge.noMatch": "sin coincidencias",
+  "sessions.timeline.badge.lines": "{count, plural, one {# línea} other {# líneas}}",
+  "sessions.timeline.badge.linesWithType": "{type} · {count, plural, one {# línea} other {# líneas}}",
+  "sessions.timeline.badge.files": "{count, plural, one {# archivo} other {# archivos}}",
+  "sessions.timeline.badge.matches": "{count, plural, one {# coincidencia} other {# coincidencias}}"
 }

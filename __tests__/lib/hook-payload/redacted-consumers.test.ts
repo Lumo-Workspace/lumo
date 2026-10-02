@@ -66,7 +66,11 @@ describe('redacted hook events in the session timeline', () => {
     const byTool = Object.fromEntries(items.map(i => [i.toolName, i]))
 
     const write = byTool.Write!
-    expect(write.badge).toBe('create · 3 lines')
+    expect(write.badge).toEqual({
+      kind: 'linesWithType',
+      type: 'create',
+      count: 3,
+    })
     expect(write.details).toEqual([
       expect.objectContaining({
         labelKey: 'content',
@@ -75,10 +79,10 @@ describe('redacted hook events in the session timeline', () => {
       }),
     ])
 
-    expect(byTool.Read!.badge).toBe('3 lines')
+    expect(byTool.Read!.badge).toEqual({ kind: 'lines', count: 3 })
     expect(byTool.Read!.details[0]).toMatchObject({ variant: 'redacted' })
 
-    expect(byTool.Edit!.badge).toBe('+1 -1')
+    expect(byTool.Edit!.badge).toEqual({ kind: 'raw', text: '+1 -1' })
     expect(byTool.Edit!.details[0]).toMatchObject({
       labelKey: 'diff',
       variant: 'redacted',
@@ -86,7 +90,7 @@ describe('redacted hook events in the session timeline', () => {
 
     const bash = byTool.Bash!
     expect(bash.status).toBe('error')
-    expect(bash.badge).toBe('stderr')
+    expect(bash.badge).toEqual({ kind: 'stderr' })
     expect(
       bash.details.map((d: DetailBlock) => [d.labelKey, d.variant])
     ).toEqual([

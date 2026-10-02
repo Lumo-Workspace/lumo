@@ -2788,5 +2788,18 @@
   "sessions.timeline.block.response": "respons",
   "sessions.timeline.block.files": "fail",
   "sessions.timeline.block.todos": "senarai tugas",
-  "sessions.timeline.block.input": "input"
+  "sessions.timeline.block.input": "input",
+  "sessions.timeline.summary.emptyPrompt": "(prompt kosong)",
+  "sessions.timeline.summary.modelStopped": "model berhenti",
+  "sessions.timeline.summary.noInput": "(tiada input)",
+  "sessions.timeline.summary.noPath": "(tiada laluan)",
+  "sessions.timeline.summary.todos": "{count} tugas",
+  "sessions.timeline.summary.grepIn": "{pattern} dalam {path}",
+  "sessions.timeline.badge.interrupted": "terganggu",
+  "sessions.timeline.badge.stderr": "stderr",
+  "sessions.timeline.badge.noMatch": "tiada padanan",
+  "sessions.timeline.badge.lines": "{count} baris",
+  "sessions.timeline.badge.linesWithType": "{type} · {count} baris",
+  "sessions.timeline.badge.files": "{count} fail",
+  "sessions.timeline.badge.matches": "{count} padanan"
 }

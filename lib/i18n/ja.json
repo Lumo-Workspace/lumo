@@ -2788,5 +2788,18 @@
   "sessions.timeline.block.response": "レスポンス",
   "sessions.timeline.block.files": "ファイル",
   "sessions.timeline.block.todos": "ToDo",
-  "sessions.timeline.block.input": "入力"
+  "sessions.timeline.block.input": "入力",
+  "sessions.timeline.summary.emptyPrompt": "（空のプロンプト）",
+  "sessions.timeline.summary.modelStopped": "モデルが停止しました",
+  "sessions.timeline.summary.noInput": "（入力なし）",
+  "sessions.timeline.summary.noPath": "（パスなし）",
+  "sessions.timeline.summary.todos": "ToDo {count} 件",
+  "sessions.timeline.summary.grepIn": "{path} 内の {pattern}",
+  "sessions.timeline.badge.interrupted": "中断",
+  "sessions.timeline.badge.stderr": "stderr",
+  "sessions.timeline.badge.noMatch": "一致なし",
+  "sessions.timeline.badge.lines": "{count} 行",
+  "sessions.timeline.badge.linesWithType": "{type} · {count} 行",
+  "sessions.timeline.badge.files": "{count} ファイル",
+  "sessions.timeline.badge.matches": "{count} 件の一致"
 }

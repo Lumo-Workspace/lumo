@@ -2788,5 +2788,18 @@
   "sessions.timeline.block.response": "phản hồi",
   "sessions.timeline.block.files": "tệp",
   "sessions.timeline.block.todos": "việc cần làm",
-  "sessions.timeline.block.input": "đầu vào"
+  "sessions.timeline.block.input": "đầu vào",
+  "sessions.timeline.summary.emptyPrompt": "(prompt trống)",
+  "sessions.timeline.summary.modelStopped": "mô hình đã dừng",
+  "sessions.timeline.summary.noInput": "(không có đầu vào)",
+  "sessions.timeline.summary.noPath": "(không có đường dẫn)",
+  "sessions.timeline.summary.todos": "{count} việc cần làm",
+  "sessions.timeline.summary.grepIn": "{pattern} trong {path}",
+  "sessions.timeline.badge.interrupted": "đã ngắt",
+  "sessions.timeline.badge.stderr": "stderr",
+  "sessions.timeline.badge.noMatch": "không có kết quả khớp",
+  "sessions.timeline.badge.lines": "{count} dòng",
+  "sessions.timeline.badge.linesWithType": "{type} · {count} dòng",
+  "sessions.timeline.badge.files": "{count} tệp",
+  "sessions.timeline.badge.matches": "{count} kết quả khớp"
 }

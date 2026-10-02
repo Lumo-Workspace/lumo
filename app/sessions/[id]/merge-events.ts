@@ -60,11 +60,34 @@ export interface DetailBlock {
   labelKey: BlockLabelKey
   variant: DetailVariant
   text: string
+  /** Locale-free replacement for `text` (view resolves via intl). */
+  textKey?: 'interrupted'
   truncated?: { shownLines: number; totalLines: number }
   /** Set on a `redacted` block (LUM-855): the size of content Lumo did not
    *  keep. `text` is empty — the view renders the not-retained notice. */
   redacted?: { lines: number; bytes: number }
 }
+
+/** Locale-free collapsed-row copy; the view resolves it via intl. Raw values
+ *  (counts, patterns, paths) are data and travel as fields. */
+export type SummaryMsg =
+  | { kind: 'emptyPrompt' }
+  | { kind: 'modelStopped' }
+  | { kind: 'noInput' }
+  | { kind: 'noPath' }
+  | { kind: 'todos'; count: number }
+  | { kind: 'grepIn'; pattern: string; path: string }
+
+/** Locale-free trailing badge. `raw` is data (e.g. "+12 -3"). */
+export type BadgeMsg =
+  | { kind: 'raw'; text: string }
+  | { kind: 'interrupted' }
+  | { kind: 'stderr' }
+  | { kind: 'noMatch' }
+  | { kind: 'lines'; count: number }
+  | { kind: 'linesWithType'; type: string; count: number }
+  | { kind: 'files'; count: number }
+  | { kind: 'matches'; count: number }
 
 export type ItemStatus = 'ok' | 'error' | 'pending'
 
@@ -77,8 +100,10 @@ export interface TimelineItem {
   /** The retention sweep cleared this event's payload (LUM-859); the view
    *  renders the localized notice instead of `summary`. */
   pruned: boolean
-  /** Short trailing badge, e.g. "+12 -3" or "✓ 23 passed". Optional. */
-  badge: string | null
+  /** Set instead of `summary` for placeholder / parametric row text. */
+  summaryMsg: SummaryMsg | null
+  /** Short trailing badge, e.g. "+12 -3" or "3 lines". Optional. */
+  badge: BadgeMsg | null
   status: ItemStatus
   startAt: Date
   endAt: Date | null
@@ -149,6 +174,7 @@ function prunedItem(ev: RawEvent): TimelineItem {
     toolName: ev.toolName,
     summary: '',
     pruned: true,
+    summaryMsg: null,
     badge: null,
     status: 'ok',
     startAt: ev.createdAt,
@@ -162,7 +188,8 @@ function userPromptItem(ev: RawEvent): TimelineItem {
   const stripped = stripInjectedTags(rawPrompt)
   const cleaned = stripped.trim()
 
-  const summary = cleaned ? clip(cleaned, 100) : '(empty prompt)'
+  const summary = cleaned ? clip(cleaned, 100) : ''
+  const summaryMsg: SummaryMsg | null = cleaned ? null : { kind: 'emptyPrompt' }
   const details: DetailBlock[] = []
   if (cleaned) {
     details.push({ labelKey: 'prompt', variant: 'text', text: cleaned })
@@ -181,6 +208,7 @@ function userPromptItem(ev: RawEvent): TimelineItem {
     toolName: null,
     summary,
     pruned: false,
+    summaryMsg,
     badge: null,
     status: 'ok',
     startAt: ev.createdAt,
@@ -191,7 +219,8 @@ function userPromptItem(ev: RawEvent): TimelineItem {
 
 function stopItem(ev: RawEvent): TimelineItem {
   const last = getString(ev.payload, 'last_assistant_message')
-  const summary = last ? clip(last, 100) : 'model stopped'
+  const summary = last ? clip(last, 100) : ''
+  const summaryMsg: SummaryMsg | null = last ? null : { kind: 'modelStopped' }
   const details: DetailBlock[] = last
     ? [{ labelKey: 'lastMessage', variant: 'text', text: last }]
     : []
@@ -201,6 +230,7 @@ function stopItem(ev: RawEvent): TimelineItem {
     toolName: null,
     summary,
     pruned: false,
+    summaryMsg,
     badge: null,
     status: 'ok',
     startAt: ev.createdAt,
@@ -215,7 +245,7 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
   const input = getRecord(anchor.payload, 'tool_input')
   const response = post ? getRecord(post.payload, 'tool_response') : null
 
-  const { summary, badge, status, details } = formatTool(
+  const { summary, summaryMsg, badge, status, details } = formatTool(
     toolName,
     input,
     response,
@@ -229,6 +259,7 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
     toolName,
     summary,
     pruned: false,
+    summaryMsg: summaryMsg ?? null,
     badge,
     status,
     startAt: anchor.createdAt,
@@ -271,13 +302,19 @@ function redactedBlock(
   }
 }
 
+/** Placeholder row text when a file tool carried no path. */
+function noPath(filePath: string | null): { summaryMsg?: SummaryMsg } {
+  return filePath === null ? { summaryMsg: { kind: 'noPath' } } : {}
+}
+
 function pushBlock(details: DetailBlock[], block: DetailBlock | null) {
   if (block) details.push(block)
 }
 
 interface FormatResult {
   summary: string
-  badge: string | null
+  summaryMsg?: SummaryMsg | undefined
+  badge: BadgeMsg | null
   status: ItemStatus
   details: DetailBlock[]
 }
@@ -338,11 +375,20 @@ function formatBash(
   const redactedStderr = redaction.stats('tool_response.stderr')
   pushBlock(details, redactedBlock('stderr', redactedStderr))
   if (interrupted)
-    details.push({ labelKey: 'status', variant: 'error', text: 'interrupted' })
+    details.push({
+      labelKey: 'status',
+      variant: 'error',
+      text: '',
+      textKey: 'interrupted',
+    })
 
   const summary = clip(command.replace(/\s+/g, ' '), 100)
   const hasStderr = stderr.trim() !== '' || (redactedStderr?.bytes ?? 0) > 0
-  const badge = interrupted ? 'interrupted' : hasStderr ? 'stderr' : null
+  const badge: BadgeMsg | null = interrupted
+    ? { kind: 'interrupted' }
+    : hasStderr
+      ? { kind: 'stderr' }
+      : null
 
   return { summary, badge, status, details }
 }
@@ -353,7 +399,8 @@ function formatRead(
   status: ItemStatus,
   redaction: RedactionLookup
 ): FormatResult {
-  const path = getString(input, 'file_path') ?? '(no path)'
+  const filePath = getString(input, 'file_path')
+  const path = filePath ?? ''
   const file = getRecord(response, 'file')
   const content = getString(file, 'content') ?? ''
   const redacted = redaction.stats('tool_response.file.content')
@@ -364,8 +411,9 @@ function formatRead(
   if (content) details.push(clipBlock('content', 'code', content, 30))
   pushBlock(details, redactedBlock('content', redacted))
 
-  const badge = totalLines > 0 ? `${totalLines} lines` : null
-  return { summary: path, badge, status, details }
+  const badge: BadgeMsg | null =
+    totalLines > 0 ? { kind: 'lines', count: totalLines } : null
+  return { summary: path, ...noPath(filePath), badge, status, details }
 }
 
 function formatEdit(
@@ -374,10 +422,9 @@ function formatEdit(
   status: ItemStatus,
   redaction: RedactionLookup
 ): FormatResult {
-  const path =
-    getString(input, 'file_path') ??
-    getString(response, 'filePath') ??
-    '(no path)'
+  const filePath =
+    getString(input, 'file_path') ?? getString(response, 'filePath')
+  const path = filePath ?? ''
 
   const patch = renderStructuredPatch(getAny(response, 'structuredPatch'))
   const oldStr = getString(input, 'old_string') ?? ''
@@ -403,12 +450,12 @@ function formatEdit(
   const changes =
     countPatchChanges(getAny(response, 'structuredPatch')) ??
     redaction.patch('tool_response.structuredPatch')
-  const badge =
+  const badge: BadgeMsg | null =
     changes && (changes.added || changes.removed)
-      ? `+${changes.added} -${changes.removed}`
+      ? { kind: 'raw', text: `+${changes.added} -${changes.removed}` }
       : null
 
-  return { summary: path, badge, status, details }
+  return { summary: path, ...noPath(filePath), badge, status, details }
 }
 
 function formatWrite(
@@ -417,10 +464,9 @@ function formatWrite(
   status: ItemStatus,
   redaction: RedactionLookup
 ): FormatResult {
-  const path =
-    getString(input, 'file_path') ??
-    getString(response, 'filePath') ??
-    '(no path)'
+  const filePath =
+    getString(input, 'file_path') ?? getString(response, 'filePath')
+  const path = filePath ?? ''
   const content =
     getString(input, 'content') ?? getString(response, 'content') ?? ''
   const redacted = redaction.stats('tool_input.content')
@@ -433,8 +479,11 @@ function formatWrite(
   else pushBlock(details, redactedBlock('content', redacted))
 
   const kind = getString(response, 'type') ?? 'write'
-  const badge = totalLines > 0 ? `${kind} · ${totalLines} lines` : kind
-  return { summary: path, badge, status, details }
+  const badge: BadgeMsg =
+    totalLines > 0
+      ? { kind: 'linesWithType', type: kind, count: totalLines }
+      : { kind: 'raw', text: kind }
+  return { summary: path, ...noPath(filePath), badge, status, details }
 }
 
 function formatGrep(
@@ -445,7 +494,10 @@ function formatGrep(
 ): FormatResult {
   const pattern = getString(input, 'pattern') ?? ''
   const path = getString(input, 'path')
-  const summary = path ? `${pattern}  in ${path}` : pattern
+  const summary = path ? '' : pattern
+  const summaryMsg: SummaryMsg | undefined = path
+    ? { kind: 'grepIn', pattern, path }
+    : undefined
 
   const details: DetailBlock[] = []
   const mode = getString(response, 'mode')
@@ -480,22 +532,22 @@ function formatGrep(
   }
 
   // Badge: prefer the count the mode actually populates.
-  const badge =
+  const badge: BadgeMsg | null =
     mode === 'files_with_matches' && numFiles !== null
       ? numFiles === 0
-        ? 'no match'
-        : `${numFiles} files`
+        ? { kind: 'noMatch' }
+        : { kind: 'files', count: numFiles }
       : mode === 'content' && numLines !== null
         ? numLines === 0
-          ? 'no match'
-          : `${numLines} lines`
+          ? { kind: 'noMatch' }
+          : { kind: 'lines', count: numLines }
         : mode === 'count' && numMatches !== null
-          ? `${numMatches} matches`
+          ? { kind: 'matches', count: numMatches }
           : numFiles !== null
-            ? `${numFiles} files`
+            ? { kind: 'files', count: numFiles }
             : null
 
-  return { summary, badge, status, details }
+  return { summary, summaryMsg, badge, status, details }
 }
 
 function formatGlob(
@@ -519,11 +571,11 @@ function formatGlob(
     })
   }
 
-  const badge =
+  const badge: BadgeMsg | null =
     numFiles !== null
-      ? `${numFiles} files`
+      ? { kind: 'files', count: numFiles }
       : files
-        ? `${files.length} files`
+        ? { kind: 'files', count: files.length }
         : null
 
   return { summary: pattern, badge, status, details }
@@ -536,7 +588,7 @@ function formatTodoWrite(
 ): FormatResult {
   const todosRaw = getAny(input, 'todos')
   const todos = Array.isArray(todosRaw) ? todosRaw : []
-  const summary = `${todos.length} todos`
+  const summaryMsg: SummaryMsg = { kind: 'todos', count: todos.length }
   const details: DetailBlock[] = []
   if (todos.length) {
     const lines = todos.map((t, i) => {
@@ -547,7 +599,7 @@ function formatTodoWrite(
     })
     details.push(clipBlock('todos', 'text', lines.join('\n'), 30))
   }
-  return { summary, badge: null, status, details }
+  return { summary: '', summaryMsg, badge: null, status, details }
 }
 
 function formatFallback(
@@ -556,9 +608,10 @@ function formatFallback(
   status: ItemStatus,
   redaction: RedactionLookup
 ): FormatResult {
-  const summary = input
-    ? clip(stringifyJson(input).slice(1, -1), 100)
-    : '(no input)'
+  const summary = input ? clip(stringifyJson(input).slice(1, -1), 100) : ''
+  const summaryMsg: SummaryMsg | undefined = input
+    ? undefined
+    : { kind: 'noInput' }
   const details: DetailBlock[] = []
   if (input)
     details.push({
@@ -576,7 +629,7 @@ function formatFallback(
     details,
     redactedBlock('response', redaction.stats('tool_response'))
   )
-  return { summary, badge: null, status, details }
+  return { summary, summaryMsg, badge: null, status, details }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

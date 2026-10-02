@@ -2788,5 +2788,18 @@
   "sessions.timeline.block.response": "响应",
   "sessions.timeline.block.files": "文件",
   "sessions.timeline.block.todos": "待办事项",
-  "sessions.timeline.block.input": "输入"
+  "sessions.timeline.block.input": "输入",
+  "sessions.timeline.summary.emptyPrompt": "（空提示词）",
+  "sessions.timeline.summary.modelStopped": "模型已停止",
+  "sessions.timeline.summary.noInput": "（无输入）",
+  "sessions.timeline.summary.noPath": "（无路径）",
+  "sessions.timeline.summary.todos": "{count} 个待办",
+  "sessions.timeline.summary.grepIn": "{pattern}，位于 {path}",
+  "sessions.timeline.badge.interrupted": "已中断",
+  "sessions.timeline.badge.stderr": "标准错误",
+  "sessions.timeline.badge.noMatch": "无匹配",
+  "sessions.timeline.badge.lines": "{count} 行",
+  "sessions.timeline.badge.linesWithType": "{type} · {count} 行",
+  "sessions.timeline.badge.files": "{count} 个文件",
+  "sessions.timeline.badge.matches": "{count} 处匹配"
 }

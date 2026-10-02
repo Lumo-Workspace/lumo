@@ -2788,5 +2788,18 @@
   "sessions.timeline.block.response": "response",
   "sessions.timeline.block.files": "files",
   "sessions.timeline.block.todos": "todos",
-  "sessions.timeline.block.input": "input"
+  "sessions.timeline.block.input": "input",
+  "sessions.timeline.summary.emptyPrompt": "(empty prompt)",
+  "sessions.timeline.summary.modelStopped": "model stopped",
+  "sessions.timeline.summary.noInput": "(no input)",
+  "sessions.timeline.summary.noPath": "(no path)",
+  "sessions.timeline.summary.todos": "{count, plural, one {# todo} other {# todos}}",
+  "sessions.timeline.summary.grepIn": "{pattern} in {path}",
+  "sessions.timeline.badge.interrupted": "interrupted",
+  "sessions.timeline.badge.stderr": "stderr",
+  "sessions.timeline.badge.noMatch": "no match",
+  "sessions.timeline.badge.lines": "{count, plural, one {# line} other {# lines}}",
+  "sessions.timeline.badge.linesWithType": "{type} · {count, plural, one {# line} other {# lines}}",
+  "sessions.timeline.badge.files": "{count, plural, one {# file} other {# files}}",
+  "sessions.timeline.badge.matches": "{count, plural, one {# match} other {# matches}}"
 }

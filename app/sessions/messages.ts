@@ -343,4 +343,56 @@ export const SESSION_MESSAGES = {
     id: 'sessions.timeline.block.input',
     defaultMessage: 'input',
   },
+  'timeline.summary.emptyPrompt': {
+    id: 'sessions.timeline.summary.emptyPrompt',
+    defaultMessage: '(empty prompt)',
+  },
+  'timeline.summary.modelStopped': {
+    id: 'sessions.timeline.summary.modelStopped',
+    defaultMessage: 'model stopped',
+  },
+  'timeline.summary.noInput': {
+    id: 'sessions.timeline.summary.noInput',
+    defaultMessage: '(no input)',
+  },
+  'timeline.summary.noPath': {
+    id: 'sessions.timeline.summary.noPath',
+    defaultMessage: '(no path)',
+  },
+  'timeline.summary.todos': {
+    id: 'sessions.timeline.summary.todos',
+    defaultMessage: '{count, plural, one {# todo} other {# todos}}',
+  },
+  'timeline.summary.grepIn': {
+    id: 'sessions.timeline.summary.grepIn',
+    defaultMessage: '{pattern} in {path}',
+  },
+  'timeline.badge.interrupted': {
+    id: 'sessions.timeline.badge.interrupted',
+    defaultMessage: 'interrupted',
+  },
+  'timeline.badge.stderr': {
+    id: 'sessions.timeline.badge.stderr',
+    defaultMessage: 'stderr',
+  },
+  'timeline.badge.noMatch': {
+    id: 'sessions.timeline.badge.noMatch',
+    defaultMessage: 'no match',
+  },
+  'timeline.badge.lines': {
+    id: 'sessions.timeline.badge.lines',
+    defaultMessage: '{count, plural, one {# line} other {# lines}}',
+  },
+  'timeline.badge.linesWithType': {
+    id: 'sessions.timeline.badge.linesWithType',
+    defaultMessage: '{type} · {count, plural, one {# line} other {# lines}}',
+  },
+  'timeline.badge.files': {
+    id: 'sessions.timeline.badge.files',
+    defaultMessage: '{count, plural, one {# file} other {# files}}',
+  },
+  'timeline.badge.matches': {
+    id: 'sessions.timeline.badge.matches',
+    defaultMessage: '{count, plural, one {# match} other {# matches}}',
+  },
 } as const satisfies Record<string, MessageDescriptor>

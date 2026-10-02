@@ -2788,5 +2788,18 @@
   "sessions.timeline.block.response": "응답",
   "sessions.timeline.block.files": "파일",
   "sessions.timeline.block.todos": "할 일",
-  "sessions.timeline.block.input": "입력"
+  "sessions.timeline.block.input": "입력",
+  "sessions.timeline.summary.emptyPrompt": "(빈 프롬프트)",
+  "sessions.timeline.summary.modelStopped": "모델이 중지됨",
+  "sessions.timeline.summary.noInput": "(입력 없음)",
+  "sessions.timeline.summary.noPath": "(경로 없음)",
+  "sessions.timeline.summary.todos": "할 일 {count}개",
+  "sessions.timeline.summary.grepIn": "{path}에서 {pattern}",
+  "sessions.timeline.badge.interrupted": "중단됨",
+  "sessions.timeline.badge.stderr": "stderr",
+  "sessions.timeline.badge.noMatch": "일치 없음",
+  "sessions.timeline.badge.lines": "{count}줄",
+  "sessions.timeline.badge.linesWithType": "{type} · {count}줄",
+  "sessions.timeline.badge.files": "파일 {count}개",
+  "sessions.timeline.badge.matches": "일치 {count}개"
 }
