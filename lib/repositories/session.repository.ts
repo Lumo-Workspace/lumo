@@ -1151,6 +1151,31 @@ export const sessionRepository = {
     }))
   },
 
+  /**
+   * LUM-932 P4: the root session's explicit task binding (null when unbound or
+   * missing) — so a bound session with no segment rows yet (pre-P2 history, or
+   * attached before the first recompute) still reads as attributed.
+   */
+  async findRootBinding(rootId: string): Promise<{
+    taskIdentifier: string
+    bindingSource: 'ATTACH' | 'INHERITED' | null
+  } | null> {
+    const row = await prisma.session.findUnique({
+      where: { id: rootId },
+      select: {
+        bindingSource: true,
+        task: {
+          select: { number: true, team: { select: { identifier: true } } },
+        },
+      },
+    })
+    if (!row?.task) return null
+    return {
+      taskIdentifier: `${row.task.team.identifier}-${row.task.number}`,
+      bindingSource: row.bindingSource,
+    }
+  },
+
   async listChildSessions(rootId: string) {
     return prisma.session.findMany({
       where: { parentSessionId: rootId },

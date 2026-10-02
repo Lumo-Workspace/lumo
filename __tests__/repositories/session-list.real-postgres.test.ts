@@ -167,6 +167,15 @@ describe('session list read models on a real Postgres', () => {
     ])
   })
 
+  it('findRootBinding returns the bound task identifier and binding source', async () => {
+    expect(await sessionRepository.findRootBinding(S)).toEqual({
+      taskIdentifier: 'LUM-1',
+      bindingSource: 'ATTACH',
+    })
+    expect(await sessionRepository.findRootBinding(R)).toBeNull()
+    expect(await sessionRepository.findRootBinding('missing')).toBeNull()
+  })
+
   it('findDetailForClerkUser is scoped to the owner', async () => {
     expect(
       await sessionRepository.findDetailForClerkUser(R, 'c1')

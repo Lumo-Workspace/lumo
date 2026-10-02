@@ -61,11 +61,12 @@ export const sessionListService = {
    * Not ownership-scoped: callers must verify the session belongs to the caller (findDetailForClerkUser / findForMemberWithBinding) before calling.
    */
   async getAttribution(sessionId: string): Promise<SessionAttributionView> {
-    const [rows, children] = await Promise.all([
+    const [rows, children, binding] = await Promise.all([
       sessionRepository.listFamilyAttribution(sessionId),
       sessionRepository.listChildSessions(sessionId),
+      sessionRepository.findRootBinding(sessionId),
     ])
-    const segments = rows
+    const stored = rows
       .filter(r => r.sessionId === sessionId)
       .sort((a, b) => a.fromTurn - b.fromTurn)
       .map(r => ({
@@ -76,6 +77,23 @@ export const sessionListService = {
         toTurn: r.toTurn,
         evidence: parseEvidence(r.evidence),
       }))
+    // A bound root without segment rows yet is still explicitly on its task.
+    const segments: SessionAttributionView['segments'] =
+      stored.length === 0 && binding
+        ? [
+            {
+              taskIdentifier: binding.taskIdentifier,
+              source:
+                binding.bindingSource === 'INHERITED'
+                  ? 'INHERITED'
+                  : 'SESSION_ATTACH',
+              confidence: 'EXPLICIT',
+              fromTurn: 0,
+              toTurn: 0,
+              evidence: [],
+            },
+          ]
+        : stored
     const subagents = children.map(child => ({
       sessionId: child.id,
       agentType: child.agentType,

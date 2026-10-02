@@ -7,6 +7,7 @@ jest.mock('@/lib/repositories/session.repository', () => ({
     summarizeFamilies: jest.fn(),
     listFamilyAttribution: jest.fn(),
     listChildSessions: jest.fn(),
+    findRootBinding: jest.fn(),
   },
 }))
 
@@ -15,6 +16,7 @@ const repo = sessionRepository as unknown as {
   summarizeFamilies: jest.Mock
   listFamilyAttribution: jest.Mock
   listChildSessions: jest.Mock
+  findRootBinding: jest.Mock
 }
 
 const seg = (over: Record<string, unknown>) => ({
@@ -31,7 +33,10 @@ const seg = (over: Record<string, unknown>) => ({
 })
 
 describe('sessionListService', () => {
-  beforeEach(() => jest.resetAllMocks())
+  beforeEach(() => {
+    jest.resetAllMocks()
+    repo.findRootBinding.mockResolvedValue(null)
+  })
 
   it('listForUser maps family counts onto rows', async () => {
     repo.listForClerkUser.mockResolvedValue([
@@ -117,6 +122,41 @@ describe('sessionListService', () => {
         confidence: 'EXPLICIT',
       },
     ])
+  })
+
+  it('getAttribution shows a bound root without segment rows as attached to its task', async () => {
+    repo.listFamilyAttribution.mockResolvedValue([])
+    repo.listChildSessions.mockResolvedValue([])
+    repo.findRootBinding.mockResolvedValue({
+      taskIdentifier: 'LUM-9',
+      bindingSource: 'ATTACH',
+    })
+    const v = await sessionListService.getAttribution('R')
+    expect(repo.findRootBinding).toHaveBeenCalledWith('R')
+    expect(v.unattributed).toBe(false)
+    expect(v.approximate).toBe(false)
+    expect(v.segments).toEqual([
+      {
+        taskIdentifier: 'LUM-9',
+        source: 'SESSION_ATTACH',
+        confidence: 'EXPLICIT',
+        fromTurn: 0,
+        toTurn: 0,
+        evidence: [],
+      },
+    ])
+  })
+
+  it('getAttribution keeps the stored segments of a bound root', async () => {
+    repo.listChildSessions.mockResolvedValue([])
+    repo.listFamilyAttribution.mockResolvedValue([seg({ toTurn: 4 })])
+    repo.findRootBinding.mockResolvedValue({
+      taskIdentifier: 'LUM-1',
+      bindingSource: 'ATTACH',
+    })
+    const v = await sessionListService.getAttribution('R')
+    expect(v.segments).toHaveLength(1)
+    expect(v.segments[0]!.toTurn).toBe(4)
   })
 
   it('getAttribution is exact when every segment is explicit', async () => {
