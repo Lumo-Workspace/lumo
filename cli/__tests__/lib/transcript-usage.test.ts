@@ -25,7 +25,10 @@ function fixtureWithSubagents(
   const subDir = join(dir, sessionId, 'subagents')
   mkdirSync(subDir, { recursive: true })
   for (const [name, lines] of Object.entries(subagents)) {
-    writeFileSync(join(subDir, name), lines.map(l => JSON.stringify(l)).join('\n'))
+    writeFileSync(
+      join(subDir, name),
+      lines.map(l => JSON.stringify(l)).join('\n')
+    )
   }
   return path
 }
@@ -55,6 +58,7 @@ describe('sumTranscriptUsage', () => {
       },
     ])
     expect(sumTranscriptUsage(path)).toEqual({
+      bySubagent: {},
       total: {
         inputTokens: 350,
         outputTokens: 35,
@@ -90,6 +94,7 @@ describe('sumTranscriptUsage', () => {
       },
     ])
     expect(sumTranscriptUsage(path)).toEqual({
+      bySubagent: {},
       total: {
         inputTokens: 10,
         outputTokens: 1,
@@ -112,6 +117,7 @@ describe('sumTranscriptUsage', () => {
       { type: 'assistant', message: { usage: usage(7, 1, 0, 0) } },
     ])
     expect(sumTranscriptUsage(path)).toEqual({
+      bySubagent: {},
       total: {
         inputTokens: 7,
         outputTokens: 1,
@@ -175,6 +181,40 @@ describe('sumTranscriptUsage', () => {
       }
     )
     expect(sumTranscriptUsage(path)).toEqual({
+      bySubagent: {
+        a1: {
+          total: {
+            inputTokens: 80,
+            outputTokens: 8,
+            cacheReadTokens: 3,
+            cacheCreationTokens: 1,
+          },
+          byModel: {
+            'claude-sonnet-4-6': {
+              input: 80,
+              output: 8,
+              cacheRead: 3,
+              cacheCreation: 1,
+            },
+          },
+        },
+        b2: {
+          total: {
+            inputTokens: 20,
+            outputTokens: 2,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 1,
+          },
+          byModel: {
+            'claude-opus-4-8': {
+              input: 20,
+              output: 2,
+              cacheRead: 0,
+              cacheCreation: 1,
+            },
+          },
+        },
+      },
       total: {
         inputTokens: 200,
         outputTokens: 20,
@@ -208,6 +248,24 @@ describe('sumTranscriptUsage', () => {
       ],
     })
     expect(sumTranscriptUsage(path)).toEqual({
+      bySubagent: {
+        a1: {
+          total: {
+            inputTokens: 10,
+            outputTokens: 1,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 0,
+          },
+          byModel: {
+            'claude-sonnet-4-6': {
+              input: 10,
+              output: 1,
+              cacheRead: 0,
+              cacheCreation: 0,
+            },
+          },
+        },
+      },
       total: {
         inputTokens: 10,
         outputTokens: 1,
@@ -249,6 +307,7 @@ describe('sumTranscriptUsage', () => {
       }
     )
     expect(sumTranscriptUsage(path)).toEqual({
+      bySubagent: {},
       total: {
         inputTokens: 10,
         outputTokens: 1,
@@ -278,6 +337,7 @@ describe('sumTranscriptUsage', () => {
         })
     )
     expect(sumTranscriptUsage(path)).toEqual({
+      bySubagent: {},
       total: {
         inputTokens: 9,
         outputTokens: 0,

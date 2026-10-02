@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 
 export interface SessionUsage {
   inputTokens: number
@@ -17,11 +17,19 @@ export interface ModelUsage {
 }
 
 export interface TranscriptUsage {
-  /** Flat cumulative total across all (non-synthetic) models. */
+  /** Flat cumulative total across all (non-synthetic) models — INCLUDES subagents. */
   total: SessionUsage
-  /** Cumulative usage keyed by raw model string. */
+  /** Cumulative usage keyed by raw model string — INCLUDES subagents. */
   byModel: Record<string, ModelUsage>
+  /** LUM-932: per-subagent cumulative usage keyed by agent id (from `agent-<id>.jsonl`). */
+  bySubagent: Record<
+    string,
+    { total: SessionUsage; byModel: Record<string, ModelUsage> }
+  >
 }
+
+/** Agent ids the server accepts as `bySubagent` keys. */
+const AGENT_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
 function asNumber(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0
@@ -130,8 +138,23 @@ export function sumTranscriptUsage(
     cacheCreationTokens: 0,
   }
   let seen = accumulateFileUsage(transcriptPath, total, byModel)
+  const bySubagent: TranscriptUsage['bySubagent'] = {}
   for (const path of listSubagentTranscripts(transcriptPath)) {
-    seen = accumulateFileUsage(path, total, byModel) || seen
+    const subTotal: SessionUsage = {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+    }
+    const subByModel: Record<string, ModelUsage> = {}
+    if (!accumulateFileUsage(path, subTotal, subByModel)) continue
+    seen = true
+    // Read twice on purpose: independent accumulators, subagent files are small.
+    accumulateFileUsage(path, total, byModel)
+    const agentId = basename(path).slice('agent-'.length, -'.jsonl'.length)
+    // Skip ids the server would reject (it would drop the whole map).
+    if (!AGENT_ID_RE.test(agentId)) continue
+    bySubagent[agentId] = { total: subTotal, byModel: subByModel }
   }
-  return seen ? { total, byModel } : null
+  return seen ? { total, byModel, bySubagent } : null
 }
