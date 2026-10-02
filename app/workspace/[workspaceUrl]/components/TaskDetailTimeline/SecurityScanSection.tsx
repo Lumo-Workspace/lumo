@@ -390,6 +390,14 @@ function ScanDetails({
         stages={scan.stages}
         huntProgress={scan.huntProgress ?? null}
       />
+      {scan.codeScrubbed && (
+        <p
+          data-testid='scan-code-scrubbed'
+          className='text-caption text-muted-foreground'
+        >
+          {intl.formatMessage({ id: 'securityScan.codeScrubbed' })}
+        </p>
+      )}
       {scan.fixed > 0 && (
         <p
           data-testid='scan-fixed'

@@ -16,6 +16,10 @@ import {
   type PartialCause,
 } from '@/shared/src/security-scan'
 import type { ReliabilityScanRow } from '@/lib/security-scan/reliability'
+import {
+  isScanFinal,
+  redactHuntAuditToCounts,
+} from '@/lib/security-scan/evidence-retention'
 
 export type ScanStatus = 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
 export type ScanTrigger = 'PR_EVENT' | 'PR_LINK' | 'SARIF_PUSH'
@@ -227,6 +231,8 @@ export interface ScanWithFindings {
   partialCauses?: string[]
   /** LUM-814 budget Json, raw. LUM-832 reads the AI review's size cap off it. */
   judgeBudget?: unknown
+  /** LUM-911 — when the code fields were scrubbed; null/absent = still held. */
+  codeScrubbedAt?: Date | null
   findings: FindingRow[]
 }
 
@@ -526,7 +532,10 @@ export const SCRUB_BATCH_SIZE = 200
  * transaction. A batch that throws fails the call (callers keep the list,
  * so it is retried) with the batches before it already committed.
  */
-async function scrubCode(scanWhere: Prisma.PrSecurityScanWhereInput) {
+async function scrubCode(
+  scanWhere: Prisma.PrSecurityScanWhereInput,
+  huntAudit: HuntAuditScrub = 'drop'
+) {
   const counts = { findings: 0, scans: 0 }
   let after: string | null = null
   for (;;) {
@@ -537,7 +546,10 @@ async function scrubCode(scanWhere: Prisma.PrSecurityScanWhereInput) {
       select: { id: true },
     })
     if (batch.length === 0) break
-    const part = await scrubScans(batch.map(scan => scan.id))
+    const part = await scrubScans(
+      batch.map(scan => scan.id),
+      huntAudit
+    )
     counts.findings += part.findings
     counts.scans += part.scans
     after = batch[batch.length - 1]!.id
@@ -546,8 +558,16 @@ async function scrubCode(scanWhere: Prisma.PrSecurityScanWhereInput) {
   return counts
 }
 
+/**
+ * LUM-911 — what a scrub does to `huntAudit`: `drop` clears it (the scan's
+ * repository left the workspace), `counts` keeps the code-free counts the UI
+ * still reads (`redactHuntAuditToCounts`) — a retention scrub of a scan the
+ * customer still sees.
+ */
+type HuntAuditScrub = 'drop' | 'counts'
+
 /** One batch of `scrubCode`, in one transaction. */
-async function scrubScans(scanIds: string[]) {
+async function scrubScans(scanIds: string[], huntAudit: HuntAuditScrub) {
   // LUM-902 — the default 5s is too short for a scan-heavy batch (P2028).
   return prisma.$transaction(async tx => {
     const inBatch = { scanId: { in: scanIds } }
@@ -571,14 +591,31 @@ async function scrubScans(scanIds: string[]) {
         suggestedReason: null,
       },
     })
+    // Read before the clear below: the counts are kept from this copy.
+    const audits =
+      huntAudit === 'counts'
+        ? await tx.prSecurityScan.findMany({
+            where: { id: { in: scanIds }, huntAudit: { not: Prisma.DbNull } },
+            select: { id: true, huntAudit: true },
+          })
+        : []
     const scans = await tx.prSecurityScan.updateMany({
       where: { id: { in: scanIds } },
       data: {
         huntAudit: Prisma.DbNull,
         huntJob: Prisma.DbNull,
         prSummary: Prisma.DbNull,
+        codeScrubbedAt: new Date(),
       },
     })
+    for (const { id, huntAudit: raw } of audits) {
+      const counts = redactHuntAuditToCounts(raw)
+      if (!counts) continue
+      await tx.prSecurityScan.update({
+        where: { id },
+        data: { huntAudit: counts as Prisma.InputJsonValue },
+      })
+    }
     return { findings: findings.count, scans: scans.count }
   }, SCRUB_TX)
 }
@@ -611,6 +648,44 @@ async function storedRepoSpellings(
     .filter(repo => wanted.has(repo.toLowerCase()))
 }
 
+/** LUM-911 — a scan as the retention check reads it. */
+export interface RetentionCandidate {
+  id: string
+  workspaceId: string
+  pullRequestId: string
+  status: ScanStatus
+  stages: unknown
+  startedAt: Date
+  finishedAt: Date | null
+  suggestedAt: Date | null
+  pullRequest: {
+    state: string
+    mergedAt: Date | null
+    closedAt: Date | null
+    updatedAt: Date
+  }
+}
+
+const RETENTION_SELECT = {
+  id: true,
+  workspaceId: true,
+  pullRequestId: true,
+  status: true,
+  stages: true,
+  startedAt: true,
+  finishedAt: true,
+  suggestedAt: true,
+  pullRequest: {
+    select: { state: true, mergedAt: true, closedAt: true, updatedAt: true },
+  },
+} satisfies Prisma.PrSecurityScanSelect
+
+function toRetentionCandidate(
+  row: Prisma.PrSecurityScanGetPayload<{ select: typeof RETENTION_SELECT }>
+): RetentionCandidate {
+  return { ...row, status: row.status as ScanStatus }
+}
+
 export const prSecurityScanRepository = {
   /**
    * LUM-855 — scrub every scan a workspace owns (see `scrubCode`). LUM-872 —
@@ -636,6 +711,85 @@ export const prSecurityScanRepository = {
    */
   async scrubCodeForScan(scanId: string) {
     return scrubCode({ id: scanId })
+  },
+
+  /**
+   * LUM-911 — the retention scrub: the same fields, but the hunt audit keeps
+   * its code-free counts (the scan is still shown). Skips scans already
+   * scrubbed (a rerun is a no-op) and pre-LUM-911 scans (the backlog task's).
+   */
+  async scrubCodeForRetention(scanIds: string[]) {
+    if (scanIds.length === 0) return { findings: 0, scans: 0 }
+    return scrubCode(
+      {
+        id: { in: scanIds },
+        codeScrubbedAt: null,
+        retentionTracked: true,
+      },
+      'counts'
+    )
+  },
+
+  /**
+   * LUM-911 — one page of scans the retention sweep must look at: tracked,
+   * not yet scrubbed, terminal, and either past the hard cap, on a merged or
+   * closed PR, or in a zero-retention workspace. `isScanEvidenceExpired`
+   * makes the exact call; this only narrows.
+   */
+  async findRetentionCandidates(input: {
+    hardCapCutoff: Date
+    zeroRetentionWorkspaceIds: string[]
+    after: string | null
+    take: number
+  }): Promise<RetentionCandidate[]> {
+    const rows = await prisma.prSecurityScan.findMany({
+      where: {
+        retentionTracked: true,
+        codeScrubbedAt: null,
+        status: { in: ['CLEAN', 'FINDINGS', 'FAILED'] },
+        ...(input.after ? { id: { gt: input.after } } : {}),
+        OR: [
+          { finishedAt: { lt: input.hardCapCutoff } },
+          { finishedAt: null, startedAt: { lt: input.hardCapCutoff } },
+          { pullRequest: { state: { in: ['merged', 'closed'] } } },
+          ...(input.zeroRetentionWorkspaceIds.length > 0
+            ? [{ workspaceId: { in: input.zeroRetentionWorkspaceIds } }]
+            : []),
+        ],
+      },
+      orderBy: { id: 'asc' },
+      take: input.take,
+      select: RETENTION_SELECT,
+    })
+    return rows.map(toRetentionCandidate)
+  },
+
+  /** LUM-911 — one scan as the retention check reads it; null when gone. */
+  async findRetentionCandidate(
+    scanId: string
+  ): Promise<RetentionCandidate | null> {
+    const row = await prisma.prSecurityScan.findUnique({
+      where: { id: scanId },
+      select: RETENTION_SELECT,
+    })
+    return row ? toRetentionCandidate(row) : null
+  },
+
+  /**
+   * LUM-911 — the PRs among `pullRequestIds` with a scan that is not final
+   * yet (still running, or a layer — a hunt — still pending).
+   */
+  async findPullRequestsWithUnfinishedScans(
+    pullRequestIds: string[]
+  ): Promise<Set<string>> {
+    if (pullRequestIds.length === 0) return new Set()
+    const rows = await prisma.prSecurityScan.findMany({
+      where: { pullRequestId: { in: pullRequestIds } },
+      select: { pullRequestId: true, status: true, stages: true },
+    })
+    return new Set(
+      rows.filter(row => !isScanFinal(row)).map(row => row.pullRequestId)
+    )
   },
 
   /**

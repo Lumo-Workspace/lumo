@@ -306,6 +306,14 @@ installation can be recorded (LUM-875).
    scrubs the scan code of any repository not on its workspace's confirmed
    list — or of every repository, for a workspace without the App — whatever
    best-effort path left it behind.
+7. Evidence retention (LUM-911). An hourly cron
+   (`/api/cron/sweep-expired-scan-evidence`) scrubs a scan's code once it is
+   used up: its PR merged or closed, every scan of the PR final, and the
+   workspace's retention (Settings, OWNER: 7 days by default, 14, 30, or zero)
+   elapsed. A scan on a PR that stays open is scrubbed 30 days after it
+   finished. Zero retention scrubs a scan as soon as it is final and its PR
+   review is posted. Rows, counts and dispositions stay; scans from before
+   LUM-911 are not swept.
 
 **No fallback.** A workspace with no installation record gets no GitHub
 token at all — every GitHub call for it fails with "install the Lumo GitHub

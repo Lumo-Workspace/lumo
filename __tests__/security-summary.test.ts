@@ -54,6 +54,7 @@ function scan(over: Partial<SecurityScanView> = {}): SecurityScanView {
     error: null,
     startedAt: '2026-09-03T00:00:00Z',
     finishedAt: null,
+    codeScrubbed: false,
     fixed: 0,
     findings: [],
     ...over,

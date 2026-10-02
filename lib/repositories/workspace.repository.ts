@@ -23,6 +23,8 @@ export interface WorkspaceUpdateData {
   securityPolicy?: unknown
   /** LUM-859: raw hook-event retention in days; null = keep forever. */
   hookEventRetentionDays?: number | null
+  /** LUM-911: days a used-up scan keeps its code; 0 = zero retention. */
+  scanEvidenceRetentionDays?: number
   /** LUM-866: per-workspace security-scan switches. */
   securityScanEnabled?: boolean
   securityAiReviewEnabled?: boolean
@@ -32,6 +34,27 @@ export interface WorkspaceUpdateData {
 // ── Workspace Repository ────────────────────────────────────────────────────
 
 export const workspaceRepository = {
+  /** LUM-911 — each workspace's scan evidence retention, in days. */
+  async findScanEvidenceRetention(
+    workspaceIds: string[]
+  ): Promise<Map<string, number>> {
+    if (workspaceIds.length === 0) return new Map()
+    const rows = await prisma.workspace.findMany({
+      where: { id: { in: workspaceIds } },
+      select: { id: true, scanEvidenceRetentionDays: true },
+    })
+    return new Map(rows.map(row => [row.id, row.scanEvidenceRetentionDays]))
+  },
+
+  /** LUM-911 — workspaces that keep no scan evidence once a scan is final. */
+  async findZeroScanEvidenceRetentionIds(): Promise<string[]> {
+    const rows = await prisma.workspace.findMany({
+      where: { scanEvidenceRetentionDays: 0 },
+      select: { id: true },
+    })
+    return rows.map(row => row.id)
+  },
+
   /** Create workspace with default team, owner member, human + agent actors in a transaction. */
   async create(data: CreateWorkspaceData) {
     return prisma.$transaction(async tx => {

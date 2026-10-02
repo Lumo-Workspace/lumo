@@ -389,6 +389,14 @@ model Workspace {
   // event's payload with a pruned marker — rows and derived columns stay.
   hookEventRetentionDays Int?
 
+  // LUM-911: how long a scan keeps the code it quoted (finding evidence, call
+  // chain, LLM text; the scan's hunt audit, hunt job and PR summary) once it
+  // is used up — its PR merged or closed and every scan of it final. OWNER
+  // picks 0 / 7 / 14 / 30; 0 = scrub as soon as the scan is final and its PR
+  // review is synced. A scan on a PR that stays open is scrubbed 30 days
+  // after it finished whatever this says (lib/security-scan/evidence-retention.ts).
+  scanEvidenceRetentionDays Int @default(7)
+
   // LUM-866: per-workspace switches for the PR security scan. All on by
   // default; the platform env (LUMO_MANAGED_SCAN / LUMO_SECURITY_HUNT) stays
   // the ceiling — a workspace can only turn a layer off, never on. Scan off =
@@ -1738,6 +1746,12 @@ model PrSecurityScan {
   huntRunId        String?
   huntAttempts     Int                    @default(0)
   huntStartedAt    DateTime?
+  // LUM-911: when the code fields were last scrubbed (any path: retention,
+  // uninstall, unconfirmed repository). null = still holds what it wrote.
+  codeScrubbedAt   DateTime?
+  // LUM-911: does the retention sweep look at this scan? Rows from before
+  // LUM-911 are false (the backlog is a separate task); new rows are true.
+  retentionTracked Boolean                @default(true)
 
   pullRequest PullRequest         @relation(fields: [pullRequestId], references: [id], onDelete: Cascade)
   task        Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)

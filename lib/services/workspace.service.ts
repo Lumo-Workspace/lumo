@@ -2,6 +2,7 @@ import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
 import type { SecurityPolicy } from '@/lib/security-scan/policy'
 import type { HookEventRetentionDays } from '@/lib/hook-event/retention'
+import type { ScanEvidenceRetentionDays } from '@/lib/security-scan/evidence-retention'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,8 @@ export interface UpdateWorkspaceInput {
   securityPolicy?: SecurityPolicy | null | undefined
   /** LUM-859: one of HOOK_EVENT_RETENTION_DAYS; null = keep forever. */
   hookEventRetentionDays?: HookEventRetentionDays | null | undefined
+  /** LUM-911: one of SCAN_EVIDENCE_RETENTION_DAYS; 0 = zero retention. */
+  scanEvidenceRetentionDays?: ScanEvidenceRetentionDays | undefined
   /** LUM-866: per-workspace security-scan switches. */
   securityScanEnabled?: boolean | undefined
   securityAiReviewEnabled?: boolean | undefined
@@ -85,6 +88,8 @@ export const workspaceService = {
       data.securityPolicy = input.securityPolicy
     if (input.hookEventRetentionDays !== undefined)
       data.hookEventRetentionDays = input.hookEventRetentionDays
+    if (input.scanEvidenceRetentionDays !== undefined)
+      data.scanEvidenceRetentionDays = input.scanEvidenceRetentionDays
     if (input.securityScanEnabled !== undefined)
       data.securityScanEnabled = input.securityScanEnabled
     if (input.securityAiReviewEnabled !== undefined)

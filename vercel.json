@@ -42,6 +42,10 @@
       "schedule": "45 4 * * *"
     },
     {
+      "path": "/api/cron/sweep-expired-scan-evidence",
+      "schedule": "5 * * * *"
+    },
+    {
       "path": "/api/cron/execute-workspace-deletions",
       "schedule": "20 * * * *"
     },
