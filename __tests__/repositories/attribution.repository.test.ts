@@ -13,7 +13,12 @@ jest.mock('@/lib/db/prisma', () => {
   return {
     prisma: {
       session: { findUnique: jest.fn(), findMany: jest.fn() },
-      hookEvent: { findMany: jest.fn() },
+      hookEvent: {
+        findMany: jest.fn(),
+        count: jest.fn(),
+        groupBy: jest.fn(),
+      },
+      taskAttributionSegment: { findMany: jest.fn() },
       task: { findMany: jest.fn() },
       pullRequest: { findMany: jest.fn() },
       $transaction: jest.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
@@ -31,7 +36,8 @@ import {
 
 const p = prisma as unknown as {
   session: Record<'findUnique' | 'findMany', jest.Mock>
-  hookEvent: Record<'findMany', jest.Mock>
+  hookEvent: Record<'findMany' | 'count' | 'groupBy', jest.Mock>
+  taskAttributionSegment: Record<'findMany', jest.Mock>
   task: Record<'findMany', jest.Mock>
   pullRequest: Record<'findMany', jest.Mock>
   $transaction: jest.Mock
@@ -293,5 +299,99 @@ describe('listExplicitRootSessionsForMember', () => {
         orderBy: { lastActivityAt: 'desc' },
       })
     )
+  })
+})
+
+describe('loadBoundFamilyShape', () => {
+  const root = {
+    id: 'r',
+    workspaceId: 'ws',
+    parentSessionId: null,
+    agentId: null,
+    taskId: 'task_1',
+    bindingSource: 'ATTACH',
+    startedAt: new Date(0),
+  }
+
+  it('returns null without loading events when the root is missing or unbound', async () => {
+    p.session.findUnique.mockResolvedValueOnce(null)
+    await expect(
+      attributionRepository.loadBoundFamilyShape('r')
+    ).resolves.toBeNull()
+    p.session.findUnique.mockResolvedValueOnce({ ...root, taskId: null })
+    await expect(
+      attributionRepository.loadBoundFamilyShape('r')
+    ).resolves.toBeNull()
+    expect(p.session.findMany).not.toHaveBeenCalled()
+    expect(p.hookEvent.findMany).not.toHaveBeenCalled()
+    expect(p.hookEvent.count).not.toHaveBeenCalled()
+  })
+
+  it('counts root prompts and takes each session first event time, never loading events', async () => {
+    const { workspaceId: _ws, ...rootSession } = root
+    const child = {
+      ...rootSession,
+      id: 'r:a1',
+      parentSessionId: 'r',
+      agentId: 'a1',
+      taskId: null,
+      bindingSource: null,
+    }
+    p.session.findUnique.mockResolvedValue(root)
+    p.session.findMany.mockResolvedValue([child])
+    p.hookEvent.count.mockResolvedValue(3)
+    p.hookEvent.groupBy.mockResolvedValue([
+      { sessionId: 'r', _min: { createdAt: new Date(5) } },
+      { sessionId: 'r:a1', _min: { createdAt: new Date(9) } },
+    ])
+
+    const shape = await attributionRepository.loadBoundFamilyShape('r')
+    expect(shape).toEqual({
+      workspaceId: 'ws',
+      sessions: [rootSession, child],
+      rootPromptCount: 3,
+      firstEventAt: new Map([
+        ['r', new Date(5)],
+        ['r:a1', new Date(9)],
+      ]),
+    })
+    expect(p.hookEvent.findMany).not.toHaveBeenCalled()
+    expect(p.session.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { parentSessionId: 'r', workspaceId: 'ws' },
+      })
+    )
+    expect(p.hookEvent.count).toHaveBeenCalledWith({
+      where: { workspaceId: 'ws', sessionId: 'r', type: 'USER_PROMPT_SUBMIT' },
+    })
+    expect(p.hookEvent.groupBy).toHaveBeenCalledWith({
+      by: ['sessionId'],
+      where: { workspaceId: 'ws', sessionId: { in: ['r', 'r:a1'] } },
+      _min: { createdAt: true },
+    })
+  })
+})
+
+describe('listFamilySegments', () => {
+  it('selects the comparable fields of the family segments', async () => {
+    p.taskAttributionSegment.findMany.mockResolvedValue([{ sessionId: 'r' }])
+    await expect(
+      attributionRepository.listFamilySegments(['r', 'r:a1'])
+    ).resolves.toEqual([{ sessionId: 'r' }])
+    expect(p.taskAttributionSegment.findMany).toHaveBeenCalledWith({
+      where: { sessionId: { in: ['r', 'r:a1'] } },
+      select: {
+        sessionId: true,
+        taskId: true,
+        fromTurn: true,
+        toTurn: true,
+        fromAt: true,
+        toAt: true,
+        source: true,
+        confidence: true,
+        computeVersion: true,
+        evidence: true,
+      },
+    })
   })
 })

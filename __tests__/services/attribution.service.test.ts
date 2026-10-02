@@ -8,6 +8,8 @@ jest.mock('@/lib/repositories/attribution.repository', () => ({
   ATTRIBUTION_COMPUTE_VERSION: 1,
   attributionRepository: {
     loadFamily: jest.fn(),
+    loadBoundFamilyShape: jest.fn(),
+    listFamilySegments: jest.fn(),
     resolveIdentifiers: jest.fn(),
     taskIdsForBranches: jest.fn(),
     replaceFamilySegments: jest.fn(),
@@ -25,6 +27,8 @@ import {
 
 const repo = attributionRepository as unknown as Record<
   | 'loadFamily'
+  | 'loadBoundFamilyShape'
+  | 'listFamilySegments'
   | 'resolveIdentifiers'
   | 'taskIdsForBranches'
   | 'replaceFamilySegments',
@@ -84,6 +88,28 @@ type Row = {
   workspaceId: string
 }
 
+const STALE = {
+  sessionId: ROOT,
+  taskId: 'task_old',
+  fromTurn: 0,
+  toTurn: 0,
+  fromAt: t(1),
+  toAt: null,
+  source: 'INFERRED',
+  confidence: 'HIGH',
+  computeVersion: 1,
+  evidence: [],
+}
+
+it('an empty family with nothing stored writes nothing', async () => {
+  repo.loadFamily.mockResolvedValue(family([session()], []))
+  await expect(attributionService.recomputeFamily(ROOT)).resolves.toEqual({
+    segments: 0,
+    written: false,
+  })
+  expect(repo.replaceFamilySegments).not.toHaveBeenCalled()
+})
+
 function writtenRows(): Row[] {
   expect(repo.replaceFamilySegments).toHaveBeenCalledTimes(1)
   return repo.replaceFamilySegments.mock.calls[0]![1] as Row[]
@@ -97,7 +123,34 @@ beforeEach(() => {
   )
   repo.taskIdsForBranches.mockResolvedValue(new Map())
   repo.replaceFamilySegments.mockResolvedValue(undefined)
+  repo.listFamilySegments.mockResolvedValue([])
+  // Bound-root shape derived from the test's loadFamily fixture without
+  // recording a loadFamily call.
+  repo.loadBoundFamilyShape.mockImplementation(async (id: string) => {
+    const f = (await repo.loadFamily.getMockImplementation()?.(id)) as
+      | SessionFamily
+      | null
+      | undefined
+    return f && f.sessions[0]?.taskId ? shapeOf(f) : null
+  })
 })
+
+function shapeOf(f: SessionFamily) {
+  const root = f.sessions[0]!
+  const firstEventAt = new Map<string, Date>()
+  for (const e of f.events) {
+    if (e.sessionId && !firstEventAt.has(e.sessionId))
+      firstEventAt.set(e.sessionId, e.createdAt)
+  }
+  return {
+    workspaceId: f.workspaceId,
+    sessions: f.sessions,
+    rootPromptCount: f.events.filter(
+      e => e.sessionId === root.id && e.type === 'USER_PROMPT_SUBMIT'
+    ).length,
+    firstEventAt,
+  }
+}
 
 describe('attributionService.recomputeFamily', () => {
   it('returns null when the family does not exist', async () => {
@@ -146,6 +199,7 @@ describe('attributionService.recomputeFamily', () => {
 
     await expect(attributionService.recomputeFamily(ROOT)).resolves.toEqual({
       segments: 4,
+      written: true,
     })
     expect(repo.resolveIdentifiers).not.toHaveBeenCalled()
     expect(repo.taskIdsForBranches).not.toHaveBeenCalled()
@@ -224,6 +278,8 @@ describe('attributionService.recomputeFamily', () => {
         ]
       )
     )
+    // A previously stored segment is now stale: the family is cleared.
+    repo.listFamilySegments.mockResolvedValue([STALE])
     await attributionService.recomputeFamily(ROOT)
     expect(repo.resolveIdentifiers).not.toHaveBeenCalled()
     expect(writtenRows()).toEqual([])
@@ -288,6 +344,7 @@ describe('attributionService.recomputeFamily', () => {
     )
     await expect(attributionService.recomputeFamily(ROOT)).resolves.toEqual({
       segments: 1,
+      written: true,
     })
     expect(repo.resolveIdentifiers).toHaveBeenCalledTimes(1)
     expect(repo.resolveIdentifiers).toHaveBeenCalledWith('ws', ['LUM-12'])
@@ -340,8 +397,11 @@ describe('attributionService.recomputeFamily', () => {
         ]
       )
     )
+    // A previously stored segment is now stale: the family is cleared.
+    repo.listFamilySegments.mockResolvedValue([STALE])
     await expect(attributionService.recomputeFamily(ROOT)).resolves.toEqual({
       segments: 0,
+      written: true,
     })
     expect(writtenRows()).toEqual([])
   })
@@ -388,8 +448,11 @@ describe('attributionService.recomputeFamily', () => {
         ]
       )
     )
+    // A previously stored segment is now stale: the family is cleared.
+    repo.listFamilySegments.mockResolvedValue([STALE])
     await expect(attributionService.recomputeFamily(ROOT)).resolves.toEqual({
       segments: 0,
+      written: true,
     })
     expect(writtenRows()).toEqual([])
   })
@@ -480,5 +543,126 @@ describe('attributionInternals.inferFamily', () => {
     // Without ignoreExplicit every explicitly bound session's engine segments
     // are dropped (the caller writes explicit segments for them instead).
     expect(kept.segments).toEqual([])
+  })
+})
+
+describe('attributionService.recomputeFamily write avoidance and bound light path', () => {
+  const unbound = () =>
+    family(
+      [session()],
+      [
+        ev({ type: 'USER_PROMPT_SUBMIT', createdAt: t(1) }),
+        ev({
+          type: 'PRE_TOOL_USE',
+          createdAt: t(2),
+          attributionSignals: [
+            { kind: 'LUMO_CMD', identifier: 'LUM-12' },
+            { kind: 'BRANCH', identifier: 'LUM-12', branch: 'lumo/LUM-12' },
+          ],
+        }),
+      ]
+    )
+
+  /** Stored form of written rows: no workspaceId, shuffled, jsonb-reordered evidence keys. */
+  function stored(rows: Row[]) {
+    return rows
+      .map(({ workspaceId: _ws, evidence, ...r }) => ({
+        ...r,
+        evidence: (evidence as Record<string, unknown>[]).map(e =>
+          Object.fromEntries(Object.entries(e).reverse())
+        ),
+      }))
+      .reverse()
+  }
+
+  it('skips the replace when the recomputed rows equal the stored ones', async () => {
+    repo.loadFamily.mockResolvedValue(unbound())
+    await attributionService.recomputeFamily(ROOT)
+    const first = writtenRows()
+    expect(first).toHaveLength(1)
+    expect((first[0]!.evidence as unknown[]).length).toBeGreaterThan(0)
+
+    repo.replaceFamilySegments.mockClear()
+    repo.listFamilySegments.mockResolvedValue(stored(first))
+    await expect(attributionService.recomputeFamily(ROOT)).resolves.toEqual({
+      segments: 1,
+      written: false,
+    })
+    expect(repo.listFamilySegments).toHaveBeenCalledWith([ROOT])
+    expect(repo.replaceFamilySegments).not.toHaveBeenCalled()
+  })
+
+  it('replaces when any compared field changed', async () => {
+    repo.loadFamily.mockResolvedValue(unbound())
+    await attributionService.recomputeFamily(ROOT)
+    const first = writtenRows()
+    for (const change of [
+      { taskId: 'task_other' },
+      { toTurn: 5 },
+      { confidence: 'MEDIUM' },
+      { computeVersion: 0 },
+      { evidence: [] },
+    ]) {
+      repo.replaceFamilySegments.mockClear()
+      repo.listFamilySegments.mockResolvedValue(
+        stored(first).map(r => ({ ...r, ...change }))
+      )
+      await expect(attributionService.recomputeFamily(ROOT)).resolves.toEqual({
+        segments: 1,
+        written: true,
+      })
+      expect(repo.replaceFamilySegments).toHaveBeenCalledTimes(1)
+    }
+  })
+
+  it('a bound root builds explicit rows from the light shape and never loads events', async () => {
+    repo.loadBoundFamilyShape.mockResolvedValue({
+      workspaceId: 'ws',
+      sessions: [
+        session({ taskId: 'task_root', bindingSource: 'ATTACH' }),
+        session({
+          id: CHILD,
+          parentSessionId: ROOT,
+          agentId: 'a1',
+          startedAt: t(7),
+        }),
+      ],
+      rootPromptCount: 4,
+      firstEventAt: new Map([[ROOT, t(2)]]),
+    })
+    await expect(attributionService.recomputeFamily(ROOT)).resolves.toEqual({
+      segments: 2,
+      written: true,
+    })
+    expect(repo.loadBoundFamilyShape).toHaveBeenCalledWith(ROOT)
+    expect(repo.loadFamily).not.toHaveBeenCalled()
+    expect(repo.resolveIdentifiers).not.toHaveBeenCalled()
+    expect(writtenRows()).toEqual([
+      expect.objectContaining({
+        sessionId: ROOT,
+        taskId: 'task_root',
+        source: 'SESSION_ATTACH',
+        fromTurn: 0,
+        toTurn: 3,
+        fromAt: t(2),
+      }),
+      expect.objectContaining({
+        sessionId: CHILD,
+        taskId: 'task_root',
+        source: 'INHERITED',
+        toTurn: 3,
+        fromAt: t(7),
+      }),
+    ])
+  })
+
+  it('an unbound root falls through to the full family load', async () => {
+    repo.loadBoundFamilyShape.mockResolvedValue(null)
+    repo.loadFamily.mockResolvedValue(unbound())
+    await attributionService.recomputeFamily(ROOT)
+    expect(repo.loadFamily).toHaveBeenCalledWith(ROOT)
+    expect(writtenRows()).toEqual([
+      expect.objectContaining({ taskId: 'task_12', source: 'INFERRED' }),
+    ])
   })
 })

@@ -5,6 +5,7 @@ import {
   type FamilySession,
   type SegmentRow,
   type SessionFamily,
+  type StoredSegment,
 } from '@/lib/repositories/attribution.repository'
 import {
   attributeTurns,
@@ -32,7 +33,8 @@ import { parseChildSessionId } from '@/lib/session/child-session-id'
  * gates on them, and HookEvent.taskId / Session.taskId are never touched.
  *
  *   1. Root explicitly bound → SESSION_ATTACH for the root, one explicit
- *      segment per bound child; the engine does not run.
+ *      segment per bound child; the engine does not run and no event rows
+ *      are loaded (light family shape only).
  *   2. Root unbound → resolve signals, run the engine, write INFERRED
  *      segments; explicitly bound children get their explicit segment instead.
  */
@@ -77,9 +79,21 @@ function rootPromptCount(family: SessionFamily, rootId: string): number {
   ).length
 }
 
-function firstEventAt(family: SessionFamily, session: FamilySession): Date {
-  const first = family.events.find(e => e.sessionId === session.id)
-  return first?.createdAt ?? session.startedAt
+/** First event time per session id (events are createdAt-ascending). */
+function firstEventTimes(family: SessionFamily): Map<string, Date> {
+  const out = new Map<string, Date>()
+  for (const e of family.events) {
+    if (e.sessionId && !out.has(e.sessionId)) out.set(e.sessionId, e.createdAt)
+  }
+  return out
+}
+
+/** What explicit rows need from a family, from either load path. */
+interface ExplicitInput {
+  workspaceId: string
+  sessions: FamilySession[]
+  firstEventAt: Map<string, Date>
+  lastRootTurn: number
 }
 
 export interface FamilyInference {
@@ -174,19 +188,18 @@ async function inferFamily(
 }
 
 function explicitRow(
-  family: SessionFamily,
+  input: ExplicitInput,
   session: FamilySession,
   taskId: string,
-  source: SegmentRow['source'],
-  lastRootTurn: number
+  source: SegmentRow['source']
 ): SegmentRow {
   return {
-    workspaceId: family.workspaceId,
+    workspaceId: input.workspaceId,
     sessionId: session.id,
     taskId,
     fromTurn: 0,
-    toTurn: lastRootTurn,
-    fromAt: firstEventAt(family, session),
+    toTurn: input.lastRootTurn,
+    fromAt: input.firstEventAt.get(session.id) ?? session.startedAt,
     toAt: null,
     source,
     confidence: 'EXPLICIT',
@@ -195,13 +208,10 @@ function explicitRow(
   }
 }
 
-function explicitChildRows(
-  family: SessionFamily,
-  lastRootTurn: number
-): SegmentRow[] {
+function explicitChildRows(input: ExplicitInput): SegmentRow[] {
   const rows: SegmentRow[] = []
-  const root = family.sessions[0]!
-  for (const child of family.sessions.slice(1)) {
+  const root = input.sessions[0]!
+  for (const child of input.sessions.slice(1)) {
     // Un-attached subagents inherit an explicitly bound root (spec section 3).
     const taskId = child.taskId ?? root.taskId
     if (!taskId) continue
@@ -209,9 +219,46 @@ function explicitChildRows(
       child.taskId && child.bindingSource === 'ATTACH'
         ? 'SUBAGENT_ATTACH'
         : 'INHERITED'
-    rows.push(explicitRow(family, child, taskId, source, lastRootTurn))
+    rows.push(explicitRow(input, child, taskId, source))
   }
   return rows
+}
+
+/** JSON with object keys sorted, so jsonb key reordering compares equal. */
+function stableJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stableJson).join(',')}]`
+  if (v && typeof v === 'object' && !(v instanceof Date)) {
+    const obj = v as Record<string, unknown>
+    return `{${Object.keys(obj)
+      .sort()
+      .filter(k => obj[k] !== undefined)
+      .map(k => `${JSON.stringify(k)}:${stableJson(obj[k])}`)
+      .join(',')}}`
+  }
+  return JSON.stringify(v ?? null)
+}
+
+function comparableKey(r: SegmentRow | StoredSegment): string {
+  return stableJson({
+    sessionId: r.sessionId,
+    taskId: r.taskId,
+    fromTurn: r.fromTurn,
+    toTurn: r.toTurn,
+    fromAt: r.fromAt.getTime(),
+    toAt: r.toAt ? r.toAt.getTime() : null,
+    source: r.source,
+    confidence: r.confidence,
+    computeVersion: r.computeVersion,
+    evidence: r.evidence,
+  })
+}
+
+/** Order-insensitive equality of computed rows and stored segments. */
+function sameSegments(rows: SegmentRow[], stored: StoredSegment[]): boolean {
+  if (rows.length !== stored.length) return false
+  const a = rows.map(comparableKey).sort()
+  const b = stored.map(comparableKey).sort()
+  return a.every((k, i) => k === b[i])
 }
 
 function inferredRow(family: SessionFamily, s: InferredSegment): SegmentRow {
@@ -248,40 +295,69 @@ const EVAL_SESSION_CAP = 50
 const EVAL_CONCURRENCY = 4
 const DAY_MS = 86_400_000
 
+/**
+ * The family's segment rows: explicit rows from the light shape for a bound
+ * root, otherwise the engine over the full family. Null when not found.
+ */
+async function computeFamilyRows(
+  rootId: string
+): Promise<{ familyIds: string[]; rows: SegmentRow[] } | null> {
+  const shape = await attributionRepository.loadBoundFamilyShape(rootId)
+  if (shape) {
+    const root = shape.sessions[0]!
+    const input: ExplicitInput = {
+      workspaceId: shape.workspaceId,
+      sessions: shape.sessions,
+      firstEventAt: shape.firstEventAt,
+      lastRootTurn: Math.max(0, shape.rootPromptCount - 1),
+    }
+    return {
+      familyIds: shape.sessions.map(s => s.id),
+      rows: [
+        explicitRow(input, root, root.taskId!, 'SESSION_ATTACH'),
+        ...explicitChildRows(input),
+      ],
+    }
+  }
+
+  const family = await attributionRepository.loadFamily(rootId)
+  if (!family || family.sessions.length === 0) return null
+  const { segments, lastRootTurn } = await inferFamily(family, {
+    ignoreExplicit: false,
+  })
+  const input: ExplicitInput = {
+    workspaceId: family.workspaceId,
+    sessions: family.sessions,
+    firstEventAt: firstEventTimes(family),
+    lastRootTurn,
+  }
+  return {
+    familyIds: family.sessions.map(s => s.id),
+    rows: [
+      ...segments.map(s => inferredRow(family, s)),
+      ...explicitChildRows(input),
+    ],
+  }
+}
+
 export const attributionInternals = { inferFamily }
 
 export const attributionService = {
   /** Recompute every segment of the family containing `sessionId` (root or child id). Null when not found. */
   async recomputeFamily(
     sessionId: string
-  ): Promise<{ segments: number } | null> {
+  ): Promise<{ segments: number; written: boolean } | null> {
     const rootId = parseChildSessionId(sessionId)?.parentSessionId ?? sessionId
-    const family = await attributionRepository.loadFamily(rootId)
-    if (!family || family.sessions.length === 0) return null
-    const root = family.sessions[0]!
+    const rows = await computeFamilyRows(rootId)
+    if (!rows) return null
+    const { familyIds } = rows
 
-    let rows: SegmentRow[]
-    if (root.taskId) {
-      const lastRootTurn = Math.max(0, rootPromptCount(family, root.id) - 1)
-      rows = [
-        explicitRow(family, root, root.taskId, 'SESSION_ATTACH', lastRootTurn),
-        ...explicitChildRows(family, lastRootTurn),
-      ]
-    } else {
-      const { segments, lastRootTurn } = await inferFamily(family, {
-        ignoreExplicit: false,
-      })
-      rows = [
-        ...segments.map(s => inferredRow(family, s)),
-        ...explicitChildRows(family, lastRootTurn),
-      ]
+    const existing = await attributionRepository.listFamilySegments(familyIds)
+    if (sameSegments(rows.rows, existing)) {
+      return { segments: rows.rows.length, written: false }
     }
-
-    await attributionRepository.replaceFamilySegments(
-      family.sessions.map(s => s.id),
-      rows
-    )
-    return { segments: rows.length }
+    await attributionRepository.replaceFamilySegments(familyIds, rows.rows)
+    return { segments: rows.rows.length, written: true }
   },
 
   /**

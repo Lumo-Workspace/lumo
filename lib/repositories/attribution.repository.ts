@@ -55,6 +55,31 @@ export interface SegmentRow {
   computeVersion: number
 }
 
+/**
+ * A bound root's family without its events: what explicit segments need
+ * (root prompt count for the turn range, first event time per session).
+ */
+export interface BoundFamilyShape {
+  workspaceId: string
+  sessions: FamilySession[]
+  rootPromptCount: number
+  firstEventAt: Map<string, Date>
+}
+
+/** A stored segment's fields that decide whether a recompute changed anything. */
+export interface StoredSegment {
+  sessionId: string
+  taskId: string
+  fromTurn: number
+  toTurn: number
+  fromAt: Date
+  toAt: Date | null
+  source: AttributionSource
+  confidence: AttributionConfidence
+  computeVersion: number
+  evidence: Prisma.JsonValue
+}
+
 const FAMILY_SESSION_SELECT = {
   id: true,
   parentSessionId: true,
@@ -64,21 +89,30 @@ const FAMILY_SESSION_SELECT = {
   startedAt: true,
 } as const
 
+async function loadFamilySessions(
+  rootSessionId: string,
+  opts: { boundOnly: boolean }
+): Promise<{ workspaceId: string; sessions: FamilySession[] } | null> {
+  const root = await prisma.session.findUnique({
+    where: { id: rootSessionId },
+    select: { ...FAMILY_SESSION_SELECT, workspaceId: true },
+  })
+  if (!root || (opts.boundOnly && !root.taskId)) return null
+  const children = await prisma.session.findMany({
+    where: { parentSessionId: rootSessionId, workspaceId: root.workspaceId },
+    select: FAMILY_SESSION_SELECT,
+    orderBy: { startedAt: 'asc' },
+  })
+  const { workspaceId, ...rootSession } = root
+  return { workspaceId, sessions: [rootSession, ...children] }
+}
+
 export const attributionRepository = {
   /** Root session + its direct children + their events (createdAt asc). Null when the root is missing. */
   async loadFamily(rootSessionId: string): Promise<SessionFamily | null> {
-    const root = await prisma.session.findUnique({
-      where: { id: rootSessionId },
-      select: { ...FAMILY_SESSION_SELECT, workspaceId: true },
-    })
-    if (!root) return null
-    const children = await prisma.session.findMany({
-      where: { parentSessionId: rootSessionId, workspaceId: root.workspaceId },
-      select: FAMILY_SESSION_SELECT,
-      orderBy: { startedAt: 'asc' },
-    })
-    const { workspaceId, ...rootSession } = root
-    const sessions: FamilySession[] = [rootSession, ...children]
+    const head = await loadFamilySessions(rootSessionId, { boundOnly: false })
+    if (!head) return null
+    const { workspaceId, sessions } = head
     const scope = {
       workspaceId,
       sessionId: { in: sessions.map(s => s.id) },
@@ -110,6 +144,60 @@ export const attributionRepository = {
       payload: payloads.get(e.id) ?? null,
     }))
     return { workspaceId, sessions, events }
+  },
+
+  /**
+   * Light load for an explicitly bound root: sessions, the root's prompt count
+   * and each session's first event time — no event rows. Null when the root
+   * is missing or not bound to a task (callers then use `loadFamily`).
+   */
+  async loadBoundFamilyShape(
+    rootSessionId: string
+  ): Promise<BoundFamilyShape | null> {
+    const head = await loadFamilySessions(rootSessionId, { boundOnly: true })
+    if (!head) return null
+    const { workspaceId, sessions } = head
+    const [rootPromptCount, firsts] = await Promise.all([
+      prisma.hookEvent.count({
+        where: {
+          workspaceId,
+          sessionId: rootSessionId,
+          type: 'USER_PROMPT_SUBMIT',
+        },
+      }),
+      prisma.hookEvent.groupBy({
+        by: ['sessionId'],
+        where: { workspaceId, sessionId: { in: sessions.map(s => s.id) } },
+        _min: { createdAt: true },
+      }),
+    ])
+    const firstEventAt = new Map<string, Date>()
+    for (const row of firsts) {
+      if (row.sessionId && row._min.createdAt)
+        firstEventAt.set(row.sessionId, row._min.createdAt)
+    }
+    return { workspaceId, sessions, rootPromptCount, firstEventAt }
+  },
+
+  /** The family's stored segments, comparable fields only. */
+  async listFamilySegments(
+    familySessionIds: string[]
+  ): Promise<StoredSegment[]> {
+    return prisma.taskAttributionSegment.findMany({
+      where: { sessionId: { in: familySessionIds } },
+      select: {
+        sessionId: true,
+        taskId: true,
+        fromTurn: true,
+        toTurn: true,
+        fromAt: true,
+        toAt: true,
+        source: true,
+        confidence: true,
+        computeVersion: true,
+        evidence: true,
+      },
+    })
   },
 
   /** identifier (`LUM-12`) → taskId for live (not soft-deleted) tasks of the workspace; one query. */
