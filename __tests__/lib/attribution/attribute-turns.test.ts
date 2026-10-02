@@ -247,4 +247,45 @@ describe('attributeTurns segments a session by turns', () => {
       }),
     ])
   })
+
+  it('a follow-mode child on an open-ended last segment excludes parent evidence after its last event', () => {
+    const sessions = [
+      { id: ROOT, parentSessionId: null, agentId: null },
+      { id: 'root:a1', parentSessionId: ROOT, agentId: 'a1' },
+    ]
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [sig('BRANCH', 'lum-12')]),
+        ev(4, 'PRE_TOOL_USE', [], 'root:a1'),
+        ev(5, 'SUBAGENT_STOP', [], 'root:a1'),
+        ev(9, 'POST_TOOL_USE', [sig('LUMO_CMD', 'lum-12')]),
+      ],
+      sessions
+    )
+    const child = segs.filter(s => s.sessionId === 'root:a1')
+    expect(child).toHaveLength(1)
+    expect(child[0]!.toAt).toBeNull()
+    expect(child[0]!.evidence.map(e => e.at)).not.toContain(t(9).toISOString())
+    expect(child[0]!.evidence).toEqual([])
+  })
+
+  it('a before-root child does not take later parent evidence', () => {
+    const sessions = [
+      { id: ROOT, parentSessionId: null, agentId: null },
+      { id: 'root:a1', parentSessionId: ROOT, agentId: 'a1' },
+    ]
+    const segs = run(
+      [
+        ev(1, 'PRE_TOOL_USE', [], 'root:a1'),
+        ev(2, 'SUBAGENT_STOP', [], 'root:a1'),
+        ev(5, 'USER_PROMPT_SUBMIT'),
+        ev(6, 'PRE_TOOL_USE', [sig('BRANCH', 'lum-12')]),
+      ],
+      sessions
+    )
+    const child = segs.filter(s => s.sessionId === 'root:a1')
+    expect(child).toHaveLength(1)
+    expect(child[0]!.evidence).toEqual([])
+  })
 })

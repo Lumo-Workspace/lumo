@@ -204,9 +204,18 @@ function segmentRoot(
   })
 }
 
-function withinWindow(at: string, fromAt: Date, toAt: Date | null): boolean {
+function withinWindow(
+  at: string,
+  fromAt: Date,
+  toAt: Date | null,
+  limit: Date = fromAt
+): boolean {
   const ms = new Date(at).getTime()
-  return ms >= fromAt.getTime() && (toAt === null || ms <= toAt.getTime())
+  return (
+    ms >= fromAt.getTime() &&
+    (toAt === null || ms <= toAt.getTime()) &&
+    ms <= Math.max(limit.getTime(), fromAt.getTime())
+  )
 }
 
 /**
@@ -237,7 +246,7 @@ function clipToRoot(
       toAt,
       confidence: head.confidence,
       evidence: head.evidence
-        .filter(e => withinWindow(e.at, first, toAt))
+        .filter(e => withinWindow(e.at, first, toAt, last))
         .map(e => ({ ...e })),
     })
     return out
@@ -258,7 +267,7 @@ function clipToRoot(
       toAt,
       confidence: seg.confidence,
       evidence: seg.evidence
-        .filter(e => withinWindow(e.at, fromAt, toAt))
+        .filter(e => withinWindow(e.at, fromAt, toAt, last))
         .map(e => ({ ...e })),
     })
   }
