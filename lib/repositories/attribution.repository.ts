@@ -172,6 +172,26 @@ export const attributionRepository = {
     return out
   },
 
+  /** Root session ids the member explicitly attached to a task, active since `since`. */
+  async listExplicitRootSessionsForMember(
+    workspaceMemberId: string,
+    since: Date,
+    limit = 200
+  ): Promise<string[]> {
+    const rows = await prisma.session.findMany({
+      where: {
+        workspaceMemberId,
+        parentSessionId: null,
+        bindingSource: 'ATTACH',
+        taskId: { not: null },
+        lastActivityAt: { gte: since },
+      },
+      select: { id: true },
+      orderBy: { lastActivityAt: 'desc' },
+      take: limit,
+    })
+    return rows.map(r => r.id)
+  },
   /** Atomically replace every segment of the family's sessions. */
   async replaceFamilySegments(
     familySessionIds: string[],

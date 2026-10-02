@@ -17,6 +17,12 @@ import {
   type AttributionSignal,
   type SignalKind,
 } from '@/lib/attribution/signals'
+import { miscRepository } from '@/lib/repositories/misc.repository'
+import {
+  compareInferenceToBinding,
+  type SessionVerdict,
+} from '@/lib/attribution/inference-eval'
+import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 import { canonicalTaskIdentifier } from '@/lib/attribution/identifier'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
 
@@ -224,6 +230,23 @@ function inferredRow(family: SessionFamily, s: InferredSegment): SegmentRow {
   }
 }
 
+export interface InferenceEvalResult {
+  sessionsEvaluated: number
+  turns: number
+  correct: number
+  wrong: number
+  unlabeled: number
+  sessionCorrect: number
+  sessionWrong: number
+  sessionUnlabeled: number
+  computeVersion: number
+  days: number
+}
+
+const EVAL_SESSION_CAP = 200
+const EVAL_CONCURRENCY = 4
+const DAY_MS = 86_400_000
+
 export const attributionInternals = { inferFamily }
 
 export const attributionService = {
@@ -258,5 +281,83 @@ export const attributionService = {
       rows
     )
     return { segments: rows.length }
+  },
+
+  /**
+   * Read-only: re-infer each of the caller's explicitly attached root sessions
+   * while ignoring the explicit binding, and score the result against it.
+   */
+  async inferenceEval({
+    identity,
+    days,
+  }: {
+    identity: VerifyApiKeyResult
+    days: number
+  }): Promise<InferenceEvalResult> {
+    const memberId = await miscRepository.findMemberIdForHook(
+      identity.user.id,
+      identity.workspace.id
+    )
+    if (!memberId) {
+      throw Object.assign(new Error('Not a workspace member'), { status: 403 })
+    }
+    const since = new Date(Date.now() - days * DAY_MS)
+    const ids = await attributionRepository.listExplicitRootSessionsForMember(
+      memberId,
+      since,
+      EVAL_SESSION_CAP
+    )
+    const result: InferenceEvalResult = {
+      sessionsEvaluated: 0,
+      turns: 0,
+      correct: 0,
+      wrong: 0,
+      unlabeled: 0,
+      sessionCorrect: 0,
+      sessionWrong: 0,
+      sessionUnlabeled: 0,
+      computeVersion: ATTRIBUTION_COMPUTE_VERSION,
+      days,
+    }
+    const verdictKey: Record<
+      SessionVerdict,
+      'sessionCorrect' | 'sessionWrong' | 'sessionUnlabeled'
+    > = {
+      correct: 'sessionCorrect',
+      wrong: 'sessionWrong',
+      unlabeled: 'sessionUnlabeled',
+    }
+
+    const evalOne = async (id: string): Promise<void> => {
+      const family = await attributionRepository.loadFamily(id)
+      const root = family?.sessions[0]
+      if (!family || !root || !root.taskId) return
+      const { segments, lastRootTurn } = await inferFamily(family, {
+        ignoreExplicit: true,
+      })
+      const cmp = compareInferenceToBinding({
+        boundTaskId: root.taskId,
+        turnCount: lastRootTurn + 1,
+        inferred: segments.filter(s => s.sessionId === root.id),
+      })
+      result.sessionsEvaluated++
+      result.turns += cmp.turns
+      result.correct += cmp.correct
+      result.wrong += cmp.wrong
+      result.unlabeled += cmp.unlabeled
+      result[verdictKey[cmp.sessionVerdict]]++
+    }
+
+    let next = 0
+    const worker = async (): Promise<void> => {
+      while (next < ids.length) {
+        const id = ids[next++]!
+        await evalOne(id)
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(EVAL_CONCURRENCY, ids.length) }, worker)
+    )
+    return result
   },
 }
