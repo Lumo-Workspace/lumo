@@ -117,7 +117,7 @@ describe('attributionService.inferenceEval', () => {
     const [memberArg, sinceArg, limitArg] =
       repo.listExplicitRootSessionsForMember.mock.calls[0]!
     expect(memberArg).toBe('member_1')
-    expect(limitArg).toBe(200)
+    expect(limitArg).toBe(50)
     expect(Date.now() - (sinceArg as Date).getTime()).toBeGreaterThanOrEqual(
       7 * 86_400_000 - 1000
     )

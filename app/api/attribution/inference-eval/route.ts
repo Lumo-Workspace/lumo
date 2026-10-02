@@ -7,14 +7,18 @@ import { logger } from '@/lib/logger'
 export const runtime = 'nodejs'
 
 const querySchema = z.object({
-  days: z.coerce.number().int().min(1).max(90).default(30),
+  days: z.coerce.number().int().min(1).max(90).default(7),
 })
 
 /**
- * GET /api/attribution/inference-eval?days=30
+ * GET /api/attribution/inference-eval?days=7
  *
  * Read-only: scores the engine's inferred per-turn task attribution against
  * the caller's own explicit `session attach` bindings.
+ *
+ * Load bound: `days` defaults to 7 (max 90) and at most the 50 most recently
+ * active attached sessions are re-inferred per call, each loading its whole
+ * session family.
  */
 export async function GET(request: Request): Promise<Response> {
   const identity = await verifyBearer(request)

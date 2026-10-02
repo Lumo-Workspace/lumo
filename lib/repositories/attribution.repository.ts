@@ -176,7 +176,7 @@ export const attributionRepository = {
   async listExplicitRootSessionsForMember(
     workspaceMemberId: string,
     since: Date,
-    limit = 200
+    limit = 50
   ): Promise<string[]> {
     const rows = await prisma.session.findMany({
       where: {

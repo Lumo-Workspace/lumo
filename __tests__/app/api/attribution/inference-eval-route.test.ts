@@ -49,10 +49,10 @@ describe('GET /api/attribution/inference-eval', () => {
     evalFn.mockRejectedValue(Object.assign(new Error('x'), { status: 403 }))
     expect((await GET(req())).status).toBe(403)
   })
-  it('200 with default days 30', async () => {
+  it('200 with default days 7', async () => {
     const res = await GET(req())
     expect(res.status).toBe(200)
-    expect(evalFn).toHaveBeenCalledWith({ identity, days: 30 })
+    expect(evalFn).toHaveBeenCalledWith({ identity, days: 7 })
   })
   it('passes explicit days', async () => {
     await GET(req('?days=90'))

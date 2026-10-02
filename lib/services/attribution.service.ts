@@ -243,7 +243,8 @@ export interface InferenceEvalResult {
   days: number
 }
 
-const EVAL_SESSION_CAP = 200
+/** Most recently active attached sessions re-inferred per eval call. */
+const EVAL_SESSION_CAP = 50
 const EVAL_CONCURRENCY = 4
 const DAY_MS = 86_400_000
 

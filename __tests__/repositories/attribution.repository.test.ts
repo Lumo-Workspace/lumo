@@ -279,3 +279,19 @@ describe('replaceFamilySegments', () => {
     expect(p.__tx.taskAttributionSegment.createMany).not.toHaveBeenCalled()
   })
 })
+
+describe('listExplicitRootSessionsForMember', () => {
+  it('defaults to at most 50 sessions, most recently active first', async () => {
+    p.session.findMany.mockResolvedValue([{ id: 's1' }])
+    const since = new Date(0)
+    await expect(
+      attributionRepository.listExplicitRootSessionsForMember('m', since)
+    ).resolves.toEqual(['s1'])
+    expect(p.session.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 50,
+        orderBy: { lastActivityAt: 'desc' },
+      })
+    )
+  })
+})
