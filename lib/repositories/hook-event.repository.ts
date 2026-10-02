@@ -151,6 +151,15 @@ export const hookEventRepository = {
     })
   },
 
+  /** LUM-932 P3: the session an event was recorded in (null if none / missing). */
+  async findSessionId(id: string): Promise<string | null> {
+    const row = await prisma.hookEvent.findUnique({
+      where: { id },
+      select: { sessionId: true },
+    })
+    return row?.sessionId ?? null
+  },
+
   /**
    * LUM-932 P3: stored rows the boundary detector replay needs (the event's
    * current task, tool, file and STORED payload), oldest first.

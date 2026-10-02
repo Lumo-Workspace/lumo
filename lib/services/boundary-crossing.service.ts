@@ -1435,12 +1435,21 @@ export const boundaryCrossingService = {
       const familyRoot = (id: string) =>
         parseChildSessionId(id)?.parentSessionId ?? id
       const boundHere = effective?.task?.id === taskId
+      const unattachedCaller =
+        !!effective && !effective.task && effective.role !== 'STEWARD'
+      // A hook-originated (detector) crossing records only its hook event;
+      // its session is the event's.
+      const crossingSessionId =
+        !boundHere && unattachedCaller
+          ? (crossing.sessionId ??
+            (crossing.hookEventId
+              ? await hookEventRepository.findSessionId(crossing.hookEventId)
+              : null))
+          : null
       const unattachedOwnWork =
-        !!effective &&
-        !effective.task &&
-        effective.role !== 'STEWARD' &&
-        !!crossing.sessionId &&
-        familyRoot(crossing.sessionId) === familyRoot(sessionId)
+        unattachedCaller &&
+        !!crossingSessionId &&
+        familyRoot(crossingSessionId) === familyRoot(sessionId)
       if (!boundHere && !unattachedOwnWork) {
         throw Object.assign(
           new Error(

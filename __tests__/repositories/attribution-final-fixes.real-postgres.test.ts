@@ -29,6 +29,7 @@ jest.mock('@/lib/services/boundary-detector.service', () => ({
 
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { recomputeAttributionSafely } from '@/lib/attribution/trigger'
+import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
 import { attributionRepository } from '@/lib/repositories/attribution.repository'
 import {
   inferredTopLevelSessionsForTasks,
@@ -296,5 +297,33 @@ describe('backfilled POST_TOOL_USE events get boundary detection (I1b)', () => {
         tool_input: { command: 'lumo task context LUM-12' },
       },
     })
+  })
+})
+
+describe('crossing explain for an unattached session resolves the crossing session through its hook event (I3)', () => {
+  it('a detector-shaped crossing (sessionId null, hookEventId set) from the caller own family can be explained', async () => {
+    await seedSession('EX')
+    await seedSession('EX:a1', { parentSessionId: 'EX', agentId: 'a1' })
+    await seedSession('EX_OTHER')
+    await seedEvent('ex_evt', 'EX:a1', 'task_12')
+    await seedEvent('ex_other_evt', 'EX_OTHER', 'task_12')
+    await seedCrossing('c_ex', 'ex_evt', 'task_12', null)
+    await seedCrossing('c_ex_other', 'ex_other_evt', 'task_12', null)
+
+    const out = await boundaryCrossingService.explain(
+      'task_12',
+      'c_ex',
+      'ran it on purpose',
+      { authorSessionId: 'EX', authorAgent: 'CLAUDE_CODE', memberId: 'member' }
+    )
+    expect(out.crossingId).toBe('c_ex')
+
+    await expect(
+      boundaryCrossingService.explain('task_12', 'c_ex_other', 'not mine', {
+        authorSessionId: 'EX',
+        authorAgent: 'CLAUDE_CODE',
+        memberId: 'member',
+      })
+    ).rejects.toMatchObject({ status: 403 })
   })
 })

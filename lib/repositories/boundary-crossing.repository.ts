@@ -124,7 +124,11 @@ const SELECT = {
   // LUM-751: which suppression rule auto-dispositioned it (null otherwise).
   suppressionRuleId: true,
   // LUM-932: the recording session — `explain` scopes unattached callers by it.
+  // Hook-originated crossings carry only `hookEventId` (the event's session).
   sessionId: true,
+  // The triggering hook event id — the read model joins it to surface the
+  // inline edit-change for display-safe crossings (LUM-452).
+  hookEventId: true,
 } as const
 
 /**
@@ -133,9 +137,7 @@ const SELECT = {
  */
 const VIEW_SELECT = {
   ...SELECT,
-  // The triggering hook event id — the read model joins it to surface the
-  // inline edit-change for display-safe crossings (LUM-452).
-  hookEventId: true,
+  // LUM-452 hookEventId — now part of SELECT.
   // LUM-511: the originating session for a hook-less crossing — now part of SELECT.
   // LUM-590: advisory crossings surface in the panel but never block DONE.
   advisory: true,
