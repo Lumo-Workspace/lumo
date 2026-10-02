@@ -2841,6 +2841,10 @@ model Session {
   // LUM-932: provenance of `taskId` — ATTACH (`lumo session attach` on this
   // row) or INHERITED (copied from the parent's explicit binding).
   bindingSource         SessionBindingSource?
+  // LUM-932 P3: optimistic concurrency for attribution recomputes on a family
+  // root. A recompute reads it, and its write transaction only commits when the
+  // value is unchanged (then increments it); a concurrent recompute retries.
+  attributionVersion    Int                   @default(0)
   startedAt             DateTime          @default(now())
   lastActivityAt        DateTime
   eventCount            Int               @default(0)
