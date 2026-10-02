@@ -8,6 +8,7 @@ jest.mock('../../src/lib/config', () => ({
 }))
 
 import {
+  __resetSessionIdCacheForTests,
   AmbiguousSessionError,
   resolveSessionId,
 } from '../../src/lib/session-id'
@@ -18,10 +19,12 @@ const realFetch = global.fetch
 const realArgv = process.argv
 
 beforeEach(() => {
+  __resetSessionIdCacheForTests()
   delete process.env.CLAUDE_CODE_SESSION_ID
 })
 
 afterEach(() => {
+  __resetSessionIdCacheForTests()
   global.fetch = realFetch
   process.argv = realArgv
   delete process.env.CLAUDE_CODE_SESSION_ID
@@ -59,7 +62,25 @@ describe('resolveSessionId', () => {
     await expect(resolveSessionId({ write: true })).rejects.toBeInstanceOf(
       AmbiguousSessionError
     )
-    expect(await resolveSessionId({ write: false })).toBe(P)
+    const spy = jest
+      .spyOn(process.stderr, 'write')
+      .mockImplementation(() => true)
+    try {
+      expect(await resolveSessionId({ write: false })).toBe(P)
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining('could not tell which subagent')
+      )
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('resolves once per process: two calls make one fetch', async () => {
+    process.env.CLAUDE_CODE_SESSION_ID = P
+    mockResolve({ sessionId: C, resolution: 'child' })
+    expect(await resolveSessionId({ write: true })).toBe(C)
+    expect(await resolveSessionId({ write: false })).toBe(C)
+    expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 
   it('falls back to the raw session id on network failure or non-2xx', async () => {
@@ -68,6 +89,7 @@ describe('resolveSessionId', () => {
       throw new Error('offline')
     }) as unknown as typeof fetch
     expect(await resolveSessionId({ write: true })).toBe(P)
+    __resetSessionIdCacheForTests()
     mockResolve({}, false)
     expect(await resolveSessionId({ write: true })).toBe(P)
   })

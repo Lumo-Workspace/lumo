@@ -20,14 +20,20 @@ export class AmbiguousSessionError extends Error {
  * raw CLAUDE_CODE_SESSION_ID (today's behavior). On ambiguity a write throws
  * AmbiguousSessionError; a read uses the parent id.
  */
-export async function resolveSessionId(opts: {
-  write: boolean
-}): Promise<string | undefined> {
-  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
-  if (!sessionId) return undefined
-  const creds = readCredentials()
-  if (!creds) return sessionId
-  let body: { sessionId?: unknown; resolution?: unknown }
+type ResolveBody = { sessionId?: unknown; resolution?: unknown }
+
+// One resolve per process: later calls reuse the answer (including fallbacks).
+let cached: Promise<ResolveBody> | undefined
+
+/** Test-only: forget the cached resolve response. */
+export function __resetSessionIdCacheForTests(): void {
+  cached = undefined
+}
+
+async function fetchResolution(
+  sessionId: string,
+  creds: NonNullable<ReturnType<typeof readCredentials>>
+): Promise<ResolveBody> {
   try {
     const base = trimTrailingSlash(resolveAuthedApiUrl(creds.apiUrl))
     const res = await fetch(
@@ -41,11 +47,22 @@ export async function resolveSessionId(opts: {
         body: JSON.stringify({ argv: process.argv.slice(2) }),
       }
     )
-    if (!res.ok) return sessionId
-    body = (await res.json()) as typeof body
+    if (!res.ok) return {}
+    return (await res.json()) as ResolveBody
   } catch {
-    return sessionId
+    return {}
   }
+}
+
+export async function resolveSessionId(opts: {
+  write: boolean
+}): Promise<string | undefined> {
+  const sessionId = process.env.CLAUDE_CODE_SESSION_ID
+  if (!sessionId) return undefined
+  const creds = readCredentials()
+  if (!creds) return sessionId
+  cached ??= fetchResolution(sessionId, creds)
+  const body = await cached
   if (body.resolution === 'ambiguous') {
     if (opts.write) throw new AmbiguousSessionError()
     process.stderr.write(

@@ -79,6 +79,38 @@ describe('subagent lumo commands resolve to the child session without changing p
     expect(r).toEqual({ kind: 'none' })
   })
 
+  it('matches whole tokens only, but a prefix of the pending command is fine', () => {
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'lumo verify LUM-12')],
+        ['verify', 'LUM-1']
+      )
+    ).toEqual({ kind: 'none' })
+    expect(
+      matchPendingLumoCommand(
+        [pre(A, 't1', 'lumo task status LUM-13 --json')],
+        ['task', 'status']
+      )
+    ).toEqual({ kind: 'one', sessionId: A })
+  })
+
+  it('accepts a path-qualified lumo binary', () => {
+    for (const bin of ['/usr/local/bin/lumo', './node_modules/.bin/lumo']) {
+      expect(
+        matchPendingLumoCommand(
+          [pre(A, 't1', `cd /r && ${bin} verify LUM-12`)],
+          ['verify', 'LUM-12']
+        )
+      ).toEqual({ kind: 'one', sessionId: A })
+    }
+  })
+
+  it('skips a PRE_TOOL_USE without a tool_use_id', () => {
+    const e = pre(A, 't1', 'lumo verify')
+    e.payload = { tool_input: { command: 'lumo verify' } } as typeof e.payload
+    expect(matchPendingLumoCommand([e], ['verify'])).toEqual({ kind: 'none' })
+  })
+
   it('reports ambiguity when the same command is pending in two sessions', () => {
     const r = matchPendingLumoCommand(
       [pre(A, 't1', 'lumo task status'), pre(B, 't2', 'lumo task status')],
