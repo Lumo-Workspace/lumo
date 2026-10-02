@@ -29,8 +29,12 @@ interface CreateHookEventData {
 interface FindRecentOtherSessionWritesParams {
   workspaceId: string
   filePath: string
-  /** The current session, excluded so a session never collides with itself. */
-  excludeSessionId: string
+  /**
+   * Root (top-level) session id of the caller's session family. The root and
+   * every child `<root>:<agentId>` (LUM-932 subagent sessions) are excluded,
+   * so a session never collides with itself, its own subagents, or siblings.
+   */
+  excludeSessionFamilyRoot: string
   /** Lower bound on createdAt — the caller's collision time window. */
   since: Date
   /** Tool names that count as a write (caller owns this policy). */
@@ -227,7 +231,12 @@ export const hookEventRepository = {
       where: {
         workspaceId: params.workspaceId,
         filePath: params.filePath,
-        sessionId: { not: params.excludeSessionId },
+        // Null sessionIds stay excluded (as with the former `not` filter).
+        sessionId: { not: null },
+        NOT: [
+          { sessionId: params.excludeSessionFamilyRoot },
+          { sessionId: { startsWith: `${params.excludeSessionFamilyRoot}:` } },
+        ],
         createdAt: { gte: params.since },
         toolName: { in: params.toolNames },
       },

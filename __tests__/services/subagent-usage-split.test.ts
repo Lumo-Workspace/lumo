@@ -30,6 +30,7 @@ import {
 } from '@/lib/session/subagent-usage'
 import { hookEventService } from '@/lib/services/hook-event.service'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 
 const m = (input: number, output: number) => ({
   input,
@@ -141,9 +142,75 @@ describe('splits subagent usage out of the parent without double counting', () =
       type: 'POST_TOOL_BATCH',
       payload: { session_id: 'P', agent_id: 'abeaba01ea909a7ee', ...payload },
     })
+    expect(sess.upsertChildForHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        parentSessionId: 'P',
+        agentId: 'abeaba01ea909a7ee',
+      })
+    )
     expect(sess.upsertForHookEvent).not.toHaveBeenCalledWith(
       expect.objectContaining({ usage: expect.anything() })
     )
     expect(sess.settleChildUsage).not.toHaveBeenCalled()
+  })
+
+  it('treats an agent_id that cannot form a child id as absent (event stays on the parent)', async () => {
+    const sess = sessionRepository as jest.Mocked<typeof sessionRepository>
+    const events = hookEventRepository as jest.Mocked<
+      typeof hookEventRepository
+    >
+    const result = await hookEventService.recordHookEvent({
+      identity,
+      type: 'PRE_TOOL_USE',
+      payload: { session_id: 'P', agent_id: 'not a valid:id' },
+    })
+    expect(sess.upsertChildForHookEvent).not.toHaveBeenCalled()
+    expect(sess.upsertForHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'P' })
+    )
+    expect(events.createHookEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: 'P' })
+    )
+    expect(result.sessionId).toBe('P')
+  })
+
+  it('settles child usage best-effort after the STOP event is recorded', async () => {
+    const sess = sessionRepository as jest.Mocked<typeof sessionRepository>
+    const events = hookEventRepository as jest.Mocked<
+      typeof hookEventRepository
+    >
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+    sess.settleChildUsage.mockRejectedValueOnce(new Error('db down'))
+    const twoSubagents = {
+      _lumo_usage: {
+        ...payload._lumo_usage,
+        bySubagent: {
+          ...payload._lumo_usage.bySubagent,
+          b2: {
+            inputTokens: 1,
+            outputTokens: 1,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 0,
+            byModel: { sonnet: m(1, 1) },
+          },
+        },
+      },
+    }
+    await expect(
+      hookEventService.recordHookEvent({
+        identity,
+        type: 'STOP',
+        payload: { session_id: 'P', ...twoSubagents },
+      })
+    ).resolves.toEqual(expect.objectContaining({ sessionId: 'P' }))
+    expect(events.createHookEvent).toHaveBeenCalledTimes(1)
+    // One failure does not abort the remaining settlements.
+    expect(sess.settleChildUsage).toHaveBeenCalledTimes(2)
+    // Settlement runs after the STOP row is written.
+    expect(events.createHookEvent.mock.invocationCallOrder[0]!).toBeLessThan(
+      sess.settleChildUsage.mock.invocationCallOrder[0]!
+    )
+    expect(errSpy).toHaveBeenCalled()
+    errSpy.mockRestore()
   })
 })

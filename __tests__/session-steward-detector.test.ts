@@ -75,6 +75,26 @@ describe('steward implementation artifacts raise a boundary crossing', () => {
     expect(mockActivity).not.toHaveBeenCalled()
   })
 
+  it('a git commit inside a subagent of a STEWARD session is detected via the parent binding (LUM-932)', async () => {
+    mockSteward.mockImplementation(async (id: string) =>
+      id === 'sess_steward' ? STEWARD : null
+    )
+    await boundaryDetectorService.detectAndRecordStewardArtifact({
+      sessionId: 'sess_steward:agent1',
+      hookEventId: 'evt_sub',
+      toolName: 'Bash',
+      payload: bash('git commit -m "feat: from a subagent"'),
+    })
+    expect(mockSteward).toHaveBeenCalledWith('sess_steward')
+    expect(mockCreate).toHaveBeenCalledTimes(1)
+    const input = mockCreate.mock.calls[0]![0] as Record<string, unknown>
+    expect(input.category).toBe('STEWARD_IMPLEMENTATION_ARTIFACT')
+    expect(input.milestoneId).toBe('ms_1')
+    // Attribution stays on the child session that ran the command.
+    expect(input.sessionId).toBe('sess_steward:agent1')
+    expect(input.hookEventId).toBe('evt_sub')
+  })
+
   it('a PR creation (gh pr create) records a crossing with its own target', async () => {
     await boundaryDetectorService.detectAndRecordStewardArtifact({
       sessionId: 'sess_steward',

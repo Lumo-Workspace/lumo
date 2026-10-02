@@ -8,7 +8,10 @@ import { classifyBashPayload } from '@/lib/agent-run/bash-category'
 import {
   parseInjectedUsage,
   splitSubagentUsage,
+  type InjectedUsage,
 } from '@/lib/session/subagent-usage'
+import { logger } from '@/lib/logger'
+import { AGENT_ID_RE } from '@/lib/session/child-session-id'
 
 interface RecordHookEventInput {
   identity: VerifyApiKeyResult
@@ -99,12 +102,17 @@ export const hookEventService = {
     // liveUsageByModel and returns a per-STEP delta (LUM-523) stored on this
     // HookEvent row's usageByModel; the Session.usageByModel STOP anchor that
     // the per-turn-delta diff settles against stays untouched.
-    const agentId = extractStringField(payload, 'agent_id')
+    // An agent_id that cannot form a child session id is treated as absent —
+    // the event stays on the parent rather than failing the hook.
+    const rawAgentId = extractStringField(payload, 'agent_id')
+    const agentId =
+      rawAgentId !== null && AGENT_ID_RE.test(rawAgentId) ? rawAgentId : null
     const agentType = extractStringField(payload, 'agent_type')
 
     let recordedSessionId: string | null = sessionId
     let taskId: string | null = null
     let turnUsageByModel: Record<string, ModelUsage> | null = null
+    let childUsageToSettle: [string, InjectedUsage][] = []
     if (sessionId && agentId) {
       // LUM-932: an event emitted inside a subagent lands on its child
       // session. Its `_lumo_usage` (if any) was computed from the PARENT
@@ -143,16 +151,7 @@ export const hookEventService = {
       taskId = session.taskId
       turnUsageByModel = session.turnUsageByModel
       if (isStop && split) {
-        for (const [subAgentId, subUsage] of Object.entries(split.bySubagent)) {
-          await sessionRepository.settleChildUsage({
-            parentSessionId: sessionId,
-            agentId: subAgentId,
-            workspaceId: identity.workspace.id,
-            workspaceMemberId: memberId,
-            usage: subUsage,
-            now: new Date(),
-          })
-        }
+        childUsageToSettle = Object.entries(split.bySubagent)
       }
     }
 
@@ -175,6 +174,29 @@ export const hookEventService = {
           ? (turnUsageByModel as unknown as Prisma.InputJsonValue)
           : null,
     })
+
+    // LUM-932: settle each subagent's usage onto its child session AFTER the
+    // STOP event is recorded — best-effort, so one failed settlement never
+    // blocks the STOP row, the other settlements, or the hook response.
+    if (sessionId) {
+      for (const [subAgentId, subUsage] of childUsageToSettle) {
+        try {
+          await sessionRepository.settleChildUsage({
+            parentSessionId: sessionId,
+            agentId: subAgentId,
+            workspaceId: identity.workspace.id,
+            workspaceMemberId: memberId,
+            usage: subUsage,
+            now: new Date(),
+          })
+        } catch (error) {
+          logger.error(
+            'hookEventService.recordHookEvent settleChildUsage error:',
+            error
+          )
+        }
+      }
+    }
 
     // Surface the validated sessionId/taskId plus the extracted toolName/filePath
     // so per-event side effects (Stop → Layer 1 memory extraction, PreToolUse →

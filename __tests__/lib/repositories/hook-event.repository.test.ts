@@ -105,7 +105,7 @@ describe('hookEventRepository.findRecentOtherSessionWritesToFile', () => {
     await hookEventRepository.findRecentOtherSessionWritesToFile({
       workspaceId: 'ws_1',
       filePath: '/repo/app/a.ts',
-      excludeSessionId: 'sess_self',
+      excludeSessionFamilyRoot: 'sess_self',
       since,
       toolNames: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit'],
     })
@@ -114,7 +114,11 @@ describe('hookEventRepository.findRecentOtherSessionWritesToFile', () => {
       where: {
         workspaceId: 'ws_1',
         filePath: '/repo/app/a.ts',
-        sessionId: { not: 'sess_self' },
+        sessionId: { not: null },
+        NOT: [
+          { sessionId: 'sess_self' },
+          { sessionId: { startsWith: 'sess_self:' } },
+        ],
         createdAt: { gte: since },
         toolName: { in: ['Edit', 'Write', 'MultiEdit', 'NotebookEdit'] },
       },
@@ -146,7 +150,7 @@ describe('hookEventRepository.findRecentOtherSessionWritesToFile', () => {
       {
         workspaceId: 'ws_1',
         filePath: '/repo/app/a.ts',
-        excludeSessionId: 'sess_self',
+        excludeSessionFamilyRoot: 'sess_self',
         since,
         toolNames: ['Edit'],
       }
