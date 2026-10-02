@@ -1,5 +1,11 @@
 import { prisma } from '@/lib/db/prisma'
 import type { ForecastInputs, ForecastCandidate } from '@/lib/forecast/types'
+import { inferredUsageForTasks } from '@/lib/repositories/inferred-usage.repository'
+import { usageMapTotal } from '@/lib/services/model-cost'
+import {
+  inferredTopLevelSessionsForTasks,
+  taskHasSessions,
+} from '@/lib/repositories/task-attribution-where'
 
 export const forecastRepository = {
   /**
@@ -26,7 +32,8 @@ export const forecastRepository = {
         projectId: target.projectId,
         status: 'DONE',
         id: { not: taskId },
-        sessions: { some: {} },
+        // LUM-932 P3: a task worked only through unattached sessions counts.
+        ...taskHasSessions,
       },
       select: {
         id: true,
@@ -39,6 +46,7 @@ export const forecastRepository = {
         // a STOP carries usage; summed here into a per-task tokenCost.
         sessions: {
           select: {
+            parentSessionId: true,
             startedAt: true,
             lastActivityAt: true,
             inputTokens: true,
@@ -58,23 +66,64 @@ export const forecastRepository = {
     // attributed to the task (replaces the dead AGENT_CLARIFY notification
     // count). Bare-taskId grouping mirrors the prior aggregation; the per-task
     // actual (retrospective.repository) uses the exact session-fallback count.
-    const promptCounts = await prisma.hookEvent.groupBy({
-      by: ['taskId'],
-      where: {
-        taskId: { in: rows.map(r => r.id) },
-        type: 'USER_PROMPT_SUBMIT',
-      },
-      _count: { _all: true },
-    })
+    const candidateIds = rows.map(r => r.id)
+    const [promptCounts, inferred, inferredSessions] = await Promise.all([
+      prisma.hookEvent.groupBy({
+        by: ['taskId'],
+        where: {
+          taskId: { in: candidateIds },
+          type: 'USER_PROMPT_SUBMIT',
+        },
+        _count: { _all: true },
+      }),
+      inferredUsageForTasks(candidateIds),
+      prisma.session.findMany({
+        where: inferredTopLevelSessionsForTasks(candidateIds),
+        select: {
+          startedAt: true,
+          lastActivityAt: true,
+          attributionSegments: {
+            where: { taskId: { in: candidateIds }, source: 'INFERRED' },
+            select: { taskId: true },
+          },
+        },
+      }),
+    ])
+    // LUM-932 P3: unattached top-level sessions inferred onto each candidate
+    // are runs of that task too (one run per session, however many segments).
+    const inferredRunsByTask = new Map<
+      string,
+      { startedAt: Date; finishedAt: Date | null }[]
+    >()
+    for (const s of inferredSessions) {
+      for (const taskId of new Set(s.attributionSegments.map(g => g.taskId))) {
+        const list = inferredRunsByTask.get(taskId) ?? []
+        list.push({ startedAt: s.startedAt, finishedAt: s.lastActivityAt })
+        inferredRunsByTask.set(taskId, list)
+      }
+    }
     const interactionByTask = new Map<string, number>(
       promptCounts.map(c => [c.taskId as string, c._count._all])
     )
+    // LUM-932 P3 hybrid cost: unattached work's per-turn usage per candidate.
+    const inferredByTask = new Map<string, number>()
+    for (const r of inferred) {
+      inferredByTask.set(
+        r.taskId,
+        (inferredByTask.get(r.taskId) ?? 0) + usageMapTotal(r.usageByModel)
+      )
+    }
 
     const candidates: ForecastCandidate[] = rows.map(r => {
-      // A task has cost data only if at least one session carries usage.
-      const hasUsage = r.sessions.some(s => s.outputTokens !== null)
+      // A task has cost data only if at least one session carries usage or
+      // unattached work was attributed to it with per-turn usage.
+      const inferredTokens = inferredByTask.get(r.id)
+      const hasUsage =
+        r.sessions.some(s => s.outputTokens !== null) ||
+        inferredTokens !== undefined
       const tokenCost = hasUsage
-        ? r.sessions.reduce(
+        ? (inferredTokens ?? 0) +
+          r.sessions.reduce(
             (sum, s) =>
               sum +
               (s.inputTokens ?? 0) +
@@ -90,10 +139,17 @@ export const forecastRepository = {
         title: r.title,
         identifier: `${r.team.identifier}-${r.number}`,
         tags: r.taskTags.map(tt => tt.tag.name),
-        runs: r.sessions.map(s => ({
-          startedAt: s.startedAt,
-          finishedAt: s.lastActivityAt,
-        })),
+        // Runs = TOP-LEVEL sessions (LUM-932): subagent children are part of
+        // their parent's run; their spend is still in tokenCost above.
+        runs: [
+          ...r.sessions
+            .filter(s => !s.parentSessionId)
+            .map(s => ({
+              startedAt: s.startedAt,
+              finishedAt: s.lastActivityAt,
+            })),
+          ...(inferredRunsByTask.get(r.id) ?? []),
+        ],
         mergedPrAt: r.pullRequests.map(p => p.mergedAt),
         tokenCost,
         interactionRounds: interactionByTask.get(r.id) ?? 0,

@@ -1,5 +1,11 @@
 import { prisma } from '@/lib/db/prisma'
 import { Prisma } from '@prisma/client'
+import { eventsForTask } from '@/lib/repositories/task-attribution-where'
+import {
+  bumpFamilyAttributionVersion,
+  retagEventsToExplicitTask,
+} from '@/lib/repositories/explicit-retag'
+import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
 import type { HookEventType } from '@prisma/client'
 import type { AttributionSignal } from '@/lib/attribution/signals'
 import type { ToolEventRow } from '@/lib/session/resolve-caller'
@@ -145,6 +151,45 @@ export const hookEventRepository = {
     })
   },
 
+  /** LUM-932 P3: an event's current task attribution (null if none / missing). */
+  async findTaskId(id: string): Promise<string | null> {
+    const row = await prisma.hookEvent.findUnique({
+      where: { id },
+      select: { taskId: true },
+    })
+    return row?.taskId ?? null
+  },
+
+  /** LUM-932 P3: the session an event was recorded in (null if none / missing). */
+  async findSessionId(id: string): Promise<string | null> {
+    const row = await prisma.hookEvent.findUnique({
+      where: { id },
+      select: { sessionId: true },
+    })
+    return row?.sessionId ?? null
+  },
+
+  /**
+   * LUM-932 P3: stored rows the boundary detector replay needs (the event's
+   * current task, tool, file and STORED payload), oldest first.
+   */
+  async findForDetectorReplay(ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.hookEvent.findMany({
+      where: { id: { in: ids } },
+      select: {
+        id: true,
+        taskId: true,
+        type: true,
+        toolName: true,
+        filePath: true,
+        payload: true,
+        payloadPrunedAt: true,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    })
+  },
+
   /**
    * Fetch hook events by id, narrowed to the fields the LUM-469 attribution read
    * model needs: the owning member, the session it fired in (+ that session's
@@ -246,7 +291,8 @@ export const hookEventRepository = {
         },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { sessionId: true, type: true, createdAt: true },
+      // taskId: per-task time of an unattached session (LUM-932).
+      select: { sessionId: true, type: true, createdAt: true, taskId: true },
     })
   },
 
@@ -291,18 +337,21 @@ export const hookEventRepository = {
   },
 
   /**
-   * Bulk-tag every null-taskId event in a session with the given
-   * taskId. Used by `lumo session attach` to retroactively pull the
-   * already-emitted events of the running session under the newly
-   * attached task. Events that already carry a taskId are left alone
-   * — they're authoritative.
+   * Pull every already-emitted event of a session under the task it was just
+   * explicitly attached to (`lumo session attach`). Explicit binding wins
+   * (LUM-932 P3): events carrying a provisional (inferred) task are retagged
+   * too, and the undispositioned crossings on them move to the attached task.
+   * Safe because attach only binds an unbound session or re-binds the same
+   * task (LUM-459). `eventsUpdated` = events whose taskId changed.
    */
-  async bulkSetTaskIdForNullEventsInSession(sessionId: string, taskId: string) {
-    const result = await prisma.hookEvent.updateMany({
-      where: { sessionId, taskId: null },
-      data: { taskId },
-    })
-    return { count: result.count }
+  async retagSessionEventsToExplicitTask(
+    sessionId: string,
+    taskId: string
+  ): Promise<{ eventsUpdated: number; crossingsMoved: number }> {
+    return prisma.$transaction(async tx => {
+      await bumpFamilyAttributionVersion(tx, sessionId)
+      return retagEventsToExplicitTask(tx, [sessionId], taskId)
+    }, RETAG_TX_OPTIONS)
   },
 
   /**
@@ -367,9 +416,7 @@ export const hookEventRepository = {
    */
   async findByTaskId(taskId: string) {
     return prisma.hookEvent.findMany({
-      where: {
-        OR: [{ taskId }, { taskId: null, session: { taskId } }],
-      },
+      where: eventsForTask(taskId),
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
@@ -398,8 +445,8 @@ export const hookEventRepository = {
   async findTurnUsageByTask(taskId: string) {
     return prisma.hookEvent.findMany({
       where: {
+        ...eventsForTask(taskId),
         type: { in: ['STOP', 'STOP_FAILURE'] },
-        OR: [{ taskId }, { taskId: null, session: { taskId } }],
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       // createdAt: LUM-559 dates the edgeless cost-only group a session gets
@@ -481,11 +528,8 @@ export const hookEventRepository = {
     const where: Prisma.HookEventWhereInput =
       'taskId' in scope
         ? {
+            ...eventsForTask(scope.taskId),
             type,
-            OR: [
-              { taskId: scope.taskId },
-              { taskId: null, session: { taskId: scope.taskId } },
-            ],
           }
         : 'sessionId' in scope
           ? { type, sessionId: scope.sessionId, workspaceId: scope.workspaceId }

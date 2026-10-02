@@ -118,58 +118,9 @@ describe('classifyBinding', () => {
   })
 })
 
-import { recordUnboundCrossing } from '@/lib/services/session-binding-guard'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
-import { activityRepository } from '@/lib/repositories/activity.repository'
 
-const coalesce = boundaryCrossingRepository.coalesceRecurrence as jest.Mock
 const createCrossing = boundaryCrossingRepository.create as jest.Mock
-const createActivity = activityRepository.create as jest.Mock
-
-describe('recordUnboundCrossing', () => {
-  it('coalesces into an existing open crossing without creating a new row', async () => {
-    coalesce.mockResolvedValue(1)
-    await recordUnboundCrossing({
-      taskId: 't1',
-      action: 'machine verification',
-    })
-    expect(createCrossing).not.toHaveBeenCalled()
-    expect(createActivity).not.toHaveBeenCalled()
-  })
-  it('creates a MEDIUM, reversible crossing + timeline marker on first occurrence', async () => {
-    coalesce.mockResolvedValue(0)
-    createCrossing.mockResolvedValue({ id: 'bc1' })
-    await recordUnboundCrossing({ taskId: 't1', action: 'status change' })
-    expect(createCrossing).toHaveBeenCalledWith(
-      expect.objectContaining({
-        taskId: 't1',
-        category: 'SESSION_BINDING_MISSING',
-        target: 't1',
-        severity: 'MEDIUM',
-        reversible: true,
-        detail: expect.stringContaining('status change'),
-      })
-    )
-    expect(createActivity).toHaveBeenCalledWith(
-      expect.objectContaining({
-        taskId: 't1',
-        actorId: null,
-        type: 'BOUNDARY_CROSSING_DETECTED',
-        payload: expect.objectContaining({
-          boundaryCrossingId: 'bc1',
-          category: 'SESSION_BINDING_MISSING',
-          severity: 'MEDIUM',
-        }),
-      })
-    )
-  })
-  it('never throws — swallows repository errors (observe-only)', async () => {
-    coalesce.mockRejectedValue(new Error('db down'))
-    await expect(
-      recordUnboundCrossing({ taskId: 't1', action: 'machine verification' })
-    ).resolves.toBeUndefined()
-  })
-})
 
 import { enforceSessionBinding } from '@/lib/services/session-binding-guard'
 
@@ -188,10 +139,8 @@ describe('enforceSessionBinding', () => {
     ).rejects.toMatchObject({ status: 409, boundTaskIdentifier: 'LUM-487' })
     expect(createCrossing).not.toHaveBeenCalled()
   })
-  it('records a crossing and returns the unbound advisory', async () => {
+  it('records nothing and returns no advisory for an unbound session (LUM-932)', async () => {
     findBinding.mockResolvedValue({ id: 'sess', task: null })
-    coalesce.mockResolvedValue(0)
-    createCrossing.mockResolvedValue({ id: 'bc1' })
     const r = await enforceSessionBinding({
       source: 'bearer',
       sessionId: 'sess',
@@ -200,8 +149,8 @@ describe('enforceSessionBinding', () => {
       action: 'machine verification',
       stewardPolicy: 'forbid-implementation',
     })
-    expect(r).toEqual({ advisory: 'unbound', steward: null })
-    expect(createCrossing).toHaveBeenCalled()
+    expect(r).toEqual({ advisory: null, steward: null })
+    expect(createCrossing).not.toHaveBeenCalled()
   })
   it('returns the unconfirmed advisory without recording when it cannot prove unbound', async () => {
     findBinding.mockResolvedValue(null)

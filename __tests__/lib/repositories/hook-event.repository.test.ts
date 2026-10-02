@@ -267,7 +267,7 @@ describe('hookEventRepository.findTurnBoundaryEventsForSessions', () => {
         },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { sessionId: true, type: true, createdAt: true },
+      select: { sessionId: true, type: true, createdAt: true, taskId: true },
     })
   })
 })

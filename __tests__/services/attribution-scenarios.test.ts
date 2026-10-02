@@ -13,7 +13,7 @@ jest.mock('@/lib/repositories/attribution.repository', () => ({
     resolveIdentifiers: jest.fn(),
     taskIdsForBranches: jest.fn(),
     listFamilySegments: jest.fn(),
-    replaceFamilySegments: jest.fn(),
+    commitFamilyAttribution: jest.fn(),
   },
 }))
 
@@ -32,7 +32,7 @@ const repo = attributionRepository as unknown as Record<
   | 'resolveIdentifiers'
   | 'taskIdsForBranches'
   | 'listFamilySegments'
-  | 'replaceFamilySegments',
+  | 'commitFamilyAttribution',
   jest.Mock
 >
 
@@ -65,6 +65,7 @@ function ev(
   return {
     id: `e${++seq}`,
     sessionId,
+    taskId: null,
     type,
     createdAt: new Date(Date.UTC(2026, 9, 2, 0, 0, 0) + clock),
     attributionSignals: extractAttributionSignals(
@@ -97,6 +98,8 @@ function session(
     taskId: null,
     bindingSource: null,
     startedAt: new Date(Date.UTC(2026, 9, 2)),
+    role: 'IMPLEMENTATION',
+    milestoneId: null,
     ...extra,
   }
 }
@@ -110,15 +113,18 @@ async function run(
 ): Promise<SegmentRow[]> {
   repo.loadFamily.mockResolvedValue({
     workspaceId: 'ws',
+    attributionVersion: 0,
     sessions: [session(ROOT), ...(withChild ? [childSession()] : [])],
     events: [...events].sort(
       (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
     ),
   })
   const res = await attributionService.recomputeFamily(ROOT)
-  expect(res).toEqual({ segments: expect.any(Number), written: true })
-  expect(repo.replaceFamilySegments).toHaveBeenCalledTimes(1)
-  return repo.replaceFamilySegments.mock.calls[0]![1] as SegmentRow[]
+  expect(res).toEqual(
+    expect.objectContaining({ segments: expect.any(Number), written: true })
+  )
+  expect(repo.commitFamilyAttribution).toHaveBeenCalledTimes(1)
+  return repo.commitFamilyAttribution.mock.calls[0]![0].segments as SegmentRow[]
 }
 
 const of = (rows: SegmentRow[], id: string) =>
@@ -130,7 +136,13 @@ beforeEach(() => {
   seq = 0
   repo.loadBoundFamilyShape.mockResolvedValue(null)
   repo.listFamilySegments.mockResolvedValue([])
-  repo.replaceFamilySegments.mockResolvedValue(undefined)
+  repo.commitFamilyAttribution.mockResolvedValue({
+    conflict: false,
+    eventsUpdated: 0,
+    crossingsMoved: 0,
+    crossingsMovedToNull: 0,
+    changedEvents: [],
+  })
   repo.taskIdsForBranches.mockResolvedValue(new Map())
   repo.resolveIdentifiers.mockImplementation(
     async (_ws: string, ids: string[]) =>
@@ -287,12 +299,18 @@ describe('attribution scenarios under the branch ruling', () => {
     expect(pasted.attributionSignals).toEqual([])
     repo.loadFamily.mockResolvedValue({
       workspaceId: 'ws',
+      attributionVersion: 0,
       sessions: [session(ROOT)],
       events: [pasted, read(ROOT, 'main')],
     })
     const res = await attributionService.recomputeFamily(ROOT)
-    expect(res).toEqual({ segments: 0, written: false })
-    expect(repo.replaceFamilySegments).not.toHaveBeenCalled()
+    expect(res).toMatchObject({
+      segments: 0,
+      written: false,
+      eventsUpdated: 0,
+      crossingsMoved: 0,
+    })
+    expect(repo.commitFamilyAttribution).not.toHaveBeenCalled()
   })
 
   it('10: lumo session attach LUM-30 in an unbound session is not a signal and yields no t30 segment', async () => {
@@ -300,11 +318,12 @@ describe('attribution scenarios under the branch ruling', () => {
     expect(attach.attributionSignals).toEqual([])
     repo.loadFamily.mockResolvedValue({
       workspaceId: 'ws',
+      attributionVersion: 0,
       sessions: [session(ROOT)],
       events: [prompt(ROOT, 'main', 'attach me'), attach],
     })
     await attributionService.recomputeFamily(ROOT)
-    const rows = (repo.replaceFamilySegments.mock.calls[0]?.[1] ??
+    const rows = (repo.commitFamilyAttribution.mock.calls[0]?.[0]?.segments ??
       []) as SegmentRow[]
     expect(rows.some(r => r.taskId === 't30')).toBe(false)
   })

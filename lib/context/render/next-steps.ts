@@ -105,7 +105,7 @@ export function computeNextSteps(input: NextStepsInput): NextStep[] {
   // might do next.
   if (openCrossings > 0) {
     steps.push({
-      command: `lumo crossing explain ${id} --note "<text>"`,
+      command: `lumo crossing explain <id> --task ${id} --note "<text>"`,
       why: `${openCrossings} open boundary crossing${
         openCrossings === 1 ? '' : 's'
       } — explain them (a human dispositions them on the web)`,

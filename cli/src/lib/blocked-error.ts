@@ -231,7 +231,7 @@ export function buildRemediation(
       .filter(b => b.kind === 'BOUNDARY_CROSSING')
       .map(b => (b as { id: string }).id)
     lines.push(
-      `BOUNDARY_CROSSING: leave a rationale with \`lumo crossing explain ${ids[0]} --note "…"\` (append-only; it does not clear anything), then relay each crossing to the user. Once they rule, record it with \`lumo crossing disposition ${ids[0]} --false-positive\` or \`--confirmed\` — it prints an exit-4 envelope for the user to approve; never self-approve. The web panel also works: ${ctx.dispositionUrl}`
+      `BOUNDARY_CROSSING: leave a rationale with \`lumo crossing explain ${ids[0]} --task ${ctx.identifier} --note "…"\` (append-only; it does not clear anything), then relay each crossing to the user. Once they rule, record it with \`lumo crossing disposition ${ids[0]} --false-positive\` or \`--confirmed\` — it prints an exit-4 envelope for the user to approve; never self-approve. The web panel also works: ${ctx.dispositionUrl}`
     )
   }
   if (kinds.has('SECURITY_FINDING')) {

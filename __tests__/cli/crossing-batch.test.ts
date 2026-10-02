@@ -436,6 +436,36 @@ describe('batch explain', () => {
   })
 })
 
+describe('explain --task (LUM-932)', () => {
+  it('explain --task targets the named task without a session binding', async () => {
+    routeFetch()
+    expect(
+      await crossingExplain('cx-a', { note: 'n', task: 'EZE-7' })
+    ).toBeUndefined()
+    const posts = fetchMock.mock.calls.filter(([url]) =>
+      String(url).endsWith('/explain')
+    )
+    expect(posts).toHaveLength(1)
+    expect(String(posts[0]?.[0])).toContain(
+      '/api/tasks/EZE-7/boundary-crossings/cx-a/'
+    )
+    expect(
+      fetchMock.mock.calls.filter(([url]) =>
+        String(url).includes('/api/sessions/')
+      )
+    ).toHaveLength(0)
+  })
+
+  it('explain --task works with --file', async () => {
+    routeFetch()
+    const dir = mkdtempSync(join(tmpdir(), 'lum932-'))
+    const file = join(dir, 'notes.json')
+    writeFileSync(file, JSON.stringify([{ id: 'cx-a', note: 'x' }]))
+    await crossingExplain(undefined, { file, task: 'EZE-7' })
+    expect(stdout.join('')).toContain('EZE-7')
+  })
+})
+
 describe('batch grammar and docs', () => {
   it('grammar lists the batch forms (disposition <ids...>, explain --file)', () => {
     const cmds = (
@@ -448,6 +478,9 @@ describe('batch grammar and docs', () => {
     ).commands
     expect(Object.keys(cmds['crossing explain']?.flags ?? {})).toContain(
       '--file'
+    )
+    expect(Object.keys(cmds['crossing explain']?.flags ?? {})).toContain(
+      '--task'
     )
     expect(JSON.stringify(cmds['crossing disposition'])).toMatch(/ids/)
   })

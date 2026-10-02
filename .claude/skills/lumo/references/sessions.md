@@ -145,9 +145,11 @@ Every subagent gets its own child session (`<parent session id>:<agent id>`); `l
 
 When to suggest: you are about to dispatch subagents to work on **different** tasks from one session — do not attach the main session; instruct each subagent to attach its own task first. If all subagents work on the **same** task, attach the main session once instead — the subagents inherit it.
 
-#### Automatic attribution (LUM-932, observe-only)
+#### Automatic attribution (LUM-932)
 
-When a session is not attached, Lumo infers which task each turn belongs to from what the session does: the git branch (`lumo/LUM-12-…`, or a branch with a linked PR), `lumo` commands that name a task (`lumo verify LUM-12`), commit messages with `[LUM-12]`, `gh pr create` titles, task ids in your prompts, and — for subagents — task ids in the prompt that dispatched them. On a task branch, work is attributed to that branch's task; to switch tasks, switch branch or worktree (or attach). Attaching still takes precedence. In this release the inferred attribution is recorded for evaluation only; gates and statistics still use explicit attachment.
+When a session is not attached, Lumo attributes its work by inference from what the session does: the git branch (`lumo/LUM-12-…`, or a branch with a linked PR), `lumo` commands that name a task (`lumo verify LUM-12`), commit messages with `[LUM-12]`, `gh pr create` titles, task ids in your prompts, subagent dispatch prompts, and the session-start git hint. This attribution drives gates and cost: events are tagged with the inferred task at record time, boundary-crossing detectors run immediately, and the task's cost and iterations include that work. Attribution can change at the next recompute (after a turn ends, a subagent stops, or an attach); undispositioned crossings move with the work, ruled ones stay. On a task branch, work belongs to the branch's task; to switch tasks, switch branch or worktree (or attach).
+
+`lumo session attach` remains the explicit, highest-priority binding and is recommended at the start of task work; attaching later re-tags the session's earlier work (and its open crossings) to the attached task. Unattached task work no longer records `SESSION_BINDING_MISSING`; a session explicitly attached to a _different_ task is still refused (409). STEWARD sessions and their subagents are never inferred onto a task.
 
 ### `lumo session attach --steward <milestone>` — bind as a STEWARD (governance) session (LUM-640)
 

@@ -123,6 +123,12 @@ const SELECT = {
   remediationTaskId: true,
   // LUM-751: which suppression rule auto-dispositioned it (null otherwise).
   suppressionRuleId: true,
+  // LUM-932: the recording session — `explain` scopes unattached callers by it.
+  // Hook-originated crossings carry only `hookEventId` (the event's session).
+  sessionId: true,
+  // The triggering hook event id — the read model joins it to surface the
+  // inline edit-change for display-safe crossings (LUM-452).
+  hookEventId: true,
 } as const
 
 /**
@@ -131,12 +137,8 @@ const SELECT = {
  */
 const VIEW_SELECT = {
   ...SELECT,
-  // The triggering hook event id — the read model joins it to surface the
-  // inline edit-change for display-safe crossings (LUM-452).
-  hookEventId: true,
-  // LUM-511: the originating session for a hook-less (CLI-sourced) crossing —
-  // the attribution read model falls back to it when hookEventId is null.
-  sessionId: true,
+  // LUM-452 hookEventId — now part of SELECT.
+  // LUM-511: the originating session for a hook-less crossing — now part of SELECT.
   // LUM-590: advisory crossings surface in the panel but never block DONE.
   advisory: true,
   // LUM-590: which compiled PolicyRule fired (text ref / id).
@@ -316,6 +318,22 @@ export const boundaryCrossingRepository = {
     })
     return new Set(
       rows.map(r => r.taskId).filter((id): id is string => id !== null)
+    )
+  },
+
+  /**
+   * Hook event ids (within the candidate set) that already own ≥1 crossing —
+   * one batched query; the detector replay skips them.
+   */
+  async hookEventIdsWithCrossing(eventIds: string[]): Promise<Set<string>> {
+    if (eventIds.length === 0) return new Set()
+    const rows = await prisma.boundaryCrossing.findMany({
+      where: { hookEventId: { in: eventIds } },
+      select: { hookEventId: true },
+      distinct: ['hookEventId'],
+    })
+    return new Set(
+      rows.map(r => r.hookEventId).filter((id): id is string => id !== null)
     )
   },
 
@@ -750,7 +768,15 @@ export const boundaryCrossingRepository = {
   async findUnnotifiedOpenByTask(taskId: string) {
     return prisma.boundaryCrossing.findMany({
       where: { taskId, disposition: null, agentNotifiedAt: null },
-      select: { id: true, category: true, severity: true, advisory: true },
+      select: {
+        id: true,
+        category: true,
+        severity: true,
+        advisory: true,
+        task: {
+          select: { number: true, team: { select: { identifier: true } } },
+        },
+      },
       orderBy: { detectedAt: 'asc' },
     })
   },

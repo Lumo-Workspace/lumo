@@ -1,6 +1,7 @@
 import {
   activeDurationMs,
   activeDurationMsBySession,
+  activeDurationMsBySessionTask,
   sumActiveDurationSec,
   IDLE_THRESHOLD_MS,
 } from '@/lib/agent-run/active-time'
@@ -265,5 +266,54 @@ describe('activeDurationMsBySession', () => {
       { sessionId: 's1', type: 'STOP', createdAt: at(5 * HOUR + 20_000) },
     ])
     expect(map.get('s1')).toBe(50_000)
+  })
+})
+
+describe('activeDurationMsBySessionTask', () => {
+  it("buckets one session's turns by each event's own task", () => {
+    const groups = activeDurationMsBySessionTask(
+      [
+        {
+          sessionId: 'U',
+          taskId: 't1',
+          type: 'USER_PROMPT_SUBMIT',
+          createdAt: at(0),
+        },
+        { sessionId: 'U', taskId: 't1', type: 'STOP', createdAt: at(60_000) },
+        {
+          sessionId: 'U',
+          taskId: 't2',
+          type: 'USER_PROMPT_SUBMIT',
+          createdAt: at(HOUR),
+        },
+        {
+          sessionId: 'U',
+          taskId: 't2',
+          type: 'STOP',
+          createdAt: at(HOUR + 120_000),
+        },
+      ],
+      () => null
+    )
+    expect(groups).toEqual([
+      { sessionId: 'U', taskId: 't1', ms: 60_000 },
+      { sessionId: 'U', taskId: 't2', ms: 120_000 },
+    ])
+  })
+
+  it('falls back to the session task when an event carries no task', () => {
+    const groups = activeDurationMsBySessionTask(
+      [
+        { sessionId: 's1', type: 'USER_PROMPT_SUBMIT', createdAt: at(0) },
+        { sessionId: 's1', type: 'STOP', createdAt: at(30_000) },
+        { sessionId: null, type: 'USER_PROMPT_SUBMIT', createdAt: at(0) },
+        { sessionId: null, type: 'STOP', createdAt: at(10_000) },
+      ],
+      sessionId => (sessionId === 's1' ? 't9' : null)
+    )
+    expect(groups).toEqual([
+      { sessionId: 's1', taskId: 't9', ms: 30_000 },
+      { sessionId: '__none__', taskId: null, ms: 10_000 },
+    ])
   })
 })

@@ -103,7 +103,10 @@ export const fragmentUsageAuditService = {
       const task = await taskRepository.getTitleAndStatus(taskId)
       if (!task) return
       const sessions = await sessionRepository.listForTask(taskId)
-      const ids = sessions.map(s => s.id)
+      // LUM-932 P3: unattached sessions inferred onto the task may span other
+      // tasks — judging their usage against this one task's title would cast
+      // votes on another task's work. Only explicitly bound sessions vote.
+      const ids = sessions.filter(s => !s.inferred).map(s => s.id)
       if (ids.length === 0) return
       const voted = await lineageEdgeRepository.findVotedSessionIds(ids)
       for (const id of ids) {

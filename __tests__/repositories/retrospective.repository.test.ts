@@ -5,13 +5,14 @@ jest.mock('@/lib/db/prisma', () => ({
     task: { findUnique: jest.fn(), count: jest.fn() },
     notification: { count: jest.fn() },
     hookEvent: { findMany: jest.fn() },
-    session: { findMany: jest.fn() },
+    session: { findMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
     verificationRun: { findMany: jest.fn() },
   },
 }))
 
 import { prisma } from '@/lib/db/prisma'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
+import { inferredUsageEventsForTasks } from '@/lib/repositories/task-attribution-where'
 
 const snapFind = prisma.taskForecastSnapshot.findUnique as jest.Mock
 const snapCreate = prisma.taskForecastSnapshot.create as jest.Mock
@@ -194,8 +195,27 @@ it('createSnapshotIfAbsent freezes null friction when there are no runs (no-veri
 it('countReferenceLibrary counts DONE tasks with sessions', async () => {
   taskCount.mockResolvedValue(27)
   expect(await retrospectiveRepository.countReferenceLibrary('p1')).toBe(27)
+  // LUM-932 P3: explicit sessions OR unattached top-level work inferred onto it.
   expect(taskCount).toHaveBeenCalledWith({
-    where: { projectId: 'p1', status: 'DONE', sessions: { some: {} } },
+    where: {
+      projectId: 'p1',
+      status: 'DONE',
+      OR: [
+        { sessions: { some: {} } },
+        {
+          attributionSegments: {
+            some: {
+              source: 'INFERRED',
+              session: {
+                parentSessionId: null,
+                taskId: null,
+                NOT: { role: 'STEWARD', milestoneId: { not: null } },
+              },
+            },
+          },
+        },
+      ],
+    },
   })
 })
 
@@ -355,11 +375,23 @@ describe('loadMemberActualRowsForTasks', () => {
         cacheCreationTokens: 0,
       },
     ]
+    const createdAt = new Date('2026-06-02T09:00:00Z')
     const events = [
+      // NULL event task → falls back to the session's explicit task.
       {
         sessionId: 's-1',
+        taskId: null,
         type: 'USER_PROMPT_SUBMIT',
-        createdAt: new Date('2026-06-02T09:00:00Z'),
+        createdAt,
+        session: { taskId: 't1' },
+      },
+      // The event's own task wins (LUM-932 per-event attribution).
+      {
+        sessionId: 's-1',
+        taskId: 't2',
+        type: 'STOP',
+        createdAt,
+        session: { taskId: 't1' },
       },
     ]
     sessionFind.mockResolvedValue(sessions)
@@ -369,7 +401,18 @@ describe('loadMemberActualRowsForTasks', () => {
       't1',
       't2',
     ])
-    expect(out).toEqual({ sessions, turnEvents: events })
+    expect(out).toEqual({
+      sessions,
+      turnEvents: [
+        {
+          sessionId: 's-1',
+          taskId: 't1',
+          type: 'USER_PROMPT_SUBMIT',
+          createdAt,
+        },
+        { sessionId: 's-1', taskId: 't2', type: 'STOP', createdAt },
+      ],
+    })
     // Same task-linked session set as loadActualsForTasks, now with the
     // per-member attribution keys (id + workspaceMemberId) and the LUM-636
     // per-model map selected.
@@ -396,7 +439,13 @@ describe('loadMemberActualRowsForTasks', () => {
           ],
         }),
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        select: { sessionId: true, type: true, createdAt: true },
+        select: {
+          sessionId: true,
+          taskId: true,
+          type: true,
+          createdAt: true,
+          session: { select: { taskId: true } },
+        },
       })
     )
   })
@@ -440,8 +489,12 @@ describe('loadSessionTokenRowsForTasks', () => {
       },
     })
     // Lean by design: the delivery rollup needs no active time, so the
-    // hook-event stream is never fetched on this path.
-    expect(hookFind).not.toHaveBeenCalled()
+    // active-time hook-event stream is never fetched on this path — the only
+    // hook-event read is the LUM-932 P3 inferred-usage query (one, batched).
+    expect(hookFind).toHaveBeenCalledTimes(1)
+    expect(hookFind.mock.calls[0][0].where).toEqual(
+      inferredUsageEventsForTasks(['t1', 't2'])
+    )
   })
 
   it('short-circuits an empty task set without querying', async () => {

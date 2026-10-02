@@ -97,7 +97,7 @@ What the CLI does instead: when `task update <id> --status done --confirm` is re
   ],
   "unconfirmed": [],
   "remediation": [
-    "BOUNDARY_CROSSING: leave a rationale with `lumo crossing explain cmtw… --note \"…\"` (append-only; it does not clear anything), then relay each crossing to the user. Once they rule, record it with `lumo crossing disposition cmtw… --false-positive` or `--confirmed` — it prints an exit-4 envelope for the user to approve; never self-approve. The web panel also works: https://…/my-tasks/LUM-48#boundary-crossings"
+    "BOUNDARY_CROSSING: leave a rationale with `lumo crossing explain cmtw… --task LUM-48 --note \"…\"` (append-only; it does not clear anything), then relay each crossing to the user. Once they rule, record it with `lumo crossing disposition cmtw… --false-positive` or `--confirmed` — it prints an exit-4 envelope for the user to approve; never self-approve. The web panel also works: https://…/my-tasks/LUM-48#boundary-crossings"
   ],
   "dispositionUrl": "https://…/my-tasks/LUM-48#boundary-crossings"
 }

@@ -383,6 +383,10 @@ crossing
     '--file <path>',
     'Batch: a JSON array of {"id": "<crossing>", "note": "<text>"} — one note per crossing, in one call; "-" reads stdin. Replaces <id> --note'
   )
+  .option(
+    '--task <identifier>',
+    'Task the crossing belongs to (defaults to the session-bound task; unattached sessions must pass it)'
+  )
   .action(
     wrap((id: unknown, options: unknown) =>
       crossingExplain(id as string, options as CrossingExplainOptions)

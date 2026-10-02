@@ -1,17 +1,43 @@
 import { Prisma, type HookEventType } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import {
+  eventsForTask,
+  eventsForTasks,
+  inferredTopLevelSessionsForTask,
+  taskHasSessions,
+} from '@/lib/repositories/task-attribution-where'
 import type { Interval } from '@/lib/forecast/types'
 import { sumActiveDurationSec } from '@/lib/agent-run/active-time'
 import {
   mergeModelCosts,
   toModelCosts,
+  usageMapTotal,
   type ModelCost,
   type ModelUsage,
 } from '@/lib/services/model-cost'
 import {
+  foldInferredBySession,
+  inferredUsageForTasks,
+} from '@/lib/repositories/inferred-usage.repository'
+import {
   computeFriction,
   type VerificationRunRow,
 } from '@/lib/outcome/friction'
+
+/** Flat cumulative token total of one session-shaped row (nulls → 0). */
+function flatTokens(s: {
+  inputTokens: number | null
+  outputTokens: number | null
+  cacheReadTokens: number | null
+  cacheCreationTokens: number | null
+}): number {
+  return (
+    (s.inputTokens ?? 0) +
+    (s.outputTokens ?? 0) +
+    (s.cacheReadTokens ?? 0) +
+    (s.cacheCreationTokens ?? 0)
+  )
+}
 
 /**
  * Wiring seam for the LUM-606 friction freeze: capture-time friction ALWAYS uses
@@ -100,9 +126,10 @@ const ACTIVE_TIME_EVENT_TYPES: HookEventType[] = [
   'ELICITATION_RESULT',
 ]
 
-/** One session's token spend for the cost trajectory (LUM-562). Summed from the
- *  SAME cumulative `Session.*` columns `loadActuals` totals, over the SAME
- *  task-linked session set — so Σ over a task's sessions equals that task's
+/** One TOP-LEVEL session's token spend for the cost trajectory (LUM-562;
+ *  LUM-932 P3: explicit children and unattached work's per-turn usage fold
+ *  into their family root). Summed from the SAME parts `loadActuals` totals,
+ *  over the SAME task-linked set — so Σ over a task's points equals that task's
  *  `loadActuals.tokenCost` (the Cost-section total), and the report's cost total
  *  and its trajectory cannot drift. */
 export interface PerSessionCost {
@@ -182,6 +209,7 @@ export const retrospectiveRepository = {
         projectId: true,
         sessions: {
           select: {
+            parentSessionId: true,
             inputTokens: true,
             outputTokens: true,
             cacheReadTokens: true,
@@ -192,31 +220,32 @@ export const retrospectiveRepository = {
     })
     if (!task) return null
 
-    const hasUsage = task.sessions.some(s => s.outputTokens !== null)
-    const tokenCost = hasUsage
-      ? task.sessions.reduce(
-          (sum, s) =>
-            sum +
-            (s.inputTokens ?? 0) +
-            (s.outputTokens ?? 0) +
-            (s.cacheReadTokens ?? 0) +
-            (s.cacheCreationTokens ?? 0),
-          0
-        )
-      : null
-
     // Active time from the full hook-event stream for every session linked to
     // the task — wider type list lets active-time exclude mid-turn human-wait
     // intervals (PERMISSION_REQUEST / NOTIFICATION / ELICITATION) in addition
     // to the inter-turn idle that was already excluded.
-    const turnEvents = await prisma.hookEvent.findMany({
-      where: {
-        OR: [{ taskId }, { taskId: null, session: { taskId } }],
-        type: { in: ACTIVE_TIME_EVENT_TYPES },
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { sessionId: true, type: true, createdAt: true },
-    })
+    const [turnEvents, inferred, inferredSessionCount] = await Promise.all([
+      prisma.hookEvent.findMany({
+        where: {
+          ...eventsForTask(taskId),
+          type: { in: ACTIVE_TIME_EVENT_TYPES },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: { sessionId: true, type: true, createdAt: true },
+      }),
+      inferredUsageForTasks([taskId]),
+      prisma.session.count({ where: inferredTopLevelSessionsForTask(taskId) }),
+    ])
+
+    // LUM-932 P3 hybrid cost: explicit sessions' cumulative columns (as
+    // before) + unattached work's per-turn usage rows attributed to the task.
+    // Null only when neither part carries usage (没测到 ≠ 花了0).
+    const hasUsage =
+      task.sessions.some(s => s.outputTokens !== null) || inferred.length > 0
+    const tokenCost = hasUsage
+      ? task.sessions.reduce((sum, s) => sum + flatTokens(s), 0) +
+        inferred.reduce((sum, r) => sum + usageMapTotal(r.usageByModel), 0)
+      : null
     const totalDurationSec = sumActiveDurationSec(
       turnEvents.map(e => ({
         sessionId: e.sessionId ?? '__none__',
@@ -235,7 +264,12 @@ export const retrospectiveRepository = {
     return {
       projectId: task.projectId,
       tokenCost,
-      iterations: task.sessions.length,
+      // LUM-932 P3: distinct TOP-LEVEL sessions — explicit ones bound to the
+      // task + unattached ones inferred onto it. Subagent children are part of
+      // their parent's run, never an iteration of their own.
+      iterations:
+        task.sessions.filter(s => !s.parentSessionId).length +
+        inferredSessionCount,
       interactionRounds,
       totalDurationSec,
     }
@@ -263,17 +297,31 @@ export const retrospectiveRepository = {
       }
     }
 
-    const sessions = await prisma.session.findMany({
-      where: { taskId: { in: taskIds } },
-      select: {
-        taskId: true,
-        inputTokens: true,
-        outputTokens: true,
-        cacheReadTokens: true,
-        cacheCreationTokens: true,
-        usageByModel: true,
-      },
-    })
+    const [explicitSessions, inferred] = await Promise.all([
+      prisma.session.findMany({
+        where: { taskId: { in: taskIds } },
+        select: {
+          taskId: true,
+          inputTokens: true,
+          outputTokens: true,
+          cacheReadTokens: true,
+          cacheCreationTokens: true,
+          usageByModel: true,
+        },
+      }),
+      inferredUsageForTasks(taskIds),
+    ])
+    // LUM-932 P3: unattached work joins as per-(task, session) rows whose flat
+    // columns are the per-kind totals of their summed per-turn usage maps, so
+    // the measured gate, Σ and per-model split below treat both alike.
+    const sessions: Array<{
+      taskId: string | null
+      inputTokens: number | null
+      outputTokens: number | null
+      cacheReadTokens: number | null
+      cacheCreationTokens: number | null
+      usageByModel: unknown
+    }> = [...explicitSessions, ...foldInferredBySession(inferred)]
 
     const measured = new Set<string>()
     for (const s of sessions) {
@@ -284,11 +332,7 @@ export const retrospectiveRepository = {
     let tokenSum = 0
     for (const s of sessions) {
       if (s.taskId === null || !measured.has(s.taskId)) continue
-      tokenSum +=
-        (s.inputTokens ?? 0) +
-        (s.outputTokens ?? 0) +
-        (s.cacheReadTokens ?? 0) +
-        (s.cacheCreationTokens ?? 0)
+      tokenSum += flatTokens(s)
     }
 
     // Per-model split of the SAME measured sessions (LUM-636): merge each
@@ -308,10 +352,7 @@ export const retrospectiveRepository = {
 
     const turnEvents = await prisma.hookEvent.findMany({
       where: {
-        OR: [
-          { taskId: { in: taskIds } },
-          { taskId: null, session: { taskId: { in: taskIds } } },
-        ],
+        ...eventsForTasks(taskIds),
         type: { in: ACTIVE_TIME_EVENT_TYPES },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -357,8 +398,12 @@ export const retrospectiveRepository = {
        * model split reads it through the same measured gate as the sums. */
       usageByModel: unknown
     }>
+    /** `taskId` = the event's attributed task (its own taskId, else its
+     * session's explicit task — the `eventsForTasks` rule), so per-task
+     * active time buckets by event, not by session (LUM-932). */
     turnEvents: Array<{
       sessionId: string | null
+      taskId: string | null
       type: HookEventType
       createdAt: Date
     }>
@@ -366,7 +411,7 @@ export const retrospectiveRepository = {
     if (taskIds.length === 0) {
       return { sessions: [], turnEvents: [] }
     }
-    const [sessions, turnEvents] = await Promise.all([
+    const [explicitSessions, rawTurnEvents, inferred] = await Promise.all([
       prisma.session.findMany({
         where: { taskId: { in: taskIds } },
         select: {
@@ -382,16 +427,41 @@ export const retrospectiveRepository = {
       }),
       prisma.hookEvent.findMany({
         where: {
-          OR: [
-            { taskId: { in: taskIds } },
-            { taskId: null, session: { taskId: { in: taskIds } } },
-          ],
+          ...eventsForTasks(taskIds),
           type: { in: ACTIVE_TIME_EVENT_TYPES },
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        select: { sessionId: true, type: true, createdAt: true },
+        select: {
+          sessionId: true,
+          taskId: true,
+          type: true,
+          createdAt: true,
+          session: { select: { taskId: true } },
+        },
       }),
+      inferredUsageForTasks(taskIds),
     ])
+    const turnEvents = rawTurnEvents.map(e => ({
+      sessionId: e.sessionId,
+      taskId: e.taskId ?? e.session?.taskId ?? null,
+      type: e.type,
+      createdAt: e.createdAt,
+    }))
+    // LUM-932 P3: unattached work joins as per-(task, session) rows keyed by
+    // the unattached session id + the member on its usage rows.
+    const sessions = [
+      ...explicitSessions,
+      ...foldInferredBySession(inferred).map(r => ({
+        id: r.id,
+        taskId: r.taskId,
+        workspaceMemberId: r.workspaceMemberId,
+        inputTokens: r.inputTokens,
+        outputTokens: r.outputTokens,
+        cacheReadTokens: r.cacheReadTokens,
+        cacheCreationTokens: r.cacheCreationTokens,
+        usageByModel: r.usageByModel as unknown,
+      })),
+    ]
     return { sessions, turnEvents }
   },
 
@@ -413,17 +483,32 @@ export const retrospectiveRepository = {
     }>
   > {
     if (taskIds.length === 0) return []
-    return prisma.session.findMany({
-      where: { taskId: { in: taskIds } },
-      select: {
-        taskId: true,
-        workspaceMemberId: true,
-        inputTokens: true,
-        outputTokens: true,
-        cacheReadTokens: true,
-        cacheCreationTokens: true,
-      },
-    })
+    const [explicitRows, inferred] = await Promise.all([
+      prisma.session.findMany({
+        where: { taskId: { in: taskIds } },
+        select: {
+          taskId: true,
+          workspaceMemberId: true,
+          inputTokens: true,
+          outputTokens: true,
+          cacheReadTokens: true,
+          cacheCreationTokens: true,
+        },
+      }),
+      inferredUsageForTasks(taskIds),
+    ])
+    // LUM-932 P3: unattached work's spend joins the top-spender basis.
+    return [
+      ...explicitRows,
+      ...foldInferredBySession(inferred).map(r => ({
+        taskId: r.taskId,
+        workspaceMemberId: r.workspaceMemberId,
+        inputTokens: r.inputTokens,
+        outputTokens: r.outputTokens,
+        cacheReadTokens: r.cacheReadTokens,
+        cacheCreationTokens: r.cacheCreationTokens,
+      })),
+    ]
   },
 
   /**
@@ -437,35 +522,84 @@ export const retrospectiveRepository = {
    * keeps the trajectory free of 0-token points without breaking the Σ identity).
    */
   async loadPerSessionCost(taskId: string): Promise<PerSessionCost[]> {
-    const sessions = await prisma.session.findMany({
-      where: { taskId, outputTokens: { not: null } },
-      orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],
-      select: {
-        id: true,
-        startedAt: true,
-        inputTokens: true,
-        outputTokens: true,
-        cacheReadTokens: true,
-        cacheCreationTokens: true,
-        loopCount: true,
-      },
-    })
-    return sessions.map(s => ({
-      sessionId: s.id,
-      tokenCost:
-        (s.inputTokens ?? 0) +
-        (s.outputTokens ?? 0) +
-        (s.cacheReadTokens ?? 0) +
-        (s.cacheCreationTokens ?? 0),
-      loopCount: s.loopCount ?? 0,
-      startedAt: s.startedAt,
-    }))
+    const [sessions, inferred] = await Promise.all([
+      prisma.session.findMany({
+        where: { taskId, outputTokens: { not: null } },
+        orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],
+        select: {
+          id: true,
+          parentSessionId: true,
+          startedAt: true,
+          inputTokens: true,
+          outputTokens: true,
+          cacheReadTokens: true,
+          cacheCreationTokens: true,
+          loopCount: true,
+        },
+      }),
+      inferredUsageForTasks([taskId]),
+    ])
+
+    // LUM-932 P3: one point per TOP-LEVEL session. An explicit child folds
+    // into its parent's point only when that parent is itself in this task's
+    // explicit set (otherwise it is its own point here); unattached work's
+    // per-turn rows fold into their family root's point, dated by the root's
+    // start carried on the same usage query. Both parts are exactly what
+    // loadActuals sums, so Σ points == loadActuals.tokenCost.
+    const explicitIds = new Set(sessions.map(s => s.id))
+    const points = new Map<string, PerSessionCost>()
+    const add = (
+      rootId: string,
+      startedAt: Date | null,
+      tokens: number,
+      loops: number
+    ) => {
+      const cur = points.get(rootId) ?? {
+        sessionId: rootId,
+        tokenCost: 0,
+        loopCount: 0,
+        startedAt: new Date(0),
+      }
+      if (startedAt !== null) cur.startedAt = startedAt
+      cur.tokenCost += tokens
+      cur.loopCount += loops
+      points.set(rootId, cur)
+    }
+    for (const s of sessions) {
+      const folds =
+        s.parentSessionId != null && explicitIds.has(s.parentSessionId)
+      add(
+        folds ? s.parentSessionId! : s.id,
+        folds ? null : s.startedAt,
+        flatTokens(s),
+        s.loopCount ?? 0
+      )
+    }
+    for (const r of inferred) {
+      // A turn is a main-transcript STOP; subagent rows add spend, not turns.
+      const loops = r.type === 'SUBAGENT_STOP' ? 0 : 1
+      add(
+        r.rootSessionId,
+        // An explicit point keeps its own start; inferred roots carry theirs.
+        explicitIds.has(r.rootSessionId) ? null : r.rootStartedAt,
+        usageMapTotal(r.usageByModel),
+        loops
+      )
+    }
+
+    const out = [...points.values()]
+    return out.sort(
+      (a, b) =>
+        a.startedAt.getTime() - b.startedAt.getTime() ||
+        (a.sessionId < b.sessionId ? -1 : a.sessionId > b.sessionId ? 1 : 0)
+    )
   },
 
-  /** 参考库规模 = 项目内 DONE 且有 session 的任务数（= forecast 候选 universe）。 */
+  /** 参考库规模 = 项目内 DONE 且有 session 的任务数（= forecast 候选 universe）。
+   *  LUM-932 P3: a task worked only through unattached sessions counts too. */
   async countReferenceLibrary(projectId: string): Promise<number> {
     return prisma.task.count({
-      where: { projectId, status: 'DONE', sessions: { some: {} } },
+      where: { projectId, status: 'DONE', ...taskHasSessions },
     })
   },
 }

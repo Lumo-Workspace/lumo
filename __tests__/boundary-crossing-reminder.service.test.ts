@@ -30,7 +30,12 @@ describe('LUM-542 one-time crossing reminder', () => {
   it('one-time crossing reminder: surfaces fresh OPEN crossings and stamps agentNotifiedAt so a later hook does not re-nag', async () => {
     // First hook after detection: two un-notified OPEN crossings exist.
     bc.findMany.mockResolvedValueOnce([
-      { id: 'bc-1', category: 'PUSH_TO_PROTECTED_BRANCH', severity: 'MEDIUM' },
+      {
+        id: 'bc-1',
+        category: 'PUSH_TO_PROTECTED_BRANCH',
+        severity: 'MEDIUM',
+        task: { number: 12, team: { identifier: 'EZE' } },
+      },
       { id: 'bc-2', category: 'HARDCODED_SECRET', severity: 'HIGH' },
     ])
 
@@ -40,6 +45,8 @@ describe('LUM-542 one-time crossing reminder', () => {
     expect(first).toContain('bc-2')
     // Points the agent at the explain command, framed as append-only / non-clearing.
     expect(first).toContain('lumo crossing explain')
+    // LUM-932: unattached sessions can't resolve the task — the hint names it.
+    expect(first).toContain('lumo crossing explain <id> --task EZE-12 --note')
 
     // The reminder is fetched only for OPEN, not-yet-notified crossings…
     expect(bc.findMany.mock.calls[0][0].where).toEqual({

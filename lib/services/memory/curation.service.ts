@@ -30,7 +30,9 @@ export const memoryCurationService = {
       const sessions = await sessionRepository.listForTask(taskId)
       for (const s of sessions) {
         try {
-          await curateSession(s.id, task.title)
+          // LUM-932 P3: an unattached session inferred onto this task spans
+          // other tasks too — only memories born on THIS task are eligible.
+          await curateSession(s.id, task.title, s.inferred ? taskId : undefined)
         } catch (err) {
           logger.error(`[memory.curation] session=${s.id} failed`, err)
         }
@@ -44,13 +46,17 @@ export const memoryCurationService = {
 /**
  * Curate one session: judge its newly-recorded ACTIVE Layer-1 memories against
  * its event log, soft-invalidate the clearly-wrong ones. No-op when the session
- * recorded nothing or the log is empty.
+ * recorded nothing or the log is empty. `sourceTaskId` narrows eligibility to
+ * memories born on that task (unattached multi-task sessions).
  */
 async function curateSession(
   sessionId: string,
-  taskTitle: string
+  taskTitle: string,
+  sourceTaskId?: string
 ): Promise<void> {
-  const memories = await memoryRepository.findBySourceSessionId(sessionId)
+  const memories = sourceTaskId
+    ? await memoryRepository.findBySourceSessionId(sessionId, { sourceTaskId })
+    : await memoryRepository.findBySourceSessionId(sessionId)
   if (memories.length === 0) return
 
   const events = await sessionRepository.listEventsForSession(sessionId)

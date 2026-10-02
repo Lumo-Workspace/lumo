@@ -7,6 +7,9 @@ import type {
 } from '@/types/summary'
 import { collectTopBlockers, stalledCutoff } from './top-blockers'
 import { selectHighStakesStalls, type TaskContextSample } from './high-stakes'
+import { inferredUsageForTasks } from '@/lib/repositories/inferred-usage.repository'
+import { usageMapTotal } from '@/lib/services/model-cost'
+import { inferredTopLevelSessionsForTasks } from '@/lib/repositories/task-attribution-where'
 
 const EMPTY_BLOCKERS: TopBlockers = {
   overdueTaskIds: [],
@@ -320,23 +323,61 @@ export async function aggregateProjectStats(
  * measured") rather than collapsed to 0 — a task nobody measured must not read
  * as a task that cost nothing.
  */
-async function loadTaskContextSamples(
+export async function loadTaskContextSamples(
   taskIds: string[]
 ): Promise<Map<string, TaskContextSample>> {
   if (taskIds.length === 0) return new Map()
 
-  const groups = await prisma.session.groupBy({
-    by: ['taskId'],
-    where: { taskId: { in: taskIds } },
-    _count: { _all: true },
-    _sum: {
-      loopCount: true,
-      inputTokens: true,
-      outputTokens: true,
-      cacheReadTokens: true,
-      cacheCreationTokens: true,
-    },
-  })
+  const [groups, topLevelGroups, inferredSessions, inferred] =
+    await Promise.all([
+      prisma.session.groupBy({
+        by: ['taskId'],
+        where: { taskId: { in: taskIds } },
+        _count: { _all: true },
+        _sum: {
+          loopCount: true,
+          inputTokens: true,
+          outputTokens: true,
+          cacheReadTokens: true,
+          cacheCreationTokens: true,
+        },
+      }),
+      // LUM-932 P3: sessionCount = distinct TOP-LEVEL sessions — explicit ones
+      // bound to the task + unattached ones inferred onto it (never children).
+      prisma.session.groupBy({
+        by: ['taskId'],
+        where: { taskId: { in: taskIds }, parentSessionId: null },
+        _count: { _all: true },
+      }),
+      prisma.session.findMany({
+        where: inferredTopLevelSessionsForTasks(taskIds),
+        select: {
+          attributionSegments: {
+            where: { taskId: { in: taskIds }, source: 'INFERRED' },
+            select: { taskId: true },
+          },
+        },
+      }),
+      inferredUsageForTasks(taskIds),
+    ])
+  const sessionCountByTask = new Map<string, number>()
+  for (const g of topLevelGroups) {
+    if (g.taskId) sessionCountByTask.set(g.taskId, g._count._all)
+  }
+  for (const s of inferredSessions) {
+    for (const taskId of new Set(s.attributionSegments.map(g => g.taskId))) {
+      sessionCountByTask.set(taskId, (sessionCountByTask.get(taskId) ?? 0) + 1)
+    }
+  }
+  // LUM-932 P3 hybrid cost: unattached work's per-turn usage per task, added
+  // on top of the explicit sessions' cumulative columns.
+  const inferredByTask = new Map<string, number>()
+  for (const r of inferred) {
+    inferredByTask.set(
+      r.taskId,
+      (inferredByTask.get(r.taskId) ?? 0) + usageMapTotal(r.usageByModel)
+    )
+  }
 
   const samples = new Map<string, TaskContextSample>()
   for (const g of groups) {
@@ -348,15 +389,31 @@ async function loadTaskContextSamples(
       sums.cacheReadTokens,
       sums.cacheCreationTokens,
     ]
-    const totalTokens = tokenParts.every(p => p === null)
+    const explicitTokens = tokenParts.every(p => p === null)
       ? null
       : tokenParts.reduce<number>((acc, p) => acc + (p ?? 0), 0)
+    const inferredTokens = inferredByTask.get(g.taskId)
+    const totalTokens =
+      inferredTokens === undefined
+        ? explicitTokens
+        : (explicitTokens ?? 0) + inferredTokens
 
     samples.set(g.taskId, {
       taskId: g.taskId,
-      sessionCount: g._count._all,
+      sessionCount: sessionCountByTask.get(g.taskId) ?? 0,
       loopCount: sums.loopCount,
       totalTokens,
+    })
+  }
+  // Tasks worked on only through unattached sessions: cost is measured and
+  // the inferred sessions are counted; there is no explicit loop count.
+  for (const [taskId, tokens] of inferredByTask) {
+    if (samples.has(taskId)) continue
+    samples.set(taskId, {
+      taskId,
+      sessionCount: sessionCountByTask.get(taskId) ?? 0,
+      loopCount: null,
+      totalTokens: tokens,
     })
   }
   return samples

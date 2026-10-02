@@ -2,7 +2,7 @@
 jest.mock('@/lib/db/prisma', () => ({
   prisma: {
     task: { findUnique: jest.fn() },
-    session: { findMany: jest.fn() },
+    session: { findMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
     hookEvent: { findMany: jest.fn() },
     verificationRun: { findMany: jest.fn() },
   },

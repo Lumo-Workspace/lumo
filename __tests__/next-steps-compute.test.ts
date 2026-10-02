@@ -55,7 +55,7 @@ describe('computeNextSteps', () => {
       input({ status: 'IN_PROGRESS', hasCriteria: true, openCrossings: 2 })
     )
     expect(commands(crossing)[0]).toBe(
-      'lumo crossing explain LUM-686 --note "<text>"'
+      'lumo crossing explain <id> --task LUM-686 --note "<text>"'
     )
 
     // A rejected round points at the unmet-criteria read-out.

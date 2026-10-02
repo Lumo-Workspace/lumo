@@ -19,6 +19,15 @@ jest.mock('@/lib/repositories/session.repository', () => ({
     settleChildUsage: jest.fn(async () => ({ settled: true })),
   },
 }))
+// LUM-932 P3: unattached events ask for a provisional task; nothing resolves here.
+jest.mock('@/lib/repositories/attribution.repository', () => ({
+  ATTRIBUTION_COMPUTE_VERSION: 1,
+  attributionRepository: {
+    findOpenSegmentTask: jest.fn(async () => null),
+    resolveIdentifiers: jest.fn(async () => new Map()),
+    taskIdsForBranches: jest.fn(async () => new Map()),
+  },
+}))
 jest.mock('@/lib/repositories/misc.repository', () => ({
   miscRepository: { findMemberIdForHook: jest.fn(async () => 'wm_1') },
 }))
@@ -136,6 +145,8 @@ describe('splits subagent usage out of the parent without double counting', () =
     sess.upsertChildForHookEvent.mockResolvedValue({
       id: 'P:abeaba01ea909a7ee',
       taskId: null,
+
+      steward: false,
     })
     await hookEventService.recordHookEvent({
       identity,

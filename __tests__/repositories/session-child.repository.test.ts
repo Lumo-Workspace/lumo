@@ -13,9 +13,11 @@ jest.mock('@/lib/db/prisma', () => {
     },
     hookEvent: {
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
+    boundaryCrossing: { updateMany: jest.fn() },
   }
   return {
     prisma: {
@@ -41,7 +43,11 @@ const tx = (
         | 'updateMany',
         jest.Mock
       >
-      hookEvent: Record<'findFirst' | 'update' | 'updateMany', jest.Mock>
+      hookEvent: Record<
+        'findFirst' | 'findMany' | 'update' | 'updateMany',
+        jest.Mock
+      >
+      boundaryCrossing: Record<'updateMany', jest.Mock>
     }
   }
 ).__tx
@@ -86,7 +92,7 @@ describe('upsertChildForHookEvent', () => {
         }),
       })
     )
-    expect(r).toEqual({ id: 'P:a1', taskId: null })
+    expect(r).toEqual({ id: 'P:a1', taskId: null, steward: false })
   })
 
   it('stamps INHERITED when the parent is bound', async () => {
@@ -111,12 +117,45 @@ describe('upsertChildForHookEvent', () => {
   })
 })
 
+describe('upsertChildForHookEvent — steward parent (LUM-640)', () => {
+  it('reports steward from the parent read it already does', async () => {
+    tx.session.upsert
+      .mockResolvedValueOnce({
+        id: 'P',
+        taskId: null,
+        role: 'STEWARD',
+        milestoneId: 'm1',
+      })
+      .mockResolvedValueOnce({ id: 'P:a1', taskId: null })
+    const r = await sessionRepository.upsertChildForHookEvent({
+      ...base,
+      parentSessionId: 'P',
+      agentId: 'a1',
+      agentType: null,
+      cwd: null,
+    })
+    expect(tx.session.upsert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        select: { id: true, taskId: true, role: true, milestoneId: true },
+      })
+    )
+    expect(r).toEqual({ id: 'P:a1', taskId: null, steward: true })
+    expect(tx.session.findUnique).not.toHaveBeenCalled()
+  })
+})
+
 describe('upsertChildForHookEvent — late parent binding', () => {
   it('an existing unbound child inherits a parent bound since (closes the attach race)', async () => {
     tx.session.upsert
       .mockResolvedValueOnce({ id: 'P', taskId: 't1' }) // parent, bound
       .mockResolvedValueOnce({ id: 'P:a1', taskId: null }) // existing child
     tx.session.updateMany.mockResolvedValueOnce({ count: 1 })
+    // One event was provisionally tagged with another task, with an open crossing.
+    tx.hookEvent.findMany.mockResolvedValueOnce([
+      { id: 'he_prov', taskId: 't9' },
+    ])
+    tx.boundaryCrossing.updateMany.mockResolvedValueOnce({ count: 1 })
     tx.hookEvent.updateMany.mockResolvedValueOnce({ count: 2 })
     const r = await sessionRepository.upsertChildForHookEvent({
       ...base,
@@ -129,11 +168,23 @@ describe('upsertChildForHookEvent — late parent binding', () => {
       where: { id: 'P:a1', taskId: null, role: 'IMPLEMENTATION' },
       data: { taskId: 't1', bindingSource: 'INHERITED' },
     })
+    // Explicit binding wins over provisional tags: every non-t1 event moves.
     expect(tx.hookEvent.updateMany).toHaveBeenCalledWith({
-      where: { sessionId: 'P:a1', taskId: null },
+      where: {
+        sessionId: { in: ['P:a1'] },
+        OR: [{ taskId: null }, { taskId: { not: 't1' } }],
+      },
       data: { taskId: 't1' },
     })
-    expect(r).toEqual({ id: 'P:a1', taskId: 't1' })
+    expect(tx.boundaryCrossing.updateMany).toHaveBeenCalledWith({
+      where: {
+        taskId: { in: ['t9'] },
+        disposition: null,
+        hookEventId: { in: ['he_prov'] },
+      },
+      data: { taskId: 't1' },
+    })
+    expect(r).toEqual({ id: 'P:a1', taskId: 't1', steward: false })
   })
 
   it('leaves a child with its own task, or an unbound parent, alone', async () => {
@@ -148,7 +199,7 @@ describe('upsertChildForHookEvent — late parent binding', () => {
         agentType: null,
         cwd: null,
       })
-    ).toEqual({ id: 'P:a1', taskId: 't2' })
+    ).toEqual({ id: 'P:a1', taskId: 't2', steward: false })
     tx.session.upsert
       .mockResolvedValueOnce({ id: 'P', taskId: null })
       .mockResolvedValueOnce({ id: 'P:a1', taskId: null })
@@ -164,9 +215,11 @@ describe('upsertChildForHookEvent — late parent binding', () => {
 })
 
 describe('inheritTaskToUnboundChildren', () => {
-  it('binds only unbound children and retags their untagged events', async () => {
+  it('binds only unbound children and retags all their events to the explicit task', async () => {
     tx.session.findMany.mockResolvedValueOnce([{ id: 'P:a1' }, { id: 'P:a2' }])
     tx.session.updateMany.mockResolvedValueOnce({ count: 2 })
+    tx.hookEvent.findMany.mockResolvedValueOnce([{ id: 'he_prov' }])
+    tx.boundaryCrossing.updateMany.mockResolvedValueOnce({ count: 1 })
     tx.hookEvent.updateMany.mockResolvedValueOnce({ count: 7 })
     const r = await sessionRepository.inheritTaskToUnboundChildren('P', 't1')
     expect(tx.session.findMany).toHaveBeenCalledWith(
@@ -177,10 +230,37 @@ describe('inheritTaskToUnboundChildren', () => {
       data: { taskId: 't1', bindingSource: 'INHERITED' },
     })
     expect(tx.hookEvent.updateMany).toHaveBeenCalledWith({
-      where: { sessionId: { in: ['P:a1', 'P:a2'] }, taskId: null },
+      where: {
+        sessionId: { in: ['P:a1', 'P:a2'] },
+        OR: [{ taskId: null }, { taskId: { not: 't1' } }],
+      },
       data: { taskId: 't1' },
     })
-    expect(r).toEqual({ childCount: 2, retaggedEventCount: 7 })
+    expect(r).toEqual({
+      childCount: 2,
+      retaggedEventCount: 7,
+      crossingsMoved: 1,
+    })
+  })
+})
+
+describe('inheritTaskToUnboundChildren lock order (I5)', () => {
+  it('bumps the family root BEFORE reading or touching any child (root -> child order)', async () => {
+    const order: string[] = []
+    tx.session.updateMany.mockImplementation(
+      async (a: { where: { id: unknown } }) => {
+        order.push(a.where.id === 'P' ? 'bump-root' : 'update-children')
+        return { count: 1 }
+      }
+    )
+    tx.session.findMany.mockImplementationOnce(async () => {
+      order.push('read-children')
+      return [{ id: 'P:a1' }]
+    })
+    tx.hookEvent.findMany.mockResolvedValueOnce([])
+    tx.hookEvent.updateMany.mockResolvedValueOnce({ count: 0 })
+    await sessionRepository.inheritTaskToUnboundChildren('P', 't1')
+    expect(order).toEqual(['bump-root', 'read-children', 'update-children'])
   })
 })
 
@@ -379,7 +459,9 @@ describe('top-level listings exclude child sessions', () => {
   }
 
   it('listForTask', async () => {
-    ;(prisma.session.findMany as jest.Mock).mockResolvedValueOnce([])
+    ;(prisma.session.findMany as jest.Mock)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
     await sessionRepository.listForTask('t1')
     expect(prisma.session.findMany).toHaveBeenCalledWith(
       expect.objectContaining(topLevel)

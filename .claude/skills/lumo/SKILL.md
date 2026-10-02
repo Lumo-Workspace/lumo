@@ -129,7 +129,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo verify [task] [--note "<self-report>"] [--timeout <seconds>]` — run every MACHINE checkpointer locally; PASS/FAIL per criterion. `--note` = one-line self-report, frozen as the claim when the round reaches IN_REVIEW. Round cap: read the `Round N/M` line, never assume. All-pass → IN_REVIEW (agent stops); last-round fail → escalate. **Run this before claiming a task is done.**
 - `lumo task status [task] [--full] [--json]` — read-only acceptance self-check (no LLM): contract + verdicts, round, `nextActions` (unmet criteria, security findings, `blocks DONE` vs `advisory`), PR scans, open crossings; `--full` adds the dashboard. Fails closed (`⚠` = could not confirm). **Run it first when resuming a task.** `verify`, `task update --status`, `crossing disposition/explain`, `testcase run/disposition` already end with its digest (DONE envelopes: `statusSummary`) — **no follow-up `task status`** after them
 - `lumo task wrapup [task]` — **near the end, instead of chaining reads**: one read-only call prints verify state, test-case signals, PR scans, open crossings (ready to relay + per-ruling commands) and DONE readiness with the envelope preview (PR merge state, worktree cleanup). See [verify.md](references/verify.md)
-- `lumo crossing explain <id> --note "<text>"` (several: `--file <json|->`) — append an agent self-explanation ("申辩") to a boundary crossing; append-only, **never clears the crossing or unblocks Done**. A review aid, not a self-clear.
+- `lumo crossing explain <id> --note "<text>"` (several: `--file <json|->`; unattached: `--task <LUM-N>`) — append an agent self-explanation ("申辩") to a boundary crossing; append-only, **never clears the crossing or unblocks Done**. A review aid, not a self-clear.
 - `lumo crossing disposition <id...> --false-positive | --confirmed [--note "<text>"] [--task <LUM-N>]` — several ids = one batch, one envelope per step (LUM-845) — record the **user's** ruling on a task crossing through a **three-step** read-then-rule confirmation handshake the server enforces (LUM-769); never supply a step flag (`--confirm-read` / `--confirm`) **on your own initiative** — relay each envelope, then supply it only once the user approves **that step** in chat, and say in the note that the ruling is theirs. Either ruling clears that crossing's block on DONE. Reverting to OPEN, repository suppression and steward crossings stay web-only. See [verify.md](references/verify.md)
 
 ### Cost (per-operation token read-out) — see [task-context.md](references/task-context.md)
@@ -253,7 +253,7 @@ Don't guess these:
 
 ### Golden rules (most-violated)
 
-- **Attach + draft criteria before coding.** Skipping attach triggers `SESSION_BINDING_MISSING`; skipping criteria means verification has nothing to check.
+- **Attach + draft criteria before coding.** Unattached work is attributed by inference and counts toward gates and cost, but explicit attach is highest-priority; skipping criteria means verification has nothing to check.
 - **Evidence before "done".** Never claim done from reading code — run `lumo verify`. While a PR is open, the task is IN_REVIEW, not DONE.
 - **Never set DONE yourself after a verify loop** — that adjudication is human-only. An unresolved send-back blocks the DONE transition with 409.
 - **Status updates are one direct call** (`task update --status done`), not a step-by-step walk through `in_progress → in_review → done`.

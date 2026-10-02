@@ -278,12 +278,19 @@ export const memoryRepository = {
    * `since` (the review watermark) filters to rows created strictly after it.
    * Oldest-first so the wrap list reads in the order they were learned.
    */
-  async findBySourceSessionId(sessionId: string, since?: Date) {
+  async findBySourceSessionId(
+    sessionId: string,
+    opts: { since?: Date; sourceTaskId?: string } = {}
+  ) {
+    const { since, sourceTaskId } = opts
     return prisma.memory.findMany({
       where: {
         sourceSessionId: sessionId,
         status: 'ACTIVE',
         ...(since ? { createdAt: { gt: since } } : {}),
+        // LUM-932 P3: scope to one birth task (an unattached session spans
+        // several tasks; curation for one must not touch another's memories).
+        ...(sourceTaskId ? { sourceTaskId } : {}),
       },
       orderBy: { createdAt: 'asc' },
       select: MEMORY_ROW_SELECT,

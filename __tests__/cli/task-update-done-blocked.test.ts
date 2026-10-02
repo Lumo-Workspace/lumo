@@ -257,7 +257,7 @@ describe('task update done blocked', () => {
       'https://api.lumo.test/workspace/lumo/my-tasks/LUM-1#boundary-crossings'
     )
     expect(err.remediation.join('\n')).toContain(
-      'lumo crossing explain cx-1 --note'
+      'lumo crossing explain cx-1 --task LUM-1 --note'
     )
     // LUM-769: the user's CLI path is named, next to the web panel link.
     expect(err.remediation.join('\n')).toContain(

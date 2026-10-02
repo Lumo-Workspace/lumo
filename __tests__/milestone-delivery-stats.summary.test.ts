@@ -423,4 +423,69 @@ describe('computeMilestoneDeliveryStats', () => {
     )
     expect(stats.perTask.unattributedActiveTimeSec).toBeGreaterThan(0)
   })
+
+  it("buckets per-task active time by the event's task when one unattached session spans two tasks", () => {
+    // LUM-932 P3: the unattached session U appears once per task it was
+    // inferred onto; its turns carry their own attributed task.
+    const t1Turn = turn('U', '2026-07-01T10:00:00Z', 60).map(e => ({
+      ...e,
+      taskId: 't1',
+    }))
+    const t2Turn = turn('U', '2026-07-01T11:00:00Z', 120).map(e => ({
+      ...e,
+      taskId: 't2',
+    }))
+    const turnEvents = [...t1Turn, ...t2Turn]
+    const stats = computeMilestoneDeliveryStats({
+      taskIds: ['t1', 't2'],
+      prRows: [],
+      complexityRows: [],
+      sessionRows: [
+        session({
+          id: 'U',
+          taskId: 't1',
+          workspaceMemberId: 'mA',
+          inputTokens: 5,
+          outputTokens: 1,
+        }),
+        session({
+          id: 'U',
+          taskId: 't2',
+          workspaceMemberId: 'mA',
+          inputTokens: 7,
+          outputTokens: 1,
+        }),
+      ],
+      turnEvents,
+      memberLabels: new Map(),
+    })
+    const byTask = new Map(stats.perTask.rows.map(r => [r.taskId, r]))
+    expect(byTask.get('t1')?.activeTimeSec).toBe(60)
+    expect(byTask.get('t2')?.activeTimeSec).toBe(120)
+    expect(stats.perTask.unattributedActiveTimeSec).toBe(0)
+    // Member total and overall sum still reconcile with the chip.
+    expect(stats.perMember.activeTimeSec).toBe(180)
+    expect(
+      stats.perMember.rows.find(r => r.memberId === 'mA')?.activeTimeSec
+    ).toBe(180)
+  })
+
+  it('explicit-only events with or without an event task give the same per-task time (baseline)', () => {
+    const base = turn('s1', '2026-07-01T10:00:00Z', 90)
+    const input = (events: DeliveryStatsInput['turnEvents']) =>
+      computeMilestoneDeliveryStats({
+        taskIds: ['t1'],
+        prRows: [],
+        complexityRows: [],
+        sessionRows: [
+          session({ id: 's1', taskId: 't1', workspaceMemberId: 'mA' }),
+        ],
+        turnEvents: events,
+        memberLabels: new Map(),
+      })
+    const without = input(base)
+    const withTask = input(base.map(e => ({ ...e, taskId: 't1' })))
+    expect(without.perTask).toEqual(withTask.perTask)
+    expect(without.perTask.rows[0]?.activeTimeSec).toBe(90)
+  })
 })
