@@ -132,6 +132,16 @@ There is no `--force` and no `session detach`. To work on a different task, open
 
 If `session attach` returns 409, do not retry or look for a workaround — start a fresh Claude Code session for the target task.
 
+#### Subagents (LUM-932)
+
+Every subagent gets its own child session (`<parent session id>:<agent id>`); `lumo` commands run inside a subagent act on that child session automatically.
+
+- **Parent attached** (`lumo session attach LUM-12` in the main session): the whole session belongs to LUM-12 — every subagent inherits it, including ones spawned before the attach. A subagent may re-state `LUM-12` (no-op) but attaching a different task is refused with 409.
+- **Parent not attached**: each subagent may run `lumo session attach <LUM-N>` itself as its first step; its work then belongs to that task. When dispatching subagents for different tasks, put the task id in the subagent prompt and tell it to attach first.
+- A subagent that attached on its own keeps its task even if the parent attaches later.
+
+When to suggest: you are about to dispatch subagents to work on **different** tasks from one session — do not attach the main session; instruct each subagent to attach its own task first.
+
 ### `lumo session attach --steward <milestone>` — bind as a STEWARD (governance) session (LUM-640)
 
 The **second legal session form**: instead of a task, the session binds a **milestone** and becomes a governance role — it plans and accepts, it never implements.
