@@ -62,6 +62,7 @@ beforeEach(() => {
     for (const fn of Object.values(model)) fn.mockReset()
   tx.session.updateMany.mockResolvedValue({ count: 1 })
   tx.hookEvent.findMany.mockResolvedValue([])
+  tx.session.findMany.mockResolvedValue([])
   tx.hookEvent.updateMany.mockResolvedValue({ count: 0 })
   tx.boundaryCrossing.updateMany.mockResolvedValue({ count: 0 })
 })

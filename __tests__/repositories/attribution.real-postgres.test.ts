@@ -482,9 +482,11 @@ describe('bindings serialize with the recompute via the root version (LUM-932 P3
         eventTaskChanges: toNull('sb'),
       })
     ).resolves.toEqual({ conflict: true, eventsUpdated: 0, crossingsMoved: 0 })
+    // The steward bind itself cleared the provisional tags (LUM-640: a
+    // steward family stays task-less); the stale commit wrote nothing.
     expect(await tasksOf('sb')).toEqual([
-      { id: 'sb_child', taskId: 'task_12' },
-      { id: 'sb_root', taskId: 'task_12' },
+      { id: 'sb_child', taskId: null },
+      { id: 'sb_root', taskId: null },
     ])
   })
 

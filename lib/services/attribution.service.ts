@@ -26,7 +26,10 @@ import {
 } from '@/lib/attribution/inference-eval'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 import { canonicalTaskIdentifier } from '@/lib/attribution/identifier'
-import { isBackfillEligible } from '@/lib/attribution/backfill-eligibility'
+import {
+  isBackfillEligible,
+  isStewardBinding,
+} from '@/lib/attribution/backfill-eligibility'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
 import { logger } from '@/lib/logger'
 
@@ -333,9 +336,19 @@ async function computeFamilyRows(rootId: string): Promise<{
 
   const family = await attributionRepository.loadFamily(rootId)
   if (!family || family.sessions.length === 0) return null
-  const { segments, lastRootTurn } = await inferFamily(family, {
-    ignoreExplicit: false,
-  })
+  // LUM-640 / LUM-932 P3: a STEWARD family is governance work, never inferred
+  // onto a task — no INFERRED segments (stale ones are cleared), explicit
+  // child rows only.
+  const steward = isStewardBinding(family.sessions[0])
+  const { segments, lastRootTurn } = steward
+    ? {
+        segments: [] as InferredSegment[],
+        lastRootTurn: Math.max(
+          0,
+          rootPromptCount(family, family.sessions[0]!.id) - 1
+        ),
+      }
+    : await inferFamily(family, { ignoreExplicit: false })
   const input: ExplicitInput = {
     workspaceId: family.workspaceId,
     sessions: family.sessions,

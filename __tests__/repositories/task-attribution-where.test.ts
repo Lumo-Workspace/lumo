@@ -39,7 +39,11 @@ describe('task attribution where builders', () => {
           attributionSegments: {
             some: {
               source: 'INFERRED',
-              session: { parentSessionId: null, taskId: null },
+              session: {
+                parentSessionId: null,
+                taskId: null,
+                NOT: { role: 'STEWARD', milestoneId: { not: null } },
+              },
             },
           },
         },

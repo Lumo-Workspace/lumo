@@ -38,10 +38,19 @@ export function inferredUsageEventsForTasks(
 }
 
 /**
+ * LUM-640: a milestone-bound STEWARD session (`isStewardBinding`) is
+ * governance work — never inferred task work, even with a stale segment.
+ */
+const NOT_STEWARD: Prisma.SessionWhereInput = {
+  NOT: { role: 'STEWARD', milestoneId: { not: null } },
+}
+
+/**
  * LUM-932 P3: unattached TOP-LEVEL sessions the attribution engine inferred
  * onto any of these tasks (an INFERRED segment). Segments live on top-level
  * sessions only; `taskId: null` keeps an explicitly bound session from being
- * counted twice (its own binding already lists it).
+ * counted twice (its own binding already lists it). STEWARD sessions are
+ * excluded.
  */
 export function inferredTopLevelSessionsForTasks(
   taskIds: string[]
@@ -49,6 +58,7 @@ export function inferredTopLevelSessionsForTasks(
   return {
     parentSessionId: null,
     taskId: null,
+    ...NOT_STEWARD,
     attributionSegments: {
       some: { taskId: { in: taskIds }, source: 'INFERRED' },
     },
@@ -74,7 +84,7 @@ export const taskHasSessions: Prisma.TaskWhereInput = {
         // (its explicit binding decides, via `sessions` above).
         some: {
           source: 'INFERRED',
-          session: { parentSessionId: null, taskId: null },
+          session: { parentSessionId: null, taskId: null, ...NOT_STEWARD },
         },
       },
     },

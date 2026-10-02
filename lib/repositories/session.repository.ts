@@ -3,6 +3,7 @@ import type { Prisma, SessionRole, TaskArtifactAgent } from '@prisma/client'
 import { buildChildSessionId } from '@/lib/session/child-session-id'
 import {
   bumpFamilyAttributionVersion,
+  clearProvisionalTagsForSteward,
   retagEventsToExplicitTask,
 } from '@/lib/repositories/explicit-retag'
 import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
@@ -647,6 +648,8 @@ export const sessionRepository = {
           select: { id: true, milestoneId: true },
         })
         await bumpFamilyAttributionVersion(tx, data.id)
+        // LUM-932 P3: earlier provisional tags of this family no longer apply.
+        await clearProvisionalTagsForSteward(tx, data.id)
         return { ownedByOther: false, session: updated } as const
       }
       const created = await tx.session.create({
@@ -664,7 +667,7 @@ export const sessionRepository = {
       })
       await bumpFamilyAttributionVersion(tx, data.id)
       return { ownedByOther: false, session: created } as const
-    })
+    }, RETAG_TX_OPTIONS)
   },
 
   /**

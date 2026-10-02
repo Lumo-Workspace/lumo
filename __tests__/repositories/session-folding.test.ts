@@ -37,6 +37,8 @@ interface FakeSession {
   runSummary: string | null
   /** Has a STOP with a turnSummary (run-summary generation material). */
   hasStopDigest: boolean
+  role: 'IMPLEMENTATION' | 'STEWARD'
+  milestoneId: string | null
 }
 
 interface FakeSegment {
@@ -80,6 +82,8 @@ function session(
     loopCount: 1,
     runSummary: null,
     hasStopDigest: true,
+    role: 'IMPLEMENTATION',
+    milestoneId: null,
     ...rest,
   }
 }
@@ -113,7 +117,11 @@ function matchSession(s: FakeSession, where: Record<string, unknown>): boolean {
       case 'parentSessionId':
       case 'runSummary':
       case 'outputTokens':
+      case 'role':
+      case 'milestoneId':
         return matchScalar(s[k], cond)
+      case 'NOT':
+        return !matchSession(s, cond as Record<string, unknown>)
       case 'attributionSegments': {
         const some = (cond as { some: Record<string, unknown> }).some
         return segments.some(g => g.sessionId === s.id && matchSegment(g, some))
@@ -307,5 +315,23 @@ describe('counts top-level sessions and folds child sessions', () => {
   it('the latest run claim comes from a top-level session, not a newer child', async () => {
     const claim = await sessionRepository.loadLatestRunClaim('t1')
     expect(claim?.id).toBe('P')
+  })
+
+  it('a STEWARD session with a stale INFERRED segment is neither listed nor counted (I2)', async () => {
+    sessions.push(
+      session('S', {
+        minute: 4,
+        tokens: 5,
+        taskId: null,
+        bindingSource: null,
+        role: 'STEWARD',
+        milestoneId: 'ms1',
+      })
+    )
+    segments.push({ sessionId: 'S', taskId: 't1', source: 'INFERRED' })
+    const rows = await sessionRepository.listForTask('t1')
+    expect(rows.map(r => r.id)).toEqual(['U', 'P', 'Q'])
+    const actuals = await retrospectiveRepository.loadActuals('t1')
+    expect(actuals!.iterations).toBe(3)
   })
 })

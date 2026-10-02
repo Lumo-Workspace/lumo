@@ -1037,3 +1037,48 @@ describe('attributionService.recomputeFamily event backfill and version conflict
     )
   })
 })
+
+describe('STEWARD families are never inferred (LUM-932 P3 I2)', () => {
+  it('writes no INFERRED segment for a STEWARD root and clears stale ones', async () => {
+    repo.loadFamily.mockResolvedValue(
+      family(
+        [session({ role: 'STEWARD', milestoneId: 'ms_1' })],
+        [
+          ev({ type: 'USER_PROMPT_SUBMIT', createdAt: t(1) }),
+          ev({
+            type: 'PRE_TOOL_USE',
+            createdAt: t(2),
+            attributionSignals: [{ kind: 'LUMO_CMD', identifier: 'LUM-12' }],
+          }),
+        ]
+      )
+    )
+    repo.listFamilySegments.mockResolvedValue([STALE])
+    await attributionService.recomputeFamily(ROOT)
+    const rows = writtenRows()
+    expect(rows.filter(r => r.source === 'INFERRED')).toEqual([])
+    expect(
+      repo.commitFamilyAttribution.mock.calls[0]![0].eventTaskChanges
+    ).toEqual([])
+  })
+
+  it('a STEWARD root with nothing stored writes nothing', async () => {
+    repo.loadFamily.mockResolvedValue(
+      family(
+        [session({ role: 'STEWARD', milestoneId: 'ms_1' })],
+        [
+          ev({ type: 'USER_PROMPT_SUBMIT', createdAt: t(1) }),
+          ev({
+            type: 'PRE_TOOL_USE',
+            createdAt: t(2),
+            attributionSignals: [{ kind: 'LUMO_CMD', identifier: 'LUM-12' }],
+          }),
+        ]
+      )
+    )
+    await expect(attributionService.recomputeFamily(ROOT)).resolves.toEqual(
+      expect.objectContaining({ segments: 0, written: false })
+    )
+    expect(repo.commitFamilyAttribution).not.toHaveBeenCalled()
+  })
+})

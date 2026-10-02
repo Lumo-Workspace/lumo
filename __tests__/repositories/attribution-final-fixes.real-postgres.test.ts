@@ -1,0 +1,211 @@
+/**
+ * @jest-environment node
+ *
+ * LUM-932 P3 final review fixes, proven against a REAL Postgres (every
+ * migration replayed into PGlite) where a mocked Prisma hid the behavior:
+ *  - STEWARD sessions are excluded from inferred session counts (I2);
+ *  - a steward bind clears earlier provisional event tags and moves their
+ *    open crossings to no task (I2).
+ */
+import { createPgliteHarness } from '../../scripts/test-support/pglite-harness'
+
+// jest.setup.js mocks PrismaClient globally; this suite needs the real one.
+const { PrismaClient } =
+  jest.requireActual<typeof import('@prisma/client')>('@prisma/client')
+const harness = createPgliteHarness(PrismaClient)
+
+jest.mock('@/lib/db/prisma', () => ({
+  get prisma() {
+    return harness.prisma
+  },
+}))
+
+import { sessionRepository } from '@/lib/repositories/session.repository'
+import {
+  inferredTopLevelSessionsForTasks,
+  taskHasSessions,
+} from '@/lib/repositories/task-attribution-where'
+
+jest.setTimeout(180_000)
+
+const t = (s: number) => new Date(Date.UTC(2026, 9, 2, 0, 0, s))
+
+async function seedSession(id: string, extra: Record<string, unknown> = {}) {
+  await harness.insert('sessions', {
+    id,
+    workspaceId: 'ws',
+    workspaceMemberId: 'member',
+    startedAt: t(0).toISOString(),
+    lastActivityAt: t(9).toISOString(),
+    ...extra,
+  })
+}
+
+async function seedEvent(
+  id: string,
+  sessionId: string,
+  taskId: string | null,
+  extra: Record<string, unknown> = {}
+) {
+  await harness.insert('hook_events', {
+    id,
+    workspaceId: 'ws',
+    workspaceMemberId: 'member',
+    sessionId,
+    type: 'PRE_TOOL_USE',
+    payload: JSON.stringify({ tool_name: 'Bash', id }),
+    createdAt: t(1).toISOString(),
+    ...(taskId ? { taskId } : {}),
+    ...extra,
+  })
+}
+
+async function seedCrossing(
+  id: string,
+  hookEventId: string | null,
+  taskId: string,
+  disposition: string | null,
+  extra: Record<string, unknown> = {}
+) {
+  await harness.insert('boundary_crossings', {
+    id,
+    taskId,
+    hookEventId,
+    category: 'DESTRUCTIVE_DB_COMMAND',
+    detail: 'd',
+    ...(disposition
+      ? { disposition, dispositionedAt: t(2).toISOString() }
+      : {}),
+    ...extra,
+  })
+}
+
+async function seedSegment(id: string, sessionId: string, taskId: string) {
+  await harness.insert('task_attribution_segments', {
+    id,
+    workspaceId: 'ws',
+    sessionId,
+    taskId,
+    fromTurn: 0,
+    toTurn: 0,
+    fromAt: t(1).toISOString(),
+    source: 'INFERRED',
+    confidence: 'HIGH',
+    evidence: JSON.stringify([]),
+    computeVersion: 1,
+  })
+}
+
+async function taskOf(table: string, id: string) {
+  const rows = await harness.query<{ taskId: string | null }>(
+    `select "taskId" from ${table} where id = $1`,
+    [id]
+  )
+  return rows[0]!.taskId
+}
+
+beforeAll(async () => {
+  await harness.start()
+  await harness.insert('workspaces', { id: 'ws', name: 'ws', slug: 'ws' })
+  await harness.insert('workspace_members', {
+    id: 'member',
+    workspaceId: 'ws',
+    clerkId: 'clerk-ws',
+  })
+  await harness.insert('teams', {
+    id: 'team',
+    workspaceId: 'ws',
+    name: 'Lumo',
+    identifier: 'LUM',
+  })
+  await harness.insert('projects', {
+    id: 'project',
+    workspaceId: 'ws',
+    teamId: 'team',
+    createdByMemberId: 'member',
+    name: 'P',
+  })
+  for (const n of [12, 13, 20, 21]) {
+    await harness.insert('tasks', {
+      id: `task_${n}`,
+      projectId: 'project',
+      teamId: 'team',
+      number: n,
+      title: `T${n}`,
+    })
+  }
+  await harness.insert('milestones', {
+    id: 'ms_1',
+    projectId: 'project',
+    name: 'M1',
+    slug: 'm1',
+  })
+})
+
+afterAll(async () => {
+  await harness.stop()
+})
+
+describe('STEWARD sessions are never counted as inferred work (I2)', () => {
+  it('inferredTopLevelSessionsForTasks / taskHasSessions skip a STEWARD session with a stale INFERRED segment', async () => {
+    await seedSession('U20')
+    await seedSegment('seg_u20', 'U20', 'task_20')
+    await seedSession('STW21', { role: 'STEWARD', milestoneId: 'ms_1' })
+    await seedSegment('seg_stw21', 'STW21', 'task_21')
+    // A STEWARD role without a milestone is no steward binding: still counted.
+    await seedSession('STW20', { role: 'STEWARD' })
+    await seedSegment('seg_stw20', 'STW20', 'task_20')
+
+    const counted = await harness.prisma.session.findMany({
+      where: inferredTopLevelSessionsForTasks(['task_20', 'task_21']),
+      select: { id: true },
+      orderBy: { id: 'asc' },
+    })
+    expect(counted.map(s => s.id)).toEqual(['STW20', 'U20'])
+
+    const worked = await harness.prisma.task.findMany({
+      where: { id: { in: ['task_20', 'task_21'] }, ...taskHasSessions },
+      select: { id: true },
+    })
+    expect(worked.map(t => t.id)).toEqual(['task_20'])
+  })
+})
+
+describe('a steward bind clears earlier provisional tags (I2)', () => {
+  it('nulls the tagged events of the root and its unbound children, moving open crossings to no task', async () => {
+    await seedSession('SB')
+    await seedSession('SB:a1', { parentSessionId: 'SB', agentId: 'a1' })
+    // An explicitly attached child keeps its binding and its events.
+    await seedSession('SB:a2', {
+      parentSessionId: 'SB',
+      agentId: 'a2',
+      taskId: 'task_13',
+      bindingSource: 'ATTACH',
+    })
+    await seedEvent('sb_root', 'SB', 'task_12')
+    await seedEvent('sb_root_ruled', 'SB', 'task_12')
+    await seedEvent('sb_child', 'SB:a1', 'task_12')
+    await seedEvent('sb_bound_child', 'SB:a2', 'task_13')
+    await seedCrossing('c_sb_open', 'sb_root', 'task_12', null)
+    await seedCrossing('c_sb_ruled', 'sb_root_ruled', 'task_12', 'CONFIRMED')
+    await seedCrossing('c_sb_child', 'sb_child', 'task_12', null)
+    await seedCrossing('c_sb_bound', 'sb_bound_child', 'task_13', null)
+
+    await sessionRepository.upsertWithMilestoneId({
+      id: 'SB',
+      workspaceId: 'ws',
+      workspaceMemberId: 'member',
+      milestoneId: 'ms_1',
+      now: t(5),
+    })
+
+    expect(await taskOf('hook_events', 'sb_root')).toBeNull()
+    expect(await taskOf('hook_events', 'sb_root_ruled')).toBeNull()
+    expect(await taskOf('hook_events', 'sb_child')).toBeNull()
+    expect(await taskOf('hook_events', 'sb_bound_child')).toBe('task_13')
+    expect(await taskOf('boundary_crossings', 'c_sb_open')).toBeNull()
+    expect(await taskOf('boundary_crossings', 'c_sb_child')).toBeNull()
+    expect(await taskOf('boundary_crossings', 'c_sb_ruled')).toBe('task_12')
+    expect(await taskOf('boundary_crossings', 'c_sb_bound')).toBe('task_13')
+  })
+})
