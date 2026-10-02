@@ -15,10 +15,10 @@ import { parseChildSessionId } from '@/lib/session/child-session-id'
  * backfills a session bound after it loaded the family. A missing root row
  * matches nothing (count 0) and is harmless.
  *
- * Lock order: a binding locks the ROOT row first, then child session rows,
- * then events / crossings. The recompute commit writes segments / events /
- * crossings first and compare-and-bumps the root LAST (short root lock); a
- * deadlock between the two is reported to the commit as a version conflict.
+ * Single global lock order (bindings AND the recompute commit): family ROOT
+ * row -> child session rows -> hook events -> crossings. `commitFamilyAttribution`
+ * also bumps the root as its FIRST statement; reversing that can deadlock with
+ * a binding and fail `lumo session attach`. P2034 stays a safety net.
  */
 export async function bumpFamilyAttributionVersion(
   tx: Prisma.TransactionClient,

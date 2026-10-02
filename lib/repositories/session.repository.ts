@@ -225,6 +225,20 @@ export const sessionRepository = {
       const parent = await ensureParentRow(tx, data)
       // A child carries no role of its own — the steward binding is the parent's.
       const steward = isStewardBinding(parent)
+      // Lock order (every binding write): family ROOT row before the child
+      // row. The inherit branch below binds the child, so bump the root
+      // first when it will apply.
+      let bumped = false
+      if (parent.taskId) {
+        const existingChild = await tx.session.findUnique({
+          where: { id },
+          select: { taskId: true },
+        })
+        if (existingChild && existingChild.taskId === null) {
+          await bumpFamilyAttributionVersion(tx, id)
+          bumped = true
+        }
+      }
       const child = await tx.session.upsert({
         where: { id },
         create: {
@@ -258,7 +272,8 @@ export const sessionRepository = {
           data: { taskId: parent.taskId, bindingSource: 'INHERITED' },
         })
         if (count > 0) {
-          await bumpFamilyAttributionVersion(tx, id)
+          // Raced past the pre-check (child unbound only now): bump late.
+          if (!bumped) await bumpFamilyAttributionVersion(tx, id)
           // Explicit (inherited) binding wins over provisional tags.
           await retagEventsToExplicitTask(tx, [id], parent.taskId)
           return { id, taskId: parent.taskId, steward }
@@ -580,6 +595,7 @@ export const sessionRepository = {
         if (existing.workspaceMemberId !== data.workspaceMemberId) {
           return { ownedByOther: true } as const
         }
+        await bumpFamilyAttributionVersion(tx, data.id)
         const updated = await tx.session.update({
           where: { id: data.id },
           data: {
@@ -594,9 +610,9 @@ export const sessionRepository = {
           },
           select: { id: true, taskId: true },
         })
-        await bumpFamilyAttributionVersion(tx, data.id)
         return { ownedByOther: false, session: updated } as const
       }
+      await bumpFamilyAttributionVersion(tx, data.id)
       const created = await tx.session.create({
         data: {
           id: data.id,
@@ -616,7 +632,6 @@ export const sessionRepository = {
         },
         select: { id: true, taskId: true },
       })
-      await bumpFamilyAttributionVersion(tx, data.id)
       return { ownedByOther: false, session: created } as const
     })
   },
@@ -644,16 +659,17 @@ export const sessionRepository = {
         if (existing.workspaceMemberId !== data.workspaceMemberId) {
           return { ownedByOther: true } as const
         }
+        await bumpFamilyAttributionVersion(tx, data.id)
         const updated = await tx.session.update({
           where: { id: data.id },
           data: { milestoneId: data.milestoneId, role: 'STEWARD' },
           select: { id: true, milestoneId: true },
         })
-        await bumpFamilyAttributionVersion(tx, data.id)
         // LUM-932 P3: earlier provisional tags of this family no longer apply.
         await clearProvisionalTagsForSteward(tx, data.id)
         return { ownedByOther: false, session: updated } as const
       }
+      await bumpFamilyAttributionVersion(tx, data.id)
       const created = await tx.session.create({
         data: {
           id: data.id,
@@ -667,7 +683,6 @@ export const sessionRepository = {
         },
         select: { id: true, milestoneId: true },
       })
-      await bumpFamilyAttributionVersion(tx, data.id)
       return { ownedByOther: false, session: created } as const
     }, RETAG_TX_OPTIONS)
   },

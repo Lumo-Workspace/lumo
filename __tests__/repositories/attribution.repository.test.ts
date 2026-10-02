@@ -298,7 +298,7 @@ describe('commitFamilyAttribution', () => {
     p.__tx.boundaryCrossing.updateMany.mockResolvedValue({ count: 0 })
   })
 
-  it('deletes and inserts segments, then compare-and-bumps the version LAST, with explicit tx limits', async () => {
+  it('deletes and inserts segments, after the root compare-and-bump FIRST, with explicit tx limits', async () => {
     const order: string[] = []
     p.__tx.session.updateMany.mockImplementation(async () => {
       order.push('version')
@@ -321,8 +321,8 @@ describe('commitFamilyAttribution', () => {
       eventsUpdated: 0,
       crossingsMoved: 0,
     })
-    // The root row lock is taken by the final statement only (I5).
-    expect(order).toEqual(['delete', 'create', 'version'])
+    // Root-first lock order: the version bump is the first statement.
+    expect(order).toEqual(['version', 'delete', 'create'])
     expect(p.__tx.session.updateMany).toHaveBeenCalledWith({
       where: { id: 'r', attributionVersion: 2 },
       data: { attributionVersion: { increment: 1 } },
