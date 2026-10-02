@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { withSoftDelete } from './soft-delete'
+import { resolveDatabaseUrl } from './database-url'
 
 declare global {
   var prisma: PrismaClient | undefined
@@ -17,7 +18,7 @@ function sanitizeDbUrl(url: string): string {
 
 function createPrismaClient() {
   const adapter = new PrismaPg({
-    connectionString: sanitizeDbUrl(process.env.DATABASE_URL ?? ''),
+    connectionString: sanitizeDbUrl(resolveDatabaseUrl('pooled') ?? ''),
     ssl: { rejectUnauthorized: true },
   })
   // LUM-918: tasks / documents in the trash are invisible to default reads.

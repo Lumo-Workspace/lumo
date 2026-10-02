@@ -18,8 +18,10 @@
 #   4. Only then build the app that serves traffic.
 #
 # Prisma v7 routes migrations through the unpooled URL via prisma.config.ts
-# (DATABASE_URL_UNPOOLED ?? DATABASE_URL), so `migrate deploy`/`status` use a
-# direct DDL-capable connection automatically — no extra wiring here.
+# (lib/db/database-url.ts: on production the Neon-managed
+# PROD_DATABASE_URL_UNPOOLED, otherwise DATABASE_URL_UNPOOLED ?? DATABASE_URL),
+# so `migrate deploy`/`status` use a direct DDL-capable connection
+# automatically — no extra wiring here.
 #
 # Wired via vercel.json "buildCommand" so it is version-controlled and cannot
 # drift out of a dashboard setting. Preview/dev builds skip the migrate step
