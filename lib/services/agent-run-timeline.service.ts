@@ -10,6 +10,7 @@ import {
 } from '@/lib/services/model-cost'
 import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
 import { activeDurationMs } from '@/lib/agent-run/active-time'
+import { parseChildSessionId } from '@/lib/session/child-session-id'
 import type { HookEventType, MemoryCategory } from '@prisma/client'
 import { TaskArtifactAgent } from '@prisma/client'
 
@@ -176,16 +177,46 @@ export const agentRunTimelineService = {
    * as a single trailing "Unlinked" run so they're still visible.
    */
   async getTimeline(taskId: string): Promise<AgentRunTimelineResult> {
-    const [sessions, events, memories] = await Promise.all([
+    const [sessions, childSessions, events, memories] = await Promise.all([
       sessionRepository.listForTask(taskId, 50),
+      sessionRepository.listChildrenForTask(taskId),
       hookEventRepository.findByTaskId(taskId),
       memoryRepository.findByTaskIdWithSession(taskId),
     ])
 
-    // Bucket events + memories by sessionId.
+    // LUM-932 (spec §8): subagent child sessions fold into their parent's
+    // run. A child that attached its own task under an unbound parent still
+    // shows as the parent's run here — read the parent row as a "host" whose
+    // own cost belongs elsewhere and is not counted on this task.
+    const boundIds = new Set(sessions.map(s => s.id))
+    const hostIds = [
+      ...new Set(
+        childSessions
+          .map(c => c.parentSessionId)
+          .filter((id): id is string => !!id && !boundIds.has(id))
+      ),
+    ]
+    const hostSessions = await sessionRepository.listTimelineRowsByIds(hostIds)
+    const hostOnly = new Set(hostSessions.map(s => s.id))
+    const childCostByParent = new Map<string, (ModelCost[] | null)[]>()
+    for (const c of childSessions) {
+      if (!c.parentSessionId) continue
+      const list = childCostByParent.get(c.parentSessionId) ?? []
+      list.push(sessionCost(c))
+      childCostByParent.set(c.parentSessionId, list)
+    }
+    const runKey = (sessionId: string | null) =>
+      sessionId
+        ? (parseChildSessionId(sessionId)?.parentSessionId ?? sessionId)
+        : null
+
+    // Bucket events + memories by run (top-level session id).
     const eventsBySession = new Map<string | null, AgentRunHookEvent[]>()
+    // A run's own events (not its subagents') — active time is turn-based on
+    // the top-level session's prompts/STOPs.
+    const ownEventsBySession = new Map<string, AgentRunHookEvent[]>()
     for (const ev of events) {
-      const key = ev.sessionId ?? null
+      const key = runKey(ev.sessionId ?? null)
       const list = eventsBySession.get(key) ?? []
       list.push({
         id: ev.id,
@@ -206,11 +237,16 @@ export const agentRunTimelineService = {
         createdAt: ev.createdAt.toISOString(),
       })
       eventsBySession.set(key, list)
+      if (key && ev.sessionId === key) {
+        const own = ownEventsBySession.get(key) ?? []
+        own.push(list[list.length - 1]!)
+        ownEventsBySession.set(key, own)
+      }
     }
 
     const memoriesBySession = new Map<string | null, AgentRunMemoryItem[]>()
     for (const m of memories) {
-      const key = m.sourceSessionId ?? null
+      const key = runKey(m.sourceSessionId ?? null)
       const list = memoriesBySession.get(key) ?? []
       list.push({
         id: m.id,
@@ -225,7 +261,7 @@ export const agentRunTimelineService = {
 
     // Order sessions oldest-first so runNumber assignment is stable across
     // requests; reverse before returning so the UI sees newest first.
-    const orderedSessions = [...sessions].sort(
+    const orderedSessions = [...sessions, ...hostSessions].sort(
       (a, b) => a.startedAt.getTime() - b.startedAt.getTime()
     )
 
@@ -250,16 +286,14 @@ export const agentRunTimelineService = {
       const toolCallCount = sessionEvents.filter(
         e => e.type === 'PRE_TOOL_USE'
       ).length
-      // Settled per-model cost, plus the in-flight remainder mid-turn events
-      // wrote to the flat columns but no STOP has settled yet (LUM-345) — so
-      // a live run shows its burn here just like the delivery card does.
-      // The liveUsageByModel snapshot attributes that remainder per model
-      // where available; anything it doesn't cover stays on the sentinel row.
-      const costByModel = withInFlightCost(
-        toModelCosts(s.usageByModel as Record<string, ModelUsage> | null),
-        s,
-        s.liveUsageByModel as Record<string, ModelUsage> | null
-      )
+      const isHost = hostOnly.has(s.id)
+      // Own cost (a host's own burn belongs to another task / unattributed)
+      // plus every child session of this run whose work belongs to the task.
+      const childCosts = childCostByParent.get(s.id) ?? []
+      const ownCost = isHost ? null : sessionCost(s)
+      const merged =
+        childCosts.length > 0 ? mergeModelCosts([ownCost, ...childCosts]) : null
+      const costByModel = merged ? (merged.length > 0 ? merged : null) : ownCost
 
       return {
         sessionId: s.id,
@@ -270,13 +304,13 @@ export const agentRunTimelineService = {
         // Active time: Σ per-turn (STOP − prompt), excluding inter-turn idle —
         // a span (lastActivityAt − startedAt) would count a resumed session's
         // idle gap. See lib/agent-run/active-time.
-        durationMs: activeDurationMs(sessionEvents),
+        durationMs: activeDurationMs(ownEventsBySession.get(s.id) ?? []),
         toolCallCount,
         eventCount: sessionEvents.length,
         memoryCount: sessionMemories.length,
-        runSummary: s.runSummary,
+        runSummary: isHost ? null : s.runSummary,
         cost: costByModel
-          ? { byModel: costByModel, loopCount: s.loopCount }
+          ? { byModel: costByModel, loopCount: isHost ? null : s.loopCount }
           : null,
         member: null, // resolved after Clerk enrichment below
         items,
@@ -389,6 +423,26 @@ export const agentRunTimelineService = {
 
     return { runs: runsWithMember, totals, perMember }
   },
+}
+
+/**
+ * Settled per-model cost, plus the in-flight remainder mid-turn events wrote
+ * to the flat columns but no STOP has settled yet (LUM-345) — so a live run
+ * shows its burn here just like the delivery card does. The liveUsageByModel
+ * snapshot attributes that remainder per model where available; anything it
+ * doesn't cover stays on the sentinel row.
+ */
+function sessionCost(
+  s: Parameters<typeof withInFlightCost>[1] & {
+    usageByModel: unknown
+    liveUsageByModel: unknown
+  }
+): ModelCost[] | null {
+  return withInFlightCost(
+    toModelCosts(s.usageByModel as Record<string, ModelUsage> | null),
+    s,
+    s.liveUsageByModel as Record<string, ModelUsage> | null
+  )
 }
 
 function mergeByTime(

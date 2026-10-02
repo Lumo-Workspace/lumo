@@ -712,3 +712,28 @@ describe('sessionRepository.upsertForHookEvent — liveUsageByModel snapshot (LU
     expect(args.create).not.toHaveProperty('liveUsageByModel')
   })
 })
+
+describe('sessionRepository timeline child reads (LUM-932)', () => {
+  it('lists child sessions bound to the task with the timeline projection + parent id', async () => {
+    findMany.mockResolvedValue([])
+    await sessionRepository.listChildrenForTask('t1')
+    const arg = findMany.mock.calls[0]![0]
+    expect(arg.where).toEqual({ taskId: 't1', parentSessionId: { not: null } })
+    expect(arg.select).toEqual(
+      expect.objectContaining({
+        parentSessionId: true,
+        usageByModel: true,
+        liveUsageByModel: true,
+        inputTokens: true,
+      })
+    )
+  })
+
+  it('reads host parent rows by id and skips the query for an empty list', async () => {
+    expect(await sessionRepository.listTimelineRowsByIds([])).toEqual([])
+    expect(findMany).not.toHaveBeenCalled()
+    findMany.mockResolvedValue([])
+    await sessionRepository.listTimelineRowsByIds(['p1'])
+    expect(findMany.mock.calls[0]![0].where).toEqual({ id: { in: ['p1'] } })
+  })
+})

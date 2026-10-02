@@ -6,7 +6,11 @@
  * runs by workspace member and enriches Clerk display names.
  */
 jest.mock('@/lib/repositories/session.repository', () => ({
-  sessionRepository: { listForTask: jest.fn() },
+  sessionRepository: {
+    listForTask: jest.fn(),
+    listChildrenForTask: jest.fn(async () => []),
+    listTimelineRowsByIds: jest.fn(async () => []),
+  },
 }))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: { findByTaskId: jest.fn() },

@@ -171,6 +171,33 @@ function mapTotal(m: Record<string, ModelUsage>): number {
   return t
 }
 
+/** Projection the task agent-run timeline reads per session (cost + header). */
+const TIMELINE_SESSION_SELECT = {
+  id: true,
+  agent: true,
+  workspaceMemberId: true,
+  // clerkId feeds the per-person token rollup (LUM-307); resolved to a
+  // display name + avatar in the service via enrichClerkUsers.
+  member: { select: { clerkId: true } },
+  startedAt: true,
+  lastActivityAt: true,
+  eventCount: true,
+  summary: true,
+  summaryType: true,
+  summaryGeneratedAt: true,
+  runSummary: true,
+  usageByModel: true,
+  // Flat cumulative columns: mid-turn events update these but not
+  // usageByModel, so the timeline derives the in-flight burn from the
+  // difference (LUM-345); liveUsageByModel attributes it per model.
+  liveUsageByModel: true,
+  inputTokens: true,
+  outputTokens: true,
+  cacheReadTokens: true,
+  cacheCreationTokens: true,
+  loopCount: true,
+} satisfies Prisma.SessionSelect
+
 export const sessionRepository = {
   /** LUM-932: ids of a session's subagent child sessions. */
   async listChildIds(parentSessionId: string): Promise<string[]> {
@@ -823,31 +850,33 @@ export const sessionRepository = {
       where: { taskId, parentSessionId: null },
       orderBy: { lastActivityAt: 'desc' },
       take: limit,
-      select: {
-        id: true,
-        agent: true,
-        workspaceMemberId: true,
-        // clerkId feeds the per-person token rollup (LUM-307); resolved to a
-        // display name + avatar in the service via enrichClerkUsers.
-        member: { select: { clerkId: true } },
-        startedAt: true,
-        lastActivityAt: true,
-        eventCount: true,
-        summary: true,
-        summaryType: true,
-        summaryGeneratedAt: true,
-        runSummary: true,
-        usageByModel: true,
-        // Flat cumulative columns: mid-turn events update these but not
-        // usageByModel, so the timeline derives the in-flight burn from the
-        // difference (LUM-345); liveUsageByModel attributes it per model.
-        liveUsageByModel: true,
-        inputTokens: true,
-        outputTokens: true,
-        cacheReadTokens: true,
-        cacheCreationTokens: true,
-        loopCount: true,
-      },
+      select: TIMELINE_SESSION_SELECT,
+    })
+  },
+
+  /**
+   * LUM-932 (spec §8): subagent child sessions whose work belongs to this task
+   * (inherited from a bound parent, or attached on their own). Same projection
+   * as {@link listForTask} so the timeline folds their cost into the parent
+   * run the same way it computes a parent's.
+   */
+  async listChildrenForTask(taskId: string) {
+    return prisma.session.findMany({
+      where: { taskId, parentSessionId: { not: null } },
+      select: { ...TIMELINE_SESSION_SELECT, parentSessionId: true },
+    })
+  },
+
+  /**
+   * LUM-932: timeline rows for parent sessions that host a child's work on a
+   * task without being bound to it themselves (a subagent attached its own
+   * task under an unbound parent).
+   */
+  async listTimelineRowsByIds(ids: string[]) {
+    if (ids.length === 0) return []
+    return prisma.session.findMany({
+      where: { id: { in: ids } },
+      select: TIMELINE_SESSION_SELECT,
     })
   },
 
