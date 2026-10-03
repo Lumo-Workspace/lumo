@@ -4,6 +4,7 @@ import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
 import type { MilestoneDistillInput } from './milestone-distill-input'
+import { DERIVED_CONTENT_NO_CODE_RULE } from '@/lib/ai-derived/strip-code'
 
 const memoryCategorySchema = z.enum([
   'TRAP',
@@ -55,7 +56,9 @@ All string fields must be non-empty, readable cold by a teammate who never saw t
 Every candidate must be backed by the retro text below — do not invent a lesson the retro does not state. A later step discards ungrounded candidates.
 
 # Output
-Return { "candidates": [...] }. If the retro contains no durable forward-looking lesson, return { "candidates": [] }.`
+Return { "candidates": [...] }. If the retro contains no durable forward-looking lesson, return { "candidates": [] }.
+
+${DERIVED_CONTENT_NO_CODE_RULE}`
 
 /**
  * The exact retro material the extraction reads — also the source the LUM-396

@@ -6,6 +6,7 @@ import {
 } from './milestone-distill-extract'
 import { groundCandidates } from './ground-candidates'
 import { applyMilestoneDistillOperations } from './milestone-distill-apply'
+import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 
 export interface MilestoneDistillResult {
   added: number
@@ -29,6 +30,13 @@ export interface MilestoneDistillResult {
 export const milestoneDistillService = {
   async triggerForMilestoneClose(milestoneId: string): Promise<void> {
     try {
+      // LUM-917: the workspace turned AI-derived content off.
+      if (!(await aiDerivedContentService.isEnabled({ milestoneId }))) {
+        logger.debug(
+          `[memory.milestone-distill] skip milestone=${milestoneId} reason=ai-derived-off`
+        )
+        return
+      }
       const result = await runForMilestone(milestoneId)
       if (result) {
         logger.debug(

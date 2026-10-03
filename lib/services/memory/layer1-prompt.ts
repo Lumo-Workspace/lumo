@@ -1,5 +1,6 @@
 import { compactEvents } from '@/lib/services/session-summary/compact-events'
 import type { RawEvent } from '@/lib/services/session-summary/compact-events'
+import { DERIVED_CONTENT_NO_CODE_RULE } from '@/lib/ai-derived/strip-code'
 
 interface BuildPromptInput {
   task: {
@@ -290,7 +291,9 @@ GOOD output (say it like you would to a coworker — plain words, real verbs):
       } } ] }
 
 # Your output
-Return a JSON object { "turnSummary": "...", "candidates": [...] } matching the schema. If nothing in the turn is memory-worthy, return { "turnSummary": "...", "candidates": [] }.`
+Return a JSON object { "turnSummary": "...", "candidates": [...] } matching the schema. If nothing in the turn is memory-worthy, return { "turnSummary": "...", "candidates": [] }.
+
+${DERIVED_CONTENT_NO_CODE_RULE}`
 
 /**
  * LUM-773 skip gate: a turn with NO tool calls whose compacted log is shorter

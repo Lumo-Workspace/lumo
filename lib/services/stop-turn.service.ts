@@ -7,6 +7,7 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { layer1Service } from '@/lib/services/memory/layer1.service'
 import { turnSummaryService } from '@/lib/services/turn-summary/turn-summary.service'
+import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
 import { logger } from '@/lib/logger'
 
@@ -46,12 +47,20 @@ async function currentStopTask(ctx: StopTurnContext): Promise<string | null> {
   }
 }
 
-/** Layer 1 (memory + summary) for a task turn, else the summary-only call. */
+/**
+ * Layer 1 (memory + summary) for a task turn, else the summary-only call.
+ * LUM-917: a workspace that turned AI-derived content off gets the
+ * summary-only call too — the turn line of its session record stays, no
+ * memory is extracted.
+ */
 async function extractOrSummarize(
   ctx: StopTurnContext,
   taskId: string | null
 ): Promise<void> {
-  if (taskId) {
+  if (
+    taskId &&
+    (await aiDerivedContentService.isEnabled({ workspaceId: ctx.workspaceId }))
+  ) {
     await layer1Service.triggerLayer1Extraction({
       sessionId: ctx.sessionId,
       taskId,

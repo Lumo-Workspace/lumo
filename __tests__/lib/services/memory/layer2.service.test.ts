@@ -50,6 +50,14 @@ import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { compositeNeighborRetriever } from '@/lib/services/memory/embedding-neighbor-retriever'
 import { layer2Service } from '@/lib/services/memory/layer2.service'
 
+// LUM-917: the AI-derived content switch (on unless a test turns it off).
+const mockAiDerivedEnabled = jest.fn()
+jest.mock('@/lib/services/ai-derived-content.service', () => ({
+  aiDerivedContentService: {
+    isEnabled: (...args: unknown[]) => mockAiDerivedEnabled(...args),
+  },
+}))
+
 const retrieveMock = compositeNeighborRetriever.retrieve as jest.MockedFunction<
   typeof compositeNeighborRetriever.retrieve
 >
@@ -78,6 +86,7 @@ function makeInput() {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAiDerivedEnabled.mockResolvedValue(true)
   jest.spyOn(console, 'log').mockImplementation(() => {})
   jest.spyOn(console, 'error').mockImplementation(() => {})
   // Default: the lease is free, so the run proceeds. Tests that exercise
@@ -398,6 +407,17 @@ describe('layer2Service grounding gate (LUM-396)', () => {
 })
 
 describe('layer2Service.triggerForTaskCompletion', () => {
+  it('does nothing when the workspace turned AI-derived content off (LUM-917)', async () => {
+    mockAiDerivedEnabled.mockResolvedValue(false)
+    await layer2Service.triggerForTaskCompletion({
+      taskId: 'task_1',
+      projectId: 'proj_1',
+    })
+    expect(mockAiDerivedEnabled).toHaveBeenCalledWith({ projectId: 'proj_1' })
+    expect(getInput).not.toHaveBeenCalled()
+    expect(apply).not.toHaveBeenCalled()
+  })
+
   it("runs the pipeline for the task's project", async () => {
     getInput.mockResolvedValue(makeInput())
     extract.mockResolvedValue([

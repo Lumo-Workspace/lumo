@@ -5,6 +5,14 @@ import { callRunSummaryLLM } from '@/lib/llm/run-summary-client'
 import { taskClaimSnapshotService } from '@/lib/services/task-claim-snapshot.service'
 import type { RawEvent } from '@/lib/services/session-summary/compact-events'
 
+// LUM-917: the AI-derived content switch (on unless a test turns it off).
+const mockAiDerivedEnabled = jest.fn()
+jest.mock('@/lib/services/ai-derived-content.service', () => ({
+  aiDerivedContentService: {
+    isEnabled: (...args: unknown[]) => mockAiDerivedEnabled(...args),
+  },
+}))
+
 jest.mock('@/lib/repositories/session.repository', () => ({
   sessionRepository: {
     listForTaskMissingRunSummary: jest.fn(),
@@ -61,12 +69,32 @@ function editEvents(path: string): RawEvent[] {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAiDerivedEnabled.mockResolvedValue(true)
   seq = 0
   mockTitle.mockResolvedValue({ title: 'Add OAuth login', status: 'DONE' })
   mockSynthesize.mockResolvedValue(undefined)
 })
 
 describe('run summary generation on DONE (event-stream input)', () => {
+  it('generates nothing when AI-derived content is off, but still freezes the claim snapshot (LUM-917)', async () => {
+    mockAiDerivedEnabled.mockResolvedValue(false)
+    mockMissing.mockResolvedValue(['sess-1'])
+    mockEvents.mockResolvedValue(editEvents('/a.ts'))
+
+    const result = await runSummaryService.generateForTask('task-1')
+
+    expect(mockAiDerivedEnabled).toHaveBeenCalledWith({ taskId: 'task-1' })
+    expect(mockLLM).not.toHaveBeenCalled()
+    expect(mockSet).not.toHaveBeenCalled()
+    expect(mockSynthesize).toHaveBeenCalledWith('task-1')
+    expect(result).toEqual({
+      generated: 0,
+      failed: 0,
+      skippedEmpty: 0,
+      degraded: false,
+    })
+  })
+
   it('generates from the compacted event stream and persists, for sessions missing a summary', async () => {
     mockMissing.mockResolvedValue(['sess-1'])
     mockEvents.mockResolvedValue(editEvents('/a.ts'))

@@ -1,4 +1,5 @@
 import type { Layer2Input } from './layer2-input'
+import { DERIVED_CONTENT_NO_CODE_RULE } from '@/lib/ai-derived/strip-code'
 
 interface BuiltPrompt {
   system: string
@@ -66,7 +67,9 @@ Tight by default. A whole memory is usually 1–2 lines; only PROCEDURAL earns a
 
 - Headlines (\`trigger\`, \`what\`, \`rule\`, \`workflow\`): one line, ideally under ~15 words. A clear fragment is fine — it need not be a complete sentence.
 - Detail fields (\`outcome\`, \`why\`, \`scope\`, \`workaround\`): a clause or one sentence. A second sentence only when the point is genuinely counter-intuitive. \`alternatives\`/\`implications\` stay one clause each, never a paragraph.
-- Don't write to a length. One-clause lesson → ship one clause.`
+- Don't write to a length. One-clause lesson → ship one clause.
+
+${DERIVED_CONTENT_NO_CODE_RULE}`
 
 /**
  * The exact source material the consolidation LLM reads — the recent

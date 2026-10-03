@@ -18,6 +18,7 @@ import {
   type ReviewPayload,
   type SessionSummaryPayload,
 } from './types'
+import { DERIVED_CONTENT_NO_CODE_RULE } from '@/lib/ai-derived/strip-code'
 
 const CONTENT_MAX_TOKENS = 2048
 
@@ -61,7 +62,8 @@ export async function generateStructuredSummary(
   args: GenerateArgs
 ): Promise<SessionSummaryPayload> {
   const tool = TOOLS[args.kind]
-  const system = SYSTEM_PROMPTS[args.kind]
+  // LUM-917: a session summary is stored AI-derived content — no code in it.
+  const system = `${SYSTEM_PROMPTS[args.kind]}\n\n${DERIVED_CONTENT_NO_CODE_RULE}`
   const userPrompt = buildUserPrompt(args)
 
   const { object } = await generateObject({

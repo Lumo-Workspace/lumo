@@ -36,7 +36,19 @@ jest.mock('react-intl', () => {
   }
 })
 jest.mock('@/lib/api-client', () => ({
-  workspacesClient: { updateMe: jest.fn() },
+  workspacesClient: {
+    updateMe: jest.fn(),
+    getAiDerivedContent: jest.fn().mockResolvedValue({
+      enabled: true,
+      counts: {
+        memories: 0,
+        sessionSummaries: 0,
+        runSummaries: 0,
+        claimSnapshots: 0,
+        verdictTexts: 0,
+      },
+    }),
+  },
 }))
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }))
 
@@ -49,10 +61,13 @@ const DEFAULTS = {
   scanEvidenceRetentionDays: 7,
   crossingRawRetentionDays: 7,
   deadLetterRetentionDays: 7,
+  aiDerivedContentEnabled: true,
 }
 
 function renderSection(settings = DEFAULTS) {
-  return render(<DataRetentionSection settings={settings} />)
+  return render(
+    <DataRetentionSection settings={settings} workspaceName='Acme' />
+  )
 }
 
 function select(rowId: string) {

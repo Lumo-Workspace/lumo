@@ -1,5 +1,9 @@
 /** @jest-environment node */
 const handleHookRequest = jest.fn()
+// LUM-917: AI-derived content stays on for these routing tests.
+jest.mock('@/lib/services/ai-derived-content.service', () => ({
+  aiDerivedContentService: { isEnabled: async () => true },
+}))
 jest.mock('@/app/api/hooks/_handler', () => ({
   handleHookRequest: (...a: unknown[]) => handleHookRequest(...a),
 }))

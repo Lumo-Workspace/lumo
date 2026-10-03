@@ -27,6 +27,14 @@ jest.mock('@/lib/services/lineage.service', () => ({
 }))
 jest.mock('@/lib/ai/embedding', () => ({ embedTexts: jest.fn() }))
 
+// LUM-917: the AI-derived content switch (on unless a test turns it off).
+const mockAiDerivedEnabled = jest.fn()
+jest.mock('@/lib/services/ai-derived-content.service', () => ({
+  aiDerivedContentService: {
+    isEnabled: (...args: unknown[]) => mockAiDerivedEnabled(...args),
+  },
+}))
+
 import {
   foldService,
   selectPruneTargets,
@@ -55,6 +63,7 @@ const overHighWater = () =>
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAiDerivedEnabled.mockResolvedValue(true)
   mClaim.mockResolvedValue(true)
   mFoldState.mockResolvedValue({
     workspaceId: 'ws-1',
@@ -70,6 +79,18 @@ beforeEach(() => {
 })
 
 describe('foldService.triggerForProject is throttled by active-count floor and cooldown and swallows errors', () => {
+  it('skips when the workspace turned AI-derived content off (LUM-917)', async () => {
+    overHighWater()
+    mockAiDerivedEnabled.mockResolvedValue(false)
+    await expect(foldService.triggerForProject('proj-1')).resolves.toEqual({
+      folded: 0,
+      pruned: 0,
+      skipped: 'ai-derived-off',
+    })
+    expect(mCompute).not.toHaveBeenCalled()
+    expect(mClaim).not.toHaveBeenCalled()
+  })
+
   it('skips when already within the high-water mark without computing or stamping', async () => {
     mActive.mockResolvedValue([{ id: 'm1' }]) // <= MEMORY_HIGH_WATER
     await foldService.triggerForProject('proj-1')

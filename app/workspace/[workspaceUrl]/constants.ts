@@ -96,6 +96,7 @@ export const API = {
     leaveWorkspace: '/api/workspaces/members/me',
     exports: '/api/workspaces/me/exports',
     deletion: '/api/workspaces/me/deletion',
+    aiDerivedContent: '/api/workspaces/me/ai-derived-content',
     exportDownload: (id: string) =>
       `/api/workspaces/me/exports/${encodeURIComponent(id)}/download`,
   },

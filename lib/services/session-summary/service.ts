@@ -2,6 +2,8 @@ import { FAST_MODEL, CONTENT_MODEL } from '@/lib/ai/models'
 import { APICallError } from 'ai'
 import type { Prisma } from '@prisma/client'
 import { sessionRepository } from '@/lib/repositories/session.repository'
+import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
+import { AI_DERIVED_OFF_CODE } from '@/lib/ai-derived/constants'
 import {
   compactEvents,
   extractSessionMetadata,
@@ -47,6 +49,17 @@ export const sessionSummaryService = {
     )
     if (!session) {
       throw Object.assign(new Error('Session not found'), { status: 404 })
+    }
+    // LUM-917: the workspace turned AI-derived content off.
+    if (
+      !(await aiDerivedContentService.isEnabled({
+        workspaceId: session.workspaceId,
+      }))
+    ) {
+      throw Object.assign(
+        new Error('AI-derived content is turned off for this workspace'),
+        { status: 409, code: AI_DERIVED_OFF_CODE }
+      )
     }
 
     const events = (await sessionRepository.listEventsForSession(

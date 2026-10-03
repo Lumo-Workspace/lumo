@@ -1,10 +1,20 @@
 import type { MemoryCategory } from '@prisma/client'
+import { DERIVED_CONTENT_NO_CODE_RULE } from '@/lib/ai-derived/strip-code'
 
 interface ReconcileInput {
   task: { title: string; description: string | null }
-  candidates: Array<{ category: MemoryCategory; scope?: 'TASK' | 'PROJECT' | undefined; content: unknown }>
+  candidates: Array<{
+    category: MemoryCategory
+    scope?: 'TASK' | 'PROJECT' | undefined
+    content: unknown
+  }>
   neighborsByCandidate: Array<
-    Array<{ id: string; category: MemoryCategory; content: unknown; score: number }>
+    Array<{
+      id: string
+      category: MemoryCategory
+      content: unknown
+      score: number
+    }>
   >
 }
 
@@ -41,7 +51,9 @@ Do NOT emit \`{"operation":...}\` — an element keyed "operation" is dropped an
 - Contradiction (candidate says the opposite of a neighbor) → SUPERSEDE that neighbor (same category) — do not leave both.
 - No relevant neighbor at all → ADD.
 - Only reference an id that appears in that candidate's neighbor list. Never invent ids.
-- Content shapes per category are unchanged (TRAP/DECISION/CONVENTION/PROCEDURAL). Keep the same terse, plain-words writing style as the candidates.`
+- Content shapes per category are unchanged (TRAP/DECISION/CONVENTION/PROCEDURAL). Keep the same terse, plain-words writing style as the candidates.
+
+${DERIVED_CONTENT_NO_CODE_RULE}`
 
 export function buildLayer1ReconcilePrompt(input: ReconcileInput): BuiltPrompt {
   const description = input.task.description?.trim() || '(no description)'

@@ -8,6 +8,10 @@
  * dispatch to exactly one of the two.
  */
 const generateTextMock = jest.fn()
+// LUM-917: AI-derived content stays on for these routing tests.
+jest.mock('@/lib/services/ai-derived-content.service', () => ({
+  aiDerivedContentService: { isEnabled: async () => true },
+}))
 jest.mock('ai', () => ({
   generateText: (...a: unknown[]) => generateTextMock(...a),
 }))

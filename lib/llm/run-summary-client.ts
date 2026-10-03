@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { generateObject } from 'ai'
 import '@/lib/ai/gateway'
 import { gateway } from '@/lib/ai/gateway'
+import { DERIVED_CONTENT_NO_CODE_RULE } from '@/lib/ai-derived/strip-code'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -43,7 +44,9 @@ Produce:
 Rules:
 - Be plain and factual. Ground every claim in the log — if the log shows file edits/writes/commands, the run changed code; if it shows only reads/searches, the run only explored. Do NOT under- or over-state the work.
 - No preamble, no headings, no bullet lists, no emoji.
-- Reply in the same language as the event log.`
+- Reply in the same language as the event log.
+
+${DERIVED_CONTENT_NO_CODE_RULE}`
 
 // ── Client ────────────────────────────────────────────────────────────────────
 

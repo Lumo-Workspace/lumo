@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma, SessionRole, TaskArtifactAgent } from '@prisma/client'
 import { buildChildSessionId } from '@/lib/session/child-session-id'
+import { stripCodeFromStoredFields } from '@/lib/ai-derived/strip-code'
+import { redactStoredFields } from '@/lib/security-scan/storage-redaction'
 import {
   bumpFamilyAttributionVersion,
   clearProvisionalTagsForSteward,
@@ -14,6 +16,17 @@ import type {
   AttributionSourceName,
 } from '@/lib/attribution/run-attribution'
 import { addUsageMaps, usageMapTotal } from '@/lib/services/model-cost'
+
+/**
+ * LUM-917 — session summaries and run summaries are AI-derived content: code
+ * is stripped and credentials redacted before they are stored.
+ */
+function storedDerivedFields<T extends object>(
+  data: T,
+  fields: readonly string[]
+): T {
+  return redactStoredFields(stripCodeFromStoredFields(data, fields), fields)
+}
 
 export interface ModelUsage {
   input: number
@@ -1283,7 +1296,8 @@ export const sessionRepository = {
     return prisma.session.update({
       where: { id: input.id },
       data: {
-        summary: input.summary,
+        summary: storedDerivedFields({ summary: input.summary }, ['summary'])
+          .summary,
         summaryType: input.summaryType,
         summaryGeneratedAt: input.generatedAt,
         summaryClassifyModel: input.classifyModel,
@@ -1484,7 +1498,11 @@ export const sessionRepository = {
   async setRunSummary(sessionId: string, summary: string, at: Date) {
     return prisma.session.update({
       where: { id: sessionId },
-      data: { runSummary: summary, runSummaryGeneratedAt: at },
+      data: {
+        runSummary: storedDerivedFields({ runSummary: summary }, ['runSummary'])
+          .runSummary,
+        runSummaryGeneratedAt: at,
+      },
       select: { id: true },
     })
   },

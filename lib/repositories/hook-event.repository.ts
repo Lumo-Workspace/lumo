@@ -6,6 +6,8 @@ import {
   retagEventsToExplicitTask,
 } from '@/lib/repositories/explicit-retag'
 import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
+import { stripCodeFromText } from '@/lib/ai-derived/strip-code'
+import { redactForStorage } from '@/lib/security-scan/scan-secrets'
 import type { HookEventType } from '@prisma/client'
 import type { AttributionSignal } from '@/lib/attribution/signals'
 import type { ToolEventRow } from '@/lib/session/resolve-caller'
@@ -361,10 +363,13 @@ export const hookEventRepository = {
    * since the caller is fire-and-forget.
    */
   async setTurnSummary(eventId: string, summary: string) {
+    // LUM-917: a turn summary is AI-derived — code stripped, then credentials
+    // redacted, before it is stored.
+    const stored = redactForStorage(stripCodeFromText(summary).text).text
     try {
       await prisma.hookEvent.update({
         where: { id: eventId },
-        data: { turnSummary: summary },
+        data: { turnSummary: stored },
         select: { id: true },
       })
     } catch (error) {

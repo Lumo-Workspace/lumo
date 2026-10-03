@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { sessionsClient, ApiClientError } from '@/lib/api-client'
 import { useNow } from '@/hooks/use-now'
 import { SESSION_MESSAGES as M } from '../messages'
+import { AI_DERIVED_OFF_CODE } from '@/lib/ai-derived/constants'
 
 // Kept local to the component to avoid importing server-only type files.
 // The service-layer type is the source of truth for the API contract.
@@ -114,9 +115,11 @@ export function SummaryCard({
       startTransition(() => router.refresh())
     } catch (err) {
       setError(
-        err instanceof ApiClientError || err instanceof Error
-          ? err.message
-          : intl.formatMessage(M['summary.generateFailed'])
+        err instanceof ApiClientError && err.code === AI_DERIVED_OFF_CODE
+          ? intl.formatMessage(M['summary.aiDerivedOff'])
+          : err instanceof ApiClientError || err instanceof Error
+            ? err.message
+            : intl.formatMessage(M['summary.generateFailed'])
       )
     } finally {
       setLoading(false)

@@ -5,6 +5,8 @@ import { SessionRecordRetentionRow } from './SessionRecordRetentionRow'
 import { ScanEvidenceRetentionRow } from './ScanEvidenceRetentionRow'
 import { CrossingRawRetentionRow } from './CrossingRawRetentionRow'
 import { DeadLetterRetentionRow } from './DeadLetterRetentionRow'
+import { AiDerivedContentRow } from './AiDerivedContentRow'
+import { AiDerivedContentDeleteRow } from './AiDerivedContentDeleteRow'
 
 export interface DataRetentionSettings {
   hookEventRetentionMode: string | null
@@ -12,6 +14,8 @@ export interface DataRetentionSettings {
   scanEvidenceRetentionDays: number | null
   crossingRawRetentionDays: number | null
   deadLetterRetentionDays: number | null
+  /** LUM-917: null (not loaded) reads as on. */
+  aiDerivedContentEnabled: boolean | null
 }
 
 /**
@@ -20,8 +24,11 @@ export interface DataRetentionSettings {
  */
 export function DataRetentionSection({
   settings,
+  workspaceName,
 }: {
   settings: DataRetentionSettings
+  /** Re-typed to confirm deleting AI-derived content (LUM-917). */
+  workspaceName: string
 }) {
   const intl = useIntl()
   return (
@@ -48,6 +55,8 @@ export function DataRetentionSection({
         initialDays={settings.crossingRawRetentionDays}
       />
       <DeadLetterRetentionRow initialDays={settings.deadLetterRetentionDays} />
+      <AiDerivedContentRow initialEnabled={settings.aiDerivedContentEnabled} />
+      <AiDerivedContentDeleteRow workspaceName={workspaceName} />
     </section>
   )
 }

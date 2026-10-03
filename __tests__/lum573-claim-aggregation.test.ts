@@ -21,6 +21,13 @@ import {
   resolveClaimForReadModel,
 } from '@/lib/services/task-claim'
 
+// LUM-917: the AI-derived content switch (on unless a test turns it off).
+const mockAiDerivedEnabled = jest.fn()
+jest.mock('@/lib/services/ai-derived-content.service', () => ({
+  aiDerivedContentService: {
+    isEnabled: (...args: unknown[]) => mockAiDerivedEnabled(...args),
+  },
+}))
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
   lineageEdgeRepository: { findMergedSessionIds: jest.fn() },
 }))
@@ -54,6 +61,7 @@ const setClaimSnapshot = taskRepository.setClaimSnapshot as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAiDerivedEnabled.mockResolvedValue(true)
 })
 
 describe('resolveClaimMaterial — lineage-MERGED session selection (C1)', () => {
