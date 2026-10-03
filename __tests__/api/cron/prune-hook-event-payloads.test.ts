@@ -13,18 +13,25 @@ jest.mock('@/lib/services/hook-event-retention.service', () => ({
 jest.mock('@/lib/services/pr-comment-dead-letter-retention.service', () => ({
   prCommentDeadLetterRetentionService: { purgeExpiredPayloads: jest.fn() },
 }))
+jest.mock('@/lib/services/crossing-raw-retention.service', () => ({
+  crossingRawRetentionService: { purgeExpired: jest.fn() },
+}))
 
 import { GET } from '@/app/api/cron/prune-hook-event-payloads/route'
 import { hookEventRetentionService } from '@/lib/services/hook-event-retention.service'
 import { prCommentDeadLetterRetentionService } from '@/lib/services/pr-comment-dead-letter-retention.service'
+import { crossingRawRetentionService } from '@/lib/services/crossing-raw-retention.service'
 
 const hookPrune = hookEventRetentionService.pruneExpiredPayloads as jest.Mock
 const deadLetterPurge =
   prCommentDeadLetterRetentionService.purgeExpiredPayloads as jest.Mock
 
+const crossingPurge = crossingRawRetentionService.purgeExpired as jest.Mock
+
 const OLD_ENV = process.env
 beforeEach(() => {
   jest.clearAllMocks()
+  crossingPurge.mockResolvedValue({ purged: 0, capped: false })
   process.env = { ...OLD_ENV, CRON_SECRET: 'secret' }
 })
 afterAll(() => {
@@ -45,6 +52,7 @@ it('rejects a request without the cron secret and purges nothing', async () => {
   expect(res.status).toBe(401)
   expect(hookPrune).not.toHaveBeenCalled()
   expect(deadLetterPurge).not.toHaveBeenCalled()
+  expect(crossingPurge).not.toHaveBeenCalled()
 })
 
 it('daily prune cron also purges dead letter payloads', async () => {
@@ -56,6 +64,7 @@ it('daily prune cron also purges dead letter payloads', async () => {
     workspaces: [],
     pruned: 3,
     prCommentDeadLetters: { purged: 2, capped: false },
+    crossingRaw: { purged: 0, capped: false },
   })
   expect(deadLetterPurge).toHaveBeenCalledTimes(1)
 })
@@ -65,4 +74,16 @@ it('runs the dead letter purge even when the hook event prune fails', async () =
   deadLetterPurge.mockResolvedValue({ purged: 1, capped: false })
   await expect(GET(req('Bearer secret'))).rejects.toThrow('hook prune down')
   expect(deadLetterPurge).toHaveBeenCalledTimes(1)
+})
+
+it('daily prune cron also purges dispositioned crossing raw text', async () => {
+  hookPrune.mockRejectedValue(new Error('hook prune down'))
+  deadLetterPurge.mockResolvedValue({ purged: 0, capped: false })
+  crossingPurge.mockResolvedValue({ purged: 4, capped: false })
+  await expect(GET(req('Bearer secret'))).rejects.toThrow('hook prune down')
+  expect(crossingPurge).toHaveBeenCalledTimes(1)
+
+  hookPrune.mockResolvedValue({ workspaces: [], pruned: 0 })
+  const res = await GET(req('Bearer secret'))
+  expect((await res.json()).crossingRaw).toEqual({ purged: 4, capped: false })
 })

@@ -227,3 +227,67 @@ describe('PR comment dead-letter payload retention', () => {
     ).toBe(true)
   })
 })
+
+describe('LUM-941: dead letter retention follows the workspace setting', () => {
+  const LONG = 'ws_dead_letters_30d'
+
+  async function seedFor(workspaceId: string, id: string, ageDays: number) {
+    const deadLetteredAt = new Date(NOW.getTime() - ageDays * DAY)
+    await harness.prisma!.prCommentSyncJob.create({
+      data: {
+        id,
+        direction: 'INBOUND',
+        payload: inboundPayload(0),
+        workspaceId,
+        status: 'DEAD_LETTER',
+        attempts: 3,
+        lastError: 'parent mirror still missing',
+        deadLetteredAt,
+        createdAt: deadLetteredAt,
+      },
+    })
+  }
+
+  it('dead letter purge honours each workspace retention setting', async () => {
+    await harness.prisma!.workspace.upsert({
+      where: { id: LONG },
+      create: { id: LONG, name: LONG, slug: LONG, deadLetterRetentionDays: 30 },
+      update: { deadLetterRetentionDays: 30 },
+    })
+    // Default workspace (7 days): 8 days old is due.
+    await seedFor(WORKSPACE, 'job_default_8d', 8)
+    // 30-day workspace: 8 days old stays whole, 31 days old is due.
+    await seedFor(LONG, 'job_long_8d', 8)
+    await seedFor(LONG, 'job_long_31d', 31)
+
+    const result =
+      await prCommentDeadLetterRetentionService.purgeExpiredPayloads(NOW)
+    expect(result).toEqual({ purged: 2, capped: false })
+
+    expect((await job('job_default_8d')).payloadPurgedAt).not.toBeNull()
+    const kept = await job('job_long_8d')
+    expect(kept.payloadPurgedAt).toBeNull()
+    expect(kept.payload).toEqual(inboundPayload(0))
+    const purged = await job('job_long_31d')
+    expect(purged.payloadPurgedAt).not.toBeNull()
+    expect(JSON.stringify(purged.payload)).not.toContain('diff_hunk')
+  })
+
+  it('an out-of-tier stored value falls back to the 7-day default', async () => {
+    await harness.prisma!.workspace.update({
+      where: { id: WORKSPACE },
+      data: { deadLetterRetentionDays: 45 },
+    })
+    try {
+      await seedFor(WORKSPACE, 'job_odd_8d', 8)
+      const result =
+        await prCommentDeadLetterRetentionService.purgeExpiredPayloads(NOW)
+      expect(result.purged).toBe(1)
+    } finally {
+      await harness.prisma!.workspace.update({
+        where: { id: WORKSPACE },
+        data: { deadLetterRetentionDays: 7 },
+      })
+    }
+  })
+})

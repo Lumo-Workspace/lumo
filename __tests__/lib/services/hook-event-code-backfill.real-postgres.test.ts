@@ -53,6 +53,11 @@ async function payloadOf(id: string): Promise<string> {
 beforeAll(async () => {
   await harness.start()
   await harness.insert('workspaces', { id: 'ws', name: 'ws', slug: 'ws' })
+  // LUM-933: the backfill only touches "discard when used up" workspaces.
+  await harness.prisma!.workspace.update({
+    where: { id: 'ws' },
+    data: { hookEventRetentionMode: 'USED_UP' },
+  })
   await harness.insert('workspace_members', {
     id: 'member',
     workspaceId: 'ws',
@@ -190,5 +195,70 @@ describe('hook event code backfill on a real Postgres', () => {
     expect(h1.tool_input.command).toBe('git push --no-verify')
     expect(h1.tool_response).toEqual({ interrupted: false })
     expect(h1._lumo_redacted['tool_response.stdout'].lines).toBe(2)
+  })
+
+  it('backfill skips keep-forever and day-tier workspaces', async () => {
+    const db = harness.prisma!
+    for (const [id, days] of [
+      ['ws_forever', null],
+      ['ws_days', 90],
+    ] as const) {
+      await db.workspace.create({
+        data: {
+          id,
+          name: id,
+          slug: id,
+          hookEventRetentionMode: 'RETAIN',
+          hookEventRetentionDays: days,
+        },
+      })
+      await db.workspaceMember.create({
+        data: { id: `${id}_m`, workspaceId: id, clerkId: `${id}_c` },
+      })
+      await db.hookEvent.create({
+        data: {
+          id: `${id}_raw`,
+          workspaceId: id,
+          workspaceMemberId: `${id}_m`,
+          type: 'POST_TOOL_USE',
+          payload: write(`/repo/lib/${id}.ts`),
+        },
+      })
+      await db.hookEvent.create({
+        data: {
+          id: `${id}_crossing`,
+          workspaceId: id,
+          workspaceMemberId: `${id}_m`,
+          type: 'POST_TOOL_USE',
+          payload: {
+            tool_name: 'Bash',
+            tool_input: { command: 'git push --no-verify' },
+            tool_response: { stdout: CODE, stderr: '' },
+          },
+        },
+      })
+      await db.boundaryCrossing.create({
+        data: {
+          id: `${id}_bc`,
+          hookEventId: `${id}_crossing`,
+          category: 'HOOK_BYPASS',
+          detail: 'git push --no-verify',
+        },
+      })
+    }
+
+    await hookEventCodeBackfillService.run({ dryRun: false })
+    await hookEventCodeBackfillService.runCrossingRows({ dryRun: false })
+
+    for (const id of ['ws_forever', 'ws_days']) {
+      const raw = await db.hookEvent.findUniqueOrThrow({
+        where: { id: `${id}_raw` },
+      })
+      expect(JSON.stringify(raw.payload)).toContain('items.reduce')
+      const crossing = await db.hookEvent.findUniqueOrThrow({
+        where: { id: `${id}_crossing` },
+      })
+      expect(JSON.stringify(crossing.payload)).toContain('items.reduce')
+    }
   })
 })

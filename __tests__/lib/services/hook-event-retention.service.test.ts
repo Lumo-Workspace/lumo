@@ -12,12 +12,28 @@ jest.mock('@/lib/repositories/hook-event-retention.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: { update: jest.fn(), isSlugUnique: jest.fn() },
+  workspaceRepository: {
+    update: jest.fn(),
+    isSlugUnique: jest.fn(),
+    findRetentionSettings: jest.fn(async () => ({
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: null,
+      hookEventRetentionSince: null,
+      hookEventRetentionLegacyDays: null,
+      crossingRawRetentionDays: 7,
+      crossingRawRetentionSince: new Date('2026-10-06T00:00:00Z'),
+    })),
+  },
 }))
 jest.mock('@/lib/services/workspace-deletion.service', () => ({
   workspaceDeletionService: { deleteWorkspace: jest.fn() },
 }))
 // LUM-913: the same daily cron also purges PR comment dead letters.
+jest.mock('@/lib/services/crossing-raw-retention.service', () => ({
+  crossingRawRetentionService: {
+    purgeExpired: jest.fn().mockResolvedValue({ purged: 0, capped: false }),
+  },
+}))
 jest.mock('@/lib/services/pr-comment-dead-letter-retention.service', () => ({
   prCommentDeadLetterRetentionService: {
     purgeExpiredPayloads: jest.fn(async () => ({ purged: 0, capped: false })),
@@ -226,6 +242,11 @@ describe('hook event retention wiring (LUM-859)', () => {
     })
     expect(workspaceRepository.update).toHaveBeenCalledWith('ws_a', {
       hookEventRetentionDays: 180,
+      // LUM-933: a day tier is always a RETAIN choice, and tightening from
+      // "forever" only governs events stored afterwards.
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionSince: expect.any(Date),
+      hookEventRetentionLegacyDays: null,
     })
 
     // Cron: registered in vercel.json and behind cron auth.
@@ -252,6 +273,7 @@ describe('hook event retention wiring (LUM-859)', () => {
       workspaces: [],
       pruned: 0,
       prCommentDeadLetters: { purged: 0, capped: false },
+      crossingRaw: { purged: 0, capped: false },
     })
   })
 })

@@ -52,6 +52,8 @@ describe('boundaryCrossingRepository.findOpenBlockingRejudgeable', () => {
       category: { in: ['POLICY_WEAKENING', 'TEST_FILE_DELETED'] },
       disposition: null,
       advisory: false,
+      // LUM-912: a purged crossing has no raw text left to re-judge.
+      rawPurgedAt: null,
       taskId: { not: null },
     })
     expect(arg.take).toBe(50)

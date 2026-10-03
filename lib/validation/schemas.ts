@@ -89,6 +89,17 @@ export const updateWorkspaceSchema = createWorkspaceSchema.partial().extend({
   scanEvidenceRetentionDays: z
     .union([z.literal(0), z.literal(7), z.literal(14), z.literal(30)])
     .optional(),
+  // LUM-933 / LUM-910: session record mode. USED_UP forces
+  // hookEventRetentionDays to null (lib/services/workspace.service.ts).
+  hookEventRetentionMode: z.enum(['RETAIN', 'USED_UP']).optional(),
+  // LUM-912: days a dispositioned crossing keeps its raw text.
+  crossingRawRetentionDays: z
+    .union([z.literal(7), z.literal(30), z.literal(90)])
+    .optional(),
+  // LUM-941: days a dead-lettered PR comment sync job keeps its webhook payload.
+  deadLetterRetentionDays: z
+    .union([z.literal(7), z.literal(30), z.literal(90)])
+    .optional(),
   // LUM-866: per-workspace security-scan switches (the env stays the ceiling).
   securityScanEnabled: z.boolean().optional(),
   securityAiReviewEnabled: z.boolean().optional(),
