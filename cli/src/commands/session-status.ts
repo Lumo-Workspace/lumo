@@ -103,22 +103,56 @@ function segmentLine(seg: Attribution['segments'][number]): string {
   return `    ${identifierText(seg.taskIdentifier)}  ${turns}  ${how}${ev ? ` (${ev})` : ''}\n`
 }
 
-function subagentLine(sub: Attribution['subagents'][number]): string {
+/** The rendered parts of one subagent line: `<type> (<id6>)  <tail>`. */
+function subagentParts(sub: Attribution['subagents'][number]): {
+  type: string
+  shortId: string
+  tail: string
+} {
   const sessionId: unknown = sub.sessionId
   const agentId =
     typeof sessionId === 'string'
       ? sessionId.slice(sessionId.lastIndexOf(':') + 1)
       : ''
   const subTasks = Array.isArray(sub.tasks) ? sub.tasks : []
-  const tasks = subTasks.length
+  const tail = subTasks.length
     ? subTasks
-        .map(t => `${identifierText(t?.taskIdentifier)} ${sourceWord(t?.source)}`)
+        .map(
+          t => `${identifierText(t?.taskIdentifier)} ${sourceWord(t?.source)}`
+        )
         .join(', ')
     : 'follows parent'
   const type = sanitizeField(
     typeof sub.agentType === 'string' ? sub.agentType : 'subagent'
   )
-  return `    ${type} (${sanitizeField(agentId.slice(-6))})  ${tasks}\n`
+  return { type, shortId: sanitizeField(agentId.slice(-6)), tail }
+}
+
+/**
+ * One line per distinct `<type>  <tail>` (first-seen order): a lone subagent
+ * keeps its `(id6)`, a group prints `<type> ×N` instead of N identical lines.
+ */
+function subagentLines(subagents: Attribution['subagents']): string {
+  const groups = new Map<
+    string,
+    { parts: ReturnType<typeof subagentParts>; count: number }
+  >()
+  for (const sub of subagents) {
+    const parts = subagentParts(sub)
+    const key = `${parts.type}\u0000${parts.tail}`
+    const g = groups.get(key)
+    if (g) g.count += 1
+    else groups.set(key, { parts, count: 1 })
+  }
+  let out = ''
+  for (const { parts, count } of groups.values()) {
+    const label =
+      count === 1
+        ? `${parts.type} (${parts.shortId})`
+        : `${parts.type} ×${count}`
+    out += `    ${label}  ${parts.tail}\n`
+  }
+  return out
 }
 
 function subagentOfLine(data: StatusResponse): string {
@@ -141,7 +175,7 @@ function attributionBlock(data: StatusResponse, bound: boolean): string {
       '  Attribution: none yet (no task signal) — it will be auto-detected from branch, commits and lumo commands, or run lumo session attach <LUM-N>.\n'
   }
   if (subagents.length > 0) {
-    out += '  Subagents:\n' + subagents.map(subagentLine).join('')
+    out += '  Subagents:\n' + subagentLines(subagents)
   }
   if (a.approximate) {
     out +=

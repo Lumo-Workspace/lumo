@@ -239,3 +239,42 @@ it('treats non-string confidence, identifiers and session ids as missing', async
   expect(out).toContain('    Explore ()  ? subagent attach, LUM-9 ?\n')
   expect(out).not.toContain('undefined')
 })
+
+it('groups subagents whose rendered line is identical into one counted line', async () => {
+  const inherited = [
+    { taskIdentifier: 'LUM-932', source: 'INHERITED', confidence: 'EXPLICIT' },
+  ]
+  const out = await run({
+    ...root,
+    attribution: {
+      segments: [],
+      subagents: [
+        ...Array.from({ length: 120 }, (_, i) => ({
+          sessionId: `sess-1:a${String(i).padStart(16, '0')}`,
+          agentType: 'general-purpose',
+          tasks: inherited,
+        })),
+        { sessionId: 'sess-1:abbbbbbccc111', agentType: 'Explore', tasks: [] },
+        {
+          sessionId: 'sess-1:accccccddd222',
+          agentType: 'general-purpose',
+          tasks: [],
+        },
+        {
+          sessionId: 'sess-1:adddddd333333',
+          agentType: 'general-purpose',
+          tasks: [],
+        },
+      ],
+      unattributed: false,
+      approximate: false,
+    },
+  })
+  const block = out.slice(out.indexOf('  Subagents:\n'))
+  expect(block).toBe(
+    '  Subagents:\n' +
+      '    general-purpose ×120  LUM-932 inherited\n' +
+      '    Explore (ccc111)  follows parent\n' +
+      '    general-purpose ×2  follows parent\n'
+  )
+})

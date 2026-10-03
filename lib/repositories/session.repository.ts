@@ -27,6 +27,20 @@ export interface ModelUsage {
  * to >= 0 per field (a transcript can shrink on compaction, which would make a
  * naive subtraction negative). Models present only in `next` yield their full
  * value (first turn using that model). Pure + exported for unit testing.
+ *
+ * Usage-drop semantics (LUM-932): CLIs >= 1.85.0 count each transcript
+ * assistant message once (older ones summed every JSONL line, ~2x inflated).
+ * The first deduped report for a session that an older CLI already reported
+ * therefore lands BELOW the stored cumulative. That drop RE-BASELINES: the
+ * per-turn/per-step delta clamps to 0 (no negative rows, so budgets, forecast
+ * and trajectory sums stay monotonic) and the stored cumulative is replaced by
+ * the new lower value, so later growth is measured from the corrected base.
+ * The one turn straddling the upgrade records no delta (its real burn is
+ * absorbed by the drop). Old CLIs report growing totals except when a
+ * transcript shrinks (compaction, or a subagent file removed by retention
+ * cleanup); those rare drops now re-baseline the same way. A STOP delivered
+ * after the next turn's batch (only on a client hook timeout) resets the live
+ * snapshot to its stale value, so that next step can be over-counted once.
  */
 export function diffUsageByModel(
   prior: Record<string, ModelUsage> | null | undefined,
@@ -384,7 +398,23 @@ export const sessionRepository = {
         (child.usageByModel as Record<string, ModelUsage> | null) ?? null,
         data.usage.byModel
       )
-      if (usageMapTotal(delta) === 0) return { settled: false }
+      const cumulative = {
+        inputTokens: data.usage.inputTokens,
+        outputTokens: data.usage.outputTokens,
+        cacheReadTokens: data.usage.cacheReadTokens,
+        cacheCreationTokens: data.usage.cacheCreationTokens,
+        usageByModel: data.usage.byModel as unknown as Prisma.InputJsonValue,
+      }
+      if (usageMapTotal(delta) === 0) {
+        // Usage drop (see diffUsageByModel): re-baseline the cumulative with
+        // nothing added to the SUBAGENT_STOP row — without this the inflated
+        // value would stick and swallow later growth. Equal -> no write.
+        const stored =
+          (child.usageByModel as Record<string, ModelUsage> | null) ?? null
+        if (stored && usageMapTotal(data.usage.byModel) < usageMapTotal(stored))
+          await tx.session.update({ where: { id }, data: cumulative })
+        return { settled: false }
+      }
       const stopRow = await tx.hookEvent.findFirst({
         where: { sessionId: id, type: 'SUBAGENT_STOP' },
         orderBy: { createdAt: 'desc' },
@@ -400,16 +430,7 @@ export const sessionRepository = {
           ) as unknown as Prisma.InputJsonValue,
         },
       })
-      await tx.session.update({
-        where: { id },
-        data: {
-          inputTokens: data.usage.inputTokens,
-          outputTokens: data.usage.outputTokens,
-          cacheReadTokens: data.usage.cacheReadTokens,
-          cacheCreationTokens: data.usage.cacheCreationTokens,
-          usageByModel: data.usage.byModel as unknown as Prisma.InputJsonValue,
-        },
-      })
+      await tx.session.update({ where: { id }, data: cumulative })
       return { settled: true }
     })
   },
@@ -436,18 +457,32 @@ export const sessionRepository = {
       return prisma.$transaction(async tx => {
         const prior = await tx.session.findUnique({
           where: { id: data.id },
-          select: { usageByModel: true },
+          select: { usageByModel: true, liveUsageByModel: true },
         })
         const turnUsageByModel = diffUsageByModel(
           (prior?.usageByModel as Record<string, ModelUsage> | null) ?? null,
           usage.byModel
         )
+        // Usage drop (see diffUsageByModel): a live snapshot larger than this
+        // STOP's cumulative is stale-inflated, and pickLatestCumulative would
+        // pick it as the next batch's baseline — reset it to the new value.
+        // Normally live <= STOP cumulative and it is left untouched.
+        const live =
+          (prior?.liveUsageByModel as Record<string, ModelUsage> | null) ?? null
+        const resetLive =
+          live !== null && usageMapTotal(live) > usageMapTotal(usage.byModel)
         const flat = {
           inputTokens: usage.inputTokens,
           outputTokens: usage.outputTokens,
           cacheReadTokens: usage.cacheReadTokens,
           cacheCreationTokens: usage.cacheCreationTokens,
           usageByModel: usage.byModel as unknown as Prisma.InputJsonValue,
+          ...(resetLive
+            ? {
+                liveUsageByModel:
+                  usage.byModel as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
         }
         const row = await tx.session.upsert({
           where: { id: data.id },
