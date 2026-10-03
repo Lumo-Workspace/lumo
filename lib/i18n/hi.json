@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "{count, plural, one {# फ़ाइल} other {# फ़ाइलें}}",
   "sessions.timeline.badge.matches": "{count, plural, one {# मिलान} other {# मिलान}}",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "लगभग 2 गुना अधिक",
+  "usage.preDedupe.notice": "3 अक्टूबर 2026 से पहले दर्ज किए गए टोकन आँकड़े लगभग 2 गुना बढ़े हुए हैं (पुराना CLI हर संदेश को कई बार गिनता था)। नए आँकड़े सही हैं।"
 }

@@ -95,6 +95,8 @@ interface AcceptanceTabProps {
   /** LUM-932: some of the task's cost was split by auto-detection — the Run
    *  report's Cost tile says so. */
   costApproximate?: boolean
+  /** LUM-932: some run predates the usage-dedupe fix (Cost tile marker). */
+  costPreDedupe?: boolean
 }
 
 /** Records a human verdict for a specific criterion (criterionIds identifies
@@ -1391,6 +1393,7 @@ export function AcceptanceTab({
   reportInitiallyOpen = false,
   attributionSlot,
   costApproximate = false,
+  costPreDedupe = false,
 }: AcceptanceTabProps) {
   const intl = useIntl()
   const { data, loading, error, refresh, optimisticallyPass } = useTaskStatus({
@@ -2305,6 +2308,7 @@ export function AcceptanceTab({
             <RunReportTiles
               tiles={deriveRunReportTiles(data)}
               costApproximate={costApproximate}
+              preDedupe={costPreDedupe}
             />
 
             <TrendSection data={data} />

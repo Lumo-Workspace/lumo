@@ -1,0 +1,33 @@
+/**
+ * LUM-932: CLIs before @lumoai/cli 1.85.0 summed transcript usage per JSONL
+ * line, but one assistant message spans several lines carrying identical
+ * usage — so historical token figures are overstated by about 2x. 1.85.0
+ * (published at this instant) dedupes by message id.
+ *
+ * We deliberately do NOT rewrite historical data; the UI labels figures from
+ * sessions that started before this cutoff instead. Caveats of the label:
+ * - a session active across the cutoff may mix inflated and deduped figures;
+ * - users still on an older CLI keep reporting inflated numbers after it.
+ *
+ * Comparisons use stored timestamps only — never "now" — so they are safe
+ * to call during render.
+ */
+export const USAGE_DEDUPE_CUTOFF = '2026-10-03T07:13:35Z'
+
+const CUTOFF_MS = Date.parse(USAGE_DEDUPE_CUTOFF)
+
+/** True when a session started strictly before the dedupe cutoff. */
+export function startedBeforeUsageDedupe(startedAt: string | Date): boolean {
+  // A missing/unparseable timestamp can't be claimed as pre-cutoff.
+  if (startedAt == null) return false
+  const ms =
+    typeof startedAt === 'string' ? Date.parse(startedAt) : startedAt.getTime()
+  return Number.isFinite(ms) && ms < CUTOFF_MS
+}
+
+/** True when any of the runs started before the dedupe cutoff. */
+export function anyStartedBeforeUsageDedupe(
+  runs: ReadonlyArray<{ startedAt: string | Date }>
+): boolean {
+  return runs.some(r => startedBeforeUsageDedupe(r.startedAt))
+}

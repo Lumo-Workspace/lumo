@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "파일 {count}개",
   "sessions.timeline.badge.matches": "일치 {count}개",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "약 2배 과대 집계",
+  "usage.preDedupe.notice": "2026년 10월 3일 이전에 기록된 토큰 수치는 약 2배 과대 집계되었습니다(이전 CLI가 같은 메시지를 여러 번 집계했습니다). 이후 수치는 정확합니다."
 }

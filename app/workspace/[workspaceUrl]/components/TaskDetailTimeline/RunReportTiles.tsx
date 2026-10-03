@@ -10,6 +10,9 @@ export interface RunReportTilesProps {
   /** LUM-932: part of the cost was split by auto-detection, so the Cost tile
    *  carries an inaccuracy caption (only when a cost was actually measured). */
   costApproximate?: boolean
+  /** LUM-932: some run started before the usage-dedupe fix, so the Cost tile
+   *  carries the "overstated" marker (only when a cost was measured). */
+  preDedupe?: boolean
 }
 
 function Tile({
@@ -19,6 +22,8 @@ function Tile({
   measured,
   subCaptions = [],
   warning,
+  preDedupeWarning,
+  preDedupeTitle,
 }: {
   testId: string
   label: string
@@ -32,6 +37,9 @@ function Tile({
   subCaptions?: string[]
   /** Amber caution line rendered after the sub-captions. */
   warning?: string
+  /** Second amber line: tokens recorded before the dedupe fix. */
+  preDedupeWarning?: string
+  preDedupeTitle?: string
 }) {
   return (
     <div
@@ -66,6 +74,15 @@ function Tile({
           {warning}
         </div>
       ) : null}
+      {preDedupeWarning ? (
+        <div
+          data-testid='cost-pre-dedupe'
+          title={preDedupeTitle}
+          className='mt-0.5 text-caption text-amber-700 dark:text-amber-400'
+        >
+          {preDedupeWarning}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -82,6 +99,7 @@ function Tile({
 export function RunReportTiles({
   tiles,
   costApproximate = false,
+  preDedupe = false,
 }: RunReportTilesProps) {
   const intl = useIntl()
 
@@ -167,6 +185,19 @@ export function RunReportTiles({
                 id: 'record.report.costApproximate',
                 defaultMessage:
                   'Includes auto-detected work — may be inaccurate',
+              }),
+            }
+          : {})}
+        {...(preDedupe && tiles.costTokens != null
+          ? {
+              preDedupeWarning: intl.formatMessage({
+                id: 'usage.preDedupe.marker',
+                defaultMessage: '≈2× overstated',
+              }),
+              preDedupeTitle: intl.formatMessage({
+                id: 'usage.preDedupe.notice',
+                defaultMessage:
+                  'Token figures recorded before Oct 3, 2026 are overstated by about 2× (an older CLI counted each message several times). Newer figures are accurate.',
               }),
             }
           : {})}

@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "{count, plural, one {# Datei} other {# Dateien}}",
   "sessions.timeline.badge.matches": "{count, plural, one {# Treffer} other {# Treffer}}",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "ca. 2× überhöht",
+  "usage.preDedupe.notice": "Vor dem 3. Okt. 2026 erfasste Token-Werte sind um etwa das Zweifache überhöht (eine ältere CLI hat jede Nachricht mehrfach gezählt). Neuere Werte sind korrekt."
 }

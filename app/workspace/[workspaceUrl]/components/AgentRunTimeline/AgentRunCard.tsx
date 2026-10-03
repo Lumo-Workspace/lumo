@@ -14,6 +14,7 @@ import { AgentBadge } from '../AgentBadge'
 import { RunAttributionBadge, RunAttributionPanel } from './RunAttribution'
 import { initialsOf } from '../initials'
 import { formatDurationMs } from '@/lib/datetime/duration'
+import { startedBeforeUsageDedupe } from '@/lib/agent-run/usage-dedupe-cutoff'
 
 interface AgentRunCardProps {
   run: AgentRunSession
@@ -27,6 +28,12 @@ export function AgentRunCard({
   const intl = useIntl()
   const [expanded, setExpanded] = useState(defaultExpanded)
 
+  const preDedupe = startedBeforeUsageDedupe(run.startedAt)
+  const preDedupeNotice = intl.formatMessage({
+    id: 'usage.preDedupe.notice',
+    defaultMessage:
+      'Token figures recorded before Oct 3, 2026 are overstated by about 2× (an older CLI counted each message several times). Newer figures are accurate.',
+  })
   const digest = run.runSummary ? [] : deriveRunDigest(run.items)
   const durationLabel = formatDurationMs(intl, run.durationMs)
   const startLabel = new Date(run.startedAt).toLocaleString(intl.locale, {
@@ -126,6 +133,18 @@ export function AgentRunCard({
                       )
                       .join(' · ')}
               </span>
+              {preDedupe && (
+                <span
+                  data-testid='run-pre-dedupe'
+                  title={preDedupeNotice}
+                  className='text-amber-700 dark:text-amber-400'
+                >
+                  {intl.formatMessage({
+                    id: 'usage.preDedupe.marker',
+                    defaultMessage: '≈2× overstated',
+                  })}
+                </span>
+              )}
               {typeof run.cost.loopCount === 'number' && (
                 <>
                   <span>·</span>
@@ -182,6 +201,14 @@ export function AgentRunCard({
           )}
           {run.cost && (
             <div className='mb-2'>
+              {preDedupe && (
+                <p
+                  data-testid='run-pre-dedupe-notice'
+                  className='mb-1 text-caption text-amber-700 dark:text-amber-400'
+                >
+                  {preDedupeNotice}
+                </p>
+              )}
               <TokenCostBreakdown
                 variant='compact'
                 collapsibleDetails

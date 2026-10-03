@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "{count, plural, one {# archivo} other {# archivos}}",
   "sessions.timeline.badge.matches": "{count, plural, one {# coincidencia} other {# coincidencias}}",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "sobrestimado ≈2×",
+  "usage.preDedupe.notice": "Las cifras de tokens registradas antes del 3 de oct. de 2026 están sobrestimadas unas 2 veces (una CLI anterior contaba cada mensaje varias veces). Las cifras más recientes son precisas."
 }

@@ -29,10 +29,13 @@ export function ProgressView({
   progress,
   agentStatus,
   footer,
+  preDedupe = false,
 }: {
   progress: TaskProgress
   agentStatus?: string | null
   footer?: ReactNode
+  /** LUM-932: some run predates the usage-dedupe fix (token usage notice). */
+  preDedupe?: boolean
 }) {
   const intl = useIntl()
   const { tokenCost, iterations, interactionRounds, totalDuration } = progress
@@ -92,6 +95,14 @@ export function ProgressView({
               {intl.formatMessage({ id: 'progress.onTrackNote' })}
             </p>
           )}
+          {preDedupe && (
+            <p
+              data-testid='usage-pre-dedupe'
+              className='mt-1 text-caption text-amber-700 dark:text-amber-400'
+            >
+              {intl.formatMessage({ id: 'usage.preDedupe.notice' })}
+            </p>
+          )}
         </div>
       )}
 
@@ -108,6 +119,14 @@ export function ProgressView({
               {fmtCompact(intl, tokenCost.actual as number)}
             </span>
           </div>
+          {preDedupe && (
+            <p
+              data-testid='usage-pre-dedupe'
+              className='mt-1 text-caption text-amber-700 dark:text-amber-400'
+            >
+              {intl.formatMessage({ id: 'usage.preDedupe.notice' })}
+            </p>
+          )}
         </div>
       )}
 

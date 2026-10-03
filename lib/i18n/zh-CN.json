@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "{count} 个文件",
   "sessions.timeline.badge.matches": "{count} 处匹配",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "约高估 2 倍",
+  "usage.preDedupe.notice": "2026 年 10 月 3 日之前记录的 token 数据约高估 2 倍（旧版 CLI 会把同一条消息重复计数）；之后的数据是准确的。"
 }

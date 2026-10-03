@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "{count, plural, one {# file} other {# files}}",
   "sessions.timeline.badge.matches": "{count, plural, one {# match} other {# matches}}",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "≈2× overstated",
+  "usage.preDedupe.notice": "Token figures recorded before 3 Oct 2026 are overstated by about 2× (an older CLI counted each message several times). Newer figures are accurate."
 }

@@ -20,11 +20,14 @@ export function DeliveryPanel({
   status,
   agentStatus,
   footer,
+  preDedupe = false,
 }: {
   taskId: string
   status: ApiStatus
   agentStatus?: string | null | undefined
   footer?: ReactNode
+  /** LUM-932: some run predates the usage-dedupe fix (token usage notice). */
+  preDedupe?: boolean
 }) {
   const isTerminal = status === 'DONE'
   const { progress, isLoading, error } = useTaskProgress(taskId)
@@ -39,6 +42,7 @@ export function DeliveryPanel({
       progress={progress}
       agentStatus={agentStatus ?? null}
       footer={footer}
+      preDedupe={preDedupe}
     />
   )
 }

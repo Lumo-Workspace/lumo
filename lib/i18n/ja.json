@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "{count} ファイル",
   "sessions.timeline.badge.matches": "{count} 件の一致",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "約2倍に過大",
+  "usage.preDedupe.notice": "2026年10月3日より前に記録されたトークン数は約2倍に過大計上されています（古い CLI が同じメッセージを複数回カウントしていたため）。それ以降の数値は正確です。"
 }

@@ -7,6 +7,7 @@ const en: Record<string, string> = {
   'progress.predictedMedian': 'Forecast median {value}',
   'progress.usedLabel': 'used',
   'progress.over': 'over budget',
+  'usage.preDedupe.notice': 'PRE-DEDUPE NOTICE',
   'progress.onTrackNote': 'within range · still accumulating',
   // shared delivery-KPI labels (DeliveryKpis reuses the retrospective.* keys)
   'retrospective.delivery': 'Delivery',
@@ -173,4 +174,31 @@ it('duration-formats the run-time KPI', () => {
   render(<ProgressView progress={withDuration} agentStatus={null} />)
   expect(screen.getByText('Run time')).toBeInTheDocument()
   expect(screen.getByText(/312m 40s/)).toBeInTheDocument()
+})
+
+describe('ProgressView — pre-dedupe notice (LUM-932)', () => {
+  it('shows the notice under the token usage figure when preDedupe is set', () => {
+    render(<ProgressView progress={onTrack} preDedupe />)
+    expect(screen.getByTestId('usage-pre-dedupe')).toHaveTextContent(
+      'PRE-DEDUPE NOTICE'
+    )
+  })
+
+  it('omits the notice by default', () => {
+    render(<ProgressView progress={onTrack} />)
+    expect(screen.queryByTestId('usage-pre-dedupe')).toBeNull()
+  })
+
+  it('shows the notice in the used-only branch (no forecast band)', () => {
+    const usedOnly = {
+      ...onTrack,
+      tokenCost: { forecast: null, actual: 12000, deltaPct: null, band: null },
+    } as TaskProgress
+    const { rerender } = render(<ProgressView progress={usedOnly} preDedupe />)
+    expect(screen.getByTestId('usage-pre-dedupe')).toHaveTextContent(
+      'PRE-DEDUPE NOTICE'
+    )
+    rerender(<ProgressView progress={usedOnly} />)
+    expect(screen.queryByTestId('usage-pre-dedupe')).toBeNull()
+  })
 })

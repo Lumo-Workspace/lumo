@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "{count, plural, one {# файл} few {# файла} many {# файлов} other {# файла}}",
   "sessions.timeline.badge.matches": "{count, plural, one {# совпадение} few {# совпадения} many {# совпадений} other {# совпадения}}",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "завышено ≈ в 2 раза",
+  "usage.preDedupe.notice": "Значения токенов, записанные до 3 окт. 2026 г., завышены примерно в 2 раза (старая версия CLI считала каждое сообщение несколько раз). Более новые значения точны."
 }

@@ -4,7 +4,18 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/ForecastView', () => ({
   ForecastView: () => <div>FORECAST</div>,
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/components/ProgressView', () => ({
-  ProgressView: ({ footer }: { footer?: any }) => <div>PROGRESS{footer}</div>,
+  ProgressView: ({
+    footer,
+    preDedupe,
+  }: {
+    footer?: any
+    preDedupe?: boolean
+  }) => (
+    <div>
+      PROGRESS{footer}
+      {preDedupe ? <span>PRE-DEDUPE</span> : null}
+    </div>
+  ),
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useTaskProgress', () => ({
   useTaskProgress: jest.fn(),
@@ -77,4 +88,17 @@ it('passes footer through to the active view', () => {
     />
   )
   expect(screen.getByTestId('slot')).toBeInTheDocument()
+})
+
+it('forwards preDedupe to the progress view (LUM-932)', () => {
+  useProgress.mockReturnValue({
+    progress: { sessionCount: 2, forecast: {} },
+    isLoading: false,
+  })
+  const { rerender } = render(
+    <DeliveryPanel taskId='t1' status='DONE' preDedupe />
+  )
+  expect(screen.getByText('PRE-DEDUPE')).toBeInTheDocument()
+  rerender(<DeliveryPanel taskId='t1' status='DONE' />)
+  expect(screen.queryByText('PRE-DEDUPE')).toBeNull()
 })
