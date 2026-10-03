@@ -6,6 +6,7 @@ import {
 } from '../corpus'
 import { buildTriagePrompt, repairTriageText, TriageSchema } from '../prompt'
 import { summarize, costUsd, type JudgeResult } from '../report'
+import { buildJevRequest, parseJevAnswer, isJevEligible } from '../jev'
 
 // Assembled at runtime so the fixture file itself carries no key-shaped literal.
 const FAKE_AWS_KEY = ['AKIA', 'IOSFODNN7', 'EXAMPLE'].join('')
@@ -146,5 +147,70 @@ describe('LUM-945 report', () => {
     expect(s!.failures).toBe(1)
     const [p] = summarize([item({ id: 'fp' })], [res('fp')])
     expect(costUsd(p!)).toBeCloseTo((1000 * 0.03 + 100 * 0.13) / 1e6)
+  })
+})
+
+describe('LUM-945 Jev candidate', () => {
+  it('only sends Lumo-team items to the non-ZDR endpoint', () => {
+    expect(isJevEligible(item({ taskRef: 'LUM-12' }))).toBe(true)
+    expect(isJevEligible(item({ taskRef: 'IA-3' }))).toBe(false)
+    expect(isJevEligible(item({ taskRef: null }))).toBe(false)
+  })
+
+  it('sends the same prompt bytes as state, never the label note', () => {
+    const req = buildJevRequest(item())
+    expect(req.state).toBe(buildTriagePrompt(item()))
+    expect(JSON.stringify(req)).not.toContain('PR target branch, not a push')
+    expect(Object.keys(req.questions.verdict.criteria).sort()).toEqual([
+      'LIKELY_LEGIT',
+      'LIKELY_REAL',
+      'UNSURE',
+    ])
+  })
+
+  it('reads the chosen option probability as confidence; malformed → null', () => {
+    expect(
+      parseJevAnswer({
+        answers: {
+          verdict: {
+            type: 'choice',
+            choice: 'LIKELY_LEGIT',
+            probabilities: {
+              LIKELY_LEGIT: 0.97,
+              LIKELY_REAL: 0.02,
+              UNSURE: 0.01,
+            },
+          },
+        },
+      })
+    ).toEqual({ verdict: 'LIKELY_LEGIT', confidence: 0.97 })
+    expect(
+      parseJevAnswer({
+        answers: { verdict: { type: 'choice', choice: 'MAYBE' } },
+      })
+    ).toBeNull()
+    expect(parseJevAnswer({})).toBeNull()
+  })
+
+  it('scores every model on the items all of them judged', () => {
+    const corpus = [item({ id: 'a' }), item({ id: 'b', taskRef: 'IA-1' })]
+    const base: JudgeResult = {
+      model: 'm1',
+      itemId: 'a',
+      verdict: 'LIKELY_LEGIT',
+      confidence: 0.99,
+      basis: '',
+      error: null,
+      repaired: false,
+      latencyMs: 1,
+      inputTokens: 0,
+      outputTokens: 0,
+    }
+    const summaries = summarize(corpus, [
+      base,
+      { ...base, itemId: 'b' },
+      { ...base, model: 'typesafe-ai/jev' },
+    ])
+    for (const s of summaries) expect(s.calls).toBe(1)
   })
 })

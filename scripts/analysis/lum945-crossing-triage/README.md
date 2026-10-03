@@ -6,10 +6,15 @@ Question: can an LLM judge, given the task context, auto-clear the noisy crossin
 categories without letting real crossings through? Measured against every
 human-dispositioned crossing (FALSE_POSITIVE / CONFIRMED) in production.
 
-Candidates (all zero-data-retention on the Vercel AI Gateway; `typesafe-ai/jev`
-was excluded because its only endpoint has `zdr: none`):
-`alibaba/qwen3.7-flash`, `deepseek/deepseek-v4-flash`,
-`moonshotai/kimi-k2-thinking`, `anthropic/claude-haiku-4.5`.
+Candidates: `alibaba/qwen3.7-flash`, `deepseek/deepseek-v4-flash`,
+`moonshotai/kimi-k2-thinking`, `anthropic/claude-haiku-4.5` (all through
+`@/lib/ai/gateway`, zero data retention forced), plus `typesafe-ai/jev`.
+
+Jev is an evaluation model (typed question → choice + probabilities) whose only
+gateway endpoint has `zdr: none`. It is called on the gateway's HTTP
+`evaluation-model` endpoint directly (`jev.ts`; gateway 3.x has no SDK surface
+for it) and **only Lumo-team (`LUM-*`) items are sent**. The report scores every
+model on the items all of them judged, so the comparison stays like-for-like.
 
 ## Run
 

@@ -99,9 +99,18 @@ export function summarize(
   results: JudgeResult[]
 ): ModelSummary[] {
   const items = new Map(corpus.map(i => [i.id, i]))
-  const byModel = new Map<string, JudgeResult[]>()
+  // Score every model on the same items: those every model judged. (Jev only
+  // gets Lumo's own items — it has no ZDR endpoint — so the rest drop out.)
+  const judgedBy = new Map<string, Set<string>>()
   for (const r of results) {
     if (!items.has(r.itemId)) continue
+    judgedBy.set(r.model, (judgedBy.get(r.model) ?? new Set()).add(r.itemId))
+  }
+  const sets = [...judgedBy.values()]
+  const common = (id: string) => sets.every(s => s.has(id))
+  const byModel = new Map<string, JudgeResult[]>()
+  for (const r of results) {
+    if (!items.has(r.itemId) || !common(r.itemId)) continue
     byModel.set(r.model, [...(byModel.get(r.model) ?? []), r])
   }
   const out: ModelSummary[] = []
@@ -145,6 +154,7 @@ export const PRICES: Record<string, { input: number; output: number }> = {
   'deepseek/deepseek-v4-flash': { input: 0.13, output: 0.26 },
   'moonshotai/kimi-k2-thinking': { input: 0.47, output: 2.0 },
   'anthropic/claude-haiku-4.5': { input: 1.0, output: 5.0 },
+  'typesafe-ai/jev': { input: 0.042, output: 0 },
 }
 
 export function costUsd(s: ModelSummary): number | null {

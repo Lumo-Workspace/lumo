@@ -24,12 +24,14 @@ import {
   repairTriageText,
 } from './prompt'
 import type { JudgeResult } from './report'
+import { JEV_MODEL, isJevEligible, judgeJev } from './jev'
 
 export const CANDIDATE_MODELS = [
   'alibaba/qwen3.7-flash',
   'deepseek/deepseek-v4-flash',
   'moonshotai/kimi-k2-thinking',
   'anthropic/claude-haiku-4.5',
+  JEV_MODEL,
 ] as const
 
 const TIMEOUT_MS = 90_000
@@ -140,12 +142,18 @@ async function main(): Promise<void> {
   const results: JudgeResult[] = [...kept]
 
   for (const model of models) {
-    const todo = corpus.filter(i => !done.has(`${model}|${i.id}`))
+    const todo = corpus.filter(
+      i =>
+        !done.has(`${model}|${i.id}`) &&
+        // Jev has no ZDR endpoint: only Lumo's own workspace data goes there.
+        (model !== JEV_MODEL || isJevEligible(i))
+    )
     process.stdout.write(`${model}: ${todo.length} to judge\n`)
     let n = 0
     const fresh = await pool(
       todo.map(item => async () => {
-        const r = await judge(model, item)
+        const r =
+          model === JEV_MODEL ? await judgeJev(item) : await judge(model, item)
         n++
         if (n % 25 === 0)
           process.stdout.write(`  ${model} ${n}/${todo.length}\n`)
