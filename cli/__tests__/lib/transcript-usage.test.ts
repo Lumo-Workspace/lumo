@@ -348,3 +348,102 @@ describe('sumTranscriptUsage', () => {
     })
   })
 })
+
+describe('dedupes multi-line assistant messages by message id', () => {
+  // Claude Code writes ONE assistant message as several JSONL lines (one per
+  // content block), each repeating the identical usage under the same id.
+  const block = (id: string | undefined, model: string, u: object) => ({
+    type: 'assistant',
+    message: { ...(id ? { id } : {}), model, usage: u },
+  })
+
+  it('counts a message split across lines once', () => {
+    const path = fixture([
+      block('msg_1', 'claude-opus-4-8', usage(100, 10, 5, 2)),
+      block('msg_1', 'claude-opus-4-8', usage(100, 10, 5, 2)),
+      block('msg_1', 'claude-opus-4-8', usage(100, 10, 5, 2)),
+      { type: 'user', message: {} },
+      block('msg_2', 'claude-opus-4-8', usage(200, 20, 7, 3)),
+      block('msg_2', 'claude-opus-4-8', usage(200, 20, 7, 3)),
+    ])
+    expect(sumTranscriptUsage(path)).toEqual({
+      bySubagent: {},
+      total: {
+        inputTokens: 300,
+        outputTokens: 30,
+        cacheReadTokens: 12,
+        cacheCreationTokens: 5,
+      },
+      byModel: {
+        'claude-opus-4-8': {
+          input: 300,
+          output: 30,
+          cacheRead: 12,
+          cacheCreation: 5,
+        },
+      },
+    })
+  })
+
+  it('still counts every line that has no message id', () => {
+    const path = fixture([
+      block(undefined, 'm', usage(10, 1, 0, 0)),
+      block(undefined, 'm', usage(10, 1, 0, 0)),
+      block('msg_1', 'm', usage(5, 1, 0, 0)),
+      block('msg_1', 'm', usage(5, 1, 0, 0)),
+    ])
+    expect(sumTranscriptUsage(path)?.total).toEqual({
+      inputTokens: 25,
+      outputTokens: 3,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+    })
+  })
+
+  it('keeps skipping <synthetic> messages that repeat across lines', () => {
+    const path = fixture([
+      block('msg_s', '<synthetic>', usage(999, 999, 999, 999)),
+      block('msg_s', '<synthetic>', usage(999, 999, 999, 999)),
+      block('msg_1', 'm', usage(4, 1, 0, 0)),
+      block('msg_1', 'm', usage(4, 1, 0, 0)),
+    ])
+    expect(sumTranscriptUsage(path)?.byModel).toEqual({
+      m: { input: 4, output: 1, cacheRead: 0, cacheCreation: 0 },
+    })
+  })
+
+  it('dedupes inside subagent files for total, byModel and bySubagent', () => {
+    const path = fixtureWithSubagents(
+      [
+        block('msg_main', 'claude-opus-4-8', usage(100, 10, 0, 0)),
+        block('msg_main', 'claude-opus-4-8', usage(100, 10, 0, 0)),
+      ],
+      {
+        'agent-a1.jsonl': [
+          block('msg_sub', 'claude-sonnet-4-6', usage(50, 5, 1, 1)),
+          block('msg_sub', 'claude-sonnet-4-6', usage(50, 5, 1, 1)),
+          block('msg_sub', 'claude-sonnet-4-6', usage(50, 5, 1, 1)),
+        ],
+      }
+    )
+    const r = sumTranscriptUsage(path)
+    expect(r?.bySubagent.a1?.total).toEqual({
+      inputTokens: 50,
+      outputTokens: 5,
+      cacheReadTokens: 1,
+      cacheCreationTokens: 1,
+    })
+    expect(r?.total).toEqual({
+      inputTokens: 150,
+      outputTokens: 15,
+      cacheReadTokens: 1,
+      cacheCreationTokens: 1,
+    })
+    expect(r?.byModel['claude-sonnet-4-6']).toEqual({
+      input: 50,
+      output: 5,
+      cacheRead: 1,
+      cacheCreation: 1,
+    })
+  })
+})

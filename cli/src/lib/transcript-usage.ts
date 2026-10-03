@@ -36,9 +36,16 @@ function asNumber(v: unknown): number {
 }
 
 /**
- * Sum `message.usage` across all (non-synthetic) assistant entries of one
+ * Sum `message.usage` across all (non-synthetic) assistant messages of one
  * transcript JSONL file into the shared accumulators. Returns true if at
  * least one real usage entry was seen. Never throws.
+ *
+ * LUM-932: Claude Code writes ONE assistant message as several JSONL lines
+ * (one per content block), each repeating the same `usage` under the same
+ * `message.id`. Summing per line inflated usage ~2x, so each message id is
+ * counted once (the last line seen for that id wins — identical in practice,
+ * and the most complete if a later line ever carries grown output counts).
+ * Lines without an id cannot be correlated and are each counted, as before.
  */
 function accumulateFileUsage(
   path: string,
@@ -51,7 +58,8 @@ function accumulateFileUsage(
   } catch {
     return false
   }
-  let seen = false
+  const byMessage = new Map<string, { model: string; usage: ModelUsage }>()
+  let anonymous = 0
   for (const raw of text.split('\n')) {
     const line = raw.trim()
     if (!line) continue
@@ -64,7 +72,11 @@ function accumulateFileUsage(
     if (!obj || typeof obj !== 'object') continue
     const o = obj as {
       type?: unknown
-      message?: { model?: unknown; usage?: Record<string, unknown> }
+      message?: {
+        id?: unknown
+        model?: unknown
+        usage?: Record<string, unknown>
+      }
     }
     if (o.type !== 'assistant') continue
     const usage = o.message?.usage
@@ -74,28 +86,39 @@ function accumulateFileUsage(
         ? o.message.model
         : 'unknown'
     if (model === '<synthetic>') continue
-    seen = true
-    const input = asNumber(usage.input_tokens)
-    const output = asNumber(usage.output_tokens)
-    const cacheRead = asNumber(usage.cache_read_input_tokens)
-    const cacheCreation = asNumber(usage.cache_creation_input_tokens)
-    total.inputTokens += input
-    total.outputTokens += output
-    total.cacheReadTokens += cacheRead
-    total.cacheCreationTokens += cacheCreation
+    const id = o.message?.id
+    const key =
+      typeof id === 'string' && id.length > 0
+        ? `id:${id}`
+        : `line:${anonymous++}`
+    byMessage.set(key, {
+      model,
+      usage: {
+        input: asNumber(usage.input_tokens),
+        output: asNumber(usage.output_tokens),
+        cacheRead: asNumber(usage.cache_read_input_tokens),
+        cacheCreation: asNumber(usage.cache_creation_input_tokens),
+      },
+    })
+  }
+  for (const { model, usage } of byMessage.values()) {
+    total.inputTokens += usage.input
+    total.outputTokens += usage.output
+    total.cacheReadTokens += usage.cacheRead
+    total.cacheCreationTokens += usage.cacheCreation
     const m = byModel[model] ?? {
       input: 0,
       output: 0,
       cacheRead: 0,
       cacheCreation: 0,
     }
-    m.input += input
-    m.output += output
-    m.cacheRead += cacheRead
-    m.cacheCreation += cacheCreation
+    m.input += usage.input
+    m.output += usage.output
+    m.cacheRead += usage.cacheRead
+    m.cacheCreation += usage.cacheCreation
     byModel[model] = m
   }
-  return seen
+  return byMessage.size > 0
 }
 
 /**
@@ -122,7 +145,8 @@ function listSubagentTranscripts(transcriptPath: string): string[] {
 /**
  * Read a Claude Code transcript JSONL — plus any subagent transcripts under
  * `<dir>/<sessionId>/subagents/agent-*.jsonl` — and sum `message.usage`
- * across all (non-synthetic) assistant entries, grouped by `message.model`
+ * across all (non-synthetic) assistant messages (deduped by `message.id`),
+ * grouped by `message.model`
  * -> cumulative session totals. Entries with no model string bucket under
  * "unknown". Best-effort: returns null if nothing readable has real
  * assistant usage. Never throws.
