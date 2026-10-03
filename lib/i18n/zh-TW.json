@@ -2803,5 +2803,6 @@
   "sessions.timeline.badge.linesWithType": "{type} · {count} 行",
   "sessions.timeline.badge.files": "{count} 個檔案",
   "sessions.timeline.badge.matches": "{count} 處符合",
-  "agentRun.attribution.subagentCount": "{label} ×{count}"
+  "agentRun.attribution.subagentCount": "{label} ×{count}",
+  "agentRun.attribution.evidenceCount": "{label} ×{count}"
 }

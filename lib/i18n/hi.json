@@ -2803,5 +2803,6 @@
   "sessions.timeline.badge.linesWithType": "{type} · {count, plural, one {# पंक्ति} other {# पंक्तियाँ}}",
   "sessions.timeline.badge.files": "{count, plural, one {# फ़ाइल} other {# फ़ाइलें}}",
   "sessions.timeline.badge.matches": "{count, plural, one {# मिलान} other {# मिलान}}",
-  "agentRun.attribution.subagentCount": "{label} ×{count}"
+  "agentRun.attribution.subagentCount": "{label} ×{count}",
+  "agentRun.attribution.evidenceCount": "{label} ×{count}"
 }

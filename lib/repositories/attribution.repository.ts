@@ -208,6 +208,12 @@ export const attributionRepository = {
           {
             sessionId: rootSessionId,
             type: 'USER_PROMPT_SUBMIT',
+            // Stored signals that already carry NOTIFICATION need no re-read.
+            NOT: {
+              attributionSignals: {
+                array_contains: [{ kind: 'NOTIFICATION' }],
+              },
+            },
             payload: {
               path: ['prompt'],
               string_contains: TASK_NOTIFICATION_MARKER,

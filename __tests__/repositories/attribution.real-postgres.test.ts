@@ -576,6 +576,20 @@ describe('task-notification payloads on a real Postgres', () => {
       1
     )
     await prompt('n_plain', 'just a prompt', 2)
+    // Stored signals already carry NOTIFICATION: not re-read.
+    await seedEvent('n_done', R, t(4), {
+      type: 'USER_PROMPT_SUBMIT',
+      payload: JSON.stringify({
+        prompt: '<task-notification>\n<task-id>a1</task-id>',
+      }),
+      attributionSignals: JSON.stringify([
+        { kind: 'NOTIFICATION', agentId: 'a1' },
+      ]),
+    })
+    // Never computed (NULL signals): read through the NULL branch.
+    await seedEvent('n_null', R, t(5), {
+      payload: JSON.stringify({ prompt: 'x' }),
+    })
     await seedEvent('n_tool', R, t(3), {
       payload: JSON.stringify({ prompt: '<task-notification>' }),
       attributionSignals: JSON.stringify([]),
@@ -587,6 +601,8 @@ describe('task-notification payloads on a real Postgres', () => {
       ['n_notify', 'payload'],
       ['n_plain', null],
       ['n_tool', null],
+      ['n_done', null],
+      ['n_null', 'payload'],
     ])
   })
 })

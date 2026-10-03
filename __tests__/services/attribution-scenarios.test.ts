@@ -365,6 +365,28 @@ describe('multi-task and notification turns follow the output and the subagent',
     expect(of(rows, CHILD).map(r => r.taskId)).toEqual(['t13'])
   })
 
+  it('11: the events of the unattributed turn that were tagged before are set back to no task', async () => {
+    const events = reviewSession(() =>
+      prompt(ROOT, 'main', notificationText(AGENT))
+    )
+    const notifyAt = events.find(
+      e => e.type === 'USER_PROMPT_SUBMIT' && e !== events[0]
+    )!.createdAt
+    const tagged = events
+      .filter(e => e.sessionId === ROOT && e.createdAt < notifyAt)
+      .map(e => ({ ...e, taskId: 't12' }))
+    const rest = events.filter(e => !tagged.some(t => t.id === e.id))
+    await run([...tagged, ...rest], true)
+    const changes = repo.commitFamilyAttribution.mock.calls[0]![0]
+      .eventTaskChanges as { eventId: string; taskId: string | null }[]
+    expect(tagged.length).toBeGreaterThan(0)
+    expect(
+      changes
+        .filter(c => tagged.some(t => t.id === c.eventId))
+        .map(c => c.taskId)
+    ).toEqual(tagged.map(() => null))
+  })
+
   it('12: a notification stored before NOTIFICATION signals existed is read from its payload', async () => {
     const old = (): FamilyEvent => ({
       ...prompt(ROOT, 'main', 'placeholder'),

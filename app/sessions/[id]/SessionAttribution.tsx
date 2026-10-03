@@ -6,6 +6,7 @@ import type { SessionAttributionView } from '@/lib/services/session-list.service
 import {
   APPROXIMATE_NOTICE,
   CONFIDENCE_MESSAGES,
+  EVIDENCE_COUNT,
   SIGNAL_MESSAGES,
   SOURCE_MESSAGES,
   SUBAGENT_COUNT,
@@ -92,8 +93,12 @@ export function SessionAttribution({ view }: SessionAttributionProps) {
                   key={`${e.kind}-${e.identifier}`}
                   className='pl-3 text-xs text-muted-foreground'
                 >
-                  {intl.formatMessage(SIGNAL_MESSAGES[e.kind])} · {e.identifier}
-                  {e.count > 1 && ` ×${e.count}`}
+                  {e.count > 1
+                    ? intl.formatMessage(EVIDENCE_COUNT, {
+                        label: `${intl.formatMessage(SIGNAL_MESSAGES[e.kind])} · ${e.identifier}`,
+                        count: e.count,
+                      })
+                    : `${intl.formatMessage(SIGNAL_MESSAGES[e.kind])} · ${e.identifier}`}
                 </div>
               ))}
             </li>

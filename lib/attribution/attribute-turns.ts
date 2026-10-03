@@ -468,11 +468,28 @@ function followChild(
   seqOf: Map<EngineEvent, number>
 ): TurnDecision {
   if (child.taskId) {
+    // An explicit binding is itself the reason; still carry whatever the child
+    // recorded (its own strong signals, else the parent's dispatch prompt) so
+    // the UI has something to show next to HIGH.
+    const own = timed(childEvents, seqOf).filter(s =>
+      STRONG_KINDS.has(s.signal.kind)
+    )
+    const dispatch =
+      child.agentId == null
+        ? []
+        : timed(rootEvents, seqOf).filter(
+            s =>
+              s.signal.kind === 'AGENT_PROMPT' &&
+              s.signal.agentId === child.agentId
+          )
+    const pool = (own.length > 0 ? own : dispatch).filter(
+      s => s.signal.taskId === child.taskId
+    )
     return {
       kind: 'task',
       taskId: child.taskId,
       switchCapable: true,
-      borrowed: { evidence: [], confidence: 'HIGH' },
+      borrowed: { evidence: toEvidence(pool), confidence: 'HIGH' },
     }
   }
   const segs = segmentChild(

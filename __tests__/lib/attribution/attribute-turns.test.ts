@@ -128,6 +128,15 @@ describe('attributeTurns segments a session by turns', () => {
     expect(segs[0]!.taskId).toBe('lum-13')
   })
 
+  it('strong ties inside a branch-decided turn go to the signal seen last', () => {
+    const segs = run([
+      ev(1, 'USER_PROMPT_SUBMIT'),
+      ev(2, 'PRE_TOOL_USE', [sig('BRANCH', 'lum-12')]),
+      ev(3, 'PRE_TOOL_USE', [sig('LUMO_CMD', 'lum-13')]),
+    ])
+    expect(segs[0]!.taskId).toBe('lum-13')
+  })
+
   it('on one branch, tasks switch only when the branch changes', () => {
     const b12 = sig('BRANCH', 'lum-12')
     const b13 = sig('BRANCH', 'lum-13')
@@ -545,5 +554,41 @@ describe('multi-task and notification turns follow the output and the subagent',
       ['lum-1', 0, 0],
       ['lum-44', 1, 1],
     ])
+  })
+
+  it('a notification from an explicitly attached subagent carries the evidence the child recorded', () => {
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [cmd('lum-1')]),
+        ev(3, 'PRE_TOOL_USE', [], `${ROOT}:a1`),
+        ev(4, 'PRE_TOOL_USE', [cmd('lum-44')], `${ROOT}:a1`),
+        note(10, 'a1'),
+        ev(11, 'STOP'),
+      ],
+      family({ agentId: 'a1', taskId: 'lum-44' })
+    )
+    const seg = segs.find(s => s.sessionId === ROOT && s.taskId === 'lum-44')!
+    expect(seg.confidence).toBe('HIGH')
+    expect(seg.evidence.map(e => [e.kind, e.identifier])).toEqual([
+      ['LUMO_CMD', 'LUM-44'],
+    ])
+  })
+
+  it('a notification from an explicitly attached subagent falls back to its dispatch prompt as evidence', () => {
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [
+          sig('AGENT_PROMPT', 'lum-44', { agentId: 'a1' }),
+        ]),
+        ev(3, 'PRE_TOOL_USE', [], `${ROOT}:a1`),
+        note(10, 'a1'),
+        ev(11, 'STOP'),
+      ],
+      family({ agentId: 'a1', taskId: 'lum-44' })
+    )
+    const seg = segs.find(s => s.sessionId === ROOT && s.taskId === 'lum-44')!
+    expect(seg.evidence.map(e => e.kind)).toEqual(['AGENT_PROMPT'])
   })
 })

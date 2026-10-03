@@ -177,6 +177,11 @@ describe('loadFamily', () => {
         {
           sessionId: 'r',
           type: 'USER_PROMPT_SUBMIT',
+          NOT: {
+            attributionSignals: {
+              array_contains: [{ kind: 'NOTIFICATION' }],
+            },
+          },
           payload: { path: ['prompt'], string_contains: '<task-notification>' },
         },
       ],

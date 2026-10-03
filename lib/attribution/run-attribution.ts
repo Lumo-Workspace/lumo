@@ -48,6 +48,27 @@ export function dedupeEvidence(evidence: EvidenceView[]): DedupedEvidence[] {
   return [...byKey.values()]
 }
 
+/** Evidence of a group of look-alike subagents: the deduped union with each
+ *  entry's count the maximum any one member recorded (not the sum, which
+ *  would read as one subagent firing the signal that many times). */
+export function mergeGroupEvidence(
+  members: EvidenceView[][]
+): DedupedEvidence[] {
+  const merged = new Map<string, DedupedEvidence>()
+  for (const member of members) {
+    for (const e of dedupeEvidence(member)) {
+      const key = `${e.kind}\u0000${e.identifier}`
+      const prev = merged.get(key)
+      if (!prev) merged.set(key, e)
+      else {
+        prev.count = Math.max(prev.count, e.count)
+        if (Date.parse(e.at) < Date.parse(prev.at)) prev.at = e.at
+      }
+    }
+  }
+  return [...merged.values()]
+}
+
 export interface RunSegmentView {
   source: AttributionSourceName
   confidence: AttributionConfidenceName

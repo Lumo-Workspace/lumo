@@ -1,6 +1,7 @@
 import {
   buildRunAttribution,
   dedupeEvidence,
+  mergeGroupEvidence,
   parseEvidence,
   summarizeRunAttributions,
   type RunAttribution,
@@ -279,5 +280,46 @@ describe('dedupeEvidence', () => {
 
   it('returns an empty list for no evidence', () => {
     expect(dedupeEvidence([])).toEqual([])
+  })
+})
+
+describe('mergeGroupEvidence', () => {
+  const e = (identifier: string, m: number) => ({
+    kind: 'BRANCH' as const,
+    identifier,
+    at: at(m).toISOString(),
+  })
+
+  it('takes the maximum per-member count instead of the sum', () => {
+    const members = Array.from({ length: 120 }, () => [e('LUM-12', 5)])
+    expect(mergeGroupEvidence(members)).toEqual([
+      {
+        kind: 'BRANCH',
+        identifier: 'LUM-12',
+        at: at(5).toISOString(),
+        count: 1,
+      },
+    ])
+  })
+
+  it('unions entries, keeps the earliest time and the largest member count', () => {
+    const out = mergeGroupEvidence([
+      [e('LUM-12', 9), e('LUM-12', 8)],
+      [e('LUM-12', 3), e('LUM-13', 4)],
+    ])
+    expect(out).toEqual([
+      {
+        kind: 'BRANCH',
+        identifier: 'LUM-12',
+        at: at(3).toISOString(),
+        count: 2,
+      },
+      {
+        kind: 'BRANCH',
+        identifier: 'LUM-13',
+        at: at(4).toISOString(),
+        count: 1,
+      },
+    ])
   })
 })

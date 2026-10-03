@@ -2803,5 +2803,6 @@
   "sessions.timeline.badge.linesWithType": "{type} · {count} dòng",
   "sessions.timeline.badge.files": "{count} tệp",
   "sessions.timeline.badge.matches": "{count} kết quả khớp",
-  "agentRun.attribution.subagentCount": "{label} ×{count}"
+  "agentRun.attribution.subagentCount": "{label} ×{count}",
+  "agentRun.attribution.evidenceCount": "{label} ×{count}"
 }

@@ -1,7 +1,11 @@
 'use client'
 
 import { useIntl, type IntlShape } from 'react-intl'
-import { dedupeEvidence } from '@/lib/attribution/run-attribution'
+import {
+  dedupeEvidence,
+  mergeGroupEvidence,
+  type DedupedEvidence,
+} from '@/lib/attribution/run-attribution'
 import type {
   AttributionConfidenceName,
   EvidenceView,
@@ -13,6 +17,7 @@ import {
   APPROXIMATE_LABEL,
   APPROXIMATE_NOTICE,
   CONFIDENCE_MESSAGES,
+  EVIDENCE_COUNT,
   FOLLOWS_PARENT,
   MODE_MESSAGES,
   NO_SIGNAL,
@@ -73,17 +78,22 @@ function EvidenceLines({
   evidence,
 }: {
   intl: IntlShape
-  evidence: EvidenceView[]
+  evidence: DedupedEvidence[]
 }) {
   return (
     <>
-      {dedupeEvidence(evidence).map(e => (
+      {evidence.map(e => (
         <div
           key={`${e.kind}-${e.identifier}`}
           className='pl-3 text-caption text-muted-foreground'
         >
-          {intl.formatMessage(SIGNAL_MESSAGES[e.kind])} · {e.identifier}
-          {e.count > 1 && ` ×${e.count}`} ·{' '}
+          {e.count > 1
+            ? intl.formatMessage(EVIDENCE_COUNT, {
+                label: `${intl.formatMessage(SIGNAL_MESSAGES[e.kind])} · ${e.identifier}`,
+                count: e.count,
+              })
+            : `${intl.formatMessage(SIGNAL_MESSAGES[e.kind])} · ${e.identifier}`}{' '}
+          ·{' '}
           {new Date(e.at).toLocaleTimeString(intl.locale, {
             hour: '2-digit',
             minute: '2-digit',
@@ -114,8 +124,8 @@ function SegmentRow({ intl, seg }: { intl: IntlShape; seg: RunSegmentView }) {
         {intl.formatMessage(CONFIDENCE_MESSAGES[seg.confidence])}
       </div>
       {seg.evidence.length > 0 ? (
-        <EvidenceLines intl={intl} evidence={seg.evidence} />
-      ) : seg.source === 'INFERRED' ? (
+        <EvidenceLines intl={intl} evidence={dedupeEvidence(seg.evidence)} />
+      ) : seg.source === 'INFERRED' && seg.confidence !== 'HIGH' ? (
         <div className='pl-3 text-caption text-muted-foreground'>
           {intl.formatMessage(NO_SIGNAL)}
         </div>
@@ -127,7 +137,7 @@ function SegmentRow({ intl, seg }: { intl: IntlShape; seg: RunSegmentView }) {
 interface SubagentGroup {
   sub: RunSubagentView
   count: number
-  evidence: EvidenceView[]
+  members: EvidenceView[][]
 }
 
 function groupSubagents(subagents: RunSubagentView[]): SubagentGroup[] {
@@ -147,9 +157,9 @@ function groupSubagents(subagents: RunSubagentView[]): SubagentGroup[] {
     const g = groups.get(key)
     if (g) {
       g.count += 1
-      g.evidence.push(...sub.evidence)
+      g.members.push(sub.evidence)
     } else {
-      groups.set(key, { sub, count: 1, evidence: [...sub.evidence] })
+      groups.set(key, { sub, count: 1, members: [sub.evidence] })
     }
   }
   return [...groups.values()]
@@ -164,6 +174,7 @@ function SubagentRow({
 }) {
   const { sub, count } = group
   const label = sub.agentType ?? intl.formatMessage(SUBAGENT_UNKNOWN_TYPE)
+  const evidence = mergeGroupEvidence(group.members)
   return (
     <div data-testid='attribution-subagent' data-count={count} className='py-1'>
       <div className='text-caption'>
@@ -178,8 +189,8 @@ function SubagentRow({
           {intl.formatMessage(FOLLOWS_PARENT)}
         </div>
       )}
-      {group.evidence.length > 0 ? (
-        <EvidenceLines intl={intl} evidence={group.evidence} />
+      {evidence.length > 0 ? (
+        <EvidenceLines intl={intl} evidence={evidence} />
       ) : sub.source === 'INFERRED' ? (
         <div className='pl-3 text-caption text-muted-foreground'>
           {intl.formatMessage(NO_SIGNAL)}
