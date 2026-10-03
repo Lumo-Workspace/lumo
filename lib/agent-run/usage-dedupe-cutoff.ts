@@ -4,9 +4,12 @@
  * usage — so historical token figures are overstated by about 2x. 1.85.0
  * (published at this instant) dedupes by message id.
  *
- * We deliberately do NOT rewrite historical data; the UI labels figures from
- * sessions that started before this cutoff instead. Caveats of the label:
- * - a session active across the cutoff may mix inflated and deduped figures;
+ * The UI labels figures from sessions that started before this cutoff as
+ * overstated, unless the session was corrected by `lumo usage resync`
+ * (`usageResyncedAt` set), which replaces them with exact deduped transcript
+ * figures. Caveats of the label:
+ * - a session active across the cutoff may mix inflated and deduped figures
+ *   (resync skips such sessions);
  * - users still on an older CLI keep reporting inflated numbers after it.
  *
  * Comparisons use stored timestamps only — never "now" — so they are safe
@@ -45,11 +48,4 @@ export function anyRunOverstated(
   }>
 ): boolean {
   return runs.some(runOverstated)
-}
-
-/** True when any of the runs started before the dedupe cutoff. */
-export function anyStartedBeforeUsageDedupe(
-  runs: ReadonlyArray<{ startedAt: string | Date }>
-): boolean {
-  return runs.some(r => startedBeforeUsageDedupe(r.startedAt))
 }

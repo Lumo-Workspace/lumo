@@ -1,7 +1,6 @@
 import {
   USAGE_DEDUPE_CUTOFF,
   anyRunOverstated,
-  anyStartedBeforeUsageDedupe,
   runOverstated,
   startedBeforeUsageDedupe,
 } from '@/lib/agent-run/usage-dedupe-cutoff'
@@ -35,24 +34,6 @@ describe('startedBeforeUsageDedupe', () => {
   it('is false for an unparseable timestamp', () => {
     expect(startedBeforeUsageDedupe('not-a-date')).toBe(false)
     expect(startedBeforeUsageDedupe(undefined as unknown as string)).toBe(false)
-  })
-})
-
-describe('anyStartedBeforeUsageDedupe', () => {
-  it('is true when any run started before the cutoff', () => {
-    expect(
-      anyStartedBeforeUsageDedupe([
-        { startedAt: '2026-10-04T00:00:00Z' },
-        { startedAt: '2026-10-01T00:00:00Z' },
-      ])
-    ).toBe(true)
-  })
-
-  it('is false when all runs are after the cutoff or there are none', () => {
-    expect(
-      anyStartedBeforeUsageDedupe([{ startedAt: '2026-10-04T00:00:00Z' }])
-    ).toBe(false)
-    expect(anyStartedBeforeUsageDedupe([])).toBe(false)
   })
 })
 
