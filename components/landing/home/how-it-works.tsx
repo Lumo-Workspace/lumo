@@ -24,7 +24,7 @@ interface HowTab {
 
 // The three beats have to agree with the rest of the page, which they did not:
 // step three used to sell an LLM judge and a "judge confidence" reading, while
-// the Verification card (and reference 9) now argue the opposite — a judge's
+// the test-case card (and reference 9) now argue the opposite — a judge's
 // self-assessment is the thing being replaced, not the proof. Step three is
 // therefore test cases + scan findings, and the panels no longer show a clean
 // board: run #4821 raises boundary flags on the Guardrails card and PR #482
@@ -36,16 +36,16 @@ const TABS: HowTab[] = [
     label: 'Define',
     step: 'Step one',
     title: 'Agree on done before the agent starts.',
-    body: 'Write down what "done" means before anyone writes code — the criteria, and the test cases that prove them. After that, done stops being a matter of opinion.',
+    body: 'Write down what "done" means before anyone writes code — the test cases that prove it, with their steps and expected result. After that, done stops being a matter of opinion.',
     points: [
-      'Acceptance criteria agreed up front',
       'Test cases written before the code',
+      'Context and sources attached to the task',
       'Dependencies detected automatically',
     ],
     panelLabel: 'TASK · checkout-revamp',
     rows: [
-      { label: 'Acceptance criteria', val: '8 defined', kind: 'mono' },
       { label: 'Test cases', val: '3 written', kind: 'mono' },
+      { label: 'Linked sources', val: '4 attached', kind: 'mono' },
       { label: 'Dependencies', val: '2 resolved', kind: 'plain' },
       { label: 'Assigned to', val: 'agent · sonnet', kind: 'mono' },
     ],
@@ -54,7 +54,7 @@ const TABS: HowTab[] = [
     label: 'Run',
     step: 'Step two',
     title: 'Hand it off, and watch what it touches.',
-    body: 'Send the task to your agents. Every boundary the run crosses — a rewritten test, a key pasted into config, a force-push at main — is recorded the moment it happens. Tokens, runtime, and cost are metered alongside it, so a runaway loop shows up in seconds rather than on the invoice.',
+    body: 'Send the task to your agents. Every boundary the run crosses — a deleted test, a key pasted into config, a force-push at main — is recorded the moment it happens. Tokens, runtime, and cost are metered alongside it, so a runaway loop shows up in seconds rather than on the invoice.',
     points: [
       'Boundary crossings recorded as they happen',
       'Live token, runtime & cost metering',
@@ -78,7 +78,7 @@ const TABS: HowTab[] = [
       'Pull requests scanned before they merge',
       'A person closes the task, not the agent',
     ],
-    panelLabel: 'VERIFICATION · LUM-204',
+    panelLabel: 'PROOF · LUM-204',
     rows: [
       { label: 'Test cases', val: '3 / 3 PASS', kind: 'good' },
       { label: 'Evidence', val: '4 screenshots', kind: 'mono' },

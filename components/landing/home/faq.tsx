@@ -12,8 +12,8 @@ interface FaqItem {
 // Questions phrased the way a visitor would actually type them, and answers
 // held to what the code does. Two things this file used to get wrong:
 //   - it sold "an LLM judge for the fuzzy ones" and a task auto-moving to
-//     Verified. Reference 9 and the Verification card argue the opposite, and
-//     a machine pass does not close a task here — a person does.
+//     Verified. Reference 9 and the test-case card argue the opposite, and
+//     an agent does not close a task here — a person does.
 //   - it named Linear and Notion as integrations. The registry
 //     (lib/integrations/registry.ts) is slack, sentry, github, githubAccount,
 //     figma, googleDrive — those are the ones named below.
@@ -22,7 +22,7 @@ interface FaqItem {
 const FAQS: FaqItem[] = [
   {
     q: 'What if the agent just says it’s done?',
-    a: 'It cannot close the task on its own word. Every acceptance criterion names the check that proves it, and every test case is run with its result appended — the environment, the commit it ran against, and screenshots as evidence. The run log is append-only, so a wrong verdict is corrected by adding a row, never by quietly editing one. A machine pass moves the task to review; a person closes it.',
+    a: 'It cannot close the task on its own word. Every test case is run with its result appended — the environment, the commit it ran against, and screenshots as evidence. The run log is append-only, so a wrong verdict is corrected by adding a row, never by quietly editing one. The agent can move the task to review; only a person closes it.',
   },
   {
     q: 'What happens when the scan finds something?',
@@ -30,7 +30,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'Which agents and models does Lumo work with?',
-    a: 'Lumo is model-agnostic. Point it at Claude, GPT, your own fine-tunes, or a mix — it meters tokens and time for each and keeps the verification layer identical regardless of who did the work.',
+    a: 'Lumo is model-agnostic. Point it at Claude, GPT, your own fine-tunes, or a mix — it meters tokens and time for each and keeps the test-case and scan record identical regardless of who did the work.',
   },
   {
     q: 'How are tokens, time, and cost tracked?',

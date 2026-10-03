@@ -8,11 +8,11 @@ import styles from './home.module.css'
 
 // What working with Lumo actually looks like inside a coding agent: you point it
 // at a task with one command, it runs prechecks, then drives the lumo CLI as
-// tool calls (attach + context → test-case runs → PR scan → verify) and reports
+// tool calls (attach + context → test-case runs → PR scan → wrapup) and reports
 // back — the real agent transcript shape, kept model-/tool-neutral ("coding
 // agent"). Commands are the genuine ones: `lumo task testcase run <task>/TC<n>
-// --result <r> --env <e> [--evidence-file …]` and `lumo pr scan <number>` both
-// match cli/src/commands/. The run ends IN_REVIEW with findings still open,
+// --result <r> --env <e> [--evidence-file …]`, `lumo pr scan <number>` and
+// `lumo task wrapup <task>` all match cli/src/commands/. The run ends IN_REVIEW with findings still open,
 // because the agent does not get to close its own task.
 const QUERY = '/lumo LUM-204'
 
@@ -39,13 +39,13 @@ const STEPS: Step[] = [
     cmd: 'lumo session attach LUM-204 && lumo task context LUM-204',
     out: [
       'Attached session to LUM-204 “Add Stripe checkout flow”',
-      'Loaded context · 6 acceptance criteria · 2 source cards',
+      'Loaded context · 3 test cases · 2 source cards',
     ],
     more: '+18 lines',
   },
   {
     kind: 'say',
-    text: 'Contract’s in place. I’ll implement, then verify before calling it done.',
+    text: 'Test cases are in place. I’ll implement, then run them before calling it done.',
   },
   {
     kind: 'tool',
@@ -79,13 +79,13 @@ const STEPS: Step[] = [
   },
   {
     kind: 'tool',
-    cmd: 'lumo verify LUM-204',
+    cmd: 'lumo task update LUM-204 --status in_review && lumo task wrapup LUM-204',
     out: [
-      'Verifying LUM-204 — 3 MACHINE criteria',
-      '[1/3] Card payment succeeds end-to-end   ✓ PASS',
-      '[2/3] Declined cards show a clear error  ✓ PASS',
-      '[3/3] Receipts emailed within 30s        ✓ PASS',
-      '✓ All criteria passed — task is now IN_REVIEW',
+      'LUM-204 → IN_REVIEW',
+      '[1/4] Test cases          3/3 PASS with evidence',
+      '[2/4] Security scans      PR #482 · 8 open, 2 blocking',
+      '[3/4] Boundary crossings  none open',
+      '[4/4] Readiness: BLOCKED — a human-only gate would refuse DONE',
     ],
   },
   {
@@ -171,8 +171,8 @@ export function LumoTerminal() {
           </h2>
           <p className={styles.termLede}>
             One command runs the whole workflow over Lumo’s CLI — attach, load
-            context, verify — and a task can’t be called done until every
-            acceptance check provably passes.
+            context, run the test cases, scan the PR — and a task can’t be
+            called done on the agent’s word alone.
           </p>
         </div>
 

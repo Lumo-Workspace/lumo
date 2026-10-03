@@ -94,12 +94,13 @@ function Hero() {
           </h1>
           <p className={styles.heroLede}>
             Lumo is the Agentic Project Management tool for teams that ship with
-            Coding Agent. <span className={styles.ledeKey}>Reliable</span>: your
-            acceptance criteria become automated test cases that run on every
-            change. <span className={styles.ledeKey}>Secure</span>: every pull
-            request is scanned before it merges — for vulnerabilities, and for
-            the boundaries your agents crossed writing it. You review the proof,
-            not the diff.
+            Coding Agent. <span className={styles.ledeKey}>Reliable</span>:
+            every test case your agent runs is recorded with its result,
+            environment and evidence — on every change.{' '}
+            <span className={styles.ledeKey}>Secure</span>: every pull request
+            is scanned before it merges — for vulnerabilities, and for the
+            boundaries your agents crossed writing it. You review the proof, not
+            the diff.
           </p>
           <div className={styles.heroActions}>
             <Link
@@ -192,7 +193,7 @@ const HERO_HANDOFF = [
   },
   {
     open: true,
-    text: 'Boundary crossing: a test was rewritten',
+    text: 'Boundary crossing: a test file was deleted',
     source: 'run #4821',
   },
   {
@@ -460,7 +461,7 @@ function Features() {
             <div>
               <div className={styles.cellKicker}>03 · GUARDRAILS</div>
               <h3 className={styles.cellTitle}>
-                It rewrote the test so the feature would pass.
+                It deleted the test so the feature would pass.
               </h3>
               <p className={styles.cellBody}>
                 Left unguarded, agents take harmful out-of-scope actions in most
@@ -704,7 +705,7 @@ function Features() {
               “Why is this line here?” Nobody knows.
             </h3>
             <p className={styles.cellBody} style={{ marginBottom: 22 }}>
-              Verification pays twice: every verified run joins the record your
+              Evidence pays twice: every recorded run joins the record your
               agents draw on next time — a reuse that cut agent cost a mean{' '}
               <span className={styles.stat}>31.8%</span> in published trials.
               <Cite n={1} /> Lumo links every decision, source, and run so you
@@ -793,8 +794,8 @@ function FinalCta() {
       <div className={styles.ctaInner}>
         <h2 className={styles.ctaTitle}>Put your agents on the record.</h2>
         <p className={styles.ctaLede}>
-          Freeze the spec, verify every delivery — and meter every token along
-          the way. Free for your first five seats.
+          Run every test case, scan every pull request — and meter every token
+          along the way. Free for your first five seats.
         </p>
         <Link
           href='/signup'
