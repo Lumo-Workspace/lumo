@@ -1,5 +1,6 @@
 'use client'
 
+import { anyStartedBeforeUsageDedupe } from '@/lib/agent-run/usage-dedupe-cutoff'
 import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronRight } from 'lucide-react'
@@ -128,6 +129,7 @@ export function TaskDossier({
     (runs[0] ? deriveRunDigest(runs[0].items ?? []).join(' · ') || null : null)
 
   const hasRuns = runs.length > 0
+  const preDedupe = anyStartedBeforeUsageDedupe(runs)
   const attributionSummary = summarizeRunAttributions(
     runs.map(r => r.attribution)
   )
@@ -278,6 +280,7 @@ export function TaskDossier({
         hasRuns ? <AttributionSummary summary={attributionSummary} /> : null
       }
       costApproximate={attributionSummary.approximate}
+      costPreDedupe={preDedupe}
     />
   )
 }

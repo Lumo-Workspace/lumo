@@ -253,3 +253,60 @@ describe('AgentRunCard — attribution (LUM-932)', () => {
     expect(header.className).not.toContain('overflow-hidden')
   })
 })
+
+describe('AgentRunCard — pre-dedupe token marker (LUM-932)', () => {
+  const cost = {
+    byModel: [
+      {
+        model: 'claude-opus-4-8',
+        input: 100,
+        output: 0,
+        cacheRead: 0,
+        cacheCreation: 0,
+        total: 100,
+      },
+    ],
+    loopCount: 1,
+  }
+
+  it('marks a run that started before the dedupe cutoff', () => {
+    render(
+      <AgentRunCard
+        run={baseRun({ startedAt: '2026-10-01T10:00:00Z', cost })}
+      />
+    )
+    expect(screen.getByTestId('run-pre-dedupe')).toHaveTextContent(
+      '≈2× overstated'
+    )
+  })
+
+  it('shows the notice in the expanded token breakdown for a pre-cutoff run', () => {
+    render(
+      <AgentRunCard
+        run={baseRun({ startedAt: '2026-10-01T10:00:00Z', cost })}
+        defaultExpanded
+      />
+    )
+    expect(screen.getByTestId('run-pre-dedupe-notice')).toBeInTheDocument()
+  })
+
+  it('does not mark a run that started after the cutoff', () => {
+    render(
+      <AgentRunCard
+        run={baseRun({ startedAt: '2026-10-04T10:00:00Z', cost })}
+        defaultExpanded
+      />
+    )
+    expect(screen.queryByTestId('run-pre-dedupe')).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('run-pre-dedupe-notice')
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not mark a pre-cutoff run that shows no token cost', () => {
+    render(
+      <AgentRunCard run={baseRun({ startedAt: '2026-10-01T10:00:00Z' })} />
+    )
+    expect(screen.queryByTestId('run-pre-dedupe')).not.toBeInTheDocument()
+  })
+})

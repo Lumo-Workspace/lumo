@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "{count} file",
   "sessions.timeline.badge.matches": "{count} kecocokan",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "terlalu tinggi ≈2×",
+  "usage.preDedupe.notice": "Angka token yang dicatat sebelum 3 Okt 2026 terlalu tinggi sekitar 2× (CLI lama menghitung setiap pesan beberapa kali). Angka yang lebih baru akurat."
 }

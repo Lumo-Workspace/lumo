@@ -2,6 +2,7 @@
 
 import type { TaskDetail, AgentRunSession } from '../../types'
 import { DeliveryPanel } from '../DeliveryPanel'
+import { anyStartedBeforeUsageDedupe } from '@/lib/agent-run/usage-dedupe-cutoff'
 import { AgentRunList } from '../AgentRunTimeline/AgentRunList'
 
 interface AgentRunsSectionProps {
@@ -39,6 +40,7 @@ export function AgentRunsSection({
         taskId={taskId}
         status={taskStatus}
         agentStatus={agentStatus}
+        preDedupe={anyStartedBeforeUsageDedupe(runs)}
       />
       {runs.length > 0 && <AgentRunList runs={runs} />}
     </div>

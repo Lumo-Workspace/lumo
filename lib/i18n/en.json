@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.lines": "{count, plural, one {# line} other {# lines}}",
   "sessions.timeline.badge.linesWithType": "{type} · {count, plural, one {# line} other {# lines}}",
   "sessions.timeline.badge.files": "{count, plural, one {# file} other {# files}}",
-  "sessions.timeline.badge.matches": "{count, plural, one {# match} other {# matches}}"
+  "sessions.timeline.badge.matches": "{count, plural, one {# match} other {# matches}}",
+  "usage.preDedupe.marker": "≈2× overstated",
+  "usage.preDedupe.notice": "Token figures recorded before Oct 3, 2026 are overstated by about 2× (an older CLI counted each message several times). Newer figures are accurate."
 }

@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "{count} fail",
   "sessions.timeline.badge.matches": "{count} padanan",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "dilebihkan ≈2×",
+  "usage.preDedupe.notice": "Angka token yang direkodkan sebelum 3 Okt 2026 dilebihkan kira-kira 2× (CLI lama mengira setiap mesej beberapa kali). Angka yang lebih baharu adalah tepat."
 }

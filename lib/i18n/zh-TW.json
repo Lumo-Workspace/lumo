@@ -2804,5 +2804,7 @@
   "sessions.timeline.badge.files": "{count} 個檔案",
   "sessions.timeline.badge.matches": "{count} 處符合",
   "agentRun.attribution.subagentCount": "{label} ×{count}",
-  "agentRun.attribution.evidenceCount": "{label} ×{count}"
+  "agentRun.attribution.evidenceCount": "{label} ×{count}",
+  "usage.preDedupe.marker": "約高估 2 倍",
+  "usage.preDedupe.notice": "2026 年 10 月 3 日之前記錄的 token 數據約高估 2 倍（舊版 CLI 會把同一則訊息重複計數）；之後的數據是準確的。"
 }

@@ -158,4 +158,20 @@ describe('RunReportTiles', () => {
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('Cost')
     expect(screen.getByTestId('tile-rework')).toHaveTextContent('Rework')
   })
+
+  it('shows the pre-dedupe warning on a measured cost tile (LUM-932)', () => {
+    render(<RunReportTiles tiles={tiles({ costTokens: 5000 })} preDedupe />)
+    expect(screen.getByTestId('cost-pre-dedupe')).toHaveTextContent(
+      '≈2× overstated'
+    )
+  })
+
+  it('omits the pre-dedupe warning by default or without a measured cost (LUM-932)', () => {
+    const { rerender } = render(
+      <RunReportTiles tiles={tiles({ costTokens: 5000 })} />
+    )
+    expect(screen.queryByTestId('cost-pre-dedupe')).toBeNull()
+    rerender(<RunReportTiles tiles={tiles()} preDedupe />)
+    expect(screen.queryByTestId('cost-pre-dedupe')).toBeNull()
+  })
 })
