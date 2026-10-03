@@ -14,7 +14,12 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
+import {
+  HOOK_EVENT_RETENTION_DAYS,
+  USED_UP_GRACE_DAYS,
+} from '@/lib/hook-event/retention'
 import { INTEGRATIONS } from '@/lib/integrations/registry'
+import { DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS } from '@/lib/security-scan/evidence-retention'
 import { SCAN_STAGE_LABELS } from '@/shared/src/security-scan'
 
 const LANDING_DIR = join(process.cwd(), 'components', 'landing', 'home')
@@ -189,11 +194,17 @@ describe('FAQ privacy claims LUM-853', () => {
     expect(answer).not.toMatch(
       /\b(EU|Europe|European|United States|US-only|us-east|in your region)\b/
     )
-    // Not shipped (LUM-863 / LUM-909 / LUM-910 / LUM-933), so not claimed.
+    // Not shipped (LUM-863: storage relies on at-rest encryption only), so
+    // not claimed.
     expect(answer).not.toMatch(/separate key|per-workspace key|own key/i)
-    expect(answer).not.toMatch(
-      /discard|deleted (right )?after use|never stored/i
-    )
+    // LUM-915: discarding session records is an owner's opt-in, not the
+    // default, and code is stored by default — so nothing may say it is
+    // never stored or deleted right after use.
+    expect(answer).not.toMatch(/deleted (right )?after use|never stored/i)
+    for (const sentence of answer.split(/(?<=\.)\s+/)) {
+      if (/discard/i.test(sentence))
+        expect(sentence).toMatch(/a workspace owner can/)
+    }
     expect(answer).not.toMatch(/full record/i)
     // Encryption is scoped to what lib/crypto.ts encrypts: connected-tool tokens.
     for (const sentence of answer.split(/(?<=\.)\s+/)) {
@@ -237,5 +248,43 @@ describe('FAQ privacy claims LUM-853', () => {
       /WORKSPACE_DELETION_GRACE_MS = 48 \* 60 \* 60 \* 1000/
     )
     expect(answer).toMatch(/any owner can cancel within 48 hours/)
+  })
+})
+
+/**
+ * LUM-915 — the FAQ's retention sentences quote the defaults and tiers the
+ * settings rows and cleanup sweeps run on.
+ */
+describe('FAQ retention claims LUM-915', () => {
+  function privacyAnswer(): string {
+    const m = readLanding('faq.tsx').match(
+      /q: 'Do you train on our code\?',\s*a: '((?:[^'\\]|\\.)*)'/
+    )
+    expect(m).not.toBeNull()
+    return (m as RegExpMatchArray)[1] as string
+  }
+
+  /** "30, 90, 180 or 365": the FAQ's own list style. */
+  function orList(days: readonly number[]): string {
+    const all = days.map(String)
+    return `${all.slice(0, -1).join(', ')} or ${all[all.length - 1]}`
+  }
+
+  it('FAQ retention sentences quote the shipped retention constants', () => {
+    const answer = privacyAnswer()
+    expect(answer).toContain('Agent session records are kept by default')
+    expect(answer).toContain(
+      `cleared after ${orList(HOOK_EVENT_RETENTION_DAYS)} days`
+    )
+    expect(answer).toContain(
+      `discarded ${USED_UP_GRACE_DAYS} days after the work is used up`
+    )
+    expect(answer).toContain(
+      `cleared ${DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS} days after its pull request is merged or closed`
+    )
+    // LUM-917 is not shipped: no switch-off or deletion of AI-derived content.
+    expect(answer).not.toMatch(
+      /(turn off|switch off|disable|delete)[^.]*(memory|summar)/i
+    )
   })
 })

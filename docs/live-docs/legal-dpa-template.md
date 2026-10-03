@@ -1,6 +1,6 @@
 # Lumo Data Processing Agreement (Template)
 
-Version: 2026-09-26 · Draft for legal review (LUM-857)
+Version: 2026-10-03 · Draft for legal review (LUM-857)
 
 This Data Processing Agreement ("DPA") forms part of the agreement for the Lumo service (the "Agreement") between [Customer legal name] ("Customer") and [Lumo legal entity], [registered address] ("Lumo"). It applies where Lumo processes Customer Personal Data on Customer's behalf in providing the Service, and it sets out the terms required by Article 28(3) of Regulation (EU) 2016/679 (the "GDPR") and the equivalent UK and Swiss laws. If this DPA conflicts with the Agreement, this DPA prevails on data protection matters.
 
@@ -104,7 +104,7 @@ Lumo will notify Customer without undue delay, and in any case within [48] hours
 | Purpose | To provide, secure and support the Service as described in the Agreement, including tracking AI coding-agent sessions, verifying acceptance criteria, reviewing pull requests for security issues, and generating summaries and team memory |
 | Duration | For the term of the Agreement and until deletion under section 10 |
 | Frequency | Continuous |
-| Retention | As configured by Customer where the Service allows (for example agent hook event retention of 30, 90, 180 or 365 days); otherwise for as long as the workspace exists |
+| Retention | As configured by Customer in the Service's data retention settings: agent session records are kept by default, or have their content removed 30, 90, 180 or 365 days after each event, or are discarded 7 days after they are used up (in that mode file contents and command output are never stored); security scan evidence is cleared 7 days after the pull request is merged or closed by default (0, 7, 14 or 30 days selectable; at most 30 days after a scan on a pull request that stays open); boundary-crossing originals are replaced by a code-free description 7 days after disposition by default (7, 30 or 90 days selectable); failed comment-sync webhook payloads are deleted 7 days after the failure by default (7, 30 or 90 days selectable). Other data, including AI-derived team memory, session summaries and run summaries, is kept for as long as the workspace exists |
 
 Categories of data subjects:
 
@@ -117,7 +117,7 @@ Categories of personal data:
 | --- | --- |
 | User identity and contact data | Name, email address, profile image, role, workspace membership |
 | Workspace content | Tasks, documents, comments, ideas, acceptance criteria, test cases, team memory, uploaded files |
-| Agent hook events | Prompts, tool calls, file contents and command output from AI coding-agent sessions, with detected secrets redacted before storage |
+| Agent hook events | Prompts, tool calls, file contents and command output from AI coding-agent sessions, with detected secrets redacted before storage in every retention mode (file contents and command output are not stored when Customer selects discard when used up) |
 | Customer code | Pull-request diffs, repository files and code excerpts in security findings |
 | Integration data | Slack messages, Figma file metadata, Google Docs content and Sentry error events that Customer chooses to connect |
 | Integration credentials | Access tokens for connected integrations, stored encrypted |
@@ -135,7 +135,7 @@ Special categories of data: none intended. Customer should not submit special ca
 | Least privilege | Production credentials are held in the hosting provider's secret store and are not stored in source code; the GitHub App requests only the repository permissions the Service needs, and scan sandboxes receive short-lived, repository-scoped credentials |
 | Isolation of code analysis | Customer repositories are analysed in isolated, short-lived virtual machines that are discarded after each scan |
 | AI data handling | Every AI model request enforces zero data retention and excludes providers that would train on or retain the data |
-| Data minimisation | Detected secrets are redacted from agent hook events before storage; Customer can set a retention period for agent hook event content |
+| Data minimisation | Detected secrets are redacted from agent hook events before storage, whatever the retention setting; Customer can set retention for agent session records (including a mode that never stores file contents or command output and discards the rest after use), security scan evidence, boundary-crossing originals and failed comment-sync payloads; code stored with security scans is cleared when the GitHub App is uninstalled or a repository is removed from it |
 | Deletion | Workspace deletion runs after a 48-hour cancellation window (or immediately at an owner's request), removes database records and stored files and produces a deletion receipt; deleted tasks and documents are kept in a 30-day trash and then permanently deleted |
 | Availability and resilience | Managed database with automated backups and point-in-time recovery; application hosted on a managed serverless platform |
 | Secure development | Every change goes through a pull request with automated tests and automated security scanning |
