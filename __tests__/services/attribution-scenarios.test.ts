@@ -328,3 +328,52 @@ describe('attribution scenarios under the branch ruling', () => {
     expect(rows.some(r => r.taskId === 't30')).toBe(false)
   })
 })
+
+describe('multi-task and notification turns follow the output and the subagent', () => {
+  const notificationText = (agentId: string) =>
+    `<task-notification>\n<task-id>${agentId}</task-id>\n<status>completed</status>\n<summary>LUM-12 review back</summary>\n</task-notification>`
+  const dispatch = () =>
+    ev(ROOT, 'POST_TOOL_USE', 'main', {
+      tool_name: 'Agent',
+      tool_input: { prompt: 'Review LUM-13' },
+      tool_response: { agentId: AGENT },
+    })
+  // The notification is built in place so its timestamp follows the review.
+  const reviewSession = (notification: () => FamilyEvent) => [
+    prompt(ROOT, 'main', 'accept the milestone again'),
+    dispatch(),
+    bash(ROOT, 'main', 'lumo task show LUM-12'),
+    bash(ROOT, 'main', 'lumo verify LUM-30'),
+    read(CHILD, 'main'),
+    read(CHILD, 'main'),
+    notification(),
+    read(ROOT, 'main'),
+  ]
+
+  it('11: a review turn naming two tasks without output is unattributed; the notification turn follows the subagent', async () => {
+    const rows = await run(
+      reviewSession(() => prompt(ROOT, 'main', notificationText(AGENT))),
+      true
+    )
+    expect(of(rows, ROOT).map(r => [r.taskId, r.fromTurn, r.toTurn])).toEqual([
+      ['t13', 1, 1],
+    ])
+    expect(of(rows, ROOT)[0]).toMatchObject({
+      confidence: 'MEDIUM',
+      evidence: [expect.objectContaining({ kind: 'AGENT_PROMPT' })],
+    })
+    expect(of(rows, CHILD).map(r => r.taskId)).toEqual(['t13'])
+  })
+
+  it('12: a notification stored before NOTIFICATION signals existed is read from its payload', async () => {
+    const old = (): FamilyEvent => ({
+      ...prompt(ROOT, 'main', 'placeholder'),
+      attributionSignals: [] as unknown as FamilyEvent['attributionSignals'],
+      payload: { prompt: notificationText(AGENT) },
+    })
+    const rows = await run(reviewSession(old), true)
+    expect(of(rows, ROOT).map(r => [r.taskId, r.fromTurn])).toEqual([
+      ['t13', 1],
+    ])
+  })
+})

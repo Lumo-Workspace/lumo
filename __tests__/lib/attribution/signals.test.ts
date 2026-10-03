@@ -1,7 +1,11 @@
 /**
  * @jest-environment node
  */
-import { extractAttributionSignals } from '@/lib/attribution/signals'
+import {
+  extractAttributionSignals,
+  STRONG_KINDS,
+  SWITCH_KINDS,
+} from '@/lib/attribution/signals'
 
 const bash = (command: string, extra: Record<string, unknown> = {}) => ({
   tool_name: 'Bash',
@@ -178,5 +182,44 @@ describe('extractAttributionSignals', () => {
       identifier: 'LUM-1',
       branch: 'lumo/LUM-1-x',
     })
+  })
+})
+
+describe('NOTIFICATION signals from subagent task notifications', () => {
+  const notification = (taskId: string, body = '') =>
+    `<task-notification>\n<task-id>${taskId}</task-id>\n<status>completed</status>\n<summary>${body}</summary>\n</task-notification>`
+
+  it('a task-notification prompt yields its task id as a NOTIFICATION agent id, alongside the usual PROMPT ids', () => {
+    expect(
+      extractAttributionSignals('USER_PROMPT_SUBMIT', {
+        prompt: notification('a8f3c2d', 'LUM-895 review back'),
+      })
+    ).toEqual([
+      { kind: 'NOTIFICATION', agentId: 'a8f3c2d' },
+      { kind: 'PROMPT', identifier: 'LUM-895' },
+    ])
+  })
+
+  it('only user prompts, only a well-formed task id', () => {
+    expect(
+      extractAttributionSignals('PRE_TOOL_USE', {
+        prompt: notification('a1'),
+      })
+    ).toEqual([])
+    expect(
+      extractAttributionSignals('USER_PROMPT_SUBMIT', {
+        prompt: notification('bad id!'),
+      })
+    ).toEqual([])
+    expect(
+      extractAttributionSignals('USER_PROMPT_SUBMIT', {
+        prompt: 'please read <task-id>a1</task-id>',
+      })
+    ).toEqual([])
+  })
+
+  it('is neither strong nor switch-capable evidence', () => {
+    expect(STRONG_KINDS.has('NOTIFICATION')).toBe(false)
+    expect(SWITCH_KINDS.has('NOTIFICATION')).toBe(false)
   })
 })

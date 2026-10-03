@@ -553,3 +553,40 @@ describe('bindings serialize with the recompute via the root version (LUM-932 P3
     ])
   })
 })
+
+describe('task-notification payloads on a real Postgres', () => {
+  it('loadFamily also returns the payload of a root task-notification prompt whose signals were already stored', async () => {
+    const R = 'root-notify'
+    await harness.insert('sessions', {
+      id: R,
+      workspaceId: 'ws',
+      workspaceMemberId: 'member',
+      startedAt: t(0).toISOString(),
+      lastActivityAt: t(9).toISOString(),
+    })
+    const prompt = (id: string, text: string, at: number) =>
+      seedEvent(id, R, t(at), {
+        type: 'USER_PROMPT_SUBMIT',
+        payload: JSON.stringify({ prompt: text }),
+        attributionSignals: JSON.stringify([]),
+      })
+    await prompt(
+      'n_notify',
+      '<task-notification>\n<task-id>a1</task-id>\n</task-notification>',
+      1
+    )
+    await prompt('n_plain', 'just a prompt', 2)
+    await seedEvent('n_tool', R, t(3), {
+      payload: JSON.stringify({ prompt: '<task-notification>' }),
+      attributionSignals: JSON.stringify([]),
+    })
+    const fam = await attributionRepository.loadFamily(R)
+    expect(
+      fam!.events.map(e => [e.id, e.payload === null ? null : 'payload'])
+    ).toEqual([
+      ['n_notify', 'payload'],
+      ['n_plain', null],
+      ['n_tool', null],
+    ])
+  })
+})

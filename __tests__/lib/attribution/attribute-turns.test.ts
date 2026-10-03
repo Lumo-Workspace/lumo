@@ -119,10 +119,11 @@ describe('attributeTurns segments a session by turns', () => {
   })
 
   it('ties within a turn go to the signal seen last', () => {
+    // Weak signals: strong ones naming two tasks are decided by R1 instead.
     const segs = run([
       ev(1, 'USER_PROMPT_SUBMIT'),
-      ev(2, 'PRE_TOOL_USE', [sig('LUMO_CMD', 'lum-12')]),
-      ev(3, 'PRE_TOOL_USE', [sig('LUMO_CMD', 'lum-13')]),
+      ev(2, 'PRE_TOOL_USE', [sig('PROMPT', 'lum-12')]),
+      ev(3, 'PRE_TOOL_USE', [sig('PROMPT', 'lum-13')]),
     ])
     expect(segs[0]!.taskId).toBe('lum-13')
   })
@@ -320,5 +321,229 @@ describe('attributeTurns segments a session by turns', () => {
     const child = segs.filter(s => s.sessionId === 'root:a1')
     expect(child).toHaveLength(1)
     expect(child[0]!.evidence).toEqual([])
+  })
+})
+
+describe('multi-task and notification turns follow the output and the subagent', () => {
+  type Kid = { agentId: string; taskId?: string | null }
+  const family = (...kids: Kid[]): EngineSession[] => [
+    { id: ROOT, parentSessionId: null, agentId: null },
+    ...kids.map(k => ({
+      id: `${ROOT}:${k.agentId}`,
+      parentSessionId: ROOT,
+      agentId: k.agentId,
+      ...(k.taskId !== undefined ? { taskId: k.taskId } : {}),
+    })),
+  ]
+  const note = (
+    s: number,
+    agentId: string,
+    signals: ResolvedSignal[] = []
+  ): EngineEvent => ({
+    ...ev(s, 'USER_PROMPT_SUBMIT', signals),
+    notifiedAgentId: agentId,
+  })
+  const rootView = (segs: ReturnType<typeof run>) =>
+    segs
+      .filter(s => s.sessionId === ROOT)
+      .map(s => [s.taskId, s.fromTurn, s.toTurn])
+  const cmd = (id: string) => sig('LUMO_CMD', id)
+  // turn 1 of the acceptance replay: one prompt, four reviews, no output.
+  const reviewTurn = (extra: ResolvedSignal[] = []): EngineEvent[] => [
+    ev(10, 'USER_PROMPT_SUBMIT'),
+    ev(11, 'POST_TOOL_USE', [
+      sig('AGENT_PROMPT', 'lum-895', { agentId: 'a5' }),
+    ]),
+    ev(12, 'POST_TOOL_USE', [
+      sig('AGENT_PROMPT', 'lum-896', { agentId: 'a6' }),
+    ]),
+    ev(13, 'PRE_TOOL_USE', [cmd('lum-898')]),
+    ev(14, 'PRE_TOOL_USE', [cmd('lum-898')]),
+    ev(15, 'PRE_TOOL_USE', [cmd('lum-898')]),
+    ev(16, 'PRE_TOOL_USE', [cmd('lum-898')]),
+    ev(17, 'PRE_TOOL_USE', [cmd('lum-893')]),
+    ev(18, 'PRE_TOOL_USE', [cmd('lum-897')]),
+    ev(19, 'PRE_TOOL_USE', [cmd('lum-892'), ...extra]),
+  ]
+
+  it('replays the acceptance session: the review turn is unattributed and notification turns follow their subagent', () => {
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [cmd('lum-892')]),
+        ...reviewTurn(),
+        ev(20, 'PRE_TOOL_USE', [cmd('lum-895')], `${ROOT}:a5`),
+        ev(21, 'SUBAGENT_STOP', [], `${ROOT}:a5`),
+        ev(22, 'PRE_TOOL_USE', [], `${ROOT}:a6`),
+        ev(23, 'SUBAGENT_STOP', [], `${ROOT}:a6`),
+        ev(30, 'USER_PROMPT_SUBMIT'), // signal-less: no carry across the review turn
+        ev(31, 'STOP'),
+        // the notification text names other tasks: weak, the subagent wins
+        note(40, 'a5', [sig('PROMPT', 'lum-896')]),
+        ev(41, 'STOP'),
+        note(50, 'a6'),
+        ev(51, 'STOP'),
+        note(60, 'b77'), // a background shell, not a subagent: as before
+        ev(61, 'STOP'),
+      ],
+      family({ agentId: 'a5' }, { agentId: 'a6' })
+    )
+    expect(rootView(segs)).toEqual([
+      ['lum-892', 0, 0],
+      ['lum-895', 3, 3],
+      ['lum-896', 4, 5],
+    ])
+    const root = segs.filter(s => s.sessionId === ROOT)
+    expect(root.map(s => [s.fromAt, s.toAt])).toEqual([
+      [t(1), t(10)],
+      [t(40), t(50)],
+      [t(50), null],
+    ])
+    expect(root[1]).toMatchObject({ confidence: 'HIGH' })
+    expect(root[1]!.evidence.map(e => [e.kind, e.identifier])).toEqual([
+      ['LUMO_CMD', 'LUM-895'],
+    ])
+    expect(root[2]).toMatchObject({ confidence: 'MEDIUM' })
+    expect(root[2]!.evidence.map(e => [e.kind, e.identifier])).toEqual([
+      ['AGENT_PROMPT', 'LUM-896'],
+    ])
+    for (const s of segs) {
+      expect(s.evidence.map(e => e.kind)).not.toContain('NOTIFICATION')
+    }
+    const child = (a: string) =>
+      segs
+        .filter(s => s.sessionId === `${ROOT}:${a}`)
+        .map(s => [s.taskId, s.confidence])
+    expect(child('a5')).toEqual([['lum-895', 'HIGH']])
+    expect(child('a6')).toEqual([['lum-896', 'MEDIUM']])
+  })
+
+  it('a multi-task turn whose only output is one commit goes to that task', () => {
+    const turns = (output: ResolvedSignal) =>
+      run([
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [cmd('lum-892')]),
+        ...reviewTurn([output]),
+        ev(30, 'USER_PROMPT_SUBMIT'),
+        ev(31, 'STOP'),
+      ])
+    expect(rootView(turns(sig('COMMIT', 'lum-898')))).toEqual([
+      ['lum-892', 0, 0],
+      ['lum-898', 1, 2],
+    ])
+    // the output decides even against the most-named task
+    expect(rootView(turns(sig('COMMIT', 'lum-893')))).toEqual([
+      ['lum-892', 0, 0],
+      ['lum-893', 1, 2],
+    ])
+  })
+
+  it('a multi-task turn with output for two tasks is unattributed and ends the previous segment', () => {
+    const segs = run([
+      ev(1, 'USER_PROMPT_SUBMIT'),
+      ev(2, 'PRE_TOOL_USE', [cmd('lum-892')]),
+      ...reviewTurn([sig('COMMIT', 'lum-898'), sig('PR_CREATE', 'lum-893')]),
+      ev(30, 'USER_PROMPT_SUBMIT'),
+      ev(31, 'STOP'),
+    ])
+    expect(rootView(segs)).toEqual([['lum-892', 0, 0]])
+    expect(segs[0]!.toAt).toEqual(t(10))
+  })
+
+  it('a turn decided by its branch is unchanged by other tasks named in it', () => {
+    const segs = run([
+      ev(1, 'USER_PROMPT_SUBMIT'),
+      ev(2, 'STOP'),
+      ev(10, 'USER_PROMPT_SUBMIT'),
+      ev(11, 'PRE_TOOL_USE', [sig('BRANCH', 'lum-12'), cmd('lum-892')]),
+      ev(12, 'PRE_TOOL_USE', [sig('BRANCH', 'lum-12'), cmd('lum-893')]),
+      ev(13, 'PRE_TOOL_USE', [sig('BRANCH', 'lum-12')]),
+    ])
+    expect(rootView(segs)).toEqual([['lum-12', 0, 1]])
+  })
+
+  it('leading signal-less turns are not back-attributed across an unattributed turn', () => {
+    const segs = run([
+      ev(1, 'USER_PROMPT_SUBMIT'),
+      ev(2, 'STOP'),
+      ev(10, 'USER_PROMPT_SUBMIT'),
+      ev(11, 'PRE_TOOL_USE', [cmd('lum-892')]),
+      ev(12, 'PRE_TOOL_USE', [cmd('lum-893')]),
+      ev(20, 'USER_PROMPT_SUBMIT'),
+      ev(21, 'STOP'),
+      ev(30, 'USER_PROMPT_SUBMIT'),
+      ev(31, 'PRE_TOOL_USE', [cmd('lum-5')]),
+    ])
+    expect(rootView(segs)).toEqual([['lum-5', 3, 3]])
+    expect(segs[0]!.fromAt).toEqual(t(30))
+  })
+
+  it('a notification from a subagent spanning two tasks is unattributed and breaks the carry', () => {
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [cmd('lum-1')]),
+        ev(5, 'PRE_TOOL_USE', [], `${ROOT}:a1`),
+        ev(10, 'USER_PROMPT_SUBMIT'),
+        ev(11, 'PRE_TOOL_USE', [cmd('lum-2')]),
+        ev(15, 'SUBAGENT_STOP', [], `${ROOT}:a1`),
+        note(20, 'a1'),
+        ev(21, 'STOP'),
+        ev(30, 'USER_PROMPT_SUBMIT'),
+        ev(31, 'STOP'),
+      ],
+      family({ agentId: 'a1' })
+    )
+    expect(rootView(segs)).toEqual([
+      ['lum-1', 0, 0],
+      ['lum-2', 1, 1],
+    ])
+    expect(segs.filter(s => s.sessionId === ROOT)[1]!.toAt).toEqual(t(20))
+  })
+
+  it('a notification from a subagent with no task is unattributed and blocks back-attribution', () => {
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [], `${ROOT}:a1`),
+        ev(3, 'SUBAGENT_STOP', [], `${ROOT}:a1`),
+        note(10, 'a1'),
+        ev(11, 'STOP'),
+        ev(20, 'USER_PROMPT_SUBMIT'),
+        ev(21, 'PRE_TOOL_USE', [cmd('lum-7')]),
+      ],
+      family({ agentId: 'a1' })
+    )
+    expect(rootView(segs)).toEqual([['lum-7', 2, 2]])
+  })
+
+  it('a notification turn with its own strong signal is decided by it', () => {
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [cmd('lum-895')], `${ROOT}:a5`),
+        note(10, 'a5'),
+        ev(11, 'PRE_TOOL_USE', [cmd('lum-9')]),
+      ],
+      family({ agentId: 'a5' })
+    )
+    expect(rootView(segs)).toEqual([['lum-9', 0, 1]])
+  })
+
+  it('a notification from an explicitly attached subagent takes its bound task', () => {
+    const segs = run(
+      [
+        ev(1, 'USER_PROMPT_SUBMIT'),
+        ev(2, 'PRE_TOOL_USE', [cmd('lum-1')]),
+        ev(3, 'PRE_TOOL_USE', [], `${ROOT}:a1`),
+        note(10, 'a1'),
+        ev(11, 'STOP'),
+      ],
+      family({ agentId: 'a1', taskId: 'lum-44' })
+    )
+    expect(rootView(segs)).toEqual([
+      ['lum-1', 0, 0],
+      ['lum-44', 1, 1],
+    ])
   })
 })

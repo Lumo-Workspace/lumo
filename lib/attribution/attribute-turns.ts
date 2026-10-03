@@ -5,6 +5,16 @@ import { STRONG_KINDS, type SignalKind } from './signals'
  * Splits a root session into turns (one per root USER_PROMPT_SUBMIT), labels
  * each turn from the root's own signals, folds turns into task segments, and
  * attributes subagent child sessions. No I/O; inputs are never mutated.
+ *
+ * Production-acceptance rulings (2026-10-02), for root turns not decided by a
+ * BRANCH signal (branch ruling C is unchanged):
+ *   R1 - a turn whose strong signals name 2+ tasks belongs to the one task its
+ *        output (COMMIT / PR_CREATE) names; with no output or output for 2+
+ *        tasks it is UNATTRIBUTED: in no segment, and it breaks carry-forward
+ *        and leading back-attribution.
+ *   R2 - a turn opened by a subagent's `<task-notification>` (and without
+ *        strong signals of its own) takes that subagent's task; a subagent
+ *        with no task or with 2+ tasks makes it UNATTRIBUTED.
  */
 export interface ResolvedSignal {
   kind: SignalKind
@@ -18,12 +28,16 @@ export interface EngineEvent {
   type: string
   at: Date
   signals: ResolvedSignal[]
+  /** A root prompt that is this agent's `<task-notification>` (R2). */
+  notifiedAgentId?: string
 }
 
 export interface EngineSession {
   id: string
   parentSessionId: string | null
   agentId: string | null
+  /** An explicit binding (a notification from it follows this task, R2). */
+  taskId?: string | null
 }
 
 export interface EvidenceEntry {
@@ -50,10 +64,30 @@ interface TimedSignal {
   seq: number
 }
 
-interface TurnLabel {
-  taskId: string
-  switchCapable: boolean
+/** What a notification turn borrowed from the subagent it follows (R2). */
+interface Borrowed {
+  evidence: EvidenceEntry[]
+  confidence: 'HIGH' | 'MEDIUM'
 }
+
+type TurnDecision =
+  | {
+      kind: 'task'
+      taskId: string
+      switchCapable: boolean
+      borrowed?: Borrowed
+    }
+  /** No decision of its own: the turn carries the current segment forward. */
+  | { kind: 'none' }
+  /** R1/R2: in no segment, and nothing carries across it. */
+  | { kind: 'unattributed' }
+
+const NONE: TurnDecision = { kind: 'none' }
+const UNATTRIBUTED: TurnDecision = { kind: 'unattributed' }
+const OUTPUT_KINDS: ReadonlySet<SignalKind> = new Set<SignalKind>([
+  'COMMIT',
+  'PR_CREATE',
+])
 
 const MAX_EVIDENCE = 10
 
@@ -87,16 +121,36 @@ function pickTask(signals: TimedSignal[]): string | null {
   return best?.taskId ?? null
 }
 
-function labelTurn(signals: TimedSignal[], turn: number): TurnLabel | null {
-  const strong = pickTask(signals.filter(s => STRONG_KINDS.has(s.signal.kind)))
-  if (strong) return { taskId: strong, switchCapable: true }
+const distinctTasks = (signals: TimedSignal[]): Set<string> =>
+  new Set(signals.map(s => s.signal.taskId))
+
+/** R1: a turn's strong signals, decided by its output when they name 2+ tasks. */
+function strongDecision(strong: TimedSignal[]): TurnDecision | null {
+  if (strong.length === 0) return null
+  // Branch ruling C: a turn with a BRANCH signal is decided as it always was.
+  const branchDecided = strong.some(s => s.signal.kind === 'BRANCH')
+  if (!branchDecided && distinctTasks(strong).size >= 2) {
+    const output = distinctTasks(
+      strong.filter(s => OUTPUT_KINDS.has(s.signal.kind))
+    )
+    if (output.size !== 1) return UNATTRIBUTED
+    return { kind: 'task', taskId: [...output][0]!, switchCapable: true }
+  }
+  return { kind: 'task', taskId: pickTask(strong)!, switchCapable: true }
+}
+
+function labelTurn(signals: TimedSignal[], turn: number): TurnDecision {
+  const strong = strongDecision(
+    signals.filter(s => STRONG_KINDS.has(s.signal.kind))
+  )
+  if (strong) return strong
   const prompt = pickTask(signals.filter(s => s.signal.kind === 'PROMPT'))
-  if (prompt) return { taskId: prompt, switchCapable: true }
+  if (prompt) return { kind: 'task', taskId: prompt, switchCapable: true }
   if (turn === 0) {
     const hint = pickTask(signals.filter(s => s.signal.kind === 'GIT_HINT'))
-    if (hint) return { taskId: hint, switchCapable: false }
+    if (hint) return { kind: 'task', taskId: hint, switchCapable: false }
   }
-  return null
+  return NONE
 }
 
 function toEvidence(signals: TimedSignal[]): EvidenceEntry[] {
@@ -145,17 +199,16 @@ interface RootSegmentDraft {
   taskId: string
   fromTurn: number
   toTurn: number
+  borrowed: Borrowed[]
 }
 
-function segmentRoot(
-  rootId: string,
+/** Root signals per turn, assigned by prompt count so equal-timestamp prompts still split. */
+function signalsPerTurn(
   rootEvents: EngineEvent[],
-  turnStarts: Date[],
+  turnCount: number,
   seqOf: Map<EngineEvent, number>
-): InferredSegment[] {
-  const turnCount = turnStarts.length
+): TimedSignal[][] {
   const perTurn: TimedSignal[][] = Array.from({ length: turnCount }, () => [])
-  // Turn assignment by prompt count, so equal-timestamp prompts still split.
   let promptIdx = -1
   for (const e of rootEvents) {
     if (e.type === 'USER_PROMPT_SUBMIT') promptIdx++
@@ -165,32 +218,106 @@ function segmentRoot(
       perTurn[turn]!.push({ signal, at: e.at, seq: seqOf.get(e) ?? 0 })
     }
   }
+  return perTurn
+}
 
-  const drafts: RootSegmentDraft[] = []
-  for (let turn = 0; turn < turnCount; turn++) {
-    const label = labelTurn(perTurn[turn]!, turn)
-    const current = drafts[drafts.length - 1]
-    if (!current) {
-      // Leading label-less turns are folded into the first segment.
-      if (label)
-        drafts.push({ taskId: label.taskId, fromTurn: 0, toTurn: turn })
-      continue
-    }
-    if (label && label.taskId !== current.taskId && label.switchCapable) {
-      drafts.push({ taskId: label.taskId, fromTurn: turn, toTurn: turn })
-    } else {
-      current.toTurn = turn
-    }
+/** The child session a turn-opening root prompt notifies about, per turn (R2). */
+function notifiedChildPerTurn(
+  rootEvents: EngineEvent[],
+  turnCount: number,
+  children: EngineSession[]
+): (EngineSession | null)[] {
+  const byAgent = new Map<string, EngineSession>()
+  for (const c of children) if (c.agentId) byAgent.set(c.agentId, c)
+  const out: (EngineSession | null)[] = Array.from(
+    { length: turnCount },
+    () => null
+  )
+  let promptIdx = -1
+  for (const e of rootEvents) {
+    if (e.type !== 'USER_PROMPT_SUBMIT') continue
+    promptIdx++
+    const child = e.notifiedAgentId ? byAgent.get(e.notifiedAgentId) : null
+    if (child) out[promptIdx] = child
   }
+  return out
+}
 
-  return drafts.map((d, i) => {
+function draftsOf(decisions: TurnDecision[]): RootSegmentDraft[] {
+  const drafts: RootSegmentDraft[] = []
+  let current: RootSegmentDraft | null = null
+  // Leading signal-less turns fold into the first segment, never across an
+  // unattributed turn (and no back-attribution at all after one).
+  let leadingFrom: number | null = 0
+  decisions.forEach((d, turn) => {
+    if (d.kind === 'unattributed') {
+      current = null
+      leadingFrom = null
+      return
+    }
+    if (!current) {
+      if (d.kind !== 'task') return
+      current = {
+        taskId: d.taskId,
+        fromTurn: leadingFrom ?? turn,
+        toTurn: turn,
+        borrowed: d.borrowed ? [d.borrowed] : [],
+      }
+      drafts.push(current)
+      leadingFrom = null
+      return
+    }
+    if (d.kind === 'task' && d.taskId !== current.taskId && d.switchCapable) {
+      current = {
+        taskId: d.taskId,
+        fromTurn: turn,
+        toTurn: turn,
+        borrowed: d.borrowed ? [d.borrowed] : [],
+      }
+      drafts.push(current)
+      return
+    }
+    current.toTurn = turn
+    if (d.kind === 'task' && d.taskId === current.taskId && d.borrowed)
+      current.borrowed.push(d.borrowed)
+  })
+  return drafts
+}
+
+function evidenceKey(e: EvidenceEntry): string {
+  return `${e.kind}|${e.identifier}|${e.at}`
+}
+
+function segmentRoot(
+  rootId: string,
+  decisions: TurnDecision[],
+  perTurn: TimedSignal[][],
+  turnStarts: Date[]
+): InferredSegment[] {
+  const turnCount = turnStarts.length
+  return draftsOf(decisions).map(d => {
     const fromAt = turnStarts[d.fromTurn]!
-    const toAt = i < drafts.length - 1 ? turnStarts[d.toTurn + 1]! : null
+    const toAt = d.toTurn + 1 < turnCount ? turnStarts[d.toTurn + 1]! : null
     const hits: TimedSignal[] = []
     for (let turn = d.fromTurn; turn <= d.toTurn; turn++) {
       for (const s of perTurn[turn]!)
         if (s.signal.taskId === d.taskId) hits.push(s)
     }
+    // A notification turn is explained by its subagent's evidence (R2).
+    const evidence = toEvidence(hits)
+    const seen = new Set(evidence.map(evidenceKey))
+    for (const b of d.borrowed) {
+      for (const e of b.evidence) {
+        if (seen.has(evidenceKey(e))) continue
+        seen.add(evidenceKey(e))
+        evidence.push({ ...e })
+      }
+    }
+    const confidence =
+      confidenceOf(hits) === 'HIGH' ||
+      d.borrowed.some(b => b.confidence === 'HIGH')
+        ? 'HIGH'
+        : 'MEDIUM'
     return {
       sessionId: rootId,
       taskId: d.taskId,
@@ -198,8 +325,8 @@ function segmentRoot(
       toTurn: d.toTurn,
       fromAt,
       toAt,
-      confidence: confidenceOf(hits),
-      evidence: toEvidence(hits),
+      confidence,
+      evidence: evidence.slice(0, MAX_EVIDENCE),
     }
   })
 }
@@ -328,6 +455,47 @@ function segmentChild(
   return followed
 }
 
+/**
+ * R2: the decision of a notification turn — the notifying child's task as the
+ * child is attributed against the root segments decided so far.
+ */
+function followChild(
+  child: EngineSession,
+  childEvents: EngineEvent[],
+  rootEvents: EngineEvent[],
+  rootSegments: InferredSegment[],
+  turnStarts: Date[],
+  seqOf: Map<EngineEvent, number>
+): TurnDecision {
+  if (child.taskId) {
+    return {
+      kind: 'task',
+      taskId: child.taskId,
+      switchCapable: true,
+      borrowed: { evidence: [], confidence: 'HIGH' },
+    }
+  }
+  const segs = segmentChild(
+    child,
+    childEvents,
+    rootEvents,
+    rootSegments,
+    turnStarts,
+    seqOf
+  )
+  const tasks = new Set(segs.map(s => s.taskId))
+  if (tasks.size !== 1) return UNATTRIBUTED
+  return {
+    kind: 'task',
+    taskId: segs[0]!.taskId,
+    switchCapable: true,
+    borrowed: {
+      evidence: segs.flatMap(s => s.evidence.map(e => ({ ...e }))),
+      confidence: segs.some(s => s.confidence === 'HIGH') ? 'HIGH' : 'MEDIUM',
+    },
+  }
+}
+
 export function attributeTurns(input: {
   rootSessionId: string
   sessions: EngineSession[]
@@ -345,12 +513,42 @@ export function attributeTurns(input: {
 
   const rootEvents = bySession.get(rootSessionId) ?? []
   const turnStarts = turnStartsOf(rootEvents)
-  const rootSegments = segmentRoot(rootSessionId, rootEvents, turnStarts, seqOf)
+  const turnCount = turnStarts.length
+  const children = sessions.filter(
+    c => c.parentSessionId === rootSessionId && c.id !== rootSessionId
+  )
+  const perTurn = signalsPerTurn(rootEvents, turnCount, seqOf)
+  const notified = notifiedChildPerTurn(rootEvents, turnCount, children)
+
+  // A notification turn without strong signals of its own waits for its child.
+  const pending = (turn: number): boolean =>
+    notified[turn] != null &&
+    !perTurn[turn]!.some(s => STRONG_KINDS.has(s.signal.kind))
+  const decisions: TurnDecision[] = perTurn.map((signals, turn) =>
+    pending(turn) ? NONE : labelTurn(signals, turn)
+  )
+  // In turn order: a child that follows the root only sees earlier decisions.
+  for (let turn = 0; turn < turnCount; turn++) {
+    if (!pending(turn)) continue
+    const child = notified[turn]!
+    decisions[turn] = followChild(
+      child,
+      bySession.get(child.id) ?? [],
+      rootEvents,
+      segmentRoot(rootSessionId, decisions.slice(0, turn), perTurn, turnStarts),
+      turnStarts,
+      seqOf
+    )
+  }
+  const rootSegments = segmentRoot(
+    rootSessionId,
+    decisions,
+    perTurn,
+    turnStarts
+  )
 
   const out: InferredSegment[] = [...rootSegments]
-  for (const child of sessions) {
-    if (child.parentSessionId !== rootSessionId || child.id === rootSessionId)
-      continue
+  for (const child of children) {
     const childEvents = bySession.get(child.id) ?? []
     out.push(
       ...segmentChild(
