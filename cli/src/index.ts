@@ -29,8 +29,6 @@ import { initiativeCreate, initiativeList } from './commands/initiative'
 import { plan, planStatus, type PlanOptions } from './commands/plan'
 import { cost } from './commands/cost'
 import { priority, priorityList } from './commands/priority'
-import { criteriaAudit } from './commands/criteria-audit'
-import { verify } from './commands/verify'
 import {
   crossingExplain,
   type CrossingExplainOptions,
@@ -39,11 +37,7 @@ import {
   crossingDisposition,
   type CrossingDispositionOptions,
 } from './commands/crossing-disposition'
-import {
-  outcomeShow,
-  outcomeRate,
-  type OutcomeRateOptions,
-} from './commands/outcome'
+import { outcomeShow } from './commands/outcome'
 import { taskContext } from './commands/task-context'
 import { taskCreate } from './commands/task-create'
 import { taskUpdate } from './commands/task-update'
@@ -79,9 +73,6 @@ import { memorySync } from './commands/memory-sync'
 import { memoryPush } from './commands/memory-push'
 import { memoryFold } from './commands/memory-fold'
 import { taskArtifactAdd } from './commands/task-artifact-add'
-import { taskCriteriaSet } from './commands/task-criteria-set'
-import { taskCriteriaList } from './commands/task-criteria-list'
-import { taskCriteriaConfirm } from './commands/task-criteria-confirm'
 import { taskArtifactList } from './commands/task-artifact-list'
 import { taskArtifactShow } from './commands/task-artifact-show'
 import { taskArtifactRm } from './commands/task-artifact-rm'
@@ -342,28 +333,6 @@ program
     )
   )
 
-program
-  .command('verify [task]')
-  .description(
-    'Machine verification loop (LUM-343): run every MACHINE criterion checkpointer locally, report structured verdicts to the server (round cap 3), and print next actions. All-pass moves the task to IN_REVIEW. Defaults to the session-bound task.'
-  )
-  .option(
-    '--timeout <seconds>',
-    'Per-checkpointer timeout in seconds (default 600)'
-  )
-  .option(
-    '--note <text>',
-    'Optional one-line self-report — what you did and why it is ready. When given, it is recorded as your claim (source AGENT) when the round passes into IN_REVIEW.'
-  )
-  .action(
-    wrap((task: unknown, options: unknown) =>
-      verify(
-        task as string | undefined,
-        options as { timeout?: string; note?: string }
-      )
-    )
-  )
-
 const crossing = program
   .command('crossing')
   .description(
@@ -442,18 +411,6 @@ outcome
     'Read the post-hoc outcome well for a task: the falsifier verdict (REJECTED | INCONCLUSIVE — never a "pass") plus its backing rejection signals. INCONCLUSIVE means no rejection on record, NOT satisfied.'
   )
   .action(wrap((task: unknown) => outcomeShow(task as string)))
-
-outcome
-  .command('rate')
-  .description(
-    'Trust × post-hoc fate: per delivery-time forecast-confidence bracket, the post-hoc REJECTED rate from the outcome well. Honest by construction — thin brackets read "insufficient" and the high-vs-low comparison stays "inconclusive" until the well has enough signal. The rate is a LOWER BOUND (no signal = INCONCLUSIVE, never satisfied).'
-  )
-  .option(
-    '--min <N>',
-    'Per-bracket sample floor below which a rate is withheld (default 10)'
-  )
-  .option('--json', 'Emit the report as JSON')
-  .action(wrap(options => outcomeRate(options as OutcomeRateOptions)))
 
 program
   .command('next')
@@ -788,17 +745,6 @@ pr.command('scan <number>')
     )
   )
 
-const criteria = program
-  .command('criteria')
-  .description('Workspace-level acceptance-criteria analytics')
-
-criteria
-  .command('audit')
-  .description(
-    'Show the workspace referent-kind distribution + self-confirming-green ratio (GET /api/criteria/audit)'
-  )
-  .action(wrap(() => criteriaAudit()))
-
 const session = program
   .command('session')
   .description('Manage per-terminal coding-session context')
@@ -810,7 +756,7 @@ session
   )
   .option(
     '--steward',
-    'Bind as a STEWARD (governance) session to a milestone (id, name, or slug) instead of a task. Steward sessions plan and accept only: lumo verify is refused (409, no round burned), self-dispatch to in_progress is refused, and implementation commits/PRs are recorded as boundary crossings.'
+    'Bind as a STEWARD (governance) session to a milestone (id, name, or slug) instead of a task. Steward sessions plan and accept only: self-dispatch to in_progress is refused, and implementation commits/PRs are recorded as boundary crossings.'
   )
   .option(
     '--worktree',
@@ -963,14 +909,14 @@ task
 task
   .command('wrapup [task]')
   .description(
-    'Whole wrap-up in one read (LUM-841): contract & verification, test-case signals, security scans, open boundary crossings (each ready to relay, with the per-ruling disposition command), and DONE readiness with the DONE envelope preview (linked PR merge state + local worktree cleanup). Read-only: runs no verify round, requests no receipt, changes no status. Defaults to the session-bound task.'
+    'Whole wrap-up in one read (LUM-841): test-case signals, security scans, open boundary crossings (each ready to relay, with the per-ruling disposition command), and DONE readiness with the DONE envelope preview (linked PR merge state + local worktree cleanup). Read-only: requests no receipt, changes no status. Defaults to the session-bound task.'
   )
   .action(wrap(taskArg => taskWrapup(taskArg as string | undefined)))
 
 task
   .command('status [task]')
   .description(
-    'Acceptance self-check (LUM-344): contract with latest verdicts, current round, nextActions (unmet criteria + undispositioned security findings, LUM-737), and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected. --full adds the dashboard sections (verification rollup, history, cost, struggle/rework trail, trend).'
+    'Task self-check (LUM-344): nextActions (undispositioned security findings + test-case advisories), security-scan coverage, and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task. --full adds the dashboard sections (cost, struggle/rework trail, trend).'
   )
   .option(
     '--json',
@@ -978,7 +924,7 @@ task
   )
   .option(
     '--full',
-    'Also print the dashboard sections: verification rollup, history, cost, struggle/rework trail, trend'
+    'Also print the dashboard sections: cost, struggle/rework trail, trend'
   )
   .action(
     wrap((taskArg, options) =>
@@ -1290,58 +1236,6 @@ taskMemory
       )
     )
   )
-const taskCriteria = task
-  .command('criteria')
-  .description(
-    'Acceptance criteria — the task\u2019s verification contract (LUM-342)'
-  )
-
-taskCriteria
-  .command('set <task>')
-  .description(
-    'Submit the whole acceptance contract from a JSON file. Default = initial agent draft (locked once submitted); --human records a HUMAN_EDIT revision (desired final list; items with "id" keep/update, missing ones are deleted).'
-  )
-  .requiredOption(
-    '--file <path>',
-    'JSON array of criteria: [{"statement","verifierType":"MACHINE"|"HUMAN","checkpointer?","evidenceRequired?","id?"}]'
-  )
-  .option(
-    '--human',
-    'Record a human contract revision (HUMAN_EDIT) transcribed from the conversation, with session provenance'
-  )
-  .option(
-    '--cause <tag>',
-    'Why the contract drifted (with --human): NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER (case-insensitive)'
-  )
-  .action(
-    wrap((taskId: unknown, options: unknown) =>
-      taskCriteriaSet(taskId as string, options as Record<string, unknown>)
-    )
-  )
-
-taskCriteria
-  .command('list <task>')
-  .description(
-    'List a task\u2019s acceptance criteria (id, type, provenance, checkpointer)'
-  )
-  .action(wrap((taskId: unknown) => taskCriteriaList(taskId as string)))
-
-taskCriteria
-  .command('confirm <task>')
-  .description(
-    'Record the USER\u2019s confirmation of the acceptance contract (LUM-789). Gated: without --confirm it prints a confirmation envelope listing every criterion and exits 4, writing nothing. Confirming never blocks DONE \u2014 an unconfirmed contract still closes normally.'
-  )
-  .option('--confirm', 'The user has approved this contract')
-  .option('--yes', 'Legacy alias of --confirm')
-  .action(
-    wrap((taskId: unknown, options: unknown) =>
-      taskCriteriaConfirm(
-        taskId as string,
-        options as { confirm?: boolean; yes?: boolean }
-      )
-    )
-  )
-
 const taskArtifact = task
   .command('artifact')
   .description(
@@ -1470,10 +1364,6 @@ taskTestCase
     '--requires-env <environment>',
     'local | preview | production (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Matched exactly: there is no environment hierarchy'
   )
-  .option(
-    '--criterion <selector>',
-    'Which acceptance criterion this case covers: an id or a >=6-char id prefix from `lumo task criteria list`. Optional - an unlinked case is perfectly legal. A covered criterion stops showing up as a coverage gap; the case NEVER adjudicates it'
-  )
   .action(
     wrap((taskId: unknown, options: unknown) =>
       taskTestCaseAdd(taskId as string, options as Record<string, never>)
@@ -1517,10 +1407,6 @@ taskTestCase
   .option(
     '--requires-env <environment>',
     'local | preview | production | none (case-insensitive) - this case only proves anything when run there; a PASS recorded elsewhere is capped to UNPROVEN. Pass "none" to clear it. Matched exactly: there is no environment hierarchy'
-  )
-  .option(
-    '--criterion <selector>',
-    'Which acceptance criterion this case covers: an id or a >=6-char id prefix from `lumo task criteria list`. Pass "" to unlink (the case itself is untouched). Omit to leave the link as it is'
   )
   .action(
     wrap((handle: unknown, options: unknown) =>

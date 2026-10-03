@@ -11,7 +11,6 @@ import {
   WRITTEN_PATH_PROBE_FIELD,
   WRITTEN_PATH_PROBE_FILE_DIR,
 } from '../../shared/src/written-path-probe'
-import { hasRedactedContent } from '@/lib/hook-payload/redact'
 import {
   isCrossingAdvisoryRule,
   isShapeRule,
@@ -22,19 +21,9 @@ import {
 } from '@/lib/security-scan'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
-import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { parseChildSessionId } from '@/lib/session/child-session-id'
 import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
-import { checkpointerFilePaths } from '@/lib/checkpointer/parse'
-import {
-  classifyTestTampering,
-  type JudgeInput,
-  type JudgeVerdict,
-  type TamperingJudge,
-} from '@/lib/boundary-crossing/test-tampering-judge'
 import {
   confirmActionCrossing,
   isActionConfirmCategory,
@@ -64,12 +53,11 @@ import {
 } from '@/lib/boundary-crossing/suppression'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { projectRepository } from '@/lib/repositories/project.repository'
-// NOTE: both LLM clients (`@/lib/llm/test-tampering-judge-client` and
-// `@/lib/llm/action-confirm-client`) are loaded LAZILY inside their cached
-// wrappers — they pull in the heavy `ai` / `@ai-sdk/gateway` SDK, and a static
-// import would drag that into every module that imports this detector (and every
-// test of it). Deferring the import keeps the cost on the one path that actually
-// calls the model (the ambiguous residual / the prose candidate).
+// NOTE: the LLM client (`@/lib/llm/action-confirm-client`) is loaded LAZILY
+// inside its cached wrapper — it pulls in the heavy `ai` / `@ai-sdk/gateway`
+// SDK, and a static import would drag that into every module that imports this
+// detector (and every test of it). Deferring the import keeps the cost on the
+// one path that actually calls the model (the prose candidate).
 
 /**
  * Async forbidden-action boundary detector (LUM-426, extended in LUM-442).
@@ -107,19 +95,11 @@ export interface DetectedCrossing {
    *  force the DONE gate even where the workspace opted out. */
   severity: BoundaryCrossingSeverity
   /** Coalescing target (LUM-477): the specific thing this crossing is about — the
-   *  edited file for TEST_TAMPERING/secret, the normalized command for action
+   *  written file for a secret, the normalized command for action
    *  classes. Repeated detections with the same (taskId, category, target) merge
    *  into one OPEN crossing instead of recording a duplicate per event. Never the
    *  secret VALUE — a secret's target is its file, so it stays redacted. */
   target: string
-  /** LUM-478: set ONLY on a TEST_TAMPERING crossing the DETERMINISTIC pre-filter
-   *  judged high-confidence legit (production code co-changed AND assertions
-   *  intact). The recorder auto-resolves it with the system AUTO_LEGIT disposition
-   *  — on record + auditable, but out of the open queue and non-DONE-blocking.
-   *  Never set for a judge-only (LLM) legit verdict, which stays a
-   *  human-dispositioned LOW crossing: the LLM is not trusted to auto-clear the
-   *  gate (the narrow, deterministic-only softening). */
-  autoResolve?: boolean
   /** LUM-590: advisory crossings come from project-specific predicates — surfaced
    *  in the panel but never block the DONE gate. A mapped built-in produces a
    *  blocking crossing; a project-specific predicate produces advisory in v1. */
@@ -738,9 +718,7 @@ function segmentBypassesHooks(seg: string): boolean {
  * `rm` / `git rm` whose OWN delete targets are test files. Segment-scoped like
  * matchMigrationDelete (LUM-511): the test path must be an argument of the rm
  * verb, so `npx jest __tests__/x.test.ts && rm tmp.txt` (a sibling merely
- * referencing a test) does not trip. Distinct from TEST_TAMPERING, which is an
- * Edit/Write to a file a MACHINE checkpointer depends on — this is the Bash
- * delete of a test regardless of any contract.
+ * referencing a test) does not trip.
  */
 function matchTestFileDelete(cmd: string): boolean {
   for (const seg of splitCommandSegments(cmd)) {
@@ -764,9 +742,8 @@ function matchTestFileDelete(cmd: string): boolean {
  * repo or Lumo-internal state (restorable from git or Lumo state), and
  * IRREVERSIBLE only when it destroys external world state that neither git nor
  * Lumo can bring back — a leaked secret, dropped/exfiltrated/deleted data, or
- * terminated infra. Editorial crossings (test/criterion edits, laundered
- * spinoffs, silent fixes, migration-file deletes, unbound-session work,
- * protected-branch pushes) are reversible: `git restore` / archive-and-reopen /
+ * terminated infra. Editorial crossings (migration-file deletes, unbound-session
+ * work, protected-branch pushes) are reversible: `git restore` / archive-and-reopen /
  * a follow-up commit undoes the artifact.
  *
  * Reversibility is ORTHOGONAL to severity. The DONE gate blocks on severity
@@ -779,6 +756,9 @@ function matchTestFileDelete(cmd: string): boolean {
  */
 const REVERSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> = new Set([
   'NEW_NPM_DEPENDENCY',
+  // LUM-942: deprecated — the acceptance-criteria detectors that produced these
+  // were removed and nothing writes them anymore; kept so old rows still render
+  // with their original (editorial, reversible) classification.
   'TEST_TAMPERING',
   'CONTRACT_WEAKENING',
   'SPINOFF_LAUNDERED',
@@ -787,8 +767,7 @@ const REVERSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> = new Set([
   'SESSION_BINDING_MISSING',
   'PUSH_TO_PROTECTED_BRANCH',
   // LUM-630: a committed CLAUDE.md edit that removed/downgraded a rule is repo
-  // state — `git restore` brings the rule back, same editorial class as
-  // CONTRACT_WEAKENING.
+  // state — `git restore` brings the rule back.
   'POLICY_WEAKENING',
   // LUM-640: a steward-session commit is repo state (revertable) and a PR can
   // be closed — same world-state class as PUSH_TO_PROTECTED_BRANCH.
@@ -837,20 +816,15 @@ export function severityFor(
       return 'LOW'
     case 'PUSH_TO_PROTECTED_BRANCH':
     case 'MIGRATION_FILE_DELETED':
-    // Reward-hacking (LUM-441) is serious but ambiguous (a legit test fix looks
-    // identical) and high-false-positive, so MEDIUM: visible/tiered, but it
-    // honours the workspace opt-out rather than force-gating like a HIGH class.
+    // LUM-942: deprecated (no longer produced — the acceptance-criteria
+    // detectors were removed); old rows keep their original MEDIUM tier.
     case 'TEST_TAMPERING':
+    case 'CONTRACT_WEAKENING':
+    case 'SPINOFF_LAUNDERED':
+    case 'SILENT_FIX':
     // LUM-491: unbound-session work is serious (session-binding lock bypass) but
     // deterministically detectable and not data-destructive, so MEDIUM.
     case 'SESSION_BINDING_MISSING':
-    // LUM-511 Phase 4: criterion weakening (judge-confirmed) is tampering-class
-    // but not data-destructive, so MEDIUM (like TEST_TAMPERING).
-    case 'CONTRACT_WEAKENING':
-    // LUM-511 Phase 6: judge-confirmed laundering (spinoff / silent-fix) — MEDIUM,
-    // visible + dismissable, blocks DONE until a human acknowledges it.
-    case 'SPINOFF_LAUNDERED':
-    case 'SILENT_FIX':
     // LUM-640: implementation artifacts from a STEWARD (governance) session —
     // a role-boundary breach, deterministically detectable and repo-scoped
     // (like SESSION_BINDING_MISSING), so MEDIUM.
@@ -1152,585 +1126,6 @@ export function detectCrossings(
   return out
 }
 
-// --- reward-hacking: test-tampering (LUM-441) --------------------------------
-
-/** The slice of a MACHINE acceptance criterion the tampering check needs. */
-export interface MachineCheckpointer {
-  criterionId?: string | undefined
-  /** The criterion's statement — surfaced on the flag so a reviewer sees which
-   *  check the edited file backs (criterion 4, the HUMAN read). */
-  statement?: string | undefined
-  /** The checkpointer command string (its file paths are what an edit may hit). */
-  checkpointer: string
-  /**
-   * Has this criterion's MACHINE check ever recorded a PASS (LUM-449 authoring
-   * gate)? You cannot reward-hack by weakening a test that was never green, so a
-   * hit is suppressed when `everPassed === false` — the criterion is still being
-   * authored, not gamed. `undefined` (legacy callers) defaults to the flagging
-   * (safe) direction; only an explicit `false` suppresses. See detectTestTampering.
-   */
-  everPassed?: boolean | undefined
-}
-
-/** Normalize a path for cross-form comparison (absolute event vs repo-relative
- *  checkpointer arg): forward slashes, no leading `./`. */
-function normalizePath(p: string): string {
-  return p.replace(/\\/g, '/').replace(/^\.\//, '')
-}
-
-/**
- * Does an Edit/Write event's file path refer to the same file as a
- * checkpointer's path arg? The event path is typically absolute
- * (`/…/repo/__tests__/foo.test.ts`) and the checkpointer's is repo-relative
- * (`__tests__/foo.test.ts`); match on a path-segment boundary so a relative ref
- * matches the tail of the absolute event without `foo.test.ts` matching
- * `barfoo.test.ts`.
- */
-export function eventPathMatchesCheckpointerPath(
-  eventPath: string,
-  refPath: string
-): boolean {
-  const e = normalizePath(eventPath)
-  const r = normalizePath(refPath)
-  if (!e || !r) return false
-  return e === r || e.endsWith(`/${r}`) || r.endsWith(`/${e}`)
-}
-
-/** Pull an Edit's before/after strings out of a hook payload (Edit `old_string`
- *  + `new_string`, with the `_str` aliases). A Write has no `old_*`, so its
- *  before side is null — there is nothing to diff against. */
-function readEditStrings(payload: unknown): {
-  oldString: string | null
-  newString: string | null
-} {
-  const empty = { oldString: null, newString: null }
-  if (!payload || typeof payload !== 'object') return empty
-  const input = (payload as Record<string, unknown>).tool_input
-  if (!input || typeof input !== 'object') return empty
-  const o = input as Record<string, unknown>
-  const pick = (...keys: string[]): string | null => {
-    for (const k of keys) if (typeof o[k] === 'string') return o[k] as string
-    return null
-  }
-  return {
-    oldString: pick('old_string', 'old_str'),
-    newString: pick('new_string', 'new_str', 'content'),
-  }
-}
-
-/**
- * Strip JS/TS comments while preserving string-literal contents (LUM-455). A
- * single quote-aware pass — a `//` or `/* *​/` inside a `'`/`"`/`` ` `` literal is
- * NOT a comment and is left untouched, so a changed URL like `'https://a'` →
- * `'https://b'` is never mistaken for a comment-only (cosmetic) edit. Erring
- * toward keeping text (the conservative direction) is the whole point.
- */
-function stripComments(src: string): string {
-  let out = ''
-  let quote: string | null = null
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i]
-    const next = src[i + 1]
-    if (quote) {
-      out += c
-      if (c === '\\' && i + 1 < src.length) {
-        out += src[i + 1] // copy the escaped char verbatim
-        i++
-      } else if (c === quote) {
-        quote = null
-      }
-      continue
-    }
-    if (c === '"' || c === "'" || c === '`') {
-      quote = c
-      out += c
-      continue
-    }
-    if (c === '/' && next === '/') {
-      while (i < src.length && src[i] !== '\n') i++ // skip to EOL, keep newline
-      out += '\n'
-      continue
-    }
-    if (c === '/' && next === '*') {
-      i += 2
-      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++
-      i++ // land on '/', loop ++ skips it
-      continue
-    }
-    out += c
-  }
-  return out
-}
-
-/**
- * Normalize a chunk of test source to its significant lines for a cosmetic-vs-
- * substantive comparison (LUM-455): drop comments, strip postfix non-null
- * assertions (`!`), collapse whitespace, drop blank lines, and sort so a pure
- * line reorder compares equal. Deliberately narrow: it normalizes ONLY the
- * cosmetic forms it can prove safe; anything else (a changed value, a TS type
- * annotation, an `as` cast) is left intact so the edit reads as substantive and
- * is still flagged. Conservative by construction — see isCosmeticTestEdit.
- */
-function normalizeTestLines(text: string): string[] {
-  return stripComments(text)
-    .split('\n')
-    .map(line =>
-      // Postfix non-null assertion `!` (followed by . ; , ) ] } or EOL); never a
-      // `!=`/`!==` operator (followed by `=`) and never a prefix logical-not.
-      line.replace(/!(?=\s*[.;,)\]}]|$)/g, '')
-    )
-    .map(line => line.replace(/\s+/g, ''))
-    .filter(line => line.length > 0)
-    .sort()
-}
-
-/**
- * Is an Edit provably cosmetic-only (LUM-455)? True ONLY when the before/after
- * normalize to the identical set of significant lines — i.e. the edit is limited
- * to whitespace, comments, non-null assertions, or pure line reordering. A
- * missing side (a Write, or a payload with no old_string) returns FALSE: with
- * nothing to diff against we cannot prove the edit harmless, so it stays flagged.
- * This is the safety property — a real assertion change, deletion, or any edit we
- * can't confidently classify as non-substantive is never suppressed (criterion 2).
- */
-export function isCosmeticTestEdit(
-  oldString: string | null,
-  newString: string | null
-): boolean {
-  if (oldString == null || newString == null) return false
-  const a = normalizeTestLines(oldString)
-  const b = normalizeTestLines(newString)
-  if (a.length !== b.length) return false
-  return a.every((line, i) => line === b[i])
-}
-
-/**
- * Is an Edit purely additive (LUM-455)? True when every significant line of the
- * BEFORE side still survives, unchanged, in the AFTER side (old's normalized
- * lines are a sub-multiset of new's) — i.e. the edit only INTRODUCES lines (a
- * new test case, a new import, a new comment) and removes/alters nothing. A pure
- * addition cannot weaken an existing assertion, so it is treated as
- * non-substantive and suppressed.
- *
- * Deliberate, signed-off relaxation of the conservative red line: because lines
- * are compared independently, an inserted statement that MUTATES prior state
- * (e.g. reassigning a `let` the assertion reads) would also pass. That residual
- * hole is the accepted cost of dropping new-test/new-import noise; an edit that
- * removes or alters any existing line is still flagged. A missing side (a Write,
- * no before) is never additive — there is nothing to compare against.
- */
-export function isAdditiveTestEdit(
-  oldString: string | null,
-  newString: string | null
-): boolean {
-  if (oldString == null || newString == null) return false
-  const before = normalizeTestLines(oldString)
-  if (before.length === 0) return false
-  const counts = new Map<string, number>()
-  for (const line of normalizeTestLines(newString)) {
-    counts.set(line, (counts.get(line) ?? 0) + 1)
-  }
-  for (const line of before) {
-    const n = counts.get(line) ?? 0
-    if (n === 0) return false // a before-line is gone → removed or altered
-    counts.set(line, n - 1)
-  }
-  return true
-}
-
-/**
- * Reward-hacking detector (LUM-441, OpenAI misalignment taxonomy). An agent that
- * edits the very test file a MACHINE acceptance checkpointer runs may be fixing
- * the underlying code — or weakening the test to force a fake PASS. We can't tell
- * statically, so this is a flag-for-review (not a hard block): if an Edit/Write
- * event's file is referenced by any of the bound task's MACHINE checkpointers,
- * record ONE TEST_TAMPERING crossing naming the file + the criterion that
- * depends on it. A human dispositions it FALSE_POSITIVE (legit test fix) or
- * CONFIRMED (LUM-435). Pure — the criteria are passed in, no I/O.
- *
- * LUM-455 adds a PRECISION gate: a hit whose edit is provably non-substantive —
- * cosmetic-only (whitespace/comments/non-null assertions/reordering) OR purely
- * additive (only new lines; nothing existing removed or altered) — is suppressed
- * as noise. The gate stays conservative for the threat that matters: an edit that
- * removes or alters an existing line, a Write, or an unparseable payload is still
- * recorded (criterion 2).
- */
-export function detectTestTampering(input: {
-  toolName: string | null
-  filePath: string | null
-  machineCheckpointers: MachineCheckpointer[]
-  payload?: unknown
-}): DetectedCrossing | null {
-  if (!input.filePath) return null
-  if (!input.toolName || !WRITE_TOOLS.includes(input.toolName)) return null
-  for (const mc of input.machineCheckpointers) {
-    const hit = checkpointerFilePaths(mc.checkpointer).find(p =>
-      eventPathMatchesCheckpointerPath(input.filePath as string, p)
-    )
-    if (hit) {
-      // Authoring gate (LUM-449): a hit on a criterion whose MACHINE check has
-      // never passed is the agent authoring the test (TDD red→green), not
-      // weakening a green one — the measured 100%-FP shape. There is no metric
-      // to game until the check has been green once, so suppress it. An absent
-      // signal (legacy caller) keeps the safe, flagging direction.
-      if (mc.everPassed === false) return null
-      // Precision gate (LUM-455): drop a provably non-substantive edit —
-      // cosmetic-only or purely additive; keep everything else (the safe
-      // direction: removals/alterations, Writes, unparseable payloads).
-      const { oldString, newString } = readEditStrings(input.payload)
-      if (
-        isCosmeticTestEdit(oldString, newString) ||
-        isAdditiveTestEdit(oldString, newString)
-      ) {
-        return null
-      }
-      const because = mc.statement
-        ? ` — a MACHINE check depends on it ("${mc.statement}")`
-        : ' — a MACHINE check depends on it'
-      return {
-        category: 'TEST_TAMPERING',
-        detail: clip(`edited ${hit}${because}`),
-        severity: severityFor('TEST_TAMPERING'),
-        // Coalesce repeated edits to the SAME test file (LUM-477): the edited
-        // file is the target, so three edits to one test = one OPEN crossing.
-        target: normalizePath(input.filePath as string),
-      }
-    }
-  }
-  return null
-}
-
-// --- LUM-463: two-stage precision (deterministic pre-filter + LLM judge) ------
-//
-// A surviving TEST_TAMPERING hit is still ambiguous: a substantive edit to an
-// already-green test can be a legitimate update (conditions/spec changed) or a
-// weakening (loosened to force a fake PASS). The deterministic pre-filter
-// (Stage 1) decides the clear ends for free; only the ambiguous residual reaches
-// the best-effort LLM judge (Stage 2). The judge only DOWNGRADES (severity LOW)
-// or FLAGS — it never hard-clears a crossing and never sets a human disposition
-// (LUM-435/422 stay the final arbiter). Every path here is defensive: a failure
-// keeps the base (flagged) crossing — a possible weakening is never silently
-// suppressed, and a downgraded crossing still gets recorded (visible/auditable).
-
-const TEST_PATH_RE = /\.(?:test|spec)\.[tj]sx?$/
-const PRODUCTION_CODE_RE = /\.(?:ts|tsx|js|jsx|mjs|cjs|prisma)$/
-const CODE_DIFF_CAP = 8_000
-
-/** Audit note stamped on a system AUTO_LEGIT auto-resolution (LUM-478) — names
- *  WHY it was auto-cleared so an auditor reading the crossing later sees the
- *  deterministic reason, not a bare disposition. */
-const AUTO_LEGIT_NOTE =
-  'Auto-resolved by the detector: deterministic high-confidence legit (production code co-changed, assertions intact). Not a human disposition — re-openable.'
-
-/** Pull a write event's target file path out of its stored payload. */
-function readEventFilePath(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object') return null
-  const input = (payload as Record<string, unknown>).tool_input
-  if (!input || typeof input !== 'object') return null
-  const o = input as Record<string, unknown>
-  for (const k of ['file_path', 'filePath', 'path', 'notebook_path']) {
-    if (typeof o[k] === 'string') return o[k] as string
-  }
-  return null
-}
-
-function isProductionCodePath(p: string): boolean {
-  return PRODUCTION_CODE_RE.test(p) && !TEST_PATH_RE.test(p)
-}
-
-/**
- * Signal A — change-set context. Did the task's write events touch production
- * (non-test) source alongside the test? Returns the boolean plus a bounded code
- * diff for the judge. `coChanged: null` means the signal could not be computed
- * (query failed) — the safe direction (no positive legit evidence → no
- * downgrade). Best-effort: never throws.
- */
-async function gatherChangeSetContext(
-  taskId: string
-): Promise<{ coChanged: boolean | null; codeDiff: string | null }> {
-  try {
-    const events = await hookEventRepository.findByTaskId(taskId)
-    const productionSnippets: string[] = []
-    for (const e of events) {
-      if (!e.toolName || !WRITE_TOOLS.includes(e.toolName)) continue
-      const fp = readEventFilePath(e.payload)
-      if (!fp || !isProductionCodePath(fp)) continue
-      const { oldString, newString } = readEditStrings(e.payload)
-      // Production-code content is not retained on stored events (LUM-855):
-      // the judge still learns the file was co-changed, just not how.
-      const body =
-        oldString == null && newString == null && hasRedactedContent(e.payload)
-          ? '(content not retained)'
-          : buildEditDiff(oldString, newString)
-      productionSnippets.push(`# ${fp}\n${body}`)
-    }
-    const coChanged = productionSnippets.length > 0
-    const joined = productionSnippets.join('\n\n')
-    const codeDiff = coChanged
-      ? joined.length > CODE_DIFF_CAP
-        ? `${joined.slice(0, CODE_DIFF_CAP)}\n…[truncated]`
-        : joined
-      : null
-    return { coChanged, codeDiff }
-  } catch {
-    return { coChanged: null, codeDiff: null }
-  }
-}
-
-/**
- * Signal C — was the backing criterion itself edited (a CRITERION_CHANGED UPDATE
- * after the initial draft)? A moved spec is a legitimate reason for the test to
- * move. Best-effort: a query failure returns false (the safe direction — absence
- * of evidence never downgrades).
- */
-async function backingCriterionEdited(
-  taskId: string,
-  criterionId: string
-): Promise<boolean> {
-  try {
-    const acts = await activityRepository.listByTaskAndType(
-      taskId,
-      'CRITERION_CHANGED'
-    )
-    return acts.some(a => {
-      const p = a.payload as Record<string, unknown> | null
-      return !!p && p.criterionId === criterionId && p.op === 'UPDATED'
-    })
-  } catch {
-    return false
-  }
-}
-
-/** Render an Edit's before→after as a compact diff for the judge prompt. */
-function buildEditDiff(
-  oldString: string | null,
-  newString: string | null
-): string {
-  if (oldString == null) return `+++ after\n${newString ?? ''}`
-  return `--- before\n${oldString}\n+++ after\n${newString ?? ''}`
-}
-
-// Diff-hash cache so an identical (criterion, test-diff, code-diff) is judged
-// once per process (cost-bounding on top of the pre-filter). Failures are NOT
-// cached, so a transient gateway error re-tries on the next hit.
-const judgeCache = new Map<string, Promise<JudgeVerdict>>()
-const JUDGE_CACHE_MAX = 500
-
-/**
- * Cache key for one judge call. The three fields are joined with a NUL,
- * which cannot occur inside a diff or a criterion statement.
- *
- * LUM-796: the separator is written as the escape `\u0000`, never as a
- * literal 0x00 byte — a literal NUL makes grep/rg classify this whole
- * file as binary and silently return no matches. Exported so the escape's
- * byte-identity is pinned by a golden vector in the guard test.
- */
-export function judgeCacheKey(j: JudgeInput): string {
-  return createHash('sha256')
-    .update(`${j.criterion}\u0000${j.testDiff}\u0000${j.codeDiff ?? ''}`)
-    .digest('hex')
-}
-
-function cachedJudge(j: JudgeInput): Promise<JudgeVerdict> {
-  const key = judgeCacheKey(j)
-  const hit = judgeCache.get(key)
-  if (hit) return hit
-  // Lazy import: pay the SDK load only when the model is actually consulted.
-  const p = import('@/lib/llm/test-tampering-judge-client').then(mod =>
-    mod.judgeTestTampering(j)
-  )
-  judgeCache.set(key, p)
-  p.catch(() => judgeCache.delete(key))
-  if (judgeCache.size > JUDGE_CACHE_MAX) {
-    const oldest = judgeCache.keys().next().value
-    if (oldest !== undefined) judgeCache.delete(oldest)
-  }
-  return p
-}
-
-/** The MACHINE checkpointer whose test file this edit hit (mirrors the order in
- *  detectTestTampering, which returns on the first match). */
-function findMatchedCheckpointer(
-  machineCheckpointers: MachineCheckpointer[],
-  filePath: string
-): MachineCheckpointer | null {
-  for (const mc of machineCheckpointers) {
-    const hit = checkpointerFilePaths(mc.checkpointer).find(p =>
-      eventPathMatchesCheckpointerPath(filePath, p)
-    )
-    if (hit) return mc
-  }
-  return null
-}
-
-/**
- * The pre-loaded context the two-stage tampering classifier (LUM-463) needs,
- * lifted out of the DB so the classification core is a pure, injectable seam:
- * the production wrapper fills it from the repositories, the alignment eval
- * (LUM-468) fills it from fixtures — both run the identical classifier.
- */
-export interface TaskTamperingContext {
-  /** The bound task's MACHINE checkpointers (with their `everPassed` flags). */
-  machineCheckpointers: MachineCheckpointer[]
-  /** Signal A — did the task's change-set co-touch production code? (`null` = uncomputable). */
-  productionCodeCoChanged: boolean | null
-  /** The bounded co-changed code diff for the judge prompt (`null` = none). */
-  codeDiff: string | null
-  /** Signal C — the criterion ids whose backing spec was edited after the draft. */
-  changedCriterionIds: ReadonlySet<string>
-}
-
-/**
- * Run the two-stage classification on a surviving tampering crossing and return
- * the crossing adjusted for the verdict: LEGIT → severity LOW + a "downgraded"
- * note (still recorded, just not full-strength); WEAKENING → the base crossing
- * unchanged (full strength). Defensive by construction — any failure returns the
- * base (flagged) crossing, so a downgrade only ever happens on a positive
- * legit/judge verdict and a crossing is never lost. Context + judge are injected
- * (no DB, no lazy LLM import here), so the eval drives this exact path.
- */
-async function annotateTampering(
-  payload: unknown,
-  matched: MachineCheckpointer,
-  base: DetectedCrossing,
-  ctx: TaskTamperingContext,
-  judge: TamperingJudge
-): Promise<DetectedCrossing> {
-  try {
-    const { oldString, newString } = readEditStrings(payload)
-    const criterionChanged = matched.criterionId
-      ? ctx.changedCriterionIds.has(matched.criterionId)
-      : false
-    const result = await classifyTestTampering(
-      {
-        oldString,
-        newString,
-        productionCodeCoChanged: ctx.productionCodeCoChanged,
-        backingCriterionChanged: criterionChanged,
-      },
-      {
-        testDiff: buildEditDiff(oldString, newString),
-        codeDiff: ctx.codeDiff,
-        criterion: matched.statement ?? '',
-      },
-      { judge }
-    )
-    if (result.outcome === 'LEGIT') {
-      // LUM-478: a DETERMINISTIC pre-filter LEGIT (positive signals: production
-      // code co-changed + assertions intact) is high-confidence enough to
-      // auto-resolve; a judge-only (LLM) LEGIT stays a human-dispositioned LOW
-      // crossing — the LLM is not trusted to auto-clear the DONE gate. The detail
-      // keeps the "downgraded (legit, …)" marker either way (the alignment eval
-      // and read model key on it), and `autoResolve` carries the recorder's
-      // auto-disposition decision.
-      const fromPrefilter = result.stage === 'PREFILTER'
-      const how = fromPrefilter ? 'pre-filter' : 'judge'
-      return {
-        ...base,
-        severity: 'LOW',
-        detail: clip(`${base.detail} · downgraded (legit, ${how})`),
-        ...(fromPrefilter ? { autoResolve: true } : {}),
-      }
-    }
-    return base
-  } catch {
-    return base
-  }
-}
-
-/**
- * Pure (no-DB) TEST_TAMPERING classification core (LUM-441 + LUM-463): run the
- * deterministic tampering check against pre-loaded context, then refine a
- * surviving hit through the two-stage precision classifier with an injected
- * judge. The production wrapper (`detectTestTamperingForTask`) loads `ctx` from
- * the repositories and passes the cached LLM judge; the alignment eval (LUM-468)
- * passes fixture context and a deterministic stub judge — so both exercise the
- * exact same classification path with no live database.
- */
-export async function classifyTaskTampering(
-  input: Pick<BoundaryDetectionInput, 'toolName' | 'filePath' | 'payload'>,
-  ctx: TaskTamperingContext,
-  judge: TamperingJudge
-): Promise<DetectedCrossing | null> {
-  const base = detectTestTampering({
-    toolName: input.toolName,
-    filePath: input.filePath,
-    machineCheckpointers: ctx.machineCheckpointers,
-    payload: input.payload,
-  })
-  if (!base) return null
-  const matched = findMatchedCheckpointer(
-    ctx.machineCheckpointers,
-    input.filePath as string
-  )
-  if (!matched) return base
-  return annotateTampering(input.payload, matched, base, ctx, judge)
-}
-
-/**
- * Load the bound task's MACHINE checkpointers and run the pure tampering check
- * (LUM-441). Gated up front: only an Edit/Write event carrying a file path can
- * tamper with a test, so a Bash/Read/Stop event short-circuits BEFORE any DB
- * read — the criteria query is paid only on the events that can match. A
- * surviving hit is then run through the LUM-463 two-stage precision classifier;
- * the change-set context (signals A/C) is loaded ONLY on an actual hit so a miss
- * never pays for it. Delegates to the injectable `classifyTaskTampering` core.
- */
-async function detectTestTamperingForTask(
-  input: BoundaryDetectionInput
-): Promise<DetectedCrossing | null> {
-  if (!input.filePath) return null
-  if (!input.toolName || !WRITE_TOOLS.includes(input.toolName)) return null
-  const criteria = await acceptanceCriterionRepository.listByTask(input.taskId)
-  const machineCriteria = criteria.filter(
-    c => c.verifierType === 'MACHINE' && !!c.checkpointer
-  )
-  if (machineCriteria.length === 0) return null
-  // Authoring gate (LUM-449): a MACHINE check that has never gone green is still
-  // being authored, so an edit to its test is not yet reward-hacking. One read,
-  // scoped to this task's criteria, indexed by criterionId.
-  const everPassed = await verificationRunRepository.criterionIdsEverPassed(
-    machineCriteria.map(c => c.id)
-  )
-  const machineCheckpointers: MachineCheckpointer[] = machineCriteria.map(
-    c => ({
-      criterionId: c.id,
-      statement: c.statement,
-      checkpointer: c.checkpointer as string,
-      everPassed: everPassed.has(c.id),
-    })
-  )
-  // Cheap base check first: only pay the change-set context (signals A/C) when an
-  // edit actually hits a checkpointer-backed test — a miss reads nothing more.
-  const base = detectTestTampering({
-    toolName: input.toolName,
-    filePath: input.filePath,
-    machineCheckpointers,
-    payload: input.payload,
-  })
-  if (!base) return null
-  const matched = findMatchedCheckpointer(machineCheckpointers, input.filePath)
-  if (!matched) return base
-  const changeSet = await gatherChangeSetContext(input.taskId)
-  const changedCriterionIds =
-    matched.criterionId &&
-    (await backingCriterionEdited(input.taskId, matched.criterionId))
-      ? new Set<string>([matched.criterionId])
-      : new Set<string>()
-  return annotateTampering(
-    input.payload,
-    matched,
-    base,
-    {
-      machineCheckpointers,
-      productionCodeCoChanged: changeSet.coChanged,
-      codeDiff: changeSet.codeDiff,
-      changedCriterionIds,
-    },
-    cachedJudge
-  )
-}
-
 // --- LUM-466: action-category prose-vs-real confirmation ----------------------
 //
 // The deterministic command matchers are high-recall and also trip on a
@@ -1802,7 +1197,7 @@ export async function confirmActionCandidates(
   const out: DetectedCrossing[] = []
   for (const c of crossings) {
     if (!isActionConfirmCategory(c.category)) {
-      out.push(c) // HARDCODED_SECRET / NEW_NPM_DEPENDENCY / TEST_TAMPERING
+      out.push(c) // HARDCODED_SECRET / NEW_NPM_DEPENDENCY
       continue
     }
     // Evasion-decoded crossings (base64) are deliberate obfuscation, already
@@ -1832,75 +1227,9 @@ export async function confirmActionCandidates(
   return out
 }
 
-/** Best-effort one-line summary of an Edit/Write payload for the silent-fix judge. */
-function summarizeEdit(payload: unknown): string {
-  if (payload && typeof payload === 'object') {
-    const root = payload as Record<string, unknown>
-    const input = (root.tool_input ?? root) as Record<string, unknown>
-    const parts: string[] = []
-    if (typeof input.old_string === 'string')
-      parts.push(`- old: ${input.old_string}`)
-    if (typeof input.new_string === 'string')
-      parts.push(`+ new: ${input.new_string}`)
-    else if (typeof input.content === 'string') parts.push(input.content)
-    if (parts.length) return parts.join('\n')
-  }
-  return '(edit content unavailable)'
-}
-
-/**
- * LUM-511 Phase 4 (silent-fix): when a file edit lands on a task that has already
- * been submitted for acceptance (ever entered IN_REVIEW) with NO recorded
- * send-back, the agent may be silently fixing a defect that should have left a
- * send-back trace. Judge REAL_FIX vs COSMETIC and, on REAL_FIX, record a
- * task-level SILENT_FIX_DETECTED marker (one per task) for the flywheel negative
- * class. Cheap short-circuits run before any DB/LLM work; audit-only.
- */
-export async function recordSilentFixIfDetected(
-  input: BoundaryDetectionInput
-): Promise<void> {
-  if (!input.toolName || !WRITE_TOOLS.includes(input.toolName)) return
-  if (!input.filePath) return
-  const statusChanges = await activityRepository.listByTaskAndType(
-    input.taskId,
-    'STATUS_CHANGED'
-  )
-  const everInReview = statusChanges.some(
-    a => (a.payload as { toStatus?: string } | null)?.toStatus === 'IN_REVIEW'
-  )
-  if (!everInReview) return
-  // A recorded send-back means the fix is a normal, traced rework — not silent.
-  const sendBacks = await verificationRunRepository.taskIdsWithSendBack([
-    input.taskId,
-  ])
-  if (sendBacks.size > 0) return
-  // LUM-511 Phase 6: dedup on (taskId, SILENT_FIX, filePath) — if this file's
-  // silent fix was already flagged, bump it and skip the LLM call (cost guard).
-  const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
-    input.taskId,
-    'SILENT_FIX',
-    input.filePath,
-    new Date()
-  )
-  if (coalesced > 0) return
-  const { classifySilentFix } =
-    await import('@/lib/boundary-crossing/silent-fix-judge')
-  const { judgeSilentFix } = await import('@/lib/llm/silent-fix-judge-client')
-  const verdict = await classifySilentFix(
-    { filePath: input.filePath, editSummary: summarizeEdit(input.payload) },
-    { judge: judgeSilentFix }
-  )
-  if (verdict !== 'REAL_FIX') return
-  // Phase 6: a DONE-blocking, dismissable crossing on the task (was a marker).
-  await boundaryCrossingRepository.create({
-    taskId: input.taskId,
-    hookEventId: input.hookEventId ?? null,
-    category: 'SILENT_FIX',
-    detail: `Post-review edit to ${input.filePath} with no recorded send-back — judged a real defect fix (should have left a send-back trace).`,
-    target: input.filePath,
-    reversible: isReversible('SILENT_FIX'),
-    severity: 'MEDIUM',
-  })
+/** Normalize a path for comparison: forward slashes, no leading `./`. */
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/^\.\//, '')
 }
 
 // --- LUM-736: SENSITIVE_PATH_EDIT (Edit/Write on a sensitive path) ------------
@@ -2092,8 +1421,6 @@ export const boundaryDetectorService = {
       // matched only as prose (commit message / PR body / echo), keep real
       // executed actions and anything the best-effort LLM can't clear.
       const confirmed = await confirmActionCandidates(input, crossings)
-      const tampering = await detectTestTamperingForTask(input)
-      if (tampering) confirmed.push(tampering)
 
       // LUM-590: load the project policy best-effort and append any project
       // action-rule crossings. Wrapped in try/catch per the exit-0 invariant —
@@ -2185,12 +1512,6 @@ export const boundaryDetectorService = {
           c.advisory ?? false
         )
         if (coalesced > 0) continue
-        // LUM-478: a deterministic high-confidence legit TEST_TAMPERING edit is
-        // recorded for audit but auto-resolved with the system AUTO_LEGIT
-        // disposition — no human actor, out of the open queue (the gate and the
-        // CLI both key on `disposition: null`), and non-DONE-blocking. This is a
-        // server-internal detector decision, NOT the human-only disposition API
-        // (which stays 403-before-parse): an agent still cannot clear any crossing.
         const row = await boundaryCrossingRepository.create({
           taskId: input.taskId,
           hookEventId: input.hookEventId ?? null,
@@ -2213,13 +1534,7 @@ export const boundaryDetectorService = {
                 dispositionedAt: new Date(),
                 suppressionRuleId: rule.id,
               }
-            : c.autoResolve
-              ? {
-                  disposition: 'AUTO_LEGIT',
-                  dispositionNote: AUTO_LEGIT_NOTE,
-                  dispositionedAt: new Date(),
-                }
-              : {}),
+            : {}),
         })
         await activityRepository.create({
           taskId: input.taskId,
@@ -2235,16 +1550,10 @@ export const boundaryDetectorService = {
             // the timeline, never as an open one a human still owes a decision on.
             ...(rule
               ? { disposition: 'AUTO_SUPPRESSED', suppressionRuleId: rule.id }
-              : c.autoResolve
-                ? { disposition: 'AUTO_LEGIT' }
-                : {}),
+              : {}),
           },
         })
       }
-      // LUM-511 Phase 4: silent-fix detection (post-submission edit with no
-      // recorded send-back). Separate from the crossing loop — it records a
-      // task-level marker, not a crossing.
-      await recordSilentFixIfDetected(input)
     } catch (error) {
       // Observe-only: a detector failure must never disrupt ingestion.
       console.error('boundaryDetectorService.detectAndRecord error:', error)
@@ -2253,7 +1562,7 @@ export const boundaryDetectorService = {
 
   /**
    * LUM-640 detector backstop for STEWARD (governance) sessions. The API gate
-   * blocks `verify` and self-dispatch, but it cannot see file edits or local
+   * blocks self-dispatch, but it cannot see file edits or local
    * git — so when a task-less hook event arrives, this checks whether the
    * session is a milestone-bound steward and whether the Bash command produced
    * an implementation artifact (git commit / PR creation). A match records a

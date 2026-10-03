@@ -78,8 +78,8 @@ describe('parseInvocation', () => {
       'task comment'
     )
     expect(
-      parseInvocation('lumo task criteria set LUM-5 --file c.json').commandPath
-    ).toBe('task criteria set')
+      parseInvocation('lumo task deps add LUM-5 --blocked-by LUM-4').commandPath
+    ).toBe('task deps add')
   })
 
   it('marks unmapped paths as unknown and keeps the head tokens', () => {

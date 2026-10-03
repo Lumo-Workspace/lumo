@@ -17,15 +17,12 @@ import { taskService } from '@/lib/services/task.service'
 import { taskSlackContextRepository } from '@/lib/repositories/task-slack-context.repository'
 import { taskWebLinkRepository } from '@/lib/repositories/task-web-link.repository'
 import { taskArtifactRepository } from '@/lib/repositories/task-artifact.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import { commentRepository } from '@/lib/repositories/comment.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prCommentMirrorRepository } from '@/lib/repositories/pr-comment-mirror.repository'
 import { actorRepository } from '@/lib/repositories/actor.repository'
 import { taskFigmaLinkService } from '@/lib/services/task-figma-link.service'
-import { referenceClassService } from '@/lib/services/reference-class.service'
 import { prSecurityReminderService } from '@/lib/services/pr-security-reminder.service'
 import {
   assembleLineageSection,
@@ -56,9 +53,6 @@ import {
   type SlackContextCard,
   type WebLinkCard,
   type PRCard,
-  renderCriteriaSection,
-  criteriaBudgetSection,
-  renderCriteriaDraftNudge,
 } from '@/lib/context/render'
 import {
   remindAtStart,
@@ -82,11 +76,7 @@ import {
   type MemorySource,
   type RenderableMemory,
 } from '@/lib/memory/render'
-import {
-  allocateBudgetWithMetrics,
-  estimateTokens,
-  type BudgetSectionMetric,
-} from '@/lib/context/budget'
+import { estimateTokens, type BudgetSectionMetric } from '@/lib/context/budget'
 import { buildMemoryIndex } from '@/lib/services/memory/index-disclosure'
 import { RELEVANCE_GATE_TOP_K } from '@/lib/services/memory/relevance-gate.constants'
 import { htmlToMarkdown } from '@/lib/utils/markdown'
@@ -180,13 +170,6 @@ export interface TaskContext {
    */
   memoryIndexSection: string
   /**
-   * Pre-rendered "## Acceptance criteria (contract)" markdown (LUM-342); empty when the task
-   * has no acceptance criteria. Deliberately NOT in `fragments`: v1 records no
-   * CRITERIA lineage fragment (no LineageFragmentType value exists — adding
-   * one needs a migration plus the LUM-276 write-key==read-key read side).
-   */
-  criteriaSection: string
-  /**
    * Pre-rendered "## Test cases" nudge (LUM-807); empty once the task has a
    * recorded script, and on DONE tasks. Ungated by PR on purpose — see
    * `lib/context/render/test-case-reminder.ts`.
@@ -228,22 +211,6 @@ const NO_SUMMARY = '(no summary)'
 /** Headline of an unattached session attributed to the task by inference. */
 const INFERRED_SESSION_HEADLINE =
   '(unattached session; attributed to this task by inference)'
-
-/**
- * LUM-431: is the acceptance-criteria *draft nudge* enabled for the workspace
- * owning this task? The nudge is the acceptance system's only "push", gated by
- * the per-workspace `acceptanceMode` toggle (default OFF). Fail-safe to OFF —
- * an unresolved workspace or a read error suppresses the nudge; it never
- * throws. The contract body itself is never gated (always-on data layer), so
- * suppressing the nudge degrades gracefully.
- */
-async function acceptanceNudgeEnabled(taskId: string): Promise<boolean> {
-  try {
-    return (await workspaceRepository.findAcceptanceModeByTask(taskId)) ?? false
-  } catch {
-    return false
-  }
-}
 
 /**
  * One-line synthesis of a session summary. Preference order matches the
@@ -684,29 +651,6 @@ export const taskContextService = {
   },
 
   /**
-   * Build the standalone "## Acceptance criteria (contract)" markdown block for a task
-   * (LUM-342): the full unbudgeted contract, or the draft nudge when a
-   * still-open task has none yet. Used by `session attach` — the mid-session
-   * bind is the moment the agent must see the contract (or be told to draft
-   * one before the first line of code). Empty string for missing or DONE
-   * tasks without criteria.
-   */
-  async buildCriteriaSectionForTask(taskId: string): Promise<string> {
-    const task = await taskRepository.findById(taskId)
-    if (!task) return ''
-    const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-    if (criteria.length > 0) return renderCriteriaSection(criteria)
-    if (task.status === 'DONE') return ''
-    // LUM-431: the nudge is gated by the workspace acceptance-mode toggle.
-    if (!(await acceptanceNudgeEnabled(taskId))) return ''
-    // LUM-497: the outside view rides along with the nudge — same gate, so a
-    // workspace with acceptance mode off pays nothing (not even the query).
-    return renderCriteriaDraftNudge(
-      await referenceClassService.buildAnchor(taskId)
-    )
-  },
-
-  /**
    * Build the standalone "## Test cases" nudge for a task (LUM-807): one short
    * block telling the agent to record a re-runnable script, shown while the
    * task has none. No PR gate — at attach/context time there is usually no PR
@@ -739,7 +683,6 @@ export const taskContextService = {
    * still inject.
    */
   async buildSessionStartSections(taskId: string): Promise<{
-    criteriaSection: string
     /** LUM-807: "## Test cases" nudge ('' once a script exists or on DONE). */
     testCaseSection: string
     memorySection: string
@@ -757,7 +700,7 @@ export const taskContextService = {
     budget: {
       budgetTokens: number
       sections: Record<
-        'criteria' | 'memory' | 'pr' | 'slack' | 'figma' | 'web',
+        'memory' | 'pr' | 'slack' | 'figma' | 'web',
         BudgetSectionMetric
       >
     }
@@ -769,7 +712,6 @@ export const taskContextService = {
       droppedTokens: 0,
     }
     const empty = {
-      criteriaSection: '',
       testCaseSection: '',
       memorySection: '',
       linkedResourcesSection: '',
@@ -783,7 +725,6 @@ export const taskContextService = {
       budget: {
         budgetTokens: SESSION_START_BUDGET_TOKENS,
         sections: {
-          criteria: emptyMetric,
           memory: emptyMetric,
           pr: emptyMetric,
           slack: emptyMetric,
@@ -804,7 +745,6 @@ export const taskContextService = {
       p.catch(() => fallback)
 
     const [
-      criteria,
       taskMemories,
       projectMemories,
       slack,
@@ -813,12 +753,6 @@ export const taskContextService = {
       prs,
       securityFindingsSection,
     ] = await Promise.all([
-      safe(
-        acceptanceCriterionRepository.listByTask(taskId),
-        [] as Awaited<
-          ReturnType<typeof acceptanceCriterionRepository.listByTask>
-        >
-      ),
       safe(memoryRepository.findActiveTaskMemories(taskId), []),
       safe(memoryRepository.findActiveProjectMemories(task.projectId), []),
       safe(
@@ -893,21 +827,6 @@ export const taskContextService = {
       }
     )
 
-    // Priority order: criteria > memory > resources. The acceptance contract
-    // (LUM-342) outranks everything — it's what the work is judged against —
-    // and at 3–7 short statements it's also the cheapest. It is the only
-    // Tier-0 always-full section, so it's the only thing left in the shared
-    // token budget. LUM-500: memory degrades to a Tier-2 addressable index
-    // (computed below), and the linked resources (PR/Slack/Figma/web) degrade
-    // to descriptive one-line manifests (computed below) — both leave the
-    // budget allocator, which now spans criteria alone.
-    const { rendered, metrics } = allocateBudgetWithMetrics(
-      [criteriaBudgetSection(criteria)],
-      SESSION_START_BUDGET_TOKENS
-    )
-    const [criteriaOut = ''] = rendered
-    const [criteriaMetric = emptyMetric] = metrics
-
     // Tier-2 memory: top-K addressable index, then a pointer for the rest.
     // Wrapped in the same untrusted boundary as the old full card.
     const memorySection = wrapUntrustedMemory(
@@ -924,28 +843,8 @@ export const taskContextService = {
       droppedTokens: 0,
     }
 
-    // No criteria on a still-open task → nudge the agent to draft the
-    // contract before the first line of code (the SKILL.md guide has the
-    // how; this makes sure it's seen). DONE tasks skip the nudge, and so do
-    // workspaces with acceptance mode OFF (LUM-431) — the nudge is the only
-    // "push" the acceptance system does. The contract body (criteriaOut) is
-    // always-on and never gated.
-    const showNudge =
-      criteria.length === 0 &&
-      task.status !== 'DONE' &&
-      (await acceptanceNudgeEnabled(taskId))
-    const criteriaSection =
-      criteria.length > 0
-        ? criteriaOut
-        : showNudge
-          ? renderCriteriaDraftNudge(
-              await referenceClassService.buildAnchor(taskId)
-            )
-          : ''
-
-    // LUM-807: the test-case nudge sits beside the contract — same moment
-    // (before the first line of code), different question: the contract says
-    // what "done" means, this says what script proves it again tomorrow.
+    // LUM-807: the test-case nudge — before the first line of code, ask what
+    // script proves the work again tomorrow.
     // Isolated like every other section here: a reminder that cannot be
     // computed renders empty rather than failing the whole injection.
     const testCaseSection = await testCaseReminderService
@@ -1065,12 +964,6 @@ export const taskContextService = {
     ]
 
     return {
-      // The contract is trusted task framing (like the description), not
-      // untrusted reference data — no untrusted wrapper, and v1 deliberately
-      // records no CRITERIA lineage fragment (LineageFragmentType has no such
-      // value; adding one means a migration + the LUM-276 write-key==read-key
-      // contract on the read side — deferred rather than half-joined).
-      criteriaSection,
       testCaseSection,
       memorySection,
       linkedResourcesSection: wrapUntrustedLinked(linkedJoined),
@@ -1080,7 +973,6 @@ export const taskContextService = {
       budget: {
         budgetTokens: SESSION_START_BUDGET_TOKENS,
         sections: {
-          criteria: criteriaMetric,
           memory: memoryMetric,
           pr: prMetric,
           slack: slackMetric,
@@ -1155,11 +1047,10 @@ export const taskContextService = {
 
   /**
    * Render the prior-session progress summary as a Tier-1 full markdown section
-   * (LUM-500). Tier 1 of progressive disclosure: where Tier-0 acceptance
-   * criteria and Tier-1 progress always inject in full and everything else
-   * degrades to an addressable index, this is the "what the last session got
-   * done / left open" block, rendered server-side so it injects identically to
-   * the criteria contract.
+   * (LUM-500). Tier 1 of progressive disclosure: where Tier-1 progress always
+   * injects in full and everything else degrades to an addressable index, this
+   * is the "what the last session got done / left open" block, rendered
+   * server-side.
    *
    * A pure render of {@link buildPreviousSessionRecoveryForTask} — no fetching
    * beyond that one call. Returns "" when there is no prior session with a
@@ -1320,26 +1211,8 @@ export const taskContextService = {
       resolved.identifier
     )
 
-    // Contract — or, on a still-open task without one, the draft nudge:
-    // `task context` is exactly the read-the-context moment the drafting
-    // guide hooks into (draft 3–7 before the first line of code).
-    const criteria = await acceptanceCriterionRepository.listByTask(resolved.id)
-    let criteriaSection = ''
-    if (criteria.length > 0) {
-      criteriaSection = renderCriteriaSection(criteria)
-    } else if (full.status !== 'DONE') {
-      // LUM-431: the draft nudge is gated by the workspace acceptance-mode
-      // toggle; the contract body above is always-on.
-      if (await acceptanceNudgeEnabled(resolved.id)) {
-        criteriaSection = renderCriteriaDraftNudge(
-          await referenceClassService.buildAnchor(resolved.id)
-        )
-      }
-    }
-
-    // LUM-807: the test-case nudge rides alongside the contract — `task
-    // context` is the same read-the-context moment, and a script recorded now
-    // is one that can be re-run for the life of the task.
+    // LUM-807: the test-case nudge — `task context` is a read-the-context
+    // moment, and a script recorded now can be re-run for the life of the task.
     const testCaseSection = await testCaseReminderService
       .stateForTask({ taskId: resolved.id, taskDone: full.status === 'DONE' })
       .then(state =>
@@ -1494,7 +1367,6 @@ export const taskContextService = {
       },
       memorySection,
       memoryIndexSection,
-      criteriaSection,
       testCaseSection,
       // LUM-347 follow-up: every member/externally-authored free-text section
       // crosses the same LUM-140 injection surface when the CLI prints it, so
@@ -1506,8 +1378,7 @@ export const taskContextService = {
       // non-empty section only, one-line continuation on the rest. The array
       // order below MUST stay in sync with the CLI print order
       // (cli/src/commands/task-context.ts).
-      // Deliberately NOT wrapped: criteriaSection (acceptance contract the
-      // agent must honor, LUM-342) and prReviewTodosSection (an actionable
+      // Deliberately NOT wrapped: prReviewTodosSection (an actionable
       // review todo list — framing it "do not obey" would contradict its
       // purpose; same in the session-start path).
       slackContextSection: wrappedSlack,

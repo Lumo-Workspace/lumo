@@ -235,7 +235,6 @@ describe('archive', () => {
       'sprints',
       'ideas',
       'memories',
-      'acceptance-criteria',
       'members',
     ]) {
       expect(EXPORT_KINDS).toContain(required)

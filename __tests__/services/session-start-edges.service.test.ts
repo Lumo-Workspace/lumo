@@ -39,7 +39,6 @@ function setBuilders(
   ;(
     taskContextService.buildSessionStartSections as jest.Mock
   ).mockResolvedValue({
-    criteriaSection: '',
     memorySection: '',
     linkedResourcesSection: '',
     budget: { budgetTokens: 2500, sections: {} },

@@ -63,10 +63,6 @@ const GENERATION_CALL_SITES = [
 // the cheap-model swap must not leak into the verifier tier (LUM-588 invariant).
 const VERIFIER_CALL_SITES = [
   'lib/llm/claim-faithfulness-judge-client.ts',
-  'lib/llm/contract-weakening-judge-client.ts',
-  'lib/llm/silent-fix-judge-client.ts',
-  'lib/llm/spinoff-judge-client.ts',
-  'lib/llm/test-tampering-judge-client.ts',
   'lib/llm/action-confirm-client.ts',
 ]
 // EMBEDDING_MODEL stays in ./embedding (coupled to EMBEDDING_DIM / pgvector);

@@ -43,8 +43,8 @@ jest.mock('@/lib/services/memory/milestone-distill.service', () => ({
   },
 }))
 
-jest.mock('@/lib/services/task-verification.service', () => ({
-  taskVerificationService: {
+jest.mock('@/lib/services/task-status.service', () => ({
+  taskStatusService: {
     aggregateStruggleForTasks: (...a: any[]) => mockAggregateStruggle(...a),
   },
 }))

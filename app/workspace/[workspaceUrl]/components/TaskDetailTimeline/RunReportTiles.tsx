@@ -88,9 +88,8 @@ function Tile({
 }
 
 /**
- * The Record tab's Run report KPI tiles (LUM-496 Task 4): PR iterations, R1
- * pass rate, cost, and rework, laid out as a 4-column grid (2 on narrow
- * screens). Purely presentational over `RunReportTiles` (the derived data) —
+ * The Record tab's Run report KPI tiles (LUM-496 Task 4): PR iterations,
+ * cost, and rework, laid out as a 3-column grid (1 on narrow screens). Purely presentational over `RunReportTiles` (the derived data) —
  * all derivation lives in `run-report-tiles.ts`. Every null field renders
  * `record.report.notMeasured`, never a `0` (LUM-566). The Cost tile also
  * carries the LUM-560 active-time reading as a sub-caption, so nothing the
@@ -121,17 +120,15 @@ export function RunReportTiles({
       })
     )
   }
-  if (tiles.activeTimeSec != null) {
-    costCaptions.push(
-      `${intl.formatMessage({
-        id: 'acceptance.cost.activeTime',
-        defaultMessage: 'Active time',
-      })} ${formatDurationSec(intl, tiles.activeTimeSec)}`
-    )
-  }
+  costCaptions.push(
+    `${intl.formatMessage({
+      id: 'acceptance.cost.activeTime',
+      defaultMessage: 'Active time',
+    })} ${formatDurationSec(intl, tiles.activeTimeSec)}`
+  )
 
   return (
-    <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+    <div className='grid grid-cols-1 gap-3 sm:grid-cols-3'>
       <Tile
         testId='tile-prIterations'
         label={intl.formatMessage({
@@ -158,15 +155,6 @@ export function RunReportTiles({
               ]
             : []
         }
-      />
-      <Tile
-        testId='tile-passRateR1'
-        label={intl.formatMessage({
-          id: 'record.report.passRateR1',
-          defaultMessage: 'Pass rate R1',
-        })}
-        value={tiles.passRateR1 == null ? notMeasured : `${tiles.passRateR1}%`}
-        measured={tiles.passRateR1 != null}
       />
       <Tile
         testId='tile-costTokens'
@@ -208,8 +196,8 @@ export function RunReportTiles({
           id: 'record.report.rework',
           defaultMessage: 'Rework',
         })}
-        value={tiles.rework == null ? notMeasured : String(tiles.rework)}
-        measured={tiles.rework != null}
+        value={String(tiles.rework)}
+        measured
       />
     </div>
   )

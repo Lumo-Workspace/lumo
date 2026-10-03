@@ -32,27 +32,21 @@ import { guardInjectedText } from '@/lib/security-scan/inject-guard'
  * here — a missing signal must never change how the rest is rendered.
  */
 export interface HuntTaskContext {
-  /** `[MACHINE] <statement>` — the contract this PR claims to satisfy. */
-  criteria: string[]
   /** `<trigger> → <outcome>` — TRAP memories this team recorded. */
   traps: string[]
   /** `<CATEGORY>: <detail>` — OPEN L4 session-guard crossings on the task. */
   crossings: string[]
-  /** `round N: <rejection reason>` — verification send-backs on the task. */
-  rework: string[]
 }
 
 export const EMPTY_HUNT_TASK_CONTEXT: HuntTaskContext = {
-  criteria: [],
   traps: [],
   crossings: [],
-  rework: [],
 }
 
 /**
  * Per-section item caps and a per-item character cap. The planner is a routing
- * decision on the FAST bucket, not an audit: a task with 40 criteria and 30
- * send-backs must not be able to push the diff signals (`reasons`,
+ * decision on the FAST bucket, not an audit: a task with 30 traps and 30
+ * crossings must not be able to push the diff signals (`reasons`,
  * `touchedPaths`) out of the prompt, which is also why the whole block is
  * capped again below and appended LAST.
  */
@@ -61,12 +55,7 @@ export const TASK_CONTEXT_MAX_ITEM_CHARS = 300
 export const TASK_CONTEXT_MAX_CHARS = 6_000
 
 export function isEmptyHuntTaskContext(context: HuntTaskContext): boolean {
-  return (
-    context.criteria.length === 0 &&
-    context.traps.length === 0 &&
-    context.crossings.length === 0 &&
-    context.rework.length === 0
-  )
+  return context.traps.length === 0 && context.crossings.length === 0
 }
 
 /** Trim, collapse newlines and clip ONE line taken from task text. */
@@ -95,23 +84,17 @@ function section(title: string, items: string[]): string[] {
  * tests to decide whether the floor rule applies at all (LUM-764 option B —
  * a PR with no task keeps LUM-758's behaviour and costs nothing extra).
  *
- * Order inside the block is deliberate — the contract first (what the PR
- * claims), then what the team already knows goes wrong, then evidence about
- * how this change was made.
+ * Order inside the block is deliberate — what the team already knows goes
+ * wrong first, then evidence about how this change was made.
  */
 export function renderHuntTaskContext(context: HuntTaskContext): string {
   if (isEmptyHuntTaskContext(context)) return ''
   const body = [
-    ...section(
-      'Acceptance criteria this pull request claims to satisfy',
-      context.criteria
-    ),
     ...section('Traps this team has recorded before', context.traps),
     ...section(
       'Open session-guard boundary crossings on this task (undispositioned)',
       context.crossings
     ),
-    ...section('Verification send-backs on this task', context.rework),
   ]
     .join('\n')
     .trimEnd()
@@ -120,9 +103,9 @@ export function renderHuntTaskContext(context: HuntTaskContext): string {
   // shared LUM-783 guard: defang any fence-shaped delimiter the text carries
   // so it cannot close the block below it and continue as prompt, and flag
   // instruction-shaped content with a notice at the block head. This repo's
-  // own source writes such tags, so a criterion quoting one is ordinary, not
+  // own source writes such tags, so a trap quoting one is ordinary, not
   // an attack — and either way it must not be able to escape. LUM-784 runs
-  // the secret redaction ahead of both: a credential pasted into a criterion
+  // the secret redaction ahead of both: a credential pasted into a trap
   // or a trap must not ride into the planner's prompt (or its step I/O).
   const guarded = guardInjectedText(sanitizeField(body))
   const clean = guarded.text

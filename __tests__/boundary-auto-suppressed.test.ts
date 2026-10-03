@@ -18,8 +18,6 @@ import { boundaryDetectorService } from '@/lib/services/boundary-detector.servic
 import { updateTask } from '@/lib/services/task-state.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { computeFalsePositiveRates } from '@/lib/boundary-crossing/false-positive-rate'
 
@@ -134,15 +132,6 @@ jest.mock('@/lib/repositories/crossing-suppression-rule.repository', () => ({
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn(), listByTaskAndType: jest.fn() },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
-}))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: {
-    criterionIdsEverPassed: jest.fn(),
-    latestRunsByCriterion: jest.fn(),
-  },
-}))
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: { findByTaskId: jest.fn(async () => []) },
 }))
@@ -190,8 +179,6 @@ jest.mock('@/lib/repositories/member.repository', () => ({
 
 const createCrossing = boundaryCrossingRepository.create as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
-const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
-const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
 const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
 
@@ -226,7 +213,6 @@ beforeEach(() => {
   store = []
   seq = 0
   rules = []
-  listByTask.mockResolvedValue([])
   createActivity.mockResolvedValue({ id: 'act-1' })
   findForUpdate.mockResolvedValue({ ...TASK })
   update.mockResolvedValue({
@@ -235,7 +221,6 @@ beforeEach(() => {
     team: { identifier: 'LUM' },
     teamId: 'team-1',
   })
-  latestRuns.mockResolvedValue(new Map())
 })
 
 describe('LUM-751 — AUTO_SUPPRESSED by repository rule', () => {

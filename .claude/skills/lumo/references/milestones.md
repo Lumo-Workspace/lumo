@@ -148,7 +148,7 @@ lumo milestone update "Q3 Launch" --token-budget ""
 
 ### `lumo milestone criteria set <identifier> --file <criteria.json> [--human]` — submit the exit contract
 
-Milestone-level **exit criteria** (LUM-643) — the close contract, mirroring the task-level acceptance contract where it transfers. Key differences from `task criteria`: there is **no `verifierType` / no `checkpointer`** — exit criteria are **adjudicated (裁定)**, not machine-verified — and each item requires only `statement` + `referentKind`. The **steward session (LUM-640) is the intended drafting & adjudicating subject** (drafting is a governance action; session provenance is recorded on every row); `--human` records a transcribed HUMAN_EDIT revision instead.
+Milestone-level **exit criteria** (LUM-643) — the close contract. Exit criteria are **adjudicated (裁定)**, not machine-verified — and each item requires only `statement` + `referentKind`. The **steward session (LUM-640) is the intended drafting & adjudicating subject** (drafting is a governance action; session provenance is recorded on every row); `--human` records a transcribed HUMAN_EDIT revision instead.
 
 The file is a JSON array:
 

@@ -49,7 +49,6 @@ jest.mock('@/lib/services/task.service', () => ({
 jest.mock('@/lib/services/task-context.service', () => ({
   taskContextService: {
     buildMemorySectionForTask: jest.fn(),
-    buildCriteriaSectionForTask: jest.fn(),
     // LUM-807: the attach payload carries the test-case nudge beside the contract.
     buildTestCaseSectionForTask: jest.fn(),
     buildPreviousSessionRecoveryForTask: jest.fn(),
@@ -167,7 +166,6 @@ beforeEach(() => {
     crossingsMoved: 0,
   })
   ctx.buildMemorySectionForTask.mockResolvedValue('')
-  ctx.buildCriteriaSectionForTask.mockResolvedValue('')
   ctx.buildTestCaseSectionForTask.mockResolvedValue('')
   ctx.buildPreviousSessionRecoveryForTask.mockResolvedValue(null)
   deps.buildBlockerWarningSectionForTask.mockResolvedValue('')

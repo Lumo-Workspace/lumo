@@ -1,7 +1,7 @@
 'use client'
 
 import { useIntl } from 'react-intl'
-import type { TaskAcceptanceStatusView } from '../../types'
+import type { StruggleTrailView, TrendModelView } from '../../types'
 import { InfoTooltip } from './InfoTooltip'
 
 /**
@@ -57,30 +57,22 @@ export const STRUGGLE_TITLE = {
 export const STRUGGLE_TIP = {
   id: 'acceptance.struggle.tip',
   defaultMessage:
-    'The rework a clean all-pass report would otherwise hide: FAIL rounds, send-backs, leftover follow-ups, multiple PR cycles and review/done reopens. Always shown — an empty trail states its basis instead of disappearing.',
+    'The rework a clean report would otherwise hide: multiple PR cycles and review/done reopens. Always shown — an empty trail states its basis instead of disappearing.',
 } as const
 
 export function StruggleTrailSection({
-  data,
+  trail,
   headless = false,
 }: {
-  data: TaskAcceptanceStatusView
+  trail: StruggleTrailView
   /** LUM-496: the Record tab wraps this section in a disclosure that already
    *  carries the heading — suppress the in-section one so the title is not
    *  printed twice. */
   headless?: boolean
 }) {
   const intl = useIntl()
-  const trail = data.struggleTrail
-  if (!trail) return null // older server: can't fabricate, so don't claim "none".
-
   const prIterated = trail.pullRequests.length > 1
-  const empty =
-    trail.reworkRounds.length === 0 &&
-    trail.sendBacks.length === 0 &&
-    trail.followUps.length === 0 &&
-    trail.reopens.length === 0 &&
-    !prIterated
+  const empty = trail.reopens.length === 0 && !prIterated
 
   return (
     <div>
@@ -92,111 +84,13 @@ export function StruggleTrailSection({
 
       {empty ? (
         <p className='rounded-md border border-border px-3 py-2.5 text-[12px] leading-snug text-muted-foreground'>
-          {data.currentRound === 0
-            ? intl.formatMessage({
-                id: 'acceptance.struggle.unverified',
-                defaultMessage:
-                  'No verification has run yet — cannot confirm there were no difficulties. Run lumo verify.',
-              })
-            : intl.formatMessage(
-                {
-                  id: 'acceptance.struggle.noneRecorded',
-                  defaultMessage:
-                    'None recorded — {rounds, plural, one {# verification round} other {# verification rounds}} run, 0 FAIL, no send-backs, no reopens, no leftover follow-ups.',
-                },
-                { rounds: data.currentRound }
-              )}
+          {intl.formatMessage({
+            id: 'acceptance.struggle.noneRecorded',
+            defaultMessage: 'None recorded — a single PR cycle, no reopens.',
+          })}
         </p>
       ) : (
         <div className='space-y-2 rounded-md border border-border px-3 py-2.5 text-[12px] leading-snug'>
-          {trail.reworkRounds.length > 0 ? (
-            <p className='text-foreground'>
-              <span className='font-medium'>
-                {intl.formatMessage({
-                  id: 'acceptance.struggle.reworkRounds',
-                  defaultMessage: 'Rework rounds: ',
-                })}
-              </span>
-              {trail.reworkRounds
-                .map(r =>
-                  intl.formatMessage(
-                    {
-                      id: 'acceptance.struggle.reworkRound',
-                      defaultMessage: 'round {round} ({failed} FAIL)',
-                    },
-                    { round: r.round, failed: r.failed }
-                  )
-                )
-                .join(', ')}
-            </p>
-          ) : null}
-
-          {trail.sendBacks.length > 0 ? (
-            <div>
-              <p className='font-medium text-foreground'>
-                {intl.formatMessage({
-                  id: 'acceptance.struggle.sendBacks',
-                  defaultMessage: 'Send-backs',
-                })}
-              </p>
-              <ul className='mt-0.5 space-y-0.5'>
-                {trail.sendBacks.map(s => (
-                  <li key={s.criterionId} className='text-muted-foreground'>
-                    <span className='text-foreground'>{s.statement}</span>
-                    {' — '}
-                    {s.status === 'resolved'
-                      ? intl.formatMessage(
-                          {
-                            id: 'acceptance.struggle.sendBackResolved',
-                            defaultMessage:
-                              'resolved (sent back r{failed}{arrow})',
-                          },
-                          {
-                            failed: s.failedAtRound,
-                            arrow:
-                              s.resolvedAtRound != null
-                                ? ` → r${s.resolvedAtRound}`
-                                : '',
-                          }
-                        )
-                      : intl.formatMessage(
-                          {
-                            id: 'acceptance.struggle.sendBackOpen',
-                            defaultMessage: 'open (sent back r{failed})',
-                          },
-                          { failed: s.failedAtRound }
-                        )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {trail.followUps.length > 0 ? (
-            <div>
-              <p className='font-medium text-foreground'>
-                {intl.formatMessage({
-                  id: 'acceptance.struggle.followUps',
-                  defaultMessage: 'Follow-ups left behind',
-                })}
-              </p>
-              <ul className='mt-0.5 space-y-0.5'>
-                {trail.followUps.map(f => (
-                  <li key={f.criterionId} className='text-muted-foreground'>
-                    <span className='text-foreground'>{f.statement}</span>
-                    {intl.formatMessage(
-                      {
-                        id: 'acceptance.struggle.followUpAt',
-                        defaultMessage: ' — flagged r{round}',
-                      },
-                      { round: f.round }
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
           {prIterated ? (
             <p className='text-muted-foreground'>
               <span className='font-medium text-foreground'>
@@ -253,17 +147,9 @@ export function StruggleTrailSection({
 function arrow(delta: number): string {
   return delta > 0 ? '↑' : delta < 0 ? '↓' : '→'
 }
-function passPct(p: { passed: number; failed: number }): number {
-  const total = p.passed + p.failed
-  return total === 0 ? 0 : Math.round((p.passed / total) * 100)
-}
 
-export function TrendSection({ data }: { data: TaskAcceptanceStatusView }) {
+export function TrendSection({ trend }: { trend: TrendModelView }) {
   const intl = useIntl()
-  const trend = data.trend
-  if (!trend) return null // older server: no trend data — don't invent one.
-
-  const rounds = trend.passRate
   const cost = trend.cost
   const rw = trend.rework
   const title = intl.formatMessage({
@@ -273,38 +159,26 @@ export function TrendSection({ data }: { data: TaskAcceptanceStatusView }) {
   const tip = intl.formatMessage({
     id: 'acceptance.trend.tip',
     defaultMessage:
-      'Movement across attempts — pass rate, cost per session and rework accrual — not a single-point snapshot. A single attempt says so rather than drawing a fake trend.',
+      'Movement across attempts — cost per session and rework accrual — not a single-point snapshot. A single attempt says so rather than drawing a fake trend.',
   })
 
   // Nothing to trend, or a single point — say so plainly (no fake arrow).
-  if (rounds.length === 0 && cost.length === 0) {
+  if (cost.length === 0) {
     return (
       <div>
         <SectionTitle tip={tip}>{title}</SectionTitle>
         <p className='rounded-md border border-border px-3 py-2.5 text-[12px] text-muted-foreground'>
           {intl.formatMessage({
             id: 'acceptance.trend.nothing',
-            defaultMessage:
-              'No verification rounds or measured cost yet — nothing to trend.',
+            defaultMessage: 'No measured cost yet — nothing to trend.',
           })}
         </p>
       </div>
     )
   }
 
-  const hasTrajectory = rounds.length >= 2 || cost.length >= 2
-  if (!hasTrajectory) {
+  if (cost.length < 2) {
     const bits: string[] = []
-    if (rounds[0])
-      bits.push(
-        intl.formatMessage(
-          {
-            id: 'acceptance.trend.bitPass',
-            defaultMessage: 'pass rate r{round} {pct}%',
-          },
-          { round: rounds[0].round, pct: passPct(rounds[0]) }
-        )
-      )
     if (cost[0])
       bits.push(
         intl.formatMessage(
@@ -337,7 +211,7 @@ export function TrendSection({ data }: { data: TaskAcceptanceStatusView }) {
             {intl.formatMessage({
               id: 'acceptance.trend.singlePoint',
               defaultMessage:
-                'Single attempt so far — no trajectory yet (a trend needs ≥2 rounds or sessions).',
+                'Single attempt so far — no trajectory yet (a trend needs ≥2 sessions).',
             })}
           </p>
           <p className='text-foreground'>{bits.join(' · ')}</p>
@@ -346,10 +220,6 @@ export function TrendSection({ data }: { data: TaskAcceptanceStatusView }) {
     )
   }
 
-  const passDelta =
-    rounds.length >= 2
-      ? passPct(rounds[rounds.length - 1]!) - passPct(rounds[0]!)
-      : 0
   const costFirst = cost[0]?.total ?? 0
   const costLast = cost[cost.length - 1]?.total ?? 0
   const costTotal = cost.reduce((a, c) => a + c.total, 0)
@@ -358,21 +228,6 @@ export function TrendSection({ data }: { data: TaskAcceptanceStatusView }) {
     <div>
       <SectionTitle tip={tip}>{title}</SectionTitle>
       <div className='space-y-1 rounded-md border border-border px-3 py-2.5 text-[12px] leading-snug'>
-        {rounds.length >= 2 ? (
-          <p>
-            <span className='font-medium text-foreground'>
-              {intl.formatMessage({
-                id: 'acceptance.trend.passRate',
-                defaultMessage: 'Pass rate: ',
-              })}
-            </span>
-            <span className='text-muted-foreground'>
-              {rounds.map(r => `r${r.round} ${passPct(r)}%`).join(' → ')} (
-              {arrow(passDelta)} {passDelta > 0 ? `+${passDelta}` : passDelta}
-              pts)
-            </span>
-          </p>
-        ) : null}
         {cost.length >= 2 ? (
           <p>
             <span className='font-medium text-foreground'>

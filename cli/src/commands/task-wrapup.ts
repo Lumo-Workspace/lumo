@@ -16,7 +16,6 @@ import {
   type CleanupItem,
 } from '../lib/worktree-cleanup'
 import {
-  contractSettledLine,
   pushSecurityActions,
   pushSecurityCoverage,
   pushTestCaseActions,
@@ -35,11 +34,11 @@ import { describeDoneTransition, type LinkedPr } from './task-update'
  * `task update --status done` just to see its envelope, `worktree list`), and
  * every one of them is a full model step over a 300K+ context. This command
  * does the same reads in one process and prints them in the order the
- * wrap-up actually walks: contract & verification → test cases → security
- * scans → boundary crossings → DONE.
+ * wrap-up actually walks: test cases → security scans → boundary crossings →
+ * DONE.
  *
  * It is strictly read-only: GET requests plus local `git` inspection. It
- * never runs a verify round, never requests a disposition read receipt, and
+ * never requests a disposition read receipt, and
  * never changes a status. The human gates stay where they are — every
  * approval it mentions is something the agent relays to the user, and the
  * only approval-flagged command it prints is the DONE envelope's own
@@ -73,9 +72,6 @@ export type Readiness =
   | { level: 'NOT_YET'; reasons: string[] }
   | { level: 'READY'; reasons: string[] }
 
-const STATEMENT_CAP = 90
-const REASON_CAP = 240
-
 function clip(s: string, max: number): string {
   return s.length > max ? `${s.slice(0, max)}…` : s
 }
@@ -90,16 +86,15 @@ function plural(n: number, one: string, many = `${one}s`): string {
 
 /**
  * Where the task stands relative to DONE. Mirrors the server gate
- * (`lib/acceptance/done-verdict.ts`) for what BLOCKS — a send-back, a
- * blocking crossing, a blocking security finding, a proven test-case defect —
- * and adds the agent-side "not yet" conditions the gate does not check
- * (never verified, unmet criteria, unmerged PRs). Fails closed: any failed
+ * (`lib/acceptance/done-verdict.ts`) for what BLOCKS — a blocking crossing,
+ * a blocking security finding, a proven test-case defect — and adds the
+ * agent-side "not yet" condition the gate does not check (unmerged PRs).
+ * Fails closed: any failed
  * read makes the verdict UNCONFIRMED, never READY.
  */
 export function assessReadiness(input: WrapupInput): Readiness {
   const unconfirmed: string[] = []
-  if (!input.status.ok)
-    unconfirmed.push(`acceptance status (${input.status.reason})`)
+  if (!input.status.ok) unconfirmed.push(`task status (${input.status.reason})`)
   if (!input.task.ok) unconfirmed.push(`task / PRs (${input.task.reason})`)
   if (input.crossings.status === 'error')
     unconfirmed.push(`boundary crossings (${input.crossings.reason})`)
@@ -133,11 +128,6 @@ export function assessReadiness(input: WrapupInput): Readiness {
   const split = splitNextActions(status.nextActions)
 
   const blocked: string[] = []
-  const sendBacks = status.criteria.filter(
-    c => c.latestVerdict?.verdict === 'FAIL'
-  )
-  if (sendBacks.length > 0)
-    blocked.push(`${plural(sendBacks.length, 'send-back')} (criterion FAIL)`)
   const blockingCrossings = crossings.filter(c => c.blocking)
   if (blockingCrossings.length > 0)
     blocked.push(
@@ -158,15 +148,6 @@ export function assessReadiness(input: WrapupInput): Readiness {
   if (blocked.length > 0) return { level: 'BLOCKED', reasons: blocked }
 
   const notYet: string[] = []
-  if (status.escalated)
-    notYet.push('escalated — the machine loop is exhausted; wait for a human')
-  if (status.criteria.length === 0) notYet.push('no acceptance contract')
-  if (status.currentRound === 0 && status.criteria.length > 0)
-    notYet.push('lumo verify has not run')
-  else if (split.criteria.length > 0)
-    notYet.push(
-      `${plural(split.criteria.length, 'unmet criterion', 'unmet criteria')}`
-    )
   const { unmerged } = partitionPrs(task.pullRequests ?? [])
   if (unmerged.length > 0)
     notYet.push(
@@ -187,89 +168,15 @@ function partitionPrs(prs: LinkedPr[]): { unmerged: LinkedPr[] } {
 }
 
 function header(n: number, title: string): string {
-  return `\n[${n}/5] ${title}`
-}
-
-function pushContract(lines: string[], input: WrapupInput): void {
-  lines.push(header(1, 'Contract & verification'))
-  if (!input.status.ok) {
-    lines.push(
-      `  ⚠ Could not read the acceptance status (${sanitizeField(input.status.reason)}) — contract, verification, test cases and security scans are unconfirmed.`
-    )
-    return
-  }
-  const data = input.status.value
-  const id = data.task.identifier
-  if (data.criteria.length === 0) {
-    lines.push(
-      `  No acceptance criteria — draft them: lumo task criteria set ${id} --file <criteria.json>`
-    )
-    return
-  }
-  const unconfirmed =
-    data.task.status === 'DONE'
-      ? 0
-      : data.criteria.filter(c => c.confirmedAt == null).length
-  if (unconfirmed > 0) {
-    lines.push(
-      `  Contract unconfirmed (${unconfirmed} of ${data.criteria.length}) — relay \`lumo task criteria confirm ${id}\` (exit-4 envelope; the user approves). lumo verify refuses an unconfirmed contract.`
-    )
-  }
-  if (data.escalated) {
-    lines.push(
-      '  ⚠ Escalated: the machine loop is exhausted — a human has been paged. Stop retrying lumo verify.'
-    )
-  }
-  const { criteria: unmet } = splitNextActions(data.nextActions)
-  lines.push(
-    `  Criteria: ${data.criteria.length} total, ${unmet.length} unmet · ${
-      data.currentRound === 0
-        ? 'no verification rounds yet'
-        : `round ${data.currentRound}/${data.maxRounds}`
-    }`
-  )
-  const byId = new Map(data.criteria.map(c => [c.id, c]))
-  for (const a of unmet) {
-    const failed = byId.get(a.criterionId)?.latestVerdict?.verdict === 'FAIL'
-    lines.push(
-      `    ${failed ? '✗' : '○'} ${a.criterionId}  [${a.verifierType}]  ${sanitizeField(clip(a.statement, STATEMENT_CAP))}`
-    )
-    if (a.rejectionReason) {
-      lines.push(`        why: ${oneLine(clip(a.rejectionReason, REASON_CAP))}`)
-    }
-  }
-  const stale = data.criteria.filter(
-    c => c.latestVerdict != null && (c.verdictStale || c.checkMismatch)
-  ).length
-  if (stale > 0) {
-    lines.push(
-      `  ⚠ ${plural(stale, 'pass', 'passes')} predate a criterion edit — re-run lumo verify ${id} to re-confirm.`
-    )
-  }
-  const left = data.maxRounds - data.currentRound
-  if (data.escalated) {
-    lines.push('  → Wait for human direction.')
-  } else if (data.currentRound === 0) {
-    lines.push(
-      `  → Not verified yet: run \`lumo verify ${id}\` (${plural(data.maxRounds, 'round')} available).`
-    )
-  } else if (unmet.some(a => a.verifierType === 'MACHINE')) {
-    lines.push(
-      `  → Fix the unmet criteria, then run \`lumo verify ${id}\` (${plural(left, 'round')} left).`
-    )
-  } else if (unmet.length > 0) {
-    lines.push(
-      `  → Sent back by a human — address the reasons above, then run \`lumo verify ${id}\`.`
-    )
-  } else {
-    lines.push(`  ✓ ${contractSettledLine(data.criteria)}`)
-  }
+  return `\n[${n}/4] ${title}`
 }
 
 function pushTestCases(lines: string[], input: WrapupInput): void {
-  lines.push(header(2, 'Test cases'))
+  lines.push(header(1, 'Test cases'))
   if (!input.status.ok) {
-    lines.push('  ⚠ Unconfirmed — the acceptance status could not be read.')
+    lines.push(
+      `  ⚠ Unconfirmed — the task status could not be read (${sanitizeField(input.status.reason)}).`
+    )
     return
   }
   const split = splitNextActions(input.status.value.nextActions)
@@ -283,16 +190,6 @@ function pushTestCases(lines: string[], input: WrapupInput): void {
     )
   }
   pushTestCaseActions(body, split.testCase)
-  // One line, not one per criterion: `task status` lists them; here the
-  // count and the command are what the wrap-up needs (the report is read at
-  // the end of a long session — every line is paid for at that context).
-  const gaps = split.coverageGap
-  if (gaps.length > 0) {
-    body.push(
-      `  Not yet covered by a test case: ${gaps.length} of ${input.status.value.criteria.length} criteria — advisory, never blocks DONE`
-    )
-    body.push(`    cover one: ${sanitizeField(gaps[0]!.command)}`)
-  }
   if (body.length === 0) {
     lines.push('  No test-case signals.')
     return
@@ -302,9 +199,11 @@ function pushTestCases(lines: string[], input: WrapupInput): void {
 }
 
 function pushSecurity(lines: string[], input: WrapupInput): void {
-  lines.push(header(3, 'Security scans'))
+  lines.push(header(2, 'Security scans'))
   if (!input.status.ok) {
-    lines.push('  ⚠ Unconfirmed — the acceptance status could not be read.')
+    lines.push(
+      `  ⚠ Unconfirmed — the task status could not be read (${sanitizeField(input.status.reason)}).`
+    )
     return
   }
   const data = input.status.value
@@ -369,7 +268,7 @@ function pushCrossing(
 }
 
 function pushCrossings(lines: string[], input: WrapupInput): void {
-  lines.push(header(4, 'Boundary crossings'))
+  lines.push(header(3, 'Boundary crossings'))
   const result = input.crossings
   if (result.status === 'error') {
     lines.push(
@@ -404,7 +303,7 @@ function pushCrossings(lines: string[], input: WrapupInput): void {
 }
 
 function pushDone(lines: string[], input: WrapupInput, r: Readiness): void {
-  lines.push(header(5, 'DONE'))
+  lines.push(header(4, 'DONE'))
   const label: Record<Readiness['level'], string> = {
     DONE: 'DONE — already closed',
     UNCONFIRMED:
@@ -487,7 +386,6 @@ export function formatWrapup(input: WrapupInput): string {
     `Status: ${status} · wrap-up report (read-only — nothing below was run or approved)`
   )
   const readiness = assessReadiness(input)
-  pushContract(lines, input)
   pushTestCases(lines, input)
   pushSecurity(lines, input)
   pushCrossings(lines, input)

@@ -11,11 +11,6 @@ jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
 jest.mock('@/lib/repositories/task-web-link.repository', () => ({
   taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: {
-    listByTask: jest.fn().mockResolvedValue([]),
-  },
-}))
 jest.mock('@/lib/repositories/task-artifact.repository', () => ({
   taskArtifactRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))

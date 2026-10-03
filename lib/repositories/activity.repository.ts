@@ -56,8 +56,8 @@ export const activityRepository = {
 
   /**
    * All activities of one type for a task, oldest first. Read-only helper for
-   * read models that fold an append-only event log (e.g. the acceptance status
-   * read model indexing CRITERION_CHANGED drift by criterion). Only `payload`
+   * read models that fold an append-only event log (e.g. the task-status read
+   * model folding STATUS_CHANGED into reopens). Only `payload`
    * and ordering are needed, so the actor relation is not joined.
    */
   async listByTaskAndType(taskId: string, type: TaskActivityType) {

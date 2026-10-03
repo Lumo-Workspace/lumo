@@ -90,56 +90,6 @@ describe('classifyTaskCreateIntent', () => {
   })
 })
 
-describe('classifyTaskCreateIntent — open send-back (Phase 2)', () => {
-  it('blocks when the bound in-flight task has an open send-back, even with --new-scope', () => {
-    expect(
-      classifyTaskCreateIntent({
-        boundTask: boundInProgress,
-        boundTaskHasOpenSendBack: true,
-        reworkOf: undefined,
-        newScope: true,
-      })
-    ).toEqual({
-      kind: 'blocked-open-sendback',
-      boundIdentifier: 'LUM-7',
-      boundTitle: 'Build the widget',
-    })
-  })
-
-  it('blocks open-send-back even with no flag (precedence over must-declare)', () => {
-    expect(
-      classifyTaskCreateIntent({
-        boundTask: boundInReview,
-        boundTaskHasOpenSendBack: true,
-        reworkOf: undefined,
-        newScope: false,
-      }).kind
-    ).toBe('blocked-open-sendback')
-  })
-
-  it('--rework-of still redirects even when an open send-back exists', () => {
-    expect(
-      classifyTaskCreateIntent({
-        boundTask: boundInProgress,
-        boundTaskHasOpenSendBack: true,
-        reworkOf: 'LUM-7',
-        newScope: false,
-      })
-    ).toEqual({ kind: 'redirect-rework', target: 'LUM-7' })
-  })
-
-  it('no open send-back → unchanged Phase 1 behavior (--new-scope allowed)', () => {
-    expect(
-      classifyTaskCreateIntent({
-        boundTask: boundInProgress,
-        boundTaskHasOpenSendBack: false,
-        reworkOf: undefined,
-        newScope: true,
-      })
-    ).toEqual({ kind: 'allow' })
-  })
-})
-
 describe('isInFlightStatus', () => {
   it('is true for IN_PROGRESS and IN_REVIEW, false for TODO and DONE', () => {
     expect(isInFlightStatus('IN_PROGRESS')).toBe(true)

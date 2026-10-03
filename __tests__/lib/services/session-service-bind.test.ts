@@ -28,7 +28,6 @@ jest.mock('@/lib/services/task-context.service', () => ({
     buildMemorySectionForTask: jest.fn(),
     // LUM-807: attach carries the test-case nudge beside the contract.
     buildTestCaseSectionForTask: jest.fn(async () => ''),
-    buildCriteriaSectionForTask: jest.fn(),
     buildPreviousSessionRecoveryForTask: jest.fn(),
   },
 }))
@@ -91,9 +90,6 @@ beforeEach(() => {
     taskContextService.buildMemorySectionForTask as jest.Mock
   ).mockResolvedValue('')
   ;(
-    taskContextService.buildCriteriaSectionForTask as jest.Mock
-  ).mockResolvedValue('')
-  ;(
     taskContextService.buildPreviousSessionRecoveryForTask as jest.Mock
   ).mockResolvedValue(null)
   ;(
@@ -133,8 +129,7 @@ describe('sessionService.bindSessionToTask', () => {
       taskTitle: 'Fix login bug',
       retaggedEventCount: 3,
       memorySection: '',
-      criteriaSection: '',
-      // LUM-807: the test-case nudge rides alongside the contract.
+      // LUM-807: the start-of-work test-case nudge.
       testCaseSection: '',
       previousSession: null,
       blockerWarningSection: '',

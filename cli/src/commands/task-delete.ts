@@ -23,7 +23,7 @@ export const TRASH_HINT = 'restorable for 30 days from Settings → Trash'
 export function describeTaskDelete(task: ShowTask): string[] {
   const lines = [
     `Will move ${task.identifier} "${sanitizeField(task.title)}" (${task.status}) to the trash — ${TRASH_HINT}, then permanently deleted`,
-    'While in the trash it is hidden from lists, search, `lumo next` and task context; its comments, criteria, test cases and history are kept and come back on restore',
+    'While in the trash it is hidden from lists, search, `lumo next` and task context; its comments, test cases and history are kept and come back on restore',
     'To erase it at once instead (e.g. a GDPR erasure request), delete it permanently from Settings → Trash afterwards',
   ]
   const subs = task.subtasks ?? []

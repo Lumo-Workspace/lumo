@@ -6,28 +6,21 @@ import type { RecordGaps } from './record-gaps'
 
 export interface RecordStatusStripProps {
   gaps: RecordGaps
-  /** Whether the chips are live anchors — true iff AcceptanceTab is rendering
-   *  a NEEDS ACTION zone, so the `#record-machine` / `#record-human` /
-   *  `#record-crossings` targets this strip points at actually exist in the
-   *  DOM right now. When false (nothing left to act on — e.g. a DONE task, or
+  /** Whether the chips are live anchors — true iff RecordTab is rendering
+   *  a NEEDS ACTION zone, so the `#record-crossings` target this strip points
+   *  at actually exists in the DOM right now. When false (nothing left to act on — e.g. a DONE task, or
    *  a task whose gaps are all settled, showing only the Records zone) the gap
    *  chips render as plain badges instead of dead links. Defaults to `true`. */
   interactive?: boolean
 }
 
-type Tone = 'danger' | 'warning' | 'inReview' | 'success' | 'neutral'
+type Tone = 'danger' | 'inReview' | 'success'
 
 const toneClasses: Record<Tone, string> = {
   danger: 'border-danger-border bg-danger-subtle text-danger',
-  warning: 'border-warning-border bg-warning-subtle text-warning',
   inReview:
     'border-status-in-review-border bg-status-in-review-subtle text-status-in-review',
   success: 'border-success-border bg-success-subtle text-success',
-  // Design call (Task 7 re-review): the resolved-but-not-genuinely-judged
-  // states (tacit / mixed) must not wear full success green. Same neutral
-  // badge treatment CriterionRow's default provenance pill already uses
-  // (`border border-border text-muted-foreground`) — no new tokens.
-  neutral: 'border-border text-muted-foreground',
 }
 
 const chipClass = (tone: Tone) =>
@@ -72,11 +65,9 @@ export function RecordStatusStrip({
 }: RecordStatusStripProps) {
   const intl = useIntl()
 
-  const hasCriteria = gaps.machineTotal > 0 || gaps.humanTotal > 0
-  if (!hasCriteria && gaps.crossingsTotal === 0) return null
+  if (gaps.crossingsTotal === 0) return null
 
-  const gapChipsPresent =
-    gaps.crossingsOpen > 0 || gaps.machineAwaiting > 0 || gaps.humanPending > 0
+  const gapChipsPresent = gaps.crossingsOpen > 0
 
   // Review F5: open-but-advisory crossings (or any open crossing while the
   // workspace gate is off) still need a disposition, but they do not block
@@ -111,91 +102,6 @@ export function RecordStatusStrip({
               { count: gaps.crossingsOpen }
             )}
       </GapChip>
-    ) : null
-
-  const machineChip =
-    gaps.machineAwaiting > 0 ? (
-      <GapChip
-        key='machine'
-        href='#record-machine'
-        tone='warning'
-        interactive={interactive}
-        testId='gap-machine'
-      >
-        {intl.formatMessage(
-          {
-            id: 'record.gap.machine',
-            defaultMessage:
-              '{count, plural, one {# machine check} other {# machine checks}} awaiting verification',
-          },
-          { count: gaps.machineAwaiting }
-        )}
-      </GapChip>
-    ) : null
-
-  const humanChip =
-    gaps.humanPending > 0 ? (
-      <GapChip
-        key='human'
-        href='#record-human'
-        tone='inReview'
-        interactive={interactive}
-        testId='gap-human'
-      >
-        {intl.formatMessage(
-          {
-            id: 'record.gap.human',
-            defaultMessage:
-              '{count, plural, one {# call} other {# calls}} need your judgment',
-          },
-          { count: gaps.humanPending }
-        )}
-      </GapChip>
-    ) : gaps.humanTotal > 0 ? (
-      <span
-        key='human'
-        data-testid='gap-human'
-        className={chipClass(
-          gaps.humanJudged === gaps.humanTotal ? 'success' : 'neutral'
-        )}
-      >
-        {/* I-1 (Task 7 review), corrected by N-1 (re-review): `gaps.humanJudged`
-            counts ANY explicit verdict, PASS or FAIL, not PASS-only — a FAIL is
-            still a judgment (someone raised an objection), and it's only
-            reachable here via the human-authoritative DONE-gate override
-            (an unresolved FAIL otherwise 409s), so counting PASS-only would
-            have put that FAIL in the same "nobody looked" bucket as a truly
-            tacit criterion. The old `humanTotal - humanPending` fraction was
-            also vacuous once an un-adjudicated criterion stopped counting as
-            pending (this branch only renders once humanPending is 0, so that
-            subtraction was always total/total). Same 3-way split as
-            AcceptanceTab's zone header/caption, including tone: full success
-            green only when every criterion is genuinely judged; tacit/mixed
-            get the neutral badge (design call, Task 7 re-review) so "nobody
-            looked" and "a human verified this" don't look identical at a
-            glance. */}
-        {gaps.humanJudged === gaps.humanTotal
-          ? intl.formatMessage(
-              {
-                id: 'record.gap.humanDone',
-                defaultMessage: 'Human-judged {done}/{total}',
-              },
-              { done: gaps.humanJudged, total: gaps.humanTotal }
-            )
-          : gaps.humanJudged === 0
-            ? intl.formatMessage({
-                id: 'record.gap.humanTacit',
-                defaultMessage: 'Accepted as drafted',
-              })
-            : intl.formatMessage(
-                {
-                  id: 'record.gap.humanMixed',
-                  defaultMessage:
-                    '{judged}/{total} judged, rest accepted as drafted',
-                },
-                { judged: gaps.humanJudged, total: gaps.humanTotal }
-              )}
-      </span>
     ) : null
 
   // Review F3: on a task already accepted, "the task can be marked Done" is
@@ -257,11 +163,9 @@ export function RecordStatusStrip({
         })}
       </span>
       {crossingsChip}
-      {machineChip}
-      {humanChip}
       {progressChip}
       {/* Review F7: the settled-state chip closes the line, after the
-          human-judged and disposition-progress readings (mockup order). */}
+          disposition-progress reading (mockup order). */}
       {noneChip}
     </div>
   )

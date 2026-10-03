@@ -16,7 +16,6 @@ import {
   Tag,
   CalendarClock,
   Terminal,
-  ClipboardCheck,
   Trash2,
 } from 'lucide-react'
 
@@ -60,11 +59,6 @@ export function SettingsShell({
       label: intl.formatMessage({ id: 'settings.nav.sprints' }),
       href: `/workspace/${workspaceUrl}/settings/sprints`,
       icon: CalendarClock,
-    },
-    {
-      label: intl.formatMessage({ id: 'settings.acceptance' }),
-      href: `/workspace/${workspaceUrl}/settings/acceptance`,
-      icon: ClipboardCheck,
     },
     {
       // LUM-918: every member has a trash (tasks + their own documents).

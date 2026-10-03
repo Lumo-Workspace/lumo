@@ -117,7 +117,7 @@ async function main(argv: string[]): Promise<number> {
     const inputs = mapTaskRowToInputs(t)
     const delivery = resolveDelivery(inputs.identifier)
     const result = await classifyClaimFaithfulness(
-      { claim: inputs.claim, delivery, criteria: inputs.criteria },
+      { claim: inputs.claim, delivery },
       { timeoutMs: JUDGE_TIMEOUT }
     )
     if (!args.dryRun) {

@@ -127,10 +127,6 @@ beforeEach(() => {
     url.endsWith('/status')
       ? jsonResponse(200, {
           task: { identifier: 'LUM-1', title: 'My Task', status: 'IN_REVIEW' },
-          currentRound: 1,
-          maxRounds: 3,
-          escalated: false,
-          criteria: [],
           nextActions: [],
           securityFindings: { open: 0, blocking: 0, unconfirmedPrs: [] },
         })
@@ -295,24 +291,26 @@ describe('task update done envelope', () => {
 
   it('--confirm but the server gate refuses: structured DONE_BLOCKED on stdout with the 409 message verbatim, exit 5', async () => {
     const gateMsg =
-      'Cannot move this task to DONE — 1 unresolved send-back on the acceptance contract'
+      'Cannot move this task to DONE — 1 undispositioned HIGH security finding (secrets.aws-key ×1).'
     fetchMock
       .mockResolvedValueOnce(jsonResponse(409, { error: gateMsg }))
       // enrichment reads: task status, then boundary crossings
       .mockResolvedValueOnce(
         jsonResponse(200, {
-          criteria: [
+          nextActions: [
             {
-              id: 'crit-1',
-              statement: 'Envelope is emitted',
-              latestVerdict: {
-                round: 1,
-                verdict: 'FAIL',
-                rejectionReason: 'exit 1',
-              },
+              kind: 'SECURITY_FINDING',
+              findingId: 'f-1',
+              statement: 'AWS key committed',
+              severity: 'HIGH',
+              provenance: 'DETERMINISTIC',
+              blocking: true,
+              prNumber: 958,
+              ruleId: 'secrets.aws-key',
+              filePath: 'lib/x.ts',
+              line: 12,
             },
           ],
-          nextActions: [],
         })
       )
       .mockResolvedValueOnce(jsonResponse(200, { crossings: [] }))
@@ -321,12 +319,12 @@ describe('task update done envelope', () => {
     const parsed = JSON.parse(stdout.join('')) as {
       code: string
       message: string
-      blockers: Array<{ kind: string; criterionId?: string }>
+      blockers: Array<{ kind: string; findingId?: string }>
     }
     expect(parsed.code).toBe('DONE_BLOCKED')
     expect(parsed.message).toBe(gateMsg)
     expect(parsed.blockers).toEqual([
-      expect.objectContaining({ kind: 'SEND_BACK', criterionId: 'crit-1' }),
+      expect.objectContaining({ kind: 'SECURITY_FINDING', findingId: 'f-1' }),
     ])
     expect(stderr).toEqual([])
   })

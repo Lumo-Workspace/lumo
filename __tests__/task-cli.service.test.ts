@@ -28,40 +28,9 @@ jest.mock('@/lib/repositories/session.repository', () => ({
   },
 }))
 
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: {
-    latestRunsByCriterion: jest.fn(),
-  },
-}))
-
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: {
     create: jest.fn(),
-  },
-}))
-
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: {
-    listByTask: jest.fn(),
-  },
-}))
-
-jest.mock('@/lib/llm/spinoff-judge-client', () => ({
-  judgeSpinoff: jest.fn(),
-}))
-
-jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
-  boundaryCrossingRepository: {
-    coalesceRecurrence: jest.fn(),
-    create: jest.fn(),
-  },
-}))
-
-// Capture waitUntil promises so the background spinoff judge can be awaited.
-const waitUntilPromises: Promise<unknown>[] = []
-jest.mock('@vercel/functions', () => ({
-  waitUntil: (p: Promise<unknown>) => {
-    waitUntilPromises.push(p)
   },
 }))
 
@@ -70,11 +39,7 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { taskService } from '@/lib/services/task.service'
 import { sessionRepository } from '@/lib/repositories/session.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
-import { judgeSpinoff } from '@/lib/llm/spinoff-judge-client'
-import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 const mockFindProjects = projectRepository.findByWorkspaceNonIdea as jest.Mock
 const mockFindMember = memberRepository.findByWorkspaceAndClerkId as jest.Mock
@@ -83,29 +48,11 @@ const mockFindAllProfiles =
   memberRepository.findAllWithProfilesForCli as jest.Mock
 const mockCreateTask = taskService.createTask as jest.Mock
 const mockFindBinding = sessionRepository.findForMemberWithBinding as jest.Mock
-const mockLatestRuns =
-  verificationRunRepository.latestRunsByCriterion as jest.Mock
 const mockActivityCreate = activityRepository.create as jest.Mock
-const mockListCriteria = acceptanceCriterionRepository.listByTask as jest.Mock
-const mockJudgeSpinoff = judgeSpinoff as jest.Mock
-const mockBoundaryCoalesce =
-  boundaryCrossingRepository.coalesceRecurrence as jest.Mock
-const mockBoundaryCreate = boundaryCrossingRepository.create as jest.Mock
-
-async function flushWaitUntil(): Promise<void> {
-  await Promise.all(waitUntilPromises)
-}
-
 beforeEach(() => {
   jest.clearAllMocks()
-  waitUntilPromises.length = 0
   mockFindBinding.mockResolvedValue(null)
-  mockLatestRuns.mockResolvedValue(new Map())
   mockActivityCreate.mockResolvedValue({ id: 'act-1' })
-  mockListCriteria.mockResolvedValue([])
-  mockJudgeSpinoff.mockResolvedValue('LEGIT')
-  mockBoundaryCoalesce.mockResolvedValue(0)
-  mockBoundaryCreate.mockResolvedValue({ id: 'bc-1' })
 })
 
 describe('taskCliService.resolveProjectId', () => {
@@ -394,16 +341,11 @@ describe('taskCliService.createFromCli', () => {
       url: 'https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-44',
       teamId: 'team-1',
       taskTags: [],
-      // LUM-686: an unbound session creating a contract-less task gets both
-      // the attach and the criteria-draft suggestion.
+      // LUM-686: an unbound session creating a task gets the attach suggestion.
       nextSteps: [
         {
           command: 'lumo session attach LUM-44',
           why: 'Bind this session to the task so its work is recorded against it',
-        },
-        {
-          command: 'lumo task criteria set LUM-44 --file <criteria.json>',
-          why: 'Draft the acceptance contract before writing the first line of code',
         },
       ],
     })
@@ -600,80 +542,6 @@ describe('taskCliService.createFromCli — intent gating (Layer 1)', () => {
   })
 })
 
-describe('taskCliService.createFromCli — open send-back hard block (Phase 2)', () => {
-  beforeEach(() => {
-    mockFindProjects.mockResolvedValue([
-      { id: 'p-1', name: 'Lumo', description: null },
-    ])
-    mockFindMember.mockResolvedValue({ id: 'mem-1' })
-    mockFindActor.mockResolvedValue({ id: 'actor-caller' })
-    mockCreateTask.mockResolvedValue({
-      task: {
-        id: 'task-1',
-        title: 'x',
-        teamIdentifier: 'LUM',
-        teamId: 'team-1',
-        number: 9,
-      },
-      taskTags: [],
-    })
-    mockFindBinding.mockResolvedValue({
-      id: 'sess-1',
-      startedAt: new Date(),
-      lastActivityAt: new Date(),
-      eventCount: 1,
-      task: {
-        id: 't-7',
-        number: 7,
-        title: 'Build widget',
-        status: 'IN_PROGRESS',
-        team: { identifier: 'LUM' },
-      },
-    })
-  })
-
-  function call(input: Record<string, unknown>) {
-    return taskCliService.createFromCli({
-      workspaceId: 'ws-1',
-      workspaceSlug: 'lumo',
-      callerClerkId: 'clerk-1',
-      memberId: 'mem-1',
-      sessionId: 'sess-1',
-      input: { title: 't', priority: 'LOW', ...input },
-    } as Parameters<typeof taskCliService.createFromCli>[0])
-  }
-
-  it('hard-blocks (409) when the bound task has a standing FAIL, even with --new-scope', async () => {
-    mockLatestRuns.mockResolvedValue(
-      new Map([
-        ['c-1', { criterionId: 'c-1', verifierType: 'AGENT', verdict: 'FAIL' }],
-      ])
-    )
-    await expect(call({ newScope: true })).rejects.toMatchObject({
-      status: 409,
-      message: expect.stringContaining('LUM-7'),
-    })
-    expect(mockCreateTask).not.toHaveBeenCalled()
-  })
-
-  it('queries the bound task id for its latest runs', async () => {
-    mockLatestRuns.mockResolvedValue(new Map())
-    await call({ newScope: true })
-    expect(mockLatestRuns).toHaveBeenCalledWith('t-7')
-  })
-
-  it('allows --new-scope when the latest verdicts are all PASS (send-back resolved)', async () => {
-    mockLatestRuns.mockResolvedValue(
-      new Map([
-        ['c-1', { criterionId: 'c-1', verifierType: 'AGENT', verdict: 'PASS' }],
-      ])
-    )
-    const result = await call({ newScope: true })
-    expect(result.identifier).toBe('LUM-9')
-    expect(mockCreateTask).toHaveBeenCalledTimes(1)
-  })
-})
-
 describe('taskCliService.createFromCli — spinoff recording (Phase 3)', () => {
   beforeEach(() => {
     mockFindProjects.mockResolvedValue([
@@ -681,7 +549,6 @@ describe('taskCliService.createFromCli — spinoff recording (Phase 3)', () => {
     ])
     mockFindMember.mockResolvedValue({ id: 'mem-1' })
     mockFindActor.mockResolvedValue({ id: 'actor-caller' })
-    mockLatestRuns.mockResolvedValue(new Map())
     mockCreateTask.mockResolvedValue({
       task: {
         id: 'task-B',
@@ -765,84 +632,5 @@ describe('taskCliService.createFromCli — spinoff recording (Phase 3)', () => {
     mockActivityCreate.mockRejectedValueOnce(new Error('db blip'))
     const result = await create({ newScope: true })
     expect(result.identifier).toBe('LUM-9')
-  })
-})
-
-describe('taskCliService.createFromCli — spinoff judge (Phase 4)', () => {
-  beforeEach(() => {
-    mockFindProjects.mockResolvedValue([
-      { id: 'p-1', name: 'Lumo', description: null },
-    ])
-    mockFindMember.mockResolvedValue({ id: 'mem-1' })
-    mockFindActor.mockResolvedValue({ id: 'actor-caller' })
-    mockLatestRuns.mockResolvedValue(new Map())
-    mockCreateTask.mockResolvedValue({
-      task: {
-        id: 'task-B',
-        title: 'x',
-        teamIdentifier: 'LUM',
-        teamId: 'team-1',
-        number: 9,
-      },
-      taskTags: [],
-    })
-    mockFindBinding.mockResolvedValue({
-      id: 'sess-1',
-      startedAt: new Date(),
-      lastActivityAt: new Date(),
-      eventCount: 1,
-      task: {
-        id: 't-7',
-        number: 7,
-        title: 'Parent',
-        status: 'IN_PROGRESS',
-        team: { identifier: 'LUM' },
-      },
-    })
-    mockListCriteria.mockResolvedValue([{ statement: 'The widget renders' }])
-  })
-
-  function createNewScope() {
-    return taskCliService.createFromCli({
-      workspaceId: 'ws-1',
-      workspaceSlug: 'lumo',
-      callerClerkId: 'clerk-1',
-      memberId: 'mem-1',
-      sessionId: 'sess-1',
-      input: { title: 'fix the widget', priority: 'LOW', newScope: true },
-    } as Parameters<typeof taskCliService.createFromCli>[0])
-  }
-
-  it('records a SPINOFF_LAUNDERED crossing on the parent when the judge says LAUNDERED', async () => {
-    mockJudgeSpinoff.mockResolvedValue('LAUNDERED')
-    await createNewScope()
-    await flushWaitUntil()
-    expect(mockBoundaryCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        taskId: 't-7',
-        category: 'SPINOFF_LAUNDERED',
-        target: 'task-B',
-        severity: 'MEDIUM',
-        reversible: true,
-        // LUM-511: the originating session rides onto the crossing so the
-        // attribution read model can name who/agent/model (it has no hook event).
-        sessionId: 'sess-1',
-      })
-    )
-  })
-
-  it('records no crossing when the judge says LEGIT', async () => {
-    mockJudgeSpinoff.mockResolvedValue('LEGIT')
-    await createNewScope()
-    await flushWaitUntil()
-    expect(mockBoundaryCreate).not.toHaveBeenCalled()
-  })
-
-  it('skips the judge entirely when the parent has no criteria', async () => {
-    mockListCriteria.mockResolvedValue([])
-    await createNewScope()
-    await flushWaitUntil()
-    expect(mockJudgeSpinoff).not.toHaveBeenCalled()
-    expect(mockBoundaryCreate).not.toHaveBeenCalled()
   })
 })

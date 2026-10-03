@@ -6,7 +6,6 @@ import {
 } from '@/lib/services/boundary-detector.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
@@ -17,18 +16,8 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
-// A Write event carrying a file path runs the test-tampering check, which reads
-// this task's acceptance criteria. With no MACHINE checkpointers it short-circuits
-// before any judge call, so detectAndRecord records only the content-signal crossing.
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: {
-    listByTask: jest.fn().mockResolvedValue([]),
-  },
-}))
-
 const createCrossing = boundaryCrossingRepository.create as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
-const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
 
 const bash = (command: string) => ({
   tool_input: { command },
@@ -38,7 +27,6 @@ beforeEach(() => {
   jest.clearAllMocks()
   createCrossing.mockResolvedValue({ id: 'bc-1' })
   createActivity.mockResolvedValue({ id: 'act-1' })
-  listByTask.mockResolvedValue([])
 })
 
 describe('detectCrossings — taxonomy (CLAUDE.md Forbidden, single source)', () => {

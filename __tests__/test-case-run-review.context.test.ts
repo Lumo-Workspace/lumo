@@ -19,7 +19,6 @@ jest.mock('@/lib/repositories/test-case-run-review.repository', () => ({
     listForTask: jest.fn(),
     listPassCandidates: jest.fn(),
     findCandidate: jest.fn(),
-    contractsForTasks: jest.fn(async () => new Map()),
   },
 }))
 jest.mock('@/lib/repositories/test-case.repository', () => ({
@@ -43,7 +42,6 @@ import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 import { testCaseReviewService } from '@/lib/services/test-case-review.service'
 import { taskTestCaseService } from '@/lib/services/task-test-case.service'
 import {
-  describeCriterionLink,
   reviewSentBackStatement,
   sentBackOnLatestRuns,
 } from '@/lib/test-cases/review'
@@ -81,7 +79,6 @@ function candidate(over: Record<string, unknown> = {}) {
       steps: ['open /login', 'sign in'],
       verification: ['the dashboard is shown'],
       expected: 'The user lands on the dashboard.',
-      criterion: { statement: 'users can sign in', deletedAt: null },
     },
     pullRequest: { number: 42, url: 'https://github.com/x/y/pull/42' },
     task: { number: 42, title: 'Login', team: { identifier: 'LUM' } },
@@ -111,14 +108,10 @@ describe('LUM-819 rework: review in context', () => {
       candidate({
         id: 'run-2',
         pullRequest: null,
-        testCase: {
-          ...candidate().testCase,
-          criterion: { statement: 'old wording', deletedAt: at(5) },
-        },
       }),
       candidate({
         id: 'run-3',
-        testCase: { ...candidate().testCase, criterion: null, setup: null },
+        testCase: { ...candidate().testCase, setup: null },
       }),
     ])
     reviewRepo.listForWorkspace!.mockResolvedValue([])
@@ -132,19 +125,11 @@ describe('LUM-819 rework: review in context', () => {
       steps: ['open /login', 'sign in'],
       verification: ['the dashboard is shown'],
       setup: 'a user account exists',
-      criterion: { kind: 'active', statement: 'users can sign in' },
       pr: { number: 42, url: 'https://github.com/x/y/pull/42' },
       taskIdentifier: 'LUM-42',
     })
-    // a tombstoned criterion is named as no longer in the contract
-    expect(byId.get('run-2')!.criterion).toEqual({
-      kind: 'changed',
-      statement: 'old wording',
-    })
     expect(byId.get('run-2')!.pr).toBeNull()
-    // no linked criterion is stated, not left blank
-    expect(byId.get('run-3')!.criterion).toEqual({ kind: 'none' })
-    expect(describeCriterionLink(null)).toEqual({ kind: 'none' })
+    expect(byId.get('run-3')!.setup).toBeNull()
 
     // deep link lands on that run inside the task's Tests tab
     expect(testRunHref('lumo', 'LUM-42', 'run-1')).toBe(
@@ -225,8 +210,8 @@ describe('LUM-819 rework: review in context', () => {
       []
     )
 
-    // it rides as a TEST_CASE advisory: every CLI version renders it outside
-    // the criteria bucket; an unknown advisory kind never lands there either
+    // it rides as a TEST_CASE advisory, and an unknown advisory kind lands in
+    // the same advisory bucket — never as a blocker
     const split = splitNextActions([
       {
         kind: 'TEST_CASE',
@@ -236,7 +221,7 @@ describe('LUM-819 rework: review in context', () => {
       },
       { kind: 'SOMETHING_NEWER', statement: 'x', advisory: true } as never,
     ])
-    expect(split.criteria).toEqual([])
+    expect(split.security).toEqual([])
     expect(split.testCase).toHaveLength(2)
 
     // the DONE gate has no path to review data
@@ -265,32 +250,5 @@ describe('LUM-819 rework: review in context', () => {
     )
     // the page itself is still routable (the dashboard card links to it)
     expect(src('utils/pathToPage.ts')).toMatch(/'\/run-reviews'/)
-  })
-
-  it('an unlinked case shows its task contract as the fallback', async () => {
-    reviewRepo.listPassCandidates!.mockResolvedValue([
-      candidate({ id: 'run-linked', taskId: 't-linked' }),
-      candidate({
-        id: 'run-unlinked',
-        taskId: 't-unlinked',
-        testCase: { ...candidate().testCase, criterion: null },
-      }),
-    ])
-    reviewRepo.listForWorkspace!.mockResolvedValue([])
-    reviewRepo.contractsForTasks!.mockResolvedValue(
-      new Map([['t-unlinked', ['users can sign in', 'sessions expire']]])
-    )
-    const view = await testCaseReviewService.getPool('w-1')
-    const byId = new Map(view.sample.map(i => [i.runId, i]))
-
-    // only tasks behind unlinked cards are looked up — one query
-    expect(reviewRepo.contractsForTasks).toHaveBeenCalledTimes(1)
-    expect(reviewRepo.contractsForTasks).toHaveBeenCalledWith(['t-unlinked'])
-    expect(byId.get('run-unlinked')!.taskContract).toEqual([
-      'users can sign in',
-      'sessions expire',
-    ])
-    // a linked card's comparison point is its one criterion, not the contract
-    expect(byId.get('run-linked')!.taskContract).toEqual([])
   })
 })

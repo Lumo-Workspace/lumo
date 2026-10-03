@@ -3,19 +3,19 @@
  *
  * The confirmation protocol (confirmation.ts, exit 4) covers mutations the
  * USER can approve. Some refusals are different in kind: the server's DONE
- * gates — an unresolved send-back, an undispositioned boundary crossing, a
- * blocking security finding — are verdicts on the agent's own work, and the
+ * gates — an undispositioned boundary crossing, a blocking security
+ * finding — are verdicts on the agent's own work, and the
  * agent may not adjudicate itself: nothing on `task update` clears them.
  * Since LUM-769 a boundary crossing does have a terminal path, but it is the
  * USER's — `lumo crossing disposition` walks the same exit-4 protocol (the
  * agent relays the crossing, the user rules, the agent re-runs with the
- * approval flag); send-backs and security findings stay human-side / web.
+ * approval flag); security findings stay human-side / web.
  * Echoing the 409 text and exiting 1 left the agent grepping prose to learn
  * that. Instead the CLI now:
  *
  *   1. recognises the gate refusal (`isDoneGateRefusal`);
- *   2. re-reads the existing read models — `GET …/status` for send-backs and
- *      blocking findings, `GET …/boundary-crossings` for open crossings — and
+ *   2. re-reads the existing read models — `GET …/status` for blocking
+ *      security findings, `GET …/boundary-crossings` for open crossings — and
  *      lists every blocker with its id;
  *   3. prints a `DONE_BLOCKED` error on stdout and exits 5
  *      (`EXIT_BLOCKED`), with remediation lines that only ever point at
@@ -33,13 +33,6 @@ export const EXIT_BLOCKED = 5
 const DONE_GATE_PREFIX = 'Cannot move this task to DONE'
 
 export type DoneBlocker =
-  | {
-      kind: 'SEND_BACK'
-      criterionId: string
-      statement: string
-      failedAtRound: number
-      rejectionReason: string | null
-    }
   | {
       kind: 'BOUNDARY_CROSSING'
       id: string
@@ -95,17 +88,8 @@ export function isDoneGateRefusal(message: string | null | undefined): boolean {
 
 /** The slice of `GET /api/tasks/[id]/status` the blocker list needs. */
 interface StatusSlice {
-  criteria?: Array<{
-    id: string
-    statement: string
-    latestVerdict: {
-      round: number
-      verdict: string
-      rejectionReason: string | null
-    } | null
-  }>
   nextActions?: Array<
-    | { kind?: 'CRITERION' }
+    | { kind: 'TEST_CASE' | 'TEST_CASE_VERDICT' }
     | {
         kind: 'SECURITY_FINDING'
         findingId: string
@@ -135,7 +119,7 @@ export async function collectDoneBlockers(args: {
   const nonBlocking: NonBlockingCrossing[] = []
   const headers = { Authorization: `Bearer ${token}` }
 
-  // Send-backs + blocking security findings: the acceptance-status read model.
+  // Blocking security findings: the task-status read model.
   try {
     const res = await fetch(
       `${base}/api/tasks/${encodeURIComponent(identifier)}/status`,
@@ -145,17 +129,6 @@ export async function collectDoneBlockers(args: {
       unconfirmed.push(`task status read failed: HTTP ${res.status}`)
     } else {
       const data = (await res.json()) as StatusSlice
-      for (const c of data.criteria ?? []) {
-        if (c.latestVerdict?.verdict === 'FAIL') {
-          blockers.push({
-            kind: 'SEND_BACK',
-            criterionId: c.id,
-            statement: c.statement,
-            failedAtRound: c.latestVerdict.round,
-            rejectionReason: c.latestVerdict.rejectionReason,
-          })
-        }
-      }
       for (const a of data.nextActions ?? []) {
         if (a.kind === 'SECURITY_FINDING' && a.blocking) {
           blockers.push({
@@ -221,11 +194,6 @@ export function buildRemediation(
 ): string[] {
   const kinds = new Set(blockers.map(b => b.kind))
   const lines: string[] = []
-  if (kinds.has('SEND_BACK')) {
-    lines.push(
-      `SEND_BACK: fix the failed criterion in place and re-run \`lumo verify ${ctx.identifier}\`; a human can also record a PASS in the web verdict bar. Do not reword or delete the criterion to make it pass.`
-    )
-  }
   if (kinds.has('BOUNDARY_CROSSING')) {
     const ids = blockers
       .filter(b => b.kind === 'BOUNDARY_CROSSING')
@@ -278,8 +246,6 @@ export function buildBlockedError(args: {
 
 function blockerLine(b: DoneBlocker): string {
   switch (b.kind) {
-    case 'SEND_BACK':
-      return `SEND_BACK ${b.criterionId} (round ${b.failedAtRound}): ${b.statement}${b.rejectionReason ? ` — ${b.rejectionReason}` : ''}`
     case 'BOUNDARY_CROSSING':
       return `[${b.severity}] ${b.category} ${b.id}: ${b.detail}`
     case 'SECURITY_FINDING':

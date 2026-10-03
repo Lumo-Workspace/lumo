@@ -20,8 +20,6 @@ interface BoundResponse {
   blockerWarningSection?: string
   /** Undispositioned security findings (LUM-737). Absent on older servers. */
   securityFindingsSection?: string
-  /** Acceptance contract (or draft nudge); absent on older servers. */
-  criteriaSection?: string
   /** LUM-807: "## Test cases" nudge; absent on older servers. */
   testCaseSection?: string
   /** Absent on older servers — the block is simply omitted (LUM-686). */
@@ -53,9 +51,9 @@ interface StewardBoundResponse {
  * is refused with HTTP 409; there is no `--force` and no `session detach`;
  * a different binding requires a brand-new Claude Code session.
  *
- * A STEWARD session plans and accepts only: task create/update, criteria
- * set, deps confirm/dismiss, milestone add/remove and all
- * reads pass; `lumo verify` and self-dispatch are refused with 409, and
+ * A STEWARD session plans and accepts only: task create/update, milestone
+ * exit criteria, deps confirm/dismiss, milestone add/remove and all
+ * reads pass; self-dispatch is refused with 409, and
  * implementation artifacts (commits/PRs) are recorded as boundary crossings.
  */
 export async function sessionAttach(
@@ -190,21 +188,15 @@ export async function sessionAttach(
     console.log('')
     console.log(sanitizeField(body.blockerWarningSection))
   }
-  // LUM-737: security findings next — same slot as the hook envelope (after
-  // the blocker, before the contract).
+  // LUM-737: security findings next — same slot as the hook envelope.
   if (body.securityFindingsSection) {
     console.log('')
     console.log(sanitizeField(body.securityFindingsSection))
   }
-  // Contract next: it's what the upcoming work is judged against (LUM-342).
-  if (body.criteriaSection) {
-    console.log('')
-    console.log(sanitizeField(body.criteriaSection))
-  }
   // LUM-844: memory and the test-case nudge are NOT printed here — `task
   // context`, the next step of the workflow, prints both, and output read at
   // session start is re-read on every later step. One pointer instead; the
-  // correctness signals above (blockers, security findings, contract) stay.
+  // correctness signals above (blockers, security findings) stay.
   console.log('')
   console.log(
     `Background (team memory, test cases, sources, prior sessions): lumo task context ${body.taskIdentifier}`
@@ -339,10 +331,10 @@ async function stewardAttach(args: {
   console.log('')
   console.log('Governance role — plan & accept only (lifetime lock):')
   console.log(
-    '  allowed: task create/update · criteria set (incl. --human) · deps confirm/dismiss · milestone add/remove · all reads'
+    '  allowed: task create/update · milestone criteria set/verdict · deps confirm/dismiss · milestone add/remove · all reads'
   )
   console.log(
-    '  blocked: lumo verify (409, no round burned) · moving a task to in_progress assigned to yourself · attaching a task'
+    '  blocked: moving a task to in_progress assigned to yourself · attaching a task'
   )
   console.log(
     '  note:    commits/PRs produced in this session are recorded as boundary crossings (human-reviewed on the web)'

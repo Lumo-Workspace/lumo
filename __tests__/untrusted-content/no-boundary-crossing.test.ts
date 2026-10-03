@@ -241,7 +241,6 @@ describe('structural: the guard and the wrappers do not know the crossing ledger
     'shared/src/untrusted-content.ts',
     'lib/memory/render.ts',
     'lib/security-scan/agent-reminder.ts',
-    'lib/reference-class/render.ts',
     'lib/security-scan/hunt/task-context.ts',
     'lib/services/content-signals.ts',
   ])('%s imports nothing from boundary-crossing', file => {

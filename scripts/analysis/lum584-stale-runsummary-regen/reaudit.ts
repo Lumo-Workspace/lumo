@@ -67,7 +67,7 @@ async function main() {
     const prior = await claimFaithfulnessVerdictRepository.findByTaskId(t.id)
     const delivery = resolveDelivery(inputs.identifier)
     const res = await classifyClaimFaithfulness(
-      { claim: inputs.claim, delivery, criteria: inputs.criteria },
+      { claim: inputs.claim, delivery },
       { timeoutMs: JUDGE_TIMEOUT }
     )
     if (!dryRun) {

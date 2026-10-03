@@ -1,16 +1,9 @@
 import { updateTask } from '@/lib/services/task-state.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 
 // updateTask deps mocked to isolate the LUM-437 set-once workStartedAt hook.
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findForUpdate: jest.fn(), update: jest.fn() },
-}))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: { latestRunsByCriterion: jest.fn() },
-}))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: { findByIdSimple: jest.fn() },
@@ -39,7 +32,6 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 
 const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
-const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
 
 /** Base TODO task with no workStartedAt yet. */
 const TODO_TASK = {
@@ -55,7 +47,6 @@ const TODO_TASK = {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  latestRuns.mockResolvedValue(new Map())
   update.mockImplementation((_id: string, data: Record<string, unknown>) =>
     Promise.resolve({
       ...TODO_TASK,

@@ -39,7 +39,6 @@ const boundResult = {
   taskTitle: 'Test task',
   retaggedEventCount: 0,
   memorySection: '',
-  criteriaSection: '',
   previousSession: null,
   blockerWarningSection: '',
 }

@@ -17,11 +17,6 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: {
-    listByTask: jest.fn().mockResolvedValue([]),
-  },
-}))
 jest.mock('@/lib/repositories/task.repository', () => {
   const actual = jest.requireActual('@/lib/repositories/task.repository')
   return {

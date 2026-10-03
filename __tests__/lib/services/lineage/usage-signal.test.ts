@@ -1,6 +1,5 @@
 import { usageSignalService } from '@/lib/services/lineage/usage-signal.service'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
@@ -8,9 +7,6 @@ jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
     usageSignalAggregates: jest.fn(),
     disclosureFunnelAggregates: jest.fn(),
   },
-}))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: { taskIdsWithSendBack: jest.fn() },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: {
@@ -25,9 +21,6 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 beforeEach(() => {
-  ;(
-    verificationRunRepository.taskIdsWithSendBack as jest.Mock
-  ).mockResolvedValue(new Set())
   ;(
     activityRepository.countSpinoffsForWorkspace as jest.Mock
   ).mockResolvedValue(0)
@@ -86,7 +79,7 @@ it('returns null merge rates when there are no resolved tasks', async () => {
 })
 
 describe('getUsageSignalHealth iteration-taint', () => {
-  it('recounts a merged task with a send-back as non-merged in both used and base folds', async () => {
+  it('recounts a merged task with a laundering crossing as non-merged in both used and base folds', async () => {
     ;(
       lineageEdgeRepository.usageSignalAggregates as jest.Mock
     ).mockResolvedValue({
@@ -104,7 +97,7 @@ describe('getUsageSignalHealth iteration-taint', () => {
       ],
     })
     ;(
-      verificationRunRepository.taskIdsWithSendBack as jest.Mock
+      boundaryCrossingRepository.taskIdsWithCategory as jest.Mock
     ).mockResolvedValue(new Set(['t2', 't4']))
 
     const h = await usageSignalService.getUsageSignalHealth('ws1')
@@ -184,7 +177,7 @@ it('folds judge-confirmed laundering markers + CONTRACT_WEAKENING into the negat
       ],
     }
   )
-  // No HUMAN/AGENT send-backs, but both tasks carry a judge-confirmed laundering
+  // Both tasks carry a judge-confirmed laundering
   // crossing (spinoff / silent-fix / contract-weakening) → folded into the negative class.
   ;(
     boundaryCrossingRepository.taskIdsWithCategory as jest.Mock

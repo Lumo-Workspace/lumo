@@ -164,7 +164,7 @@ describe('LUM-923 pending deletion notice', () => {
       taskBinding: { bound: true, taskIdentifier: 'LUM-1', taskTitle: 't' },
       workspaceNoticeSection: notice,
       blockerWarningSection: '## Blocked',
-      criteriaSection: '## Acceptance criteria (contract)',
+      testCaseSection: '## Test cases',
     })
     const envelope = JSON.parse(lines.find(l => l.startsWith('{'))!) as {
       hookSpecificOutput: { additionalContext: string }
@@ -184,14 +184,14 @@ describe('LUM-923 pending deletion notice', () => {
           description: null,
         },
         workspaceNoticeSection: notice,
-        criteriaSection: '## Acceptance criteria (contract)',
+        testCaseSection: '## Test cases',
         sessions: [],
       },
       new Date('2026-10-01T09:00:00.000Z')
     )
     expect(md).toContain('2026-10-03T08:00:00.000Z')
     expect(md.indexOf('Workspace scheduled for deletion')).toBeLessThan(
-      md.indexOf('Acceptance criteria')
+      md.indexOf('## Test cases')
     )
   })
 })

@@ -2,7 +2,7 @@ import type { useIntl } from 'react-intl'
 
 /**
  * Human-readable label for a BoundaryCrossingCategory (LUM-426). Shared by the
- * AcceptanceTab panel and the timeline marker so the two never drift. The
+ * Record tab panel and the timeline marker so the two never drift. The
  * category is bare structured data crossing the wire; only the prose around it
  * is translated.
  */

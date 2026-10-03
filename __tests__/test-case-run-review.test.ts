@@ -261,7 +261,6 @@ describe('LUM-819 run review', () => {
 
   it('evidence ceilings and run reviews never block DONE', () => {
     const verdict = computeDoneVerdict({
-      sendBacks: [],
       crossings: { open: [], gateEnabled: true },
       securityFindings: [],
       testCases: [

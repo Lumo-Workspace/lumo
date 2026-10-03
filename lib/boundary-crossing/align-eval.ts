@@ -3,24 +3,22 @@
  *
  * A read-only, fixture-based, standalone-runnable harness that runs a LABELED
  * gold corpus through the REAL detection pipeline (`detectCrossings` +
- * `confirmActionCandidates` + `classifyTaskTampering`, the exact composition
+ * `confirmActionCandidates` + project action rules, the exact composition
  * `boundaryDetectorService.detectAndRecord` runs) and reports precision, recall,
  * and per-category TP/FN/FP/TN plus the misses. It is the "provable recall /
  * provable precision"承重墙 for the护城河 Phase-2b control-eval, landed on the
  * boundary detector.
  *
  * Discipline (mirrors the LUM-449 / LUM-436 read-only harnesses):
- *   - the pipeline's deterministic stages run for real; the two LLM confirmation
- *     layers (LUM-463 tampering judge, LUM-466 action-prose judge) are INJECTED
- *     as deterministic stub judges, so the harness needs no model and no network;
- *   - no DB: every stage is driven from fixture context (the tampering context
- *     that the production wrapper loads from repositories is supplied per-item),
- *     so nothing here ever queries Prisma;
+ *   - the pipeline's deterministic stages run for real; the LLM confirmation
+ *     layer (LUM-466 action-prose judge) is INJECTED as a deterministic stub
+ *     judge, so the harness needs no model and no network;
+ *   - no DB: every stage is driven from fixture context, so nothing here ever
+ *     queries Prisma;
  *   - it never writes — no crossing, no disposition, no activity row is created.
  *
  * The gold corpus is curated synthetic + the real false-positive SHAPES caught in
- * dogfood (LUM-445 cosmetic/authoring test edits, LUM-460 feature-push-with-main
- * mention, LUM-464 commit-message / PR-body prose) so the negative corpus is a
+ * dogfood (LUM-460 feature-push-with-main mention, LUM-464 commit-message / PR-body prose) so the negative corpus is a
  * credible regression net for precision, not just a happy-path smoke test.
  */
 import type { PolicyRule } from '@/lib/services/policy/types'
@@ -29,34 +27,11 @@ import {
   detectCrossings,
   detectProjectActionCrossings,
   confirmActionCandidates,
-  classifyTaskTampering,
   type DetectedCrossing,
-  type TaskTamperingContext,
 } from '@/lib/services/boundary-detector.service'
 import type { ActionConfirmJudge } from '@/lib/boundary-crossing/action-confirm'
-import { assertionsWeakened } from '@/lib/boundary-crossing/test-tampering-prefilter'
-import type { TamperingJudge } from '@/lib/boundary-crossing/test-tampering-judge'
 
 // --- gold-corpus types --------------------------------------------------------
-
-/** Per-item fixture for the TEST_TAMPERING path — the DB context the production
- *  wrapper would load, supplied inline so the harness needs no database. */
-export interface TamperingFixture {
-  /** A MACHINE checkpointer whose test file the edit "hits" (its path is matched
-   *  against the item's filePath). */
-  checkpointer: string
-  /** The backing criterion's statement (surfaced on the flag). */
-  statement?: string
-  /** Signal: has the MACHINE check ever gone green? `false` = still authoring
-   *  (LUM-449 gate suppresses). */
-  everPassed: boolean
-  /** Signal A: did the change-set co-touch production code? */
-  productionCodeCoChanged: boolean | null
-  /** Bounded co-changed code diff for the judge prompt. */
-  codeDiff?: string | null
-  /** Signal C: was the backing criterion itself edited after the draft? */
-  backingCriterionChanged?: boolean
-}
 
 /** One labeled gold-corpus entry. */
 export interface GoldItem {
@@ -74,17 +49,14 @@ export interface GoldItem {
   filePath?: string | null
   /** PostToolUse-shaped payload: `{ tool_input: { command | content | … } }`. */
   payload: unknown
-  /** Present only on test-edit items (drives the TEST_TAMPERING path). */
-  tampering?: TamperingFixture
   /** LUM-751: compiled project action rules to run this item against
    *  (`detectProjectActionCrossings`); omitted = no project policy. */
   projectRules?: PolicyRule[]
 }
 
-/** The two injected LLM confirmation judges (stubbed deterministically here). */
+/** The injected LLM confirmation judge (stubbed deterministically here). */
 export interface EvalJudges {
   action: ActionConfirmJudge
-  tampering: TamperingJudge
 }
 
 // --- report types -------------------------------------------------------------
@@ -168,58 +140,25 @@ function executesQuotedArg(command: string): boolean {
 export const stubActionJudge: ActionConfirmJudge = async ({ command }) =>
   executesQuotedArg(command) ? 'REAL_ACTION' : 'PROSE_ONLY'
 
-/** Split a `buildEditDiff` string back into its before/after halves. */
-function splitDiff(testDiff: string): { before: string | null; after: string } {
-  const marker = '\n+++ after\n'
-  const i = testDiff.indexOf(marker)
-  if (i === -1) return { before: null, after: testDiff }
-  const head = testDiff.slice(0, i)
-  const after = testDiff.slice(i + marker.length)
-  const before = head.startsWith('--- before\n')
-    ? head.slice('--- before\n'.length)
-    : head
-  return { before, after }
-}
-
-/**
- * Tampering oracle (LUM-463 seam). Reached only for the AMBIGUOUS residual the
- * deterministic pre-filter could not decide. It re-reads the diff and calls the
- * SAME `assertionsWeakened` signal the pre-filter uses — a strong→weak swap or a
- * removed assertion is WEAKENING, anything else is LEGIT. Honest by construction:
- * derived from the diff, never from the item's label.
- */
-export const stubTamperingJudge: TamperingJudge = async ({ testDiff }) => {
-  const { before, after } = splitDiff(testDiff)
-  return assertionsWeakened(before, after) ? 'WEAKENING' : 'LEGIT'
-}
-
 export const STUB_JUDGES: EvalJudges = {
   action: stubActionJudge,
-  tampering: stubTamperingJudge,
 }
 
 // --- pipeline runner ----------------------------------------------------------
 
-/** A surviving TEST_TAMPERING crossing that the classifier DOWNGRADED to a
- *  legit, audit-only LOW marker is not a "real flag" for precision/recall — the
+/** An advisory downgrade is not a "real flag" for precision/recall — the
  *  detector judged it benign and only logged it. Every other crossing is a flag. */
 function isAdvisoryDowngrade(c: DetectedCrossing): boolean {
   // LUM-751: a synthetic secret written to a fixture/test/doc path is recorded
   // as a LOW advisory crossing (LUM-734) — never blocking, not a real flag.
-  if (c.category === 'HARDCODED_SECRET') return c.advisory === true
-  return (
-    c.category === 'TEST_TAMPERING' &&
-    c.severity === 'LOW' &&
-    c.detail.includes('downgraded (legit')
-  )
+  return c.category === 'HARDCODED_SECRET' && c.advisory === true
 }
 
 /**
  * Run ONE gold item through the exact pipeline composition that
  * `detectAndRecord` runs (minus persistence): deterministic taxonomy →
- * action-prose confirmation → (for test edits) the two-stage tampering
- * classifier. Returns the crossings the pipeline would record. Read-only: no DB,
- * no writes — the only async work is the injected stub judges.
+ * action-prose confirmation → project action rules. Returns the crossings the pipeline would record. Read-only: no DB,
+ * no writes — the only async work is the injected stub judge.
  */
 export async function runItem(
   item: GoldItem,
@@ -234,26 +173,6 @@ export async function runItem(
   }
   const crossings = detectCrossings(input)
   let confirmed = await confirmActionCandidates(input, crossings, judges.action)
-  if (item.tampering) {
-    const t = item.tampering
-    const ctx: TaskTamperingContext = {
-      machineCheckpointers: [
-        {
-          criterionId: 'c-eval',
-          statement: t.statement,
-          checkpointer: t.checkpointer,
-          everPassed: t.everPassed,
-        },
-      ],
-      productionCodeCoChanged: t.productionCodeCoChanged,
-      codeDiff: t.codeDiff ?? null,
-      changedCriterionIds: t.backingCriterionChanged
-        ? new Set(['c-eval'])
-        : new Set<string>(),
-    }
-    const tampering = await classifyTaskTampering(input, ctx, judges.tampering)
-    if (tampering) confirmed = [...confirmed, tampering]
-  }
   // LUM-751: project action rules (cmd-substr predicates) ride the same
   // pipeline position as in detectAndRecord — after prose confirmation.
   if (item.projectRules) {

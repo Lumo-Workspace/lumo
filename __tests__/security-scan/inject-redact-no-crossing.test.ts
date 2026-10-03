@@ -58,8 +58,6 @@ import { renderHuntTaskContext } from '@/lib/security-scan/hunt/task-context'
 import { buildPlanPrompt } from '@/lib/llm/security-hunt-plan-client'
 import { renderTaskForPrompt } from '@/lib/llm/security-hunt-client'
 import { buildCompressPrompt } from '@/lib/llm/security-hunt-compress-client'
-import { renderReferenceClassAnchor } from '@/lib/reference-class'
-import { renderCriteriaSection } from '@/lib/context/render/criteria'
 import {
   guardInjectedText,
   redactSlackSnapshotForInjection,
@@ -83,8 +81,6 @@ describe('structural — no path from the redaction to the crossing ledger', () 
     'lib/security-scan/redact.ts',
     'lib/memory/render.ts',
     'lib/security-scan/hunt/task-context.ts',
-    'lib/reference-class/render.ts',
-    'lib/context/render/criteria.ts',
     'lib/security-scan/agent-reminder.ts',
     'lib/llm/security-hunt-client.ts',
     'lib/llm/security-hunt-compress-client.ts',
@@ -143,10 +139,8 @@ describe('behavioural — secret content through every render path, crossing pat
 
   it('hunt prompts', () => {
     const block = renderHuntTaskContext({
-      criteria: [SECRETS],
-      traps: [],
+      traps: [SECRETS],
       crossings: [],
-      rework: [],
     })
     const out = [
       block,
@@ -173,28 +167,8 @@ describe('behavioural — secret content through every render path, crossing pat
     expect(out).not.toContain('AKIAABCDEFGHIJKLMNOP')
   })
 
-  it('reference-class anchor, criteria card, tier-2 helpers and the pure functions', () => {
+  it('tier-2 helpers and the pure functions', () => {
     const out = [
-      renderReferenceClassAnchor({
-        kind: 'READY',
-        level: 'TEAM',
-        label: SECRETS,
-        size: 9,
-        rejections: [],
-        crossings: [],
-        postStartContractTasks: 0,
-      }),
-      renderCriteriaSection([
-        {
-          id: 'c',
-          statement: SECRETS,
-          verifierType: 'HUMAN',
-          checkpointer: null,
-          evidenceRequired: false,
-          source: 'AGENT_DRAFT',
-          addedAtRound: 0,
-        },
-      ]),
       redactWebBodyForInjection(SECRETS).body,
       JSON.stringify(
         redactSlackSnapshotForInjection({

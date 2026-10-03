@@ -8,8 +8,6 @@
  * 三个查询**并发**。今天这三个 assert 是串行 await 的——一个干净的任务本来
  * 就要跑满三次，串行只是白等。
  */
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 import { listOpenBlockingFindings } from '@/lib/services/pr-security-scan-gate'
@@ -19,32 +17,9 @@ import {
   computeDoneVerdict,
   type DoneVerdictSnapshot,
   type DoneVerdict,
-  type SendBackPlane,
   type TestCaseCeilingReason,
   type TestCaseSignal,
 } from '@/lib/acceptance/done-verdict'
-
-/**
- * 最新裁定为 FAIL 的验收项。
- *
- * **未裁定的项不进来** —— 那是 tacit pass，不是待办。这一层过滤就是 DONE 闸
- * 与渲染口径（`isUnmetForDisplay`）分家的地方。
- */
-export async function collectSendBackPlane(
-  taskId: string
-): Promise<SendBackPlane> {
-  const latest = await verificationRunRepository.latestRunsByCriterion(taskId)
-  if (latest.size === 0) return []
-  const failed = [...latest.values()].filter(r => r.verdict === 'FAIL')
-  if (failed.length === 0) return []
-
-  const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-  const statementById = new Map(criteria.map(c => [c.id, c.statement]))
-  return failed.map(r => ({
-    criterionId: r.criterionId,
-    statement: statementById.get(r.criterionId) ?? r.criterionId,
-  }))
-}
 
 async function collectCrossingPlane(
   taskId: string,
@@ -153,21 +128,18 @@ export async function readTestCaseAdvisories(
   }
 }
 
-/** 一次收齐四个 plane。 */
+/** 一次收齐三个 plane。 */
 export async function collectDoneVerdictSnapshot(
   taskId: string,
   workspaceId: string
 ): Promise<DoneVerdictSnapshot> {
-  const [sendBacks, crossings, securityFindings, testCases] = await Promise.all(
-    [
-      collectSendBackPlane(taskId),
-      collectCrossingPlane(taskId, workspaceId),
-      listOpenBlockingFindings(taskId),
-      // fail-closed：这一面能拦闸了（LUM-812），查不出来就不能放行。
-      collectTestCasePlane(taskId),
-    ]
-  )
-  return { sendBacks, crossings, securityFindings, testCases }
+  const [crossings, securityFindings, testCases] = await Promise.all([
+    collectCrossingPlane(taskId, workspaceId),
+    listOpenBlockingFindings(taskId),
+    // fail-closed：这一面能拦闸了（LUM-812），查不出来就不能放行。
+    collectTestCasePlane(taskId),
+  ])
+  return { crossings, securityFindings, testCases }
 }
 
 /** 收快照 + 判定，一步到位。读端（`task status`）用的就是这个。 */

@@ -25,8 +25,6 @@ import { createHash } from 'crypto'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 
-import { judgeCacheKey } from '@/lib/services/boundary-detector.service'
-
 const REPO_ROOT = join(__dirname, '..')
 const NUL = String.fromCharCode(0)
 const BACKSLASH = String.fromCharCode(92)
@@ -55,20 +53,6 @@ it('no tracked TypeScript source contains a literal NUL byte', () => {
 })
 
 it('NUL separators are byte-identical after escaping', () => {
-  // Golden vectors captured by running the *pre-escape* source (literal NUL)
-  // and re-run against the escaped source: a separator that decoded to any
-  // other byte — or to two characters — moves both digests.
-  const criterion = 'LUM-796 golden vector'
-  const testDiff = '--- a/x.test.ts\n+++ b/x.test.ts\n-  expect(a).toBe(1)\n'
-  const codeDiff = '--- a/x.ts\n+++ b/x.ts\n+  return 1\n'
-
-  expect(judgeCacheKey({ criterion, testDiff, codeDiff } as never)).toBe(
-    '0bf901f6d4ed34aefaef438a3016b7aa7530a78c2b01fc81f0259a53716950d5'
-  )
-  expect(judgeCacheKey({ criterion, testDiff } as never)).toBe(
-    'a4a5cbaf2c07dc4d25a68861e39e5ae409c760c31829d2569b1758cad20c5d8d'
-  )
-
   // The policy compiler salts its sourceHash with the same NUL separator, and
   // __tests__/policy-compiler.service.test.ts reproduces that salt to seed a
   // *stale* hash. Production was already escaped, the test was not — so pin

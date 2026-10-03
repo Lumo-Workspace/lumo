@@ -31,27 +31,27 @@ import type {
  */
 export interface UpdateTaskOptions {
   /**
-   * Bypass the LUM-422 ④ DONE gate. Only ever set by a human-authoritative
-   * path (a Clerk web confirm past the soft prompt). The agent/CLI path leaves
-   * it unset, so an unresolved send-back always blocks its DONE transition.
+   * Bypass the DONE gate. Only ever set by a human-authoritative path (a Clerk
+   * web confirm past the soft prompt). The agent/CLI path leaves it unset, so
+   * an open blocker always blocks its DONE transition.
    */
   overrideDoneGate?: boolean
 }
 
 /**
- * LUM-422 ④ + LUM-426 + LUM-732 DONE gate —— 现在只有**一处**判定。
+ * LUM-426 + LUM-732 + LUM-812 DONE gate —— 现在只有**一处**判定。
  *
  * 规则本身住在 `lib/acceptance/done-verdict.ts`（纯函数），数据收集住在
  * `lib/services/done-verdict.service.ts`。这里只做两件事：把快照喂进去，
  * 把第一个 blocker 抛成 409。
  *
  * 行为与收拢前**逐字一致**：blocker 的顺序就是旧代码三个 await 的顺序
- * （送回 → 越界 → 安全），409 文案由 `renderDoneBlockMessage` 原样保留。
- * 那三条规则各自的例外（tacit pass、HIGH 无视 workspace opt-out、LLM 发现
- * 永远只是 advisory）都在纯函数里，连同它们为什么存在的注释。
+ * （越界 → 安全 → 用例缺陷），409 文案由 `renderDoneBlockMessage` 原样保留。
+ * 各条规则的例外（HIGH 无视 workspace opt-out、LLM 发现永远只是 advisory）
+ * 都在纯函数里，连同它们为什么存在的注释。
  *
  * 只有人授权的路径（web 上越过软提示的 Clerk 确认）能用 `overrideDoneGate`
- * 绕过；agent / CLI 路径不传，所以一个未解决的送回永远拦得住它的 DONE。
+ * 绕过；agent / CLI 路径不传，所以未解决的 blocker 永远拦得住它的 DONE。
  */
 async function assertDoneGateClear(
   taskId: string,
@@ -214,9 +214,9 @@ export async function updateTask(
     data.description = normalizeRichText(rest.description)
   if (rest.spec !== undefined) data.spec = rest.spec
   if (rest.status !== undefined) data.status = rest.status
-  // Set-once: the first time a task leaves TODO it has "started" — gates the
-  // editable-until-DONE criteria window (LUM-437). Guarded on the pre-update
-  // value so a bounce back to TODO never resets it.
+  // Set-once: the first time a task leaves TODO it has "started" — feeds the
+  // milestone derived start date (LUM-636). Guarded on the pre-update value so
+  // a bounce back to TODO never resets it.
   if (
     rest.status !== undefined &&
     rest.status !== 'TODO' &&
@@ -360,9 +360,9 @@ export async function updateTaskWithSideEffects(
    */
   sourceSessionId?: string | null | undefined,
   /**
-   * LUM-422 ④: pass `{ overrideDoneGate: true }` from a human-authoritative
-   * path to confirm a DONE transition past an unresolved send-back. The
-   * agent/CLI path omits it so the gate always blocks.
+   * Pass `{ overrideDoneGate: true }` from a human-authoritative path to
+   * confirm a DONE transition past an open DONE-gate blocker. The agent/CLI
+   * path omits it so the gate always blocks.
    */
   opts?: UpdateTaskOptions
 ): Promise<TaskUpdateResult> {

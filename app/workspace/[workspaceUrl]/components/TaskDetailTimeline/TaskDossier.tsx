@@ -5,13 +5,11 @@ import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronRight } from 'lucide-react'
 import type { TaskDetail, WorkspaceMemberInfo } from '../../types'
-import type { MentionSources } from '@/types/mention'
 import type { DossierSection } from './taskTabs'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
-import { deriveRunDigest } from '../AgentRunTimeline/derive-run-digest'
 import { summarizeRunAttributions } from '@/lib/attribution/run-attribution'
-import { AcceptanceTab } from './AcceptanceTab'
+import { RecordTab } from './RecordTab'
 import { AttributionSummary } from './AttributionSummary'
 import { AgentRunsSection } from './AgentRunsSection'
 import { DeliveryGatesSection } from '../DeliveryGatesSection'
@@ -19,7 +17,6 @@ import { SecurityScanSection } from './SecurityScanSection'
 import { LineageTab } from './LineageTab'
 import { MemoryTab } from '../memory/MemoryTab'
 import { InfoTooltip } from './InfoTooltip'
-import type { HumanVerdictResult } from './VerdictDecision'
 
 interface TaskDossierProps {
   taskId: string
@@ -30,8 +27,6 @@ interface TaskDossierProps {
   members: WorkspaceMemberInfo[]
   agentActors: { actorId: string; name: string }[]
   enabled: boolean
-  onVerdictRecorded: (result: HumanVerdictResult) => void
-  mentionSources?: MentionSources | undefined
   /** WorkspaceMember.id → name, for the ④ memory sub-section's "Added by X". */
   memberNames: Map<string, string>
   /** Presence of the ④ Lineage / Memory sub-sections — an empty sub-section is
@@ -93,15 +88,15 @@ function EvidenceSubSection({
  * The decision-first task dossier (LUM-567): one surface that replaces the
  * former Delivery / Memory / Lineage tabs. Reads top-down as decision → why.
  *
- * The whole surface is {@link AcceptanceTab}: the decision head, claim, criteria
- * and boundary panel lead, and everything after-the-fact folds into one
- * collapsed "Run report" group — the honest-report metrics (cost / struggle /
- * trend / history / removed) plus, via the `evidenceSlot` prop, the three
+ * The whole surface is {@link RecordTab}: the Done gaps and boundary panel
+ * lead, and everything after-the-fact folds into one "Run report" group — the
+ * honest-report metrics (cost / struggle / trend) plus, via the `evidenceSlot`
+ * prop, the three
  * evidence & causality sub-sections built here (LUM-572). The sub-sections stay
  * deep-linkable: an old Delivery / Lineage / Memory URL opens the Run report
  * group (`reportInitiallyOpen`) and expands its target region (LUM-458). Run
- * sessions are fetched once here (single source) and shared with the decision
- * head's count and the runs sub-section.
+ * sessions are fetched once here (single source) and shared with the
+ * attribution summary and the runs sub-section.
  */
 export function TaskDossier({
   taskId,
@@ -112,8 +107,6 @@ export function TaskDossier({
   members,
   agentActors,
   enabled,
-  onVerdictRecorded,
-  mentionSources,
   memberNames,
   hasLineage,
   hasMemories,
@@ -122,11 +115,6 @@ export function TaskDossier({
   const intl = useIntl()
   const { data: runsData } = useAgentRuns({ taskId, enabled })
   const runs = runsData?.runs ?? []
-  // Same two-layer rule as the run card: prefer the LLM-synthesized summary,
-  // else fall back to the raw digest joined into one line, else nothing.
-  const latestRunSummary =
-    runs[0]?.runSummary ??
-    (runs[0] ? deriveRunDigest(runs[0].items ?? []).join(' · ') || null : null)
 
   const hasRuns = runs.length > 0
   const preDedupe = anyStartedBeforeUsageDedupe(runs)
@@ -174,7 +162,7 @@ export function TaskDossier({
 
   const showEvidence = hasRuns || hasLineage || hasMemories
 
-  // LUM-572: the evidence & causality sub-sections fold into AcceptanceTab's
+  // LUM-572: the evidence & causality sub-sections fold into RecordTab's
   // Run report group (passed as evidenceSlot), so the whole after-the-fact
   // record — metrics + evidence — sits under one collapsible bucket. A legacy
   // deep link to an evidence sub-section opens that group on mount.
@@ -262,15 +250,12 @@ export function TaskDossier({
   ) : null
 
   return (
-    <AcceptanceTab
+    <RecordTab
       taskIdentifier={taskIdentifier}
       enabled={enabled}
       workspaceUrl={workspaceUrl}
       members={members}
       agentActors={agentActors}
-      onVerdictRecorded={onVerdictRecorded}
-      latestRunSummary={latestRunSummary}
-      {...(mentionSources ? { mentionSources } : {})}
       evidenceSlot={evidence}
       gatesSlot={<DeliveryGatesSection taskId={taskId} />}
       securitySlot={<SecurityScanSection taskId={taskId} />}

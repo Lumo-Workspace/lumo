@@ -1,6 +1,5 @@
 import { waitUntil } from '@vercel/functions'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { outcomeWellService } from '@/lib/services/outcome-well.service'
 
 /**
@@ -24,12 +23,6 @@ export const lineageOutcomeService = {
     const outcome =
       state === 'merged' ? 'MERGED' : state === 'closed' ? 'REJECTED' : null
     if (!outcome) return { count: 0 }
-    if (outcome === 'MERGED') {
-      const verified = await verificationRunRepository.hasAllPassRound(taskId)
-      return lineageEdgeRepository.stampOutcomeByTask(taskId, outcome, {
-        verified,
-      })
-    }
     return lineageEdgeRepository.stampOutcomeByTask(taskId, outcome)
   },
 
@@ -37,19 +30,9 @@ export const lineageOutcomeService = {
    * Stamp MERGED when a task reaches DONE. A task may be completed without a
    * tracked PR (manual done, squash outside Lumo), so DONE is treated as the
    * task-level success terminal — the same verdict a merged PR produces.
-   *
-   * LUM-397 strength: MERGED is stratified by whether the task ever recorded
-   * an all-PASS verification round (ProdCodeBench: merged alone is a weak
-   * ground truth). The strength is derived from the append-only
-   * VerificationRun log — Task carries no materialized acceptance state —
-   * via the same deriveAllPassRoundTaskIds the cron sweep uses, so the two
-   * paths cannot drift. Data-only: no scoring path reads the strength yet.
    */
   async stampForTaskDone(taskId: string) {
-    const verified = await verificationRunRepository.hasAllPassRound(taskId)
-    return lineageEdgeRepository.stampOutcomeByTask(taskId, 'MERGED', {
-      verified,
-    })
+    return lineageEdgeRepository.stampOutcomeByTask(taskId, 'MERGED')
   },
 
   /**
@@ -78,17 +61,9 @@ export const lineageOutcomeService = {
    * ③/⑤). Reconciles edges born *after* their task's terminal event — which the
    * event-forward triggers can never reach. Called by the resident cron; its
    * first post-deploy run backfills the existing UNKNOWN backlog. Idempotent.
-   *
-   * LUM-397 strength: the sweep derives the all-PASS task set from the same
-   * VerificationRun derivation as the immediate task→DONE stamp and
-   * reconciles outcomeVerified onto every DONE task's MERGED edges
-   * (monotonic — see the repository). Its first post-deploy run stratifies
-   * the existing MERGED backlog into verified/unverified.
    */
   async sweepDoneTaskEdges() {
-    const verifiedTaskIds =
-      await verificationRunRepository.taskIdsWithAllPassRound()
-    return lineageEdgeRepository.stampDoneTaskEdges([...verifiedTaskIds])
+    return lineageEdgeRepository.stampDoneTaskEdges()
   },
 }
 

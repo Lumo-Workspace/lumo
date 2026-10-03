@@ -12,61 +12,12 @@ import {
 import type { OpenCrossingsResult } from '../../src/lib/open-crossings'
 import type { TaskStatusResponse } from '../../src/commands/task-status'
 
-function criterion(
-  id: string,
-  verdict: 'PASS' | 'FAIL' | null,
-  verifierType: 'MACHINE' | 'HUMAN' = 'MACHINE'
-): TaskStatusResponse['criteria'][number] {
-  return {
-    id,
-    statement: `statement ${id}`,
-    verifierType,
-    checkpointer: verifierType === 'MACHINE' ? 'npm test' : null,
-    evidenceRequired: false,
-    judgeSteps: null,
-    source: 'AGENT_DRAFT',
-    addedAtRound: 0,
-    verdictStale: false,
-    checkMismatch: false,
-    machinePassed: verdict === 'PASS',
-    latestVerdict: verdict
-      ? {
-          round: 1,
-          verdict,
-          evidencePointer: null,
-          rejectionReason: null,
-          rejectionReasonEnum: null,
-          recordedAt: '2026-09-25T00:00:00.000Z',
-        }
-      : null,
-    confirmedAt: '2026-09-25T00:00:00.000Z',
-  }
-}
-
-function unmet(id: string): TaskStatusResponse['nextActions'][number] {
-  return {
-    criterionId: id,
-    statement: `statement ${id} `.repeat(12),
-    verifierType: 'MACHINE',
-    checkpointer: 'npm test',
-    judgeSteps: null,
-    source: 'AGENT_DRAFT',
-    addedAtRound: 0,
-    rejectionReason: 'exit 1',
-  }
-}
-
 function status(over: Partial<TaskStatusResponse> = {}): StatusRead {
   return {
     ok: true,
     value: {
-      version: 1,
+      version: 2,
       task: { id: 't', identifier: 'LUM-9', title: 'T', status: 'IN_PROGRESS' },
-      currentRound: 2,
-      maxRounds: 3,
-      escalated: false,
-      criteria: [],
-      machineVerification: { total: 0, machineVerified: 0, humanOverridden: 0 },
       nextActions: [],
       securityFindings: { open: 0, blocking: 0, unconfirmedPrs: [] },
       ...over,
@@ -100,21 +51,11 @@ function crossing(id: string, blocking: boolean) {
 }
 
 describe('status digest', () => {
-  it('status digest renders status round criteria and blockers in a few lines', () => {
+  it('status digest renders status and blockers in a few lines', () => {
     const lines = formatStatusDigest({
       identifier: 'LUM-9',
       status: status({
-        criteria: [
-          criterion('c1', 'PASS'),
-          criterion('c2', 'FAIL'),
-          criterion('c3', null),
-          criterion('c4', null),
-          criterion('c5', null, 'HUMAN'),
-        ],
         nextActions: [
-          unmet('c2'),
-          unmet('c3'),
-          unmet('c4'),
           {
             kind: 'SECURITY_FINDING',
             findingId: 'f1',
@@ -144,14 +85,11 @@ describe('status digest', () => {
       },
     })
 
-    expect(lines.length).toBeLessThanOrEqual(5)
+    expect(lines.length).toBeLessThanOrEqual(4)
     expect(lines[0]).toContain('same read as `lumo task status LUM-9`')
-    // 5 criteria, 3 unmet (the HUMAN one with no verdict is a tacit pass).
-    expect(lines[1]).toBe('  LUM-9 IN_PROGRESS · round 2/3 · criteria 2/5 met')
-    expect(lines[2]).toMatch(/^ {2}Unmet: c2 .+ · c3 .+ \(\+1 more\)$/)
-    expect(lines[2]!.length).toBeLessThan(200)
-    expect(lines[3]).toBe(
-      '  Blocks DONE: 1 send-back · 1 boundary crossing (cx-1) — the user rules · 1 blocking security finding · 1 proven test-case defect'
+    expect(lines[1]).toBe('  LUM-9 IN_PROGRESS')
+    expect(lines[2]).toBe(
+      '  Blocks DONE: 1 boundary crossing (cx-1) — the user rules · 1 blocking security finding · 1 proven test-case defect'
     )
     expect(lines.join('\n')).not.toContain('cx-2') // advisory: not a blocker
   })
@@ -161,25 +99,13 @@ describe('status digest', () => {
       identifier: 'LUM-9',
       status: status({
         task: { id: 't', identifier: 'LUM-9', title: 'T', status: 'IN_REVIEW' },
-        criteria: [criterion('c1', 'PASS')],
       }),
       crossings: NO_CROSSINGS,
     })
     expect(lines.slice(1)).toEqual([
-      '  LUM-9 IN_REVIEW · round 2/3 · criteria 1/1 met',
+      '  LUM-9 IN_REVIEW',
       '  Blocks DONE: nothing on record',
     ])
-  })
-
-  it('status digest names escalation and a missing contract', () => {
-    const lines = formatStatusDigest({
-      identifier: 'LUM-9',
-      status: status({ currentRound: 0, escalated: true }),
-      crossings: NO_CROSSINGS,
-    })
-    expect(lines[1]).toBe(
-      '  LUM-9 IN_PROGRESS · no verify round yet · no acceptance contract · ESCALATED — stop running lumo verify'
-    )
   })
 
   it('status digest fails closed when the status read failed', () => {
@@ -205,11 +131,10 @@ describe('status digest', () => {
   it('status digest fails closed when the crossings read failed', () => {
     const lines = formatStatusDigest({
       identifier: 'LUM-9',
-      status: status({ criteria: [criterion('c1', 'FAIL')] }),
+      status: status(),
       crossings: { status: 'error', reason: 'HTTP 502' },
     })
     const out = lines.join('\n')
-    expect(out).toContain('Blocks DONE: 1 send-back')
     expect(out).toContain('Could not confirm boundary crossings (HTTP 502)')
     expect(out).not.toContain('nothing on record')
   })

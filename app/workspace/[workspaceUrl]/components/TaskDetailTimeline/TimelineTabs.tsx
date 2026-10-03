@@ -12,9 +12,7 @@ import { TaskDetailComments } from '../TaskDetailComments'
 import { ContextTab } from './ContextTab'
 import { TaskDossier } from './TaskDossier'
 import { TestCasesTab } from './TestCasesTab'
-import { type HumanVerdictResult } from './VerdictDecision'
 import type { TaskDetail } from '../../types'
-import type { MentionSources } from '@/types/mention'
 
 interface PullRequestSummary {
   id: string
@@ -30,7 +28,6 @@ interface PullRequestSummary {
 interface TimelinePresence {
   hasMemories: boolean
   hasLineage: boolean
-  hasCriteria: boolean
   hasOpenCrossings: boolean
   /** LUM-801：服务端预判，避免 Tests tab 等客户端探针回来才出现（首帧闪）。 */
   hasTestCases: boolean
@@ -48,8 +45,6 @@ interface TimelineTabsProps {
   pullRequests: PullRequestSummary[]
   onLinkPr: () => void
   onUnlinkPr: (prId: string) => void
-  onVerdictRecorded?: (result: HumanVerdictResult) => void
-  mentionSources?: MentionSources
   /** SSR presence seed; the probes below reconcile it once they resolve. */
   initialTimelinePresence?: TimelinePresence | undefined
 }
@@ -66,9 +61,6 @@ export function TimelineTabs({
   pullRequests,
   onLinkPr,
   onUnlinkPr,
-
-  onVerdictRecorded = () => {},
-  mentionSources,
   initialTimelinePresence,
 }: TimelineTabsProps) {
   const intl = useIntl()
@@ -248,12 +240,10 @@ export function TimelineTabs({
           members={commentsProps.members}
           agentActors={commentsProps.agentActors}
           enabled={activeTab === 'dossier'}
-          onVerdictRecorded={onVerdictRecorded}
           memberNames={memoryMemberNames}
           hasLineage={hasLineage}
           hasMemories={hasMemories}
           targetSection={dossierTargetSection}
-          {...(mentionSources ? { mentionSources } : {})}
         />
       )}
       {activeTab === 'tests' && (

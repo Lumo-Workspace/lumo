@@ -12,8 +12,6 @@ export interface UpdateWorkspaceInput {
   summaryEnabled?: boolean | undefined
   summaryFrequency?: string | undefined
   summaryLocale?: string | undefined
-  verificationMaxRounds?: number | undefined
-  acceptanceMode?: boolean | undefined
   /** LUM-740: already validated by `securityPolicySchema`; null = reset. */
   securityPolicy?: SecurityPolicy | null | undefined
   /** LUM-859: one of HOOK_EVENT_RETENTION_DAYS; null = keep forever. */
@@ -80,10 +78,6 @@ export const workspaceService = {
       data.summaryFrequency = input.summaryFrequency
     if (input.summaryLocale !== undefined)
       data.summaryLocale = input.summaryLocale
-    if (input.verificationMaxRounds !== undefined)
-      data.verificationMaxRounds = input.verificationMaxRounds
-    if (input.acceptanceMode !== undefined)
-      data.acceptanceMode = input.acceptanceMode
     if (input.securityPolicy !== undefined)
       data.securityPolicy = input.securityPolicy
     if (input.hookEventRetentionDays !== undefined)

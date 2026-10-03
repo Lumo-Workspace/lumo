@@ -81,7 +81,6 @@ const memoryIndexSection = renderMemoryIndexBlock(
 )
 const contextPayload = {
   task: fixture.task,
-  criteriaSection: fixture.criteriaSection,
   testCaseSection: fixture.testCaseSection,
   memorySection,
   memoryIndexSection,
@@ -107,7 +106,6 @@ async function renderAttach(extra: Record<string, unknown> = {}) {
       taskIdentifier: fixture.task.identifier,
       taskTitle: fixture.task.title,
       retaggedEventCount: 0,
-      criteriaSection: fixture.criteriaSection,
       testCaseSection: fixture.testCaseSection,
       memorySection,
       ...extra,
@@ -132,8 +130,14 @@ describe('LUM-844 start-of-session output budget', () => {
     expect(chars(contextBefore)).toBe(BASE_CONTEXT)
     // Structured memories re-render byte-identically to what was printed.
     expect(attachBefore).toContain(memorySection)
-    // --full with the caller's session still listed = the old output exactly.
-    expect(renderContext({ full: true })).toBe(contextBefore)
+    // --full with the caller's session still listed = the old output exactly,
+    // minus the acceptance-criteria block LUM-942 removed from the payload.
+    const withoutCriteria = contextBefore.replace(
+      fixture.criteriaSection.trimEnd() + '\n\n',
+      ''
+    )
+    expect(withoutCriteria).not.toBe(contextBefore)
+    expect(renderContext({ full: true })).toBe(withoutCriteria)
   })
 
   it('attach output on the LUM-844 fixture is at most half the baseline', async () => {
@@ -157,15 +161,10 @@ describe('LUM-844 start-of-session output budget', () => {
     })
     expect(attach).toContain('## ⚠ Blocked by LUM-1 (IN_PROGRESS)')
     expect(attach).toContain('## Security findings (1 undispositioned)')
-    expect(attach).toContain(fixture.criteriaSection)
-    expect(attach).toContain('This task has no acceptance criteria yet.')
-    expect(attach).toContain('### Reference class (outside view)')
     expect(attach).toContain('lumo task context LUM-844')
 
     const context = renderContext({ currentSessionId: fixture.sessionId })
     expect(context).toContain(String(fixture.task.descriptionMarkdown))
-    expect(context).toContain(fixture.criteriaSection)
-    expect(context).toContain('### Reference class (outside view)')
     expect(context).toContain(fixture.testCaseSection)
     expect(context).toContain('<untrusted-team-memory>')
     expect(context).toContain('lumo memory show <id>')

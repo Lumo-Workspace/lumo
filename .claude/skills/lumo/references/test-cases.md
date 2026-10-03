@@ -2,7 +2,7 @@
 
 任务下的结构化用例：`setup` / `steps[]` / `verification[]` / `expected`，外加一条 **append-only** 的执行记录流。
 
-**与验收合同平行、互不替代。** 验收合同（`task criteria`）回答「这个任务算不算做完」；test case 回答「这条剧本跑下来什么结果、**在哪个环境**、**跑的哪版代码**」。用例全绿 **不等于** 任务可以 DONE——`lumo task status` 里根本不出现 test case。
+test case 回答「这条剧本跑下来什么结果、**在哪个环境**、**跑的哪版代码**」——这是任务交付证据的落点（LUM-942 起任务级验收标准 / `lumo verify` 已移除）。用例全绿 **不等于** 任务可以 DONE；`lumo task status` 只把它的判决信号列为 advisory（见下方）。
 
 句柄是 `<task>/TC<n>`，例如 `LUM-42/TC3`。编号是任务内 1-based 顺序号。
 
@@ -17,7 +17,6 @@
 | `--step <text>`     | **可重复、有序**，至少一条。出现顺序即执行顺序   |
 | `--verify <text>`   | 可重复、有序。复验段，可以完全不给               |
 | `--expected <text>` | **必填**。预期结果                               |
-| `--criterion <sel>` | 这条用例覆盖哪条验收标准：id 或 ≥6 字符前缀      |
 
 ```bash
 lumo task testcase add LUM-42 --title "Dashboard 页脚 FDIC 披露" --setup "The user is on the Dashboard." --step "scroll: to the bottom of the page" --step "assert: the footer shows the FDIC membership line" --verify "refresh: the page" --expected "The FDIC membership disclosure is visible at the bottom of the dashboard."
@@ -28,23 +27,6 @@ lumo task testcase add LUM-42 --title "Dashboard 页脚 FDIC 披露" --setup "Th
 输出：`Created LUM-42/TC1 "…"  (3 steps, 2 verification)`
 
 上限（超出即 400）：步骤 1–30 条、复验 0–30 条、每条 ≤ 500 字符、标题 ≤ 200、setup/expected ≤ 2000。
-
-### `--criterion` — 声明它覆盖哪条验收标准（LUM-815）
-
-选择器是 criterion 的 id 或 **≥6 字符的唯一前缀**（同 `milestone criteria verdict`），从 `lumo task criteria list <task>` 取。跨任务的 id 会被 422 拒掉。
-
-```bash
-lumo task testcase add LUM-42 --criterion cmud751s --title "…" --step "…" --expected "…"
-```
-
-**不填是合法常态**，不是偷懒：探索性用例、一条跨多条标准的用例，本来就没有单一归属。强制填只会逼出乱填的引用，而乱填的引用会让覆盖缺口算到错的标准头上。
-
-连线带来两件事，都**只在读出面**：
-
-- `lumo task status` 在每条标准下面多几行 `↳ case TC1 …`，显示挂着它的用例与各自最近一次执行（结果 / 环境 / commit）。
-- 合同里**一条用例都没有**的标准，单独列成一段「Not yet covered by a test case」。
-
-**红线：用例跑绿不会把它覆盖的标准判成通过。** 没有任何推导，`latestVerdict` 不变、unmet 计数不变、DONE 闸不读它。这几行只回答「验没验」，永远不回答「验得对不对」——用例是 agent 写的，跑也是 agent 跑的。
 
 ## `lumo task testcase list <task>` — 列表
 
@@ -60,7 +42,7 @@ TC1	Dashboard 页脚 FDIC 披露	3 steps / 2 verify	FAIL on LOCAL @a1b2c3d (2026
 
 ## `lumo task testcase show <task/case>` — 详情 + 执行历史
 
-四段分节打印（步骤带 **1-based** 编号），随后是 run 历史。声明了覆盖标准的用例在标题下多打一行 `covers criterion <id>  <标准原文>`；若那条标准**已被移出合同**（有 run 的 criterion 走软删，墓碑留着，引用照旧指向它），再多打一行 `⚠ that criterion is no longer in the active contract`——否则读的人只会拿到一个在 `criteria list` 里查无此条的裸 id。硬删（run-free 的 criterion）由 DB 的 `ON DELETE SET NULL` 把引用置空，读出面与「从未声明」同形，因为库里本来就分不出来了。FAIL 的行显示挂在第几步及**当时的原文快照**，并带上 PR / commit 与陈旧性提示。
+四段分节打印（步骤带 **1-based** 编号），随后是 run 历史。FAIL 的行显示挂在第几步及**当时的原文快照**，并带上 PR / commit 与陈旧性提示。
 
 ```bash
 lumo task testcase show LUM-42/TC3
@@ -87,8 +69,6 @@ lumo task testcase show LUM-42/TC3
 ## `lumo task testcase update <task/case>` — 改用例
 
 Flag 与 `add` 相同，至少给一个。
-
-`--criterion` 在这里是**三态**：省略 = 不碰现有连线；`--criterion <id/前缀>` = 改绑；`--criterion ""` = 解绑（用例本身原样留着，只是不再声明它覆盖谁）。
 
 ```bash
 lumo task testcase update LUM-42/TC3 --title "Dashboard 页脚 FDIC 披露（改版后）"
@@ -177,7 +157,7 @@ lumo task testcase run LUM-42/TC3 --result pass --env production
 
 记完 run 时若一条证据都没有，CLI 还会打一行 `No evidence attached — …` 告诉你怎么附（`--result fail` 措辞更重）。零证据的 PASS 被封顶成 `UNPROVEN`，但仍然**不拦 DONE**——`task status` 的 advisory 行会写明 `(no evidence attached)`。
 
-**抽查复核（LUM-819，web-only）**：封顶后仍成立的 PASS（有证据、环境对、没有未观察项）进入 workspace 的抽查池，入口是 **Dashboard 上的抽查卡片**（页面在 `/workspace/<slug>/run-reviews`）。每张卡片把证据和它要对照的东西放在一起：**预期结果**、步骤与复验条目、这条用例覆盖的验收标准原文（未声明 / 已不在合同里都会明说）、PR，以及「在任务中查看」直达该任务 Tests 标签、定位到那条 run。人随机抽看 → 认可 / 打回，页面给出虚报率（打回数 / 已复核数，样本不足 10 条时只给计数）。复核**只认浏览器会话**，agent/CLI 的 bearer 身份一律 403；**不拦 DONE**。
+**抽查复核（LUM-819，web-only）**：封顶后仍成立的 PASS（有证据、环境对、没有未观察项）进入 workspace 的抽查池，入口是 **Dashboard 上的抽查卡片**（页面在 `/workspace/<slug>/run-reviews`）。每张卡片把证据和它要对照的东西放在一起：**预期结果**、步骤与复验条目、PR，以及「在任务中查看」直达该任务 Tests 标签、定位到那条 run。人随机抽看 → 认可 / 打回，页面给出虚报率（打回数 / 已复核数，样本不足 10 条时只给计数）。复核**只认浏览器会话**，agent/CLI 的 bearer 身份一律 403；**不拦 DONE**。
 
 复核结果**回写到任务上**：Tests 标签的执行历史标出「已抽查：证据成立 / 被打回（谁，何时，理由）」；用例**最新一次执行**被打回时，`lumo task status` 多一行 `• [TEST CASE] TC3 …: a spot-check by <人> sent this PASS back — the evidence did not hold it up …（advisory）` + `run: lumo task testcase show …`。打回之后重新跑过，这行就消失。看到它：补更好的证据或重跑用例，不是去修一个可能没坏的实现。你能做的只是让自己的 PASS 经得起抽查：跑的当下就附证据。
 
@@ -214,37 +194,33 @@ PR 已合并时比的是 merge commit，不是 PR 头——生产上那次执行
 
 ## 流程里的提醒（LUM-807）
 
-CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR，其余三处要求任务已有 linked PR 且零用例**。四处都是提示，**都不阻塞 DONE、不消耗 verify 轮次**。
+CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR，其余三处要求任务已有 linked PR 且零用例**。四处都是提示，**都不阻塞 DONE**。
 
-| 位置                                   | 门槛               | 长相                                                                      |
-| -------------------------------------- | ------------------ | ------------------------------------------------------------------------- |
-| `session attach` / `task context`      | 零用例（不看 PR）  | `## Test cases` 小节，紧挨验收合同                                        |
-| `Next:` 块                             | 有 PR + 零用例     | 一条 `lumo task testcase add …` 建议，排在最后                            |
-| `lumo verify` 全绿转 IN_REVIEW         | 有 PR + 零用例     | `Tip:` 一行，提示把刚手验的剧本沉淀下来                                   |
-| `lumo task status` 的 next actions     | 有 PR + 零用例     | `• [TEST CASE] … (advisory)` + `run:` 命令行                              |
-| `lumo task status` 的 next actions     | 用例有判决信号     | `• [TEST CASE] TC3 … — reported PASS, capped to UNPROVEN (advisory)`      |
-| `lumo task status` 的 next actions     | 最新执行被抽查打回 | `• [TEST CASE] TC3 …: a spot-check by … sent this PASS back … (advisory)` |
-| `lumo task status` 合同之后（LUM-815） | 有标准零用例覆盖   | `Not yet covered by a test case (…)` 自成一段，不进未满足清单             |
+| 位置                               | 门槛               | 长相                                                                      |
+| ---------------------------------- | ------------------ | ------------------------------------------------------------------------- |
+| `session attach` / `task context`  | 零用例（不看 PR）  | `## Test cases` 小节                                                      |
+| `Next:` 块                         | 有 PR + 零用例     | 一条 `lumo task testcase add …` 建议，排在最后                            |
+| `lumo task status` 的 next actions | 有 PR + 零用例     | `• [TEST CASE] … (advisory)` + `run:` 命令行                              |
+| `lumo task status` 的 next actions | 用例有判决信号     | `• [TEST CASE] TC3 … — reported PASS, capped to UNPROVEN (advisory)`      |
+| `lumo task status` 的 next actions | 最新执行被抽查打回 | `• [TEST CASE] TC3 …: a spot-check by … sent this PASS back … (advisory)` |
 
 几条语义：
 
 - **开工那处不卡 PR 是故意的**：开工时通常还没有 PR，卡了这条提醒就永远不出现。
-- **`Next:` 块里的这条排在最末**，让位给越界、合同、verify——那些才是真拦交付的。`NEXT_STEPS_MAX=3` 的上限没变，被挤掉就不显示。
+- **`Next:` 块里的这条排在最末**，让位给越界等真拦交付的提示。`NEXT_STEPS_MAX=3` 的上限没变，被挤掉就不显示。
 - **同一屏不重复**：`session attach` / `task context` 已经渲染了 `## Test cases` 小节，它们的 `Next:` 块就不再重复这条。
-- **FAIL 轮不提醒**：那一屏属于失败原因。
-- **`task status` 的这条是 advisory**：`kind: 'TEST_CASE'`，没有 `blocking` 字段，不计入 `N unmet` 的算术，DONE 闸门读都不读它。
+- **`task status` 的这条是 advisory**：`kind: 'TEST_CASE'`，没有 `blocking` 字段，DONE 闸门读都不读它。
 - 任务一旦有任意一条用例（或已 DONE），四处全部静默。
 
 ## When to suggest
 
-- 用户描述一条**可反复执行的手工验证剧本**（有前置条件、有编号步骤、有预期结果）→ `testcase add`，而不是塞进验收标准的 `judgeSteps`。`judgeSteps` 是给人做一次性裁定用的；test case 是要跑很多次的。
+- 用户描述一条**可反复执行的手工验证剧本**（有前置条件、有编号步骤、有预期结果）→ `testcase add`。test case 是要跑很多次的。
 - 用户说「我在本地跑过了」「我在生产上试了一下」→ `testcase run --env <...>` 把它留痕。这正是这个 feature 存在的理由：把「谁在哪跑过」从某个人的记忆里搬进记录。
 - **记 run 的同时就把证据带上**（`--evidence-file <path>` / `--evidence <url>`）。跑之前先把命令输出 `tee` 成一个 `.log`，别等记完 run 再回头找——那时候终端已经滚掉了。`--result fail` 基本必须带（失败在哪一步、当时屏幕上是什么，光靠 `--note` 复述不回来）；`pass` 也尽量带，否则记录里只剩「PASS on LOCAL」这一句谁都复核不了的断言。CLI 在零证据时会打一行提醒（LUM-807 follow-up）。
 - 用户问「这条用例上次跑是什么结果」「这个还验过吗」→ `testcase show`。
 - PR 合并、部署完成之后 → 提醒补一次 `--env production` 的执行记录。本地绿和生产上真的验过是两回事。
-- `task status` 打出「Not yet covered by a test case」→ 那几条标准至今只有话、没有可复跑的证据。**它不拦 DONE，也不是待办**；值不值得补由人判断（有些标准天生就该由人读一眼，不该有剧本）。要补就带上 `--criterion`，否则补了也算不进覆盖。
 
-## 语义坑（最容易搞错的十一条）
+## 语义坑（最容易搞错的十条）
 
 1. **`--env` 必填无默认。** 整个 feature 的目的就是分清跑在哪；别去猜一个值填进去。
 2. **`BLOCKED` = 用例根本没跑起来**（前置条件 / 环境不满足），因此**不能**带 `--failed-step`。跑到一半被外部因素卡住，记 `--result fail` + 定位 + `--note`。
@@ -252,11 +228,10 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 4. **`--env production` / `preview` 不自动探 commit**。本地检出 ≠ 线上跑的代码；要记就显式 `--commit`。
 5. **`update` 的 `--step` 是整段替换**，不是追加。
 6. **`rm` 是软删**，run 历史仍在；且走确认信封，agent 不得自补 `--confirm`。
-7. **test case 不是验收合同。** 用例跑绿不代表任务可以 DONE；DONE 看的是 `lumo verify` 与 `lumo task status`。
+7. **用例跑绿不代表任务可以 DONE。** DONE 是用户的裁定（`--status done` 的 exit-4 信封），闸门见 `lumo task status` / `lumo task wrapup`。
 8. **`--cause unknown` 是合法答案。** FAIL 必须归因，但「没判断出来」本身就是一种诚实的归因；不要为了填满字段瞎选一个 `defect`（它还会因缺证据被 400 挡回来）。
 9. **`UNPROVEN` 不是 FAIL。** 它说的是「这次没能确认」，不是「测出问题了」。看到它别去修一个没坏的东西——去补上验得了的那次执行。
-10. **覆盖缺口不是失败。** 「没有用例覆盖」说的是这条标准还没人验过，不是它挂了。它自成一段渲染、不进未满足清单、不进 DONE 闸——别看见就去补一条敷衍的用例，那只是把缺口换成了假绿。
-11. **一条没有证据的 run 只是个断言。** `PASS on LOCAL` 本身不可复核——它把「凭什么说它绿」留在了某个人的记忆里，正是这个 feature 要终结的东西。证据要在跑的当下留（`tee` 到 `.log` 再 `--evidence-file`），事后补不回来。零证据时 CLI 会提醒一行，但它只是提醒：**不阻塞、也不会替你留档**。
+10. **一条没有证据的 run 只是个断言。** `PASS on LOCAL` 本身不可复核——它把「凭什么说它绿」留在了某个人的记忆里，正是这个 feature 要终结的东西。证据要在跑的当下留（`tee` 到 `.log` 再 `--evidence-file`），事后补不回来。零证据时 CLI 会提醒一行，但它只是提醒：**不阻塞、也不会替你留档**。
 
 ## 判决信号进 `task status`（LUM-808）
 
@@ -272,8 +247,8 @@ CLI 会在四个位置提醒记用例。两道门槛：**开工那处不看 PR�
 LUM-812 起**只有 `PROVEN_DEFECT` 拦 DONE**，另外两个仍是纯 advisory。按 Autonoma
 的口径：只有「证明了坏」才拦，「没测完」「自己挂了」都放行。
 
-DONE 闸现在看四样东西——未解决的送回、未处置的越界、拦截级安全发现、**未裁定的
-已证缺陷**——判定仍收在 `lib/acceptance/done-verdict.ts` 一处。
+DONE 闸现在看三样东西——未处置的越界、拦截级安全发现、**未裁定的已证缺陷**
+——判定仍收在 `lib/acceptance/done-verdict.ts` 一处。
 
 LUM-801 原本立「用例从不拦 DONE」，理由是进闸会逆向激励「干脆不记 run」。那个担心
 是真的，所以这一面**不是硬墙**：一次人类裁定就清（见下），代价从「必须先修好」降到

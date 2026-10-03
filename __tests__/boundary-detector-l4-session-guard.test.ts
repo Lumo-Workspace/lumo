@@ -14,8 +14,6 @@
  *                         the flag never self-trips (the LUM-640/722 lesson).
  *  - TEST_FILE_DELETED  — an `rm` / `git rm` segment whose delete targets are
  *                         test files (`*.test.*`, `*.spec.*`, `__tests__/`).
- *                         Distinct from TEST_TAMPERING (an Edit/Write to a
- *                         checkpointer-referenced file).
  *  - SENSITIVE_PATH_EDIT — an Edit/Write that lands on a sensitive path
  *                         (auth/, middleware.ts / proxy.ts, .github/workflows/,
  *                         a lockfile, prisma/schema.prisma); the default path set
@@ -44,13 +42,6 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: {
     create: jest.fn(),
     listByTaskAndType: jest.fn().mockResolvedValue([]),
-  },
-}))
-// An Edit/Write event runs the test-tampering check, which reads the task's
-// criteria; with none it short-circuits before any judge call.
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: {
-    listByTask: jest.fn().mockResolvedValue([]),
   },
 }))
 // The project-policy load is best-effort; a missing task means "no policy".
@@ -561,7 +552,7 @@ describe('SENSITIVE_PATH_EDIT — Edit/Write on a sensitive path (LUM-736)', () 
         category: 'SENSITIVE_PATH_EDIT',
         severity: 'MEDIUM',
         reversible: true,
-        // Coalesces on the normalized event path (absolute, like TEST_TAMPERING).
+        // Coalesces on the normalized event path (absolute).
         target: '/repo/lib/auth/session.ts',
       })
     )

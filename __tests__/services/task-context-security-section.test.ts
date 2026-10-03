@@ -11,9 +11,6 @@ jest.mock('@vercel/functions', () => ({ waitUntil: jest.fn() }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findById: jest.fn() },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn(async () => []) },
-}))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: { findAcceptanceModeByTask: jest.fn(async () => false) },
 }))
@@ -111,7 +108,6 @@ describe('buildSessionStartSections — security findings section (LUM-737)', ()
     const out = await taskContextService.buildSessionStartSections('tsk_1')
     expect(out.securityFindingsSection).toBe('')
     expect(out).toMatchObject({
-      criteriaSection: expect.any(String),
       memorySection: expect.any(String),
       linkedResourcesSection: expect.any(String),
     })

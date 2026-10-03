@@ -32,7 +32,6 @@ const candidateSelect = {
       steps: true,
       verification: true,
       expected: true,
-      criterion: { select: { statement: true, deletedAt: true } },
     },
   },
   pullRequest: { select: { number: true, url: true } },
@@ -102,26 +101,6 @@ export const testCaseRunReviewRepository = {
         createdAt: true,
       },
     })
-  },
-
-  /**
-   * LUM-819 返工：若干任务的现行验收合同（未删除的标准，按合同顺序）。
-   * 用例没声明覆盖哪条标准时，卡片拿整份合同当兜底对照物。一次查询取回。
-   */
-  async contractsForTasks(taskIds: string[]): Promise<Map<string, string[]>> {
-    const out = new Map<string, string[]>()
-    if (taskIds.length === 0) return out
-    const rows = await prisma.acceptanceCriterion.findMany({
-      where: { taskId: { in: taskIds }, deletedAt: null },
-      orderBy: { createdAt: 'asc' },
-      select: { taskId: true, statement: true },
-    })
-    for (const r of rows) {
-      const list = out.get(r.taskId)
-      if (list) list.push(r.statement)
-      else out.set(r.taskId, [r.statement])
-    }
-    return out
   },
 
   /** workspace 内全部复核（虚报率与「已复核」排除都要全量）。 */

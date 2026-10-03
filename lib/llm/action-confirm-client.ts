@@ -21,7 +21,7 @@ import {
  * prose" on a single already-detected candidate, NOT a general intent detector.
  *
  * DIP: depends on the shared `ai` + `@ai-sdk/gateway` abstraction (the SAME
- * gateway the LUM-463 TEST_TAMPERING judge and the milestone/sprint summaries
+ * gateway the milestone/sprint summaries
  * use), never a raw vendor SDK. Failures propagate — the caller
  * (`confirmActionCrossing`) wraps this best-effort and falls back to REAL_ACTION
  * (keep flagged) on any throw/timeout (the conservative red line).

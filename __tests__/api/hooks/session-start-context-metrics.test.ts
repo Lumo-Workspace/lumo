@@ -61,9 +61,6 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
     findActiveProjectMemories: jest.fn(async () => []),
   },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn(async () => []) },
-}))
 jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
   taskSlackContextRepository: { listByTask: jest.fn(async () => []) },
 }))
