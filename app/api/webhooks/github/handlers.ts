@@ -20,7 +20,6 @@ import { stampLineageInBackground } from '@/lib/services/lineage-outcome.service
 import { enqueueFaithfulnessJudgeOnMerge } from '@/lib/services/claim-faithfulness-trigger'
 import { enqueueCrossingRejudgeOnPrClose } from '@/lib/services/boundary-crossing-rejudge-trigger'
 import { gitOutcomeRecorder } from '@/lib/services/outcome/git-outcome-recorder'
-import { ciSignalService } from '@/lib/services/ci-signal.service'
 import {
   dispatchPrSecurityScan,
   shouldScanOnPrEvent,
@@ -68,13 +67,6 @@ type CheckSuitePayload = {
   repository: { full_name: string }
 }
 
-type StatusPayload = {
-  sha: string
-  state: string
-  branches?: Array<{ name: string }>
-  repository: { full_name: string }
-}
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 async function findTaskForBranch(
@@ -93,61 +85,6 @@ async function findTaskForBranch(
     workspaceId,
     repo
   )
-}
-
-/**
- * Resolve the Lumo task a commit belongs to (LUM-616): first by any PR number
- * the CI signal references (the PR↔task link), then by parsing the head branch.
- * Returns null when nothing maps — e.g. CI on a non-task branch like `main`.
- */
-async function resolveTaskIdForCommit(args: {
-  workspaceId: string
-  repo: string
-  prNumbers: number[]
-  headBranch?: string | undefined
-}): Promise<string | null> {
-  for (const number of args.prNumbers) {
-    const pr = await pullRequestRepository.findByRepoAndNumber(
-      args.workspaceId,
-      args.repo,
-      number
-    )
-    if (pr?.taskId) return pr.taskId
-  }
-  if (args.headBranch) {
-    const task = await findTaskForBranch(
-      args.headBranch,
-      args.workspaceId,
-      args.repo
-    )
-    if (task) return task.id
-  }
-  return null
-}
-
-/**
- * Resolve which PR a CI commit belongs to (LUM-617), stored on each GateSignal
- * so the gate audit can group by PR. Prefers the event's own PR list
- * (check_suite); falls back to the head branch (status events). Null when
- * neither resolves — the audit then buckets the signal as unlinked.
- */
-async function resolvePrNumberForCommit(args: {
-  workspaceId: string
-  repo: string
-  prNumbers: number[]
-  headBranch?: string | undefined
-}): Promise<number | null> {
-  const [first] = args.prNumbers
-  if (first != null) return first
-  if (args.headBranch) {
-    const pr = await pullRequestRepository.findByHeadBranch(
-      args.workspaceId,
-      args.repo,
-      args.headBranch
-    )
-    if (pr) return pr.number
-  }
-  return null
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -467,106 +404,6 @@ export async function handleCheckSuite(
       ciStatus
     )
   }
-
-  // LUM-616: derive independent per-gate signals from this commit's CI. Detached
-  // + fail-soft — reconcile owns its errors and must never break ingestion.
-  if (suite.head_sha) {
-    const [taskId, prNumber] = await Promise.all([
-      resolveTaskIdForCommit({
-        workspaceId,
-        repo: repository.full_name,
-        prNumbers,
-        headBranch: suite.head_branch,
-      }),
-      resolvePrNumberForCommit({
-        workspaceId,
-        repo: repository.full_name,
-        prNumbers,
-        headBranch: suite.head_branch,
-      }),
-    ])
-    waitUntil(
-      ciSignalService.reconcileCommit({
-        workspaceId,
-        repo: repository.full_name,
-        headSha: suite.head_sha,
-        taskId,
-        prNumber,
-      })
-    )
-  }
-}
-
-/**
- * LUM-623 SHA→PR fallback for handleStatus. Loaded lazily (the `./checks` module
- * transitively pulls the octokit ESM auth client that is hostile to jest) and
- * fully fail-soft: a GitHub error resolves to [] so the webhook never breaks —
- * mirrors ci-signal.service's own lazy-import + swallow contract.
- */
-async function pullNumbersForCommitSafe(
-  workspaceId: string,
-  fullName: string,
-  sha: string
-): Promise<number[]> {
-  try {
-    const { fetchPullNumbersForCommit } =
-      await import('@/lib/integrations/github/checks')
-    return await fetchPullNumbersForCommit({ workspaceId, fullName, sha })
-  } catch (err) {
-    logger.error(
-      `[github/status] SHA→PR fallback failed for ${fullName}@${sha}: ${err}`
-    )
-    return []
-  }
-}
-
-/**
- * Commit-status event (LUM-616) — the other CI surface, used by providers that
- * report via the Status API (Travis, Jenkins, classic CircleCI) rather than the
- * Checks API. Same reconcile path as check_suite, keyed on the commit SHA.
- */
-export async function handleStatus(
-  payload: Record<string, unknown>,
-  workspaceId: string
-): Promise<void> {
-  const { sha, branches, repository } = payload as unknown as StatusPayload
-  if (!sha) return
-
-  const headBranch = branches?.[0]?.name
-
-  // LUM-623: a commit-status can land AFTER its PR squash-merged and the head
-  // branch was deleted — then `branches` is empty and branch-based resolution
-  // finds nothing, silently dropping the CI signal (the Vercel-status race that
-  // left multi-PR audit rows blank). Recover the PR↔task link from the commit
-  // SHA, which GitHub still answers post-merge. Best-effort: any lookup error is
-  // swallowed so ingestion never breaks — the signal just stays unlinked.
-  const prNumbers = headBranch
-    ? []
-    : await pullNumbersForCommitSafe(workspaceId, repository.full_name, sha)
-
-  const [taskId, prNumber] = await Promise.all([
-    resolveTaskIdForCommit({
-      workspaceId,
-      repo: repository.full_name,
-      prNumbers,
-      headBranch,
-    }),
-    resolvePrNumberForCommit({
-      workspaceId,
-      repo: repository.full_name,
-      prNumbers,
-      headBranch,
-    }),
-  ])
-  waitUntil(
-    ciSignalService.reconcileCommit({
-      workspaceId,
-      repo: repository.full_name,
-      headSha: sha,
-      taskId,
-      prNumber,
-    })
-  )
 }
 
 // ── Comment mirror handlers ───────────────────────────────────────────────────

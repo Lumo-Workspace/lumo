@@ -357,7 +357,6 @@ model Workspace {
   droppedFragments        DroppedFragment[]
   outcomeSignals          OutcomeSignal[]
   taskDependencies        TaskDependency[]
-  gateSignals             GateSignal[]
   lumoCiRuns              LumoCiRun[]
   ideas                   Idea[]
   priorities              Priority[]
@@ -1139,7 +1138,6 @@ model Task {
   blockedByEdges             TaskDependency[]            @relation("TaskBlockedBy")
   blockingEdges              TaskDependency[]            @relation("TaskBlocking")
   autoBlocks                 AutoBlock[]
-  gateSignals                GateSignal[]
   lumoCiRuns                 LumoCiRun[]
   testCases                  TestCase[]
   testCaseRuns               TestCaseRun[]
@@ -2661,47 +2659,13 @@ model HookEvent {
   @@map("hook_events")
 }
 
-/// LUM-616 — independent execution-gate signal. Unlike the agent-self-reported
-/// gate signal (derived on the fly from HookEvent Bash rows), this row records a
-/// pass/fail produced by CI on GitHub's runners (check-runs / commit-statuses),
-/// so it cannot be skipped or faked by the agent. The gate-audit read-model
-/// merges these with the HookEvent-derived signals; an independent signal wins
-/// over a self-reported one for the same gate. Append-only — re-runs add rows,
-/// the read-model picks the latest per gate.
-model GateSignal {
-  id          String   @id @default(cuid())
-  workspaceId String
-  taskId      String
-  // Legacy LUM-616 gate classification (typecheck | build | test). LUM-839
-  // stopped classifying CI checks: new rows leave it null and are read by
-  // checkName. Kept (nullable) so historical rows stay intact.
-  gateKey     String?
-  outcome     String // 'success' | 'failure' | 'not_run' (LUM-838: never ran — not a failure)
-  provenance  String // 'independent_harness'
-  source      String // 'github_check' | 'github_status'
-  checkName   String // raw CI check-run name / status context — what the panel shows (LUM-839)
-  detailsUrl  String? // link to the producing CI run
-  headSha     String?
-  // LUM-617: the PR this signal belongs to, resolved at the webhook (from
-  // check_suite.pull_requests or the head branch). Null when the commit maps to
-  // no PR. Lets the gate audit group signals by PR. Additive + nullable.
-  prNumber    Int?
-  createdAt   DateTime @default(now())
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@index([taskId, createdAt])
-  @@map("gate_signals")
-}
-
 // LUM-746: one Lumo-managed CI run (typecheck + test in a Vercel Sandbox) per
 // (pull request, head sha). Retired in LUM-837 — Lumo no longer runs customers'
 // tests or builds, so nothing writes this table any more; it is kept (with its
 // migration) as history for past runs and their lumo_sandbox gate signals. The unique key is the "same sha runs once" rule;
 // the row tracks the workflow run for supersede/cancel and counts toward the
-// per-workspace hourly cap. Verdicts themselves land in GateSignal
-// (source 'lumo_sandbox'); this row only says whether the harness finished.
+// per-workspace hourly cap. Its verdicts lived in GateSignal (dropped in
+// LUM-942); this row only says whether the harness finished.
 model LumoCiRun {
   id            String    @id @default(cuid())
   workspaceId   String

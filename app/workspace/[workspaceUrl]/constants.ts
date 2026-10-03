@@ -13,7 +13,6 @@ export const API = {
     status: (identifier: string) => `/api/tasks/${identifier}/status`,
     forecast: (taskId: string) => `/api/tasks/${taskId}/forecast`,
     progress: (taskId: string) => `/api/tasks/${taskId}/progress`,
-    gates: (taskId: string) => `/api/tasks/${taskId}/gates`,
     securityScans: (taskId: string) => `/api/tasks/${taskId}/security-scans`,
     securityFindingDisposition: (taskId: string, findingId: string) =>
       `/api/tasks/${taskId}/security-findings/${findingId}/disposition`,

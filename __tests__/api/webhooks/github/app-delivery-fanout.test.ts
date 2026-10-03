@@ -37,12 +37,6 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
   prCommentMirrorService: { runInbound: jest.fn() },
 }))
-jest.mock('@/lib/services/ci-signal.service', () => ({
-  ciSignalService: { reconcileCommit: jest.fn() },
-}))
-jest.mock('@/lib/integrations/github/checks', () => ({
-  fetchPullNumbersForCommit: jest.fn(),
-}))
 jest.mock('@/lib/services/security-baseline.service', () => ({
   securityBaselineService: { requestFromPush: jest.fn() },
 }))
@@ -70,7 +64,6 @@ import { githubService } from '@/lib/services/github.service'
 import { githubAppInstallationRepository } from '@/lib/repositories'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prCommentMirrorService } from '@/lib/services/pr-comment-mirror.service'
-import { ciSignalService } from '@/lib/services/ci-signal.service'
 
 const verify = verifyGitHubSignature as jest.Mock
 const findWebhooks = githubService.findWebhooksByRepo as jest.Mock
@@ -81,7 +74,6 @@ const findRows =
 const findPr = pullRequestRepository.findByRepoAndNumber as jest.Mock
 const findByBranch = pullRequestRepository.findByHeadBranch as jest.Mock
 const runInbound = prCommentMirrorService.runInbound as jest.Mock
-const reconcile = ciSignalService.reconcileCommit as jest.Mock
 
 const REPO = 'acme-inc/web'
 
@@ -103,10 +95,6 @@ function makeRequest(event: string, body: object) {
     },
     body: JSON.stringify(body),
   })
-}
-
-function workspacesOf(mock: jest.Mock, argIndex: number) {
-  return mock.mock.calls.map(c => c[argIndex])
 }
 
 beforeEach(() => {
@@ -244,9 +232,7 @@ describe('LUM-924 App delivery fan-out', () => {
       { workspaceId: 'w-b', taskId: 'task-b', pullRequestId: 'pr-b' },
     ])
 
-    // CI status lands on each workspace's own row, and each workspace's CI
-    // signal is tied to its own task.
-    findPr.mockClear()
+    // CI status lands on each workspace's own row.
     await POST(
       makeRequest('check_suite', {
         action: 'completed',
@@ -263,28 +249,6 @@ describe('LUM-924 App delivery fan-out', () => {
     expect(updateCi.mock.calls).toEqual([
       ['w-a', REPO, [7], 'success'],
       ['w-b', REPO, [7], 'success'],
-    ])
-    expect(workspacesOf(findPr, 0)).toEqual(['w-a', 'w-b'])
-    expect(
-      reconcile.mock.calls.map(c => [c[0].workspaceId, c[0].taskId])
-    ).toEqual([
-      ['w-a', 'task-a'],
-      ['w-b', 'task-b'],
-    ])
-
-    // A commit status resolves its PR by head branch inside the workspace.
-    await POST(
-      makeRequest('status', {
-        sha: 'def',
-        state: 'success',
-        branches: [{ name: 'feature' }],
-        repository: { full_name: REPO },
-        installation: { id: 555 },
-      })
-    )
-    expect(findByBranch.mock.calls).toEqual([
-      ['w-a', REPO, 'feature'],
-      ['w-b', REPO, 'feature'],
     ])
   })
 })

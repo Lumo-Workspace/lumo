@@ -32,10 +32,6 @@ import {
   fetchPrStats,
   fetchDefaultBranchHead,
 } from '@/lib/integrations/github/contents'
-import {
-  fetchCommitCiSignals,
-  fetchPullNumbersForCommit,
-} from '@/lib/integrations/github/checks'
 
 const createAppAuthMock = createAppAuth as unknown as jest.Mock
 const findByWorkspace =
@@ -144,14 +140,6 @@ describe('LUM-883 read helpers go through the check', () => {
     ['fetchPrHeadSha', () => fetchPrHeadSha({ ...unconfirmed, prNumber: 1 })],
     ['fetchPrStats', () => fetchPrStats({ ...unconfirmed, prNumber: 1 })],
     ['fetchDefaultBranchHead', () => fetchDefaultBranchHead(unconfirmed)],
-    [
-      'fetchCommitCiSignals',
-      () => fetchCommitCiSignals({ ...unconfirmed, sha: 'abc' }),
-    ],
-    [
-      'fetchPullNumbersForCommit',
-      () => fetchPullNumbersForCommit({ ...unconfirmed, sha: 'abc' }),
-    ],
   ]
 
   it.each(calls)(

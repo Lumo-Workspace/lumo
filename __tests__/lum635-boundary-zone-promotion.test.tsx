@@ -117,37 +117,16 @@ const summaryToggle = () => screen.getByTestId('boundary-summary-toggle')
 
 beforeEach(() => jest.clearAllMocks())
 
-it('boundary crossings zone renders outside the audit fold with a persistent anchor', () => {
+it('boundary crossings zone renders with a persistent anchor', () => {
   setStatus()
   setCrossings([makeCrossing({ id: 'bc-1' })])
-  render(
-    <RecordTab
-      taskIdentifier='LUM-1'
-      enabled={true}
-      gatesSlot={<div data-testid='gates-slot' />}
-    />
-  )
+  render(<RecordTab taskIdentifier='LUM-1' enabled={true} />)
 
-  // The anchor exists while the audit fold is still collapsed (its content —
-  // the injected gates slot — is not mounted), so a shared
-  // #boundary-crossings link always has a live target.
-  const panel = document.getElementById('boundary-crossings')
-  expect(panel).toBeInTheDocument()
-  expect(screen.queryByTestId('gates-slot')).not.toBeInTheDocument()
-
-  // Expand the fold: the forensic signals mount, and the panel is NOT among
-  // them — it precedes the fold in the document.
-  const foldToggle = screen
-    .getByText('Evidence & audit trail')
-    .closest('button')!
-  fireEvent.click(foldToggle)
-  expect(screen.getByTestId('gates-slot')).toBeInTheDocument()
+  // A shared #boundary-crossings link always has a live target, exactly once.
+  expect(document.getElementById('boundary-crossings')).toBeInTheDocument()
   expect(document.querySelectorAll('#boundary-crossings')).toHaveLength(1)
-  expect(
-    panel!.compareDocumentPosition(screen.getByTestId('gates-slot')) &
-      Node.DOCUMENT_POSITION_FOLLOWING
-  ).toBeTruthy()
-  expect(foldToggle.contains(panel)).toBe(false)
+  // LUM-942: the "Evidence & audit trail" fold is gone.
+  expect(screen.queryByText('Evidence & audit trail')).not.toBeInTheDocument()
 })
 
 it('zone header reflects blocking vs converged disposition state', () => {

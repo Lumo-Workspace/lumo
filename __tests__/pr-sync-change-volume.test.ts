@@ -44,9 +44,6 @@ jest.mock('@/lib/services/claim-faithfulness-trigger', () => ({
 jest.mock('@/lib/services/outcome/git-outcome-recorder', () => ({
   gitOutcomeRecorder: { onPush: jest.fn() },
 }))
-jest.mock('@/lib/services/ci-signal.service', () => ({
-  ciSignalService: { reconcileCommit: jest.fn() },
-}))
 
 const upsertPullRequest = githubService.upsertPullRequest as jest.Mock
 

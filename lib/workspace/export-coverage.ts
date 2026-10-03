@@ -60,7 +60,6 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   IdeaPullRequest: MIRROR,
   McpAuditLog: 'operational access log',
   HookEvent: TELEMETRY,
-  GateSignal: TELEMETRY,
   LumoCiRun: TELEMETRY,
   Session: TELEMETRY,
   TaskAttributionSegment: TELEMETRY,

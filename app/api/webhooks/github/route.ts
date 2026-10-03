@@ -3,7 +3,6 @@ import { verifyGitHubSignature } from '@/lib/integrations/github'
 import {
   handlePullRequest,
   handleCheckSuite,
-  handleStatus,
   handlePush,
   handleIssueComment,
   handlePullRequestReview,
@@ -141,9 +140,6 @@ async function dispatchRepoEvent(
         break
       case 'check_suite':
         await handleCheckSuite(payload, workspaceId)
-        break
-      case 'status':
-        await handleStatus(payload, workspaceId)
         break
       case 'issue_comment':
         await handleIssueComment(payload, workspaceId, integrationId)

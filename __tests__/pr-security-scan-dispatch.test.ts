@@ -79,9 +79,6 @@ jest.mock('@/lib/services/outcome/git-outcome-recorder', () => ({
     recordRevertsFromPush: jest.fn(),
   },
 }))
-jest.mock('@/lib/services/ci-signal.service', () => ({
-  ciSignalService: { reconcileCommit: jest.fn() },
-}))
 
 import { handlePullRequest } from '@/app/api/webhooks/github/handlers'
 import { linkPullRequest } from '@/lib/services/task-pr-link.service'

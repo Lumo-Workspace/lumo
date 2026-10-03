@@ -59,10 +59,6 @@ import {
   readRepoFile,
 } from '@/lib/integrations/github/contents'
 import {
-  fetchCommitCiSignals,
-  fetchPullNumbersForCommit,
-} from '@/lib/integrations/github/checks'
-import {
   INSTALLATION_TOKEN_PERMISSIONS,
   PRODUCTION_APP_PERMISSIONS,
   REPO_TOKEN_PERMISSIONS,
@@ -250,16 +246,6 @@ describe('LUM-886 helpers mint with the narrowed permission set', () => {
       'fetchPrHeadSha',
       () => fetchPrHeadSha({ ...repo, prNumber: 7 }),
       { pull_requests: 'read' },
-    ],
-    [
-      'fetchPullNumbersForCommit',
-      () => fetchPullNumbersForCommit({ ...repo, sha: 'abc' }),
-      { pull_requests: 'read' },
-    ],
-    [
-      'fetchCommitCiSignals',
-      () => fetchCommitCiSignals({ ...repo, sha: 'abc' }),
-      { checks: 'read', statuses: 'read', actions: 'read' },
     ],
   ]
 

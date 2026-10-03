@@ -259,10 +259,6 @@ export const tasksClient = {
     return apiFetch<T>(API.tasks.progress(taskId))
   },
 
-  gates<T>(taskId: string) {
-    return apiFetch<T>(API.tasks.gates(taskId))
-  },
-
   /** LUM-732: latest security scan per linked PR + DONE-blocking count. */
   securityScans<T>(taskId: string) {
     return apiFetch<T>(API.tasks.securityScans(taskId))

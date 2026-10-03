@@ -52,7 +52,7 @@ async function pruneWorkspace(
     retentionDays
   ) as unknown as Prisma.InputJsonValue
   // Exemption ②: events of a task that is not DONE yet stay whole — the
-  // DONE gate, gate audit and crossing review may still need them.
+  // DONE gate and crossing review may still need them.
   const openTaskIds =
     await hookEventRetentionRepository.findOpenTaskIds(workspaceId)
 
