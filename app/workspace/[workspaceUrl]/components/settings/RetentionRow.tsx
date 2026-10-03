@@ -48,8 +48,8 @@ export function RetentionRow({
       data-testid={`retention-row-${id}`}
       className='px-5 py-4 border-b border-border last:border-b-0'
     >
-      <div className='flex items-start justify-between gap-4'>
-        <div className='min-w-0'>
+      <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4'>
+        <div className='min-w-0 sm:flex-1'>
           <label
             htmlFor={`retention-${id}`}
             className='text-sm font-medium text-foreground'
@@ -59,13 +59,13 @@ export function RetentionRow({
           <p className='text-xs text-muted-foreground mt-0.5'>{description}</p>
           {notes}
         </div>
-        <div className='flex shrink-0 items-center gap-2'>
+        <div className='flex items-center gap-2 sm:shrink-0'>
           <select
             id={`retention-${id}`}
             value={value}
             onChange={e => onChange(e.target.value)}
             disabled={saving}
-            className='h-8 rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
+            className='h-8 min-w-0 flex-1 sm:w-72 sm:flex-none rounded-md border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed'
           >
             {options.map(o => (
               <option key={o.value} value={o.value}>
