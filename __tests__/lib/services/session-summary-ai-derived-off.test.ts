@@ -30,7 +30,7 @@ import { aiDerivedContentService } from '@/lib/services/ai-derived-content.servi
 import { classifySession } from '@/lib/services/session-summary/classifier'
 import { AI_DERIVED_OFF_CODE } from '@/lib/ai-derived/constants'
 
-it('refuses with AI_DERIVED_OFF_CODE and never calls the model', async () => {
+it('session summary refuses with AI_DERIVED_OFF_CODE and never calls the model (LUM-917)', async () => {
   ;(sessionRepository.findByIdForMember as jest.Mock).mockResolvedValue({
     id: 's1',
     workspaceId: 'w1',
