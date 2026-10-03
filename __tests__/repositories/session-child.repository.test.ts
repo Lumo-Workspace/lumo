@@ -400,6 +400,80 @@ describe('settleChildUsage', () => {
   })
 })
 
+describe('settleChildUsage — usage drop re-baselines (LUM-932 dedupe upgrade)', () => {
+  const inflated = {
+    sonnet: { input: 200, output: 20, cacheRead: 0, cacheCreation: 0 },
+  }
+  const deduped = {
+    inputTokens: 100,
+    outputTokens: 10,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+    byModel: {
+      sonnet: { input: 100, output: 10, cacheRead: 0, cacheCreation: 0 },
+    },
+  }
+
+  it('overwrites the inflated cumulative with the lower one and adds nothing to the SUBAGENT_STOP row', async () => {
+    tx.session.findUnique.mockResolvedValueOnce({
+      id: 'P:a1',
+      taskId: null,
+      usageByModel: inflated,
+    })
+    tx.hookEvent.findFirst.mockResolvedValue({ id: 'he9', usageByModel: null })
+    const r = await sessionRepository.settleChildUsage({
+      ...base,
+      parentSessionId: 'P',
+      agentId: 'a1',
+      usage: deduped,
+    })
+    expect(tx.hookEvent.update).not.toHaveBeenCalled()
+    expect(tx.session.update).toHaveBeenCalledWith({
+      where: { id: 'P:a1' },
+      data: {
+        inputTokens: 100,
+        outputTokens: 10,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+        usageByModel: deduped.byModel,
+      },
+    })
+    expect(r).toEqual({ settled: false })
+  })
+
+  it('then settles later growth against the lower baseline', async () => {
+    tx.session.findUnique.mockResolvedValueOnce({
+      id: 'P:a1',
+      taskId: null,
+      usageByModel: deduped.byModel,
+    })
+    tx.hookEvent.findFirst.mockResolvedValueOnce({
+      id: 'he9',
+      usageByModel: null,
+    })
+    await sessionRepository.settleChildUsage({
+      ...base,
+      parentSessionId: 'P',
+      agentId: 'a1',
+      usage: {
+        ...deduped,
+        inputTokens: 130,
+        byModel: {
+          sonnet: { input: 130, output: 10, cacheRead: 0, cacheCreation: 0 },
+        },
+      },
+    })
+    expect(tx.hookEvent.update).toHaveBeenCalledWith({
+      where: { id: 'he9' },
+      data: {
+        usageByModel: {
+          sonnet: { input: 30, output: 0, cacheRead: 0, cacheCreation: 0 },
+        },
+      },
+    })
+  })
+})
+
 describe('upsertWithTaskId (child linkage)', () => {
   const args = {
     id: 'P:a1',

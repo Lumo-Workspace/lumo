@@ -742,6 +742,86 @@ describe('sessionRepository.upsertForHookEvent — liveUsageByModel snapshot (LU
   })
 })
 
+describe('usage drop re-baselines (LUM-932 dedupe upgrade)', () => {
+  // A CLI that dedupes transcript usage by message id reports a cumulative
+  // BELOW the inflated one an older CLI stored for the same session.
+  const inflated = {
+    opus: { input: 2000, output: 1000, cacheRead: 400, cacheCreation: 200 },
+  }
+  const inflatedLive = {
+    opus: { input: 2100, output: 1050, cacheRead: 420, cacheCreation: 210 },
+  }
+  const deduped = {
+    opus: { input: 1000, output: 500, cacheRead: 200, cacheCreation: 100 },
+  }
+  const usage = {
+    inputTokens: 1000,
+    outputTokens: 500,
+    cacheReadTokens: 200,
+    cacheCreationTokens: 100,
+    byModel: deduped,
+  }
+  const args = {
+    id: 'sess_1',
+    workspaceId: 'ws_1',
+    workspaceMemberId: 'wm_1',
+    cwd: '/repo',
+    now,
+    usage,
+  }
+  const zero = {
+    opus: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+  }
+
+  it('STOP: zero per-turn delta, cumulative and stale live snapshot replaced by the lower value', async () => {
+    findUnique.mockResolvedValue({
+      usageByModel: inflated,
+      liveUsageByModel: inflatedLive,
+    })
+    const result = await sessionRepository.upsertForHookEvent({
+      ...args,
+      isStop: true,
+    })
+    const a = upsert.mock.calls[0][0]
+    expect(result.turnUsageByModel).toEqual(zero)
+    expect(a.update.inputTokens).toBe(1000)
+    expect(a.update.usageByModel).toEqual(deduped)
+    // Otherwise the next batch would diff against the stale larger live map.
+    expect(a.update.liveUsageByModel).toEqual(deduped)
+  })
+
+  it('STOP: a live snapshot below the new cumulative is left alone (old CLIs unchanged)', async () => {
+    findUnique.mockResolvedValue({
+      usageByModel: {
+        opus: { input: 400, output: 200, cacheRead: 50, cacheCreation: 40 },
+      },
+      liveUsageByModel: {
+        opus: { input: 900, output: 450, cacheRead: 150, cacheCreation: 90 },
+      },
+    })
+    await sessionRepository.upsertForHookEvent({ ...args, isStop: true })
+    expect(upsert.mock.calls[0][0].update).not.toHaveProperty(
+      'liveUsageByModel'
+    )
+  })
+
+  it('POST_TOOL_BATCH: zero per-step delta, live snapshot replaced by the lower value', async () => {
+    findUnique.mockResolvedValue({
+      usageByModel: inflated,
+      liveUsageByModel: inflatedLive,
+    })
+    const result = await sessionRepository.upsertForHookEvent({
+      ...args,
+      isStop: false,
+    })
+    const a = upsert.mock.calls[0][0]
+    expect(result.turnUsageByModel).toEqual(zero)
+    expect(a.update.inputTokens).toBe(1000)
+    expect(a.update.liveUsageByModel).toEqual(deduped)
+    expect(a.update).not.toHaveProperty('usageByModel')
+  })
+})
+
 describe('sessionRepository timeline child reads (LUM-932)', () => {
   it('lists child sessions bound to the task with the timeline projection + parent id', async () => {
     findMany.mockResolvedValue([])
