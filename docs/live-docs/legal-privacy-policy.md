@@ -14,7 +14,7 @@ This policy explains what personal data [Lumo legal entity], [registered address
 | Category | What it includes | Where it comes from |
 | --- | --- | --- |
 | Account data | Name, email address, profile image, sign-in method, workspace memberships and roles | You, when you sign up or are invited; your identity provider if you sign in with one |
-| Workspace content | Tasks, projects, milestones, sprints, ideas, documents, comments, acceptance criteria, test cases, team memory, and files you upload (images, logos, test evidence) | You and your teammates |
+| Workspace content | Tasks, projects, milestones, sprints, ideas, documents, comments, test cases and their run records, team memory, and files you upload (images, logos, test evidence) | You and your teammates |
 | Agent hook events | Records of AI coding-agent sessions sent by the Lumo CLI hooks: prompts, tool calls, file contents the agent read or wrote, command output, session summaries | The Lumo CLI running on your team's machines, once installed |
 | Customer code | Pull-request diffs, repository files, check results and code excerpts attached to security findings | The Lumo GitHub App on repositories your admin installs it on |
 | Integration tokens | OAuth and access tokens for GitHub, Slack, Figma and Google Drive, and webhook secrets | You, when you connect an integration |
@@ -28,7 +28,7 @@ Agent hook events and customer code can contain personal data that happens to ap
 
 | Purpose | Data used | Legal basis (GDPR) |
 | --- | --- | --- |
-| Provide the Service: show and sync your workspace, run agent-session tracking, acceptance verification and team memory | Account data, workspace content, agent hook events | Performance of our contract with you or your organisation |
+| Provide the Service: show and sync your workspace, track agent sessions, record test-case runs, check whether a task can be marked done (open boundary crossings, blocking security findings and defects proven by test-case runs can hold it) and build team memory | Account data, workspace content, agent hook events | Performance of our contract with you or your organisation |
 | Review pull requests for security issues and post results back to GitHub | Customer code | Performance of contract |
 | AI features: security review, summaries, memory extraction, planning and task suggestions | Workspace content, agent hook events, customer code | Performance of contract |
 | Authenticate you and keep accounts secure; prevent abuse through rate limiting | Account data, technical data | Legitimate interest in running a secure service |

@@ -205,6 +205,8 @@ describe('/security page (LUM-856)', () => {
     expect(MESSAGES.en!['security.code.export']).toMatch(
       /does not yet include everything/
     )
+    // LUM-942 removed acceptance criteria; EXPORT_KINDS has no such kind.
+    expect(MESSAGES.en!['security.code.export']).not.toMatch(/criteria/i)
     expect(MESSAGES.en!['security.code.deletion']).toMatch(/48 hours/)
     // Read from source: importing trash.service would load Prisma.
     const TRASH_RETENTION_DAYS = Number(

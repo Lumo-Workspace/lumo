@@ -117,4 +117,25 @@ describe('legal retention claims LUM-915', () => {
       }
     }
   })
+
+  it('legal sources no longer describe acceptance criteria or lumo verify', () => {
+    // LUM-942 (#1209/#1210/#1211) removed acceptance criteria, lumo verify and
+    // verification rounds; test cases remain, and DONE is held only by open
+    // boundary crossings, blocking security findings and test-case defects
+    // (lib/services/done-verdict.service.ts).
+    for (const doc of [read(POLICY), read(DPA)]) {
+      expect(doc).not.toMatch(
+        /acceptance criteri|acceptance verification|verifying acceptance|agent-verification|lumo verify|verification round|verdict/i
+      )
+      // The only "verify" left is identity verification for rights requests.
+      for (const line of doc.split('\n'))
+        if (/verif/i.test(line)) expect(line).toMatch(/verify your identity/)
+    }
+    expect(row(read(POLICY), 'Workspace content')).toMatch(
+      /test cases and their run records/
+    )
+    expect(row(read(DPA), 'Workspace content')).toMatch(
+      /test cases and their run records/
+    )
+  })
 })
