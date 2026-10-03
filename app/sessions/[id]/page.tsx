@@ -7,6 +7,7 @@ import { SessionHeader } from './SessionHeader'
 import { SessionAttribution } from './SessionAttribution'
 import { SummaryCard } from './SummaryCard'
 import { TimelineSection } from './TimelineSection'
+import { SessionRawRecordSection } from './SessionRawRecordSection'
 import { activeDurationMs } from '@/lib/agent-run/active-time'
 
 export const dynamic = 'force-dynamic'
@@ -76,6 +77,8 @@ export default async function SessionDetailPage({
       />
 
       <SessionAttribution view={attribution} />
+
+      <SessionRawRecordSection sessionId={session.id} />
 
       <TimelineSection items={items} />
     </div>

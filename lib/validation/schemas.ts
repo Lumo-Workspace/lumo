@@ -76,6 +76,11 @@ export const purgeAiDerivedContentSchema = z.object({
   confirmName: z.string().min(1).max(200),
 })
 
+/** LUM-944: one pass of deleting a session's raw record; `after` resumes a pass. */
+export const deleteSessionRawRecordSchema = z.object({
+  after: z.string().min(1).max(200).nullish(),
+})
+
 /** LUM-918: running a pending workspace deletion now needs the name re-typed. */
 export const deleteWorkspaceNowSchema = z.object({
   confirmName: z.string().min(1).max(200),

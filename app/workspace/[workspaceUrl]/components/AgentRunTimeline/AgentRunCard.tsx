@@ -15,6 +15,7 @@ import { RunAttributionBadge, RunAttributionPanel } from './RunAttribution'
 import { initialsOf } from '../initials'
 import { formatDurationMs } from '@/lib/datetime/duration'
 import { runOverstated } from '@/lib/agent-run/usage-dedupe-cutoff'
+import { RunRawRecordDelete } from './RunRawRecordDelete'
 
 interface AgentRunCardProps {
   run: AgentRunSession
@@ -231,6 +232,8 @@ export function AgentRunCard({
               ))}
             </div>
           )}
+          {/* LUM-944: shown only to the session's member or a workspace OWNER. */}
+          {run.sessionId && <RunRawRecordDelete sessionId={run.sessionId} />}
         </div>
       )}
     </div>

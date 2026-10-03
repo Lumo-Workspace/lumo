@@ -7,7 +7,10 @@
  * Pure: no React, no Prisma, no I/O — trivially unit-testable.
  */
 
-import { isPrunedPayload } from '@/lib/hook-event/retention'
+import {
+  isPrunedPayload,
+  isUserDeletedPayload,
+} from '@/lib/hook-event/retention'
 import {
   readRedactedPatch,
   readRedactedStats,
@@ -102,6 +105,8 @@ export interface TimelineItem {
   /** The retention sweep cleared this event's payload (LUM-859); the view
    *  renders the localized notice instead of `summary`. */
   pruned: boolean
+  /** LUM-944: the payload was cleared by a member's delete (implies `pruned`). */
+  deleted: boolean
   /** Set instead of `summary` for placeholder / parametric row text. */
   summaryMsg: SummaryMsg | null
   /** Short trailing badge, e.g. "+12 -3" or "3 lines". Optional. */
@@ -176,6 +181,7 @@ function prunedItem(ev: RawEvent): TimelineItem {
     toolName: ev.toolName,
     summary: '',
     pruned: true,
+    deleted: isUserDeletedPayload(ev.payload),
     summaryMsg: null,
     badge: null,
     status: 'ok',
@@ -210,6 +216,7 @@ function userPromptItem(ev: RawEvent): TimelineItem {
     toolName: null,
     summary,
     pruned: false,
+    deleted: false,
     summaryMsg,
     badge: null,
     status: 'ok',
@@ -232,6 +239,7 @@ function stopItem(ev: RawEvent): TimelineItem {
     toolName: null,
     summary,
     pruned: false,
+    deleted: false,
     summaryMsg,
     badge: null,
     status: 'ok',
@@ -261,6 +269,7 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
     toolName,
     summary,
     pruned: false,
+    deleted: false,
     summaryMsg: summaryMsg ?? null,
     badge,
     status,

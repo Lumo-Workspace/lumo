@@ -23,6 +23,12 @@ export const PRUNE_REASON_RETENTION = 'RETENTION_POLICY'
 /** LUM-910: the payload was dropped 7 days after its work was used up. */
 export const PRUNE_REASON_USED_UP = 'USED_UP'
 
+/**
+ * LUM-944: a member (or the workspace OWNER) deleted the session's raw record
+ * by hand. The marker names who did it — it is the audit record of the delete.
+ */
+export const PRUNE_REASON_USER_DELETED = 'USER_DELETED'
+
 export type PrunedPayloadMarker =
   | {
       /** ISO time the payload was cleared. */
@@ -34,6 +40,12 @@ export type PrunedPayloadMarker =
       at: string
       reason: typeof PRUNE_REASON_USED_UP
       graceDays: number
+    }
+  | {
+      at: string
+      reason: typeof PRUNE_REASON_USER_DELETED
+      /** WorkspaceMember id of who deleted it. */
+      by: string
     }
 
 /** The whole payload an expired event is left with: the marker and nothing else. */
@@ -59,6 +71,20 @@ export function buildUsedUpPrunedPayload(at: Date): {
       at: at.toISOString(),
       reason: PRUNE_REASON_USED_UP,
       graceDays: USED_UP_GRACE_DAYS,
+    },
+  }
+}
+
+/** LUM-944: the marker an event is left with after its session's raw record was deleted. */
+export function buildUserDeletedPayload(
+  at: Date,
+  byWorkspaceMemberId: string
+): { [PRUNED_PAYLOAD_KEY]: PrunedPayloadMarker } {
+  return {
+    [PRUNED_PAYLOAD_KEY]: {
+      at: at.toISOString(),
+      reason: PRUNE_REASON_USER_DELETED,
+      by: byWorkspaceMemberId,
     },
   }
 }
@@ -153,6 +179,15 @@ export function isPrunedPayload(payload: unknown): boolean {
     return false
   const marker = (payload as Record<string, unknown>)[PRUNED_PAYLOAD_KEY]
   return !!marker && typeof marker === 'object'
+}
+
+/** LUM-944: true when the payload was cleared by a member's delete, not by a sweep. */
+export function isUserDeletedPayload(payload: unknown): boolean {
+  if (!isPrunedPayload(payload)) return false
+  const marker = (payload as Record<string, Record<string, unknown>>)[
+    PRUNED_PAYLOAD_KEY
+  ]
+  return marker?.reason === PRUNE_REASON_USER_DELETED
 }
 
 // ── LUM-933: a setting change only governs data stored afterwards ──────────
