@@ -112,3 +112,49 @@ describe('SessionAttribution', () => {
     expect(screen.queryByText(/Measurement may be inaccurate/)).toBeNull()
   })
 })
+
+describe('SessionAttribution grouping and dedupe', () => {
+  it('groups identical subagents and dedupes evidence', () => {
+    const ev = (at: string) => ({
+      kind: 'LUMO_CMD' as const,
+      identifier: 'LUM-855',
+      at,
+    })
+    const task = {
+      taskIdentifier: 'LUM-9',
+      source: 'INHERITED' as const,
+      confidence: 'EXPLICIT' as const,
+    }
+    render(
+      <SessionAttribution
+        view={view({
+          segments: [
+            {
+              taskIdentifier: 'LUM-855',
+              source: 'INFERRED',
+              confidence: 'HIGH',
+              fromTurn: 0,
+              toTurn: 1,
+              evidence: [
+                ev('2026-06-07T10:00:00Z'),
+                ev('2026-06-07T10:01:00Z'),
+              ],
+            },
+          ],
+          subagents: [
+            { sessionId: 'a', agentType: 'general-purpose', tasks: [task] },
+            { sessionId: 'b', agentType: 'general-purpose', tasks: [task] },
+            { sessionId: 'c', agentType: 'general-purpose', tasks: [task] },
+            { sessionId: 'd', agentType: 'Plan', tasks: [] },
+          ],
+        })}
+      />
+    )
+    const rows = screen.getAllByTestId('session-attribution-subagent')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveTextContent('general-purpose ×3')
+    expect(rows[0]).toHaveAttribute('data-count', '3')
+    expect(screen.getAllByText(/Lumo command/)).toHaveLength(1)
+    expect(screen.getByText(/Lumo command · LUM-855 ×2/)).toBeInTheDocument()
+  })
+})

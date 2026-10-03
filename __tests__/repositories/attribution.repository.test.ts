@@ -56,8 +56,8 @@ beforeEach(() => {
   jest.clearAllMocks()
 })
 
-it('exports compute version 1', () => {
-  expect(ATTRIBUTION_COMPUTE_VERSION).toBe(1)
+it('exports compute version 2', () => {
+  expect(ATTRIBUTION_COMPUTE_VERSION).toBe(2)
 })
 
 describe('loadFamily', () => {
@@ -141,7 +141,7 @@ describe('loadFamily', () => {
     })
   })
 
-  it('fetches payloads only for never-computed, unpruned events and merges by id', async () => {
+  it('fetches payloads only for never-computed or root task-notification, unpruned events and merges by id', async () => {
     const root = {
       id: 'r',
       workspaceId: 'ws',
@@ -171,8 +171,20 @@ describe('loadFamily', () => {
     expect(payloadArgs.where).toEqual({
       workspaceId: 'ws',
       sessionId: { in: ['r'] },
-      attributionSignals: { equals: Prisma.DbNull },
       payloadPrunedAt: null,
+      OR: [
+        { attributionSignals: { equals: Prisma.DbNull } },
+        {
+          sessionId: 'r',
+          type: 'USER_PROMPT_SUBMIT',
+          NOT: {
+            attributionSignals: {
+              array_contains: [{ kind: 'NOTIFICATION' }],
+            },
+          },
+          payload: { path: ['prompt'], string_contains: '<task-notification>' },
+        },
+      ],
     })
     expect(payloadArgs.select).toEqual({ id: true, payload: true })
     expect(fam!.events.map(e => [e.id, e.payload])).toEqual([
@@ -647,7 +659,11 @@ describe('listTaskSegments', () => {
     )
     expect(rows).toHaveLength(2)
     expect(rows[0]).not.toHaveProperty('session')
-    expect(rows[0]).toMatchObject({ sessionId: 'r', parentSessionId: null, agentType: null })
+    expect(rows[0]).toMatchObject({
+      sessionId: 'r',
+      parentSessionId: null,
+      agentType: null,
+    })
     expect(rows[1]).toMatchObject({
       sessionId: 'r:a1',
       parentSessionId: 'r',

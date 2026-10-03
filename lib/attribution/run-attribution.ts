@@ -23,6 +23,52 @@ export interface EvidenceView {
   identifier: string
   at: string
 }
+export interface DedupedEvidence extends EvidenceView {
+  count: number
+}
+/** Collapse repeated signals by (kind, identifier): first-seen order, the
+ *  earliest `at`, and how many times the signal fired. */
+export function dedupeEvidence(evidence: EvidenceView[]): DedupedEvidence[] {
+  const byKey = new Map<string, DedupedEvidence>()
+  for (const e of evidence) {
+    const key = `${e.kind}\u0000${e.identifier}`
+    const prev = byKey.get(key)
+    if (!prev) {
+      byKey.set(key, {
+        kind: e.kind,
+        identifier: e.identifier,
+        at: e.at,
+        count: 1,
+      })
+    } else {
+      prev.count += 1
+      if (Date.parse(e.at) < Date.parse(prev.at)) prev.at = e.at
+    }
+  }
+  return [...byKey.values()]
+}
+
+/** Evidence of a group of look-alike subagents: the deduped union with each
+ *  entry's count the maximum any one member recorded (not the sum, which
+ *  would read as one subagent firing the signal that many times). */
+export function mergeGroupEvidence(
+  members: EvidenceView[][]
+): DedupedEvidence[] {
+  const merged = new Map<string, DedupedEvidence>()
+  for (const member of members) {
+    for (const e of dedupeEvidence(member)) {
+      const key = `${e.kind}\u0000${e.identifier}`
+      const prev = merged.get(key)
+      if (!prev) merged.set(key, e)
+      else {
+        prev.count = Math.max(prev.count, e.count)
+        if (Date.parse(e.at) < Date.parse(prev.at)) prev.at = e.at
+      }
+    }
+  }
+  return [...merged.values()]
+}
+
 export interface RunSegmentView {
   source: AttributionSourceName
   confidence: AttributionConfidenceName
@@ -116,7 +162,10 @@ export function buildRunAttribution({
 }): RunAttribution {
   const segments = rows
     .filter(r => r.sessionId === runSessionId)
-    .sort((a, b) => a.fromTurn - b.fromTurn || a.fromAt.getTime() - b.fromAt.getTime())
+    .sort(
+      (a, b) =>
+        a.fromTurn - b.fromTurn || a.fromAt.getTime() - b.fromAt.getTime()
+    )
     .map(toSegmentView)
   const byChild = new Map<string, RunSubagentView>()
   const childFromAt = new Map<string, number>()
@@ -147,7 +196,10 @@ export function buildRunAttribution({
   const subagents = [...byChild.values()]
   for (const sub of subagents) {
     if (sub.source !== 'INFERRED' || sub.evidence.length > 0) continue
-    const inherited = parentEvidenceAt(segments, childFromAt.get(sub.sessionId)!)
+    const inherited = parentEvidenceAt(
+      segments,
+      childFromAt.get(sub.sessionId)!
+    )
     if (inherited.length === 0) continue
     sub.evidence = inherited
     sub.followsParent = true
@@ -167,7 +219,8 @@ function parentEvidenceAt(
 ): EvidenceView[] {
   const covering = segments.filter(
     s =>
-      Date.parse(s.fromAt) <= at && (s.toAt === null || Date.parse(s.toAt) >= at)
+      Date.parse(s.fromAt) <= at &&
+      (s.toAt === null || Date.parse(s.toAt) >= at)
   )
   const fromCovering = covering.flatMap(s => s.evidence)
   if (fromCovering.length > 0) return [...fromCovering]

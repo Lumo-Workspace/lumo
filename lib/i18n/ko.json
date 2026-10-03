@@ -2802,5 +2802,7 @@
   "sessions.timeline.badge.lines": "{count}줄",
   "sessions.timeline.badge.linesWithType": "{type} · {count}줄",
   "sessions.timeline.badge.files": "파일 {count}개",
-  "sessions.timeline.badge.matches": "일치 {count}개"
+  "sessions.timeline.badge.matches": "일치 {count}개",
+  "agentRun.attribution.subagentCount": "{label} ×{count}",
+  "agentRun.attribution.evidenceCount": "{label} ×{count}"
 }

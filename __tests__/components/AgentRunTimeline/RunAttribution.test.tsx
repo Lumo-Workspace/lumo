@@ -143,8 +143,8 @@ describe('RunAttribution', () => {
     expect(screen.queryByTestId('run-approximate')).toBeNull()
   })
 
-  it('says no signal for an inferred segment without evidence', () => {
-    renderBoth(attr({ segments: [seg()] }))
+  it('says no signal for a medium inferred segment without evidence', () => {
+    renderBoth(attr({ segments: [seg({ confidence: 'MEDIUM' })] }))
     expect(screen.getByText('No recorded signal')).toBeInTheDocument()
   })
 
@@ -158,7 +158,11 @@ describe('RunAttribution', () => {
             confidence: 'HIGH',
             followsParent: true,
             evidence: [
-              { kind: 'BRANCH', identifier: 'LUM-12', at: '2026-06-07T15:48:00Z' },
+              {
+                kind: 'BRANCH',
+                identifier: 'LUM-12',
+                at: '2026-06-07T15:48:00Z',
+              },
             ],
           }),
         ],
@@ -180,5 +184,79 @@ describe('RunAttribution', () => {
     expect(screen.getByTestId('run-attribution-badge')).toHaveTextContent(
       'Auto-detected · Medium confidence'
     )
+  })
+})
+
+describe('RunAttribution grouping and dedupe', () => {
+  it('groups identical subagents into one counted row', () => {
+    renderBoth(
+      attr({
+        mode: 'HOST',
+        approximate: false,
+        subagents: [
+          sub({ sessionId: 'a', source: 'INHERITED' }),
+          sub({ sessionId: 'b', source: 'INHERITED' }),
+          sub({ sessionId: 'c', source: 'INHERITED' }),
+          sub({ sessionId: 'd', agentType: 'Explore' }),
+        ],
+      })
+    )
+    const rows = screen.getAllByTestId('attribution-subagent')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveTextContent('general-purpose ×3')
+    expect(rows[0]).toHaveAttribute('data-count', '3')
+    expect(rows[1]).not.toHaveTextContent('×')
+  })
+
+  it('shows grouped subagents evidence with the per-member maximum, not the sum', () => {
+    const e = {
+      kind: 'BRANCH' as const,
+      identifier: 'LUM-12',
+      at: '2026-06-07T15:48:00Z',
+    }
+    renderBoth(
+      attr({
+        mode: 'HOST',
+        approximate: false,
+        subagents: Array.from({ length: 5 }, (_, i) =>
+          sub({ sessionId: `s${i}`, source: 'INFERRED', evidence: [e] })
+        ),
+      })
+    )
+    const row = screen.getByTestId('attribution-subagent')
+    expect(row).toHaveTextContent('general-purpose ×5')
+    expect(row).toHaveTextContent('Branch name · LUM-12')
+    expect(row).not.toHaveTextContent('LUM-12 ×')
+  })
+
+  it('does not show a no-signal line next to a HIGH inferred segment', () => {
+    renderBoth(attr({ segments: [seg({ confidence: 'HIGH', evidence: [] })] }))
+    expect(screen.queryByText('No recorded signal')).not.toBeInTheDocument()
+  })
+
+  it('dedupes repeated evidence with a count and the earliest time', () => {
+    const ev = (at: string) => ({
+      kind: 'LUMO_CMD' as const,
+      identifier: 'LUM-855',
+      at,
+    })
+    renderBoth(
+      attr({
+        segments: [
+          seg({
+            evidence: [
+              ev('2026-06-07T15:50:00Z'),
+              ev('2026-06-07T15:48:00Z'),
+              ev('2026-06-07T15:49:00Z'),
+            ],
+          }),
+        ],
+      })
+    )
+    const panel = screen.getByTestId('run-attribution-panel')
+    expect(within(panel).getAllByText(/Lumo command/)).toHaveLength(1)
+    expect(
+      within(panel).getByText(/Lumo command · LUM-855 ×3/)
+    ).toBeInTheDocument()
   })
 })

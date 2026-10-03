@@ -2802,5 +2802,7 @@
   "sessions.timeline.badge.lines": "{count} baris",
   "sessions.timeline.badge.linesWithType": "{type} · {count} baris",
   "sessions.timeline.badge.files": "{count} fail",
-  "sessions.timeline.badge.matches": "{count} padanan"
+  "sessions.timeline.badge.matches": "{count} padanan",
+  "agentRun.attribution.subagentCount": "{label} ×{count}",
+  "agentRun.attribution.evidenceCount": "{label} ×{count}"
 }

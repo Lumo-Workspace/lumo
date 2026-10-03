@@ -1,5 +1,7 @@
 import {
   buildRunAttribution,
+  dedupeEvidence,
+  mergeGroupEvidence,
   parseEvidence,
   summarizeRunAttributions,
   type RunAttribution,
@@ -31,7 +33,9 @@ describe('run attribution read model', () => {
         row({
           fromTurn: 0,
           toTurn: 1,
-          evidence: [{ kind: 'BRANCH', identifier: 'LUM-12', at: at(1).toISOString() }],
+          evidence: [
+            { kind: 'BRANCH', identifier: 'LUM-12', at: at(1).toISOString() },
+          ],
         }),
       ],
     })
@@ -54,7 +58,11 @@ describe('run attribution read model', () => {
           source: 'SUBAGENT_ATTACH',
           confidence: 'EXPLICIT',
         }),
-        row({ sessionId: 'other', source: 'SESSION_ATTACH', confidence: 'EXPLICIT' }),
+        row({
+          sessionId: 'other',
+          source: 'SESSION_ATTACH',
+          confidence: 'EXPLICIT',
+        }),
       ],
     })
     expect(a.segments).toEqual([])
@@ -76,15 +84,35 @@ describe('run attribution read model', () => {
       runSessionId: 'root',
       mode: 'INFERRED',
       rows: [
-        row({ sessionId: 'root:a1', parentSessionId: 'root', confidence: 'HIGH',
-          evidence: [{ kind: 'AGENT_PROMPT', identifier: 'LUM-12', at: at(2).toISOString() }] }),
-        row({ sessionId: 'root:a1', parentSessionId: 'root', confidence: 'MEDIUM', fromAt: at(5),
-          evidence: [{ kind: 'PROMPT', identifier: 'LUM-12', at: at(5).toISOString() }] }),
+        row({
+          sessionId: 'root:a1',
+          parentSessionId: 'root',
+          confidence: 'HIGH',
+          evidence: [
+            {
+              kind: 'AGENT_PROMPT',
+              identifier: 'LUM-12',
+              at: at(2).toISOString(),
+            },
+          ],
+        }),
+        row({
+          sessionId: 'root:a1',
+          parentSessionId: 'root',
+          confidence: 'MEDIUM',
+          fromAt: at(5),
+          evidence: [
+            { kind: 'PROMPT', identifier: 'LUM-12', at: at(5).toISOString() },
+          ],
+        }),
       ],
     })
     expect(a.subagents).toHaveLength(1)
     expect(a.subagents[0]!.confidence).toBe('MEDIUM')
-    expect(a.subagents[0]!.evidence.map(e => e.kind)).toEqual(['AGENT_PROMPT', 'PROMPT'])
+    expect(a.subagents[0]!.evidence.map(e => e.kind)).toEqual([
+      'AGENT_PROMPT',
+      'PROMPT',
+    ])
   })
 
   it('an explicit run with only inherited subagents is exact', () => {
@@ -93,7 +121,12 @@ describe('run attribution read model', () => {
       mode: 'EXPLICIT',
       rows: [
         row({ source: 'SESSION_ATTACH', confidence: 'EXPLICIT' }),
-        row({ sessionId: 'root:a1', parentSessionId: 'root', source: 'INHERITED', confidence: 'EXPLICIT' }),
+        row({
+          sessionId: 'root:a1',
+          parentSessionId: 'root',
+          source: 'INHERITED',
+          confidence: 'EXPLICIT',
+        }),
       ],
     })
     expect(a.approximate).toBe(false)
@@ -103,19 +136,34 @@ describe('run attribution read model', () => {
     const a = buildRunAttribution({
       runSessionId: 'root',
       mode: 'HOST',
-      rows: [row({ sessionId: 'root:a1', parentSessionId: 'root', source: 'INFERRED' })],
+      rows: [
+        row({
+          sessionId: 'root:a1',
+          parentSessionId: 'root',
+          source: 'INFERRED',
+        }),
+      ],
     })
     expect(a.approximate).toBe(true)
   })
 
   it('an inferred subagent without its own signal follows the root segment covering its time', () => {
-    const ev = (kind: string, m: number) => ({ kind, identifier: 'LUM-12', at: at(m).toISOString() })
+    const ev = (kind: string, m: number) => ({
+      kind,
+      identifier: 'LUM-12',
+      at: at(m).toISOString(),
+    })
     const a = buildRunAttribution({
       runSessionId: 'root',
       mode: 'INFERRED',
       rows: [
         row({ fromAt: at(0), toAt: at(15), evidence: [ev('BRANCH', 0)] }),
-        row({ fromTurn: 3, toTurn: 4, fromAt: at(20), evidence: [ev('COMMIT', 20)] }),
+        row({
+          fromTurn: 3,
+          toTurn: 4,
+          fromAt: at(20),
+          evidence: [ev('COMMIT', 20)],
+        }),
         row({ sessionId: 'root:a1', parentSessionId: 'root', fromAt: at(10) }),
       ],
     })
@@ -124,18 +172,30 @@ describe('run attribution read model', () => {
   })
 
   it('falls back to all root evidence when no root segment covers the subagent', () => {
-    const ev = (kind: string, m: number) => ({ kind, identifier: 'LUM-12', at: at(m).toISOString() })
+    const ev = (kind: string, m: number) => ({
+      kind,
+      identifier: 'LUM-12',
+      at: at(m).toISOString(),
+    })
     const a = buildRunAttribution({
       runSessionId: 'root',
       mode: 'INFERRED',
       rows: [
         row({ fromAt: at(20), toAt: at(25), evidence: [ev('BRANCH', 20)] }),
-        row({ fromTurn: 3, toTurn: 4, fromAt: at(30), evidence: [ev('COMMIT', 30)] }),
+        row({
+          fromTurn: 3,
+          toTurn: 4,
+          fromAt: at(30),
+          evidence: [ev('COMMIT', 30)],
+        }),
         row({ sessionId: 'root:a1', parentSessionId: 'root', fromAt: at(10) }),
       ],
     })
     expect(a.subagents[0]!.followsParent).toBe(true)
-    expect(a.subagents[0]!.evidence.map(e => e.kind)).toEqual(['BRANCH', 'COMMIT'])
+    expect(a.subagents[0]!.evidence.map(e => e.kind)).toEqual([
+      'BRANCH',
+      'COMMIT',
+    ])
   })
 
   it('keeps an inferred subagent signal-less when the root has no evidence either', () => {
@@ -156,19 +216,110 @@ describe('run attribution read model', () => {
         null,
         'str',
       ])
-    ).toEqual([{ kind: 'BRANCH', identifier: 'LUM-1', at: '2026-10-02T10:00:00.000Z' }])
+    ).toEqual([
+      { kind: 'BRANCH', identifier: 'LUM-1', at: '2026-10-02T10:00:00.000Z' },
+    ])
     expect(parseEvidence({})).toEqual([])
   })
 
   it('summarizes runs: host counts as explicit, unlinked runs are skipped', () => {
-    const exact: RunAttribution = { mode: 'EXPLICIT', segments: [], subagents: [], approximate: false }
-    const host: RunAttribution = { mode: 'HOST', segments: [], subagents: [], approximate: false }
-    const inferred: RunAttribution = { mode: 'INFERRED', segments: [], subagents: [], approximate: true }
+    const exact: RunAttribution = {
+      mode: 'EXPLICIT',
+      segments: [],
+      subagents: [],
+      approximate: false,
+    }
+    const host: RunAttribution = {
+      mode: 'HOST',
+      segments: [],
+      subagents: [],
+      approximate: false,
+    }
+    const inferred: RunAttribution = {
+      mode: 'INFERRED',
+      segments: [],
+      subagents: [],
+      approximate: true,
+    }
     expect(summarizeRunAttributions([exact, host, inferred, null])).toEqual({
       explicit: 2,
       inferred: 1,
       approximate: true,
     })
-    expect(summarizeRunAttributions([exact])).toEqual({ explicit: 1, inferred: 0, approximate: false })
+    expect(summarizeRunAttributions([exact])).toEqual({
+      explicit: 1,
+      inferred: 0,
+      approximate: false,
+    })
+  })
+})
+
+describe('dedupeEvidence', () => {
+  it('collapses by kind+identifier, keeps earliest at and counts', () => {
+    const out = dedupeEvidence([
+      { kind: 'LUMO_CMD', identifier: 'LUM-855', at: '2026-10-02T19:10:00Z' },
+      { kind: 'BRANCH', identifier: 'LUM-855', at: '2026-10-02T19:09:00Z' },
+      { kind: 'LUMO_CMD', identifier: 'LUM-855', at: '2026-10-02T19:08:00Z' },
+      { kind: 'LUMO_CMD', identifier: 'LUM-855', at: '2026-10-02T19:12:00Z' },
+    ])
+    expect(out).toEqual([
+      {
+        kind: 'LUMO_CMD',
+        identifier: 'LUM-855',
+        at: '2026-10-02T19:08:00Z',
+        count: 3,
+      },
+      {
+        kind: 'BRANCH',
+        identifier: 'LUM-855',
+        at: '2026-10-02T19:09:00Z',
+        count: 1,
+      },
+    ])
+  })
+
+  it('returns an empty list for no evidence', () => {
+    expect(dedupeEvidence([])).toEqual([])
+  })
+})
+
+describe('mergeGroupEvidence', () => {
+  const e = (identifier: string, m: number) => ({
+    kind: 'BRANCH' as const,
+    identifier,
+    at: at(m).toISOString(),
+  })
+
+  it('takes the maximum per-member count instead of the sum', () => {
+    const members = Array.from({ length: 120 }, () => [e('LUM-12', 5)])
+    expect(mergeGroupEvidence(members)).toEqual([
+      {
+        kind: 'BRANCH',
+        identifier: 'LUM-12',
+        at: at(5).toISOString(),
+        count: 1,
+      },
+    ])
+  })
+
+  it('unions entries, keeps the earliest time and the largest member count', () => {
+    const out = mergeGroupEvidence([
+      [e('LUM-12', 9), e('LUM-12', 8)],
+      [e('LUM-12', 3), e('LUM-13', 4)],
+    ])
+    expect(out).toEqual([
+      {
+        kind: 'BRANCH',
+        identifier: 'LUM-12',
+        at: at(3).toISOString(),
+        count: 2,
+      },
+      {
+        kind: 'BRANCH',
+        identifier: 'LUM-13',
+        at: at(4).toISOString(),
+        count: 1,
+      },
+    ])
   })
 })

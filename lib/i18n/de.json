@@ -2802,5 +2802,7 @@
   "sessions.timeline.badge.lines": "{count, plural, one {# Zeile} other {# Zeilen}}",
   "sessions.timeline.badge.linesWithType": "{type} · {count, plural, one {# Zeile} other {# Zeilen}}",
   "sessions.timeline.badge.files": "{count, plural, one {# Datei} other {# Dateien}}",
-  "sessions.timeline.badge.matches": "{count, plural, one {# Treffer} other {# Treffer}}"
+  "sessions.timeline.badge.matches": "{count, plural, one {# Treffer} other {# Treffer}}",
+  "agentRun.attribution.subagentCount": "{label} ×{count}",
+  "agentRun.attribution.evidenceCount": "{label} ×{count}"
 }

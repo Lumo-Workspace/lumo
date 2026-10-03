@@ -23,6 +23,12 @@ export type SignalKind =
   | 'PROMPT'
   | 'GIT_HINT'
   | 'AGENT_PROMPT'
+  /**
+   * A root prompt that is a background subagent's `<task-notification>`,
+   * carrying the reporting agent id. Not task evidence (never strong, weak or
+   * segment evidence): the engine lets the turn follow that subagent.
+   */
+  | 'NOTIFICATION'
 
 export interface AttributionSignal {
   kind: SignalKind
@@ -42,6 +48,18 @@ export const SWITCH_KINDS: ReadonlySet<SignalKind> = new Set<SignalKind>([
   ...STRONG_KINDS,
   'PROMPT',
 ])
+
+/** Opening tag of a background task's completion notice in a root prompt. */
+export const TASK_NOTIFICATION_MARKER = '<task-notification>'
+const TASK_ID_RE = /<task-id>\s*([^<\s]{1,64})\s*<\/task-id>/
+
+/** The `<task-id>` of a `<task-notification>` prompt, when it is an agent id. */
+function notificationAgentId(prompt: string): string | null {
+  const start = prompt.indexOf(TASK_NOTIFICATION_MARKER)
+  if (start < 0) return null
+  const id = TASK_ID_RE.exec(prompt.slice(start))?.[1]
+  return id && AGENT_ID_RE.test(id) ? id : null
+}
 
 /** Hard cap on signals stored per event. */
 export const MAX_SIGNALS_PER_EVENT = 50
@@ -128,6 +146,8 @@ export function extractAttributionSignals(
     if (type === 'USER_PROMPT_SUBMIT') {
       const prompt = str(field(payload, 'prompt'))
       if (prompt) {
+        const agentId = notificationAgentId(prompt)
+        if (agentId) out.push({ kind: 'NOTIFICATION', agentId })
         for (const id of promptIdentifiers(prompt)) {
           out.push({ kind: 'PROMPT', identifier: id })
         }

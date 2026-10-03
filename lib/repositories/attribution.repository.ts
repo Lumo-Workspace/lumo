@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { parseTaskIdentifier } from '@/lib/attribution/identifier'
 import { isBackfillEligible } from '@/lib/attribution/backfill-eligibility'
+import { TASK_NOTIFICATION_MARKER } from '@/lib/attribution/signals'
 import type { TaskSegmentRow } from '@/lib/attribution/run-attribution'
 import { Prisma } from '@prisma/client'
 import type {
@@ -22,7 +23,8 @@ import {
  * engine needs, resolves task identifiers / PR head branches to task ids, and
  * atomically replaces the family's TaskAttributionSegment rows.
  */
-export const ATTRIBUTION_COMPUTE_VERSION = 1
+// 2: R1 multi-task turns / R2 notification turns (LUM-932 acceptance rulings).
+export const ATTRIBUTION_COMPUTE_VERSION = 2
 
 export interface FamilySession {
   id: string
@@ -194,12 +196,30 @@ export const attributionRepository = {
       },
       orderBy: { createdAt: 'asc' },
     })
-    // Payloads only for events never computed at record time (historical rows).
+    // Payloads only for events never computed at record time (historical
+    // rows), and for root task-notification prompts whose stored signals may
+    // predate the NOTIFICATION kind.
     const payloadRows = await prisma.hookEvent.findMany({
       where: {
         ...scope,
-        attributionSignals: { equals: Prisma.DbNull },
         payloadPrunedAt: null,
+        OR: [
+          { attributionSignals: { equals: Prisma.DbNull } },
+          {
+            sessionId: rootSessionId,
+            type: 'USER_PROMPT_SUBMIT',
+            // Stored signals that already carry NOTIFICATION need no re-read.
+            NOT: {
+              attributionSignals: {
+                array_contains: [{ kind: 'NOTIFICATION' }],
+              },
+            },
+            payload: {
+              path: ['prompt'],
+              string_contains: TASK_NOTIFICATION_MARKER,
+            },
+          },
+        ],
       },
       select: { id: true, payload: true },
     })

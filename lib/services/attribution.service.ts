@@ -55,6 +55,7 @@ const SIGNAL_KINDS: ReadonlySet<string> = new Set<SignalKind>([
   'PROMPT',
   'GIT_HINT',
   'AGENT_PROMPT',
+  'NOTIFICATION',
 ])
 
 function isSignal(v: unknown): v is AttributionSignal {
@@ -69,16 +70,26 @@ function isSignal(v: unknown): v is AttributionSignal {
   )
 }
 
-/** Stored signals win; historical rows fall back to the payload unless it was pruned. */
+/**
+ * Stored signals win; historical rows fall back to the payload unless it was
+ * pruned. A root task-notification prompt whose signals were stored before
+ * NOTIFICATION existed also gets that one signal from its payload (R2).
+ */
 function rawSignalsOf(e: FamilyEvent): AttributionSignal[] {
-  if (e.attributionSignals != null) {
-    return Array.isArray(e.attributionSignals)
-      ? (e.attributionSignals as unknown[]).filter(isSignal)
+  const fromPayload = (): AttributionSignal[] =>
+    e.payloadPrunedAt == null && e.payload != null
+      ? extractAttributionSignals(e.type, e.payload)
       : []
-  }
-  if (e.payloadPrunedAt == null && e.payload != null)
-    return extractAttributionSignals(e.type, e.payload)
-  return []
+  if (e.attributionSignals == null) return fromPayload()
+  const stored = Array.isArray(e.attributionSignals)
+    ? (e.attributionSignals as unknown[]).filter(isSignal)
+    : []
+  if (
+    e.type !== 'USER_PROMPT_SUBMIT' ||
+    stored.some(s => s.kind === 'NOTIFICATION')
+  )
+    return stored
+  return [...fromPayload().filter(s => s.kind === 'NOTIFICATION'), ...stored]
 }
 
 function rootPromptCount(family: SessionFamily, rootId: string): number {
@@ -170,11 +181,15 @@ async function inferFamily(
           resolved.push({ kind: 'BRANCH', taskId, identifier: s.branch })
       }
     }
+    const notifiedAgentId = signals.find(
+      s => s.kind === 'NOTIFICATION'
+    )?.agentId
     return {
       sessionId: event.sessionId,
       type: event.type,
       at: event.createdAt,
       signals: resolved,
+      ...(notifiedAgentId ? { notifiedAgentId } : {}),
     }
   })
 
@@ -184,6 +199,8 @@ async function inferFamily(
       id: s.id,
       parentSessionId: s.parentSessionId,
       agentId: s.agentId,
+      // R2: a notification from an attached subagent follows its binding.
+      ...(opts.ignoreExplicit ? {} : { taskId: s.taskId }),
     })),
     events,
   })

@@ -42,7 +42,7 @@ export function AgentRunCard({
       <button
         type='button'
         onClick={() => setExpanded(v => !v)}
-        className='w-full flex items-center gap-3 px-4 py-3 hover:bg-muted transition-colors rounded-lg'
+        className='w-full flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-muted transition-colors rounded-lg'
       >
         {expanded ? (
           <ChevronDown className='size-4 text-muted-foreground shrink-0' />
@@ -80,7 +80,7 @@ export function AgentRunCard({
         <span className='text-caption text-muted-foreground shrink-0'>
           {startLabel}
         </span>
-        <span className='ml-auto flex items-center gap-3 text-caption text-muted-foreground shrink-0'>
+        <span className='ml-auto flex flex-wrap items-center gap-x-3 text-caption text-muted-foreground'>
           <span>{durationLabel}</span>
           <span>·</span>
           <span>
