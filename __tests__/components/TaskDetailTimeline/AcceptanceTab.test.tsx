@@ -190,6 +190,21 @@ function render_() {
   )
 }
 
+describe('attributionSlot', () => {
+  it('renders the attribution slot node on the record tab', () => {
+    set(statusView())
+    render(
+      <AcceptanceTab
+        taskIdentifier='LUM-1'
+        enabled={true}
+        onVerdictRecorded={jest.fn()}
+        attributionSlot={<div data-testid='slot-probe' />}
+      />
+    )
+    expect(screen.getByTestId('slot-probe')).toBeInTheDocument()
+  })
+})
+
 // LUM-451: the machine-verified zone collapses by default when every machine
 // criterion passes. Tests that assert on a passing machine ROW must expand it.
 function expandMachine() {

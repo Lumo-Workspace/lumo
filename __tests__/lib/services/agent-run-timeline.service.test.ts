@@ -15,14 +15,21 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: { findByTaskIdWithSession: jest.fn() },
 }))
 
+jest.mock('@/lib/repositories/attribution.repository', () => ({
+  attributionRepository: { listTaskSegments: jest.fn(async () => []) },
+}))
+
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { attributionRepository } from '@/lib/repositories/attribution.repository'
 import { agentRunTimelineService } from '@/lib/services/agent-run-timeline.service'
 
 const sessions = sessionRepository.listForTask as jest.Mock
 const events = hookEventRepository.findByTaskId as jest.Mock
 const memories = memoryRepository.findByTaskIdWithSession as jest.Mock
+
+const segments = attributionRepository.listTaskSegments as jest.Mock
 
 const t0 = new Date('2026-06-01T10:00:00Z')
 const t1 = new Date('2026-06-01T10:05:00Z')
@@ -30,6 +37,7 @@ const t1 = new Date('2026-06-01T10:05:00Z')
 beforeEach(() => {
   jest.clearAllMocks()
   memories.mockResolvedValue([])
+  segments.mockResolvedValue([])
 })
 
 it('maps per-run model cost and a STOP turn delta, and aggregates tab totals', async () => {
@@ -577,5 +585,198 @@ describe('LUM-932 subagent child sessions fold into the parent run', () => {
     expect(runs[0]!.cost?.loopCount).toBe(1)
     expect(runs[0]!.runSummary).toBeNull()
     expect(total(totals.byModel)).toBe(17)
+  })
+})
+
+describe('LUM-932 P4 run attribution', () => {
+  const toolEvent = (sessionId: string | null) => ({
+    id: `e-${sessionId}`,
+    sessionId,
+    type: 'PRE_TOOL_USE',
+    toolName: 'Read',
+    payload: {},
+    turnSummary: null,
+    usageByModel: null,
+    createdAt: t0,
+  })
+
+  it('an explicitly bound session with no segment rows is exact and empty', async () => {
+    sessions.mockResolvedValue([
+      { id: 'sess_1', startedAt: t0, lastActivityAt: t1, eventCount: 1, loopCount: 1, usageByModel: null },
+    ])
+    events.mockResolvedValue([toolEvent('sess_1')])
+    const res = await agentRunTimelineService.getTimeline('task_1')
+    expect(res.runs[0]!.attribution).toEqual({
+      mode: 'EXPLICIT',
+      segments: [],
+      subagents: [],
+      approximate: false,
+    })
+  })
+
+  it('the unlinked run has no attribution', async () => {
+    sessions.mockResolvedValue([])
+    events.mockResolvedValue([toolEvent(null)])
+    const res = await agentRunTimelineService.getTimeline('task_1')
+    expect(res.runs[0]!.sessionId).toBeNull()
+    expect(res.runs[0]!.attribution).toBeNull()
+  })
+
+  it('an inferred session yields INFERRED mode, approximate, with its segment evidence', async () => {
+    const evAt = t0.toISOString()
+    segments.mockResolvedValue([
+      {
+        sessionId: 'sess_inf',
+        parentSessionId: null,
+        agentType: null,
+        source: 'INFERRED',
+        confidence: 'HIGH',
+        fromTurn: 0,
+        toTurn: 2,
+        fromAt: t0,
+        toAt: null,
+        evidence: [{ kind: 'BRANCH', identifier: 'LUM-12', at: evAt }],
+      },
+    ])
+    sessions.mockResolvedValue([
+      {
+        id: 'sess_inf',
+        inferred: true,
+        startedAt: t0,
+        lastActivityAt: t1,
+        eventCount: 1,
+        loopCount: 1,
+        usageByModel: null,
+      },
+    ])
+    events.mockResolvedValue([toolEvent('sess_inf')])
+    const res = await agentRunTimelineService.getTimeline('task_1')
+    const run = res.runs.find(r => r.sessionId === 'sess_inf')
+    expect(run?.attribution?.mode).toBe('INFERRED')
+    expect(run?.attribution?.approximate).toBe(true)
+    expect(run?.attribution?.segments[0]!.evidence).toEqual([
+      { kind: 'BRANCH', identifier: 'LUM-12', at: evAt },
+    ])
+  })
+})
+
+describe('LUM-932 P4 host runs', () => {
+  const children = sessionRepository.listChildrenForTask as jest.Mock
+  const byIds = sessionRepository.listTimelineRowsByIds as jest.Mock
+  const opus = (n: number) => ({
+    opus: { input: n, output: 0, cacheRead: 0, cacheCreation: 0 },
+  })
+  const total = (byModel: { total: number }[] | undefined) =>
+    (byModel ?? []).reduce((n, c) => n + c.total, 0)
+  const hostRow = {
+    id: 'sess_h',
+    startedAt: t0,
+    lastActivityAt: t1,
+    eventCount: 5,
+    loopCount: 3,
+    runSummary: 'parent summary about other work',
+    usageByModel: opus(999),
+  }
+  const segRow = (source: string, confidence: string, evidence: unknown[]) => ({
+    sessionId: 'sess_h:a1',
+    parentSessionId: 'sess_h',
+    agentType: 'Explore',
+    source,
+    confidence,
+    fromTurn: 0,
+    toTurn: 0,
+    fromAt: t0,
+    toAt: null,
+    evidence,
+  })
+
+  it('a parent hosting a subagent that attached this task renders in HOST mode, exact', async () => {
+    sessions.mockResolvedValue([])
+    children.mockResolvedValue([
+      {
+        id: 'sess_h:a1',
+        parentSessionId: 'sess_h',
+        startedAt: t1,
+        lastActivityAt: t1,
+        eventCount: 1,
+        loopCount: null,
+        usageByModel: opus(30),
+      },
+    ])
+    byIds.mockResolvedValue([hostRow])
+    segments.mockResolvedValue([segRow('SUBAGENT_ATTACH', 'EXPLICIT', [])])
+    events.mockResolvedValue([
+      {
+        id: 'e1',
+        sessionId: 'sess_h:a1',
+        type: 'PRE_TOOL_USE',
+        toolName: 'Read',
+        payload: {},
+        turnSummary: null,
+        usageByModel: null,
+        createdAt: t1,
+      },
+    ])
+
+    const { runs } = await agentRunTimelineService.getTimeline('task_h')
+
+    expect(runs.map(r => r.sessionId)).toEqual(['sess_h'])
+    expect(runs[0]!.attribution?.mode).toBe('HOST')
+    expect(runs[0]!.attribution?.approximate).toBe(false)
+    expect(runs[0]!.attribution?.subagents.map(s => s.source)).toEqual([
+      'SUBAGENT_ATTACH',
+    ])
+    expect(runs[0]!.runSummary).toBeNull()
+    expect(total(runs[0]!.cost?.byModel)).toBe(30)
+  })
+
+  it('an inferred subagent under an unbound, unhosted parent renders as an approximate HOST run, not unlinked', async () => {
+    sessions.mockResolvedValue([])
+    children.mockResolvedValue([])
+    byIds.mockResolvedValue([hostRow])
+    const evAt = t1.toISOString()
+    segments.mockResolvedValue([
+      segRow('INFERRED', 'HIGH', [
+        { kind: 'AGENT_PROMPT', identifier: 'LUM-7', at: evAt },
+      ]),
+    ])
+    events.mockResolvedValue([
+      {
+        id: 'e1',
+        sessionId: 'sess_h:a1',
+        type: 'PRE_TOOL_USE',
+        toolName: 'Read',
+        payload: {},
+        turnSummary: null,
+        usageByModel: null,
+        createdAt: t0,
+      },
+      {
+        id: 'e2',
+        sessionId: 'sess_h:a1',
+        type: 'SUBAGENT_STOP',
+        toolName: null,
+        payload: {},
+        turnSummary: null,
+        usageByModel: opus(7),
+        createdAt: t1,
+      },
+    ])
+
+    const { runs, totals } = await agentRunTimelineService.getTimeline('task_h')
+
+    expect(byIds).toHaveBeenCalledWith(['sess_h'])
+    expect(runs.map(r => r.sessionId)).toEqual(['sess_h'])
+    const run = runs[0]!
+    expect(run.attribution?.mode).toBe('HOST')
+    expect(run.attribution?.approximate).toBe(true)
+    expect(run.attribution?.subagents[0]!.source).toBe('INFERRED')
+    expect(run.toolCallCount).toBe(1)
+    expect(run.runSummary).toBeNull()
+    // The host's own cumulative burn is not this task's; only the inferred
+    // child's task-attributed per-turn usage is.
+    expect(total(run.cost?.byModel)).toBe(7)
+    expect(run.cost?.loopCount).toBeNull()
+    expect(total(totals.byModel)).toBe(7)
   })
 })

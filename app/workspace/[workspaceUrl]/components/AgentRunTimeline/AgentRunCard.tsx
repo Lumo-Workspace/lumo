@@ -11,6 +11,7 @@ import { fmtCompact, modelLabel } from './model-cost-format'
 import { TurnCard } from './TurnCard'
 import { TokenCostBreakdown } from '../TokenCostBreakdown'
 import { AgentBadge } from '../AgentBadge'
+import { RunAttributionBadge, RunAttributionPanel } from './RunAttribution'
 import { initialsOf } from '../initials'
 import { formatDurationMs } from '@/lib/datetime/duration'
 
@@ -73,6 +74,9 @@ export function AgentRunCard({
           </span>
         )}
         <AgentBadge agent={run.agent} />
+        {run.attribution && (
+          <RunAttributionBadge attribution={run.attribution} />
+        )}
         <span className='text-caption text-muted-foreground shrink-0'>
           {startLabel}
         </span>
@@ -173,6 +177,9 @@ export function AgentRunCard({
 
       {expanded && (
         <div className='border-t border-border/80 px-4 py-2'>
+          {run.attribution && (
+            <RunAttributionPanel attribution={run.attribution} />
+          )}
           {run.cost && (
             <div className='mb-2'>
               <TokenCostBreakdown

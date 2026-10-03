@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { parseTaskIdentifier } from '@/lib/attribution/identifier'
 import { isBackfillEligible } from '@/lib/attribution/backfill-eligibility'
+import type { TaskSegmentRow } from '@/lib/attribution/run-attribution'
 import { Prisma } from '@prisma/client'
 import type {
   AttributionConfidence,
@@ -268,6 +269,31 @@ export const attributionRepository = {
         evidence: true,
       },
     })
+  },
+
+  /** LUM-932 P4: every segment attributed to the task, with the owning
+   *  session's family position — the task page's "why attributed" read. */
+  async listTaskSegments(taskId: string): Promise<TaskSegmentRow[]> {
+    const rows = await prisma.taskAttributionSegment.findMany({
+      where: { taskId },
+      orderBy: { fromAt: 'asc' },
+      select: {
+        sessionId: true,
+        source: true,
+        confidence: true,
+        fromTurn: true,
+        toTurn: true,
+        fromAt: true,
+        toAt: true,
+        evidence: true,
+        session: { select: { parentSessionId: true, agentType: true } },
+      },
+    })
+    return rows.map(({ session, ...r }) => ({
+      ...r,
+      parentSessionId: session.parentSessionId,
+      agentType: session.agentType,
+    }))
   },
 
   /** identifier (`LUM-12`) → taskId for live (not soft-deleted) tasks of the workspace; one query. */

@@ -1,6 +1,12 @@
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
+import { attributionRepository } from '@/lib/repositories/attribution.repository'
+import {
+  buildRunAttribution,
+  type RunAttribution,
+  type RunAttributionMode,
+} from '@/lib/attribution/run-attribution'
 import {
   toModelCosts,
   mergeModelCosts,
@@ -61,6 +67,9 @@ export interface AgentRunSession {
   /** Owning member (Clerk-resolved name + avatar) shown in the run header;
    *  null for orphan / unlinked runs with no member (LUM-308). */
   member: { workspaceMemberId: string; name: string; imageUrl: string } | null
+  /** Why this run's work is on the task (LUM-932 P4); null for the trailing
+   *  unlinked run. */
+  attribution: RunAttribution | null
   items: AgentRunItem[]
 }
 
@@ -178,23 +187,29 @@ export const agentRunTimelineService = {
    * as a single trailing "Unlinked" run so they're still visible.
    */
   async getTimeline(taskId: string): Promise<AgentRunTimelineResult> {
-    const [sessions, childSessions, events, memories] = await Promise.all([
+    const [sessions, childSessions, events, memories, segmentRows] =
+      await Promise.all([
       sessionRepository.listForTask(taskId, 50),
       sessionRepository.listChildrenForTask(taskId),
       hookEventRepository.findByTaskId(taskId),
       memoryRepository.findByTaskIdWithSession(taskId),
+      attributionRepository.listTaskSegments(taskId),
     ])
 
     // LUM-932 (spec §8): subagent child sessions fold into their parent's
     // run. A child that attached its own task under an unbound parent still
     // shows as the parent's run here — read the parent row as a "host" whose
     // own cost belongs elsewhere and is not counted on this task.
+    // A child inferred onto this task under a parent that is neither bound
+    // nor inferred here has no Session.taskId, so only its segment rows name
+    // the parent — host that parent too, or the child's work lands unlinked.
     const boundIds = new Set(sessions.map(s => s.id))
     const hostIds = [
       ...new Set(
-        childSessions
-          .map(c => c.parentSessionId)
-          .filter((id): id is string => !!id && !boundIds.has(id))
+        [
+          ...childSessions.map(c => c.parentSessionId),
+          ...segmentRows.map(r => r.parentSessionId),
+        ].filter((id): id is string => !!id && !boundIds.has(id))
       ),
     ]
     const hostSessions = await sessionRepository.listTimelineRowsByIds(hostIds)
@@ -222,9 +237,13 @@ export const agentRunTimelineService = {
       string,
       { byModel: Record<string, ModelUsage> | null; loops: number }
     >()
+    // A host's own events are not this task's work; an unattached child's
+    // events under it are (costed per turn, like an inferred run's).
     for (const ev of events) {
       const key = runKey(ev.sessionId ?? null)
-      if (!key || !inferredIds.has(key)) continue
+      if (!key) continue
+      const isHostChild = hostOnly.has(key) && ev.sessionId !== key
+      if (!inferredIds.has(key) && !isHostChild) continue
       if (attachedChildIds.has(ev.sessionId!)) continue
       if (
         ev.type !== 'STOP' &&
@@ -319,13 +338,19 @@ export const agentRunTimelineService = {
       ).length
       const isHost = hostOnly.has(s.id)
       const isInferred = inferredIds.has(s.id)
+      const mode: RunAttributionMode = isHost
+        ? 'HOST'
+        : isInferred
+          ? 'INFERRED'
+          : 'EXPLICIT'
       const inferredOwn = inferredUsage.get(s.id)
-      // Own cost (a host's own burn belongs to another task / unattributed;
+      // Own cost (a host's own burn belongs to another task / unattributed —
+      // only its unattached children's task-attributed per-turn usage counts;
       // an inferred run's is its task-attributed per-turn usage) plus every
       // child session of this run whose work belongs to the task.
       const childCosts = childCostByParent.get(s.id) ?? []
       const ownCost = isHost
-        ? null
+        ? toModelCosts(inferredOwn?.byModel ?? null)
         : isInferred
           ? toModelCosts(inferredOwn?.byModel ?? null)
           : sessionCost(s)
@@ -359,6 +384,11 @@ export const agentRunTimelineService = {
             }
           : null,
         member: null, // resolved after Clerk enrichment below
+        attribution: buildRunAttribution({
+          runSessionId: s.id,
+          mode,
+          rows: segmentRows,
+        }),
         items,
       }
     })
@@ -389,6 +419,7 @@ export const agentRunTimelineService = {
         runSummary: null,
         cost: null,
         member: null,
+        attribution: null,
         items,
       })
     }

@@ -15,6 +15,139 @@ interface StatusResponse {
   role?: 'IMPLEMENTATION' | 'STEWARD'
   /** LUM-640: the bound milestone's name for STEWARD sessions. Absent on older servers. */
   milestoneName?: string | null
+  /** LUM-932 P4: set on a subagent's child session. Absent on older servers. */
+  parentSessionId?: string | null
+  /** LUM-932 P4: absent on older servers. */
+  attribution?: Attribution
+}
+
+type SourceName =
+  | 'SESSION_ATTACH'
+  | 'SUBAGENT_ATTACH'
+  | 'INHERITED'
+  | 'INFERRED'
+
+interface Attribution {
+  segments: {
+    taskIdentifier: string
+    source: SourceName
+    confidence: string
+    fromTurn: number
+    toTurn: number
+    evidence: { kind: string; identifier: string; at: string }[]
+  }[]
+  subagents: {
+    sessionId: string
+    agentType: string | null
+    tasks: { taskIdentifier: string; source: SourceName; confidence: string }[]
+  }[]
+  unattributed: boolean
+  approximate: boolean
+}
+
+const SOURCE_WORD: Record<SourceName, string> = {
+  SESSION_ATTACH: 'attached',
+  SUBAGENT_ATTACH: 'subagent attach',
+  INHERITED: 'inherited',
+  INFERRED: 'auto-detected',
+}
+
+function sourceWord(source: SourceName | undefined): string {
+  if (typeof source !== 'string') return '?'
+  return SOURCE_WORD[source] ?? sanitizeField(source.toLowerCase())
+}
+
+function evidenceText(
+  evidence: Attribution['segments'][number]['evidence'] | undefined
+): string {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const e of Array.isArray(evidence) ? evidence : []) {
+    if (typeof e?.kind !== 'string' || typeof e?.identifier !== 'string') {
+      continue
+    }
+    const text = sanitizeField(
+      `${e.kind.toLowerCase().replace(/_/g, ' ')} ${e.identifier}`
+    )
+    if (seen.has(text)) continue
+    seen.add(text)
+    out.push(text)
+    if (out.length === 3) break
+  }
+  return out.join(', ')
+}
+
+/** A malformed (non-string) task identifier from the server prints as '?'. */
+function identifierText(value: unknown): string {
+  return typeof value === 'string' ? sanitizeField(value) : '?'
+}
+
+/** Stored turns are 0-based; print them 1-based, matching the web. */
+function turnText(value: unknown): string {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? String(value + 1)
+    : '?'
+}
+
+function segmentLine(seg: Attribution['segments'][number]): string {
+  const turns =
+    seg.fromTurn === seg.toTurn
+      ? `turn ${turnText(seg.fromTurn)}`
+      : `turns ${turnText(seg.fromTurn)}–${turnText(seg.toTurn)}`
+  const confidence: unknown = seg.confidence
+  const how =
+    seg.source === 'INFERRED' && typeof confidence === 'string'
+      ? `${sourceWord(seg.source)} · ${sanitizeField(confidence.toLowerCase())}`
+      : sourceWord(seg.source)
+  const ev = evidenceText(seg.evidence)
+  return `    ${identifierText(seg.taskIdentifier)}  ${turns}  ${how}${ev ? ` (${ev})` : ''}\n`
+}
+
+function subagentLine(sub: Attribution['subagents'][number]): string {
+  const sessionId: unknown = sub.sessionId
+  const agentId =
+    typeof sessionId === 'string'
+      ? sessionId.slice(sessionId.lastIndexOf(':') + 1)
+      : ''
+  const subTasks = Array.isArray(sub.tasks) ? sub.tasks : []
+  const tasks = subTasks.length
+    ? subTasks
+        .map(t => `${identifierText(t?.taskIdentifier)} ${sourceWord(t?.source)}`)
+        .join(', ')
+    : 'follows parent'
+  const type = sanitizeField(
+    typeof sub.agentType === 'string' ? sub.agentType : 'subagent'
+  )
+  return `    ${type} (${sanitizeField(agentId.slice(-6))})  ${tasks}\n`
+}
+
+function subagentOfLine(data: StatusResponse): string {
+  return data.parentSessionId
+    ? `  Subagent of: ${sanitizeField(data.parentSessionId)}\n`
+    : ''
+}
+
+/** Lines appended after the binding lines. Empty for old servers. */
+function attributionBlock(data: StatusResponse, bound: boolean): string {
+  const a = data.attribution
+  if (!a || typeof a !== 'object') return ''
+  const segments = Array.isArray(a.segments) ? a.segments : []
+  const subagents = Array.isArray(a.subagents) ? a.subagents : []
+  let out = ''
+  if (segments.length > 0) {
+    out += '  Attribution:\n' + segments.map(segmentLine).join('')
+  } else if (a.unattributed && !bound) {
+    out +=
+      '  Attribution: none yet (no task signal) — it will be auto-detected from branch, commits and lumo commands, or run lumo session attach <LUM-N>.\n'
+  }
+  if (subagents.length > 0) {
+    out += '  Subagents:\n' + subagents.map(subagentLine).join('')
+  }
+  if (a.approximate) {
+    out +=
+      '  ⚠ Some work was auto-detected — time and cost may be inaccurate. Run `lumo session attach <LUM-N>` for exact numbers.\n'
+  }
+  return out
 }
 
 export async function sessionStatus(): Promise<number | void> {
@@ -79,14 +212,18 @@ export async function sessionStatus(): Promise<number | void> {
   if (data.taskIdentifier && data.taskTitle) {
     process.stdout.write(
       `Session ${sessionId}\n` +
+        subagentOfLine(data) +
         `  Bound to:  ${data.taskIdentifier} "${sanitizeField(data.taskTitle)}"\n` +
-        `  Events:    ${data.eventCount}\n`
+        `  Events:    ${data.eventCount}\n` +
+        attributionBlock(data, true)
     )
   } else {
     process.stdout.write(
       `Session ${sessionId}\n` +
+        subagentOfLine(data) +
         `  Bound to:  (no task)\n` +
-        `  Events:    ${data.eventCount}\n`
+        `  Events:    ${data.eventCount}\n` +
+        attributionBlock(data, false)
     )
   }
 }

@@ -15,6 +15,9 @@ jest.mock('@/lib/repositories/session.repository', () => ({
 jest.mock('@/lib/repositories/hook-event.repository', () => ({
   hookEventRepository: { findByTaskId: jest.fn() },
 }))
+jest.mock('@/lib/repositories/attribution.repository', () => ({
+  attributionRepository: { listTaskSegments: jest.fn().mockResolvedValue([]) },
+}))
 jest.mock('@/lib/repositories/memory.repository', () => ({
   memoryRepository: { findByTaskIdWithSession: jest.fn() },
 }))

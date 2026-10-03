@@ -67,10 +67,10 @@ describe('mergeEvents', () => {
     expect(result[0]!.toolName).toBe('Read')
     expect(result[0]!.summary).toBe('/a.ts')
     expect(result[0]!.status).toBe('ok')
-    expect(result[0]!.badge).toBe('3 lines')
+    expect(result[0]!.badge).toEqual({ kind: 'lines', count: 3 })
     expect(result[0]!.endAt?.toISOString()).toBe('2026-04-23T09:00:01.000Z')
 
-    const content = result[0]!.details.find(d => d.label === 'content')
+    const content = result[0]!.details.find(d => d.labelKey === 'content')
     expect(content?.text).toContain('line1')
   })
 
@@ -98,8 +98,8 @@ describe('mergeEvents', () => {
     ])
 
     expect(result[0]!.status).toBe('error')
-    expect(result[0]!.badge).toBe('stderr')
-    const stderrBlock = result[0]!.details.find(d => d.label === 'stderr')
+    expect(result[0]!.badge).toEqual({ kind: 'stderr' })
+    const stderrBlock = result[0]!.details.find(d => d.labelKey === 'stderr')
     expect(stderrBlock?.variant).toBe('error')
     expect(stderrBlock?.text).toContain('ENOENT')
   })
@@ -149,8 +149,8 @@ describe('mergeEvents', () => {
       ),
     ])
 
-    expect(result[0]!.badge).toBe('+3 -2')
-    const diffBlock = result[0]!.details.find(d => d.label === 'diff')
+    expect(result[0]!.badge).toEqual({ kind: 'raw', text: '+3 -2' })
+    const diffBlock = result[0]!.details.find(d => d.labelKey === 'diff')
     expect(diffBlock?.variant).toBe('diff')
     expect(diffBlock?.text).toContain('@@ -10,3 +10,4 @@')
     expect(diffBlock?.text).toContain('+new line 1')
@@ -172,7 +172,7 @@ describe('mergeEvents', () => {
       ),
     ])
 
-    const contentBlock = result[0]!.details.find(d => d.label === 'content')
+    const contentBlock = result[0]!.details.find(d => d.labelKey === 'content')
     expect(contentBlock?.truncated).toEqual({ shownLines: 30, totalLines: 80 })
     expect(contentBlock?.text.split('\n')).toHaveLength(30)
   })
@@ -226,9 +226,13 @@ describe('mergeEvents', () => {
       ),
     ])
 
-    expect(result[0]!.summary).toBe('TODO  in src')
-    expect(result[0]!.badge).toBe('2 files')
-    const matches = result[0]!.details.find(d => d.label === 'matches')
+    expect(result[0]!.summaryMsg).toEqual({
+      kind: 'grepIn',
+      pattern: 'TODO',
+      path: 'src',
+    })
+    expect(result[0]!.badge).toEqual({ kind: 'files', count: 2 })
+    const matches = result[0]!.details.find(d => d.labelKey === 'matches')
     expect(matches?.text).toBe('src/a.ts\nsrc/b.ts')
   })
 
@@ -258,8 +262,8 @@ describe('mergeEvents', () => {
       ),
     ])
 
-    expect(result[0]!.badge).toBe('3 lines')
-    const matches = result[0]!.details.find(d => d.label === 'matches')
+    expect(result[0]!.badge).toEqual({ kind: 'lines', count: 3 })
+    const matches = result[0]!.details.find(d => d.labelKey === 'matches')
     expect(matches?.variant).toBe('code')
     expect(matches?.text).toContain('ANTHROPIC_KEY')
   })
@@ -289,7 +293,7 @@ describe('mergeEvents', () => {
       ),
     ])
 
-    expect(result[0]!.badge).toBe('no match')
+    expect(result[0]!.badge).toEqual({ kind: 'noMatch' })
     expect(result[0]!.details).toHaveLength(0)
   })
 
@@ -308,7 +312,7 @@ describe('mergeEvents', () => {
     expect(result).toHaveLength(1)
     expect(result[0]!.toolName).toBe('SomeNewTool')
     expect(result[0]!.status).toBe('ok')
-    const inputBlock = result[0]!.details.find(d => d.label === 'input')
+    const inputBlock = result[0]!.details.find(d => d.labelKey === 'input')
     expect(inputBlock?.variant).toBe('json')
     expect(inputBlock?.text).toContain('"foo"')
   })
@@ -329,11 +333,9 @@ describe('mergeEvents', () => {
     expect(result).toHaveLength(1)
     expect(result[0]!.kind).toBe('user-prompt')
     expect(result[0]!.summary).toBe('add oauth login')
-    const promptBlock = result[0]!.details.find(d => d.label === 'prompt')
+    const promptBlock = result[0]!.details.find(d => d.labelKey === 'prompt')
     expect(promptBlock?.text).toBe('add oauth login')
-    const raw = result[0]!.details.find(
-      d => d.label === 'raw (with injected context)'
-    )
+    const raw = result[0]!.details.find(d => d.labelKey === 'rawWithContext')
     expect(raw?.text).toContain('<system-reminder>')
   })
 
@@ -347,7 +349,7 @@ describe('mergeEvents', () => {
         createdAt: new Date('2026-04-23T09:00:00Z'),
       },
     ])
-    expect(result[0]!.summary).toBe('(empty prompt)')
+    expect(result[0]!.summaryMsg).toEqual({ kind: 'emptyPrompt' })
     expect(result[0]!.details).toHaveLength(0)
   })
 
@@ -362,7 +364,7 @@ describe('mergeEvents', () => {
       },
     ])
     expect(result[0]!.details).toHaveLength(1)
-    expect(result[0]!.details[0]!.label).toBe('prompt')
+    expect(result[0]!.details[0]!.labelKey).toBe('prompt')
   })
 
   it('strips command-name / command-message / command-args tags', () => {
@@ -433,5 +435,54 @@ describe('mergeEvents', () => {
       },
     ])
     expect(result[0]!.summary).toBe('real textmore real')
+  })
+})
+
+describe('mergeEvents — locale-free placeholder messages', () => {
+  const at = new Date('2026-04-23T09:00:00Z')
+  const post = (
+    toolName: string,
+    tool_input: unknown,
+    tool_response: unknown
+  ) =>
+    mergeEvents([
+      {
+        id: 'p',
+        type: 'POST_TOOL_USE',
+        toolName,
+        payload: { tool_use_id: 't', tool_input, tool_response },
+        createdAt: at,
+      },
+    ])[0]!
+
+  it('emits modelStopped for a STOP without a message', () => {
+    const [item] = mergeEvents([
+      { id: 's', type: 'STOP', toolName: null, payload: {}, createdAt: at },
+    ])
+    expect(item!.summaryMsg).toEqual({ kind: 'modelStopped' })
+    expect(item!.summary).toBe('')
+  })
+
+  it('emits noPath when a file tool has no path', () => {
+    expect(post('Read', {}, {}).summaryMsg).toEqual({ kind: 'noPath' })
+  })
+
+  it('emits a todos count', () => {
+    expect(post('TodoWrite', { todos: [{}, {}] }, {}).summaryMsg).toEqual({
+      kind: 'todos',
+      count: 2,
+    })
+  })
+
+  it('emits noInput for an unknown tool without input', () => {
+    expect(post('Mystery', null, {}).summaryMsg).toEqual({ kind: 'noInput' })
+  })
+
+  it('marks an interrupted Bash call with a badge and a status textKey', () => {
+    const item = post('Bash', { command: 'sleep 9' }, { interrupted: true })
+    expect(item.badge).toEqual({ kind: 'interrupted' })
+    expect(item.details.find(d => d.labelKey === 'status')?.textKey).toBe(
+      'interrupted'
+    )
   })
 })

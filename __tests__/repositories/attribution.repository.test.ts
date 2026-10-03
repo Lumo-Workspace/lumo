@@ -610,3 +610,48 @@ describe('findOpenSegmentTask', () => {
     )
   })
 })
+
+describe('listTaskSegments', () => {
+  it('selects the task segments and flattens the session family position', async () => {
+    const fromAt = new Date(0)
+    p.taskAttributionSegment.findMany.mockResolvedValue([
+      {
+        sessionId: 'r',
+        source: 'INFERRED',
+        confidence: 'HIGH',
+        fromTurn: 0,
+        toTurn: 1,
+        fromAt,
+        toAt: null,
+        evidence: [],
+        session: { parentSessionId: null, agentType: null },
+      },
+      {
+        sessionId: 'r:a1',
+        source: 'SUBAGENT_ATTACH',
+        confidence: 'EXPLICIT',
+        fromTurn: 0,
+        toTurn: 0,
+        fromAt,
+        toAt: null,
+        evidence: [],
+        session: { parentSessionId: 'r', agentType: 'general-purpose' },
+      },
+    ])
+    const rows = await attributionRepository.listTaskSegments('T')
+    expect(p.taskAttributionSegment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { taskId: 'T' },
+        orderBy: { fromAt: 'asc' },
+      })
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).not.toHaveProperty('session')
+    expect(rows[0]).toMatchObject({ sessionId: 'r', parentSessionId: null, agentType: null })
+    expect(rows[1]).toMatchObject({
+      sessionId: 'r:a1',
+      parentSessionId: 'r',
+      agentType: 'general-purpose',
+    })
+  })
+})

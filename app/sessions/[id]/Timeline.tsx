@@ -1,18 +1,97 @@
 'use client'
 
 import { useState } from 'react'
-import { useIntl } from 'react-intl'
-import type { DetailBlock, TimelineItem } from './merge-events'
+import { useIntl, type IntlShape, type MessageDescriptor } from 'react-intl'
+import type {
+  BadgeMsg,
+  BlockLabelKey,
+  DetailBlock,
+  SummaryMsg,
+  TimelineItem,
+} from './merge-events'
+import { SESSION_MESSAGES as M } from '../messages'
 
 interface TimelineProps {
   items: TimelineItem[]
 }
 
+const BLOCK_LABELS = {
+  prompt: M['timeline.block.prompt'],
+  rawWithContext: M['timeline.block.rawWithContext'],
+  lastMessage: M['timeline.block.lastMessage'],
+  command: M['timeline.block.command'],
+  stdout: M['timeline.block.stdout'],
+  stderr: M['timeline.block.stderr'],
+  status: M['timeline.block.status'],
+  content: M['timeline.block.content'],
+  diff: M['timeline.block.diff'],
+  old: M['timeline.block.old'],
+  new: M['timeline.block.new'],
+  matches: M['timeline.block.matches'],
+  response: M['timeline.block.response'],
+  files: M['timeline.block.files'],
+  todos: M['timeline.block.todos'],
+  input: M['timeline.block.input'],
+} satisfies Record<BlockLabelKey, MessageDescriptor>
+
+function summaryText(intl: IntlShape, msg: SummaryMsg): string {
+  switch (msg.kind) {
+    case 'emptyPrompt':
+      return intl.formatMessage(M['timeline.summary.emptyPrompt'])
+    case 'modelStopped':
+      return intl.formatMessage(M['timeline.summary.modelStopped'])
+    case 'noInput':
+      return intl.formatMessage(M['timeline.summary.noInput'])
+    case 'noPath':
+      return intl.formatMessage(M['timeline.summary.noPath'])
+    case 'todos':
+      return intl.formatMessage(M['timeline.summary.todos'], {
+        count: msg.count,
+      })
+    case 'grepIn':
+      return intl.formatMessage(M['timeline.summary.grepIn'], {
+        pattern: msg.pattern,
+        path: msg.path,
+      })
+  }
+}
+
+function badgeText(intl: IntlShape, badge: BadgeMsg): string {
+  switch (badge.kind) {
+    case 'raw':
+      return badge.text
+    case 'interrupted':
+      return intl.formatMessage(M['timeline.badge.interrupted'])
+    case 'stderr':
+      return intl.formatMessage(M['timeline.badge.stderr'])
+    case 'noMatch':
+      return intl.formatMessage(M['timeline.badge.noMatch'])
+    case 'lines':
+      return intl.formatMessage(M['timeline.badge.lines'], {
+        count: badge.count,
+      })
+    case 'linesWithType':
+      return intl.formatMessage(M['timeline.badge.linesWithType'], {
+        type: badge.type,
+        count: badge.count,
+      })
+    case 'files':
+      return intl.formatMessage(M['timeline.badge.files'], {
+        count: badge.count,
+      })
+    case 'matches':
+      return intl.formatMessage(M['timeline.badge.matches'], {
+        count: badge.count,
+      })
+  }
+}
+
 export function Timeline({ items }: TimelineProps) {
+  const intl = useIntl()
   if (items.length === 0) {
     return (
       <p className='text-sm text-muted-foreground'>
-        No events yet for this session.
+        {intl.formatMessage(M['timeline.empty'])}
       </p>
     )
   }
@@ -27,6 +106,7 @@ export function Timeline({ items }: TimelineProps) {
 }
 
 function TimelineRow({ item }: { item: TimelineItem }) {
+  const intl = useIntl()
   const [open, setOpen] = useState(false)
   const canExpand = item.details.length > 0
   const time = formatTime(item.startAt)
@@ -45,10 +125,10 @@ function TimelineRow({ item }: { item: TimelineItem }) {
 
   const kindLabel =
     item.kind === 'stop'
-      ? 'Stop'
+      ? intl.formatMessage(M['timeline.kindStop'])
       : item.kind === 'user-prompt'
-        ? 'You'
-        : (item.toolName ?? 'tool')
+        ? intl.formatMessage(M['timeline.kindYou'])
+        : (item.toolName ?? intl.formatMessage(M['timeline.kindTool']))
 
   return (
     <li>
@@ -66,7 +146,11 @@ function TimelineRow({ item }: { item: TimelineItem }) {
           {kindLabel}
         </span>
         <span className='min-w-0 flex-1 truncate text-foreground'>
-          {item.summary}
+          {item.pruned
+            ? intl.formatMessage(M['timeline.pruned'])
+            : item.summaryMsg
+              ? summaryText(intl, item.summaryMsg)
+              : item.summary}
         </span>
         {item.badge && (
           <span
@@ -76,7 +160,7 @@ function TimelineRow({ item }: { item: TimelineItem }) {
                 : 'bg-muted text-muted-foreground'
             }`}
           >
-            {item.badge}
+            {badgeText(intl, item.badge)}
           </span>
         )}
         {duration && (
@@ -126,10 +210,11 @@ function RedactedBlockView({
 }
 
 function DetailBlockView({ block }: { block: DetailBlock }) {
+  const intl = useIntl()
   if (block.redacted) {
     return (
       <RedactedBlockView
-        label={block.label}
+        label={intl.formatMessage(BLOCK_LABELS[block.labelKey])}
         lines={block.redacted.lines}
         bytes={block.redacted.bytes}
       />
@@ -145,18 +230,24 @@ function DetailBlockView({ block }: { block: DetailBlock }) {
   return (
     <div className='text-xs'>
       <div className='mb-1 text-[10px] uppercase tracking-wide text-muted-foreground'>
-        {block.label}
+        {intl.formatMessage(BLOCK_LABELS[block.labelKey])}
         {block.truncated && (
           <span className='ml-2 normal-case text-muted-foreground'>
-            (showing {block.truncated.shownLines} of{' '}
-            {block.truncated.totalLines} lines)
+            {intl.formatMessage(M['timeline.truncated'], {
+              shown: block.truncated.shownLines,
+              total: block.truncated.totalLines,
+            })}
           </span>
         )}
       </div>
       <pre
         className={`overflow-x-auto whitespace-pre-wrap break-words rounded-sm border p-2 font-mono text-xs leading-relaxed ${variantClass}`}
       >
-        {block.variant === 'diff' ? renderDiff(block.text) : block.text}
+        {block.textKey
+          ? intl.formatMessage(M['timeline.badge.interrupted'])
+          : block.variant === 'diff'
+            ? renderDiff(block.text)
+            : block.text}
       </pre>
     </div>
   )

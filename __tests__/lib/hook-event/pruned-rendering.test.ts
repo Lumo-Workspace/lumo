@@ -1,11 +1,7 @@
 import type { IntlShape } from 'react-intl'
 import en from '@/lib/i18n/en.json'
 import zhCN from '@/lib/i18n/zh-CN.json'
-import {
-  mergeEvents,
-  PRUNED_SUMMARY,
-  type RawEvent,
-} from '@/app/sessions/[id]/merge-events'
+import { mergeEvents, type RawEvent } from '@/app/sessions/[id]/merge-events'
 import { summarizeEvent } from '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/categorize'
 import type { AgentRunHookEventItem } from '@/app/workspace/[workspaceUrl]/types'
 import { buildPrunedPayload, isPrunedPayload } from '@/lib/hook-event/retention'
@@ -60,10 +56,10 @@ describe('pruned hook events (LUM-859)', () => {
       raw('b', 'POST_TOOL_USE', 'Bash', '2026-06-01T00:00:02Z'),
       raw('s1', 'STOP', null, '2026-06-01T00:00:03Z'),
     ])
-    expect(items.map(i => [i.kind, i.toolName, i.summary, i.status])).toEqual([
-      ['user-prompt', null, PRUNED_SUMMARY, 'ok'],
-      ['tool', 'Bash', PRUNED_SUMMARY, 'ok'],
-      ['stop', null, PRUNED_SUMMARY, 'ok'],
+    expect(items.map(i => [i.kind, i.toolName, i.pruned, i.status])).toEqual([
+      ['user-prompt', null, true, 'ok'],
+      ['tool', 'Bash', true, 'ok'],
+      ['stop', null, true, 'ok'],
     ])
     expect(items.every(i => i.details.length === 0)).toBe(true)
 

@@ -90,6 +90,11 @@ interface AcceptanceTabProps {
   /** Open the Run report group on mount — e.g. a legacy deep link targets an
    *  evidence sub-section nested inside it. */
   reportInitiallyOpen?: boolean
+  /** LUM-932: the attribution summary, rendered right under the status strip. */
+  attributionSlot?: ReactNode
+  /** LUM-932: some of the task's cost was split by auto-detection — the Run
+   *  report's Cost tile says so. */
+  costApproximate?: boolean
 }
 
 /** Records a human verdict for a specific criterion (criterionIds identifies
@@ -1384,6 +1389,8 @@ export function AcceptanceTab({
   securitySlot,
   securityBlocking = 0,
   reportInitiallyOpen = false,
+  attributionSlot,
+  costApproximate = false,
 }: AcceptanceTabProps) {
   const intl = useIntl()
   const { data, loading, error, refresh, optimisticallyPass } = useTaskStatus({
@@ -1977,6 +1984,7 @@ export function AcceptanceTab({
           The chips only link when the NEEDS ACTION zone (and therefore the
           anchors they point at) is actually on the page. */}
       <RecordStatusStrip gaps={gaps} interactive={hasNeedsAction} />
+      {attributionSlot}
 
       {/* ── NEEDS ACTION ──────────────────────────────────────────────────
           Everything whose resolution moves the task toward Done. Rendered
@@ -2294,7 +2302,10 @@ export function AcceptanceTab({
           onToggle={() => setRunReportOpen(o => !o)}
         >
           <div className='space-y-4'>
-            <RunReportTiles tiles={deriveRunReportTiles(data)} />
+            <RunReportTiles
+              tiles={deriveRunReportTiles(data)}
+              costApproximate={costApproximate}
+            />
 
             <TrendSection data={data} />
 

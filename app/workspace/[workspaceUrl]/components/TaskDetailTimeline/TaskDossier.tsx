@@ -9,7 +9,9 @@ import type { DossierSection } from './taskTabs'
 import { useAgentRuns } from '../../hooks/useAgentRuns'
 import { useSecurityScans } from '../../hooks/useSecurityScans'
 import { deriveRunDigest } from '../AgentRunTimeline/derive-run-digest'
+import { summarizeRunAttributions } from '@/lib/attribution/run-attribution'
 import { AcceptanceTab } from './AcceptanceTab'
+import { AttributionSummary } from './AttributionSummary'
 import { AgentRunsSection } from './AgentRunsSection'
 import { DeliveryGatesSection } from '../DeliveryGatesSection'
 import { SecurityScanSection } from './SecurityScanSection'
@@ -126,6 +128,9 @@ export function TaskDossier({
     (runs[0] ? deriveRunDigest(runs[0].items ?? []).join(' · ') || null : null)
 
   const hasRuns = runs.length > 0
+  const attributionSummary = summarizeRunAttributions(
+    runs.map(r => r.attribution)
+  )
 
   // LUM-496: the record tab needs to know whether a security finding still
   // blocks DONE, to decide which zone the scan section belongs in. Read from
@@ -269,6 +274,10 @@ export function TaskDossier({
       securitySlot={<SecurityScanSection taskId={taskId} />}
       securityBlocking={securityBlocking}
       reportInitiallyOpen={targetSection != null}
+      attributionSlot={
+        hasRuns ? <AttributionSummary summary={attributionSummary} /> : null
+      }
+      costApproximate={attributionSummary.approximate}
     />
   )
 }

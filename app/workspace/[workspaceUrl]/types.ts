@@ -631,6 +631,60 @@ export interface AgentRunMemoryItem {
 
 export type AgentRunItem = AgentRunHookEventItem | AgentRunMemoryItem
 
+// ── Run attribution (LUM-932 P4) ─────────────────────────────────────────────
+// Client mirror of the types in lib/attribution/run-attribution.ts (a pure,
+// client-safe module); keep structurally identical.
+export type AttributionSourceName =
+  | 'SESSION_ATTACH'
+  | 'SUBAGENT_ATTACH'
+  | 'INHERITED'
+  | 'INFERRED'
+export type AttributionConfidenceName = 'EXPLICIT' | 'HIGH' | 'MEDIUM'
+export type SignalKindName =
+  | 'BRANCH'
+  | 'LUMO_CMD'
+  | 'COMMIT'
+  | 'PR_CREATE'
+  | 'PROMPT'
+  | 'GIT_HINT'
+  | 'AGENT_PROMPT'
+
+export interface EvidenceView {
+  kind: SignalKindName
+  identifier: string
+  at: string
+}
+export interface RunSegmentView {
+  source: AttributionSourceName
+  confidence: AttributionConfidenceName
+  fromTurn: number
+  toTurn: number
+  fromAt: string
+  toAt: string | null
+  evidence: EvidenceView[]
+}
+export interface RunSubagentView {
+  sessionId: string
+  agentType: string | null
+  source: AttributionSourceName
+  confidence: AttributionConfidenceName
+  evidence: EvidenceView[]
+  /** An INFERRED subagent with no signal of its own rode its parent's
+   *  attribution; `evidence` then holds the parent's covering signals. */
+  followsParent: boolean
+}
+/** EXPLICIT = the run's session is bound to this task; INFERRED = the
+ *  session is unbound and auto-detected onto it; HOST = the session is
+ *  unbound and only hosts subagents that attached this task themselves. */
+export type RunAttributionMode = 'EXPLICIT' | 'INFERRED' | 'HOST'
+export interface RunAttribution {
+  mode: RunAttributionMode
+  segments: RunSegmentView[]
+  subagents: RunSubagentView[]
+  /** Some of this run's work on the task was auto-detected (not bound). */
+  approximate: boolean
+}
+
 export interface AgentRunSession {
   sessionId: string | null
   agent: TaskArtifactAgent
@@ -649,6 +703,8 @@ export interface AgentRunSession {
   /** Owning member (Clerk-resolved name + avatar) shown in the run header;
    *  null for orphan / unlinked runs with no member (LUM-308). */
   member: { workspaceMemberId: string; name: string; imageUrl: string } | null
+  /** Why this run's work is on the task; null for the unlinked run. */
+  attribution: RunAttribution | null
   items: AgentRunItem[]
 }
 
