@@ -17,19 +17,31 @@ export interface FindExpiredEventIdsParams {
 // ── HookEvent retention repository (LUM-859) ─────────────────────────────────
 
 export const hookEventRetentionRepository = {
-  /** Workspaces that opted into a retention window. */
+  /**
+   * Workspaces whose session record is pruned at all: a RETAIN day tier
+   * (LUM-859) or USED_UP mode (LUM-910). RETAIN-forever workspaces — the
+   * default — are never listed.
+   */
   async listWorkspacesWithRetention(): Promise<
-    { id: string; hookEventRetentionDays: number }[]
+    {
+      id: string
+      hookEventRetentionMode: 'RETAIN' | 'USED_UP'
+      hookEventRetentionDays: number | null
+    }[]
   > {
-    const rows = await prisma.workspace.findMany({
-      where: { hookEventRetentionDays: { not: null } },
-      select: { id: true, hookEventRetentionDays: true },
+    return prisma.workspace.findMany({
+      where: {
+        OR: [
+          { hookEventRetentionDays: { not: null } },
+          { hookEventRetentionMode: 'USED_UP' },
+        ],
+      },
+      select: {
+        id: true,
+        hookEventRetentionMode: true,
+        hookEventRetentionDays: true,
+      },
     })
-    return rows.flatMap(r =>
-      r.hookEventRetentionDays == null
-        ? []
-        : [{ id: r.id, hookEventRetentionDays: r.hookEventRetentionDays }]
-    )
   },
 
   /** Ids of the workspace's tasks that are not DONE. */
@@ -80,6 +92,146 @@ export const hookEventRetentionRepository = {
       select: { id: true },
     })
     return rows.map(r => r.id)
+  },
+
+  // ── LUM-910: used-up mode ──────────────────────────────────────────────────
+
+  /**
+   * The workspace's not-DONE tasks with their latest agent activity: the
+   * newest hook event tagged with the task, or the latest activity of a
+   * session bound to it — whichever is later. Null when neither exists.
+   */
+  async findOpenTasksLastActivity(
+    workspaceId: string
+  ): Promise<{ id: string; lastActivityAt: Date | null }[]> {
+    const tasks = await prisma.task.findMany({
+      where: { team: { workspaceId }, status: { not: 'DONE' } },
+      select: { id: true },
+    })
+    if (tasks.length === 0) return []
+    const ids = tasks.map(t => t.id)
+    const [events, sessions] = await Promise.all([
+      prisma.hookEvent.groupBy({
+        by: ['taskId'],
+        where: { workspaceId, taskId: { in: ids } },
+        _max: { createdAt: true },
+      }),
+      prisma.session.groupBy({
+        by: ['taskId'],
+        where: { taskId: { in: ids } },
+        _max: { lastActivityAt: true },
+      }),
+    ])
+    const latest = new Map<string, Date>()
+    const bump = (taskId: string | null, at: Date | null | undefined) => {
+      if (!taskId || !at) return
+      const prev = latest.get(taskId)
+      if (!prev || at > prev) latest.set(taskId, at)
+    }
+    for (const e of events) bump(e.taskId, e._max.createdAt)
+    for (const s of sessions) bump(s.taskId, s._max.lastActivityAt)
+    return ids.map(id => ({ id, lastActivityAt: latest.get(id) ?? null }))
+  },
+
+  /**
+   * The workspace's DONE tasks last changed after `since`, each with whether
+   * any of its sessions still has a fragment-usage vote outstanding (an edge
+   * with no `usedAt`). `updatedAt` stands in for the DONE time: it is never
+   * earlier, so the grace period can only run long, never short.
+   */
+  async findRecentlyDoneTasks(
+    workspaceId: string,
+    since: Date
+  ): Promise<{ id: string; doneAt: Date; usageVotePending: boolean }[]> {
+    const tasks = await prisma.task.findMany({
+      where: {
+        team: { workspaceId },
+        status: 'DONE',
+        updatedAt: { gt: since },
+      },
+      select: { id: true, updatedAt: true },
+    })
+    if (tasks.length === 0) return []
+    const pending = await prisma.lineageEdge.groupBy({
+      by: ['taskId'],
+      where: {
+        taskId: { in: tasks.map(t => t.id) },
+        sessionId: { not: null },
+        usedAt: null,
+      },
+    })
+    const pendingIds = new Set(pending.map(p => p.taskId))
+    return tasks.map(t => ({
+      id: t.id,
+      doneAt: t.updatedAt,
+      usageVotePending: pendingIds.has(t.id),
+    }))
+  },
+
+  /**
+   * Not-yet-pruned events of a USED_UP workspace whose work is used up, in id
+   * order: the event's task (own `taskId`, else its session's) is not in
+   * `keepTaskIds`; or it has no task and its session (or, sessionless, the
+   * event itself) has been idle since before `idleBefore`.
+   */
+  async findUsedUpEventIds(params: {
+    workspaceId: string
+    keepTaskIds: string[]
+    idleBefore: Date
+    afterId: string | null
+    take: number
+  }): Promise<string[]> {
+    const { workspaceId, keepTaskIds, idleBefore, afterId, take } = params
+    // `not: null` alongside `notIn`: an empty `notIn` alone matches NULL too.
+    const usedUpTask = { not: null, notIn: keepTaskIds }
+    const rows = await prisma.hookEvent.findMany({
+      where: {
+        workspaceId,
+        payloadPrunedAt: null,
+        ...(afterId ? { id: { gt: afterId } } : {}),
+        OR: [
+          { taskId: usedUpTask },
+          { taskId: null, sessionId: null, createdAt: { lt: idleBefore } },
+          { taskId: null, session: { is: { taskId: usedUpTask } } },
+          {
+            taskId: null,
+            session: {
+              is: { taskId: null, lastActivityAt: { lt: idleBefore } },
+            },
+          },
+        ],
+      },
+      orderBy: { id: 'asc' },
+      take,
+      select: { id: true },
+    })
+    return rows.map(r => r.id)
+  },
+
+  /** Every boundary crossing pointing at one of `eventIds`, with its disposition. */
+  async findCrossingRefs(eventIds: string[]): Promise<
+    {
+      hookEventId: string
+      disposition: string | null
+      dispositionedAt: Date | null
+    }[]
+  > {
+    if (eventIds.length === 0) return []
+    const rows = await prisma.boundaryCrossing.findMany({
+      where: { hookEventId: { in: eventIds } },
+      select: { hookEventId: true, disposition: true, dispositionedAt: true },
+    })
+    return rows.flatMap(r =>
+      r.hookEventId
+        ? [
+            {
+              hookEventId: r.hookEventId,
+              disposition: r.disposition,
+              dispositionedAt: r.dispositionedAt,
+            },
+          ]
+        : []
+    )
   },
 
   /** The subset of `eventIds` a boundary crossing points at. */
