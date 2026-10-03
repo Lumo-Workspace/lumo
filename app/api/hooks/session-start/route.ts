@@ -8,6 +8,7 @@ import { lineageService } from '@/lib/services/lineage.service'
 import { aggregateSessionStartFragments } from '@/lib/services/session-start-edges.service'
 import { taskDependencyService } from '@/lib/services/task-dependency.service'
 import { workspaceDeletionService } from '@/lib/services/workspace-deletion.service'
+import { sessionRecordNoticeService } from '@/lib/services/session-record-notice.service'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import {
   buildSessionStartContextMetrics,
@@ -21,11 +22,16 @@ export async function POST(request: Request) {
     afterRecord: async ctx => {
       if (!ctx.sessionId) return
       const sessionId = ctx.sessionId
-      const [binding, workspaceNoticeSection] = await Promise.all([
-        sessionRepository.findTaskBinding(sessionId),
-        // LUM-923: bound or not, the agent learns of a pending deletion.
-        workspaceDeletionService.buildPendingNoticeSection(ctx.workspaceId),
-      ])
+      const [binding, workspaceNoticeSection, sessionRecords] =
+        await Promise.all([
+          sessionRepository.findTaskBinding(sessionId),
+          // LUM-923: bound or not, the agent learns of a pending deletion.
+          workspaceDeletionService.buildPendingNoticeSection(ctx.workspaceId),
+          // LUM-943: bound or not, how this workspace keeps session records.
+          // Read fresh every session start; null (never throws) skips the line.
+          sessionRecordNoticeService.getForWorkspace(ctx.workspaceId),
+        ])
+      const sessionRecordNotice = sessionRecords?.notice ?? ''
       // LUM-807: "## Test cases" nudge.
       let testCaseSection = ''
       let progressSection = ''
@@ -197,6 +203,7 @@ export async function POST(request: Request) {
         sessionId,
         taskBinding: binding,
         workspaceNoticeSection,
+        sessionRecordNotice,
         testCaseSection,
         progressSection,
         memorySection,

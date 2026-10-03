@@ -6,9 +6,10 @@ import {
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import {
   DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
-  isScanEvidenceExpired,
   isScanFinal,
   retentionCutoffs,
+  scanEvidenceExpiryReason,
+  type ScanEvidenceExpiryReason,
 } from '@/lib/security-scan/evidence-retention'
 import { isSuggestEnabled } from './security-suggest.config'
 
@@ -31,13 +32,22 @@ export const RETENTION_SWEEP_PAGE = 200
  */
 export const ZERO_RETENTION_SWEEP_GRACE_MS = 15 * 60 * 1000
 
-function expired(
+/**
+ * LUM-914 — the sweep's whole call on one candidate: the pure rule plus the
+ * zero-retention grace. Null = leave it; otherwise why it is scrubbed. The
+ * pre-rule stock script (scripts/retention-stock.ts) asks the same question.
+ */
+export function scanRetentionDueReason(
   candidate: RetentionCandidate,
   retentionDays: number,
   allScansFinal: boolean,
   now: Date
-): boolean {
-  return isScanEvidenceExpired({
+): ScanEvidenceExpiryReason | null {
+  if (retentionDays === 0) {
+    const finishedAt = (candidate.finishedAt ?? candidate.startedAt).getTime()
+    if (now.getTime() - finishedAt < ZERO_RETENTION_SWEEP_GRACE_MS) return null
+  }
+  return scanEvidenceExpiryReason({
     scan: candidate,
     pullRequest: candidate.pullRequest,
     allScansFinal,
@@ -71,16 +81,15 @@ export async function sweepExpiredScanEvidence(
     const days = await workspaceRepository.findScanEvidenceRetention([
       ...new Set(page.map(c => c.workspaceId)),
     ])
-    const due = page.filter(c => {
-      const retention =
-        days.get(c.workspaceId) ?? DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS
-      if (retention === 0) {
-        const finishedAt = (c.finishedAt ?? c.startedAt).getTime()
-        if (now.getTime() - finishedAt < ZERO_RETENTION_SWEEP_GRACE_MS)
-          return false
-      }
-      return expired(c, retention, !unfinished.has(c.pullRequestId), now)
-    })
+    const due = page.filter(
+      c =>
+        scanRetentionDueReason(
+          c,
+          days.get(c.workspaceId) ?? DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS,
+          !unfinished.has(c.pullRequestId),
+          now
+        ) !== null
+    )
     try {
       const counts = await prSecurityScanRepository.scrubCodeForRetention(
         due.map(c => c.id)

@@ -12,6 +12,7 @@ import {
 import { promptLine } from '../lib/line-prompt'
 import { normalizeAgent, ENUM_TO_TOKEN, VALID_AGENT_TOKENS } from '../lib/agent'
 import { configDir } from '../lib/config'
+import { fetchSessionRecordNotice } from '../lib/session-record-notice'
 
 type SetupOptions = {
   user?: boolean
@@ -68,6 +69,7 @@ export async function setup(options: SetupOptions): Promise<number> {
   if (scope === 'project') {
     installGitHook(root)
   }
+  await printSessionRecordNotice()
   printPostInstall()
 
   return 0
@@ -272,6 +274,24 @@ function printGitHookManualInstructions(coreHooksPath: string): void {
       HOOK_SCRIPT_BLOCK +
       `\n\n`
   )
+}
+
+/**
+ * LUM-943: tell the member how their workspace keeps session records (mode,
+ * retention, where an OWNER changes it). Prints nothing when the notice can't
+ * be fetched — not logged in, offline, an older server — so setup never fails
+ * or stalls on it.
+ */
+export async function printSessionRecordNotice(
+  fetchNotice: () => Promise<string | null> = fetchSessionRecordNotice
+): Promise<void> {
+  let notice: string | null = null
+  try {
+    notice = await fetchNotice()
+  } catch {
+    notice = null
+  }
+  if (notice) process.stdout.write(`\nℹ ${notice}\n`)
 }
 
 function printPostInstall(): void {

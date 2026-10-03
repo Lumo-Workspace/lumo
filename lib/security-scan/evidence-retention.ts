@@ -66,6 +66,40 @@ export function pullRequestEndedAt(pr: RetentionPullRequest): Date | null {
 }
 
 /**
+ * LUM-914 — why a scan's code is due at `now`: `zero_retention` (the tier is
+ * 0), `hard_cap` (finished `SCAN_EVIDENCE_HARD_CAP_DAYS` ago, PR open or
+ * not), `pr_ended` (PR merged or closed and every scan of it final, the
+ * tier's days ago). Null = not due. `isScanEvidenceExpired` is this ≠ null.
+ */
+export type ScanEvidenceExpiryReason =
+  | 'zero_retention'
+  | 'hard_cap'
+  | 'pr_ended'
+
+export function scanEvidenceExpiryReason(input: {
+  scan: RetentionScan
+  pullRequest: RetentionPullRequest
+  allScansFinal: boolean
+  retentionDays: number
+  now: Date
+}): ScanEvidenceExpiryReason | null {
+  const { scan, pullRequest, allScansFinal, now } = input
+  if (!isScanFinal(scan)) return null
+  const days = isScanEvidenceRetentionDays(input.retentionDays)
+    ? input.retentionDays
+    : DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS
+  if (days === 0) return 'zero_retention'
+
+  const finishedAt = scan.finishedAt ?? scan.startedAt
+  const cap = Math.max(SCAN_EVIDENCE_HARD_CAP_DAYS, days)
+  if (now.getTime() >= finishedAt.getTime() + cap * DAY_MS) return 'hard_cap'
+
+  const endedAt = pullRequestEndedAt(pullRequest)
+  if (!endedAt || !allScansFinal) return null
+  return now.getTime() >= endedAt.getTime() + days * DAY_MS ? 'pr_ended' : null
+}
+
+/**
  * Is this scan's code due to be scrubbed at `now`? `allScansFinal` is over
  * every scan of the scan's PR: a merged PR whose newest scan still has a hunt
  * running keeps its older scans' code until that hunt ends.
@@ -77,20 +111,7 @@ export function isScanEvidenceExpired(input: {
   retentionDays: number
   now: Date
 }): boolean {
-  const { scan, pullRequest, allScansFinal, now } = input
-  if (!isScanFinal(scan)) return false
-  const days = isScanEvidenceRetentionDays(input.retentionDays)
-    ? input.retentionDays
-    : DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS
-  if (days === 0) return true
-
-  const finishedAt = scan.finishedAt ?? scan.startedAt
-  const cap = Math.max(SCAN_EVIDENCE_HARD_CAP_DAYS, days)
-  if (now.getTime() >= finishedAt.getTime() + cap * DAY_MS) return true
-
-  const endedAt = pullRequestEndedAt(pullRequest)
-  if (!endedAt || !allScansFinal) return false
-  return now.getTime() >= endedAt.getTime() + days * DAY_MS
+  return scanEvidenceExpiryReason(input) !== null
 }
 
 /** The cutoffs a sweep query can narrow candidates with before the exact check. */
