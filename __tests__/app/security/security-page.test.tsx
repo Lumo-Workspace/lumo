@@ -191,6 +191,35 @@ describe('/security page (LUM-856)', () => {
     expect(problems).toEqual([])
   })
 
+  it('security export copy lists uploaded files among what it leaves out', () => {
+    // LUM-853 review: the export reads no blobs (editor images, test-case
+    // evidence), so the "left out" list must name uploaded files.
+    const leftOut =
+      /does not yet include everything Lumo stores:(.*)are left out\./.exec(
+        MESSAGES.en!['security.code.export'] ?? ''
+      )?.[1]
+    expect(leftOut).toMatch(/uploaded files and images/)
+
+    // Every non-English locale carries its own translation, not the English
+    // sentence, and the zh locales name initiatives/sprints as the sidebar does.
+    const problems: string[] = []
+    for (const locale of PUBLIC_LOCALES) {
+      const exportText = MESSAGES[locale]!['security.code.export'] ?? ''
+      if (!locale.startsWith('en') && exportText.includes('uploaded files'))
+        problems.push(`${locale}: English fallback`)
+    }
+    for (const locale of ['zh-CN', 'zh-TW']) {
+      const messages = MESSAGES[locale]!
+      const exportText = messages['security.code.export'] ?? ''
+      for (const key of ['sidebar.initiatives', 'sidebar.sprints']) {
+        const term = messages[key] ?? ''
+        if (!term || !exportText.includes(term))
+          problems.push(`${locale}: export copy does not use ${key} "${term}"`)
+      }
+    }
+    expect(problems).toEqual([])
+  })
+
   it('renders every subprocessor from the registry', () => {
     const page = text(render('en'))
     const names = [
