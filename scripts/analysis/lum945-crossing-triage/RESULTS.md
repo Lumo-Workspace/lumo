@@ -43,5 +43,8 @@ margin the two Jev variants clear about the same (33 vs 38).
    human-only rule for irreversible classes is necessary.
 3. Some CONFIRMED labels mean "it happened" rather than "it was wrong" (e.g. a
    dependency the user approved), which caps any judge's measured precision.
-4. Qwen's confidence is saturated (≥0.9 almost always), so thresholding cannot
+4. SPINOFF_LAUNDERED (like TEST_TAMPERING) lost its producer in LUM-942; it
+   is scored here only as history. No variant cleared any of its rows, so the
+   tables are unaffected, but a live auto-clear scope has three categories.
+5. Qwen's confidence is saturated (≥0.9 almost always), so thresholding cannot
    separate its errors. Deepseek still leaks at 0.95.
