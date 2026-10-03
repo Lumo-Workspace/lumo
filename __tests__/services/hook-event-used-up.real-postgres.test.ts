@@ -31,7 +31,6 @@ const NOW = new Date('2026-11-20T03:45:00Z')
 const ago = (days: number) => new Date(NOW.getTime() - days * DAY)
 
 const WS = 'ws_used_up'
-const MEMBER = 'member_used_up'
 const CODE = 'export const total = items.reduce(sum, 0)\n'
 
 let taskSeq = 0
