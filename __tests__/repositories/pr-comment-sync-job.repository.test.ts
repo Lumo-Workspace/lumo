@@ -71,7 +71,11 @@ describe('prCommentSyncJobRepository', () => {
     await prCommentSyncJobRepository.markDeadLetter('j1', 'final error')
     expect(prisma.prCommentSyncJob.update).toHaveBeenCalledWith({
       where: { id: 'j1' },
-      data: { status: 'DEAD_LETTER', lastError: 'final error' },
+      data: {
+        status: 'DEAD_LETTER',
+        lastError: 'final error',
+        deadLetteredAt: expect.any(Date),
+      },
     })
   })
 

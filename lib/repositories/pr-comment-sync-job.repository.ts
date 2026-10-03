@@ -60,8 +60,57 @@ export const prCommentSyncJobRepository = {
   async markDeadLetter(id: string, error: string) {
     return prisma.prCommentSyncJob.update({
       where: { id },
-      data: { status: 'DEAD_LETTER', lastError: error.slice(0, 1000) },
+      data: {
+        status: 'DEAD_LETTER',
+        lastError: error.slice(0, 1000),
+        // LUM-913: starts the 7-day clock for dropping the webhook payload.
+        deadLetteredAt: new Date(),
+      },
     })
+  },
+
+  /**
+   * LUM-913: dead letters whose webhook payload is due to be dropped — entered
+   * DEAD_LETTER at or before `before` and not purged yet. Rows dead-lettered
+   * before LUM-913 have no `deadLetteredAt` and are never returned.
+   */
+  async findPurgeableDeadLetters({
+    before,
+    afterId,
+    take,
+  }: {
+    before: Date
+    afterId: string | null
+    take: number
+  }) {
+    return prisma.prCommentSyncJob.findMany({
+      where: {
+        status: 'DEAD_LETTER',
+        deadLetteredAt: { not: null, lte: before },
+        payloadPurgedAt: null,
+        ...(afterId ? { id: { gt: afterId } } : {}),
+      },
+      orderBy: { id: 'asc' },
+      take,
+      select: { id: true, payload: true },
+    })
+  },
+
+  /**
+   * LUM-913: replace a dead letter's payload with its metadata-only form.
+   * Guarded on `payloadPurgedAt: null` so a concurrent or repeated run is a
+   * no-op. Returns whether the row was purged by this call.
+   */
+  async purgeDeadLetterPayload(
+    id: string,
+    payload: Prisma.InputJsonValue,
+    now: Date
+  ): Promise<boolean> {
+    const { count } = await prisma.prCommentSyncJob.updateMany({
+      where: { id, status: 'DEAD_LETTER', payloadPurgedAt: null },
+      data: { payload, payloadPurgedAt: now },
+    })
+    return count > 0
   },
 
   async findDueByTask(taskId: string, { limit }: { limit: number }) {

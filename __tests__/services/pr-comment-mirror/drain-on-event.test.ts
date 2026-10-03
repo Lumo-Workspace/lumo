@@ -100,6 +100,33 @@ describe('drain-on-event', () => {
     errSpy.mockRestore()
   })
 
+  it('a drained job that syncs is deleted and never dead-lettered', async () => {
+    ;(prCommentSyncJobRepository.findDueByTask as jest.Mock).mockResolvedValue([
+      {
+        id: 'j-ok',
+        direction: 'OUTBOUND',
+        commentId: 'c-gone',
+        payload: { op: 'CREATE' },
+        attempts: 1,
+      },
+    ])
+    const { commentRepository } =
+      await import('@/lib/repositories/comment.repository')
+    // The drained comment no longer exists — the retry completes as a no-op.
+    ;(commentRepository.findById as jest.Mock).mockImplementation(
+      (id: string) =>
+        id === 'c-gone' ? null : { id: 'c1', taskId: 't1', type: 'USER' }
+    )
+    const { pullRequestRepository } =
+      await import('@/lib/repositories/pull-request.repository')
+    ;(pullRequestRepository.findByTaskId as jest.Mock).mockResolvedValue(null)
+
+    await prCommentMirrorService.runOutbound('c1', 'CREATE')
+
+    expect(prCommentSyncJobRepository.delete).toHaveBeenCalledWith('j-ok')
+    expect(prCommentSyncJobRepository.markDeadLetter).not.toHaveBeenCalled()
+  })
+
   it('runInbound drains pending INBOUND jobs for the same PR', async () => {
     ;(
       prCommentSyncJobRepository.findDueByPullRequest as jest.Mock

@@ -314,6 +314,13 @@ installation can be recorded (LUM-875).
    finished. Zero retention scrubs a scan as soon as it is final and its PR
    review is posted. Rows, counts and dispositions stay; scans from before
    LUM-911 are not swept.
+8. PR comment sync dead letters (LUM-913). A PR comment sync job that keeps
+   failing is parked as a dead letter with the GitHub webhook body it was
+   handling. The daily cron `/api/cron/prune-hook-event-payloads` drops that
+   body 7 days after the job dead-lettered, keeping only the operation /
+   event, task, PR, error and timestamps. Dead letters from before LUM-913
+   are not swept; `scripts/analysis/lum913-dead-letter-stock/count.ts` counts
+   them read-only.
 
 **No fallback.** A workspace with no installation record gets no GitHub
 token at all — every GitHub call for it fails with "install the Lumo GitHub
