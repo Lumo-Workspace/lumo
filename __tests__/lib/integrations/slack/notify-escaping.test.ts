@@ -30,6 +30,7 @@ import {
   sendDMNotification,
 } from '@/lib/integrations/slack/notify'
 import type { NotificationPayload } from '@/lib/integrations/slack/types'
+import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 
 const findUnique = (
   prisma as unknown as { slackIntegration: { findUnique: jest.Mock } }
@@ -121,6 +122,23 @@ describe('Slack notification mrkdwn escaping', () => {
       '<https://github.com/a/b/pull/8%7Cfake&gt;&lt;!channel&gt;|#8 ok>'
     )
     expect(text!.match(/<[^<>]*>/g)).toHaveLength(1)
+  })
+
+  it('stored comment HTML with entities is escaped exactly once', async () => {
+    // What the editor stores for: Q&A: x < y  ok <!channel>
+    const stored = '<p>Q&amp;A: x &lt; y&nbsp;ok &lt;!channel&gt;</p>'
+    await sendChannelNotification(
+      'ws_1',
+      'comment_mention',
+      { taskIdentifier: 'LUM-1', commentBody: htmlToPreview(stored) },
+      'proj_1'
+    )
+    const [text] = mrkdwnTexts()
+    expect(text).toContain('\n> Q&amp;A: x &lt; y ok &lt;!channel&gt;')
+    expect(text).not.toContain('&amp;amp;')
+    expect(text).not.toContain('&amp;lt;')
+    // The decoded `<` is re-escaped: no control sequence reaches Slack.
+    expect(text).not.toMatch(/<!channel>/)
   })
 
   it('leaves ordinary titles readable', async () => {

@@ -34,7 +34,9 @@ afterAll(async () => {
 
 it('accepts a second connection while the first is still open', async () => {
   // The harness client holds its single pooled connection open (idle).
-  await harness.query('select 1')
+  await harness.prisma!.workspace.create({
+    data: { id: 'ws-open', name: 'Open', slug: 'ws-open' },
+  })
 
   const second = new PrismaClient({
     adapter: new PrismaPg({
@@ -43,26 +45,34 @@ it('accepts a second connection while the first is still open', async () => {
     }),
   })
   try {
-    const rows = await second.$queryRawUnsafe<{ n: number }[]>('select 2 as n')
-    expect(rows).toEqual([{ n: 2 }])
+    expect(await second.workspace.count({ where: { id: 'ws-open' } })).toBe(1)
   } finally {
     await second.$disconnect()
   }
 
   // The first connection is unaffected.
-  expect(await harness.query<{ n: number }>('select 3 as n')).toEqual([
-    { n: 3 },
-  ])
+  expect(
+    await harness.prisma!.workspace.findUnique({
+      where: { id: 'ws-open' },
+      select: { slug: true },
+    })
+  ).toEqual({ slug: 'ws-open' })
 })
 
 it('keeps serving after a query error makes the pool reconnect', async () => {
-  await harness.insert('workspaces', { id: 'ws-err', slug: 'ws-err' })
+  await harness.prisma!.workspace.create({
+    data: { id: 'ws-err', name: 'Err', slug: 'ws-err' },
+  })
+  // Duplicate primary key: pg-pool discards its client and reconnects.
   await expect(
-    harness.insert('workspaces', { id: 'ws-err', slug: 'ws-err-2' })
-  ).rejects.toMatchObject({ code: 'P2010' })
+    harness.prisma!.workspace.create({
+      data: { id: 'ws-err', name: 'Err 2', slug: 'ws-err-2' },
+    })
+  ).rejects.toMatchObject({ code: 'P2002' })
   expect(
-    await harness.query<{ id: string }>(
-      `select id from workspaces where id = 'ws-err'`
-    )
-  ).toEqual([{ id: 'ws-err' }])
+    await harness.prisma!.workspace.findUnique({
+      where: { id: 'ws-err' },
+      select: { id: true },
+    })
+  ).toEqual({ id: 'ws-err' })
 })

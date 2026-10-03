@@ -186,7 +186,7 @@ export async function handleCommand(
       })
       return {
         type: 'text',
-        text: `✅ ${task.team.identifier}-${task.number} marked as ${cmd === 'done' ? 'Done' : 'In Review'}.`,
+        text: `✅ ${escapeMrkdwn(`${task.team.identifier}-${task.number}`)} marked as ${cmd === 'done' ? 'Done' : 'In Review'}.`,
       }
     }
 
@@ -232,7 +232,7 @@ export async function handleCommand(
       })
       return {
         type: 'text',
-        text: `✅ ${task.team.identifier}-${task.number} assigned.`,
+        text: `✅ ${escapeMrkdwn(`${task.team.identifier}-${task.number}`)} assigned.`,
       }
     }
 
@@ -283,7 +283,7 @@ export async function handleCommand(
       if (!project)
         return {
           type: 'text',
-          text: `Team \`${team.identifier}\` has no project to create the task in.`,
+          text: `Team \`${escapeMrkdwn(team.identifier)}\` has no project to create the task in.`,
         }
 
       // Number comes from the team's atomic taskSeq — count+1 collides with

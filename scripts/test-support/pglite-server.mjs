@@ -32,8 +32,13 @@ try {
   // the discarded socket has sent Terminate but the server sees it close only
   // later — hundreds of ms under parallel jest load — so the reconnect was
   // dropped and the next query failed with "Server has closed the
-  // connection". PGlite itself stays single-session: the socket server runs
-  // every query through one exclusive, transaction-aware queue.
+  // connection". PGlite itself is still a single session: the socket server
+  // serialises protocol messages through one queue and only holds other
+  // clients off while one is inside an explicit transaction. Outside a
+  // transaction, two clients querying at the same moment can interleave their
+  // Parse/Bind/Execute messages and clobber the shared unnamed statement and
+  // portal — so this raises the limit only to absorb reconnect overlap. It is
+  // not safe for genuinely concurrent clients.
   const server = new PGLiteSocketServer({
     db,
     port: 0,
