@@ -350,8 +350,9 @@ export const sessionRepository = {
    * ADDED onto the child's latest SUBAGENT_STOP row so operation cost
    * (lib/agent-run/operation-cost.ts) can attribute it to the subagent's
    * tools; the cumulative columns are then overwritten. Same cumulative twice
-   * -> zero delta -> no write (idempotent across resume). No SUBAGENT_STOP yet
-   * (subagent still running) -> defer, so the delta is caught on a later STOP.
+   * -> zero delta -> no write (idempotent across resume). No SUBAGENT_STOP row
+   * -> the cumulative is still written (never lost) but no STOP row gets the
+   * delta; `settled` is true only when a STOP row received it.
    */
   async settleChildUsage(data: {
     parentSessionId: string
@@ -420,7 +421,14 @@ export const sessionRepository = {
         orderBy: { createdAt: 'desc' },
         select: { id: true, usageByModel: true },
       })
-      if (!stopRow) return { settled: false }
+      if (!stopRow) {
+        // No SUBAGENT_STOP row (subagent predates the child-session feature,
+        // or its SubagentStop hook was missed). The parent already excludes
+        // this usage, so still persist the cumulative or it is lost on every
+        // STOP. Nothing was added to a STOP row -> `settled: false`.
+        await tx.session.update({ where: { id }, data: cumulative })
+        return { settled: false }
+      }
       await tx.hookEvent.update({
         where: { id: stopRow.id },
         data: {
