@@ -2802,5 +2802,6 @@
   "sessions.timeline.badge.lines": "{count} 行",
   "sessions.timeline.badge.linesWithType": "{type} · {count} 行",
   "sessions.timeline.badge.files": "{count} ファイル",
-  "sessions.timeline.badge.matches": "{count} 件の一致"
+  "sessions.timeline.badge.matches": "{count} 件の一致",
+  "agentRun.attribution.subagentCount": "{label} ×{count}"
 }

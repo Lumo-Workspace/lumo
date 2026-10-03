@@ -1,6 +1,7 @@
 'use client'
 
 import { useIntl, type IntlShape } from 'react-intl'
+import { dedupeEvidence } from '@/lib/attribution/run-attribution'
 import type {
   AttributionConfidenceName,
   EvidenceView,
@@ -19,6 +20,7 @@ import {
   SIGNAL_MESSAGES,
   SOURCE_MESSAGES,
   SUBAGENTS_MESSAGE,
+  SUBAGENT_COUNT,
   SUBAGENT_UNKNOWN_TYPE,
   TURNS_MESSAGE,
   TURN_MESSAGE,
@@ -75,12 +77,13 @@ function EvidenceLines({
 }) {
   return (
     <>
-      {evidence.map((e, i) => (
+      {dedupeEvidence(evidence).map(e => (
         <div
-          key={`${e.kind}-${e.identifier}-${i}`}
+          key={`${e.kind}-${e.identifier}`}
           className='pl-3 text-caption text-muted-foreground'
         >
-          {intl.formatMessage(SIGNAL_MESSAGES[e.kind])} · {e.identifier} ·{' '}
+          {intl.formatMessage(SIGNAL_MESSAGES[e.kind])} · {e.identifier}
+          {e.count > 1 && ` ×${e.count}`} ·{' '}
           {new Date(e.at).toLocaleTimeString(intl.locale, {
             hour: '2-digit',
             minute: '2-digit',
@@ -121,12 +124,53 @@ function SegmentRow({ intl, seg }: { intl: IntlShape; seg: RunSegmentView }) {
   )
 }
 
-function SubagentRow({ intl, sub }: { intl: IntlShape; sub: RunSubagentView }) {
+interface SubagentGroup {
+  sub: RunSubagentView
+  count: number
+  evidence: EvidenceView[]
+}
+
+function groupSubagents(subagents: RunSubagentView[]): SubagentGroup[] {
+  const groups = new Map<string, SubagentGroup>()
+  for (const sub of subagents) {
+    const signature = dedupeEvidence(sub.evidence)
+      .map(e => `${e.kind}:${e.identifier}`)
+      .sort()
+      .join(',')
+    const key = [
+      sub.agentType ?? '',
+      sub.source,
+      sub.confidence,
+      sub.followsParent,
+      signature,
+    ].join('|')
+    const g = groups.get(key)
+    if (g) {
+      g.count += 1
+      g.evidence.push(...sub.evidence)
+    } else {
+      groups.set(key, { sub, count: 1, evidence: [...sub.evidence] })
+    }
+  }
+  return [...groups.values()]
+}
+
+function SubagentRow({
+  intl,
+  group,
+}: {
+  intl: IntlShape
+  group: SubagentGroup
+}) {
+  const { sub, count } = group
+  const label = sub.agentType ?? intl.formatMessage(SUBAGENT_UNKNOWN_TYPE)
   return (
-    <div data-testid='attribution-subagent' className='py-1'>
+    <div data-testid='attribution-subagent' data-count={count} className='py-1'>
       <div className='text-caption'>
-        {sub.agentType ?? intl.formatMessage(SUBAGENT_UNKNOWN_TYPE)} ·{' '}
-        {intl.formatMessage(SOURCE_MESSAGES[sub.source])} ·{' '}
+        {count > 1
+          ? intl.formatMessage(SUBAGENT_COUNT, { label, count })
+          : label}{' '}
+        · {intl.formatMessage(SOURCE_MESSAGES[sub.source])} ·{' '}
         {intl.formatMessage(CONFIDENCE_MESSAGES[sub.confidence])}
       </div>
       {sub.followsParent && (
@@ -134,8 +178,8 @@ function SubagentRow({ intl, sub }: { intl: IntlShape; sub: RunSubagentView }) {
           {intl.formatMessage(FOLLOWS_PARENT)}
         </div>
       )}
-      {sub.evidence.length > 0 ? (
-        <EvidenceLines intl={intl} evidence={sub.evidence} />
+      {group.evidence.length > 0 ? (
+        <EvidenceLines intl={intl} evidence={group.evidence} />
       ) : sub.source === 'INFERRED' ? (
         <div className='pl-3 text-caption text-muted-foreground'>
           {intl.formatMessage(NO_SIGNAL)}
@@ -182,8 +226,8 @@ export function RunAttributionPanel({
           <div className='text-caption font-medium text-muted-foreground'>
             {intl.formatMessage(SUBAGENTS_MESSAGE)}
           </div>
-          {attribution.subagents.map(sub => (
-            <SubagentRow key={sub.sessionId} intl={intl} sub={sub} />
+          {groupSubagents(attribution.subagents).map(group => (
+            <SubagentRow key={group.sub.sessionId} intl={intl} group={group} />
           ))}
         </div>
       )}

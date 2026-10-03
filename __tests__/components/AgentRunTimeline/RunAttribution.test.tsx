@@ -158,7 +158,11 @@ describe('RunAttribution', () => {
             confidence: 'HIGH',
             followsParent: true,
             evidence: [
-              { kind: 'BRANCH', identifier: 'LUM-12', at: '2026-06-07T15:48:00Z' },
+              {
+                kind: 'BRANCH',
+                identifier: 'LUM-12',
+                at: '2026-06-07T15:48:00Z',
+              },
             ],
           }),
         ],
@@ -180,5 +184,53 @@ describe('RunAttribution', () => {
     expect(screen.getByTestId('run-attribution-badge')).toHaveTextContent(
       'Auto-detected · Medium confidence'
     )
+  })
+})
+
+describe('RunAttribution grouping and dedupe', () => {
+  it('groups identical subagents into one counted row', () => {
+    renderBoth(
+      attr({
+        mode: 'HOST',
+        approximate: false,
+        subagents: [
+          sub({ sessionId: 'a', source: 'INHERITED' }),
+          sub({ sessionId: 'b', source: 'INHERITED' }),
+          sub({ sessionId: 'c', source: 'INHERITED' }),
+          sub({ sessionId: 'd', agentType: 'Explore' }),
+        ],
+      })
+    )
+    const rows = screen.getAllByTestId('attribution-subagent')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toHaveTextContent('general-purpose ×3')
+    expect(rows[0]).toHaveAttribute('data-count', '3')
+    expect(rows[1]).not.toHaveTextContent('×')
+  })
+
+  it('dedupes repeated evidence with a count and the earliest time', () => {
+    const ev = (at: string) => ({
+      kind: 'LUMO_CMD' as const,
+      identifier: 'LUM-855',
+      at,
+    })
+    renderBoth(
+      attr({
+        segments: [
+          seg({
+            evidence: [
+              ev('2026-06-07T15:50:00Z'),
+              ev('2026-06-07T15:48:00Z'),
+              ev('2026-06-07T15:49:00Z'),
+            ],
+          }),
+        ],
+      })
+    )
+    const panel = screen.getByTestId('run-attribution-panel')
+    expect(within(panel).getAllByText(/Lumo command/)).toHaveLength(1)
+    expect(
+      within(panel).getByText(/Lumo command · LUM-855 ×3/)
+    ).toBeInTheDocument()
   })
 })

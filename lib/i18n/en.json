@@ -250,6 +250,7 @@
   "agentRun.attribution.turn": "Turn {n}",
   "agentRun.attribution.subagents": "Subagents",
   "agentRun.attribution.subagentUnknownType": "subagent",
+  "agentRun.attribution.subagentCount": "{label} ×{count}",
   "agentRun.attribution.noSignal": "No recorded signal",
   "agentRun.attribution.followsParent": "Follows the parent session's attribution",
   "agentRun.attribution.approximate": "≈ approximate",

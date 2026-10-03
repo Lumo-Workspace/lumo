@@ -137,3 +137,8 @@ export const FOLLOWS_PARENT: MessageDescriptor = {
   id: 'agentRun.attribution.followsParent',
   defaultMessage: "Follows the parent session's attribution",
 }
+
+export const SUBAGENT_COUNT: MessageDescriptor = {
+  id: 'agentRun.attribution.subagentCount',
+  defaultMessage: '{label} ×{count}',
+}

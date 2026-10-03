@@ -232,4 +232,24 @@ describe('AgentRunCard — attribution (LUM-932)', () => {
     fireEvent.click(screen.getByRole('button'))
     expect(screen.getByTestId('run-attribution-panel')).toBeInTheDocument()
   })
+
+  it('lets the header wrap so the badge and metadata stay visible', () => {
+    render(
+      <AgentRunCard
+        run={baseRun({
+          attribution: {
+            mode: 'EXPLICIT',
+            approximate: false,
+            subagents: [],
+            segments: [],
+          },
+        })}
+      />
+    )
+    const header = screen.getByRole('button')
+    expect(header.className).toContain('flex-wrap')
+    const badge = screen.getByTestId('run-attribution-badge')
+    expect(header.contains(badge)).toBe(true)
+    expect(header.className).not.toContain('overflow-hidden')
+  })
 })

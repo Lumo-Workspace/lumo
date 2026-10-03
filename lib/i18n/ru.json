@@ -2802,5 +2802,6 @@
   "sessions.timeline.badge.lines": "{count, plural, one {# строка} few {# строки} many {# строк} other {# строки}}",
   "sessions.timeline.badge.linesWithType": "{type} · {count, plural, one {# строка} few {# строки} many {# строк} other {# строки}}",
   "sessions.timeline.badge.files": "{count, plural, one {# файл} few {# файла} many {# файлов} other {# файла}}",
-  "sessions.timeline.badge.matches": "{count, plural, one {# совпадение} few {# совпадения} many {# совпадений} other {# совпадения}}"
+  "sessions.timeline.badge.matches": "{count, plural, one {# совпадение} few {# совпадения} many {# совпадений} other {# совпадения}}",
+  "agentRun.attribution.subagentCount": "{label} ×{count}"
 }
