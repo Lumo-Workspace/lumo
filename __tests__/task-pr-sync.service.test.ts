@@ -8,12 +8,22 @@ import { syncPullRequestStatus } from '@/lib/services/task-pr-sync.service'
 import { getRepoToken } from '@/lib/integrations/github'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { logger } from '@/lib/logger'
+import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 
 jest.mock('@/lib/integrations/github', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),
   REPO_TOKEN_PERMISSIONS: jest.requireActual(
     '@/lib/integrations/github/token-permissions'
   ).REPO_TOKEN_PERMISSIONS,
+}))
+// LUM-889: the refresh reads the confirmed list once up front; a/b is on it.
+jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
+  githubAppInstallationRepository: {
+    findByWorkspace: jest.fn(async () => ({
+      installationId: 42,
+      repositories: ['a/b'],
+    })),
+  },
 }))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { updateState: jest.fn() },
@@ -88,6 +98,25 @@ describe('task-detail PR refresh (LUM-828)', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining('ws-1'),
       expect.objectContaining({ error: expect.anything() })
+    )
+  })
+
+  it('pr refresh stays fail-soft when the confirmed list cannot be read', async () => {
+    ;(
+      githubAppInstallationRepository.findByWorkspace as jest.Mock
+    ).mockRejectedValueOnce(new Error('db unavailable'))
+
+    const updates = await syncPullRequestStatus('ws-1', [pr('pr-1', 1)])
+
+    // No throw (the task page still loads), no mint, no GitHub read — logged.
+    expect(updates.size).toBe(0)
+    expect(getRepoToken).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('confirmed repositories of workspace ws-1'),
+      expect.objectContaining({
+        error: expect.stringContaining('db unavailable'),
+      })
     )
   })
 })

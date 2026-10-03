@@ -21,6 +21,8 @@ interface PullRequestSummary {
   url: string
   state: string
   ciStatus: string | null
+  /** LUM-889: the repository left the confirmed list; state is not refreshed. */
+  statusSyncPaused?: boolean
 }
 
 interface Props {
@@ -97,6 +99,14 @@ export function PullRequestsSection({
                     />
                   )}
                 </div>
+                {pr.statusSyncPaused && (
+                  <p
+                    className='mt-1 text-caption text-muted-foreground'
+                    data-testid='pr-status-sync-paused'
+                  >
+                    {intl.formatMessage({ id: 'task.prStatusSyncPaused' })}
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => onUnlinkPr(pr.id)}

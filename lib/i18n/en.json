@@ -2297,6 +2297,7 @@
   "task.title": "Title",
   "task.unassigned": "Unassigned",
   "task.unlinkPr": "Unlink pull request",
+  "task.prStatusSyncPaused": "Status not refreshed: this repository is no longer confirmed for the workspace",
   "task.verdict.approveHero": "Approve · mark Done",
   "task.verdict.blocked.action": "A human must disposition each one below — as a false positive, or confirmed — or open the gate for this workspace.",
   "task.verdict.blocked.headline": "{count, plural, one {# boundary crossing blocks Done} other {# boundary crossings block Done}}",

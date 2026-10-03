@@ -16,9 +16,14 @@ export const projectRepositoryService = {
     isDefault?: boolean | undefined
   }) {
     // Throws 403 repo_not_confirmed / 400 app_not_installed before any write.
-    await requireConfirmedRepository(input.workspaceId, input.fullName)
+    // LUM-889: stored under the confirmed list's spelling, not what was typed,
+    // so `Acme/Web` and `acme/web` are one repository here as on GitHub.
+    const { repository: fullName } = await requireConfirmedRepository(
+      input.workspaceId,
+      input.fullName
+    )
 
-    const name = input.fullName.split('/')[1] ?? input.fullName
+    const name = fullName.split('/')[1] ?? fullName
 
     // If this is being set as default, clear existing defaults first
     if (input.isDefault) {
@@ -32,7 +37,7 @@ export const projectRepositoryService = {
 
     return projectRepository.createRepository({
       projectId: input.projectId,
-      fullName: input.fullName,
+      fullName,
       name,
       isDefault: input.isDefault ?? existingCount === 0,
     })

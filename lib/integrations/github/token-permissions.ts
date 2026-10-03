@@ -1,4 +1,4 @@
-import type { RepoTokenPermissions } from './auth'
+import type { GitHubAppPermissionName, RepoTokenPermissions } from './auth'
 
 /**
  * LUM-886 — the permissions each kind of repository call mints its token with.
@@ -80,7 +80,7 @@ export function isWithinPermissions(
   granted: RepoTokenPermissions
 ): boolean {
   return Object.entries(requested).every(([name, level]) => {
-    const have = granted[name]
+    const have = granted[name as GitHubAppPermissionName]
     return have === 'write' || (have === 'read' && level === 'read')
   })
 }

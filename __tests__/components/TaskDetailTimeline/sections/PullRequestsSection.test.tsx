@@ -86,6 +86,30 @@ describe('PullRequestsSection', () => {
     expect(screen.getByText('#42 Add stuff')).toBeInTheDocument()
   })
 
+  it('LUM-889 says why a PR of a repository off the confirmed list is not refreshed', () => {
+    const pr = {
+      number: 7,
+      title: 'Payroll',
+      url: 'https://github.com/acme/payroll/pull/7',
+      state: 'open',
+      ciStatus: null,
+    }
+    render(
+      <Accordion type='multiple' defaultValue={['pullRequests']}>
+        <PullRequestsSection
+          {...baseProps}
+          pullRequests={[
+            { ...pr, id: 'pr_paused', statusSyncPaused: true },
+            { ...pr, id: 'pr_live', number: 8 },
+          ]}
+        />
+      </Accordion>
+    )
+    const notes = screen.getAllByTestId('pr-status-sync-paused')
+    expect(notes).toHaveLength(1)
+    expect(notes[0]).toHaveTextContent('task.prStatusSyncPaused')
+  })
+
   it('renders count in header', () => {
     render(
       <Accordion type='multiple'>

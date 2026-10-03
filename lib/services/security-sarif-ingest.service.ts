@@ -28,6 +28,7 @@ import {
   type NewFindingInput,
 } from '@/lib/repositories/pr-security-scan.repository'
 import { fetchPrDiff } from '@/lib/integrations/github/contents'
+import { loadConfirmedRepositories } from '@/lib/integrations/github/confirmed-repositories'
 import {
   parseSarif,
   normalizeSarif,
@@ -87,7 +88,13 @@ export type ResolveOutcome =
   | {
       kind: 'discarded'
       // LUM-866: `workspace_scan_disabled` — the workspace turned scanning off.
-      reason: 'pr_not_found' | 'workspace_mismatch' | 'workspace_scan_disabled'
+      // LUM-889: `repo_not_confirmed` — no owning workspace has the
+      // repository on its confirmed list, so nothing may read its diff.
+      reason:
+        | 'pr_not_found'
+        | 'workspace_mismatch'
+        | 'workspace_scan_disabled'
+        | 'repo_not_confirmed'
     }
   | {
       kind: 'ok'
@@ -155,6 +162,7 @@ export type IngestResult =
         | 'pr_not_found'
         | 'workspace_mismatch'
         | 'workspace_scan_disabled'
+        | 'repo_not_confirmed'
         | 'superseded'
     }
   | { outcome: 'FAILED'; scanId: string | null; reason: string }
@@ -204,8 +212,24 @@ function isDeterministic(error: unknown): boolean {
 }
 
 /**
- * One workspace's scan row for this report. LUM-866: a workspace that turned
- * scanning off gets none (`null`) — its copy of the report is dropped.
+ * LUM-889 — the token layer refused to read the repository: it is not (or no
+ * longer) on the workspace's confirmed list, or the App is gone. Retrying
+ * cannot change that, so it is a deterministic outcome with its own words,
+ * not a transient error that ends as "the external layer failed".
+ */
+function refusedRepositoryReason(error: unknown, repo: string): string | null {
+  const code = (error as { code?: unknown } | null)?.code
+  if (code === 'repo_not_confirmed')
+    return `Not ingested: ${repo} is not on this workspace's confirmed GitHub repositories, so Lumo does not read it. A workspace owner can confirm it under Settings → Integrations and push the report again.`
+  if (code === 'app_not_installed')
+    return `Not ingested: the Lumo GitHub App is no longer installed for this workspace, so Lumo cannot read ${repo}.`
+  return null
+}
+
+/**
+ * One workspace's scan row for this report, or why it gets none — its copy of
+ * the report is dropped: the repository is not on that workspace's confirmed
+ * list (LUM-889), or the workspace turned scanning off (LUM-866).
  */
 async function resolveScanFor(
   pr: {
@@ -216,12 +240,22 @@ async function resolveScanFor(
     number: number
   },
   job: SarifIngestJob
-): Promise<ScanTarget | null> {
+): Promise<ScanTarget | 'repo_not_confirmed' | 'workspace_scan_disabled'> {
+  // LUM-889: before any scan row exists — a repository the workspace has not
+  // confirmed gets no scan, rather than a PENDING row whose diff read is
+  // refused and retried until the PR shows a failed external layer.
+  const confirmed = await loadConfirmedRepositories(pr.workspaceId)
+  if (confirmed(pr.repo) === null) {
+    logger.info(
+      `[security-sarif-ingest] ${logSafe(job.repository)} is not confirmed in workspace ${pr.workspaceId} — dropping its copy of the ${logSafe(job.tool)} report`
+    )
+    return 'repo_not_confirmed'
+  }
   if (!(await loadSecurityLayers(pr.workspaceId)).scan) {
     logger.info(
       `[security-sarif-ingest] scanning off for workspace ${pr.workspaceId} on ${logSafe(job.repository)}#${job.prNumber} — dropping its copy of the ${logSafe(job.tool)} report`
     )
-    return null
+    return 'workspace_scan_disabled'
   }
   const scan = await prSecurityScanRepository.createIfAbsent({
     pullRequestId: pr.id,
@@ -287,12 +321,23 @@ export const securitySarifIngestService = {
       return { kind: 'discarded', reason: 'workspace_mismatch' }
     }
     const targets: ScanTarget[] = []
+    let unconfirmed = 0
     for (const pr of owners) {
       const target = await resolveScanFor(pr, job)
-      if (target) targets.push(target)
+      if (target === 'repo_not_confirmed') unconfirmed += 1
+      else if (target !== 'workspace_scan_disabled') targets.push(target)
     }
     const [first, ...others] = targets
-    if (!first) return { kind: 'discarded', reason: 'workspace_scan_disabled' }
+    if (!first)
+      return {
+        kind: 'discarded',
+        // Every owner unconfirmed → that is the reason; any owner that did
+        // confirm it and still got no row turned scanning off.
+        reason:
+          unconfirmed === owners.length
+            ? 'repo_not_confirmed'
+            : 'workspace_scan_disabled',
+      }
     // `others` is optional so a run that resolved before LUM-924 (no field on
     // its recorded step result) replays unchanged.
     return { kind: 'ok', ...first, ...(others.length > 0 ? { others } : {}) }
@@ -330,11 +375,25 @@ export const securitySarifIngestService = {
     // well-formed document — never a SARIF-shape failure, so nothing here is
     // caught: a GitHub error propagates with ITS OWN status (e.g. 404/422)
     // and must not be mistaken for a deterministic SARIF failure (P-retry).
-    const diff = await fetchPrDiff({
-      workspaceId: input.pr.workspaceId,
-      fullName: input.pr.repo,
-      prNumber: input.pr.number,
-    })
+    // The one exception is the token layer's own refusal (LUM-889), below.
+    let diff: string
+    try {
+      diff = await fetchPrDiff({
+        workspaceId: input.pr.workspaceId,
+        fullName: input.pr.repo,
+        prNumber: input.pr.number,
+      })
+    } catch (error) {
+      // LUM-889: the repository left the confirmed list (or the App was
+      // removed) after resolveScan — deterministic, so no step retry.
+      const refused = refusedRepositoryReason(error, input.pr.repo)
+      if (refused === null) throw error
+      return securitySarifIngestService._failed(
+        input,
+        refused,
+        `${gz.byteLength}B`
+      )
+    }
     const n = normalizeSarif(runs, {
       toolHint: input.tool,
       changedLines: changedLinesOfDiff(diff),

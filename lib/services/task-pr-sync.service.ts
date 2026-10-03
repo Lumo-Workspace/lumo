@@ -1,4 +1,5 @@
 import { getRepoToken, REPO_TOKEN_PERMISSIONS } from '@/lib/integrations/github'
+import { loadConfirmedRepositories } from '@/lib/integrations/github/confirmed-repositories'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { logger } from '@/lib/logger'
 
@@ -17,21 +18,44 @@ type OpenPr = { id: string; number: number; url: string; state: string }
  * Refresh the task's open PRs from GitHub. Non-critical — a failure only
  * leaves a PR state stale — but never silent (LUM-828): every failure is
  * logged, and one failing PR does not stop the rest from syncing.
+ *
+ * LUM-889: a PR whose repository is not on the workspace's confirmed list is
+ * not a failure — it is a state the owner chose, so it is skipped without a
+ * token request or a warning, and its id is added to `syncPaused` (when
+ * given) so the task page can say why that PR's state is no longer refreshed.
  */
 export async function syncPullRequestStatus(
   workspaceId: string,
-  openPrs: OpenPr[]
+  openPrs: OpenPr[],
+  syncPaused?: Set<string>
 ): Promise<Map<string, PrStatusUpdate>> {
   const updates = new Map<string, PrStatusUpdate>()
+  if (openPrs.length === 0) return updates
   // One token per repository (LUM-883), minted only for a repository the
   // workspace still has confirmed: a PR row whose repository left the list
   // keeps its stored state instead of being refreshed from GitHub. `null` =
   // refused or failed, already logged once for that repository.
   const tokens = new Map<string, string | null>()
+  // Fail-soft like the rest of the refresh: an unreadable installation row
+  // leaves every PR state stale (logged) instead of failing the task page.
+  let confirmed: (repository: string) => string | null
+  try {
+    confirmed = await loadConfirmedRepositories(workspaceId)
+  } catch (error) {
+    logger.warn(
+      `[pr-sync] could not read the confirmed repositories of workspace ${workspaceId}; PR states may be stale`,
+      { error: String(error) }
+    )
+    return updates
+  }
 
   for (const pr of openPrs) {
     const repo = pr.url.match(/github\.com\/([^/]+\/[^/]+)\/pull/)?.[1]
     if (!repo) continue
+    if (confirmed(repo) === null) {
+      syncPaused?.add(pr.id)
+      continue
+    }
     const key = repo.toLowerCase()
     if (!tokens.has(key)) {
       try {

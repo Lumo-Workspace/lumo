@@ -230,7 +230,16 @@ describe('LUM-883 entry points still accept a confirmed repository', () => {
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(githubRepository.upsertPullRequest).toHaveBeenCalled()
+    // LUM-889: looked up and stored under the confirmed (GitHub) spelling, so
+    // `Acme/Web` never forks a duplicate of the webhook's `acme/web` row.
+    expect(pullRequestRepository.findByRepoAndNumber).toHaveBeenCalledWith(
+      'ws_1',
+      'acme/web',
+      7
+    )
+    expect(githubRepository.upsertPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ repo: 'acme/web' })
+    )
     expect(pullRequestRepository.updateTaskId).toHaveBeenCalledWith(
       'pr_1',
       'task_1'

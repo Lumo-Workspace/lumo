@@ -848,6 +848,7 @@
   "task.ciPending": "CI 运行中",
   "task.ciUnknown": "无 CI 数据",
   "task.unlinkPr": "取消关联拉取请求",
+  "task.prStatusSyncPaused": "状态未刷新：该仓库已不在工作区的已确认仓库列表中",
   "task.noPullRequests": "暂无拉取请求",
   "task.activity": "动态",
   "task.comments": "评论",

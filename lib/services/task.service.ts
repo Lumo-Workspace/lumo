@@ -75,12 +75,18 @@ async function getTaskDetail(taskId: string) {
   // Sync PR status from GitHub
   const openPrs = task.pullRequests.filter(pr => pr.state === 'open')
   let taskStatus = task.status
-  let pullRequests = task.pullRequests
+  let pullRequests: Array<
+    (typeof task.pullRequests)[number] & { statusSyncPaused?: boolean }
+  > = task.pullRequests
 
+  // LUM-889: open PRs whose repository left the confirmed list — their state
+  // can no longer be refreshed, and the page says so instead of a silent "open".
+  const syncPaused = new Set<string>()
   if (openPrs.length > 0) {
     const updates = await syncPullRequestStatus(
       task.project.workspaceId,
-      openPrs
+      openPrs,
+      syncPaused
     )
     if (updates.size > 0) {
       pullRequests = task.pullRequests.map(pr => {
@@ -113,6 +119,12 @@ async function getTaskDetail(taskId: string) {
 
   // Fetch tag associations
   const tags = await tagRepository.findByTask(task.id)
+
+  if (syncPaused.size > 0) {
+    pullRequests = pullRequests.map(pr =>
+      syncPaused.has(pr.id) ? { ...pr, statusSyncPaused: true } : pr
+    )
+  }
 
   return {
     ...task,

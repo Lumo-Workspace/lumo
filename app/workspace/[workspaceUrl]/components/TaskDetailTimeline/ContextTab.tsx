@@ -20,6 +20,8 @@ interface PullRequestSummary {
   url: string
   state: string
   ciStatus: string | null
+  /** LUM-889: the repository left the confirmed list; state is not refreshed. */
+  statusSyncPaused?: boolean
 }
 
 interface Props {

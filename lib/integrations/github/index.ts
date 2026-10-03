@@ -14,11 +14,13 @@ export {
   getGithubAppJwt,
   createInstallationToken,
   getRepoCloneToken,
-  createRepoScopedToken,
-  createRepoTokenForInstallation,
   revokeInstallationToken,
 } from './auth'
-export type { RepoTokenPermissions } from './auth'
+// LUM-889: `createRepoScopedToken` / `createRepoTokenForInstallation` mint for
+// an installation id with no confirmed-list check, so they are NOT part of the
+// public API. Only the operator probe scripts reach them, through
+// `@/lib/integrations/github/auth` (the token-mint guard test enforces it).
+export type { RepoTokenPermissions, GitHubAppPermissionName } from './auth'
 export {
   REPO_TOKEN_PERMISSIONS,
   INSTALLATION_TOKEN_PERMISSIONS,

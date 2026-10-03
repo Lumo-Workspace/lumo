@@ -848,6 +848,7 @@
   "task.ciPending": "CI sedang berjalan",
   "task.ciUnknown": "Tidak ada data CI",
   "task.unlinkPr": "Lepas tautan pull request",
+  "task.prStatusSyncPaused": "Status tidak diperbarui: repositori ini tidak lagi dikonfirmasi untuk ruang kerja",
   "task.noPullRequests": "Tidak ada pull request",
   "task.activity": "Aktivitas",
   "task.comments": "Komentar",
