@@ -24,6 +24,8 @@ interface Column {
 
 export interface PgliteHarness {
   prisma: PrismaClientType | null
+  /** postgresql:// URL of the running server; null until start() resolves. */
+  connectionString: string | null
   start(): Promise<void>
   stop(): Promise<void>
   query<T = Record<string, unknown>>(
@@ -40,6 +42,7 @@ export function createPgliteHarness(
 
   const harness: PgliteHarness = {
     prisma: null,
+    connectionString: null,
 
     async start() {
       child = spawn(
@@ -57,9 +60,10 @@ export function createPgliteHarness(
         }
       }
       if (!conn) throw new Error('pglite-server exited before it was ready')
+      harness.connectionString = `postgresql://postgres@${conn}/postgres`
       harness.prisma = new PrismaClient({
         adapter: new PrismaPg({
-          connectionString: `postgresql://postgres@${conn}/postgres`,
+          connectionString: harness.connectionString,
           max: 1,
         }),
       })
