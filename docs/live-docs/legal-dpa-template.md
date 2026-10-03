@@ -53,7 +53,7 @@ Lumo implements and maintains the technical and organisational measures describe
 
 ## 8. Assistance to Customer
 
-8.1 **Data subject requests.** Taking into account the nature of the processing, Lumo will assist Customer by appropriate technical and organisational measures in responding to requests from data subjects to exercise their rights. If Lumo receives such a request directly, it will refer the data subject to Customer and will not respond itself unless Customer authorises it. Workspace deletion, and immediate permanent deletion of individual tasks and documents from the trash, are available to Customer through the Service; data export is provided by Lumo on request until a self-service export is available.
+8.1 **Data subject requests.** Taking into account the nature of the processing, Lumo will assist Customer by appropriate technical and organisational measures in responding to requests from data subjects to exercise their rights. If Lumo receives such a request directly, it will refer the data subject to Customer and will not respond itself unless Customer authorises it. Workspace deletion, a self-service workspace export, and immediate permanent deletion of individual tasks and documents from the trash are available to Customer through the Service. The self-service export does not yet include every record Lumo stores; Lumo provides the remaining Customer Personal Data on request.
 
 8.2 **Other assistance.** Lumo will provide reasonable assistance with Customer's security obligations, data protection impact assessments and prior consultations with supervisory authorities under Articles 32 to 36 GDPR, taking into account the nature of the processing and the information available to Lumo.
 
