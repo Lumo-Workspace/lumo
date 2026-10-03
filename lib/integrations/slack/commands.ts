@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import { transitionTaskStatus } from '@/lib/task/state-machine'
 import { slugify } from '@/lib/utils/slugify'
 import { CommandResult } from './types'
+import { escapeMrkdwn } from './mrkdwn'
 import { taskRepository } from '@/lib/repositories/task.repository'
 
 // Resolve Slack user email → WorkspaceMember in workspaceId
@@ -64,11 +65,16 @@ function taskBlocks(task: {
       type: 'section',
       text: {
         type: 'mrkdwn',
+        // LUM-928: stored names/titles are user-controlled — escape them.
         text: [
-          `*${identifier} · ${task.title}*`,
-          `Status: ${task.status}   Priority: ${task.priority}`,
-          task.assigneeName ? `Assignee: ${task.assigneeName}` : null,
-          task.projectName ? `Project: ${task.projectName}` : null,
+          `*${escapeMrkdwn(identifier)} · ${escapeMrkdwn(task.title)}*`,
+          `Status: ${escapeMrkdwn(task.status)}   Priority: ${escapeMrkdwn(task.priority)}`,
+          task.assigneeName
+            ? `Assignee: ${escapeMrkdwn(task.assigneeName)}`
+            : null,
+          task.projectName
+            ? `Project: ${escapeMrkdwn(task.projectName)}`
+            : null,
         ]
           .filter(Boolean)
           .join('\n'),
@@ -112,6 +118,14 @@ async function findTaskByIdentifier(identifier: string, workspaceId: string) {
   })
 }
 
+/** Echoes the user's own argument back — escaped so it stays literal text. */
+function taskNotFound(identifier: string): CommandResult {
+  return {
+    type: 'text',
+    text: `Task \`${escapeMrkdwn(identifier)}\` not found.`,
+  }
+}
+
 const HELP_TEXT = `Available commands:
 • \`status ENG-123\` — view task details
 • \`assign ENG-123 @user\` — assign task
@@ -133,8 +147,7 @@ export async function handleCommand(
     // ── status ENG-123 ──────────────────────────────────────────────────────
     if (cmd === 'status' && parts[1]) {
       const task = await findTaskByIdentifier(parts[1], workspaceId)
-      if (!task)
-        return { type: 'text', text: `Task \`${parts[1]}\` not found.` }
+      if (!task) return taskNotFound(parts[1]!)
       return {
         type: 'blocks',
         blocks: taskBlocks({
@@ -164,8 +177,7 @@ export async function handleCommand(
         }
 
       const task = await findTaskByIdentifier(parts[1]!, workspaceId)
-      if (!task)
-        return { type: 'text', text: `Task \`${parts[1]}\` not found.` }
+      if (!task) return taskNotFound(parts[1]!)
 
       const newStatus =
         cmd === 'done' ? ('DONE' as const) : ('IN_REVIEW' as const)
@@ -174,7 +186,7 @@ export async function handleCommand(
       })
       return {
         type: 'text',
-        text: `✅ ${task.team.identifier}-${task.number} marked as ${cmd === 'done' ? 'Done' : 'In Review'}.`,
+        text: `✅ ${escapeMrkdwn(`${task.team.identifier}-${task.number}`)} marked as ${cmd === 'done' ? 'Done' : 'In Review'}.`,
       }
     }
 
@@ -192,8 +204,7 @@ export async function handleCommand(
         }
 
       const task = await findTaskByIdentifier(parts[1]!, workspaceId)
-      if (!task)
-        return { type: 'text', text: `Task \`${parts[1]}\` not found.` }
+      if (!task) return taskNotFound(parts[1]!)
 
       // parts[2] is a Slack mention like <@U123456> or <@U123456|displayname>
       const mentionMatch = parts[2]!.match(/^<@([^|>]+)/)
@@ -221,7 +232,7 @@ export async function handleCommand(
       })
       return {
         type: 'text',
-        text: `✅ ${task.team.identifier}-${task.number} assigned.`,
+        text: `✅ ${escapeMrkdwn(`${task.team.identifier}-${task.number}`)} assigned.`,
       }
     }
 
@@ -257,7 +268,10 @@ export async function handleCommand(
         },
       })
       if (!team)
-        return { type: 'text', text: `Team \`${teamIdentifier}\` not found.` }
+        return {
+          type: 'text',
+          text: `Team \`${escapeMrkdwn(teamIdentifier)}\` not found.`,
+        }
 
       // Use the most recently updated project for this team as the default
       const project = await prisma.project.findFirst({
@@ -269,7 +283,7 @@ export async function handleCommand(
       if (!project)
         return {
           type: 'text',
-          text: `Team \`${team.identifier}\` has no project to create the task in.`,
+          text: `Team \`${escapeMrkdwn(team.identifier)}\` has no project to create the task in.`,
         }
 
       // Number comes from the team's atomic taskSeq — count+1 collides with
@@ -298,7 +312,7 @@ export async function handleCommand(
             type: 'section',
             text: {
               type: 'mrkdwn',
-              text: `✅ Created *${taskIdentifier} · ${title}*`,
+              text: `✅ Created *${escapeMrkdwn(taskIdentifier)} · ${escapeMrkdwn(title!)}*`,
             },
             accessory: {
               type: 'button',
@@ -358,7 +372,7 @@ export async function handleCommand(
           type: 'section',
           text: {
             type: 'mrkdwn',
-            text: `*${t.team.identifier}-${t.number}* · ${t.title}\n${t.status} · ${t.priority}`,
+            text: `*${escapeMrkdwn(`${t.team.identifier}-${t.number}`)}* · ${escapeMrkdwn(t.title)}\n${t.status} · ${t.priority}`,
           },
           accessory: {
             type: 'button',

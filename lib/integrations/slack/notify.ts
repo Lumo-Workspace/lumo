@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db/prisma'
 import { decrypt } from '@/lib/crypto'
 import { getSlackIntegrationToken } from './token'
+import { escapeMrkdwn, mrkdwnLink } from './mrkdwn'
 import {
   SlackEventType,
   NotificationPayload,
@@ -26,16 +27,25 @@ function buildBlocks(
   const label = SLACK_EVENT_LABELS[event]
   const url = payload.taskUrl
 
+  // LUM-928: every interpolated value is user- or GitHub-controlled — escape
+  // it so it cannot inject <!channel>/<!here> pings or disguised links.
   const lines: string[] = [`${emoji} *${label}*`]
   if (payload.taskIdentifier && payload.taskTitle) {
-    lines.push(`${payload.taskIdentifier} · ${payload.taskTitle}`)
+    lines.push(
+      `${escapeMrkdwn(payload.taskIdentifier)} · ${escapeMrkdwn(payload.taskTitle)}`
+    )
   }
-  if (payload.actorName) lines.push(`_by ${payload.actorName}_`)
+  if (payload.actorName) lines.push(`_by ${escapeMrkdwn(payload.actorName)}_`)
   if (payload.prTitle) {
-    lines.push(`PR: <${payload.prUrl}|#${payload.prNumber} ${payload.prTitle}>`)
+    const prLabel = `#${payload.prNumber} ${payload.prTitle}`
+    lines.push(
+      payload.prUrl
+        ? `PR: ${mrkdwnLink(payload.prUrl, prLabel)}`
+        : `PR: ${escapeMrkdwn(prLabel)}`
+    )
   }
   if (payload.commentBody) {
-    lines.push(`> ${payload.commentBody.slice(0, 120)}`)
+    lines.push(`> ${escapeMrkdwn(payload.commentBody.slice(0, 120))}`)
   }
 
   const blocks: object[] = [

@@ -15,6 +15,7 @@ import { taskRepository } from '@/lib/repositories'
 import { contentSummaryService } from '@/lib/services/content-summary.service'
 import { waitUntil } from '@vercel/functions'
 import { dependencyDetectionService } from '@/lib/services/dependency-detection.service'
+import { htmlToPreview } from '@/lib/utils/htmlToPreview'
 
 /** Threads with at most this many comments are rendered inline (full text),
  *  so they never need an LLM summary. Beyond it, we cache a short summary. */
@@ -166,7 +167,7 @@ export const commentService = {
     const mentionPayload = {
       taskId,
       taskTitle,
-      commentBody: body.replace(/<[^>]+>/g, '').slice(0, 200),
+      commentBody: htmlToPreview(body),
       taskUrl: buildTaskUrl(
         workspaceSlug,
         projectName,
