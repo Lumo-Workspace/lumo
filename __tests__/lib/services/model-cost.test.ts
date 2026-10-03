@@ -2,6 +2,8 @@ import {
   toModelCosts,
   mergeModelCosts,
   withInFlightCost,
+  scaleUsageMap,
+  usageScaleFactors,
 } from '@/lib/services/model-cost'
 import { IN_FLIGHT_MODEL } from '@/types/model-cost'
 
@@ -370,5 +372,51 @@ describe('mergeModelCosts — in-flight sub-objects', () => {
     ]
     const merged = mergeModelCosts([a])
     expect(merged[0]).not.toHaveProperty('inFlight')
+  })
+})
+
+describe('usageScaleFactors and scaleUsageMap', () => {
+  const u = (
+    input: number,
+    output: number,
+    cacheRead: number,
+    cacheCreation: number
+  ) => ({ input, output, cacheRead, cacheCreation })
+
+  it('computes per-model per-kind factors new/old', () => {
+    expect(
+      usageScaleFactors(
+        { opus: u(200, 100, 1000, 40), haiku: u(10, 10, 10, 10) },
+        { opus: u(100, 50, 400, 40), haiku: u(5, 2, 10, 0) }
+      )
+    ).toEqual({
+      opus: u(0.5, 0.5, 0.4, 1),
+      haiku: u(0.5, 0.2, 1, 0),
+    })
+  })
+
+  it('scales a model missing from the new map to zero and an old zero to factor zero', () => {
+    expect(
+      usageScaleFactors(
+        { opus: u(0, 100, 0, 0), sonnet: u(10, 10, 10, 10) },
+        { opus: u(5, 50, 0, 0) }
+      )
+    ).toEqual({ opus: u(0, 0.5, 0, 0), sonnet: u(0, 0, 0, 0) })
+  })
+
+  it('scales a row map and rounds to integers', () => {
+    expect(
+      scaleUsageMap(
+        { opus: u(3, 5, 7, 9), sonnet: u(1, 1, 1, 1) },
+        { opus: u(0.5, 1 / 3, 0.25, 1), sonnet: u(2, 2, 2, 2) }
+      )
+    ).toEqual({ opus: u(2, 2, 2, 9), sonnet: u(2, 2, 2, 2) })
+  })
+
+  it('scales a model with no factor to zero and never mutates its input', () => {
+    const row = { opus: u(10, 10, 10, 10), other: u(4, 4, 4, 4) }
+    const out = scaleUsageMap(row, { opus: u(0.5, 0.5, 0.5, 0.5) })
+    expect(out).toEqual({ opus: u(5, 5, 5, 5), other: u(0, 0, 0, 0) })
+    expect(row.opus).toEqual(u(10, 10, 10, 10))
   })
 })

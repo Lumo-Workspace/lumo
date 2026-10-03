@@ -780,3 +780,42 @@ describe('LUM-932 P4 host runs', () => {
     expect(total(totals.byModel)).toBe(7)
   })
 })
+
+it('carries the session usageResyncedAt flag onto the run (null when unset)', async () => {
+  const resynced = new Date('2026-10-05T00:00:00Z')
+  sessions.mockResolvedValue([
+    {
+      id: 'sess_r',
+      startedAt: t0,
+      lastActivityAt: t1,
+      eventCount: 1,
+      loopCount: 1,
+      usageByModel: null,
+      usageResyncedAt: resynced,
+    },
+    {
+      id: 'sess_n',
+      startedAt: t0,
+      lastActivityAt: t1,
+      eventCount: 1,
+      loopCount: 1,
+      usageByModel: null,
+    },
+  ])
+  events.mockResolvedValue(
+    ['sess_r', 'sess_n'].map(sid => ({
+      id: `e_${sid}`,
+      sessionId: sid,
+      type: 'PRE_TOOL_USE',
+      toolName: 'Read',
+      payload: {},
+      turnSummary: null,
+      usageByModel: null,
+      createdAt: t0,
+    }))
+  )
+  const { runs } = await agentRunTimelineService.getTimeline('task_1')
+  const byId = new Map(runs.map(r => [r.sessionId, r.usageResyncedAt]))
+  expect(byId.get('sess_r')).toBe(resynced.toISOString())
+  expect(byId.get('sess_n')).toBeNull()
+})

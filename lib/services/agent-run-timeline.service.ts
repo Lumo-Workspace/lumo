@@ -70,6 +70,9 @@ export interface AgentRunSession {
   /** Why this run's work is on the task (LUM-932 P4); null for the trailing
    *  unlinked run. */
   attribution: RunAttribution | null
+  /** ISO time the run's session was corrected by `lumo usage resync` (LUM-932);
+   *  null when never resynced and for the trailing unlinked run. */
+  usageResyncedAt: string | null
   items: AgentRunItem[]
 }
 
@@ -389,6 +392,7 @@ export const agentRunTimelineService = {
           mode,
           rows: segmentRows,
         }),
+        usageResyncedAt: s.usageResyncedAt?.toISOString() ?? null,
         items,
       }
     })
@@ -420,6 +424,7 @@ export const agentRunTimelineService = {
         cost: null,
         member: null,
         attribution: null,
+        usageResyncedAt: null,
         items,
       })
     }

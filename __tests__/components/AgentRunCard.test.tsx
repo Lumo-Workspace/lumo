@@ -67,6 +67,7 @@ const baseRun = (over: Partial<AgentRunSession> = {}): AgentRunSession =>
     cost: null,
     member: { workspaceMemberId: 'm1', name: 'Chao Li', imageUrl: '' },
     attribution: null,
+    usageResyncedAt: null,
     items: [],
     ...over,
   }) as AgentRunSession
@@ -311,5 +312,53 @@ describe('AgentRunCard — pre-dedupe token marker (LUM-932)', () => {
       <AgentRunCard run={baseRun({ startedAt: '2026-10-01T10:00:00Z' })} />
     )
     expect(screen.queryByTestId('run-pre-dedupe')).not.toBeInTheDocument()
+  })
+})
+
+describe('usage resync command and resynced runs', () => {
+  const cost = {
+    byModel: [
+      {
+        model: 'claude-opus-4-8',
+        input: 100,
+        output: 0,
+        cacheRead: 0,
+        cacheCreation: 0,
+        total: 100,
+      },
+    ],
+    loopCount: 1,
+  }
+
+  it('hides the marker and notice for a pre-cutoff run that was resynced', () => {
+    render(
+      <AgentRunCard
+        run={baseRun({
+          startedAt: '2026-10-01T10:00:00Z',
+          usageResyncedAt: '2026-10-05T10:00:00Z',
+          cost,
+        })}
+        defaultExpanded
+      />
+    )
+    expect(screen.queryByTestId('run-pre-dedupe')).not.toBeInTheDocument()
+    expect(
+      screen.queryByTestId('run-pre-dedupe-notice')
+    ).not.toBeInTheDocument()
+  })
+
+  it('still marks a pre-cutoff run that was not resynced', () => {
+    render(
+      <AgentRunCard
+        run={baseRun({
+          startedAt: '2026-10-01T10:00:00Z',
+          usageResyncedAt: null,
+          cost,
+        })}
+        defaultExpanded
+      />
+    )
+    expect(screen.getByTestId('run-pre-dedupe')).toBeInTheDocument()
+    expect(screen.getByTestId('run-pre-dedupe-notice')).toBeInTheDocument()
   })
 })

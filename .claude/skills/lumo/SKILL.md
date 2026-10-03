@@ -186,6 +186,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 - `lumo session attach <id>` — bind this session to a task; prints blockers/security findings only — run `task context` next. **Lifetime lock**: re-attaching to the same task is a no-op; attaching to a _different_ task is refused with 409 — start a new Claude Code session instead. No `--force`, no `session detach`.
 - `lumo session attach --steward <milestone>` — bind as a **STEWARD (governance) session** on a milestone (LUM-640): plan & accept only — self-dispatch to in_progress is refused; commits/PRs become milestone-scoped boundary crossings (web+human disposition only). Same lifetime lock. See [sessions.md](references/sessions.md)
 - `lumo session status` — show current binding (a task, or the milestone + STEWARD role)
+- `lumo usage resync [--apply]` — correct historical inflated token numbers from local transcripts; dry run first, then `--apply`. See [sessions.md](references/sessions.md)
 - End-of-session housekeeping is fully automatic (no command). On DONE the server runs three best-effort silent passes: Layer-1 memory curation, fragment-usage audit, and blocked-tag automation. See [sessions.md](references/sessions.md)
 - Git-suggest at session start (suggests `session attach`, never auto-binds) + Layer-2 project-memory review — see the reference
 
