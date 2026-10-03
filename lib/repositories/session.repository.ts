@@ -350,9 +350,12 @@ export const sessionRepository = {
    * ADDED onto the child's latest SUBAGENT_STOP row so operation cost
    * (lib/agent-run/operation-cost.ts) can attribute it to the subagent's
    * tools; the cumulative columns are then overwritten. Same cumulative twice
-   * -> zero delta -> no write (idempotent across resume). No SUBAGENT_STOP row
-   * -> the cumulative is still written (never lost) but no STOP row gets the
-   * delta; `settled` is true only when a STOP row received it.
+   * -> zero delta -> no write (idempotent across resume). No SUBAGENT_STOP row:
+   * an eventless child (eventCount 0 — created here, e.g. a subagent that ran
+   * before child sessions existed, so no STOP can ever arrive) gets its
+   * cumulative written so the usage is not lost; a child with its own hook
+   * events is still running and defers until its STOP row exists. `settled`
+   * is true only when a STOP row received the delta.
    */
   async settleChildUsage(data: {
     parentSessionId: string
