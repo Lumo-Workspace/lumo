@@ -243,3 +243,59 @@ export function usageMapTotal(m: Record<string, ModelUsage>): number {
   const t = usageMapKindTotals(m)
   return t.input + t.output + t.cacheRead + t.cacheCreation
 }
+
+const ZERO_USAGE: ModelUsage = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheCreation: 0,
+}
+
+/**
+ * LUM-932 usage resync: per-model, per-kind scale factor `new / old` that
+ * maps a session's stored cumulative map onto its corrected one. A model
+ * absent from `newMap` scales to 0; a kind whose stored value is 0 gets
+ * factor 0 (there is nothing proportional to scale). Pure.
+ */
+export function usageScaleFactors(
+  oldMap: Record<string, ModelUsage>,
+  newMap: Record<string, ModelUsage>
+): Record<string, ModelUsage> {
+  const out: Record<string, ModelUsage> = {}
+  const ratio = (o: unknown, n: unknown) => {
+    const ov = num(o)
+    return ov > 0 ? num(n) / ov : 0
+  }
+  for (const [model, o] of Object.entries(oldMap)) {
+    const n = newMap[model] ?? ZERO_USAGE
+    out[model] = {
+      input: ratio(o?.input, n.input),
+      output: ratio(o?.output, n.output),
+      cacheRead: ratio(o?.cacheRead, n.cacheRead),
+      cacheCreation: ratio(o?.cacheCreation, n.cacheCreation),
+    }
+  }
+  return out
+}
+
+/**
+ * Scale a usage map (e.g. one per-turn HookEvent delta) by per-model,
+ * per-kind factors, rounding each value to an integer. A model with no
+ * factor scales to 0. Pure; never mutates its inputs.
+ */
+export function scaleUsageMap(
+  map: Record<string, ModelUsage>,
+  factors: Record<string, ModelUsage>
+): Record<string, ModelUsage> {
+  const out: Record<string, ModelUsage> = {}
+  for (const [model, u] of Object.entries(map)) {
+    const f = factors[model] ?? ZERO_USAGE
+    out[model] = {
+      input: Math.round(num(u?.input) * f.input),
+      output: Math.round(num(u?.output) * f.output),
+      cacheRead: Math.round(num(u?.cacheRead) * f.cacheRead),
+      cacheCreation: Math.round(num(u?.cacheCreation) * f.cacheCreation),
+    }
+  }
+  return out
+}
