@@ -157,6 +157,73 @@ describe('redacted hook events in the session timeline', () => {
     expect(JSON.stringify(items)).not.toContain('line two')
   })
 
+  it('NotebookEdit delete redacted shows the input and response size as not retained', () => {
+    const items = mergeEvents(
+      pair(
+        'NotebookEdit',
+        { notebook_path: '/repo/n.ipynb', cell_id: 'c1', edit_mode: 'delete' },
+        {
+          notebook_path: '/repo/n.ipynb',
+          original_file: CODE,
+          updated_file: 'x',
+        }
+      )
+    )
+    const nb = items[0]!
+    expect(nb.summary).toBe('/repo/n.ipynb')
+    expect(nb.details.map((d: DetailBlock) => [d.labelKey, d.variant])).toEqual(
+      [
+        ['input', 'json'],
+        ['response', 'redacted'],
+      ]
+    )
+    expect(nb.details[0]!.text).toContain('"edit_mode": "delete"')
+    // original_file (3 lines / CODE bytes) + updated_file (1 line / 1 B) +
+    // notebook_path, which redactResponse does not whitelist as metadata
+    expect(nb.details[1]!.redacted).toEqual({
+      lines: 5,
+      bytes: CODE.length + 1 + '/repo/n.ipynb'.length,
+    })
+    expect(JSON.stringify(items)).not.toContain('line two')
+  })
+
+  it('NotebookEdit failure shows the error text', () => {
+    const at = (s: number) => new Date(`2026-09-26T10:00:0${s}Z`)
+    const input = {
+      notebook_path: '/repo/n.ipynb',
+      cell_id: 'c',
+      new_source: 'print(1)',
+      edit_mode: 'replace',
+    }
+    const items = mergeEvents([
+      {
+        id: 'pre_nb',
+        type: 'PRE_TOOL_USE' as const,
+        toolName: 'NotebookEdit',
+        payload: { tool_use_id: 'tu_nb', tool_input: input },
+        createdAt: at(0),
+      },
+      {
+        id: 'post_nb',
+        type: 'POST_TOOL_USE' as const,
+        toolName: 'NotebookEdit',
+        payload: {
+          tool_use_id: 'tu_nb',
+          tool_input: input,
+          tool_response: { error: 'Cell c not found' },
+        },
+        createdAt: at(1),
+      },
+    ])
+    const nb = items[0]!
+    expect(nb.status).toBe('error')
+    expect(nb.details[0]).toMatchObject({
+      labelKey: 'response',
+      variant: 'error',
+      text: 'Cell c not found',
+    })
+  })
+
   it('fallback tools with nested redacted response show sizes as not retained', () => {
     const items = mergeEvents([
       ...pair(

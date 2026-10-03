@@ -534,8 +534,29 @@ function formatNotebookEdit(
   const totalLines = source ? source.split('\n').length : (redacted?.lines ?? 0)
 
   const details: DetailBlock[] = []
+  // A failed edit (e.g. `Cell c not found`) shows its error text first.
+  const errorText = getString(response, 'error')
+  if (errorText) details.push(clipBlock('response', 'error', errorText, 20))
+  // The response's `original_file` / `updated_file` (whole-notebook JSON) are
+  // deliberately never rendered — only the edited cell source is shown, or
+  // its size when it was not retained (LUM-874).
   if (source) details.push(clipBlock('content', 'code', source, 30))
-  else pushBlock(details, redactedBlock('content', redacted))
+  else if (redacted) pushBlock(details, redactedBlock('content', redacted))
+  else {
+    // No cell source (`edit_mode: 'delete'`): show the input like the generic
+    // fallback does, plus the size of whatever the response did not retain,
+    // so the expanded row is never blank.
+    if (input)
+      details.push({
+        labelKey: 'input',
+        variant: 'json',
+        text: stringifyJson(input),
+      })
+    pushBlock(
+      details,
+      redactedBlock('response', redaction.sum('tool_response'))
+    )
+  }
 
   const badge: BadgeMsg | null =
     totalLines > 0 ? { kind: 'lines', count: totalLines } : null
