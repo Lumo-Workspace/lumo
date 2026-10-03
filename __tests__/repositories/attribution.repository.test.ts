@@ -201,6 +201,7 @@ describe('loadFamily', () => {
       sessionId: true,
       attributionSignals: true,
       payload: true,
+      workspaceId: true,
       payloadEncrypted: true,
     })
     expect(fam!.events.map(e => [e.id, e.payload])).toEqual([

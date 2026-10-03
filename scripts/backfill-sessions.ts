@@ -34,6 +34,7 @@ async function main() {
         workspaceId: true,
         workspaceMemberId: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
         createdAt: true,
       },

@@ -67,6 +67,8 @@ export async function sealHookPayload(
 }
 
 type PayloadRow = {
+  /** The row's own workspace — a ciphertext only opens under its data key. */
+  workspaceId: string
   payload: Prisma.JsonValue | null
   payloadEncrypted: string | null
 }
@@ -76,9 +78,11 @@ export type OpenedRow<T extends PayloadRow> = Omit<T, 'payloadEncrypted'>
 /**
  * Replace each row's `payload` with its decrypted body (plaintext rows pass
  * through) and drop `payloadEncrypted`. Keys are fetched once per distinct
- * data key. A row whose key no longer exists (its workspace was deleted) or
- * whose ciphertext fails authentication reads as `payload: null` and is
- * logged; a KEK missing from the ring throws (a deploy misconfiguration).
+ * data key. Fail-soft per row: a row reads as `payload: null` (and is logged)
+ * when its data key no longer exists (its workspace was deleted) or cannot be
+ * unwrapped (its KEK is missing from the ring), when the data key belongs to
+ * a different workspace than the row (a ciphertext moved between rows), or
+ * when the ciphertext fails authentication — one bad row never fails a read.
  */
 export async function openHookPayloads<T extends PayloadRow>(
   rows: T[]
@@ -101,9 +105,21 @@ export async function openHookPayloads<T extends PayloadRow>(
     const envelope = envelopes.get(i)
     const dataKey = envelope ? keys.get(envelope.dataKeyId) : undefined
     if (!envelope || !dataKey) {
-      logger.warn('[hook-payload] payload not decryptable (key missing)', {
-        dataKeyId: envelope?.dataKeyId ?? null,
-      })
+      logger.warn(
+        '[hook-payload] payload not decryptable (key missing or unusable)',
+        {
+          dataKeyId: envelope?.dataKeyId ?? null,
+        }
+      )
+      return { ...rest, payload: null }
+    }
+    if (dataKey.workspaceId !== row.workspaceId) {
+      logger.warn(
+        '[hook-payload] payload not decryptable (workspace mismatch)',
+        {
+          dataKeyId: envelope.dataKeyId,
+        }
+      )
       return { ...rest, payload: null }
     }
     try {

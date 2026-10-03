@@ -362,6 +362,7 @@ async function loadSession(
         createdAt: true,
         payload: true,
         // LUM-863: payloads may be stored encrypted.
+        workspaceId: true,
         payloadEncrypted: true,
       },
       orderBy: { id: 'asc' },

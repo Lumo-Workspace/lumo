@@ -1265,6 +1265,7 @@ export const sessionRepository = {
         type: true,
         toolName: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
         createdAt: true,
       },

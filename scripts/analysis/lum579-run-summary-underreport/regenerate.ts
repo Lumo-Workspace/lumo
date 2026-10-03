@@ -92,6 +92,7 @@ async function loadEvents(sessionId: string): Promise<RawEvent[]> {
         type: true,
         toolName: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
         createdAt: true,
       },

@@ -76,6 +76,7 @@ async function main() {
         taskId: true,
         createdAt: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
       },
       orderBy: { id: 'asc' },

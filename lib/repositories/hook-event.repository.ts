@@ -84,6 +84,7 @@ export const hookEventRepository = {
         type: true,
         createdAt: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
       },
       orderBy: { createdAt: 'asc' },
@@ -104,7 +105,12 @@ export const hookEventRepository = {
     if (ids.length === 0) return out
     const rows = await prisma.hookEvent.findMany({
       where: { id: { in: ids } },
-      select: { id: true, payload: true, payloadEncrypted: true },
+      select: {
+        id: true,
+        workspaceId: true,
+        payload: true,
+        payloadEncrypted: true,
+      },
     })
     for (const row of await openHookPayloads(rows)) {
       const payload = row.payload as {
@@ -160,6 +166,7 @@ export const hookEventRepository = {
         id: true,
         toolName: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
         sessionId: true,
         createdAt: true,
@@ -201,6 +208,7 @@ export const hookEventRepository = {
         toolName: true,
         filePath: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
         payloadPrunedAt: true,
       },
@@ -226,6 +234,7 @@ export const hookEventRepository = {
         workspaceMemberId: true,
         sessionId: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
         createdAt: true,
         session: {
@@ -451,6 +460,7 @@ export const hookEventRepository = {
         type: true,
         toolName: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
         turnSummary: true,
         usageByModel: true,
@@ -505,6 +515,7 @@ export const hookEventRepository = {
         toolName: true,
         turnSummary: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
         createdAt: true,
       },

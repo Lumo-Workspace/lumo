@@ -189,6 +189,7 @@ async function main() {
             select: {
               id: true,
               payload: true,
+              workspaceId: true,
               payloadEncrypted: true,
               toolDetail: true,
               toolVerb: true,

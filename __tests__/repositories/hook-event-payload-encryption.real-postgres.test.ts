@@ -90,7 +90,12 @@ async function seedLegacy(
 async function stored(id: string) {
   return db().hookEvent.findUniqueOrThrow({
     where: { id },
-    select: { payload: true, payloadEncrypted: true, toolUseId: true },
+    select: {
+      workspaceId: true,
+      payload: true,
+      payloadEncrypted: true,
+      toolUseId: true,
+    },
   })
 }
 
@@ -352,5 +357,29 @@ describe('HookEvent payload encryption on a real Postgres', () => {
     // Every row reads back exactly as before the backfill.
     const after = await hookEventRepository.findByTaskId('task_1')
     expect(after).toEqual(before)
+  })
+
+  it('a ciphertext copied onto another workspace row never reads as plaintext', async () => {
+    await seedWorkspace('ws-b', 'member-b')
+    const secret = { tool_name: 'Write', tool_input: { content: CODE } }
+    const source = await record('ws', 'member', 'POST_TOOL_USE', secret)
+    const target = await record('ws-b', 'member-b', 'POST_TOOL_USE', {
+      tool_name: 'Read',
+    })
+    // Move workspace A's ciphertext onto workspace B's row.
+    const { payloadEncrypted } = await stored(source.id)
+    await db().hookEvent.update({
+      where: { id: target.id },
+      data: { payloadEncrypted },
+    })
+
+    const rows = await hookEventRepository.findManyByIdsForEditChange([
+      source.id,
+      target.id,
+    ])
+    const byId = new Map(rows.map(r => [r.id, r]))
+    expect(byId.get(source.id)!.payload).toEqual(secret)
+    expect(byId.get(target.id)!.payload).toBeNull()
+    expect(JSON.stringify(byId.get(target.id))).not.toContain('items.reduce')
   })
 })

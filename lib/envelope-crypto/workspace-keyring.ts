@@ -21,6 +21,7 @@ import {
   wrapDataKey,
   type Kek,
 } from '@/lib/envelope-crypto/cipher'
+import { logger } from '@/lib/logger'
 import {
   workspaceDataKeyRepository,
   type StoredDataKey,
@@ -131,7 +132,10 @@ export const workspaceKeyring = {
 
   /**
    * Data keys by id, unwrapped. One repository read for all cache misses; ids
-   * with no stored key (e.g. a deleted workspace) are absent from the map.
+   * with no stored key (e.g. a deleted workspace) are absent from the map, and
+   * so is a stored key that cannot be unwrapped (its KEK is not in the ring,
+   * or the wrap fails authentication) — logged, so one unusable key degrades
+   * only the rows it sealed instead of failing the whole read.
    */
   async getKeysByIds(ids: Iterable<string>): Promise<Map<string, DataKey>> {
     const out = new Map<string, DataKey>()
@@ -143,7 +147,15 @@ export const workspaceKeyring = {
     }
     if (misses.length > 0) {
       for (const stored of await workspaceDataKeyRepository.findByIds(misses)) {
-        out.set(stored.id, unwrap(stored))
+        try {
+          out.set(stored.id, unwrap(stored))
+        } catch (err) {
+          logger.warn('[keyring] data key cannot be unwrapped', {
+            dataKeyId: stored.id,
+            kekId: stored.kekId,
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
       }
     }
     return out

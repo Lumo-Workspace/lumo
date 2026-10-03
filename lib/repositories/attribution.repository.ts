@@ -243,6 +243,7 @@ export const attributionRepository = {
         sessionId: true,
         attributionSignals: true,
         payload: true,
+        workspaceId: true,
         payloadEncrypted: true,
       },
     })

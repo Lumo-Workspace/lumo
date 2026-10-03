@@ -84,7 +84,13 @@ async function main() {
           type: { in: ['POST_TOOL_BATCH', 'STOP', 'STOP_FAILURE'] },
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        select: { id: true, type: true, payload: true, payloadEncrypted: true },
+        select: {
+          id: true,
+          type: true,
+          workspaceId: true,
+          payload: true,
+          payloadEncrypted: true,
+        },
       })
     )
     const rows: SnapshotRow[] = []

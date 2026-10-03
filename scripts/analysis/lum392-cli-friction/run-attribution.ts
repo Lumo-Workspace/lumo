@@ -226,7 +226,12 @@ async function main() {
     await openHookPayloads(
       await prisma.hookEvent.findMany({
         where: { type: 'PRE_TOOL_USE', toolName: 'Skill' },
-        select: { sessionId: true, payload: true, payloadEncrypted: true },
+        select: {
+          sessionId: true,
+          workspaceId: true,
+          payload: true,
+          payloadEncrypted: true,
+        },
       })
     )
   ).filter(

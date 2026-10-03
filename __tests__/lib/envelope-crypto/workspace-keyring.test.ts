@@ -33,6 +33,15 @@ jest.mock('@/lib/repositories/workspace-data-key.repository', () => ({
   },
 }))
 
+jest.mock('@/lib/logger', () => ({
+  logger: {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
+}))
+
 jest.mock('@/lib/envelope-crypto/cipher', () => {
   const actual = jest.requireActual('@/lib/envelope-crypto/cipher')
   return { ...actual, unwrapDataKey: jest.fn(actual.unwrapDataKey) }
@@ -41,6 +50,7 @@ jest.mock('@/lib/envelope-crypto/cipher', () => {
 import { unwrapDataKey } from '@/lib/envelope-crypto/cipher'
 import { workspaceKeyring } from '@/lib/envelope-crypto/workspace-keyring'
 import { workspaceDataKeyRepository } from '@/lib/repositories/workspace-data-key.repository'
+import { logger } from '@/lib/logger'
 import {
   openHookPayloads,
   sealHookPayload,
@@ -78,6 +88,7 @@ describe('workspace keyring', () => {
     const opened = await openHookPayloads(
       rows.map(r => ({
         id: r.id,
+        workspaceId: 'wsA',
         payload: null,
         payloadEncrypted: r.payloadEncrypted,
       }))
@@ -91,6 +102,7 @@ describe('workspace keyring', () => {
     await openHookPayloads([
       {
         id: 'again',
+        workspaceId: 'wsA',
         payload: null,
         payloadEncrypted: rows[0]!.payloadEncrypted,
       },
@@ -123,9 +135,18 @@ describe('workspace keyring', () => {
     expect(sealed).toEqual({ payload: { plain: true }, payloadEncrypted: null })
     expect(store.size).toBe(0)
     const [row] = await openHookPayloads([
-      { id: 'p', payload: { plain: true }, payloadEncrypted: null },
+      {
+        id: 'p',
+        workspaceId: 'wsA',
+        payload: { plain: true },
+        payloadEncrypted: null,
+      },
     ])
-    expect(row).toEqual({ id: 'p', payload: { plain: true } })
+    expect(row).toEqual({
+      id: 'p',
+      workspaceId: 'wsA',
+      payload: { plain: true },
+    })
   })
 
   it('reads a row whose data key is gone as a null payload', async () => {
@@ -133,8 +154,77 @@ describe('workspace keyring', () => {
     store.clear()
     workspaceKeyring.forgetWorkspace('wsA')
     const [row] = await openHookPayloads([
-      { id: 'x', payload: null, payloadEncrypted: sealed.payloadEncrypted },
+      {
+        id: 'x',
+        workspaceId: 'wsA',
+        payload: null,
+        payloadEncrypted: sealed.payloadEncrypted,
+      },
     ])
     expect(row!.payload).toBeNull()
+  })
+
+  it('a ciphertext moved onto another workspace row does not decrypt', async () => {
+    const sealed = await sealHookPayload('wsA', { secret: 'alpha' })
+    await sealHookPayload('wsB', { other: true })
+    const [moved, own] = await openHookPayloads([
+      {
+        id: 'moved',
+        workspaceId: 'wsB',
+        payload: null,
+        payloadEncrypted: sealed.payloadEncrypted,
+      },
+      {
+        id: 'own',
+        workspaceId: 'wsA',
+        payload: null,
+        payloadEncrypted: sealed.payloadEncrypted,
+      },
+    ])
+    expect(moved!.payload).toBeNull()
+    expect(JSON.stringify(moved)).not.toContain('alpha')
+    expect(own!.payload).toEqual({ secret: 'alpha' })
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('workspace mismatch'),
+      expect.anything()
+    )
+  })
+
+  it('a data key whose KEK left the ring reads as null without failing the batch', async () => {
+    const sealed = await sealHookPayload('wsA', { lost: true })
+    // A process whose ring no longer carries k1 (a deploy misconfiguration).
+    workspaceKeyring.resetForTests()
+    process.env.WORKSPACE_KEKS = 'k2:' + 'd'.repeat(64)
+    const sealedNew = await sealHookPayload('wsB', { fresh: true })
+
+    const rows = await openHookPayloads([
+      {
+        id: 'lost',
+        workspaceId: 'wsA',
+        payload: null,
+        payloadEncrypted: sealed.payloadEncrypted,
+      },
+      {
+        id: 'fresh',
+        workspaceId: 'wsB',
+        payload: null,
+        payloadEncrypted: sealedNew.payloadEncrypted,
+      },
+      {
+        id: 'plain',
+        workspaceId: 'wsA',
+        payload: { plain: 1 },
+        payloadEncrypted: null,
+      },
+    ])
+    expect(rows.map(r => r.payload)).toEqual([
+      null,
+      { fresh: true },
+      { plain: 1 },
+    ])
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('cannot be unwrapped'),
+      expect.objectContaining({ kekId: 'k1' })
+    )
   })
 })
