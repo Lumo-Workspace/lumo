@@ -4,7 +4,12 @@ import { sanitizeField } from '../lib/sanitize'
 import { listTranscripts } from '../lib/transcript-scan'
 import { sumTranscriptUsage } from '../lib/transcript-usage'
 
-const BATCH = 50
+/**
+ * Sessions per request. --apply runs a write transaction per family, so its
+ * batches stay small enough to finish inside the server's time budget.
+ */
+const DRY_RUN_BATCH = 50
+const APPLY_BATCH = 10
 const MAX_MODEL_KEY = 200
 
 interface ResyncResult {
@@ -70,13 +75,14 @@ export async function usageResync(options?: {
   const results: ResyncResult[] = []
   let batchError: string | null = null
   let unsent = 0
-  for (let i = 0; i < sessions.length; i += BATCH) {
+  const batchSize = apply ? APPLY_BATCH : DRY_RUN_BATCH
+  for (let i = 0; i < sessions.length; i += batchSize) {
     const err = await postBatch(
       url,
       apiUrl,
       creds.token,
       !apply,
-      sessions.slice(i, i + BATCH),
+      sessions.slice(i, i + batchSize),
       results
     )
     if (err) {

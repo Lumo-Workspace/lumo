@@ -127,11 +127,18 @@ describe('usage resync command and resynced runs', () => {
     expect(out).not.toContain('Dry run')
   })
 
-  it('batches 50 sessions per request', async () => {
+  it('batches 50 sessions per request on a dry run', async () => {
     process.env.CLAUDE_CONFIG_DIR = makeConfigDir(120)
     const reqs = mockFetch(200, results)
     await run()
     expect(reqs.map(r => r.body.sessions.length)).toEqual([50, 50, 20])
+  })
+
+  it('batches 10 sessions per request with --apply', async () => {
+    process.env.CLAUDE_CONFIG_DIR = makeConfigDir(25)
+    const reqs = mockFetch(200, results)
+    await run({ apply: true })
+    expect(reqs.map(r => r.body.sessions.length)).toEqual([10, 10, 5])
   })
 
   it('prints counts per status and summed before and after totals', async () => {
@@ -248,7 +255,7 @@ describe('usage resync command and resynced runs', () => {
   })
 
   it('a mid-run batch failure prints finished batches, unsent count, exit 1', async () => {
-    process.env.CLAUDE_CONFIG_DIR = makeConfigDir(60)
+    process.env.CLAUDE_CONFIG_DIR = makeConfigDir(12)
     let call = 0
     global.fetch = jest.fn(async (_u: string, init: { body: string }) => {
       call++
@@ -258,13 +265,14 @@ describe('usage resync command and resynced runs', () => {
     }) as unknown as typeof fetch
     const { out, err, code } = await run({ apply: true })
     expect(code).toBe(1)
-    expect(out).toContain('50 resynced')
+    expect(out).toContain('Sent 10 of 12 session(s) with usage.')
+    expect(out).toContain('10 resynced')
     expect(err).toContain('could not reach')
-    expect(err).toContain('10 session(s) not sent — re-run')
+    expect(err).toContain('2 session(s) not sent — re-run')
   })
 
   it('a 401 on batch 2 keeps batch 1 results and exits 1', async () => {
-    process.env.CLAUDE_CONFIG_DIR = makeConfigDir(60)
+    process.env.CLAUDE_CONFIG_DIR = makeConfigDir(12)
     let call = 0
     global.fetch = jest.fn(async (_u: string, init: { body: string }) => {
       call++
@@ -274,9 +282,10 @@ describe('usage resync command and resynced runs', () => {
     }) as unknown as typeof fetch
     const { out, err, code } = await run({ apply: true })
     expect(code).toBe(1)
-    expect(out).toContain('50 resynced')
+    expect(out).toContain('Sent 10 of 12 session(s) with usage.')
+    expect(out).toContain('10 resynced')
     expect(err).toContain('lumo auth login')
-    expect(err).toContain('10 session(s) not sent')
+    expect(err).toContain('2 session(s) not sent')
   })
 
   it('invalid JSON or missing results is a failed batch', async () => {
@@ -323,21 +332,22 @@ describe('usage resync command and resynced runs', () => {
   it('sends bySubagent as numbers only and drops over-long model keys', async () => {
     const dir = makeConfigDir(1)
     const proj = join(dir, 'projects', '-some-project')
-    const line = (model: string) =>
+    // Distinct message ids: dedupe must not swallow the second line.
+    const line = (model: string, id: string) =>
       JSON.stringify({
         type: 'assistant',
         message: {
-          id: 'x1',
+          id,
           model,
           usage: { input_tokens: 3, output_tokens: 2 },
         },
       }) + '\n'
     const sub = join(proj, uuid(1), 'subagents')
     mkdirSync(sub, { recursive: true })
-    writeFileSync(join(sub, 'agent-abc.jsonl'), line('claude-sub'))
+    writeFileSync(join(sub, 'agent-abc.jsonl'), line('claude-sub', 's1'))
     writeFileSync(
       join(proj, `${uuid(1)}.jsonl`),
-      line('claude-x') + line('m'.repeat(300))
+      line('claude-x', 'x1') + line('m'.repeat(300), 'x2')
     )
     process.env.CLAUDE_CONFIG_DIR = dir
     const reqs = mockFetch(200, results)
@@ -346,7 +356,8 @@ describe('usage resync command and resynced runs', () => {
       byModel: Record<string, unknown>
       bySubagent: Record<string, { total: object; byModel: object }>
     }
-    expect(Object.keys(sent.byModel).every(k => k.length <= 200)).toBe(true)
+    // The session total includes its subagent; only the 300-char key is dropped.
+    expect(Object.keys(sent.byModel).sort()).toEqual(['claude-sub', 'claude-x'])
     expect(Object.keys(sent.bySubagent)).toEqual(['abc'])
     expect(JSON.stringify(sent.bySubagent)).not.toContain('"type"')
     expect(Object.keys(sent.bySubagent.abc!).sort()).toEqual([
