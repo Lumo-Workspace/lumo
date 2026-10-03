@@ -1,7 +1,7 @@
 /**
  * Shared best-effort timeout for the boundary-crossing LLM judges (LUM-463,
- * extended in LUM-466). Extracted so the TEST_TAMPERING judge and the
- * action-category confirmation share ONE timeout primitive — a hung model call
+ * extended in LUM-466). Extracted so the LLM judges (action-category
+ * confirmation, claim faithfulness) share ONE timeout primitive — a hung model call
  * can never block hook ingestion or the DONE path (the exit-0 invariant). The
  * caller wraps this best-effort and falls back to the conservative (flagging)
  * direction on any reject.

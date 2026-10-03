@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-426 — GET open boundary-crossings feeds the AcceptanceTab panel. Read
+ * LUM-426 — GET open boundary-crossings feeds the Record tab panel. Read
  * path: workspace-scoped, any authenticated identity (reads aren't the redline;
  * the acknowledge POST is the human-only write).
  */

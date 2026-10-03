@@ -10,12 +10,10 @@ function baseInput(
 ): MilestoneRiskQueueInput {
   return {
     milestoneCreatedAt: d('2026-06-01T00:00:00Z'),
-    maxRounds: 3,
     tasks: [],
     edges: [],
     statusActivities: [],
     crossings: [],
-    verificationFails: [],
     now: d('2026-07-01T00:00:00Z'),
     ...over,
   }
@@ -81,10 +79,6 @@ it('risk queue counts blocked review aging and scope baseline honestly', () => {
         },
         // c 无 IN_REVIEW 转入记录 → aging 显式 unknown(null)
       ],
-      verificationFails: [
-        { taskId: 'c', round: 3 }, // >= maxRounds 且 c 未 DONE → 升级
-        { taskId: 'b', round: 2 }, // < maxRounds → 不升级
-      ],
     })
   )
 
@@ -100,9 +94,6 @@ it('risk queue counts blocked review aging and scope baseline honestly', () => {
   expect(out.awaitingVerdict).toEqual([
     { taskId: 'a', ref: 'LUM-1', title: 'A', agingSec: 3 * 86400 },
     { taskId: 'c', ref: 'LUM-3', title: 'C', agingSec: null },
-  ])
-  expect(out.verifyEscalated).toEqual([
-    { taskId: 'c', ref: 'LUM-3', title: 'C', round: 3 },
   ])
   // scope 基线以 milestone 创建时点(06-01)划分:a 之前建 → initial 1;b/c 之后 → 后加 2
   expect(out.scopeBaseline).toEqual({ initial: 1, current: 3, addedLater: 2 })

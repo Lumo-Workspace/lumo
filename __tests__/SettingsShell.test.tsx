@@ -32,22 +32,16 @@ jest.mock('motion/react', () => ({
   },
 }))
 
-describe('SettingsShell — acceptance settings nav (LUM-434)', () => {
-  it('shows an OWNER-only Acceptance item linking to /settings/acceptance', () => {
-    const { rerender } = render(
+describe('SettingsShell — nav', () => {
+  it('no longer offers an Acceptance settings item (LUM-942)', () => {
+    render(
       <SettingsShell workspaceUrl='acme' isOwner={true}>
         <div />
       </SettingsShell>
     )
-    const link = screen.getByRole('link', { name: 'settings.acceptance' })
-    expect(link).toHaveAttribute('href', '/workspace/acme/settings/acceptance')
-
-    // A non-owner (member nav) must not see the acceptance item.
-    rerender(
-      <SettingsShell workspaceUrl='acme' isOwner={false}>
-        <div />
-      </SettingsShell>
-    )
+    expect(
+      screen.getByRole('link', { name: 'settings.workspace' })
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole('link', { name: 'settings.acceptance' })
     ).toBeNull()

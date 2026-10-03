@@ -87,14 +87,6 @@ async function seed() {
   await db.comment.create({
     data: { taskId: 't_parent', body: '<p>keep me</p>' },
   })
-  await db.acceptanceCriterion.create({
-    data: {
-      taskId: 't_parent',
-      statement: 'still here after restore',
-      verifierType: 'HUMAN',
-      source: 'AGENT_DRAFT',
-    },
-  })
   await db.taskDependency.create({
     data: {
       workspaceId: WS,
@@ -237,7 +229,7 @@ describe('task trash on a real Postgres', () => {
     expect(trash.some(i => i.id === 't_child')).toBe(false)
   })
 
-  it('restore brings the whole group back with its comments and criteria', async () => {
+  it('restore brings the whole group back with its comments', async () => {
     await trashService.restore('task', 't_parent', WS, MEMBER)
 
     const after = await visibleTaskReads()
@@ -252,9 +244,6 @@ describe('task trash on a real Postgres', () => {
 
     const db = harness.prisma!
     expect(await db.comment.count({ where: { taskId: 't_parent' } })).toBe(1)
-    expect(
-      await db.acceptanceCriterion.count({ where: { taskId: 't_parent' } })
-    ).toBe(1)
     const child = await db.task.findUnique({ where: { id: 't_child' } })
     expect(child).toMatchObject({
       parentTaskId: 't_parent',

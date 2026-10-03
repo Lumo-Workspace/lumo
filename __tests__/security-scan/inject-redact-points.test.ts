@@ -14,7 +14,7 @@
  * Points, as the task lists them: task-context memory + linked group
  * (`wrapUntrustedMemory`, `wrapUntrustedLinked`, `wrapUntrustedLinkedGroup`),
  * the steward milestone-memory section, the security agent-reminder, the
- * reference-class anchor, the criteria card, the three hunt prompt clients
+ * three hunt prompt clients
  * (task context → plan prompt, hunt task header, compressor prompt), the
  * tier-2 Slack-snapshot and web-body routes (task + idea) and the LLM-judge
  * diff input of the PR security scan.
@@ -167,12 +167,6 @@ import {
   renderSessionStartSecuritySection,
   type ReminderFinding,
 } from '@/lib/security-scan/agent-reminder'
-import { renderReferenceClassAnchor } from '@/lib/reference-class'
-import {
-  criterionManifest,
-  renderCriteriaSection,
-  type CriterionCard,
-} from '@/lib/context/render/criteria'
 import { renderHuntTaskContext } from '@/lib/security-scan/hunt/task-context'
 import { buildPlanPrompt } from '@/lib/llm/security-hunt-plan-client'
 import { renderTaskForPrompt } from '@/lib/llm/security-hunt-client'
@@ -555,70 +549,14 @@ describe('④ security agent-reminder', () => {
   )
 })
 
-describe('⑤ reference-class anchor', () => {
-  const anchor = {
-    kind: 'READY' as const,
-    level: 'MILESTONE' as const,
-    label: 'Security Scan v2',
-    size: 14,
-    rejections: [{ key: 'EVIDENCE_INSUFFICIENT', count: 5 }],
-    crossings: [],
-    postStartContractTasks: 2,
-  }
-
-  it.each(CORPUS)(
-    '$id — a secret in the scope name is masked',
-    ({ line, value }) => {
-      const out = renderReferenceClassAnchor({ ...anchor, label: `v2 ${line}` })
-      expect(out).not.toContain(value)
-      expect(out).toContain(`…(len ${value.length})`)
-      expect(out).toContain('14 delivered tasks')
-    }
-  )
-
-  it('leaves an ordinary scope name alone', () => {
-    expect(renderReferenceClassAnchor(anchor)).toContain('"Security Scan v2"')
-  })
-})
-
-describe('⑥ criteria card', () => {
-  const card = (
-    statement: string,
-    checkpointer: string | null
-  ): CriterionCard => ({
-    id: 'c1',
-    statement,
-    verifierType: checkpointer ? 'MACHINE' : 'HUMAN',
-    checkpointer,
-    evidenceRequired: false,
-    source: 'AGENT_DRAFT',
-    addedAtRound: 0,
-  })
-
-  it.each(CORPUS)(
-    '$id — statement, checkpointer and manifest are masked',
-    ({ line, value }) => {
-      const section = renderCriteriaSection([
-        card(
-          `no leak of ${line}`,
-          `curl -H "Authorization: ${line}" https://x`
-        ),
-      ])
-      expect(section).not.toContain(value)
-      expect(section).toContain('no leak of ')
-      expect(section).toContain('↳ check: curl')
-      expect(criterionManifest(card(line, null))).not.toContain(value)
-    }
-  )
-})
-
 describe('⑦ hunt — task context → plan prompt', () => {
   it('renderHuntTaskContext masks every field kind and puts the notice first', () => {
     const out = renderHuntTaskContext({
-      criteria: [`[MACHINE] ${CORPUS[0]!.line}`],
-      traps: [`${CORPUS[1]!.line} → leak`],
-      crossings: [`HARDCODED_SECRET: ${CORPUS[2]!.line}`],
-      rework: [`round 1: ${CORPUS[3]!.line}`],
+      traps: [`${CORPUS[0]!.line} → leak`, `${CORPUS[1]!.line} → leak`],
+      crossings: [
+        `HARDCODED_SECRET: ${CORPUS[2]!.line}`,
+        `TEST_FILE_DELETED: ${CORPUS[3]!.line}`,
+      ],
     })
     for (const c of CORPUS.slice(0, 4)) expect(out).not.toContain(c.value)
     expect(noticeCount(out)).toBe(4)
@@ -628,10 +566,8 @@ describe('⑦ hunt — task context → plan prompt', () => {
 
   it('buildPlanPrompt: the block carries through redacted and a finding title is masked with a marker', () => {
     const block = renderHuntTaskContext({
-      criteria: [`[MACHINE] ${ALL_LINES.replace(/\n/g, ' ')}`],
-      traps: [],
+      traps: [`${ALL_LINES.replace(/\n/g, ' ')} → leak`],
       crossings: [],
-      rework: [],
     })
     const prompt = buildPlanPrompt({
       reasons: ['diff:sink:prisma-raw'],

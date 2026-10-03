@@ -8,9 +8,9 @@
  * it can gate CI; the evasion subset is reported as a separate best-effort metric
  * and never fails the run.
  *
- * Read-only invariant (mirrors scripts/boundary-fp-rate.ts, scripts/checkpointer-
- * drift.ts): no DB, no writes, no network. The two LLM confirmation layers are
- * deterministic stub judges by default; `--live` swaps in the real model clients
+ * Read-only invariant (mirrors scripts/boundary-fp-rate.ts): no DB, no writes,
+ * no network. The LLM confirmation layer is a
+ * deterministic stub judge by default; `--live` swaps in the real model client
  * (lazy-imported only on that flag) for an optional real-prompt run.
  *
  *   npx tsx scripts/boundary-align-eval.ts            # deterministic (default)
@@ -29,13 +29,9 @@ async function resolveJudges(live: boolean): Promise<EvalJudges> {
   if (!live) return STUB_JUDGES
   // Lazy-import the real model clients ONLY on --live so the default path never
   // pulls in the `ai` SDK (and never hits the network).
-  const [{ confirmActionExecuted }, { judgeTestTampering }] = await Promise.all(
-    [
-      import('@/lib/llm/action-confirm-client'),
-      import('@/lib/llm/test-tampering-judge-client'),
-    ]
-  )
-  return { action: confirmActionExecuted, tampering: judgeTestTampering }
+  const { confirmActionExecuted } =
+    await import('@/lib/llm/action-confirm-client')
+  return { action: confirmActionExecuted }
 }
 
 export async function main(argv: string[]): Promise<number> {

@@ -97,7 +97,7 @@ export async function PATCH(
       input: parsed.data,
     })
     // Compose: the update service reports the new status, nextStepsService
-    // reads the acceptance state. Keeping the reads here leaves the write path
+    // reads the follow-up state. Keeping the reads here leaves the write path
     // free of them (LUM-686).
     const { status: newStatus, ...taskPayload } = task
     const nextSteps = await nextStepsService.forExistingTask({
@@ -105,7 +105,6 @@ export async function PATCH(
       taskIdentifier: task.identifier,
       status: newStatus,
       sessionBound: request.headers.get('X-Lumo-Session-Id') != null,
-      criteriaNudgeAlreadyShown: false,
     })
     return NextResponse.json({ task: taskPayload, nextSteps }, { status: 200 })
   } catch (err) {

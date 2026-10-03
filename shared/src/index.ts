@@ -133,15 +133,6 @@ export type { RunUsage } from './stream-json-usage'
 // ── Untrusted free-text sanitization ─────────────────────────────────────────
 export { sanitizeField } from './sanitize'
 
-// ── Acceptance verification evidence-pointer grammar ─────────────────────────
-export {
-  EVIDENCE_POINTER_PATTERNS,
-  EVIDENCE_POINTER_FORMAT_HINT,
-  EVIDENCE_POINTER_MAX,
-  isValidEvidencePointer,
-  buildCmdEvidencePointer,
-} from './acceptance-evidence'
-
 // ── Agent-facing CLI output-token budget (LUM-428) ───────────────────────────
 export {
   estimateTokens,

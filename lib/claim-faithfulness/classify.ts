@@ -9,11 +9,10 @@ export async function classifyClaimFaithfulness(
   input: {
     claim: string | null
     delivery: TaskDelivery | null
-    criteria: string[]
   },
   deps: { judge?: ClaimJudge; timeoutMs?: number } = {}
 ): Promise<ClaimFaithfulnessResult> {
-  const { claim, delivery, criteria } = input
+  const { claim, delivery } = input
   const diffScope = delivery?.prNumbers.length ?? 0
 
   if (!delivery || !claim) {
@@ -45,7 +44,6 @@ export async function classifyClaimFaithfulness(
         diff: truncateDiff(delivery.diff),
         commitSubjects: delivery.commitSubjects,
         changedFiles: delivery.changedFiles,
-        criteria,
       }),
       deps.timeoutMs ?? DEFAULT_TIMEOUT
     )

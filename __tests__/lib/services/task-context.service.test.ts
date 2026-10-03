@@ -33,11 +33,6 @@ jest.mock('@/lib/repositories/task-web-link.repository', () => ({
     listByTask: jest.fn().mockResolvedValue([]),
   },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: {
-    listByTask: jest.fn().mockResolvedValue([]),
-  },
-}))
 jest.mock('@/lib/repositories/task-artifact.repository', () => ({
   taskArtifactRepository: {
     listByTask: jest.fn().mockResolvedValue([]),

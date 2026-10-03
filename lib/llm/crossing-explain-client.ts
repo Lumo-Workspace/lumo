@@ -34,7 +34,7 @@ const CrossingExplainSchema = z.object({
 const CROSSING_EXPLAIN_SYSTEM_PROMPT = `You are an engineering assistant helping a human reviewer understand a boundary-crossing detection in a code-agent system.
 
 You will be given:
-- category: the type of rule that was tripped (e.g. TEST_TAMPERING, PROJECT_RULE_VIOLATION)
+- category: the type of rule that was tripped (e.g. HARDCODED_SECRET, PROJECT_RULE_VIOLATION)
 - severity: HIGH, MEDIUM, or LOW
 - evidence: the specific command, file path, or pattern that triggered the detection
 - rule (optional): the verbatim text of the policy rule that fired

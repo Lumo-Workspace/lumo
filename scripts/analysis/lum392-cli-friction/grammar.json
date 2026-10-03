@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.85.0",
+  "cliVersion": "1.86.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -69,20 +69,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show per-operation (per-tool) token cost. Defaults to a workspace 30-day window; scope with --task / --session"
-    },
-    "criteria": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Workspace-level acceptance-criteria analytics"
-    },
-    "criteria audit": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Show the workspace referent-kind distribution + self-confirming-green ratio (GET /api/criteria/audit)"
     },
     "crossing": {
       "arguments": [],
@@ -2177,30 +2163,6 @@
       "isInvokable": false,
       "description": "Read the post-hoc outcome well (LUM-598)"
     },
-    "outcome rate": {
-      "arguments": [],
-      "flags": {
-        "--json": {
-          "long": "--json",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Emit the report as JSON"
-        },
-        "--min": {
-          "long": "--min",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Per-bracket sample floor below which a rate is withheld (default 10)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Trust × post-hoc fate: per delivery-time forecast-confidence bracket, the post-hoc REJECTED rate from the outcome well. Honest by construction — thin brackets read \"insufficient\" and the high-vs-low comparison stays \"inconclusive\" until the well has enough signal. The rate is a LOWER BOUND (no signal = INCONCLUSIVE, never satisfied)."
-    },
     "outcome show": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {},
@@ -2534,7 +2496,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Bind as a STEWARD (governance) session to a milestone (id, name, or slug) instead of a task. Steward sessions plan and accept only: lumo verify is refused (409, no round burned), self-dispatch to in_progress is refused, and implementation commits/PRs are recorded as boundary crossings."
+          "description": "Bind as a STEWARD (governance) session to a milestone (id, name, or slug) instead of a task. Steward sessions plan and accept only: self-dispatch to in_progress is refused, and implementation commits/PRs are recorded as boundary crossings."
         },
         "--worktree": {
           "long": "--worktree",
@@ -3299,82 +3261,6 @@
       "isInvokable": true,
       "description": "Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me."
     },
-    "task criteria": {
-      "arguments": [],
-      "flags": {},
-      "hasSubcommands": true,
-      "isInvokable": false,
-      "description": "Acceptance criteria — the task’s verification contract (LUM-342)"
-    },
-    "task criteria confirm": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {
-        "--confirm": {
-          "long": "--confirm",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "The user has approved this contract"
-        },
-        "--yes": {
-          "long": "--yes",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Legacy alias of --confirm"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Record the USER’s confirmation of the acceptance contract (LUM-789). Gated: without --confirm it prints a confirmation envelope listing every criterion and exits 4, writing nothing. Confirming never blocks DONE — an unconfirmed contract still closes normally."
-    },
-    "task criteria list": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {},
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "List a task’s acceptance criteria (id, type, provenance, checkpointer)"
-    },
-    "task criteria set": {
-      "arguments": [{ "name": "task", "required": true, "variadic": false }],
-      "flags": {
-        "--cause": {
-          "long": "--cause",
-          "short": null,
-          "value": "required",
-          "enum": [
-            "NEW_INFO",
-            "SCOPE_CHANGE",
-            "DRAFT_BLIND_SPOT",
-            "GRANULARITY",
-            "OTHER"
-          ],
-          "enumCaseInsensitive": true,
-          "description": "Why the contract drifted (with --human): NEW_INFO | SCOPE_CHANGE | DRAFT_BLIND_SPOT | GRANULARITY | OTHER (case-insensitive)"
-        },
-        "--file": {
-          "long": "--file",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "JSON array of criteria: [{\"statement\",\"verifierType\":\"MACHINE\"|\"HUMAN\",\"checkpointer?\",\"evidenceRequired?\",\"id?\"}]"
-        },
-        "--human": {
-          "long": "--human",
-          "short": null,
-          "value": "none",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Record a human contract revision (HUMAN_EDIT) transcribed from the conversation, with session provenance"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Submit the whole acceptance contract from a JSON file. Default = initial agent draft (locked once submitted); --human records a HUMAN_EDIT revision (desired final list; items with \"id\" keep/update, missing ones are deleted)."
-    },
     "task delete": {
       "arguments": [
         { "name": "identifier", "required": true, "variadic": false }
@@ -3932,7 +3818,7 @@
           "value": "none",
           "enum": null,
           "enumCaseInsensitive": false,
-          "description": "Also print the dashboard sections: verification rollup, history, cost, struggle/rework trail, trend"
+          "description": "Also print the dashboard sections: cost, struggle/rework trail, trend"
         },
         "--json": {
           "long": "--json",
@@ -3945,7 +3831,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Acceptance self-check (LUM-344): contract with latest verdicts, current round, nextActions (unmet criteria + undispositioned security findings, LUM-737), and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task or after a verification round was rejected. --full adds the dashboard sections (verification rollup, history, cost, struggle/rework trail, trend)."
+      "description": "Task self-check (LUM-344): nextActions (undispositioned security findings + test-case advisories), security-scan coverage, and open boundary crossings. Read-only, no LLM. Defaults to the session-bound task. Run it first when resuming a task. --full adds the dashboard sections (cost, struggle/rework trail, trend)."
     },
     "task statuses": {
       "arguments": [],
@@ -3973,14 +3859,6 @@
     "task testcase add": {
       "arguments": [{ "name": "task", "required": true, "variadic": false }],
       "flags": {
-        "--criterion": {
-          "long": "--criterion",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Which acceptance criterion this case covers: an id or a >=6-char id prefix from `lumo task criteria list`. Optional - an unlinked case is perfectly legal. A covered criterion stops showing up as a coverage gap; the case NEVER adjudicates it"
-        },
         "--expected": {
           "long": "--expected",
           "short": null,
@@ -4237,14 +4115,6 @@
         { "name": "task/case", "required": true, "variadic": false }
       ],
       "flags": {
-        "--criterion": {
-          "long": "--criterion",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Which acceptance criterion this case covers: an id or a >=6-char id prefix from `lumo task criteria list`. Pass \"\" to unlink (the case itself is untouched). Omit to leave the link as it is"
-        },
         "--expected": {
           "long": "--expected",
           "short": null,
@@ -4474,7 +4344,7 @@
       "flags": {},
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Whole wrap-up in one read (LUM-841): contract & verification, test-case signals, security scans, open boundary crossings (each ready to relay, with the per-ruling disposition command), and DONE readiness with the DONE envelope preview (linked PR merge state + local worktree cleanup). Read-only: runs no verify round, requests no receipt, changes no status. Defaults to the session-bound task."
+      "description": "Whole wrap-up in one read (LUM-841): test-case signals, security scans, open boundary crossings (each ready to relay, with the per-ruling disposition command), and DONE readiness with the DONE envelope preview (linked PR merge state + local worktree cleanup). Read-only: requests no receipt, changes no status. Defaults to the session-bound task."
     },
     "update": {
       "arguments": [],
@@ -4482,30 +4352,6 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Check npm for a newer @lumoai/cli and install it globally if available."
-    },
-    "verify": {
-      "arguments": [{ "name": "task", "required": false, "variadic": false }],
-      "flags": {
-        "--note": {
-          "long": "--note",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Optional one-line self-report — what you did and why it is ready. When given, it is recorded as your claim (source AGENT) when the round passes into IN_REVIEW."
-        },
-        "--timeout": {
-          "long": "--timeout",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Per-checkpointer timeout in seconds (default 600)"
-        }
-      },
-      "hasSubcommands": false,
-      "isInvokable": true,
-      "description": "Machine verification loop (LUM-343): run every MACHINE criterion checkpointer locally, report structured verdicts to the server (round cap 3), and print next actions. All-pass moves the task to IN_REVIEW. Defaults to the session-bound task."
     },
     "whoami": {
       "arguments": [],

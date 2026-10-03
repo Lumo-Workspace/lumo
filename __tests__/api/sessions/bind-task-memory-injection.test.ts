@@ -6,7 +6,6 @@ jest.mock('@/lib/services/task-context.service', () => ({
     buildMemorySectionForTask: jest.fn(),
     // LUM-807: attach carries the test-case nudge beside the contract.
     buildTestCaseSectionForTask: jest.fn(async () => ''),
-    buildCriteriaSectionForTask: jest.fn(),
     buildPreviousSessionRecoveryForTask: jest.fn(),
   },
 }))

@@ -25,13 +25,8 @@ function parseIdentifier(
  * cuid branch verifies workspace ownership so a malicious caller cannot reach
  * a task in another workspace by passing its raw cuid.
  *
- * Single source for the acceptance routes (criteria / verify / status) —
- * extracted from their per-route copies so the resolution contract can't
- * drift between them.
- *
- * Returns `status` and `workStartedAt` so callers (e.g. the criteria PUT
- * route) can thread the DONE lock and after-start diff gate down to the
- * service layer without a second round-trip.
+ * Single source for the tasks/[id] routes — extracted from their per-route
+ * copies so the resolution contract can't drift between them.
  */
 export async function resolveTaskParam(
   rawId: string,

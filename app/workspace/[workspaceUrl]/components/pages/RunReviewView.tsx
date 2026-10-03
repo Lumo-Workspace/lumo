@@ -150,38 +150,6 @@ export function RateReadout({ rate }: { rate: FalseReportRate }) {
   )
 }
 
-/** 这条用例在为哪条验收标准作证（三态，别压成两态）。 */
-function CriterionLine({ item }: { item: ReviewPoolItem }) {
-  const intl = useIntl()
-  const c = item.criterion
-  // LUM-819 返工：没声明时退而给出整份合同——至少知道这个任务在交付什么。
-  if (c.kind === 'none' && item.taskContract.length > 0) {
-    return (
-      <details className='text-sm'>
-        <summary className='cursor-pointer text-muted-foreground'>
-          {intl.formatMessage(
-            { id: 'runReviews.item.contractFallback' },
-            { count: item.taskContract.length }
-          )}
-        </summary>
-        <ol className='list-decimal pl-5 pt-1 text-foreground'>
-          {item.taskContract.map((statement, i) => (
-            <li key={i}>{statement}</li>
-          ))}
-        </ol>
-      </details>
-    )
-  }
-  const text =
-    c.kind === 'none'
-      ? intl.formatMessage({ id: 'runReviews.item.criterion.none' })
-      : intl.formatMessage(
-          { id: `runReviews.item.criterion.${c.kind}` },
-          { statement: c.statement }
-        )
-  return <p className='text-sm text-muted-foreground'>{text}</p>
-}
-
 /** 用例剧本：前置、步骤、复验条目。默认收起——预期结果已在卡片上。 */
 function ScriptDetails({ item }: { item: ReviewPoolItem }) {
   const intl = useIntl()
@@ -276,14 +244,13 @@ function ReviewItem({
         ) : null}
       </p>
 
-      {/* 对照物：预期结果最显眼，其次是它为哪条标准作证。 */}
+      {/* 对照物：预期结果最显眼。 */}
       <div className='flex flex-col gap-0.5 rounded-md border border-border px-3 py-2'>
         <p className='text-sm text-muted-foreground'>
           {intl.formatMessage({ id: 'runReviews.item.expected' })}
         </p>
         <p className='text-body-strong text-foreground'>{item.expected}</p>
       </div>
-      <CriterionLine item={item} />
       <ScriptDetails item={item} />
 
       {item.note && <p className='text-sm text-foreground'>“{item.note}”</p>}

@@ -21,9 +21,6 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
     topologyRows: jest.fn(),
   },
 }))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: { failRowsByTaskIds: jest.fn() },
-}))
 jest.mock('@/lib/repositories/sprint.repository', () => ({
   sprintRepository: { findByIds: jest.fn() },
 }))
@@ -66,7 +63,6 @@ import { pullRequestRepository } from '@/lib/repositories/pull-request.repositor
 import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { projectService } from '@/lib/services/project.service'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { requireIdentity } from '@/lib/auth'
 
 const mockIdentity = requireIdentity as jest.Mock
@@ -95,8 +91,6 @@ const labelsByIds = memberRepository.labelsByIds as jest.Mock
 const memberDeliveryRows = milestoneRepository.memberDeliveryRows as jest.Mock
 const loadSessionTokenRows =
   retrospectiveRepository.loadSessionTokenRowsForTasks as jest.Mock
-const failRowsByTaskIds =
-  verificationRunRepository.failRowsByTaskIds as jest.Mock
 
 beforeEach(() => {
   mockIdentity.mockReset()
@@ -140,8 +134,6 @@ beforeEach(() => {
   memberDeliveryRows.mockResolvedValue({ tasks: [], signalCounts: [] })
   loadSessionTokenRows.mockReset()
   loadSessionTokenRows.mockResolvedValue([])
-  failRowsByTaskIds.mockReset()
-  failRowsByTaskIds.mockResolvedValue([])
 })
 
 const rollupRows = {
@@ -211,30 +203,13 @@ describe('milestoneService.getOutcomeForMilestone', () => {
       {
         id: 't1',
         status: 'DONE',
-        forecastSnapshot: { verificationRounds: 1, sendBackCount: 0 },
         claimFaithfulness: { verdict: 'FAITHFUL' },
-        criteriaSnapshots: [
-          {
-            criteria: [
-              {
-                id: 'c1',
-                statement: 'suite green',
-                verifierType: 'MACHINE',
-                checkpointer: 'npx jest __tests__/x.test.ts',
-                referentKind: 'AGENT_CONSTRUCTED_STATE',
-                evidenceRequired: false,
-              },
-            ],
-          },
-        ],
       },
       {
-        // No snapshot, never verified, never judged — all explicit buckets.
+        // Never judged — the explicit unjudged bucket.
         id: 't2',
         status: 'DONE',
-        forecastSnapshot: null,
         claimFaithfulness: null,
-        criteriaSnapshots: [],
       },
     ])
 
@@ -243,22 +218,11 @@ describe('milestoneService.getOutcomeForMilestone', () => {
     expect(greenQualityRows).toHaveBeenCalledWith('m-1')
     expect(outcome.greenQuality).toEqual({
       doneCount: 2,
-      friction: {
-        noVerification: 1,
-        singleRound: 1,
-        multiRoundOrSendback: 0,
-      },
       faithfulness: {
         faithful: 1,
         overstated: 0,
         underReported: 0,
         unjudged: 1,
-      },
-      referentKind: {
-        externallyAnchored: 0,
-        selfConfirming: 1,
-        other: 0,
-        noSnapshotTasks: 1,
       },
     })
   })

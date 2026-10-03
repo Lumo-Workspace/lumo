@@ -71,8 +71,6 @@ export const KNOWN_COMMAND_PATHS: string[] = [
   'task comments list',
   'task comment',
   'task context',
-  'task criteria list',
-  'task criteria set',
   'task deps list',
   'task deps add',
   'task deps confirm',
@@ -93,7 +91,6 @@ export const KNOWN_COMMAND_PATHS: string[] = [
   'task update',
   'task web show',
   'update',
-  'verify',
   'whoami',
   'worktree add',
   'worktree list',
@@ -106,7 +103,7 @@ const PATHS_BY_LENGTH = [...KNOWN_COMMAND_PATHS]
   .sort((a, b) => b.length - a.length)
 
 export interface LumoInvocation {
-  /** Resolved command path, e.g. "task criteria set", or "unknown:<tokens>". */
+  /** Resolved command path, e.g. "task deps add", or "unknown:<tokens>". */
   commandPath: string
   /** True when commandPath matched the known command tree. */
   known: boolean

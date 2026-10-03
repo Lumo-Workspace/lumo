@@ -550,8 +550,8 @@ export const taskRepository = {
     taskId: string,
     snapshot: {
       text: string | null
-      // LUM-597: 'AGENT' joins the source space — the agent's own verify
-      // self-report, the authoritative claim over a summarizer paraphrase.
+      // LUM-597: 'AGENT' = the agent's own self-report (legacy rows from the
+      // removed `lumo verify --note`; nothing writes it since LUM-942).
       source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null
       sessionId: string | null
       at: Date
@@ -641,14 +641,7 @@ export const taskRepository = {
   async findHeaderById(id: string) {
     return prisma.task.findUnique({
       where: { id },
-      // The status read model resolves the machine-round cap task → workspace
-      // (LUM-429); carry it alongside the identifier fields.
-      select: {
-        ...TASK_IDENTIFIER_SELECT,
-        project: {
-          select: { workspace: { select: { verificationMaxRounds: true } } },
-        },
-      },
+      select: TASK_IDENTIFIER_SELECT,
     })
   },
 

@@ -133,7 +133,7 @@ describe('enforceSessionBinding', () => {
         sessionId: 'sess',
         memberId: 'm1',
         targetTaskId: 't1',
-        action: 'machine verification',
+        action: 'status change',
         stewardPolicy: 'forbid-implementation',
       })
     ).rejects.toMatchObject({ status: 409, boundTaskIdentifier: 'LUM-487' })
@@ -146,7 +146,7 @@ describe('enforceSessionBinding', () => {
       sessionId: 'sess',
       memberId: 'm1',
       targetTaskId: 't1',
-      action: 'machine verification',
+      action: 'status change',
       stewardPolicy: 'forbid-implementation',
     })
     expect(r).toEqual({ advisory: null, steward: null })
@@ -172,7 +172,7 @@ describe('enforceSessionBinding', () => {
       sessionId: 'sess',
       memberId: 'm1',
       targetTaskId: 't1',
-      action: 'machine verification',
+      action: 'status change',
       stewardPolicy: 'forbid-implementation',
     })
     expect(r).toEqual({ advisory: null, steward: null })
@@ -248,7 +248,7 @@ describe('LUM-932 subagent (child session id) binding falls back to the parent',
         sessionId: CHILD,
         memberId: 'm1',
         targetTaskId: 't1',
-        action: 'machine verification',
+        action: 'status change',
         stewardPolicy: 'forbid-implementation',
       })
     ).rejects.toMatchObject({ status: 409, sessionRole: 'STEWARD' })

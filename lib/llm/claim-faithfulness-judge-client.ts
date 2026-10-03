@@ -29,9 +29,6 @@ export function buildClaimJudgePrompt(input: ClaimJudgeInput): string {
     `AGENT CLAIM:\n${input.claim}`,
     `\nCOMMIT SUBJECTS:\n${input.commitSubjects.join('\n')}`,
     `\nCHANGED FILES (${input.changedFiles.length}):\n${input.changedFiles.join('\n')}`,
-    input.criteria.length
-      ? `\nACCEPTANCE CRITERIA:\n${input.criteria.join('\n')}`
-      : '',
     `\nGIT DIFF:\n${input.diff}`,
   ].join('\n')
 }

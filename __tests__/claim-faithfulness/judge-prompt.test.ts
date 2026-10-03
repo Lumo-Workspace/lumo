@@ -7,7 +7,6 @@ describe('buildClaimJudgePrompt', () => {
     diff: 'diff --git a/lib/resolver.ts ...\n+const x = 1',
     commitSubjects: ['fix: rewrite resolver [LUM-1] (#5)'],
     changedFiles: ['lib/resolver.ts'],
-    criteria: ['resolver returns frozen snapshot'],
   }
   it('embeds claim, diff, files and the reverse-gate instruction', () => {
     const p = buildClaimJudgePrompt(input)

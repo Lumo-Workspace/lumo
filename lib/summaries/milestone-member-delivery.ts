@@ -77,17 +77,6 @@ export interface MemberDeliverySessionRow {
   cacheCreationTokens: number | null
 }
 
-/** One append-only verification run, projected to the friction fields. */
-export interface MemberDeliveryVerificationRow {
-  taskId: string
-  round: number
-  verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
-  verifierType: 'HUMAN' | 'AGENT' | 'MACHINE'
-  /** Shared id of one human/agent verdict action (null on machine runs) —
-   * the send-back dedupe key, so one action over N criteria counts once. */
-  verdictActionId: string | null
-}
-
 export type MemberDeliveryBucket = 'member' | 'unassigned' | 'unattributed'
 
 export interface MilestoneMemberDeliveryRow {
@@ -109,14 +98,8 @@ export interface MilestoneMemberDeliveryRow {
      * never "satisfied". */
     noRecordDoneCount: number
   }
-  /** Acceptance friction — actual struggle only, never inferred. */
+  /** Delivery friction — actual struggle only, never inferred. */
   friction: {
-    /** Distinct (task, round) pairs with ≥1 MACHINE FAIL — real rework
-     * rounds of the verify loop. */
-    failRoundCount: number
-    /** Distinct HUMAN/AGENT FAIL verdict actions (a machine verify-loop
-     * FAIL is not a 打回) — deduped by verdictActionId. */
-    sendBackCount: number
     /** Row tasks with MORE than one linked PR (any state) — PR churn. */
     multiPrTaskCount: number
   }
@@ -143,7 +126,6 @@ export interface MemberDeliveryInput {
   prRows: MemberDeliveryPrRow[]
   complexityRows: MemberDeliveryComplexityRow[]
   sessionRows: MemberDeliverySessionRow[]
-  verificationRows: MemberDeliveryVerificationRow[]
   /** (taskId, kind) rejection-signal counts from the outcome well — the same
    * repository groupBy shape the LUM-626 outcome rollup consumes. */
   signalCounts: OutcomeSignalCountRow[]
@@ -199,7 +181,7 @@ function resolveBucketKey(
 export function computeMilestoneMemberDelivery(
   input: MemberDeliveryInput
 ): MilestoneMemberDelivery {
-  const { tasks, prRows, complexityRows, sessionRows, verificationRows } = input
+  const { tasks, prRows, complexityRows, sessionRows } = input
   const taskIdSet = new Set(tasks.map(t => t.id))
 
   // Shared-agent attribution basis: per-task token spend per member.
@@ -244,25 +226,6 @@ export function computeMilestoneMemberDelivery(
     rejectedTasks.add(row.taskId)
   }
 
-  // Friction: real rework rounds (distinct machine-FAIL rounds) and real
-  // send-backs (distinct HUMAN/AGENT FAIL actions) per task.
-  const failRoundsByTask = new Map<string, Set<number>>()
-  const sendBackActionsByTask = new Map<string, Set<string>>()
-  let syntheticActionSeq = 0
-  for (const run of verificationRows) {
-    if (!taskIdSet.has(run.taskId) || run.verdict !== 'FAIL') continue
-    if (run.verifierType === 'MACHINE') {
-      const rounds = failRoundsByTask.get(run.taskId) ?? new Set<number>()
-      rounds.add(run.round)
-      failRoundsByTask.set(run.taskId, rounds)
-    } else {
-      const actions = sendBackActionsByTask.get(run.taskId) ?? new Set<string>()
-      // A row missing its shared action id still counts — as its own action.
-      actions.add(run.verdictActionId ?? `__row_${syntheticActionSeq++}`)
-      sendBackActionsByTask.set(run.taskId, actions)
-    }
-  }
-
   // Group tasks into buckets, preserving input (task-number) order per row.
   const tasksByKey = new Map<string, MemberDeliveryTaskRow[]>()
   for (const task of tasks) {
@@ -287,8 +250,6 @@ export function computeMilestoneMemberDelivery(
     let multiPrTaskCount = 0
     let rejectedTaskCount = 0
     let noRecordDoneCount = 0
-    let failRoundCount = 0
-    let sendBackCount = 0
     let changedFilesSum = 0
     let measuredTasks = 0
     const claims: MilestoneOutcomeClaim[] = []
@@ -310,8 +271,6 @@ export function computeMilestoneMemberDelivery(
       if (rejectedTasks.has(task.id)) rejectedTaskCount++
       mergedPrCount += mergedByTask.get(task.id) ?? 0
       if ((prCountByTask.get(task.id) ?? 0) > 1) multiPrTaskCount++
-      failRoundCount += failRoundsByTask.get(task.id)?.size ?? 0
-      sendBackCount += sendBackActionsByTask.get(task.id)?.size ?? 0
       const changed = changedFilesByTask.get(task.id)
       if (changed !== undefined) {
         measuredTasks++
@@ -330,7 +289,7 @@ export function computeMilestoneMemberDelivery(
       doneCount,
       mergedPrCount,
       fate: { rejectedTaskCount, noRecordDoneCount },
-      friction: { failRoundCount, sendBackCount, multiPrTaskCount },
+      friction: { multiPrTaskCount },
       changedFiles: {
         total: measuredTasks > 0 ? changedFilesSum : null,
         measuredTasks,

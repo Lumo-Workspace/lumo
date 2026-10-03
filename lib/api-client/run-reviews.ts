@@ -1,7 +1,7 @@
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 import type { RunReviewBody } from '@/lib/validation/test-case'
-import type { CriterionLink, FalseReportRate } from '@/lib/test-cases/review'
+import type { FalseReportRate } from '@/lib/test-cases/review'
 
 /** 抽查页上的一条 run（与 service 的 `ReviewPoolItem` 同形）。 */
 export interface ReviewPoolItem {
@@ -21,10 +21,7 @@ export interface ReviewPoolItem {
   steps: string[]
   verification: string[]
   expected: string
-  criterion: CriterionLink
   pr: { number: number; url: string } | null
-  /** 用例没声明覆盖哪条标准时，该任务整份现行合同（兜底对照物）。 */
-  taskContract: string[]
 }
 
 export interface ReviewPoolView {

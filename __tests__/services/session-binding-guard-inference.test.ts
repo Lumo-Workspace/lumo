@@ -23,7 +23,7 @@ const base = {
   sessionId: 'sess',
   memberId: 'm1',
   targetTaskId: 't1',
-  action: 'machine verification',
+  action: 'status change',
 }
 
 beforeEach(() => jest.clearAllMocks())

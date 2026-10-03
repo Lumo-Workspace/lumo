@@ -113,29 +113,4 @@ describe('workspaceService.updateWorkspace', () => {
 
     expect(mockIsSlugUnique).not.toHaveBeenCalled()
   })
-
-  // ── acceptanceMode toggle (LUM-431) ───────────────────────────────────────
-  describe('acceptanceMode toggle', () => {
-    it('persists acceptanceMode for an OWNER', async () => {
-      mockUpdate.mockResolvedValue({ id: 'ws-1', acceptanceMode: true })
-
-      await workspaceService.updateWorkspace('ws-1', 'OWNER', 'slug', {
-        acceptanceMode: true,
-      })
-
-      expect(mockUpdate).toHaveBeenCalledWith('ws-1', { acceptanceMode: true })
-    })
-
-    it('rejects a non-OWNER acceptanceMode change with 403', async () => {
-      await expect(
-        workspaceService.updateWorkspace('ws-1', 'MEMBER', 'slug', {
-          acceptanceMode: true,
-        })
-      ).rejects.toMatchObject({
-        message: 'Only admins can update workspace settings',
-        status: 403,
-      })
-      expect(mockUpdate).not.toHaveBeenCalled()
-    })
-  })
 })

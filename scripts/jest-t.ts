@@ -2,16 +2,17 @@
  * Zero-match guard for jest test-name checkpointers (LUM-405 follow-up).
  *
  * Problem: `npx jest -t '<name>'` exits 0 even when the pattern matches NO
- * test (everything reported as skipped) — so an acceptance-criteria MACHINE
- * checkpointer written that way silently fake-PASSes the moment the test is
- * renamed or deleted (measured on this repo: 5782 skipped, 0 matched, exit 0).
+ * test (everything reported as skipped) — so a by-name test command (e.g. a
+ * `lumo task testcase` command) written that way silently fake-PASSes the
+ * moment the test is renamed or deleted (measured on this repo: 5782
+ * skipped, 0 matched, exit 0).
  * Same trap class as the BSD-grep `-P` fake-PASS incident (LUM-401).
  *
  * Fix: run jest through this wrapper instead. It runs
  * `jest -t '<name>' --json [extra jest args…]` and exits 0 ONLY when at least
  * one matching test ran and passed and none failed. Zero matches = exit 1.
  *
- * Usage (checkpointer form prescribed in references/criteria.md):
+ * Usage:
  *   npx tsx scripts/jest-t.ts '<exact test name>' [test file path…]
  *
  * Passing the test file path as an extra arg scopes the run (much faster than

@@ -1,6 +1,5 @@
 import { apiFetch, ApiClientError } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
-import type { CriteriaSetItemInput } from '@/app/workspace/[workspaceUrl]/types'
 
 export interface WorkspaceTaskFilterArgs {
   projectIds?: string[]
@@ -127,65 +126,6 @@ export const tasksClient = {
     return apiFetch<void>(API.tasks.comment(taskId, commentId), {
       method: 'DELETE',
     })
-  },
-
-  /**
-   * Record a human adjudication of the task's acceptance contract. Only
-   * reachable from a Clerk browser session — the server refuses bearer
-   * (agent/CLI) identities with 403 (milestone rule 5).
-   */
-  submitHumanVerdict<T>(
-    taskId: string,
-    data: {
-      verdict: 'PASS' | 'FAIL'
-      // LUM-422 ① de-enumeration: no rejection-reason enum on the human path —
-      // a FAIL's `note` is the send-back reason (posted as a comment).
-      note?: string
-      // LUM-425: narrow the verdict to specific criteria; omitted = the whole
-      // contract (the legacy task-level "pass all / send back all").
-      criterionIds?: string[]
-    }
-  ) {
-    return apiFetch<T>(API.tasks.humanVerdict(taskId), {
-      method: 'POST',
-      body: data,
-    })
-  },
-
-  /**
-   * Undo (withdraw) the most recent human verdict on a task (LUM-586). Only
-   * reachable from a Clerk browser session — the server refuses bearer
-   * (agent/CLI) identities with 403 (same red line as submitHumanVerdict).
-   */
-  undoHumanVerdict<T>(taskId: string) {
-    return apiFetch<T>(API.tasks.humanVerdict(taskId), { method: 'DELETE' })
-  },
-
-  /**
-   * Apply a human contract revision from the web tab (HUMAN_EDIT). `criteria` is
-   * the desired final list — items with `id` keep/update, omitted existing ones
-   * are deleted (soft-deleted if they carry runs). Clerk-session only; the server
-   * derives source (REVIEW_ADDED in review, else HUMAN_EDIT) and attributes it
-   * "via web". No causeTag — humans bear zero structured burden.
-   */
-  reviseCriteria<T>(taskId: string, criteria: CriteriaSetItemInput[]) {
-    return apiFetch<T>(API.tasks.criteria(taskId), {
-      method: 'PUT',
-      body: { source: 'HUMAN_EDIT', criteria },
-    })
-  },
-
-  /**
-   * Record a human's confirmation of the acceptance contract (LUM-789). No
-   * request body — confirms the whole live contract. Idempotent (already-
-   * confirmed rows are left alone) and never changes task status or blocks
-   * anything; it is a record, not a gate.
-   */
-  confirmCriteria(taskId: string) {
-    return apiFetch<{ confirmedCount: number }>(
-      API.tasks.criteriaConfirm(taskId),
-      { method: 'POST' }
-    )
   },
 
   /** List ALL of a task's boundary-crossings, open and dispositioned (LUM-435). */

@@ -1,12 +1,10 @@
 import { updateTask } from '@/lib/services/task-state.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { prSecurityScanRepository } from '@/lib/repositories/pr-security-scan.repository'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 
-// updateTask's own deps — mocked so the test isolates the LUM-422 ④ DONE gate.
+// updateTask's own deps — mocked so the test isolates the DONE gate.
 // LUM-732: the DONE gate now consults the PR security scan. Defaults to "no
 // linked PR" so the real gate short-circuits before touching the scan
 // repository for every test except the dedicated security-gate block below.
@@ -29,12 +27,6 @@ jest.mock('@/lib/repositories/pr-security-scan.repository', () => ({
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findForUpdate: jest.fn(), update: jest.fn() },
-}))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: { latestRunsByCriterion: jest.fn() },
-}))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: { findByIdSimple: jest.fn() },
@@ -62,8 +54,8 @@ jest.mock('@/lib/repositories/test-case.repository', () => ({
     runsPerCase: jest.fn(() => Promise.resolve(new Map())),
   },
 }))
-// LUM-426 boundary gate runs alongside the send-back gate on DONE — default it
-// to "nothing flagged" so these tests keep isolating the LUM-422 ④ gate.
+// LUM-426 boundary gate — default it to "nothing flagged" so these tests keep
+// isolating the plane each block exercises.
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
     findUndispositionedByTask: jest.fn(() => Promise.resolve([])),
@@ -73,8 +65,6 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 
 const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
-const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
-const listCriteria = acceptanceCriterionRepository.listByTask as jest.Mock
 const findSecurityPrs =
   pullRequestRepository.findManyForSecurityByTaskId as jest.Mock
 const findLatestScans =
@@ -101,10 +91,6 @@ beforeEach(() => {
     team: { identifier: 'LUM' },
     teamId: 'team-1',
   })
-  latestRuns.mockResolvedValue(new Map())
-  listCriteria.mockResolvedValue([
-    { id: 'c-1', statement: 'the retry path is covered' },
-  ])
   findSecurityPrs.mockResolvedValue([])
   findLatestScans.mockResolvedValue([])
   listTestCases.mockResolvedValue([])
@@ -143,48 +129,8 @@ function defectRun(over: { disposition?: unknown } = {}) {
   )
 }
 
-const failMap = () =>
-  new Map([['c-1', { criterionId: 'c-1', verdict: 'FAIL' }]])
-const passMap = () =>
-  new Map([['c-1', { criterionId: 'c-1', verdict: 'PASS' }]])
-
-describe('LUM-422 ④ DONE gate', () => {
-  it('refuses a DONE transition with 409 while a criterion latest verdict is FAIL', async () => {
-    latestRuns.mockResolvedValue(failMap())
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
-      status: 409,
-    })
-    expect(update).not.toHaveBeenCalled()
-  })
-
-  it('lists the unresolved criterion statements in the 409 message', async () => {
-    latestRuns.mockResolvedValue(failMap())
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toThrow(
-      /the retry path is covered/
-    )
-  })
-
-  it('blocks regardless of the verdict channel (AGENT FAIL is a send-back too)', async () => {
-    latestRuns.mockResolvedValue(
-      new Map([['c-1', { criterionId: 'c-1', verdict: 'FAIL' }]])
-    )
-    await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
-      status: 409,
-    })
-  })
-
-  it('lets a human override the gate (overrideDoneGate) past the FAIL', async () => {
-    latestRuns.mockResolvedValue(failMap())
-    await expect(
-      updateTask('t-1', { status: 'DONE' }, null, { overrideDoneGate: true })
-    ).resolves.toBeDefined()
-    expect(update).toHaveBeenCalled()
-    // Overridden → it never even needs to look up the verdicts.
-    expect(latestRuns).not.toHaveBeenCalled()
-  })
-
-  it('transitions freely when the latest verdicts all pass', async () => {
-    latestRuns.mockResolvedValue(passMap())
+describe('DONE gate — a clean task (LUM-942: no acceptance-criteria plane)', () => {
+  it('transitions freely when no plane has a blocker', async () => {
     await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
     expect(update).toHaveBeenCalledWith(
       't-1',
@@ -192,17 +138,8 @@ describe('LUM-422 ④ DONE gate', () => {
     )
   })
 
-  it('never blocks an un-adjudicated criterion (no runs = tacit pass)', async () => {
-    latestRuns.mockResolvedValue(new Map())
-    await expect(updateTask('t-1', { status: 'DONE' })).resolves.toBeDefined()
-    expect(update).toHaveBeenCalled()
-    // No FAIL in the latest map → never fetches criterion statements.
-    expect(listCriteria).not.toHaveBeenCalled()
-  })
-
-  it('does not run the gate for a non-DONE transition even with a standing FAIL', async () => {
-    latestRuns.mockResolvedValue(failMap())
-    await update.mockResolvedValue({
+  it('does not run the gate for a non-DONE transition', async () => {
+    update.mockResolvedValue({
       ...TASK,
       status: 'IN_REVIEW',
       team: { identifier: 'LUM' },
@@ -211,7 +148,7 @@ describe('LUM-422 ④ DONE gate', () => {
     await expect(
       updateTask('t-1', { status: 'IN_REVIEW' })
     ).resolves.toBeDefined()
-    expect(latestRuns).not.toHaveBeenCalled()
+    expect(findSecurityPrs).not.toHaveBeenCalled()
   })
 })
 
@@ -318,14 +255,13 @@ describe('LUM-732 DONE gate — PR security findings (end-to-end through updateT
     ).resolves.toBeDefined()
     expect(update).toHaveBeenCalled()
     // Overridden → the gate short-circuits before ever consulting the scan
-    // repository (mirrors the LUM-422 ④ override behavior above).
+    // repository.
     expect(findSecurityPrs).not.toHaveBeenCalled()
   })
 })
 
 describe('LUM-812 DONE gate — a proven test-case defect (end-to-end through updateTask)', () => {
   it('a proven defect run blocks the DONE transition and names the case', async () => {
-    latestRuns.mockResolvedValue(passMap())
     defectRun()
 
     await expect(updateTask('t-1', { status: 'DONE' })).rejects.toMatchObject({
@@ -344,7 +280,6 @@ describe('LUM-812 DONE gate — a proven test-case defect (end-to-end through up
   })
 
   it('lets the transition through once a human has dispositioned that run', async () => {
-    latestRuns.mockResolvedValue(passMap())
     defectRun({
       disposition: {
         id: 'd-1',
@@ -361,7 +296,6 @@ describe('LUM-812 DONE gate — a proven test-case defect (end-to-end through up
   })
 
   it('does not block on a FAIL that was attributed to anything other than the implementation', async () => {
-    latestRuns.mockResolvedValue(passMap())
     listTestCases.mockResolvedValue([
       { id: 'tc-1', number: 4, title: 'Stale copy', requiredEnvironment: null },
     ])

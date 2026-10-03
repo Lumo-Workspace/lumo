@@ -21,8 +21,7 @@ export async function GET(
   if (!result) {
     return NextResponse.json({ error: 'Task not found' }, { status: 404 })
   }
-  // LUM-686: the payload already carries `criteriaSection` (contract or draft
-  // nudge), so the rule table must not restate that advice. `sessionBound` is
+  // LUM-686: `sessionBound` is
   // false here — reading context says nothing about this session's binding, and
   // suggesting attach when it may already be bound is the one hint that would
   // send the agent into a 409.
@@ -32,8 +31,7 @@ export async function GET(
       taskIdentifier: result.task.identifier,
       status: result.task.status as TaskStatusForNextSteps,
       sessionBound: true,
-      criteriaNudgeAlreadyShown: true,
-      // LUM-807: ditto for the test-case nudge the payload already carries.
+      // LUM-807: the payload already carries the test-case nudge.
       testCaseNudgeAlreadyShown: true,
     }),
     // LUM-923: a pending workspace deletion, so the agent can warn the user.

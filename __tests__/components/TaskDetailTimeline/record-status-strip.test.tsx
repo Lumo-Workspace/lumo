@@ -36,12 +36,6 @@ import type { RecordGaps } from '@/app/workspace/[workspaceUrl]/components/TaskD
 
 function gaps(p: Partial<RecordGaps> = {}): RecordGaps {
   return {
-    machineAwaiting: 0,
-    machineTotal: 0,
-    machineVerified: 0,
-    humanPending: 0,
-    humanTotal: 0,
-    humanJudged: 0,
     crossingsOpen: 0,
     crossingsBlocking: 0,
     crossingsTotal: 0,
@@ -53,7 +47,7 @@ function gaps(p: Partial<RecordGaps> = {}): RecordGaps {
 }
 
 describe('RecordStatusStrip', () => {
-  it('renders nothing when there are no criteria and no crossings at all', () => {
+  it('renders nothing when the task has no crossings at all', () => {
     const { container } = render(<RecordStatusStrip gaps={gaps()} />)
     expect(container).toBeEmptyDOMElement()
   })
@@ -62,8 +56,6 @@ describe('RecordStatusStrip', () => {
     render(
       <RecordStatusStrip
         gaps={gaps({
-          machineTotal: 1,
-          machineVerified: 1,
           crossingsOpen: 3,
           crossingsBlocking: 3,
           crossingsTotal: 5,
@@ -76,6 +68,7 @@ describe('RecordStatusStrip', () => {
     expect(chip).toHaveAttribute('href', '#record-crossings')
     expect(chip).toHaveTextContent('3 crossings to disposition')
     expect(chip.className).toContain('text-danger')
+    expect(screen.getByText('Still needed for Done')).toBeInTheDocument()
   })
 
   it('renders the crossings chip in the singular for count = 1', () => {
@@ -94,93 +87,6 @@ describe('RecordStatusStrip', () => {
     )
   })
 
-  it('renders the machine chip as a warning-toned anchor to #record-machine', () => {
-    render(
-      <RecordStatusStrip
-        gaps={gaps({
-          machineTotal: 4,
-          machineVerified: 0,
-          machineAwaiting: 4,
-          canBeDone: false,
-        })}
-      />
-    )
-    const chip = screen.getByTestId('gap-machine')
-    expect(chip.tagName).toBe('A')
-    expect(chip).toHaveAttribute('href', '#record-machine')
-    expect(chip).toHaveTextContent('4 machine checks awaiting verification')
-    expect(chip.className).toContain('text-warning')
-  })
-
-  it('renders the human chip as an in-review anchor to #record-human when pending', () => {
-    render(
-      <RecordStatusStrip
-        gaps={gaps({ humanTotal: 2, humanPending: 2, canBeDone: false })}
-      />
-    )
-    const chip = screen.getByTestId('gap-human')
-    expect(chip.tagName).toBe('A')
-    expect(chip).toHaveAttribute('href', '#record-human')
-    expect(chip).toHaveTextContent('2 calls need your judgment')
-    expect(chip.className).toContain('text-status-in-review')
-  })
-
-  it('renders the human-done badge (not a link) when all human criteria are judged', () => {
-    render(
-      <RecordStatusStrip
-        gaps={gaps({ humanTotal: 2, humanPending: 0, humanJudged: 2 })}
-      />
-    )
-    const chip = screen.getByTestId('gap-human')
-    expect(chip.tagName).toBe('SPAN')
-    expect(chip).toHaveTextContent('Human-judged 2/2')
-    expect(chip.className).toContain('text-success')
-  })
-
-  // I-1 (Task 7 review): the old `humanTotal - humanPending` fraction became
-  // vacuous once an un-adjudicated criterion stopped counting as pending
-  // (this branch only renders once humanPending is 0, so the subtraction was
-  // always total/total) — worse, it labelled a contract nobody looked at as
-  // "Human-judged". These two pin the honest replacement.
-  it('renders "Accepted as drafted" (not "Human-judged") when nothing was actually judged', () => {
-    render(
-      <RecordStatusStrip
-        gaps={gaps({ humanTotal: 2, humanPending: 0, humanJudged: 0 })}
-      />
-    )
-    const chip = screen.getByTestId('gap-human')
-    expect(chip).toHaveTextContent('Accepted as drafted')
-    expect(chip).not.toHaveTextContent('Human-judged')
-    // Design call (Task 7 re-review): tacit is not full success green.
-    expect(chip.className).not.toContain('text-success')
-    expect(chip.className).toContain('text-muted-foreground')
-  })
-
-  it('renders the mixed copy when some but not all human criteria were judged', () => {
-    render(
-      <RecordStatusStrip
-        gaps={gaps({ humanTotal: 2, humanPending: 0, humanJudged: 1 })}
-      />
-    )
-    const chip = screen.getByTestId('gap-human')
-    expect(chip).toHaveTextContent('1/2 judged, rest accepted as drafted')
-    expect(chip).not.toHaveTextContent('Human-judged')
-    // N-3 (Task 7 re-review): a plain substring match here only passed
-    // because the mixed string's trailing clause happens to be lower-case
-    // ("rest accepted as drafted") — anchor it so this pins intent, not a
-    // capitalization accident.
-    expect(chip).not.toHaveTextContent(/^Accepted as drafted$/)
-    // Design call: mixed is not full success green either.
-    expect(chip.className).not.toContain('text-success')
-  })
-
-  it('omits the human chip entirely when there are no human criteria', () => {
-    render(
-      <RecordStatusStrip gaps={gaps({ machineTotal: 1, machineVerified: 1 })} />
-    )
-    expect(screen.queryByTestId('gap-human')).toBeNull()
-  })
-
   it('renders the right-aligned progress chip when there are any crossings', () => {
     render(
       <RecordStatusStrip
@@ -197,30 +103,19 @@ describe('RecordStatusStrip', () => {
     expect(progress.className).toContain('ml-auto')
   })
 
-  it('omits the progress chip when there are no crossings at all', () => {
-    render(
-      <RecordStatusStrip gaps={gaps({ machineTotal: 1, machineVerified: 1 })} />
-    )
-    expect(screen.queryByTestId('gap-progress')).toBeNull()
-  })
-
   it('shows the success "nothing left" message when canBeDone and no gap chips remain', () => {
-    render(
-      <RecordStatusStrip gaps={gaps({ machineTotal: 2, machineVerified: 2 })} />
-    )
+    render(<RecordStatusStrip gaps={gaps({ crossingsTotal: 2 })} />)
     const none = screen.getByTestId('gap-none')
     expect(none).toHaveTextContent('Nothing left — the task can be marked Done')
     expect(none.className).toContain('text-success')
     expect(screen.queryByTestId('gap-crossings')).toBeNull()
-    expect(screen.queryByTestId('gap-machine')).toBeNull()
   })
 
   it('does not show "nothing left" when canBeDone is false even with no gap chips (e.g. security-only block)', () => {
     render(
       <RecordStatusStrip
         gaps={gaps({
-          machineTotal: 1,
-          machineVerified: 1,
+          crossingsTotal: 1,
           securityBlocking: 1,
           canBeDone: false,
         })}
@@ -229,40 +124,13 @@ describe('RecordStatusStrip', () => {
     expect(screen.queryByTestId('gap-none')).toBeNull()
   })
 
-  it('renders every chip together when every gap is present, plus the title', () => {
-    render(
-      <RecordStatusStrip
-        gaps={gaps({
-          machineTotal: 4,
-          machineVerified: 0,
-          machineAwaiting: 4,
-          humanTotal: 2,
-          humanPending: 2,
-          crossingsOpen: 27,
-          crossingsBlocking: 27,
-          crossingsTotal: 27,
-          canBeDone: false,
-        })}
-      />
-    )
-    expect(screen.getByText('Still needed for Done')).toBeInTheDocument()
-    expect(screen.getByTestId('gap-crossings')).toBeInTheDocument()
-    expect(screen.getByTestId('gap-machine')).toBeInTheDocument()
-    expect(screen.getByTestId('gap-human')).toBeInTheDocument()
-    expect(screen.getByTestId('gap-progress')).toHaveTextContent(
-      'Dispositioned 0/27'
-    )
-  })
-
   // Review F5: an open crossing that does not block Done (advisory, or any
   // open crossing while the workspace gate is off) still needs dispositioning
-  // — but red "27 crossings" overstated a queue nothing is waiting on.
+  // — but a red chip overstated a queue nothing is waiting on.
   it('renders the crossings chip in the in-review tone with advisory copy when nothing blocks', () => {
     render(
       <RecordStatusStrip
         gaps={gaps({
-          machineTotal: 1,
-          machineVerified: 1,
           crossingsOpen: 3,
           crossingsBlocking: 0,
           crossingsTotal: 3,
@@ -296,9 +164,7 @@ describe('RecordStatusStrip', () => {
   // decision that was already taken — the same slot states the outcome.
   it('says the task is accepted (not "can be marked Done") once it is DONE', () => {
     render(
-      <RecordStatusStrip
-        gaps={gaps({ machineTotal: 2, machineVerified: 2, taskDone: true })}
-      />
+      <RecordStatusStrip gaps={gaps({ crossingsTotal: 1, taskDone: true })} />
     )
     const accepted = screen.getByTestId('gap-accepted')
     expect(accepted).toHaveTextContent('Accepted — this task is Done')
@@ -307,24 +173,15 @@ describe('RecordStatusStrip', () => {
   })
 
   // Review F7: the settled-state chip closes the line (mockup order), after
-  // the human-judged reading and the disposition progress.
-  it('renders the settled-state chip last, after the human and progress chips', () => {
-    render(
-      <RecordStatusStrip
-        gaps={gaps({
-          humanTotal: 2,
-          humanPending: 0,
-          crossingsOpen: 0,
-          crossingsTotal: 5,
-        })}
-      />
-    )
+  // the disposition progress.
+  it('renders the settled-state chip last, after the progress chip', () => {
+    render(<RecordStatusStrip gaps={gaps({ crossingsTotal: 5 })} />)
     const strip = screen.getByText('Still needed for Done').parentElement!
     expect(strip.lastElementChild).toBe(screen.getByTestId('gap-none'))
     const chips = Array.from(strip.children).map(el =>
       el.getAttribute('data-testid')
     )
-    expect(chips).toEqual([null, 'gap-human', 'gap-progress', 'gap-none'])
+    expect(chips).toEqual([null, 'gap-progress', 'gap-none'])
   })
 
   it('renders plain (non-link) badges when interactive is false', () => {
@@ -334,14 +191,11 @@ describe('RecordStatusStrip', () => {
           crossingsOpen: 1,
           crossingsBlocking: 1,
           crossingsTotal: 1,
-          machineTotal: 1,
-          machineAwaiting: 1,
           canBeDone: false,
         })}
         interactive={false}
       />
     )
     expect(screen.getByTestId('gap-crossings').tagName).toBe('SPAN')
-    expect(screen.getByTestId('gap-machine').tagName).toBe('SPAN')
   })
 })

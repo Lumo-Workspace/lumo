@@ -452,15 +452,8 @@ describe('formatPrScan', () => {
       queueExits: { RESOLVED_ON_MAIN: 2 },
     }
     const status = formatTaskStatus({
-      version: 1,
+      version: 2,
       task: { id: 't', identifier: 'LUM-1', title: 'x', status: 'DONE' },
-      currentRound: 0,
-      maxRounds: 3,
-      escalated: false,
-      criteria: [],
-      machineVerification: { total: 0, machineVerified: 0, humanOverridden: 0 },
-      verificationHistory: [],
-      lastRoundFailures: [],
       nextActions: [],
       securityFindings: {
         open: 0,

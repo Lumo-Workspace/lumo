@@ -97,14 +97,6 @@ jest.mock('@/lib/repositories/milestone.repository', () => ({
   milestoneRepository: { findById: jest.fn() },
 }))
 // LUM-422 ④ DONE gate dep — empty verdicts → gate passes (no send-back).
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: {
-    latestRunsByCriterion: jest.fn(async () => new Map()),
-  },
-}))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn(async () => []) },
-}))
 jest.mock('@/lib/task/state-machine', () => ({
   isValidTaskTransition: () => true,
 }))

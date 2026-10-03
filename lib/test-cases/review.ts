@@ -145,27 +145,6 @@ export function addReviewToRate(
   return { status: 'measured', reviewed, rejected, rate: rejected / reviewed }
 }
 
-/**
- * LUM-819 返工：复核卡片上「这条用例在为哪条标准作证」。三态，别压成两态：
- * - `none`：没人声明它覆盖什么（合法常态，不是缺陷）；
- * - `active`：标准还在合同里；
- * - `changed`：标准已被软删（tombstone）——证据对照的是一条已不在合同里的标准，
- *   复核人必须知道这一点。
- */
-export type CriterionLink =
-  | { kind: 'none' }
-  | { kind: 'active'; statement: string }
-  | { kind: 'changed'; statement: string }
-
-export function describeCriterionLink(
-  criterion: { statement: string; deletedAt: Date | null } | null
-): CriterionLink {
-  if (!criterion) return { kind: 'none' }
-  return criterion.deletedAt
-    ? { kind: 'changed', statement: criterion.statement }
-    : { kind: 'active', statement: criterion.statement }
-}
-
 /** 一条最新复核的最小形状（回写到任务上用）。 */
 export interface LatestReview extends ReviewRow {
   note: string | null

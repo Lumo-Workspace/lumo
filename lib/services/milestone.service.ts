@@ -11,13 +11,11 @@ import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { computeSprintCoverage } from '@/lib/summaries/sprint-coverage'
 import { computeMilestoneOutcome } from '@/lib/summaries/milestone-outcome'
 import { computeMilestoneGreenQuality } from '@/lib/summaries/milestone-green-quality'
-import { parseSnapshotCriteria } from '@/lib/fidelity/change-pattern'
 import { computeMilestoneBurnup } from '@/lib/summaries/milestone-burnup'
 import { computeMilestoneTokenBudget } from '@/lib/summaries/milestone-token-budget'
 import { computeMilestoneSegments } from '@/lib/summaries/milestone-segments'
 import { computeMilestoneDeliveryStats } from '@/lib/summaries/milestone-delivery-stats'
 import { computeMilestoneMemberDelivery } from '@/lib/summaries/milestone-member-delivery'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
@@ -190,13 +188,7 @@ export const milestoneService = {
       greenQualityRows.map(t => ({
         id: t.id,
         status: t.status,
-        verificationRounds: t.forecastSnapshot?.verificationRounds ?? null,
-        sendBackCount: t.forecastSnapshot?.sendBackCount ?? null,
         faithfulnessVerdict: t.claimFaithfulness?.verdict ?? null,
-        snapshotCriteria:
-          t.criteriaSnapshots.length > 0
-            ? parseSnapshotCriteria(t.criteriaSnapshots[0]?.criteria)
-            : null,
       }))
     )
     return { ...outcome, greenQuality }
@@ -361,13 +353,11 @@ export const milestoneService = {
     const { tasks, signalCounts } =
       await milestoneRepository.memberDeliveryRows(milestoneId)
     const taskIds = tasks.map(t => t.id)
-    const [prRows, complexityRows, sessionRows, verificationRows] =
-      await Promise.all([
-        pullRequestRepository.listStatesByTaskIds(taskIds),
-        taskComplexityRepository.listByTaskIds(taskIds),
-        retrospectiveRepository.loadSessionTokenRowsForTasks(taskIds),
-        verificationRunRepository.failRowsByTaskIds(taskIds),
-      ])
+    const [prRows, complexityRows, sessionRows] = await Promise.all([
+      pullRequestRepository.listStatesByTaskIds(taskIds),
+      taskComplexityRepository.listByTaskIds(taskIds),
+      retrospectiveRepository.loadSessionTokenRowsForTasks(taskIds),
+    ])
     const taskRows = tasks.map(t => ({
       id: t.id,
       ref: `${t.team.identifier}-${t.number}`,
@@ -401,7 +391,6 @@ export const milestoneService = {
       prRows,
       complexityRows,
       sessionRows,
-      verificationRows,
       signalCounts,
       memberLabels,
     })

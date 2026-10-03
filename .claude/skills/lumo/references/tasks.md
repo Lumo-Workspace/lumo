@@ -40,8 +40,6 @@ Tags: bug, urgent
 Next:
   lumo session attach LUM-55
       Bind this session to the task so its work is recorded against it
-  lumo task criteria set LUM-55 --file <criteria.json>
-      Draft the acceptance contract before writing the first line of code
 ```
 
 The `Tags:` line is omitted when no tags were attached. The trailing `Next:` block is server-computed and conditional — the attach line is skipped when this session is already bound (a second attach is a 409), and the whole block is suppressed by `--no-hints` / `LUMO_NO_HINTS=1`. The `Created …` line stays first and unchanged. See SKILL.md "Next-step hints".
@@ -103,10 +101,6 @@ On success the command prints one or two lines to stdout:
 ```
 Updated LUM-48 "Title"  https://www.uselumo.ai/workspace/<slug>/my-tasks/LUM-48
 Tags: urgent
-
-Next:
-  lumo verify --note "<self-report>"
-      Run the machine acceptance loop before claiming the task is done
 ```
 
 The `Tags:` line is omitted when the resulting tag set is empty. The trailing `Next:` block reflects the **post-update** status — `--status in_review` prints a stop-and-wait note instead of a command, and a DONE task prints nothing. Suppressed by `--no-hints` / `LUMO_NO_HINTS=1`.
@@ -125,8 +119,8 @@ The server's transition matrix (`lib/task/state-machine.ts`):
 Practical rules:
 
 - **One call suffices.** `--status done` straight from TODO or IN_PROGRESS is legal — never walk `in_progress → in_review → done` as a ritual; it just wastes calls. That one call **walks the confirmation protocol** (see below): without `--confirm` it exits 4 with an envelope, never a prompt.
-- **Under the verify flow you don't set `in_review`/`done` at all** — `lumo verify` moves the task to IN_REVIEW on all-pass and the DONE adjudication is human-only.
-- **A DONE task can be reopened** — to IN_REVIEW, IN_PROGRESS, or TODO. Reopening is a plain status change and does not alter any recorded acceptance verdict; verdict adjudication is human-only and has no CLI path. To attach context without reopening, `lumo task comment` works.
+- **DONE is the user's call** — `--status done` always exits 4 for their approval first (below).
+- **A DONE task can be reopened** — to IN_REVIEW, IN_PROGRESS, or TODO. Reopening is a plain status change. To attach context without reopening, `lumo task comment` works.
 
 ### `--status done` requires `--confirm` — the confirmation envelope (LUM-755)
 
@@ -154,7 +148,7 @@ With no linked PR the PR lines collapse to `Pull requests: none linked` and ther
 When the task has local git worktrees, the envelope ends with one line per worktree — `Will remove worktree <path> (branch … kept)` or `Keeps worktree <path>: <reason>` (uncommitted changes / unpushed commits that aren't a merged PR's head / the current directory is inside it). After `--confirm` and a successful DONE the removable ones are removed; a refused DONE removes nothing. Never forced, branches kept (LUM-825, see [worktree.md](worktree.md)).
 
 - **Show `changes` to the user and wait for an explicit yes**, then run `confirmCommand` unchanged. `--confirm` means the user confirmed — never add it on your own.
-- With `--confirm` the PATCH goes out directly. The server's own DONE gates still apply on top — an unresolved send-back, an undispositioned boundary crossing or a blocking security finding refuses with **409**, which the CLI turns into a structured **`DONE_BLOCKED` error on stdout with exit 5**: the 409 text verbatim, a `blockers[]` with ids (built from `task status` + the crossings read model), and `remediation` lines that only name human-side or user-approved paths. Nothing on `task update` clears any of them — relay, don't retry. A boundary crossing is the one blocker with a terminal path, `lumo crossing disposition <id> …` (itself exit-4: the user rules, never you); once every blocker is cleared, re-run this `--confirm` call. See [confirmation.md](confirmation.md) "When the gate is human-only". Any other 409 stays plain text, exit 1.
+- With `--confirm` the PATCH goes out directly. The server's own DONE gates still apply on top — an undispositioned boundary crossing, a blocking security finding or a proven test-case defect refuses with **409**, which the CLI turns into a structured **`DONE_BLOCKED` error on stdout with exit 5**: the 409 text verbatim, a `blockers[]` with ids (built from `task status` + the crossings read model), and `remediation` lines that only name human-side or user-approved paths. Nothing on `task update` clears any of them — relay, don't retry. A boundary crossing is the one blocker with a terminal path, `lumo crossing disposition <id> …` (itself exit-4: the user rules, never you); once every blocker is cleared, re-run this `--confirm` call. See [confirmation.md](confirmation.md) "When the gate is human-only". Any other 409 stays plain text, exit 1.
 - `--confirm` is the only flag: there is no `--yes` or `--force` on `task update`. Every other status (`todo` / `in_progress` / `in_review`) PATCHes directly and ignores `--confirm`.
 - A failed lookup (404, network) exits 1 before any envelope.
 
@@ -331,7 +325,7 @@ lumo task history LUM-42
 
 ### `lumo task delete <identifier>` — move a task to the trash (LUM-821, LUM-918)
 
-Moves the task **and its subtasks** to the trash. They are restorable for **30 days** from the web app's **Settings → Trash**, then the daily purge deletes them permanently. While trashed they are hidden from lists, search, `lumo next` and task context; comments, criteria, test cases and history are kept and come back on restore. Without `--confirm` it exits 4 with an envelope saying exactly this — relay it and wait for the user; never add `--confirm` yourself. To erase a task at once (e.g. a GDPR erasure request), the user deletes it permanently from Settings → Trash — there is no CLI flag for that. Prefer `task update --status done` or re-scoping for work that merely stopped mattering.
+Moves the task **and its subtasks** to the trash. They are restorable for **30 days** from the web app's **Settings → Trash**, then the daily purge deletes them permanently. While trashed they are hidden from lists, search, `lumo next` and task context; comments, test cases and history are kept and come back on restore. Without `--confirm` it exits 4 with an envelope saying exactly this — relay it and wait for the user; never add `--confirm` yourself. To erase a task at once (e.g. a GDPR erasure request), the user deletes it permanently from Settings → Trash — there is no CLI flag for that. Prefer `task update --status done` or re-scoping for work that merely stopped mattering.
 
 ```bash
 lumo task delete LUM-42

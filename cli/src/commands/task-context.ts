@@ -29,7 +29,6 @@ interface TaskContextResponse {
   memoryIndexSection?: string
   /** LUM-923: pending workspace deletion notice; absent on older servers. */
   workspaceNoticeSection?: string
-  criteriaSection?: string
   /** LUM-807: "## Test cases" nudge; absent on older servers. */
   testCaseSection?: string
   slackContextSection?: string
@@ -163,12 +162,6 @@ export function formatTaskContextMarkdown(
     lines.push('')
   }
 
-  // The acceptance contract leads (LUM-342): it's what the work is judged
-  // against, so it reads as part of the task statement itself.
-  if (data.criteriaSection && data.criteriaSection.trim().length > 0) {
-    lines.push(sanitizeField(data.criteriaSection.trimEnd()))
-    lines.push('')
-  }
   // LUM-807: the test-case nudge, same slot as at session start.
   if (data.testCaseSection && data.testCaseSection.trim().length > 0) {
     lines.push(sanitizeField(data.testCaseSection.trimEnd()))

@@ -16,7 +16,7 @@ Everything read at session start is re-read on every later step, so the default 
 The command prints a markdown document to stdout with these sections, in order:
 
 1. **Task header** — identifier, title, status, description. When the workspace is scheduled for deletion (LUM-923), a `## Workspace scheduled for deletion` block with the deletion time follows it — tell the user before starting long-running work; session start injects the same block first.
-2. **`## Acceptance criteria (contract)`** — shown right after the header. Each line `[MACHINE|HUMAN] statement`, with a `↳ check:` line for MACHINE checkpointers; HUMAN_EDIT / REVIEW_ADDED provenance tagged inline. A still-open task with none shows a draft reminder instead — draft 3–7 criteria **before writing code** — followed by a `### Reference class (outside view)` block giving the failure modes of similar delivered tasks, to draft against rather than to copy (see [criteria.md](criteria.md)).
+2. **`## Test cases`** — a one-line nudge when the task has a PR but no recorded test case (see [test-cases.md](test-cases.md)); absent otherwise.
 3. **Memory section** — cross-session learnings, **one headline line per memory** by default: `- Trap [project · agent-authored] <headline> · <id>` (Traps first). Pull a full card (outcome / Workaround / Why / Steps) with `lumo memory show <id>` when a headline touches what you're about to do; `--full` prints every body inline. Same memories, same order, as the full rendering — nothing is dropped.
 4. **Inline source cards** — Slack / web / Figma / artifacts / documents / comments / Pull Requests (see "Context Retrieval" below).
 5. **`## PR review todos`** — mirrored PR review comments as a checkbox todo list. Each line-level comment shows `` `file:line` `` + reviewer's ask + GitHub comment link; each `changes_requested` review summary shows "🛑 Changes requested (whole PR)". Present only when the task's PR(s) have review comments. Each unchecked box is a TODO: resolve it, then reply on the PR (a Lumo comment mirrors back to GitHub).
@@ -26,7 +26,7 @@ The command prints a markdown document to stdout with these sections, in order:
 **Auto-injected at session start** (when the session is bound to a task, so they surface without re-running `task context`):
 
 - `## PR review todos` — injected alongside the memory section.
-- **Inline source cards** (Slack / web / Figma / PR) — injected under a single global token budget shared with the memory section. Priority: criteria > memory > PR > Slack > Figma > web. Cards that don't fit degrade to a one-line manifest (title + its `lumo task … show` retrieval command) so you know they exist and can pull full content on demand.
+- **Inline source cards** (Slack / web / Figma / PR) — injected under a single global token budget shared with the memory section. Priority: memory > PR > Slack > Figma > web. Cards that don't fit degrade to a one-line manifest (title + its `lumo task … show` retrieval command) so you know they exist and can pull full content on demand.
 
 ### How to use the context
 
@@ -107,7 +107,7 @@ lumo task lineage LUM-42            # per-session causal trail + cost
 lumo task lineage LUM-42 --signal   # append workspace-level usage signal-health
 ```
 
-- `lumo task lineage <id> --signal` — appends the workspace-level usage signal-health block. Used-vs-base merge rate uses iteration-taint fold (send-back / reopen / PR-close = negative class even if later merged); shows negative-class size per side; prints "metric cannot discriminate" when no failure outcomes exist yet. The block ends with a workspace-wide disclosure funnel (same format as the totals funnel below, aggregated over **all** workspace edges, not just this task) including the same `· ~T tokens saved` suffix when token data exists.
+- `lumo task lineage <id> --signal` — appends the workspace-level usage signal-health block. Used-vs-base merge rate uses iteration-taint fold (reopen / PR-close = negative class even if later merged); shows negative-class size per side; prints "metric cannot discriminate" when no failure outcomes exist yet. The block ends with a workspace-wide disclosure funnel (same format as the totals funnel below, aggregated over **all** workspace edges, not just this task) including the same `· ~T tokens saved` suffix when token data exists.
 
 Output sections:
 

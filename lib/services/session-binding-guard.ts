@@ -17,7 +17,7 @@ import { resolveEffectiveBindingSession } from '@/lib/services/effective-binding
  * - `steward`    — LUM-640: the session is a milestone-bound STEWARD (governance)
  *                  session. NOT unbound — it is legitimately bound, just not to a
  *                  task. The caller decides per action class: implementation
- *                  actions are refused (409, no crossing, no round burned);
+ *                  actions are refused (409, no crossing);
  *                  governance actions pass through untouched.
  */
 export type BindingClassification =
@@ -86,15 +86,15 @@ export interface StewardBinding {
  * - ok        → `{ advisory: null }`.
  * - steward   → LUM-640, decided by `stewardPolicy`:
  *     'forbid-implementation' → throws 409 BEFORE any downstream write — no
- *       VerificationRun, no round burned, no crossing. The error names the
- *       milestone and the remedy (start an implementation session).
+ *       crossing. The error names the milestone and the remedy (start an
+ *       implementation session).
  *     'allow-governance' → passes through clean (advisory null, no crossing;
  *       a steward is legitimately bound, just not to a task) and returns the
  *       steward binding so the caller can apply narrower checks (e.g. the
  *       self-dispatch refusal) and stamp attribution.
  *
- * `action` is a short human label ('machine verification' | 'status change')
- * used in the steward refusal message.
+ * `action` is a short human label (e.g. 'status change') used in the steward
+ * refusal message.
  */
 export async function enforceSessionBinding({
   source,
@@ -132,7 +132,7 @@ export async function enforceSessionBinding({
     if (stewardPolicy === 'forbid-implementation') {
       throw Object.assign(
         new Error(
-          `This session is a STEWARD (governance) session for milestone "${check.milestoneName}" (LUM-640) — it plans and accepts but cannot run implementation actions (${action} refused; no verification round was used). To implement, start a new Claude Code session and run \`lumo session attach <task>\`.`
+          `This session is a STEWARD (governance) session for milestone "${check.milestoneName}" (LUM-640) — it plans and accepts but cannot run implementation actions (${action} refused). To implement, start a new Claude Code session and run \`lumo session attach <task>\`.`
         ),
         {
           status: 409,

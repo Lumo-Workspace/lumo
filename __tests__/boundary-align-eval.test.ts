@@ -6,8 +6,8 @@
  * The "provable precision / provable recall"承重墙 for the护城河 Phase-2b
  * control-eval, landed on the boundary detector: a labeled gold corpus run
  * through the REAL pipeline (`detectCrossings` + `confirmActionCandidates` +
- * `classifyTaskTampering`) with the two LLM confirmation layers injected as
- * deterministic stubs, reporting precision/recall + per-category confusion and
+ * project action rules) with the LLM confirmation layer injected as a
+ * deterministic stub, reporting precision/recall + per-category confusion and
  * guarding non-evasion recall against regressions.
  *
  *  c1 — the harness runs the labeled corpus and reports precision, recall, and
@@ -55,7 +55,6 @@ const ALL_CATEGORIES = [
   'EXFILTRATION_PUBLIC',
   'INFRA_TERMINATION',
   'HARDCODED_SECRET',
-  'TEST_TAMPERING',
   // LUM-751
   'NEW_NPM_DEPENDENCY',
   'PROJECT_RULE_VIOLATION',
@@ -86,9 +85,6 @@ describe('boundary alignment eval — control-eval (LUM-468)', () => {
     expect(negLabels).toMatch(/feature branch/i) // LUM-460
     expect(negLabels).toMatch(/merge-base origin\/main/i) // LUM-460/464
     expect(negLabels).toMatch(/git status|read-only/i) // read-only git
-    expect(negLabels).toMatch(/cosmetic test edit/i) // LUM-445
-    expect(negLabels).toMatch(/never-green test/i) // TDD authoring
-    expect(negLabels).toMatch(/assertion moves because the code changed/i) // legit update
     expect(negLabels).toMatch(/base main/i) // LUM-751 gh pr create --base main
     expect(negLabels).toMatch(/rule keyword/i) // LUM-751 prose quoting a rule
     expect(negLabels).toMatch(/fixture/i) // LUM-751 synthetic secret in a fixture path
@@ -150,7 +146,6 @@ describe('boundary alignment eval — control-eval (LUM-468)', () => {
     const brokenJudge: ActionConfirmJudge = async () => 'PROSE_ONLY'
     const regressed: AlignReport = await runAlignEval(GOLD_CORPUS, {
       action: brokenJudge,
-      tampering: STUB_JUDGES.tampering,
     })
     const regressedGuard = recallGuard(regressed)
     expect(regressedGuard.ok).toBe(false)

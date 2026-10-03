@@ -16,27 +16,14 @@ function baseResponse(
   over: Partial<TaskStatusResponse> = {}
 ): TaskStatusResponse {
   return {
-    version: 1,
+    version: 2,
     task: {
       id: 't1',
       identifier: 'LUM-735',
       title: 'external oracle',
       status: 'IN_PROGRESS',
     },
-    currentRound: 0,
-    maxRounds: 3,
-    escalated: false,
-    criteria: [],
-    machineVerification: { total: 0, machineVerified: 0, humanOverridden: 0 },
-    struggleTrail: {
-      reworkRounds: [],
-      sendBacks: [],
-      followUps: [],
-      pullRequests: [],
-      reopens: [],
-    },
-    verificationHistory: [],
-    lastRoundFailures: [],
+    struggleTrail: { pullRequests: [], reopens: [] },
     nextActions: [],
     ...over,
   }

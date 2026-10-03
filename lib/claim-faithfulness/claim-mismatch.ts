@@ -26,8 +26,7 @@ const MISMATCH_VERDICTS: ReadonlySet<ClaimVerdict> = new Set<ClaimVerdict>([
  * less), including a STALE state whose underlying verdict is one of those. A
  * FAITHFUL claim, a claim still being judged (PENDING), one the judge could not
  * decide (UNJUDGEABLE), or no faithfulness at all (no claim / older server) is
- * not evidence of a conflict — the section stays out of the way. Failed
- * criteria are the criteria list's job and never pull the section back.
+ * not evidence of a conflict — the section stays out of the way.
  *
  * Pure: no React, no I/O.
  */

@@ -21,7 +21,6 @@ export const EXPORT_KINDS = [
   'sprints',
   'tasks',
   'comments',
-  'acceptance-criteria',
   'task-artifacts',
   'task-dependencies',
   'ideas',
@@ -41,7 +40,7 @@ const ts = { createdAt: true, updatedAt: true } as const
 /**
  * LUM-923: an export is the right of access to everything still stored, so
  * trashed tasks and documents are exported too (with their `deletedAt`) —
- * otherwise the comments / criteria of a trashed task, read through relation
+ * otherwise the comments / artifacts of a trashed task, read through relation
  * filters the soft-delete extension does not touch, point at no task row.
  * `deletedAt: {}` names the column, opting out of the default trash filter.
  */
@@ -193,23 +192,6 @@ async function pageRows(
           authorActorId: true,
           type: true,
           body: true,
-          ...ts,
-        },
-        ...page,
-      })
-    case 'acceptance-criteria':
-      return prisma.acceptanceCriterion.findMany({
-        where: { deletedAt: null, task: inWorkspaceProject },
-        select: {
-          id: true,
-          taskId: true,
-          statement: true,
-          verifierType: true,
-          checkpointer: true,
-          evidenceRequired: true,
-          judgeSteps: true,
-          source: true,
-          confirmedAt: true,
           ...ts,
         },
         ...page,

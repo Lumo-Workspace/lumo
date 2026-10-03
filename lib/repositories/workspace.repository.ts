@@ -17,8 +17,6 @@ export interface WorkspaceUpdateData {
   summaryEnabled?: boolean
   summaryFrequency?: SummaryFrequency | string
   summaryLocale?: string
-  verificationMaxRounds?: number
-  acceptanceMode?: boolean
   /** LUM-740: the raw policy JSON; `null` resets to the default. */
   securityPolicy?: unknown
   /** LUM-859: raw hook-event retention in days; null = keep forever. */
@@ -112,32 +110,6 @@ export const workspaceRepository = {
   /** Find full workspace row by ID. */
   async findById(id: string) {
     return prisma.workspace.findUnique({ where: { id } })
-  },
-
-  /** Read just the machine-verification round cap (LUM-429). Null when the
-   *  workspace is missing so callers can fall back to the default. */
-  async findVerificationMaxRounds(id: string) {
-    const row = await prisma.workspace.findUnique({
-      where: { id },
-      select: { verificationMaxRounds: true },
-    })
-    return row?.verificationMaxRounds ?? null
-  },
-
-  /** Read the acceptance-mode toggle for the workspace owning a task (LUM-431).
-   *  Joins task → project → workspace so the nudge gate can resolve the flag
-   *  from a taskId alone. Null when the task/workspace is missing so callers
-   *  can fall back to the default-off behavior. */
-  async findAcceptanceModeByTask(taskId: string) {
-    const row = await prisma.task.findUnique({
-      where: { id: taskId },
-      select: {
-        project: {
-          select: { workspace: { select: { acceptanceMode: true } } },
-        },
-      },
-    })
-    return row?.project?.workspace?.acceptanceMode ?? null
   },
 
   /** LUM-740: the raw `securityPolicy` Json column (null when unset or the

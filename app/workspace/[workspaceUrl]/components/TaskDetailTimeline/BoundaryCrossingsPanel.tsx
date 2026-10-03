@@ -101,7 +101,7 @@ interface BoundaryCrossingsPanelProps {
 }
 
 /**
- * AcceptanceTab panel listing ALL of a task's forbidden-action boundary-
+ * Record tab panel listing ALL of a task's forbidden-action boundary-
  * crossings — open AND dispositioned (LUM-435, criterion 6). Renders nothing
  * when the task has none. Open crossings block Done and offer the human-only
  * disposition (false positive / confirm). Dispositioned crossings stay on
@@ -220,8 +220,7 @@ export function BoundaryCrossingsPanel({
       [g.category]: !(prev[g.category] ?? g.category === defaultOpenCategory),
     }))
 
-  // Hash deep link (the verdict bar's "Review the crossings below" link routes
-  // to /record#boundary-crossings). The panel mounts AFTER that navigation, so
+  // Hash deep link (a shared /record#boundary-crossings URL). The panel mounts AFTER that navigation, so
   // the browser's native fragment jump finds nothing — scroll ourselves into
   // view once we actually render (crossings loaded), if the hash names us.
   const panelRef = useRef<HTMLDivElement>(null)
@@ -391,9 +390,8 @@ export function BoundaryCrossingsPanel({
   }
 
   return (
-    // id anchors the verdict bar's DONE-blocked notice link here (LUM-454).
-    // LUM-635: the panel is a zone sibling of the human/machine criteria zones
-    // (same row grammar — colored border, status header, dispositioned/total
+    // id anchors the #boundary-crossings deep link here (LUM-454).
+    // LUM-635: the panel is its own zone on the Record tab (zone row grammar — colored border, status header, dispositioned/total
     // count). Blocking open crossings escalate to danger; converged (all
     // dispositioned) reads neutral gray — handled isn't an achievement.
     <>

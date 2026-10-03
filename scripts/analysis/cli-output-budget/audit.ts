@@ -6,7 +6,7 @@
  * a contract that spends from the agent's context budget, and notes Claude Code
  * truncates a tool result to 25,000 tokens. Lumo's agent-facing commands print
  * straight into that budget — `task context`, `doc show`, `task comments list`,
- * `task status`, `task lineage`, `task criteria list`. The session-start
+ * `task status`, `task lineage`. The session-start
  * INJECTION path already allocates a budget (LUM-402); the command-stdout path
  * never had one audited.
  *
@@ -20,8 +20,8 @@
  * Measure-first verdict (do NOT one-size-fits-all — CLAUDE-plan guidance):
  *   - FLAGGED + capped in v1: `task comments list`, `task context`,
  *     `doc show` (default render). These genuinely overflow at realistic input.
- *   - Not flagged: `task lineage` / `task criteria list` / `task status` —
- *     structurally bounded by how many fragments/criteria a task has; measured
+ *   - Not flagged: `task lineage` / `task status` — structurally bounded by
+ *     how many fragments / next actions a task has; measured
  *     well under budget at realistic input, so capping them is deferred.
  *   - EXEMPT (must never be capped): the byte-faithful reads `doc show --raw`,
  *     `doc show --section`, `doc diff` — they are legal `doc patch` edit bases
@@ -45,10 +45,6 @@ import {
   formatLineageMarkdown,
   type LineageResponse,
 } from '../../../cli/src/commands/task-lineage'
-import {
-  formatCriteriaRows,
-  type CriterionRow,
-} from '../../../cli/src/commands/task-criteria-list'
 import {
   formatTaskStatus,
   type TaskStatusResponse,
@@ -137,61 +133,15 @@ function makeLineage(nFragments: number): LineageResponse {
   }
 }
 
-function makeCriteria(n: number): CriterionRow[] {
-  return Array.from({ length: n }, (_, i) => ({
-    id: `cm${String(i).padStart(20, '0')}`,
-    statement: `Criterion ${i}: ${lorem(120)}`,
-    verifierType: i % 4 === 0 ? 'HUMAN' : 'MACHINE',
-    checkpointer:
-      i % 4 === 0 ? null : `npx tsx scripts/jest-t.ts 'case ${i}' a/b.test.ts`,
-    evidenceRequired: i % 3 === 0,
-    source: 'AGENT_DRAFT',
-    addedAtRound: 0,
-  }))
-}
-
 function makeStatus(n: number): TaskStatusResponse {
-  const criteria = makeCriteria(n).map(c => ({
-    id: c.id,
-    statement: c.statement,
-    verifierType: c.verifierType,
-    checkpointer: c.checkpointer,
-    evidenceRequired: c.evidenceRequired,
-    judgeSteps: null,
-    source: c.source,
-    addedAtRound: c.addedAtRound,
-    verdictStale: false,
-    checkMismatch: false,
-    machinePassed: false,
-    latestVerdict: null,
-  }))
-  // Honest machine-verification rollup (LUM-470): a required field on the read
-  // model, so the fixture must carry it too — otherwise formatTaskStatus reads
-  // `machineVerification.total` off undefined.
-  const machineTotal = criteria.filter(c => c.verifierType === 'MACHINE').length
   return {
     version: 1,
     task: { id: 't', identifier: 'LUM-428', title: 'audit', status: 'TODO' },
-    currentRound: 0,
-    maxRounds: 3,
-    escalated: false,
-    criteria,
-    machineVerification: {
-      total: machineTotal,
-      machineVerified: machineTotal,
-      humanOverridden: 0,
-    },
-    verificationHistory: [],
-    lastRoundFailures: [],
-    nextActions: criteria.map(c => ({
-      criterionId: c.id,
-      statement: c.statement,
-      verifierType: c.verifierType,
-      checkpointer: c.checkpointer,
-      judgeSteps: null,
-      source: c.source,
-      addedAtRound: c.addedAtRound,
-      rejectionReason: null,
+    nextActions: Array.from({ length: n }, (_, i) => ({
+      kind: 'TEST_CASE' as const,
+      statement: `Test case ${i}: ${lorem(120)}`,
+      command: `npx tsx scripts/jest-t.ts 'case ${i}' a/b.test.ts`,
+      advisory: true as const,
     })),
   }
 }
@@ -220,7 +170,6 @@ const SIZES = {
   doc: { realistic: 160_000, extreme: 1_000_000 },
   context: { realistic: 160_000, extreme: 1_000_000 },
   lineage: { realistic: 120, extreme: 5000 },
-  criteria: { realistic: 25, extreme: 5000 },
   status: { realistic: 25, extreme: 5000 },
   byteFaithful: 200_000,
 } as const
@@ -286,12 +235,6 @@ export const PROBES: CommandProbe[] = [
     kind: 'render-aggregate',
     uncapped: s => formatLineageMarkdown(makeLineage(SIZES.lineage[s])),
     actual: s => formatLineageMarkdown(makeLineage(SIZES.lineage[s])),
-  },
-  {
-    command: 'lumo task criteria list <id>',
-    kind: 'render-aggregate',
-    uncapped: s => formatCriteriaRows(makeCriteria(SIZES.criteria[s])),
-    actual: s => formatCriteriaRows(makeCriteria(SIZES.criteria[s])),
   },
   {
     command: 'lumo task status <id>',

@@ -1,24 +1,19 @@
 /**
  * LUM-808 步骤 3: 「这个任务能不能转 DONE」只有一个住址。
  *
- * 这组测试有两个职责，第二个比第一个重要：
- *   1. 三个拦截面的判定与今天逐字一致（收拢没有行为漂移）
- *   2. **三个看起来一样的规则其实是三个问题**，口径不同是设计，不是 bug。
- *      谁将来「顺手」把它们合并，这里先红。
+ * 各拦截面的判定与收拢前逐字一致（收拢没有行为漂移）。
+ * LUM-942: 验收标准的 SEND_BACK 面已随标准功能一并移除。
  */
 import {
   computeDoneVerdict,
   renderDoneBlockMessage,
-  hasUnresolvedSendBack,
   type DoneVerdictSnapshot,
 } from '@/lib/acceptance/done-verdict'
-import { isUnmetForDisplay } from '@/lib/acceptance/unmet-display'
 
 function snapshot(
   over: Partial<DoneVerdictSnapshot> = {}
 ): DoneVerdictSnapshot {
   return {
-    sendBacks: [],
     crossings: { open: [], gateEnabled: true },
     securityFindings: [],
     testCases: [],
@@ -33,16 +28,6 @@ describe('computeDoneVerdict — a clean task', () => {
       blockers: [],
       advisories: [],
     })
-  })
-})
-
-describe('computeDoneVerdict — send-back plane', () => {
-  it('blocks while a criterion stands failed', () => {
-    const v = computeDoneVerdict(
-      snapshot({ sendBacks: [{ criterionId: 'c1', statement: 'it works' }] })
-    )
-    expect(v.decision).toBe('BLOCKED')
-    expect(v.blockers[0]).toMatchObject({ plane: 'SEND_BACK' })
   })
 })
 
@@ -99,10 +84,9 @@ describe('computeDoneVerdict — security-finding plane', () => {
 })
 
 describe('computeDoneVerdict — blocker order matches the order the gate has always checked in', () => {
-  it('lists send-back, then crossing, then security', () => {
+  it('lists crossing, then security', () => {
     const v = computeDoneVerdict(
       snapshot({
-        sendBacks: [{ criterionId: 'c1', statement: 's' }],
         crossings: {
           open: [{ category: 'PROJECT_RULE_VIOLATION', severity: 'HIGH' }],
           gateEnabled: true,
@@ -111,7 +95,6 @@ describe('computeDoneVerdict — blocker order matches the order the gate has al
       })
     )
     expect(v.blockers.map(b => b.plane)).toEqual([
-      'SEND_BACK',
       'BOUNDARY_CROSSING',
       'SECURITY_FINDING',
     ])
@@ -208,7 +191,10 @@ describe('advisories never change the decision', () => {
   it('the test-case plane is checked last so every existing first-blocker stays what it was', () => {
     const v = computeDoneVerdict(
       snapshot({
-        sendBacks: [{ criterionId: 'c1', statement: 'it works' }],
+        crossings: {
+          open: [{ category: 'PROJECT_RULE_VIOLATION', severity: 'HIGH' }],
+          gateEnabled: true,
+        },
         testCases: [
           {
             number: 1,
@@ -221,7 +207,7 @@ describe('advisories never change the decision', () => {
       })
     )
     expect(v.blockers.map(b => b.plane)).toEqual([
-      'SEND_BACK',
+      'BOUNDARY_CROSSING',
       'TEST_CASE_DEFECT',
     ])
   })
@@ -229,7 +215,7 @@ describe('advisories never change the decision', () => {
   it('advisories never change the decision — they do not rescue a blocked task either', () => {
     const v = computeDoneVerdict(
       snapshot({
-        sendBacks: [{ criterionId: 'c1', statement: 's' }],
+        securityFindings: [{ ruleId: 'rule-a', filePath: 'lib/x.ts' }],
         testCases: [
           {
             number: 1,
@@ -247,16 +233,6 @@ describe('advisories never change the decision', () => {
 })
 
 describe('renderDoneBlockMessage — the 409 wording is preserved verbatim', () => {
-  it('names the failed criteria for a send-back', () => {
-    const msg = renderDoneBlockMessage({
-      plane: 'SEND_BACK',
-      items: [{ criterionId: 'c1', statement: 'the endpoint returns 409' }],
-    })
-    expect(msg).toContain('Cannot move this task to DONE')
-    expect(msg).toContain('1 unresolved send-back')
-    expect(msg).toContain('the endpoint returns 409')
-  })
-
   it('summarises crossings by category without dumping each detail', () => {
     const msg = renderDoneBlockMessage({
       plane: 'BOUNDARY_CROSSING',
@@ -278,32 +254,6 @@ describe('renderDoneBlockMessage — the 409 wording is preserved verbatim', () 
     })
     expect(msg).toContain('2 undispositioned blocking security findings')
     expect(msg).toContain('rule-a ×2')
-  })
-})
-
-/**
- * 这三个问题看着像同一个，答案两两不同。合并任何两个都会坏事——
- * 把裁决口径换成渲染口径，在 web 上点一条 PASS 就会把整个任务推成 DONE。
- */
-describe('the DONE gate, the display rule and the auto-advance rule disagree by design', () => {
-  it('an unadjudicated HUMAN criterion is a tacit pass at the gate and hidden from the todo list', () => {
-    // 闸：未裁定项根本不进 sendBacks，所以放行。
-    expect(computeDoneVerdict(snapshot()).decision).toBe('CLEAR')
-    // 渲染：未裁定的 HUMAN 项不呈现为待办。
-    expect(isUnmetForDisplay({ verifierType: 'HUMAN' }, undefined)).toBe(false)
-  })
-
-  it('a never-run MACHINE criterion shows up as a todo but does NOT block the gate', () => {
-    // 这一格正是两条规则**不同**的地方：渲染要提醒，闸不拦。
-    expect(isUnmetForDisplay({ verifierType: 'MACHINE' }, undefined)).toBe(true)
-    expect(computeDoneVerdict(snapshot()).decision).toBe('CLEAR')
-  })
-
-  it('only an explicit FAIL reaches the gate', () => {
-    expect(hasUnresolvedSendBack([])).toBe(false)
-    expect(hasUnresolvedSendBack([{ criterionId: 'c', statement: 's' }])).toBe(
-      true
-    )
   })
 })
 

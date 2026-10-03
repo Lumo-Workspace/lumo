@@ -81,11 +81,6 @@ jest.mock('@/lib/repositories/actor.repository', () => ({
     findGithubIdentitiesByIds: jest.fn().mockResolvedValue([]),
   },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: {
-    listByTask: jest.fn().mockResolvedValue([]),
-  },
-}))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
   workspaceRepository: {
     findAcceptanceModeByTask: jest.fn().mockResolvedValue(false),

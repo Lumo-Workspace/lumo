@@ -24,6 +24,18 @@ const PR_TYPES = new Set([
   'PR_LINKED',
   'PR_UNLINKED',
 ])
+/**
+ * LUM-942: activity types of the removed acceptance-criteria / verification
+ * feature. The enum values stay in Postgres and old rows still exist, but
+ * nothing writes them any more and the timeline renders none of them.
+ */
+export const RETIRED_ACTIVITY_TYPES: ReadonlySet<string> = new Set([
+  'CRITERION_CHANGED',
+  'CONTRACT_CONFIRMED',
+  'VERIFICATION_RUN_RECORDED',
+  'VERIFICATION_RUN_WITHDRAWN',
+  'VERIFICATION_ESCALATED',
+])
 // Activities that duplicate inline entries (e.g. comments already shown)
 const HIDDEN_TYPES = new Set(['COMMENT_ADDED'])
 
@@ -43,7 +55,7 @@ export function TimelineEntryRenderer({
   }
 
   // Activity entry — skip types that duplicate inline entries
-  if (HIDDEN_TYPES.has(entry.type)) {
+  if (HIDDEN_TYPES.has(entry.type) || RETIRED_ACTIVITY_TYPES.has(entry.type)) {
     return null
   }
   if (AGENT_TYPES.has(entry.type)) {

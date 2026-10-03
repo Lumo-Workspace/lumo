@@ -13,9 +13,6 @@ jest.mock('@/lib/repositories/task-complexity.repository', () => ({
 jest.mock('@/lib/repositories/retrospective.repository', () => ({
   retrospectiveRepository: { loadSessionTokenRowsForTasks: jest.fn() },
 }))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: { failRowsByTaskIds: jest.fn() },
-}))
 jest.mock('@/lib/repositories/member.repository', () => ({
   memberRepository: { labelsByIds: jest.fn() },
 }))
@@ -25,7 +22,6 @@ import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskComplexityRepository } from '@/lib/repositories/task-complexity.repository'
 import { retrospectiveRepository } from '@/lib/repositories/retrospective.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 
 const memberDeliveryRows = milestoneRepository.memberDeliveryRows as jest.Mock
@@ -33,7 +29,6 @@ const listStates = pullRequestRepository.listStatesByTaskIds as jest.Mock
 const listComplexity = taskComplexityRepository.listByTaskIds as jest.Mock
 const loadSessionRows =
   retrospectiveRepository.loadSessionTokenRowsForTasks as jest.Mock
-const failRows = verificationRunRepository.failRowsByTaskIds as jest.Mock
 const labelsByIds = memberRepository.labelsByIds as jest.Mock
 
 beforeEach(() => {
@@ -41,7 +36,6 @@ beforeEach(() => {
   listStates.mockReset()
   listComplexity.mockReset()
   loadSessionRows.mockReset()
-  failRows.mockReset()
   labelsByIds.mockReset()
 })
 
@@ -89,15 +83,6 @@ describe('milestoneService.getMemberDeliveryForMilestone', () => {
         cacheCreationTokens: 0,
       },
     ])
-    failRows.mockResolvedValue([
-      {
-        taskId: 't1',
-        round: 1,
-        verdict: 'FAIL',
-        verifierType: 'MACHINE',
-        verdictActionId: null,
-      },
-    ])
     labelsByIds.mockResolvedValue(
       new Map([
         ['mA', 'Alice'],
@@ -111,7 +96,6 @@ describe('milestoneService.getMemberDeliveryForMilestone', () => {
     expect(listStates).toHaveBeenCalledWith(['t1', 't2'])
     expect(listComplexity).toHaveBeenCalledWith(['t1', 't2'])
     expect(loadSessionRows).toHaveBeenCalledWith(['t1', 't2'])
-    expect(failRows).toHaveBeenCalledWith(['t1', 't2'])
     // Labels cover assignee members AND the shared-agent fold candidates.
     expect(labelsByIds).toHaveBeenCalledWith(['mA', 'mB'])
 
@@ -124,7 +108,7 @@ describe('milestoneService.getMemberDeliveryForMilestone', () => {
       memberId: 'mA',
       mergedPrCount: 1,
       fate: { rejectedTaskCount: 1, noRecordDoneCount: 0 },
-      friction: { failRoundCount: 1, sendBackCount: 0, multiPrTaskCount: 0 },
+      friction: { multiPrTaskCount: 0 },
       changedFiles: { total: 4, measuredTasks: 1 },
       claims: [
         {

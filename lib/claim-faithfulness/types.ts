@@ -24,7 +24,6 @@ export interface ClaimJudgeInput {
   diff: string
   commitSubjects: string[]
   changedFiles: string[]
-  criteria: string[]
 }
 
 export interface ClaimJudgeResult {

@@ -6,12 +6,6 @@
 import { buildSessionStartContextMetrics } from '@/lib/context/injection-metrics'
 
 const STUB_ALLOCATION = {
-  criteria: {
-    keptCards: 3,
-    droppedCards: 0,
-    keptTokens: 300,
-    droppedTokens: 0,
-  },
   memory: {
     keptCards: 5,
     droppedCards: 2,
@@ -29,7 +23,6 @@ const INPUT = {
   budgetTokens: 10_000,
   allocation: STUB_ALLOCATION,
   // Each section has a distinct string length so estimated tokens differ
-  criteriaSection: 'criteria-section ' + 'a'.repeat(200),
   memorySection: 'memory-section ' + 'b'.repeat(300),
   linkedResourcesSection: 'linked-resources-section ' + 'c'.repeat(150),
   reviewTodosSection: 'review-todos-section ' + 'd'.repeat(80),
@@ -52,7 +45,6 @@ describe('buildSessionStartContextMetrics', () => {
   it('totalTokens equals sum of all sectionTokens', () => {
     const { sectionTokens, totalTokens } = metrics
     const sum =
-      sectionTokens.criteria +
       sectionTokens.memory +
       sectionTokens.linkedResources +
       sectionTokens.reviewTodos +
@@ -63,11 +55,9 @@ describe('buildSessionStartContextMetrics', () => {
   })
 
   describe('tierTokens (LUM-500 progressive disclosure)', () => {
-    it('tier0 equals criteria + blockerWarning', () => {
+    it('tier0 equals blockerWarning', () => {
       const { sectionTokens, tierTokens } = metrics
-      expect(tierTokens.tier0).toBe(
-        sectionTokens.criteria + sectionTokens.blockerWarning
-      )
+      expect(tierTokens.tier0).toBe(sectionTokens.blockerWarning)
     })
 
     it('tier1 equals progress + reviewTodos + layer2Review', () => {

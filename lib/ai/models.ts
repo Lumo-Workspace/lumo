@@ -16,8 +16,9 @@
 
 /**
  * 桶1 VERIFIER tier — high-value adversarial judging where a wrong call is
- * invisible and expensive: claim-faithfulness, contract-weakening, silent-fix,
- * spinoff, test-tampering judges + action-confirm. Swapped from Sonnet 4.6 to
+ * invisible and expensive: claim-faithfulness judge + action-confirm
+ * (the contract-weakening / silent-fix / spinoff / test-tampering judges were
+ * removed in LUM-942). Swapped from Sonnet 4.6 to
  * GPT-5.5 — the LUM-588 lineage A/B gate ("NEVER swap without passing the gate")
  * was explicitly WAIVED by the user for this change; no judge A/B harness exists
  * yet, so this ships on a catalog-resolve probe only (gateway returned a clean

@@ -12,14 +12,6 @@ export {
 } from './web-link'
 export { renderFigmaSection, figmaCard, figmaManifest } from './figma'
 export { renderArtifactSection, type ArtifactCard } from './artifact'
-export {
-  renderCriteriaSection,
-  criterionCard,
-  criterionManifest,
-  criteriaBudgetSection,
-  renderCriteriaDraftNudge,
-  type CriterionCard,
-} from './criteria'
 export { renderDocumentSection, type DocumentCard } from './document'
 export {
   renderCommentsSection,

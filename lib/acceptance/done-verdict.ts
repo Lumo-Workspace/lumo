@@ -2,33 +2,15 @@
  * LUM-808 步骤 3: 「这个任务能不能转 DONE」的**唯一住址**。
  *
  * 在这之前，同一条规则散在三处：`task-state.service.ts` 的三个 assert 判定它，
- * `task-verification.service.ts` 的 `statusForTask` 渲染它，
+ * `task-status.service.ts` 的 `statusForTask` 渲染它，
  * `task-cli.service.ts` 又手写了一遍送回判断（那行注释自称
  * "mirror the DONE gate" —— 漂移已经发生）。一份规则三处实现的结局是同一次
  * 运行两个结论：网页一套说法，CLI 另一套。
- *
- * ## 这里**只**回答一个问题
- *
- * 另外两个看起来一样的问题，答案两两不同，**不得合并**：
- *
- * | 问题 | 住址 | 未裁定的 HUMAN 项 | 从没跑过的 MACHINE 项 |
- * |---|---|---|---|
- * | 能不能转 DONE？（本模块） | 这里 | tacit pass，不拦 | 不拦 |
- * | 该不该呈现为待办？ | `./unmet-display.ts` | 不呈现 | **呈现** |
- * | 点了一条 PASS 要不要自动推进？ | `task-human-verdict.service.ts` 的 `allMet` | **不算通过** | 不算通过 |
- *
- * 把裁决口径换成渲染口径，在 web 上点一条 PASS 就会把整个任务推成 DONE。
- * 三列两两不同是设计，不是待统一的重复。
  *
  * ## 为什么不导出裸公式
  *
  * 只导出 `computeDoneVerdict` 与 `renderDoneBlockMessage`，per-plane 的判定留在
  * 模块内。谁都能拿去自己算，就会重新长出上面那三处实现。
- *
- * `hasUnresolvedSendBack` 是唯一的具名例外：`task-cli.service` 问的是另一个
- * 问题（这个 session 能不能新建任务），它只需要「有没有未解决的送回」这**一个
- * 具名概念**。给它一个概念去调，好过让它自己写 `.some(r => …)`。泄漏的是概念，
- * 不是总账公式。
  *
  * ## 纯函数
  *
@@ -37,9 +19,6 @@
  */
 
 export type CrossingSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
-
-/** 最新裁定为 FAIL 的验收项。**未裁定的项不在这里**——那就是 tacit pass。 */
-export type SendBackPlane = Array<{ criterionId: string; statement: string }>
 
 export type TestCaseSignal =
   /** 最新 run 是带证据的 IMPLEMENTATION_DEFECT。 */
@@ -56,7 +35,6 @@ export type TestCaseSignal =
 export type TestCaseCeilingReason = 'environment' | 'unobserved' | 'no-evidence'
 
 export interface DoneVerdictSnapshot {
-  sendBacks: SendBackPlane
   crossings: {
     /** 未处置（undispositioned）的越界。 */
     open: Array<{ category: string; severity: CrossingSeverity }>
@@ -79,7 +57,6 @@ export interface DoneVerdictSnapshot {
 }
 
 export type Blocker =
-  | { plane: 'SEND_BACK'; items: SendBackPlane }
   | {
       plane: 'BOUNDARY_CROSSING'
       total: number
@@ -114,7 +91,7 @@ export interface Advisory {
 export interface DoneVerdict {
   decision: 'CLEAR' | 'BLOCKED'
   /**
-   * 顺序固定：SEND_BACK → BOUNDARY_CROSSING → SECURITY_FINDING。
+   * 顺序固定：BOUNDARY_CROSSING → SECURITY_FINDING → TEST_CASE_DEFECT。
    * 这是今天三个 assert 的 await 顺序；调用方抛第一个 blocker 就与旧行为
    * 逐字一致。
    */
@@ -130,16 +107,6 @@ function tally(values: string[]): Array<[string, number]> {
   return [...counts.entries()].sort(
     (a, b) => b[1] - a[1] || a[0].localeCompare(b[0])
   )
-}
-
-/**
- * 有没有未解决的送回？
- *
- * 只有**明确 FAIL** 才算。从没裁定过的项不进 `sendBacks`，所以 tacit pass
- * 自动成立——不这么做就等于逼人回去逐条点通过。
- */
-export function hasUnresolvedSendBack(plane: SendBackPlane): boolean {
-  return plane.length > 0
 }
 
 /**
@@ -180,9 +147,6 @@ function crossingsBlock(crossings: DoneVerdictSnapshot['crossings']): boolean {
 export function computeDoneVerdict(s: DoneVerdictSnapshot): DoneVerdict {
   const blockers: Blocker[] = []
 
-  if (hasUnresolvedSendBack(s.sendBacks)) {
-    blockers.push({ plane: 'SEND_BACK', items: s.sendBacks })
-  }
   if (crossingsBlock(s.crossings)) {
     blockers.push({
       plane: 'BOUNDARY_CROSSING',
@@ -197,7 +161,7 @@ export function computeDoneVerdict(s: DoneVerdictSnapshot): DoneVerdict {
       byRule: tally(s.securityFindings.map(f => f.ruleId)),
     })
   }
-  // 排在最后：上面三面的 await 顺序是历史行为，调用方抛第一个 blocker。
+  // 排在最后：上面两面的 await 顺序是历史行为，调用方抛第一个 blocker。
   // 新面插在任何一个前面，都会悄悄改掉既有任务看到的那条 409 文案。
   const provenDefects = s.testCases.filter(
     tc => tc.signal === 'PROVEN_DEFECT' && !tc.dispositioned
@@ -238,17 +202,6 @@ export function computeDoneVerdict(s: DoneVerdictSnapshot): DoneVerdict {
  * detail 里嵌着整条验收项原文，逐条 join 会变成一墙重复文字（LUM-445/454）。
  */
 export function renderDoneBlockMessage(blocker: Blocker): string {
-  if (blocker.plane === 'SEND_BACK') {
-    const n = blocker.items.length
-    const items = blocker.items.map(i => `• ${i.statement}`).join('\n')
-    return (
-      `Cannot move this task to DONE — ${n} unresolved send-back${
-        n === 1 ? '' : 's'
-      } on the acceptance contract:\n${items}\n` +
-      'Resolve them (see `lumo task status`) and re-verify, or have a human override.'
-    )
-  }
-
   if (blocker.plane === 'BOUNDARY_CROSSING') {
     const n = blocker.total
     const summary = blocker.byCategory

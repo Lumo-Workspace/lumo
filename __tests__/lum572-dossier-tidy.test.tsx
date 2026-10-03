@@ -1,9 +1,8 @@
 /** @jest-environment jsdom */
 /**
  * LUM-572 — tidy the task-detail dossier. Two structural behaviours:
- *  1. the five trailing report sections (Verification history / Cost / Struggle
- *     / Trend / Removed) fold into one collapsible "Run report" group, collapsed
- *     by default; the decision surface, criteria and boundary panel stay above it.
+ *  1. the trailing report sections (Cost / Struggle / Trend) fold into one
+ *     collapsible "Run report" group; the boundary panel stays above it.
  *  2. a collapsed boundary-crossing row shows only its severity + disposition;
  *     the reversibility and recurrence chips it used to pile inline move into the
  *     expanded detail.
@@ -50,114 +49,36 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
 
 jest.mock('@/lib/api-client', () => ({
   tasksClient: {
-    submitHumanVerdict: jest.fn().mockResolvedValue({}),
     dispositionBoundaryCrossing: jest.fn().mockResolvedValue({}),
     spawnBoundaryRemediation: jest.fn().mockResolvedValue({}),
   },
 }))
 
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision',
-  () => ({
-    VerdictDecision: () => <div data-testid='verdict-status' />,
-  })
-)
-
 import '@testing-library/jest-dom'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
+import { RecordTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RecordTab'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings'
-import type {
-  TaskAcceptanceStatusView,
-  TaskClaimFaithfulnessView,
-} from '@/app/workspace/[workspaceUrl]/types'
+import type { TaskStatusView } from '@/app/workspace/[workspaceUrl]/types'
 
 const mockStatus = useTaskStatus as jest.Mock
 const mockCrossings = useBoundaryCrossings as jest.Mock
 
-/** LUM-730: the claim-vs-verification section only renders on a mismatch, so
- *  the default fixture carries a claim judged OVERSTATED — the structural
- *  assertions below (section present, collapsible, ordered after the boundary
- *  panel) need the section to exist at all. */
-function overstated(
-  over: Partial<TaskClaimFaithfulnessView> = {}
-): TaskClaimFaithfulnessView {
+function statusView(over: Partial<TaskStatusView> = {}): TaskStatusView {
   return {
-    state: 'OVERSTATED',
-    verdict: 'OVERSTATED',
-    evidence: [],
-    reasoning: null,
-    diffShas: [],
-    prNumbers: [],
-    judgedAt: '2026-06-20T12:00:00.000Z',
-    judgedClaimAt: '2026-06-20T10:00:00.000Z',
+    version: 2,
+    task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'IN_REVIEW' },
+    cost: { tokenCost: 1_200_000, activeTimeSec: 134 },
+    struggleTrail: { pullRequests: [], reopens: [] },
+    trend: {
+      cost: [],
+      rework: { reopens: 0, extraPrCycles: 0, total: 0 },
+    },
     ...over,
   }
 }
 
-function statusView(
-  over: Partial<TaskAcceptanceStatusView> = {}
-): TaskAcceptanceStatusView {
-  return {
-    version: 1,
-    task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'IN_REVIEW' },
-    currentRound: 2,
-    maxRounds: 3,
-    escalated: false,
-    criteria: [
-      {
-        id: 'm1',
-        statement: 'route returns 409 on lock',
-        verifierType: 'MACHINE',
-        checkpointer: 'npx jest x',
-        evidenceRequired: false,
-        judgeSteps: null,
-        source: 'AGENT_DRAFT',
-        addedAtRound: 0,
-        latestVerdict: {
-          round: 1,
-          verdict: 'PASS',
-          verifierType: 'MACHINE',
-          evidencePointer: 'cmd:npx jest x#exit=0',
-          rejectionReason: null,
-          rejectionReasonEnum: null,
-          recordedAt: '2026-06-10T10:00:00.000Z',
-        },
-        machinePassed: true,
-        verdictStale: false,
-        checkMismatch: false,
-        changeState: null,
-        changedAtRound: null,
-        lastEdit: null,
-        confirmedAt: null,
-      },
-    ],
-    machineVerification: { total: 1, machineVerified: 1, humanOverridden: 0 },
-    cost: { tokenCost: 1_200_000, activeTimeSec: 134, reworkRounds: 0 },
-    struggleTrail: {
-      reworkRounds: [],
-      sendBacks: [],
-      followUps: [],
-      pullRequests: [],
-      reopens: [],
-    },
-    trend: {
-      passRate: [{ round: 1, passed: 1, failed: 0 }],
-      cost: [],
-      rework: { reworkRounds: 0, reopens: 0, extraPrCycles: 0, total: 0 },
-    },
-    claim: { text: 'did the thing', source: 'AGENT' },
-    faithfulness: overstated(),
-    removedCriteria: [],
-    verificationHistory: [],
-    lastRoundFailures: [],
-    nextActions: [],
-    ...over,
-  } as TaskAcceptanceStatusView
-}
-
-function setStatus(data: TaskAcceptanceStatusView) {
+function setStatus(data: TaskStatusView) {
   mockStatus.mockReturnValue({
     data,
     loading: false,
@@ -176,13 +97,7 @@ function setCrossings(list: unknown[]) {
 }
 
 function renderTab() {
-  return render(
-    <AcceptanceTab
-      taskIdentifier='LUM-1'
-      enabled={true}
-      onVerdictRecorded={jest.fn()}
-    />
-  )
+  return render(<RecordTab taskIdentifier='LUM-1' enabled={true} />)
 }
 
 beforeEach(() => {
@@ -193,7 +108,7 @@ beforeEach(() => {
 describe('run report group', () => {
   // LUM-496 supersedes the "collapses by default" reading: the Run report group
   // opens with its KPI tiles (Cost among them) as the glanceable summary, while
-  // the narrative sub-sections — struggle trail, removed — stay collapsed one
+  // the narrative sub-section — the struggle trail — stays collapsed one
   // more click down. Nothing that used to be folded away is now shouting.
   it('run report shows its KPI tiles by default and keeps the narrative sub-sections collapsed', () => {
     setStatus(statusView())
@@ -207,9 +122,6 @@ describe('run report group', () => {
     expect(screen.getByText('Cost')).toBeInTheDocument()
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('1.2M')
 
-    // The decision surface and the contract stay above the group, always shown.
-    // LUM-620: the criteria contract surfaces via the "Machine-verified" zone.
-    expect(screen.getByText('Machine-verified')).toBeInTheDocument()
     // LUM-733: the claim strip is no longer rendered anywhere on the tab.
     expect(screen.queryByText('Claim vs verification')).toBeNull()
 
@@ -227,10 +139,6 @@ describe('run report group', () => {
     fireEvent.click(groupToggle)
     expect(screen.queryByText('Cost')).toBeNull()
     expect(screen.queryByText('Struggle / rework / outstanding')).toBeNull()
-
-    // Cost is not duplicated inside the Evidence & audit trail card.
-    fireEvent.click(screen.getByText('Evidence & audit trail'))
-    expect(screen.queryByText('Cost')).toBeNull()
   })
 })
 
@@ -305,148 +213,5 @@ describe('boundary crossing row noise', () => {
     const openRoot = open.container.querySelector('#record-crossings')!
     expect(openRoot.className).toMatch(/border-danger-border/)
     expect(open.container.querySelector('#boundary-crossings')).not.toBeNull()
-  })
-})
-
-describe('human judgment zone', () => {
-  function humanCriterion(
-    over: Record<string, unknown> = {}
-  ): Record<string, unknown> {
-    return {
-      id: 'h1',
-      statement: 'reads naturally',
-      verifierType: 'HUMAN',
-      checkpointer: null,
-      evidenceRequired: false,
-      judgeSteps: null,
-      source: 'AGENT_DRAFT',
-      addedAtRound: 0,
-      latestVerdict: null,
-      machinePassed: false,
-      verdictStale: false,
-      checkMismatch: false,
-      changeState: null,
-      changedAtRound: null,
-      lastEdit: null,
-      confirmedAt: null,
-      ...over,
-    }
-  }
-
-  const passedVerdict = {
-    round: 1,
-    verdict: 'PASS',
-    verifierType: 'HUMAN',
-    evidencePointer: null,
-    rejectionReason: null,
-    rejectionReasonEnum: null,
-    recordedAt: '2026-06-10T10:00:00.000Z',
-  }
-
-  it('human judgment zone smart-collapses when all human criteria are resolved', () => {
-    // Every human criterion has a PASS → the zone defaults collapsed, mirroring
-    // the machine zone's "all verified → folded" smart default.
-    setStatus(
-      statusView({
-        criteria: [
-          humanCriterion({ id: 'h1', latestVerdict: passedVerdict }),
-        ] as never,
-        nextActions: [],
-      })
-    )
-    const { unmount } = renderTab()
-    // LUM-620: an all-resolved human zone relabels its toggle to "Human-judged"
-    // (the state-aware header — no longer a pending "Needs your judgment" call).
-    const toggle = screen.getByRole('button', {
-      name: /Human-judged/i,
-    })
-    expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByText('reads naturally')).toBeNull()
-    // The header toggle flips it open.
-    fireEvent.click(toggle)
-    expect(screen.getByText('reads naturally')).toBeInTheDocument()
-    unmount()
-
-    // LUM-789 overturns this fixture: a null-verdict (never-adjudicated) HUMAN
-    // criterion is now a tacit pass, so it no longer keeps the zone "unresolved"
-    // — an explicit FAIL (a real send-back) is what still does. The smart
-    // default this half of the test exercises (unresolved → open) is otherwise
-    // unchanged.
-    setStatus(
-      statusView({
-        criteria: [
-          humanCriterion({
-            id: 'h2',
-            statement: 'still pending judgment',
-            latestVerdict: {
-              round: 1,
-              verdict: 'FAIL',
-              verifierType: 'HUMAN',
-              evidencePointer: null,
-              rejectionReason: 'copy still off',
-              rejectionReasonEnum: null,
-              recordedAt: '2026-06-10T10:00:00.000Z',
-            },
-          }),
-        ] as never,
-      })
-    )
-    renderTab()
-    const toggle2 = screen.getByRole('button', {
-      name: /Needs your judgment/i,
-    })
-    expect(toggle2).toHaveAttribute('aria-expanded', 'true')
-    expect(screen.getByText('still pending judgment')).toBeInTheDocument()
-  })
-})
-
-describe('record tab order and collapsibles', () => {
-  const crossing = {
-    id: 'c1',
-    category: 'EDITED_TEST',
-    severity: 'LOW',
-    disposition: 'FALSE_POSITIVE',
-    reversible: true,
-    occurrenceCount: 1,
-    detail: 'edited a test',
-    detectedAt: '2026-06-20T01:00:00.000Z',
-    dispositionedAt: '2026-06-20T02:00:00.000Z',
-    dispositionedById: null,
-    dispositionNote: null,
-    lastSeenAt: null,
-    attribution: null,
-    explanations: [],
-    remediationTask: null,
-    lastDispositionChange: null,
-  }
-
-  // LUM-635 supersedes the LUM-619/620 demotion: the boundary crossings are a
-  // promoted zone again — after the criteria zones (verdict basis leads) but
-  // BEFORE the claim strip and the collapsed Evidence & audit trail card (an
-  // open crossing is an actionable Done-blocker, not forensics).
-  it('criteria lead the record tab, above the boundary crossings', () => {
-    setStatus(statusView())
-    setCrossings([crossing])
-    const { container } = renderTab()
-    const criteria = screen.getByText('Machine-verified')
-    // The panel is always mounted now — no audit-card expansion needed.
-    const boundary = container.querySelector('#boundary-crossings')!
-    // Criteria come BEFORE the boundary panel.
-    expect(
-      criteria.compareDocumentPosition(boundary) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
-    // LUM-733: the claim strip is gone from the front-end entirely.
-    expect(screen.queryByText('Claim vs verification')).toBeNull()
-  })
-
-  // LUM-619/620: the criteria live inside the collapsible "Acceptance" container
-  // (default open). Collapsing it hides the criteria zones.
-  it('the acceptance container is a collapsible section', () => {
-    setStatus(statusView())
-    renderTab()
-    expect(screen.getByText('Machine-verified')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /^Acceptance$/i }))
-    expect(screen.queryByText('Machine-verified')).toBeNull()
   })
 })

@@ -53,7 +53,7 @@ async function main(): Promise<number> {
     const inputs = mapTaskRowToInputs(t)
     const delivery = resolveDelivery(g.identifier)
     const res = await classifyClaimFaithfulness(
-      { claim: inputs.claim, delivery, criteria: inputs.criteria },
+      { claim: inputs.claim, delivery },
       { timeoutMs: 90_000 }
     )
     const row = {

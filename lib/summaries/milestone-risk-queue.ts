@@ -30,19 +30,12 @@ export interface RiskQueueCrossingRow {
   advisory: boolean
 }
 
-export interface RiskQueueVerificationFailRow {
-  taskId: string
-  round: number
-}
-
 export interface MilestoneRiskQueueInput {
   milestoneCreatedAt: Date
-  maxRounds: number
   tasks: RiskQueueTaskRow[]
   edges: RiskQueueEdgeRow[]
   statusActivities: RiskQueueActivityRow[]
   crossings: RiskQueueCrossingRow[] | null
-  verificationFails: RiskQueueVerificationFailRow[]
   now: Date
 }
 
@@ -75,12 +68,6 @@ export interface MilestoneRiskQueue {
         }>
       }
     | { known: false }
-  verifyEscalated: Array<{
-    taskId: string
-    ref: string
-    title: string
-    round: number
-  }>
   /** Initial = tasks created before the milestone existed; membership changes have no activity trail, so creation time is the only mechanical division. */
   scopeBaseline: { initial: number; current: number; addedLater: number }
 }
@@ -171,21 +158,6 @@ export function computeMilestoneRiskQueue(
     }
   }
 
-  const maxFailRound = new Map<string, number>()
-  for (const r of input.verificationFails) {
-    maxFailRound.set(
-      r.taskId,
-      Math.max(maxFailRound.get(r.taskId) ?? 0, r.round)
-    )
-  }
-  const verifyEscalated = [...maxFailRound.entries()]
-    .flatMap(([taskId, round]) => {
-      const t = byId.get(taskId)
-      if (!t || t.status === 'DONE' || round < input.maxRounds) return []
-      return [{ taskId, ref: t.ref, title: t.title, round }]
-    })
-    .sort((a, b) => a.ref.localeCompare(b.ref))
-
   const initial = input.tasks.filter(
     t => t.createdAt <= input.milestoneCreatedAt
   ).length
@@ -195,7 +167,6 @@ export function computeMilestoneRiskQueue(
     blocked,
     awaitingVerdict,
     crossings,
-    verifyEscalated,
     scopeBaseline: { initial, current, addedLater: current - initial },
   }
 }

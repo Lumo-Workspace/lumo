@@ -39,19 +39,18 @@ import type { RunReportTiles as RunReportTilesData } from '@/app/workspace/[work
 function tiles(p: Partial<RunReportTilesData> = {}): RunReportTilesData {
   return {
     prIterations: null,
-    passRateR1: null,
     costTokens: null,
-    activeTimeSec: null,
-    rework: null,
+    activeTimeSec: 0,
+    rework: 0,
     ...p,
   }
 }
 
 describe('RunReportTiles', () => {
-  it('renders the four testids', () => {
+  it('renders the three testids', () => {
     render(<RunReportTiles tiles={tiles()} />)
     expect(screen.getByTestId('tile-prIterations')).toBeInTheDocument()
-    expect(screen.getByTestId('tile-passRateR1')).toBeInTheDocument()
+    expect(screen.queryByTestId('tile-passRateR1')).toBeNull()
     expect(screen.getByTestId('tile-costTokens')).toBeInTheDocument()
     expect(screen.getByTestId('tile-rework')).toBeInTheDocument()
   })
@@ -61,7 +60,6 @@ describe('RunReportTiles', () => {
       <RunReportTiles
         tiles={tiles({
           prIterations: { count: 7, first: 940, last: 947 },
-          passRateR1: 100,
           costTokens: 1_400_000_000,
           rework: 6,
         })}
@@ -71,7 +69,6 @@ describe('RunReportTiles', () => {
     expect(screen.getByTestId('tile-prIterations')).toHaveTextContent(
       '#940–#947'
     )
-    expect(screen.getByTestId('tile-passRateR1')).toHaveTextContent('100%')
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('1.4B')
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('tokens')
     expect(screen.getByTestId('tile-rework')).toHaveTextContent('6')
@@ -91,18 +88,12 @@ describe('RunReportTiles', () => {
     expect(tile).toHaveTextContent('2m 14s')
   })
 
-  it('renders a measured zero active time, and omits it entirely when cost was never captured', () => {
-    const { rerender } = render(
+  it('renders a measured zero active time', () => {
+    render(
       <RunReportTiles tiles={tiles({ costTokens: null, activeTimeSec: 0 })} />
     )
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent(
       'Active time 0s'
-    )
-
-    // No cost view at all → nothing measured, so nothing claimed.
-    rerender(<RunReportTiles tiles={tiles()} />)
-    expect(screen.getByTestId('tile-costTokens')).not.toHaveTextContent(
-      'Active time'
     )
   })
 
@@ -127,16 +118,10 @@ describe('RunReportTiles', () => {
     expect(screen.getByTestId('tile-prIterations')).toHaveTextContent(
       'not recorded'
     )
-    expect(screen.getByTestId('tile-passRateR1')).toHaveTextContent(
-      'not recorded'
-    )
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent(
       'not recorded'
     )
-    expect(screen.getByTestId('tile-rework')).toHaveTextContent('not recorded')
     expect(screen.getByTestId('tile-prIterations')).not.toHaveTextContent('0')
-    expect(screen.getByTestId('tile-passRateR1')).not.toHaveTextContent('0%')
-    expect(screen.getByTestId('tile-rework')).not.toHaveTextContent('0')
   })
 
   it('omits the PR-range and tokens sub-captions when their tile is not measured', () => {
@@ -151,9 +136,6 @@ describe('RunReportTiles', () => {
     render(<RunReportTiles tiles={tiles()} />)
     expect(screen.getByTestId('tile-prIterations')).toHaveTextContent(
       'PR iterations'
-    )
-    expect(screen.getByTestId('tile-passRateR1')).toHaveTextContent(
-      'Pass rate R1'
     )
     expect(screen.getByTestId('tile-costTokens')).toHaveTextContent('Cost')
     expect(screen.getByTestId('tile-rework')).toHaveTextContent('Rework')

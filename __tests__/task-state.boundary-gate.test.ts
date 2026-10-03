@@ -1,7 +1,6 @@
 import { updateTask } from '@/lib/services/task-state.service'
 import { boundaryDetectorService } from '@/lib/services/boundary-detector.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
 
@@ -15,12 +14,6 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findForUpdate: jest.fn(), update: jest.fn() },
-}))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: { latestRunsByCriterion: jest.fn() },
-}))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: { findByIdSimple: jest.fn() },
@@ -59,7 +52,6 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 
 const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
-const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
 const findOpen =
   boundaryCrossingRepository.findUndispositionedByTask as jest.Mock
 const gateEnabled =
@@ -96,7 +88,6 @@ beforeEach(() => {
     teamId: 'team-1',
   })
   // No unresolved send-back — isolate the boundary gate from the LUM-422 gate.
-  latestRuns.mockResolvedValue(new Map())
   findOpen.mockResolvedValue([])
   gateEnabled.mockResolvedValue(true)
   createCrossing.mockResolvedValue({ id: 'bc-1' })

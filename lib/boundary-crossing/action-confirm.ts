@@ -57,8 +57,7 @@ const DEFAULT_TIMEOUT_MS = 10_000
  * The action categories the confirmation step covers — exactly the command-
  * shaped forbidden classes whose regex can match prose. NOT included:
  * HARDCODED_SECRET (content scan, never a "command in prose"),
- * NEW_NPM_DEPENDENCY (low severity, reversible), TEST_TAMPERING (handled by its
- * own LUM-463 pipeline). A secret leak / real protected-branch push is therefore
+ * NEW_NPM_DEPENDENCY (low severity, reversible). A secret leak / real protected-branch push is therefore
  * never routed through — and never suppressible by — this LLM step.
  */
 export const ACTION_CONFIRM_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> =
