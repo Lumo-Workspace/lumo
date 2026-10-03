@@ -286,6 +286,10 @@ export interface BoundaryCrossingView {
   /** LUM-751: the category may be rule-suppressed AND the crossing carries a
    *  coalescing target — the panel offers the per-repository opt-in only then. */
   suppressible: boolean
+  /** LUM-912: the raw text (detail, target, explanations) was replaced by a
+   *  code-free description some days after the disposition. The panel says
+   *  the original was not retained and offers no Explain. */
+  rawPurged: boolean
   /** LUM-751: the rule that auto-dispositioned this crossing (AUTO_SUPPRESSED);
    *  null for every other crossing. */
   suppressionRule: {
@@ -949,7 +953,12 @@ export const boundaryCrossingService = {
         // LUM-590: cached system-generated explanation; null = not yet generated.
         systemExplanation: c.systemExplanation ?? null,
         // LUM-751: repository-rule affordances.
-        suppressible: isSuppressibleCategory(c.category) && c.target != null,
+        suppressible:
+          isSuppressibleCategory(c.category) &&
+          c.target != null &&
+          !c.rawPurgedAt,
+        // LUM-912: the raw text was replaced by a code-free description.
+        rawPurged: c.rawPurgedAt != null,
         suppressionRule: c.suppressionRule
           ? {
               id: c.suppressionRule.id,
@@ -1039,7 +1048,9 @@ export const boundaryCrossingService = {
           { status: 422 }
         )
       }
-      if (!crossing.target) {
+      // LUM-912: a purged crossing's target is a hash — a rule built from it
+      // would never match a new detection.
+      if (!crossing.target || crossing.rawPurgedAt) {
         throw Object.assign(
           new Error(
             'This crossing has no coalescing target to build a repository rule from'
@@ -1362,7 +1373,11 @@ export const boundaryCrossingService = {
       capped: false,
       cap: RETROACTIVE_SUPPRESSION_CAP,
     }
-    if (!isSuppressibleCategory(crossing.category) || !crossing.target) {
+    if (
+      !isSuppressibleCategory(crossing.category) ||
+      !crossing.target ||
+      crossing.rawPurgedAt
+    ) {
       return { ...base, suppressible: false }
     }
     const task = await taskRepository.findWithProject(taskId)
@@ -1515,6 +1530,14 @@ export const boundaryCrossingService = {
       throw Object.assign(
         new Error('Boundary-crossing not found on this task'),
         { status: 404 }
+      )
+    }
+
+    // LUM-912: nothing left to explain from — the raw text was not retained.
+    if (row.rawPurgedAt) {
+      throw Object.assign(
+        new Error('The original text of this crossing was not retained'),
+        { status: 409 }
       )
     }
 

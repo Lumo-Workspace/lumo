@@ -48,4 +48,13 @@ describe('systemExplainState (LUM-590)', () => {
       text,
     })
   })
+
+  it('returns { kind: "notRetained" } for a raw-purged crossing (LUM-912)', () => {
+    expect(
+      systemExplainState({ systemExplanation: 'cached', rawPurged: true })
+    ).toEqual({ kind: 'notRetained' })
+    expect(
+      systemExplainState({ systemExplanation: null, rawPurged: false })
+    ).toEqual({ kind: 'button' })
+  })
 })

@@ -102,6 +102,8 @@ const EXPLAIN_SELECT = {
   detail: true,
   policyRuleText: true,
   systemExplanation: true,
+  // LUM-912: a purged crossing has no raw text left to explain.
+  rawPurgedAt: true,
 } as const
 
 /** Lightweight projection for the gate / write paths. */
@@ -129,6 +131,8 @@ const SELECT = {
   // The triggering hook event id — the read model joins it to surface the
   // inline edit-change for display-safe crossings (LUM-452).
   hookEventId: true,
+  // LUM-912: when the raw text was replaced by a code-free description.
+  rawPurgedAt: true,
 } as const
 
 /**
@@ -397,6 +401,9 @@ export const boundaryCrossingRepository = {
         category: { in: input.categories },
         disposition: null,
         advisory: false,
+        // LUM-912: a reopened crossing whose raw text was purged has nothing
+        // left to re-judge against — it stays as it is.
+        rawPurgedAt: null,
         taskId: input.taskId ?? { not: null },
         ...(input.projectId ? { task: { projectId: input.projectId } } : {}),
       },

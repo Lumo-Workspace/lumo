@@ -133,6 +133,9 @@ export interface BoundaryCrossingView {
   /** LUM-751: the category may be rule-suppressed AND the crossing carries a
    *  coalescing target — the panel offers the per-repository opt-in only then. */
   suppressible?: boolean
+  /** LUM-912: the raw text was replaced by a code-free description after the
+   *  workspace's retention window. Optional so an older response type-checks. */
+  rawPurged?: boolean
   /** LUM-751: the rule that auto-dispositioned this crossing (AUTO_SUPPRESSED);
    *  null for every other crossing. Both fields are optional on the client so
    *  an older server response (or a fixture) still type-checks. */

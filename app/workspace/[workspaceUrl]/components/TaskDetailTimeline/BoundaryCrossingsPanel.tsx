@@ -868,6 +868,19 @@ function CrossingRow({
 
       {!collapsed && (
         <>
+          {/* LUM-912: the raw text was replaced after the retention window. */}
+          {c.rawPurged && (
+            <p
+              data-testid={`crossing-raw-not-retained-${c.id}`}
+              className='mt-1.5 text-[11px] italic text-muted-foreground'
+            >
+              {intl.formatMessage({
+                id: 'boundary.panel.rawNotRetained',
+                defaultMessage:
+                  'Original text not retained — replaced by a description without code after the retention period.',
+              })}
+            </p>
+          )}
           {(() => {
             const fields = crossingFieldsFor(c)
             if (fields) {
@@ -1009,7 +1022,11 @@ function CrossingRow({
                     key={ex.id}
                     className='whitespace-pre-wrap break-words text-[11px] text-foreground'
                   >
-                    {ex.note}
+                    {ex.note ||
+                      intl.formatMessage({
+                        id: 'boundary.panel.explanations.notRetained',
+                        defaultMessage: 'Not retained',
+                      })}
                   </li>
                 ))}
               </ul>
@@ -1031,6 +1048,7 @@ function CrossingRow({
           gate. */}
           {(() => {
             const explainState = systemExplainState(c)
+            if (explainState.kind === 'notRetained') return null
             if (explainState.kind === 'text') {
               return (
                 <div
