@@ -350,8 +350,12 @@ export const sessionRepository = {
    * ADDED onto the child's latest SUBAGENT_STOP row so operation cost
    * (lib/agent-run/operation-cost.ts) can attribute it to the subagent's
    * tools; the cumulative columns are then overwritten. Same cumulative twice
-   * -> zero delta -> no write (idempotent across resume). No SUBAGENT_STOP yet
-   * (subagent still running) -> defer, so the delta is caught on a later STOP.
+   * -> zero delta -> no write (idempotent across resume). No SUBAGENT_STOP row:
+   * an eventless child (eventCount 0 — created here, e.g. a subagent that ran
+   * before child sessions existed, so no STOP can ever arrive) gets its
+   * cumulative written so the usage is not lost; a child with its own hook
+   * events is still running and defers until its STOP row exists. `settled`
+   * is true only when a STOP row received the delta.
    */
   async settleChildUsage(data: {
     parentSessionId: string
@@ -367,6 +371,7 @@ export const sessionRepository = {
         id: true,
         taskId: true,
         usageByModel: true,
+        eventCount: true,
       } as const
       // Common case: the child row exists (its hook events created it), so
       // skip the parent upsert. Only a brand-new child needs its FK target.
@@ -420,7 +425,18 @@ export const sessionRepository = {
         orderBy: { createdAt: 'desc' },
         select: { id: true, usageByModel: true },
       })
-      if (!stopRow) return { settled: false }
+      if (!stopRow) {
+        // A child with its own hook events (eventCount > 0) is a running /
+        // background subagent: its SUBAGENT_STOP is still coming, so defer
+        // and let the full delta land on that row. A child with NO events
+        // was created by this settle path (subagent predates the
+        // child-session feature), so a STOP row can never arrive; the parent
+        // already excludes this usage, so persist the cumulative or it is
+        // lost on every STOP. Nothing is added to a STOP row -> false.
+        if (child.eventCount === 0)
+          await tx.session.update({ where: { id }, data: cumulative })
+        return { settled: false }
+      }
       await tx.hookEvent.update({
         where: { id: stopRow.id },
         data: {
