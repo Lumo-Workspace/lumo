@@ -36,8 +36,11 @@ export interface ModelUsage {
  * and trajectory sums stay monotonic) and the stored cumulative is replaced by
  * the new lower value, so later growth is measured from the corrected base.
  * The one turn straddling the upgrade records no delta (its real burn is
- * absorbed by the drop). Old CLIs only ever report growing totals, so they
- * never hit this path and behave exactly as before.
+ * absorbed by the drop). Old CLIs report growing totals except when a
+ * transcript shrinks (compaction, or a subagent file removed by retention
+ * cleanup); those rare drops now re-baseline the same way. A STOP delivered
+ * after the next turn's batch (only on a client hook timeout) resets the live
+ * snapshot to its stale value, so that next step can be over-counted once.
  */
 export function diffUsageByModel(
   prior: Record<string, ModelUsage> | null | undefined,
