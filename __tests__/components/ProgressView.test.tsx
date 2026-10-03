@@ -188,4 +188,17 @@ describe('ProgressView — pre-dedupe notice (LUM-932)', () => {
     render(<ProgressView progress={onTrack} />)
     expect(screen.queryByTestId('usage-pre-dedupe')).toBeNull()
   })
+
+  it('shows the notice in the used-only branch (no forecast band)', () => {
+    const usedOnly = {
+      ...onTrack,
+      tokenCost: { forecast: null, actual: 12000, deltaPct: null, band: null },
+    } as TaskProgress
+    const { rerender } = render(<ProgressView progress={usedOnly} preDedupe />)
+    expect(screen.getByTestId('usage-pre-dedupe')).toHaveTextContent(
+      'PRE-DEDUPE NOTICE'
+    )
+    rerender(<ProgressView progress={usedOnly} />)
+    expect(screen.queryByTestId('usage-pre-dedupe')).toBeNull()
+  })
 })

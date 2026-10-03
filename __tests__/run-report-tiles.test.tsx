@@ -161,8 +161,11 @@ describe('RunReportTiles', () => {
 
   it('shows the pre-dedupe warning on a measured cost tile (LUM-932)', () => {
     render(<RunReportTiles tiles={tiles({ costTokens: 5000 })} preDedupe />)
-    expect(screen.getByTestId('cost-pre-dedupe')).toHaveTextContent(
-      '≈2× overstated'
+    const warning = screen.getByTestId('cost-pre-dedupe')
+    expect(warning).toHaveTextContent('≈2× overstated')
+    expect(warning).toHaveAttribute(
+      'title',
+      'Token figures recorded before Oct 3, 2026 are overstated by about 2× (an older CLI counted each message several times). Newer figures are accurate.'
     )
   })
 

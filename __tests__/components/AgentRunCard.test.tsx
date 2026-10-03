@@ -254,6 +254,9 @@ describe('AgentRunCard — attribution (LUM-932)', () => {
   })
 })
 
+const PRE_DEDUPE_NOTICE =
+  'Token figures recorded before Oct 3, 2026 are overstated by about 2× (an older CLI counted each message several times). Newer figures are accurate.'
+
 describe('AgentRunCard — pre-dedupe token marker (LUM-932)', () => {
   const cost = {
     byModel: [
@@ -275,9 +278,9 @@ describe('AgentRunCard — pre-dedupe token marker (LUM-932)', () => {
         run={baseRun({ startedAt: '2026-10-01T10:00:00Z', cost })}
       />
     )
-    expect(screen.getByTestId('run-pre-dedupe')).toHaveTextContent(
-      '≈2× overstated'
-    )
+    const marker = screen.getByTestId('run-pre-dedupe')
+    expect(marker).toHaveTextContent('≈2× overstated')
+    expect(marker).toHaveAttribute('title', PRE_DEDUPE_NOTICE)
   })
 
   it('shows the notice in the expanded token breakdown for a pre-cutoff run', () => {
