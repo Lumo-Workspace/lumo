@@ -24,7 +24,7 @@ import {
   repairTriageText,
 } from './prompt'
 import type { JudgeResult } from './report'
-import { JEV_MODEL, isJevEligible, judgeJev } from './jev'
+import { JEV_BOOLEAN_MODEL, JEV_MODEL, isJevEligible, judgeJev } from './jev'
 
 export const CANDIDATE_MODELS = [
   'alibaba/qwen3.7-flash',
@@ -32,6 +32,7 @@ export const CANDIDATE_MODELS = [
   'moonshotai/kimi-k2-thinking',
   'anthropic/claude-haiku-4.5',
   JEV_MODEL,
+  JEV_BOOLEAN_MODEL,
 ] as const
 
 const TIMEOUT_MS = 90_000
@@ -146,14 +147,19 @@ async function main(): Promise<void> {
       i =>
         !done.has(`${model}|${i.id}`) &&
         // Jev has no ZDR endpoint: only Lumo's own workspace data goes there.
-        (model !== JEV_MODEL || isJevEligible(i))
+        ((model !== JEV_MODEL && model !== JEV_BOOLEAN_MODEL) ||
+          isJevEligible(i))
     )
     process.stdout.write(`${model}: ${todo.length} to judge\n`)
     let n = 0
     const fresh = await pool(
       todo.map(item => async () => {
         const r =
-          model === JEV_MODEL ? await judgeJev(item) : await judge(model, item)
+          model === JEV_MODEL
+            ? await judgeJev(item, 'choice')
+            : model === JEV_BOOLEAN_MODEL
+              ? await judgeJev(item, 'boolean')
+              : await judge(model, item)
         n++
         if (n % 25 === 0)
           process.stdout.write(`  ${model} ${n}/${todo.length}\n`)

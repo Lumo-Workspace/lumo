@@ -6,7 +6,13 @@ import {
 } from '../corpus'
 import { buildTriagePrompt, repairTriageText, TriageSchema } from '../prompt'
 import { summarize, costUsd, type JudgeResult } from '../report'
-import { buildJevRequest, parseJevAnswer, isJevEligible } from '../jev'
+import {
+  buildJevRequest,
+  buildJevBooleanRequest,
+  parseJevAnswer,
+  parseJevBooleanAnswer,
+  isJevEligible,
+} from '../jev'
 
 // Assembled at runtime so the fixture file itself carries no key-shaped literal.
 const FAKE_AWS_KEY = ['AKIA', 'IOSFODNN7', 'EXAMPLE'].join('')
@@ -212,5 +218,30 @@ describe('LUM-945 Jev candidate', () => {
       { ...base, model: 'typesafe-ai/jev' },
     ])
     for (const s of summaries) expect(s.calls).toBe(1)
+  })
+})
+
+describe('LUM-945 Jev boolean variant', () => {
+  it('asks one yes/no question over the same state', () => {
+    const req = buildJevBooleanRequest(item())
+    expect(req.state).toBe(buildTriagePrompt(item()))
+    expect(req.questions.legit.type).toBe('boolean')
+    expect(JSON.stringify(req)).not.toContain('PR target branch, not a push')
+  })
+
+  it('maps P(true) to a verdict whose confidence is the probability it is right', () => {
+    expect(
+      parseJevBooleanAnswer({
+        answers: { legit: { type: 'boolean', probability: 0.8 } },
+      })
+    ).toEqual({ verdict: 'LIKELY_LEGIT', confidence: 0.8 })
+    expect(
+      parseJevBooleanAnswer({
+        answers: { legit: { type: 'boolean', probability: 0.3 } },
+      })
+    ).toEqual({ verdict: 'LIKELY_REAL', confidence: 0.7 })
+    expect(
+      parseJevBooleanAnswer({ answers: { legit: { type: 'boolean' } } })
+    ).toBeNull()
   })
 })

@@ -155,6 +155,7 @@ export const PRICES: Record<string, { input: number; output: number }> = {
   'moonshotai/kimi-k2-thinking': { input: 0.47, output: 2.0 },
   'anthropic/claude-haiku-4.5': { input: 1.0, output: 5.0 },
   'typesafe-ai/jev': { input: 0.042, output: 0 },
+  'typesafe-ai/jev#boolean': { input: 0.042, output: 0 },
 }
 
 export function costUsd(s: ModelSummary): number | null {
