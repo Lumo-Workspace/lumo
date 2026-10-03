@@ -55,6 +55,8 @@ export { documentRevisionService } from './documentRevision.service'
 export { documentTemplateService } from './document-template.service'
 export { workspaceService } from './workspace.service'
 export { aiDerivedContentService } from './ai-derived-content.service'
+export { sessionRecordNoticeService } from './session-record-notice.service'
+export type { SessionRecordNotice } from './session-record-notice.service'
 export type {
   AiDerivedContentStatus,
   AiDerivedPurgeResult,

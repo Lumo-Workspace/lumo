@@ -12,7 +12,7 @@ Detection order and rules:
 - `prefix-agnostic` — any team prefix matches (`SPEC-12` as much as `LUM-145`), using the same pattern the server uses to link PR branches to tasks.
 - `well-known acronym-number tokens` (`UTF-8`, `SHA-256`, `ISO-8601`, …) are skipped, never suggested.
 
-On a hit it prints one suggestion line and stops — the session stays **unbound**, no context injected yet:
+On a hit it prints one suggestion line and stops — the session stays **unbound**, no task context injected yet (only the workspace-level lines below):
 
 ```
 Detected LUM-145 (from branch name). Run lumo session attach LUM-145 to bind.
@@ -25,6 +25,14 @@ Detected LUM-145 (from branch name). Run lumo session attach LUM-145 to bind.
 #### When to suggest
 
 You see a suggestion line. Confirm the inferred task is the one the user wants, then run `lumo session attach <LUM-N>` followed by `lumo task context <LUM-N>` to load the background. `session attach` is the **only** path that binds — there is nothing to "undo" if the inference is wrong; just attach the correct task instead.
+
+### Session record notice at session start (LUM-943)
+
+Every session start — bound or not — injects one line saying how this workspace stores session records: the mode (kept forever / kept at least N days / code and command output not stored, discarded after the work is used up), that credentials are always redacted, and that an OWNER can change it in **Settings → Data retention** (with the link). It is read fresh each session start, so an OWNER's change shows on the next one. An older server or a failed lookup simply omits the line. `lumo setup` prints the same line when logged in.
+
+#### When to suggest
+
+The user asks whether / how long Lumo keeps their Claude Code sessions, code or command output: quote the line, and point an OWNER at the settings link to change it. Don't add claims beyond it (e.g. about encryption).
 
 ### Layer 2 project-memory review at session start
 
