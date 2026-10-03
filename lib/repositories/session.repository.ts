@@ -368,6 +368,7 @@ export const sessionRepository = {
         id: true,
         taskId: true,
         usageByModel: true,
+        eventCount: true,
       } as const
       // Common case: the child row exists (its hook events created it), so
       // skip the parent upsert. Only a brand-new child needs its FK target.
@@ -422,11 +423,15 @@ export const sessionRepository = {
         select: { id: true, usageByModel: true },
       })
       if (!stopRow) {
-        // No SUBAGENT_STOP row (subagent predates the child-session feature,
-        // or its SubagentStop hook was missed). The parent already excludes
-        // this usage, so still persist the cumulative or it is lost on every
-        // STOP. Nothing was added to a STOP row -> `settled: false`.
-        await tx.session.update({ where: { id }, data: cumulative })
+        // A child with its own hook events (eventCount > 0) is a running /
+        // background subagent: its SUBAGENT_STOP is still coming, so defer
+        // and let the full delta land on that row. A child with NO events
+        // was created by this settle path (subagent predates the
+        // child-session feature), so a STOP row can never arrive; the parent
+        // already excludes this usage, so persist the cumulative or it is
+        // lost on every STOP. Nothing is added to a STOP row -> false.
+        if (child.eventCount === 0)
+          await tx.session.update({ where: { id }, data: cumulative })
         return { settled: false }
       }
       await tx.hookEvent.update({

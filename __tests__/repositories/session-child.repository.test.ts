@@ -396,11 +396,12 @@ describe('settleChildUsage', () => {
       },
     })
 
-  it('writes the cumulative when an existing child with null usage has no SUBAGENT_STOP row', async () => {
+  it('writes the cumulative when an eventless child (eventCount 0) with null usage has no SUBAGENT_STOP row', async () => {
     tx.session.findUnique.mockResolvedValueOnce({
       id: 'P:a1',
       taskId: null,
       usageByModel: null,
+      eventCount: 0,
     })
     tx.hookEvent.findFirst.mockResolvedValueOnce(null)
     const r = await sessionRepository.settleChildUsage({
@@ -417,7 +418,7 @@ describe('settleChildUsage', () => {
   it('writes the cumulative for a child created by settle that has no SUBAGENT_STOP row', async () => {
     tx.session.upsert
       .mockResolvedValueOnce({ id: 'P', taskId: null }) // parent
-      .mockResolvedValueOnce({ id: 'P:a1', taskId: null, usageByModel: null })
+      .mockResolvedValueOnce({ id: 'P:a1', taskId: null, usageByModel: null, eventCount: 0 })
     tx.hookEvent.findFirst.mockResolvedValueOnce(null)
     await sessionRepository.settleChildUsage({
       ...base,
@@ -427,6 +428,25 @@ describe('settleChildUsage', () => {
     })
     expectCumulative()
     expect(tx.hookEvent.update).not.toHaveBeenCalled()
+  })
+
+  it('defers (writes nothing) when the child has its own hook events but no SUBAGENT_STOP row yet', async () => {
+    tx.session.findUnique.mockResolvedValueOnce({
+      id: 'P:a1',
+      taskId: null,
+      usageByModel: null,
+      eventCount: 3,
+    })
+    tx.hookEvent.findFirst.mockResolvedValueOnce(null)
+    const r = await sessionRepository.settleChildUsage({
+      ...base,
+      parentSessionId: 'P',
+      agentId: 'a1',
+      usage,
+    })
+    expect(tx.session.update).not.toHaveBeenCalled()
+    expect(tx.hookEvent.update).not.toHaveBeenCalled()
+    expect(r).toEqual({ settled: false })
   })
 
   it('is idempotent when no SUBAGENT_STOP row exists: the same usage again writes nothing', async () => {
