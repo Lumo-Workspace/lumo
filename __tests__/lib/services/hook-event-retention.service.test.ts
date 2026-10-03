@@ -17,6 +17,12 @@ jest.mock('@/lib/repositories/workspace.repository', () => ({
 jest.mock('@/lib/services/workspace-deletion.service', () => ({
   workspaceDeletionService: { deleteWorkspace: jest.fn() },
 }))
+// LUM-913: the same daily cron also purges PR comment dead letters.
+jest.mock('@/lib/services/pr-comment-dead-letter-retention.service', () => ({
+  prCommentDeadLetterRetentionService: {
+    purgeExpiredPayloads: jest.fn(async () => ({ purged: 0, capped: false })),
+  },
+}))
 
 import { NextRequest } from 'next/server'
 import { hookEventRetentionRepository as repo } from '@/lib/repositories/hook-event-retention.repository'
@@ -242,6 +248,10 @@ describe('hook event retention wiring (LUM-859)', () => {
       })
     )
     expect(ok.status).toBe(200)
-    expect(await ok.json()).toEqual({ workspaces: [], pruned: 0 })
+    expect(await ok.json()).toEqual({
+      workspaces: [],
+      pruned: 0,
+      prCommentDeadLetters: { purged: 0, capped: false },
+    })
   })
 })

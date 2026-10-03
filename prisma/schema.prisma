@@ -3263,23 +3263,30 @@ model PrCommentMirror {
 }
 
 model PrCommentSyncJob {
-  id           String        @id @default(cuid())
-  direction    SyncDirection
-  payload      Json
-  commentId    String?
-  externalId   String?
-  attempts     Int           @default(0)
-  lastError    String?
-  status       SyncJobStatus @default(PENDING)
-  scheduledFor DateTime      @default(now())
-  workspaceId  String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  direction       SyncDirection
+  payload         Json
+  commentId       String?
+  externalId      String?
+  attempts        Int           @default(0)
+  lastError       String?
+  status          SyncJobStatus @default(PENDING)
+  scheduledFor    DateTime      @default(now())
+  workspaceId     String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  /// LUM-913: when the job entered DEAD_LETTER. NULL on rows dead-lettered
+  /// before LUM-913 shipped — the automatic prune never touches those.
+  deadLetteredAt  DateTime?
+  /// LUM-913: when the GitHub webhook payload (`payload.raw`) was dropped,
+  /// 7 days after `deadLetteredAt`; `payload` then keeps only metadata.
+  payloadPurgedAt DateTime?
 
   comment   Comment?  @relation(fields: [commentId], references: [id], onDelete: SetNull)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([status, scheduledFor])
+  @@index([status, deadLetteredAt])
   @@index([workspaceId])
   @@index([commentId])
   @@map("pr_comment_sync_jobs")
