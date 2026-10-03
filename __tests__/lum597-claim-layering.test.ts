@@ -12,6 +12,13 @@ import {
   resolveClaimForReadModel,
 } from '@/lib/services/task-claim'
 
+// LUM-917: the AI-derived content switch (on unless a test turns it off).
+const mockAiDerivedEnabled = jest.fn()
+jest.mock('@/lib/services/ai-derived-content.service', () => ({
+  aiDerivedContentService: {
+    isEnabled: (...args: unknown[]) => mockAiDerivedEnabled(...args),
+  },
+}))
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
   lineageEdgeRepository: { findMergedSessionIds: jest.fn() },
 }))
@@ -41,6 +48,7 @@ const loadClaimSnapshot = taskRepository.loadClaimSnapshot as jest.Mock
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAiDerivedEnabled.mockResolvedValue(true)
   loadClaimSnapshot.mockResolvedValue(null)
 })
 
@@ -135,6 +143,84 @@ describe('LUM-597 · read-model layering', () => {
     expect(setClaimSnapshot.mock.calls[0][1]).toMatchObject({
       text: 'paraphrase',
       source: 'RUN_SUMMARY',
+    })
+  })
+})
+
+describe('LUM-917 · no AI-generated claim while AI-derived content is off', () => {
+  it('switch off + only turn summaries: DONE freezes no DIGEST claim, and the read shows none', async () => {
+    mockAiDerivedEnabled.mockResolvedValue(false)
+    loadClaimSnapshot.mockResolvedValue({
+      claimSnapshot: null,
+      claimSnapshotSource: null,
+      claimSnapshotAt: null,
+    })
+    findMergedSessionIds.mockResolvedValue([])
+    loadLatestRunClaim.mockResolvedValue({
+      id: 'sess-off',
+      runSummary: null,
+      events: [{ turnSummary: 'edited the loader' }],
+    })
+
+    await taskClaimSnapshotService.synthesizeForTask('task-off')
+
+    expect(mockAiDerivedEnabled).toHaveBeenCalledWith({ taskId: 'task-off' })
+    expect(loadLatestRunClaim).not.toHaveBeenCalled()
+    expect(setClaimSnapshot).toHaveBeenCalledTimes(1)
+    const [, written] = setClaimSnapshot.mock.calls[0]
+    expect(written).toMatchObject({ text: null, source: null, sessionId: null })
+    expect(written.at).toBeInstanceOf(Date)
+
+    // The stamped "synthesized, no material" snapshot is a field read: the
+    // live turn summaries are not stitched back into a DIGEST claim.
+    expect(
+      resolveClaimForReadModel(
+        { text: null, source: null, synthesized: true },
+        { runSummary: null, turnSummaries: ['edited the loader'] }
+      )
+    ).toEqual({ text: null, source: null })
+  })
+
+  it('switch off + a frozen AGENT self-report: the agent claim is kept', async () => {
+    mockAiDerivedEnabled.mockResolvedValue(false)
+    loadClaimSnapshot.mockResolvedValue({
+      claimSnapshot: 'I wired the switch.',
+      claimSnapshotSource: 'AGENT',
+      claimSnapshotAt: new Date('2026-10-01T00:00:00Z'),
+    })
+
+    await taskClaimSnapshotService.synthesizeForTask('task-agent-off')
+
+    expect(setClaimSnapshot).not.toHaveBeenCalled()
+  })
+
+  it('switch on + only turn summaries: DONE still freezes the DIGEST claim', async () => {
+    mockAiDerivedEnabled.mockResolvedValue(true)
+    loadClaimSnapshot.mockResolvedValue(null)
+    findMergedSessionIds.mockResolvedValue([])
+    loadLatestRunClaim.mockResolvedValue({
+      id: 'sess-on',
+      runSummary: null,
+      events: [{ turnSummary: 'edited the loader' }],
+    })
+
+    await taskClaimSnapshotService.synthesizeForTask('task-on')
+
+    expect(setClaimSnapshot.mock.calls[0][1]).toMatchObject({
+      text: 'edited the loader',
+      source: 'DIGEST',
+      sessionId: 'sess-on',
+    })
+  })
+
+  it('an unreadable switch counts as off', async () => {
+    // isEnabled itself fails closed; here it answers false as it would then.
+    mockAiDerivedEnabled.mockResolvedValue(false)
+    loadClaimSnapshot.mockResolvedValue(null)
+    await taskClaimSnapshotService.synthesizeForTask('task-unreadable')
+    expect(setClaimSnapshot.mock.calls[0][1]).toMatchObject({
+      text: null,
+      source: null,
     })
   })
 })

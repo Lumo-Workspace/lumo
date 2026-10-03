@@ -3,6 +3,7 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { selectClaim } from '@/lib/services/task-claim'
 import { logger } from '@/lib/logger'
+import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 
 /**
  * LUM-573 — task-level claim snapshot.
@@ -99,6 +100,22 @@ export const taskClaimSnapshotService = {
         existing?.claimSnapshotSource === 'AGENT' &&
         existing.claimSnapshotAt != null
       ) {
+        return
+      }
+      // LUM-917: with AI-derived content off (or the switch unreadable) no
+      // RUN_SUMMARY / DIGEST claim is frozen. The snapshot is still stamped,
+      // as "synthesized, no material" (text null, claimSnapshotAt set) — the
+      // same write the on-path makes when there is nothing to say — so the
+      // read model shows no claim instead of re-deriving one live from the
+      // turn summaries, and a verdict judged on an earlier claim goes stale
+      // exactly as it would after any re-synthesis.
+      if (!(await aiDerivedContentService.isEnabled({ taskId }))) {
+        await taskRepository.setClaimSnapshot(taskId, {
+          text: null,
+          source: null,
+          sessionId: null,
+          at: new Date(),
+        })
         return
       }
       const { sessionId, material } = await this.resolveClaimMaterial(taskId)

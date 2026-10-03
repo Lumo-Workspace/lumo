@@ -89,6 +89,9 @@ describe('AI-derived content switch (LUM-917)', () => {
     expect(screen.getByTestId('retention-hint-ai-derived')).toHaveTextContent(
       /no new memories are extracted/
     )
+    expect(screen.getByTestId('retention-hint-ai-derived')).toHaveTextContent(
+      /no AI-generated task claim/
+    )
     expect(
       screen.queryByTestId('retention-warning-ai-derived')
     ).not.toBeInTheDocument()

@@ -44,6 +44,7 @@ import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { CODE_OMITTED_MARKER } from '@/lib/ai-derived/strip-code'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
+import { taskClaimSnapshotService } from '@/lib/services/task-claim-snapshot.service'
 
 jest.setTimeout(180_000)
 
@@ -270,6 +271,66 @@ describe('hand-added memories (LUM-917 ruling)', () => {
       rule: `Load tasks through the repository.\n${CODE_OMITTED_MARKER}`,
       scope: 'lib/repositories',
     })
+  })
+})
+
+describe('claim snapshot with AI-derived content off (LUM-917)', () => {
+  it('DONE freezes no DIGEST claim from turn summaries; switch on still does', async () => {
+    const OFF = 'ws_ai_claim_off'
+    const ON = 'ws_ai_claim_on'
+    for (const ws of [OFF, ON]) {
+      await seedWorkspace(ws)
+      await db().task.create({
+        data: {
+          id: `${ws}_task`,
+          projectId: `${ws}_project`,
+          teamId: `${ws}_team`,
+          number: 1,
+          title: 'claim',
+          status: 'DONE',
+        },
+      })
+      await db().session.create({
+        data: {
+          id: `${ws}_session`,
+          workspaceId: ws,
+          workspaceMemberId: `${ws}_member`,
+          taskId: `${ws}_task`,
+          lastActivityAt: new Date('2026-10-02T00:00:00Z'),
+        },
+      })
+      await db().hookEvent.create({
+        data: {
+          workspaceId: ws,
+          workspaceMemberId: `${ws}_member`,
+          sessionId: `${ws}_session`,
+          taskId: `${ws}_task`,
+          type: 'STOP',
+          payload: {},
+          turnSummary: 'Edited the loader.',
+        },
+      })
+    }
+    await db().workspace.update({
+      where: { id: OFF },
+      data: { aiDerivedContentEnabled: false },
+    })
+
+    await taskClaimSnapshotService.synthesizeForTask(`${OFF}_task`)
+    await taskClaimSnapshotService.synthesizeForTask(`${ON}_task`)
+
+    const off = await db().task.findUniqueOrThrow({
+      where: { id: `${OFF}_task` },
+    })
+    expect(off.claimSnapshot).toBeNull()
+    expect(off.claimSnapshotSource).toBeNull()
+    expect(off.claimSnapshotAt).not.toBeNull()
+
+    const on = await db().task.findUniqueOrThrow({
+      where: { id: `${ON}_task` },
+    })
+    expect(on.claimSnapshot).toBe('Edited the loader.')
+    expect(on.claimSnapshotSource).toBe('DIGEST')
   })
 })
 

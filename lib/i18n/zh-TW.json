@@ -643,7 +643,7 @@
   "dataRetention.aiDerived.description": "Lumo 從 agent 工作階段中提煉的記憶(以及歸併成的專案級、里程碑級記憶)、工作階段摘要,以及任務完成(Done)時產生的執行總結。這些內容由 AI 產生,以文字形式儲存:儲存前會移除程式碼區塊和程式碼行。",
   "dataRetention.aiDerived.on": "開啟:產生(預設)",
   "dataRetention.aiDerived.off": "關閉:不產生",
-  "dataRetention.aiDerived.offImpact": "關閉後:不再提煉或歸併新的記憶,之後的 agent 工作階段拿不到新學到的脈絡;工作階段頁面的「產生摘要」無法使用;任務進入 Done 時不再產生執行總結。工作階段紀錄中每一輪仍有一句話摘要,手動新增的記憶仍會儲存。已儲存的內容會保留,直到你在下方刪除。",
+  "dataRetention.aiDerived.offImpact": "關閉後:不再提煉或歸併新的記憶,之後的 agent 工作階段拿不到新學到的脈絡;工作階段頁面的「產生摘要」無法使用;任務進入 Done 時不再產生執行總結和 AI 產生的任務聲明(agent 自己的回報仍會保留)。工作階段紀錄中每一輪仍有一句話摘要,手動新增的記憶仍會儲存。已儲存的內容會保留,直到你在下方刪除。",
   "dataRetention.aiDerived.offWarning": "關閉只會停止今後的產生,不會刪除已儲存的內容。",
   "dataRetention.aiDerivedDelete.label": "刪除 AI 衍生內容",
   "dataRetention.aiDerivedDelete.description": "刪除此工作區的所有記憶及其檢索向量(embedding),並清空所有工作階段摘要和執行總結、由它們產生的任務聲明(agent 自己的回報會保留),以及聲明忠實性檢查的證據與理由文字(判定結論本身保留)。除此之外,工作階段紀錄、任務和文件不受影響。",
