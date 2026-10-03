@@ -28,6 +28,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { prisma } from '../../../lib/db/prisma'
+import { openHookPayloads } from '../../../lib/hook-event/payload-cipher'
 import {
   memoryManifestLine,
   renderMemoryItem,
@@ -360,12 +361,14 @@ async function loadSession(
         toolName: true,
         createdAt: true,
         payload: true,
+        // LUM-863: payloads may be stored encrypted.
+        payloadEncrypted: true,
       },
       orderBy: { id: 'asc' },
       take: PAGE,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     })
-    events.push(...page)
+    events.push(...(await openHookPayloads(page)))
     if (page.length < PAGE) break
     cursor = page[page.length - 1].id
   }

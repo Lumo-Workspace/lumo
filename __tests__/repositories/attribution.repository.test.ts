@@ -182,11 +182,27 @@ describe('loadFamily', () => {
               array_contains: [{ kind: 'NOTIFICATION' }],
             },
           },
-          payload: { path: ['prompt'], string_contains: '<task-notification>' },
+          // LUM-863: encrypted rows are matched after decryption.
+          OR: [
+            {
+              payload: {
+                path: ['prompt'],
+                string_contains: '<task-notification>',
+              },
+            },
+            { payloadEncrypted: { not: null } },
+          ],
         },
       ],
     })
-    expect(payloadArgs.select).toEqual({ id: true, payload: true })
+    expect(payloadArgs.select).toEqual({
+      id: true,
+      type: true,
+      sessionId: true,
+      attributionSignals: true,
+      payload: true,
+      payloadEncrypted: true,
+    })
     expect(fam!.events.map(e => [e.id, e.payload])).toEqual([
       ['e1', null],
       ['e2', { a: 1 }],

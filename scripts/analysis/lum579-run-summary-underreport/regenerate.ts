@@ -23,6 +23,7 @@
  *     scripts/analysis/lum579-run-summary-underreport/regenerate.ts [--apply] [--tasks 529,530]
  */
 import { prisma } from '@/lib/db/prisma'
+import { openHookPayloads } from '@/lib/hook-event/payload-cipher'
 import { enumerateNegativeClaims, type NegativeClaimRow } from './enumerate'
 import { isNegativeClaim } from './negative-claim'
 import { buildRunSummaryInput } from '@/lib/services/run-summary/run-summary-input'
@@ -81,17 +82,21 @@ function clip(s: string, n = 200): string {
 }
 
 async function loadEvents(sessionId: string): Promise<RawEvent[]> {
-  const events = await prisma.hookEvent.findMany({
-    where: { sessionId },
-    orderBy: { createdAt: 'asc' },
-    select: {
-      id: true,
-      type: true,
-      toolName: true,
-      payload: true,
-      createdAt: true,
-    },
-  })
+  // LUM-863: payloads may be stored encrypted.
+  const events = await openHookPayloads(
+    await prisma.hookEvent.findMany({
+      where: { sessionId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        type: true,
+        toolName: true,
+        payload: true,
+        payloadEncrypted: true,
+        createdAt: true,
+      },
+    })
+  )
   return events as unknown as RawEvent[]
 }
 

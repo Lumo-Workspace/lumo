@@ -104,6 +104,7 @@ describe('hookEventService.recordHookEvent', () => {
       toolDetail: null,
       toolVerb: null,
       filePath: '/x',
+      toolUseId: null,
       payload: {
         session_id: 'sess_abc',
         cwd: '/repo',

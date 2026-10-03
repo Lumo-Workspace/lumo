@@ -9,6 +9,10 @@ import { RETAG_TX_OPTIONS } from '@/lib/repositories/open-crossing-move'
 import type { HookEventType } from '@prisma/client'
 import type { AttributionSignal } from '@/lib/attribution/signals'
 import type { ToolEventRow } from '@/lib/session/resolve-caller'
+import {
+  openHookPayloads,
+  sealHookPayload,
+} from '@/lib/hook-event/payload-cipher'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +26,8 @@ interface CreateHookEventData {
   /** LUM-840: the command that decided `toolDetail` (e.g. `jest`, `git show`); null otherwise. */
   toolVerb?: string | null
   payload: Prisma.InputJsonValue
+  /** LUM-863: `payload.tool_use_id`, stored in its own column (PRE/POST pairing). */
+  toolUseId?: string | null
   sessionId?: string | null
   taskId?: string | null
   /**
@@ -73,10 +79,16 @@ export const hookEventRepository = {
         },
         createdAt: { gte: since },
       },
-      select: { sessionId: true, type: true, createdAt: true, payload: true },
+      select: {
+        sessionId: true,
+        type: true,
+        createdAt: true,
+        payload: true,
+        payloadEncrypted: true,
+      },
       orderBy: { createdAt: 'asc' },
     })
-    return rows.filter(
+    return (await openHookPayloads(rows)).filter(
       (r): r is typeof r & { sessionId: string } => r.sessionId !== null
     ) as ToolEventRow[]
   },
@@ -92,9 +104,9 @@ export const hookEventRepository = {
     if (ids.length === 0) return out
     const rows = await prisma.hookEvent.findMany({
       where: { id: { in: ids } },
-      select: { id: true, payload: true },
+      select: { id: true, payload: true, payloadEncrypted: true },
     })
-    for (const row of rows) {
+    for (const row of await openHookPayloads(rows)) {
       const payload = row.payload as {
         tool_input?: { command?: unknown }
       } | null
@@ -106,6 +118,7 @@ export const hookEventRepository = {
 
   /** Record a Claude Code hook event for audit and activity tracking. */
   async createHookEvent(data: CreateHookEventData) {
+    const sealed = await sealHookPayload(data.workspaceId, data.payload)
     return prisma.hookEvent.create({
       data: {
         workspaceId: data.workspaceId,
@@ -117,7 +130,9 @@ export const hookEventRepository = {
         toolDetail: data.toolDetail ?? null,
         toolVerb: data.toolVerb ?? null,
         filePath: data.filePath ?? null,
-        payload: data.payload,
+        toolUseId: data.toolUseId ?? null,
+        payload: sealed.payload,
+        payloadEncrypted: sealed.payloadEncrypted,
         usageByModel:
           data.usageByModel != null
             ? (data.usageByModel as Prisma.InputJsonValue)
@@ -139,16 +154,18 @@ export const hookEventRepository = {
    * edit belongs to, for the turn-intent line.
    */
   async findManyByIdsForEditChange(ids: string[]) {
-    return prisma.hookEvent.findMany({
+    const rows = await prisma.hookEvent.findMany({
       where: { id: { in: ids } },
       select: {
         id: true,
         toolName: true,
         payload: true,
+        payloadEncrypted: true,
         sessionId: true,
         createdAt: true,
       },
     })
+    return openHookPayloads(rows)
   },
 
   /** LUM-932 P3: an event's current task attribution (null if none / missing). */
@@ -175,7 +192,7 @@ export const hookEventRepository = {
    */
   async findForDetectorReplay(ids: string[]) {
     if (ids.length === 0) return []
-    return prisma.hookEvent.findMany({
+    const rows = await prisma.hookEvent.findMany({
       where: { id: { in: ids } },
       select: {
         id: true,
@@ -184,10 +201,12 @@ export const hookEventRepository = {
         toolName: true,
         filePath: true,
         payload: true,
+        payloadEncrypted: true,
         payloadPrunedAt: true,
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     })
+    return openHookPayloads(rows)
   },
 
   /**
@@ -200,13 +219,14 @@ export const hookEventRepository = {
    */
   async findManyByIdsForAttribution(ids: string[]) {
     if (ids.length === 0) return []
-    return prisma.hookEvent.findMany({
+    const rows = await prisma.hookEvent.findMany({
       where: { id: { in: ids } },
       select: {
         id: true,
         workspaceMemberId: true,
         sessionId: true,
         payload: true,
+        payloadEncrypted: true,
         createdAt: true,
         session: {
           select: {
@@ -216,6 +236,7 @@ export const hookEventRepository = {
         },
       },
     })
+    return openHookPayloads(rows)
   },
 
   /**
@@ -380,16 +401,22 @@ export const hookEventRepository = {
    * (LUM-402). The caller owns the merge; nothing else writes a SESSION_START
    * payload after insert, so the replace cannot race another writer.
    * Best-effort like `setTurnSummary` — a vanished row (P2025) is swallowed
-   * because the caller is fire-and-forget.
+   * because the caller is fire-and-forget. `workspaceId` (the event's own)
+   * selects the data key the replacement is sealed with (LUM-863).
    */
   async setContextInjectionMetrics(
     eventId: string,
+    workspaceId: string,
     payloadWithMetrics: Prisma.InputJsonValue
   ) {
+    const sealed = await sealHookPayload(workspaceId, payloadWithMetrics)
     try {
       await prisma.hookEvent.update({
-        where: { id: eventId },
-        data: { payload: payloadWithMetrics },
+        where: { id: eventId, workspaceId },
+        data: {
+          payload: sealed.payload,
+          payloadEncrypted: sealed.payloadEncrypted,
+        },
         select: { id: true },
       })
     } catch (error) {
@@ -415,7 +442,7 @@ export const hookEventRepository = {
    * task's timeline via session.taskId, causing duplicate display.
    */
   async findByTaskId(taskId: string) {
-    return prisma.hookEvent.findMany({
+    const rows = await prisma.hookEvent.findMany({
       where: eventsForTask(taskId),
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: {
@@ -424,11 +451,13 @@ export const hookEventRepository = {
         type: true,
         toolName: true,
         payload: true,
+        payloadEncrypted: true,
         turnSummary: true,
         usageByModel: true,
         createdAt: true,
       },
     })
+    return openHookPayloads(rows)
   },
 
   /**
@@ -465,7 +494,7 @@ export const hookEventRepository = {
    * decide whether the same failure recurred ≥ threshold times.
    */
   async findFailuresBySession(sessionId: string) {
-    return prisma.hookEvent.findMany({
+    const rows = await prisma.hookEvent.findMany({
       where: {
         sessionId,
         type: { in: ['POST_TOOL_USE_FAILURE', 'STOP_FAILURE'] },
@@ -476,9 +505,11 @@ export const hookEventRepository = {
         toolName: true,
         turnSummary: true,
         payload: true,
+        payloadEncrypted: true,
         createdAt: true,
       },
     })
+    return openHookPayloads(rows)
   },
 
   /**

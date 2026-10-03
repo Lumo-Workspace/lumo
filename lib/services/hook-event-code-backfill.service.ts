@@ -1,5 +1,8 @@
 import type { HookEventType, Prisma } from '@prisma/client'
-import { hookEventCodeBackfillRepository } from '@/lib/repositories/hook-event-code-backfill.repository'
+import {
+  hookEventCodeBackfillRepository,
+  type PayloadRewrite,
+} from '@/lib/repositories/hook-event-code-backfill.repository'
 import { redactHookPayload } from '@/lib/validation/hook-payload'
 import {
   FAILURE_ERROR_CAP,
@@ -219,7 +222,7 @@ export const hookEventCodeBackfillService = {
         ids.slice(i, i + 200)
       )
       stats.scanned += rows.length
-      const updates: { id: string; payload: Prisma.InputJsonValue }[] = []
+      const updates: PayloadRewrite[] = []
       for (const row of rows) {
         const rewrite = rewriteCrossingPayload(row.type, row.payload)
         if (!rewrite) continue
@@ -232,6 +235,7 @@ export const hookEventCodeBackfillService = {
         }
         updates.push({
           id: row.id,
+          workspaceId: row.workspaceId,
           payload: rewrite.payload as Prisma.InputJsonValue,
         })
       }
@@ -272,14 +276,16 @@ export const hookEventCodeBackfillService = {
 
       const planned = page.flatMap(row => {
         const rewrite = rewriteStoredPayload(row.type, row.payload)
-        return rewrite ? [{ id: row.id, rewrite }] : []
+        return rewrite
+          ? [{ id: row.id, workspaceId: row.workspaceId, rewrite }]
+          : []
       })
       const referenced =
         await hookEventCodeBackfillRepository.findCrossingReferencedIds(
           planned.map(p => p.id)
         )
-      const updates: { id: string; payload: Prisma.InputJsonValue }[] = []
-      for (const { id, rewrite } of planned) {
+      const updates: PayloadRewrite[] = []
+      for (const { id, workspaceId, rewrite } of planned) {
         if (referenced.has(id)) {
           stats.skippedCrossing++
           continue
@@ -293,6 +299,7 @@ export const hookEventCodeBackfillService = {
         }
         updates.push({
           id,
+          workspaceId,
           payload: rewrite.payload as Prisma.InputJsonValue,
         })
       }

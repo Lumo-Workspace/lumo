@@ -52,7 +52,10 @@ describe('hookEventRepository.createHookEvent', () => {
         toolDetail: null,
         toolVerb: null,
         filePath: '/tmp/x',
+        toolUseId: null,
+        // No WORKSPACE_KEKS in unit tests: the plaintext path (LUM-863).
         payload: { tool_name: 'Read', tool_input: { file_path: '/tmp/x' } },
+        payloadEncrypted: null,
         usageByModel: Prisma.DbNull,
         attributionSignals: Prisma.DbNull,
       },

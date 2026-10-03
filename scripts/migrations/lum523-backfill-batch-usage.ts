@@ -67,6 +67,8 @@ function cumulativeFromPayload(
 
 async function main() {
   const { prisma } = await import('@/lib/db/prisma')
+  // LUM-863: payloads may be stored encrypted.
+  const { openHookPayloads } = await import('@/lib/hook-event/payload-cipher')
   const sessions = await prisma.hookEvent.findMany({
     where: { type: 'POST_TOOL_BATCH', sessionId: { not: null } },
     distinct: ['sessionId'],
@@ -75,14 +77,16 @@ async function main() {
   let updated = 0
   for (const { sessionId } of sessions) {
     if (!sessionId) continue
-    const events = await prisma.hookEvent.findMany({
-      where: {
-        sessionId,
-        type: { in: ['POST_TOOL_BATCH', 'STOP', 'STOP_FAILURE'] },
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      select: { id: true, type: true, payload: true },
-    })
+    const events = await openHookPayloads(
+      await prisma.hookEvent.findMany({
+        where: {
+          sessionId,
+          type: { in: ['POST_TOOL_BATCH', 'STOP', 'STOP_FAILURE'] },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: { id: true, type: true, payload: true, payloadEncrypted: true },
+      })
+    )
     const rows: SnapshotRow[] = []
     for (const e of events) {
       const cumulative = cumulativeFromPayload(e.payload)

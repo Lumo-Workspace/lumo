@@ -12,6 +12,7 @@
  */
 import 'dotenv/config'
 import { prisma } from '@/lib/db/prisma'
+import { openHookPayloads } from '@/lib/hook-event/payload-cipher'
 
 type PayloadShape = {
   session_id?: unknown
@@ -23,17 +24,21 @@ function str(v: unknown): string | null {
 }
 
 async function main() {
-  const events = await prisma.hookEvent.findMany({
-    where: { sessionId: null },
-    orderBy: { createdAt: 'asc' },
-    select: {
-      id: true,
-      workspaceId: true,
-      workspaceMemberId: true,
-      payload: true,
-      createdAt: true,
-    },
-  })
+  // LUM-863: payloads may be stored encrypted.
+  const events = await openHookPayloads(
+    await prisma.hookEvent.findMany({
+      where: { sessionId: null },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        workspaceId: true,
+        workspaceMemberId: true,
+        payload: true,
+        payloadEncrypted: true,
+        createdAt: true,
+      },
+    })
+  )
 
   console.log(`scanning ${events.length} orphan HookEvent rows`)
 

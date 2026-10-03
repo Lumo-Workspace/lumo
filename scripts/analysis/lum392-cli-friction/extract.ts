@@ -53,8 +53,11 @@ interface InvocationRecord {
 async function main() {
   const check = process.argv.includes('--check')
   const { prisma } = await import('@/lib/db/prisma')
+  const { openHookPayloads } = await import('@/lib/hook-event/payload-cipher')
 
   // ---- fetch all Bash POST_TOOL_USE events that mention lumo (keyset) ----
+  // LUM-863: payloads may be encrypted, so the `lumo` match runs in JS after
+  // decryption instead of as a JSON-path filter in SQL.
   type Row = {
     id: string
     sessionId: string | null
@@ -65,24 +68,26 @@ async function main() {
   const rows: Row[] = []
   let cursor: string | null = null
   for (;;) {
-    const batch: Row[] = await prisma.hookEvent.findMany({
-      where: {
-        type: 'POST_TOOL_USE',
-        toolName: 'Bash',
-        payload: { path: ['tool_input', 'command'], string_contains: 'lumo' },
-      },
+    const batch = await prisma.hookEvent.findMany({
+      where: { type: 'POST_TOOL_USE', toolName: 'Bash' },
       select: {
         id: true,
         sessionId: true,
         taskId: true,
         createdAt: true,
         payload: true,
+        payloadEncrypted: true,
       },
       orderBy: { id: 'asc' },
       take: 500,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     })
-    rows.push(...batch)
+    for (const row of (await openHookPayloads(batch)) as Row[]) {
+      const command = row.payload?.tool_input?.command
+      if (typeof command === 'string' && command.includes('lumo')) {
+        rows.push(row)
+      }
+    }
     if (batch.length < 500) break
     cursor = batch[batch.length - 1]!.id
   }

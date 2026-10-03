@@ -5,6 +5,7 @@ import {
 } from '@/lib/repositories/workspace-deletion.repository'
 import { workspaceExportRepository } from '@/lib/repositories/workspace-export.repository'
 import { logger } from '@/lib/logger'
+import { workspaceKeyring } from '@/lib/envelope-crypto/workspace-keyring'
 import type { DeletionNotice } from '@/lib/services/workspace-deletion-notice'
 
 const ERROR_MAX_CHARS = 500
@@ -139,6 +140,9 @@ export const workspaceDeletionService = {
     // LUM-918: cancelled after the cron picked it up — nothing was deleted.
     if (!purged) return null
     const { receiptId, rowCounts } = purged
+    // LUM-863: the purge cascaded the workspace's data keys away (counted on
+    // the receipt as WorkspaceDataKey) — drop this process's cached copies too.
+    workspaceKeyring.forgetWorkspace(workspaceId)
 
     const blobCleanup = await cleanupBlobs(
       workspaceBlobPrefixes(workspaceId, taskIds)

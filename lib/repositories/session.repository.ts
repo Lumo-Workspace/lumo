@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db/prisma'
 import type { Prisma, SessionRole, TaskArtifactAgent } from '@prisma/client'
+import { openHookPayloads } from '@/lib/hook-event/payload-cipher'
 import { buildChildSessionId } from '@/lib/session/child-session-id'
 import {
   bumpFamilyAttributionVersion,
@@ -1256,7 +1257,7 @@ export const sessionRepository = {
   },
 
   async listEventsForSession(sessionId: string) {
-    return prisma.hookEvent.findMany({
+    const rows = await prisma.hookEvent.findMany({
       where: { sessionId },
       orderBy: { createdAt: 'asc' },
       select: {
@@ -1264,9 +1265,11 @@ export const sessionRepository = {
         type: true,
         toolName: true,
         payload: true,
+        payloadEncrypted: true,
         createdAt: true,
       },
     })
+    return openHookPayloads(rows)
   },
 
   async updateSummary(input: {

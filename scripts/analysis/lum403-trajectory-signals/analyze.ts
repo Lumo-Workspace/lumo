@@ -285,29 +285,62 @@ function featureBlock(points: Labeled[]) {
 async function main() {
   const check = process.argv.includes('--check')
   const { prisma } = await import('@/lib/db/prisma')
+  const { openHookPayloads } = await import('@/lib/hook-event/payload-cipher')
   const { verificationRunRepository } =
     await import('@/lib/repositories/verification-run.repository')
 
   // Action stream labeled at the EVENT level (see header for why not
   // Session.taskId). POST_TOOL_USE(+FAILURE) only — one row per completed
   // tool call. PRE_TOOL_USE duplicates it; POST_TOOL_BATCH is a mid-turn
-  // usage snapshot (LUM-345), not an extra action. Raw read-only SELECT
-  // projects the Bash command head out of the JSON payload server-side so
-  // the (up to 64KB) payload column never crosses the wire.
-  const rows = await prisma.$queryRaw<ActionRow[]>`
-    SELECT id,
-           "sessionId",
-           "taskId",
-           type::text            AS type,
-           "toolName",
-           "filePath",
-           left(payload->'tool_input'->>'command', 200) AS command,
-           "createdAt"
-    FROM hook_events
-    WHERE "taskId" IS NOT NULL
-      AND type IN ('POST_TOOL_USE', 'POST_TOOL_USE_FAILURE')
-    ORDER BY "createdAt", id
-  `
+  // usage snapshot (LUM-345), not an extra action. LUM-863: payloads may be
+  // encrypted, so the Bash command head is projected in JS after decryption
+  // (keyset pages keep the payload volume per round trip bounded).
+  const rows: ActionRow[] = []
+  let cursor: string | null = null
+  for (;;) {
+    const page = await prisma.hookEvent.findMany({
+      where: {
+        taskId: { not: null },
+        type: { in: ['POST_TOOL_USE', 'POST_TOOL_USE_FAILURE'] },
+        ...(cursor ? { id: { gt: cursor } } : {}),
+      },
+      select: {
+        id: true,
+        sessionId: true,
+        taskId: true,
+        type: true,
+        toolName: true,
+        filePath: true,
+        createdAt: true,
+        payload: true,
+        payloadEncrypted: true,
+      },
+      orderBy: { id: 'asc' },
+      take: 500,
+    })
+    for (const r of await openHookPayloads(page)) {
+      const command = (
+        r.payload as { tool_input?: { command?: unknown } } | null
+      )?.tool_input?.command
+      rows.push({
+        id: r.id,
+        sessionId: r.sessionId,
+        taskId: r.taskId!,
+        type: r.type,
+        toolName: r.toolName,
+        filePath: r.filePath,
+        command: typeof command === 'string' ? command.slice(0, 200) : null,
+        createdAt: r.createdAt,
+      })
+    }
+    if (page.length < 500) break
+    cursor = page[page.length - 1]!.id
+  }
+  rows.sort(
+    (a, b) =>
+      a.createdAt.getTime() - b.createdAt.getTime() ||
+      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  )
   const unlabeledActionEvents = await prisma.hookEvent.count({
     where: {
       taskId: null,

@@ -59,7 +59,7 @@ describe('hookEventRetentionRepository (LUM-859)', () => {
     await expect(repo.prunePayloads(['e1', 'e2'], marker, at)).resolves.toBe(1)
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: { in: ['e1', 'e2'] }, payloadPrunedAt: null },
-      data: { payload: marker, payloadPrunedAt: at },
+      data: { payload: marker, payloadEncrypted: null, payloadPrunedAt: at },
     })
     await expect(repo.prunePayloads([], marker, at)).resolves.toBe(0)
     expect(updateMany).toHaveBeenCalledTimes(1)

@@ -105,7 +105,12 @@ export const hookEventRetentionRepository = {
     if (eventIds.length === 0) return 0
     const { count } = await prisma.hookEvent.updateMany({
       where: { id: { in: eventIds }, payloadPrunedAt: null },
-      data: { payload: prunedPayload, payloadPrunedAt: prunedAt },
+      // LUM-863: the ciphertext goes too — reads prefer it over `payload`.
+      data: {
+        payload: prunedPayload,
+        payloadEncrypted: null,
+        payloadPrunedAt: prunedAt,
+      },
     })
     return count
   },

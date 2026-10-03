@@ -38,7 +38,10 @@ config({ path: process.env.DOTENV_CONFIG_PATH ?? '.env.production' })
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
-interface InvocationRecord extends Omit<AttributionInput, 'astVerdict' | 'astOffending'> {
+interface InvocationRecord extends Omit<
+  AttributionInput,
+  'astVerdict' | 'astOffending'
+> {
   sessionId: string | null
   taskId: string | null
   siblings: number
@@ -75,17 +78,15 @@ function loadSkillDocsCorpus(): string {
     .replace(/^## Commands & flags that do NOT exist[\s\S]*?(?=^## )/m, '')
 }
 
-function offendingInDocs(
-  corpus: string,
-  ast: AstVerdict
-): boolean {
+function offendingInDocs(corpus: string, ast: AstVerdict): boolean {
   if (!ast.offending) return false
   if (ast.kind === 'unknown-flag') return corpus.includes(ast.offending)
   if (ast.kind === 'unknown-command') {
-    const attempted = [ast.commandPath, ast.offending]
-      .filter(Boolean)
-      .join(' ')
-    return corpus.includes(`lumo ${attempted}`) || corpus.includes(`\`${attempted}\``)
+    const attempted = [ast.commandPath, ast.offending].filter(Boolean).join(' ')
+    return (
+      corpus.includes(`lumo ${attempted}`) ||
+      corpus.includes(`\`${attempted}\``)
+    )
   }
   return false
 }
@@ -219,14 +220,20 @@ async function main() {
 
   // ---- side check 2: SKILL.md trigger recall (one read-only prod query) ----
   const { prisma } = await import('@/lib/db/prisma')
-  const skillLoadRows = await prisma.hookEvent.findMany({
-    where: {
-      type: 'PRE_TOOL_USE',
-      toolName: 'Skill',
-      payload: { path: ['tool_input', 'skill'], equals: 'lumo' },
-    },
-    select: { sessionId: true },
-  })
+  const { openHookPayloads } = await import('@/lib/hook-event/payload-cipher')
+  // LUM-863: payloads may be encrypted — match the skill name after decryption.
+  const skillLoadRows = (
+    await openHookPayloads(
+      await prisma.hookEvent.findMany({
+        where: { type: 'PRE_TOOL_USE', toolName: 'Skill' },
+        select: { sessionId: true, payload: true, payloadEncrypted: true },
+      })
+    )
+  ).filter(
+    r =>
+      (r.payload as { tool_input?: { skill?: unknown } } | null)?.tool_input
+        ?.skill === 'lumo'
+  )
   await prisma.$disconnect()
   const skillSessions = new Set(
     skillLoadRows.map(r => r.sessionId).filter(Boolean)
@@ -272,13 +279,22 @@ async function main() {
     coverage: {
       invocations: total,
       sessions: lumoSessions.size,
-      from: records.reduce((m, r) => (r.createdAt < m ? r.createdAt : m), records[0]!.createdAt),
-      to: records.reduce((m, r) => (r.createdAt > m ? r.createdAt : m), records[0]!.createdAt),
+      from: records.reduce(
+        (m, r) => (r.createdAt < m ? r.createdAt : m),
+        records[0]!.createdAt
+      ),
+      to: records.reduce(
+        (m, r) => (r.createdAt > m ? r.createdAt : m),
+        records[0]!.createdAt
+      ),
     },
     fiveClassDistribution: Object.fromEntries(
       classOrder.map(c => [
         c,
-        { count: byClass.get(c)?.length ?? 0, pct: pct(byClass.get(c)?.length ?? 0, total) },
+        {
+          count: byClass.get(c)?.length ?? 0,
+          pct: pct(byClass.get(c)?.length ?? 0, total),
+        },
       ])
     ),
     astVerdicts: {
@@ -346,12 +362,19 @@ async function main() {
     join(HERE, 'out/attribution.json'),
     JSON.stringify(aggregates, null, 2)
   )
-  writeFileSync(join(HERE, 'REPORT-lum413.md'), renderReport(aggregates, labeled))
+  writeFileSync(
+    join(HERE, 'REPORT-lum413.md'),
+    renderReport(aggregates, labeled)
+  )
 
-  console.log(`Labeled ${total} invocations across ${lumoSessions.size} sessions`)
+  console.log(
+    `Labeled ${total} invocations across ${lumoSessions.size} sessions`
+  )
   for (const c of classOrder) {
     const n = byClass.get(c)?.length ?? 0
-    console.log(`  ${c.padEnd(16)} ${String(n).padStart(5)}  (${pct(n, total)}%)`)
+    console.log(
+      `  ${c.padEnd(16)} ${String(n).padStart(5)}  (${pct(n, total)}%)`
+    )
   }
   console.log(
     `AST invalid constructions: ${astInvalid.length} (flag ${flagHallucinations.length} / enum ${enumViolations.length} / cmd ${unknownCommands.length}; ${docDrift.length} accepted at runtime → doc drift; ${truncatedSkipped} truncated raws skipped)`
@@ -386,7 +409,10 @@ function renderReport(
   const lines: string[] = []
   const push = (s = '') => lines.push(s)
   const causeRows = Object.entries(
-    agg.rootCauses as Record<string, { count: number; auto: number; needsReview: number }>
+    agg.rootCauses as Record<
+      string,
+      { count: number; auto: number; needsReview: number }
+    >
   )
   const dist = agg.fiveClassDistribution as Record<
     string,
@@ -485,7 +511,10 @@ function renderReport(
   push(`| Week of | Sessions | Loaded skill | Recall |`)
   push(`| --- | ---: | ---: | ---: |`)
   for (const [w, v] of Object.entries(
-    tr.weekly as Record<string, { total: number; loaded: number; recallPct: string }>
+    tr.weekly as Record<
+      string,
+      { total: number; loaded: number; recallPct: string }
+    >
   )) {
     push(`| ${w} | ${v.total} | ${v.loaded} | ${v.recallPct}% |`)
   }

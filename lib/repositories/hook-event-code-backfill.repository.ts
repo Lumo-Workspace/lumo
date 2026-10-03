@@ -1,5 +1,9 @@
 import type { HookEventType, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import {
+  openHookPayloads,
+  sealHookPayload,
+} from '@/lib/hook-event/payload-cipher'
 
 /** Hook event types that carry tool input/output (the only ones with code). */
 export const CODE_BEARING_HOOK_TYPES: HookEventType[] = [
@@ -23,12 +27,19 @@ export interface BackfillRow {
   createdAt: Date
 }
 
+/** One planned payload replacement (`workspaceId` picks the sealing key). */
+export interface PayloadRewrite {
+  id: string
+  workspaceId: string
+  payload: Prisma.InputJsonValue
+}
+
 // ── HookEvent code backfill repository (LUM-855) ─────────────────────────────
 
 export const hookEventCodeBackfillRepository = {
   /** One keyset page of unpruned code-bearing events, in id order. */
   async findPage(afterId: string | null, take: number): Promise<BackfillRow[]> {
-    return prisma.hookEvent.findMany({
+    const rows = await prisma.hookEvent.findMany({
       where: {
         type: { in: CODE_BEARING_HOOK_TYPES },
         payloadPrunedAt: null,
@@ -39,11 +50,13 @@ export const hookEventCodeBackfillRepository = {
         type: true,
         workspaceId: true,
         payload: true,
+        payloadEncrypted: true,
         createdAt: true,
       },
       orderBy: { id: 'asc' },
       take,
     })
+    return openHookPayloads(rows)
   },
 
   /** Every hook event id a boundary crossing points at, in id order. */
@@ -60,17 +73,19 @@ export const hookEventCodeBackfillRepository = {
   /** Unpruned events among `ids` (any type), in id order. */
   async findUnprunedByIds(ids: string[]): Promise<BackfillRow[]> {
     if (ids.length === 0) return []
-    return prisma.hookEvent.findMany({
+    const rows = await prisma.hookEvent.findMany({
       where: { id: { in: ids }, payloadPrunedAt: null },
       select: {
         id: true,
         type: true,
         workspaceId: true,
         payload: true,
+        payloadEncrypted: true,
         createdAt: true,
       },
       orderBy: { id: 'asc' },
     })
+    return openHookPayloads(rows)
   },
 
   /** The subset of `eventIds` a boundary crossing points at. */
@@ -90,19 +105,26 @@ export const hookEventCodeBackfillRepository = {
    * against production ran past Prisma's 5s default and rolled back.
    * Returns how many rows were written.
    */
-  async rewritePayloads(
-    updates: { id: string; payload: Prisma.InputJsonValue }[]
-  ): Promise<number> {
+  async rewritePayloads(updates: PayloadRewrite[]): Promise<number> {
     let written = 0
     for (let i = 0; i < updates.length; i += WRITE_CHUNK) {
-      const chunk = updates.slice(i, i + WRITE_CHUNK)
+      // Sealed before the transaction: key lookup / creation stays out of it.
+      const chunk = await Promise.all(
+        updates.slice(i, i + WRITE_CHUNK).map(async u => ({
+          id: u.id,
+          sealed: await sealHookPayload(u.workspaceId, u.payload),
+        }))
+      )
       written += await prisma.$transaction(
         async tx => {
           let count = 0
           for (const u of chunk) {
             const r = await tx.hookEvent.updateMany({
               where: { id: u.id, payloadPrunedAt: null },
-              data: { payload: u.payload },
+              data: {
+                payload: u.sealed.payload,
+                payloadEncrypted: u.sealed.payloadEncrypted,
+              },
             })
             count += r.count
           }

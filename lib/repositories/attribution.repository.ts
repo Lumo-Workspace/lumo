@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/prisma'
 import { parseTaskIdentifier } from '@/lib/attribution/identifier'
 import { isBackfillEligible } from '@/lib/attribution/backfill-eligibility'
 import { TASK_NOTIFICATION_MARKER } from '@/lib/attribution/signals'
+import { openHookPayloads } from '@/lib/hook-event/payload-cipher'
 import type { TaskSegmentRow } from '@/lib/attribution/run-attribution'
 import { Prisma } from '@prisma/client'
 import type {
@@ -173,6 +174,14 @@ async function loadFamilySessions(
   }
 }
 
+/** A USER_PROMPT_SUBMIT payload's `prompt` text ('' when absent). */
+function promptOf(payload: Prisma.JsonValue | null): string {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload))
+    return ''
+  const prompt = (payload as Prisma.JsonObject).prompt
+  return typeof prompt === 'string' ? prompt : ''
+}
+
 export const attributionRepository = {
   /** Root session + its direct children + their events (createdAt asc). Null when the root is missing. */
   async loadFamily(rootSessionId: string): Promise<SessionFamily | null> {
@@ -214,16 +223,41 @@ export const attributionRepository = {
                 array_contains: [{ kind: 'NOTIFICATION' }],
               },
             },
-            payload: {
-              path: ['prompt'],
-              string_contains: TASK_NOTIFICATION_MARKER,
-            },
+            // LUM-863: an encrypted payload cannot be filtered in SQL — those
+            // rows are fetched and the marker is matched after decryption.
+            OR: [
+              {
+                payload: {
+                  path: ['prompt'],
+                  string_contains: TASK_NOTIFICATION_MARKER,
+                },
+              },
+              { payloadEncrypted: { not: null } },
+            ],
           },
         ],
       },
-      select: { id: true, payload: true },
+      select: {
+        id: true,
+        type: true,
+        sessionId: true,
+        attributionSignals: true,
+        payload: true,
+        payloadEncrypted: true,
+      },
     })
-    const payloads = new Map(payloadRows.map(r => [r.id, r.payload]))
+    // Plaintext rows were already matched in SQL; an encrypted row that only
+    // came in through the ciphertext arm must still carry the marker.
+    const encrypted = new Set(
+      payloadRows.filter(r => r.payloadEncrypted != null).map(r => r.id)
+    )
+    const opened = (await openHookPayloads(payloadRows)).filter(
+      r =>
+        !encrypted.has(r.id) ||
+        r.attributionSignals === null ||
+        promptOf(r.payload).includes(TASK_NOTIFICATION_MARKER)
+    )
+    const payloads = new Map(opened.map(r => [r.id, r.payload]))
     const events: FamilyEvent[] = meta.map(e => ({
       ...e,
       payload: payloads.get(e.id) ?? null,
@@ -444,7 +478,15 @@ export const attributionRepository = {
         createdAt: { gte: since },
         workspaceId,
         type: 'PRE_TOOL_USE',
-        payload: { path: ['tool_use_id'], equals: toolUseId },
+        // LUM-863: the lifted column; rows recorded before it fall back to
+        // the (then always plaintext) payload JSON.
+        OR: [
+          { toolUseId },
+          {
+            toolUseId: null,
+            payload: { path: ['tool_use_id'], equals: toolUseId },
+          },
+        ],
       },
       select: { taskId: true },
       orderBy: { createdAt: 'desc' },

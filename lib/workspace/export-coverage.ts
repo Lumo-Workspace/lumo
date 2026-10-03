@@ -42,6 +42,7 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   DocumentRevision: 'edit history; the current document is exported',
   WorkspaceSummary: 'AI-generated digest, derived from exported data',
   WorkspaceInvite: 'pending invitation tokens — secrets',
+  WorkspaceDataKey: 'wrapped encryption key material — secrets',
   GitHubIntegration: INTEGRATION,
   GitHubAppInstallation: INTEGRATION,
   SlackIntegration: INTEGRATION,

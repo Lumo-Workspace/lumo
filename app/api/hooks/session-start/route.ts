@@ -142,7 +142,11 @@ export async function POST(request: Request) {
         } as unknown as Prisma.InputJsonValue
         waitUntil(
           hookEventRepository
-            .setContextInjectionMetrics(ctx.eventId, payloadWithMetrics)
+            .setContextInjectionMetrics(
+              ctx.eventId,
+              ctx.workspaceId,
+              payloadWithMetrics
+            )
             // Self-catch: the promise is never awaited, so a rejection here
             // would surface as an unhandled rejection instead of being eaten
             // by the handler's afterRecord guard (same as lineage edges).

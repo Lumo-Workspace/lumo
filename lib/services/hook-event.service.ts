@@ -178,6 +178,8 @@ export const hookEventService = {
     const filePath = extractFilePath(payload)
     const signals =
       attributionSignals ?? extractAttributionSignals(type, payload)
+    // LUM-863: lifted into its own column — the payload may be encrypted.
+    const toolUseId = extractStringField(payload, 'tool_use_id')
     // LUM-932 P3: an event of an unattached session is tagged with its
     // provisional (inferred) task at record time so detectors act on it right
     // away. Best-effort: a failed inference never blocks the event.
@@ -189,7 +191,7 @@ export const hookEventService = {
           parentSessionId: agentId ? sessionId : null,
           signals,
           type,
-          toolUseId: extractStringField(payload, 'tool_use_id'),
+          toolUseId,
         })
       } catch (error) {
         logger.error(
@@ -210,6 +212,7 @@ export const hookEventService = {
       toolVerb: bash?.verb ?? null,
       filePath,
       payload,
+      toolUseId,
       usageByModel:
         turnUsageByModel != null
           ? (turnUsageByModel as unknown as Prisma.InputJsonValue)

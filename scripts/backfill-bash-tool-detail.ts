@@ -166,6 +166,8 @@ export function parseArgs(argv: string[]): BackfillOptions {
 
 async function main() {
   const { prisma } = await import('../lib/db/prisma')
+  // LUM-863: payloads may be stored encrypted.
+  const { openHookPayloads } = await import('../lib/hook-event/payload-cipher')
   const opts = parseArgs(process.argv)
   const scope = opts.reclassify ?? null
   console.log(
@@ -174,17 +176,25 @@ async function main() {
   )
   const result = await backfillBashToolDetail(
     {
-      fetchBatch: (afterId, take) =>
-        prisma.hookEvent.findMany({
-          where: {
-            toolName: 'Bash',
-            ...(scope === 'all' ? {} : { toolDetail: scope }),
-            ...(afterId ? { id: { gt: afterId } } : {}),
-          },
-          orderBy: { id: 'asc' },
-          take,
-          select: { id: true, payload: true, toolDetail: true, toolVerb: true },
-        }),
+      fetchBatch: async (afterId, take) =>
+        openHookPayloads(
+          await prisma.hookEvent.findMany({
+            where: {
+              toolName: 'Bash',
+              ...(scope === 'all' ? {} : { toolDetail: scope }),
+              ...(afterId ? { id: { gt: afterId } } : {}),
+            },
+            orderBy: { id: 'asc' },
+            take,
+            select: {
+              id: true,
+              payload: true,
+              payloadEncrypted: true,
+              toolDetail: true,
+              toolVerb: true,
+            },
+          })
+        ),
       update: async ({ category, verb }, ids) => {
         const { count } = await prisma.hookEvent.updateMany({
           where: { id: { in: ids }, toolName: 'Bash' },
