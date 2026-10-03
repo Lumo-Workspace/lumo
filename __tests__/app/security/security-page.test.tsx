@@ -6,6 +6,9 @@
 process.env.CLERK_SECRET_KEY = 'sk_test_dummy'
 process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = 'pk_test_dummy'
 
+import { readFileSync } from 'fs'
+import { join } from 'path'
+
 import { createRouteMatcher } from '@clerk/nextjs/server'
 import { NextRequest } from 'next/server'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -20,6 +23,7 @@ import {
   INFRASTRUCTURE_SUBPROCESSORS,
   SECURITY_CONTACT_EMAIL,
 } from '@/lib/legal/subprocessors'
+import { EXPORT_TTL_DAYS } from '@/lib/workspace/export-ttl'
 import { PUBLIC_ROUTES } from '@/proxy'
 import { generateMetadata } from '@/app/security/page'
 
@@ -138,6 +142,51 @@ describe('/security page (LUM-856)', () => {
         )
           problems.push(`${locale}: ${key} is untranslated English`)
       }
+    }
+    expect(problems).toEqual([])
+  })
+
+  it('security page describes the shipped workspace export', () => {
+    // LUM-853: LUM-858 shipped an owner-only export, so /security may no
+    // longer list export as missing — and must say the export is partial.
+    expect(MESSAGES.en!['security.notYet.body']).not.toMatch(
+      /does not yet offer workspace data export/
+    )
+    expect(MESSAGES.en!['security.notYet.body']).toMatch(
+      /workspace export that includes every record/
+    )
+    expect(MESSAGES.en!['security.code.export']).toMatch(
+      new RegExp(`works for ${EXPORT_TTL_DAYS} days`)
+    )
+    expect(MESSAGES.en!['security.code.export']).toMatch(
+      /does not yet include everything/
+    )
+    expect(MESSAGES.en!['security.code.deletion']).toMatch(/48 hours/)
+    // Read from source: importing trash.service would load Prisma.
+    const TRASH_RETENTION_DAYS = Number(
+      /TRASH_RETENTION_DAYS = (\d+)/.exec(
+        readFileSync(
+          join(process.cwd(), 'lib/services/trash.service.ts'),
+          'utf8'
+        )
+      )?.[1]
+    )
+    expect(MESSAGES.en!['security.code.deletion']).toMatch(
+      new RegExp(`trash for ${TRASH_RETENTION_DAYS} days`)
+    )
+
+    const problems: string[] = []
+    for (const locale of PUBLIC_LOCALES) {
+      const messages = MESSAGES[locale]!
+      const page = text(render(locale))
+      const exportText = messages['security.code.export'] ?? ''
+      const deletion = messages['security.code.deletion'] ?? ''
+      if (!exportText || !page.includes(exportText))
+        problems.push(`${locale}: export paragraph not rendered`)
+      if (!exportText.includes(String(EXPORT_TTL_DAYS)))
+        problems.push(`${locale}: export TTL missing`)
+      if (!deletion.includes('48') || !deletion.includes('30'))
+        problems.push(`${locale}: deletion window or trash days missing`)
     }
     expect(problems).toEqual([])
   })

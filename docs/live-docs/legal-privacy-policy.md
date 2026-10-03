@@ -92,7 +92,7 @@ Depending on where you live, you have the right to:
 - **Withdraw consent** where we rely on it.
 - **Complain** to your data protection authority.
 
-To exercise these rights, email [privacy@uselumo.ai]. We answer within 30 days. Data export and deletion of an individual account are currently handled on request by our team; we will verify your identity before acting. For data in a workspace you do not own, we will pass your request to the workspace owner.
+To exercise these rights, email [privacy@uselumo.ai]. We answer within 30 days. Workspace owners can export a workspace themselves from workspace settings; that export does not yet include every record we store (our Security page lists what it leaves out). Data the export leaves out, data export for an individual account and deletion of an individual account are currently handled on request by our team; we will verify your identity before acting. For data in a workspace you do not own, we will pass your request to the workspace owner.
 
 California residents: we do not sell or share personal information for cross-context behavioural advertising, and we will not discriminate against you for exercising your privacy rights.
 

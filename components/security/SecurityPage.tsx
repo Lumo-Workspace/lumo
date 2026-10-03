@@ -31,6 +31,7 @@ const SECTIONS: { id: string; paragraphs: string[] }[] = [
       'hookEvents',
       'retention',
       'uninstall',
+      'export',
       'deletion',
     ],
   },

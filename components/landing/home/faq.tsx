@@ -19,6 +19,17 @@ interface FaqItem {
 //     figma, googleDrive — those are the ones named below.
 // The encryption sentence is likewise scoped to what lib/crypto.ts actually
 // encrypts (third-party credentials), not to "all sensitive data".
+// LUM-853: the privacy answer is held to /security and the privacy policy.
+//   - no training + zero data retention: lib/ai/zdr-fetch.ts forces
+//     providerOptions.gateway.zeroDataRetention on every gateway request;
+//     routing is global, so no region is promised (team wording rule).
+//   - export names only kinds in EXPORT_KINDS
+//     (lib/repositories/workspace-export.repository.ts) — never "everything":
+//     agent activity, PR/scan records and several child tables are not in it.
+//   - deletion: WORKSPACE_DELETION_GRACE_MS (48h, any owner can cancel), then
+//     every row and blob is purged (lib/services/workspace-deletion.service.ts).
+//   - not shipped, so not claimed: per-workspace encryption keys, use-then-
+//     discard retention, full-record hook mode.
 const FAQS: FaqItem[] = [
   {
     q: 'What if the agent just says it’s done?',
@@ -42,7 +53,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'Do you train on our code?',
-    a: 'No — your repositories are never used for training. Third-party credentials are encrypted with AES-256-GCM before they are stored, access is scoped per team, and you can export or delete everything on demand.',
+    a: 'No. Neither Lumo nor the model hosts we use train on your data. Every AI request goes through the Vercel AI Gateway with zero data retention enforced on the request itself. Requests are routed globally, so we don’t promise a processing region. Tokens for the tools you connect are encrypted with AES-256-GCM before they are stored. A workspace owner can download an export of the workspace’s projects, tasks, documents, ideas and team memory, or delete the workspace: any owner can cancel within 48 hours, then all of its data and files are permanently deleted. The details are on our Security page.',
   },
 ]
 

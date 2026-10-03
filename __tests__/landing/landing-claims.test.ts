@@ -150,3 +150,92 @@ describe('landing claims LUM-804', () => {
     }
   })
 })
+
+/**
+ * LUM-853 — the FAQ privacy answer is held to shipped code, the same way the
+ * /security page and the privacy policy are. Constants are read from source
+ * text (not imported) so these guards never load Prisma or the AI SDK.
+ */
+describe('FAQ privacy claims LUM-853', () => {
+  const ROOT = process.cwd()
+  const readRoot = (path: string) => readFileSync(join(ROOT, path), 'utf8')
+
+  function privacyAnswer(): string {
+    const faq = readLanding('faq.tsx')
+    const m = faq.match(
+      /q: 'Do you train on our code\?',\s*a: '((?:[^'\\]|\\.)*)'/
+    )
+    expect(m).not.toBeNull()
+    return (m as RegExpMatchArray)[1] as string
+  }
+
+  function exportKinds(): string[] {
+    const src = readRoot('lib/repositories/workspace-export.repository.ts')
+    const block = src.slice(
+      src.indexOf('export const EXPORT_KINDS = ['),
+      src.indexOf('] as const')
+    )
+    return [...block.matchAll(/'([a-z-]+)'/g)].map(m => m[1] as string)
+  }
+
+  it('FAQ privacy answer makes no unbacked claim', () => {
+    const answer = privacyAnswer()
+
+    // The pre-LUM-853 overclaims: export is partial, access is per workspace.
+    expect(answer).not.toMatch(/everything on demand/i)
+    expect(answer).not.toMatch(/export (or delete )?everything/i)
+    expect(answer).not.toMatch(/scoped per team/i)
+    // AI processing is routed globally: no region may be promised.
+    expect(answer).not.toMatch(
+      /\b(EU|Europe|European|United States|US-only|us-east|in your region)\b/
+    )
+    // Not shipped (LUM-863 / LUM-909 / LUM-910 / LUM-933), so not claimed.
+    expect(answer).not.toMatch(/separate key|per-workspace key|own key/i)
+    expect(answer).not.toMatch(
+      /discard|deleted (right )?after use|never stored/i
+    )
+    expect(answer).not.toMatch(/full record/i)
+    // Encryption is scoped to what lib/crypto.ts encrypts: connected-tool tokens.
+    for (const sentence of answer.split(/(?<=\.)\s+/)) {
+      if (/encrypt/i.test(sentence)) expect(sentence).toMatch(/^Tokens /)
+    }
+  })
+
+  it('FAQ privacy answer states the shipped guarantees', () => {
+    const answer = privacyAnswer()
+
+    // No training + zero data retention, forced on every gateway request.
+    expect(answer).toMatch(/Neither Lumo nor the model hosts we use train/)
+    expect(answer).toMatch(/zero data retention enforced/)
+    expect(readRoot('lib/ai/zdr-fetch.ts')).toMatch(
+      /ZDR_GATEWAY_OPTIONS = \{ zeroDataRetention: true \}/
+    )
+    // Team wording rule for processing location.
+    expect(answer).toMatch(/routed globally/)
+    expect(answer).toMatch(/don’t promise a processing region/)
+    expect(answer).toMatch(/AES-256-GCM/)
+
+    // Export names only kinds the archive really carries.
+    const kinds = new Set(exportKinds())
+    const NAMED: Record<string, string> = {
+      projects: 'projects',
+      tasks: 'tasks',
+      documents: 'documents',
+      ideas: 'ideas',
+      'team memory': 'memories',
+    }
+    const exportSentence =
+      answer.split(/(?<=\.)\s+/).find(s => /export/.test(s)) ?? ''
+    expect(exportSentence).toMatch(/workspace owner can download an export/)
+    for (const [phrase, kind] of Object.entries(NAMED)) {
+      expect(exportSentence).toContain(phrase)
+      expect(kinds.has(kind)).toBe(true)
+    }
+
+    // Deletion waits the real grace window before the purge.
+    expect(readRoot('lib/services/workspace-deletion.service.ts')).toMatch(
+      /WORKSPACE_DELETION_GRACE_MS = 48 \* 60 \* 60 \* 1000/
+    )
+    expect(answer).toMatch(/any owner can cancel within 48 hours/)
+  })
+})
