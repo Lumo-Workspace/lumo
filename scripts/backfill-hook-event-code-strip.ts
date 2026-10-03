@@ -3,6 +3,9 @@
  * HookEvent rows stored before ingest-time redaction existed. Every row goes
  * through the same two steps a new row gets today; rows a boundary crossing
  * references are skipped (the crossing re-judge reads their original text).
+ * LUM-933: only workspaces in "discard when used up" mode
+ * (hookEventRetentionMode = USED_UP) are touched — "keep forever / N days"
+ * workspaces keep their session record whole and are always skipped.
  *
  * Usage:
  *   npx tsx scripts/backfill-hook-event-code-strip.ts --dry-run [--limit N]

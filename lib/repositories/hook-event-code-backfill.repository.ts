@@ -23,15 +23,25 @@ export interface BackfillRow {
   createdAt: Date
 }
 
+/**
+ * LUM-933: only USED_UP workspaces strip code. RETAIN workspaces (keep
+ * forever / N days) keep their session record whole, so the backfill never
+ * reads or rewrites their events.
+ */
+const USED_UP_WORKSPACE = {
+  workspace: { is: { hookEventRetentionMode: 'USED_UP' as const } },
+}
+
 // ── HookEvent code backfill repository (LUM-855) ─────────────────────────────
 
 export const hookEventCodeBackfillRepository = {
-  /** One keyset page of unpruned code-bearing events, in id order. */
+  /** One keyset page of unpruned code-bearing events of USED_UP workspaces, in id order. */
   async findPage(afterId: string | null, take: number): Promise<BackfillRow[]> {
     return prisma.hookEvent.findMany({
       where: {
         type: { in: CODE_BEARING_HOOK_TYPES },
         payloadPrunedAt: null,
+        ...USED_UP_WORKSPACE,
         ...(afterId ? { id: { gt: afterId } } : {}),
       },
       select: {
@@ -57,11 +67,11 @@ export const hookEventCodeBackfillRepository = {
     return rows.flatMap(r => (r.hookEventId ? [r.hookEventId] : []))
   },
 
-  /** Unpruned events among `ids` (any type), in id order. */
+  /** Unpruned events among `ids` (any type) of USED_UP workspaces, in id order. */
   async findUnprunedByIds(ids: string[]): Promise<BackfillRow[]> {
     if (ids.length === 0) return []
     return prisma.hookEvent.findMany({
-      where: { id: { in: ids }, payloadPrunedAt: null },
+      where: { id: { in: ids }, payloadPrunedAt: null, ...USED_UP_WORKSPACE },
       select: {
         id: true,
         type: true,
@@ -100,8 +110,10 @@ export const hookEventCodeBackfillRepository = {
         async tx => {
           let count = 0
           for (const u of chunk) {
+            // Re-checked at write time: a workspace switched to RETAIN
+            // between the read and this write keeps its event whole.
             const r = await tx.hookEvent.updateMany({
-              where: { id: u.id, payloadPrunedAt: null },
+              where: { id: u.id, payloadPrunedAt: null, ...USED_UP_WORKSPACE },
               data: { payload: u.payload },
             })
             count += r.count
