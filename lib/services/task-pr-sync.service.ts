@@ -36,7 +36,18 @@ export async function syncPullRequestStatus(
   // keeps its stored state instead of being refreshed from GitHub. `null` =
   // refused or failed, already logged once for that repository.
   const tokens = new Map<string, string | null>()
-  const confirmed = await loadConfirmedRepositories(workspaceId)
+  // Fail-soft like the rest of the refresh: an unreadable installation row
+  // leaves every PR state stale (logged) instead of failing the task page.
+  let confirmed: (repository: string) => string | null
+  try {
+    confirmed = await loadConfirmedRepositories(workspaceId)
+  } catch (error) {
+    logger.warn(
+      `[pr-sync] could not read the confirmed repositories of workspace ${workspaceId}; PR states may be stale`,
+      { error: String(error) }
+    )
+    return updates
+  }
 
   for (const pr of openPrs) {
     const repo = pr.url.match(/github\.com\/([^/]+\/[^/]+)\/pull/)?.[1]

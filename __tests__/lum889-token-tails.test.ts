@@ -349,10 +349,15 @@ describe('LUM-889 PR link case', () => {
     ;(pullRequestRepository.findByRepoAndNumber as jest.Mock).mockResolvedValue(
       null
     )
+    // GitHub's own spelling differs from both the URLs and the confirmed
+    // list, so only reading `base.repo.full_name` yields this value.
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ghPr,
+      json: async () => ({
+        ...ghPr,
+        base: { ref: 'main', repo: { full_name: 'Acme/App' } },
+      }),
     })
     ;(githubRepository.upsertPullRequest as jest.Mock).mockResolvedValue({
       id: 'pr_new',
@@ -371,7 +376,7 @@ describe('LUM-889 PR link case', () => {
 
     const upserts = (githubRepository.upsertPullRequest as jest.Mock).mock.calls
     expect(upserts).toHaveLength(2)
-    for (const [data] of upserts) expect(data.repo).toBe('acme/app')
+    for (const [data] of upserts) expect(data.repo).toBe('Acme/App')
   })
 })
 

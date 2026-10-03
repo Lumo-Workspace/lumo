@@ -17,6 +17,7 @@ import * as githubBarrel from '@/lib/integrations/github'
 import type { RepoTokenPermissions } from '@/lib/integrations/github'
 import {
   auditTokenMints,
+  isGithubAuthModule,
   runtimeSourceFiles,
   type CallSiteAllowlist,
 } from '@/test-utils/token-mint-audit'
@@ -142,6 +143,70 @@ describe('LUM-889 the audit catches every known bypass form', () => {
       'loads @/lib/integrations/github/auth as a whole module',
     ],
     [
+      'dynamic import consumed by .then with a namespace parameter',
+      `export function t1() {
+         return import('@/lib/integrations/github/auth').then(m => m.createRepoScopedToken(1, 'a/b'))
+       }`,
+      'createRepoScopedToken used in t1',
+    ],
+    [
+      'dynamic import consumed by .then with a destructured parameter',
+      `export function t2() {
+         return import('@/lib/integrations/github/auth').then(({ createInstallationToken }) => createInstallationToken(1, {}))
+       }`,
+      'createInstallationToken used in t2',
+    ],
+    [
+      'dynamic import consumed by .then with an aliased destructured parameter',
+      `export function t3() {
+         return import('@/lib/integrations/github').then(function ({ getGithubAppJwt: jwt }) { return jwt() })
+       }`,
+      'getGithubAppJwt used in t3',
+    ],
+    [
+      'dynamic import .then whose module parameter escapes',
+      `export function t4() {
+         return import('@/lib/integrations/github/auth').then(m => Object.values(m))
+       }`,
+      'whole github auth module escapes in t4',
+    ],
+    [
+      'dynamic import .then with a non-literal callback',
+      `const handle = (m: unknown) => m
+       export function t5() { return import('@/lib/integrations/github/auth').then(handle) }`,
+      'loads @/lib/integrations/github/auth as a whole module',
+    ],
+    [
+      'bare baseUrl path import',
+      `import { createRepoScopedToken } from 'lib/integrations/github/auth'
+       export async function b1() { return createRepoScopedToken(1, 'a/b') }`,
+      'createRepoScopedToken used in b1',
+    ],
+    [
+      'alias path with a ./ segment',
+      `import { createInstallationToken } from '@/lib/integrations/github/./auth'
+       export async function b2() { return createInstallationToken(1, {}) }`,
+      'createInstallationToken used in b2',
+    ],
+    [
+      'alias path with a .. segment',
+      `import { createInstallationToken } from '@/lib/integrations/../integrations/github/auth'
+       export async function b3() { return createInstallationToken(1, {}) }`,
+      'createInstallationToken used in b3',
+    ],
+    [
+      'alias path with a doubled slash',
+      `import { createInstallationToken } from '@/lib/integrations//github/auth'
+       export async function b4() { return createInstallationToken(1, {}) }`,
+      'createInstallationToken used in b4',
+    ],
+    [
+      'relative path with redundant segments',
+      `import { getGithubAppJwt } from '../integrations/../integrations/github/./auth.ts'
+       export async function b5() { return getGithubAppJwt() }`,
+      'getGithubAppJwt used in b5',
+    ],
+    [
       'require of the auth module',
       `const gh = require('@/lib/integrations/github/auth')
        export const r = () => gh.createRepoScopedToken(1, 'a/b')`,
@@ -223,6 +288,47 @@ describe('LUM-889 the audit catches every known bypass form', () => {
     expect(auditTokenMints(file, source, ALLOWED)).toEqual([
       `${file}: createInstallationToken used in sneaky`,
     ])
+  })
+
+  it('scopes a .then module parameter to its callback: the same name elsewhere is not the module', () => {
+    const source = `const m = { createInstallationToken: () => 'local' }
+      export const outside = () => [m, m.createInstallationToken()]
+      export function fine() {
+        return import('@/lib/integrations/github/auth').then(m => m.getRepoCloneToken('w', 'a/b'))
+      }`
+    expect(auditTokenMints(lib, source, ALLOWED)).toEqual([])
+  })
+
+  it('resolves every compiler-accepted spelling of the github auth module, and nothing else', () => {
+    const from = 'lib/services/some.service.ts'
+    for (const spec of [
+      '@/lib/integrations/github',
+      '@/lib/integrations/github/auth',
+      '@/lib/integrations/github/index',
+      '@/lib/integrations/github/auth.ts',
+      'lib/integrations/github',
+      'lib/integrations/github/auth',
+      '@/lib/integrations/github/./auth',
+      '@/lib/integrations/../integrations/github/auth',
+      '@/lib/integrations//github/auth',
+      '@/lib/integrations/github/',
+      '../integrations/github/auth',
+      './../integrations/github',
+      '../../lib/integrations/github/auth',
+    ])
+      expect([spec, isGithubAuthModule(spec, from)]).toEqual([spec, true])
+    expect(
+      isGithubAuthModule('./auth', 'lib/integrations/github/index.ts')
+    ).toBe(true)
+    for (const spec of [
+      '@/lib/integrations/github/app-installations',
+      '@/lib/integrations/github/auth-helpers',
+      'lib/integrations/github/fetch-pull-request',
+      '@octokit/auth-app',
+      '../../../lib/integrations/github/auth',
+      './auth',
+    ])
+      expect([spec, isGithubAuthModule(spec, from)]).toEqual([spec, false])
   })
 
   it('ignores comments, type-only imports and the checked mints', () => {
