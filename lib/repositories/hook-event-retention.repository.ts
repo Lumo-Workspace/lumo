@@ -12,6 +12,8 @@ export interface FindExpiredEventIdsParams {
   /** Keyset cursor: only ids strictly greater than this. */
   afterId: string | null
   take: number
+  /** LUM-933: only events created at or after this instant (the cutoff). */
+  createdFrom?: Date | null
 }
 
 // ── HookEvent retention repository (LUM-859) ─────────────────────────────────
@@ -27,6 +29,8 @@ export const hookEventRetentionRepository = {
       id: string
       hookEventRetentionMode: 'RETAIN' | 'USED_UP'
       hookEventRetentionDays: number | null
+      hookEventRetentionSince: Date | null
+      hookEventRetentionLegacyDays: number | null
     }[]
   > {
     return prisma.workspace.findMany({
@@ -34,12 +38,15 @@ export const hookEventRetentionRepository = {
         OR: [
           { hookEventRetentionDays: { not: null } },
           { hookEventRetentionMode: 'USED_UP' },
+          { hookEventRetentionLegacyDays: { not: null } },
         ],
       },
       select: {
         id: true,
         hookEventRetentionMode: true,
         hookEventRetentionDays: true,
+        hookEventRetentionSince: true,
+        hookEventRetentionLegacyDays: true,
       },
     })
   },
@@ -64,11 +71,12 @@ export const hookEventRetentionRepository = {
   async findExpiredEventIds(
     params: FindExpiredEventIdsParams
   ): Promise<string[]> {
-    const { workspaceId, before, openTaskIds, afterId, take } = params
+    const { workspaceId, before, openTaskIds, afterId, take, createdFrom } =
+      params
     const where: Prisma.HookEventWhereInput = {
       workspaceId,
       payloadPrunedAt: null,
-      createdAt: { lt: before },
+      createdAt: { lt: before, ...(createdFrom ? { gte: createdFrom } : {}) },
       ...(afterId ? { id: { gt: afterId } } : {}),
       OR: [
         // Own task set: SQL `NOT IN` never matches NULL, so this arm only
@@ -180,8 +188,11 @@ export const hookEventRetentionRepository = {
     idleBefore: Date
     afterId: string | null
     take: number
+    /** LUM-933: only events created at or after this instant (the cutoff). */
+    createdFrom?: Date | null
   }): Promise<string[]> {
-    const { workspaceId, keepTaskIds, idleBefore, afterId, take } = params
+    const { workspaceId, keepTaskIds, idleBefore, afterId, take, createdFrom } =
+      params
     // `not: null` alongside `notIn`: an empty `notIn` alone matches NULL too.
     const usedUpTask = { not: null, notIn: keepTaskIds }
     const rows = await prisma.hookEvent.findMany({
@@ -189,6 +200,7 @@ export const hookEventRetentionRepository = {
         workspaceId,
         payloadPrunedAt: null,
         ...(afterId ? { id: { gt: afterId } } : {}),
+        ...(createdFrom ? { createdAt: { gte: createdFrom } } : {}),
         OR: [
           { taskId: usedUpTask },
           { taskId: null, sessionId: null, createdAt: { lt: idleBefore } },

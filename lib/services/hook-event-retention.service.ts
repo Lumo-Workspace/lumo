@@ -39,22 +39,36 @@ export interface PruneResult {
   pruned: number
 }
 
+/**
+ * LUM-933: which events one pass may touch. `createdFrom` = only events
+ * created at or after the cutoff (the current setting's segment);
+ * `createdBefore` = only events created before it (the legacy segment).
+ */
+interface EventWindow {
+  createdFrom?: Date | null
+  createdBefore?: Date | null
+}
+
+function emptyResult(workspaceId: string): PruneWorkspaceResult {
+  return { workspaceId, pruned: 0, keptForCrossings: 0, capped: false }
+}
+
 async function pruneWorkspace(
   workspaceId: string,
   retentionDays: number,
-  now: Date
+  now: Date,
+  window: EventWindow = {}
 ): Promise<PruneWorkspaceResult> {
-  const result: PruneWorkspaceResult = {
-    workspaceId,
-    pruned: 0,
-    keptForCrossings: 0,
-    capped: false,
-  }
+  const result = emptyResult(workspaceId)
   // A value outside the tiers can only come from a manual DB edit; treat it
   // as "off" rather than guess a window.
   if (!isHookEventRetentionDays(retentionDays)) return result
 
-  const before = new Date(now.getTime() - retentionDays * DAY_MS)
+  const tierBefore = new Date(now.getTime() - retentionDays * DAY_MS)
+  const before =
+    window.createdBefore && window.createdBefore < tierBefore
+      ? window.createdBefore
+      : tierBefore
   const prunedPayload = buildPrunedPayload(
     now,
     retentionDays
@@ -73,6 +87,7 @@ async function pruneWorkspace(
       openTaskIds,
       afterId,
       take: BATCH_SIZE,
+      createdFrom: window.createdFrom ?? null,
     })
     if (ids.length === 0) break
     scanned += ids.length
@@ -106,7 +121,8 @@ async function pruneWorkspace(
  */
 async function pruneUsedUpWorkspace(
   workspaceId: string,
-  now: Date
+  now: Date,
+  createdFrom: Date | null
 ): Promise<PruneWorkspaceResult> {
   const result: PruneWorkspaceResult = {
     workspaceId,
@@ -136,6 +152,7 @@ async function pruneUsedUpWorkspace(
       idleBefore,
       afterId,
       take: BATCH_SIZE,
+      createdFrom,
     })
     if (ids.length === 0) break
     scanned += ids.length
@@ -172,6 +189,55 @@ async function pruneUsedUpWorkspace(
   return result
 }
 
+function addResults(
+  a: PruneWorkspaceResult,
+  b: PruneWorkspaceResult
+): PruneWorkspaceResult {
+  return {
+    workspaceId: a.workspaceId,
+    pruned: a.pruned + b.pruned,
+    keptForCrossings: a.keptForCrossings + b.keptForCrossings,
+    capped: a.capped || b.capped,
+  }
+}
+
+/**
+ * LUM-933 — one workspace under its setting and cutoff. Events created at or
+ * after `hookEventRetentionSince` (all events when there is no cutoff)
+ * follow the current setting; older ones follow the legacy day tier they
+ * were stored under, or are never pruned when it is null. A stricter
+ * setting therefore never clears data stored before the change.
+ */
+async function pruneWorkspaceBySetting(
+  ws: {
+    id: string
+    hookEventRetentionMode: 'RETAIN' | 'USED_UP'
+    hookEventRetentionDays: number | null
+    hookEventRetentionSince: Date | null
+    hookEventRetentionLegacyDays: number | null
+  },
+  now: Date
+): Promise<PruneWorkspaceResult> {
+  const since = ws.hookEventRetentionSince
+  let result = emptyResult(ws.id)
+  if (ws.hookEventRetentionMode === 'USED_UP') {
+    result = await pruneUsedUpWorkspace(ws.id, now, since)
+  } else if (ws.hookEventRetentionDays != null) {
+    result = await pruneWorkspace(ws.id, ws.hookEventRetentionDays, now, {
+      createdFrom: since,
+    })
+  }
+  if (since && ws.hookEventRetentionLegacyDays != null) {
+    result = addResults(
+      result,
+      await pruneWorkspace(ws.id, ws.hookEventRetentionLegacyDays, now, {
+        createdBefore: since,
+      })
+    )
+  }
+  return result
+}
+
 export const hookEventRetentionService = {
   /**
    * LUM-859 / LUM-910 — daily sweep. USED_UP workspaces drop each event's raw
@@ -189,13 +255,7 @@ export const hookEventRetentionService = {
       await hookEventRetentionRepository.listWorkspacesWithRetention()
     const results: PruneWorkspaceResult[] = []
     for (const ws of workspaces) {
-      if (ws.hookEventRetentionMode === 'USED_UP') {
-        results.push(await pruneUsedUpWorkspace(ws.id, now))
-      } else if (ws.hookEventRetentionDays != null) {
-        results.push(
-          await pruneWorkspace(ws.id, ws.hookEventRetentionDays, now)
-        )
-      }
+      results.push(await pruneWorkspaceBySetting(ws, now))
     }
     return {
       workspaces: results,

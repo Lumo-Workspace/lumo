@@ -1,11 +1,19 @@
-import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import {
+  workspaceRepository,
+  type WorkspaceUpdateData,
+} from '@/lib/repositories/workspace.repository'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
 import type { SecurityPolicy } from '@/lib/security-scan/policy'
-import type {
-  HookEventRetentionDays,
-  HookEventRetentionMode,
+import {
+  nextSessionRecordCutoff,
+  sessionRecordChoiceOf,
+  type HookEventRetentionDays,
+  type HookEventRetentionMode,
 } from '@/lib/hook-event/retention'
-import type { CrossingRawRetentionDays } from '@/lib/boundary-crossing/raw-retention'
+import {
+  nextCrossingRawRetentionSince,
+  type CrossingRawRetentionDays,
+} from '@/lib/boundary-crossing/raw-retention'
 import type { DeadLetterRetentionDays } from '@/lib/integrations/github/dead-letter-retention'
 import type { ScanEvidenceRetentionDays } from '@/lib/security-scan/evidence-retention'
 
@@ -35,6 +43,71 @@ export interface UpdateWorkspaceInput {
   securityScanEnabled?: boolean | undefined
   securityAiReviewEnabled?: boolean | undefined
   securityHuntEnabled?: boolean | undefined
+}
+
+// ── Retention changes (LUM-933) ─────────────────────────────────────────────
+
+/**
+ * The columns a session record / crossing retention change writes. A
+ * stricter setting only governs data stored afterwards: the cutoff columns
+ * move with it (lib/hook-event/retention.ts nextSessionRecordCutoff,
+ * lib/boundary-crossing/raw-retention.ts nextCrossingRawRetentionSince).
+ */
+async function retentionChangeData(
+  workspaceId: string,
+  input: UpdateWorkspaceInput,
+  now: Date
+): Promise<WorkspaceUpdateData> {
+  const data: WorkspaceUpdateData = {}
+  const stored = await workspaceRepository.findRetentionSettings(workspaceId)
+  if (!stored) {
+    throw Object.assign(new Error('Workspace not found'), { status: 404 })
+  }
+
+  if (
+    input.hookEventRetentionMode !== undefined ||
+    input.hookEventRetentionDays !== undefined
+  ) {
+    // The pre-LUM-933 single-field form (days only) is always a RETAIN choice.
+    const mode = input.hookEventRetentionMode ?? 'RETAIN'
+    const days =
+      mode === 'USED_UP' ? null : (input.hookEventRetentionDays ?? null)
+    if (mode === 'USED_UP' && input.hookEventRetentionDays != null) {
+      throw Object.assign(
+        new Error(
+          'Used-up mode has no day tier: send hookEventRetentionDays null'
+        ),
+        { status: 400 }
+      )
+    }
+    const cutoff = nextSessionRecordCutoff({
+      from: sessionRecordChoiceOf(
+        stored.hookEventRetentionMode,
+        stored.hookEventRetentionDays
+      ),
+      to: sessionRecordChoiceOf(mode, days),
+      current: {
+        since: stored.hookEventRetentionSince,
+        legacyDays: stored.hookEventRetentionLegacyDays,
+      },
+      now,
+    })
+    data.hookEventRetentionMode = mode
+    data.hookEventRetentionDays = days
+    data.hookEventRetentionSince = cutoff.since
+    data.hookEventRetentionLegacyDays = cutoff.legacyDays
+  }
+
+  if (input.crossingRawRetentionDays !== undefined) {
+    data.crossingRawRetentionDays = input.crossingRawRetentionDays
+    data.crossingRawRetentionSince = nextCrossingRawRetentionSince({
+      fromDays: stored.crossingRawRetentionDays,
+      toDays: input.crossingRawRetentionDays,
+      since: stored.crossingRawRetentionSince,
+      now,
+    })
+  }
+  return data
 }
 
 // ── Workspace Service ───────────────────────────────────────────────────────
@@ -97,33 +170,8 @@ export const workspaceService = {
       data.acceptanceMode = input.acceptanceMode
     if (input.securityPolicy !== undefined)
       data.securityPolicy = input.securityPolicy
-    if (input.hookEventRetentionDays !== undefined)
-      data.hookEventRetentionDays = input.hookEventRetentionDays
     if (input.scanEvidenceRetentionDays !== undefined)
       data.scanEvidenceRetentionDays = input.scanEvidenceRetentionDays
-    if (input.hookEventRetentionMode !== undefined) {
-      if (
-        input.hookEventRetentionMode === 'USED_UP' &&
-        input.hookEventRetentionDays != null
-      ) {
-        throw Object.assign(
-          new Error(
-            'Used-up mode has no day tier: send hookEventRetentionDays null'
-          ),
-          { status: 400 }
-        )
-      }
-      data.hookEventRetentionMode = input.hookEventRetentionMode
-      // LUM-933: the day tier only applies in RETAIN mode; USED_UP keeps none.
-      if (input.hookEventRetentionMode === 'USED_UP')
-        data.hookEventRetentionDays = null
-    } else if (input.hookEventRetentionDays !== undefined) {
-      // The pre-LUM-933 single-field form: a day tier (or null = forever) is
-      // always a RETAIN choice.
-      data.hookEventRetentionMode = 'RETAIN'
-    }
-    if (input.crossingRawRetentionDays !== undefined)
-      data.crossingRawRetentionDays = input.crossingRawRetentionDays
     if (input.deadLetterRetentionDays !== undefined)
       data.deadLetterRetentionDays = input.deadLetterRetentionDays
     if (input.securityScanEnabled !== undefined)
@@ -132,6 +180,17 @@ export const workspaceService = {
       data.securityAiReviewEnabled = input.securityAiReviewEnabled
     if (input.securityHuntEnabled !== undefined)
       data.securityHuntEnabled = input.securityHuntEnabled
+
+    if (
+      input.hookEventRetentionMode !== undefined ||
+      input.hookEventRetentionDays !== undefined ||
+      input.crossingRawRetentionDays !== undefined
+    ) {
+      Object.assign(
+        data,
+        await retentionChangeData(workspaceId, input, new Date())
+      )
+    }
 
     return workspaceRepository.update(workspaceId, data)
   },

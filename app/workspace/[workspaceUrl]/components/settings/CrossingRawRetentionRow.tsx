@@ -62,7 +62,7 @@ export function CrossingRawRetentionRow({
       }}
       warning={
         days < saved
-          ? intl.formatMessage({ id: 'dataRetention.shortenWarning' })
+          ? intl.formatMessage({ id: 'dataRetention.crossing.tightenNote' })
           : null
       }
       saving={saving}

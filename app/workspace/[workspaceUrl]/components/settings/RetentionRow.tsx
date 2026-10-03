@@ -19,7 +19,7 @@ interface RetentionRowProps {
   options: RetentionRowOption[]
   value: string
   onChange: (value: string) => void
-  /** Shown under the select when the pending choice would clear more data than today's. */
+  /** Shown under the select when the pending choice is stricter than the saved one. */
   warning?: string | null
   saving: boolean
   onSave: () => void

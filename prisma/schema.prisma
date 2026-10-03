@@ -396,13 +396,23 @@ model Workspace {
   // dropped 7 days after it is used up (task DONE, 30 days idle, crossing
   // dispositioned); `hookEventRetentionDays` is null in this mode.
   hookEventRetentionMode HookEventRetentionMode @default(RETAIN)
+  // LUM-933: a setting change only governs data stored afterwards. When the
+  // session record setting gets stricter, `hookEventRetentionSince` moves to
+  // that instant: events created from then on follow the current setting,
+  // older ones follow `hookEventRetentionLegacyDays` (the most lenient day
+  // tier they were ever stored under; null = never pruned). Both null = no
+  // cutoff, the current setting governs every event.
+  hookEventRetentionSince      DateTime?
+  hookEventRetentionLegacyDays Int?
 
   // LUM-912: days a dispositioned boundary crossing keeps its raw text
   // (detail, target, explanations, timeline copies). OWNER picks 7 / 30 / 90.
   crossingRawRetentionDays  Int      @default(7)
   // LUM-912: only crossings dispositioned at or after this instant are purged
   // automatically. Filled with the migration time for existing workspaces, so
-  // deploying never purges the historical stock (that is LUM-914).
+  // deploying never purges the historical stock (that is LUM-914). LUM-933:
+  // moves to the change time whenever the OWNER shortens the window, so a
+  // shorter window never purges crossings ruled under the longer one.
   crossingRawRetentionSince DateTime @default(now())
 
   // LUM-941: days a dead-lettered PR comment sync job keeps its GitHub

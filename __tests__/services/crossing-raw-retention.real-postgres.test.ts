@@ -23,6 +23,7 @@ jest.mock('@/lib/db/prisma', () => ({
 import { crossingRawRetentionService } from '@/lib/services/crossing-raw-retention.service'
 import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
+import { workspaceService } from '@/lib/services/workspace.service'
 
 jest.setTimeout(180_000)
 
@@ -267,5 +268,82 @@ describe('crossing raw retention', () => {
     // A reopened crossing is not dispositioned: the sweep leaves it alone.
     const again = await crossingRawRetentionService.purgeExpired(NOW)
     expect(again.purged).toBe(0)
+  })
+})
+
+describe('LUM-933 cutoff for crossing originals', () => {
+  it('shortening the crossing window never purges crossings ruled before the change', async () => {
+    const W = 'ws_cross_cut'
+    const T = 'task_cross_cut'
+    const real = Date.now()
+    await db().workspace.create({
+      data: {
+        id: W,
+        name: W,
+        slug: W,
+        crossingRawRetentionDays: 30,
+        crossingRawRetentionSince: new Date(real - 100 * DAY),
+      },
+    })
+    await db().workspaceMember.create({
+      data: { id: 'm_cut', workspaceId: W, clerkId: 'clerk_cut' },
+    })
+    await db().team.create({
+      data: { id: 'team_cut', workspaceId: W, name: W, identifier: 'CC' },
+    })
+    await db().project.create({
+      data: {
+        id: 'proj_cut',
+        workspaceId: W,
+        teamId: 'team_cut',
+        createdByMemberId: 'm_cut',
+        name: W,
+      },
+    })
+    await db().task.create({
+      data: {
+        id: T,
+        projectId: 'proj_cut',
+        teamId: 'team_cut',
+        number: 1,
+        title: W,
+      },
+    })
+    const ruled = (id: string, at: Date) =>
+      db().boundaryCrossing.create({
+        data: {
+          id,
+          taskId: T,
+          category: 'DESTRUCTIVE_DB_COMMAND',
+          detail: `Ran ${COMMAND}`,
+          target: COMMAND,
+          disposition: 'CONFIRMED',
+          dispositionedAt: at,
+        },
+      })
+    await ruled('cut_before', new Date(real - 10 * DAY))
+
+    // 30 → 7: the cutoff moves to the change.
+    await workspaceService.updateWorkspace(W, 'OWNER', W, {
+      crossingRawRetentionDays: 7,
+    })
+    const { crossingRawRetentionSince: since } =
+      await db().workspace.findUniqueOrThrow({ where: { id: W } })
+    expect(since.getTime()).toBeGreaterThanOrEqual(real)
+    await ruled('cut_after', new Date(since.getTime() + 60_000))
+
+    await crossingRawRetentionService.purgeExpired(
+      new Date(since.getTime() + 8 * DAY)
+    )
+    // Ruled 18 days before this sweep under the 30-day promise: kept.
+    expect((await crossing('cut_before')).rawPurgedAt).toBeNull()
+    expect((await crossing('cut_after')).rawPurgedAt).not.toBeNull()
+
+    // 7 → 90 is longer: the cutoff stays put.
+    await workspaceService.updateWorkspace(W, 'OWNER', W, {
+      crossingRawRetentionDays: 90,
+    })
+    const after = await db().workspace.findUniqueOrThrow({ where: { id: W } })
+    expect(after.crossingRawRetentionSince).toEqual(since)
   })
 })

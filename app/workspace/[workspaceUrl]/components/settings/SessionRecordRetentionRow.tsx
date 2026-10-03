@@ -94,7 +94,7 @@ export function SessionRecordRetentionRow({
       onChange={v => setChoice(parseChoice(v))}
       warning={
         sessionRecordChoiceShortens(saved, choice)
-          ? intl.formatMessage({ id: 'dataRetention.session.shortenWarning' })
+          ? intl.formatMessage({ id: 'dataRetention.session.tightenNote' })
           : null
       }
       saving={saving}

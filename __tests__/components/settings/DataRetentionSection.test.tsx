@@ -145,8 +145,12 @@ describe('DataRetentionSection', () => {
 
     fireEvent.change(select('session-record'), { target: { value: '30' } })
     const warning = screen.getByTestId('retention-warning-session-record')
-    expect(warning).toHaveTextContent(/next daily cleanup will clear/i)
-    expect(warning).toHaveTextContent(/existing session history/i)
+    // LUM-933 ruling: a stricter setting only governs data stored afterwards.
+    expect(warning).toHaveTextContent(
+      /applies only to session records stored from now on/i
+    )
+    expect(warning).toHaveTextContent(/not cleared by this change/i)
+    expect(warning).not.toHaveTextContent(/cannot be restored/i)
 
     fireEvent.change(select('session-record'), { target: { value: 'used_up' } })
     expect(
@@ -184,6 +188,17 @@ describe('DataRetentionSection', () => {
     expect(
       screen.queryByTestId('retention-warning-session-record')
     ).not.toBeInTheDocument()
+  })
+
+  it('crossing row notes that a shorter window only applies to new rulings', () => {
+    renderSection({ ...DEFAULTS, crossingRawRetentionDays: 30 })
+    expect(
+      screen.queryByTestId('retention-warning-crossing-raw')
+    ).not.toBeInTheDocument()
+    fireEvent.change(select('crossing-raw'), { target: { value: '7' } })
+    expect(
+      screen.getByTestId('retention-warning-crossing-raw')
+    ).toHaveTextContent(/only to crossings dispositioned from now on/i)
   })
 
   it('reads a stored used-up mode back as the used-up choice', () => {

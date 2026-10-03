@@ -34,6 +34,25 @@ export function crossingRawPurgeCutoff(now: Date, retentionDays: number): Date {
   return new Date(now.getTime() - days * DAY_MS)
 }
 
+/**
+ * LUM-933: the workspace's `crossingRawRetentionSince` after the OWNER moves
+ * the window from `fromDays` to `toDays` at `now`. A shorter window only
+ * applies to crossings dispositioned from now on — the ones ruled before
+ * keep the longer promise (and are never purged automatically, like the
+ * pre-rollout stock). A longer or equal window leaves the cutoff alone.
+ */
+export function nextCrossingRawRetentionSince(input: {
+  fromDays: number
+  toDays: number
+  since: Date
+  now: Date
+}): Date {
+  const from = isCrossingRawRetentionDays(input.fromDays)
+    ? input.fromDays
+    : DEFAULT_CROSSING_RAW_RETENTION_DAYS
+  return input.toDays < from ? input.now : input.since
+}
+
 /** Prefix of a purged target, so a reader can tell a hash from a real target. */
 export const PURGED_TARGET_PREFIX = 'sha256:'
 

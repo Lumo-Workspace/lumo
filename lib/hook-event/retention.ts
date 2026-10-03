@@ -132,8 +132,10 @@ export function sessionRecordChoiceOf(
 }
 
 /**
- * True when moving from `from` to `to` lets the next daily sweep clear raw
- * events that the current setting keeps — the settings row warns first.
+ * True when moving from `from` to `to` makes the setting stricter: it could
+ * clear raw events the current setting keeps. A stricter setting only
+ * governs events stored afterwards (see nextSessionRecordCutoff) and the
+ * settings row says so before saving.
  */
 export function sessionRecordChoiceShortens(
   from: SessionRecordChoice,
@@ -151,4 +153,66 @@ export function isPrunedPayload(payload: unknown): boolean {
     return false
   const marker = (payload as Record<string, unknown>)[PRUNED_PAYLOAD_KEY]
   return !!marker && typeof marker === 'object'
+}
+
+// ── LUM-933: a setting change only governs data stored afterwards ──────────
+
+/**
+ * Which events the current session record setting governs. Events created at
+ * or after `since` follow the current setting; older ones follow
+ * `legacyDays` (a RETAIN day tier, LUM-859 rules) or, when it is null, are
+ * never pruned. `since` null = no cutoff: the current setting governs all.
+ */
+export interface SessionRecordCutoff {
+  since: Date | null
+  legacyDays: number | null
+}
+
+/** The day tier a choice prunes by; null when it promises "until used up" or forever. */
+function legacyDaysOf(choice: SessionRecordChoice): number | null {
+  return typeof choice === 'number' ? choice : null
+}
+
+/**
+ * The longer of two promises: null (never pruned) wins, otherwise the larger
+ * day tier. Used-up is not comparable with a day tier (an open task's events
+ * are kept indefinitely), so it is folded in as "never" — the safe side.
+ */
+function moreLenient(a: number | null, b: number | null): number | null {
+  if (a === null || b === null) return null
+  return Math.max(a, b)
+}
+
+/**
+ * The cutoff after the OWNER moves the session record setting from `from`
+ * to `to` at `now`. Guarantees no event is ever pruned earlier than the
+ * setting it was stored under promised:
+ *  - stricter (forever → N days / used-up, N → smaller N, used-up ↔ N):
+ *    `since` moves to `now`; everything stored before keeps the most
+ *    lenient promise it was ever under (`legacyDays`). Several tightenings
+ *    in a row merge into one legacy segment — it may keep data longer than
+ *    the intermediate setting promised, never shorter.
+ *  - looser: `since` stays; the legacy segment only ever gets more lenient.
+ *  - back to forever: no cutoff at all — nothing is pruned any more.
+ */
+export function nextSessionRecordCutoff(input: {
+  from: SessionRecordChoice
+  to: SessionRecordChoice
+  current: SessionRecordCutoff
+  now: Date
+}): SessionRecordCutoff {
+  const { from, to, current, now } = input
+  if (from === to) return current
+  if (to === 'forever') return { since: null, legacyDays: null }
+  if (sessionRecordChoiceShortens(from, to)) {
+    const legacyDays = current.since
+      ? moreLenient(current.legacyDays, legacyDaysOf(from))
+      : legacyDaysOf(from)
+    return { since: now, legacyDays }
+  }
+  if (!current.since) return current
+  return {
+    since: current.since,
+    legacyDays: moreLenient(current.legacyDays, legacyDaysOf(to)),
+  }
 }

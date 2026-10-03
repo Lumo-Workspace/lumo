@@ -22,6 +22,7 @@ jest.mock('@/lib/db/prisma', () => ({
 }))
 
 import { hookEventRetentionService } from '@/lib/services/hook-event-retention.service'
+import { workspaceService } from '@/lib/services/workspace.service'
 import { isPrunedPayload } from '@/lib/hook-event/retention'
 
 jest.setTimeout(180_000)
@@ -329,5 +330,172 @@ describe('other modes', () => {
       reason: 'RETENTION_POLICY',
       retentionDays: 30,
     })
+  })
+})
+
+describe('LUM-933 cutoff: a setting change only governs data stored afterwards', () => {
+  const at = (base: Date, days: number) => new Date(base.getTime() + days * DAY)
+
+  async function change(
+    ws: string,
+    input: {
+      hookEventRetentionMode: 'RETAIN' | 'USED_UP'
+      hookEventRetentionDays: 30 | 90 | 180 | 365 | null
+    }
+  ) {
+    await workspaceService.updateWorkspace(ws, 'OWNER', ws, input)
+    return db().workspace.findUniqueOrThrow({
+      where: { id: ws },
+      select: {
+        hookEventRetentionSince: true,
+        hookEventRetentionLegacyDays: true,
+      },
+    })
+  }
+
+  const tick = () => new Promise(r => setTimeout(r, 5))
+
+  it('tightening the session record setting never clears data stored before the change', async () => {
+    // forever → 30 days
+    const A = 'ws_cut_30'
+    await seedWorkspace(A, {})
+    const a = await change(A, {
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: 30,
+    })
+    const sinceA = a.hookEventRetentionSince!
+    expect(a.hookEventRetentionLegacyDays).toBeNull()
+    await seedTask(A, `${A}_done`, 'DONE', at(sinceA, -100))
+    await seedEvent(A, `${A}_old`, {
+      taskId: `${A}_done`,
+      createdAt: at(sinceA, -100),
+    })
+    await seedEvent(A, `${A}_new`, {
+      taskId: `${A}_done`,
+      createdAt: at(sinceA, 0.001),
+    })
+
+    // forever → used-up
+    const B = 'ws_cut_used_up'
+    await seedWorkspace(B, {})
+    const b = await change(B, {
+      hookEventRetentionMode: 'USED_UP',
+      hookEventRetentionDays: null,
+    })
+    const sinceB = b.hookEventRetentionSince!
+    await seedTask(B, `${B}_done`, 'DONE', at(sinceB, -100))
+    await seedEvent(B, `${B}_old`, {
+      taskId: `${B}_done`,
+      createdAt: at(sinceB, -100),
+    })
+    await seedEvent(B, `${B}_new`, {
+      taskId: `${B}_done`,
+      createdAt: at(sinceB, 0.001),
+    })
+
+    // forever → 365 → 30: both earlier segments keep "forever".
+    const D = 'ws_cut_multi'
+    await seedWorkspace(D, {})
+    const d1 = await change(D, {
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: 365,
+    })
+    await tick()
+    const d2 = await change(D, {
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: 30,
+    })
+    const since1 = d1.hookEventRetentionSince!
+    const since2 = d2.hookEventRetentionSince!
+    expect(since2.getTime()).toBeGreaterThan(since1.getTime())
+    expect(d2.hookEventRetentionLegacyDays).toBeNull()
+    await seedTask(D, `${D}_done`, 'DONE', at(since1, -500))
+    await seedEvent(D, `${D}_before_first`, {
+      taskId: `${D}_done`,
+      createdAt: at(since1, -400),
+    })
+    await seedEvent(D, `${D}_between`, {
+      taskId: `${D}_done`,
+      createdAt: new Date((since1.getTime() + since2.getTime()) / 2),
+    })
+    await seedEvent(D, `${D}_after`, {
+      taskId: `${D}_done`,
+      createdAt: at(since2, 0.001),
+    })
+
+    // 365 → 90 → 30: data stored before keeps the 365-day promise.
+    const E = 'ws_cut_days'
+    await seedWorkspace(E, {
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: 365,
+    })
+    await change(E, {
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: 90,
+    })
+    await tick()
+    const e2 = await change(E, {
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: 30,
+    })
+    const sinceE = e2.hookEventRetentionSince!
+    expect(e2.hookEventRetentionLegacyDays).toBe(365)
+    await seedTask(E, `${E}_done`, 'DONE', at(sinceE, -500))
+    await seedEvent(E, `${E}_old_100`, {
+      taskId: `${E}_done`,
+      createdAt: at(sinceE, -100),
+    })
+    await seedEvent(E, `${E}_old_370`, {
+      taskId: `${E}_done`,
+      createdAt: at(sinceE, -370),
+    })
+    await seedEvent(E, `${E}_new`, {
+      taskId: `${E}_done`,
+      createdAt: at(sinceE, 0.001),
+    })
+
+    // Sweep well after every change.
+    await hookEventRetentionService.pruneExpiredPayloads(at(since2, 40))
+
+    expect(await pruned(`${A}_old`)).toBe(false)
+    expect(await pruned(`${A}_new`)).toBe(true)
+    expect(await pruned(`${B}_old`)).toBe(false)
+    expect(await pruned(`${B}_new`)).toBe(true)
+    expect(await pruned(`${D}_before_first`)).toBe(false)
+    expect(await pruned(`${D}_between`)).toBe(false)
+    expect(await pruned(`${D}_after`)).toBe(true)
+    // Legacy 365: 140 days old stays, 410 days old was due under 365 anyway.
+    expect(await pruned(`${E}_old_100`)).toBe(false)
+    expect(await pruned(`${E}_old_370`)).toBe(true)
+    expect(await pruned(`${E}_new`)).toBe(true)
+
+    // Even a year later, data stored under "forever" is still there.
+    await hookEventRetentionService.pruneExpiredPayloads(at(since2, 800))
+    expect(await pruned(`${A}_old`)).toBe(false)
+    expect(await pruned(`${B}_old`)).toBe(false)
+    expect(await pruned(`${D}_between`)).toBe(false)
+  })
+
+  it('loosening the session record setting triggers no pruning', async () => {
+    const C = 'ws_loosen'
+    await seedWorkspace(C, {
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: 30,
+    })
+    const now = new Date()
+    await seedTask(C, `${C}_done`, 'DONE', at(now, -100))
+    await seedEvent(C, `${C}_40d`, {
+      taskId: `${C}_done`,
+      createdAt: at(now, -40),
+    })
+    const c = await change(C, {
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: 90,
+    })
+    expect(c.hookEventRetentionSince).toBeNull()
+    expect(c.hookEventRetentionLegacyDays).toBeNull()
+    const result = await hookEventRetentionService.pruneExpiredPayloads(now)
+    expect(result.workspaces.find(w => w.workspaceId === C)!.pruned).toBe(0)
+    expect(await pruned(`${C}_40d`)).toBe(false)
   })
 })

@@ -9,13 +9,19 @@ import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: { update: jest.fn(), isSlugUnique: jest.fn() },
+  workspaceRepository: {
+    update: jest.fn(),
+    isSlugUnique: jest.fn(),
+    findRetentionSettings: jest.fn(),
+  },
 }))
 
 import { workspaceService } from '@/lib/services/workspace.service'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { updateWorkspaceSchema } from '@/lib/validation/schemas'
+import { nextCrossingRawRetentionSince } from '@/lib/boundary-crossing/raw-retention'
 import {
+  nextSessionRecordCutoff,
   SESSION_RECORD_CHOICES,
   isHookEventRetentionMode,
   sessionRecordChoiceOf,
@@ -26,9 +32,21 @@ import {
 } from '@/lib/hook-event/retention'
 
 const update = workspaceRepository.update as jest.Mock
+const stored = workspaceRepository.findRetentionSettings as jest.Mock
+
+const ROLLOUT = new Date('2026-10-06T09:00:00Z')
 
 beforeEach(() => {
   jest.clearAllMocks()
+  // An existing workspace right after the migration.
+  stored.mockResolvedValue({
+    hookEventRetentionMode: 'RETAIN',
+    hookEventRetentionDays: null,
+    hookEventRetentionSince: null,
+    hookEventRetentionLegacyDays: null,
+    crossingRawRetentionDays: 7,
+    crossingRawRetentionSince: ROLLOUT,
+  })
 })
 
 describe('session record setting', () => {
@@ -76,6 +94,9 @@ describe('session record setting', () => {
     expect(update).toHaveBeenLastCalledWith('ws_a', {
       hookEventRetentionMode: 'USED_UP',
       hookEventRetentionDays: null,
+      // forever → used-up is stricter: only data stored from now on.
+      hookEventRetentionSince: expect.any(Date),
+      hookEventRetentionLegacyDays: null,
     })
     await workspaceService.updateWorkspace('ws_a', 'OWNER', 'slug', {
       hookEventRetentionMode: 'RETAIN',
@@ -84,6 +105,8 @@ describe('session record setting', () => {
     expect(update).toHaveBeenLastCalledWith('ws_a', {
       hookEventRetentionMode: 'RETAIN',
       hookEventRetentionDays: 90,
+      hookEventRetentionSince: expect.any(Date),
+      hookEventRetentionLegacyDays: null,
     })
     await expect(
       workspaceService.updateWorkspace('ws_a', 'OWNER', 'slug', {
@@ -168,6 +191,8 @@ describe('crossing and dead letter rows', () => {
     })
     expect(update).toHaveBeenLastCalledWith('ws_a', {
       crossingRawRetentionDays: 30,
+      // A longer crossing window leaves the cutoff where it was.
+      crossingRawRetentionSince: ROLLOUT,
       deadLetterRetentionDays: 90,
     })
     // Defaults are 7 days for both (schema defaults, not a data migration).
@@ -177,5 +202,137 @@ describe('crossing and dead letter rows', () => {
     )
     expect(schema).toMatch(/crossingRawRetentionDays\s+Int\s+@default\(7\)/)
     expect(schema).toMatch(/deadLetterRetentionDays\s+Int\s+@default\(7\)/)
+  })
+})
+
+describe('LUM-933 cutoff: a setting change only governs data stored afterwards', () => {
+  const NOW = new Date('2026-11-01T00:00:00Z')
+  const LATER = new Date('2026-12-01T00:00:00Z')
+  const none = { since: null, legacyDays: null }
+
+  it('session record cutoff semantics for tightening, loosening and repeated tightening', () => {
+    // forever → 30: everything stored before keeps "forever".
+    expect(
+      nextSessionRecordCutoff({
+        from: 'forever',
+        to: 30,
+        current: none,
+        now: NOW,
+      })
+    ).toEqual({ since: NOW, legacyDays: null })
+    // forever → used-up: same.
+    expect(
+      nextSessionRecordCutoff({
+        from: 'forever',
+        to: 'used_up',
+        current: none,
+        now: NOW,
+      })
+    ).toEqual({ since: NOW, legacyDays: null })
+    // 30 → 90 is looser: no cutoff appears.
+    expect(
+      nextSessionRecordCutoff({ from: 30, to: 90, current: none, now: NOW })
+    ).toEqual(none)
+    // 365 → 90 → 30: one legacy segment with the longest promise (365).
+    const first = nextSessionRecordCutoff({
+      from: 365,
+      to: 90,
+      current: none,
+      now: NOW,
+    })
+    expect(first).toEqual({ since: NOW, legacyDays: 365 })
+    expect(
+      nextSessionRecordCutoff({ from: 90, to: 30, current: first, now: LATER })
+    ).toEqual({ since: LATER, legacyDays: 365 })
+    // forever → 365 → 30: the "forever" data stays forever.
+    const a = nextSessionRecordCutoff({
+      from: 'forever',
+      to: 365,
+      current: none,
+      now: NOW,
+    })
+    expect(
+      nextSessionRecordCutoff({ from: 365, to: 30, current: a, now: LATER })
+    ).toEqual({ since: LATER, legacyDays: null })
+    // 30 → used-up: data stored under "30 days" keeps that promise.
+    expect(
+      nextSessionRecordCutoff({
+        from: 30,
+        to: 'used_up',
+        current: none,
+        now: NOW,
+      })
+    ).toEqual({ since: NOW, legacyDays: 30 })
+    // Loosening after a cutoff only makes the legacy segment more lenient.
+    expect(
+      nextSessionRecordCutoff({
+        from: 30,
+        to: 180,
+        current: { since: NOW, legacyDays: 90 },
+        now: LATER,
+      })
+    ).toEqual({ since: NOW, legacyDays: 180 })
+    // Back to forever: no cutoff, nothing is pruned any more.
+    expect(
+      nextSessionRecordCutoff({
+        from: 30,
+        to: 'forever',
+        current: { since: NOW, legacyDays: 90 },
+        now: LATER,
+      })
+    ).toEqual(none)
+    // No change: untouched.
+    const c = { since: NOW, legacyDays: 30 }
+    expect(
+      nextSessionRecordCutoff({ from: 90, to: 90, current: c, now: LATER })
+    ).toBe(c)
+  })
+
+  it('crossing raw cutoff moves only when the window gets shorter', () => {
+    expect(
+      nextCrossingRawRetentionSince({
+        fromDays: 30,
+        toDays: 7,
+        since: ROLLOUT,
+        now: NOW,
+      })
+    ).toEqual(NOW)
+    expect(
+      nextCrossingRawRetentionSince({
+        fromDays: 7,
+        toDays: 90,
+        since: ROLLOUT,
+        now: NOW,
+      })
+    ).toEqual(ROLLOUT)
+    expect(
+      nextCrossingRawRetentionSince({
+        fromDays: 30,
+        toDays: 30,
+        since: ROLLOUT,
+        now: NOW,
+      })
+    ).toEqual(ROLLOUT)
+  })
+
+  it('the service writes the cutoff computed from the stored setting', async () => {
+    stored.mockResolvedValue({
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: 365,
+      hookEventRetentionSince: null,
+      hookEventRetentionLegacyDays: null,
+      crossingRawRetentionDays: 30,
+      crossingRawRetentionSince: ROLLOUT,
+    })
+    await workspaceService.updateWorkspace('ws_a', 'OWNER', 'slug', {
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: 30,
+      crossingRawRetentionDays: 7,
+    })
+    const data = update.mock.calls[update.mock.calls.length - 1]![1]
+    expect(data.hookEventRetentionLegacyDays).toBe(365)
+    expect(data.hookEventRetentionSince).toBeInstanceOf(Date)
+    expect(data.crossingRawRetentionSince).toBeInstanceOf(Date)
+    expect(data.crossingRawRetentionSince).not.toEqual(ROLLOUT)
   })
 })

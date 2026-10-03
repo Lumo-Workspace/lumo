@@ -12,7 +12,18 @@ jest.mock('@/lib/repositories/hook-event-retention.repository', () => ({
   },
 }))
 jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: { update: jest.fn(), isSlugUnique: jest.fn() },
+  workspaceRepository: {
+    update: jest.fn(),
+    isSlugUnique: jest.fn(),
+    findRetentionSettings: jest.fn(async () => ({
+      hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionDays: null,
+      hookEventRetentionSince: null,
+      hookEventRetentionLegacyDays: null,
+      crossingRawRetentionDays: 7,
+      crossingRawRetentionSince: new Date('2026-10-06T00:00:00Z'),
+    })),
+  },
 }))
 jest.mock('@/lib/services/workspace-deletion.service', () => ({
   workspaceDeletionService: { deleteWorkspace: jest.fn() },
@@ -231,8 +242,11 @@ describe('hook event retention wiring (LUM-859)', () => {
     })
     expect(workspaceRepository.update).toHaveBeenCalledWith('ws_a', {
       hookEventRetentionDays: 180,
-      // LUM-933: a day tier is always a RETAIN choice.
+      // LUM-933: a day tier is always a RETAIN choice, and tightening from
+      // "forever" only governs events stored afterwards.
       hookEventRetentionMode: 'RETAIN',
+      hookEventRetentionSince: expect.any(Date),
+      hookEventRetentionLegacyDays: null,
     })
 
     // Cron: registered in vercel.json and behind cron auth.
