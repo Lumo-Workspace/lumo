@@ -237,7 +237,7 @@ describe('session raw record delete — permissions', () => {
 })
 
 describe('session raw record delete — what is cleared and kept', () => {
-  it('payload becomes the pruned marker and metadata is kept', async () => {
+  it('payload becomes the pruned marker, turn summary is cleared and metadata is kept', async () => {
     await seedSession(WS, 's_meta', 'alice')
     const [id] = await seedEvents(WS, 's_meta', 'alice', 1)
     const before = await event(id!)
@@ -254,14 +254,17 @@ describe('session raw record delete — what is cleared and kept', () => {
     expect(isUserDeletedPayload(after.payload)).toBe(true)
     expect(JSON.stringify(after.payload)).not.toContain('pasted')
     expect(after.payloadPrunedAt?.toISOString()).toBe(NOW.toISOString())
-    // Row, type, time and every derived statistic stay.
+    // The AI turn summary is cleared too (2026-10-03 ruling) — to empty,
+    // not null, so the turn-summary backfill never regenerates it.
+    expect(before.turnSummary).toBe('wrote a.ts')
+    expect(after.turnSummary).toBe('')
+    // Row, type, time and every other derived statistic stay.
     for (const key of [
       'type',
       'toolName',
       'toolDetail',
       'toolVerb',
       'filePath',
-      'turnSummary',
       'usageByModel',
       'createdAt',
       'sessionId',
@@ -312,6 +315,9 @@ describe('session raw record delete — what is cleared and kept', () => {
     )
     expect(result).toMatchObject({ deleted: 3, keptForCrossings: 1 })
     expect(await isWhole(ids[0]!)).toBe(true)
+    // The skipped event keeps its turn summary; cleared ones lose it.
+    expect((await event(ids[0]!)).turnSummary).toBe('wrote a.ts')
+    expect((await event(ids[1]!)).turnSummary).toBe('')
     for (const id of ids.slice(1)) expect(await isWhole(id)).toBe(false)
 
     const after = await sessionRawRecordService.getStatus(

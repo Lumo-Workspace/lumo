@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import {
   PRUNED_PAYLOAD_KEY,
@@ -6,6 +7,14 @@ import {
 
 /** Crossing lookups are chunked so a long session never builds one huge `IN`. */
 const CROSSING_LOOKUP_CHUNK = 1000
+
+/**
+ * What a cleared turn summary is set to. Empty, not null: null means "not
+ * generated yet" and the turn-summary backfill (scripts/backfill-turn-summaries)
+ * regenerates every null STOP row; every reader already treats an empty
+ * summary as absent.
+ */
+export const CLEARED_TURN_SUMMARY = ''
 
 /** Matches events whose payload carries the LUM-944 user-deleted marker. */
 const USER_DELETED_FILTER = {
@@ -110,6 +119,32 @@ export const sessionRawRecordRepository = {
       orderBy: { payloadPrunedAt: 'desc' },
       select: { payload: true },
     })
+  },
+
+  /**
+   * Replace each event's payload with `marker`, stamp `payloadPrunedAt` and
+   * clear its turn summary, in one transaction. Only unpruned rows are
+   * touched, so a repeat or concurrent run never re-stamps. Returns the
+   * number of payloads cleared.
+   */
+  async clearRawRecord(
+    eventIds: string[],
+    marker: Prisma.InputJsonValue,
+    at: Date
+  ): Promise<number> {
+    if (eventIds.length === 0) return 0
+    const where = { id: { in: eventIds }, payloadPrunedAt: null }
+    const [, cleared] = await prisma.$transaction([
+      prisma.hookEvent.updateMany({
+        where: { ...where, turnSummary: { not: null } },
+        data: { turnSummary: CLEARED_TURN_SUMMARY },
+      }),
+      prisma.hookEvent.updateMany({
+        where,
+        data: { payload: marker, payloadPrunedAt: at },
+      }),
+    ])
+    return cleared.count
   },
 
   /** Clerk id of a workspace member, for showing who deleted a record. */

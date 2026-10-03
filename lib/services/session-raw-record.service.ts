@@ -3,7 +3,6 @@ import {
   sessionRawRecordRepository,
   type SessionOwnerRow,
 } from '@/lib/repositories/session-raw-record.repository'
-import { hookEventRetentionRepository } from '@/lib/repositories/hook-event-retention.repository'
 import {
   buildUserDeletedPayload,
   PRUNED_PAYLOAD_KEY,
@@ -113,10 +112,11 @@ async function displayNameOf(
 /**
  * LUM-944 — delete one session's raw record (the hook payloads: prompts,
  * commands, file contents, tool output) before any retention window ends.
- * Each event keeps its row and every derived column (type, time, tool name,
- * file path, token usage, turn summary); its payload becomes the same pruned
- * marker the retention sweep writes, with reason USER_DELETED and the
- * deleting member — the marker is the audit record. Session summaries and run
+ * Each event keeps its row and its metadata (type, time, tool name, tool
+ * category / verb, file path, token usage); its payload becomes the same
+ * pruned marker the retention sweep writes, with reason USER_DELETED and the
+ * deleting member — the marker is the audit record — and its AI turn summary
+ * is cleared too (2026-10-03 ruling: it can restate what was pasted). Session summaries and run
  * summaries are not touched (LUM-917 owns those). Events an undispositioned
  * boundary crossing points at are skipped: they are the crossing's evidence
  * until it is ruled on, after which a second delete clears them.
@@ -240,7 +240,7 @@ export const sessionRawRecordService = {
         await sessionRawRecordRepository.findOpenCrossingEventIds(ids)
       )
       result.keptForCrossings += kept.size
-      result.deleted += await hookEventRetentionRepository.prunePayloads(
+      result.deleted += await sessionRawRecordRepository.clearRawRecord(
         ids.filter(id => !kept.has(id)),
         marker,
         now

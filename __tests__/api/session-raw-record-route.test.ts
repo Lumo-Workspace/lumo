@@ -23,10 +23,8 @@ jest.mock('@/lib/repositories/session-raw-record.repository', () => ({
     countEvents: jest.fn(),
     findLatestUserDeletion: jest.fn(),
     findMemberClerkId: jest.fn(),
+    clearRawRecord: jest.fn(),
   },
-}))
-jest.mock('@/lib/repositories/hook-event-retention.repository', () => ({
-  hookEventRetentionRepository: { prunePayloads: jest.fn() },
 }))
 jest.mock('@/lib/utils/clerk-helpers', () => ({
   enrichClerkUsers: jest.fn(async () => new Map()),
@@ -36,10 +34,9 @@ import { GET, DELETE } from '@/app/api/sessions/[sessionId]/raw-record/route'
 import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { sessionRawRecordRepository } from '@/lib/repositories/session-raw-record.repository'
-import { hookEventRetentionRepository } from '@/lib/repositories/hook-event-retention.repository'
 
 const repo = sessionRawRecordRepository as unknown as Record<string, jest.Mock>
-const prune = hookEventRetentionRepository.prunePayloads as jest.Mock
+const prune = sessionRawRecordRepository.clearRawRecord as jest.Mock
 const params = { params: Promise.resolve({ sessionId: 's1' }) }
 
 function asMember(id: string, role: 'OWNER' | 'MEMBER') {

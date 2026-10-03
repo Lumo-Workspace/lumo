@@ -113,7 +113,7 @@ describe('SessionRawRecordDelete (LUM-944)', () => {
 
     const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent(
-      'This clears the raw content of 10 events in this session and its subagent sessions.'
+      'This clears the raw content and the one-line turn summaries of 10 events in this session and its subagent sessions.'
     )
     expect(
       screen.getByTestId('session-raw-record-confirm-kept')
