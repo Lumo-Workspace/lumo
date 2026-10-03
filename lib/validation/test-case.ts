@@ -51,12 +51,6 @@ export const createTestCaseBodySchema = z.object({
    * 并不能证明它。
    */
   requiredEnvironment: z.enum(['LOCAL', 'PREVIEW', 'PRODUCTION']).nullish(),
-  /**
-   * LUM-815: 这条用例意在覆盖哪条验收标准。null / 省略 = **未声明**，合法
-   * 且常见（探索性用例、跨多条标准的用例）。这里只管形状——「这个 id 属不属
-   * 于本任务的合同」要读任务状态，是业务规则，活在 service（422）。
-   */
-  criterionId: z.string().trim().min(1).max(64).nullish(),
 })
 
 export const updateTestCaseBodySchema = createTestCaseBodySchema

@@ -59,14 +59,8 @@ describe('grammar.json drift', () => {
       'urgent',
     ])
     expect(
-      grammar.commands['task criteria set']!.flags['--cause']!.enum
-    ).toEqual([
-      'NEW_INFO',
-      'SCOPE_CHANGE',
-      'DRAFT_BLIND_SPOT',
-      'GRANULARITY',
-      'OTHER',
-    ])
+      grammar.commands['task testcase run']!.flags['--result']!.enum
+    ).toEqual(['pass', 'fail', 'blocked'])
   })
 
   it('open example lists never become enums: --source/--kind carry none (LUM-420)', () => {
@@ -135,7 +129,7 @@ describe('grammar.json drift', () => {
     expect(invokableParents).toEqual(['idea', 'plan', 'priority'])
     // Routing-only parents stay non-invokable …
     expect(grammar.commands['task']!.isInvokable).toBe(false)
-    expect(grammar.commands['task criteria']!.isInvokable).toBe(false)
+    expect(grammar.commands['task testcase']!.isInvokable).toBe(false)
     // … and every leaf is callable by construction.
     for (const [path, node] of Object.entries(grammar.commands)) {
       if (node.hasSubcommands) continue

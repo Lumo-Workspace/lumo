@@ -34,18 +34,13 @@ const CREATED_TASK = {
 }
 
 describe('next-step rendering', () => {
-  it('task create appends attach and criteria next steps', () => {
-    // A task fresh out of `task create`: nothing bound, no contract, and no
-    // criteria nudge in the response (that surface belongs to attach/context).
+  it('task create appends the attach next step', () => {
+    // A task fresh out of `task create`: nothing bound.
     const steps = computeNextSteps({
       taskIdentifier: 'LUM-686',
       status: 'TODO',
-      hasCriteria: false,
       sessionBound: false,
       openCrossings: 0,
-      verifyRound: 0,
-      hasUnmetCriteria: false,
-      criteriaNudgeAlreadyShown: false,
     })
 
     // Goes through the command's own composer — a test that re-assembled the
@@ -58,18 +53,15 @@ describe('next-step rendering', () => {
       'Created LUM-686 "Unify CLI next-step hints"  https://www.uselumo.ai/workspace/lumo/my-tasks/LUM-686'
     )
     expect(text).toContain('lumo session attach LUM-686')
-    expect(text).toContain('lumo task criteria set LUM-686')
+    // LUM-942: no contract drafting step any more.
+    expect(text).not.toContain('criteria')
   })
 
   it('task update emits status-matched next steps', () => {
     const base = {
       taskIdentifier: 'LUM-686',
-      hasCriteria: true,
       sessionBound: true,
-      openCrossings: 0,
-      verifyRound: 0,
-      hasUnmetCriteria: false,
-      criteriaNudgeAlreadyShown: false,
+      openCrossings: 1,
     }
 
     const inProgress = sink()
@@ -78,7 +70,8 @@ describe('next-step rendering', () => {
       {},
       inProgress
     )
-    expect(inProgress.text()).toContain('lumo verify')
+    expect(inProgress.text()).toContain('lumo crossing explain')
+    expect(inProgress.text()).not.toContain('lumo verify')
 
     const inReview = sink()
     emitNextSteps(
@@ -88,17 +81,20 @@ describe('next-step rendering', () => {
     )
     // IN_REVIEW is a stop, not a command to run.
     expect(inReview.text()).toMatch(/IN_REVIEW/)
-    expect(inReview.text()).not.toContain('lumo verify')
 
     // A delivered task has nothing left to suggest.
     const done = sink()
-    emitNextSteps(computeNextSteps({ ...base, status: 'DONE' }), {}, done)
+    emitNextSteps(
+      computeNextSteps({ ...base, openCrossings: 0, status: 'DONE' }),
+      {},
+      done
+    )
     expect(done.text()).toBe('')
   })
 
   it('next steps are fully silenced by env and flag', () => {
     const steps: NextStep[] = [
-      { command: 'lumo verify --note "<self-report>"', why: 'run the loop' },
+      { command: 'lumo task status LUM-686', why: 'read the self-check' },
     ]
 
     const viaEnv = sink()
@@ -112,7 +108,7 @@ describe('next-step rendering', () => {
     // Unset and "0" are not mute — only an explicit opt-out silences.
     const loud = sink()
     emitNextSteps(steps, {}, loud, { LUMO_NO_HINTS: '0' })
-    expect(loud.text()).toContain('lumo verify')
+    expect(loud.text()).toContain('lumo task status')
 
     expect(nextStepsSilenced({ LUMO_NO_HINTS: '1' }, {})).toBe(true)
     expect(nextStepsSilenced({}, { hints: false })).toBe(true)

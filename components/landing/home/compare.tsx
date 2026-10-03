@@ -75,12 +75,12 @@ const VERDICT_LABEL: Record<Verdict, string> = {
 // feature a vendor doesn't document is one its buyers can't rely on); the
 // footnote says so, and the source link shows which page was checked.
 //
-// Lumo cells are held to what the code does: test tampering, deleted tests
-// and weakened criteria are BoundaryCrossingCategory values
-// (TEST_TAMPERING / TEST_FILE_DELETED / CONTRACT_WEAKENING); the scan layers
+// Lumo cells are held to what the code does: a deleted test is the
+// TEST_FILE_DELETED BoundaryCrossingCategory (the criteria-based tampering /
+// weakening detectors were removed in LUM-942); the scan layers
 // are SCAN_STAGE_LABELS; the scan gate blocks per the workspace security
 // policy (lib/services/pr-security-scan-gate.ts, default deterministic HIGH)
-// until a person dispositions the finding; a machine pass moves a task to
+// until a person dispositions the finding; an agent can move a task to
 // review, not Done.
 export const COMPARE_GROUPS: CompareGroup[] = [
   {
@@ -253,7 +253,7 @@ export const COMPARE_GROUPS: CompareGroup[] = [
         capability: 'Runs the whole suite on its own infrastructure',
         lumo: {
           verdict: 'partial',
-          note: 'The CLI runs each criterion’s check on your machine and reads CI results; no hosted runner.',
+          note: 'Your agent runs the test cases on your machine and records each result; CI results are read, not run; no hosted runner.',
         },
         linear: {
           verdict: 'no',
@@ -294,28 +294,6 @@ export const COMPARE_GROUPS: CompareGroup[] = [
         },
       },
       {
-        capability: 'Acceptance criteria that actually run',
-        lumo: {
-          verdict: 'yes',
-          note: 'Each criterion names a check; every run records pass or fail with evidence.',
-        },
-        linear: {
-          verdict: 'no',
-          note: 'Coding sessions can test and screenshot, but nothing is scored per criterion.',
-          source: 'https://linear.app/docs/coding-sessions',
-        },
-        coderabbit: {
-          verdict: 'partial',
-          note: 'An AI reads the PR against the linked issue. Advisory, and no check runs per criterion.',
-          source: 'https://docs.coderabbit.ai/integrations/issue-integrations',
-        },
-        qawolf: {
-          verdict: 'partial',
-          note: 'An approved test plan becomes runnable flows, but not tied to a task’s criteria.',
-          source: 'https://docs.qawolf.com/onboarding-to-full-service.md',
-        },
-      },
-      {
         capability: 'Test cases with a run log and evidence',
         lumo: {
           verdict: 'yes',
@@ -341,8 +319,8 @@ export const COMPARE_GROUPS: CompareGroup[] = [
       {
         capability: 'Catches an agent gaming its own tests',
         lumo: {
-          verdict: 'yes',
-          note: 'Editing a checked test, deleting a test or weakening a criterion is flagged on the task.',
+          verdict: 'partial',
+          note: 'Deleting a test file mid-task is flagged on the task; edits to tests are not.',
         },
         linear: {
           verdict: 'no',
@@ -366,7 +344,7 @@ export const COMPARE_GROUPS: CompareGroup[] = [
         capability: 'Done needs a human to confirm',
         lumo: {
           verdict: 'yes',
-          note: 'A machine pass only reaches review; moving to Done stops for a person to confirm.',
+          note: 'The agent can only reach review; moving to Done stops for a person to confirm.',
         },
         linear: {
           verdict: 'no',

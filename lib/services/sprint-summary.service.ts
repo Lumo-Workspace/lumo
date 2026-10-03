@@ -5,7 +5,7 @@ import {
 } from '@/lib/repositories/sprint-summary.repository'
 import { generationJobRepository } from '@/lib/repositories/generation-job.repository'
 import { callSprintSummaryLLM } from '@/lib/llm/sprint-summary-client'
-import { taskVerificationService } from '@/lib/services/task-verification.service'
+import { taskStatusService } from '@/lib/services/task-status.service'
 
 function httpError(status: number, message: string): never {
   throw Object.assign(new Error(message), { status })
@@ -27,9 +27,9 @@ export const sprintSummaryService = {
         await sprintSummaryRepository.computeStatsData(sprintId)
 
       // LUM-506: roll the negative-class struggle signals up across the
-      // sprint's tasks so the retro reports rework / send-backs / reopens /
-      // human overrides instead of an all-green title list.
-      const struggle = await taskVerificationService.aggregateStruggleForTasks(
+      // sprint's tasks so the retro reports reopens / extra PR cycles instead of an
+      // all-green title list.
+      const struggle = await taskStatusService.aggregateStruggleForTasks(
         tasks.map(t => t.id)
       )
 

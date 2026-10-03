@@ -176,7 +176,7 @@ interface UseBoundaryCrossingsOptions {
 
 /**
  * Read-through cache for ALL of a task's boundary-crossings — open and
- * dispositioned (LUM-435), consumed by the AcceptanceTab panel. Mirrors
+ * dispositioned (LUM-435), consumed by the Record tab panel. Mirrors
  * useTaskStatus: once cached for `identifier`, tab switches paint instantly
  * while a quiet background refetch keeps it fresh.
  */

@@ -384,8 +384,7 @@ export function redactKnownSecrets(input: string): string {
 /**
  * LUM-784 — redaction for text that is about to be INJECTED into a model's
  * context: task-context sections (memory, Slack, web, Figma, PR, artifact),
- * steward memory, the agent security reminder, the reference-class anchor,
- * the criteria card, the three hunt prompt clients, the tier-2 Slack / web
+ * steward memory, the agent security reminder, the three hunt prompt clients, the tier-2 Slack / web
  * bodies and the LLM-judge diff. Until this existed, those paths ran only
  * `sanitizeField` (control chars) and the LUM-783 content guard — a plaintext
  * credential in a Slack thread was handed to the model by Lumo itself, and

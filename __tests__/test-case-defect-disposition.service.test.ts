@@ -29,14 +29,6 @@ jest.mock('@/lib/repositories/member.repository', () => ({
     })),
   },
 }))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: {
-    latestRunsByCriterion: jest.fn(() => Promise.resolve(new Map())),
-  },
-}))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn(() => []) },
-}))
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: {
     findUndispositionedByTask: jest.fn(() => Promise.resolve([])),

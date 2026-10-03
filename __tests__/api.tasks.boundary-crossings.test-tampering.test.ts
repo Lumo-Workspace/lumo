@@ -2,7 +2,9 @@
  * @jest-environment node
  *
  * LUM-441 criterion 3 — a TEST_TAMPERING crossing flows through the LUM-435
- * disposition model, with nothing special-cased for the new category:
+ * disposition model, with nothing special-cased for the category. LUM-942: the
+ * detector that produced TEST_TAMPERING is gone, but legacy OPEN rows still
+ * exist — they must keep blocking DONE and keep dispositioning like any other:
  *
  *  - HUMAN-ONLY: an agent/CLI bearer request to disposition it is refused 403
  *    BEFORE the body is parsed (the agent can never clear its own reward-hack to
@@ -16,8 +18,6 @@ import { POST as dispositionPOST } from '@/app/api/tasks/[id]/boundary-crossings
 import { requireIdentity } from '@/lib/auth'
 import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 
 // --- DONE-gate deps (mirrors task-state.boundary-gate.test) ------------------
@@ -39,12 +39,6 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 }))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findForUpdate: jest.fn(), update: jest.fn() },
-}))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: { latestRunsByCriterion: jest.fn() },
-}))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
 }))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: { findByIdSimple: jest.fn() },
@@ -84,8 +78,6 @@ jest.mock('@/lib/services/boundary-crossing.service', () => ({
 
 const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
-const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
-const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
 const findOpen =
   boundaryCrossingRepository.findUndispositionedByTask as jest.Mock
 const gateEnabled =
@@ -124,8 +116,6 @@ beforeEach(() => {
     team: { identifier: 'LUM' },
     teamId: 'team-1',
   })
-  latestRuns.mockResolvedValue(new Map()) // no unresolved send-back (LUM-422)
-  listByTask.mockResolvedValue([])
   gateEnabled.mockResolvedValue(true)
 
   store = [

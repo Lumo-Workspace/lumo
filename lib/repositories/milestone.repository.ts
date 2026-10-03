@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/db/prisma'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import type { Milestone, Prisma, TaskStatus } from '@prisma/client'
 
 type MilestoneUpdate = Partial<
@@ -262,11 +261,9 @@ export const milestoneRepository = {
 
   /**
    * Raw rows for the LUM-639 green-quality footnote: each DONE member task's
-   * frozen verification-friction scalars (TaskForecastSnapshot, LUM-606), its
-   * claim-faithfulness verdict when one was ever judged, and the LATEST
-   * delivery-time contract snapshot (TaskCriteriaSnapshot is append-only; the
-   * milestone rollup reads the last delivery's freeze). Absent relations stay
-   * absent — the read model turns them into explicit buckets, never zeros.
+   * claim-faithfulness verdict when one was ever judged. An absent verdict
+   * stays absent — the read model turns it into the explicit `unjudged`
+   * bucket, never a zero.
    */
   async greenQualityRows(milestoneId: string) {
     return prisma.task.findMany({
@@ -274,15 +271,7 @@ export const milestoneRepository = {
       select: {
         id: true,
         status: true,
-        forecastSnapshot: {
-          select: { verificationRounds: true, sendBackCount: true },
-        },
         claimFaithfulness: { select: { verdict: true } },
-        criteriaSnapshots: {
-          select: { criteria: true },
-          orderBy: { frozenAt: 'desc' },
-          take: 1,
-        },
       },
       orderBy: { number: 'asc' },
     })
@@ -437,11 +426,6 @@ export const milestoneRepository = {
       where: { id: milestoneId },
       select: {
         createdAt: true,
-        project: {
-          select: {
-            workspace: { select: { verificationMaxRounds: true } },
-          },
-        },
         tasks: {
           where: { deletedAt: null }, // LUM-918: relation reads skip the trash
           select: {
@@ -470,7 +454,7 @@ export const milestoneRepository = {
     const inReviewIds = tasks
       .filter(t => t.status === 'IN_REVIEW')
       .map(t => t.id)
-    const [edges, statusActivities, verificationFails] = await Promise.all([
+    const [edges, statusActivities] = await Promise.all([
       prisma.taskDependency.findMany({
         where: {
           blockedTaskId: { in: taskIds },
@@ -494,11 +478,9 @@ export const milestoneRepository = {
         where: { taskId: { in: inReviewIds }, type: 'STATUS_CHANGED' },
         select: { taskId: true, payload: true, createdAt: true },
       }),
-      verificationRunRepository.failRowsByTaskIds(taskIds),
     ])
     return {
       milestoneCreatedAt: milestone.createdAt,
-      maxRounds: milestone.project.workspace.verificationMaxRounds,
       tasks,
       edges: edges.map(e => ({
         blockedTaskId: e.blockedTaskId,
@@ -510,7 +492,6 @@ export const milestoneRepository = {
         },
       })),
       statusActivities,
-      verificationFails,
     }
   },
 

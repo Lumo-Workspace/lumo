@@ -14,10 +14,7 @@ import {
   type CeilingRun,
 } from '@/lib/test-cases/provability'
 import { formatRunOutcome } from '../cli/src/lib/test-case-verdict'
-import {
-  formatLinkedCase,
-  formatTestCaseVerdictAction,
-} from '../cli/src/commands/task-status'
+import { formatTestCaseVerdictAction } from '../cli/src/commands/task-status'
 
 function run(over: Partial<CeilingRun> = {}): CeilingRun {
   return {
@@ -95,21 +92,6 @@ describe('LUM-819 no-evidence ceiling', () => {
     })
     expect(advisory).toBe(
       '  • [TEST CASE] TC2 login works — reported PASS, capped to UNPROVEN (no evidence attached) (advisory)'
-    )
-    const linked = formatLinkedCase({
-      number: 2,
-      title: 'login works',
-      latestRun: {
-        result: 'PASS',
-        ceiling: { effective: 'UNPROVEN', reason: 'no-evidence' },
-        environment: 'LOCAL',
-        commitSha: null,
-        commitDirty: null,
-        recordedAt: '2026-09-23T00:00:00.000Z',
-      },
-    })
-    expect(linked).toBe(
-      'TC2 login works — PASS→UNPROVEN (no evidence) in LOCAL'
     )
   })
 

@@ -656,7 +656,7 @@ async function runTaskUpdate(
       } catch {
         // Body wasn't JSON; fall through to status-only message
       }
-      // LUM-755: a DONE refused by a server gate (send-back / boundary
+      // LUM-755: a DONE refused by a server gate (boundary
       // crossing / blocking security finding) is a human-only block, not a
       // generic error — surface it structured (exit 5) with every blocker.
       if (

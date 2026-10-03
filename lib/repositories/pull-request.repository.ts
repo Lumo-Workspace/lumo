@@ -320,9 +320,8 @@ export const pullRequestRepository = {
   },
 
   /**
-   * Minimal PR rows for the send-back lifecycle window match (LUM-511 Phase 5):
-   * the number/url to display + createdAt to test against the
-   * [send-back → resolving PASS] window. Oldest-first.
+   * Minimal PR rows for the task-status struggle trail (PR cycles, LUM-561):
+   * number/url to display + createdAt. Oldest-first.
    */
   async listForLifecycle(
     taskId: string

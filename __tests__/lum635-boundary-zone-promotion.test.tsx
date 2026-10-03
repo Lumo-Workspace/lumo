@@ -1,11 +1,10 @@
 /** @jest-environment jsdom */
 /**
  * LUM-635: the boundary-crossings panel is promoted out of the collapsed
- * "Evidence & audit trail" fold to a third zone (sibling of the human/machine
- * criteria zones). An open crossing is a human-only to-do that blocks Done —
+ * "Evidence & audit trail" fold to its own zone. An open crossing is a human-only to-do that blocks Done —
  * a policy gate, not after-the-fact evidence — so it must not hide behind a
- * default-collapsed fold (which also made the verdict bar's
- * #boundary-crossings anchor a dead link). The zone header mirrors the other
+ * default-collapsed fold (which also made the #boundary-crossings anchor a
+ * dead link). The zone header mirrors the other
  * zones' grammar (state accent + subtitle + dispositioned/total count), and
  * the blocking subset mirrors the server gate: advisory never blocks, HIGH
  * always blocks, MEDIUM/LOW respect the workspace opt-out (gateEnabled).
@@ -41,31 +40,21 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
 }))
 jest.mock('@/lib/api-client', () => ({
   tasksClient: {
-    submitHumanVerdict: jest.fn().mockResolvedValue({}),
     dispositionBoundaryCrossing: jest.fn().mockResolvedValue({}),
     spawnBoundaryRemediation: jest.fn().mockResolvedValue({}),
     explainBoundaryCrossing: jest.fn().mockResolvedValue({}),
   },
 }))
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision',
-  () => ({
-    VerdictDecision: () => <div data-testid='verdict-status' />,
-  })
-)
 
 import '@testing-library/jest-dom'
 import fs from 'fs'
 import path from 'path'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
-import { AcceptanceTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab'
+import { RecordTab } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RecordTab'
 import { BoundaryCrossingsPanel } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/BoundaryCrossingsPanel'
 import { useTaskStatus } from '@/app/workspace/[workspaceUrl]/hooks/useTaskStatus'
 import { useBoundaryCrossings } from '@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings'
-import type {
-  TaskAcceptanceStatusView,
-  TaskStatusCriterionView,
-} from '@/app/workspace/[workspaceUrl]/types'
+import type { TaskStatusView } from '@/app/workspace/[workspaceUrl]/types'
 
 const mockStatus = useTaskStatus as jest.Mock
 const mockCrossings = useBoundaryCrossings as jest.Mock
@@ -108,41 +97,13 @@ function setCrossings(crossings: unknown[], gateEnabled = true) {
   })
 }
 
-function machineCriterion(): TaskStatusCriterionView {
-  return {
-    id: 'm1',
-    statement: 'route returns 409 on lock',
-    verifierType: 'MACHINE',
-    checkpointer: 'npx jest lock.test.ts',
-    evidenceRequired: false,
-    judgeSteps: null,
-    source: 'AGENT_DRAFT',
-    addedAtRound: 0,
-    latestVerdict: null,
-    machineVerdict: null,
-    machinePassed: false,
-    verdictStale: false,
-    checkMismatch: false,
-    changeState: null,
-    changedAtRound: null,
-    lastEdit: null,
-    confirmedAt: null,
-  }
-}
-
 function setStatus() {
-  const data: TaskAcceptanceStatusView = {
-    version: 1,
+  const data: TaskStatusView = {
+    version: 2,
     task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'IN_PROGRESS' },
-    currentRound: 0,
-    maxRounds: 3,
-    escalated: false,
-    criteria: [machineCriterion()],
-    machineVerification: { total: 1, machineVerified: 0, humanOverridden: 0 },
-    removedCriteria: [],
-    verificationHistory: [],
-    lastRoundFailures: [],
-    nextActions: [],
+    cost: { tokenCost: null, activeTimeSec: 0 },
+    struggleTrail: { pullRequests: [], reopens: [] },
+    trend: { cost: [], rework: { reopens: 0, extraPrCycles: 0, total: 0 } },
   }
   mockStatus.mockReturnValue({
     data,
@@ -160,24 +121,25 @@ it('boundary crossings zone renders outside the audit fold with a persistent anc
   setStatus()
   setCrossings([makeCrossing({ id: 'bc-1' })])
   render(
-    <AcceptanceTab
+    <RecordTab
       taskIdentifier='LUM-1'
       enabled={true}
-      onVerdictRecorded={jest.fn()}
       gatesSlot={<div data-testid='gates-slot' />}
     />
   )
 
   // The anchor exists while the audit fold is still collapsed (its content —
-  // the injected gates slot — is not mounted), so the verdict bar's
-  // "View crossings" #boundary-crossings link always has a live target.
+  // the injected gates slot — is not mounted), so a shared
+  // #boundary-crossings link always has a live target.
   const panel = document.getElementById('boundary-crossings')
   expect(panel).toBeInTheDocument()
   expect(screen.queryByTestId('gates-slot')).not.toBeInTheDocument()
 
   // Expand the fold: the forensic signals mount, and the panel is NOT among
   // them — it precedes the fold in the document.
-  const foldToggle = screen.getByTestId('audit-only-divider').closest('button')!
+  const foldToggle = screen
+    .getByText('Evidence & audit trail')
+    .closest('button')!
   fireEvent.click(foldToggle)
   expect(screen.getByTestId('gates-slot')).toBeInTheDocument()
   expect(document.querySelectorAll('#boundary-crossings')).toHaveLength(1)

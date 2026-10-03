@@ -32,7 +32,7 @@ You output a JSON list of *candidate* learnings. A later grounding step verifies
 # What belongs at MILESTONE scope
 
 A learning belongs here when it would help whoever plans or stewards the *next* milestone in this project:
-- A recurring risk / friction pattern the retro surfaced (rework hotspots, repeated send-backs, chronic under-estimation of a work type).
+- A recurring risk / friction pattern the retro surfaced (rework hotspots, repeated reopens, chronic under-estimation of a work type).
 - A DECISION or scope lesson that constrains how the next milestone should be shaped.
 - A PROCEDURAL lesson about sequencing / dependency ordering that bit this milestone.
 - A CONVENTION the milestone converged on that the next one should start with.

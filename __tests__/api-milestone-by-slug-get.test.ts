@@ -303,11 +303,7 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
           doneCount: 2,
           mergedPrCount: 3,
           fate: { rejectedTaskCount: 1, noRecordDoneCount: 1 },
-          friction: {
-            failRoundCount: 1,
-            sendBackCount: 1,
-            multiPrTaskCount: 1,
-          },
+          friction: { multiPrTaskCount: 1 },
           changedFiles: { total: 9, measuredTasks: 1 },
           claims: [
             {
@@ -327,11 +323,7 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
           doneCount: 1,
           mergedPrCount: 0,
           fate: { rejectedTaskCount: 0, noRecordDoneCount: 1 },
-          friction: {
-            failRoundCount: 0,
-            sendBackCount: 0,
-            multiPrTaskCount: 0,
-          },
+          friction: { multiPrTaskCount: 0 },
           changedFiles: { total: null, measuredTasks: 0 },
           claims: [
             {
@@ -458,18 +450,11 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
     mockSummary.mockResolvedValue(null)
     const greenQuality = {
       doneCount: 3,
-      friction: { noVerification: 1, singleRound: 2, multiRoundOrSendback: 0 },
       faithfulness: {
         faithful: 2,
         overstated: 0,
         underReported: 0,
         unjudged: 1,
-      },
-      referentKind: {
-        externallyAnchored: 4,
-        selfConfirming: 3,
-        other: 1,
-        noSnapshotTasks: 1,
       },
     }
     mockOutcome.mockResolvedValue({
@@ -579,7 +564,6 @@ describe('GET /api/projects/[id]/milestones/by-slug/[slug]', () => {
           },
         ],
       },
-      verifyEscalated: [{ taskId: 't4', ref: 'LUM-4', title: 'D', round: 3 }],
       scopeBaseline: { initial: 12, current: 15, addedLater: 3 },
     }
     ;(milestoneService.getRiskQueueForMilestone as jest.Mock).mockResolvedValue(

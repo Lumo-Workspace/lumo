@@ -29,8 +29,6 @@ export type BindSessionToTaskResult = {
   retaggedEventCount: number
   /** Rendered memory section markdown for the bound task. Empty string when the task has no associated memories. */
   memorySection: string
-  /** Rendered acceptance-contract markdown (or the draft nudge for an open task without criteria). Empty string for DONE tasks without criteria (LUM-342). */
-  criteriaSection: string
   /** LUM-807: rendered "## Test cases" nudge. Empty once a script exists (and on DONE). */
   testCaseSection: string
   /** Recovery card data from the previous session on this task, or null if there is no prior session. */
@@ -281,15 +279,13 @@ export const sessionService = {
 
     const [
       memorySection,
-      criteriaSection,
       testCaseSection,
       previousSession,
       blockerWarningSection,
       securityFindingsSection,
     ] = await Promise.all([
       taskContextService.buildMemorySectionForTask(task.id),
-      taskContextService.buildCriteriaSectionForTask(task.id),
-      // LUM-807: sits beside the contract — same moment, different question.
+      // LUM-807: start-of-work test-case nudge.
       taskContextService.buildTestCaseSectionForTask(
         task.id,
         task.identifier,
@@ -318,7 +314,6 @@ export const sessionService = {
       taskTitle: task.title,
       retaggedEventCount: count + inherited.retaggedEventCount,
       memorySection,
-      criteriaSection,
       testCaseSection,
       previousSession,
       blockerWarningSection,

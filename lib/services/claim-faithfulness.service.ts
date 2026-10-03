@@ -40,7 +40,6 @@ export interface ClaimFaithfulnessDeps {
     input: {
       claim: string | null
       delivery: TaskDelivery | null
-      criteria: string[]
     },
     deps: { timeoutMs?: number }
   ) => Promise<ClaimFaithfulnessResult>
@@ -176,7 +175,7 @@ export function createClaimFaithfulnessService(deps: ClaimFaithfulnessDeps) {
       mergedPRs,
     })
     const result = await deps.classify(
-      { claim: inputs.claim, delivery, criteria: inputs.criteria },
+      { claim: inputs.claim, delivery },
       { timeoutMs: deps.timeoutMs }
     )
     await deps.upsertVerdict(

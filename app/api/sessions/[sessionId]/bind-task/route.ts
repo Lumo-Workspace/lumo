@@ -61,9 +61,6 @@ export async function POST(
     )
     // LUM-932 P2: attaching re-scopes the family's attribution. Fail-soft.
     waitUntil(recomputeAttributionSafely(sessionId))
-    // LUM-686: the response already carries `criteriaSection` (the contract or
-    // the draft nudge), so `criteriaNudgeAlreadyShown` is true — the rule table
-    // must not restate that advice as a step.
     const { taskStatus, ...bound } = result
     const nextSteps = await nextStepsService.forExistingTask({
       taskId: result.taskId,
@@ -71,9 +68,8 @@ export async function POST(
       status: taskStatus,
       // Attaching is what just happened.
       sessionBound: true,
-      criteriaNudgeAlreadyShown: true,
-      // LUM-807: same reasoning for the test-case nudge — the response carries
-      // the section, so the rule table must not repeat it as a step.
+      // LUM-807: the response carries the test-case section, so the rule table
+      // must not repeat it as a step.
       testCaseNudgeAlreadyShown: true,
     })
     return NextResponse.json({ ...bound, nextSteps })

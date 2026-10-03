@@ -10,11 +10,6 @@ jest.mock('@/lib/repositories/task-slack-context.repository', () => ({
 jest.mock('@/lib/repositories/task-web-link.repository', () => ({
   taskWebLinkRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: {
-    listByTask: jest.fn().mockResolvedValue([]),
-  },
-}))
 jest.mock('@/lib/repositories/task-artifact.repository', () => ({
   taskArtifactRepository: { listByTask: jest.fn().mockResolvedValue([]) },
 }))
@@ -197,10 +192,8 @@ describe('taskContextService.getContextForIdentifier — doc/comments/pr section
         true
       )
     }
-    // The acceptance-criteria contract (here: the draft nudge on an open task
-    // with no criteria) is a directive surface the agent must honor — it stays
-    // OUTSIDE the boundary (LUM-342 decision).
-    expect(ctx.criteriaSection).not.toContain('<untrusted-linked-context>')
+    // LUM-942: the acceptance-criteria section no longer exists at all.
+    expect(ctx).not.toHaveProperty('criteriaSection')
   })
 
   it('dedupes the full untrusted-linked preamble across ≥3 linked sections (LUM-352)', async () => {

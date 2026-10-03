@@ -9,8 +9,7 @@ jest.mock('react-intl', () => ({
       const overrides = (
         globalThis as { __intlOverrides?: Record<string, string> }
       ).__intlOverrides
-      let s =
-        (d.id && overrides?.[d.id]) ?? d.defaultMessage ?? d.id ?? ''
+      let s = (d.id && overrides?.[d.id]) ?? d.defaultMessage ?? d.id ?? ''
       if (values) {
         s = s.replace(
           /\{(\w+),\s*plural,\s*one\s*\{([^}]*)\}\s*other\s*\{([^}]*)\}\}/g,
@@ -39,7 +38,6 @@ const tilesData = (
   over: Partial<RunReportTilesData> = {}
 ): RunReportTilesData => ({
   prIterations: null,
-  passRateR1: null,
   costTokens: 12345,
   activeTimeSec: 60,
   rework: 0,
@@ -87,10 +85,7 @@ describe('flags auto-detected work as approximate', () => {
 
   it('does not mark the cost tile when no cost was measured', () => {
     render(
-      <RunReportTiles
-        tiles={tilesData({ costTokens: null, activeTimeSec: null })}
-        costApproximate
-      />
+      <RunReportTiles tiles={tilesData({ costTokens: null })} costApproximate />
     )
     expect(screen.queryByTestId('cost-approximate')).not.toBeInTheDocument()
   })

@@ -89,8 +89,8 @@ describe('AST validator — case-insensitive enums mirror runtime normalization 
       '--category uppercase',
     ],
     [
-      'lumo task criteria set LUM-9 --file c.json --human --cause scope_change',
-      '--cause lowercase',
+      'lumo task testcase run LUM-9/TC1 --result FAIL --env LOCAL --cause DEFECT',
+      '--result/--env/--cause uppercase',
     ],
     [
       'lumo task artifact add LUM-9 --kind spec --title T --file f.md --source GSD --agent CLAUDE_CODE',

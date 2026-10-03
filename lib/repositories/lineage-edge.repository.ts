@@ -718,49 +718,21 @@ export const lineageEdgeRepository = {
   /**
    * Stamp a closing `outcome` onto every edge of a task whose current outcome
    * is eligible to advance (see {@link STAMPABLE_FROM}). Returns Prisma's
-   * `{ count }` of rows changed (the outcome advance — strength reconciles
-   * are not counted). Idempotent: re-stamping the same verdict matches
+   * `{ count }` of rows changed. Idempotent: re-stamping the same verdict matches
    * nothing the second time. Coarse by design — edges are keyed by `taskId`,
    * not by the specific PR/session, so this stamps relevance
    * (was-in-context + outcome co-occurred), not causality (DoD ③).
-   *
-   * LUM-397 strength: for a MERGED stamp, `opts.verified` (derived by the
-   * caller from the task's verification log) is reconciled onto EVERY MERGED
-   * edge of the task — including edges already MERGED before this call —
-   * monotonically: null → verified value, false → true, never true → false.
-   * Omitting `verified` leaves the column untouched (the cron sweep heals it
-   * later). REJECTED/REWORKED stamps never touch strength — outcomeVerified
-   * records a fact about the merge, which REWORKED's lateral move does not
-   * erase.
    */
   async stampOutcomeByTask(
     taskId: string,
     outcome: StampableOutcome,
-    opts: { verified?: boolean; tx?: Prisma.TransactionClient } = {}
+    opts: { tx?: Prisma.TransactionClient } = {}
   ) {
     const client = opts.tx ?? prisma
-    const advanced = await client.lineageEdge.updateMany({
+    return client.lineageEdge.updateMany({
       where: { taskId, outcome: { in: STAMPABLE_FROM[outcome] } },
       data: { outcome },
     })
-    if (outcome === 'MERGED' && opts.verified !== undefined) {
-      await client.lineageEdge.updateMany({
-        where: {
-          taskId,
-          outcome: 'MERGED',
-          // Three-valued-logic trap: Prisma's NOT/not on a nullable Boolean
-          // compiles to SQL `<> true`, which NULL rows never satisfy — a
-          // `NOT { outcomeVerified: true }` filter silently skips the very
-          // null rows the upgrade exists for (caught live: prod had 0
-          // verified=true edges). Enumerate the eligible states explicitly.
-          ...(opts.verified
-            ? { OR: [{ outcomeVerified: null }, { outcomeVerified: false }] }
-            : { outcomeVerified: null }),
-        },
-        data: { outcomeVerified: opts.verified },
-      })
-    }
-    return advanced
   },
 
   /**
@@ -775,22 +747,9 @@ export const lineageEdgeRepository = {
    * same STAMPABLE_FROM.MERGED set as stampOutcomeByTask, so it is monotonic
    * (REWORKED is never in that set → reopened-then-remerged history is
    * preserved) and idempotent (a re-run after a full sweep changes nothing).
-   * Returns `{ count }` of outcome rows advanced plus the LUM-397 strength
-   * reconcile counts.
-   *
-   * LUM-397 strength: `verifiedTaskIds` (derived by the caller via the same
-   * deriveAllPassRoundTaskIds the immediate stamp uses) splits every DONE
-   * task's MERGED edges into MERGED_VERIFIED (outcomeVerified=true) vs weak
-   * MERGED (false). Monotonic like the immediate path: a task in the set
-   * upgrades null/false → true; a task outside it only fills null → false
-   * (a later all-PASS round can still upgrade it next sweep). This pass also
-   * heals edges stamped MERGED by paths that don't carry strength (the PR
-   * webhook/poller and pre-LUM-397 stamps).
+   * Returns `{ count }` of outcome rows advanced.
    */
-  async stampDoneTaskEdges(
-    verifiedTaskIds: string[],
-    tx?: Prisma.TransactionClient
-  ) {
+  async stampDoneTaskEdges(tx?: Prisma.TransactionClient) {
     const client = tx ?? prisma
     const advanced = await client.lineageEdge.updateMany({
       where: {
@@ -799,31 +758,7 @@ export const lineageEdgeRepository = {
       },
       data: { outcome: 'MERGED' },
     })
-    const verified = await client.lineageEdge.updateMany({
-      where: {
-        outcome: 'MERGED',
-        task: { status: 'DONE' },
-        taskId: { in: verifiedTaskIds },
-        // Explicit null/false enumeration — NOT/not on a nullable Boolean
-        // excludes NULL rows in SQL (see stampOutcomeByTask).
-        OR: [{ outcomeVerified: null }, { outcomeVerified: false }],
-      },
-      data: { outcomeVerified: true },
-    })
-    const unverified = await client.lineageEdge.updateMany({
-      where: {
-        outcome: 'MERGED',
-        task: { status: 'DONE' },
-        taskId: { notIn: verifiedTaskIds },
-        outcomeVerified: null,
-      },
-      data: { outcomeVerified: false },
-    })
-    return {
-      count: advanced.count,
-      verifiedStamped: verified.count,
-      unverifiedStamped: unverified.count,
-    }
+    return { count: advanced.count }
   },
 
   /**

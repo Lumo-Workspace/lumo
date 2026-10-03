@@ -39,52 +39,17 @@ function jsonResponse(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, json: async () => body }
 }
 
-type Criterion = TaskStatusResponse['criteria'][number]
-
-function criterion(over: Partial<Criterion> = {}): Criterion {
-  return {
-    id: 'crit-1',
-    statement: 'wrapup prints every section',
-    verifierType: 'MACHINE',
-    checkpointer: 'npx jest x',
-    evidenceRequired: false,
-    judgeSteps: null,
-    source: 'AGENT_DRAFT',
-    addedAtRound: 0,
-    verdictStale: false,
-    checkMismatch: false,
-    machinePassed: true,
-    latestVerdict: {
-      round: 1,
-      verdict: 'PASS',
-      evidencePointer: null,
-      rejectionReason: null,
-      rejectionReasonEnum: null,
-      recordedAt: '2026-09-25T00:00:00.000Z',
-    },
-    confirmedAt: '2026-09-25T00:00:00.000Z',
-    ...over,
-  }
-}
-
 function statusData(
   over: Partial<TaskStatusResponse> = {}
 ): TaskStatusResponse {
   return {
-    version: 1,
+    version: 2,
     task: {
       id: 't1',
       identifier: 'LUM-9001',
       title: 'Wrap me up',
       status: 'IN_REVIEW',
     },
-    currentRound: 1,
-    maxRounds: 3,
-    escalated: false,
-    criteria: [criterion()],
-    machineVerification: { total: 1, machineVerified: 1, humanOverridden: 0 },
-    verificationHistory: [],
-    lastRoundFailures: [],
     nextActions: [],
     securityFindings: {
       open: 0,
@@ -174,27 +139,7 @@ describe('lumo task wrapup (LUM-841)', () => {
         status: {
           ok: true,
           value: statusData({
-            criteria: [
-              criterion(),
-              criterion({
-                id: 'crit-2',
-                statement: 'second criterion',
-                latestVerdict: null,
-                machinePassed: false,
-              }),
-            ],
             nextActions: [
-              {
-                kind: 'CRITERION',
-                criterionId: 'crit-2',
-                statement: 'second criterion',
-                verifierType: 'MACHINE',
-                checkpointer: 'npx jest y',
-                judgeSteps: null,
-                source: 'AGENT_DRAFT',
-                addedAtRound: 0,
-                rejectionReason: null,
-              },
               {
                 kind: 'TEST_CASE_VERDICT',
                 signal: 'UNPROVEN_PASS',
@@ -214,19 +159,16 @@ describe('lumo task wrapup (LUM-841)', () => {
       })
     )
     const order = [
-      '[1/5] Contract & verification',
-      '[2/5] Test cases',
-      '[3/5] Security scans',
-      '[4/5] Boundary crossings',
-      '[5/5] DONE',
+      '[1/4] Test cases',
+      '[2/4] Security scans',
+      '[3/4] Boundary crossings',
+      '[4/4] DONE',
     ].map(h => out.indexOf(h))
     expect(order.every(i => i >= 0)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
 
-    // verification: round, unmet criterion, the verify next step
-    expect(out).toContain('Criteria: 2 total, 1 unmet · round 1/3')
-    expect(out).toContain('○ crit-2  [MACHINE]  second criterion')
-    expect(out).toContain('run `lumo verify LUM-9001` (2 rounds left)')
+    // LUM-942: no contract / verification section any more
+    expect(out).not.toMatch(/criteri|lumo verify|Contract/i)
     // test-case signal
     expect(out).toContain('TC3 manual smoke')
     // PR scan state
@@ -388,7 +330,7 @@ describe('lumo task wrapup (LUM-841)', () => {
       route()
       const code = await taskWrapup('LUM-9001')
       expect(code).toBeUndefined()
-      // every request is a plain GET — no verify round, no receipt, no PATCH
+      // every request is a plain GET — no receipt, no PATCH
       expect(fetchMock).toHaveBeenCalled()
       for (const [url, init] of fetchMock.mock.calls) {
         expect((init as RequestInit | undefined)?.method ?? 'GET').toBe('GET')
@@ -446,7 +388,7 @@ describe('lumo task wrapup (LUM-841)', () => {
         expect(out).not.toContain('Readiness: READY')
         expect(out).not.toMatch(CONFIRM_FLAG)
         if (name === 'status')
-          expect(out).toContain('Could not read the acceptance status')
+          expect(out).toContain('the task status could not be read')
         if (name === 'crossings')
           expect(out).toContain('Boundary-crossing check failed')
         if (name === 'task')
@@ -463,24 +405,12 @@ describe('lumo task wrapup (LUM-841)', () => {
   })
 
   describe('assessReadiness', () => {
-    test('a send-back and a proven defect are BLOCKED', () => {
+    test('a proven defect is BLOCKED', () => {
       const r = assessReadiness(
         input({
           status: {
             ok: true,
             value: statusData({
-              criteria: [
-                criterion({
-                  latestVerdict: {
-                    round: 2,
-                    verdict: 'FAIL',
-                    evidencePointer: null,
-                    rejectionReason: 'no',
-                    rejectionReasonEnum: null,
-                    recordedAt: '',
-                  },
-                }),
-              ],
               nextActions: [
                 {
                   kind: 'TEST_CASE_VERDICT',
@@ -495,19 +425,10 @@ describe('lumo task wrapup (LUM-841)', () => {
         })
       )
       expect(r.level).toBe('BLOCKED')
-      expect(r.reasons.join('\n')).toMatch(/send-back/)
       expect(r.reasons.join('\n')).toMatch(/proven defect/)
     })
 
-    test('an unmerged PR or a never-verified contract is NOT_YET', () => {
-      const unverified = assessReadiness(
-        input({
-          status: { ok: true, value: statusData({ currentRound: 0 }) },
-        })
-      )
-      expect(unverified.level).toBe('NOT_YET')
-      expect(unverified.reasons).toContain('lumo verify has not run')
-
+    test('an unmerged PR is NOT_YET', () => {
       const open = input()
       if (open.task.ok) open.task.value.pullRequests![0]!.state = 'open'
       const r = assessReadiness(open)

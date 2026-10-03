@@ -13,14 +13,13 @@ describe('cli-output-budget audit', () => {
     const commands = rows.map(r => r.command)
 
     // 1) Coverage: every agent-facing command this audit is responsible for is
-    // enumerated — the six render/aggregate commands plus the three
+    // enumerated — the five render/aggregate commands plus the three
     // byte-faithful doc reads.
     const expected = [
       'lumo task comments list <id>',
       'lumo doc show <doc>',
       'lumo task context <id>',
       'lumo task lineage <id>',
-      'lumo task criteria list <id>',
       'lumo task status <id>',
       'lumo doc show <doc> --raw',
       'lumo doc show <doc> --section <heading>',
@@ -83,11 +82,7 @@ describe('cli-output-budget audit', () => {
       r => r.kind === 'render-aggregate' && !r.cappedInV1
     )
     expect(uncappedRender.map(r => r.command).sort()).toEqual(
-      [
-        'lumo task criteria list <id>',
-        'lumo task lineage <id>',
-        'lumo task status <id>',
-      ].sort()
+      ['lumo task lineage <id>', 'lumo task status <id>'].sort()
     )
     for (const r of uncappedRender) {
       expect(r.flaggedUnbounded).toBe(false)

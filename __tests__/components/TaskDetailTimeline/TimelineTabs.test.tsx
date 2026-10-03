@@ -238,17 +238,3 @@ describe('TimelineTabs legacy deep links resolve into the dossier (LUM-458/567)'
     expect(mockNav.replace).toHaveBeenCalledTimes(1)
   })
 })
-
-describe('TimelineTabs no longer renders the floating verdict bar (LUM-529)', () => {
-  // The floating verdict bar moved to the top of the task detail (rendered by
-  // ReviewVerdictBar in TaskDetailPage). TimelineTabs must NOT render it; the
-  // dossier panel is mocked here, so a `verdict-status` node could only come
-  // from TimelineTabs itself — its absence proves the bar is gone from this layer.
-  it('does not render the floating verdict on the dossier tab', () => {
-    setPresence()
-    mockNav.pathname = '/workspace/acme/my-tasks/LUM-1/record'
-    mockNav.tab = ['record']
-    render(<TimelineTabs {...baseProps} onVerdictRecorded={jest.fn()} />)
-    expect(screen.queryByTestId('verdict-status')).toBeNull()
-  })
-})

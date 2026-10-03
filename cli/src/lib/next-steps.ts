@@ -4,8 +4,8 @@ import { sanitizeField } from './sanitize'
  * Rendering half of next-step suggestions (LUM-686).
  *
  * The rules that decide WHICH steps apply live server-side
- * (`lib/context/render/next-steps.ts`) — they depend on task status, contract,
- * session binding and verify round. This module only renders, so it serves two
+ * (`lib/context/render/next-steps.ts`) — they depend on task status and
+ * session binding. This module only renders, so it serves two
  * kinds of source without caring which it got:
  *
  *  - server-computed — `lumo next` and the task commands, carried on the
@@ -18,7 +18,7 @@ import { sanitizeField } from './sanitize'
  * build graph (same reason `shared/src/sanitize.ts` exists).
  */
 export interface NextStep {
-  /** Null for advice with nothing to run — e.g. "wait for the human verdict". */
+  /** Null for advice with nothing to run — e.g. "wait for the human review". */
   command: string | null
   why: string
 }

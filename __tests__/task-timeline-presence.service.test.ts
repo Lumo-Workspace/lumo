@@ -5,9 +5,6 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
 jest.mock('@/lib/repositories/lineage-edge.repository', () => ({
   lineageEdgeRepository: { hasForTask: jest.fn() },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { countByTask: jest.fn() },
-}))
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { hasOpenForTask: jest.fn() },
 }))
@@ -18,32 +15,27 @@ jest.mock('@/lib/repositories/test-case.repository', () => ({
 import { taskTimelinePresenceService } from '@/lib/services/task-timeline-presence.service'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { lineageEdgeRepository } from '@/lib/repositories/lineage-edge.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { testCaseRepository } from '@/lib/repositories/test-case.repository'
 
 const mockMemory = memoryRepository.hasForTask as jest.Mock
 const mockLineage = lineageEdgeRepository.hasForTask as jest.Mock
-const mockCriteria = acceptanceCriterionRepository.countByTask as jest.Mock
 const mockOpenCrossings = boundaryCrossingRepository.hasOpenForTask as jest.Mock
 const mockTestCases = testCaseRepository.hasForTask as jest.Mock
 
 function setRepos({
   memory,
   lineage,
-  criteria = 0,
   openCrossings = false,
   testCases = false,
 }: {
   memory: boolean
   lineage: boolean
-  criteria?: number
   openCrossings?: boolean
   testCases?: boolean
 }) {
   mockMemory.mockResolvedValue(memory)
   mockLineage.mockResolvedValue(lineage)
-  mockCriteria.mockResolvedValue(criteria)
   mockOpenCrossings.mockResolvedValue(openCrossings)
   mockTestCases.mockResolvedValue(testCases)
 }
@@ -51,11 +43,10 @@ function setRepos({
 beforeEach(() => jest.clearAllMocks())
 
 describe('taskTimelinePresenceService.getPresence', () => {
-  it('passes through memory, lineage, and criteria presence', async () => {
+  it('passes through memory, lineage, crossing and test-case presence', async () => {
     setRepos({
       memory: true,
       lineage: true,
-      criteria: 4,
       openCrossings: true,
       testCases: true,
     })
@@ -65,18 +56,9 @@ describe('taskTimelinePresenceService.getPresence', () => {
     expect(presence).toEqual({
       hasMemories: true,
       hasLineage: true,
-      hasCriteria: true,
       hasOpenCrossings: true,
       hasTestCases: true,
     })
-  })
-
-  it('reports hasCriteria=false when the task has no criteria', async () => {
-    setRepos({ memory: false, lineage: false, criteria: 0 })
-
-    const presence = await taskTimelinePresenceService.getPresence('task-1')
-
-    expect(presence.hasCriteria).toBe(false)
   })
 
   it('hasOpenCrossings reflects undispositioned crossings', async () => {
@@ -98,7 +80,6 @@ describe('taskTimelinePresenceService.getPresence', () => {
 
     expect(mockMemory).toHaveBeenCalledWith('task-42')
     expect(mockLineage).toHaveBeenCalledWith('task-42')
-    expect(mockCriteria).toHaveBeenCalledWith('task-42')
     expect(mockOpenCrossings).toHaveBeenCalledWith('task-42')
     expect(mockTestCases).toHaveBeenCalledWith('task-42')
   })

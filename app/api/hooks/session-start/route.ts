@@ -26,8 +26,7 @@ export async function POST(request: Request) {
         // LUM-923: bound or not, the agent learns of a pending deletion.
         workspaceDeletionService.buildPendingNoticeSection(ctx.workspaceId),
       ])
-      let criteriaSection = ''
-      // LUM-807: "## Test cases" nudge, injected beside the contract.
+      // LUM-807: "## Test cases" nudge.
       let testCaseSection = ''
       let progressSection = ''
       let memorySection = ''
@@ -57,7 +56,7 @@ export async function POST(request: Request) {
             sessionId
           ),
           // LUM-500 Tier-1: the prior-session progress summary, rendered
-          // server-side so it injects in full alongside the criteria contract.
+          // server-side so it injects in full.
           taskContextService.buildProgressSectionForTask(
             binding.taskId,
             sessionId
@@ -73,7 +72,6 @@ export async function POST(request: Request) {
             binding.taskIdentifier
           ),
         ])
-        criteriaSection = sections.criteriaSection
         testCaseSection = sections.testCaseSection
         progressSection = progress
         memorySection = sections.memorySection
@@ -128,7 +126,6 @@ export async function POST(request: Request) {
               droppedCards: layer2Review.dropped,
             },
           },
-          criteriaSection,
           memorySection,
           linkedResourcesSection,
           reviewTodosSection,
@@ -200,7 +197,6 @@ export async function POST(request: Request) {
         sessionId,
         taskBinding: binding,
         workspaceNoticeSection,
-        criteriaSection,
         testCaseSection,
         progressSection,
         memorySection,

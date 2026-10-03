@@ -2,7 +2,7 @@
 /**
  * LUM-932 — the pre-dedupe flag is derived from the runs' stored startedAt and
  * threaded to the delivery panel (AgentRunsSection) and the Cost tile
- * (TaskDossier -> AcceptanceTab costPreDedupe).
+ * (TaskDossier -> RecordTab costPreDedupe).
  */
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -28,9 +28,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
   })),
 }))
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab',
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RecordTab',
   () => ({
-    AcceptanceTab: (props: { costPreDedupe?: boolean }) => (
+    RecordTab: (props: { costPreDedupe?: boolean }) => (
       <div
         data-testid='acceptance-surface'
         data-pre-dedupe={String(props.costPreDedupe)}
@@ -104,7 +104,6 @@ describe('TaskDossier pre-dedupe wiring', () => {
     members: [],
     agentActors: [],
     enabled: true,
-    onVerdictRecorded: jest.fn(),
     memberNames: new Map(),
     hasLineage: false,
     hasMemories: false,

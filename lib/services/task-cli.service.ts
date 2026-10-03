@@ -2,12 +2,8 @@ import { projectRepository } from '@/lib/repositories/project.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { milestoneRepository } from '@/lib/repositories/milestone.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
-import { collectSendBackPlane } from '@/lib/services/done-verdict.service'
-import { hasUnresolvedSendBack } from '@/lib/acceptance/done-verdict'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { taskService } from '@/lib/services/task.service'
-import { waitUntil } from '@vercel/functions'
 import { authService } from '@/lib/services/auth.service'
 import { withMarkdown } from '@/lib/services/task-rendering'
 import { slugify } from '@/lib/utils/slugify'
@@ -30,83 +26,10 @@ function httpError(status: number, message: string): Error {
 }
 
 const reworkRedirectMessage = (target: string): string =>
-  `This belongs on ${target}. Either fix it in place and re-run \`lumo verify\`, or — if ${target}'s acceptance contract is itself wrong/incomplete — amend it with \`lumo task criteria set ${target}\` and re-verify. Don't open a new task for ${target}'s own scope.`
+  `This belongs on ${target}. Fix it in place on ${target} instead of opening a new task for ${target}'s own scope.`
 
 const mustDeclareMessage = (identifier: string, title: string): string =>
-  `You're working on ${identifier} ("${title}"). If this defect is rework of ${identifier}, fix it there and re-run \`lumo verify\` — pass \`--rework-of ${identifier}\`. If it's genuinely new, separate work, pass \`--new-scope\`.`
-
-const openSendBackMessage = (identifier: string, title: string): string =>
-  `${identifier} ("${title}") has unresolved verification failures — a standing send-back. Resolve it on ${identifier} (\`lumo task status\` → fix + \`lumo verify\`, or amend the contract) before opening new work; don't spin off a new task while it's failing.`
-
-/**
- * LUM-511 Phase 4: judge whether a mid-flight `--new-scope` spinoff is laundered
- * rework of its parent, off the hot path. Audit-only — runs in the background via
- * `waitUntil`, never blocks the create response, and swallows all errors. On a
- * LAUNDERED verdict it records a `SPINOFF_LAUNDERED` boundary crossing on the
- * parent (LUM-511 Phase 6 — visible/dismissable, fed into the negative class).
- * Exported for direct testing.
- */
-export function dispatchSpinoffJudge(args: {
-  parentTaskId: string
-  spunOffTaskId: string
-  spunOffIdentifier: string
-  newTaskTitle: string
-  newTaskDescription: string | null
-  /** Originating session (X-Lumo-Session-Id) — stored on the crossing so the
-   *  LUM-469 attribution read model can name who/which-agent/which-model spun
-   *  the work off, since a CLI-create path carries no hook event (LUM-511). */
-  sessionId: string | null
-}): void {
-  waitUntil(
-    (async () => {
-      try {
-        const criteria = await acceptanceCriterionRepository.listByTask(
-          args.parentTaskId
-        )
-        // Nothing to compare against ⇒ not laundering; skip the SDK load entirely.
-        if (criteria.length === 0) return
-        const { classifySpinoff } =
-          await import('@/lib/boundary-crossing/spinoff-judge')
-        const { judgeSpinoff } = await import('@/lib/llm/spinoff-judge-client')
-        const verdict = await classifySpinoff(
-          {
-            parentCriteria: criteria.map(c => c.statement),
-            newTaskTitle: args.newTaskTitle,
-            newTaskDescription: args.newTaskDescription,
-          },
-          { judge: judgeSpinoff }
-        )
-        if (verdict === 'LAUNDERED') {
-          // LUM-511 Phase 6: surface as a DONE-blocking, dismissable crossing on
-          // the parent (was a TaskActivity marker) — visible in the crossings panel.
-          const { boundaryCrossingRepository } =
-            await import('@/lib/repositories/boundary-crossing.repository')
-          const { isReversible } =
-            await import('@/lib/services/boundary-detector.service')
-          const coalesced = await boundaryCrossingRepository.coalesceRecurrence(
-            args.parentTaskId,
-            'SPINOFF_LAUNDERED',
-            args.spunOffTaskId,
-            new Date()
-          )
-          if (coalesced === 0) {
-            await boundaryCrossingRepository.create({
-              taskId: args.parentTaskId,
-              category: 'SPINOFF_LAUNDERED',
-              detail: `Work spun off to ${args.spunOffIdentifier} during this task — judged laundered rework (should have been a fix-in-place).`,
-              target: args.spunOffTaskId,
-              sessionId: args.sessionId,
-              reversible: isReversible('SPINOFF_LAUNDERED'),
-              severity: 'MEDIUM',
-            })
-          }
-        }
-      } catch (err) {
-        console.error('dispatchSpinoffJudge error:', err)
-      }
-    })()
-  )
-}
+  `You're working on ${identifier} ("${title}"). If this defect is rework of ${identifier}, fix it in place there — pass \`--rework-of ${identifier}\`. If it's genuinely new, separate work, pass \`--new-scope\`.`
 
 /**
  * Resolve a `--project <ref>` argument to a project id within a workspace.
@@ -279,7 +202,6 @@ async function createFromCli(args: {
   {
     let boundTask: BoundTaskRef | null = null
     let boundTaskId: string | null = null
-    let boundTaskHasOpenSendBack = false
     if (args.sessionId && args.memberId) {
       const bound = await sessionRepository.findForMemberWithBinding(
         args.sessionId,
@@ -293,30 +215,17 @@ async function createFromCli(args: {
           title: bound.task.title,
           status: bound.task.status,
         }
-        // Layer 2: 问的是「有没有未解决的送回」——和 DONE 闸共享的**一个具名
-        // 概念**，不是同一个问题。以前这里自己手写 `.some(r => …)`，于是同一条
-        // 规则有了两处实现（LUM-808 收的就是这个）。现在只准问，不准算。
-        boundTaskHasOpenSendBack = hasUnresolvedSendBack(
-          await collectSendBackPlane(bound.task.id)
-        )
       }
     }
 
     const intent = classifyTaskCreateIntent({
       boundTask,
-      boundTaskHasOpenSendBack,
       reworkOf: input.reworkOfRef,
       newScope: input.newScope ?? false,
     })
 
     if (intent.kind === 'redirect-rework') {
       throw httpError(409, reworkRedirectMessage(intent.target))
-    }
-    if (intent.kind === 'blocked-open-sendback') {
-      throw httpError(
-        409,
-        openSendBackMessage(intent.boundIdentifier, intent.boundTitle)
-      )
     }
     if (intent.kind === 'must-declare') {
       throw httpError(
@@ -400,15 +309,6 @@ async function createFromCli(args: {
     } catch (err) {
       console.error('TASK_SPUN_OFF record error:', err)
     }
-    // Phase 4: judge laundered-vs-legit in the background (off the hot path).
-    dispatchSpinoffJudge({
-      parentTaskId: spinoffParentTaskId,
-      spunOffTaskId: task.id,
-      spunOffIdentifier: identifier,
-      newTaskTitle: input.title,
-      newTaskDescription: input.description ?? null,
-      sessionId: args.sessionId ?? null,
-    })
   }
 
   return {
@@ -418,17 +318,12 @@ async function createFromCli(args: {
     url,
     teamId: task.teamId,
     taskTags,
-    // A brand-new task: no contract, no crossings, no verification yet — the
-    // only unknown is whether this session can still be attached.
+    // A brand-new task: no crossings yet — the only unknown is whether this session can still be attached.
     nextSteps: computeNextSteps({
       taskIdentifier: identifier,
       status: 'TODO',
-      hasCriteria: false,
       sessionBound: sessionAlreadyBound,
       openCrossings: 0,
-      verifyRound: 0,
-      hasUnmetCriteria: false,
-      criteriaNudgeAlreadyShown: false,
     }),
   }
 }

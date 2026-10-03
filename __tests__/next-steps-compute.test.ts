@@ -3,7 +3,6 @@ import {
   NEXT_STEPS_MAX,
   type NextStepsInput,
 } from '@/lib/context/render/next-steps'
-import { renderCriteriaDraftNudge } from '@/lib/context/render/criteria'
 
 /**
  * Baseline input: a freshly created task, nothing done yet. Each test overrides
@@ -13,12 +12,8 @@ function input(overrides: Partial<NextStepsInput> = {}): NextStepsInput {
   return {
     taskIdentifier: 'LUM-686',
     status: 'TODO',
-    hasCriteria: false,
     sessionBound: false,
     openCrossings: 0,
-    verifyRound: 0,
-    hasUnmetCriteria: false,
-    criteriaNudgeAlreadyShown: false,
     ...overrides,
   }
 }
@@ -30,111 +25,58 @@ function commands(steps: ReturnType<typeof computeNextSteps>): string[] {
 
 describe('computeNextSteps', () => {
   it('computeNextSteps returns rule-table steps capped at three', () => {
-    // Unbound + no contract: attach first, then draft the contract.
+    // Unbound: attach first.
     const fresh = computeNextSteps(input())
-    expect(commands(fresh)).toEqual([
-      'lumo session attach LUM-686',
-      'lumo task criteria set LUM-686 --file <criteria.json>',
-    ])
+    expect(commands(fresh)).toEqual(['lumo session attach LUM-686'])
 
-    // Contract in place and work underway: verify is the next move.
+    // Bound and working with nothing outstanding: nothing to suggest.
     const working = computeNextSteps(
-      input({ status: 'IN_PROGRESS', hasCriteria: true, sessionBound: true })
+      input({ status: 'IN_PROGRESS', sessionBound: true })
     )
-    expect(commands(working)).toContain('lumo verify --note "<self-report>"')
+    expect(working).toEqual([])
 
     // A status-only rule needs no command — IN_REVIEW means stop and wait.
     const inReview = computeNextSteps(
-      input({ status: 'IN_REVIEW', hasCriteria: true, sessionBound: true })
+      input({ status: 'IN_REVIEW', sessionBound: true })
     )
     expect(inReview[0]?.command).toBeNull()
     expect(inReview[0]?.why).toMatch(/human/i)
 
     // An open boundary crossing outranks routine suggestions.
     const crossing = computeNextSteps(
-      input({ status: 'IN_PROGRESS', hasCriteria: true, openCrossings: 2 })
+      input({ status: 'IN_PROGRESS', openCrossings: 2 })
     )
     expect(commands(crossing)[0]).toBe(
       'lumo crossing explain <id> --task LUM-686 --note "<text>"'
     )
 
-    // A rejected round points at the unmet-criteria read-out.
-    const bounced = computeNextSteps(
-      input({
-        status: 'IN_PROGRESS',
-        hasCriteria: true,
-        sessionBound: true,
-        verifyRound: 1,
-        hasUnmetCriteria: true,
-      })
-    )
-    expect(commands(bounced)).toContain('lumo task status LUM-686')
-
-    // The cap holds even when every rule fires at once. Hints are resident
-    // token cost — an uncapped list would be the noise this feature must avoid.
-    const everything = computeNextSteps(
-      input({
-        status: 'IN_PROGRESS',
-        hasCriteria: false,
-        sessionBound: false,
-        openCrossings: 3,
-        verifyRound: 2,
-        hasUnmetCriteria: true,
-      })
-    )
-    expect(everything.length).toBeLessThanOrEqual(NEXT_STEPS_MAX)
-    expect(NEXT_STEPS_MAX).toBe(3)
+    // A delivered task has nothing to suggest.
+    expect(
+      computeNextSteps(input({ status: 'DONE', openCrossings: 1 }))
+    ).toEqual([])
   })
 
-  it('criteria draft nudge is never duplicated by nextSteps', () => {
-    // `session attach` / `task context` already carry renderCriteriaDraftNudge
-    // in their criteriaSection. Emitting a criteria suggestion here too would
-    // print the same advice twice on one screen.
-    const alreadyShown = computeNextSteps(
-      input({ hasCriteria: false, criteriaNudgeAlreadyShown: true })
-    )
-    expect(commands(alreadyShown).some(c => c.includes('criteria set'))).toBe(
-      false
-    )
-
-    // Guard the real rendered text, not just our own phrasing: no step may
-    // restate what the nudge section already says.
-    const nudge = renderCriteriaDraftNudge()
-    for (const step of alreadyShown) {
-      expect(nudge).not.toContain(step.command ?? '\u0000never\u0000')
+  it('never suggests the removed acceptance-criteria commands (LUM-942)', () => {
+    for (const status of ['TODO', 'IN_PROGRESS', 'IN_REVIEW'] as const) {
+      const all = commands(computeNextSteps(input({ status })))
+      expect(all.some(c => c.includes('criteria'))).toBe(false)
+      expect(all.some(c => c.startsWith('lumo verify'))).toBe(false)
     }
-
-    // Surfaces without the nudge (task create, task update) must still say it.
-    const notShown = computeNextSteps(
-      input({ hasCriteria: false, criteriaNudgeAlreadyShown: false })
-    )
-    expect(commands(notShown).some(c => c.includes('criteria set'))).toBe(true)
-
-    // With a contract present the suggestion is gone either way.
-    const hasContract = computeNextSteps(
-      input({ hasCriteria: true, sessionBound: true })
-    )
-    expect(commands(hasContract).some(c => c.includes('criteria set'))).toBe(
-      false
-    )
   })
+
   it('next step suggests testcase add only with a linked PR and zero test cases', () => {
     const delivering: Partial<NextStepsInput> = {
       status: 'IN_PROGRESS',
-      hasCriteria: true,
       sessionBound: true,
       testCase: { hasTestCases: false, hasLinkedPr: true, taskDone: false },
     }
 
-    // PR open, no script recorded → the suggestion appears…
-    const open = computeNextSteps(input(delivering))
-    expect(
-      commands(open).some(c => c.startsWith('lumo task testcase add LUM-686'))
-    ).toBe(true)
-    // …and yields to the rules that actually gate delivery: it is last.
-    const openCommands = commands(open)
-    expect(openCommands[openCommands.length - 1]).toContain('task testcase add')
-    expect(commands(open)).toContain('lumo verify --note "<self-report>"')
+    // PR open, no script recorded → the suggestion appears, last.
+    const open = commands(computeNextSteps(input(delivering)))
+    expect(open.some(c => c.startsWith('lumo task testcase add LUM-686'))).toBe(
+      true
+    )
+    expect(open[open.length - 1]).toContain('task testcase add')
 
     // No PR yet: the delivery gate keeps the Next: block quiet (the
     // start-of-work section owns that moment instead).
@@ -171,35 +113,10 @@ describe('computeNextSteps', () => {
     )
     expect(commands(legacy).some(c => c.includes('testcase add'))).toBe(false)
 
-    // Blockers still win the cap: crossing + contract + verify leave no slot.
+    // Never more than the cap.
     const crowded = computeNextSteps(
-      input({
-        ...delivering,
-        hasCriteria: false,
-        openCrossings: 1,
-        sessionBound: false,
-      })
+      input({ ...delivering, openCrossings: 1, sessionBound: false })
     )
-    expect(crowded).toHaveLength(NEXT_STEPS_MAX)
-    expect(commands(crowded).some(c => c.includes('testcase add'))).toBe(false)
-  })
-
-  it('suggests confirming an unconfirmed contract instead of verifying (LUM-819)', () => {
-    const base = {
-      hasCriteria: true,
-      sessionBound: true,
-      status: 'IN_PROGRESS' as const,
-    }
-    const unconfirmed = commands(
-      computeNextSteps(input({ ...base, contractUnconfirmed: true }))
-    )
-    expect(unconfirmed).toContain('lumo task criteria confirm LUM-686')
-    expect(unconfirmed.some(c => c.startsWith('lumo verify'))).toBe(false)
-
-    const confirmed = commands(
-      computeNextSteps(input({ ...base, contractUnconfirmed: false }))
-    )
-    expect(confirmed).toContain('lumo verify --note "<self-report>"')
-    expect(confirmed.some(c => c.includes('criteria confirm'))).toBe(false)
+    expect(crowded.length).toBeLessThanOrEqual(NEXT_STEPS_MAX)
   })
 })

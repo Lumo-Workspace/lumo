@@ -1,8 +1,7 @@
 /**
  * LUM-801 新增 `tests`：任务的 test case 与执行记录。它**不进** dossier
- * （Record tab）——dossier 是「决策优先 + 事后证据」的验收面板，而 test case 是
- * 开工前/中写的执行剧本，语义是拧的；且 AcceptanceTab.tsx 已 2400+ 行，是整个
- * Record tab 的全部表面，不宜再承载。
+ * （Record tab）——dossier 是「事后记录 + 证据」面板，而 test case 是开工前/中
+ * 写的执行剧本，语义是拧的。
  */
 export type TabValue = 'comments' | 'activity' | 'context' | 'dossier' | 'tests'
 
@@ -84,37 +83,11 @@ export function resolveTab(slug: string | undefined): ResolvedTab | null {
 }
 
 /**
- * DOM id of the boundary-crossings panel inside the Record tab. The verdict
- * bar's DONE-blocked "Review the crossings below" link (LUM-454) targets it as
- * a URL hash; the panel scrolls itself into view on mount when the hash names
- * it, because the link is clicked from ABOVE the tabs and the panel may not be
- * mounted yet (it only renders inside the Record tab).
+ * DOM id of the boundary-crossings panel inside the Record tab. Shared links
+ * (LUM-454) target it as a URL hash; the panel scrolls itself into view on
+ * mount when the hash names it, since it only renders inside the Record tab.
  */
 export const BOUNDARY_CROSSINGS_ANCHOR = 'boundary-crossings'
-
-const TAB_SEGMENTS = new Set<string>([
-  ...Object.values(TAB_SLUGS).filter(slug => slug !== ''),
-  ...Object.keys(LEGACY_SECTION_SLUG),
-])
-
-/**
- * The bare task URL (no tab segment) for the current pathname: strips a
- * trailing tab / legacy-section segment if present. Mirrors the basePath
- * derivation in TimelineTabs for callers that only have `usePathname()`.
- */
-export function taskBasePath(pathname: string): string {
-  const trimmed = pathname.replace(/\/+$/, '')
-  const cut = trimmed.lastIndexOf('/')
-  if (cut < 0) return trimmed
-  return TAB_SEGMENTS.has(trimmed.slice(cut + 1))
-    ? trimmed.slice(0, cut)
-    : trimmed
-}
-
-/** Deep link into the Record tab, landing on the boundary-crossings panel. */
-export function boundaryCrossingsHref(pathname: string): string {
-  return `${taskBasePath(pathname)}/${TAB_SLUGS.dossier}#${BOUNDARY_CROSSINGS_ANCHOR}`
-}
 
 /**
  * LUM-819: DOM id of one test-case run inside the Tests tab. A spot-check card

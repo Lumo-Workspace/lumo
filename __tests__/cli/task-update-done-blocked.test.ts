@@ -2,7 +2,7 @@
  * @jest-environment node
  *
  * LUM-755: when `task update --status done --confirm` is refused by a server
- * DONE gate (send-back / boundary crossing / blocking security finding) the
+ * DONE gate (boundary crossing / blocking security finding) the
  * CLI does not just echo the 409 text — it exits 5 with a structured
  * DONE_BLOCKED error on stdout: the message verbatim, a blockers[] assembled
  * from the task-status + boundary-crossings read models, and remediation
@@ -52,48 +52,12 @@ function jsonRes(status: number, body: unknown) {
 
 const CROSSING_MSG =
   'Cannot move this task to DONE — 1 undispositioned boundary-crossing (forbidden action taken during this task): 1 TEST_FILE_DELETED. A human must disposition it (false positive or confirmed) on the task timeline, or open the gate for this workspace.'
-const SENDBACK_MSG =
-  'Cannot move this task to DONE — 1 unresolved send-back on the acceptance contract:\n• Envelope is emitted\nResolve them (see `lumo task status`) and re-verify, or have a human override.'
 const FINDING_MSG =
   'Cannot move this task to DONE — 1 undispositioned HIGH security finding (secrets.aws-key ×1). A human must mark each as false positive or accepted risk.'
 
-const statusPayload = (opts: {
-  failCriterion?: boolean
-  finding?: boolean
-}) => ({
-  version: 1,
+const statusPayload = (opts: { finding?: boolean }) => ({
+  version: 2,
   task: { id: 't1', identifier: 'LUM-1', title: 'T', status: 'IN_REVIEW' },
-  currentRound: 1,
-  maxRounds: 3,
-  escalated: false,
-  criteria: [
-    {
-      id: 'crit-1',
-      statement: 'Envelope is emitted',
-      verifierType: 'MACHINE',
-      checkpointer: 'npx jest x',
-      evidenceRequired: false,
-      judgeSteps: null,
-      source: 'AGENT_DRAFT',
-      addedAtRound: 0,
-      verdictStale: false,
-      checkMismatch: false,
-      machinePassed: false,
-      latestVerdict: opts.failCriterion
-        ? {
-            round: 1,
-            verdict: 'FAIL',
-            evidencePointer: null,
-            rejectionReason: 'exit 1',
-            rejectionReasonEnum: null,
-            recordedAt: 'now',
-          }
-        : null,
-    },
-  ],
-  machineVerification: { total: 1, machineVerified: 0, humanOverridden: 0 },
-  verificationHistory: [],
-  lastRoundFailures: [],
   nextActions: opts.finding
     ? [
         {
@@ -226,9 +190,8 @@ afterEach(() => {
 })
 
 describe('task update done blocked', () => {
-  it('isDoneGateRefusal recognises the three gate messages and nothing else', () => {
+  it('isDoneGateRefusal recognises the gate messages and nothing else', () => {
     expect(isDoneGateRefusal(CROSSING_MSG)).toBe(true)
-    expect(isDoneGateRefusal(SENDBACK_MSG)).toBe(true)
     expect(isDoneGateRefusal(FINDING_MSG)).toBe(true)
     expect(isDoneGateRefusal('Only the owner can delete a document')).toBe(
       false
@@ -267,24 +230,17 @@ describe('task update done blocked', () => {
     expect(stderr).toEqual([])
   })
 
-  it('send-back + blocking security finding: both blocker kinds from the status read model; advisory findings excluded', async () => {
+  it('blocking security finding: read from the status read model; advisory findings excluded', async () => {
     route(
       gateRoutes({
-        gateMsg: SENDBACK_MSG,
-        status: statusPayload({ failCriterion: true, finding: true }),
+        gateMsg: FINDING_MSG,
+        status: statusPayload({ finding: true }),
       })
     )
     const code = await taskUpdate('LUM-1', { status: 'done', confirm: true })
     expect(code).toBe(5)
     const err = blocked()
     expect(err.blockers).toEqual([
-      {
-        kind: 'SEND_BACK',
-        criterionId: 'crit-1',
-        statement: 'Envelope is emitted',
-        failedAtRound: 1,
-        rejectionReason: 'exit 1',
-      },
       {
         kind: 'SECURITY_FINDING',
         findingId: 'f-1',
@@ -297,24 +253,17 @@ describe('task update done blocked', () => {
       },
     ])
     const text = err.remediation.join('\n')
-    expect(text).toContain('lumo verify LUM-1')
+    expect(text).not.toContain('lumo verify')
     expect(text).toMatch(/false positive|accepted risk/)
     expect(text).not.toContain('crossing explain')
   })
 
   it('remediation never offers a CLI path that clears a blocker', () => {
     // LUM-769: a boundary crossing may name `lumo crossing disposition` — the
-    // USER's exit-4 path, never a ready-to-run approval — while send-backs and
-    // security findings still get no CLI clear path at all.
+    // USER's exit-4 path, never a ready-to-run approval — while security
+    // findings still get no CLI clear path at all.
     const lines = buildRemediation(
       [
-        {
-          kind: 'SEND_BACK',
-          criterionId: 'c',
-          statement: 's',
-          failedAtRound: 1,
-          rejectionReason: null,
-        },
         {
           kind: 'BOUNDARY_CROSSING',
           id: 'cx',
@@ -336,9 +285,8 @@ describe('task update done blocked', () => {
       [],
       { identifier: 'LUM-1', dispositionUrl: 'https://x/#boundary-crossings' }
     )
-    expect(lines.length).toBe(3)
+    expect(lines.length).toBe(2)
     const allowed = [
-      'lumo verify',
       'lumo crossing explain',
       'lumo crossing disposition',
       'lumo task status',
@@ -353,7 +301,6 @@ describe('task update done blocked', () => {
     const byKind = Object.fromEntries(
       lines.map(l => [l.split(':')[0], l])
     ) as Record<string, string>
-    expect(byKind.SEND_BACK).not.toContain('crossing disposition')
     expect(byKind.SECURITY_FINDING).not.toContain('lumo ')
     expect(byKind.BOUNDARY_CROSSING).toContain('never self-approve')
     expect(lines.join('\n')).toMatch(/human/i)

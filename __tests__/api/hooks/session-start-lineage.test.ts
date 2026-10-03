@@ -99,7 +99,6 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
     ;(
       taskContextService.buildSessionStartSections as jest.Mock
     ).mockResolvedValue({
-      criteriaSection: '',
       memorySection: 'm',
       linkedResourcesSection: 'l',
       budget: EMPTY_BUDGET,
@@ -174,7 +173,6 @@ describe('POST /api/hooks/session-start — lineage edge birth', () => {
     ;(
       taskContextService.buildSessionStartSections as jest.Mock
     ).mockResolvedValue({
-      criteriaSection: '',
       memorySection: '',
       linkedResourcesSection: '',
       budget: EMPTY_BUDGET,

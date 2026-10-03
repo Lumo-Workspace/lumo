@@ -9,9 +9,6 @@
 jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
-}))
 jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
   boundaryCrossingRepository: { findUndispositionedByTask: jest.fn() },
 }))
@@ -21,29 +18,19 @@ jest.mock('@/lib/repositories/memory.repository', () => ({
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findProjectId: jest.fn() },
 }))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: { listByTask: jest.fn() },
-}))
 
 import { loadHuntTaskContext } from '@/lib/services/security-hunt-task-context'
 import { logger } from '@/lib/logger'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 
-const criteriaMock = acceptanceCriterionRepository.listByTask as jest.Mock
 const crossingMock =
   boundaryCrossingRepository.findUndispositionedByTask as jest.Mock
 const trapMock = memoryRepository.findActiveTrapMemoriesByProject as jest.Mock
 const projectMock = taskRepository.findProjectId as jest.Mock
-const runMock = verificationRunRepository.listByTask as jest.Mock
 
 function healthy(): void {
-  criteriaMock.mockResolvedValue([
-    { verifierType: 'MACHINE', statement: 'the route scopes by workspace' },
-  ])
   projectMock.mockResolvedValue({ projectId: 'p1' })
   trapMock.mockResolvedValue([
     {
@@ -64,14 +51,6 @@ function healthy(): void {
     // evidence, not every crossing the workspace ever recorded.
     { category: 'NEW_DEPENDENCY', target: 'left-pad', detail: 'added' },
   ])
-  runMock.mockResolvedValue([
-    { round: 1, verdict: 'PASS', rejectionReason: null },
-    {
-      round: 2,
-      verdict: 'FAIL',
-      rejectionReason: 'the scope check is missing',
-    },
-  ])
 }
 
 beforeEach(() => {
@@ -80,50 +59,40 @@ beforeEach(() => {
 })
 
 describe('LUM-764 hunt task-context reads', () => {
-  it('reads the four signals a scanner cannot see', async () => {
+  it('reads the signals a scanner cannot see', async () => {
     const context = await loadHuntTaskContext('task1')
-    expect(context.criteria).toEqual([
-      '[MACHINE] the route scopes by workspace',
-    ])
     expect(context.traps).toEqual([
       'passing a raw id to findUnique → cross-workspace read',
     ])
     expect(context.crossings).toEqual([
       'TEST_FILE_DELETED: __tests__/scope.test.ts deleted while work was in progress',
     ])
-    expect(context.rework).toEqual(['round 2: the scope check is missing'])
   })
 
   it('a failing task-context read drops only that signal and never throws', async () => {
-    criteriaMock.mockRejectedValueOnce(new Error('db down'))
+    crossingMock.mockRejectedValueOnce(new Error('db down'))
     const context = await loadHuntTaskContext('task1')
 
-    expect(context.criteria).toEqual([])
-    // The other three are untouched — one dead read is not four.
+    expect(context.crossings).toEqual([])
+    // The other read is untouched — one dead read is not two.
     expect(context.traps).toHaveLength(1)
-    expect(context.crossings).toHaveLength(1)
-    expect(context.rework).toHaveLength(1)
     expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('task-context criteria read failed')
+      expect.stringContaining('task-context crossings read failed')
     )
 
     // Same for the trap path, whose first hop is a second repository.
     projectMock.mockRejectedValueOnce(new Error('db down'))
     const noTraps = await loadHuntTaskContext('task1')
     expect(noTraps.traps).toEqual([])
-    expect(noTraps.criteria).toHaveLength(1)
+    expect(noTraps.crossings).toHaveLength(1)
 
     // And when everything is down it degrades to "no task context", which is
     // the option-B switch: no floor, LUM-758 behaviour, no crash.
-    criteriaMock.mockRejectedValueOnce(new Error('x'))
     projectMock.mockRejectedValueOnce(new Error('x'))
     crossingMock.mockRejectedValueOnce(new Error('x'))
-    runMock.mockRejectedValueOnce(new Error('x'))
     await expect(loadHuntTaskContext('task1')).resolves.toEqual({
-      criteria: [],
       traps: [],
       crossings: [],
-      rework: [],
     })
   })
 
@@ -139,15 +108,8 @@ describe('LUM-764 hunt task-context reads', () => {
 
   it('asks no repository anything when the pull request has no task', async () => {
     const context = await loadHuntTaskContext(null)
-    expect(context).toEqual({
-      criteria: [],
-      traps: [],
-      crossings: [],
-      rework: [],
-    })
-    expect(criteriaMock).not.toHaveBeenCalled()
+    expect(context).toEqual({ traps: [], crossings: [] })
     expect(projectMock).not.toHaveBeenCalled()
     expect(crossingMock).not.toHaveBeenCalled()
-    expect(runMock).not.toHaveBeenCalled()
   })
 })

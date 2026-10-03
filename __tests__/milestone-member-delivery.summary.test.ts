@@ -57,7 +57,6 @@ const emptyInput = (
   prRows: [],
   complexityRows: [],
   sessionRows: [],
-  verificationRows: [],
   signalCounts: [],
   memberLabels: new Map(),
   ...overrides,
@@ -103,54 +102,6 @@ describe('computeMilestoneMemberDelivery', () => {
         { taskId: 't3', changedFileCount: 5 },
         // t2/t4/t5/t6 have no complexity row → unmeasured, stated per row.
       ],
-      verificationRows: [
-        // Two MACHINE FAILs in the same round = ONE rework FAIL round.
-        {
-          taskId: 't1',
-          round: 1,
-          verdict: 'FAIL',
-          verifierType: 'MACHINE',
-          verdictActionId: null,
-        },
-        {
-          taskId: 't1',
-          round: 1,
-          verdict: 'FAIL',
-          verifierType: 'MACHINE',
-          verdictActionId: null,
-        },
-        {
-          taskId: 't1',
-          round: 2,
-          verdict: 'FAIL',
-          verifierType: 'MACHINE',
-          verdictActionId: null,
-        },
-        // One HUMAN verdict action fanned out over two criteria = ONE
-        // send-back (deduped by verdictActionId), and NOT a rework round.
-        {
-          taskId: 't2',
-          round: 1,
-          verdict: 'FAIL',
-          verifierType: 'HUMAN',
-          verdictActionId: 'act-1',
-        },
-        {
-          taskId: 't2',
-          round: 1,
-          verdict: 'FAIL',
-          verifierType: 'HUMAN',
-          verdictActionId: 'act-1',
-        },
-        // AGENT send-back on t3.
-        {
-          taskId: 't3',
-          round: 2,
-          verdict: 'FAIL',
-          verifierType: 'AGENT',
-          verdictActionId: 'act-2',
-        },
-      ],
       signalCounts: [
         { taskId: 't2', kind: 'REVERTED', count: 1 },
         { taskId: 't2', kind: 'REOPENED', count: 2 },
@@ -181,20 +132,18 @@ describe('computeMilestoneMemberDelivery', () => {
       doneCount: 3,
       mergedPrCount: 1,
       fate: { rejectedTaskCount: 0, noRecordDoneCount: 3 },
-      friction: { failRoundCount: 2, sendBackCount: 1, multiPrTaskCount: 1 },
+      friction: { multiPrTaskCount: 1 },
       changedFiles: { total: 12, measuredTasks: 2 },
     })
 
-    // Bob: t2 via his personal agent. Fate carries the rejection; the HUMAN
-    // send-back action counts once despite two run rows, and adds no
-    // machine rework round.
+    // Bob: t2 via his personal agent. Fate carries the rejection.
     expect(bob).toMatchObject({
       memberId: 'mB',
       taskCount: 1,
       doneCount: 1,
       mergedPrCount: 2,
       fate: { rejectedTaskCount: 1, noRecordDoneCount: 0 },
-      friction: { failRoundCount: 0, sendBackCount: 1, multiPrTaskCount: 1 },
+      friction: { multiPrTaskCount: 1 },
       // No complexity row → fail-closed null, never a fabricated 0.
       changedFiles: { total: null, measuredTasks: 0 },
     })

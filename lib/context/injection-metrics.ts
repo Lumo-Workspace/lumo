@@ -19,7 +19,6 @@ export const CONTEXT_METRICS_KEY = '_lumo_context_metrics'
 
 /** Budget-allocated sections, in allocation priority order (LUM-342/LUM-147). */
 export interface SessionStartAllocation {
-  criteria: BudgetSectionMetric
   memory: BudgetSectionMetric
   pr: BudgetSectionMetric
   slack: BudgetSectionMetric
@@ -41,7 +40,6 @@ export interface SessionStartContextMetrics {
    * agent actually receives (LUM-500), not the structured recovery object.
    */
   sectionTokens: {
-    criteria: number
     memory: number
     linkedResources: number
     reviewTodos: number
@@ -53,7 +51,7 @@ export interface SessionStartContextMetrics {
   totalTokens: number
   /**
    * Per-tier token split (LUM-500 progressive disclosure):
-   *  - tier0 = always-full red-line context: criteria + blockerWarning
+   *  - tier0 = always-full red-line context: blockerWarning
    *  - tier1 = always-full orienting context: progress + reviewTodos + layer2Review
    *  - tier2 = pull-on-demand index/manifest surface: memory (index) + linkedResources (manifests)
    */
@@ -63,7 +61,6 @@ export interface SessionStartContextMetrics {
 interface BuildMetricsInput {
   budgetTokens: number
   allocation: SessionStartAllocation
-  criteriaSection: string
   memorySection: string
   linkedResourcesSection: string
   reviewTodosSection: string
@@ -76,7 +73,6 @@ export function buildSessionStartContextMetrics(
   input: BuildMetricsInput
 ): SessionStartContextMetrics {
   const sectionTokens = {
-    criteria: estimateTokens(input.criteriaSection),
     memory: estimateTokens(input.memorySection),
     linkedResources: estimateTokens(input.linkedResourcesSection),
     reviewTodos: estimateTokens(input.reviewTodosSection),
@@ -89,7 +85,7 @@ export function buildSessionStartContextMetrics(
     0
   )
   const tierTokens = {
-    tier0: sectionTokens.criteria + sectionTokens.blockerWarning,
+    tier0: sectionTokens.blockerWarning,
     tier1:
       sectionTokens.progress +
       sectionTokens.reviewTodos +

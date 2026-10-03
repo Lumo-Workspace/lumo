@@ -152,6 +152,9 @@ enum TaskActivityType {
   SENTRY_ALERT
   SPRINT_CHANGED
   CRITERION_CHANGED
+  // LUM-942: deprecated with CRITERION_CHANGED / CONTRACT_CONFIRMED — acceptance
+  // criteria + verification rounds were removed; nothing writes these anymore.
+  // Kept because Postgres cannot drop enum values and old activity rows exist.
   VERIFICATION_RUN_RECORDED
   VERIFICATION_RUN_WITHDRAWN
   VERIFICATION_ESCALATED
@@ -201,6 +204,9 @@ enum BoundaryCrossingCategory {
   DESTRUCTIVE_DB_COMMAND
   // Reward-hacking (LUM-441): an Edit/Write touched a file a MACHINE acceptance
   // checkpointer depends on — suspected test-tampering to force a fake PASS.
+  // LUM-942: deprecated — the acceptance-criteria detectors were removed; nothing
+  // writes this (nor CONTRACT_WEAKENING / SPINOFF_LAUNDERED / SILENT_FIX) anymore.
+  // Kept because Postgres cannot drop enum values and old rows exist.
   TEST_TAMPERING
   // LUM-442: extended high-severity taxonomy (OpenAI "rare but high-severity").
   EXFILTRATION_PUBLIC // exfiltration / upload to the public internet, incl. making a repo public
@@ -365,18 +371,6 @@ model Workspace {
   // LUM-426: default-ON DONE gate. Opting out (false) drops the boundary-crossing
   // DONE block but never the flagging (recording is always on).
   boundaryGateEnabled Boolean @default(true)
-
-  // Machine verification round cap (LUM-429). Default 3 = today's hardcoded
-  // behavior; OWNER-configurable 1..10. Governs ONLY the machine loop —
-  // human adjudication (recordHumanVerdict) is never bounded by this.
-  verificationMaxRounds Int @default(3)
-
-  // Acceptance-mode toggle (LUM-431). Default false = ritual layer OFF: the
-  // acceptance system's only "push" — the draft-criteria nudge injected at
-  // session-start / attach / task-context — is suppressed. The data layer
-  // (schema, write/read paths, CLI, DONE gate, contract injection for tasks
-  // that already have criteria) is always-on and never gated by this flag.
-  acceptanceMode Boolean @default(false)
 
   // LUM-740: which { provenance, severity } pairs block DONE —
   // { block: [{ provenance, severity }] }. null = the 732 default (only an
@@ -1172,10 +1166,6 @@ model Task {
   outcomeSignals             OutcomeSignal[]
   forecastSnapshot           TaskForecastSnapshot?
   claimFaithfulness          ClaimFaithfulnessVerdict?
-  acceptanceCriteria         AcceptanceCriterion[]
-  criteriaSnapshots          TaskCriteriaSnapshot[]
-  verificationRuns           VerificationRun[]
-  verificationRunWithdrawals VerificationRunWithdrawal[]
   blockedByEdges             TaskDependency[]            @relation("TaskBlockedBy")
   blockingEdges              TaskDependency[]            @relation("TaskBlocking")
   autoBlocks                 AutoBlock[]
@@ -2777,10 +2767,9 @@ model LumoCiRun {
 // LUM-640: a session's legal form. IMPLEMENTATION = the classic task-bound
 // coding session (Session.taskId lifetime lock, LUM-459). STEWARD = a
 // governance session bound to a MILESTONE (Session.milestoneId): it plans and
-// accepts (task create/update, criteria set, deps confirm/dismiss,
-// verdict --fail, milestone add/remove, all reads) but is gated out of
-// implementation actions (`lumo verify` → 409 without burning a round;
-// dispatching a task to itself → 409); implementation artifacts it produces
+// accepts (task create/update, deps confirm/dismiss, milestone add/remove,
+// milestone exit criteria, all reads) but is gated out of implementation
+// actions (dispatching a task to itself → 409); implementation artifacts it produces
 // anyway are recorded as STEWARD_IMPLEMENTATION_ARTIFACT boundary crossings.
 enum SessionRole {
   IMPLEMENTATION
@@ -3577,13 +3566,6 @@ model LineageEdge {
   // Starts UNKNOWN at birth; stamped MERGED/REJECTED/REWORKED when the edge
   // closes (PR merged / task done) — see DoD ③ in the milestone goal.
   outcome         LineageOutcome      @default(UNKNOWN)
-  // LUM-397 outcome strength (ProdCodeBench: merged ≠ ground truth). Only
-  // meaningful alongside MERGED: true = the task had an all-PASS verification
-  // round (MERGED_VERIFIED), false = task closed without one (weak MERGED),
-  // null = not yet stratified (pre-LUM-397 stamps / non-MERGED outcomes).
-  // Monotonic: null/false may upgrade to true, never the reverse. Data-only —
-  // no scoring path reads this column until sample size justifies weighting.
-  outcomeVerified Boolean?
   // LUM-300 usage vote: null = not voted, true = agent reported using this
   // fragment, false = injected but unused. usedAt also marks "has this session
   // voted?" (avoids a separate Session watermark column).
@@ -3755,11 +3737,6 @@ model TaskForecastSnapshot {
   tokenCost          Json?
   cohortSize         Int // 相似 cohort 大小（喂 iterations/interaction）
   tokenCostBasis     Int // 项目级样本数（喂 token）
-  // LUM-606 verification-friction axis — frozen at delivery, cut at capturedAt.
-  // Two SEPARATE raw scalars (never a merged friction score); null = no
-  // verification record by capture (the no-verification bucket, distinct from 0).
-  verificationRounds Int?
-  sendBackCount      Int?
   capturedAt         DateTime @default(now())
 
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
@@ -3767,48 +3744,9 @@ model TaskForecastSnapshot {
   @@map("task_forecast_snapshots")
 }
 
-/// LUM-609 (fidelity premise A): append-only delivery-time freeze of the
-/// acceptance contract. One row per delivery (IN_REVIEW entry) — deliberately
-/// NOT @unique on taskId: a reopen→re-deliver appends another immutable row.
-/// Never updated or deleted (the repository exposes no update/delete path), so a
-/// fidelity comparison can replay the contract AS IT STOOD AT DELIVERY
-/// (selectActiveAsOf: latest frozenAt ≤ T) rather than the since-edited `latest`
-/// — the self-confirming trap this premise removes. The CRITERION_CHANGED
-/// TaskActivity trail remains the immutable mutable-criteria audit backstop.
-model TaskCriteriaSnapshot {
-  id        String   @id @default(cuid())
-  taskId    String
-  // Full active criteria set frozen at delivery — replay-sufficient (per
-  // criterion: id, statement, verifierType, checkpointer, referentKind,
-  // evidenceRequired). JSON, never mutated.
-  criteria  Json
-  // Why the freeze fired (e.g. IN_REVIEW_ENTRY).
-  trigger   String
-  // The session that delivered, when known.
-  sessionId String?
-  frozenAt  DateTime @default(now())
 
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@index([taskId])
-  @@index([taskId, frozenAt])
-  @@map("task_criteria_snapshots")
-}
-
-// ─── Acceptance v1: criteria contract + verification event log (LUM-341) ────
-// Two-table foundation for the task-acceptance loop. The Task model carries
-// NO derived columns: verification state / current round are always derived
-// from VerificationRun (same zero-schema derived-state route as LUM-323).
-
-enum AcceptanceVerifierType {
-  MACHINE
-  HUMAN
-  // Agent-initiated send-back (LUM-422). FAIL-only — the agent input schema
-  // cannot express PASS/PASS_WITH_FOLLOWUP (red line: no passing data row is
-  // ever agent-produced). A separate channel from HUMAN so "machine all-pass
-  // but human FAIL" stays an uncontaminated Slice-3 signal.
-  AGENT
-}
+// ─── Acceptance enums still used by MilestoneExitCriterion (LUM-643) ────
+// Task-level acceptance criteria + verification runs were removed in LUM-942.
 
 /// Provenance of a criterion — the key feedback-loop signal. AGENT_DRAFT =
 /// initial contract drafted by the agent (round 0); HUMAN_EDIT = a human
@@ -3829,128 +3767,6 @@ enum ReferentKind {
   EXTERNAL_FACT
   AGENT_CONSTRUCTED_STATE
   PENDING_OUTCOME
-}
-
-enum VerificationVerdict {
-  PASS
-  FAIL
-  PASS_WITH_FOLLOWUP
-}
-
-/// First-pass rejection taxonomy (paired with free-text rejectionReason).
-/// Extend additively as Slice 3 metrics reveal missing buckets.
-enum VerificationRejectionReason {
-  CRITERION_UNMET // the check ran and the criterion is not satisfied
-  EVIDENCE_INSUFFICIENT // evidence missing or does not prove the statement
-  CHECK_EXECUTION_ERROR // the checkpointer itself failed to run (env/infra)
-  SCOPE_MISMATCH // the work does not address the criterion
-  OTHER
-}
-
-model AcceptanceCriterion {
-  id               String                    @id @default(cuid())
-  taskId           String
-  statement        String
-  verifierType     AcceptanceVerifierType
-  // Executable check pointer (test command, script, probe…). Free-form in v1.
-  // Required for MACHINE at the validation layer — a criterion that can't
-  // name its check is drafted as HUMAN instead.
-  checkpointer     String?
-  // Whether a verdict on this criterion must carry an evidencePointer.
-  // Independently of this flag, a MACHINE PASS always requires evidence
-  // (enforced at the validation layer).
-  evidenceRequired Boolean                   @default(false)
-  source           AcceptanceCriterionSource
-  // Agent-drafted human-readable judging instructions for a HUMAN criterion
-  // (LUM-465): where to look → what to do → ✓pass / ✗send-back. Light markdown,
-  // may contain URLs. Rendered on the human adjudication card and in
-  // `lumo task status`. null = no guidance drafted (legacy rows + MACHINE
-  // criteria) → the card shows a "missing guidance" fallback hint, no backfill.
-  judgeSteps       String?
-  // Verification round at which the criterion was added; initial draft = 0.
-  addedAtRound     Int                       @default(0)
-  // What this criterion anchors (LUM-602). Nullable: rows predating the field
-  // are UNCLASSIFIED (an honest "predates the discipline" bucket, never
-  // backfilled). Required for NEW writes at the validation layer (forced fill).
-  referentKind     ReferentKind?
-  createdAt        DateTime                  @default(now())
-  updatedAt        DateTime                  @updatedAt
-  // Soft-delete tombstone (LUM-437). A criterion with VerificationRun rows is
-  // soft-deleted, not hard-deleted, so the verdict→criterion audit chain
-  // survives (the run FK is onDelete: Cascade). null = active.
-  deletedAt        DateTime?
-
-  // LUM-789: 人对合同的一次性确认。null = 未确认（自然默认态,不是需要声明的
-  // 例外——agent 起草即写 null,不存在「跳过确认」的 flag）。确认永不拦 DONE:
-  // 它只在 task status / web 任务详情各出现一行提示,追认是可选的。
-  // HUMAN_EDIT 来源的 criterion 由服务层在写入时直接置为已确认(人亲手写的)。
-  confirmedAt         DateTime?
-  confirmedByMemberId String?
-
-  task             Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  verificationRuns VerificationRun[]
-  /// LUM-815: 声明覆盖本标准的用例。**只让证据可见,不参与裁定** —— 用例跑绿
-  /// 从不写 VerificationRun、从不改本标准的 latestVerdict。
-  testCases        TestCase[]
-
-  @@index([taskId])
-  @@index([taskId, deletedAt])
-  @@map("acceptance_criteria")
-}
-
-/// Append-only event log: one row per (criterion, round) verdict. Rows are
-/// never updated — later rounds append new rows, and task-level state is
-/// derived by reading the latest round. RED LINE: rows with verifierType =
-/// HUMAN must only ever be written via human-initiated paths (web UI / Slack
-/// action). Agent-facing input schemas hard-code MACHINE and cannot express
-/// a HUMAN verdict (see lib/validation/acceptance.ts).
-model VerificationRun {
-  id                  String                       @id @default(cuid())
-  taskId              String
-  criterionId         String
-  round               Int
-  // Denormalized from the criterion at verdict time so the event log stays
-  // faithful even if a HUMAN_EDIT later retypes the criterion.
-  verifierType        AcceptanceVerifierType
-  verdict             VerificationVerdict
-  evidencePointer     String?
-  rejectionReason     String?
-  rejectionReasonEnum VerificationRejectionReason?
-  /// Shared id stamped on every run written by ONE human-verdict action
-  /// (one transaction → one id). Null on machine runs. Lets an action be
-  /// withdrawn as a unit (LUM-586).
-  verdictActionId     String?
-  /// LUM-640: the Claude Code session that produced this run, when the caller
-  /// carried an `X-Lumo-Session-Id` header — how a governance write (an AGENT
-  /// send-back from a STEWARD session) stays attributable to its session.
-  /// FK-less audit pointer (mirrors OutcomeSignal.sessionId): a pruned session
-  /// must not erase the provenance trail. Null on web/human rows and legacy rows.
-  sourceSessionId     String?
-  createdAt           DateTime                     @default(now())
-
-  task      Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  criterion AcceptanceCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
-
-  @@index([taskId, round])
-  @@index([criterionId])
-  @@map("verification_runs")
-}
-
-/// Append-only tombstone for a withdrawn human-verdict action (LUM-586). The
-/// run rows survive; this marks the action withdrawn so the latest-verdict
-/// derivation falls through to the prior row. One action withdrawn at most once.
-model VerificationRunWithdrawal {
-  id              String   @id @default(cuid())
-  taskId          String
-  verdictActionId String
-  withdrawnById   String?
-  note            String?
-  createdAt       DateTime @default(now())
-
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  @@unique([taskId, verdictActionId])
-  @@index([taskId])
 }
 
 // ─── TaskDependency (LUM-172 检测优于声明) ──────────────────────────────────
@@ -4106,11 +3922,6 @@ model TestCase {
   /// **精确相等，没有 PRODUCTION ⊇ PREVIEW ⊇ LOCAL 的层级** —— 一条测本地
   /// 工具链的用例，在生产跑并不能证明它。
   requiredEnvironment TestEnvironment?
-  /// LUM-815: 这条用例意在覆盖哪条验收标准。**可空是设计**——探索性用例、
-  /// 跨多条标准的用例都合法,强制填只会逼人乱填。标准被**软删**(有 run 的
-  /// criterion)时引用保留、指向 tombstone,读端渲染为「该标准已变更」;标准被
-  /// **硬删**(run-free)时由 onDelete: SetNull 置空。两种情况用例本身都不删。
-  criterionId         String?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
   /// 软删除墓碑：run→case 的审计链必须活着（同 AcceptanceCriterion.deletedAt）。
@@ -4118,12 +3929,10 @@ model TestCase {
   deletedAt           DateTime?
 
   task      Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  criterion AcceptanceCriterion? @relation(fields: [criterionId], references: [id], onDelete: SetNull)
   runs      TestCaseRun[]
 
   @@unique([taskId, number])
   @@index([taskId, deletedAt])
-  @@index([criterionId])
   @@map("test_cases")
 }
 

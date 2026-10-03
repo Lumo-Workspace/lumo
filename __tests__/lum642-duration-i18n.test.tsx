@@ -68,7 +68,7 @@ import { MilestoneMetricStrip } from '@/app/workspace/[workspaceUrl]/components/
 import { SlackContextCard } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/SlackContextCard'
 import { FigmaLinkCard } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/FigmaLinkCard'
 import { WebLinkCard } from '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/WebLinkCard'
-import type { TaskAcceptanceStatusView } from '@/app/workspace/[workspaceUrl]/types'
+import type { TaskStatusView } from '@/app/workspace/[workspaceUrl]/types'
 import type { SlackContextResource } from '@/lib/api-client/slack-contexts'
 import type { OptimisticFigmaLink } from '@/app/workspace/[workspaceUrl]/hooks/useFigmaLinks'
 import type { OptimisticWebLink } from '@/app/workspace/[workspaceUrl]/hooks/useWebLinks'
@@ -103,10 +103,13 @@ describe('lum642 cost surfaces (zh-CN render)', () => {
   it('lum642 cost tile and milestone KPI render active time via the shared localized helper', () => {
     // Task-level cost read-out — the Run report's Cost KPI tile (LUM-496),
     // whose active-time sub-caption is the reading CostSection used to carry.
-    const data = {
-      cost: { tokenCost: 12_000, activeTimeSec: 8040, reworkRounds: 0 },
-      verificationHistory: [],
-    } as unknown as TaskAcceptanceStatusView
+    const data: TaskStatusView = {
+      version: 2,
+      task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'DONE' },
+      cost: { tokenCost: 12_000, activeTimeSec: 8040 },
+      struggleTrail: { pullRequests: [], reopens: [] },
+      trend: { cost: [], rework: { reopens: 0, extraPrCycles: 0, total: 0 } },
+    }
     const cost = render(<RunReportTiles tiles={deriveRunReportTiles(data)} />)
     expect(cost.container.textContent).toContain('2 小时 14 分钟')
     cost.unmount()

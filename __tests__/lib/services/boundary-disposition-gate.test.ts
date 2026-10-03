@@ -9,7 +9,6 @@
 import { updateTask } from '@/lib/services/task-state.service'
 import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 
 let mockRows: Array<{
   id: string
@@ -62,12 +61,6 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findForUpdate: jest.fn(), update: jest.fn() },
 }))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: { latestRunsByCriterion: jest.fn() },
-}))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
-}))
 jest.mock('@/lib/repositories/project.repository', () => ({
   projectRepository: { findByIdSimple: jest.fn() },
 }))
@@ -93,7 +86,6 @@ jest.mock('@/lib/repositories/member.repository', () => ({
 
 const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
-const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
 
 const TASK = {
   id: 't-1',
@@ -115,7 +107,6 @@ beforeEach(() => {
     team: { identifier: 'LUM' },
     teamId: 'team-1',
   })
-  latestRuns.mockResolvedValue(new Map())
 })
 
 function seedOpenCrossing() {

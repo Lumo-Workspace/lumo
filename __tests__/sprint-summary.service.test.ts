@@ -34,8 +34,8 @@ jest.mock('@/lib/llm/sprint-summary-client', () => ({
   callSprintSummaryLLM: (...a: any[]) => mockLLM(...a),
 }))
 
-jest.mock('@/lib/services/task-verification.service', () => ({
-  taskVerificationService: {
+jest.mock('@/lib/services/task-status.service', () => ({
+  taskStatusService: {
     aggregateStruggleForTasks: (...a: any[]) => mockAggregateStruggle(...a),
   },
 }))

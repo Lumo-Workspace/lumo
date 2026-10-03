@@ -1,7 +1,6 @@
 import { apiContext, apiCall } from '../lib/test-case-api'
 import { splitCaseHandle } from '../lib/test-case-handle'
 import { resolveRequiredEnvironment } from '../lib/test-case-verdict'
-import { resolveTaskCriterion } from '../lib/task-criterion-ref'
 
 export interface TestCaseUpdateOptions {
   title?: string
@@ -10,8 +9,6 @@ export interface TestCaseUpdateOptions {
   verify?: string[]
   expected?: string
   requiresEnv?: string
-  /** LUM-815: 三态 —— 省略 = 不碰；`""` = 解绑；id/前缀 = 改绑。 */
-  criterion?: string
 }
 
 export async function taskTestCaseUpdate(
@@ -54,31 +51,15 @@ export async function taskTestCaseUpdate(
     patch.requiredEnvironment = requiredEnvironment.value
   }
 
-  // LUM-815: 覆盖声明也是三态,但解析要联网(前缀要对着合同查),所以留到
-  // 拿到 ctx 之后再做 —— 这里只先认它算不算「给了一个字段」。
-  const criterionGiven = options.criterion !== undefined
-
-  if (Object.keys(patch).length === 0 && !criterionGiven) {
+  if (Object.keys(patch).length === 0) {
     console.error(
-      'Error: provide at least one field to update (--title / --setup / --step / --verify / --expected / --requires-env / --criterion).'
+      'Error: provide at least one field to update (--title / --setup / --step / --verify / --expected / --requires-env).'
     )
     return 1
   }
 
   const ctx = apiContext()
   if (!ctx) return 1
-
-  if (criterionGiven) {
-    const selector = options.criterion!.trim()
-    if (selector === '') {
-      // `--criterion ""` = 解绑。用例本身原样留着。
-      patch.criterionId = null
-    } else {
-      const resolved = await resolveTaskCriterion(ctx, split.task, selector)
-      if (!resolved.ok) return 1
-      patch.criterionId = resolved.id
-    }
-  }
 
   const r = await apiCall<{ testCase: { number: number; title: string } }>(
     ctx,

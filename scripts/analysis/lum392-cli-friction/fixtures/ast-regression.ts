@@ -103,8 +103,8 @@ export const VALID_CASES: AstCase[] = [
     expect: 'valid',
     note: 'short aliases resolve to long flags incl. enum check',
   },
-  { raw: 'lumo verify --timeout 600', expect: 'valid' },
-  { raw: 'lumo verify LUM-343', expect: 'valid' },
+  { raw: 'lumo task status LUM-343 --full', expect: 'valid' },
+  { raw: 'lumo task wrapup LUM-343', expect: 'valid' },
   {
     raw: 'lumo crossing explain cr-abc123 --note "false positive"',
     expect: 'valid',

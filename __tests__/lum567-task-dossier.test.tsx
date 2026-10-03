@@ -104,9 +104,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useSecurityScans', () => ({
 // now fold in via the `evidenceSlot` prop (the dossier passes them down rather
 // than rendering a separate ④ region), so the mock renders that slot.
 jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AcceptanceTab',
+  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/RecordTab',
   () => ({
-    AcceptanceTab: (props: { evidenceSlot?: import('react').ReactNode }) => (
+    RecordTab: (props: { evidenceSlot?: import('react').ReactNode }) => (
       <div data-testid='acceptance-surface'>
         <span data-testid='cost-home'>cost</span>
         {props.evidenceSlot}
@@ -160,7 +160,6 @@ const baseProps: any = {
   members: [],
   agentActors: [],
   enabled: true,
-  onVerdictRecorded: jest.fn(),
   memberNames: new Map(),
   hasLineage: true,
   hasMemories: true,

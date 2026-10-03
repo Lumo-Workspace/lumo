@@ -26,9 +26,6 @@ jest.mock('@/lib/repositories/boundary-crossing.repository', () => ({
 jest.mock('@/lib/repositories/activity.repository', () => ({
   activityRepository: { create: jest.fn() },
 }))
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
-}))
 // The LLM confirmation client — lazily imported by the detector, picked up here.
 jest.mock('@/lib/llm/action-confirm-client', () => ({
   confirmActionExecuted: jest.fn(),
@@ -37,7 +34,6 @@ jest.mock('@/lib/llm/action-confirm-client', () => ({
 import { boundaryDetectorService } from '@/lib/services/boundary-detector.service'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { confirmActionExecuted } from '@/lib/llm/action-confirm-client'
 import {
   confirmActionCrossing,
@@ -47,10 +43,9 @@ import {
 
 const createCrossing = boundaryCrossingRepository.create as jest.Mock
 const createActivity = activityRepository.create as jest.Mock
-const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
 const confirm = confirmActionExecuted as jest.Mock
 
-/** detectAndRecord input for a Bash command (filePath null → no test-tampering). */
+/** detectAndRecord input for a Bash command. */
 const bash = (command: string) => ({
   taskId: 't-1',
   hookEventId: 'evt-1',
@@ -66,9 +61,6 @@ beforeEach(() => {
   jest.clearAllMocks()
   createCrossing.mockResolvedValue({ id: 'bc-1' })
   createActivity.mockResolvedValue({ id: 'act-1' })
-  // No MACHINE criteria → the TEST_TAMPERING path short-circuits, isolating the
-  // action-confirmation behaviour under test.
-  listByTask.mockResolvedValue([])
 })
 
 describe('LUM-466 action-category prose confirmation', () => {

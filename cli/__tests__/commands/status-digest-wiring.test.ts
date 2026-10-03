@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  *
- * LUM-842: every command that changes a task's acceptance state ends its
+ * LUM-842: every command that changes a task's DONE-relevant state ends its
  * output with the status digest (the `task status` read, shortened), and the
  * `task update` DONE envelopes carry it as an additive `statusSummary` field
  * so their JSON stays parseable.
@@ -22,7 +22,6 @@ jest.mock('../../src/lib/worktree-cleanup', () => ({
   planTaskWorktreeCleanup: jest.fn(() => null),
 }))
 
-import { verify } from '../../src/commands/verify'
 import { taskUpdate } from '../../src/commands/task-update'
 import { crossingDisposition } from '../../src/commands/crossing-disposition'
 import { crossingExplain } from '../../src/commands/crossing-explain'
@@ -34,7 +33,7 @@ function json(status: number, body: unknown) {
 }
 
 const DIGEST_HEAD = 'Status now (same read as `lumo task status LUM-5`'
-const DIGEST_STATE = '  LUM-5 IN_REVIEW · round 1/3 · criteria 1/1 met'
+const DIGEST_STATE = '  LUM-5 IN_REVIEW'
 const DIGEST_BLOCKS =
   '  Blocks DONE: 1 boundary crossing (cx-1) — the user rules'
 
@@ -48,21 +47,8 @@ const CROSSING = {
 }
 
 const STATUS = {
-  version: 1,
+  version: 2,
   task: { id: 't', identifier: 'LUM-5', title: 'T', status: 'IN_REVIEW' },
-  currentRound: 1,
-  maxRounds: 3,
-  escalated: false,
-  criteria: [
-    {
-      id: 'c1',
-      statement: 'Tests pass',
-      verifierType: 'MACHINE',
-      checkpointer: 'npm test',
-      latestVerdict: { round: 1, verdict: 'PASS' },
-      confirmedAt: '2026-09-25T00:00:00.000Z',
-    },
-  ],
   nextActions: [],
   securityFindings: { open: 0, blocking: 0, unconfirmedPrs: [] },
 }
@@ -84,27 +70,6 @@ function route(url: string, init?: { method?: string }) {
   if (url.endsWith('/LUM-5/status')) return json(200, STATUS)
   if (url.endsWith('/boundary-crossings') && method === 'GET')
     return json(200, { crossings: [CROSSING] })
-  if (url.endsWith('/LUM-5/criteria'))
-    return json(200, {
-      criteria: [
-        {
-          id: 'c1',
-          statement: 'Tests pass',
-          verifierType: 'MACHINE',
-          checkpointer: 'npm test',
-          confirmedAt: '2026-09-25T00:00:00.000Z',
-        },
-      ],
-    })
-  if (url.endsWith('/LUM-5/verify'))
-    return json(200, {
-      round: 1,
-      maxRounds: 3,
-      allPassed: true,
-      escalated: false,
-      taskStatus: 'IN_REVIEW',
-      nextActions: [],
-    })
   if (url.endsWith('/by-identifier/LUM-5') && method === 'PATCH')
     return patchStatus === 200
       ? json(200, {
@@ -200,12 +165,6 @@ function expectEndsWithDigest(): void {
 }
 
 describe('mutating commands append the status digest', () => {
-  it('mutating commands append the status digest: verify', async () => {
-    await verify('LUM-5', { note: 'n' })
-    expect(out.join('')).toContain('Round 1/3 recorded.')
-    expectEndsWithDigest()
-  })
-
   it('mutating commands append the status digest: task update --status', async () => {
     const code = await taskUpdate('LUM-5', { status: 'in_review' })
     expect(code).toBeUndefined()

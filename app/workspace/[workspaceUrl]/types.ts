@@ -814,145 +814,14 @@ export interface LineageResponse {
   groups: LineageGroup[]
 }
 
-// ── Acceptance status read model (LUM-344 GET /api/tasks/[id]/status) ─────────
-// Client mirror of lib/services/task-verification.service.ts `TaskAcceptanceStatus`
-// (front end must not import lib/services). The read-only Acceptance tab
-// (LUM-423) consumes it verbatim — no new backend.
+// ── Task status read model (GET /api/tasks/[id]/status, schema v2) ─────────
+// Client mirror of lib/services/task-status.service.ts `TaskStatusReport`
+// (front end must not import lib/services). Only the fields the Record tab
+// renders are mirrored.
 
-export type AcceptanceVerdict = 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
-export type AcceptanceVerifier = 'MACHINE' | 'HUMAN' | 'AGENT'
-export type CriterionSource = 'AGENT_DRAFT' | 'HUMAN_EDIT' | 'REVIEW_ADDED'
-
-/** One item of a human contract revision sent from the web tab. Mirrors
- *  lib/validation CriteriaSetItem (the front end must not import lib/validation). */
-export interface CriteriaSetItemInput {
-  id?: string
-  statement: string
-  verifierType: 'MACHINE' | 'HUMAN'
-  checkpointer?: string | null
-  evidenceRequired?: boolean
-  judgeSteps?: string | null
-  referentKind?: 'EXTERNAL_FACT' | 'AGENT_CONSTRUCTED_STATE' | 'PENDING_OUTCOME'
-}
-
-export interface CriterionLatestVerdictView {
-  round: number
-  verdict: AcceptanceVerdict
-  verifierType: AcceptanceVerifier
-  evidencePointer: string | null
-  rejectionReason: string | null
-  rejectionReasonEnum: string | null
-  recordedAt: string
-}
-
-export interface TaskStatusCriterionView {
-  id: string
-  statement: string
-  verifierType: 'MACHINE' | 'HUMAN'
-  checkpointer: string | null
-  evidenceRequired: boolean
-  /** Agent-drafted human-judging guidance for a HUMAN criterion (LUM-465);
-   *  null = none drafted → the adjudication card shows a fallback hint. */
-  judgeSteps: string | null
-  source: CriterionSource
-  addedAtRound: number
-  latestVerdict: CriterionLatestVerdictView | null
-  /** Latest MACHINE-authored verdict, independent of a later HUMAN override of
-   *  latestVerdict (LUM-611) — carries the checkpointer round + `cmd:` evidence
-   *  so the tab shows "machine-verified @rN" even after a human PASS sign-off.
-   *  null/absent when no MACHINE run exists. */
-  machineVerdict?: CriterionLatestVerdictView | null
-  /** LUM-602: the declarable referent kind for this criterion — what it anchors.
-   *  null for legacy rows predating the field. */
-  referentKind?:
-    | 'EXTERNAL_FACT'
-    | 'AGENT_CONSTRUCTED_STATE'
-    | 'PENDING_OUTCOME'
-    | null
-  /** Whether a checkpointer currently vouches for this criterion — true only for
-   *  a MACHINE criterion whose latest MACHINE verdict is a PASS (LUM-456). A
-   *  passing MACHINE criterion with this false is carried by a human override;
-   *  HUMAN criteria are always false. */
-  machinePassed: boolean
-  /** Latest verdict predates the criterion's last edit — the pass vouches for a
-   *  stale version (LUM-457). Render-only; never makes a criterion unmet. */
-  verdictStale: boolean
-  /** A MACHINE criterion's current machine PASS ran a different command than the
-   *  present checkpointer (LUM-457). Render-only, like verdictStale. */
-  checkMismatch: boolean
-  /** Whether this active criterion entered or was reworded after work started
-   *  (LUM-437). 'edited' wins over 'added'; null = original untouched draft. */
-  changeState: 'added' | 'edited' | null
-  changedAtRound: number | null
-  lastEdit: { before: string; after: string } | null
-  /** LUM-511 Phase 5: send-back lifecycle — a HUMAN/AGENT FAIL now resolved
-   *  (with the resolving round + best-effort closing PR) or still open; null
-   *  when the criterion was never sent back. */
-  sendBackResolution?: {
-    status: 'open' | 'resolved'
-    failedAtRound: number
-    resolvedAtRound?: number
-    closingPrNumber?: number
-    closingPrUrl?: string
-  } | null
-  /** LUM-789: when a human confirmed this contract row (ISO), null = not yet
-   *  confirmed. Confirmation is never a to-do and never blocks DONE — it only
-   *  drives the optional "Confirm contract" affordance on this tab and the
-   *  `task status` nudge. */
-  confirmedAt: string | null
-}
-
-/** Honest machine-verification rollup over the active MACHINE criteria
- *  (LUM-456): genuine checkpointer passes vs human overrides. */
-export interface MachineVerificationSummaryView {
-  total: number
-  machineVerified: number
-  humanOverridden: number
-}
-
-/** A criterion removed (soft-deleted) from the contract after work started,
- *  with its preserved last verdict + run count (LUM-437). */
-export interface RemovedCriterionView {
-  id: string
-  statement: string
-  verifierType: 'MACHINE' | 'HUMAN'
-  removedAtRound: number | null
-  runCount: number
-  lastVerdict: CriterionLatestVerdictView | null
-}
-
-export interface VerificationHistoryRoundView {
-  round: number
-  recordedAt: string
-  passed: number
-  failed: number
-  verdicts: Array<{
-    criterionId: string
-    verdict: AcceptanceVerdict
-    verifierType: AcceptanceVerifier
-    evidencePointer: string | null
-    rejectionReason: string | null
-    rejectionReasonEnum: string | null
-    /** The run's verdict action was withdrawn (LUM-586). The run stays in
-     *  history; the UI badges it "withdrawn" rather than hiding it. Optional so
-     *  an older server (pre-586) is tolerated — absent means not withdrawn. */
-    withdrawn?: boolean
-  }>
-}
-
-/** Rework / send-back / leftover traces (LUM-561) — the honest "struggle trail"
- *  a clean all-pass report would otherwise wipe. Client mirror of the server
- *  `StruggleTrail`; all arrays empty is a legitimate (honest) state. */
+/** Rework traces (LUM-561) — PR cycles and reopens. Both arrays empty is a
+ *  legitimate (honest) state. Client mirror of the server `StruggleTrail`. */
 export interface StruggleTrailView {
-  reworkRounds: Array<{ round: number; failed: number }>
-  sendBacks: Array<{
-    criterionId: string
-    statement: string
-    status: 'open' | 'resolved'
-    failedAtRound: number
-    resolvedAtRound: number | null
-  }>
-  followUps: Array<{ criterionId: string; statement: string; round: number }>
   pullRequests: Array<{ number: number; url: string }>
   reopens: Array<{ from: string; to: string; at: string }>
 }
@@ -963,13 +832,11 @@ export interface StruggleTrailView {
 export interface TaskCostView {
   tokenCost: number | null
   activeTimeSec: number
-  reworkRounds: number
 }
 
-/** Movement of pass rate / cost / rework across the task's attempts (LUM-562).
+/** Movement of cost / rework across the task's attempts (LUM-562).
  *  Client mirror of the server `TrendModel`. */
 export interface TrendModelView {
-  passRate: Array<{ round: number; passed: number; failed: number }>
   cost: Array<{
     sessionId: string
     total: number
@@ -977,131 +844,16 @@ export interface TrendModelView {
     at: string
   }>
   rework: {
-    reworkRounds: number
     reopens: number
     extraPrCycles: number
     total: number
   }
 }
 
-/** The agent's CLAIM — what it SAYS it did (LUM-564), an unverified self-report
- *  (estimate-tier). Client mirror of the server `TaskClaim`. */
-export interface TaskClaimView {
-  text: string | null
-  // LUM-597: 'AGENT' = the agent's own verify self-report (authoritative claim);
-  // RUN_SUMMARY/DIGEST = a summarizer paraphrase fallback (SYNTHESIZED).
-  source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST' | null
-}
-
-/** Whether the CLAIM faithfully reflects the delivery (LUM-583) — the third
- *  state read from the persisted LUM-582 verdict. Client mirror of the server
- *  `ClaimFaithfulness`. PENDING = not yet judged (≠ UNJUDGEABLE); STALE = judged
- *  against an older claim snapshot, the verdict still surfaced. */
-export interface TaskClaimFaithfulnessView {
-  state:
-    | 'FAITHFUL'
-    | 'UNDERREPORT'
-    | 'OVERSTATED'
-    | 'UNJUDGEABLE'
-    | 'PENDING'
-    | 'STALE'
-  verdict: 'FAITHFUL' | 'UNDERREPORT' | 'OVERSTATED' | 'UNJUDGEABLE' | null
-  evidence: string[]
-  reasoning: string | null
-  diffShas: string[]
-  prNumbers: number[]
-  judgedAt: string | null
-  judgedClaimAt: string | null
-}
-
-export interface TaskAcceptanceStatusView {
+export interface TaskStatusView {
   version: number
   task: { id: string; identifier: string; title: string; status: string }
-  currentRound: number
-  maxRounds: number
-  escalated: boolean
-  /** The latest live (non-withdrawn) human verdict — the action the Undo button
-   *  targets (LUM-586). Null when there is no standing human verdict to undo.
-   *  Optional so an older server (pre-586) is tolerated, never fabricated. */
-  undoableHumanVerdict?: {
-    verdictActionId: string
-    verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
-    actorName: string | null
-    at: string
-  } | null
-  /** The most-recent verdict withdrawal, feeding the "verdict withdrawn by …"
-   *  correction line which must persist after undo, when undoableHumanVerdict is
-   *  null (LUM-586). Optional / tolerated-absent on an older server. */
-  lastVerdictWithdrawal?: {
-    verdict: 'PASS' | 'FAIL' | 'PASS_WITH_FOLLOWUP'
-    actorName: string | null
-    at: string
-  } | null
-  criteria: TaskStatusCriterionView[]
-  /** Honest machine-verification rollup — genuine checkpointer passes vs human
-   *  overrides over the active MACHINE criteria (LUM-456). */
-  machineVerification: MachineVerificationSummaryView
-  /** Rework / send-back / leftover-follow-up traces (LUM-561), preserved even on
-   *  a clean all-pass task. Optional so an older server (pre-561) is tolerated —
-   *  the section is then skipped, never fabricated (mirrors the CLI's optionality). */
-  struggleTrail?: StruggleTrailView
-  /** Honest cost read-out (LUM-560) — token / active time / rework rounds, same
-   *  source as the delivery card. Optional so an older server is tolerated. */
-  cost?: TaskCostView
-  /** Movement of pass rate / cost / rework across attempts (LUM-562). Optional so
-   *  an older server is tolerated. */
-  trend?: TrendModelView
-  /** The agent's CLAIM — what it SAYS it did (LUM-564), surfaced beside the
-   *  measured verdict (声称 vs 核验). Optional so an older server is tolerated. */
-  claim?: TaskClaimView
-  /** Whether the claim faithfully reflects the delivery (LUM-583) — the third
-   *  state over the two columns. Optional so an older server (pre-583) is
-   *  tolerated; the chip is then simply not rendered, never fabricated. */
-  faithfulness?: TaskClaimFaithfulnessView
-  /** Criteria removed from the contract after work started (LUM-437). */
-  removedCriteria: RemovedCriterionView[]
-  verificationHistory: VerificationHistoryRoundView[]
-  lastRoundFailures: Array<{
-    criterionId: string
-    statement: string
-    rejectionReason: string | null
-    rejectionReasonEnum: string | null
-  }>
-  /** LUM-737: `kind` discriminates criteria from security findings; a missing
-   *  kind (older server) means CRITERION. */
-  nextActions: Array<
-    | {
-        kind?: 'CRITERION'
-        criterionId: string
-        statement: string
-        verifierType: 'MACHINE' | 'HUMAN'
-        checkpointer: string | null
-        judgeSteps: string | null
-        source: CriterionSource
-        addedAtRound: number
-        rejectionReason: string | null
-      }
-    | {
-        kind: 'SECURITY_FINDING'
-        findingId: string
-        statement: string
-        severity: 'LOW' | 'MEDIUM' | 'HIGH'
-        provenance: 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
-        blocking: boolean
-        prNumber: number
-        ruleId: string
-        filePath: string
-        line: number | null
-      }
-  >
-  /** LUM-737: null = the scan read failed (could not confirm). Optional so an
-   *  older server is tolerated. */
-  securityFindings?: {
-    open: number
-    blocking: number
-    unconfirmedPrs: Array<{
-      number: number
-      reason: 'NONE' | 'FAILED' | 'PENDING' | 'RUNNING'
-    }>
-  } | null
+  struggleTrail: StruggleTrailView
+  cost: TaskCostView
+  trend: TrendModelView
 }

@@ -77,20 +77,20 @@ describe('formatHookStdoutLines (session-start stdout)', () => {
     expect(parsed.hookSpecificOutput.additionalContext).toBe('MEM')
   })
 
-  it('injects securityFindingsSection after the blocker warning and before the contract (LUM-737)', () => {
+  it('injects securityFindingsSection after the blocker warning (LUM-737)', () => {
     const body = {
       sessionId: 'sess_abc',
       taskBinding: { bound: true, taskIdentifier: 'LUM-12', taskTitle: 'X' },
       blockerWarningSection: 'BLOCKER',
       securityFindingsSection: 'SECURITY',
-      criteriaSection: 'CONTRACT',
+      testCaseSection: 'TESTCASE',
       memorySection: 'MEM',
     }
     const lines = formatHookStdoutLines('session-start', body)
     const envelope = lines.find(l => l.includes('additionalContext'))
     const parsed = JSON.parse(envelope as string)
     expect(parsed.hookSpecificOutput.additionalContext).toBe(
-      'BLOCKER\n\nSECURITY\n\nCONTRACT\n\nMEM'
+      'BLOCKER\n\nSECURITY\n\nTESTCASE\n\nMEM'
     )
   })
 
@@ -99,11 +99,11 @@ describe('formatHookStdoutLines (session-start stdout)', () => {
       sessionId: 'sess_abc',
       taskBinding: { bound: true, taskIdentifier: 'LUM-12', taskTitle: 'X' },
       securityFindingsSection: '',
-      criteriaSection: 'CONTRACT',
+      testCaseSection: 'TESTCASE',
     }
     const lines = formatHookStdoutLines('session-start', body)
     const envelope = lines.find(l => l.includes('additionalContext'))
     const parsed = JSON.parse(envelope as string)
-    expect(parsed.hookSpecificOutput.additionalContext).toBe('CONTRACT')
+    expect(parsed.hookSpecificOutput.additionalContext).toBe('TESTCASE')
   })
 })

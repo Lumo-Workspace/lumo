@@ -54,9 +54,7 @@ const ITEM = {
   steps: ['open the login page', 'sign in'],
   verification: ['the dashboard is shown'],
   expected: 'The user lands on the dashboard.',
-  criterion: { kind: 'active' as const, statement: 'login works' },
   pr: { number: 42, url: 'https://github.com/x/y/pull/42' },
-  taskContract: [] as string[],
 }
 
 function renderView(pool: ReviewPoolView, onReview = jest.fn()) {
@@ -124,7 +122,7 @@ describe('RunReviewView', () => {
     ).toBeInTheDocument()
   })
 
-  it('puts the expected result, the vouched criterion and a task link on the card (LUM-819 rework)', () => {
+  it('puts the expected result and a task link on the card (LUM-819 rework)', () => {
     renderView({
       sample: [ITEM],
       poolSize: 1,
@@ -133,9 +131,7 @@ describe('RunReviewView', () => {
     expect(
       screen.getByText('The user lands on the dashboard.')
     ).toBeInTheDocument()
-    expect(
-      screen.getByText('Vouches for acceptance criterion: login works')
-    ).toBeInTheDocument()
+    expect(screen.queryByText(/acceptance criterion/)).toBeNull()
     expect(screen.getByRole('link', { name: 'Open in task' })).toHaveAttribute(
       'href',
       '/workspace/lumo/my-tasks/LUM-42/tests#run-run-1'
@@ -151,27 +147,5 @@ describe('RunReviewView', () => {
       expected.compareDocumentPosition(accept) &
         Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy()
-  })
-
-  it('shows the task contract when the case vouches for no criterion (LUM-819 rework)', () => {
-    renderView({
-      sample: [
-        {
-          ...ITEM,
-          criterion: { kind: 'none' as const },
-          taskContract: ['users can sign in', 'sessions expire after 30 days'],
-        },
-      ],
-      poolSize: 1,
-      rate: { status: 'insufficient', reviewed: 0, rejected: 0, minSample: 10 },
-    })
-    expect(
-      screen.getByText(
-        /Not linked to an acceptance criterion — show this task's contract/
-      )
-    ).toBeInTheDocument()
-    expect(
-      screen.getByText('sessions expire after 30 days')
-    ).toBeInTheDocument()
   })
 })

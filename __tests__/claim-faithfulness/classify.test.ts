@@ -17,7 +17,7 @@ describe('classifyClaimFaithfulness', () => {
   it('returns UNJUDGEABLE without calling the judge when delivery is null', async () => {
     const judge = jest.fn()
     const r = await classifyClaimFaithfulness(
-      { claim: 'did stuff', delivery: null, criteria: [] },
+      { claim: 'did stuff', delivery: null },
       { judge }
     )
     expect(r.verdict).toBe('UNJUDGEABLE')
@@ -27,7 +27,7 @@ describe('classifyClaimFaithfulness', () => {
   it('returns UNJUDGEABLE without the judge when claim is null', async () => {
     const judge = jest.fn()
     const r = await classifyClaimFaithfulness(
-      { claim: null, delivery, criteria: [] },
+      { claim: null, delivery },
       { judge }
     )
     expect(r.verdict).toBe('UNJUDGEABLE')
@@ -41,7 +41,7 @@ describe('classifyClaimFaithfulness', () => {
       reasoning: 'r',
     })
     const r = await classifyClaimFaithfulness(
-      { claim: '未包含代码变更', delivery, criteria: [] },
+      { claim: '未包含代码变更', delivery },
       { judge }
     )
     expect(judge).toHaveBeenCalledTimes(1)
@@ -53,7 +53,7 @@ describe('classifyClaimFaithfulness', () => {
   it('falls back to UNJUDGEABLE when the judge throws/times out', async () => {
     const judge = jest.fn().mockRejectedValue(new Error('timeout'))
     const r = await classifyClaimFaithfulness(
-      { claim: 'refactored x', delivery, criteria: [] },
+      { claim: 'refactored x', delivery },
       { judge }
     )
     expect(r.verdict).toBe('UNJUDGEABLE')

@@ -7,7 +7,7 @@ import {
 
 /**
  * The short "where the task stands now" block that commands which change
- * acceptance state print at the end of their output (LUM-842): `verify`,
+ * DONE-relevant state print at the end of their output (LUM-842):
  * `task update --status`, `crossing disposition` / `explain`, `testcase run`
  * / `disposition`.
  *
@@ -34,14 +34,6 @@ export interface StatusDigestInput {
   crossings: OpenCrossingsResult
 }
 
-const UNMET_SHOWN = 2
-const STATEMENT_CAP = 70
-
-function clip(s: string, max: number): string {
-  const one = sanitizeField(s).replace(/\s+/g, ' ').trim()
-  return one.length > max ? `${one.slice(0, max)}…` : one
-}
-
 function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`
 }
@@ -53,9 +45,6 @@ function isStatusBody(body: unknown): body is TaskStatusResponse {
   return (
     !!b.task &&
     typeof b.task.status === 'string' &&
-    typeof b.currentRound === 'number' &&
-    typeof b.maxRounds === 'number' &&
-    Array.isArray(b.criteria) &&
     Array.isArray(b.nextActions)
   )
 }
@@ -73,37 +62,11 @@ export function formatStatusDigest(input: StatusDigestInput): string[] {
   const split = splitNextActions(data.nextActions)
   const lines = [head]
 
-  const round =
-    data.currentRound === 0
-      ? 'no verify round yet'
-      : `round ${data.currentRound}/${data.maxRounds}`
-  const total = data.criteria.length
-  const criteria =
-    total === 0
-      ? 'no acceptance contract'
-      : `criteria ${total - split.criteria.length}/${total} met`
-  lines.push(
-    `  ${data.task.identifier} ${data.task.status} · ${round} · ${criteria}${data.escalated ? ' · ESCALATED — stop running lumo verify' : ''}`
-  )
+  lines.push(`  ${data.task.identifier} ${data.task.status}`)
 
-  if (split.criteria.length > 0) {
-    const shown = split.criteria
-      .slice(0, UNMET_SHOWN)
-      .map(c => `${c.criterionId} ${clip(c.statement, STATEMENT_CAP)}`)
-    const more =
-      split.criteria.length > UNMET_SHOWN
-        ? ` (+${split.criteria.length - UNMET_SHOWN} more)`
-        : ''
-    lines.push(`  Unmet: ${shown.join(' · ')}${more}`)
-  }
-
-  // What blocks DONE — the same four gates `task wrapup` counts.
+  // What blocks DONE — the same gates `task wrapup` counts.
   const blocking: string[] = []
   const unconfirmed: string[] = []
-  const sendBacks = data.criteria.filter(
-    c => c.latestVerdict?.verdict === 'FAIL'
-  ).length
-  if (sendBacks > 0) blocking.push(plural(sendBacks, 'send-back'))
   if (input.crossings.status === 'ok') {
     const ids = input.crossings.crossings.filter(c => c.blocking).map(c => c.id)
     if (ids.length > 0)

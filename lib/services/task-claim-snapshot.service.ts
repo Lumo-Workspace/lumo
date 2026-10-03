@@ -82,44 +82,14 @@ export const taskClaimSnapshotService = {
   },
 
   /**
-   * LUM-597 — record the agent's OWN self-report as the authoritative claim.
-   *
-   * Called the moment a machine verify round flips the task to IN_REVIEW: the
-   * agent's required `lumo verify --note` becomes the claim with source=AGENT,
-   * frozen there (not deferred to DONE). This is the汇报者's own voice — what
-   * the faithfulness audit judges — so a summarizer paraphrase no longer stands
-   * in for the agent's words. Best-effort: a snapshot write failure never fails
-   * the verify round (the round is already recorded).
-   */
-  async recordAgentSelfClaim(
-    taskId: string,
-    note: string,
-    sessionId: string | null
-  ): Promise<void> {
-    try {
-      await taskRepository.setClaimSnapshot(taskId, {
-        text: note,
-        source: 'AGENT',
-        sessionId,
-        at: new Date(),
-      })
-    } catch (err) {
-      logger.warn(
-        `[claim-snapshot] failed to record agent self-claim for task ${taskId}`,
-        err
-      )
-    }
-  },
-
-  /**
    * Synthesize and FREEZE the task-level claim snapshot. Best-effort: never
    * throws (it runs inside the run-summary worker's already-swallowed flow and
    * the backfill loop), and is idempotent — a re-run (re-DONE, backfill, cron)
    * resolves the same authoritative claim and overwrites the field.
    *
-   * LUM-597 (两存·自述优先): a frozen AGENT self-report is authoritative and is
-   * NEVER clobbered by the summarizer paraphrase — the DONE-time synthesizer
-   * leaves it untouched. The paraphrase still lives on `Session.runSummary` as
+   * LUM-597 (两存·自述优先): a frozen AGENT self-report (legacy rows from the
+   * removed `lumo verify --note`) is authoritative and is NEVER clobbered by
+   * the summarizer paraphrase — the DONE-time synthesizer leaves it untouched. The paraphrase still lives on `Session.runSummary` as
    * corroboration; it just doesn't become the claim when the agent spoke.
    */
   async synthesizeForTask(taskId: string): Promise<void> {

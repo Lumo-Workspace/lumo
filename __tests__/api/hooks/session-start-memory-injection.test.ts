@@ -121,7 +121,6 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     ;(
       taskContextService.buildSessionStartSections as jest.Mock
     ).mockResolvedValue({
-      criteriaSection: '',
       memorySection: '',
       linkedResourcesSection: '',
       budget: EMPTY_BUDGET,
@@ -143,7 +142,6 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     ;(
       taskContextService.buildSessionStartSections as jest.Mock
     ).mockResolvedValue({
-      criteriaSection: '',
       memorySection: '## Relevant Memory\n\n### Traps\n- [task] **X** → Y\n',
       linkedResourcesSection: '',
       budget: EMPTY_BUDGET,
@@ -175,7 +173,6 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     ;(
       taskContextService.buildSessionStartSections as jest.Mock
     ).mockResolvedValue({
-      criteriaSection: '',
       memorySection: 'MEM',
       linkedResourcesSection:
         '<untrusted-linked-context>\n## Pull Requests\n- #7 x\n</untrusted-linked-context>',
@@ -222,7 +219,6 @@ describe('POST /api/hooks/session-start — memory injection', () => {
     ;(
       taskContextService.buildSessionStartSections as jest.Mock
     ).mockResolvedValue({
-      criteriaSection: '',
       memorySection: '',
       linkedResourcesSection: '',
       budget: EMPTY_BUDGET,

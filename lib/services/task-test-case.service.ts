@@ -6,7 +6,6 @@ import {
   type TestCaseRunRow,
 } from '@/lib/repositories/test-case.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
 import {
   testCaseReviewService,
@@ -187,66 +186,6 @@ async function resolveActorId(memberId: string): Promise<string | null> {
 }
 
 /**
- * LUM-815: 覆盖声明必须指向**同一个任务**合同里的一条 active 标准。
- *
- * 未声明（null / 省略）直接放行——那是合法的常态，不是需要解释的例外。
- * 跨任务引用则一律 422：它不只是「少见」，而是会让覆盖缺口算到别的任务头上，
- * 把这个功能唯一的产出（哪条标准没人验过）直接变成噪音。
- *
- * 指向**已软删**的标准同样拒绝：listByTask 只返回 active 行。已经绑好的用例
- * 在标准事后被软删时照常保留引用（那是历史，读端渲染成「该标准已变更」），
- * 但**新**建立一条指向墓碑的引用没有任何意义。
- */
-async function assertCriterionOnTask(
-  taskId: string,
-  criterionId: string | null | undefined
-): Promise<void> {
-  if (criterionId === null || criterionId === undefined) return
-  const criteria = await acceptanceCriterionRepository.listByTask(taskId)
-  if (!criteria.some(c => c.id === criterionId)) {
-    fail(
-      `Criterion ${criterionId} is not in this task's acceptance contract`,
-      422
-    )
-  }
-}
-
-/**
- * LUM-815 follow-up: 用例声明覆盖的那条标准，**连同它还在不在当前合同里**。
- *
- * 为什么需要 `removed`：一条有 verification run 的 criterion 被移出合同时是
- * **软删**（墓碑留着，裁定链不能断），用例的引用于是照旧指向它。那不是脏
- * 数据，是历史——但如果读出来只有一个裸 id，读的人会拿它去 `criteria list`
- * 里找，然后找不到。所以这里把「它已经不在合同里了」一并读出来。
- *
- * 硬删（run-free 的 criterion）走的是另一条路：DB 的 `ON DELETE SET NULL`
- * 会把引用置空，所以这里直接是 null——「没声明」与「声明的对象没了」在读出
- * 面是同一种呈现，因为库里本来就分不出来了。
- */
-export interface LinkedCriterion {
-  id: string
-  statement: string
-  /** true = 已不在当前合同里（软删墓碑）。 */
-  removed: boolean
-}
-
-async function resolveLinkedCriterion(
-  taskId: string,
-  criterionId: string | null
-): Promise<LinkedCriterion | null> {
-  if (!criterionId) return null
-  const all =
-    await acceptanceCriterionRepository.listByTaskIncludingDeleted(taskId)
-  const row = all.find(c => c.id === criterionId)
-  if (!row) return null
-  return {
-    id: row.id,
-    statement: row.statement,
-    removed: row.deletedAt !== null,
-  }
-}
-
-/**
  * LUM-801: 任务级 test case 的业务规则层。
  *
  * 注意这里**没有** updateRun / deleteRun —— run 是 append-only 事件日志，
@@ -279,17 +218,15 @@ export const taskTestCaseService = {
     testCase: TestCaseRow
     runs: TestCaseRunRow[]
     pullRequests: TaskPullRequestSnapshot[]
-    criterion: LinkedCriterion | null
   }> {
     const testCase = await testCaseRepository.findById(testCaseId)
     if (!testCase) fail('Test case not found', 404)
-    const [runs, pullRequests, criterion] = await Promise.all([
+    const [runs, pullRequests] = await Promise.all([
       testCaseRepository.listRuns(testCaseId),
       testCaseRepository.listTaskPullRequests(testCase.taskId),
-      resolveLinkedCriterion(testCase.taskId, testCase.criterionId),
     ])
     // 陈旧性在**读端**推导（deriveRunFreshness），不落列。
-    return { testCase, runs, pullRequests, criterion }
+    return { testCase, runs, pullRequests }
   },
 
   async create(
@@ -297,7 +234,6 @@ export const taskTestCaseService = {
     body: CreateTestCaseBody,
     attribution: TestCaseAttribution
   ): Promise<{ testCase: TestCaseRow }> {
-    await assertCriterionOnTask(taskId, body.criterionId)
     const actorId = await resolveActorId(attribution.actorMemberId)
     const testCase = await runInTransaction(async tx => {
       const created = await testCaseRepository.createWithNumber(
@@ -309,7 +245,6 @@ export const taskTestCaseService = {
           verification: body.verification,
           expected: body.expected,
           requiredEnvironment: body.requiredEnvironment ?? null,
-          criterionId: body.criterionId ?? null,
         },
         tx
       )
@@ -338,7 +273,6 @@ export const taskTestCaseService = {
   ): Promise<{ testCase: TestCaseRow }> {
     const existing = await testCaseRepository.findById(testCaseId)
     if (!existing) fail('Test case not found', 404)
-    await assertCriterionOnTask(existing.taskId, body.criterionId)
     const actorId = await resolveActorId(attribution.actorMemberId)
 
     const testCase = await runInTransaction(async tx => {
@@ -354,11 +288,6 @@ export const taskTestCaseService = {
           ...(body.expected !== undefined ? { expected: body.expected } : {}),
           ...(body.requiredEnvironment !== undefined
             ? { requiredEnvironment: body.requiredEnvironment ?? null }
-            : {}),
-          // LUM-815: null = 解绑，字符串 = 改绑，省略 = 不动。三态都要留住,
-          // 所以这里判的是 `!== undefined` 而不是真值。
-          ...(body.criterionId !== undefined
-            ? { criterionId: body.criterionId ?? null }
             : {}),
         },
         tx

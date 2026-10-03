@@ -5,9 +5,10 @@ import { useIntl } from 'react-intl'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import type { TimelineEntry, WorkspaceMemberInfo } from '../../types'
-import { TimelineEntryRenderer } from './TimelineEntryRenderer'
-import { aggregateTimeline } from './acceptance-aggregation'
-import { AcceptanceBatchItem } from './items/AcceptanceBatchItem'
+import {
+  TimelineEntryRenderer,
+  RETIRED_ACTIVITY_TYPES,
+} from './TimelineEntryRenderer'
 
 // ── Filter categories ────────────────────────────────────────────────────────
 
@@ -70,18 +71,6 @@ const FILTER_CATEGORIES = [
       'PR_LINKED',
       'PR_UNLINKED',
       'REPOSITORY_CHANGED',
-    ]),
-  },
-  {
-    id: 'verification',
-    labelId: 'activity.filter.verification',
-    defaultLabel: 'Verification',
-    types: new Set([
-      'CRITERION_CHANGED',
-      'VERIFICATION_RUN_RECORDED',
-      'VERIFICATION_ESCALATED',
-      // LUM-789: a human confirming the acceptance contract.
-      'CONTRACT_CONFIRMED',
     ]),
   },
   {
@@ -190,7 +179,7 @@ interface ActivityTimelineProps {
 }
 
 export function ActivityTimeline({
-  entries,
+  entries: rawEntries,
   loading,
   hasMore,
   loadingMore,
@@ -199,6 +188,15 @@ export function ActivityTimeline({
   agentActors,
 }: ActivityTimelineProps) {
   const intl = useIntl()
+  // LUM-942: acceptance-criteria / verification-round activities are retired —
+  // old rows still exist but are no longer rendered.
+  const entries = useMemo(
+    () =>
+      rawEntries.filter(
+        e => e.kind !== 'activity' || !RETIRED_ACTIVITY_TYPES.has(e.type)
+      ),
+    [rawEntries]
+  )
   // 'all' means show everything; otherwise a single category id
   const [activeFilter, setActiveFilter] = useState<string>('all')
 
@@ -319,27 +317,16 @@ export function ActivityTimeline({
               </span>
               <div className='flex-1 h-px bg-border' />
             </div>
-            {/* Entries with left timeline line. Acceptance mirror events
-                (LUM-343) are folded into batch rows so a multi-criterion draft
-                or a full verify round reads as one milestone, not a wall. */}
+            {/* Entries with left timeline line */}
             <div className='space-y-0.5'>
-              {aggregateTimeline(group.entries).map(unit =>
-                unit.kind === 'entry' ? (
-                  <TimelineEntryRenderer
-                    key={`${unit.entry.kind}-${unit.entry.id}`}
-                    entry={unit.entry}
-                    members={members}
-                    agentActors={agentActors}
-                  />
-                ) : (
-                  <AcceptanceBatchItem
-                    key={`batch-${unit.key}-${unit.createdAt}`}
-                    unit={unit}
-                    members={members}
-                    agentActors={agentActors}
-                  />
-                )
-              )}
+              {group.entries.map(entry => (
+                <TimelineEntryRenderer
+                  key={`${entry.kind}-${entry.id}`}
+                  entry={entry}
+                  members={members}
+                  agentActors={agentActors}
+                />
+              ))}
             </div>
           </div>
         ))}

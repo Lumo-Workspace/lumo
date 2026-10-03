@@ -18,8 +18,6 @@
 import { crossingSuppressionRuleRepository } from '@/lib/repositories/crossing-suppression-rule.repository'
 import { boundaryCrossingRepository } from '@/lib/repositories/boundary-crossing.repository'
 import { activityRepository } from '@/lib/repositories/activity.repository'
-import { acceptanceCriterionRepository } from '@/lib/repositories/acceptance-criterion.repository'
-import { verificationRunRepository } from '@/lib/repositories/verification-run.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { updateTask } from '@/lib/services/task-state.service'
 import { RETROACTIVE_SUPPRESSION_CAP } from '@/lib/boundary-crossing/suppression'
@@ -144,15 +142,6 @@ jest.mock('@/lib/repositories/activity.repository', () => ({
 }))
 
 // --- gate deps ----------------------------------------------------------------
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: { listByTask: jest.fn() },
-}))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  verificationRunRepository: {
-    criterionIdsEverPassed: jest.fn(),
-    latestRunsByCriterion: jest.fn(),
-  },
-}))
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: { findForUpdate: jest.fn(), update: jest.fn() },
 }))
@@ -185,8 +174,6 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 }))
 
 const createActivity = activityRepository.create as jest.Mock
-const listByTask = acceptanceCriterionRepository.listByTask as jest.Mock
-const latestRuns = verificationRunRepository.latestRunsByCriterion as jest.Mock
 const findForUpdate = taskRepository.findForUpdate as jest.Mock
 const update = taskRepository.update as jest.Mock
 
@@ -233,7 +220,6 @@ beforeEach(() => {
   jest.clearAllMocks()
   store = []
   txWrites = []
-  listByTask.mockResolvedValue([])
   createActivity.mockImplementation(async () => {
     txWrites.push('activity')
     return { id: 'act' }
@@ -245,7 +231,6 @@ beforeEach(() => {
     team: { identifier: 'LUM' },
     teamId: 'team-1',
   })
-  latestRuns.mockResolvedValue(new Map())
 })
 
 describe('LUM-759 — creating a rule disposes the project backlog too', () => {

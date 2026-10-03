@@ -111,7 +111,7 @@ function stripCrossingResponse(
 /**
  * The payload a crossing-referenced event should hold, or null when it already
  * matches. These rows keep their tool_input — the crossing panel renders a
- * TEST_TAMPERING edit from it — but get credential redaction (LUM-859) and
+ * legacy TEST_TAMPERING edit from it — but get credential redaction (LUM-859) and
  * lose `tool_response.originalFile` and Bash stdout/stderr, which no crossing
  * surface reads (see stripCrossingResponse).
  */

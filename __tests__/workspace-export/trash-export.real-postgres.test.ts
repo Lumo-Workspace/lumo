@@ -3,7 +3,7 @@
  *
  * LUM-923 — a GDPR export covers everything still stored, trash included
  * (the user's ruling): trashed tasks and documents are exported with their
- * `deletedAt`, so the comments and acceptance criteria of a trashed task —
+ * `deletedAt`, so the comments of a trashed task —
  * read through relation filters the soft-delete extension never touched —
  * no longer point at a task the archive does not contain. Real Postgres,
  * read through the same soft-delete extension as the production client.
@@ -70,14 +70,6 @@ async function seed() {
       },
     })
     await db.comment.create({ data: { taskId: id, body: `<p>${id}</p>` } })
-    await db.acceptanceCriterion.create({
-      data: {
-        taskId: id,
-        statement: `criterion of ${id}`,
-        verifierType: 'HUMAN',
-        source: 'AGENT_DRAFT',
-      },
-    })
   }
   for (const [id, number, deletedAt] of [
     ['d_live', 1, null],
@@ -137,13 +129,11 @@ describe('LUM-923 export trash: the archive includes the trash', () => {
     expect(files[md]).toContain('d_trashed')
   })
 
-  it('LUM-923 export trash: every exported comment and criterion taskId resolves to an exported task', () => {
+  it('LUM-923 export trash: every exported comment taskId resolves to an exported task', () => {
     const taskIds = new Set(ndjson(files['tasks.ndjson']).map(t => t.id))
     const comments = ndjson(files['comments.ndjson'])
-    const criteria = ndjson(files['acceptance-criteria.ndjson'])
     expect(comments).toHaveLength(2)
-    expect(criteria).toHaveLength(2)
-    for (const row of [...comments, ...criteria]) {
+    for (const row of comments) {
       expect(taskIds.has(row.taskId as string)).toBe(true)
     }
   })

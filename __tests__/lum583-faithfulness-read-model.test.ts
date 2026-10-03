@@ -6,7 +6,7 @@
  *     verdict); STALE when judged against an older claim snapshot, still
  *     surfacing the underlying verdict; a fresh verdict passes through with its
  *     evidence pointers. No LLM, no Prisma — same input, same output.
- *  2. `taskVerificationService.statusForTask` wires it: a field read of the
+ *  2. `taskStatusService.statusForTask` wires it: a field read of the
  *     persisted LUM-582 verdict, never a judge call at read time.
  */
 import {
@@ -112,30 +112,9 @@ describe('deriveFaithfulness — read-model derivation (LUM-583)', () => {
 
 // ── 2. statusForTask wiring ───────────────────────────────────────────────────
 
-jest.mock('@/lib/repositories/acceptance-criterion.repository', () => ({
-  acceptanceCriterionRepository: {
-    listByTask: jest.fn(() => Promise.resolve([])),
-    listByTaskIncludingDeleted: jest.fn(() => Promise.resolve([])),
-  },
-}))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: {
     listForLifecycle: jest.fn(() => Promise.resolve([])),
-  },
-}))
-jest.mock('@/lib/repositories/verification-run.repository', () => ({
-  ...jest.requireActual('@/lib/repositories/verification-run.repository'),
-  verificationRunRepository: {
-    listByTask: jest.fn(() => Promise.resolve([])),
-    latestHumanVerdictAction: jest.fn(() => Promise.resolve(null)),
-  },
-}))
-// LUM-586: the read model reads withdrawal tombstones — fake them so the view
-// resolves without a DB. Defaults = nothing withdrawn.
-jest.mock('@/lib/repositories/verification-run-withdrawal.repository', () => ({
-  verificationRunWithdrawalRepository: {
-    actionIdsByTask: jest.fn(() => Promise.resolve(new Set())),
-    latestByTask: jest.fn(() => Promise.resolve(null)),
   },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({
@@ -157,32 +136,33 @@ jest.mock('@/lib/repositories/claim-faithfulness-verdict.repository', () => ({
     findByTaskId: jest.fn(() => Promise.resolve(null)),
   },
 }))
-jest.mock('@/lib/repositories/workspace.repository', () => ({
-  workspaceRepository: {
-    findVerificationMaxRounds: jest.fn(() => Promise.resolve(3)),
-  },
-}))
-jest.mock('@/lib/repositories/member.repository', () => ({
-  memberRepository: { findActorByMemberId: jest.fn() },
-}))
-jest.mock('@/lib/notifications/notifyWorkspaceOwners', () => ({
-  notifyWorkspaceOwners: jest.fn(),
-}))
-jest.mock('@/lib/services/task.service', () => ({
-  taskService: {
-    getTaskDetail: jest.fn(),
-    updateTaskWithSideEffects: jest.fn(),
-  },
-}))
 jest.mock('@/lib/repositories/retrospective.repository', () => ({
   retrospectiveRepository: {
     loadActuals: jest.fn(() => Promise.resolve(null)),
     loadPerSessionCost: jest.fn(() => Promise.resolve([])),
   },
 }))
+jest.mock('@/lib/services/pr-security-reminder.service', () => ({
+  prSecurityReminderService: {
+    loadOpenFindingsForTask: jest.fn(() => Promise.resolve(null)),
+  },
+}))
+jest.mock('@/lib/services/test-case-reminder.service', () => ({
+  testCaseReminderService: {
+    stateForTask: jest.fn(() => Promise.resolve(null)),
+  },
+}))
+jest.mock('@/lib/services/done-verdict.service', () => ({
+  readTestCaseAdvisories: jest.fn(() => Promise.resolve([])),
+}))
+jest.mock('@/lib/services/test-case-review.service', () => ({
+  testCaseReviewService: {
+    sentBackForTask: jest.fn(() => Promise.resolve([])),
+  },
+}))
 jest.mock('@/lib/db/prisma', () => ({ prisma: {} }))
 
-import { taskVerificationService } from '@/lib/services/task-verification.service'
+import { taskStatusService } from '@/lib/services/task-status.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { claimFaithfulnessVerdictRepository } from '@/lib/repositories/claim-faithfulness-verdict.repository'
 
@@ -207,7 +187,7 @@ describe('statusForTask wires faithfulness from the persisted verdict (LUM-583)'
   })
 
   it('PENDING when no verdict row exists — and never calls a judge at read time', async () => {
-    const s = await taskVerificationService.statusForTask('t-1')
+    const s = await taskStatusService.statusForTask('t-1')
     expect(s.faithfulness.state).toBe('PENDING')
     expect(s.faithfulness.verdict).toBeNull()
     expect(findVerdict).toHaveBeenCalledWith('t-1')
@@ -228,7 +208,7 @@ describe('statusForTask wires faithfulness from the persisted verdict (LUM-583)'
       judgedAt: new Date('2026-06-20T12:00:00Z'),
       judgedClaimAt: new Date('2026-06-20T10:00:00Z'),
     })
-    const s = await taskVerificationService.statusForTask('t-1')
+    const s = await taskStatusService.statusForTask('t-1')
     expect(s.faithfulness.state).toBe('FAITHFUL')
     expect(s.faithfulness.prNumbers).toEqual([710])
     expect(s.faithfulness.evidence).toEqual(['diff matches claim'])
@@ -236,7 +216,7 @@ describe('statusForTask wires faithfulness from the persisted verdict (LUM-583)'
 
   it('flags STALE when the verdict predates the current claim snapshot', async () => {
     loadClaimSnapshot.mockResolvedValue({
-      claimSnapshot: 'Reworked after a send-back.',
+      claimSnapshot: 'Reworked after a reopen.',
       claimSnapshotSource: 'RUN_SUMMARY',
       claimSnapshotAt: new Date('2026-06-22T10:00:00Z'),
     })
@@ -249,7 +229,7 @@ describe('statusForTask wires faithfulness from the persisted verdict (LUM-583)'
       judgedAt: new Date('2026-06-20T12:00:00Z'),
       judgedClaimAt: new Date('2026-06-20T10:00:00Z'),
     })
-    const s = await taskVerificationService.statusForTask('t-1')
+    const s = await taskStatusService.statusForTask('t-1')
     expect(s.faithfulness.state).toBe('STALE')
     expect(s.faithfulness.verdict).toBe('OVERSTATED')
   })

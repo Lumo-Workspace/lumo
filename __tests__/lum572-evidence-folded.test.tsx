@@ -8,7 +8,7 @@
  * the group and its targeted sub-section.
  *
  * This supersedes LUM-567's separate ④ region (lum567-task-dossier.test.tsx is
- * updated in lockstep). Renders the REAL AcceptanceTab so the group's collapse
+ * updated in lockstep). Renders the REAL RecordTab so the group's collapse
  * genuinely gates the evidence slot.
  */
 jest.mock('react-intl', () => ({
@@ -60,7 +60,6 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoundaryCrossings', () => ({
 }))
 jest.mock('@/lib/api-client', () => ({
   tasksClient: {
-    submitHumanVerdict: jest.fn().mockResolvedValue({}),
     dispositionBoundaryCrossing: jest.fn().mockResolvedValue({}),
     spawnBoundaryRemediation: jest.fn().mockResolvedValue({}),
   },
@@ -68,10 +67,6 @@ jest.mock('@/lib/api-client', () => ({
 
 // Stub the heavy leaf bodies; the structure under test is composition, not their
 // internals.
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/VerdictDecision',
-  () => ({ VerdictDecision: () => <div data-testid='verdict-status' /> })
-)
 jest.mock(
   '@/app/workspace/[workspaceUrl]/components/TaskDetailTimeline/AgentRunsSection',
   () => ({ AgentRunsSection: () => <div data-testid='runs-body' /> })
@@ -102,7 +97,6 @@ const baseProps: any = {
   members: [],
   agentActors: [],
   enabled: true,
-  onVerdictRecorded: jest.fn(),
   memberNames: new Map(),
   hasLineage: true,
   hasMemories: true,
@@ -118,57 +112,14 @@ beforeEach(() => {
   })
   mockStatus.mockReturnValue({
     data: {
-      version: 1,
+      version: 2,
       task: { id: 't1', identifier: 'LUM-1', title: 'x', status: 'IN_REVIEW' },
-      currentRound: 2,
-      maxRounds: 3,
-      escalated: false,
-      criteria: [
-        {
-          id: 'm1',
-          statement: 'route returns 409 on lock',
-          verifierType: 'MACHINE',
-          checkpointer: 'npx jest x',
-          evidenceRequired: false,
-          judgeSteps: null,
-          source: 'AGENT_DRAFT',
-          addedAtRound: 0,
-          latestVerdict: {
-            round: 1,
-            verdict: 'PASS',
-            verifierType: 'MACHINE',
-            evidencePointer: 'cmd:npx jest x#exit=0',
-            rejectionReason: null,
-            rejectionReasonEnum: null,
-            recordedAt: '2026-06-10T10:00:00.000Z',
-          },
-          machinePassed: true,
-          verdictStale: false,
-          checkMismatch: false,
-          changeState: null,
-          changedAtRound: null,
-          lastEdit: null,
-        },
-      ],
-      machineVerification: { total: 1, machineVerified: 1, humanOverridden: 0 },
-      cost: { tokenCost: 1000, activeTimeSec: 10, reworkRounds: 0 },
-      struggleTrail: {
-        reworkRounds: [],
-        sendBacks: [],
-        followUps: [],
-        pullRequests: [],
-        reopens: [],
-      },
+      cost: { tokenCost: 1000, activeTimeSec: 10 },
+      struggleTrail: { pullRequests: [], reopens: [] },
       trend: {
-        passRate: [],
         cost: [],
-        rework: { reworkRounds: 0, reopens: 0, extraPrCycles: 0, total: 0 },
+        rework: { reopens: 0, extraPrCycles: 0, total: 0 },
       },
-      claim: { text: null, source: null },
-      removedCriteria: [],
-      verificationHistory: [],
-      lastRoundFailures: [],
-      nextActions: [],
     },
     loading: false,
     error: null,
