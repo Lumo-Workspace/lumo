@@ -848,6 +848,7 @@
   "task.ciPending": "CI läuft",
   "task.ciUnknown": "Keine CI-Daten",
   "task.unlinkPr": "Pull Request trennen",
+  "task.prStatusSyncPaused": "Status nicht aktualisiert: Dieses Repository ist für den Workspace nicht mehr bestätigt",
   "task.noPullRequests": "Keine Pull Requests",
   "task.activity": "Aktivität",
   "task.comments": "Kommentare",

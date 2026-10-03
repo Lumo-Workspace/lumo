@@ -30,10 +30,11 @@ import {
   restrictSandboxEgress,
   type RepoSandbox,
 } from '@/lib/integrations/vercel-sandbox'
+// LUM-889: the unchecked mint is internal — not in the github barrel.
 import {
   createRepoScopedToken,
   revokeInstallationToken,
-} from '@/lib/integrations/github'
+} from '@/lib/integrations/github/auth'
 import { scrubSandboxCredentials } from '@/lib/services/sandbox-credential-scrub'
 import {
   MANAGED_SCAN_TOOLS,

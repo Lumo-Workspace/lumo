@@ -848,6 +848,7 @@
   "task.ciPending": "CI sedang berjalan",
   "task.ciUnknown": "Tiada data CI",
   "task.unlinkPr": "Nyahpaut permintaan tarik",
+  "task.prStatusSyncPaused": "Status tidak dikemas kini: repositori ini tidak lagi disahkan untuk ruang kerja",
   "task.noPullRequests": "Tiada permintaan tarik",
   "task.activity": "Aktiviti",
   "task.comments": "Komen",

@@ -848,6 +848,7 @@
   "task.ciPending": "CI 실행 중",
   "task.ciUnknown": "CI 데이터 없음",
   "task.unlinkPr": "풀 리퀘스트 연결 해제",
+  "task.prStatusSyncPaused": "상태가 새로 고쳐지지 않음: 이 저장소는 더 이상 워크스페이스의 확인된 저장소가 아닙니다",
   "task.noPullRequests": "풀 리퀘스트 없음",
   "task.activity": "활동",
   "task.comments": "댓글",

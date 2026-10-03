@@ -17,8 +17,6 @@ jest.mock('@/lib/logger', () => ({
   logger: { error: jest.fn(), info: jest.fn(), warn: jest.fn() },
 }))
 
-import * as fs from 'fs'
-import * as path from 'path'
 import { createAppAuth } from '@octokit/auth-app'
 import { githubAppInstallationRepository } from '@/lib/repositories/github-app-installation.repository'
 import { getRepoToken, getRepoCloneToken } from '@/lib/integrations/github/auth'
@@ -185,58 +183,6 @@ describe('LUM-883 read helpers go through the check', () => {
   })
 })
 
-/**
- * Anti-regression: runtime code must not mint an installation-wide token.
- * Only the install flow and the access recheck list the whole installation
- * (before anything is confirmed, or to re-check what was); everything else
- * goes through getRepoToken / getRepoCloneToken.
- */
-describe('LUM-883 no installation-wide tokens in runtime code', () => {
-  const ROOT = path.resolve(__dirname, '../../../..')
-  const SCAN_DIRS = ['app', 'lib', 'shared']
-  const WHOLE_INSTALLATION_ALLOWED = new Set([
-    'lib/integrations/github/auth.ts',
-    'lib/integrations/github/app-installations.ts',
-    'lib/services/github-access-recheck.service.ts',
-  ])
-
-  function sourceFiles(dir: string): string[] {
-    const abs = path.join(ROOT, dir)
-    if (!fs.existsSync(abs)) return []
-    const out: string[] = []
-    for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
-      if (entry.name === 'node_modules') continue
-      const rel = path.join(dir, entry.name)
-      if (entry.isDirectory()) out.push(...sourceFiles(rel))
-      else if (/\.(ts|tsx)$/.test(entry.name)) out.push(rel)
-    }
-    return out
-  }
-
-  it('no runtime code mints a repo-less installation token', () => {
-    const files = SCAN_DIRS.flatMap(sourceFiles)
-    // Sanity: the walk found the tree, so an empty result means clean.
-    expect(files).toContain('lib/integrations/github/auth.ts')
-
-    const offenders: string[] = []
-    for (const rel of files) {
-      const text = fs.readFileSync(path.join(ROOT, rel), 'utf8')
-      if (/getGithubInstallationToken/.test(text)) {
-        offenders.push(`${rel}: getGithubInstallationToken`)
-      }
-      if (
-        /createInstallationToken\s*\(/.test(text) &&
-        !WHOLE_INSTALLATION_ALLOWED.has(rel)
-      ) {
-        offenders.push(`${rel}: createInstallationToken`)
-      }
-      if (
-        /from ['"]@octokit\/auth-app['"]/.test(text) &&
-        rel !== 'lib/integrations/github/auth.ts'
-      ) {
-        offenders.push(`${rel}: @octokit/auth-app import`)
-      }
-    }
-    expect(offenders).toEqual([])
-  })
-})
+// The LUM-883 anti-regression scan for installation-wide / unchecked mints
+// moved to the AST-based guard (LUM-889):
+// __tests__/lib/integrations/github/token-mint-guard.lum889.test.ts

@@ -129,22 +129,27 @@ async function resolveByPrId(
 async function resolveByUrl(url: string, workspaceId: string): Promise<string> {
   const parsed = parsePrUrl(url)
   if (!parsed) throw err('Invalid GitHub PR URL', 400)
-  // Before the row lookup and any GitHub read (LUM-883).
-  await requireConfirmedRepository(workspaceId, parsed.repo)
+  // Before the row lookup and any GitHub read (LUM-883). LUM-889: from here
+  // on the repository is the confirmed list's (GitHub's) spelling — the URL
+  // may say `ACME/App`, the row written by the webhook says `acme/app`.
+  const { repository: repo } = await requireConfirmedRepository(
+    workspaceId,
+    parsed.repo
+  )
 
   const existing = await pullRequestRepository.findByRepoAndNumber(
     workspaceId,
-    parsed.repo,
+    repo,
     parsed.number
   )
   // LUM-924: this workspace's own row — another workspace's copy is not ours.
   if (existing) return existing.id
 
-  const token = await repoTokenFor(workspaceId, parsed.repo)
+  const token = await repoTokenFor(workspaceId, repo)
 
   const ghPr = await fetchPullRequest({
     token,
-    repo: parsed.repo,
+    repo,
     number: parsed.number,
   })
   if (!ghPr) throw err('PR not found on GitHub', 404)
@@ -155,7 +160,9 @@ async function resolveByUrl(url: string, workspaceId: string): Promise<string> {
     taskId: null,
     // Read as the App installation — there is no OAuth integration behind it.
     integrationId: null,
-    repo: parsed.repo,
+    // GitHub's canonical spelling, so the upsert key matches the
+    // webhook's row and never forks a case-variant duplicate (LUM-889).
+    repo: ghPr.base.repo?.full_name ?? repo,
     number: ghPr.number,
     title: ghPr.title,
     url: ghPr.html_url,

@@ -848,6 +848,7 @@
   "task.ciPending": "CI 執行中",
   "task.ciUnknown": "無 CI 資料",
   "task.unlinkPr": "取消關聯拉取請求",
+  "task.prStatusSyncPaused": "狀態未更新：此儲存庫已不在工作區的已確認儲存庫清單中",
   "task.noPullRequests": "暫無拉取請求",
   "task.activity": "動態",
   "task.comments": "留言",

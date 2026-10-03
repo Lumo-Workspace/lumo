@@ -24,7 +24,11 @@ export interface GitHubPullRequestPayload {
   // narrowed it away. It is what a TestCaseRun's recorded commit is compared
   // against to tell a still-current run from one the PR has moved past.
   head: { ref: string; sha: string }
-  base: { ref: string }
+  /**
+   * LUM-889: `repo.full_name` is GitHub's canonical `owner/name` — what a PR
+   * row is keyed by, whatever case the pasted URL used.
+   */
+  base: { ref: string; repo?: { full_name: string } | null }
   merged_at: string | null
   closed_at: string | null
 }

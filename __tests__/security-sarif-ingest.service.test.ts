@@ -25,6 +25,12 @@ jest.mock('@/lib/services/security-sarif-blob', () => ({
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
+// LUM-889: resolveScan checks each owner's confirmed list; every repository
+// here is confirmed (the unconfirmed path is __tests__/lum889-token-tails.test.ts).
+jest.mock('@/lib/integrations/github/confirmed-repositories', () => ({
+  ...jest.requireActual('@/lib/integrations/github/confirmed-repositories'),
+  loadConfirmedRepositories: async () => (repository: string) => repository,
+}))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),

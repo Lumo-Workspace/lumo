@@ -13,6 +13,11 @@ jest.mock('@/lib/logger', () => ({
 jest.mock('@/lib/integrations/github/auth', () => ({
   getRepoToken: jest.fn().mockResolvedValue('tok'),
 }))
+// LUM-889: the SARIF path checks the confirmed list first; the repository is
+// confirmed here, so the scanning-off switch is what discards the report.
+jest.mock('@/lib/integrations/github/confirmed-repositories', () => ({
+  loadConfirmedRepositories: async () => (repository: string) => repository,
+}))
 jest.mock('@/lib/integrations/github/contents', () => ({
   fetchPrDiff: jest.fn(),
   fetchPrHeadSha: jest.fn(),

@@ -81,7 +81,73 @@ export async function getGithubAppJwt(): Promise<string> {
   return token
 }
 
-export type RepoTokenPermissions = Record<string, 'read' | 'write'>
+/**
+ * LUM-889 — the permission names GitHub accepts on an installation token
+ * (REST "Create an installation access token" → `permissions`). A literal
+ * union, so a misspelling such as `pull_request` fails the type check instead
+ * of reaching GitHub and coming back as a 422 that takes the feature down.
+ */
+export type GitHubAppPermissionName =
+  // repository
+  | 'actions'
+  | 'administration'
+  | 'artifact_metadata'
+  | 'attestations'
+  | 'checks'
+  | 'code_quality'
+  | 'codespaces'
+  | 'contents'
+  | 'dependabot_secrets'
+  | 'deployments'
+  | 'discussions'
+  | 'environments'
+  | 'issues'
+  | 'merge_queues'
+  | 'metadata'
+  | 'packages'
+  | 'pages'
+  | 'pull_requests'
+  | 'repository_custom_properties'
+  | 'repository_hooks'
+  | 'repository_projects'
+  | 'secret_scanning_alerts'
+  | 'secrets'
+  | 'security_events'
+  | 'single_file'
+  | 'statuses'
+  | 'vulnerability_alerts'
+  | 'workflows'
+  // organization
+  | 'members'
+  | 'organization_administration'
+  | 'organization_announcement_banners'
+  | 'organization_copilot_seat_management'
+  | 'organization_custom_org_roles'
+  | 'organization_custom_properties'
+  | 'organization_custom_roles'
+  | 'organization_events'
+  | 'organization_hooks'
+  | 'organization_packages'
+  | 'organization_personal_access_token_requests'
+  | 'organization_personal_access_tokens'
+  | 'organization_plan'
+  | 'organization_projects'
+  | 'organization_secrets'
+  | 'organization_self_hosted_runners'
+  | 'organization_user_blocking'
+  | 'team_discussions'
+  // account
+  | 'email_addresses'
+  | 'followers'
+  | 'git_ssh_keys'
+  | 'gpg_keys'
+  | 'interaction_limits'
+  | 'profile'
+  | 'starring'
+
+export type RepoTokenPermissions = Partial<
+  Record<GitHubAppPermissionName, 'read' | 'write'>
+>
 
 /** GitHub reads "no permissions" as "all of the installation's permissions". */
 function requirePermissionSet(
@@ -183,6 +249,11 @@ function repoName(repository: string): string {
  * The scoped mint itself, for an installation id already in hand (the
  * LUM-852 sandbox probe has no workspace row to resolve). Same request as
  * `getRepoCloneToken` — one repository, `contents: read`.
+ *
+ * LUM-889: NOT in the `@/lib/integrations/github` barrel — no confirmed-list
+ * check, so product code must never call it. The token-mint guard test
+ * (`__tests__/lib/integrations/github/token-mint-guard.lum889.test.ts`)
+ * allows it only inside this file and the operator probe scripts.
  */
 export async function createRepoScopedToken(
   installationId: number,
@@ -198,6 +269,8 @@ export async function createRepoScopedToken(
  * already in hand. No confirmed-list check: only for operator probes that
  * have no workspace row (the LUM-886 permission probe). Product paths go
  * through `getRepoToken`. An empty set is refused, as there.
+ *
+ * LUM-889: NOT in the barrel, for the same reason as `createRepoScopedToken`.
  */
 export async function createRepoTokenForInstallation(
   installationId: number,

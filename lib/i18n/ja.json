@@ -848,6 +848,7 @@
   "task.ciPending": "CI 実行中",
   "task.ciUnknown": "CI データなし",
   "task.unlinkPr": "プルリクエストのリンクを解除",
+  "task.prStatusSyncPaused": "ステータスは更新されません：このリポジトリはワークスペースの確認済みリストから外れています",
   "task.noPullRequests": "プルリクエストなし",
   "task.activity": "アクティビティ",
   "task.comments": "コメント",

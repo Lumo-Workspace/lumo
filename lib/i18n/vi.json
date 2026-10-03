@@ -848,6 +848,7 @@
   "task.ciPending": "CI đang chạy",
   "task.ciUnknown": "Không có dữ liệu CI",
   "task.unlinkPr": "Hủy liên kết pull request",
+  "task.prStatusSyncPaused": "Trạng thái không được làm mới: kho mã này không còn được xác nhận cho không gian làm việc",
   "task.noPullRequests": "Không có pull request",
   "task.activity": "Hoạt động",
   "task.comments": "Bình luận",

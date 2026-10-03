@@ -848,6 +848,7 @@
   "task.ciPending": "CI ejecutándose",
   "task.ciUnknown": "Sin datos de CI",
   "task.unlinkPr": "Desvincular pull request",
+  "task.prStatusSyncPaused": "Estado no actualizado: este repositorio ya no está confirmado para el espacio de trabajo",
   "task.noPullRequests": "Sin pull requests",
   "task.activity": "Actividad",
   "task.comments": "Comentarios",

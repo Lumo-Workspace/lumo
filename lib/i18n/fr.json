@@ -848,6 +848,7 @@
   "task.ciPending": "CI en cours",
   "task.ciUnknown": "Aucune donnée CI",
   "task.unlinkPr": "Dissocier la demande de tirage",
+  "task.prStatusSyncPaused": "Statut non actualisé : ce dépôt n’est plus confirmé pour l’espace de travail",
   "task.noPullRequests": "Aucune demande de tirage",
   "task.activity": "Activité",
   "task.comments": "Commentaires",

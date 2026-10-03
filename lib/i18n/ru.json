@@ -848,6 +848,7 @@
   "task.ciPending": "CI выполняется",
   "task.ciUnknown": "Нет данных CI",
   "task.unlinkPr": "Отвязать pull-запрос",
+  "task.prStatusSyncPaused": "Статус не обновляется: этот репозиторий больше не подтверждён для рабочего пространства",
   "task.noPullRequests": "Pull-запросов нет",
   "task.activity": "Активность",
   "task.comments": "Комментарии",

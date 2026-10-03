@@ -15,6 +15,15 @@ jest.mock('@/lib/integrations/github', () => ({
     '@/lib/integrations/github/token-permissions'
   ).REPO_TOKEN_PERMISSIONS,
 }))
+// LUM-889: the refresh reads the confirmed list once up front; a/b is on it.
+jest.mock('@/lib/repositories/github-app-installation.repository', () => ({
+  githubAppInstallationRepository: {
+    findByWorkspace: async () => ({
+      installationId: 42,
+      repositories: ['a/b'],
+    }),
+  },
+}))
 jest.mock('@/lib/repositories/pull-request.repository', () => ({
   pullRequestRepository: { updateState: jest.fn() },
 }))

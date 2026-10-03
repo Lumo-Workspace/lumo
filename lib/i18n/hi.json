@@ -848,6 +848,7 @@
   "task.ciPending": "CI चल रहा है",
   "task.ciUnknown": "कोई CI डेटा नहीं",
   "task.unlinkPr": "पुल रिक्वेस्ट अनलिंक करें",
+  "task.prStatusSyncPaused": "स्थिति रीफ़्रेश नहीं हुई: यह रिपॉज़िटरी अब वर्कस्पेस के लिए पुष्ट नहीं है",
   "task.noPullRequests": "कोई पुल रिक्वेस्ट नहीं",
   "task.activity": "गतिविधि",
   "task.comments": "टिप्पणियां",
