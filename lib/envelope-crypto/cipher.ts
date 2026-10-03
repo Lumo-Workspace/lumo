@@ -66,7 +66,7 @@ export function parseKekRing(raw: string | undefined): Kek[] {
 
 function seal(key: Buffer, plaintext: Buffer, aad: string): Buffer {
   const iv = randomBytes(IV_BYTES)
-  const cipher = createCipheriv(ALG, key, iv)
+  const cipher = createCipheriv(ALG, key, iv, { authTagLength: TAG_BYTES })
   cipher.setAAD(Buffer.from(aad, 'utf8'))
   const ct = Buffer.concat([cipher.update(plaintext), cipher.final()])
   return Buffer.concat([iv, ct, cipher.getAuthTag()])
@@ -79,7 +79,10 @@ function open(key: Buffer, body: Buffer, aad: string): Buffer {
   const iv = body.subarray(0, IV_BYTES)
   const tag = body.subarray(body.length - TAG_BYTES)
   const ct = body.subarray(IV_BYTES, body.length - TAG_BYTES)
-  const decipher = createDecipheriv(ALG, key, iv)
+  // Pin the tag length: without it GCM would accept a truncated tag.
+  const decipher = createDecipheriv(ALG, key, iv, {
+    authTagLength: TAG_BYTES,
+  })
   decipher.setAAD(Buffer.from(aad, 'utf8'))
   decipher.setAuthTag(tag)
   return Buffer.concat([decipher.update(ct), decipher.final()])
