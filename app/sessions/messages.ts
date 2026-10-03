@@ -284,6 +284,10 @@ export const SESSION_MESSAGES = {
     id: 'sessions.timeline.pruned',
     defaultMessage: 'Content cleared per retention policy',
   },
+  'timeline.deleted': {
+    id: 'sessions.timeline.deleted',
+    defaultMessage: 'Raw record deleted',
+  },
   'timeline.block.prompt': {
     id: 'sessions.timeline.block.prompt',
     defaultMessage: 'prompt',

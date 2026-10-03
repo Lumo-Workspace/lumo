@@ -147,7 +147,9 @@ function TimelineRow({ item }: { item: TimelineItem }) {
         </span>
         <span className='min-w-0 flex-1 truncate text-foreground'>
           {item.pruned
-            ? intl.formatMessage(M['timeline.pruned'])
+            ? intl.formatMessage(
+                M[item.deleted ? 'timeline.deleted' : 'timeline.pruned']
+              )
             : item.summaryMsg
               ? summaryText(intl, item.summaryMsg)
               : item.summary}

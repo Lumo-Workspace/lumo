@@ -16,6 +16,7 @@ const item = (over: Partial<TimelineItem>): TimelineItem => ({
   toolName: 'Bash',
   summary: 'ls',
   pruned: false,
+  deleted: false,
   summaryMsg: null,
   badge: null,
   status: 'ok',
@@ -45,6 +46,14 @@ describe('Timeline localization', () => {
   it('renders the pruned notice through intl instead of item.summary', () => {
     render(<Timeline items={[item({ pruned: true, summary: '' })]} />)
     expect(screen.getByText('sessions.timeline.pruned {}')).toBeInTheDocument()
+  })
+
+  it('renders the user-deleted notice for a hand-deleted raw record (LUM-944)', () => {
+    render(
+      <Timeline items={[item({ pruned: true, deleted: true, summary: '' })]} />
+    )
+    expect(screen.getByText('sessions.timeline.deleted {}')).toBeInTheDocument()
+    expect(screen.queryByText('sessions.timeline.pruned {}')).toBeNull()
   })
 
   it('renders a parametric badge through intl with its count', () => {

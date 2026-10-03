@@ -59,6 +59,11 @@ export type {
   AiDerivedContentStatus,
   AiDerivedPurgeResult,
 } from './ai-derived-content.service'
+export { sessionRawRecordService } from './session-raw-record.service'
+export type {
+  SessionRawRecordStatus,
+  SessionRawRecordDeleteResult,
+} from './session-raw-record.service'
 export { trashService, TRASH_RETENTION_DAYS } from './trash.service'
 export type { TrashItemView, TrashKind } from './trash.service'
 export {

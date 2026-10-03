@@ -26,7 +26,11 @@ export type { ApiTeam } from './teams'
 export { imagesClient } from './images'
 export { usersClient } from './users'
 export { sessionsClient } from './sessions'
-export type { RegenerateSummaryResult } from './sessions'
+export type {
+  RegenerateSummaryResult,
+  SessionRawRecordStatus,
+  SessionRawRecordDeleteResult,
+} from './sessions'
 export { invitesClient } from './invites'
 export { milestonesClient } from './milestones'
 export type {

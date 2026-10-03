@@ -1,6 +1,9 @@
 import type { IntlShape } from 'react-intl'
 import type { AgentRunHookEventItem, AgentRunHookEventType } from '../../types'
-import { isPrunedPayload } from '@/lib/hook-event/retention'
+import {
+  isPrunedPayload,
+  isUserDeletedPayload,
+} from '@/lib/hook-event/retention'
 
 /**
  * Visual category for a single agent hook event. Drives icon color and
@@ -235,6 +238,9 @@ export function summarizeEvent(
 
   // LUM-859: the retention sweep left only a marker — say so instead of
   // falling through to a per-type fallback that reads as missing data.
+  // LUM-944: a member deleted the session's raw record by hand.
+  if (isUserDeletedPayload(event.payload))
+    return fb('agentRun.event.deletedByUser', '原文已被删除')
   if (isPrunedPayload(event.payload))
     return fb('agentRun.event.prunedByRetention', '内容已按保留策略清除')
 

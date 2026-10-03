@@ -46,6 +46,17 @@ jest.mock('@/app/workspace/[workspaceUrl]/components/AgentBadge', () => ({
   AgentBadge: () => null,
 }))
 
+// LUM-944: the raw-record delete reads the query client and the API; here we
+// only check the card mounts it for a run with a session.
+jest.mock(
+  '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/RunRawRecordDelete',
+  () => ({
+    RunRawRecordDelete: ({ sessionId }: { sessionId: string }) => (
+      <div data-testid='run-raw-record-delete'>{sessionId}</div>
+    ),
+  })
+)
+
 import { fireEvent, render, screen } from '@testing-library/react'
 import { AgentRunCard } from '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/AgentRunCard'
 import type {
@@ -360,5 +371,19 @@ describe('usage resync command and resynced runs', () => {
     )
     expect(screen.getByTestId('run-pre-dedupe')).toBeInTheDocument()
     expect(screen.getByTestId('run-pre-dedupe-notice')).toBeInTheDocument()
+  })
+})
+
+describe('AgentRunCard — session raw record delete (LUM-944)', () => {
+  it('mounts the raw record delete in the expanded run card of a session', () => {
+    render(<AgentRunCard run={baseRun()} />)
+    expect(screen.queryByTestId('run-raw-record-delete')).toBeNull()
+    fireEvent.click(screen.getAllByRole('button')[0]!)
+    expect(screen.getByTestId('run-raw-record-delete')).toHaveTextContent('s1')
+  })
+
+  it('omits it for the unlinked run that has no session', () => {
+    render(<AgentRunCard run={baseRun({ sessionId: null })} defaultExpanded />)
+    expect(screen.queryByTestId('run-raw-record-delete')).toBeNull()
   })
 })
