@@ -244,3 +244,22 @@ A **human-applied** `blocked` tag has no auto-block record and is **never** auto
 #### When to suggest
 
 Nothing to suggest — these run on their own. If a teammate asks why a task shows `blocked`, explain it's the auto-block (repeated same-tool failures) and that it clears itself once the task makes progress; a human can also remove the tag manually from the board.
+
+## usage resync
+
+`lumo usage resync [--apply] [--json]` (LUM-932) recomputes token usage from the local deduped transcripts (`$CLAUDE_CONFIG_DIR/projects/*/<sessionId>.jsonl`, default `~/.claude`) and asks the server to correct historical rows that were inflated by double counting. Only token counts are sent, never transcript content; sessions go in batches of 50 per request on a dry run and 10 with `--apply`.
+
+**When to suggest:** the user says historical token/cost numbers look too high or asks to fix/correct past usage. Run it as a dry run first (default: prints `Dry run — nothing written.`, counts and summed before → after tokens), show the result, then re-run with `--apply` once they agree.
+
+```bash
+lumo usage resync            # dry run
+lumo usage resync --apply    # write corrections
+lumo usage resync --json     # merged server response
+```
+
+Output starts with `Sent X of Y session(s) with usage.`, then counts: resynced / would be resynced, not on this account / unknown (foreign or never-seen transcripts, not an error), not inflated, already resynced, active after cutoff, no usage.
+
+Partial failures exit 1 and are safe to re-run (already corrected sessions report `already resynced`):
+
+- `N failed — re-run later` — the server failed on those sessions or ran out of its per-request time budget before starting them; nothing was written for them.
+- `N session(s) not sent — re-run` (stderr, after the error) — a batch request failed (network, 401, bad response), so it and the remaining batches were not sent; `X` in `Sent X of Y` is lower than `Y`. Results of earlier batches still print.

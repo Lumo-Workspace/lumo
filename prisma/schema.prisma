@@ -443,6 +443,7 @@ model Workspace {
   deletionRequestedByClerkId String?
 
   attributionSegments TaskAttributionSegment[]
+  usageResyncAudits   UsageResyncAudit[]
 
   @@index([deletionExecuteAt])
   @@map("workspaces")
@@ -2764,6 +2765,29 @@ model TaskAttributionSegment {
   @@map("task_attribution_segments")
 }
 
+/// LUM-932 `lumo usage resync`: one row per session corrected by a resync,
+/// holding everything needed to revert it — the session's old and new usage
+/// columns, the per-model per-kind scale factors, and the old `usageByModel`
+/// of every scaled HookEvent row (`{ eventId: usage }`).
+model UsageResyncAudit {
+  id                String   @id @default(cuid())
+  workspaceId       String
+  sessionId         String
+  workspaceMemberId String
+  before            Json
+  after             Json
+  factors           Json
+  rows              Json
+  createdAt         DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  session   Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([workspaceId])
+  @@map("usage_resync_audits")
+}
+
 model Session {
   id                    String            @id // Claude Code session UUID — not cuid
   workspaceId           String
@@ -2827,6 +2851,10 @@ model Session {
   /// a stale snapshot self-heals once the anchor catches up. Null on rows
   /// predating the feature or from CLIs that don't send mid-turn usage.
   liveUsageByModel      Json?
+  /// LUM-932 `lumo usage resync`: when this session's inflated pre-1.85.0
+  /// usage was replaced by exact deduped transcript figures. Null = never
+  /// resynced; set once (the resync is idempotent on it).
+  usageResyncedAt       DateTime?
   // Session summary — generated on demand via Claude. The generation flow is a
   // two-step pipeline: a cheap classifier picks a `summaryType`, then a content
   // model fills a type-specific template. `summary` holds the structured output
@@ -2864,6 +2892,7 @@ model Session {
   milestoneMemoryEdges MilestoneMemoryEdge[]
   droppedFragments     DroppedFragment[]
   attributionSegments TaskAttributionSegment[]
+  usageResyncAudits   UsageResyncAudit[]
 
   @@index([workspaceId, lastActivityAt])
   @@index([workspaceMemberId, lastActivityAt])

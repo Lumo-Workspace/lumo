@@ -14,7 +14,7 @@ import { AgentBadge } from '../AgentBadge'
 import { RunAttributionBadge, RunAttributionPanel } from './RunAttribution'
 import { initialsOf } from '../initials'
 import { formatDurationMs } from '@/lib/datetime/duration'
-import { startedBeforeUsageDedupe } from '@/lib/agent-run/usage-dedupe-cutoff'
+import { runOverstated } from '@/lib/agent-run/usage-dedupe-cutoff'
 
 interface AgentRunCardProps {
   run: AgentRunSession
@@ -28,7 +28,7 @@ export function AgentRunCard({
   const intl = useIntl()
   const [expanded, setExpanded] = useState(defaultExpanded)
 
-  const preDedupe = startedBeforeUsageDedupe(run.startedAt)
+  const preDedupe = runOverstated(run)
   const preDedupeNotice = intl.formatMessage({
     id: 'usage.preDedupe.notice',
     defaultMessage:

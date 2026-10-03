@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useIntl } from 'react-intl'
 
 import type { PublicLocale } from '@/lib/i18n/public-locale'
+import type { RetentionFigures } from '@/lib/legal/retention-figures'
 import {
   SECURITY_CONTACT_EMAIL,
   SECURITY_PAGE_UPDATED,
@@ -29,14 +30,58 @@ const SECTIONS: { id: string; paragraphs: string[] }[] = [
       'openWeights',
       'region',
       'hookEvents',
-      'retention',
-      'uninstall',
       'export',
       'deletion',
     ],
   },
+  {
+    id: 'retention',
+    paragraphs: [
+      'intro',
+      'session',
+      'usedUp',
+      'tighten',
+      'scan',
+      'crossing',
+      'deadLetter',
+      'uninstall',
+      'derived',
+      'backlog',
+    ],
+  },
   { id: 'notYet', paragraphs: ['body'] },
 ]
+
+/**
+ * LUM-915 — the retention paragraphs' ICU values. The figures come from the
+ * constants the settings rows and the cleanup sweeps use (passed in from the
+ * server page), so the copy cannot drift from the shipped behaviour. Tier
+ * lists are joined with the locale's own "or" list format, and the error cap
+ * is grouped the locale's way (2,000 / 2.000 / 2 000).
+ */
+function retentionValues(
+  figures: RetentionFigures,
+  format: {
+    orList: (items: string[]) => string
+    number: (value: number) => string
+  }
+): Record<string, string | number> {
+  const tiers = (days: readonly number[]) => format.orList(days.map(String))
+  return {
+    sessionDays: tiers(figures.sessionDays),
+    errorCap: format.number(figures.errorCap),
+    grace: figures.grace,
+    idle: figures.idle,
+    auditCap: figures.auditCap,
+    scanDefault: figures.scanDefault,
+    scanTiers: tiers(figures.scanTiers),
+    openCap: figures.openCap,
+    crossingDefault: figures.crossingDefault,
+    crossingTiers: tiers(figures.crossingTiers),
+    deadLetterDefault: figures.deadLetterDefault,
+    deadLetterTiers: tiers(figures.deadLetterTiers),
+  }
+}
 
 function Section({
   id,
@@ -59,14 +104,19 @@ function Section({
 
 interface SecurityPageProps {
   locale: PublicLocale
+  retentionFigures: RetentionFigures
 }
 
-export function SecurityPage({ locale }: SecurityPageProps) {
+export function SecurityPage({ locale, retentionFigures }: SecurityPageProps) {
   const intl = useIntl()
-  const t = (id: string, values?: Record<string, string>) =>
+  const t = (id: string, values?: Record<string, string | number>) =>
     intl.formatMessage({ id }, values)
   const rich = (id: string, values: Record<string, React.ReactNode>) =>
     intl.formatMessage({ id }, values)
+  const retention = retentionValues(retentionFigures, {
+    orList: items => intl.formatList(items, { type: 'disjunction' }),
+    number: value => intl.formatNumber(value),
+  })
   const updated = intl.formatDate(`${SECURITY_PAGE_UPDATED}T00:00:00Z`, {
     dateStyle: 'long',
     timeZone: 'UTC',
@@ -95,7 +145,12 @@ export function SecurityPage({ locale }: SecurityPageProps) {
             title={t(`security.${section.id}.heading`)}
           >
             {section.paragraphs.map(p => (
-              <p key={p}>{t(`security.${section.id}.${p}`)}</p>
+              <p key={p}>
+                {t(
+                  `security.${section.id}.${p}`,
+                  section.id === 'retention' ? retention : undefined
+                )}
+              </p>
             ))}
           </Section>
         ))}

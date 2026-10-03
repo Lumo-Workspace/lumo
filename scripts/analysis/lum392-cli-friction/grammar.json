@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.86.0",
+  "cliVersion": "1.87.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -4352,6 +4352,37 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Check npm for a newer @lumoai/cli and install it globally if available."
+    },
+    "usage": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Token usage maintenance"
+    },
+    "usage resync": {
+      "arguments": [],
+      "flags": {
+        "--apply": {
+          "long": "--apply",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Write the corrections (default is a dry run)"
+        },
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Print the merged server response as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Correct historical (inflated) token usage from local transcripts (LUM-932). Dry run by default — prints what would change; add --apply to write. Sends token counts only, never transcript content."
     },
     "whoami": {
       "arguments": [],

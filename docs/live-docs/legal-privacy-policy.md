@@ -1,6 +1,6 @@
 # Lumo Privacy Policy
 
-Last updated: 2026-09-30 · Draft for legal review (LUM-857)
+Last updated: 2026-10-03 · Draft for legal review (LUM-857)
 
 This policy explains what personal data [Lumo legal entity], [registered address] ("Lumo", "we", "us") collects when you use the Lumo website, web application, command-line tool (CLI) and integrations (together, the "Service"), why we collect it, how long we keep it, who we share it with, and the rights you have.
 
@@ -14,7 +14,7 @@ This policy explains what personal data [Lumo legal entity], [registered address
 | Category | What it includes | Where it comes from |
 | --- | --- | --- |
 | Account data | Name, email address, profile image, sign-in method, workspace memberships and roles | You, when you sign up or are invited; your identity provider if you sign in with one |
-| Workspace content | Tasks, projects, milestones, sprints, ideas, documents, comments, acceptance criteria, test cases, team memory, and files you upload (images, logos, test evidence) | You and your teammates |
+| Workspace content | Tasks, projects, milestones, sprints, ideas, documents, comments, test cases and their run records, team memory, and files you upload (images, logos, test evidence) | You and your teammates |
 | Agent hook events | Records of AI coding-agent sessions sent by the Lumo CLI hooks: prompts, tool calls, file contents the agent read or wrote, command output, session summaries | The Lumo CLI running on your team's machines, once installed |
 | Customer code | Pull-request diffs, repository files, check results and code excerpts attached to security findings | The Lumo GitHub App on repositories your admin installs it on |
 | Integration tokens | OAuth and access tokens for GitHub, Slack, Figma and Google Drive, and webhook secrets | You, when you connect an integration |
@@ -22,13 +22,13 @@ This policy explains what personal data [Lumo legal entity], [registered address
 
 We do not use advertising trackers or third-party analytics on the Service, and we do not sell personal data.
 
-Agent hook events and customer code can contain personal data that happens to appear in your source code or prompts, such as author names or email addresses. Secrets recognised by our detector (for example API keys and tokens) are redacted from hook events before they are stored.
+Agent hook events and customer code can contain personal data that happens to appear in your source code or prompts, such as author names or email addresses. Secrets recognised by our detector (for example API keys and tokens) are redacted from hook events before they are stored, whatever retention setting the workspace uses.
 
 ## How we use data
 
 | Purpose | Data used | Legal basis (GDPR) |
 | --- | --- | --- |
-| Provide the Service: show and sync your workspace, run agent-session tracking, acceptance verification and team memory | Account data, workspace content, agent hook events | Performance of our contract with you or your organisation |
+| Provide the Service: show and sync your workspace, track agent sessions, record test-case runs, check whether a task can be marked done (open boundary crossings, blocking security findings and defects proven by test-case runs can hold it) and build team memory | Account data, workspace content, agent hook events | Performance of our contract with you or your organisation |
 | Review pull requests for security issues and post results back to GitHub | Customer code | Performance of contract |
 | AI features: security review, summaries, memory extraction, planning and task suggestions | Workspace content, agent hook events, customer code | Performance of contract |
 | Authenticate you and keep accounts secure; prevent abuse through rate limiting | Account data, technical data | Legitimate interest in running a secure service |
@@ -53,13 +53,17 @@ When an AI feature runs, the relevant text (which may include code) is sent to a
 | Account data | While your account is active. We delete it on request, unless we must keep some of it to meet a legal obligation. |
 | Workspace content | For as long as the workspace exists. Older document revisions are thinned automatically (one per day for the last week, then one per week). |
 | Deleted tasks and documents | Deleted tasks and documents (with their subtasks and sub-pages) go to the workspace's trash for 30 days, where they can be restored; after 30 days they are permanently deleted automatically. A member can also delete a trashed item permanently at any time. |
-| Agent hook events | For as long as the workspace exists, by default. A workspace owner can set a retention period of 30, 90, 180 or 365 days, after which the content of older events is removed and only metadata is kept. Two kinds of event are kept in full: events of tasks that are not yet done, until the task is done, and events cited as evidence in a boundary-crossing review record, for as long as that record exists. |
-| Customer code | Repositories cloned for a scan exist only in a short-lived sandbox that is discarded after the scan. Scan results and the code excerpts attached to findings are kept for as long as the workspace exists. |
+| Agent hook events (session records) | By default, for as long as the workspace exists, stored as recorded, including code. A workspace owner can instead choose either (a) a retention period of 30, 90, 180 or 365 days, after which the content of each event is removed, except that events of tasks that are not yet done are kept until the task is done and events cited as evidence in a boundary-crossing record are kept; or (b) discard when used up: file contents and command output are not stored at all (only their size and a SHA-256 fingerprint), and the rest of the content is deleted 7 days after it is used up, meaning its task is done (held up to 30 days after completion while we finish reviewing the task) or 30 days pass with no agent activity; content cited as boundary-crossing evidence is held until every such crossing is dispositioned, plus 7 days. When content is removed, the event and its statistics (cost, active time, files touched) are kept. A stricter setting applies only to records stored after the change. |
+| Security scan evidence | Repositories cloned for a scan exist only in a short-lived sandbox that is discarded after the scan. The code a scan quoted (flagged lines, call chains, AI-written finding text and the pull-request summary) is cleared 7 days after the pull request is merged or closed, by default; a workspace owner can choose 0, 7, 14 or 30 days. On a pull request that stays open, a scan's code is cleared 30 days after the scan finished. Findings keep their rule, file, line, severity, fingerprint and dispositions. |
+| Boundary-crossing records | The original command, diff line and explanations are replaced by a description without code 7 days after the crossing is dispositioned, by default; a workspace owner can choose 7, 30 or 90 days. The category, severity and disposition are kept. A shorter period applies only to crossings dispositioned after the change. |
+| Failed pull-request comment syncs | The GitHub webhook payload (comment text and diff context) kept for troubleshooting is deleted 7 days after the sync failed, by default; a workspace owner can choose 7, 30 or 90 days. The event, pull request and error are kept. |
+| AI-derived content | Team memory, session summaries and run summaries are kept for as long as the workspace exists; the retention settings above do not remove them. |
+| Data stored before these retention rules | Scan evidence, boundary-crossing originals and failed-sync payloads stored before these rules were introduced are not yet removed automatically; contact us if you want them deleted. |
 | Integration tokens | Until the integration is disconnected or the workspace is deleted. |
 | Technical data and logs | [Log retention period] |
 | Backups | Deleted data can persist in encrypted database backups for up to [backup retention period] before it is overwritten. |
 
-When a workspace owner deletes a workspace, the deletion is scheduled 48 hours ahead and every workspace owner is emailed; any owner can cancel it during that window. When the 48 hours pass, we permanently delete the workspace's database records and stored files and keep a deletion receipt recording what was deleted and when (not the deleted content). An owner who needs the data erased immediately, for example to meet an erasure request, can run the scheduled deletion at once from workspace settings. If you uninstall the GitHub App but keep the workspace, data already collected from GitHub is kept with the workspace; contact us if you want it deleted.
+When a workspace owner deletes a workspace, the deletion is scheduled 48 hours ahead and every workspace owner is emailed; any owner can cancel it during that window. When the 48 hours pass, we permanently delete the workspace's database records and stored files and keep a deletion receipt recording what was deleted and when (not the deleted content). An owner who needs the data erased immediately, for example to meet an erasure request, can run the scheduled deletion at once from workspace settings. If you uninstall the GitHub App, or remove a repository from it, but keep the workspace, we immediately clear the code stored with the affected security scans (quoted code, call chains, AI-written finding text, pull-request summaries and the scan's audit records), whatever the retention setting; each finding's rule, file, line, severity and dispositions are kept. Other data already collected from GitHub, such as pull-request records, stays with the workspace; contact us if you want it deleted.
 
 ## Who we share data with
 

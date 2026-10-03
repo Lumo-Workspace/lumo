@@ -11,6 +11,7 @@ import { hookCommand } from './commands/hook'
 import type { HookPath } from './lib/hook-runner'
 import { sessionAttach } from './commands/session-attach'
 import { sessionStatus } from './commands/session-status'
+import { usageResync } from './commands/usage-resync'
 import { nextCommand } from './commands/next'
 import { ideaCapture, ideaList, ideaUpdate } from './commands/idea'
 import { ideaSlackAdd } from './commands/idea-slack-add'
@@ -781,6 +782,19 @@ session
     'Show what this Claude Code session is bound to: a task, a milestone (STEWARD governance session), or nothing.'
   )
   .action(wrap(() => sessionStatus()))
+
+const usage = program.command('usage').description('Token usage maintenance')
+
+usage
+  .command('resync')
+  .description(
+    'Correct historical (inflated) token usage from local transcripts (LUM-932). Dry run by default — prints what would change; add --apply to write. Sends token counts only, never transcript content.'
+  )
+  .option('--apply', 'Write the corrections (default is a dry run)')
+  .option('--json', 'Print the merged server response as JSON')
+  .action(
+    wrap(options => usageResync(options as { apply?: boolean; json?: boolean }))
+  )
 
 const task = program
   .command('task')

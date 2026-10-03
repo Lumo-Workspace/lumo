@@ -222,6 +222,8 @@ const TIMELINE_SESSION_SELECT = {
   cacheReadTokens: true,
   cacheCreationTokens: true,
   loopCount: true,
+  // LUM-932: set once `lumo usage resync` corrected this session's figures.
+  usageResyncedAt: true,
 } satisfies Prisma.SessionSelect
 
 export const sessionRepository = {
