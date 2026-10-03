@@ -16,6 +16,8 @@ dir), setup does **not** write the file — it prints the block plus instruction
 to add it manually (e.g. to `.husky/prepare-commit-msg`). `--user` scope does
 not touch git hooks.
 
+When logged in, setup ends with one `ℹ Session records in this workspace: …` line — the workspace's current session record mode and retention, and that an OWNER can change it in Settings → Data retention (link included). Not logged in, offline, or an older server → the line is skipped silently; setup never fails on it.
+
 `--agent <token>` records which coding agent these hooks run under and is **baked into every hook command** (`lumo hook <slug> --agent <token>`). Each hook then sends the agent to the server, where it's stored on the Session and inherited by auto-sedimented memories — so a memory is attributed to the agent that produced it instead of the default. Valid tokens: `claude-code | codex | cursor | gemini-cli | github-copilot | windsurf` (case-insensitive; `gemini` and `copilot` are accepted aliases). **Defaults to `claude-code`.** Re-running setup with a different `--agent` rewrites the token in place (no duplicate hook entries), and a legacy flagless entry is upgraded on the next run.
 
 ```bash

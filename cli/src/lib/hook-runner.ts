@@ -211,9 +211,22 @@ export function formatHookStdoutLines(
     // steward branch of the session-start hook populates this; task-bound
     // sessions leave it empty.
     body.stewardMemorySection,
+    // LUM-943: one informational line, last — how this workspace keeps
+    // session records. Absent on older servers / failed lookups → skipped.
+    sessionRecordNoticeOf(body),
   ])
   if (envelope) lines.push(envelope)
   return lines
+}
+
+/**
+ * LUM-943: the server-rendered session record notice, sanitized (it carries
+ * the workspace slug in its settings link). Undefined when absent or blank.
+ */
+function sessionRecordNoticeOf(body: SessionStartBody): string | undefined {
+  const notice = body.sessionRecordNotice
+  if (typeof notice !== 'string' || notice.trim() === '') return undefined
+  return sanitizeField(notice.trim())
 }
 
 type PreviousSessionCard = {
@@ -232,6 +245,8 @@ type SessionStartBody = {
   }
   /** LUM-923: pending workspace deletion notice; absent on older servers. */
   workspaceNoticeSection?: string
+  /** LUM-943: session record mode + retention line; absent on older servers. */
+  sessionRecordNotice?: string
   /** LUM-807: "## Test cases" nudge; absent on older servers. */
   testCaseSection?: string
   /** LUM-500 Tier-1: server-rendered prior-session progress summary. */
@@ -364,8 +379,16 @@ export function resolveSessionStartStdout(
   if (!tb || tb.bound !== false) return []
 
   const match = deps.extractTask()
-  if (!match) return [unboundPromptLine(sessionId)]
-  return [formatSuggestLine(sessionId, match)]
+  const statusLine = match
+    ? formatSuggestLine(sessionId, match)
+    : unboundPromptLine(sessionId)
+  // Workspace-level context applies with or without a task: a pending
+  // deletion (LUM-923) and the session record notice (LUM-943).
+  const envelope = sessionContextEnvelope([
+    body.workspaceNoticeSection,
+    sessionRecordNoticeOf(body),
+  ])
+  return envelope ? [statusLine, envelope] : [statusLine]
 }
 
 /**

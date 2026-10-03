@@ -94,6 +94,26 @@ export const workspaceRepository = {
     return row?.hookEventRetentionMode ?? null
   },
 
+  /**
+   * LUM-943 — what the CLI tells members about session records: the current
+   * mode and day tier, plus the slug for the settings link. Null when the
+   * workspace is gone.
+   */
+  async findSessionRecordSetting(workspaceId: string): Promise<{
+    slug: string
+    hookEventRetentionMode: HookEventRetentionMode
+    hookEventRetentionDays: number | null
+  } | null> {
+    return prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: {
+        slug: true,
+        hookEventRetentionMode: true,
+        hookEventRetentionDays: true,
+      },
+    })
+  },
+
   /** LUM-911 — workspaces that keep no scan evidence once a scan is final. */
   async findZeroScanEvidenceRetentionIds(): Promise<string[]> {
     const rows = await prisma.workspace.findMany({
