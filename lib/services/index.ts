@@ -72,7 +72,6 @@ export { sprintService } from './sprint.service'
 export { sprintSummaryService } from './sprint-summary.service'
 export { forecastService } from './forecast.service'
 export { progressService } from './progress.service'
-export { gateAuditService } from './gate-audit.service'
 export {
   retrospectiveService,
   captureRetrospectiveSnapshotInBackground,

@@ -41,12 +41,6 @@ jest.mock('@/lib/repositories/pull-request.repository', () => ({
 jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
   prCommentMirrorService: { runInbound: jest.fn() },
 }))
-jest.mock('@/lib/services/ci-signal.service', () => ({
-  ciSignalService: { reconcileCommit: jest.fn() },
-}))
-jest.mock('@/lib/integrations/github/checks', () => ({
-  fetchPullNumbersForCommit: jest.fn(),
-}))
 jest.mock('@/lib/services/security-baseline.service', () => ({
   securityBaselineService: { requestFromPush: jest.fn() },
 }))
@@ -90,7 +84,6 @@ import { NextRequest } from 'next/server'
 import { verifyGitHubSignature } from '@/lib/integrations/github'
 import { githubRepository } from '@/lib/repositories/github.repository'
 import { githubAppInstallationRepository } from '@/lib/repositories'
-import { ciSignalService } from '@/lib/services/ci-signal.service'
 import { dispatchPrSecurityScan } from '@/lib/services/pr-security-scan-dispatch'
 import { sendChannelNotification } from '@/lib/integrations/slack'
 
@@ -100,7 +93,6 @@ const findRows =
   githubAppInstallationRepository.findAllByInstallationId as jest.Mock
 const findByWorkspace =
   githubAppInstallationRepository.findByWorkspace as jest.Mock
-const reconcile = ciSignalService.reconcileCommit as jest.Mock
 const dispatchScan = dispatchPrSecurityScan as jest.Mock
 const notify = sendChannelNotification as jest.Mock
 
@@ -232,7 +224,7 @@ describe('LUM-925 shared repository branch placement', () => {
     expect(notify.mock.calls[0]![0]).toBe('w-a')
   })
 
-  it('LUM-925 push and CI on an ambiguous branch attribute no task', async () => {
+  it('LUM-925 push on an ambiguous branch attributes no task', async () => {
     owners = ['w-a', 'w-b']
 
     await POST(
@@ -250,25 +242,5 @@ describe('LUM-925 shared repository branch placement', () => {
       })
     )
     expect(repo.upsertTaskBranch).not.toHaveBeenCalled()
-
-    await POST(
-      makeRequest('check_suite', {
-        action: 'completed',
-        check_suite: {
-          head_sha: 'abc',
-          head_branch: BRANCH,
-          conclusion: 'success',
-          pull_requests: [],
-        },
-        repository: { full_name: REPO },
-        installation: { id: 555 },
-      })
-    )
-    expect(
-      reconcile.mock.calls.map(c => [c[0].workspaceId, c[0].taskId])
-    ).toEqual([
-      ['w-a', null],
-      ['w-b', null],
-    ])
   })
 })

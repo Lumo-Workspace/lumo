@@ -21,15 +21,9 @@ export const REPO_TOKEN_PERMISSIONS = {
    */
   contentsRead: { contents: 'read' },
   /**
-   * A pull request's JSON, its file list, and the commit → pull request
-   * association.
+   * A pull request's JSON and its file list.
    */
   pullRequestRead: { pull_requests: 'read' },
-  /**
-   * A commit's check-runs and their annotations, its combined commit status,
-   * and the Actions job behind a check-run (the LUM-838 "never started" probe).
-   */
-  ciRead: { checks: 'read', statuses: 'read', actions: 'read' },
   /**
    * Writing on a pull request: its conversation comments (the
    * `/issues/{n}/comments` endpoints accept `pull_requests: write` for a pull

@@ -57,10 +57,6 @@ jest.mock(
 jest.mock('@/app/workspace/[workspaceUrl]/components/memory/MemoryTab', () => ({
   MemoryTab: () => <div />,
 }))
-jest.mock(
-  '@/app/workspace/[workspaceUrl]/components/DeliveryGatesSection',
-  () => ({ DeliveryGatesSection: () => <div /> })
-)
 
 import '@testing-library/jest-dom'
 import { render, screen } from '@testing-library/react'

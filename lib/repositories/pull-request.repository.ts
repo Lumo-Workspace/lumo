@@ -229,29 +229,6 @@ export const pullRequestRepository = {
   },
 
   /**
-   * All PRs linked to a task (LUM-617), newest-first, projected to the fields
-   * the per-PR gate audit needs to group and label signals. ISP: only the
-   * grouping/display columns, nothing else.
-   */
-  async findManyByTaskId(taskId: string) {
-    return prisma.pullRequest.findMany({
-      where: { taskId },
-      orderBy: { number: 'desc' },
-      select: {
-        number: true,
-        title: true,
-        state: true,
-        headBranch: true,
-        // LUM-839: the head commit whose CI checks the delivery panel shows.
-        headSha: true,
-        // LUM-623: delivery time for temporal attribution of self-reported
-        // signals a multi-PR task can't place by branch.
-        mergedAt: true,
-      },
-    })
-  },
-
-  /**
    * LUM-732: the task's PRs projected to what the security-scan read model
    * needs to label and link each row. Newest PR first.
    */

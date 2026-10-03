@@ -12,7 +12,6 @@ import { summarizeRunAttributions } from '@/lib/attribution/run-attribution'
 import { RecordTab } from './RecordTab'
 import { AttributionSummary } from './AttributionSummary'
 import { AgentRunsSection } from './AgentRunsSection'
-import { DeliveryGatesSection } from '../DeliveryGatesSection'
 import { SecurityScanSection } from './SecurityScanSection'
 import { LineageTab } from './LineageTab'
 import { MemoryTab } from '../memory/MemoryTab'
@@ -257,7 +256,6 @@ export function TaskDossier({
       members={members}
       agentActors={agentActors}
       evidenceSlot={evidence}
-      gatesSlot={<DeliveryGatesSection taskId={taskId} />}
       securitySlot={<SecurityScanSection taskId={taskId} />}
       securityBlocking={securityBlocking}
       reportInitiallyOpen={targetSection != null}

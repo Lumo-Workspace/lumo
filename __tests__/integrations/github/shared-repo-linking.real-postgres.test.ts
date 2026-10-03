@@ -45,9 +45,6 @@ jest.mock('@/lib/services/boundary-crossing-rejudge-trigger', () => ({
 jest.mock('@/lib/services/pr-comment-mirror.service', () => ({
   prCommentMirrorService: { runInbound: jest.fn() },
 }))
-jest.mock('@/lib/services/ci-signal.service', () => ({
-  ciSignalService: { reconcileCommit: jest.fn() },
-}))
 jest.mock('@/lib/services/outcome/git-outcome-recorder', () => ({
   gitOutcomeRecorder: { recordRevertsFromPush: jest.fn() },
 }))

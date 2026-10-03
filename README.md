@@ -242,14 +242,13 @@ workspace without the App installed is not scanned** — the card says so.
 The Lumo GitHub App (`GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY`) needs this
 minimum permission set:
 
-| Permission      | Access       | Used by                                              |
-| --------------- | ------------ | ---------------------------------------------------- |
-| Contents        | Read         | file reads, PR diffs, security-scan clone            |
-| Pull requests   | Read & write | PR head sha, change volume, comment mirror (LUM-546) |
-| Issues          | Read & write | comment mirror (issue comments)                      |
-| Checks          | Read         | CI signal for the gate audit (LUM-616)               |
-| Commit statuses | Read         | CI signal (Status API providers)                     |
-| Metadata        | Read         | mandatory                                            |
+| Permission    | Access       | Used by                                              |
+| ------------- | ------------ | ---------------------------------------------------- |
+| Contents      | Read         | file reads, PR diffs, security-scan clone            |
+| Pull requests | Read & write | PR head sha, change volume, comment mirror (LUM-546) |
+| Issues        | Read & write | comment mirror (issue comments)                      |
+| Checks        | Read         | `check_suite` events → PR CI status                  |
+| Metadata      | Read         | mandatory                                            |
 
 ### Installation flow
 

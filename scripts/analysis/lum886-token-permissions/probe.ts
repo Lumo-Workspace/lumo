@@ -251,46 +251,6 @@ async function main() {
       'denied'
     )
 
-    const ci = await mint(REPO_TOKEN_PERMISSIONS.ciRead)
-    const commit = `${repoBase}/commits/${pr.head.sha}`
-    const runsRes = await get(`${commit}/check-runs`, ci)
-    report(
-      runsRes.ok,
-      'ciRead: GET commits/{sha}/check-runs',
-      `HTTP ${runsRes.status}`
-    )
-    const runs = runsRes.ok
-      ? ((await runsRes.json()) as { check_runs: Array<{ id: number }> })
-          .check_runs
-      : []
-    await expect(
-      'ciRead',
-      ci,
-      'GET commits/{sha}/status',
-      `${commit}/status`,
-      'ok'
-    )
-    if (runs[0]) {
-      await expect(
-        'ciRead',
-        ci,
-        'GET check-runs/{id}/annotations',
-        `${repoBase}/check-runs/${runs[0].id}/annotations`,
-        'ok'
-      )
-    } else {
-      process.stdout.write(
-        'SKIP  ciRead: annotations — no check-run on this commit\n'
-      )
-    }
-    await expect(
-      'ciRead',
-      ci,
-      'GET actions/runs (actions: read)',
-      `${repoBase}/actions/runs?per_page=1`,
-      'ok'
-    )
-
     const prWrite = await mint(REPO_TOKEN_PERMISSIONS.pullRequestWrite)
     await expect(
       'pullRequestWrite',

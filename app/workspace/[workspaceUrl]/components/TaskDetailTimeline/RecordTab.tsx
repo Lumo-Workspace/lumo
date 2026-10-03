@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 import { useIntl } from 'react-intl'
-import { ChevronRight, ScrollText } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { useTaskStatus } from '../../hooks/useTaskStatus'
 import { useBoundaryCrossings } from '../../hooks/useBoundaryCrossings'
 import type { WorkspaceMemberInfo } from '../../types'
@@ -32,9 +32,6 @@ interface RecordTabProps {
    *  lineage, memory). Rendered at the tail of the Run report group so the whole
    *  after-the-fact record lives under one collapsible bucket. */
   evidenceSlot?: ReactNode
-  /** LUM-619 — the mechanical gate audit panel, fetched at the dossier level and
-   *  rendered in the collapsed "Evidence & audit trail" card. */
-  gatesSlot?: ReactNode
   /** LUM-732: per-PR security scan findings; null when the task has no PRs. */
   securitySlot?: ReactNode
   /** LUM-496: how many undispositioned security findings hard-block DONE.
@@ -92,7 +89,7 @@ function DossierGroup({
 /**
  * The Record tab body: the Done-gap strip, a NEEDS ACTION zone (open boundary
  * crossings, blocking security findings), and the settled records (ruled-on
- * crossings, mechanical gates, security scan, Run report with cost / rework /
+ * crossings, security scan, Run report with cost / rework /
  * trend and the evidence sub-sections).
  */
 export function RecordTab({
@@ -102,7 +99,6 @@ export function RecordTab({
   members = [],
   agentActors = [],
   evidenceSlot,
-  gatesSlot,
   securitySlot,
   securityBlocking = 0,
   reportInitiallyOpen = false,
@@ -129,8 +125,6 @@ export function RecordTab({
   const [runReportOpen, setRunReportOpen] = useState<boolean>(
     reportInitiallyOpen || RUN_REPORT_OPEN_BY_DEFAULT
   )
-  // LUM-620: the demoted "Evidence & audit trail" card — collapsed by default.
-  const [auditOpen, setAuditOpen] = useState(false)
   // LUM-496: the struggle trail folds behind its own heading inside the Run
   // report — the KPI tiles carry the headline numbers above it.
   const [struggleOpen, setStruggleOpen] = useState(false)
@@ -272,39 +266,6 @@ export function RecordTab({
             ? { legacyAnchorId: BOUNDARY_CROSSINGS_ANCHOR }
             : {})}
         />
-
-        {/* LUM-620: Evidence & audit trail — the demoted, collapsed forensic
-            zone: the mechanical gates per PR (LUM-617). */}
-        {gatesSlot ? (
-          <div className='overflow-hidden rounded-lg border border-border bg-muted/20'>
-            <button
-              type='button'
-              onClick={() => setAuditOpen(o => !o)}
-              aria-expanded={auditOpen}
-              className='flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/40'
-            >
-              <ChevronRight
-                className={`size-3.5 shrink-0 text-muted-foreground transition-transform ${auditOpen ? 'rotate-90' : ''}`}
-                aria-hidden
-              />
-              <ScrollText
-                className='size-4 shrink-0 text-muted-foreground'
-                aria-hidden
-              />
-              <span className='text-body-strong text-foreground'>
-                {intl.formatMessage({
-                  id: 'acceptance.audit.title',
-                  defaultMessage: 'Evidence & audit trail',
-                })}
-              </span>
-            </button>
-            {auditOpen ? (
-              <div className='space-y-4 border-t border-border px-4 py-4'>
-                {gatesSlot}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
 
         {/* LUM-732: the security scan as a record, when nothing in it blocks
             (a blocking finding puts it in NEEDS ACTION above instead). */}
