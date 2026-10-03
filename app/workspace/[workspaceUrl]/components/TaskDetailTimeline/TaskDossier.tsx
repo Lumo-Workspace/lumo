@@ -1,6 +1,6 @@
 'use client'
 
-import { anyStartedBeforeUsageDedupe } from '@/lib/agent-run/usage-dedupe-cutoff'
+import { anyRunOverstated } from '@/lib/agent-run/usage-dedupe-cutoff'
 import { useEffect, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { ChevronRight } from 'lucide-react'
@@ -116,7 +116,7 @@ export function TaskDossier({
   const runs = runsData?.runs ?? []
 
   const hasRuns = runs.length > 0
-  const preDedupe = anyStartedBeforeUsageDedupe(runs)
+  const preDedupe = anyRunOverstated(runs)
   const attributionSummary = summarizeRunAttributions(
     runs.map(r => r.attribution)
   )

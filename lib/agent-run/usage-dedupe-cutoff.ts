@@ -25,6 +25,28 @@ export function startedBeforeUsageDedupe(startedAt: string | Date): boolean {
   return Number.isFinite(ms) && ms < CUTOFF_MS
 }
 
+/**
+ * True when a run's token figures are still overstated: it started before the
+ * cutoff and its session has not been corrected by `lumo usage resync`
+ * (usageResyncedAt set). The single rule behind every overstated notice.
+ */
+export function runOverstated(run: {
+  startedAt: string | Date
+  usageResyncedAt?: string | Date | null
+}): boolean {
+  return startedBeforeUsageDedupe(run.startedAt) && !run.usageResyncedAt
+}
+
+/** True when any run is still overstated (see runOverstated). */
+export function anyRunOverstated(
+  runs: ReadonlyArray<{
+    startedAt: string | Date
+    usageResyncedAt?: string | Date | null
+  }>
+): boolean {
+  return runs.some(runOverstated)
+}
+
 /** True when any of the runs started before the dedupe cutoff. */
 export function anyStartedBeforeUsageDedupe(
   runs: ReadonlyArray<{ startedAt: string | Date }>

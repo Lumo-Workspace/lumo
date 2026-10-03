@@ -1,6 +1,8 @@
 import {
   USAGE_DEDUPE_CUTOFF,
+  anyRunOverstated,
   anyStartedBeforeUsageDedupe,
+  runOverstated,
   startedBeforeUsageDedupe,
 } from '@/lib/agent-run/usage-dedupe-cutoff'
 
@@ -51,5 +53,42 @@ describe('anyStartedBeforeUsageDedupe', () => {
       anyStartedBeforeUsageDedupe([{ startedAt: '2026-10-04T00:00:00Z' }])
     ).toBe(false)
     expect(anyStartedBeforeUsageDedupe([])).toBe(false)
+  })
+})
+
+describe('runOverstated / anyRunOverstated', () => {
+  const pre = '2026-10-01T10:00:00Z'
+  const post = '2026-10-04T10:00:00Z'
+  const resyncedAt = '2026-10-05T00:00:00Z'
+
+  it('is true for a pre-cutoff run that was not resynced', () => {
+    expect(runOverstated({ startedAt: pre, usageResyncedAt: null })).toBe(true)
+    expect(runOverstated({ startedAt: pre })).toBe(true)
+  })
+
+  it('is false for a pre-cutoff run that was resynced', () => {
+    expect(runOverstated({ startedAt: pre, usageResyncedAt: resyncedAt })).toBe(
+      false
+    )
+  })
+
+  it('is false for a post-cutoff run', () => {
+    expect(runOverstated({ startedAt: post, usageResyncedAt: null })).toBe(false)
+  })
+
+  it('anyRunOverstated ignores resynced runs', () => {
+    expect(
+      anyRunOverstated([
+        { startedAt: pre, usageResyncedAt: resyncedAt },
+        { startedAt: post, usageResyncedAt: null },
+      ])
+    ).toBe(false)
+    expect(
+      anyRunOverstated([
+        { startedAt: pre, usageResyncedAt: resyncedAt },
+        { startedAt: pre, usageResyncedAt: null },
+      ])
+    ).toBe(true)
+    expect(anyRunOverstated([])).toBe(false)
   })
 })
