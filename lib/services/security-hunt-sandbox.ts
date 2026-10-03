@@ -215,25 +215,43 @@ async function sealAttached(
  * false = no VM, a VM that went away, or still scanning — the batch then
  * takes its usual path. Never throws: this is an optimisation, never a
  * precondition.
+ *
+ * LUM-876 — the long window is only for a VM that EXISTS. Looking for the VM
+ * to appear is capped at HUNT_SANDBOX_ATTACH_WAIT_MS, the same 30 s the
+ * batch's attach allows: a managed scan whose create failed, that stopped
+ * its VM after a failed revoke or seal, or that never booted one (superseded
+ * sha) leaves nothing to find, and polling for it used to idle the hunt for
+ * the full 240 s.
  */
 export async function awaitManagedScanHandOff(input: {
   scanId: string
   /** Test seams. */
   waitMs?: number
+  appearWaitMs?: number
   pollMs?: number
 }): Promise<boolean> {
   const tag = { [SANDBOX_SCAN_TAG]: input.scanId }
   const attachOptions = { excludeTagKeys: [HUNT_SANDBOX_TAG] }
   const pollMs = input.pollMs ?? HUNT_SANDBOX_ATTACH_POLL_MS
+  const startedAt = Date.now()
   const deadline =
-    Date.now() + (input.waitMs ?? HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS)
+    startedAt + (input.waitMs ?? HUNT_MANAGED_SCAN_HANDOFF_WAIT_MS)
+  const appearDeadline = Math.min(
+    deadline,
+    startedAt + (input.appearWaitMs ?? HUNT_SANDBOX_ATTACH_WAIT_MS)
+  )
   try {
     let vm = await findRepoSandboxByTag(tag, attachOptions)
-    while (!vm && Date.now() < deadline) {
+    while (!vm && Date.now() < appearDeadline) {
       await sleep(pollMs)
       vm = await findRepoSandboxByTag(tag, attachOptions)
     }
-    if (!vm) return false
+    if (!vm) {
+      logger.info(
+        `[security-hunt] no managed scan VM after ${appearDeadline - startedAt}ms scan=${input.scanId}; not waiting for a hand-off`
+      )
+      return false
+    }
     return await waitForManagedScanDone(
       vm,
       Math.max(0, deadline - Date.now()),

@@ -392,6 +392,41 @@ describe('LUM-739 hunt trigger', () => {
     expect(startHunt).not.toHaveBeenCalled()
   })
 
+  it('LUM-876 a judge HIGH hunt is told no managed scan VM is coming', async () => {
+    // A plain diff: the first pass (before the managed run starts) sees no
+    // hunt signal, so the run is told to stop its own VM. The judge's HIGH
+    // then turns the hunt on — and that hunt must not wait for the VM.
+    process.env.LUMO_MANAGED_SCAN = 'on'
+    startManaged.mockResolvedValue('run_m1')
+    fetchPrDiff.mockResolvedValue(PLAIN_DIFF)
+    judgeSecurity.mockResolvedValue({
+      findings: [
+        {
+          kind: 'sql_injection',
+          severity: 'HIGH',
+          filePath: 'src/a.ts',
+          line: 1,
+          title: 'query built from input',
+          detail: 'x',
+          evidence: 'const x = 1',
+        },
+      ],
+    })
+
+    await run()
+
+    expect(startManaged).toHaveBeenCalledWith(
+      expect.objectContaining({ huntWanted: false })
+    )
+    expect(startHunt).toHaveBeenCalledTimes(1)
+    expect(startHunt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reasons: expect.arrayContaining(['stage-a:high']),
+        managedScanStarted: false,
+      })
+    )
+  })
+
   it('a stage-A crash never finalizes with a PENDING hunt', async () => {
     fetchPrDiff.mockResolvedValue(ROUTE_DIFF)
     repo.persistResult.mockRejectedValueOnce(new Error('db down'))

@@ -73,7 +73,9 @@ export interface HuntJob {
    * or goes straight to creating its own: the managed scan has four
    * legitimate reasons never to run (BYO SARIF findings already exist, the
    * feature is off, the hourly cap is reached, the start failed), and in
-   * those cases polling would only burn 30 s.
+   * those cases polling would only burn 30 s. LUM-876: it also means the run
+   * was told to keep its VM for the hunt (`huntWanted`) — a run that will
+   * stop its own VM is not one to wait for.
    */
   managedScanStarted: boolean
   /**
