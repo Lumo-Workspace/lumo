@@ -705,6 +705,8 @@ export interface AgentRunSession {
   member: { workspaceMemberId: string; name: string; imageUrl: string } | null
   /** Why this run's work is on the task; null for the unlinked run. */
   attribution: RunAttribution | null
+  /** ISO time the session was corrected by `lumo usage resync`; null if never. */
+  usageResyncedAt: string | null
   items: AgentRunItem[]
 }
 

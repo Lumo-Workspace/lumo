@@ -62,6 +62,9 @@ export const EXCLUDED_MODELS: Readonly<Record<string, string>> = {
   HookEvent: TELEMETRY,
   Session: TELEMETRY,
   TaskAttributionSegment: TELEMETRY,
+  // LUM-932: operational audit of a token-usage correction (revert data for
+  // Session usage columns), derived from telemetry — not workspace content.
+  UsageResyncAudit: TELEMETRY,
   Worktree: TELEMETRY,
   MemoryStaleAnchorReport: TELEMETRY,
   LineageEdge: TELEMETRY,
