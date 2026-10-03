@@ -46,11 +46,7 @@ export function AiDerivedContentDeleteRow({
       toast.success(
         intl.formatMessage(
           { id: 'dataRetention.aiDerivedDelete.done' },
-          {
-            memories: deleted.memories,
-            sessionSummaries: deleted.sessionSummaries,
-            runSummaries: deleted.runSummaries,
-          }
+          { ...deleted }
         )
       )
     } catch {
@@ -63,9 +59,7 @@ export function AiDerivedContentDeleteRow({
     }
   }
 
-  const empty =
-    counts !== null &&
-    counts.memories + counts.sessionSummaries + counts.runSummaries === 0
+  const empty = counts !== null && Object.values(counts).every(n => n === 0)
 
   return (
     <div
@@ -89,11 +83,7 @@ export function AiDerivedContentDeleteRow({
             >
               {intl.formatMessage(
                 { id: 'dataRetention.aiDerivedDelete.counts' },
-                {
-                  memories: counts.memories,
-                  sessionSummaries: counts.sessionSummaries,
-                  runSummaries: counts.runSummaries,
-                }
+                { ...counts }
               )}
             </p>
           )}

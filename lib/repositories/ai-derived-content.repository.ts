@@ -8,7 +8,14 @@ import { prisma } from '@/lib/db/prisma'
  *     with it; `milestone_memory_edges` cascade) plus the FK-less
  *     `memory_stale_anchor_reports` / `memory_provenance` rows naming them;
  *   - the session summary columns and the run summary columns on `sessions`
- *     (cleared to null — the session row and its record stay).
+ *     (cleared to null — the session row and its record stay);
+ *   - a task's claim snapshot whose source is AI-generated (`RUN_SUMMARY` /
+ *     `DIGEST`; an `AGENT` self-report stays): text, source and session
+ *     pointer go to null while `claimSnapshotAt` stays set — the schema's
+ *     "synthesized, no material" state, so reads show no claim instead of
+ *     falling back to a live re-derivation;
+ *   - a claim-faithfulness verdict's `evidence` / `reasoning` (the verdict row
+ *     and its label stay).
  * No business rules here: the service decides who may call and how much.
  */
 
@@ -22,6 +29,27 @@ export interface AiDerivedContentCounts {
   memories: number
   sessionSummaries: number
   runSummaries: number
+  claimSnapshots: number
+  verdictTexts: number
+}
+
+/** Claim snapshot sources a model wrote (TaskClaim['source'] minus AGENT). */
+export const AI_CLAIM_SNAPSHOT_SOURCES = ['RUN_SUMMARY', 'DIGEST'] as const
+
+function aiClaimSnapshotWhere(workspaceId: string): Prisma.TaskWhereInput {
+  return {
+    project: { workspaceId },
+    claimSnapshotSource: { in: [...AI_CLAIM_SNAPSHOT_SOURCES] },
+  }
+}
+
+function verdictTextWhere(
+  workspaceId: string
+): Prisma.ClaimFaithfulnessVerdictWhereInput {
+  return {
+    task: { project: { workspaceId } },
+    OR: [{ evidence: { not: Prisma.AnyNull } }, { reasoning: { not: null } }],
+  }
 }
 
 const SESSION_SUMMARY_PRESENT: Prisma.SessionWhereInput = {
@@ -71,14 +99,30 @@ export const aiDerivedContentRepository = {
   async countForWorkspace(
     workspaceId: string
   ): Promise<AiDerivedContentCounts> {
-    const [memories, sessionSummaries, runSummaries] = await Promise.all([
+    const [
+      memories,
+      sessionSummaries,
+      runSummaries,
+      claimSnapshots,
+      verdictTexts,
+    ] = await Promise.all([
       prisma.memory.count({ where: { workspaceId } }),
       prisma.session.count({
         where: { workspaceId, ...SESSION_SUMMARY_PRESENT },
       }),
       prisma.session.count({ where: { workspaceId, ...RUN_SUMMARY_PRESENT } }),
+      prisma.task.count({ where: aiClaimSnapshotWhere(workspaceId) }),
+      prisma.claimFaithfulnessVerdict.count({
+        where: verdictTextWhere(workspaceId),
+      }),
     ])
-    return { memories, sessionSummaries, runSummaries }
+    return {
+      memories,
+      sessionSummaries,
+      runSummaries,
+      claimSnapshots,
+      verdictTexts,
+    }
   },
 
   /**
@@ -146,6 +190,55 @@ export const aiDerivedContentRepository = {
     const { count } = await prisma.session.updateMany({
       where: { workspaceId, id: { in: rows.map(r => r.id) } },
       data: { runSummary: null, runSummaryGeneratedAt: null },
+    })
+    return count
+  },
+
+  /**
+   * Clear up to `limit` AI-generated claim snapshots. Each row keeps its own
+   * `updatedAt` (set explicitly) — the used-up sweep (LUM-910) dates a Done
+   * task by it, and clearing a summary must not push that back.
+   */
+  async clearClaimSnapshotBatch(
+    workspaceId: string,
+    limit: number
+  ): Promise<number> {
+    const rows = await prisma.task.findMany({
+      where: aiClaimSnapshotWhere(workspaceId),
+      select: { id: true, updatedAt: true },
+      take: limit,
+    })
+    if (rows.length === 0) return 0
+    const updated = await prisma.$transaction(
+      rows.map(row =>
+        prisma.task.updateMany({
+          where: { id: row.id, ...aiClaimSnapshotWhere(workspaceId) },
+          data: {
+            claimSnapshot: null,
+            claimSnapshotSource: null,
+            claimSnapshotSessionId: null,
+            updatedAt: row.updatedAt,
+          },
+        })
+      )
+    )
+    return updated.reduce((n, r) => n + r.count, 0)
+  },
+
+  /** Null `evidence` / `reasoning` of up to `limit` faithfulness verdicts. */
+  async clearVerdictTextBatch(
+    workspaceId: string,
+    limit: number
+  ): Promise<number> {
+    const rows = await prisma.claimFaithfulnessVerdict.findMany({
+      where: verdictTextWhere(workspaceId),
+      select: { id: true },
+      take: limit,
+    })
+    if (rows.length === 0) return 0
+    const { count } = await prisma.claimFaithfulnessVerdict.updateMany({
+      where: { id: { in: rows.map(r => r.id) } },
+      data: { evidence: Prisma.DbNull, reasoning: null },
     })
     return count
   },

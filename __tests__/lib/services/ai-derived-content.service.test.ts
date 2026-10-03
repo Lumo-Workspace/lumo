@@ -9,6 +9,8 @@ jest.mock('@/lib/repositories/ai-derived-content.repository', () => ({
     deleteMemoryBatch: jest.fn(),
     clearSessionSummaryBatch: jest.fn(),
     clearRunSummaryBatch: jest.fn(),
+    clearClaimSnapshotBatch: jest.fn(),
+    clearVerdictTextBatch: jest.fn(),
   },
 }))
 jest.mock('@/lib/logger', () => ({
@@ -30,6 +32,8 @@ beforeEach(() => {
   repo.deleteMemoryBatch!.mockResolvedValue(0)
   repo.clearSessionSummaryBatch!.mockResolvedValue(0)
   repo.clearRunSummaryBatch!.mockResolvedValue(0)
+  repo.clearClaimSnapshotBatch!.mockResolvedValue(0)
+  repo.clearVerdictTextBatch!.mockResolvedValue(0)
 })
 
 describe('aiDerivedContentService.isEnabled', () => {
@@ -80,12 +84,16 @@ describe('aiDerivedContentService.purge', () => {
       .mockResolvedValueOnce(7)
     repo.clearSessionSummaryBatch!.mockResolvedValueOnce(3)
     repo.clearRunSummaryBatch!.mockResolvedValueOnce(4)
+    repo.clearClaimSnapshotBatch!.mockResolvedValueOnce(2)
+    repo.clearVerdictTextBatch!.mockResolvedValueOnce(1)
     const out = await aiDerivedContentService.purge(WS, 'OWNER', 'Acme')
     expect(out).toEqual({
       deleted: {
         memories: AI_DERIVED_PURGE_BATCH_SIZE + 7,
         sessionSummaries: 3,
         runSummaries: 4,
+        claimSnapshots: 2,
+        verdictTexts: 1,
       },
       done: true,
     })
@@ -104,6 +112,7 @@ describe('aiDerivedContentService.purge', () => {
       AI_DERIVED_PURGE_MAX_BATCHES
     )
     expect(repo.clearSessionSummaryBatch).not.toHaveBeenCalled()
+    expect(repo.clearClaimSnapshotBatch).not.toHaveBeenCalled()
   })
 
   it('refuses a non-owner or a wrong name before touching anything', async () => {

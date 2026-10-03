@@ -40,7 +40,13 @@ jest.mock('@/lib/api-client', () => ({
     updateMe: jest.fn(),
     getAiDerivedContent: jest.fn().mockResolvedValue({
       enabled: true,
-      counts: { memories: 0, sessionSummaries: 0, runSummaries: 0 },
+      counts: {
+        memories: 0,
+        sessionSummaries: 0,
+        runSummaries: 0,
+        claimSnapshots: 0,
+        verdictTexts: 0,
+      },
     }),
   },
 }))

@@ -22,11 +22,28 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
+// Manual memory adds: no model calls in this suite (identity canonicalize,
+// no embedding, no repo constitution).
+jest.mock('@/lib/services/memory/canonicalize-language', () => ({
+  canonicalizeToEnglish: async (_c: unknown, content: unknown) => content,
+}))
+jest.mock('@/lib/ai/embedding', () => ({
+  embedTexts: async () => {
+    throw new Error('no embedding in this suite')
+  },
+}))
+jest.mock('@/lib/services/memory/constitution', () => ({
+  loadConstitutionSource: async () => ({ text: null, repo: null }),
+  loadConstitutionText: async () => null,
+}))
+
+import { memoryManagementService } from '@/lib/services/memory-management.service'
 import { aiDerivedContentRepository } from '@/lib/repositories/ai-derived-content.repository'
 import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 import { memoryRepository } from '@/lib/repositories/memory.repository'
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { CODE_OMITTED_MARKER } from '@/lib/ai-derived/strip-code'
+import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 
 jest.setTimeout(180_000)
 
@@ -103,6 +120,45 @@ async function seedSession(ws: string, id: string) {
       sessionId: id,
       type: 'STOP',
       payload: { note: 'session record stays' },
+    },
+  })
+}
+
+let taskNumber = 100
+const SNAPSHOT_AT = new Date('2026-10-01T03:00:00Z')
+const TASK_UPDATED_AT = new Date('2026-09-20T00:00:00Z')
+
+async function seedClaimTask(
+  ws: string,
+  id: string,
+  source: 'AGENT' | 'RUN_SUMMARY' | 'DIGEST'
+) {
+  await db().task.create({
+    data: {
+      id,
+      projectId: `${ws}_project`,
+      teamId: `${ws}_team`,
+      number: ++taskNumber,
+      title: id,
+      status: 'DONE',
+      claimSnapshot: `${source} claim text`,
+      claimSnapshotSource: source,
+      claimSnapshotSessionId: 'some_session',
+      claimSnapshotAt: SNAPSHOT_AT,
+      updatedAt: TASK_UPDATED_AT,
+    },
+  })
+}
+
+async function seedVerdict(taskId: string) {
+  await db().claimFaithfulnessVerdict.create({
+    data: {
+      taskId,
+      verdict: 'UNDERREPORT',
+      evidence: [{ quote: 'the diff touched lib/a.ts' }],
+      reasoning: 'The claim leaves out the migration.',
+      judgeModel: 'judge-model',
+      judgedClaimAt: SNAPSHOT_AT,
     },
   })
 }
@@ -187,6 +243,61 @@ describe('AI-derived content writes store no code (LUM-917)', () => {
   })
 })
 
+describe('hand-added memories (LUM-917 ruling)', () => {
+  it('are still accepted with the switch off, and code is stripped', async () => {
+    const MANUAL = 'ws_ai_manual'
+    await seedWorkspace(MANUAL)
+    await db().workspace.update({
+      where: { id: MANUAL },
+      data: { aiDerivedContentEnabled: false },
+    })
+    const out = await memoryManagementService.createForProject({
+      projectId: `${MANUAL}_project`,
+      workspaceId: MANUAL,
+      category: 'CONVENTION',
+      content: {
+        rule: `Load tasks through the repository.\n${SNIPPET}`,
+        scope: 'lib/repositories',
+      },
+      actorMemberId: `${MANUAL}_member`,
+    })
+    expect(out.outcome).toBe('ADD')
+    const row = await db().memory.findUniqueOrThrow({
+      where: { id: out.memory.id },
+    })
+    expect(row.createdByMemberId).toBe(`${MANUAL}_member`)
+    expect(row.content).toEqual({
+      rule: `Load tasks through the repository.\n${CODE_OMITTED_MARKER}`,
+      scope: 'lib/repositories',
+    })
+  })
+})
+
+describe('turn summary writes store no code (LUM-917)', () => {
+  it('setTurnSummary strips a code block from the stored turn summary', async () => {
+    await seedSession(WS, 's_turn')
+    await hookEventRepository.setTurnSummary(
+      's_turn_event',
+      `Rewrote the loader.\n${SNIPPET}`
+    )
+    const event = await db().hookEvent.findUniqueOrThrow({
+      where: { id: 's_turn_event' },
+      select: { turnSummary: true },
+    })
+    expect(event.turnSummary).toBe(
+      `Rewrote the loader.\n${CODE_OMITTED_MARKER}`
+    )
+    expect(event.turnSummary).not.toContain(FENCE)
+
+    await hookEventRepository.setTurnSummary('s_turn_event', 'Ran the tests.')
+    const plain = await db().hookEvent.findUniqueOrThrow({
+      where: { id: 's_turn_event' },
+      select: { turnSummary: true },
+    })
+    expect(plain.turnSummary).toBe('Ran the tests.')
+  })
+})
+
 describe('AI-derived content delete (LUM-917)', () => {
   it('repository batches delete memories with their embedding and side rows', async () => {
     const ids = [
@@ -237,11 +348,30 @@ describe('AI-derived content delete (LUM-917)', () => {
     await seedSession(WS, 's_purge_1')
     await seedSession(WS, 's_purge_2')
     await seedSession(OTHER, 's_other')
+    await seedClaimTask(WS, 't_claim_agent', 'AGENT')
+    await seedClaimTask(WS, 't_claim_run', 'RUN_SUMMARY')
+    await seedClaimTask(WS, 't_claim_digest', 'DIGEST')
+    await seedClaimTask(OTHER, 't_claim_other', 'RUN_SUMMARY')
+    await seedVerdict('t_claim_run')
+    await seedVerdict('t_claim_other')
+    // A hand-added memory (createdByMemberId set) goes with the rest.
+    const { id: manualId } = await memoryRepository.create({
+      workspaceId: WS,
+      projectId: `${WS}_project`,
+      taskId: null,
+      scope: 'PROJECT',
+      category: 'TRAP',
+      content: { trigger: 'hand-written', outcome: 'kept until deleted' },
+      sourceSessionId: null,
+      createdByMemberId: `${WS}_member`,
+    })
 
     const counts = await aiDerivedContentRepository.countForWorkspace(WS)
     expect(counts.memories).toBeGreaterThan(0)
     expect(counts.sessionSummaries).toBeGreaterThanOrEqual(2)
     expect(counts.runSummaries).toBeGreaterThanOrEqual(2)
+    expect(counts.claimSnapshots).toBe(2)
+    expect(counts.verdictTexts).toBe(1)
 
     await expect(
       aiDerivedContentService.purge(
@@ -271,7 +401,34 @@ describe('AI-derived content delete (LUM-917)', () => {
       memories: 0,
       sessionSummaries: 0,
       runSummaries: 0,
+      claimSnapshots: 0,
+      verdictTexts: 0,
     })
+    expect(await db().memory.findUnique({ where: { id: manualId } })).toBeNull()
+
+    // AI-generated claim snapshots: text, source and session pointer cleared;
+    // the synthesized watermark and the task's updatedAt stay.
+    for (const id of ['t_claim_run', 't_claim_digest']) {
+      const task = await db().task.findUniqueOrThrow({ where: { id } })
+      expect(task.claimSnapshot).toBeNull()
+      expect(task.claimSnapshotSource).toBeNull()
+      expect(task.claimSnapshotSessionId).toBeNull()
+      expect(task.claimSnapshotAt).toEqual(SNAPSHOT_AT)
+      expect(task.updatedAt).toEqual(TASK_UPDATED_AT)
+    }
+    // The agent's own report is kept.
+    const agentTask = await db().task.findUniqueOrThrow({
+      where: { id: 't_claim_agent' },
+    })
+    expect(agentTask.claimSnapshot).toBe('AGENT claim text')
+    expect(agentTask.claimSnapshotSource).toBe('AGENT')
+    // Verdict: explanation cleared, the verdict row and label stay.
+    const verdict = await db().claimFaithfulnessVerdict.findUniqueOrThrow({
+      where: { taskId: 't_claim_run' },
+    })
+    expect(verdict.evidence).toBeNull()
+    expect(verdict.reasoning).toBeNull()
+    expect(verdict.verdict).toBe('UNDERREPORT')
 
     const session = await db().session.findUniqueOrThrow({
       where: { id: 's_purge_1' },
@@ -292,6 +449,8 @@ describe('AI-derived content delete (LUM-917)', () => {
       memories: 1,
       sessionSummaries: 1,
       runSummaries: 1,
+      claimSnapshots: 1,
+      verdictTexts: 1,
     })
 
     // Idempotent: a second pass finds nothing.
@@ -302,7 +461,13 @@ describe('AI-derived content delete (LUM-917)', () => {
         `${WS} name`
       )
     ).toEqual({
-      deleted: { memories: 0, sessionSummaries: 0, runSummaries: 0 },
+      deleted: {
+        memories: 0,
+        sessionSummaries: 0,
+        runSummaries: 0,
+        claimSnapshots: 0,
+        verdictTexts: 0,
+      },
       done: true,
     })
   })

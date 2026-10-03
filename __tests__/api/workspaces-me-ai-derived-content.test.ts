@@ -28,6 +28,8 @@ jest.mock('@/lib/repositories/ai-derived-content.repository', () => ({
     deleteMemoryBatch: jest.fn(),
     clearSessionSummaryBatch: jest.fn(),
     clearRunSummaryBatch: jest.fn(),
+    clearClaimSnapshotBatch: jest.fn(),
+    clearVerdictTextBatch: jest.fn(),
   },
 }))
 jest.mock('@/lib/services', () => ({
@@ -73,10 +75,14 @@ beforeEach(() => {
     memories: 2,
     sessionSummaries: 1,
     runSummaries: 1,
+    claimSnapshots: 1,
+    verdictTexts: 1,
   })
   repo.deleteMemoryBatch!.mockResolvedValue(2)
   repo.clearSessionSummaryBatch!.mockResolvedValue(1)
   repo.clearRunSummaryBatch!.mockResolvedValue(1)
+  repo.clearClaimSnapshotBatch!.mockResolvedValue(1)
+  repo.clearVerdictTextBatch!.mockResolvedValue(1)
 })
 
 describe('PATCH /api/workspaces/me aiDerivedContentEnabled (LUM-917)', () => {
@@ -119,7 +125,13 @@ describe('/api/workspaces/me/ai-derived-content (LUM-917)', () => {
     expect(ok.status).toBe(200)
     expect(await ok.json()).toEqual({
       enabled: true,
-      counts: { memories: 2, sessionSummaries: 1, runSummaries: 1 },
+      counts: {
+        memories: 2,
+        sessionSummaries: 1,
+        runSummaries: 1,
+        claimSnapshots: 1,
+        verdictTexts: 1,
+      },
     })
     asRole('MEMBER')
     expect((await GET()).status).toBe(403)
@@ -141,7 +153,13 @@ describe('/api/workspaces/me/ai-derived-content (LUM-917)', () => {
     const res = await POST(json(url, 'POST', { confirmName: 'Acme' }))
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
-      deleted: { memories: 2, sessionSummaries: 1, runSummaries: 1 },
+      deleted: {
+        memories: 2,
+        sessionSummaries: 1,
+        runSummaries: 1,
+        claimSnapshots: 1,
+        verdictTexts: 1,
+      },
       done: true,
     })
     expect(repo.deleteMemoryBatch).toHaveBeenCalledWith('w1', 500)

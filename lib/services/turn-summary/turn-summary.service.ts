@@ -11,6 +11,7 @@ import {
   type RawEvent,
 } from '@/lib/services/session-summary/compact-events'
 import { cleanTurnSummary } from '@/lib/services/meta-reasoning'
+import { DERIVED_CONTENT_NO_CODE_RULE } from '@/lib/ai-derived/strip-code'
 
 interface TriggerInput {
   /** The just-inserted STOP / STOP_FAILURE event id — destination for
@@ -74,7 +75,7 @@ export const turnSummaryService = {
 
       const { text } = await generateText({
         model: gateway(MODEL_ID),
-        system: SYSTEM_PROMPT,
+        system: `${SYSTEM_PROMPT}\n\n${DERIVED_CONTENT_NO_CODE_RULE}`,
         prompt: compacted,
         // Tight output budget — we want a sentence, not a paragraph.
         // The model occasionally still produces a brief lede + dash +

@@ -7,6 +7,8 @@ export interface AiDerivedCounts {
   memories: number
   sessionSummaries: number
   runSummaries: number
+  claimSnapshots: number
+  verdictTexts: number
 }
 
 /** Upper bound on passes per delete, so a runaway never loops forever. */
@@ -16,6 +18,8 @@ const EMPTY: AiDerivedCounts = {
   memories: 0,
   sessionSummaries: 0,
   runSummaries: 0,
+  claimSnapshots: 0,
+  verdictTexts: 0,
 }
 
 /**
@@ -45,9 +49,9 @@ export function useAiDerivedContent() {
     try {
       for (let i = 0; i < MAX_PURGE_PASSES; i++) {
         const pass = await workspacesClient.purgeAiDerivedContent(confirmName)
-        total.memories += pass.deleted.memories
-        total.sessionSummaries += pass.deleted.sessionSummaries
-        total.runSummaries += pass.deleted.runSummaries
+        for (const key of Object.keys(total) as (keyof AiDerivedCounts)[]) {
+          total[key] += pass.deleted[key]
+        }
         if (pass.done) break
       }
     } finally {

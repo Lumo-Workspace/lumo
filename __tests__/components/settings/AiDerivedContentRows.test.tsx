@@ -71,7 +71,13 @@ beforeEach(() => {
   client.updateMe!.mockResolvedValue({})
   client.getAiDerivedContent!.mockResolvedValue({
     enabled: true,
-    counts: { memories: 1200, sessionSummaries: 3, runSummaries: 40 },
+    counts: {
+      memories: 1200,
+      sessionSummaries: 3,
+      runSummaries: 40,
+      claimSnapshots: 5,
+      verdictTexts: 2,
+    },
   })
 })
 
@@ -113,16 +119,28 @@ describe('AI-derived content delete (LUM-917)', () => {
   it('needs the workspace name, then loops batched passes until done', async () => {
     client
       .purgeAiDerivedContent!.mockResolvedValueOnce({
-        deleted: { memories: 1000, sessionSummaries: 0, runSummaries: 0 },
+        deleted: {
+          memories: 1000,
+          sessionSummaries: 0,
+          runSummaries: 0,
+          claimSnapshots: 0,
+          verdictTexts: 0,
+        },
         done: false,
       })
       .mockResolvedValueOnce({
-        deleted: { memories: 200, sessionSummaries: 3, runSummaries: 40 },
+        deleted: {
+          memories: 200,
+          sessionSummaries: 3,
+          runSummaries: 40,
+          claimSnapshots: 5,
+          verdictTexts: 2,
+        },
         done: true,
       })
     renderSection()
     expect(await screen.findByTestId('ai-derived-counts')).toHaveTextContent(
-      'Stored now: 1200 memories · 3 session summaries · 40 run summaries'
+      'Stored now: 1200 memories · 3 session summaries · 40 run summaries · 5 generated task claims · 2 faithfulness check explanations'
     )
 
     fireEvent.click(
@@ -148,13 +166,19 @@ describe('AI-derived content delete (LUM-917)', () => {
 
     client.getAiDerivedContent!.mockResolvedValue({
       enabled: true,
-      counts: { memories: 0, sessionSummaries: 0, runSummaries: 0 },
+      counts: {
+        memories: 0,
+        sessionSummaries: 0,
+        runSummaries: 0,
+        claimSnapshots: 0,
+        verdictTexts: 0,
+      },
     })
     fireEvent.click(confirm)
 
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith(
-        'Deleted 1200 memories, 3 session summaries and 40 run summaries'
+        'Deleted 1200 memories and cleared 3 session summaries, 40 run summaries, 5 task claims and 2 faithfulness check explanations'
       )
     )
     expect(client.purgeAiDerivedContent).toHaveBeenCalledTimes(2)

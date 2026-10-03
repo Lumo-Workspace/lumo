@@ -73,8 +73,9 @@ export const aiDerivedContentService = {
 
   /**
    * OWNER only, with the workspace name re-typed: delete the workspace's
-   * memories (with their embeddings) and clear its session summaries and run
-   * summaries. Batched and idempotent — each call removes what is still
+   * memories (with their embeddings) and clear its session summaries, run
+   * summaries, AI-generated task claim snapshots and faithfulness verdict
+   * evidence / reasoning. Batched and idempotent — each call removes what is still
    * there, up to the batch budget, and says whether anything is left (`done`).
    */
   async purge(
@@ -94,6 +95,8 @@ export const aiDerivedContentService = {
       memories: 0,
       sessionSummaries: 0,
       runSummaries: 0,
+      claimSnapshots: 0,
+      verdictTexts: 0,
     }
     const steps: {
       key: keyof AiDerivedContentCounts
@@ -119,6 +122,22 @@ export const aiDerivedContentService = {
         key: 'runSummaries',
         run: () =>
           aiDerivedContentRepository.clearRunSummaryBatch(
+            workspaceId,
+            AI_DERIVED_PURGE_BATCH_SIZE
+          ),
+      },
+      {
+        key: 'claimSnapshots',
+        run: () =>
+          aiDerivedContentRepository.clearClaimSnapshotBatch(
+            workspaceId,
+            AI_DERIVED_PURGE_BATCH_SIZE
+          ),
+      },
+      {
+        key: 'verdictTexts',
+        run: () =>
+          aiDerivedContentRepository.clearVerdictTextBatch(
             workspaceId,
             AI_DERIVED_PURGE_BATCH_SIZE
           ),
