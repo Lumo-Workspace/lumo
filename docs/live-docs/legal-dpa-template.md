@@ -118,6 +118,7 @@ Categories of personal data:
 | User identity and contact data | Name, email address, profile image, role, workspace membership |
 | Workspace content | Tasks, documents, comments, ideas, test cases and their run records, team memory, uploaded files |
 | Agent hook events | Prompts, tool calls, file contents and command output from AI coding-agent sessions, with detected secrets redacted before storage in every retention mode (file contents and command output are not stored when Customer selects discard when used up) |
+| AI-derived content | Memories extracted from agent sessions, session summaries and run summaries, with code removed and detected secrets redacted before storage |
 | Customer code | Pull-request diffs, repository files and code excerpts in security findings |
 | Integration data | Slack messages, Figma file metadata, Google Docs content and Sentry error events that Customer chooses to connect |
 | Integration credentials | Access tokens for connected integrations, stored encrypted |
