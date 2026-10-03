@@ -24,6 +24,7 @@ import {
   Repeat,
 } from 'lucide-react'
 import { tasksClient } from '@/lib/api-client'
+import { CrossingTriageLine } from './CrossingTriageLine'
 import { BOUNDARY_CROSSINGS_ANCHOR } from './taskTabs'
 import {
   useBoundaryCrossings,
@@ -1104,6 +1105,14 @@ function CrossingRow({
                 })}
               </span>
             </p>
+          )}
+
+          {c.triageProbability != null && (
+            <CrossingTriageLine
+              crossingId={c.id}
+              probability={c.triageProbability}
+              disposition={c.disposition}
+            />
           )}
 
           {c.dispositionNote && (

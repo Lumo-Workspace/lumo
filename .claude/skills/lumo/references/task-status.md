@@ -81,6 +81,14 @@ lumo crossing explain <id> --task LUM-12 --note "…"   # unattached session: na
 - **several crossings → one call** (LUM-845): `lumo crossing explain --file notes.json` with `[{"id": "<crossing>", "note": "<text>"}, …]` (`--file -` reads stdin). Each note is reported on its own `✓`/`✗` line; any failure exits 1, the others are still recorded. `--file` replaces `<id> --note`;
 - **the note runs past the same detectors the crossing came from.** Quoting the flagged material back (path, command, matched text) records a **second** crossing. Describe what was flagged instead of reproducing it.
 
+### AI triage (LUM-945)
+
+Every ~5 minutes an AI triage pass reads each new OPEN crossing together with the task's title and description. When it judges the action a legitimate part of the task (P(legit) ≥ 0.6) it marks the crossing **AUTO_LEGIT**: off the open list, no longer blocking DONE, no human reviewer recorded. Below the threshold the score is kept and the crossing stays OPEN for the user.
+
+- Your explanation is shown to it as **untrusted** text and is never enough on its own — what counts is the task context. Explain for the human, not to persuade the model.
+- It is skipped for workspaces with AI review turned off, for evasion (`[base64-decoded]`) crossings, and for crossings with no task.
+- Don't wait on it before relaying a crossing; one it leaves open still needs the user's ruling, and the user can re-rule an AUTO_LEGIT crossing as confirmed.
+
 ## Recording the user's ruling — `lumo crossing disposition` (LUM-769)
 
 When the user has ruled on a crossing in chat, record it from the terminal:

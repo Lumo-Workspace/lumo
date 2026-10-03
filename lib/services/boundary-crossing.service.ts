@@ -257,6 +257,10 @@ export interface BoundaryCrossingView {
   /** Who/what crossed (LUM-469) — owner member, agent/session, model. Always
    *  present; every field is null when it can't be resolved (unknown). */
   attribution: CrossingAttributionView
+  /** LUM-945: P(legit) from the AI triage, and which model; null = not
+   *  triaged (or not judged). At or above the threshold the row is AUTO_LEGIT. */
+  triageProbability: number | null
+  triageModel: string | null
   /** LUM-542: append-only agent self-explanations ("申辩"), oldest-first. Each
    *  note is sanitized; the panel labels them agent self-report / unverified.
    *  Orthogonal to disposition — a reviewer aid + retrospective record, never a
@@ -932,6 +936,8 @@ export const boundaryCrossingService = {
         ),
         attribution,
         explanations: explanationsByCrossing.get(c.id) ?? [],
+        triageProbability: c.triageProbability ?? null,
+        triageModel: c.triageModel ?? null,
         // LUM-590: advisory and policyRuleRef straight from the row.
         advisory: c.advisory,
         rejudge: rejudgeByCrossing.get(c.id) ?? null,

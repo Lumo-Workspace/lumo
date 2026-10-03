@@ -25,6 +25,8 @@ const SECTIONS: { id: string; paragraphs: string[] }[] = [
     id: 'code',
     paragraphs: [
       'ai',
+      // LUM-945: the one AI path without zero data retention.
+      'triage',
       'training',
       'openai',
       'openWeights',

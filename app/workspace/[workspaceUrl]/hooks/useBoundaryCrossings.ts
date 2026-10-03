@@ -107,6 +107,10 @@ export interface BoundaryCrossingView {
   dispositionChannel?: DispositionChannel | null
   /** Who/what crossed (LUM-469) — owner, agent/session, model. Always present. */
   attribution: CrossingAttributionView
+  /** LUM-945: P(legit) from the AI triage; null = not triaged. Optional so an
+   *  older server response (or a fixture) still type-checks. */
+  triageProbability?: number | null
+  triageModel?: string | null
   /** LUM-542: append-only agent self-explanations ("申辩"), oldest-first; each
    *  note is sanitized server-side. Empty when the agent recorded none. */
   explanations: ExplanationView[]

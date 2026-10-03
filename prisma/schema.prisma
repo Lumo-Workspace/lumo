@@ -1572,6 +1572,13 @@ model BoundaryCrossing {
   // copies) was replaced by a code-free description, N days after the
   // disposition. Null = still whole.
   rawPurgedAt       DateTime?
+  // LUM-945: the AI triage pass (rules detect, a model then reads the task
+  // context). P(legit) as the model returned it, which model, and when.
+  // Null = not triaged yet. A score at or above the threshold also stamps the
+  // system disposition AUTO_LEGIT (no human actor); below it the row stays OPEN.
+  triageProbability Float?
+  triageModel       String?
+  triagedAt         DateTime?
 
   task            Task?                         @relation("CrossingTask", fields: [taskId], references: [id], onDelete: Cascade)
   milestone       Milestone?                    @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
@@ -1589,6 +1596,8 @@ model BoundaryCrossing {
   @@index([suppressionRuleId])
   // LUM-912: the raw-retention sweep's candidate scan.
   @@index([rawPurgedAt, dispositionedAt])
+  // LUM-945: the triage sweep's candidate scan (open, not yet triaged).
+  @@index([triagedAt, disposition])
   @@map("boundary_crossings")
 }
 

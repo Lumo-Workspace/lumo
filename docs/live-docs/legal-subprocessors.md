@@ -13,7 +13,7 @@ These subprocessors process data for every workspace.
 | Vercel Inc. | Hosting and serverless functions | Runs the Lumo web application, API and scheduled jobs | All data in transit through the application | United States |
 | Vercel Inc. | Vercel Blob | Stores uploaded files: images, workspace logos, test-case evidence (screenshots), raw security-scan uploads | Uploaded files | United States |
 | Vercel Inc. | Vercel Sandbox | Short-lived isolated virtual machines that clone a customer repository to run static security analysis on a pull request; the machine is discarded after the scan | Customer source code | United States |
-| Vercel Inc. | Vercel AI Gateway | Routes every model request to an LLM hosting provider; every request is sent with zero data retention enforced, and the gateway itself does not retain prompts or outputs | Prompts and outputs (may contain customer code) | Global edge network; no retention |
+| Vercel Inc. | Vercel AI Gateway | Routes every model request to an LLM hosting provider; every request except boundary-crossing triage is sent with zero data retention enforced, and the gateway itself does not retain prompts or outputs | Prompts and outputs (may contain customer code) | Global edge network; no retention |
 | Neon Inc. (a Databricks company) | Serverless Postgres | Primary database for all workspace data | All stored customer data | United States (AWS us-east-1) |
 | Clerk Inc. | Authentication | Sign-in, user accounts, sessions, organization membership | Name, email address, profile image, authentication metadata | United States |
 | Pusher Ltd. | Pusher Channels | Real-time updates pushed to open browser tabs | Task and activity update events | United States (us2 cluster) |
@@ -22,7 +22,7 @@ These subprocessors process data for every workspace.
 
 ## AI model hosting subprocessors
 
-Lumo sends prompts that may contain customer code, diffs, task text and agent session records to large language models for security review, summaries and memory features. Every request goes through the Vercel AI Gateway with zero data retention (ZDR) enforced on the request: the gateway only routes to providers that have a ZDR agreement with Vercel, and a request fails rather than falling back to a provider that would retain data. ZDR includes a commitment not to train on the data.
+Lumo sends prompts that may contain customer code, diffs, task text and agent session records to large language models for security review, summaries and memory features. Every request goes through the Vercel AI Gateway. Except for boundary-crossing triage (see the notes below), zero data retention (ZDR) is enforced on the request: the gateway only routes to providers that have a ZDR agreement with Vercel, and a request fails rather than falling back to a provider that would retain data. ZDR includes a commitment not to train on the data.
 
 Which provider serves a given request is chosen by the gateway from the ZDR-eligible set for that model, based on availability. Every provider below may therefore receive requests.
 
@@ -33,7 +33,7 @@ Which provider serves a given request is chosen by the gateway from the ZDR-elig
 | Alibaba Cloud | Qwen coder and embedding models; open-weight models | Security hunt, summaries, memory, embeddings | Zero data retention under a custom agreement with Vercel; no training | Routed globally; no location commitment |
 | Baseten, Inc. | Open-weight models | Summaries, content and policy compilation | Zero data retention; no training | Routed globally; no location commitment |
 | DeepInfra, Inc. | Open-weight and embedding models | Summaries, memory, embeddings | Zero data retention; no training | Routed globally; no location commitment |
-| DigitalOcean, LLC | Open-weight models | Fallback host | Zero data retention; no training | Routed globally; no location commitment |
+| DigitalOcean, LLC | Open-weight models; TypeSafe Jev evaluation model | Fallback host; boundary-crossing triage (Jev) | Zero data retention; no training — except TypeSafe Jev: no zero data retention, no training | Routed globally; no location commitment |
 | Together Computer, Inc. (Together AI) | Open-weight models | Fallback host | Zero data retention; no training | Routed globally; no location commitment |
 | Nebius B.V. | Open-weight models | Fallback host | Zero data retention; no training | Routed globally; no location commitment |
 | Parasail | Open-weight models | Fallback host | Zero data retention; no training | Routed globally; no location commitment |
@@ -42,6 +42,7 @@ Which provider serves a given request is chosen by the gateway from the ZDR-elig
 
 Notes on AI processing:
 
+- Boundary-crossing triage is the one exception. When Lumo's rule detectors flag an action an AI agent took, Lumo asks TypeSafe's Jev model, through the Vercel AI Gateway, whether the action was a legitimate part of the task. For this it sends the flagged command or file path (with detected credentials redacted), the project rule that fired, the task's title and description, and the agent's own explanation. Jev's only host, DigitalOcean, has committed not to train on the data but does not offer zero data retention. Turning off AI review in workspace settings stops this triage.
 - Open-weight models (the DeepSeek and GLM model families) are run by the hosting providers above. The model authors' own APIs (DeepSeek and Zhipu AI) do not receive Lumo customer data: they do not offer zero data retention through the gateway and are excluded from routing.
 - AI requests are routed globally: for each request the gateway picks a region based on availability and latency, so processing may take place outside your region. Zero data retention applies wherever a request is processed. We do not currently commit to a processing location for AI features; customers who need a data-location commitment for AI processing should contact us before relying on this list.
 - Lumo does not use customer data to train models, and does not permit its subprocessors to do so.

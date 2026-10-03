@@ -41,8 +41,9 @@ We do not use your workspace content, agent hook events or code to train AI mode
 
 ### AI processing
 
-When an AI feature runs, the relevant text (which may include code) is sent to a large language model through the Vercel AI Gateway. Every request is sent with zero data retention enforced: it is only routed to model hosts that have agreed not to store the data or train on it, and it fails rather than going to a host that would. Please note:
+When an AI feature runs, the relevant text (which may include code) is sent to a large language model through the Vercel AI Gateway. Except for boundary-crossing triage (below), every request is sent with zero data retention enforced: it is only routed to model hosts that have agreed not to store the data or train on it, and it fails rather than going to a host that would. Please note:
 
+- Boundary-crossing triage is the one exception. When Lumo's rule detectors flag an action an AI agent took, Lumo asks TypeSafe's Jev model, through the Vercel AI Gateway, whether the action was a legitimate part of the task. For this it sends the flagged command or file path (with detected credentials redacted), the project rule that fired, the task's title and description, and the agent's own explanation. Jev's only host, DigitalOcean, has committed not to train on the data but does not offer zero data retention. Turning off AI review in workspace settings stops this triage.
 - OpenAI's zero-data-retention terms allow limited retention for abuse monitoring ("safety retention").
 - Open-weight models (such as the DeepSeek and GLM families) are run by third-party hosting providers listed on our subprocessor page, not by the model authors.
 - AI requests are routed globally, so they may be processed outside the region where you are located. Zero data retention applies wherever a request is processed, but we cannot currently commit to a location for AI processing.
