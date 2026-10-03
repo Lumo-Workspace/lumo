@@ -1,8 +1,11 @@
 import {
+  DEAD_LETTER_RETENTION_DAYS,
   buildPurgedDeadLetterPayload,
   deadLetterPurgeCutoff,
   inferWebhookEvent,
+  isDeadLetterRetentionDays,
 } from '@/lib/integrations/github/dead-letter-retention'
+import { workspaceFilterForTier } from '@/lib/services/pr-comment-dead-letter-retention.service'
 
 describe('buildPurgedDeadLetterPayload', () => {
   it('keeps only allow-listed scalar metadata and drops raw', () => {
@@ -110,5 +113,37 @@ describe('deadLetterPurgeCutoff', () => {
     expect(deadLetterPurgeCutoff(new Date('2026-10-10T00:00:00Z'))).toEqual(
       new Date('2026-10-03T00:00:00Z')
     )
+  })
+})
+
+describe('LUM-941 dead letter retention tiers', () => {
+  const now = new Date('2026-10-20T00:00:00Z')
+  const DAY = 24 * 60 * 60 * 1000
+
+  it('deadLetterPurgeCutoff uses the workspace tier and defaults out-of-tier values to 7', () => {
+    expect(deadLetterPurgeCutoff(now, 30).getTime()).toBe(
+      now.getTime() - 30 * DAY
+    )
+    expect(deadLetterPurgeCutoff(now, 90).getTime()).toBe(
+      now.getTime() - 90 * DAY
+    )
+    expect(deadLetterPurgeCutoff(now, 45).getTime()).toBe(
+      now.getTime() - 7 * DAY
+    )
+    expect(deadLetterPurgeCutoff(now).getTime()).toBe(now.getTime() - 7 * DAY)
+  })
+
+  it('isDeadLetterRetentionDays accepts only 7, 30 and 90', () => {
+    expect(DEAD_LETTER_RETENTION_DAYS).toEqual([7, 30, 90])
+    for (const ok of [7, 30, 90])
+      expect(isDeadLetterRetentionDays(ok)).toBe(true)
+    for (const bad of [0, 14, 45, '7', null])
+      expect(isDeadLetterRetentionDays(bad)).toBe(false)
+  })
+
+  it('workspaceFilterForTier makes the default tier take every other value', () => {
+    expect(workspaceFilterForTier(30)).toEqual({ equals: 30 })
+    expect(workspaceFilterForTier(90)).toEqual({ equals: 90 })
+    expect(workspaceFilterForTier(7)).toEqual({ notIn: [30, 90] })
   })
 })

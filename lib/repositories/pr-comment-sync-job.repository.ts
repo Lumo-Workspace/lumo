@@ -78,10 +78,17 @@ export const prCommentSyncJobRepository = {
     before,
     afterId,
     take,
+    workspaceRetentionDays,
   }: {
     before: Date
     afterId: string | null
     take: number
+    /**
+     * LUM-941: only jobs of workspaces whose `deadLetterRetentionDays`
+     * matches — a tier value (`equals`) or "anything but these" (`notIn`,
+     * for the default tier, which also takes out-of-tier values).
+     */
+    workspaceRetentionDays?: { equals: number } | { notIn: number[] }
   }) {
     return prisma.prCommentSyncJob.findMany({
       where: {
@@ -89,6 +96,13 @@ export const prCommentSyncJobRepository = {
         deadLetteredAt: { not: null, lte: before },
         payloadPurgedAt: null,
         ...(afterId ? { id: { gt: afterId } } : {}),
+        ...(workspaceRetentionDays
+          ? {
+              workspace: {
+                is: { deadLetterRetentionDays: workspaceRetentionDays },
+              },
+            }
+          : {}),
       },
       orderBy: { id: 'asc' },
       take,

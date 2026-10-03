@@ -13,8 +13,20 @@
  * body) before it is dropped.
  */
 
-/** Days a dead letter keeps its full payload after entering DEAD_LETTER. */
+/** Days a dead letter keeps its full payload after entering DEAD_LETTER (the default). */
 export const DEAD_LETTER_PAYLOAD_RETENTION_DAYS = 7
+
+/** LUM-941: OWNER-selectable tiers, in days after entering DEAD_LETTER. */
+export const DEAD_LETTER_RETENTION_DAYS = [7, 30, 90] as const
+
+export type DeadLetterRetentionDays =
+  (typeof DEAD_LETTER_RETENTION_DAYS)[number]
+
+export function isDeadLetterRetentionDays(
+  value: unknown
+): value is DeadLetterRetentionDays {
+  return (DEAD_LETTER_RETENTION_DAYS as readonly unknown[]).includes(value)
+}
 
 /** Top-level payload keys that never carry code or comment text. */
 const KEPT_KEYS = [
@@ -102,9 +114,17 @@ export function buildPurgedDeadLetterPayload(
   return out
 }
 
-/** Dead letters that entered DEAD_LETTER at or before this instant are due. */
-export function deadLetterPurgeCutoff(now: Date): Date {
-  return new Date(
-    now.getTime() - DEAD_LETTER_PAYLOAD_RETENTION_DAYS * 24 * 60 * 60 * 1000
-  )
+/**
+ * Dead letters that entered DEAD_LETTER at or before this instant are due.
+ * LUM-941: `retentionDays` is the workspace's setting; an out-of-tier value
+ * (only a manual DB edit) reads as the 7-day default.
+ */
+export function deadLetterPurgeCutoff(
+  now: Date,
+  retentionDays: number = DEAD_LETTER_PAYLOAD_RETENTION_DAYS
+): Date {
+  const days = isDeadLetterRetentionDays(retentionDays)
+    ? retentionDays
+    : DEAD_LETTER_PAYLOAD_RETENTION_DAYS
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
 }
