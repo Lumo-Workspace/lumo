@@ -299,10 +299,16 @@ describe('usage resync corrects historical sessions from deduped transcripts', (
   })
 
   it('reports already_resynced when the guarded write loses a race', async () => {
-    repo.findFamilyForMember.mockResolvedValueOnce({
-      root: row('s1', { m: u(10, 10, 10, 10) }),
-      children: [],
-    })
+    repo.findFamilyForMember
+      .mockResolvedValueOnce({
+        root: row('s1', { m: u(10, 10, 10, 10) }),
+        children: [],
+      })
+      // Re-read after the 409: a concurrent resync flagged the root.
+      .mockResolvedValueOnce({
+        root: row('s1', { m: u(1, 1, 1, 1) }, { usageResyncedAt: new Date() }),
+        children: [],
+      })
     repo.applyFamilyResync.mockRejectedValueOnce(
       Object.assign(new Error('changed'), { status: 409 })
     )
@@ -322,5 +328,65 @@ describe('usage resync corrects historical sessions from deduped transcripts', (
       status: 'skipped',
       reason: 'already_resynced',
     })
+  })
+
+  it('reports active_after_cutoff when the guarded write fails on new activity', async () => {
+    repo.findFamilyForMember
+      .mockResolvedValueOnce({
+        root: row('s1', { m: u(10, 10, 10, 10) }),
+        children: [],
+      })
+      // Re-read after the 409: not resynced, so the activity guard tripped.
+      .mockResolvedValueOnce({
+        root: row('s1', { m: u(10, 10, 10, 10) }),
+        children: [],
+      })
+    repo.applyFamilyResync.mockRejectedValueOnce(
+      Object.assign(new Error('changed'), { status: 409 })
+    )
+    const res = await usageResyncService.resync({
+      identity,
+      dryRun: false,
+      sessions: [
+        {
+          sessionId: 's1',
+          total: flat(1, 1, 1, 1),
+          byModel: { m: u(1, 1, 1, 1) },
+        },
+      ],
+    })
+    expect(res.results[0]).toEqual({
+      sessionId: 's1',
+      status: 'skipped',
+      reason: 'active_after_cutoff',
+    })
+    expect(repo.findFamilyForMember).toHaveBeenCalledTimes(2)
+  })
+
+  it('stops starting new families once the request time budget is spent', async () => {
+    repo.findFamilyForMember.mockResolvedValueOnce({
+      root: row('s1', { m: u(10, 10, 10, 10) }),
+      children: [],
+    })
+    // Request start, then the check before s1, then the checks before s2/s3.
+    const ticks = [0, 0, 200_001, 200_002]
+    const clock = jest.fn(() => ticks.shift() ?? 300_000)
+    const one = (sessionId: string) => ({
+      sessionId,
+      total: flat(1, 1, 1, 1),
+      byModel: { m: u(1, 1, 1, 1) },
+    })
+    const res = await usageResyncService.resync({
+      identity,
+      dryRun: false,
+      sessions: [one('s1'), one('s2'), one('s3')],
+      clock,
+    })
+    expect(res.results.map(r => [r.sessionId, r.status, r.reason])).toEqual([
+      ['s1', 'resynced', undefined],
+      ['s2', 'skipped', 'error'],
+      ['s3', 'skipped', 'error'],
+    ])
+    expect(repo.findFamilyForMember).toHaveBeenCalledTimes(1)
   })
 })

@@ -26,7 +26,10 @@ export type UsageResyncReason =
   | 'already_resynced'
   | 'no_usage'
   | 'not_inflated'
-  /** An unexpected failure for this family; nothing of it was written. */
+  /**
+   * An unexpected failure for this family, or it was not started because the
+   * request time budget ran out; nothing of it was written. Re-run.
+   */
   | 'error'
 
 export interface UsageResyncResult {
@@ -46,6 +49,13 @@ export interface UsageResyncResponse {
 }
 
 const CUTOFF = new Date(USAGE_DEDUPE_CUTOFF)
+
+/**
+ * Stop starting new families after this much of the request (route
+ * maxDuration is 300s): the rest come back as `error`, which the CLI counts
+ * as failed and asks the user to re-run. A family already started finishes.
+ */
+export const USAGE_RESYNC_TIME_BUDGET_MS = 200_000
 
 const skipped = (
   sessionId: string,
@@ -173,6 +183,27 @@ function verifiedRootWrite(root: ResyncSessionRow): SessionResyncWrite {
   }
 }
 
+/**
+ * Why the guarded write lost (409): a concurrent resync flagged the family,
+ * or a member became active since the plan was read (the lastActivityAt
+ * guard). Re-read to tell them apart.
+ */
+async function raceReason(
+  rootId: string,
+  memberId: string,
+  childIds: string[]
+): Promise<UsageResyncReason> {
+  const family = await usageResyncRepository.findFamilyForMember(
+    rootId,
+    memberId,
+    childIds
+  )
+  if (!family) return 'not_found'
+  return [family.root, ...family.children].some(s => s.usageResyncedAt)
+    ? 'already_resynced'
+    : 'active_after_cutoff'
+}
+
 async function resyncOne(
   input: ResyncSessionInput,
   ctx: {
@@ -239,7 +270,7 @@ async function resyncOne(
     })
   } catch (error) {
     if ((error as { status?: number } | null)?.status === 409)
-      return skipped(rootId, 'already_resynced')
+      return skipped(rootId, await raceReason(rootId, ctx.memberId, childIds))
     throw error
   }
   return { ...plan, status: 'resynced' }
@@ -256,7 +287,11 @@ export const usageResyncService = {
     dryRun: boolean
     sessions: ResyncSessionInput[]
     now?: Date
+    /** Milliseconds clock for the time budget (injectable for tests). */
+    clock?: () => number
   }): Promise<UsageResyncResponse> {
+    const clock = input.clock ?? Date.now
+    const startedAt = clock()
     const memberId = await miscRepository.findMemberIdForHook(
       input.identity.user.id,
       input.identity.workspace.id
@@ -272,6 +307,10 @@ export const usageResyncService = {
     }
     const results: UsageResyncResult[] = []
     for (const s of input.sessions) {
+      if (clock() - startedAt >= USAGE_RESYNC_TIME_BUDGET_MS) {
+        results.push(skipped(s.sessionId, 'error'))
+        continue
+      }
       try {
         results.push(await resyncOne(s, ctx))
       } catch (error) {
