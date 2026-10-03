@@ -40,4 +40,36 @@ describe('session Timeline — redacted content', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText(/three/)).not.toBeInTheDocument()
   })
+
+  it('expands a redacted MultiEdit row to the not-retained notice', () => {
+    const input = {
+      file_path: '/repo/m.ts',
+      edits: [
+        { old_string: 'a', new_string: 'one\ntwo' },
+        { old_string: 'b', new_string: 'three' },
+      ],
+    }
+    const items = mergeEvents([
+      {
+        id: 'post',
+        type: 'POST_TOOL_USE',
+        toolName: 'MultiEdit',
+        payload: stripCodeFromHookPayload('POST_TOOL_USE', {
+          tool_use_id: 'tu_m',
+          tool_input: input,
+          tool_response: { filePath: '/repo/m.ts' },
+        }),
+        createdAt: new Date('2026-09-26T10:00:00Z'),
+      },
+    ])
+    render(<Timeline items={items} />)
+    fireEvent.click(screen.getByRole('button', { name: /\/repo\/m\.ts/ }))
+
+    expect(
+      screen.getByText(
+        'sessionTimeline.contentNotRetained {"lines":5,"bytes":14}'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/three/)).not.toBeInTheDocument()
+  })
 })

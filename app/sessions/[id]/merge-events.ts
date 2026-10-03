@@ -11,7 +11,9 @@ import { isPrunedPayload } from '@/lib/hook-event/retention'
 import {
   readRedactedPatch,
   readRedactedStats,
+  sumRedactedStats,
   type RedactedPatchStats,
+  type RedactedSize,
   type RedactedStats,
 } from '@/lib/hook-payload/redact'
 
@@ -276,9 +278,16 @@ function toolItem(pre: RawEvent | null, post: RawEvent | null): TimelineItem {
 interface RedactionLookup {
   stats(path: string): RedactedStats | null
   patch(path: string): RedactedPatchStats | null
+  /** Summed size of everything redacted at or beneath `prefix` (LUM-874):
+   *  MultiEdit `edits.N.*`, nested MCP / Task / WebFetch responses. */
+  sum(prefix: string): RedactedSize | null
 }
 
-const NO_REDACTION: RedactionLookup = { stats: () => null, patch: () => null }
+const NO_REDACTION: RedactionLookup = {
+  stats: () => null,
+  patch: () => null,
+  sum: () => null,
+}
 
 function redactionLookup(anchor: unknown, post: unknown): RedactionLookup {
   return {
@@ -286,12 +295,14 @@ function redactionLookup(anchor: unknown, post: unknown): RedactionLookup {
       readRedactedStats(post, path) ?? readRedactedStats(anchor, path),
     patch: path =>
       readRedactedPatch(post, path) ?? readRedactedPatch(anchor, path),
+    sum: prefix =>
+      sumRedactedStats(post, prefix) ?? sumRedactedStats(anchor, prefix),
   }
 }
 
 function redactedBlock(
   labelKey: BlockLabelKey,
-  stats: RedactedStats | null
+  stats: RedactedStats | RedactedSize | null
 ): DetailBlock | null {
   if (!stats) return null
   return {
@@ -342,6 +353,8 @@ function formatTool(
       return formatEdit(input, response, status, redaction)
     case 'Write':
       return formatWrite(input, response, status, redaction)
+    case 'NotebookEdit':
+      return formatNotebookEdit(input, response, status, redaction)
     case 'Grep':
       return formatGrep(input, response, status, redaction)
     case 'Glob':
@@ -436,13 +449,21 @@ function formatEdit(
   } else if (oldStr || newStr) {
     if (oldStr) details.push(clipBlock('old', 'code', oldStr, 20))
     if (newStr) details.push(clipBlock('new', 'code', newStr, 20))
+  } else if (multiEditStrings(input).length > 0) {
+    // MultiEdit recorded in full: one old/new pair per edit.
+    for (const edit of multiEditStrings(input)) {
+      if (edit.oldStr) details.push(clipBlock('old', 'code', edit.oldStr, 20))
+      if (edit.newStr) details.push(clipBlock('new', 'code', edit.newStr, 20))
+    }
   } else {
     pushBlock(
       details,
       redactedBlock(
         'diff',
         redaction.stats('tool_input.new_string') ??
-          redaction.stats('tool_input.old_string')
+          redaction.stats('tool_input.old_string') ??
+          // MultiEdit keeps its stats per edit under tool_input.edits.N.*
+          redaction.sum('tool_input.edits')
       )
     )
   }
@@ -484,6 +505,68 @@ function formatWrite(
       ? { kind: 'linesWithType', type: kind, count: totalLines }
       : { kind: 'raw', text: kind }
   return { summary: path, ...noPath(filePath), badge, status, details }
+}
+
+/** Old/new strings of a fully recorded MultiEdit `edits` array. */
+function multiEditStrings(
+  input: Record<string, unknown> | null
+): Array<{ oldStr: string; newStr: string }> {
+  const edits = getAny(input, 'edits')
+  if (!Array.isArray(edits)) return []
+  return edits
+    .map(edit => ({
+      oldStr: getString(edit, 'old_string') ?? '',
+      newStr: getString(edit, 'new_string') ?? '',
+    }))
+    .filter(edit => edit.oldStr || edit.newStr)
+}
+
+function formatNotebookEdit(
+  input: Record<string, unknown> | null,
+  response: Record<string, unknown> | null,
+  status: ItemStatus,
+  redaction: RedactionLookup
+): FormatResult {
+  const notebookPath =
+    getString(input, 'notebook_path') ?? getString(response, 'notebook_path')
+  const source = getString(input, 'new_source') ?? ''
+  const redacted = redaction.stats('tool_input.new_source')
+  const totalLines = source ? source.split('\n').length : (redacted?.lines ?? 0)
+
+  const details: DetailBlock[] = []
+  // A failed edit (e.g. `Cell c not found`) shows its error text first.
+  const errorText = getString(response, 'error')
+  if (errorText) details.push(clipBlock('response', 'error', errorText, 20))
+  // The response's `original_file` / `updated_file` (whole-notebook JSON) are
+  // deliberately never rendered — only the edited cell source is shown, or
+  // its size when it was not retained (LUM-874).
+  if (source) details.push(clipBlock('content', 'code', source, 30))
+  else if (redacted) pushBlock(details, redactedBlock('content', redacted))
+  else {
+    // No cell source (`edit_mode: 'delete'`): show the input like the generic
+    // fallback does, plus the size of whatever the response did not retain,
+    // so the expanded row is never blank.
+    if (input)
+      details.push({
+        labelKey: 'input',
+        variant: 'json',
+        text: stringifyJson(input),
+      })
+    pushBlock(
+      details,
+      redactedBlock('response', redaction.sum('tool_response'))
+    )
+  }
+
+  const badge: BadgeMsg | null =
+    totalLines > 0 ? { kind: 'lines', count: totalLines } : null
+  return {
+    summary: notebookPath ?? '',
+    ...noPath(notebookPath),
+    badge,
+    status,
+    details,
+  }
 }
 
 function formatGrep(
@@ -625,10 +708,11 @@ function formatFallback(
       variant: 'json',
       text: stringifyJson(response),
     })
-  pushBlock(
-    details,
-    redactedBlock('response', redaction.stats('tool_response'))
-  )
+  // LUM-874: redacted content may sit anywhere inside the input or response
+  // (MCP / Task `content[].text`, WebFetch `result`), not only as a bare
+  // string — show the summed size of what was not retained.
+  pushBlock(details, redactedBlock('input', redaction.sum('tool_input')))
+  pushBlock(details, redactedBlock('response', redaction.sum('tool_response')))
   return { summary, summaryMsg, badge: null, status, details }
 }
 

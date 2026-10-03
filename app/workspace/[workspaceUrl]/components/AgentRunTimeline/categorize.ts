@@ -398,6 +398,10 @@ function summarizeToolInput(
     case 'MultiEdit':
     case 'Write':
       return getString(input, 'file_path') ?? ''
+    case 'NotebookEdit':
+      return getString(input, 'notebook_path') ?? ''
+    case 'WebFetch':
+      return getString(input, 'url') ?? ''
     case 'Grep': {
       const pattern = getString(input, 'pattern') ?? ''
       const path = getString(input, 'path')

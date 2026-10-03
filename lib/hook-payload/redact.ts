@@ -281,6 +281,38 @@ export function readRedactedStats(
   return entry && 'bytes' in entry ? entry : null
 }
 
+/** Combined size of every redacted field at or under one dot path. */
+export interface RedactedSize {
+  bytes: number
+  lines: number
+}
+
+/**
+ * Total size of the content redacted at `prefix` or anywhere beneath it (e.g.
+ * `tool_input.edits` sums every MultiEdit `edits.N.old_string/new_string`;
+ * `tool_response` sums a nested MCP / Task / WebFetch response). Null when
+ * nothing under `prefix` was redacted — a fully recorded payload has no stats.
+ */
+export function sumRedactedStats(
+  payload: unknown,
+  prefix: string
+): RedactedSize | null {
+  if (!isPlainObject(payload)) return null
+  const map = payload[REDACTED_FIELD]
+  if (!isPlainObject(map)) return null
+  let found = false
+  let bytes = 0
+  let lines = 0
+  for (const [path, entry] of Object.entries(map)) {
+    if (path !== prefix && !path.startsWith(`${prefix}.`)) continue
+    if (!isPlainObject(entry) || typeof entry.bytes !== 'number') continue
+    found = true
+    bytes += entry.bytes
+    lines += typeof entry.lines === 'number' ? entry.lines : 0
+  }
+  return found ? { bytes, lines } : null
+}
+
 /** Added/removed counts for a redacted `structuredPatch`. */
 export function readRedactedPatch(
   payload: unknown,

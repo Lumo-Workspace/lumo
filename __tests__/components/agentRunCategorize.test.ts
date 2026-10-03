@@ -1,7 +1,9 @@
 import { HookEventType } from '@prisma/client'
+import type { IntlShape } from 'react-intl'
 import {
   CATEGORY_STYLE,
   categorizeHookEvent,
+  summarizeEvent,
 } from '@/app/workspace/[workspaceUrl]/components/AgentRunTimeline/categorize'
 import type { AgentRunHookEventItem } from '@/app/workspace/[workspaceUrl]/types'
 
@@ -42,5 +44,46 @@ describe('categorizeHookEvent', () => {
     const style = CATEGORY_STYLE[category]
     expect(style).toBeDefined()
     expect(typeof style.dot).toBe('string')
+  })
+})
+
+describe('summarizeEvent tool rows', () => {
+  // react-intl ships ESM jest can't load; tool-row summaries are raw data
+  // (paths/urls) and never reach formatMessage.
+  const intl = {
+    locale: 'en',
+    formatMessage: ({ defaultMessage }: { defaultMessage: string }) =>
+      defaultMessage,
+  } as unknown as IntlShape
+  const toolEvent = (
+    toolName: string,
+    toolInput: Record<string, unknown>
+  ): AgentRunHookEventItem => ({
+    ...makeEvent('PRE_TOOL_USE'),
+    toolName,
+    payload: { tool_input: toolInput },
+  })
+
+  it('summarizes NotebookEdit and WebFetch by path or url', () => {
+    // A redacted NotebookEdit no longer carries new_source; the path survives.
+    expect(
+      summarizeEvent(
+        toolEvent('NotebookEdit', {
+          notebook_path: '/repo/n.ipynb',
+          cell_id: 'c1',
+          edit_mode: 'replace',
+        }),
+        intl
+      )
+    ).toBe('/repo/n.ipynb')
+    expect(
+      summarizeEvent(
+        toolEvent('WebFetch', {
+          url: 'https://example.com/doc',
+          prompt: 'summarize',
+        }),
+        intl
+      )
+    ).toBe('https://example.com/doc')
   })
 })
