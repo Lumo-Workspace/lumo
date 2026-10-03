@@ -35,8 +35,8 @@ interface FaqItem {
 //   (HOOK_EVENT_RETENTION_DAYS) or discard USED_UP_GRACE_DAYS after use
 //   (lib/hook-event/retention.ts); scan code cleared
 //   DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS after merge or close
-//   (lib/security-scan/evidence-retention.ts). Team memory and summaries are
-//   kept: turning them off or deleting them is not shipped, so not claimed.
+//   (lib/security-scan/evidence-retention.ts). The AI-derived content switch
+//   and owner delete (LUM-917) are described on /security, not here.
 const FAQS: FaqItem[] = [
   {
     q: 'What if the agent just says it’s done?',

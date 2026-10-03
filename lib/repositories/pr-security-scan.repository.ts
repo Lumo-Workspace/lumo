@@ -717,14 +717,19 @@ export const prSecurityScanRepository = {
    * LUM-911 — the retention scrub: the same fields, but the hunt audit keeps
    * its code-free counts (the scan is still shown). Skips scans already
    * scrubbed (a rerun is a no-op) and pre-LUM-911 scans (the backlog task's).
+   * LUM-914 — `retentionTracked: false` is that backlog: the operator-run
+   * stock script scrubs ONLY pre-LUM-911 scans, the same way.
    */
-  async scrubCodeForRetention(scanIds: string[]) {
+  async scrubCodeForRetention(
+    scanIds: string[],
+    opts: { retentionTracked?: boolean } = {}
+  ) {
     if (scanIds.length === 0) return { findings: 0, scans: 0 }
     return scrubCode(
       {
         id: { in: scanIds },
         codeScrubbedAt: null,
-        retentionTracked: true,
+        retentionTracked: opts.retentionTracked ?? true,
       },
       'counts'
     )
@@ -741,10 +746,12 @@ export const prSecurityScanRepository = {
     zeroRetentionWorkspaceIds: string[]
     after: string | null
     take: number
+    /** LUM-914: false = the pre-LUM-911 backlog instead (stock script only). */
+    retentionTracked?: boolean
   }): Promise<RetentionCandidate[]> {
     const rows = await prisma.prSecurityScan.findMany({
       where: {
-        retentionTracked: true,
+        retentionTracked: input.retentionTracked ?? true,
         codeScrubbedAt: null,
         status: { in: ['CLEAN', 'FINDINGS', 'FAILED'] },
         ...(input.after ? { id: { gt: input.after } } : {}),
@@ -762,6 +769,27 @@ export const prSecurityScanRepository = {
       select: RETENTION_SELECT,
     })
     return rows.map(toRetentionCandidate)
+  },
+
+  /**
+   * LUM-914 — the pre-LUM-911 backlog's size, for the stock script's before /
+   * after line: untracked scans still holding what they wrote.
+   */
+  async countUntrackedUnscrubbed(): Promise<number> {
+    return prisma.prSecurityScan.count({
+      where: { retentionTracked: false, codeScrubbedAt: null },
+    })
+  },
+
+  /** LUM-914 — findings per scan among `scanIds` (the stock dry run's count). */
+  async countFindingsByScan(scanIds: string[]): Promise<Map<string, number>> {
+    if (scanIds.length === 0) return new Map()
+    const rows = await prisma.prSecurityFinding.groupBy({
+      by: ['scanId'],
+      where: { scanId: { in: scanIds } },
+      _count: { _all: true },
+    })
+    return new Map(rows.map(r => [r.scanId, r._count._all]))
   },
 
   /** LUM-911 — one scan as the retention check reads it; null when gone. */

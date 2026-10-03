@@ -282,9 +282,5 @@ describe('FAQ retention claims LUM-915', () => {
     expect(answer).toContain(
       `cleared ${DEFAULT_SCAN_EVIDENCE_RETENTION_DAYS} days after its pull request is merged or closed`
     )
-    // LUM-917 is not shipped: no switch-off or deletion of AI-derived content.
-    expect(answer).not.toMatch(
-      /(turn off|switch off|disable|delete)[^.]*(memory|summar)/i
-    )
   })
 })

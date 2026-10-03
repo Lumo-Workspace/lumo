@@ -33,6 +33,7 @@ export function DataRetentionSection({
   const intl = useIntl()
   return (
     <section
+      id='data-retention'
       data-testid='data-retention-section'
       className='rounded-lg border border-border overflow-hidden mb-8'
     >

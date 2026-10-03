@@ -47,6 +47,8 @@ import {
 import { EXPORT_TTL_DAYS } from '@/lib/workspace/export-ttl'
 import { PUBLIC_ROUTES } from '@/proxy'
 import { generateMetadata } from '@/app/security/page'
+import { aiDerivedContentRepository } from '@/lib/repositories/ai-derived-content.repository'
+import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 
 /** Intl.ListFormat (ES2021) — absent from the repo's TS lib, present in Node. */
 function orList(locale: string, items: string[]): string {
@@ -124,6 +126,21 @@ jest.mock('react-intl', () => {
     useIntl: () => React.useContext(Ctx),
   }
 })
+
+// LUM-917: the AI-derived content delete is driven through the real service
+// against a mocked repository, so the copy's delete list is held to the
+// batches the service actually runs.
+jest.mock('@/lib/repositories/ai-derived-content.repository', () => ({
+  aiDerivedContentRepository: {
+    findEnabled: jest.fn(),
+    countForWorkspace: jest.fn(),
+    deleteMemoryBatch: jest.fn(),
+    clearSessionSummaryBatch: jest.fn(),
+    clearRunSummaryBatch: jest.fn(),
+    clearClaimSnapshotBatch: jest.fn(),
+    clearVerdictTextBatch: jest.fn(),
+  },
+}))
 
 const SECTION_HEADINGS = [
   'security.infra.heading',
@@ -350,19 +367,107 @@ describe('/security page (LUM-856)', () => {
     expect(en['security.notYet.body']).toMatch(
       /encryption with a separate key for each workspace/
     )
-    // LUM-917 is not shipped: AI-derived content is only said to be kept.
-    expect(en['security.retention.derived']).toMatch(
-      /kept for as long as the workspace exists/
-    )
-    expect(en['security.retention.derived']).not.toMatch(
-      /turn off|switch off|disable|delete/i
-    )
     // LUM-860: uninstall and repository removal both clear scan code.
     expect(en['security.retention.uninstall']).toMatch(
       /or removing a repository from it, clears the code/
     )
     expect(en['security.code.retention']).toBeUndefined()
     expect(en['security.code.uninstall']).toBeUndefined()
+  })
+
+  it('security AI-derived content copy matches the shipped switch and delete LUM-917', async () => {
+    const en = MESSAGES.en!
+    const derived = en['security.retention.derived'] as string
+    const del = en['security.retention.derivedDelete'] as string
+    const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8')
+
+    // Default on: workspaces.aiDerivedContentEnabled defaults to true.
+    expect(read('prisma/schema.prisma')).toMatch(
+      /aiDerivedContentEnabled Boolean @default\(true\)/
+    )
+    expect(derived).toMatch(/This is on by default\./)
+
+    // Code stripped, then credentials redacted, on every derived write.
+    for (const repo of [
+      'lib/repositories/memory.repository.ts',
+      'lib/repositories/session.repository.ts',
+    ])
+      expect(read(repo)).toMatch(
+        /redactStoredFields\(stripCodeFromStoredFields\(data, fields\), fields\)/
+      )
+    expect(read('lib/repositories/hook-event.repository.ts')).toMatch(
+      /redactForStorage\(stripCodeFromText\(summary\)\.text\)/
+    )
+    expect(derived).toContain(
+      'code blocks and lines of code are removed and credentials are redacted'
+    )
+    expect(derived).toContain(
+      'Each turn in a session record still gets a one-line summary, also stored without code'
+    )
+
+    // OWNER only: the switch (workspace settings) and the delete.
+    await expect(
+      aiDerivedContentService.purge(
+        { id: 'w1', name: 'Acme' },
+        'MEMBER',
+        'Acme'
+      )
+    ).rejects.toMatchObject({ status: 403 })
+    expect(read('lib/services/workspace.service.ts')).toMatch(
+      /aiDerivedContentEnabled !== undefined/
+    )
+    expect(derived).toMatch(/An owner can turn it off under Data retention/)
+    expect(derived).toMatch(/no new memories or summaries are generated/)
+    expect(derived).toMatch(/no AI-written task claim/)
+    expect(derived).toMatch(/an agent's own report on its work is still kept/)
+    expect(derived).toMatch(
+      /kept for as long as the workspace exists unless an owner deletes it/
+    )
+
+    // Delete: re-typed name, then exactly the batches the copy names.
+    const repo = aiDerivedContentRepository as unknown as Record<
+      string,
+      jest.Mock
+    >
+    const NAMED: Record<string, string> = {
+      'every memory in the workspace, including memories added by hand, together with its search embedding':
+        'deleteMemoryBatch',
+      'session summaries': 'clearSessionSummaryBatch',
+      'run summaries': 'clearRunSummaryBatch',
+      'the task claims generated from them': 'clearClaimSnapshotBatch',
+      'the explanations written for claim faithfulness checks':
+        'clearVerdictTextBatch',
+    }
+    for (const fn of Object.values(NAMED))
+      repo[fn]!.mockReset().mockResolvedValue(0)
+    await expect(
+      aiDerivedContentService.purge({ id: 'w1', name: 'Acme' }, 'OWNER', 'acme')
+    ).rejects.toMatchObject({ status: 400 })
+    for (const fn of Object.values(NAMED))
+      expect(repo[fn]).not.toHaveBeenCalled()
+    expect(del).toContain('after re-typing the workspace name')
+
+    const result = await aiDerivedContentService.purge(
+      { id: 'w1', name: 'Acme' },
+      'OWNER',
+      'Acme'
+    )
+    expect(result.done).toBe(true)
+    for (const [phrase, fn] of Object.entries(NAMED)) {
+      expect(del).toContain(phrase)
+      expect(repo[fn]).toHaveBeenCalledWith('w1', expect.any(Number))
+    }
+    // The embedding lives on the memory row the batch deletes.
+    expect(read('prisma/schema.prisma')).toMatch(
+      /embedding\s+Unsupported\("vector\(1024\)"\)\?/
+    )
+    // Not affected: the delete never touches hook events or documents.
+    const repoSource = read('lib/repositories/ai-derived-content.repository.ts')
+    expect(repoSource).not.toMatch(/prisma\.(hookEvent|document)\b/)
+    expect(del).toContain(
+      'session records, tasks and documents are not affected'
+    )
+    expect(del).toContain("An agent's own report on its work is kept")
   })
 
   it('renders every subprocessor from the registry', () => {

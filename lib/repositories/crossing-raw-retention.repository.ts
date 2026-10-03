@@ -26,6 +26,18 @@ export interface CrossingPurgeWrite {
   now: Date
 }
 
+/** LUM-914: an explicit timeout for the purge transaction (remote runs). */
+export interface CrossingPurgeTxOptions {
+  timeout?: number
+  maxWait?: number
+}
+
+/** LUM-914: a dispositioned, unpurged crossing as the stock script reads it. */
+export interface StockCrossing extends PurgeableCrossing {
+  disposition: string
+  dispositionedAt: Date | null
+}
+
 // ── Boundary-crossing raw retention repository (LUM-912) ─────────────────────
 
 export const crossingRawRetentionRepository = {
@@ -99,7 +111,10 @@ export const crossingRawRetentionRepository = {
    * the window and not purged, so a reopen or a concurrent run makes this a
    * no-op. Returns whether this call purged it.
    */
-  async purgeCrossing(write: CrossingPurgeWrite): Promise<boolean> {
+  async purgeCrossing(
+    write: CrossingPurgeWrite,
+    txOptions?: CrossingPurgeTxOptions
+  ): Promise<boolean> {
     return prisma.$transaction(async tx => {
       const { count } = await tx.boundaryCrossing.updateMany({
         where: {
@@ -127,6 +142,55 @@ export const crossingRawRetentionRepository = {
         })
       }
       return true
+    }, txOptions)
+  },
+
+  /**
+   * LUM-914 — the pre-rule stock of one workspace: dispositioned, not purged,
+   * and either dispositioned before `dispositionedBefore` (the workspace's
+   * `crossingRawRetentionSince`, which the sweep never reaches below) or with
+   * no disposition time at all. Id order. The stock script classifies them.
+   */
+  async findStock(params: {
+    workspaceId: string
+    dispositionedBefore: Date
+    afterId: string | null
+    take: number
+  }): Promise<StockCrossing[]> {
+    const { workspaceId, dispositionedBefore, afterId, take } = params
+    const rows = await prisma.boundaryCrossing.findMany({
+      where: {
+        rawPurgedAt: null,
+        disposition: { not: null },
+        ...(afterId ? { id: { gt: afterId } } : {}),
+        AND: [
+          {
+            OR: [
+              { dispositionedAt: { lt: dispositionedBefore } },
+              { dispositionedAt: null },
+            ],
+          },
+          {
+            OR: [
+              { task: { is: { team: { workspaceId } } } },
+              { milestone: { is: { project: { workspaceId } } } },
+            ],
+          },
+        ],
+      },
+      orderBy: { id: 'asc' },
+      take,
+      select: {
+        id: true,
+        taskId: true,
+        category: true,
+        target: true,
+        disposition: true,
+        dispositionedAt: true,
+      },
     })
+    return rows.flatMap(r =>
+      r.disposition ? [{ ...r, disposition: r.disposition as string }] : []
+    )
   },
 }

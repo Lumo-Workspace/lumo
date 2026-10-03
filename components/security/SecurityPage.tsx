@@ -46,6 +46,7 @@ const SECTIONS: { id: string; paragraphs: string[] }[] = [
       'deadLetter',
       'uninstall',
       'derived',
+      'derivedDelete',
       'backlog',
     ],
   },
