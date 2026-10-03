@@ -88,7 +88,11 @@ async function main() {
   const { gateway } = await import('@/lib/ai/gateway')
 
   const chat = Object.entries(models).filter(
-    (e): e is [string, string] => typeof e[1] === 'string' && e[1].includes('/')
+    (e): e is [string, string] =>
+      typeof e[1] === 'string' &&
+      e[1].includes('/') &&
+      // LUM-945: an evaluation model, called outside the ZDR layer on purpose.
+      e[0] !== 'CROSSING_TRIAGE_MODEL'
   )
   const rows: ProbeRow[] = []
 

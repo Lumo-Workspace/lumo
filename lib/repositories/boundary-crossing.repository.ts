@@ -162,6 +162,9 @@ const VIEW_SELECT = {
       team: { select: { identifier: true } },
     },
   },
+  // LUM-945: the AI triage score shown on the panel.
+  triageProbability: true,
+  triageModel: true,
 } as const
 
 /**
@@ -452,6 +455,96 @@ export const boundaryCrossingRepository = {
       },
     })
     return count
+  },
+
+  /**
+   * LUM-945 triage sweep: OPEN rows not yet triaged, oldest first, with what
+   * the model is shown (task title/description, agent explanations) and the
+   * workspace whose AI switch gates the call.
+   */
+  async findTriageCandidates(take: number) {
+    return prisma.boundaryCrossing.findMany({
+      where: { disposition: null, triagedAt: null },
+      select: {
+        id: true,
+        taskId: true,
+        category: true,
+        severity: true,
+        reversible: true,
+        detail: true,
+        target: true,
+        policyRuleText: true,
+        rawPurgedAt: true,
+        task: {
+          select: {
+            title: true,
+            description: true,
+            project: { select: { workspaceId: true } },
+          },
+        },
+        explanations: {
+          select: { note: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+      orderBy: { detectedAt: 'asc' },
+      take,
+    })
+  },
+
+  /**
+   * LUM-945 triage write. Always records the score; with `autoClear` it also
+   * stamps the system disposition AUTO_LEGIT — no `dispositionedById`, the
+   * null actor marks a system decision. The WHERE keeps it to a row that is
+   * still OPEN and untriaged, so a human ruling that landed in between wins
+   * and the caller leaves no trail for a 0.
+   */
+  async recordTriage(
+    id: string,
+    input: { probability: number; model: string; autoClear: boolean; now: Date }
+  ): Promise<number> {
+    const { count } = await prisma.boundaryCrossing.updateMany({
+      where: { id, disposition: null, triagedAt: null },
+      data: {
+        triageProbability: input.probability,
+        triageModel: input.model,
+        triagedAt: input.now,
+        ...(input.autoClear
+          ? { disposition: 'AUTO_LEGIT' as const, dispositionedAt: input.now }
+          : {}),
+      },
+    })
+    return count
+  },
+
+  /**
+   * LUM-945: a row the triage never sends to a model (no task, purged
+   * evidence, evasion) — stamped so the sweep stops picking it up. No score,
+   * no model: `triagedAt` set with a null probability reads "not judged".
+   */
+  async markTriageSkipped(id: string, now: Date): Promise<number> {
+    const { count } = await prisma.boundaryCrossing.updateMany({
+      where: { id, triagedAt: null },
+      data: { triagedAt: now },
+    })
+    return count
+  },
+
+  /**
+   * LUM-945 auto-pause input: per category, the rows the triage scored at or
+   * above `threshold` since `since`, split by their current disposition (a
+   * human may have re-ruled an AUTO_LEGIT as CONFIRMED).
+   */
+  async triageClearCounts(since: Date, threshold: number) {
+    return prisma.boundaryCrossing.groupBy({
+      by: ['category', 'disposition'],
+      where: {
+        triageModel: { not: null },
+        triagedAt: { gte: since },
+        triageProbability: { gte: threshold },
+      },
+      _count: { _all: true },
+    })
   },
 
   async findById(id: string) {

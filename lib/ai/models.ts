@@ -123,6 +123,18 @@ export const MEMORY_JUDGE_MODEL = 'deepseek/deepseek-v4-pro'
 export const POLICY_COMPILER_MODEL = 'zai/glm-5.2'
 
 /**
+ * Boundary-crossing triage (LUM-945) — after the rule detectors record a
+ * crossing, this model reads the task context and returns P(legit). TypeSafe
+ * Jev is an EVALUATION model (typed question → probability), not a language
+ * model: it is called through `@/lib/ai/evaluation`, never `gateway(id)`.
+ * Chosen on the LUM-945 offline comparison (372 human-labelled production
+ * crossings; boolean question). Catalog 2026-10-03: its only endpoint has
+ * `zdr: none` / `no_training: all` — the one model in this registry that is
+ * not zero-data-retention (user ruling on LUM-945).
+ */
+export const CROSSING_TRIAGE_MODEL = 'typesafe-ai/jev'
+
+/**
  * The embedding model id lives in `./embedding` (`EMBEDDING_MODEL`), coupled to
  * `EMBEDDING_DIM` and the pgvector column width. It is deliberately NOT
  * re-exported here: that module statically imports `@ai-sdk/gateway`, whereas

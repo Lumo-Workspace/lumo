@@ -30,6 +30,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/triage-crossings",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/rejudge-crossings",
       "schedule": "30 * * * *"
     },
