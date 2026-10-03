@@ -17,8 +17,29 @@ export const RESYNC_EVENT_TYPES = [
   'SUBAGENT_STOP',
 ] as const
 
-/** Writes per family run in one transaction; generous for long sessions. */
-const RESYNC_TX_OPTIONS = { timeout: 60_000, maxWait: 5_000 } as const
+/**
+ * Writes per family run in one transaction. Longer than the attribution
+ * retag's 15s (RETAG_TX_OPTIONS): a long session can carry thousands of
+ * per-step rows. Rows with an identical scaled value share one updateMany.
+ */
+const RESYNC_TX_OPTIONS = { timeout: 120_000, maxWait: 10_000 } as const
+
+/** Group rows by their (serialized) new value so each group is one write. */
+function groupRowsByValue(
+  rows: SessionResyncWrite['rows']
+): Array<{ ids: string[]; usageByModel: Record<string, ModelUsage> }> {
+  const groups = new Map<
+    string,
+    { ids: string[]; usageByModel: Record<string, ModelUsage> }
+  >()
+  for (const r of rows) {
+    const key = JSON.stringify(r.usageByModel)
+    const g = groups.get(key)
+    if (g) g.ids.push(r.id)
+    else groups.set(key, { ids: [r.id], usageByModel: r.usageByModel })
+  }
+  return [...groups.values()]
+}
 
 export interface ResyncSessionRow {
   id: string
@@ -185,11 +206,18 @@ export const usageResyncRepository = {
             { status: 409 }
           )
         }
-        for (const r of s.rows) {
-          await tx.hookEvent.updateMany({
-            where: { id: r.id, sessionId: s.sessionId },
-            data: { usageByModel: json(r.usageByModel) },
+        for (const g of groupRowsByValue(s.rows)) {
+          const res = await tx.hookEvent.updateMany({
+            where: { id: { in: g.ids }, sessionId: s.sessionId },
+            data: { usageByModel: json(g.usageByModel) },
           })
+          // Every planned row must still exist on this session, or the audit
+          // would record rows that were never scaled: roll the family back.
+          if (res.count !== g.ids.length) {
+            throw new Error(
+              `usage resync row mismatch on session ${s.sessionId}: ${res.count}/${g.ids.length}`
+            )
+          }
         }
         await tx.usageResyncAudit.create({
           data: {

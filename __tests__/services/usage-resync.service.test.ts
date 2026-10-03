@@ -267,6 +267,37 @@ describe('usage resync corrects historical sessions from deduped transcripts', (
     )
   })
 
+  it('isolates a failing family: it is reported as an error and the others still run', async () => {
+    repo.findFamilyForMember
+      .mockRejectedValueOnce(new Error('db down'))
+      .mockResolvedValueOnce({
+        root: row('s2', { m: u(10, 10, 10, 10) }),
+        children: [],
+      })
+      .mockResolvedValueOnce({
+        root: row('s3', { m: u(10, 10, 10, 10) }),
+        children: [],
+      })
+    repo.applyFamilyResync
+      .mockRejectedValueOnce(new Error('row mismatch'))
+      .mockResolvedValueOnce(undefined)
+    const one = (sessionId: string) => ({
+      sessionId,
+      total: flat(1, 1, 1, 1),
+      byModel: { m: u(1, 1, 1, 1) },
+    })
+    const res = await usageResyncService.resync({
+      identity,
+      dryRun: false,
+      sessions: [one('s1'), one('s2'), one('s3')],
+    })
+    expect(res.results.map(r => [r.sessionId, r.status, r.reason])).toEqual([
+      ['s1', 'skipped', 'error'],
+      ['s2', 'skipped', 'error'],
+      ['s3', 'resynced', undefined],
+    ])
+  })
+
   it('reports already_resynced when the guarded write loses a race', async () => {
     repo.findFamilyForMember.mockResolvedValueOnce({
       root: row('s1', { m: u(10, 10, 10, 10) }),

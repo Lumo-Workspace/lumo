@@ -20,6 +20,7 @@ jest.mock('@/lib/db/prisma', () => ({
   },
 }))
 
+import { usageResyncRepository } from '@/lib/repositories/usage-resync.repository'
 import { usageResyncService } from '@/lib/services/usage-resync.service'
 import type { ResyncSessionInput } from '@/lib/validation/usage-resync'
 
@@ -188,6 +189,13 @@ beforeAll(async () => {
     agentId: 'a1',
     ...stored({ haiku: u(10, 10, 10, 10) }),
   })
+  // A child row with NO stored usage: no split ever happened, so the
+  // subagent's usage is still inside the root's stored figure.
+  await session('nulc', stored({ opus: u(50, 50, 50, 50) }))
+  await session('nulc:a1', { parentSessionId: 'nulc', agentId: 'a1' })
+  await event('n1', 'nulc', 'STOP', { opus: u(50, 50, 50, 50) })
+  // Row-count guard target.
+  await session('guard', stored({ opus: u(10, 10, 10, 10) }))
 })
 
 afterAll(async () => {
@@ -333,13 +341,22 @@ describe('usage resync corrects historical sessions from deduped transcripts', (
         usageByModel: { opus: ROOT_OLD },
         liveUsageByModel: { opus: u(250, 120, 1100, 40) },
       },
-      after: { ...flat(100, 50, 400, 40), usageByModel: rootNew },
+      after: {
+        ...flat(100, 50, 400, 40),
+        usageByModel: rootNew,
+        liveUsageByModel: rootNew,
+      },
       factors: { opus: u(0.5, 0.5, 0.4, 1) },
       rows: ROW_OLD,
     })
     expect(audits[1]).toMatchObject({
       sessionId: CHILD,
       before: { ...flat(20, 10, 100, 0), usageByModel: { haiku: CHILD_OLD } },
+      after: {
+        ...flat(10, 5, 50, 0),
+        usageByModel: { haiku: u(10, 5, 50, 0) },
+        liveUsageByModel: { haiku: u(10, 5, 50, 0) },
+      },
       factors: { haiku: u(0.5, 0.5, 0.5, 0) },
       rows: { e6: { haiku: CHILD_OLD } },
     })
@@ -471,6 +488,78 @@ describe('usage resync corrects historical sessions from deduped transcripts', (
         after: 80,
       },
     ])
+    expect(await snapshot()).toEqual(snap)
+  })
+
+  it('does not subtract a subagent whose child row has no stored usage from the root share', async () => {
+    const res = await usageResyncService.resync({
+      identity,
+      dryRun: false,
+      sessions: [
+        {
+          sessionId: 'nulc',
+          total: flat(30, 30, 30, 30),
+          byModel: { opus: u(30, 30, 30, 30) },
+          bySubagent: {
+            a1: {
+              total: flat(10, 10, 10, 10),
+              byModel: { opus: u(10, 10, 10, 10) },
+            },
+          },
+        },
+      ],
+    })
+    expect(res.results).toEqual([
+      {
+        sessionId: 'nulc',
+        status: 'resynced',
+        before: 200,
+        after: 120,
+        sessionsCorrected: 1,
+        rowsScaled: 1,
+      },
+    ])
+    const root = await db().session.findUniqueOrThrow({ where: { id: 'nulc' } })
+    expect(root).toMatchObject({
+      ...flat(30, 30, 30, 30),
+      usageByModel: { opus: u(30, 30, 30, 30) },
+    })
+    const audit = await db().usageResyncAudit.findFirstOrThrow({
+      where: { sessionId: 'nulc' },
+    })
+    expect(audit.factors).toEqual({ opus: u(0.6, 0.6, 0.6, 0.6) })
+    const n1 = await db().hookEvent.findUniqueOrThrow({ where: { id: 'n1' } })
+    expect(n1.usageByModel).toEqual({ opus: u(30, 30, 30, 30) })
+    const child = await db().session.findUniqueOrThrow({
+      where: { id: 'nulc:a1' },
+    })
+    expect(child.inputTokens).toBeNull()
+    expect(child.usageResyncedAt).toBeNull()
+  })
+
+  it('rolls the family back when a scaled row no longer matches', async () => {
+    const snap = await snapshot()
+    await expect(
+      usageResyncRepository.applyFamilyResync({
+        workspaceId: 'ws',
+        workspaceMemberId: 'member',
+        activeBefore: new Date('2026-10-03T07:13:35Z'),
+        now: new Date(),
+        sessions: [
+          {
+            sessionId: 'guard',
+            usage: {
+              ...flat(5, 5, 5, 5),
+              usageByModel: { opus: u(5, 5, 5, 5) },
+            },
+            rows: [
+              { id: 'no-such-event', usageByModel: { opus: u(1, 1, 1, 1) } },
+            ],
+            audit: { before: {}, after: {}, factors: {}, rows: {} },
+          },
+        ],
+      })
+    ).rejects.toThrow(/row/)
     expect(await snapshot()).toEqual(snap)
   })
 })

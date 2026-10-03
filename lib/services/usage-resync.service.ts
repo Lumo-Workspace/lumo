@@ -1,4 +1,5 @@
 import { USAGE_DEDUPE_CUTOFF } from '@/lib/agent-run/usage-dedupe-cutoff'
+import { logger } from '@/lib/logger'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import type { ModelUsage } from '@/lib/repositories/session.repository'
 import {
@@ -25,6 +26,8 @@ export type UsageResyncReason =
   | 'already_resynced'
   | 'no_usage'
   | 'not_inflated'
+  /** An unexpected failure for this family; nothing of it was written. */
+  | 'error'
 
 export interface UsageResyncResult {
   sessionId: string
@@ -83,9 +86,12 @@ interface Correction {
 
 /**
  * Exact targets per family member. The root keeps `total − Σ subagents` (the
- * same split the hook path applies), subtracting only subagents that HAVE a
- * child row: a subagent without one ran before child sessions existed, so its
- * usage is still inside the root's stored figures and must stay there.
+ * same split the hook path applies), subtracting only subagents whose child
+ * row EXISTS AND HAS STORED USAGE. Deliberate deviation from the spec's plain
+ * `total − Σ bySubagent` (controller ruling): a subagent with no child row
+ * ran before child sessions existed, and a child row with null usage never
+ * received a split — either way its usage is still inside the root's stored
+ * figures and must stay in the root's share.
  */
 function familyTargets(
   input: ResyncSessionInput,
@@ -97,7 +103,9 @@ function familyTargets(
   const out: Correction[] = []
   for (const [agentId, sub] of Object.entries(input.bySubagent ?? {})) {
     const child = childById.get(`${root.id}:${agentId}`)
-    if (!child) continue
+    // A child row with no stored usage never received a split either, so
+    // its subagent's usage is likewise still inside the root's figure.
+    if (!child || !hasUsage(child)) continue
     const usage = toInjected(sub.total, sub.byModel)
     subs[agentId] = usage
     out.push({ row: child, target: toUsage(usage) })
@@ -263,7 +271,20 @@ export const usageResyncService = {
       now: input.now ?? new Date(),
     }
     const results: UsageResyncResult[] = []
-    for (const s of input.sessions) results.push(await resyncOne(s, ctx))
+    for (const s of input.sessions) {
+      try {
+        results.push(await resyncOne(s, ctx))
+      } catch (error) {
+        // One failing family must not sink the batch; its transaction (if
+        // any) rolled back, so nothing of it was written.
+        logger.error(
+          'usageResyncService.resync family error:',
+          s.sessionId,
+          error
+        )
+        results.push(skipped(s.sessionId, 'error'))
+      }
+    }
     return { dryRun: input.dryRun, results }
   },
 }

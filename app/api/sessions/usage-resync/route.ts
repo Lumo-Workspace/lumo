@@ -7,6 +7,9 @@ import {
   type UsageResyncBody,
 } from '@/lib/validation/usage-resync'
 
+// Up to 50 session families per request, one transaction each.
+export const maxDuration = 300
+
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
 
 /**
