@@ -47,21 +47,7 @@ Trigger conditions (OR — either or both may appear):
 1. At least one CONFIRMED "blocked by" edge where the blocking task's status is not DONE.
 2. At least one SUGGESTED (unconfirmed) dependency candidate on the task.
 
-**Form A — live blockers exist (with or without SUGGESTED candidates):** `## usage resync
-
-`lumo usage resync [--apply] [--json]` (LUM-932) recomputes token usage from the local deduped transcripts (`$CLAUDE_CONFIG_DIR/projects/*/<sessionId>.jsonl`, default `~/.claude`) and asks the server to correct historical rows that were inflated by double counting. Only token counts are sent, never transcript content; at most 50 sessions per request.
-
-**When to suggest:** the user says historical token/cost numbers look too high or asks to fix/correct past usage. Run it as a dry run first (default: prints `Dry run — nothing written.`, counts and summed before → after tokens), show the result, then re-run with `--apply` once they agree.
-
-```bash
-lumo usage resync            # dry run
-lumo usage resync --apply    # write corrections
-lumo usage resync --json     # merged server response
-```
-
-Output counts: resynced / would be resynced, not on this account / unknown (foreign or never-seen transcripts, not an error), not inflated, already resynced, active after cutoff, no usage. `N failed — re-run later` means the server failed on those sessions (nothing written for them) and the command exits 1; re-run it later.
-
-## ⚠ Dependency alerts` header, one line per live blocker, then the advice line. If SUGGESTED candidates also exist, the candidate-hint line is appended after the advice line.
+**Form A — live blockers exist (with or without SUGGESTED candidates):** `## ⚠ Dependency alerts` header, one line per live blocker, then the advice line. If SUGGESTED candidates also exist, the candidate-hint line is appended after the advice line.
 
 ```
 ## ⚠ Dependency alerts
@@ -258,3 +244,17 @@ A **human-applied** `blocked` tag has no auto-block record and is **never** auto
 #### When to suggest
 
 Nothing to suggest — these run on their own. If a teammate asks why a task shows `blocked`, explain it's the auto-block (repeated same-tool failures) and that it clears itself once the task makes progress; a human can also remove the tag manually from the board.
+
+## usage resync
+
+`lumo usage resync [--apply] [--json]` (LUM-932) recomputes token usage from the local deduped transcripts (`$CLAUDE_CONFIG_DIR/projects/*/<sessionId>.jsonl`, default `~/.claude`) and asks the server to correct historical rows that were inflated by double counting. Only token counts are sent, never transcript content; at most 50 sessions per request.
+
+**When to suggest:** the user says historical token/cost numbers look too high or asks to fix/correct past usage. Run it as a dry run first (default: prints `Dry run — nothing written.`, counts and summed before → after tokens), show the result, then re-run with `--apply` once they agree.
+
+```bash
+lumo usage resync            # dry run
+lumo usage resync --apply    # write corrections
+lumo usage resync --json     # merged server response
+```
+
+Output counts: resynced / would be resynced, not on this account / unknown (foreign or never-seen transcripts, not an error), not inflated, already resynced, active after cutoff, no usage. `N failed — re-run later` means the server failed on those sessions (nothing written for them) and the command exits 1; re-run it later.

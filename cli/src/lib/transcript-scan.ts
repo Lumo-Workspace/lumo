@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -20,6 +20,7 @@ export function listTranscripts(): LocalTranscript[] {
   const root = join(base, 'projects')
   if (!existsSync(root)) return []
   const out: LocalTranscript[] = []
+  const seen = new Set<string>()
   try {
     for (const proj of readdirSync(root, { withFileTypes: true })) {
       if (!proj.isDirectory()) continue
@@ -28,7 +29,15 @@ export function listTranscripts(): LocalTranscript[] {
         if (!f.endsWith('.jsonl')) continue
         const sessionId = f.slice(0, -'.jsonl'.length)
         if (!UUID_RE.test(sessionId)) continue
-        out.push({ sessionId, path: join(dir, f) })
+        if (seen.has(sessionId)) continue
+        const path = join(dir, f)
+        try {
+          if (!statSync(path).isFile()) continue
+        } catch {
+          continue
+        }
+        seen.add(sessionId)
+        out.push({ sessionId, path })
       }
     }
   } catch {

@@ -99,12 +99,11 @@ async function run(
 
 const results = (b: Req['body']) => ({
   dryRun: b.dryRun,
-  results: b.sessions.map((s, i) => ({
+  results: b.sessions.map(s => ({
     sessionId: s.sessionId,
     status: b.dryRun ? 'would_resync' : 'resynced',
     before: 200,
     after: 100,
-    ...(i < 0 ? { reason: 'x' } : {}),
   })),
 })
 
@@ -246,5 +245,113 @@ describe('usage resync command and resynced runs', () => {
         )
         .sort()
     )
+  })
+
+  it('a mid-run batch failure prints finished batches, unsent count, exit 1', async () => {
+    process.env.CLAUDE_CONFIG_DIR = makeConfigDir(60)
+    let call = 0
+    global.fetch = jest.fn(async (_u: string, init: { body: string }) => {
+      call++
+      const body = JSON.parse(init.body)
+      if (call === 2) throw new Error('boom')
+      return { ok: true, status: 200, json: async () => results(body) }
+    }) as unknown as typeof fetch
+    const { out, err, code } = await run({ apply: true })
+    expect(code).toBe(1)
+    expect(out).toContain('50 resynced')
+    expect(err).toContain('could not reach')
+    expect(err).toContain('10 session(s) not sent — re-run')
+  })
+
+  it('a 401 on batch 2 keeps batch 1 results and exits 1', async () => {
+    process.env.CLAUDE_CONFIG_DIR = makeConfigDir(60)
+    let call = 0
+    global.fetch = jest.fn(async (_u: string, init: { body: string }) => {
+      call++
+      const body = JSON.parse(init.body)
+      if (call === 2) return { ok: false, status: 401, json: async () => ({}) }
+      return { ok: true, status: 200, json: async () => results(body) }
+    }) as unknown as typeof fetch
+    const { out, err, code } = await run({ apply: true })
+    expect(code).toBe(1)
+    expect(out).toContain('50 resynced')
+    expect(err).toContain('lumo auth login')
+    expect(err).toContain('10 session(s) not sent')
+  })
+
+  it('invalid JSON or missing results is a failed batch', async () => {
+    process.env.CLAUDE_CONFIG_DIR = makeConfigDir(2)
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error('bad json')
+      },
+    })) as unknown as typeof fetch
+    let r = await run()
+    expect(r.code).toBe(1)
+    expect(r.err).toContain('2 session(s) not sent')
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ dryRun: true }),
+    })) as unknown as typeof fetch
+    r = await run()
+    expect(r.code).toBe(1)
+    expect(r.err).toContain('unexpected response')
+  })
+
+  it('dedupes a session id seen in two project dirs', () => {
+    const dir = makeConfigDir(1)
+    const other = join(dir, 'projects', '-other')
+    mkdirSync(other, { recursive: true })
+    writeFileSync(join(other, `${uuid(1)}.jsonl`), '\n')
+    process.env.CLAUDE_CONFIG_DIR = dir
+    expect(listTranscripts()).toHaveLength(1)
+  })
+
+  it('never lists a subagents file or a directory as a session', () => {
+    const dir = makeConfigDir(1)
+    const sub = join(dir, 'projects', '-some-project', uuid(1), 'subagents')
+    mkdirSync(sub, { recursive: true })
+    writeFileSync(join(sub, 'agent-abc.jsonl'), '\n')
+    mkdirSync(join(dir, 'projects', '-some-project', `${uuid(9)}.jsonl`))
+    process.env.CLAUDE_CONFIG_DIR = dir
+    expect(listTranscripts().map(t => t.sessionId)).toEqual([uuid(1)])
+  })
+
+  it('sends bySubagent as numbers only and drops over-long model keys', async () => {
+    const dir = makeConfigDir(1)
+    const proj = join(dir, 'projects', '-some-project')
+    const line = (model: string) =>
+      JSON.stringify({
+        type: 'assistant',
+        message: {
+          id: 'x1',
+          model,
+          usage: { input_tokens: 3, output_tokens: 2 },
+        },
+      }) + '\n'
+    const sub = join(proj, uuid(1), 'subagents')
+    mkdirSync(sub, { recursive: true })
+    writeFileSync(join(sub, 'agent-abc.jsonl'), line('claude-sub'))
+    writeFileSync(
+      join(proj, `${uuid(1)}.jsonl`),
+      line('claude-x') + line('m'.repeat(300))
+    )
+    process.env.CLAUDE_CONFIG_DIR = dir
+    const reqs = mockFetch(200, results)
+    await run()
+    const sent = reqs[0]!.body.sessions[0] as unknown as {
+      byModel: Record<string, unknown>
+      bySubagent: Record<string, { total: object; byModel: object }>
+    }
+    expect(Object.keys(sent.byModel).every(k => k.length <= 200)).toBe(true)
+    expect(Object.keys(sent.bySubagent)).toEqual(['abc'])
+    expect(JSON.stringify(sent.bySubagent)).not.toContain('"type"')
+    expect(Object.keys(sent.bySubagent.abc!).sort()).toEqual([
+      'byModel',
+      'total',
+    ])
   })
 })
