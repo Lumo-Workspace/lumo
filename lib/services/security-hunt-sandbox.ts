@@ -154,10 +154,17 @@ export async function attachOrCreateHuntSandbox(
   const attachOptions = { excludeTagKeys: [HUNT_SANDBOX_TAG] }
   const pollMs = input.pollMs ?? HUNT_SANDBOX_ATTACH_POLL_MS
 
+  // LUM-876 — no hand-off was promised (judge-HIGH starts the hunt on a
+  // managed run that stops its own VM; continuation batches and retries run
+  // after the hand-off window). A VM found under the scan tag is then one
+  // that will never write the marker, and attaching to it only idles the
+  // batch for up to HUNT_MANAGED_SCAN_DONE_WAIT_MS before booting anyway.
+  if (!input.managedScanStarted) return createSealed(input)
+
   let attached = await findRepoSandboxByTag(tag, attachOptions)
   // The managed scan started a few milliseconds before us, so its VM may not
-  // be listed yet — wait a little. If it never started, waiting cannot help.
-  if (!attached && input.managedScanStarted) {
+  // be listed yet — wait a little.
+  if (!attached) {
     const deadline = Date.now() + HUNT_SANDBOX_ATTACH_WAIT_MS
     while (!attached && Date.now() < deadline) {
       await sleep(pollMs)

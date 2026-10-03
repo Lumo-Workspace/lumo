@@ -37,8 +37,18 @@ import {
   syncPrReviewBestEffort,
 } from './security-scan-helpers'
 
+/**
+ * LUM-876 — once a step's retries are spent, `@workflow/core` rewraps the
+ * message as `Step "<step id>" failed after N retries: <message>`. The step
+ * id is an internal module path and the retry count repeats what our own
+ * copy already says, so the prefix never reaches the PR.
+ */
+const STEP_RETRIES_PREFIX = /^Step ".*?" failed after \d+ retr(?:y|ies): /
+
 function reasonOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 500)
+  return (error instanceof Error ? error.message : String(error))
+    .replace(STEP_RETRIES_PREFIX, '')
+    .slice(0, 500)
 }
 
 export async function securityManagedScanWorkflow(

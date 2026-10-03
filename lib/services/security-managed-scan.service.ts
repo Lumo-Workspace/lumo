@@ -198,11 +198,13 @@ function failureDetail(stderr: string, token: string): string {
  * is. "refusing to scan" read as if the customer's repository had tripped
  * something; it had not. The step retries a thrown error on its own (a fresh
  * VM, a fresh token), so by the time this text is published the retries are
- * spent: it owns the fault and asks the customer for nothing.
+ * spent: it owns the fault and asks the customer for nothing. The detail
+ * (a caller-supplied error, unbounded) goes LAST, so the 480-char cut on the
+ * published reason eats the detail, never the exoneration.
  */
 function notFinishedOnOurSide(what: string): Error {
   return new Error(
-    `this scan didn't finish on our side, even after retrying (${what}). Nothing in your repository caused this.`
+    `this scan didn't finish on our side, even after retrying. Nothing in your repository caused this. (${what})`
   )
 }
 
