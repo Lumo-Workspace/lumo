@@ -5,6 +5,7 @@ import { SecurityPage } from '@/components/security/SecurityPage'
 import { IntlProviderWrapper } from '@/lib/i18n/IntlProviderWrapper'
 import { MESSAGES } from '@/lib/i18n/messages'
 import { resolvePublicLocale } from '@/lib/i18n/public-locale'
+import { RETENTION_FIGURES } from '@/lib/legal/retention-figures'
 
 interface PageProps {
   searchParams: Promise<{ lang?: string | string[] }>
@@ -37,7 +38,7 @@ export default async function Page({ searchParams }: PageProps) {
   const locale = await localeFor(searchParams)
   return (
     <IntlProviderWrapper locale={locale}>
-      <SecurityPage locale={locale} />
+      <SecurityPage locale={locale} retentionFigures={RETENTION_FIGURES} />
     </IntlProviderWrapper>
   )
 }
