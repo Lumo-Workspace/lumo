@@ -163,8 +163,8 @@ describe('attachOrCreateHuntSandbox', () => {
 
     expect(out.origin).toBe('created')
     expect(out.egressDenied).toBe(true)
-    // The managed scan is not coming — one look, no polling.
-    expect(find).toHaveBeenCalledTimes(1)
+    // The managed scan is not coming — LUM-876: not even one look.
+    expect(find).not.toHaveBeenCalled()
     // Tagged with BOTH keys: `lumoHunt` identifies who booted it, `lumoScan`
     // is what `killRun` stops VMs by when a `managedRunId` exists. Neither is
     // the backstop — the VM's own timeout is.

@@ -1002,7 +1002,11 @@ export const prSecurityScanService = {
           signalSites: huntTrigger.sites,
           // LUM-758 §5.1: false means no managed scan VM is coming, so the
           // hunt goes straight to creating its own instead of polling 30 s.
-          managedScanStarted: managedRunStarted,
+          // LUM-876: a run started with `huntWanted: false` (the hunt was
+          // turned on only by the judge's HIGH, after the run had started)
+          // stops its own VM and never writes the hand-off marker — there is
+          // nothing for the hunt to wait for either.
+          managedScanStarted: managedRunStarted && huntWantedForVm,
         }
         // LUM-832: an oversized diff (within HUNT_MAX_HUNTED_FILES) is hunted
         // in risk-ordered batches across runs. The plan rides on the job from

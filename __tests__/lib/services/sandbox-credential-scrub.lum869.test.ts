@@ -35,8 +35,19 @@ function vm(files: Record<string, string>, env = 'HOME=/vercel\n') {
 
 describe('LUM-869 base64 token detection', () => {
   it('LUM-869 scrub detects a base64 encoded token', async () => {
-    // Every prefix alignment, in the exact shape git writes.
-    for (const prefix of ['x-access-token:', ':', 'ab:', '']) {
+    // Every prefix alignment, in the exact shape git writes. base64 works
+    // in 3-byte groups, so the token starts at one of three offsets inside
+    // a group: prefix length mod 3 = 0, 1 or 2 (LUM-876 — 2 was missing).
+    const prefixes = [
+      'x-access-token:',
+      ':',
+      'ab:',
+      '',
+      'a:',
+      'x-access-token:ab',
+    ]
+    expect(new Set(prefixes.map(p => p.length % 3))).toEqual(new Set([0, 1, 2]))
+    for (const prefix of prefixes) {
       const header = `AUTHORIZATION: basic ${b64(prefix + TOKEN)}`
       expect(carriesToken(header, TOKEN)).toBe(true)
     }

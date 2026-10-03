@@ -191,6 +191,23 @@ function failureDetail(stderr: string, token: string): string {
   return tail.length > 0 ? `: ${tail}` : ''
 }
 
+/**
+ * LUM-876 — a setup step of OURS refused to let the scanners run (fail
+ * closed). The message is published — it becomes `PrSecurityScan.error` and
+ * from there "Code scan failed: …" on the PR — so it says whose failure it
+ * is. "refusing to scan" read as if the customer's repository had tripped
+ * something; it had not. The step retries a thrown error on its own (a fresh
+ * VM, a fresh token), so by the time this text is published the retries are
+ * spent: it owns the fault and asks the customer for nothing. The detail
+ * (a caller-supplied error, unbounded) goes LAST, so the 480-char cut on the
+ * published reason eats the detail, never the exoneration.
+ */
+function notFinishedOnOurSide(what: string): Error {
+  return new Error(
+    `this scan didn't finish on our side, even after retrying. Nothing in your repository caused this. (${what})`
+  )
+}
+
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -349,7 +366,7 @@ async function collectReports(opts: {
       `[security-managed-scan] clone token revoke failed ${opts.label}; refusing to scan`
     )
     await stopSandbox(sandbox, opts)
-    throw new Error('refusing to scan: could not revoke the clone token')
+    throw notFinishedOnOurSide('we could not revoke our temporary clone token')
   }
   // LUM-758's keepAlive hands a FINISHED VM to the hunt; a run that throws
   // anywhere below hands over nothing, so its VM is stopped like any other
@@ -360,7 +377,9 @@ async function collectReports(opts: {
     try {
       await scrubSandboxCredentials({ sandbox, cwd, token }, opts.repository)
     } catch (error) {
-      throw new Error(`refusing to scan: ${scrubToken(message(error), token)}`)
+      throw notFinishedOnOurSide(
+        `our sandbox credential check failed: ${scrubToken(message(error), token)}`
+      )
     }
     const reports: Partial<Record<ManagedScanTool, ToolReport>> = {}
     const sidecars: Partial<Record<ManagedScanTool, Buffer>> = {}
@@ -375,8 +394,8 @@ async function collectReports(opts: {
     try {
       await restrictSandboxEgress(sandbox.name, SCAN_EGRESS_ALLOWLIST)
     } catch (error) {
-      throw new Error(
-        `refusing to scan: could not narrow sandbox egress: ${scrubToken(message(error), token)}`
+      throw notFinishedOnOurSide(
+        `we could not restrict our sandbox's network: ${scrubToken(message(error), token)}`
       )
     }
     for (const tool of MANAGED_SCAN_TOOLS) {

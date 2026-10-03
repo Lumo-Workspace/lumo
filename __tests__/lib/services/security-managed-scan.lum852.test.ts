@@ -198,7 +198,7 @@ describe('LUM-852 managed scan isolation order', () => {
 
     await expect(
       securityManagedScanService.scanRepository({ ...JOB, huntWanted: true })
-    ).rejects.toThrow(/refusing to scan/)
+    ).rejects.toThrow(/didn't finish on our side/)
     expect(firstScan()).toBe(-1)
     expect(sb.stop).toHaveBeenCalledTimes(1)
   })
@@ -210,7 +210,7 @@ describe('LUM-852 managed scan isolation order', () => {
 
     await expect(
       securityManagedScanService.scanRepository(JOB)
-    ).rejects.toThrow(/could not narrow sandbox egress/)
+    ).rejects.toThrow(/could not restrict our sandbox's network/)
     expect(firstScan()).toBe(-1)
     expect(sb.stop).toHaveBeenCalledTimes(1)
   })

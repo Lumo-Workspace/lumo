@@ -138,7 +138,7 @@ describe('LUM-869 managed scan failure direction', () => {
 
       await expect(
         securityManagedScanService.scanRepository({ ...JOB, huntWanted })
-      ).rejects.toThrow(/refusing to scan: could not revoke the clone token/)
+      ).rejects.toThrow(/could not revoke our temporary clone token/)
       // Nothing touched the checkout: no scrub, no install, no scanner, no
       // hand-off marker — and the VM is stopped, keepAlive or not.
       expect(events).toEqual(['revoke', 'stop'])
@@ -158,14 +158,18 @@ describe('LUM-869 managed scan failure direction', () => {
         repo: 'o/r',
         sha: 'b'.repeat(40),
       })
-    ).rejects.toThrow(/could not revoke the clone token/)
+    ).rejects.toThrow(/could not revoke our temporary clone token/)
     expect(sb.stop).toHaveBeenCalledTimes(1)
   })
 
   it('LUM-869 managed scan keeps its reports when the hunt hand-off fails', async () => {
     // deny-all refused, then the marker write failing: both keep the reports.
     const failures: Array<() => void> = [
-      () => deny.mockRejectedValueOnce(new Error('policy update unavailable')),
+      () =>
+        deny.mockImplementationOnce(async () => {
+          events.push('deny-all')
+          throw new Error('policy update unavailable')
+        }),
       () => undefined,
     ]
     for (const [i, arrange] of failures.entries()) {
@@ -175,7 +179,10 @@ describe('LUM-869 managed scan failure direction', () => {
       if (i === 1) {
         const run = sb.run.getMockImplementation()!
         sb.run.mockImplementation(async (cmd: string, args: string[], o) => {
-          if (cmd === 'touch') return { exitCode: 1, stdout: '', stderr: 'ro' }
+          if (cmd === 'touch') {
+            events.push('marker-failed')
+            return { exitCode: 1, stdout: '', stderr: 'ro' }
+          }
           return run(cmd, args, o)
         })
       }
@@ -194,8 +201,14 @@ describe('LUM-869 managed scan failure direction', () => {
         expect(outcome[tool].kind).not.toBe('failed')
       }
       // No hand-off: no marker, and the VM is stopped rather than left to
-      // run out its hunt timeout.
-      expect(events.some(e => e.startsWith('marker:'))).toBe(false)
+      // run out its hunt timeout. LUM-876: asserted on the sequence, so it
+      // fails if the hand-off was never attempted (a deny-all that was
+      // skipped, a touch that never ran) rather than only if a marker landed.
+      expect(events).toContain('deny-all')
+      const handOff = events.slice(events.indexOf('deny-all'))
+      expect(handOff).toEqual(
+        i === 0 ? ['deny-all', 'stop'] : ['deny-all', 'marker-failed', 'stop']
+      )
       expect(sb.stop).toHaveBeenCalledTimes(1)
       expect(logger.warn).toHaveBeenCalledWith(
         expect.stringContaining('could not hand the sandbox to the hunt')
