@@ -31,7 +31,7 @@ export const NEVER_AUTO_CLEAR: ReadonlySet<string> = new Set([
   'CLOUD_DATA_DELETION',
 ])
 
-export const THRESHOLDS = [0.7, 0.8, 0.9, 0.95] as const
+export const THRESHOLDS = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95] as const
 
 export interface JudgeResult {
   model: string
