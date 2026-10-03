@@ -49,7 +49,8 @@ export interface ResyncSessionUsage {
 
 export interface SessionResyncWrite {
   sessionId: string
-  usage: ResyncSessionUsage
+  /** Null = verified unchanged: only `usageResyncedAt` is set (family root). */
+  usage: ResyncSessionUsage | null
   rows: Array<{ id: string; usageByModel: Record<string, ModelUsage> }>
   audit: { before: unknown; after: unknown; factors: unknown; rows: unknown }
 }
@@ -166,15 +167,17 @@ export const usageResyncRepository = {
             usageResyncedAt: null,
             lastActivityAt: { lt: data.activeBefore },
           },
-          data: {
-            inputTokens: s.usage.inputTokens,
-            outputTokens: s.usage.outputTokens,
-            cacheReadTokens: s.usage.cacheReadTokens,
-            cacheCreationTokens: s.usage.cacheCreationTokens,
-            usageByModel: json(s.usage.usageByModel),
-            liveUsageByModel: json(s.usage.usageByModel),
-            usageResyncedAt: data.now,
-          },
+          data: s.usage
+            ? {
+                inputTokens: s.usage.inputTokens,
+                outputTokens: s.usage.outputTokens,
+                cacheReadTokens: s.usage.cacheReadTokens,
+                cacheCreationTokens: s.usage.cacheCreationTokens,
+                usageByModel: json(s.usage.usageByModel),
+                liveUsageByModel: json(s.usage.usageByModel),
+                usageResyncedAt: data.now,
+              }
+            : { usageResyncedAt: data.now },
         })
         if (count !== 1) {
           throw Object.assign(

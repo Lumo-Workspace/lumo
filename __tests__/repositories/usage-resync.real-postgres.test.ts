@@ -171,6 +171,23 @@ beforeAll(async () => {
   await session('flat', stored({ opus: u(25, 25, 25, 25) }))
   await session('dry', stored({ opus: u(100, 100, 100, 100) }))
   await event('d1', 'dry', 'STOP', { opus: u(100, 100, 100, 100) })
+
+  // Child-only inflation: the root's figures are already exact.
+  await session('conly', stored({ opus: u(10, 10, 10, 10) }))
+  await session('conly:a1', {
+    parentSessionId: 'conly',
+    agentId: 'a1',
+    ...stored({ haiku: u(40, 40, 40, 40) }),
+  })
+  await event('c1', 'conly', 'STOP', { opus: u(10, 10, 10, 10) })
+  await event('c2', 'conly:a1', 'SUBAGENT_STOP', { haiku: u(40, 40, 40, 40) })
+  // Nothing inflated anywhere in the family.
+  await session('none', stored({ opus: u(10, 10, 10, 10) }))
+  await session('none:a1', {
+    parentSessionId: 'none',
+    agentId: 'a1',
+    ...stored({ haiku: u(10, 10, 10, 10) }),
+  })
 })
 
 afterAll(async () => {
@@ -339,5 +356,121 @@ describe('usage resync corrects historical sessions from deduped transcripts', (
       { sessionId: ROOT, status: 'skipped', reason: 'already_resynced' },
     ])
     expect(await snapshot()).toEqual(before)
+  })
+  const childOnly = {
+    sessionId: 'conly',
+    total: flat(30, 30, 30, 30),
+    byModel: { opus: u(10, 10, 10, 10), haiku: u(20, 20, 20, 20) },
+    bySubagent: {
+      a1: {
+        total: flat(20, 20, 20, 20),
+        byModel: { haiku: u(20, 20, 20, 20) },
+      },
+    },
+  }
+
+  it('child-only inflation corrects the child and flags the unchanged root, and a repeat run reports already_resynced', async () => {
+    const res = await usageResyncService.resync({
+      identity,
+      dryRun: false,
+      sessions: [childOnly],
+    })
+    expect(res.results).toEqual([
+      {
+        sessionId: 'conly',
+        status: 'resynced',
+        before: 200,
+        after: 120,
+        sessionsCorrected: 1,
+        rowsScaled: 1,
+      },
+    ])
+    const root = await db().session.findUniqueOrThrow({
+      where: { id: 'conly' },
+    })
+    expect(root).toMatchObject({
+      ...flat(10, 10, 10, 10),
+      usageByModel: { opus: u(10, 10, 10, 10) },
+      liveUsageByModel: null,
+    })
+    expect(root.usageResyncedAt).toBeInstanceOf(Date)
+    const child = await db().session.findUniqueOrThrow({
+      where: { id: 'conly:a1' },
+    })
+    expect(child).toMatchObject({
+      ...flat(20, 20, 20, 20),
+      usageByModel: { haiku: u(20, 20, 20, 20) },
+    })
+    expect(child.usageResyncedAt).toBeInstanceOf(Date)
+    const rows = await db().hookEvent.findMany({
+      where: { id: { in: ['c1', 'c2'] } },
+      orderBy: { id: 'asc' },
+      select: { usageByModel: true },
+    })
+    expect(rows.map(r => r.usageByModel)).toEqual([
+      { opus: u(10, 10, 10, 10) },
+      { haiku: u(20, 20, 20, 20) },
+    ])
+    // The root's audit row is a "verified, unchanged" marker: after equals
+    // before, factors all 1, no rows touched.
+    const rootAudit = await db().usageResyncAudit.findMany({
+      where: { sessionId: 'conly' },
+    })
+    expect(rootAudit).toHaveLength(1)
+    expect(rootAudit[0]!.after).toEqual(rootAudit[0]!.before)
+    expect(rootAudit[0]).toMatchObject({
+      before: {
+        ...flat(10, 10, 10, 10),
+        usageByModel: { opus: u(10, 10, 10, 10) },
+        liveUsageByModel: null,
+      },
+      factors: { opus: u(1, 1, 1, 1) },
+      rows: {},
+    })
+    expect(
+      await db().usageResyncAudit.count({ where: { sessionId: 'conly:a1' } })
+    ).toBe(1)
+
+    const snap = await snapshot()
+    const again = await usageResyncService.resync({
+      identity,
+      dryRun: false,
+      sessions: [childOnly],
+    })
+    expect(again.results).toEqual([
+      { sessionId: 'conly', status: 'skipped', reason: 'already_resynced' },
+    ])
+    expect(await snapshot()).toEqual(snap)
+  })
+
+  it('a family with nothing inflated is reported not_inflated and left unflagged with no writes', async () => {
+    const snap = await snapshot()
+    const res = await usageResyncService.resync({
+      identity,
+      dryRun: false,
+      sessions: [
+        {
+          sessionId: 'none',
+          total: flat(20, 20, 20, 20),
+          byModel: { opus: u(10, 10, 10, 10), haiku: u(10, 10, 10, 10) },
+          bySubagent: {
+            a1: {
+              total: flat(10, 10, 10, 10),
+              byModel: { haiku: u(10, 10, 10, 10) },
+            },
+          },
+        },
+      ],
+    })
+    expect(res.results).toEqual([
+      {
+        sessionId: 'none',
+        status: 'skipped',
+        reason: 'not_inflated',
+        before: 80,
+        after: 80,
+      },
+    ])
+    expect(await snapshot()).toEqual(snap)
   })
 })

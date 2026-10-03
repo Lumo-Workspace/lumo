@@ -109,6 +109,15 @@ function familyTargets(
   return [{ row: root, target: toUsage(main) }, ...out]
 }
 
+const storedColumns = (r: ResyncSessionRow) => ({
+  inputTokens: r.inputTokens,
+  outputTokens: r.outputTokens,
+  cacheReadTokens: r.cacheReadTokens,
+  cacheCreationTokens: r.cacheCreationTokens,
+  usageByModel: r.usageByModel,
+  liveUsageByModel: r.liveUsageByModel,
+})
+
 function buildWrite(c: Correction, rows: ResyncEventRow[]): SessionResyncWrite {
   const oldMap = c.row.usageByModel ?? {}
   const factors = usageScaleFactors(oldMap, c.target.usageByModel)
@@ -121,17 +130,37 @@ function buildWrite(c: Correction, rows: ResyncEventRow[]): SessionResyncWrite {
       usageByModel: scaleUsageMap(r.usageByModel, factors),
     })),
     audit: {
-      before: {
-        inputTokens: c.row.inputTokens,
-        outputTokens: c.row.outputTokens,
-        cacheReadTokens: c.row.cacheReadTokens,
-        cacheCreationTokens: c.row.cacheCreationTokens,
-        usageByModel: c.row.usageByModel,
-        liveUsageByModel: c.row.liveUsageByModel,
-      },
+      before: storedColumns(c.row),
       after: { ...c.target, liveUsageByModel: c.target.usageByModel },
       factors,
       rows: Object.fromEntries(own.map(r => [r.id, r.usageByModel])),
+    },
+  }
+}
+
+/**
+ * The family root when it was checked but not lowered while a child was:
+ * it is flagged so the run-level notice (keyed on the root) clears and a
+ * repeat run reports already_resynced. Its audit row is a "verified,
+ * unchanged" marker — after equals before, factors all 1, no rows touched —
+ * so a revert only clears the flag.
+ */
+function verifiedRootWrite(root: ResyncSessionRow): SessionResyncWrite {
+  const map = root.usageByModel ?? {}
+  return {
+    sessionId: root.id,
+    usage: null,
+    rows: [],
+    audit: {
+      before: storedColumns(root),
+      after: storedColumns(root),
+      factors: Object.fromEntries(
+        Object.keys(map).map(m => [
+          m,
+          { input: 1, output: 1, cacheRead: 1, cacheCreation: 1 },
+        ])
+      ),
+      rows: {},
     },
   }
 }
@@ -189,6 +218,8 @@ async function resyncOne(
     sessionsCorrected: writes.length,
     rowsScaled: writes.reduce((s, w) => s + w.rows.length, 0),
   }
+  if (!corrections.some(c => c.row.id === root.id))
+    writes.unshift(verifiedRootWrite(root))
   if (ctx.dryRun) return { ...plan, status: 'would_resync' }
   try {
     await usageResyncRepository.applyFamilyResync({

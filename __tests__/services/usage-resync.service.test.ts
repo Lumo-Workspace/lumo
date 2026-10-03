@@ -231,6 +231,42 @@ describe('usage resync corrects historical sessions from deduped transcripts', (
     expect(repo.applyFamilyResync).not.toHaveBeenCalled()
   })
 
+  it('flags the unchanged root with a verified marker when only a child is corrected on apply', async () => {
+    repo.findFamilyForMember.mockResolvedValueOnce({
+      root: row('s1', { m: u(1, 1, 1, 1) }),
+      children: [row('s1:a1', { m: u(10, 10, 10, 10) })],
+    })
+    const res = await usageResyncService.resync({
+      identity,
+      dryRun: false,
+      sessions: [
+        {
+          sessionId: 's1',
+          total: flat(6, 6, 6, 6),
+          byModel: { m: u(6, 6, 6, 6) },
+          bySubagent: {
+            a1: { total: flat(5, 5, 5, 5), byModel: { m: u(5, 5, 5, 5) } },
+          },
+        },
+      ],
+    })
+    expect(res.results[0]).toMatchObject({
+      status: 'resynced',
+      sessionsCorrected: 1,
+    })
+    const write = repo.applyFamilyResync.mock.calls[0]![0]
+    expect(write.sessions.map(s => s.sessionId)).toEqual(['s1', 's1:a1'])
+    expect(write.sessions[0]).toMatchObject({
+      sessionId: 's1',
+      usage: null,
+      rows: [],
+      audit: { factors: { m: u(1, 1, 1, 1) }, rows: {} },
+    })
+    expect(write.sessions[0]!.audit.after).toEqual(
+      write.sessions[0]!.audit.before
+    )
+  })
+
   it('reports already_resynced when the guarded write loses a race', async () => {
     repo.findFamilyForMember.mockResolvedValueOnce({
       root: row('s1', { m: u(10, 10, 10, 10) }),
