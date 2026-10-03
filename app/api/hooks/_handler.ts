@@ -8,7 +8,7 @@ import {
   validateHookPayload,
 } from '@/lib/validation/hook-payload'
 import { extractAttributionSignals } from '@/lib/attribution/signals'
-import { stripCodeFromHookPayload } from '@/lib/hook-payload/redact'
+import { hookIngestPolicyService } from '@/lib/services/hook-ingest-policy.service'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
 const UNAUTHORIZED = { error: 'Invalid or revoked API key' }
@@ -39,8 +39,8 @@ export interface AfterRecordContext {
   filePath: string | null
   /** Tool this event uses, extracted from the payload (null if none). */
   toolName: string | null
-  /** The hook payload exactly as persisted (validated, credential-redacted and
-   *  stripped of customer code — LUM-855),
+  /** The hook payload exactly as persisted (validated, credential-redacted and,
+   *  in USED_UP workspaces, stripped of customer code — LUM-855 / LUM-933),
    *  for side effects that need fields beyond the common ones above (e.g.
    *  WORKTREE_CREATE → worktree_path/branch). Anything a side effect writes
    *  back to the DB must come from here, never from `rawPayload`. */
@@ -92,10 +92,16 @@ export async function handleHookRequest(
     // LUM-859: credentials are redacted out of the copy that is stored (and
     // out of every column derived from it). The unredacted `validated` stays
     // in memory for the boundary detector only — see AfterRecordContext.
-    // LUM-855: file content and tool output are then stripped from that stored
-    // copy too — paths, commands and sizes stay. `validated` keeps both.
+    // LUM-933: whether code is also stripped from that stored copy (LUM-855:
+    // paths, commands and sizes stay) is the workspace's session record mode —
+    // only USED_UP strips; RETAIN (the default) keeps it. Credentials are
+    // redacted in every mode. `validated` keeps both.
     const redacted = redactHookPayload(validated).payload
-    const payload = stripCodeFromHookPayload(type, redacted)
+    const payload = await hookIngestPolicyService.storedPayloadFor(
+      identity.workspace.id,
+      type,
+      redacted
+    )
     // LUM-932: attribution signals are extracted from the redacted-but-not-
     // stripped payload. Code stripping replaces everything under
     // `tool_response` (including `agentId`), which would drop the AGENT_PROMPT

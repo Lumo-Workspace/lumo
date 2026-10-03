@@ -1,7 +1,12 @@
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
 import { generateWorkspaceSlug } from '@/lib/workspace/slug'
 import type { SecurityPolicy } from '@/lib/security-scan/policy'
-import type { HookEventRetentionDays } from '@/lib/hook-event/retention'
+import type {
+  HookEventRetentionDays,
+  HookEventRetentionMode,
+} from '@/lib/hook-event/retention'
+import type { CrossingRawRetentionDays } from '@/lib/boundary-crossing/raw-retention'
+import type { DeadLetterRetentionDays } from '@/lib/integrations/github/dead-letter-retention'
 import type { ScanEvidenceRetentionDays } from '@/lib/security-scan/evidence-retention'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -20,6 +25,12 @@ export interface UpdateWorkspaceInput {
   hookEventRetentionDays?: HookEventRetentionDays | null | undefined
   /** LUM-911: one of SCAN_EVIDENCE_RETENTION_DAYS; 0 = zero retention. */
   scanEvidenceRetentionDays?: ScanEvidenceRetentionDays | undefined
+  /** LUM-933: session record mode; USED_UP clears hookEventRetentionDays. */
+  hookEventRetentionMode?: HookEventRetentionMode | undefined
+  /** LUM-912: one of CROSSING_RAW_RETENTION_DAYS. */
+  crossingRawRetentionDays?: CrossingRawRetentionDays | undefined
+  /** LUM-941: one of DEAD_LETTER_RETENTION_DAYS. */
+  deadLetterRetentionDays?: DeadLetterRetentionDays | undefined
   /** LUM-866: per-workspace security-scan switches. */
   securityScanEnabled?: boolean | undefined
   securityAiReviewEnabled?: boolean | undefined
@@ -90,6 +101,31 @@ export const workspaceService = {
       data.hookEventRetentionDays = input.hookEventRetentionDays
     if (input.scanEvidenceRetentionDays !== undefined)
       data.scanEvidenceRetentionDays = input.scanEvidenceRetentionDays
+    if (input.hookEventRetentionMode !== undefined) {
+      if (
+        input.hookEventRetentionMode === 'USED_UP' &&
+        input.hookEventRetentionDays != null
+      ) {
+        throw Object.assign(
+          new Error(
+            'Used-up mode has no day tier: send hookEventRetentionDays null'
+          ),
+          { status: 400 }
+        )
+      }
+      data.hookEventRetentionMode = input.hookEventRetentionMode
+      // LUM-933: the day tier only applies in RETAIN mode; USED_UP keeps none.
+      if (input.hookEventRetentionMode === 'USED_UP')
+        data.hookEventRetentionDays = null
+    } else if (input.hookEventRetentionDays !== undefined) {
+      // The pre-LUM-933 single-field form: a day tier (or null = forever) is
+      // always a RETAIN choice.
+      data.hookEventRetentionMode = 'RETAIN'
+    }
+    if (input.crossingRawRetentionDays !== undefined)
+      data.crossingRawRetentionDays = input.crossingRawRetentionDays
+    if (input.deadLetterRetentionDays !== undefined)
+      data.deadLetterRetentionDays = input.deadLetterRetentionDays
     if (input.securityScanEnabled !== undefined)
       data.securityScanEnabled = input.securityScanEnabled
     if (input.securityAiReviewEnabled !== undefined)

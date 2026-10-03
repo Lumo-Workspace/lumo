@@ -18,6 +18,11 @@ jest.mock('@/lib/services/workspace-deletion.service', () => ({
   workspaceDeletionService: { deleteWorkspace: jest.fn() },
 }))
 // LUM-913: the same daily cron also purges PR comment dead letters.
+jest.mock('@/lib/services/crossing-raw-retention.service', () => ({
+  crossingRawRetentionService: {
+    purgeExpired: jest.fn().mockResolvedValue({ purged: 0, capped: false }),
+  },
+}))
 jest.mock('@/lib/services/pr-comment-dead-letter-retention.service', () => ({
   prCommentDeadLetterRetentionService: {
     purgeExpiredPayloads: jest.fn(async () => ({ purged: 0, capped: false })),
@@ -226,6 +231,8 @@ describe('hook event retention wiring (LUM-859)', () => {
     })
     expect(workspaceRepository.update).toHaveBeenCalledWith('ws_a', {
       hookEventRetentionDays: 180,
+      // LUM-933: a day tier is always a RETAIN choice.
+      hookEventRetentionMode: 'RETAIN',
     })
 
     // Cron: registered in vercel.json and behind cron auth.
@@ -252,6 +259,7 @@ describe('hook event retention wiring (LUM-859)', () => {
       workspaces: [],
       pruned: 0,
       prCommentDeadLetters: { purged: 0, capped: false },
+      crossingRaw: { purged: 0, capped: false },
     })
   })
 })

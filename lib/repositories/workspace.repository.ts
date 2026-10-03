@@ -1,4 +1,8 @@
-import { Prisma, type SummaryFrequency } from '@prisma/client'
+import {
+  Prisma,
+  type HookEventRetentionMode,
+  type SummaryFrequency,
+} from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { generateIdentifier } from '@/lib/team'
 
@@ -25,6 +29,12 @@ export interface WorkspaceUpdateData {
   hookEventRetentionDays?: number | null
   /** LUM-911: days a used-up scan keeps its code; 0 = zero retention. */
   scanEvidenceRetentionDays?: number
+  /** LUM-933: session record mode (RETAIN | USED_UP). */
+  hookEventRetentionMode?: HookEventRetentionMode
+  /** LUM-912: days a dispositioned crossing keeps its raw text. */
+  crossingRawRetentionDays?: number
+  /** LUM-941: days a dead letter keeps its webhook payload. */
+  deadLetterRetentionDays?: number
   /** LUM-866: per-workspace security-scan switches. */
   securityScanEnabled?: boolean
   securityAiReviewEnabled?: boolean
@@ -44,6 +54,17 @@ export const workspaceRepository = {
       select: { id: true, scanEvidenceRetentionDays: true },
     })
     return new Map(rows.map(row => [row.id, row.scanEvidenceRetentionDays]))
+  },
+
+  /** LUM-933 — the workspace's session record mode; null when the workspace is gone. */
+  async findHookEventRetentionMode(
+    workspaceId: string
+  ): Promise<HookEventRetentionMode | null> {
+    const row = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { hookEventRetentionMode: true },
+    })
+    return row?.hookEventRetentionMode ?? null
   },
 
   /** LUM-911 — workspaces that keep no scan evidence once a scan is final. */

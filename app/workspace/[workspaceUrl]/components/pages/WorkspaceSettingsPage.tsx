@@ -9,8 +9,7 @@ import { CACHE_KEY } from '../../constants'
 import { readCache, writeCache, clearCache } from '../../cache'
 import { workspacesClient } from '@/lib/api-client'
 import { LogoUploader } from '@/components/LogoUploader'
-import { HookEventRetentionCard } from '../settings/HookEventRetentionCard'
-import { ScanEvidenceRetentionCard } from '../settings/ScanEvidenceRetentionCard'
+import { DataRetentionSection } from '../settings/DataRetentionSection'
 import { SecurityScanSwitchesCard } from '../settings/SecurityScanSwitchesCard'
 import { WorkspaceExportCard } from '../settings/WorkspaceExportCard'
 import { WorkspaceDeletionCard } from '../settings/WorkspaceDeletionCard'
@@ -28,7 +27,10 @@ interface Workspace {
   summaryFrequency?: SummaryFrequency
   summaryLocale?: string
   hookEventRetentionDays?: number | null
+  hookEventRetentionMode?: string
   scanEvidenceRetentionDays?: number
+  crossingRawRetentionDays?: number
+  deadLetterRetentionDays?: number
   securityScanEnabled?: boolean
   securityAiReviewEnabled?: boolean
   securityHuntEnabled?: boolean
@@ -446,20 +448,21 @@ export function WorkspaceSettingsPage() {
           </div>
         )}
 
-        {/* Raw agent-event retention (LUM-859) — rendered once the real
-            workspace row is loaded, not the cache-hydrated stub. */}
+        {/* Data retention (LUM-933): one row per kind of data — rendered
+            once the real workspace row is loaded, not the cache-hydrated stub. */}
         {isOwner && workspace?.id && (
-          <HookEventRetentionCard
+          <DataRetentionSection
             key={workspace.id}
-            initialDays={workspace.hookEventRetentionDays ?? null}
-          />
-        )}
-
-        {/* Scan evidence retention (LUM-911) — same gating as above. */}
-        {isOwner && workspace?.id && (
-          <ScanEvidenceRetentionCard
-            key={workspace.id}
-            initialDays={workspace.scanEvidenceRetentionDays ?? null}
+            settings={{
+              hookEventRetentionMode: workspace.hookEventRetentionMode ?? null,
+              hookEventRetentionDays: workspace.hookEventRetentionDays ?? null,
+              scanEvidenceRetentionDays:
+                workspace.scanEvidenceRetentionDays ?? null,
+              crossingRawRetentionDays:
+                workspace.crossingRawRetentionDays ?? null,
+              deadLetterRetentionDays:
+                workspace.deadLetterRetentionDays ?? null,
+            }}
           />
         )}
 
