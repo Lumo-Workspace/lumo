@@ -6,6 +6,7 @@ import {
   readRedactedPatch,
   readRedactedStats,
   stripCodeFromHookPayload,
+  sumRedactedStats,
 } from '@/lib/hook-payload/redact'
 
 const CODE = 'export const secret = compute()\nconsole.info(secret)\n'
@@ -240,5 +241,52 @@ describe('stripCodeFromHookPayload', () => {
       [REDACTED_FIELD]: { x: 1 },
     })
     expect(clean).toEqual({})
+  })
+})
+
+describe('sumRedactedStats', () => {
+  it('sums every redacted field at or beneath a prefix', () => {
+    const stored = stripCodeFromHookPayload('POST_TOOL_USE', {
+      tool_name: 'MultiEdit',
+      tool_input: {
+        file_path: '/repo/a.ts',
+        edits: [
+          { old_string: 'a', new_string: 'b\nc' },
+          { old_string: 'dd', new_string: 'e' },
+        ],
+      },
+      tool_response: { content: [{ type: 'text', text: 'x\ny\nz' }] },
+      tool_calls: [{ tool_response: 'not counted' }],
+    })
+    expect(sumRedactedStats(stored, 'tool_input.edits')).toEqual({
+      bytes: 7,
+      lines: 5,
+    })
+    expect(sumRedactedStats(stored, 'tool_response')).toEqual({
+      bytes: 5,
+      lines: 3,
+    })
+    // a bare-string response is the prefix itself
+    const bare = stripCodeFromHookPayload('POST_TOOL_USE', {
+      tool_response: 'one\ntwo',
+    })
+    expect(sumRedactedStats(bare, 'tool_response')).toEqual({
+      bytes: 7,
+      lines: 2,
+    })
+  })
+
+  it('returns null when nothing under the prefix was redacted', () => {
+    expect(
+      sumRedactedStats(
+        { tool_input: { file_path: '/repo/a.ts', content: 'kept' } },
+        'tool_input'
+      )
+    ).toBeNull()
+    const stored = stripCodeFromHookPayload('POST_TOOL_USE', {
+      tool_input: { file_path: '/repo/a.ts', content: 'gone' },
+    })
+    expect(sumRedactedStats(stored, 'tool_response')).toBeNull()
+    expect(sumRedactedStats(null, 'tool_input')).toBeNull()
   })
 })

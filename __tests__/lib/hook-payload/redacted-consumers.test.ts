@@ -101,6 +101,157 @@ describe('redacted hook events in the session timeline', () => {
     expect(JSON.stringify(items)).not.toContain('line two')
   })
 
+  it('MultiEdit redacted shows path and summed edit sizes as not retained', () => {
+    const edits = [
+      { old_string: 'aa', new_string: 'line one\nline two' },
+      { old_string: 'b', new_string: 'line three', replace_all: true },
+    ]
+    const items = mergeEvents(
+      pair(
+        'MultiEdit',
+        { file_path: '/repo/m.ts', edits },
+        { filePath: '/repo/m.ts', edits, originalFileContents: CODE }
+      )
+    )
+    const multi = items[0]!
+    expect(multi.summary).toBe('/repo/m.ts')
+    expect(multi.details).toEqual([
+      expect.objectContaining({
+        labelKey: 'diff',
+        variant: 'redacted',
+        // tool_input.edits.*: 'aa'(1 line, 2 B) + 2 lines/17 B + 'b'(1, 1) + 1 line/10 B
+        redacted: { lines: 5, bytes: 30 },
+      }),
+    ])
+    expect(JSON.stringify(items)).not.toContain('line two')
+  })
+
+  it('NotebookEdit redacted shows notebook path and source size as not retained', () => {
+    const items = mergeEvents(
+      pair(
+        'NotebookEdit',
+        {
+          notebook_path: '/repo/n.ipynb',
+          cell_id: 'c1',
+          new_source: CODE,
+          edit_mode: 'replace',
+        },
+        {
+          notebook_path: '/repo/n.ipynb',
+          new_source: CODE,
+          original_file: '{"cells":[]}',
+          updated_file: '{"cells":[1]}',
+          edit_mode: 'replace',
+        }
+      )
+    )
+    const nb = items[0]!
+    expect(nb.summary).toBe('/repo/n.ipynb')
+    expect(nb.details).toEqual([
+      expect.objectContaining({
+        labelKey: 'content',
+        variant: 'redacted',
+        redacted: { lines: 3, bytes: CODE.length },
+      }),
+    ])
+    expect(JSON.stringify(items)).not.toContain('line two')
+  })
+
+  it('fallback tools with nested redacted response show sizes as not retained', () => {
+    const items = mergeEvents([
+      ...pair(
+        'WebFetch',
+        { url: 'https://example.com/doc', prompt: 'summarize' },
+        { url: 'https://example.com/doc', code: 200, result: CODE, bytes: 999 }
+      ),
+      ...pair(
+        'Task',
+        { description: 'Explore', prompt: 'find x', subagent_type: 'Explore' },
+        { content: [{ type: 'text', text: CODE }], totalDurationMs: 5 }
+      ),
+      ...pair(
+        'mcp__github__get_file',
+        { path: 'src/a.ts' },
+        { content: [{ type: 'text', text: CODE }] }
+      ),
+    ])
+    const byTool = Object.fromEntries(items.map(i => [i.toolName, i]))
+
+    for (const tool of ['WebFetch', 'Task', 'mcp__github__get_file']) {
+      const redacted = byTool[tool]!.details.filter(
+        (d: DetailBlock) => d.variant === 'redacted'
+      )
+      expect(redacted).toEqual([
+        expect.objectContaining({
+          labelKey: 'response',
+          redacted: { lines: 3, bytes: CODE.length },
+        }),
+      ])
+    }
+    expect(byTool.WebFetch!.summary).toContain('https://example.com/doc')
+    expect(byTool.mcp__github__get_file!.summary).toContain('src/a.ts')
+    expect(JSON.stringify(items)).not.toContain('line two')
+  })
+
+  it('full content events render content and no not retained block', () => {
+    const raw = (
+      toolName: string,
+      input: Record<string, unknown>,
+      response: unknown
+    ) => [
+      {
+        id: `pre_${toolName}`,
+        type: 'PRE_TOOL_USE' as const,
+        toolName,
+        payload: { tool_use_id: `tu_${toolName}`, tool_input: input },
+        createdAt: new Date('2026-09-26T10:00:00Z'),
+      },
+      {
+        id: `post_${toolName}`,
+        type: 'POST_TOOL_USE' as const,
+        toolName,
+        payload: {
+          tool_use_id: `tu_${toolName}`,
+          tool_input: input,
+          tool_response: response,
+        },
+        createdAt: new Date('2026-09-26T10:00:01Z'),
+      },
+    ]
+    const items = mergeEvents([
+      ...raw(
+        'MultiEdit',
+        {
+          file_path: '/repo/m.ts',
+          edits: [{ old_string: 'old body', new_string: 'new body' }],
+        },
+        { filePath: '/repo/m.ts' }
+      ),
+      ...raw(
+        'NotebookEdit',
+        { notebook_path: '/repo/n.ipynb', new_source: 'print(1)' },
+        { notebook_path: '/repo/n.ipynb' }
+      ),
+      ...raw(
+        'WebFetch',
+        { url: 'https://example.com/doc' },
+        { url: 'https://example.com/doc', result: 'fetched text' }
+      ),
+    ])
+    const byTool = Object.fromEntries(items.map(i => [i.toolName, i]))
+    for (const item of items) {
+      expect(
+        item.details.some((d: DetailBlock) => d.variant === 'redacted')
+      ).toBe(false)
+    }
+    const texts = (tool: string) =>
+      byTool[tool]!.details.map((d: DetailBlock) => d.text).join('\n')
+    expect(texts('MultiEdit')).toContain('old body')
+    expect(texts('MultiEdit')).toContain('new body')
+    expect(texts('NotebookEdit')).toContain('print(1)')
+    expect(texts('WebFetch')).toContain('fetched text')
+  })
+
   it('keeps line counts and error status in the session summary input', () => {
     const { text } = compactEvents([
       ...pair(
