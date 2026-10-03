@@ -6,10 +6,8 @@
  *
  * Trust split (the design rule this eval exists to test):
  *   - `taskContext` — the task's title + description. Treated as the only
- *     admissible basis for a LEGIT verdict. NOTE: provenance is unverified —
- *     a task created through the CLI by an agent carries the human's actor, so
- *     nothing in the schema separates a human-written description from an
- *     agent-written one. The report states this limitation.
+ *     admissible basis for a LEGIT verdict. Whether a human or an agent (via
+ *     the CLI) wrote it is not distinguished — ruled out of scope 2026-10-03.
  *   - `agentStatements` — the agent's own `crossing explain` notes. Passed to
  *     the judge fenced as untrusted, never as evidence.
  *   - `labelNote` — the human reviewer's disposition note. Kept for error

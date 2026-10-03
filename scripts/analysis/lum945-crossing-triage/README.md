@@ -34,9 +34,8 @@ npx tsx scripts/analysis/lum945-crossing-triage/report.ts --corpus /tmp/lum945/c
 
 ## Known limits
 
-- Task title/description provenance is unverified: a task an agent created via
-  the CLI carries the human's actor, so the "human-written context" trust tier
-  cannot be enforced from the schema today. A production rollout needs that first.
+- Task title/description provenance (human vs agent via CLI) is not distinguished;
+  ruled out of scope by the product owner on 2026-10-03.
 - Rows past the LUM-912 raw-retention window carry a code-free description
   instead of the raw command; they are flagged `rawPurged` and the judge is told.
 - The human disposition note is exported for error analysis only and is never
