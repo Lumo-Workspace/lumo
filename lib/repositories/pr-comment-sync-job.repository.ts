@@ -111,6 +111,50 @@ export const prCommentSyncJobRepository = {
   },
 
   /**
+   * LUM-914: the pre-LUM-913 dead letters (no `deadLetteredAt`, so the daily
+   * purge never reaches them) still holding their payload, in id order, with
+   * the workspace's window. `updatedAt` is the last write — markDeadLetter —
+   * and stands in for the missing dead-letter time.
+   */
+  async findLegacyDeadLetters({
+    afterId,
+    take,
+  }: {
+    afterId: string | null
+    take: number
+  }) {
+    return prisma.prCommentSyncJob.findMany({
+      where: {
+        status: 'DEAD_LETTER',
+        deadLetteredAt: null,
+        payloadPurgedAt: null,
+        ...(afterId ? { id: { gt: afterId } } : {}),
+      },
+      orderBy: { id: 'asc' },
+      take,
+      select: {
+        id: true,
+        workspaceId: true,
+        direction: true,
+        updatedAt: true,
+        payload: true,
+        workspace: { select: { deadLetterRetentionDays: true } },
+      },
+    })
+  },
+
+  /** LUM-914: how many pre-LUM-913 dead letters still hold their payload. */
+  async countLegacyDeadLetters(): Promise<number> {
+    return prisma.prCommentSyncJob.count({
+      where: {
+        status: 'DEAD_LETTER',
+        deadLetteredAt: null,
+        payloadPurgedAt: null,
+      },
+    })
+  },
+
+  /**
    * LUM-913: replace a dead letter's payload with its metadata-only form.
    * Guarded on `payloadPurgedAt: null` so a concurrent or repeated run is a
    * no-op. Returns whether the row was purged by this call.

@@ -1,5 +1,9 @@
 import type { Prisma } from '@prisma/client'
-import { crossingRawRetentionRepository } from '@/lib/repositories/crossing-raw-retention.repository'
+import {
+  crossingRawRetentionRepository,
+  type CrossingPurgeTxOptions,
+  type PurgeableCrossing,
+} from '@/lib/repositories/crossing-raw-retention.repository'
 import {
   crossingRawPurgeCutoff,
   describeCrossingWithoutCode,
@@ -16,6 +20,46 @@ const MAX_SCANNED_PER_RUN = 5_000
 export interface CrossingRawPurgeResult {
   purged: number
   capped: boolean
+}
+
+/**
+ * One crossing's raw text replaced (see `purgeExpired`): `detail` → code-free
+ * description, `target` → hash, explanations and timeline copies scrubbed.
+ * The write re-checks `window` (disposition inside it, not purged yet).
+ * LUM-914: the pre-rule stock script purges with this same function, passing
+ * an explicit transaction timeout. Returns whether this call purged it.
+ */
+export async function purgeCrossingRaw(
+  row: PurgeableCrossing,
+  window: { since: Date; before: Date },
+  now: Date,
+  txOptions?: CrossingPurgeTxOptions
+): Promise<boolean> {
+  const detail = describeCrossingWithoutCode(row)
+  const activities = row.taskId
+    ? await crossingRawRetentionRepository.findCrossingActivities(
+        row.taskId,
+        row.id
+      )
+    : []
+  const activityPayloads = activities.flatMap(a => {
+    const scrubbed = scrubCrossingActivityPayload(a.payload, detail)
+    return scrubbed
+      ? [{ id: a.id, payload: scrubbed as unknown as Prisma.InputJsonValue }]
+      : []
+  })
+  return crossingRawRetentionRepository.purgeCrossing(
+    {
+      crossingId: row.id,
+      since: window.since,
+      before: window.before,
+      detail,
+      target: hashCrossingTarget(row.target),
+      activityPayloads,
+      now,
+    },
+    txOptions
+  )
 }
 
 export const crossingRawRetentionService = {
@@ -50,34 +94,8 @@ export const crossingRawRetentionService = {
         })
         if (rows.length === 0) break
         for (const row of rows) {
-          const detail = describeCrossingWithoutCode(row)
-          const activities = row.taskId
-            ? await crossingRawRetentionRepository.findCrossingActivities(
-                row.taskId,
-                row.id
-              )
-            : []
-          const activityPayloads = activities.flatMap(a => {
-            const scrubbed = scrubCrossingActivityPayload(a.payload, detail)
-            return scrubbed
-              ? [
-                  {
-                    id: a.id,
-                    payload: scrubbed as unknown as Prisma.InputJsonValue,
-                  },
-                ]
-              : []
-          })
-          const purged = await crossingRawRetentionRepository.purgeCrossing({
-            crossingId: row.id,
-            since,
-            before,
-            detail,
-            target: hashCrossingTarget(row.target),
-            activityPayloads,
-            now,
-          })
-          if (purged) result.purged++
+          if (await purgeCrossingRaw(row, { since, before }, now))
+            result.purged++
         }
         scanned += rows.length
         afterId = rows[rows.length - 1]!.id

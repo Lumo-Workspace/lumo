@@ -185,6 +185,16 @@ export const workspaceRepository = {
     })
   },
 
+  /** LUM-914 — slug per workspace id (operator reports print slugs, never names). */
+  async findSlugs(workspaceIds: string[]): Promise<Map<string, string>> {
+    if (workspaceIds.length === 0) return new Map()
+    const rows = await prisma.workspace.findMany({
+      where: { id: { in: workspaceIds } },
+      select: { id: true, slug: true },
+    })
+    return new Map(rows.map(row => [row.id, row.slug]))
+  },
+
   /** Find workspace name and slug by ID. */
   async findNameAndSlug(id: string) {
     return prisma.workspace.findUnique({
