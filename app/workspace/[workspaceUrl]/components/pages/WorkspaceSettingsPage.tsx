@@ -31,6 +31,7 @@ interface Workspace {
   scanEvidenceRetentionDays?: number
   crossingRawRetentionDays?: number
   deadLetterRetentionDays?: number
+  aiDerivedContentEnabled?: boolean
   securityScanEnabled?: boolean
   securityAiReviewEnabled?: boolean
   securityHuntEnabled?: boolean
@@ -462,7 +463,10 @@ export function WorkspaceSettingsPage() {
                 workspace.crossingRawRetentionDays ?? null,
               deadLetterRetentionDays:
                 workspace.deadLetterRetentionDays ?? null,
+              aiDerivedContentEnabled:
+                workspace.aiDerivedContentEnabled ?? null,
             }}
+            workspaceName={workspace.name}
           />
         )}
 

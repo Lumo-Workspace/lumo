@@ -1,6 +1,10 @@
 import { apiFetch } from './base'
 import { API } from '@/app/workspace/[workspaceUrl]/constants'
 import type { WorkspaceExportView } from '@/lib/services/workspace-export.service'
+import type {
+  AiDerivedContentStatus,
+  AiDerivedPurgeResult,
+} from '@/lib/services/ai-derived-content.service'
 
 /** LUM-918: a scheduled workspace deletion as the API returns it. */
 export interface PendingDeletionView {
@@ -78,6 +82,22 @@ export const workspacesClient = {
   cancelDeletion() {
     return apiFetch<{ pendingDeletion: null }>(API.workspaces.deletion, {
       method: 'DELETE',
+    })
+  },
+
+  /** LUM-917: the AI-derived content switch and stored counts (OWNER only). */
+  getAiDerivedContent() {
+    return apiFetch<AiDerivedContentStatus>(API.workspaces.aiDerivedContent)
+  },
+
+  /**
+   * LUM-917: one batched pass of deleting AI-derived content; call again
+   * while `done` is false. The workspace name must be re-typed.
+   */
+  purgeAiDerivedContent(confirmName: string) {
+    return apiFetch<AiDerivedPurgeResult>(API.workspaces.aiDerivedContent, {
+      method: 'POST',
+      body: { confirmName },
     })
   },
 

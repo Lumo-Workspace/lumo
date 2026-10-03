@@ -38,6 +38,8 @@ export interface WorkspaceUpdateData {
   crossingRawRetentionDays?: number
   /** LUM-941: days a dead letter keeps its webhook payload. */
   deadLetterRetentionDays?: number
+  /** LUM-917: generate AI-derived content (memories, summaries). */
+  aiDerivedContentEnabled?: boolean
   /** LUM-866: per-workspace security-scan switches. */
   securityScanEnabled?: boolean
   securityAiReviewEnabled?: boolean

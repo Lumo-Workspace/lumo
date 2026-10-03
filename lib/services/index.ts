@@ -54,6 +54,11 @@ export type {
 export { documentRevisionService } from './documentRevision.service'
 export { documentTemplateService } from './document-template.service'
 export { workspaceService } from './workspace.service'
+export { aiDerivedContentService } from './ai-derived-content.service'
+export type {
+  AiDerivedContentStatus,
+  AiDerivedPurgeResult,
+} from './ai-derived-content.service'
 export { trashService, TRASH_RETENTION_DAYS } from './trash.service'
 export type { TrashItemView, TrashKind } from './trash.service'
 export {

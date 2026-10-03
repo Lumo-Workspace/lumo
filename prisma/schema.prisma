@@ -411,6 +411,13 @@ model Workspace {
   // webhook payload. OWNER picks 7 / 30 / 90; 7 = the LUM-913 behaviour.
   deadLetterRetentionDays Int @default(7)
 
+  // LUM-917: AI-derived content — memories extracted from sessions (and their
+  // project / milestone consolidation), on-demand session summaries and
+  // DONE-time run summaries. OWNER switch; true = generate (default, the
+  // LUM-909 ruling). false stops new generation; existing rows are removed only
+  // by the OWNER's explicit delete (lib/services/ai-derived-content.service.ts).
+  aiDerivedContentEnabled Boolean @default(true)
+
   // LUM-911: how long a scan keeps the code it quoted (finding evidence, call
   // chain, LLM text; the scan's hunt audit, hunt job and PR summary) once it
   // is used up — its PR merged or closed and every scan of it final. OWNER
@@ -2985,6 +2992,8 @@ model Memory {
   @@index([projectId, scope, status])
   @@index([taskId, status])
   @@index([milestoneId, status])
+  /// LUM-917: the OWNER's batched delete of a workspace's memories.
+  @@index([workspaceId])
   @@map("memories")
 }
 

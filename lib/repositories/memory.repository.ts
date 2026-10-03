@@ -11,6 +11,19 @@ import {
   redactStoredFields,
   STORAGE_REDACTED_FIELDS,
 } from '@/lib/security-scan/storage-redaction'
+import { stripCodeFromStoredFields } from '@/lib/ai-derived/strip-code'
+
+/**
+ * Every memory content write: code stripped (LUM-917 — a memory is
+ * AI-derived content and stores prose, not pasted code), then credentials
+ * redacted (LUM-898).
+ */
+function storedMemoryFields<T extends object>(
+  data: T,
+  fields: readonly string[]
+): T {
+  return redactStoredFields(stripCodeFromStoredFields(data, fields), fields)
+}
 
 const MEMORY_ROW_SELECT = {
   id: true,
@@ -428,7 +441,7 @@ export const memoryRepository = {
     const client = tx ?? prisma
     const data: Prisma.MemoryUpdateInput = {}
     if (patch.content !== undefined)
-      data.content = redactStoredFields(
+      data.content = storedMemoryFields(
         { content: patch.content },
         STORAGE_REDACTED_FIELDS.memory
       ).content
@@ -485,7 +498,7 @@ export const memoryRepository = {
         milestoneId: input.milestoneId ?? null,
         scope: input.scope,
         category: input.category,
-        content: redactStoredFields(
+        content: storedMemoryFields(
           { content: input.content },
           STORAGE_REDACTED_FIELDS.memory
         ).content,
@@ -510,7 +523,7 @@ export const memoryRepository = {
     return client.memory.update({
       where: { id },
       data: {
-        ...redactStoredFields({ content }, STORAGE_REDACTED_FIELDS.memory),
+        ...storedMemoryFields({ content }, STORAGE_REDACTED_FIELDS.memory),
         ...contentSignalsData(contentSignals),
       },
       select: { id: true },
@@ -566,7 +579,7 @@ export const memoryRepository = {
         scope: old.scope,
         category: old.category,
         agent: old.agent,
-        content: redactStoredFields(
+        content: storedMemoryFields(
           { content: content },
           STORAGE_REDACTED_FIELDS.memory
         ).content,
@@ -640,7 +653,7 @@ export const memoryRepository = {
           projectId: params.projectId,
           scope: 'PROJECT',
           category: params.category,
-          content: redactStoredFields(
+          content: storedMemoryFields(
             { content: params.coarseContent },
             STORAGE_REDACTED_FIELDS.memory
           ).content,

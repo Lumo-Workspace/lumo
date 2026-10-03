@@ -8,6 +8,7 @@ import { loadMemoryWriteGate } from '@/lib/services/memory/write-gate'
 import { lineageService } from '@/lib/services/lineage.service'
 import type { FoldProposal } from '@/lib/memory/fold-schemas'
 import { logger } from '@/lib/logger'
+import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 import type { MemoryWriteGate } from '@/lib/services/memory/write-gate'
 
 /** Target resident ACTIVE PROJECT memory budget — the MEMORY.md-style cap the
@@ -36,7 +37,13 @@ export interface TriggerResult {
   /** never-used cards archived (reversible) to reach the cap when folding alone
    *  couldn't — the "prune" half of the MEMORY.md-style budget. */
   pruned: number
-  skipped?: 'within-cap' | 'cooldown' | 'no-project' | 'locked'
+  skipped?:
+    | 'within-cap'
+    | 'cooldown'
+    | 'no-project'
+    | 'locked'
+    /** LUM-917: the workspace turned AI-derived content off. */
+    | 'ai-derived-off'
   error?: boolean
   /** LUM-555 guardrail: fold should have produced cards (it had proposals, or
    *  its LLM pipeline degraded) but folded nothing — prune was deliberately
@@ -166,6 +173,9 @@ export const foldService = {
     sourceSessionId: string | null = null
   ): Promise<TriggerResult> {
     try {
+      if (!(await aiDerivedContentService.isEnabled({ projectId }))) {
+        return { folded: 0, pruned: 0, skipped: 'ai-derived-off' }
+      }
       const active = await memoryRepository.findActiveProjectMemories(projectId)
       // Hysteresis: only run once GROWN past the high-water mark.
       if (active.length <= MEMORY_HIGH_WATER) {

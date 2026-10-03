@@ -37,6 +37,8 @@ export interface UpdateWorkspaceInput {
   crossingRawRetentionDays?: CrossingRawRetentionDays | undefined
   /** LUM-941: one of DEAD_LETTER_RETENTION_DAYS. */
   deadLetterRetentionDays?: DeadLetterRetentionDays | undefined
+  /** LUM-917: generate AI-derived content (memories, summaries). */
+  aiDerivedContentEnabled?: boolean | undefined
   /** LUM-866: per-workspace security-scan switches. */
   securityScanEnabled?: boolean | undefined
   securityAiReviewEnabled?: boolean | undefined
@@ -168,6 +170,8 @@ export const workspaceService = {
       data.scanEvidenceRetentionDays = input.scanEvidenceRetentionDays
     if (input.deadLetterRetentionDays !== undefined)
       data.deadLetterRetentionDays = input.deadLetterRetentionDays
+    if (input.aiDerivedContentEnabled !== undefined)
+      data.aiDerivedContentEnabled = input.aiDerivedContentEnabled
     if (input.securityScanEnabled !== undefined)
       data.securityScanEnabled = input.securityScanEnabled
     if (input.securityAiReviewEnabled !== undefined)

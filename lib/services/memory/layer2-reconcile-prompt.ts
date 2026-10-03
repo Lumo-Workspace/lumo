@@ -1,10 +1,20 @@
 import type { MemoryCategory } from '@prisma/client'
+import { DERIVED_CONTENT_NO_CODE_RULE } from '@/lib/ai-derived/strip-code'
 
 interface ReconcileInput {
   project: { id: string; name: string }
-  candidates: Array<{ category: MemoryCategory; content: unknown; sourceMemoryIds?: string[] | undefined }>
+  candidates: Array<{
+    category: MemoryCategory
+    content: unknown
+    sourceMemoryIds?: string[] | undefined
+  }>
   neighborsByCandidate: Array<
-    Array<{ id: string; category: MemoryCategory; content: unknown; score: number }>
+    Array<{
+      id: string
+      category: MemoryCategory
+      content: unknown
+      score: number
+    }>
   >
 }
 
@@ -40,15 +50,24 @@ There is NO DELETE at this layer — retraction is a user action, not consolidat
   - NEVER a second ADD when a neighbor already covers it.
 - Contradiction → SUPERSEDE that neighbor.
 - No relevant neighbor at all → ADD.
-- Only reference ids shown in that candidate's neighbor list. Never invent ids.`
+- Only reference ids shown in that candidate's neighbor list. Never invent ids.
+
+${DERIVED_CONTENT_NO_CODE_RULE}`
 
 export function buildLayer2ReconcilePrompt(input: ReconcileInput): BuiltPrompt {
   const blocks = input.candidates.map((c, i) => {
     const neighbors = input.neighborsByCandidate[i] ?? []
     const neighborLines = neighbors.length
-      ? neighbors.map(n => `    - id=${n.id} category=${n.category} content=${JSON.stringify(n.content)}`).join('\n')
+      ? neighbors
+          .map(
+            n =>
+              `    - id=${n.id} category=${n.category} content=${JSON.stringify(n.content)}`
+          )
+          .join('\n')
       : '    (no similar existing PROJECT memories)'
-    const src = c.sourceMemoryIds?.length ? ` sourceMemoryIds=${JSON.stringify(c.sourceMemoryIds)}` : ''
+    const src = c.sourceMemoryIds?.length
+      ? ` sourceMemoryIds=${JSON.stringify(c.sourceMemoryIds)}`
+      : ''
     return `Candidate #${i} category=${c.category}${src}
   content=${JSON.stringify(c.content)}
   Neighbors:

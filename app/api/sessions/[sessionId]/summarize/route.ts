@@ -8,6 +8,7 @@ type Params = { params: Promise<{ sessionId: string }> }
 interface ErrorLike {
   message?: string
   status?: number
+  code?: string
 }
 
 /**
@@ -52,6 +53,9 @@ export async function POST(_request: NextRequest, { params }: Params) {
     if (status >= 500) {
       console.error('POST /api/sessions/[sessionId]/summarize error:', error)
     }
-    return NextResponse.json({ error: message }, { status })
+    return NextResponse.json(
+      { error: message, ...(err.code ? { code: err.code } : {}) },
+      { status }
+    )
   }
 }

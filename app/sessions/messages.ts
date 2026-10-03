@@ -110,6 +110,11 @@ export const SESSION_MESSAGES = {
     id: 'sessions.summary.generateFailed',
     defaultMessage: 'Failed to generate summary',
   },
+  'summary.aiDerivedOff': {
+    id: 'sessions.summary.aiDerivedOff',
+    defaultMessage:
+      'AI summaries are turned off for this workspace. An owner can turn them back on in Settings → Data retention.',
+  },
   'summary.empty': {
     id: 'sessions.summary.empty',
     defaultMessage:

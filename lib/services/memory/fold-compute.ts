@@ -15,6 +15,7 @@ import {
 } from '@/lib/memory/fold-schemas'
 import { nearDupClusters, type VecItem } from '@/lib/services/memory/near-dup'
 import { logger } from '@/lib/logger'
+import { DERIVED_CONTENT_NO_CODE_RULE } from '@/lib/ai-derived/strip-code'
 
 const MODEL_ID = MEMORY_JUDGE_MODEL
 
@@ -196,7 +197,8 @@ async function synthesizeCoarse(
     `You consolidate a software team's ${category} memory cards into ONE coarse ` +
     `"subsystem card" whose content preserves EVERY member card's key invariant/` +
     `gotcha — losing a detail is failure. ${FIELD_GUIDE[category]} Do NOT add an id ` +
-    `or a free "text"/"content" field — populate ONLY the named fields above.`
+    `or a free "text"/"content" field — populate ONLY the named fields above.\n\n` +
+    DERIVED_CONTENT_NO_CODE_RULE
   const user = JSON.stringify({
     category,
     cards: members.map(m => m.text),

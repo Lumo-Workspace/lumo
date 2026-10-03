@@ -38,6 +38,14 @@ jest.mock('@/lib/ai/embedding', () => ({
 
 import { milestoneDistillService } from '@/lib/services/memory/milestone-distill.service'
 
+// LUM-917: the AI-derived content switch (on unless a test turns it off).
+const mockAiDerivedEnabled = jest.fn()
+jest.mock('@/lib/services/ai-derived-content.service', () => ({
+  aiDerivedContentService: {
+    isEnabled: (...args: unknown[]) => mockAiDerivedEnabled(...args),
+  },
+}))
+
 const INPUT: MilestoneDistillInput = {
   milestone: {
     id: 'ms_a',
@@ -54,6 +62,7 @@ const INPUT: MilestoneDistillInput = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockAiDerivedEnabled.mockResolvedValue(true)
   // apply() runs its plans through applyPlansAtomically — execute each plan
   // with a stub transaction so the real create() calls fire.
   mockApplyPlans.mockImplementation(
@@ -66,6 +75,15 @@ beforeEach(() => {
 })
 
 describe('milestone memory distillation (LUM-647)', () => {
+  it('milestone close distills nothing when AI-derived content is off (LUM-917)', async () => {
+    mockAiDerivedEnabled.mockResolvedValue(false)
+    mockGetInput.mockResolvedValue(INPUT)
+    await milestoneDistillService.triggerForMilestoneClose('ms_a')
+    expect(mockAiDerivedEnabled).toHaveBeenCalledWith({ milestoneId: 'ms_a' })
+    expect(mockGetInput).not.toHaveBeenCalled()
+    expect(mockCreate).not.toHaveBeenCalled()
+  })
+
   it('writes MILESTONE scope memories tagged with the milestone from grounded retro findings', async () => {
     const grounded = {
       category: 'TRAP',

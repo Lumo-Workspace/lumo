@@ -28,6 +28,14 @@ jest.mock('@/lib/services/turn-summary/turn-summary.service', () => ({
 }))
 jest.mock('@/lib/logger', () => ({ logger: { error: jest.fn() } }))
 
+// LUM-917: the AI-derived content switch (on unless a test turns it off).
+const mockAiDerivedEnabled = jest.fn()
+jest.mock('@/lib/services/ai-derived-content.service', () => ({
+  aiDerivedContentService: {
+    isEnabled: (...args: unknown[]) => mockAiDerivedEnabled(...args),
+  },
+}))
+
 import { sessionRepository } from '@/lib/repositories/session.repository'
 import { hookEventRepository } from '@/lib/repositories/hook-event.repository'
 import { layer1Service } from '@/lib/services/memory/layer1.service'
@@ -51,9 +59,22 @@ beforeEach(() => {
   jest.clearAllMocks()
   layer1.mockResolvedValue(undefined)
   summary.mockResolvedValue(undefined)
+  mockAiDerivedEnabled.mockResolvedValue(true)
 })
 
 describe('stopTurnService.afterStop', () => {
+  it('ai-derived content off: a task turn gets the summary-only call, no memory extraction (LUM-917)', async () => {
+    findSession.mockResolvedValue({ taskId: 'task_old' })
+    mockAiDerivedEnabled.mockResolvedValue(false)
+    await stopTurnService.afterStop(ctx())
+    expect(mockAiDerivedEnabled).toHaveBeenCalledWith({ workspaceId: 'ws' })
+    expect(layer1).not.toHaveBeenCalled()
+    expect(summary).toHaveBeenCalledWith({
+      stopEventId: 'evt_stop',
+      sessionId: 's1',
+    })
+  })
+
   it('unattached: awaits the recompute, then runs Layer 1 on the STOP event current task', async () => {
     const order: string[] = []
     findSession.mockResolvedValue({ taskId: null })

@@ -1,6 +1,9 @@
 import { logger } from '@/lib/logger'
 import { getLayer2Input } from './layer2-input'
-import { extractLayer2Candidates, reconcileLayer2Candidates } from './layer2-extract'
+import {
+  extractLayer2Candidates,
+  reconcileLayer2Candidates,
+} from './layer2-extract'
 import { applyLayer2Operations } from './layer2-apply'
 import { groundCandidates } from './ground-candidates'
 import { buildLayer2SourceText } from './layer2-prompt'
@@ -9,6 +12,7 @@ import { memoryContentToText } from '@/lib/memory/content-text'
 import { NEIGHBOR_K } from './neighbor-retriever'
 import { compositeNeighborRetriever } from './embedding-neighbor-retriever'
 import { embedTexts } from '@/lib/ai/embedding'
+import { aiDerivedContentService } from '@/lib/services/ai-derived-content.service'
 
 /**
  * Lease TTL for a single consolidation run. Sized to comfortably cover one
@@ -71,6 +75,17 @@ export const layer2Service = {
       logger.debug(
         `[memory.layer2] triggered task=${input.taskId} project=${input.projectId}`
       )
+      // LUM-917: the workspace turned AI-derived content off.
+      if (
+        !(await aiDerivedContentService.isEnabled({
+          projectId: input.projectId,
+        }))
+      ) {
+        logger.debug(
+          `[memory.layer2] skip project=${input.projectId} reason=ai-derived-off`
+        )
+        return
+      }
       await runForProject(input.projectId, input.sourceSessionId ?? null)
     } catch (error) {
       console.error(
@@ -141,26 +156,39 @@ async function runForProject(
       logTag: 'memory.layer2',
     })
     if (candidates.length === 0) {
-      logger.debug(`[memory.layer2] no-grounded-candidates project=${projectId}`)
+      logger.debug(
+        `[memory.layer2] no-grounded-candidates project=${projectId}`
+      )
       return { added: 0, updated: 0, superseded: 0, noop: 0, skipped: 0 }
     }
 
     // Batch-embed candidate texts for semantic retrieval. No key / gateway down →
     // degrade to lexical (vectors stay undefined). Never throws (fire-and-forget).
-    const candidateTexts = candidates.map(c => memoryContentToText(c.category, c.content))
-    let candidateVectors: (number[] | undefined)[] = candidateTexts.map(() => undefined)
+    const candidateTexts = candidates.map(c =>
+      memoryContentToText(c.category, c.content)
+    )
+    let candidateVectors: (number[] | undefined)[] = candidateTexts.map(
+      () => undefined
+    )
     try {
       const vecs = await embedTexts(candidateTexts)
       if (vecs.length === candidateTexts.length) candidateVectors = vecs
     } catch (error) {
-      logger.warn(`[memory.layer2] candidate embedding failed, falling back to lexical:`, error instanceof Error ? error.message : error)
+      logger.warn(
+        `[memory.layer2] candidate embedding failed, falling back to lexical:`,
+        error instanceof Error ? error.message : error
+      )
     }
 
     // Retrieve — per candidate, top-k similar existing PROJECT memories.
     const neighborsByCandidate = await Promise.all(
       candidates.map((c, i) =>
         compositeNeighborRetriever.retrieve({
-          query: { category: c.category, text: candidateTexts[i]!, vector: candidateVectors[i] },
+          query: {
+            category: c.category,
+            text: candidateTexts[i]!,
+            vector: candidateVectors[i],
+          },
           pool: input.existingProjectMemories,
           scope: { kind: 'PROJECT', projectId: input.project.id },
           k: NEIGHBOR_K,
@@ -180,7 +208,10 @@ async function runForProject(
     }
 
     const precomputedEmbeddings = new Map<string, number[]>()
-    candidateTexts.forEach((t, i) => { const v = candidateVectors[i]; if (v) precomputedEmbeddings.set(t, v) })
+    candidateTexts.forEach((t, i) => {
+      const v = candidateVectors[i]
+      if (v) precomputedEmbeddings.set(t, v)
+    })
 
     const result = await applyLayer2Operations({
       operations,
