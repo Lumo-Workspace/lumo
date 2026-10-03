@@ -33,15 +33,14 @@ const NOW = new Date('2026-10-20T03:45:00Z')
 const WORKSPACE = 'ws_dead_letters'
 const DIFF_HUNK = '@@ -1,3 +1,4 @@\n+const secret = process.env.API_KEY'
 
+// The exact shape pr-comment-mirror.service enqueues for its only INBOUND
+// job (parent-mirror-missing retry): no top-level event / action / task —
+// those exist only inside `raw`, the GitHub webhook body.
 function inboundPayload(n: number) {
   return {
     reason: 'parent-mirror-missing',
-    event: 'pull_request_review_comment',
-    action: 'created',
-    workspaceId: WORKSPACE,
-    taskId: 'task_1',
-    pullRequestId: 'pr_1',
     commentId: `comment_${n}`,
+    pullRequestId: 'pr_1',
     raw: {
       action: 'created',
       comment: { id: 1000 + n, body: 'please fix', diff_hunk: DIFF_HUNK },
@@ -68,6 +67,7 @@ async function seedDeadLetter(
       lastError: 'parent mirror still missing',
       deadLetteredAt,
       createdAt: deadLetteredAt ?? new Date(NOW.getTime() - 400 * DAY),
+      updatedAt: deadLetteredAt ?? new Date(NOW.getTime() - 400 * DAY),
     },
   })
 }
@@ -124,6 +124,7 @@ describe('PR comment dead-letter payload retention', () => {
   it('dead letter older than 7 days loses raw payload but keeps troubleshooting metadata', async () => {
     const deadLetteredAt = new Date(NOW.getTime() - 7 * DAY - 60_000)
     await seedDeadLetter('job_old', deadLetteredAt)
+    const wallClockBeforePurge = Date.now()
     const result =
       await prCommentDeadLetterRetentionService.purgeExpiredPayloads(NOW)
     expect(result).toEqual({ purged: 1, capped: false })
@@ -132,23 +133,30 @@ describe('PR comment dead-letter payload retention', () => {
     expect(JSON.stringify(row.payload)).not.toContain('diff_hunk')
     expect(JSON.stringify(row.payload)).not.toContain('process.env.API_KEY')
     expect(JSON.stringify(row.payload)).not.toContain('please fix')
+    // event / action are recovered from raw before it is dropped.
     expect(row.payload).toEqual({
       rawPurged: true,
       reason: 'parent-mirror-missing',
       event: 'pull_request_review_comment',
       action: 'created',
-      workspaceId: WORKSPACE,
-      taskId: 'task_1',
       pullRequestId: 'pr_1',
       commentId: 'comment_0',
       repo: 'acme/app',
       prNumber: 42,
     })
     expect(row.payloadPurgedAt).toEqual(NOW)
-    // Troubleshooting columns are untouched.
+    // Troubleshooting columns are untouched, including the two timestamps
+    // that date the failure.
     expect(row.status).toBe('DEAD_LETTER')
     expect(row.lastError).toBe('parent mirror still missing')
+    expect(row.createdAt).toEqual(deadLetteredAt)
     expect(row.deadLetteredAt).toEqual(deadLetteredAt)
+    // updatedAt is NOT preserved: the purge is a row update and Prisma's
+    // @updatedAt stamps it with the wall-clock time of the purge (not `NOW`).
+    expect(row.updatedAt).not.toEqual(deadLetteredAt)
+    expect(row.updatedAt.getTime()).toBeGreaterThanOrEqual(
+      wallClockBeforePurge - 1000
+    )
     expect(row.externalId).toBe('1000')
     expect(row.attempts).toBe(3)
   })
