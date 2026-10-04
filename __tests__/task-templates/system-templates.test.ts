@@ -108,6 +108,43 @@ describe('system task templates', () => {
     }
   })
 
+  it('agent-brief description names Context first, translated in every locale', () => {
+    const CONTEXT_WORD: Record<string, string> = {
+      en: 'Context',
+      'en-AU': 'Context',
+      'en-GB': 'Context',
+      de: 'Kontext',
+      'es-ES': 'Contexto',
+      'es-419': 'Contexto',
+      fr: 'Contexte',
+      hi: 'संदर्भ',
+      id: 'Konteks',
+      ja: '背景',
+      ko: '배경',
+      ms: 'Konteks',
+      ru: 'Контекст',
+      vi: 'Bối cảnh',
+      'zh-CN': '背景',
+      'zh-TW': '背景',
+    }
+    expect(Object.keys(MESSAGES).sort()).toEqual(
+      Object.keys(CONTEXT_WORD).sort()
+    )
+    const en = MESSAGES.en?.['taskTemplate.agentBrief.description']
+    expect(en).toBe(
+      'Context, goal, non-goals, stop conditions, done criteria, decisions'
+    )
+    for (const [loc, word] of Object.entries(CONTEXT_WORD)) {
+      const desc = MESSAGES[loc]?.['taskTemplate.agentBrief.description'] ?? ''
+      expect({ loc, starts: desc.startsWith(word) }).toEqual({
+        loc,
+        starts: true,
+      })
+      if (!loc.startsWith('en'))
+        expect({ loc, desc }).not.toEqual({ loc, desc: en })
+    }
+  })
+
   it('agent-brief v2 task decide appends under Decisions and leaves the rest alone', () => {
     const md = listSystemTemplates('zh-CN')[0]?.content ?? ''
     const html = normalizeRichText(md) ?? ''

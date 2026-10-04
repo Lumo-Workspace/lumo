@@ -56,13 +56,36 @@ If the workspace has multiple projects and `--project` is omitted, the server wi
 
 ### `lumo task template list [--json]` — task templates (LUM-970)
 
-Lists the keys `--template` accepts: built-ins (marked `[built-in]`, e.g. `agent-brief`) plus the workspace's own. Workspace owners manage templates in the web app under **Settings → Task templates**; there is no CLI create/edit. `--json` includes each template's Markdown `content`. Built-in template bodies are English in every language; only their name and description are localized.
+Lists the keys `--template` accepts: built-ins (marked `[built-in]`, e.g. `agent-brief`) plus the workspace's own. `--json` includes each template's Markdown `content`. Built-in template bodies are English in every language; only their name and description are localized.
 
 ```bash
 lumo task template list
 ```
 
 An unknown key on `task create --template` is a 404 that names this command.
+
+### `lumo task template show / create / edit / rm` — manage templates (LUM-974)
+
+Task templates are managed only from the CLI (there is no web UI). Every command takes the template **key**. `show` works for any template; `create` / `edit` / `rm` are for the workspace's own templates and need the workspace **OWNER** role (others get a 403). Built-in keys (`agent-brief`) can't be created, edited or removed — save a copy and create your own instead.
+
+| Command        | Flags                                                  | Notes                                                                                                                                                                       |
+| -------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `show <key>`   | `--json`                                               | Prints only the Markdown body, so `> file.md` saves it. `--json`: key, name, description, isSystem, content.                                                                |
+| `create <key>` | `--name <name>` `--file <path.md>` (both required)     | `<key>`: lowercase slug ≤40 chars; name ≤80. Refuses an existing key (use `edit`).                                                                                          |
+| `edit <key>`   | `--name` / `--file` / `--key <new-key>` (at least one) | Only the flags given change.                                                                                                                                                |
+| `rm <key>`     | `--confirm`                                            | Irreversible. Without `--confirm`: exit 4 + an envelope naming key and name (see [confirmation.md](confirmation.md)). Tasks already created from it keep their description. |
+
+`--file` reads a UTF-8 Markdown file inside the project directory (`-` reads stdin, e.g. `--file - < ~/notes/brief.md`). It is checked locally before anything is sent: a missing, empty (whitespace-only), non-UTF-8 or over-20,000-character file exits 1 with a clear error — nothing is truncated or uploaded.
+
+```bash
+lumo task template show agent-brief > brief.md     # start from the built-in
+lumo task template create team-brief --name "Team brief" --file brief.md
+# Created task template team-brief "Team brief" (845 chars). Use it with `lumo task create <title> --template team-brief`.
+lumo task template edit team-brief --file brief.md --name "Team agent brief"
+lumo task template rm team-brief                    # exit 4 envelope; re-run with --confirm after the user approves
+```
+
+When to suggest: the user wants a reusable description skeleton for their team ("make a bug-report template", "change our brief template") — `show` an existing one to a file, edit it, then `create` / `edit` with `--file`.
 
 ### `lumo task decide <identifier> "<text>"` — record a decision in the brief (LUM-970)
 

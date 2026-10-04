@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, requireIdentity } from '@/lib/auth'
-import {
-  requireUserWorkspace,
-  serviceErrorResponse,
-  zodError,
-} from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
+import { serviceErrorResponse, zodError } from '@/lib/api/helpers'
 import { createTaskTemplateSchema } from '@/lib/validation/task-template'
 import { taskTemplateService } from '@/lib/services/task-template.service'
 
@@ -31,21 +27,22 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/** POST /api/task-templates — create a workspace template (OWNER only). */
+/**
+ * POST /api/task-templates — create a workspace template (OWNER only).
+ * Browser session or CLI bearer (`lumo task template create`, LUM-974).
+ */
 export async function POST(request: NextRequest) {
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const ws = await requireUserWorkspace(authResult.userId)
-    if (ws instanceof NextResponse) return ws
-
     const body = await request.json().catch(() => null)
     const parsed = createTaskTemplateSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
+    const role = await taskTemplateService.memberRole(identity.memberId)
     const template = await taskTemplateService.createTemplate(
-      ws.workspaceId,
-      ws.member.role,
+      identity.workspaceId,
+      role,
       parsed.data
     )
     return NextResponse.json({ template }, { status: 201 })
