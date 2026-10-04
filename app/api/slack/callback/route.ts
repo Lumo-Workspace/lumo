@@ -1,35 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { decrypt, encrypt } from '@/lib/crypto'
+import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { encrypt } from '@/lib/crypto'
+import { decodeOauthState } from '@/lib/integrations/oauth-state'
+import { logger } from '@/lib/logger'
 import { slackService } from '@/lib/services/slack.service'
 
+/**
+ * GET /api/slack/callback?code={code}&state={state}
+ *
+ * The token is bound to the signed-in member, and only when that member is the
+ * one who started the flow: a captured `state` replayed in someone else's
+ * browser must not attach their Slack workspace to the attacker's Lumo
+ * workspace (LUM-982). The state also expires (see lib/integrations/oauth-state).
+ */
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const stateParam = request.nextUrl.searchParams.get('state')
   const error = request.nextUrl.searchParams.get('error')
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
 
   // Handle user denial
-  if (error) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/?slack_error=1`
-    )
+  if (error || !code || !stateParam) {
+    return NextResponse.redirect(`${appUrl}/?slack_error=1`)
   }
 
-  if (!code || !stateParam) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/?slack_error=1`
-    )
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+  const ws = await getUserWorkspace(authResult.userId)
+  if (!ws) {
+    return NextResponse.redirect(`${appUrl}/?slack_error=identity_mismatch`)
+  }
+
+  const settingsUrl = `${appUrl}/workspace/${ws.workspace.slug}/settings/integrations`
+
+  const decoded = decodeOauthState(stateParam)
+  if (!decoded.ok) {
+    const reason = decoded.reason === 'expired' ? 'expired' : 'invalid_state'
+    return NextResponse.redirect(`${settingsUrl}?slack_error=${reason}`)
+  }
+  const { workspaceId, memberId } = decoded.payload
+  if (ws.workspaceId !== workspaceId || ws.member.id !== memberId) {
+    return NextResponse.redirect(`${settingsUrl}?slack_error=identity_mismatch`)
   }
 
   try {
-    const { workspaceId, memberId, workspaceUrl } = JSON.parse(
-      decrypt(stateParam)
-    ) as {
-      workspaceId: string
-      memberId: string
-      workspaceUrl: string
-    }
-
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/slack/callback`
+    const redirectUri = `${appUrl}/api/slack/callback`
 
     const tokenRes = await fetch('https://slack.com/api/oauth.v2.access', {
       method: 'POST',
@@ -44,10 +59,8 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenRes.json()
     if (!tokenData.ok) {
-      console.error('[slack callback] token exchange failed:', tokenData.error)
-      return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceUrl}/settings/integrations?slack_error=1`
-      )
+      logger.error('[slack callback] token exchange failed:', tokenData.error)
+      return NextResponse.redirect(`${settingsUrl}?slack_error=1`)
     }
 
     const encryptedToken = encrypt(tokenData.access_token)
@@ -61,13 +74,9 @@ export async function GET(request: NextRequest) {
       slackUserId: tokenData.authed_user.id,
     })
 
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceUrl}/settings/integrations?slack_connected=1`
-    )
+    return NextResponse.redirect(`${settingsUrl}?slack_connected=1`)
   } catch (error) {
-    console.error('GET /api/slack/callback error:', error)
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/?slack_error=1`
-    )
+    logger.error('GET /api/slack/callback error:', error)
+    return NextResponse.redirect(`${settingsUrl}?slack_error=1`)
   }
 }

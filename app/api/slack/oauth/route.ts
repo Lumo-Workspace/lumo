@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
-import { encrypt } from '@/lib/crypto'
+import { encodeOauthState } from '@/lib/integrations/oauth-state'
 
 const SLACK_SCOPES = [
   'chat:write',
@@ -41,13 +41,11 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const state = encrypt(
-      JSON.stringify({
-        workspaceId: ws.workspaceId,
-        memberId: ws.member.id,
-        workspaceUrl,
-      })
-    )
+    const state = encodeOauthState({
+      workspaceId: ws.workspaceId,
+      memberId: ws.member.id,
+      workspaceUrl,
+    })
     const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/slack/callback`
 
     const params = new URLSearchParams({

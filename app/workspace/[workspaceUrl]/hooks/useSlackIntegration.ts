@@ -68,7 +68,8 @@ export function useSlackIntegration(): UseSlackIntegrationReturn {
   })
 
   // OAuth callback param handling — fires on mount when the OAuth round-trip
-  // returned to this page with ?slack_connected=1 or ?slack_error=1.
+  // returned to this page with ?slack_connected=1 or ?slack_error=<reason>
+  // (1 / expired / invalid_state / identity_mismatch).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('slack_connected') === '1') {
@@ -78,7 +79,7 @@ export function useSlackIntegration(): UseSlackIntegrationReturn {
       })
       window.history.replaceState({}, '', window.location.pathname)
     }
-    if (params.get('slack_error') === '1') {
+    if (params.get('slack_error')) {
       toast.error(intl.formatMessage({ id: 'slack.connectFailed' }))
       window.history.replaceState({}, '', window.location.pathname)
     }
