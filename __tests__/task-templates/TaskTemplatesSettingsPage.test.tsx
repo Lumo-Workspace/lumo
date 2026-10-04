@@ -77,6 +77,8 @@ describe('TaskTemplatesSettingsPage', () => {
       'aria-label',
       'taskTemplate.settings.copy:Agent brief'
     )
+    // The copy action is always visible; edit / delete stay hover-revealed.
+    expect(builtInButtons[0]!.className).not.toMatch(/opacity-0/)
     const custom = screen.getByTestId('task-template-row-bug-report')
     expect(custom.querySelectorAll('button')).toHaveLength(2)
   })
@@ -174,6 +176,16 @@ describe('TaskTemplatesSettingsPage', () => {
     expect(screen.getByLabelText('taskTemplate.settings.content')).toHaveValue(
       '## Goal'
     )
+    // onOpenAutoFocus: the name input gets focus with a collapsed caret at
+    // the end. NOTE jsdom never selects-all on focus, so this asserts our
+    // handler ran but cannot reproduce the real-browser bug; that is
+    // verified in a browser (LUM-711 / LUM-972).
+    const nameInput = screen.getByLabelText(
+      'taskTemplate.settings.name'
+    ) as HTMLInputElement
+    await waitFor(() => expect(document.activeElement).toBe(nameInput))
+    expect(nameInput.selectionStart).toBe(nameInput.value.length)
+    expect(nameInput.selectionEnd).toBe(nameInput.value.length)
 
     client.list!.mockResolvedValue({
       templates: [

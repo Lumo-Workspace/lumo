@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import { Copy, FileText, Pencil, Plus, Trash2 } from 'lucide-react'
@@ -62,6 +62,7 @@ export function TaskTemplatesSettingsPage({
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<TaskTemplateItem | null>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.taskTemplates() })
@@ -222,7 +223,7 @@ export function TaskTemplatesSettingsPage({
                     { name: t.name }
                   )}
                   onClick={() => openCopy(t)}
-                  className='opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-foreground transition-all'
+                  className='p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors'
                 >
                   <Copy size={14} />
                 </button>
@@ -253,7 +254,21 @@ export function TaskTemplatesSettingsPage({
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className='max-w-lg'>
+        <DialogContent
+          className='max-w-lg'
+          // Radix focuses the first input on open and the browser selects its
+          // whole value, so in copy / edit mode the first keystroke would wipe
+          // the pre-filled name. Focus it ourselves with the caret at the end.
+          // (jsdom does not reproduce the selection — verified in a real
+          // browser; see LUM-711.)
+          onOpenAutoFocus={event => {
+            const el = nameRef.current
+            if (!el) return
+            event.preventDefault()
+            el.focus()
+            el.setSelectionRange(el.value.length, el.value.length)
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               {intl.formatMessage({
@@ -280,6 +295,7 @@ export function TaskTemplatesSettingsPage({
               </label>
               <Input
                 id='task-template-name'
+                ref={nameRef}
                 value={form.name}
                 maxLength={80}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
