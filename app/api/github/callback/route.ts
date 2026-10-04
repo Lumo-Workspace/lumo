@@ -1,43 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { encrypt, decrypt } from '@/lib/crypto'
+import { requireAuth, getUserWorkspace } from '@/lib/auth'
+import { encrypt } from '@/lib/crypto'
+import { decodeOauthState } from '@/lib/integrations/oauth-state'
+import { logger } from '@/lib/logger'
 import { githubService } from '@/lib/services/github.service'
 
 /**
  * GET /api/github/callback?code={code}&state={state}
  * Handles the OAuth callback from GitHub.
+ *
+ * The token is bound to the signed-in member, and only when that member is the
+ * one who started the flow: a captured `state` replayed in someone else's
+ * browser must not link their GitHub account to the attacker's member
+ * (LUM-982). The state also expires (see lib/integrations/oauth-state).
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl
   const code = searchParams.get('code')
   const state = searchParams.get('state')
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
 
   if (!code || !state) {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/?github_error=1`
-    )
+    return NextResponse.redirect(`${appUrl}/?github_error=1`)
   }
 
-  let memberId: string
-  let workspaceId: string
-  let workspaceUrl: string
-
-  try {
-    const parsed = JSON.parse(decrypt(state)) as {
-      memberId: string
-      workspaceId: string
-      workspaceUrl: string
-    }
-    memberId = parsed.memberId
-    workspaceId = parsed.workspaceId
-    workspaceUrl = parsed.workspaceUrl
-  } catch {
-    return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL}/?github_error=1`
-    )
+  const authResult = await requireAuth()
+  if (authResult instanceof NextResponse) return authResult
+  const ws = await getUserWorkspace(authResult.userId)
+  if (!ws) {
+    return NextResponse.redirect(`${appUrl}/?github_error=identity_mismatch`)
   }
 
-  const errorRedirect = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceUrl}/settings/integrations?github_error=1`
-  const successRedirect = `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceUrl}/settings/integrations`
+  const settingsUrl = `${appUrl}/workspace/${ws.workspace.slug}/settings/integrations`
+  const errorRedirect = `${settingsUrl}?github_error=1`
+
+  const decoded = decodeOauthState(state)
+  if (!decoded.ok) {
+    const reason = decoded.reason === 'expired' ? 'expired' : 'invalid_state'
+    return NextResponse.redirect(`${settingsUrl}?github_error=${reason}`)
+  }
+  const { workspaceId, memberId } = decoded.payload
+  if (ws.workspaceId !== workspaceId || ws.member.id !== memberId) {
+    return NextResponse.redirect(
+      `${settingsUrl}?github_error=identity_mismatch`
+    )
+  }
 
   try {
     // Exchange code for access token
@@ -60,7 +67,11 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenRes.json()
     if (!tokenData.access_token) {
-      console.error('[github/callback] No access_token in response:', tokenData)
+      // Log only the error fields — never the response body wholesale.
+      logger.error(
+        '[github/callback] No access_token in response:',
+        tokenData.error ?? 'unknown_error'
+      )
       return NextResponse.redirect(errorRedirect)
     }
 
@@ -77,7 +88,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!userRes.ok) {
-      console.error('[github/callback] Failed to fetch GitHub user')
+      logger.error('[github/callback] Failed to fetch GitHub user')
       return NextResponse.redirect(errorRedirect)
     }
 
@@ -97,9 +108,9 @@ export async function GET(request: NextRequest) {
       githubLogin,
     })
 
-    return NextResponse.redirect(successRedirect)
+    return NextResponse.redirect(settingsUrl)
   } catch (error) {
-    console.error('[github/callback] Error:', error)
+    logger.error('[github/callback] Error:', error)
     return NextResponse.redirect(errorRedirect)
   }
 }
