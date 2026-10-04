@@ -47,16 +47,16 @@ describe('SettingsShell — nav', () => {
     ).toBeNull()
   })
 
-  it('links Task templates for owners and members (LUM-970)', () => {
+  it('no longer links Task templates for owners or members (LUM-974)', () => {
     for (const isOwner of [true, false]) {
-      const { unmount } = render(
+      const { container, unmount } = render(
         <SettingsShell workspaceUrl='acme' isOwner={isOwner}>
           <div />
         </SettingsShell>
       )
       expect(
-        screen.getByRole('link', { name: 'taskTemplate.settings.title' })
-      ).toHaveAttribute('href', '/workspace/acme/settings/task-templates')
+        container.querySelector('a[href$="/settings/task-templates"]')
+      ).toBeNull()
       unmount()
     }
   })

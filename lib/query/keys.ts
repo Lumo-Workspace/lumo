@@ -134,11 +134,6 @@ export const queryKeys = {
     ['mergeCandidates', projectId] as const,
 
   tags: () => ['tags'] as const,
-  // LUM-970: system + workspace task templates; locale-keyed (system guidance is localized).
-  taskTemplates: (locale?: string) =>
-    locale
-      ? (['task-templates', locale] as const)
-      : (['task-templates'] as const),
 
   taskWebLinks: (taskId: string) => ['task-web-links', taskId] as const,
 

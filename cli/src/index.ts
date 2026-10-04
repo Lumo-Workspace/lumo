@@ -46,6 +46,12 @@ import { taskList } from './commands/task-list'
 import { taskSearch } from './commands/task-search'
 import { taskStatuses } from './commands/task-statuses'
 import { taskTemplateList } from './commands/task-template-list'
+import {
+  taskTemplateShow,
+  taskTemplateCreate,
+  taskTemplateEdit,
+  taskTemplateRm,
+} from './commands/task-template-manage'
 import { taskDecide } from './commands/task-decide'
 import { memberList } from './commands/member-list'
 import { tagCreate, tagList } from './commands/tag'
@@ -1019,6 +1025,76 @@ taskTemplate
   )
   .option('--json', 'Emit the templates (with their Markdown content) as JSON')
   .action(wrap(options => taskTemplateList(options as { json?: boolean })))
+
+taskTemplate
+  .command('show <key>')
+  .description(
+    "Print one template's Markdown (built-in or workspace) — redirect to save it: `show agent-brief > brief.md`."
+  )
+  .option('--json', 'Emit key, name, description, isSystem and content as JSON')
+  .action(
+    wrap((key, options) =>
+      taskTemplateShow(key as string, options as { json?: boolean })
+    )
+  )
+
+taskTemplate
+  .command('create <key>')
+  .description(
+    'Create a workspace template from a local Markdown file (OWNER only). <key> is a lowercase slug; built-in keys are reserved.'
+  )
+  .option('--name <name>', 'Display name (required, ≤80 chars)')
+  .option(
+    '--file <path>',
+    'UTF-8 Markdown file with the template body (required, ≤20,000 chars); `-` reads stdin'
+  )
+  .action(
+    wrap((key, options) =>
+      taskTemplateCreate(
+        key as string,
+        options as { name?: string; file?: string }
+      )
+    )
+  )
+
+taskTemplate
+  .command('edit <key>')
+  .description(
+    'Change a workspace template (OWNER only): new name, new body from a Markdown file, and/or a new key. Built-ins cannot be edited.'
+  )
+  .option('--name <name>', 'New display name')
+  .option(
+    '--file <path>',
+    'Replace the body with this UTF-8 Markdown file; `-` reads stdin'
+  )
+  .option('--key <new-key>', 'Rename the key')
+  .action(
+    wrap((key, options) =>
+      taskTemplateEdit(
+        key as string,
+        options as { name?: string; file?: string; key?: string }
+      )
+    )
+  )
+
+taskTemplate
+  .command('rm <key>')
+  .description(
+    'Delete a workspace template (OWNER only, irreversible). Without --confirm: exit 4 + a confirmation envelope naming it.'
+  )
+  .option(
+    '--confirm',
+    'The user has approved the change shown in the confirmation envelope (LUM-755). Without it the command exits 4 and prints what it would do.'
+  )
+  .option('--yes', 'Alias of --confirm (kept for compatibility)')
+  .action(
+    wrap((key, options) =>
+      taskTemplateRm(
+        key as string,
+        options as { confirm?: boolean; yes?: boolean }
+      )
+    )
+  )
 
 task
   .command('decide <identifier> <text>')

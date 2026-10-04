@@ -1,31 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
-import {
-  requireUserWorkspace,
-  serviceErrorResponse,
-  zodError,
-} from '@/lib/api/helpers'
+import { requireIdentity } from '@/lib/auth'
+import { serviceErrorResponse, zodError } from '@/lib/api/helpers'
 import { updateTaskTemplateSchema } from '@/lib/validation/task-template'
 import { taskTemplateService } from '@/lib/services/task-template.service'
 
 type Params = { params: Promise<{ id: string }> }
 
-/** PATCH /api/task-templates/[id] — edit a workspace template (OWNER only). */
+/**
+ * PATCH /api/task-templates/[id] — edit a workspace template (OWNER only).
+ * Browser session or CLI bearer (`lumo task template edit`, LUM-974; the CLI
+ * resolves the key to this id via GET /api/task-templates).
+ */
 export async function PATCH(request: NextRequest, { params }: Params) {
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const ws = await requireUserWorkspace(authResult.userId)
-    if (ws instanceof NextResponse) return ws
-
     const body = await request.json().catch(() => null)
     const parsed = updateTaskTemplateSchema.safeParse(body)
     if (!parsed.success) return zodError(parsed)
 
     const { id } = await params
+    const role = await taskTemplateService.memberRole(identity.memberId)
     const template = await taskTemplateService.updateTemplate(
-      ws.workspaceId,
-      ws.member.role,
+      identity.workspaceId,
+      role,
       id,
       parsed.data
     )
@@ -35,16 +33,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   }
 }
 
-/** DELETE /api/task-templates/[id] — remove a workspace template (OWNER only). */
-export async function DELETE(_request: NextRequest, { params }: Params) {
+/**
+ * DELETE /api/task-templates/[id] — remove a workspace template (OWNER only).
+ * Browser session or CLI bearer (`lumo task template rm`, LUM-974).
+ */
+export async function DELETE(request: NextRequest, { params }: Params) {
+  const identity = await requireIdentity(request)
+  if (identity instanceof NextResponse) return identity
   try {
-    const authResult = await requireAuth()
-    if (authResult instanceof NextResponse) return authResult
-    const ws = await requireUserWorkspace(authResult.userId)
-    if (ws instanceof NextResponse) return ws
-
     const { id } = await params
-    await taskTemplateService.deleteTemplate(ws.workspaceId, ws.member.role, id)
+    const role = await taskTemplateService.memberRole(identity.memberId)
+    await taskTemplateService.deleteTemplate(identity.workspaceId, role, id)
     return NextResponse.json({ success: true })
   } catch (error) {
     return serviceErrorResponse(error, '[DELETE /api/task-templates/[id]]')

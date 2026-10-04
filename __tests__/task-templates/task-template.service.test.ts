@@ -16,9 +16,13 @@ jest.mock('@/lib/repositories/task-template.repository', () => ({
 jest.mock('@/lib/repositories/preference.repository', () => ({
   preferenceRepository: { findByMemberId: jest.fn() },
 }))
+jest.mock('@/lib/repositories/misc.repository', () => ({
+  miscRepository: { findMemberRoleById: jest.fn() },
+}))
 
 import { taskTemplateRepository } from '@/lib/repositories/task-template.repository'
 import { preferenceRepository } from '@/lib/repositories/preference.repository'
+import { miscRepository } from '@/lib/repositories/misc.repository'
 import { taskTemplateService } from '@/lib/services/task-template.service'
 
 const repo = taskTemplateRepository as unknown as Record<string, jest.Mock>
@@ -171,5 +175,22 @@ describe('taskTemplateService CRUD', () => {
     expect(t.name).toBe('Bugs')
     await taskTemplateService.deleteTemplate('ws_1', 'OWNER', 'tt_1')
     expect(repo.delete).toHaveBeenCalledWith('tt_1')
+  })
+})
+
+describe('taskTemplateService.memberRole (LUM-974)', () => {
+  const misc = miscRepository as unknown as Record<string, jest.Mock>
+
+  it("returns the member's workspace role", async () => {
+    misc.findMemberRoleById!.mockResolvedValue('OWNER')
+    await expect(taskTemplateService.memberRole('m_1')).resolves.toBe('OWNER')
+    expect(misc.findMemberRoleById).toHaveBeenCalledWith('m_1')
+  })
+
+  it('a member that no longer exists is a 403', async () => {
+    misc.findMemberRoleById!.mockResolvedValue(null)
+    await expect(
+      taskTemplateService.memberRole('m_gone')
+    ).rejects.toMatchObject({ status: 403 })
   })
 })

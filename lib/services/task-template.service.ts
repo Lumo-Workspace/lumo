@@ -1,6 +1,7 @@
 import type { WorkspaceRole } from '@prisma/client'
 import { taskTemplateRepository } from '@/lib/repositories/task-template.repository'
 import { preferenceRepository } from '@/lib/repositories/preference.repository'
+import { miscRepository } from '@/lib/repositories/misc.repository'
 import {
   isSystemTemplateKey,
   listSystemTemplates,
@@ -31,6 +32,16 @@ function isUniqueViolation(err: unknown): boolean {
 
 function httpError(status: number, message: string): Error {
   return Object.assign(new Error(message), { status })
+}
+
+/**
+ * LUM-974: the caller's workspace role, for the write routes — they accept a
+ * CLI bearer token, whose identity carries a member id but no role.
+ */
+async function memberRole(memberId: string): Promise<WorkspaceRole> {
+  const role = await miscRepository.findMemberRoleById(memberId)
+  if (!role) throw httpError(403, 'Workspace member not found')
+  return role
 }
 
 /** Workspace templates are managed by OWNERs (the only admin role). */
@@ -160,6 +171,7 @@ async function deleteTemplate(
 }
 
 export const taskTemplateService = {
+  memberRole,
   listTemplates,
   resolveContent,
   createTemplate,
