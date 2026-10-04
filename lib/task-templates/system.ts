@@ -2,21 +2,40 @@ import { MESSAGES } from '@/lib/i18n/messages'
 
 /**
  * LUM-970: built-in task templates. They live in code (not a DB seed) so
- * every workspace sees them with no data migration, and their guidance text
- * is localized from the regular locale files.
+ * every workspace sees them with no data migration.
  *
- * The section headings are fixed English — they are the brief's protocol
- * (`lumo task decide` appends under `## Decisions`), so they read the same in
- * every locale. Only the one-line guidance under each heading is translated.
+ * LUM-973 (v2): the body is content, not UI copy, so it is English in every
+ * locale — like the system doc templates in `lib/editor/templates/`. Only the
+ * template's name and description are localized. The section headings are
+ * the brief's protocol (`lumo task decide` appends under `## Decisions`).
  */
 
-/** Recommended brief headings, in order. Not validated anywhere. */
+/** Recommended brief headings with their drafting hints, in order. Not validated anywhere. */
 export const BRIEF_SECTIONS = [
-  { heading: 'Goal', hintKey: 'taskTemplate.agentBrief.goal' },
-  { heading: 'Non-goals', hintKey: 'taskTemplate.agentBrief.nonGoals' },
-  { heading: 'Watch out', hintKey: 'taskTemplate.agentBrief.watchOut' },
-  { heading: 'Done when', hintKey: 'taskTemplate.agentBrief.doneWhen' },
-  { heading: 'Decisions', hintKey: 'taskTemplate.agentBrief.decisions' },
+  {
+    heading: 'Context',
+    hint: 'Current facts this task depends on, each with its source (file path, PR or command). Verify them against the code before writing; where they disagree, the code wins.',
+  },
+  {
+    heading: 'Goal',
+    hint: 'What this task delivers, and why, in one or two sentences.',
+  },
+  {
+    heading: 'Non-goals',
+    hint: 'What stays out of scope, including nearby work it would be tempting to do along the way.',
+  },
+  {
+    heading: 'Watch out',
+    hint: 'Stop conditions: when to pause and ask instead of guessing. Flag cross-cutting concerns too: security / privacy, i18n, data export and migration, conflict-prone files.',
+  },
+  {
+    heading: 'Done when',
+    hint: 'Each item objectively checkable, naming its evidence (test, command, screenshot). For a bug fix, the check must fail before the fix. Spell out interaction details: when it shows, limits, conflicts.',
+  },
+  {
+    heading: 'Decisions',
+    hint: 'Dated rulings, appended as work goes with `lumo task decide <id> "…"`.',
+  },
 ] as const
 
 export const DECISIONS_HEADING = 'Decisions'
@@ -46,20 +65,22 @@ function message(locale: string, id: string): string {
   return MESSAGES[locale]?.[id] ?? MESSAGES.en?.[id] ?? id
 }
 
-/** The built-in templates, rendered for `locale`. */
+/** The agent-brief body: the same English Markdown in every locale. */
+const AGENT_BRIEF_CONTENT = `${BRIEF_SECTIONS.map(
+  s => `## ${s.heading}\n\n_${s.hint}_`
+).join('\n\n')}\n`
+
+/** The built-in templates; name and description follow `locale`. */
 export function listSystemTemplates(
   locale: string | null | undefined
 ): SystemTaskTemplate[] {
   const loc = resolveTemplateLocale(locale)
-  const content = BRIEF_SECTIONS.map(
-    s => `## ${s.heading}\n\n_${message(loc, s.hintKey)}_`
-  ).join('\n\n')
   return [
     {
       key: 'agent-brief',
       name: message(loc, 'taskTemplate.agentBrief.name'),
       description: message(loc, 'taskTemplate.agentBrief.description'),
-      content: `${content}\n`,
+      content: AGENT_BRIEF_CONTENT,
     },
   ]
 }

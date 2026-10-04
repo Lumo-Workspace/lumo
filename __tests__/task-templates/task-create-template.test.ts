@@ -78,7 +78,7 @@ describe('createFromCli — templateKey', () => {
   it('agent-brief becomes the description Markdown', async () => {
     await create({ templateKey: 'agent-brief' })
     const description = createTask.mock.calls[0][1].description as string
-    expect(description).toMatch(/^## Goal\n/)
+    expect(description).toMatch(/^## Context\n/)
     expect(description).toContain('## Decisions')
   })
 
