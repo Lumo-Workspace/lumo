@@ -44,6 +44,7 @@ import {
   matchUntrustedCodeExecution,
 } from '@/lib/boundary-crossing/untrusted-code'
 import { matchPushTarget } from '@/lib/boundary-crossing/push-target-match'
+import { detectSensitiveReads } from '@/lib/boundary-crossing/sensitive-read'
 import {
   EVASION_MARKER,
   isEvasionDecoded,
@@ -789,6 +790,9 @@ const REVERSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> = new Set([
   'SENSITIVE_PATH_EDIT',
   'HOOK_BYPASS',
   'TEST_FILE_DELETED',
+  // LUM-963: a read mutates nothing — no repo, Lumo or world state changes.
+  // (Sending what was read somewhere is a separate, irreversible class.)
+  'SENSITIVE_PATH_READ',
 ])
 
 /** Target prefix stamped by the code pipeline on diff-based rule violations. */
@@ -825,6 +829,8 @@ export function severityFor(
 ): BoundaryCrossingSeverity {
   switch (category) {
     case 'NEW_NPM_DEPENDENCY':
+    // LUM-963: a hint for the reviewer, always advisory — never blocks DONE.
+    case 'SENSITIVE_PATH_READ':
       return 'LOW'
     case 'PUSH_TO_PROTECTED_BRANCH':
     case 'MIGRATION_FILE_DELETED':
@@ -1146,6 +1152,26 @@ export function detectCrossings(
         ...(downgraded ? { advisory: true } : {}),
       })
     }
+  }
+
+  // LUM-963: reading a credential store outside the repo (Read tool, or a
+  // Bash segment whose verb reads its operands). Recorded LOW + advisory —
+  // agents read config constantly, so this is a hint and never blocks DONE.
+  // Coalesces per normalized path.
+  for (const r of detectSensitiveReads({
+    toolName: input.toolName,
+    filePath: input.filePath,
+    command: cmd,
+  })) {
+    out.push({
+      category: 'SENSITIVE_PATH_READ',
+      detail: clip(
+        `read sensitive path ${r.path} (${r.label}) via ${r.via} — advisory`
+      ),
+      severity: severityFor('SENSITIVE_PATH_READ'),
+      target: r.path,
+      advisory: true,
+    })
   }
 
   return out

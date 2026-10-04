@@ -175,7 +175,7 @@ export function ProjectMilestonesOverview({
               className='min-w-0 flex-1 bg-transparent text-body-strong text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground'
             />
             {create.isError && (
-              <span className='shrink-0 text-caption text-danger'>
+              <span className='shrink-0 text-caption text-danger-text'>
                 {intl.formatMessage({ id: 'project.milestones.addFailed' })}
               </span>
             )}

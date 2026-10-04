@@ -34,7 +34,9 @@ export const LUMO_COVERAGE: Record<RiskType, string | null> = {
   malware_or_backdoor: null,
   data_exfiltration:
     'EXFILTRATION_PUBLIC (curl/wget file upload, repo→public only)',
-  sensitive_data_read: null,
+  // LUM-963: advisory only — recorded, never counted as a detection here.
+  sensitive_data_read:
+    'SENSITIVE_PATH_READ (advisory only; credential stores outside the repo)',
   local_data_deletion:
     'MIGRATION_FILE_DELETED / TEST_FILE_DELETED / CLOUD_DATA_DELETION (repo- or cloud-scoped only)',
   process_termination: 'INFRA_TERMINATION',

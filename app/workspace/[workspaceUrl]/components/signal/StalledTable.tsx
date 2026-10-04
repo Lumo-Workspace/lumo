@@ -87,8 +87,8 @@ export function StalledTable({
               className={cn(
                 'text-caption font-mono',
                 days !== null && days >= IDLE_SEVERE_DAYS
-                  ? 'text-danger'
-                  : 'text-warning'
+                  ? 'text-danger-text'
+                  : 'text-warning-text'
               )}
             >
               {days === null

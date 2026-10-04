@@ -1172,6 +1172,7 @@
   "boundary.category.POLICY_WEAKENING": "नीति कमजोर करना",
   "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "स्टीवर्ड सत्र से कार्यान्वयन आर्टिफ़ैक्ट",
   "boundary.category.SENSITIVE_PATH_EDIT": "संवेदनशील पाथ संपादित किया",
+  "boundary.category.SENSITIVE_PATH_READ": "एक संवेदनशील पथ पढ़ा",
   "boundary.category.HOOK_BYPASS": "git हुक बायपास किए",
   "boundary.category.TEST_FILE_DELETED": "टेस्ट फ़ाइल हटाई",
   "boundary.category.UNTRUSTED_CODE_EXECUTION": "अपुष्ट स्रोत से कोड चलाया गया",

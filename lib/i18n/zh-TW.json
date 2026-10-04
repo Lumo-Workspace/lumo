@@ -1172,6 +1172,7 @@
   "boundary.category.POLICY_WEAKENING": "規則弱化",
   "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "治理(steward)session 產出實作產物",
   "boundary.category.SENSITIVE_PATH_EDIT": "編輯了敏感路徑",
+  "boundary.category.SENSITIVE_PATH_READ": "讀取了敏感路徑",
   "boundary.category.HOOK_BYPASS": "繞過了 git 鉤子",
   "boundary.category.TEST_FILE_DELETED": "刪除了測試檔案",
   "boundary.category.UNTRUSTED_CODE_EXECUTION": "執行了未經審查來源的程式碼",

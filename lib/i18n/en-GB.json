@@ -1172,6 +1172,7 @@
   "boundary.category.POLICY_WEAKENING": "Policy weakening",
   "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Implementation artefact from a steward session",
   "boundary.category.SENSITIVE_PATH_EDIT": "edited a sensitive path",
+  "boundary.category.SENSITIVE_PATH_READ": "read a sensitive path",
   "boundary.category.HOOK_BYPASS": "bypassed git hooks",
   "boundary.category.TEST_FILE_DELETED": "deleted a test file",
   "boundary.category.UNTRUSTED_CODE_EXECUTION": "ran code from an unvetted source",

@@ -78,7 +78,7 @@ export function TaskDependencyField({
   }
   if (suggestedCount > 0) {
     pieces.push(
-      <span key='suggested' className='text-warning'>
+      <span key='suggested' className='text-warning-text'>
         {intl.formatMessage(
           {
             id: 'task.dependencies.field.suggested',

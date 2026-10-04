@@ -115,7 +115,9 @@ export function LineageTab({
   }
 
   if (error) {
-    return <div className='py-8 text-center text-xs text-danger'>{error}</div>
+    return (
+      <div className='py-8 text-center text-xs text-danger-text'>{error}</div>
+    )
   }
 
   if (!data || data.groups.length === 0) {

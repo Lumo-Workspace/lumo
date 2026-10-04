@@ -1172,6 +1172,7 @@
   "boundary.category.POLICY_WEAKENING": "Pelemahan dasar",
   "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Artifak pelaksanaan daripada sesi steward",
   "boundary.category.SENSITIVE_PATH_EDIT": "menyunting laluan sensitif",
+  "boundary.category.SENSITIVE_PATH_READ": "membaca laluan sensitif",
   "boundary.category.HOOK_BYPASS": "memintas git hook",
   "boundary.category.TEST_FILE_DELETED": "memadam fail ujian",
   "boundary.category.UNTRUSTED_CODE_EXECUTION": "menjalankan kod daripada sumber yang belum disemak",

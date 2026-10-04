@@ -141,7 +141,9 @@ export function RecordTab({
   }
 
   if (error) {
-    return <div className='py-8 text-center text-xs text-danger'>{error}</div>
+    return (
+      <div className='py-8 text-center text-xs text-danger-text'>{error}</div>
+    )
   }
 
   if (!data) return null

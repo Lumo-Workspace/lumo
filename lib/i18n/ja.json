@@ -1172,6 +1172,7 @@
   "boundary.category.POLICY_WEAKENING": "ポリシーの弱体化",
   "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "スチュワードセッションからの実装成果物",
   "boundary.category.SENSITIVE_PATH_EDIT": "機密パスを編集した",
+  "boundary.category.SENSITIVE_PATH_READ": "機密パスを読み取った",
   "boundary.category.HOOK_BYPASS": "git フックをバイパスした",
   "boundary.category.TEST_FILE_DELETED": "テストファイルを削除した",
   "boundary.category.UNTRUSTED_CODE_EXECUTION": "未検証のソースからのコードを実行",
