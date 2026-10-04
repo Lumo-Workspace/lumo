@@ -571,10 +571,15 @@ function matchExfiltrationPublic(cmd: string): boolean {
     // one (`-XPUT`, `-dToken=…`) the `T` is that flag's value, not an upload.
     // Scoped to curl's own segment so a sibling `kill -TERM` doesn't count;
     // `\`-newline continuations are joined first to keep a wrapped curl whole.
+    // The short `-d @file` (incl. `-d@file`, `-d @"$f"`) is scoped the same way
+    // — `date -d @<epoch>` in a sibling segment is not an upload.
     const curlUploadFlag = /(?:^|[\s'"])-[sSLfkvigGINnq]*T/
+    const curlDataFromFile = /(?:^|[\s'"])-[sSLfkvigGINnq]*d\s*['"]?@/
     if (
       splitCommandSegmentsShared(cmd.replace(/\\\r?\n/g, ' ')).some(
-        seg => /\bcurl\b/.test(seg) && curlUploadFlag.test(seg)
+        seg =>
+          /\bcurl\b/.test(seg) &&
+          (curlUploadFlag.test(seg) || curlDataFromFile.test(seg))
       )
     )
       return true
