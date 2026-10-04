@@ -105,9 +105,9 @@ describe('SessionAttribution', () => {
     const { rerender } = render(
       <SessionAttribution view={view({ approximate: true })} />
     )
-    expect(
-      screen.getByText(/Measurement may be inaccurate/)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Measurement may be inaccurate/)).toHaveClass(
+      'text-warning-text'
+    )
     rerender(<SessionAttribution view={view()} />)
     expect(screen.queryByText(/Measurement may be inaccurate/)).toBeNull()
   })

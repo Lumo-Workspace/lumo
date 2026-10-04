@@ -67,6 +67,23 @@ contrast against both backgrounds, so they don't follow a "shift one
 shade for dark mode" rule. If a status palette ever needs to diverge by
 theme, update both blocks in lockstep and document why.
 
+### Semantic feedback tokens
+
+`info` / `warning` / `success` / `danger` (LUM-258). Each family has an
+accent (`--warning`: icon / border / dot), `-foreground` (near-black text on a
+solid accent fill), `-subtle` / `-border` (translucent color-mix fills), and —
+for `warning` / `danger` — a `-text` step for coloured text on the page
+background (LUM-934).
+
+| Token            | Light                 | Dark             | Use for                                                           |
+| ---------------- | --------------------- | ---------------- | ----------------------------------------------------------------- |
+| `--warning-text` | amber-700 (`#bb4d00`) | `var(--warning)` | Caveat / approximate notes printed as text (AA on `--background`) |
+| `--danger-text`  | red-600 (`#e7000b`)   | `var(--danger)`  | Error counts / error text on the page background                  |
+
+The light accents (`--warning` ~2.1:1, `--danger` ~3.8:1 on white) are tuned
+as strokes and miss AA as text, so text uses the darker `-text` step; dark mode
+reuses the bright accent. Utilities: `text-warning-text`, `text-danger-text`.
+
 ### Sidebar tokens
 
 Scoped to the app's left sidebar; same shape as the core palette.
@@ -138,22 +155,22 @@ All other spacing comes from Tailwind's default 4-px scale (`p-2`, `gap-4`,
 
 单一来源 `--radius: 0.75rem`;`@theme inline` 派生干净的 4px 步进档位。
 
-| Token / utility | calc | 值 |
-| --- | --- | --- |
+| Token / utility              | calc                   | 值        |
+| ---------------------------- | ---------------------- | --------- |
 | `rounded-sm` (`--radius-sm`) | `calc(--radius − 8px)` | `0.25rem` |
-| `rounded-md` (`--radius-md`) | `calc(--radius − 4px)` | `0.5rem` |
-| `rounded-lg` (`--radius-lg`) | `var(--radius)` | `0.75rem` |
-| `rounded-xl` (`--radius-xl`) | `calc(--radius + 4px)` | `1rem` |
+| `rounded-md` (`--radius-md`) | `calc(--radius − 4px)` | `0.5rem`  |
+| `rounded-lg` (`--radius-lg`) | `var(--radius)`        | `0.75rem` |
+| `rounded-xl` (`--radius-xl`) | `calc(--radius + 4px)` | `1rem`    |
 
 **档位映射规则(哪类元素用哪档):**
 
-| 元素类 | 档位 |
-| --- | --- |
-| inline 小件:chip / tag / 内联 token | `rounded-sm` |
-| 控件:button / input / select / 菜单项 / 关闭按钮 | `rounded-md` |
-| 表面:card / dialog / popover / dropdown / sheet / panel | `rounded-lg` |
-| pill / badge / 头像 / 圆形图标按钮 | `rounded-full` |
-| 大容器 / 特例 | `rounded-xl` |
+| 元素类                                                  | 档位           |
+| ------------------------------------------------------- | -------------- |
+| inline 小件:chip / tag / 内联 token                     | `rounded-sm`   |
+| 控件:button / input / select / 菜单项 / 关闭按钮        | `rounded-md`   |
+| 表面:card / dialog / popover / dropdown / sheet / panel | `rounded-lg`   |
+| pill / badge / 头像 / 圆形图标按钮                      | `rounded-full` |
+| 大容器 / 特例                                           | `rounded-xl`   |
 
 裸 `rounded`(= `0.25rem`,与 `rounded-sm` 同值)**禁用** —— 由 `lint:tokens` 拦截。
 方向性圆角(`rounded-t/l/r/b/tl…`)与 arbitrary `rounded-[..]` 按需使用,不受档位约束。
@@ -214,11 +231,11 @@ Avoid arbitrary `z-[1]` etc. — pick a tier above.
 Tailwind 内置 `shadow` / `shadow-xs…2xl` 或硬编码 `shadow-[..]`(由 `lint:tokens`
 拦截);`shadow-none` 允许;`drop-shadow-*`(filter)不受此规则约束。
 
-| 工具类 | 用途 | 组件 |
-| --- | --- | --- |
-| `shadow-elevation-1` | 静态抬起 | card / panel / 抬起控件(button/input) / sticky header |
+| 工具类               | 用途     | 组件                                                           |
+| -------------------- | -------- | -------------------------------------------------------------- |
+| `shadow-elevation-1` | 静态抬起 | card / panel / 抬起控件(button/input) / sticky header          |
 | `shadow-elevation-2` | 锚定浮层 | popover / dropdown / select-content / hovercard / context-menu |
-| `shadow-elevation-3` | 顶级浮层 | dialog / sheet / command 面板 / toast |
+| `shadow-elevation-3` | 顶级浮层 | dialog / sheet / command 面板 / toast                          |
 
 底层值在 `app/globals.css` 的 `--elevation-1/2/3`(`:root`/`.dark`)。调整观感改
 那里即可,组件不碰。landing 专用的 `--shadow-mockup` 仍在 `landing.css`。

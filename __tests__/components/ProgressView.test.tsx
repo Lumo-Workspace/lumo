@@ -182,6 +182,9 @@ describe('ProgressView — pre-dedupe notice (LUM-932)', () => {
     expect(screen.getByTestId('usage-pre-dedupe')).toHaveTextContent(
       'PRE-DEDUPE NOTICE'
     )
+    expect(screen.getByTestId('usage-pre-dedupe')).toHaveClass(
+      'text-warning-text'
+    )
   })
 
   it('omits the notice by default', () => {

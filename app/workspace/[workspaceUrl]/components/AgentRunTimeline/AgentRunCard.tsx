@@ -138,7 +138,7 @@ export function AgentRunCard({
                 <span
                   data-testid='run-pre-dedupe'
                   title={preDedupeNotice}
-                  className='text-amber-700 dark:text-amber-400'
+                  className='text-warning-text'
                 >
                   {intl.formatMessage({
                     id: 'usage.preDedupe.marker',
@@ -205,7 +205,7 @@ export function AgentRunCard({
               {preDedupe && (
                 <p
                   data-testid='run-pre-dedupe-notice'
-                  className='mb-1 text-caption text-amber-700 dark:text-amber-400'
+                  className='mb-1 text-caption text-warning-text'
                 >
                   {preDedupeNotice}
                 </p>

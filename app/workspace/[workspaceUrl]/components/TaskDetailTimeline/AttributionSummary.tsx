@@ -48,7 +48,7 @@ export function AttributionSummary({ summary }: AttributionSummaryProps) {
       {approximate ? (
         <div
           data-testid='attribution-approximate-notice'
-          className='text-amber-700 dark:text-amber-400'
+          className='text-warning-text'
         >
           {intl.formatMessage(APPROXIMATE_NOTICE)}
         </div>

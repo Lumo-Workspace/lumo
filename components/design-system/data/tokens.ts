@@ -70,6 +70,7 @@ export const COLOR_GROUPS: TokenGroup[] = [
       'warning-foreground',
       'warning-border',
       'warning-subtle',
+      'warning-text',
       'success',
       'success-foreground',
       'success-border',
@@ -78,6 +79,7 @@ export const COLOR_GROUPS: TokenGroup[] = [
       'danger-foreground',
       'danger-border',
       'danger-subtle',
+      'danger-text',
     ],
   },
   {

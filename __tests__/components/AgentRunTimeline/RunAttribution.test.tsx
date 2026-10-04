@@ -108,12 +108,17 @@ describe('flags auto-detected work as approximate', () => {
     expect(screen.getByTestId('run-attribution-badge')).toHaveTextContent(
       'Auto-detected · High confidence'
     )
-    expect(screen.getByTestId('run-approximate')).toBeInTheDocument()
+    expect(screen.getByTestId('run-approximate')).toHaveClass(
+      'text-warning-text'
+    )
     const panel = screen.getByTestId('run-attribution-panel')
     expect(within(panel).getByText(/Branch name/)).toBeInTheDocument()
     expect(within(panel).getByText(/LUM-12/)).toBeInTheDocument()
     expect(screen.getByTestId('run-approximate-notice')).toHaveTextContent(
       'Measurement may be inaccurate'
+    )
+    expect(screen.getByTestId('run-approximate-notice')).toHaveClass(
+      'text-warning-text'
     )
   })
 

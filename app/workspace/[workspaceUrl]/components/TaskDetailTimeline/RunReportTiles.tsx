@@ -69,7 +69,7 @@ function Tile({
       {warning ? (
         <div
           data-testid='cost-approximate'
-          className='mt-0.5 text-caption text-amber-700 dark:text-amber-400'
+          className='mt-0.5 text-caption text-warning-text'
         >
           {warning}
         </div>
@@ -78,7 +78,7 @@ function Tile({
         <div
           data-testid='cost-pre-dedupe'
           title={preDedupeTitle}
-          className='mt-0.5 text-caption text-amber-700 dark:text-amber-400'
+          className='mt-0.5 text-caption text-warning-text'
         >
           {preDedupeWarning}
         </div>

@@ -71,7 +71,7 @@ export function SessionHeader({
             <dt className='text-muted-foreground'>
               {intl.formatMessage(M['detail.errors'])}
             </dt>
-            <dd className={errorCount > 0 ? 'text-red-600' : undefined}>
+            <dd className={errorCount > 0 ? 'text-danger-text' : undefined}>
               {errorCount}
             </dd>
           </div>

@@ -98,7 +98,7 @@ export function ProgressView({
           {preDedupe && (
             <p
               data-testid='usage-pre-dedupe'
-              className='mt-1 text-caption text-amber-700 dark:text-amber-400'
+              className='mt-1 text-caption text-warning-text'
             >
               {intl.formatMessage({ id: 'usage.preDedupe.notice' })}
             </p>
@@ -122,7 +122,7 @@ export function ProgressView({
           {preDedupe && (
             <p
               data-testid='usage-pre-dedupe'
-              className='mt-1 text-caption text-amber-700 dark:text-amber-400'
+              className='mt-1 text-caption text-warning-text'
             >
               {intl.formatMessage({ id: 'usage.preDedupe.notice' })}
             </p>
