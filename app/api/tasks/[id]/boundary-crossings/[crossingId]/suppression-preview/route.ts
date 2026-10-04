@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireIdentity } from '@/lib/auth'
 import { resolveTaskParam } from '@/lib/api/resolve-task-param'
 import { boundaryCrossingService } from '@/lib/services/boundary-crossing.service'
+import { suppressionPreviewScopeSchema } from '@/lib/validation/boundary-crossing'
 
 export const runtime = 'nodejs'
 
@@ -32,6 +33,17 @@ export async function GET(request: NextRequest, { params }: Params) {
     )
   }
 
+  // LUM-963: preview the scope the human is about to pick.
+  const scope = suppressionPreviewScopeSchema.safeParse(
+    new URL(request.url).searchParams.get('scope') ?? undefined
+  )
+  if (!scope.success) {
+    return NextResponse.json(
+      { error: 'scope must be exact or directory' },
+      { status: 400 }
+    )
+  }
+
   const { id: rawId, crossingId } = await params
   const task = await resolveTaskParam(rawId, identity.workspaceId)
   if (!task)
@@ -40,7 +52,8 @@ export async function GET(request: NextRequest, { params }: Params) {
   try {
     const preview = await boundaryCrossingService.previewSuppressionScope(
       task.id,
-      crossingId
+      crossingId,
+      scope.data
     )
     return NextResponse.json(preview)
   } catch (error) {

@@ -1197,6 +1197,7 @@
   "boundary.zone.allDispositioned": "All {count} dispositioned — none blocking",
   "boundary.panel.confirmCrossing": "Confirm crossing",
   "boundary.panel.notePlaceholder": "Disposition note (optional)",
+  "boundary.panel.suppressDirectory": "Apply to every file under {dir}, not just this path",
   "boundary.panel.suppressSimilar": "Auto-handle this kind in this repository from now on (false positive only)",
   "boundary.panel.suppressReasonPlaceholder": "Why this is never a real crossing here (optional)",
   "boundary.panel.suppressedByRule": "Auto-dispositioned by repository rule {rule}{reason}",

@@ -1197,6 +1197,7 @@
   "boundary.zone.allDispositioned": "Semua {count} ditangani — tidak ada yang memblokir",
   "boundary.panel.confirmCrossing": "Konfirmasi pelanggaran",
   "boundary.panel.notePlaceholder": "Catatan penanganan (opsional)",
+  "boundary.panel.suppressDirectory": "Terapkan ke semua file di bawah {dir}, bukan hanya jalur ini",
   "boundary.panel.suppressSimilar": "Tangani jenis ini secara otomatis di repositori ini mulai sekarang (hanya positif palsu)",
   "boundary.panel.suppressReasonPlaceholder": "Mengapa ini tidak pernah menjadi pelanggaran nyata di sini (opsional)",
   "boundary.panel.suppressedByRule": "Diselesaikan otomatis oleh aturan repositori {rule}{reason}",

@@ -30,8 +30,14 @@ export const API = {
     boundarySuppressionRule: (taskId: string, ruleId: string) =>
       `/api/tasks/${taskId}/boundary-crossings/suppression-rules/${ruleId}`,
     // LUM-759: read-only blast radius of a rule built from this crossing.
-    boundarySuppressionPreview: (taskId: string, crossingId: string) =>
-      `/api/tasks/${taskId}/boundary-crossings/${crossingId}/suppression-preview`,
+    boundarySuppressionPreview: (
+      taskId: string,
+      crossingId: string,
+      scope: 'exact' | 'directory' = 'exact'
+    ) =>
+      `/api/tasks/${taskId}/boundary-crossings/${crossingId}/suppression-preview${
+        scope === 'directory' ? '?scope=directory' : ''
+      }`,
     quickDispatchParse: '/api/tasks/parse-quick-dispatch',
     quickDispatchExecute: '/api/tasks/quick-dispatch/execute',
     workspace: '/api/tasks/workspace',

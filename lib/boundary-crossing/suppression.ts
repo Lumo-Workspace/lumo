@@ -81,6 +81,53 @@ export function findSuppressionRule(
   )
 }
 
+/**
+ * LUM-963 — how wide a human's suppression rule reaches. `exact` (the
+ * default) is the crossing's own target. `directory` is offered only for
+ * path-targeted, advisory-only categories (SENSITIVE_PATH_READ) so one ruling
+ * can quiet a whole config directory a project legitimately reads — e.g. a
+ * sysadmin workspace reading `/etc/sudoers.d/*` all day.
+ */
+export type SuppressionScope = 'exact' | 'directory'
+
+const DIRECTORY_SCOPE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> =
+  new Set<BoundaryCrossingCategory>(['SENSITIVE_PATH_READ'])
+
+/**
+ * The directory a `directory`-scoped rule would cover, or null when the
+ * category has no directory scope or the directory is too broad to silence in
+ * one click: `/`, `~`, or a top-level directory (`/etc`, `/var`, `/root`). A
+ * rule over `/etc/*` would quietly cover the hashed-password files along with whatever
+ * the human was looking at. Pure.
+ */
+export function suppressionDirectory(
+  category: BoundaryCrossingCategory,
+  target: string | null
+): string | null {
+  if (!target || !DIRECTORY_SCOPE_CATEGORIES.has(category)) return null
+  const cut = target.lastIndexOf('/')
+  if (cut <= 0) return null
+  const dir = target.slice(0, cut)
+  const segments = dir.split('/').filter(Boolean)
+  if (dir.startsWith('~')) return segments.length >= 2 ? dir : null
+  if (!dir.startsWith('/')) return segments.length >= 1 ? dir : null
+  return segments.length >= 2 ? dir : null
+}
+
+/**
+ * The stored `targetPattern` for a rule of this scope, or null when that
+ * scope cannot be built from this crossing (the caller answers 422).
+ */
+export function suppressionPatternFor(
+  category: BoundaryCrossingCategory,
+  target: string,
+  scope: SuppressionScope = 'exact'
+): string | null {
+  if (scope === 'exact') return exactSuppressionPattern(target)
+  const dir = suppressionDirectory(category, target)
+  return dir ? `${dir}/*` : null
+}
+
 /** The system disposition note stamped on an auto-suppressed crossing. */
 export function autoSuppressedNote(rule: ActiveSuppressionRule): string {
   const why = rule.reason ? `: ${rule.reason}` : ''

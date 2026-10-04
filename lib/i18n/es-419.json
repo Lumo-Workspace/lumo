@@ -1197,6 +1197,7 @@
   "boundary.zone.allDispositioned": "Todas procesadas ({count}) — ninguna bloquea",
   "boundary.panel.confirmCrossing": "Confirmar infracción",
   "boundary.panel.notePlaceholder": "Nota de resolución (opcional)",
+  "boundary.panel.suppressDirectory": "Aplicar a todos los archivos bajo {dir}, no solo a esta ruta",
   "boundary.panel.suppressSimilar": "Gestionar automáticamente este tipo en este repositorio de ahora en adelante (solo falsos positivos)",
   "boundary.panel.suppressReasonPlaceholder": "Por qué esto nunca es un cruce real aquí (opcional)",
   "boundary.panel.suppressedByRule": "Resuelto automáticamente por la regla del repositorio {rule}{reason}",

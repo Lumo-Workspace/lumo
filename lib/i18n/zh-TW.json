@@ -1197,6 +1197,7 @@
   "boundary.zone.allDispositioned": "已全部處置（{count} 條）— 無阻塞項",
   "boundary.panel.confirmCrossing": "確認越界",
   "boundary.panel.notePlaceholder": "處置備註（選填）",
+  "boundary.panel.suppressDirectory": "套用到 {dir} 底下的所有檔案，而不只是這個路徑",
   "boundary.panel.suppressSimilar": "此儲存庫同類越界以後自動處置（僅限誤報）",
   "boundary.panel.suppressReasonPlaceholder": "為什麼這在此儲存庫永遠不是真實越界（選填）",
   "boundary.panel.suppressedByRule": "依儲存庫規則 {rule} 自動處置{reason}",

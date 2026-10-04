@@ -146,7 +146,12 @@ export const tasksClient = {
     disposition: 'FALSE_POSITIVE' | 'CONFIRMED' | 'OPEN',
     dispositionNote?: string,
     // LUM-751: opt a FALSE_POSITIVE into a per-repository suppression rule.
-    options?: { suppressSimilarInProject?: boolean; suppressionReason?: string }
+    options?: {
+      suppressSimilarInProject?: boolean
+      suppressionReason?: string
+      // LUM-963: `directory` widens the rule to the crossing's directory.
+      suppressionScope?: 'exact' | 'directory'
+    }
   ) {
     return apiFetch<T>(API.tasks.boundaryDisposition(taskId), {
       method: 'POST',
@@ -160,6 +165,9 @@ export const tasksClient = {
               ...(options.suppressionReason
                 ? { suppressionReason: options.suppressionReason }
                 : {}),
+              ...(options.suppressionScope === 'directory'
+                ? { suppressionScope: 'directory' }
+                : {}),
             }
           : {}),
       },
@@ -172,8 +180,14 @@ export const tasksClient = {
    * Returns { suppressible, count, capped, cap }; shown next to the opt-in so
    * the human sees the blast radius before committing the ruling.
    */
-  previewCrossingSuppressionScope<T>(taskId: string, crossingId: string) {
-    return apiFetch<T>(API.tasks.boundarySuppressionPreview(taskId, crossingId))
+  previewCrossingSuppressionScope<T>(
+    taskId: string,
+    crossingId: string,
+    scope: 'exact' | 'directory' = 'exact'
+  ) {
+    return apiFetch<T>(
+      API.tasks.boundarySuppressionPreview(taskId, crossingId, scope)
+    )
   },
 
   /**

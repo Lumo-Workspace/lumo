@@ -145,15 +145,23 @@ export function BoundaryCrossingsPanel({
   const [suppressPreviews, setSuppressPreviews] = useState<
     Record<string, SuppressionPreview | 'loading'>
   >({})
+  // LUM-963: per-crossing rule scope — the whole directory instead of the one
+  // path (offered for read-type crossings only).
+  const [suppressScopes, setSuppressScopes] = useState<
+    Record<string, 'exact' | 'directory'>
+  >({})
 
-  const toggleSuppress = (crossingId: string, on: boolean) => {
-    setSuppress(prev => ({ ...prev, [crossingId]: on }))
-    if (!on || suppressPreviews[crossingId]) return
+  const loadSuppressPreview = (
+    crossingId: string,
+    scope: 'exact' | 'directory'
+  ) => {
     setSuppressPreviews(prev => ({ ...prev, [crossingId]: 'loading' }))
     void tasksClient
       .previewCrossingSuppressionScope<SuppressionPreview>(
         taskIdentifier,
-        crossingId
+        crossingId,
+        // the exact scope keeps the plain two-argument call
+        ...(scope === 'directory' ? (['directory'] as const) : [])
       )
       .then(preview =>
         setSuppressPreviews(prev => ({ ...prev, [crossingId]: preview }))
@@ -167,6 +175,21 @@ export function BoundaryCrossingsPanel({
           )
         )
       )
+  }
+
+  const toggleSuppress = (crossingId: string, on: boolean) => {
+    setSuppress(prev => ({ ...prev, [crossingId]: on }))
+    if (!on || suppressPreviews[crossingId]) return
+    loadSuppressPreview(crossingId, suppressScopes[crossingId] ?? 'exact')
+  }
+
+  const changeSuppressScope = (
+    crossingId: string,
+    scope: 'exact' | 'directory'
+  ) => {
+    setSuppressScopes(prev => ({ ...prev, [crossingId]: scope }))
+    // The blast radius depends on the scope — refetch it for the new one.
+    loadSuppressPreview(crossingId, scope)
   }
 
   // LUM-496: an instance renders one slice of the task's crossings; 'all' keeps
@@ -265,6 +288,7 @@ export function BoundaryCrossingsPanel({
     const wantsRule =
       verdict === 'FALSE_POSITIVE' && suppress[crossingId] === true
     const reason = suppressReasons[crossingId]?.trim()
+    const scope = suppressScopes[crossingId] ?? 'exact'
     void tasksClient
       .dispositionBoundaryCrossing<{ retroactivelySuppressed?: number }>(
         taskIdentifier,
@@ -276,6 +300,9 @@ export function BoundaryCrossingsPanel({
               {
                 suppressSimilarInProject: true,
                 ...(reason ? { suppressionReason: reason } : {}),
+                ...(scope === 'directory'
+                  ? { suppressionScope: 'directory' as const }
+                  : {}),
               },
             ]
           : [])
@@ -607,6 +634,10 @@ export function BoundaryCrossingsPanel({
                           suppressReason={suppressReasons[c.id] ?? ''}
                           onSuppressChange={v => toggleSuppress(c.id, v)}
                           suppressPreview={suppressPreviews[c.id]}
+                          suppressScope={suppressScopes[c.id] ?? 'exact'}
+                          onSuppressScopeChange={v =>
+                            changeSuppressScope(c.id, v)
+                          }
                           onSuppressReason={v =>
                             setSuppressReasons(prev => ({
                               ...prev,
@@ -669,6 +700,8 @@ function CrossingRow({
   suppressReason,
   onSuppressChange,
   suppressPreview,
+  suppressScope,
+  onSuppressScopeChange,
   onSuppressReason,
   onRevokeRule,
 }: {
@@ -691,6 +724,9 @@ function CrossingRow({
   onSuppressChange: (v: boolean) => void
   /** LUM-759: how many existing alerts the rule would dispose too. */
   suppressPreview: SuppressionPreview | 'loading' | undefined
+  /** LUM-963: exact path vs the whole directory. */
+  suppressScope: 'exact' | 'directory'
+  onSuppressScopeChange: (v: 'exact' | 'directory') => void
   onSuppressReason: (v: string) => void
   onRevokeRule: () => void
 }) {
@@ -1258,6 +1294,32 @@ function CrossingRow({
                     defaultMessage:
                       'Auto-handle this kind in this repository from now on (false positive only)',
                   })}
+                </label>
+              )}
+              {/* LUM-963: widen the rule to the whole directory — read-type
+              crossings only, and never over /, ~ or a top-level directory
+              (the server computes `suppressionDirectory` and refuses others). */}
+              {c.suppressible && suppress && c.suppressionDirectory && (
+                <label className='flex items-center gap-2 pl-5 text-[11px] text-muted-foreground'>
+                  <input
+                    type='checkbox'
+                    data-testid={`boundary-suppress-directory-${c.id}`}
+                    checked={suppressScope === 'directory'}
+                    disabled={pending}
+                    onChange={e =>
+                      onSuppressScopeChange(
+                        e.target.checked ? 'directory' : 'exact'
+                      )
+                    }
+                  />
+                  {intl.formatMessage(
+                    {
+                      id: 'boundary.panel.suppressDirectory',
+                      defaultMessage:
+                        'Apply to every file under {dir}, not just this path',
+                    },
+                    { dir: c.suppressionDirectory }
+                  )}
                 </label>
               )}
               {/* LUM-759: the blast radius, before the ruling is committed —

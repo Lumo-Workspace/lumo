@@ -1197,6 +1197,7 @@
   "boundary.zone.allDispositioned": "Tous traités ({count}) — aucun bloquant",
   "boundary.panel.confirmCrossing": "Confirmer le franchissement",
   "boundary.panel.notePlaceholder": "Note de traitement (facultatif)",
+  "boundary.panel.suppressDirectory": "Appliquer à tous les fichiers sous {dir}, pas seulement à ce chemin",
   "boundary.panel.suppressSimilar": "Traiter automatiquement ce type dans ce dépôt désormais (faux positifs uniquement)",
   "boundary.panel.suppressReasonPlaceholder": "Pourquoi ce n’est jamais un vrai franchissement ici (facultatif)",
   "boundary.panel.suppressedByRule": "Traité automatiquement par la règle de dépôt {rule}{reason}",

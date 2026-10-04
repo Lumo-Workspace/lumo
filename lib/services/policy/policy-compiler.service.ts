@@ -38,7 +38,7 @@ import type { CompiledPolicy, PolicyRule, RawPolicyRule } from './types'
  * of serving a stale rule set until someone edits the doc (LUM-770: the stored
  * policies carried the tsc-obligation-as-prohibition rule).
  */
-export const COMPILER_VERSION = 'lum772'
+export const COMPILER_VERSION = 'lum963'
 
 // ── In-memory source cache ────────────────────────────────────────────────────
 // Avoids 2 GitHub API reads on every PostToolUse event (ensureCompiled hot path).
@@ -64,9 +64,12 @@ export function __resetInflight(): void {
   _inflight.clear()
 }
 
-// The action built-ins that may produce blocking crossings (LUM-590; the three
-// L4 session-guard classes added in LUM-736 — a path-glob rule mapped to
-// SENSITIVE_PATH_EDIT overrides the detector's default sensitive-path set).
+// The action built-ins a rule may map to (LUM-590; the three L4 session-guard
+// classes added in LUM-736 — a path-glob rule mapped to SENSITIVE_PATH_EDIT
+// overrides the detector's default sensitive-path set). LUM-963: a path-glob
+// rule mapped to SENSITIVE_PATH_READ ADDS a path to the built-in credential
+// stores; that category is advisory-only, so its rules never block DONE
+// whatever `blocking` says.
 const BUILTIN_CATEGORIES = [
   'PUSH_TO_PROTECTED_BRANCH',
   'MIGRATION_FILE_DELETED',
@@ -81,7 +84,15 @@ const BUILTIN_CATEGORIES = [
   'SENSITIVE_PATH_EDIT',
   'HOOK_BYPASS',
   'TEST_FILE_DELETED',
+  'SENSITIVE_PATH_READ',
 ] as const
+
+/** LUM-963: built-ins whose crossings are always advisory — a rule mapped to
+ *  one never counts as blocking (so neither its crossings nor its removal,
+ *  via POLICY_WEAKENING, can block DONE). */
+const ADVISORY_ONLY_BUILTINS: ReadonlySet<string> = new Set([
+  'SENSITIVE_PATH_READ',
+])
 
 /** Stable rule id — sha256 of rule text, first 16 hex chars. */
 function ruleId(text: string): string {
@@ -225,8 +236,10 @@ export function compileRuleSet(rawRules: RawPolicyRule[]): PolicyRule[] {
       kind: r.kind,
       tier,
       severity: r.severity,
-      // blocking only when mappedCategory resolves to a known built-in.
-      blocking: hasBuiltin,
+      // blocking only when mappedCategory resolves to a known built-in that
+      // can block at all (LUM-963: not an advisory-only one).
+      blocking:
+        hasBuiltin && !ADVISORY_ONLY_BUILTINS.has(r.mappedCategory as string),
     }
     // Only set optional fields when they are actually present (exactOptionalPropertyTypes).
     if (r.mappedCategory != null) rule.mappedCategory = r.mappedCategory

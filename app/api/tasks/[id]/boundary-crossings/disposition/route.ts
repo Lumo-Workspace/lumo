@@ -65,6 +65,7 @@ export async function POST(request: NextRequest, { params }: Params) {
             {
               suppressSimilarInProject: true,
               suppressionReason: parsed.data.suppressionReason ?? null,
+              suppressionScope: parsed.data.suppressionScope ?? 'exact',
             },
           ]
         : [])

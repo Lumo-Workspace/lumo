@@ -137,6 +137,9 @@ export interface BoundaryCrossingView {
   /** LUM-751: the category may be rule-suppressed AND the crossing carries a
    *  coalescing target — the panel offers the per-repository opt-in only then. */
   suppressible?: boolean
+  /** LUM-963: the directory a directory-wide rule would cover (read-type
+   *  crossings only); null/absent = only the exact-target rule is offered. */
+  suppressionDirectory?: string | null
   /** LUM-912: the raw text was replaced by a code-free description after the
    *  workspace's retention window. Optional so an older response type-checks. */
   rawPurged?: boolean
