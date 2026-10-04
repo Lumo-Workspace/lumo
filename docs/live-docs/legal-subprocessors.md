@@ -1,6 +1,6 @@
 # Lumo Subprocessors
 
-Last updated: 2026-09-26 · Draft for legal review (LUM-857)
+Last updated: 2026-10-03 · Draft for legal review (LUM-857)
 
 This page lists the third parties ("subprocessors") that [Lumo legal entity] ("Lumo", "we") engages to process Customer Personal Data on behalf of our customers when providing the Lumo service. It is the list referenced by the Lumo Data Processing Agreement (DPA). We notify customers of changes as described in "Changes to this list" below.
 
@@ -43,6 +43,7 @@ Which provider serves a given request is chosen by the gateway from the ZDR-elig
 Notes on AI processing:
 
 - Boundary-crossing triage is the one exception. When Lumo's rule detectors flag an action an AI agent took, Lumo asks TypeSafe's Jev model, through the Vercel AI Gateway, whether the action was a legitimate part of the task. For this it sends the flagged command or file path (with detected credentials redacted), the project rule that fired, the task's title and description, and the agent's own explanation. Jev's only host, DigitalOcean, has committed not to train on the data but does not offer zero data retention. Turning off AI review in workspace settings stops this triage.
+- Zero data retention is each provider's own policy, and a provider can exclude specific models or features from it; the Vercel AI Gateway does not fail such requests (see Vercel's [zero data retention documentation](https://vercel.com/docs/ai-gateway/security-and-compliance/zdr)). Lumo sends only text and does not use the features the providers above list as exclusions, such as stored conversations, file or image inputs, hosted tools or batch processing. Providers may still cache parts of a prompt to speed up repeated requests; OpenAI keeps this cache encrypted for up to 24 hours.
 - Open-weight models (the DeepSeek and GLM model families) are run by the hosting providers above. The model authors' own APIs (DeepSeek and Zhipu AI) do not receive Lumo customer data: they do not offer zero data retention through the gateway and are excluded from routing.
 - AI requests are routed globally: for each request the gateway picks a region based on availability and latency, so processing may take place outside your region. Zero data retention applies wherever a request is processed. We do not currently commit to a processing location for AI features; customers who need a data-location commitment for AI processing should contact us before relying on this list.
 - Lumo does not use customer data to train models, and does not permit its subprocessors to do so.

@@ -29,6 +29,9 @@ const SECTIONS: { id: string; paragraphs: string[] }[] = [
       'triage',
       'training',
       'openai',
+      // LUM-871: providers may exclude models / features from ZDR and the
+      // gateway does not fail those requests.
+      'zdrExclusions',
       'openWeights',
       'region',
       'hookEvents',

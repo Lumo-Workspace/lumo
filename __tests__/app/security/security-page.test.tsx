@@ -475,6 +475,40 @@ describe('/security page (LUM-856)', () => {
     expect(del).toContain("An agent's own report on its work is kept")
   })
 
+  it('security page discloses provider ZDR exclusions in every locale LUM-871', () => {
+    // Vercel's ZDR doc: a provider can exclude specific models or features
+    // from its ZDR policy and the gateway does not fail those requests, so
+    // the "fails instead of falling back" sentence never stands alone.
+    const en = MESSAGES.en!
+    expect(en['security.code.ai']).toMatch(/fails instead of falling back/)
+    expect(en['security.code.zdrExclusions']).toMatch(
+      /exclude specific models or features/
+    )
+    expect(en['security.code.zdrExclusions']).toMatch(
+      /does not fail such requests/
+    )
+    // The prompt-cache caveat is the exclusion that does apply to Lumo
+    // (OpenAI data controls: encrypted KV cache, up to 24 hours).
+    expect(en['security.code.zdrExclusions']).toMatch(/up to 24 hours/)
+
+    const problems: string[] = []
+    for (const locale of PUBLIC_LOCALES) {
+      const messages = MESSAGES[locale]!
+      const value = messages['security.code.zdrExclusions'] ?? ''
+      if (!value) problems.push(`${locale}: key missing`)
+      if (!value.includes('24')) problems.push(`${locale}: 24-hour cap missing`)
+      if (!value.includes('Vercel')) problems.push(`${locale}: Vercel missing`)
+      const page = text(render(locale))
+      if (value && !page.includes(value))
+        problems.push(`${locale}: paragraph not rendered`)
+      // Rendered right after the OpenAI caveat, inside the code section.
+      const openai = page.indexOf(messages['security.code.openai']!)
+      if (openai < 0 || page.indexOf(value) < openai)
+        problems.push(`${locale}: not after the OpenAI caveat`)
+    }
+    expect(problems).toEqual([])
+  })
+
   it('renders every subprocessor from the registry', () => {
     const page = text(render('en'))
     const names = [

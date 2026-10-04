@@ -52,6 +52,13 @@ export type ProbeRow = {
   finalProvider?: string
   zdrApplied: boolean
   skippedAsNonZdr: string[]
+  /**
+   * LUM-871: the gateway's own routing text and every skipped attempt with
+   * its reason, kept verbatim so the committed output is evidence for the
+   * manifest's candidate / excluded columns, not just the final provider.
+   */
+  planningReasoning?: string
+  skippedAttempts?: Array<{ provider: string; reason: string }>
   error?: string
 }
 
@@ -73,6 +80,11 @@ function rowFrom(
     finalProvider: routing?.finalProvider,
     zdrApplied,
     skippedAsNonZdr,
+    planningReasoning: routing?.planningReasoning,
+    skippedAttempts: routing?.skippedProviderAttempts?.map(s => ({
+      provider: s.provider,
+      reason: s.reason,
+    })),
     ...(zdrApplied
       ? {}
       : { error: 'gateway routing did not report ZDR filtering' }),

@@ -22,6 +22,9 @@ interface FaqItem {
 // LUM-853: the privacy answer is held to /security and the privacy policy.
 //   - no training + zero data retention: lib/ai/zdr-fetch.ts forces
 //     providerOptions.gateway.zeroDataRetention on every gateway request;
+//     the one exception is boundary-crossing triage (LUM-945: TypeSafe Jev
+//     via lib/ai/evaluation.ts, host DigitalOcean — no training, no ZDR),
+//     which the answer must name (LUM-871);
 //     routing is global, so no region is promised (team wording rule).
 //   - export names only kinds in EXPORT_KINDS
 //     (lib/repositories/workspace-export.repository.ts) — never "everything":
@@ -60,7 +63,7 @@ const FAQS: FaqItem[] = [
   },
   {
     q: 'Do you train on our code?',
-    a: 'No. Neither Lumo nor the model hosts we use train on your data. Every AI request goes through the Vercel AI Gateway with zero data retention enforced on the request itself. Requests are routed globally, so we don’t promise a processing region. Tokens for the tools you connect are encrypted with AES-256-GCM before they are stored. Agent session records are kept by default; a workspace owner can have them cleared after 30, 90, 180 or 365 days, or discarded 7 days after the work is used up. By default, the code a security scan quoted is cleared 7 days after its pull request is merged or closed. A workspace owner can download an export of the workspace’s projects, tasks, documents, ideas and team memory, or delete the workspace: any owner can cancel within 48 hours, then all of its data and files are permanently deleted. The details are on our Security page.',
+    a: 'No. Neither Lumo nor the model hosts we use train on your data. Every AI request goes through the Vercel AI Gateway, with zero data retention enforced on the request itself for all but boundary-crossing triage, whose host does not train on your data but does not offer zero data retention. Requests are routed globally, so we don’t promise a processing region. Tokens for the tools you connect are encrypted with AES-256-GCM before they are stored. Agent session records are kept by default; a workspace owner can have them cleared after 30, 90, 180 or 365 days, or discarded 7 days after the work is used up. By default, the code a security scan quoted is cleared 7 days after its pull request is merged or closed. A workspace owner can download an export of the workspace’s projects, tasks, documents, ideas and team memory, or delete the workspace: any owner can cancel within 48 hours, then all of its data and files are permanently deleted. The details are on our Security page.',
   },
 ]
 
