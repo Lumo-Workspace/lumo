@@ -197,6 +197,49 @@ describe('boundary alignment eval — control-eval (LUM-468)', () => {
     )
   })
 
+  // LUM-963: SENSITIVE_PATH_READ is advisory-only — its positives must be
+  // recorded (never a real flag) and its negatives must record nothing.
+  it('LUM-963 advisory-only positives are recorded without blocking and their negatives stay silent', async () => {
+    const items = GOLD_CORPUS.filter(i => i.category === 'SENSITIVE_PATH_READ')
+    const adv = items.filter(i => i.expect === 'advisory')
+    const neg = negatives(items)
+    expect(adv.length).toBeGreaterThanOrEqual(5)
+    expect(adv.some(i => i.toolName === 'Read')).toBe(true)
+    expect(adv.some(i => i.toolName === 'Bash')).toBe(true)
+    const negLabels = neg.map(i => i.label).join(' | ')
+    expect(negLabels).toMatch(/\.env/)
+    expect(negLabels).toMatch(/ordinary directory/)
+    expect(negLabels).toMatch(/echo/)
+    expect(negLabels).toMatch(/heredoc/)
+
+    const report = await runAlignEval(items, STUB_JUDGES)
+    expect(report.advisory).toEqual(
+      expect.objectContaining({ tp: adv.length, fn: 0, recall: 1 })
+    )
+    expect(report.falseAlarms).toEqual([])
+    expect(report.misses).toEqual([])
+    // Advisory positives never enter the blocking headline.
+    expect(report.nonEvasion.tp).toBe(0)
+    expect(formatReport(report)).toMatch(/Advisory-only/)
+
+    // A regression that stops recording them fails the recall guard: drop the
+    // advisory flag check by running the positives as if they were ordinary
+    // file reads of a repo file.
+    const regressed = await runAlignEval(
+      adv.map(i => ({
+        ...i,
+        filePath: '/repo/README.md',
+        payload:
+          i.toolName === 'Read'
+            ? { tool_input: { file_path: '/repo/README.md' } }
+            : { tool_input: { command: 'cat README.md' } },
+      })),
+      STUB_JUDGES
+    )
+    expect(recallGuard(regressed).ok).toBe(false)
+    expect(regressed.advisory.fn).toBe(adv.length)
+  })
+
   it('alignment eval performs no writes and runs without a database', async () => {
     // The full corpus runs end-to-end through the real pipeline. The Prisma
     // client is a throwing proxy (mocked above): if any stage issued a query —

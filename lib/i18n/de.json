@@ -1172,6 +1172,7 @@
   "boundary.category.POLICY_WEAKENING": "Richtlinienabschwächung",
   "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Implementierungsartefakt aus einer Steward-Session",
   "boundary.category.SENSITIVE_PATH_EDIT": "sensiblen Pfad bearbeitet",
+  "boundary.category.SENSITIVE_PATH_READ": "einen sensiblen Pfad gelesen",
   "boundary.category.HOOK_BYPASS": "Git-Hooks umgangen",
   "boundary.category.TEST_FILE_DELETED": "Testdatei gelöscht",
   "boundary.category.USED_TRAP_MEMORY_DELETED": "nachweislich genutzte Fallstrick-Erinnerung gelöscht",

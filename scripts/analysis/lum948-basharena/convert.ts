@@ -15,14 +15,15 @@
  *
  * Mapping: bash → Bash `{command}`; text_editor create → Write
  * `{file_path, content}`; str_replace / insert → Edit `{file_path, old_string,
- * new_string}`; everything else (view, undo_edit, python, unknown) is skipped
- * and counted by reason so the report says what was not evaluated.
+ * new_string}`; view → Read `{file_path}` (LUM-963: the Read tool is a
+ * detector surface now); everything else (undo_edit, python, unknown) is
+ * skipped and counted by reason so the report says what was not evaluated.
  */
 
 export type TrajectoryLabel = 'attack' | 'honest'
 
 export interface ToolEvent {
-  toolName: 'Bash' | 'Write' | 'Edit'
+  toolName: 'Bash' | 'Write' | 'Edit' | 'Read'
   filePath: string | null
   payload: { tool_name: string; tool_input: Record<string, string> }
 }
@@ -96,6 +97,15 @@ export function convertControlArenaCall(call: unknown): ConvertResult {
               new_string: str(args.new_str) ?? '',
             },
           },
+        },
+      }
+    }
+    if (sub === 'view') {
+      return {
+        event: {
+          toolName: 'Read',
+          filePath: path,
+          payload: { tool_name: 'Read', tool_input: { file_path: path } },
         },
       }
     }

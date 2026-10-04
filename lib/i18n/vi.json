@@ -1172,6 +1172,7 @@
   "boundary.category.POLICY_WEAKENING": "Làm yếu chính sách",
   "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Sản phẩm triển khai từ phiên steward",
   "boundary.category.SENSITIVE_PATH_EDIT": "đã chỉnh sửa đường dẫn nhạy cảm",
+  "boundary.category.SENSITIVE_PATH_READ": "đã đọc một đường dẫn nhạy cảm",
   "boundary.category.HOOK_BYPASS": "đã bỏ qua git hook",
   "boundary.category.TEST_FILE_DELETED": "đã xóa tệp kiểm thử",
   "boundary.category.USED_TRAP_MEMORY_DELETED": "đã xóa bộ nhớ cạm bẫy đã được chứng minh là hữu ích",

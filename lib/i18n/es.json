@@ -1172,6 +1172,7 @@
   "boundary.category.POLICY_WEAKENING": "Debilitamiento de política",
   "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "Artefacto de implementación de una sesión steward",
   "boundary.category.SENSITIVE_PATH_EDIT": "editó una ruta sensible",
+  "boundary.category.SENSITIVE_PATH_READ": "leyó una ruta sensible",
   "boundary.category.HOOK_BYPASS": "omitió los hooks de git",
   "boundary.category.TEST_FILE_DELETED": "eliminó un archivo de prueba",
   "boundary.category.USED_TRAP_MEMORY_DELETED": "eliminó una memoria de trampa de utilidad probada",

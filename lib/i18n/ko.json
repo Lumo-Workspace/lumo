@@ -1172,6 +1172,7 @@
   "boundary.category.POLICY_WEAKENING": "정책 약화",
   "boundary.category.STEWARD_IMPLEMENTATION_ARTIFACT": "스튜어드 세션에서 생성된 구현 산출물",
   "boundary.category.SENSITIVE_PATH_EDIT": "민감한 경로를 편집함",
+  "boundary.category.SENSITIVE_PATH_READ": "민감한 경로를 읽음",
   "boundary.category.HOOK_BYPASS": "git 훅을 우회함",
   "boundary.category.TEST_FILE_DELETED": "테스트 파일을 삭제함",
   "boundary.category.USED_TRAP_MEMORY_DELETED": "유용성이 입증된 트랩 메모리를 삭제함",

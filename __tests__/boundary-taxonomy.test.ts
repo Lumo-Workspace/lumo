@@ -62,6 +62,8 @@ describe('reversibility taxonomy — world/external-state boundary (LUM-516)', (
     'SENSITIVE_PATH_EDIT',
     'HOOK_BYPASS',
     'TEST_FILE_DELETED',
+    // LUM-963: a read changes no repo, Lumo or world state.
+    'SENSITIVE_PATH_READ',
   ]
   const IRREVERSIBLE: BoundaryCrossingCategory[] = [
     'HARDCODED_SECRET',
