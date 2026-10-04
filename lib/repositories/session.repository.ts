@@ -1168,6 +1168,7 @@ export const sessionRepository = {
         summaryEventCount: true,
         parentSessionId: true,
         agentType: true,
+        workspace: { select: { slug: true } },
       },
     })
   },

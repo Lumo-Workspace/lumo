@@ -9,6 +9,7 @@ import { SummaryCard } from './SummaryCard'
 import { TimelineSection } from './TimelineSection'
 import { SessionRawRecordSection } from './SessionRawRecordSection'
 import { activeDurationMs } from '@/lib/agent-run/active-time'
+import { ACTIVE_WORKSPACE_META } from '@/lib/workspace/active-workspace'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +31,7 @@ export default async function SessionDetailPage({
   const session = await sessionRepository.findDetailForClerkUser(id, userId)
   if (!session) notFound()
 
+  const workspaceSlug = session.workspace.slug
   const rawEvents = await sessionRepository.listEventsForSession(id)
 
   // A subagent's detail page shows its family's attribution. A child session
@@ -53,6 +55,9 @@ export default async function SessionDetailPage({
 
   return (
     <div className='mx-auto max-w-5xl px-6 py-10'>
+      {/* LUM-987: this page lives outside /workspace/<slug>, so it declares the
+          session's workspace for apiFetch's active-workspace header. */}
+      <meta name={ACTIVE_WORKSPACE_META} content={workspaceSlug} />
       <SessionHeader
         id={session.id}
         cwd={session.cwd}

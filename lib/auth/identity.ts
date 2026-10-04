@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs/server'
 import { verifyBearer } from './bearer'
-import { getUserWorkspace, requireWorkspaceMember } from './index'
+import { resolveActiveMembership } from './index'
+import {
+  ACTIVE_WORKSPACE_HEADER,
+  normalizeActiveSlug,
+} from '@/lib/workspace/active-workspace'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 
 /**
@@ -34,8 +38,14 @@ export interface Identity {
  * - 401 if no credential was presented or the bearer token is invalid.
  * - 404 if the Clerk user has no workspace yet (matches the previous
  *   `requireUserWorkspace` behavior).
- * - 403 if the Clerk user is not a member of their resolved workspace
- *   (defence in depth — `getUserWorkspace` already filters by clerkId).
+ * - 403 if a multi-workspace Clerk user names (via `X-Lumo-Workspace`) a
+ *   workspace they don't belong to.
+ *
+ * Clerk sessions (LUM-987): the workspace is the ACTIVE one — the slug of the
+ * `/workspace/<slug>/…` page the browser's `apiFetch` sends as
+ * `X-Lumo-Workspace`; without it, the user's oldest membership (deterministic).
+ * A single-workspace user always resolves to their one workspace. Bearer keys
+ * ignore the header: a key is bound to its own workspace.
  */
 export async function requireIdentity(
   request: Request
@@ -68,20 +78,22 @@ export async function requireIdentity(
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const ws = await getUserWorkspace(userId)
-  if (!ws) {
+  const { active, count } = await resolveActiveMembership(
+    userId,
+    normalizeActiveSlug(request.headers.get(ACTIVE_WORKSPACE_HEADER))
+  )
+  if (count === 0) {
     return NextResponse.json({ error: 'No workspace found' }, { status: 404 })
   }
-  // Defense-in-depth: getUserWorkspace already filters by clerkId, but the
-  // explicit membership check keeps a single failure mode for routes.
-  const member = await requireWorkspaceMember(ws.workspaceId, userId)
-  if (member instanceof NextResponse) return member
+  if (!active) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   return {
     clerkId: userId,
-    memberId: member.id,
-    workspaceId: ws.workspaceId,
-    workspaceSlug: ws.workspace.slug,
-    workspaceName: ws.workspace.name,
+    memberId: active.id,
+    workspaceId: active.workspaceId,
+    workspaceSlug: active.workspace.slug,
+    workspaceName: active.workspace.name,
     source: 'clerk',
   }
 }
