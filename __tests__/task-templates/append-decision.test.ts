@@ -54,4 +54,22 @@ describe('appendDecision', () => {
     expect(out).toContain('<code>foo()</code>')
     expect(out).toContain('a &lt; b')
   })
+
+  it('stores raw HTML in the text as text, never as markup', () => {
+    const out = appendDecision(
+      null,
+      'x <img src=x onerror=alert(1)> <script>y</script>'
+    )
+    expect(out).not.toMatch(/<img|<script/i)
+    expect(out).toContain('&lt;img src=x onerror=alert(1)&gt;')
+  })
+
+  it('keeps http(s) links and drops javascript: hrefs', () => {
+    expect(appendDecision(null, 'see [spec](https://x.test/a)')).toContain(
+      '<a href="https://x.test/a">spec</a>'
+    )
+    const out = appendDecision(null, '[click](javascript:alert(1))')
+    expect(out).not.toContain('javascript:')
+    expect(out).toContain('<li><p>click</p></li>')
+  })
 })
