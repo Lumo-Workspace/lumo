@@ -52,11 +52,11 @@ If the workspace has multiple projects and `--project` is omitted, the server wi
 - The user describes wanting a new task ("create a task to ...", "file a bug for ...", "log a TODO that ...", "add a task: ...").
 - After a discussion that ends in "let's track that separately" — offer to create the task with a sensible title and priority.
 - For follow-ups discovered mid-work that shouldn't bloat the current change — propose `task create` rather than silently expanding scope.
-- When the task will be handed to an agent, suggest `--template agent-brief` so the description starts as a brief (Goal / Non-goals / Watch out / Done when / Decisions) the user fills in before work starts.
+- When the task will be handed to an agent, suggest `--template agent-brief` so the description starts as a brief (Context / Goal / Non-goals / Watch out / Done when / Decisions) the user fills in before work starts.
 
 ### `lumo task template list [--json]` — task templates (LUM-970)
 
-Lists the keys `--template` accepts: built-ins (marked `[built-in]`, e.g. `agent-brief`) plus the workspace's own. Workspace owners manage templates in the web app under **Settings → Task templates**; there is no CLI create/edit. `--json` includes each template's Markdown `content`. Built-in guidance text follows your language preference; the headings stay English.
+Lists the keys `--template` accepts: built-ins (marked `[built-in]`, e.g. `agent-brief`) plus the workspace's own. Workspace owners manage templates in the web app under **Settings → Task templates**; there is no CLI create/edit. `--json` includes each template's Markdown `content`. Built-in template bodies are English in every language; only their name and description are localized.
 
 ```bash
 lumo task template list

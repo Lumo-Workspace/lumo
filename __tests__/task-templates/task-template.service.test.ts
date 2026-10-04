@@ -59,12 +59,26 @@ describe('taskTemplateService.listTemplates', () => {
     })
     expect(brief?.name).toBe('Agent-Briefing')
   })
+
+  it('agent-brief v2 copy snapshot is the same English body whatever the viewer locale', async () => {
+    // LUM-972's "copy to workspace" pre-fills from the listed `content`.
+    const [en] = await taskTemplateService.listTemplates('ws_1', {
+      locale: 'en',
+    })
+    const [zh] = await taskTemplateService.listTemplates('ws_1', {
+      locale: 'zh-CN',
+    })
+    expect(zh?.content).toBe(en?.content)
+    expect(zh?.contentHtml).toBe(en?.contentHtml)
+    expect(zh?.content).toMatch(/^## Context\n/)
+    expect(zh?.name).not.toBe(en?.name)
+  })
 })
 
 describe('taskTemplateService.resolveContent', () => {
   it('returns the built-in Markdown for agent-brief', async () => {
     const md = await taskTemplateService.resolveContent('ws_1', 'agent-brief')
-    expect(md).toMatch(/^## Goal/)
+    expect(md).toMatch(/^## Context\n/)
     expect(repo.findByKey).not.toHaveBeenCalled()
   })
 

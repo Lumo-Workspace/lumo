@@ -84,9 +84,10 @@ export function TaskTemplatesSettingsPage({
   }
 
   /**
-   * LUM-972: pre-fill the create dialog with a snapshot of a built-in in the
-   * viewer's locale. Saving goes through the normal create path; the copy is
-   * independent of later built-in changes.
+   * LUM-972: pre-fill the create dialog with a snapshot of a built-in (its
+   * body is English in every locale since LUM-973; the copy's name follows
+   * the viewer's locale). Saving goes through the normal create path; the
+   * copy is independent of later built-in changes.
    */
   const openCopy = (t: TaskTemplateItem) => {
     setEditing(null)
