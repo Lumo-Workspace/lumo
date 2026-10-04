@@ -318,7 +318,13 @@ function matchNewNpmDependency(cmd: string): boolean {
     if (/\b(?:yarn|pnpm|bun)\s+add\s+\S/.test(seg)) return true
     const m = seg.match(/\bnpm\s+(?:i|install|add)\b(.*)$/)
     if (!m) continue
-    const rest = m[1] ?? ''
+    // LUM-957: drop shell redirections (`2>&1`, `> install.log`, `&>/dev/null`)
+    // with their targets first, and closing quotes/parens left over from a
+    // wrapper (`su -c "… && npm install"`) — none of them are package names.
+    const rest = (m[1] ?? '').replace(
+      /(?:^|\s)(?:\d*|&)>>?(?:&\d+|\s*\S+)|(?:^|\s)\d*<\s*\S+|['"`)]+(?=\s|$)/g,
+      ' '
+    )
     if (rest.split(/\s+/).some(tok => tok.length > 0 && !tok.startsWith('-')))
       return true
   }
@@ -559,7 +565,25 @@ function matchExfiltrationPublic(cmd: string): boolean {
   // is reading local data and POSTing/PUT-ing it out — `@file` / -T / -F file).
   const toHttp = /https?:\/\//.test(cmd)
   if (/\bcurl\b/.test(cmd) && toHttp) {
-    if (/(?:-T|--upload-file|-F\s+\S*@|--form\s+\S*@)/.test(cmd)) return true
+    // LUM-957: `-T` only as its own option token (incl. bundled short flags
+    // like `-sT`) — unanchored, it matched inside `-H 'Content-Type: …'`.
+    // Only value-less flags may precede it in a bundle: after an argument-taking
+    // one (`-XPUT`, `-dToken=…`) the `T` is that flag's value, not an upload.
+    // Scoped to curl's own segment so a sibling `kill -TERM` doesn't count;
+    // `\`-newline continuations are joined first to keep a wrapped curl whole.
+    // The short `-d @file` (incl. `-d@file`, `-d @"$f"`) is scoped the same way
+    // — `date -d @<epoch>` in a sibling segment is not an upload.
+    const curlUploadFlag = /(?:^|[\s'"])-[sSLfkvigGINnq]*T/
+    const curlDataFromFile = /(?:^|[\s'"])-[sSLfkvigGINnq]*d\s*['"]?@/
+    if (
+      splitCommandSegmentsShared(cmd.replace(/\\\r?\n/g, ' ')).some(
+        seg =>
+          /\bcurl\b/.test(seg) &&
+          (curlUploadFlag.test(seg) || curlDataFromFile.test(seg))
+      )
+    )
+      return true
+    if (/(?:--upload-file|-F\s+\S*@|--form\s+\S*@)/.test(cmd)) return true
     if (/--data(?:-binary|-raw|-urlencode)?\s+@/.test(cmd)) return true
   }
   if (/\bwget\b[^\n]*--post-file\b/.test(cmd) && toHttp) return true
