@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useQueryClient } from '@tanstack/react-query'
-import { FileText, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Copy, FileText, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,12 +33,13 @@ import {
   type TaskTemplateItem,
 } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
+import { clampTemplateName, copyTemplateKey } from '@/lib/task-templates/copy'
 import { useTaskTemplates } from '../../hooks/useTaskTemplates'
 
 const EMPTY_FORM: TaskTemplateInput = { key: '', name: '', content: '' }
 
 interface TaskTemplatesSettingsPageProps {
-  /** OWNER — may create, edit and delete workspace templates. */
+  /** OWNER — may create, edit, delete and copy built-ins into the workspace. */
   canManage: boolean
 }
 
@@ -54,17 +55,21 @@ export function TaskTemplatesSettingsPage({
   const { templates, isLoading } = useTaskTemplates()
 
   const [editing, setEditing] = useState<TaskTemplateItem | null>(null)
+  /** True while the create dialog is pre-filled from a built-in (LUM-972). */
+  const [copying, setCopying] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<TaskTemplateInput>(EMPTY_FORM)
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<TaskTemplateItem | null>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.taskTemplates() })
 
   const openCreate = () => {
     setEditing(null)
+    setCopying(false)
     setForm(EMPTY_FORM)
     setFormError(null)
     setDialogOpen(true)
@@ -72,7 +77,33 @@ export function TaskTemplatesSettingsPage({
 
   const openEdit = (t: TaskTemplateItem) => {
     setEditing(t)
+    setCopying(false)
     setForm({ key: t.key, name: t.name, content: t.content })
+    setFormError(null)
+    setDialogOpen(true)
+  }
+
+  /**
+   * LUM-972: pre-fill the create dialog with a snapshot of a built-in in the
+   * viewer's locale. Saving goes through the normal create path; the copy is
+   * independent of later built-in changes.
+   */
+  const openCopy = (t: TaskTemplateItem) => {
+    setEditing(null)
+    setCopying(true)
+    setForm({
+      key: copyTemplateKey(
+        t.key,
+        templates.map(x => x.key)
+      ),
+      name: clampTemplateName(
+        intl.formatMessage(
+          { id: 'taskTemplate.settings.copyName' },
+          { name: t.name }
+        )
+      ),
+      content: t.content,
+    })
     setFormError(null)
     setDialogOpen(true)
   }
@@ -180,6 +211,23 @@ export function TaskTemplatesSettingsPage({
                   </p>
                 )}
               </div>
+              {canManage && t.isSystem && (
+                <button
+                  type='button'
+                  aria-label={intl.formatMessage(
+                    { id: 'taskTemplate.settings.copy' },
+                    { name: t.name }
+                  )}
+                  title={intl.formatMessage(
+                    { id: 'taskTemplate.settings.copy' },
+                    { name: t.name }
+                  )}
+                  onClick={() => openCopy(t)}
+                  className='p-1 rounded-sm text-muted-foreground hover:text-foreground transition-colors'
+                >
+                  <Copy size={14} />
+                </button>
+              )}
               {canManage && !t.isSystem && (
                 <>
                   <button
@@ -206,16 +254,37 @@ export function TaskTemplatesSettingsPage({
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className='max-w-lg'>
+        <DialogContent
+          className='max-w-lg'
+          // Radix focuses the first input on open and the browser selects its
+          // whole value, so in copy / edit mode the first keystroke would wipe
+          // the pre-filled name. Focus it ourselves with the caret at the end.
+          // (jsdom does not reproduce the selection — verified in a real
+          // browser; see LUM-711.)
+          onOpenAutoFocus={event => {
+            const el = nameRef.current
+            if (!el) return
+            event.preventDefault()
+            el.focus()
+            el.setSelectionRange(el.value.length, el.value.length)
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               {intl.formatMessage({
                 id: editing
                   ? 'taskTemplate.settings.edit'
-                  : 'taskTemplate.settings.create',
+                  : copying
+                    ? 'taskTemplate.settings.copyTitle'
+                    : 'taskTemplate.settings.create',
               })}
             </DialogTitle>
           </DialogHeader>
+          {copying && (
+            <p className='text-xs text-muted-foreground'>
+              {intl.formatMessage({ id: 'taskTemplate.settings.copyHint' })}
+            </p>
+          )}
           <div className='space-y-4 py-2'>
             <div>
               <label
@@ -226,6 +295,7 @@ export function TaskTemplatesSettingsPage({
               </label>
               <Input
                 id='task-template-name'
+                ref={nameRef}
                 value={form.name}
                 maxLength={80}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
