@@ -388,6 +388,12 @@ function formatBash(
 
   const details: DetailBlock[] = []
   details.push({ labelKey: 'command', variant: 'code', text: command })
+  // LUM-873: a used-up workspace stores only a summary of the command
+  // (heredoc bodies dropped, capped) — show the full command's size.
+  pushBlock(
+    details,
+    redactedBlock('command', redaction.stats('tool_input.command'))
+  )
   if (stdout.trim()) details.push(clipBlock('stdout', 'code', stdout, 40))
   if (stderr.trim()) details.push(clipBlock('stderr', 'error', stderr, 40))
   pushBlock(

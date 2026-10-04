@@ -3,28 +3,38 @@ import type { HookEventType } from '@prisma/client'
 import { isTestFilePath } from '../../shared/src/test-file-path'
 
 /**
- * Customer-code redaction for stored hook events (LUM-855).
+ * Customer-code redaction for stored hook events in USED_UP workspaces
+ * (LUM-855; allowlist since LUM-873).
  *
  * Hook payloads carry the customer's source: Write/Edit bodies, Read file
- * contents, Bash output. The analysis we run on them needs paths, commands and
- * sizes — not the code — so the stored row keeps those and replaces each
- * code-bearing string with `{ bytes, lines, sha256 }` under a top-level
- * `_lumo_redacted` map keyed by dot path. The full payload still reaches the
- * in-request side effects (boundary detection, secret scanning) in memory; only
- * the persisted copy is redacted.
+ * contents, Bash output and heredocs, MCP patches. The analysis we run on the
+ * stored rows needs paths, commands and sizes — not the code — so
+ * `tool_input` / `tool_response` are reduced to an ALLOWLIST: metadata strings
+ * (paths, URLs, search patterns, enums, ids — {@link METADATA_KEYS}), every
+ * number / boolean / null, and a summary of the Bash `command`. Every other
+ * string — including the keys of tools we have never seen — is replaced by its
+ * `{ bytes, lines, sha256 }` under a top-level `_lumo_redacted` map keyed by
+ * dot path. The full payload still reaches the in-request side effects
+ * (boundary detection, secret scanning, attribution signals, Bash
+ * classification) in memory; only the persisted copy is reduced.
  *
- * One deliberate exception: edits to test files keep their old/new strings.
- * Test-tampering crossings are adjudicated on exactly that diff, and the
- * reviewer reads it back from the stored event.
+ * One deliberate exception: edits to test files keep their whole tool_input
+ * and structuredPatch. Test-tampering crossings are adjudicated on exactly that
+ * diff, and the reviewer reads it back from the stored event.
  *
- * Prompts and assistant messages are conversation, not repository content, and
- * are left alone (turn and session summaries are built from them).
+ * Conversation text — the top-level `prompt` / `last_assistant_message`, a
+ * Task / Agent / WebFetch `tool_input.prompt` and TodoWrite item text — is not
+ * repository content and is kept: turn, session and run summaries are built
+ * from it ({@link CONVERSATION_INPUT_PATHS}).
  */
 
 export const REDACTED_FIELD = '_lumo_redacted'
 
 /** Failure error text kept on failure events (session failure aggregation). */
 export const FAILURE_ERROR_CAP = 2_000
+
+/** Longest Bash command summary stored (heredoc bodies already dropped). */
+export const COMMAND_SUMMARY_CAP = 500
 
 export interface RedactedStats {
   bytes: number
@@ -39,30 +49,60 @@ export interface RedactedPatchStats {
 
 type RedactedEntry = RedactedStats | RedactedPatchStats
 
-/** `tool_input` keys that carry file content (Write/Edit/MultiEdit/NotebookEdit
- *  and the str_replace editor variants). */
-const INPUT_CODE_KEYS = new Set([
-  'content',
-  'old_string',
-  'new_string',
-  'old_str',
-  'new_str',
-  'new_source',
-  'file_text',
-])
-
-/** `tool_response` string keys that are metadata, never file content. */
-const RESPONSE_METADATA_KEYS = new Set([
-  'filePath',
+/**
+ * String keys of tool_input / tool_response kept verbatim, at any depth:
+ * paths and URLs, search patterns, enum-like modes and states, ids. None of
+ * them carries file content. Anything not listed is stripped.
+ */
+const METADATA_KEYS = new Set([
+  // where
   'file_path',
+  'filePath',
+  'notebook_path',
   'path',
+  'url',
+  // what was searched for (Grep / Glob)
+  'pattern',
+  'glob',
+  // enums and short labels
   'type',
   'mode',
-  'url',
+  'output_mode',
+  'edit_mode',
+  'cell_type',
+  'language',
+  'subagent_type',
+  'description',
+  'skill',
+  'model',
+  'status',
+  'codeText',
+  'returnCodeInterpretation',
+  'service_tier',
+  // ids
+  'id',
+  'cell_id',
+  'agentId',
+  'agent_id',
+  'tool_use_id',
+  'shell_id',
+  'bash_id',
+  'backgroundTaskId',
 ])
 
-/** `tool_response` array-of-path keys (Glob / Grep files_with_matches). */
-const RESPONSE_PATH_LIST_KEYS = new Set(['filenames'])
+/** Keys whose value is a list of paths (Glob / Grep files_with_matches, MCP
+ *  multi-file reads), kept when every item is a string. */
+const PATH_LIST_KEYS = new Set(['filenames', 'files', 'paths'])
+
+/**
+ * Conversation text inside tool_input (dot path relative to tool_input): the
+ * Task / Agent / WebFetch prompt and TodoWrite item text. Kept — the summaries
+ * read them; whether a used-up workspace should drop them too is open (LUM-873).
+ */
+const CONVERSATION_INPUT_PATHS: readonly RegExp[] = [
+  /^prompt$/,
+  /^todos\.\d+\.(?:content|activeForm)$/,
+]
 
 /** Error-bearing keys kept (capped) on failure events. */
 const FAILURE_ERROR_KEYS = new Set(['error', 'stderr', 'message'])
@@ -117,81 +157,117 @@ function filePathOf(payload: Record<string, unknown>): string | null {
   return null
 }
 
-/** Strip code-bearing keys from tool_input (recursing into MultiEdit `edits`). */
-function redactInput(
-  value: unknown,
-  path: string,
-  out: Record<string, RedactedEntry>
-): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item, i) => redactInput(item, join(path, i), out))
-  }
-  if (!isPlainObject(value)) return value
-  const next: Record<string, unknown> = {}
-  for (const [key, item] of Object.entries(value)) {
-    const childPath = join(path, key)
-    if (INPUT_CODE_KEYS.has(key) && typeof item === 'string') {
-      out[childPath] = statsOf(item)
+/** `<<EOF`, `<<-EOF`, `<<'EOF'`, `<<"EOF"` — not a `<<<` here-string. */
+const HEREDOC_INTRO = /(?<!<)<<(?!<)-?\s*(['"]?)([A-Za-z_]\w*)\1/
+
+/**
+ * What a used-up workspace stores of a Bash command: heredoc bodies (the usual
+ * way an agent writes a file through the shell) collapse to one `…` line —
+ * the intro and closing delimiter stay, so the command still reads as what it
+ * did — and the result is capped at {@link COMMAND_SUMMARY_CAP} characters.
+ * Idempotent: summarizing a summary returns it unchanged, so re-running the
+ * strip over a stored row (the backfill) never loses the original's stats.
+ */
+export function summarizeCommand(command: string): string {
+  const out: string[] = []
+  let delimiter: string | null = null
+  let bodyLines = 0
+  for (const line of command.split('\n')) {
+    if (delimiter !== null) {
+      if (line.trim() === delimiter) {
+        if (bodyLines > 0) out.push('…')
+        out.push(line)
+        delimiter = null
+      } else {
+        bodyLines++
+      }
       continue
     }
-    next[key] = key === 'edits' ? redactInput(item, childPath, out) : item
+    out.push(line)
+    const m = line.match(HEREDOC_INTRO)
+    if (m) {
+      delimiter = m[2] as string
+      bodyLines = 0
+    }
   }
-  return next
+  // An unterminated heredoc still drops its body.
+  if (delimiter !== null && bodyLines > 0) out.push('…')
+  const summary = out.join('\n')
+  return summary.length > COMMAND_SUMMARY_CAP
+    ? `${summary.slice(0, COMMAND_SUMMARY_CAP - 1)}…`
+    : summary
+}
+
+/** True when the stored payload's `tool_input.command` is a summary (LUM-873)
+ *  rather than the command the agent ran. */
+export function isCommandSummarized(payload: unknown): boolean {
+  return readRedactedStats(payload, 'tool_input.command') !== null
+}
+
+interface WalkOptions {
+  side: 'input' | 'response'
+  out: Record<string, RedactedEntry>
+  /** Path prefix of the walked root (`tool_input`, `tool_calls.0.tool_response`). */
+  root: string
+  keepPatch: boolean
+  failure: boolean
 }
 
 /**
- * Keep only metadata in tool_response: numbers, booleans, metadata strings and
- * path lists survive; every other string is replaced by its stats. A
- * `structuredPatch` becomes its added/removed counts unless `keepPatch`.
+ * Reduce one tool_input / tool_response value to the allowlist. Returns
+ * undefined for a value that is dropped (its stats are recorded in `out`).
+ * `key` is the object key holding `value` (null for an array item or the root).
  */
-function redactResponse(
+function allowlist(
   value: unknown,
   path: string,
-  out: Record<string, RedactedEntry>,
-  opts: { keepPatch: boolean; failure: boolean },
-  key: string | null = null
+  key: string | null,
+  parentKey: string | null,
+  opts: WalkOptions
 ): unknown {
+  const rel = path === opts.root ? '' : path.slice(opts.root.length + 1)
   if (typeof value === 'string') {
-    if (key !== null && RESPONSE_METADATA_KEYS.has(key)) return value
+    if (opts.side === 'input') {
+      if (rel === 'command') {
+        const summary = summarizeCommand(value)
+        if (summary !== value) opts.out[path] = statsOf(value)
+        return summary
+      }
+      if (CONVERSATION_INPUT_PATHS.some(re => re.test(rel))) return value
+    }
+    if (key !== null && METADATA_KEYS.has(key)) return value
+    if (key === null && parentKey !== null && PATH_LIST_KEYS.has(parentKey))
+      return value
     // On a failure event the error text is what failure aggregation groups
     // on — kept (capped), whether it sits under an error key or IS the whole
-    // tool_response.
-    if (opts.failure && (key === null || FAILURE_ERROR_KEYS.has(key))) {
+    // tool_response (never an item of some array inside it).
+    if (
+      opts.side === 'response' &&
+      opts.failure &&
+      (rel === '' || (key !== null && FAILURE_ERROR_KEYS.has(key)))
+    ) {
       return value.slice(0, FAILURE_ERROR_CAP)
     }
-    out[path || 'tool_response'] = statsOf(value)
+    opts.out[path] = statsOf(value)
     return undefined
   }
   if (value === null || typeof value !== 'object') return value
   if (Array.isArray(value)) {
-    if (key === 'structuredPatch') {
+    if (opts.side === 'response' && key === 'structuredPatch') {
       if (opts.keepPatch) return value
-      out[path] = patchStatsOf(value)
+      opts.out[path] = patchStatsOf(value)
       return undefined
-    }
-    if (
-      key !== null &&
-      RESPONSE_PATH_LIST_KEYS.has(key) &&
-      value.every(item => typeof item === 'string')
-    ) {
-      return value
     }
     const next: unknown[] = []
     value.forEach((item, i) => {
-      const child = redactResponse(item, join(path, i), out, opts)
+      const child = allowlist(item, join(path, i), null, key, opts)
       if (child !== undefined) next.push(child)
     })
     return next
   }
   const next: Record<string, unknown> = {}
   for (const [childKey, item] of Object.entries(value)) {
-    const child = redactResponse(
-      item,
-      join(path, childKey),
-      out,
-      opts,
-      childKey
-    )
+    const child = allowlist(item, join(path, childKey), childKey, key, opts)
     if (child !== undefined) next[childKey] = child
   }
   return next
@@ -212,19 +288,26 @@ function stripToolCall(
   const next: Record<string, unknown> = { ...call }
 
   if ('tool_input' in call && !keepCode) {
-    next.tool_input = redactInput(
-      call.tool_input,
-      join(prefix, 'tool_input'),
-      out
-    )
+    const root = join(prefix, 'tool_input')
+    const input = allowlist(call.tool_input, root, null, null, {
+      side: 'input',
+      out,
+      root,
+      keepPatch: false,
+      failure,
+    })
+    if (input === undefined) delete next.tool_input
+    else next.tool_input = input
   }
   if ('tool_response' in call) {
-    const response = redactResponse(
-      call.tool_response,
-      join(prefix, 'tool_response'),
+    const root = join(prefix, 'tool_response')
+    const response = allowlist(call.tool_response, root, null, null, {
+      side: 'response',
       out,
-      { keepPatch: keepCode, failure }
-    )
+      root,
+      keepPatch: keepCode,
+      failure,
+    })
     if (response === undefined) delete next.tool_response
     else next.tool_response = response
   }
@@ -272,6 +355,8 @@ export function stripCodeFromHookPayload(
 /**
  * Stats for a field the stored payload no longer carries (`path` is the dot
  * path it had, e.g. `tool_input.content`), or null when it was not redacted.
+ * `tool_input.command` is the one field that is still there: its stats
+ * describe the full command and the stored string is its summary.
  */
 export function readRedactedStats(
   payload: unknown,

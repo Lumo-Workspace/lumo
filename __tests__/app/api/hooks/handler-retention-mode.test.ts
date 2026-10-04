@@ -127,3 +127,49 @@ describe('hookIngestPolicyService.storedPayloadFor', () => {
     ).resolves.toBe(payload)
   })
 })
+
+describe('LUM-873 Bash command by session record mode', () => {
+  const heredoc = [
+    "cat > lib/billing.ts <<'EOF'",
+    'export function charge(amount: number) {',
+    `  const key = '${TOKEN}'`,
+    '}',
+    'EOF',
+    'npx jest __tests__/billing.test.ts',
+  ].join('\n')
+  const event = () => ({
+    session_id: 'sess_1',
+    tool_name: 'Bash',
+    tool_input: { command: heredoc },
+    tool_response: { stdout: 'ok', stderr: '' },
+  })
+
+  it('used-up mode stores a command summary and classifies the full command', async () => {
+    mockMode.mockResolvedValue('USED_UP')
+    const usedUp = await stored(event())
+    expect(usedUp.tool_input.command).toBe(
+      [
+        "cat > lib/billing.ts <<'EOF'",
+        '…',
+        'EOF',
+        'npx jest __tests__/billing.test.ts',
+      ].join('\n')
+    )
+    expect(JSON.stringify(usedUp)).not.toContain('amount: number')
+    expect(JSON.stringify(usedUp)).not.toContain(TOKEN)
+    expect(usedUp._lumo_redacted['tool_input.command'].lines).toBe(6)
+    expect(mockRecord.mock.calls[0][0].bashClassification).toEqual({
+      category: 'test',
+      verb: 'jest',
+    })
+  })
+
+  it('retain mode keeps the full command with credentials redacted', async () => {
+    mockMode.mockResolvedValue('RETAIN')
+    const retained = await stored(event())
+    const command = retained.tool_input.command as string
+    expect(command).toContain('export function charge(amount: number)')
+    expect(command).not.toContain(TOKEN)
+    expect(retained._lumo_redacted).toBeUndefined()
+  })
+})

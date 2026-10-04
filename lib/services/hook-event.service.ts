@@ -4,7 +4,10 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import type { ModelUsage } from '@/lib/repositories/session.repository'
 import { miscRepository } from '@/lib/repositories/misc.repository'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
-import { classifyBashPayload } from '@/lib/agent-run/bash-category'
+import {
+  classifyBashPayload,
+  type BashClassification,
+} from '@/lib/agent-run/bash-category'
 import {
   parseInjectedUsage,
   splitSubagentUsage,
@@ -35,6 +38,12 @@ interface RecordHookEventInput {
    * they are extracted from `payload`.
    */
   attributionSignals?: AttributionSignal[]
+  /**
+   * Bash classification computed by the caller from the credential-redacted
+   * payload BEFORE code stripping (LUM-873: a used-up workspace stores only a
+   * summary of the command). When absent it is classified from `payload`.
+   */
+  bashClassification?: BashClassification | null
 }
 
 function extractStringField(payload: unknown, field: string): string | null {
@@ -88,6 +97,7 @@ export const hookEventService = {
     payload,
     agent,
     attributionSignals,
+    bashClassification,
   }: RecordHookEventInput) {
     const memberId = await miscRepository.findMemberIdForHook(
       identity.user.id,
@@ -174,7 +184,10 @@ export const hookEventService = {
     }
 
     const toolName = extractStringField(payload, 'tool_name')
-    const bash = classifyBashPayload(payload)
+    const bash =
+      bashClassification !== undefined
+        ? bashClassification
+        : classifyBashPayload(payload)
     const filePath = extractFilePath(payload)
     const signals =
       attributionSignals ?? extractAttributionSignals(type, payload)

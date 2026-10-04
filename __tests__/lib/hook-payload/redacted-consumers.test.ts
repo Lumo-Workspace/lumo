@@ -178,11 +178,11 @@ describe('redacted hook events in the session timeline', () => {
       ]
     )
     expect(nb.details[0]!.text).toContain('"edit_mode": "delete"')
-    // original_file (3 lines / CODE bytes) + updated_file (1 line / 1 B) +
-    // notebook_path, which redactResponse does not whitelist as metadata
+    // original_file (3 lines / CODE bytes) + updated_file (1 line / 1 B);
+    // notebook_path is metadata and not counted (LUM-938, in LUM-873)
     expect(nb.details[1]!.redacted).toEqual({
-      lines: 5,
-      bytes: CODE.length + 1 + '/repo/n.ipynb'.length,
+      lines: 4,
+      bytes: CODE.length + 1,
     })
     expect(JSON.stringify(items)).not.toContain('line two')
   })
@@ -343,5 +343,23 @@ describe('redacted hook events in the session timeline', () => {
     expect(text).toContain('Edit /repo/a.ts +1 -1')
     expect(text).toContain('Bash "npm test" ERR')
     expect(text).not.toContain('line two')
+  })
+
+  it('LUM-873 Bash shows the command summary and the full command size', () => {
+    const command = "cat > a.ts <<'EOF'\nline one\nline two\nEOF"
+    const items = mergeEvents(pair('Bash', { command }, { interrupted: false }))
+    const bash = items[0]!
+    expect(
+      bash.details.map((d: DetailBlock) => [d.labelKey, d.variant])
+    ).toEqual([
+      ['command', 'code'],
+      ['command', 'redacted'],
+    ])
+    expect(bash.details[0]!.text).toBe("cat > a.ts <<'EOF'\n…\nEOF")
+    expect(bash.details[1]!.redacted).toEqual({
+      lines: 4,
+      bytes: command.length,
+    })
+    expect(JSON.stringify(items)).not.toContain('line two')
   })
 })

@@ -30,7 +30,10 @@ import {
   USED_UP_GRACE_DAYS,
   USED_UP_IDLE_DAYS,
 } from '@/lib/hook-event/retention'
-import { FAILURE_ERROR_CAP } from '@/lib/hook-payload/redact'
+import {
+  COMMAND_SUMMARY_CAP,
+  FAILURE_ERROR_CAP,
+} from '@/lib/hook-payload/redact'
 import {
   CROSSING_RAW_RETENTION_DAYS,
   DEFAULT_CROSSING_RAW_RETENTION_DAYS,
@@ -326,6 +329,7 @@ describe('/security page (LUM-856)', () => {
     for (const claim of [
       `content cleared ${or(HOOK_EVENT_RETENTION_DAYS)} days after each event`,
       `(up to ${new Intl.NumberFormat('en').format(FAILURE_ERROR_CAP)} characters)`,
+      `commands (heredoc bodies removed, up to ${new Intl.NumberFormat('en').format(COMMAND_SUMMARY_CAP)} characters)`,
       `discarded ${USED_UP_GRACE_DAYS} days after it is used up`,
       `after ${USED_UP_IDLE_DAYS} days with no agent activity`,
       `up to ${USED_UP_AUDIT_WAIT_CAP_DAYS} days after completion`,

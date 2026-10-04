@@ -87,6 +87,7 @@ describe('POST /api/hooks/pre-tool-use', () => {
       type: 'PRE_TOOL_USE',
       payload,
       attributionSignals: expect.any(Array),
+      bashClassification: null,
     })
   })
 
@@ -228,6 +229,7 @@ describe('POST /api/hooks/user-prompt-submit', () => {
       type: 'USER_PROMPT_SUBMIT',
       payload,
       attributionSignals: expect.any(Array),
+      bashClassification: null,
     })
   })
 

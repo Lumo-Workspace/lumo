@@ -73,6 +73,7 @@ function retentionValues(
   return {
     sessionDays: tiers(figures.sessionDays),
     errorCap: format.number(figures.errorCap),
+    commandCap: format.number(figures.commandCap),
     grace: figures.grace,
     idle: figures.idle,
     auditCap: figures.auditCap,
