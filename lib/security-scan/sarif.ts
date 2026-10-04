@@ -395,6 +395,28 @@ export function changedLinesOfDiff(diff: string): Map<string, Set<number>> {
   return out
 }
 
+/**
+ * LUM-975 — a result location as a repository-relative path. A `file://` URI
+ * loses its scheme (and percent-encoding), and a path under `checkoutDir`
+ * loses that prefix: osv-scanner reports absolute URIs inside the sandbox,
+ * every other managed tool already reports paths relative to the checkout.
+ * Anything else is returned as given. PURE.
+ */
+export function repoRelativePath(path: string, checkoutDir?: string): string {
+  let p = path
+  if (/^file:\/\//i.test(p)) {
+    p = p.slice('file://'.length)
+    try {
+      p = decodeURIComponent(p)
+    } catch {
+      // Malformed escapes: keep the undecoded path rather than drop the result.
+    }
+  }
+  const root = checkoutDir?.replace(/\/+$/, '')
+  if (root && p.startsWith(`${root}/`)) p = p.slice(root.length + 1)
+  return p.replace(/^\.\//, '')
+}
+
 export interface NormalizeOptions {
   toolHint: string
   /**
@@ -403,6 +425,13 @@ export interface NormalizeOptions {
    * located result of every tool is kept so its fingerprint can be matched.
    */
   changedLines: Map<string, Set<number>> | null
+  /**
+   * LUM-975 — the absolute directory the tool ran in (a managed scan's
+   * sandbox checkout). osv-scanner reports `file://<checkout>/Gemfile.lock`;
+   * results under it are made repository-relative so they match the diff and
+   * never print the sandbox's own layout. Omitted for pushed SARIF.
+   */
+  checkoutDir?: string
   /** Per-document finding cap; defaults to `MAX_SARIF_FINDINGS`. */
   maxFindings?: number
   /**
@@ -454,8 +483,10 @@ export function normalizeSarif(
     const runSlug = toolSlug(runTool)
     // LUM-738: a vulnerable dependency has no line-level diff — osv-scanner
     // reports every vulnerable package at head, historical debt included.
-    // "New vs already there" is decided later against the repository
-    // baseline (`persisting`), not against the PR diff.
+    // LUM-975: on a PR only lockfiles the PR changed are kept — an untouched
+    // lockfile is the base branch's, so nothing in it is this PR's. Within a
+    // changed lockfile, "new vs already there" is still decided against the
+    // repository baseline (`persisting`).
     const supplyChain = isSupplyChainTool(runTool)
     const messageKeyed = isMessageKeyedTool(runTool)
     for (const r of run.results) {
@@ -463,6 +494,7 @@ export function normalizeSarif(
         dropped.noLocation += 1
         continue
       }
+      const path = repoRelativePath(r.path, opts.checkoutDir)
       // LUM-851: a placeholder line would be read as "line 1" — dropped when
       // the PR removed the USER line elsewhere, pinned to a comment when not.
       const startLine = opts.fileLevelResults?.has(
@@ -470,9 +502,16 @@ export function normalizeSarif(
       )
         ? null
         : r.startLine
-      if (opts.changedLines !== null && !supplyChain) {
-        const lines = opts.changedLines.get(r.path)
-        if (!lines || (startLine !== null && !lines.has(startLine))) {
+      if (opts.changedLines !== null) {
+        const lines = opts.changedLines.get(path)
+        // A lockfile path still absolute (a pushed report from a CI checkout
+        // we cannot place) cannot be matched to the diff; it is kept rather
+        // than guessed — suffix-matching would pin vendor/x/Gemfile.lock on
+        // a changed root Gemfile.lock.
+        const inDiff = supplyChain
+          ? lines !== undefined || path.startsWith('/')
+          : lines !== undefined && (startLine === null || lines.has(startLine))
+        if (!inDiff) {
           dropped.notInDiff += 1
           continue
         }
@@ -484,7 +523,7 @@ export function normalizeSarif(
         : null
       const fingerprint = dependency
         ? dependencyFingerprint(
-            ecosystemOfLockfile(r.path),
+            ecosystemOfLockfile(path),
             dependency.name,
             dependency.version,
             dependency.osvId
@@ -492,7 +531,7 @@ export function normalizeSarif(
         : (trustedFingerprint(r.primaryLocationLineHash) ??
           sarifFingerprint(
             ruleId,
-            r.path,
+            path,
             r.snippet ?? (messageKeyed ? (r.messageText ?? '') : '')
           ))
       // Keyed on rule+fingerprint, not fingerprint alone: a tool-supplied
@@ -516,7 +555,7 @@ export function normalizeSarif(
           supplyChain && /^MAL-/i.test(r.ruleId)
             ? 'HIGH'
             : sarifSeverity(rule, r),
-        filePath: redactKnownSecrets(r.path),
+        filePath: redactKnownSecrets(path),
         // Dependencies carry no region; a stray line from a tool must not
         // turn into an inline PR comment on a lockfile.
         line: supplyChain ? null : startLine,

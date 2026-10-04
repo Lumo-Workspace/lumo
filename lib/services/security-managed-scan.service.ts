@@ -228,6 +228,8 @@ type ToolReport = Buffer | { failed: string } | { skipped: string }
 interface CollectedReports {
   reports: Partial<Record<ManagedScanTool, ToolReport>>
   sidecars: Partial<Record<ManagedScanTool, Buffer>>
+  /** LUM-975 — where the tools ran; absolute result paths are made relative to it. */
+  checkoutDir: string
 }
 
 async function runTool(
@@ -421,7 +423,7 @@ async function collectReports(opts: {
     // LUM-869 — a failed hand-off costs the hunt its shared VM (it boots its
     // own), never the reports: they are already in hand.
     if (opts.keepAlive) handOver = await sealForHunt(sandbox, opts)
-    return { reports, sidecars }
+    return { reports, sidecars, checkoutDir: cwd }
   } finally {
     // A VM the hunt is going to reuse outlives this function on purpose:
     // stopping it would kill the hunt's checkout. Its release is the VM's own
@@ -537,7 +539,7 @@ function fileLevelResultsOf(
 
 /** Parse + normalize every report in-process; per-tool failures are values. */
 function normalizeReports(
-  { reports, sidecars }: CollectedReports,
+  { reports, sidecars, checkoutDir }: CollectedReports,
   opts: {
     changedLines: Map<string, Set<number>> | null
     maxFindings?: number
@@ -565,6 +567,7 @@ function normalizeReports(
         {
           toolHint: tool,
           changedLines: opts.changedLines,
+          checkoutDir,
           fileLevelResults: fileLevelResultsOf(
             tool,
             sidecars[tool],

@@ -367,3 +367,54 @@ describe('LUM-851 trivy checks with no line of their own', () => {
     expect(withJson).toEqual(await baseline(REPORTS))
   })
 })
+
+describe('LUM-975 osv-scanner paths from the sandbox checkout', () => {
+  /** osv-scanner reports absolute file URIs under the checkout (`/vercel/r` here). */
+  const osvReport = JSON.stringify({
+    version: '2.1.0',
+    runs: [
+      {
+        tool: { driver: { name: 'osv-scanner', rules: [] } },
+        results: ['Gemfile.lock', 'vendor/gems/plugin/Gemfile.lock'].map(
+          (path, i) => ({
+            ruleId: `GHSA-${i}`,
+            level: 'warning',
+            message: {
+              text: `Package 'rack@1.${i}.0' is vulnerable to 'GHSA-${i}'.`,
+            },
+            locations: [
+              {
+                physicalLocation: {
+                  artifactLocation: { uri: `file:///vercel/r/${path}` },
+                },
+              },
+            ],
+          })
+        ),
+      },
+    ],
+  })
+
+  it('LUM-975 reports repository-relative lockfile paths and only for lockfiles the PR changed', async () => {
+    ;(fetchPrDiff as jest.Mock).mockResolvedValue(
+      [
+        DIFF,
+        '--- a/Gemfile.lock',
+        '+++ b/Gemfile.lock',
+        '@@ -5,0 +5,1 @@',
+        '+    rack (1.0.0)',
+      ].join('\n')
+    )
+    create.mockResolvedValue(
+      fakeSandbox({ ...REPORTS, '/tmp/osv.sarif': osvReport })
+    )
+    const out = await securityManagedScanService.scanRepository(JOB)
+    if (out['osv-scanner'].kind !== 'ok') {
+      throw new Error(`not ok: ${JSON.stringify(out['osv-scanner'])}`)
+    }
+    expect(out['osv-scanner'].findings.map(f => f.filePath)).toEqual([
+      'Gemfile.lock',
+    ])
+    expect(out['osv-scanner'].dropped.notInDiff).toBe(1)
+  })
+})

@@ -9,6 +9,7 @@ import {
   isSupplyChainTool,
   parseDependencyMessage,
   ecosystemOfLockfile,
+  repoRelativePath,
   MAX_SARIF_FINDINGS,
 } from '@/lib/security-scan/sarif'
 import { addedLinesWithNumbers } from '@/lib/security-scan/diff-lines'
@@ -703,6 +704,22 @@ function osvSarif(over: { results?: unknown[]; rules?: unknown[] } = {}) {
   }
 }
 
+/** LUM-975 — a PR that bumps both lockfiles the osv fixture reports on. */
+const lockfilesChanged = changedLinesOf(
+  addedLinesWithNumbers(
+    [
+      '--- a/package-lock.json',
+      '+++ b/package-lock.json',
+      '@@ -10,0 +10,1 @@',
+      '+    "lodash": "4.17.15",',
+      '--- a/requirements.txt',
+      '+++ b/requirements.txt',
+      '@@ -1,0 +1,1 @@',
+      '+requests==2.0.0',
+    ].join('\n')
+  )
+)
+
 describe('LUM-738 dependency fingerprint — osv-scanner normalization', () => {
   it('recognises osv-scanner as a supply-chain tool and parses its message', () => {
     expect(isSupplyChainTool('osv-scanner')).toBe(true)
@@ -750,7 +767,7 @@ describe('LUM-738 dependency fingerprint — osv-scanner normalization', () => {
   it('fingerprints a dependency as sha256(ecosystem:name:version:osvId), stable across pushes and lockfile location', () => {
     const out = normalizeSarif(parseSarif(osvSarif()), {
       toolHint: 'osv-scanner',
-      changedLines: changed,
+      changedLines: lockfilesChanged,
     })
     const lodash = out.findings.find(f =>
       f.ruleId.endsWith('GHSA-35jh-r3h4-6jhm')
@@ -775,18 +792,18 @@ describe('LUM-738 dependency fingerprint — osv-scanner normalization', () => {
   it('falls back to the tool fingerprint when the message cannot be parsed', () => {
     const out = normalizeSarif(parseSarif(osvSarif()), {
       toolHint: 'osv-scanner',
-      changedLines: changed,
+      changedLines: lockfilesChanged,
     })
     const low = out.findings.find(f => f.ruleId.endsWith('GHSA-low'))!
     expect(low.fingerprint).toBe('c'.repeat(64))
   })
 
-  it('LUM-738 osv-scanner findings are DEPENDENCY, never diff-filtered, MAL-* is HIGH, CVSS maps severity, and link to osv.dev', () => {
-    // `changed` covers only src/db.ts — a diff-aware VULNERABILITY on
-    // package-lock.json would be dropped; a DEPENDENCY must survive.
+  it('LUM-738 osv-scanner findings are DEPENDENCY with no line, MAL-* is HIGH, CVSS maps severity, and link to osv.dev', () => {
+    // LUM-975: dependency rows are kept per changed lockfile, whatever lines
+    // the PR touched in it — here both lockfiles are in the diff.
     const out = normalizeSarif(parseSarif(osvSarif()), {
       toolHint: 'osv-scanner',
-      changedLines: changed,
+      changedLines: lockfilesChanged,
     })
     expect(out.tool).toBe('osv-scanner')
     expect(out.dropped.notInDiff).toBe(0)
@@ -838,5 +855,115 @@ describe('LUM-738 dependency fingerprint — osv-scanner normalization', () => {
       { toolHint: 'semgrep', changedLines: null }
     )
     expect(outOfDiff.findings.map(f => f.filePath)).toEqual(['elsewhere.ts'])
+  })
+})
+
+describe('LUM-975 dependency findings are scoped to the lockfiles a PR changed', () => {
+  /** One vulnerable gem per lockfile, reported the way osv-scanner does in the sandbox. */
+  const gem = (uri: string, pkg: string) => ({
+    ruleId: `GHSA-${pkg}`,
+    level: 'warning',
+    message: { text: `Package '${pkg}@1.0.0' is vulnerable to 'GHSA-${pkg}'.` },
+    locations: [{ physicalLocation: { artifactLocation: { uri } } }],
+  })
+  const CHECKOUT = '/vercel/discourse'
+  const report = osvSarif({
+    rules: [],
+    results: [
+      gem(`file://${CHECKOUT}/Gemfile.lock`, 'rack'),
+      gem(`file://${CHECKOUT}/vendor/gems/plugin/Gemfile.lock`, 'nokogiri'),
+      gem(`file://${CHECKOUT}/chef/cookbooks/apt/Gemfile.lock`, 'puma'),
+    ],
+  })
+  const rootLockfileChanged = changedLinesOf(
+    addedLinesWithNumbers(
+      [
+        '--- a/Gemfile.lock',
+        '+++ b/Gemfile.lock',
+        '@@ -5,0 +5,1 @@',
+        '+    rack (1.0.0)',
+      ].join('\n')
+    )
+  )
+
+  it('LUM-975 keeps only findings in a changed lockfile and counts the rest as not in the diff', () => {
+    const out = normalizeSarif(parseSarif(report), {
+      toolHint: 'osv-scanner',
+      changedLines: rootLockfileChanged,
+      checkoutDir: CHECKOUT,
+    })
+    expect(out.findings.map(f => [f.ruleId, f.filePath])).toEqual([
+      ['ext:osv-scanner:GHSA-rack', 'Gemfile.lock'],
+    ])
+    expect(out.dropped.notInDiff).toBe(2)
+  })
+
+  it('LUM-975 a PR that touches no lockfile gets no dependency findings', () => {
+    const out = normalizeSarif(parseSarif(report), {
+      toolHint: 'osv-scanner',
+      changedLines: changed,
+      checkoutDir: CHECKOUT,
+    })
+    expect(out.findings).toEqual([])
+    expect(out.dropped.notInDiff).toBe(3)
+  })
+
+  it('LUM-975 the baseline keeps every lockfile with repository-relative paths and unchanged fingerprints', () => {
+    const out = normalizeSarif(parseSarif(report), {
+      toolHint: 'osv-scanner',
+      changedLines: null,
+      checkoutDir: CHECKOUT,
+    })
+    expect(out.findings.map(f => f.filePath)).toEqual([
+      'Gemfile.lock',
+      'vendor/gems/plugin/Gemfile.lock',
+      'chef/cookbooks/apt/Gemfile.lock',
+    ])
+    expect(out.findings[0]!.fingerprint).toBe(
+      dependencyFingerprint('RubyGems', 'rack', '1.0.0', 'GHSA-rack')
+    )
+  })
+
+  it('LUM-975 a pushed report with an absolute path outside any known checkout is kept as before', () => {
+    const out = normalizeSarif(
+      parseSarif(
+        osvSarif({
+          rules: [],
+          results: [gem('file:///home/runner/work/r/r/Gemfile.lock', 'rack')],
+        })
+      ),
+      { toolHint: 'osv-scanner', changedLines: changed }
+    )
+    expect(out.findings.map(f => f.filePath)).toEqual([
+      '/home/runner/work/r/r/Gemfile.lock',
+    ])
+    expect(out.dropped.notInDiff).toBe(0)
+  })
+})
+
+describe('LUM-975 repoRelativePath', () => {
+  it('LUM-975 strips the file scheme, percent-encoding and the checkout prefix', () => {
+    expect(
+      repoRelativePath(
+        'file:///vercel/r/apps/my%20app/Gemfile.lock',
+        '/vercel/r'
+      )
+    ).toBe('apps/my app/Gemfile.lock')
+    expect(repoRelativePath('/vercel/r/Gemfile.lock', '/vercel/r/')).toBe(
+      'Gemfile.lock'
+    )
+  })
+
+  it('LUM-975 leaves relative paths and paths outside the checkout alone', () => {
+    expect(repoRelativePath('./src/a.ts', '/vercel/r')).toBe('src/a.ts')
+    expect(repoRelativePath('src/a.ts')).toBe('src/a.ts')
+    // A sibling directory that merely shares the prefix is not inside it.
+    expect(
+      repoRelativePath('file:///vercel/r2/Gemfile.lock', '/vercel/r')
+    ).toBe('/vercel/r2/Gemfile.lock')
+    // A malformed escape keeps the undecoded path rather than throwing.
+    expect(repoRelativePath('file:///vercel/r/a%E0.lock', '/vercel/r')).toBe(
+      'a%E0.lock'
+    )
   })
 })
