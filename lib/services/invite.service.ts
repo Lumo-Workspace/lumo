@@ -1,5 +1,9 @@
 import { inviteRepository } from '@/lib/repositories/invite.repository'
 import { memberRepository } from '@/lib/repositories/member.repository'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 
 // ── Invite Service ─────────────────────────────────────────────────────────
 
@@ -14,7 +18,8 @@ export const inviteService = {
     emails: string[],
     inviterName: string,
     invitedById: string,
-    expiresAt: Date
+    expiresAt: Date,
+    audit?: AuditContext
   ) {
     const results: Array<{
       email: string
@@ -36,6 +41,13 @@ export const inviteService = {
       })
 
       results.push({ email, invite })
+      await recordAuditEvent({
+        workspaceId,
+        action: 'invite.created',
+        target: { type: 'invite', id: invite.id },
+        metadata: { email, expiresAt },
+        context: audit,
+      })
     }
 
     return results
@@ -66,7 +78,11 @@ export const inviteService = {
   },
 
   /** Revoke a pending invite. Caller must own the workspace. */
-  async revokeInvite(token: string, callerWorkspaceId: string) {
+  async revokeInvite(
+    token: string,
+    callerWorkspaceId: string,
+    audit?: AuditContext
+  ) {
     const invite = await inviteRepository.findByTokenForAuth(token)
     if (!invite || invite.workspaceId !== callerWorkspaceId) {
       throw Object.assign(new Error('Invite not found'), { status: 404 })
@@ -78,10 +94,16 @@ export const inviteService = {
     }
 
     await inviteRepository.updateStatus(invite.id, 'REVOKED')
+    await recordAuditEvent({
+      workspaceId: callerWorkspaceId,
+      action: 'invite.revoked',
+      target: { type: 'invite', id: invite.id },
+      context: audit,
+    })
   },
 
   /** Accept an invite: create member, add to default team, mark accepted. */
-  async acceptInvite(token: string, clerkId: string) {
+  async acceptInvite(token: string, clerkId: string, audit?: AuditContext) {
     const invite = await inviteRepository.findByTokenWithWorkspace(token)
     if (!invite) {
       throw Object.assign(new Error('Invite not found'), { status: 404 })
@@ -107,7 +129,17 @@ export const inviteService = {
       return { workspaceSlug: invite.workspace.slug, alreadyMember: true }
     }
 
-    await inviteRepository.acceptInTransaction(invite, clerkId)
+    const member = await inviteRepository.acceptInTransaction(invite, clerkId)
+    await recordAuditEvent({
+      workspaceId: invite.workspaceId,
+      action: 'invite.accepted',
+      target: { type: 'invite', id: invite.id },
+      metadata: { memberId: member.id, via: 'link' },
+      context: {
+        ...(audit ?? { source: 'WEB' }),
+        actor: { type: 'MEMBER', clerkId, memberId: member.id },
+      },
+    })
 
     return { workspaceSlug: invite.workspace.slug, alreadyMember: false }
   },
@@ -121,7 +153,8 @@ export const inviteService = {
    */
   async joinPendingInvitesForEmails(
     clerkId: string,
-    verifiedEmails: string[]
+    verifiedEmails: string[],
+    audit?: AuditContext
   ): Promise<string | null> {
     const emails = [...new Set(verifiedEmails.map(e => e.toLowerCase()))]
     if (emails.length === 0) return null
@@ -142,7 +175,20 @@ export const inviteService = {
           acceptedAt: new Date(),
         })
       } else {
-        await inviteRepository.acceptInTransaction(invite, clerkId)
+        const member = await inviteRepository.acceptInTransaction(
+          invite,
+          clerkId
+        )
+        await recordAuditEvent({
+          workspaceId: invite.workspaceId,
+          action: 'invite.accepted',
+          target: { type: 'invite', id: invite.id },
+          metadata: { memberId: member.id, via: 'verified_email' },
+          context: {
+            ...(audit ?? { source: 'WEB' }),
+            actor: { type: 'MEMBER', clerkId, memberId: member.id },
+          },
+        })
       }
       landingSlug ??= invite.workspace.slug
     }
@@ -151,7 +197,11 @@ export const inviteService = {
   },
 
   /** Resend an invite: reset expiry and return invite data for email sending. */
-  async resendInvite(token: string, callerWorkspaceId: string) {
+  async resendInvite(
+    token: string,
+    callerWorkspaceId: string,
+    audit?: AuditContext
+  ) {
     const invite = await inviteRepository.findByTokenForResend(token)
     if (!invite || invite.workspaceId !== callerWorkspaceId) {
       throw Object.assign(new Error('Invite not found'), { status: 404 })
@@ -162,6 +212,12 @@ export const inviteService = {
       })
     }
 
+    await recordAuditEvent({
+      workspaceId: callerWorkspaceId,
+      action: 'invite.resent',
+      target: { type: 'invite', id: invite.id },
+      context: audit,
+    })
     return invite
   },
 }

@@ -5,9 +5,10 @@ import { getResend, buildInviteEmail } from '@/lib/integrations/email'
 import { inviteExpiresAt } from '@/lib/utils/invite'
 import { inviteService } from '@/lib/services/invite.service'
 import { inviteRepository } from '@/lib/repositories/invite.repository'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
@@ -20,7 +21,14 @@ export async function POST(
 
     const { token } = await params
 
-    const invite = await inviteService.resendInvite(token, ws.workspaceId)
+    const invite = await inviteService.resendInvite(
+      token,
+      ws.workspaceId,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: ws.member.id,
+      })
+    )
 
     // Reset expiry
     const expiresAt = inviteExpiresAt()

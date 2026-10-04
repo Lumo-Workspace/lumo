@@ -1,6 +1,10 @@
 import { memberRepository } from '@/lib/repositories/member.repository'
 import { DEFAULT_AGENT_AVATAR_COLOR } from '@/lib/constants/avatar'
 import type { WorkspaceRole } from '@prisma/client'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 
 // ── Member Service ─────────────────────────────────────────────────────────
 
@@ -48,7 +52,8 @@ export const memberService = {
     newRole: WorkspaceRole,
     callerMemberId: string,
     callerRole: string,
-    callerWorkspaceId: string
+    callerWorkspaceId: string,
+    audit?: AuditContext
   ) {
     if (callerRole !== 'OWNER') {
       throw Object.assign(new Error('Forbidden'), { status: 403 })
@@ -75,14 +80,23 @@ export const memberService = {
       }
     }
 
-    return memberRepository.updateRole(memberId, newRole)
+    const updated = await memberRepository.updateRole(memberId, newRole)
+    await recordAuditEvent({
+      workspaceId: callerWorkspaceId,
+      action: 'member.role_changed',
+      target: { type: 'member', id: memberId },
+      metadata: { from: target.role, to: newRole },
+      context: audit,
+    })
+    return updated
   },
 
   /** Remove the current user from the workspace. Blocked if last OWNER. */
   async leaveWorkspace(
     memberId: string,
     memberRole: string,
-    workspaceId: string
+    workspaceId: string,
+    audit?: AuditContext
   ) {
     if (memberRole === 'OWNER') {
       const ownerCount = await memberRepository.countOwners(workspaceId)
@@ -97,5 +111,12 @@ export const memberService = {
     }
 
     await memberRepository.delete(memberId)
+    await recordAuditEvent({
+      workspaceId,
+      action: 'member.left',
+      target: { type: 'member', id: memberId },
+      metadata: { role: memberRole },
+      context: audit,
+    })
   },
 }

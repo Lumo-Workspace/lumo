@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { inviteService } from '@/lib/services/invite.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 export async function GET(
   _request: NextRequest,
@@ -26,7 +27,7 @@ export async function GET(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
@@ -41,7 +42,14 @@ export async function DELETE(
 
     const { token } = await params
 
-    await inviteService.revokeInvite(token, ws.workspaceId)
+    await inviteService.revokeInvite(
+      token,
+      ws.workspaceId,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: ws.member.id,
+      })
+    )
 
     return NextResponse.json({ ok: true })
   } catch (error) {

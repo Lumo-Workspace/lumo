@@ -78,6 +78,11 @@ describe('GET /api/github/app/callback', () => {
       installationId: 42,
       userCode: 'abc',
       redirectUri: `${APP_URL}/api/github/app/callback`,
+      // LUM-907: the signed-in member, from a browser session.
+      audit: expect.objectContaining({
+        actor: { type: 'MEMBER', clerkId: 'clerk_1', memberId: 'm1' },
+        source: 'WEB',
+      }),
     })
     expect(res.status).toBe(307)
     expect(res.headers.get('location')).toBe(`${SETTINGS}?github_app=installed`)
@@ -194,6 +199,7 @@ describe('GET /api/github/app/callback', () => {
       memberRole: 'OWNER',
       userCode: 'abc',
       redirectUri: `${APP_URL}/api/github/app/callback`,
+      audit: expect.objectContaining({ source: 'WEB' }),
     })
     expect(install).not.toHaveBeenCalled()
     expect(res.headers.get('location')).toBe(

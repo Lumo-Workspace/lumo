@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, serviceErrorResponse } from '@/lib/api/helpers'
 import { workspaceExportService } from '@/lib/services'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 /**
  * GET /api/workspaces/me/exports/[id]/download — stream a READY export's zip
@@ -9,7 +10,7 @@ import { workspaceExportService } from '@/lib/services'
  * has closed. Every successful download is recorded on the export.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -25,6 +26,10 @@ export async function GET(
       role: ws.member.role,
       clerkId: authResult.userId,
       exportId: id,
+      audit: memberAuditContext(request.headers, {
+        clerkId: authResult.userId,
+        memberId: ws.member.id,
+      }),
     })
     return new NextResponse(archive.stream, {
       status: 200,

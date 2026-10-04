@@ -3,6 +3,7 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { decrypt } from '@/lib/crypto'
 import { slackService } from '@/lib/services/slack.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,7 +45,14 @@ export async function DELETE(request: NextRequest) {
     if (memberResult instanceof NextResponse) return memberResult
 
     const { integrationToken, performDelete } =
-      await slackService.deleteIntegration(ws.workspaceId, memberResult.role)
+      await slackService.deleteIntegration(
+        ws.workspaceId,
+        memberResult.role,
+        memberAuditContext(request.headers, {
+          clerkId: userId,
+          memberId: memberResult.id,
+        })
+      )
 
     // Revoke token with Slack (fire-and-forget)
     const token = decrypt(integrationToken)

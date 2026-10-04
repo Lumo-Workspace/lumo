@@ -24,6 +24,8 @@ export const EXPORTED_MODELS = [
   'Memory',
   'TaskArtifact',
   'TaskDependency',
+  // LUM-907: the workspace audit log.
+  'AuditEvent',
 ] as const
 
 const INTEGRATION = 'integration credentials and connection config — secrets'

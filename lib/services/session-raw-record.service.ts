@@ -9,6 +9,10 @@ import {
 } from '@/lib/hook-event/retention'
 import { enrichClerkUsers } from '@/lib/utils/clerk-helpers'
 import { logger } from '@/lib/logger'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 
 /** Events one delete batch reads and clears. */
 export const SESSION_RAW_DELETE_BATCH_SIZE = 500
@@ -194,6 +198,8 @@ export const sessionRawRecordService = {
       now?: Date
       /** Test seam: batch size and per-call batch budget. */
       limits?: { batchSize: number; maxBatches: number }
+      /** LUM-907: who asked, from where. */
+      audit?: AuditContext
     } = {}
   ): Promise<SessionRawRecordDeleteResult> {
     const { batchSize, maxBatches } = options.limits ?? {
@@ -256,6 +262,18 @@ export const sessionRawRecordService = {
       deleted: result.deleted,
       keptForCrossings: result.keptForCrossings,
       done: result.done,
+    })
+    await recordAuditEvent({
+      workspaceId,
+      action: 'session_raw_record.deleted',
+      target: { type: 'session', id: sessionId },
+      metadata: {
+        deleted: result.deleted,
+        keptForCrossings: result.keptForCrossings,
+        done: result.done,
+        asOwner: session.workspaceMemberId !== viewer.workspaceMemberId,
+      },
+      context: options.audit,
     })
     return result
   },

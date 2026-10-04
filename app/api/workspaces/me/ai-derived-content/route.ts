@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { purgeAiDerivedContentSchema } from '@/lib/validation/schemas'
 import { aiDerivedContentService } from '@/lib/services'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 function errorResponse(error: unknown) {
   if (error instanceof Error && 'status' in error) {
@@ -57,7 +58,11 @@ export async function POST(request: NextRequest) {
     const result = await aiDerivedContentService.purge(
       { id: ws.workspaceId, name: ws.workspace.name },
       ws.member.role,
-      parsed.data.confirmName
+      parsed.data.confirmName,
+      memberAuditContext(request.headers, {
+        clerkId: authResult.userId,
+        memberId: ws.member.id,
+      })
     )
     return NextResponse.json(result)
   } catch (error) {

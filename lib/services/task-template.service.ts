@@ -7,6 +7,10 @@ import {
   listSystemTemplates,
 } from '@/lib/task-templates/system'
 import { normalizeRichText } from '@/lib/utils/markdown'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 import type {
   CreateTaskTemplateInput,
   UpdateTaskTemplateInput,
@@ -133,13 +137,21 @@ async function withUniqueKey<T>(
 async function createTemplate(
   workspaceId: string,
   role: WorkspaceRole,
-  input: CreateTaskTemplateInput
+  input: CreateTaskTemplateInput,
+  audit?: AuditContext
 ): Promise<TaskTemplateView> {
   assertCanManage(role)
   assertKeyAvailable(input.key)
   const row = await withUniqueKey(input.key, () =>
     taskTemplateRepository.create({ workspaceId, ...input })
   )
+  await recordAuditEvent({
+    workspaceId,
+    action: 'task_template.created',
+    target: { type: 'task_template', id: row.id },
+    metadata: { key: row.key },
+    context: audit,
+  })
   return toView({ ...row, description: null, isSystem: false })
 }
 
@@ -147,7 +159,8 @@ async function updateTemplate(
   workspaceId: string,
   role: WorkspaceRole,
   id: string,
-  input: UpdateTaskTemplateInput
+  input: UpdateTaskTemplateInput,
+  audit?: AuditContext
 ): Promise<TaskTemplateView> {
   assertCanManage(role)
   assertKeyAvailable(input.key)
@@ -156,18 +169,39 @@ async function updateTemplate(
   const row = await withUniqueKey(input.key, () =>
     taskTemplateRepository.update(id, input)
   )
+  await recordAuditEvent({
+    workspaceId,
+    action: 'task_template.updated',
+    target: { type: 'task_template', id },
+    // Field names only — the template body is content.
+    metadata: {
+      key: row.key,
+      fields: Object.keys(input).filter(
+        k => input[k as keyof UpdateTaskTemplateInput] !== undefined
+      ),
+    },
+    context: audit,
+  })
   return toView({ ...row, description: null, isSystem: false })
 }
 
 async function deleteTemplate(
   workspaceId: string,
   role: WorkspaceRole,
-  id: string
+  id: string,
+  audit?: AuditContext
 ): Promise<void> {
   assertCanManage(role)
   const existing = await taskTemplateRepository.findInWorkspace(workspaceId, id)
   if (!existing) throw httpError(404, 'Task template not found')
   await taskTemplateRepository.delete(id)
+  await recordAuditEvent({
+    workspaceId,
+    action: 'task_template.deleted',
+    target: { type: 'task_template', id },
+    metadata: { key: existing.key },
+    context: audit,
+  })
 }
 
 export const taskTemplateService = {

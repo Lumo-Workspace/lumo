@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, serviceErrorResponse } from '@/lib/api/helpers'
 import { workspaceExportService } from '@/lib/services'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 /**
  * GET /api/workspaces/me/exports — recent GDPR data exports of the caller's
@@ -28,7 +29,7 @@ export async function GET() {
  * POST /api/workspaces/me/exports — start a workspace export (OWNER only).
  * 202 with the new export; 200 with the one already in progress.
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const authResult = await requireAuth()
     if (authResult instanceof NextResponse) return authResult
@@ -39,6 +40,10 @@ export async function POST() {
       workspaceId: ws.workspaceId,
       role: ws.member.role,
       clerkId: authResult.userId,
+      audit: memberAuditContext(request.headers, {
+        clerkId: authResult.userId,
+        memberId: ws.member.id,
+      }),
     })
     return NextResponse.json(
       { export: result.export, started: result.started },

@@ -6,6 +6,10 @@ import type {
   UpdateSlackChannelData,
 } from '@/lib/repositories/slack.repository'
 import type { SlackEventType } from '@/lib/integrations/slack'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 
 // ── Slack Service ───────────────────────────────────────────────────────────
 
@@ -39,12 +43,27 @@ export const slackService = {
   },
 
   /** Upsert integration from OAuth callback. */
-  async upsertIntegration(data: UpsertSlackIntegrationData) {
-    return slackRepository.upsertIntegration(data)
+  async upsertIntegration(
+    data: UpsertSlackIntegrationData,
+    audit?: AuditContext
+  ) {
+    const row = await slackRepository.upsertIntegration(data)
+    await recordAuditEvent({
+      workspaceId: data.workspaceId,
+      action: 'slack.connected',
+      target: { type: 'integration', id: 'slack' },
+      metadata: { slackTeamId: data.slackTeamId },
+      context: audit,
+    })
+    return row
   },
 
   /** Delete integration. Only workspace owners are allowed. */
-  async deleteIntegration(workspaceId: string, memberRole: string) {
+  async deleteIntegration(
+    workspaceId: string,
+    memberRole: string,
+    audit?: AuditContext
+  ) {
     if (memberRole !== 'OWNER') {
       throw Object.assign(
         new Error('Only workspace owners can disconnect Slack'),
@@ -60,7 +79,16 @@ export const slackService = {
 
     return {
       integrationToken: integration.accessToken,
-      performDelete: () => slackRepository.deleteIntegration(workspaceId),
+      performDelete: async () => {
+        const deleted = await slackRepository.deleteIntegration(workspaceId)
+        await recordAuditEvent({
+          workspaceId,
+          action: 'slack.disconnected',
+          target: { type: 'integration', id: 'slack' },
+          context: audit,
+        })
+        return deleted
+      },
     }
   },
 

@@ -14,6 +14,10 @@ import {
 import { activityRepository } from '@/lib/repositories/activity.repository'
 import { taskService } from '@/lib/services/task.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 
 /**
  * The Sentry webhook payload does not carry the org slug as a dedicated field.
@@ -48,7 +52,8 @@ export const sentryService = {
     workspaceId: string,
     memberId: string,
     role: string,
-    data: { orgSlug: string; clientSecret: string }
+    data: { orgSlug: string; clientSecret: string },
+    audit?: AuditContext
   ) {
     if (role !== 'OWNER') {
       throw Object.assign(
@@ -56,22 +61,41 @@ export const sentryService = {
         { status: 403 }
       )
     }
-    return sentryRepository.upsertIntegration({
+    const row = await sentryRepository.upsertIntegration({
       workspaceId,
       installedBy: memberId,
       orgSlug: data.orgSlug,
       clientSecret: encrypt(data.clientSecret),
     })
+    await recordAuditEvent({
+      workspaceId,
+      action: 'sentry.connected',
+      target: { type: 'integration', id: 'sentry' },
+      metadata: { orgSlug: data.orgSlug },
+      context: audit,
+    })
+    return row
   },
 
-  async disconnectIntegration(workspaceId: string, role: string) {
+  async disconnectIntegration(
+    workspaceId: string,
+    role: string,
+    audit?: AuditContext
+  ) {
     if (role !== 'OWNER') {
       throw Object.assign(
         new Error('Only workspace owners can disconnect Sentry'),
         { status: 403 }
       )
     }
-    return sentryRepository.deleteIntegration(workspaceId)
+    const deleted = await sentryRepository.deleteIntegration(workspaceId)
+    await recordAuditEvent({
+      workspaceId,
+      action: 'sentry.disconnected',
+      target: { type: 'integration', id: 'sentry' },
+      context: audit,
+    })
+    return deleted
   },
 
   async listMappings(workspaceId: string) {

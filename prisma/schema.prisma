@@ -462,9 +462,66 @@ model Workspace {
 
   attributionSegments TaskAttributionSegment[]
   usageResyncAudits   UsageResyncAudit[]
+  auditEvents         AuditEvent[]
 
   @@index([deletionExecuteAt])
   @@map("workspaces")
+}
+
+// ─── Audit log (LUM-907) ────────────────────────────────────────────────────
+
+/// LUM-907: who performed a sensitive operation.
+enum AuditActorType {
+  MEMBER
+  AGENT
+  SYSTEM
+}
+
+/// LUM-907: where the operation came from. CLI = an API-key bearer request
+/// (the lumo CLI, MCP clients, scripts); WEB = a Clerk browser session.
+enum AuditSource {
+  WEB
+  CLI
+  WEBHOOK
+  SYSTEM
+}
+
+/// LUM-907: workspace audit log — one row per sensitive operation (member and
+/// invite changes, workspace / security / retention settings, data export and
+/// deletion, templates, integration connections). Never holds content bodies:
+/// `metadata` carries ids, field names and setting values only, and like
+/// `userAgent` is credential-redacted before it is written
+/// (lib/services/audit.service.ts). Rows are deleted after
+/// AUDIT_RETENTION_DAYS by the prune-audit-events cron, and with the
+/// workspace (cascade); the WorkspaceDeletionReceipt outlives them.
+model AuditEvent {
+  id            String         @id @default(cuid())
+  workspaceId   String
+  actorType     AuditActorType
+  /// Clerk user id for a MEMBER (stable after the member leaves); the agent
+  /// Actor id for an AGENT; null for SYSTEM.
+  actorId       String?
+  /// WorkspaceMember id when the actor was a member at the time. No FK — the
+  /// row must survive the member leaving.
+  actorMemberId String?
+  /// Dotted action key from lib/audit/actions.ts (e.g. `member.role_changed`).
+  action        String
+  targetType    String
+  targetId      String?
+  source        AuditSource
+  /// Client IP (validated, max 45 chars) — null when unknown.
+  ip            String?
+  /// Credential-redacted, truncated to 512 chars.
+  userAgent     String?
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, action, createdAt])
+  @@index([createdAt])
+  @@map("audit_events")
 }
 
 /// LUM-861: proof that a workspace was deleted (DPA deletion evidence). FK-less

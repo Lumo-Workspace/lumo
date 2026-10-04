@@ -3,6 +3,7 @@ import { requireIdentity } from '@/lib/auth'
 import { serviceErrorResponse, zodError } from '@/lib/api/helpers'
 import { updateTaskTemplateSchema } from '@/lib/validation/task-template'
 import { taskTemplateService } from '@/lib/services/task-template.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -25,7 +26,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       identity.workspaceId,
       role,
       id,
-      parsed.data
+      parsed.data,
+      memberAuditContext(
+        request.headers,
+        { clerkId: identity.clerkId, memberId: identity.memberId },
+        identity.source
+      )
     )
     return NextResponse.json({ template })
   } catch (error) {
@@ -43,7 +49,16 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     const { id } = await params
     const role = await taskTemplateService.memberRole(identity.memberId)
-    await taskTemplateService.deleteTemplate(identity.workspaceId, role, id)
+    await taskTemplateService.deleteTemplate(
+      identity.workspaceId,
+      role,
+      id,
+      memberAuditContext(
+        request.headers,
+        { clerkId: identity.clerkId, memberId: identity.memberId },
+        identity.source
+      )
+    )
     return NextResponse.json({ success: true })
   } catch (error) {
     return serviceErrorResponse(error, '[DELETE /api/task-templates/[id]]')
