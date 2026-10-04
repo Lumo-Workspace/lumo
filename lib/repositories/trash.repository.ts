@@ -83,15 +83,6 @@ const groupWhere = (rootId: string) => ({
 // ── Trash Repository (LUM-918) ──────────────────────────────────────────────
 
 export const trashRepository = {
-  /** Ids of the live tasks whose parent is one of `parentIds`. */
-  async findChildTaskIds(parentIds: string[]): Promise<string[]> {
-    const rows = await prisma.task.findMany({
-      where: { parentTaskId: { in: parentIds } },
-      select: { id: true },
-    })
-    return rows.map(r => r.id)
-  },
-
   /** Ids of the live documents whose parent is one of `parentIds`. */
   async findChildDocumentIds(parentIds: string[]): Promise<string[]> {
     const rows = await prisma.document.findMany({
@@ -218,7 +209,7 @@ export const trashRepository = {
         trashRootId: null,
         project: { workspaceId },
       },
-      select: { id: true, parentTaskId: true },
+      select: { id: true },
     })
   },
 
@@ -235,29 +226,16 @@ export const trashRepository = {
     })
   },
 
-  /** Whether a task is live (exists and is not in the trash). */
-  async isTaskLive(taskId: string): Promise<boolean> {
-    return (await prisma.task.count({ where: { id: taskId } })) === 1
-  },
-
   /** Whether a document is live (exists and is not in the trash). */
   async isDocumentLive(documentId: string): Promise<boolean> {
     return (await prisma.document.count({ where: { id: documentId } })) === 1
   },
 
-  /** Clear the trash stamp of a task group; optionally detach the root. */
-  async restoreTask(rootId: string, opts: { detachFromParent: boolean }) {
-    await prisma.$transaction(async tx => {
-      await tx.task.updateMany({
-        where: groupWhere(rootId),
-        data: { deletedAt: null, trashRootId: null, deletedByClerkId: null },
-      })
-      if (opts.detachFromParent) {
-        await tx.task.update({
-          where: { id: rootId },
-          data: { parentTaskId: null },
-        })
-      }
+  /** Clear the trash stamp of a task group. */
+  async restoreTask(rootId: string) {
+    await prisma.task.updateMany({
+      where: groupWhere(rootId),
+      data: { deletedAt: null, trashRootId: null, deletedByClerkId: null },
     })
   },
 

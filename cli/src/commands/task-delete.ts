@@ -4,15 +4,14 @@ import { emitConfirmation, isConfirmed } from '../lib/confirmation'
 
 /**
  * `lumo task delete <LUM-N> [--confirm]` (LUM-821). Since LUM-918 it moves
- * the task and its subtasks to the trash (restorable for 30 days from
- * settings → Trash) — still behind the exit-4 confirmation envelope.
+ * the task to the trash (restorable for 30 days from settings → Trash) —
+ * still behind the exit-4 confirmation envelope.
  */
 
 interface ShowTask {
   identifier: string
   title: string
   status: string
-  subtasks?: Array<{ identifier: string }>
   pullRequests?: Array<{ number: number }>
 }
 
@@ -26,12 +25,6 @@ export function describeTaskDelete(task: ShowTask): string[] {
     'While in the trash it is hidden from lists, search, `lumo next` and task context; its comments, test cases and history are kept and come back on restore',
     'To erase it at once instead (e.g. a GDPR erasure request), delete it permanently from Settings → Trash afterwards',
   ]
-  const subs = task.subtasks ?? []
-  if (subs.length > 0) {
-    lines.push(
-      `${subs.length} ${subs.length === 1 ? 'subtask goes' : 'subtasks go'} to the trash with it: ${subs.map(s => s.identifier).join(', ')}`
-    )
-  }
   const prs = task.pullRequests ?? []
   if (prs.length > 0) {
     lines.push(

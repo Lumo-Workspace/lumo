@@ -22,8 +22,6 @@ export function liftTaskTags<T extends { taskTags?: TaskTagRow[] }>(task: T) {
  *
  * - lifts t.team.identifier      → teamIdentifier
  * - lifts t.project.owner.actor.id → t.project.ownerActorId
- * - flattens t.parent.team.identifier → parent.teamIdentifier
- * - turns the t.children done-list into a count
  *
  * Used by /api/tasks/me and /api/milestones/[id]/tasks so the JSON
  * contract is identical.
@@ -36,13 +34,6 @@ export function flattenTaskForListing<
       name: string
       owner?: { actor?: { id: string } | null } | null
     }
-    parent?: {
-      id: string
-      title: string
-      number: number
-      team: { identifier: string }
-    } | null
-    children?: { id: string }[]
     taskTags?: TaskTagRow[]
   },
 >(task: T) {
@@ -54,15 +45,6 @@ export function flattenTaskForListing<
       ownerActorId: owner?.actor?.id ?? null,
     },
     teamIdentifier: task.team.identifier,
-    parent: task.parent
-      ? {
-          id: task.parent.id,
-          title: task.parent.title,
-          number: task.parent.number,
-          teamIdentifier: task.parent.team.identifier,
-        }
-      : null,
-    childrenDoneCount: Array.isArray(task.children) ? task.children.length : 0,
   }
 }
 
@@ -88,14 +70,6 @@ export function shapeSprintTask<
       name: string
       owner?: { actor?: { id: string } | null } | null
     }
-    parent?: {
-      id: string
-      title: string
-      number: number
-      team?: { identifier?: string } | null
-    } | null
-    children?: { id: string }[]
-    _count?: unknown
     taskTags?: TaskTagRow[]
   },
 >(task: T) {
@@ -108,15 +82,5 @@ export function shapeSprintTask<
     },
     teamIdentifier: task.team?.identifier ?? '',
     viewOrder: null,
-    parent: task.parent
-      ? {
-          id: task.parent.id,
-          title: task.parent.title,
-          number: task.parent.number,
-          teamIdentifier: task.parent.team?.identifier ?? '',
-        }
-      : null,
-    _count: task._count,
-    childrenDoneCount: Array.isArray(task.children) ? task.children.length : 0,
   }
 }

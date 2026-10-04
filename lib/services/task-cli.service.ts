@@ -146,16 +146,6 @@ async function resolveAssigneeActorId(args: {
   throw httpError(400, `no member matches "${assigneeRef}".`)
 }
 
-/** Resolve a parent-task ref (LUM-N or id) within the workspace; 404 if absent. */
-async function resolveParentTaskId(
-  workspaceId: string,
-  parentRef: string
-): Promise<string> {
-  const parent = await taskService.resolveIdentifier(workspaceId, parentRef)
-  if (!parent) throw httpError(404, `Parent task ${parentRef} not found`)
-  return parent.id
-}
-
 async function createFromCli(args: {
   workspaceId: string
   workspaceSlug: string
@@ -173,7 +163,6 @@ async function createFromCli(args: {
     reworkOfRef?: string | undefined
     newScope?: boolean | undefined
     dueDate?: string | undefined
-    parentRef?: string | undefined
   }
 }): Promise<{
   id: string
@@ -248,9 +237,6 @@ async function createFromCli(args: {
     assigneeRef: input.assigneeRef,
   })
   const milestoneId = await resolveMilestoneId(projectId, input.milestoneRef)
-  const parentTaskId = input.parentRef
-    ? await resolveParentTaskId(workspaceId, input.parentRef)
-    : undefined
 
   // We need the caller's own actor id to attribute the create activity.
   // For assigneeRef === "me" this is identical to assigneeActorId; for
@@ -283,7 +269,6 @@ async function createFromCli(args: {
       milestoneId,
       ...(input.tagIds !== undefined ? { tagIds: input.tagIds } : {}),
       ...(input.dueDate !== undefined ? { dueDate: input.dueDate } : {}),
-      ...(parentTaskId !== undefined ? { parentTaskId } : {}),
     },
     callerActor.id,
     callerClerkId
@@ -351,7 +336,6 @@ async function updateFromCli(args: {
     addTagIds?: string[] | undefined
     removeTagIds?: string[] | undefined
     dueDate?: string | null | undefined
-    parentRef?: string | null | undefined
   }
 }): Promise<{
   id: string
@@ -411,17 +395,6 @@ async function updateFromCli(args: {
     }
   }
 
-  // Parent (same tri-state). Self / cross-project / cycle checks live in
-  // updateTask so the web and CLI share one rule.
-  let parentTaskId: string | null | undefined = undefined
-  if ('parentRef' in input) {
-    if (input.parentRef === null) {
-      parentTaskId = null
-    } else if (input.parentRef !== undefined) {
-      parentTaskId = await resolveParentTaskId(workspaceId, input.parentRef)
-    }
-  }
-
   const callerMember = await memberRepository.findByWorkspaceAndClerkId(
     workspaceId,
     callerClerkId
@@ -451,7 +424,6 @@ async function updateFromCli(args: {
     addTagIds?: string[]
     removeTagIds?: string[]
     dueDate?: string | null
-    parentTaskId?: string | null
   } = {}
   if (input.title !== undefined) updateInput.title = input.title
   if ('description' in input)
@@ -468,7 +440,6 @@ async function updateFromCli(args: {
     updateInput.removeTagIds = input.removeTagIds
   if ('dueDate' in input && input.dueDate !== undefined)
     updateInput.dueDate = input.dueDate
-  if (parentTaskId !== undefined) updateInput.parentTaskId = parentTaskId
 
   // LUM-491: a status transition is "doing the task". Enforce the session-binding
   // lock at this work boundary — a session bound to a different task is refused
@@ -590,8 +561,6 @@ export interface ShowTaskFromCliResult {
   }>
   /** LUM-821: due instant (local midnight of the due day) or null. */
   dueDate: string | null
-  parent: { identifier: string; title: string } | null
-  subtasks: Array<{ identifier: string; title: string; status: string }>
 }
 
 async function showFromCli(args: {
@@ -661,30 +630,13 @@ async function showFromCli(args: {
       headSha: pr.headSha ?? null,
     })),
     dueDate: detail.dueDate ? new Date(detail.dueDate).toISOString() : null,
-    parent: detail.parent
-      ? {
-          identifier: `${detail.parent.teamIdentifier}-${detail.parent.number}`,
-          title: detail.parent.title,
-        }
-      : null,
-    // Children share the parent's project, hence its team prefix.
-    subtasks: (detail.children ?? []).map(c => ({
-      identifier: `${teamPrefix(resolved.identifier)}-${c.number}`,
-      title: c.title,
-      status: c.status,
-    })),
   })
-}
-
-/** `LUM-42` → `LUM`. */
-function teamPrefix(identifier: string): string {
-  return identifier.slice(0, identifier.lastIndexOf('-'))
 }
 
 /**
  * LUM-821 / LUM-918: delete a task by identifier (CLI `task delete`). The CLI
- * gates this behind the exit-4 confirmation envelope; the task and its
- * subtasks move to the trash, restorable for 30 days.
+ * gates this behind the exit-4 confirmation envelope; the task moves to the
+ * trash, restorable for 30 days.
  */
 async function deleteFromCli(args: {
   workspaceId: string

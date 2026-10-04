@@ -106,7 +106,7 @@ export function TaskWorkspaceView({
   defaultViewMode = 'board',
 }: TaskWorkspaceViewProps) {
   const [viewMode, setViewMode] = useState<'list' | 'board'>(defaultViewMode)
-  const { options, setCompletedFilter, setOrdering, setShowSubtasks } =
+  const { options, setCompletedFilter, setOrdering } =
     useDisplayOptions(displayOptionsKey)
 
   const {
@@ -119,17 +119,9 @@ export function TaskWorkspaceView({
   } = useTaskFiltering({ tasks, scopeKey: displayOptionsKey })
 
   const filteredTasks = useMemo(() => {
-    let result = filterCompletedTasks(narrowedTasks, options.completedFilter)
-    if (!options.showSubtasks) {
-      result = result.filter(t => !t.parentTaskId)
-    }
+    const result = filterCompletedTasks(narrowedTasks, options.completedFilter)
     return sortTasks(result, options.ordering)
-  }, [
-    narrowedTasks,
-    options.completedFilter,
-    options.ordering,
-    options.showSubtasks,
-  ])
+  }, [narrowedTasks, options.completedFilter, options.ordering])
 
   const sensors = useBoardSensors()
 
@@ -228,8 +220,6 @@ export function TaskWorkspaceView({
           onCompletedFilterChange={setCompletedFilter}
           ordering={options.ordering}
           onOrderingChange={setOrdering}
-          showSubtasks={options.showSubtasks}
-          onShowSubtasksChange={setShowSubtasks}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           filterMenu={

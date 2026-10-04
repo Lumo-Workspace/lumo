@@ -11,9 +11,6 @@ const baseTask = {
     name: 'Lumo',
     owner: { actor: { id: 'actor-9' } },
   },
-  parent: null,
-  children: [{ id: 'c-1' }, { id: 'c-2' }],
-  _count: { children: 2 },
 }
 
 describe('shapeSprintTask', () => {
@@ -24,9 +21,6 @@ describe('shapeSprintTask', () => {
       teamIdentifier: 'LUM',
       viewOrder: null,
       project: { id: 'p-1', name: 'Lumo', ownerActorId: 'actor-9' },
-      parent: null,
-      childrenDoneCount: 2,
-      _count: { children: 2 },
     })
   })
 
@@ -48,28 +42,9 @@ describe('shapeSprintTask', () => {
     expect(shaped.project.ownerActorId).toBeNull()
   })
 
-  it('flattens a parent and tolerates a missing parent team identifier', () => {
-    const shaped = shapeSprintTask({
-      ...baseTask,
-      parent: {
-        id: 'par-1',
-        title: 'Epic',
-        number: 7,
-        team: null,
-      },
-    })
-    expect(shaped.parent).toEqual({
-      id: 'par-1',
-      title: 'Epic',
-      number: 7,
-      teamIdentifier: '',
-    })
-  })
-
-  it('treats a missing children array as zero done', () => {
-    const { children, ...noChildren } = baseTask
-    void children
-    const shaped = shapeSprintTask(noChildren)
-    expect(shaped.childrenDoneCount).toBe(0)
+  it('no longer exposes parent / subtask fields (LUM-959)', () => {
+    const shaped = shapeSprintTask(baseTask)
+    expect(shaped).not.toHaveProperty('parent')
+    expect(shaped).not.toHaveProperty('childrenDoneCount')
   })
 })

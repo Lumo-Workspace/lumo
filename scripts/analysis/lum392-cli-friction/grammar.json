@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.89.1",
+  "cliVersion": "1.90.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -3200,14 +3200,6 @@
           "enumCaseInsensitive": false,
           "description": "Declare this is genuinely new work, outside your current task’s scope"
         },
-        "--parent": {
-          "long": "--parent",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Parent task (LUM-N, same project) — creates this as a subtask"
-        },
         "--priority": {
           "long": "--priority",
           "short": "-p",
@@ -3444,7 +3436,7 @@
       },
       "hasSubcommands": false,
       "isInvokable": true,
-      "description": "Show the task field-change history (status, priority, title, assignee, due, parent, tags, sprint), oldest first."
+      "description": "Show the task field-change history (status, priority, title, assignee, due, tags, sprint), oldest first."
     },
     "task lineage": {
       "arguments": [
@@ -4244,14 +4236,6 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Mark the task NOT agent-claimable (mutually exclusive with --claimable)"
-        },
-        "--parent": {
-          "long": "--parent",
-          "short": null,
-          "value": "required",
-          "enum": null,
-          "enumCaseInsensitive": false,
-          "description": "Parent task (LUM-N, same project); empty string to detach from its parent"
         },
         "--priority": {
           "long": "--priority",

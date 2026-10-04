@@ -45,7 +45,6 @@ interface TaskDrawerProps {
     }>
   ) => Promise<void>
   onDescriptionLoaded?: (taskId: string, description: string | null) => void
-  onTasksChanged?: () => void
 }
 
 export function TaskDrawer({
@@ -59,7 +58,6 @@ export function TaskDrawer({
   source,
   onUpdate,
   onDescriptionLoaded,
-  onTasksChanged,
 }: TaskDrawerProps) {
   const router = useRouter()
   const intl = useIntl()
@@ -160,7 +158,6 @@ export function TaskDrawer({
             {...(tasks ? { tasks } : {})}
             onUpdate={onUpdate}
             onDescriptionLoaded={onDescriptionLoaded}
-            onTasksChanged={onTasksChanged}
           />
         </DrawerPrimitive.Content>
       </DrawerPrimitive.Portal>

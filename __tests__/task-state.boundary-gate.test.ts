@@ -66,7 +66,6 @@ const TASK = {
   project: { workspaceId: 'w-1' },
   sprintId: null,
   assigneeActorId: null,
-  parentTaskId: null,
 }
 
 const openCrossing = () => [

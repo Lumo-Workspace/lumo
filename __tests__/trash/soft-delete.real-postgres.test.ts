@@ -3,8 +3,8 @@
  *
  * LUM-918 — the task / document trash against a REAL Postgres (every
  * migration replayed into PGlite), through the same soft-delete extension the
- * production client uses. A trashed task or document (with its subtasks /
- * sub-pages) must drop out of every read that lists, searches, resolves or
+ * production client uses. A trashed task, or a document with its sub-pages,
+ * must drop out of every read that lists, searches, resolves or
  * feeds it to AI context — and come back whole on restore.
  */
 import { createPgliteHarness } from '../../scripts/test-support/pglite-harness'
@@ -63,12 +63,7 @@ async function seed() {
       name: 'Trash project',
     },
   })
-  const task = (
-    id: string,
-    number: number,
-    title: string,
-    parentTaskId?: string
-  ) =>
+  const task = (id: string, number: number, title: string) =>
     db.task.create({
       data: {
         id,
@@ -77,12 +72,11 @@ async function seed() {
         projectId: 'proj_trash',
         teamId: 'team_trash',
         assigneeActorId: ACTOR,
-        ...(parentTaskId ? { parentTaskId } : {}),
       },
     })
-  await task('t_parent', 1, 'Zebra parent task')
-  await task('t_child', 2, 'Zebra child subtask', 't_parent')
-  await task('t_grandchild', 3, 'Zebra grandchild', 't_child')
+  await task('t_parent', 1, 'Zebra main task')
+  await task('t_child', 2, 'Zebra second task')
+  await task('t_grandchild', 3, 'Zebra third task')
   await task('t_other', 4, 'Unrelated live task')
   await db.comment.create({
     data: { taskId: 't_parent', body: '<p>keep me</p>' },
@@ -134,8 +128,7 @@ async function visibleTaskReads() {
     1
   )
   const byId = await taskRepository.findById('t_parent')
-  const memoryContext = await taskRepository.findForMemoryContext('t_child')
-  const other = assigned.find(t => t.id === 't_other')
+  const memoryContext = await taskRepository.findForMemoryContext('t_parent')
   const deps = await taskDependencyRepository.findEdgesForTask('t_other')
   const nextEdges =
     await taskDependencyRepository.findConfirmedBlocksEdgesTouching(['t_other'])
@@ -147,7 +140,6 @@ async function visibleTaskReads() {
     byIdentifier: byIdentifier?.id ?? null,
     byId: byId?.id ?? null,
     memoryContext: memoryContext ? 'found' : null,
-    otherChildren: other?._count.children ?? 0,
     deps: deps.length,
     nextEdges: nextEdges.length,
     projectTaskCount: projects[0]?._count.tasks ?? -1,
@@ -189,7 +181,7 @@ afterAll(async () => {
 })
 
 describe('task trash on a real Postgres', () => {
-  it('a deleted task and its subtasks vanish from lists, search, lookups, next and context', async () => {
+  it('a deleted task vanishes from lists, search, lookups, next and context — alone (LUM-959)', async () => {
     const before = await visibleTaskReads()
     expect(before.byWorkspace).toEqual([
       't_child',
@@ -202,34 +194,32 @@ describe('task trash on a real Postgres', () => {
     expect(before.nextEdges).toBe(1)
     expect(before.projectTaskCount).toBe(4)
 
-    const moved = await trashService.trashTask('t_parent', 'clerk_trash')
-    expect(moved).toBe(2) // child + grandchild went with it
+    await trashService.trashTask('t_parent', 'clerk_trash')
 
     const after = await visibleTaskReads()
     expect(after).toEqual({
-      byWorkspace: ['t_other'],
-      search: [],
-      assigned: ['t_other'],
+      byWorkspace: ['t_child', 't_grandchild', 't_other'],
+      search: ['t_child', 't_grandchild'],
+      assigned: ['t_child', 't_grandchild', 't_other'],
       byIdentifier: null,
       byId: null,
       memoryContext: null,
-      otherChildren: 0,
       deps: 0,
       nextEdges: 0,
-      projectTaskCount: 1,
+      projectTaskCount: 3,
     })
 
     const trash = await trashService.list(WS, MEMBER)
-    const entry = trash.find(i => i.id === 't_parent')
-    expect(entry).toMatchObject({
+    expect(trash).toHaveLength(1)
+    expect(trash[0]).toMatchObject({
       kind: 'task',
+      id: 't_parent',
       label: 'TR-1',
-      descendantCount: 2,
+      descendantCount: 0,
     })
-    expect(trash.some(i => i.id === 't_child')).toBe(false)
   })
 
-  it('restore brings the whole group back with its comments', async () => {
+  it('restore brings it back with its comments and dependency edge', async () => {
     await trashService.restore('task', 't_parent', WS, MEMBER)
 
     const after = await visibleTaskReads()
@@ -244,28 +234,38 @@ describe('task trash on a real Postgres', () => {
 
     const db = harness.prisma!
     expect(await db.comment.count({ where: { taskId: 't_parent' } })).toBe(1)
-    const child = await db.task.findUnique({ where: { id: 't_child' } })
-    expect(child).toMatchObject({
-      parentTaskId: 't_parent',
-      deletedAt: null,
-      trashRootId: null,
-    })
     expect(await trashService.list(WS, MEMBER)).toEqual([])
   })
 
-  it('restoring a subtask whose parent is still in the trash brings it back top-level', async () => {
-    await trashService.trashTask('t_child', 'clerk_trash')
-    await trashService.trashTask('t_parent', 'clerk_trash')
-    await trashService.restore('task', 't_child', WS, MEMBER)
-
-    const child = await harness.prisma!.task.findUnique({
-      where: { id: 't_child' },
+  it('a group trashed before LUM-959 still lists its members and restores whole', async () => {
+    // Shape of a pre-LUM-959 trash group: the root plus members pointing at it.
+    const db = harness.prisma!
+    const deletedAt = new Date()
+    await db.task.update({
+      where: { id: 't_parent' },
+      data: { deletedAt, deletedByClerkId: 'clerk_trash', trashRootId: null },
     })
-    expect(child).toMatchObject({ deletedAt: null, parentTaskId: null })
-    const grandchild = await taskRepository.findById('t_grandchild')
-    expect(grandchild?.id).toBe('t_grandchild')
+    await db.task.updateMany({
+      where: { id: { in: ['t_child', 't_grandchild'] } },
+      data: {
+        deletedAt,
+        deletedByClerkId: 'clerk_trash',
+        trashRootId: 't_parent',
+      },
+    })
+
+    const trash = await trashService.list(WS, MEMBER)
+    expect(trash).toHaveLength(1)
+    expect(trash[0]).toMatchObject({ id: 't_parent', descendantCount: 2 })
 
     await trashService.restore('task', 't_parent', WS, MEMBER)
+    expect((await visibleTaskReads()).byWorkspace).toEqual([
+      't_child',
+      't_grandchild',
+      't_other',
+      't_parent',
+    ])
+    expect(await trashService.list(WS, MEMBER)).toEqual([])
   })
 })
 

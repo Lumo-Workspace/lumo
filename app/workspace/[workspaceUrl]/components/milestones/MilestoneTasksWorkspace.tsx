@@ -49,7 +49,7 @@ interface MilestoneTasksWorkspaceProps {
  * The milestone's task list: every task in the milestone, in one table, with
  * the shared row behaviour (inline edits, row selection + bulk actions, the
  * per-row actions menu). LUM-727 — no toolbar above it: no filter menu, no
- * completed/ordering/subtask display options, no board toggle. The milestone
+ * completed/ordering display options, no board toggle. The milestone
  * scope is the filter, so the list always shows the whole milestone, DONE
  * tasks included. It grows with the page (`flow`) so the single-page layout
  * never nests a second scrollbar.

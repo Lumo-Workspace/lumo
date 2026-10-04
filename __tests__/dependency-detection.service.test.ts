@@ -91,12 +91,10 @@ describe('sweepSharedFileCandidates', () => {
       {
         id: 't-old',
         createdAt: new Date(now.getTime() - 2 * day),
-        parentTaskId: null,
       },
       {
         id: 't-new',
         createdAt: new Date(now.getTime() - day),
-        parentTaskId: null,
       },
     ])
     await dependencyDetectionService.sweepSharedFileCandidates(now)
@@ -110,20 +108,18 @@ describe('sweepSharedFileCandidates', () => {
     ])
     expect(SHARED_FILE_MIN).toBe(3)
   })
-  it('ignores pairs below threshold, parent-child pairs, and cross-workspace pairs', async () => {
+  it('ignores pairs below threshold and cross-workspace pairs', async () => {
     hookRepo.groupTaskFilesTouched.mockResolvedValueOnce([
       ...rows('p', ['a.ts', 'b.ts', 'c.ts']),
-      ...rows('child', ['a.ts', 'b.ts', 'c.ts']),
       ...rows('w2task', ['a.ts', 'b.ts', 'c.ts'], 'w2'),
       ...rows('small1', ['x.ts']),
       ...rows('small2', ['x.ts']),
     ] as never)
     depRepo.findOpenTasksMeta.mockResolvedValueOnce([
-      { id: 'p', createdAt: new Date(0), parentTaskId: null },
-      { id: 'child', createdAt: new Date(1), parentTaskId: 'p' },
-      { id: 'w2task', createdAt: new Date(2), parentTaskId: null },
-      { id: 'small1', createdAt: new Date(3), parentTaskId: null },
-      { id: 'small2', createdAt: new Date(4), parentTaskId: null },
+      { id: 'p', createdAt: new Date(0) },
+      { id: 'w2task', createdAt: new Date(2) },
+      { id: 'small1', createdAt: new Date(3) },
+      { id: 'small2', createdAt: new Date(4) },
     ])
     await dependencyDetectionService.sweepSharedFileCandidates(now)
     expect(depRepo.createManySuggested).toHaveBeenCalledWith([])
@@ -134,7 +130,7 @@ describe('sweepSharedFileCandidates', () => {
       ...rows('t-done', ['a.ts', 'b.ts', 'c.ts']),
     ] as never)
     depRepo.findOpenTasksMeta.mockResolvedValueOnce([
-      { id: 't1', createdAt: new Date(0), parentTaskId: null },
+      { id: 't1', createdAt: new Date(0) },
     ])
     await dependencyDetectionService.sweepSharedFileCandidates(now)
     expect(depRepo.createManySuggested).toHaveBeenCalledWith([])
@@ -146,8 +142,8 @@ describe('sweepSharedFileCandidates', () => {
       ...rows('t2', files),
     ] as never)
     depRepo.findOpenTasksMeta.mockResolvedValueOnce([
-      { id: 't1', createdAt: new Date(0), parentTaskId: null },
-      { id: 't2', createdAt: new Date(1), parentTaskId: null },
+      { id: 't1', createdAt: new Date(0) },
+      { id: 't2', createdAt: new Date(1) },
     ])
     depRepo.createManySuggested.mockResolvedValueOnce({ count: 1 })
     await expect(

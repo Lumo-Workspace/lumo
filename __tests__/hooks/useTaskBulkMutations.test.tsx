@@ -40,7 +40,6 @@ function makeTask(over: Partial<MyTask> = {}): MyTask {
     status: over.status ?? 'TODO',
     priority: over.priority ?? 'MEDIUM',
     projectId: over.projectId ?? 'prj_1',
-    parentTaskId: over.parentTaskId ?? null,
     assigneeActorId: over.assigneeActorId ?? null,
     createdAt: over.createdAt ?? '2026-05-20T00:00:00.000Z',
     updatedAt: over.updatedAt ?? '2026-05-20T00:00:00.000Z',

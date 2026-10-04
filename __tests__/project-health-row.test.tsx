@@ -70,7 +70,6 @@ function makeStats(
     memberWorkload: [],
     completionTrend: [],
     avgCompletionTime: null,
-    subtaskCompletionRate: null,
     agentStats: { total: 0, completed: 0, failed: 0, working: 0 },
     prStats: { total: 0, merged: 0, open: 0 },
     topBlockers: { ...emptyBlockers, ...blockers },

@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/alert-dialog'
 import { TaskDetail, Page } from '../../types'
 import { pageToPath } from '../../utils'
-import { slugify } from '@/lib/utils/slugify'
 import { tasksClient } from '@/lib/api-client'
 import { useRealtimeNotifications } from '../../hooks/useRealtimeNotifications'
 import { usePusherEvent } from '../../hooks/usePusher'
@@ -40,9 +39,7 @@ import { TimelineTabs } from '../TaskDetailTimeline/TimelineTabs'
 import { TaskDetailSidebar } from '../TaskDetailSidebar'
 
 interface TaskDetailPageProps {
-  initialTask: TaskDetail & {
-    children?: { id: string; title: string; number: number; status: string }[]
-  }
+  initialTask: TaskDetail
   workspaceUrl: string
   /** Pre-set source for breadcrumb (e.g. 'my-tasks'). Falls back to sessionStorage. */
   source?: string | undefined
@@ -292,36 +289,6 @@ export function TaskDetailPage({
             )}
 
             {/* Spec — hidden: agent features disabled for now */}
-
-            {/* Sub-tasks */}
-            {(initialTask.children?.length ?? 0) > 0 && (
-              <div className='mt-8'>
-                <p className='text-caption font-semibold text-muted-foreground uppercase tracking-wider mb-3'>
-                  {intl.formatMessage({ id: 'task.subtasks' })}
-                </p>
-                <div className='space-y-1'>
-                  {initialTask.children!.map(child => {
-                    const childIdentifier = `${task.teamIdentifier}-${child.number}`
-                    const projectSlug = slugify(task.project.name)
-                    const isDone = child.status === 'DONE'
-                    return (
-                      <button
-                        key={child.id}
-                        type='button'
-                        onClick={() =>
-                          router.push(
-                            `/workspace/${workspaceUrl}/projects/${projectSlug}/tasks/${childIdentifier}`
-                          )
-                        }
-                        className={`w-full text-left text-body py-1.5 px-2 rounded-sm hover:bg-muted cursor-pointer transition-colors ${isDone ? 'line-through text-muted-foreground' : 'text-muted-foreground'}`}
-                      >
-                        {childIdentifier} · {child.title}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Agent Panel — hidden: agent features disabled for now */}
 

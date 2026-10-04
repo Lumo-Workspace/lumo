@@ -1,9 +1,8 @@
 /**
  * @jest-environment node
  *
- * LUM-821 P1: taskCliService resolves `parentRef` (LUM-N) to an id in the
- * workspace, forwards dueDate, and `showFromCli` returns due / parent /
- * subtasks.
+ * LUM-821 P1: taskCliService forwards dueDate and `showFromCli` returns the
+ * due instant. Since LUM-959 there are no parent / subtask fields.
  */
 jest.mock('@/lib/services/task.service', () => ({
   taskService: {
@@ -57,8 +56,6 @@ beforeEach(() => {
     assignee: null,
     pullRequests: [],
     dueDate: new Date('2026-09-29T16:00:00.000Z'),
-    parent: { id: 'task_10', title: 'Epic', number: 10, teamIdentifier: 'LUM' },
-    children: [{ id: 'c1', title: 'Leaf', number: 50, status: 'IN_PROGRESS' }],
   })
   mem.findByWorkspaceAndClerkId!.mockResolvedValue({ id: 'mem_1' })
   mem.findActorByMemberId!.mockResolvedValue({ id: 'actor_1' })
@@ -83,43 +80,32 @@ const update = (input: Record<string, unknown>) =>
     input,
   })
 
-describe('updateFromCli — due / parent', () => {
-  it('resolves parentRef to the parent id and forwards dueDate', async () => {
-    await update({ parentRef: 'LUM-10', dueDate: '2026-09-29T16:00:00.000Z' })
+describe('updateFromCli — due', () => {
+  it('forwards dueDate', async () => {
+    await update({ dueDate: '2026-09-29T16:00:00.000Z' })
     expect(svc.updateTaskWithSideEffects!.mock.calls[0][1]).toMatchObject({
-      parentTaskId: 'task_10',
       dueDate: '2026-09-29T16:00:00.000Z',
     })
   })
 
-  it('null clears both', async () => {
-    await update({ parentRef: null, dueDate: null })
+  it('null clears the due date', async () => {
+    await update({ dueDate: null })
     expect(svc.updateTaskWithSideEffects!.mock.calls[0][1]).toMatchObject({
-      parentTaskId: null,
       dueDate: null,
     })
   })
-
-  it('an unknown parent is a 404 and nothing is written', async () => {
-    await expect(update({ parentRef: 'LUM-404' })).rejects.toMatchObject({
-      status: 404,
-    })
-    expect(svc.updateTaskWithSideEffects).not.toHaveBeenCalled()
-  })
 })
 
-describe('showFromCli — due / parent / subtasks', () => {
-  it('returns the due instant, parent and subtasks', async () => {
+describe('showFromCli — due', () => {
+  it('returns the due instant and no parent / subtask fields', async () => {
     const r = await taskCliService.showFromCli({
       workspaceId: 'ws_1',
       workspaceSlug: 'ws',
       identifier: 'LUM-48',
     })
     expect(r.dueDate).toBe('2026-09-29T16:00:00.000Z')
-    expect(r.parent).toEqual({ identifier: 'LUM-10', title: 'Epic' })
-    expect(r.subtasks).toEqual([
-      { identifier: 'LUM-50', title: 'Leaf', status: 'IN_PROGRESS' },
-    ])
+    expect(r).not.toHaveProperty('parent')
+    expect(r).not.toHaveProperty('subtasks')
   })
 })
 

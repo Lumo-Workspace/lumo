@@ -22,9 +22,6 @@ describe('taskQueryService.findForWorkspace', () => {
         id: 't1',
         title: 'A',
         team: { identifier: 'ENG' },
-        parent: null,
-        _count: { children: 2 },
-        children: [{ id: 'c1' }],
       },
     ])
     const result = await taskQueryService.findForWorkspace('w1', {})
@@ -32,32 +29,8 @@ describe('taskQueryService.findForWorkspace', () => {
     expect(first).toMatchObject({
       id: 't1',
       teamIdentifier: 'ENG',
-      parent: null,
-      childrenDoneCount: 1,
     })
-  })
-
-  it('flattens a parent reference', async () => {
-    mockFind.mockResolvedValueOnce([
-      {
-        id: 't2',
-        team: { identifier: 'ENG' },
-        parent: {
-          id: 'p',
-          title: 'Parent',
-          number: 7,
-          team: { identifier: 'ENG' },
-        },
-        _count: { children: 0 },
-        children: [],
-      },
-    ])
-    const [first] = await taskQueryService.findForWorkspace('w1', {})
-    expect(first?.parent).toEqual({
-      id: 'p',
-      title: 'Parent',
-      number: 7,
-      teamIdentifier: 'ENG',
-    })
+    expect(first).not.toHaveProperty('parent')
+    expect(first).not.toHaveProperty('childrenDoneCount')
   })
 })

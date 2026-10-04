@@ -79,7 +79,6 @@ const TASK = {
   project: { workspaceId: 'w-1' },
   sprintId: null,
   assigneeActorId: null,
-  parentTaskId: null,
 }
 
 const ATTRIB = { actorMemberId: 'member-1', actorClerkId: 'clerk-1' }

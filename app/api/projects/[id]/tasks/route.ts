@@ -9,7 +9,6 @@ import {
   viewRepository,
 } from '@/lib/repositories'
 import { taskService } from '@/lib/services/task.service'
-import { buildTaskTree } from '@/lib/utils/task-tree'
 import { liftTaskTags } from '@/lib/api/task-shape'
 
 type Params = { params: Promise<{ id: string }> }
@@ -17,7 +16,7 @@ type Params = { params: Promise<{ id: string }> }
 // ─── Routes ─────────────────────────────────────────────────────────────────
 
 /**
- * GET /api/projects/[id]/tasks — Get all tasks as a tree, with per-view ordering.
+ * GET /api/projects/[id]/tasks — Get all tasks, with per-view ordering.
  * Also lazy-creates the KANBAN view for the project on first access.
  */
 export async function GET(request: NextRequest, { params }: Params) {
@@ -81,21 +80,12 @@ export async function GET(request: NextRequest, { params }: Params) {
       ...liftTaskTags(t),
       teamIdentifier: t.team.identifier,
       viewOrder: orderMap.get(t.id) ?? null,
-      parent: t.parent
-        ? {
-            id: t.parent.id,
-            title: t.parent.title,
-            number: t.parent.number,
-            teamIdentifier: t.parent.team.identifier,
-          }
-        : null,
-      _count: t._count,
-      childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
     }))
 
-    const tree = buildTaskTree(tasksWithOrder)
-
-    return NextResponse.json({ tasks: tree, kanbanViewId: kanbanView.id })
+    return NextResponse.json({
+      tasks: tasksWithOrder,
+      kanbanViewId: kanbanView.id,
+    })
   } catch (error) {
     console.error('GET /api/projects/[id]/tasks error:', error)
     return NextResponse.json(

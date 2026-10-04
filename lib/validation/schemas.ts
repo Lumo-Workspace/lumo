@@ -180,7 +180,6 @@ export const createTaskSchema = z.object({
     .optional()
     .default('MEDIUM'),
   assigneeActorId: z.string().nullable().optional(),
-  parentTaskId: z.string().nullable().optional(),
   sprintId: z.string().nullable().optional(),
   milestoneId: z.string().nullable().optional(),
   order: z.number().optional(),
@@ -197,7 +196,6 @@ export const updateTaskSchema = z
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
     assigneeActorId: z.string().nullable().optional(),
     projectId: z.string().optional(),
-    parentTaskId: z.string().nullable().optional(),
     order: z.number().optional(),
     dueDate: z.string().datetime().nullable().optional(),
     tagIds: z.array(z.string().cuid()).max(20).optional(),
@@ -210,6 +208,17 @@ export const updateTaskSchema = z
     message: 'tagIds and addTagIds/removeTagIds are mutually exclusive',
     path: ['tagIds'],
   })
+
+/**
+ * LUM-959: subtasks were removed. An older CLI still sends `parentRef` for
+ * `--parent`; refuse it loudly instead of silently dropping the flag.
+ */
+const removedParentRef = z
+  .never({
+    error:
+      'Subtasks were removed (LUM-959): --parent is no longer supported. Group related tasks with a milestone, or order them with `lumo task deps add`.',
+  })
+  .optional()
 
 /**
  * CLI-side task create: accepts human-friendly refs (project name/slug,
@@ -237,8 +246,7 @@ export const cliCreateTaskSchema = z.object({
   // LUM-821: the CLI sends the local-midnight instant of `--due YYYY-MM-DD`
   // (same storage convention as the web DueDatePicker).
   dueDate: z.string().datetime().optional(),
-  /** Parent task identifier (LUM-N) — must be in the same project. */
-  parentRef: z.string().trim().min(1).max(200).optional(),
+  parentRef: removedParentRef,
   ...tagIdsShape,
 })
 
@@ -269,7 +277,7 @@ export const cliUpdateTaskSchema = z
     claimable: z.boolean().optional(),
     // LUM-821: null clears. dueDate is an instant (local midnight of the day).
     dueDate: z.string().datetime().nullable().optional(),
-    parentRef: z.string().trim().min(1).max(200).nullable().optional(),
+    parentRef: removedParentRef,
     ...tagIdsShape,
     ...tagsIncrementalShape,
   })
@@ -277,33 +285,6 @@ export const cliUpdateTaskSchema = z
     message: 'tagIds and addTagIds/removeTagIds are mutually exclusive',
     path: ['tagIds'],
   })
-
-// ─── Batch Task Creation ───────────────────────────────────────────────────
-
-export const batchCreateTasksSchema = z.object({
-  tasks: z
-    .array(
-      z.object({
-        title: z
-          .string()
-          .trim()
-          .min(1, 'Title is required')
-          .max(500, 'Title must be at most 500 characters'),
-        status: z
-          .enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
-          .optional()
-          .default('TODO'),
-        priority: z
-          .enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT'])
-          .optional()
-          .default('MEDIUM'),
-        assigneeActorId: z.string().nullable().optional(),
-        parentTaskId: z.string(),
-      })
-    )
-    .min(1, 'At least one task is required')
-    .max(10, 'Cannot create more than 10 tasks at once'),
-})
 
 // ─── AI Description Generation ──────────────────────────────────────────────
 

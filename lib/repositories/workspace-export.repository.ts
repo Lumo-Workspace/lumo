@@ -154,7 +154,6 @@ async function pageRows(
           projectId: true,
           teamId: true,
           number: true,
-          parentTaskId: true,
           title: true,
           description: true,
           spec: true,

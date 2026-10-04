@@ -188,7 +188,7 @@ export const taskDependencyRepository = {
     if (ids.length === 0) return []
     return prisma.task.findMany({
       where: { id: { in: ids }, status: { not: 'DONE' } },
-      select: { id: true, createdAt: true, parentTaskId: true },
+      select: { id: true, createdAt: true },
     })
   },
 

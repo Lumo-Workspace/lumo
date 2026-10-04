@@ -103,7 +103,7 @@ lumo task deps rm LUM-42 a1b2c3d4 --confirm  # after the user approved
 ## Detection signals
 
 - **`task_mention`**: fires when a task's description is updated or a comment is created. If the updated HTML @-mentions other tasks, the mentioning task is recorded as depending on the mentioned task (direction heuristic: mentioner blocked by mentioned). Triggers immediately on write events; no cron.
-- **`shared_files`**: hourly cron sweep over write-tool hook events in the past 14 days. For every pair of open (non-DONE) tasks sharing **≥ 3 written files**, a SUGGESTED edge is created (direction heuristic: older task blocks newer). Parent–child pairs are skipped; edges are never created across workspaces.
+- **`shared_files`**: hourly cron sweep over write-tool hook events in the past 14 days. For every pair of open (non-DONE) tasks sharing **≥ 3 written files**, a SUGGESTED edge is created (direction heuristic: older task blocks newer). Edges are never created across workspaces.
 
 ## When to suggest `task deps` commands
 

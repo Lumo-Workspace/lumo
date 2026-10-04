@@ -31,7 +31,7 @@ export const REASONING_MODEL = 'openai/gpt-5.5'
  * 桶2 GENERATION tier — lower-stakes structured generation where the quality
  * floor is the lowest: run/sprint/milestone summaries, summaries/report,
  * description & quick-dispatch & duplicate-check services, task
- * suggest-priority / decompose routes. Migrated off Sonnet to DeepSeek V4-Pro
+ * suggest-priority route. Migrated off Sonnet to DeepSeek V4-Pro
  * (LUM-588) — catalog-confirmed 2026-06-24. Kept distinct from REASONING_MODEL
  * so the verifier tier (桶1) can never be cheapened by editing one shared
  * constant. Gateway format.
@@ -42,7 +42,7 @@ export const GENERATION_MODEL = 'deepseek/deepseek-v4-pro'
  * search steps and the forced wrap-up replay; the planner stays on
  * FAST_MODEL, the falsifier on its own tier). Split off GENERATION_MODEL by
  * LUM-787 so the hunt can be swapped without touching the summaries /
- * description / decompose call sites that share 桶2.
+ * description call sites that share 桶2.
  *
  * DeepSeek V4-Pro → Qwen3-Coder-Plus (LUM-787): on the same diff (PR 1008,
  * head 02cf887c) replayed through the shipped loop after the step-budget

@@ -93,7 +93,6 @@ const TASK = {
   project: { workspaceId: 'w-1' },
   sprintId: null,
   assigneeActorId: null,
-  parentTaskId: null,
 }
 
 /** An in-memory crossing store so the gate query and the LUM-435 disposition

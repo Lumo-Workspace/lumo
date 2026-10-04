@@ -50,16 +50,6 @@ function toActivityRecord(event: TaskActivityEvent): ActivityRecord {
         },
       }
 
-    case 'task:parent_changed':
-      return {
-        type: 'PARENT_CHANGED',
-        payload: {
-          fromTaskId: event.fromTaskId,
-          toTaskId: event.toTaskId,
-          toTitle: event.toTitle,
-        },
-      }
-
     case 'task:tags_changed':
       return {
         type: 'TAGS_CHANGED',
@@ -73,25 +63,6 @@ function toActivityRecord(event: TaskActivityEvent): ActivityRecord {
       return {
         type: 'COMMENT_DELETED',
         payload: { commentId: event.commentId },
-      }
-
-    case 'task:subtask_added':
-      return {
-        type: 'SUBTASK_ADDED',
-        payload: {
-          childTaskId: event.childTaskId,
-          childTitle: event.childTitle,
-          childNumber: event.childNumber,
-        },
-      }
-
-    case 'task:subtask_removed':
-      return {
-        type: 'SUBTASK_REMOVED',
-        payload: {
-          childTaskId: event.childTaskId,
-          childTitle: event.childTitle,
-        },
       }
 
     case 'task:spec_generated':

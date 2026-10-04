@@ -1,8 +1,8 @@
 /**
  * @jest-environment node
  *
- * LUM-821 P1: `--due` / `--parent` on task create/update, and `task show`
- * rendering due / parent / subtasks.
+ * LUM-821 P1: `--due` on task create/update, and `task show` rendering due.
+ * `--parent` and the Parent / Subtasks lines were removed in LUM-959.
  */
 // LUM-825: DONE also cleans up the task's local git worktrees; these suites
 // test the API flow, so never let it touch the real checkout's worktrees.
@@ -62,27 +62,13 @@ describe('buildUpdatePayload', () => {
     })
     expect(buildUpdatePayload({ due: '' }).payload).toEqual({ dueDate: null })
   })
-  it('--parent ref passes through; "" detaches', () => {
-    expect(buildUpdatePayload({ parent: 'LUM-10' }).payload).toEqual({
-      parentRef: 'LUM-10',
-    })
-    expect(buildUpdatePayload({ parent: '' }).payload).toEqual({
-      parentRef: null,
-    })
-  })
 })
 
-describe('task create --due --parent', () => {
-  it('sends dueDate + parentRef', async () => {
-    await taskCreate('Sub', {
-      due: '2026-09-30',
-      parent: 'LUM-10',
-      hints: false,
-    })
-    expect(sentBody()).toMatchObject({
-      dueDate: localDayStart('2026-09-30'),
-      parentRef: 'LUM-10',
-    })
+describe('task create --due', () => {
+  it('sends dueDate and never a parentRef', async () => {
+    await taskCreate('Sub', { due: '2026-09-30', hints: false })
+    expect(sentBody()).toMatchObject({ dueDate: localDayStart('2026-09-30') })
+    expect(sentBody()).not.toHaveProperty('parentRef')
   })
   it('rejects an impossible due date before any network call', async () => {
     expect(await taskCreate('Sub', { due: '2026-02-30' })).toBe(1)
@@ -98,7 +84,7 @@ describe('task update --due validation', () => {
 })
 
 describe('task show', () => {
-  it('prints due (local day), parent and subtasks', () => {
+  it('prints due (local day) and no Parent / Subtasks lines', () => {
     const out = formatTaskShow({
       id: 't',
       identifier: 'LUM-48',
@@ -110,16 +96,9 @@ describe('task show', () => {
       project: { id: 'p', name: 'lumo' },
       assignee: null,
       dueDate: localDayStart('2026-09-30'),
-      parent: { identifier: 'LUM-10', title: 'Epic' },
-      subtasks: [
-        { identifier: 'LUM-50', title: 'Leaf', status: 'IN_PROGRESS' },
-        { identifier: 'LUM-51', title: 'Leaf 2', status: 'TODO' },
-      ],
     })
     expect(out).toContain('Due:       2026-09-30')
-    expect(out).toContain('Parent:    LUM-10  Epic')
-    expect(out).toContain('Subtasks (2):')
-    expect(out).toMatch(/ {2}LUM-50 {2}IN_PROGRESS {2}Leaf/)
+    expect(out).not.toMatch(/Parent:|Subtasks/)
   })
   it('omits the new lines for an older server payload', () => {
     const out = formatTaskShow({

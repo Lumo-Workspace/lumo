@@ -33,9 +33,6 @@ function row(overrides: Record<string, unknown> = {}) {
       name: 'Alpha',
       owner: { actor: { id: 'actor_owner' } },
     },
-    parent: null,
-    children: [{ id: 'child_done' }],
-    _count: { children: 2 },
     taskTags: [{ tag: TAG_A }, { tag: TAG_B }],
     sprintId: 'sprint_1',
     sprint: { id: 'sprint_1', status: 'ACTIVE', name: 'Sprint 12' },
@@ -115,30 +112,16 @@ describe('flattenTaskForListing', () => {
     expect(shaped).not.toHaveProperty('taskTags')
   })
 
-  it('still flattens team / project / parent / children', () => {
-    const shaped = flattenTaskForListing(
-      row({
-        parent: {
-          id: 'p1',
-          title: 'Parent',
-          number: 7,
-          team: { identifier: 'LUM' },
-        },
-      })
-    )
+  it('still flattens team / project, with no parent / subtask fields', () => {
+    const shaped = flattenTaskForListing(row())
     expect(shaped.teamIdentifier).toBe('LUM')
     expect(shaped.project).toEqual({
       id: 'proj_1',
       name: 'Alpha',
       ownerActorId: 'actor_owner',
     })
-    expect(shaped.parent).toEqual({
-      id: 'p1',
-      title: 'Parent',
-      number: 7,
-      teamIdentifier: 'LUM',
-    })
-    expect(shaped.childrenDoneCount).toBe(1)
+    expect(shaped).not.toHaveProperty('parent')
+    expect(shaped).not.toHaveProperty('childrenDoneCount')
   })
 })
 

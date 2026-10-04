@@ -119,7 +119,6 @@ interface ProjectTaskCardProps {
   /** Whether the current user is a workspace OWNER */
   isOwner?: boolean | undefined
   onClick?: () => void
-  onParentClick?: (parentId: string) => void
   /** Drag behavior — see CardShell. Defaults to 'sortable' for backward compat. */
   dragMode?: DragMode
   /** Arbitrary metadata attached to the @dnd-kit drag event. Used when dragMode='simple'. */
@@ -133,7 +132,6 @@ export function ProjectTaskCard({
   currentActorId: _currentActorId,
   isOwner: _isOwner,
   onClick,
-  onParentClick,
   dragMode,
   dragData,
 }: ProjectTaskCardProps) {
@@ -158,37 +156,9 @@ export function ProjectTaskCard({
         )}
         <PriorityBadge priority={task.priority} />
       </div>
-      {task.parent && (
-        <div className='mb-1'>
-          <button
-            onClick={e => {
-              e.stopPropagation()
-              onParentClick?.(task.parent!.id)
-            }}
-            className='text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm hover:text-foreground transition-colors'
-          >
-            ↑ {task.parent.teamIdentifier}-{task.parent.number}
-          </button>
-        </div>
-      )}
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
         {task.title}
       </h4>
-      {(task._count?.children ?? 0) > 0 && (
-        <div className='flex items-center gap-1.5 mt-1.5'>
-          <div className='flex-1 h-1 bg-muted rounded-full overflow-hidden'>
-            <div
-              className='h-full bg-blue-500 rounded-full transition-all'
-              style={{
-                width: `${Math.round(((task.childrenDoneCount ?? 0) / (task._count?.children ?? 1)) * 100)}%`,
-              }}
-            />
-          </div>
-          <span className='text-[10px] text-muted-foreground tabular-nums'>
-            {task.childrenDoneCount ?? 0}/{task._count?.children ?? 0}
-          </span>
-        </div>
-      )}
       <div className='flex justify-between items-center'>
         {/* ── Left: avatar ── */}
         {assignee ? (
@@ -275,21 +245,6 @@ export function MyTaskCard({ task, isOverlay, onClick }: MyTaskCardProps) {
       <h4 className='text-sm font-medium mb-4 leading-relaxed line-clamp-2'>
         {task.title}
       </h4>
-      {(task._count?.children ?? 0) > 0 && (
-        <div className='flex items-center gap-1.5 mt-1.5'>
-          <div className='flex-1 h-1 bg-muted rounded-full overflow-hidden'>
-            <div
-              className='h-full bg-blue-500 rounded-full transition-all'
-              style={{
-                width: `${Math.round(((task.childrenDoneCount ?? 0) / (task._count?.children ?? 1)) * 100)}%`,
-              }}
-            />
-          </div>
-          <span className='text-[10px] text-muted-foreground tabular-nums'>
-            {task.childrenDoneCount ?? 0}/{task._count?.children ?? 0}
-          </span>
-        </div>
-      )}
       <div className='flex justify-between items-center'>
         <span className='text-[10px] text-muted-foreground truncate max-w-[140px]'>
           {projectName}

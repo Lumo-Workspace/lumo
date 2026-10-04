@@ -152,9 +152,6 @@ function TitleCell({
     setEditing(false)
   }, [])
 
-  const childCount = task._count?.children ?? 0
-  const doneCount = task.childrenDoneCount ?? 0
-
   if (editing) {
     return (
       <input
@@ -180,9 +177,6 @@ function TitleCell({
 
   return (
     <div className='flex items-center gap-2 group/title'>
-      {task.parentTaskId != null && (
-        <span className='w-3 h-px bg-muted-foreground/30 inline-block shrink-0' />
-      )}
       <span
         className='font-medium group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors cursor-text flex-1 min-w-0 truncate'
         title={task.title}
@@ -193,19 +187,6 @@ function TitleCell({
       >
         {task.title}
       </span>
-      {childCount > 0 && (
-        <span className='inline-flex items-center gap-1 text-[10px] text-muted-foreground tabular-nums shrink-0'>
-          <span className='inline-block w-8 h-1 bg-muted rounded-full overflow-hidden'>
-            <span
-              className='block h-full bg-blue-500 rounded-full'
-              style={{
-                width: `${Math.round((doneCount / childCount) * 100)}%`,
-              }}
-            />
-          </span>
-          {doneCount}/{childCount}
-        </span>
-      )}
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -457,38 +438,11 @@ export function createTaskColumns(
           sorted={column.getIsSorted()}
         />
       ),
-      cell: ({ row, table }) => {
+      cell: ({ row }) => {
         const task = row.original
-        const meta = table.options.meta
-        const parentId = meta?.getParentId?.(task)
-        const childCount = meta?.getChildCount?.(task) ?? 0
-        const isExpanded = meta?.expanded?.has(task.id) ?? false
-        const isChild = !!parentId
 
         return (
-          <div
-            className={cn('flex items-center gap-1', isChild ? 'pl-7' : 'pl-3')}
-          >
-            {childCount > 0 ? (
-              <button
-                type='button'
-                onClick={e => {
-                  e.stopPropagation()
-                  meta?.toggleExpand?.(task.id)
-                }}
-                className='flex items-center justify-center size-4 shrink-0 text-muted-foreground hover:text-foreground transition-colors'
-              >
-                <ChevronRight
-                  size={14}
-                  className={cn(
-                    'transition-transform duration-fast',
-                    isExpanded && 'rotate-90'
-                  )}
-                />
-              </button>
-            ) : (
-              <span className='size-4 shrink-0' />
-            )}
+          <div className='flex items-center gap-1 pl-3'>
             {task.number ? (
               <span className='text-caption font-mono text-muted-foreground'>
                 {task.teamIdentifier}-{task.number}

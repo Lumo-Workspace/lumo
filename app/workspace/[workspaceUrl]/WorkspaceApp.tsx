@@ -427,13 +427,6 @@ export default function DashboardApp() {
           selectedProject={selectedProject}
           onCloseTask={modalState.handleCloseTask}
           onUpdateTask={taskHandlers.handleUpdateTask}
-          onTasksChanged={() => {
-            if (currentPage === 'my-tasks') {
-              fetchMyTasks()
-            } else if (selectedProject) {
-              fetchProjectTasks(selectedProject.id)
-            }
-          }}
           isNewTaskModalOpen={modalState.isNewTaskModalOpen}
           setIsNewTaskModalOpen={modalState.setIsNewTaskModalOpen}
           newTaskDefaultAssigneeId={modalState.newTaskDefaultAssigneeId}

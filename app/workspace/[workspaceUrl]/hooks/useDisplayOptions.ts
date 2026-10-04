@@ -7,14 +7,12 @@ import type { TaskOrdering } from '../utils/sortTasks'
 export interface DisplayOptions {
   completedFilter: CompletedFilter
   ordering: TaskOrdering
-  showSubtasks: boolean
   currentSprintOnly: boolean
 }
 
 const DEFAULT_OPTIONS: DisplayOptions = {
   completedFilter: 'none',
   ordering: 'priority',
-  showSubtasks: true,
   currentSprintOnly: false,
 }
 const SYNC_EVENT = 'lumo:display-options-changed'
@@ -67,16 +65,6 @@ export function useDisplayOptions(storageKey: string) {
     [storageKey]
   )
 
-  const setShowSubtasks = useCallback(
-    (value: boolean) => {
-      const next = { ...read(storageKey), showSubtasks: value }
-      localStorage.setItem(storageKey, JSON.stringify(next))
-      setOptions(next)
-      window.dispatchEvent(new Event(SYNC_EVENT))
-    },
-    [storageKey]
-  )
-
   const setCurrentSprintOnly = useCallback(
     (value: boolean) => {
       const next = { ...read(storageKey), currentSprintOnly: value }
@@ -91,7 +79,6 @@ export function useDisplayOptions(storageKey: string) {
     options,
     setCompletedFilter,
     setOrdering,
-    setShowSubtasks,
     setCurrentSprintOnly,
   }
 }

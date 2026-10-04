@@ -24,11 +24,6 @@ import type {
   TaskDetailForUpdate,
 } from './task-types'
 
-/**
- * Walk a task's children to check whether `targetId` is anywhere below
- * `ancestorId`. Used by `updateTask` to refuse circular parent references
- * (a task cannot become a descendant of itself).
- */
 export interface UpdateTaskOptions {
   /**
    * Bypass the DONE gate. Only ever set by a human-authoritative path (a Clerk
@@ -64,23 +59,9 @@ async function assertDoneGateClear(
   })
 }
 
-async function isDescendant(
-  ancestorId: string,
-  targetId: string
-): Promise<boolean> {
-  const children = await taskRepository.findChildren(ancestorId)
-  if (children.length === 0) return false
-  if (children.some(child => child.id === targetId)) return true
-  for (const child of children) {
-    if (await isDescendant(child.id, targetId)) return true
-  }
-  return false
-}
-
 /**
- * Update a task with full validation: status-machine transition, parent
- * project + circular-reference guard, project cross-workspace check,
- * assignee workspace membership. Writes a SPRINT_CHANGED activity
+ * Update a task with full validation: status-machine transition, project
+ * cross-workspace check, assignee workspace membership. Writes a SPRINT_CHANGED activity
  * when `sprintId` is in the patch, and syncs tag associations when `tagIds`
  * is provided.
  *
@@ -104,7 +85,6 @@ export async function updateTask(
   }
 
   const {
-    parentTaskId,
     assigneeActorId,
     projectId,
     sprintId,
@@ -139,30 +119,6 @@ export async function updateTask(
     // here (or anywhere else); ask it.
     if (rest.status === 'DONE' && !opts?.overrideDoneGate) {
       await assertDoneGateClear(taskId, task.project.workspaceId)
-    }
-  }
-
-  // Validate parent task
-  if (parentTaskId !== undefined) {
-    if (parentTaskId !== null) {
-      if (parentTaskId === taskId) {
-        throw Object.assign(new Error('A task cannot be its own parent'), {
-          status: 400,
-        })
-      }
-      const parent = await taskRepository.findProjectIdById(parentTaskId)
-      if (!parent || parent.projectId !== task.projectId) {
-        throw Object.assign(
-          new Error('Parent task not found in this project'),
-          { status: 400 }
-        )
-      }
-      if (await isDescendant(taskId, parentTaskId)) {
-        throw Object.assign(
-          new Error('Cannot create circular parent reference'),
-          { status: 400 }
-        )
-      }
     }
   }
 
@@ -227,7 +183,6 @@ export async function updateTask(
   if (rest.priority !== undefined) data.priority = rest.priority
   if (rest.order !== undefined) data.order = rest.order
   if (rest.dueDate !== undefined) data.dueDate = rest.dueDate
-  if (parentTaskId !== undefined) data.parentTaskId = parentTaskId
   if (assigneeActorId !== undefined) {
     data.assigneeActorId = assigneeActorId
     if (newAssigneeType === 'AGENT') {

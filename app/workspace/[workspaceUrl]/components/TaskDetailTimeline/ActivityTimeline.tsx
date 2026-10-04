@@ -56,12 +56,6 @@ const FILTER_CATEGORIES = [
     types: new Set(['TAGS_CHANGED']),
   },
   {
-    id: 'subtasks',
-    labelId: 'activity.filter.subtasks',
-    defaultLabel: 'Subtasks',
-    types: new Set(['SUBTASK_ADDED', 'SUBTASK_REMOVED']),
-  },
-  {
     id: 'branch',
     labelId: 'activity.filter.branch',
     defaultLabel: 'PR',
@@ -79,7 +73,10 @@ const FILTER_CATEGORIES = [
     defaultLabel: 'Other',
     types: new Set([
       'DUE_DATE_CHANGED',
+      // LUM-959: subtasks are gone; these only appear on older history rows.
       'PARENT_CHANGED',
+      'SUBTASK_ADDED',
+      'SUBTASK_REMOVED',
       'COMMENT_DELETED',
       'SPEC_GENERATED',
       'AGENT_RUN_STARTED',

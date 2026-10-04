@@ -298,7 +298,6 @@ export async function handleCommand(
         priority: 'MEDIUM',
         assigneeActorId: null,
         agentStatus: null,
-        parentTaskId: null,
         order: 0,
         dueDate: null,
       })

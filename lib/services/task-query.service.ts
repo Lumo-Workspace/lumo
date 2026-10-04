@@ -7,16 +7,6 @@ function shapeTask(t: any) {
   return {
     ...t,
     teamIdentifier: t.team?.identifier ?? '',
-    parent: t.parent
-      ? {
-          id: t.parent.id,
-          title: t.parent.title,
-          number: t.parent.number,
-          teamIdentifier: t.parent.team?.identifier ?? '',
-        }
-      : null,
-    _count: t._count,
-    childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
   }
 }
 

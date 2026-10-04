@@ -14,7 +14,6 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: {
     findForUpdate: jest.fn(),
     update: jest.fn(),
-    findChildren: jest.fn().mockResolvedValue([]),
     findProjectIdById: jest.fn(),
     findActorById: jest.fn(),
   },

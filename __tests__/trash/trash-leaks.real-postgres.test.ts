@@ -27,7 +27,7 @@ import { sessionRepository } from '@/lib/repositories/session.repository'
 import { tagRepository } from '@/lib/repositories/tag.repository'
 import { pullRequestRepository } from '@/lib/repositories/pull-request.repository'
 import { taskRepository } from '@/lib/repositories/task.repository'
-import { trashTaskGroup } from '@/mcp/trash'
+import { trashTask } from '@/mcp/trash'
 
 jest.setTimeout(180_000)
 
@@ -56,12 +56,7 @@ async function seed() {
   await db.milestone.create({
     data: { id: 'ms_leak', projectId: 'proj_leak', name: 'M1', slug: 'm1' },
   })
-  const task = (
-    id: string,
-    number: number,
-    deletedAt: Date | null,
-    parentTaskId?: string
-  ) =>
+  const task = (id: string, number: number, deletedAt: Date | null) =>
     db.task.create({
       data: {
         id,
@@ -71,13 +66,12 @@ async function seed() {
         teamId: 'team_leak',
         milestoneId: 'ms_leak',
         deletedAt,
-        ...(parentTaskId ? { parentTaskId } : {}),
       },
     })
   await task('t_live', 1, null)
   await task('t_trashed', 2, TRASHED_AT)
   await task('t_mcp_root', 3, null)
-  await task('t_mcp_child', 4, null, 't_mcp_root')
+  await task('t_mcp_other', 4, null)
 
   await db.tag.create({
     data: { id: 'tag_leak', name: 'bug', workspaceId: WS },
@@ -159,13 +153,12 @@ describe('LUM-923 trash leak: relation reads skip trashed tasks', () => {
     ).toEqual([{ milestoneId: 'ms_leak', count: 1 }])
   })
 
-  it('LUM-923 trash leak: the legacy MCP delete moves the task and its subtasks to the trash', async () => {
+  it('LUM-923 trash leak: the legacy MCP delete moves the task — alone (LUM-959) — to the trash', async () => {
     const db = holder.client!
-    const moved = await trashTaskGroup(db, 't_mcp_root', 'clerk_leak')
+    await trashTask(db, 't_mcp_root', 'clerk_leak')
 
-    expect(moved).toBe(1)
     const rows = await harness.prisma!.task.findMany({
-      where: { id: { in: ['t_mcp_root', 't_mcp_child'] } },
+      where: { id: { in: ['t_mcp_root', 't_mcp_other'] } },
       select: {
         id: true,
         deletedAt: true,
@@ -175,18 +168,19 @@ describe('LUM-923 trash leak: relation reads skip trashed tasks', () => {
       orderBy: { id: 'asc' },
     })
     expect(rows).toHaveLength(2)
-    expect(rows.every(r => r.deletedAt !== null)).toBe(true)
-    expect(rows.every(r => r.deletedByClerkId === 'clerk_leak')).toBe(true)
-    expect(rows.find(r => r.id === 't_mcp_child')?.trashRootId).toBe(
-      't_mcp_root'
-    )
-    expect(rows.find(r => r.id === 't_mcp_root')?.trashRootId).toBeNull()
+    const root = rows.find(r => r.id === 't_mcp_root')
+    expect(root).toMatchObject({
+      deletedByClerkId: 'clerk_leak',
+      trashRootId: null,
+    })
+    expect(root?.deletedAt).not.toBeNull()
+    expect(rows.find(r => r.id === 't_mcp_other')?.deletedAt).toBeNull()
 
     // The legacy MCP lists through the soft-delete client: gone from lists.
     const listed = await db.task.findMany({
       where: { team: { workspaceId: WS } },
       select: { id: true },
     })
-    expect(listed.map(t => t.id)).toEqual(['t_live'])
+    expect(listed.map(t => t.id).sort()).toEqual(['t_live', 't_mcp_other'])
   })
 })

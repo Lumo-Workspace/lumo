@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/tooltip'
 import { type CompletedFilter } from '../utils/filterCompletedTasks'
 import { ORDERING_OPTIONS, type TaskOrdering } from '../utils/sortTasks'
-import { Switch } from '@/components/ui/switch'
 
 const FILTER_OPTIONS: CompletedFilter[] = [
   'all',
@@ -30,8 +29,6 @@ interface DisplayOptionsMenuProps {
   onCompletedFilterChange: (value: CompletedFilter) => void
   ordering: TaskOrdering
   onOrderingChange: (value: TaskOrdering) => void
-  showSubtasks: boolean
-  onShowSubtasksChange: (value: boolean) => void
 }
 
 export function DisplayOptionsMenu({
@@ -39,8 +36,6 @@ export function DisplayOptionsMenu({
   onCompletedFilterChange,
   ordering,
   onOrderingChange,
-  showSubtasks,
-  onShowSubtasksChange,
 }: DisplayOptionsMenuProps) {
   const intl = useIntl()
 
@@ -242,29 +237,6 @@ export function DisplayOptionsMenu({
             </TooltipContent>
           </Tooltip>
         ))}
-
-        <div className='my-1.5 border-t border-border' />
-
-        <div className='flex items-center gap-1 px-2 py-1.5'>
-          <p className='text-[11px] font-medium text-muted-foreground uppercase tracking-wider'>
-            {intl.formatMessage({
-              id: 'display.section.subtasks',
-              defaultMessage: 'Subtasks',
-            })}
-          </p>
-        </div>
-        <label className='flex items-center justify-between w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted transition-colors cursor-pointer'>
-          <span className='text-foreground'>
-            {intl.formatMessage({
-              id: 'display.showSubtasks',
-              defaultMessage: 'Show subtasks',
-            })}
-          </span>
-          <Switch
-            checked={showSubtasks}
-            onCheckedChange={onShowSubtasksChange}
-          />
-        </label>
       </PopoverContent>
     </Popover>
   )

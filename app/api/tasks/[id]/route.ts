@@ -93,8 +93,8 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 }
 
 /**
- * DELETE /api/tasks/[id] — Move a task and its subtasks to the trash
- * (LUM-918); restorable for 30 days from settings → Trash.
+ * DELETE /api/tasks/[id] — Move a task to the trash (LUM-918); restorable
+ * for 30 days from settings → Trash.
  */
 export async function DELETE(_request: NextRequest, { params }: Params) {
   try {

@@ -192,20 +192,6 @@ export function buildActivityEvents(
       to: input.dueDate ?? null,
     })
   }
-  if (
-    input.parentTaskId !== undefined &&
-    result.changedFields.includes('parentTaskId')
-  ) {
-    activityEvents.push({
-      type: 'task:parent_changed',
-      taskId,
-      projectId,
-      actorId: triggerActorId ?? '',
-      fromTaskId: (taskCheck as any).parentTaskId ?? null,
-      toTaskId: input.parentTaskId ?? null,
-      toTitle: null,
-    })
-  }
   // Bulk replace (tagIds) always records; incremental add/remove (the CLI's
   // --add-tag / --remove-tag) records only a real change — before LUM-821 it
   // left no trace in the history at all.

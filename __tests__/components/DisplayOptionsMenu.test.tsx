@@ -24,8 +24,6 @@ function renderMenu() {
       onCompletedFilterChange={jest.fn()}
       ordering='manual'
       onOrderingChange={jest.fn()}
-      showSubtasks
-      onShowSubtasksChange={jest.fn()}
     />
   )
   return screen.getByRole('button', { name: 'Display' })

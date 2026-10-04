@@ -197,7 +197,6 @@ describe('LUM-898 write paths store credentials redacted', () => {
       priority: 'MEDIUM',
       assigneeActorId: null,
       agentStatus: null,
-      parentTaskId: null,
       dueDate: null,
     } as never)
 

@@ -44,7 +44,6 @@ import type {
 interface DisplayOptions {
   completedFilter: CompletedFilter
   ordering: TaskOrdering
-  showSubtasks: boolean
 }
 
 interface ProjectTasksTabProps {
@@ -66,7 +65,6 @@ interface ProjectTasksTabProps {
   displayOptions: DisplayOptions
   setCompletedFilter: (v: CompletedFilter) => void
   setOrdering: (v: TaskOrdering) => void
-  setShowSubtasks: (v: boolean) => void
   sensors: SensorDescriptor<SensorOptions>[]
   activeId: string | null
   onDragStart: (event: { active: { id: string | number } }) => void
@@ -93,7 +91,6 @@ export function ProjectTasksTab({
   displayOptions,
   setCompletedFilter,
   setOrdering,
-  setShowSubtasks,
   sensors,
   activeId,
   onDragStart,
@@ -234,8 +231,6 @@ export function ProjectTasksTab({
           onCompletedFilterChange={setCompletedFilter}
           ordering={displayOptions.ordering}
           onOrderingChange={setOrdering}
-          showSubtasks={displayOptions.showSubtasks}
-          onShowSubtasksChange={setShowSubtasks}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           filterMenu={
@@ -317,16 +312,6 @@ export function ProjectTasksTab({
               onDeleteTask={onDeleteTask}
               rowSelection={rowSelection}
               onRowSelectionChange={setRowSelection}
-              {...(displayOptions.showSubtasks
-                ? {
-                    treeConfig: {
-                      getParentId: (task: ApiTask) => task.parentTaskId,
-                      getChildCount: (task: ApiTask) =>
-                        task._count?.children ?? 0,
-                      getRowId: (task: ApiTask) => task.id,
-                    },
-                  }
-                : {})}
             />
           </div>
         ) : (
@@ -351,10 +336,6 @@ export function ProjectTasksTab({
                 currentActorId={currentActorId}
                 isOwner={isOwner}
                 onClick={() => onTaskClick(task)}
-                onParentClick={parentId => {
-                  const parentTask = tasks.find(t => t.id === parentId)
-                  if (parentTask) onTaskClick(parentTask)
-                }}
               />
             )}
             onAddTask={columnId => onNewTask(columnId as ApiStatus)}
