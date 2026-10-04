@@ -1,5 +1,5 @@
 {
-  "cliVersion": "1.90.0",
+  "cliVersion": "1.91.0",
   "commands": {
     "auth": {
       "arguments": [],
@@ -3247,11 +3247,29 @@
           "enum": null,
           "enumCaseInsensitive": false,
           "description": "Attach tag by id (repeatable)"
+        },
+        "--template": {
+          "long": "--template",
+          "short": null,
+          "value": "required",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Pre-fill the description from a task template (see `task template list`); not with --description"
         }
       },
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Create a task. --project required when workspace has >1 project; defaults: priority=low, assignee=me."
+    },
+    "task decide": {
+      "arguments": [
+        { "name": "identifier", "required": true, "variadic": false },
+        { "name": "text", "required": true, "variadic": false }
+      ],
+      "flags": {},
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "Append a dated ruling to the task description's `## Decisions` section (created if missing). Use for decisions instead of comments."
     },
     "task delete": {
       "arguments": [
@@ -3840,6 +3858,29 @@
       "hasSubcommands": false,
       "isInvokable": true,
       "description": "Show the task status set, allowed transitions and priorities, as served by the API."
+    },
+    "task template": {
+      "arguments": [],
+      "flags": {},
+      "hasSubcommands": true,
+      "isInvokable": false,
+      "description": "Task templates that pre-fill a new task description"
+    },
+    "task template list": {
+      "arguments": [],
+      "flags": {
+        "--json": {
+          "long": "--json",
+          "short": null,
+          "value": "none",
+          "enum": null,
+          "enumCaseInsensitive": false,
+          "description": "Emit the templates (with their Markdown content) as JSON"
+        }
+      },
+      "hasSubcommands": false,
+      "isInvokable": true,
+      "description": "List the task templates available to `task create --template <key>`: built-ins plus your workspace ones."
     },
     "task testcase": {
       "arguments": [],

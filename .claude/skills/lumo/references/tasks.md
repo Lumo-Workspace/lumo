@@ -9,6 +9,7 @@ Use this when the user wants to file a new task from the terminal. Title is posi
 | Flag                     | Type   | Notes                                                                               |
 | ------------------------ | ------ | ----------------------------------------------------------------------------------- |
 | `-d, --description <>`   | string | Optional task description.                                                          |
+| `--template <key>`       | string | Pre-fill the description from a task template. Not with `--description`.            |
 | `-p, --priority <level>` | enum   | `low \| medium \| high \| urgent` (case-insensitive). Defaults to `low`.            |
 | `-a, --assignee <ref>`   | string | `me`, an email, or a member name. Defaults to `me`.                                 |
 | `--project <ref>`        | string | Project name or slug. **Required when the workspace has more than one project.**    |
@@ -28,6 +29,7 @@ lumo task create "Plan API design" --milestone "v1.0"
 lumo task create "Sprint task" --sprint 3
 lumo task create "Add rate limiting" --tag bug --tag urgent
 lumo task create "Spike: evaluate caching options" --tag rfc --tag-id clm_abc123
+lumo task create "Add CSV export" --template agent-brief
 ```
 
 On success the command prints one or two lines to stdout:
@@ -50,6 +52,28 @@ If the workspace has multiple projects and `--project` is omitted, the server wi
 - The user describes wanting a new task ("create a task to ...", "file a bug for ...", "log a TODO that ...", "add a task: ...").
 - After a discussion that ends in "let's track that separately" — offer to create the task with a sensible title and priority.
 - For follow-ups discovered mid-work that shouldn't bloat the current change — propose `task create` rather than silently expanding scope.
+- When the task will be handed to an agent, suggest `--template agent-brief` so the description starts as a brief (Goal / Non-goals / Watch out / Done when / Decisions) the user fills in before work starts.
+
+### `lumo task template list [--json]` — task templates (LUM-970)
+
+Lists the keys `--template` accepts: built-ins (marked `[built-in]`, e.g. `agent-brief`) plus the workspace's own. Workspace owners manage templates in the web app under **Settings → Task templates**; there is no CLI create/edit. `--json` includes each template's Markdown `content`. Built-in guidance text follows your language preference; the headings stay English.
+
+```bash
+lumo task template list
+```
+
+An unknown key on `task create --template` is a 404 that names this command.
+
+### `lumo task decide <identifier> "<text>"` — record a decision in the brief (LUM-970)
+
+Appends one list item to the description's `## Decisions` section, creating the section at the end when it is missing; the rest of the description is left as is. The text is prefixed with today's local date unless it already starts with `YYYY-MM-DD`; inline Markdown (`code`, **bold**) works. The edit shows in `task history` like any description change.
+
+```bash
+lumo task decide LUM-42 "Keep the v1 API; v2 is a separate task (user)"
+# Recorded decision on LUM-42 "Title"  https://…/my-tasks/LUM-42
+```
+
+When to suggest: the user rules on scope or approach mid-task ("do X, not Y", "leave that out") — record it with `task decide` rather than a comment, so the brief stays the single place the agreed scope lives.
 
 ### `lumo task update <identifier> [flags]` — patch a task
 

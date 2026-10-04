@@ -19,6 +19,7 @@ export const EXPORTED_MODELS = [
   'Priority',
   'Document',
   'DocumentTemplate',
+  'TaskTemplate',
   'Tag',
   'Memory',
   'TaskArtifact',

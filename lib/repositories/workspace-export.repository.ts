@@ -28,6 +28,7 @@ export const EXPORT_KINDS = [
   'priorities',
   'documents',
   'document-templates',
+  'task-templates',
   'tags',
   'memories',
 ] as const
@@ -297,6 +298,12 @@ async function pageRows(
       return prisma.documentTemplate.findMany({
         where: { workspaceId },
         select: { id: true, key: true, emoji: true, content: true, ...ts },
+        ...page,
+      })
+    case 'task-templates':
+      return prisma.taskTemplate.findMany({
+        where: { workspaceId },
+        select: { id: true, key: true, name: true, content: true, ...ts },
         ...page,
       })
     case 'tags':

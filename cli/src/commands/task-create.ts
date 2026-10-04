@@ -28,6 +28,8 @@ export interface CreateTaskOptions {
   newScope?: boolean
   /** LUM-821: due day, YYYY-MM-DD in the local timezone. */
   due?: string
+  /** LUM-970: task template key — pre-fills the description. */
+  template?: string
   /** Commander sets this to false for `--no-hints` (LUM-686). */
   hints?: boolean
 }
@@ -203,6 +205,13 @@ export async function taskCreate(
     return 1
   }
 
+  if (opts.template !== undefined && opts.description !== undefined) {
+    process.stderr.write(
+      'Error: pass either --description or --template, not both. See `lumo task template list`.\n'
+    )
+    return 1
+  }
+
   let dueDate: string | undefined
   if (opts.due !== undefined) {
     const iso = localDayStart(opts.due)
@@ -266,6 +275,7 @@ export async function taskCreate(
   if (opts.reworkOf !== undefined) body.reworkOfRef = opts.reworkOf
   if (opts.newScope) body.newScope = true
   if (dueDate !== undefined) body.dueDate = dueDate
+  if (opts.template !== undefined) body.templateKey = opts.template
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,

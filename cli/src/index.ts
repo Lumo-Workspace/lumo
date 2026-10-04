@@ -45,6 +45,8 @@ import { taskUpdate } from './commands/task-update'
 import { taskList } from './commands/task-list'
 import { taskSearch } from './commands/task-search'
 import { taskStatuses } from './commands/task-statuses'
+import { taskTemplateList } from './commands/task-template-list'
+import { taskDecide } from './commands/task-decide'
 import { memberList } from './commands/member-list'
 import { tagCreate, tagList } from './commands/tag'
 import {
@@ -982,6 +984,10 @@ task
   .option('--project <ref>', 'Project name or slug')
   .option('--milestone <ref>', 'Milestone name (case-insensitive)')
   .option('--due <date>', 'Due date, YYYY-MM-DD (your local day)')
+  .option(
+    '--template <key>',
+    'Pre-fill the description from a task template (see `task template list`); not with --description'
+  )
   .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
   .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
   .option(
@@ -1000,6 +1006,27 @@ task
     wrap((title, options) =>
       taskCreate(title as string, options as Record<string, string>)
     )
+  )
+
+const taskTemplate = task
+  .command('template')
+  .description('Task templates that pre-fill a new task description')
+
+taskTemplate
+  .command('list')
+  .description(
+    'List the task templates available to `task create --template <key>`: built-ins plus your workspace ones.'
+  )
+  .option('--json', 'Emit the templates (with their Markdown content) as JSON')
+  .action(wrap(options => taskTemplateList(options as { json?: boolean })))
+
+task
+  .command('decide <identifier> <text>')
+  .description(
+    "Append a dated ruling to the task description's `## Decisions` section (created if missing). Use for decisions instead of comments."
+  )
+  .action(
+    wrap((identifier, text) => taskDecide(identifier as string, text as string))
   )
 
 const taskFigma = task

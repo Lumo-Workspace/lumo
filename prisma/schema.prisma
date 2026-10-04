@@ -369,6 +369,7 @@ model Workspace {
   ideaPullRequests        IdeaPullRequest[]
   taskArtifacts           TaskArtifact[]
   documentTemplates       DocumentTemplate[]
+  taskTemplates           TaskTemplate[]
   lineageEdges            LineageEdge[]
   milestoneMemoryEdges    MilestoneMemoryEdge[]
   droppedFragments        DroppedFragment[]
@@ -2289,6 +2290,26 @@ model DocumentTemplate {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
+  @@index([workspaceId])
+}
+
+/// LUM-970: a workspace-owned task template — Markdown that pre-fills a new
+/// task's description (`lumo task create --template <key>`, web new-task
+/// picker). System templates (e.g. `agent-brief`) live in code
+/// (lib/task-templates/), not in this table, so they need no seeding.
+model TaskTemplate {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  /// Slug the CLI selects by; unique per workspace, never a system key.
+  key         String
+  name        String
+  /// Markdown body. Converted to the description's HTML storage format at use.
+  content     String    @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, key])
   @@index([workspaceId])
 }
 
