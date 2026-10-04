@@ -170,7 +170,7 @@ export const MEMORY_CATEGORY_SPECS: Record<MemoryCategory, MemoryCategorySpec> =
 
     CONVENTION: {
       labelId: 'memory.category.convention',
-      dot: 'bg-warning',
+      dot: 'bg-warning-text',
       summaryPlaceholderId: 'memory.field.convention.summary.placeholder',
       fields: [
         {
@@ -194,7 +194,7 @@ export const MEMORY_CATEGORY_SPECS: Record<MemoryCategory, MemoryCategorySpec> =
 
     PROCEDURAL: {
       labelId: 'memory.category.procedural',
-      dot: 'bg-success',
+      dot: 'bg-success-text',
       summaryPlaceholderId: 'memory.field.procedural.summary.placeholder',
       fields: [
         {

@@ -171,7 +171,7 @@ export function MilestoneHero({
           ) : (
             <span className='inline-flex items-center gap-2 font-semibold text-muted-foreground'>
               <span
-                className='h-[7px] w-[7px] shrink-0 rounded-full bg-[var(--warning)]'
+                className='h-[7px] w-[7px] shrink-0 rounded-full bg-warning-text'
                 aria-hidden='true'
               />
               {intl.formatMessage({ id: 'milestone.hero.healthUnavailable' })}

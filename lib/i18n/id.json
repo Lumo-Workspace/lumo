@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "membuat tugas perbaikan untuk pelanggaran batas",
   "activity.boundaryRedispositioned": "mengubah disposisi pelanggaran batas dari {from} menjadi {to}",
   "activity.boundaryReopened": "membuka kembali pelanggaran batas (sebelumnya {from}) — Selesai diblokir lagi",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "menghancurkan data lokal di luar repositori",
   "boundary.category.push": "push ke branch yang dilindungi",
   "boundary.category.migrationDelete": "menghapus berkas migrasi",
   "boundary.category.secret": "secret yang ditulis langsung dalam kode",

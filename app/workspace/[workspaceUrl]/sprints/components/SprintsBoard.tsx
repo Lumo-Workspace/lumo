@@ -167,7 +167,7 @@ function CompletedRow({
           <div
             className={cn(
               'h-full rounded-full',
-              pct >= 100 ? 'bg-success' : 'bg-muted-foreground/50'
+              pct >= 100 ? 'bg-success-text' : 'bg-muted-foreground/50'
             )}
             style={{ width: `${pct}%` }}
           />

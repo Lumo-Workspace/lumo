@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "為越界衍生了補救任務",
   "activity.boundaryRedispositioned": "將越界處置從 {from} 改為 {to}",
   "activity.boundaryReopened": "將越界重新開啟（原為 {from}）——DONE 重新阻擋",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "破壞了儲存庫外的本機資料",
   "boundary.category.push": "推送到受保護分支",
   "boundary.category.migrationDelete": "刪除了遷移檔案",
   "boundary.category.secret": "硬編碼密鑰",

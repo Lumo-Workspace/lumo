@@ -5,9 +5,9 @@ import type { MilestoneHealth } from '@/lib/summaries/milestone-health'
 // rest of the hierarchy). Colour encodes the target-date health light —
 // shared by the milestone card and the Overview rollup bar.
 export const HEALTH_DOT: Record<MilestoneHealth, string> = {
-  'on-track': 'bg-emerald-500',
-  'at-risk': 'bg-amber-500',
-  overdue: 'bg-red-500',
+  'on-track': 'bg-success-text',
+  'at-risk': 'bg-warning-text',
+  overdue: 'bg-danger',
 }
 
 /**
@@ -18,7 +18,7 @@ export const HEALTH_DOT: Record<MilestoneHealth, string> = {
  */
 export const DELIVERY_DOT: Record<'active' | 'completed', string> = {
   active: 'bg-info',
-  completed: 'bg-success',
+  completed: 'bg-success-text',
 }
 
 /** Tasks under the milestone, summed over the four statuses the server counts. */

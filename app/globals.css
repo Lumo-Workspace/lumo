@@ -586,9 +586,10 @@ a.mention {
      notes, error counts). The light accents above are tuned as icon/border
      strokes and fall below AA as text on white (warning ~2.1:1, danger ~3.8:1),
      so light mode uses a darker step that clears 4.5:1; .dark points back at
-     the bright accent, which already clears it. */
+     the bright accent, which already clears it. LUM-968: danger moved from
+     red-600 (4.2:1 on its own -subtle fill) to red-700, which clears both. */
   --warning-text: oklch(0.555 0.163 48.998); /* amber-700, ~5:1 on #fff */
-  --danger-text: oklch(0.577 0.245 27.325); /* red-600, ~4.8:1 on #fff */
+  --danger-text: oklch(0.505 0.213 27.518); /* red-700 #c10007, 6.4 / 5.6 */
   /* LUM-969: the same -text step for success / info / in-review. Each light
      value clears 4.5:1 on white AND on its own -subtle fill (alpha-composited
      over white), since chips print -text on -subtle: green-700 4.9 / 4.5,
@@ -715,7 +716,10 @@ a.mention {
   --danger-text: var(--danger);
   --success-text: var(--success);
   --info-text: var(--info);
-  --status-in-review-text: var(--status-in-review);
+  /* LUM-968: the shared brand magenta is 4.7:1 on the page but 4.4:1 on its
+     own 10% fill, so dark in-review text is a lighter step of the same hue:
+     5.6:1 on the page, 5.3:1 on --status-in-review-subtle. */
+  --status-in-review-text: oklch(0.66 0.25 312.148); /* #c452fd */
 
   /* Priority — no .dark overrides since LUM-702: the four priority colours are
      a fixed brand palette and render identically in both modes. All four are
