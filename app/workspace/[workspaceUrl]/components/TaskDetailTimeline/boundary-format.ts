@@ -112,11 +112,23 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.TEST_FILE_DELETED',
         defaultMessage: 'deleted a test file',
       })
+    // LUM-962
+    case 'UNTRUSTED_CODE_EXECUTION':
+      return intl.formatMessage({
+        id: 'boundary.category.UNTRUSTED_CODE_EXECUTION',
+        defaultMessage: 'ran code from an unvetted source',
+      })
     // LUM-793 memory-poison write gate
     case 'USED_TRAP_MEMORY_DELETED':
       return intl.formatMessage({
         id: 'boundary.category.USED_TRAP_MEMORY_DELETED',
         defaultMessage: 'deleted a proven-useful trap memory',
+      })
+    // LUM-963 (advisory — never blocks DONE)
+    case 'SENSITIVE_PATH_READ':
+      return intl.formatMessage({
+        id: 'boundary.category.SENSITIVE_PATH_READ',
+        defaultMessage: 'read a sensitive path',
       })
     default:
       return category.toLowerCase().replace(/_/g, ' ')

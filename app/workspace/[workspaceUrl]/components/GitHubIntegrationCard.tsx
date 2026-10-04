@@ -93,7 +93,10 @@ export function GitHubIntegrationCard({
       >
         {missing ? (
           <div className='flex items-start gap-2 rounded-lg border border-warning-border bg-warning-subtle px-3 py-2'>
-            <AlertTriangle size={14} className='mt-0.5 shrink-0 text-warning' />
+            <AlertTriangle
+              size={14}
+              className='mt-0.5 shrink-0 text-warning-text'
+            />
             <div className='min-w-0'>
               <p className='text-xs font-medium text-foreground'>
                 {intl.formatMessage({ id: 'github.scanDisabled' })}

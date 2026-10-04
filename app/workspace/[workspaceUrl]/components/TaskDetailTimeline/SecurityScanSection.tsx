@@ -163,7 +163,7 @@ function SecurityScanPanel({
       {data.blocking.count > 0 && (
         <p
           data-testid='security-blocking-banner'
-          className='mt-2 rounded-sm border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-caption text-destructive'
+          className='mt-2 rounded-sm border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-caption text-danger-text'
         >
           {intl.formatMessage(
             { id: 'securityScan.banner.blocking' },
@@ -294,7 +294,7 @@ function StagesSummary({
     <p
       data-testid='scan-stages'
       data-incomplete={incomplete}
-      className={`text-caption ${incomplete ? 'text-warning' : 'text-muted-foreground'}`}
+      className={`text-caption ${incomplete ? 'text-warning-text' : 'text-muted-foreground'}`}
     >
       {rows
         .map(r => {
@@ -354,7 +354,7 @@ function ConfirmAllSuggested({
           { count }
         )}
       </button>
-      {error && <span className='text-caption text-destructive'>{error}</span>}
+      {error && <span className='text-caption text-danger-text'>{error}</span>}
     </div>
   )
 }
@@ -410,7 +410,10 @@ function ScanDetails({
         </p>
       )}
       {scan.externalLate && (
-        <p data-testid='external-late' className='text-caption text-warning'>
+        <p
+          data-testid='external-late'
+          className='text-caption text-warning-text'
+        >
           {intl.formatMessage({ id: 'securityScan.external.late' })}
         </p>
       )}
@@ -437,7 +440,10 @@ function ScanDetails({
           under-reviewed" — that was usually wrong and always ours; the stage
           row above already says which layer did not finish. */}
       {scan.ownedUnfinished && (
-        <p data-testid='scan-unfinished' className='text-caption text-warning'>
+        <p
+          data-testid='scan-unfinished'
+          className='text-caption text-warning-text'
+        >
           {intl.formatMessage({ id: 'securityScan.partial' })}
         </p>
       )}
@@ -463,7 +469,10 @@ function ScanDetails({
         </p>
       )}
       {scan.huntOverCap && (
-        <p data-testid='scan-over-cap' className='text-caption text-warning'>
+        <p
+          data-testid='scan-over-cap'
+          className='text-caption text-warning-text'
+        >
           {intl.formatMessage(
             { id: 'securityScan.huntOverCap' },
             {
@@ -476,7 +485,7 @@ function ScanDetails({
       {scan.judgeOverCap && (
         <p
           data-testid='scan-judge-over-cap'
-          className='text-caption text-warning'
+          className='text-caption text-warning-text'
         >
           {intl.formatMessage(
             { id: 'securityScan.judgeOverCap' },
@@ -580,7 +589,7 @@ function FindingRow({
   const muted = finding.persisting || finding.queueExit != null
   const severityTone =
     finding.severity === 'HIGH' && !muted
-      ? 'text-destructive'
+      ? 'text-danger-text'
       : 'text-muted-foreground'
 
   return (
@@ -630,7 +639,7 @@ function FindingRow({
         {suggestedOpen && (
           <span
             data-testid='finding-suggested'
-            className='rounded-sm border border-warning/40 px-1 text-warning'
+            className='rounded-sm border border-warning/40 px-1 text-warning-text'
           >
             {intl.formatMessage({ id: 'securityScan.suggested.falsePositive' })}
           </span>
@@ -817,7 +826,7 @@ function FindingRow({
       {error && (
         <p
           data-testid='finding-disposition-error'
-          className='mt-0.5 text-caption text-destructive'
+          className='mt-0.5 text-caption text-danger-text'
         >
           {error}
         </p>

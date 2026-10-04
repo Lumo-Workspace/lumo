@@ -80,8 +80,8 @@ export function CiIcon({ status }: { status: string | null }) {
 }
 
 const SEVERITY_TONE: Record<'LOW' | 'MEDIUM' | 'HIGH', string> = {
-  HIGH: 'text-destructive',
-  MEDIUM: 'text-warning',
+  HIGH: 'text-danger-text',
+  MEDIUM: 'text-warning-text',
   LOW: 'text-muted-foreground',
 }
 
@@ -140,7 +140,7 @@ export function SecurityScanBadge({
     // (like CodeRabbit's limit) — stated as such, not "not fully checked yet".
     icon = <ShieldQuestion size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.overSizeLimit' })
-    tone = 'text-warning'
+    tone = 'text-warning-text'
     state = 'over-size-limit'
   } else if (scan.findings.length === 0 && scan.coverage === 'TURNED_OFF') {
     // LUM-892: a layer was turned off in settings — the customer's choice,
@@ -153,12 +153,12 @@ export function SecurityScanBadge({
     // Nothing was found, but nothing can be claimed either — never green.
     icon = <ShieldQuestion size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.incomplete' })
-    tone = 'text-warning'
+    tone = 'text-warning-text'
     state = 'incomplete'
   } else if (scan.findings.length === 0) {
     icon = <ShieldCheck size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.CLEAN' })
-    tone = 'text-success'
+    tone = 'text-success-text'
     state = 'clean'
   } else {
     icon = <ShieldAlert size={12} />

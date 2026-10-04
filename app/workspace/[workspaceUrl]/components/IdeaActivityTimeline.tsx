@@ -23,7 +23,7 @@ export function IdeaActivityTimeline({ ideaId }: { ideaId: string }) {
     )
   }
   if (error) {
-    return <p className='text-xs text-destructive'>{error}</p>
+    return <p className='text-xs text-danger-text'>{error}</p>
   }
   if (activity.length === 0) {
     return (

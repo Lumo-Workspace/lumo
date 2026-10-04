@@ -444,7 +444,9 @@ export function BoundaryCrossingsPanel({
           {subset === 'dispositioned' ? null : (
             <span
               className={`text-caption ${
-                blockingCount > 0 ? 'text-danger' : 'text-muted-foreground/70'
+                blockingCount > 0
+                  ? 'text-danger-text'
+                  : 'text-muted-foreground/70'
               }`}
             >
               {subset === 'open'
@@ -972,7 +974,7 @@ function CrossingRow({
                       )
                     : undefined
                 }
-                className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning'
+                className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning-text'
               >
                 <Repeat className='size-3' aria-hidden />
                 {intl.formatMessage(
@@ -1094,7 +1096,7 @@ function CrossingRow({
           {c.category === 'TEST_TAMPERING' && open && (
             <p className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'>
               <ShieldAlert
-                className='mt-0.5 size-3.5 shrink-0 text-warning'
+                className='mt-0.5 size-3.5 shrink-0 text-warning-text'
                 aria-hidden
               />
               <span>
@@ -1321,7 +1323,7 @@ function CrossingRow({
                   data-testid={`boundary-confirm-${c.id}`}
                   disabled={pending}
                   onClick={() => onDisposition('CONFIRMED')}
-                  className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-[11px] font-medium text-danger hover:bg-danger-subtle disabled:opacity-50'
+                  className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-[11px] font-medium text-danger-text hover:bg-danger-subtle disabled:opacity-50'
                 >
                   <AlertTriangle className='size-3.5' aria-hidden />
                   {intl.formatMessage({
@@ -1371,7 +1373,7 @@ function CrossingRow({
                   data-testid={`boundary-reopen-${c.id}`}
                   disabled={pending}
                   onClick={() => onDisposition('OPEN')}
-                  className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-[11px] font-medium text-warning hover:bg-warning-subtle disabled:opacity-50'
+                  className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-[11px] font-medium text-warning-text hover:bg-warning-subtle disabled:opacity-50'
                 >
                   <Unlock className='size-3.5' aria-hidden />
                   {intl.formatMessage({
@@ -1393,12 +1395,12 @@ function CrossingRow({
               className='mt-2 flex items-center gap-3 rounded-md border border-success-border bg-success-subtle/50 px-3 py-2.5 transition-colors hover:bg-success-subtle'
             >
               <CircleCheck
-                className='size-5 shrink-0 text-success'
+                className='size-5 shrink-0 text-success-text'
                 aria-hidden
               />
               <div className='min-w-0 flex-1'>
                 <div className='flex flex-wrap items-center gap-2'>
-                  <span className='text-xs font-medium text-success'>
+                  <span className='text-xs font-medium text-success-text'>
                     {rt.remediated
                       ? intl.formatMessage({
                           id: 'boundary.panel.remediatedBy',
@@ -1421,7 +1423,7 @@ function CrossingRow({
                 </div>
               </div>
               <ExternalLink
-                className='size-4 shrink-0 text-success'
+                className='size-4 shrink-0 text-success-text'
                 aria-hidden
               />
             </Link>
@@ -1429,7 +1431,10 @@ function CrossingRow({
 
           {c.disposition === 'CONFIRMED' && !rt && (
             <div className='mt-2 flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5'>
-              <Lightbulb className='size-4 shrink-0 text-warning' aria-hidden />
+              <Lightbulb
+                className='size-4 shrink-0 text-warning-text'
+                aria-hidden
+              />
               <span className='text-[11px] text-muted-foreground'>
                 {intl.formatMessage({
                   id: 'boundary.panel.remediationNudge',
@@ -1763,9 +1768,9 @@ function Badge({
 }) {
   const cls =
     tone === 'warning'
-      ? 'bg-warning-subtle text-warning'
+      ? 'bg-warning-subtle text-warning-text'
       : tone === 'danger'
-        ? 'bg-danger-subtle text-danger'
+        ? 'bg-danger-subtle text-danger-text'
         : 'bg-muted text-muted-foreground'
   return (
     <span

@@ -77,7 +77,7 @@ export function SprintActionsMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' onClick={stop}>
           <DropdownMenuItem
-            className='text-destructive focus:text-destructive'
+            className='text-danger-text focus:text-danger-text'
             onSelect={ev => {
               ev.preventDefault()
               setConfirmOpen(true)

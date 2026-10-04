@@ -101,7 +101,7 @@ export function SessionRawRecordDelete({
           {status.keptForCrossings > 0 && (
             <p
               data-testid='session-raw-record-kept'
-              className='mt-1 text-xs text-warning'
+              className='mt-1 text-xs text-warning-text'
             >
               {intl.formatMessage(
                 { id: 'sessionRecord.delete.keptNotice' },
@@ -114,7 +114,7 @@ export function SessionRawRecordDelete({
           <Button
             variant='outline'
             size='sm'
-            className='w-full text-destructive sm:w-auto'
+            className='w-full text-danger-text sm:w-auto'
             disabled={busy || status.deletable === 0}
             onClick={() => setOpen(true)}
           >
@@ -147,7 +147,7 @@ export function SessionRawRecordDelete({
             {status.keptForCrossings > 0 && (
               <p
                 data-testid='session-raw-record-confirm-kept'
-                className='text-warning'
+                className='text-warning-text'
               >
                 {intl.formatMessage(
                   { id: 'sessionRecord.delete.confirmKept' },

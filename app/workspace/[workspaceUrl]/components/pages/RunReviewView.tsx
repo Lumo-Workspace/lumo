@@ -60,7 +60,7 @@ export function RunReviewView({
           {pool && <RateReadout rate={pool.rate} />}
 
           {reviewError && (
-            <p role='alert' className='text-sm text-destructive'>
+            <p role='alert' className='text-sm text-danger-text'>
               {intl.formatMessage(
                 { id: 'runReviews.error.review' },
                 { reason: reviewError }

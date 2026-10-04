@@ -128,7 +128,7 @@ export function IntegrationCard({
                 {onDisconnect ? (
                   <DropdownMenuItem
                     onSelect={onDisconnect}
-                    className='text-destructive focus:text-destructive'
+                    className='text-danger-text focus:text-danger-text'
                   >
                     {disconnectLabel}
                   </DropdownMenuItem>

@@ -21,6 +21,8 @@ export const NON_SUPPRESSIBLE_CATEGORIES: ReadonlySet<BoundaryCrossingCategory> 
     'CLOUD_DATA_DELETION',
     'INFRA_TERMINATION',
     'DESTRUCTIVE_FS_COMMAND',
+    // LUM-962: code from an unvetted source already ran — a human call.
+    'UNTRUSTED_CODE_EXECUTION',
     // LUM-750: an agent ruling on its own blocker is never a repository-wide
     // false positive — no rule may ever auto-clear it.
     'SELF_DISPOSITION',

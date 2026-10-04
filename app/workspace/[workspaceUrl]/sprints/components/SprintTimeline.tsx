@@ -135,7 +135,7 @@ function TimelineRow({
             className={cn(
               'relative whitespace-nowrap px-2.5 font-mono text-[11px] font-semibold',
               bucket === 'completed' && 'text-muted-foreground',
-              bucket === 'active' && 'text-success',
+              bucket === 'active' && 'text-success-text',
               bucket === 'planned' && 'text-muted-foreground'
             )}
           >

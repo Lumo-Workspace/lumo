@@ -447,7 +447,7 @@ export function ShareDialog({
                       {roleLabel('MANAGER')}
                     </SelectItem>
                     <SelectSeparator />
-                    <SelectItem value='__remove__' className='text-destructive'>
+                    <SelectItem value='__remove__' className='text-danger-text'>
                       {intl.formatMessage({ id: 'share.remove' })}
                     </SelectItem>
                   </SelectContent>

@@ -118,7 +118,7 @@ export function ProjectHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align='start'>
               <DropdownMenuItem
-                className='text-destructive focus:text-destructive'
+                className='text-danger-text focus:text-danger-text'
                 onClick={() => setDeleteOpen(true)}
               >
                 <Trash2 className='mr-2 size-4' />

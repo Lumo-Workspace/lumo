@@ -115,7 +115,7 @@ export function GateCView({
         : intl.formatMessage({ id: 'plan.gateC.loadError' })
     return (
       <div className='mx-auto max-w-3xl p-8'>
-        <p className='text-destructive'>{msg}</p>
+        <p className='text-danger-text'>{msg}</p>
       </div>
     )
   }
@@ -182,7 +182,7 @@ export function GateCView({
           {intl.formatMessage({ id: 'plan.gateC.projectLabel' })}
         </Label>
         {noProject ? (
-          <p className='text-sm text-destructive'>
+          <p className='text-sm text-danger-text'>
             {intl.formatMessage({ id: 'plan.gateC.noProject' })}
           </p>
         ) : (
@@ -251,7 +251,7 @@ export function GateCView({
       ))}
 
       {submitError ? (
-        <p className='text-sm text-destructive'>{submitError}</p>
+        <p className='text-sm text-danger-text'>{submitError}</p>
       ) : null}
 
       <div className='flex items-center gap-4 border-t pt-6'>

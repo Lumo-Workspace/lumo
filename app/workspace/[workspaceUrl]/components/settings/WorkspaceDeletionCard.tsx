@@ -92,7 +92,7 @@ export function WorkspaceDeletionCard({
     <>
       <div className='rounded-lg border border-danger-border overflow-hidden'>
         <div className='px-5 py-3 bg-danger-subtle border-b border-danger-border'>
-          <p className='text-sm font-semibold text-danger'>
+          <p className='text-sm font-semibold text-danger-text'>
             {intl.formatMessage({ id: 'workspaceSettings.dangerZone' })}
           </p>
         </div>

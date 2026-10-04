@@ -47,7 +47,7 @@ export function PlanRunGate({
   if (isError || !data) {
     return (
       <div className='mx-auto max-w-3xl p-8'>
-        <p className='text-destructive'>
+        <p className='text-danger-text'>
           {intl.formatMessage({ id: 'plan.gateC.loadError' })}
         </p>
       </div>
@@ -123,7 +123,7 @@ function StuckStage({ runId, failed }: { runId: string; failed: boolean }) {
   return (
     <div className='mx-auto flex max-w-3xl flex-col items-start gap-4 p-8'>
       {failed ? (
-        <p className='text-destructive'>
+        <p className='text-danger-text'>
           {intl.formatMessage({ id: 'planGate.failed' })}
         </p>
       ) : (
@@ -147,7 +147,7 @@ function StuckStage({ runId, failed }: { runId: string; failed: boolean }) {
           {intl.formatMessage({ id: 'planGate.retryHint' })}
         </p>
         {retry.isError && (
-          <p className='text-xs text-destructive'>
+          <p className='text-xs text-danger-text'>
             {intl.formatMessage({ id: 'planGate.retryFailed' })}
           </p>
         )}

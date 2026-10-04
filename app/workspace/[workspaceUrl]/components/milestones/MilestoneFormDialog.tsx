@@ -197,7 +197,7 @@ export function MilestoneFormDialog({ projectId, milestone, onClose }: Props) {
             <p
               role='alert'
               aria-live='polite'
-              className='mt-4 text-sm text-danger'
+              className='mt-4 text-sm text-danger-text'
             >
               {label('milestone.save.error')}
             </p>

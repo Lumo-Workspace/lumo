@@ -122,7 +122,7 @@ export function DisclosureFunnel({ funnel }: { funnel: Funnel }) {
       </div>
       {funnel.tokensSaved != null && (
         <div className='mt-2'>
-          <span className='inline-flex items-center gap-1 rounded-full bg-success-subtle px-2 py-0.5 text-[11px] font-medium text-success'>
+          <span className='inline-flex items-center gap-1 rounded-full bg-success-subtle px-2 py-0.5 text-[11px] font-medium text-success-text'>
             {intl.formatMessage(
               {
                 id: 'lineage.funnel.tokensSaved',

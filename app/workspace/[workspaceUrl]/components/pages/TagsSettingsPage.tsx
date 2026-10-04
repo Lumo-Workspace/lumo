@@ -242,7 +242,7 @@ export function TagsSettingsPage() {
                 }}
               />
               {formError && (
-                <p className='text-xs text-destructive mt-1'>{formError}</p>
+                <p className='text-xs text-danger-text mt-1'>{formError}</p>
               )}
             </div>
             {/* Color */}

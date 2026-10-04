@@ -127,7 +127,7 @@ export function InitiativesLandingClient() {
                 />
               </div>
               {createError && (
-                <p className='text-sm text-destructive'>
+                <p className='text-sm text-danger-text'>
                   {intl.formatMessage({ id: 'initiative.create.error' })}
                 </p>
               )}

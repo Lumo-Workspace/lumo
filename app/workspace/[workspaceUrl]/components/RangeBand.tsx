@@ -16,7 +16,7 @@ export function RangeBand({
 }) {
   const g = rangeBandGeometry(forecast, actual)
   const dotTone = tone === 'warning' ? 'bg-warning' : 'bg-info'
-  const caretTone = tone === 'warning' ? 'text-warning' : 'text-info'
+  const caretTone = tone === 'warning' ? 'text-warning-text' : 'text-info'
   return (
     <div className='relative my-3 h-1.5 rounded-full bg-muted'>
       <div

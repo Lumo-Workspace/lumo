@@ -109,7 +109,7 @@ export function ProjectMilestonesOverview({
                       active one (archived ones are filtered out server-side),
                       so there is no second state for it to distinguish. */}
                   <Flag
-                    className='size-4 shrink-0 text-warning'
+                    className='size-4 shrink-0 text-warning-text'
                     data-testid='milestone-marker'
                     aria-hidden
                   />
@@ -146,10 +146,10 @@ export function ProjectMilestonesOverview({
         (composing ? (
           <div className='-mx-2.5 flex items-center gap-3.5 rounded-md bg-muted/60 px-2.5 py-3'>
             {create.isPending ? (
-              <Loader2 className='size-4 shrink-0 animate-spin text-warning' />
+              <Loader2 className='size-4 shrink-0 animate-spin text-warning-text' />
             ) : (
               // Dashed while it is still a draft — same flag, not yet planted.
-              <Flag className='size-4 shrink-0 text-warning [stroke-dasharray:3_2]' />
+              <Flag className='size-4 shrink-0 text-warning-text [stroke-dasharray:3_2]' />
             )}
             <input
               autoFocus
@@ -175,7 +175,7 @@ export function ProjectMilestonesOverview({
               className='min-w-0 flex-1 bg-transparent text-body-strong text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground'
             />
             {create.isError && (
-              <span className='shrink-0 text-caption text-danger'>
+              <span className='shrink-0 text-caption text-danger-text'>
                 {intl.formatMessage({ id: 'project.milestones.addFailed' })}
               </span>
             )}

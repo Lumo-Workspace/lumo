@@ -62,6 +62,8 @@ describe('reversibility taxonomy — world/external-state boundary (LUM-516)', (
     'SENSITIVE_PATH_EDIT',
     'HOOK_BYPASS',
     'TEST_FILE_DELETED',
+    // LUM-963: a read changes no repo, Lumo or world state.
+    'SENSITIVE_PATH_READ',
   ]
   const IRREVERSIBLE: BoundaryCrossingCategory[] = [
     'HARDCODED_SECRET',
@@ -78,6 +80,9 @@ describe('reversibility taxonomy — world/external-state boundary (LUM-516)', (
     // LUM-960: a wiped root-level directory / disk outside the repo — git
     // cannot bring it back.
     'DESTRUCTIVE_FS_COMMAND',
+    // LUM-962: code from an unvetted source already ran — whatever it did to
+    // the world outside the repo is not undone by any git operation.
+    'UNTRUSTED_CODE_EXECUTION',
   ]
   // Target-dependent categories are classified per-origin, not as a whole —
   // covered by their own describe block below.
@@ -151,5 +156,18 @@ describe('LUM-960 DESTRUCTIVE_FS_COMMAND taxonomy', () => {
   it('is HIGH severity and irreversible', () => {
     expect(severityFor('DESTRUCTIVE_FS_COMMAND')).toBe('HIGH')
     expect(isReversible('DESTRUCTIVE_FS_COMMAND')).toBe(false)
+  })
+})
+
+describe('LUM-962 UNTRUSTED_CODE_EXECUTION taxonomy', () => {
+  it('is HIGH severity (forces the DONE gate in every workspace)', () => {
+    expect(severityFor('UNTRUSTED_CODE_EXECUTION')).toBe('HIGH')
+  })
+  it('is irreversible', () => {
+    expect(isReversible('UNTRUSTED_CODE_EXECUTION')).toBe(false)
+  })
+  it('a named registry install stays the LOW, reversible dependency class', () => {
+    expect(severityFor('NEW_NPM_DEPENDENCY')).toBe('LOW')
+    expect(isReversible('NEW_NPM_DEPENDENCY')).toBe(true)
   })
 })

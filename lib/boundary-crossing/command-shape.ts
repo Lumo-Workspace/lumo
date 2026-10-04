@@ -50,7 +50,13 @@ const HEREDOC_OP = /^<<-?\s*(['"]?)([A-Za-z_]\w*)\1/
  * executing segment. An unterminated heredoc falls back to plain line
  * splitting (nothing is swallowed).
  */
-export function splitSegmentsQuoteAware(cmd: string): string[] {
+export function splitSegmentsQuoteAware(
+  cmd: string,
+  options: { pipes?: boolean } = {}
+): string[] {
+  // LUM-962: `pipes: false` keeps a pipeline (`curl … | sh`) in ONE segment so
+  // a matcher can see which stage feeds which; `||` still separates.
+  const splitPipes = options.pipes !== false
   const out: string[] = []
   let cur = ''
   let quote: '"' | "'" | null = null
@@ -140,12 +146,52 @@ export function splitSegmentsQuoteAware(cmd: string): string[] {
       continue
     }
     if (c === '|') {
-      push()
-      i += cmd[i + 1] === '|' ? 2 : 1
-      continue
+      if (cmd[i + 1] === '|') {
+        push()
+        i += 2
+        continue
+      }
+      if (splitPipes) {
+        push()
+        i++
+        continue
+      }
     }
     cur += c
     i++
+  }
+  out.push(cur)
+  return out
+}
+
+/**
+ * LUM-962: the stages of ONE pipeline (`curl -fsSL … | sudo bash`), split on a
+ * single `|` outside quotes. Expects a segment from
+ * `splitSegmentsQuoteAware(cmd, { pipes: false })` — `||` is already gone.
+ */
+export function splitPipeStages(segment: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let quote: '"' | "'" | null = null
+  for (let i = 0; i < segment.length; i++) {
+    const c = segment[i]!
+    if (quote) {
+      cur += c
+      if (c === '\\' && quote === '"' && i + 1 < segment.length) {
+        cur += segment[++i]!
+      } else if (c === quote) quote = null
+      continue
+    }
+    if (c === '"' || c === "'") quote = c
+    else if (c === '\\' && i + 1 < segment.length) {
+      cur += c + segment[++i]!
+      continue
+    } else if (c === '|') {
+      out.push(cur)
+      cur = ''
+      continue
+    }
+    cur += c
   }
   out.push(cur)
   return out

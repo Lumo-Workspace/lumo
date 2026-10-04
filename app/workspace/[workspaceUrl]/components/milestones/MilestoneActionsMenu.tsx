@@ -81,7 +81,7 @@ export function MilestoneActionsMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={disabled}
-          className='text-destructive focus:text-destructive'
+          className='text-danger-text focus:text-danger-text'
           onSelect={onDelete}
         >
           <Trash2 className='size-4 mr-2' />

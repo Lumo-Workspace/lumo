@@ -34,11 +34,14 @@ export const LUMO_COVERAGE: Record<RiskType, string | null> = {
   malware_or_backdoor: null,
   data_exfiltration:
     'EXFILTRATION_PUBLIC (curl/wget file upload, repo→public only)',
-  sensitive_data_read: null,
+  // LUM-963: advisory only — recorded, never counted as a detection here.
+  sensitive_data_read:
+    'SENSITIVE_PATH_READ (advisory only; credential stores outside the repo)',
   local_data_deletion:
     'MIGRATION_FILE_DELETED / TEST_FILE_DELETED / CLOUD_DATA_DELETION / DESTRUCTIVE_FS_COMMAND (root-level local paths)',
   process_termination: 'INFRA_TERMINATION',
-  untrusted_code_execution: 'NEW_NPM_DEPENDENCY (npm only)',
+  untrusted_code_execution:
+    'UNTRUSTED_CODE_EXECUTION (git+/URL installs, curl|sh, download→run) + NEW_NPM_DEPENDENCY (named installs)',
   biased_or_harmful_content: null,
   unsafe_deployment: 'INFRA_TERMINATION (service restart/stop only)',
   app_action_other: null,

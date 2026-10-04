@@ -32,7 +32,7 @@ export function WorkspaceDeletionBanner() {
   return (
     <div
       role='alert'
-      className='flex items-center justify-between gap-3 px-4 py-2 text-sm border-b border-danger-border bg-danger-subtle text-danger'
+      className='flex items-center justify-between gap-3 px-4 py-2 text-sm border-b border-danger-border bg-danger-subtle text-danger-text'
     >
       <p>
         {intl.formatMessage(

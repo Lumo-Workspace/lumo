@@ -143,7 +143,7 @@ export function ClusterGateBoard({
   if (loadError) {
     return (
       <div className='space-y-3'>
-        <p className='text-sm text-destructive'>{loadError}</p>
+        <p className='text-sm text-danger-text'>{loadError}</p>
         <Button variant='outline' onClick={() => void load()}>
           {intl.formatMessage({ id: 'planGateA.retry' })}
         </Button>
@@ -277,7 +277,7 @@ export function ClusterGateBoard({
       </section>
 
       {confirmError ? (
-        <p className='text-sm text-destructive'>{confirmError}</p>
+        <p className='text-sm text-danger-text'>{confirmError}</p>
       ) : null}
 
       <div className='flex items-center gap-3'>

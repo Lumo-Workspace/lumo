@@ -10,7 +10,7 @@ export function SettingsSprintsClient() {
 
   if (isLoading && teams.length === 0)
     return <p>{intl.formatMessage({ id: 'sprints.settings.loading' })}</p>
-  if (error) return <p className='text-destructive'>{error.message}</p>
+  if (error) return <p className='text-danger-text'>{error.message}</p>
 
   return (
     <div className='flex flex-col gap-4'>

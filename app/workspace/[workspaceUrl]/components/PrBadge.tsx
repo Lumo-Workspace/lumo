@@ -10,7 +10,7 @@ export function PrBadge({ state }: { state: 'open' | 'merged' }) {
   const label = intl.formatMessage({
     id: state === 'merged' ? 'mention.pr.merged' : 'mention.pr.open',
   })
-  const colorClass = state === 'merged' ? 'text-success' : 'text-info'
+  const colorClass = state === 'merged' ? 'text-success-text' : 'text-info'
 
   return (
     <span

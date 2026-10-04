@@ -26,7 +26,7 @@ const ITEM_BASE =
   'w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs transition-colors'
 const ITEM_IDLE =
   'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-const ITEM_DANGER = 'text-destructive hover:bg-destructive/10'
+const ITEM_DANGER = 'text-danger-text hover:bg-destructive/10'
 const ITEM_DISABLED = 'text-muted-foreground opacity-40 cursor-not-allowed'
 
 export function TableActionsMenu({
@@ -253,7 +253,7 @@ export function TableActionsMenu({
             className={cn(
               ITEM_BASE,
               confirmDeleteTable
-                ? 'bg-destructive/10 text-destructive font-medium'
+                ? 'bg-destructive/10 text-danger-text font-medium'
                 : ITEM_DANGER
             )}
             onMouseDown={e => {

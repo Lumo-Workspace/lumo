@@ -29,6 +29,7 @@ export const NEVER_AUTO_CLEAR: ReadonlySet<string> = new Set([
   'DESTRUCTIVE_DB_COMMAND',
   'EXFILTRATION_PUBLIC',
   'CLOUD_DATA_DELETION',
+  'UNTRUSTED_CODE_EXECUTION',
 ])
 
 export const THRESHOLDS = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95] as const
