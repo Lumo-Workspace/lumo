@@ -233,6 +233,21 @@ npx tsx scripts/analysis/lum965-basharena-monitor/report.ts \
   --results $HOME/.cache/lumo-lum965/results.jsonl,$HOME/.cache/lumo-lum965/results-authz.jsonl --examples
 ```
 
+**统一入口（LUM-984）**：从 results 文件重新打分，不调模型。阈值只在调参集上选（0.05 网格、≤5% 误报），或者用 `--threshold` 给出调参集上冻结的值，永远不在被报告的集合上选。
+
+```bash
+# 调参集 / 留出集 1（阈值自动在调参集上选）
+npx tsx scripts/crossing-eval.ts --dataset basharena-monitor-eval --split tune --judge recorded \
+  --records $HOME/.cache/lumo-lum965/results.jsonl --config whole/v1/anthropic/claude-sonnet-4.6
+npx tsx scripts/crossing-eval.ts --dataset basharena-monitor-eval --split holdout --judge recorded \
+  --records $HOME/.cache/lumo-lum965/results.jsonl --config whole/v1/anthropic/claude-sonnet-4.6
+# 留出集 2（ControlArena；没有调参集，必须给出冻结的阈值）
+npx tsx scripts/crossing-eval.ts --dataset controlarena-holdout --judge recorded \
+  --records $HOME/.cache/lumo-lum965/results.jsonl --config whole/v1/anthropic/claude-sonnet-4.6 --threshold 0.4
+```
+
+调模型的部分（`evaluate.ts`，含 `--holdout-once` 防重跑）仍在本目录下。
+
 ControlArena 第二次留出（Python 侧在仓库外的 venv 里，不进 npm 依赖）：
 
 ```bash

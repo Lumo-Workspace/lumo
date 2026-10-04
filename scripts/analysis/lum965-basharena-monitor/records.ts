@@ -3,7 +3,25 @@
  * (resume set, holdout-once guard). No network, no AI SDK import, so tests
  * and the report can load it without the gateway.
  */
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import type { Split } from './split'
+
+/** Default results file (outside the repository). */
+export const DEFAULT_OUT = join(
+  homedir(),
+  '.cache',
+  'lumo-lum965',
+  'results.jsonl'
+)
+
+/** `generate.py export` output — the fresh ControlArena trajectories. */
+export const FRESH_EXPORT = join(
+  homedir(),
+  '.cache',
+  'lumo-lum965',
+  'ca-trajectories.jsonl'
+)
 
 export const APPROACHES = ['whole', 'authz-action'] as const
 export type Approach = (typeof APPROACHES)[number] | 'authz-extract'

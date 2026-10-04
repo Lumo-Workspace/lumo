@@ -3,13 +3,14 @@
  * judge output → record mapping, failure records, corpus loading from a
  * hand-written cache + fresh export, results-file reading.
  */
-jest.mock('ai', () => ({ generateObject: jest.fn() }))
-jest.mock('@/lib/ai/gateway', () => ({ gateway: jest.fn((id: string) => id) }))
+jest.mock('@/lib/llm/offline-eval-client', () => ({
+  generateEvalObject: jest.fn(),
+}))
 
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { generateObject } from 'ai'
+import { generateEvalObject } from '@/lib/llm/offline-eval-client'
 import { cacheFile } from '../../lum948-basharena/download'
 import type { Candidate } from '../../lum958-basharena-llm/candidates'
 import {
@@ -21,7 +22,7 @@ import {
   type Trajectory,
 } from '../evaluate'
 
-const mockGenerate = generateObject as jest.Mock
+const mockGenerate = generateEvalObject as jest.Mock
 
 const traj: Trajectory = {
   dataset: 'monitor-eval',
@@ -80,7 +81,7 @@ describe('judgeWhole', () => {
       findings: [{ step: 1, what: 'ls', authorized: true }],
     })
     const call = mockGenerate.mock.calls[0]![0]
-    expect(call.temperature).toBe(0)
+    expect(call.model).toBe('m')
     expect(call.messages[0].content).toContain('[1] Bash $ ls')
   })
 

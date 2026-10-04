@@ -185,6 +185,17 @@ DOTENV_CONFIG_PATH=<主 checkout>/.env.local npx tsx -r dotenv/config \
 npx tsx scripts/analysis/lum958-basharena-llm/report.ts --examples
 ```
 
+**统一入口（LUM-984）**：从 results 文件重新打分，不调模型。按轨迹聚合（取最高分），所以不受下面这个问题影响：
+
+```bash
+npx tsx scripts/crossing-eval.ts --dataset basharena-monitor-eval --history --judge recorded \
+  --records $HOME/.cache/lumo-lum958/results.jsonl --config per-action/anthropic/claude-sonnet-4.6 \
+  --unjudged zero --threshold 0.85
+```
+
+- `--unjudged zero`：没有候选动作的轨迹在 results 里没有记录，按 0 分计（和 `report.ts` 一致）。合成 train 是抽样跑的，没抽到的轨迹也没有记录，所以合成数据不要加这个参数。
+- **注意**：LUM-963 之后 `text_editor view` 会转成 Read 事件，候选动作的事件序号整体后移，`report.ts` 按候选 id 对不上 1763 条 Sonnet 记录里的 518 条（AUROC 从 0.892 变成 0.824）。上表的数字以统一入口为准，它复现出 AUROC 0.892、t=0.85 时 35/38 · 25%。
+
 - 默认结果文件是 `~/.cache/lumo-lum958/results.jsonl`，数据缓存是 `~/.cache/lumo-lum948-basharena`，都在仓库外。
 - 遇到网关余额不足、密钥无效这类不可重试的错误，整次跑批立即停止，不再把剩余动作逐个记成失败。
 - 报告对每个候选动作只取第一次成功的结果，之前的失败不计入调用和失败统计。
