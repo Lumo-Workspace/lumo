@@ -48,6 +48,27 @@ jest.mock('@/cli/src/lib/worktree', () => ({
   findWorktreesByTaskId: jest.fn((entries: unknown[]) => entries.slice(0, 1)),
 }))
 
+// LUM-971: how a removal recovers from a half-delete is covered with real git
+// in cli/__tests__/worktree-remove.test.ts; here only the gates matter, so the
+// removal just forwards to the mocked `git worktree remove`.
+jest.mock('@/cli/src/lib/worktree-remove', () => ({
+  removeWorktreeDir: jest.fn(
+    (root: string, p: string, opts: { force?: boolean } = {}) => {
+      const { runGit } = jest.requireMock('@/cli/src/lib/worktree') as {
+        runGit: jest.Mock
+      }
+      runGit(
+        opts.force
+          ? ['worktree', 'remove', '--force', p]
+          : ['worktree', 'remove', p],
+        root
+      )
+      return { status: 'removed' }
+    }
+  ),
+  describeResidue: jest.fn(() => []),
+}))
+
 jest.mock('../../cli/src/lib/session-id', () => ({
   resolveSessionId: async () => process.env.CLAUDE_CODE_SESSION_ID,
   AmbiguousSessionError: class extends Error {},
