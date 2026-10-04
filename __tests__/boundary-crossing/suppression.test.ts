@@ -17,6 +17,7 @@ test('the HIGH classes can never be rule-suppressed', () => {
     'EXFILTRATION_PUBLIC',
     'CLOUD_DATA_DELETION',
     'INFRA_TERMINATION',
+    'DESTRUCTIVE_FS_COMMAND',
     'UNTRUSTED_CODE_EXECUTION',
   ] as const) {
     expect(NON_SUPPRESSIBLE_CATEGORIES.has(c)).toBe(true)

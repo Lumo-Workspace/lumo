@@ -1156,6 +1156,7 @@
   "activity.boundaryRedispositioned": "将越界处置从 {from} 改为 {to}",
   "activity.boundaryReopened": "将越界重新打开（原为 {from}）——DONE 重新阻塞",
   "activity.boundaryRejudged": "已将该越界重判为提示——其原因已不成立（{reason}）",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "破坏了仓库外的本地数据",
   "boundary.category.push": "推送到受保护分支",
   "boundary.category.migrationDelete": "删除了迁移文件",
   "boundary.category.secret": "硬编码密钥",

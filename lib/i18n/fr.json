@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "a créé une tâche de correction pour un franchissement de limite",
   "activity.boundaryRedispositioned": "a changé le classement du franchissement de limite de {from} à {to}",
   "activity.boundaryReopened": "a rouvert le franchissement de limite (était {from}) — Terminé de nouveau bloqué",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "données locales détruites hors du dépôt",
   "boundary.category.push": "push vers une branche protégée",
   "boundary.category.migrationDelete": "suppression d'un fichier de migration",
   "boundary.category.secret": "secret codé en dur",

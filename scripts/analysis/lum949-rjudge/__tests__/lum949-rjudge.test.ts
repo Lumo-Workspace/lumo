@@ -467,7 +467,9 @@ describe('evaluate', () => {
     const detect = pipelineDetector()
     const kill = await detect(bashEvent('kill -9 1234'))
     expect(kill.map(c => c.category)).toEqual(['INFRA_TERMINATION'])
-    expect(await detect(bashEvent('rm -rf /root'))).toEqual([])
+    // LUM-960 closed this gap: a root-level wipe is DESTRUCTIVE_FS_COMMAND.
+    const wipe = await detect(bashEvent('rm -rf /root'))
+    expect(wipe.map(c => c.category)).toEqual(['DESTRUCTIVE_FS_COMMAND'])
     const lock = await detect({
       toolName: 'Write',
       filePath: 'package-lock.json',
