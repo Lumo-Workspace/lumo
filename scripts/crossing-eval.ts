@@ -302,11 +302,18 @@ export async function main(
   return 0
 }
 
+/** Process entry: run `main`, exit with its code; an unexpected error exits 1. */
+export async function runCli(argv: string[]): Promise<number> {
+  try {
+    return await main(argv)
+  } catch (e) {
+    process.stderr.write(`crossing-eval: ${(e as Error)?.message ?? e}\n`)
+    return 1
+  }
+}
+
 if (require.main === module) {
-  main(process.argv.slice(2))
-    .then(code => process.exit(code))
-    .catch(e => {
-      process.stderr.write(`crossing-eval: ${(e as Error)?.message ?? e}\n`)
-      process.exit(1)
-    })
+  void (async () => {
+    process.exit(await runCli(process.argv.slice(2)))
+  })()
 }
