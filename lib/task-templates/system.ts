@@ -8,13 +8,15 @@ import { MESSAGES } from '@/lib/i18n/messages'
  * locale — like the system doc templates in `lib/editor/templates/`. Only the
  * template's name and description are localized. The section headings are
  * the brief's protocol (`lumo task decide` appends under `## Decisions`).
+ *
+ * LUM-976 (v2.1): hints absorb the LUM-973 / LUM-974 pilot feedback.
  */
 
 /** Recommended brief headings with their drafting hints, in order. Not validated anywhere. */
 export const BRIEF_SECTIONS = [
   {
     heading: 'Context',
-    hint: 'Current facts this task depends on, each with its source (file path, PR or command). Verify them against the code before writing; where they disagree, the code wins.',
+    hint: 'Current facts this task depends on, each with its source (file path from the repo root, PR or command), plus the commit or date you verified them at. Verify them against the code before writing; facts go stale, so re-verify them when work starts, and where they disagree, the code wins. For deletions or migrations, state a rule ("everything only used by X") instead of listing every item.',
   },
   {
     heading: 'Goal',
@@ -26,11 +28,11 @@ export const BRIEF_SECTIONS = [
   },
   {
     heading: 'Watch out',
-    hint: 'Stop conditions: when to pause and ask instead of guessing. Flag cross-cutting concerns too: security / privacy, i18n, data export and migration, conflict-prone files.',
+    hint: 'Stop conditions: when to pause and ask instead of guessing. Flag cross-cutting concerns too: security / privacy, i18n, data export and migration, conflict-prone files, docs that describe the behavior (keep them in sync).',
   },
   {
     heading: 'Done when',
-    hint: 'Each item objectively checkable, naming its evidence (test, command, screenshot). For a bug fix, the check must fail before the fix. Spell out interaction details: when it shows, limits, conflicts.',
+    hint: 'Each item objectively checkable, naming its evidence (test, command, screenshot). For a bug fix, the check must fail before the fix. Spell out interaction details (when it shows, conflicts) and edge cases: missing or invalid input, permissions, limits, scope.',
   },
   {
     heading: 'Decisions',
