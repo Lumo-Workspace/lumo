@@ -17,7 +17,7 @@ function OverPill({ metric }: { metric: ProgressMetric }) {
   if (metric.band !== 'over' || metric.deltaPct === null) return null
   const sign = metric.deltaPct > 0 ? '+' : ''
   return (
-    <span className='inline-flex items-center gap-1.5 rounded-full bg-warning-subtle px-2.5 py-0.5 text-caption font-medium text-warning'>
+    <span className='inline-flex items-center gap-1.5 rounded-full bg-warning-subtle px-2.5 py-0.5 text-caption font-medium text-warning-text'>
       {sign}
       {metric.deltaPct}% · {intl.formatMessage({ id: 'progress.over' })}
     </span>
@@ -78,7 +78,7 @@ export function ProgressView({
                 {intl.formatMessage({ id: 'progress.usedLabel' })}
               </span>
               <span
-                className={`text-title-strong tabular-nums ${tokenOver ? 'text-warning' : 'text-foreground'}`}
+                className={`text-title-strong tabular-nums ${tokenOver ? 'text-warning-text' : 'text-foreground'}`}
               >
                 {fmtCompact(intl, tokenCost.actual as number)}
               </span>

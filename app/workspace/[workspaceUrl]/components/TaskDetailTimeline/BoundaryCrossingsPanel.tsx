@@ -444,7 +444,9 @@ export function BoundaryCrossingsPanel({
           {subset === 'dispositioned' ? null : (
             <span
               className={`text-caption ${
-                blockingCount > 0 ? 'text-danger' : 'text-muted-foreground/70'
+                blockingCount > 0
+                  ? 'text-danger-text'
+                  : 'text-muted-foreground/70'
               }`}
             >
               {subset === 'open'
@@ -972,7 +974,7 @@ function CrossingRow({
                       )
                     : undefined
                 }
-                className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning'
+                className='inline-flex items-center gap-1 rounded-sm bg-warning-subtle px-2 py-0.5 text-[11px] font-medium text-warning-text'
               >
                 <Repeat className='size-3' aria-hidden />
                 {intl.formatMessage(
@@ -1321,7 +1323,7 @@ function CrossingRow({
                   data-testid={`boundary-confirm-${c.id}`}
                   disabled={pending}
                   onClick={() => onDisposition('CONFIRMED')}
-                  className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-[11px] font-medium text-danger hover:bg-danger-subtle disabled:opacity-50'
+                  className='inline-flex items-center gap-1 rounded-sm border border-danger-border bg-background px-2 py-1 text-[11px] font-medium text-danger-text hover:bg-danger-subtle disabled:opacity-50'
                 >
                   <AlertTriangle className='size-3.5' aria-hidden />
                   {intl.formatMessage({
@@ -1371,7 +1373,7 @@ function CrossingRow({
                   data-testid={`boundary-reopen-${c.id}`}
                   disabled={pending}
                   onClick={() => onDisposition('OPEN')}
-                  className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-[11px] font-medium text-warning hover:bg-warning-subtle disabled:opacity-50'
+                  className='inline-flex items-center gap-1 rounded-sm border border-warning-border bg-background px-2 py-1 text-[11px] font-medium text-warning-text hover:bg-warning-subtle disabled:opacity-50'
                 >
                   <Unlock className='size-3.5' aria-hidden />
                   {intl.formatMessage({
@@ -1763,9 +1765,9 @@ function Badge({
 }) {
   const cls =
     tone === 'warning'
-      ? 'bg-warning-subtle text-warning'
+      ? 'bg-warning-subtle text-warning-text'
       : tone === 'danger'
-        ? 'bg-danger-subtle text-danger'
+        ? 'bg-danger-subtle text-danger-text'
         : 'bg-muted text-muted-foreground'
   return (
     <span

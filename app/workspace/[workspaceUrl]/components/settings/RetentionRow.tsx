@@ -84,7 +84,7 @@ export function RetentionRow({
         <p
           role='alert'
           data-testid={`retention-warning-${id}`}
-          className='mt-2 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-xs text-warning'
+          className='mt-2 rounded-md border border-warning/40 bg-warning-subtle px-3 py-2 text-xs text-warning-text'
         >
           {warning}
         </p>

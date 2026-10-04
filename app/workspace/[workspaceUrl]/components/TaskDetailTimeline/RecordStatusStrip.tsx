@@ -17,7 +17,7 @@ export interface RecordStatusStripProps {
 type Tone = 'danger' | 'inReview' | 'success'
 
 const toneClasses: Record<Tone, string> = {
-  danger: 'border-danger-border bg-danger-subtle text-danger',
+  danger: 'border-danger-border bg-danger-subtle text-danger-text',
   inReview:
     'border-status-in-review-border bg-status-in-review-subtle text-status-in-review',
   success: 'border-success-border bg-success-subtle text-success',

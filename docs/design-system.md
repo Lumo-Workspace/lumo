@@ -83,6 +83,9 @@ background (LUM-934).
 The light accents (`--warning` ~2.1:1, `--danger` ~3.8:1 on white) are tuned
 as strokes and miss AA as text, so text uses the darker `-text` step; dark mode
 reuses the bright accent. Utilities: `text-warning-text`, `text-danger-text`.
+The bare `text-warning` / `text-danger` are for icons and other non-text marks
+only (WCAG non-text 3:1); `__tests__/styles/feedback-text-usage.test.ts` pins
+the audited non-text sites so new text uses can't creep back (LUM-967).
 
 ### Sidebar tokens
 
