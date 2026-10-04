@@ -96,6 +96,42 @@ describe('system task templates', () => {
     )
   })
 
+  // LUM-976 (v2.1): feedback from the LUM-973 / LUM-974 pilots.
+  it('agent-brief v2-1 Context hint asks for the verified commit, re-verification, rules and root paths', () => {
+    const context = hintOf(
+      listSystemTemplates('en')[0]?.content ?? '',
+      'Context'
+    )
+    expect(context).toMatch(/commit or date/i)
+    expect(context).toMatch(/go stale/i)
+    expect(context).toMatch(/re-verify them when work starts/i)
+    expect(context).toMatch(/deletions or migrations/i)
+    expect(context).toMatch(/state a rule/i)
+    expect(context).toMatch(/everything only used by X/)
+    expect(context).toMatch(/from the repo root/i)
+  })
+
+  it('agent-brief v2-1 Watch out hint asks to keep the docs describing the behavior in sync', () => {
+    const watch = hintOf(
+      listSystemTemplates('en')[0]?.content ?? '',
+      'Watch out'
+    )
+    expect(watch).toMatch(/docs that describe the behavior/i)
+    expect(watch).toMatch(/in sync/i)
+  })
+
+  it('agent-brief v2-1 Done when hint names the edge cases', () => {
+    const done = hintOf(
+      listSystemTemplates('en')[0]?.content ?? '',
+      'Done when'
+    )
+    expect(done).toMatch(/edge cases/i)
+    expect(done).toMatch(/missing or invalid input/i)
+    expect(done).toMatch(/permissions/i)
+    expect(done).toMatch(/limits/i)
+    expect(done).toMatch(/scope/i)
+  })
+
   it('agent-brief v2 per-section hint keys are gone from every locale', () => {
     const removed = ['goal', 'nonGoals', 'watchOut', 'doneWhen', 'decisions']
     expect(Object.keys(MESSAGES)).toHaveLength(16)
