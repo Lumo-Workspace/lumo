@@ -25,6 +25,9 @@ jest.mock('@/lib/services/invite.service', () => ({
     joinPendingInvitesForEmails: (...args: unknown[]) => mockJoin(...args),
   },
 }))
+jest.mock('next/headers', () => ({
+  headers: async () => new Headers({ 'user-agent': 'test-agent' }),
+}))
 jest.mock('next/navigation', () => ({
   redirect: (url: string) => mockRedirect(url),
 }))
@@ -68,7 +71,15 @@ describe('onboarding page', () => {
     const { redirectedTo } = await render()
 
     expect(redirectedTo).toBe('/workspace/acme')
-    expect(mockJoin).toHaveBeenCalledWith('clerk-1', ['bob@acme.com'])
+    expect(mockJoin).toHaveBeenCalledWith(
+      'clerk-1',
+      ['bob@acme.com'],
+      expect.objectContaining({
+        actor: expect.objectContaining({ clerkId: 'clerk-1' }),
+        source: 'WEB',
+        userAgent: 'test-agent',
+      })
+    )
   })
 
   it('never matches invites against unverified emails', async () => {
@@ -80,7 +91,11 @@ describe('onboarding page', () => {
 
     await render()
 
-    expect(mockJoin).toHaveBeenCalledWith('clerk-1', ['me@home.com'])
+    expect(mockJoin).toHaveBeenCalledWith(
+      'clerk-1',
+      ['me@home.com'],
+      expect.anything()
+    )
   })
 
   it('shows the onboarding form when there is no invite to join', async () => {

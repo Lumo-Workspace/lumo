@@ -56,6 +56,10 @@
     {
       "path": "/api/cron/purge-trash",
       "schedule": "10 4 * * *"
+    },
+    {
+      "path": "/api/cron/prune-audit-events",
+      "schedule": "25 4 * * *"
     }
   ]
 }

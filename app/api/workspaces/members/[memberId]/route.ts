@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace, zodError } from '@/lib/api/helpers'
 import { updateMemberRoleSchema } from '@/lib/validation/schemas'
 import { memberService } from '@/lib/services/member.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 export async function PATCH(
   request: NextRequest,
@@ -29,7 +30,11 @@ export async function PATCH(
       role,
       ws.member.id,
       ws.member.role,
-      ws.workspaceId
+      ws.workspaceId,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: ws.member.id,
+      })
     )
 
     return NextResponse.json({ member: updated })

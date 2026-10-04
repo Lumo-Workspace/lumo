@@ -6,6 +6,10 @@ import {
 import { workspaceExportRepository } from '@/lib/repositories/workspace-export.repository'
 import { logger } from '@/lib/logger'
 import type { DeletionNotice } from '@/lib/services/workspace-deletion-notice'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 
 const ERROR_MAX_CHARS = 500
 
@@ -197,7 +201,8 @@ export const workspaceDeletionService = {
     workspace: DeletionWorkspace,
     role: string,
     clerkId: string,
-    now: Date = new Date()
+    now: Date = new Date(),
+    audit?: AuditContext
   ): Promise<PendingDeletion> {
     requireOwner(role)
     const pending: PendingDeletion = {
@@ -212,6 +217,13 @@ export const workspaceDeletionService = {
     if (!scheduled) {
       throw httpError('Workspace deletion is already scheduled', 409)
     }
+    await recordAuditEvent({
+      workspaceId: workspace.id,
+      action: 'workspace.deletion_scheduled',
+      target: { type: 'workspace', id: workspace.id },
+      metadata: { executeAt: pending.executeAt },
+      context: audit,
+    })
     await notifyOwners('scheduled', workspace, clerkId, pending)
     return pending
   },
@@ -220,7 +232,8 @@ export const workspaceDeletionService = {
   async cancelDeletion(
     workspace: DeletionWorkspace,
     role: string,
-    clerkId: string
+    clerkId: string,
+    audit?: AuditContext
   ) {
     requireOwner(role)
     const pending = await workspaceDeletionRepository.findPending(workspace.id)
@@ -228,6 +241,13 @@ export const workspaceDeletionService = {
     if (!pending || !cancelled) {
       throw httpError('No workspace deletion is scheduled', 409)
     }
+    await recordAuditEvent({
+      workspaceId: workspace.id,
+      action: 'workspace.deletion_cancelled',
+      target: { type: 'workspace', id: workspace.id },
+      metadata: { executeAt: pending.executeAt },
+      context: audit,
+    })
     await notifyOwners('cancelled', workspace, clerkId, pending)
   },
 

@@ -7,6 +7,7 @@ import { getResend, buildInviteEmail } from '@/lib/integrations/email'
 import { inviteExpiresAt } from '@/lib/utils/invite'
 import { inviteService } from '@/lib/services/invite.service'
 import { workspaceRepository } from '@/lib/repositories/workspace.repository'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +56,11 @@ export async function POST(request: NextRequest) {
       emails,
       inviterName,
       member.id,
-      expiresAt
+      expiresAt,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: member.id,
+      })
     )
 
     const results: { email: string; status: 'sent' | 'failed' }[] = []

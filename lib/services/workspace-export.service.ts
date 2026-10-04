@@ -19,6 +19,10 @@ import { lookupClerkProfiles } from '@/lib/utils/clerk-helpers'
 import { EXCLUDED_MODELS } from '@/lib/workspace/export-coverage'
 import { EXPORT_TTL_DAYS } from '@/lib/workspace/export-ttl'
 import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
+import {
   EXPORT_KINDS,
   workspaceExportRepository as repo,
   type ExportRow,
@@ -205,6 +209,7 @@ export const workspaceExportService = {
     workspaceId: string
     role: WorkspaceRole
     clerkId: string
+    audit?: AuditContext
   }): Promise<{ export: WorkspaceExportView; started: boolean }> {
     assertOwner(input.role)
     const active = await repo.findActive(input.workspaceId)
@@ -218,6 +223,12 @@ export const workspaceExportService = {
       throw httpError('Could not start the export, please retry', 503)
     }
     await repo.setWorkflowRun(record.id, runId)
+    await recordAuditEvent({
+      workspaceId: input.workspaceId,
+      action: 'data_export.requested',
+      target: { type: 'data_export', id: record.id },
+      context: input.audit,
+    })
     logger.info(
       `[workspace-export] requested export=${record.id} workspace=${input.workspaceId} by=${input.clerkId}`
     )
@@ -329,6 +340,7 @@ export const workspaceExportService = {
     clerkId: string
     exportId: string
     now?: Date
+    audit?: AuditContext
   }): Promise<{
     stream: ReadableStream<Uint8Array>
     size: number
@@ -353,6 +365,12 @@ export const workspaceExportService = {
     const archive = await blob.openExportArchive(record.blobUrl)
     if (!archive) throw httpError('This export has expired', 410)
     await repo.recordDownload(record.id, input.clerkId, now)
+    await recordAuditEvent({
+      workspaceId: input.workspaceId,
+      action: 'data_export.downloaded',
+      target: { type: 'data_export', id: record.id },
+      context: input.audit,
+    })
     logger.info(
       `[workspace-export] download export=${record.id} by=${input.clerkId}`
     )

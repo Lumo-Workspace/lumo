@@ -96,7 +96,11 @@ describe('POST /api/workspaces/me/exports', () => {
     m(repo.create).mockResolvedValue(record())
     m(startWorkspaceExport).mockResolvedValue('run_1')
 
-    const res = await POST()
+    const res = await POST(
+      new Request('http://localhost/api/workspaces/me/exports', {
+        method: 'POST',
+      })
+    )
 
     expect(res.status).toBe(202)
     const body = await res.json()
@@ -110,7 +114,11 @@ describe('POST /api/workspaces/me/exports', () => {
   it('LUM-858 start export route: member POST answers 403 and creates nothing', async () => {
     asRole('MEMBER')
 
-    const res = await POST()
+    const res = await POST(
+      new Request('http://localhost/api/workspaces/me/exports', {
+        method: 'POST',
+      })
+    )
 
     expect(res.status).toBe(403)
     expect(repo.create).not.toHaveBeenCalled()
@@ -120,7 +128,11 @@ describe('POST /api/workspaces/me/exports', () => {
     asRole('OWNER')
     m(repo.findActive).mockResolvedValue(record({ status: 'RUNNING' }))
 
-    const res = await POST()
+    const res = await POST(
+      new Request('http://localhost/api/workspaces/me/exports', {
+        method: 'POST',
+      })
+    )
 
     expect(res.status).toBe(200)
     expect((await res.json()).started).toBe(false)

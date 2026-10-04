@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { decrypt, encrypt } from '@/lib/crypto'
 import { slackService } from '@/lib/services/slack.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
@@ -52,14 +53,17 @@ export async function GET(request: NextRequest) {
 
     const encryptedToken = encrypt(tokenData.access_token)
 
-    await slackService.upsertIntegration({
-      workspaceId,
-      installedBy: memberId,
-      accessToken: encryptedToken,
-      slackTeamId: tokenData.team.id,
-      slackTeamName: tokenData.team.name,
-      slackUserId: tokenData.authed_user.id,
-    })
+    await slackService.upsertIntegration(
+      {
+        workspaceId,
+        installedBy: memberId,
+        accessToken: encryptedToken,
+        slackTeamId: tokenData.team.id,
+        slackTeamName: tokenData.team.name,
+        slackUserId: tokenData.authed_user.id,
+      },
+      memberAuditContext(request.headers, { memberId })
+    )
 
     return NextResponse.redirect(
       `${process.env.NEXT_PUBLIC_APP_URL}/workspace/${workspaceUrl}/settings/integrations?slack_connected=1`

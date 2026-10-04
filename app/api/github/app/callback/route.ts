@@ -3,6 +3,7 @@ import { requireAuth, getUserWorkspace } from '@/lib/auth'
 import { decrypt } from '@/lib/crypto'
 import { githubAppInstallService } from '@/lib/services/github-app-install.service'
 import { logger } from '@/lib/logger'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 interface VerifyState {
   workspaceId: string
@@ -99,6 +100,10 @@ export async function GET(request: NextRequest) {
   }
 
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/github/app/callback`
+  const audit = memberAuditContext(request.headers, {
+    clerkId: userId,
+    memberId: ws.member.id,
+  })
   const reverify = state.mode === 'reverify'
 
   try {
@@ -108,6 +113,7 @@ export async function GET(request: NextRequest) {
         memberRole: ws.member.role,
         userCode: code,
         redirectUri,
+        audit,
       })
     } else {
       await githubAppInstallService.install({
@@ -116,6 +122,7 @@ export async function GET(request: NextRequest) {
         installationId: state.installationId,
         userCode: code,
         redirectUri,
+        audit,
       })
     }
   } catch (error) {

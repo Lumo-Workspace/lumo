@@ -1,14 +1,15 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { requireUserWorkspace } from '@/lib/api/helpers'
 import { memberService } from '@/lib/services/member.service'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 /**
  * DELETE /api/workspaces/members/me
  * Removes the current user from their workspace (leave workspace).
  * Blocked if they are the last OWNER.
  */
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   try {
     const authResult = await requireAuth()
     if (authResult instanceof NextResponse) return authResult
@@ -20,7 +21,11 @@ export async function DELETE() {
     await memberService.leaveWorkspace(
       ws.member.id,
       ws.member.role,
-      ws.workspaceId
+      ws.workspaceId,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: ws.member.id,
+      })
     )
 
     return NextResponse.json({ ok: true })

@@ -16,6 +16,11 @@ import {
 } from '@/lib/boundary-crossing/raw-retention'
 import type { DeadLetterRetentionDays } from '@/lib/integrations/github/dead-letter-retention'
 import type { ScanEvidenceRetentionDays } from '@/lib/security-scan/evidence-retention'
+import { diffWorkspaceSettings } from '@/lib/audit/workspace-settings'
+import {
+  recordAuditEvent,
+  type AuditContext,
+} from '@/lib/services/audit.service'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -110,6 +115,20 @@ async function retentionChangeData(
   return data
 }
 
+/**
+ * LUM-907: the audited settings before a change, for the audit diff. A failed
+ * read never blocks the settings change — the event then shows no `from`.
+ */
+async function auditedSettingsBefore(
+  workspaceId: string
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await workspaceRepository.findAuditedSettings(workspaceId)
+  } catch {
+    return null
+  }
+}
+
 // ── Workspace Service ───────────────────────────────────────────────────────
 
 export const workspaceService = {
@@ -132,7 +151,8 @@ export const workspaceService = {
     workspaceId: string,
     role: string,
     currentSlug: string,
-    input: UpdateWorkspaceInput
+    input: UpdateWorkspaceInput,
+    audit?: AuditContext
   ) {
     if (role !== 'OWNER') {
       throw Object.assign(
@@ -190,6 +210,21 @@ export const workspaceService = {
       )
     }
 
-    return workspaceRepository.update(workspaceId, data)
+    const before = await auditedSettingsBefore(workspaceId)
+    const updated = await workspaceRepository.update(workspaceId, data)
+    // LUM-907: one event per setting category that actually changed.
+    for (const change of diffWorkspaceSettings(
+      before ?? {},
+      data as Record<string, unknown>
+    )) {
+      await recordAuditEvent({
+        workspaceId,
+        action: change.action,
+        target: { type: 'workspace', id: workspaceId },
+        metadata: { changes: change.changes },
+        context: audit,
+      })
+    }
+    return updated
   },
 }

@@ -3,6 +3,7 @@ import { requireAuth, requireWorkspaceMember } from '@/lib/auth'
 import { requireWorkspaceByUrl } from '@/lib/api/helpers'
 import { sentryService } from '@/lib/services/sentry.service'
 import { connectSentrySchema } from '@/lib/validation/sentry.schema'
+import { memberAuditContext } from '@/lib/api/audit-context'
 
 function errorStatus(err: unknown): number {
   return (err as { status?: number }).status ?? 500
@@ -59,7 +60,11 @@ export async function POST(request: NextRequest) {
       ws.workspaceId,
       memberResult.id,
       memberResult.role,
-      parsed.data
+      parsed.data,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: memberResult.id,
+      })
     )
     return NextResponse.json({ success: true, id: result.id })
   } catch (error) {
@@ -90,7 +95,14 @@ export async function DELETE(request: NextRequest) {
     const memberResult = await requireWorkspaceMember(ws.workspaceId, userId)
     if (memberResult instanceof NextResponse) return memberResult
 
-    await sentryService.disconnectIntegration(ws.workspaceId, memberResult.role)
+    await sentryService.disconnectIntegration(
+      ws.workspaceId,
+      memberResult.role,
+      memberAuditContext(request.headers, {
+        clerkId: userId,
+        memberId: memberResult.id,
+      })
+    )
     return NextResponse.json({ success: true })
   } catch (error) {
     const status = errorStatus(error)

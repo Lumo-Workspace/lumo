@@ -14,7 +14,7 @@ jest.mock('@/lib/repositories/ai-derived-content.repository', () => ({
   },
 }))
 jest.mock('@/lib/logger', () => ({
-  logger: { warn: jest.fn(), info: jest.fn() },
+  logger: { warn: jest.fn(), info: jest.fn(), error: jest.fn() },
 }))
 
 import {
