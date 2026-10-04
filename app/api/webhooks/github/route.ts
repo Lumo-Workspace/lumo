@@ -17,7 +17,8 @@ import { logger } from '@/lib/logger'
 const APP_EVENTS = new Set([
   'installation',
   'installation_repositories',
-  // LUM-882 — privatized / transferred trigger a verifier access recheck.
+  // LUM-882 — privatized triggers a verifier access recheck; LUM-879 —
+  // renamed follows the new name, transferred / deleted remove the old one.
   // The OAuth repo hooks never subscribe to it, so it only arrives here.
   'repository',
 ])
@@ -199,7 +200,11 @@ async function handleAppEvent(
     //   the installation stays confirmed until the recheck narrows every row
     //   to the installation's live repositories (LUM-927);
     // - repository privatized / transferred, the targeted recheck failed: the
-    //   daily pass asks about every confirmed repository again.
+    //   daily pass asks about every confirmed repository again;
+    // - repository renamed / transferred / deleted, the rename or removal
+    //   failed (LUM-879): the old name is no longer in the installation, so
+    //   the daily narrowing drops it with its code (re-verify restores a
+    //   renamed one).
     logger.error(`[webhook/github] error handling ${event}: ${String(err)}`)
   }
 

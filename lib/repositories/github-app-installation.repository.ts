@@ -1,4 +1,153 @@
 import { prisma } from '@/lib/db/prisma'
+import type { Prisma } from '@prisma/client'
+
+/**
+ * ASCII-only case fold, like the confirmed-list match (LUM-889): a stored
+ * name outside printable ASCII never matches a GitHub repository name.
+ */
+function sameRepo(stored: string, name: string): boolean {
+  if (!/^[\x20-\x7e]+$/.test(stored)) return false
+  return stored.toLowerCase() === name.toLowerCase()
+}
+
+/** Candidates for `name` in any case; `sameRepo` decides (ILIKE `_` is a wildcard). */
+function anyCase(name: string) {
+  return { equals: name, mode: 'insensitive' as const }
+}
+
+export interface RepositoryRenameResult {
+  pullRequests: number
+  /** Rows left under the old name: the new name already had one for them. */
+  skipped: number
+}
+
+/**
+ * LUM-879 — move every row of one workspace that names a repository by its
+ * `owner/name` from `from` (any case) to `to`. A row whose new name would
+ * collide with one already stored under `to` is left as it is and counted.
+ */
+async function renameRepoRows(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  from: string,
+  to: string
+): Promise<RepositoryRenameResult> {
+  const moves = (repo: string) => sameRepo(repo, from) && repo !== to
+  let skipped = 0
+
+  const prs = (
+    await tx.pullRequest.findMany({
+      where: { workspaceId, repo: anyCase(from) },
+      select: { id: true, repo: true, number: true },
+    })
+  ).filter(row => moves(row.repo))
+  const takenPrs = new Set(
+    (
+      await tx.pullRequest.findMany({
+        where: { workspaceId, repo: to },
+        select: { number: true },
+      })
+    ).map(row => row.number)
+  )
+  const prIds = prs.filter(row => !takenPrs.has(row.number)).map(r => r.id)
+  skipped += prs.length - prIds.length
+  if (prIds.length > 0) {
+    await tx.pullRequest.updateMany({
+      where: { id: { in: prIds } },
+      data: { repo: to },
+    })
+  }
+
+  const projectRepos = (
+    await tx.projectRepository.findMany({
+      where: { project: { workspaceId }, fullName: anyCase(from) },
+      select: { id: true, projectId: true, fullName: true },
+    })
+  ).filter(row => moves(row.fullName))
+  const takenProjects = new Set(
+    (
+      await tx.projectRepository.findMany({
+        where: { project: { workspaceId }, fullName: to },
+        select: { projectId: true },
+      })
+    ).map(row => row.projectId)
+  )
+  const projectRepoIds = projectRepos
+    .filter(row => !takenProjects.has(row.projectId))
+    .map(row => row.id)
+  skipped += projectRepos.length - projectRepoIds.length
+  if (projectRepoIds.length > 0) {
+    await tx.projectRepository.updateMany({
+      where: { id: { in: projectRepoIds } },
+      data: { fullName: to, name: to.slice(to.indexOf('/') + 1) },
+    })
+  }
+
+  const branches = (
+    await tx.taskBranch.findMany({
+      where: { task: { project: { workspaceId } }, repo: anyCase(from) },
+      select: { id: true, taskId: true, repo: true, branchName: true },
+    })
+  ).filter(row => moves(row.repo))
+  const takenBranches = new Set(
+    (
+      await tx.taskBranch.findMany({
+        where: { task: { project: { workspaceId } }, repo: to },
+        select: { taskId: true, branchName: true },
+      })
+    ).map(row => `${row.taskId}\u0000${row.branchName}`)
+  )
+  const branchIds = branches
+    .filter(row => !takenBranches.has(`${row.taskId}\u0000${row.branchName}`))
+    .map(row => row.id)
+  skipped += branches.length - branchIds.length
+  if (branchIds.length > 0) {
+    await tx.taskBranch.updateMany({
+      where: { id: { in: branchIds } },
+      data: { repo: to },
+    })
+  }
+
+  const hooks = (
+    await tx.gitHubWebhook.findMany({
+      where: { integration: { workspaceId }, repo: anyCase(from) },
+      select: { id: true, integrationId: true, repo: true },
+    })
+  ).filter(row => moves(row.repo))
+  const takenHooks = new Set(
+    (
+      await tx.gitHubWebhook.findMany({
+        where: { integration: { workspaceId }, repo: to },
+        select: { integrationId: true },
+      })
+    ).map(row => row.integrationId)
+  )
+  const hookIds = hooks
+    .filter(row => !takenHooks.has(row.integrationId))
+    .map(row => row.id)
+  skipped += hooks.length - hookIds.length
+  if (hookIds.length > 0) {
+    await tx.gitHubWebhook.updateMany({
+      where: { id: { in: hookIds } },
+      data: { repo: to },
+    })
+  }
+
+  const integrations = await tx.gitHubIntegration.findMany({
+    where: { workspaceId },
+    select: { id: true, repositories: true },
+  })
+  for (const integration of integrations) {
+    if (!integration.repositories.some(moves)) continue
+    const renamed = integration.repositories.map(r => (moves(r) ? to : r))
+    await tx.gitHubIntegration.update({
+      where: { id: integration.id },
+      data: { repositories: [...new Set(renamed)] },
+    })
+  }
+
+  return { pullRequests: prIds.length, skipped }
+}
 
 export interface UpsertGitHubAppInstallationData {
   workspaceId: string
@@ -86,6 +235,7 @@ export const githubAppInstallationRepository = {
         verifierLogin: true,
         verifierGithubId: true,
         verifiedAt: true,
+        updatedAt: true,
       },
       orderBy: { createdAt: 'asc' },
     })
@@ -256,6 +406,39 @@ export const githubAppInstallationRepository = {
         ...(installationId !== undefined && { installationId }),
       },
     })
+  },
+
+  /**
+   * LUM-879 — a confirmed repository was renamed on GitHub. In ONE
+   * transaction: the confirmed list becomes `repositories` (computed by the
+   * caller from the row as read, so only if nothing else wrote it since —
+   * `expectedUpdatedAt`), and every row of the workspace that stores the
+   * repository's `owner/name` follows: PRs (the scans hang off them),
+   * project repositories (the SARIF ingest), task branches, the OAuth repo
+   * hooks and their selected-repository list. All at once, so a scan's
+   * post-write check never sees the list and its PR under different names.
+   * Returns null when the row changed since it was read (nothing written).
+   */
+  async renameRepository(
+    workspaceId: string,
+    input: {
+      expectedUpdatedAt: Date
+      repositories: string[]
+      from: string
+      to: string
+    }
+  ): Promise<RepositoryRenameResult | null> {
+    return prisma.$transaction(
+      async tx => {
+        const { count } = await tx.gitHubAppInstallation.updateMany({
+          where: { workspaceId, updatedAt: input.expectedUpdatedAt },
+          data: { repositories: input.repositories },
+        })
+        if (count !== 1) return null
+        return renameRepoRows(tx, workspaceId, input.from, input.to)
+      },
+      { timeout: 15_000 }
+    )
   },
 
   /**

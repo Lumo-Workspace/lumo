@@ -106,6 +106,26 @@ export const commentRepository = {
     })
   },
 
+  /**
+   * LUM-879 — swap a body for its code-scrubbed form, only while it is still
+   * the body that was scrubbed (a concurrent edit wins; the next scrub sees
+   * it). `updatedAt` is written back unchanged: a scrub is not a local edit,
+   * and the PR mirror reads a newer `updatedAt` as one — it would push the
+   * scrubbed body back to GitHub over the reviewer's code. Returns whether it
+   * was written.
+   */
+  async replaceBodyKeepingUpdatedAt(
+    id: string,
+    expected: { body: string; updatedAt: Date },
+    body: string
+  ): Promise<boolean> {
+    const { count } = await prisma.comment.updateMany({
+      where: { id, body: expected.body },
+      data: { body, updatedAt: expected.updatedAt },
+    })
+    return count === 1
+  },
+
   async update(
     id: string,
     data: { body: string; contentSignals?: ContentSignals | null }
