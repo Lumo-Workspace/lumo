@@ -40,7 +40,8 @@ export const LUMO_COVERAGE: Record<RiskType, string | null> = {
   local_data_deletion:
     'MIGRATION_FILE_DELETED / TEST_FILE_DELETED / CLOUD_DATA_DELETION (repo- or cloud-scoped only)',
   process_termination: 'INFRA_TERMINATION',
-  untrusted_code_execution: 'NEW_NPM_DEPENDENCY (npm only)',
+  untrusted_code_execution:
+    'UNTRUSTED_CODE_EXECUTION (git+/URL installs, curl|sh, download→run) + NEW_NPM_DEPENDENCY (named installs)',
   biased_or_harmful_content: null,
   unsafe_deployment: 'INFRA_TERMINATION (service restart/stop only)',
   app_action_other: null,

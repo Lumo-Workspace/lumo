@@ -1175,6 +1175,7 @@
   "boundary.category.SENSITIVE_PATH_READ": "एक संवेदनशील पथ पढ़ा",
   "boundary.category.HOOK_BYPASS": "git हुक बायपास किए",
   "boundary.category.TEST_FILE_DELETED": "टेस्ट फ़ाइल हटाई",
+  "boundary.category.UNTRUSTED_CODE_EXECUTION": "अपुष्ट स्रोत से कोड चलाया गया",
   "boundary.category.USED_TRAP_MEMORY_DELETED": "सिद्ध रूप से उपयोगी ट्रैप मेमोरी हटाई",
   "boundary.advisoryBadge": "सलाह",
   "boundary.severity.high": "उच्च",

@@ -27,7 +27,6 @@ import { WRITE_TOOLS } from '@/lib/constants/hook-tools'
 import {
   confirmActionCrossing,
   isActionConfirmCategory,
-  stripHeredocBodies,
   stripProse,
   type ActionConfirmInput,
   type ActionConfirmJudge,
@@ -40,6 +39,10 @@ import {
   executingSegments,
 } from '@/lib/boundary-crossing/command-shape'
 import { matchActionRule } from '@/lib/boundary-crossing/action-rule-match'
+import {
+  matchNewDependency,
+  matchUntrustedCodeExecution,
+} from '@/lib/boundary-crossing/untrusted-code'
 import { matchPushTarget } from '@/lib/boundary-crossing/push-target-match'
 import { detectSensitiveReads } from '@/lib/boundary-crossing/sensitive-read'
 import {
@@ -299,37 +302,21 @@ function matchDestructiveDb(cmd: string): boolean {
 }
 
 /**
- * Installing a NEW dependency — only a segment whose OWN `npm i|install|add`
- * (or `yarn|pnpm|bun add`) names a package. LUM-751: segment-scoped, so
- * `npm install && npm test`, a lockfile sync inside `.worktrees/`, a flag-only
- * install and `npm ci` never trip; a trailing `# comment` is ignored. (A
- * lockfile-diff check is the PR scanner's job — LUM-738 — the hook only sees
- * the command.)
+ * Installing a NEW dependency — only a segment whose OWN install verb names a
+ * registry package. LUM-751: segment-scoped, so `npm install && npm test`, a
+ * lockfile sync inside `.worktrees/`, a flag-only install and `npm ci` never
+ * trip; a trailing `# comment` is ignored. LUM-770/772: a heredoc body is
+ * authored text, never an install. LUM-957: redirections and wrapper quotes
+ * are not package names. (A lockfile-diff check is the PR scanner's job —
+ * LUM-738 — the hook only sees the command.)
+ *
+ * LUM-962: every ecosystem with the same "names a new package" meaning — pip /
+ * uv / pipx / poetry / gem / cargo / go as well as npm / yarn / pnpm / bun. A
+ * VCS / URL source is not a "new package" here: it is UNTRUSTED_CODE_EXECUTION.
+ * See lib/boundary-crossing/untrusted-code.
  */
 function matchNewNpmDependency(cmd: string): boolean {
-  // LUM-770: a heredoc body is authored text (a script or doc being written),
-  // not an install. LUM-772: the body now rides with the segment that opens it
-  // (`cat > f <<EOF` is dropped whole as a read-only carrier), and is stripped
-  // from any executing segment that still carries one, so `'npm install x'`
-  // inside a probe script never trips the rule. NEW_NPM_DEPENDENCY never
-  // reaches the LUM-466 prose confirmation, so this is the only place the
-  // body can be excluded.
-  for (const raw of executingSegments(cmd)) {
-    const seg = stripHeredocBodies(raw).split('#')[0] ?? ''
-    if (/\b(?:yarn|pnpm|bun)\s+add\s+\S/.test(seg)) return true
-    const m = seg.match(/\bnpm\s+(?:i|install|add)\b(.*)$/)
-    if (!m) continue
-    // LUM-957: drop shell redirections (`2>&1`, `> install.log`, `&>/dev/null`)
-    // with their targets first, and closing quotes/parens left over from a
-    // wrapper (`su -c "… && npm install"`) — none of them are package names.
-    const rest = (m[1] ?? '').replace(
-      /(?:^|\s)(?:\d*|&)>>?(?:&\d+|\s*\S+)|(?:^|\s)\d*<\s*\S+|['"`)]+(?=\s|$)/g,
-      ' '
-    )
-    if (rest.split(/\s+/).some(tok => tok.length > 0 && !tok.startsWith('-')))
-      return true
-  }
-  return false
+  return matchNewDependency(cmd)
 }
 
 // --- hardcoded secrets: single source with the PR scanner (LUM-734) ----------
@@ -831,7 +818,8 @@ export function isReversible(
 /**
  * Taxonomy-driven severity tier (LUM-442), single source alongside the matchers.
  * HIGH = the "rare but high-severity" classes (secret leak, destructive DB,
- * exfiltration, cloud-data deletion, infra termination). MEDIUM = shared-branch
+ * exfiltration, cloud-data deletion, infra termination, untrusted code
+ * execution). MEDIUM = shared-branch
  * push / migration deletion (serious but recoverable). LOW = a dependency
  * install. Evasion-decoded matches are escalated to HIGH at detection time
  * regardless of the underlying class.
@@ -875,6 +863,9 @@ export function severityFor(
     case 'EXFILTRATION_PUBLIC':
     case 'CLOUD_DATA_DELETION':
     case 'INFRA_TERMINATION':
+    // LUM-962: running code from an unvetted source — whatever it does is
+    // already done; the same "rare but high-severity" tier as exfiltration.
+    case 'UNTRUSTED_CODE_EXECUTION':
     // LUM-750 (reverted): the enum value stays (Postgres cannot drop one); it
     // is never produced, but it stays classified HIGH + irreversible so the
     // taxonomy table covers every enum value.
@@ -951,6 +942,8 @@ function decodeBase64Segments(cmd: string): string[] {
 const COMMAND_MATCHERS: ReadonlyArray<{
   category: BoundaryCrossingCategory
   fn: (cmd: string) => boolean
+  /** Match against the raw command instead of its executing segments. */
+  raw?: boolean
 }> = [
   { category: 'PUSH_TO_PROTECTED_BRANCH', fn: matchProtectedPush },
   { category: 'MIGRATION_FILE_DELETED', fn: matchMigrationDelete },
@@ -959,6 +952,14 @@ const COMMAND_MATCHERS: ReadonlyArray<{
   { category: 'EXFILTRATION_PUBLIC', fn: matchExfiltrationPublic },
   { category: 'CLOUD_DATA_DELETION', fn: matchCloudDataDeletion },
   { category: 'INFRA_TERMINATION', fn: matchInfraTermination },
+  // LUM-962: reads the RAW command — the `|` between a downloader and an
+  // interpreter is the signal, and the executing-segment view has cut it.
+  // Carriers are excluded inside the matcher itself.
+  {
+    category: 'UNTRUSTED_CODE_EXECUTION',
+    fn: matchUntrustedCodeExecution,
+    raw: true,
+  },
   // LUM-736 L4 Session Guard (segment-scoped; prose-confirmed via LUM-466).
   { category: 'HOOK_BYPASS', fn: matchHookBypass },
   { category: 'TEST_FILE_DELETED', fn: matchTestFileDelete },
@@ -1011,8 +1012,8 @@ function matchCommand(cmd: string, evasion: boolean): DetectedCrossing[] {
   // The carrier-free command: executing segments only, re-joined so a matcher
   // that reads context across segments (an env var + a curl) still sees it.
   const executing = executingSegments(cmd, { keepGit: true }).join('\n')
-  for (const { category, fn } of COMMAND_MATCHERS) {
-    if (!fn(executing)) continue
+  for (const { category, fn, raw } of COMMAND_MATCHERS) {
+    if (!fn(raw ? cmd : executing)) continue
     out.push({
       category,
       detail: clip(evasion ? `${EVASION_MARKER}${cmd}` : cmd),

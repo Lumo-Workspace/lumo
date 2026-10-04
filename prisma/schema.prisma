@@ -270,6 +270,12 @@ enum BoundaryCrossingCategory {
   // the Read tool or a reading Bash verb. LOW + always advisory: recorded as a
   // hint, never blocks DONE. Reversible — a read changes no state.
   SENSITIVE_PATH_READ
+  // LUM-962: code from an unvetted source was run — an install from a VCS / URL
+  // spec (`pip install git+https://…`), a download piped into an interpreter
+  // (`curl … | sh`, `bash <(curl …)`), or a downloaded file made executable /
+  // run in the same command. HIGH + irreversible + never rule-suppressible.
+  // (A NAMED registry install, any ecosystem, stays NEW_NPM_DEPENDENCY.)
+  UNTRUSTED_CODE_EXECUTION
 }
 
 enum BoundaryCrossingDisposition {

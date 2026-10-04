@@ -1175,6 +1175,7 @@
   "boundary.category.SENSITIVE_PATH_READ": "a lu un chemin sensible",
   "boundary.category.HOOK_BYPASS": "a contourné les hooks git",
   "boundary.category.TEST_FILE_DELETED": "a supprimé un fichier de test",
+  "boundary.category.UNTRUSTED_CODE_EXECUTION": "code exécuté depuis une source non vérifiée",
   "boundary.category.USED_TRAP_MEMORY_DELETED": "a supprimé une mémoire de piège dont l’utilité est prouvée",
   "boundary.advisoryBadge": "Avis",
   "boundary.severity.high": "élevée",

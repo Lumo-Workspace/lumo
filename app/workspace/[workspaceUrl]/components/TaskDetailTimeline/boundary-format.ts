@@ -107,6 +107,12 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.TEST_FILE_DELETED',
         defaultMessage: 'deleted a test file',
       })
+    // LUM-962
+    case 'UNTRUSTED_CODE_EXECUTION':
+      return intl.formatMessage({
+        id: 'boundary.category.UNTRUSTED_CODE_EXECUTION',
+        defaultMessage: 'ran code from an unvetted source',
+      })
     // LUM-793 memory-poison write gate
     case 'USED_TRAP_MEMORY_DELETED':
       return intl.formatMessage({

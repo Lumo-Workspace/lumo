@@ -1175,6 +1175,7 @@
   "boundary.category.SENSITIVE_PATH_READ": "membaca jalur sensitif",
   "boundary.category.HOOK_BYPASS": "melewati git hook",
   "boundary.category.TEST_FILE_DELETED": "menghapus file pengujian",
+  "boundary.category.UNTRUSTED_CODE_EXECUTION": "menjalankan kode dari sumber yang belum diperiksa",
   "boundary.category.USED_TRAP_MEMORY_DELETED": "menghapus memori jebakan yang terbukti berguna",
   "boundary.advisoryBadge": "Saran",
   "boundary.severity.high": "tinggi",

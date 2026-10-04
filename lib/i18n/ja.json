@@ -1175,6 +1175,7 @@
   "boundary.category.SENSITIVE_PATH_READ": "機密パスを読み取った",
   "boundary.category.HOOK_BYPASS": "git フックをバイパスした",
   "boundary.category.TEST_FILE_DELETED": "テストファイルを削除した",
+  "boundary.category.UNTRUSTED_CODE_EXECUTION": "未検証のソースからのコードを実行",
   "boundary.category.USED_TRAP_MEMORY_DELETED": "有用と実証されたトラップメモリーを削除した",
   "boundary.advisoryBadge": "アドバイザリー",
   "boundary.severity.high": "高",

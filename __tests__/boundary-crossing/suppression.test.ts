@@ -10,13 +10,14 @@ import {
   autoSuppressedNote,
 } from '@/lib/boundary-crossing/suppression'
 
-test('the five HIGH classes can never be rule-suppressed', () => {
+test('the HIGH classes can never be rule-suppressed', () => {
   for (const c of [
     'HARDCODED_SECRET',
     'DESTRUCTIVE_DB_COMMAND',
     'EXFILTRATION_PUBLIC',
     'CLOUD_DATA_DELETION',
     'INFRA_TERMINATION',
+    'UNTRUSTED_CODE_EXECUTION',
   ] as const) {
     expect(NON_SUPPRESSIBLE_CATEGORIES.has(c)).toBe(true)
     expect(isSuppressibleCategory(c)).toBe(false)
