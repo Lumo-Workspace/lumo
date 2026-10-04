@@ -55,6 +55,9 @@ describe('flags auto-detected work as approximate', () => {
     expect(root).toHaveTextContent('3 sessions bound')
     expect(root).toHaveTextContent('1 auto-detected')
     expect(screen.getByTestId('attribution-approximate-notice')).toBeVisible()
+    expect(screen.getByTestId('attribution-approximate-notice')).toHaveClass(
+      'text-warning-text'
+    )
   })
 
   it('shows the all-bound line and no notice when everything is bound', () => {
@@ -75,6 +78,9 @@ describe('flags auto-detected work as approximate', () => {
     render(<RunReportTiles tiles={tilesData()} costApproximate />)
     expect(screen.getByTestId('cost-approximate')).toHaveTextContent(
       'Includes auto-detected work'
+    )
+    expect(screen.getByTestId('cost-approximate')).toHaveClass(
+      'text-warning-text'
     )
   })
 

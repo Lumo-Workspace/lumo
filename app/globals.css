@@ -582,6 +582,13 @@ a.mention {
   --danger-foreground: oklch(0.2178 0 0); /* #1a1a1a */
   --danger-subtle: color-mix(in srgb, var(--danger) 10%, transparent);
   --danger-border: color-mix(in srgb, var(--danger) 28%, transparent);
+  /* LUM-934: -text = feedback-coloured TEXT on the page background (caveat
+     notes, error counts). The light accents above are tuned as icon/border
+     strokes and fall below AA as text on white (warning ~2.1:1, danger ~3.8:1),
+     so light mode uses a darker step that clears 4.5:1; .dark points back at
+     the bright accent, which already clears it. */
+  --warning-text: oklch(0.555 0.163 48.998); /* amber-700, ~5:1 on #fff */
+  --danger-text: oklch(0.577 0.245 27.325); /* red-600, ~4.8:1 on #fff */
 
   /* Semantic priority colors (LUM-263; brand palette pinned by design in
      LUM-702). Single source for PriorityBadge / PriorityDot / PrioritySelect.
@@ -695,6 +702,9 @@ a.mention {
   --warning: oklch(0.8369 0.1644 84.421); /* #fbbf24 */
   --success: oklch(0.8003 0.1821 151.707); /* #4ade80 */
   --danger: oklch(0.7106 0.1662 22.222); /* #f87171 */
+  /* LUM-934: feedback text reuses the bright dark accent (AA on #0a0a0a). */
+  --warning-text: var(--warning);
+  --danger-text: var(--danger);
 
   /* Priority — no .dark overrides since LUM-702: the four priority colours are
      a fixed brand palette and render identically in both modes. All four are
@@ -804,6 +814,8 @@ a.mention {
   --color-danger-foreground: var(--danger-foreground);
   --color-danger-subtle: var(--danger-subtle);
   --color-danger-border: var(--danger-border);
+  --color-warning-text: var(--warning-text);
+  --color-danger-text: var(--danger-text);
 
   /* Semantic priority utilities: generates .text-priority-urgent / etc. */
   --color-priority-urgent: var(--priority-urgent);

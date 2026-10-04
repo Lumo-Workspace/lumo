@@ -158,6 +158,47 @@ describe('feedback -foreground meets AA text contrast on its accent', () => {
   })
 })
 
+// ── Feedback -text on the page background (AA text 4.5:1, LUM-934) ──────────
+// -text exists because the light accent fails AA as text on white; pin both
+// halves of that rationale so the token can't drift back to the accent value.
+const FEEDBACK_TEXT = ['warning', 'danger'] as const
+
+describe('feedback -text meets AA text contrast on --background', () => {
+  it.each(FEEDBACK_TEXT)('--%s-text vs --background (light + dark)', family => {
+    const light = contrastRatio(
+      resolve(`${family}-text`, 'light'),
+      resolve('background', 'light')
+    )
+    const dark = contrastRatio(
+      resolve(`${family}-text`, 'dark'),
+      resolve('background', 'dark')
+    )
+    expect(light).toBeGreaterThanOrEqual(TEXT_AA)
+    expect(dark).toBeGreaterThanOrEqual(TEXT_AA)
+  })
+
+  it.each(FEEDBACK_TEXT)(
+    'the light --%s accent alone would miss AA as text (why -text exists)',
+    family => {
+      expect(
+        contrastRatio(resolve(family, 'light'), resolve('background', 'light'))
+      ).toBeLessThan(TEXT_AA)
+    }
+  )
+
+  it.each(FEEDBACK_TEXT)(
+    '--%s-text reuses the bright accent in dark mode',
+    family => {
+      expect(resolve(`${family}-text`, 'dark')).toBe(resolve(family, 'dark'))
+    }
+  )
+
+  it('light values are the Tailwind amber-700 / red-600 steps they replaced', () => {
+    expect(oklchToHex(resolve('warning-text', 'light'))).toBe('#bb4d00')
+    expect(oklchToHex(resolve('danger-text', 'light'))).toBe('#e7000b')
+  })
+})
+
 // ── Status tokens as graphical objects on the page background (3:1) ─────────
 const GRAPHIC_TOKENS = [
   'status-todo',

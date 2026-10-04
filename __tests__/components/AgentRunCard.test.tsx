@@ -293,6 +293,7 @@ describe('AgentRunCard — pre-dedupe token marker (LUM-932)', () => {
     const marker = screen.getByTestId('run-pre-dedupe')
     expect(marker).toHaveTextContent('≈2× overstated')
     expect(marker).toHaveAttribute('title', PRE_DEDUPE_NOTICE)
+    expect(marker).toHaveClass('text-warning-text')
   })
 
   it('shows the notice in the expanded token breakdown for a pre-cutoff run', () => {
@@ -302,7 +303,9 @@ describe('AgentRunCard — pre-dedupe token marker (LUM-932)', () => {
         defaultExpanded
       />
     )
-    expect(screen.getByTestId('run-pre-dedupe-notice')).toBeInTheDocument()
+    expect(screen.getByTestId('run-pre-dedupe-notice')).toHaveClass(
+      'text-warning-text'
+    )
   })
 
   it('does not mark a run that started after the cutoff', () => {

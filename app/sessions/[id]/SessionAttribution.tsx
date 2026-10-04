@@ -55,7 +55,7 @@ export function SessionAttribution({ view }: SessionAttributionProps) {
       {view.approximate && (
         <p
           data-testid='session-attribution-approximate'
-          className='mb-3 rounded-sm border border-border px-3 py-2 text-xs text-amber-700 dark:text-amber-400'
+          className='mb-3 rounded-sm border border-border px-3 py-2 text-xs text-warning-text'
         >
           {intl.formatMessage(APPROXIMATE_NOTICE)}
         </p>
