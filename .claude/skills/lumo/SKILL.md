@@ -194,7 +194,7 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Worktrees (local dev tooling) — see [worktree.md](references/worktree.md)
 
 - `lumo worktree add <LUM-N> [slug]` — `.worktrees/<LUM-N>` off the remote default branch; repo extras from `.lumo/worktree.json`
-- `lumo worktree rm <LUM-N> --confirm` — remove one (exit 4 envelope; dirty also needs `--force`; branch kept unless `--delete-branch`)
+- `lumo worktree rm <LUM-N> --confirm` — remove one (exit 4 envelope; dirty also needs `--force`; branch kept unless `--delete-branch`). If a running process leaves files behind, rm / prune / DONE print what is left + a `Clean up with:` command to relay
 - `lumo worktree prune --confirm` — remove DONE tasks' worktrees holding nothing unlanded (exit 4 envelope)
 - `lumo worktree list` — task id, branch, dirty, node_modules link. `session attach` reports/creates the task worktree; DONE's envelope lists removals
 

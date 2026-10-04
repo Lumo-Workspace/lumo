@@ -4,9 +4,13 @@ import {
   getMainRoot,
   gitOutput,
   parseWorktreePorcelain,
-  runGit,
   type WorktreeEntry,
 } from './worktree'
+import {
+  describeResidue,
+  removeWorktreeDir,
+  type WorktreeResidue,
+} from './worktree-remove'
 
 /**
  * Safe worktree cleanup for finished tasks (LUM-825) — shared by the DONE
@@ -21,7 +25,10 @@ import {
  *     keeps the worktree;
  *   - the current directory is not inside it (removing the shell's own cwd
  *     breaks every later command in that session).
- * Removal never uses --force, and branches are never deleted here.
+ * Removal never uses --force, and branches are never deleted here. Once git
+ * has unregistered a worktree, whatever a still-running process wrote into
+ * it during the delete is finished off; anything that still cannot go is
+ * reported with a one-line cleanup command (LUM-971, see worktree-remove.ts).
  */
 
 export type KeepReason = 'dirty' | 'unlanded' | 'cwd'
@@ -116,24 +123,31 @@ export function describeWorktreeCleanup(
   })
 }
 
-/** Remove the removable items (plain `git worktree remove`, never --force). */
+/**
+ * Remove the removable items (plain `git worktree remove`, never --force).
+ * `failed` = git refused and the worktree is intact; `residue` = git
+ * unregistered it but part of the directory could not be deleted.
+ */
 export function removeWorktrees(
   mainRoot: string,
   items: CleanupItem[]
-): { removed: string[]; failed: Array<{ path: string; error: string }> } {
+): {
+  removed: string[]
+  failed: Array<{ path: string; error: string }>
+  residue: Array<{ path: string; residue: WorktreeResidue }>
+} {
   const removed: string[] = []
   const failed: Array<{ path: string; error: string }> = []
+  const residue: Array<{ path: string; residue: WorktreeResidue }> = []
   for (const item of items) {
     if (!item.removable) continue
-    const r = runGit(['worktree', 'remove', item.path], mainRoot)
-    if (r.status === 0) removed.push(item.path)
-    else
-      failed.push({
-        path: item.path,
-        error: (r.stderr || '').trim() || 'git worktree remove failed',
-      })
+    const r = removeWorktreeDir(mainRoot, item.path)
+    if (r.status === 'removed') removed.push(item.path)
+    else if (r.status === 'refused')
+      failed.push({ path: item.path, error: r.error })
+    else residue.push({ path: item.path, residue: r.residue })
   }
-  return { removed, failed }
+  return { removed, failed, residue }
 }
 
 /** The slice of a task the cleanup needs from `GET /api/tasks/by-identifier`. */
@@ -194,6 +208,9 @@ export function reportRemoval(
   for (const p of result.removed) console.log(`✓ Removed worktree ${p}`)
   for (const f of result.failed) {
     console.error(`Warning: could not remove worktree ${f.path}: ${f.error}`)
+  }
+  for (const r of result.residue) {
+    for (const line of describeResidue(r.path, r.residue)) console.error(line)
   }
   for (const line of describeWorktreeCleanup(
     items.filter(i => !i.removable),

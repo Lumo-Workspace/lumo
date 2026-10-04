@@ -7,6 +7,7 @@ import {
   findWorktreesByTaskId,
 } from '../lib/worktree'
 import { resolveWorktreeTaskId } from '../lib/worktree-ref'
+import { describeResidue, removeWorktreeDir } from '../lib/worktree-remove'
 import {
   emitConfirmation,
   isConfirmed,
@@ -112,18 +113,23 @@ export async function worktreeRm(
     })
   }
 
-  const removeArgs =
-    dirty && opts.force
-      ? ['worktree', 'remove', '--force', target.path]
-      : ['worktree', 'remove', target.path]
-  const removed = runGit(removeArgs, root)
-  if (removed.status !== 0) {
-    console.error(
-      `Error: ${(removed.stderr || '').trim() || 'git worktree remove failed'}`
-    )
+  // LUM-971: git refusing leaves the worktree intact (error, exit 1); git
+  // having unregistered it but a writer leaving files behind is finished off,
+  // or reported with what is left and a one-line cleanup command.
+  const removal = removeWorktreeDir(root, target.path, {
+    force: dirty && Boolean(opts.force),
+  })
+  if (removal.status === 'refused') {
+    console.error(`Error: ${removal.error}`)
     return 1
   }
-  console.log(`✓ Removed worktree ${target.path}`)
+  if (removal.status === 'residue') {
+    for (const line of describeResidue(target.path, removal.residue)) {
+      console.error(line)
+    }
+  } else {
+    console.log(`✓ Removed worktree ${target.path}`)
+  }
 
   if (opts.deleteBranch && target.branch) {
     const del = runGit(['branch', '-d', target.branch], root)
@@ -140,5 +146,5 @@ export async function worktreeRm(
     )
   }
 
-  return 0
+  return removal.status === 'residue' ? 1 : 0
 }

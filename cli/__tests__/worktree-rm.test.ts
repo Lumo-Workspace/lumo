@@ -36,6 +36,24 @@ const LIST = [
   '',
 ].join('\n')
 
+/** After `git worktree remove` ran, git lists only the main checkout. */
+const MAIN_ONLY = LIST.split('\n\n')[0]!
+
+/**
+ * gitOutput fake: `worktree list` answers LIST until a `worktree remove` was
+ * sent (then the target is unregistered, LUM-971); anything else is
+ * `status --porcelain` and answers `status`.
+ */
+function gitFake(status: string) {
+  return (args: string[]) => {
+    if (args[0] !== 'worktree') return status
+    const removed = runGit.mock.calls.some(
+      c => c[0][0] === 'worktree' && c[0][1] === 'remove'
+    )
+    return removed ? MAIN_ONLY : LIST
+  }
+}
+
 /** The envelope `emitConfirmation` wrote to stdout, parsed and shape-checked. */
 function envelope(out: string[]) {
   const parsed = JSON.parse(out.join('')) as {
@@ -71,10 +89,8 @@ describe('worktreeRm', () => {
     isMain.mockReturnValue(true)
     repoRoot.mockReturnValue('/repo')
     runGit.mockReturnValue({ status: 0, stdout: '', stderr: '' })
-    // 1st gitOutput call = worktree list; later calls = status --porcelain (clean)
-    gitOutput.mockImplementation((args: string[]) =>
-      args[0] === 'worktree' ? LIST : ''
-    )
+    // worktree list → LIST (until removed); status --porcelain → clean
+    gitOutput.mockImplementation(gitFake(''))
   })
 
   afterEach(() => {
@@ -113,9 +129,7 @@ describe('worktreeRm', () => {
   })
 
   it('refuses a dirty worktree without --force, removes with --force', async () => {
-    gitOutput.mockImplementation((args: string[]) =>
-      args[0] === 'worktree' ? LIST : ' M file.ts'
-    )
+    gitOutput.mockImplementation(gitFake(' M file.ts'))
     // --yes clears the confirm gate; the dirty tree is a second gate, so the
     // envelope comes back with --force folded into confirmCommand.
     expect(await worktreeRm('LUM-267', { yes: true })).toBe(
@@ -135,9 +149,7 @@ describe('worktreeRm', () => {
     isMain.mockReturnValue(true)
     repoRoot.mockReturnValue('/repo')
     runGit.mockReturnValue({ status: 0, stdout: '', stderr: '' })
-    gitOutput.mockImplementation((args: string[]) =>
-      args[0] === 'worktree' ? LIST : ' M file.ts'
-    )
+    gitOutput.mockImplementation(gitFake(' M file.ts'))
     expect(await worktreeRm('LUM-267', { yes: true, force: true })).toBe(0)
     expect(runGit.mock.calls.map(c => c[0])).toContainEqual([
       'worktree',
