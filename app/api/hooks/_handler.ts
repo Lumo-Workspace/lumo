@@ -8,6 +8,7 @@ import {
   validateHookPayload,
 } from '@/lib/validation/hook-payload'
 import { extractAttributionSignals } from '@/lib/attribution/signals'
+import { classifyBashPayload } from '@/lib/agent-run/bash-category'
 import { hookIngestPolicyService } from '@/lib/services/hook-ingest-policy.service'
 import type { VerifyApiKeyResult } from '@/lib/services/auth.service'
 
@@ -108,6 +109,10 @@ export async function handleHookRequest(
     // link between a dispatch prompt and its spawned subagent. Signals carry
     // only identifiers, branch and agent id - never code.
     const attributionSignals = extractAttributionSignals(type, redacted)
+    // LUM-873: same for the Bash category — a used-up workspace stores only a
+    // summary of the command (heredoc bodies dropped, capped), so the command
+    // is classified on the full text before stripping.
+    const bashClassification = classifyBashPayload(redacted)
 
     const agent = parseAgentHeader(request)
     const recorded = await hookEventService.recordHookEvent({
@@ -115,6 +120,7 @@ export async function handleHookRequest(
       type,
       payload: payload as Prisma.InputJsonValue,
       attributionSignals,
+      bashClassification,
       ...(agent !== undefined ? { agent } : {}),
     })
 

@@ -156,9 +156,13 @@ describe('handleHookRequest attribution signals (LUM-932 P2)', () => {
     )
   })
 
-  it('documents the cause: extracting from the stripped payload loses AGENT_PROMPT', () => {
+  it('LUM-873 keeps agentId as metadata, so the stripped payload still links the prompt', () => {
     const stripped = stripCodeFromHookPayload('POST_TOOL_USE', agentPayload)
+    expect(stripped.tool_response).toEqual({
+      agentId: 'abeaba01ea909a7ee',
+      status: 'completed',
+    })
     const signals = extractAttributionSignals('POST_TOOL_USE', stripped)
-    expect(signals.some(s => s.kind === 'AGENT_PROMPT')).toBe(false)
+    expect(signals.some(s => s.kind === 'AGENT_PROMPT')).toBe(true)
   })
 })

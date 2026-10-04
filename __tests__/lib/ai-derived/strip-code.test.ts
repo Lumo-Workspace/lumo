@@ -163,3 +163,30 @@ describe('DERIVED_CONTENT_NO_CODE_RULE', () => {
     expect(DERIVED_CONTENT_NO_CODE_RULE).toMatch(/never copy source code/)
   })
 })
+
+describe('stripCodeFromText removedText LUM-873', () => {
+  it('returns exactly the removed fence, code lines and long spans', () => {
+    const long = 'x'.repeat(MAX_INLINE_CODE_CHARS + 1)
+    const out = stripCodeFromText(
+      [
+        'Intro.',
+        `${FENCE}ts`,
+        'load(id)',
+        FENCE,
+        'const a = call(b);',
+        `See \`${long}\` here.`,
+      ].join('\n')
+    )
+    expect(out.removed).toBe(2)
+    expect(out.removedText).toBe(
+      [
+        `${FENCE}ts`,
+        'load(id)',
+        FENCE,
+        'const a = call(b);',
+        `\`${long}\``,
+      ].join('\n')
+    )
+    expect(stripCodeFromText('Just prose.').removedText).toBe('')
+  })
+})

@@ -14,7 +14,10 @@ import {
   USED_UP_GRACE_DAYS,
   USED_UP_IDLE_DAYS,
 } from '@/lib/hook-event/retention'
-import { FAILURE_ERROR_CAP } from '@/lib/hook-payload/redact'
+import {
+  COMMAND_SUMMARY_CAP,
+  FAILURE_ERROR_CAP,
+} from '@/lib/hook-payload/redact'
 import {
   DEAD_LETTER_PAYLOAD_RETENTION_DAYS,
   DEAD_LETTER_RETENTION_DAYS,
@@ -30,6 +33,8 @@ export interface RetentionFigures {
   sessionDays: readonly number[]
   /** Characters of a failed command's error kept when code is stripped. */
   errorCap: number
+  /** Characters of a Bash command kept when code is stripped (LUM-873). */
+  commandCap: number
   /** Used-up mode: days kept after the work is used up. */
   grace: number
   /** Used-up mode: days without agent activity that count as used up. */
@@ -49,6 +54,7 @@ export interface RetentionFigures {
 export const RETENTION_FIGURES: RetentionFigures = {
   sessionDays: HOOK_EVENT_RETENTION_DAYS,
   errorCap: FAILURE_ERROR_CAP,
+  commandCap: COMMAND_SUMMARY_CAP,
   grace: USED_UP_GRACE_DAYS,
   idle: USED_UP_IDLE_DAYS,
   auditCap: USED_UP_AUDIT_WAIT_CAP_DAYS,
