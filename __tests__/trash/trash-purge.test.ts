@@ -74,7 +74,7 @@ async function seedBase() {
   })
 }
 
-async function task(id: string, parentTaskId?: string) {
+async function task(id: string) {
   await harness.prisma!.task.create({
     data: {
       id,
@@ -82,10 +82,25 @@ async function task(id: string, parentTaskId?: string) {
       title: id,
       projectId: 'proj_purge',
       teamId: 'team_purge',
-      ...(parentTaskId ? { parentTaskId } : {}),
     },
   })
   await harness.prisma!.comment.create({ data: { taskId: id, body: 'c' } })
+}
+
+/**
+ * Stamp `id` as a member of `rootId`'s trash group — the shape a subtask got
+ * when its parent was trashed before LUM-959 removed subtasks. Such groups
+ * can still sit in the trash, and must still purge as a whole.
+ */
+async function joinLegacyTrashGroup(id: string, rootId: string, at: Date) {
+  await harness.prisma!.task.update({
+    where: { id },
+    data: {
+      deletedAt: at,
+      deletedByClerkId: 'clerk_purge',
+      trashRootId: rootId,
+    },
+  })
 }
 
 async function doc(id: string, parentId?: string) {
@@ -129,7 +144,7 @@ beforeAll(async () => {
   await seedBase()
 
   await task('old_parent')
-  await task('old_child', 'old_parent')
+  await task('old_child')
   await task('young')
   await doc('old_doc')
   await doc('old_doc_child', 'old_doc')
@@ -137,6 +152,7 @@ beforeAll(async () => {
   await doc('young_doc')
 
   await trashService.trashTask('old_parent', 'clerk_purge', daysAgo(31))
+  await joinLegacyTrashGroup('old_child', 'old_parent', daysAgo(31))
   await trashService.trashTask('young', 'clerk_purge', daysAgo(29))
   await trashService.trashDocument('old_doc', 'clerk_purge', daysAgo(30))
   await trashService.trashDocument('young_doc', 'clerk_purge', daysAgo(1))
@@ -195,11 +211,12 @@ describe('trash purge (30-day retention)', () => {
 describe('evidence blobs (LUM-916) follow the hard delete, not the trash', () => {
   it('moving a task to the trash keeps its evidence; the purge sweeps every task of the group that had test cases', async () => {
     await task('ev_parent')
-    await task('ev_child', 'ev_parent')
+    await task('ev_child')
     await testCase('ev_child')
     sweep.mockClear()
 
     await trashService.trashTask('ev_parent', 'clerk_purge', NOW)
+    await joinLegacyTrashGroup('ev_child', 'ev_parent', NOW)
     expect(sweep).not.toHaveBeenCalled()
 
     await trashService.deletePermanently('task', 'ev_parent', WS, MEMBER)

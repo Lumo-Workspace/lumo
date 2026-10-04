@@ -44,16 +44,6 @@ export async function GET(request: NextRequest, { params }: Params) {
     const shaped = tasks.map((t: any) => ({
       ...t,
       teamIdentifier: t.team?.identifier ?? '',
-      parent: t.parent
-        ? {
-            id: t.parent.id,
-            title: t.parent.title,
-            number: t.parent.number,
-            teamIdentifier: t.parent.team?.identifier ?? '',
-          }
-        : null,
-      _count: t._count,
-      childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
     }))
 
     return NextResponse.json({ tasks: shaped })

@@ -10,7 +10,6 @@ jest.mock('@/lib/repositories/task.repository', () => ({
     findWithProject: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
-    findChildren: jest.fn(),
   },
 }))
 
@@ -104,23 +103,6 @@ describe('taskService.updateTask', () => {
     await expect(
       taskService.updateTask('task-1', { status: 'IN_REVIEW' })
     ).rejects.toMatchObject({ status: 409 })
-  })
-
-  it('throws 400 for self-parent', async () => {
-    mockFindForUpdate.mockResolvedValue({
-      id: 'task-1',
-      status: 'TODO',
-      projectId: 'proj-1',
-      project: { workspaceId: 'ws-1' },
-      assigneeActorId: null,
-    })
-
-    await expect(
-      taskService.updateTask('task-1', { parentTaskId: 'task-1' })
-    ).rejects.toMatchObject({
-      message: 'A task cannot be its own parent',
-      status: 400,
-    })
   })
 
   it('updates task successfully with valid data', async () => {

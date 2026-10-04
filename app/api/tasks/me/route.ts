@@ -103,16 +103,6 @@ export async function GET(req: Request) {
           },
           teamIdentifier: t.team.identifier,
           viewOrder: orderMap.get(t.id) ?? null,
-          parent: t.parent
-            ? {
-                id: t.parent.id,
-                title: t.parent.title,
-                number: t.parent.number,
-                teamIdentifier: t.parent.team.identifier,
-              }
-            : null,
-          _count: t._count,
-          childrenDoneCount: Array.isArray(t.children) ? t.children.length : 0,
           blockedByOpenCount: blockedByOpen.get(t.id) ?? 0,
           unblocksOpenCount: unblocksOpen.get(t.id) ?? 0,
           // LUM-646: F2 budget signal, present only under ?claimable=1.

@@ -37,8 +37,6 @@ export interface UpdateTaskOptions {
   sprint?: string
   /** LUM-821: due day YYYY-MM-DD (local timezone); "" clears. */
   due?: string
-  /** LUM-821: parent task identifier; "" clears (detaches the subtask). */
-  parent?: string
   /** LUM-646: `--claimable` sets the agent-claimable marker true. */
   claimable?: boolean
   /** LUM-646: `--not-claimable` sets it false. Mutually exclusive with the above. */
@@ -162,10 +160,6 @@ export function buildUpdatePayload(opts: UpdateTaskOptions): {
   if (opts.due !== undefined) {
     payload.dueDate = opts.due === '' ? null : localDayStart(opts.due)
     flagsGiven.push('--due')
-  }
-  if (opts.parent !== undefined) {
-    payload.parentRef = opts.parent === '' ? null : opts.parent
-    flagsGiven.push('--parent')
   }
   // LUM-646: resolved agent-claimable marker (true/false). The caller collapses
   // --claimable / --not-claimable into this single tri-state before building.
@@ -506,7 +500,7 @@ async function runTaskUpdate(
 
   if (flagsGiven.length === 0 && !hasTagFields && !hasSprintFlag) {
     console.error(
-      'Error: provide at least one field to update (--title, --description, --status, --priority, --assignee, --milestone, --sprint, --due, --parent, --tag, --add-tag, --remove-tag)'
+      'Error: provide at least one field to update (--title, --description, --status, --priority, --assignee, --milestone, --sprint, --due, --tag, --add-tag, --remove-tag)'
     )
     return 1
   }

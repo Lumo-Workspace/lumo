@@ -16,7 +16,9 @@ export const SHARED_FILE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
  * 任一方向已有边(含 DISMISSED)的 pair 不再建议 —— dismiss 即免疫。
  * 空 rows 早返回,不调 repo(repo 内也有防护,此处为明确语义)。
  */
-async function filterNewPairs(rows: SuggestedEdgeRow[]): Promise<SuggestedEdgeRow[]> {
+async function filterNewPairs(
+  rows: SuggestedEdgeRow[]
+): Promise<SuggestedEdgeRow[]> {
   if (rows.length === 0) return []
   const existing = await taskDependencyRepository.findPairsAmong(
     rows.map(r => ({ a: r.blockedTaskId, b: r.blockingTaskId }))
@@ -44,7 +46,10 @@ export const dependencyDetectionService = {
     const mentioned = parseMentionedTaskIds(opts.html, opts.taskId)
     if (mentioned.length === 0) return
 
-    const valid = await taskDependencyRepository.findTaskIdsInWorkspace(mentioned, opts.workspaceId)
+    const valid = await taskDependencyRepository.findTaskIdsInWorkspace(
+      mentioned,
+      opts.workspaceId
+    )
     if (valid.length === 0) return
 
     const candidates: SuggestedEdgeRow[] = valid.map(id => ({
@@ -84,7 +89,9 @@ export const dependencyDetectionService = {
     }
 
     // Only consider open (non-DONE) tasks.
-    const metas = await taskDependencyRepository.findOpenTasksMeta([...filesByTask.keys()])
+    const metas = await taskDependencyRepository.findOpenTasksMeta([
+      ...filesByTask.keys(),
+    ])
 
     const candidates: SuggestedEdgeRow[] = []
     for (let i = 0; i < metas.length; i++) {
@@ -96,9 +103,6 @@ export const dependencyDetectionService = {
         // Same workspace guard.
         const workspaceId = workspaceByTask.get(a.id)
         if (!workspaceId || workspaceId !== workspaceByTask.get(b.id)) continue
-
-        // Parent-child pairs share files by design — skip.
-        if (a.parentTaskId === b.id || b.parentTaskId === a.id) continue
 
         // Intersection check.
         const fa = filesByTask.get(a.id) ?? new Set<string>()

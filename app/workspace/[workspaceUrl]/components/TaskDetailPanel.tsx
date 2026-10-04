@@ -3,8 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { GitPullRequest } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
-import { slugify } from '@/lib/utils/slugify'
+import { useParams } from 'next/navigation'
 import { queryKeys } from '@/lib/query/keys'
 import {
   TaskDetail,
@@ -23,7 +22,6 @@ import { Spinner } from '@/components/ui/spinner'
 // AgentPanel hidden — agent features disabled for now
 import { useCurrentUser } from '../hooks/useCurrentUser'
 import { PrStateBadge, CiIcon } from './pr-helpers'
-import { SubtasksSection } from './SubtasksSection'
 import { useTaskComments } from '../hooks/useTaskComments'
 import { useTaskMutation } from '../hooks/useTaskMutation'
 import { useTaskDescription } from '../hooks/useTaskDescription'
@@ -56,7 +54,6 @@ export interface TaskDetailPanelProps {
   onDescriptionLoaded?:
     | ((taskId: string, description: string | null) => void)
     | undefined
-  onTasksChanged?: (() => void) | undefined
 }
 
 export function TaskDetailPanel({
@@ -67,7 +64,6 @@ export function TaskDetailPanel({
   projects,
   onUpdate,
   onDescriptionLoaded,
-  onTasksChanged,
 }: TaskDetailPanelProps) {
   // Build a TaskDetail-shaped seed from the list-level initialTask. Memoized
   // so the seed is stable across renders even though initialTask might be a
@@ -82,7 +78,6 @@ export function TaskDetailPanel({
       'project' in initialTask && initialTask.project
         ? initialTask.project
         : { id: initialTask.projectId, name: '' },
-    parentTaskId: initialTask.parentTaskId,
     assigneeActorId: initialTask.assigneeActorId,
     assignee: initialTask.assignee ?? null,
     description: cachedDescription ?? null,
@@ -123,18 +118,7 @@ export function TaskDetailPanel({
   const projectName = task.project?.name ?? ''
 
   const { user } = useCurrentUser()
-  const router = useRouter()
   const { workspaceUrl } = useParams<{ workspaceUrl: string }>()
-
-  const navigateToParent = useCallback(() => {
-    const parent = task.parent
-    if (!parent) return
-    const parentIdentifier = `${parent.teamIdentifier}-${parent.number}`
-    const projectSlug = slugify(projectName)
-    router.push(
-      `/workspace/${workspaceUrl}/projects/${projectSlug}/tasks/${parentIdentifier}`
-    )
-  }, [task.parent, projectName, workspaceUrl, router])
 
   const mentionableMembers = members.filter(m => m.clerkId !== user?.id)
   const mentionSources = useMentionSources(mentionableMembers)
@@ -174,12 +158,11 @@ export function TaskDetailPanel({
     onDescriptionLoaded,
   })
 
-  const { relatedDocs, refreshDetail } = useTaskSync({
+  const { relatedDocs } = useTaskSync({
     initialTaskId: initialTask.id,
     setTask,
     onDescriptionFetched: desc.setDescriptionFromFetch,
     onLoadingDone: desc.finishLoading,
-    onTasksChanged,
     fetchComments: tc.fetchComments,
   })
 
@@ -196,19 +179,6 @@ export function TaskDetailPanel({
   return (
     <div className='flex-1 overflow-y-auto px-5 py-4'>
       <div className='space-y-1'>
-        {/* Parent breadcrumb */}
-        {task.parent && (
-          <button
-            onClick={navigateToParent}
-            className='flex items-center gap-1 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 mb-1 transition-colors'
-          >
-            <span>↑</span>
-            <span>
-              {task.parent.teamIdentifier}-{task.parent.number}{' '}
-              {task.parent.title}
-            </span>
-          </button>
-        )}
         {/* Title */}
         <TypographyH3
           key={task.id}
@@ -245,12 +215,10 @@ export function TaskDetailPanel({
           projectId={task.projectId}
           dueDate={task.dueDate ?? null}
           assignee={task.assignee}
-          parent={task.parent}
           membersWithActorId={membersWithActorId}
           agentActors={[]}
           projects={projects}
           onPatch={handlePatch}
-          onNavigateToParent={navigateToParent}
           teamId={task.teamId ?? ''}
           sprintId={task.sprintId ?? null}
           sprint={task.sprint ?? null}
@@ -333,9 +301,6 @@ export function TaskDetailPanel({
             </>
           )}
         </div>
-
-        {/* Subtasks */}
-        <SubtasksSection task={task} onSubtasksCreated={refreshDetail} />
 
         {/* Related Documents */}
         {relatedDocs.length > 0 && (

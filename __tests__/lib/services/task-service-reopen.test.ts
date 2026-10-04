@@ -12,7 +12,6 @@ jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: {
     findForUpdate: jest.fn(),
     update: jest.fn(),
-    findChildren: jest.fn(),
   },
 }))
 jest.mock('@/lib/repositories/activity.repository', () => ({

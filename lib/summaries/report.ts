@@ -120,7 +120,6 @@ Completion Trend (last 30 days):
 ${trendLines}
 
 Average Completion Time: ${stats.avgCompletionTime !== null ? `${stats.avgCompletionTime.toFixed(1)} hours` : 'N/A'}
-Subtask Completion Rate: ${stats.subtaskCompletionRate !== null ? `${(stats.subtaskCompletionRate * 100).toFixed(1)}%` : 'N/A'}
 
 Agent Stats: total=${stats.agentStats.total}, completed=${stats.agentStats.completed}, failed=${stats.agentStats.failed}, working=${stats.agentStats.working}
 PR Stats: total=${stats.prStats.total}, merged=${stats.prStats.merged}, open=${stats.prStats.open}`
@@ -181,7 +180,6 @@ Completion Trend (last 30 days):
 ${trendLines}
 
 Average Completion Time: ${stats.avgCompletionTime !== null ? `${stats.avgCompletionTime.toFixed(1)} hours` : 'N/A'}
-Subtask Completion Rate: ${stats.subtaskCompletionRate !== null ? `${(stats.subtaskCompletionRate * 100).toFixed(1)}%` : 'N/A'}
 
 Agent Stats: total=${stats.agentStats.total}, completed=${stats.agentStats.completed}, failed=${stats.agentStats.failed}, working=${stats.agentStats.working}
 PR Stats: total=${stats.prStats.total}, merged=${stats.prStats.merged}, open=${stats.prStats.open}

@@ -28,8 +28,6 @@ export interface CreateTaskOptions {
   newScope?: boolean
   /** LUM-821: due day, YYYY-MM-DD in the local timezone. */
   due?: string
-  /** LUM-821: parent task identifier (makes this a subtask). */
-  parent?: string
   /** Commander sets this to false for `--no-hints` (LUM-686). */
   hints?: boolean
 }
@@ -268,7 +266,6 @@ export async function taskCreate(
   if (opts.reworkOf !== undefined) body.reworkOfRef = opts.reworkOf
   if (opts.newScope) body.newScope = true
   if (dueDate !== undefined) body.dueDate = dueDate
-  if (opts.parent !== undefined) body.parentRef = opts.parent
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${creds.token}`,

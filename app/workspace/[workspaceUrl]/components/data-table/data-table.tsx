@@ -11,7 +11,7 @@ import {
   type SortingState,
   type Updater,
 } from '@tanstack/react-table'
-import { useState, useMemo, useCallback, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { cn } from '@/lib/utils'
 import {
@@ -34,27 +34,13 @@ declare module '@tanstack/react-table' {
     /** CSS grid track for this column (used by the grid renderer). */
     gridWidth?: string
   }
-
-  interface TableMeta<TData extends RowData> {
-    expanded?: Set<string>
-    toggleExpand?: (id: string) => void
-    getParentId?: (row: TData) => string | null
-    getChildCount?: (row: TData) => number
-  }
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
-interface TreeConfig<TData> {
-  getParentId: (row: TData) => string | null
-  getChildCount: (row: TData) => number
-  getRowId: (row: TData) => string
-}
-
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   onRowClick?: (row: TData) => void
-  treeConfig?: TreeConfig<TData>
   enableSelection?: boolean
   rowSelection?: RowSelectionState
   onRowSelectionChange?: (selection: RowSelectionState) => void
@@ -79,7 +65,6 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   onRowClick,
-  treeConfig,
   enableSelection,
   rowSelection,
   onRowSelectionChange,
@@ -89,52 +74,10 @@ export function DataTable<TData, TValue>({
   flow,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const toggleExpand = useCallback((id: string) => {
-    setExpanded(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
-
-  const getParentId = treeConfig?.getParentId
-
-  // Build tree: root tasks in order, children inserted after their parent
-  const visibleData = useMemo(() => {
-    if (!getParentId || !treeConfig) return data
-    const { getRowId } = treeConfig
-    // Group children by parentId
-    const childrenMap = new Map<string, TData[]>()
-    const roots: TData[] = []
-    for (const row of data) {
-      const parentId = getParentId(row)
-      if (!parentId) {
-        roots.push(row)
-      } else {
-        const siblings = childrenMap.get(parentId)
-        if (siblings) siblings.push(row)
-        else childrenMap.set(parentId, [row])
-      }
-    }
-    // Flatten: root tasks, each followed by children if expanded
-    const result: TData[] = []
-    for (const root of roots) {
-      result.push(root)
-      const id = getRowId(root)
-      if (expanded.has(id)) {
-        const children = childrenMap.get(id)
-        if (children) result.push(...children)
-      }
-    }
-    return result
-  }, [data, getParentId, treeConfig, expanded])
-
   const table = useReactTable({
-    data: visibleData,
+    data,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -149,14 +92,6 @@ export function DataTable<TData, TValue>({
     getRowId:
       getRowId ??
       ((row, index) => String((row as { id?: string }).id ?? index)),
-    meta: treeConfig
-      ? {
-          expanded,
-          toggleExpand,
-          getParentId: treeConfig.getParentId,
-          getChildCount: treeConfig.getChildCount,
-        }
-      : {},
   })
 
   const rows = table.getRowModel().rows
@@ -174,14 +109,10 @@ export function DataTable<TData, TValue>({
   const headerGroup = table.getHeaderGroups()[0]
 
   const renderRow = (row: (typeof rows)[number]) => {
-    const isChild = getParentId?.(row.original) != null
     return (
       <div
         role='row'
-        className={cn(
-          'grid items-center group border-b border-border hover:bg-muted/50 transition-colors cursor-pointer',
-          isChild && 'bg-muted/40'
-        )}
+        className='grid items-center group border-b border-border hover:bg-muted/50 transition-colors cursor-pointer'
         style={{ gridTemplateColumns: columnTemplate, height: ROW_HEIGHT }}
         onClick={() => onRowClick?.(row.original)}
       >

@@ -7,7 +7,7 @@ import { localDayLabel } from '../lib/local-day'
 /**
  * `lumo task history <LUM-N> [--limit N]` (LUM-821) — the task's field-change
  * log (Jira changelog / Linear issue history): status, priority, title,
- * assignee, due date, parent, tags, sprint… from the activity timeline,
+ * assignee, due date, tags, sprint… from the activity timeline,
  * oldest first. Comments are left to `task comments list`.
  */
 
@@ -59,7 +59,7 @@ export function describeActivity(
       return `due ${day(p.from)} → ${day(p.to)}`
     case 'ASSIGNEE_CHANGED':
       return `assignee ${who(p.fromActorId)} → ${who(p.toActorId)}`
-    case 'PARENT_CHANGED':
+    case 'PARENT_CHANGED': // pre-LUM-959 rows only — subtasks were removed
       return p.toTaskId ? 'parent set' : 'parent cleared'
     case 'TAGS_CHANGED': {
       const list = (v: unknown) =>

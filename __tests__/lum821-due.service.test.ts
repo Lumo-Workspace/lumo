@@ -1,15 +1,13 @@
 /**
  * @jest-environment node
  *
- * LUM-821 P1: due date + parent task through the CLI service path, the
- * shared parent rules (self / cross-project / cycle) in updateTask, and the
- * dueDate no-op fix in changedFields.
+ * LUM-821 P1: due date through the CLI service path and the dueDate no-op fix
+ * in changedFields. The parent-task half of LUM-821 was removed in LUM-959;
+ * the CLI schemas now refuse `parentRef` from an older CLI.
  */
 jest.mock('@/lib/repositories/task.repository', () => ({
   taskRepository: {
     findForUpdate: jest.fn(),
-    findProjectIdById: jest.fn(),
-    findChildren: jest.fn(),
     update: jest.fn(),
   },
 }))
@@ -42,53 +40,16 @@ const BASE_TASK = {
   project: { workspaceId: 'ws-1' },
   assigneeActorId: null,
   dueDate: new Date('2026-09-29T16:00:00.000Z'),
-  parentTaskId: null,
 }
 
 beforeEach(() => {
   jest.clearAllMocks()
   repo.findForUpdate!.mockResolvedValue(BASE_TASK)
-  repo.findChildren!.mockResolvedValue([])
   repo.update!.mockImplementation(async (_id: string, data: object) => ({
     ...BASE_TASK,
     ...data,
     team: { identifier: 'LUM' },
   }))
-})
-
-describe('parent rules shared by web and CLI (updateTask)', () => {
-  it('rejects a parent in another project', async () => {
-    repo.findProjectIdById!.mockResolvedValue({ projectId: 'proj-OTHER' })
-    await expect(
-      updateTask('task-1', { parentTaskId: 'task-9' })
-    ).rejects.toMatchObject({
-      status: 400,
-      message: 'Parent task not found in this project',
-    })
-  })
-
-  it('rejects a cycle (the new parent is a descendant)', async () => {
-    repo.findProjectIdById!.mockResolvedValue({ projectId: 'proj-1' })
-    repo.findChildren!.mockImplementation(async (id: string) =>
-      id === 'task-1' ? [{ id: 'task-2' }] : []
-    )
-    await expect(
-      updateTask('task-1', { parentTaskId: 'task-2' })
-    ).rejects.toMatchObject({
-      status: 400,
-      message: 'Cannot create circular parent reference',
-    })
-  })
-
-  it('accepts a valid same-project parent and records the change', async () => {
-    repo.findProjectIdById!.mockResolvedValue({ projectId: 'proj-1' })
-    const r = await updateTask('task-1', { parentTaskId: 'task-3' })
-    expect(repo.update).toHaveBeenCalledWith(
-      'task-1',
-      expect.objectContaining({ parentTaskId: 'task-3' })
-    )
-    expect(r.changedFields).toContain('parentTaskId')
-  })
 })
 
 describe('dueDate change detection', () => {
@@ -110,23 +71,38 @@ describe('dueDate change detection', () => {
 })
 
 describe('CLI schemas', () => {
-  it('create accepts dueDate instant + parentRef', () => {
+  it('create accepts a dueDate instant', () => {
     const r = cliCreateTaskSchema.safeParse({
       title: 't',
       dueDate: '2026-09-29T16:00:00.000Z',
-      parentRef: 'LUM-42',
     })
     expect(r.success && r.data).toMatchObject({
       dueDate: '2026-09-29T16:00:00.000Z',
-      parentRef: 'LUM-42',
     })
   })
-  it('update accepts null to clear both, rejects a bare day', () => {
-    expect(
-      cliUpdateTaskSchema.safeParse({ dueDate: null, parentRef: null }).success
-    ).toBe(true)
+
+  it('update accepts null to clear the due date, rejects a bare day', () => {
+    expect(cliUpdateTaskSchema.safeParse({ dueDate: null }).success).toBe(true)
     expect(
       cliUpdateTaskSchema.safeParse({ dueDate: '2026-09-30' }).success
     ).toBe(false)
+  })
+})
+
+describe('LUM-959: --parent from an older CLI is refused, not dropped', () => {
+  const removed = /Subtasks were removed \(LUM-959\)/
+
+  it('create rejects parentRef with the removal message', () => {
+    const r = cliCreateTaskSchema.safeParse({ title: 't', parentRef: 'LUM-42' })
+    expect(r.success).toBe(false)
+    expect(r.error?.issues[0]?.message).toMatch(removed)
+  })
+
+  it('update rejects parentRef, including the old "" → null detach', () => {
+    for (const parentRef of ['LUM-42', null]) {
+      const r = cliUpdateTaskSchema.safeParse({ parentRef })
+      expect(r.success).toBe(false)
+      expect(r.error?.issues[0]?.message).toMatch(removed)
+    }
   })
 })

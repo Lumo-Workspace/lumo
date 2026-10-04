@@ -121,15 +121,6 @@ function setupDefaultMocks() {
         },
       ])
     }
-    // subtask completion
-    if (where?.parentTaskId) {
-      return Promise.resolve([
-        { status: 'DONE' },
-        { status: 'DONE' },
-        { status: 'TODO' },
-        { status: 'TODO' },
-      ])
-    }
     return Promise.resolve([])
   })
 

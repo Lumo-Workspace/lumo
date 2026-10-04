@@ -42,7 +42,8 @@ async function requireRoot(
   if (kind === 'task') {
     const root = await trashRepository.findTaskRoot(workspaceId, id)
     if (!root) throw httpError('Not found in trash', 404)
-    return { kind, id: root.id, parentId: root.parentTaskId }
+    // LUM-959: tasks have no parent any more.
+    return { kind, id: root.id, parentId: null }
   }
   const root = await trashRepository.findDocumentRoot(workspaceId, id)
   // A document's trash belongs to its owner, like its delete button.
@@ -87,17 +88,15 @@ async function purge(
 // ── Trash Service (LUM-918) ─────────────────────────────────────────────────
 
 export const trashService = {
-  /** Delete = move to trash, with every live subtask. */
+  /**
+   * Delete = move to trash. LUM-959: a task is trashed alone (no subtasks);
+   * groups trashed before that still restore and purge as a whole.
+   */
   async trashTask(taskId: string, clerkId: string, now: Date = new Date()) {
-    const descendants = await collectDescendants(
-      trashRepository.findChildTaskIds,
-      taskId
-    )
-    await trashRepository.markTaskGroupTrashed(taskId, descendants, {
+    await trashRepository.markTaskGroupTrashed(taskId, [], {
       deletedAt: now,
       deletedByClerkId: clerkId,
     })
-    return descendants.length
   },
 
   /** Delete = move to trash, with every live sub-page. */
@@ -160,19 +159,18 @@ export const trashService = {
     memberId: string
   ) {
     const root = await requireRoot(kind, id, workspaceId, memberId)
-    // A root whose parent is gone (trashed separately, or purged) comes back
-    // top-level rather than under a parent nobody can see.
+    if (kind === 'task') {
+      await trashRepository.restoreTask(root.id)
+      return
+    }
+    // A document whose parent is gone (trashed separately, or purged) comes
+    // back top-level rather than under a parent nobody can see.
     const parentLive = !root.parentId
       ? true
-      : kind === 'task'
-        ? await trashRepository.isTaskLive(root.parentId)
-        : await trashRepository.isDocumentLive(root.parentId)
-    const opts = { detachFromParent: !parentLive }
-    if (kind === 'task') {
-      await trashRepository.restoreTask(root.id, opts)
-    } else {
-      await trashRepository.restoreDocument(root.id, opts)
-    }
+      : await trashRepository.isDocumentLive(root.parentId)
+    await trashRepository.restoreDocument(root.id, {
+      detachFromParent: !parentLive,
+    })
   },
 
   /** Permanently delete now — the immediate-erasure path for one item. */

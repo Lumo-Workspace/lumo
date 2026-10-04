@@ -10,7 +10,7 @@ import type { PrismaClient } from '@prisma/client'
  * (the trash list, restore, purge) is passed through untouched.
  *
  * Not covered — callers filter these themselves: relation reads through
- * another model (`include: { subTasks }`, `_count: { tasks }`, a
+ * another model (`include: { tasks }`, `_count: { tasks }`, a
  * `where: { task: … }` relation filter) and raw SQL.
  */
 export const SOFT_DELETE_MODELS = ['task', 'document'] as const

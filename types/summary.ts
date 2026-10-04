@@ -63,7 +63,6 @@ export interface TaskSummaryStats {
   }>
   completionTrend: Array<{ date: string; completed: number }>
   avgCompletionTime: number | null
-  subtaskCompletionRate: number | null
   agentStats: {
     total: number
     completed: number

@@ -12,7 +12,6 @@ export interface UpdateTaskInput {
   priority?: string | undefined
   order?: number | undefined
   dueDate?: string | null | undefined
-  parentTaskId?: string | null | undefined
   assigneeActorId?: string | null | undefined
   projectId?: string | undefined
   sprintId?: string | null | undefined

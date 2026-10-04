@@ -62,7 +62,6 @@ interface WorkspaceModalsProps {
   selectedProject: ApiProject | null
   onCloseTask: () => void
   onUpdateTask: (taskId: string, data: Record<string, unknown>) => Promise<void>
-  onTasksChanged: () => void
 
   // New task modal
   isNewTaskModalOpen: boolean
@@ -139,7 +138,6 @@ export function WorkspaceModals({
   selectedProject,
   onCloseTask,
   onUpdateTask,
-  onTasksChanged,
   isNewTaskModalOpen,
   setIsNewTaskModalOpen,
   newTaskDefaultAssigneeId,
@@ -227,7 +225,6 @@ export function WorkspaceModals({
                       desc: description,
                     })
                   }}
-                  onTasksChanged={onTasksChanged}
                 />
               )
             })()}

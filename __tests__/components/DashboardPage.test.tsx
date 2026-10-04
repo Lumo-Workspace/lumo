@@ -100,7 +100,6 @@ const stats: WorkspaceSummaryStats = {
     { date: '2026-07-21', completed: 3 },
   ],
   avgCompletionTime: 12.5,
-  subtaskCompletionRate: 0.5,
   agentStats: { total: 2, completed: 1, failed: 0, working: 1 },
   prStats: { total: 4, merged: 3, open: 1 },
   topBlockers: {

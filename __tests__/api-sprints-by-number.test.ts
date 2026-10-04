@@ -74,9 +74,6 @@ const rawTask = {
   status: 'IN_PROGRESS',
   team: { identifier: 'LUM' },
   project: { id: 'p-1', name: 'Lumo', owner: { actor: { id: 'actor-9' } } },
-  parent: null,
-  children: [],
-  _count: { children: 0 },
 }
 
 describe('GET /api/sprints/by-number', () => {
@@ -139,7 +136,6 @@ describe('GET /api/sprints/by-number', () => {
       teamIdentifier: 'LUM',
       viewOrder: null,
       project: { id: 'p-1', name: 'Lumo', ownerActorId: 'actor-9' },
-      childrenDoneCount: 0,
     })
     // tasks are fetched for the resolved sprint id, in parallel with counts
     expect(mockFindBySprint).toHaveBeenCalledWith('s-1')

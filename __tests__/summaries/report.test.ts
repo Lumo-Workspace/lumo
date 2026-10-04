@@ -29,7 +29,6 @@ function makeStats(): TaskSummaryStats {
     memberWorkload: [],
     completionTrend: [],
     avgCompletionTime: 24,
-    subtaskCompletionRate: null,
     agentStats: { total: 5, completed: 3, failed: 2, working: 0 },
     prStats: { total: 4, merged: 2, open: 2 },
     topBlockers: EMPTY_BLOCKERS,

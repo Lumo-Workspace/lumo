@@ -205,7 +205,6 @@ export interface TaskUpdateData {
   priority?: TaskPriority | string | undefined
   order?: number | undefined
   dueDate?: string | Date | null | undefined
-  parentTaskId?: string | null | undefined
   assigneeActorId?: string | null | undefined
   projectId?: string | undefined
   sprintId?: string | null | undefined
@@ -266,20 +265,6 @@ const TASK_DETAIL_INCLUDE = {
     },
     orderBy: { createdAt: 'desc' as const },
   },
-  parent: {
-    select: {
-      id: true,
-      title: true,
-      number: true,
-      team: { select: { identifier: true } },
-    },
-  },
-  // LUM-918: relation reads bypass the soft-delete extension — filter here.
-  children: {
-    where: { deletedAt: null },
-    select: { id: true, title: true, number: true, status: true },
-    orderBy: { number: 'asc' as const },
-  },
   sprint: {
     select: {
       id: true,
@@ -330,20 +315,6 @@ const TASK_LIST_INCLUDE = {
       agent: { select: { id: true, name: true, avatarColor: true } },
     },
   },
-  parent: {
-    select: {
-      id: true,
-      title: true,
-      number: true,
-      team: { select: { identifier: true } },
-    },
-  },
-  // LUM-918: relation reads bypass the soft-delete extension — filter here.
-  _count: { select: { children: { where: { deletedAt: null } } } },
-  children: {
-    where: { status: 'DONE' as const, deletedAt: null },
-    select: { id: true },
-  },
 } as const
 
 /** Agent-state fields + workspace pointer for cancel / resume / status / confirm-spec / respond. */
@@ -365,14 +336,6 @@ const TASK_MEMORY_CONTEXT_SELECT = {
   projectId: true,
   project: { select: { workspaceId: true } },
   team: { select: { identifier: true } },
-} as const
-
-/** Compact shape for decompose: title + description + the workspaceId auth check. */
-const TASK_DECOMPOSE_SELECT = {
-  id: true,
-  title: true,
-  description: true,
-  project: { select: { workspaceId: true } },
 } as const
 
 /** Comment-creation context: needs team identifier + workspace slug to build mention links. */
@@ -429,7 +392,7 @@ const TASK_DUPLICATE_CHECK_SELECT = {
   },
 } as const
 
-/** Assignee-board shape: project owner actor + team identifier + parent + DONE-children count. */
+/** Assignee-board shape: project owner actor + team identifier. */
 const TASK_ASSIGNED_INCLUDE = {
   // Board filtering also offers sprint / milestone, which need names not just
   // the scalar FKs. Same shape as TASK_DETAIL_INCLUDE so the JSON contract for
@@ -455,20 +418,6 @@ const TASK_ASSIGNED_INCLUDE = {
       member: { select: { id: true, clerkId: true } },
       agent: { select: { id: true, name: true, avatarColor: true } },
     },
-  },
-  parent: {
-    select: {
-      id: true,
-      title: true,
-      number: true,
-      team: { select: { identifier: true } },
-    },
-  },
-  // LUM-918: relation reads bypass the soft-delete extension — filter here.
-  _count: { select: { children: { where: { deletedAt: null } } } },
-  children: {
-    where: { status: 'DONE' as const, deletedAt: null },
-    select: { id: true },
   },
 } as const
 
@@ -665,14 +614,6 @@ export const taskRepository = {
     await prisma.task.delete({ where: { id } })
   },
 
-  /** Find all children of a task (direct descendants only). */
-  async findChildren(parentId: string) {
-    return prisma.task.findMany({
-      where: { parentTaskId: parentId },
-      select: { id: true },
-    })
-  },
-
   /** Find task status by ID (lightweight query for state machine). */
   async findStatus(id: string) {
     return prisma.task.findUnique({ where: { id }, select: { status: true } })
@@ -751,7 +692,7 @@ export const taskRepository = {
     })
   },
 
-  /** Find all tasks assigned to an actor, with project/team/parent/children details. */
+  /** Find all tasks assigned to an actor, with project/team details. */
   async findAssignedTasks(
     actorId: string,
     opts: { sprintIds?: string[] } = {}
@@ -825,14 +766,6 @@ export const taskRepository = {
     return prisma.task.findUnique({
       where: { id },
       include: TASK_AUTH_INCLUDE,
-    })
-  },
-
-  /** Find a task by ID for decompose (title, description, project workspaceId). */
-  async findForDecompose(id: string) {
-    return prisma.task.findUnique({
-      where: { id },
-      select: TASK_DECOMPOSE_SELECT,
     })
   },
 
@@ -1053,28 +986,12 @@ export const taskRepository = {
     })
   },
 
-  /** Find tasks by IDs within a project (for batch parent validation). */
-  async findByIds(ids: string[], projectId: string) {
-    return prisma.task.findMany({
-      where: { id: { in: ids }, projectId },
-      select: { id: true },
-    })
-  },
-
-  /** Find the max order among sibling tasks. */
-  async findMaxOrder(projectId: string, parentTaskId: string | null) {
+  /** Find the max order among a project's tasks. */
+  async findMaxOrder(projectId: string) {
     return prisma.task.findFirst({
-      where: { projectId, parentTaskId },
+      where: { projectId },
       orderBy: { order: 'desc' },
       select: { order: true },
-    })
-  },
-
-  /** Find a task by ID with only id and projectId (for lightweight validation). */
-  async findProjectIdById(id: string) {
-    return prisma.task.findUnique({
-      where: { id },
-      select: { id: true, projectId: true },
     })
   },
 
@@ -1104,7 +1021,6 @@ export const taskRepository = {
     priority: TaskPriority
     assigneeActorId: string | null
     agentStatus: AgentStatus | null
-    parentTaskId: string | null
     sprintId?: string | null
     milestoneId?: string | null
     order: number | undefined
@@ -1130,7 +1046,6 @@ export const taskRepository = {
           priority: data.priority,
           assigneeActorId: data.assigneeActorId,
           agentStatus: data.agentStatus,
-          parentTaskId: data.parentTaskId,
           sprintId: data.sprintId ?? null,
           milestoneId: data.milestoneId ?? null,
           ...(data.order !== undefined ? { order: data.order } : {}),
@@ -1161,85 +1076,6 @@ export const taskRepository = {
       ...task,
       teamIdentifier: task.team.identifier,
     }
-  },
-
-  /** Batch-create tasks in a transaction (with team seq increment). */
-  async batchCreateWithSequence(
-    projectId: string,
-    teamId: string,
-    taskInputs: {
-      title: string
-      status: TaskStatus
-      priority: TaskPriority
-      assigneeActorId?: string | null | undefined
-      parentTaskId: string
-    }[]
-  ) {
-    const createdIds = await prisma.$transaction(async tx => {
-      const { taskSeq } = await tx.team.update({
-        where: { id: teamId },
-        data: { taskSeq: { increment: taskInputs.length } },
-        select: { taskSeq: true },
-      })
-
-      const parentIds = [...new Set(taskInputs.map(t => t.parentTaskId))]
-      const siblingCounts = new Map<string, number>()
-      for (const parentId of parentIds) {
-        const count = await tx.task.count({
-          where: { parentTaskId: parentId },
-        })
-        siblingCounts.set(parentId, count)
-      }
-
-      const ids: string[] = []
-      for (let i = 0; i < taskInputs.length; i++) {
-        const input = taskInputs[i]!
-        const siblingCount = siblingCounts.get(input.parentTaskId) ?? 0
-
-        const task = await tx.task.create({
-          data: {
-            projectId,
-            teamId,
-            number: taskSeq - taskInputs.length + 1 + i,
-            ...redactStoredFields(
-              { title: input.title },
-              STORAGE_REDACTED_FIELDS.task
-            ),
-            status: input.status,
-            priority: input.priority,
-            assigneeActorId: input.assigneeActorId ?? null,
-            parentTaskId: input.parentTaskId,
-            order: siblingCount + i,
-          },
-        })
-
-        ids.push(task.id)
-        siblingCounts.set(input.parentTaskId, siblingCount + i + 1)
-      }
-
-      return ids
-    })
-
-    // Re-fetch with includes outside transaction for proper type inference
-    const tasks = await prisma.task.findMany({
-      where: { id: { in: createdIds } },
-      include: {
-        team: { select: { identifier: true } },
-        assignee: {
-          select: {
-            id: true,
-            type: true,
-            member: { select: { id: true, clerkId: true } },
-            agent: { select: { id: true, name: true, avatarColor: true } },
-          },
-        },
-      },
-    })
-
-    return tasks.map(task => ({
-      ...task,
-      teamIdentifier: task.team.identifier,
-    }))
   },
 
   /**

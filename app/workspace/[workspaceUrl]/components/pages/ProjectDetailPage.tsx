@@ -124,7 +124,6 @@ export function ProjectDetailPage({
     options: displayOptions,
     setCompletedFilter,
     setOrdering,
-    setShowSubtasks,
   } = useDisplayOptions(CACHE_KEY.displayProject(project.id))
 
   const memberNameMap = useMemo(
@@ -154,16 +153,12 @@ export function ProjectDetailPage({
   )
 
   const filteredTasks = useMemo(() => {
-    let result = filterCompletedTasks(tasks, displayOptions.completedFilter)
-    if (!displayOptions.showSubtasks) {
-      result = result.filter(t => !t.parentTaskId)
-    }
+    const result = filterCompletedTasks(tasks, displayOptions.completedFilter)
     return sortTasks(result, displayOptions.ordering, undefined, getMemberName)
   }, [
     tasks,
     displayOptions.completedFilter,
     displayOptions.ordering,
-    displayOptions.showSubtasks,
     getMemberName,
   ])
 
@@ -285,7 +280,6 @@ export function ProjectDetailPage({
           displayOptions={displayOptions}
           setCompletedFilter={setCompletedFilter}
           setOrdering={setOrdering}
-          setShowSubtasks={setShowSubtasks}
           sensors={sensors}
           activeId={activeId}
           onDragStart={onDragStart}

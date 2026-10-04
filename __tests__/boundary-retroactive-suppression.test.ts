@@ -184,7 +184,6 @@ const TASK = {
   project: { workspaceId: 'w-1' },
   sprintId: null,
   assigneeActorId: null,
-  parentTaskId: null,
 }
 
 const TARGET = 'actionrule:a8c320ced05a3a87'

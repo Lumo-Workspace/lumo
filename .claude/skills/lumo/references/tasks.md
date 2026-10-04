@@ -15,7 +15,6 @@ Use this when the user wants to file a new task from the terminal. Title is posi
 | `--milestone <ref>`      | string | Milestone name (case-insensitive) within the resolved project. Omit for no binding. |
 | `--sprint <ref>`         | string | Sprint number or UUID to bind the task to on creation. Omit for no sprint binding.  |
 | `--due <date>`           | string | Due date `YYYY-MM-DD`, your local day (same convention as the web due-date picker). |
-| `--parent <id>`          | string | Parent task `LUM-N` in the same project — creates this as a subtask.                |
 | `--tag <name>`           | string | Attach a tag by name (repeatable). The name is resolved to an id server-side.       |
 | `--tag-id <cuid>`        | string | Attach a tag by cuid (repeatable). Combines with `--tag`.                           |
 
@@ -66,7 +65,6 @@ Pure flag-driven update. Provide at least one of:
 | `--milestone <ref>`      | string              | Milestone name (case-insensitive) within the task's project. `--milestone ""` unbinds.                                                                                                                                                                                |
 | `--sprint <ref>`         | string              | Sprint number or UUID to bind the task to. `--sprint ""` clears the current sprint binding (idempotent when already unbound).                                                                                                                                         |
 | `--due <date>`           | string              | Due date `YYYY-MM-DD` (your local day). `--due ""` clears it.                                                                                                                                                                                                         |
-| `--parent <id>`          | string              | Parent task `LUM-N` (same project) — makes this a subtask. A self, cross-project or circular parent is refused (400). `--parent ""` detaches it.                                                                                                                      |
 | `--claimable`            | boolean             | LUM-646: mark the task agent-claimable (fail-closed default is false). Surfaces the task in `lumo next --claimable`. Mutually exclusive with `--not-claimable`.                                                                                                       |
 | `--not-claimable`        | boolean             | LUM-646: mark the task NOT agent-claimable. Mutually exclusive with `--claimable`.                                                                                                                                                                                    |
 | `--tag <name>`           | string (repeatable) | **Bulk replace** the tag set by name. Creates tag if missing. Max 20. Mutually exclusive with `--add-tag*` / `--remove-tag*`.                                                                                                                                         |
@@ -178,7 +176,7 @@ Task LUM-48 has no sprint binding   # noop (already unbound)
 
 ### Out of scope
 
-The CLI does **not** currently update due date or parent task. Those need to be edited in the web UI.
+There are no subtasks — the parent/child hierarchy and `--parent` were removed in LUM-959 (an older CLI that still sends `--parent` gets a 400). Group related tasks with a milestone, express "A before B" with `lumo task deps add`, and fold small follow-ups into the original task rather than spinning off a child.
 
 Milestone updates (`--milestone`) and sprint binding (`--sprint`) both work. Full milestone CRUD is available via `lumo milestone create / show / update / delete`, tasks can be bound/unbound in bulk via `lumo milestone add / remove <identifier> <task...>`, and milestones can be manually reordered via `lumo milestone reorder <ref...>` / `lumo milestone move <ref> --before|--after <ref>` (see below). Full sprint CRUD is available via `lumo sprint create / show / update / delete / start / close / add / remove` (see below).
 
@@ -307,7 +305,7 @@ When to suggest: the user asks "what should I work on", "what's next", "recommen
 
 ### `lumo task show <identifier>` — print one task's detail
 
-Returns a key:value block for a single task — title, status, priority, project, assignee (with display name from Clerk), due date and parent when set, URL, a `Subtasks (N):` list when it has children, and the full description below. Lighter than `task context` because it does not load prior session summaries or memory.
+Returns a key:value block for a single task — title, status, priority, project, assignee (with display name from Clerk), due date when set, URL, and the full description below. Lighter than `task context` because it does not load prior session summaries or memory.
 
 ```bash
 lumo task show LUM-42
@@ -317,7 +315,7 @@ Use when the user wants the current state of a task without the agent-handoff pa
 
 ### `lumo task history <identifier> [-n <count>] [--json]` — field-change log (LUM-821)
 
-The task's changelog, oldest first: `YYYY-MM-DD HH:MM  actor  change` for status, priority, title, description, assignee, due date, parent, tags and sprint changes (milestone / project moves are not recorded). Default last 30; `-n` raises it. Comments are not included — use `task comments list`.
+The task's changelog, oldest first: `YYYY-MM-DD HH:MM  actor  change` for status, priority, title, description, assignee, due date, tags and sprint changes (tasks created before LUM-959 may also show old `parent set` / `parent cleared` rows) (milestone / project moves are not recorded). Default last 30; `-n` raises it. Comments are not included — use `task comments list`.
 
 ```bash
 lumo task history LUM-42
@@ -325,7 +323,7 @@ lumo task history LUM-42
 
 ### `lumo task delete <identifier>` — move a task to the trash (LUM-821, LUM-918)
 
-Moves the task **and its subtasks** to the trash. They are restorable for **30 days** from the web app's **Settings → Trash**, then the daily purge deletes them permanently. While trashed they are hidden from lists, search, `lumo next` and task context; comments, test cases and history are kept and come back on restore. Without `--confirm` it exits 4 with an envelope saying exactly this — relay it and wait for the user; never add `--confirm` yourself. To erase a task at once (e.g. a GDPR erasure request), the user deletes it permanently from Settings → Trash — there is no CLI flag for that. Prefer `task update --status done` or re-scoping for work that merely stopped mattering.
+Moves the task to the trash. It is restorable for **30 days** from the web app's **Settings → Trash**, then the daily purge deletes it permanently. While trashed it is hidden from lists, search, `lumo next` and task context; comments, test cases and history are kept and come back on restore. Without `--confirm` it exits 4 with an envelope saying exactly this — relay it and wait for the user; never add `--confirm` yourself. To erase a task at once (e.g. a GDPR erasure request), the user deletes it permanently from Settings → Trash — there is no CLI flag for that. Prefer `task update --status done` or re-scoping for work that merely stopped mattering.
 
 ```bash
 lumo task delete LUM-42

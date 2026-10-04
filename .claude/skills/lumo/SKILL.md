@@ -69,12 +69,12 @@ The command catalog below is a **map**: it lists every command grouped by domain
 ### Tasks — see [tasks.md](references/tasks.md)
 
 - `lumo task create <title> [flags]` — create a task. **Mid-task** (your session is bound to an in-flight task) it requires `--rework-of <id>` (redirects you to fix the existing task — creates nothing) or `--new-scope` (genuinely new, out-of-scope work). On a review bounce, fix in place instead of spinning off a new task — see [task-status.md](references/task-status.md).
-- `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags/due/parent; `--claimable`/`--not-claimable` set the agent-claimable marker (LUM-646). `--status done` without `--confirm` exits 4 with a confirmation envelope (see [confirmation.md](references/confirmation.md))
+- `lumo task update <id> [flags]` — patch status/title/priority/assignee/milestone/sprint/tags/due; `--claimable`/`--not-claimable` set the agent-claimable marker (LUM-646). `--status done` without `--confirm` exits 4 with a confirmation envelope (see [confirmation.md](references/confirmation.md))
 - `lumo task list [flags]` — list tasks assigned to you
 - `lumo task search [query] [flags]` — search the whole workspace (any assignee; `--assignee none`, `--tag`, `--status`, `--priority`, `--sprint`, `--due-before/--due-after`); query terms are ANDed and ranked; typo tolerance (`pg_trgm`, then letter swaps) only kicks in when nothing matches exactly, off with `--exact`
 - `lumo task statuses` — status set + allowed transitions + priorities, as the server defines them
-- `lumo task history <id>` — field-change log (status/priority/assignee/due/parent/tags…), oldest first
-- `lumo task delete <id>` — moves the task + its subtasks to the trash (restorable 30 days from web Settings → Trash, then purged); exits 4 without `--confirm`
+- `lumo task history <id>` — field-change log (status/priority/assignee/due/tags…), oldest first
+- `lumo task delete <id>` — moves the task to the trash (restorable 30 days from web Settings → Trash, then purged); exits 4 without `--confirm`
 - `lumo next [--count N] [--claimable]` — recommend the next task to work on (read-only). `--claimable` restricts to the autonomy boundary: only tasks that are claimable ∩ unblocked (F3 topology) ∩ within milestone budget (F2); old server degrades gracefully to the standard ranking (LUM-646)
 - `lumo task show <id>` — print one task's detail
 - `lumo task comment <id> <body> [--reply-to <comment>]` — leave a comment or a reply (`#id` from `comments list`)
@@ -210,6 +210,7 @@ Silence it with `--no-hints` on any command, or `LUMO_NO_HINTS=1` for a whole sh
 Don't guess these:
 
 - No `lumo verify`, `lumo task criteria …`, `lumo criteria audit` or `lumo outcome rate` (removed in LUM-942 with task acceptance criteria) — and no `lumo verdict`, `lumo fidelity`, `lumo outcome record` (LUM-733). Evidence is test cases (`lumo task testcase`); milestone exit criteria (`lumo milestone criteria`) remain
+- No subtasks / `--parent` (removed in LUM-959) — group related tasks with a milestone, order them with `task deps add`, and fold small follow-ups into the original task
 - No `lumo session start` — binding is `lumo session attach <LUM-N>`
 - No `lumo session detach` — the session↔task binding is a lifetime lock; to work on a different task, start a new Claude Code session
 - No steward "role switch" or un-steward — `session attach --steward` is the same lifetime lock on a milestone; a steward session never converts to an implementation session (and there is no CLI path to clear its boundary crossings)

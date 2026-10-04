@@ -18,7 +18,6 @@ describe('TaskSummaryStats', () => {
       ],
       completionTrend: [{ date: '2026-04-01', completed: 2 }],
       avgCompletionTime: 8,
-      subtaskCompletionRate: 75,
       agentStats: { total: 2, completed: 1, failed: 0, working: 1 },
       prStats: { total: 3, merged: 2, open: 1 },
       topBlockers: {
@@ -44,7 +43,6 @@ describe('TaskSummaryStats', () => {
       memberWorkload: [],
       completionTrend: [],
       avgCompletionTime: null,
-      subtaskCompletionRate: null,
       agentStats: { total: 0, completed: 0, failed: 0, working: 0 },
       prStats: { total: 0, merged: 0, open: 0 },
       topBlockers: {
@@ -57,7 +55,6 @@ describe('TaskSummaryStats', () => {
       },
     }
     expect(stats.avgCompletionTime).toBeNull()
-    expect(stats.subtaskCompletionRate).toBeNull()
   })
 })
 
@@ -77,7 +74,6 @@ describe('ApiProjectSummary', () => {
         memberWorkload: [],
         completionTrend: [],
         avgCompletionTime: null,
-        subtaskCompletionRate: null,
         agentStats: { total: 0, completed: 0, failed: 0, working: 0 },
         prStats: { total: 0, merged: 0, open: 0 },
         topBlockers: {
@@ -111,7 +107,6 @@ describe('ApiWorkspaceSummary', () => {
         memberWorkload: [],
         completionTrend: [],
         avgCompletionTime: 12,
-        subtaskCompletionRate: 50,
         agentStats: { total: 4, completed: 3, failed: 1, working: 0 },
         prStats: { total: 6, merged: 4, open: 2 },
         topBlockers: {

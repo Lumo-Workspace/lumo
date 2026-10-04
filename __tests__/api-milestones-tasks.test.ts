@@ -45,9 +45,6 @@ const rawTask = {
     name: 'Lumo',
     owner: { actor: { id: 'actor-9' } },
   },
-  parent: null,
-  children: [],
-  _count: { children: 0 },
 }
 
 describe('GET /api/milestones/[id]/tasks', () => {
@@ -70,8 +67,6 @@ describe('GET /api/milestones/[id]/tasks', () => {
       id: 't-1',
       teamIdentifier: 'LUM',
       project: { id: 'p-1', name: 'Lumo', ownerActorId: 'actor-9' },
-      parent: null,
-      childrenDoneCount: 0,
     })
     expect(mockList).toHaveBeenCalledWith('m-1', 'mem-1', {})
     expect(mockActor).not.toHaveBeenCalled()

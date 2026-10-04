@@ -18,7 +18,6 @@ import { prisma } from '@/lib/db/prisma'
 import { taskRepository } from '@/lib/repositories/task.repository'
 
 const mockFindUnique = prisma.task.findUnique as jest.Mock
-const mockFindMany = prisma.task.findMany as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -47,19 +46,5 @@ describe('taskRepository.findById', () => {
     const result = await taskRepository.findById('nonexistent')
 
     expect(result).toBeNull()
-  })
-})
-
-describe('taskRepository.findChildren', () => {
-  it('returns direct children of a task', async () => {
-    mockFindMany.mockResolvedValueOnce([{ id: 'child-1' }, { id: 'child-2' }])
-    const result = await taskRepository.findChildren('parent')
-    expect(result).toEqual([{ id: 'child-1' }, { id: 'child-2' }])
-  })
-
-  it('returns empty array when no children', async () => {
-    mockFindMany.mockResolvedValueOnce([])
-    const result = await taskRepository.findChildren('parent')
-    expect(result).toEqual([])
   })
 })

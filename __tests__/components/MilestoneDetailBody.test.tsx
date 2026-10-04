@@ -109,7 +109,7 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useMilestoneTasks', () => {
   const tasks = [
     { id: 't1', status: 'TODO', projectId: 'p1' },
     { id: 't2', status: 'DONE', projectId: 'p1' },
-    { id: 't3', status: 'IN_PROGRESS', projectId: 'p1', parentTaskId: 't1' },
+    { id: 't3', status: 'IN_PROGRESS', projectId: 'p1' },
   ]
   const refetch = () => {}
   return {
@@ -274,12 +274,12 @@ test('renders every milestone task in the shared list with no filter, display or
   // Grown into the page's scroll flow — no second scrollbar inside the page.
   expect(list.getAttribute('data-flow')).toBe('1')
 
-  // Every task in the milestone reaches the table — DONE and subtasks
+  // Every task in the milestone reaches the table — DONE
   // included. The milestone IS the filter; nothing is hidden by default.
   expect(list.getAttribute('data-statuses')).toBe('TODO,DONE,IN_PROGRESS')
 
   // Nothing sits between the section heading and the table: no filter menu,
-  // no display (completed / ordering / subtasks) menu, no board toggle.
+  // no display (completed / ordering) menu, no board toggle.
   for (const id of [
     'filter.menuTrigger',
     'display.menuTrigger',

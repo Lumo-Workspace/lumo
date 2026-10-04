@@ -88,10 +88,9 @@ jest.mock('@/app/workspace/[workspaceUrl]/hooks/useBoardSensors', () => ({
 }))
 jest.mock('@/app/workspace/[workspaceUrl]/hooks/useDisplayOptions', () => ({
   useDisplayOptions: () => ({
-    options: { completedFilter: 'all', ordering: 'manual', showSubtasks: true },
+    options: { completedFilter: 'all', ordering: 'manual' },
     setCompletedFilter: () => {},
     setOrdering: () => {},
-    setShowSubtasks: () => {},
   }),
 }))
 

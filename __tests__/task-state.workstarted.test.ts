@@ -41,7 +41,6 @@ const TODO_TASK = {
   project: { workspaceId: 'w-1' },
   sprintId: null,
   assigneeActorId: null,
-  parentTaskId: null,
   workStartedAt: null,
 }
 

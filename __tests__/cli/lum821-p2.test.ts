@@ -80,7 +80,6 @@ describe('task delete', () => {
           identifier: 'LUM-9',
           title: 'Old spike',
           status: 'TODO',
-          subtasks: [{ identifier: 'LUM-10' }],
           pullRequests: [{ number: 42 }],
         },
       })
@@ -88,16 +87,15 @@ describe('task delete', () => {
       json({ deleted: { identifier: 'LUM-9', title: 'Old spike' } })
   })
 
-  it('without --confirm: exit 4, envelope names the task and what goes with it, no DELETE', async () => {
+  it('without --confirm: exit 4, envelope names the task and its linked PRs, no DELETE', async () => {
     expect(await taskDelete('LUM-9', {})).toBe(EXIT_CONFIRMATION_REQUIRED)
     expect(method('DELETE')).toHaveLength(0)
     const env = JSON.parse(out)
     expect(env.changes[0]).toContain(
       'Will move LUM-9 "Old spike" (TODO) to the trash'
     )
-    expect(env.changes.join('\n')).toContain(
-      '1 subtask goes to the trash with it: LUM-10'
-    )
+    expect(env.changes.join('\n')).toContain('Linked PR(s) #42 stay on GitHub')
+    expect(env.changes.join('\n')).not.toMatch(/subtask/)
     expect(env.confirmCommand).toMatch(/ --confirm$/)
   })
 
@@ -107,7 +105,7 @@ describe('task delete', () => {
     expect(out).toContain('Moved LUM-9 "Old spike" to the trash')
   })
 
-  it('describeTaskDelete omits subtask / PR lines when there are none', () => {
+  it('describeTaskDelete omits the PR line when there are none', () => {
     const lines = describeTaskDelete({
       identifier: 'LUM-1',
       title: 't',

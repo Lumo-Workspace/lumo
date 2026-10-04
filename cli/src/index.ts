@@ -892,7 +892,7 @@ task
 task
   .command('history <identifier>')
   .description(
-    'Show the task field-change history (status, priority, title, assignee, due, parent, tags, sprint), oldest first.'
+    'Show the task field-change history (status, priority, title, assignee, due, tags, sprint), oldest first.'
   )
   .option('-n, --limit <count>', 'Show the last N entries (default 30)')
   .option('--json', 'Emit the raw activity entries as JSON')
@@ -982,10 +982,6 @@ task
   .option('--project <ref>', 'Project name or slug')
   .option('--milestone <ref>', 'Milestone name (case-insensitive)')
   .option('--due <date>', 'Due date, YYYY-MM-DD (your local day)')
-  .option(
-    '--parent <id>',
-    'Parent task (LUM-N, same project) — creates this as a subtask'
-  )
   .option('--tag <name>', 'Attach tag by name (repeatable)', collect, [])
   .option('--tag-id <cuid>', 'Attach tag by id (repeatable)', collect, [])
   .option(
@@ -2556,10 +2552,6 @@ task
   .option(
     '--due <date>',
     'Due date, YYYY-MM-DD (your local day); empty string to clear'
-  )
-  .option(
-    '--parent <id>',
-    'Parent task (LUM-N, same project); empty string to detach from its parent'
   )
   .option(
     '--claimable',

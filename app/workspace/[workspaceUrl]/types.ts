@@ -20,7 +20,6 @@ export interface Task {
   priority: Priority
   updatedAt: string
   description?: string
-  subtasks?: string[]
   projectId?: string
 }
 
@@ -205,7 +204,6 @@ export interface ApiTask {
   priority: ApiPriority
   projectId: string
   teamId?: string
-  parentTaskId: string | null
   assigneeActorId: string | null
   assignee?: ActorInfo | null
   agentStatus?: AgentStatusValue | null
@@ -217,14 +215,6 @@ export interface ApiTask {
   teamIdentifier: string
   /** Populated when task is loaded via /api/tasks/me */
   project?: { id: string; name: string }
-  parent?: {
-    id: string
-    number: number
-    teamIdentifier: string
-    title: string
-  } | null
-  _count?: { children: number }
-  childrenDoneCount?: number
   /** Populated on list payloads that lift the taskTags join (board filtering). */
   tags?: ApiTag[]
   sprintId?: string | null
@@ -352,13 +342,6 @@ export interface TaskDetail {
     workspaceId?: string
     ownerId?: string | null
   }
-  parentTaskId: string | null
-  parent?: {
-    id: string
-    number: number
-    teamIdentifier: string
-    title: string
-  } | null
   assigneeActorId: string | null
   assignee: ActorInfo | null
   description: string | null
@@ -366,7 +349,6 @@ export interface TaskDetail {
   dueDate?: string | null
   number: number
   teamIdentifier: string
-  children?: { id: string; title: string; number: number; status: string }[]
   pullRequests?: ApiPullRequest[]
   branches?: ApiTaskBranch[]
   agentStatus?: string | null

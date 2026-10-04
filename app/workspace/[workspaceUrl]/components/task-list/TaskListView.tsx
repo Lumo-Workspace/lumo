@@ -11,12 +11,6 @@ import {
 } from '../data-table/columnTemplate'
 import type { ApiTask, ApiProject, WorkspaceMemberInfo } from '../../types'
 
-interface TreeConfig {
-  getParentId: (t: ApiTask) => string | null
-  getChildCount: (t: ApiTask) => number
-  getRowId: (t: ApiTask) => string
-}
-
 interface Props {
   tasks: ApiTask[]
   members: WorkspaceMemberInfo[]
@@ -31,8 +25,6 @@ interface Props {
   onDeleteTask: (taskId: string) => Promise<void>
   rowSelection: RowSelectionState
   onRowSelectionChange: (s: RowSelectionState) => void
-  /** Project-tasks only — enables the subtask expand/collapse tree. */
-  treeConfig?: TreeConfig
   emptyLabel?: string
   /** Grow with the page's scroll flow instead of owning an internal scroll
    * region — see {@link DataTable}'s `flow`. */
@@ -89,7 +81,6 @@ export function TaskListView(props: Props) {
         rowSelection={props.rowSelection}
         onRowSelectionChange={props.onRowSelectionChange}
         getRowId={(row: ApiTask) => row.id}
-        {...(props.treeConfig ? { treeConfig: props.treeConfig } : {})}
         {...(props.emptyLabel ? { emptyLabel: props.emptyLabel } : {})}
       />
     </div>

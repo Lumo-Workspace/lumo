@@ -48,7 +48,6 @@ const FAST_TIER_CALL_SITES = [
 // 桶2 GENERATION call sites (LUM-588) — repointed from REASONING_MODEL (Sonnet)
 // to GENERATION_MODEL (deepseek-v4-pro). Paths relative to repo root.
 const GENERATION_CALL_SITES = [
-  'app/api/tasks/[id]/decompose/route.ts',
   'app/api/tasks/suggest-priority/route.ts',
   'lib/llm/run-summary-client.ts',
   'lib/llm/sprint-summary-client.ts',

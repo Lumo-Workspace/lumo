@@ -31,7 +31,6 @@ export async function aggregateProjectStats(
     overdueTasks,
     assigneeGroups,
     doneTasks,
-    subtasks,
     agentGroups,
     prTotal,
     prMerged,
@@ -76,13 +75,6 @@ export async function aggregateProjectStats(
     prisma.task.findMany({
       where: { projectId, status: 'DONE' },
       select: { createdAt: true, updatedAt: true },
-    }),
-    prisma.task.findMany({
-      where: {
-        projectId,
-        parentTaskId: { not: null },
-      },
-      select: { status: true },
     }),
     prisma.task.groupBy({
       by: ['agentStatus'],
@@ -243,12 +235,6 @@ export async function aggregateProjectStats(
     avgCompletionTime = totalMs / doneTasks.length / (1000 * 60 * 60)
   }
 
-  let subtaskCompletionRate: number | null = null
-  if (subtasks.length > 0) {
-    const doneSubtasks = subtasks.filter(t => t.status === 'DONE').length
-    subtaskCompletionRate = doneSubtasks / subtasks.length
-  }
-
   const agentStats = { total: 0, completed: 0, failed: 0, working: 0 }
   for (const g of agentGroups as Array<{
     agentStatus: string | null
@@ -270,7 +256,6 @@ export async function aggregateProjectStats(
     memberWorkload,
     completionTrend,
     avgCompletionTime,
-    subtaskCompletionRate,
     agentStats,
     prStats: { total: prTotal, merged: prMerged, open: prOpen },
   }
@@ -566,8 +551,6 @@ function mergeStats(
   const trendMap = new Map<string, number>()
   let totalCompletionMs = 0
   let completionCount = 0
-  let totalSubtasks = 0
-  let doneSubtasks = 0
   const agentStats = { total: 0, completed: 0, failed: 0, working: 0 }
   let prTotal = 0
   let prMerged = 0
@@ -602,10 +585,6 @@ function mergeStats(
       totalCompletionMs += s.avgCompletionTime
       completionCount++
     }
-    if (s.subtaskCompletionRate !== null) {
-      doneSubtasks += s.subtaskCompletionRate
-      totalSubtasks++
-    }
     agentStats.total += s.agentStats.total
     agentStats.completed += s.agentStats.completed
     agentStats.failed += s.agentStats.failed
@@ -631,8 +610,6 @@ function mergeStats(
     completionTrend,
     avgCompletionTime:
       completionCount > 0 ? totalCompletionMs / completionCount : null,
-    subtaskCompletionRate:
-      totalSubtasks > 0 ? doneSubtasks / totalSubtasks : null,
     agentStats,
     prStats: { total: prTotal, merged: prMerged, open: prOpen },
   }

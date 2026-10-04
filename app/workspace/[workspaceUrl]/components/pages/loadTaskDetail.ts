@@ -56,10 +56,6 @@ export const loadTaskDetail = cache(
             agent: { select: { id: true, name: true, avatarColor: true } },
           },
         },
-        children: {
-          select: { id: true, title: true, number: true, status: true },
-          orderBy: { number: 'asc' },
-        },
         team: { select: { identifier: true } },
         sprint: { select: { id: true, name: true, status: true } },
         milestone: { select: { id: true, name: true, completedAt: true } },

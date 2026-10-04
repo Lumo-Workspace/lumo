@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import type { TaskDetail } from '../types'
 import { tasksClient, apiFetch } from '@/lib/api-client'
 import { usePusherEvent } from './usePusher'
@@ -15,8 +15,6 @@ interface UseTaskSyncOptions {
   onDescriptionFetched: (description: string | null) => void
   /** Called when loading is complete (in .finally()) */
   onLoadingDone: () => void
-  /** Called when task detail refreshes (e.g. after subtask creation) */
-  onTasksChanged?: (() => void) | undefined
   /** Called to refresh comments after Pusher event */
   fetchComments: () => Promise<void>
 }
@@ -36,7 +34,6 @@ export function useTaskSync({
   setTask,
   onDescriptionFetched,
   onLoadingDone,
-  onTasksChanged,
   fetchComments,
 }: UseTaskSyncOptions) {
   const [relatedDocs, setRelatedDocs] = useState<RelatedDoc[]>([])
@@ -62,8 +59,6 @@ export function useTaskSync({
             teamIdentifier: t.teamIdentifier,
             pullRequests: t.pullRequests ?? [],
             branches: t.branches ?? [],
-            children: t.children ?? [],
-            parent: t.parent ?? null,
             dueDate: t.dueDate ?? null,
           }))
           onDescriptionFetched(t.description ?? null)
@@ -118,33 +113,5 @@ export function useTaskSync({
     }
   })
 
-  // ── Re-fetch task detail (used after subtask creation) ──────────────────
-  const refreshDetail = useCallback(async () => {
-    try {
-      const data = await tasksClient.getById<{ task: TaskDetail }>(
-        initialTaskId
-      )
-      if (data?.task) {
-        const t = data.task as TaskDetail
-        setTask(prev => ({
-          ...prev,
-          description: t.description,
-          project: t.project,
-          assignee: t.assignee,
-          number: t.number,
-          teamIdentifier: t.teamIdentifier,
-          pullRequests: t.pullRequests ?? [],
-          branches: t.branches ?? [],
-          children: t.children ?? [],
-          parent: t.parent ?? null,
-        }))
-        // Notify parent to refresh the task list so new subtasks appear
-        onTasksChanged?.()
-      }
-    } catch {
-      // Network error — silently ignore, user can refresh manually
-    }
-  }, [initialTaskId, onTasksChanged]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  return { relatedDocs, refreshDetail }
+  return { relatedDocs }
 }

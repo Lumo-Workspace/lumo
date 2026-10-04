@@ -94,13 +94,8 @@ export function MyTasksPage({
 }: MyTasksPageProps) {
   const intl = useIntl()
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list')
-  const {
-    options,
-    setCompletedFilter,
-    setOrdering,
-    setShowSubtasks,
-    setCurrentSprintOnly,
-  } = useDisplayOptions(CACHE_KEY.displayMyTasks(userId))
+  const { options, setCompletedFilter, setOrdering, setCurrentSprintOnly } =
+    useDisplayOptions(CACHE_KEY.displayMyTasks(userId))
   const currentSprintOnly = options.currentSprintOnly
   const noActiveSprint = currentSprintOnly && activeSprintIds.length === 0
 
@@ -118,9 +113,6 @@ export function MyTasksPage({
 
   const filteredTasks = useMemo(() => {
     let result = filterCompletedTasks(narrowedTasks, options.completedFilter)
-    if (!options.showSubtasks) {
-      result = result.filter(t => !t.parentTaskId)
-    }
     if (currentSprintOnly) {
       // Filter against the task's own sprintId using the active sprint set.
       // An empty activeSprintIds collapses this to "show nothing" — the
@@ -133,7 +125,6 @@ export function MyTasksPage({
     narrowedTasks,
     options.completedFilter,
     options.ordering,
-    options.showSubtasks,
     currentSprintOnly,
     activeSprintIds,
   ])
@@ -247,8 +238,6 @@ export function MyTasksPage({
           onCompletedFilterChange={setCompletedFilter}
           ordering={options.ordering}
           onOrderingChange={setOrdering}
-          showSubtasks={options.showSubtasks}
-          onShowSubtasksChange={setShowSubtasks}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
           filterMenu={

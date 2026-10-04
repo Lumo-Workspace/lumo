@@ -133,20 +133,11 @@ async function getTaskDetail(taskId: string) {
     tags,
     teamIdentifier: task.team.identifier,
     sprintsEnabled: task.team.sprintsEnabled,
-    parent: task.parent
-      ? {
-          id: task.parent.id,
-          title: task.parent.title,
-          number: task.parent.number,
-          teamIdentifier: task.parent.team.identifier,
-        }
-      : null,
   }
 }
 
 /**
- * Delete a task: it moves to the trash with its subtasks, restorable for 30
- * days (LUM-918). Returns its workspaceId so the calling route can run an
+ * Delete a task: it moves to the trash, restorable for 30 days (LUM-918). Returns its workspaceId so the calling route can run an
  * auth check after the delete (we throw 404 first if the row doesn't exist,
  * so a caller never sees a partial-success).
  */

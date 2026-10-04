@@ -191,7 +191,6 @@ export function useWorkspaceTaskHandlers({
         status,
         priority,
         projectId,
-        parentTaskId: null,
         assigneeActorId: assigneeId ?? null,
         createdAt: now,
         updatedAt: now,

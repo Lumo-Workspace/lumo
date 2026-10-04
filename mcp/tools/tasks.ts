@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../db.js'
 import { getContext, resolveAssigneeActor } from '../context.js'
 import { resolveTaskId } from '../resolvers.js'
-import { trashTaskGroup } from '../trash.js'
+import { trashTask } from '../trash.js'
 
 const statusEnum = z
   .enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'])
@@ -23,7 +23,6 @@ const taskSelect = {
   order: true,
   projectId: true,
   assigneeActorId: true,
-  parentTaskId: true,
   createdAt: true,
   updatedAt: true,
   team: { select: { identifier: true } },
@@ -40,7 +39,6 @@ function formatTask(t: {
   order: number
   projectId: string
   assigneeActorId: string | null
-  parentTaskId: string | null
   createdAt: Date
   updatedAt: Date
   team: { identifier: string }
@@ -69,14 +67,9 @@ export function registerTaskTools(server: McpServer) {
           .string()
           .optional()
           .describe('Filter by assignee member ID. Use "me" for yourself.'),
-        includeSubtasks: z
-          .boolean()
-          .optional()
-          .default(true)
-          .describe('Include subtasks (default true)'),
       },
     },
-    async ({ projectId, status, priority, assigneeId, includeSubtasks }) => {
+    async ({ projectId, status, priority, assigneeId }) => {
       const { workspaceId, memberId } = getContext()
       const resolvedAssigneeActorId = await resolveAssigneeActor(
         assigneeId,
@@ -92,7 +85,6 @@ export function registerTaskTools(server: McpServer) {
           ...(resolvedAssigneeActorId
             ? { assigneeActorId: resolvedAssigneeActorId }
             : {}),
-          ...(!includeSubtasks ? { parentTaskId: null } : {}),
         },
         select: taskSelect,
         orderBy: [{ status: 'asc' }, { order: 'asc' }],
@@ -130,7 +122,6 @@ export function registerTaskTools(server: McpServer) {
         where: { id },
         select: {
           ...taskSelect,
-          children: { select: taskSelect },
           comments: {
             select: {
               id: true,
@@ -171,21 +162,9 @@ export function registerTaskTools(server: McpServer) {
           .string()
           .optional()
           .describe('Assignee member ID. Use "me" for yourself.'),
-        parentTaskId: z
-          .string()
-          .optional()
-          .describe('Parent task ID or identifier for subtasks'),
       },
     },
-    async ({
-      projectId,
-      title,
-      description,
-      status,
-      priority,
-      assigneeId,
-      parentTaskId,
-    }) => {
+    async ({ projectId, title, description, status, priority, assigneeId }) => {
       const { workspaceId, memberId } = getContext()
       const resolvedAssigneeActorId = await resolveAssigneeActor(
         assigneeId,
@@ -197,13 +176,8 @@ export function registerTaskTools(server: McpServer) {
       })
       if (!project) throw new Error(`Project ${projectId} not found`)
 
-      let resolvedParentId: string | null = null
-      if (parentTaskId) {
-        resolvedParentId = await resolveTaskId(parentTaskId, workspaceId)
-      }
-
       const maxOrderTask = await prisma.task.findFirst({
-        where: { projectId, parentTaskId: resolvedParentId },
+        where: { projectId },
         orderBy: { order: 'desc' },
         select: { order: true },
       })
@@ -226,7 +200,6 @@ export function registerTaskTools(server: McpServer) {
             status: status ?? 'TODO',
             priority: priority ?? 'MEDIUM',
             assigneeActorId: resolvedAssigneeActorId ?? null,
-            parentTaskId: resolvedParentId,
             order,
           },
           select: taskSelect,
@@ -310,7 +283,7 @@ export function registerTaskTools(server: McpServer) {
     'delete_task',
     {
       description:
-        'Move a task and its subtasks to the trash (restorable for 30 days from Settings → Trash).',
+        'Move a task to the trash (restorable for 30 days from Settings → Trash).',
       inputSchema: {
         taskId: z
           .string()
@@ -330,21 +303,13 @@ export function registerTaskTools(server: McpServer) {
         where: { id: memberId },
         select: { clerkId: true },
       })
-      const trashedSubtasks = await trashTaskGroup(
-        prisma,
-        id,
-        member?.clerkId ?? null
-      )
+      await trashTask(prisma, id, member?.clerkId ?? null)
 
       return {
         content: [
           {
             type: 'text' as const,
-            text: JSON.stringify(
-              { success: true, trashedId: id, trashedSubtasks },
-              null,
-              2
-            ),
+            text: JSON.stringify({ success: true, trashedId: id }, null, 2),
           },
         ],
       }
@@ -356,7 +321,7 @@ export function registerTaskTools(server: McpServer) {
   server.registerTool(
     'move_task',
     {
-      description: 'Move a task to a different project or change its parent.',
+      description: 'Move a task to a different project.',
       inputSchema: {
         taskId: z
           .string()
@@ -365,16 +330,9 @@ export function registerTaskTools(server: McpServer) {
           .string()
           .optional()
           .describe('Target project ID to move the task to'),
-        parentTaskId: z
-          .string()
-          .nullable()
-          .optional()
-          .describe(
-            'New parent task ID/identifier, or null to make it a root task'
-          ),
       },
     },
-    async ({ taskId, projectId, parentTaskId }) => {
+    async ({ taskId, projectId }) => {
       const { workspaceId } = getContext()
       const id = await resolveTaskId(taskId, workspaceId)
 
@@ -392,21 +350,6 @@ export function registerTaskTools(server: McpServer) {
         })
         if (!newProject) throw new Error(`Project ${projectId} not found`)
         data.projectId = projectId
-      }
-
-      if (parentTaskId !== undefined) {
-        if (parentTaskId === null) {
-          data.parentTaskId = null
-        } else {
-          const resolvedParentId = await resolveTaskId(
-            parentTaskId,
-            workspaceId
-          )
-          if (resolvedParentId === id) {
-            throw new Error('A task cannot be its own parent')
-          }
-          data.parentTaskId = resolvedParentId
-        }
       }
 
       const task = await prisma.task.update({

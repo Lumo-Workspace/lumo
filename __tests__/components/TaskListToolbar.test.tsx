@@ -38,8 +38,6 @@ const baseProps = {
   onCompletedFilterChange: () => {},
   ordering: 'manual' as TaskOrdering,
   onOrderingChange: () => {},
-  showSubtasks: false,
-  onShowSubtasksChange: () => {},
   viewMode: 'list' as const,
   onViewModeChange: () => {},
   filterMenu: <button>Filter</button>,

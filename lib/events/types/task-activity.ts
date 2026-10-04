@@ -31,16 +31,6 @@ export type TaskActorChangedEvent = {
   toName: string | null
 }
 
-export type TaskParentChangedEvent = {
-  type: 'task:parent_changed'
-  taskId: string
-  projectId: string
-  actorId: string
-  fromTaskId: string | null
-  toTaskId: string | null
-  toTitle: string | null
-}
-
 export type TaskTagsChangedEvent = {
   type: 'task:tags_changed'
   taskId: string
@@ -56,16 +46,6 @@ export type TaskCommentEvent = {
   projectId: string
   actorId: string
   commentId: string
-}
-
-export type TaskSubtaskEvent = {
-  type: 'task:subtask_added' | 'task:subtask_removed'
-  taskId: string
-  projectId: string
-  actorId: string
-  childTaskId: string
-  childTitle: string
-  childNumber: number
 }
 
 export type TaskSpecEvent = {
@@ -109,10 +89,8 @@ export type TaskActivityEvent =
   | TaskCreatedEvent
   | TaskFieldChangedEvent
   | TaskActorChangedEvent
-  | TaskParentChangedEvent
   | TaskTagsChangedEvent
   | TaskCommentEvent
-  | TaskSubtaskEvent
   | TaskSpecEvent
   | TaskPrEvent
   | TaskAgentRunEvent

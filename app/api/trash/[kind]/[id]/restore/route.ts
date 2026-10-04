@@ -7,8 +7,8 @@ type Params = { params: Promise<{ kind: string; id: string }> }
 
 /**
  * POST /api/trash/[kind]/[id]/restore — Restore a trashed task or document
- * together with the subtasks / sub-pages that went to the trash with it
- * (LUM-918).
+ * together with whatever went to the trash with it — sub-pages, or the
+ * subtasks of a task trashed before LUM-959 (LUM-918).
  */
 export async function POST(request: NextRequest, { params }: Params) {
   const identity = await requireIdentity(request)

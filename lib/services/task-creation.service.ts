@@ -7,12 +7,12 @@ import { dispatchCreateTaskSideEffects } from '@/lib/services/task-notifications
 import { normalizeRichText } from '@/lib/utils/markdown'
 
 /**
- * Create a human-authored task. Validates parent membership + sprint
- * inheritance, auto-computes order when the caller doesn't supply one, and
- * dispatches the create-task notification side effects fire-and-forget.
+ * Create a human-authored task. Validates the milestone and assignee,
+ * auto-computes order when the caller doesn't supply one, and dispatches the
+ * create-task notification side effects fire-and-forget.
  *
- * Throws with `{ status, message }`: 404 for unknown project, 400 for cross-
- * project parent or out-of-workspace assignee.
+ * Throws with `{ status, message }`: 404 for unknown project, 400 for a
+ * cross-project milestone or out-of-workspace assignee.
  */
 export async function createTask(
   projectId: string,
@@ -22,7 +22,6 @@ export async function createTask(
     status: TaskStatus
     priority: TaskPriority
     assigneeActorId?: string | null | undefined
-    parentTaskId?: string | null | undefined
     sprintId?: string | null | undefined
     milestoneId?: string | null | undefined
     order?: number | undefined
@@ -43,26 +42,11 @@ export async function createTask(
     status,
     priority,
     assigneeActorId,
-    parentTaskId,
     order,
     dueDate,
   } = input
 
-  // Validate parentTaskId belongs to the same project, and resolve sprint inheritance
-  let resolvedSprintId: string | null =
-    input.sprintId !== undefined ? (input.sprintId ?? null) : null
-  if (parentTaskId) {
-    const parent = await taskRepository.findWithProject(parentTaskId)
-    if (!parent || parent.projectId !== projectId) {
-      throw Object.assign(new Error('Parent task not found in this project'), {
-        status: 400,
-      })
-    }
-    // Inherit parent's sprintId when caller did not explicitly set one
-    if (input.sprintId === undefined && parent.sprintId) {
-      resolvedSprintId = parent.sprintId
-    }
-  }
+  const resolvedSprintId: string | null = input.sprintId ?? null
 
   // Validate milestoneId belongs to the same project
   const resolvedMilestoneId: string | null =
@@ -86,10 +70,7 @@ export async function createTask(
   // Auto-calculate order if not provided
   let taskOrder = order
   if (taskOrder === undefined) {
-    const maxOrderTask = await taskRepository.findMaxOrder(
-      projectId,
-      parentTaskId ?? null
-    )
+    const maxOrderTask = await taskRepository.findMaxOrder(projectId)
     taskOrder = (maxOrderTask?.order ?? 0) + 1
   }
 
@@ -114,7 +95,6 @@ export async function createTask(
     priority,
     assigneeActorId: assigneeActorId ?? null,
     agentStatus: assigneeIsAgent ? 'SUBMITTED' : null,
-    parentTaskId: parentTaskId ?? null,
     sprintId: resolvedSprintId,
     milestoneId: resolvedMilestoneId,
     order: taskOrder,
@@ -176,7 +156,7 @@ export async function createFromAutomation(
     throw Object.assign(new Error('Project not found'), { status: 404 })
   }
 
-  const maxOrderTask = await taskRepository.findMaxOrder(projectId, null)
+  const maxOrderTask = await taskRepository.findMaxOrder(projectId)
   const order = (maxOrderTask?.order ?? 0) + 1
 
   const task = await taskRepository.createWithSequence({
@@ -188,7 +168,6 @@ export async function createFromAutomation(
     priority: input.priority,
     assigneeActorId: input.assigneeActorId,
     agentStatus: null,
-    parentTaskId: null,
     order,
     dueDate: null,
   })

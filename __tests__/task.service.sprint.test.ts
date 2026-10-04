@@ -39,7 +39,6 @@ const mockTaskFindMaxOrder = jest.fn()
 const mockTaskFindActorById = jest.fn()
 const mockTaskCreateWithSequence = jest.fn()
 const mockTaskUpdate2 = jest.fn()
-const mockTaskFindChildren = jest.fn()
 const mockTaskUpdateSprint = jest.fn()
 
 jest.mock('@/lib/repositories/task.repository', () => ({
@@ -51,7 +50,6 @@ jest.mock('@/lib/repositories/task.repository', () => ({
     findActorById: (...a: any[]) => mockTaskFindActorById(...a),
     createWithSequence: (...a: any[]) => mockTaskCreateWithSequence(...a),
     update: (...a: any[]) => mockTaskUpdate2(...a),
-    findChildren: (...a: any[]) => mockTaskFindChildren(...a),
     updateSprint: (...a: any[]) => mockTaskUpdateSprint(...a),
     findProjectIdById: jest.fn().mockResolvedValue(null),
   },
@@ -150,7 +148,6 @@ const CREATED_TASK = {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockTaskFindChildren.mockResolvedValue([])
   mockTaskFindMaxOrder.mockResolvedValue(null)
   mockProjectFindByIdWithDefaults.mockResolvedValue(BASE_PROJECT)
   mockTaskCreateWithSequence.mockResolvedValue(CREATED_TASK)
@@ -161,90 +158,10 @@ beforeEach(() => {
   })
 })
 
-// ── createTask: subtask sprint inheritance ───────────────────────────────────
+// ── createTask: sprint binding ───────────────────────────────────────────────
 
-describe('taskService — subtask sprint inheritance (createTask)', () => {
-  it('inherits parent.sprintId when no explicit sprintId is given', async () => {
-    // parent task has sprintId = 's1'
-    const parentTask = {
-      id: 'parent1',
-      projectId: 'proj1',
-      sprintId: 's1',
-    }
-    mockTaskFindWithProject.mockResolvedValueOnce(parentTask)
-
-    await taskService.createTask(
-      'proj1',
-      {
-        title: 'Child task',
-        status: 'TODO',
-        priority: 'MEDIUM',
-        parentTaskId: 'parent1',
-        // no sprintId
-      },
-      'actor1',
-      'clerk1'
-    )
-
-    // createWithSequence should be called with sprintId = 's1'
-    expect(mockTaskCreateWithSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ sprintId: 's1' })
-    )
-  })
-
-  it('does NOT inherit when input.sprintId is explicitly null', async () => {
-    const parentTask = {
-      id: 'parent1',
-      projectId: 'proj1',
-      sprintId: 's1',
-    }
-    mockTaskFindWithProject.mockResolvedValueOnce(parentTask)
-
-    await taskService.createTask(
-      'proj1',
-      {
-        title: 'Child task',
-        status: 'TODO',
-        priority: 'MEDIUM',
-        parentTaskId: 'parent1',
-        sprintId: null, // explicit null — do not inherit
-      },
-      'actor1',
-      'clerk1'
-    )
-
-    // sprintId must be null, not 's1'
-    expect(mockTaskCreateWithSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ sprintId: null })
-    )
-  })
-
-  it('passes sprintId=null when parent has no sprint and input omits it', async () => {
-    const parentTask = {
-      id: 'parent1',
-      projectId: 'proj1',
-      sprintId: null,
-    }
-    mockTaskFindWithProject.mockResolvedValueOnce(parentTask)
-
-    await taskService.createTask(
-      'proj1',
-      {
-        title: 'Child task',
-        status: 'TODO',
-        priority: 'MEDIUM',
-        parentTaskId: 'parent1',
-      },
-      'actor1',
-      'clerk1'
-    )
-
-    expect(mockTaskCreateWithSequence).toHaveBeenCalledWith(
-      expect.objectContaining({ sprintId: null })
-    )
-  })
-
-  it('passes explicit sprintId when provided without a parentTaskId', async () => {
+describe('taskService — sprint binding (createTask)', () => {
+  it('passes an explicit sprintId through', async () => {
     await taskService.createTask(
       'proj1',
       {
@@ -259,6 +176,19 @@ describe('taskService — subtask sprint inheritance (createTask)', () => {
 
     expect(mockTaskCreateWithSequence).toHaveBeenCalledWith(
       expect.objectContaining({ sprintId: 's2' })
+    )
+  })
+
+  it('defaults to no sprint when sprintId is omitted (no parent to inherit from since LUM-959)', async () => {
+    await taskService.createTask(
+      'proj1',
+      { title: 'Standalone task', status: 'TODO', priority: 'MEDIUM' },
+      'actor1',
+      'clerk1'
+    )
+
+    expect(mockTaskCreateWithSequence).toHaveBeenCalledWith(
+      expect.objectContaining({ sprintId: null })
     )
   })
 })

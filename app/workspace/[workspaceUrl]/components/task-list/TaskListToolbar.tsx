@@ -13,8 +13,6 @@ interface Props {
   onCompletedFilterChange: (value: CompletedFilter) => void
   ordering: TaskOrdering
   onOrderingChange: (value: TaskOrdering) => void
-  showSubtasks: boolean
-  onShowSubtasksChange: (value: boolean) => void
   viewMode: 'list' | 'board'
   onViewModeChange: (mode: 'list' | 'board') => void
   /**
@@ -39,8 +37,6 @@ export function TaskListToolbar({
   onCompletedFilterChange,
   ordering,
   onOrderingChange,
-  showSubtasks,
-  onShowSubtasksChange,
   viewMode,
   onViewModeChange,
   filterMenu,
@@ -76,8 +72,6 @@ export function TaskListToolbar({
           onCompletedFilterChange={onCompletedFilterChange}
           ordering={ordering}
           onOrderingChange={onOrderingChange}
-          showSubtasks={showSubtasks}
-          onShowSubtasksChange={onShowSubtasksChange}
         />
         <ViewToggle value={viewMode} onChange={onViewModeChange} />
         {onToggleSidebar && (
