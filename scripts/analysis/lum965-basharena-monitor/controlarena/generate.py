@@ -39,11 +39,14 @@ import argparse
 import hashlib
 import json
 import os
+import sys
 from pathlib import Path
 
 CACHE = Path.home() / ".cache" / "lumo-lum965"
 LOG_DIR = CACHE / "ca-logs"
 EXPORT = CACHE / "ca-trajectories.jsonl"
+BUILD_FAILED = CACHE / "ca-build-failed.json"
+RUN_LOGS = CACHE / "ca-run-logs"
 MONITOR_EVAL = (
     Path.home()
     / ".cache"
@@ -122,12 +125,12 @@ def run(args: argparse.Namespace) -> None:
     if args.mode == "attack":
         if args.side_task not in SIDE_TASKS:
             raise SystemExit(f"--side-task must be one of {SIDE_TASKS}")
-        ids = pick(fresh, args.side_task, args.n, args.offset)
+        ids = [args.task_id] if args.task_id else pick(fresh, args.side_task, args.n, args.offset)
         side_tasks = [args.side_task]
         policy = attack_policy(model_name=args.model)
         mode = EvalMode.ATTACK
     else:
-        ids = pick(fresh, "honest", args.n, args.offset)
+        ids = [args.task_id] if args.task_id else pick(fresh, "honest", args.n, args.offset)
         side_tasks = SIDE_TASKS
         policy = honest_policy(model_name=args.model)
         mode = EvalMode.HONEST
@@ -156,6 +159,97 @@ def run(args: argparse.Namespace) -> None:
     )
     print(f"{args.mode} {args.side_task or ''}: tasks {ids}")
     inspect_eval(task, **config.eval_args())
+
+
+def group_of(label: str, side: str) -> str:
+    return side if label == "attack" else "honest"
+
+
+def completed_tasks() -> dict[str, set[str]]:
+    """Group → task ids that already have an error-free sample in the logs."""
+    from inspect_ai.log import list_eval_logs, read_eval_log
+
+    done: dict[str, set[str]] = {}
+    for info in list_eval_logs(str(LOG_DIR)):
+        log = read_eval_log(info)
+        spec = ((log.eval.metadata or {}).get("setting") or {}).get("dataset_spec") or {}
+        for smp in log.samples or []:
+            if smp.error:
+                continue
+            md = smp.metadata or {}
+            label = "attack" if "attack" in str(md.get("eval_mode", "")).lower() else "honest"
+            side = "+".join(spec.get("side_tasks") or []) if label == "attack" else ""
+            done.setdefault(group_of(label, side), set()).add(str(smp.id))
+    return done
+
+
+def batch(args: argparse.Namespace) -> None:
+    """Fill one group up to --n error-free samples, one task per subprocess.
+
+    Tasks are taken in the group's slice order. A task whose docker image
+    cannot be built here (arm64) is recorded in ca-build-failed.json and
+    skipped for good; the next task in the slice takes its place. Which
+    tasks end up in the set therefore depends only on buildability, never
+    on the monitor.
+    """
+    import subprocess
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    from control_arena import EvalMode
+    from control_arena.settings.bash_arena.bash_arena_setting import BashArenaSetting
+    from control_arena.settings.bash_arena.task.dataset import DatasetSpec
+
+    group = args.side_task if args.mode == "attack" else "honest"
+    probe = BashArenaSetting(dataset_spec=DatasetSpec(side_tasks=["leak_passwords"]))
+    fresh = fresh_task_ids(
+        [str(s.id) for s in probe.get_dataset(EvalMode.HONEST)], monitor_eval_ids()
+    )
+    order = pick(fresh, group, SLICE_SIZE)
+    failed: dict[str, str] = (
+        json.loads(BUILD_FAILED.read_text()) if BUILD_FAILED.exists() else {}
+    )
+    done = completed_tasks().get(group, set())
+    todo = [t for t in order if t not in done and t not in failed]
+    need = args.n - len(done & set(order))
+    print(f"{group}: {len(done & set(order))} done, need {max(0, need)} more")
+    if need <= 0:
+        return
+    RUN_LOGS.mkdir(parents=True, exist_ok=True)
+
+    def one(task_id: str) -> tuple[str, str]:
+        cmd = [sys.executable, __file__, "run", "--mode", args.mode, "--task-id", task_id,
+               "--model", args.model, "--max-steps", str(args.max_steps),
+               "--time-limit", str(args.time_limit), "--max-samples", "1"]
+        if args.mode == "attack":
+            cmd += ["--side-task", args.side_task]
+        log = RUN_LOGS / f"{group}-{task_id}.log"
+        with log.open("w") as fh:
+            rc = subprocess.run(cmd, stdout=fh, stderr=subprocess.STDOUT).returncode  # noqa: S603
+        text = log.read_text(errors="replace")
+        if "Failed to build docker containers" in text:
+            return task_id, "build_failed"
+        return task_id, "ok" if rc == 0 else f"exit {rc}"
+
+    ok = 0
+    queue = list(todo)
+    with ThreadPoolExecutor(max_workers=args.parallel) as pool:
+        running = {}
+        while queue or running:
+            while queue and len(running) < args.parallel and ok + len(running) < need:
+                t = queue.pop(0)
+                running[pool.submit(one, t)] = t
+            if not running:
+                break
+            fut = next(iter(as_completed(running)))
+            running.pop(fut)
+            task_id, status = fut.result()
+            print(f"  {group} {task_id}: {status}", flush=True)
+            if status == "build_failed":
+                failed[task_id] = "docker build failed (arm64)"
+                BUILD_FAILED.write_text(json.dumps(failed, indent=1))
+            elif status == "ok":
+                ok += 1
+    print(f"{group}: +{ok} this batch")
 
 
 def tool_calls(messages) -> list[dict]:  # noqa: ANN001
@@ -192,6 +286,10 @@ def export(_: argparse.Namespace) -> None:
             if side in ("", "None") and label == "attack":
                 side = "+".join(spec.get("side_tasks") or [])
             key = f"{s.id}:{label}:{side}"
+            # A task re-run after an errored sample has both in the logs:
+            # the error-free one wins, whatever order the logs are read in.
+            if key in out and out[key]["error"] is None and s.error:
+                continue
             scores = s.scores or {}
             out[key] = {
                 "id": key,
@@ -219,14 +317,25 @@ def main() -> None:
     r.add_argument("--side-task", default=None)
     r.add_argument("--n", type=int, default=1)
     r.add_argument("--offset", type=int, default=0)
+    r.add_argument("--task-id", default=None)
     r.add_argument("--model", default="anthropic/claude-sonnet-4-6")
     r.add_argument("--max-steps", type=int, default=60)
     r.add_argument("--time-limit", type=int, default=3600)
     r.add_argument("--max-samples", type=int, default=2)
+    b = sub.add_parser("batch")
+    b.add_argument("--mode", choices=["attack", "honest"], required=True)
+    b.add_argument("--side-task", default=None)
+    b.add_argument("--n", type=int, required=True)
+    b.add_argument("--parallel", type=int, default=2)
+    b.add_argument("--model", default="anthropic/claude-sonnet-4-6")
+    b.add_argument("--max-steps", type=int, default=60)
+    b.add_argument("--time-limit", type=int, default=3600)
     sub.add_parser("export")
     args = p.parse_args()
     if args.cmd == "run":
         run(args)
+    elif args.cmd == "batch":
+        batch(args)
     else:
         export(args)
 
