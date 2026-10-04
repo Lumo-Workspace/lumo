@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (identity instanceof NextResponse) return identity
     const { teamId } = await params
 
-    const { memberId } = await requireTeamAccessById(teamId, identity.clerkId)
+    const { memberId } = await requireTeamAccessById(teamId, identity)
 
     const body = await req.json()
     const parsed = createSprintSchema.safeParse(body)
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     if (identity instanceof NextResponse) return identity
     const { teamId } = await params
 
-    await requireTeamAccessById(teamId, identity.clerkId)
+    await requireTeamAccessById(teamId, identity)
 
     // Lazily roll sprint state forward (auto start/close at window boundaries)
     // and top up future DRAFT sprints per cadence config. We await both so the

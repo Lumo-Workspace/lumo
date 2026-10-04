@@ -23,9 +23,9 @@ export async function GET(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'Sprint not found' }, { status: 404 })
 
     await requireTeamMemberOrOwner(
-      sprint.team.workspaceId,
-      sprint.teamId,
-      identity.clerkId
+      identity,
+      { workspaceId: sprint.team.workspaceId, teamId: sprint.teamId },
+      'Sprint not found'
     )
 
     const data = await sprintBurnupService.compute(sprintId, new Date())
