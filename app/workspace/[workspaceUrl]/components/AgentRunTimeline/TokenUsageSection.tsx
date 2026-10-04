@@ -35,7 +35,7 @@ export function TokenUsageSection({
   }
   if (error) {
     return (
-      <div className='py-6 text-center text-caption text-destructive'>
+      <div className='py-6 text-center text-caption text-danger-text'>
         {error}
       </div>
     )

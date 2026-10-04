@@ -86,7 +86,7 @@ export function GoogleDriveIntegrationCard({
             ) : null}
 
             {status?.needsReauth && (
-              <p className='text-xs text-destructive'>
+              <p className='text-xs text-danger-text'>
                 {intl.formatMessage({ id: 'googleDrive.reauthRequired' })}
               </p>
             )}

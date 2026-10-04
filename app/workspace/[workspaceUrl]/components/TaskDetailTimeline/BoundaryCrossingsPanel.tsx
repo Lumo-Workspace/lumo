@@ -1096,7 +1096,7 @@ function CrossingRow({
           {c.category === 'TEST_TAMPERING' && open && (
             <p className='mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground'>
               <ShieldAlert
-                className='mt-0.5 size-3.5 shrink-0 text-warning'
+                className='mt-0.5 size-3.5 shrink-0 text-warning-text'
                 aria-hidden
               />
               <span>
@@ -1395,12 +1395,12 @@ function CrossingRow({
               className='mt-2 flex items-center gap-3 rounded-md border border-success-border bg-success-subtle/50 px-3 py-2.5 transition-colors hover:bg-success-subtle'
             >
               <CircleCheck
-                className='size-5 shrink-0 text-success'
+                className='size-5 shrink-0 text-success-text'
                 aria-hidden
               />
               <div className='min-w-0 flex-1'>
                 <div className='flex flex-wrap items-center gap-2'>
-                  <span className='text-xs font-medium text-success'>
+                  <span className='text-xs font-medium text-success-text'>
                     {rt.remediated
                       ? intl.formatMessage({
                           id: 'boundary.panel.remediatedBy',
@@ -1423,7 +1423,7 @@ function CrossingRow({
                 </div>
               </div>
               <ExternalLink
-                className='size-4 shrink-0 text-success'
+                className='size-4 shrink-0 text-success-text'
                 aria-hidden
               />
             </Link>
@@ -1431,7 +1431,10 @@ function CrossingRow({
 
           {c.disposition === 'CONFIRMED' && !rt && (
             <div className='mt-2 flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5'>
-              <Lightbulb className='size-4 shrink-0 text-warning' aria-hidden />
+              <Lightbulb
+                className='size-4 shrink-0 text-warning-text'
+                aria-hidden
+              />
               <span className='text-[11px] text-muted-foreground'>
                 {intl.formatMessage({
                   id: 'boundary.panel.remediationNudge',

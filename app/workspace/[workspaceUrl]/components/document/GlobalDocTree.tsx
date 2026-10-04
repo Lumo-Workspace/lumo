@@ -264,7 +264,7 @@ function TreeItemRow({
                 e.stopPropagation()
                 onDelete()
               }}
-              className='text-destructive focus:text-destructive'
+              className='text-danger-text focus:text-danger-text'
             >
               <Trash2 size={14} className='mr-2' />
               {intl.formatMessage({
@@ -314,7 +314,7 @@ function TreeItemRow({
             e.stopPropagation()
             onDelete()
           }}
-          className='text-destructive focus:text-destructive'
+          className='text-danger-text focus:text-danger-text'
         >
           <Trash2 size={14} className='mr-2' />
           {intl.formatMessage({

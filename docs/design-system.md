@@ -60,6 +60,8 @@ status? Define a token here so both render paths stay in sync.
 
 Tailwind utilities: `text-status-{todo,in-progress,in-review,done}` and
 the `bg-` / `border-` equivalents.
+In-review **text** (e.g. the in-review chip) uses
+`text-status-in-review-text` — see [Semantic feedback tokens](#semantic-feedback-tokens).
 
 These are the Lumo brand status colors — one canonical hex per status,
 identical in `:root` and `.dark`. They were tuned by hand for adequate
@@ -71,21 +73,43 @@ theme, update both blocks in lockstep and document why.
 
 `info` / `warning` / `success` / `danger` (LUM-258). Each family has an
 accent (`--warning`: icon / border / dot), `-foreground` (near-black text on a
-solid accent fill), `-subtle` / `-border` (translucent color-mix fills), and —
-for `warning` / `danger` — a `-text` step for coloured text on the page
-background (LUM-934).
+solid accent fill), `-subtle` / `-border` (translucent color-mix fills), and a
+`-text` step for coloured text on the page background or on its own `-subtle`
+fill (warning / danger LUM-934; success / info / in-review LUM-969).
 
-| Token            | Light                 | Dark             | Use for                                                           |
-| ---------------- | --------------------- | ---------------- | ----------------------------------------------------------------- |
-| `--warning-text` | amber-700 (`#bb4d00`) | `var(--warning)` | Caveat / approximate notes printed as text (AA on `--background`) |
-| `--danger-text`  | red-600 (`#e7000b`)   | `var(--danger)`  | Error counts / error text on the page background                  |
+| Token                     | Light                                        | Dark                      | Use for                                                     |
+| ------------------------- | -------------------------------------------- | ------------------------- | ----------------------------------------------------------- |
+| `--warning-text`          | amber-700 (`#bb4d00`) 5.05 / 4.68            | `var(--warning)`          | Caveat / approximate notes printed as text; warning icons   |
+| `--danger-text`           | red-600 (`#e7000b`) 4.76 / 4.18              | `var(--danger)`           | Error counts / error text; also all destructive-action text |
+| `--success-text`          | green-700 (`#008236`) 4.94 / 4.54            | `var(--success)`          | Success / merged / on-track text and chips; success icons   |
+| `--info-text`             | blue-600 (`#155dfc`) 5.26 / 4.69             | `var(--info)`             | Info links and chips                                        |
+| `--status-in-review-text` | deeper in-review hue (`#a125d7`) 5.58 / 4.84 | `var(--status-in-review)` | In-review chips (`bg-status-in-review-subtle`)              |
 
-The light accents (`--warning` ~2.1:1, `--danger` ~3.8:1 on white) are tuned
-as strokes and miss AA as text, so text uses the darker `-text` step; dark mode
-reuses the bright accent. Utilities: `text-warning-text`, `text-danger-text`.
-The bare `text-warning` / `text-danger` are for icons and other non-text marks
-only (WCAG non-text 3:1); `__tests__/styles/feedback-text-usage.test.ts` pins
-the audited non-text sites so new text uses can't creep back (LUM-967).
+Light ratios are _on white / on the family's own `-subtle` fill_ (alpha
+composited). The light accents (success ~2.3:1, warning ~2.1:1, info ~3.7:1,
+danger ~3.8:1, in-review ~4.2:1 on white) are tuned as strokes and miss AA as
+text, so text uses the darker `-text` step; dark mode reuses the bright accent
+(all ≥4.7:1 on `#0a0a0a`; in-review measures ~4.4:1 on its own subtle fill).
+`--danger-text` on `-subtle` is below 4.5 today — LUM-968 deepens it.
+
+Utilities: `text-{warning,danger,success,info,status-in-review}-text`.
+
+- **Text** (including a chip whose icon shares `currentColor` with its label)
+  always uses the `-text` utility.
+- **Destructive text** uses `text-danger-text`: `--destructive` (shadcn) and
+  `--danger` are the same `#ef4444` in light mode and mean the same thing, so
+  there is one readable red rather than a second `--destructive-text`.
+  `bg-destructive` / `border-destructive` / `text-destructive-foreground`
+  (buttons, badges) are unchanged.
+- **Icons** may keep the bare `text-info` / `text-danger` / `text-destructive`
+  / `text-status-in-review` accent (all ≥3:1, WCAG non-text). The light
+  `success` and `warning` accents miss even 3:1, so their icons use
+  `text-success-text` / `text-warning-text` too.
+
+`__tests__/styles/feedback-text-usage.test.ts` pins every audited bare-accent
+icon site per family (success / warning: none) so new text uses can't creep
+back; `__tests__/styles/feedback-contrast.test.ts` computes every ratio above
+(LUM-967 / LUM-969).
 
 ### Sidebar tokens
 

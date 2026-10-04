@@ -114,7 +114,7 @@ export function SessionRawRecordDelete({
           <Button
             variant='outline'
             size='sm'
-            className='w-full text-destructive sm:w-auto'
+            className='w-full text-danger-text sm:w-auto'
             disabled={busy || status.deletable === 0}
             onClick={() => setOpen(true)}
           >

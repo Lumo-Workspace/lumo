@@ -48,7 +48,7 @@ export function PlanRunDetail({
   if (isError || !data) {
     return (
       <div className='mx-auto max-w-3xl p-8'>
-        <p className='text-destructive'>
+        <p className='text-danger-text'>
           {intl.formatMessage({ id: 'planRuns.loadError' })}
         </p>
       </div>
@@ -103,7 +103,7 @@ function PlanRunArchiveView({
   if (isError || !data) {
     return (
       <div className='mx-auto max-w-3xl p-8'>
-        <p className='text-destructive'>
+        <p className='text-danger-text'>
           {intl.formatMessage({ id: 'planRuns.loadError' })}
         </p>
       </div>

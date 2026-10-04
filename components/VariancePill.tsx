@@ -26,7 +26,7 @@ export function VariancePill({
   if (band === null || deltaPct === null) return null
   const tone =
     band === 'within'
-      ? 'bg-success-subtle text-success'
+      ? 'bg-success-subtle text-success-text'
       : 'bg-warning-subtle text-warning-text'
   const sign = deltaPct > 0 ? '+' : ''
   const unit = deltaKind === 'rate' ? 'pt' : '%'

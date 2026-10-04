@@ -85,7 +85,7 @@ export function FigmaIntegrationCard({
             </p>
 
             {status?.needsReauth && (
-              <p className='text-xs text-destructive'>
+              <p className='text-xs text-danger-text'>
                 {intl.formatMessage({ id: 'figma.reauthRequired' })}
               </p>
             )}

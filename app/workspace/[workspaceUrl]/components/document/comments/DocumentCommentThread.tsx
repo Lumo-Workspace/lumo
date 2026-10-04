@@ -118,7 +118,7 @@ function Row({
               <button
                 type='button'
                 data-testid={`confirm-delete-${c.id}`}
-                className='font-medium text-destructive'
+                className='font-medium text-danger-text'
                 onClick={() => onDelete(c.id)}
               >
                 {intl.formatMessage({ id: 'common.confirm' })}
@@ -179,7 +179,7 @@ function Row({
                       setConfirmingDelete(true)
                       setMenuOpen(false)
                     }}
-                    className='flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-destructive hover:bg-accent'
+                    className='flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-danger-text hover:bg-accent'
                   >
                     <Trash2 className='size-3.5' />
                     {intl.formatMessage({ id: 'common.delete' })}

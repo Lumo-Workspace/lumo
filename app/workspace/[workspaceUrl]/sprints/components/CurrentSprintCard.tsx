@@ -137,7 +137,7 @@ export function CurrentSprintCard({
                 {detail?.name ?? sprint.name}
               </h2>
             </Link>
-            <span className='inline-flex h-[22px] items-center gap-1.5 rounded-md border border-success-border bg-success-subtle px-2 text-[11.5px] font-semibold text-success'>
+            <span className='inline-flex h-[22px] items-center gap-1.5 rounded-md border border-success-border bg-success-subtle px-2 text-[11.5px] font-semibold text-success-text'>
               <span className='size-1.5 rounded-full bg-success' />
               {intl.formatMessage({ id: 'sprints.status.active' })}
             </span>
@@ -239,7 +239,7 @@ export function CurrentSprintCard({
           <span
             className={cn(
               'text-sm font-medium',
-              onTrack ? 'text-success' : 'text-muted-foreground'
+              onTrack ? 'text-success-text' : 'text-muted-foreground'
             )}
           >
             {intl.formatMessage({

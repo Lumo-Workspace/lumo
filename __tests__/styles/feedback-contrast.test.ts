@@ -161,7 +161,14 @@ describe('feedback -foreground meets AA text contrast on its accent', () => {
 // ── Feedback -text on the page background (AA text 4.5:1, LUM-934) ──────────
 // -text exists because the light accent fails AA as text on white; pin both
 // halves of that rationale so the token can't drift back to the accent value.
-const FEEDBACK_TEXT = ['warning', 'danger'] as const
+// LUM-969 adds success / info / status-in-review.
+const FEEDBACK_TEXT = [
+  'warning',
+  'danger',
+  'success',
+  'info',
+  'status-in-review',
+] as const
 
 describe('feedback -text meets AA text contrast on --background', () => {
   it.each(FEEDBACK_TEXT)('--%s-text vs --background (light + dark)', family => {
@@ -196,6 +203,183 @@ describe('feedback -text meets AA text contrast on --background', () => {
   it('light values are the Tailwind amber-700 / red-600 steps they replaced', () => {
     expect(oklchToHex(resolve('warning-text', 'light'))).toBe('#bb4d00')
     expect(oklchToHex(resolve('danger-text', 'light'))).toBe('#e7000b')
+  })
+
+  it('LUM-969 light values: green-700, blue-600, deeper in-review magenta', () => {
+    expect(oklchToHex(resolve('success-text', 'light'))).toBe('#008236')
+    expect(oklchToHex(resolve('info-text', 'light'))).toBe('#155dfc')
+    expect(oklchToHex(resolve('status-in-review-text', 'light'))).toBe(
+      '#a125d7'
+    )
+  })
+})
+
+// ── -text on its own -subtle fill (AA text 4.5:1, LUM-969) ──────────────────
+// Chips print -text on the family -subtle fill, a translucent color-mix of the
+// accent. Composite that fill over --background (sRGB, like the browser) and
+// measure the text against the result.
+
+/** oklch → gamma-encoded sRGB channels in 0..1. */
+function oklchToSrgb(value: string): [number, number, number] {
+  return oklchToLinearRgb(value).map(c =>
+    c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055
+  ) as [number, number, number]
+}
+
+function srgbLuminance([r, g, b]: [number, number, number]): number {
+  const lin = (c: number) =>
+    c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+function srgbContrast(
+  a: [number, number, number],
+  b: [number, number, number]
+): number {
+  const la = srgbLuminance(a)
+  const lb = srgbLuminance(b)
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+}
+
+/** `<accent>` at `alpha` over --background in `mode`, as sRGB. */
+function overBackground(
+  accentToken: string,
+  alpha: number,
+  mode: Mode
+): [number, number, number] {
+  const fg = oklchToSrgb(resolve(accentToken, mode))
+  const bg = oklchToSrgb(resolve('background', mode))
+  return fg.map((c, i) => alpha * c + (1 - alpha) * bg[i]!) as [
+    number,
+    number,
+    number,
+  ]
+}
+
+/** Parse `color-mix(in srgb, var(--x) N%, transparent)` → [x, N / 100]. */
+function subtleMix(family: string): [string, number] {
+  const raw = rawValue(ROOT, `${family}-subtle`)
+  const m = raw?.match(
+    /^color-mix\(\s*in srgb,\s*var\(--([a-z0-9-]+)\)\s+([0-9.]+)%,\s*transparent\s*\)$/
+  )
+  if (!m?.[1] || !m[2]) throw new Error(`unexpected --${family}-subtle: ${raw}`)
+  return [m[1], Number(m[2]) / 100]
+}
+
+function textOnSubtle(family: string, mode: Mode): number {
+  const [accent, alpha] = subtleMix(family)
+  return srgbContrast(
+    oklchToSrgb(resolve(`${family}-text`, mode)),
+    overBackground(accent, alpha, mode)
+  )
+}
+
+// danger is LUM-968's (red-600 measures ~4.2:1 on danger-subtle today).
+const ON_SUBTLE = ['warning', 'success', 'info', 'status-in-review'] as const
+
+describe('feedback -text meets AA on its own -subtle fill', () => {
+  it.each(ON_SUBTLE)('-text on its -subtle fill: %s (light)', family => {
+    expect(textOnSubtle(family, 'light')).toBeGreaterThanOrEqual(TEXT_AA)
+  })
+
+  it.each(['warning', 'success', 'info'] as const)(
+    '-text on its -subtle fill: %s (dark)',
+    family => {
+      expect(textOnSubtle(family, 'dark')).toBeGreaterThanOrEqual(TEXT_AA)
+    }
+  )
+
+  it('dark in-review text reuses the accent and measures ~4.4:1 on its subtle', () => {
+    // Known gap, kept visible: dark --status-in-review-text points at the
+    // shared brand magenta (4.7:1 on the page) and lands just under 4.5 on
+    // its own 10% fill. Changing it means a dark-only lighter magenta.
+    expect(textOnSubtle('status-in-review', 'dark')).toBeCloseTo(4.42, 1)
+  })
+
+  it('compositing pins the light accent-on-subtle failure it fixes', () => {
+    // e.g. the old text-success on bg-success-subtle chip was ~2.1:1.
+    expect(
+      srgbContrast(
+        oklchToSrgb(resolve('success', 'light')),
+        overBackground('success', 0.1, 'light')
+      )
+    ).toBeLessThan(3)
+  })
+})
+
+// ── Bare accents that remain on icons / strokes (non-text 3:1, LUM-969) ─────
+// feedback-text-usage.test.ts allows bare text-<accent> only on audited icon
+// sites. Those accents must clear the graphics threshold in both modes;
+// success / warning do not on light, so their icons use the -text step.
+const ICON_ACCENTS = [
+  'danger',
+  'destructive',
+  'info',
+  'status-in-review',
+] as const
+
+describe('accents kept on icons meet non-text 3:1', () => {
+  it.each(ICON_ACCENTS)('--%s vs --background (light + dark)', token => {
+    expect(
+      contrastRatio(resolve(token, 'light'), resolve('background', 'light'))
+    ).toBeGreaterThanOrEqual(GRAPHICS)
+    expect(
+      contrastRatio(resolve(token, 'dark'), resolve('background', 'dark'))
+    ).toBeGreaterThanOrEqual(GRAPHICS)
+  })
+
+  it('--destructive icon on its 10% tile (light) and 20% tile (dark)', () => {
+    const icon = (mode: Mode) => oklchToSrgb(resolve('destructive', mode))
+    expect(
+      srgbContrast(icon('light'), overBackground('destructive', 0.1, 'light'))
+    ).toBeGreaterThanOrEqual(GRAPHICS)
+    expect(
+      srgbContrast(icon('dark'), overBackground('destructive', 0.2, 'dark'))
+    ).toBeGreaterThanOrEqual(GRAPHICS)
+  })
+
+  it.each(['success', 'warning'] as const)(
+    'the light --%s accent misses 3:1, so its icons cannot keep it',
+    token => {
+      expect(
+        contrastRatio(resolve(token, 'light'), resolve('background', 'light'))
+      ).toBeLessThan(GRAPHICS)
+    }
+  )
+
+  it.each(['success', 'warning'] as const)(
+    '--%s-text as an icon colour clears 3:1 on the page and its subtle',
+    family => {
+      for (const mode of ['light', 'dark'] as const) {
+        expect(
+          contrastRatio(
+            resolve(`${family}-text`, mode),
+            resolve('background', mode)
+          )
+        ).toBeGreaterThanOrEqual(GRAPHICS)
+        expect(textOnSubtle(family, mode)).toBeGreaterThanOrEqual(GRAPHICS)
+      }
+    }
+  )
+})
+
+// ── destructive text uses --danger-text (LUM-969) ────────────────────────────
+describe('destructive shares the danger red', () => {
+  it('light --destructive and --danger are the same #ef4444', () => {
+    expect(oklchToHex(resolve('destructive', 'light'))).toBe('#ef4444')
+    expect(oklchToHex(resolve('danger', 'light'))).toBe('#ef4444')
+  })
+
+  it('--danger-text beats --destructive as text on both backgrounds', () => {
+    for (const mode of ['light', 'dark'] as const) {
+      const bg = resolve('background', mode)
+      expect(contrastRatio(resolve('danger-text', mode), bg)).toBeGreaterThan(
+        contrastRatio(resolve('destructive', mode), bg)
+      )
+      expect(
+        contrastRatio(resolve('danger-text', mode), bg)
+      ).toBeGreaterThanOrEqual(TEXT_AA)
+    }
   })
 })
 

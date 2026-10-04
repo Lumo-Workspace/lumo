@@ -80,7 +80,7 @@ export function CiIcon({ status }: { status: string | null }) {
 }
 
 const SEVERITY_TONE: Record<'LOW' | 'MEDIUM' | 'HIGH', string> = {
-  HIGH: 'text-destructive',
+  HIGH: 'text-danger-text',
   MEDIUM: 'text-warning-text',
   LOW: 'text-muted-foreground',
 }
@@ -158,7 +158,7 @@ export function SecurityScanBadge({
   } else if (scan.findings.length === 0) {
     icon = <ShieldCheck size={12} />
     label = intl.formatMessage({ id: 'securityScan.status.CLEAN' })
-    tone = 'text-success'
+    tone = 'text-success-text'
     state = 'clean'
   } else {
     icon = <ShieldAlert size={12} />

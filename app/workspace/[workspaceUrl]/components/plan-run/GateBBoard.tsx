@@ -115,7 +115,7 @@ export function GateBBoard({ runId, onConfirmed }: Props) {
   if (isLoading) return <Spinner />
   if (isError || !data) {
     return (
-      <p className='text-sm text-destructive'>
+      <p className='text-sm text-danger-text'>
         {intl.formatMessage({ id: 'planGate.loadError' })}
       </p>
     )

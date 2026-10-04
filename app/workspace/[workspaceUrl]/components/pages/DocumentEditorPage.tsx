@@ -673,7 +673,7 @@ export function DocumentEditorPage({
                   {saveStatus === 'error' && (
                     <>
                       <span className='text-border'>·</span>
-                      <span className='italic text-destructive'>
+                      <span className='italic text-danger-text'>
                         {getSaveStatusText()}
                       </span>
                     </>

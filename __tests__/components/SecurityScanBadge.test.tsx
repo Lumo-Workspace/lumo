@@ -105,7 +105,7 @@ it('reports "failed" when the scan itself errored', () => {
 it('reports "clean" for a finished scan with no findings', () => {
   render(<SecurityScanBadge scan={scan('FINDINGS')} />)
   expect(badge()).toHaveAttribute('data-state', 'clean')
-  expect(badge().className).toContain('text-success')
+  expect(badge()).toHaveClass('text-success-text')
 })
 
 it('counts the findings and takes its tone from the WORST severity', () => {
@@ -116,7 +116,7 @@ it('counts the findings and takes its tone from the WORST severity', () => {
   )
   expect(badge()).toHaveAttribute('data-state', 'findings')
   expect(badge()).toHaveTextContent('2')
-  expect(badge().className).toContain('text-destructive')
+  expect(badge()).toHaveClass('text-danger-text')
 })
 
 it('tones a MEDIUM-only result as a warning, not a destructive one', () => {

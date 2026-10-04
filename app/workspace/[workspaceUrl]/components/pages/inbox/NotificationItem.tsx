@@ -359,7 +359,7 @@ export function NotificationItem({
           <ContextMenuShortcut>U</ContextMenuShortcut>
         </ContextMenuItem>
         <ContextMenuItem
-          className='text-destructive focus:text-destructive'
+          className='text-danger-text focus:text-danger-text'
           onClick={e => {
             e.stopPropagation()
             onDelete()

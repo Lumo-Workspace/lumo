@@ -199,7 +199,7 @@ export function ProjectPropertyRows({
                           ) : isLinked ? (
                             <Check
                               size={12}
-                              className='shrink-0 text-success'
+                              className='shrink-0 text-success-text'
                             />
                           ) : (
                             <GitBranch

@@ -893,13 +893,13 @@ test('LUM-738 supplyChain surface — a persisting dependency finding is muted a
   expect(fresh.className).not.toContain('opacity-60')
   expect(fresh).toHaveTextContent('Vulnerable dependency')
   expect(fresh.querySelector('[data-testid="finding-persisting"]')).toBeNull()
-  expect(fresh.querySelector('.text-destructive')).not.toBeNull()
+  expect(fresh.querySelector('.text-danger-text')).not.toBeNull()
   expect(old).toHaveAttribute('data-persisting', 'true')
   expect(old.className).toContain('opacity-60')
   expect(
     old.querySelector('[data-testid="finding-persisting"]')
   ).toHaveTextContent('already on the default branch')
-  expect(old.querySelector('.text-destructive')).toBeNull()
+  expect(old.querySelector('.text-danger-text')).toBeNull()
   // The rollup counts the new one only.
   expect(screen.getByTestId('security-summary-line')).toHaveTextContent(
     '1 finding'

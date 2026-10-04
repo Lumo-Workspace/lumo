@@ -249,7 +249,7 @@ describe('the needs-action note tells the truth about what is in the zone', () =
     )
     const chip = screen.getByTestId('gap-crossings')
     expect(chip).toHaveTextContent('1 advisory crossing to disposition')
-    expect(chip.className).toContain('text-status-in-review')
+    expect(chip).toHaveClass('text-status-in-review-text')
   })
 
   it('keeps the blocking note when something actually blocks Done', () => {

@@ -42,7 +42,10 @@ export function StalePrList({ prs, now }: StalePrListProps) {
             rel='noopener noreferrer'
             className='flex items-center gap-2.5 border-b border-border px-4 py-2.5 last:border-b-0 transition-colors hover:bg-muted'
           >
-            <GitPullRequest className='size-3.5 text-warning' aria-hidden />
+            <GitPullRequest
+              className='size-3.5 text-warning-text'
+              aria-hidden
+            />
             <span className='text-body-strong font-mono text-foreground'>
               #{pr.number}
             </span>
