@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "違反の対処タスクを作成しました",
   "activity.boundaryRedispositioned": "違反の判定を{from}から{to}に変更しました",
   "activity.boundaryReopened": "違反を再オープンしました（以前は{from}）— 完了が再びブロックされました",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "リポジトリ外のローカルデータを破壊",
   "boundary.category.push": "保護されたブランチへのプッシュ",
   "boundary.category.migrationDelete": "マイグレーションファイルの削除",
   "boundary.category.secret": "シークレットのハードコード",

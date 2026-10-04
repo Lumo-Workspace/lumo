@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "создал(а) задачу устранения нарушения границы",
   "activity.boundaryRedispositioned": "изменил(а) классификацию нарушения границы с {from} на {to}",
   "activity.boundaryReopened": "повторно открыл(а) нарушение границы (было {from}) — «Готово» снова заблокировано",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "уничтожены локальные данные вне репозитория",
   "boundary.category.push": "отправка в защищённую ветку",
   "boundary.category.migrationDelete": "удаление файла миграции",
   "boundary.category.secret": "захардкоженный секрет",

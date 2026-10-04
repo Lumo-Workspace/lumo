@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "creó una tarea de remediación para una infracción de límite",
   "activity.boundaryRedispositioned": "cambió la disposición de la infracción de límite de {from} a {to}",
   "activity.boundaryReopened": "reabrió la infracción de límite (era {from}) — Hecho vuelve a estar bloqueado",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "destruyó datos locales fuera del repositorio",
   "boundary.category.push": "push a una rama protegida",
   "boundary.category.migrationDelete": "eliminó un archivo de migración",
   "boundary.category.secret": "secreto escrito directamente en el código",

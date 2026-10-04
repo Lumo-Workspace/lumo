@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "spawned a remediation task for a boundary-crossing",
   "activity.boundaryRedispositioned": "changed the boundary-crossing disposition from {from} to {to}",
   "activity.boundaryReopened": "reopened the boundary-crossing (was {from}) — Done re-blocked",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "destroyed local data outside the repository",
   "boundary.category.push": "push to a protected branch",
   "boundary.category.migrationDelete": "deleted a migration file",
   "boundary.category.secret": "hardcoded secret",

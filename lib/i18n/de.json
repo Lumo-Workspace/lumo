@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "eine Behebungsaufgabe für eine Grenzüberschreitung erstellt",
   "activity.boundaryRedispositioned": "hat die Einordnung der Grenzüberschreitung von {from} auf {to} geändert",
   "activity.boundaryReopened": "hat die Grenzüberschreitung wieder geöffnet (war {from}) — Erledigt erneut blockiert",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "lokale Daten außerhalb des Repositorys vernichtet",
   "boundary.category.push": "Push auf einen geschützten Branch",
   "boundary.category.migrationDelete": "Migrationsdatei gelöscht",
   "boundary.category.secret": "fest im Code hinterlegtes Geheimnis",

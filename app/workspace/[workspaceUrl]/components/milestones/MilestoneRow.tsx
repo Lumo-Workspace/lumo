@@ -106,7 +106,7 @@ export function MilestoneRow({
             className={cn(
               'h-full rounded-full',
               complete
-                ? 'bg-success'
+                ? 'bg-success-text'
                 : stale
                   ? 'bg-muted-foreground/40'
                   : 'bg-info'

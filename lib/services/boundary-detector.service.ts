@@ -44,6 +44,7 @@ import {
   matchUntrustedCodeExecution,
 } from '@/lib/boundary-crossing/untrusted-code'
 import { matchPushTarget } from '@/lib/boundary-crossing/push-target-match'
+import { matchDestructiveFs } from '@/lib/boundary-crossing/destructive-fs'
 import {
   detectProjectSensitiveReads,
   detectSensitiveReads,
@@ -868,6 +869,8 @@ export function severityFor(
     case 'EXFILTRATION_PUBLIC':
     case 'CLOUD_DATA_DELETION':
     case 'INFRA_TERMINATION':
+    // LUM-960: wiping a root-level directory / disk outside the repo.
+    case 'DESTRUCTIVE_FS_COMMAND':
     // LUM-962: running code from an unvetted source — whatever it does is
     // already done; the same "rare but high-severity" tier as exfiltration.
     case 'UNTRUSTED_CODE_EXECUTION':
@@ -957,6 +960,8 @@ const COMMAND_MATCHERS: ReadonlyArray<{
   { category: 'EXFILTRATION_PUBLIC', fn: matchExfiltrationPublic },
   { category: 'CLOUD_DATA_DELETION', fn: matchCloudDataDeletion },
   { category: 'INFRA_TERMINATION', fn: matchInfraTermination },
+  // LUM-960: rm -rf / find -delete on a root-level path, shred, mkfs, dd of=/dev.
+  { category: 'DESTRUCTIVE_FS_COMMAND', fn: matchDestructiveFs },
   // LUM-962: reads the RAW command — the `|` between a downloader and an
   // interpreter is the signal, and the executing-segment view has cut it.
   // Carriers are excluded inside the matcher itself.

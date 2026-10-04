@@ -77,20 +77,23 @@ solid accent fill), `-subtle` / `-border` (translucent color-mix fills), and a
 `-text` step for coloured text on the page background or on its own `-subtle`
 fill (warning / danger LUM-934; success / info / in-review LUM-969).
 
-| Token                     | Light                                        | Dark                      | Use for                                                     |
-| ------------------------- | -------------------------------------------- | ------------------------- | ----------------------------------------------------------- |
-| `--warning-text`          | amber-700 (`#bb4d00`) 5.05 / 4.68            | `var(--warning)`          | Caveat / approximate notes printed as text; warning icons   |
-| `--danger-text`           | red-600 (`#e7000b`) 4.76 / 4.18              | `var(--danger)`           | Error counts / error text; also all destructive-action text |
-| `--success-text`          | green-700 (`#008236`) 4.94 / 4.54            | `var(--success)`          | Success / merged / on-track text and chips; success icons   |
-| `--info-text`             | blue-600 (`#155dfc`) 5.26 / 4.69             | `var(--info)`             | Info links and chips                                        |
-| `--status-in-review-text` | deeper in-review hue (`#a125d7`) 5.58 / 4.84 | `var(--status-in-review)` | In-review chips (`bg-status-in-review-subtle`)              |
+| Token                     | Light                                        | Dark                  | Use for                                                     |
+| ------------------------- | -------------------------------------------- | --------------------- | ----------------------------------------------------------- |
+| `--warning-text`          | amber-700 (`#bb4d00`) 5.05 / 4.68            | `var(--warning)`      | Caveat / approximate notes printed as text; warning icons   |
+| `--danger-text`           | red-700 (`#c10007`) 6.42 / 5.64              | `var(--danger)`       | Error counts / error text; also all destructive-action text |
+| `--success-text`          | green-700 (`#008236`) 4.94 / 4.54            | `var(--success)`      | Success / merged / on-track text and chips; success icons   |
+| `--info-text`             | blue-600 (`#155dfc`) 5.26 / 4.69             | `var(--info)`         | Info links and chips                                        |
+| `--status-in-review-text` | deeper in-review hue (`#a125d7`) 5.58 / 4.84 | `#c452fd` 5.63 / 5.27 | In-review chips (`bg-status-in-review-subtle`)              |
 
-Light ratios are _on white / on the family's own `-subtle` fill_ (alpha
-composited). The light accents (success ~2.3:1, warning ~2.1:1, info ~3.7:1,
-danger ~3.8:1, in-review ~4.2:1 on white) are tuned as strokes and miss AA as
-text, so text uses the darker `-text` step; dark mode reuses the bright accent
-(all ≥4.7:1 on `#0a0a0a`; in-review measures ~4.4:1 on its own subtle fill).
-`--danger-text` on `-subtle` is below 4.5 today — LUM-968 deepens it.
+Ratios are _on the page background / on the family's own `-subtle` fill_
+(alpha composited). The light accents (success ~2.3:1, warning ~2.1:1, info
+~3.7:1, danger ~3.8:1, in-review ~4.2:1 on white) are tuned as strokes and miss
+AA as text, so text uses the darker `-text` step; dark mode reuses the bright
+accent (all ≥4.7:1 on `#0a0a0a` and ≥4.5:1 on their own subtle fill), except
+in-review: the shared brand magenta is only ~4.4:1 on its own subtle fill, so
+dark `--status-in-review-text` is a lighter step of the same hue (LUM-968).
+Light `--danger-text` was red-600 (`#e7000b`, 4.18 on `-subtle`) until LUM-968.
+Every `-text` token clears 4.5:1 on both surfaces in both modes.
 
 Utilities: `text-{warning,danger,success,info,status-in-review}-text`.
 
@@ -105,6 +108,20 @@ Utilities: `text-{warning,danger,success,info,status-in-review}-text`.
   / `text-status-in-review` accent (all ≥3:1, WCAG non-text). The light
   `success` and `warning` accents miss even 3:1, so their icons use
   `text-success-text` / `text-warning-text` too.
+- **Graphics** (dots, bars, strips, strokes, fills) follow the icon rule —
+  WCAG 1.4.11, 3:1 on the surface they actually sit on, both modes (LUM-968).
+  Success / warning graphics use `bg-` / `stroke-` / `fill-success-text` and
+  `-warning-text`; danger / info may keep the bare accent (≥3:1 on card, muted
+  and their own `-subtle`). Status maps use semantic tokens, never Tailwind
+  greens / ambers (`HEALTH_DOT`: success-text / warning-text / danger).
+- **Progress with a label on top**: a darker full-height fill can't give both
+  3:1 against the track and 4.5:1 for the label sitting on it, so the label
+  stays on the `-subtle` bar and progress is a bottom strip
+  (`SprintTimeline`); a secondary series (elapsed time) is a tick that
+  extends past the track (`CurrentSprintCard`).
+- **Dots on a selected `bg-primary` pill** get `ring-1 ring-primary-foreground`
+  — no feedback hue clears 3:1 on both the near-black (light) and white
+  (dark) primary.
 
 `__tests__/styles/feedback-text-usage.test.ts` pins every audited bare-accent
 icon site per family (success / warning: none) so new text uses can't creep

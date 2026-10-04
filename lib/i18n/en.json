@@ -185,6 +185,7 @@
   "baseline.none": "No baseline yet",
   "board.addTask": "Add task",
   "boundary.advisoryBadge": "Advisory",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "destroyed local data outside the repository",
   "boundary.category.HOOK_BYPASS": "bypassed git hooks",
   "boundary.category.POLICY_WEAKENING": "Policy weakening",
   "boundary.category.PROJECT_RULE_VIOLATION": "Project rule violation",

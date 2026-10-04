@@ -1155,6 +1155,7 @@
   "activity.boundaryRemediationSpawned": "đã tạo nhiệm vụ khắc phục cho một vi phạm ranh giới",
   "activity.boundaryRedispositioned": "đã đổi cách xử lý vi phạm ranh giới từ {from} thành {to}",
   "activity.boundaryReopened": "đã mở lại vi phạm ranh giới (trước đó là {from}) — Hoàn thành bị chặn lại",
+  "boundary.category.DESTRUCTIVE_FS_COMMAND": "đã hủy dữ liệu cục bộ bên ngoài kho mã",
   "boundary.category.push": "đẩy lên nhánh được bảo vệ",
   "boundary.category.migrationDelete": "xóa tệp migration",
   "boundary.category.secret": "khóa bí mật được mã hóa cứng",

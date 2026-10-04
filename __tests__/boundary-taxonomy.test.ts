@@ -77,6 +77,9 @@ describe('reversibility taxonomy — world/external-state boundary (LUM-516)', (
     // LUM-793: `memoryRepository.delete` is a HARD delete (not the reversible
     // ACTIVE→ARCHIVED retire), so the memory row and its content are gone.
     'USED_TRAP_MEMORY_DELETED',
+    // LUM-960: a wiped root-level directory / disk outside the repo — git
+    // cannot bring it back.
+    'DESTRUCTIVE_FS_COMMAND',
     // LUM-962: code from an unvetted source already ran — whatever it did to
     // the world outside the repo is not undone by any git operation.
     'UNTRUSTED_CODE_EXECUTION',
@@ -146,6 +149,13 @@ describe('HARDCODED_SECRET ↔ security-scan registry (LUM-734)', () => {
     // The taxonomy ceiling for the category is unchanged: HIGH, irreversible.
     expect(severityFor('HARDCODED_SECRET')).toBe('HIGH')
     expect(isReversible('HARDCODED_SECRET')).toBe(false)
+  })
+})
+
+describe('LUM-960 DESTRUCTIVE_FS_COMMAND taxonomy', () => {
+  it('is HIGH severity and irreversible', () => {
+    expect(severityFor('DESTRUCTIVE_FS_COMMAND')).toBe('HIGH')
+    expect(isReversible('DESTRUCTIVE_FS_COMMAND')).toBe(false)
   })
 })
 
