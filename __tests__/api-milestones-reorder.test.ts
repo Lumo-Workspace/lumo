@@ -5,7 +5,7 @@ import { NextRequest } from 'next/server'
 
 jest.mock('@/lib/auth', () => ({ requireIdentity: jest.fn() }))
 jest.mock('@/lib/api/helpers', () => ({
-  loadProjectAndMember: jest.fn(),
+  loadProjectForIdentity: jest.fn(),
   zodError: jest.requireActual('@/lib/api/helpers').zodError,
 }))
 jest.mock('@/lib/services/milestone.service', () => ({
@@ -14,11 +14,11 @@ jest.mock('@/lib/services/milestone.service', () => ({
 
 import { PATCH } from '@/app/api/projects/[id]/milestones/reorder/route'
 import { requireIdentity } from '@/lib/auth'
-import { loadProjectAndMember } from '@/lib/api/helpers'
+import { loadProjectForIdentity } from '@/lib/api/helpers'
 import { milestoneService } from '@/lib/services/milestone.service'
 
 const mockIdentity = requireIdentity as jest.Mock
-const mockLoad = loadProjectAndMember as jest.Mock
+const mockLoad = loadProjectForIdentity as jest.Mock
 const mockReorder = milestoneService.reorderMilestones as jest.Mock
 
 const CUID = 'clm00000000000000000000a'
