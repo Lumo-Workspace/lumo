@@ -1,6 +1,6 @@
 # Lumo Subprocessors
 
-Last updated: 2026-10-03 · Draft for legal review (LUM-857)
+Last updated: 2026-10-04 · Draft for legal review (LUM-857)
 
 This page lists the third parties ("subprocessors") that [Lumo legal entity] ("Lumo", "we") engages to process Customer Personal Data on behalf of our customers when providing the Lumo service. It is the list referenced by the Lumo Data Processing Agreement (DPA). We notify customers of changes as described in "Changes to this list" below.
 
@@ -22,13 +22,14 @@ These subprocessors process data for every workspace.
 
 ## AI model hosting subprocessors
 
-Lumo sends prompts that may contain customer code, diffs, task text and agent session records to large language models for security review, summaries and memory features. Every request goes through the Vercel AI Gateway. Except for boundary-crossing triage (see the notes below), zero data retention (ZDR) is enforced on the request: the gateway only routes to providers that have a ZDR agreement with Vercel, and a request fails rather than falling back to a provider that would retain data. ZDR includes a commitment not to train on the data.
+Lumo sends prompts that may contain customer code, diffs, task text and agent session records to large language models for code and security review, summaries and memory features. Every request goes through the Vercel AI Gateway. Except for boundary-crossing triage (see the notes below), zero data retention (ZDR) is enforced on the request: the gateway only routes to providers that have a ZDR agreement with Vercel, and a request fails rather than falling back to a provider that would retain data. ZDR includes a commitment not to train on the data.
 
 Which provider serves a given request is chosen by the gateway from the ZDR-eligible set for that model, based on availability. Every provider below may therefore receive requests.
 
 | Subprocessor | Models served for Lumo | Purpose | Retention terms | Data location |
 | --- | --- | --- | --- | --- |
 | OpenAI, L.L.C. | GPT reasoning model | Security judgement, verification and review checks | Zero data retention with safety retention (limited retention for abuse monitoring); no training | Routed globally; no location commitment |
+| Anthropic, PBC | Claude Sonnet model | AI code review of pull requests | Zero data retention; no training | Routed globally; no location commitment |
 | Microsoft Corporation (Azure) | GPT reasoning model; open-weight models | Fallback host for the above | Zero data retention; no training | Routed globally; no location commitment |
 | Alibaba Cloud | Qwen coder and embedding models; open-weight models | Security hunt, summaries, memory, embeddings | Zero data retention under a custom agreement with Vercel; no training | Routed globally; no location commitment |
 | Baseten, Inc. | Open-weight models | Summaries, content and policy compilation | Zero data retention; no training | Routed globally; no location commitment |
@@ -44,6 +45,7 @@ Notes on AI processing:
 
 - Boundary-crossing triage is the one exception. When Lumo's rule detectors flag an action an AI agent took, Lumo asks TypeSafe's Jev model, through the Vercel AI Gateway, whether the action was a legitimate part of the task. For this it sends the flagged command or file path (with detected credentials redacted), the project rule that fired, the task's title and description, and the agent's own explanation. Jev's only host, DigitalOcean, has committed not to train on the data but does not offer zero data retention. Turning off AI review in workspace settings stops this triage.
 - Zero data retention is each provider's own policy, and a provider can exclude specific models or features from it; the Vercel AI Gateway does not fail such requests (see Vercel's [zero data retention documentation](https://vercel.com/docs/ai-gateway/security-and-compliance/zdr)). Lumo sends only text and does not use the features the providers above list as exclusions, such as stored conversations, file or image inputs, hosted tools or batch processing. Providers may still cache parts of a prompt to speed up repeated requests; OpenAI keeps this cache encrypted for up to 24 hours.
+- AI code review requests are sent only to Anthropic's own API; the gateway is not allowed to route them to any other host of Claude models. Anthropic may retain inputs and outputs of a request flagged by its automated trust and safety systems for up to 2 years, or where required by law.
 - Open-weight models (the DeepSeek and GLM model families) are run by the hosting providers above. The model authors' own APIs (DeepSeek and Zhipu AI) do not receive Lumo customer data: they do not offer zero data retention through the gateway and are excluded from routing.
 - AI requests are routed globally: for each request the gateway picks a region based on availability and latency, so processing may take place outside your region. Zero data retention applies wherever a request is processed. We do not currently commit to a processing location for AI features; customers who need a data-location commitment for AI processing should contact us before relying on this list.
 - Lumo does not use customer data to train models, and does not permit its subprocessors to do so.

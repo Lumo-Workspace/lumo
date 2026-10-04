@@ -2246,6 +2246,7 @@
   "securityScan.kind.SECRET": "시크릿",
   "securityScan.kind.VULNERABILITY": "취약점",
   "securityScan.kind.DEPENDENCY": "의존성",
+  "securityScan.kind.CORRECTNESS": "버그",
   "securityScan.reachability.EXTERNAL": "진입점에서 도달 가능",
   "securityScan.reachability.INTERNAL": "내부 경로만",
   "securityScan.reachability.UNKNOWN": "도달 가능성 불명",

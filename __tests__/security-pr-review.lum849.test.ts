@@ -159,7 +159,7 @@ describe('LUM-849 PR summary layout', () => {
       '- **Secrets** (checked): API keys, tokens and passwords written into the added lines',
       '- **Code scan** (checked · semgrep 2, zizmor 1): rule-based scanners for insecure code patterns, leaked credentials, CI workflows and infrastructure config',
       '- **Dependencies** (checked · 1 vulnerable dependency (2 already on main)): the packages this PR adds or updates, against public vulnerability databases',
-      '- **AI review** (checked): an AI reviewer reads the added code for injection, XSS, SSRF, path traversal, auth bypass and weak crypto',
+      '- **AI review** (checked): an AI reviewer reads the added code, with the changed files for context, for security defects, bugs, code that contradicts its own comments, and tests that cannot catch their bug',
       '- **Exploit paths** (scanning · 3/9 source files): traces whether outside input can reach a dangerous call across files, then tries to disprove each path it finds',
     ])
     // Every layer has a description, and the dependency result is not

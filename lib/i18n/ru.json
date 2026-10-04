@@ -2246,6 +2246,7 @@
   "securityScan.kind.SECRET": "Секрет",
   "securityScan.kind.VULNERABILITY": "Уязвимость",
   "securityScan.kind.DEPENDENCY": "Зависимость",
+  "securityScan.kind.CORRECTNESS": "Ошибка в коде",
   "securityScan.reachability.EXTERNAL": "Достижимо из точки входа",
   "securityScan.reachability.INTERNAL": "Только внутренний путь",
   "securityScan.reachability.UNKNOWN": "Достижимость неизвестна",

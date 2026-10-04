@@ -19,7 +19,7 @@
 export const SECURITY_CONTACT_EMAIL = 'hello@uselumo.ai'
 
 /** Date the /security page and this list were last reviewed (ISO). */
-export const SECURITY_PAGE_UPDATED = '2026-10-03'
+export const SECURITY_PAGE_UPDATED = '2026-10-04'
 
 /**
  * `us`: United States. `globalEdge`: served from the edge, nothing retained.
@@ -137,6 +137,14 @@ export const AI_HOST_SUBPROCESSORS: readonly AiHostSubprocessor[] = [
   {
     gatewaySlug: 'openai',
     entity: 'OpenAI, L.L.C.',
+    location: 'globalRouting',
+  },
+  {
+    // LUM-988: the AI review (CODE_REVIEW_MODEL) is pinned to Anthropic's own
+    // API by MODEL_PROVIDER_PINS; bedrock / vertexAnthropic / claudeaws are
+    // never reached.
+    gatewaySlug: 'anthropic',
+    entity: 'Anthropic, PBC',
     location: 'globalRouting',
   },
   {

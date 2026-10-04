@@ -2246,6 +2246,7 @@
   "securityScan.kind.SECRET": "Bí mật",
   "securityScan.kind.VULNERABILITY": "Lỗ hổng",
   "securityScan.kind.DEPENDENCY": "Phụ thuộc",
+  "securityScan.kind.CORRECTNESS": "Lỗi mã",
   "securityScan.reachability.EXTERNAL": "Có thể tiếp cận từ điểm vào",
   "securityScan.reachability.INTERNAL": "Chỉ đường dẫn nội bộ",
   "securityScan.reachability.UNKNOWN": "Chưa rõ khả năng tiếp cận",

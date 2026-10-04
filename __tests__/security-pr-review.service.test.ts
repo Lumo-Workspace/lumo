@@ -57,6 +57,8 @@ import {
   buildSummary,
   parseFingerprintMarkers,
   provenanceLabel,
+  findingKindLabel,
+  type InlineFinding,
   fingerprintMarker,
   SUMMARY_MARKER,
   REVIEW_MAX_INLINE,
@@ -256,7 +258,7 @@ describe('pure builders', () => {
         '',
         '- **Secrets** (checked): API keys, tokens and passwords written into the added lines',
         "- **Code scan** (⚠ didn't finish · semgrep 3, gitleaks 1): rule-based scanners for insecure code patterns, leaked credentials, CI workflows and infrastructure config",
-        '- **AI review** (checked): an AI reviewer reads the added code for injection, XSS, SSRF, path traversal, auth bypass and weak crypto',
+        '- **AI review** (checked): an AI reviewer reads the added code, with the changed files for context, for security defects, bugs, code that contradicts its own comments, and tests that cannot catch their bug',
         '',
         '</details>',
         '',
@@ -983,5 +985,57 @@ describe('LUM-738 supplyChain surface — sync excludes persisting rows', () => 
       `- **Dependencies** (checked · 1 vulnerable dependency (1 already on main)): ${D.supplyChain}`
     )
     expect(body).toContain('**2 open findings**')
+  })
+})
+
+// ── LUM-988: correctness findings from the AI review ──────────────────────
+
+const llm = (over: Partial<InlineFinding> = {}): InlineFinding => ({
+  provenance: 'LLM_JUDGE',
+  ruleId: 'review:logic_error',
+  severity: 'HIGH',
+  title: 'Inverted permission check',
+  detail: 'The guard returns early for admins instead of non-admins.',
+  externalRef: null,
+  fingerprint: 'fp988',
+  disposition: null,
+  suggestedDisposition: null,
+  kind: 'CORRECTNESS',
+  ...over,
+})
+
+describe('LUM-988 PR review comment — correctness findings', () => {
+  it('labels a CORRECTNESS finding as a bug and never says it blocks DONE', () => {
+    expect(buildInlineComment(llm())).toBe(
+      [
+        '**Lumo · LLM review · bug · HIGH** — Inverted permission check',
+        '',
+        'The guard returns early for admins instead of non-admins.',
+        '',
+        '<!-- lumo-security:fp:fp988 -->',
+      ].join('\n')
+    )
+  })
+
+  it('keeps the security heading for every other kind, and when kind is absent', () => {
+    expect(
+      buildInlineComment(llm({ kind: 'VULNERABILITY', ruleId: 'vuln:xss' }))
+    ).toMatch(/^\*\*Lumo · LLM review · HIGH\*\*/)
+    const legacy: InlineFinding = llm()
+    delete legacy.kind
+    expect(buildInlineComment(legacy)).toMatch(
+      /^\*\*Lumo · LLM review · HIGH\*\*/
+    )
+  })
+
+  it('findingKindLabel names only CORRECTNESS', () => {
+    expect(findingKindLabel('CORRECTNESS')).toBe('bug')
+    for (const k of [
+      'SECRET',
+      'VULNERABILITY',
+      'DEPENDENCY',
+      undefined,
+    ] as const)
+      expect(findingKindLabel(k)).toBeNull()
   })
 })

@@ -2246,6 +2246,7 @@
   "securityScan.kind.SECRET": "गोपनीय जानकारी",
   "securityScan.kind.VULNERABILITY": "भेद्यता",
   "securityScan.kind.DEPENDENCY": "निर्भरता",
+  "securityScan.kind.CORRECTNESS": "बग",
   "securityScan.reachability.EXTERNAL": "प्रवेश बिंदु से पहुँच योग्य",
   "securityScan.reachability.INTERNAL": "केवल आंतरिक पथ",
   "securityScan.reachability.UNKNOWN": "पहुँच अज्ञात",

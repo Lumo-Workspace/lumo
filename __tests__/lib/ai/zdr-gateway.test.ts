@@ -14,6 +14,7 @@ import fs from 'fs'
 import path from 'path'
 import ts from 'typescript'
 import { createZdrFetch, withZeroDataRetention } from '@/lib/ai/zdr-fetch'
+import { CODE_REVIEW_MODEL, MODEL_PROVIDER_PINS } from '@/lib/ai/models'
 import {
   auditRuntimeModule,
   collectImports,
@@ -90,6 +91,41 @@ describe('ZDR fetch wrapper', () => {
   })
 })
 
+describe('LUM-988 provider pin', () => {
+  it('forces gateway.only for a pinned model and leaves other models alone', async () => {
+    const { calls, inner } = captureFetch()
+    const zdrFetch = createZdrFetch(inner)
+    const body = JSON.stringify({
+      prompt: 'diff',
+      providerOptions: { gateway: { only: ['bedrock'], order: ['bedrock'] } },
+    })
+    await zdrFetch('https://ai-gateway.vercel.sh/v3/ai/language-model', {
+      method: 'POST',
+      headers: { 'ai-language-model-id': CODE_REVIEW_MODEL },
+      body,
+    })
+    await zdrFetch('https://ai-gateway.vercel.sh/v3/ai/language-model', {
+      method: 'POST',
+      headers: new Headers({ 'ai-language-model-id': 'openai/gpt-5.5' }),
+      body,
+    })
+    const pinned = JSON.parse(calls[0]!.init!.body as string) as Body
+    const free = JSON.parse(calls[1]!.init!.body as string) as Body
+    // A call site cannot widen the pin.
+    expect(pinned.providerOptions?.gateway).toEqual({
+      zeroDataRetention: true,
+      only: ['anthropic'],
+      order: ['bedrock'],
+    })
+    expect(free.providerOptions?.gateway).toEqual({
+      zeroDataRetention: true,
+      only: ['bedrock'],
+      order: ['bedrock'],
+    })
+    expect(MODEL_PROVIDER_PINS[CODE_REVIEW_MODEL]).toEqual(['anthropic'])
+  })
+})
+
 describe('lib/ai/gateway on the wire', () => {
   const realFetch = global.fetch
   let calls: Array<{ url: string; init: RequestInit | undefined }>
@@ -130,6 +166,19 @@ describe('lib/ai/gateway on the wire', () => {
     const posts = calls.filter(c => c.init?.method === 'POST')
     expect(posts).toHaveLength(1)
     const sent = JSON.parse(posts[0]!.init!.body as string) as Body
+    expect(sent.providerOptions?.gateway?.zeroDataRetention).toBe(true)
+  })
+
+  it('LUM-988 CODE_REVIEW_MODEL requests through lib/ai/gateway are pinned to anthropic', async () => {
+    const { gateway } = await import('@/lib/ai/gateway')
+    await gateway(CODE_REVIEW_MODEL).doGenerate({
+      prompt: [
+        { role: 'user', content: [{ type: 'text', text: 'customer diff' }] },
+      ],
+    })
+    const posts = calls.filter(c => c.init?.method === 'POST')
+    const sent = JSON.parse(posts[0]!.init!.body as string) as Body
+    expect(sent.providerOptions?.gateway?.only).toEqual(['anthropic'])
     expect(sent.providerOptions?.gateway?.zeroDataRetention).toBe(true)
   })
 

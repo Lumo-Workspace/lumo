@@ -93,8 +93,9 @@ export const SCAN_STAGE_DESCRIPTIONS: Record<ScanStageKeyName, string> = {
     'rule-based scanners for insecure code patterns, leaked credentials, CI workflows and infrastructure config',
   supplyChain:
     'the packages this PR adds or updates, against public vulnerability databases',
+  // LUM-988: a general code review, not a security-only pass.
   judge:
-    'an AI reviewer reads the added code for injection, XSS, SSRF, path traversal, auth bypass and weak crypto',
+    'an AI reviewer reads the added code, with the changed files for context, for security defects, bugs, code that contradicts its own comments, and tests that cannot catch their bug',
   hunt: 'traces whether outside input can reach a dangerous call across files, then tries to disprove each path it finds',
 }
 

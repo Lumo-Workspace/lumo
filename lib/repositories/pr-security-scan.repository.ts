@@ -25,7 +25,12 @@ import {
 export type ScanStatus = 'PENDING' | 'RUNNING' | 'CLEAN' | 'FINDINGS' | 'FAILED'
 export type ScanTrigger = 'PR_EVENT' | 'PR_LINK' | 'SARIF_PUSH'
 export type JudgeStatus = 'RAN' | 'UNAVAILABLE' | 'SKIPPED'
-export type FindingKind = 'SECRET' | 'VULNERABILITY' | 'DEPENDENCY'
+export type FindingKind =
+  | 'SECRET'
+  | 'VULNERABILITY'
+  | 'DEPENDENCY'
+  // LUM-988: AI-review correctness finding (never blocking).
+  | 'CORRECTNESS'
 export type FindingSeverity = 'LOW' | 'MEDIUM' | 'HIGH'
 export type FindingProvenance = 'DETERMINISTIC' | 'LLM_JUDGE' | 'EXTERNAL_TOOL'
 export type FindingDisposition = 'FALSE_POSITIVE' | 'ACCEPTED_RISK'

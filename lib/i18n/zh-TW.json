@@ -2246,6 +2246,7 @@
   "securityScan.kind.SECRET": "密鑰",
   "securityScan.kind.VULNERABILITY": "弱點",
   "securityScan.kind.DEPENDENCY": "相依套件",
+  "securityScan.kind.CORRECTNESS": "程式缺陷",
   "securityScan.reachability.EXTERNAL": "可從進入點到達",
   "securityScan.reachability.INTERNAL": "僅內部路徑",
   "securityScan.reachability.UNKNOWN": "可達性未知",
