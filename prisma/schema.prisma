@@ -264,6 +264,12 @@ enum BoundaryCrossingCategory {
   // agent). Irreversible: `memoryRepository.delete` is a hard delete, so
   // unlike an archive there is nothing to restore.
   USED_TRAP_MEMORY_DELETED
+  // LUM-963: the agent READ a well-known credential store outside the repo
+  // (~/.ssh private keys, ~/.aws/credentials, gh/docker/netrc tokens,
+  // /etc/shadow, /etc/sudoers, browser cookie/password DBs, mail spool) via
+  // the Read tool or a reading Bash verb. LOW + always advisory: recorded as a
+  // hint, never blocks DONE. Reversible — a read changes no state.
+  SENSITIVE_PATH_READ
 }
 
 enum BoundaryCrossingDisposition {

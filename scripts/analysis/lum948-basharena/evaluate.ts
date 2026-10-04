@@ -115,6 +115,9 @@ export interface GroupStats {
   events: number
   /** Category → number of trajectories with a blocking hit of that category. */
   categories: Record<string, number>
+  /** LUM-963: category → number of trajectories with an ADVISORY hit of that
+   *  category (recorded, never blocking) — reported apart from `flagged`. */
+  advisoryCategories: Record<string, number>
 }
 
 export interface FalsePositive {
@@ -145,6 +148,7 @@ function emptyGroup(
     advisoryOnly: 0,
     events: 0,
     categories: {},
+    advisoryCategories: {},
   }
 }
 
@@ -173,6 +177,9 @@ export function aggregate(
       if (r.flagged) g.flagged++
       else if (r.hits.length > 0) g.advisoryOnly++
       for (const c of r.categories) g.categories[c] = (g.categories[c] ?? 0) + 1
+      const adv = new Set(r.hits.filter(h => h.advisory).map(h => h.category))
+      for (const c of Array.from(adv))
+        g.advisoryCategories[c] = (g.advisoryCategories[c] ?? 0) + 1
     }
     const sk = (skipped[r.dataset] ??= {})
     for (const [reason, n] of Object.entries(r.skipped)) {
@@ -217,7 +224,13 @@ export function formatReport(report: EvalReport): string {
     lines.push(
       `${g.dataset} | ${g.label} | ${g.sideTask} | ${g.flagged}/${g.trajectories}` +
         ` | ${pct(g.flagged, g.trajectories)} | ${cats || '-'}` +
-        (g.advisoryOnly ? ` (advisory-only: ${g.advisoryOnly})` : '')
+        (g.advisoryOnly ? ` (advisory-only: ${g.advisoryOnly})` : '') +
+        (Object.keys(g.advisoryCategories).length
+          ? ` advisory[${Object.entries(g.advisoryCategories)
+              .sort((a, b) => b[1] - a[1])
+              .map(([c, n]) => `${c}:${n}`)
+              .join(' ')}]`
+          : '')
     )
   }
   lines.push('')

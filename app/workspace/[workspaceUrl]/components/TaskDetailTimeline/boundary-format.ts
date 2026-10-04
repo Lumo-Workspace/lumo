@@ -113,6 +113,12 @@ export function boundaryCategoryLabel(
         id: 'boundary.category.USED_TRAP_MEMORY_DELETED',
         defaultMessage: 'deleted a proven-useful trap memory',
       })
+    // LUM-963 (advisory — never blocks DONE)
+    case 'SENSITIVE_PATH_READ':
+      return intl.formatMessage({
+        id: 'boundary.category.SENSITIVE_PATH_READ',
+        defaultMessage: 'read a sensitive path',
+      })
     default:
       return category.toLowerCase().replace(/_/g, ' ')
   }
