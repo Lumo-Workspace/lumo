@@ -67,7 +67,7 @@ describe('RecordStatusStrip', () => {
     expect(chip.tagName).toBe('A')
     expect(chip).toHaveAttribute('href', '#record-crossings')
     expect(chip).toHaveTextContent('3 crossings to disposition')
-    expect(chip.className).toContain('text-danger')
+    expect(chip).toHaveClass('text-danger-text')
     expect(screen.getByText('Still needed for Done')).toBeInTheDocument()
   })
 

@@ -294,7 +294,7 @@ function StagesSummary({
     <p
       data-testid='scan-stages'
       data-incomplete={incomplete}
-      className={`text-caption ${incomplete ? 'text-warning' : 'text-muted-foreground'}`}
+      className={`text-caption ${incomplete ? 'text-warning-text' : 'text-muted-foreground'}`}
     >
       {rows
         .map(r => {
@@ -410,7 +410,10 @@ function ScanDetails({
         </p>
       )}
       {scan.externalLate && (
-        <p data-testid='external-late' className='text-caption text-warning'>
+        <p
+          data-testid='external-late'
+          className='text-caption text-warning-text'
+        >
           {intl.formatMessage({ id: 'securityScan.external.late' })}
         </p>
       )}
@@ -437,7 +440,10 @@ function ScanDetails({
           under-reviewed" — that was usually wrong and always ours; the stage
           row above already says which layer did not finish. */}
       {scan.ownedUnfinished && (
-        <p data-testid='scan-unfinished' className='text-caption text-warning'>
+        <p
+          data-testid='scan-unfinished'
+          className='text-caption text-warning-text'
+        >
           {intl.formatMessage({ id: 'securityScan.partial' })}
         </p>
       )}
@@ -463,7 +469,10 @@ function ScanDetails({
         </p>
       )}
       {scan.huntOverCap && (
-        <p data-testid='scan-over-cap' className='text-caption text-warning'>
+        <p
+          data-testid='scan-over-cap'
+          className='text-caption text-warning-text'
+        >
           {intl.formatMessage(
             { id: 'securityScan.huntOverCap' },
             {
@@ -476,7 +485,7 @@ function ScanDetails({
       {scan.judgeOverCap && (
         <p
           data-testid='scan-judge-over-cap'
-          className='text-caption text-warning'
+          className='text-caption text-warning-text'
         >
           {intl.formatMessage(
             { id: 'securityScan.judgeOverCap' },
@@ -630,7 +639,7 @@ function FindingRow({
         {suggestedOpen && (
           <span
             data-testid='finding-suggested'
-            className='rounded-sm border border-warning/40 px-1 text-warning'
+            className='rounded-sm border border-warning/40 px-1 text-warning-text'
           >
             {intl.formatMessage({ id: 'securityScan.suggested.falsePositive' })}
           </span>

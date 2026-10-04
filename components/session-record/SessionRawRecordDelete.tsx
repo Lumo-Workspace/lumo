@@ -101,7 +101,7 @@ export function SessionRawRecordDelete({
           {status.keptForCrossings > 0 && (
             <p
               data-testid='session-raw-record-kept'
-              className='mt-1 text-xs text-warning'
+              className='mt-1 text-xs text-warning-text'
             >
               {intl.formatMessage(
                 { id: 'sessionRecord.delete.keptNotice' },
@@ -147,7 +147,7 @@ export function SessionRawRecordDelete({
             {status.keptForCrossings > 0 && (
               <p
                 data-testid='session-raw-record-confirm-kept'
-                className='text-warning'
+                className='text-warning-text'
               >
                 {intl.formatMessage(
                   { id: 'sessionRecord.delete.confirmKept' },

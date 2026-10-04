@@ -121,7 +121,7 @@ it('counts the findings and takes its tone from the WORST severity', () => {
 
 it('tones a MEDIUM-only result as a warning, not a destructive one', () => {
   render(<SecurityScanBadge scan={scan('FINDINGS', [finding('MEDIUM')])} />)
-  expect(badge().className).toContain('text-warning')
+  expect(badge()).toHaveClass('text-warning-text')
 })
 
 it('reports "incomplete" — never "clean" — when a layer failed or is not configured', () => {
@@ -187,7 +187,7 @@ it('reports "over the size limit" for a clean scan skipped for size, not incompl
   )
   expect(badge()).toHaveAttribute('data-state', 'over-size-limit')
   expect(badge()).toHaveTextContent('Over the size limit')
-  expect(badge().className).toContain('text-warning')
+  expect(badge()).toHaveClass('text-warning-text')
 })
 
 it('a size-capped scan with a fault of ours on top still reads incomplete', () => {
