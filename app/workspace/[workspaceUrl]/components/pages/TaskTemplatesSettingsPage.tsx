@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useIntl } from 'react-intl'
 import { useQueryClient } from '@tanstack/react-query'
-import { FileText, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Copy, FileText, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -33,12 +33,13 @@ import {
   type TaskTemplateItem,
 } from '@/lib/api-client'
 import { queryKeys } from '@/lib/query/keys'
+import { clampTemplateName, copyTemplateKey } from '@/lib/task-templates/copy'
 import { useTaskTemplates } from '../../hooks/useTaskTemplates'
 
 const EMPTY_FORM: TaskTemplateInput = { key: '', name: '', content: '' }
 
 interface TaskTemplatesSettingsPageProps {
-  /** OWNER — may create, edit and delete workspace templates. */
+  /** OWNER — may create, edit, delete and copy built-ins into the workspace. */
   canManage: boolean
 }
 
@@ -54,6 +55,8 @@ export function TaskTemplatesSettingsPage({
   const { templates, isLoading } = useTaskTemplates()
 
   const [editing, setEditing] = useState<TaskTemplateItem | null>(null)
+  /** True while the create dialog is pre-filled from a built-in (LUM-972). */
+  const [copying, setCopying] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<TaskTemplateInput>(EMPTY_FORM)
   const [formError, setFormError] = useState<string | null>(null)
@@ -65,6 +68,7 @@ export function TaskTemplatesSettingsPage({
 
   const openCreate = () => {
     setEditing(null)
+    setCopying(false)
     setForm(EMPTY_FORM)
     setFormError(null)
     setDialogOpen(true)
@@ -72,7 +76,33 @@ export function TaskTemplatesSettingsPage({
 
   const openEdit = (t: TaskTemplateItem) => {
     setEditing(t)
+    setCopying(false)
     setForm({ key: t.key, name: t.name, content: t.content })
+    setFormError(null)
+    setDialogOpen(true)
+  }
+
+  /**
+   * LUM-972: pre-fill the create dialog with a snapshot of a built-in in the
+   * viewer's locale. Saving goes through the normal create path; the copy is
+   * independent of later built-in changes.
+   */
+  const openCopy = (t: TaskTemplateItem) => {
+    setEditing(null)
+    setCopying(true)
+    setForm({
+      key: copyTemplateKey(
+        t.key,
+        templates.map(x => x.key)
+      ),
+      name: clampTemplateName(
+        intl.formatMessage(
+          { id: 'taskTemplate.settings.copyName' },
+          { name: t.name }
+        )
+      ),
+      content: t.content,
+    })
     setFormError(null)
     setDialogOpen(true)
   }
@@ -180,6 +210,23 @@ export function TaskTemplatesSettingsPage({
                   </p>
                 )}
               </div>
+              {canManage && t.isSystem && (
+                <button
+                  type='button'
+                  aria-label={intl.formatMessage(
+                    { id: 'taskTemplate.settings.copy' },
+                    { name: t.name }
+                  )}
+                  title={intl.formatMessage(
+                    { id: 'taskTemplate.settings.copy' },
+                    { name: t.name }
+                  )}
+                  onClick={() => openCopy(t)}
+                  className='opacity-0 group-hover:opacity-100 focus:opacity-100 p-1 rounded-sm text-muted-foreground hover:text-foreground transition-all'
+                >
+                  <Copy size={14} />
+                </button>
+              )}
               {canManage && !t.isSystem && (
                 <>
                   <button
@@ -212,10 +259,17 @@ export function TaskTemplatesSettingsPage({
               {intl.formatMessage({
                 id: editing
                   ? 'taskTemplate.settings.edit'
-                  : 'taskTemplate.settings.create',
+                  : copying
+                    ? 'taskTemplate.settings.copyTitle'
+                    : 'taskTemplate.settings.create',
               })}
             </DialogTitle>
           </DialogHeader>
+          {copying && (
+            <p className='text-xs text-muted-foreground'>
+              {intl.formatMessage({ id: 'taskTemplate.settings.copyHint' })}
+            </p>
+          )}
           <div className='space-y-4 py-2'>
             <div>
               <label
