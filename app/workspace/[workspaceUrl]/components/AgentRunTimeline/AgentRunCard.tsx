@@ -60,7 +60,10 @@ export function AgentRunCard({
         {/* leading-4 caps the pill at 20px (py-0.5 + 16px line) so the avatar,
             not the pill, sets the row height — keeps this header the same
             height as the token-usage summary header above. */}
-        <span className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 text-caption leading-4 font-semibold shrink-0'>
+        <span
+          className='flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted text-foreground text-caption leading-4 font-semibold shrink-0'
+          data-testid='run-number'
+        >
           <Bot className='size-3' />
           {intl.formatMessage(
             { id: 'agentRun.runNumber', defaultMessage: 'Run #{n}' },
@@ -103,7 +106,10 @@ export function AgentRunCard({
           {run.memoryCount > 0 && (
             <>
               <span>·</span>
-              <span className='text-violet-500 dark:text-violet-400'>
+              <span
+                className='font-medium text-foreground'
+                data-testid='run-memory-count'
+              >
                 {intl.formatMessage(
                   {
                     id: 'agentRun.memoryCount',
@@ -171,7 +177,10 @@ export function AgentRunCard({
           className='border-t border-border/80 px-4 py-2.5'
           data-testid='run-summary'
         >
-          <div className='flex items-center gap-1.5 text-caption font-medium text-violet-600 dark:text-violet-400'>
+          <div
+            className='flex items-center gap-1.5 text-caption font-semibold text-foreground'
+            data-testid='run-summary-label'
+          >
             <Sparkles className='size-3' />
             {intl.formatMessage({
               id: 'agentRun.summaryLabel',

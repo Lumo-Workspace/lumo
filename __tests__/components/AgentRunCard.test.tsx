@@ -390,3 +390,34 @@ describe('AgentRunCard — session raw record delete (LUM-944)', () => {
     expect(screen.queryByTestId('run-raw-record-delete')).toBeNull()
   })
 })
+
+// LUM-966: decoration carries no hue — the run pill, memory count and summary
+// label are set apart by weight and neutral foreground, so colour stays
+// reserved for meaning.
+describe('AgentRunCard — neutral decoration (LUM-966)', () => {
+  const hueClass = /(^|\s)(dark:)?(bg|text)-(blue|violet)-/
+
+  it('sets the run number pill in muted background and foreground weight', () => {
+    render(<AgentRunCard run={baseRun({ runNumber: 3 })} />)
+    const pill = screen.getByTestId('run-number')
+    expect(pill).toHaveTextContent('Run #3')
+    expect(pill).toHaveClass('bg-muted', 'text-foreground', 'font-semibold')
+    expect(pill.className).not.toMatch(hueClass)
+  })
+
+  it('emphasises the memory count by weight, not colour', () => {
+    render(<AgentRunCard run={baseRun({ memoryCount: 2 })} />)
+    const count = screen.getByTestId('run-memory-count')
+    expect(count).toHaveTextContent('+2 memories')
+    expect(count).toHaveClass('font-medium', 'text-foreground')
+    expect(count.className).not.toMatch(hueClass)
+  })
+
+  it('sets the summary label in foreground weight above the muted body', () => {
+    render(<AgentRunCard run={baseRun({ runSummary: 'polished text' })} />)
+    const label = screen.getByTestId('run-summary-label')
+    expect(label).toHaveClass('font-semibold', 'text-foreground')
+    expect(label.className).not.toMatch(hueClass)
+    expect(label.querySelector('svg')).not.toBeNull()
+  })
+})
