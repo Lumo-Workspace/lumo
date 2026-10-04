@@ -200,6 +200,56 @@ export const prCommentSyncJobRepository = {
     })
   },
 
+  /**
+   * LUM-879 — a workspace's sync jobs that still hold their payload, for the
+   * scrub when repositories leave the workspace (the service matches them to
+   * the repositories' PRs and comments).
+   */
+  async findUnpurgedForWorkspace(workspaceId: string) {
+    return prisma.prCommentSyncJob.findMany({
+      where: { workspaceId, payloadPurgedAt: null },
+      select: {
+        id: true,
+        status: true,
+        direction: true,
+        commentId: true,
+        payload: true,
+      },
+    })
+  },
+
+  /**
+   * LUM-879 — retire a job of a repository that left the workspace: it can
+   * no longer run (its repository is not confirmed), so it becomes a dead
+   * letter at once, with its payload already reduced to metadata. A pending
+   * job starts its dead-letter clock now; a dead letter keeps its own.
+   * Guarded on `payloadPurgedAt: null`, so a rerun is a no-op. Returns
+   * whether this call purged it.
+   */
+  async retireWithPurgedPayload(
+    id: string,
+    payload: Prisma.InputJsonValue,
+    now: Date,
+    reason: string
+  ): Promise<boolean> {
+    const pending = await prisma.prCommentSyncJob.updateMany({
+      where: { id, status: 'PENDING', payloadPurgedAt: null },
+      data: {
+        status: 'DEAD_LETTER',
+        deadLetteredAt: now,
+        payload,
+        payloadPurgedAt: now,
+        lastError: reason.slice(0, 1000),
+      },
+    })
+    if (pending.count > 0) return true
+    const dead = await prisma.prCommentSyncJob.updateMany({
+      where: { id, status: 'DEAD_LETTER', payloadPurgedAt: null },
+      data: { payload, payloadPurgedAt: now },
+    })
+    return dead.count > 0
+  },
+
   async delete(id: string) {
     return prisma.prCommentSyncJob.delete({ where: { id } })
   },

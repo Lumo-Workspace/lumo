@@ -25,6 +25,7 @@ import { prCommentSyncJobRepository } from '@/lib/repositories/pr-comment-sync-j
 import { githubActorService } from '@/lib/services/github-actor.service'
 import { taskRepository } from '@/lib/repositories/task.repository'
 import { buildTaskUrl } from '@/lib/utils/buildTaskUrl'
+import { scrubCommentsIfRepositoryUnconfirmed } from '@/lib/services/pr-comment-code-scrub.service'
 
 interface Repo {
   owner: string
@@ -662,6 +663,9 @@ async function runInboundCreate(
       scheduledFor: new Date(Date.now() + 30_000),
     })
   }
+  // LUM-879: routed while the repository was confirmed; it may have left the
+  // list (and had its comments scrubbed) since.
+  await scrubCommentsIfRepositoryUnconfirmed(payload.pullRequestId)
 }
 
 async function applyInboundUpdate(
@@ -677,6 +681,8 @@ async function applyInboundUpdate(
     new Date(node.updated_at),
     computeBodyHash(node.body ?? '')
   )
+  // LUM-879: same recheck as a create — the edit may land after a scrub.
+  await scrubCommentsIfRepositoryUnconfirmed(payload.pullRequestId)
 }
 
 async function runInboundUpdate(
