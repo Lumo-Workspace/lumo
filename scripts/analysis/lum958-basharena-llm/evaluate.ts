@@ -287,7 +287,7 @@ async function main(): Promise<void> {
   }
 }
 
-if (process.argv[1]?.endsWith('evaluate.ts')) {
+if (process.argv[1]?.endsWith('lum958-basharena-llm/evaluate.ts')) {
   main().catch(err => {
     process.stderr.write(`lum958 evaluate: ${(err as Error).message}\n`)
     process.exit(1)

@@ -355,7 +355,7 @@ async function main(argv: string[]): Promise<void> {
   process.stdout.write(`${out.join('\n')}\n`)
 }
 
-if (process.argv[1]?.endsWith('report.ts')) {
+if (process.argv[1]?.endsWith('lum958-basharena-llm/report.ts')) {
   main(process.argv.slice(2)).catch(err => {
     process.stderr.write(`lum958 report: ${(err as Error).message}\n`)
     process.exit(1)
